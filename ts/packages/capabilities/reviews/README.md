@@ -57,7 +57,7 @@ Provider routing is explicit:
 - `openai/<model-id>` and `openai-codex/<model-id>` run the local Codex CLI.
 - `vercel-ai-gateway/<model-id>` runs the local Pi CLI through Vercel AI Gateway.
 
-Bare aliases and other providers are rejected; Reviews never infers a provider from a model ID or falls back to another harness. The full qualified reference is retained in progress, results, and Review logs, while only the model ID is passed to the selected CLI.
+Bare aliases and other providers are rejected; Reviews never infers a provider from a model ID or falls back to another harness. Reviews carries the selected provider and model ID as structured model selection data through review preparation and routing. It formats a qualified reference only for progress, results, Review logs, and other display output; each terminal adapter passes only the model ID to its CLI.
 
 Local runs require the selected CLI and its authentication (`AI_GATEWAY_API_KEY` for Pi through Vercel AI Gateway, `ANTHROPIC_API_KEY` for Claude Code, or `OPENAI_API_KEY` for Codex).
 

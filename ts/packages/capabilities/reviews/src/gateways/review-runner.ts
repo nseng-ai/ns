@@ -12,6 +12,7 @@ import {
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
 import { resultErr } from "@nseng-ai/foundation/result";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 import type { ReviewResult } from "../core/failures.ts";
 import {
@@ -22,7 +23,7 @@ import {
 	type ReviewExecutionResponse,
 	type ReviewInputCoverage,
 } from "../core/models.ts";
-import { resolveReviewsModelReference } from "../core/review-model-reference.ts";
+import { resolveReviewsModelSelection } from "../core/review-model-reference.ts";
 import { buildClaudeCodeArgs, parseClaudeCodeReviewOutput } from "./claude-code-review-runner.ts";
 import { assembleReviewPrompt, systemPromptFindings } from "./review-runner-prompt.ts";
 
@@ -42,7 +43,7 @@ export interface ReviewRunnerGateway {
 }
 
 export interface PreparedReviewHarnessRequest {
-	readonly modelId: string;
+	readonly modelSelection: ModelSelection;
 	readonly promptText: string;
 	readonly inputCoverage: ReviewInputCoverage;
 }
@@ -75,11 +76,11 @@ export class RoutingReviewRunner implements ReviewRunnerGateway {
 		request: ReviewRunnerRequest,
 		options: RunReviewOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
-		const resolved = resolveReviewsModelReference(request.model);
+		const resolved = resolveReviewsModelSelection(request.modelSelection);
 		if (!resolved.ok) return resolved;
 		const assembled = assembleReviewPrompt(request);
 		const preparedRequest: PreparedReviewHarnessRequest = {
-			modelId: resolved.value.modelId,
+			modelSelection: resolved.value.selection,
 			promptText: assembled.promptText,
 			inputCoverage: assembled.inputCoverage,
 		};
@@ -177,7 +178,7 @@ export class ClaudeCodeProcessReviewRunner implements ReviewHarnessRunner {
 		}
 
 		const args = buildClaudeCodeArgs({
-			model: request.modelId,
+			model: request.modelSelection.modelId,
 			systemPrompt: systemPromptFindings(),
 		});
 		let result: ExecResult;

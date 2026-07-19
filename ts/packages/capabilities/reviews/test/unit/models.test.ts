@@ -214,7 +214,7 @@ describe("reviews domain schemas", () => {
 			localOnly: false,
 		});
 		const request = reviewRunnerRequestSchema.parse({
-			model: "openai/gpt-5.6-luna",
+			modelSelection: { provider: "openai", modelId: "gpt-5.6-luna" },
 			reviewDefinition,
 			reviewDir: "/repo/.ns/reviews/typescript-style",
 			target: { localDiff },

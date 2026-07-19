@@ -19,7 +19,10 @@ function request(
 	overrides: Partial<PreparedReviewHarnessRequest> = {},
 ): PreparedReviewHarnessRequest {
 	return {
-		modelId: "openai/gpt-5.6-luna",
+		modelSelection: {
+			provider: "vercel-ai-gateway",
+			modelId: "openai/gpt-5.6-luna",
+		},
 		promptText: "Flag concrete issues.\n\ndiff --git a/src/app.ts b/src/app.ts\n+change\n",
 		inputCoverage: {
 			fullDiffEstimatedTokens: 10,

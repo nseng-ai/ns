@@ -11,7 +11,7 @@ import { InMemoryCodexReviewOutputFiles } from "../../src/gateways/codex-review-
 
 function request(): PreparedReviewHarnessRequest {
 	return {
-		modelId: "gpt-5.6-luna",
+		modelSelection: { provider: "openai", modelId: "gpt-5.6-luna" },
 		promptText: "Flag concrete issues.\n\ndiff --git a/src/app.ts b/src/app.ts\n+change\n",
 		inputCoverage: {
 			fullDiffEstimatedTokens: 10,
