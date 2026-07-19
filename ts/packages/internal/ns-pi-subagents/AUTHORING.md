@@ -42,7 +42,7 @@ const runtimes = createSubagentRuntimeRegistry([
 
 Descriptors declare compatible kinds and preference only; they do not contain adapter implementations. `auto` walks descriptor preference deterministically. Explicit overrides are validated before dispatch.
 
-The built-in in-process adapter is final-text-only and requires the host `modelRegistry`. It resolves the normalized subprocess launch provider/model to a concrete SDK model, creates a persistent session, disables extension recursion, retains skills/context discovery, and prompts with template expansion disabled.
+The built-in in-process adapter is final-text-only and requires the host `modelRegistry`. Project-owned runtime-independent contracts carry foundation `ModelSelection` values (`provider` and `modelId`) while thinking remains separate metadata. Host adapters translate Pi's `ModelInfo.id` at ingress; subprocess and in-process runtimes unpack the selection only at their terminal Pi seams. The in-process adapter resolves that selection to a concrete SDK model, creates a persistent session, disables extension recursion, retains skills/context discovery, and prompts with template expansion disabled.
 
 ## Result and lifecycle requirements
 

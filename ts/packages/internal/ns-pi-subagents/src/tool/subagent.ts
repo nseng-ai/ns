@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { formatZodError, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import {
@@ -277,10 +278,14 @@ async function runTask(args: {
 	signal: AbortSignal;
 	onProgress: (update: RunnerSubagentUpdate) => void;
 }): Promise<RunnerSubagentResult> {
+	const parentModelSelection =
+		args.ctx.model === undefined
+			? undefined
+			: { provider: args.ctx.model.provider, modelId: args.ctx.model.id };
 	const runnerCtx: RunnerSubagentContext = {
 		cwd: args.ctx.cwd,
 		signal: args.signal,
-		...optionalEntry("model", args.ctx.model),
+		...optionalEntry("modelSelection", parentModelSelection),
 	};
 	const descriptor = args.descriptor;
 	let prompt = composePiAgentPrompt(args.definition, args.task);
@@ -301,7 +306,7 @@ async function runTask(args: {
 	const selectedModel = selectTaskModel({
 		policy: descriptor.modelPolicy,
 		...optionalEntry("routing", args.input.routing),
-		...optionalEntry("parentModel", args.ctx.model),
+		...optionalEntry("parentModelSelection", parentModelSelection),
 		isProviderAuthConfigured: args.options.isProviderAuthConfigured ?? isProviderAuthConfigured,
 	});
 	const dispatchOptions = {
@@ -312,7 +317,7 @@ async function runTask(args: {
 		cwd: args.ctx.cwd,
 		signal: args.signal,
 		onProgress: args.onProgress,
-		...optionalEntry("model", selectedModel),
+		...optionalEntry("modelSelection", selectedModel),
 	};
 	return await args.runtime.dispatch({
 		pi: args.pi,
@@ -326,11 +331,13 @@ interface SelectTaskModelInput extends ModelSelectionAuthContext {
 	routing?: "cheap";
 }
 
-function selectTaskModel(input: SelectTaskModelInput): string | undefined {
-	if (input.routing === "cheap") return resolveSameProviderCheapModel(input.parentModel);
+function selectTaskModel(input: SelectTaskModelInput): ModelSelection | undefined {
+	if (input.routing === "cheap") {
+		return resolveSameProviderCheapModel(input.parentModelSelection);
+	}
 	return resolveDescriptorModel({
 		policy: input.policy,
-		...optionalEntry("parentModel", input.parentModel),
+		...optionalEntry("parentModelSelection", input.parentModelSelection),
 		isProviderAuthConfigured: input.isProviderAuthConfigured,
 	});
 }

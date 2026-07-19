@@ -508,7 +508,8 @@ describe("thermo council extension", () => {
 		thermoCouncilExtension(pi);
 		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", fakeContext());
 		expect(pi.runnerCalls[3]?.args).toContain("--model");
-		expect(pi.runnerCalls[3]?.args).toContain("openai-codex/gpt-5.6-luna");
+		expect(pi.runnerCalls[3]?.args).toContain("openai-codex");
+		expect(pi.runnerCalls[3]?.args).toContain("gpt-5.6-luna");
 
 		const repoRoot = await mkdtemp(join(tmpdir(), "thermo-policy-"));
 		await writeFile(
@@ -522,8 +523,9 @@ describe("thermo council extension", () => {
 		await configured.commands
 			.get(THERMO_COUNCIL_COMMAND_NAME)
 			?.handler("origin/master", fakeContext(repoRoot));
-		expect(configured.runnerCalls[3]?.args).toContain("acme/synthesis");
-		expect(configured.runnerCalls[3]?.args).not.toContain("openai-codex/gpt-5.6-luna");
+		expect(configured.runnerCalls[3]?.args).toContain("acme");
+		expect(configured.runnerCalls[3]?.args).toContain("synthesis");
+		expect(configured.runnerCalls[3]?.args).not.toContain("gpt-5.6-luna");
 	});
 
 	test("launches three read-only terminal-capture reviewer seats and renders a report", async () => {

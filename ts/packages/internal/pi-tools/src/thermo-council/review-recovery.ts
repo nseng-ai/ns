@@ -153,7 +153,9 @@ function runnerLaunchDetails(result: RunnerSubagentResult): string[] {
 	const launch = result.progress.launch;
 	if (launch === undefined) return [];
 	return [
-		...(launch.model === undefined ? [] : [`model: ${launch.model.provider}/${launch.model.id}`]),
+		...(launch.modelSelection === undefined
+			? []
+			: [`model: ${launch.modelSelection.provider}/${launch.modelSelection.modelId}`]),
 		`thinking: ${launch.observedThinkingLevel ?? launch.thinkingLevel}`,
 	];
 }

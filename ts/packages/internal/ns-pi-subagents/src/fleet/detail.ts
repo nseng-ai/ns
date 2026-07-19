@@ -325,6 +325,8 @@ export function summarizeHeadChange(
 }
 
 function modelText(snapshot: RunnerSubagentJsonEventParserSnapshot): string {
-	const model = snapshot.progress.launch?.model;
-	return model === undefined ? "model unknown" : `${model.provider}/${model.id}`;
+	const modelSelection = snapshot.progress.launch?.modelSelection;
+	return modelSelection === undefined
+		? "model unknown"
+		: `${modelSelection.provider}/${modelSelection.modelId}`;
 }

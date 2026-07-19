@@ -7,7 +7,7 @@ import {
 } from "../../src/runner-subagents/widget.ts";
 
 const METADATA_ONLY_LAUNCH = {
-	model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+	modelSelection: { provider: "anthropic", modelId: "claude-sonnet-4-5" },
 	thinkingLevel: "medium",
 	hasModelArg: true,
 	hasThinkingArg: true,
@@ -107,7 +107,7 @@ describe("runner subagent activity widget", () => {
 						turnCount: 0,
 						elapsedMs: 0,
 						launch: {
-							requestedModel: "openai-codex/gpt-5.4-mini:medium",
+							requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
 							thinkingLevel: "off",
 							hasModelArg: true,
 							hasThinkingArg: false,
@@ -136,7 +136,7 @@ describe("runner subagent activity widget", () => {
 						turnCount: 0,
 						elapsedMs: 0,
 						launch: {
-							requestedModel: "openai-codex/gpt-5.4-mini",
+							requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
 							thinkingLevel: "off",
 							hasModelArg: true,
 							hasThinkingArg: true,

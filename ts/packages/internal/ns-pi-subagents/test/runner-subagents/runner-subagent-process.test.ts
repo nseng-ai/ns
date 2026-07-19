@@ -41,7 +41,7 @@ const blockedTool: RunnerSubagentTerminalToolDefinition = {
 interface TerminalOptionsOverrides {
 	title?: string;
 	cwd?: string;
-	model?: string;
+	modelSelection?: { provider: string; modelId: string };
 	signal?: AbortSignal;
 	terminalTools?: readonly RunnerSubagentTerminalToolDefinition[];
 }
@@ -52,7 +52,7 @@ function options(overrides: TerminalOptionsOverrides = {}): RunnerSubagentOption
 		terminalTools: overrides.terminalTools ?? [completionTool],
 		...(overrides.title === undefined ? {} : { title: overrides.title }),
 		...(overrides.cwd === undefined ? {} : { cwd: overrides.cwd }),
-		...(overrides.model === undefined ? {} : { model: overrides.model }),
+		...(overrides.modelSelection === undefined ? {} : { modelSelection: overrides.modelSelection }),
 		...(overrides.signal === undefined ? {} : { signal: overrides.signal }),
 	};
 }
@@ -61,7 +61,7 @@ function finalTextOptions(
 	overrides: {
 		title?: string;
 		cwd?: string;
-		model?: string;
+		modelSelection?: { provider: string; modelId: string };
 		signal?: AbortSignal;
 		terminalTools?: readonly RunnerSubagentTerminalToolDefinition[];
 		tools?: readonly string[];
@@ -72,7 +72,7 @@ function finalTextOptions(
 		returnMode: "final-text",
 		...(overrides.title === undefined ? {} : { title: overrides.title }),
 		...(overrides.cwd === undefined ? {} : { cwd: overrides.cwd }),
-		...(overrides.model === undefined ? {} : { model: overrides.model }),
+		...(overrides.modelSelection === undefined ? {} : { modelSelection: overrides.modelSelection }),
 		...(overrides.signal === undefined ? {} : { signal: overrides.signal }),
 		...(overrides.terminalTools === undefined ? {} : { terminalTools: overrides.terminalTools }),
 		...(overrides.tools === undefined ? {} : { tools: overrides.tools }),
@@ -186,7 +186,7 @@ describe("runner subagent process dispatcher", () => {
 		const running = dispatchRunnerSubagentProcess(
 			pi,
 			ctx,
-			options({ model: "haiku" }),
+			options({ modelSelection: { provider: "anthropic", modelId: "haiku" } }),
 			runner.dependencies,
 		);
 		const call = await waitForSpawn(runner.calls);
@@ -195,6 +195,8 @@ describe("runner subagent process dispatcher", () => {
 			"--mode",
 			"json",
 			"-p",
+			"--provider",
+			"anthropic",
 			"--model",
 			"haiku",
 			"--no-extensions",
@@ -323,7 +325,7 @@ describe("runner subagent process dispatcher", () => {
 		});
 		const running = dispatchRunnerSubagentProcess(
 			{ getThinkingLevel: () => "medium" },
-			{ cwd: "/repo", model: { provider: "anthropic", id: "claude-sonnet-4-5" } },
+			{ cwd: "/repo", modelSelection: { provider: "anthropic", modelId: "claude-sonnet-4-5" } },
 			finalTextOptions({ title: "Launch task" }),
 			runner.dependencies,
 		);
@@ -350,7 +352,7 @@ describe("runner subagent process dispatcher", () => {
 		const result = await running;
 
 		expect(result.progress.launch).toEqual({
-			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+			modelSelection: { provider: "anthropic", modelId: "claude-sonnet-4-5" },
 			thinkingLevel: "medium",
 			hasModelArg: true,
 			hasThinkingArg: true,
@@ -475,7 +477,7 @@ describe("runner subagent process dispatcher", () => {
 		const running = dispatchRunnerSubagentProcess(
 			pi,
 			ctx,
-			finalTextOptions({ model: "haiku" }),
+			finalTextOptions({ modelSelection: { provider: "anthropic", modelId: "haiku" } }),
 			runner.dependencies,
 		);
 		const call = await waitForSpawn(runner.calls);
@@ -484,6 +486,8 @@ describe("runner subagent process dispatcher", () => {
 			"--mode",
 			"json",
 			"-p",
+			"--provider",
+			"anthropic",
 			"--model",
 			"haiku",
 			"--no-extensions",
@@ -541,8 +545,11 @@ describe("runner subagent process dispatcher", () => {
 		});
 		const running = dispatchRunnerSubagentProcess(
 			{ getThinkingLevel: () => "high" },
-			{ cwd: "/repo", model: { provider: "openai-codex", id: "gpt-5.6-sol" } },
-			finalTextOptions({ title: "Cheap classifier", model: "gpt-5.4-mini:medium" }),
+			{ cwd: "/repo", modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-sol" } },
+			finalTextOptions({
+				title: "Cheap classifier",
+				modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
+			}),
 			runner.dependencies,
 		);
 		const call = await waitForSpawn(runner.calls);
@@ -571,32 +578,31 @@ describe("runner subagent process dispatcher", () => {
 		const result = await running;
 
 		expect(result.progress.launch).toEqual({
-			model: { provider: "openai-codex", id: "gpt-5.4-mini:medium" },
-			requestedModel: "gpt-5.4-mini:medium",
+			requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
 			thinkingLevel: "off",
 			hasModelArg: true,
 			hasThinkingArg: false,
 		});
 	});
 
-	test("rejects bare provider-specific model shorthands before spawning with the wrong provider", async () => {
+	test("honors an explicit cross-provider model selection", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({
 			sessionFile: "/tmp/runner-subagent.jsonl",
 		});
-		const result = await dispatchRunnerSubagentProcess(
+		const running = dispatchRunnerSubagentProcess(
 			{ getThinkingLevel: () => "high" },
-			{ cwd: "/repo", model: { provider: "openai-codex", id: "gpt-5.6-sol" } },
-			finalTextOptions({ title: "Anthropic reviewer", model: "sonnet" }),
+			{ cwd: "/repo", modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-sol" } },
+			finalTextOptions({
+				title: "Anthropic reviewer",
+				modelSelection: { provider: "anthropic", modelId: "sonnet" },
+			}),
 			runner.dependencies,
 		);
-
-		expect(runner.calls).toEqual([]);
-		expect(result.status).toBe("error");
-		if (result.status !== "error") return;
-		expect(result.diagnostic).toContain('unqualified model "sonnet"');
-		expect(result.diagnostic).toContain('current session provider is "openai-codex"');
-		expect(result.diagnostic).toContain("anthropic/sonnet");
-		expect(result.progress.launch).toBeUndefined();
+		const call = await waitForSpawn(runner.calls);
+		expect(call.args).toContain("anthropic");
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		expect((await running).status).toBe("final-text");
 	});
 
 	test("does not inherit parent thinking when caller provides a model pattern", async () => {
@@ -605,8 +611,11 @@ describe("runner subagent process dispatcher", () => {
 		});
 		const running = dispatchRunnerSubagentProcess(
 			{ getThinkingLevel: () => "high" },
-			{ cwd: "/repo", model: { provider: "openai-codex", id: "gpt-5.6-sol" } },
-			finalTextOptions({ title: "Cheap classifier", model: "openai-codex/gpt-5.4-mini:medium" }),
+			{ cwd: "/repo", modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-sol" } },
+			finalTextOptions({
+				title: "Cheap classifier",
+				modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
+			}),
 			runner.dependencies,
 		);
 		const call = await waitForSpawn(runner.calls);
@@ -615,8 +624,10 @@ describe("runner subagent process dispatcher", () => {
 			"--mode",
 			"json",
 			"-p",
+			"--provider",
+			"openai-codex",
 			"--model",
-			"openai-codex/gpt-5.4-mini:medium",
+			"gpt-5.4-mini:medium",
 			"--no-extensions",
 			"--session",
 			"/tmp/runner-subagent.jsonl",
@@ -633,7 +644,7 @@ describe("runner subagent process dispatcher", () => {
 		const result = await running;
 
 		expect(result.progress.launch).toEqual({
-			requestedModel: "openai-codex/gpt-5.4-mini:medium",
+			requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
 			thinkingLevel: "off",
 			hasModelArg: true,
 			hasThinkingArg: false,
@@ -651,9 +662,12 @@ describe("runner subagent process dispatcher", () => {
 		});
 		const running = dispatchRunnerSubagentProcess(
 			{ getThinkingLevel: () => "medium" },
-			{ cwd: "/repo", model: { provider: "openai-codex", id: "gpt-5.6-sol" } },
+			{ cwd: "/repo", modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-sol" } },
 			{
-				...finalTextOptions({ title: "Cheap classifier", model: "openai-codex/gpt-5.4-mini" }),
+				...finalTextOptions({
+					title: "Cheap classifier",
+					modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
+				}),
 				onProgress: (update) => updates.push(update),
 			},
 			runner.dependencies,
@@ -674,8 +688,8 @@ describe("runner subagent process dispatcher", () => {
 
 		expect(result.status).toBe("final-text");
 		expect(result.progress.launch).toEqual({
-			requestedModel: "openai-codex/gpt-5.4-mini",
-			model: { provider: "openai-codex", id: "gpt-5.4-mini" },
+			requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
+			modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
 			thinkingLevel: "off",
 			observedThinkingLevel: "high",
 			hasModelArg: true,
@@ -691,7 +705,7 @@ describe("runner subagent process dispatcher", () => {
 		const running = dispatchRunnerSubagentProcess(
 			{ getThinkingLevel: () => "high" },
 			ctx,
-			finalTextOptions({ model: "openai-codex/gpt-5.4-mini" }),
+			finalTextOptions({ modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini" } }),
 			runner.dependencies,
 		);
 		const call = await waitForSpawn(runner.calls);
@@ -703,7 +717,7 @@ describe("runner subagent process dispatcher", () => {
 
 		expect(result.status).toBe("final-text");
 		expect(result.progress.launch).toEqual({
-			requestedModel: "openai-codex/gpt-5.4-mini",
+			requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
 			thinkingLevel: "off",
 			hasModelArg: true,
 			hasThinkingArg: false,

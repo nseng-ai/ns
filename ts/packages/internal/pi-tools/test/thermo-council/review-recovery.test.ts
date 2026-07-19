@@ -306,7 +306,7 @@ describe("thermo council review recovery", () => {
 				turnCount: 1,
 				elapsedMs: 4_000,
 				launch: {
-					model: { provider: "google", id: "gemini-2.5-pro" },
+					modelSelection: { provider: "google", modelId: "gemini-2.5-pro" },
 					thinkingLevel: "off",
 					observedThinkingLevel: "high",
 					hasModelArg: true,

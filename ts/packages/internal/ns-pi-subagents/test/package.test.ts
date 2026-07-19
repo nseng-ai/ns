@@ -383,7 +383,10 @@ describe("ns-pi-subagents package", () => {
 		expect(result?.details).toMatchObject({ status: "completed" });
 		expect(calls).toHaveLength(1);
 		expect(calls[0]?.options.tools).toEqual(["read", "consumer_lookup"]);
-		expect(calls[0]?.options.model).toBe("anthropic/claude-haiku-4-5");
+		expect(calls[0]?.options.modelSelection).toEqual({
+			provider: "anthropic",
+			modelId: "claude-haiku-4-5",
+		});
 		expect(calls[0]?.options.prompt).toContain("Consumer assignment: Map the consumer seam.");
 		expect(calls[0]?.options.prompt).toContain("## Auto-curated context");
 		expect(calls[0]?.options.prompt).toContain("Git evidence collected");
@@ -430,7 +433,10 @@ describe("ns-pi-subagents package", () => {
 		expect(calls).toHaveLength(2);
 		for (const call of calls) {
 			expect(call.options.tools).toEqual(READ_ONLY_SUBAGENT_TOOLS);
-			expect(call.options.model).toBe("anthropic/claude-haiku-4-5");
+			expect(call.options.modelSelection).toEqual({
+				provider: "anthropic",
+				modelId: "claude-haiku-4-5",
+			});
 		}
 	});
 
