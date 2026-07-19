@@ -23,6 +23,12 @@ export const diffChangeKindValues = ["added", "modified", "deleted", "renamed", 
 
 const nonBlankStringSchema = z.string().trim().min(1);
 const nonNegativeIntegerSchema = z.int().min(0);
+const modelSelectionSchema = z
+	.object({
+		provider: nonBlankStringSchema,
+		modelId: nonBlankStringSchema,
+	})
+	.strict();
 
 export const reviewApplicabilitySchema = z
 	.object({
@@ -174,7 +180,7 @@ export type PriorFindingsPromptContextEntry = PriorFindingsPromptContext["findin
 
 export const reviewRunnerRequestSchema = z
 	.object({
-		model: nonBlankStringSchema,
+		modelSelection: modelSelectionSchema,
 		reviewDefinition: reviewDefinitionSchema,
 		reviewDir: nonBlankStringSchema,
 		target: diffReviewTargetSchema,

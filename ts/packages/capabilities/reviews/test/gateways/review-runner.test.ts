@@ -26,8 +26,9 @@ function request(
 	} = {},
 ): ReviewRunnerRequest {
 	const diffText = options.diffText ?? "diff --git a/src/app.ts b/src/app.ts\n+change\n";
+	const [provider, ...modelParts] = (options.model ?? "anthropic/claude-haiku-4-5").split("/");
 	return {
-		model: options.model ?? "anthropic/claude-haiku-4-5",
+		modelSelection: { provider: provider ?? "", modelId: modelParts.join("/") },
 		reviewDefinition: {
 			name: options.reviewName ?? "typescript-style",
 			description: "Review TypeScript diffs.",
@@ -68,7 +69,10 @@ function preparedRequest(
 	options: { readonly modelId?: string; readonly promptText?: string } = {},
 ): PreparedReviewHarnessRequest {
 	return {
-		modelId: options.modelId ?? "claude-haiku-4-5",
+		modelSelection: {
+			provider: "anthropic",
+			modelId: options.modelId ?? "claude-haiku-4-5",
+		},
 		promptText: options.promptText ?? "REVIEW_PROMPT",
 		inputCoverage: {
 			fullDiffEstimatedTokens: 10,
@@ -285,7 +289,8 @@ describe("RoutingReviewRunner", () => {
 				: harness === "codex"
 					? codex.calls[0]
 					: pi.calls[0];
-		expect(dispatched?.request.modelId).toBe(modelId);
+		expect(dispatched?.request.modelSelection.modelId).toBe(modelId);
+		expect(dispatched?.request.modelSelection.provider).toBe(model.split("/", 1)[0]);
 		expect(dispatched?.request.promptText).toContain("Flag concrete issues.");
 		expect(dispatched?.request.promptText).toContain("+change");
 		expect(dispatched?.request.inputCoverage).toMatchObject({

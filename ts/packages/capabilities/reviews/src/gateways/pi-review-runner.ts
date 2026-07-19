@@ -47,7 +47,7 @@ export class PiProcessReviewRunner implements ReviewHarnessRunner {
 		try {
 			result = await this.execApi.exec(
 				binary.value,
-				buildPiReviewArgs(request.modelId),
+				buildPiReviewArgs(request.modelSelection.modelId),
 				execOptions,
 			);
 		} catch (error) {

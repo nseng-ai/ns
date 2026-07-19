@@ -2,6 +2,11 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import {
+	formatModelRef,
+	parseModelRef,
+	type ModelSelection,
+} from "@nseng-ai/foundation/model-slug";
 
 import { catalogOptions, environmentOptions, type ReviewsRuntime } from "../core/context.ts";
 import {
@@ -27,7 +32,7 @@ import {
 } from "../core/project-config.ts";
 import { loadParsedReviewDefinition } from "../core/review-definition-loading.ts";
 import { filterLocalDiffForReviewApplicability } from "../core/review-applicability.ts";
-import { resolveReviewsModelReference } from "../core/review-model-reference.ts";
+import { resolveReviewsModelSelection } from "../core/review-model-reference.ts";
 
 export interface RunReviewRequest {
 	readonly key: string;
@@ -64,7 +69,7 @@ export interface RunReviewProgress {
 
 interface ResolvedReviewModel {
 	readonly modelProfile: string;
-	readonly model: string;
+	readonly modelSelection: ModelSelection;
 }
 
 interface ReviewLogMetadata {
@@ -100,18 +105,19 @@ export async function runReview(
 	if (!resolved.ok) return { type: "failed", error: resolved.error };
 	const model = resolved.value;
 
+	const modelRef = formatModelRef(model.modelSelection);
 	const progress: RunReviewProgress = {
 		reviewKey: source.key,
 		reviewPath: source.path,
 		modelProfile: model.modelProfile,
-		model: model.model,
+		model: modelRef,
 		baseRef: reviewDiff.baseRef,
 		changedPathCount: reviewDiff.changedPaths.length,
 	};
 
 	const response = await ctx.reviewRunner.runReview(
 		{
-			model: model.model,
+			modelSelection: model.modelSelection,
 			reviewDefinition: definition,
 			reviewDir: dirname(source.path),
 			target: { localDiff: reviewDiff },
@@ -125,7 +131,7 @@ export async function runReview(
 		source.key,
 		source.path,
 		model.modelProfile,
-		model.model,
+		modelRef,
 		reviewDiff.baseRef,
 		response.value,
 	);
@@ -235,12 +241,29 @@ function resolveReviewModel(
 			},
 		};
 	}
-	const modelRef = request.model ?? `${configuredModel.provider}/${configuredModel.modelId}`;
-	const resolved = resolveReviewsModelReference(modelRef);
+	let selection = configuredModel;
+	if (request.model !== undefined) {
+		const modelRef = request.model.trim();
+		const parsed = parseModelRef(modelRef);
+		if (parsed === undefined) {
+			return {
+				ok: false,
+				error: {
+					code: modelRef === "" ? "model-not-provided" : "model-not-supported-by-harness",
+					message:
+						modelRef === ""
+							? "A Reviews model must be provided. Expected a qualified provider/model reference."
+							: `Reviews model ${JSON.stringify(modelRef)} is not supported by a local review harness. Expected a qualified provider/model reference.`,
+				},
+			};
+		}
+		selection = parsed;
+	}
+	const resolved = resolveReviewsModelSelection(selection);
 	if (!resolved.ok) return resolved;
 	return {
 		ok: true,
-		value: { modelProfile: profile, model: resolved.value.reference },
+		value: { modelProfile: profile, modelSelection: resolved.value.selection },
 	};
 }
 

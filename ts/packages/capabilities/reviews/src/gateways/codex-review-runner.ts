@@ -92,7 +92,7 @@ export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 		options: ExecutePreparedOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
 		const { binary, request, runOptions, outputHandle } = options;
-		const args = buildCodexArgs({ modelId: request.modelId, handle: outputHandle });
+		const args = buildCodexArgs({ modelId: request.modelSelection.modelId, handle: outputHandle });
 		const execOptions: ExecOptions = {
 			cwd: runOptions.cwd,
 			stdin: buildCodexPrompt(request.promptText),
