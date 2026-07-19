@@ -9,6 +9,7 @@ import {
 import { parseFlatHandoffSlug } from "../api/index.ts";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
+import { formatModelRef } from "@nseng-ai/foundation/model-slug";
 import {
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
@@ -72,7 +73,7 @@ export async function deriveHandoffContentSlug(
 	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
 	return deriveKitContentSlug(
 		commands,
-		{ ...input, modelRef: model.value.modelRef },
+		{ ...input, modelRef: formatModelRef(model.value.selection) },
 		HANDOFF_CONTENT_SLUG_VARIANT,
 	);
 }

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	DEFAULT_FAST_MODEL,
+	DEFAULT_FAST_MODEL_REF,
+	formatModelRef,
 	inferModelProviderFamily,
 	isClaudeCodeSupportedModelPattern,
 	modelIdFromModelPattern,
@@ -21,6 +24,18 @@ describe("parseModelRef", () => {
 			provider: "bedrock",
 			modelId: "anthropic/claude",
 		});
+	});
+
+	test("formats selections and round trips qualified references", () => {
+		const selection = parseModelRef("bedrock/anthropic/claude");
+		expect(selection).toBeDefined();
+		if (selection !== undefined) {
+			expect(formatModelRef(selection)).toBe("bedrock/anthropic/claude");
+		}
+	});
+
+	test("derives the default reference from the default selection", () => {
+		expect(DEFAULT_FAST_MODEL_REF).toBe(formatModelRef(DEFAULT_FAST_MODEL));
 	});
 
 	test("rejects refs without a separator or with edge separators", () => {

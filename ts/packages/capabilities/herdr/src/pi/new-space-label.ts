@@ -7,6 +7,7 @@ import {
 	loadModelPolicy,
 	resolveModelOperation,
 } from "@nseng-ai/capability-kit/model-policy";
+import { formatModelRef } from "@nseng-ai/foundation/model-slug";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
@@ -58,7 +59,7 @@ export function createHerdrSpaceLabelDeriver(context: HerdrPiContext): HerdrSpac
 				{
 					content: input.description,
 					cwd: input.cwd,
-					modelRef: model.value.modelRef,
+					modelRef: formatModelRef(model.value.selection),
 					...optionalEntry("signal", input.signal),
 				},
 				SPACE_LABEL_VARIANT,

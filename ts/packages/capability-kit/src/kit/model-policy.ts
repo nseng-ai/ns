@@ -1,7 +1,7 @@
 import {
-	DEFAULT_FAST_MODEL_REF,
+	DEFAULT_FAST_MODEL,
 	parseModelRef,
-	type ParsedModelRef,
+	type ModelSelection,
 } from "@nseng-ai/foundation/model-slug";
 import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
 import {
@@ -28,7 +28,7 @@ export type ModelOperationId = string;
 export type ModelProfileName = string;
 
 export interface ModelPolicy {
-	readonly profiles: Readonly<Record<ModelProfileName, ParsedModelRef>>;
+	readonly profiles: Readonly<Record<ModelProfileName, ModelSelection>>;
 	readonly operations: Readonly<Record<ModelOperationId, ModelProfileName>>;
 	readonly fastSource: "builtin" | "project-profile";
 }
@@ -36,8 +36,7 @@ export interface ModelPolicy {
 export interface ResolvedModelOperation {
 	readonly operationId: ModelOperationId;
 	readonly profile: ModelProfileName;
-	readonly model: ParsedModelRef;
-	readonly modelRef: string;
+	readonly selection: ModelSelection;
 	readonly source: "builtin" | "project-profile" | "project-operation";
 }
 
@@ -101,8 +100,8 @@ export function resolveModelOperation(
 	operationId: ModelOperationId,
 ): ModelPolicyResult<ResolvedModelOperation> {
 	const selectedProfile = policy.operations[operationId] ?? "fast";
-	const model = policy.profiles[selectedProfile];
-	if (model === undefined) {
+	const selection = policy.profiles[selectedProfile];
+	if (selection === undefined) {
 		return resultErrOf(
 			"missing-profile",
 			`Model operation ${JSON.stringify(operationId)} references missing profile ${JSON.stringify(selectedProfile)}.`,
@@ -119,8 +118,7 @@ export function resolveModelOperation(
 		value: {
 			operationId,
 			profile: selectedProfile,
-			model,
-			modelRef: `${model.provider}/${model.modelId}`,
+			selection,
 			source,
 		},
 	};
@@ -129,7 +127,7 @@ export function resolveModelOperation(
 function modelPolicyFromSettings(
 	settings: { profiles: Record<string, string>; operations: Record<string, string> } | undefined,
 ): ModelPolicyResult<ModelPolicy> {
-	const profiles: Record<string, ParsedModelRef> = {};
+	const profiles: Record<string, ModelSelection> = {};
 	for (const [name, ref] of Object.entries(settings?.profiles ?? {})) {
 		const parsed = parseModelRef(ref);
 		if (parsed === undefined)
@@ -141,8 +139,8 @@ function modelPolicyFromSettings(
 	}
 	const operations = settings?.operations ?? {};
 	const fastSource = profiles.fast === undefined ? "builtin" : "project-profile";
-	const effectiveProfiles: Record<string, ParsedModelRef> = {
-		fast: parseModelRef(DEFAULT_FAST_MODEL_REF)!,
+	const effectiveProfiles: Record<string, ModelSelection> = {
+		fast: DEFAULT_FAST_MODEL,
 		...profiles,
 	};
 	for (const [operationId, profile] of Object.entries(operations)) {

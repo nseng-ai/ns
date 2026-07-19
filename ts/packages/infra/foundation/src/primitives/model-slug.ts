@@ -1,13 +1,13 @@
-export interface ParsedModelRef {
-	provider: string;
-	modelId: string;
+export interface ModelSelection {
+	readonly provider: string;
+	readonly modelId: string;
 }
 
-export const DEFAULT_FAST_MODEL: ParsedModelRef = {
+export const DEFAULT_FAST_MODEL: ModelSelection = {
 	provider: "openai-codex",
 	modelId: "gpt-5.6-luna",
 };
-export const DEFAULT_FAST_MODEL_REF = `${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`;
+export const DEFAULT_FAST_MODEL_REF = formatModelRef(DEFAULT_FAST_MODEL);
 
 export type ModelProviderFamily = "anthropic" | "google" | "openai";
 
@@ -37,7 +37,7 @@ const MODEL_PROVIDER_FAMILIES = [
 const ANTHROPIC_MODEL_SHORTHANDS = ["sonnet", "opus", "haiku", "fable"] as const;
 const CLAUDE_CODE_MODEL_SHORTHANDS = ["sonnet", "opus", "haiku"] as const;
 
-export function parseModelRef(modelRef: string): ParsedModelRef | undefined {
+export function parseModelRef(modelRef: string): ModelSelection | undefined {
 	const separator = modelRef.indexOf("/");
 	if (separator <= 0 || separator === modelRef.length - 1) {
 		return undefined;
@@ -46,6 +46,10 @@ export function parseModelRef(modelRef: string): ParsedModelRef | undefined {
 		provider: modelRef.slice(0, separator),
 		modelId: modelRef.slice(separator + 1),
 	};
+}
+
+export function formatModelRef(selection: ModelSelection): string {
+	return `${selection.provider}/${selection.modelId}`;
 }
 
 export function modelIdFromModelPattern(modelPattern: string): string {

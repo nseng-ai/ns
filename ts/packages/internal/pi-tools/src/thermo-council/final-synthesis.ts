@@ -3,6 +3,7 @@ import {
 	loadModelPolicy,
 	resolveModelOperation,
 } from "@nseng-ai/capability-kit/model-policy";
+import { formatModelRef } from "@nseng-ai/foundation/model-slug";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import {
 	dispatchTrackedSingleSubagentFleetRun,
@@ -71,7 +72,7 @@ export async function synthesizeThermoCouncilFinalReport({
 				...(reviewGuidance === undefined ? {} : { reviewGuidance }),
 			}),
 			tools: [],
-			model: resolved.value.modelRef,
+			model: formatModelRef(resolved.value.selection),
 		},
 	});
 

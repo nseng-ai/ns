@@ -14,7 +14,11 @@ describe("model policy", () => {
 		if (policy.ok)
 			expect(resolveModelOperation(policy.value, "slug")).toMatchObject({
 				ok: true,
-				value: { profile: "fast", modelRef: "openai-codex/gpt-5.6-luna", source: "builtin" },
+				value: {
+					profile: "fast",
+					selection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+					source: "builtin",
+				},
 			});
 	});
 
@@ -36,7 +40,11 @@ describe("model policy", () => {
 		if (policy.ok)
 			expect(resolveModelOperation(policy.value, "custom")).toMatchObject({
 				ok: true,
-				value: { profile: "deep", modelRef: "acme/deep", source: "project-operation" },
+				value: {
+					profile: "deep",
+					selection: { provider: "acme", modelId: "deep" },
+					source: "project-operation",
+				},
 			});
 	});
 
