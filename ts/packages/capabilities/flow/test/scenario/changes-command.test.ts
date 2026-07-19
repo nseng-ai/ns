@@ -64,7 +64,7 @@ describe("project-local changes extension behavior", () => {
 		).toBe(false);
 		expect(run.context.textGeneratorCalls).toEqual([
 			expect.objectContaining({
-				modelRef: "openai-codex/gpt-5.6-luna",
+				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 				operation: "changes-summary",
 				maxTokens: 512,
 				reasoning: "low",
@@ -121,7 +121,10 @@ describe("project-local changes extension behavior", () => {
 		const run = runChangesWithFakes();
 
 		expect(await run.exit).toBe(0);
-		expect(run.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/gpt-5.6-luna");
+		expect(run.context.textGeneratorCalls[0]?.modelSelection).toEqual({
+			provider: "openai-codex",
+			modelId: "gpt-5.6-luna",
+		});
 	});
 
 	test("model generation and validation failures exit 2 without mutation", async () => {

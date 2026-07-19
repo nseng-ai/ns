@@ -45,7 +45,7 @@ describe("flow autobranch command outcomes", () => {
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
 		expect(run.context.textGeneratorCalls[0]).toMatchObject({
 			operation: "checkpoint-message",
-			modelRef: "openai-codex/gpt-5.6-luna",
+			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 		});
 	});
 

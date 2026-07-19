@@ -8,7 +8,7 @@ import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
 import { prepareFlowCheckpointMessage } from "../model-generation.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
-import { resolveFlowModelRef } from "../model-policy.ts";
+import { resolveFlowModelSelection } from "../model-policy.ts";
 import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-result.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
@@ -45,9 +45,12 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 	handler: async (ctx, request: AutobranchRequest) => {
 		const caps = resolveFlowStreamCaps(ctx);
 		const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
-		const slugModel = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.slug);
+		const slugModel = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.slug);
 		if (!slugModel.ok) return failure(FLOW_COMMAND_FAILED, slugModel.error);
-		const checkpointModel = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
+		const checkpointModel = await resolveFlowModelSelection(
+			ctx,
+			MODEL_OPERATION_IDS.flowCheckpoint,
+		);
 		if (!checkpointModel.ok) return failure(FLOW_COMMAND_FAILED, checkpointModel.error);
 		const io = commandIoFromNsExtensionApi(ctx);
 		return await runWithNsCommandIo(io, async (io) => {
@@ -59,7 +62,7 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 							pendingSnapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 						) =>
 							prepareFlowCheckpointMessage(
-								{ ...ctx, modelRef: checkpointModel.modelRef },
+								{ ...ctx, modelSelection: checkpointModel.modelSelection },
 								pendingSnapshot,
 							),
 						commitPreparedCheckpointMessage: (message) =>
@@ -67,7 +70,7 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 					},
 				},
 				{
-					...createAutobranchDispatchEnv(ctx, args, slugModel.modelRef),
+					...createAutobranchDispatchEnv(ctx, args, slugModel.modelSelection),
 					onPhase: (message) => io.phase(message),
 				},
 			);

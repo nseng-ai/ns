@@ -23,6 +23,7 @@ import {
 	formatAutobranchTransactionFailure,
 	runAutobranchTransaction,
 } from "./dirty-transaction.ts";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 export type { AutobranchFlowOutcome, AutobranchFlowResult } from "./flow-result.ts";
 export type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
@@ -51,7 +52,7 @@ export interface FileStat {
 
 export interface AutobranchPreparationInput {
 	cwd: string;
-	modelRef: string;
+	modelSelection: ModelSelection;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;
@@ -200,7 +201,7 @@ async function generateSlugFromChanges(
 	const result = await deriveBranchSlug({
 		cwd: input.cwd,
 		prompt,
-		modelRef: input.modelRef,
+		modelSelection: input.modelSelection,
 		exec: input.exec,
 	});
 	if (result.ok) {
@@ -264,7 +265,7 @@ function fallbackSlugFromSnapshot(snapshot: AutobranchSnapshot): string | undefi
 
 export interface AutobranchFlowInput {
 	cwd: string;
-	modelRef: string;
+	modelSelection: ModelSelection;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;
@@ -286,7 +287,7 @@ export async function runDirtyAutobranchFlow(
 ): Promise<AutobranchFlowResult> {
 	const prepared = await prepareAutobranchPlan({
 		cwd: input.cwd,
-		modelRef: input.modelRef,
+		modelSelection: input.modelSelection,
 		args: input.args,
 		snapshot: input.snapshot,
 		exec: input.exec,

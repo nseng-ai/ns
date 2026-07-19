@@ -12,6 +12,8 @@ export interface NsCliJsonRun {
 	readonly exit: number;
 	readonly stdout: string;
 	readonly stderr: string;
+	readonly homeDir: string;
+	readonly claudeConfigDir: string;
 }
 
 export async function createEmptyProject(): Promise<string> {
@@ -62,15 +64,31 @@ export default defineExtension({
 export async function runNsCliJson(args: readonly string[], cwd: string): Promise<NsCliJsonRun> {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const homeDir = join(cwd, ".home");
-	const exit = await runNsCli([...args, "--format", "json"], {
-		cwd,
-		homeDir,
-		env: { HOME: homeDir, CLAUDE_CONFIG_DIR: join(cwd, ".claude-user") },
-		stdout: (text) => stdout.push(text),
-		stderr: (text) => stderr.push(text),
-	});
-	return { exit, stdout: stdout.join(""), stderr: stderr.join("") };
+	const stateRoot = await mkdtemp(join(tmpdir(), "ns-cli-host-state-"));
+	const homeDir = join(stateRoot, "home");
+	const claudeConfigDir = join(stateRoot, "claude-user");
+	try {
+		const exit = await runNsCli([...args, "--format", "json"], {
+			cwd,
+			homeDir,
+			env: {
+				HOME: homeDir,
+				XDG_STATE_HOME: join(stateRoot, "xdg-state"),
+				CLAUDE_CONFIG_DIR: claudeConfigDir,
+			},
+			stdout: (text) => stdout.push(text),
+			stderr: (text) => stderr.push(text),
+		});
+		return {
+			exit,
+			stdout: stdout.join(""),
+			stderr: stderr.join(""),
+			homeDir,
+			claudeConfigDir,
+		};
+	} finally {
+		await rm(stateRoot, { recursive: true });
+	}
 }
 
 export function parseJsonOutput(run: { readonly stdout: string }): Record<string, unknown> {

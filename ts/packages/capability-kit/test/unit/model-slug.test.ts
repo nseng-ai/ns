@@ -41,7 +41,7 @@ describe("generateRawTextWithModel", () => {
 		const result = await generateRawTextWithModel({
 			cwd: "/repo",
 			prompt: "summary prompt",
-			modelRef: "openai-codex/gpt-5.6-luna",
+			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 			exec: recordingExec(calls, {
 				type: "exited",
 				stdout: "- first bullet\n- second bullet\n",
@@ -67,7 +67,7 @@ describe("generateRawTextWithModel", () => {
 		const result = await generateRawTextWithModel({
 			cwd: "/repo",
 			prompt: "summary prompt",
-			modelRef: "acme/fast-1",
+			modelSelection: { provider: "acme", modelId: "fast-1" },
 			exec: recordingExec(calls, {
 				type: "exited",
 				stdout: "raw output\n",
@@ -92,7 +92,7 @@ describe("generateRawTextWithModel", () => {
 		const result = await generateRawTextWithModel({
 			cwd: "/repo",
 			prompt: "summary prompt",
-			modelRef: "openai-codex/gpt-5.6-luna",
+			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 			exec: recordingExecSequence(calls, [
 				{ stdout: "", stderr: "", code: 143, type: "timed-out", signal: null },
 				{ type: "exited", stdout: "recovered summary\n", stderr: "", code: 0, signal: null },
@@ -120,7 +120,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			modelRef: "openai-codex/gpt-5.6-luna",
+			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExec(calls, {
 				type: "exited",
@@ -148,7 +148,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			modelRef: "acme/fast-1",
+			modelSelection: { provider: "acme", modelId: "fast-1" },
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExec(calls, {
 				type: "exited",
@@ -167,29 +167,6 @@ describe("deriveSlugWithModel", () => {
 		);
 	});
 
-	test("fails without executing when the override is not provider/modelId", async () => {
-		const calls: ExecCall[] = [];
-		const result = await deriveSlugWithModel({
-			cwd: "/repo",
-			prompt: "slug prompt",
-			slugKind: "test slug",
-			modelRef: "not-a-ref",
-			normalizeOutput: (output) => output.trim(),
-			exec: recordingExec(calls, {
-				type: "exited",
-				stdout: "my-slug\n",
-				stderr: "",
-				code: 0,
-				signal: null,
-			}),
-		});
-		expect(result.ok).toBe(false);
-		if (!result.ok) {
-			expect(result.failure.lines).toEqual(["Invalid model reference: not-a-ref"]);
-		}
-		expect(calls).toHaveLength(0);
-	});
-
 	test("retries one killed model command result and returns the recovered slug", async () => {
 		const calls: ExecCall[] = [];
 		const controller = new AbortController();
@@ -197,7 +174,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			modelRef: "openai-codex/gpt-5.6-luna",
+			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExecSequence(calls, [
 				{ stdout: "", stderr: "", code: 143, type: "timed-out", signal: null },
@@ -230,7 +207,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			modelRef: "openai-codex/gpt-5.6-luna",
+			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExecSequence(calls, [
 				{ type: "exited", code: 2, signal: null, stdout: "", stderr: "bad request" },
@@ -252,7 +229,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			modelRef: "openai-codex/gpt-5.6-luna",
+			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExecSequence(calls, [
 				{ type: "timed-out", code: 143, signal: null, stdout: "", stderr: "" },

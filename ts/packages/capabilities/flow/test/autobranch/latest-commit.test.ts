@@ -118,7 +118,7 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 	};
 	const input = {
 		cwd: "/repo",
-		modelRef: "test/model",
+		modelSelection: { provider: "test", modelId: "model" },
 		args: options.slug === undefined ? {} : { slug: options.slug },
 		snapshot,
 		exec,

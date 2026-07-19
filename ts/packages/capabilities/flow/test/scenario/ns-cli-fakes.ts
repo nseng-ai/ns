@@ -1,4 +1,8 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+import { afterEach } from "vitest";
 
 import { runCli } from "@nseng-ai/sdk/cli";
 import { createCliCommandIo } from "@nseng-ai/sdk/command-io";
@@ -14,6 +18,12 @@ import type {
 } from "@nseng-ai/sdk";
 
 export type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGenerationResult>;
+
+const tempStateRoots: string[] = [];
+
+afterEach(() => {
+	for (const root of tempStateRoots.splice(0)) rmSync(root, { recursive: true });
+});
 
 interface ExitedResultFields {
 	readonly stdout?: string;
@@ -172,11 +182,17 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
-	const cwd = options.cwd ?? "/work";
-	const homeDir = options.homeDir ?? join(cwd, ".home");
+	const stateRoot = mkdtempSync(join(tmpdir(), "ns-flow-cli-state-"));
+	tempStateRoots.push(stateRoot);
+	const homeDir = options.homeDir ?? join(stateRoot, "home");
 	const context = new ScriptedNsTestContext(options.state, {
 		...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-		env: { HOME: homeDir, ...(options.env ?? {}) },
+		env: {
+			HOME: homeDir,
+			XDG_STATE_HOME: join(stateRoot, "xdg-state"),
+			NS_SUBMIT_FAILURE_LOG_DIR: join(stateRoot, "submit-logs"),
+			...(options.env ?? {}),
+		},
 		execResponses: defaults.execResponses,
 		textGenerationResults: defaults.textGenerationResults,
 		...(defaults.missingTextGenerationResult === undefined

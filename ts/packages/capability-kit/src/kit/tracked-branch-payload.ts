@@ -29,7 +29,6 @@ import {
 	type LocalBranchRefreshPlan,
 	RealGitGateway,
 } from "@nseng-ai/foundation/git";
-import { formatModelRef } from "@nseng-ai/foundation/model-slug";
 import { formatErrorMessage, type TextResult } from "@nseng-ai/foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { runGraphiteCommand, type GraphiteBranchGateway } from "../graphite/branch.ts";
@@ -321,7 +320,7 @@ async function generateTrackedBranchSlug(
 	const result = await generateRawTextWithModel({
 		cwd,
 		prompt,
-		modelRef: formatModelRef(model.value.selection),
+		modelSelection: model.value.selection,
 		exec: (command, args, execOptions) => pi.exec(command, args, execOptions),
 	});
 	if (!result.ok) return { ok: false, message: formatRawTextModelFailure(result.failure) };

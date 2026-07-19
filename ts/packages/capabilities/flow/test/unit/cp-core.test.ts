@@ -269,13 +269,16 @@ describe("flow cp core", () => {
 			gateway,
 			graphite: new InMemoryGraphiteBranchGateway(),
 			textGenerator,
-			modelRef: "openai-codex/gpt-test",
+			modelSelection: { provider: "openai-codex", modelId: "gpt-test" },
 			dryRun: true,
 			onActiveOperations: (operations) => snapshots.push([...operations]),
 		});
 
 		expect(result.type).toBe("dry-run");
-		expect(textGenerator.calls[0]?.modelRef).toBe("openai-codex/gpt-test");
+		expect(textGenerator.calls[0]?.modelSelection).toEqual({
+			provider: "openai-codex",
+			modelId: "gpt-test",
+		});
 		expect(snapshots).toEqual([
 			[
 				{
@@ -299,7 +302,7 @@ describe("flow cp core", () => {
 			gateway,
 			graphite: new InMemoryGraphiteBranchGateway(),
 			textGenerator,
-			modelRef: "openai-codex/gpt-test",
+			modelSelection: { provider: "openai-codex", modelId: "gpt-test" },
 			dryRun: false,
 			onActiveOperations: (operations) => snapshots.push([...operations]),
 		});
@@ -359,7 +362,7 @@ function defaultOptions(overrides: {
 		checkpointGateway: overrides.checkpointGateway,
 		graphite: overrides.graphite ?? new InMemoryGraphiteBranchGateway(),
 		textGenerator: overrides.textGenerator,
-		modelRef: "openai-codex/gpt-test",
+		modelSelection: { provider: "openai-codex", modelId: "gpt-test" },
 		isDryRun: overrides.isDryRun ?? false,
 	};
 }

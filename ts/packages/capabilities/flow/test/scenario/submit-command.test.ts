@@ -244,6 +244,20 @@ async function createSubmitHooksRepo(preSubmit: readonly string[]): Promise<stri
 }
 
 describe("project-local submit extension", () => {
+	test("keeps generated HOME, XDG state, and submit logs outside the checkout", async () => {
+		const checkout = await mkdtemp(join(tmpdir(), "ns-submit-checkout-"));
+		tempDirs.push(checkout);
+		const run = runWithFakes({ cwd: checkout, request: { minimal: true } });
+
+		await run.exit;
+
+		for (const key of ["HOME", "XDG_STATE_HOME", "NS_SUBMIT_FAILURE_LOG_DIR"] as const) {
+			const generatedRoot = run.context.env[key];
+			expect(generatedRoot).toBeDefined();
+			expect(generatedRoot?.startsWith(`${checkout}/`)).toBe(false);
+		}
+	});
+
 	test("live non-TTY progress drives the structured submit matrix through the actual command handler", async () => {
 		const events: NsProgressPhaseEvent[] = [];
 		const progress: NsProgress = {
@@ -1676,7 +1690,7 @@ describe("project-local submit extension", () => {
 		const calls = formattedExecCalls(run.context);
 		expect(calls.filter((call) => call === submitCommand)).toHaveLength(1);
 		expect(calls).not.toContain("gt submit");
-		expect(run.context.textGeneratorCalls.map((call) => call.modelRef)).not.toContain(
+		expect(run.context.textGeneratorCalls.map((call) => call.modelSelection)).not.toContain(
 			"openai-codex/submit-summary",
 		);
 		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
@@ -1735,7 +1749,10 @@ describe("project-local submit extension", () => {
 		expect(await readFile(rawPath ?? "", "utf8")).toContain("full stdout details\nsecond line");
 		expect(await readFile(rawPath ?? "", "utf8")).toContain("mystery graphite failure");
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
-		expect(run.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/gpt-5.6-luna");
+		expect(run.context.textGeneratorCalls[0]?.modelSelection).toEqual({
+			provider: "openai-codex",
+			modelId: "gpt-5.6-luna",
+		});
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
 			"Truncation: transcript was not truncated.",
 		);

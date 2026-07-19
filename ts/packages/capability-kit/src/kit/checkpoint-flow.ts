@@ -1,6 +1,7 @@
 import { commandSucceeded, formatCommandDetails } from "@nseng-ai/foundation/exec";
 import { truncateTextHead, truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
 import type { TimeServices } from "@nseng-ai/foundation/time";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 import type { CommandResult } from "./command-result.ts";
 
@@ -68,7 +69,7 @@ export async function prepareCheckpointMessage(input: {
 	status: string;
 	diff: string;
 	textGenerator: TextGenerator;
-	modelRef: string;
+	modelSelection: ModelSelection;
 	onProgress?: (event: TextRepairProgressEvent) => void;
 	time?: TimeServices;
 }): Promise<PreparedCheckpointMessage> {
@@ -76,7 +77,7 @@ export async function prepareCheckpointMessage(input: {
 	const prepared = await prepareRepairedText({
 		noun: "checkpoint message",
 		initialPrompt,
-		generate: (prompt) => generateCheckpointText(input.textGenerator, input.modelRef, prompt),
+		generate: (prompt) => generateCheckpointText(input.textGenerator, input.modelSelection, prompt),
 		validate: (text) => {
 			const validation = validateCheckpointMessage(text);
 			if (validation.ok) return { ok: true, value: formatCheckpointMessage(validation.message) };
@@ -298,11 +299,11 @@ function promptBlock(value: string, emptyPlaceholder: string): string {
 
 async function generateCheckpointText(
 	textGenerator: TextGenerator,
-	modelRef: string,
+	modelSelection: ModelSelection,
 	prompt: string,
 ): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
 	return textGenerator.generateText({
-		modelRef,
+		modelSelection,
 		system: CHECKPOINT_SYSTEM_PROMPT,
 		prompt,
 		maxTokens: 512,

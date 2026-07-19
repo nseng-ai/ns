@@ -173,7 +173,7 @@ describe("project-local regenerate-pr extension behavior", () => {
 		);
 		expect(run.context.textGeneratorCalls[0]).toMatchObject({
 			operation: "pr-description",
-			modelRef: "openai-codex/gpt-5.6-luna",
+			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 			maxTokens: 2048,
 			reasoning: "low",
 		});
@@ -353,7 +353,10 @@ describe("project-local regenerate-pr extension behavior", () => {
 		const run = runRegeneratePrWithFakes({ state: { confirm: () => true } });
 
 		expect(await run.exit).toBe(0);
-		expect(run.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/gpt-5.6-luna");
+		expect(run.context.textGeneratorCalls[0]?.modelSelection).toEqual({
+			provider: "openai-codex",
+			modelId: "gpt-5.6-luna",
+		});
 	});
 
 	test("uses env prompt overrides from the built-in point catalog", async () => {

@@ -77,7 +77,7 @@ function createHarness(options: HarnessOptions = {}) {
 
 	const input: AutobranchPreparationInput = {
 		cwd: "/repo",
-		modelRef: "test/model",
+		modelSelection: { provider: "test", modelId: "model" },
 		args: options.slug === undefined ? {} : { slug: options.slug },
 		snapshot,
 		exec,

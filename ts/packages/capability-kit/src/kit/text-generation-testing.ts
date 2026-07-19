@@ -48,7 +48,7 @@ function copyIdentity<TValue>(value: TValue): TValue {
 
 function copyTextGenerationRequest(request: TextGenerationRequest): TextGenerationRequest {
 	return {
-		modelRef: request.modelRef,
+		modelSelection: { ...request.modelSelection },
 		system: request.system,
 		prompt: request.prompt,
 		...optionalEntries({

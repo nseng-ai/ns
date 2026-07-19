@@ -38,7 +38,7 @@ export interface NsSubmitRuntime {
 	) => CheckpointRunContext;
 	submitGateway: RealSubmitGateway;
 	metadataGateway: RealSubmitMetadataGateway;
-	prDescription: Omit<RunSubmitCommandOptions["prDescription"], "modelRef">;
+	prDescription: Omit<RunSubmitCommandOptions["prDescription"], "modelSelection">;
 	git: Pick<GitGateway, "optionalRepoRoot">;
 }
 
