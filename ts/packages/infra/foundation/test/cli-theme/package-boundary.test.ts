@@ -17,7 +17,6 @@ interface ImportOffender {
 
 function isForbiddenCapabilityImport(specifier: string): boolean {
 	return (
-		specifier.startsWith("@nseng-ai/cmux") ||
 		specifier.startsWith("@nseng-ai/flow") ||
 		specifier.startsWith("@nseng-ai/slots") ||
 		specifier.startsWith("@nseng-ai/objectives")

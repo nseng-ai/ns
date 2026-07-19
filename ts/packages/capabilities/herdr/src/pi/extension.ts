@@ -22,7 +22,6 @@ import {
 import { createHerdrPiContext } from "./context.ts";
 import { registerHerdrHandoffTab } from "./handoff-tab.ts";
 import { registerHerdrNewSpaceCommand } from "./new-space.ts";
-import { registerHerdrSlotOpenBranchCommand } from "./open-branch.ts";
 import { registerHerdrSpaceGoalCommand } from "./space-goal.ts";
 
 export type HandoffIntegrationLoader = () => Promise<{
@@ -47,7 +46,6 @@ export async function registerHerdrPiExtension(
 	registerHerdrSlotDispatchFromTrunkCommand(herdrPi);
 	registerHerdrSlotDispatchPlanCommand(herdrPi);
 	registerHerdrSurfaceDispatchPlanCommand(herdrPi);
-	registerHerdrSlotOpenBranchCommand(herdrPi);
 	registerHerdrNewSpaceCommand(context);
 
 	if (!("registerTool" in pi) || pi.registerTool === undefined) return;

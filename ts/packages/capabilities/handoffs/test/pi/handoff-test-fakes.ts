@@ -241,35 +241,6 @@ export function checkStep(branch: string, key: string, exists: boolean): Scripte
 	];
 }
 
-export function cmuxIdentifyStep(): ScriptedExec {
-	return step("cmux", ["identify", "--json", "--id-format", "both"], {
-		stdout: JSON.stringify({
-			caller: { workspace_id: "workspace-1", pane_id: "pane-1", window_id: "window-1" },
-		}),
-	});
-}
-
-export function cmuxCreateSurfaceStep(): ScriptedExec {
-	return step(
-		"cmux",
-		[
-			"--json",
-			"new-surface",
-			"--type",
-			"terminal",
-			"--workspace",
-			"workspace-1",
-			"--pane",
-			"pane-1",
-			"--focus",
-			"true",
-			"--window",
-			"window-1",
-		],
-		{ stdout: JSON.stringify({ surface_id: "surface-1", workspace_id: "workspace-1" }) },
-	);
-}
-
 export function getRegisteredCommand(pi: FakePi, name: string): RegisteredCommand {
 	const command = pi.commands.get(name);
 	if (command === undefined) {
@@ -284,35 +255,6 @@ export function getRegisteredTool(pi: FakePi, name: string): RegisteredTool {
 		throw new Error(`${name} was not registered`);
 	}
 	return tool;
-}
-
-export function cmuxCreateSurfaceRefStep(): ScriptedExec {
-	return step(
-		"cmux",
-		[
-			"--json",
-			"new-surface",
-			"--type",
-			"terminal",
-			"--workspace",
-			"workspace-1",
-			"--pane",
-			"pane-1",
-			"--focus",
-			"true",
-			"--window",
-			"window-1",
-		],
-		{
-			stdout: JSON.stringify({
-				pane_ref: "pane:1",
-				surface_ref: "surface:1",
-				type: "terminal",
-				window_ref: "window:1",
-				workspace_ref: "workspace:1",
-			}),
-		},
-	);
 }
 
 export function listStep(branch: string, keys: string[]): ScriptedExec[] {

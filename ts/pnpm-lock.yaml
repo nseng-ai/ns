@@ -114,9 +114,6 @@ importers:
       '@nseng-ai/capability-kit':
         specifier: workspace:*
         version: link:packages/capability-kit
-      '@nseng-ai/cmux':
-        specifier: workspace:*
-        version: link:packages/capabilities/cmux
       '@nseng-ai/flow':
         specifier: workspace:*
         version: link:packages/capabilities/flow
@@ -226,40 +223,6 @@ importers:
       '@nseng-ai/sdk':
         specifier: workspace:*
         version: link:../../sdk
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-    devDependencies:
-      '@nseng-ai/pi':
-        specifier: workspace:*
-        version: link:../../hosts/pi
-
-  packages/capabilities/cmux:
-    dependencies:
-      '@nseng-ai/branch-context':
-        specifier: workspace:*
-        version: link:../branch-context
-      '@nseng-ai/capability-kit':
-        specifier: workspace:*
-        version: link:../../capability-kit
-      '@nseng-ai/clinkr':
-        specifier: workspace:*
-        version: link:../../infra/clinkr
-      '@nseng-ai/foundation':
-        specifier: workspace:*
-        version: link:../../infra/foundation
-      '@nseng-ai/objectives':
-        specifier: workspace:*
-        version: link:../objectives
-      '@nseng-ai/plans':
-        specifier: workspace:*
-        version: link:../plans
-      '@nseng-ai/sdk':
-        specifier: workspace:*
-        version: link:../../sdk
-      '@nseng-ai/slots':
-        specifier: workspace:*
-        version: link:../slots
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -806,9 +769,6 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
-      '@nseng-ai/cmux':
-        specifier: workspace:*
-        version: link:../../capabilities/cmux
       '@nseng-ai/flow':
         specifier: workspace:*
         version: link:../../capabilities/flow

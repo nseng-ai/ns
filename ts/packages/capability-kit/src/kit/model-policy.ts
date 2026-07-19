@@ -19,7 +19,6 @@ export const MODEL_OPERATION_IDS = {
 	flowChanges: "flow.changes",
 	flowSubmitFailure: "flow.submit-failure",
 	flowPrDescription: "flow.pr-description",
-	cmuxSidebar: "cmux.sidebar",
 	thermoCouncilSynthesis: "thermo-council.synthesis",
 	piFastDraft: "pi.fast-draft",
 	stackViewEnrichment: "stack-view.enrichment",
