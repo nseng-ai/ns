@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { createManualClock, createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
 
 import {
@@ -41,7 +42,7 @@ const blockedTool: RunnerSubagentTerminalToolDefinition = {
 interface TerminalOptionsOverrides {
 	title?: string;
 	cwd?: string;
-	modelSelection?: { provider: string; modelId: string };
+	modelSelection?: ModelSelection;
 	signal?: AbortSignal;
 	terminalTools?: readonly RunnerSubagentTerminalToolDefinition[];
 }
@@ -61,7 +62,7 @@ function finalTextOptions(
 	overrides: {
 		title?: string;
 		cwd?: string;
-		modelSelection?: { provider: string; modelId: string };
+		modelSelection?: ModelSelection;
 		signal?: AbortSignal;
 		terminalTools?: readonly RunnerSubagentTerminalToolDefinition[];
 		tools?: readonly string[];
@@ -186,7 +187,7 @@ describe("runner subagent process dispatcher", () => {
 		const running = dispatchRunnerSubagentProcess(
 			pi,
 			ctx,
-			options({ modelSelection: { provider: "anthropic", modelId: "haiku" } }),
+			options({ modelSelection: { provider: "anthropic", modelId: "haiku", thinking: "minimal" } }),
 			runner.dependencies,
 		);
 		const call = await waitForSpawn(runner.calls);
@@ -199,6 +200,8 @@ describe("runner subagent process dispatcher", () => {
 			"anthropic",
 			"--model",
 			"haiku",
+			"--thinking",
+			"minimal",
 			"--no-extensions",
 			"--extension",
 			"/tmp/pi-runner-subagent-runtime/runtime-extension.ts",
@@ -325,7 +328,10 @@ describe("runner subagent process dispatcher", () => {
 		});
 		const running = dispatchRunnerSubagentProcess(
 			{ getThinkingLevel: () => "medium" },
-			{ cwd: "/repo", modelSelection: { provider: "anthropic", modelId: "claude-sonnet-4-5" } },
+			{
+				cwd: "/repo",
+				modelSelection: { provider: "anthropic", modelId: "claude-sonnet-4-5", thinking: "medium" },
+			},
 			finalTextOptions({ title: "Launch task" }),
 			runner.dependencies,
 		);
@@ -352,7 +358,7 @@ describe("runner subagent process dispatcher", () => {
 		const result = await running;
 
 		expect(result.progress.launch).toEqual({
-			modelSelection: { provider: "anthropic", modelId: "claude-sonnet-4-5" },
+			modelSelection: { provider: "anthropic", modelId: "claude-sonnet-4-5", thinking: "medium" },
 			thinkingLevel: "medium",
 			hasModelArg: true,
 			hasThinkingArg: true,
@@ -477,7 +483,9 @@ describe("runner subagent process dispatcher", () => {
 		const running = dispatchRunnerSubagentProcess(
 			pi,
 			ctx,
-			finalTextOptions({ modelSelection: { provider: "anthropic", modelId: "haiku" } }),
+			finalTextOptions({
+				modelSelection: { provider: "anthropic", modelId: "haiku", thinking: "minimal" },
+			}),
 			runner.dependencies,
 		);
 		const call = await waitForSpawn(runner.calls);
@@ -490,6 +498,8 @@ describe("runner subagent process dispatcher", () => {
 			"anthropic",
 			"--model",
 			"haiku",
+			"--thinking",
+			"minimal",
 			"--no-extensions",
 			"--session",
 			"/tmp/runner-subagent.jsonl",
@@ -545,10 +555,17 @@ describe("runner subagent process dispatcher", () => {
 		});
 		const running = dispatchRunnerSubagentProcess(
 			{ getThinkingLevel: () => "high" },
-			{ cwd: "/repo", modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-sol" } },
+			{
+				cwd: "/repo",
+				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-sol", thinking: "minimal" },
+			},
 			finalTextOptions({
 				title: "Cheap classifier",
-				modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.4-mini:medium",
+					thinking: "minimal",
+				},
 			}),
 			runner.dependencies,
 		);
@@ -562,6 +579,8 @@ describe("runner subagent process dispatcher", () => {
 			"openai-codex",
 			"--model",
 			"gpt-5.4-mini:medium",
+			"--thinking",
+			"minimal",
 			"--no-extensions",
 			"--session",
 			"/tmp/runner-subagent.jsonl",
@@ -578,10 +597,14 @@ describe("runner subagent process dispatcher", () => {
 		const result = await running;
 
 		expect(result.progress.launch).toEqual({
-			requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
-			thinkingLevel: "off",
+			requestedModelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.4-mini:medium",
+				thinking: "minimal",
+			},
+			thinkingLevel: "minimal",
 			hasModelArg: true,
-			hasThinkingArg: false,
+			hasThinkingArg: true,
 		});
 	});
 
@@ -591,10 +614,13 @@ describe("runner subagent process dispatcher", () => {
 		});
 		const running = dispatchRunnerSubagentProcess(
 			{ getThinkingLevel: () => "high" },
-			{ cwd: "/repo", modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-sol" } },
+			{
+				cwd: "/repo",
+				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-sol", thinking: "minimal" },
+			},
 			finalTextOptions({
 				title: "Anthropic reviewer",
-				modelSelection: { provider: "anthropic", modelId: "sonnet" },
+				modelSelection: { provider: "anthropic", modelId: "sonnet", thinking: "minimal" },
 			}),
 			runner.dependencies,
 		);
@@ -611,10 +637,17 @@ describe("runner subagent process dispatcher", () => {
 		});
 		const running = dispatchRunnerSubagentProcess(
 			{ getThinkingLevel: () => "high" },
-			{ cwd: "/repo", modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-sol" } },
+			{
+				cwd: "/repo",
+				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-sol", thinking: "minimal" },
+			},
 			finalTextOptions({
 				title: "Cheap classifier",
-				modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.4-mini:medium",
+					thinking: "minimal",
+				},
 			}),
 			runner.dependencies,
 		);
@@ -628,6 +661,8 @@ describe("runner subagent process dispatcher", () => {
 			"openai-codex",
 			"--model",
 			"gpt-5.4-mini:medium",
+			"--thinking",
+			"minimal",
 			"--no-extensions",
 			"--session",
 			"/tmp/runner-subagent.jsonl",
@@ -644,10 +679,14 @@ describe("runner subagent process dispatcher", () => {
 		const result = await running;
 
 		expect(result.progress.launch).toEqual({
-			requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
-			thinkingLevel: "off",
+			requestedModelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.4-mini:medium",
+				thinking: "minimal",
+			},
+			thinkingLevel: "minimal",
 			hasModelArg: true,
-			hasThinkingArg: false,
+			hasThinkingArg: true,
 		});
 	});
 
@@ -662,11 +701,18 @@ describe("runner subagent process dispatcher", () => {
 		});
 		const running = dispatchRunnerSubagentProcess(
 			{ getThinkingLevel: () => "medium" },
-			{ cwd: "/repo", modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-sol" } },
+			{
+				cwd: "/repo",
+				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-sol", thinking: "minimal" },
+			},
 			{
 				...finalTextOptions({
 					title: "Cheap classifier",
-					modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
+					modelSelection: {
+						provider: "openai-codex",
+						modelId: "gpt-5.4-mini",
+						thinking: "minimal",
+					},
 				}),
 				onProgress: (update) => updates.push(update),
 			},
@@ -688,12 +734,16 @@ describe("runner subagent process dispatcher", () => {
 
 		expect(result.status).toBe("final-text");
 		expect(result.progress.launch).toEqual({
-			requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
-			modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
-			thinkingLevel: "off",
+			requestedModelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.4-mini",
+				thinking: "minimal",
+			},
+			modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini", thinking: "high" },
+			thinkingLevel: "minimal",
 			observedThinkingLevel: "high",
 			hasModelArg: true,
-			hasThinkingArg: false,
+			hasThinkingArg: true,
 		});
 	});
 
@@ -705,7 +755,9 @@ describe("runner subagent process dispatcher", () => {
 		const running = dispatchRunnerSubagentProcess(
 			{ getThinkingLevel: () => "high" },
 			ctx,
-			finalTextOptions({ modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini" } }),
+			finalTextOptions({
+				modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini", thinking: "minimal" },
+			}),
 			runner.dependencies,
 		);
 		const call = await waitForSpawn(runner.calls);
@@ -717,10 +769,14 @@ describe("runner subagent process dispatcher", () => {
 
 		expect(result.status).toBe("final-text");
 		expect(result.progress.launch).toEqual({
-			requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
-			thinkingLevel: "off",
+			requestedModelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.4-mini",
+				thinking: "minimal",
+			},
+			thinkingLevel: "minimal",
 			hasModelArg: true,
-			hasThinkingArg: false,
+			hasThinkingArg: true,
 		});
 		expect(result.usage).toEqual(expect.objectContaining({ reason: "session-read-error" }));
 	});

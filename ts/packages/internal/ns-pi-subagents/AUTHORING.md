@@ -10,15 +10,15 @@ The package has one model-visible `subagent` tool. Extend its immutable startup 
 
 ```ts
 const agents = createSubagentAgentRegistry(
-  [EXPLORER_AGENT_DESCRIPTOR, TASK_AGENT_DESCRIPTOR, consumerAgent],
-  (name) => loadPiAgentDefinition(name, cwd),
+	[EXPLORER_AGENT_DESCRIPTOR, TASK_AGENT_DESCRIPTOR, consumerAgent],
+	(name) => loadPiAgentDefinition(name, cwd),
 );
 
 registerSubagentTool(pi, {
-  agents,
-  runtimes,
-  fleetRegistry,
-  loadAgentDefinition: loadPiAgentDefinition,
+	agents,
+	runtimes,
+	fleetRegistry,
+	loadAgentDefinition: loadPiAgentDefinition,
 });
 ```
 
@@ -32,17 +32,17 @@ A `SubagentRuntimeAdapter` declares one execution kind and, given the tool conte
 
 ```ts
 const runtimes = createSubagentRuntimeRegistry([
-  {
-    kind: "subprocess",
-    create: () => ({ ok: true, runtime: createSubprocessSubagentRuntime() }),
-  },
-  { kind: "in-process", create: (ctx) => inProcessRuntimeOrDiagnostic(ctx) },
+	{
+		kind: "subprocess",
+		create: () => ({ ok: true, runtime: createSubprocessSubagentRuntime() }),
+	},
+	{ kind: "in-process", create: (ctx) => inProcessRuntimeOrDiagnostic(ctx) },
 ]);
 ```
 
 Descriptors declare compatible kinds and preference only; they do not contain adapter implementations. `auto` walks descriptor preference deterministically. Explicit overrides are validated before dispatch.
 
-The built-in in-process adapter is final-text-only and requires the host `modelRegistry`. Project-owned runtime-independent contracts carry foundation `ModelSelection` values (`provider` and `modelId`) while thinking remains separate metadata. Host adapters translate Pi's `ModelInfo.id` at ingress; subprocess and in-process runtimes unpack the selection only at their terminal Pi seams. The in-process adapter resolves that selection to a concrete SDK model, creates a persistent session, disables extension recursion, retains skills/context discovery, and prompts with template expansion disabled.
+The built-in in-process adapter is final-text-only and requires the host `modelRegistry`. Project-owned runtime-independent contracts carry complete foundation `ModelSelection` values (`provider`, `modelId`, and required `thinking`). Requested selections own launch thinking; observed model and thinking remain separate runtime evidence. Host adapters translate Pi's `ModelInfo.id` at ingress; subprocess and in-process runtimes unpack the selection only at their terminal Pi seams. The in-process adapter resolves that selection to a concrete SDK model, creates a persistent session, disables extension recursion, retains skills/context discovery, and prompts with template expansion disabled.
 
 ## Result and lifecycle requirements
 

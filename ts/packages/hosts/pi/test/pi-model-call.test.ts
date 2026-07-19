@@ -64,17 +64,30 @@ function baseOptions(
 ): Parameters<typeof callPiModelText>[0] {
 	return {
 		registry: makeRegistry(),
-		modelSelection: { provider: "provider", modelId: "model" },
+		modelSelection: { provider: "provider", modelId: "model", thinking: "minimal" },
 		systemPrompt: "system",
 		userText: "user",
 		maxTokens: 12,
-		reasoning: "minimal",
 		completeFn: completeWith(makeResponse({ content: [{ type: "text", text: "ok" }] })),
 		...overrides,
 	};
 }
 
 describe("callPiModelText", () => {
+	test("rejects thinking off before resolving the model", async () => {
+		await expect(
+			callPiModelText(
+				baseOptions({
+					modelSelection: { provider: "provider", modelId: "model", thinking: "off" },
+				}),
+			),
+		).resolves.toEqual({
+			ok: false,
+			reason: "unsupported-thinking",
+			message: 'Pi completeSimple does not support thinking level "off".',
+		});
+	});
+
 	test("maps registry miss, auth failure, and missing key", async () => {
 		await expect(
 			callPiModelText(baseOptions({ registry: makeRegistry({ hasModel: false }) })),
@@ -152,7 +165,7 @@ describe("callPiModelText", () => {
 			baseOptions({
 				registry: makeRegistry({ auth: { ok: true, apiKey: "key", headers: { "x-h": "1" } } }),
 				completeFn,
-				reasoning: "low",
+				modelSelection: { provider: "provider", modelId: "model", thinking: "low" },
 				signal: controller.signal,
 				timeoutMs: 123,
 			}),

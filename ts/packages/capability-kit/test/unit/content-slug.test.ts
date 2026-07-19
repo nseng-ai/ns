@@ -92,7 +92,11 @@ describe("deriveKitContentSlug", () => {
 			{
 				content: CONTENT,
 				cwd: CWD,
-				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.6-luna",
+					thinking: "minimal" as const,
+				},
 			},
 			TEST_VARIANT,
 		);
@@ -127,7 +131,11 @@ describe("deriveKitContentSlug", () => {
 			{
 				content: CONTENT,
 				cwd: CWD,
-				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.6-luna",
+					thinking: "minimal" as const,
+				},
 				signal: controller.signal,
 			},
 			TEST_VARIANT,
@@ -182,7 +190,11 @@ describe("deriveKitContentSlug", () => {
 					{
 						content: CONTENT,
 						cwd: CWD,
-						modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+						modelSelection: {
+							provider: "openai-codex",
+							modelId: "gpt-5.6-luna",
+							thinking: "minimal" as const,
+						},
 					},
 					TEST_VARIANT,
 				);

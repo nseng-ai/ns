@@ -101,7 +101,7 @@ async function dispatchInProcessSubagent(
 		session = await sessionFactory.create({
 			cwd: input.options.cwd ?? input.ctx.cwd,
 			tools: input.options.tools ?? [],
-			thinkingLevel: model.thinkingLevel ?? launch?.thinkingLevel ?? "off",
+			thinkingLevel: launch?.thinkingLevel ?? "off",
 			...optionalEntry("model", model.model),
 			modelRegistry: options.modelRegistry,
 		});
@@ -294,7 +294,7 @@ function cancelledIfAborted(options: CancelledIfAbortedOptions): RunnerSubagentR
 function resolveConcreteModel(
 	launch: SubagentRuntimeDispatchInput["options"]["preResolvedLaunch"],
 	modelRegistry: ModelRegistry,
-): SubagentOutcome<{ model?: Model<Api>; thinkingLevel?: ModelThinkingLevel }> {
+): SubagentOutcome<{ model?: Model<Api> }> {
 	if (launch === undefined) return { ok: true };
 	if (launch.requestedModelSelection !== undefined) {
 		const requested = launch.requestedModelSelection;
@@ -314,7 +314,6 @@ function resolveConcreteModel(
 		return {
 			ok: true,
 			model: resolved.model,
-			...optionalEntry("thinkingLevel", resolved.thinkingLevel),
 		};
 	}
 	const provider = launch.modelSelection?.provider;

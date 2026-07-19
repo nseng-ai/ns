@@ -307,7 +307,6 @@ async function generateCheckpointText(
 		system: CHECKPOINT_SYSTEM_PROMPT,
 		prompt,
 		maxTokens: 512,
-		reasoning: "low",
 		operation: "checkpoint-message",
 	});
 }

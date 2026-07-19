@@ -35,7 +35,7 @@ describe("Pi side-session factory", () => {
 		const result = await factory.create({
 			cwd: "/tmp",
 			systemPrompt: "system",
-			modelSelection: { provider: "missing-provider", modelId: "missing-model" },
+			modelSelection: { provider: "missing-provider", modelId: "missing-model", thinking: "high" },
 			modelRegistry: ModelRegistry.inMemory(AuthStorage.inMemory()),
 			tools: [],
 		});

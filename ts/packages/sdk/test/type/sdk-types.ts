@@ -122,7 +122,7 @@ function acceptsExtensionApi(api: NsExtensionApi): string {
 }
 
 const arbitraryOperationRequest: TextGenerationRequest = {
-	modelSelection: { provider: "example", modelId: "example-model" },
+	modelSelection: { provider: "example", modelId: "example-model", thinking: "minimal" as const },
 	system: "system",
 	prompt: "prompt",
 	operation: "project-specific-operation",

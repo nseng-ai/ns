@@ -639,7 +639,6 @@ const drafted = await ctx.textGenerator.generateText({
   modelSelection,
   system: "You write terse [cp] checkpoint commit messages.",
   prompt,
-  reasoning: "low",
   operation: "checkpoint-message",
 });
 if (!drafted.ok) return failure("draft-failed", drafted.error);
@@ -654,18 +653,16 @@ interface TextGenerationRequest {
   system: string;
   prompt: string;
   maxTokens?: number;
-  reasoning?: "minimal" | "low";
   operation?: string;
 }
 ```
 
 **Fields.**
 
-- `modelSelection` — canonical provider/model identity to generate with.
+- `modelSelection` — canonical provider/model identity and thinking level to generate with.
 - `system` — system prompt.
 - `prompt` — user prompt.
 - `maxTokens?` — optional output cap.
-- `reasoning?` — optional reasoning effort, `"minimal"` or `"low"`.
 - `operation?` — optional operation tag for host-side routing/telemetry. Use any stable string that identifies the generation task.
 
 **Example.** Built and passed to `generateText` in the `TextGenerator` example above.

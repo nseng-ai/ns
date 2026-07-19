@@ -47,7 +47,7 @@ export class PiProcessReviewRunner implements ReviewHarnessRunner {
 		try {
 			result = await this.execApi.exec(
 				binary.value,
-				buildPiReviewArgs(request.modelSelection.modelId),
+				buildPiReviewArgs(request.modelSelection.modelId, request.modelSelection.thinking),
 				execOptions,
 			);
 		} catch (error) {
@@ -77,14 +77,17 @@ export class PiProcessReviewRunner implements ReviewHarnessRunner {
 	}
 }
 
-export function buildPiReviewArgs(modelId: string): string[] {
+export function buildPiReviewArgs(
+	modelId: string,
+	thinking: PreparedReviewHarnessRequest["modelSelection"]["thinking"],
+): string[] {
 	return [
 		"--provider",
 		"vercel-ai-gateway",
 		"--model",
 		modelId,
 		"--thinking",
-		"minimal",
+		thinking,
 		"--system-prompt",
 		systemPromptFindingsJsonText(),
 		"--no-session",

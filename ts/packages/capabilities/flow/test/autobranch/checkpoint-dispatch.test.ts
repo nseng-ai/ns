@@ -55,7 +55,7 @@ function createEnv(snapshot: PendingWorktreeSnapshot) {
 		const exec = async () => commandResult();
 		return {
 			cwd: snapshot.root,
-			modelSelection: { provider: "test", modelId: "model" },
+			modelSelection: { provider: "test", modelId: "model", thinking: "minimal" as const },
 			args: { slug: "---" },
 			exec,
 			git: createAutobranchGitGateway({ cwd: snapshot.root, exec }),
@@ -141,7 +141,7 @@ describe("dispatchAutobranchCheckpoint", () => {
 				loadSnapshot: async () => ({ ok: true, snapshot: dirtySnapshot }),
 				createFlowContext: () => ({
 					cwd: dirtySnapshot.root,
-					modelSelection: { provider: "test", modelId: "model" },
+					modelSelection: { provider: "test", modelId: "model", thinking: "minimal" as const },
 					args: { slug: "demo" },
 					exec,
 					git,

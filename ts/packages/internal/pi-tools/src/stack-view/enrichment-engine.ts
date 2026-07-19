@@ -268,7 +268,6 @@ export function createStackEnrichmentEngine(
 			modelSelection: DEFAULT_FAST_MODEL,
 			systemPrompt: options.prompt.systemPrompt,
 			userText: options.prompt.userText,
-			reasoning: "minimal",
 			maxTokens: options.maxTokens,
 			// The composed task signal is the single deadline authority; do not start
 			// a second, fresh timeout window at the model call.

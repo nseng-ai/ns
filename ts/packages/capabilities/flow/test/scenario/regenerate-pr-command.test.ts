@@ -173,9 +173,12 @@ describe("project-local regenerate-pr extension behavior", () => {
 		);
 		expect(run.context.textGeneratorCalls[0]).toMatchObject({
 			operation: "pr-description",
-			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.6-luna",
+				thinking: "minimal" as const,
+			},
 			maxTokens: 2048,
-			reasoning: "low",
 		});
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("## Context");
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("## Diff");
@@ -356,6 +359,7 @@ describe("project-local regenerate-pr extension behavior", () => {
 		expect(run.context.textGeneratorCalls[0]?.modelSelection).toEqual({
 			provider: "openai-codex",
 			modelId: "gpt-5.6-luna",
+			thinking: "minimal",
 		});
 	});
 

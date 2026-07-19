@@ -42,7 +42,11 @@ describe("checkpoint run context", () => {
 			env: ctx.env,
 			...checkpointRunContext,
 			textGenerator: ctx.textGenerator,
-			modelSelection: { provider: "openai-codex", modelId: "gpt-test" },
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-test",
+				thinking: "minimal" as const,
+			},
 			repoRoot: ctx.cwd,
 			dryRun: true,
 		});

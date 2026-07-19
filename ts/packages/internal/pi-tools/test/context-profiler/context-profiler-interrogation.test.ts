@@ -18,7 +18,7 @@ import {
 	FakeInterrogationSessionFactory,
 } from "./context-profiler-fakes.ts";
 
-const TEST_MODEL_SELECTION = { provider: "p", modelId: "m" };
+const TEST_MODEL_SELECTION = { provider: "p", modelId: "m", thinking: "minimal" as const };
 
 function createTestModelRegistry(): ModelRegistry {
 	return ModelRegistry.inMemory(AuthStorage.inMemory());

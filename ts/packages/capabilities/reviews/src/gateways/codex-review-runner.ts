@@ -52,6 +52,15 @@ export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 		request: PreparedReviewHarnessRequest,
 		options: RunReviewOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
+		if (
+			request.modelSelection.thinking === "off" ||
+			request.modelSelection.thinking === "minimal"
+		) {
+			return resultErr({
+				code: "model-not-supported-by-harness",
+				message: `Codex does not support Reviews thinking level ${JSON.stringify(request.modelSelection.thinking)}. Configure the selected [models.profiles] entry with thinking = "low", "medium", "high", or "xhigh".`,
+			});
+		}
 		const binary = resolveCodexBinary(this.binaryResolver);
 		if (!binary.ok) return binary;
 
@@ -92,7 +101,11 @@ export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 		options: ExecutePreparedOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
 		const { binary, request, runOptions, outputHandle } = options;
-		const args = buildCodexArgs({ modelId: request.modelSelection.modelId, handle: outputHandle });
+		const args = buildCodexArgs({
+			modelId: request.modelSelection.modelId,
+			thinking: request.modelSelection.thinking,
+			handle: outputHandle,
+		});
 		const execOptions: ExecOptions = {
 			cwd: runOptions.cwd,
 			stdin: buildCodexPrompt(request.promptText),
@@ -131,12 +144,15 @@ export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 
 export function buildCodexArgs(options: {
 	readonly modelId: string;
+	readonly thinking: PreparedReviewHarnessRequest["modelSelection"]["thinking"];
 	readonly handle: CodexReviewOutputHandle;
 }): string[] {
 	return [
 		"exec",
 		"--model",
 		options.modelId,
+		"-c",
+		`model_reasoning_effort=${JSON.stringify(options.thinking)}`,
 		"--sandbox",
 		"read-only",
 		"--ephemeral",

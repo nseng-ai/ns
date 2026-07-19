@@ -81,6 +81,10 @@ class FakePi implements ExtensionAPI {
 		this.commands.set(name, command);
 	}
 
+	getThinkingLevel(): "high" {
+		return "high";
+	}
+
 	async setModel(model: ModelInfo): Promise<boolean> {
 		this.setModels.push(model);
 		return this.shouldSetModelSucceed;
@@ -141,19 +145,22 @@ describe("modelShortcutExtension", () => {
 		);
 	});
 
-	test.each(EXPECTED_SHORTCUTS)("switches $command to $selection", async (shortcut) => {
-		const pi = new FakePi();
-		modelShortcutExtension(pi);
-		const model = modelFromShortcut(shortcut);
-		const { ctx, notifications } = createContext({ models: [model] });
+	test.each(EXPECTED_SHORTCUTS)(
+		"switches $command identity while retaining current thinking",
+		async (shortcut) => {
+			const pi = new FakePi();
+			modelShortcutExtension(pi);
+			const model = modelFromShortcut(shortcut);
+			const { ctx, notifications } = createContext({ models: [model] });
 
-		await commandFor(pi, shortcut.command).handler("", ctx);
+			await commandFor(pi, shortcut.command).handler("", ctx);
 
-		expect(pi.setModels).toEqual([model]);
-		expect(notifications).toEqual([
-			{ message: `Switched model to ${modelRef(shortcut)}.`, level: "info" },
-		]);
-	});
+			expect(pi.setModels).toEqual([model]);
+			expect(notifications).toEqual([
+				{ message: `Switched model to ${modelRef(shortcut)}.`, level: "info" },
+			]);
+		},
+	);
 
 	test("notifies when a shortcut model is missing", async () => {
 		const pi = new FakePi();

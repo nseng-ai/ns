@@ -7,7 +7,6 @@ import {
 } from "@nseng-ai/foundation/command";
 import { DEFAULT_FAST_MODEL, type ModelSelection } from "@nseng-ai/foundation/model-slug";
 
-export const RAW_TEXT_MODEL_THINKING = "minimal";
 export const RAW_TEXT_MODEL_TIMEOUT_MS = 60_000;
 
 const MAX_ERROR_CHARS = 4_000;
@@ -216,7 +215,7 @@ export function buildRawTextModelArgs(
 		"--model",
 		model.modelId,
 		"--thinking",
-		RAW_TEXT_MODEL_THINKING,
+		model.thinking,
 		"--no-session",
 		"--no-extensions",
 		"--no-skills",

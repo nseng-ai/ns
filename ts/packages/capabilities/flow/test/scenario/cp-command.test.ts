@@ -96,10 +96,13 @@ describe("project-local cp extension behavior", () => {
 		]);
 		expect(run.context.textGeneratorCalls).toEqual([
 			expect.objectContaining({
-				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.6-luna",
+					thinking: "minimal" as const,
+				},
 				operation: "checkpoint-message",
 				maxTokens: 512,
-				reasoning: "low",
 			}),
 		]);
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
@@ -158,6 +161,7 @@ describe("project-local cp extension behavior", () => {
 		expect(run.context.textGeneratorCalls[0]?.modelSelection).toEqual({
 			provider: "openai-codex",
 			modelId: "gpt-5.6-luna",
+			thinking: "minimal",
 		});
 	});
 

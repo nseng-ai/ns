@@ -67,7 +67,11 @@ describe("PR description helpers", () => {
 					return await pendingModel;
 				},
 			},
-			modelSelection: { provider: "anthropic", modelId: "claude-sonnet-4-5" },
+			modelSelection: {
+				provider: "anthropic",
+				modelId: "claude-sonnet-4-5",
+				thinking: "minimal" as const,
+			},
 			promptText: "Write a PR description.",
 			context: {
 				kind: "github",

@@ -22,6 +22,7 @@ function request(
 		modelSelection: {
 			provider: "vercel-ai-gateway",
 			modelId: "openai/gpt-5.6-luna",
+			thinking: "high",
 		},
 		promptText: "Flag concrete issues.\n\ndiff --git a/src/app.ts b/src/app.ts\n+change\n",
 		inputCoverage: {
@@ -71,14 +72,14 @@ describe("PiProcessReviewRunner", () => {
 		expect(result.ok).toBe(true);
 		const call = harness.execApi.calls()[0];
 		expect(call?.command).toBe("/usr/bin/pi");
-		expect(call?.args).toEqual(buildPiReviewArgs("openai/gpt-5.6-luna"));
+		expect(call?.args).toEqual(buildPiReviewArgs("openai/gpt-5.6-luna", "high"));
 		expect(call?.args).toEqual([
 			"--provider",
 			"vercel-ai-gateway",
 			"--model",
 			"openai/gpt-5.6-luna",
 			"--thinking",
-			"minimal",
+			"high",
 			"--system-prompt",
 			systemPromptFindingsJsonText(),
 			"--no-session",

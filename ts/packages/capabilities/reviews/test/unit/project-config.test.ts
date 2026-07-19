@@ -10,19 +10,28 @@ import {
 describe("parseReviewsProjectConfigToml", () => {
 	test("loads shared model policy and defaults Reviews to fast", () => {
 		const config = expectOk(parseReviewsProjectConfigToml(""));
-		expect(config.modelPolicy.profiles.fast?.modelId).toBe("gpt-5.6-luna");
+		expect(config.modelPolicy.profiles.fast).toMatchObject({
+			modelId: "gpt-5.6-luna",
+			thinking: "minimal",
+		});
 		expect(config.modelPolicy.operations).toEqual({});
 	});
 
 	test("parses Reviews diff and shared model profiles", () => {
 		const config = expectOk(
 			parseReviewsProjectConfigToml(
-				'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles]\ndeep = "anthropic/claude-opus-4-6"\narchitecture = "openai/gpt-5.6-terra"\n',
+				'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles.deep]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "high"\n[models.profiles.architecture]\nmodel = "openai/gpt-5.6-terra"\nthinking = "xhigh"\n',
 			),
 		);
 		expect(config.diff.exclude).toEqual(["generated/**"]);
-		expect(config.modelPolicy.profiles.deep?.modelId).toBe("claude-opus-4-6");
-		expect(config.modelPolicy.profiles.architecture?.modelId).toBe("gpt-5.6-terra");
+		expect(config.modelPolicy.profiles.deep).toMatchObject({
+			modelId: "claude-opus-4-6",
+			thinking: "high",
+		});
+		expect(config.modelPolicy.profiles.architecture).toMatchObject({
+			modelId: "gpt-5.6-terra",
+			thinking: "xhigh",
+		});
 	});
 
 	test.each([

@@ -66,7 +66,6 @@ export interface PiModelConfig {
 	modelSelection: ModelSelection;
 	label: string;
 	authLabel: string;
-	reasoning: "minimal" | "low";
 }
 
 export function selectDraftHarness(): { value: DraftHarness } | { error: string } {
@@ -82,14 +81,13 @@ export function selectDraftHarness(): { value: DraftHarness } | { error: string 
 
 export function resolveCodexDraftModel(modelSelection: ModelSelection): PiModelConfig {
 	const modelRef = formatModelRef(modelSelection);
-	if (parseModelRef(modelRef) === undefined) {
+	if (parseModelRef(modelRef, modelSelection.thinking) === undefined) {
 		throw new Error(`Invalid resolved Pi draft model reference ${JSON.stringify(modelRef)}.`);
 	}
 	return {
 		modelSelection,
 		label: modelRef,
 		authLabel: modelSelection.provider === "openai-codex" ? "Codex" : modelSelection.provider,
-		reasoning: "minimal",
 	};
 }
 
@@ -123,7 +121,6 @@ async function draftWithPiModel(
 			systemPrompt: input.systemPrompt,
 			userText: input.userPrompt,
 			maxTokens: input.maxTokens ?? DEFAULT_MAX_TOKENS,
-			reasoning: config.reasoning,
 			timeoutMs: 120_000,
 		}),
 	);
@@ -142,6 +139,8 @@ function piModelDraftError(
 	taskNoun: string,
 ): string {
 	switch (result.reason) {
+		case "unsupported-thinking":
+			return `${config.label} cannot draft a ${taskNoun}: ${result.message ?? "unsupported thinking level"}`;
 		case "model-unavailable":
 			return `Could not find Pi model ${formatModelRef(config.modelSelection)}.`;
 		case "auth":

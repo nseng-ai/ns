@@ -1,11 +1,20 @@
-export interface ModelSelection {
-	readonly provider: string;
-	readonly modelId: string;
-}
+import { z } from "zod";
+
+export const MODEL_THINKING_VALUES = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
+export const modelThinkingSchema = z.enum(MODEL_THINKING_VALUES);
+export type ModelThinking = z.infer<typeof modelThinkingSchema>;
+
+export const modelSelectionSchema = z.strictObject({
+	provider: z.string().min(1),
+	modelId: z.string().min(1),
+	thinking: modelThinkingSchema,
+});
+export type ModelSelection = z.infer<typeof modelSelectionSchema>;
 
 export const DEFAULT_FAST_MODEL: ModelSelection = {
 	provider: "openai-codex",
 	modelId: "gpt-5.6-luna",
+	thinking: "minimal",
 };
 export const DEFAULT_FAST_MODEL_REF = formatModelRef(DEFAULT_FAST_MODEL);
 
@@ -37,7 +46,10 @@ const MODEL_PROVIDER_FAMILIES = [
 const ANTHROPIC_MODEL_SHORTHANDS = ["sonnet", "opus", "haiku", "fable"] as const;
 const CLAUDE_CODE_MODEL_SHORTHANDS = ["sonnet", "opus", "haiku"] as const;
 
-export function parseModelRef(modelRef: string): ModelSelection | undefined {
+export function parseModelRef(
+	modelRef: string,
+	thinking: ModelThinking,
+): ModelSelection | undefined {
 	const separator = modelRef.indexOf("/");
 	if (separator <= 0 || separator === modelRef.length - 1) {
 		return undefined;
@@ -45,6 +57,7 @@ export function parseModelRef(modelRef: string): ModelSelection | undefined {
 	return {
 		provider: modelRef.slice(0, separator),
 		modelId: modelRef.slice(separator + 1),
+		thinking,
 	};
 }
 
@@ -62,7 +75,7 @@ export function inferModelProviderFamily(
 	const trimmed = modelPatternOrRef.trim();
 	if (trimmed === "") return undefined;
 
-	const parsedRef = parseModelRef(trimmed);
+	const parsedRef = parseModelRef(trimmed, "minimal");
 	if (parsedRef !== undefined) {
 		return inferProviderFamily(parsedRef.provider) ?? inferModelIdProviderFamily(parsedRef.modelId);
 	}

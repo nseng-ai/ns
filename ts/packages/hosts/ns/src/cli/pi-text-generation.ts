@@ -14,7 +14,6 @@ import type {
 } from "@nseng-ai/sdk";
 
 const DEFAULT_MAX_TOKENS = 512;
-const DEFAULT_REASONING = "low";
 const DEFAULT_TIMEOUT_MS = 120_000;
 
 type CompleteSimpleFunction = typeof completeSimple;
@@ -53,6 +52,12 @@ export class PiTextGenerator implements TextGenerator {
 
 	async generateText(request: TextGenerationRequest): Promise<TextGenerationResult> {
 		const modelRef = formatModelRef(request.modelSelection);
+		if (request.modelSelection.thinking === "off") {
+			return {
+				ok: false,
+				error: `Pi simple text generation does not support thinking level "off" for ${modelRef}.`,
+			};
+		}
 		const modelRegistry = this.modelRegistry ?? (await this.loadDefaultModelRegistry());
 		const model = modelRegistry.find(
 			request.modelSelection.provider,
@@ -93,7 +98,7 @@ export class PiTextGenerator implements TextGenerator {
 					apiKey: auth.apiKey,
 					sessionId: requestSessionId,
 					maxTokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
-					reasoning: request.reasoning ?? DEFAULT_REASONING,
+					reasoning: request.modelSelection.thinking,
 					timeoutMs: DEFAULT_TIMEOUT_MS,
 				},
 			);
