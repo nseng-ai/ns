@@ -93,7 +93,11 @@ describe("in-process subagent runtime", () => {
 				returnMode: "final-text",
 				tools: READ_ONLY_SUBAGENT_TOOLS,
 				preResolvedLaunch: {
-					modelSelection: { provider: "anthropic", modelId: "claude-sonnet-4-5" },
+					modelSelection: {
+						provider: "anthropic",
+						modelId: "claude-sonnet-4-5",
+						thinking: "minimal",
+					},
 					thinkingLevel: "high",
 					hasModelArg: true,
 					hasThinkingArg: true,
@@ -274,7 +278,7 @@ describe("in-process subagent runtime", () => {
 		expect(factory.createInputs).toHaveLength(0);
 	});
 
-	test("uses thinking parsed from an explicit CLI model pattern", async () => {
+	test("uses selection-owned thinking for an explicit CLI model pattern", async () => {
 		const factory = new FakeInProcessFactory();
 		const modelRegistry = ModelRegistry.inMemory(AuthStorage.inMemory());
 		const runtime = createInProcessSubagentRuntime({ sessionFactory: factory, modelRegistry });
@@ -287,17 +291,21 @@ describe("in-process subagent runtime", () => {
 				returnMode: "final-text",
 				tools: READ_ONLY_SUBAGENT_TOOLS,
 				preResolvedLaunch: {
-					requestedModelSelection: { provider: "anthropic", modelId: "claude-sonnet-4-5:high" },
-					thinkingLevel: "off",
+					requestedModelSelection: {
+						provider: "anthropic",
+						modelId: "claude-sonnet-4-5:high",
+						thinking: "minimal",
+					},
+					thinkingLevel: "minimal",
 					hasModelArg: true,
-					hasThinkingArg: false,
+					hasThinkingArg: true,
 				},
 			},
 		});
 
 		expect(factory.createInputs[0]).toMatchObject({
 			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
-			thinkingLevel: "high",
+			thinkingLevel: "minimal",
 		});
 	});
 });

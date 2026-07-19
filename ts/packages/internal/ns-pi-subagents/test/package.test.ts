@@ -386,6 +386,7 @@ describe("ns-pi-subagents package", () => {
 		expect(calls[0]?.options.modelSelection).toEqual({
 			provider: "anthropic",
 			modelId: "claude-haiku-4-5",
+			thinking: "off",
 		});
 		expect(calls[0]?.options.prompt).toContain("Consumer assignment: Map the consumer seam.");
 		expect(calls[0]?.options.prompt).toContain("## Auto-curated context");
@@ -436,6 +437,7 @@ describe("ns-pi-subagents package", () => {
 			expect(call.options.modelSelection).toEqual({
 				provider: "anthropic",
 				modelId: "claude-haiku-4-5",
+				thinking: "off",
 			});
 		}
 	});

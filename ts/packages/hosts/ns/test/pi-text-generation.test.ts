@@ -55,7 +55,11 @@ function makeResponse(options: { stopReason?: "stop" | "error" } = {}): Assistan
 
 function request() {
 	return {
-		modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+		modelSelection: {
+			provider: "openai-codex",
+			modelId: "gpt-5.6-luna",
+			thinking: "minimal" as const,
+		},
 		operation: "test",
 		system: "system",
 		prompt: "prompt",
@@ -81,6 +85,25 @@ describe("private PiTextGenerator", () => {
 		expect(observedOptions?.sessionId).toMatch(
 			/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
 		);
+		expect(observedOptions?.reasoning).toBe("minimal");
+	});
+
+	test("rejects unsupported off thinking before model lookup", async () => {
+		const generator = new PiTextGenerator({
+			modelRegistry: makeRegistry(),
+			completeSimple: async () => makeResponse(),
+		});
+
+		await expect(
+			generator.generateText({
+				...request(),
+				modelSelection: { ...request().modelSelection, thinking: "off" },
+			}),
+		).resolves.toEqual({
+			ok: false,
+			error:
+				'Pi simple text generation does not support thinking level "off" for openai-codex/gpt-5.6-luna.',
+		});
 	});
 
 	test.each([

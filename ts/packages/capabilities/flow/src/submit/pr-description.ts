@@ -421,7 +421,6 @@ async function generatePrDescriptionText(
 		system,
 		prompt,
 		maxTokens: 2048,
-		reasoning: "low",
 		operation: "pr-description",
 	});
 }

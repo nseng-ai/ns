@@ -28,31 +28,48 @@ describe("resolveExplorerLaunchPlan", () => {
 		expect(DEFAULT_CHEAP_MODEL_SELECTION).toEqual({
 			provider: ANTHROPIC_PROVIDER_ID,
 			modelId: CHEAP_MODEL_IDS.anthropic,
+			thinking: "minimal",
 		});
 	});
 
 	test.each([
 		{
-			parentModelSelection: { provider: "anthropic", modelId: "claude-opus-4-1" },
+			parentModelSelection: {
+				provider: "anthropic",
+				modelId: "claude-opus-4-1",
+				thinking: "minimal",
+			},
 			expectedModelSelection: "anthropic/claude-haiku-4-5",
 		},
 		{
-			parentModelSelection: { provider: "openai", modelId: "gpt-5.6-sol" },
+			parentModelSelection: { provider: "openai", modelId: "gpt-5.6-sol", thinking: "minimal" },
 			expectedModelSelection: "openai/gpt-5.6-luna",
 		},
 		{
-			parentModelSelection: { provider: "openai-codex", modelId: "gpt-5.6-sol" },
+			parentModelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.6-sol",
+				thinking: "minimal",
+			},
 			expectedModelSelection: "openai-codex/gpt-5.6-luna",
 		},
 		{
-			parentModelSelection: { provider: "google", modelId: "gemini-3.1-pro-preview" },
+			parentModelSelection: {
+				provider: "google",
+				modelId: "gemini-3.1-pro-preview",
+				thinking: "minimal",
+			},
 			expectedModelSelection: "google/gemini-3.5-flash",
 		},
 		{
-			parentModelSelection: { provider: "gemini", modelId: "gemini-3.1-pro-preview" },
+			parentModelSelection: {
+				provider: "gemini",
+				modelId: "gemini-3.1-pro-preview",
+				thinking: "minimal",
+			},
 			expectedModelSelection: "gemini/gemini-3.5-flash",
 		},
-	])(
+	] as const)(
 		"uses $expectedModelSelection for parent $parentModelSelection.provider",
 		({ parentModelSelection, expectedModelSelection }) => {
 			const auth = recordingAuthProbe(true);
@@ -62,7 +79,10 @@ describe("resolveExplorerLaunchPlan", () => {
 			});
 
 			const [provider, modelId] = expectedModelSelection.split("/");
-			expect(plan).toEqual({ kind: "cheap", modelSelection: { provider, modelId } });
+			expect(plan).toEqual({
+				kind: "cheap",
+				modelSelection: { provider, modelId, thinking: "minimal" as const },
+			});
 			expect(auth.probedProviders).toEqual([]);
 		},
 	);
@@ -70,7 +90,7 @@ describe("resolveExplorerLaunchPlan", () => {
 	test("inherits from an unrecognized parent provider instead of switching providers", () => {
 		const auth = recordingAuthProbe(true);
 		const plan = resolveExplorerLaunchPlan({
-			parentModelSelection: { provider: "acme", modelId: "acme-pro" },
+			parentModelSelection: { provider: "acme", modelId: "acme-pro", thinking: "minimal" },
 			isProviderAuthConfigured: auth.isProviderAuthConfigured,
 		});
 
@@ -108,15 +128,18 @@ describe("resolveSameProviderCheapModel", () => {
 		["gemini", "gemini/gemini-3.5-flash"],
 	])("retains concrete provider %s", (provider, expected) => {
 		const [expectedProvider, modelId] = expected.split("/");
-		expect(resolveSameProviderCheapModel({ provider, modelId: "parent-model" })).toEqual({
+		expect(
+			resolveSameProviderCheapModel({ provider, modelId: "parent-model", thinking: "high" }),
+		).toEqual({
 			provider: expectedProvider,
 			modelId,
+			thinking: "high",
 		});
 	});
 
 	test("inherits for an unknown or absent parent", () => {
 		expect(
-			resolveSameProviderCheapModel({ provider: "acme", modelId: "acme-pro" }),
+			resolveSameProviderCheapModel({ provider: "acme", modelId: "acme-pro", thinking: "minimal" }),
 		).toBeUndefined();
 		expect(resolveSameProviderCheapModel(undefined)).toBeUndefined();
 	});
@@ -127,7 +150,7 @@ describe("resolveDescriptorModel", () => {
 		const auth = recordingAuthProbe(true);
 		const modelSelection = resolveDescriptorModel({
 			policy: "inherit",
-			parentModelSelection: { provider: "openai-codex", modelId: "gpt-5" },
+			parentModelSelection: { provider: "openai-codex", modelId: "gpt-5", thinking: "minimal" },
 			isProviderAuthConfigured: auth.isProviderAuthConfigured,
 		});
 
@@ -139,13 +162,18 @@ describe("resolveDescriptorModel", () => {
 		const auth = recordingAuthProbe(false);
 		const modelSelection = resolveDescriptorModel({
 			policy: "cheap-or-inherit",
-			parentModelSelection: { provider: "anthropic", modelId: "claude-opus-4-1" },
+			parentModelSelection: {
+				provider: "anthropic",
+				modelId: "claude-opus-4-1",
+				thinking: "minimal",
+			},
 			isProviderAuthConfigured: auth.isProviderAuthConfigured,
 		});
 
 		expect(modelSelection).toEqual({
 			provider: "anthropic",
 			modelId: "claude-haiku-4-5",
+			thinking: "minimal",
 		});
 	});
 
@@ -153,7 +181,7 @@ describe("resolveDescriptorModel", () => {
 		const auth = recordingAuthProbe(true);
 		const modelSelection = resolveDescriptorModel({
 			policy: "cheap-or-inherit",
-			parentModelSelection: { provider: "acme", modelId: "acme-pro" },
+			parentModelSelection: { provider: "acme", modelId: "acme-pro", thinking: "minimal" },
 			isProviderAuthConfigured: auth.isProviderAuthConfigured,
 		});
 

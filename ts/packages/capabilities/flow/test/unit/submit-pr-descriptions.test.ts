@@ -111,7 +111,11 @@ describe("generateSubmitPrDescriptions", () => {
 				textGenerator: unusedTextGenerator,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 				descriptorSource: flowExtensionDescriptorSource,
-				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.6-luna",
+					thinking: "minimal" as const,
+				},
 				env: {},
 			},
 			progress: {
@@ -149,7 +153,11 @@ describe("generateSubmitPrDescriptions", () => {
 				textGenerator: unusedTextGenerator,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 				descriptorSource: flowExtensionDescriptorSource,
-				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.6-luna",
+					thinking: "minimal" as const,
+				},
 				env: {},
 			},
 			progress: {
@@ -177,7 +185,11 @@ describe("generateSubmitPrDescriptions", () => {
 				textGenerator,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 				descriptorSource: flowExtensionDescriptorSource,
-				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.6-luna",
+					thinking: "minimal" as const,
+				},
 				env: {},
 			},
 			progress: {
@@ -219,7 +231,11 @@ describe("generateSubmitPrDescriptions", () => {
 					textGenerator: throwingGenerator,
 					git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 					descriptorSource: flowExtensionDescriptorSource,
-					modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+					modelSelection: {
+						provider: "openai-codex",
+						modelId: "gpt-5.6-luna",
+						thinking: "minimal" as const,
+					},
 					env: {},
 				},
 				progress: {

@@ -45,7 +45,7 @@ export default function thermoCouncilExtension(
 		argumentHint: "[review guidance]",
 		handler: async (args, ctx) => {
 			await ctx.waitForIdle?.();
-			await runThermoCouncilCommand(pi, ctx, args, {
+			await runThermoCouncilCommand(pi, { ...ctx, thinking: pi.getThinkingLevel() }, args, {
 				fleetRegistry,
 				...(options.runtime === undefined ? {} : { runtime: options.runtime }),
 			});

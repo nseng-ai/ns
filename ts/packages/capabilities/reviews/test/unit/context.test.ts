@@ -213,7 +213,7 @@ describe("createReviewsRuntime", () => {
 		await ctx.reviewCatalog.loadReviewSource({ ...catalogRunOptions, key: "typescript-style" });
 		await ctx.reviewRunner.runReview(
 			{
-				modelSelection: { provider: "anthropic", modelId: "claude-sonnet-4-6" },
+				modelSelection: { provider: "anthropic", modelId: "claude-sonnet-4-6", thinking: "high" },
 				reviewDefinition: sampleReviewDefinition,
 				reviewDir: "/repo/.ns/reviews/typescript-style",
 				target: { localDiff: sampleDiff },

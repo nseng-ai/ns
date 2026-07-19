@@ -1,3 +1,4 @@
+import type { ModelThinking } from "@nseng-ai/foundation/model-slug";
 import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
 import { resultErr } from "@nseng-ai/foundation/result";
 import { z } from "zod";
@@ -13,6 +14,7 @@ const TRUNCATED_MODEL_RESPONSE_CHARS = 500;
 
 export function buildClaudeCodeArgs(options: {
 	readonly model: string;
+	readonly thinking: ModelThinking;
 	readonly systemPrompt: string;
 }): string[] {
 	return [
@@ -24,6 +26,8 @@ export function buildClaudeCodeArgs(options: {
 		"Bash,Read",
 		"--model",
 		options.model,
+		"--effort",
+		options.thinking,
 		"--system-prompt",
 		options.systemPrompt,
 		"--json-schema",

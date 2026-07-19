@@ -43,10 +43,17 @@ Applicability patterns must be globs, not git pathspecs; keep them repo-relative
 Reviews resolves `model_profile` and `--model-profile` directly as aliases in the shared `[models.profiles]` repository policy. Any configured alias is valid; omitted `model_profile` uses `fast`:
 
 ```toml
-[models.profiles]
-fast = "vercel-ai-gateway/openai/gpt-5.6-luna"
-deep = "vercel-ai-gateway/openai/gpt-5.6-terra"
-architecture = "anthropic/claude-opus-4-6"
+[models.profiles.fast]
+model = "vercel-ai-gateway/openai/gpt-5.6-luna"
+thinking = "low"
+
+[models.profiles.deep]
+model = "vercel-ai-gateway/openai/gpt-5.6-terra"
+thinking = "high"
+
+[models.profiles.architecture]
+model = "anthropic/claude-opus-4-6"
+thinking = "xhigh"
 ```
 
 Use `--model-profile architecture` to select an alias for one run. Use `--model provider/model-id` only when overriding the configured model reference directly.
@@ -57,7 +64,9 @@ Provider routing is explicit:
 - `openai/<model-id>` and `openai-codex/<model-id>` run the local Codex CLI.
 - `vercel-ai-gateway/<model-id>` runs the local Pi CLI through Vercel AI Gateway.
 
-Bare aliases and other providers are rejected; Reviews never infers a provider from a model ID or falls back to another harness. Reviews carries the selected provider and model ID as structured model selection data through review preparation and routing. It formats a qualified reference only for progress, results, Review logs, and other display output; each terminal adapter passes only the model ID to its CLI.
+Bare aliases and other providers are rejected; Reviews never infers a provider from a model ID or falls back to another harness. Reviews carries the selected provider, model ID, and profile `thinking` level through review preparation and routing. A one-run `--model` identity override retains the selected profile's `thinking` level. It formats a qualified reference only for progress, results, Review logs, and other display output; each terminal adapter passes the model ID and mapped thinking setting to its CLI.
+
+Pi receives the profile level through `--thinking`. Claude Code 2.1.211 receives `low`, `medium`, `high`, or `xhigh` through `--effort`. Codex 0.144.5 receives those same values through `-c model_reasoning_effort=...`. Claude Code and Codex reject `off` and `minimal` actionably because those terminal settings do not support the shared levels.
 
 Local runs require the selected CLI and its authentication (`AI_GATEWAY_API_KEY` for Pi through Vercel AI Gateway, `ANTHROPIC_API_KEY` for Claude Code, or `OPENAI_API_KEY` for Codex).
 

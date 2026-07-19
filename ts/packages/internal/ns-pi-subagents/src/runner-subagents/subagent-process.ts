@@ -576,25 +576,22 @@ export function resolveRunnerSubagentLaunch(
 	const inheritedModelSelection = options.launch?.modelSelection ?? ctx.modelSelection;
 	const modelSelection =
 		requestedModelSelection === undefined ? inheritedModelSelection : undefined;
-	const hasExplicitThinking = options.launch?.thinkingLevel !== undefined;
-	const hasInheritedThinkingSource =
-		requestedModelSelection === undefined && pi.getThinkingLevel !== undefined;
-	const hasThinkingSource = hasExplicitThinking || hasInheritedThinkingSource;
-	if (requestedModelSelection === undefined && modelSelection === undefined && !hasThinkingSource) {
-		return undefined;
+	const concreteSelection = requestedModelSelection ?? modelSelection;
+	if (concreteSelection !== undefined) {
+		return {
+			...(modelSelection === undefined ? {} : { modelSelection }),
+			...(requestedModelSelection === undefined ? {} : { requestedModelSelection }),
+			thinkingLevel: concreteSelection.thinking,
+			hasModelArg: true,
+			hasThinkingArg: true,
+		};
 	}
-	const thinkingLevel =
-		options.launch?.thinkingLevel ??
-		(requestedModelSelection === undefined ? pi.getThinkingLevel?.() : undefined) ??
-		"off";
-	const hasThinkingArg =
-		hasExplicitThinking || (thinkingLevel !== "off" && requestedModelSelection === undefined);
+	const thinkingLevel = options.launch?.thinkingLevel ?? pi.getThinkingLevel?.();
+	if (thinkingLevel === undefined) return undefined;
 	return {
-		...(modelSelection === undefined ? {} : { modelSelection }),
-		...(requestedModelSelection === undefined ? {} : { requestedModelSelection }),
 		thinkingLevel,
-		hasModelArg: requestedModelSelection !== undefined || modelSelection !== undefined,
-		hasThinkingArg,
+		hasModelArg: false,
+		hasThinkingArg: options.launch?.thinkingLevel !== undefined || thinkingLevel !== "off",
 	};
 }
 

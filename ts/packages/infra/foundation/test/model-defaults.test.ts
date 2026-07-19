@@ -7,27 +7,47 @@ import {
 	inferModelProviderFamily,
 	isClaudeCodeSupportedModelPattern,
 	modelIdFromModelPattern,
+	modelSelectionSchema,
+	modelThinkingSchema,
 	parseModelRef,
 	providerMatchesModelProviderFamily,
 } from "../src/primitives/model-slug.ts";
 
+describe("model selection schemas", () => {
+	test("accepts the complete thinking vocabulary", () => {
+		expect(
+			["off", "minimal", "low", "medium", "high", "xhigh"].map((value) =>
+				modelThinkingSchema.parse(value),
+			),
+		).toEqual(["off", "minimal", "low", "medium", "high", "xhigh"]);
+	});
+
+	test("requires thinking on model selections", () => {
+		expect(
+			modelSelectionSchema.safeParse({ provider: "openai-codex", modelId: "gpt-5.6-luna" }).success,
+		).toBe(false);
+	});
+});
+
 describe("parseModelRef", () => {
-	test("splits provider and modelId on the first slash", () => {
-		expect(parseModelRef("openai-codex/gpt-5.4-mini")).toEqual({
+	test("splits provider and modelId on the first slash with explicit thinking", () => {
+		expect(parseModelRef("openai-codex/gpt-5.4-mini", "low")).toEqual({
 			provider: "openai-codex",
 			modelId: "gpt-5.4-mini",
+			thinking: "low",
 		});
 	});
 
 	test("keeps later slashes inside the modelId", () => {
-		expect(parseModelRef("bedrock/anthropic/claude")).toEqual({
+		expect(parseModelRef("bedrock/anthropic/claude", "high")).toEqual({
 			provider: "bedrock",
 			modelId: "anthropic/claude",
+			thinking: "high",
 		});
 	});
 
 	test("formats selections and round trips qualified references", () => {
-		const selection = parseModelRef("bedrock/anthropic/claude");
+		const selection = parseModelRef("bedrock/anthropic/claude", "minimal");
 		expect(selection).toBeDefined();
 		if (selection !== undefined) {
 			expect(formatModelRef(selection)).toBe("bedrock/anthropic/claude");
@@ -36,13 +56,14 @@ describe("parseModelRef", () => {
 
 	test("derives the default reference from the default selection", () => {
 		expect(DEFAULT_FAST_MODEL_REF).toBe(formatModelRef(DEFAULT_FAST_MODEL));
+		expect(DEFAULT_FAST_MODEL.thinking).toBe("minimal");
 	});
 
 	test("rejects refs without a separator or with edge separators", () => {
-		expect(parseModelRef("gpt-5.4-mini")).toBeUndefined();
-		expect(parseModelRef("/gpt-5.4-mini")).toBeUndefined();
-		expect(parseModelRef("openai-codex/")).toBeUndefined();
-		expect(parseModelRef("")).toBeUndefined();
+		expect(parseModelRef("gpt-5.4-mini", "minimal")).toBeUndefined();
+		expect(parseModelRef("/gpt-5.4-mini", "minimal")).toBeUndefined();
+		expect(parseModelRef("openai-codex/", "minimal")).toBeUndefined();
+		expect(parseModelRef("", "minimal")).toBeUndefined();
 	});
 });
 

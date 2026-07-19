@@ -11,7 +11,7 @@ import { InMemoryCodexReviewOutputFiles } from "../../src/gateways/codex-review-
 
 function request(): PreparedReviewHarnessRequest {
 	return {
-		modelSelection: { provider: "openai", modelId: "gpt-5.6-luna" },
+		modelSelection: { provider: "openai", modelId: "gpt-5.6-luna", thinking: "high" },
 		promptText: "Flag concrete issues.\n\ndiff --git a/src/app.ts b/src/app.ts\n+change\n",
 		inputCoverage: {
 			fullDiffEstimatedTokens: 10,
@@ -50,6 +50,8 @@ describe("CodexProcessReviewRunner", () => {
 			"exec",
 			"--model",
 			"gpt-5.6-luna",
+			"-c",
+			'model_reasoning_effort="high"',
 			"--sandbox",
 			"read-only",
 			"--ephemeral",
@@ -69,6 +71,32 @@ describe("CodexProcessReviewRunner", () => {
 		expect(outputFiles.preparedSchema()).not.toHaveProperty("$schema");
 		expect(outputFiles.isCleaned()).toBe(true);
 	});
+
+	test.each(["off", "minimal"] as const)(
+		"rejects unsupported thinking %s actionably before preparing or spawning",
+		async (thinking) => {
+			const execApi = new ScriptedCommandExecApi([exitedResult()]);
+			const outputFiles = new InMemoryCodexReviewOutputFiles();
+			const runner = new CodexProcessReviewRunner({
+				execApi,
+				outputFiles,
+				binaryResolver: () => "/usr/bin/codex",
+			});
+			const harnessRequest = request();
+			harnessRequest.modelSelection.thinking = thinking;
+
+			const result = await runner.runReview(harnessRequest, { cwd: "/repo" });
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.error.code).toBe("model-not-supported-by-harness");
+				expect(result.error.message).toContain(`thinking level ${JSON.stringify(thinking)}`);
+				expect(result.error.message).toContain('thinking = "low", "medium", "high", or "xhigh"');
+			}
+			expect(outputFiles.preparedSchema()).toBeNull();
+			expect(execApi.calls()).toEqual([]);
+		},
+	);
 
 	test("cleans up after process failure and preserves stderr diagnostics", async () => {
 		const execApi = new ScriptedCommandExecApi([exitedResult({ code: 2, stderr: "codex failed" })]);

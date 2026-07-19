@@ -62,6 +62,9 @@ type SessionStartHandler = ExtensionHandler<SessionStartEvent>;
 type SessionShutdownHandler = ExtensionHandler<SessionShutdownEvent>;
 
 class FakePi implements ThermoCouncilExtensionAPI {
+	getThinkingLevel(): "minimal" {
+		return "minimal";
+	}
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly messages: Array<{ customType: string; content: string; display: boolean }> = [];
 	readonly execCalls: ExecCall[] = [];
@@ -201,7 +204,7 @@ function baseScope(overrides: Partial<ThermoCouncilScope> = {}): ThermoCouncilSc
 }
 
 function seat(id: ThermoCouncilSeatConfig["id"], label: string): ThermoCouncilSeatConfig {
-	return { id, label, modelSelection: { provider: id, modelId: "model" } };
+	return { id, label, modelSelection: { provider: id, modelId: "model", thinking: "minimal" } };
 }
 
 type CompletedOutcome = Extract<ThermoCouncilReviewerOutcome, { readonly type: "completed" }>;
@@ -318,35 +321,47 @@ describe("thermo council extension", () => {
 			expect.objectContaining({
 				id: "anthropic-fable",
 				label: "Fable",
-				modelSelection: { provider: "vercel-ai-gateway", modelId: "anthropic/claude-fable-5" },
+				modelSelection: {
+					provider: "vercel-ai-gateway",
+					modelId: "anthropic/claude-fable-5",
+					thinking: "minimal",
+				},
 			}),
 		);
 		expect(defaultSeats[1]).toEqual(
 			expect.objectContaining({
 				id: "openai-high",
 				label: "Sol",
-				modelSelection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol" },
+				modelSelection: {
+					provider: "vercel-ai-gateway",
+					modelId: "openai/gpt-5.6-sol",
+					thinking: "minimal",
+				},
 			}),
 		);
 		expect(defaultSeats[2]).toEqual(
 			expect.objectContaining({
 				id: "gemini-high",
 				label: "Gemini",
-				modelSelection: { provider: "vercel-ai-gateway", modelId: "google/gemini-2.5-pro" },
+				modelSelection: {
+					provider: "vercel-ai-gateway",
+					modelId: "google/gemini-2.5-pro",
+					thinking: "minimal",
+				},
 			}),
 		);
 		expect(seats).toEqual([
 			expect.objectContaining({
 				id: "anthropic-fable",
-				modelSelection: { provider: "anthropic", modelId: "custom-fable" },
+				modelSelection: { provider: "anthropic", modelId: "custom-fable", thinking: "minimal" },
 			}),
 			expect.objectContaining({
 				id: "openai-high",
-				modelSelection: { provider: "openai", modelId: "seat-specific" },
+				modelSelection: { provider: "openai", modelId: "seat-specific", thinking: "minimal" },
 			}),
 			expect.objectContaining({
 				id: "gemini-high",
-				modelSelection: { provider: "google", modelId: "custom-gemini" },
+				modelSelection: { provider: "google", modelId: "custom-gemini", thinking: "minimal" },
 			}),
 		]);
 	});
@@ -514,7 +529,7 @@ describe("thermo council extension", () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "thermo-policy-"));
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[models.profiles]\nslow = "acme/synthesis"\n[models.operations]\n"thermo-council.synthesis" = "slow"\n',
+			'[models.profiles.slow]\nmodel = "acme/synthesis"\nthinking = "minimal"\n[models.operations]\n"thermo-council.synthesis" = "slow"\n',
 		);
 		const configuredExecResults = successfulScopeExecResults();
 		configuredExecResults.set("git rev-parse --show-toplevel", { stdout: `${repoRoot}\n` });

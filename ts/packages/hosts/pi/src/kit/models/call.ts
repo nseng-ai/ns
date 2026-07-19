@@ -17,6 +17,7 @@ export interface PiModelRegistryLike {
 export type CompleteSimpleFunction = typeof completeSimple;
 
 export type PiModelCallFailureReason =
+	| "unsupported-thinking"
 	| "model-unavailable"
 	| "auth"
 	| "empty-auth"
@@ -33,13 +34,19 @@ export interface CallPiModelTextOptions {
 	systemPrompt: string;
 	userText: string;
 	maxTokens: number;
-	reasoning: "minimal" | "low";
 	signal?: AbortSignal;
 	timeoutMs?: number;
 	completeFn?: CompleteSimpleFunction;
 }
 
 export async function callPiModelText(options: CallPiModelTextOptions): Promise<PiModelTextResult> {
+	if (options.modelSelection.thinking === "off") {
+		return {
+			ok: false,
+			reason: "unsupported-thinking",
+			message: 'Pi completeSimple does not support thinking level "off".',
+		};
+	}
 	const model = options.registry.find(
 		options.modelSelection.provider,
 		options.modelSelection.modelId,
@@ -71,7 +78,7 @@ export async function callPiModelText(options: CallPiModelTextOptions): Promise<
 				...(auth.headers === undefined ? {} : { headers: auth.headers }),
 				...(options.signal === undefined ? {} : { signal: options.signal }),
 				maxTokens: options.maxTokens,
-				reasoning: options.reasoning,
+				reasoning: options.modelSelection.thinking,
 				...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
 			},
 		);

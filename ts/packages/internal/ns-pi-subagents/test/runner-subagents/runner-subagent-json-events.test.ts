@@ -44,7 +44,11 @@ describe("runner subagent JSON event parser", () => {
 	test("updates launch metadata from child model and thinking events", () => {
 		const parser = createRunnerSubagentJsonEventParser({
 			launch: {
-				requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
+				requestedModelSelection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.4-mini:medium",
+					thinking: "minimal",
+				},
 				thinkingLevel: "off",
 				hasModelArg: true,
 				hasThinkingArg: false,
@@ -57,8 +61,16 @@ describe("runner subagent JSON event parser", () => {
 		parser.pushChunk(jsonLine({ type: "thinking_level_change", thinkingLevel: "medium" }));
 
 		expect(parser.getSnapshot().progress.launch).toEqual({
-			requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
-			modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
+			requestedModelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.4-mini:medium",
+				thinking: "minimal",
+			},
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.4-mini",
+				thinking: "medium",
+			},
 			thinkingLevel: "off",
 			observedThinkingLevel: "medium",
 			hasModelArg: true,
@@ -69,7 +81,11 @@ describe("runner subagent JSON event parser", () => {
 	test("hydrates launch metadata from a child session JSONL snapshot", () => {
 		const parser = createRunnerSubagentJsonEventParser({
 			launch: {
-				requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
+				requestedModelSelection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.4-mini:medium",
+					thinking: "minimal",
+				},
 				thinkingLevel: "off",
 				hasModelArg: true,
 				hasThinkingArg: false,
@@ -89,8 +105,16 @@ describe("runner subagent JSON event parser", () => {
 		expect(changed).toBe(true);
 		expect(parser.getSnapshot().error).toBeUndefined();
 		expect(parser.getSnapshot().progress.launch).toEqual({
-			requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
-			modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
+			requestedModelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.4-mini:medium",
+				thinking: "minimal",
+			},
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.4-mini",
+				thinking: "high",
+			},
 			thinkingLevel: "off",
 			observedThinkingLevel: "high",
 			hasModelArg: true,
@@ -111,6 +135,7 @@ describe("runner subagent JSON event parser", () => {
 		expect(parser.getSnapshot().progress.launch?.modelSelection).toEqual({
 			provider: "openai codex",
 			modelId: "x".repeat(160),
+			thinking: "off",
 		});
 	});
 

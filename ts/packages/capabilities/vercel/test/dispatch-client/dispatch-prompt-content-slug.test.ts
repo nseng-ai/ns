@@ -37,7 +37,11 @@ class FakeContentSlugExec {
 }
 
 const PROMPT = "Add lorem ipsum to the first TypeScript file.";
-const MODEL_SELECTION = { provider: "openai-codex", modelId: "gpt-5.6-luna" };
+const MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 
 describe("dispatch content slug", () => {
 	test("derives, normalizes, word-bounds, and length-bounds semantic prompt slugs", async () => {

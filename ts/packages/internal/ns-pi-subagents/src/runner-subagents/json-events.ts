@@ -308,16 +308,30 @@ export class RunnerSubagentJsonEventParser {
 		const provider = sanitizeLaunchMetadataText(event.provider);
 		const modelId = sanitizeLaunchMetadataText(event.modelId);
 		if (provider === undefined || modelId === undefined) return;
+		const current = this.currentLaunchMetadata();
 		this.launch = {
-			...this.currentLaunchMetadata(),
-			modelSelection: { provider, modelId },
+			...current,
+			modelSelection: {
+				provider,
+				modelId,
+				thinking: current.observedThinkingLevel ?? current.thinkingLevel,
+			},
 		};
 	}
 
 	private captureThinkingLevelChange(event: JsonRecord): void {
 		if (!isThinkingLevel(event.thinkingLevel)) return;
+		const current = this.currentLaunchMetadata();
 		this.launch = {
-			...this.currentLaunchMetadata(),
+			...current,
+			...(current.modelSelection === undefined
+				? {}
+				: {
+						modelSelection: {
+							...current.modelSelection,
+							thinking: event.thinkingLevel,
+						},
+					}),
 			observedThinkingLevel: event.thinkingLevel,
 		};
 	}

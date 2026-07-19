@@ -67,7 +67,6 @@ export async function draftChangesSummary(input: {
 		system: CHANGES_SUMMARY_SYSTEM_PROMPT,
 		prompt: buildChangesUserPrompt(input.snapshot),
 		maxTokens: CHANGES_SUMMARY_MAX_TOKENS,
-		reasoning: "low",
 		operation: "changes-summary",
 	});
 	if (!drafted.ok) {

@@ -26,6 +26,10 @@ import { makeFinalTextResult } from "../helpers/fleet-testing.ts";
 class FakeToolHost implements SubagentToolHost {
 	readonly tools = new Map<string, ToolDefinition>();
 
+	getThinkingLevel(): "high" {
+		return "high";
+	}
+
 	registerTool(definition: ToolDefinition): void {
 		this.tools.set(definition.name, definition);
 	}
@@ -118,6 +122,7 @@ describe("subagent model routing", () => {
 			expect(dispatched[0]?.options.modelSelection).toEqual({
 				provider: "openai-codex",
 				modelId: "gpt-5.6-luna",
+				thinking: "high",
 			});
 		},
 	);
@@ -152,6 +157,7 @@ describe("subagent model routing", () => {
 		expect(dispatched[0]?.options.modelSelection).toEqual({
 			provider: "anthropic",
 			modelId: "claude-haiku-4-5",
+			thinking: "high",
 		});
 	});
 
