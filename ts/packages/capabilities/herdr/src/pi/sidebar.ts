@@ -2,7 +2,7 @@ import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/pi-types";
 
 import { createCliHerdrGateway } from "../core/cli-gateway.ts";
-import { HERDR_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME } from "../core/command-surfaces.ts";
+import { HERDR_OBJECTIVE_SIDEBAR_SUMMARY_COMMAND_NAME } from "../core/command-surfaces.ts";
 import { createHerdrSidebarController, type HerdrSidebarController } from "../core/sidebar.ts";
 import { createHerdrPiCommandApi } from "./pi-command-api.ts";
 
@@ -12,7 +12,7 @@ export function registerHerdrSidebarCommands(
 ): void {
 	registerCommandWithImmediateAck({
 		host: pi,
-		commandName: HERDR_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME,
+		commandName: HERDR_OBJECTIVE_SIDEBAR_SUMMARY_COMMAND_NAME,
 		commandDefinition: {
 			description:
 				"Apply an Objective label to the explicit caller Herdr workspace, prefixed with " +

@@ -2,13 +2,13 @@
 
 ## Work
 
-- [ ] Reorganize existing Herdr commands under resource and compositional namespaces
+- [x] Reorganize existing Herdr commands under resource and compositional namespaces
   - Allow the third namespace segment to identify either a native Herdr resource (`space`, `tab`) or an optional integrated workflow family (`handoff`, `objective`); do not impose a universal noun rule.
   - Rename the existing workspace prompt, trunk-prompt, and plan command interfaces to `/ns:herdr:handoff:{prompt,trunk-prompt,plan}` without changing workflow behavior.
   - Rename `/ns:herdr:sidebar:objective-summary` to `/ns:herdr:objective:sidebar-summary` without changing Objective selection or workspace-label behavior.
   - Keep `/ns:herdr:space:{new,goal}` unchanged.
   - Keep `/ns:herdr:tab:plan-dispatch` unchanged pending its separate namespace disposition.
-  - Evidence: command-catalog and scenario tests prove the new names and preserve branch, payload, plan, slot, dry-run, destination, Objective selection, label, new-space, and space-goal semantics.
+  - Evidence: the canonical catalog and focused fake-driven scenarios prove the four hard renames, absence of aliases, and preserved branch, payload, plan, slot, dry-run, destination, Objective-selection, label, new-space, space-goal, and tab-plan behavior; package checks and the repository `just` baseline pass.
 
 - [ ] Replace cmux handoff-tab with a Herdr-native workflow
   - Replace `/ns:cmux:handoff-tab` with `/ns:herdr:handoff:tab` while preserving Handoff Artifact creation, content-derived slugging, collision refusal, saved-artifact verification, and pickup command semantics.

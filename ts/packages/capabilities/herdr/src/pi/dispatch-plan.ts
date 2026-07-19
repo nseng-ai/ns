@@ -11,12 +11,12 @@ import {
 } from "../core/dispatch-plan.ts";
 import {
 	HERDR_TAB_PLAN_DISPATCH_COMMAND_NAME,
-	HERDR_SPACE_PLAN_DISPATCH_COMMAND_NAME,
+	HERDR_HANDOFF_PLAN_COMMAND_NAME,
 } from "../core/command-surfaces.ts";
 import { createCliHerdrGateway } from "../core/cli-gateway.ts";
 import { createHerdrPiCommandApi, type HerdrPiCommandApi } from "./pi-command-api.ts";
 
-const WORKSPACE_COMMAND_NAME = HERDR_SPACE_PLAN_DISPATCH_COMMAND_NAME;
+const WORKSPACE_COMMAND_NAME = HERDR_HANDOFF_PLAN_COMMAND_NAME;
 const SURFACE_COMMAND_NAME = HERDR_TAB_PLAN_DISPATCH_COMMAND_NAME;
 
 const WORKSPACE_CONFIG: DispatchPlanConfig = {
