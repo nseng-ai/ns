@@ -122,10 +122,28 @@ function adaptCommandContext(
 ): CommandContext {
 	return {
 		cwd: ctx.cwd,
-		...optionalEntries({ hasUI: ctx.hasUI, model: ctx.model }),
+		...optionalEntries({
+			hasUI: ctx.hasUI,
+			model: ctx.model,
+			sessionManager: adaptSessionManager(ctx),
+		}),
 		ui: ctx.ui,
 		modelRegistry: ctx.modelRegistry ?? { find: () => undefined },
 		waitForIdle: () => ctx.waitForIdle(),
+	};
+}
+
+function adaptSessionManager(
+	ctx: Parameters<Parameters<HandoffExtensionAPI["registerCommand"]>[1]["handler"]>[1],
+): CommandContext["sessionManager"] {
+	if (!("sessionManager" in ctx) || ctx.sessionManager === undefined) return undefined;
+	const manager = ctx.sessionManager as typeof ctx.sessionManager & {
+		getBranch?: () => unknown[];
+		getEntries?: () => unknown[];
+	};
+	return {
+		...(manager.getBranch === undefined ? {} : { getBranch: () => manager.getBranch?.() ?? [] }),
+		...(manager.getEntries === undefined ? {} : { getEntries: () => manager.getEntries?.() ?? [] }),
 	};
 }
 

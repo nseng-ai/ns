@@ -101,6 +101,7 @@ export const REPO_ORIGIN_URL = "git@github.com:owner/repo.git";
 
 export class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, CommandDefinition>();
+	readonly tools = new Map<string, { name: string }>();
 	readonly execCalls: ExecCall[] = [];
 	readonly sentUserMessages: string[] = [];
 	readonly setModels: ModelInfo[] = [];
@@ -123,6 +124,14 @@ export class FakePi implements ExtensionAPI {
 
 	registerCommand(name: string, options: CommandDefinition): void {
 		this.commands.set(name, options);
+	}
+
+	registerTool(definition: { name: string }): void {
+		this.tools.set(definition.name, definition);
+	}
+
+	getAllTools(): Array<{ name: string }> {
+		return [...this.tools.values()];
 	}
 
 	async exec(
