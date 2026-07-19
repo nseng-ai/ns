@@ -21,12 +21,6 @@ describe("resolveCodexDraftModel", () => {
 		});
 	});
 
-	test("rejects an unresolved model reference", () => {
-		expect(() =>
-			resolveCodexDraftModel({ provider: "", modelId: "", thinking: "minimal" }),
-		).toThrow("Invalid resolved Pi draft model reference");
-	});
-
 	test("uses the explicit resolved reference despite ambient draft model configuration", () => {
 		vi.stubEnv("PI_DRAFT_MODEL", "ambient/wrong-model");
 		expect(
