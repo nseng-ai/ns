@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
@@ -61,7 +62,7 @@ export type PromptResolutionResult =
 	| { ok: false; error: string; source: PromptSource };
 
 export type PrDescriptionGenerationResolution =
-	| { ok: true; modelRef: string; promptText: string; promptSource: PromptSource }
+	| { ok: true; modelSelection: ModelSelection; promptText: string; promptSource: PromptSource }
 	| { ok: false; error: string; exitCode?: number };
 
 export type PrDescriptionPromptContext =
@@ -112,7 +113,7 @@ export async function resolvePrDescriptionGeneration(input: {
 	cwd: string;
 	git: GitGateway;
 	descriptorSource: FlowPrDescriptionDescriptorSource;
-	modelRef: string;
+	modelSelection: ModelSelection;
 }): Promise<PrDescriptionGenerationResolution> {
 	const repoRoot = await input.git.repoRoot({ cwd: input.cwd });
 	const prompt = await resolvePrDescriptionPrompt({
@@ -127,7 +128,7 @@ export async function resolvePrDescriptionGeneration(input: {
 
 	return {
 		ok: true,
-		modelRef: input.modelRef,
+		modelSelection: input.modelSelection,
 		promptText: prompt.text,
 		promptSource: prompt.source,
 	};
@@ -292,7 +293,7 @@ export function formatPrDescriptionValidationFeedback(
 
 export async function preparePrDescription(input: {
 	textGenerator: TextGenerator;
-	modelRef: string;
+	modelSelection: ModelSelection;
 	promptText: string;
 	context: PrDescriptionPromptContext;
 	onProgress?: (message: string) => void;
@@ -305,7 +306,7 @@ export async function preparePrDescription(input: {
 		generate: async (prompt) => {
 			const generated = await generatePrDescriptionText(
 				input.textGenerator,
-				input.modelRef,
+				input.modelSelection,
 				input.promptText,
 				prompt,
 			);
@@ -411,12 +412,12 @@ function isNodeFileNotFound(error: unknown): boolean {
 
 async function generatePrDescriptionText(
 	textGenerator: TextGenerator,
-	modelRef: string,
+	modelSelection: ModelSelection,
 	system: string,
 	prompt: string,
 ): Promise<TextGenerationResult> {
 	return textGenerator.generateText({
-		modelRef,
+		modelSelection,
 		system,
 		prompt,
 		maxTokens: 2048,

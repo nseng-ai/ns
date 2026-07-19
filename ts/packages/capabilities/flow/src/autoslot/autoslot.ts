@@ -19,6 +19,7 @@ import {
 	createFlowSlotClient,
 	formatSlotCheckoutFailureCause,
 } from "./slot-checkout.ts";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 export interface AutoslotFlowInput extends FlowAutobranchCheckpointInput {
 	slotClient: SlotClient;
@@ -32,7 +33,7 @@ export interface AutoslotCliInput {
 	env: Record<string, string | undefined>;
 	args: FlowAutobranchRequest;
 	textGenerator: TextGenerator;
-	modelRef: string;
+	modelSelection: ModelSelection;
 	/** Resolved terminal caps from the host seam (`resolveFlowStreamCaps` in the flow wrapper). */
 	caps: Caps;
 	exec(
@@ -57,12 +58,12 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 			input.exec(command, commandArgs, { cwd: input.cwd, timeout });
 		await createAutoslotFlow({
 			cwd: input.cwd,
-			modelRef: input.modelRef,
+			modelSelection: input.modelSelection,
 			args: input.args,
 			caps: input.caps,
 			exec,
 			prepareCheckpointMessage: (snapshot) =>
-				prepareAutobranchCheckpointMessage(snapshot, input.modelRef, input.textGenerator),
+				prepareAutobranchCheckpointMessage(snapshot, input.modelSelection, input.textGenerator),
 			commitPreparedCheckpointMessage: (message) =>
 				commitAutobranchCheckpointMessage(
 					(command, commandArgs, commandCwd, timeout) =>

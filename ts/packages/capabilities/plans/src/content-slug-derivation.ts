@@ -8,7 +8,6 @@ import {
 } from "@nseng-ai/capability-kit/content-slug";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
-import { formatModelRef } from "@nseng-ai/foundation/model-slug";
 import {
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
@@ -49,7 +48,7 @@ export async function deriveContentSlug(
 	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
 	return deriveKitContentSlug(
 		{ exec: (command, args, options) => pi.exec(command, args, options) },
-		{ ...input, modelRef: formatModelRef(model.value.selection) },
+		{ ...input, modelSelection: model.value.selection },
 		toKitContentSlugVariant(variant),
 	);
 }

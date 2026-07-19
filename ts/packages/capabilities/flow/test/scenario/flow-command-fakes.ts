@@ -1,4 +1,8 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+import { afterEach } from "vitest";
 
 import { flowAutobranchCommand } from "../../src/ns/commands/autobranch.ts";
 import { flowAutoslotCommand } from "../../src/ns/commands/autoslot.ts";
@@ -28,6 +32,12 @@ import {
 	type ScriptedExecResponse,
 	type TestState,
 } from "./ns-cli-fakes.ts";
+
+const tempStateRoots: string[] = [];
+
+afterEach(() => {
+	for (const root of tempStateRoots.splice(0)) rmSync(root, { recursive: true });
+});
 
 interface RunFlowCommandWithFakesOptions {
 	request?: unknown;
@@ -538,10 +548,17 @@ function runFlowCommandWithFakes(fixture: FlowCommandFixture) {
 	const stderr: string[] = [];
 	const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
 	const cwd = fixture.options.cwd ?? "/work";
-	const homeDir = fixture.options.homeDir ?? join(cwd, ".home");
+	const stateRoot = mkdtempSync(join(tmpdir(), "ns-flow-command-state-"));
+	tempStateRoots.push(stateRoot);
+	const homeDir = fixture.options.homeDir ?? join(stateRoot, "home");
 	const context = new ScriptedNsTestContext(fixture.options.state, {
 		cwd,
-		env: { HOME: homeDir, ...(fixture.options.env ?? {}) },
+		env: {
+			HOME: homeDir,
+			XDG_STATE_HOME: join(stateRoot, "xdg-state"),
+			NS_SUBMIT_FAILURE_LOG_DIR: join(stateRoot, "submit-logs"),
+			...(fixture.options.env ?? {}),
+		},
 		execResponses: fixture.defaults.execResponses,
 		textGenerationResults: fixture.defaults.textGenerationResults,
 		...(fixture.options.progress === undefined ? {} : { progress: fixture.options.progress }),

@@ -55,7 +55,7 @@ function makeResponse(options: { stopReason?: "stop" | "error" } = {}): Assistan
 
 function request() {
 	return {
-		modelRef: "openai-codex/gpt-5.6-luna",
+		modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 		operation: "test",
 		system: "system",
 		prompt: "prompt",

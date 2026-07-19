@@ -4,6 +4,7 @@ import { uuidv7 } from "@earendil-works/pi-agent-core";
 // Canonical migration plan (Phase 9): https://github.com/earendil-works/pi/blob/main/packages/agent/docs/models.md
 import type { completeSimple } from "@earendil-works/pi-ai/compat";
 
+import { formatModelRef } from "@nseng-ai/foundation/model-slug";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import type {
 	TextGenerationRequest,
@@ -51,23 +52,24 @@ export class PiTextGenerator implements TextGenerator {
 	}
 
 	async generateText(request: TextGenerationRequest): Promise<TextGenerationResult> {
-		const parsed = parsePiModelRef(request.modelRef);
-		if (!parsed.ok) return { ok: false, error: parsed.error };
-
+		const modelRef = formatModelRef(request.modelSelection);
 		const modelRegistry = this.modelRegistry ?? (await this.loadDefaultModelRegistry());
-		const model = modelRegistry.find(parsed.provider, parsed.modelId);
+		const model = modelRegistry.find(
+			request.modelSelection.provider,
+			request.modelSelection.modelId,
+		);
 		if (model === undefined) {
-			return { ok: false, error: `Could not find Pi model ${request.modelRef}.` };
+			return { ok: false, error: `Could not find Pi model ${modelRef}.` };
 		}
 
 		const auth = await modelRegistry.getApiKeyAndHeaders(model);
 		if (!auth.ok) {
-			return { ok: false, error: `Pi auth failed for ${request.modelRef}: ${auth.error}` };
+			return { ok: false, error: `Pi auth failed for ${modelRef}: ${auth.error}` };
 		}
 		if (!auth.apiKey) {
 			return {
 				ok: false,
-				error: `No Pi auth found for ${parsed.provider}. Run /login or configure Pi auth.`,
+				error: `No Pi auth found for ${request.modelSelection.provider}. Run /login or configure Pi auth.`,
 			};
 		}
 
@@ -99,7 +101,7 @@ export class PiTextGenerator implements TextGenerator {
 			if (response.stopReason === "error" || response.stopReason === "aborted") {
 				return {
 					ok: false,
-					error: `Pi model ${request.modelRef} failed to generate text: ${response.errorMessage ?? response.stopReason}`,
+					error: `Pi model ${modelRef} failed to generate text: ${response.errorMessage ?? response.stopReason}`,
 				};
 			}
 
@@ -111,7 +113,7 @@ export class PiTextGenerator implements TextGenerator {
 				.map((content) => content.text)
 				.join("\n");
 			if (text.trim().length === 0) {
-				return { ok: false, error: `Pi model ${request.modelRef} returned empty text.` };
+				return { ok: false, error: `Pi model ${modelRef} returned empty text.` };
 			}
 
 			const usage = textGenerationUsageFromResponse(response.usage);
@@ -119,7 +121,7 @@ export class PiTextGenerator implements TextGenerator {
 		} catch (error) {
 			return {
 				ok: false,
-				error: `Pi model ${request.modelRef} failed to generate text: ${formatErrorMessage(error)}`,
+				error: `Pi model ${modelRef} failed to generate text: ${formatErrorMessage(error)}`,
 			};
 		} finally {
 			this.cleanupRequestSession(requestSessionId);
@@ -133,25 +135,6 @@ function textGenerationUsageFromResponse(usage: {
 }): TextGenerationUsage | undefined {
 	if (!Number.isFinite(usage.input) || !Number.isFinite(usage.output)) return undefined;
 	return { inputTokens: usage.input, outputTokens: usage.output };
-}
-
-type ParsedPiModelRef =
-	| { ok: true; provider: string; modelId: string }
-	| { ok: false; error: string };
-
-function parsePiModelRef(modelRef: string): ParsedPiModelRef {
-	const separator = modelRef.indexOf("/");
-	if (separator <= 0 || separator === modelRef.length - 1) {
-		return {
-			ok: false,
-			error: `Invalid Pi model reference ${JSON.stringify(modelRef)}. Expected provider/model-id.`,
-		};
-	}
-	return {
-		ok: true,
-		provider: modelRef.slice(0, separator),
-		modelId: modelRef.slice(separator + 1),
-	};
 }
 
 async function loadCompleteSimple(): Promise<CompleteSimpleFunction> {

@@ -5,11 +5,7 @@ import {
 	formatOutputSection,
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
-import {
-	DEFAULT_FAST_MODEL,
-	parseModelRef,
-	type ModelSelection,
-} from "@nseng-ai/foundation/model-slug";
+import { DEFAULT_FAST_MODEL, type ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 export const RAW_TEXT_MODEL_THINKING = "minimal";
 export const RAW_TEXT_MODEL_TIMEOUT_MS = 60_000;
@@ -54,7 +50,7 @@ type RawTextModelAttemptOutcome =
 export interface GenerateRawTextWithModelInput {
 	cwd: string;
 	prompt: string;
-	modelRef: string;
+	modelSelection: ModelSelection;
 	exec(
 		command: string,
 		args: string[],
@@ -98,11 +94,7 @@ export async function deriveSlugWithModel(
 export async function generateRawTextWithModel(
 	input: GenerateRawTextWithModelInput,
 ): Promise<RawTextModelGenerationResult> {
-	const modelRef = input.modelRef;
-	const model = parseModelRef(modelRef);
-	if (model === undefined) {
-		return { ok: false, failure: { lines: [`Invalid model reference: ${modelRef}`] } };
-	}
+	const model = input.modelSelection;
 	const args = buildRawTextModelArgs(input.prompt, model);
 	const displayCommand = formatCommand("pi", [...args.slice(0, -1), "<model-prompt>"]);
 

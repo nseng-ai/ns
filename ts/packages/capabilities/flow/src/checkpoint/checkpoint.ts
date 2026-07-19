@@ -36,6 +36,8 @@ import {
 	modelOperation,
 	withActiveOperations,
 } from "../phase-stream/matrix-progress-core.ts";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import { formatModelRef } from "@nseng-ai/foundation/model-slug";
 
 export interface CheckpointGateway {
 	loadPendingWorktreeSnapshot(params: { cwd: string; repoRoot?: string }): Promise<
@@ -85,7 +87,7 @@ export interface RunCheckpointCommandOptions extends CheckpointRunContext {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	textGenerator: TextGenerator;
-	modelRef: string;
+	modelSelection: ModelSelection;
 	repoRoot?: string;
 	/** Typed phase sequencing for a presentation driver (inspect → generate → commit). */
 	onPhase?: NsProgressPhaseListener;
@@ -251,16 +253,16 @@ export async function runCheckpointWorkflow(
 	if (snapshot.clean) return { type: "clean" };
 
 	onPhase?.({ type: "phase-started", phaseKey: "generate" });
-	const modelRef = options.modelRef;
+	const modelSelection = options.modelSelection;
 	const prepared = await withActiveOperations(
 		options.onActiveOperations,
-		[modelOperation("generating checkpoint message", modelRef)],
+		[modelOperation("generating checkpoint message", formatModelRef(modelSelection))],
 		() =>
 			prepareCheckpointMessage({
 				status: snapshot.status,
 				diff: snapshot.diff,
 				textGenerator: options.textGenerator,
-				modelRef,
+				modelSelection,
 				...(onPhase === undefined
 					? {}
 					: {

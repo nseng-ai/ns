@@ -10,6 +10,7 @@ import {
 	normalizeBranchSlugText,
 	sanitizeBranchName,
 } from "@nseng-ai/foundation/branch-slug";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 import type {
 	DispatchContentSlugGateway,
@@ -28,14 +29,14 @@ export function buildDispatchContentSlugPrompt(input: DispatchContentSlugInput):
 
 export function createRealDispatchContentSlugGateway(
 	execApi: ContentSlugExecApi,
-	modelRef: string,
+	modelSelection: ModelSelection,
 ): DispatchContentSlugGateway {
 	return {
 		async deriveSemanticSlug(input) {
 			try {
 				const evidence = await deriveKitContentSlug(
 					execApi,
-					{ content: input.content, cwd: input.cwd, modelRef },
+					{ content: input.content, cwd: input.cwd, modelSelection },
 					dispatchContentSlugVariant(input.kind),
 				);
 				const slug = finalizeBranchSlug(normalizeBranchSlugText(evidence.slug));

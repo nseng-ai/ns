@@ -9,7 +9,7 @@ import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-r
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { createAutobranchDispatchEnv } from "../worktree.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
-import { resolveFlowModelRef } from "../model-policy.ts";
+import { resolveFlowModelSelection } from "../model-policy.ts";
 
 const BRANCH_LATEST_COMMIT_DESCRIPTION = `Move the latest eligible single-parent commit to a new Graphite child branch.
 
@@ -42,7 +42,7 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 			const args: LatestCommitAutobranchInput["args"] =
 				request.slug === undefined ? {} : { slug: request.slug };
 
-			const model = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.slug);
+			const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.slug);
 			if (!model.ok)
 				return negative(
 					renderResultBlock(caps, {
@@ -54,7 +54,7 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 				);
 			const dispatched = await dispatchAutobranchCheckpoint(
 				{ mode: "require-clean" },
-				createAutobranchDispatchEnv(ctx, args, model.modelRef),
+				createAutobranchDispatchEnv(ctx, args, model.modelSelection),
 			);
 
 			switch (dispatched.outcome) {

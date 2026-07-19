@@ -1,6 +1,7 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorInfoDiagnosticLines } from "@nseng-ai/capability-kit/gateway-result";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 import { withCommandOperations } from "../phase-stream/matrix-progress-core.ts";
 import type {
@@ -115,7 +116,7 @@ export interface SubmitPrDescriptionOptions {
 	git: GitGateway;
 	descriptorSource: FlowPrDescriptionDescriptorSource;
 	env: Record<string, string | undefined>;
-	modelRef: string;
+	modelSelection: ModelSelection;
 	time?: TimeServices;
 }
 
@@ -185,7 +186,7 @@ export async function runSubmitCommand(
 		git: options.prDescription.git,
 		descriptorSource: options.prDescription.descriptorSource,
 		textGenerator: options.prDescription.textGenerator,
-		modelRef: options.prDescription.modelRef,
+		modelSelection: options.prDescription.modelSelection,
 		...(options.prDescription.time === undefined ? {} : { time: options.prDescription.time }),
 		progress: submitPhaseProgressListeners<SubmitBranchMetadataProgressEvent>(
 			options,

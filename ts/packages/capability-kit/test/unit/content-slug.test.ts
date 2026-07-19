@@ -89,7 +89,11 @@ describe("deriveKitContentSlug", () => {
 
 		const evidence = await deriveKitContentSlug(
 			exec,
-			{ content: CONTENT, cwd: CWD, modelRef: "openai-codex/gpt-5.6-luna" },
+			{
+				content: CONTENT,
+				cwd: CWD,
+				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+			},
 			TEST_VARIANT,
 		);
 
@@ -123,7 +127,7 @@ describe("deriveKitContentSlug", () => {
 			{
 				content: CONTENT,
 				cwd: CWD,
-				modelRef: "openai-codex/gpt-5.6-luna",
+				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 				signal: controller.signal,
 			},
 			TEST_VARIANT,
@@ -175,7 +179,11 @@ describe("deriveKitContentSlug", () => {
 			try {
 				await deriveKitContentSlug(
 					exec,
-					{ content: CONTENT, cwd: CWD, modelRef: "openai-codex/gpt-5.6-luna" },
+					{
+						content: CONTENT,
+						cwd: CWD,
+						modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+					},
 					TEST_VARIANT,
 				);
 				throw new Error("expected slug derivation to fail");

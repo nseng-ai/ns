@@ -1,6 +1,7 @@
 import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/foundation/git";
@@ -53,13 +54,13 @@ import {
 import { flowExtensionDescriptorSource } from "../extension.ts";
 import { FLOW_COMMAND_FAILED, exitCodeToFlowCommandExit } from "../flow-cli-runner.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
-import { resolveFlowModelRef } from "../model-policy.ts";
+import { resolveFlowModelSelection } from "../model-policy.ts";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";
 interface SubmitCheckpointContext {
 	repoRoot?: string;
-	modelRef: string;
+	modelSelection: ModelSelection;
 }
 
 const submitSchema = z.object({
@@ -150,15 +151,18 @@ export function createFlowSubmitCommand(
 			const repoRoot = request.checks
 				? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
 				: undefined;
-			const checkpointModel = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
+			const checkpointModel = await resolveFlowModelSelection(
+				ctx,
+				MODEL_OPERATION_IDS.flowCheckpoint,
+			);
 			if (!checkpointModel.ok) return failure(FLOW_COMMAND_FAILED, checkpointModel.error);
-			const prDescriptionModel = await resolveFlowModelRef(
+			const prDescriptionModel = await resolveFlowModelSelection(
 				ctx,
 				MODEL_OPERATION_IDS.flowPrDescription,
 			);
 			if (!prDescriptionModel.ok) return failure(FLOW_COMMAND_FAILED, prDescriptionModel.error);
 			const checkpointContext: SubmitCheckpointContext = {
-				modelRef: checkpointModel.modelRef,
+				modelSelection: checkpointModel.modelSelection,
 				...optionalEntry("repoRoot", repoRoot),
 			};
 			const checksLoad =
@@ -182,7 +186,7 @@ export function createFlowSubmitCommand(
 				runtime,
 				checksLoad,
 				checkpointContext,
-				prDescriptionModelRef: prDescriptionModel.modelRef,
+				prDescriptionModelSelection: prDescriptionModel.modelSelection,
 				...structuredProgress,
 			});
 		},
@@ -299,7 +303,7 @@ async function runSubmitWithProgress(input: {
 	runtime: NsSubmitRuntime;
 	checksLoad: Awaited<ReturnType<typeof loadFlowSubmitHooks>>;
 	checkpointContext: SubmitCheckpointContext;
-	prDescriptionModelRef: string;
+	prDescriptionModelSelection: ModelSelection;
 	matrix: SubmitMatrixProgressController;
 	onOutput?: FlowLiveOutput;
 }) {
@@ -309,7 +313,7 @@ async function runSubmitWithProgress(input: {
 		runtime,
 		checksLoad,
 		checkpointContext,
-		prDescriptionModelRef,
+		prDescriptionModelSelection,
 		matrix,
 		onOutput,
 	} = input;
@@ -352,7 +356,7 @@ async function runSubmitWithProgress(input: {
 			...checkpointRunContext,
 			...checkpointContext,
 			textGenerator: ctx.textGenerator,
-			modelRef: checkpointContext.modelRef,
+			modelSelection: checkpointContext.modelSelection,
 			onPhase: matrix.phase,
 		});
 		if (checkpoint.kind === "failed") {
@@ -374,7 +378,7 @@ async function runSubmitWithProgress(input: {
 			restack: request.restack,
 			force: request.force,
 			shouldForwardCommandOutput: request.verbose,
-			prDescription: { ...runtime.prDescription, modelRef: prDescriptionModelRef },
+			prDescription: { ...runtime.prDescription, modelSelection: prDescriptionModelSelection },
 			shouldRegenerateExistingPrDescriptions: request.regenerateDescriptions,
 			progress,
 			...(onOutput === undefined ? {} : { onOutput }),
@@ -464,14 +468,14 @@ async function maybeFormatSubmitFailureWithModel(
 	if (result.failurePresentation === "deterministic") {
 		return { ...result, stderr: formatFailureWithRawLog({ stderr: result.stderr, rawLog }) };
 	}
-	const model = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowSubmitFailure);
+	const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowSubmitFailure);
 	if (!model.ok)
 		return { ...result, stderr: formatFailureWithRawLog({ stderr: model.error, rawLog }) };
 	const interpretation = await generateSubmitFailureInterpretation({
 		rawTranscript,
 		exitCode: result.exitCode,
 		ctx,
-		modelRef: model.modelRef,
+		modelSelection: model.modelSelection,
 	});
 	if (interpretation.ok && interpretation.text.trim() !== "") {
 		return {
@@ -489,11 +493,11 @@ async function generateSubmitFailureInterpretation(input: {
 	rawTranscript: string;
 	exitCode: number;
 	ctx: NsExtensionApi;
-	modelRef: string;
+	modelSelection: ModelSelection;
 }): Promise<{ ok: true; text: string } | { ok: false }> {
 	try {
 		const interpretation = await input.ctx.textGenerator.generateText({
-			modelRef: input.modelRef,
+			modelSelection: input.modelSelection,
 			operation: "submit-failure",
 			reasoning: "low",
 			maxTokens: 700,
