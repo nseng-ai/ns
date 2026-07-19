@@ -8,7 +8,7 @@ import {
 import {
 	DEFAULT_FAST_MODEL,
 	parseModelRef,
-	type ParsedModelRef,
+	type ModelSelection,
 } from "@nseng-ai/foundation/model-slug";
 
 export const RAW_TEXT_MODEL_THINKING = "minimal";
@@ -129,7 +129,7 @@ export async function generateRawTextWithModel(
 
 interface RunRawTextModelAttemptInput {
 	input: GenerateRawTextWithModelInput;
-	model: ParsedModelRef;
+	model: ModelSelection;
 	args: string[];
 	displayCommand: string;
 	attempt: number;
@@ -216,7 +216,7 @@ async function runRawTextModelAttempt(
 
 export function buildRawTextModelArgs(
 	prompt: string,
-	model: ParsedModelRef = DEFAULT_FAST_MODEL,
+	model: ModelSelection = DEFAULT_FAST_MODEL,
 ): string[] {
 	return [
 		"--provider",

@@ -10,6 +10,7 @@ import {
 import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/pi-types";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
+import { formatModelRef } from "@nseng-ai/foundation/model-slug";
 import type { TextResult } from "@nseng-ai/foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
@@ -82,7 +83,7 @@ export async function generateWorkspaceGoalSlug(
 	const result = await deriveSlugWithModel({
 		cwd,
 		prompt: buildWorkspaceGoalSlugPrompt(goal),
-		modelRef: model.value.modelRef,
+		modelRef: formatModelRef(model.value.selection),
 		exec: (command, args, options) => pi.exec(command, args, options),
 		slugKind: "workspace goal slug",
 		normalizeOutput: (raw) => sanitizeBranchName(raw.trim()) ?? fallbackSlug,
