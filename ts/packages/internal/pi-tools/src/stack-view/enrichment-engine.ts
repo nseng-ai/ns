@@ -265,8 +265,7 @@ export function createStackEnrichmentEngine(
 	}): Promise<SettledEntry> {
 		const result = await callModelText({
 			registry,
-			provider: DEFAULT_FAST_MODEL.provider,
-			modelId: DEFAULT_FAST_MODEL.modelId,
+			modelSelection: DEFAULT_FAST_MODEL,
 			systemPrompt: options.prompt.systemPrompt,
 			userText: options.prompt.userText,
 			reasoning: "minimal",

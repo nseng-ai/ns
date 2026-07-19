@@ -8,8 +8,7 @@ type NotifyLevel = "info" | "warning" | "error";
 
 interface ExpectedShortcut {
 	command: string;
-	provider: string;
-	modelId: string;
+	selection: { provider: string; modelId: string };
 }
 
 interface Notification {
@@ -23,36 +22,49 @@ interface ModelInfo {
 }
 
 const EXPECTED_SHORTCUTS: readonly ExpectedShortcut[] = [
-	{ command: "model:fable", provider: "vercel-ai-gateway", modelId: "anthropic/claude-fable-5" },
+	{
+		command: "model:fable",
+		selection: { provider: "vercel-ai-gateway", modelId: "anthropic/claude-fable-5" },
+	},
 	{
 		command: "model:sonnet",
-		provider: "vercel-ai-gateway",
-		modelId: "anthropic/claude-sonnet-4-5",
+		selection: { provider: "vercel-ai-gateway", modelId: "anthropic/claude-sonnet-4-5" },
 	},
-	{ command: "model:spud", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol" },
-	{ command: "model:sol", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol" },
-	{ command: "model:terra", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-terra" },
-	{ command: "model:luna", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-luna" },
-	{ command: "model:gpt-mini", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.4-mini" },
+	{
+		command: "model:spud",
+		selection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol" },
+	},
+	{
+		command: "model:sol",
+		selection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol" },
+	},
+	{
+		command: "model:terra",
+		selection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-terra" },
+	},
+	{
+		command: "model:luna",
+		selection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-luna" },
+	},
+	{
+		command: "model:gpt-mini",
+		selection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.4-mini" },
+	},
 	{
 		command: "model:gemini-pro",
-		provider: "vercel-ai-gateway",
-		modelId: "google/gemini-3.1-pro-preview",
+		selection: { provider: "vercel-ai-gateway", modelId: "google/gemini-3.1-pro-preview" },
 	},
 	{
 		command: "model:gemini-flash",
-		provider: "vercel-ai-gateway",
-		modelId: "google/gemini-3.5-flash",
+		selection: { provider: "vercel-ai-gateway", modelId: "google/gemini-3.5-flash" },
 	},
 	{
 		command: "model:haiku",
-		provider: "vercel-ai-gateway",
-		modelId: "anthropic/claude-haiku-4-5",
+		selection: { provider: "vercel-ai-gateway", modelId: "anthropic/claude-haiku-4-5" },
 	},
 	{
 		command: "model:opus",
-		provider: "vercel-ai-gateway",
-		modelId: "anthropic/claude-opus-4-8",
+		selection: { provider: "vercel-ai-gateway", modelId: "anthropic/claude-opus-4-8" },
 	},
 ];
 
@@ -84,11 +96,11 @@ function commandFor(pi: FakePi, name: string): RegisteredCommand {
 }
 
 function modelFromShortcut(shortcut: ExpectedShortcut): ModelInfo {
-	return { provider: shortcut.provider, id: shortcut.modelId };
+	return { provider: shortcut.selection.provider, id: shortcut.selection.modelId };
 }
 
 function modelRef(shortcut: ExpectedShortcut): string {
-	return `${shortcut.provider}/${shortcut.modelId}`;
+	return `${shortcut.selection.provider}/${shortcut.selection.modelId}`;
 }
 
 function createContext(options: { models?: readonly ModelInfo[]; hasUI?: boolean } = {}): {
@@ -129,7 +141,7 @@ describe("modelShortcutExtension", () => {
 		);
 	});
 
-	test.each(EXPECTED_SHORTCUTS)("switches $command to $provider/$modelId", async (shortcut) => {
+	test.each(EXPECTED_SHORTCUTS)("switches $command to $selection", async (shortcut) => {
 		const pi = new FakePi();
 		modelShortcutExtension(pi);
 		const model = modelFromShortcut(shortcut);

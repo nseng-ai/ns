@@ -1,5 +1,5 @@
-import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import type { PersistedBundle } from "./bundle.ts";
 import {
 	buildInterrogationSystemPrompt,
@@ -32,8 +32,7 @@ export interface InterrogationViewPort {
 
 export interface InterrogationControllerOptions {
 	bundle: PersistedBundle;
-	// pi-ai exposes runnable models as Model<Api>; keep that external seam explicit at the controller boundary.
-	model: Model<Api>;
+	modelSelection: ModelSelection;
 	modelRegistry: ModelRegistry;
 	factory: InterrogationSessionFactory;
 	onTranscriptChange: () => void;
@@ -41,8 +40,7 @@ export interface InterrogationControllerOptions {
 
 export class InterrogationController implements InterrogationViewPort {
 	private readonly bundle: PersistedBundle;
-	// Matches the pi-ai Model<Api> library seam accepted by the session factory.
-	private readonly model: Model<Api>;
+	private readonly modelSelection: ModelSelection;
 	private readonly modelRegistry: ModelRegistry;
 	private readonly factory: InterrogationSessionFactory;
 	private readonly onTranscriptChange: () => void;
@@ -55,7 +53,7 @@ export class InterrogationController implements InterrogationViewPort {
 
 	constructor(options: InterrogationControllerOptions) {
 		this.bundle = options.bundle;
-		this.model = options.model;
+		this.modelSelection = options.modelSelection;
 		this.modelRegistry = options.modelRegistry;
 		this.factory = options.factory;
 		this.onTranscriptChange = options.onTranscriptChange;
@@ -91,7 +89,7 @@ export class InterrogationController implements InterrogationViewPort {
 				turnCount: this.bundle.manifest.turnCount,
 				capturedAt: this.bundle.manifest.capturedAt,
 			}),
-			model: this.model,
+			modelSelection: this.modelSelection,
 			modelRegistry: this.modelRegistry,
 		});
 		this.isStarting = false;

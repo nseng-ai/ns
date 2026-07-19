@@ -291,7 +291,7 @@ function openInterrogation(options: {
 		session.interrogation?.dispose();
 		session.interrogation = new InterrogationController({
 			bundle: session.persistence,
-			model: ctx.model,
+			modelSelection: { provider: ctx.model.provider, modelId: ctx.model.id },
 			modelRegistry: ctx.modelRegistry,
 			factory: createPiInterrogationSessionFactory(),
 			onTranscriptChange: () => session.view?.notifyInterrogationChanged(),

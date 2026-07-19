@@ -285,8 +285,7 @@ describe("stack enrichment engine", () => {
 		await flushPromises();
 
 		const options = model.calls[0]?.options;
-		expect(options?.provider).toBe(DEFAULT_FAST_MODEL.provider);
-		expect(options?.modelId).toBe(DEFAULT_FAST_MODEL.modelId);
+		expect(options?.modelSelection).toEqual(DEFAULT_FAST_MODEL);
 		expect(options?.reasoning).toBe("minimal");
 		expect(options?.maxTokens).toBe(96);
 		// The composed task signal is the single deadline; no fresh model-call timeout.
