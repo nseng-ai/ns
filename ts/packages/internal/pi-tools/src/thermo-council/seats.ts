@@ -100,7 +100,13 @@ function modelOverride({
 	defaultModelSelection,
 	label,
 }: ModelOverrideOptions): ModelSelection {
-	const candidate = seatSpecific?.trim() || positional?.trim();
+	let candidate: string | undefined;
+	if (seatSpecific !== undefined) {
+		candidate = seatSpecific.trim();
+		if (candidate === "") throw new Error(`Model override for ${label} is empty.`);
+	} else {
+		candidate = positional?.trim();
+	}
 	if (candidate === undefined) return defaultModelSelection;
 	const selection = parseModelRef(candidate, defaultModelSelection.thinking);
 	if (selection === undefined)

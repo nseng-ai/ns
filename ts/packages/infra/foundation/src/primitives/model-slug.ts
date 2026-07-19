@@ -16,7 +16,6 @@ export const DEFAULT_FAST_MODEL: ModelSelection = {
 	modelId: "gpt-5.6-luna",
 	thinking: "minimal",
 };
-export const DEFAULT_FAST_MODEL_REF = formatModelRef(DEFAULT_FAST_MODEL);
 
 export type ModelProviderFamily = "anthropic" | "google" | "openai";
 

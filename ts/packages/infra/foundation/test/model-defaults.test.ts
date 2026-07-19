@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 
 import {
 	DEFAULT_FAST_MODEL,
-	DEFAULT_FAST_MODEL_REF,
 	formatModelRef,
 	inferModelProviderFamily,
 	isClaudeCodeSupportedModelPattern,
@@ -54,8 +53,7 @@ describe("parseModelRef", () => {
 		}
 	});
 
-	test("derives the default reference from the default selection", () => {
-		expect(DEFAULT_FAST_MODEL_REF).toBe(formatModelRef(DEFAULT_FAST_MODEL));
+	test("configures minimal thinking for the default selection", () => {
 		expect(DEFAULT_FAST_MODEL.thinking).toBe("minimal");
 	});
 

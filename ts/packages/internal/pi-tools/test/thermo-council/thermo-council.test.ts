@@ -366,6 +366,23 @@ describe("thermo council extension", () => {
 		]);
 	});
 
+	test.each(["", "   "])(
+		"rejects an empty seat-specific model override instead of falling back to positional: %j",
+		(seatSpecific) => {
+			expect(() =>
+				parseThermoCouncilSeats({
+					get(name) {
+						return {
+							THERMO_COUNCIL_MODELS:
+								"anthropic/custom-fable,openai/positional-high,google/custom-gemini",
+							THERMO_COUNCIL_OPENAI_MODEL: seatSpecific,
+						}[name];
+					},
+				}),
+			).toThrow("Model override for Sol is empty.");
+		},
+	);
+
 	test("rejects empty positional model override entries", () => {
 		expect(() =>
 			parseThermoCouncilSeats({

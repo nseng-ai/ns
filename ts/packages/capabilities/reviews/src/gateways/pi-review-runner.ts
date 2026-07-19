@@ -1,6 +1,7 @@
 import { commandSucceeded, type CommandResolver } from "@nseng-ai/foundation/command";
 import { defaultCommandResolver } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { resultErr } from "@nseng-ai/foundation/result";
 
@@ -47,7 +48,7 @@ export class PiProcessReviewRunner implements ReviewHarnessRunner {
 		try {
 			result = await this.execApi.exec(
 				binary.value,
-				buildPiReviewArgs(request.modelSelection.modelId, request.modelSelection.thinking),
+				buildPiReviewArgs(request.modelSelection),
 				execOptions,
 			);
 		} catch (error) {
@@ -77,17 +78,14 @@ export class PiProcessReviewRunner implements ReviewHarnessRunner {
 	}
 }
 
-export function buildPiReviewArgs(
-	modelId: string,
-	thinking: PreparedReviewHarnessRequest["modelSelection"]["thinking"],
-): string[] {
+export function buildPiReviewArgs(modelSelection: ModelSelection): string[] {
 	return [
 		"--provider",
-		"vercel-ai-gateway",
+		modelSelection.provider,
 		"--model",
-		modelId,
+		modelSelection.modelId,
 		"--thinking",
-		thinking,
+		modelSelection.thinking,
 		"--system-prompt",
 		systemPromptFindingsJsonText(),
 		"--no-session",

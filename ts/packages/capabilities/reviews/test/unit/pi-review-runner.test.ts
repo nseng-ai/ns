@@ -63,7 +63,8 @@ describe("PiProcessReviewRunner", () => {
 		const env = { AI_GATEWAY_API_KEY: "test" };
 		const largePrompt = `UNIQUE_PROMPT_MARKER\n${"x".repeat(200_000)}`;
 
-		const result = await harness.runner.runReview(request({ promptText: largePrompt }), {
+		const reviewRequest = request({ promptText: largePrompt });
+		const result = await harness.runner.runReview(reviewRequest, {
 			cwd: "/repo",
 			env,
 			signal,
@@ -72,7 +73,7 @@ describe("PiProcessReviewRunner", () => {
 		expect(result.ok).toBe(true);
 		const call = harness.execApi.calls()[0];
 		expect(call?.command).toBe("/usr/bin/pi");
-		expect(call?.args).toEqual(buildPiReviewArgs("openai/gpt-5.6-luna", "high"));
+		expect(call?.args).toEqual(buildPiReviewArgs(reviewRequest.modelSelection));
 		expect(call?.args).toEqual([
 			"--provider",
 			"vercel-ai-gateway",
