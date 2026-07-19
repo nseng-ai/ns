@@ -8,7 +8,7 @@
 	"exports": {
 		"./api": "./src/api/index.ts",
 		"./ns-extension": "./src/ns/extension.ts",
-		"./commands/changes": "./src/ns/commands/changes.ts",
+		"./commands/changes": "./src/ns/commands/changes/command.ts",
 		"./commands/cp": "./src/ns/commands/cp/command.ts",
 		"./commands/autobranch": "./src/ns/commands/autobranch.ts",
 		"./commands/branch-latest-commit": "./src/ns/commands/branch-latest-commit.ts",

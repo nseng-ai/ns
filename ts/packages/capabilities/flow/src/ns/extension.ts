@@ -28,7 +28,9 @@ export const flowExtensionDescriptor = defineExtension({
 	entries: [
 		{
 			name: "changes",
-			load: async () => ({ default: (await import("./commands/changes.ts")).flowChangesCommand }),
+			load: async () => ({
+				default: (await import("./commands/changes/command.ts")).flowChangesCommand,
+			}),
 		},
 		{
 			name: "cp",

@@ -75,7 +75,40 @@ describe("checked-in flow ns extension loading", () => {
 
 		const schema = runWithRealFlowExtension({ args: ["flow", "changes", "--json-schema"], cwd });
 		expect(await schema.exit).toBe(0);
-		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
+		const schemaOutput = parseJsonOutput(schema);
+		expect(schemaOutput).toHaveProperty("inputJsonSchema");
+		expect(schemaOutput).toHaveProperty("outputJsonSchema");
+	});
+
+	test("real loader renders structured changes in human and JSON formats", async () => {
+		const cwd = await createFlowProject();
+		const state = {
+			exec: dirtyChangesExecResponses(cwd),
+			textGeneration: [{ ok: true as const, text: "- Update app behavior" }],
+		};
+		const human = runWithRealFlowExtension({ args: ["flow", "changes"], cwd, state });
+		expect(await human.exit).toBe(0);
+		expect(human.stdout.join("")).toContain("Outstanding changes on feature/demo");
+		expect(human.stdout.join("")).toContain("• modified   src/app.ts");
+
+		const json = runWithRealFlowExtension({
+			args: ["flow", "changes", "--format", "json"],
+			cwd,
+			state,
+		});
+		expect(await json.exit).toBe(0);
+		expect(parseJsonOutput(json)).toEqual(
+			expect.objectContaining({
+				status: "ok",
+				data: expect.objectContaining({
+					state: "dirty",
+					branch: "feature/demo",
+					summary: ["Update app behavior"],
+					totalFileCount: 1,
+					omittedFileCount: 0,
+				}),
+			}),
+		);
 	});
 
 	test("real loader exposes push help and JSON schema metadata", async () => {
@@ -282,6 +315,19 @@ function runWithRealFlowExtension(options: {
 			missingTextGenerationResult: () => ({ ok: true, text: "Generated PR\n\nGenerated body" }),
 		},
 	);
+}
+
+function dirtyChangesExecResponses(cwd: string): ScriptedExecResponse[] {
+	return [
+		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
+		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
+		{
+			match: "git diff HEAD --no-ext-diff",
+			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
+		},
+		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
+	];
 }
 
 function dirtyCpExecResponses(cwd: string): ScriptedExecResponse[] {

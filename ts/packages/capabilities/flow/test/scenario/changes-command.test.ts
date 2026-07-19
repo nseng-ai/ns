@@ -23,7 +23,23 @@ describe("project-local changes extension behavior", () => {
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("Working tree is clean; no outstanding changes.\n");
 		expect(run.stderr.join("")).toBe("");
-		expect(run.liveOutput).toEqual([{ stream: "stderr", text: "Inspecting worktree…\n" }]);
+		expect(await run.result).toEqual({
+			type: "ok",
+			data: {
+				state: "clean",
+				branch: "feature/demo",
+				summary: [],
+				files: [],
+				totalFileCount: 0,
+				omittedFileCount: 0,
+			},
+			human: "Working tree is clean; no outstanding changes.",
+		});
+		expect(run.liveOutput[0]).toEqual({ stream: "stderr", text: "inspecting worktree…\n" });
+		const settled = run.liveOutput.at(-1)?.text ?? "";
+		expect(settled).toContain("ns flow changes");
+		expect(settled).toContain("worktree inspected");
+		expect(settled.match(/not required/g)).toHaveLength(2);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
@@ -47,11 +63,42 @@ describe("project-local changes extension behavior", () => {
 		expect(output).toContain("• Add reviewer notes");
 		expect(output).toContain("Files\n• modified   src/app.ts\n• untracked  notes.md");
 		expect(run.stderr.join("")).toBe("");
-		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "Inspecting worktree…\n" });
-		expect(run.liveOutput).toContainEqual({
-			stream: "stderr",
-			text: "Generating changes summary…\n",
-		});
+		expect(await run.result).toEqual(
+			expect.objectContaining({
+				type: "ok",
+				data: {
+					state: "dirty",
+					branch: "feature/demo",
+					summary: ["Update app behavior", "Add reviewer notes"],
+					files: [
+						{
+							path: "src/app.ts",
+							status: " M",
+							indexStatus: " ",
+							worktreeStatus: "M",
+							label: "modified",
+						},
+						{
+							path: "notes.md",
+							status: "??",
+							indexStatus: "?",
+							worktreeStatus: "?",
+							label: "untracked",
+						},
+					],
+					totalFileCount: 2,
+					omittedFileCount: 0,
+				},
+			}),
+		);
+		expect(run.liveOutput.slice(0, 3)).toEqual([
+			{ stream: "stderr", text: "inspecting worktree…\n" },
+			{ stream: "stderr", text: "resolving changes model policy…\n" },
+			{ stream: "stderr", text: "generating changes summary…\n" },
+		]);
+		const settled = run.liveOutput.at(-1)?.text ?? "";
+		expect(settled).toContain("changes model policy resolved");
+		expect(settled).toContain("changes summary generated");
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
@@ -214,5 +261,16 @@ describe("project-local changes extension behavior", () => {
 		expect(output).toContain("• modified   file-49.ts");
 		expect(output).not.toContain("file-50.ts");
 		expect(output).toContain("… 2 more file(s)");
+		const result = await run.result;
+		expect(result.type).toBe("ok");
+		if (result.type !== "ok") throw new Error("expected changes success");
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				state: "dirty",
+				totalFileCount: 52,
+				omittedFileCount: 2,
+			}),
+		);
+		expect((result.data as { files: unknown[] }).files).toHaveLength(50);
 	});
 });

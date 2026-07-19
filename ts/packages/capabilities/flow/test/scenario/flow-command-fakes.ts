@@ -7,7 +7,7 @@ import { afterEach } from "vitest";
 import { flowAutobranchCommand } from "../../src/ns/commands/autobranch.ts";
 import { flowAutoslotCommand } from "../../src/ns/commands/autoslot.ts";
 import { flowBranchLatestCommitCommand } from "../../src/ns/commands/branch-latest-commit.ts";
-import { flowChangesCommand } from "../../src/ns/commands/changes.ts";
+import { flowChangesCommand } from "../../src/ns/commands/changes/command.ts";
 import { flowExecReadGraphiteBranchMetadataCommand } from "../../src/ns/commands/exec-read-graphite-branch-metadata.ts";
 import { flowCpCommand } from "../../src/ns/commands/cp/command.ts";
 import {
@@ -18,6 +18,7 @@ import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
 import { createNsGitGateway } from "@nseng-ai/capability-kit";
 import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import {
+	clinkrSpecForRun,
 	createCommandProgressPhaseRenderer,
 	createUnavailableInteraction,
 	isClinkrRun,
@@ -34,7 +35,13 @@ import {
 	type FakeGraphiteStackGatewayOptions,
 } from "@nseng-ai/capability-kit/graphite/testing";
 import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
-import type { CommandExit, NsCommand, NsExtensionApi, NsProgress } from "@nseng-ai/sdk";
+import type {
+	CommandExit,
+	DescriptorCommand,
+	NsCommand,
+	NsExtensionApi,
+	NsProgress,
+} from "@nseng-ai/sdk";
 import { createFlowSubmitCommand } from "../../src/ns/commands/submit.ts";
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import { createNsSubmitRuntime } from "../../src/submit/ns-runtime.ts";
@@ -80,7 +87,8 @@ interface FlowCommandFixture {
 }
 
 export function runFlowCpCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
-	return runFlowCpComposableCommandWithFakes({
+	return runFlowComposableCommandWithFakes({
+		command: flowCpCommand,
 		requiresModelPolicy: true,
 		request: options.request ?? {},
 		options,
@@ -501,7 +509,7 @@ export function autoslotStatusProbeFailExec(): ScriptedExecResponse[] {
 }
 
 export function runFlowChangesCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
-	return runFlowCommandWithFakes({
+	return runFlowComposableCommandWithFakes({
 		requiresModelPolicy: true,
 		command: flowChangesCommand,
 		request: options.request ?? {},
@@ -564,7 +572,9 @@ export function runFlowSubmitCommandWithFakes(options: RunFlowSubmitCommandWithF
 	return { ...run, stackGateway };
 }
 
-function runFlowCpComposableCommandWithFakes(fixture: Omit<FlowCommandFixture, "command">) {
+function runFlowComposableCommandWithFakes(
+	fixture: Omit<FlowCommandFixture, "command"> & { command: DescriptorCommand },
+) {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
@@ -607,10 +617,11 @@ function runFlowCpComposableCommandWithFakes(fixture: Omit<FlowCommandFixture, "
 		git: createNsGitGateway(context),
 		graphiteBranch: new RealGraphiteBranchGateway(context),
 	});
-	const materializedCommand = materializeFirstPartyCommand(flowCpCommand, commandContext);
+	const materializedCommand = materializeFirstPartyCommand(fixture.command, commandContext);
 	if (!isClinkrRun(materializedCommand.run)) {
-		throw new Error("Materialized flow cp command run does not carry clinkr metadata.");
+		throw new Error(`Materialized flow ${fixture.command.name} command run lacks clinkr metadata.`);
 	}
+	const spec = clinkrSpecForRun(materializedCommand.run);
 	const caps = resolveRenderCapabilities(context.renderCapabilities);
 	const renderer = createCommandProgressPhaseRenderer({
 		caps,
@@ -633,15 +644,32 @@ function runFlowCpComposableCommandWithFakes(fixture: Omit<FlowCommandFixture, "
 				interact: createUnavailableInteraction(),
 				caps: context.renderCapabilities,
 			},
-			fixture.request as { dryRun: boolean },
+			spec.schema.parse(fixture.request),
 		),
 	).then(async (result) => {
 		await renderer.finish({ isFailed: result.type !== "ok" });
-		writeCommandExitOutput(result, {
+		if (result.type !== "ok") {
+			writeCommandExitOutput(result, {
+				stdout: (text) => stdout.push(text),
+				stderr: (text) => stderr.push(text),
+			});
+			return { result, exitCode: exitCodeForCommandExit(result) };
+		}
+		const data = spec.resultSchema.parse(result.data);
+		const renderedResult = {
+			type: "ok" as const,
+			data,
+			...(result.human !== undefined
+				? { human: result.human }
+				: spec.renderHuman === undefined
+					? {}
+					: { human: spec.renderHuman(data, context.renderCapabilities) }),
+		};
+		writeCommandExitOutput(renderedResult, {
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
 		});
-		return { result, exitCode: exitCodeForCommandExit(result) };
+		return { result: renderedResult, exitCode: exitCodeForCommandExit(renderedResult) };
 	});
 	return {
 		context,
@@ -738,7 +766,8 @@ function writeCommandExitOutput(
 	deps: { stdout: (text: string) => void; stderr: (text: string) => void },
 ): void {
 	if (result.type === "ok") {
-		if (result.data !== "") deps.stdout(`${String(result.data)}\n`);
+		const output = result.human ?? String(result.data);
+		if (output !== "") deps.stdout(`${output}\n`);
 		return;
 	}
 	if (result.type === "negative") {

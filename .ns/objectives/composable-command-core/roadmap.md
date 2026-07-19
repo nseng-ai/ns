@@ -22,9 +22,10 @@
   - The hoist is deliberately phase-only: Flow still owns `CP_PHASES` and all other phase specifications, matrix rendering/controllers, submit/land orchestration, transcript tails, and its legacy phase-stream driver for unported commands.
   - Evidence: SDK renderer tests cover non-TTY, TTY, failure, and live forwarding without duplicate output; Flow cp scenarios preserve result and phase presentation behavior; bounded ownership searches show no composable `onOutput`, cp byte bridge, new `ClinkrIo`, or Flow matrix/spec vocabulary in the renderer.
 
-- [ ] Port `flow changes` (simple gradient point)
-  - Git + model + report command on the new API: services as library imports (git gateway, model policy, text generation), output as typed result + progress events.
-  - Evidence: works in ns CLI and Pi; scenario tests in-memory; before/after size recorded.
+- [x] Port `flow changes` (simple gradient point)
+  - The command now uses the first-party composable API with explicit Git, model-policy, and text-generation seams; it returns a bounded clean/dirty result and keeps terminal presentation in `renderHuman`.
+  - Three SDK phases preserve inspect, policy, and generation progress, with policy/generation explicitly settled as not required for clean worktrees.
+  - Evidence: in-memory command scenarios, real-loader human/JSON/JSON-schema integration coverage, existing Pi delegation coverage, bounded legacy-dependency searches, and `just`; command size changed from one 154-line file to one 262-line file.
 
 - [ ] Port `flow pull-trunk` (mid-weight gradient point)
   - Evidence: works in both hosts; before/after size recorded.
