@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -244,6 +244,10 @@ async function createFlowProject(): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "ns-flow-extension-project-"));
 	tempDirs.push(directory);
 	installCheckedInFlowExtension(directory);
+	await appendFile(
+		join(directory, "ns.toml"),
+		'\n[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+	);
 	return directory;
 }
 
