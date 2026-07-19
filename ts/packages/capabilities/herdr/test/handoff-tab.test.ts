@@ -1,24 +1,53 @@
-import { describe, expect, test } from "vitest";
-
-import { encodeBranchName } from "@nseng-ai/brmem";
+import { FakeBrmemGateway } from "@nseng-ai/brmem";
 import { createHandoffLaunchIntegration } from "@nseng-ai/handoffs/pi/handoff-launch";
 import type {
 	CommandContext,
 	HandoffExtensionAPI,
 	ToolDefinition,
 } from "@nseng-ai/handoffs/pi/handoff-launch";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
+import type {
+	ExecResult,
+	NsCommand,
+	NsCommandSchema,
+	NsExecOptions,
+	NsExtensionApi,
+	TextGenerationRequest,
+	TextGenerationResult,
+} from "@nseng-ai/sdk";
+import { describe, expect, test } from "vitest";
+
 import { formatHerdrHandoffTabRunFailure, launchHerdrHandoffTab } from "../src/core/handoff-tab.ts";
+import { herdrHandoffTabLaunchNsCommand } from "../src/ns/commands/handoff-tab-launch.ts";
 import { registerHerdrHandoffTab } from "../src/pi/handoff-tab.ts";
 import { isExactOptionalIntegrationAbsence } from "../src/pi/extension.ts";
 import { FakeHerdrGateway } from "./herdr-test-harness.ts";
 
 const launchOptions = {
-	pi: { getThinkingLevel: () => "high" as const },
-	ctx: { cwd: "/repo", model: { provider: "anthropic", id: "claude-test" } },
+	cwd: "/repo",
+	launchOptions: {
+		model: { provider: "anthropic", id: "claude-test" },
+		thinkingLevel: "high" as const,
+	},
 	workspaceId: "workspace-1",
 	slug: "continue-feature",
 	pickupCommand: "/ns:handoff:pickup --branch feature continue-feature",
 };
+
+const commandArgv = [
+	"--branch",
+	"feature/test",
+	"--slug",
+	"continue-work",
+	"--workspace-id",
+	"workspace-from-prompt",
+	"--provider",
+	"anthropic",
+	"--model",
+	"claude-test",
+	"--thinking",
+	"high",
+];
 
 describe("Herdr Handoff tab destination", () => {
 	test("creates a focused labeled tab and launches pickup in its root pane", async () => {
@@ -53,19 +82,18 @@ describe("Herdr Handoff tab destination", () => {
 		]);
 	});
 
-	test("does not run a pane command when tab creation fails", async () => {
-		const herdr = new FakeHerdrGateway({
+	test("preserves recovery data for both destination failure stages", async () => {
+		const createFailure = new FakeHerdrGateway({
 			createTabResult: { type: "failed", message: "tab unavailable" },
 		});
+		expect(await launchHerdrHandoffTab({ ...launchOptions, herdr: createFailure })).toEqual({
+			type: "failed",
+			stage: "create-tab",
+			message: "tab unavailable",
+		});
+		expect(createFailure.paneRunCalls).toEqual([]);
 
-		const result = await launchHerdrHandoffTab({ ...launchOptions, herdr });
-
-		expect(result).toEqual({ type: "failed", stage: "create-tab", message: "tab unavailable" });
-		expect(herdr.paneRunCalls).toEqual([]);
-	});
-
-	test("preserves location and manual recovery after pane launch failure", async () => {
-		const herdr = new FakeHerdrGateway({
+		const paneFailure = new FakeHerdrGateway({
 			createTabResult: {
 				type: "created",
 				workspaceId: "workspace-1",
@@ -74,169 +102,212 @@ describe("Herdr Handoff tab destination", () => {
 			},
 			paneRunResult: { type: "failed", message: "pane unavailable" },
 		});
-
-		const result = await launchHerdrHandoffTab({ ...launchOptions, herdr });
-
-		expect(result.type).toBe("failed");
-		if (result.type === "failed" && result.stage === "run-in-pane") {
-			const message = formatHerdrHandoffTabRunFailure(result);
-			expect(message).toContain("Tab: tab-2");
-			expect(message).toContain("Root pane: pane-2");
-			expect(message).toContain("Manual recovery: herdr pane run pane-2");
+		const result = await launchHerdrHandoffTab({ ...launchOptions, herdr: paneFailure });
+		if (result.type !== "failed" || result.stage !== "run-in-pane") {
+			throw new Error("Expected run-in-pane failure");
 		}
+		expect(formatHerdrHandoffTabRunFailure(result)).toContain(
+			"Manual recovery: herdr pane run pane-2",
+		);
 	});
 });
 
-describe("Herdr Handoff command and launch tool", () => {
-	test.each([undefined, "   "])(
-		"rejects missing or blank caller workspace before prompt and effects (%s)",
-		async (workspaceId) => {
-			const pi = new HandoffTabFakePi([
-				{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" },
-			]);
-			const herdr = new FakeHerdrGateway();
-			registerHerdrHandoffTab(
-				pi,
-				createHandoffLaunchIntegration(pi),
-				workspaceId === undefined ? {} : { HERDR_WORKSPACE_ID: workspaceId },
-				herdr,
-			);
+describe("ns herdr exec handoff-tab launch", () => {
+	test("verifies before creating a focused tab and returns stable launch evidence", async () => {
+		const events: string[] = [];
+		const brmem = new EventBrmemGateway(events);
+		await brmem.putEntry({
+			namespace: "handoff",
+			key: "continue-work.md",
+			branch: "feature/test",
+			content: "# Continue",
+		});
+		const herdr = new EventHerdrGateway(events);
+		const exit = await runNsCommand(new FakeHerdrNsApi({ brmem, herdr }), commandArgv);
 
-			await pi.command().handler("continue work", commandContext());
-
-			expect(pi.sentUserMessages).toEqual([]);
-			expect(pi.execCalls).toHaveLength(1);
-			expect(herdr.createTabCalls).toEqual([]);
-			expect(herdr.paneRunCalls).toEqual([]);
-		},
-	);
-
-	test("captures exact caller workspace in each prompt instead of registration-wide state", async () => {
-		const env = { HERDR_WORKSPACE_ID: "workspace-first" };
-		const pi = new HandoffTabFakePi([
-			{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" },
-			{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" },
-		]);
-		registerHerdrHandoffTab(pi, createHandoffLaunchIntegration(pi), env, new FakeHerdrGateway());
-
-		await pi.command().handler("first focus", commandContext());
-		env.HERDR_WORKSPACE_ID = "workspace-second";
-		await pi.command().handler("second focus", commandContext());
-
-		expect(pi.sentUserMessages[0]).toContain("Caller Herdr workspace: workspace-first");
-		expect(pi.sentUserMessages[0]).toContain("`workspaceId` set exactly to `workspace-first`");
-		expect(pi.sentUserMessages[1]).toContain("Caller Herdr workspace: workspace-second");
-		expect(pi.sentUserMessages[0]).toContain(
-			"Compose the final Markdown handoff artifact content first",
-		);
-		expect(pi.sentUserMessages[0]).toContain(
-			"After `ns handoff create` succeeds, call herdr_handoff_tab_launch",
-		);
-		expect(pi.sentUserMessages[0]).toContain("`branch` set exactly to `feature/test`");
-		expect(pi.sentUserMessages[0]).toContain(
-			"Do not call herdr_handoff_tab_launch before the handoff is saved successfully",
-		);
+		expect(exit).toMatchObject({
+			type: "ok",
+			data: {
+				branch: "feature/test",
+				slug: "continue-work",
+				key: "continue-work.md",
+				entryLocator: "refs/brmem/ns/handoff/feature---test:continue-work.md",
+				workspaceId: "workspace-from-prompt",
+				tabId: "tab-1",
+				rootPaneId: "pane-1",
+				label: "handoff: continue-work",
+				pickupCommand: "/ns:handoff:pickup --branch feature/test continue-work",
+				command:
+					"pi --provider anthropic --model claude-test --thinking high '/ns:handoff:pickup --branch feature/test continue-work'",
+			},
+		});
+		expect(events).toEqual(["verify", "create-tab", "run-in-pane"]);
+		expect(herdr.createTabCalls[0]?.options).toEqual({
+			workspaceId: "workspace-from-prompt",
+			cwd: "/repo",
+			label: "handoff: continue-work",
+			shouldFocus: true,
+		});
 	});
 
-	test.each([
-		{ branch: "feature/test", slug: "continue-work", workspaceId: "  " },
-		{ branch: "", slug: "continue-work", workspaceId: "workspace-from-prompt" },
-		{ branch: "feature/test", slug: "nested/slug", workspaceId: "workspace-from-prompt" },
-	])("rejects invalid params before verification or Herdr effects", async (params) => {
-		const pi = new HandoffTabFakePi([]);
-		const herdr = new FakeHerdrGateway();
-		registerHerdrHandoffTab(pi, createHandoffLaunchIntegration(pi), {}, herdr);
-
-		const result = await pi.tool().execute("call", params, undefined, undefined, toolContext());
-
-		expect(result.isError).toBe(true);
-		expect(pi.execCalls).toEqual([]);
-		expect(herdr.createTabCalls).toEqual([]);
-	});
-
-	test("distinguishes missing artifact and verification failure before createTab", async () => {
-		const missingPi = new HandoffTabFakePi(checkScript({ exists: false }));
+	test("returns missing and verification failures without Herdr mutation", async () => {
 		const missingHerdr = new FakeHerdrGateway();
-		registerHerdrHandoffTab(missingPi, createHandoffLaunchIntegration(missingPi), {}, missingHerdr);
-		const missing = await missingPi
-			.tool()
-			.execute("call", launchParams, undefined, undefined, toolContext());
-		expect(missing.content[0]?.text).toContain("No handoff continue-work found");
+		const missing = await runNsCommand(
+			new FakeHerdrNsApi({ brmem: new FakeBrmemGateway(), herdr: missingHerdr }),
+			commandArgv,
+		);
+		expect(missing).toMatchObject({
+			type: "negative",
+			message: "No handoff continue-work found on branch feature/test; no Herdr tab was opened.",
+		});
 		expect(missingHerdr.createTabCalls).toEqual([]);
 
-		const failedPi = new HandoffTabFakePi([
-			{
-				command: "git",
-				args: ["check-ref-format", "--branch", "feature/test"],
-				stdout: "feature/test\n",
-			},
-			{
-				command: "git",
-				args: ["cat-file", "-e", `${handoffRef()}:continue-work.md`],
-				throwError: new Error("storage unavailable"),
-			},
-		]);
 		const failedHerdr = new FakeHerdrGateway();
-		registerHerdrHandoffTab(failedPi, createHandoffLaunchIntegration(failedPi), {}, failedHerdr);
-		const failed = await failedPi
-			.tool()
-			.execute("call", launchParams, undefined, undefined, toolContext());
-		expect(failed.content[0]?.text).toContain("storage unavailable");
+		const failed = await runNsCommand(
+			new FakeHerdrNsApi({ brmem: new ThrowingCheckGateway(), herdr: failedHerdr }),
+			commandArgv,
+		);
+		expect(failed).toMatchObject({
+			type: "failure",
+			errorType: "handoff-verification-failed",
+			data: { stage: "verify-handoff" },
+		});
 		expect(failedHerdr.createTabCalls).toEqual([]);
 	});
 
 	test.each([
-		{
-			name: "create-tab failure",
-			herdrOptions: { createTabResult: { type: "failed" as const, message: "tab unavailable" } },
-			expected: "tab unavailable",
-			expectedCreateCalls: 1,
-			expectedRunCalls: 0,
-		},
-		{
-			name: "run-in-pane failure",
-			herdrOptions: {
-				createTabResult: {
-					type: "created" as const,
-					workspaceId: "workspace-from-prompt",
-					tabId: "tab-recovery",
-					rootPaneId: "pane-recovery",
-				},
-				paneRunResult: { type: "failed" as const, message: "pane unavailable" },
-			},
-			expected: "Manual recovery: herdr pane run pane-recovery",
-			expectedCreateCalls: 1,
-			expectedRunCalls: 1,
-		},
-	])("reports $name through the tool contract", async (scenario) => {
-		const pi = new HandoffTabFakePi(checkScript({ exists: true }));
-		const herdr = new FakeHerdrGateway(scenario.herdrOptions);
-		registerHerdrHandoffTab(pi, createHandoffLaunchIntegration(pi), {}, herdr);
-
-		const result = await pi
-			.tool()
-			.execute("call", launchParams, undefined, undefined, toolContext());
-
-		expect(result.isError).toBe(true);
-		expect(result.content[0]?.text).toContain(scenario.expected);
-		expect(herdr.createTabCalls).toHaveLength(scenario.expectedCreateCalls);
-		expect(herdr.paneRunCalls).toHaveLength(scenario.expectedRunCalls);
+		["blank branch", ["--branch", " "]],
+		["nested slug", ["--slug", "nested/slug"]],
+		["blank workspace", ["--workspace-id", " "]],
+		["blank provider", ["--provider", " "]],
+		["blank model", ["--model", " "]],
+		["invalid thinking", ["--thinking", "extreme"]],
+	])("rejects %s before verification or effects", async (_name, replacement) => {
+		const brmem = new EventBrmemGateway([]);
+		const herdr = new FakeHerdrGateway();
+		const argv = replaceOption(commandArgv, replacement[0] ?? "", replacement[1] ?? "");
+		const exit = await runNsCommand(new FakeHerdrNsApi({ brmem, herdr }), argv);
+		expect(exit.type).toBe("usageError");
+		expect(brmem.checkCalls).toBe(0);
+		expect(herdr.createTabCalls).toEqual([]);
 	});
 
-	test("verifies before creating and launches in the exact parameter workspace", async () => {
-		const events: string[] = [];
-		const pi = new HandoffTabFakePi(checkScript({ exists: true }), events);
-		const herdr = new EventHerdrGateway(events);
-		registerHerdrHandoffTab(pi, createHandoffLaunchIntegration(pi), {}, herdr);
+	test("returns structured durable-reference recovery for Herdr failures", async () => {
+		const brmem = new FakeBrmemGateway();
+		await brmem.putEntry({
+			namespace: "handoff",
+			key: "continue-work.md",
+			branch: "feature/test",
+			content: "# Continue",
+		});
+		const createFailed = await runNsCommand(
+			new FakeHerdrNsApi({
+				brmem,
+				herdr: new FakeHerdrGateway({
+					createTabResult: { type: "failed", message: "tab unavailable" },
+				}),
+			}),
+			commandArgv,
+		);
+		expect(createFailed).toMatchObject({
+			type: "failure",
+			errorType: "herdr-tab-create-failed",
+			data: { stage: "create-tab", branch: "feature/test", slug: "continue-work" },
+		});
 
-		const result = await pi
-			.tool()
-			.execute("call", launchParams, undefined, undefined, toolContext());
+		const paneFailed = await runNsCommand(
+			new FakeHerdrNsApi({
+				brmem,
+				herdr: new FakeHerdrGateway({
+					createTabResult: {
+						type: "created",
+						workspaceId: "workspace-from-prompt",
+						tabId: "tab-recovery",
+						rootPaneId: "pane-recovery",
+					},
+					paneRunResult: { type: "failed", message: "pane unavailable" },
+				}),
+			}),
+			commandArgv,
+		);
+		expect(paneFailed).toMatchObject({
+			type: "failure",
+			errorType: "herdr-pane-run-failed",
+			data: {
+				stage: "run-in-pane",
+				tabId: "tab-recovery",
+				rootPaneId: "pane-recovery",
+				manualRecoveryCommand: expect.stringContaining("herdr pane run pane-recovery"),
+			},
+		});
+	});
 
-		expect(result.isError).not.toBe(true);
-		expect(events.at(-2)).toBe("createTab:workspace-from-prompt");
-		expect(events.at(-1)).toBe("runInPane");
-		expect(herdr.createTabCalls[0]?.options.workspaceId).toBe("workspace-from-prompt");
+	test("publishes help and a success-only result schema", async () => {
+		const api = new FakeHerdrNsApi();
+		const help = await runNsCommandMeta(api, ["-h"]);
+		expect(help).toMatchObject({ type: "ok" });
+		if (help.type === "ok") expect(String(help.data)).toContain("--workspace-id");
+		const schema = await runNsCommandMeta(api, ["--json-schema"]);
+		expect(schema).toMatchObject({ type: "ok" });
+		if (schema.type !== "ok") throw new Error("Expected JSON Schema output");
+		const publishedSchema = JSON.stringify(schema.data);
+		expect(publishedSchema).toContain("inputJsonSchema");
+		expect(publishedSchema).toContain("outputJsonSchema");
+		expect(publishedSchema).toContain("pickupCommand");
+		expect(publishedSchema).not.toContain("verify-handoff");
+		expect(publishedSchema).toContain('"status":{"type":"string","const":"ok"}');
+		expect(publishedSchema).toContain('"status":{"type":"string","const":"negative"}');
+	});
+});
+
+describe("Herdr Handoff Pi prompt", () => {
+	test.each([undefined, "   "])(
+		"rejects missing or blank caller workspace before prompt (%s)",
+		async (workspaceId) => {
+			const pi = new HandoffTabFakePi([
+				{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" },
+			]);
+			registerHerdrHandoffTab(
+				pi,
+				createHandoffLaunchIntegration(pi),
+				workspaceId === undefined ? {} : { HERDR_WORKSPACE_ID: workspaceId },
+			);
+			await pi.command().handler("continue work", commandContext());
+			expect(pi.sentUserMessages).toEqual([]);
+		},
+	);
+
+	test("captures exact caller workspace and launch profile in a reference-only CLI prompt", async () => {
+		const pi = new HandoffTabFakePi([
+			{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" },
+		]);
+		registerHerdrHandoffTab(pi, createHandoffLaunchIntegration(pi), {
+			HERDR_WORKSPACE_ID: "workspace-'quoted",
+		});
+		await pi.command().handler("continue work", commandContext(true));
+		const prompt = pi.sentUserMessages[0] ?? "";
+		expect(prompt).toContain("Compose the final Markdown handoff artifact content first");
+		expect(prompt).toContain("After `ns handoff create` succeeds");
+		expect(prompt).toContain("ns herdr exec handoff-tab launch");
+		expect(prompt).toContain("--branch feature/test");
+		expect(prompt).toContain("--workspace-id 'workspace-'\\''quoted'");
+		expect(prompt).toContain("--provider anthropic --model claude-test --thinking high");
+		expect(prompt).toContain("--format json");
+		expect(prompt).toContain("reads and verifies the stored Handoff Artifact by branch and slug");
+		expect(prompt).toContain("do not pipe, quote, or otherwise send the Markdown artifact to it");
+		expect(prompt).not.toContain(["herdr", "handoff", "tab", "launch"].join("_"));
+		expect(pi.tools.has("derive_handoff_slug_from_content")).toBe(false);
+	});
+
+	test("requires an active model before sending the prompt", async () => {
+		const pi = new HandoffTabFakePi([
+			{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" },
+		]);
+		registerHerdrHandoffTab(pi, createHandoffLaunchIntegration(pi), {
+			HERDR_WORKSPACE_ID: "workspace-1",
+		});
+		await pi.command().handler("continue work", commandContext(false));
+		expect(pi.sentUserMessages).toEqual([]);
 	});
 });
 
@@ -254,16 +325,8 @@ describe("optional Handoffs integration absence classifier", () => {
 			),
 			{ code: "ERR_MODULE_NOT_FOUND" },
 		);
-		const requireTransitive = Object.assign(
-			new Error(
-				"Cannot find module 'broken-transitive'\nRequire stack:\n- /repo/node_modules/@nseng-ai/handoffs/pi/handoff-launch.js",
-			),
-			{ code: "MODULE_NOT_FOUND" },
-		);
-
 		expect(isExactOptionalIntegrationAbsence(absent)).toBe(true);
 		expect(isExactOptionalIntegrationAbsence(transitive)).toBe(false);
-		expect(isExactOptionalIntegrationAbsence(requireTransitive)).toBe(false);
 		expect(isExactOptionalIntegrationAbsence(new SyntaxError("broken integration"))).toBe(false);
 	});
 });
@@ -274,26 +337,16 @@ interface ExecFixture {
 	stdout?: string;
 	stderr?: string;
 	code?: number;
-	throwError?: Error;
 }
-
-const launchParams = {
-	branch: "feature/test",
-	slug: "continue-work",
-	workspaceId: "workspace-from-prompt",
-};
 
 class HandoffTabFakePi implements HandoffExtensionAPI {
 	readonly commands = new Map<string, Parameters<HandoffExtensionAPI["registerCommand"]>[1]>();
 	readonly tools = new Map<string, ToolDefinition>();
-	readonly execCalls: Array<{ command: string; args: string[] }> = [];
 	readonly sentUserMessages: string[] = [];
 	private readonly script: ExecFixture[];
-	private readonly events: string[];
 
-	constructor(script: ExecFixture[], events: string[] = []) {
+	constructor(script: ExecFixture[]) {
 		this.script = [...script];
-		this.events = events;
 	}
 
 	registerCommand(
@@ -308,8 +361,6 @@ class HandoffTabFakePi implements HandoffExtensionAPI {
 	}
 
 	async exec(command: string, args: string[]) {
-		this.execCalls.push({ command, args: [...args] });
-		this.events.push(`exec:${command}:${args.join(" ")}`);
 		const fixture = this.script.shift();
 		if (
 			fixture === undefined ||
@@ -323,7 +374,6 @@ class HandoffTabFakePi implements HandoffExtensionAPI {
 				killed: false,
 			};
 		}
-		if (fixture.throwError !== undefined) throw fixture.throwError;
 		return {
 			stdout: fixture.stdout ?? "",
 			stderr: fixture.stderr ?? "",
@@ -334,6 +384,10 @@ class HandoffTabFakePi implements HandoffExtensionAPI {
 
 	getCommands(): [] {
 		return [];
+	}
+
+	getAllTools() {
+		return [...this.tools.keys()].map((name) => ({ name }));
 	}
 
 	getThinkingLevel() {
@@ -349,11 +403,27 @@ class HandoffTabFakePi implements HandoffExtensionAPI {
 		if (command === undefined) throw new Error("handoff tab command not registered");
 		return command;
 	}
+}
 
-	tool(): ToolDefinition {
-		const tool = this.tools.get("herdr_handoff_tab_launch");
-		if (tool === undefined) throw new Error("handoff tab tool not registered");
-		return tool;
+class EventBrmemGateway extends FakeBrmemGateway {
+	readonly events: string[];
+	checkCalls = 0;
+
+	constructor(events: string[]) {
+		super();
+		this.events = events;
+	}
+
+	override async checkEntry(...args: Parameters<FakeBrmemGateway["checkEntry"]>) {
+		this.checkCalls += 1;
+		this.events.push("verify");
+		return super.checkEntry(...args);
+	}
+}
+
+class ThrowingCheckGateway {
+	async checkEntry(): Promise<never> {
+		throw new Error("storage unavailable");
 	}
 }
 
@@ -373,72 +443,69 @@ class EventHerdrGateway extends FakeHerdrGateway {
 	}
 
 	override async createTab(options: Parameters<FakeHerdrGateway["createTab"]>[0]) {
-		this.events.push(`createTab:${options.workspaceId}`);
+		this.events.push("create-tab");
 		return super.createTab(options);
 	}
 
 	override async runInPane(...args: Parameters<FakeHerdrGateway["runInPane"]>) {
-		this.events.push("runInPane");
+		this.events.push("run-in-pane");
 		return super.runInPane(...args);
 	}
 }
 
-function commandContext(): CommandContext {
+class FakeHerdrNsApi implements NsExtensionApi {
+	readonly cwd = "/repo";
+	readonly env = { HOME: "/home/test" };
+	readonly commandIo = noopNsCommandIo;
+	readonly progress = noopNsProgress;
+	readonly renderCapabilities = { canEmitAnsi: false };
+	readonly hasExtension = () => false;
+	readonly extensions: Readonly<Record<string, unknown>>;
+
+	constructor(options: { brmem?: unknown; herdr?: FakeHerdrGateway } = {}) {
+		this.extensions = {
+			herdr: {
+				brmem: options.brmem ?? new FakeBrmemGateway(),
+				herdr: options.herdr ?? new FakeHerdrGateway(),
+			},
+		};
+	}
+
+	async exec(_command: string, _args: string[], _options?: NsExecOptions): Promise<ExecResult> {
+		throw new Error("Unexpected real exec in Herdr command test");
+	}
+
+	readonly textGenerator = {
+		generateText: async (request: TextGenerationRequest): Promise<TextGenerationResult> => {
+			throw new Error(`Unexpected text generation: ${JSON.stringify(request)}`);
+		},
+	};
+}
+
+function commandContext(withModel = false): CommandContext {
 	return {
 		cwd: "/repo",
 		hasUI: false,
 		mode: "tui",
 		ui: { notify(): void {}, setStatus(): void {} },
+		...(withModel ? { model: { provider: "anthropic", id: "claude-test" } } : {}),
 		async waitForIdle(): Promise<void> {},
 	};
 }
 
-function toolContext() {
-	return {
-		cwd: "/repo",
-		hasUI: false,
-		mode: "tui" as const,
-		model: { provider: "anthropic", id: "claude-test" },
-		ui: { notify(): void {}, setStatus(): void {} },
-	};
+function runNsCommand(api: NsExtensionApi, argv: readonly string[]) {
+	return herdrHandoffTabLaunchNsCommand.run(api, { argv: [...argv] });
 }
 
-function handoffRef(): string {
-	const encoded = encodeBranchName("feature/test");
-	if (encoded.type === "error") throw new Error(encoded.error.message);
-	return `refs/brmem/ns/handoff/${encoded.value}`;
+function runNsCommandMeta(api: NsExtensionApi, argv: readonly string[]) {
+	const command = herdrHandoffTabLaunchNsCommand as NsCommand<NsCommandSchema, unknown>;
+	return command.run(api, { argv: [...argv] });
 }
 
-function checkScript(options: { exists: boolean }): ExecFixture[] {
-	return [
-		{
-			command: "git",
-			args: ["check-ref-format", "--branch", "feature/test"],
-			stdout: "feature/test\n",
-		},
-		{
-			command: "git",
-			args: ["cat-file", "-e", `${handoffRef()}:continue-work.md`],
-			code: options.exists ? 0 : 1,
-		},
-		...(options.exists
-			? [
-					{
-						command: "git",
-						args: ["rev-parse", `${handoffRef()}:continue-work.md`],
-						stdout: "blob-sha\n",
-					},
-					{
-						command: "git",
-						args: ["cat-file", "-s", `${handoffRef()}:continue-work.md`],
-						stdout: "42\n",
-					},
-					{
-						command: "git",
-						args: ["log", "-1", "--format=%H%x09%cI", handoffRef()],
-						stdout: "commit-sha\t2026-06-05T00:00:00Z\n",
-					},
-				]
-			: []),
-	];
+function replaceOption(argv: readonly string[], option: string, value: string): string[] {
+	const result = [...argv];
+	const index = result.indexOf(option);
+	if (index < 0) throw new Error(`Missing option ${option}`);
+	result[index + 1] = value;
+	return result;
 }

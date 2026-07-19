@@ -6,6 +6,8 @@
 	],
 	"type": "module",
 	"exports": {
+		"./ns-extension": "./src/ns/extension.ts",
+		"./ns/commands/handoff-tab-launch": "./src/ns/commands/handoff-tab-launch.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts"
 	},
@@ -15,25 +17,23 @@
 	},
 	"dependencies": {
 		"@nseng-ai/branch-context": "workspace:*",
+		"@nseng-ai/brmem": "workspace:*",
 		"@nseng-ai/capability-kit": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/handoffs": "workspace:*",
 		"@nseng-ai/objectives": "workspace:*",
 		"@nseng-ai/plans": "workspace:*",
 		"@nseng-ai/sdk": "workspace:*",
-		"@nseng-ai/slots": "workspace:*"
+		"@nseng-ai/slots": "workspace:*",
+		"zod": "catalog:"
 	},
 	"devDependencies": {
-		"@nseng-ai/handoffs": "workspace:*",
 		"@nseng-ai/pi": "workspace:*"
 	},
 	"peerDependencies": {
-		"@nseng-ai/handoffs": "workspace:*",
 		"@nseng-ai/pi": "workspace:*"
 	},
 	"peerDependenciesMeta": {
-		"@nseng-ai/handoffs": {
-			"optional": true
-		},
 		"@nseng-ai/pi": {
 			"optional": true
 		}
@@ -42,6 +42,7 @@
 		"tier": "capability",
 		"subpackages": [
 			"core",
+			"ns",
 			"pi"
 		]
 	}
