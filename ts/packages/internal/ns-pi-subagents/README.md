@@ -44,14 +44,14 @@ Agent definitions live at `.ns/pi/agents/<name>.md` and must declare `toolName: 
 
 ```ts
 const agents = createSubagentAgentRegistry(
-  [EXPLORER_AGENT_DESCRIPTOR, TASK_AGENT_DESCRIPTOR, myDescriptor],
-  (name) => loadPiAgentDefinition(name, cwd),
+	[EXPLORER_AGENT_DESCRIPTOR, TASK_AGENT_DESCRIPTOR, myDescriptor],
+	(name) => loadPiAgentDefinition(name, cwd),
 );
 registerSubagentTool(pi, {
-  agents,
-  runtimes,
-  fleetRegistry,
-  loadAgentDefinition: loadPiAgentDefinition,
+	agents,
+	runtimes,
+	fleetRegistry,
+	loadAgentDefinition: loadPiAgentDefinition,
 });
 ```
 
@@ -64,7 +64,7 @@ See [AUTHORING.md](./AUTHORING.md) for the complete procedure.
 - `@internal/ns-pi-subagents/runner-subagents` — lower-level process, JSON protocol, terminal capture, and final-text substrate for existing direct consumers.
 - `@internal/ns-pi-subagents/runner-subagents/testing` — lower-level test helpers.
 
-`SubagentRuntime.dispatch` and `createSubprocessSubagentRuntime()` remain available for direct consumers such as terminal-capture councils. Runtime-independent contracts carry foundation `ModelSelection` values (`provider` plus `modelId`), with thinking kept as separate metadata. Pi hosts translate `ModelInfo.id` on ingress; subprocess and in-process adapters unpack the selection only at their terminal Pi seams. `RunnerSubagent*` is valid substrate vocabulary; it is not the retired `runner` agent type.
+`SubagentRuntime.dispatch` and `createSubprocessSubagentRuntime()` remain available for direct consumers such as terminal-capture councils. Runtime-independent contracts carry complete foundation `ModelSelection` values (`provider`, `modelId`, and required `thinking`). Concrete selections own requested launch thinking, while observed model and thinking remain distinct runtime evidence. Pi hosts translate `ModelInfo.id` on ingress; subprocess and in-process adapters unpack the selection only at their terminal Pi seams. `RunnerSubagent*` is valid substrate vocabulary; it is not the retired `runner` agent type.
 
 ## Validation
 

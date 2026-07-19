@@ -499,7 +499,6 @@ async function generateSubmitFailureInterpretation(input: {
 		const interpretation = await input.ctx.textGenerator.generateText({
 			modelSelection: input.modelSelection,
 			operation: "submit-failure",
-			reasoning: "low",
 			maxTokens: 700,
 			system:
 				"You write plain terminal-facing failure summaries for engineers. Be concise, specific, and action-oriented. Output only the final user-facing message. Do not invent facts not present in the transcript. Do not paste raw logs or raw-log paths; the wrapper appends the raw-log line separately.",

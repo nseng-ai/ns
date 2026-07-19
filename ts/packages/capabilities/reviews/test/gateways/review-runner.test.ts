@@ -28,7 +28,7 @@ function request(
 	const diffText = options.diffText ?? "diff --git a/src/app.ts b/src/app.ts\n+change\n";
 	const [provider, ...modelParts] = (options.model ?? "anthropic/claude-haiku-4-5").split("/");
 	return {
-		modelSelection: { provider: provider ?? "", modelId: modelParts.join("/") },
+		modelSelection: { provider: provider ?? "", modelId: modelParts.join("/"), thinking: "high" },
 		reviewDefinition: {
 			name: options.reviewName ?? "typescript-style",
 			description: "Review TypeScript diffs.",
@@ -72,6 +72,7 @@ function preparedRequest(
 		modelSelection: {
 			provider: "anthropic",
 			modelId: options.modelId ?? "claude-haiku-4-5",
+			thinking: "high",
 		},
 		promptText: options.promptText ?? "REVIEW_PROMPT",
 		inputCoverage: {
@@ -199,6 +200,8 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 			"claude-haiku-4-5",
 		]);
 		expect(call?.args[6]).toBe("--model");
+		expect(call?.args).toContain("--effort");
+		expect(call?.args.at((call?.args.indexOf("--effort") ?? -2) + 1)).toBe("high");
 		expect(call?.args).toContain("--system-prompt");
 		expect(call?.args).toContain("--json-schema");
 		const schemaArg = call?.args.at((call?.args.indexOf("--json-schema") ?? -2) + 1);
@@ -215,6 +218,29 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 		expect(call?.options?.stdin).toContain(largeMarker);
 		expect(call?.options?.cwd).toBe("/repo");
 	});
+
+	test.each(["off", "minimal"] as const)(
+		"rejects unsupported thinking %s actionably before spawning",
+		async (thinking) => {
+			const execApi = new ScriptedCommandExecApi([exitedResult({ stdout: claudeStdout() })]);
+			const gateway = new ClaudeCodeProcessReviewRunner({
+				execApi,
+				binaryResolver: () => "/usr/bin/claude",
+			});
+			const harnessRequest = preparedRequest();
+			harnessRequest.modelSelection.thinking = thinking;
+
+			const result = await gateway.runReview(harnessRequest, { cwd: "/repo" });
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.error.code).toBe("model-not-supported-by-harness");
+				expect(result.error.message).toContain(`thinking level ${JSON.stringify(thinking)}`);
+				expect(result.error.message).toContain('thinking = "low", "medium", "high", or "xhigh"');
+			}
+			expect(execApi.calls()).toEqual([]);
+		},
+	);
 
 	test("missing binary returns harness_binary_missing without spawning", async () => {
 		const execApi = new ScriptedCommandExecApi([exitedResult({ stdout: claudeStdout() })]);
@@ -291,6 +317,7 @@ describe("RoutingReviewRunner", () => {
 					: pi.calls[0];
 		expect(dispatched?.request.modelSelection.modelId).toBe(modelId);
 		expect(dispatched?.request.modelSelection.provider).toBe(model.split("/", 1)[0]);
+		expect(dispatched?.request.modelSelection.thinking).toBe("high");
 		expect(dispatched?.request.promptText).toContain("Flag concrete issues.");
 		expect(dispatched?.request.promptText).toContain("+change");
 		expect(dispatched?.request.inputCoverage).toMatchObject({

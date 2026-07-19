@@ -108,18 +108,19 @@ available to the ns runtime. Model-backed commands use shared repository policy 
 `ns.toml`:
 
 ```toml
-[models.profiles]
-fast = "openai/gpt-5.6-luna"
+[models.profiles.fast]
+model = "openai/gpt-5.6-luna"
+thinking = "minimal"
 
 [models.operations]
 "flow.pr-description" = "fast"
 ```
 
-`models.profiles` maps profile names to qualified provider/model references and
-`models.operations` maps operation IDs to profiles. Omitted operations resolve to
-`fast`, and projects may redefine `fast`. Flow uses `slug` for generated branch
-names, `flow.checkpoint` for checkpoint messages, and `flow.pr-description` for PR
-metadata. There is no environment override ladder or model inspection command.
+`models.profiles` maps profile names to qualified provider/model references and required
+thinking policies. `models.operations` maps operation IDs to profiles. Omitted operations
+resolve to `fast`, and projects may redefine `fast`. Flow uses `slug` for generated branch
+names, `flow.checkpoint` for checkpoint messages, and `flow.pr-description` for PR metadata.
+There is no environment override ladder or model inspection command.
 
 Prompt content is configured separately from model identity through the prompt points
 documented below.

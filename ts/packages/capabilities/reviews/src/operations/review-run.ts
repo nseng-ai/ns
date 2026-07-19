@@ -237,14 +237,14 @@ function resolveReviewModel(
 			ok: false,
 			error: {
 				code: "project-config-invalid",
-				message: `Reviews model profile ${JSON.stringify(profile)} is not configured in [models.profiles]. Configured profiles: ${configuredProfiles.join(", ")}. Add ${JSON.stringify(profile)} = "provider/model-id" under [models.profiles] or choose a configured profile with --model-profile.`,
+				message: `Reviews model profile ${JSON.stringify(profile)} is not configured in [models.profiles]. Configured profiles: ${configuredProfiles.join(", ")}. Add [models.profiles.${profile}] with model = "provider/model-id" and thinking = "low|medium|high|xhigh", or choose a configured profile with --model-profile.`,
 			},
 		};
 	}
 	let selection = configuredModel;
 	if (request.model !== undefined) {
 		const modelRef = request.model.trim();
-		const parsed = parseModelRef(modelRef);
+		const parsed = parseModelRef(modelRef, configuredModel.thinking);
 		if (parsed === undefined) {
 			return {
 				ok: false,

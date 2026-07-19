@@ -59,7 +59,7 @@ describe("runReview", () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles]\ndeep = "anthropic/claude-opus-4-6"\n',
+			'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles.deep]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "high"\n',
 		);
 		const localDiff = new FakeLocalDiffGateway({
 			defaultDiff: {
@@ -114,6 +114,7 @@ describe("runReview", () => {
 		expect(reviewRunner.calls()[0]?.request.modelSelection).toEqual({
 			provider: "anthropic",
 			modelId: "claude-opus-4-6",
+			thinking: "high",
 		});
 		expect(reviewRunner.calls()[0]?.request.reviewDir).toBe("/repo/.ns/reviews/typescript-style");
 		expect(localDiff.requestedExcludeGlobs()).toEqual([["generated/**"]]);
@@ -125,7 +126,7 @@ describe("runReview", () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[models.profiles]\narchitecture = "anthropic/claude-opus-4-6"\n',
+			'[models.profiles.architecture]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "xhigh"\n',
 		);
 		const reviewRunner = new FakeReviewRunnerGateway();
 		const ctx = createReviewsRuntime(
@@ -151,6 +152,7 @@ describe("runReview", () => {
 		expect(reviewRunner.calls()[0]?.request.modelSelection).toEqual({
 			provider: "anthropic",
 			modelId: "claude-opus-4-6",
+			thinking: "xhigh",
 		});
 	});
 
@@ -202,6 +204,7 @@ describe("runReview", () => {
 		expect(reviewRunner.calls()[0]?.request.modelSelection).toEqual({
 			provider: "openai",
 			modelId: "gpt-5.6-luna",
+			thinking: "minimal",
 		});
 		expect(reviewLog.writtenEntries()[0]?.content).toContain("openai/gpt-5.6-luna");
 	});

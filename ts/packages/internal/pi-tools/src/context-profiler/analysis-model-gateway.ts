@@ -126,11 +126,14 @@ async function callAnalysisModel<T>(
 ): Promise<{ ok: true; value: T } | { ok: false; error: AnalysisModelError }> {
 	const response = await callPiModelText({
 		registry: options.registry,
-		modelSelection: { provider: ANALYSIS_MODEL_PROVIDER, modelId: ANALYSIS_MODEL_ID },
+		modelSelection: {
+			provider: ANALYSIS_MODEL_PROVIDER,
+			modelId: ANALYSIS_MODEL_ID,
+			thinking: "minimal",
+		},
 		systemPrompt: options.systemPrompt,
 		userText: options.json,
 		maxTokens: options.maxTokens,
-		reasoning: "minimal",
 		signal: options.signal,
 		...(options.overrides.completeFn === undefined
 			? {}
@@ -147,6 +150,8 @@ function mapModelFailure(
 	abortedMessage: string,
 ): { ok: false; error: AnalysisModelError } {
 	switch (response.reason) {
+		case "unsupported-thinking":
+			return failure("request-failed", response.message ?? "unsupported thinking level");
 		case "model-unavailable":
 			return failure(
 				"model-unavailable",

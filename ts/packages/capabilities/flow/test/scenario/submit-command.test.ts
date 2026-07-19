@@ -1752,6 +1752,7 @@ describe("project-local submit extension", () => {
 		expect(run.context.textGeneratorCalls[0]?.modelSelection).toEqual({
 			provider: "openai-codex",
 			modelId: "gpt-5.6-luna",
+			thinking: "minimal",
 		});
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
 			"Truncation: transcript was not truncated.",

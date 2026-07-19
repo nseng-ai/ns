@@ -85,7 +85,14 @@ export function registerContextProfilerExtension(pi: ExtensionAPI): void {
 		commandDefinition: {
 			description:
 				"Open the context profiler: a diagnostic, non-mutating overlay over this session's context",
-			handler: async (_args, ctx) => openProfiler({ ctx, runtime, segmentationCache, sessions }),
+			handler: async (_args, ctx) =>
+				openProfiler({
+					ctx,
+					runtime,
+					segmentationCache,
+					sessions,
+					thinking: pi.getThinkingLevel(),
+				}),
 		},
 	});
 
@@ -101,6 +108,7 @@ interface OpenProfilerOptions {
 	runtime: ProfilerRuntimeStore;
 	segmentationCache: SegmentationCacheAccess;
 	sessions: OverlaySessionController;
+	thinking: ReturnType<ExtensionAPI["getThinkingLevel"]>;
 }
 
 class ProfilerRuntimeStore {
@@ -153,7 +161,7 @@ class OverlaySessionController {
 }
 
 function openProfiler(options: OpenProfilerOptions): void {
-	const { ctx, runtime, segmentationCache, sessions } = options;
+	const { ctx, runtime, segmentationCache, sessions, thinking } = options;
 	if (!ctx.hasUI) {
 		ctx.ui.notify("context profiler only renders in interactive TUI mode", "warning");
 		return;
@@ -227,7 +235,13 @@ function openProfiler(options: OpenProfilerOptions): void {
 					segmentation: initialSegmentation,
 					persistence: session.persistence,
 					onClose: () => session.close(),
-					onOpenInterrogation: (scope) => openInterrogation({ ctx, session, scope }),
+					onOpenInterrogation: (scope) =>
+						openInterrogation({
+							ctx,
+							session,
+							scope,
+							thinking,
+						}),
 					onRefresh: () => {
 						const refreshedState = runtime.captureCurrentState(ctx);
 						const refreshedProfile = buildProfile(ctx, refreshedState);
@@ -275,6 +289,7 @@ function openInterrogation(options: {
 	ctx: ExtensionCommandContext;
 	session: OverlaySession;
 	scope: InterrogationScope;
+	thinking: ReturnType<ExtensionAPI["getThinkingLevel"]>;
 }): InterrogationAttachment {
 	const { ctx, session } = options;
 	if (session.persistence.type !== "persisted")
@@ -291,7 +306,11 @@ function openInterrogation(options: {
 		session.interrogation?.dispose();
 		session.interrogation = new InterrogationController({
 			bundle: session.persistence,
-			modelSelection: { provider: ctx.model.provider, modelId: ctx.model.id },
+			modelSelection: {
+				provider: ctx.model.provider,
+				modelId: ctx.model.id,
+				thinking: options.thinking,
+			},
 			modelRegistry: ctx.modelRegistry,
 			factory: createPiInterrogationSessionFactory(),
 			onTranscriptChange: () => session.view?.notifyInterrogationChanged(),

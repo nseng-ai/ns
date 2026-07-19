@@ -16,6 +16,7 @@ export const CHEAP_MODEL_IDS = {
 export const DEFAULT_CHEAP_MODEL_SELECTION: ModelSelection = {
 	provider: ANTHROPIC_PROVIDER_ID,
 	modelId: CHEAP_MODEL_IDS.anthropic,
+	thinking: "minimal",
 };
 
 export type IsProviderAuthConfigured = (providerId: string) => boolean;
@@ -62,6 +63,7 @@ export function resolveSameProviderCheapModel(
 			return {
 				provider: parentModelSelection.provider,
 				modelId: CHEAP_MODEL_IDS[family],
+				thinking: parentModelSelection.thinking,
 			};
 		}
 	}

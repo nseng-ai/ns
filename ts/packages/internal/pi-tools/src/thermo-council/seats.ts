@@ -26,19 +26,31 @@ const DEFAULT_SEATS = [
 	{
 		id: "anthropic-fable",
 		label: "Fable",
-		modelSelection: { provider: "vercel-ai-gateway", modelId: "anthropic/claude-fable-5" },
+		modelSelection: {
+			provider: "vercel-ai-gateway",
+			modelId: "anthropic/claude-fable-5",
+			thinking: "minimal",
+		},
 		envVar: "THERMO_COUNCIL_ANTHROPIC_MODEL",
 	},
 	{
 		id: "openai-high",
 		label: "Sol",
-		modelSelection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol" },
+		modelSelection: {
+			provider: "vercel-ai-gateway",
+			modelId: "openai/gpt-5.6-sol",
+			thinking: "minimal",
+		},
 		envVar: "THERMO_COUNCIL_OPENAI_MODEL",
 	},
 	{
 		id: "gemini-high",
 		label: "Gemini",
-		modelSelection: { provider: "vercel-ai-gateway", modelId: "google/gemini-2.5-pro" },
+		modelSelection: {
+			provider: "vercel-ai-gateway",
+			modelId: "google/gemini-2.5-pro",
+			thinking: "minimal",
+		},
 		envVar: "THERMO_COUNCIL_GEMINI_MODEL",
 	},
 ] as const satisfies readonly DefaultSeat[];
@@ -90,7 +102,7 @@ function modelOverride({
 }: ModelOverrideOptions): ModelSelection {
 	const candidate = seatSpecific?.trim() || positional?.trim();
 	if (candidate === undefined) return defaultModelSelection;
-	const selection = parseModelRef(candidate);
+	const selection = parseModelRef(candidate, defaultModelSelection.thinking);
 	if (selection === undefined)
 		throw new Error(`Invalid model override for ${label}: ${candidate}.`);
 	return selection;

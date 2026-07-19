@@ -1,4 +1,8 @@
-import { formatModelRef, type ModelSelection } from "@nseng-ai/foundation/model-slug";
+import {
+	formatModelRef,
+	type ModelSelection,
+	type ModelThinking,
+} from "@nseng-ai/foundation/model-slug";
 import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
 import { notifyCommandUi, type NotifiableCommandContext } from "../../commands/helpers.ts";
 
@@ -57,7 +61,7 @@ export const MODEL_SHORTCUTS = [
 
 export interface ModelShortcut {
 	command: string;
-	selection: ModelSelection;
+	selection: Pick<ModelSelection, "provider" | "modelId">;
 }
 
 interface ModelInfo {
@@ -82,6 +86,7 @@ export interface ExtensionAPI {
 		},
 	): void;
 	setModel(model: ModelInfo): Promise<boolean>;
+	getThinkingLevel(): ModelThinking;
 }
 
 export default function modelShortcutExtension(pi: ExtensionAPI): void {
@@ -104,8 +109,12 @@ async function switchToModel(
 	ctx: CommandContext,
 	shortcut: ModelShortcut,
 ): Promise<void> {
-	const ref = modelRef(shortcut);
-	const model = ctx.modelRegistry.find(shortcut.selection.provider, shortcut.selection.modelId);
+	const selection: ModelSelection = {
+		...shortcut.selection,
+		thinking: pi.getThinkingLevel(),
+	};
+	const ref = formatModelRef(selection);
+	const model = ctx.modelRegistry.find(selection.provider, selection.modelId);
 	if (model === undefined) {
 		notifyCommandUi(ctx, `Model ${ref} not found.`, "error");
 		return;
@@ -121,5 +130,5 @@ async function switchToModel(
 }
 
 export function modelRef(shortcut: ModelShortcut): string {
-	return formatModelRef(shortcut.selection);
+	return `${shortcut.selection.provider}/${shortcut.selection.modelId}`;
 }

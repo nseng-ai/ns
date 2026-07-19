@@ -53,7 +53,6 @@ function copyTextGenerationRequest(request: TextGenerationRequest): TextGenerati
 		prompt: request.prompt,
 		...optionalEntries({
 			maxTokens: request.maxTokens,
-			reasoning: request.reasoning,
 			operation: request.operation,
 		}),
 	};

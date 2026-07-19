@@ -214,7 +214,7 @@ describe("reviews domain schemas", () => {
 			localOnly: false,
 		});
 		const request = reviewRunnerRequestSchema.parse({
-			modelSelection: { provider: "openai", modelId: "gpt-5.6-luna" },
+			modelSelection: { provider: "openai", modelId: "gpt-5.6-luna", thinking: "high" },
 			reviewDefinition,
 			reviewDir: "/repo/.ns/reviews/typescript-style",
 			target: { localDiff },
@@ -256,8 +256,15 @@ describe("reviews domain schemas", () => {
 			inputCoverage: null,
 		});
 
+		expect(request.modelSelection.thinking).toBe("high");
 		expect(request.target.localDiff.baseRef).toBe("main");
 		expect(request.priorFindingsContext?.findings[0]?.resolutionStatus).toBe("unresolved");
+		expect(() =>
+			reviewRunnerRequestSchema.parse({
+				...request,
+				modelSelection: { provider: "openai", modelId: "gpt-5.6-luna" },
+			}),
+		).toThrow();
 		expect(response.payload.count).toBe(0);
 	});
 

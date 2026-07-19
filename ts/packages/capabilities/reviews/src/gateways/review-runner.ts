@@ -161,6 +161,15 @@ export class ClaudeCodeProcessReviewRunner implements ReviewHarnessRunner {
 		request: PreparedReviewHarnessRequest,
 		options: RunReviewOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
+		if (
+			request.modelSelection.thinking === "off" ||
+			request.modelSelection.thinking === "minimal"
+		) {
+			return resultErr({
+				code: "model-not-supported-by-harness",
+				message: `Claude Code does not support Reviews thinking level ${JSON.stringify(request.modelSelection.thinking)}. Configure the selected [models.profiles] entry with thinking = "low", "medium", "high", or "xhigh".`,
+			});
+		}
 		let resolvedBinary: string | undefined;
 		try {
 			resolvedBinary = this.binaryResolver(CLAUDE_BINARY);
@@ -179,6 +188,7 @@ export class ClaudeCodeProcessReviewRunner implements ReviewHarnessRunner {
 
 		const args = buildClaudeCodeArgs({
 			model: request.modelSelection.modelId,
+			thinking: request.modelSelection.thinking,
 			systemPrompt: systemPromptFindings(),
 		});
 		let result: ExecResult;

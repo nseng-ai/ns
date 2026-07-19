@@ -64,10 +64,13 @@ describe("project-local changes extension behavior", () => {
 		).toBe(false);
 		expect(run.context.textGeneratorCalls).toEqual([
 			expect.objectContaining({
-				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.6-luna",
+					thinking: "minimal" as const,
+				},
 				operation: "changes-summary",
 				maxTokens: 512,
-				reasoning: "low",
 			}),
 		]);
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("## branch\n\nfeature/demo");
@@ -124,6 +127,7 @@ describe("project-local changes extension behavior", () => {
 		expect(run.context.textGeneratorCalls[0]?.modelSelection).toEqual({
 			provider: "openai-codex",
 			modelId: "gpt-5.6-luna",
+			thinking: "minimal",
 		});
 	});
 

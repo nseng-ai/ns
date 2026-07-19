@@ -16,25 +16,39 @@ describe("model policy", () => {
 				ok: true,
 				value: {
 					profile: "fast",
-					selection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+					selection: {
+						provider: "openai-codex",
+						modelId: "gpt-5.6-luna",
+						thinking: "minimal" as const,
+					},
 					source: "builtin",
 				},
 			});
 	});
 
 	test("allows redefining fast and named profiles", () => {
-		const policy = parseModelPolicyToml(
-			'[models.profiles]\nfast = "acme/quick"\ndeep = "acme/deep"',
-		);
+		const policy = parseModelPolicyToml(`
+[models.profiles.fast]
+model = "acme/quick"
+thinking = "minimal"
+[models.profiles.deep]
+model = "acme/deep"
+thinking = "high"
+`);
 		expect(policy).toMatchObject({
 			ok: true,
-			value: { profiles: { fast: { provider: "acme" }, deep: { modelId: "deep" } } },
+			value: {
+				profiles: {
+					fast: { provider: "acme", thinking: "minimal" as const },
+					deep: { modelId: "deep", thinking: "high" },
+				},
+			},
 		});
 	});
 
 	test("resolves operation overrides and accepts unknown operation keys", () => {
 		const policy = parseModelPolicyToml(
-			'[models.profiles]\ndeep = "acme/deep"\n[models.operations]\ncustom = "deep"',
+			'[models.profiles.deep]\nmodel = "acme/deep"\nthinking = "high"\n[models.operations]\ncustom = "deep"',
 		);
 		expect(policy.ok).toBe(true);
 		if (policy.ok)
@@ -42,7 +56,7 @@ describe("model policy", () => {
 				ok: true,
 				value: {
 					profile: "deep",
-					selection: { provider: "acme", modelId: "deep" },
+					selection: { provider: "acme", modelId: "deep", thinking: "high" },
 					source: "project-operation",
 				},
 			});
@@ -53,11 +67,15 @@ describe("model policy", () => {
 			ok: false,
 			error: { code: "invalid-model-policy" },
 		});
-		expect(parseModelPolicyToml('[models.profiles]\n"" = "acme/fast"')).toMatchObject({
+		expect(
+			parseModelPolicyToml('[models.profiles.""]\nmodel = "acme/fast"\nthinking = "minimal"'),
+		).toMatchObject({
 			ok: false,
 			error: { code: "invalid-model-policy" },
 		});
-		expect(parseModelPolicyToml('[models.profiles]\n"  " = "acme/fast"')).toMatchObject({
+		expect(
+			parseModelPolicyToml('[models.profiles."  "]\nmodel = "acme/fast"\nthinking = "minimal"'),
+		).toMatchObject({
 			ok: false,
 			error: { code: "invalid-model-policy" },
 		});
@@ -72,7 +90,13 @@ describe("model policy", () => {
 			ok: false,
 			error: { code: "invalid-model-policy" },
 		});
-		expect(parseModelPolicyToml('[models.profiles]\nfast = "not-qualified"')).toMatchObject({
+		expect(
+			parseModelPolicyToml('[models.profiles.fast]\nmodel = "not-qualified"\nthinking = "minimal"'),
+		).toMatchObject({
+			ok: false,
+			error: { code: "invalid-model-policy" },
+		});
+		expect(parseModelPolicyToml('[models.profiles]\nfast = "acme/fast"')).toMatchObject({
 			ok: false,
 			error: { code: "invalid-model-policy" },
 		});
@@ -82,14 +106,16 @@ describe("model policy", () => {
 		const gateway: ProjectConfigGateway = {
 			readTextFile: () => ({
 				type: "found",
-				text: '[models.profiles]\nfast = "acme/fast"\n[points]\n"flow.submit.pre" = ["just"]\n',
+				text: '[models.profiles.fast]\nmodel = "acme/fast"\nthinking = "minimal"\n[points]\n"flow.submit.pre" = ["just"]\n',
 			}),
 			pathExists: () => ({ type: "missing" }),
 		};
 
 		expect(loadModelPolicy({ repoRoot: "/repo", gateway })).toMatchObject({
 			ok: true,
-			value: { profiles: { fast: { provider: "acme", modelId: "fast" } } },
+			value: {
+				profiles: { fast: { provider: "acme", modelId: "fast", thinking: "minimal" as const } },
+			},
 		});
 	});
 

@@ -118,7 +118,7 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 	};
 	const input = {
 		cwd: "/repo",
-		modelSelection: { provider: "test", modelId: "model" },
+		modelSelection: { provider: "test", modelId: "model", thinking: "minimal" as const },
 		args: options.slug === undefined ? {} : { slug: options.slug },
 		snapshot,
 		exec,
@@ -308,7 +308,7 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 		}
 		const prompt = piPrompt(harness.calls);
 		expect(harness.calls.find((call) => call.command === "pi")?.args).toEqual(
-			buildRawTextModelArgs(prompt, parseModelRef("test/model")),
+			buildRawTextModelArgs(prompt, parseModelRef("test/model", "minimal")),
 		);
 		expect(prompt).toContain("## commit message\nAdd latest commit support");
 		expect(prompt).toContain("## git diff HEAD^ HEAD\ndiff --git");

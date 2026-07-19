@@ -43,6 +43,9 @@ type SessionStartHandler = ExtensionHandler<SessionStartEvent>;
 type SessionShutdownHandler = ExtensionHandler<SessionShutdownEvent>;
 
 class FakePi implements ThermoCouncilExtensionAPI {
+	getThinkingLevel(): "minimal" {
+		return "minimal";
+	}
 	readonly sessionStartHandlers: SessionStartHandler[] = [];
 	readonly sessionShutdownHandlers: SessionShutdownHandler[] = [];
 	readonly events: ExtensionAPI["events"] = fakeEventBus();
@@ -92,7 +95,7 @@ function fakeContext(): ThermoCouncilCommandContext {
 }
 
 function seat(id: ThermoCouncilSeatConfig["id"], label: string): ThermoCouncilSeatConfig {
-	return { id, label, modelSelection: { provider: id, modelId: "model" } };
+	return { id, label, modelSelection: { provider: id, modelId: "model", thinking: "minimal" } };
 }
 
 function fleetRegistry(pi: FakePi): SubagentFleetRegistry {
@@ -306,7 +309,7 @@ describe("thermo council review recovery", () => {
 				turnCount: 1,
 				elapsedMs: 4_000,
 				launch: {
-					modelSelection: { provider: "google", modelId: "gemini-2.5-pro" },
+					modelSelection: { provider: "google", modelId: "gemini-2.5-pro", thinking: "minimal" },
 					thinkingLevel: "off",
 					observedThinkingLevel: "high",
 					hasModelArg: true,

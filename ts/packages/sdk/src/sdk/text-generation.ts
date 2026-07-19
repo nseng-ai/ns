@@ -5,7 +5,6 @@ export interface TextGenerationRequest {
 	system: string;
 	prompt: string;
 	maxTokens?: number;
-	reasoning?: "minimal" | "low";
 	operation?: string;
 }
 

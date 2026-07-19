@@ -62,11 +62,10 @@ describe("callPiModelText request-session lifecycle", () => {
 
 		await callPiModelText({
 			registry,
-			modelSelection: { provider: "provider", modelId: "model" },
+			modelSelection: { provider: "provider", modelId: "model", thinking: "minimal" },
 			systemPrompt: "system",
 			userText: "user",
 			maxTokens: 12,
-			reasoning: "minimal",
 			completeFn,
 		});
 

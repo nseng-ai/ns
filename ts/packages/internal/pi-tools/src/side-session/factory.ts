@@ -85,7 +85,7 @@ export function createPiSideSessionFactory(): SideSessionFactory {
 					resourceLoader,
 					sessionManager: SessionManager.inMemory(options.cwd),
 					settingsManager,
-					thinkingLevel: "off",
+					thinkingLevel: options.modelSelection.thinking,
 				});
 				return { ok: true, value: new PiSideSession(session) };
 			} catch (error) {

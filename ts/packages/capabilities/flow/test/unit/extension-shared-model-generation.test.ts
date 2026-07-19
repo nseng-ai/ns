@@ -79,7 +79,11 @@ describe("project extension shared model generation helper", () => {
 
 		const result = await sharedModule.prepareFlowChangesSummary(
 			{
-				modelSelection: { provider: "openai-codex", modelId: "custom-changes" },
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "custom-changes",
+					thinking: "minimal" as const,
+				},
 				textGenerator,
 			},
 			{
@@ -92,9 +96,12 @@ describe("project extension shared model generation helper", () => {
 		expect(result).toEqual({ ok: true, summaryText: "- Share model generation wiring" });
 		expect(textGenerator.calls).toHaveLength(1);
 		expect(textGenerator.calls[0]).toMatchObject({
-			modelSelection: { provider: "openai-codex", modelId: "custom-changes" },
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "custom-changes",
+				thinking: "minimal" as const,
+			},
 			operation: "changes-summary",
-			reasoning: "low",
 			maxTokens: 512,
 		});
 		expect(textGenerator.calls[0]?.prompt).toContain("## branch\n\nflow-model-generation-helper");
@@ -106,7 +113,11 @@ describe("project extension shared model generation helper", () => {
 
 		const result = await sharedModule.prepareFlowCheckpointMessage(
 			{
-				modelSelection: { provider: "openai-codex", modelId: "custom-checkpoint" },
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "custom-checkpoint",
+					thinking: "minimal" as const,
+				},
 				textGenerator,
 			},
 			{
@@ -118,9 +129,12 @@ describe("project extension shared model generation helper", () => {
 		expect(result).toEqual({ ok: true, message: validCheckpointMessage, source: "model" });
 		expect(textGenerator.calls).toHaveLength(1);
 		expect(textGenerator.calls[0]).toMatchObject({
-			modelSelection: { provider: "openai-codex", modelId: "custom-checkpoint" },
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "custom-checkpoint",
+				thinking: "minimal" as const,
+			},
 			operation: "checkpoint-message",
-			reasoning: "low",
 			maxTokens: 512,
 		});
 	});
@@ -134,7 +148,11 @@ describe("project extension shared model generation helper", () => {
 
 		const result = await sharedModule.prepareFlowCheckpointMessage(
 			{
-				modelSelection: { provider: "openai-codex", modelId: "custom-checkpoint" },
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "custom-checkpoint",
+					thinking: "minimal" as const,
+				},
 				textGenerator,
 			},
 			{
@@ -150,11 +168,19 @@ describe("project extension shared model generation helper", () => {
 		}
 		expect(textGenerator.calls).toHaveLength(2);
 		expect(textGenerator.calls[0]).toMatchObject({
-			modelSelection: { provider: "openai-codex", modelId: "custom-checkpoint" },
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "custom-checkpoint",
+				thinking: "minimal" as const,
+			},
 			operation: "checkpoint-message",
 		});
 		expect(textGenerator.calls[1]).toMatchObject({
-			modelSelection: { provider: "openai-codex", modelId: "custom-checkpoint" },
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "custom-checkpoint",
+				thinking: "minimal" as const,
+			},
 			operation: "checkpoint-message",
 		});
 		expect(textGenerator.calls[1]?.prompt).toContain("## previous invalid draft");

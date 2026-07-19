@@ -120,17 +120,24 @@ describe("prepareCheckpointMessage", () => {
 		const result = await prepareCheckpointMessage({
 			status: " M file.ts\n",
 			diff: "diff",
-			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.6-luna",
+				thinking: "minimal" as const,
+			},
 			textGenerator,
 		});
 
 		expect(result).toEqual({ ok: true, message: validMessage, source: "model" });
 		expect(textGenerator.calls).toHaveLength(1);
 		expect(textGenerator.calls[0]).toMatchObject({
-			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.6-luna",
+				thinking: "minimal" as const,
+			},
 			operation: "checkpoint-message",
 			maxTokens: 512,
-			reasoning: "low",
 		});
 		expect(textGenerator.calls[0]?.prompt).toContain("## git status --porcelain\n\n M file.ts");
 	});
@@ -144,7 +151,11 @@ describe("prepareCheckpointMessage", () => {
 		const result = await prepareCheckpointMessage({
 			status: " M file.ts\n",
 			diff: "diff",
-			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.6-luna",
+				thinking: "minimal" as const,
+			},
 			textGenerator,
 		});
 
@@ -170,7 +181,11 @@ describe("prepareCheckpointMessage", () => {
 		const result = await prepareCheckpointMessage({
 			status: " M src/large-one.ts\n M src/large-two.ts\n",
 			diff: largeDiffWithSentinel(),
-			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.6-luna",
+				thinking: "minimal" as const,
+			},
 			textGenerator,
 		});
 
@@ -196,7 +211,11 @@ describe("prepareCheckpointMessage", () => {
 		const result = await prepareCheckpointMessage({
 			status: " M file.ts\n",
 			diff: "diff --git a/file.ts b/file.ts\n+code\n",
-			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.6-luna",
+				thinking: "minimal" as const,
+			},
 			textGenerator,
 		});
 
@@ -218,7 +237,11 @@ describe("prepareCheckpointMessage", () => {
 		const result = await prepareCheckpointMessage({
 			status: " M extensions/cp.ts\n",
 			diff: "diff --git a/extensions/cp.ts b/extensions/cp.ts\n",
-			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.6-luna",
+				thinking: "minimal" as const,
+			},
 			textGenerator,
 		});
 
@@ -238,7 +261,11 @@ describe("prepareCheckpointMessage", () => {
 		const result = await prepareCheckpointMessage({
 			status: " M file.ts\n",
 			diff: "diff",
-			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.6-luna",
+				thinking: "minimal" as const,
+			},
 			textGenerator,
 		});
 
@@ -255,7 +282,11 @@ describe("prepareCheckpointMessage", () => {
 		const result = await prepareCheckpointMessage({
 			status: " M extensions/cp.ts\n",
 			diff: "diff --git a/extensions/cp.ts b/extensions/cp.ts\n",
-			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.6-luna",
+				thinking: "minimal" as const,
+			},
 			textGenerator,
 		});
 

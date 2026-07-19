@@ -1,6 +1,7 @@
 import {
 	DEFAULT_FAST_MODEL,
 	parseModelRef,
+	modelThinkingSchema,
 	type ModelSelection,
 } from "@nseng-ai/foundation/model-slug";
 import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
@@ -47,23 +48,22 @@ export interface ModelPolicyError {
 }
 export type ModelPolicyResult<T> = Result<T, ModelPolicyError>;
 
-const modelRefSchema = z
-	.string()
-	.trim()
-	.min(1)
-	.refine((value) => parseModelRef(value) !== undefined, {
-		message: "must be a qualified provider/model reference (provider/model-id)",
-	});
+const modelRefSchema = z.string().trim().min(1);
 const profileNameSchema = z.string().trim().min(1);
+const modelProfileSchema = z.strictObject({
+	model: modelRefSchema,
+	thinking: modelThinkingSchema,
+});
+type ModelProfileSettings = z.infer<typeof modelProfileSchema>;
 const modelPolicySettingsSchema = {
 	path: ["models"] as const,
 	schema: z.strictObject({
-		profiles: z.record(profileNameSchema, modelRefSchema).default({}),
+		profiles: z.record(profileNameSchema, modelProfileSchema).default({}),
 		operations: z.record(z.string().trim().min(1), profileNameSchema).default({}),
 	}),
 	invalidMessage: ({ pathLabel }) => `${pathLabel}: [models] is invalid.`,
 } satisfies SettingsSchema<{
-	profiles: Record<string, string>;
+	profiles: Record<string, ModelProfileSettings>;
 	operations: Record<string, string>;
 }>;
 
@@ -125,11 +125,16 @@ export function resolveModelOperation(
 }
 
 function modelPolicyFromSettings(
-	settings: { profiles: Record<string, string>; operations: Record<string, string> } | undefined,
+	settings:
+		| {
+				profiles: Record<string, ModelProfileSettings>;
+				operations: Record<string, string>;
+		  }
+		| undefined,
 ): ModelPolicyResult<ModelPolicy> {
 	const profiles: Record<string, ModelSelection> = {};
-	for (const [name, ref] of Object.entries(settings?.profiles ?? {})) {
-		const parsed = parseModelRef(ref);
+	for (const [name, profile] of Object.entries(settings?.profiles ?? {})) {
+		const parsed = parseModelRef(profile.model, profile.thinking);
 		if (parsed === undefined)
 			return resultErrOf(
 				"invalid-model-policy",

@@ -281,7 +281,11 @@ async function runTask(args: {
 	const parentModelSelection =
 		args.ctx.model === undefined
 			? undefined
-			: { provider: args.ctx.model.provider, modelId: args.ctx.model.id };
+			: {
+					provider: args.ctx.model.provider,
+					modelId: args.ctx.model.id,
+					thinking: args.pi.getThinkingLevel?.() ?? "minimal",
+				};
 	const runnerCtx: RunnerSubagentContext = {
 		cwd: args.ctx.cwd,
 		signal: args.signal,
