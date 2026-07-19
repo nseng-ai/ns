@@ -6,7 +6,7 @@
  * its exported types are aliases of the shared side-session surface (the bundle
  * directory is passed through as the session cwd).
  */
-import type { Api, Model } from "@earendil-works/pi-ai";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { READ_ONLY_SUBAGENT_TOOLS } from "@internal/ns-pi-subagents/runner-subagents";
 import {
@@ -26,7 +26,7 @@ export interface InterrogationSessionFactory {
 	create(options: {
 		bundleDir: string;
 		systemPrompt: string;
-		model: Model<Api>;
+		modelSelection: ModelSelection;
 		modelRegistry: ModelRegistry;
 	}): Promise<CreateInterrogationSessionResult>;
 }

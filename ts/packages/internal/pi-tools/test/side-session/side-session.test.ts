@@ -1,8 +1,13 @@
 import { describe, expect, test } from "vitest";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
-import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
+import {
+	AuthStorage,
+	ModelRegistry,
+	type AgentSessionEvent,
+} from "@earendil-works/pi-coding-agent";
 
 import { mapAgentSessionEvent, summarizeToolArgs } from "../../src/side-session/events.ts";
+import { createPiSideSessionFactory } from "../../src/side-session/factory.ts";
 
 function testAssistantMessage(): AssistantMessage {
 	return {
@@ -23,6 +28,25 @@ function testAssistantMessage(): AssistantMessage {
 		timestamp: 0,
 	};
 }
+
+describe("Pi side-session factory", () => {
+	test("resolves model selection at the registry terminal", async () => {
+		const factory = createPiSideSessionFactory();
+		const result = await factory.create({
+			cwd: "/tmp",
+			systemPrompt: "system",
+			modelSelection: { provider: "missing-provider", modelId: "missing-model" },
+			modelRegistry: ModelRegistry.inMemory(AuthStorage.inMemory()),
+			tools: [],
+		});
+
+		expect(result).toEqual({
+			ok: false,
+			code: "spawn-failed",
+			message: "Model missing-provider/missing-model is unavailable.",
+		});
+	});
+});
 
 describe("side-session event mapper", () => {
 	test("maps text deltas, assistant end, retry, and turn end", () => {

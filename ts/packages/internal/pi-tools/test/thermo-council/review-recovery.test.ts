@@ -92,7 +92,7 @@ function fakeContext(): ThermoCouncilCommandContext {
 }
 
 function seat(id: ThermoCouncilSeatConfig["id"], label: string): ThermoCouncilSeatConfig {
-	return { id, label, model: `${id}-model` };
+	return { id, label, modelSelection: { provider: id, modelId: "model" } };
 }
 
 function fleetRegistry(pi: FakePi): SubagentFleetRegistry {

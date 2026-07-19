@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import type { RunnerSubagentTerminalToolDefinition } from "@internal/ns-pi-subagents/api";
 
 export const THERMO_COUNCIL_COMMAND_NAME = "thermo-council";
@@ -19,7 +20,7 @@ export type FindingSeverity = "critical" | "high" | "medium" | "low";
 export interface ThermoCouncilSeatConfig {
 	readonly id: ThermoCouncilSeatId;
 	readonly label: string;
-	readonly model: string;
+	readonly modelSelection: ModelSelection;
 }
 
 export interface ThermoCouncilScope {

@@ -19,6 +19,7 @@ import {
 	type SubagentFleetTaskInput,
 	type SubagentRuntime,
 } from "@internal/ns-pi-subagents/api";
+import { formatModelRef } from "@nseng-ai/foundation/model-slug";
 import { errorMessage } from "@nseng-ai/pi/shared/errors";
 import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";
@@ -159,7 +160,7 @@ async function launchThermoCouncilReviewer({
 		ctx: runnerCtx,
 		options: {
 			title: `Thermo council: ${seat.label}`,
-			model: seat.model,
+			model: formatModelRef(seat.modelSelection),
 			prompt,
 			returnMode: "terminal",
 			terminalTools: [submitThermoCouncilReviewTool, blockThermoCouncilReviewTool],

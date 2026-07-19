@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest";
-import type { Api, Model } from "@earendil-works/pi-ai";
 import { AuthStorage, ModelRegistry } from "@earendil-works/pi-coding-agent";
 
 import { InterrogationController } from "../../src/context-profiler/interrogation-controller.ts";
@@ -19,18 +18,7 @@ import {
 	FakeInterrogationSessionFactory,
 } from "./context-profiler-fakes.ts";
 
-const TEST_MODEL: Model<Api> = {
-	id: "m",
-	name: "test model",
-	api: "anthropic-messages",
-	provider: "p",
-	baseUrl: "https://example.invalid",
-	reasoning: false,
-	input: ["text"],
-	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-	contextWindow: 100_000,
-	maxTokens: 4_096,
-};
+const TEST_MODEL_SELECTION = { provider: "p", modelId: "m" };
 
 function createTestModelRegistry(): ModelRegistry {
 	return ModelRegistry.inMemory(AuthStorage.inMemory());
@@ -65,7 +53,7 @@ function createController(session: FakeInterrogationSession): InterrogationContr
 				capturedAt: "now",
 			},
 		},
-		model: TEST_MODEL,
+		modelSelection: TEST_MODEL_SELECTION,
 		modelRegistry: createTestModelRegistry(),
 		factory: new FakeInterrogationSessionFactory({ result: { ok: true, value: session } }),
 		onTranscriptChange: () => {},
@@ -153,7 +141,7 @@ describe("interrogation core", () => {
 					capturedAt: "now",
 				},
 			},
-			model: TEST_MODEL,
+			modelSelection: TEST_MODEL_SELECTION,
 			modelRegistry: createTestModelRegistry(),
 			factory,
 			onTranscriptChange: () => {},
@@ -234,7 +222,7 @@ describe("interrogation core", () => {
 					capturedAt: "now",
 				},
 			},
-			model: TEST_MODEL,
+			modelSelection: TEST_MODEL_SELECTION,
 			modelRegistry: createTestModelRegistry(),
 			factory,
 			onTranscriptChange: () => {},
