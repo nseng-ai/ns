@@ -177,7 +177,16 @@ describe("extension install host integration", () => {
 				],
 			},
 		});
-		expect(await runNsCliJson(["extension", "list"], cwd)).toEqual(listed);
+		const listedAgain = await runNsCliJson(["extension", "list"], cwd);
+		expect({
+			exit: listedAgain.exit,
+			stdout: listedAgain.stdout,
+			stderr: listedAgain.stderr,
+		}).toEqual({
+			exit: listed.exit,
+			stdout: listed.stdout,
+			stderr: listed.stderr,
+		});
 		expect(await readFile(join(cwd, "ns.toml"), "utf8")).toBe(before.nsToml);
 		expect(await readFile(artifactPath, "utf8")).toBe(before.artifact);
 		expect(await readFile(manifestPath, "utf8")).toBe(before.manifest);

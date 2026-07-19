@@ -13,12 +13,13 @@ import {
 import { formatAutobranchCommandDetails } from "./shared.ts";
 import { inspectLatestCommitUpstreamEligibility } from "./upstream.ts";
 import type { ParsedAutobranchArgs } from "./dirty-worktree.ts";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 const GT_TIMEOUT_MS = 120_000;
 
 export interface LatestCommitPreparationInput {
 	cwd: string;
-	modelRef: string;
+	modelSelection: ModelSelection;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;
@@ -232,13 +233,13 @@ function nonEmptyLines(value: string): string[] {
 }
 
 async function prepareLatestCommitSlug(
-	input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "modelRef">,
+	input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "modelSelection">,
 	facts: LatestCommitFacts,
 ): Promise<PreparedLatestCommitSlugResult> {
 	const result = await deriveBranchSlug({
 		cwd: input.cwd,
 		prompt: buildLatestCommitSlugPrompt(facts),
-		modelRef: input.modelRef,
+		modelSelection: input.modelSelection,
 		exec: input.exec,
 	});
 	if (result.ok) {

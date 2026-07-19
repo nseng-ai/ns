@@ -2,6 +2,8 @@ import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ErrorInfo } from "@nseng-ai/foundation/result";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import { formatModelRef } from "@nseng-ai/foundation/model-slug";
 
 import { modelOperation, withActiveOperations } from "../phase-stream/matrix-progress-core.ts";
 import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
@@ -48,7 +50,7 @@ export interface PrDescriptionUpdateOptions {
 	env: Record<string, string | undefined>;
 	git: GitGateway;
 	descriptorSource: FlowPrDescriptionDescriptorSource;
-	modelRef: string;
+	modelSelection: ModelSelection;
 	githubPr: GithubPrGateway;
 	textGenerator: TextGenerator;
 	pr: GithubPrDetails;
@@ -126,7 +128,7 @@ export async function preparePrDescriptionUpdate(
 			cwd: options.cwd,
 			git: options.git,
 			descriptorSource: options.descriptorSource,
-			modelRef: options.modelRef,
+			modelSelection: options.modelSelection,
 		}));
 	if (!generation.ok) {
 		return {
@@ -183,14 +185,14 @@ export async function preparePrDescriptionUpdate(
 		[
 			modelOperation(
 				"generating PR description",
-				generation.modelRef,
+				formatModelRef(generation.modelSelection),
 				options.activeOperationDetail ?? `PR #${pr.number}`,
 			),
 		],
 		() =>
 			preparePrDescription({
 				textGenerator: options.textGenerator,
-				modelRef: generation.modelRef,
+				modelSelection: generation.modelSelection,
 				promptText: generation.promptText,
 				context: {
 					kind: "github",
@@ -255,7 +257,7 @@ export async function orchestratePrDescription(
 		env: options.env,
 		git: options.git,
 		descriptorSource: options.descriptorSource,
-		modelRef: options.modelRef,
+		modelSelection: options.modelSelection,
 		githubPr: options.githubPr,
 		textGenerator: options.textGenerator,
 		pr,

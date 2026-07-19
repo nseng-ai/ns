@@ -636,7 +636,7 @@ interface TextGenerator {
 
 ```ts
 const drafted = await ctx.textGenerator.generateText({
-  modelRef,
+  modelSelection,
   system: "You write terse [cp] checkpoint commit messages.",
   prompt,
   reasoning: "low",
@@ -650,7 +650,7 @@ return ok(drafted.text);
 
 ```ts
 interface TextGenerationRequest {
-  modelRef: string;
+  modelSelection: ModelSelection;
   system: string;
   prompt: string;
   maxTokens?: number;
@@ -661,7 +661,7 @@ interface TextGenerationRequest {
 
 **Fields.**
 
-- `modelRef` — model reference string to generate with.
+- `modelSelection` — canonical provider/model identity to generate with.
 - `system` — system prompt.
 - `prompt` — user prompt.
 - `maxTokens?` — optional output cap.

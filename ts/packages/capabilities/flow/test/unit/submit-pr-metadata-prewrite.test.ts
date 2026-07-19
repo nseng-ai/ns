@@ -120,7 +120,7 @@ describe("prewriteSubmitMetadata", () => {
 			env: MODEL_ENV,
 			git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 			descriptorSource: flowExtensionDescriptorSource,
-			modelRef: "openai-codex/gpt-5.6-luna",
+			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 			textGenerator: tracingTextGenerator(trace, scripted),
 			gateway,
 			progress: traceListeners(trace),
@@ -173,7 +173,7 @@ describe("prewriteSubmitMetadata", () => {
 				env: MODEL_ENV,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 				descriptorSource: flowExtensionDescriptorSource,
-				modelRef: "openai-codex/gpt-5.6-luna",
+				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 				textGenerator: throwingGenerator,
 				gateway,
 				progress: traceListeners(trace),
@@ -199,7 +199,7 @@ describe("prewriteSubmitMetadata", () => {
 				env: MODEL_ENV,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 				descriptorSource: flowExtensionDescriptorSource,
-				modelRef: "openai-codex/gpt-5.6-luna",
+				modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 				textGenerator: tracingTextGenerator(trace, scripted),
 				gateway,
 				progress: traceListeners(trace),
@@ -251,7 +251,7 @@ describe("prewriteSubmitMetadata", () => {
 			env: MODEL_ENV,
 			git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 			descriptorSource: flowExtensionDescriptorSource,
-			modelRef: "openai-codex/gpt-5.6-luna",
+			modelSelection: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 			textGenerator: {
 				generateText: async () => {
 					throw new Error("unexpected generateText call");

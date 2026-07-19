@@ -6,6 +6,7 @@ import {
 	type RawTextModelExecOptions,
 	type SlugModelEvidence,
 } from "./model-slug.ts";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 const MAX_ERROR_CHARS = 4_000;
 
@@ -42,7 +43,7 @@ export interface ContentSlugNormalizationOptions {
 export interface DeriveContentSlugInput {
 	content: string;
 	cwd: string;
-	modelRef: string;
+	modelSelection: ModelSelection;
 	signal?: AbortSignal;
 }
 
@@ -56,7 +57,7 @@ export async function deriveKitContentSlug(
 	const prompt = buildKitContentSlugPrompt(input.content, variant);
 	const result = await deriveSlugWithModel({
 		cwd: input.cwd,
-		modelRef: input.modelRef,
+		modelSelection: input.modelSelection,
 		prompt,
 		...(input.signal === undefined ? {} : { signal: input.signal }),
 		slugKind: variant.slugKind,

@@ -337,11 +337,11 @@ describe("ns CLI host", () => {
 
 	test("smokes skills path host wiring for an alias user-scope case", async () => {
 		const cwd = await createEmptyProject();
-		const expectedRoot = join(cwd, ".claude-user", "skills");
 		const run = await runNsCliJson(
 			["skills", "path", "objective", "--harness", "claude", "--scope", "user"],
 			cwd,
 		);
+		const expectedRoot = join(run.claudeConfigDir, "skills");
 		const data = dataFromEnvelope(parseJsonOutput(run));
 
 		expect(run.exit).toBe(0);

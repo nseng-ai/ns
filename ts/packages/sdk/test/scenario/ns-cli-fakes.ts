@@ -1,4 +1,8 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+import { afterEach } from "vitest";
 
 import { resolveHomeDir } from "@nseng-ai/foundation/primitives";
 import { runCli, type NsCliBaseContext, type NsCliDeps } from "@nseng-ai/sdk/cli";
@@ -13,6 +17,12 @@ import type {
 } from "@nseng-ai/sdk";
 
 export type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGenerationResult>;
+
+const tempStateRoots: string[] = [];
+
+afterEach(() => {
+	for (const root of tempStateRoots.splice(0)) rmSync(root, { recursive: true });
+});
 
 export interface ScriptedExecResponse {
 	match: string | RegExp | ((call: ExecCall) => boolean);
@@ -123,11 +133,16 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
-	const cwd = options.cwd ?? "/work";
-	const homeDir = options.homeDir ?? join(cwd, ".home");
+	const stateRoot = mkdtempSync(join(tmpdir(), "ns-sdk-scenario-state-"));
+	tempStateRoots.push(stateRoot);
+	const homeDir = options.homeDir ?? join(stateRoot, "home");
 	const context = new ScriptedNsTestContext(options.state, {
 		...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-		env: { HOME: homeDir, ...(options.env ?? {}) },
+		env: {
+			HOME: homeDir,
+			XDG_STATE_HOME: join(stateRoot, "xdg-state"),
+			...(options.env ?? {}),
+		},
 		homeDir,
 		execResponses: defaults.execResponses,
 		textGenerationResults: defaults.textGenerationResults,

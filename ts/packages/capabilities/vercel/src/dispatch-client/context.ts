@@ -16,7 +16,7 @@ import {
 import { createNsClinkrInteraction } from "@nseng-ai/capability-kit/ns-context";
 import { createFlowMinimalSubmitClient } from "@nseng-ai/flow/api";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
-import { formatModelRef } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
 import type { NsCommandIo, NsExtensionApi } from "@nseng-ai/sdk";
@@ -63,7 +63,7 @@ export async function createDispatchPromptContext(
 		overrides?.semanticSlugs ??
 		createRealDispatchContentSlugGateway(
 			execApi,
-			await resolveDispatchSlugModelRef(ctx, localGitFacts),
+			await resolveDispatchSlugModelSelection(ctx, localGitFacts),
 		);
 	return {
 		cwd: ctx.cwd,
@@ -124,10 +124,10 @@ function createSharedDispatchGateways(
 	};
 }
 
-async function resolveDispatchSlugModelRef(
+async function resolveDispatchSlugModelSelection(
 	ctx: NsExtensionApi,
 	git: Pick<RealGitGateway, "optionalRepoRoot">,
-): Promise<string> {
+): Promise<ModelSelection> {
 	const repository = await git.optionalRepoRoot({ cwd: ctx.cwd });
 	if (repository.type !== "found") {
 		throw new Error("Could not determine the repository root for ns.toml.");
@@ -136,7 +136,7 @@ async function resolveDispatchSlugModelRef(
 	if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
 	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
 	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
-	return formatModelRef(model.value.selection);
+	return model.value.selection;
 }
 
 function readDispatchCommandOverrides(ctx: NsExtensionApi): DispatchCommandOverrides | undefined {

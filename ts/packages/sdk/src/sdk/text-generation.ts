@@ -1,5 +1,7 @@
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+
 export interface TextGenerationRequest {
-	modelRef: string;
+	modelSelection: ModelSelection;
 	system: string;
 	prompt: string;
 	maxTokens?: number;

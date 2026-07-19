@@ -1,4 +1,5 @@
 import { normalizeTextOutput } from "@nseng-ai/foundation/text-normalization";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 import type { PendingWorktreeSnapshot } from "@nseng-ai/capability-kit/pending-worktree";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
@@ -58,11 +59,11 @@ export function validateChangesSummary(
 
 export async function draftChangesSummary(input: {
 	textGenerator: TextGenerator;
-	modelRef: string;
+	modelSelection: ModelSelection;
 	snapshot: Pick<PendingWorktreeSnapshot, "branch" | "status" | "diff">;
 }): Promise<{ ok: true; summaryText: string } | { ok: false; error: string }> {
 	const drafted = await input.textGenerator.generateText({
-		modelRef: input.modelRef,
+		modelSelection: input.modelSelection,
 		system: CHANGES_SUMMARY_SYSTEM_PROMPT,
 		prompt: buildChangesUserPrompt(input.snapshot),
 		maxTokens: CHANGES_SUMMARY_MAX_TOKENS,

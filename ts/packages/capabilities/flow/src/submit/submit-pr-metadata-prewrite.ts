@@ -42,6 +42,8 @@ import type {
 	SubmitStackTopology,
 	SubmitStackTopologyBranch,
 } from "./submit-matrix-progress.ts";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import { formatModelRef } from "@nseng-ai/foundation/model-slug";
 
 const GT_MODIFY_BASE_ARGS = ["modify", "--no-interactive"] as const;
 const GIT_STATUS_PORCELAIN_ARGS = ["status", "--porcelain"] as const;
@@ -518,7 +520,7 @@ export interface SubmitMetadataPrewriteDependencies {
 	git: GitGateway;
 	descriptorSource: FlowPrDescriptionDescriptorSource;
 	textGenerator: TextGenerator;
-	modelRef: string;
+	modelSelection: ModelSelection;
 	time?: TimeServices;
 	progress?: SubmitProgressListeners<SubmitBranchMetadataProgressEvent>;
 }
@@ -551,7 +553,7 @@ export async function prewriteSubmitMetadata(
 		git: input.git,
 		descriptorSource: input.descriptorSource,
 		textGenerator: input.textGenerator,
-		modelRef: input.modelRef,
+		modelSelection: input.modelSelection,
 		branches: plan.metadataPrewriteBranches,
 		...(input.time === undefined ? {} : { time: input.time }),
 		...(input.progress === undefined ? {} : { progress: input.progress }),
@@ -617,7 +619,7 @@ async function generateMetadataForBranches(input: {
 	git: GitGateway;
 	descriptorSource: FlowPrDescriptionDescriptorSource;
 	textGenerator: TextGenerator;
-	modelRef: string;
+	modelSelection: ModelSelection;
 	branches: readonly SubmitStackNewBranch[];
 	time?: TimeServices;
 	progress?: SubmitProgressListeners<SubmitBranchMetadataProgressEvent>;
@@ -630,7 +632,7 @@ async function generateMetadataForBranches(input: {
 		cwd: input.cwd,
 		git: input.git,
 		descriptorSource: input.descriptorSource,
-		modelRef: input.modelRef,
+		modelSelection: input.modelSelection,
 	});
 	if (!generation.ok) {
 		return {
@@ -640,7 +642,9 @@ async function generateMetadataForBranches(input: {
 		};
 	}
 
-	input.progress?.onProgress?.(`resolved PR metadata model ${generation.modelRef}`);
+	input.progress?.onProgress?.(
+		`resolved PR metadata model ${formatModelRef(generation.modelSelection)}`,
+	);
 	const prepared: PrewrittenPrMetadata[] = [];
 	for (const [index, branch] of input.branches.entries()) {
 		input.progress?.onProgress?.(
@@ -658,14 +662,14 @@ async function generateMetadataForBranches(input: {
 			[
 				modelOperation(
 					"generating PR metadata",
-					generation.modelRef,
+					formatModelRef(generation.modelSelection),
 					formatBatchPosition({ noun: "branch", index, total: input.branches.length }),
 				),
 			],
 			() =>
 				preparePrDescription({
 					textGenerator: input.textGenerator,
-					modelRef: generation.modelRef,
+					modelSelection: generation.modelSelection,
 					promptText: generation.promptText,
 					context: {
 						kind: "local",

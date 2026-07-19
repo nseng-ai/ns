@@ -1,3 +1,4 @@
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,7 +28,7 @@ const invalidCheckpointMessage = `[cp] Update model helper
 
 interface FlowModelGenerationContextFixture {
 	env?: Record<string, string | undefined>;
-	modelRef: string;
+	modelSelection: ModelSelection;
 	textGenerator: TextGenerator;
 }
 
@@ -78,7 +79,7 @@ describe("project extension shared model generation helper", () => {
 
 		const result = await sharedModule.prepareFlowChangesSummary(
 			{
-				modelRef: "openai-codex/custom-changes",
+				modelSelection: { provider: "openai-codex", modelId: "custom-changes" },
 				textGenerator,
 			},
 			{
@@ -91,7 +92,7 @@ describe("project extension shared model generation helper", () => {
 		expect(result).toEqual({ ok: true, summaryText: "- Share model generation wiring" });
 		expect(textGenerator.calls).toHaveLength(1);
 		expect(textGenerator.calls[0]).toMatchObject({
-			modelRef: "openai-codex/custom-changes",
+			modelSelection: { provider: "openai-codex", modelId: "custom-changes" },
 			operation: "changes-summary",
 			reasoning: "low",
 			maxTokens: 512,
@@ -105,7 +106,7 @@ describe("project extension shared model generation helper", () => {
 
 		const result = await sharedModule.prepareFlowCheckpointMessage(
 			{
-				modelRef: "openai-codex/custom-checkpoint",
+				modelSelection: { provider: "openai-codex", modelId: "custom-checkpoint" },
 				textGenerator,
 			},
 			{
@@ -117,7 +118,7 @@ describe("project extension shared model generation helper", () => {
 		expect(result).toEqual({ ok: true, message: validCheckpointMessage, source: "model" });
 		expect(textGenerator.calls).toHaveLength(1);
 		expect(textGenerator.calls[0]).toMatchObject({
-			modelRef: "openai-codex/custom-checkpoint",
+			modelSelection: { provider: "openai-codex", modelId: "custom-checkpoint" },
 			operation: "checkpoint-message",
 			reasoning: "low",
 			maxTokens: 512,
@@ -133,7 +134,7 @@ describe("project extension shared model generation helper", () => {
 
 		const result = await sharedModule.prepareFlowCheckpointMessage(
 			{
-				modelRef: "openai-codex/custom-checkpoint",
+				modelSelection: { provider: "openai-codex", modelId: "custom-checkpoint" },
 				textGenerator,
 			},
 			{
@@ -149,11 +150,11 @@ describe("project extension shared model generation helper", () => {
 		}
 		expect(textGenerator.calls).toHaveLength(2);
 		expect(textGenerator.calls[0]).toMatchObject({
-			modelRef: "openai-codex/custom-checkpoint",
+			modelSelection: { provider: "openai-codex", modelId: "custom-checkpoint" },
 			operation: "checkpoint-message",
 		});
 		expect(textGenerator.calls[1]).toMatchObject({
-			modelRef: "openai-codex/custom-checkpoint",
+			modelSelection: { provider: "openai-codex", modelId: "custom-checkpoint" },
 			operation: "checkpoint-message",
 		});
 		expect(textGenerator.calls[1]?.prompt).toContain("## previous invalid draft");

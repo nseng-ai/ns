@@ -12,43 +12,45 @@ import {
 describe("ns CLI skills path integration", () => {
 	test("resolves skill paths for harness aliases and both scopes", async () => {
 		const cwd = await createEmptyProject();
-		const homeDir = join(cwd, ".home");
 		const cases = [
 			{
 				harness: "claude",
 				scope: "user",
 				expectedHarness: "claude-code",
-				expectedRoot: join(cwd, ".claude-user", "skills"),
+				expectedRoot: (run: Awaited<ReturnType<typeof runNsCliJson>>) =>
+					join(run.claudeConfigDir, "skills"),
 			},
 			{
 				harness: "claude-code",
 				scope: "project",
 				expectedHarness: "claude-code",
-				expectedRoot: join(cwd, ".claude", "skills"),
+				expectedRoot: () => join(cwd, ".claude", "skills"),
 			},
 			{
 				harness: "codex",
 				scope: "user",
 				expectedHarness: "codex",
-				expectedRoot: join(homeDir, ".agents", "skills"),
+				expectedRoot: (run: Awaited<ReturnType<typeof runNsCliJson>>) =>
+					join(run.homeDir, ".agents", "skills"),
 			},
 			{
 				harness: "codex",
 				scope: "project",
 				expectedHarness: "codex",
-				expectedRoot: join(cwd, ".agents", "skills"),
+				expectedRoot: () => join(cwd, ".agents", "skills"),
 			},
 			{
 				harness: "pi-dev",
 				scope: "user",
 				expectedHarness: "pi",
-				expectedRoot: join(homeDir, ".pi", "agent", "skills"),
+				expectedRoot: (run: Awaited<ReturnType<typeof runNsCliJson>>) =>
+					join(run.homeDir, ".pi", "agent", "skills"),
 			},
 			{
 				harness: "pi",
 				scope: "project",
 				expectedHarness: "pi",
-				expectedRoot: join(cwd, ".pi", "skills"),
+				expectedRoot: () => join(cwd, ".pi", "skills"),
 			},
 		] as const;
 
@@ -58,6 +60,7 @@ describe("ns CLI skills path integration", () => {
 				cwd,
 			);
 			const data = dataFromEnvelope(parseJsonOutput(run));
+			const expectedRoot = testCase.expectedRoot(run);
 
 			expect(run.exit).toBe(0);
 			expect(data).toMatchObject({
@@ -65,8 +68,8 @@ describe("ns CLI skills path integration", () => {
 				artifactId: "objective-skill",
 				harness: testCase.expectedHarness,
 				scope: testCase.scope,
-				targetRoot: testCase.expectedRoot,
-				targetArtifactPath: join(testCase.expectedRoot, "objective"),
+				targetRoot: expectedRoot,
+				targetArtifactPath: join(expectedRoot, "objective"),
 			});
 			expect(run.stderr).toBe("");
 		}
