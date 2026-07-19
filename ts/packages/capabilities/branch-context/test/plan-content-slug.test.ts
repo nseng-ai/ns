@@ -1,6 +1,11 @@
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { afterEach, describe, expect, test } from "vitest";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -15,7 +20,11 @@ import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundati
 type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
 
-const CWD = "/repo";
+const CWD = mkdtempSync(join(tmpdir(), "plan-content-slug-root-"));
+writeFileSync(
+	join(CWD, "ns.toml"),
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+);
 const PLAN_CONTENT = "# Add Docs Portal Site\n\nBuild and publish the docs portal.\n";
 
 interface ExecCall {
@@ -119,12 +128,14 @@ describe("derivePlanContentSlug", () => {
 		expect(evidence).toEqual({
 			slug: "add-docs-portal-site",
 			rawOutput: "add-docs-portal-site\n",
-			provider: DEFAULT_FAST_MODEL.provider,
-			model: DEFAULT_FAST_MODEL.modelId,
+			provider: TEST_MODEL_SELECTION.provider,
+			model: TEST_MODEL_SELECTION.modelId,
 		});
 		expect(pi.calls).toHaveLength(1);
 		expect(pi.calls[0]?.command).toBe("pi");
-		expect(pi.calls[0]?.args.slice(0, -1)).toEqual(buildRawTextModelArgs("").slice(0, -1));
+		expect(pi.calls[0]?.args.slice(0, -1)).toEqual(
+			buildRawTextModelArgs("", TEST_MODEL_SELECTION).slice(0, -1),
+		);
 		expect(pi.calls[0]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});
 

@@ -1,4 +1,8 @@
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { describe, expect, test } from "vitest";
 
@@ -161,10 +165,13 @@ describe("handoff-tab extension", () => {
 
 	test("derive handoff slug tool returns slug and key details", async () => {
 		const pi = new FakePi([
-			step("git", ["rev-parse", "--show-toplevel"], { stdout: "/repo\n" }),
-			step("pi", buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)), {
-				stdout: "associate-sessions-with-branches\n",
-			}),
+			step(
+				"pi",
+				buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT), TEST_MODEL_SELECTION),
+				{
+					stdout: "associate-sessions-with-branches\n",
+				},
+			),
 		]);
 		handoffExtension(pi);
 		const tool = pi.tools.get("derive_handoff_slug_from_content");
@@ -190,8 +197,8 @@ describe("handoff-tab extension", () => {
 			type: "derived",
 			slug: "associate-sessions-with-branches",
 			key: "associate-sessions-with-branches.md",
-			provider: DEFAULT_FAST_MODEL.provider,
-			model: DEFAULT_FAST_MODEL.modelId,
+			provider: TEST_MODEL_SELECTION.provider,
+			model: TEST_MODEL_SELECTION.modelId,
 		});
 		expect(context.statuses).toEqual(["deriving handoff slug…", undefined]);
 	});
@@ -228,11 +235,14 @@ describe("handoff-tab extension", () => {
 
 	test("derive handoff slug tool reports slug-model failure without fallback", async () => {
 		const pi = new FakePi([
-			step("git", ["rev-parse", "--show-toplevel"], { stdout: "/repo\n" }),
-			step("pi", buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)), {
-				code: 1,
-				stderr: "model unavailable",
-			}),
+			step(
+				"pi",
+				buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT), TEST_MODEL_SELECTION),
+				{
+					code: 1,
+					stderr: "model unavailable",
+				},
+			),
 		]);
 		handoffExtension(pi);
 		const tool = pi.tools.get("derive_handoff_slug_from_content");
@@ -262,10 +272,13 @@ describe("handoff-tab extension", () => {
 
 	test("derive handoff slug tool threads cwd and abort signal into model command", async () => {
 		const pi = new FakePi([
-			step("git", ["rev-parse", "--show-toplevel"], { stdout: "/repo\n" }),
-			step("pi", buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)), {
-				stdout: "associate-sessions-with-branches\n",
-			}),
+			step(
+				"pi",
+				buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT), TEST_MODEL_SELECTION),
+				{
+					stdout: "associate-sessions-with-branches\n",
+				},
+			),
 		]);
 		handoffExtension(pi);
 		const tool = pi.tools.get("derive_handoff_slug_from_content");

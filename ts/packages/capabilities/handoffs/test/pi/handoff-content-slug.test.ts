@@ -1,5 +1,12 @@
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import {
 	buildHandoffContentSlugPrompt,
@@ -11,7 +18,11 @@ import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/command";
 type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
 
-const CWD = "/repo";
+const CWD = mkdtempSync(join(tmpdir(), "handoff-content-slug-root-"));
+writeFileSync(
+	join(CWD, "ns.toml"),
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+);
 const HANDOFF_CONTENT = `# Handoff: Associate Sessions With Branches
 
 Continuation focus: Explore how to associate Pi sessions with git branches.
@@ -47,7 +58,7 @@ class FakeSlugPi implements CommandExecApi {
 	): Promise<ExecResult> {
 		this.calls.push({ command, args: [...args], options });
 		if (command === "git" && args[0] === "rev-parse") {
-			return { type: "exited", stdout: "/repo\n", stderr: "", code: 0, signal: null };
+			return { type: "exited", stdout: `${CWD}\n`, stderr: "", code: 0, signal: null };
 		}
 		if (this.behavior.error !== undefined) {
 			throw this.behavior.error;
@@ -83,14 +94,14 @@ describe("deriveHandoffContentSlug", () => {
 		expect(evidence).toEqual({
 			slug: "associate-sessions-with-branches",
 			rawOutput: "associate-sessions-with-branches\n",
-			provider: DEFAULT_FAST_MODEL.provider,
-			model: DEFAULT_FAST_MODEL.modelId,
+			provider: TEST_MODEL_SELECTION.provider,
+			model: TEST_MODEL_SELECTION.modelId,
 		});
 		expect(pi.calls).toHaveLength(2);
 		expect(pi.calls[0]?.command).toBe("git");
 		expect(pi.calls[1]?.command).toBe("pi");
 		expect(pi.calls[1]?.args).toEqual(
-			buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)),
+			buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT), TEST_MODEL_SELECTION),
 		);
 		expect(pi.calls[1]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});

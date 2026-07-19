@@ -59,7 +59,7 @@ describe("runReview", () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles.deep]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "high"\n',
+			'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n[models.profiles.deep]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "high"\n',
 		);
 		const localDiff = new FakeLocalDiffGateway({
 			defaultDiff: {
@@ -126,7 +126,7 @@ describe("runReview", () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[models.profiles.architecture]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "xhigh"\n',
+			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n[models.profiles.architecture]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "xhigh"\n',
 		);
 		const reviewRunner = new FakeReviewRunnerGateway();
 		const ctx = createReviewsRuntime(
@@ -326,14 +326,14 @@ describe("runReview", () => {
 		expect(exit.type).toBe("ok");
 		expect(github.markerFindCalls()).toEqual([
 			{
-				cwd: "/repo",
+				cwd: ctx.runScope.cwd,
 				env: {},
 				prNumber: 123,
 				marker: summaryMarkerForReview("typescript-style"),
 				authorLogin: REVIEWS_BOT_LOGIN,
 			},
 		]);
-		expect(github.reviewThreadCalls()).toEqual([{ cwd: "/repo", env: {}, prNumber: 123 }]);
+		expect(github.reviewThreadCalls()).toEqual([{ cwd: ctx.runScope.cwd, env: {}, prNumber: 123 }]);
 		expect(reviewRunner.calls()[0]?.request.priorFindingsContext).toMatchObject({
 			prNumber: 123,
 			reviewName: "typescript-style",

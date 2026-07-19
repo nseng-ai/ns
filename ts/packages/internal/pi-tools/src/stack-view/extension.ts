@@ -9,12 +9,21 @@
  * only the host capabilities stack-view actually uses.
  */
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
+import {
+	MODEL_OPERATION_IDS,
+	loadModelPolicy,
+	resolveModelOperation,
+} from "@nseng-ai/capability-kit/model-policy";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import { errorMessage } from "@nseng-ai/pi/shared/errors";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import { truncateDisplayLine } from "@nseng-ai/pi/terminal/presentation";
 import type { PiModelRegistryLike } from "@nseng-ai/pi/models/call";
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
+import {
+	nodeProjectConfigGateway,
+	type ProjectConfigGateway,
+} from "@nseng-ai/sdk/project-config/points";
 import { createPiCommandExecApi, type RawPiExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { loadStackView, type LoadStackViewResult } from "./data.ts";
 import { createEnrichmentStore, type EnrichmentStore } from "./enrichment-store.ts";
@@ -135,12 +144,14 @@ interface StackViewCommandDeps {
 	store: EnrichmentStore;
 	engineFactory: StackEnrichmentEngineFactory;
 	loadStackView: LoadStackViewFn;
+	projectConfigGateway: ProjectConfigGateway;
 }
 
 /** Registration options; every field is an internal test seam only. */
 export interface RegisterStackViewExtensionOptions {
 	engineFactory?: StackEnrichmentEngineFactory;
 	loadStackView?: LoadStackViewFn;
+	projectConfigGateway?: ProjectConfigGateway;
 }
 
 export function registerStackViewExtension(
@@ -157,6 +168,7 @@ export function registerStackViewExtension(
 		store: createEnrichmentStore(),
 		engineFactory: options.engineFactory ?? createStackEnrichmentEngine,
 		loadStackView: options.loadStackView ?? loadStackView,
+		projectConfigGateway: options.projectConfigGateway ?? nodeProjectConfigGateway,
 	};
 
 	registerCommandWithImmediateAck({
@@ -199,6 +211,25 @@ async function handleStackViewCommand(
 		return;
 	}
 
+	const policy = loadModelPolicy({ repoRoot: ctx.cwd, gateway: deps.projectConfigGateway });
+	if (!policy.ok) {
+		ctx.ui.notify(`stack view: enrichment unavailable (${policy.error.message})`, "warning");
+		sendSnapshotMessage(session, model);
+		return;
+	}
+	const enrichmentModel = resolveModelOperation(
+		policy.value,
+		MODEL_OPERATION_IDS.stackViewEnrichment,
+	);
+	if (!enrichmentModel.ok) {
+		ctx.ui.notify(
+			`stack view: enrichment unavailable (${enrichmentModel.error.message})`,
+			"warning",
+		);
+		sendSnapshotMessage(session, model);
+		return;
+	}
+
 	// One engine per invocation, reused across refreshes: its store-memoized keys
 	// make reuse cheap, and the model is passed per `ensureRow` call. Abort in the
 	// finally so in-flight background work is cancelled once the loop exits.
@@ -207,6 +238,7 @@ async function handleStackViewCommand(
 		execApi: commands,
 		cwd: ctx.cwd,
 		registry: ctx.modelRegistry,
+		modelSelection: enrichmentModel.value.selection,
 	});
 	try {
 		let selectedIndex: number | undefined;

@@ -1,3 +1,4 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,7 +17,17 @@ import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { PlanStoreDirectoryEvidence, ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
 import { afterEach, describe, expect, test } from "vitest";
 
-const ROOT = "/repo";
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
+
+const ROOT = mkdtempSync(join(tmpdir(), "plan-preparation-root-"));
+writeFileSync(
+	join(ROOT, "ns.toml"),
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+);
 const SOURCE_BRANCH = "feature/source";
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 const PLAN_CONTENT = "# Add dispatch preparation tests\n";
@@ -32,7 +43,7 @@ class SlugCommands implements CommandExecApi {
 		}
 		expect({ command, args }).toEqual({
 			command: "pi",
-			args: buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)),
+			args: buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
 		});
 		return exited("add-dispatch-preparation-tests\n");
 	}

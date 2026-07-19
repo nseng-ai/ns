@@ -71,6 +71,8 @@ function diffForPath(path: string): LocalDiff {
 	});
 }
 
+const API_REPO_ROOT = fakeReviewsContext().cwd;
+
 function runtimeWithFakes(
 	options: {
 		readonly sources?: Record<string, string>;
@@ -87,8 +89,8 @@ function runtimeWithFakes(
 	return createReviewsRuntime(
 		fakeReviewsContext({
 			gitGateway: new InMemoryGitGateway({
-				repoRoot: "/repo",
-				optionalRepoRoot: "/repo",
+				repoRoot: API_REPO_ROOT,
+				optionalRepoRoot: API_REPO_ROOT,
 				currentBranch: "feature/api",
 				trunkBranch: "main",
 				originUrl: "git@example.com:repo.git\n",
@@ -100,7 +102,7 @@ function runtimeWithFakes(
 				new FakeReviewCatalogGateway({
 					reviewSourcesByKey: options.sources ?? { [REVIEW_KEY]: sampleSource() },
 					...(options.keys === undefined ? {} : { reviewKeys: options.keys }),
-					reviewsDir: "/repo/.ns/reviews",
+					reviewsDir: `${API_REPO_ROOT}/.ns/reviews`,
 				}),
 			localDiff: new FakeLocalDiffGateway({
 				defaultDiff: { ok: true, value: options.diff ?? diffForPath("src/app.ts") },

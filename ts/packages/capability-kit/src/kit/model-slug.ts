@@ -5,7 +5,7 @@ import {
 	formatOutputSection,
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
-import { DEFAULT_FAST_MODEL, type ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 export const RAW_TEXT_MODEL_TIMEOUT_MS = 60_000;
 
@@ -205,10 +205,7 @@ async function runRawTextModelAttempt(
 	};
 }
 
-export function buildRawTextModelArgs(
-	prompt: string,
-	model: ModelSelection = DEFAULT_FAST_MODEL,
-): string[] {
+export function buildRawTextModelArgs(prompt: string, model: ModelSelection): string[] {
 	return [
 		"--provider",
 		model.provider,

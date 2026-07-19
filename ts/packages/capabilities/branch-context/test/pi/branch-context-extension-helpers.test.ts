@@ -3,7 +3,11 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describeBranchContextGraphiteCreationSteps } from "@nseng-ai/branch-context/api";
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 import {
 	CREATE_BRANCH_CONTEXT_USAGE,
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
@@ -319,7 +323,7 @@ describe("formatCreateBranchContextPreview", () => {
 		expect(text).toContain("Saved-plan file stem: local-filename-plan");
 		expect(text).toContain(`Content-derived slug: ${PLAN_SLUG}`);
 		expect(text).toContain(
-			`Slug model: ${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`,
+			`Slug model: ${TEST_MODEL_SELECTION.provider}/${TEST_MODEL_SELECTION.modelId}`,
 		);
 		expect(text).toContain("Repo key: gh--owner--repo");
 		expect(text).toContain("Modified: 2027-01-15T08:00:00.000Z");

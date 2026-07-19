@@ -1,6 +1,13 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { buildSavedPlanContentSlugPrompt, deriveSavedPlanContentSlug } from "../src/index.ts";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
@@ -9,7 +16,11 @@ type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
 import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
 
-const CWD = "/repo";
+const CWD = mkdtempSync(join(tmpdir(), "saved-plan-slug-root-"));
+writeFileSync(
+	join(CWD, "ns.toml"),
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+);
 const SAVED_PLAN_CONTENT =
 	"# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
 
@@ -30,7 +41,7 @@ class FakeSlugPi implements CommandExecApi {
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
 		this.calls.push({ command, args: [...args], options });
 		if (command === "git" && args[0] === "rev-parse") {
-			return { type: "exited", stdout: "/repo\n", stderr: "", code: 0, signal: null };
+			return { type: "exited", stdout: `${CWD}\n`, stderr: "", code: 0, signal: null };
 		}
 		if (this.behavior.error !== undefined) {
 			throw this.behavior.error;
@@ -69,15 +80,18 @@ describe("deriveSavedPlanContentSlug", () => {
 		expect(evidence).toEqual({
 			slug: "branch-scoped-plan-extension",
 			rawOutput: "branch-scoped-plan-extension\n",
-			provider: DEFAULT_FAST_MODEL.provider,
-			model: DEFAULT_FAST_MODEL.modelId,
+			provider: TEST_MODEL_SELECTION.provider,
+			model: TEST_MODEL_SELECTION.modelId,
 		});
 		expect(pi.calls).toHaveLength(2);
 		expect(pi.calls[0]?.command).toBe("git");
 		expect(pi.calls[0]?.args).toEqual(["rev-parse", "--show-toplevel"]);
 		expect(pi.calls[1]?.command).toBe("pi");
 		expect(pi.calls[1]?.args).toEqual(
-			buildRawTextModelArgs(buildSavedPlanContentSlugPrompt(SAVED_PLAN_CONTENT)),
+			buildRawTextModelArgs(
+				buildSavedPlanContentSlugPrompt(SAVED_PLAN_CONTENT),
+				TEST_MODEL_SELECTION,
+			),
 		);
 		expect(pi.calls[1]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});

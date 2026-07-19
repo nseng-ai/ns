@@ -117,8 +117,9 @@ thinking = "minimal"
 ```
 
 `models.profiles` maps profile names to qualified provider/model references and required
-thinking policies. `models.operations` maps operation IDs to profiles. Omitted operations
-resolve to `fast`, and projects may redefine `fast`. Flow uses `slug` for generated branch
+thinking policies. `[models.profiles.fast]` is required; there is no built-in model fallback.
+`models.operations` maps operation IDs to profiles. Omitted operations resolve to the configured
+`fast` profile. Flow uses `slug` for generated branch
 names, `flow.checkpoint` for checkpoint messages, and `flow.pr-description` for PR metadata.
 There is no environment override ladder or model inspection command.
 

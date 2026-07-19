@@ -11,12 +11,6 @@ export const modelSelectionSchema = z.strictObject({
 });
 export type ModelSelection = z.infer<typeof modelSelectionSchema>;
 
-export const DEFAULT_FAST_MODEL: ModelSelection = {
-	provider: "openai-codex",
-	modelId: "gpt-5.6-luna",
-	thinking: "minimal",
-};
-
 export type ModelProviderFamily = "anthropic" | "google" | "openai";
 
 export interface ModelProviderFamilyInfo {

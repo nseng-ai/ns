@@ -145,7 +145,7 @@ describe("project-local regenerate-pr extension behavior", () => {
 		expect(stdout).toContain(`PR: #123 ${PR_URL}`);
 		expect(stdout).toContain("Title: Improve PR descriptions");
 		expect(stdout).toContain("Prompt: built-in");
-		expect(stdout).toContain("Cwd: /work");
+		expect(stdout).toContain(`Cwd: ${run.context.cwd}`);
 		// Success stays concise: no failure/debug plumbing leaks into the success block.
 		expect(stdout).not.toContain("Exit:");
 		expect(stdout).not.toContain("stdout:");
@@ -196,7 +196,7 @@ describe("project-local regenerate-pr extension behavior", () => {
 		expect(rawStderr.split("\n")[0] ?? "").not.toContain(ERROR_TRUECOLOR);
 		const stderr = stripAnsi(rawStderr);
 		expect(stderr).toContain("PR metadata regeneration was cancelled; GitHub was not edited.");
-		expect(stderr).toContain("Cwd: /work");
+		expect(stderr).toContain(`Cwd: ${run.context.cwd}`);
 		expect(formattedExecCalls(run.context)).not.toContainEqual(
 			expect.stringContaining("gh pr edit"),
 		);
@@ -348,7 +348,7 @@ describe("project-local regenerate-pr extension behavior", () => {
 		// The domain summary becomes the failure headline; the cause line stays visible in the body.
 		expect(stderr).toContain("Could not resolve current branch PR.");
 		expect(stderr).toContain("Could not read GitHub PR details.");
-		expect(stderr).toContain("Cwd: /work");
+		expect(stderr).toContain(`Cwd: ${run.context.cwd}`);
 		expect(run.context.execCalls).toHaveLength(2);
 	});
 

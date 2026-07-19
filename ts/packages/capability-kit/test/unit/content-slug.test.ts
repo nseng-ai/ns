@@ -12,7 +12,11 @@ import {
 	type RawTextModelCommandResult,
 	type RawTextModelExecOptions,
 } from "@nseng-ai/capability-kit/model-slug";
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 
 const CWD = "/repo";
 const CONTENT = "# Add Content Slug Kit\n\nExtract slug mechanics into a shared kit helper.\n";
@@ -104,13 +108,16 @@ describe("deriveKitContentSlug", () => {
 		expect(evidence).toEqual({
 			slug: "content-slug-kit",
 			rawOutput: "Content Slug Kit Artifact\n",
-			provider: DEFAULT_FAST_MODEL.provider,
-			model: DEFAULT_FAST_MODEL.modelId,
+			provider: TEST_MODEL_SELECTION.provider,
+			model: TEST_MODEL_SELECTION.modelId,
 		});
 		expect(exec.calls).toEqual([
 			{
 				command: "pi",
-				args: buildRawTextModelArgs(buildKitContentSlugPrompt(CONTENT, TEST_VARIANT)),
+				args: buildRawTextModelArgs(
+					buildKitContentSlugPrompt(CONTENT, TEST_VARIANT),
+					TEST_MODEL_SELECTION,
+				),
 				options: { cwd: CWD, timeout: 60_000 },
 			},
 		]);

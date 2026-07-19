@@ -1,3 +1,7 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { encodeBranchName } from "@nseng-ai/brmem";
 import {
 	ScriptedQueue,
@@ -20,6 +24,11 @@ import type {
 } from "../../src/pi/runtime-types.ts";
 
 export const ROOT = "/repo";
+const MODEL_ROOT = mkdtempSync(join(tmpdir(), "handoff-root-"));
+writeFileSync(
+	join(MODEL_ROOT, "ns.toml"),
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+);
 export const BRANCH = "feature/handoff";
 
 export type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
@@ -128,6 +137,16 @@ export class FakePi implements ExtensionAPI {
 		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
 	): Promise<RawPiExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
+		if (command === "git" && sameArgs(args, ["rev-parse", "--show-toplevel"])) {
+			const next = this.script.peek();
+			if (
+				next === undefined ||
+				next.command !== "git" ||
+				!sameArgs(next.args, ["rev-parse", "--show-toplevel"])
+			) {
+				return execResult({ stdout: `${MODEL_ROOT}\n` });
+			}
+		}
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
 		if (expected === undefined) {

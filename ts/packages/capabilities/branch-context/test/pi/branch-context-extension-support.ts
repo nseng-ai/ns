@@ -1,7 +1,12 @@
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { brmemCheckJson } from "@nseng-ai/capability-kit/brmem-cli/testing";
 import { afterEach, expect } from "vitest";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -44,6 +49,11 @@ export { brmemCheckJson as brmemCheckEnvelope } from "@nseng-ai/capability-kit/b
 export const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(TEST_DIR, "../../../../../..");
 export const ROOT = "/repo";
+const MODEL_ROOT = mkdtempSync(join(tmpdir(), "branch-context-root-"));
+writeFileSync(
+	join(MODEL_ROOT, "ns.toml"),
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+);
 export const PLAN_SLUG = "branch-scoped-plan-extension";
 export const PLAN_KEY = buildBranchContextPlanKey(PLAN_SLUG);
 export const LEGACY_PLAN_KEY = "plan.md";
@@ -118,7 +128,7 @@ export class FakePi implements ExtensionAPI {
 		if (command === "git" && sameArgs(args, ["rev-parse", "--show-toplevel"])) {
 			const next = this.script.peek();
 			if (next === undefined || next.command !== "git" || !sameArgs(next.args, args)) {
-				return execResult({ stdout: `${ROOT}\n` });
+				return execResult({ stdout: `${MODEL_ROOT}\n` });
 			}
 		}
 		this.execCalls.push({ command, args: [...args], options });
@@ -416,7 +426,7 @@ export function step(
 }
 
 export function planSlugArgs(content: string): string[] {
-	return buildRawTextModelArgs(buildPlanContentSlugPrompt(content));
+	return buildRawTextModelArgs(buildPlanContentSlugPrompt(content), TEST_MODEL_SELECTION);
 }
 
 export function planSlugStep(
@@ -432,7 +442,7 @@ export function planSlugExecCall(content: string): { command: string; args: stri
 }
 
 export function savedPlanSlugArgs(content: string): string[] {
-	return buildRawTextModelArgs(buildSavedPlanContentSlugPrompt(content));
+	return buildRawTextModelArgs(buildSavedPlanContentSlugPrompt(content), TEST_MODEL_SELECTION);
 }
 
 export interface SavedPlanSlugStepOptions {
@@ -458,8 +468,8 @@ export function contentSlugEvidence(slug: string = PLAN_SLUG): {
 	return {
 		slug,
 		rawOutput: `${slug}\n`,
-		provider: DEFAULT_FAST_MODEL.provider,
-		model: DEFAULT_FAST_MODEL.modelId,
+		provider: TEST_MODEL_SELECTION.provider,
+		model: TEST_MODEL_SELECTION.modelId,
 	};
 }
 
