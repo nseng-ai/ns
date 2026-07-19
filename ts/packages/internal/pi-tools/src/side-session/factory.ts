@@ -10,7 +10,7 @@
  * Failures are errors-as-values with a flat, discriminated shape:
  * `{ ok: false; code: "spawn-failed" | "prompt-failed"; message }`.
  */
-import type { Api, Model } from "@earendil-works/pi-ai";
+import { formatModelRef, type ModelSelection } from "@nseng-ai/foundation/model-slug";
 import {
 	DefaultResourceLoader,
 	SessionManager,
@@ -43,7 +43,7 @@ export interface SideSessionFactory {
 	create(options: {
 		cwd: string;
 		systemPrompt: string;
-		model: Model<Api>;
+		modelSelection: ModelSelection;
 		modelRegistry: ModelRegistry;
 		tools: readonly string[];
 	}): Promise<CreateSideSessionResult>;
@@ -53,6 +53,17 @@ export function createPiSideSessionFactory(): SideSessionFactory {
 	return {
 		async create(options) {
 			try {
+				const model = options.modelRegistry.find(
+					options.modelSelection.provider,
+					options.modelSelection.modelId,
+				);
+				if (model === undefined) {
+					return {
+						ok: false,
+						code: "spawn-failed",
+						message: `Model ${formatModelRef(options.modelSelection)} is unavailable.`,
+					};
+				}
 				const settingsManager = SettingsManager.inMemory();
 				const resourceLoader = new DefaultResourceLoader({
 					cwd: options.cwd,
@@ -68,7 +79,7 @@ export function createPiSideSessionFactory(): SideSessionFactory {
 				await resourceLoader.reload();
 				const { session } = await createAgentSession({
 					cwd: options.cwd,
-					model: options.model,
+					model,
 					modelRegistry: options.modelRegistry,
 					tools: [...options.tools],
 					resourceLoader,

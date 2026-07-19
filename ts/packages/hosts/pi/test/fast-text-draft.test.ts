@@ -9,20 +9,20 @@ import {
 
 describe("resolveCodexDraftModel", () => {
 	test("accepts an explicit resolved provider/model reference", () => {
-		const resolved = resolveCodexDraftModel("acme/fast-1");
-		expect(resolved.provider).toBe("acme");
-		expect(resolved.modelId).toBe("fast-1");
+		const resolved = resolveCodexDraftModel({ provider: "acme", modelId: "fast-1" });
+		expect(resolved.modelSelection).toEqual({ provider: "acme", modelId: "fast-1" });
 	});
 
 	test("rejects an unresolved model reference", () => {
-		expect(() => resolveCodexDraftModel("")).toThrow("Invalid resolved Pi draft model reference");
+		expect(() => resolveCodexDraftModel({ provider: "", modelId: "" })).toThrow(
+			"Invalid resolved Pi draft model reference",
+		);
 	});
 
 	test("uses the explicit resolved reference despite ambient draft model configuration", () => {
 		vi.stubEnv("PI_DRAFT_MODEL", "ambient/wrong-model");
-		expect(resolveCodexDraftModel("acme/explicit-model")).toMatchObject({
-			provider: "acme",
-			modelId: "explicit-model",
+		expect(resolveCodexDraftModel({ provider: "acme", modelId: "explicit-model" })).toMatchObject({
+			modelSelection: { provider: "acme", modelId: "explicit-model" },
 		});
 	});
 });

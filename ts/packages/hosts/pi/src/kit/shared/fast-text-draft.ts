@@ -2,6 +2,11 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { commandSucceeded, type CommandExecApi, type ExecResult } from "@nseng-ai/foundation/exec";
+import {
+	formatModelRef,
+	parseModelRef,
+	type ModelSelection,
+} from "@nseng-ai/foundation/model-slug";
 import { callPiModelText, type PiModelRegistryLike } from "../models/call.ts";
 import type {
 	NotifyLevel,
@@ -54,12 +59,11 @@ export interface FastTextDraftInput {
 	progressMessage: (harnessLabel: string) => string;
 	taskNoun: string;
 	maxTokens?: number;
-	modelRef?: string;
+	modelSelection?: ModelSelection;
 }
 
 export interface PiModelConfig {
-	provider: string;
-	modelId: string;
+	modelSelection: ModelSelection;
 	label: string;
 	authLabel: string;
 	reasoning: "minimal" | "low";
@@ -76,18 +80,15 @@ export function selectDraftHarness(): { value: DraftHarness } | { error: string 
 	};
 }
 
-export function resolveCodexDraftModel(modelRef: string): PiModelConfig {
-	const separator = modelRef.indexOf("/");
-	if (separator <= 0 || separator === modelRef.length - 1) {
+export function resolveCodexDraftModel(modelSelection: ModelSelection): PiModelConfig {
+	const modelRef = formatModelRef(modelSelection);
+	if (parseModelRef(modelRef) === undefined) {
 		throw new Error(`Invalid resolved Pi draft model reference ${JSON.stringify(modelRef)}.`);
 	}
-	const provider = modelRef.slice(0, separator);
-	const modelId = modelRef.slice(separator + 1);
 	return {
-		provider,
-		modelId,
-		label: `${provider}/${modelId}`,
-		authLabel: provider === "openai-codex" ? "Codex" : provider,
+		modelSelection,
+		label: modelRef,
+		authLabel: modelSelection.provider === "openai-codex" ? "Codex" : modelSelection.provider,
 		reasoning: "minimal",
 	};
 }
@@ -102,10 +103,10 @@ export async function draftWithFastText(
 	input: FastTextDraftInput,
 ): Promise<{ output: string } | { error: string }> {
 	if (input.harness === "codex-pi") {
-		if (input.modelRef === undefined) {
-			return { error: "Codex Pi draft requires an already-resolved model reference." };
+		if (input.modelSelection === undefined) {
+			return { error: "Codex Pi draft requires an already-resolved model selection." };
 		}
-		return draftWithPiModel(ctx, resolveCodexDraftModel(input.modelRef), input);
+		return draftWithPiModel(ctx, resolveCodexDraftModel(input.modelSelection), input);
 	}
 	return draftWithClaudeCli(createPiCommandExecApi(pi), ctx, input);
 }
@@ -118,8 +119,7 @@ async function draftWithPiModel(
 	const result = await withSpinner(ctx, input.spinnerKey, input.progressMessage(config.label), () =>
 		callPiModelText({
 			registry: ctx.modelRegistry,
-			provider: config.provider,
-			modelId: config.modelId,
+			modelSelection: config.modelSelection,
 			systemPrompt: input.systemPrompt,
 			userText: input.userPrompt,
 			maxTokens: input.maxTokens ?? DEFAULT_MAX_TOKENS,
@@ -143,11 +143,11 @@ function piModelDraftError(
 ): string {
 	switch (result.reason) {
 		case "model-unavailable":
-			return `Could not find Pi model ${config.provider}/${config.modelId}.`;
+			return `Could not find Pi model ${formatModelRef(config.modelSelection)}.`;
 		case "auth":
 			return `${config.authLabel} auth failed: ${result.message ?? "unknown auth error"}`;
 		case "empty-auth":
-			return `No ${config.authLabel} auth found for ${config.provider}. Run /login or configure Pi auth.`;
+			return `No ${config.authLabel} auth found for ${config.modelSelection.provider}. Run /login or configure Pi auth.`;
 		case "aborted":
 			return `${config.label} failed to draft a ${taskNoun}: ${result.message ?? "aborted"}`;
 		case "request-failed":

@@ -64,8 +64,7 @@ function baseOptions(
 ): Parameters<typeof callPiModelText>[0] {
 	return {
 		registry: makeRegistry(),
-		provider: "provider",
-		modelId: "model",
+		modelSelection: { provider: "provider", modelId: "model" },
 		systemPrompt: "system",
 		userText: "user",
 		maxTokens: 12,

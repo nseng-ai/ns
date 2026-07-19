@@ -1,3 +1,4 @@
+import { parseModelRef, type ModelSelection } from "@nseng-ai/foundation/model-slug";
 import type { ThermoCouncilSeatConfig, ThermoCouncilSeatId } from "./contract.ts";
 
 export interface EnvReader {
@@ -7,14 +8,14 @@ export interface EnvReader {
 interface DefaultSeat {
 	readonly id: ThermoCouncilSeatId;
 	readonly label: string;
-	readonly model: string;
+	readonly modelSelection: ModelSelection;
 	readonly envVar: string;
 }
 
 interface ModelOverrideOptions {
 	readonly seatSpecific: string | undefined;
 	readonly positional: string | undefined;
-	readonly defaultModel: string;
+	readonly defaultModelSelection: ModelSelection;
 	readonly label: string;
 }
 
@@ -25,19 +26,19 @@ const DEFAULT_SEATS = [
 	{
 		id: "anthropic-fable",
 		label: "Fable",
-		model: "vercel-ai-gateway/anthropic/claude-fable-5",
+		modelSelection: { provider: "vercel-ai-gateway", modelId: "anthropic/claude-fable-5" },
 		envVar: "THERMO_COUNCIL_ANTHROPIC_MODEL",
 	},
 	{
 		id: "openai-high",
 		label: "Sol",
-		model: "vercel-ai-gateway/openai/gpt-5.6-sol",
+		modelSelection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol" },
 		envVar: "THERMO_COUNCIL_OPENAI_MODEL",
 	},
 	{
 		id: "gemini-high",
 		label: "Gemini",
-		model: "vercel-ai-gateway/google/gemini-2.5-pro",
+		modelSelection: { provider: "vercel-ai-gateway", modelId: "google/gemini-2.5-pro" },
 		envVar: "THERMO_COUNCIL_GEMINI_MODEL",
 	},
 ] as const satisfies readonly DefaultSeat[];
@@ -62,10 +63,10 @@ export function parseThermoCouncilSeats(env: EnvReader): readonly ThermoCouncilS
 	return DEFAULT_SEATS.map((seat, index) => ({
 		id: seat.id,
 		label: seat.label,
-		model: modelOverride({
+		modelSelection: modelOverride({
 			seatSpecific: env.get(seat.envVar),
 			positional: positionalModels[index],
-			defaultModel: seat.model,
+			defaultModelSelection: seat.modelSelection,
 			label: seat.label,
 		}),
 	}));
@@ -84,10 +85,13 @@ function parsePositionalModels(value: string | undefined): readonly string[] {
 function modelOverride({
 	seatSpecific,
 	positional,
-	defaultModel,
+	defaultModelSelection,
 	label,
-}: ModelOverrideOptions): string {
-	const candidate = seatSpecific?.trim() || positional?.trim() || defaultModel;
-	if (candidate.length === 0) throw new Error(`Empty model override for ${label}.`);
-	return candidate;
+}: ModelOverrideOptions): ModelSelection {
+	const candidate = seatSpecific?.trim() || positional?.trim();
+	if (candidate === undefined) return defaultModelSelection;
+	const selection = parseModelRef(candidate);
+	if (selection === undefined)
+		throw new Error(`Invalid model override for ${label}: ${candidate}.`);
+	return selection;
 }

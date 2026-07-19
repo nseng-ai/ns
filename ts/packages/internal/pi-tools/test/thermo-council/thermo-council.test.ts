@@ -201,7 +201,7 @@ function baseScope(overrides: Partial<ThermoCouncilScope> = {}): ThermoCouncilSc
 }
 
 function seat(id: ThermoCouncilSeatConfig["id"], label: string): ThermoCouncilSeatConfig {
-	return { id, label, model: `${id}-model` };
+	return { id, label, modelSelection: { provider: id, modelId: "model" } };
 }
 
 type CompletedOutcome = Extract<ThermoCouncilReviewerOutcome, { readonly type: "completed" }>;
@@ -318,27 +318,36 @@ describe("thermo council extension", () => {
 			expect.objectContaining({
 				id: "anthropic-fable",
 				label: "Fable",
-				model: "vercel-ai-gateway/anthropic/claude-fable-5",
+				modelSelection: { provider: "vercel-ai-gateway", modelId: "anthropic/claude-fable-5" },
 			}),
 		);
 		expect(defaultSeats[1]).toEqual(
 			expect.objectContaining({
 				id: "openai-high",
 				label: "Sol",
-				model: "vercel-ai-gateway/openai/gpt-5.6-sol",
+				modelSelection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol" },
 			}),
 		);
 		expect(defaultSeats[2]).toEqual(
 			expect.objectContaining({
 				id: "gemini-high",
 				label: "Gemini",
-				model: "vercel-ai-gateway/google/gemini-2.5-pro",
+				modelSelection: { provider: "vercel-ai-gateway", modelId: "google/gemini-2.5-pro" },
 			}),
 		);
 		expect(seats).toEqual([
-			expect.objectContaining({ id: "anthropic-fable", model: "anthropic/custom-fable" }),
-			expect.objectContaining({ id: "openai-high", model: "openai/seat-specific" }),
-			expect.objectContaining({ id: "gemini-high", model: "google/custom-gemini" }),
+			expect.objectContaining({
+				id: "anthropic-fable",
+				modelSelection: { provider: "anthropic", modelId: "custom-fable" },
+			}),
+			expect.objectContaining({
+				id: "openai-high",
+				modelSelection: { provider: "openai", modelId: "seat-specific" },
+			}),
+			expect.objectContaining({
+				id: "gemini-high",
+				modelSelection: { provider: "google", modelId: "custom-gemini" },
+			}),
 		]);
 	});
 

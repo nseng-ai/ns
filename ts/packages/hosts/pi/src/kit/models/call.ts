@@ -1,5 +1,6 @@
 import { cleanupSessionResources, type Api, type Model } from "@earendil-works/pi-ai";
 import { uuidv7 } from "@earendil-works/pi-agent-core";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 // Temporary while Pi Coding Agent's ModelRegistry uses global dispatch.
 // Canonical migration plan (Phase 9): https://github.com/earendil-works/pi/blob/main/packages/agent/docs/models.md
 import type { completeSimple } from "@earendil-works/pi-ai/compat";
@@ -28,8 +29,7 @@ export type PiModelTextResult =
 
 export interface CallPiModelTextOptions {
 	registry: PiModelRegistryLike;
-	provider: string;
-	modelId: string;
+	modelSelection: ModelSelection;
 	systemPrompt: string;
 	userText: string;
 	maxTokens: number;
@@ -40,7 +40,10 @@ export interface CallPiModelTextOptions {
 }
 
 export async function callPiModelText(options: CallPiModelTextOptions): Promise<PiModelTextResult> {
-	const model = options.registry.find(options.provider, options.modelId);
+	const model = options.registry.find(
+		options.modelSelection.provider,
+		options.modelSelection.modelId,
+	);
 	if (model === undefined) return { ok: false, reason: "model-unavailable", message: null };
 	const auth = await options.registry.getApiKeyAndHeaders(model);
 	if (!auth.ok) return { ok: false, reason: "auth", message: auth.error };

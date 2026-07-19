@@ -1,3 +1,4 @@
+import { formatModelRef } from "@nseng-ai/foundation/model-slug";
 import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
 
 import {
@@ -75,7 +76,7 @@ export function renderThermoCouncilReport(
 		"## Evidence and Safety Notes",
 		...outcomes.map(
 			(outcome) =>
-				`- ${outcome.seat.label} (${outcome.seat.model}): ${outcome.sessionFile ?? "no child session file captured"}`,
+				`- ${outcome.seat.label} (${formatModelRef(outcome.seat.modelSelection)}): ${outcome.sessionFile ?? "no child session file captured"}`,
 		),
 		`- ${SAFETY_NOTE}`,
 	].join("\n");
@@ -195,7 +196,7 @@ function renderSeatStatusTable(outcomes: readonly ThermoCouncilReviewerOutcome[]
 		"| --- | --- | --- | --- | --- |",
 		...outcomes.map((outcome) => {
 			const status: ThermoCouncilSeatStatus = outcome.type;
-			return `| ${outcome.seat.label} | \`${outcome.seat.model}\` | ${status} | ${seatDiagnostic(outcome)} | ${outcome.sessionFile ?? ""} |`;
+			return `| ${outcome.seat.label} | \`${formatModelRef(outcome.seat.modelSelection)}\` | ${status} | ${seatDiagnostic(outcome)} | ${outcome.sessionFile ?? ""} |`;
 		}),
 	].join("\n");
 }
