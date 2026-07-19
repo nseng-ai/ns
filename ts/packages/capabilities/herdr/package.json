@@ -23,12 +23,17 @@
 		"@nseng-ai/slots": "workspace:*"
 	},
 	"devDependencies": {
+		"@nseng-ai/handoffs": "workspace:*",
 		"@nseng-ai/pi": "workspace:*"
 	},
 	"peerDependencies": {
+		"@nseng-ai/handoffs": "workspace:*",
 		"@nseng-ai/pi": "workspace:*"
 	},
 	"peerDependenciesMeta": {
+		"@nseng-ai/handoffs": {
+			"optional": true
+		},
 		"@nseng-ai/pi": {
 			"optional": true
 		}

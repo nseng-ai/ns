@@ -20,8 +20,12 @@ The focused Herdr workspace created by `/ns:herdr:space:new` at the Pi command's
 The integrated `/ns:herdr:handoff:*` namespace for existing dispatch behavior. It composes native Herdr space or tab destinations with other ns capabilities; the namespace alone does not imply creation of a Handoff Artifact.
 *Avoid*: Handoff Artifact creation by default, replacement for native space/tab vocabulary, generic destination abstraction
 
+**Herdr Handoff tab**:
+The optional `/ns:herdr:handoff:tab` integration with `@nseng-ai/handoffs`: Handoffs owns artifact composition and verification, while Herdr creates the focused labeled tab and launches pickup in its root pane. The command and launch tool register only when the curated Handoffs Pi integration module is resolvable.
+*Avoid*: Handoffs-owned destination, generic multiplexer launcher, compatibility alias
+
 **Caller workspace targeting**:
-Identifying the Herdr workspace to act on via the `HERDR_WORKSPACE_ID` environment variable injected by Herdr into every managed pane. Surface dispatch validates and captures this ID immediately after argument/help handling, before plan lookup or durable mutation.
+Identifying the Herdr workspace to act on via the `HERDR_WORKSPACE_ID` environment variable injected by Herdr into every managed pane. Surface dispatch and Herdr Handoff tab validate and capture this ID before plan/artifact work or destination mutation.
 *Avoid*: UI focus targeting, ambient workspace, implicit workspace
 
 **Workspace label**:

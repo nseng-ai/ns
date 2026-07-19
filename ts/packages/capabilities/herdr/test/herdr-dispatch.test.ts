@@ -17,7 +17,7 @@ const TEST_MODEL_SELECTION = {
 	thinking: "minimal" as const,
 };
 
-import { HERDR_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
+import { HERDR_BASE_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
 import registerHerdrPiExtension from "../src/pi/extension.ts";
 import { registerHerdrSlotOpenBranchCommand } from "../src/pi/open-branch.ts";
 import {
@@ -130,7 +130,7 @@ describe("herdr Pi extension — full suite", () => {
 	test("registers all herdr command surfaces", () => {
 		const pi = new FakePi();
 		registerHerdrPiExtension(pi);
-		expect([...pi.commands.keys()].sort()).toEqual([...HERDR_COMMAND_NAMES].sort());
+		expect([...pi.commands.keys()].sort()).toEqual([...HERDR_BASE_COMMAND_NAMES].sort());
 	});
 });
 

@@ -17,7 +17,6 @@ export {
 	renderHandoffListMessage,
 } from "./list-rendering.ts";
 export { buildHandoffSelfPrompt, formatHandoffSelfKickoffPrompt } from "./self.ts";
-export { buildHandoffTabPrompt, type HandoffTabLaunchResult } from "./tab.ts";
 export type {
 	HandoffListBranchGroup,
 	HandoffListItem,

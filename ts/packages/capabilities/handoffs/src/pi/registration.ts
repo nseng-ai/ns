@@ -2,11 +2,7 @@ import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { createPiHandoffContext } from "./api-context.ts";
-import {
-	buildDeriveHandoffSlugTool,
-	buildHandoffTabLaunchTool,
-	handleHandoffTabCommand,
-} from "./tab.ts";
+import { createHandoffLaunchIntegration } from "./handoff-launch.ts";
 import { createHandoffSelfWorkflow } from "./self.ts";
 import { handleCreateHandoffCommand } from "./create.ts";
 import { handleListHandoffCommand, handlePickupHandoffCommand } from "./pickup-list.ts";
@@ -14,7 +10,6 @@ import { HANDOFF_LIST_MESSAGE_TYPE, renderHandoffListMessage } from "./list-rend
 import {
 	CREATE_HANDOFF_COMMAND_NAME,
 	HANDOFF_SELF_COMMAND_NAME,
-	HANDOFF_TAB_COMMAND_NAME,
 	LIST_HANDOFF_COMMAND_NAME,
 	PICKUP_HANDOFF_COMMAND_NAME,
 } from "./command-constants.ts";
@@ -61,19 +56,6 @@ export const handoffParity = definePiSurfaceParity([
 	},
 	{
 		kind: "command",
-		surface: HANDOFF_TAB_COMMAND_NAME,
-		workflow: "Create a handoff and open a focused cmux tab to pick it up",
-		parity: "WAIVED",
-		fallback:
-			"Create the handoff with handoff-create, then manually open the target harness/session and pick it up with handoff-pickup.",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@nseng-ai/handoffs/pi",
-		sourceModule: "handoff",
-		notes:
-			"Focused cmux tab launch is a Pi/cmux session primitive; storage and pickup are separately portable.",
-	},
-	{
-		kind: "command",
 		surface: HANDOFF_SELF_COMMAND_NAME,
 		workflow:
 			"Create a handoff, replace the current Pi session, and pick it up in the fresh session",
@@ -98,24 +80,8 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 			git: handoffContext.git,
 			commands,
 		});
-		pi.registerTool(buildDeriveHandoffSlugTool(commands));
-		pi.registerTool(buildHandoffTabLaunchTool(pi, commands));
+		createHandoffLaunchIntegration(pi).registerContentSlugTool();
 		pi.registerTool(selfWorkflow.buildTool());
-		registerCommandWithImmediateAck({
-			host: pi,
-			commandName: HANDOFF_TAB_COMMAND_NAME,
-			commandDefinition: {
-				description: "Create a handoff and open a focused cmux tab to pick it up.",
-				handler: async (args, ctx) =>
-					handleHandoffTabCommand({
-						pi,
-						commands,
-						rawArgs: args,
-						ctx,
-						git: handoffContext.git,
-					}),
-			},
-		});
 		registerCommandWithImmediateAck({
 			host: pi,
 			commandName: HANDOFF_SELF_COMMAND_NAME,

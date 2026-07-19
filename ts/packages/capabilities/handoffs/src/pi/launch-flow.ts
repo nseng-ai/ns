@@ -39,6 +39,7 @@ export interface PreparedHandoffCreateLaunch {
 	request: HandoffLaunchRequest;
 	skill: ExpandedSkillBlock | undefined;
 	skillReadError: string | undefined;
+	promptOptions: HandoffLaunchPreflightPromptOptions | undefined;
 }
 
 export interface HandoffLaunchPromptOptions {
@@ -63,6 +64,12 @@ export interface HandoffLaunchPromptCopy {
 	previewBody(branch: string): string;
 }
 
+export interface HandoffLaunchPreflightPromptOptions {
+	extraTargetSections?: string[];
+	toolCallInstruction?: string;
+	extraRequirements?: string[];
+}
+
 export interface HandoffLaunchCommandSpec {
 	statusKey: string;
 	promptCopy: HandoffLaunchPromptCopy;
@@ -73,7 +80,10 @@ export interface HandoffLaunchCommandSpec {
 		pi: ExtensionAPI;
 		ctx: CommandContext;
 		request: HandoffLaunchRequest;
-	}): Promise<{ type: "ok" } | { type: "failed"; message: string }>;
+	}): Promise<
+		| { type: "ok"; promptOptions?: HandoffLaunchPreflightPromptOptions }
+		| { type: "failed"; message: string }
+	>;
 }
 
 export interface HandoffLaunchParams {
@@ -218,7 +228,12 @@ export async function prepareHandoffCreateLaunch(
 	const skill = loadedSkill.type === "found" ? loadedSkill.skill : undefined;
 	const skillReadError = loadedSkill.type === "failed" ? loadedSkill.message : undefined;
 
-	return { request, skill, skillReadError };
+	return {
+		request,
+		skill,
+		skillReadError,
+		promptOptions: preflight?.type === "ok" ? preflight.promptOptions : undefined,
+	};
 }
 
 export async function runHandoffCreateCommand(
@@ -245,6 +260,7 @@ export async function runHandoffCreateCommand(
 			skillBlock: prepared.skill?.block,
 			request: prepared.request,
 			investigationSources: deriveHandoffInvestigationSources(ctx),
+			...prepared.promptOptions,
 		}),
 		{ deliverAs: "followUp" },
 	);
