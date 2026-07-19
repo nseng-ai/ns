@@ -41,6 +41,7 @@ import {
 	PLAN_KEY,
 	PLAN_SLUG,
 	PREVIOUS_MODEL,
+	ROOT,
 	SAVED_PLAN_FILENAME,
 	SOURCE_BRANCH,
 	START_POINT,
@@ -1324,7 +1325,7 @@ describe("cmux command suite", () => {
 		expect(messages).toContain("Graphite trunk refresh failed");
 		expect(messages).toContain("no branch was created");
 		expect(messages).toContain("fetch failed");
-		expect(messages).toContain("Cwd: /repo");
+		expect(messages).toContain(`Cwd: ${ROOT}`);
 		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "branch")).toBe(
 			false,
 		);

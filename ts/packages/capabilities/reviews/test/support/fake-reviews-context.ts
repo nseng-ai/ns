@@ -1,3 +1,7 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
@@ -32,13 +36,19 @@ export interface FakeReviewsContextOptions {
 	readonly stderr?: (text: string) => void;
 }
 
+const DEFAULT_REPO_ROOT = mkdtempSync(join(tmpdir(), "reviews-context-"));
+writeFileSync(
+	join(DEFAULT_REPO_ROOT, "ns.toml"),
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+);
+
 export function fakeReviewsContext(options: FakeReviewsContextOptions = {}): ReviewsContext {
 	const execApi = options.execApi ?? new ScriptedCommandExecApi();
 	const gitGateway =
 		options.gitGateway ??
 		new InMemoryGitGateway({
-			repoRoot: "/repo",
-			optionalRepoRoot: "/repo",
+			repoRoot: DEFAULT_REPO_ROOT,
+			optionalRepoRoot: DEFAULT_REPO_ROOT,
 			currentBranch: "feature",
 			trunkBranch: "main",
 			originUrl: "git@example.com:repo.git\n",
@@ -53,7 +63,7 @@ export function fakeReviewsContext(options: FakeReviewsContextOptions = {}): Rev
 		reviewLog: options.reviewLog ?? new FakeReviewLogGateway(),
 		github: options.github ?? new FakeGithubPrFeedbackGateway(),
 		reviewRunner: options.reviewRunner ?? new FakeReviewRunnerGateway(),
-		cwd: options.cwd ?? "/repo",
+		cwd: options.cwd ?? DEFAULT_REPO_ROOT,
 		env: options.env ?? {},
 		...(options.signal === undefined ? {} : { signal: options.signal }),
 		stdin: options.stdin ?? (async () => ""),

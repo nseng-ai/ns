@@ -165,7 +165,6 @@ describe("handoff-tab extension", () => {
 
 	test("derive handoff slug tool returns slug and key details", async () => {
 		const pi = new FakePi([
-			step("git", ["rev-parse", "--show-toplevel"], { stdout: "/repo\n" }),
 			step(
 				"pi",
 				buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT), TEST_MODEL_SELECTION),
@@ -236,7 +235,6 @@ describe("handoff-tab extension", () => {
 
 	test("derive handoff slug tool reports slug-model failure without fallback", async () => {
 		const pi = new FakePi([
-			step("git", ["rev-parse", "--show-toplevel"], { stdout: "/repo\n" }),
 			step(
 				"pi",
 				buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT), TEST_MODEL_SELECTION),
@@ -274,7 +272,6 @@ describe("handoff-tab extension", () => {
 
 	test("derive handoff slug tool threads cwd and abort signal into model command", async () => {
 		const pi = new FakePi([
-			step("git", ["rev-parse", "--show-toplevel"], { stdout: "/repo\n" }),
 			step(
 				"pi",
 				buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT), TEST_MODEL_SELECTION),

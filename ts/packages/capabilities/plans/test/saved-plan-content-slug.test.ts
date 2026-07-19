@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 const TEST_MODEL_SELECTION = {
@@ -13,7 +16,11 @@ type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
 import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
 
-const CWD = "/repo";
+const CWD = mkdtempSync(join(tmpdir(), "saved-plan-slug-root-"));
+writeFileSync(
+	join(CWD, "ns.toml"),
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+);
 const SAVED_PLAN_CONTENT =
 	"# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
 
@@ -34,7 +41,7 @@ class FakeSlugPi implements CommandExecApi {
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
 		this.calls.push({ command, args: [...args], options });
 		if (command === "git" && args[0] === "rev-parse") {
-			return { type: "exited", stdout: "/repo\n", stderr: "", code: 0, signal: null };
+			return { type: "exited", stdout: `${CWD}\n`, stderr: "", code: 0, signal: null };
 		}
 		if (this.behavior.error !== undefined) {
 			throw this.behavior.error;

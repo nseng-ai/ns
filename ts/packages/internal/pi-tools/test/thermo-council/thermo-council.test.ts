@@ -1,3 +1,4 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -60,6 +61,12 @@ interface FakeExecResult {
 type FakeExecHandler = (command: string, args: readonly string[]) => FakeExecResult | undefined;
 type SessionStartHandler = ExtensionHandler<SessionStartEvent>;
 type SessionShutdownHandler = ExtensionHandler<SessionShutdownEvent>;
+
+const DEFAULT_REPO_ROOT = mkdtempSync(join(tmpdir(), "thermo-council-"));
+writeFileSync(
+	join(DEFAULT_REPO_ROOT, "ns.toml"),
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+);
 
 class FakePi implements ThermoCouncilExtensionAPI {
 	getThinkingLevel(): "minimal" {
@@ -148,7 +155,7 @@ class FakePi implements ThermoCouncilExtensionAPI {
 			readSessionFile: () => "",
 			processArgv: ["/usr/bin/node"],
 			processExecPath: "/usr/bin/node",
-			existsSync: () => false,
+			existsSync: (path) => path === DEFAULT_REPO_ROOT,
 			spawn: (command, args, options) => {
 				const process = new FakeSpawnedChildProcess();
 				this.runnerCalls.push({ command, args: [...args], options, process });
@@ -172,7 +179,7 @@ interface FakeCommandContext {
 	waitForIdle(): Promise<void>;
 }
 
-function fakeContext(cwd = "/repo"): FakeCommandContext {
+function fakeContext(cwd = DEFAULT_REPO_ROOT): FakeCommandContext {
 	const statuses: string[] = [];
 	return {
 		cwd,
@@ -189,7 +196,7 @@ function fakeContext(cwd = "/repo"): FakeCommandContext {
 
 function baseScope(overrides: Partial<ThermoCouncilScope> = {}): ThermoCouncilScope {
 	return {
-		cwd: "/repo",
+		cwd: DEFAULT_REPO_ROOT,
 		baseRef: "origin/master",
 		baseSha: "base-sha",
 		headRef: "HEAD",
@@ -546,7 +553,7 @@ describe("thermo council extension", () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "thermo-policy-"));
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[models.profiles.slow]\nmodel = "acme/synthesis"\nthinking = "minimal"\n[models.operations]\n"thermo-council.synthesis" = "slow"\n',
+			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n[models.profiles.slow]\nmodel = "acme/synthesis"\nthinking = "minimal"\n[models.operations]\n"thermo-council.synthesis" = "slow"\n',
 		);
 		const configuredExecResults = successfulScopeExecResults();
 		configuredExecResults.set("git rev-parse --show-toplevel", { stdout: `${repoRoot}\n` });
@@ -1181,7 +1188,7 @@ function successfulScopeExecResults(): Map<
 	return new Map([
 		["git status --short", { stdout: "" }],
 		["git symbolic-ref --quiet --short refs/remotes/origin/HEAD", { stdout: "origin/master\n" }],
-		["git rev-parse --show-toplevel", { stdout: "/repo\n" }],
+		["git rev-parse --show-toplevel", { stdout: `${DEFAULT_REPO_ROOT}\n` }],
 		["git rev-parse HEAD", { stdout: "head-sha\n" }],
 		["git rev-parse --verify origin/master^{commit}", { stdout: "base-ref-sha\n" }],
 		["git merge-base base-ref-sha HEAD", { stdout: "base-sha\n" }],

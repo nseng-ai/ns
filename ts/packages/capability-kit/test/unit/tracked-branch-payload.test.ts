@@ -1,3 +1,4 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,6 +16,12 @@ import {
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
 import { afterEach, describe, expect, test } from "vitest";
+
+const REPO_ROOT = mkdtempSync(join(tmpdir(), "tracked-branch-payload-root-"));
+writeFileSync(
+	join(REPO_ROOT, "ns.toml"),
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+);
 
 const TEST_MODEL_SELECTION = {
 	provider: "openai-codex",
@@ -121,7 +128,7 @@ describe("tracked branch payload public API", () => {
 
 		const result = await storeTrackedBranchPayload({
 			pi: commands,
-			cwd: "/repo",
+			cwd: REPO_ROOT,
 			branchName: "feature-demo",
 			content: "Implement the feature.\n",
 			payloadOptions: resolveTrackedBranchPayloadOptions({ stagingDir, now: () => 123 }),
@@ -157,7 +164,7 @@ describe("tracked branch payload public API", () => {
 
 		const result = await storeTrackedBranchPayload({
 			pi: commands,
-			cwd: "/repo",
+			cwd: REPO_ROOT,
 			branchName: "feature-demo",
 			content: "Do not overwrite.\n",
 			payloadOptions: resolveTrackedBranchPayloadOptions({ stagingDir, now: () => 123 }),
@@ -184,7 +191,7 @@ describe("tracked branch payload public API", () => {
 			{
 				command: "git",
 				args: ["rev-parse", "--show-toplevel"],
-				result: exited({ stdout: "/repo\n" }),
+				result: exited({ stdout: `${REPO_ROOT}\n` }),
 			},
 			{
 				command: "pi",
@@ -216,7 +223,7 @@ describe("tracked branch payload public API", () => {
 			},
 		]);
 
-		const result = await createTrackedBranchForPrompt(commands, "/repo", prompt);
+		const result = await createTrackedBranchForPrompt(commands, REPO_ROOT, prompt);
 
 		commands.assertDone();
 		expect(result).toEqual({
@@ -232,7 +239,7 @@ describe("tracked branch payload public API", () => {
 			{
 				command: "git",
 				args: ["rev-parse", "--show-toplevel"],
-				result: exited({ stdout: "/repo\n" }),
+				result: exited({ stdout: `${REPO_ROOT}\n` }),
 			},
 			{
 				command: "pi",
@@ -261,7 +268,7 @@ describe("tracked branch payload public API", () => {
 
 		const result = await createTrackedBranchFromResolvedParent({
 			pi: commands,
-			cwd: "/repo",
+			cwd: REPO_ROOT,
 			prompt,
 			parentBranch: "feature/source",
 			startPoint: "abc123",

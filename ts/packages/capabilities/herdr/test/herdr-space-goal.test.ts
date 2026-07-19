@@ -9,6 +9,7 @@ import {
 	gitRootStep,
 	notificationMessages,
 	resetHerdrTestEnvironment,
+	ROOT,
 	step,
 } from "./herdr-test-harness.ts";
 
@@ -27,10 +28,10 @@ async function runGoal(options: {
 	modelCode?: number;
 	herdr?: FakeHerdrGateway;
 }) {
-	const cwd = options.cwd ?? "/repo";
+	const cwd = options.cwd ?? ROOT;
 	const pi = new FakePi({
 		script: [
-			gitRootStep(cwd),
+			gitRootStep(ROOT),
 			modelStep(options.modelOutput ?? "refactor-auth", options.modelCode),
 		],
 		shouldRequireExpectedArgs: false,
@@ -64,7 +65,7 @@ describe("herdr space goal", () => {
 		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "refactor-auth" }]);
 		expect(progress).toEqual(["Interpreting goal…", "Renaming Herdr workspace…"]);
 		expect(notificationMessages(ctx)).toContain("Applied Herdr space goal label: refactor-auth");
-		expect(pi.execCalls[1]).toMatchObject({ command: "pi", options: { cwd: "/repo" } });
+		expect(pi.execCalls[1]).toMatchObject({ command: "pi", options: { cwd: ROOT } });
 		expect(pi.execCalls[1]?.args.at(-1)).toContain("Generate a concise workspace name slug");
 	});
 

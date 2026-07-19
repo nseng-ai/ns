@@ -237,7 +237,7 @@ async function createSubmitHooksRepo(preSubmit: readonly string[]): Promise<stri
 	});
 	await writeFile(
 		join(repoRoot, "ns.toml"),
-		`extensions = ["./extensions/flow"]\n\n[models.profiles]\nfast = "openai-codex/gpt-5.6-luna"\n\n[points]\n"flow.submit.pre" = ${JSON.stringify(preSubmit)}\n`,
+		`extensions = ["./extensions/flow"]\n\n[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n\n[points]\n"flow.submit.pre" = ${JSON.stringify(preSubmit)}\n`,
 		"utf8",
 	);
 	return repoRoot;
@@ -448,7 +448,7 @@ describe("project-local submit extension", () => {
 				"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 			),
 		);
-		expect(run.stackGateway.operations()).toEqual([{ type: "stack", cwd: "/work" }]);
+		expect(run.stackGateway.operations()).toEqual([{ type: "stack", cwd: run.context.cwd }]);
 		expect(formattedExecCalls(run.context)).toContain("gh pr diff 123");
 		expect(formattedExecCalls(run.context)).toContainEqual(
 			expect.stringMatching(/^gh pr edit 123 --title Generated PR --body-file /),
@@ -627,6 +627,7 @@ describe("project-local submit extension", () => {
 	test("configured pre-submit check runs before checkpoint and submit", async () => {
 		const repoRoot = await createSubmitHooksRepo(["just"]);
 		const run = runWithFakes({
+			cwd: repoRoot,
 			state: {
 				exec: [
 					{ match: "git rev-parse --show-toplevel", result: { stdout: `${repoRoot}\n` } },
@@ -656,6 +657,7 @@ describe("project-local submit extension", () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-hook-failure-"));
 		tempDirs.push(logRoot);
 		const run = runWithFakes({
+			cwd: repoRoot,
 			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
@@ -704,6 +706,7 @@ describe("project-local submit extension", () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-check-negative-"));
 		tempDirs.push(logRoot);
 		const run = runWithFakes({
+			cwd: repoRoot,
 			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
@@ -734,7 +737,7 @@ describe("project-local submit extension", () => {
 		const repoRoot = await createSubmitHooksRepo(["just"]);
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[models.profiles]\nfast = "openai-codex/gpt-5.6-luna"\n',
+			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
 			"utf8",
 		);
 		const run = runWithFakes({
@@ -916,7 +919,7 @@ describe("project-local submit extension", () => {
 		expect(formattedExecCalls(run.context)).not.toContain(
 			"gh pr list --head feature/upstack --state open --limit 2 --json number,url",
 		);
-		expect(run.stackGateway.operations()).toEqual([{ type: "stack", cwd: "/work" }]);
+		expect(run.stackGateway.operations()).toEqual([{ type: "stack", cwd: run.context.cwd }]);
 		expect(formattedExecCalls(run.context)).not.toContain(
 			"git log --format=%B%x00 feature/top..feature/upstack",
 		);

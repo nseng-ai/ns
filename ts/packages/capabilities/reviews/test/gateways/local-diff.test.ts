@@ -41,7 +41,7 @@ describe("RealLocalDiffGateway", () => {
 		await mkdir(repoRoot, { recursive: true });
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[reviews.diff]\nexclude = [".agents/skills/**/*.py"]\n',
+			'[reviews.diff]\nexclude = [".agents/skills/**/*.py"]\n[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
 			"utf8",
 		);
 		const execApi = new ScriptedCommandExecApi([exitedResult({ stdout: SAMPLE_DIFF })]);

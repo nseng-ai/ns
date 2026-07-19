@@ -1,3 +1,4 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -22,7 +23,11 @@ const TEST_MODEL_SELECTION = {
 	thinking: "minimal" as const,
 };
 
-const ROOT = "/repo";
+const ROOT = mkdtempSync(join(tmpdir(), "plan-preparation-root-"));
+writeFileSync(
+	join(ROOT, "ns.toml"),
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+);
 const SOURCE_BRANCH = "feature/source";
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 const PLAN_CONTENT = "# Add dispatch preparation tests\n";
