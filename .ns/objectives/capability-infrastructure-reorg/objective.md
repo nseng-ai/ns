@@ -52,3 +52,13 @@ Every file and exported concern that began in `capability-kit/src/kit`, plus eve
 - Which foundation residue is in scope because it participates in the same ownership confusion, and which should remain explicitly outside this Objective?
 - Can `@nseng-ai/capability-kit` remain as a smaller coherent package, or does the ownership map remove its reason to exist?
 - Which supported external exports, if any, require a deliberate migration path rather than direct removal?
+
+## Closure
+
+Closed 2026-07-19 as intentionally abandoned without execution, by explicit user decision. No ownership map was ratified and no migration slices landed; the roadmap remained entirely open.
+
+Rationale: the highest-leverage portion of the scoped ownership problem — the ns-host adapter cluster in `capability-kit/src/kit` (`ns-command.ts`, `command-runner.ts`, `git-gateway.ts`, `ns-context.ts`), all of which type against `NsExtensionApi` — is subsumed by the newly initiated ns extension API invocation-lifecycle effort. That effort will decide those adapters' shape and ownership as a consequence of reshaping the command-context contract itself, making a separate standalone reorg initiative redundant for the surfaces that motivated this record most.
+
+Remaining scoped concerns (model-driven generation, checkpoint policy, Branch Memory invocation, dispatch payload behavior, local-machine utilities in the `kit` container) are consciously left without a dedicated initiative. The planned write-back of an implemented ownership model into `ontology-reshape` will not occur; that record's edge annotation now points at an unexecuted plan and its capability-kit/foundation documentation rows should be resolved from checked-in reality instead.
+
+Follow-ups: if kit junk-drawer residue outside the extension-API effort's path becomes an active obstacle, open a fresh, narrower Objective for that specific concern rather than reviving this one.
