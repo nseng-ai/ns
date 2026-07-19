@@ -98,7 +98,7 @@ describe("subagent model routing", () => {
 		await tool.execute("call", { agent: "task", tasks: TASKS }, undefined, undefined, context());
 
 		expect(dispatched).toHaveLength(1);
-		expect(dispatched[0]?.options.model).toBeUndefined();
+		expect(dispatched[0]?.options.modelSelection).toBeUndefined();
 	});
 
 	test.each(["subprocess", "in-process"] as const)(
@@ -115,7 +115,10 @@ describe("subagent model routing", () => {
 				context(),
 			);
 
-			expect(dispatched[0]?.options.model).toBe("openai-codex/gpt-5.6-luna");
+			expect(dispatched[0]?.options.modelSelection).toEqual({
+				provider: "openai-codex",
+				modelId: "gpt-5.6-luna",
+			});
 		},
 	);
 
@@ -131,7 +134,7 @@ describe("subagent model routing", () => {
 			context("acme"),
 		);
 
-		expect(dispatched[0]?.options.model).toBeUndefined();
+		expect(dispatched[0]?.options.modelSelection).toBeUndefined();
 	});
 
 	test("explorer omission preserves descriptor-owned cheap routing", async () => {
@@ -146,7 +149,10 @@ describe("subagent model routing", () => {
 			context("anthropic"),
 		);
 
-		expect(dispatched[0]?.options.model).toBe("anthropic/claude-haiku-4-5");
+		expect(dispatched[0]?.options.modelSelection).toEqual({
+			provider: "anthropic",
+			modelId: "claude-haiku-4-5",
+		});
 	});
 
 	test.each([

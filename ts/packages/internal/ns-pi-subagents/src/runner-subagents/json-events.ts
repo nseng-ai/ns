@@ -310,7 +310,7 @@ export class RunnerSubagentJsonEventParser {
 		if (provider === undefined || modelId === undefined) return;
 		this.launch = {
 			...this.currentLaunchMetadata(),
-			model: { provider, id: modelId },
+			modelSelection: { provider, modelId },
 		};
 	}
 

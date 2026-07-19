@@ -19,7 +19,7 @@ describe("runner subagent JSON event parser", () => {
 		const header = {
 			type: "session",
 			version: 3,
-			id: "session-id",
+			modelId: "session-id",
 			timestamp: "2026-05-23T00:00:00Z",
 			cwd: "/repo",
 		} as const;
@@ -44,7 +44,7 @@ describe("runner subagent JSON event parser", () => {
 	test("updates launch metadata from child model and thinking events", () => {
 		const parser = createRunnerSubagentJsonEventParser({
 			launch: {
-				requestedModel: "openai-codex/gpt-5.4-mini:medium",
+				requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
 				thinkingLevel: "off",
 				hasModelArg: true,
 				hasThinkingArg: false,
@@ -57,8 +57,8 @@ describe("runner subagent JSON event parser", () => {
 		parser.pushChunk(jsonLine({ type: "thinking_level_change", thinkingLevel: "medium" }));
 
 		expect(parser.getSnapshot().progress.launch).toEqual({
-			requestedModel: "openai-codex/gpt-5.4-mini:medium",
-			model: { provider: "openai-codex", id: "gpt-5.4-mini" },
+			requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
+			modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
 			thinkingLevel: "off",
 			observedThinkingLevel: "medium",
 			hasModelArg: true,
@@ -69,7 +69,7 @@ describe("runner subagent JSON event parser", () => {
 	test("hydrates launch metadata from a child session JSONL snapshot", () => {
 		const parser = createRunnerSubagentJsonEventParser({
 			launch: {
-				requestedModel: "openai-codex/gpt-5.4-mini:medium",
+				requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
 				thinkingLevel: "off",
 				hasModelArg: true,
 				hasThinkingArg: false,
@@ -78,7 +78,7 @@ describe("runner subagent JSON event parser", () => {
 
 		const changed = parser.hydrateLaunchMetadataFromSessionJsonl(
 			[
-				jsonLine({ type: "session", id: "child" }),
+				jsonLine({ type: "session", modelId: "child" }),
 				"{bad complete line}\n",
 				jsonLine({ type: "model_change", provider: "openai-codex", modelId: "gpt-5.4-mini" }),
 				jsonLine({ type: "thinking_level_change", thinkingLevel: "high" }),
@@ -89,8 +89,8 @@ describe("runner subagent JSON event parser", () => {
 		expect(changed).toBe(true);
 		expect(parser.getSnapshot().error).toBeUndefined();
 		expect(parser.getSnapshot().progress.launch).toEqual({
-			requestedModel: "openai-codex/gpt-5.4-mini:medium",
-			model: { provider: "openai-codex", id: "gpt-5.4-mini" },
+			requestedModelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini:medium" },
+			modelSelection: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
 			thinkingLevel: "off",
 			observedThinkingLevel: "high",
 			hasModelArg: true,
@@ -108,9 +108,9 @@ describe("runner subagent JSON event parser", () => {
 			}),
 		);
 
-		expect(parser.getSnapshot().progress.launch?.model).toEqual({
+		expect(parser.getSnapshot().progress.launch?.modelSelection).toEqual({
 			provider: "openai codex",
-			id: "x".repeat(160),
+			modelId: "x".repeat(160),
 		});
 	});
 
@@ -375,10 +375,10 @@ describe("runner subagent JSON event parser", () => {
 				type: "message",
 				message: {
 					role: "assistant",
-					id: "message-1",
+					modelId: "message-1",
 					content: [
 						{ type: "text", text: "Reading files" },
-						{ type: "toolCall", id: "tool-1", name: "read", input: { path: "README.md" } },
+						{ type: "toolCall", modelId: "tool-1", name: "read", input: { path: "README.md" } },
 					],
 				},
 			}),

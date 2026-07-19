@@ -42,7 +42,9 @@ export function toRunnerSubagentContext(ctx: ThermoCouncilCommandContext): Runne
 	return {
 		cwd: ctx.cwd,
 		...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
-		...(ctx.model === undefined ? {} : { model: ctx.model }),
+		...(ctx.model === undefined
+			? {}
+			: { modelSelection: { provider: ctx.model.provider, modelId: ctx.model.id } }),
 	};
 }
 

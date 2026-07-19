@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	ANTHROPIC_PROVIDER_ID,
 	CHEAP_MODEL_IDS,
-	DEFAULT_CHEAP_QUALIFIED_MODEL,
+	DEFAULT_CHEAP_MODEL_SELECTION,
 	resolveDescriptorModel,
 	resolveExplorerLaunchPlan,
 	resolveSameProviderCheapModel,
@@ -25,47 +25,52 @@ function recordingAuthProbe(configured: boolean): {
 
 describe("resolveExplorerLaunchPlan", () => {
 	test("derives the Anthropic fallback from provider and model IDs", () => {
-		expect(DEFAULT_CHEAP_QUALIFIED_MODEL).toBe(
-			`${ANTHROPIC_PROVIDER_ID}/${CHEAP_MODEL_IDS.anthropic}`,
-		);
+		expect(DEFAULT_CHEAP_MODEL_SELECTION).toEqual({
+			provider: ANTHROPIC_PROVIDER_ID,
+			modelId: CHEAP_MODEL_IDS.anthropic,
+		});
 	});
 
 	test.each([
 		{
-			parentModel: { provider: "anthropic", id: "claude-opus-4-1" },
-			expectedModel: "anthropic/claude-haiku-4-5",
+			parentModelSelection: { provider: "anthropic", modelId: "claude-opus-4-1" },
+			expectedModelSelection: "anthropic/claude-haiku-4-5",
 		},
 		{
-			parentModel: { provider: "openai", id: "gpt-5.6-sol" },
-			expectedModel: "openai/gpt-5.6-luna",
+			parentModelSelection: { provider: "openai", modelId: "gpt-5.6-sol" },
+			expectedModelSelection: "openai/gpt-5.6-luna",
 		},
 		{
-			parentModel: { provider: "openai-codex", id: "gpt-5.6-sol" },
-			expectedModel: "openai-codex/gpt-5.6-luna",
+			parentModelSelection: { provider: "openai-codex", modelId: "gpt-5.6-sol" },
+			expectedModelSelection: "openai-codex/gpt-5.6-luna",
 		},
 		{
-			parentModel: { provider: "google", id: "gemini-3.1-pro-preview" },
-			expectedModel: "google/gemini-3.5-flash",
+			parentModelSelection: { provider: "google", modelId: "gemini-3.1-pro-preview" },
+			expectedModelSelection: "google/gemini-3.5-flash",
 		},
 		{
-			parentModel: { provider: "gemini", id: "gemini-3.1-pro-preview" },
-			expectedModel: "gemini/gemini-3.5-flash",
+			parentModelSelection: { provider: "gemini", modelId: "gemini-3.1-pro-preview" },
+			expectedModelSelection: "gemini/gemini-3.5-flash",
 		},
-	])("uses $expectedModel for parent $parentModel.provider", ({ parentModel, expectedModel }) => {
-		const auth = recordingAuthProbe(true);
-		const plan = resolveExplorerLaunchPlan({
-			parentModel,
-			isProviderAuthConfigured: auth.isProviderAuthConfigured,
-		});
+	])(
+		"uses $expectedModelSelection for parent $parentModelSelection.provider",
+		({ parentModelSelection, expectedModelSelection }) => {
+			const auth = recordingAuthProbe(true);
+			const plan = resolveExplorerLaunchPlan({
+				parentModelSelection,
+				isProviderAuthConfigured: auth.isProviderAuthConfigured,
+			});
 
-		expect(plan).toEqual({ kind: "cheap", model: expectedModel });
-		expect(auth.probedProviders).toEqual([]);
-	});
+			const [provider, modelId] = expectedModelSelection.split("/");
+			expect(plan).toEqual({ kind: "cheap", modelSelection: { provider, modelId } });
+			expect(auth.probedProviders).toEqual([]);
+		},
+	);
 
 	test("inherits from an unrecognized parent provider instead of switching providers", () => {
 		const auth = recordingAuthProbe(true);
 		const plan = resolveExplorerLaunchPlan({
-			parentModel: { provider: "acme", id: "acme-pro" },
+			parentModelSelection: { provider: "acme", modelId: "acme-pro" },
 			isProviderAuthConfigured: auth.isProviderAuthConfigured,
 		});
 
@@ -79,7 +84,7 @@ describe("resolveExplorerLaunchPlan", () => {
 			isProviderAuthConfigured: auth.isProviderAuthConfigured,
 		});
 
-		expect(plan).toEqual({ kind: "cheap", model: DEFAULT_CHEAP_QUALIFIED_MODEL });
+		expect(plan).toEqual({ kind: "cheap", modelSelection: DEFAULT_CHEAP_MODEL_SELECTION });
 		expect(auth.probedProviders).toEqual(["anthropic"]);
 	});
 
@@ -102,11 +107,17 @@ describe("resolveSameProviderCheapModel", () => {
 		["google", "google/gemini-3.5-flash"],
 		["gemini", "gemini/gemini-3.5-flash"],
 	])("retains concrete provider %s", (provider, expected) => {
-		expect(resolveSameProviderCheapModel({ provider, id: "parent-model" })).toBe(expected);
+		const [expectedProvider, modelId] = expected.split("/");
+		expect(resolveSameProviderCheapModel({ provider, modelId: "parent-model" })).toEqual({
+			provider: expectedProvider,
+			modelId,
+		});
 	});
 
 	test("inherits for an unknown or absent parent", () => {
-		expect(resolveSameProviderCheapModel({ provider: "acme", id: "acme-pro" })).toBeUndefined();
+		expect(
+			resolveSameProviderCheapModel({ provider: "acme", modelId: "acme-pro" }),
+		).toBeUndefined();
 		expect(resolveSameProviderCheapModel(undefined)).toBeUndefined();
 	});
 });
@@ -114,36 +125,39 @@ describe("resolveSameProviderCheapModel", () => {
 describe("resolveDescriptorModel", () => {
 	test("inherit policy never selects a model or probes auth", () => {
 		const auth = recordingAuthProbe(true);
-		const model = resolveDescriptorModel({
+		const modelSelection = resolveDescriptorModel({
 			policy: "inherit",
-			parentModel: { provider: "openai-codex", id: "gpt-5" },
+			parentModelSelection: { provider: "openai-codex", modelId: "gpt-5" },
 			isProviderAuthConfigured: auth.isProviderAuthConfigured,
 		});
 
-		expect(model).toBeUndefined();
+		expect(modelSelection).toBeUndefined();
 		expect(auth.probedProviders).toEqual([]);
 	});
 
 	test("cheap-or-inherit resolves through the explorer launch plan", () => {
 		const auth = recordingAuthProbe(false);
-		const model = resolveDescriptorModel({
+		const modelSelection = resolveDescriptorModel({
 			policy: "cheap-or-inherit",
-			parentModel: { provider: "anthropic", id: "claude-opus-4-1" },
+			parentModelSelection: { provider: "anthropic", modelId: "claude-opus-4-1" },
 			isProviderAuthConfigured: auth.isProviderAuthConfigured,
 		});
 
-		expect(model).toBe("anthropic/claude-haiku-4-5");
+		expect(modelSelection).toEqual({
+			provider: "anthropic",
+			modelId: "claude-haiku-4-5",
+		});
 	});
 
 	test("cheap-or-inherit inherits when no same-provider cheap option is safe", () => {
 		const auth = recordingAuthProbe(true);
-		const model = resolveDescriptorModel({
+		const modelSelection = resolveDescriptorModel({
 			policy: "cheap-or-inherit",
-			parentModel: { provider: "acme", id: "acme-pro" },
+			parentModelSelection: { provider: "acme", modelId: "acme-pro" },
 			isProviderAuthConfigured: auth.isProviderAuthConfigured,
 		});
 
-		expect(model).toBeUndefined();
+		expect(modelSelection).toBeUndefined();
 		expect(auth.probedProviders).toEqual([]);
 	});
 });
