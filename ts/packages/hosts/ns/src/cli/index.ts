@@ -1,3 +1,6 @@
+import { createRealFirstPartyCommandContext } from "@nseng-ai/capability-kit";
+import type { CommandRunner } from "@nseng-ai/foundation/exec";
+import { runCommand } from "@nseng-ai/foundation/exec";
 import harnessArtifactsExtension from "@nseng-ai/harness-artifacts/ns-extension";
 import {
 	preinstalledNsCommandCatalogFromRegistrations,
@@ -16,17 +19,27 @@ export interface RunNsCliDeps extends Omit<NsCliDeps, "context"> {
 }
 
 export async function runNsCli(args: readonly string[], deps: RunNsCliDeps = {}): Promise<number> {
+	const textGenerator = new PiTextGenerator();
 	const context =
 		deps.context ??
 		createRealNsCommandContext({
-			textGenerator: new PiTextGenerator(),
+			textGenerator,
 			...(deps.cwd === undefined ? {} : { cwd: deps.cwd }),
 			...(deps.env === undefined ? {} : { env: deps.env }),
 			...(deps.homeDir === undefined ? {} : { homeDir: deps.homeDir }),
 		});
+	const commandRunner: CommandRunner = async (command, commandArgs, options) =>
+		await runCommand(command, commandArgs, options);
 	return await runCli(args, {
 		...deps,
 		context,
+		composableContext:
+			deps.composableContext ??
+			createRealFirstPartyCommandContext({
+				env: deps.env ?? context.env,
+				textGenerator,
+				commandRunner,
+			}),
 		entryMetaUrl: new URL("../cli.ts", import.meta.url).href,
 		preinstalledCommandCatalog: loadPreinstalledNsCommandCatalog,
 	});

@@ -1,28 +1,30 @@
 import type { TimeServices } from "@nseng-ai/foundation/time";
 import type { NsProgressPhaseListener } from "@nseng-ai/sdk";
+import { clinkr, defineCommand, type ClinkrHandlerBundle } from "@nseng-ai/sdk/command";
+import { failure, negative, ok, z } from "@nseng-ai/sdk";
 import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
-import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
+import type { FirstPartyCommandContext } from "@nseng-ai/capability-kit";
+import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
+import { resolveRenderCapabilities } from "@nseng-ai/clinkr";
 import {
 	CP_PHASES,
 	flowStreamDeps,
-	resolveFlowStreamCaps,
 	runSettledPhaseStream,
-} from "../../phase-stream/phase-stream.ts";
-import { formatPendingWorktreeError } from "../../autobranch/pending-worktree-format.ts";
+} from "../../../phase-stream/phase-stream.ts";
+import { formatPendingWorktreeError } from "../../../autobranch/pending-worktree-format.ts";
 import {
-	createNsCheckpointRuntime,
+	createCheckpointRuntime,
 	formatGraphiteTrunkResolutionError,
 	runCheckpointWorkflow,
 	type CheckpointGateway,
 	type CheckpointWorkflowResult,
-} from "../../checkpoint/checkpoint.ts";
-import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
-import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
-import { resolveFlowModelSelection } from "../model-policy.ts";
+} from "../../../checkpoint/checkpoint.ts";
+import { FLOW_COMMAND_FAILED } from "../../flow-cli-runner.ts";
+import { resolveFlowModelSelectionAt } from "../../model-policy.ts";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
-const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
+export const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
 
 The command captures the pending worktree, refuses Graphite's configured trunk branch, refuses clean worktrees, asks the configured text-generation model for a validated [cp] commit message, stages all changes, commits with that message, and prints the resulting commit summary plus checkpoint message. Checkpoint safety requires a successful configured-trunk lookup from Graphite.
 
@@ -38,61 +40,68 @@ const cpRequestSchema = z.object({
 
 type CpRequest = z.output<typeof cpRequestSchema>;
 
-export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
-	name: "cp",
-	summary: "Create a checkpoint commit for the current diff.",
-	description: CP_COMMAND_DESCRIPTION,
+const cpRun = clinkr<FirstPartyCommandContext, typeof cpRequestSchema, string>({
 	schema: cpRequestSchema,
 	resultSchema: z.string(),
 	options: { dryRun: { short: "-n" } },
-	handler: async (ctx, request: CpRequest) => {
-		const runtime = createNsCheckpointRuntime(ctx);
-		// A dry run just previews the model-authored message; skip the live region (no commit phase runs).
-		if (request.dryRun) {
-			const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
-			if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
-			const result = await runCpCore({
-				cwd: ctx.cwd,
-				env: ctx.env,
-				textGenerator: ctx.textGenerator,
-				modelSelection: model.modelSelection,
-				isDryRun: true,
-				checkpointGateway: runtime.checkpointGateway,
-				graphite: runtime.graphite,
-			});
-			return toCommandResult(result);
-		}
+	handler: async (bundle, request: CpRequest) => runCpCommand(bundle, request),
+});
 
-		const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
-		if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
-		const caps = resolveFlowStreamCaps(ctx);
-		return await runSettledPhaseStream({
-			caps,
-			specs: CP_PHASES,
-			deps: flowStreamDeps(ctx, caps),
-			forward: ctx.progress,
-			title: "ns flow cp",
-			body: async (stream) => {
-				const result = await runCpCore({
-					cwd: ctx.cwd,
-					env: ctx.env,
-					textGenerator: ctx.textGenerator,
-					modelSelection: model.modelSelection,
-					isDryRun: false,
-					checkpointGateway: runtime.checkpointGateway,
-					graphite: runtime.graphite,
-					onPhase: stream.emit,
-				});
-				const command = toCommandResult(result);
-				return { result: command, isFailed: command.type !== "ok" };
-			},
-		});
-	},
+export const flowCpCommand = defineCommand({
+	name: "cp",
+	summary: "Create a checkpoint commit for the current diff.",
+	description: CP_COMMAND_DESCRIPTION,
+	run: cpRun,
 });
 
 export default flowCpCommand;
 
-export type RunCpCoreResult = CheckpointWorkflowResult;
+async function runCpCommand(
+	bundle: ClinkrHandlerBundle<FirstPartyCommandContext>,
+	request: CpRequest,
+) {
+	const services = bundle.context;
+	const runtime = createCheckpointRuntime({
+		runner: services.commandRunner,
+		git: services.git,
+		graphite: services.graphiteBranch,
+	});
+	const model = await resolveFlowModelSelectionAt(
+		{ cwd: bundle.cwd, git: services.git },
+		MODEL_OPERATION_IDS.flowCheckpoint,
+	);
+	if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
+	const run = async (onPhase?: NsProgressPhaseListener) =>
+		await runCpCore({
+			cwd: bundle.cwd,
+			env: services.env,
+			textGenerator: services.textGenerator,
+			modelSelection: model.modelSelection,
+			isDryRun: request.dryRun,
+			checkpointGateway: runtime.checkpointGateway,
+			graphite: runtime.graphite,
+			...(onPhase === undefined ? {} : { onPhase }),
+		});
+	if (request.dryRun) return toCommandResult(await run());
+
+	const caps = resolveRenderCapabilities(bundle.caps);
+	const compatibilityContext = {
+		stdout: undefined,
+		stderr: undefined,
+		...(bundle.onOutput === undefined ? {} : { onOutput: bundle.onOutput }),
+	};
+	return await runSettledPhaseStream({
+		caps,
+		specs: CP_PHASES,
+		deps: flowStreamDeps(compatibilityContext, caps),
+		forward: { isLive: bundle.events.isLive, phase: bundle.events.emit },
+		title: "ns flow cp",
+		body: async (stream) => {
+			const command = toCommandResult(await run(stream.emit));
+			return { result: command, isFailed: command.type !== "ok" };
+		},
+	});
+}
 
 export interface RunCpCoreOptions {
 	cwd: string;
@@ -106,21 +115,21 @@ export interface RunCpCoreOptions {
 	time?: TimeServices;
 }
 
-export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreResult> {
+export async function runCpCore(options: RunCpCoreOptions): Promise<CheckpointWorkflowResult> {
 	return runCheckpointWorkflow({
 		cwd: options.cwd,
 		env: options.env,
-		gateway: options.checkpointGateway,
-		graphite: options.graphite,
 		textGenerator: options.textGenerator,
 		modelSelection: options.modelSelection,
 		dryRun: options.isDryRun,
+		gateway: options.checkpointGateway,
+		graphite: options.graphite,
 		...(options.onPhase === undefined ? {} : { onPhase: options.onPhase }),
 		...(options.time === undefined ? {} : { time: options.time }),
 	});
 }
 
-function toCommandResult(result: RunCpCoreResult) {
+function toCommandResult(result: CheckpointWorkflowResult) {
 	switch (result.type) {
 		case "snapshot-failed":
 			return failure(FLOW_COMMAND_FAILED, formatPendingWorktreeError(result.error));

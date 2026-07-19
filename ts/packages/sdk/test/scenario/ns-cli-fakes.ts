@@ -4,6 +4,9 @@ import { join } from "node:path";
 
 import { afterEach } from "vitest";
 
+import { createRealFirstPartyCommandContext, createNsGitGateway } from "@nseng-ai/capability-kit";
+import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
+import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import { resolveHomeDir } from "@nseng-ai/foundation/primitives";
 import { runCli, type NsCliBaseContext, type NsCliDeps } from "@nseng-ai/sdk/cli";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
@@ -53,6 +56,7 @@ export interface RunWithFakesOptions {
 	renderCapabilities?: RenderCapabilities;
 	onProgress?: NsCliDeps["onProgress"];
 	extensionRegistry?: NsCliDeps["extensionRegistry"];
+	composableContext?: object;
 }
 
 export interface RunWithFakesDefaults {
@@ -68,6 +72,7 @@ interface ScriptedNsTestContextOptions extends RunWithFakesDefaults {
 }
 
 export class ScriptedNsTestContext implements NsCliBaseContext {
+	readonly hasExtension = () => false;
 	readonly cwd: string;
 	readonly env: Record<string, string | undefined>;
 	readonly homeDir?: string;
@@ -150,6 +155,15 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 			? {}
 			: { missingTextGenerationResult: defaults.missingTextGenerationResult }),
 	});
+	const composableContext =
+		options.composableContext ??
+		createRealFirstPartyCommandContext({
+			env: context.env,
+			textGenerator: context.textGenerator,
+			commandRunner: createNsCommandRunner(context),
+			git: createNsGitGateway(context),
+			graphiteBranch: new RealGraphiteBranchGateway(context),
+		});
 	return {
 		context,
 		stdout,
@@ -157,6 +171,7 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 		liveOutput,
 		exit: runCli(options.args, {
 			context,
+			composableContext,
 			cwd: context.cwd,
 			homeDir,
 			env: context.env,

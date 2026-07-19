@@ -14,7 +14,14 @@ export async function resolveFlowModelSelection(
 	operationId: ModelOperationId,
 	git: Pick<GitGateway, "optionalRepoRoot"> = createNsGitGateway(ctx),
 ): Promise<{ ok: true; modelSelection: ModelSelection } | { ok: false; error: string }> {
-	const repository = await git.optionalRepoRoot({ cwd: ctx.cwd });
+	return resolveFlowModelSelectionAt({ cwd: ctx.cwd, git }, operationId);
+}
+
+export async function resolveFlowModelSelectionAt(
+	context: { cwd: string; git: Pick<GitGateway, "optionalRepoRoot"> },
+	operationId: ModelOperationId,
+): Promise<{ ok: true; modelSelection: ModelSelection } | { ok: false; error: string }> {
+	const repository = await context.git.optionalRepoRoot({ cwd: context.cwd });
 	if (repository.type !== "found") {
 		return { ok: false, error: "Could not determine the repository root for ns.toml." };
 	}

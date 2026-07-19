@@ -1,7 +1,9 @@
 import { formatErrorMessage, optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import { defineInternalParsedCommand } from "../sdk/command.ts";
+import { isComposableCommand } from "../command/command.ts";
+import { isClinkrRun } from "../command/clinkr.ts";
+import { defineInternalParsedCommand, type RawArgvCommand } from "../sdk/command.ts";
 import {
 	failure,
 	type CommandExit,
@@ -81,7 +83,7 @@ const descriptorCommandSchema = z
 		description: z.string(),
 		run: z.custom<DescriptorCommand["run"]>((value) => typeof value === "function"),
 		complete: z
-			.custom<DescriptorCommand["complete"]>((value) => typeof value === "function")
+			.custom<RawArgvCommand["complete"]>((value) => typeof value === "function")
 			.optional(),
 	})
 	.passthrough();
@@ -96,11 +98,11 @@ interface ParsedDescriptorCommandContribution {
 	readonly options?: Partial<Record<string, OptionSpec>>;
 	readonly renderHuman?: (data: unknown, caps: RenderCapabilities) => string;
 	readonly renderMarkdown?: (data: unknown, caps: RenderCapabilities) => string;
-	readonly completionProvider?: DescriptorCommand["complete"];
+	readonly completionProvider?: RawArgvCommand["complete"];
 	run(
-		ctx: Parameters<DescriptorCommand["run"]>[0],
+		ctx: Parameters<RawArgvCommand["run"]>[0],
 		request: unknown,
-	): ReturnType<DescriptorCommand["run"]>;
+	): ReturnType<RawArgvCommand["run"]>;
 }
 
 export function commandSegments(path: NsCommandPath): readonly string[] {
@@ -198,7 +200,7 @@ export function validateDescriptorCommandContribution(
 			message: `Invalid ns descriptor command ${sourceLabel}: ${formatNsCommandIssue(parsed.error.issues[0])}`,
 		};
 	}
-	const command = parsed.data;
+	const command = isComposableCommand(contribution) ? contribution : parsed.data;
 	const nameValidation = validateLoadedCommandName(entry, command);
 	if (!nameValidation.ok) {
 		return {
@@ -206,7 +208,16 @@ export function validateDescriptorCommandContribution(
 			message: `Invalid ns descriptor command ${sourceLabel}: ${nameValidation.message}`,
 		};
 	}
-	return adaptParsedDescriptorCommand(command, sourceLabel);
+	if (isComposableCommand(command)) {
+		if (!isClinkrRun(command.run)) {
+			return {
+				ok: false,
+				message: `Invalid ns descriptor command ${sourceLabel}: composable command run must be hostable clinkr metadata.`,
+			};
+		}
+		return { ok: true, command };
+	}
+	return adaptParsedDescriptorCommand(rawArgvCommand(command), sourceLabel);
 }
 
 export function extensionCommandFailedExit(
@@ -229,8 +240,13 @@ export function validateCommandExit(result: unknown, commandName: string): Comma
 	);
 }
 
+function rawArgvCommand(command: DescriptorCommand): RawArgvCommand {
+	if (isComposableCommand(command)) throw new Error(`Command ${command.name} is composable.`);
+	return command as RawArgvCommand;
+}
+
 function adaptParsedDescriptorCommand(
-	command: DescriptorCommand,
+	command: RawArgvCommand,
 	sourceLabel: string,
 ): { ok: true; command: DescriptorCommand } | { ok: false; message: string } {
 	if (!isRecord(command) || !("schema" in command)) return { ok: true, command };
@@ -270,7 +286,7 @@ function adaptParsedDescriptorCommand(
 }
 
 function parseParsedDescriptorCommand(
-	command: DescriptorCommand,
+	command: RawArgvCommand,
 ): { ok: true; command: ParsedDescriptorCommandContribution } | { ok: false; message: string } {
 	const bridgedSpec = isRecord(command["nsParsedCommandSpec"])
 		? command["nsParsedCommandSpec"]
@@ -303,7 +319,7 @@ interface ParsedCommandSpecFields {
 }
 
 function parseParsedCommandSpec(
-	command: DescriptorCommand,
+	command: RawArgvCommand,
 	spec: ParsedCommandSpecFields,
 	isSchema: (value: unknown) => value is z.ZodObject,
 ): { ok: true; command: ParsedDescriptorCommandContribution } | { ok: false } {
@@ -332,7 +348,7 @@ function isZodObjectLike(value: unknown): value is z.ZodObject {
 	return isRecord(value) && typeof value.safeParse === "function";
 }
 
-function isCompletionProvider(value: unknown): value is DescriptorCommand["complete"] {
+function isCompletionProvider(value: unknown): value is RawArgvCommand["complete"] {
 	return typeof value === "function";
 }
 

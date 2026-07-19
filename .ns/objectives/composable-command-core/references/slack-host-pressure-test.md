@@ -4,14 +4,14 @@
 
 ## Mapping (the seam holds)
 
-| Chat-seam element | Slack realization |
-| --- | --- |
-| events out (progress) | one message per run, `chat.update` as phases advance; matrix progress = an updating Block Kit table |
-| events out (notification/preview) | posted blocks |
-| `interact.confirm` (message + embedded preview + default) | section block + Approve/Cancel buttons — the embedded-preview requirement is exactly Block Kit's shape |
-| `interact.select` | static select / radio blocks |
-| typed result | host renders blocks from the typed result; no `renderHuman` string involved |
-| transient vs durable output | transient = the updated progress message; durable = a permanently posted message — an independent second consumer perspective on the transient/durable open question |
+| Chat-seam element                                         | Slack realization                                                                                                                                                    |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| events out (progress)                                     | one message per run, `chat.update` as phases advance; matrix progress = an updating Block Kit table                                                                  |
+| events out (notification/preview)                         | posted blocks                                                                                                                                                        |
+| `interact.confirm` (message + embedded preview + default) | section block + Approve/Cancel buttons — the embedded-preview requirement is exactly Block Kit's shape                                                               |
+| `interact.select`                                         | static select / radio blocks                                                                                                                                         |
+| typed result                                              | host renders blocks from the typed result; no `renderHuman` string involved                                                                                          |
+| transient vs durable output                               | transient = the updated progress message; durable = a permanently posted message — an independent second consumer perspective on the transient/durable open question |
 
 Design decisions validated hard by the exercise:
 

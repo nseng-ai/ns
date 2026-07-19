@@ -3,6 +3,13 @@
 import { z } from "zod";
 
 import {
+	clinkrSpecForRun,
+	createCatalogView,
+	createUnavailableInteraction,
+	isClinkrRun,
+} from "../command/index.ts";
+import { isComposableCommand } from "../command/command.ts";
+import {
 	ClinkrGroup,
 	clinkrFormatFromArgs,
 	clinkrNameMatchesAutomaticAlias,
@@ -114,6 +121,8 @@ export interface NsCliDeps extends Pick<
 	confirm?: NsConfirmPrompt;
 	preinstalledCommandCatalog?: PreinstalledNsCommandCatalogLoader;
 	extensionRegistry?: NsCliExtensionRegistryDeps;
+	/** First-party command collaborators composed by the host for composable commands. */
+	composableContext?: object;
 }
 
 export interface BuildNsCliOptions {
@@ -245,6 +254,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 
 		const contextWithIO = await buildNsCliContext({
 			args,
+			composableContext: deps.composableContext ?? injectedContext ?? {},
 			commandContext,
 			extensionPackageNames: commandCatalog.extensionPackageNames,
 			stdout: resolvedStdout,
@@ -290,7 +300,53 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 				!commandPathMatches(buildState.selectedCommandPath, commandInfo)
 					? undefined
 					: selectedCommand;
-			const parsedCommandSpec = command === undefined ? undefined : parsedSpecForCommand(command);
+			if (command !== undefined && isComposableCommand(command) && isClinkrRun(command.run)) {
+				const spec = clinkrSpecForRun(command.run);
+				parent.command({
+					name: commandLeafName(commandInfo),
+					description: commandInfo.fullDescription,
+					summary: commandInfo.description,
+					schema: spec.schema,
+					resultSchema: spec.resultSchema,
+					...(spec.positionals === undefined ? {} : { positionals: spec.positionals }),
+					...(spec.options === undefined ? {} : { options: spec.options }),
+					...(spec.renderHuman === undefined ? {} : { renderHuman: spec.renderHuman }),
+					...(spec.renderMarkdown === undefined ? {} : { renderMarkdown: spec.renderMarkdown }),
+					helpGroup,
+					handler: async (ctx, request) => {
+						try {
+							return validateCommandExit(
+								await cpComposableRun(command)(
+									{
+										context: ctx.composableContext,
+										ns: { catalog: ctx.catalog },
+										cwd: ctx.cwd,
+										...optionalEntry("onOutput", ctx.context.onOutput),
+										events: {
+											isLive: ctx.context.progress.isLive,
+											emit: ctx.context.progress.phase,
+										},
+										interact: ctx.commandInteraction,
+										caps: ctx.context.renderCapabilities,
+										...optionalEntry("format", ctx.context.outputFormat),
+									},
+									request,
+								),
+								command.name,
+							);
+						} catch (error) {
+							return extensionCommandFailedExit(command.name, error);
+						}
+					},
+				});
+				continue;
+			}
+			const legacyCommand =
+				command === undefined || isComposableCommand(command)
+					? undefined
+					: legacyRawCommand(command);
+			const parsedCommandSpec =
+				legacyCommand === undefined ? undefined : parsedSpecForCommand(legacyCommand);
 			if (command !== undefined && parsedCommandSpec !== undefined) {
 				parent.command({
 					name: commandLeafName(commandInfo),
@@ -345,11 +401,11 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 								shouldPassThrough: true,
 							}),
 					...optionalEntries({ helpGroup }),
-					...(command?.complete === undefined
+					...(legacyCommand?.complete === undefined
 						? {}
 						: {
 								completionProvider: (ctx: NsCliContext, request: ClinkrDynamicCompletionRequest) =>
-									command.complete?.(ctx.context, request) ?? [],
+									legacyCommand.complete?.(ctx.context, request) ?? [],
 							}),
 					run: async (ctx, request) => {
 						if (command === undefined) {
@@ -363,9 +419,15 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 								io: clinkrIo(ctx),
 							});
 						}
+						if (legacyCommand === undefined) {
+							return emitExit(
+								failure("invalid-command", `Command ${command.name} is not executable.`),
+								{ format: ctx.context.outputFormat ?? "human", io: clinkrIo(ctx) },
+							);
+						}
 						const result = await runPassthroughCommand(
 							ctx,
-							command,
+							legacyCommand,
 							passthroughSchema.parse(request).argv,
 							commandInfo,
 						);
@@ -439,6 +501,7 @@ async function handleCompletionResolverInvocation(options: {
 	if (!selectedCommandResolution.ok) return selectedCommandResolution.handled;
 	const context = await buildNsCliContext({
 		args: options.args,
+		composableContext: options.injectedContext ?? {},
 		commandContext: options.commandContext,
 		extensionPackageNames: options.commandCatalog.extensionPackageNames,
 		stdout: options.stdout,
@@ -501,6 +564,7 @@ async function resolveSelectedNsCommand(options: {
 
 async function buildNsCliContext(options: {
 	args: readonly string[];
+	composableContext: object;
 	commandContext: NsCliCommandContextInput;
 	extensionPackageNames: ReadonlySet<string>;
 	stdout: (text: string) => void;
@@ -545,11 +609,29 @@ async function buildNsCliContext(options: {
 	};
 	return {
 		context,
+		composableContext: options.composableContext,
+		catalog: createCatalogView(options.extensionPackageNames),
+		commandInteraction: createCommandInteraction(confirm),
 		cwd: options.commandContext.cwd,
 		env: options.commandContext.env,
 		interaction: createNsCliInteraction({ stderr: options.stderr }),
 		stdout: options.stdout,
 		stderr: options.stderr,
+	};
+}
+
+function createCommandInteraction(
+	confirm: NsConfirmPrompt | undefined,
+): import("../command/hostable.ts").CommandInteraction {
+	if (confirm === undefined) return createUnavailableInteraction();
+	return {
+		confirm: async (request) => {
+			const approved = await confirm("ns command", request.message, {
+				defaultAnswer: request.defaultChoice === "confirm" ? "yes" : "no",
+			});
+			return approved ? { type: "confirmed" } : { type: "declined" };
+		},
+		select: async () => ({ type: "unavailable" }),
 	};
 }
 
@@ -825,9 +907,21 @@ function isStaticTopLevelMetadataRequest(args: readonly string[]): boolean {
 	return args.includes("--version") || args.includes("--runtime");
 }
 
+function legacyRawCommand(command: DescriptorCommand): import("../sdk/command.ts").RawArgvCommand {
+	if (isComposableCommand(command)) throw new Error(`Command ${command.name} is composable.`);
+	return command as import("../sdk/command.ts").RawArgvCommand;
+}
+
+function cpComposableRun(
+	command: import("../command/command.ts").DefinedCommand<(...args: never[]) => unknown>,
+) {
+	if (!isClinkrRun(command.run)) throw new Error(`Command ${command.name} is not clinkr-hostable.`);
+	return command.run;
+}
+
 async function runPassthroughCommand(
 	ctx: NsCliContext,
-	command: DescriptorCommand,
+	command: import("../sdk/command.ts").RawArgvCommand,
 	argv: readonly string[],
 	path: NsCommandPath,
 ): Promise<CommandExit> {

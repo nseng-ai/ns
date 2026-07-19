@@ -121,8 +121,8 @@ describe("project extension shared model generation helper", () => {
 				textGenerator,
 			},
 			{
-				status: " M ts/packages/capabilities/flow/src/ns/commands/cp.ts\n",
-				diff: "diff --git a/ts/packages/capabilities/flow/src/ns/commands/cp.ts b/ts/packages/capabilities/flow/src/ns/commands/cp.ts\n",
+				status: " M ts/packages/capabilities/flow/src/ns/commands/cp/command.ts\n",
+				diff: "diff --git a/ts/packages/capabilities/flow/src/ns/commands/cp/command.ts b/ts/packages/capabilities/flow/src/ns/commands/cp/command.ts\n",
 			},
 		);
 

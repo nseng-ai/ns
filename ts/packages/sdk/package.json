@@ -5,6 +5,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/sdk/index.ts",
+		"./command": "./src/command/index.ts",
 		"./cli": "./src/cli/index.ts",
 		"./command-io": "./src/runtime/command-io.ts",
 		"./project-config/descriptor-package": "./src/project-config/descriptor-package.ts",
@@ -21,6 +22,7 @@
 		"tier": "sdk",
 		"subpackages": [
 			"cli",
+			"command",
 			"extensions",
 			"project-config",
 			"runtime",
@@ -28,7 +30,8 @@
 			"testing"
 		],
 		"publicPluginApi": [
-			"."
+			".",
+			"./command"
 		],
 		"internalWorkspaceExports": [
 			"./cli",

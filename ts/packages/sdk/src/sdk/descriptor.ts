@@ -1,9 +1,15 @@
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import type { RawArgvCommand } from "./command.ts";
+import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
-export type DescriptorCommand = RawArgvCommand;
+export interface DescriptorCommand {
+	readonly name: string;
+	readonly summary: string;
+	readonly description: string;
+	readonly run: CallableFunction;
+	readonly complete?: ExplicitUndefined<"public-api-compatibility", CallableFunction>;
+}
 
 export interface RawArgvCommandModule<TCommand extends DescriptorCommand = DescriptorCommand> {
 	readonly default: TCommand;

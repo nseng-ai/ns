@@ -5,6 +5,10 @@ import { join } from "node:path";
 import { afterEach } from "vitest";
 
 import { runCli } from "@nseng-ai/sdk/cli";
+import { createRealFirstPartyCommandContext } from "@nseng-ai/capability-kit";
+import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
+import { createNsGitGateway } from "@nseng-ai/capability-kit";
+import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import { createCliCommandIo } from "@nseng-ai/sdk/command-io";
 import { noopNsProgress } from "@nseng-ai/sdk";
 import type {
@@ -204,6 +208,13 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 			? {}
 			: { missingTextGenerationResult: defaults.missingTextGenerationResult }),
 	});
+	const composableContext = createRealFirstPartyCommandContext({
+		env: context.env,
+		textGenerator: context.textGenerator,
+		commandRunner: createNsCommandRunner(context),
+		git: createNsGitGateway(context),
+		graphiteBranch: new RealGraphiteBranchGateway(context),
+	});
 	return {
 		context,
 		stdout,
@@ -211,6 +222,7 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 		liveOutput,
 		exit: runCli(options.args, {
 			context,
+			composableContext,
 			cwd: context.cwd,
 			homeDir,
 			env: context.env,

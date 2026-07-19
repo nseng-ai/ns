@@ -1,4 +1,9 @@
 export {
+	createRealFirstPartyCommandContext,
+	type CreateRealFirstPartyCommandContextOptions,
+	type FirstPartyCommandContext,
+} from "./command-context.ts";
+export {
 	createNsCommandRunner,
 	NsCommandExecApi,
 	NsStdinCapableCommandExecApi,

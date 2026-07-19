@@ -67,14 +67,26 @@ export interface NsCheckpointRuntime {
 	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
 }
 
-export function createNsCheckpointRuntime(ctx: NsExtensionApi): NsCheckpointRuntime {
+export function createCheckpointRuntime(options: {
+	runner: CommandRunner;
+	git: Pick<GitGateway, "optionalRepoRoot">;
+	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+}): NsCheckpointRuntime {
 	return {
 		checkpointGateway: new RealCheckpointGateway({
-			runner: createNsCommandRunner(ctx),
-			git: createNsGitGateway(ctx),
+			runner: options.runner,
+			git: options.git,
 		}),
-		graphite: new RealGraphiteBranchGateway(ctx),
+		graphite: options.graphite,
 	};
+}
+
+export function createNsCheckpointRuntime(ctx: NsExtensionApi): NsCheckpointRuntime {
+	return createCheckpointRuntime({
+		runner: createNsCommandRunner(ctx),
+		git: createNsGitGateway(ctx),
+		graphite: new RealGraphiteBranchGateway(ctx),
+	});
 }
 
 export interface CheckpointRunContext {

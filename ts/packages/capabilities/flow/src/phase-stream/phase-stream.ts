@@ -258,7 +258,10 @@ export function resolveFlowStreamCaps(ctx: NsExtensionApi): Caps {
  *    output, with nothing leaking to `process.*`. The settled frame and the per-phase transients
  *    both flow through the same live channel (zero cursor escapes).
  */
-export function flowStreamDeps(ctx: NsExtensionApi, caps: Caps): StreamSinkDeps {
+export function flowStreamDeps(
+	ctx: Pick<NsExtensionApi, "onOutput" | "stdout" | "stderr">,
+	caps: Caps,
+): StreamSinkDeps {
 	if (caps.isTty) {
 		return { writer: createStdoutStreamWriter(), clock: systemStreamClock };
 	}

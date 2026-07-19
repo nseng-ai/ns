@@ -11,7 +11,7 @@ import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite
 
 import type { ActiveOperation } from "@nseng-ai/sdk";
 
-import { runCpCore } from "../../src/ns/commands/cp.ts";
+import { runCpCore } from "../../src/ns/commands/cp/command.ts";
 import { runCheckpointWorkflow, type CheckpointGateway } from "../../src/checkpoint/checkpoint.ts";
 import type { PendingWorktreeError, PendingWorktreeSnapshot } from "../../src/ns/worktree.ts";
 

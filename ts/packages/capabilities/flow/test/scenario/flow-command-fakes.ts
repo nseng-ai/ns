@@ -9,7 +9,12 @@ import { flowAutoslotCommand } from "../../src/ns/commands/autoslot.ts";
 import { flowBranchLatestCommitCommand } from "../../src/ns/commands/branch-latest-commit.ts";
 import { flowChangesCommand } from "../../src/ns/commands/changes.ts";
 import { flowExecReadGraphiteBranchMetadataCommand } from "../../src/ns/commands/exec-read-graphite-branch-metadata.ts";
-import { flowCpCommand } from "../../src/ns/commands/cp.ts";
+import { flowCpCommand } from "../../src/ns/commands/cp/command.ts";
+import { createRealFirstPartyCommandContext } from "@nseng-ai/capability-kit";
+import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
+import { createNsGitGateway } from "@nseng-ai/capability-kit";
+import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
+import { createUnavailableInteraction } from "@nseng-ai/sdk/command";
 import { flowPullTrunkCommand } from "../../src/ns/commands/pull-trunk.ts";
 import { flowPushCommand } from "../../src/ns/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/ns/commands/regenerate-pr.ts";
@@ -66,9 +71,8 @@ interface FlowCommandFixture {
 }
 
 export function runFlowCpCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
-	return runFlowCommandWithFakes({
+	return runFlowCpComposableCommandWithFakes({
 		requiresModelPolicy: true,
-		command: flowCpCommand,
 		request: options.request ?? {},
 		options,
 		defaults: options.defaults ?? {
@@ -549,6 +553,79 @@ export function runFlowSubmitCommandWithFakes(options: RunFlowSubmitCommandWithF
 		},
 	});
 	return { ...run, stackGateway };
+}
+
+function runFlowCpComposableCommandWithFakes(fixture: Omit<FlowCommandFixture, "command">) {
+	const stdout: string[] = [];
+	const stderr: string[] = [];
+	const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
+	const stateRoot = mkdtempSync(join(tmpdir(), "ns-flow-command-state-"));
+	tempStateRoots.push(stateRoot);
+	const generatedRepoRoot = join(stateRoot, "work");
+	const cwd =
+		fixture.options.cwd ?? (fixture.requiresModelPolicy === true ? generatedRepoRoot : "/work");
+	const repoRoot = fixture.options.cwd ?? cwd;
+	if (fixture.requiresModelPolicy === true && fixture.options.cwd === undefined) {
+		mkdirSync(repoRoot, { recursive: true });
+		writeFileSync(
+			join(repoRoot, "ns.toml"),
+			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+		);
+	}
+	const homeDir = fixture.options.homeDir ?? join(stateRoot, "home");
+	const context = new ScriptedNsTestContext(fixture.options.state, {
+		cwd,
+		repoRoot,
+		env: {
+			HOME: homeDir,
+			XDG_STATE_HOME: join(stateRoot, "xdg-state"),
+			...(fixture.options.env ?? {}),
+		},
+		execResponses: fixture.defaults.execResponses,
+		textGenerationResults: fixture.defaults.textGenerationResults,
+		...(fixture.options.progress === undefined ? {} : { progress: fixture.options.progress }),
+		...(fixture.defaults.missingTextGenerationResult === undefined
+			? {}
+			: { missingTextGenerationResult: fixture.defaults.missingTextGenerationResult }),
+	});
+	context.stdout = (text) => stdout.push(text);
+	context.stderr = (text) => stderr.push(text);
+	context.onOutput = (stream, text) => liveOutput.push({ stream, text });
+	const commandContext = createRealFirstPartyCommandContext({
+		env: context.env,
+		textGenerator: context.textGenerator,
+		commandRunner: createNsCommandRunner(context),
+		git: createNsGitGateway(context),
+		graphiteBranch: new RealGraphiteBranchGateway(context),
+	});
+	const completed = Promise.resolve(
+		flowCpCommand.run(
+			{
+				context: commandContext,
+				ns: { catalog: { has: () => false } },
+				cwd,
+				onOutput: context.onOutput,
+				events: { isLive: context.progress.isLive, emit: context.progress.phase },
+				interact: createUnavailableInteraction(),
+				caps: context.renderCapabilities,
+			},
+			fixture.request as { dryRun: boolean },
+		),
+	).then((result) => {
+		writeCommandExitOutput(result, {
+			stdout: (text) => stdout.push(text),
+			stderr: (text) => stderr.push(text),
+		});
+		return { result, exitCode: exitCodeForCommandExit(result) };
+	});
+	return {
+		context,
+		stdout,
+		stderr,
+		liveOutput,
+		result: completed.then((result) => result.result),
+		exit: completed.then((result) => result.exitCode),
+	};
 }
 
 function runFlowCommandWithFakes(fixture: FlowCommandFixture) {

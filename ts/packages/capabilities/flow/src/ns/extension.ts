@@ -32,7 +32,7 @@ export const flowExtensionDescriptor = defineExtension({
 		},
 		{
 			name: "cp",
-			load: async () => ({ default: (await import("./commands/cp.ts")).flowCpCommand }),
+			load: async () => ({ default: (await import("./commands/cp/command.ts")).flowCpCommand }),
 		},
 		{
 			name: "autobranch",

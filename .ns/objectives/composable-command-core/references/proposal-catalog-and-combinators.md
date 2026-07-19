@@ -16,12 +16,12 @@ Each step below was checked against the codebase, not argued from theory.
 
 **The honest accounting of the current 13-primitive context:**
 
-| Primitive(s) | Actual owner |
-| --- | --- |
-| `stdout`, `stderr`, `renderCapabilities`, `outputFormat`, `confirm`, progress/commandIo/onOutput | clinkr (existing seams + one new events module) |
-| `cwd`, `env`, `stdin` | the OS (virtualized only to patch in-process hosting) |
-| `exec`, `textGenerator` (+ model policy), git access | ordinary libraries with constructor DI (`foundation/exec`, `PiTextGenerator`, `GitGateway`) |
-| `hasExtension` | **ns** — the one genuinely ns-owned dynamic primitive (a catalog view) |
+| Primitive(s)                                                                                     | Actual owner                                                                                |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `stdout`, `stderr`, `renderCapabilities`, `outputFormat`, `confirm`, progress/commandIo/onOutput | clinkr (existing seams + one new events module)                                             |
+| `cwd`, `env`, `stdin`                                                                            | the OS (virtualized only to patch in-process hosting)                                       |
+| `exec`, `textGenerator` (+ model policy), git access                                             | ordinary libraries with constructor DI (`foundation/exec`, `PiTextGenerator`, `GitGateway`) |
+| `hasExtension`                                                                                   | **ns** — the one genuinely ns-owned dynamic primitive (a catalog view)                      |
 
 ## The proposal
 
@@ -35,11 +35,11 @@ Each step below was checked against the codebase, not argued from theory.
 
 Hosting routes on declared capability, mechanically:
 
-| Command kind | Pi runs it as | Tested via | Author burden |
-| --- | --- | --- | --- |
-| cataloged | **subprocess** — spawn `ns <cmd>`, capture bytes | subprocess (author's choice) | zero |
-| + hostable | in-process; bytes into transcript | in-memory byte capture | route bytes through `io` |
-| + clinkr | in-process; widgets + rich blocks | in-memory scenario tests | none extra |
+| Command kind | Pi runs it as                                    | Tested via                   | Author burden            |
+| ------------ | ------------------------------------------------ | ---------------------------- | ------------------------ |
+| cataloged    | **subprocess** — spawn `ns <cmd>`, capture bytes | subprocess (author's choice) | zero                     |
+| + hostable   | in-process; bytes into transcript                | in-memory byte capture       | route bytes through `io` |
+| + clinkr     | in-process; widgets + rich blocks                | in-memory scenario tests     | none extra               |
 
 This dissolves the enforcement problem from evidence item 4: hostability is declared metadata, not doctrine. A raw command using ambient everything is a supported citizen that Pi subprocesses — the subprocess path is the built-in safety floor, not a rival architecture. (A *declared*-hostable command can still lie by importing `fs` or touching `process.cwd()`; the declaration is a reviewable one-line promise, not a proof.)
 

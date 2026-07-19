@@ -159,7 +159,7 @@ function commandDefinitionFromSpec<S extends NsCommandSchema, T>(
 }
 
 export function parsedSpecForCommand(
-	command: RawArgvCommand,
+	command: Pick<RawArgvCommand, "name"> & { readonly [parsedSdkCommandSpec]?: unknown },
 ): ParsedSdkCommandSpec<NsCommandSchema, unknown> | undefined {
 	const spec = command[parsedSdkCommandSpec];
 	if (spec === undefined) return undefined;

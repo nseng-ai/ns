@@ -2,6 +2,11 @@
 
 ## Work
 
+- [x] Steel-thread the composable API through `flow cp`
+  - `cp` is the first per-command-folder exemplar (`commands/cp/command.ts`) and runs through the ns CLI's brand-aware in-process route with a capability-kit-owned first-party context.
+  - Existing terminal and Pi delegation behavior remains compatible through an explicitly transitional Flow live-output adapter; this does not complete the default renderer hoist or replace the planned `changes` / `pull-trunk` / `submit` gradient.
+  - Evidence: SDK API/brand tests, Flow cp scenarios and core tests, real-loader integration, and bounded no-`ClinkrIo` / no-`NsExtensionApi` searches.
+
 - [ ] Establish the no-`ClinkrIo` pressure test and purity direction in clinkr
   - New code introduced by this Objective takes no `ClinkrIo` dependency; renderers touched along the way return strings/frames with a thin process-write edge. `StreamRenderTarget` stays as the narrow live-stream test seam.
   - Evidence: a lint-level or review-level guard (or a bounded search recorded in an update) shows no new `ClinkrIo` imports; touched renderers have pure-function tests.
