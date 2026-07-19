@@ -4,6 +4,10 @@ import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
 import type { NsCliDeps } from "../../src/cli/index.ts";
+import {
+	selectedComposableCommand,
+	unrelatedComposableCommand,
+} from "./composable-command-fixtures.ts";
 import type {
 	ExtensionCommandCandidate,
 	SelectedNsCommandLoadResult,
@@ -13,6 +17,7 @@ import {
 	defineCommand,
 	defineRawCommand,
 	ok,
+	type DescriptorCommand,
 	type NsCommand,
 	type NsProgressPhaseEvent,
 } from "@nseng-ai/sdk";
@@ -104,6 +109,26 @@ const progressProbeCommand = defineCommand({
 }) satisfies NsCommand<typeof progressProbeSchema, z.infer<typeof progressProbeResultSchema>>;
 
 describe("extension command option specs", () => {
+	test("binds only the selected composable command after loading", async () => {
+		const bindLog: string[] = [];
+		const registry = multiCommandRegistry([selectedComposableCommand, unrelatedComposableCommand]);
+		const run = runCliWithFakes(
+			{
+				args: ["selected"],
+				extensionRegistry: registry,
+				bindSelectedCommand: (command) => {
+					bindLog.push(command.name);
+					return command;
+				},
+			},
+			{ execResponses: () => [], textGenerationResults: () => [] },
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(registry.loadLog).toEqual(["selected"]);
+		expect(bindLog).toEqual(["selected"]);
+	});
+
 	test("runCli provides a live progress sink when onProgress is injected", async () => {
 		const events: NsProgressPhaseEvent[] = [];
 		const run = runProgressProbeCli({ onProgress: (event) => events.push(event) });
@@ -225,6 +250,45 @@ function runProgressProbeCli(options: { onProgress?: NsCliDeps["onProgress"] } =
 		},
 		{ execResponses: () => [], textGenerationResults: () => [] },
 	);
+}
+
+function multiCommandRegistry(commands: readonly DescriptorCommand[]) {
+	const loadLog: string[] = [];
+	const candidates = new Map(
+		commands.map((command) => {
+			const candidate: ExtensionCommandCandidate = {
+				name: command.name,
+				description: command.summary,
+				fullDescription: command.description,
+				source: { level: "project", label: `fake ${command.name} extension` },
+				moduleReference: { type: "file", path: `fake://${command.name}.ts` },
+				entryPath: `fake://${command.name}.ts`,
+				hasStaticCommandInfo: true,
+			};
+			return [command.name, candidate] as const;
+		}),
+	);
+	return {
+		loadLog,
+		async loadCommandCatalog() {
+			return {
+				candidates,
+				commandInfos: [...candidates.values()].map((candidate) => ({
+					name: candidate.name,
+					description: candidate.description,
+					fullDescription: candidate.fullDescription,
+				})),
+				diagnostics: [],
+				extensionPackageNames: new Set<string>(),
+			};
+		},
+		async loadSelectedCommand(candidate: ExtensionCommandCandidate) {
+			loadLog.push(candidate.name);
+			const command = commands.find((entry) => entry.name === candidate.name);
+			if (command === undefined) throw new Error(`Missing command ${candidate.name}.`);
+			return { ok: true as const, command, source: candidate.source, path: candidate };
+		},
+	};
 }
 
 function commandRegistry(

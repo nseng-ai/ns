@@ -212,7 +212,7 @@ export function validateDescriptorCommandContribution(
 		if (!isClinkrRun(command.run)) {
 			return {
 				ok: false,
-				message: `Invalid ns descriptor command ${sourceLabel}: composable command run must be hostable clinkr metadata.`,
+				message: `Invalid ns descriptor command ${sourceLabel}: composable command run must carry clinkr metadata.`,
 			};
 		}
 		return { ok: true, command };

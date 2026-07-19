@@ -10,11 +10,20 @@ import { flowBranchLatestCommitCommand } from "../../src/ns/commands/branch-late
 import { flowChangesCommand } from "../../src/ns/commands/changes.ts";
 import { flowExecReadGraphiteBranchMetadataCommand } from "../../src/ns/commands/exec-read-graphite-branch-metadata.ts";
 import { flowCpCommand } from "../../src/ns/commands/cp/command.ts";
-import { createRealFirstPartyCommandContext } from "@nseng-ai/capability-kit";
+import {
+	createRealFirstPartyCommandContext,
+	materializeFirstPartyCommand,
+} from "@nseng-ai/capability-kit";
 import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
 import { createNsGitGateway } from "@nseng-ai/capability-kit";
 import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
-import { createUnavailableInteraction } from "@nseng-ai/sdk/command";
+import {
+	createCommandProgressPhaseRenderer,
+	createUnavailableInteraction,
+	isClinkrRun,
+} from "@nseng-ai/sdk/command";
+import { resolveRenderCapabilities } from "@nseng-ai/clinkr";
+import { createStreamSink } from "@nseng-ai/clinkr/stream";
 import { flowPullTrunkCommand } from "../../src/ns/commands/pull-trunk.ts";
 import { flowPushCommand } from "../../src/ns/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/ns/commands/regenerate-pr.ts";
@@ -598,20 +607,36 @@ function runFlowCpComposableCommandWithFakes(fixture: Omit<FlowCommandFixture, "
 		git: createNsGitGateway(context),
 		graphiteBranch: new RealGraphiteBranchGateway(context),
 	});
+	const materializedCommand = materializeFirstPartyCommand(flowCpCommand, commandContext);
+	if (!isClinkrRun(materializedCommand.run)) {
+		throw new Error("Materialized flow cp command run does not carry clinkr metadata.");
+	}
+	const caps = resolveRenderCapabilities(context.renderCapabilities);
+	const renderer = createCommandProgressPhaseRenderer({
+		caps,
+		sink: createStreamSink(caps, {
+			writer: {
+				write: (text) => liveOutput.push({ stream: "stderr", text }),
+				redraw() {},
+				done() {},
+			},
+			onOutput: (line) => liveOutput.push({ stream: "stderr", text: `${line}\n` }),
+		}),
+		forward: { isLive: context.progress.isLive, emit: context.progress.phase },
+	});
 	const completed = Promise.resolve(
-		flowCpCommand.run(
+		materializedCommand.run(
 			{
-				context: commandContext,
 				ns: { catalog: { has: () => false } },
 				cwd,
-				onOutput: context.onOutput,
-				events: { isLive: context.progress.isLive, emit: context.progress.phase },
+				events: { isLive: context.progress.isLive, emit: renderer.emit },
 				interact: createUnavailableInteraction(),
 				caps: context.renderCapabilities,
 			},
 			fixture.request as { dryRun: boolean },
 		),
-	).then((result) => {
+	).then(async (result) => {
+		await renderer.finish({ isFailed: result.type !== "ok" });
 		writeCommandExitOutput(result, {
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),

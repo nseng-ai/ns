@@ -2,12 +2,14 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test } from "vitest";
 
 import { runCliWithFakes, type RunWithFakesOptions } from "../scenario/ns-cli-fakes.ts";
 
 const tempDirs: string[] = [];
+const sdkCommandEntryPath = fileURLToPath(new URL("../../src/command/index.ts", import.meta.url));
 
 function runWithFakes(options: RunWithFakesOptions) {
 	return runCliWithFakes(options, {
@@ -69,6 +71,45 @@ export default {
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("--loud\n");
 		expect(run.stderr.join("")).toBe("");
+	});
+
+	test("selected composable completion imports and materializes only its command module", async () => {
+		const cwd = await createDescriptorExtensionProject(
+			"completion-probe",
+			`import { ok, z } from "@nseng-ai/sdk";
+import { clinkr, defineCommand } from ${JSON.stringify(sdkCommandEntryPath)};
+export default defineCommand({
+	name: "completion-probe",
+	summary: "Composable completion probe.",
+	run: clinkr({
+		schema: z.object({ value: z.string().optional() }),
+		resultSchema: z.string(),
+		positionals: { value: { position: 0 } },
+		completions(_bundle, request) {
+			const value = "selected-dependency";
+			return value.startsWith(request.current) ? [{ value, type: "positional-value" }] : [];
+		},
+		handler() { return ok("completion-probe"); },
+	}),
+});
+`,
+		);
+		writeDescriptorCommand(cwd, "unrelated", "throw new Error('unrelated import boom');\n");
+		writeDescriptorPackage(cwd, ["completion-probe", "unrelated"]);
+		const materializeLog: string[] = [];
+		const run = runWithFakes({
+			args: ["completion", "exec", "resolve", "--", "completion-probe", "selected"],
+			cwd,
+			bindSelectedCommand: (command) => {
+				materializeLog.push(command.name);
+				return command;
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr.join("")).toBe("");
+		expect(run.stdout.join("")).toBe("selected-dependency\n");
+		expect(materializeLog).toEqual(["completion-probe"]);
 	});
 
 	test("selected dynamic completion provider runs through the real extension loader", async () => {

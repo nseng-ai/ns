@@ -11,16 +11,16 @@ import { runCommand } from "@nseng-ai/foundation/exec";
 import { optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
 
 import { createCliCommandIo, noopNsProgress } from "../runtime/command-io.ts";
+import type { CommandInteraction } from "../command/clinkr.ts";
 import type { NsConfirmPrompt, NsExtensionApi, TextGenerator } from "../sdk/index.ts";
 
 export interface NsCliContext {
 	context: NsExtensionApi;
-	composableContext: object;
 	catalog: import("../command/catalog.ts").CatalogView;
 	cwd: string;
 	env: Record<string, string | undefined>;
 	interaction: ClinkrInteraction;
-	commandInteraction: import("../command/hostable.ts").CommandInteraction;
+	commandInteraction: CommandInteraction;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 }

@@ -10,23 +10,23 @@ export {
 	clinkr,
 	clinkrSpecForRun,
 	isClinkrRun,
+	createUnavailableInteraction,
+	type ClinkrCompletionBundle,
 	type ClinkrHandlerBundle,
 	type ClinkrRun,
 	type ClinkrSpec,
 	type CommandCompletionProvider,
-	type CommandSchema,
-} from "./clinkr.ts";
-export {
-	createUnavailableInteraction,
-	hostable,
-	isHostableRun,
 	type CommandEventSink,
 	type CommandInteraction,
+	type CommandSchema,
 	type ConfirmRequest,
 	type ConfirmResult,
-	type HostableBundle,
-	type HostableRun,
 	type SelectChoice,
 	type SelectRequest,
 	type SelectResult,
-} from "./hostable.ts";
+} from "./clinkr.ts";
+export {
+	createCommandProgressPhaseRenderer,
+	type CommandProgressPhaseRenderer,
+	type CreateCommandProgressPhaseRendererOptions,
+} from "./progress-phase-renderer.ts";

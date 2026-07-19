@@ -5,7 +5,10 @@ import { join } from "node:path";
 import { afterEach } from "vitest";
 
 import { runCli } from "@nseng-ai/sdk/cli";
-import { createRealFirstPartyCommandContext } from "@nseng-ai/capability-kit";
+import {
+	createRealFirstPartyCommandContext,
+	materializeFirstPartyCommand,
+} from "@nseng-ai/capability-kit";
 import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
 import { createNsGitGateway } from "@nseng-ai/capability-kit";
 import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
@@ -208,7 +211,7 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 			? {}
 			: { missingTextGenerationResult: defaults.missingTextGenerationResult }),
 	});
-	const composableContext = createRealFirstPartyCommandContext({
+	const firstPartyCommandContext = createRealFirstPartyCommandContext({
 		env: context.env,
 		textGenerator: context.textGenerator,
 		commandRunner: createNsCommandRunner(context),
@@ -222,7 +225,8 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 		liveOutput,
 		exit: runCli(options.args, {
 			context,
-			composableContext,
+			bindSelectedCommand: (command) =>
+				materializeFirstPartyCommand(command, firstPartyCommandContext),
 			cwd: context.cwd,
 			homeDir,
 			env: context.env,

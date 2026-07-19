@@ -4,7 +4,7 @@ import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { runFlowCpCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
-// A non-tty transient line, as routed to onOutput (the Pi widget path / captured liveOutput).
+// A non-tty transient line, as routed by the SDK CLI host edge to captured live output.
 function transient(text: string): { stream: "stderr"; text: string } {
 	return { stream: "stderr", text: `${text}\n` };
 }

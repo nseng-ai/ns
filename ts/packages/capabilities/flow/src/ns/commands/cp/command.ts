@@ -1,17 +1,13 @@
 import type { TimeServices } from "@nseng-ai/foundation/time";
 import type { NsProgressPhaseListener } from "@nseng-ai/sdk";
-import { clinkr, defineCommand, type ClinkrHandlerBundle } from "@nseng-ai/sdk/command";
+import type { ClinkrHandlerBundle } from "@nseng-ai/sdk/command";
 import { failure, negative, ok, z } from "@nseng-ai/sdk";
 import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
-import type { FirstPartyCommandContext } from "@nseng-ai/capability-kit";
+import { defineFirstPartyCommand, type FirstPartyCommandContext } from "@nseng-ai/capability-kit";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
-import { resolveRenderCapabilities } from "@nseng-ai/clinkr";
-import {
-	CP_PHASES,
-	flowStreamDeps,
-	runSettledPhaseStream,
-} from "../../../phase-stream/phase-stream.ts";
+import { CP_PHASES } from "../../../phase-stream/phase-stream.ts";
+import { progressPhaseInfos } from "../../../phase-stream/phase-stream-specs.ts";
 import { formatPendingWorktreeError } from "../../../autobranch/pending-worktree-format.ts";
 import {
 	createCheckpointRuntime,
@@ -40,27 +36,25 @@ const cpRequestSchema = z.object({
 
 type CpRequest = z.output<typeof cpRequestSchema>;
 
-const cpRun = clinkr<FirstPartyCommandContext, typeof cpRequestSchema, string>({
-	schema: cpRequestSchema,
-	resultSchema: z.string(),
-	options: { dryRun: { short: "-n" } },
-	handler: async (bundle, request: CpRequest) => runCpCommand(bundle, request),
-});
-
-export const flowCpCommand = defineCommand({
+export const flowCpCommand = defineFirstPartyCommand({
 	name: "cp",
 	summary: "Create a checkpoint commit for the current diff.",
 	description: CP_COMMAND_DESCRIPTION,
-	run: cpRun,
+	clinkr: {
+		schema: cpRequestSchema,
+		resultSchema: z.string(),
+		options: { dryRun: { short: "-n" } },
+		handler: async (context, bundle, request: CpRequest) => runCpCommand(context, bundle, request),
+	},
 });
 
 export default flowCpCommand;
 
 async function runCpCommand(
-	bundle: ClinkrHandlerBundle<FirstPartyCommandContext>,
+	services: FirstPartyCommandContext,
+	bundle: ClinkrHandlerBundle,
 	request: CpRequest,
 ) {
-	const services = bundle.context;
 	const runtime = createCheckpointRuntime({
 		runner: services.commandRunner,
 		git: services.git,
@@ -71,36 +65,25 @@ async function runCpCommand(
 		MODEL_OPERATION_IDS.flowCheckpoint,
 	);
 	if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
-	const run = async (onPhase?: NsProgressPhaseListener) =>
-		await runCpCore({
+	if (!request.dryRun) {
+		bundle.events.emit({
+			type: "phases-declared",
+			title: "ns flow cp",
+			phases: progressPhaseInfos(CP_PHASES),
+		});
+	}
+	return toCommandResult(
+		await runCheckpointWorkflow({
 			cwd: bundle.cwd,
 			env: services.env,
 			textGenerator: services.textGenerator,
 			modelSelection: model.modelSelection,
-			isDryRun: request.dryRun,
-			checkpointGateway: runtime.checkpointGateway,
+			dryRun: request.dryRun,
+			gateway: runtime.checkpointGateway,
 			graphite: runtime.graphite,
-			...(onPhase === undefined ? {} : { onPhase }),
-		});
-	if (request.dryRun) return toCommandResult(await run());
-
-	const caps = resolveRenderCapabilities(bundle.caps);
-	const compatibilityContext = {
-		stdout: undefined,
-		stderr: undefined,
-		...(bundle.onOutput === undefined ? {} : { onOutput: bundle.onOutput }),
-	};
-	return await runSettledPhaseStream({
-		caps,
-		specs: CP_PHASES,
-		deps: flowStreamDeps(compatibilityContext, caps),
-		forward: { isLive: bundle.events.isLive, phase: bundle.events.emit },
-		title: "ns flow cp",
-		body: async (stream) => {
-			const command = toCommandResult(await run(stream.emit));
-			return { result: command, isFailed: command.type !== "ok" };
-		},
-	});
+			...(request.dryRun ? {} : { onPhase: bundle.events.emit }),
+		}),
+	);
 }
 
 export interface RunCpCoreOptions {
