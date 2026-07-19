@@ -1,11 +1,7 @@
-import {
-	buildPiLaunchCommand,
-	getPiLaunchOptions,
-	type PiLaunchThinkingHost,
-} from "@nseng-ai/capability-kit/pi-launch";
+import { buildPiLaunchCommand, type PiLaunchOptions } from "@nseng-ai/capability-kit/pi-launch";
+import { formatShellArg } from "@nseng-ai/foundation/exec";
 
 import type { HerdrGateway } from "./herdr-gateway.ts";
-import type { CommandContext } from "@nseng-ai/capability-kit/pi-types";
 
 export type HerdrHandoffTabLaunchResult =
 	| {
@@ -29,20 +25,17 @@ export type HerdrHandoffTabLaunchResult =
 
 export async function launchHerdrHandoffTab(options: {
 	herdr: HerdrGateway;
-	pi: PiLaunchThinkingHost;
-	ctx: Pick<CommandContext, "cwd" | "model">;
+	cwd: string;
+	launchOptions: PiLaunchOptions;
 	workspaceId: string;
 	slug: string;
 	pickupCommand: string;
 }): Promise<HerdrHandoffTabLaunchResult> {
-	const command = buildPiLaunchCommand(
-		options.pickupCommand,
-		getPiLaunchOptions(options.pi, options.ctx),
-	);
+	const command = buildPiLaunchCommand(options.pickupCommand, options.launchOptions);
 	const label = `handoff: ${options.slug}`;
 	const created = await options.herdr.createTab({
 		workspaceId: options.workspaceId,
-		cwd: options.ctx.cwd,
+		cwd: options.cwd,
 		label,
 		shouldFocus: true,
 	});
@@ -94,6 +87,6 @@ export function formatHerdrHandoffTabRunFailure(
 		`Workspace: ${result.workspaceId}`,
 		`Tab: ${result.tabId}`,
 		`Root pane: ${result.rootPaneId}`,
-		`Manual recovery: herdr pane run ${result.rootPaneId} ${JSON.stringify(result.command)}`,
+		`Manual recovery: ${["herdr", "pane", "run", result.rootPaneId, result.command].map(formatShellArg).join(" ")}`,
 	].join("\n");
 }

@@ -21,8 +21,8 @@ The integrated `/ns:herdr:handoff:*` namespace for existing dispatch behavior. I
 *Avoid*: Handoff Artifact creation by default, replacement for native space/tab vocabulary, generic destination abstraction
 
 **Herdr Handoff tab**:
-The optional `/ns:herdr:handoff:tab` integration with `@nseng-ai/handoffs`: Handoffs owns artifact composition and verification, while Herdr creates the focused labeled tab and launches pickup in its root pane. The command and launch tool register only when the curated Handoffs Pi integration module is resolvable.
-*Avoid*: Handoffs-owned destination, generic multiplexer launcher, compatibility alias
+The optional `/ns:herdr:handoff:tab` integration with `@nseng-ai/handoffs`: the Handoffs Pi create flow owns artifact composition, content-derived slugging, and persistence; the hidden reference-based `ns herdr exec handoff-tab launch` command verifies the stored artifact by branch and slug before Herdr creates the focused labeled tab and launches pickup in its root pane. The Pi workflow registers only when the curated Handoffs Pi integration module is resolvable, while the ns command composes the Handoffs Capability API directly.
+*Avoid*: model-facing launch tool, Markdown transport through Herdr, Handoffs-owned destination, generic multiplexer launcher, compatibility alias
 
 **Caller workspace targeting**:
 Identifying the Herdr workspace to act on via the `HERDR_WORKSPACE_ID` environment variable injected by Herdr into every managed pane. Surface dispatch and Herdr Handoff tab validate and capture this ID before plan/artifact work or destination mutation.
@@ -41,5 +41,5 @@ The current `/ns:herdr:objective:sidebar-summary` implementation applies only a 
 *Avoid*: partial implementation, inferred slot from arbitrary basename, metadata transport
 
 **Herdr capability boundary**:
-The `pi` subpackage is the only Herdr capability subpackage that imports neutral `@nseng-ai/pi/...` host helpers; the `core` feature stays Pi-host independent.
+The `pi` subpackage is the only Herdr capability subpackage that imports neutral `@nseng-ai/pi/...` host helpers; `ns` composes the hidden reference-based command and real same-channel gateways; the `core` feature stays host-independent.
 *Avoid*: host-owned Herdr domain, Pi imports from core, package cycle

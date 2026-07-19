@@ -84,7 +84,7 @@ describe("herdr Pi extension", () => {
 		expect([...commands.keys()].sort()).toEqual(HERDR_BASE_COMMAND_NAMES);
 	});
 
-	test("registers the optional Handoffs command and exact launch tool when installed", async () => {
+	test("registers the optional Handoffs command and shared slug tool when installed", async () => {
 		const commands = new Map<string, unknown>();
 		const tools = new Map<string, ToolDefinition>();
 		const pi = makeToolExtensionApi(commands, tools);
@@ -93,10 +93,7 @@ describe("herdr Pi extension", () => {
 		pi.runSessionStart();
 
 		expect([...commands.keys()].sort()).toEqual([...HERDR_COMMAND_NAMES].sort());
-		expect([...tools.keys()].sort()).toEqual([
-			"derive_handoff_slug_from_content",
-			"herdr_handoff_tab_launch",
-		]);
+		expect([...tools.keys()].sort()).toEqual(["derive_handoff_slug_from_content"]);
 		expect(commands.has("ns:cmux:handoff-tab")).toBe(false);
 		expect(tools.has("handoff_tab_launch")).toBe(false);
 	});

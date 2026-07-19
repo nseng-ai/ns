@@ -6,7 +6,7 @@ import type {
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import type {
 	HandoffExtensionAPI,
-	HandoffLaunchIntegration,
+	HandoffPromptCreateIntegration,
 } from "@nseng-ai/handoffs/pi/handoff-launch";
 
 import {
@@ -26,7 +26,7 @@ import { registerHerdrSlotOpenBranchCommand } from "./open-branch.ts";
 import { registerHerdrSpaceGoalCommand } from "./space-goal.ts";
 
 export type HandoffIntegrationLoader = () => Promise<{
-	createHandoffLaunchIntegration(pi: HandoffExtensionAPI): HandoffLaunchIntegration;
+	createHandoffLaunchIntegration(pi: HandoffExtensionAPI): HandoffPromptCreateIntegration;
 }>;
 
 export function registerHerdrPiExtension(pi: ExtensionAPI): Promise<void>;

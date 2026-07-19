@@ -20,7 +20,7 @@ import type { ExtensionAPI, ToolDefinition } from "./runtime-types.ts";
 
 const slugToolRegistrations = new WeakSet<ExtensionAPI>();
 
-export interface HandoffLaunchIntegration {
+export interface HandoffPromptCreateIntegration {
 	registerContentSlugTool(): void;
 	registerContentSlugToolIfMissing(): void;
 	runCreateCommand(
@@ -28,6 +28,9 @@ export interface HandoffLaunchIntegration {
 		ctx: Parameters<typeof runHandoffCreateCommand>[2],
 		spec: Omit<HandoffLaunchCommandSpec, "git">,
 	): Promise<void>;
+}
+
+export interface HandoffLaunchIntegration extends HandoffPromptCreateIntegration {
 	buildVerifiedLaunchTool<P extends HandoffLaunchParams = HandoffLaunchParams>(
 		spec: HandoffLaunchToolSpec<P>,
 	): ToolDefinition;

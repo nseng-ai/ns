@@ -344,12 +344,18 @@ importers:
       '@nseng-ai/branch-context':
         specifier: workspace:*
         version: link:../branch-context
+      '@nseng-ai/brmem':
+        specifier: workspace:*
+        version: link:../../infra/brmem
       '@nseng-ai/capability-kit':
         specifier: workspace:*
         version: link:../../capability-kit
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
+      '@nseng-ai/handoffs':
+        specifier: workspace:*
+        version: link:../handoffs
       '@nseng-ai/objectives':
         specifier: workspace:*
         version: link:../objectives
@@ -362,10 +368,10 @@ importers:
       '@nseng-ai/slots':
         specifier: workspace:*
         version: link:../slots
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
-      '@nseng-ai/handoffs':
-        specifier: workspace:*
-        version: link:../handoffs
       '@nseng-ai/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
