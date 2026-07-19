@@ -40,7 +40,7 @@ Applicability patterns must be globs, not git pathspecs; keep them repo-relative
 
 ## Model profiles and harnesses
 
-Reviews resolves `model_profile` and `--model-profile` directly as aliases in the shared `[models.profiles]` repository policy. Any configured alias is valid; omitted `model_profile` uses `fast`:
+Reviews resolves `model_profile` and `--model-profile` directly as aliases in the shared `[models.profiles]` repository policy. Any configured alias is valid; omitted `model_profile` uses the required `fast` profile. There is no built-in model fallback:
 
 ```toml
 [models.profiles.fast]

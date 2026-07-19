@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { buildSavedPlanContentSlugPrompt, deriveSavedPlanContentSlug } from "../src/index.ts";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
@@ -69,15 +73,18 @@ describe("deriveSavedPlanContentSlug", () => {
 		expect(evidence).toEqual({
 			slug: "branch-scoped-plan-extension",
 			rawOutput: "branch-scoped-plan-extension\n",
-			provider: DEFAULT_FAST_MODEL.provider,
-			model: DEFAULT_FAST_MODEL.modelId,
+			provider: TEST_MODEL_SELECTION.provider,
+			model: TEST_MODEL_SELECTION.modelId,
 		});
 		expect(pi.calls).toHaveLength(2);
 		expect(pi.calls[0]?.command).toBe("git");
 		expect(pi.calls[0]?.args).toEqual(["rev-parse", "--show-toplevel"]);
 		expect(pi.calls[1]?.command).toBe("pi");
 		expect(pi.calls[1]?.args).toEqual(
-			buildRawTextModelArgs(buildSavedPlanContentSlugPrompt(SAVED_PLAN_CONTENT)),
+			buildRawTextModelArgs(
+				buildSavedPlanContentSlugPrompt(SAVED_PLAN_CONTENT),
+				TEST_MODEL_SELECTION,
+			),
 		);
 		expect(pi.calls[1]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});

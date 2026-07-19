@@ -1,4 +1,8 @@
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 import { createDeferred, type Deferred } from "@nseng-ai/foundation/test-kit";
 import type {
 	CallPiModelTextOptions,
@@ -217,6 +221,7 @@ describe("stack enrichment engine", () => {
 			execApi: fakeExec({ stdout: "log" }).api,
 			cwd: CWD,
 			registry: fakeRegistry(),
+			modelSelection: TEST_MODEL_SELECTION,
 			callModelText: model.fn,
 		});
 		engine.onChange(() => {
@@ -252,6 +257,7 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
+			modelSelection: TEST_MODEL_SELECTION,
 			callModelText: model.fn,
 			maxConcurrent: 3,
 		});
@@ -278,6 +284,7 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
+			modelSelection: TEST_MODEL_SELECTION,
 			callModelText: model.fn,
 		});
 
@@ -285,7 +292,7 @@ describe("stack enrichment engine", () => {
 		await flushPromises();
 
 		const options = model.calls[0]?.options;
-		expect(options?.modelSelection).toEqual(DEFAULT_FAST_MODEL);
+		expect(options?.modelSelection).toEqual(TEST_MODEL_SELECTION);
 		expect(options?.modelSelection.thinking).toBe("minimal");
 		expect(options?.maxTokens).toBe(96);
 		// The composed task signal is the single deadline; no fresh model-call timeout.
@@ -309,6 +316,7 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
+			modelSelection: TEST_MODEL_SELECTION,
 			callModelText: model.fn,
 		});
 
@@ -331,6 +339,7 @@ describe("stack enrichment engine", () => {
 			execApi: exec.api,
 			cwd: CWD,
 			registry: fakeRegistry(),
+			modelSelection: TEST_MODEL_SELECTION,
 			callModelText: model.fn,
 		});
 
@@ -352,6 +361,7 @@ describe("stack enrichment engine", () => {
 			execApi: exec.api,
 			cwd: CWD,
 			registry: fakeRegistry(),
+			modelSelection: TEST_MODEL_SELECTION,
 			callModelText: model.fn,
 		});
 
@@ -373,6 +383,7 @@ describe("stack enrichment engine", () => {
 			execApi: exec.api,
 			cwd: CWD,
 			registry: fakeRegistry(),
+			modelSelection: TEST_MODEL_SELECTION,
 			callModelText: model.fn,
 		});
 
@@ -404,6 +415,7 @@ describe("stack enrichment engine", () => {
 			execApi: exec.api,
 			cwd: CWD,
 			registry: fakeRegistry(),
+			modelSelection: TEST_MODEL_SELECTION,
 			callModelText: model.fn,
 			maxConcurrent: 2,
 		});
@@ -441,6 +453,7 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
+			modelSelection: TEST_MODEL_SELECTION,
 			callModelText: model.fn,
 		});
 
@@ -479,6 +492,7 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
+			modelSelection: TEST_MODEL_SELECTION,
 			callModelText: model.fn,
 		});
 
@@ -513,6 +527,7 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
+			modelSelection: TEST_MODEL_SELECTION,
 			callModelText: model.fn,
 		});
 
@@ -540,6 +555,7 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
+			modelSelection: TEST_MODEL_SELECTION,
 			callModelText: model.fn,
 		});
 
@@ -575,6 +591,7 @@ describe("stack enrichment engine", () => {
 			execApi: rejectingExec,
 			cwd: CWD,
 			registry: fakeRegistry(),
+			modelSelection: TEST_MODEL_SELECTION,
 			callModelText: model.fn,
 			maxConcurrent: 1,
 		});
@@ -611,6 +628,7 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
+			modelSelection: TEST_MODEL_SELECTION,
 			callModelText: model.fn,
 			maxConcurrent: 2,
 		});

@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 import {
 	buildRawTextModelArgs,
 	deriveSlugWithModel,
@@ -59,11 +63,11 @@ describe("generateRawTextWithModel", () => {
 			ok: true,
 			evidence: {
 				rawOutput: "- first bullet\n- second bullet\n",
-				provider: DEFAULT_FAST_MODEL.provider,
-				model: DEFAULT_FAST_MODEL.modelId,
+				provider: TEST_MODEL_SELECTION.provider,
+				model: TEST_MODEL_SELECTION.modelId,
 			},
 		});
-		expect(calls[0]?.args).toEqual(buildRawTextModelArgs("summary prompt"));
+		expect(calls[0]?.args).toEqual(buildRawTextModelArgs("summary prompt", TEST_MODEL_SELECTION));
 	});
 
 	test("resolves an explicit model selection and uses its thinking level", async () => {
@@ -117,8 +121,8 @@ describe("generateRawTextWithModel", () => {
 			ok: true,
 			evidence: {
 				rawOutput: "recovered summary\n",
-				provider: DEFAULT_FAST_MODEL.provider,
-				model: DEFAULT_FAST_MODEL.modelId,
+				provider: TEST_MODEL_SELECTION.provider,
+				model: TEST_MODEL_SELECTION.modelId,
 			},
 		});
 		expect(calls).toHaveLength(2);
@@ -152,11 +156,11 @@ describe("deriveSlugWithModel", () => {
 			evidence: {
 				slug: "my-slug",
 				rawOutput: "my-slug\n",
-				provider: DEFAULT_FAST_MODEL.provider,
-				model: DEFAULT_FAST_MODEL.modelId,
+				provider: TEST_MODEL_SELECTION.provider,
+				model: TEST_MODEL_SELECTION.modelId,
 			},
 		});
-		expect(calls[0]?.args).toEqual(buildRawTextModelArgs("slug prompt"));
+		expect(calls[0]?.args).toEqual(buildRawTextModelArgs("slug prompt", TEST_MODEL_SELECTION));
 	});
 
 	test("resolves an explicit model reference and reports it in evidence", async () => {
@@ -213,15 +217,15 @@ describe("deriveSlugWithModel", () => {
 			evidence: {
 				slug: "recovered-slug",
 				rawOutput: "recovered-slug\n",
-				provider: DEFAULT_FAST_MODEL.provider,
-				model: DEFAULT_FAST_MODEL.modelId,
+				provider: TEST_MODEL_SELECTION.provider,
+				model: TEST_MODEL_SELECTION.modelId,
 			},
 		});
 		expect(calls).toHaveLength(2);
 		expect(calls[0]).toEqual(calls[1]);
 		expect(calls[0]).toEqual({
 			command: "pi",
-			args: buildRawTextModelArgs("slug prompt"),
+			args: buildRawTextModelArgs("slug prompt", TEST_MODEL_SELECTION),
 			options: { cwd: "/repo", timeout: 60_000, signal: controller.signal },
 		});
 	});

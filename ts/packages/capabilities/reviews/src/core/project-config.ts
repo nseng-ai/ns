@@ -36,12 +36,7 @@ export interface GitDiffArgsOptions {
 	readonly excludeGlobs?: readonly string[];
 }
 
-const EMPTY_MODEL_POLICY = parseModelPolicyToml("");
-if (!EMPTY_MODEL_POLICY.ok) throw new Error(EMPTY_MODEL_POLICY.error.message);
-const EMPTY_CONFIG: ReviewsProjectConfig = {
-	diff: { exclude: [] },
-	modelPolicy: EMPTY_MODEL_POLICY.value,
-};
+const EMPTY_DIFF_CONFIG: ReviewsDiffProjectConfig = { exclude: [] };
 type ReviewsSettingsRecord = Record<string, unknown>;
 
 const recordSchema = z.record(z.string(), z.unknown());
@@ -122,10 +117,10 @@ function parseDiffConfig(
 	value: ReviewsSettingsRecord | undefined,
 	pathLabel: string | undefined,
 ): DiffConfigParseResult {
-	if (value === undefined) return { ok: true, value: EMPTY_CONFIG.diff };
+	if (value === undefined) return { ok: true, value: EMPTY_DIFF_CONFIG };
 
 	const exclude = value.exclude;
-	if (exclude === undefined) return { ok: true, value: EMPTY_CONFIG.diff };
+	if (exclude === undefined) return { ok: true, value: EMPTY_DIFF_CONFIG };
 	const parsedExclude = parseExcludeGlobs(exclude, pathLabel);
 	if (!parsedExclude.ok) return parsedExclude;
 	return { ok: true, value: { exclude: parsedExclude.value } };

@@ -8,22 +8,14 @@ import {
 import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 describe("model policy", () => {
-	test("uses the built-in fast profile with zero config", () => {
-		const policy = parseModelPolicyToml("");
-		expect(policy.ok).toBe(true);
-		if (policy.ok)
-			expect(resolveModelOperation(policy.value, "slug")).toMatchObject({
-				ok: true,
-				value: {
-					profile: "fast",
-					selection: {
-						provider: "openai-codex",
-						modelId: "gpt-5.6-luna",
-						thinking: "minimal" as const,
-					},
-					source: "builtin",
-				},
-			});
+	test("requires the fast profile with zero config", () => {
+		expect(parseModelPolicyToml("")).toMatchObject({
+			ok: false,
+			error: {
+				code: "missing-profile",
+				message: expect.stringContaining("[models.profiles.fast]"),
+			},
+		});
 	});
 
 	test("allows redefining fast and named profiles", () => {
@@ -48,7 +40,7 @@ thinking = "high"
 
 	test("resolves operation overrides and accepts unknown operation keys", () => {
 		const policy = parseModelPolicyToml(
-			'[models.profiles.deep]\nmodel = "acme/deep"\nthinking = "high"\n[models.operations]\ncustom = "deep"',
+			'[models.profiles.fast]\nmodel = "acme/fast"\nthinking = "minimal"\n[models.profiles.deep]\nmodel = "acme/deep"\nthinking = "high"\n[models.operations]\ncustom = "deep"',
 		);
 		expect(policy.ok).toBe(true);
 		if (policy.ok)
@@ -119,14 +111,17 @@ thinking = "high"
 		});
 	});
 
-	test("loads missing ns.toml as zero config through the gateway", () => {
+	test("returns a clear error when ns.toml is missing", () => {
 		const missing: ProjectConfigGateway = {
 			readTextFile: () => ({ type: "missing" }),
 			pathExists: () => ({ type: "missing" }),
 		};
 		expect(loadModelPolicy({ repoRoot: "/repo", gateway: missing })).toMatchObject({
-			ok: true,
-			value: { profiles: { fast: { provider: "openai-codex" } } },
+			ok: false,
+			error: {
+				code: "missing-profile",
+				message: expect.stringContaining("[models.profiles.fast]"),
+			},
 		});
 	});
 });

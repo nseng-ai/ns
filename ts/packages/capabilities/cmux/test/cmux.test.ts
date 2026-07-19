@@ -1,4 +1,10 @@
 import { afterEach, describe, expect, test } from "vitest";
+
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -288,9 +294,13 @@ describe("cmux command suite", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 				headStep(),
 			],
 		});
@@ -338,9 +348,13 @@ describe("cmux command suite", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
 				gitRootStep(repoRoot),
@@ -410,9 +424,13 @@ describe("cmux command suite", () => {
 				gitCurrentBranchStep(),
 				gitOriginStep(),
 				gitRootStep(repoRoot),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 			],
 		});
 		const options: CccSlotDispatchPlanOptions = {
@@ -462,9 +480,13 @@ describe("cmux command suite", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 				headStep(),
 			],
 		});
@@ -507,9 +529,13 @@ describe("cmux command suite", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
 				gitRootStep(repoRoot),
@@ -611,9 +637,13 @@ describe("cmux command suite", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
 				gitRootStep(repoRoot),
@@ -724,6 +754,7 @@ describe("cmux command suite", () => {
 							kind: "task",
 							content: "Implement the cmux dispatch flow",
 						}),
+						TEST_MODEL_SELECTION,
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -842,6 +873,7 @@ describe("cmux command suite", () => {
 							kind: "task",
 							content: "Implement the cmux dispatch flow",
 						}),
+						TEST_MODEL_SELECTION,
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -963,6 +995,7 @@ describe("cmux command suite", () => {
 							kind: "task",
 							content: "Implement the cmux dispatch flow",
 						}),
+						TEST_MODEL_SELECTION,
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -1179,6 +1212,7 @@ describe("cmux command suite", () => {
 							kind: "task",
 							content: "Implement the cmux dispatch flow",
 						}),
+						TEST_MODEL_SELECTION,
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -1311,6 +1345,7 @@ describe("cmux command suite", () => {
 							kind: "task",
 							content: "Implement the cmux dispatch flow",
 						}),
+						TEST_MODEL_SELECTION,
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -1365,6 +1400,7 @@ describe("cmux command suite", () => {
 							kind: "task",
 							content: "Implement the cmux dispatch flow",
 						}),
+						TEST_MODEL_SELECTION,
 					),
 					{ stdout: `${BRANCH}\n` },
 				),

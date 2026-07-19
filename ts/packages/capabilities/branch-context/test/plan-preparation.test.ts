@@ -16,6 +16,12 @@ import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { PlanStoreDirectoryEvidence, ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
 import { afterEach, describe, expect, test } from "vitest";
 
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
+
 const ROOT = "/repo";
 const SOURCE_BRANCH = "feature/source";
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
@@ -32,7 +38,7 @@ class SlugCommands implements CommandExecApi {
 		}
 		expect({ command, args }).toEqual({
 			command: "pi",
-			args: buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)),
+			args: buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
 		});
 		return exited("add-dispatch-preparation-tests\n");
 	}

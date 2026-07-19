@@ -7,6 +7,7 @@
  */
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import { AuthStorage, ModelRegistry, type Theme } from "@earendil-works/pi-coding-agent";
+import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { describe, expect, test } from "vitest";
 
 import registerStackViewExtension, {
@@ -17,6 +18,14 @@ import type { StackEnrichmentPort } from "../../src/stack-view/enrichment-engine
 import type { LoadStackViewResult } from "../../src/stack-view/data.ts";
 import type { StackViewModel, StackViewPr } from "../../src/stack-view/types.ts";
 import { identityTheme } from "./stack-view-test-themes.ts";
+
+const projectConfigGateway: ProjectConfigGateway = {
+	readTextFile: () => ({
+		type: "found",
+		text: '[models.profiles.fast]\nmodel = "acme/fast"\nthinking = "minimal"\n',
+	}),
+	pathExists: () => ({ type: "missing" }),
+};
 
 interface RecordingEngine {
 	port: StackEnrichmentPort;
@@ -214,7 +223,11 @@ describe("stack-view extension enrichment wiring", () => {
 	test("creates one engine on the interactive path and aborts it when the loop exits", async () => {
 		const host = fakeHost();
 		const { factory, engines } = recordingEngineFactory();
-		registerStackViewExtension(host.pi, { engineFactory: factory, loadStackView: okLoader() });
+		registerStackViewExtension(host.pi, {
+			projectConfigGateway,
+			engineFactory: factory,
+			loadStackView: okLoader(),
+		});
 
 		await host.command().handler("", interactiveCtx());
 
@@ -225,7 +238,11 @@ describe("stack-view extension enrichment wiring", () => {
 	test("aborts the engine and surfaces a warning when the custom UI rejects (snapshot fallback path)", async () => {
 		const host = fakeHost();
 		const { factory, engines } = recordingEngineFactory();
-		registerStackViewExtension(host.pi, { engineFactory: factory, loadStackView: okLoader() });
+		registerStackViewExtension(host.pi, {
+			projectConfigGateway,
+			engineFactory: factory,
+			loadStackView: okLoader(),
+		});
 
 		const { ctx, notifications } = rejectingCustomCtx();
 		await host.command().handler("", ctx);
@@ -247,12 +264,42 @@ describe("stack-view extension enrichment wiring", () => {
 	test("never creates the engine on the non-interactive fallback path", async () => {
 		const host = fakeHost();
 		const { factory, engines } = recordingEngineFactory();
-		registerStackViewExtension(host.pi, { engineFactory: factory, loadStackView: okLoader() });
+		registerStackViewExtension(host.pi, {
+			projectConfigGateway,
+			engineFactory: factory,
+			loadStackView: okLoader(),
+		});
 
 		await host.command().handler("", nonInteractiveCtx());
 
 		expect(engines).toHaveLength(0);
 		expect(host.sentMessages).toHaveLength(1); // the plain snapshot
+	});
+
+	test("degrades to a snapshot with a clear warning when the fast profile is missing", async () => {
+		const host = fakeHost();
+		const { factory, engines } = recordingEngineFactory();
+		const missingConfigGateway: ProjectConfigGateway = {
+			readTextFile: () => ({ type: "missing" }),
+			pathExists: () => ({ type: "missing" }),
+		};
+		registerStackViewExtension(host.pi, {
+			projectConfigGateway: missingConfigGateway,
+			engineFactory: factory,
+			loadStackView: okLoader(),
+		});
+		const ctx = interactiveCtx();
+		const notifications: Array<{ message: string; level: string | undefined }> = [];
+		ctx.ui.notify = (message, level) => notifications.push({ message, level });
+
+		await host.command().handler("", ctx);
+
+		expect(engines).toHaveLength(0);
+		expect(host.sentMessages).toHaveLength(1);
+		expect(notifications).toContainEqual({
+			message: expect.stringContaining("[models.profiles.fast]"),
+			level: "warning",
+		});
 	});
 });
 
@@ -260,7 +307,7 @@ describe("stack-view extension clipboard wiring", () => {
 	test("copy-branch shortcut writes the selected branch to the clipboard", async () => {
 		const host = fakeHost();
 		const notifications: Array<{ message: string; level: string | undefined }> = [];
-		registerStackViewExtension(host.pi, { loadStackView: okLoader() });
+		registerStackViewExtension(host.pi, { projectConfigGateway, loadStackView: okLoader() });
 		const ctx = interactiveCtx("b");
 		ctx.ui.notify = (message, level) => notifications.push({ message, level });
 

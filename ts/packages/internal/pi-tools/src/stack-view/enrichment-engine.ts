@@ -20,7 +20,7 @@
  * worker loop; failures are recorded as `{ state: "failed" }`, and `ensureAll`
  * resolves (never rejects) once its tasks settle.
  */
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 import { callPiModelText } from "@nseng-ai/pi/models/call";
 import type { PiModelCallFailureReason, PiModelRegistryLike } from "@nseng-ai/pi/models/call";
@@ -109,6 +109,7 @@ export interface CreateStackEnrichmentEngineOptions {
 	execApi: CommandExecApi;
 	cwd: string;
 	registry: PiModelRegistryLike;
+	modelSelection: ModelSelection;
 	/** Test seam; defaults to the real {@link callPiModelText}. */
 	callModelText?: typeof callPiModelText;
 	maxConcurrent?: number;
@@ -117,7 +118,7 @@ export interface CreateStackEnrichmentEngineOptions {
 export function createStackEnrichmentEngine(
 	options: CreateStackEnrichmentEngineOptions,
 ): StackEnrichmentPort {
-	const { store, execApi, cwd, registry } = options;
+	const { store, execApi, cwd, registry, modelSelection } = options;
 	const callModelText = options.callModelText ?? callPiModelText;
 	const maxConcurrent = Math.max(1, options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT);
 
@@ -265,7 +266,7 @@ export function createStackEnrichmentEngine(
 	}): Promise<SettledEntry> {
 		const result = await callModelText({
 			registry,
-			modelSelection: DEFAULT_FAST_MODEL,
+			modelSelection,
 			systemPrompt: options.prompt.systemPrompt,
 			userText: options.prompt.userText,
 			maxTokens: options.maxTokens,

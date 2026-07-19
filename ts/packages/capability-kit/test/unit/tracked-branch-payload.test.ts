@@ -16,6 +16,12 @@ import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
 import { afterEach, describe, expect, test } from "vitest";
 
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
+
 interface Step {
 	command: string;
 	args: string[];
@@ -184,6 +190,7 @@ describe("tracked branch payload public API", () => {
 				command: "pi",
 				args: buildRawTextModelArgs(
 					buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
+					TEST_MODEL_SELECTION,
 				),
 				result: exited({ stdout: "implement-feature\n" }),
 			},
@@ -231,6 +238,7 @@ describe("tracked branch payload public API", () => {
 				command: "pi",
 				args: buildRawTextModelArgs(
 					buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
+					TEST_MODEL_SELECTION,
 				),
 				result: exited({ stdout: "implement-feature\n" }),
 			},

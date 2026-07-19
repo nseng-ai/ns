@@ -8,19 +8,16 @@ import {
 } from "../../src/core/project-config.ts";
 
 describe("parseReviewsProjectConfigToml", () => {
-	test("loads shared model policy and defaults Reviews to fast", () => {
-		const config = expectOk(parseReviewsProjectConfigToml(""));
-		expect(config.modelPolicy.profiles.fast).toMatchObject({
-			modelId: "gpt-5.6-luna",
-			thinking: "minimal",
-		});
-		expect(config.modelPolicy.operations).toEqual({});
+	test("requires the shared fast model profile", () => {
+		const error = expectError(parseReviewsProjectConfigToml(""));
+		expect(error.code).toBe("invalid-model-policy");
+		expect(error.message).toContain("[models.profiles.fast]");
 	});
 
 	test("parses Reviews diff and shared model profiles", () => {
 		const config = expectOk(
 			parseReviewsProjectConfigToml(
-				'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles.deep]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "high"\n[models.profiles.architecture]\nmodel = "openai/gpt-5.6-terra"\nthinking = "xhigh"\n',
+				'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles.fast]\nmodel = "openai/gpt-5.6-luna"\nthinking = "minimal"\n[models.profiles.deep]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "high"\n[models.profiles.architecture]\nmodel = "openai/gpt-5.6-terra"\nthinking = "xhigh"\n',
 			),
 		);
 		expect(config.diff.exclude).toEqual(["generated/**"]);
@@ -34,12 +31,22 @@ describe("parseReviewsProjectConfigToml", () => {
 		});
 	});
 
+	const fastProfile =
+		'[models.profiles.fast]\nmodel = "openai/gpt-5.6-luna"\nthinking = "minimal"\n';
 	test.each([
-		['[reviews.diff]\nexclude = "*.py"\n', "array", "invalid-exclude"],
-		['[reviews.diff]\nexclude = ["*.py", 1]\n', "non-empty strings", "invalid-exclude"],
-		['[reviews.diff]\nexclude = ["/tmp/*.py"]\n', "repo-relative", "invalid-exclude"],
-		['[models.operations]\ncustom = "missing"\n', "missing profile", "invalid-model-policy"],
-		["[reviews]\n", "", ""],
+		[`${fastProfile}[reviews.diff]\nexclude = "*.py"\n`, "array", "invalid-exclude"],
+		[
+			`${fastProfile}[reviews.diff]\nexclude = ["*.py", 1]\n`,
+			"non-empty strings",
+			"invalid-exclude",
+		],
+		[`${fastProfile}[reviews.diff]\nexclude = ["/tmp/*.py"]\n`, "repo-relative", "invalid-exclude"],
+		[
+			`${fastProfile}[models.operations]\ncustom = "missing"\n`,
+			"missing profile",
+			"invalid-model-policy",
+		],
+		[`${fastProfile}[reviews]\n`, "", ""],
 	] as const)("rejects invalid config %#", (source, message, code) => {
 		const result = parseReviewsProjectConfigToml(source, "ns.toml");
 		if (code === "") {
