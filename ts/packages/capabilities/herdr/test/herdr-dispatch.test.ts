@@ -1,8 +1,8 @@
 /**
  * Scenario tests for the Herdr dispatch and open-branch commands (PR 3):
- *  - ns:herdr:space:prompt-dispatch
- *  - ns:herdr:space:trunk-prompt-dispatch
- *  - ns:herdr:space:plan-dispatch
+ *  - ns:herdr:handoff:prompt
+ *  - ns:herdr:handoff:trunk-prompt
+ *  - ns:herdr:handoff:plan
  *  - ns:herdr:tab:plan-dispatch
  *  - ns:herdr:space:open-branch
  */
@@ -208,7 +208,7 @@ describe("ns:herdr:space:open-branch", () => {
 });
 
 // ---------------------------------------------------------------------------
-// space:prompt-dispatch and space:trunk-prompt-dispatch
+// handoff:prompt and handoff:trunk-prompt
 // ---------------------------------------------------------------------------
 
 describe("Herdr prompt dispatch", () => {
@@ -472,10 +472,10 @@ describe("Herdr prompt dispatch", () => {
 });
 
 // ---------------------------------------------------------------------------
-// space:plan-dispatch
+// handoff:plan
 // ---------------------------------------------------------------------------
 
-describe("ns:herdr:space:plan-dispatch", () => {
+describe("ns:herdr:handoff:plan", () => {
 	test("shows help without side-effects on --help", async () => {
 		const pi = new FakePi();
 		const herdr = new FakeHerdrGateway();
@@ -488,8 +488,8 @@ describe("ns:herdr:space:plan-dispatch", () => {
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:space:plan-dispatch",
-				statusKey: "ns:herdr:space:plan-dispatch",
+				commandName: "ns:herdr:handoff:plan",
+				statusKey: "ns:herdr:handoff:plan",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -512,8 +512,8 @@ describe("ns:herdr:space:plan-dispatch", () => {
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:space:plan-dispatch",
-				statusKey: "ns:herdr:space:plan-dispatch",
+				commandName: "ns:herdr:handoff:plan",
+				statusKey: "ns:herdr:handoff:plan",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -525,11 +525,11 @@ describe("ns:herdr:space:plan-dispatch", () => {
 		expect(errors[0]?.message).toContain("Unknown flag");
 	});
 
-	test("registers space:plan-dispatch and tab:plan-dispatch via Pi adapter", () => {
+	test("registers handoff:plan and tab:plan-dispatch via Pi adapter", () => {
 		const pi = new FakePi();
 		registerHerdrSlotDispatchPlanCommand(pi);
 		registerHerdrSurfaceDispatchPlanCommand(pi);
-		expect(pi.commands.has("ns:herdr:space:plan-dispatch")).toBe(true);
+		expect(pi.commands.has("ns:herdr:handoff:plan")).toBe(true);
 		expect(pi.commands.has("ns:herdr:tab:plan-dispatch")).toBe(true);
 	});
 
@@ -939,12 +939,12 @@ describe("ns:herdr:space:open-branch — inferred branch confirmation", () => {
 describe("extractCommandArgumentPrefix", () => {
 	test("binds the shared prefix extraction to the Herdr open-branch command", () => {
 		expect(extractCommandArgumentPrefix("/ns:herdr:space:open-branch feat")).toBe("feat");
-		expect(extractCommandArgumentPrefix("/ns:herdr:space:plan-dispatch")).toBeUndefined();
+		expect(extractCommandArgumentPrefix("/ns:herdr:handoff:plan")).toBeUndefined();
 	});
 });
 
 // ---------------------------------------------------------------------------
-// space:plan-dispatch dry-run — no Herdr mutations
+// handoff:plan dry-run — no Herdr mutations
 // ---------------------------------------------------------------------------
 
 function herdrDispatchPlanTestOptions(
@@ -966,7 +966,7 @@ function herdrDispatchPlanTestOptions(
 	};
 }
 
-describe("ns:herdr:space:plan-dispatch — dry-run (no Herdr mutations)", () => {
+describe("ns:herdr:handoff:plan — dry-run (no Herdr mutations)", () => {
 	test("dry-run shows preview without creating workspace, tab, or pane", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
@@ -1000,8 +1000,8 @@ describe("ns:herdr:space:plan-dispatch — dry-run (no Herdr mutations)", () => 
 			ctx,
 			options: herdrDispatchPlanTestOptions(planStoreRoot),
 			config: {
-				commandName: "ns:herdr:space:plan-dispatch",
-				statusKey: "ns:herdr:space:plan-dispatch",
+				commandName: "ns:herdr:handoff:plan",
+				statusKey: "ns:herdr:handoff:plan",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -1158,8 +1158,8 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:space:plan-dispatch",
-				statusKey: "ns:herdr:space:plan-dispatch",
+				commandName: "ns:herdr:handoff:plan",
+				statusKey: "ns:herdr:handoff:plan",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},

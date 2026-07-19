@@ -4,27 +4,21 @@ import { nsCommandSurface } from "@nseng-ai/foundation/command";
 // shares these names; import from here instead of spelling out raw `ns:herdr:*`
 // literals.
 
-export const HERDR_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME = nsCommandSurface(
+export const HERDR_OBJECTIVE_SIDEBAR_SUMMARY_COMMAND_NAME = nsCommandSurface(
 	"herdr",
-	"sidebar:objective-summary",
+	"objective:sidebar-summary",
 );
 
 export const HERDR_SPACE_NEW_COMMAND_NAME = nsCommandSurface("herdr", "space:new");
 
-export const HERDR_SPACE_PROMPT_DISPATCH_COMMAND_NAME = nsCommandSurface(
+export const HERDR_HANDOFF_PROMPT_COMMAND_NAME = nsCommandSurface("herdr", "handoff:prompt");
+
+export const HERDR_HANDOFF_TRUNK_PROMPT_COMMAND_NAME = nsCommandSurface(
 	"herdr",
-	"space:prompt-dispatch",
+	"handoff:trunk-prompt",
 );
 
-export const HERDR_SPACE_TRUNK_PROMPT_DISPATCH_COMMAND_NAME = nsCommandSurface(
-	"herdr",
-	"space:trunk-prompt-dispatch",
-);
-
-export const HERDR_SPACE_PLAN_DISPATCH_COMMAND_NAME = nsCommandSurface(
-	"herdr",
-	"space:plan-dispatch",
-);
+export const HERDR_HANDOFF_PLAN_COMMAND_NAME = nsCommandSurface("herdr", "handoff:plan");
 
 export const HERDR_TAB_PLAN_DISPATCH_COMMAND_NAME = nsCommandSurface("herdr", "tab:plan-dispatch");
 
@@ -33,12 +27,12 @@ export const HERDR_SPACE_OPEN_BRANCH_COMMAND_NAME = nsCommandSurface("herdr", "s
 export const HERDR_SPACE_GOAL_COMMAND_NAME = nsCommandSurface("herdr", "space:goal");
 
 export const HERDR_COMMAND_NAMES = [
-	HERDR_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME,
+	HERDR_HANDOFF_PLAN_COMMAND_NAME,
+	HERDR_HANDOFF_PROMPT_COMMAND_NAME,
+	HERDR_HANDOFF_TRUNK_PROMPT_COMMAND_NAME,
+	HERDR_OBJECTIVE_SIDEBAR_SUMMARY_COMMAND_NAME,
 	HERDR_SPACE_GOAL_COMMAND_NAME,
 	HERDR_SPACE_NEW_COMMAND_NAME,
 	HERDR_SPACE_OPEN_BRANCH_COMMAND_NAME,
-	HERDR_SPACE_PLAN_DISPATCH_COMMAND_NAME,
-	HERDR_SPACE_PROMPT_DISPATCH_COMMAND_NAME,
-	HERDR_SPACE_TRUNK_PROMPT_DISPATCH_COMMAND_NAME,
 	HERDR_TAB_PLAN_DISPATCH_COMMAND_NAME,
 ] as const;

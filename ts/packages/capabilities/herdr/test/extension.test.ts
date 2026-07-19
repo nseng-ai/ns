@@ -35,6 +35,16 @@ describe("herdr Pi extension", () => {
 
 		registerHerdrPiExtension(pi);
 
+		expect(HERDR_COMMAND_NAMES).toEqual([
+			"ns:herdr:handoff:plan",
+			"ns:herdr:handoff:prompt",
+			"ns:herdr:handoff:trunk-prompt",
+			"ns:herdr:objective:sidebar-summary",
+			"ns:herdr:space:goal",
+			"ns:herdr:space:new",
+			"ns:herdr:space:open-branch",
+			"ns:herdr:tab:plan-dispatch",
+		]);
 		expect([...commands.keys()].sort()).toEqual(HERDR_COMMAND_NAMES);
 	});
 });

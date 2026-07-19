@@ -16,6 +16,10 @@ The narrow domain-shaped interface (`HerdrGateway`) that exposes only the Herdr 
 The focused Herdr workspace created by `/ns:herdr:space:new` at the Pi command's current working directory; an optional natural-language description is interpreted by the configured slug model into a flat semantic workspace label.
 *Avoid*: dispatch workspace, slot checkout, raw workspace-create wrapper, deterministic label fallback
 
+**Handoff workflow family**:
+The integrated `/ns:herdr:handoff:*` namespace for existing dispatch behavior. It composes native Herdr space or tab destinations with other ns capabilities; the namespace alone does not imply creation of a Handoff Artifact.
+*Avoid*: Handoff Artifact creation by default, replacement for native space/tab vocabulary, generic destination abstraction
+
 **Caller workspace targeting**:
 Identifying the Herdr workspace to act on via the `HERDR_WORKSPACE_ID` environment variable injected by Herdr into every managed pane. Surface dispatch validates and captures this ID immediately after argument/help handling, before plan lookup or durable mutation.
 *Avoid*: UI focus targeting, ambient workspace, implicit workspace
@@ -25,11 +29,11 @@ A display name applied to the caller Herdr workspace via `herdr workspace rename
 *Avoid*: sidebar description, metadata reporting, unconditional slot prefix
 
 **Objective sidebar**:
-The `/ns:herdr:sidebar:objective-summary` workflow that resolves an Objective slug and applies the workspace label to the caller Herdr workspace.
+The `/ns:herdr:objective:sidebar-summary` workflow that resolves an Objective slug and applies the workspace label to the caller Herdr workspace.
 *Avoid*: cmux sidebar summary, workspace metadata, report-metadata
 
 **Label-only behavior**:
-The current `/ns:herdr:sidebar:objective-summary` implementation applies only a workspace label. Slot identity may be encoded in that label when the cwd proves it is a managed ns slot; branch metadata reporting remains deferred.
+The current `/ns:herdr:objective:sidebar-summary` implementation applies only a workspace label. Slot identity may be encoded in that label when the cwd proves it is a managed ns slot; branch metadata reporting remains deferred.
 *Avoid*: partial implementation, inferred slot from arbitrary basename, metadata transport
 
 **Herdr capability boundary**:
