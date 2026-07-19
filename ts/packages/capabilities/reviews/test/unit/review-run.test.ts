@@ -111,7 +111,10 @@ describe("runReview", () => {
 			count: 1,
 		});
 		expect(outcome.progress.modelProfile).toBe("deep");
-		expect(reviewRunner.calls()[0]?.request.model).toBe("anthropic/claude-opus-4-6");
+		expect(reviewRunner.calls()[0]?.request.modelSelection).toEqual({
+			provider: "anthropic",
+			modelId: "claude-opus-4-6",
+		});
 		expect(reviewRunner.calls()[0]?.request.reviewDir).toBe("/repo/.ns/reviews/typescript-style");
 		expect(localDiff.requestedExcludeGlobs()).toEqual([["generated/**"]]);
 		expect(reviewLog.writtenEntries()).toHaveLength(1);
@@ -145,7 +148,10 @@ describe("runReview", () => {
 		if (outcome.type !== "completed") return;
 		expect(outcome.progress.modelProfile).toBe("architecture");
 		expect(outcome.progress.model).toBe("anthropic/claude-opus-4-6");
-		expect(reviewRunner.calls()[0]?.request.model).toBe("anthropic/claude-opus-4-6");
+		expect(reviewRunner.calls()[0]?.request.modelSelection).toEqual({
+			provider: "anthropic",
+			modelId: "claude-opus-4-6",
+		});
 	});
 
 	test("reports an actionable error for a missing profile alias", async () => {
@@ -193,7 +199,10 @@ describe("runReview", () => {
 		if (outcome.type !== "completed") return;
 		expect(outcome.progress.model).toBe("openai/gpt-5.6-luna");
 		expect(outcome.result.model).toBe("openai/gpt-5.6-luna");
-		expect(reviewRunner.calls()[0]?.request.model).toBe("openai/gpt-5.6-luna");
+		expect(reviewRunner.calls()[0]?.request.modelSelection).toEqual({
+			provider: "openai",
+			modelId: "gpt-5.6-luna",
+		});
 		expect(reviewLog.writtenEntries()[0]?.content).toContain("openai/gpt-5.6-luna");
 	});
 
