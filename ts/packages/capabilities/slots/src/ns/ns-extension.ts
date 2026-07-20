@@ -6,7 +6,7 @@ import {
 } from "@nseng-ai/sdk";
 
 function slotCommandEntry(commandName: string): ExtensionEntry {
-	return { name: commandName, load: () => loadSlotCommand(commandName) };
+	return { kind: "raw-command", name: commandName, load: () => loadSlotCommand(commandName) };
 }
 
 async function loadSlotCommand(commandName: string): Promise<{ readonly default: NsCommand }> {

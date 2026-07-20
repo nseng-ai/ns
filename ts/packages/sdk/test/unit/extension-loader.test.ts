@@ -2,15 +2,16 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test } from "vitest";
 
 import { validateDescriptorCommandContribution } from "../../src/extensions/command-registry.ts";
 import { loadNsExtensionContribution } from "../../src/extensions/loader.ts";
-import { parsedSpecForCommand } from "../../src/sdk/command.ts";
-import { z } from "@nseng-ai/sdk";
+import type { ExtensionCommandEntry } from "../../src/sdk/descriptor.ts";
 
 const tempDirs: string[] = [];
+const sdkCommandEntryPath = fileURLToPath(new URL("../../src/command/index.ts", import.meta.url));
 
 async function createModule(source: string): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "ns-extension-loader-"));
@@ -21,6 +22,13 @@ async function createModule(source: string): Promise<string> {
 	return modulePath;
 }
 
+function entry(kind: ExtensionCommandEntry["kind"], name: string): ExtensionCommandEntry {
+	if (kind === "ns-command") {
+		return { kind, name, load: () => ({ default: {} as never }) };
+	}
+	return { kind, name, load: () => ({ default: {} as never }) };
+}
+
 afterEach(() => {
 	for (const directory of tempDirs.splice(0)) {
 		rmSync(directory, { recursive: true, force: true });
@@ -28,37 +36,32 @@ afterEach(() => {
 });
 
 describe("extension loader", () => {
-	test("loads a TypeScript command entry with SDK identity", async () => {
+	test("loads and validates a flat ns command while preserving its declared kind", async () => {
 		const modulePath = await createModule(`
 import { ok, z } from "@nseng-ai/sdk";
-
-const schema = z.object({ loud: z.boolean().default(false) });
-export default {
+import { defineCommand } from ${JSON.stringify(sdkCommandEntryPath)};
+export default defineCommand({
 	name: "greet",
 	summary: "Say hello.",
-	description: "Say hello with details.",
-	schema,
-	run(_ctx, invocation) { return ok(invocation.argv.includes("--loud") ? "HELLO" : "hello"); },
-};
+	resultSchema: z.string(),
+	handler() { return ok("hello"); },
+});
 `);
-
 		const loaded = await loadNsExtensionContribution({ type: "file", path: modulePath });
 
-		expect(loaded.ok).toBe(true);
-		if (!loaded.ok) return;
+		if (!loaded.ok) throw new Error(loaded.diagnostic.message);
 		const validation = validateDescriptorCommandContribution(
 			loaded.defaultExport,
-			{ name: "greet" },
+			entry("ns-command", "greet"),
 			modulePath,
 		);
-		expect(validation.ok).toBe(true);
-		if (!validation.ok) return;
-		const command = validation.command;
-		expect(command.name).toBe("greet");
-		expect(parsedSpecForCommand(command)?.schema).toBeInstanceOf(z.ZodObject);
+		expect(validation).toMatchObject({
+			ok: true,
+			loaded: { kind: "ns-command", command: { name: "greet" } },
+		});
 	});
 
-	test("loads package-specifier references through host package resolution", async () => {
+	test("loads and validates a raw command while preserving its declared kind", async () => {
 		const loaded = await loadNsExtensionContribution({
 			type: "package",
 			specifier: "@nseng-ai/objectives/ns/commands/list",
@@ -66,51 +69,55 @@ export default {
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
-		const validation = validateDescriptorCommandContribution(
-			loaded.defaultExport,
-			{ name: "list" },
-			"@nseng-ai/objectives/ns/commands/list",
-		);
-		expect(validation.ok).toBe(true);
-		if (!validation.ok) return;
-		expect(validation.command.name).toBe("list");
+		expect(
+			validateDescriptorCommandContribution(
+				loaded.defaultExport,
+				entry("raw-command", "list"),
+				"@nseng-ai/objectives/ns/commands/list",
+			),
+		).toMatchObject({ ok: true, loaded: { kind: "raw-command", command: { name: "list" } } });
 	});
 
-	test("validates nested-path manifest entries against the loaded command leaf", async () => {
-		const modulePath = await createModule(`
-import { ok } from "@nseng-ai/sdk";
+	test.each([
+		[
+			"ns-command",
+			`import { ok } from "@nseng-ai/sdk"; export default { name: "probe", summary: "Probe.", description: "Probe.", run() { return ok("raw"); } };`,
+			"declared ns-command module",
+		],
+		[
+			"raw-command",
+			`import { ok, z } from "@nseng-ai/sdk"; import { defineCommand } from ${JSON.stringify(sdkCommandEntryPath)}; export default defineCommand({ name: "probe", summary: "Probe.", resultSchema: z.string(), handler() { return ok("ns"); } });`,
+			"declared raw-command module",
+		],
+	] as const)(
+		"rejects a %s entry whose runtime module has the wrong shape",
+		async (kind, source, message) => {
+			const modulePath = await createModule(source);
+			const loaded = await loadNsExtensionContribution({ type: "file", path: modulePath });
 
-export default {
-	name: "list",
-	summary: "List things.",
-	description: "List things with details.",
-	run() { return ok({}); },
-};
-`);
+			if (!loaded.ok) throw new Error(loaded.diagnostic.message);
+			expect(
+				validateDescriptorCommandContribution(
+					loaded.defaultExport,
+					entry(kind, "probe"),
+					modulePath,
+				),
+			).toMatchObject({ ok: false, message: expect.stringContaining(message) });
+		},
+	);
 
-		const loaded = await loadNsExtensionContribution({ type: "file", path: modulePath });
-
-		expect(loaded.ok).toBe(true);
-		if (!loaded.ok) return;
-		const validation = validateDescriptorCommandContribution(
-			loaded.defaultExport,
-			{ name: "list" },
-			modulePath,
-		);
-		expect(validation.ok).toBe(true);
-		if (!validation.ok) return;
-		expect(validation.command.name).toBe("list");
-	});
-
-	test("object-shaped commandless default export is left to selected command validation", async () => {
+	test("object-shaped commandless default export is rejected by selected-kind validation", async () => {
 		const modulePath = await createModule("export default { name: 'greet' };\n");
-
 		const loaded = await loadNsExtensionContribution({ type: "file", path: modulePath });
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
 		expect(
-			validateDescriptorCommandContribution(loaded.defaultExport, { name: "greet" }, modulePath),
+			validateDescriptorCommandContribution(
+				loaded.defaultExport,
+				entry("raw-command", "greet"),
+				modulePath,
+			),
 		).toMatchObject({
 			ok: false,
 			message: expect.stringContaining("command summary must be a string"),
@@ -119,7 +126,6 @@ export default {
 
 	test("import failures are structured errors", async () => {
 		const modulePath = await createModule("throw new Error('boom');\n");
-
 		const loaded = await loadNsExtensionContribution({ type: "file", path: modulePath });
 
 		expect(loaded).toMatchObject({

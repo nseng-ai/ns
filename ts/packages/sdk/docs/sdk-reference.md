@@ -7,7 +7,9 @@ Import the SDK's own surface from the package itself:
 
 ```ts
 import { defineExtension, failure, hiddenExecGroup, ok, usageError, z } from "@nseng-ai/sdk";
+import { defineCommand } from "@nseng-ai/sdk/command";
 import type { CommandExit, NsExtensionApi } from "@nseng-ai/sdk";
+import type { NsCommandBundle, NsCommandDefinition } from "@nseng-ai/sdk/command";
 ```
 
 Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export so extension modules use the same schema identity as the ns host.
@@ -33,7 +35,7 @@ Declares an ns extension. The default export of every ns extension module is a c
 function defineExtension<const TDescriptor extends ExtensionDescriptor>(extension: TDescriptor): TDescriptor;
 ```
 
-**Description.** At runtime `defineExtension()` returns its argument unchanged — it is an identity function. Its type-level job is to preserve the typed descriptor shape. Command implementation modules default-export `RawArgvCommand` objects directly.
+**Description.** At runtime `defineExtension()` returns its argument unchanged — it is an identity function. Its type-level job is to preserve the typed descriptor shape. Each command entry explicitly declares whether its module default-exports an `NsCommandDefinition` or a `RawArgvCommand`.
 
 **Parameters.**
 
@@ -54,7 +56,13 @@ import { defineExtension } from "@nseng-ai/sdk";
 export default defineExtension({
   group: "greet",
   description: "Greeting commands.",
-  entries: [{ name: "hello", load: () => import("./commands/hello.ts") }],
+  entries: [
+    {
+      kind: "ns-command",
+      name: "hello",
+      load: () => import("./commands/hello.ts"),
+    },
+  ],
 });
 ```
 
@@ -98,14 +106,32 @@ The descriptor carries no activation hook or filesystem behavior. Core lifecycle
 instruction rendering and consumer-directory creation; descriptor validation defines the author
 contract independently of that lifecycle consumption.
 
-### `ExtensionCommandEntry` / `ExtensionGroupEntry`
+### `ExtensionCommandEntry` / `NsCommandEntry` / `RawCommandEntry` / `ExtensionGroupEntry`
 
 ```ts
-interface ExtensionCommandEntry {
+interface NsCommandModule {
+  readonly default: NsCommandDefinition<unknown>;
+}
+
+interface RawCommandModule {
+  readonly default: RawArgvCommand;
+}
+
+interface NsCommandEntry {
+  readonly kind: "ns-command";
   readonly name: string;
   readonly requiresExtension?: string;
-  readonly load: RawArgvCommandLoad;
+  readonly load: () => Promise<NsCommandModule> | NsCommandModule;
 }
+
+interface RawCommandEntry {
+  readonly kind: "raw-command";
+  readonly name: string;
+  readonly requiresExtension?: string;
+  readonly load: () => Promise<RawCommandModule> | RawCommandModule;
+}
+
+type ExtensionCommandEntry = NsCommandEntry | RawCommandEntry;
 
 interface ExtensionGroupEntry {
   readonly group: string;
@@ -114,6 +140,10 @@ interface ExtensionGroupEntry {
   readonly entries: readonly ExtensionEntry[];
 }
 ```
+
+The descriptor discriminator owns command routing. Use `ns-command` for a flat SDK definition mounted by the ns host; use `raw-command` for a process-shaped command that owns raw argv behavior. The selected module must match its declared variant—runtime loading never inspects a brand or falls back to another route.
+
+`load` should retain a literal dynamic import (`() => import("./commands/name.ts")`) so bundlers can discover modules lexically. Computed paths and template-literal imports are not supported. A dependency-binding loader may import a factory with literal imports and return a module-shaped `{ default: factory(context) }` value.
 
 `requiresExtension` is an optional exact extension-package-name gate on an ns command entry. During
 extension discovery and catalog construction, the kernel compares it with the effective registry of
@@ -148,7 +178,11 @@ export default defineExtension({
   description: "Sample commands.",
   entries: [
     hiddenExecGroup("Agent-only sample operations.", [
-      { name: "inspect", load: () => import("./commands/inspect.ts") },
+      {
+        kind: "raw-command",
+        name: "inspect",
+        load: () => import("./commands/inspect.ts"),
+      },
     ]),
   ],
 });
@@ -158,9 +192,62 @@ export default defineExtension({
 
 ## Commands
 
+### `NsCommandDefinition` / `defineCommand()` (`@nseng-ai/sdk/command`)
+
+An `ns-command` module default-exports one flat `NsCommandDefinition`, normally created with `defineCommand()`. The definition carries its schema, result schema, rendering, completion, and handler metadata directly; there is no nested run adapter or runtime brand.
+
+```ts
+interface NsCommandDefinition<TResult, S extends CommandSchema = EmptyCommandSchema> {
+  readonly name: string;
+  readonly summary: string;
+  readonly description: string;
+  readonly schema?: S;
+  readonly resultSchema: z.ZodType<TResult>;
+  readonly positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
+  readonly options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
+  renderHuman?(data: TResult, caps: RenderCapabilities): string;
+  renderMarkdown?(data: TResult, caps: RenderCapabilities): string;
+  readonly completions?: NsCommandCompletionProvider;
+  handler(bundle: NsCommandBundle, request: z.output<S>): Promise<CommandExit<TResult>> | CommandExit<TResult>;
+}
+```
+
+`defineCommand()` preserves inference and defaults `description` to `summary`. If `schema` is omitted, the host registers `z.strictObject({})`; the handler receives an empty request and unknown input keys are rejected.
+
+```ts
+import { ok, z } from "@nseng-ai/sdk";
+import { defineCommand } from "@nseng-ai/sdk/command";
+
+export default defineCommand({
+  name: "greet",
+  summary: "Greet the project.",
+  resultSchema: z.string(),
+  handler: (_bundle, _request) => ok("hello"),
+});
+```
+
+The ns host adapts this definition to Clinkr's generic parsing and presentation mechanics after the descriptor has selected the `ns-command` route. Clinkr is not exposed as a command brand or used to classify loaded values.
+
+### `NsCommandBundle`
+
+The handler bundle is ns-owned invocation plumbing:
+
+```ts
+interface NsCommandBundle {
+  readonly cwd: string;
+  readonly events: CommandEventSink;
+  readonly interact: CommandInteraction;
+  readonly ns: NsContext;
+  readonly caps: RenderCapabilities;
+  readonly format?: ClinkrFormat;
+}
+```
+
+Commands obtain domain services through ordinary library composition and dependency injection; the bundle carries only host-owned invocation facts and conversation seams.
+
 ### `RawArgvCommand`
 
-`RawArgvCommand` is the one command object contract loaded by the SDK. `defineRawCommand()` constructs it directly. Commands have `name`, `summary`, `description`, `run(ctx, { argv })`, and an optional neutral `complete(ctx, request)` hook. `argv` is the post-route argument tail.
+A `raw-command` module default-exports a process-shaped `RawArgvCommand`. `defineRawCommand()` constructs it directly. Commands have `name`, `summary`, `description`, `run(ctx, { argv })`, and an optional neutral `complete(ctx, request)` hook. `argv` is the post-route argument tail.
 
 ```ts
 interface RawArgvCommand<T = unknown> {
@@ -172,28 +259,13 @@ interface RawArgvCommand<T = unknown> {
 }
 ```
 
-`defineCommand()` is the structured convenience adapter. It accepts a schema/handler spec, builds the Clinkr surface internally, and returns a neutral `RawArgvCommand`. The returned command's `run(ctx, { argv })` parses `argv`, handles `-h`/`--help`, `--json-schema`, and `--format human|json|markdown`, invokes the typed handler with `z.output<S>`, and returns standard command exits. `--format json` is always the standard ns machine envelope; `--json-schema` publishes the schema-backed input/output document.
+A raw command owns argument parsing, help and completion behavior, rendering, and process-style output. The ns host preserves the raw/legacy parsed compatibility route, but the descriptor selects it before module loading.
 
-**Example.** Use `defineCommand()` so `request` is inferred from `schema` while the exported command remains neutral:
-
-```ts
-import { defineCommand, ok, z } from "@nseng-ai/sdk";
-
-export default defineCommand({
-  name: "greet",
-  summary: "Greet someone.",
-  description: "Greet someone with a configurable name.",
-  schema: z.object({ name: z.string().default("world") }),
-  resultSchema: z.string(),
-  handler: (ctx, request) => ok(`hello ${request.name}`),
-});
-```
-
-### `NsCommandCompletionProvider`
+### `NsCommandCompletionProvider` (`@nseng-ai/sdk/command`)
 
 ```ts
 type NsCommandCompletionProvider = (
-  ctx: NsExtensionApi,
+  bundle: NsCommandCompletionBundle,
   request: ClinkrDynamicCompletionRequest,
 ) =>
   | Promise<ClinkrCompletionResult | readonly ClinkrCompletionCandidate[]>
@@ -201,39 +273,9 @@ type NsCommandCompletionProvider = (
   | readonly ClinkrCompletionCandidate[];
 ```
 
-Provides dynamic completion candidates for the selected command without invoking `run`. Use it for cheap, read-only lookups such as branch names. Return either a candidate array or `{ candidates }`; candidate values are newline-rendered by the shell resolver, while descriptions are currently ignored by the newline renderer.
+Provides dynamic completion candidates for a selected `ns-command` without invoking its handler. The completion bundle contains `cwd` and `ns`; domain lookups should be dependency-bound when the definition is constructed. Put the provider directly in the flat definition's `completions` field.
 
-**Boundaries.**
-
-- The provider runs only on the async completion path for the selected command; it is never invoked for unrelated commands and does not eager-load other extensions.
-- Provider candidates are appended to the static command/option/enum candidates and deduped; the provider augments rather than replaces static completion.
-- Keep it cheap and read-only: do not mutate state, prompt, or perform expensive work. It runs on every completion keystroke for the selected command.
-- Provider failures are captured by the command adapter: static candidates are still returned, resolver stdout stays candidate-only, and the resolver keeps exit code `0`.
-
-**Example.** Complete local branch names for a positional argument:
-
-```ts
-import { defineCommand, ok, z } from "@nseng-ai/sdk";
-
-export default defineCommand({
-  name: "checkout",
-  summary: "Check out a branch.",
-  description: "Check out an existing local branch.",
-  schema: z.object({ branch: z.string().optional() }),
-  resultSchema: z.string(),
-  positionals: { branch: { position: 0 } },
-  async completionProvider(ctx) {
-    const result = await ctx.exec("git", ["branch", "--format=%(refname:short)"]);
-    if (result.type !== "exited" || result.code !== 0 || result.signal !== null) return [];
-    return result.stdout
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0)
-      .map((value) => ({ value, type: "positional-value" }));
-  },
-  handler: (ctx, request) => ok(request.branch ?? "(current)"),
-});
-```
+The provider runs only for the selected command, augments static candidates, and should remain cheap, read-only, and failure-tolerant.
 
 The user-facing setup, resolver behavior, supported shells, and limitations for ns shell completion are documented in [`../README.md`](../README.md) under "Shell completion".
 

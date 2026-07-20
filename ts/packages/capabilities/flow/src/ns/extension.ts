@@ -27,6 +27,7 @@ export const flowExtensionDescriptor = defineExtension({
 	],
 	entries: [
 		{
+			kind: "ns-command",
 			name: "changes",
 			load: async () => ({
 				default: (await import("./commands/changes/command.ts")).createFlowChangesCommand(
@@ -35,6 +36,7 @@ export const flowExtensionDescriptor = defineExtension({
 			}),
 		},
 		{
+			kind: "ns-command",
 			name: "cp",
 			load: async () => ({
 				default: (await import("./commands/cp/command.ts")).createFlowCpCommand(
@@ -43,48 +45,57 @@ export const flowExtensionDescriptor = defineExtension({
 			}),
 		},
 		{
+			kind: "raw-command",
 			name: "autobranch",
 			load: async () => ({
 				default: (await import("./commands/autobranch.ts")).flowAutobranchCommand,
 			}),
 		},
 		{
+			kind: "raw-command",
 			name: "branch-latest-commit",
 			load: async () => ({
 				default: (await import("./commands/branch-latest-commit.ts")).flowBranchLatestCommitCommand,
 			}),
 		},
 		{
+			kind: "raw-command",
 			name: "autoslot",
 			load: async () => ({
 				default: (await import("./commands/autoslot.ts")).flowAutoslotCommand,
 			}),
 		},
 		{
+			kind: "raw-command",
 			name: "submit",
 			load: async () => ({ default: (await import("./commands/submit.ts")).flowSubmitCommand }),
 		},
 		{
+			kind: "raw-command",
 			name: "regenerate-pr",
 			load: async () => ({
 				default: (await import("./commands/regenerate-pr.ts")).flowRegeneratePrCommand,
 			}),
 		},
 		{
+			kind: "raw-command",
 			name: "push",
 			load: async () => ({ default: (await import("./commands/push.ts")).flowPushCommand }),
 		},
 		{
+			kind: "raw-command",
 			name: "land",
 			load: async () => ({ default: (await import("./commands/land.ts")).flowLandCommand }),
 		},
 		{
+			kind: "raw-command",
 			name: "pull-trunk",
 			load: async () => ({
 				default: (await import("./commands/pull-trunk.ts")).flowPullTrunkCommand,
 			}),
 		},
 		{
+			kind: "raw-command",
 			name: "squash-stack",
 			load: async () => ({
 				default: (await import("./commands/squash-stack.ts")).flowSquashStackCommand,
@@ -92,6 +103,7 @@ export const flowExtensionDescriptor = defineExtension({
 		},
 		hiddenExecGroup("Agent-only flow operations.", [
 			{
+				kind: "raw-command",
 				name: "read-graphite-branch-metadata",
 				load: async () => ({
 					default: (await import("./commands/exec-read-graphite-branch-metadata.ts"))

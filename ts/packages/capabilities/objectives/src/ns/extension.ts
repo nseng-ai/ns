@@ -26,14 +26,17 @@ export default defineExtension({
 	bundledArtifacts: objectiveBundledArtifacts,
 	entries: [
 		{
+			kind: "raw-command",
 			name: "list",
 			load: async () => ({ default: (await import("./commands/list.ts")).objectiveListNsCommand }),
 		},
 		{
+			kind: "raw-command",
 			name: "show",
 			load: async () => ({ default: (await import("./commands/show.ts")).objectiveShowNsCommand }),
 		},
 		{
+			kind: "raw-command",
 			name: "check",
 			load: async () => ({
 				default: (await import("./commands/check.ts")).objectiveCheckNsCommand,
@@ -41,6 +44,7 @@ export default defineExtension({
 		},
 		hiddenExecGroup("Agent-only Objective operations.", [
 			{
+				kind: "raw-command",
 				name: "list-candidates",
 				load: async () => ({
 					default: (await import("./commands/exec-list-candidates.ts"))
@@ -48,6 +52,7 @@ export default defineExtension({
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "load-orientations",
 				load: async () => ({
 					default: (await import("./commands/exec-load-orientations.ts"))
@@ -55,6 +60,7 @@ export default defineExtension({
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "read-objective",
 				load: async () => ({
 					default: (await import("./commands/exec-read-objective.ts"))
@@ -62,6 +68,7 @@ export default defineExtension({
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "publication-bind",
 				load: async () => ({
 					default: (await import("./commands/exec-publication-bind.ts"))
@@ -69,6 +76,7 @@ export default defineExtension({
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "publication-publish",
 				load: async () => ({
 					default: (await import("./commands/exec-publication-publish.ts"))
@@ -76,6 +84,7 @@ export default defineExtension({
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "runner-begin",
 				load: async () => ({
 					default: (await import("./commands/exec-runner-begin.ts"))
@@ -83,6 +92,7 @@ export default defineExtension({
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "runner-finish",
 				load: async () => ({
 					default: (await import("./commands/exec-runner-finish.ts"))
@@ -90,6 +100,7 @@ export default defineExtension({
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "runner-subagent-usage",
 				load: async () => ({
 					default: (await import("./commands/exec-runner-subagent-usage.ts"))
@@ -97,6 +108,7 @@ export default defineExtension({
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "tracking-gate",
 				load: async () => ({
 					default: (await import("./commands/exec-tracking-gate.ts"))

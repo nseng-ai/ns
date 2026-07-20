@@ -5,11 +5,12 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { createRealFlowCommandContext } from "@nseng-ai/flow/ns-context";
+import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
 import { createFlowChangesCommand } from "@nseng-ai/flow/commands/changes";
 import { createFlowCpCommand } from "@nseng-ai/flow/commands/cp";
-import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
+import { createRealFlowCommandContext } from "@nseng-ai/flow/ns-context";
 
+import { loadSelectedNsCommand } from "../../src/extensions/registry.ts";
 import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
 import {
 	formattedExecCalls,
@@ -307,15 +308,23 @@ function runWithRealFlowExtension(options: {
 			args: options.args,
 			cwd: options.cwd,
 			...(options.state === undefined ? {} : { state: options.state }),
-			createBindSelectedCommand: (context) => (command) => {
-				const flowContext = createRealFlowCommandContext({
-					textGenerator: context.textGenerator,
-					commandRunner: createNsCommandRunner(context),
-				});
-				if (command.name === "cp") return createFlowCpCommand(flowContext);
-				if (command.name === "changes") return createFlowChangesCommand(flowContext);
-				return command;
-			},
+			createExtensionRegistry: (context) => ({
+				loadSelectedCommand: async (candidate) => {
+					const loaded = await loadSelectedNsCommand(candidate);
+					if (!loaded.ok || loaded.loaded.kind === "raw-command") return loaded;
+					const flowContext = createRealFlowCommandContext({
+						textGenerator: context.textGenerator,
+						commandRunner: createNsCommandRunner(context),
+					});
+					const command =
+						loaded.loaded.command.name === "cp"
+							? createFlowCpCommand(flowContext)
+							: loaded.loaded.command.name === "changes"
+								? createFlowChangesCommand(flowContext)
+								: loaded.loaded.command;
+					return { ...loaded, loaded: { kind: "ns-command", command } };
+				},
+			}),
 		},
 		{
 			execResponses: () => [],

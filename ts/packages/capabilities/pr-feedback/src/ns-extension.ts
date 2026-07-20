@@ -6,6 +6,7 @@ export default defineExtension({
 	entries: [
 		hiddenExecGroup("Agent-only GitHub pull request feedback operations.", [
 			{
+				kind: "raw-command",
 				name: "download-feedback",
 				load: async () => ({
 					default: (await import("./ns-command.ts")).prAddressOperationNsCommand(
@@ -14,6 +15,7 @@ export default defineExtension({
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "map-branch-prs",
 				load: async () => ({
 					default: (await import("./ns-command.ts")).prAddressOperationNsCommand(
@@ -22,6 +24,7 @@ export default defineExtension({
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "branch-pr-checks",
 				load: async () => ({
 					default: (await import("./ns-command.ts")).prAddressOperationNsCommand(
@@ -30,6 +33,7 @@ export default defineExtension({
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "wait-for-checks",
 				load: async () => ({
 					default: (await import("./ns-command.ts")).prAddressOperationNsCommand(
@@ -37,28 +41,53 @@ export default defineExtension({
 					),
 				}),
 			},
-			{ name: "pr-details", load: () => loadPrimitiveOperationCommand("pr-details") },
-			{ name: "branch-pr", load: () => loadPrimitiveOperationCommand("branch-pr") },
-			{ name: "open-prs", load: () => loadPrimitiveOperationCommand("open-prs") },
-			{ name: "pr-reviews", load: () => loadPrimitiveOperationCommand("pr-reviews") },
 			{
+				kind: "raw-command",
+				name: "pr-details",
+				load: () => loadPrimitiveOperationCommand("pr-details"),
+			},
+			{
+				kind: "raw-command",
+				name: "branch-pr",
+				load: () => loadPrimitiveOperationCommand("branch-pr"),
+			},
+			{
+				kind: "raw-command",
+				name: "open-prs",
+				load: () => loadPrimitiveOperationCommand("open-prs"),
+			},
+			{
+				kind: "raw-command",
+				name: "pr-reviews",
+				load: () => loadPrimitiveOperationCommand("pr-reviews"),
+			},
+			{
+				kind: "raw-command",
 				name: "pr-review-threads",
 				load: () => loadPrimitiveOperationCommand("pr-review-threads"),
 			},
 			{
+				kind: "raw-command",
 				name: "pr-discussion-comments",
 				load: () => loadPrimitiveOperationCommand("pr-discussion-comments"),
 			},
-			{ name: "pr-checks", load: () => loadPrimitiveOperationCommand("pr-checks") },
 			{
+				kind: "raw-command",
+				name: "pr-checks",
+				load: () => loadPrimitiveOperationCommand("pr-checks"),
+			},
+			{
+				kind: "raw-command",
 				name: "reply-review-thread",
 				load: () => loadPrimitiveOperationCommand("reply-review-thread"),
 			},
 			{
+				kind: "raw-command",
 				name: "resolve-review-thread",
 				load: () => loadPrimitiveOperationCommand("resolve-review-thread"),
 			},
 			{
+				kind: "raw-command",
 				name: "close-review-threads",
 				load: () => loadPrimitiveOperationCommand("close-review-threads"),
 			},

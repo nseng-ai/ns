@@ -12,7 +12,7 @@
 		"./context": "./src/cli/context.ts",
 		"./extensions/acquisition": "./src/extensions/acquisition.ts",
 		"./extensions/declared-descriptors": "./src/extensions/declared-descriptors.ts",
-		"./progress-phase-state": "./src/sdk/progress-phase-state.ts",
+		"./progress-phase-state": "./src/command/progress-phase-state.ts",
 		"./project-config": "./src/project-config/index.ts",
 		"./project-config/points": "./src/project-config/points.ts",
 		"./runtime/module-loader": "./src/runtime/module-loader.ts",

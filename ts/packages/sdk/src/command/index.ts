@@ -1,30 +1,22 @@
 export { createCatalogView, type CatalogView, type NsContext } from "./catalog.ts";
 export {
 	defineCommand,
-	isComposableCommand,
-	type CommandDefinition,
-	type DefineCommandOptions,
-	type DefinedCommand,
-} from "./command.ts";
-export {
-	nsClinkrCommand,
-	nsClinkrCommandOptionsForRun,
-	isNsClinkrCommandRun,
 	createUnavailableInteraction,
-	type NsClinkrCompletionBundle,
-	type NsClinkrCommandBundle,
-	type NsClinkrCommandRun,
-	type NsClinkrCommandOptions,
-	type NsClinkrCompletionProvider,
+	type NsCommandDefinition,
+	type DefineCommandOptions,
+	type NsCommandCompletionBundle,
+	type NsCommandBundle,
+	type NsCommandCompletionProvider,
 	type CommandEventSink,
 	type CommandInteraction,
 	type CommandSchema,
+	type EmptyCommandSchema,
 	type ConfirmRequest,
 	type ConfirmResult,
 	type SelectChoice,
 	type SelectRequest,
 	type SelectResult,
-} from "./ns-clinkr-command.ts";
+} from "./command.ts";
 export {
 	createCommandProgressPhaseRenderer,
 	type CommandProgressPhaseRenderer,

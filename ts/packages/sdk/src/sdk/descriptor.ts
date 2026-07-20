@@ -2,6 +2,8 @@ import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { NsCommandDefinition } from "../command/command.ts";
+import type { RawArgvCommand } from "./command.ts";
 
 export interface DescriptorCommand {
 	readonly name: string;
@@ -11,26 +13,33 @@ export interface DescriptorCommand {
 	readonly complete?: ExplicitUndefined<"public-api-compatibility", CallableFunction>;
 }
 
-export interface RawArgvCommandModule<TCommand extends DescriptorCommand = DescriptorCommand> {
-	readonly default: TCommand;
+export interface NsCommandModule {
+	readonly default: NsCommandDefinition<unknown>;
 }
 
-export type RawArgvCommandLoad<TCommand extends DescriptorCommand = DescriptorCommand> = () =>
-	| Promise<RawArgvCommandModule<TCommand>>
-	| RawArgvCommandModule<TCommand>;
+export interface RawCommandModule {
+	readonly default: RawArgvCommand;
+}
 
-export interface ExtensionCommandEntry<TCommand extends DescriptorCommand = DescriptorCommand> {
+interface ExtensionCommandEntryBase {
 	readonly name: string;
 	/** Omit this command when the named extension package is absent from the effective registry. */
 	readonly requiresExtension?: string;
-	/**
-	 * Lazy command-module thunk. Keep this as a literal dynamic import, for example
-	 * `() => import("./commands/list.ts")`: bundlers discover `import("literal")`
-	 * lexically while parsing, even inside callbacks. Computed specifiers such as
-	 * `import(commandPath)` are opaque to bundlers and break bundled descriptors.
-	 */
-	readonly load: RawArgvCommandLoad<TCommand>;
 }
+
+export interface NsCommandEntry extends ExtensionCommandEntryBase {
+	readonly kind: "ns-command";
+	/** Keep lazy imports literal so bundlers can discover command modules lexically. */
+	readonly load: () => Promise<NsCommandModule> | NsCommandModule;
+}
+
+export interface RawCommandEntry extends ExtensionCommandEntryBase {
+	readonly kind: "raw-command";
+	/** Keep lazy imports literal so bundlers can discover command modules lexically. */
+	readonly load: () => Promise<RawCommandModule> | RawCommandModule;
+}
+
+export type ExtensionCommandEntry = NsCommandEntry | RawCommandEntry;
 
 export interface ExtensionGroupEntry {
 	readonly group: string;
@@ -102,18 +111,36 @@ export type LoadedCommandNameValidationResult =
 	| { readonly ok: false; readonly message: string };
 
 const commandEntrySchema: z.ZodType<ExtensionCommandEntry> = z
-	.strictObject({
-		name: z.string().min(1),
-		requiresExtension: z.string().min(1).optional(),
-		load: z.custom<RawArgvCommandLoad>((value) => typeof value === "function"),
-	})
-	.transform(
-		(entry): ExtensionCommandEntry => ({
+	.discriminatedUnion("kind", [
+		z.strictObject({
+			kind: z.literal("ns-command"),
+			name: z.string().min(1),
+			requiresExtension: z.string().min(1).optional(),
+			load: z.custom<NsCommandEntry["load"]>((value) => typeof value === "function"),
+		}),
+		z.strictObject({
+			kind: z.literal("raw-command"),
+			name: z.string().min(1),
+			requiresExtension: z.string().min(1).optional(),
+			load: z.custom<RawCommandEntry["load"]>((value) => typeof value === "function"),
+		}),
+	])
+	.transform((entry): ExtensionCommandEntry => {
+		if (entry.kind === "ns-command") {
+			return {
+				kind: entry.kind,
+				name: entry.name,
+				...optionalEntries({ requiresExtension: entry.requiresExtension }),
+				load: entry.load,
+			};
+		}
+		return {
+			kind: entry.kind,
 			name: entry.name,
 			...optionalEntries({ requiresExtension: entry.requiresExtension }),
 			load: entry.load,
-		}),
-	);
+		};
+	});
 
 const groupEntrySchema: z.ZodType<ExtensionGroupEntry> = z.lazy(() =>
 	z
@@ -292,7 +319,13 @@ function mostSpecificDescriptorIssue(
 	const nestedIssues = issue.errors
 		.flat()
 		.map((nestedIssue) => mostSpecificDescriptorIssue(nestedIssue, path));
-	return nestedIssues.reduce((mostSpecific, candidate) =>
-		candidate.path.length > mostSpecific.path.length ? candidate : mostSpecific,
-	);
+	const firstIssue = nestedIssues[0];
+	if (firstIssue === undefined) return { path, message: issue.message };
+	return nestedIssues
+		.slice(1)
+		.reduce(
+			(mostSpecific, candidate) =>
+				candidate.path.length > mostSpecific.path.length ? candidate : mostSpecific,
+			firstIssue,
+		);
 }

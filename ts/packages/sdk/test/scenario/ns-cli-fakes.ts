@@ -4,14 +4,6 @@ import { join } from "node:path";
 
 import { afterEach } from "vitest";
 
-import {
-	createRealFirstPartyCommandContext,
-	createNsGitGateway,
-	materializeFirstPartyCommand,
-	type FirstPartyCommandContext,
-} from "@nseng-ai/capability-kit";
-import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
-import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import { resolveHomeDir } from "@nseng-ai/foundation/primitives";
 import { runCli, type NsCliBaseContext, type NsCliDeps } from "@nseng-ai/sdk/cli";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
@@ -61,11 +53,9 @@ export interface RunWithFakesOptions {
 	renderCapabilities?: RenderCapabilities;
 	onProgress?: NsCliDeps["onProgress"];
 	extensionRegistry?: NsCliDeps["extensionRegistry"];
-	bindSelectedCommand?: NsCliDeps["bindSelectedCommand"];
-	createBindSelectedCommand?: (
+	createExtensionRegistry?: (
 		context: ScriptedNsTestContext,
-	) => NonNullable<NsCliDeps["bindSelectedCommand"]>;
-	firstPartyCommandContext?: FirstPartyCommandContext;
+	) => NonNullable<NsCliDeps["extensionRegistry"]>;
 }
 
 export interface RunWithFakesDefaults {
@@ -164,15 +154,6 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 			? {}
 			: { missingTextGenerationResult: defaults.missingTextGenerationResult }),
 	});
-	const firstPartyCommandContext =
-		options.firstPartyCommandContext ??
-		createRealFirstPartyCommandContext({
-			env: context.env,
-			textGenerator: context.textGenerator,
-			commandRunner: createNsCommandRunner(context),
-			git: createNsGitGateway(context),
-			graphiteBranch: new RealGraphiteBranchGateway(context),
-		});
 	return {
 		context,
 		stdout,
@@ -197,13 +178,11 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 				: { renderCapabilities: options.renderCapabilities }),
 			...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 			...(options.state?.confirm === undefined ? {} : { confirm: options.state.confirm }),
-			...(options.extensionRegistry === undefined
-				? {}
-				: { extensionRegistry: options.extensionRegistry }),
-			bindSelectedCommand:
-				options.bindSelectedCommand ??
-				options.createBindSelectedCommand?.(context) ??
-				((command) => materializeFirstPartyCommand(command, firstPartyCommandContext)),
+			...(() => {
+				const extensionRegistry =
+					options.extensionRegistry ?? options.createExtensionRegistry?.(context);
+				return extensionRegistry === undefined ? {} : { extensionRegistry };
+			})(),
 		}),
 	};
 }

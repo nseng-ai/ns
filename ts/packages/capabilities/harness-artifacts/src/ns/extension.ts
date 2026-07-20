@@ -8,14 +8,17 @@ export default defineExtension({
 			description: "List and provision ns-owned skills into assistant harnesses.",
 			entries: [
 				{
+					kind: "raw-command",
 					name: "list",
 					load: async () => ({ default: (await import("./commands/list.ts")).skillsListNsCommand }),
 				},
 				{
+					kind: "raw-command",
 					name: "path",
 					load: async () => ({ default: (await import("./commands/path.ts")).skillsPathNsCommand }),
 				},
 				{
+					kind: "raw-command",
 					name: "install",
 					load: async () => ({
 						default: (await import("./commands/install.ts")).skillsInstallNsCommand,
@@ -24,6 +27,7 @@ export default defineExtension({
 			],
 		},
 		{
+			kind: "raw-command",
 			name: "update",
 			load: async () => ({ default: (await import("./commands/update.ts")).nsUpdateCommand }),
 		},

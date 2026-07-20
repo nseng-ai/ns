@@ -12,6 +12,7 @@ import {
 	listBuiltInNsCommandCandidates,
 	validateDescriptorCommandContribution,
 	type BuiltInNsCommandCandidate,
+	type LoadedExtensionCommand,
 	type NsCommandCandidate,
 	type NsCommandCliInfo,
 	type NsCommandPath,
@@ -66,6 +67,7 @@ interface LoadedCatalogFragment {
 export type ExtensionCommandCandidate = BuiltInNsCommandCandidate | ExternalNsCommandCandidate;
 
 export interface ExternalNsCommandCandidate extends NsCommandCandidate {
+	kind: ExtensionCommandEntry["kind"];
 	moduleReference: NsCommandModuleReference;
 	entryPath?: string;
 	hasStaticCommandInfo: boolean;
@@ -96,7 +98,7 @@ export interface ExtensionOverrideDiagnostic {
 export type SelectedNsCommandLoadResult =
 	| {
 			ok: true;
-			command: DescriptorCommand;
+			loaded: LoadedExtensionCommand;
 			source: ExtensionSourceInfo;
 			path: NsCommandPath & Pick<NsCommandCliInfo, "helpGroup">;
 	  }
@@ -112,6 +114,7 @@ export type PreinstalledNsCommandCatalogEntry =
 	| PreinstalledNsCommandLoadedCatalogEntry;
 
 export interface PreinstalledNsCommandCatalogEntryBase {
+	readonly kind: ExtensionCommandEntry["kind"];
 	readonly group?: string;
 	readonly groupDescription?: string;
 	readonly helpGroup?: string;
@@ -231,7 +234,12 @@ export async function loadSelectedNsCommand(
 	candidate: ExtensionCommandCandidate,
 ): Promise<SelectedNsCommandLoadResult> {
 	if (isBuiltInCandidate(candidate)) {
-		return { ok: true, command: candidate.command, source: candidate.source, path: candidate };
+		return {
+			ok: true,
+			loaded: { kind: "raw-command", command: candidate.command },
+			source: candidate.source,
+			path: candidate,
+		};
 	}
 
 	const loaded = await loadNsExtensionContribution(candidate.moduleReference);
@@ -245,9 +253,21 @@ export async function loadSelectedNsCommand(
 			),
 		};
 	}
+	const descriptorEntry = candidate.descriptorEntry;
+	if (descriptorEntry === undefined) {
+		return {
+			ok: false,
+			diagnostic: {
+				severity: "error",
+				code: "extension_command_invalid",
+				message: `Missing descriptor entry for ${commandLeafName(candidate)}.`,
+				commandName: commandKey(candidate),
+			},
+		};
+	}
 	const validation = validateDescriptorCommandContribution(
 		loaded.defaultExport,
-		candidate.descriptorEntry ?? { name: commandLeafName(candidate) },
+		descriptorEntry,
 		formatSource(candidate.source),
 	);
 	if (!validation.ok) {
@@ -263,7 +283,7 @@ export async function loadSelectedNsCommand(
 			},
 		};
 	}
-	return { ok: true, command: validation.command, source: candidate.source, path: candidate };
+	return { ok: true, loaded: validation.loaded, source: candidate.source, path: candidate };
 }
 
 export async function loadListingCommandInfos(
@@ -296,7 +316,11 @@ export async function loadListingCommandInfos(
 			continue;
 		}
 		loadedInfos.push({
-			commandInfo: commandInfoForLoadedCommand(loaded.command, loaded.source.level, loaded.path),
+			commandInfo: commandInfoForLoadedCommand(
+				loaded.loaded.command,
+				loaded.source.level,
+				loaded.path,
+			),
 			diagnostic: undefined,
 		});
 	}
@@ -322,7 +346,7 @@ export function commandInfosForSelectedCommand(
 	commandInfos: readonly NsCommandCliInfo[],
 	loaded:
 		| {
-				command: DescriptorCommand;
+				command: Pick<DescriptorCommand, "name" | "summary" | "description">;
 				source: ExtensionSourceInfo;
 				path: NsCommandPath & Pick<NsCommandCliInfo, "helpGroup">;
 		  }
@@ -494,6 +518,7 @@ function descriptorEntryCommandCandidates(options: {
 		return [
 			{
 				...commandInfoPath,
+				kind: commandEntry.kind,
 				description: `Load ns descriptor command ${segments.join(" ")}.`,
 				fullDescription: `Load ns descriptor command ${segments.join(" ")}.`,
 				moduleReference: loadedModuleReference(displayPath, async () => {
@@ -688,7 +713,9 @@ function preinstalledCandidateForCatalogEntry(
 	const displayPath = preinstalledCatalogEntryDisplayPath(entry);
 	return {
 		...preinstalledCatalogEntryCommandInfo(entry),
+		kind: entry.kind,
 		moduleReference: preinstalledCatalogEntryModuleReference(entry),
+		descriptorEntry: preinstalledDescriptorEntry(entry),
 		hasStaticCommandInfo: entry.hasStaticCommandInfo ?? true,
 		...optionalEntry("requiresExtension", entry.requiresExtension),
 		source: {
@@ -697,6 +724,17 @@ function preinstalledCandidateForCatalogEntry(
 			path: displayPath,
 		},
 	};
+}
+
+function preinstalledDescriptorEntry(
+	entry: PreinstalledNsCommandCatalogEntry,
+): ExtensionCommandEntry {
+	const unloaded = () => {
+		throw new Error("Preinstalled catalog entries load through their module reference.");
+	};
+	return entry.kind === "ns-command"
+		? { kind: entry.kind, name: entry.name, load: unloaded }
+		: { kind: entry.kind, name: entry.name, load: unloaded };
 }
 
 function preinstalledCatalogEntryModuleReference(

@@ -73,43 +73,35 @@ export default {
 		expect(run.stderr.join("")).toBe("");
 	});
 
-	test("selected composable completion imports and materializes only its command module", async () => {
+	test("selected ns completion imports only its command module", async () => {
 		const cwd = await createDescriptorExtensionProject(
 			"completion-probe",
 			`import { ok, z } from "@nseng-ai/sdk";
-import { nsClinkrCommand, defineCommand } from ${JSON.stringify(sdkCommandEntryPath)};
+import { defineCommand } from ${JSON.stringify(sdkCommandEntryPath)};
 export default defineCommand({
 	name: "completion-probe",
-	summary: "Composable completion probe.",
-	run: nsClinkrCommand({
-		schema: z.object({ value: z.string().optional() }),
-		resultSchema: z.string(),
-		positionals: { value: { position: 0 } },
-		completions(_bundle, request) {
-			const value = "selected-dependency";
-			return value.startsWith(request.current) ? [{ value, type: "positional-value" }] : [];
-		},
-		handler() { return ok("completion-probe"); },
-	}),
+	summary: "Ns completion probe.",
+	schema: z.object({ value: z.string().optional() }),
+	resultSchema: z.string(),
+	positionals: { value: { position: 0 } },
+	completions(_bundle, request) {
+		const value = "selected-dependency";
+		return value.startsWith(request.current) ? [{ value, type: "positional-value" }] : [];
+	},
+	handler() { return ok("completion-probe"); },
 });
 `,
 		);
 		writeDescriptorCommand(cwd, "unrelated", "throw new Error('unrelated import boom');\n");
 		writeDescriptorPackage(cwd, ["completion-probe", "unrelated"]);
-		const materializeLog: string[] = [];
 		const run = runWithFakes({
 			args: ["completion", "exec", "resolve", "--", "completion-probe", "selected"],
 			cwd,
-			bindSelectedCommand: (command) => {
-				materializeLog.push(command.name);
-				return command;
-			},
 		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.stderr.join("")).toBe("");
 		expect(run.stdout.join("")).toBe("selected-dependency\n");
-		expect(materializeLog).toEqual(["completion-probe"]);
 	});
 
 	test("selected dynamic completion provider runs through the real extension loader", async () => {
@@ -180,7 +172,7 @@ function writeDescriptorPackage(cwd: string, commandNames: readonly string[]): v
 	const entries = commandNames
 		.map(
 			(name) =>
-				`{ name: ${JSON.stringify(name)}, load: async () => await import("../commands/${name}.ts") }`,
+				`{ kind: ${JSON.stringify(name === "completion-probe" ? "ns-command" : "raw-command")}, name: ${JSON.stringify(name)}, load: async () => await import("../commands/${name}.ts") }`,
 		)
 		.join(",\n\t\t");
 	writeFileSyncWithParents(

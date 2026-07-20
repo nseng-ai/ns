@@ -3,7 +3,7 @@
 ## Work
 
 - [x] Steel-thread the composable API through `flow cp`
-  - `cp` is the first per-command-folder exemplar (`commands/cp/command.ts`) and runs through the ns CLI's brand-aware in-process route with a capability-kit-owned first-party context.
+  - `cp` is the first per-command-folder exemplar (`commands/cp/command.ts`) and runs through an explicit descriptor `ns-command` route as a flat dependency-bound definition.
   - `cp` now emits SDK phase events only; terminal rendering is composed at the SDK CLI host edge while live/Pi hosts receive the same semantic events without a duplicate terminal frame. This does not replace the planned `changes` / `pull-trunk` / `submit` gradient.
   - Evidence: SDK API/brand tests, Flow cp scenarios and core tests, real-loader integration, and bounded no-`ClinkrIo` / no-`NsExtensionApi` searches.
 
@@ -11,11 +11,11 @@
   - New code introduced by this Objective takes no `ClinkrIo` dependency; renderers touched along the way return strings/frames with a thin process-write edge. `StreamRenderTarget` stays as the narrow live-stream test seam.
   - Evidence: bounded searches recorded with the cp steel thread and renderer hoist show no `ClinkrIo` imports in the new command surface or migrated cp command; renderer behavior has direct unit coverage.
 
-- [x] Ship the composable command API in the SDK
-  - `defineCommand({ name, summary, run })` core with `NsContext = { catalog }`; public executable runs are raw or directly branded `nsClinkrCommand({ schema?, resultSchema, completions?, handler })` runs. The ns command bundle owns `{ cwd, caps, events, interact, format? }` conversation plumbing; no standalone hostable combinator or brand remains.
-  - `NsClinkrCommandOptions` is the single author-facing options type. Omitted input schemas default to `z.strictObject({})`, while catalog routing always recovers a concrete schema without overloads, `Omit` gymnastics, or a generic cast.
-  - Naming now makes ownership explicit: `nsClinkrCommand` adapts generic Clinkr mechanics to the ns SDK protocol rather than presenting SDK events, interactions, catalog context, and typed exits as generic Clinkr API. The briefly introduced `hostable` export remains removed; legacy name takeover remains deferred to the migration verdict.
-  - Evidence: SDK unit/type tests cover direct ns command metadata recovery, strict empty-schema defaulting, explicit unavailable interactions, and descriptor validation accepting branded ns Clinkr commands while rejecting arbitrary composable callables; no `ClinkrIo` imports.
+- [x] Ship the descriptor-owned ns command API in the SDK
+  - Descriptor entries form an explicit `kind: "ns-command" | "raw-command"` union. The route survives lazy loading, and malformed modules fail according to the declared kind rather than falling through to another execution strategy.
+  - `defineCommand({ name, summary, schema?, resultSchema, handler, ... })` returns one flat `NsCommandDefinition`; the ns command bundle owns `{ cwd, caps, events, interact, ns, format? }` conversation plumbing. There is no nested run adapter, runtime command brand, `DefinedCommand`, or executable “composable” variant.
+  - Omitted input schemas become `z.strictObject({})` at the single ns-command registration boundary. Clinkr remains generic mechanics used by the ns host, while legacy process-shaped commands stay behind the explicit `raw-command` route. Legacy name takeover remains deferred to the migration verdict.
+  - Evidence: SDK unit/type/scenario coverage exercises both descriptor variants, variant-specific load validation, flat definition inference, strict empty-schema defaulting, explicit unavailable interactions, and selected-only loading; no `ClinkrIo` imports.
 
 - [x] Hoist the default phase events→terminal renderer into the SDK
   - Built on `ProgressPhaseStateStore` + clinkr `StreamSink`; the SDK CLI host edge owns phase checklist frames and forwards semantic events instead when a live host is present.

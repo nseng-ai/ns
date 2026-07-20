@@ -338,7 +338,7 @@ function fakeCompletionRegistry(
 			}
 			return {
 				ok: true,
-				command: entry.command,
+				loaded: { kind: "raw-command", command: entry.command },
 				source: entry.candidate.source,
 				path: { ...commandPathFields(entry.candidate), name: entry.candidate.name },
 			};
@@ -363,6 +363,7 @@ function commandCandidate(
 	const candidatePath = { ...commandPathFields(path), name: command.name };
 	const key = commandKey(candidatePath);
 	return {
+		kind: "raw-command",
 		...candidatePath,
 		description: command.summary,
 		fullDescription: command.description,

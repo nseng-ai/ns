@@ -4,7 +4,7 @@ import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import type { TimeServices } from "@nseng-ai/foundation/time";
 import { failure, negative, ok, type NsProgressPhaseListener } from "@nseng-ai/sdk";
-import type { NsClinkrCommandBundle } from "@nseng-ai/sdk/command";
+import type { NsCommandBundle } from "@nseng-ai/sdk/command";
 
 import { formatPendingWorktreeError } from "../../../autobranch/pending-worktree-format.ts";
 import {
@@ -22,7 +22,7 @@ import { resolveFlowModelSelectionAt } from "../../model-policy.ts";
 
 export async function runCpCommand(
 	context: FlowCommandContext,
-	bundle: NsClinkrCommandBundle,
+	bundle: NsCommandBundle,
 	request: { dryRun: boolean },
 ) {
 	const runtime = createCheckpointRuntime({

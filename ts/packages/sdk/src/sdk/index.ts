@@ -49,7 +49,7 @@ export {
 	ok,
 	toMachineEnvelope,
 	usageError,
-} from "./result.ts";
+} from "../command/result.ts";
 export type {
 	BuildFailureMachineEnvelopeSchemaOptions,
 	CommandExit,
@@ -59,7 +59,7 @@ export type {
 	NegativeCommandExitOptions,
 	OkCommandExit,
 	UsageErrorCommandExit,
-} from "./result.ts";
+} from "../command/result.ts";
 export {
 	bundledArtifactDefinitionSchema,
 	extensionDescriptorSchema,
@@ -80,8 +80,10 @@ export type {
 	ExtensionEntry,
 	ExtensionGroupEntry,
 	ExtensionPointDefinition,
-	RawArgvCommandLoad,
-	RawArgvCommandModule,
+	NsCommandEntry,
+	NsCommandModule,
+	RawCommandEntry,
+	RawCommandModule,
 } from "./descriptor.ts";
 export {
 	centerMatrixProgressText,
@@ -95,7 +97,7 @@ export {
 	noopNsCommandIo,
 	noopNsProgress,
 	padMatrixProgressTextEnd,
-} from "./services.ts";
+} from "../command/services.ts";
 export type {
 	ActiveOperation,
 	NsCommandIo,
@@ -109,7 +111,7 @@ export type {
 	NsProgressPhaseEvent,
 	NsProgressPhaseInfo,
 	NsProgressPhaseListener,
-} from "./services.ts";
+} from "../command/services.ts";
 export { z } from "./schema.ts";
 export type {
 	TextGenerationRequest,

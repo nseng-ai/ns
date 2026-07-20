@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	defineCommand,
 	defineExtension,
 	defineRawCommand,
 	failure,
@@ -9,7 +8,6 @@ import {
 	ok,
 	validateExtensionDescriptor,
 	validateLoadedCommandName,
-	z,
 	type NsExtensionApi,
 } from "@nseng-ai/sdk";
 
@@ -41,12 +39,18 @@ describe("extension descriptor SDK", () => {
 			group: "objective",
 			description: "Objective operations.",
 			entries: [
-				{ name: "list", load: () => ({ default: listCommand }) },
+				{ kind: "raw-command", name: "list", load: () => ({ default: listCommand }) },
 				{
 					group: "exec",
 					hidden: true,
 					description: "Agent-only objective operations.",
-					entries: [{ name: "tracking-gate", load: () => ({ default: listCommand }) }],
+					entries: [
+						{
+							kind: "raw-command",
+							name: "tracking-gate",
+							load: () => ({ default: listCommand }),
+						},
+					],
 				},
 			],
 			points: [
@@ -175,13 +179,27 @@ describe("extension descriptor SDK", () => {
 		expect(
 			validateExtensionDescriptor({
 				description: "Optional commands.",
-				entries: [{ name: "optional", requiresExtension: "@example/provider", load }],
+				entries: [
+					{
+						kind: "raw-command",
+						name: "optional",
+						requiresExtension: "@example/provider",
+						load,
+					},
+				],
 			}),
 		).toEqual({
 			ok: true,
 			descriptor: {
 				description: "Optional commands.",
-				entries: [{ name: "optional", requiresExtension: "@example/provider", load }],
+				entries: [
+					{
+						kind: "raw-command",
+						name: "optional",
+						requiresExtension: "@example/provider",
+						load,
+					},
+				],
 			},
 		});
 	});
@@ -189,7 +207,7 @@ describe("extension descriptor SDK", () => {
 	test("rejects an empty command extension requirement at its descriptor path", () => {
 		const parsed = validateExtensionDescriptor({
 			description: "Bad requirement.",
-			entries: [{ name: "optional", requiresExtension: "", load: () => ({}) }],
+			entries: [{ kind: "raw-command", name: "optional", requiresExtension: "", load: () => ({}) }],
 		});
 
 		expect(parsed).toEqual({
@@ -203,6 +221,7 @@ describe("extension descriptor SDK", () => {
 			description: "Unknown command metadata.",
 			entries: [
 				{
+					kind: "raw-command",
 					name: "optional",
 					requiresExtension: "@example/provider",
 					unexpected: true,
@@ -217,17 +236,17 @@ describe("extension descriptor SDK", () => {
 		});
 	});
 
-	test("reports malformed descriptor fields with field paths", () => {
-		const parsed = validateExtensionDescriptor({
-			description: "Bad.",
-			entries: [{ name: "missing-load" }],
-		});
+	test.each([
+		[{ name: "missing-kind", load: () => ({}) }, "missing kind"],
+		[{ kind: "unknown", name: "unknown-kind", load: () => ({}) }, "unknown kind"],
+		[{ kind: "raw-command", name: "missing-load" }, "missing load"],
+	])("rejects malformed command entries: %s (%s)", (entry, _label) => {
+		const parsed = validateExtensionDescriptor({ description: "Bad.", entries: [entry] });
 
 		expect(parsed).toEqual({
 			ok: false,
 			message: expect.stringContaining("entries.0"),
 		});
-		expect(parsed.ok).toBe(false);
 	});
 
 	test("validates descriptor entry and loaded command name matches", () => {
@@ -255,23 +274,6 @@ describe("extension descriptor SDK", () => {
 		expect(await Promise.resolve(command.run(noopApi, { argv: ["--", "raw", "tail"] }))).toEqual({
 			type: "ok",
 			data: { argv: ["--", "raw", "tail"] },
-		});
-	});
-
-	test("defineCommand adapts a clinkr-style spec and consumes invocation argv", async () => {
-		const command = defineCommand({
-			name: "hello",
-			summary: "Say hello.",
-			description: "Say hello to someone.",
-			schema: z.object({ name: z.string() }),
-			positionals: { name: { position: 0 } },
-			resultSchema: z.object({ greeting: z.string() }),
-			handler: async (_ctx, request) => ok({ greeting: `hello ${request.name}` }),
-		});
-
-		await expect(command.run(noopApi, { argv: ["ns"] })).resolves.toEqual({
-			type: "ok",
-			data: { greeting: "hello ns" },
 		});
 	});
 

@@ -64,6 +64,7 @@ function descriptorEntryToPreinstalledCatalog(options: {
 		const segments = [...options.segments, commandEntry.name];
 		return [
 			{
+				kind: commandEntry.kind,
 				name: commandEntry.name,
 				...optionalEntry("requiresExtension", commandEntry.requiresExtension),
 				description: `Load ns descriptor command ${segments.join(" ")}.`,

@@ -3,8 +3,8 @@ import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 export type { ExecResult } from "@nseng-ai/foundation/exec";
 
+import type { NsCommandIo, NsProgress } from "../command/services.ts";
 import type { ClinkrFormat, RenderCapabilities } from "./command.ts";
-import type { NsCommandIo, NsProgress } from "./services.ts";
 import type { TextGenerator } from "./text-generation.ts";
 
 export interface NsExecOptions {

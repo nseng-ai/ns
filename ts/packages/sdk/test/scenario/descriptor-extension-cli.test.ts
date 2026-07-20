@@ -41,7 +41,7 @@ import { defineExtension } from "@nseng-ai/sdk";
 export default defineExtension({
 	group: "tools",
 	description: "Tool commands.",
-	entries: [{ name: "scan", load: () => import("../commands/scan.ts") }],
+	entries: [{ kind: "raw-command", name: "scan", load: () => import("../commands/scan.ts") }],
 });
 `,
 		);
@@ -86,7 +86,7 @@ import { defineExtension } from "@nseng-ai/sdk";
 export default defineExtension({
 	group: "tools",
 	description: "Tool commands.",
-	entries: [{ name: "list", load: () => import("../commands/list.ts") }],
+	entries: [{ kind: "raw-command", name: "list", load: () => import("../commands/list.ts") }],
 });
 `,
 		);
@@ -132,8 +132,8 @@ export default defineExtension({
 	group: "tools",
 	description: "Tool commands.",
 	entries: [
-		{ name: "list", load: () => import("../commands/list.ts") },
-		{ name: "ls", load: () => import("../commands/ls.ts") },
+		{ kind: "raw-command", name: "list", load: () => import("../commands/list.ts") },
+		{ kind: "raw-command", name: "ls", load: () => import("../commands/ls.ts") },
 	],
 });
 `,

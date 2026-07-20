@@ -1,9 +1,3 @@
-import {
-	createRealFirstPartyCommandContext,
-	materializeFirstPartyCommand,
-} from "@nseng-ai/capability-kit";
-import type { CommandRunner } from "@nseng-ai/foundation/exec";
-import { runCommand } from "@nseng-ai/foundation/exec";
 import harnessArtifactsExtension from "@nseng-ai/harness-artifacts/ns-extension";
 import {
 	preinstalledNsCommandCatalogFromRegistrations,
@@ -17,36 +11,23 @@ import nsInitExtension from "@nseng-ai/ns-init/ns-extension";
 
 import { PiTextGenerator } from "./pi-text-generation.ts";
 
-export interface RunNsCliDeps extends Omit<NsCliDeps, "context" | "bindSelectedCommand"> {
+export interface RunNsCliDeps extends Omit<NsCliDeps, "context"> {
 	context?: NsCliDeps["context"];
-	firstPartyCommandContext?: Parameters<typeof materializeFirstPartyCommand>[1];
 }
 
 export async function runNsCli(args: readonly string[], deps: RunNsCliDeps = {}): Promise<number> {
-	const { firstPartyCommandContext: injectedFirstPartyCommandContext, ...cliDeps } = deps;
 	const textGenerator = new PiTextGenerator();
 	const context =
-		cliDeps.context ??
+		deps.context ??
 		createRealNsCommandContext({
 			textGenerator,
-			...(cliDeps.cwd === undefined ? {} : { cwd: cliDeps.cwd }),
-			...(cliDeps.env === undefined ? {} : { env: cliDeps.env }),
-			...(cliDeps.homeDir === undefined ? {} : { homeDir: cliDeps.homeDir }),
-		});
-	const commandRunner: CommandRunner = async (command, commandArgs, options) =>
-		await runCommand(command, commandArgs, options);
-	const firstPartyCommandContext =
-		injectedFirstPartyCommandContext ??
-		createRealFirstPartyCommandContext({
-			env: cliDeps.env ?? context.env,
-			textGenerator,
-			commandRunner,
+			...(deps.cwd === undefined ? {} : { cwd: deps.cwd }),
+			...(deps.env === undefined ? {} : { env: deps.env }),
+			...(deps.homeDir === undefined ? {} : { homeDir: deps.homeDir }),
 		});
 	return await runCli(args, {
-		...cliDeps,
+		...deps,
 		context,
-		bindSelectedCommand: (command) =>
-			materializeFirstPartyCommand(command, firstPartyCommandContext),
 		entryMetaUrl: new URL("../cli.ts", import.meta.url).href,
 		preinstalledCommandCatalog: loadPreinstalledNsCommandCatalog,
 	});

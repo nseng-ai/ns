@@ -10,7 +10,7 @@ import {
 } from "@nseng-ai/clinkr";
 import { dim, glyph, renderBufferedReport } from "@nseng-ai/foundation/cli-theme";
 import { failure, ok } from "@nseng-ai/sdk";
-import type { NsClinkrCommandBundle } from "@nseng-ai/sdk/command";
+import type { NsCommandBundle } from "@nseng-ai/sdk/command";
 
 import { formatPendingWorktreeError } from "../../../autobranch/pending-worktree-format.ts";
 import { draftChangesSummary } from "../../../changes/changes-model-summary.ts";
@@ -61,10 +61,7 @@ const CHANGES_PHASES: readonly PhaseSpec[] = [
 	},
 ];
 
-export async function runChangesCommand(
-	context: FlowCommandContext,
-	bundle: NsClinkrCommandBundle,
-) {
+export async function runChangesCommand(context: FlowCommandContext, bundle: NsCommandBundle) {
 	bundle.events.emit({
 		type: "phases-declared",
 		title: "ns flow changes",

@@ -13,9 +13,9 @@ import type { PositionalSpec } from "@nseng-ai/clinkr/raw";
 import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
+import { failure, ok, usageError, type CommandExit } from "../command/result.ts";
 import type { ExtensionDescriptor } from "./descriptor.ts";
 import type { NsExtensionApi } from "./execution.ts";
-import { failure, ok, usageError, type CommandExit } from "./result.ts";
 
 export type {
 	ClinkrCompletionCandidate,

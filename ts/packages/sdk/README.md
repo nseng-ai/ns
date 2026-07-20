@@ -22,7 +22,13 @@ import { defineExtension } from "@nseng-ai/sdk";
 export default defineExtension({
 	group: "greet",
 	description: "Greeting commands.",
-	entries: [{ name: "hello", load: () => import("./commands/hello.ts") }],
+	entries: [
+		{
+			kind: "ns-command",
+			name: "hello",
+			load: () => import("./commands/hello.ts"),
+		},
+	],
 });
 ```
 
@@ -77,24 +83,31 @@ Limitations:
 
 ## Extension authoring API
 
-Start with the extension-author guide, [Writing an ns extension](./docs/writing-an-ns-extension.md). Descriptor modules default-export a descriptor object created with `defineExtension()` from `@nseng-ai/sdk`. Command modules default-export a command object, usually created with `defineCommand()`:
+Start with the extension-author guide, [Writing an ns extension](./docs/writing-an-ns-extension.md). Descriptor modules default-export a descriptor object created with `defineExtension()` from `@nseng-ai/sdk`. Every command entry declares its loading contract up front:
+
+- `kind: "ns-command"` loads a flat `NsCommandDefinition`, normally created with `defineCommand()` from `@nseng-ai/sdk/command`. The host supplies the ns bundle and mounts the schema, rendering, completion, and handler metadata into Clinkr.
+- `kind: "raw-command"` loads a process-shaped `RawArgvCommand`. Choose this for an existing CLI or command that owns raw argv parsing and process-style output behavior.
 
 ```ts
-import { defineCommand, ok, z } from "@nseng-ai/sdk";
+import { ok, z } from "@nseng-ai/sdk";
+import { defineCommand } from "@nseng-ai/sdk/command";
 
 export default defineCommand({
 	name: "hello",
 	summary: "Say hello.",
-	description: "Say hello with custom project policy.",
 	schema: z.object({ name: z.string().default("world") }),
 	resultSchema: z.string(),
-	handler(_ctx, request) {
+	handler(_bundle, request) {
 		return ok(`hello ${request.name}`);
 	},
 });
 ```
 
-`@nseng-ai/sdk` is both the public author API for extensions (imported from the package root) and the host that loads them; the loading machinery is implementation hidden in the SDK. The authoritative SDK export reference lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). Extension authors should import SDK vocabulary from `@nseng-ai/sdk` rather than SDK implementation modules or lower packages unless another package explicitly documents a public API for that dependency.
+The definition is flat: there is no nested run adapter and no runtime command brand. `description` defaults to `summary`. If `schema` is omitted, the ns host registers `z.strictObject({})`, so a no-input command accepts `{}` and rejects unknown inputs.
+
+Keep descriptor loaders as literal lazy imports, such as `load: () => import("./commands/hello.ts")`. Literal specifiers let bundlers discover modules lexically; computed or template-literal imports are not supported. For dependency-bound commands, the literal loader may import a factory and return `{ default: factory(dependencies) }`.
+
+`@nseng-ai/sdk` is both the public author API for extensions and the host that loads them. The ns command definition API is exported from `@nseng-ai/sdk/command`; the loading machinery remains implementation-hidden. Clinkr supplies generic parsing and presentation mechanics behind the host boundary—it is not an extension-visible command kind, callable brand, or routing predicate. The authoritative SDK export reference lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md).
 
 Descriptor modules are leaf authoring surfaces, not shared libraries. If reusable behavior proves out inside one descriptor or command module, move or copy the contract into an owning package and expose it deliberately through `@nseng-ai/sdk` or another documented package export.
 

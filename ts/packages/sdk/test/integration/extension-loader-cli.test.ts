@@ -284,7 +284,7 @@ async function createThrowingDescriptorProject(commandName: string): Promise<str
 	const directory = await mkdtemp(join(tmpdir(), "ns-extension-project-"));
 	tempDirs.push(directory);
 	writeDescriptorPackage(directory, [], {
-		entriesSource: `{ name: ${JSON.stringify(commandName)}, load: async () => { throw new Error("module boom"); } }`,
+		entriesSource: `{ kind: "raw-command", name: ${JSON.stringify(commandName)}, load: async () => { throw new Error("module boom"); } }`,
 	});
 	return directory;
 }
@@ -301,7 +301,7 @@ function writeDescriptorPackage(
 		commandNames
 			.map(
 				(name) =>
-					`{ name: ${JSON.stringify(name)}, load: async () => await import("../commands/${name}.ts") }`,
+					`{ kind: "raw-command", name: ${JSON.stringify(name)}, load: async () => await import("../commands/${name}.ts") }`,
 			)
 			.join(",\n\t\t");
 	writeFileSyncWithParents(

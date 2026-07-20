@@ -58,6 +58,7 @@ const descriptor = defineExtension({
 	description: "Hello extension.",
 	entries: [
 		{
+			kind: "raw-command",
 			name: "legacy",
 			requiresExtension: "@example/provider",
 			load: () => ({ default: rawCommand }),
@@ -66,7 +67,7 @@ const descriptor = defineExtension({
 			group: "exec",
 			hidden: true,
 			description: "Agent-only commands.",
-			entries: [{ name: "hello", load: () => ({ default: adaptedCommand }) }],
+			entries: [{ kind: "raw-command", name: "hello", load: () => ({ default: adaptedCommand }) }],
 		},
 	],
 	points: [{ id: "submit.pre", accepts: "hook", cardinality: "many" }],

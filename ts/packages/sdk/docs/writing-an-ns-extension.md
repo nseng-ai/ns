@@ -48,6 +48,7 @@ export default defineExtension({
 	description: "Example ns extension.",
 	entries: [
 		{
+			kind: "ns-command",
 			name: "world",
 			load: () => import("./commands/hello.ts"),
 		},
@@ -58,7 +59,8 @@ export default defineExtension({
 **src/commands/hello.ts** — the command implementation:
 
 ```ts
-import { defineCommand, ok, z } from "@nseng-ai/sdk";
+import { ok, z } from "@nseng-ai/sdk";
+import { defineCommand } from "@nseng-ai/sdk/command";
 
 export default defineCommand({
 	name: "world",
@@ -122,12 +124,16 @@ Descriptor fields:
 `entries` is one recursive array holding two kinds of entry — command entries and group entries.
 The same field name appears at the descriptor root and inside group entries.
 
-Command entries:
+Command entries are a strict discriminated union:
 
-| Field  | Required | Meaning                                                                                                                                 |
-| ------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `name` | yes      | Command name (`kebab-case`), exactly what the user types. Must match the loaded command's `name`; a mismatch is a load-time diagnostic. |
-| `load` | yes      | Lazy thunk `() => import("./commands/<file>.ts")` returning the command module. Nothing is imported until needed.                       |
+| Field               | Required | Meaning                                                                                                                                                                 |
+| ------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kind`              | yes      | `"ns-command"` for a flat `NsCommandDefinition`, or `"raw-command"` for a process-shaped `RawArgvCommand`. The descriptor owns routing; the host never infers the kind. |
+| `name`              | yes      | Command name (`kebab-case`), exactly what the user types. Must match the loaded command's `name`; a mismatch is a load-time diagnostic.                                 |
+| `requiresExtension` | no       | Omit this command when the named extension package is absent from the effective registry.                                                                               |
+| `load`              | yes      | Lazy thunk returning a module whose default export matches `kind`. Nothing is imported until needed.                                                                    |
+
+Choose `ns-command` for a command that wants ns-hosted schema parsing, typed requests/results, rendering, completion, semantic events, and interactions. Choose `raw-command` for an existing CLI or process-shaped program that owns its argv parsing and process behavior. A malformed module is rejected according to the declared kind; ns does not fall back to the other route.
 
 Group entries:
 
@@ -143,13 +149,17 @@ For example, the established ns convention of mounting skill/agent-only commands
 
 ```ts
 entries: [
-	{ name: "list", load: () => import("./commands/list.ts") },
+	{ kind: "raw-command", name: "list", load: () => import("./commands/list.ts") },
 	{
 		group: "exec",
 		hidden: true,
 		description: "Agent-only operations.",
 		entries: [
-			{ name: "tracking-gate", load: () => import("./commands/exec/tracking-gate.ts") },
+			{
+				kind: "raw-command",
+				name: "tracking-gate",
+				load: () => import("./commands/exec/tracking-gate.ts"),
+			},
 		],
 	},
 ]
@@ -171,23 +181,13 @@ literal is opaque to bundlers and will not survive bundling.
 
 ## Command modules
 
-A command module default-exports exactly one command object satisfying the **SDK command
-contract**: a neutral interface carrying the command's `name`, help metadata (`summary`,
-`description`), an optional completion hook, and a run function that returns the standard ns
-command exit / machine-envelope shape (`ok` / `negative` / `failure` / `usageError`). The SDK
-knows only this interface; how you build the object is up to you.
+A command module default-exports exactly one object matching the descriptor entry's declared kind.
 
-The convenient way — and the one this guide teaches — is `defineCommand({...})`, which adapts a
-[Clinkr](../../infra/clinkr) command spec into the SDK contract: `name`, `summary` (one-line
-help text), `description` (full help text), a Zod `schema` for arguments, optional
-`positionals`/`options` (short flags), a `resultSchema` for the stable machine envelope,
-`handler`, optional `renderHuman`/`renderMarkdown`, and optional `completionProvider`. Handlers
-return the SDK's command-exit constructors (`ok`, `negative`, `failure`, `usageError`); argument
-parsing, help rendering, `--format json`, and `--json-schema` come for free.
+For `kind: "ns-command"`, export a flat `NsCommandDefinition`, normally created by `defineCommand({...})` from `@nseng-ai/sdk/command`. Its fields are `name`, `summary`, optional `description`, optional Zod `schema`, `resultSchema`, optional `positionals`/`options`, optional renderers and completion provider, and `handler`. There is no nested `run`, runtime command brand, or loaded-value classification. `defineCommand` defaults `description` to `summary`.
 
-Clinkr is convenient, not required. The adaptation happens inside `defineCommand`, at authoring
-time — the SDK never sees clinkr. For full control, construct the SDK command object
-directly (below).
+The host adapts this known definition into Clinkr. Clinkr remains generic parser and presentation mechanics; it is not an extension-visible runtime type or brand. Handlers return the SDK's command-exit constructors (`ok`, `negative`, `failure`, `usageError`), while the host supplies argument parsing, help, `--format json`, and `--json-schema`.
+
+A no-input ns command should omit `schema`. At registration, ns substitutes `z.strictObject({})`, so the request is an empty object and unknown keys are rejected. Commands with inputs place `schema`, `positionals`, and option metadata directly on the same flat definition.
 
 Command modules run in the target project via ns's TypeScript loader — you ship `src/` directly
 (`files: ["src"]`); no build step is required. `@nseng-ai/sdk` is provided by the host at
@@ -218,22 +218,31 @@ export function createHelloCommand(context: HelloCommandContext) {
 export default createHelloCommand;
 ```
 
-This keeps lazy loading honest: importing a selected command reveals its factory, while the caller
-chooses when and with which real or fake context to construct the executable command.
+The descriptor keeps the composition root visible while preserving a literal import:
+
+```ts
+{
+	kind: "ns-command",
+	name: "hello",
+	load: async () => ({
+		default: (await import("./commands/hello.ts")).createHelloCommand(createRealContext()),
+	}),
+}
+```
+
+This keeps lazy loading honest: importing a selected command reveals its factory, while the descriptor chooses when and with which real or fake context to construct the executable command.
 
 ## The command contract (low-level)
 
-The SDK's actual per-command contract is a small neutral object, constructed directly with
-`defineRawCommand` when `defineCommand`'s clinkr conveniences don't fit — for example, when
-adopting an existing CLI with its own argument parser:
+A `kind: "raw-command"` entry loads a process-shaped `RawArgvCommand`. Use `defineRawCommand` when adopting an existing CLI or command with its own argument parser and process behavior:
 
-| Field         | Required | Meaning                                                                                                                                                               |
-| ------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`        | yes      | Command name; must match the descriptor entry.                                                                                                                        |
-| `summary`     | yes      | One-line help text for group listings.                                                                                                                                |
-| `description` | yes      | Full help text.                                                                                                                                                       |
-| `run`         | yes      | `(ctx, invocation) => machine envelope`. `invocation.argv` is the raw argument tail after the command path — parse it however you like.                               |
-| `complete`    | no       | Optional dynamic completion hook for the selected command. `defineCommand` builds this from `completionProvider`; raw commands may provide the neutral hook directly. |
+| Field         | Required | Meaning                                                                                                                                 |
+| ------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | yes      | Command name; must match the descriptor entry.                                                                                          |
+| `summary`     | yes      | One-line help text for group listings.                                                                                                  |
+| `description` | yes      | Full help text.                                                                                                                         |
+| `run`         | yes      | `(ctx, invocation) => machine envelope`. `invocation.argv` is the raw argument tail after the command path — parse it however you like. |
+| `complete`    | no       | Optional dynamic completion hook for the selected raw command.                                                                          |
 
 You take on argument handling, help for your own flags, completion behavior, and rendering
 yourself. One obligation is not negotiable: **every ns command answers `--format json` with the
@@ -260,9 +269,7 @@ export default defineRawCommand({
 });
 ```
 
-`defineCommand` is this same contract with clinkr layered on top: it consumes
-`invocation.argv` with your Zod schema and hands you parsed, typed values instead. Prefer it
-unless you have a reason not to.
+Raw commands remain process-shaped programs: they receive the argv tail and own parsing, help, completion, rendering, and output behavior. Prefer an `ns-command` when the ns host should own those mechanics; use `raw-command` when passthrough/process semantics are the honest contract. The descriptor's `kind` selects the route before loading, and no runtime brand is inspected.
 
 ## Extension points
 

@@ -1,5 +1,5 @@
 import { z } from "@nseng-ai/sdk";
-import { nsClinkrCommand, defineCommand } from "@nseng-ai/sdk/command";
+import { defineCommand } from "@nseng-ai/sdk/command";
 
 import type { FlowCommandContext } from "../../context.ts";
 
@@ -16,10 +16,8 @@ export function createFlowChangesCommand(context: FlowCommandContext) {
 		name: "changes",
 		summary: "Summarize outstanding worktree changes without committing.",
 		description: CHANGES_COMMAND_DESCRIPTION,
-		run: nsClinkrCommand({
-			resultSchema: z.string(),
-			handler: (bundle) => runChangesCommand(context, bundle),
-		}),
+		resultSchema: z.string(),
+		handler: (bundle) => runChangesCommand(context, bundle),
 	});
 }
 

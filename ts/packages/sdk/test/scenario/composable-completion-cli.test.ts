@@ -1,8 +1,4 @@
-import {
-	createRealFirstPartyCommandContext,
-	materializeFirstPartyCommand,
-} from "@nseng-ai/capability-kit";
-import type { DescriptorCommand } from "@nseng-ai/sdk";
+import type { NsCommandDefinition } from "@nseng-ai/sdk/command";
 import type { NsCliDeps } from "@nseng-ai/sdk/cli";
 import { describe, expect, test } from "vitest";
 
@@ -12,10 +8,13 @@ import { runCliWithFakes } from "./ns-cli-fakes.ts";
 
 const defaults = { execResponses: () => [], textGenerationResults: () => [] };
 
-describe("composable command completion CLI", () => {
-	test("resolves candidates with cwd, catalog, and the fake first-party dependency", async () => {
+describe("ns command completion CLI", () => {
+	test("resolves candidates with cwd, catalog, and an explicit fixture dependency", async () => {
 		const completionLog: string[] = [];
-		const fixtures = createComposableCompletionFixtures({ completionLog });
+		const fixtures = createComposableCompletionFixtures({
+			completionLog,
+			dependency: "fake-dependency",
+		});
 		const registry = completionRegistry(
 			[fixtures.selected, fixtures.unrelated],
 			["@example/present"],
@@ -24,7 +23,6 @@ describe("composable command completion CLI", () => {
 			{
 				args: ["completion", "exec", "resolve", "--", "completion-probe", ""],
 				cwd: "/completion-work",
-				env: { COMPLETION_DEPENDENCY: "fake-dependency" },
 				extensionRegistry: registry,
 			},
 			defaults,
@@ -42,20 +40,17 @@ describe("composable command completion CLI", () => {
 		expect(completionLog).toEqual(["selected:"]);
 	});
 
-	test("loads and materializes only the selected command", async () => {
+	test("loads only the selected flat ns command", async () => {
 		const completionLog: string[] = [];
-		const bindLog: string[] = [];
-		const fixtures = createComposableCompletionFixtures({ completionLog });
+		const fixtures = createComposableCompletionFixtures({
+			completionLog,
+			dependency: "fake-dependency",
+		});
 		const registry = completionRegistry([fixtures.selected, fixtures.unrelated]);
 		const run = runCliWithFakes(
 			{
 				args: ["completion", "exec", "resolve", "--", "completion-probe", "fake"],
-				env: { COMPLETION_DEPENDENCY: "fake-dependency" },
 				extensionRegistry: registry,
-				bindSelectedCommand: (command) => {
-					bindLog.push(command.name);
-					return materializeFirstPartyCommand(command, fakeFirstPartyContext("fake-dependency"));
-				},
 			},
 			defaults,
 		);
@@ -63,7 +58,6 @@ describe("composable command completion CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("fake-dependency\n");
 		expect(registry.loadLog).toEqual(["completion-probe"]);
-		expect(bindLog).toEqual(["completion-probe"]);
 		expect(completionLog).toEqual(["selected:fake"]);
 	});
 
@@ -101,28 +95,15 @@ describe("composable command completion CLI", () => {
 	});
 });
 
-function fakeFirstPartyContext(dependency: string) {
-	return createRealFirstPartyCommandContext({
-		env: { COMPLETION_DEPENDENCY: dependency },
-		textGenerator: { generateText: async () => ({ ok: false, error: "unused" }) },
-		commandRunner: async () => ({
-			type: "exited",
-			code: 0,
-			signal: null,
-			stdout: "",
-			stderr: "",
-		}),
-	});
-}
-
 function completionRegistry(
-	commands: readonly DescriptorCommand[],
+	commands: readonly NsCommandDefinition<unknown>[],
 	extensionPackageNames: readonly string[] = [],
 ): NonNullable<NsCliDeps["extensionRegistry"]> & { loadLog: string[] } {
 	const loadLog: string[] = [];
 	const candidates = new Map(
 		commands.map((command) => {
 			const candidate: ExtensionCommandCandidate = {
+				kind: "ns-command",
 				name: command.name,
 				description: command.summary,
 				fullDescription: command.description,
@@ -152,7 +133,12 @@ function completionRegistry(
 			loadLog.push(candidate.name);
 			const command = commands.find((entry) => entry.name === candidate.name);
 			if (command === undefined) throw new Error(`Missing command ${candidate.name}.`);
-			return { ok: true, command, source: candidate.source, path: candidate };
+			return {
+				ok: true,
+				loaded: { kind: "ns-command", command },
+				source: candidate.source,
+				path: candidate,
+			};
 		},
 	};
 }

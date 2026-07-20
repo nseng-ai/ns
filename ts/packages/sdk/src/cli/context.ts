@@ -11,7 +11,7 @@ import { runCommand } from "@nseng-ai/foundation/exec";
 import { optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
 
 import { createCliCommandIo, noopNsProgress } from "../runtime/command-io.ts";
-import type { CommandInteraction } from "../command/ns-clinkr-command.ts";
+import type { CommandInteraction } from "../command/command.ts";
 import type { NsConfirmPrompt, NsExtensionApi, TextGenerator } from "../sdk/index.ts";
 
 export interface NsCliContext {

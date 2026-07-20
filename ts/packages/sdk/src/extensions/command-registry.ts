@@ -1,8 +1,7 @@
 import { formatErrorMessage, optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import { isComposableCommand } from "../command/command.ts";
-import { isNsClinkrCommandRun } from "../command/ns-clinkr-command.ts";
+import type { NsCommandDefinition } from "../command/command.ts";
 import { defineInternalParsedCommand, type RawArgvCommand } from "../sdk/command.ts";
 import {
 	failure,
@@ -75,6 +74,21 @@ export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDe
 		command: extensionPointsCommand,
 	},
 };
+
+export type LoadedExtensionCommand =
+	| { readonly kind: "ns-command"; readonly command: NsCommandDefinition<unknown> }
+	| { readonly kind: "raw-command"; readonly command: DescriptorCommand };
+
+const nsCommandDefinitionSchema = z
+	.object({
+		name: z.string(),
+		summary: z.string(),
+		description: z.string(),
+		schema: z.custom<z.ZodObject>(isZodObjectLike).optional(),
+		resultSchema: z.custom<z.ZodType>(isZodTypeLike),
+		handler: z.function(),
+	})
+	.passthrough();
 
 const descriptorCommandSchema = z
 	.object({
@@ -167,7 +181,7 @@ export function toCommandCliInfo(
 }
 
 export function commandInfoForLoadedCommand(
-	command: DescriptorCommand,
+	command: Pick<DescriptorCommand, "name" | "summary" | "description">,
 	sourceLevel: NsCommandSourceLevel,
 	path: NsCommandPath & Pick<NsCommandCliInfo, "helpGroup">,
 ): NsCommandCliInfo {
@@ -190,34 +204,50 @@ export function commandInfoForLoadedCommand(
 
 export function validateDescriptorCommandContribution(
 	contribution: unknown,
-	entry: Pick<ExtensionCommandEntry, "name">,
+	entry: ExtensionCommandEntry,
 	sourceLabel: string,
-): { ok: true; command: DescriptorCommand } | { ok: false; message: string } {
+): { ok: true; loaded: LoadedExtensionCommand } | { ok: false; message: string } {
+	if (entry.kind === "ns-command") {
+		const parsed = nsCommandDefinitionSchema.safeParse(contribution);
+		if (!parsed.success) {
+			return {
+				ok: false,
+				message: `Invalid ns descriptor command ${sourceLabel}: declared ns-command module ${formatNsCommandIssue(parsed.error.issues[0])}`,
+			};
+		}
+		const command = contribution as NsCommandDefinition<unknown>;
+		const nameValidation = validateLoadedCommandName(entry, command);
+		if (!nameValidation.ok) {
+			return {
+				ok: false,
+				message: `Invalid ns descriptor command ${sourceLabel}: ${nameValidation.message}`,
+			};
+		}
+		return { ok: true, loaded: { kind: "ns-command", command } };
+	}
+
 	const parsed = descriptorCommandSchema.safeParse(contribution);
 	if (!parsed.success) {
 		return {
 			ok: false,
-			message: `Invalid ns descriptor command ${sourceLabel}: ${formatNsCommandIssue(parsed.error.issues[0])}`,
+			message: `Invalid ns descriptor command ${sourceLabel}: declared raw-command module ${formatNsCommandIssue(parsed.error.issues[0])}`,
 		};
 	}
-	const command = isComposableCommand(contribution) ? contribution : parsed.data;
-	const nameValidation = validateLoadedCommandName(entry, command);
+	const nameValidation = validateLoadedCommandName(entry, parsed.data);
 	if (!nameValidation.ok) {
 		return {
 			ok: false,
 			message: `Invalid ns descriptor command ${sourceLabel}: ${nameValidation.message}`,
 		};
 	}
-	if (isComposableCommand(command)) {
-		if (!isNsClinkrCommandRun(command.run)) {
-			return {
-				ok: false,
-				message: `Invalid ns descriptor command ${sourceLabel}: composable command run must carry nsClinkrCommand metadata.`,
-			};
-		}
-		return { ok: true, command };
-	}
-	return adaptParsedDescriptorCommand(rawArgvCommand(command), sourceLabel);
+	const rawCommand: RawArgvCommand = {
+		...parsed.data,
+		run: (ctx, invocation) => parsed.data.run(ctx, invocation) as ReturnType<RawArgvCommand["run"]>,
+	};
+	const adapted = adaptParsedDescriptorCommand(rawCommand, sourceLabel);
+	return adapted.ok
+		? { ok: true, loaded: { kind: "raw-command", command: adapted.command as RawArgvCommand } }
+		: adapted;
 }
 
 export function extensionCommandFailedExit(
@@ -238,11 +268,6 @@ export function validateCommandExit(result: unknown, commandName: string): Comma
 		`Command ${commandName} returned an invalid command exit.`,
 		{ command: commandName },
 	);
-}
-
-function rawArgvCommand(command: DescriptorCommand): RawArgvCommand {
-	if (isComposableCommand(command)) throw new Error(`Command ${command.name} is composable.`);
-	return command as RawArgvCommand;
 }
 
 function adaptParsedDescriptorCommand(
@@ -345,7 +370,21 @@ function parseParsedCommandSpec(
 }
 
 function isZodObjectLike(value: unknown): value is z.ZodObject {
-	return isRecord(value) && typeof value.safeParse === "function";
+	return isZodTypeLike(value) && zodTypeName(value) === "object";
+}
+
+function isZodTypeLike(value: unknown): value is z.ZodType {
+	return (
+		isRecord(value) && zodTypeName(value) !== undefined && typeof value["safeParse"] === "function"
+	);
+}
+
+function zodTypeName(value: unknown): string | undefined {
+	if (!isRecord(value) || !isRecord(value["_zod"])) return undefined;
+	const definition = value["_zod"]["def"];
+	return isRecord(definition) && typeof definition["type"] === "string"
+		? definition["type"]
+		: undefined;
 }
 
 function isCompletionProvider(value: unknown): value is RawArgvCommand["complete"] {

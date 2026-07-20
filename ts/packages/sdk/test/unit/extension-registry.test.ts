@@ -57,6 +57,7 @@ export default defineRawCommand({
 
 function preinstalledEntry(group: string, name: string, moduleSpecifier: string) {
 	return {
+		kind: "raw-command" as const,
 		group,
 		groupDescription: `${group} commands.`,
 		name,
@@ -98,6 +99,7 @@ describe("extension registry", () => {
 				description: "Optional commands.",
 				entries: [
 					{
+						kind: "raw-command",
 						name: "optional",
 						requiresExtension: "@example/provider",
 						load: () => ({
@@ -131,6 +133,7 @@ describe("extension registry", () => {
 					description: "Example commands.",
 					entries: [
 						{
+							kind: "raw-command",
 							name: "scan",
 							load: () => ({
 								default: defineRawCommand({
@@ -196,12 +199,12 @@ export default defineExtension({
 	group: "tools",
 	description: "Tool commands.",
 	entries: [
-		{ name: "scan", load: () => import("../commands/scan.ts") },
+		{ kind: "raw-command", name: "scan", load: () => import("../commands/scan.ts") },
 		{
 			group: "exec",
 			hidden: true,
 			description: "Agent-only tool commands.",
-			entries: [{ name: "doctor", load: () => import("../commands/doctor.ts") }],
+			entries: [{ kind: "raw-command", name: "doctor", load: () => import("../commands/doctor.ts") }],
 		},
 	],
 });
@@ -279,8 +282,8 @@ export default defineExtension({
   group: "consumer",
   description: "Consumer commands.",
   entries: [
-    { name: "always", load: () => ({ default: { ...command, name: "always" } }) },
-    { name: "optional", requiresExtension: "@example/provider", load: () => ({ default: command }) },
+    { kind: "raw-command", name: "always", load: () => ({ default: { ...command, name: "always" } }) },
+    { kind: "raw-command", name: "optional", requiresExtension: "@example/provider", load: () => ({ default: command }) },
   ],
 });
 `,
@@ -315,8 +318,8 @@ export default defineExtension({
   group: "consumer",
   description: "Consumer commands.",
   entries: [
-    { name: "always", load: () => ({ default: { ...command, name: "always" } }) },
-    { name: "optional", requiresExtension: "@example/provider", load: () => ({ default: command }) },
+    { kind: "raw-command", name: "always", load: () => ({ default: { ...command, name: "always" } }) },
+    { kind: "raw-command", name: "optional", requiresExtension: "@example/provider", load: () => ({ default: command }) },
   ],
 });
 `,
@@ -354,6 +357,7 @@ export default defineExtension({
 
 		function loadedEntry(name: string) {
 			return {
+				kind: "raw-command" as const,
 				group: "tools",
 				groupDescription: "Tool commands.",
 				name,
@@ -421,7 +425,7 @@ import { defineExtension } from "@nseng-ai/sdk";
 export default defineExtension({
 	group: "tools",
 	description: "Tool commands.",
-	entries: [{ name: "scan", load: () => import("../commands/scan.ts") }],
+	entries: [{ kind: "raw-command", name: "scan", load: () => import("../commands/scan.ts") }],
 });
 `,
 		);
@@ -475,7 +479,7 @@ import { defineExtension } from "@nseng-ai/sdk";
 export default defineExtension({
 	group: "good",
 	description: "Good commands.",
-	entries: [{ name: "scan", load: () => import("../commands/scan.ts") }],
+	entries: [{ kind: "raw-command", name: "scan", load: () => import("../commands/scan.ts") }],
 });
 `,
 		);
@@ -508,7 +512,7 @@ export default defineExtension({
 			descriptorSource: `
 import { defineExtension } from "@nseng-ai/sdk";
 const command = { name: "hello", summary: "Project hello.", description: "Project hello.", run: () => ({ type: "ok", data: {} }) };
-export default defineExtension({ description: "Direct commands.", entries: [{ name: "hello", load: () => ({ default: command }) }] });
+export default defineExtension({ description: "Direct commands.", entries: [{ kind: "raw-command", name: "hello", load: () => ({ default: command }) }] });
 `,
 		});
 		writeDescriptorPackage({
@@ -518,7 +522,7 @@ export default defineExtension({ description: "Direct commands.", entries: [{ na
 			descriptorSource: `
 import { defineExtension } from "@nseng-ai/sdk";
 const command = { name: "point", summary: "Project point.", description: "Project point.", run: () => ({ type: "ok", data: {} }) };
-export default defineExtension({ group: "extension", description: "Extension commands.", entries: [{ name: "point", load: () => ({ default: command }) }] });
+export default defineExtension({ group: "extension", description: "Extension commands.", entries: [{ kind: "raw-command", name: "point", load: () => ({ default: command }) }] });
 `,
 		});
 
@@ -528,6 +532,7 @@ export default defineExtension({ group: "extension", description: "Extension com
 			preinstalledCommandCatalog: () =>
 				preinstalledCatalog([
 					{
+						kind: "raw-command" as const,
 						name: "hello",
 						description: "Distribution hello.",
 						fullDescription: "Distribution hello.",
@@ -614,6 +619,7 @@ export default defineExtension({ group: "extension", description: "Extension com
 		const workspace = await createExtensionRegistryWorkspace();
 		let loadCount = 0;
 		const gatedEntry = {
+			kind: "raw-command" as const,
 			group: "extension",
 			groupDescription: "extension commands.",
 			name: "points",
@@ -678,6 +684,7 @@ export default defineExtension({ group: "extension", description: "Extension com
 			preinstalledCommandCatalog: () =>
 				preinstalledCatalog([
 					{
+						kind: "raw-command" as const,
 						group: "tools",
 						groupDescription: "tools commands.",
 						name: "scan",
@@ -705,7 +712,9 @@ export default defineExtension({ group: "extension", description: "Extension com
 		const command = await loadSelectedNsCommand(selected);
 		expect(command.ok).toBe(true);
 		if (!command.ok) return;
-		const result = await command.command.run(
+		expect(command.loaded.kind).toBe("raw-command");
+		if (command.loaded.kind !== "raw-command") return;
+		const result = await command.loaded.command.run(
 			{
 				cwd: workspace.cwd,
 				env: {},
@@ -733,7 +742,6 @@ export default defineExtension({ group: "extension", description: "Extension com
 				name: "hello",
 				summary: "Say hello.",
 				description: "Say hello.\n\nWith details.",
-				run: () => ok("hello"),
 			},
 			"project",
 			{ name: "hello", helpGroup: "Examples:" },
@@ -794,6 +802,7 @@ export default defineExtension({ group: "extension", description: "Extension com
 			],
 			requestedCommandName: "cp",
 			selectedCandidate: {
+				kind: "raw-command",
 				name: "cp",
 				description: "cp",
 				fullDescription: "cp",
@@ -821,6 +830,7 @@ export default defineExtension({ group: "extension", description: "Extension com
 			],
 			requestedCommandName: "cp",
 			selectedCandidate: {
+				kind: "raw-command",
 				name: "cp",
 				description: "cp",
 				fullDescription: "cp",
@@ -850,6 +860,7 @@ export default defineExtension({ group: "extension", description: "Extension com
 			],
 			requestedCommandName: "cp",
 			selectedCandidate: {
+				kind: "raw-command",
 				name: "cp",
 				description: "cp",
 				fullDescription: "cp",

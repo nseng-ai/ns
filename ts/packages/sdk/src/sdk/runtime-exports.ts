@@ -26,7 +26,7 @@ import {
 	ok,
 	toMachineEnvelope,
 	usageError,
-} from "./result.ts";
+} from "../command/result.ts";
 import { z } from "./schema.ts";
 import {
 	centerMatrixProgressText,
@@ -40,7 +40,7 @@ import {
 	noopNsCommandIo,
 	noopNsProgress,
 	padMatrixProgressTextEnd,
-} from "./services.ts";
+} from "../command/services.ts";
 
 export const nsSdkRuntimeExports = {
 	buildFailureMachineEnvelopeSchema,

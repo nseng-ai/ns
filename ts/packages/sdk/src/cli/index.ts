@@ -3,14 +3,11 @@
 import { z } from "zod";
 
 import {
-	nsClinkrCommandOptionsForRun,
 	createCatalogView,
 	createCommandProgressPhaseRenderer,
 	createUnavailableInteraction,
-	isNsClinkrCommandRun,
 	type CommandInteraction,
 } from "../command/index.ts";
-import { isComposableCommand } from "../command/command.ts";
 import {
 	ClinkrGroup,
 	clinkrFormatFromArgs,
@@ -70,10 +67,10 @@ import {
 	type SelectedNsCommandLoadResult,
 	type NsCommandCatalog,
 } from "../extensions/registry.ts";
+import type { LoadedExtensionCommand } from "../extensions/command-registry.ts";
 import type {
 	RenderCapabilities,
 	CommandExit,
-	DescriptorCommand,
 	NsConfirmPrompt,
 	NsExtensionApi,
 	NsOutputStream,
@@ -130,19 +127,17 @@ export interface NsCliDeps extends Pick<
 	confirm?: NsConfirmPrompt;
 	preinstalledCommandCatalog?: PreinstalledNsCommandCatalogLoader;
 	extensionRegistry?: NsCliExtensionRegistryDeps;
-	/** Lazily materializes a selected descriptor command after its module is loaded. */
-	bindSelectedCommand?: (command: DescriptorCommand) => DescriptorCommand;
 }
 
 export interface BuildNsCliOptions {
 	commandInfos?: readonly NsCommandCliInfo[];
-	selectedCommand?: DescriptorCommand;
+	selectedCommand?: LoadedExtensionCommand;
 	selectedCommandPath?: NsCommandPath;
 }
 
 interface NsCliBuildState {
 	commandInfos: readonly NsCommandCliInfo[];
-	selectedCommand?: DescriptorCommand;
+	selectedCommand?: LoadedExtensionCommand;
 	selectedCommandPath?: NsCommandPath;
 }
 
@@ -203,7 +198,6 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 				renderCapabilities,
 				...optionalEntries({
 					loadSelectedCommand: deps.extensionRegistry?.loadSelectedCommand,
-					bindSelectedCommand: deps.bindSelectedCommand,
 					injectedContext,
 					onOutput: deps.onOutput,
 					onProgress: deps.onProgress,
@@ -257,7 +251,6 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 			candidate: selectedCandidate,
 			commandInfos,
 			...optionalEntry("loadSelectedCommand", deps.extensionRegistry?.loadSelectedCommand),
-			...optionalEntry("bindSelectedCommand", deps.bindSelectedCommand),
 			stderr: resolvedStderr,
 			failureExitCode: 2,
 		});
@@ -304,23 +297,20 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 				commandPathMatches(buildState.selectedCommandPath, commandInfo)
 					? buildState.selectedCommand
 					: undefined;
-			const command =
+			const loadedCommand =
 				selectedCommand === undefined ||
 				buildState.selectedCommandPath === undefined ||
 				!commandPathMatches(buildState.selectedCommandPath, commandInfo)
 					? undefined
 					: selectedCommand;
-			if (
-				command !== undefined &&
-				isComposableCommand(command) &&
-				isNsClinkrCommandRun(command.run)
-			) {
-				const spec = nsClinkrCommandOptionsForRun(command.run);
+			const command = loadedCommand?.command;
+			if (loadedCommand?.kind === "ns-command") {
+				const spec = loadedCommand.command;
 				parent.command({
 					name: commandLeafName(commandInfo),
 					description: commandInfo.fullDescription,
 					summary: commandInfo.description,
-					schema: spec.schema,
+					schema: spec.schema ?? z.strictObject({}),
 					resultSchema: spec.resultSchema,
 					...(spec.positionals === undefined ? {} : { positionals: spec.positionals }),
 					...(spec.options === undefined ? {} : { options: spec.options }),
@@ -346,7 +336,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 						let result: CommandExit;
 						try {
 							result = validateCommandExit(
-								await cpComposableRun(command)(
+								await spec.handler(
 									{
 										ns: { catalog: ctx.catalog },
 										cwd: ctx.cwd,
@@ -360,16 +350,16 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 									},
 									request,
 								),
-								command.name,
+								spec.name,
 							);
 						} catch (error) {
-							result = extensionCommandFailedExit(command.name, error);
+							result = extensionCommandFailedExit(spec.name, error);
 						}
 						try {
 							await renderer.finish({ isFailed: result.type !== "ok" });
 							return result;
 						} catch (error) {
-							return extensionCommandFailedExit(command.name, error);
+							return extensionCommandFailedExit(spec.name, error);
 						} finally {
 							await renderer.stop();
 						}
@@ -378,9 +368,9 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 				continue;
 			}
 			const legacyCommand =
-				command === undefined || isComposableCommand(command)
-					? undefined
-					: legacyRawCommand(command);
+				loadedCommand?.kind === "raw-command"
+					? (loadedCommand.command as import("../sdk/command.ts").RawArgvCommand)
+					: undefined;
 			const parsedCommandSpec =
 				legacyCommand === undefined ? undefined : parsedSpecForCommand(legacyCommand);
 			if (command !== undefined && parsedCommandSpec !== undefined) {
@@ -512,7 +502,6 @@ async function handleCompletionResolverInvocation(options: {
 	loadSelectedCommand?: (
 		candidate: ExtensionCommandCandidate,
 	) => Promise<SelectedNsCommandLoadResult>;
-	bindSelectedCommand?: (command: DescriptorCommand) => DescriptorCommand;
 	commandContext: NsCliCommandContextInput;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
@@ -532,7 +521,6 @@ async function handleCompletionResolverInvocation(options: {
 		candidate: selectedCandidate,
 		commandInfos: options.commandCatalog.commandInfos,
 		...optionalEntry("loadSelectedCommand", options.loadSelectedCommand),
-		...optionalEntry("bindSelectedCommand", options.bindSelectedCommand),
 		stderr: options.stderr,
 		failureExitCode: 0,
 	});
@@ -568,7 +556,6 @@ async function resolveSelectedNsCommand(options: {
 	loadSelectedCommand?: (
 		candidate: ExtensionCommandCandidate,
 	) => Promise<SelectedNsCommandLoadResult>;
-	bindSelectedCommand?: (command: DescriptorCommand) => DescriptorCommand;
 	stderr: (text: string) => void;
 	failureExitCode: number;
 }): Promise<
@@ -582,18 +569,14 @@ async function resolveSelectedNsCommand(options: {
 		options.stderr(`${formatExtensionErrorDiagnostics([loadedSelectedCommand.diagnostic])}\n`);
 		return { ok: false, handled: { type: "handled", exitCode: options.failureExitCode } };
 	}
-	const loadedCommand = loadedSelectedCommand?.command;
-	const selectedCommand =
-		loadedCommand === undefined
-			? undefined
-			: (options.bindSelectedCommand?.(loadedCommand) ?? loadedCommand);
+	const selectedCommand = loadedSelectedCommand?.loaded;
 	const selectedSource = loadedSelectedCommand?.source;
 	const selectedPath = loadedSelectedCommand?.path;
 	const commandInfos = commandInfosForSelectedCommand(
 		options.commandInfos,
 		selectedCommand === undefined || selectedSource === undefined || selectedPath === undefined
 			? undefined
-			: { command: selectedCommand, source: selectedSource, path: selectedPath },
+			: { command: selectedCommand.command, source: selectedSource, path: selectedPath },
 	);
 	return {
 		ok: true,
@@ -957,22 +940,6 @@ function groupDescription(segments: readonly string[], commandInfo: NsCommandCli
 
 function isStaticTopLevelMetadataRequest(args: readonly string[]): boolean {
 	return args.includes("--version") || args.includes("--runtime");
-}
-
-function legacyRawCommand(command: DescriptorCommand): import("../sdk/command.ts").RawArgvCommand {
-	if (isComposableCommand(command)) throw new Error(`Command ${command.name} is composable.`);
-	return command as import("../sdk/command.ts").RawArgvCommand;
-}
-
-function cpComposableRun(
-	command: import("../command/command.ts").DefinedCommand<(...args: never[]) => unknown>,
-) {
-	if (!isNsClinkrCommandRun(command.run)) {
-		throw new Error(
-			`Composable command ${command.name} run does not carry nsClinkrCommand metadata.`,
-		);
-	}
-	return command.run;
 }
 
 async function runPassthroughCommand(

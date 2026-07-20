@@ -2,71 +2,73 @@ import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import {
-	nsClinkrCommand,
-	nsClinkrCommandOptionsForRun,
 	createCatalogView,
 	createUnavailableInteraction,
 	defineCommand,
-	isNsClinkrCommandRun,
-	isComposableCommand,
 } from "../../src/command/index.ts";
 import { validateDescriptorCommandContribution } from "../../src/extensions/command-registry.ts";
-import { ok } from "../../src/sdk/result.ts";
+import { defineRawCommand } from "../../src/sdk/command.ts";
+import { ok } from "../../src/command/result.ts";
 
-describe("composable command API", () => {
-	test("brands nsClinkrCommand runs directly and recovers their specification", () => {
-		const run = nsClinkrCommand({
-			schema: z.object({ value: z.string() }),
-			resultSchema: z.string(),
-			handler: (_bundle, request) => ok(request.value),
-		});
-		const command = defineCommand({ name: "probe", summary: "Probe.", run });
-
-		expect(isComposableCommand(command)).toBe(true);
-		expect(isNsClinkrCommandRun(run)).toBe(true);
-		expect(nsClinkrCommandOptionsForRun(run).schema).toBeInstanceOf(z.ZodObject);
-		expect(nsClinkrCommandOptionsForRun(run).handler).toBe(run);
-	});
-
-	test("defaults omitted input schemas to a strict empty object", () => {
-		const run = nsClinkrCommand({
+describe("ns command definition API", () => {
+	test("returns a flat definition and defaults description to summary", () => {
+		const command = defineCommand({
+			name: "probe",
+			summary: "Probe.",
 			resultSchema: z.string(),
 			handler: () => ok("done"),
 		});
-		const schema = nsClinkrCommandOptionsForRun(run).schema;
 
-		expect(schema.safeParse({})).toMatchObject({ success: true });
-		expect(schema.safeParse({ unexpected: true })).toMatchObject({ success: false });
+		expect(command).toMatchObject({
+			name: "probe",
+			summary: "Probe.",
+			description: "Probe.",
+			resultSchema: expect.any(z.ZodType),
+			handler: expect.any(Function),
+		});
+		expect("run" in command).toBe(false);
 	});
 
-	test("descriptor validation accepts nsClinkrCommand and rejects arbitrary composable callables", () => {
-		const nsClinkrCommandDefinition = defineCommand({
+	test("descriptor validation preserves the declared ns-command kind", () => {
+		const command = defineCommand({
 			name: "probe",
 			summary: "Probe.",
-			run: nsClinkrCommand({
-				resultSchema: z.string(),
-				handler: () => ok("done"),
-			}),
+			resultSchema: z.string(),
+			handler: () => ok("done"),
 		});
-		const arbitraryCommand = defineCommand({
+		const validation = validateDescriptorCommandContribution(
+			command,
+			{ kind: "ns-command", name: "probe", load: () => ({ default: command }) },
+			"fixture",
+		);
+
+		expect(validation).toEqual({ ok: true, loaded: { kind: "ns-command", command } });
+	});
+
+	test("rejects a runtime command whose shape does not match the declared kind", () => {
+		const rawCommand = defineRawCommand({
 			name: "probe",
 			summary: "Probe.",
+			description: "Probe.",
 			run: () => ok("done"),
+		});
+		const nsCommand = defineCommand({
+			name: "probe",
+			summary: "Probe.",
+			resultSchema: z.string(),
+			handler: () => ok("done"),
 		});
 
 		expect(
 			validateDescriptorCommandContribution(
-				nsClinkrCommandDefinition,
-				{ name: "probe" },
+				rawCommand,
+				{ kind: "ns-command", name: "probe", load: () => ({ default: nsCommand }) },
 				"fixture",
 			),
-		).toMatchObject({ ok: true });
-		expect(
-			validateDescriptorCommandContribution(arbitraryCommand, { name: "probe" }, "fixture"),
 		).toEqual({
 			ok: false,
 			message:
-				"Invalid ns descriptor command fixture: composable command run must carry nsClinkrCommand metadata.",
+				"Invalid ns descriptor command fixture: declared ns-command module default export must be a command object.",
 		});
 	});
 

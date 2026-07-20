@@ -10,6 +10,7 @@ export default defineExtension({
 				description: "Launch stored handoffs in Herdr tabs.",
 				entries: [
 					{
+						kind: "raw-command",
 						name: "launch",
 						load: async () => ({
 							default: (await import("./commands/handoff-tab-launch.ts"))

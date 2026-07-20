@@ -286,7 +286,7 @@ function fakeReviewsRegistry(): FakeReviewsRegistry {
 			}
 			return {
 				ok: true,
-				command: spec.command,
+				loaded: { kind: "raw-command", command: spec.command },
 				source: candidate.source,
 				path: candidate,
 			};
@@ -296,6 +296,7 @@ function fakeReviewsRegistry(): FakeReviewsRegistry {
 
 function reviewsCandidate(spec: FakeReviewsCommandSpec): ExtensionCommandCandidate {
 	return {
+		kind: "raw-command",
 		group: "reviews",
 		...(spec.segments === undefined ? {} : { segments: spec.segments }),
 		...(spec.segments?.[1] === "exec" ? { hiddenAncestorKeys: ["reviews/exec"] } : {}),

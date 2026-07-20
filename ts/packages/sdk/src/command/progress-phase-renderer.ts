@@ -2,12 +2,9 @@ import type { Caps } from "@nseng-ai/clinkr";
 import { SPINNER_FRAME_MS, type FrameRenderer, type StreamSink } from "@nseng-ai/clinkr/stream";
 import { bold, dim, ellipsisFor, statusLine, truncatePlain } from "@nseng-ai/foundation/cli-theme";
 
-import {
-	createProgressPhaseStateStore,
-	type ProgressPhaseView,
-} from "../sdk/progress-phase-state.ts";
-import { isMatrixProgressEvent, type NsProgressPhaseEvent } from "../sdk/services.ts";
-import type { CommandEventSink } from "./ns-clinkr-command.ts";
+import { createProgressPhaseStateStore, type ProgressPhaseView } from "./progress-phase-state.ts";
+import { isMatrixProgressEvent, type NsProgressPhaseEvent } from "./services.ts";
+import type { CommandEventSink } from "./command.ts";
 
 export interface CommandProgressPhaseRenderer {
 	emit(event: NsProgressPhaseEvent): void;

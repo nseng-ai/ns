@@ -1,5 +1,5 @@
 import { z } from "@nseng-ai/sdk";
-import { nsClinkrCommand, defineCommand } from "@nseng-ai/sdk/command";
+import { defineCommand } from "@nseng-ai/sdk/command";
 
 import type { FlowCommandContext } from "../../context.ts";
 
@@ -17,17 +17,15 @@ export function createFlowCpCommand(context: FlowCommandContext) {
 		name: "cp",
 		summary: "Create a checkpoint commit for the current diff.",
 		description: CP_COMMAND_DESCRIPTION,
-		run: nsClinkrCommand({
-			schema: z.object({
-				dryRun: z
-					.boolean()
-					.default(false)
-					.describe("Preview the checkpoint message without staging or committing."),
-			}),
-			resultSchema: z.string(),
-			options: { dryRun: { short: "-n" } },
-			handler: (bundle, request) => runCpCommand(context, bundle, request),
+		schema: z.object({
+			dryRun: z
+				.boolean()
+				.default(false)
+				.describe("Preview the checkpoint message without staging or committing."),
 		}),
+		resultSchema: z.string(),
+		options: { dryRun: { short: "-n" } },
+		handler: (bundle, request) => runCpCommand(context, bundle, request),
 	});
 }
 

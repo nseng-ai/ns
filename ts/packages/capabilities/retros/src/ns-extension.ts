@@ -6,6 +6,7 @@ export default defineExtension({
 	entries: [
 		hiddenExecGroup("Agent-only Retro operations.", [
 			{
+				kind: "raw-command",
 				name: "collect-evidence",
 				load: async () => ({
 					default: (await import("./ns/commands/exec-collect-evidence.ts"))
@@ -13,6 +14,7 @@ export default defineExtension({
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "read-evidence-detail",
 				load: async () => ({
 					default: (await import("./ns/commands/exec-read-evidence-detail.ts"))

@@ -17,7 +17,6 @@ import {
 	defineCommand,
 	defineRawCommand,
 	ok,
-	type DescriptorCommand,
 	type NsCommand,
 	type NsProgressPhaseEvent,
 } from "@nseng-ai/sdk";
@@ -109,24 +108,31 @@ const progressProbeCommand = defineCommand({
 }) satisfies NsCommand<typeof progressProbeSchema, z.infer<typeof progressProbeResultSchema>>;
 
 describe("extension command option specs", () => {
-	test("binds only the selected composable command after loading", async () => {
-		const bindLog: string[] = [];
+	test("loads only the selected ns command", async () => {
 		const registry = multiCommandRegistry([selectedComposableCommand, unrelatedComposableCommand]);
 		const run = runCliWithFakes(
 			{
 				args: ["selected"],
 				extensionRegistry: registry,
-				bindSelectedCommand: (command) => {
-					bindLog.push(command.name);
-					return command;
-				},
 			},
 			{ execResponses: () => [], textGenerationResults: () => [] },
 		);
 
 		expect(await run.exit).toBe(0);
 		expect(registry.loadLog).toEqual(["selected"]);
-		expect(bindLog).toEqual(["selected"]);
+	});
+
+	test("an omitted ns command schema rejects unknown options", async () => {
+		const run = runCliWithFakes(
+			{
+				args: ["selected", "--unexpected"],
+				extensionRegistry: multiCommandRegistry([selectedComposableCommand]),
+			},
+			{ execResponses: () => [], textGenerationResults: () => [] },
+		);
+
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain("unknown option '--unexpected'");
 	});
 
 	test("runCli provides a live progress sink when onProgress is injected", async () => {
@@ -252,11 +258,14 @@ function runProgressProbeCli(options: { onProgress?: NsCliDeps["onProgress"] } =
 	);
 }
 
-function multiCommandRegistry(commands: readonly DescriptorCommand[]) {
+function multiCommandRegistry(
+	commands: readonly (typeof selectedComposableCommand | typeof unrelatedComposableCommand)[],
+) {
 	const loadLog: string[] = [];
 	const candidates = new Map(
 		commands.map((command) => {
 			const candidate: ExtensionCommandCandidate = {
+				kind: "ns-command",
 				name: command.name,
 				description: command.summary,
 				fullDescription: command.description,
@@ -286,7 +295,12 @@ function multiCommandRegistry(commands: readonly DescriptorCommand[]) {
 			loadLog.push(candidate.name);
 			const command = commands.find((entry) => entry.name === candidate.name);
 			if (command === undefined) throw new Error(`Missing command ${candidate.name}.`);
-			return { ok: true as const, command, source: candidate.source, path: candidate };
+			return {
+				ok: true as const,
+				loaded: { kind: "ns-command" as const, command },
+				source: candidate.source,
+				path: candidate,
+			};
 		},
 	};
 }
@@ -296,6 +310,7 @@ function commandRegistry(
 	extensionPackageNames: ReadonlySet<string> = new Set(),
 ): NonNullable<NsCliDeps["extensionRegistry"]> {
 	const candidate: ExtensionCommandCandidate = {
+		kind: "raw-command",
 		name: command.name,
 		description: command.summary,
 		fullDescription: command.description,
@@ -322,7 +337,7 @@ function commandRegistry(
 		async loadSelectedCommand(_candidate): Promise<SelectedNsCommandLoadResult> {
 			return {
 				ok: true,
-				command,
+				loaded: { kind: "raw-command", command },
 				source: candidate.source,
 				path: candidate,
 			};

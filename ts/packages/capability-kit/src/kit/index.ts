@@ -1,11 +1,4 @@
 export {
-	defineFirstPartyCommand,
-	materializeFirstPartyCommand,
-	type DefineFirstPartyCommandOptions,
-	type FirstPartyNsClinkrCommandOptions,
-	type FirstPartyCommandDefinition,
-} from "./first-party-command.ts";
-export {
 	createRealFirstPartyCommandContext,
 	type CreateRealFirstPartyCommandContextOptions,
 	type FirstPartyCommandContext,

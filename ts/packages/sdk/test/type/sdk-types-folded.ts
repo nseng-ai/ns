@@ -1,7 +1,8 @@
-import { defineCommand, defineExtension, failure, ok, z } from "@nseng-ai/sdk";
+import { defineExtension, defineRawCommand, failure, ok, z } from "@nseng-ai/sdk";
+import { defineCommand } from "@nseng-ai/sdk/command";
+import type { NsCommandEntry, RawCommandEntry } from "@nseng-ai/sdk";
 import type {
 	ExecResult,
-	PositionalSpec,
 	NsCommandIo,
 	NsCommandMessageOptions,
 	NsCommandRequest,
@@ -38,35 +39,60 @@ type CommandRequestChecks = [
 ];
 
 const commandRequestChecks: CommandRequestChecks = [true, true];
-const positionalSpec: PositionalSpec = { position: 0 };
 
 // @ts-expect-error name is required by the command schema output
 const missingNameRequest: CommandRequest = { retries: 1 };
 
-const greetCommand = defineCommand({
+const greetCommand = defineRawCommand({
 	name: "greet",
 	summary: "Greet someone.",
 	description: "Greet someone with retry metadata.",
-	schema: commandSchema,
-	resultSchema: z.string(),
-	positionals: { name: positionalSpec },
-	handler(_ctx, request) {
+	run: () => ok("hello"),
+});
+
+const noInputCommand = defineCommand({
+	name: "status",
+	summary: "Show status.",
+	resultSchema: z.object({ ready: z.boolean() }),
+	handler(_bundle, request) {
 		type Request = typeof request;
 		const checks: [
 			Assert<IsAny<Request> extends false ? true : false>,
-			Assert<IsEqual<Request, { name: string; retries: number }>>,
+			Assert<IsEqual<Request, Record<string, never>>>,
 		] = [true, true];
 		void checks;
-		// @ts-expect-error missing is not part of the command schema
-		void request.missing;
-		return ok(`${request.name}:${request.retries}`);
+		return ok({ ready: true });
 	},
 });
+
+const nsEntry: NsCommandEntry = {
+	kind: "ns-command",
+	name: "status",
+	load: () => ({ default: noInputCommand }),
+};
+const rawEntry: RawCommandEntry = {
+	kind: "raw-command",
+	name: "greet",
+	load: () => ({ default: greetCommand }),
+};
+const rawForMismatch = defineRawCommand({
+	name: "raw",
+	summary: "Raw.",
+	description: "Raw.",
+	run: () => ok("raw"),
+});
+const wrongNsEntry: NsCommandEntry = {
+	kind: "ns-command",
+	name: "raw",
+	// @ts-expect-error ns-command loaders cannot return raw command modules
+	load: () => ({ default: rawForMismatch }),
+};
 
 const extension = defineExtension({
 	description: "Greet extension.",
 	entries: [
 		{
+			kind: "raw-command",
 			name: "greet",
 			requiresExtension: "@example/provider",
 			load: () => ({ default: greetCommand }),
@@ -128,6 +154,9 @@ function acceptsExtensionApi(api: NsExtensionApi): string {
 }
 
 void commandRequestChecks;
+void nsEntry;
+void rawEntry;
+void wrongNsEntry;
 void missingNameRequest;
 void extension;
 void commandlessExtension;

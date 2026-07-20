@@ -14,10 +14,9 @@ import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
 import { createNsGitGateway } from "@nseng-ai/capability-kit";
 import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import {
-	nsClinkrCommandOptionsForRun,
 	createCommandProgressPhaseRenderer,
 	createUnavailableInteraction,
-	isNsClinkrCommandRun,
+	type NsCommandDefinition,
 } from "@nseng-ai/sdk/command";
 import { resolveRenderCapabilities } from "@nseng-ai/clinkr";
 import { createStreamSink } from "@nseng-ai/clinkr/stream";
@@ -31,13 +30,8 @@ import {
 	fakeStackInfo,
 	type FakeGraphiteStackGatewayOptions,
 } from "@nseng-ai/capability-kit/graphite/testing";
-import type {
-	CommandExit,
-	DescriptorCommand,
-	NsCommand,
-	NsExtensionApi,
-	NsProgress,
-} from "@nseng-ai/sdk";
+import { z } from "@nseng-ai/sdk";
+import type { CommandExit, NsCommand, NsExtensionApi, NsProgress } from "@nseng-ai/sdk";
 import { createFlowSubmitCommand } from "../../src/ns/commands/submit.ts";
 import type { FlowCommandContext } from "../../src/ns/context.ts";
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
@@ -571,7 +565,7 @@ export function runFlowSubmitCommandWithFakes(options: RunFlowSubmitCommandWithF
 
 function runFlowComposableCommandWithFakes(
 	fixture: Omit<FlowCommandFixture, "command"> & {
-		createCommand: (context: FlowCommandContext) => DescriptorCommand;
+		createCommand: (context: FlowCommandContext) => NsCommandDefinition<unknown>;
 	},
 ) {
 	const stdout: string[] = [];
@@ -616,10 +610,7 @@ function runFlowComposableCommandWithFakes(
 		graphiteBranch: new RealGraphiteBranchGateway(context),
 	};
 	const command = fixture.createCommand(commandContext);
-	if (!isNsClinkrCommandRun(command.run)) {
-		throw new Error(`Flow ${command.name} command run lacks nsClinkrCommand metadata.`);
-	}
-	const spec = nsClinkrCommandOptionsForRun(command.run);
+	const spec = command;
 	const caps = resolveRenderCapabilities(context.renderCapabilities);
 	const renderer = createCommandProgressPhaseRenderer({
 		caps,
@@ -634,7 +625,7 @@ function runFlowComposableCommandWithFakes(
 		forward: { isLive: context.progress.isLive, emit: context.progress.phase },
 	});
 	const completed = Promise.resolve(
-		command.run(
+		command.handler(
 			{
 				ns: { catalog: { has: () => false } },
 				cwd,
@@ -642,7 +633,7 @@ function runFlowComposableCommandWithFakes(
 				interact: createUnavailableInteraction(),
 				caps: context.renderCapabilities,
 			},
-			spec.schema.parse(fixture.request),
+			(spec.schema ?? z.strictObject({})).parse(fixture.request),
 		),
 	).then(async (result) => {
 		await renderer.finish({ isFailed: result.type !== "ok" });

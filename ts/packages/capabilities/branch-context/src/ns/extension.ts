@@ -15,36 +15,42 @@ export default defineExtension({
 	entries: [
 		hiddenExecGroup("Agent-only branch-context operations.", [
 			{
+				kind: "raw-command",
 				name: "from-plan",
 				load: async () => ({
 					default: (await import("./commands/from-plan.ts")).branchContextFromPlanNsCommand,
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "load",
 				load: async () => ({
 					default: (await import("./commands/load.ts")).branchContextLoadNsCommand,
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "attach",
 				load: async () => ({
 					default: (await import("./commands/attach.ts")).branchContextAttachNsCommand,
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "list",
 				load: async () => ({
 					default: (await import("./commands/list.ts")).branchContextListNsCommand,
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "check",
 				load: async () => ({
 					default: (await import("./commands/check.ts")).branchContextCheckNsCommand,
 				}),
 			},
 			{
+				kind: "raw-command",
 				name: "delete",
 				load: async () => ({
 					default: (await import("./commands/delete.ts")).branchContextDeleteNsCommand,
