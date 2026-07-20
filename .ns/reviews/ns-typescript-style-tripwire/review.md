@@ -24,8 +24,9 @@ description: |
   ns TypeScript overlay on the supplied diff. Flag concrete,
   mechanically detectable violations: non-erasable TypeScript, ordinary `any`,
   banned double-casts, import-boundary drift, strict-indexed-access bypasses,
-  exact-optional-property drift, broad casts, top-level arrow module logic,
-  mutation of owned-boundary data, misplaced real-gateway construction,
+  exact-optional-property drift, impossible optional states for guaranteed
+  dependencies, broad casts, top-level arrow module logic, mutation of
+  owned-boundary data, misplaced real-gateway construction,
   demonstrated gateway clumps, naming hygiene, suppression hygiene, and other
   Tier A rules. Intended for cheap, per-diff detection; resolution stays
   with the engineer in a later, higher-context workflow.
@@ -162,16 +163,33 @@ to each rule's exceptions.
     setting, omitting a key is different from setting it to `undefined`. Do not
     flag `ExplicitUndefined<Reason, T>` solely because it includes `undefined`;
     check whether the reason/category is specific and appropriate.
-17. **Unchecked indexed-access bypass.** Flag non-null assertions or broad casts
+17. **Impossible optional state for a guaranteed dependency.** Flag a field,
+    collaborator, or method changed to be optional only when the supplied diff
+    affirmatively shows that every supported runtime guarantees it. Strong
+    evidence includes a required owning/host contract weakened in a derived or
+    adapter-facing type; changed composition code always supplying a dependency
+    while its changed consumer type marks it optional and immediately uses `?.`
+    or an empty/default fallback; optional methods whose changed contract or
+    adapter shows they are always present; or changed production call sites all
+    supplying a value that only changed test fakes omit. Severity: `warning`.
+    Report the contract mismatch and recommend making the dependency or member
+    required and removing the concealment so missing wiring fails at compile
+    time. Do not merely recommend deleting optional chaining or a fallback while
+    leaving the optional contract. Skip the finding when the runtime guarantee
+    is outside the diff or intent is ambiguous. Do not flag legitimate optional
+    inputs, lookup results, persisted paths, capabilities absent in a supported
+    runtime, or other concrete absence states. `?.`, `??`, `?:`, and
+    `NonNullable` are supporting evidence only; never flag them by themselves.
+18. **Unchecked indexed-access bypass.** Flag non-null assertions or broad casts
     that bypass `noUncheckedIndexedAccess` on array/record lookups, such as
     `items[index]!`, `handlers[key]!`, or `(record[key] as Handler)` without a
     nearby guard. Severity: `warning`. Do not flag a lookup followed by an
     explicit `undefined` guard that stores the narrowed value in a local.
-18. **Mega-barrels or sweeping exports.** Flag `export * from "..."`,
+19. **Mega-barrels or sweeping exports.** Flag `export * from "..."`,
     especially in `index.ts` or package public roots. Severity: `warning`. Do
     not flag explicit curated exports such as `export { Foo } from "./foo.ts"`
     or `export type { FooOptions } from "./foo.ts"`.
-19. **Real gateway construction below the composition edge.** Flag added
+20. **Real gateway construction below the composition edge.** Flag added
     `new Real*Gateway(...)` or `createReal*Gateway(...)` calls inside domain or
     workflow operations when the changed code is not visibly a top-level
     composition root, a named `createReal*Context` or equivalent composition
@@ -182,7 +200,7 @@ to each rule's exceptions.
     domain logic should receive its narrowed Consumer Gateway through an
     injected context. Do not flag direct construction in tests, focused
     real-adapter tests, or clear entrypoint/context factories.
-20. **Demonstrated gateway clumps without a named context.** Flag when the diff
+21. **Demonstrated gateway clumps without a named context.** Flag when the diff
     visibly makes two or more runtime collaborators travel together through
     multiple operations or layers without a capability-owned `*Context`.
     Gateways, the ns extension API object, Pi runtime `ExtensionAPI`, and

@@ -109,6 +109,32 @@ Full reasoning: `references/type-system.md`.
   code. Represent meaningful states—including `none`, `not-found`, and `unavailable`—as named
   discriminated variants. Treat an impossible miss as an invariant failure through a checked accessor
   that returns `T`.
+- **Do not model an impossible optional state.** Ask: **What supported runtime state does this absence
+  represent?** If every supported runtime guarantees a dependency or member, make it required. Making
+  a guaranteed dependency or its methods optional lets incomplete composition compile and forces every
+  consumer to conceal the broken invariant with optional chaining or fallback values. Repair the owning
+  contract and remove those downstream fallbacks so missing wiring fails during type checking—or loudly
+  at the narrow external boundary when the input is genuinely untyped.
+  ```ts
+  // Avoid when every supported HostContext supplies store.
+  interface HostContext {
+    store?: Store;
+  }
+
+  function listItems(context: HostContext): ReadonlyArray<Item> {
+    return context.store?.list() ?? [];
+  }
+
+  interface HostContext {
+    store: Store;
+  }
+
+  function listItems(context: HostContext): ReadonlyArray<Item> {
+    return context.store.list();
+  }
+  ```
+  Keep real absence optional: optional input, unsupported runtime capabilities, and lookup results such
+  as `store.find(id): Item | undefined` remain valid even when `store` itself is required.
 - **Expose deliberate extension points.** Empty interfaces plus declaration merging can let apps extend
   a core event/message union without forking it. `NS_TS_BAN_EMPTY_INTERFACE_EXTENDS`: an empty
   `interface Child extends Parent {}` is not an extension point; it is a type alias with worse
