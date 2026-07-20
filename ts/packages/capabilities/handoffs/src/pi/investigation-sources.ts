@@ -1,5 +1,5 @@
 import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
-import type { SessionManagerLike } from "./runtime-types.ts";
+import type { PiSessionReader } from "./runtime-types.ts";
 
 const UNAVAILABLE_SESSION_ID = "unavailable (no Pi session id was exposed)";
 const UNAVAILABLE_SESSION_LOG = "unavailable (no persisted Pi session log was exposed)";
@@ -10,10 +10,10 @@ export interface HandoffInvestigationSourceOptions {
 }
 
 export function deriveHandoffInvestigationSources(context: {
-	readonly sessionManager?: SessionManagerLike;
+	readonly sessionManager: PiSessionReader;
 }): HandoffInvestigationSourceOptions {
-	const sourceSessionFile = context.sessionManager?.getSessionFile?.();
-	const sourceSessionId = context.sessionManager?.getSessionId?.();
+	const sourceSessionFile = context.sessionManager.getSessionFile();
+	const sourceSessionId = context.sessionManager.getSessionId();
 	return {
 		...(sourceSessionFile === undefined ? {} : { sourceSessionFile }),
 		...(sourceSessionId === undefined ? {} : { sourceSessionId }),

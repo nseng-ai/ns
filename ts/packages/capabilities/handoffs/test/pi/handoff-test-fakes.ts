@@ -369,10 +369,18 @@ export function createContext(
 		};
 	}
 
+	const sessionFile = options.sessionFile;
+	const sessionId = options.sessionId;
 	const ctx: CommandContext = {
 		cwd: options.cwd ?? ROOT,
 		hasUI: options.hasUI ?? true,
 		mode: options.mode ?? "tui",
+		sessionManager: {
+			getBranch: () => [],
+			getEntries: () => [],
+			getSessionFile: () => sessionFile,
+			getSessionId: () => sessionId ?? "",
+		},
 		ui,
 		async waitForIdle(): Promise<void> {
 			waits += 1;
@@ -389,6 +397,12 @@ export function createContext(
 				cwd: options.cwd ?? ROOT,
 				hasUI: options.hasUI ?? true,
 				mode: options.mode ?? "tui",
+				sessionManager: {
+					getBranch: () => [],
+					getEntries: () => [],
+					getSessionFile: () => undefined,
+					getSessionId: () => "replacement-test-session-id",
+				},
 				ui: {
 					notify(message: string, level?: "info" | "warning" | "error"): void {
 						replacementNotifications.push({ message, level });
@@ -407,15 +421,6 @@ export function createContext(
 			return { cancelled: false };
 		},
 	};
-
-	const sessionFile = options.sessionFile;
-	const sessionId = options.sessionId;
-	if (sessionFile !== undefined || sessionId !== undefined) {
-		ctx.sessionManager = {
-			...(sessionFile === undefined ? {} : { getSessionFile: () => sessionFile }),
-			...(sessionId === undefined ? {} : { getSessionId: () => sessionId }),
-		};
-	}
 
 	return {
 		ctx,

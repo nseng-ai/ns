@@ -23,6 +23,7 @@ import {
 } from "../../src/fleet/detail.ts";
 import { renderTimelineEntryLines } from "../../src/fleet/detail-render.ts";
 import type { ReadTextFile } from "../../src/fleet/read-text-dependencies.ts";
+import { createTestSessionReader } from "../helpers/test-session-reader.ts";
 import { settleMicrotasks } from "../helpers/fleet-testing.ts";
 
 function itemAt<T>(items: readonly T[], index: number): T {
@@ -93,6 +94,7 @@ function noUiCommandContext(notifications: string[]): CommandContext {
 		cwd: "/repo",
 		hasUI: false,
 		mode: "json",
+		sessionManager: createTestSessionReader(),
 		ui: {
 			notify(message: string) {
 				notifications.push(message);

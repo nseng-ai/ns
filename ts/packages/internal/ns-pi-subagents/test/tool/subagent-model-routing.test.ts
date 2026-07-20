@@ -22,6 +22,7 @@ import {
 	type SubagentToolHost,
 } from "../../src/tool/subagent.ts";
 import { makeFinalTextResult } from "../helpers/fleet-testing.ts";
+import { createTestSessionReader } from "../helpers/test-session-reader.ts";
 
 class FakeToolHost implements SubagentToolHost {
 	readonly tools = new Map<string, ToolDefinition>();
@@ -87,6 +88,7 @@ function context(provider = "openai-codex"): ToolContext {
 		cwd: "/repo",
 		mode: "tui",
 		hasUI: false,
+		sessionManager: createTestSessionReader(),
 		ui: { notify: () => {} },
 		model: { provider, id: "parent-strong" },
 	};

@@ -7,6 +7,7 @@ import {
 import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 import { EXPLORER_AGENT_DESCRIPTOR } from "../src/agents/explorer.ts";
 import { createSubagentAgentRegistry } from "../src/agents/registry.ts";
+import { createTestSessionReader } from "./helpers/test-session-reader.ts";
 import {
 	createFunctionSubagentRuntime,
 	createSubagentRuntimeRegistry,
@@ -35,7 +36,13 @@ const runtime = createFunctionSubagentRuntime(async () => ({
 }));
 
 function toolContext(): ToolContext {
-	return { cwd: "/repo", mode: "tui", hasUI: false, ui: { notify: () => {} } };
+	return {
+		cwd: "/repo",
+		mode: "tui",
+		hasUI: false,
+		sessionManager: createTestSessionReader(),
+		ui: { notify: () => {} },
+	};
 }
 
 describe("subagent registries", () => {

@@ -32,6 +32,7 @@ import {
 	settleMicrotasks,
 	toolContext,
 } from "../helpers/fleet-testing.ts";
+import { createTestSessionReader } from "../helpers/test-session-reader.ts";
 import type { GitHeadSnapshot } from "../../src/fleet/git-head.ts";
 
 class FakeFleetLifecycle {
@@ -301,6 +302,7 @@ describe("subagent fleet display for explorer", () => {
 			cwd: "/repo",
 			hasUI: false,
 			mode: "json",
+			sessionManager: createTestSessionReader(),
 			ui: { notify: () => {}, setStatus: () => {} },
 		};
 		const heads: GitHeadSnapshot[] = [
@@ -336,6 +338,7 @@ describe("subagent fleet display for explorer", () => {
 			cwd: "/repo",
 			hasUI: true,
 			mode: "tui",
+			sessionManager: createTestSessionReader(),
 			ui: {
 				notify: () => {},
 				setWidget: () => {},
@@ -366,6 +369,7 @@ describe("subagent fleet display for explorer", () => {
 			cwd: "/repo",
 			hasUI: true,
 			mode: "tui",
+			sessionManager: createTestSessionReader(),
 			ui: {
 				notify: () => {},
 				setWidget: () => {},
@@ -494,6 +498,7 @@ describe("subagent fleet display for explorer", () => {
 			cwd: "/repo",
 			hasUI: true,
 			mode: "tui",
+			sessionManager: createTestSessionReader(),
 			ui: {
 				notify: () => {},
 				setWidget: () => {},

@@ -810,6 +810,42 @@ function herdrDispatchPlanTestOptions(
 }
 
 describe("ns:herdr:handoff:plan — dry-run (no Herdr mutations)", () => {
+	test("registered command selects a plan saved in the current Pi session", async () => {
+		const repoRoot = await makeTempDir();
+		const xdgStateHome = await makeTempDir();
+		const planStoreRoot = join(xdgStateHome, "ns", "enriched-plan");
+		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, {
+			content: PLAN_CONTENT,
+		});
+		vi.stubEnv("XDG_STATE_HOME", xdgStateHome);
+		const pi = new FakePi({
+			script: [
+				...dispatchValidationScript(repoRoot),
+				gitRootStep(repoRoot),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
+					{ stdout: `${PLAN_SLUG}\n` },
+				),
+				headStep(),
+			],
+		});
+		await registerHerdrPiExtension(pi);
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			branchEntries: [savedPlanEntry(repoRoot, planFile)],
+		});
+
+		await pi.commands.get("ns:herdr:handoff:plan")?.handler("--dry-run", ctx);
+
+		const output = notificationMessages(ctx).join("\n");
+		expect(ctx.statuses).toContainEqual({
+			key: "ns:herdr:handoff:plan",
+			value: "deriving branch-context slug…",
+		});
+		expect(output).not.toContain("No saved plan from /ns:plan:save was found");
+	});
+
 	test("dry-run shows preview without creating workspace, tab, or pane", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();

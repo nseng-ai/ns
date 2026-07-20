@@ -1,13 +1,10 @@
-import type {
-	CommandContext,
-	CommandDefinition,
-	ExtensionAPI,
-} from "@nseng-ai/capability-kit/pi-types";
+import type { CommandDefinition, ExtensionAPI } from "@nseng-ai/capability-kit/pi-types";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import type {
 	HandoffExtensionAPI,
 	HandoffPromptCreateIntegration,
 } from "@nseng-ai/handoffs/pi/handoff-launch";
+import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
 
 import {
 	createHerdrSidebarControllerWithPiWiring,
@@ -117,12 +114,11 @@ function adaptHerdrExtensionApi(pi: ExtensionAPI | HandoffExtensionAPI): Extensi
 	};
 }
 
-function adaptCommandContext(
-	ctx: Parameters<Parameters<HandoffExtensionAPI["registerCommand"]>[1]["handler"]>[1],
-): CommandContext {
+function adaptCommandContext(ctx: CommandContext) {
 	return {
 		cwd: ctx.cwd,
 		...optionalEntries({ hasUI: ctx.hasUI, model: ctx.model }),
+		sessionManager: ctx.sessionManager,
 		ui: ctx.ui,
 		modelRegistry: ctx.modelRegistry ?? { find: () => undefined },
 		waitForIdle: () => ctx.waitForIdle(),
