@@ -1,5 +1,5 @@
 import type { NsContext } from "./catalog.ts";
-import type { ClinkrRun, CommandSchema } from "./clinkr.ts";
+import type { NsClinkrCommandRun, CommandSchema } from "./ns-clinkr-command.ts";
 
 export interface CommandDefinition<TRun = (...args: never[]) => unknown> {
 	readonly name: string;
@@ -15,7 +15,7 @@ export interface DefineCommandOptions<TRun> {
 	readonly run: TRun;
 }
 
-export type ComposableCommand = CommandDefinition<ClinkrRun<CommandSchema, unknown>>;
+export type ComposableCommand = CommandDefinition<NsClinkrCommandRun<CommandSchema, unknown>>;
 
 const composableCommandBrand = Symbol.for("@nseng-ai/sdk/command/composable");
 

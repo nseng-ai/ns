@@ -2,7 +2,7 @@ import { formatErrorMessage, optionalEntries } from "@nseng-ai/foundation/primit
 import { z } from "zod";
 
 import { isComposableCommand } from "../command/command.ts";
-import { isClinkrRun } from "../command/clinkr.ts";
+import { isNsClinkrCommandRun } from "../command/ns-clinkr-command.ts";
 import { defineInternalParsedCommand, type RawArgvCommand } from "../sdk/command.ts";
 import {
 	failure,
@@ -209,10 +209,10 @@ export function validateDescriptorCommandContribution(
 		};
 	}
 	if (isComposableCommand(command)) {
-		if (!isClinkrRun(command.run)) {
+		if (!isNsClinkrCommandRun(command.run)) {
 			return {
 				ok: false,
-				message: `Invalid ns descriptor command ${sourceLabel}: composable command run must carry clinkr metadata.`,
+				message: `Invalid ns descriptor command ${sourceLabel}: composable command run must carry nsClinkrCommand metadata.`,
 			};
 		}
 		return { ok: true, command };

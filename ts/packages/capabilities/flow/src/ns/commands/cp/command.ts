@@ -1,5 +1,7 @@
-import { defineFirstPartyCommand } from "@nseng-ai/capability-kit";
 import { z } from "@nseng-ai/sdk";
+import { nsClinkrCommand, defineCommand } from "@nseng-ai/sdk/command";
+
+import type { FlowCommandContext } from "../../context.ts";
 
 import { runCpCommand } from "./impl.ts";
 
@@ -10,23 +12,23 @@ The command captures the pending worktree, refuses Graphite's configured trunk b
 Use --dry-run to preview the model-authored checkpoint message without running git add, git commit, or git log.
 `;
 
-const cpRequestSchema = z.object({
-	dryRun: z
-		.boolean()
-		.default(false)
-		.describe("Preview the checkpoint message without staging or committing."),
-});
+export function createFlowCpCommand(context: FlowCommandContext) {
+	return defineCommand({
+		name: "cp",
+		summary: "Create a checkpoint commit for the current diff.",
+		description: CP_COMMAND_DESCRIPTION,
+		run: nsClinkrCommand({
+			schema: z.object({
+				dryRun: z
+					.boolean()
+					.default(false)
+					.describe("Preview the checkpoint message without staging or committing."),
+			}),
+			resultSchema: z.string(),
+			options: { dryRun: { short: "-n" } },
+			handler: (bundle, request) => runCpCommand(context, bundle, request),
+		}),
+	});
+}
 
-export const flowCpCommand = defineFirstPartyCommand({
-	name: "cp",
-	summary: "Create a checkpoint commit for the current diff.",
-	description: CP_COMMAND_DESCRIPTION,
-	clinkr: {
-		schema: cpRequestSchema,
-		resultSchema: z.string(),
-		options: { dryRun: { short: "-n" } },
-		handler: runCpCommand,
-	},
-});
-
-export default flowCpCommand;
+export default createFlowCpCommand;

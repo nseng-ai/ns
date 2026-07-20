@@ -193,6 +193,34 @@ Command modules run in the target project via ns's TypeScript loader — you shi
 (`files: ["src"]`); no build step is required. `@nseng-ai/sdk` is provided by the host at
 load time, so command and schema types share identity with the running `ns`.
 
+Keep command-module import evaluation cheap too. A simple context-free command may default-export a
+command object directly, as above. When a command needs composed runtime collaborators, default-export
+a command factory and have the descriptor's lazy `load` thunk call it after importing the module. Build
+Zod schemas and the dependency-bound command object inside that factory rather than at module scope.
+Module scope should contain only inert constants, types, and function declarations; it should not
+construct schemas, gateways, clients, or other runtime object graphs merely because the selected
+command module was imported for help, completion, or JSON Schema inspection.
+
+```ts
+export function createHelloCommand(context: HelloCommandContext) {
+	const requestSchema = z.object({
+		name: z.string().default("world"),
+	});
+	return defineCommand({
+		name: "hello",
+		summary: "Say hello.",
+		schema: requestSchema,
+		resultSchema: z.string(),
+		handler: (_invocation, request) => context.greet(request.name),
+	});
+}
+
+export default createHelloCommand;
+```
+
+This keeps lazy loading honest: importing a selected command reveals its factory, while the caller
+chooses when and with which real or fake context to construct the executable command.
+
 ## The command contract (low-level)
 
 The SDK's actual per-command contract is a small neutral object, constructed directly with

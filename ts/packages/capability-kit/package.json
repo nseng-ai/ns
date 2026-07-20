@@ -17,6 +17,7 @@
 		"./json-input": "./src/kit/json-input.ts",
 		"./machine-envelope-exec": "./src/kit/machine-envelope-exec.ts",
 		"./pi-launch": "./src/kit/pi-launch.ts",
+		"./pi-text-generation": "./src/kit/pi-text-generation.ts",
 		"./pi-types": "./src/kit/pi-types.ts",
 		"./tracked-branch-payload": "./src/kit/tracked-branch-payload.ts",
 		"./model-slug": "./src/kit/model-slug.ts",
@@ -56,6 +57,9 @@
 		"publish:dry-run": "pnpm --workspace-root exec ns-dev prepare-source-publish-package \"$PWD\" && npm publish --dry-run ./dist/publish"
 	},
 	"dependencies": {
+		"@earendil-works/pi-agent-core": "catalog:",
+		"@earendil-works/pi-ai": "catalog:",
+		"@earendil-works/pi-coding-agent": "catalog:",
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/sdk": "workspace:*",

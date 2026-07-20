@@ -64,3 +64,4 @@ Before designing, authoring, or reviewing CLI commands, command groups, `exec` s
 
 - CLI scenario tests must cover `--version`, `--runtime`, and `-h` when those surfaces are part of the user-facing contract.
 - Skill/agent-only commands must live under a nested `exec` `ClinkrGroup` constructed with `isHidden: true`; keep top-level `--help` human-focused.
+- Keep ns extension imports cheap across both layers: descriptor modules contain only SDK metadata and literal lazy-load thunks; lazily selected command modules avoid module-scope runtime construction. Commands needing composed dependencies export a factory, and that factory constructs Zod schemas and the command object. Module scope may retain inert constants, types, and function declarations.

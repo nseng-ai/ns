@@ -7,15 +7,15 @@ export {
 	type DefinedCommand,
 } from "./command.ts";
 export {
-	clinkr,
-	clinkrSpecForRun,
-	isClinkrRun,
+	nsClinkrCommand,
+	nsClinkrCommandOptionsForRun,
+	isNsClinkrCommandRun,
 	createUnavailableInteraction,
-	type ClinkrCompletionBundle,
-	type ClinkrHandlerBundle,
-	type ClinkrRun,
-	type ClinkrSpec,
-	type CommandCompletionProvider,
+	type NsClinkrCompletionBundle,
+	type NsClinkrCommandBundle,
+	type NsClinkrCommandRun,
+	type NsClinkrCommandOptions,
+	type NsClinkrCompletionProvider,
 	type CommandEventSink,
 	type CommandInteraction,
 	type CommandSchema,
@@ -24,7 +24,7 @@ export {
 	type SelectChoice,
 	type SelectRequest,
 	type SelectResult,
-} from "./clinkr.ts";
+} from "./ns-clinkr-command.ts";
 export {
 	createCommandProgressPhaseRenderer,
 	type CommandProgressPhaseRenderer,

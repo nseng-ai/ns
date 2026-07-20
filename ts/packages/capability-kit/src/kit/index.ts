@@ -2,7 +2,7 @@ export {
 	defineFirstPartyCommand,
 	materializeFirstPartyCommand,
 	type DefineFirstPartyCommandOptions,
-	type FirstPartyClinkrSpec,
+	type FirstPartyNsClinkrCommandOptions,
 	type FirstPartyCommandDefinition,
 } from "./first-party-command.ts";
 export {

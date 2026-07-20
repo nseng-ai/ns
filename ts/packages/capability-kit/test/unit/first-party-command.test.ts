@@ -1,4 +1,8 @@
-import { clinkrSpecForRun, createUnavailableInteraction, isClinkrRun } from "@nseng-ai/sdk/command";
+import {
+	nsClinkrCommandOptionsForRun,
+	createUnavailableInteraction,
+	isNsClinkrCommandRun,
+} from "@nseng-ai/sdk/command";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -13,7 +17,7 @@ const requestSchema = z.object({ value: z.string() });
 const command = defineFirstPartyCommand({
 	name: "probe",
 	summary: "Probe first-party binding.",
-	clinkr: {
+	nsClinkrCommand: {
 		schema: requestSchema,
 		resultSchema: z.string(),
 		completions: (context, bundle, request) => [
@@ -30,7 +34,7 @@ const command = defineFirstPartyCommand({
 });
 
 describe("first-party command binding", () => {
-	test("materializes a context-free clinkr command with the supplied typed context", async () => {
+	test("materializes a context-free nsClinkrCommand command with the supplied typed context", async () => {
 		const context = createRealFirstPartyCommandContext({
 			env: { PROBE: "bound" },
 			textGenerator: { generateText: async () => ({ ok: false, error: "unused" }) },
@@ -43,8 +47,8 @@ describe("first-party command binding", () => {
 			}),
 		});
 		const materialized = materializeFirstPartyCommand(command, context);
-		expect(isClinkrRun(materialized.run)).toBe(true);
-		if (!isClinkrRun(materialized.run)) return;
+		expect(isNsClinkrCommandRun(materialized.run)).toBe(true);
+		if (!isNsClinkrCommandRun(materialized.run)) return;
 
 		const result = await materialized.run(
 			{
@@ -58,7 +62,7 @@ describe("first-party command binding", () => {
 		);
 
 		expect(result).toEqual({ type: "ok", data: "bound:request" });
-		const completion = await clinkrSpecForRun(materialized.run).completions?.(
+		const completion = await nsClinkrCommandOptionsForRun(materialized.run).completions?.(
 			{ cwd: "/completion", ns: { catalog: { has: (name) => name === "present" } } },
 			{ words: [], current: "prefix", previous: [], args: [], positionalIndex: 0 },
 		);

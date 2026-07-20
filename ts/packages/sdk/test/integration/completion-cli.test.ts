@@ -77,11 +77,11 @@ export default {
 		const cwd = await createDescriptorExtensionProject(
 			"completion-probe",
 			`import { ok, z } from "@nseng-ai/sdk";
-import { clinkr, defineCommand } from ${JSON.stringify(sdkCommandEntryPath)};
+import { nsClinkrCommand, defineCommand } from ${JSON.stringify(sdkCommandEntryPath)};
 export default defineCommand({
 	name: "completion-probe",
 	summary: "Composable completion probe.",
-	run: clinkr({
+	run: nsClinkrCommand({
 		schema: z.object({ value: z.string().optional() }),
 		resultSchema: z.string(),
 		positionals: { value: { position: 0 } },

@@ -2,20 +2,20 @@ import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import {
-	clinkr,
-	clinkrSpecForRun,
+	nsClinkrCommand,
+	nsClinkrCommandOptionsForRun,
 	createCatalogView,
 	createUnavailableInteraction,
 	defineCommand,
-	isClinkrRun,
+	isNsClinkrCommandRun,
 	isComposableCommand,
 } from "../../src/command/index.ts";
 import { validateDescriptorCommandContribution } from "../../src/extensions/command-registry.ts";
 import { ok } from "../../src/sdk/result.ts";
 
 describe("composable command API", () => {
-	test("brands clinkr runs directly and recovers their specification", () => {
-		const run = clinkr<z.ZodObject<{ value: z.ZodString }>, string>({
+	test("brands nsClinkrCommand runs directly and recovers their specification", () => {
+		const run = nsClinkrCommand({
 			schema: z.object({ value: z.string() }),
 			resultSchema: z.string(),
 			handler: (_bundle, request) => ok(request.value),
@@ -23,17 +23,27 @@ describe("composable command API", () => {
 		const command = defineCommand({ name: "probe", summary: "Probe.", run });
 
 		expect(isComposableCommand(command)).toBe(true);
-		expect(isClinkrRun(run)).toBe(true);
-		expect(clinkrSpecForRun(run).schema).toBeInstanceOf(z.ZodObject);
-		expect(clinkrSpecForRun(run).handler).toBe(run);
+		expect(isNsClinkrCommandRun(run)).toBe(true);
+		expect(nsClinkrCommandOptionsForRun(run).schema).toBeInstanceOf(z.ZodObject);
+		expect(nsClinkrCommandOptionsForRun(run).handler).toBe(run);
 	});
 
-	test("descriptor validation accepts clinkr and rejects arbitrary composable callables", () => {
-		const clinkrCommand = defineCommand({
+	test("defaults omitted input schemas to a strict empty object", () => {
+		const run = nsClinkrCommand({
+			resultSchema: z.string(),
+			handler: () => ok("done"),
+		});
+		const schema = nsClinkrCommandOptionsForRun(run).schema;
+
+		expect(schema.safeParse({})).toMatchObject({ success: true });
+		expect(schema.safeParse({ unexpected: true })).toMatchObject({ success: false });
+	});
+
+	test("descriptor validation accepts nsClinkrCommand and rejects arbitrary composable callables", () => {
+		const nsClinkrCommandDefinition = defineCommand({
 			name: "probe",
 			summary: "Probe.",
-			run: clinkr({
-				schema: z.object({}),
+			run: nsClinkrCommand({
 				resultSchema: z.string(),
 				handler: () => ok("done"),
 			}),
@@ -45,14 +55,18 @@ describe("composable command API", () => {
 		});
 
 		expect(
-			validateDescriptorCommandContribution(clinkrCommand, { name: "probe" }, "fixture"),
+			validateDescriptorCommandContribution(
+				nsClinkrCommandDefinition,
+				{ name: "probe" },
+				"fixture",
+			),
 		).toMatchObject({ ok: true });
 		expect(
 			validateDescriptorCommandContribution(arbitraryCommand, { name: "probe" }, "fixture"),
 		).toEqual({
 			ok: false,
 			message:
-				"Invalid ns descriptor command fixture: composable command run must carry clinkr metadata.",
+				"Invalid ns descriptor command fixture: composable command run must carry nsClinkrCommand metadata.",
 		});
 	});
 

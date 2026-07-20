@@ -3,11 +3,11 @@
 import { z } from "zod";
 
 import {
-	clinkrSpecForRun,
+	nsClinkrCommandOptionsForRun,
 	createCatalogView,
 	createCommandProgressPhaseRenderer,
 	createUnavailableInteraction,
-	isClinkrRun,
+	isNsClinkrCommandRun,
 	type CommandInteraction,
 } from "../command/index.ts";
 import { isComposableCommand } from "../command/command.ts";
@@ -310,8 +310,12 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 				!commandPathMatches(buildState.selectedCommandPath, commandInfo)
 					? undefined
 					: selectedCommand;
-			if (command !== undefined && isComposableCommand(command) && isClinkrRun(command.run)) {
-				const spec = clinkrSpecForRun(command.run);
+			if (
+				command !== undefined &&
+				isComposableCommand(command) &&
+				isNsClinkrCommandRun(command.run)
+			) {
+				const spec = nsClinkrCommandOptionsForRun(command.run);
 				parent.command({
 					name: commandLeafName(commandInfo),
 					description: commandInfo.fullDescription,
@@ -963,8 +967,10 @@ function legacyRawCommand(command: DescriptorCommand): import("../sdk/command.ts
 function cpComposableRun(
 	command: import("../command/command.ts").DefinedCommand<(...args: never[]) => unknown>,
 ) {
-	if (!isClinkrRun(command.run)) {
-		throw new Error(`Composable command ${command.name} run does not carry clinkr metadata.`);
+	if (!isNsClinkrCommandRun(command.run)) {
+		throw new Error(
+			`Composable command ${command.name} run does not carry nsClinkrCommand metadata.`,
+		);
 	}
 	return command.run;
 }

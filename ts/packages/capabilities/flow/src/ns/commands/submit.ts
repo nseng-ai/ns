@@ -352,7 +352,6 @@ async function runSubmitWithProgress(input: {
 		matrix.phase({ type: "phase-started", phaseKey: "checkpoint" });
 		const checkpoint = await runCheckpointIfPending({
 			cwd: ctx.cwd,
-			env: ctx.env,
 			...checkpointRunContext,
 			...checkpointContext,
 			textGenerator: ctx.textGenerator,

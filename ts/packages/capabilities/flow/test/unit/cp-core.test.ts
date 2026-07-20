@@ -265,7 +265,6 @@ describe("flow cp core", () => {
 
 		const result = await runCheckpointWorkflow({
 			cwd: "/repo",
-			env: {},
 			gateway,
 			graphite: new InMemoryGraphiteBranchGateway(),
 			textGenerator,
@@ -303,7 +302,6 @@ describe("flow cp core", () => {
 
 		const result = await runCheckpointWorkflow({
 			cwd: "/repo",
-			env: {},
 			gateway,
 			graphite: new InMemoryGraphiteBranchGateway(),
 			textGenerator,

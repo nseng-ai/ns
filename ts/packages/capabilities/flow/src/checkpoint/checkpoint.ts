@@ -97,7 +97,6 @@ export interface CheckpointRunContext {
 
 export interface RunCheckpointCommandOptions extends CheckpointRunContext {
 	cwd: string;
-	env: Record<string, string | undefined>;
 	textGenerator: TextGenerator;
 	modelSelection: ModelSelection;
 	repoRoot?: string;

@@ -7,21 +7,17 @@ import { afterEach } from "vitest";
 import { flowAutobranchCommand } from "../../src/ns/commands/autobranch.ts";
 import { flowAutoslotCommand } from "../../src/ns/commands/autoslot.ts";
 import { flowBranchLatestCommitCommand } from "../../src/ns/commands/branch-latest-commit.ts";
-import { flowChangesCommand } from "../../src/ns/commands/changes/command.ts";
+import { createFlowChangesCommand } from "../../src/ns/commands/changes/command.ts";
 import { flowExecReadGraphiteBranchMetadataCommand } from "../../src/ns/commands/exec-read-graphite-branch-metadata.ts";
-import { flowCpCommand } from "../../src/ns/commands/cp/command.ts";
-import {
-	createRealFirstPartyCommandContext,
-	materializeFirstPartyCommand,
-} from "@nseng-ai/capability-kit";
+import { createFlowCpCommand } from "../../src/ns/commands/cp/command.ts";
 import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
 import { createNsGitGateway } from "@nseng-ai/capability-kit";
 import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import {
-	clinkrSpecForRun,
+	nsClinkrCommandOptionsForRun,
 	createCommandProgressPhaseRenderer,
 	createUnavailableInteraction,
-	isClinkrRun,
+	isNsClinkrCommandRun,
 } from "@nseng-ai/sdk/command";
 import { resolveRenderCapabilities } from "@nseng-ai/clinkr";
 import { createStreamSink } from "@nseng-ai/clinkr/stream";
@@ -29,12 +25,12 @@ import { flowPullTrunkCommand } from "../../src/ns/commands/pull-trunk.ts";
 import { flowPushCommand } from "../../src/ns/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/ns/commands/regenerate-pr.ts";
 import { createFlowSquashStackCommand } from "../../src/ns/commands/squash-stack.ts";
+import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
 import {
 	FakeGraphiteStackGateway,
 	fakeStackInfo,
 	type FakeGraphiteStackGatewayOptions,
 } from "@nseng-ai/capability-kit/graphite/testing";
-import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
 import type {
 	CommandExit,
 	DescriptorCommand,
@@ -43,6 +39,7 @@ import type {
 	NsProgress,
 } from "@nseng-ai/sdk";
 import { createFlowSubmitCommand } from "../../src/ns/commands/submit.ts";
+import type { FlowCommandContext } from "../../src/ns/context.ts";
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import { createNsSubmitRuntime } from "../../src/submit/ns-runtime.ts";
 import { createFlowMinimalSubmitClientForRuntime } from "../../src/submit/real-minimal-submit.ts";
@@ -88,7 +85,7 @@ interface FlowCommandFixture {
 
 export function runFlowCpCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
 	return runFlowComposableCommandWithFakes({
-		command: flowCpCommand,
+		createCommand: createFlowCpCommand,
 		requiresModelPolicy: true,
 		request: options.request ?? {},
 		options,
@@ -511,7 +508,7 @@ export function autoslotStatusProbeFailExec(): ScriptedExecResponse[] {
 export function runFlowChangesCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
 	return runFlowComposableCommandWithFakes({
 		requiresModelPolicy: true,
-		command: flowChangesCommand,
+		createCommand: createFlowChangesCommand,
 		request: options.request ?? {},
 		options,
 		defaults: options.defaults ?? {
@@ -573,7 +570,9 @@ export function runFlowSubmitCommandWithFakes(options: RunFlowSubmitCommandWithF
 }
 
 function runFlowComposableCommandWithFakes(
-	fixture: Omit<FlowCommandFixture, "command"> & { command: DescriptorCommand },
+	fixture: Omit<FlowCommandFixture, "command"> & {
+		createCommand: (context: FlowCommandContext) => DescriptorCommand;
+	},
 ) {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
@@ -610,18 +609,17 @@ function runFlowComposableCommandWithFakes(
 	context.stdout = (text) => stdout.push(text);
 	context.stderr = (text) => stderr.push(text);
 	context.onOutput = (stream, text) => liveOutput.push({ stream, text });
-	const commandContext = createRealFirstPartyCommandContext({
-		env: context.env,
+	const commandContext: FlowCommandContext = {
 		textGenerator: context.textGenerator,
 		commandRunner: createNsCommandRunner(context),
 		git: createNsGitGateway(context),
 		graphiteBranch: new RealGraphiteBranchGateway(context),
-	});
-	const materializedCommand = materializeFirstPartyCommand(fixture.command, commandContext);
-	if (!isClinkrRun(materializedCommand.run)) {
-		throw new Error(`Materialized flow ${fixture.command.name} command run lacks clinkr metadata.`);
+	};
+	const command = fixture.createCommand(commandContext);
+	if (!isNsClinkrCommandRun(command.run)) {
+		throw new Error(`Flow ${command.name} command run lacks nsClinkrCommand metadata.`);
 	}
-	const spec = clinkrSpecForRun(materializedCommand.run);
+	const spec = nsClinkrCommandOptionsForRun(command.run);
 	const caps = resolveRenderCapabilities(context.renderCapabilities);
 	const renderer = createCommandProgressPhaseRenderer({
 		caps,
@@ -636,7 +634,7 @@ function runFlowComposableCommandWithFakes(
 		forward: { isLive: context.progress.isLive, emit: context.progress.phase },
 	});
 	const completed = Promise.resolve(
-		materializedCommand.run(
+		command.run(
 			{
 				ns: { catalog: { has: () => false } },
 				cwd,

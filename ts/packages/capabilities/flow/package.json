@@ -8,6 +8,7 @@
 	"exports": {
 		"./api": "./src/api/index.ts",
 		"./ns-extension": "./src/ns/extension.ts",
+		"./ns-context": "./src/ns/context.ts",
 		"./commands/changes": "./src/ns/commands/changes/command.ts",
 		"./commands/cp": "./src/ns/commands/cp/command.ts",
 		"./commands/autobranch": "./src/ns/commands/autobranch.ts",

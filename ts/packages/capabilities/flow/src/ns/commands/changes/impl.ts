@@ -1,4 +1,3 @@
-import type { FirstPartyCommandContext } from "@nseng-ai/capability-kit";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
 import {
 	loadPendingWorktreeSnapshot,
@@ -8,11 +7,10 @@ import {
 	renderCapabilitiesForTerminal,
 	resolveRenderCapabilities,
 	type Caps,
-	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
 import { dim, glyph, renderBufferedReport } from "@nseng-ai/foundation/cli-theme";
 import { failure, ok } from "@nseng-ai/sdk";
-import type { ClinkrHandlerBundle } from "@nseng-ai/sdk/command";
+import type { NsClinkrCommandBundle } from "@nseng-ai/sdk/command";
 
 import { formatPendingWorktreeError } from "../../../autobranch/pending-worktree-format.ts";
 import { draftChangesSummary } from "../../../changes/changes-model-summary.ts";
@@ -24,35 +22,10 @@ import {
 } from "../../../changes/git-porcelain.ts";
 import { progressPhaseInfos, type PhaseSpec } from "../../../phase-stream/phase-stream-specs.ts";
 import { FLOW_COMMAND_FAILED } from "../../flow-cli-runner.ts";
+import type { FlowCommandContext } from "../../context.ts";
 import { resolveFlowModelSelectionAt } from "../../model-policy.ts";
 
-export const MAX_DISPLAY_FILE_LINES = 50;
-
-export interface ChangesFile {
-	path: string;
-	status: string;
-	indexStatus: string;
-	worktreeStatus: string;
-	label: string;
-}
-
-export type ChangesResult =
-	| {
-			state: "clean";
-			branch: string;
-			summary: string[];
-			files: ChangesFile[];
-			totalFileCount: 0;
-			omittedFileCount: 0;
-	  }
-	| {
-			state: "dirty";
-			branch: string;
-			summary: string[];
-			files: ChangesFile[];
-			totalFileCount: number;
-			omittedFileCount: number;
-	  };
+const MAX_DISPLAY_FILE_LINES = 50;
 
 const GIT_STATUS_LABEL_CODES = ["R", "C", "A", "D", "M"] as const;
 type GitStatusLabelCode = (typeof GIT_STATUS_LABEL_CODES)[number];
@@ -89,8 +62,8 @@ const CHANGES_PHASES: readonly PhaseSpec[] = [
 ];
 
 export async function runChangesCommand(
-	services: FirstPartyCommandContext,
-	bundle: ClinkrHandlerBundle,
+	context: FlowCommandContext,
+	bundle: NsClinkrCommandBundle,
 ) {
 	bundle.events.emit({
 		type: "phases-declared",
@@ -100,9 +73,9 @@ export async function runChangesCommand(
 	bundle.events.emit({ type: "phase-started", phaseKey: "inspect" });
 	const loaded = await loadPendingWorktreeSnapshot({
 		cwd: bundle.cwd,
-		git: services.git,
+		git: context.git,
 		execGit: async (args, timeout) =>
-			await services.commandRunner("git", args, { cwd: bundle.cwd, timeout }),
+			await context.commandRunner("git", args, { cwd: bundle.cwd, timeout }),
 	});
 	if (!loaded.ok) {
 		return failure(FLOW_COMMAND_FAILED, formatPendingWorktreeError(loaded.error));
@@ -113,12 +86,12 @@ export async function runChangesCommand(
 	if (snapshot.clean) {
 		bundle.events.emit({ type: "phase-done", phaseKey: "policy", detail: "not required" });
 		bundle.events.emit({ type: "phase-done", phaseKey: "generate", detail: "not required" });
-		return ok(cleanResult(snapshot));
+		return ok("Working tree is clean; no outstanding changes.");
 	}
 
 	bundle.events.emit({ type: "phase-started", phaseKey: "policy" });
 	const model = await resolveFlowModelSelectionAt(
-		{ cwd: bundle.cwd, git: services.git },
+		{ cwd: bundle.cwd, git: context.git },
 		MODEL_OPERATION_IDS.flowChanges,
 	);
 	if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
@@ -130,7 +103,7 @@ export async function runChangesCommand(
 
 	bundle.events.emit({ type: "phase-started", phaseKey: "generate" });
 	const summary = await draftChangesSummary({
-		textGenerator: services.textGenerator,
+		textGenerator: context.textGenerator,
 		modelSelection: model.modelSelection,
 		snapshot,
 	});
@@ -140,79 +113,47 @@ export async function runChangesCommand(
 		phaseKey: "generate",
 		detail: "changes summary generated",
 	});
-	return ok(dirtyResult(snapshot, summary.summaryText));
+	return ok(renderOutstandingChanges(bundle.caps, snapshot, summary.summaryText));
 }
 
-export function renderChangesHuman(
-	result: ChangesResult,
-	capabilities: RenderCapabilities,
+function renderOutstandingChanges(
+	capabilities: Parameters<typeof resolveRenderCapabilities>[0],
+	snapshot: PendingWorktreeSnapshot,
+	summaryText: string,
 ): string {
-	if (result.state === "clean") return "Working tree is clean; no outstanding changes.";
 	const terminalCaps = resolveRenderCapabilities(capabilities);
 	return renderBufferedReport({
 		caps: renderCapabilitiesForTerminal(terminalCaps),
-		title: `Outstanding changes on ${result.branch}`,
+		title: `Outstanding changes on ${snapshot.branch}`,
 		sections: [
-			{ title: "Summary", lines: result.summary.map((line) => bulletLine(terminalCaps, line)) },
-			{ title: "Files", lines: displayFileLines(terminalCaps, result) },
+			{ title: "Summary", lines: summaryLines(terminalCaps, summaryText) },
+			{
+				title: "Files",
+				lines: displayFileLines(terminalCaps, parseGitPorcelainStatusOutput(snapshot.status)),
+			},
 		],
 	});
 }
 
-function cleanResult(snapshot: PendingWorktreeSnapshot): ChangesResult {
-	return {
-		state: "clean",
-		branch: snapshot.branch,
-		summary: [],
-		files: [],
-		totalFileCount: 0,
-		omittedFileCount: 0,
-	};
-}
-
-function dirtyResult(snapshot: PendingWorktreeSnapshot, summaryText: string): ChangesResult {
-	const parsedFiles = parseGitPorcelainStatusOutput(snapshot.status);
-	const files = parsedFiles.slice(0, MAX_DISPLAY_FILE_LINES).map(toChangesFile);
-	return {
-		state: "dirty",
-		branch: snapshot.branch,
-		summary: summaryItems(summaryText),
-		files,
-		totalFileCount: parsedFiles.length,
-		omittedFileCount: parsedFiles.length - files.length,
-	};
-}
-
-function toChangesFile(line: GitPorcelainStatusLine): ChangesFile {
-	return {
-		path: line.path,
-		status: line.status.raw,
-		indexStatus: line.status.index,
-		worktreeStatus: line.status.worktree,
-		label: statusLabel(line.status),
-	};
-}
-
-function summaryItems(summaryText: string): string[] {
+function summaryLines(terminalCaps: Caps, summaryText: string): string[] {
 	return summaryText
 		.trim()
 		.split(/\r?\n/)
 		.map((line) => line.trim())
 		.filter((line) => line.length > 0)
-		.map((line) => line.replace(/^-\s+/, ""));
+		.map((line) => bulletLine(terminalCaps, line.replace(/^-\s+/, "")));
 }
 
 function displayFileLines(
 	terminalCaps: Caps,
-	result: Extract<ChangesResult, { state: "dirty" }>,
+	fileLines: readonly GitPorcelainStatusLine[],
 ): string[] {
-	if (result.files.length === 0) return ["(no status lines)"];
-	const displayed = result.files.map((file) =>
-		bulletLine(terminalCaps, `${file.label.padEnd(10)} ${file.path}`),
-	);
-	if (result.omittedFileCount > 0) {
-		displayed.push(dim(`… ${result.omittedFileCount} more file(s)`));
-	}
+	if (fileLines.length === 0) return ["(no status lines)"];
+	const displayed = fileLines
+		.slice(0, MAX_DISPLAY_FILE_LINES)
+		.map((line) => bulletLine(terminalCaps, `${statusLabel(line.status).padEnd(10)} ${line.path}`));
+	const omittedFileCount = fileLines.length - displayed.length;
+	if (omittedFileCount > 0) displayed.push(dim(`… ${omittedFileCount} more file(s)`));
 	return displayed;
 }
 

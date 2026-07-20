@@ -62,6 +62,9 @@ export interface RunWithFakesOptions {
 	onProgress?: NsCliDeps["onProgress"];
 	extensionRegistry?: NsCliDeps["extensionRegistry"];
 	bindSelectedCommand?: NsCliDeps["bindSelectedCommand"];
+	createBindSelectedCommand?: (
+		context: ScriptedNsTestContext,
+	) => NonNullable<NsCliDeps["bindSelectedCommand"]>;
 	firstPartyCommandContext?: FirstPartyCommandContext;
 }
 
@@ -199,6 +202,7 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 				: { extensionRegistry: options.extensionRegistry }),
 			bindSelectedCommand:
 				options.bindSelectedCommand ??
+				options.createBindSelectedCommand?.(context) ??
 				((command) => materializeFirstPartyCommand(command, firstPartyCommandContext)),
 		}),
 	};

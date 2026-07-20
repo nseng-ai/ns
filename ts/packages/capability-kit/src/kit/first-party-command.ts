@@ -1,11 +1,11 @@
 import {
-	clinkr,
+	nsClinkrCommand,
 	defineCommand,
-	type ClinkrCompletionBundle,
-	type ClinkrHandlerBundle,
-	type ClinkrRun,
-	type ClinkrSpec,
-	type CommandCompletionProvider,
+	type NsClinkrCompletionBundle,
+	type NsClinkrCommandBundle,
+	type NsClinkrCommandRun,
+	type NsClinkrCommandOptions,
+	type NsClinkrCompletionProvider,
 	type CommandSchema,
 	type DefinedCommand,
 } from "@nseng-ai/sdk/command";
@@ -14,42 +14,42 @@ import type { z } from "zod";
 
 import type { FirstPartyCommandContext } from "./command-context.ts";
 
-export interface FirstPartyClinkrSpec<S extends CommandSchema, TResult> extends Omit<
-	ClinkrSpec<S, TResult>,
+export interface FirstPartyNsClinkrCommandOptions<S extends CommandSchema, TResult> extends Omit<
+	NsClinkrCommandOptions<TResult, S>,
 	"handler" | "completions"
 > {
 	readonly completions?: (
 		context: FirstPartyCommandContext,
-		bundle: ClinkrCompletionBundle,
-		request: Parameters<CommandCompletionProvider>[1],
-	) => ReturnType<CommandCompletionProvider>;
+		bundle: NsClinkrCompletionBundle,
+		request: Parameters<NsClinkrCompletionProvider>[1],
+	) => ReturnType<NsClinkrCompletionProvider>;
 	readonly handler: (
 		context: FirstPartyCommandContext,
-		bundle: ClinkrHandlerBundle,
+		bundle: NsClinkrCommandBundle,
 		request: z.output<S>,
-	) => ReturnType<ClinkrSpec<S, TResult>["handler"]>;
+	) => ReturnType<NsClinkrCommandOptions<TResult, S>["handler"]>;
 }
 
 export interface DefineFirstPartyCommandOptions<S extends CommandSchema, TResult> {
 	readonly name: string;
 	readonly summary: string;
 	readonly description?: string;
-	readonly clinkr: FirstPartyClinkrSpec<S, TResult>;
+	readonly nsClinkrCommand: FirstPartyNsClinkrCommandOptions<S, TResult>;
 }
 
 const firstPartyCommandBrand = Symbol.for("@nseng-ai/capability-kit/first-party-command");
 
 export type FirstPartyCommandDefinition<S extends CommandSchema, TResult> = DefinedCommand<
-	ClinkrRun<S, TResult>
+	NsClinkrCommandRun<S, TResult>
 > & {
-	readonly [firstPartyCommandBrand]: FirstPartyClinkrSpec<S, TResult>;
+	readonly [firstPartyCommandBrand]: FirstPartyNsClinkrCommandOptions<S, TResult>;
 };
 
 export function defineFirstPartyCommand<S extends CommandSchema, TResult>(
 	options: DefineFirstPartyCommandOptions<S, TResult>,
 ): FirstPartyCommandDefinition<S, TResult> {
-	const { completions: _completions, ...publicSpec } = options.clinkr;
-	const unavailableRun = clinkr({
+	const { completions: _completions, ...publicSpec } = options.nsClinkrCommand;
+	const unavailableRun = nsClinkrCommand({
 		...publicSpec,
 		handler: () => {
 			throw new Error(`First-party command ${options.name} was not materialized by its host.`);
@@ -62,7 +62,7 @@ export function defineFirstPartyCommand<S extends CommandSchema, TResult>(
 			...(options.description === undefined ? {} : { description: options.description }),
 			run: unavailableRun,
 		}),
-		{ [firstPartyCommandBrand]: options.clinkr },
+		{ [firstPartyCommandBrand]: options.nsClinkrCommand },
 	);
 }
 
@@ -78,7 +78,7 @@ export function materializeFirstPartyCommand(
 		name: definition.name,
 		summary: definition.summary,
 		description: definition.description,
-		run: clinkr({
+		run: nsClinkrCommand({
 			...publicSpec,
 			...(completions === undefined
 				? {}

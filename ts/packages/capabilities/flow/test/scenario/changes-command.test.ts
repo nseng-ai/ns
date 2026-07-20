@@ -25,14 +25,7 @@ describe("project-local changes extension behavior", () => {
 		expect(run.stderr.join("")).toBe("");
 		expect(await run.result).toEqual({
 			type: "ok",
-			data: {
-				state: "clean",
-				branch: "feature/demo",
-				summary: [],
-				files: [],
-				totalFileCount: 0,
-				omittedFileCount: 0,
-			},
+			data: "Working tree is clean; no outstanding changes.",
 			human: "Working tree is clean; no outstanding changes.",
 		});
 		expect(run.liveOutput[0]).toEqual({ stream: "stderr", text: "inspecting worktree…\n" });
@@ -63,34 +56,11 @@ describe("project-local changes extension behavior", () => {
 		expect(output).toContain("• Add reviewer notes");
 		expect(output).toContain("Files\n• modified   src/app.ts\n• untracked  notes.md");
 		expect(run.stderr.join("")).toBe("");
-		expect(await run.result).toEqual(
-			expect.objectContaining({
-				type: "ok",
-				data: {
-					state: "dirty",
-					branch: "feature/demo",
-					summary: ["Update app behavior", "Add reviewer notes"],
-					files: [
-						{
-							path: "src/app.ts",
-							status: " M",
-							indexStatus: " ",
-							worktreeStatus: "M",
-							label: "modified",
-						},
-						{
-							path: "notes.md",
-							status: "??",
-							indexStatus: "?",
-							worktreeStatus: "?",
-							label: "untracked",
-						},
-					],
-					totalFileCount: 2,
-					omittedFileCount: 0,
-				},
-			}),
-		);
+		expect(await run.result).toEqual({
+			type: "ok",
+			data: output.trimEnd(),
+			human: output.trimEnd(),
+		});
 		expect(run.liveOutput.slice(0, 3)).toEqual([
 			{ stream: "stderr", text: "inspecting worktree…\n" },
 			{ stream: "stderr", text: "resolving changes model policy…\n" },
@@ -261,16 +231,10 @@ describe("project-local changes extension behavior", () => {
 		expect(output).toContain("• modified   file-49.ts");
 		expect(output).not.toContain("file-50.ts");
 		expect(output).toContain("… 2 more file(s)");
-		const result = await run.result;
-		expect(result.type).toBe("ok");
-		if (result.type !== "ok") throw new Error("expected changes success");
-		expect(result.data).toEqual(
-			expect.objectContaining({
-				state: "dirty",
-				totalFileCount: 52,
-				omittedFileCount: 2,
-			}),
-		);
-		expect((result.data as { files: unknown[] }).files).toHaveLength(50);
+		expect(await run.result).toEqual({
+			type: "ok",
+			data: output.trimEnd(),
+			human: output.trimEnd(),
+		});
 	});
 });

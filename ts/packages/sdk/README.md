@@ -26,7 +26,7 @@ export default defineExtension({
 });
 ```
 
-Descriptor modules must stay side-effect-light and should import only `@nseng-ai/sdk` at top level. Command implementation modules own domain behavior and are loaded only when their command is selected.
+Descriptor modules must stay side-effect-light and should import only `@nseng-ai/sdk` at top level. Command implementation modules own domain behavior and are loaded only when their command is selected. Keep those command-module imports cheap too: dependency-bound commands export factories that construct their Zod schemas and command objects inside the factory, leaving module scope to inert constants, types, and function declarations.
 
 ## Preinstalled descriptor catalog
 

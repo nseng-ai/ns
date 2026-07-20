@@ -1,11 +1,10 @@
-import type { FirstPartyCommandContext } from "@nseng-ai/capability-kit";
 import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import type { TimeServices } from "@nseng-ai/foundation/time";
 import { failure, negative, ok, type NsProgressPhaseListener } from "@nseng-ai/sdk";
-import type { ClinkrHandlerBundle } from "@nseng-ai/sdk/command";
+import type { NsClinkrCommandBundle } from "@nseng-ai/sdk/command";
 
 import { formatPendingWorktreeError } from "../../../autobranch/pending-worktree-format.ts";
 import {
@@ -18,20 +17,21 @@ import {
 import { CP_PHASES } from "../../../phase-stream/phase-stream.ts";
 import { progressPhaseInfos } from "../../../phase-stream/phase-stream-specs.ts";
 import { FLOW_COMMAND_FAILED } from "../../flow-cli-runner.ts";
+import type { FlowCommandContext } from "../../context.ts";
 import { resolveFlowModelSelectionAt } from "../../model-policy.ts";
 
 export async function runCpCommand(
-	services: FirstPartyCommandContext,
-	bundle: ClinkrHandlerBundle,
+	context: FlowCommandContext,
+	bundle: NsClinkrCommandBundle,
 	request: { dryRun: boolean },
 ) {
 	const runtime = createCheckpointRuntime({
-		runner: services.commandRunner,
-		git: services.git,
-		graphite: services.graphiteBranch,
+		runner: context.commandRunner,
+		git: context.git,
+		graphite: context.graphiteBranch,
 	});
 	const model = await resolveFlowModelSelectionAt(
-		{ cwd: bundle.cwd, git: services.git },
+		{ cwd: bundle.cwd, git: context.git },
 		MODEL_OPERATION_IDS.flowCheckpoint,
 	);
 	if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
@@ -45,8 +45,7 @@ export async function runCpCommand(
 	return toCommandResult(
 		await runCheckpointWorkflow({
 			cwd: bundle.cwd,
-			env: services.env,
-			textGenerator: services.textGenerator,
+			textGenerator: context.textGenerator,
 			modelSelection: model.modelSelection,
 			dryRun: request.dryRun,
 			gateway: runtime.checkpointGateway,
@@ -71,7 +70,6 @@ export interface RunCpCoreOptions {
 export async function runCpCore(options: RunCpCoreOptions): Promise<CheckpointWorkflowResult> {
 	return runCheckpointWorkflow({
 		cwd: options.cwd,
-		env: options.env,
 		textGenerator: options.textGenerator,
 		modelSelection: options.modelSelection,
 		dryRun: options.isDryRun,

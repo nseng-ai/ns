@@ -7,7 +7,7 @@ import type {
 	RenderCapabilities,
 } from "@nseng-ai/clinkr";
 import type { PositionalSpec } from "@nseng-ai/clinkr/raw";
-import type { z } from "zod";
+import { z } from "zod";
 
 import type { NsContext } from "./catalog.ts";
 import type { CommandExit } from "../sdk/result.ts";
@@ -52,7 +52,7 @@ export interface CommandInteraction {
 	select<T extends string>(request: SelectRequest<T>): Promise<SelectResult<T>>;
 }
 
-export interface ClinkrHandlerBundle {
+export interface NsClinkrCommandBundle {
 	readonly cwd: string;
 	readonly events: CommandEventSink;
 	readonly interact: CommandInteraction;
@@ -61,57 +61,72 @@ export interface ClinkrHandlerBundle {
 	readonly format?: ClinkrFormat;
 }
 
-export interface ClinkrCompletionBundle {
+export interface NsClinkrCompletionBundle {
 	readonly cwd: string;
 	readonly ns: NsContext;
 }
 
-export type CommandCompletionProvider = (
-	bundle: ClinkrCompletionBundle,
+export type NsClinkrCompletionProvider = (
+	bundle: NsClinkrCompletionBundle,
 	request: ClinkrDynamicCompletionRequest,
 ) =>
 	| Promise<ClinkrCompletionResult | readonly ClinkrCompletionCandidate[]>
 	| ClinkrCompletionResult
 	| readonly ClinkrCompletionCandidate[];
 
-export interface ClinkrSpec<S extends CommandSchema, TResult> {
-	readonly schema: S;
+const emptyCommandSchema = z.strictObject({});
+
+type EmptyCommandSchema = typeof emptyCommandSchema;
+
+export interface NsClinkrCommandOptions<TResult, S extends CommandSchema = EmptyCommandSchema> {
+	readonly schema?: S;
 	readonly resultSchema: z.ZodType<TResult>;
 	readonly positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
 	readonly options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
 	readonly renderHuman?: (data: TResult, caps: RenderCapabilities) => string;
 	readonly renderMarkdown?: (data: TResult, caps: RenderCapabilities) => string;
-	readonly completions?: CommandCompletionProvider;
+	readonly completions?: NsClinkrCompletionProvider;
 	readonly handler: (
-		bundle: ClinkrHandlerBundle,
+		bundle: NsClinkrCommandBundle,
 		request: z.output<S>,
 	) => Promise<CommandExit<TResult>> | CommandExit<TResult>;
 }
 
-const clinkrRunBrand = Symbol.for("@nseng-ai/sdk/command/clinkr");
+const nsClinkrCommandBrand = Symbol.for("@nseng-ai/sdk/command/ns-clinkr-command");
 
-export interface ClinkrRun<S extends CommandSchema, TResult> {
+export interface NsClinkrCommandRun<S extends CommandSchema, TResult> {
 	(
-		bundle: ClinkrHandlerBundle,
+		bundle: NsClinkrCommandBundle,
 		request: z.output<S>,
 	): Promise<CommandExit<TResult>> | CommandExit<TResult>;
-	readonly [clinkrRunBrand]: ClinkrSpec<S, TResult>;
+	readonly [nsClinkrCommandBrand]: {
+		readonly options: NsClinkrCommandOptions<TResult, S>;
+		readonly schema: CommandSchema;
+	};
 }
 
-export function clinkr<S extends CommandSchema, TResult>(
-	spec: ClinkrSpec<S, TResult>,
-): ClinkrRun<S, TResult> {
-	return Object.assign(spec.handler, { [clinkrRunBrand]: spec });
+export function nsClinkrCommand<TResult, S extends CommandSchema = EmptyCommandSchema>(
+	options: NsClinkrCommandOptions<TResult, S>,
+): NsClinkrCommandRun<S, TResult> {
+	return Object.assign(options.handler, {
+		[nsClinkrCommandBrand]: {
+			options,
+			schema: options.schema ?? emptyCommandSchema,
+		},
+	});
 }
 
-export function isClinkrRun(value: unknown): value is ClinkrRun<CommandSchema, unknown> {
-	return typeof value === "function" && clinkrRunBrand in value;
+export function isNsClinkrCommandRun(
+	value: unknown,
+): value is NsClinkrCommandRun<CommandSchema, unknown> {
+	return typeof value === "function" && nsClinkrCommandBrand in value;
 }
 
-export function clinkrSpecForRun<S extends CommandSchema, TResult>(
-	run: ClinkrRun<S, TResult>,
-): ClinkrSpec<S, TResult> {
-	return run[clinkrRunBrand];
+export function nsClinkrCommandOptionsForRun<S extends CommandSchema, TResult>(
+	run: NsClinkrCommandRun<S, TResult>,
+) {
+	const metadata = run[nsClinkrCommandBrand];
+	return { ...metadata.options, schema: metadata.schema };
 }
 
 export function createUnavailableInteraction(): CommandInteraction {

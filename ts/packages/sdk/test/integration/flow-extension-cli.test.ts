@@ -5,6 +5,11 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
+import { createRealFlowCommandContext } from "@nseng-ai/flow/ns-context";
+import { createFlowChangesCommand } from "@nseng-ai/flow/commands/changes";
+import { createFlowCpCommand } from "@nseng-ai/flow/commands/cp";
+import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
+
 import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
 import {
 	formattedExecCalls,
@@ -80,7 +85,7 @@ describe("checked-in flow ns extension loading", () => {
 		expect(schemaOutput).toHaveProperty("outputJsonSchema");
 	});
 
-	test("real loader renders structured changes in human and JSON formats", async () => {
+	test("real loader renders the changes prose in human and JSON formats", async () => {
 		const cwd = await createFlowProject();
 		const state = {
 			exec: dirtyChangesExecResponses(cwd),
@@ -100,13 +105,7 @@ describe("checked-in flow ns extension loading", () => {
 		expect(parseJsonOutput(json)).toEqual(
 			expect.objectContaining({
 				status: "ok",
-				data: expect.objectContaining({
-					state: "dirty",
-					branch: "feature/demo",
-					summary: ["Update app behavior"],
-					totalFileCount: 1,
-					omittedFileCount: 0,
-				}),
+				data: expect.stringContaining("Outstanding changes on feature/demo"),
 			}),
 		);
 	});
@@ -308,6 +307,15 @@ function runWithRealFlowExtension(options: {
 			args: options.args,
 			cwd: options.cwd,
 			...(options.state === undefined ? {} : { state: options.state }),
+			createBindSelectedCommand: (context) => (command) => {
+				const flowContext = createRealFlowCommandContext({
+					textGenerator: context.textGenerator,
+					commandRunner: createNsCommandRunner(context),
+				});
+				if (command.name === "cp") return createFlowCpCommand(flowContext);
+				if (command.name === "changes") return createFlowChangesCommand(flowContext);
+				return command;
+			},
 		},
 		{
 			execResponses: () => [],

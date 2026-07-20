@@ -29,12 +29,18 @@ export const flowExtensionDescriptor = defineExtension({
 		{
 			name: "changes",
 			load: async () => ({
-				default: (await import("./commands/changes/command.ts")).flowChangesCommand,
+				default: (await import("./commands/changes/command.ts")).createFlowChangesCommand(
+					(await import("./context.ts")).createRealFlowCommandContext(),
+				),
 			}),
 		},
 		{
 			name: "cp",
-			load: async () => ({ default: (await import("./commands/cp/command.ts")).flowCpCommand }),
+			load: async () => ({
+				default: (await import("./commands/cp/command.ts")).createFlowCpCommand(
+					(await import("./context.ts")).createRealFlowCommandContext(),
+				),
+			}),
 		},
 		{
 			name: "autobranch",
@@ -50,7 +56,9 @@ export const flowExtensionDescriptor = defineExtension({
 		},
 		{
 			name: "autoslot",
-			load: async () => ({ default: (await import("./commands/autoslot.ts")).flowAutoslotCommand }),
+			load: async () => ({
+				default: (await import("./commands/autoslot.ts")).flowAutoslotCommand,
+			}),
 		},
 		{
 			name: "submit",

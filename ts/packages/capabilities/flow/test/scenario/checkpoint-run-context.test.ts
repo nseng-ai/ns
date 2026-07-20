@@ -39,7 +39,6 @@ describe("checkpoint run context", () => {
 
 		const checkpoint = await runCheckpointWorkflow({
 			cwd: ctx.cwd,
-			env: ctx.env,
 			...checkpointRunContext,
 			textGenerator: ctx.textGenerator,
 			modelSelection: {

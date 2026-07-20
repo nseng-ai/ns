@@ -5,9 +5,10 @@
 # `references/review-taste-and-process.md`) with the project overlay
 # (`skills/ns-typescript/SKILL.md`), the fake-driven gateway guidance in
 # `skills/typescript-fake-driven-testing/SKILL.md`, the composition rules in
-# `docs/conventions/consumer-gateways-and-command-shape.md`, and the repo
-# enforcement rules in `ts/AGENTS.md` (test-lane hard gates, time seams,
-# style-guard ids). It is intentionally not a generic
+# `docs/conventions/consumer-gateways-and-command-shape.md`, the ns extension
+# construction rules in `ts/packages/sdk/docs/writing-an-ns-extension.md`, and
+# the repo enforcement rules in `ts/AGENTS.md` (test-lane hard gates, time
+# seams, style-guard ids, cheap extension imports). It is intentionally not a generic
 # TypeScript review; use `.ns/reviews/ns-typescript-style-tripwire/review.md` when reviewing this
 # repo's TypeScript diffs.
 #
@@ -26,7 +27,8 @@ description: |
   banned double-casts, import-boundary drift, strict-indexed-access bypasses,
   exact-optional-property drift, broad casts, top-level arrow module logic,
   mutation of owned-boundary data, misplaced real-gateway construction,
-  demonstrated gateway clumps, naming hygiene, suppression hygiene, and other
+  demonstrated gateway clumps, eager ns extension command construction,
+  naming hygiene, suppression hygiene, and other
   Tier A rules. Intended for cheap, per-diff detection; resolution stays
   with the engineer in a later, higher-context workflow.
 model_profile: fast
@@ -196,6 +198,19 @@ to each rule's exceptions.
     flag one collaborator, a group appearing together only at one composition
     site, tests constructing the adapter they exercise, or a speculative broad
     context redesign not proved by the diff.
+21. **Eager ns extension command construction.** In a command module loaded by
+    an ns extension descriptor's lazy `load` thunk, flag added module-scope
+    runtime construction when the command has composed dependencies or exports
+    a command factory. Concrete violations include top-level Zod schema
+    construction (`z.object`, `z.union`, and similar), top-level
+    `defineCommand(...)` / `clinkr(...)` execution, and top-level gateway,
+    client, or context construction. Severity: `warning`. Dependency-bound
+    command modules should export a `create*Command` factory that constructs
+    schemas and the command object inside the factory; the descriptor loader
+    imports that factory and supplies the real context afterward. Do not flag
+    inert constants, types, function declarations, construction inside the
+    command factory, or a simple context-free command's direct default export
+    when it composes no runtime collaborators.
 
 ## Severity
 

@@ -7,7 +7,7 @@ import {
 	type ProgressPhaseView,
 } from "../sdk/progress-phase-state.ts";
 import { isMatrixProgressEvent, type NsProgressPhaseEvent } from "../sdk/services.ts";
-import type { CommandEventSink } from "./clinkr.ts";
+import type { CommandEventSink } from "./ns-clinkr-command.ts";
 
 export interface CommandProgressPhaseRenderer {
 	emit(event: NsProgressPhaseEvent): void;

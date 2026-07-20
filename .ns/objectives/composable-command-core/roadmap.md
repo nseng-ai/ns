@@ -12,10 +12,10 @@
   - Evidence: bounded searches recorded with the cp steel thread and renderer hoist show no `ClinkrIo` imports in the new command surface or migrated cp command; renderer behavior has direct unit coverage.
 
 - [x] Ship the composable command API in the SDK
-  - `defineCommand({ name, summary, run })` core with `NsContext = { catalog }`; public executable runs are raw or directly branded `clinkr({ schema, resultSchema, completions?, handler })` runs. The clinkr handler bundle owns `{ cwd, caps, events, interact, format? }` conversation plumbing; no standalone hostable combinator or brand remains.
-  - Implemented as a thin rebinding over the existing `ClinkrCommandSpec` dance; clinkr metadata is readable by catalog routing; lands beside `NsExtensionApi` untouched.
-  - Naming settled (design decision 8 and the collapse Semantic Update): exports `defineCommand` / `clinkr` under plain names from `@nseng-ai/sdk/command`; the briefly introduced `hostable` export was removed after no independently executable consumer appeared. Legacy name takeover remains deferred to the migration verdict.
-  - Evidence: SDK unit/type tests cover direct clinkr metadata recovery, explicit unavailable interactions, and descriptor validation accepting clinkr while rejecting arbitrary composable callables; no `ClinkrIo` imports.
+  - `defineCommand({ name, summary, run })` core with `NsContext = { catalog }`; public executable runs are raw or directly branded `nsClinkrCommand({ schema?, resultSchema, completions?, handler })` runs. The ns command bundle owns `{ cwd, caps, events, interact, format? }` conversation plumbing; no standalone hostable combinator or brand remains.
+  - `NsClinkrCommandOptions` is the single author-facing options type. Omitted input schemas default to `z.strictObject({})`, while catalog routing always recovers a concrete schema without overloads, `Omit` gymnastics, or a generic cast.
+  - Naming now makes ownership explicit: `nsClinkrCommand` adapts generic Clinkr mechanics to the ns SDK protocol rather than presenting SDK events, interactions, catalog context, and typed exits as generic Clinkr API. The briefly introduced `hostable` export remains removed; legacy name takeover remains deferred to the migration verdict.
+  - Evidence: SDK unit/type tests cover direct ns command metadata recovery, strict empty-schema defaulting, explicit unavailable interactions, and descriptor validation accepting branded ns Clinkr commands while rejecting arbitrary composable callables; no `ClinkrIo` imports.
 
 - [x] Hoist the default phase events→terminal renderer into the SDK
   - Built on `ProgressPhaseStateStore` + clinkr `StreamSink`; the SDK CLI host edge owns phase checklist frames and forwards semantic events instead when a live host is present.
@@ -23,9 +23,9 @@
   - Evidence: SDK renderer tests cover non-TTY, TTY, failure, and live forwarding without duplicate output; Flow cp scenarios preserve result and phase presentation behavior; bounded ownership searches show no composable `onOutput`, cp byte bridge, new `ClinkrIo`, or Flow matrix/spec vocabulary in the renderer.
 
 - [x] Port `flow changes` (simple gradient point)
-  - The command now uses the first-party composable API with explicit Git, model-policy, and text-generation seams; it returns a bounded clean/dirty result and keeps terminal presentation in `renderHuman`.
-  - Three SDK phases preserve inspect, policy, and generation progress, with policy/generation explicitly settled as not required for clean worktrees.
-  - Evidence: in-memory command scenarios, real-loader human/JSON/JSON-schema integration coverage, existing Pi delegation coverage, bounded legacy-dependency searches, and `just`; command size changed from one 154-line file to one 262-line file.
+  - The command now uses the first-party composable API with explicit Git, model-policy, and text-generation seams; its result remains the bounded prose report rather than introducing a new structured machine contract.
+  - The no-argument callsite omits `schema` and receives the SDK's strict empty-object default. Three SDK phases preserve inspect, policy, and generation progress, with policy/generation explicitly settled as not required for clean worktrees.
+  - Evidence: in-memory command scenarios, real-loader human/JSON/JSON-schema integration coverage, existing Pi delegation coverage, bounded legacy-dependency searches, and `just`; implementation is split into a lazy command factory and dependency-bound implementation module.
 
 - [ ] Port `flow pull-trunk` (mid-weight gradient point)
   - Evidence: works in both hosts; before/after size recorded.
