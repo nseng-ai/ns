@@ -1,45 +1,69 @@
 # @nseng-ai/herdr
 
-`@nseng-ai/herdr` is the private Herdr capability: it owns Herdr-native workspace and surface destinations for repo-local sidebar and dispatch flows. It consumes ns-owned Git/Graphite/Branch Memory and Saved Plan/Branch Context preparation.
+`@nseng-ai/herdr` is the private Herdr capability. It owns Herdr-native space and tab operations and composes ns-owned Git, Graphite, Slots, Saved Plan, Branch Context, and optional Handoff behavior into those resource destinations.
 
 ## Language
 
 **Herdr capability**:
-The first-party **Capability** that drives Herdr workspaces by composing branch, slot, and Pi-session inputs into Herdr workspace operations.
+The first-party **Capability** that drives Herdr spaces and tabs by composing branch, slot, plan, and Pi-session inputs into Herdr operations.
 *Avoid*: generic terminal multiplexer wrapper, cmux adapter, Herdr plugin
 
 **Herdr Consumer Gateway**:
-The narrow domain-shaped interface (`HerdrGateway`) that exposes only the Herdr workspace operations the capability currently needs, backed by the installed `herdr` CLI.
+The narrow domain-shaped interface (`HerdrGateway`) exposing only the workspace and tab operations the capability currently needs, backed by the installed `herdr` CLI.
 *Avoid*: raw socket gateway, full Herdr API surface, generic CLI wrapper
 
-**New space**:
-The focused Herdr workspace created by `/ns:herdr:space:new` at the Pi command's current working directory; an optional natural-language description is interpreted by the configured slug model into a flat semantic workspace label.
-*Avoid*: dispatch workspace, slot checkout, raw workspace-create wrapper, deterministic label fallback
+**Herdr space**:
+The Herdr workspace resource addressed by `/ns:herdr:space:*` commands. Space commands create or rename a workspace, or dispatch work into a newly created workspace.
+*Avoid*: workflow family, dispatch workspace as a separate resource kind, cmux workspace
 
-**Handoff workflow family**:
-The integrated `/ns:herdr:handoff:*` namespace for existing dispatch behavior. It composes native Herdr space or tab destinations with other ns capabilities; the namespace alone does not imply creation of a Handoff Artifact.
-*Avoid*: Handoff Artifact creation by default, replacement for native space/tab vocabulary, generic destination abstraction
+**Herdr tab**:
+A tab resource inside a Herdr space, addressed by `/ns:herdr:tab:*` commands. Commands that mutate or launch into the caller's tab or space resolve explicit Herdr caller identity before doing dependent work.
+*Avoid*: surface, pane, workflow family, implicit focused tab
+
+**New space**:
+The focused Herdr space created by `/ns:herdr:space:new` at the Pi command's current working directory. An optional natural-language description is interpreted by the configured slug model into a flat semantic label.
+*Avoid*: dispatch space, slot checkout, raw workspace-create wrapper, deterministic label fallback
+
+**New tab**:
+The focused Herdr tab created by `/ns:herdr:tab:new` in the caller space at the Pi command's current working directory. An optional natural-language description is interpreted by the configured slug model into a semantic label.
+*Avoid*: new space, implicit focused workspace, raw tab-create wrapper
+
+**Space goal**:
+The `/ns:herdr:space:goal` operation that interprets a goal and renames the explicit caller space with the shared goal-label policy.
+*Avoid*: objective summary, metadata report, tab goal
+
+**Tab goal**:
+The `/ns:herdr:tab:goal` operation that interprets a goal and renames the explicit caller tab with the shared goal-label policy.
+*Avoid*: space goal, UI-focus targeting, workspace rename
 
 **Herdr Handoff tab**:
-The optional `/ns:herdr:handoff:tab` integration with `@nseng-ai/handoffs`: the Handoffs Pi create flow owns artifact composition, content-derived slugging, and persistence; the hidden reference-based `ns herdr exec handoff-tab launch` command verifies the stored artifact by branch and slug before Herdr creates the focused labeled tab and launches pickup in its root pane. The Pi workflow registers only when the curated Handoffs Pi integration module is resolvable, while the ns command composes the Handoffs Capability API directly.
-*Avoid*: model-facing launch tool, Markdown transport through Herdr, Handoffs-owned destination, generic multiplexer launcher, compatibility alias
+The optional `/ns:herdr:tab:handoff` integration with `@nseng-ai/handoffs`. The Handoff Pi create flow owns Handoff Artifact composition, content-derived slugging, and persistence; the hidden reference-based `ns herdr exec handoff-tab launch` command verifies the stored artifact by branch and slug before Herdr creates a focused labeled tab and launches pickup in its root pane. Registration is conditional on the curated Handoffs Pi integration being available.
+*Avoid*: generic Herdr handoff workflow family, model-facing launch tool, Markdown transport through Herdr, Handoffs-owned destination, compatibility alias
 
-**Caller workspace targeting**:
-Identifying the Herdr workspace to act on via the `HERDR_WORKSPACE_ID` environment variable injected by Herdr into every managed pane. Surface dispatch and Herdr Handoff tab validate and capture this ID before plan/artifact work or destination mutation.
+**Caller space targeting**:
+Identifying the Herdr space to act on through `HERDR_WORKSPACE_ID`, injected by Herdr into a managed pane. Space rename and tab-creation/dispatch flows validate and capture this ID before dependent work or destination mutation.
 *Avoid*: UI focus targeting, ambient workspace, implicit workspace
 
-**Workspace label**:
-A display name applied to the caller Herdr workspace via `herdr workspace rename`: `s<number>:obj:<objective-slug>` in a managed ns slot and `obj:<objective-slug>` otherwise. This composition is provisional pending a Herdr workflow pluggability point.
-*Avoid*: sidebar description, metadata reporting, unconditional slot prefix
+**Caller tab targeting**:
+Identifying the exact Herdr tab to rename through `HERDR_TAB_ID`, injected by Herdr into a managed pane. Tab rename flows validate this ID before model work or mutation and never substitute `HERDR_WORKSPACE_ID` or UI focus.
+*Avoid*: caller space ID, focused tab, current tab inference
 
-**Objective sidebar**:
-The `/ns:herdr:objective:sidebar-summary` workflow that resolves an Objective slug and applies the workspace label to the caller Herdr workspace.
-*Avoid*: cmux sidebar summary, workspace metadata, report-metadata
+**Goal label**:
+A display label derived from a user goal and applied with `herdr workspace rename` or `herdr tab rename`: `s<number>:<goal-slug>` in a managed ns slot and `<goal-slug>` otherwise.
+*Avoid*: metadata description, Objective label, unconditional slot prefix
+
+**Objective space summary**:
+The `/ns:herdr:space:objective-summary` workflow that resolves an Objective slug and labels the explicit caller space `s<number>:obj:<objective-slug>` in a managed ns slot and `obj:<objective-slug>` otherwise.
+*Avoid*: sidebar workflow family, workspace metadata report, generic workspace summary
 
 **Label-only behavior**:
-The current `/ns:herdr:objective:sidebar-summary` implementation applies only a workspace label. Slot identity may be encoded in that label when the cwd proves it is a managed ns slot; branch metadata reporting remains deferred.
-*Avoid*: partial implementation, inferred slot from arbitrary basename, metadata transport
+The current `/ns:herdr:space:objective-summary` implementation applies only a workspace label. Branch metadata reporting remains deferred.
+*Avoid*: metadata transport, inferred slot from arbitrary basename, partial cmux parity
+
+**Resource-first Herdr command catalog**:
+The eleven-command Pi surface organized by destination resource: seven space commands (`new`, `goal`, `objective-summary`, `dispatch-prompt`, `dispatch-trunk-prompt`, `dispatch-plan`, `dispatch-trunk-plan`) and four tab commands (`new`, `goal`, `dispatch-plan`, `handoff`). `tab:handoff` is the only optional registration.
+*Avoid*: workflow-family catalog, `/ns:herdr:handoff:*`, `/ns:herdr:objective:*`, `tab:plan-dispatch`
 
 **Herdr capability boundary**:
-The `pi` subpackage is the only Herdr capability subpackage that imports neutral `@nseng-ai/pi/...` host helpers; `ns` composes the hidden reference-based command and real same-channel gateways; the `core` feature stays host-independent.
+The `pi` subpackage is the only Herdr capability subpackage that imports neutral `@nseng-ai/pi/...` host helpers; `ns` composes hidden reference-based commands and real same-channel gateways; core stays host-independent.
 *Avoid*: host-owned Herdr domain, Pi imports from core, package cycle

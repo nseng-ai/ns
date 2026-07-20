@@ -60,6 +60,15 @@ export interface TrackedBranchEvidence {
 	startPoint: string;
 }
 
+export interface GraphiteTrunkPreparation {
+	trunkBranch: string;
+	upstream: GitBranchUpstream;
+	refreshPlan: LocalBranchRefreshPlan;
+	startRef: string;
+	startPoint?: string;
+	preview: boolean;
+}
+
 export interface TrackedBranchPayloadOptions {
 	stagingDir?: string;
 	now?: () => number;
@@ -144,15 +153,15 @@ export async function createTrackedBranchFromResolvedParent(options: {
 	return { branchName, parentBranch: options.parentBranch, startPoint: options.startPoint };
 }
 
-export async function createTrackedBranchFromTrunkForPrompt(options: {
+export async function prepareGraphiteTrunk(options: {
 	pi: CommandExecApi;
 	cwd: string;
-	prompt: string;
 	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
 	git: Pick<GitGateway, "branchUpstream">;
+	preview?: boolean;
 	notify?: (message: string) => void;
 	metadataDbAccess?: GraphiteMetadataDbAccess;
-}): Promise<TrackedBranchEvidence | { error: string }> {
+}): Promise<GraphiteTrunkPreparation | { error: string }> {
 	options.notify?.("Resolving Graphite trunk…");
 	const trunk = await resolveGraphiteTrunkBranch({
 		pi: options.pi,
@@ -173,29 +182,68 @@ export async function createTrackedBranchFromTrunkForPrompt(options: {
 			error: `Could not inspect the configured Git upstream for Graphite trunk ${trunk.branch}; no branch was created.\n${upstream.error.message}`,
 		};
 	}
-	options.notify?.("Refreshing Graphite trunk…");
-	const refresh = await refreshLocalTrunkBranch({
+	const refreshPlan = await resolveLocalTrunkRefreshPlan({
 		pi: options.pi,
 		cwd: options.cwd,
 		trunkBranch: trunk.branch,
 		upstream: upstream.value,
 	});
-	if (!refresh.ok)
+	if (!refreshPlan.ok) {
+		return {
+			error: `Graphite trunk refresh failed for ${trunk.branch}; no branch was created.\n${refreshPlan.message}`,
+		};
+	}
+	if (options.preview === true) {
+		return {
+			trunkBranch: trunk.branch,
+			upstream: upstream.value,
+			refreshPlan: refreshPlan.plan,
+			startRef: trunk.branch,
+			preview: true,
+		};
+	}
+	options.notify?.("Refreshing Graphite trunk…");
+	const refresh = await executeLocalTrunkRefresh(options.pi, trunk.branch, refreshPlan.plan);
+	if (!refresh.ok) {
 		return {
 			error: `Graphite trunk refresh failed for ${trunk.branch}; no branch was created.\n${refresh.message}`,
 		};
+	}
 	const startPoint = await runText(options.pi, options.cwd, "git", ["rev-parse", trunk.branch]);
 	if (!startPoint.ok)
 		return { error: `Could not resolve refreshed trunk ${trunk.branch}: ${startPoint.message}` };
+	return {
+		trunkBranch: trunk.branch,
+		upstream: upstream.value,
+		refreshPlan: refreshPlan.plan,
+		startRef: trunk.branch,
+		startPoint: startPoint.text,
+		preview: false,
+	};
+}
+
+export async function createTrackedBranchFromTrunkForPrompt(options: {
+	pi: CommandExecApi;
+	cwd: string;
+	prompt: string;
+	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	git: Pick<GitGateway, "branchUpstream">;
+	notify?: (message: string) => void;
+	metadataDbAccess?: GraphiteMetadataDbAccess;
+}): Promise<TrackedBranchEvidence | { error: string }> {
+	const prepared = await prepareGraphiteTrunk(options);
+	if ("error" in prepared) return prepared;
+	if (prepared.startPoint === undefined)
+		throw new Error("Trunk execution omitted its start point.");
 	options.notify?.("Generating branch name…");
 	return createTrackedBranchFromResolvedParent({
 		pi: options.pi,
 		cwd: options.cwd,
 		prompt: options.prompt,
-		parentBranch: trunk.branch,
-		startPoint: startPoint.text,
-		startRef: trunk.branch,
-		createFailureContext: `from refreshed trunk ${trunk.branch}`,
+		parentBranch: prepared.trunkBranch,
+		startPoint: prepared.startPoint,
+		startRef: prepared.startRef,
+		createFailureContext: `from refreshed trunk ${prepared.trunkBranch}`,
 	});
 }
 
@@ -471,17 +519,17 @@ async function resolveGraphiteTrunkBranch(context: {
 	};
 }
 
-async function refreshLocalTrunkBranch(options: {
+async function resolveLocalTrunkRefreshPlan(options: {
 	pi: CommandExecApi;
 	cwd: string;
 	trunkBranch: string;
 	upstream: GitBranchUpstream;
-}): Promise<{ ok: true } | { ok: false; message: string }> {
+}): Promise<{ ok: true; plan: LocalBranchRefreshPlan } | { ok: false; message: string }> {
 	const worktrees = await options.pi.exec("git", ["worktree", "list", "--porcelain"], {
 		cwd: options.cwd,
 		timeout: GIT_TRUNK_REFRESH_TIMEOUT_MS,
 	});
-	if (!commandSucceeded(worktrees))
+	if (!commandSucceeded(worktrees)) {
 		return {
 			ok: false,
 			message: formatCommandFailure(
@@ -490,20 +538,31 @@ async function refreshLocalTrunkBranch(options: {
 				worktrees,
 			),
 		};
-	const plan = planLocalBranchRefreshFromWorktrees({
-		branch: options.trunkBranch,
-		cwd: options.cwd,
-		upstream: options.upstream,
-		worktreePorcelain: worktrees.stdout,
-	});
-	const refresh = await options.pi.exec("git", plan.args, {
+	}
+	return {
+		ok: true,
+		plan: planLocalBranchRefreshFromWorktrees({
+			branch: options.trunkBranch,
+			cwd: options.cwd,
+			upstream: options.upstream,
+			worktreePorcelain: worktrees.stdout,
+		}),
+	};
+}
+
+async function executeLocalTrunkRefresh(
+	pi: CommandExecApi,
+	trunkBranch: string,
+	plan: LocalBranchRefreshPlan,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+	const refresh = await pi.exec("git", plan.args, {
 		cwd: plan.cwd,
 		timeout: GIT_TRUNK_REFRESH_TIMEOUT_MS,
 	});
 	if (commandSucceeded(refresh)) return { ok: true };
 	return {
 		ok: false,
-		message: `${formatCommandFailure(formatTrunkRefreshFailureTitle(plan, options.trunkBranch), formatCommand("git", plan.args), refresh)}\nCwd: ${plan.cwd}`,
+		message: `${formatCommandFailure(formatTrunkRefreshFailureTitle(plan, trunkBranch), formatCommand("git", plan.args), refresh)}\nCwd: ${plan.cwd}`,
 	};
 }
 

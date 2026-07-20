@@ -1,98 +1,54 @@
-# Herdr Capability Parity Checklist
+# Herdr Migration History and Current Command Catalog
 
-This checklist reconciles every current `@nseng-ai/cmux` user-visible command,
-programmatic surface, and underlying workspace operation to its settled Herdr
-applicability disposition. Dispositions are fixed; see `objective.md` for the
-full selection rationale.
+This document records the completed migration from the former cmux capability to Herdr and gives one exact inventory of the current Herdr Pi surface. It is migration history, not a cmux operating guide: the cmux package, extension adapter, CLI commands, and `/ns:cmux:*` commands have been removed.
 
-## Key
+## Migration disposition
 
-| Symbol                                                                 | Meaning |
-| ---------------------------------------------------------------------- | ------- |
-| ✅ Selected — implement in `@nseng-ai/herdr`                           |         |
-| ❌ Retired — removed; not carried forward                              |         |
-| 🚫 Not applicable — no matching Herdr semantic                         |         |
-| 📌 Parked — applicable but deferred (listed in roadmap Parked section) |         |
+The former cmux workflows were evaluated by behavior rather than copied as a namespace. Herdr retained the useful destination operations—creating spaces, creating tabs, dispatching prompts or Saved Plans, and applying semantic labels—then organized them around Herdr resources.
 
----
+Not carried forward:
 
-## Pi extension commands (`/ns:cmux:*`)
+- model-assisted session and branch-state sidebar summaries;
+- the Claude plan-tab command;
+- the generic cmux workspace-summary CLI;
+- standalone open-branch commands;
+- cmux metadata, status-pill, and raw workspace/surface operations;
+- interim Herdr workflow-family names under `/ns:herdr:handoff:*` or `/ns:herdr:objective:*`.
 
-### Dispatch and branch-opening workflows
+The only Handoff-specific Herdr workflow is the real Handoff Artifact integration at `/ns:herdr:tab:handoff`. Ordinary prompt and plan dispatches are not handoffs.
 
-| cmux surface                             | Disposition | Herdr mirror                     | Notes                                                                                                                               |
-| ---------------------------------------- | ----------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `/ns:cmux:workspace:dispatch-prompt`     | ✅ Selected | `/ns:herdr:handoff:prompt`       | Both consume Capability Kit's shared tracked-branch preparation and `ns-dispatch/prompt.md`; each vendor owns final workspace open. |
-| `/ns:cmux:workspace:dispatch-from-trunk` | ✅ Selected | `/ns:herdr:handoff:trunk-prompt` | Both consume shared Graphite trunk refresh/tracked-branch preparation; each vendor owns final workspace open.                       |
-| `/ns:cmux:workspace:dispatch-plan`       | ✅ Selected | `/ns:herdr:handoff:plan`         | Opens Attached Plan checkout in a new Herdr workspace; ns owns branch-context and slot, Herdr owns workspace launch.                |
-| `/ns:cmux:surface:dispatch-plan`         | ✅ Selected | `/ns:herdr:tab:plan-dispatch`    | Opens a tab in the captured caller Herdr workspace; `HERDR_WORKSPACE_ID` is required before plan lookup or mutation.                |
-| `/ns:cmux:workspace:open-branch`         | ✅ Selected | `/ns:herdr:space:open-branch`    | Preserves explicit and inferred branch selection, confirmation, completions, and ns slot checkout.                                  |
+## Current Herdr Pi catalog
 
-### Sidebar / metadata commands
+The catalog contains exactly eleven commands. The first ten are base registrations; `/ns:herdr:tab:handoff` is registered only when the curated Handoffs Pi integration is available.
 
-| cmux surface                            | Disposition | Herdr mirror                          | Notes                                                                                                                                                                                                      |
-| --------------------------------------- | ----------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/ns:cmux:sidebar:objective-summary`    | ✅ Selected | `/ns:herdr:objective:sidebar-summary` | Labels the explicit caller Herdr workspace `s<number>:obj:<slug>` in a managed ns slot and `obj:<slug>` otherwise. Metadata fields are not reported; no public generic workspace-summary command is added. |
-| `/ns:cmux:sidebar:session-summary`      | ❌ Retired  | —                                     | Removed; model-assisted session summarization via skill injection is not carried to Herdr. The `ns-cmux-sidebar` managed skill is retired with it.                                                         |
-| `/ns:cmux:sidebar:branch-state-summary` | ❌ Retired  | —                                     | Removed; model-assisted branch-state sidebar is not carried to Herdr. The `ns-cmux-sidebar` managed skill is retired with it.                                                                              |
-| `/ns:cmux:claude-plan-tab`              | ❌ Retired  | —                                     | Removed; opens a focused Claude Code plan-mode tab. Not a Herdr workflow; no matching Herdr operation is selected.                                                                                         |
+### Space resources
 
----
+| Command                                           | Behavior                                                                                                                    |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `/ns:herdr:space:new [description]`               | Create and focus a space at the current cwd, optionally with a model-derived semantic label.                                |
+| `/ns:herdr:space:goal <goal>`                     | Derive a goal label and rename the explicit caller space.                                                                   |
+| `/ns:herdr:space:objective-summary [objective]`   | Resolve an Objective and apply its label to the explicit caller space.                                                      |
+| `/ns:herdr:space:dispatch-prompt <prompt>`        | Prepare a tracked branch and slot, create a space, and launch the prompt in Pi.                                             |
+| `/ns:herdr:space:dispatch-trunk-prompt <prompt>`  | Refresh trunk, prepare the dispatch branch and slot, create a space, and launch the prompt in Pi.                           |
+| `/ns:herdr:space:dispatch-plan [--dry-run]`       | Select a Saved Plan, prepare its Branch Context and slot, create a space, and launch Attached Plan implementation.          |
+| `/ns:herdr:space:dispatch-trunk-plan [--dry-run]` | Select a Saved Plan and prepare it from refreshed trunk before creating a space and launching Attached Plan implementation. |
 
-## ns CLI commands (`ns cmux exec *`)
+### Tab resources
 
-| cmux surface                     | Disposition         | Notes                                                                                                                                                                                                            |
-| -------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ns cmux exec workspace-summary` | ✅ Retained in cmux | Used by the retained `/ns:cmux:sidebar:objective-summary` deterministic flow. Not mirrored in Herdr as a public command; `/ns:herdr:objective:sidebar-summary` only labels/renames the caller workspace for now. |
+| Command                                   | Behavior                                                                                                                                    |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/ns:herdr:tab:new [description]`         | Create and focus a tab in the explicit caller space at the current cwd, optionally with a model-derived label.                              |
+| `/ns:herdr:tab:goal <goal>`               | Derive a goal label and rename the exact caller tab identified by `HERDR_TAB_ID`.                                                           |
+| `/ns:herdr:tab:dispatch-plan [--dry-run]` | Select and prepare a Saved Plan, create a focused tab in the explicit caller space, and launch Attached Plan implementation.                |
+| `/ns:herdr:tab:handoff`                   | Create a durable Handoff Artifact, then create a focused tab in the explicit caller space and launch pickup. Optional Handoffs integration. |
 
----
+## Targeting and boundaries
 
-## Programmatic surfaces and underlying workspace operations
+- `HERDR_WORKSPACE_ID` identifies the caller space for space rename, tab creation, tab plan dispatch, and Handoff tab launch. Commands fail rather than target UI focus when it is absent.
+- `HERDR_TAB_ID` identifies the exact caller tab for `/ns:herdr:tab:goal`. It is not interchangeable with the workspace ID.
+- Herdr owns destination creation, labels, and pane launch. Plans, Branch Context, Slots, Graphite preparation, and Handoff Artifact lifecycle remain owned by their respective capabilities.
+- Hidden `ns herdr exec handoff-tab launch` is a reference-based implementation command, not a public generic launcher or an additional Pi command.
 
-| Operation                                        | cmux mechanism                                                 | Herdr applicability | Notes                                                                                                                                                                  |
-| ------------------------------------------------ | -------------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Open new workspace                               | `cmux new-workspace --cwd --command`                           | ✅ Selected         | Herdr CLI equivalent used for dispatch and open-branch workflows. Caller ID from `HERDR_WORKSPACE_ID` or equivalent env; no focus-dependent targeting.                 |
-| Open focused tab (surface) in existing workspace | `cmux new-surface --type terminal --workspace --pane --window` | ✅ Selected         | Used for `/ns:herdr:tab:plan-dispatch`; explicit caller workspace ID from `HERDR_WORKSPACE_ID` env; tab created with `--focus` to activate immediately.                |
-| Rename tab                                       | `cmux rename-tab --workspace --surface --title --window`       | ✅ Selected         | Used for focused-tab naming in surface dispatch plan.                                                                                                                  |
-| Send command to pane                             | `cmux send --workspace --surface --window -- <cmd>`            | ✅ Selected         | Used for command injection in surface dispatch plan.                                                                                                                   |
-| Identify caller workspace/tab                    | `cmux identify --json`                                         | ✅ Selected         | Herdr equivalent used to resolve caller IDs; CLI-first, no raw socket.                                                                                                 |
-| Apply workspace metadata (title + description)   | `ns cmux exec workspace-summary --title --description`         | 🚫 Not applicable   | Installed Herdr CLI lacks a metadata-update operation; `/ns:herdr:objective:sidebar-summary` labels/renames the caller workspace only. No metadata fields are applied. |
-| Caller workspace ID from env                     | `CMUX_WORKSPACE_ID` / `CMUX_TAB_ID`                            | ✅ Selected         | Herdr provides equivalent caller-ID env variables; exact names resolved from installed Herdr CLI and research.                                                         |
+## Parked Herdr work
 
----
-
-## Managed skills
-
-| Skill             | Disposition | Notes                                                                                                                                                                                                                             |
-| ----------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ns-cmux-sidebar` | ❌ Retired  | Backed `/ns:cmux:sidebar:session-summary` and `/ns:cmux:sidebar:branch-state-summary`; retired with those commands. No Herdr equivalent is added because the model-assisted session/branch-state sidebar pattern is not selected. |
-
----
-
-## Non-selected applicable work (visible follow-up)
-
-The following items were evaluated and found applicable to Herdr semantics but
-are explicitly deferred rather than silently omitted:
-
-- **Herdr-native event subscriptions and agent waits** — Herdr has documented
-  event subscription APIs; integration is parked until a concrete use case
-  requires behavior that CLI polling cannot satisfy.
-- **Declarative layouts and plugin hooks** — Herdr supports layouts and plugins;
-  deferred until a second concrete Herdr consumer identifies the need.
-- **Raw socket event integration and generated protocol types** — parked until
-  a selected workflow demonstrates CLI wrappers are insufficient.
-- **Public generic `ns herdr exec workspace-summary` command** — parked pending
-  a second concrete Herdr consumer that would justify the public surface.
-
----
-
-## Retained cmux surfaces (not retired, not mirrored)
-
-The following cmux surfaces are retained as-is and are not part of the Herdr
-parity scope:
-
-- `/ns:cmux:sidebar:objective-summary` — retained in cmux; mirrored in Herdr.
-- `ns cmux exec workspace-summary` — retained in cmux; used by the cmux
-  objective-summary deterministic flow.
-- All other `/ns:cmux:workspace:*` and `/ns:cmux:surface:*` dispatch and
-  open-branch commands — retained in cmux; mirrored in Herdr (PR 3).
+Event subscriptions, agent waits, declarative layouts, plugins, raw socket integration, generated protocol types, and a public generic workspace-summary command remain parked until a concrete consumer requires them.

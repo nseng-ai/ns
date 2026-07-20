@@ -39,6 +39,7 @@ import type {
 	HerdrCreateWorkspaceResult,
 	HerdrGateway,
 	HerdrPaneRunResult,
+	HerdrTabRenameResult,
 	HerdrWorkspaceRenameResult,
 } from "../src/core/herdr-gateway.ts";
 
@@ -300,6 +301,11 @@ export interface FakeRenameCall {
 	label: string;
 }
 
+export interface FakeRenameTabCall {
+	tabId: string;
+	label: string;
+}
+
 export interface FakeCreateWorkspaceCall {
 	options: HerdrCreateWorkspaceOptions;
 }
@@ -315,6 +321,7 @@ export interface FakePaneRunCall {
 
 export interface FakeHerdrGatewayOptions {
 	renameResult?: HerdrWorkspaceRenameResult;
+	renameTabResult?: HerdrTabRenameResult;
 	createWorkspaceResult?: HerdrCreateWorkspaceResult;
 	createTabResult?: HerdrCreateTabResult;
 	paneRunResult?: HerdrPaneRunResult;
@@ -322,17 +329,20 @@ export interface FakeHerdrGatewayOptions {
 
 export class FakeHerdrGateway implements HerdrGateway {
 	readonly renameCalls: FakeRenameCall[] = [];
+	readonly renameTabCalls: FakeRenameTabCall[] = [];
 	readonly createWorkspaceCalls: FakeCreateWorkspaceCall[] = [];
 	readonly createTabCalls: FakeCreateTabCall[] = [];
 	readonly paneRunCalls: FakePaneRunCall[] = [];
 
 	private readonly renameResult: HerdrWorkspaceRenameResult;
+	private readonly renameTabResult: HerdrTabRenameResult;
 	private readonly createWorkspaceResult: HerdrCreateWorkspaceResult;
 	private readonly createTabResult: HerdrCreateTabResult;
 	private readonly paneRunResult: HerdrPaneRunResult;
 
 	constructor(options: FakeHerdrGatewayOptions = {}) {
 		this.renameResult = options.renameResult ?? { type: "applied" };
+		this.renameTabResult = options.renameTabResult ?? { type: "applied" };
 		this.createWorkspaceResult = options.createWorkspaceResult ?? {
 			type: "created",
 			workspaceId: "fake-ws-1",
@@ -351,6 +361,11 @@ export class FakeHerdrGateway implements HerdrGateway {
 	async renameWorkspace(workspaceId: string, label: string): Promise<HerdrWorkspaceRenameResult> {
 		this.renameCalls.push({ workspaceId, label });
 		return this.renameResult;
+	}
+
+	async renameTab(tabId: string, label: string): Promise<HerdrTabRenameResult> {
+		this.renameTabCalls.push({ tabId, label });
+		return this.renameTabResult;
 	}
 
 	async createWorkspace(options: HerdrCreateWorkspaceOptions): Promise<HerdrCreateWorkspaceResult> {
@@ -526,7 +541,7 @@ export function objectiveStatusStep(
 }
 
 // ---------------------------------------------------------------------------
-// Plan store helpers (mirrors cmux-test-harness equivalents)
+// Plan store helpers
 // ---------------------------------------------------------------------------
 
 export function gitRootStep(repoRoot: string): ScriptedExec {

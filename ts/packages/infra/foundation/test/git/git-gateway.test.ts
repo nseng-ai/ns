@@ -540,6 +540,7 @@ describe("real git gateway", () => {
 				stderr: "missing",
 			}),
 			step("git", ["branch", BRANCH, "HEAD"]),
+			step("git", ["branch", "feature/from-main", "abc123"]),
 		]);
 		const git = new RealGitGateway(commands);
 
@@ -549,11 +550,19 @@ describe("real git gateway", () => {
 			refName: `refs/heads/${BRANCH}`,
 		});
 		expect(await git.createBranchAtHead({ cwd: ROOT, branch: BRANCH })).toEqual({ ok: true });
+		expect(
+			await git.createBranchAtStartPoint({
+				cwd: ROOT,
+				branch: "feature/from-main",
+				startPoint: "abc123",
+			}),
+		).toEqual({ ok: true });
 		commands.assertDone();
 		expect(commands.execCalls.map((call) => call.args)).toEqual([
 			["check-ref-format", "--branch", BRANCH],
 			["rev-parse", "--verify", `refs/heads/${BRANCH}`],
 			["branch", BRANCH, "HEAD"],
+			["branch", "feature/from-main", "abc123"],
 		]);
 	});
 

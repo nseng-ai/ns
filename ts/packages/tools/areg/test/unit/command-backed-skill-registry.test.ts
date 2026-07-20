@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { CREATE_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "@nseng-ai/handoffs/pi";
-import { HERDR_HANDOFF_TAB_COMMAND_NAME } from "@nseng-ai/herdr/pi";
+import { HERDR_TAB_HANDOFF_COMMAND_NAME } from "@nseng-ai/herdr/pi";
 import { objectiveCommandSpecs, objectiveCreateCommandSpec } from "@nseng-ai/objectives/api";
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
@@ -51,7 +51,7 @@ describe("command-backed skill registry", () => {
 		// specialized integration cannot collide with a backed surface silently.
 		const surfaces = [
 			...registrations.map((registration) => registration.surface),
-			HERDR_HANDOFF_TAB_COMMAND_NAME,
+			HERDR_TAB_HANDOFF_COMMAND_NAME,
 		];
 
 		expect(new Set(skillNames).size).toBe(skillNames.length);
@@ -71,7 +71,7 @@ describe("command-backed skill registry", () => {
 		expect(commandBackedSkillSurface("enriched-plan-save")).toBe(WRITE_PLAN_COMMAND_NAME);
 	});
 
-	test("uses cmux and Flow provider-owned registrations", () => {
+	test("uses Herdr and Flow provider-owned registrations", () => {
 		expect(commandBackedSkillSurface("ns-flow-autobranch")).toBe("ns:flow:autobranch");
 		expect(commandBackedSkillSurface("ns-flow-branch-latest-commit")).toBe(
 			"ns:flow:branch-latest-commit",

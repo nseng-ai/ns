@@ -93,7 +93,7 @@ instance doc and inherited by every registry row, so refreshes do not relitigate
   skill uses tickets or an issue tracker for durable state, ns uses Objectives. This is
   the recorded reason for rejecting upstream ticket-workflow skills and for adapting
   (not adopting) tracker-backed planning skills.
-- **Workflow ownership.** Branch Memory, branch-context, handoffs, Graphite stacks, the cmux capability,
+- **Workflow ownership.** Branch Memory, branch-context, handoffs, Graphite stacks, the Herdr capability,
   and other ns-native workflows are never replaced by upstream workflow skills without a
   separate product decision.
 - **Harness invocation semantics.** Upstream invocation intent is mapped onto ns

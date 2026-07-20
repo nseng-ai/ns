@@ -62,6 +62,10 @@ export interface GitBranchParams extends GitCwdParams {
 	branch: string;
 }
 
+export interface GitBranchAtStartPointParams extends GitBranchParams {
+	startPoint: string;
+}
+
 export interface GitPathParams extends GitCwdParams {
 	relativePath: string;
 }
@@ -133,6 +137,7 @@ export interface GitGateway {
 	validateBranchRef(params: GitBranchParams): Promise<GitOperationResult>;
 	localBranchPresence(params: GitBranchParams): Promise<GitBranchPresenceResult>;
 	createBranchAtHead(params: GitBranchParams): Promise<GitOperationResult>;
+	createBranchAtStartPoint(params: GitBranchAtStartPointParams): Promise<GitOperationResult>;
 	hasUncommittedChangesUnder(params: GitPathParams): Promise<GitResult<boolean>>;
 	listLocalBranchTips(params: GitCwdParams): Promise<GitResult<readonly GitLocalBranchTip[]>>;
 	treeOidsAtRefs(

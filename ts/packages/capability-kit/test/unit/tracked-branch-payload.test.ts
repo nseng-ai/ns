@@ -8,6 +8,7 @@ import {
 	buildTrackedBranchSlugPrompt,
 	createTrackedBranchForPrompt,
 	createTrackedBranchFromResolvedParent,
+	prepareGraphiteTrunk,
 	resolveTrackedBranchPayloadOptions,
 	storeTrackedBranchPayload,
 	TRACKED_BRANCH_PAYLOAD_KEY,
@@ -231,6 +232,42 @@ describe("tracked branch payload public API", () => {
 			parentBranch: "feature/source",
 			startPoint: "abc123",
 		});
+	});
+
+	test("previews worktree-aware trunk refresh without mutating or claiming a refreshed SHA", async () => {
+		const commands = new FakeCommands([
+			{
+				command: "git",
+				args: ["worktree", "list", "--porcelain"],
+				result: exited({ stdout: "worktree /repo\nHEAD abc123\nbranch refs/heads/feature\n" }),
+			},
+		]);
+
+		const result = await prepareGraphiteTrunk({
+			pi: commands,
+			cwd: REPO_ROOT,
+			graphite: { trunkBranch: async () => ({ ok: true, branch: "main" }) },
+			git: {
+				branchUpstream: async () => ({
+					type: "found",
+					value: { remoteName: "origin", remoteRef: "refs/heads/main" },
+				}),
+			},
+			preview: true,
+		});
+
+		commands.assertDone();
+		expect(result).toMatchObject({
+			trunkBranch: "main",
+			startRef: "main",
+			preview: true,
+			refreshPlan: {
+				type: "fetch-local-branch",
+				cwd: REPO_ROOT,
+				args: ["fetch", "origin", "refs/heads/main:refs/heads/main"],
+			},
+		});
+		expect(result).not.toHaveProperty("startPoint");
 	});
 
 	test("reports the created Git branch when Graphite tracking fails", async () => {

@@ -11,7 +11,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { CommandContext } from "@nseng-ai/capability-kit/pi-types";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
-import { HERDR_HANDOFF_TRUNK_PROMPT_COMMAND_NAME } from "./command-surfaces.ts";
+import { HERDR_SPACE_DISPATCH_TRUNK_PROMPT_COMMAND_NAME } from "./command-surfaces.ts";
 import {
 	dispatchTrackedBranchPrompt,
 	resolveDispatchPromptPayloadOptions,
@@ -22,7 +22,7 @@ import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { formatGoalWorkspaceLabel, generateWorkspaceGoalSlug } from "./space-goal.ts";
 import { slotLabelInput } from "./workspace-label.ts";
 
-const COMMAND_NAME = HERDR_HANDOFF_TRUNK_PROMPT_COMMAND_NAME;
+const COMMAND_NAME = HERDR_SPACE_DISPATCH_TRUNK_PROMPT_COMMAND_NAME;
 
 export interface HerdrSlotDispatchFromTrunkOptions extends DispatchPromptPayloadOptions {
 	metadataDbAccess?: GraphiteMetadataDbAccess;

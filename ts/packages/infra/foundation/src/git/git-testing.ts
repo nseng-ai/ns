@@ -1,5 +1,6 @@
 import {
 	rejectEmptyStagePaths,
+	type GitBranchAtStartPointParams,
 	type GitBranchParams,
 	type GitBranchPresenceResult,
 	type GitBranchUpstream,
@@ -76,6 +77,10 @@ export interface GitBranchCall extends GitCall {
 	branch: string;
 }
 
+export interface GitBranchAtStartPointCall extends GitBranchCall {
+	startPoint: string;
+}
+
 export interface GitPathCall extends GitCall {
 	relativePath: string;
 }
@@ -144,6 +149,7 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly validateBranchRefLog: GitBranchCall[] = [];
 	private readonly localBranchPresenceLog: GitBranchCall[] = [];
 	private readonly createBranchAtHeadLog: GitBranchCall[] = [];
+	private readonly createBranchAtStartPointLog: GitBranchAtStartPointCall[] = [];
 	private readonly hasUncommittedChangesUnderLog: GitPathCall[] = [];
 	private readonly listLocalBranchTipsLog: GitCall[] = [];
 	private readonly treeOidsAtRefsLog: GitRefsPathCall[] = [];
@@ -264,6 +270,10 @@ export class InMemoryGitGateway implements GitGateway {
 
 	get createBranchAtHeadCalls(): readonly GitBranchCall[] {
 		return copyBranchCalls(this.createBranchAtHeadLog);
+	}
+
+	get createBranchAtStartPointCalls(): readonly GitBranchAtStartPointCall[] {
+		return this.createBranchAtStartPointLog.map((call) => ({ ...call }));
 	}
 
 	get hasUncommittedChangesUnderCalls(): readonly GitPathCall[] {
@@ -454,10 +464,22 @@ export class InMemoryGitGateway implements GitGateway {
 
 	async createBranchAtHead(params: GitBranchParams): Promise<GitOperationResult> {
 		this.createBranchAtHeadLog.push(branchCallFromParams(params));
+		return this.createBranch(params.branch);
+	}
+
+	async createBranchAtStartPoint(params: GitBranchAtStartPointParams): Promise<GitOperationResult> {
+		this.createBranchAtStartPointLog.push({
+			...branchCallFromParams(params),
+			startPoint: params.startPoint,
+		});
+		return this.createBranch(params.branch);
+	}
+
+	private createBranch(branch: string): GitOperationResult {
 		if (this.createBranchFailure !== undefined) {
 			return { ok: false, error: this.createBranchFailure };
 		}
-		this.branches.add(params.branch);
+		this.branches.add(branch);
 		return { ok: true };
 	}
 

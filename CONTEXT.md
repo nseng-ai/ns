@@ -180,7 +180,7 @@ Deterministic code that consumes one or more **Gateways** to produce or transfor
 
 ### Extension Layering
 
-The ns extension stack, bottom to top: **Neutral Infra** below the SDK (`@nseng-ai/foundation` as the generic infrastructure library plus other non-domain infra such as `@nseng-ai/clinkr`), the SDK (`@nseng-ai/sdk` plus its `sdk` subpackage), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. ns-shaped external-tool gateways live as **Capability Kit** subpackages such as `@nseng-ai/capability-kit/github`, `@nseng-ai/capability-kit/graphite`, and `@nseng-ai/capability-kit/cmux`; the former standalone **Capability Gateway Backend** tier is retired. A gateway whose public contract is ns-independent with a credible external-consumer scenario may instead be **Neutral Infra** owned by foundation (ADR 0032) — `@nseng-ai/foundation/exec` and `@nseng-ai/foundation/git` are the live examples, with Capability Kit keeping the ctx→gateway adapter (`createNsGitGateway`); remaining Kit Gateways stay put absent explicit follow-up work. Intrinsic host services expose author-facing interfaces through `@nseng-ai/sdk` / `ctx`, with implementations hidden in the SDK. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@nseng-ai/pi` runtime host or the SDK; ADR 0009 holds the dependency-graph invariant; ADR 0018 holds the four-bucket neutral-infra classification rule, refined by ADR 0019's package-placement gate (which concrete package owns a large real gateway implementation, and whether it folds into Capability Kit or stays standalone/deferred) and by ADR 0032's external-applicability admission test. The SDK boundary is permeable downward only to concepts that prove general worth. ADR 0031 holds the point-system decision. These terms name its parts.
+The ns extension stack, bottom to top: **Neutral Infra** below the SDK (`@nseng-ai/foundation` as the generic infrastructure library plus other non-domain infra such as `@nseng-ai/clinkr`), the SDK (`@nseng-ai/sdk` plus its `sdk` subpackage), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. ns-shaped external-tool gateways live as **Capability Kit** subpackages such as `@nseng-ai/capability-kit/github` and `@nseng-ai/capability-kit/graphite`; the former standalone **Capability Gateway Backend** tier is retired. A gateway whose public contract is ns-independent with a credible external-consumer scenario may instead be **Neutral Infra** owned by foundation (ADR 0032) — `@nseng-ai/foundation/exec` and `@nseng-ai/foundation/git` are the live examples, with Capability Kit keeping the ctx→gateway adapter (`createNsGitGateway`); remaining Kit Gateways stay put absent explicit follow-up work. Intrinsic host services expose author-facing interfaces through `@nseng-ai/sdk` / `ctx`, with implementations hidden in the SDK. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@nseng-ai/pi` runtime host or the SDK; ADR 0009 holds the dependency-graph invariant; ADR 0018 holds the four-bucket neutral-infra classification rule, refined by ADR 0019's package-placement gate (which concrete package owns a large real gateway implementation, and whether it folds into Capability Kit or stays standalone/deferred) and by ADR 0032's external-applicability admission test. The SDK boundary is permeable downward only to concepts that prove general worth. ADR 0031 holds the point-system decision. These terms name its parts.
 
 **Model profile**:
 A stable project-facing name mapped to one qualified provider/model reference. The built-in `fast` profile always exists and may be replaced by repository configuration; other profiles support named policy choices.
@@ -268,7 +268,7 @@ A first-party ns feature area (objectives, handoff, slot, flow, …) — a set o
 *Avoid*: plugin, built-in, the bare construct "extension" (the extension is the mechanism; the capability is the feature area)
 
 **First-party extension**:
-An ns-shipped, ns-owned **Extension** that implements a **Capability** (flow, objective, handoff, slot, branch-context, plans, address, reviews, retro, and the **cmux capability**), as opposed to a third-party extension.
+An ns-shipped, ns-owned **Extension** that implements a **Capability** (flow, objective, handoff, slot, branch-context, plans, address, reviews, retro, and Herdr), as opposed to a third-party extension.
 *Avoid*: built-in extension, bundled extension (reserve for packaging), core extension
 
 **Capability Kit**:
@@ -276,16 +276,16 @@ The shared substrate (`@nseng-ai/capability-kit`) that first-party **Capabilitie
 *Avoid*: Extension Kit (reserved name), extension framework, product capability home, neutral-infra gateway, capability-kit core
 
 **Capability API**:
-A **Capability**'s curated, typed in-process export at the required `@nseng-ai/<cap>/api` subpath, imported by a **consumer** (downstream) extension (chiefly the **cmux capability**) — never package roots or internals. Added only where a consumer needs it.
+A **Capability**'s curated, typed in-process export at the required `@nseng-ai/<cap>/api` subpath, imported by a **consumer** (downstream) extension — never package roots or internals. Added only where a consumer needs it.
 *Avoid*: Peer API, sibling API, public API, package-root export, internal subpath, "extension API" (bare)
 
 **Consumer / Provider**:
 The directed edge of the **Extension Dependency Graph**: a **consumer** (downstream) extension depends on a **provider** (upstream) extension by importing its **Capability API**. The graph is acyclic — a cycle is debt, not design.
 *Avoid*: sibling, peer, peer dependency
 
-**cmux capability**:
-The **first-party extension** that drives cmux workspaces for repo-local dispatch, sidebar, workspace-summary, and planning flows by composing narrower **Capability APIs** and infrastructure.
-*Avoid*: CCC, Cmux Command and Control, orchestrator extension, apex extension, kernel orchestrator, sdk orchestrator
+**Herdr capability**:
+The **first-party extension** that drives Herdr spaces and tabs for repo-local dispatch, labeling, Saved Plan, and Handoff flows by composing narrower **Capability APIs** and infrastructure. Detailed resource vocabulary lives in `ts/packages/capabilities/herdr/CONTEXT.md`.
+*Avoid*: cmux capability, generic terminal multiplexer wrapper, orchestrator extension, apex extension, kernel orchestrator, sdk orchestrator
 
 **Package Tier**:
 The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `ns.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `host`, `standalone-tool`, and `internal-tool`. A package lives in a single tier: `ns.tier` is the tier for the package and every declared **Subpackage**, `ns.subpackageTiers` overrides are rejected by the guard, and cross-package layering is enforced against the owning package's tier for every **Topology circle** (ADR 0032). Hosts and tools are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` and `capability-gateway-backend` tiers are deleted, `capability-pi` is deleted (capability Pi presentation lives in capability `pi` subpackages), and `internal-pi-tool` is merged into `internal-tool`; do not reintroduce a live transitional/backend tier as a debt label, and do not add a `platform` tier for I/O-performing Neutral Infra.
@@ -320,7 +320,7 @@ A **Subpackage** that exists because exactly one host consumes it as an entry su
 *Avoid*: context subpackage, commands, shell, presentation layer
 
 **Feature subpackage**:
-A **Subpackage** naming a real domain vertical of a **Container package** (for example `land-stack`, `submit`, `cmux`, `lifecycle`). It is host-free, its dependency edges stay inside the package, and any feature-level `api`/`testing` modules serve sibling subpackages only.
+A **Subpackage** naming a real domain vertical of a **Container package** (for example `land-stack`, `submit`, `lifecycle`). It is host-free, its dependency edges stay inside the package, and any feature-level `api`/`testing` modules serve sibling subpackages only.
 *Avoid*: internal layer, operations, gateways, shared, module folder
 
 **Remainder subpackage**:

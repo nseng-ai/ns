@@ -31,7 +31,7 @@ export interface InferredBranchConfirmationContext {
 /**
  * Confirm an inferred branch-context branch with the user before opening it.
  * `destinationDescription` names the host destination, for example
- * "open it in a new cmux workspace".
+ * "open it in a new Herdr space".
  */
 export async function confirmInferredBranchContext(
 	ctx: InferredBranchConfirmationContext,

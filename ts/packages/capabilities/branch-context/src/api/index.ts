@@ -15,6 +15,7 @@ export {
 	type BranchContextBranchSelectionCollision,
 	type BranchContextCreateOperation,
 	type BranchContextEvidence,
+	type BranchContextExplicitBasis,
 	type BranchCreationMethod,
 } from "../core/branch-context-creation.ts";
 export {
