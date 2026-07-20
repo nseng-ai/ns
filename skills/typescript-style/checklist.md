@@ -35,8 +35,9 @@ and conventions as the baseline; this checklist catches design drift.
       (`NS_TS_BAN_EMPTY_INTERFACE_EXTENDS`).
 - [ ] Generic tags are carried through APIs so callers only see legal config for the selected tag.
 - [ ] State machines are explicit unions, not scattered booleans.
-- [ ] `undefined` from optional inputs and lookups is handled where it arises; meaningful absence has
-      a named variant, defaultable absence is resolved, and impossible absence is an invariant failure.
+- [ ] No **`undefined` with domain meaning** remains: meaningful absence has a named discriminated
+      variant, defaultable absence is resolved, and impossible absence is an invariant failure. Ordinary
+      optional metadata, callbacks, DI overrides, and `AbortSignal` inputs remain optional where useful.
 - [ ] No **impossible optional state** exists: every optional collaborator, context field, or method maps
       to a supported runtime absence; guaranteed dependencies are required, and immediate `?.`, `?? []`,
       or `?? {}` fallbacks do not conceal missing mandatory wiring.

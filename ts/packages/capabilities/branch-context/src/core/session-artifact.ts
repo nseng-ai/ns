@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { isRecord } from "@nseng-ai/foundation/primitives";
+import { isRecord, optionalEntries } from "@nseng-ai/foundation/primitives";
 
-import { BRANCH_CREATION_METHODS, type BranchContextEvidence } from "./branch-context-creation.ts";
+import type { BranchContextEvidence } from "./branch-context-creation.ts";
 import { BRANCH_CONTEXT_NAMESPACE } from "./constants.ts";
 
 export const BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE = "branch-context-output";
@@ -24,20 +24,54 @@ export interface BranchContextOutputMessage {
 }
 
 const nonEmptyEvidenceStringSchema = z.string().min(1);
-
-const branchContextEvidenceSchema = z.object({
-	slug: nonEmptyEvidenceStringSchema,
+const branchSelectionCollisionSchema = z.object({
 	branch: nonEmptyEvidenceStringSchema,
-	branchCreation: z.enum(BRANCH_CREATION_METHODS),
-	startPoint: nonEmptyEvidenceStringSchema,
-	namespace: nonEmptyEvidenceStringSchema,
-	key: nonEmptyEvidenceStringSchema,
-	refName: nonEmptyEvidenceStringSchema,
-	commit: nonEmptyEvidenceStringSchema,
-	sourceFile: nonEmptyEvidenceStringSchema,
-	summary: z.string().optional(),
+	isLocalBranch: z.boolean(),
+	hasAttachedPlan: z.boolean(),
 });
-
+const branchSelectionSchema = z.union([
+	z
+		.object({
+			type: z.literal("exact"),
+			requestedBranch: nonEmptyEvidenceStringSchema,
+			selectedBranch: nonEmptyEvidenceStringSchema,
+			collisions: z.array(branchSelectionCollisionSchema),
+		})
+		.strict(),
+	z
+		.object({
+			type: z.literal("auto-suffixed"),
+			requestedBranch: nonEmptyEvidenceStringSchema,
+			selectedBranch: nonEmptyEvidenceStringSchema,
+			collisions: z.array(branchSelectionCollisionSchema),
+		})
+		.strict(),
+]);
+const evidenceCreationSchema = z.union([
+	z.object({ type: z.literal("plain-git"), startRef: nonEmptyEvidenceStringSchema }).strict(),
+	z
+		.object({
+			type: z.literal("graphite"),
+			startRef: nonEmptyEvidenceStringSchema,
+			parentBranch: nonEmptyEvidenceStringSchema,
+		})
+		.strict(),
+]);
+const branchContextEvidenceSchema = z
+	.object({
+		slug: nonEmptyEvidenceStringSchema,
+		branch: nonEmptyEvidenceStringSchema,
+		startPoint: nonEmptyEvidenceStringSchema,
+		creation: evidenceCreationSchema,
+		namespace: nonEmptyEvidenceStringSchema,
+		key: nonEmptyEvidenceStringSchema,
+		refName: nonEmptyEvidenceStringSchema,
+		commit: nonEmptyEvidenceStringSchema,
+		sourceFile: nonEmptyEvidenceStringSchema,
+		branchSelection: branchSelectionSchema.optional(),
+		summary: z.string().optional(),
+	})
+	.strict();
 const successfulBranchContextOutputDetailsSchema = z.object({
 	status: z.literal("success"),
 	evidence: branchContextEvidenceSchema,
@@ -57,18 +91,12 @@ export function buildBranchContextOutputMessage(
 
 export function extractBranchContextEvidence(details: unknown): BranchContextEvidence | undefined {
 	const result = successfulBranchContextOutputDetailsSchema.safeParse(details);
-	if (!result.success) {
-		return undefined;
-	}
-
-	return toBranchContextEvidence(result.data.evidence);
-}
-
-function toBranchContextEvidence(
-	data: z.infer<typeof branchContextEvidenceSchema>,
-): BranchContextEvidence {
-	const { summary, ...evidence } = data;
-	return { ...evidence, ...(summary === undefined ? {} : { summary }) };
+	if (!result.success) return undefined;
+	const { branchSelection, summary, ...required } = result.data.evidence;
+	return {
+		...required,
+		...optionalEntries({ branchSelection, summary }),
+	};
 }
 
 export function extractBranchContextEvidenceFromSessionEntry(
@@ -89,23 +117,15 @@ export function findLatestBranchContextEvidence(
 ): BranchContextEvidence | undefined {
 	for (let index = entries.length - 1; index >= 0; index -= 1) {
 		const evidence = extractBranchContextEvidenceFromSessionEntry(entries[index]);
-		if (evidence !== undefined && evidence.namespace === BRANCH_CONTEXT_NAMESPACE) {
-			return evidence;
-		}
+		if (evidence !== undefined && evidence.namespace === BRANCH_CONTEXT_NAMESPACE) return evidence;
 	}
 	return undefined;
 }
 
 function extractMessageFromEntry(entry: unknown): Record<string, unknown> | undefined {
-	if (!isRecord(entry)) {
-		return undefined;
-	}
-	if (isRecord(entry.message)) {
-		return entry.message;
-	}
-	if (typeof entry.customType === "string" || entry.content !== undefined) {
-		return entry;
-	}
+	if (!isRecord(entry)) return undefined;
+	if (isRecord(entry.message)) return entry.message;
+	if (typeof entry.customType === "string" || entry.content !== undefined) return entry;
 	return undefined;
 }
 

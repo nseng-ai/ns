@@ -1,5 +1,6 @@
 export {
 	BRANCH_CONTEXT_NAMESPACE,
+	branchContextCreationPolicyFromMethod,
 	buildBranchContextCreateOperation,
 	buildBranchContextPlanKey,
 	createBranchContextFromFile,
@@ -14,8 +15,9 @@ export {
 	type BranchContextBranchSelection,
 	type BranchContextBranchSelectionCollision,
 	type BranchContextCreateOperation,
+	type BranchContextCreationPolicy,
 	type BranchContextEvidence,
-	type BranchContextExplicitBasis,
+	type BranchContextEvidenceCreation,
 	type BranchCreationMethod,
 } from "../core/branch-context-creation.ts";
 export {

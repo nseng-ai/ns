@@ -142,17 +142,17 @@ export async function handleHerdrSlotImplPlan(
 
 		const checkout = selected.directory;
 		const selectedPlan = selected.plan;
-		const trunk =
+		const basis =
 			selection.basis === "trunk"
-				? await prepareImplTrunk({
+				? await prepareImplTrunkBasis({
 						pi,
 						cwd: checkout.repoRoot,
 						options: options.options,
 						notify: options.notifyProgress,
 					})
-				: undefined;
-		if (trunk !== undefined && "error" in trunk) {
-			present(ctx, trunk.error, "error");
+				: ({ type: "current-head" } as const);
+		if ("error" in basis) {
+			present(ctx, basis.error, "error");
 			return;
 		}
 		if (selection.basis === "current") {
@@ -172,15 +172,15 @@ export async function handleHerdrSlotImplPlan(
 			checkout,
 			context: implBranchContextContext(pi, checkout.repoRoot, options.options),
 			shouldBuildPreview: parsed.isDryRun,
-			...(trunk === undefined
-				? {}
-				: {
-						explicitBasis: {
-							startPoint: trunk.startPoint,
-							startRef: trunk.startRef,
-							graphiteParentBranch: trunk.trunkBranch,
+			creation:
+				basis.type === "current-head"
+					? { type: "graphite-current-parent-current-head" }
+					: {
+							type: "graphite-explicit",
+							startPoint: basis.preparation.startPoint,
+							startRef: basis.preparation.startRef,
+							parentBranch: basis.preparation.trunkBranch,
 						},
-					}),
 		});
 		const operation = prepared.operation;
 
@@ -195,7 +195,8 @@ export async function handleHerdrSlotImplPlan(
 					branchContextPreview: prepared.preview,
 					launchOptions,
 					destination,
-					...optionalEntry("trunk", trunk),
+					config,
+					basis,
 				}),
 				{ status: "dry-run", targetBranch: operation.branch, key: operation.key },
 				"info",
@@ -235,19 +236,24 @@ function implBranchContextContext(
 	return options.createBranchContextContext?.(pi, cwd) ?? createRealBranchContextContext({ cwd });
 }
 
-async function prepareImplTrunk(options: {
+type PreparedImplBasis =
+	| { type: "current-head" }
+	| { type: "resolved-local-trunk"; preparation: LocalGraphiteTrunkPreparation };
+
+async function prepareImplTrunkBasis(options: {
 	pi: HerdrPiCommandApi;
 	cwd: string;
 	options: ResolvedHerdrSlotImplPlanOptions;
 	notify: (message: string) => void;
-}): Promise<LocalGraphiteTrunkPreparation | { error: string }> {
-	return prepareLocalGraphiteTrunk({
+}): Promise<PreparedImplBasis | { error: string }> {
+	const preparation = await prepareLocalGraphiteTrunk({
 		pi: options.pi,
 		cwd: options.cwd,
 		graphite: options.options.graphite,
 		notify: options.notify,
 		...optionalEntry("metadataDbAccess", options.options.metadataDbAccess),
 	});
+	return "error" in preparation ? preparation : { type: "resolved-local-trunk", preparation };
 }
 
 type PrepareImplDestinationResult =
@@ -377,7 +383,8 @@ function formatDryRun(options: {
 	branchContextPreview: string;
 	launchOptions: PiLaunchOptions;
 	destination: PreparedLaunchDestination;
-	trunk?: LocalGraphiteTrunkPreparation;
+	config: ImplPlanConfig;
+	basis: PreparedImplBasis;
 }): string {
 	const { plan, operation, branchContextPreview, launchOptions, destination } = options;
 	const launchCommand = buildPiLaunchCommand(
@@ -397,14 +404,14 @@ function formatDryRun(options: {
 		`Source branch: ${plan.sourceBranch}`,
 		`Branch path segment: ${plan.branchKey}`,
 		plan.summary ? `Summary: ${plan.summary}` : undefined,
-		...(options.trunk === undefined
+		...(options.basis.type === "current-head"
 			? []
 			: [
 					"",
 					"Local Graphite trunk (read only):",
-					`Trunk branch / Graphite parent: ${options.trunk.trunkBranch}`,
-					`Local start ref: ${options.trunk.startRef}`,
-					`Local start point: ${options.trunk.startPoint}`,
+					`Trunk branch / Graphite parent: ${options.basis.preparation.trunkBranch}`,
+					`Local start ref: ${options.basis.preparation.startRef}`,
+					`Local start point: ${options.basis.preparation.startPoint}`,
 				]),
 		"",
 		branchContextPreview,
@@ -419,6 +426,7 @@ function formatDryRun(options: {
 		formatHerdrImplPreview({
 			destination: destination.type,
 			semanticSlug: operation.slug,
+			description: `herdr ${options.config.commandName.split(":").at(-1) ?? "impl-plan"} from ${options.basis.type === "resolved-local-trunk" ? options.basis.preparation.trunkBranch : plan.sourceBranch}`,
 			launchCommand,
 		}),
 	]
@@ -434,10 +442,12 @@ function formatDryRun(options: {
 function formatHerdrImplPreview(options: {
 	destination: ImplDestination;
 	semanticSlug: string;
+	description: string;
 	launchCommand: string;
 }): string {
 	if (options.destination === "workspace") {
 		return [
+			`Herdr workspace: ${options.description}`,
 			"Workspace label: [sN:]" + options.semanticSlug,
 			formatCommand(
 				"herdr",
@@ -451,6 +461,7 @@ function formatHerdrImplPreview(options: {
 	}
 
 	return [
+		`Herdr tab: ${options.description}`,
 		formatCommand(
 			"herdr",
 			buildHerdrCreateTabArgs({

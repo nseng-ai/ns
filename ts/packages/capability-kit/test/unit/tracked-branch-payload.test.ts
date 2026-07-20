@@ -304,6 +304,7 @@ describe("tracked branch payload public API", () => {
 
 		commands.assertDone();
 		expect(result).toEqual({
+			type: "resolved-local-trunk",
 			trunkBranch: "main",
 			startRef: "refs/heads/main",
 			startPoint: "local123",

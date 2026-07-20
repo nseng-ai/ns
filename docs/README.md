@@ -22,7 +22,6 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Follow-ups](follow-ups/README.md): point-in-time candidate ideas that need revalidation and further formation before becoming Objectives.
 - [Pi docs](pi/README.md): Pi-specific notes used by this repo.
 - [Skill/extension router pattern](patterns/skill-extension-router-pattern.md): consolidate rare workflow skills behind one router with lazy-loaded playbooks and optional selector commands.
-- [Retired Python `sdl exec` commands](sdl-exec/README.md): disposition notes and TypeScript replacement pointers for the former root exec surface.
 - [GitHub Actions remote code authoring](research/remote-code-authoring-github-actions.md): ground-truth Erk survey and design lessons for using workflow dispatch as a remote agent authoring substrate.
 - [Internal PR stack address workflow retrospective](retros/internal-pr-stack-address-retrospective.md): analysis of the stack-wide feedback workflow, with evidence and CLI push-down recommendations.
 - [refactor-swarm-workflow](patterns/refactor-swarm-workflow.md): the multi-agent `Workflow`-tool engine for applying a file-local change across many files (distinct from the `refactor-swarm` skill).

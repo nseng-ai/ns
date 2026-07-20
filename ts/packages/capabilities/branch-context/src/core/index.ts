@@ -8,6 +8,7 @@ export {
 export {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextPlanKey,
+	branchContextCreationPolicyFromMethod,
 	buildBranchContextCreateOperation,
 	createBranchContextFromFile,
 	deriveTargetBranch,
@@ -17,7 +18,9 @@ export {
 	describeBranchContextGraphiteCreationSteps,
 	resolveBranchContextCreatePreviewContext,
 	type BranchContextCreateOperation,
+	type BranchContextCreationPolicy,
 	type BranchContextEvidence,
+	type BranchContextEvidenceCreation,
 	type BranchCreationMethod,
 } from "./branch-context-creation.ts";
 export {

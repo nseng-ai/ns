@@ -47,7 +47,6 @@ describe("branch-context exec", () => {
 			data: {
 				slug: PLAN_SLUG,
 				branch,
-				branchCreation: "plain-git",
 				startPoint: START_POINT,
 				namespace: BRANCH_CONTEXT_NAMESPACE,
 				key: PLAN_KEY,
@@ -101,7 +100,6 @@ describe("branch-context exec", () => {
 			data: {
 				slug: PLAN_SLUG,
 				branch,
-				branchCreation: "graphite",
 				startPoint: START_POINT,
 				namespace: BRANCH_CONTEXT_NAMESPACE,
 				key: PLAN_KEY,

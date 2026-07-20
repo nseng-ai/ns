@@ -22,18 +22,30 @@ export function describeBranchContextGraphiteCreationSteps(parentBranch: string)
 	return `Branch-context Graphite branch creation is \`git branch <target> HEAD\` plus \`gt track <target> --parent ${parentBranch} --no-interactive\`, not \`gt create\`.`;
 }
 
-export interface BranchContextExplicitBasis {
-	startPoint: string;
-	startRef: string;
-	graphiteParentBranch: string;
+export type BranchContextCreationPolicy =
+	| { type: "plain-git-current-head" }
+	| { type: "plain-git-explicit"; startPoint: string; startRef: string }
+	| { type: "graphite-current-parent-current-head" }
+	| {
+			type: "graphite-explicit";
+			startPoint: string;
+			startRef: string;
+			parentBranch: string;
+	  };
+
+export function branchContextCreationPolicyFromMethod(
+	method: BranchCreationMethod,
+): BranchContextCreationPolicy {
+	return method === "graphite"
+		? { type: "graphite-current-parent-current-head" }
+		: { type: "plain-git-current-head" };
 }
 
 export interface CreateBranchContextFromFileParams {
 	slug: string;
 	filePath: string;
 	branchName?: string;
-	branchCreation?: BranchCreationMethod;
-	explicitBasis?: BranchContextExplicitBasis;
+	creation: BranchContextCreationPolicy;
 	summary?: string;
 }
 
@@ -59,13 +71,15 @@ export type BranchContextBranchSelection =
 	| (BranchContextBranchSelectionBase & { type: "exact" })
 	| (BranchContextBranchSelectionBase & { type: "auto-suffixed" });
 
+export type BranchContextEvidenceCreation =
+	| { type: "plain-git"; startRef: string }
+	| { type: "graphite"; startRef: string; parentBranch: string };
+
 export interface BranchContextEvidence {
 	slug: string;
 	branch: string;
-	branchCreation: BranchCreationMethod;
 	startPoint: string;
-	startRef?: string;
-	graphiteParentBranch?: string;
+	creation: BranchContextEvidenceCreation;
 	namespace: string;
 	key: string;
 	refName: string;
@@ -79,19 +93,25 @@ export interface BranchContextCreateOperation {
 	slug: string;
 	filePath: string;
 	branch: string;
-	branchCreation: BranchCreationMethod;
+	creation: BranchContextCreationPolicy;
 	namespace: string;
 	key: string;
 	params: CreateBranchContextFromFileParams;
 	branchSelection: BranchContextBranchSelection;
 	summary?: string;
-	explicitBasis?: BranchContextExplicitBasis;
 }
 
-export interface BranchContextCreatePreviewContext {
-	startPoint: string;
-	graphiteParentBranch?: string;
-}
+export type BranchContextGraphitePreviewParent =
+	| { type: "resolved"; branch: string }
+	| { type: "current-parent-unresolved" };
+
+export type BranchContextCreatePreviewContext =
+	| { type: "plain-git"; startPoint: string }
+	| {
+			type: "graphite";
+			startPoint: string;
+			parent: BranchContextGraphitePreviewParent;
+	  };
 
 interface BranchContextRepoAccess {
 	cwd: string;
@@ -142,20 +162,17 @@ export async function createBranchContextFromFile(
 export async function createBranchContextFromResolvedSource(
 	options: CreateBranchContextFromResolvedSourceOptions,
 ): Promise<BranchContextEvidence> {
-	const basis = await resolveBranchContextBasis(
-		options.git,
-		options.cwd,
-		options.operation.explicitBasis,
-		options.signal,
-	);
+	const basis = await resolveBranchContextBasis({
+		git: options.git,
+		cwd: options.cwd,
+		creation: options.operation.creation,
+		...optionalEntry("signal", options.signal),
+	});
 	await assertSelectedTargetBranchStillAvailable(options);
 	await createBranchContext(options.git, options.graphite, {
 		cwd: options.cwd,
-		method: options.operation.branchCreation,
 		branch: options.operation.branch,
-		startPoint: basis.startPoint,
-		useHead: options.operation.explicitBasis === undefined,
-		...optionalEntry("graphiteParentBranch", basis.graphiteParentBranch),
+		basis,
 		signal: options.signal,
 	});
 
@@ -172,10 +189,8 @@ export async function createBranchContextFromResolvedSource(
 		throw partialFailureError({
 			title: attachFailureTitle(error instanceof AttachBranchContextError ? error.code : "unknown"),
 			branch: options.operation.branch,
-			branchCreation: options.operation.branchCreation,
+			creation: evidenceCreationFromResolvedBasis(basis),
 			startPoint: basis.startPoint,
-			startRef: basis.startRef,
-			graphiteParentBranch: basis.graphiteParentBranch,
 			namespace: BRANCH_CONTEXT_NAMESPACE,
 			key: options.operation.key,
 			sourceFile: options.sourceFile,
@@ -186,10 +201,8 @@ export async function createBranchContextFromResolvedSource(
 	return buildEvidence({
 		data: attach,
 		slug: options.operation.slug,
-		branchCreation: options.operation.branchCreation,
+		creation: evidenceCreationFromResolvedBasis(basis),
 		startPoint: basis.startPoint,
-		startRef: basis.startRef,
-		graphiteParentBranch: basis.graphiteParentBranch,
 		branchSelection: options.operation.branchSelection,
 		summary: options.operation.summary,
 	});
@@ -199,19 +212,15 @@ export function buildBranchContextCreateOperation(
 	params: CreateBranchContextFromFileParams,
 ): BranchContextCreateOperation {
 	const slug = params.slug.trim();
-	const branchCreation = params.branchCreation ?? DEFAULT_BRANCH_CREATION_METHOD;
 	const branch = deriveTargetBranch(params.branchName, slug);
 	const summary = normalizeSummary(params.summary);
 	const operationParams: CreateBranchContextFromFileParams = {
 		slug,
 		filePath: params.filePath,
-		branchCreation,
+		creation: { ...params.creation },
 	};
 	if (branch !== slug) {
 		operationParams.branchName = branch;
-	}
-	if (params.explicitBasis !== undefined) {
-		operationParams.explicitBasis = { ...params.explicitBasis };
 	}
 	if (summary !== undefined) {
 		operationParams.summary = summary;
@@ -221,12 +230,11 @@ export function buildBranchContextCreateOperation(
 		slug,
 		filePath: params.filePath,
 		branch,
-		branchCreation,
+		creation: { ...params.creation },
 		namespace: BRANCH_CONTEXT_NAMESPACE,
 		key: buildBranchContextPlanKey(slug),
 		params: operationParams,
 		branchSelection: exactBranchSelection(branch),
-		...optionalEntry("explicitBasis", params.explicitBasis),
 	};
 	if (summary === undefined) {
 		return operation;
@@ -236,20 +244,51 @@ export function buildBranchContextCreateOperation(
 
 export async function resolveBranchContextCreatePreviewContext(
 	_pi: CommandExecApi,
-	options: { cwd: string; context: BranchContextContext; signal?: AbortSignal },
+	options: {
+		cwd: string;
+		context: BranchContextContext;
+		creation: BranchContextCreationPolicy;
+		signal?: AbortSignal;
+	},
 ): Promise<BranchContextCreatePreviewContext> {
-	return { startPoint: await resolveStartPoint(options.context.git, options.cwd, options.signal) };
+	switch (options.creation.type) {
+		case "plain-git-current-head":
+			return {
+				type: "plain-git",
+				startPoint: await resolveStartPoint(options.context.git, options.cwd, options.signal),
+			};
+		case "plain-git-explicit":
+			return { type: "plain-git", startPoint: options.creation.startPoint };
+		case "graphite-current-parent-current-head":
+			return {
+				type: "graphite",
+				startPoint: await resolveStartPoint(options.context.git, options.cwd, options.signal),
+				parent: { type: "current-parent-unresolved" },
+			};
+		case "graphite-explicit":
+			return {
+				type: "graphite",
+				startPoint: options.creation.startPoint,
+				parent: { type: "resolved", branch: options.creation.parentBranch },
+			};
+	}
 }
 
 export function formatBranchContextCreatePreview(
 	operation: BranchContextCreateOperation,
 	context: BranchContextCreatePreviewContext,
 ): string {
-	const graphiteParentBranch = context.graphiteParentBranch ?? "<current-branch>";
+	const method = branchCreationMethodFromPolicy(operation.creation);
+	const graphiteParent =
+		context.type === "graphite"
+			? context.parent.type === "resolved"
+				? context.parent.branch
+				: "<current-graphite-parent>"
+			: undefined;
 	const lines = [
 		"Target:",
 		`Branch: ${operation.branch}`,
-		`Branch creation: ${operation.branchCreation}`,
+		`Branch creation: ${method}`,
 		...formatBranchSelectionLines(operation.branchSelection),
 		`Start point: ${context.startPoint}`,
 		`Branch Memory namespace: ${operation.namespace}`,
@@ -257,23 +296,19 @@ export function formatBranchContextCreatePreview(
 		"",
 		"Branch-context operations that would run:",
 	];
-	if (operation.branchCreation === "graphite") {
-		lines.push(formatCommand("gt", ["info", graphiteParentBranch, "--no-interactive"]));
+	if (graphiteParent !== undefined) {
+		lines.push(formatCommand("gt", ["info", graphiteParent, "--no-interactive"]));
 	}
 	lines.push(
-		formatCommand("git", [
-			"branch",
-			operation.branch,
-			operation.explicitBasis?.startPoint ?? "HEAD",
-		]),
+		formatCommand("git", ["branch", operation.branch, creationStartPoint(operation.creation)]),
 	);
-	if (operation.branchCreation === "graphite") {
+	if (graphiteParent !== undefined) {
 		lines.push(
 			formatCommand("gt", [
 				"track",
 				operation.branch,
 				"--parent",
-				graphiteParentBranch,
+				graphiteParent,
 				"--no-interactive",
 			]),
 		);
@@ -294,13 +329,13 @@ export function formatBranchContextEvidence(evidence: BranchContextEvidence): st
 	const lines = [
 		"Created branch context and attached plan.",
 		`Branch: ${evidence.branch}`,
-		`Branch creation: ${evidence.branchCreation}`,
+		`Branch creation: ${evidenceCreationMethod(evidence.creation)}`,
 		...formatBranchSelectionLines(evidence.branchSelection),
 		`Start point: ${evidence.startPoint}`,
-		`Start ref: ${evidence.startRef}`,
-		...(evidence.graphiteParentBranch === undefined
-			? []
-			: [`Graphite parent: ${evidence.graphiteParentBranch}`]),
+		`Start ref: ${evidence.creation.startRef}`,
+		...(evidence.creation.type === "graphite"
+			? [`Graphite parent: ${evidence.creation.parentBranch}`]
+			: []),
 		`Namespace: ${evidence.namespace}`,
 		`Key: ${evidence.key}`,
 		`Ref: ${evidence.refName}`,
@@ -326,14 +361,8 @@ export function formatBranchContextCreateFailure(
 		"Failed to create branch context and attach plan.",
 		`Branch: ${operation.branch}`,
 		...formatBranchSelectionLines(operation.branchSelection),
-		`Branch creation: ${operation.branchCreation}`,
-		...(operation.explicitBasis === undefined
-			? []
-			: [
-					`Start point: ${operation.explicitBasis.startPoint}`,
-					`Start ref: ${operation.explicitBasis.startRef}`,
-					`Graphite parent: ${operation.explicitBasis.graphiteParentBranch}`,
-				]),
+		`Branch creation: ${branchCreationMethodFromPolicy(operation.creation)}`,
+		...formatCreationPolicyDetails(operation.creation),
 		`Namespace: ${operation.namespace}`,
 		`Key: ${operation.key}`,
 		`Source file: ${operation.filePath}`,
@@ -341,6 +370,38 @@ export function formatBranchContextCreateFailure(
 		"",
 		formatErrorMessage(error),
 	].join("\n");
+}
+
+function branchCreationMethodFromPolicy(
+	creation: BranchContextCreationPolicy,
+): BranchCreationMethod {
+	return creation.type.startsWith("graphite-") ? "graphite" : "plain-git";
+}
+
+function evidenceCreationMethod(creation: BranchContextEvidenceCreation): BranchCreationMethod {
+	return creation.type === "plain-git" ? "plain-git" : "graphite";
+}
+
+function creationStartPoint(creation: BranchContextCreationPolicy): string {
+	return creation.type === "plain-git-explicit" || creation.type === "graphite-explicit"
+		? creation.startPoint
+		: "HEAD";
+}
+
+function formatCreationPolicyDetails(creation: BranchContextCreationPolicy): string[] {
+	switch (creation.type) {
+		case "plain-git-current-head":
+		case "graphite-current-parent-current-head":
+			return [];
+		case "plain-git-explicit":
+			return [`Start point: ${creation.startPoint}`, `Start ref: ${creation.startRef}`];
+		case "graphite-explicit":
+			return [
+				`Start point: ${creation.startPoint}`,
+				`Start ref: ${creation.startRef}`,
+				`Graphite parent: ${creation.parentBranch}`,
+			];
+	}
 }
 
 export function deriveTargetBranch(branchName: string | undefined, slug: string): string {
@@ -420,24 +481,64 @@ async function resolveStartPoint(
 	return head.value;
 }
 
+type ResolvedBranchContextBasis =
+	| {
+			type: "plain-git";
+			startPoint: string;
+			startRef: string;
+			useHead: boolean;
+	  }
+	| {
+			type: "graphite";
+			startPoint: string;
+			startRef: string;
+			useHead: boolean;
+			parentBranch: string;
+	  };
+
+interface ResolveBranchContextBasisOptions {
+	git: GitGateway;
+	cwd: string;
+	creation: BranchContextCreationPolicy;
+	signal?: AbortSignal;
+}
+
 async function resolveBranchContextBasis(
-	git: GitGateway,
-	cwd: string,
-	explicitBasis: BranchContextExplicitBasis | undefined,
-	signal: AbortSignal | undefined,
-): Promise<{
-	startPoint: string;
-	startRef: string;
-	graphiteParentBranch?: string;
-}> {
-	if (explicitBasis !== undefined) {
-		return {
-			startPoint: explicitBasis.startPoint,
-			startRef: explicitBasis.startRef,
-			graphiteParentBranch: explicitBasis.graphiteParentBranch,
-		};
+	options: ResolveBranchContextBasisOptions,
+): Promise<ResolvedBranchContextBasis> {
+	const { git, cwd, creation, signal } = options;
+	switch (creation.type) {
+		case "plain-git-current-head":
+			return {
+				type: "plain-git",
+				startPoint: await resolveStartPoint(git, cwd, signal),
+				startRef: "HEAD",
+				useHead: true,
+			};
+		case "plain-git-explicit":
+			return {
+				type: "plain-git",
+				startPoint: creation.startPoint,
+				startRef: creation.startRef,
+				useHead: false,
+			};
+		case "graphite-current-parent-current-head":
+			return {
+				type: "graphite",
+				startPoint: await resolveStartPoint(git, cwd, signal),
+				startRef: "HEAD",
+				useHead: true,
+				parentBranch: await resolveCurrentBranch(git, cwd, signal),
+			};
+		case "graphite-explicit":
+			return {
+				type: "graphite",
+				startPoint: creation.startPoint,
+				startRef: creation.startRef,
+				parentBranch: creation.parentBranch,
+				useHead: false,
+			};
 	}
-	return { startPoint: await resolveStartPoint(git, cwd, signal), startRef: "HEAD" };
 }
 
 interface SelectedBranchAvailabilityOptions extends BranchContextRepoAccess {
@@ -586,11 +687,8 @@ function formatStaleTargetBranchMemoryMessage(context: {
 
 interface CreateBranchContextOptions {
 	cwd: string;
-	method: BranchCreationMethod;
 	branch: string;
-	startPoint: string;
-	useHead: boolean;
-	graphiteParentBranch?: string;
+	basis: ResolvedBranchContextBasis;
 	signal: AbortSignal | undefined;
 }
 
@@ -603,7 +701,7 @@ interface CreatePlainGitBranchOptions {
 }
 
 interface CreateGraphiteBranchOptions extends CreatePlainGitBranchOptions {
-	graphiteParentBranch?: string;
+	parentBranch: string;
 }
 
 async function createBranchContext(
@@ -611,11 +709,21 @@ async function createBranchContext(
 	graphite: GraphiteBranchGateway,
 	options: CreateBranchContextOptions,
 ): Promise<void> {
-	if (options.method === "graphite") {
-		await createGraphiteBranch(git, graphite, options);
+	const branchOptions = {
+		cwd: options.cwd,
+		branch: options.branch,
+		startPoint: options.basis.startPoint,
+		useHead: options.basis.useHead,
+		signal: options.signal,
+	};
+	if (options.basis.type === "graphite") {
+		await createGraphiteBranch(git, graphite, {
+			...branchOptions,
+			parentBranch: options.basis.parentBranch,
+		});
 		return;
 	}
-	await createPlainGitBranch(git, options);
+	await createPlainGitBranch(git, branchOptions);
 }
 
 async function createPlainGitBranch(
@@ -644,11 +752,9 @@ async function createGraphiteBranch(
 	graphite: GraphiteBranchGateway,
 	options: CreateGraphiteBranchOptions,
 ): Promise<void> {
-	const parentBranch =
-		options.graphiteParentBranch ?? (await resolveCurrentBranch(git, options.cwd, options.signal));
 	const parentTracked = await graphite.checkBranchTracked({
 		cwd: options.cwd,
-		branch: parentBranch,
+		branch: options.parentBranch,
 		signal: options.signal,
 	});
 	if (!parentTracked.ok) {
@@ -658,9 +764,9 @@ async function createGraphiteBranch(
 		throw new Error(
 			[
 				"Current branch is not tracked by Graphite; refusing to stack a branch context on it.",
-				`Parent branch: ${parentBranch}`,
+				`Parent branch: ${options.parentBranch}`,
 				"No branch was created and no plan was attached.",
-				`Track the parent first (gt track ${parentBranch} --parent <its-parent>) or pass --plain-git.`,
+				`Track the parent first (gt track ${options.parentBranch} --parent <its-parent>) or pass --plain-git.`,
 				"",
 				parentTracked.detail,
 			].join("\n"),
@@ -670,7 +776,7 @@ async function createGraphiteBranch(
 	const track = await graphite.trackBranch({
 		cwd: options.cwd,
 		branch: options.branch,
-		parentBranch,
+		parentBranch: options.parentBranch,
 		signal: options.signal,
 	});
 	if (!track.ok) {
@@ -702,23 +808,28 @@ async function resolveCurrentBranch(
 	throw new Error(branch.error.message);
 }
 
+function evidenceCreationFromResolvedBasis(
+	basis: ResolvedBranchContextBasis,
+): BranchContextEvidenceCreation {
+	return basis.type === "graphite"
+		? { type: "graphite", startRef: basis.startRef, parentBranch: basis.parentBranch }
+		: { type: "plain-git", startRef: basis.startRef };
+}
+
 function buildEvidence(input: {
 	data: BranchContextAttachData;
 	slug: string;
-	branchCreation: BranchCreationMethod;
+	creation: BranchContextEvidenceCreation;
 	startPoint: string;
-	startRef: string;
-	graphiteParentBranch: string | undefined;
 	branchSelection: BranchContextBranchSelection;
+	/** Undefined means the source plan had no summary metadata. */
 	summary: string | undefined;
 }): BranchContextEvidence {
 	const evidence = {
 		slug: input.slug,
 		branch: input.data.branch,
-		branchCreation: input.branchCreation,
 		startPoint: input.startPoint,
-		startRef: input.startRef,
-		...optionalEntry("graphiteParentBranch", input.graphiteParentBranch),
+		creation: input.creation,
 		namespace: input.data.namespace,
 		key: input.data.key,
 		refName: input.data.refName,
@@ -740,10 +851,8 @@ function attachFailureTitle(_code: string): string {
 function partialFailureError(input: {
 	title: string;
 	branch: string;
-	branchCreation: BranchCreationMethod;
+	creation: BranchContextEvidenceCreation;
 	startPoint: string;
-	startRef: string;
-	graphiteParentBranch: string | undefined;
 	namespace: string;
 	key: string;
 	sourceFile: string;
@@ -753,12 +862,12 @@ function partialFailureError(input: {
 		[
 			`Partial failure: ${input.title}`,
 			`Created branch: ${input.branch}`,
-			`Branch creation: ${input.branchCreation}`,
+			`Branch creation: ${evidenceCreationMethod(input.creation)}`,
 			`Start point: ${input.startPoint}`,
-			`Start ref: ${input.startRef}`,
-			...(input.graphiteParentBranch === undefined
-				? []
-				: [`Graphite parent: ${input.graphiteParentBranch}`]),
+			`Start ref: ${input.creation.startRef}`,
+			...(input.creation.type === "graphite"
+				? [`Graphite parent: ${input.creation.parentBranch}`]
+				: []),
 			`Namespace: ${input.namespace}`,
 			`Key: ${input.key}`,
 			`Source file: ${input.sourceFile}`,

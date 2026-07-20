@@ -49,8 +49,8 @@ function sessionEntry(branch: string, key: string): unknown {
 				evidence: {
 					slug: key.replace(/\.md$/, ""),
 					branch,
-					branchCreation: "graphite",
 					startPoint: "0123456789abcdef0123456789abcdef01234567",
+					creation: { type: "graphite", startRef: "HEAD", parentBranch: "main" },
 					namespace: BRANCH_CONTEXT_NAMESPACE,
 					key,
 					refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${key}`,

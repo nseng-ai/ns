@@ -14,8 +14,8 @@ import {
 const EVIDENCE = {
 	slug: "branch-scoped-plan",
 	branch: "branch-contexts/branch-scoped-plan",
-	branchCreation: "graphite",
 	startPoint: "0123456789abcdef0123456789abcdef01234567",
+	creation: { type: "graphite", startRef: "HEAD", parentBranch: "main" },
 	namespace: BRANCH_CONTEXT_NAMESPACE,
 	key: "branch-scoped-plan.md",
 	refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/branch-contexts---branch-scoped-plan:branch-scoped-plan.md`,
@@ -49,15 +49,35 @@ describe("branch-context session artifact", () => {
 		);
 	});
 
-	test("accepts but strips unknown output detail and evidence keys", () => {
-		const result = extractBranchContextEvidence({
-			status: "success",
-			evidence: { ...EVIDENCE, extraEvidence: "ignored" },
-			extraDetail: "ignored",
-		});
+	test("rejects unknown current evidence keys while ignoring unknown detail keys", () => {
+		expect(
+			extractBranchContextEvidence({
+				status: "success",
+				evidence: { ...EVIDENCE, extraEvidence: "contradictory" },
+			}),
+		).toBeUndefined();
+		expect(
+			extractBranchContextEvidence({
+				status: "success",
+				evidence: EVIDENCE,
+				extraDetail: "ignored",
+			}),
+		).toEqual(EVIDENCE);
+	});
 
-		expect(result).toEqual(EVIDENCE);
-		expect(result).not.toHaveProperty("extraEvidence");
+	test("rejects mixed current and legacy evidence fields", () => {
+		expect(
+			extractBranchContextEvidence({
+				status: "success",
+				evidence: { ...EVIDENCE, branchCreation: "graphite" },
+			}),
+		).toBeUndefined();
+		expect(
+			extractBranchContextEvidence({
+				status: "success",
+				evidence: { ...EVIDENCE, startRef: "HEAD" },
+			}),
+		).toBeUndefined();
 	});
 
 	test("rejects non-success and malformed output details", () => {
@@ -65,7 +85,7 @@ describe("branch-context session artifact", () => {
 		expect(
 			extractBranchContextEvidence({
 				status: "success",
-				evidence: { ...EVIDENCE, branchCreation: "hg" },
+				evidence: { ...EVIDENCE, creation: { type: "hg" } },
 			}),
 		).toBeUndefined();
 		expect(

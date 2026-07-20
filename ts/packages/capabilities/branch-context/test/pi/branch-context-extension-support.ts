@@ -298,8 +298,11 @@ export function branchContextEvidence(
 	return {
 		slug: input.slug ?? PLAN_SLUG,
 		branch: input.branch ?? PLAN_SLUG,
-		branchCreation: input.branchCreation ?? "plain-git",
 		startPoint: input.startPoint ?? START_POINT,
+		creation: input.creation ?? {
+			type: "plain-git",
+			startRef: "HEAD",
+		},
 		namespace: input.namespace ?? BRANCH_CONTEXT_NAMESPACE,
 		key: input.key ?? PLAN_KEY,
 		refName:
@@ -321,14 +324,21 @@ export function branchContextEvidenceFromParams(rawParams: unknown): BranchConte
 	const params = rawParams as {
 		slug: string;
 		filePath: string;
-		branchCreation: "plain-git" | "graphite";
+		creation: { type: "plain-git-current-head" } | { type: "graphite-current-parent-current-head" };
 		branchName?: string;
 		summary?: string;
 	};
 	return branchContextEvidence({
 		slug: params.slug,
 		branch: params.branchName ?? params.slug,
-		branchCreation: params.branchCreation,
+		creation:
+			params.creation.type === "graphite-current-parent-current-head"
+				? {
+						type: "graphite",
+						startRef: "HEAD",
+						parentBranch: "main",
+					}
+				: { type: "plain-git", startRef: "HEAD" },
 		key: buildBranchContextPlanKey(params.slug),
 		sourceFile: params.filePath,
 		...(params.summary === undefined ? {} : { summary: params.summary }),

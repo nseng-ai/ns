@@ -120,7 +120,8 @@ function resolveRetryOptions(options: RetryOptions): ResolvedRetryOptions {
 
 For partial subsets, use `Required<Omit<T, "field">>` or an explicit resolved interface.
 
-Semantic absence should be named rather than carried as `undefined`:
+Semantic absence should be named rather than carried as `undefined`. Treat **`undefined` with domain
+meaning** as a code smell:
 
 ```ts
 type Selection =
@@ -128,9 +129,12 @@ type Selection =
   | { type: "selected"; command: Command };
 ```
 
-Keep `T | undefined` at an omitted-input or local-lookup seam. If absence changes behavior, make it a
-variant. If absence is impossible after establishing an invariant, use one checked accessor that returns
-`T` and fails loudly when the invariant is broken.
+Keep `T | undefined` at an omitted-input or local-lookup seam only long enough to classify it. If
+absence changes domain behavior, make it a named variant. If it selects a default, resolve it at the
+boundary. If absence is impossible after establishing an invariant, use one checked accessor that
+returns `T` and fails loudly when the invariant is broken. Ordinary optional metadata, callbacks, DI
+overrides, and standard optional platform inputs such as `AbortSignal` do not acquire domain meaning
+merely by being optional.
 
 ## Declaration merging as an extension point
 
