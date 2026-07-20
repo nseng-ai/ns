@@ -102,7 +102,6 @@ export async function createTrackedBranchForPrompt(
 		prompt,
 		parentBranch: parent.text,
 		startPoint: startPoint.text,
-		startRef: "HEAD",
 	});
 }
 
@@ -112,7 +111,6 @@ export async function createTrackedBranchFromResolvedParent(options: {
 	prompt: string;
 	parentBranch: string;
 	startPoint: string;
-	startRef: string;
 	createFailureContext?: string;
 }): Promise<TrackedBranchEvidence | { error: string }> {
 	const slug = await generateTrackedBranchSlug(options.pi, options.cwd, options.prompt);
@@ -121,7 +119,7 @@ export async function createTrackedBranchFromResolvedParent(options: {
 	const create = await runText(options.pi, options.cwd, "git", [
 		"branch",
 		branchName,
-		options.startRef,
+		options.startPoint,
 	]);
 	if (!create.ok) {
 		const context =
@@ -201,7 +199,6 @@ export async function createTrackedBranchFromLocalTrunkForPrompt(options: {
 		prompt: options.prompt,
 		parentBranch: prepared.trunkBranch,
 		startPoint: prepared.startPoint,
-		startRef: prepared.startPoint,
 		createFailureContext: `from local trunk ${prepared.trunkBranch}`,
 	});
 }
