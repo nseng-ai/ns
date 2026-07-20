@@ -75,3 +75,13 @@ Boundaries ban.
   operations sharing its internals.
 - The reconstruction operation's name and envelope (settled at design time within this
   record).
+
+## Closure
+
+Closed 2026-07-20 as deferred before execution.
+
+Outcome: no roadmap row was executed and no update was recorded since creation. The design remains fully preserved in this record: extend `ns objective exec` with a `refresh-targets` operation for objective-refresh, shared trunk/base/diff evidence for objective-update/refresh (widening `tracking-gate` or sibling operations — an open question settled at design time), and the retro-reconstruction pipeline, including deliberately amending the retro skill's Boundaries ban. The evidence base (the 2026-07-12 skill audit findings on objective-refresh, objective-update, and objective-retro) lives in the closed `skill-audit-remediation` record's references.
+
+Restart pointer: the record's Scope, Risks (report-signals-not-judgment for retro; additive tracking-gate changes), and Open Questions are the complete restart state. If the hand-rolled evidence pipelines in the objective skill family start causing real drift or token cost, resume from here; nothing needs re-deriving.
+
+Closure decision made in the 2026-07-20 open-objective portfolio review (created but never started; not in the active lanes).

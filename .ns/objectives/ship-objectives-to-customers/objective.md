@@ -225,3 +225,19 @@ the README-driven design session (see Resolved Decisions above):
   activation content, contributed through the descriptor `activation` field. The
   de-objectives-ification of `@nseng-ai/ns-init` has landed; the bare-core republish it
   gated remains roadmap work.
+
+## Closure
+
+Closed 2026-07-20 as deferred (umbrella synthesis; launch intentionally paused).
+
+Outcome: the shipping substrate is built; the launch itself is deferred. All three coordinated Subobjectives are closed: `objectives-extension-customer-surface` (v1 Objectives extension command/inspection surface), `objectives-bare-core-release` (published bare-core and standalone Objectives artifacts with checkout-free verification), and `objectives-claude-onboarding-steelthread` (closed 2026-07-20 as deferred with partial evidence — see its closure for the restart point). Consumed dependencies all landed and closed: checkout-free npm distribution, `ns skills` provisioning, cross-harness reachability doctrine, and the extension descriptor contract. This umbrella also delivered the customer-facing `ns extension install|uninstall|update` lifecycle design and the core/extension `ns init` split.
+
+Cross-child lessons worth carrying:
+
+- **README-driven design held up as the launch substrate** after the docs-site was deferred: package READMEs proved sufficient as the canonical install/quickstart surface, and defects found by verification were README defects to fix, not verifier improvisation to tolerate.
+- **Publication is the recurring bottleneck**, not implementation: multiple children ended gated on "republish a qualified version," and the accepted decision to skip a republish is exactly what left the onboarding journey unfinished.
+- **Foreign-repo verification catches what checkout-based testing cannot** (provisioning roots, pointer stanzas, ambient-credential false passes); keep that bar for any future launch attempt.
+
+Restart pointer: resuming the customer launch means reopening the onboarding journey from its record's restart state — publish a newly qualified package version, run the documented Claude Code journey end to end in an isolated foreign repo, and synthesize defects across seams. The bare-core republish residue noted in this record's design-decision log goes first.
+
+Closure decision made in the 2026-07-20 open-objective portfolio review (make the deferred launch state honest rather than carrying a dormant umbrella as open WIP).

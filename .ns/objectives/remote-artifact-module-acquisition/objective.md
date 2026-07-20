@@ -92,3 +92,17 @@ Risks:
 - ~~**Update semantics detail**~~ — resolved 2026-07-07 (`updates/20260707T200657Z-...`); surviving shape at HEAD: single-target `ns extension update <source>` with `refresh-floating` / `ensure-pinned` / `local-in-place` intents; removal is now a real verb (`ns extension uninstall`, identity-matched) rather than report-only diagnostics.
 - ~~**Trust posture with executable extensions**~~ — resolved 2026-07-07 (`updates/20260707T193019Z-...`): trust gate deferred; kernel loading of executable CLI-group extensions from fetched managed-root modules is allowed as a later slice.
 - ~~**Local-path specs**~~ — resolved 2026-07-07 (`updates/20260707T193019Z-...`): pointers to on-disk paths without copying; implemented as `local-in-place` lifecycle behavior.
+
+## Closure
+
+Closed 2026-07-20 as completed.
+
+Outcome: the acquisition substrate this record owned is landed and in service. Declared `ns.toml` `extensions = [...]` specs (pi-derived grammar: `npm:pkg[@ver]`, local paths; git reserved) are acquired into per-package private managed projects under `.ns/managed-extensions/`, flow through descriptor-based discovery and activation reconciliation, and are updated with per-source-kind semantics (`refresh-floating` / `ensure-pinned` / `local-in-place`). The front-loaded design questions — grammar, storage, fetch mechanics, update semantics, trust posture (deferred under the trusted-repo assumption) — are all resolved as recorded decisions in this record's updates. The 2026-07-12 rebaseline stands: the customer-facing verbs are `ns extension install|update|uninstall` (owned by `ship-objectives-to-customers`); this record's mechanics are the substrate beneath them.
+
+Residue at closure, recorded as restart pointers rather than open work:
+
+- **Real-remote end-to-end evidence** (acquire a real npm-published extension in a foreign checkout) was never captured; the path is exercised by tests and the published-package verification under the customer-shipping program, but a dedicated real-remote proof remains unwitnessed.
+- **ns self-update** behind bare `ns update` (currently a reserved stub erroring `self-update-not-implemented`) is a distinct mechanism deserving its own record if it becomes real work; it should not reopen this one.
+- The retired `ns update --extensions` wording breadcrumbs noted in Risks remain for the surface owner.
+
+Closure decision made in the 2026-07-20 open-objective portfolio review. The parent umbrella (`skill-management-subsystem`) synthesizes and closes alongside this record.

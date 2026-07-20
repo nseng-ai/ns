@@ -199,3 +199,18 @@ Risks:
   than open, but its viability depends on dispatch-side prompt structure —
   it only makes sense where the prompt is already structured (objective
   runner steps).
+
+## Closure
+
+Closed 2026-07-20 as completed (largely delivered out-of-band).
+
+Outcome: the run-dashboard destination this record described exists on trunk. The core watch/judge detail view landed through this record's territory (timeline extraction from child session JSONL via `extractRunnerSubagentTimelineFromSessionJsonl`, current-action derivation, `toolResultPreviewFromEvent`, targeted timeline/parser/navigator tests), and trunk's PR #3412 redesign then carried the same screen further — timestamped entries, live durations, running/ok/error states, tool-specific displays — outside this record. No new event protocol was introduced, matching the record's derive-from-existing-messages stance.
+
+Residue deliberately left parked (with their recorded upgrade gates, none active):
+
+- Cancel controls for one agent or the fleet — needs a deliberate slice covering confirmation, parent recovery/checkpoint semantics, and post-cancel reporting; abort plumbing exists.
+- Runner-emitted semantic events — requires an emit-side protocol change; UI-side prose inference stays rejected.
+- Per-edit +N/-N enrichment and the structured prompt panel — small residue, revisit only with concrete need.
+- Manual navigator re-smoke against a real session was never recorded; any future work here should start with that smoke.
+
+Closure decision made in the 2026-07-20 open-objective portfolio review.

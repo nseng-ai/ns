@@ -68,3 +68,13 @@ Risks:
 ## Open Questions
 
 None at creation. The Claude-Code-first bar, command order, public-doc requirement, and zero-improvisation standard are inherited from settled parent decisions.
+
+## Closure
+
+Closed 2026-07-20 as deferred, making the record's own declared state honest: its thesis already stated "All remaining execution is deferred; this record preserves the qualified artifacts, evidence bar, and restart point without creating an active launch commitment."
+
+Outcome at closure: substantial partial evidence exists — the bare-core install flow was verified, published `0.1.3` provisioning was confirmed for Claude Code (all ten declared Objective skills landed under `.claude/skills/` in a foreign repository), and the canonical README sources were repaired. Unmet: publication of the repaired README revision (intentionally skipped by explicit direction), registry-served README completion criteria, the fresh-session Claude lifecycle journey, the repair loop, and cross-seam defect synthesis.
+
+Restart pointer: the record's Scope, evidence bar (real registry artifacts, isolated foreign repo, zero-improvisation standard), Risks (including the accepted sequencing gap), and roadmap rows are the complete restart state. Resuming means: publish a newly qualified package version exposing the repaired READMEs, then run the documented journey end to end. Nothing needs re-deciding.
+
+Closure decision made in the 2026-07-20 open-objective portfolio review. The parent umbrella (`ship-objectives-to-customers`) closes as deferred alongside this record.
