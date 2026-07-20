@@ -52,3 +52,15 @@ Every file and exported concern that began in `capability-kit/src/kit`, plus eve
 - Which foundation residue is in scope because it participates in the same ownership confusion, and which should remain explicitly outside this Objective?
 - Can `@nseng-ai/capability-kit` remain as a smaller coherent package, or does the ownership map remove its reason to exist?
 - Which supported external exports, if any, require a deliberate migration path rather than direct removal?
+
+## Closure
+
+Closed 2026-07-20 as deferred before execution.
+
+Outcome: no roadmap row was completed and no Semantic Update was recorded; the ownership map for `capability-kit/src/kit` was never ratified. Branch-level work touched this record's territory (composable command core, extension-API/invocation-context, descriptor-owned command routing branches), but none of it executed this record's inventory-and-ownership program as designed.
+
+The problem statement remains valid: `@nseng-ai/capability-kit`'s `kit` subpackage is still a miscellaneous container mixing command-host adapters, model-driven generation, checkpoint policy, Git-backed dispatch operations, Branch Memory invocation, and local-machine utilities. If this work resumes, start from this record's Scope (inventory first, deliberate owner per concern, dependency-ordered slices) — but re-baseline the inventory against the then-current tree rather than trusting this record's snapshot, since adjacent branches and initiatives keep moving these surfaces.
+
+The write-back edge to `ontology-reshape` is moot: that record closes concurrently; a future resumption reports evidence to whatever record owns architecture documentation then.
+
+Closure decision made in the 2026-07-20 open-objective portfolio review (reduce concurrent WIP; this lane was open but never started).

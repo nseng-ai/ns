@@ -144,3 +144,16 @@ headless objective-next sessions).
   conflicts with a sanctioned-duplication marker.
 - Interactive sessions still present the standard execution preview; unattended runs
   proceed within this policy without per-session confirmation.
+
+## Closure
+
+Closed 2026-07-20 as completed.
+
+Outcome: the remediation program executed its ordered tranches — correctness bugs, per-skill mechanical cuts, trigger-surface normalization, and cross-skill single-source-of-truth restructuring — and all five accepted Tranche 4 CLI push-down implementations landed (`ns slot gt exec backup-refs`, the `wait-for-checks` primitive, handoff slug normalization plus pickup term-matching, the bundled episode-slice script, and the stack-branches routing retrofit). The three oversized T4 items graduated into their own records (`cmux-exec-occupancy-inventory`, `objective-exec-surface-extension`, `slot-gt-restack-preflight`), which carry that work independently; the audit evidence base remains in `references/audit-findings.md`.
+
+Residue deliberately waived at closure:
+
+- The parked closing audit spot-check (re-running `skill-audit` on the most-edited skills) is dropped as a gate; any future fleet audit starts fresh against the then-current fleet rather than validating this remediation retroactively.
+- The areg-mutations note intended for the `skill-management-subsystem` record was not carried over; if areg mutation commands become live work, re-derive the need from the T4 frontload update rather than treating this as tracked.
+
+Closure decision made in the 2026-07-20 open-objective portfolio review (reduce concurrent WIP; this record's implementations were already done and only bookkeeping remained).

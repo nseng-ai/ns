@@ -101,3 +101,13 @@ Risks:
 ## Open Questions
 
 None block implementation. Automatic or explicit cleanup of retained `dispatch-context` Entries remains parked; a later Objective must settle evidence and age rules before deletion.
+
+## Closure
+
+Closed 2026-07-20 as deferred with the cloud-execution program pause.
+
+Outcome: substantially delivered, short of final proof. The README contract was settled and merged toward `ts/packages/capabilities/vercel/README.md`; local Saved Plan preparation and Branch Memory delivery landed; `ns dispatch plan <plan-ref>` shipped over the shared dispatch spine with wrapper coverage. Remaining at closure: completing the sandbox-side supervision extension (typed locator, `dispatch.id` seeding, pre-launch `brmem check`) marked in-progress on the roadmap, the one real end-to-end Branch Memory-delivered dispatch proof, and folding witnessed facts back into the README and `cloud-execution`.
+
+This record closes as part of parking the entire cloud program's subobjectives while `cloud-execution` (which stays open as the orienting umbrella) is not being actively worked. When cloud work resumes, restart from this record's roadmap rows 3 and 5–6 — the design, contract, and landed implementation need no re-decision; only the supervision completion and live proof remain.
+
+Closure decision made in the 2026-07-20 open-objective portfolio review (reduce concurrent WIP; park cloud subobjectives until cloud-execution resumes).
