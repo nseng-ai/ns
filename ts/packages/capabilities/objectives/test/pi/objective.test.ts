@@ -19,6 +19,7 @@ import objectiveExtension, {
 	type ObjectiveExtensionAPI,
 	type NotifyLevel,
 } from "../../src/pi/extension.ts";
+import { createTestSessionReader } from "./test-session-reader.ts";
 
 type RawPiExecResultFixture = Partial<RawPiExecResult>;
 import type {
@@ -246,6 +247,7 @@ function createContext(
 		modelRegistry: {
 			find: () => undefined,
 		},
+		sessionManager: createTestSessionReader(),
 		ui: {
 			notify(message: string, level?: NotifyLevel): void {
 				notifications.push({ message, level });

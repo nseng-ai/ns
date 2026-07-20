@@ -7,6 +7,7 @@ import objectiveExtension, {
 	type ObjectiveExtensionAPI,
 	type NotifyLevel,
 } from "../../src/pi/extension.ts";
+import { createTestSessionReader } from "./test-session-reader.ts";
 
 const ROOT = "/repo";
 
@@ -76,6 +77,7 @@ function createContext(cwd = ROOT): {
 		modelRegistry: {
 			find: () => undefined,
 		},
+		sessionManager: createTestSessionReader(),
 		ui: {
 			notify(message: string, level?: NotifyLevel): void {
 				notifications.push({ message, level });

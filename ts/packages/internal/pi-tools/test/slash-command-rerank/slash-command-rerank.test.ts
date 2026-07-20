@@ -13,6 +13,7 @@ import slashCommandRerankExtension, {
 	rerankSlashCommandItems,
 	slashCommandRerankQuery,
 } from "../../src/slash-command-rerank/index.ts";
+import { createTestSessionReader } from "../test-session-reader.ts";
 
 function items(...values: string[]): AutocompleteItem[] {
 	return values.map((value) => ({ value }));
@@ -321,6 +322,7 @@ function createSessionCtx(options: { withAddAutocomplete?: boolean } = {}): {
 	const registeredFactories: AddAutocompleteFactory[] = [];
 	const ctx: SessionStartContext = {
 		cwd: "/repo",
+		sessionManager: createTestSessionReader(),
 		ui: {
 			notify() {},
 			...(withAdd

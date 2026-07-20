@@ -487,6 +487,12 @@ function commandContext(withModel = false): CommandContext {
 		cwd: "/repo",
 		hasUI: false,
 		mode: "tui",
+		sessionManager: {
+			getBranch: () => [],
+			getEntries: () => [],
+			getSessionFile: () => undefined,
+			getSessionId: () => "test-session-id",
+		},
 		ui: { notify(): void {}, setStatus(): void {} },
 		...(withModel ? { model: { provider: "anthropic", id: "claude-test" } } : {}),
 		async waitForIdle(): Promise<void> {},

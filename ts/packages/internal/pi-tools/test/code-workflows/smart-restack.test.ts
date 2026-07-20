@@ -19,6 +19,7 @@ import type {
 	RunSmartRestackPreflight,
 	SmartRestackPreflightResult,
 } from "../../src/code-workflows/restack-preflight.ts";
+import { createTestSessionReader } from "../test-session-reader.ts";
 
 interface ExecCall {
 	command: string;
@@ -85,6 +86,7 @@ class FakeCommandContext implements CommandContext {
 	}> = [];
 	readonly selectCalls: Array<{ title: string; options: string[] }> = [];
 	readonly events: string[];
+	readonly sessionManager = createTestSessionReader();
 	readonly ui: CommandContext["ui"];
 
 	constructor(

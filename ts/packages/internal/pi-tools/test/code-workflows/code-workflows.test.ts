@@ -15,6 +15,7 @@ import codeWorkflowsExtension, {
 	type CodeWorkflowsExtensionAPI,
 	type InvokeCodeWorkflowPromptTurn,
 } from "../../src/code-workflows/extension.ts";
+import { createTestSessionReader } from "../test-session-reader.ts";
 
 type RegisteredCommand = Parameters<CodeWorkflowsExtensionAPI["registerCommand"]>[1];
 
@@ -94,6 +95,7 @@ class FakeCommandContext implements CommandContext {
 	editorText: string | undefined;
 	waitForIdleCalls = 0;
 
+	readonly sessionManager = createTestSessionReader();
 	readonly ui: CommandContext["ui"];
 
 	constructor(

@@ -5,6 +5,7 @@ import type {
 	RunnerSubagentFinalTextResult,
 	RunnerSubagentProgress,
 } from "../../src/runner-subagents/index.ts";
+import { createTestSessionReader } from "./test-session-reader.ts";
 
 export function toolContext(
 	options: { notify?: (message: string, level?: NotifyLevel) => void } = {},
@@ -13,6 +14,7 @@ export function toolContext(
 		cwd: "/repo",
 		mode: "tui",
 		hasUI: options.notify !== undefined,
+		sessionManager: createTestSessionReader(),
 		ui: { notify: options.notify ?? (() => {}) },
 		model: { provider: "anthropic", id: "claude-sonnet-4-5" },
 	};

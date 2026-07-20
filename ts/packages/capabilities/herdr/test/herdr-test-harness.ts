@@ -16,6 +16,7 @@ import type {
 	ExtensionAPI,
 	ModelInfo,
 	NotifyLevel,
+	PiSessionEntry,
 	RawPiExecOptions,
 	RawPiExecResult,
 	ThinkingLevel,
@@ -78,7 +79,7 @@ export interface FakeCommandContextOptions {
 	onWaitForIdle?: () => void;
 	selectIndices?: number[];
 	shouldCancelSelect?: boolean;
-	branchEntries?: unknown[];
+	branchEntries?: PiSessionEntry[];
 }
 
 export const ROOT = mkdtempSync(join(tmpdir(), "herdr-model-root-"));
@@ -253,6 +254,8 @@ export class FakeCommandContext implements CommandContext {
 		this.sessionManager = {
 			getBranch: () => branchEntries,
 			getEntries: () => branchEntries,
+			getSessionFile: () => undefined,
+			getSessionId: () => "test-session-id",
 		};
 		this.ui = {
 			notify: (message, level) => {
@@ -570,7 +573,7 @@ export function savedPlanEntry(
 	repoRoot: string,
 	planFile: string,
 	overrides: Record<string, unknown> = {},
-): unknown {
+): PiSessionEntry {
 	return {
 		type: "message",
 		message: {

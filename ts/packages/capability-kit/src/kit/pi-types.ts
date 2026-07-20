@@ -64,14 +64,30 @@ export interface UiLike {
 	addAutocompleteProvider?(factory: (current: AutocompleteProvider) => AutocompleteProvider): void;
 }
 
+export interface PiSessionEntry {
+	readonly type: string;
+	readonly [field: string]: unknown;
+}
+
+export interface PiSessionReader {
+	/** Entries on the active branch of the current Pi session. */
+	getBranch(): readonly PiSessionEntry[];
+	/** All entries in the current Pi session. */
+	getEntries(): readonly PiSessionEntry[];
+	/** Stable id of the current Pi session, including in-memory sessions. */
+	getSessionId(): string;
+	/**
+	 * Path to the current Pi session's persisted JSONL log. In-memory Pi sessions
+	 * have an identity and entries but no backing file, so they return undefined.
+	 */
+	getSessionFile(): string | undefined;
+}
+
 export interface BaseContext {
 	cwd: string;
 	hasUI?: boolean;
 	ui: UiLike;
-	sessionManager?: {
-		getBranch?(): unknown[];
-		getEntries?(): unknown[];
-	};
+	sessionManager: PiSessionReader;
 }
 
 export interface CommandContext extends BaseContext {

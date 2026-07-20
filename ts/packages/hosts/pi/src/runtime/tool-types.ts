@@ -1,4 +1,5 @@
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
+import type { PiSessionReader } from "@nseng-ai/capability-kit/pi-types";
 
 import type { ModelInfo } from "./types.ts";
 
@@ -64,13 +65,6 @@ export interface WidgetRuntimeContext {
 	ui?: { setWidget?: SetWidgetFunction };
 }
 
-export interface SessionManagerLike {
-	/** Stable id of the current Pi session, including in-memory sessions. */
-	getSessionId?(): string;
-	/** Path to the current Pi session file, when one is available. */
-	getSessionFile?(): string | undefined;
-}
-
 export interface ToolResult<Details = unknown> {
 	content: TextContent[];
 	details?: Details;
@@ -96,7 +90,7 @@ export interface ToolContext extends WidgetRuntimeContext {
 	model?: ModelInfo;
 	/** Concrete host registry used by in-process child-session adapters. */
 	modelRegistry?: ModelRegistry;
-	sessionManager?: SessionManagerLike;
+	sessionManager: PiSessionReader;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setEditorText?(value: string): void;

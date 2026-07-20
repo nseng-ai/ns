@@ -6,6 +6,7 @@ import {
 } from "../../src/api/index.ts";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { CommandContext } from "@nseng-ai/pi/runtime/types";
+import { createTestSessionReader } from "./test-session-reader.ts";
 
 describe("objective selection runtime behavior", () => {
 	test("objective selection context preserves UI notifications without select", async () => {
@@ -17,6 +18,7 @@ describe("objective selection runtime behavior", () => {
 				notify: (message) => notifications.push(message),
 			},
 			modelRegistry: { find: () => undefined },
+			sessionManager: createTestSessionReader(),
 			waitForIdle: async () => {},
 		};
 
@@ -37,6 +39,7 @@ describe("objective selection runtime behavior", () => {
 				notify: (message) => notifications.push(message),
 			},
 			modelRegistry: { find: () => undefined },
+			sessionManager: createTestSessionReader(),
 			waitForIdle: async () => {},
 		};
 		const host = {
@@ -83,6 +86,7 @@ describe("objective selection runtime behavior", () => {
 				notify: (message) => notifications.push(message),
 			},
 			modelRegistry: { find: () => undefined },
+			sessionManager: createTestSessionReader(),
 			waitForIdle: async () => {},
 		};
 		const host = {
@@ -121,6 +125,7 @@ describe("objective selection runtime behavior", () => {
 				notify: (message) => notifications.push(message),
 			},
 			modelRegistry: { find: () => undefined },
+			sessionManager: createTestSessionReader(),
 			waitForIdle: async () => {},
 		};
 		const host = {
