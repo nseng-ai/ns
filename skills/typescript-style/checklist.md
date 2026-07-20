@@ -37,6 +37,9 @@ and conventions as the baseline; this checklist catches design drift.
 - [ ] State machines are explicit unions, not scattered booleans.
 - [ ] `undefined` from optional inputs and lookups is handled where it arises; meaningful absence has
       a named variant, defaultable absence is resolved, and impossible absence is an invariant failure.
+- [ ] No **impossible optional state** exists: every optional collaborator, context field, or method maps
+      to a supported runtime absence; guaranteed dependencies are required, and immediate `?.`, `?? []`,
+      or `?? {}` fallbacks do not conceal missing mandatory wiring.
 
 ## Architecture
 

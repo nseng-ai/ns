@@ -28,6 +28,28 @@ Symptoms:
 Fix: make the types line up end to end. Narrow at the boundary, resolve defaults once, and represent
 state as a union that matches runtime behavior.
 
+#### Impossible optional state
+
+An impossible optional state exists when every supported runtime guarantees a dependency or member,
+but its type permits absence. Ask: **What supported runtime state does this absence represent?**
+
+High-signal symptoms:
+
+- a mandatory context or collaborator is declared with `?`;
+- its methods are optional even though every supported runtime supplies them;
+- its first consumer immediately uses `?.`, `?? []`, or `?? {}`;
+- a subtype uses `NonNullable<Parent["field"]>` to recover the real invariant;
+- production code feature-detects a mandatory API;
+- test fakes are the only callers that omit the dependency.
+
+The consequence is that invalid composition compiles and becomes plausible empty/default behavior.
+Repair the owning contract, update fakes and fixtures to honor it, and remove concealment from consumers.
+Keep optional results, optional inputs, and genuine runtime variants optional.
+
+Review wording: "This is an impossible optional state: the supported runtime guarantees this dependency,
+but the type permits it to be absent. Make it required and remove the fallback so missing wiring fails at
+compile time."
+
 ### Too much machinery
 
 Symptoms:
