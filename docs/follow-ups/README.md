@@ -17,3 +17,4 @@ Follow-ups are historical planning inputs, not commitments, canonical system spe
 
 - [Delegation-first parent orchestration](delegation-first-parent-orchestration.md) — keep parent orchestrator sessions inside their context budget by delegating diff/log/status inspection to subagents and injecting a compact contract into multi-subagent plans.
 - [Objective context management and compaction](objective-context-management-and-compaction.md) — reduce routine context consumption by large, long-lived Objectives while preserving provenance and routing.
+- [Local feedback resolution](local-feedback-resolution.md) — local pre-PR review-to-fix loop: multi-reviewer roster runs over an explicit revision range, LM-proposed engineer-corrected finding clusters, disposition triage, and planned-PR steering; captured from a closed unmerged stack and its branch-only Objective.
