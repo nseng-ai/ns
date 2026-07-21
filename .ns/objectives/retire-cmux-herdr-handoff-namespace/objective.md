@@ -6,9 +6,11 @@ The dedicated cmux capability is now redundant with the Herdr capability and sho
 
 This Objective tracks the migration and deletion as an implementation-ready first phase, then remains open until the reserved `/ns:herdr:handoff:trunk-plan` surface is explicitly designed and delivered or rejected.
 
-The reviewed implementation plan is saved in the local plan store at:
-
-`$XDG_STATE_HOME/ns/enriched-plan/gh--nseng-ai--ns/remove-cmux-extension/retire-cmux-herdr-handoff-commands.md`
+The reviewed implementation plan is committed with this record at
+`references/retire-cmux-herdr-handoff-commands.md` (copied 2026-07-20 from the
+machine-local plan store at `$XDG_STATE_HOME/ns/enriched-plan/gh--nseng-ai--ns/remove-cmux-extension/`,
+which remains usable for branch-context workflows on the originating machine but is
+not durable or shared).
 
 ## Scope
 
