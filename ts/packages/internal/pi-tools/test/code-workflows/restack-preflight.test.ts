@@ -58,8 +58,8 @@ function data(
 		tracked: true,
 		rebaseInProgress: false,
 		hasUpstackChildren: true,
-		requestedScope: "full" as const,
-		effectiveScope: "full" as const,
+		requestedScope: "downstack" as const,
+		effectiveScope: "downstack" as const,
 		branches: ["feature/current"],
 		slotConflicts: [],
 		warnings: [],
@@ -77,7 +77,7 @@ function setup(result: ExecResult) {
 }
 
 describe("command-backed smart-restack preflight", () => {
-	test("maps a valid ok envelope to ready and invokes the full-scope command exactly", async () => {
+	test("maps a valid ok envelope to ready and gates only the downstack scope", async () => {
 		const setupResult = setup(
 			envelope({
 				status: "ok",
@@ -91,7 +91,16 @@ describe("command-backed smart-restack preflight", () => {
 		expect(setupResult.commands.calls).toEqual([
 			{
 				command: "ns",
-				args: ["slot", "gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
+				args: [
+					"slot",
+					"gt",
+					"exec",
+					"restack-preflight",
+					"--scope",
+					"downstack",
+					"--format",
+					"json",
+				],
 				cwd: "/repo/nested",
 			},
 		]);
