@@ -57,11 +57,11 @@ Identifying the exact Herdr tab to rename through `HERDR_TAB_ID`, injected by He
 *Avoid*: caller space ID, focused tab, current tab inference
 
 **Goal label**:
-A display label derived from a user goal and applied with `herdr workspace rename` or `herdr tab rename`: `s<number>:<goal-slug>` in a managed ns slot and `<goal-slug>` otherwise.
+A display label derived from a user goal and applied with `herdr workspace rename` or `herdr tab rename`: `s<number>:<goal-slug>` only when the caller cwd has canonical managed-Slot identity and the invocation reports effective Slots presence; `<goal-slug>` otherwise.
 *Avoid*: metadata description, Objective label, unconditional slot prefix
 
 **Objective space summary**:
-The `/ns:herdr:space:objective-summary` workflow that resolves an Objective slug and labels the explicit caller space `s<number>:obj:<objective-slug>` in a managed ns slot and `obj:<objective-slug>` otherwise.
+The `/ns:herdr:space:objective-summary` workflow that resolves an Objective slug and labels the explicit caller space `s<number>:obj:<objective-slug>` only when managed-Slot identity and effective Slots presence both hold, and `obj:<objective-slug>` otherwise.
 *Avoid*: sidebar workflow family, workspace metadata report, generic workspace summary
 
 **Label-only behavior**:
@@ -73,5 +73,5 @@ The eleven-command Pi surface has six direct resource operations (`space:{new,go
 *Avoid*: workflow-family catalog, compound dispatch action names, spelling `br` as `current`, `/ns:herdr:handoff:*`, `/ns:herdr:objective:*`, `tab:plan-dispatch`
 
 **Herdr capability boundary**:
-The `pi` subpackage is the only Herdr capability subpackage that imports neutral `@nseng-ai/pi/...` host helpers; `ns` composes hidden reference-based commands and real same-channel gateways; core stays host-independent.
-*Avoid*: host-owned Herdr domain, Pi imports from core, package cycle
+The `pi` subpackage is the only Herdr capability subpackage that imports neutral `@nseng-ai/pi/...` host helpers; `ns` composes hidden reference-based commands and real same-channel gateways; core stays host-independent. Every Herdr Pi host passes a complete ns extension API factory to registration. For the three optionally prefixed label commands, Pi handlers construct the API from the exact command cwd before entering core and resolve exact `@nseng-ai/slots` presence without swallowing factory failures; core receives only the resulting boolean and narrow genuine collaborators. Effective extension presence, canonical managed-Slot path identity, and package resolution are distinct facts: prefixing requires the first two, while dispatch remains Slots-backed.
+*Avoid*: host-owned Herdr domain, Pi imports from core, package cycle, Pi runtime extension API as a name for the ns extension API, Herdr-owned command context described as Pi-owned, capability presence inferred from package resolution or path shape, predicate/callback/runtime context/API factory/API threaded into core

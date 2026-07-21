@@ -1,7 +1,18 @@
-import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
+import {
+	importTypeScriptWorkspaceDefault,
+	importTypeScriptWorkspaceModule,
+} from "../lib/workspace-packages.ts";
 
-const registerHerdrPiExtension = await importTypeScriptWorkspaceDefault(
-	"@nseng-ai/herdr/pi/extension",
-);
+const [registerHerdrPiExtension, { createRealNsExtensionApi }] = await Promise.all([
+	importTypeScriptWorkspaceDefault("@nseng-ai/herdr/pi/extension"),
+	importTypeScriptWorkspaceModule<typeof import("@nseng-ai/ns/cli")>("@nseng-ai/ns/cli"),
+]);
 
-export default registerHerdrPiExtension;
+export default async function registerHerdrExtension(
+	pi: Parameters<typeof registerHerdrPiExtension>[0],
+): Promise<void> {
+	await registerHerdrPiExtension(
+		pi,
+		async (cwd) => createRealNsExtensionApi({ cwd, env: { ...process.env } }),
+	);
+}

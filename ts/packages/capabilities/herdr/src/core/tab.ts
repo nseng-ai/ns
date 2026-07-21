@@ -10,7 +10,7 @@ import { getCallerTabId, getCallerWorkspaceId } from "./sidebar.ts";
 import { formatGoalWorkspaceLabel, slotLabelInput } from "./workspace-label.ts";
 
 export interface HandleHerdrNewTabOptions {
-	herdr: Pick<HerdrGateway, "createTab">;
+	herdr: HerdrGateway;
 	labelDeriver: HerdrSpaceLabelDeriver;
 	args: string;
 	ctx: CommandContext;
@@ -66,10 +66,11 @@ export async function handleHerdrNewTab(options: HandleHerdrNewTabOptions): Prom
 
 export interface HandleHerdrTabGoalOptions {
 	pi: HerdrPiCommandApi;
-	herdr: Pick<HerdrGateway, "renameTab">;
+	herdr: HerdrGateway;
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
+	hasSlots: boolean;
 	env?: NodeJS.ProcessEnv;
 }
 
@@ -99,7 +100,10 @@ export async function handleHerdrTabGoal(options: HandleHerdrTabGoalOptions): Pr
 		if (options.ctx.hasUI !== false) options.ctx.ui.notify(slug.message, "error");
 		return;
 	}
-	const label = formatGoalWorkspaceLabel({ slug: slug.text, ...slotLabelInput(options.ctx.cwd) });
+	const label = formatGoalWorkspaceLabel({
+		slug: slug.text,
+		...(options.hasSlots ? slotLabelInput(options.ctx.cwd) : {}),
+	});
 	options.notifyProgress("Renaming Herdr tab…");
 	const result = await options.herdr.renameTab(tabId, label);
 	if (result.type === "failed") {

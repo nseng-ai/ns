@@ -6,7 +6,6 @@ import { afterEach } from "vitest";
 
 import { resolveHomeDir } from "@nseng-ai/foundation/primitives";
 import { runCli, type NsCliBaseContext, type NsCliDeps } from "@nseng-ai/sdk/cli";
-import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	NsExecOptions,
 	ExecResult,
@@ -73,9 +72,6 @@ export class ScriptedNsTestContext implements NsCliBaseContext {
 	readonly homeDir?: string;
 	readonly execCalls: ExecCall[] = [];
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
-	readonly commandIo = noopNsCommandIo;
-	readonly progress = noopNsProgress;
-	readonly renderCapabilities = { canEmitAnsi: false };
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
 	onOutput?: (stream: "stdout" | "stderr", text: string) => void;

@@ -4,9 +4,13 @@ Use the repository's Pi extension command checklist for command registration, ac
 
 - [`docs/pi/extension-command-checklist.md`](../../../../docs/pi/extension-command-checklist.md)
 
-## Objective space label
+## Optional Slot label enrichment
 
-The `/ns:herdr:space:objective-summary` command applies one workspace label via `herdr workspace rename`. In a managed ns slot, the label prefixes the Objective with the compact slot (`s1:obj:<slug>`); outside slots it remains `obj:<slug>`. Do not infer slot use from a directory basename alone, add metadata reporting, or add a public generic workspace-summary command. The label-composition policy is provisional and should move behind a Herdr workflow pluggability point when that extension surface is designed.
+The `/ns:herdr:space:goal`, `/ns:herdr:tab:goal`, and `/ns:herdr:space:objective-summary` commands add a compact Slot prefix only when both canonical managed-Slot path identity and effective `@nseng-ai/slots` presence hold. Every Herdr Pi host must pass a complete ns extension API factory directly to `registerHerdrPiExtension(pi, factory, options?)`; there is no generic-host or unavailable fallback.
+
+Each relevant Pi command handler must construct the complete API from its exact `ctx.cwd` before entering Herdr core—before caller targeting, validation, prompting, model work, or early returns—and at most once per invocation. `hasSlotsExtension(factory, cwd)` calls `hasExtension("@nseng-ai/slots")` without catching failures: factory, configuration, and programming failures propagate and prevent the core operation and rename, while extension absence is the normal `false` result. Herdr core receives only the resolved required boolean and narrow genuine collaborators, never a predicate, callback, runtime context, API factory, or API. Registration and unrelated commands remain lazy; do not cache at registration/global scope or infer presence from path shape, package resolution, or Pi command registration.
+
+The Objective summary remains label-only; do not add metadata reporting or a public generic workspace-summary command. The label-composition policy is provisional and should move behind a Herdr workflow pluggability point when that extension surface is designed.
 
 ## Herdr caller targeting
 

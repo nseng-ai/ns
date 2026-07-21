@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { handleHerdrSpaceGoal } from "../src/core/space-goal.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
+import { registerHerdrSpaceGoalCommand } from "../src/pi/space-goal.ts";
 import {
 	FakeCommandContext,
 	FakeHerdrGateway,
@@ -9,6 +10,7 @@ import {
 	gitRootStep,
 	notificationMessages,
 	resetHerdrTestEnvironment,
+	fakeNsExtensionApi,
 	ROOT,
 	step,
 } from "./herdr-test-harness.ts";
@@ -27,6 +29,7 @@ async function runGoal(options: {
 	modelOutput?: string;
 	modelCode?: number;
 	herdr?: FakeHerdrGateway;
+	hasSlots?: boolean;
 }) {
 	const cwd = options.cwd ?? ROOT;
 	const pi = new FakePi({
@@ -46,6 +49,7 @@ async function runGoal(options: {
 	await handleHerdrSpaceGoal({
 		pi: createHerdrPiCommandApi(pi),
 		herdr,
+		hasSlots: options.hasSlots ?? false,
 		args: options.args ?? GOAL,
 		ctx,
 		notifyProgress: (message) => progress.push(message),
@@ -73,10 +77,29 @@ describe("herdr space goal", () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3";
 
-		const { pi, herdr } = await runGoal({ cwd, modelOutput: "add-auth" });
+		const { pi, herdr } = await runGoal({ cwd, modelOutput: "add-auth", hasSlots: true });
 
 		pi.assertDone();
 		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "s3:add-auth" }]);
+	});
+
+	test("managed-slot path remains unprefixed when Slots is absent", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3";
+
+		const { pi, herdr } = await runGoal({ cwd, modelOutput: "add-auth" });
+
+		pi.assertDone();
+		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "add-auth" }]);
+	});
+
+	test("ordinary cwd remains unprefixed when Slots is present", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+
+		const { pi, herdr } = await runGoal({ hasSlots: true });
+
+		pi.assertDone();
+		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "refactor-auth" }]);
 	});
 
 	test("missing caller workspace stops before model work", async () => {
@@ -88,6 +111,7 @@ describe("herdr space goal", () => {
 		await handleHerdrSpaceGoal({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
+			hasSlots: false,
 			args: GOAL,
 			ctx,
 			notifyProgress: () => {},
@@ -122,6 +146,7 @@ describe("herdr space goal", () => {
 		await handleHerdrSpaceGoal({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
+			hasSlots: false,
 			args: "",
 			ctx,
 			notifyProgress: () => {},
@@ -153,6 +178,102 @@ describe("herdr space goal", () => {
 		expect(herdr.renameCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.level).toBe("error");
 		expect(ctx.notifications.at(-1)?.message).toContain("Pi model command failed");
+	});
+
+	test("Pi wiring constructs one fresh API per successful invocation with exact cwd", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+		const firstCwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-1";
+		const secondCwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-2";
+		const pi = new FakePi({
+			script: [
+				gitRootStep(ROOT),
+				modelStep("first-goal"),
+				step("herdr", ["workspace", "rename", "w1", "s1:first-goal"]),
+				gitRootStep(ROOT),
+				modelStep("second-goal"),
+				step("herdr", ["workspace", "rename", "w1", "s2:second-goal"]),
+			],
+			shouldRequireExpectedArgs: false,
+		});
+		const factoryCalls: string[] = [];
+		registerHerdrSpaceGoalCommand(pi, async (cwd) => {
+			factoryCalls.push(cwd);
+			return fakeNsExtensionApi(cwd, true);
+		});
+
+		await pi.commands
+			.get("ns:herdr:space:goal")
+			?.handler(GOAL, new FakeCommandContext({ cwd: firstCwd }));
+		await pi.commands
+			.get("ns:herdr:space:goal")
+			?.handler(GOAL, new FakeCommandContext({ cwd: secondCwd }));
+
+		pi.assertDone();
+		expect(factoryCalls).toEqual([firstCwd, secondCwd]);
+	});
+
+	test("Pi wiring resolves Slots presence before caller and input early returns", async () => {
+		const cwd = "/repo";
+		const pi = new FakePi();
+		const factoryCalls: string[] = [];
+		registerHerdrSpaceGoalCommand(pi, async (factoryCwd) => {
+			factoryCalls.push(factoryCwd);
+			return fakeNsExtensionApi(factoryCwd);
+		});
+
+		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
+		await pi.commands.get("ns:herdr:space:goal")?.handler(GOAL, new FakeCommandContext({ cwd }));
+
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+		await pi.commands
+			.get("ns:herdr:space:goal")
+			?.handler("", new FakeCommandContext({ cwd, inputValues: [undefined] }));
+
+		pi.assertDone();
+		expect(factoryCalls).toEqual([cwd, cwd]);
+	});
+
+	test("Pi wiring propagates API construction failure before core work", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3";
+		const pi = new FakePi({
+			script: [
+				gitRootStep(ROOT),
+				modelStep("add-auth"),
+				step("herdr", ["workspace", "rename", "w1", "add-auth"]),
+			],
+			shouldRequireExpectedArgs: false,
+		});
+		registerHerdrSpaceGoalCommand(pi, async () => {
+			throw new Error("ns unavailable");
+		});
+		const ctx = new FakeCommandContext({ cwd });
+
+		await expect(pi.commands.get("ns:herdr:space:goal")?.handler(GOAL, ctx)).rejects.toThrow(
+			"ns unavailable",
+		);
+
+		expect(pi.execCalls).toEqual([]);
+	});
+
+	test("Pi wiring constructs the API before model work fails", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+		const pi = new FakePi({
+			script: [gitRootStep(ROOT), modelStep("", 1)],
+			shouldRequireExpectedArgs: false,
+		});
+		const factoryCalls: string[] = [];
+		registerHerdrSpaceGoalCommand(pi, async (cwd) => {
+			factoryCalls.push(cwd);
+			return fakeNsExtensionApi(cwd, true);
+		});
+
+		await pi.commands
+			.get("ns:herdr:space:goal")
+			?.handler(GOAL, new FakeCommandContext({ cwd: "/repo" }));
+
+		pi.assertDone();
+		expect(factoryCalls).toEqual(["/repo"]);
 	});
 
 	test("unusable model output and goal report an error", async () => {
