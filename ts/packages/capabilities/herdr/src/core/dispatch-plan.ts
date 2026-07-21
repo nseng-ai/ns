@@ -23,11 +23,7 @@ import {
 	type BranchContextOutputDetails,
 	type ReadyPreparedPlanBranchContext,
 } from "@nseng-ai/branch-context/api";
-import {
-	prepareLatestSessionSavedPlan,
-	type PlanStoreDirectoryEvidence,
-	type ValidatedSessionSavedPlan,
-} from "@nseng-ai/plans/api";
+import { prepareLatestSessionSavedPlan, type ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/capability-kit/pi-launch";
 import {
 	prepareGraphiteTrunk,
@@ -171,7 +167,6 @@ export async function handleHerdrSlotDispatchPlan(
 				ctx,
 				formatDryRun({
 					plan: selectedPlan,
-					checkout,
 					operation,
 					branchContextPreview: prepared.preview,
 					launchOptions,
@@ -307,7 +302,7 @@ async function createAttachAndLaunch(options: {
 			cwd: checkout.repoRoot,
 			branchName: operation.branch,
 			command: launchCommand,
-			description: `herdr dispatch-plan from ${checkout.sourceBranch}`,
+			description: operation.slug,
 			slotClient,
 			notify: (message, level) => ctx.ui.notify(message, level),
 			onStatus: (message) => setStatus(ctx, config, message),
@@ -365,14 +360,13 @@ async function createAttachAndLaunch(options: {
 
 function formatDryRun(options: {
 	plan: ValidatedSessionSavedPlan;
-	checkout: PlanStoreDirectoryEvidence;
 	operation: BranchContextCreateOperation;
 	branchContextPreview: string;
 	launchOptions: PiLaunchOptions;
 	config: DispatchPlanConfig;
 	trunk?: GraphiteTrunkPreparation;
 }): string {
-	const { plan, checkout, operation, branchContextPreview, launchOptions, config } = options;
+	const { plan, operation, branchContextPreview, launchOptions, config } = options;
 	const launchCommand = buildPiLaunchCommand(
 		formatImplBranchContextCommand(operation.key),
 		launchOptions,
@@ -414,7 +408,7 @@ function formatDryRun(options: {
 		formatHerdrLaunchPreview({
 			destination: config.destination,
 			branch: operation.branch,
-			description: `herdr ${config.commandName.split(":").at(-1) ?? "dispatch-plan"} from ${options.trunk?.trunkBranch ?? checkout.sourceBranch}`,
+			description: operation.slug,
 			launchCommand,
 		}),
 	]

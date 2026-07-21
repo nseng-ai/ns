@@ -13,8 +13,8 @@ The narrow domain-shaped interface (`HerdrGateway`) exposing only the workspace 
 *Avoid*: raw socket gateway, full Herdr API surface, generic CLI wrapper
 
 **Herdr space**:
-The Herdr workspace resource addressed by `/ns:herdr:space:*` commands. Space commands create or rename a workspace, or dispatch work into a newly created workspace.
-*Avoid*: workflow family, dispatch workspace as a separate resource kind, cmux workspace
+The Herdr workspace resource addressed by `/ns:herdr:space:*` commands. Space commands create or rename a workspace, or dispatch work into a newly created workspace. Plan dispatch labels the new space with the content-derived branch-context slug so its displayed name describes the planned work.
+*Avoid*: workflow family, dispatch workspace as a separate resource kind, cmux workspace, command-and-source-branch sentence as a plan-dispatch label
 
 **Herdr tab**:
 A tab resource inside a Herdr space, addressed by `/ns:herdr:tab:*` commands. Commands that mutate or launch into the caller's tab or space resolve explicit Herdr caller identity before doing dependent work.
