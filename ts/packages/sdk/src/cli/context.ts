@@ -2,8 +2,7 @@ import process from "node:process";
 
 import {
 	createClinkrInteraction,
-	renderCapabilitiesForTerminal,
-	resolveProcessCaps,
+	type ClinkrFormat,
 	type ClinkrInteraction,
 } from "@nseng-ai/clinkr";
 import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
@@ -11,7 +10,14 @@ import { runCommand } from "@nseng-ai/foundation/exec";
 import { optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
 
 import { createCliCommandIo, noopNsProgress } from "../runtime/command-io.ts";
-import type { NsConfirmPrompt, NsExtensionApi, TextGenerator } from "../sdk/index.ts";
+import type {
+	NsConfirmPrompt,
+	NsExtensionApi,
+	NsOutputStream,
+	NsProgressPhaseListener,
+	RenderCapabilities,
+	TextGenerator,
+} from "../sdk/index.ts";
 
 export interface NsCliContext {
 	context: NsExtensionApi;
@@ -22,7 +28,64 @@ export interface NsCliContext {
 	stderr: (text: string) => void;
 }
 
-export type NsCliBaseContext = Omit<NsExtensionApi, "hasExtension">;
+export interface NsCliBaseContext {
+	cwd: string;
+	env: Record<string, string | undefined>;
+	homeDir?: string;
+	textGenerator: TextGenerator;
+	exec: NsExtensionApi["exec"];
+	stdout?: NsExtensionApi["stdout"];
+	stderr?: NsExtensionApi["stderr"];
+	stdin?: NsExtensionApi["stdin"];
+	onOutput?: NsExtensionApi["onOutput"];
+	confirm?: NsExtensionApi["confirm"];
+	extensions?: NsExtensionApi["extensions"];
+}
+
+export interface CreateNsExtensionApiOptions {
+	baseContext: NsCliBaseContext;
+	cwd: string;
+	env: Record<string, string | undefined>;
+	homeDir?: string;
+	extensionPackageNames: ReadonlySet<string>;
+	stdout: (text: string) => void;
+	stderr: (text: string) => void;
+	renderCapabilities: RenderCapabilities;
+	outputFormat: ClinkrFormat;
+	stdin?: () => Promise<string>;
+	onOutput?: (stream: NsOutputStream, text: string) => void;
+	onProgress?: NsProgressPhaseListener;
+	confirm?: NsConfirmPrompt;
+}
+
+/** Constructs the complete extension API shared by command execution and completion. */
+export function createNsExtensionApi(options: CreateNsExtensionApiOptions): NsExtensionApi {
+	return {
+		cwd: options.cwd,
+		env: options.env,
+		...optionalEntry("homeDir", options.homeDir),
+		textGenerator: options.baseContext.textGenerator,
+		commandIo: createCliCommandIo({
+			stdout: options.stdout,
+			stderr: options.stderr,
+			...optionalEntry("onOutput", options.onOutput),
+		}),
+		progress:
+			options.onProgress === undefined
+				? noopNsProgress
+				: { isLive: true, phase: options.onProgress },
+		renderCapabilities: options.renderCapabilities,
+		outputFormat: options.outputFormat,
+		exec: options.baseContext.exec.bind(options.baseContext),
+		hasExtension: (packageName) => options.extensionPackageNames.has(packageName),
+		stdout: options.stdout,
+		stderr: options.stderr,
+		...optionalEntry("stdin", options.stdin),
+		...optionalEntry("onOutput", options.onOutput),
+		...optionalEntry("confirm", options.confirm),
+		...optionalEntry("extensions", options.baseContext.extensions),
+	};
+}
 
 export interface RealNsCommandContextOptions {
 	textGenerator: TextGenerator;
@@ -38,20 +101,13 @@ export function createRealNsCommandContext(options: RealNsCommandContextOptions)
 	const execEnv = options.execEnv ?? env;
 	const homeDir = resolveHomeDir(options.homeDir, env);
 	const confirm = createTerminalConfirmPrompt();
-	const stdout = (text: string) => process.stdout.write(text);
-	const stderr = (text: string) => process.stderr.write(text);
-	const commandIo = createCliCommandIo({ stdout, stderr });
 	return {
 		cwd,
 		env,
 		...optionalEntry("homeDir", homeDir),
 		textGenerator: options.textGenerator,
-		commandIo,
-		progress: noopNsProgress,
-		renderCapabilities: renderCapabilitiesForTerminal(resolveProcessCaps()),
-		outputFormat: "human",
-		stdout,
-		stderr,
+		stdout: (text) => process.stdout.write(text),
+		stderr: (text) => process.stderr.write(text),
 		exec: async (command, args, execOptions = {}) => {
 			return await runCommand(command, args, {
 				cwd: execOptions.cwd ?? cwd,

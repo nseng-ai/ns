@@ -22,25 +22,36 @@ import { registerHerdrHandoffTab } from "./handoff-tab.ts";
 import { registerHerdrNewSpaceCommand } from "./new-space.ts";
 import { registerHerdrSpaceGoalCommand } from "./space-goal.ts";
 import { registerHerdrNewTabCommand, registerHerdrTabGoalCommand } from "./tab.ts";
+import type { HerdrNsExtensionApiFactory } from "./slots-capability.ts";
 
 export type HandoffIntegrationLoader = () => Promise<{
 	createHandoffLaunchIntegration(pi: HandoffExtensionAPI): HandoffPromptCreateIntegration;
 }>;
 
-export function registerHerdrPiExtension(pi: ExtensionAPI): Promise<void>;
+export interface RegisterHerdrPiExtensionOptions {
+	loadHandoffIntegration?: HandoffIntegrationLoader;
+}
+
+export function registerHerdrPiExtension(
+	pi: ExtensionAPI,
+	createNsExtensionApi: HerdrNsExtensionApiFactory,
+	options?: RegisterHerdrPiExtensionOptions,
+): Promise<void>;
 export function registerHerdrPiExtension(
 	pi: HandoffExtensionAPI,
-	options?: { loadHandoffIntegration?: HandoffIntegrationLoader },
+	createNsExtensionApi: HerdrNsExtensionApiFactory,
+	options?: RegisterHerdrPiExtensionOptions,
 ): Promise<void>;
 export async function registerHerdrPiExtension(
 	pi: ExtensionAPI | HandoffExtensionAPI,
-	options: { loadHandoffIntegration?: HandoffIntegrationLoader } = {},
+	createNsExtensionApi: HerdrNsExtensionApiFactory,
+	options: RegisterHerdrPiExtensionOptions = {},
 ): Promise<void> {
 	const herdrPi = adaptHerdrExtensionApi(pi);
 	const context = createHerdrPiContext(herdrPi);
 	const sidebarController = createHerdrSidebarControllerWithPiWiring(herdrPi);
-	registerHerdrSidebarCommands(herdrPi, sidebarController);
-	registerHerdrSpaceGoalCommand(herdrPi);
+	registerHerdrSidebarCommands(herdrPi, sidebarController, createNsExtensionApi);
+	registerHerdrSpaceGoalCommand(herdrPi, createNsExtensionApi);
 	registerHerdrSlotDispatchPromptCommand(herdrPi);
 	registerHerdrSlotDispatchFromTrunkCommand(herdrPi);
 	registerHerdrSlotDispatchPlanCommand(herdrPi);
@@ -48,7 +59,7 @@ export async function registerHerdrPiExtension(
 	registerHerdrSurfaceDispatchPlanCommand(herdrPi);
 	registerHerdrNewSpaceCommand(context);
 	registerHerdrNewTabCommand(context);
-	registerHerdrTabGoalCommand(herdrPi);
+	registerHerdrTabGoalCommand(herdrPi, createNsExtensionApi);
 
 	if (!("registerTool" in pi) || pi.registerTool === undefined) return;
 	const load = options.loadHandoffIntegration ?? loadOptionalHandoffIntegration;

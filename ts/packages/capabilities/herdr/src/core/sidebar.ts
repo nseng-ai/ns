@@ -23,8 +23,20 @@ const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
 	selectionMode: "compact-diff-suggestion",
 } satisfies ObjectiveSelectionSpec;
 
+export interface HandleObjectiveCommandOptions {
+	args: string;
+	ctx: CommandContext;
+	hasSlots: boolean;
+}
+
 export interface HerdrSidebarController {
-	handleObjectiveCommand(args: string, ctx: CommandContext): Promise<void>;
+	handleObjectiveCommand(options: HandleObjectiveCommandOptions): Promise<void>;
+}
+
+export interface CreateHerdrSidebarControllerOptions {
+	pi: HerdrPiCommandApi;
+	herdr: HerdrGateway;
+	clock?: Clock;
 }
 
 export interface HerdrSidebarControllerOptions {
@@ -32,13 +44,11 @@ export interface HerdrSidebarControllerOptions {
 }
 
 export function createHerdrSidebarController(
-	pi: HerdrPiCommandApi,
-	herdr: HerdrGateway,
-	options: HerdrSidebarControllerOptions = {},
+	options: CreateHerdrSidebarControllerOptions,
 ): HerdrSidebarController {
 	return {
-		async handleObjectiveCommand(args, ctx): Promise<void> {
-			await handleDeterministicObjectiveSidebar(pi, herdr, args, ctx, options);
+		async handleObjectiveCommand(commandOptions): Promise<void> {
+			await handleDeterministicObjectiveSidebar({ ...options, ...commandOptions });
 		},
 	};
 }
@@ -64,13 +74,19 @@ function trimmedEnvValue(value: string | undefined): string | undefined {
 	return trimmed !== undefined && trimmed.length > 0 ? trimmed : undefined;
 }
 
+interface HandleDeterministicObjectiveSidebarOptions {
+	pi: HerdrPiCommandApi;
+	herdr: HerdrGateway;
+	args: string;
+	ctx: CommandContext;
+	hasSlots: boolean;
+	clock?: Clock;
+}
+
 async function handleDeterministicObjectiveSidebar(
-	pi: HerdrPiCommandApi,
-	herdr: HerdrGateway,
-	args: string,
-	ctx: CommandContext,
-	options: HerdrSidebarControllerOptions,
+	options: HandleDeterministicObjectiveSidebarOptions,
 ): Promise<void> {
+	const { pi, herdr, args, ctx, hasSlots } = options;
 	await ctx.waitForIdle();
 
 	const workspaceId = getCallerWorkspaceId();
@@ -94,7 +110,7 @@ async function handleDeterministicObjectiveSidebar(
 
 		const label = formatObjectiveSidebarLabel({
 			objectiveSlug: slug,
-			...slotLabelInput(ctx.cwd),
+			...(hasSlots ? slotLabelInput(ctx.cwd) : {}),
 		});
 		const renameResult = await herdr.renameWorkspace(workspaceId, label);
 		if (renameResult.type === "failed") {

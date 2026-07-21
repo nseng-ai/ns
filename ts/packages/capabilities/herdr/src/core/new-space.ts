@@ -9,7 +9,7 @@ export interface HerdrSpaceLabelDeriver {
 }
 
 export interface HandleHerdrNewSpaceOptions {
-	herdr: Pick<HerdrGateway, "createWorkspace">;
+	herdr: HerdrGateway;
 	labelDeriver: HerdrSpaceLabelDeriver;
 	args: string;
 	ctx: CommandContext;
