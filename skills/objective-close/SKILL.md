@@ -1,7 +1,7 @@
 ---
 name: objective-close
 disable-model-invocation: true
-description: "Close an existing Objective without deleting its checked-in history — record a ## Closure in objective.md and write the closed marker. Use for explicit close intent: 'close this objective', 'mark the objective done', 'abandon this objective'. To record progress short of closing, or to let closure happen automatically when completion criteria are clearly met, use objective-update instead."
+description: "Close an existing Objective without deleting its checked-in history — record a ## Closure in objective.md and write the closed marker. Use for explicit close intent: 'close this objective', 'mark the objective done', 'abandon this objective', 'park/defer this objective', or an explicit user request to reopen a closed one. To record progress short of closing, or to let closure happen automatically when completion criteria are clearly met, use objective-update instead."
 ---
 
 # objective-close
@@ -16,8 +16,8 @@ Resolve exactly one Objective per the umbrella skill's Selection rules; the umbr
 
 1. Run `ns objective exec read-objective <slug> --format md` to load the selected record's raw Markdown and closed state.
 2. If already closed, stop per Stop / ask.
-3. Confirm the closure outcome is clear: completed or intentionally abandoned, with concise evidence or rationale. For an Umbrella Objective (see the `objective` skill's Objective patterns reference), also record cross-child lessons and synthesized closure evidence in the parent; open Subobjectives gate closure per Stop / ask.
-4. Add or update `## Closure` in `objective.md` with outcome, key evidence, remaining assumptions or risks, caveats, and follow-ups if any.
+3. Confirm the closure outcome is clear: **completed**, **abandoned**, **deferred** (deliberately parked), or **superseded** (another record or landed reality took over), with concise evidence or rationale. Use these outcome words in the Closure Marker so closed records stay machine-legible. A deferred closure must include an explicit restart pointer in `## Closure`: which roadmap rows resume, what recorded evidence can be trusted as-is, and what must be re-baselined against the then-current tree. For an Umbrella Objective (see the `objective` skill's Objective patterns reference), also record cross-child lessons and synthesized closure evidence in the parent; open Subobjectives gate closure per Stop / ask.
+4. Add or update `## Closure` in `objective.md` with outcome, key evidence, remaining assumptions or risks, caveats, and follow-ups if any. Also judge whether the record holds durable architecture facts — storage models, conventions, contracts, decided semantics — that no doc, README, or `CONTEXT.md` owns; if so, name the graduation candidates (fact → target doc) in `## Closure` rather than letting a closed record become the only home of load-bearing documentation.
 5. When material PR evidence supports the completed or abandoned outcome, summarize it in `## Closure` with PR numbers and Objective impact, using the shared Objective PR evidence convention from the `objective` umbrella skill when a list is clearer than prose. Do not turn closure PR evidence into a broad PR ledger or historical backfill.
 6. Re-judge Record Frontmatter around the closure (mechanics — the sanctioned counterpart exception and `ns objective check` semantics — are the `objective` umbrella skill's):
    - **Edge counterparts' Blocked Sentences.** For each entry under the closing record's `edges:`, read the counterpart record's frontmatter. You are closing the thing their annotation may say gates them: when a counterpart's `blocked:` sentence rests on this Objective, re-judge it — clear it if this closure removes the gate, or reword it if a narrower gate remains. This is skill judgment, never a machine auto-flip.
@@ -26,7 +26,18 @@ Resolve exactly one Objective per the umbrella skill's Selection rules; the umbr
    - After any frontmatter edit, run `ns objective check` for each touched record; treat a warning naming this closure as a re-judgment you missed, not noise.
 7. If the Objective has an `orientation.md`, consult `roadmap.md`'s completion section and the durable `Direction`/`Getting to` lines of `orientation.md`. If a durable rule should survive the initiative, note it in `## Closure` (or to the user) as a candidate to graduate into AGENTS.md "Architecture rules". Do not delete `orientation.md`: writing `closed.md` drops it from the always-load set automatically.
 8. Write `closed.md` as a minimal Closure Marker. Put closure meaning in `objective.md`, not in `closed.md`.
-9. Leave `.ns/objectives/<slug>/` in place; deletion is source-controlled per the umbrella skill, never part of close, and there is no reopen workflow.
+9. Leave `.ns/objectives/<slug>/` in place; deletion is source-controlled per the umbrella skill, never part of close. Reopening happens only on an explicit user request, as its own workflow (see Reopen below) — never as part of a close.
+
+## Reopen
+
+There is no routine reopen path: do not reopen to record progress, amend closure context, or because completion criteria later look unmet — those are `objective-update` or amend-closure conversations. On an **explicit user request** to reopen a closed Objective:
+
+1. Delete `closed.md`.
+2. Amend `## Closure` into a dated history rather than deleting it: keep the original closure text and append a `Reopened <date>:` line with the reason and what changed since closure.
+3. Re-judge Record Frontmatter both ways: restore or reword this record's `blocked:` sentence if a real gate exists, and re-judge any counterpart Blocked Sentences that were cleared against this record's closure.
+4. If the record has an `orientation.md`, it rejoins the always-load set automatically once `closed.md` is gone; re-read it for staleness against the current tree before relying on it.
+5. If the record closed as deferred with a restart pointer, start from that pointer and re-baseline whatever it marked as volatile.
+6. Run `ns objective check <slug>` after any frontmatter edit.
 
 ## Closure timing
 
@@ -41,12 +52,13 @@ Do not create a duplicate Semantic Update solely for closure. Create one only wh
 - The closure outcome or rationale is unclear.
 - The record is an Umbrella Objective with Subobjectives still open that the user has not explicitly parked and synthesized.
 - The Objective is already closed and the user did not ask to amend closure context.
-- The user asks to delete, move, or reopen the Objective as part of close; for removal from active checkout state, redirect per the Workflow's source-control deletion rule (step 9).
+- The user asks to delete or move the Objective as part of close; for removal from active checkout state, redirect per the Workflow's source-control deletion rule (step 9). A reopen folded into a close is also a stop: reopen is its own explicit user request handled by the Reopen section.
 
 ## Verify
 
 - Confirm `objective.md` contains `## Closure`.
-- Confirm `closed.md` exists under the selected Objective directory.
+- Confirm `closed.md` exists under the selected Objective directory and its outcome uses the standard vocabulary (completed / abandoned / deferred / superseded, optionally qualified).
+- For a deferred outcome, confirm `## Closure` carries an explicit restart pointer.
 - Confirm the Objective directory remains under `.ns/objectives/<slug>/`.
 - If an `orientation.md` was present, confirm it was left in place (not deleted) and any durable-rule graduation candidate was noted.
 - If the closing record declared edges, confirm each counterpart's Blocked Sentence was re-judged (cleared, reworded, or deliberately kept, with the judgment stated), no `edges:` entries were removed on either side, and only counterpart frontmatter blocks were touched outside the closing record.
