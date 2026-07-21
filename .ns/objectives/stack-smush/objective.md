@@ -186,3 +186,13 @@ graduates into roadmap rows as the Frontier advances:
   slots are never reclaimed automatically today and the concatenation join wants
   piece slots released first; how the orchestrator learns a piece is done (beyond
   human observation via cmux) is undecided and overlaps the dispatch live decision.
+
+## Closure
+
+Closed 2026-07-20 as deferred (intentionally abandoned as an open record).
+
+Outcome: ideation ran its useful course — the Destination (commit runs packaged into decision/span PR stacks), the packaging grammar, smush-time Objective binding (landed 2026-07-14), and the review-policy resolution are all recorded in this record and its roadmap. Every remaining material item is parked behind a real-run evidence gate (deterministic packaging CLI push-downs, slice-map derive command, promotion-to-default, PR classification labels), and that evidence is not currently being generated. Carrying the record as open WIP misstated the portfolio.
+
+Restart pointer: the roadmap's Frontier rows, Parked section, and `## Open Questions` Fog remain the complete restart state. If commit-run packaging becomes active work again, create a fresh execution record (or re-judge this one) starting from the parked evidence gates; nothing here needs re-deciding, only re-activating.
+
+Closure decision made in the 2026-07-20 open-objective portfolio review (reduce concurrent WIP).

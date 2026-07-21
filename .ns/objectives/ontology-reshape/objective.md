@@ -136,3 +136,17 @@ Rows as the Frontier advances, and none is pre-sliced before then:
   intention of distilling a portable skill for the audit → reshape → document method.
   What the skill's shape and boundaries are becomes specifiable once the grilling
   rows have exercised the method end to end; decide near Crystallization.
+
+## Closure
+
+Closed 2026-07-20 as substantially completed, remaining frontier deferred.
+
+Outcome: the record's major execution already landed through extracted records — the cmux reshape spec (ADR 0034) executed and merged via `execute-cmux-reshape-spec`; the kernel → sdk rename (ADR 0035) executed via `execute-kernel-sdk-rename-spec`; the layering reshape (ADR 0033) folded the command-backed-skill-registry into areg on trunk. Landed reshapes added CONTEXT docs for foundation, ns-pi-subagents, and cmux. What remains open in the roadmap is ideation frontier — reexamination clusters, doc-structure questions (ADR indexing), post-Objective maintenance ownership, and method extraction — none of it currently being advanced.
+
+Deferred at closure:
+
+- The capability-infrastructure write-back edge is moot for now: `capability-infrastructure-reorg` closes concurrently as deferred before executing its ownership map. If that work resumes, its evidence lands in whatever successor record owns ontology documentation then.
+- Post-closure maintenance ownership (the roadmap's open question) is resolved by default: domain-doc sync falls to the standing AGENTS.md/CONTEXT.md drift rules and PR-time habit rather than a successor standing objective.
+- The method-extraction ambition (a portable audit → reshape → document skill) remains a candidate for a fresh record; the method log lives in this record's Semantic Updates (from 2026-07-10) and `docs/wayfinding/ontology-reshape/ideas.md` keeps the unmined suspects.
+
+Closure decision made in the 2026-07-20 open-objective portfolio review (reduce concurrent WIP; the extracted execution is done and the remaining frontier is not active work).

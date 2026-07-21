@@ -118,3 +118,15 @@ Risks:
   after? (The row closes with whichever evidence materializes.)
 - Hello-probe: retained as the setup skill's acceptance tool (then L21's wire-contract
   dedupe applies) or retired with the other probes (then L21 is moot)?
+
+## Closure
+
+Closed 2026-07-20 as deferred with the cloud-execution program pause.
+
+Outcome: partial burn-down. Several structural findings landed (M4+M5 dispatch-client extraction, H9 checkout-root constant, among the completed roadmap rows); the high-value H1 dual-failure-channel collapse, the gated H2 probe-retirement slice (waiting on cloud-execution's steel-thread controlled Pi rerun and on publish-capable Runner autorun from `objective-runner-external-writes`), and the medium/low batches remain open in the roadmap ledger.
+
+The findings ledger stays authoritative: `references/review-findings.md` (surviving `H*`/`M*`/`L*` IDs) and `references/review-record.md` (adversarially dropped findings not to be re-proposed; clean attestations not to be re-flagged). The deliberate-shortcut pair (L9 anchor-PR read-modify-write) remains accepted with its recorded retirement trigger.
+
+This record closes as part of parking the cloud program's subobjectives while `cloud-execution` (which stays open as the orienting umbrella) is not being actively worked. When cloud work resumes, restart directly from the roadmap's open rows and the references ledger; no finding needs re-derivation.
+
+Closure decision made in the 2026-07-20 open-objective portfolio review (reduce concurrent WIP; park cloud subobjectives until cloud-execution resumes).
