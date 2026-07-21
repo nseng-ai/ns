@@ -98,3 +98,20 @@ Risks:
 - Resolved 2026-07-06 (`updates/20260706T160000Z-...`): `skills-lock.json` and the install manifest do **not** converge on one record format — that ambition is retired with the npx-wrapping decision. They remain complementary records that AREG's inspector reads independently.
 - Resolved by landed state 2026-07-12: the `ns update` command-surface question settled in two parts. Top-level `ns update` is a reserved self-update-only stub contributed by this subsystem's `@nseng-ai/harness-artifacts` extension surface (`src/ns/commands/update.ts`; errors `self-update-not-implemented` until the mechanism ships in the `remote-artifact-module-acquisition` child). Extension reconcile moved out of it entirely: the old `--extensions` mode is gone, replaced by the `ns extension install|uninstall|update` lifecycle verbs contributed by `@nseng-ai/ns-init` under `ship-objectives-to-customers`.
 - Resolved 2026-07-07 (`updates/20260707T150250Z-parked-breadth-dispositions.md`): every parked row now has an explicit disposition — the reconciliation sweep and remote acquisition graduate as Subobjectives; uninstall/stale-detection/rename-cleanup is a follow-on row; drift nudge and agent/extension-bundle kinds stay parked with triggers; marketplace, trust gating, and per-resource filtering are retired.
+
+## Closure
+
+Closed 2026-07-20 as completed (umbrella synthesis).
+
+Outcome: the reusable harness-artifact management subsystem exists and is in first-party service. Every Subobjective is closed: `ns-skills-steelthread` (the `ns skills list/path/install` thread into pi/claude-code/codex roots with a hashed install manifest), `npm-bundled-artifact-provisioning` (generalized npm-module-bundled artifact provisioning; retired AREG's `npx skills` wrapping, leaving AREG a standalone whole-project inspector), `harness-artifacts-thermo-remediation` (all HIGH/MEDIUM review findings fixed), `harness-artifact-vocabulary-reconciliation` (canonical "harness artifact" term, AREG "harness overlays" rename), `harness-artifacts-post-review-cleanup`, and `remote-artifact-module-acquisition` (closed 2026-07-20 alongside this umbrella; `ns.toml`-declared acquisition into the managed root). The downstream consumer this umbrella existed to serve — `ship-objectives-to-customers` — shipped its extension lifecycle verbs (`ns extension install|uninstall|update`) on this substrate.
+
+Cross-child lessons worth carrying:
+
+- **Steelthread-then-graduate worked.** One real skill through the full provisioning path first, then breadth graduated as bounded Subobjectives with explicit dispositions for every parked row (2026-07-07 dispositions update). No child re-litigated settled design.
+- **Dual-language naming resolved a real tension:** user-facing `skills`, domain-term `harness artifact` — and the vocabulary Subobjective proved that a naming collision (bare "artifact") is worth a dedicated reconciliation slice rather than opportunistic renames.
+- **Retiring a channel is a decision, not an omission:** killing `npx skills` wrapping and third-party loose-skill acquisition permanently (recorded, with re-judgment triggers) prevented the subsystem from drifting into a package manager. The hard non-goals (no dependency solver, no marketplace) held.
+- **Complementary records beat forced convergence:** `skills-lock.json` and the install manifest deliberately stayed separate records read by one inspector.
+
+Residue at closure: the parked areg local-logic push-down row (gated on a second runtime consumer), the uninstall/stale-detection/rename-cleanup follow-on row, and agent/extension-bundle artifact kinds (parked with triggers). All keep their recorded gates; none is active work. The self-update mechanism noted in the acquisition child's closure would be a new record.
+
+Closure decision made in the 2026-07-20 open-objective portfolio review, closing the whole program with its last child.

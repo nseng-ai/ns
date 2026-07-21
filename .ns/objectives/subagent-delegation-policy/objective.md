@@ -133,3 +133,13 @@ Risks:
   `promptGuidelines` must not restate when-to-delegate policy).
 - Whether "treating a non-final-text status as done" belongs in the named anti-pattern
   list or stays a task-agent mechanics bullet in `promptGuidelines`.
+
+## Closure
+
+Closed 2026-07-20 as deferred before execution.
+
+Outcome: no roadmap row was executed and no update was recorded since creation. The analysis stands: parent-agent delegation guidance is fragmented across four surfaces (hardcoded tool snippet, per-agent `promptGuidelines`, injected doctrine, child prompt bodies) with proven drift (dead `promptSnippet` fields) and a documented failure case (~209k tokens of parent-owned exploration on `add-session-logs-to-handoffs`). Since creation, part of the territory gained a canonical home out-of-band: `docs/conventions/agent-context-economy.md` now owns the context-economy policy, narrowing what a resumed effort must define to the delegation-specific doctrine (decision gate, decision ladder, anti-patterns) and the surface contract.
+
+Restart pointer: the record's Scope, roadmap rows, and Open Questions (canonical preamble home, `promptSnippet` wire-or-delete, enforcement depth) are the complete restart state. If parent-context blowouts recur in real sessions, resume from here — and start by re-baselining against the current doctrine text, which has kept evolving.
+
+Closure decision made in the 2026-07-20 open-objective portfolio review (created but never started; not in the active lanes).
