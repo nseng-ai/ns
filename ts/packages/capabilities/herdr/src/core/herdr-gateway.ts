@@ -19,6 +19,9 @@ export interface HerdrGateway {
 	 */
 	renameWorkspace(workspaceId: string, label: string): Promise<HerdrWorkspaceRenameResult>;
 
+	/** Apply a display label to one exact Herdr tab. */
+	renameTab(tabId: string, label: string): Promise<HerdrTabRenameResult>;
+
 	/**
 	 * Create a new Herdr workspace.
 	 *
@@ -37,7 +40,7 @@ export interface HerdrGateway {
 	 * `herdr tab create --workspace <workspaceId> [--focus|--no-focus] [--cwd <cwd>] [--label <label>]`
 	 *
 	 * Pass `shouldFocus: true` to activate/focus the tab immediately after creation
-	 * (used for surface dispatch so the caller sees the new tab). Defaults to
+	 * (used for tab dispatch so the caller sees the new tab). Defaults to
 	 * `false` (`--no-focus`).
 	 *
 	 * Returns the created tab ID, root pane ID, and workspace ID on success.
@@ -58,6 +61,7 @@ export interface HerdrGateway {
 }
 
 export type HerdrWorkspaceRenameResult = { type: "applied" } | { type: "failed"; message: string };
+export type HerdrTabRenameResult = { type: "applied" } | { type: "failed"; message: string };
 
 export interface HerdrCreateWorkspaceOptions {
 	cwd: string;

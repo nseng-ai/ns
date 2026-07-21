@@ -5,6 +5,7 @@ import { commandSucceeded, formatCommand, formatCommandFailure } from "@nseng-ai
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { firstNonEmptyLine, nonEmptyLines } from "@nseng-ai/foundation/text-normalization";
 import type {
+	GitBranchAtStartPointParams,
 	GitBranchParams,
 	GitBranchPresenceResult,
 	GitBranchUpstream,
@@ -29,6 +30,7 @@ import { rejectEmptyStagePaths } from "./contract.ts";
 import { parseGitNameStatusPaths, parseGitStatusPaths } from "./status-paths.ts";
 
 export type {
+	GitBranchAtStartPointParams,
 	GitBranchParams,
 	GitBranchPresenceResult,
 	GitBranchUpstream,
@@ -333,7 +335,11 @@ export class RealGitGateway implements GitGateway {
 	}
 
 	async createBranchAtHead(params: GitBranchParams): Promise<GitOperationResult> {
-		const run = await this.runGit(params, ["branch", params.branch, "HEAD"]);
+		return this.createBranchAtStartPoint({ ...params, startPoint: "HEAD" });
+	}
+
+	async createBranchAtStartPoint(params: GitBranchAtStartPointParams): Promise<GitOperationResult> {
+		const run = await this.runGit(params, ["branch", params.branch, params.startPoint]);
 		if (!run.ok) return run;
 		if (!commandSucceeded(run.value.result)) {
 			return { ok: false, error: failure("branch-create-failed", "git branch failed", run.value) };

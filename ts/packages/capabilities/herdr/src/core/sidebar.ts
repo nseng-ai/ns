@@ -45,9 +45,17 @@ export function createHerdrSidebarController(
  * fall back to UI focus.
  */
 export function getCallerWorkspaceId(env: NodeJS.ProcessEnv = process.env): string | undefined {
-	const value = env.HERDR_WORKSPACE_ID;
+	return trimmedEnvValue(env.HERDR_WORKSPACE_ID);
+}
+
+/** Read the exact caller tab injected by Herdr; whitespace-only values are absent. */
+export function getCallerTabId(env: NodeJS.ProcessEnv = process.env): string | undefined {
+	return trimmedEnvValue(env.HERDR_TAB_ID);
+}
+
+function trimmedEnvValue(value: string | undefined): string | undefined {
 	const trimmed = value?.trim();
-	return trimmed && trimmed.length > 0 ? trimmed : undefined;
+	return trimmed !== undefined && trimmed.length > 0 ? trimmed : undefined;
 }
 
 async function handleDeterministicObjectiveSidebar(

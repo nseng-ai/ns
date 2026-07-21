@@ -7,15 +7,15 @@ import type {
 	HandoffStartMessages,
 } from "@nseng-ai/handoffs/pi/handoff-launch";
 
-import { HERDR_HANDOFF_TAB_COMMAND_NAME } from "../core/command-surfaces.ts";
+import { HERDR_TAB_HANDOFF_COMMAND_NAME } from "../core/command-surfaces.ts";
 import { getCallerWorkspaceId } from "../core/sidebar.ts";
 
-const HERDR_HANDOFF_TAB_STATUS_KEY = HERDR_HANDOFF_TAB_COMMAND_NAME;
-const HERDR_HANDOFF_TAB_LAUNCH_COMMAND = "ns herdr exec handoff-tab launch";
+const HERDR_TAB_HANDOFF_STATUS_KEY = HERDR_TAB_HANDOFF_COMMAND_NAME;
+const HERDR_TAB_HANDOFF_LAUNCH_COMMAND = "ns herdr exec handoff-tab launch";
 
 const PROMPT_COPY = {
-	commandName: HERDR_HANDOFF_TAB_COMMAND_NAME,
-	toolName: HERDR_HANDOFF_TAB_LAUNCH_COMMAND,
+	commandName: HERDR_TAB_HANDOFF_COMMAND_NAME,
+	toolName: HERDR_TAB_HANDOFF_LAUNCH_COMMAND,
 	intentSentence:
 		"Create a directed handoff artifact for the current session, then launch a pickup Pi in a focused Herdr tab by durable reference.",
 	abortClause: "do not open a Herdr tab",
@@ -26,8 +26,8 @@ const PROMPT_COPY = {
 } satisfies HandoffLaunchPromptCopy;
 
 const START_MESSAGES = {
-	ready: `Starting ${HERDR_HANDOFF_TAB_COMMAND_NAME} workflow with content-derived slug…`,
-	fallbackLabel: `${HERDR_HANDOFF_TAB_COMMAND_NAME} workflow prompt for a content-derived slug`,
+	ready: `Starting ${HERDR_TAB_HANDOFF_COMMAND_NAME} workflow with content-derived slug…`,
+	fallbackLabel: `${HERDR_TAB_HANDOFF_COMMAND_NAME} workflow prompt for a content-derived slug`,
 } satisfies HandoffStartMessages;
 
 export function registerHerdrHandoffTab(
@@ -39,12 +39,12 @@ export function registerHerdrHandoffTab(
 	pi.on?.("session_start", () => integration.registerContentSlugToolIfMissing());
 	registerCommandWithImmediateAck({
 		host: pi,
-		commandName: HERDR_HANDOFF_TAB_COMMAND_NAME,
+		commandName: HERDR_TAB_HANDOFF_COMMAND_NAME,
 		commandDefinition: {
 			description: "Create a handoff and open a focused Herdr tab to pick it up.",
 			handler: async (args, ctx) =>
 				integration.runCreateCommand(args, ctx, {
-					statusKey: HERDR_HANDOFF_TAB_STATUS_KEY,
+					statusKey: HERDR_TAB_HANDOFF_STATUS_KEY,
 					promptCopy: PROMPT_COPY,
 					startMessages: START_MESSAGES,
 					preflight: async ({ request }) => {
@@ -65,7 +65,7 @@ export function registerHerdrHandoffTab(
 						}
 						const thinking = pi.getThinkingLevel?.() ?? "medium";
 						const launchCommand = [
-							HERDR_HANDOFF_TAB_LAUNCH_COMMAND,
+							HERDR_TAB_HANDOFF_LAUNCH_COMMAND,
 							`--branch ${formatShellArg(request.branch)}`,
 							"--slug <returned-slug>",
 							`--workspace-id ${formatShellArg(workspaceId)}`,

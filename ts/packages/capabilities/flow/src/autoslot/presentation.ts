@@ -2,7 +2,7 @@
 //
 // `autoslot` (autobranch + slot checkout) reports typed settled facts at the Flow CLI edge, while the
 // generic finite block layout lives in `@nseng-ai/foundation/cli-theme` because the repeated shape was proven across
-// Flow and the cmux capability. This module keeps autoslot's domain-local type name and owns the mapping from Flow
+// Flow and sibling workflow capabilities. This module keeps autoslot's domain-local type name and owns the mapping from Flow
 // outcome facts to that shared layout.
 
 import type { Caps } from "@nseng-ai/clinkr";

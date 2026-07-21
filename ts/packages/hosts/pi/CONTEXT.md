@@ -1,6 +1,6 @@
 # @nseng-ai/pi
 
-`@nseng-ai/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for domain capabilities may instead live in capability `pi` subpackages stacked above `@nseng-ai/pi`; Pi-native standalone tools may live in Internal Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. Generic Flow mirrors and stack squash live in `@nseng-ai/flow/pi`, while the repo-specific code-workflow picker and smart-restack presentation live in `@internal/pi-tools/code-workflows` and meet only in project-local discovery composition. The cmux capability (`@nseng-ai/cmux`) separately drives cmux workspaces; its `pi` subpackage imports cmux core APIs and neutral `@nseng-ai/pi/...` helpers, while `@nseng-ai/pi` neither imports nor declares `@nseng-ai/cmux`.
+`@nseng-ai/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for domain capabilities may instead live in capability `pi` subpackages stacked above `@nseng-ai/pi`; Pi-native standalone tools may live in Internal Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. Generic Flow mirrors and stack squash live in `@nseng-ai/flow/pi`, while the repo-specific code-workflow picker and smart-restack presentation live in `@internal/pi-tools/code-workflows` and meet only in project-local discovery composition. The Herdr capability separately drives Herdr spaces and tabs; its `pi` subpackage imports Herdr core APIs and neutral `@nseng-ai/pi/...` helpers.
 
 ## Language
 
@@ -21,7 +21,7 @@ A thin project-local extension file whose job is to register Pi commands or tool
 *Avoid*: package export, shim as implementation, generated extension, host-to-tool registry.
 
 **Engineered Pi implementation domain**:
-A tested host-resident implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as PR views, worktree status, terminal presentation, host-owned runtime helpers, and command registration helpers. Flow, cmux, Handoff, Branch Context, and Objective Pi presentation now live in each capability's `pi` subpackage.
+A tested host-resident implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as PR views, worktree status, terminal presentation, host-owned runtime helpers, and command registration helpers. Flow, Herdr, Handoff, Branch Context, and Objective Pi presentation now live in each capability's `pi` subpackage.
 *Avoid*: old package boundary, leaf package, one root barrel.
 
 **Internal Pi-tool package**:
@@ -29,27 +29,23 @@ A private workspace package for a Pi-native standalone tool extracted from the h
 *Avoid*: Local Pi-tool package, Capability package, host subdirectory, neutral helper subpath, host dependency.
 
 **Neutral Pi helper subpath**:
-A curated `@nseng-ai/pi/...` package export for helper code intentionally reusable by other workspace packages, capability `pi` subpackages, or extracted Pi-tool packages, including command acknowledgement, command UI helpers, command I/O, command names, model-call and LM-JSON helpers, shared error/timer helpers, machine-envelope parsing, session replacement, skill expansion, terminal layout/presentation helpers, parity helpers, and cmux/Pi runtime/tool types. The current export map is intentionally limited to these neutral/runtime/presentation families: `commands/*`, `grill/surfaces`, `models/*`, `parity/*`, `runtime/*`, `sessions/replacement`, `skills/*`, `terminal/*`, `shared/*`, and `worktree-status` — plus `worktree-status/extension`, which is a project-local extension entrypoint carried in the export map for `.pi/extensions` loading, not a neutral helper family.
-*Avoid*: project-local extension entrypoint, Pi-tool implementation, cmux capability workflow, private source deep import.
+A curated `@nseng-ai/pi/...` package export for helper code intentionally reusable by other workspace packages, capability `pi` subpackages, or extracted Pi-tool packages, including command acknowledgement, command UI helpers, command I/O, command names, model-call and LM-JSON helpers, shared error/timer helpers, machine-envelope parsing, session replacement, skill expansion, terminal layout/presentation helpers, parity helpers, and Pi runtime/tool types. The current export map is intentionally limited to these neutral/runtime/presentation families: `commands/*`, `grill/surfaces`, `models/*`, `parity/*`, `runtime/*`, `sessions/replacement`, `skills/*`, `terminal/*`, `shared/*`, and `worktree-status` — plus `worktree-status/extension`, which is a project-local extension entrypoint carried in the export map for `.pi/extensions` loading, not a neutral helper family.
+*Avoid*: project-local extension entrypoint, Pi-tool implementation, Herdr capability workflow, private source deep import.
 
 **Project-local extension entrypoint**:
 An implementation module under `ts/packages/hosts/pi/src/` or another owning package that registers a Pi command family or model-visible tool through the Pi host. Lower packages should not import these entrypoints as helpers; use neutral helper subpaths or a lower package API instead.
 *Avoid*: neutral helper, package facade, public npm API.
 
-**cmux capability**:
-The private first-party capability at `@nseng-ai/cmux` that drives cmux workspaces for dispatch, sidebar, workspace-summary, and planning flows. Pi owns neutral host helpers and runtime primitives rather than the cmux workflow domain.
-*Avoid*: Pi discovery adapter, generic orchestration layer, public npm API.
-
-**cmux Pi subpackage**:
-The `@nseng-ai/cmux/pi` subpackage that presents cmux capability workflows by importing cmux core APIs and neutral `@nseng-ai/pi/...` helper subpaths. It owns cmux-specific Pi command registration and presentation while `@nseng-ai/pi` neither imports nor declares `@nseng-ai/cmux`.
-*Avoid*: Pi host dependency on cmux, non-`pi` cmux subpackages importing Pi host helpers, generic Internal Pi-tool package.
+**Herdr Pi subpackage**:
+The `@nseng-ai/herdr/pi` subpackage presents Herdr's resource-first space and tab workflows by importing Herdr core APIs and neutral `@nseng-ai/pi/...` helper subpaths. It owns Herdr-specific Pi command registration and presentation; the host does not own Herdr resource or dispatch behavior.
+*Avoid*: Pi host ownership of Herdr, non-`pi` Herdr subpackages importing Pi host helpers, generic Internal Pi-tool package.
 
 **Pi command namespace**:
-The colon-separated repo-owned Pi slash command surface chosen by workflow ownership rather than implementation file. First-party product and orchestration commands default to `/ns:<extension>:...`, such as `/ns:cmux:*`, `/ns:objective:*`, `/ns:handoff:*`, `/ns:flow:*`, and `/ns:branch-context:*`; `/pi:*` remains reserved for Pi-native UI/session affordances.
+The colon-separated repo-owned Pi slash command surface chosen by workflow ownership rather than implementation file. First-party product and orchestration commands default to `/ns:<extension>:...`, such as `/ns:herdr:*`, `/ns:objective:*`, `/ns:handoff:*`, `/ns:flow:*`, and `/ns:branch-context:*`; `/pi:*` remains reserved for Pi-native UI/session affordances.
 *Avoid*: package path, visibility flag, arbitrary grouping, legacy top-level aliases.
 
 **Branch Context Pi command surface**:
-The Pi-owned slash-command presentation for Branch Context workflows, including `/ns:branch-context:from-plan`, `/ns:branch-context:upstack-impl-from-plan`, `/ns:branch-context:impl-attached-plan`, and formatting an implementation launch command as `/ns:branch-context:impl-attached-plan <attached-key>` for Pi sessions or cmux capability launch commands. Branch Context domain/API behavior stays in `@nseng-ai/branch-context/api`; saved-plan selection behavior stays in `@nseng-ai/plans/api`.
+The Pi-owned slash-command presentation for Branch Context workflows, including `/ns:branch-context:from-plan`, `/ns:branch-context:upstack-impl-from-plan`, `/ns:branch-context:impl-attached-plan`, and formatting an implementation launch command as `/ns:branch-context:impl-attached-plan <attached-key>` for Pi sessions or Herdr launch commands. Branch Context domain/API behavior stays in `@nseng-ai/branch-context/api`; saved-plan selection behavior stays in `@nseng-ai/plans/api`.
 *Avoid*: Branch Context domain owner, attached-plan storage semantics, Saved Plan domain owner, Capability API replacement.
 
 **Thin capability mirror**:
@@ -86,7 +82,7 @@ A runner-subagent return mode where the parent accepts the child assistant's fin
 
 **Worktree status observability**:
 The host-owned operational status model and presentation that combines worktree identity, Branch Memory scope, Graphite stack facts, local commit and dirty markers, metadata diagnostics, and GitHub PR state for Pi's footer.
-*Avoid*: cmux capability workflow, Git status replacement, Branch Memory storage
+*Avoid*: Herdr capability workflow, Git status replacement, Branch Memory storage
 
 **Graphite metadata status**:
 A passive **Worktree status observability** fact derived from Graphite's local metadata to identify the current branch's parent, children, trunk relationship, and stack counts without invoking `gt` for presentation.
@@ -94,4 +90,4 @@ A passive **Worktree status observability** fact derived from Graphite's local m
 
 **Worktree status adapter**:
 The Pi lifecycle module behind `.pi/extensions/worktree-status.ts`: it registers the renderer and refresh command, manages session cancellation and watched paths, and installs the custom footer over host-owned **Worktree status observability**.
-*Avoid*: Graphite metadata parser owner, Branch Memory storage owner, cmux capability adapter
+*Avoid*: Graphite metadata parser owner, Branch Memory storage owner, Herdr capability adapter

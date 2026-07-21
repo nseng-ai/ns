@@ -399,7 +399,7 @@ class HandoffTabFakePi implements HandoffExtensionAPI {
 	}
 
 	command() {
-		const command = this.commands.get("ns:herdr:handoff:tab");
+		const command = this.commands.get("ns:herdr:tab:handoff");
 		if (command === undefined) throw new Error("handoff tab command not registered");
 		return command;
 	}

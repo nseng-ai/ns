@@ -158,6 +158,30 @@ describe("branch-context create preview", () => {
 		expect(text).not.toContain("brmem put");
 	});
 
+	test("explicit-basis preview creates at the exact SHA while retaining start-ref provenance", () => {
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			branchName: TARGET_BRANCH,
+			branchCreation: "graphite",
+			explicitBasis: {
+				startPoint: START_POINT,
+				startRef: SOURCE_BRANCH,
+				graphiteParentBranch: SOURCE_BRANCH,
+			},
+		});
+
+		const text = formatBranchContextCreatePreview(operation, {
+			startPoint: START_POINT,
+			graphiteParentBranch: SOURCE_BRANCH,
+		});
+
+		expect(text).toContain(formatCommand("git", ["branch", TARGET_BRANCH, START_POINT]));
+		expect(text).not.toContain(formatCommand("git", ["branch", TARGET_BRANCH, SOURCE_BRANCH]));
+		expect(text).toContain(`Start point: ${START_POINT}`);
+		expect(text).toContain(`--parent ${SOURCE_BRANCH}`);
+	});
+
 	test("omits Graphite tracking for plain Git preview", () => {
 		const operation = buildBranchContextCreateOperation({
 			slug: PLAN_SLUG,
@@ -258,6 +282,79 @@ describe("branch-context create execution", () => {
 		expect(brmem.attachPlanCalls).toEqual([]);
 		expect(graphite.checkBranchTrackedCalls).toEqual([]);
 		expect(graphite.trackBranchCalls).toEqual([]);
+	});
+
+	test("explicit basis creates at the supplied ref and tracks under its coherent parent", async () => {
+		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
+		const brmem = new InMemoryBranchMemoryGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const filePath = await makePlanFile();
+
+		const evidence = await createBranchContextFromFile(
+			NO_COMMANDS,
+			{
+				slug: PLAN_SLUG,
+				filePath,
+				branchName: TARGET_BRANCH,
+				branchCreation: "graphite",
+				explicitBasis: {
+					startPoint: START_POINT,
+					startRef: SOURCE_BRANCH,
+					graphiteParentBranch: SOURCE_BRANCH,
+				},
+			},
+			{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
+		);
+
+		expect(evidence).toMatchObject({
+			startPoint: START_POINT,
+			startRef: SOURCE_BRANCH,
+			graphiteParentBranch: SOURCE_BRANCH,
+		});
+		expect(git.headCommitCalls).toEqual([]);
+		expect(git.currentBranchCalls).toEqual([]);
+		expect(git.createBranchAtStartPointCalls).toEqual([
+			{ cwd: ROOT, branch: TARGET_BRANCH, startPoint: START_POINT },
+		]);
+		expect(graphite.trackBranchCalls).toEqual([
+			{ cwd: ROOT, branch: TARGET_BRANCH, parentBranch: SOURCE_BRANCH },
+		]);
+	});
+
+	test("explicit-basis attachment partial failure reports exact SHA, provenance ref, and Graphite parent", async () => {
+		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
+		const brmem = new InMemoryBranchMemoryGateway({
+			attachFailure: { code: "put_failed", message: "attachment unavailable" },
+		});
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const filePath = await makePlanFile();
+
+		await expect(
+			createBranchContextFromFile(
+				NO_COMMANDS,
+				{
+					slug: PLAN_SLUG,
+					filePath,
+					branchName: TARGET_BRANCH,
+					branchCreation: "graphite",
+					explicitBasis: {
+						startPoint: START_POINT,
+						startRef: SOURCE_BRANCH,
+						graphiteParentBranch: SOURCE_BRANCH,
+					},
+				},
+				{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
+			),
+		).rejects.toThrow(
+			expect.objectContaining({
+				message: expect.stringContaining(
+					`Start point: ${START_POINT}\nStart ref: ${SOURCE_BRANCH}\nGraphite parent: ${SOURCE_BRANCH}`,
+				),
+			}),
+		);
+		expect(git.createBranchAtStartPointCalls).toEqual([
+			{ cwd: ROOT, branch: TARGET_BRANCH, startPoint: START_POINT },
+		]);
 	});
 
 	test("Graphite creation checks parent trackedness before tracking the new branch", async () => {
@@ -559,6 +656,26 @@ describe("branch-context create formatting", () => {
 		expect(text).toContain("branch already exists");
 	});
 
+	test("formats explicit basis in failure context", () => {
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			branchName: TARGET_BRANCH,
+			branchCreation: "graphite",
+			explicitBasis: {
+				startPoint: START_POINT,
+				startRef: SOURCE_BRANCH,
+				graphiteParentBranch: SOURCE_BRANCH,
+			},
+		});
+
+		const text = formatBranchContextCreateFailure(operation, new Error("attach failed"));
+
+		expect(text).toContain(`Start point: ${START_POINT}`);
+		expect(text).toContain(`Start ref: ${SOURCE_BRANCH}`);
+		expect(text).toContain(`Graphite parent: ${SOURCE_BRANCH}`);
+	});
+
 	test("inserts a consequence line before the underlying cause without changing option-less output", () => {
 		const operation = buildBranchContextCreateOperation({
 			slug: PLAN_SLUG,
@@ -570,13 +687,13 @@ describe("branch-context create formatting", () => {
 
 		const plain = formatBranchContextCreateFailure(operation, error);
 		const withConsequence = formatBranchContextCreateFailure(operation, error, {
-			consequence: "No cmux workspace was opened.",
+			consequence: "No Herdr workspace was opened.",
 		});
 
 		expect(withConsequence).toBe(
 			plain.replace(
 				`Source file: ${PLAN_FILE}\n`,
-				`Source file: ${PLAN_FILE}\nNo cmux workspace was opened.\n`,
+				`Source file: ${PLAN_FILE}\nNo Herdr workspace was opened.\n`,
 			),
 		);
 		expect(formatBranchContextCreateFailure(operation, error, {})).toBe(plain);

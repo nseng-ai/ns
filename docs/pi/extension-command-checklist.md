@@ -73,7 +73,7 @@ If the same workflow is reachable from both an ns CLI command and a Pi slash-com
 - in CLI adapters, route phases to `ctx.onOutput?.("stderr", text)` when available, otherwise to `stderr`;
 - in Pi rendered flows, avoid duplicating a custom `pi.sendMessage(...)` stream through `NsCommandIo`; use `NsCommandIo` as the fallback when no rendered/live message path exists.
 
-For cmux capability workflows, read `ts/packages/capabilities/cmux/AGENTS.md` before changing progress behavior. `sendCommandProgressOrNotify(...)` remains the right primitive for Pi-only adapter milestones; `NsCommandIo` is the portable seam for shared CLI/Pi execution.
+For Herdr capability workflows, read `ts/packages/capabilities/herdr/AGENTS.md` before changing progress behavior. `sendCommandProgressOrNotify(...)` remains the right primitive for Pi-only adapter milestones; `NsCommandIo` is the portable seam for shared CLI/Pi execution.
 
 ## Checklist for adding or changing a command
 

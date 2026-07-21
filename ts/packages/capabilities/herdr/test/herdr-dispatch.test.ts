@@ -1,9 +1,9 @@
 /**
  * Scenario tests for the Herdr dispatch commands:
- *  - ns:herdr:handoff:prompt
- *  - ns:herdr:handoff:trunk-prompt
- *  - ns:herdr:handoff:plan
- *  - ns:herdr:tab:plan-dispatch
+ *  - ns:herdr:space:dispatch-prompt
+ *  - ns:herdr:space:dispatch-trunk-prompt
+ *  - ns:herdr:space:dispatch-plan
+ *  - ns:herdr:tab:dispatch-plan
  */
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -20,6 +20,7 @@ import { HERDR_BASE_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
 import registerHerdrPiExtension from "../src/pi/extension.ts";
 import {
 	registerHerdrSlotDispatchPlanCommand,
+	registerHerdrSlotDispatchTrunkPlanCommand,
 	registerHerdrSurfaceDispatchPlanCommand,
 } from "../src/pi/dispatch-plan.ts";
 import { handleHerdrSlotDispatchPlan } from "../src/core/dispatch-plan.ts";
@@ -129,7 +130,7 @@ describe("herdr Pi extension — full suite", () => {
 });
 
 // ---------------------------------------------------------------------------
-// handoff:prompt and handoff:trunk-prompt
+// space prompt dispatch
 // ---------------------------------------------------------------------------
 
 describe("Herdr prompt dispatch", () => {
@@ -393,10 +394,10 @@ describe("Herdr prompt dispatch", () => {
 });
 
 // ---------------------------------------------------------------------------
-// handoff:plan
+// space and tab plan dispatch
 // ---------------------------------------------------------------------------
 
-describe("ns:herdr:handoff:plan", () => {
+describe("ns:herdr:space:dispatch-plan", () => {
 	test("shows help without side-effects on --help", async () => {
 		const pi = new FakePi();
 		const herdr = new FakeHerdrGateway();
@@ -409,8 +410,8 @@ describe("ns:herdr:handoff:plan", () => {
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:handoff:plan",
-				statusKey: "ns:herdr:handoff:plan",
+				commandName: "ns:herdr:space:dispatch-plan",
+				statusKey: "ns:herdr:space:dispatch-plan",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -433,8 +434,8 @@ describe("ns:herdr:handoff:plan", () => {
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:handoff:plan",
-				statusKey: "ns:herdr:handoff:plan",
+				commandName: "ns:herdr:space:dispatch-plan",
+				statusKey: "ns:herdr:space:dispatch-plan",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -446,15 +447,17 @@ describe("ns:herdr:handoff:plan", () => {
 		expect(errors[0]?.message).toContain("Unknown flag");
 	});
 
-	test("registers handoff:plan and tab:plan-dispatch via Pi adapter", () => {
+	test("registers space and tab plan dispatch and tab:dispatch-plan via Pi adapter", () => {
 		const pi = new FakePi();
 		registerHerdrSlotDispatchPlanCommand(pi);
+		registerHerdrSlotDispatchTrunkPlanCommand(pi);
 		registerHerdrSurfaceDispatchPlanCommand(pi);
-		expect(pi.commands.has("ns:herdr:handoff:plan")).toBe(true);
-		expect(pi.commands.has("ns:herdr:tab:plan-dispatch")).toBe(true);
+		expect(pi.commands.has("ns:herdr:space:dispatch-plan")).toBe(true);
+		expect(pi.commands.has("ns:herdr:space:dispatch-trunk-plan")).toBe(true);
+		expect(pi.commands.has("ns:herdr:tab:dispatch-plan")).toBe(true);
 	});
 
-	test("tab:plan-dispatch requires HERDR_WORKSPACE_ID", async () => {
+	test("tab:dispatch-plan requires HERDR_WORKSPACE_ID", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
 		const repoRoot = await makeTempDir();
 		const pi = new FakePi({ script: [] });
@@ -468,9 +471,9 @@ describe("ns:herdr:handoff:plan", () => {
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:tab:plan-dispatch",
-				statusKey: "ns:herdr:tab:plan-dispatch",
-				destination: "surface",
+				commandName: "ns:herdr:tab:dispatch-plan",
+				statusKey: "ns:herdr:tab:dispatch-plan",
+				destination: "tab",
 			},
 			notifyProgress: () => {},
 		});
@@ -479,17 +482,17 @@ describe("ns:herdr:handoff:plan", () => {
 		expect(herdr.createTabCalls).toHaveLength(0);
 		expect(ctx.notifications).toContainEqual({
 			message:
-				"tab:plan-dispatch requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+				"tab:dispatch-plan requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
 			level: "error",
 		});
 	});
 });
 
 // ---------------------------------------------------------------------------
-// tab:plan-dispatch with caller workspace
+// tab:dispatch-plan with caller workspace
 // ---------------------------------------------------------------------------
 
-describe("ns:herdr:tab:plan-dispatch", () => {
+describe("ns:herdr:tab:dispatch-plan", () => {
 	test("requires HERDR_WORKSPACE_ID; stops without tab creation if absent", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
 		const pi = new FakePi({ script: [] });
@@ -503,9 +506,9 @@ describe("ns:herdr:tab:plan-dispatch", () => {
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:tab:plan-dispatch",
-				statusKey: "ns:herdr:tab:plan-dispatch",
-				destination: "surface",
+				commandName: "ns:herdr:tab:dispatch-plan",
+				statusKey: "ns:herdr:tab:dispatch-plan",
+				destination: "tab",
 			},
 			notifyProgress: () => {},
 		});
@@ -528,9 +531,9 @@ describe("ns:herdr:tab:plan-dispatch", () => {
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:tab:plan-dispatch",
-				statusKey: "ns:herdr:tab:plan-dispatch",
-				destination: "surface",
+				commandName: "ns:herdr:tab:dispatch-plan",
+				statusKey: "ns:herdr:tab:dispatch-plan",
+				destination: "tab",
 			},
 			notifyProgress: (message) => progress.push(message),
 		});
@@ -540,11 +543,11 @@ describe("ns:herdr:tab:plan-dispatch", () => {
 		expect(ctx.waitCount).toBe(0);
 		expect(herdr.createTabCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toBe(
-			"tab:plan-dispatch requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+			"tab:dispatch-plan requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
 		);
 	});
 
-	test("shows surface help without a caller ID", async () => {
+	test("shows tab help without a caller ID", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
 		const pi = new FakePi({ script: [] });
 		const herdr = new FakeHerdrGateway();
@@ -557,9 +560,9 @@ describe("ns:herdr:tab:plan-dispatch", () => {
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:tab:plan-dispatch",
-				statusKey: "ns:herdr:tab:plan-dispatch",
-				destination: "surface",
+				commandName: "ns:herdr:tab:dispatch-plan",
+				statusKey: "ns:herdr:tab:dispatch-plan",
+				destination: "tab",
 			},
 			notifyProgress: () => {},
 		});
@@ -567,7 +570,7 @@ describe("ns:herdr:tab:plan-dispatch", () => {
 		expect(pi.execCalls).toEqual([]);
 		expect(ctx.waitCount).toBe(0);
 		expect(notificationMessages(ctx).join("\n")).toContain(
-			"Usage: /ns:herdr:tab:plan-dispatch [--dry-run]",
+			"Usage: /ns:herdr:tab:dispatch-plan [--dry-run]",
 		);
 	});
 });
@@ -705,7 +708,7 @@ describe("openBranchInHerdrWorkspace — Herdr failure paths", () => {
 // ---------------------------------------------------------------------------
 
 describe("openBranchInHerdrCallerTab — focus semantics", () => {
-	test("creates tab with shouldFocus:true for surface dispatch", async () => {
+	test("creates tab with shouldFocus:true for tab dispatch", async () => {
 		const pi = new FakePi();
 		const herdr = new FakeHerdrGateway();
 		const notifications: Array<{ message: string; level: string | undefined }> = [];
@@ -787,7 +790,7 @@ describe("openBranchInHerdrCallerTab — focus semantics", () => {
 });
 
 // ---------------------------------------------------------------------------
-// handoff:plan dry-run — no Herdr mutations
+// plan dispatch dry-run — no Herdr mutations
 // ---------------------------------------------------------------------------
 
 function herdrDispatchPlanTestOptions(
@@ -809,7 +812,237 @@ function herdrDispatchPlanTestOptions(
 	};
 }
 
-describe("ns:herdr:handoff:plan — dry-run (no Herdr mutations)", () => {
+describe("ns:herdr:space:dispatch-trunk-plan", () => {
+	test("executes from refreshed exact SHA with explicit Graphite parent and inherited collision suffix", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		const pi = new FakePi({
+			script: [
+				...dispatchValidationScript(repoRoot),
+				step("git", ["worktree", "list", "--porcelain"], {
+					stdout: `worktree ${repoRoot}\nHEAD abc123\nbranch refs/heads/feature\n`,
+				}),
+				step(
+					"git",
+					["fetch", "origin", `refs/heads/${TRUNK_BRANCH}:refs/heads/${TRUNK_BRANCH}`],
+					{},
+				),
+				step("git", ["rev-parse", TRUNK_BRANCH], { stdout: `${START_POINT}\n` }),
+				gitRootStep(repoRoot),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
+					{ stdout: `${PLAN_SLUG}\n` },
+				),
+			],
+		});
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			branchEntries: [savedPlanEntry(repoRoot, planFile)],
+		});
+		const options = herdrDispatchPlanTestOptions(planStoreRoot);
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
+			existingBranches: [PLAN_SLUG],
+		});
+		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
+		const graphite = new InMemoryGraphiteBranchGateway();
+		options.graphite = { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) };
+		options.git = {
+			branchUpstream: async () => ({
+				type: "found",
+				value: { remoteName: "origin", remoteRef: `refs/heads/${TRUNK_BRANCH}` },
+			}),
+		};
+		options.createBranchContextContext = () => ({
+			commands: createHerdrPiCommandApi(pi),
+			git,
+			brmem,
+			graphite,
+		});
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "",
+			ctx,
+			options,
+			config: {
+				commandName: "ns:herdr:space:dispatch-trunk-plan",
+				statusKey: "ns:herdr:space:dispatch-trunk-plan",
+				destination: "workspace",
+				branchBasis: "trunk",
+			},
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		expect(git.createBranchAtStartPointCalls).toEqual([
+			{ cwd: repoRoot, branch: `${PLAN_SLUG}-2`, startPoint: START_POINT },
+		]);
+		expect(graphite.trackBranchCalls).toEqual([
+			{ cwd: repoRoot, branch: `${PLAN_SLUG}-2`, parentBranch: TRUNK_BRANCH },
+		]);
+		expect(brmem.attachPlanCalls[0]).toMatchObject({ branch: `${PLAN_SLUG}-2`, key: PLAN_KEY });
+		expect(herdr.createWorkspaceCalls).toHaveLength(1);
+		expect(herdr.paneRunCalls).toHaveLength(1);
+		const messages = notificationMessages(ctx).join("\n");
+		expect(messages).toContain(`Start point: ${START_POINT}`);
+		expect(messages).toContain(`Start ref: ${TRUNK_BRANCH}`);
+		expect(messages).toContain(`Graphite parent: ${TRUNK_BRANCH}`);
+		expect(messages).toContain(`Selected target branch: ${PLAN_SLUG}-2`);
+	});
+
+	test("fails without a session saved plan before trunk preparation or mutation", async () => {
+		const pi = new FakePi({ script: dispatchValidationScript(ROOT) });
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({ cwd: ROOT, branchEntries: [] });
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "",
+			ctx,
+			options: {},
+			config: {
+				commandName: "ns:herdr:space:dispatch-trunk-plan",
+				statusKey: "ns:herdr:space:dispatch-trunk-plan",
+				destination: "workspace",
+				branchBasis: "trunk",
+			},
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		expect(pi.execCalls.map((call) => call.args)).toEqual([
+			["rev-parse", "--show-toplevel"],
+			["branch", "--show-current"],
+			["config", "--get", "remote.origin.url"],
+		]);
+		expect(herdr.createWorkspaceCalls).toEqual([]);
+		expect(notificationMessages(ctx).join("\n")).toContain("saved plan");
+	});
+
+	test("trunk preparation failure stops before branch, attachment, slot, or Herdr mutation", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		const pi = new FakePi({ script: dispatchValidationScript(repoRoot) });
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			branchEntries: [savedPlanEntry(repoRoot, planFile)],
+		});
+		const git = new InMemoryGitGateway();
+		const brmem = new InMemoryBranchMemoryGateway();
+		const options = herdrDispatchPlanTestOptions(planStoreRoot);
+		options.graphite = { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) };
+		options.git = { branchUpstream: async () => ({ type: "missing" }) };
+		options.createBranchContextContext = () => ({
+			commands: createHerdrPiCommandApi(pi),
+			git,
+			brmem,
+			graphite: new InMemoryGraphiteBranchGateway(),
+		});
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "",
+			ctx,
+			options,
+			config: {
+				commandName: "ns:herdr:space:dispatch-trunk-plan",
+				statusKey: "ns:herdr:space:dispatch-trunk-plan",
+				destination: "workspace",
+				branchBasis: "trunk",
+			},
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		expect(git.createBranchAtStartPointCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
+		expect(herdr.createWorkspaceCalls).toEqual([]);
+		expect(notificationMessages(ctx).join("\n")).toContain("has no configured Git upstream");
+	});
+
+	test("dry-run previews refresh and explicit trunk basis without any mutation", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		const pi = new FakePi({
+			script: [
+				...dispatchValidationScript(repoRoot),
+				step("git", ["worktree", "list", "--porcelain"], {
+					stdout: "worktree /repo\nHEAD abc123\nbranch refs/heads/feature\n",
+				}),
+				gitRootStep(repoRoot),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
+					{ stdout: `${PLAN_SLUG}\n` },
+				),
+			],
+		});
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			branchEntries: [savedPlanEntry(repoRoot, planFile)],
+		});
+		const options = herdrDispatchPlanTestOptions(planStoreRoot);
+		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
+		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
+		options.graphite = { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) };
+		options.git = {
+			branchUpstream: async () => ({
+				type: "found",
+				value: { remoteName: "origin", remoteRef: `refs/heads/${TRUNK_BRANCH}` },
+			}),
+		};
+		options.createBranchContextContext = () => ({
+			commands: createHerdrPiCommandApi(pi),
+			git,
+			brmem,
+			graphite: new InMemoryGraphiteBranchGateway(),
+		});
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "--dry-run",
+			ctx,
+			options,
+			config: {
+				commandName: "ns:herdr:space:dispatch-trunk-plan",
+				statusKey: "ns:herdr:space:dispatch-trunk-plan",
+				destination: "workspace",
+				branchBasis: "trunk",
+			},
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		expect(git.createBranchAtHeadCalls).toEqual([]);
+		expect(git.createBranchAtStartPointCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
+		expect(herdr.createWorkspaceCalls).toEqual([]);
+		const dryRun = notificationMessages(ctx).find((message) => message.startsWith("Dry run"));
+		if (dryRun === undefined) throw new Error("Expected a dry-run message.");
+		expect(dryRun).toContain(`Trunk branch / Graphite parent: ${TRUNK_BRANCH}`);
+		expect(dryRun).toContain(
+			`Refresh command: git fetch origin refs/heads/${TRUNK_BRANCH}:refs/heads/${TRUNK_BRANCH}`,
+		);
+		expect(dryRun).toContain(
+			`git branch ${PLAN_SLUG} '<result of git fetch origin refs/heads/${TRUNK_BRANCH}:refs/heads/${TRUNK_BRANCH}>'`,
+		);
+		expect(dryRun).toContain(`--parent ${TRUNK_BRANCH}`);
+	});
+});
+
+describe("ns:herdr:space:dispatch-plan — dry-run (no Herdr mutations)", () => {
 	test("registered command selects a plan saved in the current Pi session", async () => {
 		const repoRoot = await makeTempDir();
 		const xdgStateHome = await makeTempDir();
@@ -836,11 +1069,11 @@ describe("ns:herdr:handoff:plan — dry-run (no Herdr mutations)", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 
-		await pi.commands.get("ns:herdr:handoff:plan")?.handler("--dry-run", ctx);
+		await pi.commands.get("ns:herdr:space:dispatch-plan")?.handler("--dry-run", ctx);
 
 		const output = notificationMessages(ctx).join("\n");
 		expect(ctx.statuses).toContainEqual({
-			key: "ns:herdr:handoff:plan",
+			key: "ns:herdr:space:dispatch-plan",
 			value: "deriving branch-context slug…",
 		});
 		expect(output).not.toContain("No saved plan from /ns:plan:save was found");
@@ -879,8 +1112,8 @@ describe("ns:herdr:handoff:plan — dry-run (no Herdr mutations)", () => {
 			ctx,
 			options: herdrDispatchPlanTestOptions(planStoreRoot),
 			config: {
-				commandName: "ns:herdr:handoff:plan",
-				statusKey: "ns:herdr:handoff:plan",
+				commandName: "ns:herdr:space:dispatch-plan",
+				statusKey: "ns:herdr:space:dispatch-plan",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -908,7 +1141,7 @@ describe("ns:herdr:handoff:plan — dry-run (no Herdr mutations)", () => {
 	});
 });
 
-describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
+describe("ns:herdr:tab:dispatch-plan — dry-run (no Herdr mutations)", () => {
 	test("dry-run requires a valid caller ID before repository or plan lookup", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
 		const pi = new FakePi({ script: [] });
@@ -922,9 +1155,9 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:tab:plan-dispatch",
-				statusKey: "ns:herdr:tab:plan-dispatch",
-				destination: "surface",
+				commandName: "ns:herdr:tab:dispatch-plan",
+				statusKey: "ns:herdr:tab:dispatch-plan",
+				destination: "tab",
 			},
 			notifyProgress: () => {},
 		});
@@ -980,9 +1213,9 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:tab:plan-dispatch",
-				statusKey: "ns:herdr:tab:plan-dispatch",
-				destination: "surface",
+				commandName: "ns:herdr:tab:dispatch-plan",
+				statusKey: "ns:herdr:tab:dispatch-plan",
+				destination: "tab",
 			},
 			notifyProgress: () => {},
 		});
@@ -1037,8 +1270,8 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:handoff:plan",
-				statusKey: "ns:herdr:handoff:plan",
+				commandName: "ns:herdr:space:dispatch-plan",
+				statusKey: "ns:herdr:space:dispatch-plan",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -1053,7 +1286,7 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 		expect(herdr.createTabCalls).toEqual([]);
 	});
 
-	test("surface dispatch branch-context failure names the unopened Herdr tab", async () => {
+	test("tab dispatch branch-context failure names the unopened Herdr tab", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "caller-workspace-failure");
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
@@ -1097,9 +1330,9 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:tab:plan-dispatch",
-				statusKey: "ns:herdr:tab:plan-dispatch",
-				destination: "surface",
+				commandName: "ns:herdr:tab:dispatch-plan",
+				statusKey: "ns:herdr:tab:dispatch-plan",
+				destination: "tab",
 			},
 			notifyProgress: () => {},
 		});
@@ -1112,7 +1345,7 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 		expect(herdr.createTabCalls).toEqual([]);
 	});
 
-	test("valid-ID dry-run shows surface preview without creating tab or pane", async () => {
+	test("valid-ID dry-run shows tab preview without creating tab or pane", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "caller-workspace-dry-run");
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
@@ -1146,9 +1379,9 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 			ctx,
 			options: herdrDispatchPlanTestOptions(planStoreRoot),
 			config: {
-				commandName: "ns:herdr:tab:plan-dispatch",
-				statusKey: "ns:herdr:tab:plan-dispatch",
-				destination: "surface",
+				commandName: "ns:herdr:tab:dispatch-plan",
+				statusKey: "ns:herdr:tab:dispatch-plan",
+				destination: "tab",
 			},
 			notifyProgress: () => {},
 		});
@@ -1160,7 +1393,7 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 		const dryRun = notificationMessages(ctx).find((message) => message.startsWith("Dry run"));
 		if (dryRun === undefined) throw new Error("Expected a dry-run message.");
 		expect(dryRun).toContain(
-			"Dry run: no branch was created, no plan was attached, and no Herdr surface was opened.",
+			"Dry run: no branch was created, no plan was attached, and no Herdr tab was opened.",
 		);
 		expect(dryRun).toContain("Repo identity source: origin-url");
 		expect(dryRun).toContain(`Branch path segment: ${SOURCE_BRANCH}`);

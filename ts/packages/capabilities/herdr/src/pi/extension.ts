@@ -14,12 +14,14 @@ import { registerHerdrSlotDispatchPromptCommand } from "./dispatch-prompt.ts";
 import { registerHerdrSlotDispatchFromTrunkCommand } from "./dispatch-from-trunk.ts";
 import {
 	registerHerdrSlotDispatchPlanCommand,
+	registerHerdrSlotDispatchTrunkPlanCommand,
 	registerHerdrSurfaceDispatchPlanCommand,
 } from "./dispatch-plan.ts";
 import { createHerdrPiContext } from "./context.ts";
 import { registerHerdrHandoffTab } from "./handoff-tab.ts";
 import { registerHerdrNewSpaceCommand } from "./new-space.ts";
 import { registerHerdrSpaceGoalCommand } from "./space-goal.ts";
+import { registerHerdrNewTabCommand, registerHerdrTabGoalCommand } from "./tab.ts";
 
 export type HandoffIntegrationLoader = () => Promise<{
 	createHandoffLaunchIntegration(pi: HandoffExtensionAPI): HandoffPromptCreateIntegration;
@@ -42,8 +44,11 @@ export async function registerHerdrPiExtension(
 	registerHerdrSlotDispatchPromptCommand(herdrPi);
 	registerHerdrSlotDispatchFromTrunkCommand(herdrPi);
 	registerHerdrSlotDispatchPlanCommand(herdrPi);
+	registerHerdrSlotDispatchTrunkPlanCommand(herdrPi);
 	registerHerdrSurfaceDispatchPlanCommand(herdrPi);
 	registerHerdrNewSpaceCommand(context);
+	registerHerdrNewTabCommand(context);
+	registerHerdrTabGoalCommand(herdrPi);
 
 	if (!("registerTool" in pi) || pi.registerTool === undefined) return;
 	const load = options.loadHandoffIntegration ?? loadOptionalHandoffIntegration;

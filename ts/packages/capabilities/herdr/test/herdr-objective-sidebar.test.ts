@@ -27,7 +27,7 @@ import {
 afterEach(resetHerdrTestEnvironment);
 
 describe("herdr Objective sidebar", () => {
-	test("ns:herdr:objective:sidebar-summary applies label from explicit slug", async () => {
+	test("ns:herdr:space:objective-summary applies label from explicit slug", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const repoRoot = await makeTempDir();
 		const slug = "herdr-capability-parity";
@@ -41,7 +41,7 @@ describe("herdr Objective sidebar", () => {
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
-		await pi.commands.get("ns:herdr:objective:sidebar-summary")?.handler(slug, ctx);
+		await pi.commands.get("ns:herdr:space:objective-summary")?.handler(slug, ctx);
 
 		pi.assertDone();
 		expect(ctx.waitCount).toBe(1);
@@ -63,7 +63,7 @@ describe("herdr Objective sidebar", () => {
 		);
 	});
 
-	test("ns:herdr:objective:sidebar-summary prefixes labels inside a managed slot", async () => {
+	test("ns:herdr:space:objective-summary prefixes labels inside a managed slot", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const slug = "areg-lifecycle-ergonomics";
 		const pi = new FakePi({ script: [objectiveReadStep(slug)] });
@@ -74,7 +74,7 @@ describe("herdr Objective sidebar", () => {
 			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-01",
 		});
 
-		await pi.commands.get("ns:herdr:objective:sidebar-summary")?.handler(slug, ctx);
+		await pi.commands.get("ns:herdr:space:objective-summary")?.handler(slug, ctx);
 
 		pi.assertDone();
 		expect(herdr.renameCalls).toEqual([
@@ -82,7 +82,7 @@ describe("herdr Objective sidebar", () => {
 		]);
 	});
 
-	test("ns:herdr:objective:sidebar-summary resolves path selector to slug", async () => {
+	test("ns:herdr:space:objective-summary resolves path selector to slug", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const repoRoot = await makeTempDir();
 		const slug = "herdr-capability-parity";
@@ -96,7 +96,7 @@ describe("herdr Objective sidebar", () => {
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
 		await pi.commands
-			.get("ns:herdr:objective:sidebar-summary")
+			.get("ns:herdr:space:objective-summary")
 			?.handler(`.ns/objectives/${slug}/objective.md`, ctx);
 
 		pi.assertDone();
@@ -109,7 +109,7 @@ describe("herdr Objective sidebar", () => {
 		expect(pi.sentUserMessages).toEqual([]);
 	});
 
-	test("ns:herdr:objective:sidebar-summary without selector opens Objective picker", async () => {
+	test("ns:herdr:space:objective-summary without selector opens Objective picker", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const repoRoot = await makeTempDir();
 		const slug = "bravo-objective";
@@ -128,7 +128,7 @@ describe("herdr Objective sidebar", () => {
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot, selectIndices: [1] });
 
-		await pi.commands.get("ns:herdr:objective:sidebar-summary")?.handler("", ctx);
+		await pi.commands.get("ns:herdr:space:objective-summary")?.handler("", ctx);
 
 		pi.assertDone();
 		expect(ctx.waitCount).toBe(2);
@@ -148,7 +148,7 @@ describe("herdr Objective sidebar", () => {
 		);
 	});
 
-	test("ns:herdr:objective:sidebar-summary suggests the only changed active Objective", async () => {
+	test("ns:herdr:space:objective-summary suggests the only changed active Objective", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const repoRoot = await makeTempDir();
 		const slug = "bravo-objective";
@@ -166,7 +166,7 @@ describe("herdr Objective sidebar", () => {
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
-		await pi.commands.get("ns:herdr:objective:sidebar-summary")?.handler("", ctx);
+		await pi.commands.get("ns:herdr:space:objective-summary")?.handler("", ctx);
 
 		pi.assertDone();
 		expect(ctx.selections).toEqual([
@@ -182,7 +182,7 @@ describe("herdr Objective sidebar", () => {
 		expect(notificationMessages(ctx)).toContain(`Applied Herdr Objective sidebar: obj:${slug}`);
 	});
 
-	test("ns:herdr:objective:sidebar-summary picker cancellation stops without rename", async () => {
+	test("ns:herdr:space:objective-summary picker cancellation stops without rename", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const pi = new FakePi({
 			script: [
@@ -197,7 +197,7 @@ describe("herdr Objective sidebar", () => {
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ shouldCancelSelect: true });
 
-		await pi.commands.get("ns:herdr:objective:sidebar-summary")?.handler("", ctx);
+		await pi.commands.get("ns:herdr:space:objective-summary")?.handler("", ctx);
 
 		pi.assertDone();
 		expect(herdr.renameCalls).toEqual([]);
@@ -208,7 +208,7 @@ describe("herdr Objective sidebar", () => {
 		});
 	});
 
-	test("ns:herdr:objective:sidebar-summary with no active Objectives stops without rename", async () => {
+	test("ns:herdr:space:objective-summary with no active Objectives stops without rename", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const pi = new FakePi({ script: [objectiveListStep([])] });
 		const adaptedPi = createHerdrPiCommandApi(pi);
@@ -217,7 +217,7 @@ describe("herdr Objective sidebar", () => {
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
-		await pi.commands.get("ns:herdr:objective:sidebar-summary")?.handler("", ctx);
+		await pi.commands.get("ns:herdr:space:objective-summary")?.handler("", ctx);
 
 		pi.assertDone();
 		expect(herdr.renameCalls).toEqual([]);
@@ -229,7 +229,7 @@ describe("herdr Objective sidebar", () => {
 		});
 	});
 
-	test("ns:herdr:objective:sidebar-summary missing workspace skips all work", async () => {
+	test("ns:herdr:space:objective-summary missing workspace skips all work", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
 		const pi = new FakePi();
 		const adaptedPi = createHerdrPiCommandApi(pi);
@@ -239,7 +239,7 @@ describe("herdr Objective sidebar", () => {
 		const ctx = new FakeCommandContext();
 
 		await pi.commands
-			.get("ns:herdr:objective:sidebar-summary")
+			.get("ns:herdr:space:objective-summary")
 			?.handler("herdr-capability-parity", ctx);
 
 		expect(ctx.waitCount).toBe(1);
@@ -249,7 +249,7 @@ describe("herdr Objective sidebar", () => {
 		expect(ctx.notifications.at(-1)?.message).toBe("Not running inside a Herdr caller workspace.");
 	});
 
-	test("ns:herdr:objective:sidebar-summary surfaces Objective read failure without rename", async () => {
+	test("ns:herdr:space:objective-summary surfaces Objective read failure without rename", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const slug = "ghost-objective";
 		const pi = new FakePi({
@@ -270,7 +270,7 @@ describe("herdr Objective sidebar", () => {
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
-		await pi.commands.get("ns:herdr:objective:sidebar-summary")?.handler(slug, ctx);
+		await pi.commands.get("ns:herdr:space:objective-summary")?.handler(slug, ctx);
 
 		pi.assertDone();
 		expect(herdr.renameCalls).toEqual([]);
@@ -279,7 +279,7 @@ describe("herdr Objective sidebar", () => {
 		expect(ctx.notifications.at(-1)?.message).toContain("Objective not found");
 	});
 
-	test("ns:herdr:objective:sidebar-summary surfaces herdr rename failure", async () => {
+	test("ns:herdr:space:objective-summary surfaces herdr rename failure", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const repoRoot = await makeTempDir();
 		const slug = "herdr-capability-parity";
@@ -294,7 +294,7 @@ describe("herdr Objective sidebar", () => {
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
-		await pi.commands.get("ns:herdr:objective:sidebar-summary")?.handler(slug, ctx);
+		await pi.commands.get("ns:herdr:space:objective-summary")?.handler(slug, ctx);
 
 		pi.assertDone();
 		expect(herdr.renameCalls).toHaveLength(1);
@@ -302,7 +302,7 @@ describe("herdr Objective sidebar", () => {
 		expect(ctx.notifications.at(-1)?.message).toContain("workspace not found");
 	});
 
-	test("ns:herdr:objective:sidebar-summary label-only: does not read slot or branch", async () => {
+	test("ns:herdr:space:objective-summary label-only: does not read slot or branch", async () => {
 		// Verifies the label-only behavior: only objective validation and
 		// `herdr workspace rename` are performed — no branch or slot reads.
 		// The label encodes only the Objective slug.
@@ -318,7 +318,7 @@ describe("herdr Objective sidebar", () => {
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
-		await pi.commands.get("ns:herdr:objective:sidebar-summary")?.handler(slug, ctx);
+		await pi.commands.get("ns:herdr:space:objective-summary")?.handler(slug, ctx);
 
 		pi.assertDone();
 		// Only objective exec call — no git branch call
@@ -330,12 +330,12 @@ describe("herdr Objective sidebar", () => {
 		]);
 	});
 
-	test("ns:herdr:objective:sidebar-summary uses Pi wiring end-to-end", async () => {
+	test("ns:herdr:space:objective-summary uses Pi wiring end-to-end", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const pi = new FakePi();
 		const controller = createHerdrSidebarControllerWithPiWiring(pi);
 		registerHerdrSidebarCommands(pi, controller);
-		expect(pi.commands.has("ns:herdr:objective:sidebar-summary")).toBe(true);
+		expect(pi.commands.has("ns:herdr:space:objective-summary")).toBe(true);
 	});
 });
 

@@ -310,6 +310,80 @@ describe("createCliHerdrGateway.createTab", () => {
 });
 
 // ---------------------------------------------------------------------------
+// renameTab — exact argv and bounded diagnostics
+// ---------------------------------------------------------------------------
+
+describe("createCliHerdrGateway.renameWorkspace", () => {
+	test("uses generic workspace rename diagnostics on non-zero exit", async () => {
+		const pi = new FakePi({
+			script: [
+				step("herdr", ["workspace", "rename", "w-1", "goal"], {
+					code: 3,
+					stderr: "workspace missing",
+				}),
+			],
+		});
+		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+
+		const result = await herdr.renameWorkspace("w-1", "goal");
+		expect(result.type).toBe("failed");
+		if (result.type === "failed") {
+			expect(result.message).toContain("Could not rename Herdr workspace.");
+			expect(result.message).not.toContain("Objective");
+		}
+		pi.assertDone();
+	});
+});
+
+describe("createCliHerdrGateway.renameTab", () => {
+	test("emits herdr tab rename <id> <label>", async () => {
+		const pi = new FakePi({ script: [step("herdr", ["tab", "rename", "t-1", "s3:add-auth"], {})] });
+		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+
+		expect(await herdr.renameTab("t-1", "s3:add-auth")).toEqual({ type: "applied" });
+		pi.assertDone();
+	});
+
+	test("returns bounded diagnostics with non-zero stderr", async () => {
+		const pi = new FakePi({
+			script: [
+				step("herdr", ["tab", "rename", "t-1", "label"], {
+					code: 7,
+					stderr: "rename failed\n".repeat(10_000),
+				}),
+			],
+		});
+		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+
+		const result = await herdr.renameTab("t-1", "label");
+		expect(result.type).toBe("failed");
+		if (result.type === "failed") {
+			expect(result.message.length).toBeLessThanOrEqual(4_000);
+			expect(result.message).toContain("rename failed");
+		}
+		pi.assertDone();
+	});
+
+	test("bounds thrown-command diagnostics", async () => {
+		const pi = new FakePi({
+			script: [
+				{
+					command: "herdr",
+					args: ["tab", "rename", "t-1", "label"],
+					error: new Error("failure\n".repeat(10_000)),
+				},
+			],
+		});
+		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+
+		const result = await herdr.renameTab("t-1", "label");
+		expect(result.type).toBe("failed");
+		if (result.type === "failed") expect(result.message.length).toBeLessThanOrEqual(4_000);
+		pi.assertDone();
+	});
+});
+
+// ---------------------------------------------------------------------------
 // runInPane — exact argv
 // ---------------------------------------------------------------------------
 

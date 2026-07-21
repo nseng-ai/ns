@@ -100,7 +100,12 @@ export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions)
 		return;
 	}
 
-	const goal = await resolveGoal(options.args, options.ctx);
+	const goal = await resolveHerdrGoal({
+		args: options.args,
+		ctx: options.ctx,
+		resourceName: "Workspace",
+		placeholder: "What is this space for?",
+	});
 	if (goal === undefined) {
 		notify(options.ctx, `Usage: /${COMMAND_NAME} <goal>`, "warning");
 		return;
@@ -124,12 +129,19 @@ export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions)
 	notify(options.ctx, `Applied Herdr space goal label: ${label}`, "success");
 }
 
-async function resolveGoal(args: string, ctx: CommandContext): Promise<string | undefined> {
-	const argumentGoal = args.trim();
+export async function resolveHerdrGoal(options: {
+	args: string;
+	ctx: CommandContext;
+	resourceName: string;
+	placeholder: string;
+}): Promise<string | undefined> {
+	const argumentGoal = options.args.trim();
 	if (argumentGoal.length > 0) return argumentGoal;
-	if (ctx.hasUI !== true || ctx.ui.input === undefined) return undefined;
-	const inputGoal = (await ctx.ui.input("Workspace goal", "What is this space for?"))?.trim();
-	return inputGoal && inputGoal.length > 0 ? inputGoal : undefined;
+	if (options.ctx.hasUI !== true || options.ctx.ui.input === undefined) return undefined;
+	const inputGoal = (
+		await options.ctx.ui.input(`${options.resourceName} goal`, options.placeholder)
+	)?.trim();
+	return inputGoal !== undefined && inputGoal.length > 0 ? inputGoal : undefined;
 }
 
 function notify(ctx: CommandContext, message: string, level: NotifyLevel): void {

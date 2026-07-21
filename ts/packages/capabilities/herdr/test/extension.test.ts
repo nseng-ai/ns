@@ -71,16 +71,23 @@ describe("herdr Pi extension", () => {
 		await registerHerdrPiExtension(pi);
 
 		expect(HERDR_COMMAND_NAMES).toEqual([
-			"ns:herdr:handoff:plan",
-			"ns:herdr:handoff:prompt",
-			"ns:herdr:handoff:tab",
-			"ns:herdr:handoff:trunk-prompt",
-			"ns:herdr:objective:sidebar-summary",
+			"ns:herdr:space:dispatch-plan",
+			"ns:herdr:space:dispatch-prompt",
+			"ns:herdr:space:dispatch-trunk-plan",
+			"ns:herdr:space:dispatch-trunk-prompt",
 			"ns:herdr:space:goal",
 			"ns:herdr:space:new",
-			"ns:herdr:tab:plan-dispatch",
+			"ns:herdr:space:objective-summary",
+			"ns:herdr:tab:dispatch-plan",
+			"ns:herdr:tab:goal",
+			"ns:herdr:tab:handoff",
+			"ns:herdr:tab:new",
 		]);
 		expect([...commands.keys()].sort()).toEqual(HERDR_BASE_COMMAND_NAMES);
+		const registered = [...commands.keys()];
+		expect(registered.some((name) => name.startsWith("ns:herdr:handoff:"))).toBe(false);
+		expect(registered).not.toContain("ns:herdr:tab:plan-dispatch");
+		expect(registered).not.toContain("ns:herdr:objective:sidebar-summary");
 	});
 
 	test("registers the optional Handoffs command and shared slug tool when installed", async () => {
@@ -91,7 +98,9 @@ describe("herdr Pi extension", () => {
 		await registerHerdrPiExtension(pi);
 		pi.runSessionStart();
 
-		expect([...commands.keys()].sort()).toEqual([...HERDR_COMMAND_NAMES].sort());
+		expect([...commands.keys()].sort()).toEqual(
+			[...HERDR_BASE_COMMAND_NAMES, "ns:herdr:tab:handoff"].sort(),
+		);
 		expect([...tools.keys()].sort()).toEqual(["derive_handoff_slug_from_content"]);
 		expect(tools.has("handoff_tab_launch")).toBe(false);
 	});

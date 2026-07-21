@@ -14,6 +14,7 @@ import type {
 	HerdrCreateWorkspaceResult,
 	HerdrGateway,
 	HerdrPaneRunResult,
+	HerdrTabRenameResult,
 	HerdrWorkspaceRenameResult,
 } from "./herdr-gateway.ts";
 
@@ -53,12 +54,15 @@ export function buildHerdrPaneRunArgs(paneId: string, command: string): string[]
 /**
  * CLI-backed HerdrGateway adapter. All operations call the installed `herdr`
  * binary; no raw socket integration is included. The CLI is Herdr's recommended
- * automation surface for ordinary scripting.
+ * automation interface for ordinary scripting.
  */
 export function createCliHerdrGateway(exec: CommandExecApi): HerdrGateway {
 	return {
 		async renameWorkspace(workspaceId, label): Promise<HerdrWorkspaceRenameResult> {
 			return renameWorkspace(exec, workspaceId, label);
+		},
+		async renameTab(tabId, label): Promise<HerdrTabRenameResult> {
+			return renameTab(exec, tabId, label);
 		},
 		async createWorkspace(options): Promise<HerdrCreateWorkspaceResult> {
 			return createWorkspace(exec, options);
@@ -85,11 +89,7 @@ async function renameWorkspace(
 		if (!commandSucceeded(result)) {
 			return {
 				type: "failed",
-				message: formatCommandFailure(
-					"Could not apply Herdr Objective sidebar label.",
-					commandDisplay,
-					result,
-				),
+				message: formatCommandFailure("Could not rename Herdr workspace.", commandDisplay, result),
 			};
 		}
 		return { type: "applied" };
@@ -97,7 +97,35 @@ async function renameWorkspace(
 		return {
 			type: "failed",
 			message: tailText(
-				`Could not apply Herdr Objective sidebar label.\nCommand: ${commandDisplay}\nError: ${formatErrorMessage(error)}`,
+				`Could not rename Herdr workspace.\nCommand: ${commandDisplay}\nError: ${formatErrorMessage(error)}`,
+				{ maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
+			),
+		};
+	}
+}
+
+async function renameTab(
+	exec: CommandExecApi,
+	tabId: string,
+	label: string,
+): Promise<HerdrTabRenameResult> {
+	const command = "herdr";
+	const args = ["tab", "rename", tabId, label];
+	const commandDisplay = formatCommand(command, args);
+	try {
+		const result = await exec.exec(command, args, { timeout: HERDR_CLI_TIMEOUT_MS });
+		if (!commandSucceeded(result)) {
+			return {
+				type: "failed",
+				message: formatCommandFailure("Could not rename Herdr tab.", commandDisplay, result),
+			};
+		}
+		return { type: "applied" };
+	} catch (error) {
+		return {
+			type: "failed",
+			message: tailText(
+				`Could not rename Herdr tab.\nCommand: ${commandDisplay}\nError: ${formatErrorMessage(error)}`,
 				{ maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
 			),
 		};
