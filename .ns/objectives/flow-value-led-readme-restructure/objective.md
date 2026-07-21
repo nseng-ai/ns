@@ -1,6 +1,6 @@
 ---
 edges:
-  - objective: flow-stack-workflows
+  - objective: flow-fold-stack-skills-into-workflow-tier
     annotation: Sibling README effort; that record lands the agent-workflows tier inside the canonical Flow README while this record owns the surrounding value-led restructure and must integrate that tier at promotion rather than clobber it.
 ---
 
@@ -43,13 +43,13 @@ the shipped mechanism.
   mechanism; the draft cannot promote while it documents unshipped behavior.
 - Promotion: the settled draft promotes over
   `ts/packages/capabilities/flow/README.md`, integrating whatever workflows tier
-  `flow-stack-workflows` has landed there by then, and the Objective reference is
+  `flow-fold-stack-skills-into-workflow-tier` has landed there by then, and the Objective reference is
   repointed at the promoted doc (per the `generic-flow-extension` precedent).
 
 ## Non-Goals
 
 - The agent-workflow fold-ins and the README workflows tier itself: owned by
-  `flow-stack-workflows` (edge). This record's restructure must give that tier a
+  `flow-fold-stack-skills-into-workflow-tier` (edge). This record's restructure must give that tier a
   home in the new structure, not produce its content.
 - No new point kinds and no ADR 0031 changes: model selection is settings, not
   points; this record does not extend the point system.
@@ -97,7 +97,7 @@ Assumptions:
 
 Risks:
 
-- **Concurrent edits to the same canonical README.** `flow-stack-workflows` lands
+- **Concurrent edits to the same canonical README.** `flow-fold-stack-skills-into-workflow-tier` lands
   its workflows tier into `ts/packages/capabilities/flow/README.md` while this
   draft evolves separately; promotion must merge, not clobber. Mitigated by the
   edge and by the promotion row explicitly requiring integration.

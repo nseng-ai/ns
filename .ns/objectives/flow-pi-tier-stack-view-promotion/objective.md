@@ -1,6 +1,6 @@
 ---
 edges:
-  - objective: flow-stack-workflows
+  - objective: flow-fold-stack-skills-into-workflow-tier
     annotation: Sibling Flow-surface effort; that record folds the agent-driven workflow tier (including moving the restack Pi wrapper alongside its first slice) while this record owns Flow's Pi tier — stack:view promotion and namespace normalization.
   - objective: stack-repair-loop-hardening
     annotation: Coordination dependency; this record answers that record's stack-view-backend open question by promoting stack:view into Flow consuming the enriched branch-pr-checks surface built there, instead of keeping a duplicate GraphQL layer.
@@ -43,7 +43,7 @@ Flow already uses for slots — and the namespace stray normalized.
 - No standalone `@nseng-ai/stackview` capability; that documented path is
   explicitly superseded.
 - Not the restack Pi wrapper (`/code:gt-restack-resolve`) move — that travels
-  with `flow-stack-workflows`' first fold-in slice (edge).
+  with `flow-fold-stack-skills-into-workflow-tier`' first fold-in slice (edge).
 - Not pr-previews: `/pr:preview-feedback` stays in the address domain, and the
   `/pr:preview-checks` deprecation is parked, contingent on this record's
   promotion and the shared enriched backend.
