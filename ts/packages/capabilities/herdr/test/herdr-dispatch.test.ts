@@ -886,7 +886,7 @@ describe("ns:herdr:space:dispatch-trunk-plan", () => {
 			{ cwd: repoRoot, branch: `${PLAN_SLUG}-2`, parentBranch: TRUNK_BRANCH },
 		]);
 		expect(brmem.attachPlanCalls[0]).toMatchObject({ branch: `${PLAN_SLUG}-2`, key: PLAN_KEY });
-		expect(herdr.createWorkspaceCalls).toHaveLength(1);
+		expect(herdr.createWorkspaceCalls).toEqual([{ options: { cwd: WORKTREE, label: PLAN_SLUG } }]);
 		expect(herdr.paneRunCalls).toHaveLength(1);
 		const messages = notificationMessages(ctx).join("\n");
 		expect(messages).toContain(`Start point: ${START_POINT}`);
@@ -1134,7 +1134,8 @@ describe("ns:herdr:space:dispatch-plan — dry-run (no Herdr mutations)", () => 
 		expect(dryRun).toContain(`Branch path segment: ${SOURCE_BRANCH}`);
 		expect(dryRun).toContain(`ns slot checkout ${PLAN_SLUG} --format json --no-clipboard`);
 		expect(dryRun).toContain("herdr workspace create --no-focus --cwd");
-		expect(dryRun).toContain(`herdr dispatch-plan from ${SOURCE_BRANCH}`);
+		expect(dryRun).toContain(`--label ${PLAN_SLUG}`);
+		expect(dryRun).not.toContain(`herdr dispatch-plan from ${SOURCE_BRANCH}`);
 		expect(dryRun).toContain("herdr pane run");
 		expect(dryRun).toContain(`/ns:branch-context:impl-attached-plan ${PLAN_KEY}`);
 		expect(dryRun).not.toContain("herdr tab create");
