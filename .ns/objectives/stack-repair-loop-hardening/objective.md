@@ -1,8 +1,8 @@
 ---
 edges:
-  - objective: flow-stack-workflows
+  - objective: flow-fold-stack-skills-into-workflow-tier
     annotation: Downstream consumer; it folds the repair loop into Flow's ns-flow-* workflow tier once this record's final skill rewrite and address exec triage push-down land.
-  - objective: flow-pi-tier
+  - objective: flow-pi-tier-stack-view-promotion
     annotation: Downstream consumer; it promotes stack:view into Flow's Pi tier consuming this record's enriched branch-pr-checks as backend, resolving the stack-view single-source-of-truth open question.
 ---
 
@@ -117,5 +117,5 @@ and the July 14 changes only linked downstream Flow Objectives; all roadmap rows
 open. No completion claim is made: the skill rewrite, enriched `branch-pr-checks`
 contract and implementation, failed-check log command, push-down audit, and backend
 decision remain unresolved. The edges are retained as historical coordination context;
-`flow-stack-workflows` and `flow-pi-tier` must re-plan rather than assume this Objective
+`flow-fold-stack-skills-into-workflow-tier` and `flow-pi-tier-stack-view-promotion` must re-plan rather than assume this Objective
 will deliver their described upstream primitives.
