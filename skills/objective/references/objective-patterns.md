@@ -58,7 +58,7 @@ never with steelthread. Deep guidance: `references/standing-objectives.md`. Crea
 ### Autoobjective
 
 An Objective whose roadmap and runner policy are intentionally shaped for repeated
-Objective Runner steps with parent-LM checkpoints between committed slices (ADR 0022).
+Objective Runner steps with parent-LM checkpoints between committed slices (ADR 0040).
 Colloquial shorthand for autonomous-pursuit design — do not formalize as schema, type,
 or required wording. Product hook: `ns objective exec runner-step <slug>`, which refuses
 records that do not satisfy its preconditions. Composes with either horizon; a

@@ -1,6 +1,8 @@
-# ADR 0016: GitHub gateway layering and the `sdl-sdk` author package
+# ADR 0039: GitHub gateway layering and the `sdl-sdk` author package
 
 ## Status
+
+Renumbered from ADR 0016 on 2026-07-20 to resolve a duplicate number (0016 stays with the earlier-created skill-invocation context-budget ADR); content otherwise unchanged.
 
 Accepted — refines ADR 0009 (Extension Layering and the Extension Dependency Graph)
 and ADR 0004 (pr-address TypeScript Package Boundary). Both stand as written; this ADR

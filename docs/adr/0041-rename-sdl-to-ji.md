@@ -1,5 +1,7 @@
 # Rename SDL to ji
 
+> Renumbered from ADR 0024 on 2026-07-20 to resolve a duplicate number (0024 stays with the earlier-created Objective Runner begin/finish ADR); content otherwise unchanged.
+
 The product renames from SDL ("Source Development Lifecycle") to **ji** — a proper name
 with no expansion, always lowercase, including at sentence starts (rewrite the sentence
 rather than capitalize). Never `JI`, `Ji`, or an acronym. Pronounced "jee".

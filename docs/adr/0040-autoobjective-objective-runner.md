@@ -1,6 +1,8 @@
-# ADR 0022: Autoobjective prose pattern and Objective Runner step workflow
+# ADR 0040: Autoobjective prose pattern and Objective Runner step workflow
 
 ## Status
+
+Renumbered from ADR 0022 on 2026-07-20 to resolve a duplicate number (0022 stays with the earlier-created manifest-declared-subpackages ADR); content otherwise unchanged.
 
 Accepted; superseded in part by ADR 0024 (invocation surface, report medium, child-dispatch ownership)
 

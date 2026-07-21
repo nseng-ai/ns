@@ -10,7 +10,7 @@ Drive one ns Objective forward through repeated verified runner steps. You are t
 
 Use the `objective` umbrella skill first for shared vocabulary and safety rules, and the `objective-runner-step` skill for the per-step contract (the three-phase flow, flags, checkpoint zones, exit codes, post-checkpoint playbook). This skill owns only the loop around it.
 
-This is parent-judgment iteration per ADR 0022/0024, not batch mode. The runner deliberately has no multi-step or retry behavior; the loop exists only as your repeated, judged re-invocation.
+This is parent-judgment iteration per ADR 0040/0024, not batch mode. The runner deliberately has no multi-step or retry behavior; the loop exists only as your repeated, judged re-invocation.
 
 ## Before the run
 

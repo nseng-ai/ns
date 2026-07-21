@@ -4,11 +4,11 @@
 
 Accepted
 
-Refines ADR 0022 and ADR 0024 only for conditional post-checkpoint publication. Their implementation-child prohibition, runner-owned commit, verification gate, Runner Checkpoint trust split, and parent-judgment decisions remain unchanged.
+Refines ADR 0040 (formerly numbered 0022) and ADR 0024 only for conditional post-checkpoint publication. Their implementation-child prohibition, runner-owned commit, verification gate, Runner Checkpoint trust split, and parent-judgment decisions remain unchanged.
 
 ## Context
 
-ADR 0022 made every Objective Runner step local-only so an implementation child could not turn a prose execution policy into external-write authority. ADR 0024 moved child dispatch into the parent harness without changing that boundary. The resulting absolute rule is safe, but it also prevents trusted orchestration from publishing work after the runner has verified and committed it.
+ADR 0040 made every Objective Runner step local-only so an implementation child could not turn a prose execution policy into external-write authority. ADR 0024 moved child dispatch into the parent harness without changing that boundary. The resulting absolute rule is safe, but it also prevents trusted orchestration from publishing work after the runner has verified and committed it.
 
 A publish-capable autorun must not collapse the two trust zones. The implementation child is untrusted narrative and implementation work: it receives no publication authorization, target, summary artifact, scratch path, or credential, and it cannot commit or perform an external write. The parent is trusted orchestration: it reads runner-attested checkpoint facts, makes the tracking and continuation judgments, and may invoke a narrow publisher only when a human explicitly authorized that invocation.
 

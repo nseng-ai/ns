@@ -26,7 +26,7 @@ Current export classification:
 - **Stable through the Address seam:** `GithubStatusChecks`, `GithubStatusCheckEntry`, `GithubCheckTally`, `GithubCheckBucket`, `GithubStatusCheckKind`. Import these from `@nseng-ai/pr-feedback/api` when consuming `getPrChecks`/`pr-checks` payloads. The generic status normalization mechanics remain neutral infra in `@nseng-ai/capability-kit/github/pr-status`.
 - **Not Capability API:** `GithubPrFeedbackGateway`, `RealGithubPrFeedbackGateway`, GraphQL args/queries/schemas/normalizers, command schemas, Clinkr/exec wrappers, Pi presentation/session helpers. These remain kit contract, real-adapter, command-face, or Presentation Host implementation details.
 
-ADR 0016 keeps PR Address as the capability-facing seam: reusable GitHub backend mechanics may live in `@nseng-ai/capability-kit/github`, while seam consumers import only the Address Capability API.
+ADR 0039 (formerly numbered 0016) keeps PR Address as the capability-facing seam: reusable GitHub backend mechanics may live in `@nseng-ai/capability-kit/github`, while seam consumers import only the Address Capability API.
 
 ## Distribution
 

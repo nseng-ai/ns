@@ -1,6 +1,8 @@
-# ADR 0012: Capabilities sit above the Capability Kit; the `@sdl/pi` runtime host holds no domain
+# ADR 0038: Capabilities sit above the Capability Kit; the `@sdl/pi` runtime host holds no domain
 
 ## Status
+
+Renumbered from ADR 0012 on 2026-07-20 to resolve a duplicate number (0012 stays with the earlier-created Clinkr output-volume ADR); content otherwise unchanged.
 
 Accepted — refines ADR 0009 (Extension Layering and the Extension Dependency Graph). ADR
 0009 stands as written; this ADR sharpens its "above the SDK" tier and adds one rule it

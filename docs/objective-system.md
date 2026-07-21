@@ -423,7 +423,7 @@ ADR 0037 permits a separate conditional action by trusted parent orchestration o
 
 The parent-owned managed section contains the Objective slug, ordered Runner commits and validation outcomes, material tracking commits when present, and parent-judged escalatable decisions. It replaces one slug-bound region while preserving all other PR prose. No permission or publication artifact reaches the implementation child, and this exception does not include PR creation, stack submission/restacking, force-push, merge/land, deployment, or arbitrary external writes.
 
-Core step design lives in ADR 0022 (Objective Runner) and ADR 0024 (decomposed begin/finish); the conditional parent publication contract lives in ADR 0037. The parent-facing step contract lives in `skills/objective-runner-step/SKILL.md`, and the loop around repeated steps in `skills/objective-autorun/SKILL.md`. The legacy blocking `ns objective exec runner-step` remains only during the transition and is scheduled for deletion.
+Core step design lives in ADR 0040 (Objective Runner; formerly numbered 0022) and ADR 0024 (decomposed begin/finish); the conditional parent publication contract lives in ADR 0037. The parent-facing step contract lives in `skills/objective-runner-step/SKILL.md`, and the loop around repeated steps in `skills/objective-autorun/SKILL.md`. The legacy blocking `ns objective exec runner-step` remains only during the transition and is scheduled for deletion.
 
 ### `ns objective exec runner-subagent-usage`
 

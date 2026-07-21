@@ -3,7 +3,7 @@
 The product renames from ji to **ns** — a proper name, always lowercase, including at
 sentence starts (rewrite the sentence rather than capitalize). Never `NS` or `Ns` as the
 product name; `NS_*` environment variables are ordinary env-var uppercase, not brand
-casing. Decided July 2026, one day after ADR 0024's sdl→ji rename landed; this ADR
+casing. Decided July 2026, one day after the sdl→ji rename of ADR 0041 (numbered 0024 when this was written) landed; this ADR
 supersedes 0024's name verdict while carrying its cutover doctrine forward. (Numbering
 note: the sequence contains two 0024s by accident and an 0025, so this is 0026.)
 
@@ -20,7 +20,7 @@ Unlike ji, which stood for nothing, ns means three things at once:
 - **Nick Schrock's initials** — a private signature.
 
 The two-letter infrastructure register (`gt`, `gh`, `jj`; `uv` and `ty` before them in
-ADR 0024) carries over unchanged.
+ADR 0041, then numbered 0024) carries over unchanged.
 
 The cutover is hard, phased across one day, and ships zero compatibility codepaths: no
 `ji` alias bin, no `.ji/` or legacy-XDG read fallback, no `/ji:*` Pi aliases. Phase one
