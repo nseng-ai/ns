@@ -274,8 +274,8 @@ export function buildResolverPrompt(
 	const trimmedArgs = args.trim();
 	const contextMessage =
 		promptContext.type === "interrupted-restack"
-			? "Inherited wrapper evidence: structured full-scope preflight already reported rebaseInProgress=true."
-			: "Inherited wrapper evidence: full-scope preflight passed, then the deterministic /code:gt-restack-resolve fast path ran `gt restack` and did not complete cleanly.";
+			? "Inherited wrapper evidence: structured downstack preflight already reported rebaseInProgress=true."
+			: "Inherited wrapper evidence: downstack preflight passed, then the deterministic /code:gt-restack-resolve fast path ran `gt restack` and did not complete cleanly.";
 	const base = `${skillBlock}\n\n${contextMessage}`;
 	if (trimmedArgs.length === 0) return base;
 	return `${base}\n\nAdditional user-supplied context:\n\n${buildFencedTextBlock(trimmedArgs)}`;

@@ -199,7 +199,7 @@ describe("smart restack extension registration", () => {
 });
 
 describe("smart restack default preflight wiring", () => {
-	test("runs the ns full-scope preflight adapter before gt restack", async () => {
+	test("runs the ns downstack preflight adapter before gt restack", async () => {
 		const pi = new FakePi([
 			rawResult({
 				stdout: JSON.stringify({
@@ -210,8 +210,8 @@ describe("smart restack default preflight wiring", () => {
 						tracked: true,
 						rebaseInProgress: false,
 						hasUpstackChildren: true,
-						requestedScope: "full",
-						effectiveScope: "full",
+						requestedScope: "downstack",
+						effectiveScope: "downstack",
 						branches: ["feature/current"],
 						slotConflicts: [],
 						warnings: [],
@@ -229,7 +229,16 @@ describe("smart restack default preflight wiring", () => {
 		expect(pi.execCalls).toEqual([
 			{
 				command: "ns",
-				args: ["slot", "gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
+				args: [
+					"slot",
+					"gt",
+					"exec",
+					"restack-preflight",
+					"--scope",
+					"downstack",
+					"--format",
+					"json",
+				],
 				cwd: "/repo",
 			},
 			{ command: "gt", args: ["restack"], cwd: "/repo" },
@@ -268,7 +277,16 @@ describe("smart restack default preflight wiring", () => {
 		expect(pi.execCalls).toEqual([
 			{
 				command: "ns",
-				args: ["slot", "gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
+				args: [
+					"slot",
+					"gt",
+					"exec",
+					"restack-preflight",
+					"--scope",
+					"downstack",
+					"--format",
+					"json",
+				],
 				cwd: "/repo",
 			},
 		]);
@@ -302,7 +320,16 @@ describe("smart restack default preflight wiring", () => {
 		expect(pi.execCalls).toEqual([
 			{
 				command: "ns",
-				args: ["slot", "gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
+				args: [
+					"slot",
+					"gt",
+					"exec",
+					"restack-preflight",
+					"--scope",
+					"downstack",
+					"--format",
+					"json",
+				],
 				cwd: "/repo",
 			},
 		]);
@@ -327,7 +354,7 @@ describe("smart restack workflow", () => {
 		expect(pi.execCalls).toEqual([]);
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(pi.sentUserMessages[0]).toContain(
-			"structured full-scope preflight already reported rebaseInProgress=true",
+			"structured downstack preflight already reported rebaseInProgress=true",
 		);
 		expect(pi.sentUserMessages[0]).toContain("continue carefully");
 	});
@@ -372,7 +399,7 @@ describe("smart restack workflow", () => {
 		]);
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(pi.sentUserMessages[0]).toContain(
-			"full-scope preflight passed, then the deterministic /code:gt-restack-resolve fast path ran `gt restack`",
+			"downstack preflight passed, then the deterministic /code:gt-restack-resolve fast path ran `gt restack`",
 		);
 		expect(pi.sentUserMessages[0]).toContain("prefer parent stack");
 	});
@@ -485,10 +512,10 @@ describe("resolver prompt", () => {
 		});
 
 		expect(interrupted).toBe(
-			"<skill>body</skill>\n\nInherited wrapper evidence: structured full-scope preflight already reported rebaseInProgress=true.",
+			"<skill>body</skill>\n\nInherited wrapper evidence: structured downstack preflight already reported rebaseInProgress=true.",
 		);
 		expect(failedFastPath).toBe(
-			"<skill>body</skill>\n\nInherited wrapper evidence: full-scope preflight passed, then the deterministic /code:gt-restack-resolve fast path ran `gt restack` and did not complete cleanly.",
+			"<skill>body</skill>\n\nInherited wrapper evidence: downstack preflight passed, then the deterministic /code:gt-restack-resolve fast path ran `gt restack` and did not complete cleanly.",
 		);
 	});
 });

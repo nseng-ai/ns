@@ -90,7 +90,7 @@ export function createCommandRestackPreflight(
 	return async ({ cwd }) => {
 		const result = await options.commands.exec(
 			"ns",
-			["slot", "gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
+			["slot", "gt", "exec", "restack-preflight", "--scope", "downstack", "--format", "json"],
 			{ cwd, timeout: RESTACK_PREFLIGHT_TIMEOUT_MS },
 		);
 		if (result.type !== "exited" || result.signal !== null) return commandRefusal(result);
@@ -193,7 +193,7 @@ function formatNegativeRefusal(message: string, data: RestackPreflightData | und
 		...(data?.clean === false ? ["The current worktree has uncommitted changes."] : []),
 		...(data?.tracked === false ? ["The current branch is not tracked by Graphite."] : []),
 		...(data !== undefined && data.slotConflicts.length > 0
-			? [`The full restack scope has ${data.slotConflicts.length} Slot conflict(s).`]
+			? [`The downstack restack scope has ${data.slotConflicts.length} Slot conflict(s).`]
 			: []),
 	];
 	return [...reasons, message, "Not starting gt restack."].join("\n\n");
