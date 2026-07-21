@@ -1,8 +1,10 @@
-# ADR 0023: Build Pi Explore Subagents on the Runner-Subagent Substrate
+# ADR 0042: Build Pi Explore Subagents on the Runner-Subagent Substrate
 
 ## Status
 
-Accepted; the separate model-visible `explore` tool consequence is superseded by ADR 0032. The runner-subagent substrate decision remains current.
+Renumbered from ADR 0023 on 2026-07-20 to resolve a duplicate number (0023 stays with the earlier-created subpackage-kinds ADR); content otherwise unchanged.
+
+Accepted; the separate model-visible `explore` tool consequence is superseded by ADR 0043 (formerly numbered 0032). The runner-subagent substrate decision remains current.
 
 ## Context
 

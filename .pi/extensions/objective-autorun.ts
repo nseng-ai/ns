@@ -11,7 +11,7 @@ import type { z as ZodNamespace } from "zod";
 // `@nseng-ai/objectives/pi`; this local extension only registers the `objective_runner_step` tool,
 // which mechanically wraps ONE runner step (runner-begin → implementation subagent with live widget
 // → runner-finish) and returns the Runner Checkpoint for the parent to judge. Judgment stays in the
-// parent LLM per ADR 0022/0024.
+// parent LLM per ADR 0040/0024.
 //
 // Promotion path, once the flow proves itself in real Pi runs: lift this tool into a new
 // `@internal/pi-tools` subpackage beside thermo-council (package.json `exports` + `ns.subpackages` +

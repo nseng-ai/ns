@@ -11,7 +11,7 @@ export interface ComposeRunnerCommitMessageOptions {
 
 /**
  * Child-proposed subject/body plus the deterministic provenance trailers that
- * make runner-produced commits mechanically identifiable (ADR 0022).
+ * make runner-produced commits mechanically identifiable (ADR 0040).
  */
 export function composeRunnerCommitMessage(options: ComposeRunnerCommitMessageOptions): string {
 	const trailers = [`Objective-Runner-Step: ${options.slug}`];

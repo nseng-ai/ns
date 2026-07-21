@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — refines ADR 0018 (and through it ADR 0009, ADR 0012, ADR 0016).
+Accepted — refines ADR 0018 (and through it ADR 0009, ADR 0038 — formerly 0012 — and ADR 0039 — formerly 0016).
 
 (amended by ADR 0029: the `@sdl/core`/`ts/packages/infra/core` paths cited throughout this ADR's
 per-domain placement table are now `@nseng-ai/foundation` at `ts/packages/infra/foundation`; the

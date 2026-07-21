@@ -153,7 +153,7 @@ export default {
     { title: `<span class="font-mono text-base">pr-address</span> ships an API but no command face`,
       strength: "Speculative", tag: "api-only anomaly",
       problem: `The model says a capability <em>mandatorily</em> exposes a command face and adds <span class="font-mono text-sm">/api</span> only where a consumer needs it. <span class="font-mono text-sm">@nseng-ai/pr-feedback</span> exposes <em>only</em> <span class="font-mono text-sm">./api</span> — the inverse — and has zero runtime fan-in, so the API it ships is currently unconsumed.`,
-      solution: `Confirm intent during the pr-address capability migration: either it is a pure provider seam owned per ADR 0016 (acceptable, document it), or it is a capability still missing its command face (then add one).`,
+      solution: `Confirm intent during the pr-address capability migration: either it is a pure provider seam owned per ADR 0039 (acceptable, document it), or it is a capability still missing its command face (then add one).`,
       wins: ["resolves a model exception", "confirms the PR-feedback seam owner"] },
   ],
 

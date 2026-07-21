@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — refines ADR 0009, ADR 0012, ADR 0016, and ADR 0017. Refined by ADR 0019, which
+Accepted — refines ADR 0009, ADR 0038 (formerly 0012), ADR 0039 (formerly 0016), and ADR 0017. Refined by ADR 0019, which
 adds a package-placement gate: this ADR's per-domain *bucket* stands, but the *concrete package*
 that owns a large real implementation (and whether it folds into `@sdl/capability-kit` or stays in
 a standalone/deferred home) is governed by ADR 0019.
@@ -24,8 +24,8 @@ look coherent in manifests while capabilities still reached raw process, git, Gi
 clock, timer, and command-output mechanics directly.
 
 ADR 0009 established gateway-injected capability cores and rejected freezing derived gateways such
-as `ctx.git` into the SDK. ADR 0012 split the above-SDK tier into Capability Kit plus
-Capabilities and kept product domain out of the kit. ADR 0016 placed GitHub real mechanics in
+as `ctx.git` into the SDK. ADR 0038 (then 0012) split the above-SDK tier into Capability Kit plus
+Capabilities and kept product domain out of the kit. ADR 0039 (then 0016) placed GitHub real mechanics in
 `@sdl/core` while keeping the Address PR-feedback seam in `@sdl/address/api`. The current target
 architecture needs a sharper rule: neutral infra is pure; first-party real-world/external-tool
 gateways live in Capability Kit; intrinsic host services are reached through the SDK API object;
@@ -51,7 +51,7 @@ Each exported lower-level module is classified by how consumers should reach it.
    through `ctx`. This lives in the kernel or a named neutral CLI-runtime infra home, not in
    `@sdl/core` long term.
 
-This refines ADR 0016: GitHub identity, status, CLI, and PR-feedback real mechanics no longer
+This refines ADR 0039 (formerly 0016): GitHub identity, status, CLI, and PR-feedback real mechanics no longer
 belong in `@sdl/core` as target architecture. They belong under `@sdl/capability-kit/github` (with
 narrower subpaths as needed), while the PR-feedback capability-facing seam remains owned by
 `@sdl/address/api`.
@@ -120,7 +120,7 @@ Source of truth: `ts/packages/infra/core/package.json` export map at the time of
 - SDK-provided services are limited to intrinsic host services reached through `ctx`, such as
   command I/O, progress, stdin/input, time, and timers. This is not permission to move every
   non-deterministic helper into the SDK.
-- ADR 0016 remains historical for the Address seam decision, but its target placement of GitHub
+- ADR 0039 (formerly 0016) remains historical for the Address seam decision, but its target placement of GitHub
   real mechanics in `@sdl/core` is superseded by this ADR.
 - `@sdl/brmem` remains parked for a separate follow-up. This ADR does not relocate that package or
   resolve its eventual SDK-provided surface.

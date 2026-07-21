@@ -1,6 +1,6 @@
 /**
  * `runner-finish` operation (ADR 0024): validates the parent-held step facts
- * and the subagent-written JSON report fail-closed, then follows the ADR 0022
+ * and the subagent-written JSON report fail-closed, then follows the ADR 0040
  * terminal paths unchanged — stop/blocked passthrough, five-part verification
  * gate, runner-owned commit with provenance trailers, two-zone Runner
  * Checkpoint. Run by the parent, never the subagent.
@@ -103,7 +103,7 @@ export type RunnerFinishResult = z.infer<typeof runnerFinishResultSchema>;
 /**
  * Runs the finish bookend.
  *
- * Exit mapping preserves ADR 0022 semantics: `ok` = committed/stop; `negative`
+ * Exit mapping preserves ADR 0040 semantics: `ok` = committed/stop; `negative`
  * = blocked/verification-failed (checkpoint tactically written to stdout for
  * human/markdown modes, suppressed in JSON mode); `failure` = malfunction
  * (missing/invalid report, commit failure) with a best-effort checkpoint;

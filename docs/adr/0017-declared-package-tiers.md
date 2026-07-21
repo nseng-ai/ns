@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-ADR 0009 established the Extension Dependency Graph invariant and ADR 0012 refined where domain package layers belong: capability domain lives in Capabilities above the SDK, not in the Pi host, Capability Kit, or SDL kernel. ADR 0016 clarified the GitHub gateway / SDK package boundary.
+ADR 0009 established the Extension Dependency Graph invariant and ADR 0038 (numbered 0012 when this was written) refined where domain package layers belong: capability domain lives in Capabilities above the SDK, not in the Pi host, Capability Kit, or SDL kernel. ADR 0039 (then 0016) clarified the GitHub gateway / SDK package boundary.
 
 The architecture topology report already used colors and tier bands to explain this model, but those tiers were editorial per report run. A report spec had to hand-classify packages with abbreviated tier ids, and the TypeScript style guard enforced adjacent concerns (deep capability imports and extension cycles) without a manifest source of truth for package tiering.
 
@@ -40,4 +40,4 @@ The TypeScript style guard enforces that every workspace package has a known tie
 - New upward layer edges and new transitional consumers fail the TypeScript style guard.
 - `CONTEXT.md`, `CONTEXT-MAP.md`, report docs, and guard tests carry the same seven-tier vocabulary.
 
-This ADR refines ADR 0009, ADR 0012 domain-package-layer, and ADR 0016; it does not rewrite their historical text.
+This ADR refines ADR 0009, ADR 0038 domain-package-layer (formerly 0012), and ADR 0039 (formerly 0016); it does not rewrite their historical text.

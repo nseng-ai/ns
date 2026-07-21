@@ -1,10 +1,12 @@
-# ADR 0032: Unify subagent tool and runtime selection
+# ADR 0043: Unify subagent tool and runtime selection
 
 ## Status
 
+Renumbered from ADR 0032 on 2026-07-20 to resolve a duplicate number (0032 stays with the earlier-created Neutral-Infra-admission ADR); content otherwise unchanged.
+
 Accepted
 
-This ADR partly supersedes the model-visible-tool consequence of ADR 0023. The runner-subagent subprocess and protocol substrate from that decision remains current.
+This ADR partly supersedes the model-visible-tool consequence of ADR 0042 (formerly numbered 0023). The runner-subagent subprocess and protocol substrate from that decision remains current.
 
 ## Context
 
