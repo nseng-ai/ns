@@ -29,6 +29,7 @@ import {
 	parseArgs,
 	registerLandStackRenderer,
 } from "../../src/land/land-stack.ts";
+import { runLandCli } from "../../src/land/land.ts";
 import type { PullRequestFacts } from "../../src/land/api.ts";
 import type {
 	LandStackExtensionAPI,
@@ -3045,6 +3046,104 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain(
 			"Submit/update failed after merging #101; stopping before merging feature-b.",
 		);
+	});
+
+	test("dispatch prompts once with the canonical plan after healthy preflight", async () => {
+		const pi = new FakePi(linearStackLandingScript(3));
+		const confirmations: Confirmation[] = [];
+
+		const exitCode = await runLandCli({
+			cwd: ROOT,
+			rawArgs: "",
+			exec: async (command, args, options) => await pi.exec(command, args, options),
+			stdout: () => {},
+			stderr: () => {},
+			progressIo: noopNsCommandIo,
+			confirm: async (title, message) => {
+				confirmations.push({ title, message });
+				return true;
+			},
+		});
+
+		pi.assertDone();
+		expect(exitCode).toBe(0);
+		expect(confirmations.map((confirmation) => confirmation.title)).toEqual([
+			"Land this stack path?",
+		]);
+		expect(confirmations[0]?.message).toContain("Land Graphite stack path: main -> feature-1");
+		expect(confirmations[0]?.message).toContain("Landing target branch: feature-3");
+	});
+
+	test.each([
+		{
+			state: "MERGED" as const,
+			expected: ["already MERGED", "repair/reparent/restack", "Submit", "rerun /ns:flow:land"],
+		},
+		{
+			state: "CLOSED" as const,
+			expected: ["is CLOSED", "Reopen", "remove, replace, or retarget", "rerun /ns:flow:land"],
+		},
+	])("dispatch rejects a batched $state PR before confirmation or mutation", async (scenario) => {
+		const branches = [numberedBranch(1), numberedBranch(2), numberedBranch(3)];
+		const prs = branches.map((branch, offset) => {
+			const index = offset + 1;
+			return prSnapshot({
+				number: 200 + index,
+				branch,
+				base: index === 1 ? TRUNK : numberedBranch(index - 1),
+				sha: numberedSha(index),
+				state: index === 1 ? scenario.state : "OPEN",
+				title: `PR ${200 + index}`,
+			});
+		});
+		const pi = new FakePi([
+			...repoIntro({ current: numberedBranch(3), dbRows: numberedDb(1, 3) }),
+			...cleanRepoChecks(),
+			step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
+				stdout: `${JSON.stringify({ nameWithOwner: "owner/repo" })}\n`,
+			}),
+			step("gh", batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, branches), {
+				stdout: batchedPrStdout(prs),
+			}),
+		]);
+		const output: string[] = [];
+		const confirmations: Confirmation[] = [];
+		const progressIo = {
+			phase: (message: string) => output.push(message),
+			notify: (message: string) => output.push(message),
+			message: (message: string) => output.push(message),
+			clearPhase: () => {},
+		};
+
+		const exitCode = await runLandCli({
+			cwd: ROOT,
+			rawArgs: "",
+			exec: async (command, args, options) => await pi.exec(command, args, options),
+			stdout: (text) => output.push(text),
+			stderr: (text) => output.push(text),
+			progressIo,
+			confirm: async (title, message) => {
+				confirmations.push({ title, message });
+				return true;
+			},
+		});
+
+		pi.assertDone();
+		expect(exitCode).toBe(1);
+		expect(confirmations).toEqual([]);
+		const text = output.join("\n");
+		expect(text).toContain("#201 feature-1");
+		for (const expected of scenario.expected) expect(text).toContain(expected);
+		expect(text).not.toContain("unexpected shape");
+		expect(
+			pi.execCalls.some(
+				(call) =>
+					(call.command === "gh" && call.args.includes("merge")) ||
+					(call.command === "gt" && ["restack", "submit", "delete"].includes(call.args[0] ?? "")) ||
+					(call.command === "git" && call.args[0] === "update-ref") ||
+					(call.command === "ns" && call.args[0] === "slot"),
+			),
+		).toBe(false);
 	});
 
 	test("PR preflight failures refuse before worktree checks or mutation", async () => {

@@ -21,7 +21,6 @@ import {
 	failureLevel,
 	notifyPrintAware,
 	presentFailureAndReturn,
-	renderLandConfirmationDetails,
 	renderLandResultBlockFromMessage,
 	usage,
 } from "./land-presentation.ts";
@@ -189,13 +188,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 					// CLI-only house-style renderers. Wired only here, so the shared orchestration's
 					// `presentBrief`/`notify` stay plain in the Pi command-stream path — ANSI never leaks into
 					// `renderCommandStreamMessage` or non-interactive refusal text.
-					...(caps === undefined
-						? {}
-						: {
-								renderResultBlock: createCliResultBlockRenderer(caps),
-								renderConfirmationDetails: (details) =>
-									renderLandConfirmationDetails(caps, details),
-							}),
+					...(caps === undefined ? {} : { renderResultBlock: createCliResultBlockRenderer(caps) }),
 				},
 				observabilityChannels,
 			),

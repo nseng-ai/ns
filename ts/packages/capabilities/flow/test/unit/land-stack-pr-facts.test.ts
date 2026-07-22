@@ -3,7 +3,12 @@ import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { type LandResult } from "../../src/land/results.ts";
 import { PR_FIELDS } from "../../src/land/stack/constants.ts";
-import { loadPr } from "../../src/land/stack/pr-facts.ts";
+import {
+	GH_REPO_VIEW_NAME_WITH_OWNER_ARGS,
+	batchedPullRequestFactsGraphqlArgs,
+	loadPr,
+	loadPrsByBranch,
+} from "../../src/land/stack/pr-facts.ts";
 import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
 
 const ROOT = "/repo";
@@ -11,6 +16,10 @@ const ROOT = "/repo";
 const TRUNK = "main";
 
 const SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const SHA_B = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+const SHA_C = "cccccccccccccccccccccccccccccccccccccccc";
+
+const BRANCHES = ["feature-a", "feature-b", "feature-c"] as const;
 
 type MessageRenderer = Parameters<NonNullable<LandStackExtensionAPI["registerMessageRenderer"]>>[1];
 
@@ -117,6 +126,115 @@ function expectFailure<T>(result: LandResult<T>) {
 function step(command: string, args: string[], result?: ExitedResultFields): ScriptedExec {
 	return { command, args, result };
 }
+
+function prFacts(options: {
+	branch: string;
+	number: number;
+	state: "OPEN" | "MERGED" | "CLOSED";
+	sha: string;
+}) {
+	return {
+		id: `PR_node_${options.number}`,
+		number: options.number,
+		title: `PR ${options.number}`,
+		body: null,
+		state: options.state,
+		isDraft: false,
+		headRefName: options.branch,
+		baseRefName: TRUNK,
+		headRefOid: options.sha,
+		mergeStateStatus: "CLEAN",
+		url: `https://github.example/pull/${options.number}`,
+		mergedAt: options.state === "MERGED" ? "2026-07-01T00:00:00Z" : null,
+	};
+}
+
+function batchedSteps(repository: Record<string, unknown>): ScriptedExec[] {
+	return [
+		step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
+			stdout: JSON.stringify({ nameWithOwner: "owner/repo" }),
+		}),
+		step("gh", batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, BRANCHES), {
+			stdout: JSON.stringify({ data: { repository } }),
+		}),
+	];
+}
+
+describe("loadPrsByBranch batched boundary parsing", () => {
+	test.each(["MERGED", "CLOSED"] as const)("loads a valid %s PR candidate", async (state) => {
+		const first = prFacts({ branch: BRANCHES[0], number: 101, state, sha: SHA_A });
+		const pi = new FakePi(
+			batchedSteps({
+				b0: { nodes: [first] },
+				b1: {
+					nodes: [prFacts({ branch: BRANCHES[1], number: 102, state: "OPEN", sha: SHA_B })],
+				},
+				b2: {
+					nodes: [prFacts({ branch: BRANCHES[2], number: 103, state: "OPEN", sha: SHA_C })],
+				},
+			}),
+		);
+
+		const prs = expectSuccess(await loadPrsByBranch(pi, ROOT, BRANCHES));
+
+		pi.assertDone();
+		expect(prs.get(BRANCHES[0])).toMatchObject({ number: 101, state });
+	});
+
+	test("prefers the unique open PR over newer historical candidates", async () => {
+		const pi = new FakePi(
+			batchedSteps({
+				b0: {
+					nodes: [
+						prFacts({ branch: BRANCHES[0], number: 111, state: "CLOSED", sha: SHA_A }),
+						prFacts({ branch: BRANCHES[0], number: 101, state: "OPEN", sha: SHA_A }),
+					],
+				},
+				b1: {
+					nodes: [prFacts({ branch: BRANCHES[1], number: 102, state: "OPEN", sha: SHA_B })],
+				},
+				b2: {
+					nodes: [prFacts({ branch: BRANCHES[2], number: 103, state: "OPEN", sha: SHA_C })],
+				},
+			}),
+		);
+
+		const prs = expectSuccess(await loadPrsByBranch(pi, ROOT, BRANCHES));
+
+		expect(prs.get(BRANCHES[0])).toMatchObject({ number: 101, state: "OPEN" });
+	});
+
+	test("reports an absent PR separately from malformed batched output", async () => {
+		const absentPi = new FakePi(
+			batchedSteps({ b0: { nodes: [] }, b1: { nodes: [] }, b2: { nodes: [] } }),
+		);
+		expect(expectFailure(await loadPrsByBranch(absentPi, ROOT, BRANCHES)).message).toContain(
+			"No GitHub pull request is associated with branch feature-a",
+		);
+
+		const malformedPi = new FakePi(
+			batchedSteps({ b0: { nodes: "invalid" }, b1: { nodes: [] }, b2: { nodes: [] } }),
+		);
+		expect(expectFailure(await loadPrsByBranch(malformedPi, ROOT, BRANCHES)).message).toContain(
+			"unexpected shape",
+		);
+	});
+
+	test("rejects multiple open candidates as ambiguous", async () => {
+		const open = prFacts({ branch: BRANCHES[0], number: 101, state: "OPEN", sha: SHA_A });
+		const pi = new FakePi(
+			batchedSteps({
+				b0: { nodes: [open, { ...open, id: "PR_node_111", number: 111 }] },
+				b1: { nodes: [prFacts({ branch: BRANCHES[1], number: 102, state: "OPEN", sha: SHA_B })] },
+				b2: { nodes: [prFacts({ branch: BRANCHES[2], number: 103, state: "OPEN", sha: SHA_C })] },
+			}),
+		);
+
+		expect(expectFailure(await loadPrsByBranch(pi, ROOT, BRANCHES)).message).toContain(
+			"unexpected shape",
+		);
+	});
+});
 
 describe("loadPr boundary parsing", () => {
 	function prViewStep(result: ExitedResultFields): ScriptedExec {

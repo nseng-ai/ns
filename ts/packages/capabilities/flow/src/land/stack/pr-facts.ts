@@ -12,9 +12,9 @@ interface GitHubRepositoryName {
 	readonly name: string;
 }
 
-interface BatchedPullRequestParseResult {
-	readonly prs: ReadonlyMap<string, PullRequestFacts>;
-}
+type BatchedPullRequestParseResult =
+	| { readonly type: "success"; readonly prs: ReadonlyMap<string, PullRequestFacts> }
+	| { readonly type: "missing-pr"; readonly branch: string };
 
 interface GhJsonRequest<T> {
 	readonly pi: LandStackExtensionAPI;
@@ -91,6 +91,13 @@ export async function loadPrsByBranch(
 		parse: (value) => parseBatchedPullRequestFacts(value, branches),
 	});
 	if (parsed.type === "failure") return parsed;
+	if (parsed.value.type === "missing-pr") {
+		return landFailure(
+			landingExecutionFailure(
+				`No GitHub pull request is associated with branch ${parsed.value.branch}.`,
+			),
+		);
+	}
 	return landSuccess(parsed.value.prs);
 }
 
@@ -164,7 +171,7 @@ function batchedPullRequestFactsQuery(branchCount: number): string {
 	const selections = Array.from(
 		{ length: branchCount },
 		(_, index) =>
-			`b${index}: pullRequests(headRefName: $head${index}, states: OPEN, first: 1) { nodes { ${prSelection} } }`,
+			`b${index}: pullRequests(headRefName: $head${index}, first: 10, orderBy: { field: UPDATED_AT, direction: DESC }) { nodes { ${prSelection} } }`,
 	).join(" ");
 	return `query(${variableDeclarations}) { repository(owner: $owner, name: $name) { ${selections} } }`;
 }
@@ -192,19 +199,22 @@ function parseBatchedPullRequestFacts(
 		const branch = branches[index];
 		if (branch === undefined) return undefined;
 		const connection = value.data.repository[`b${index}`];
-		if (
-			!isRecord(connection) ||
-			!Array.isArray(connection.nodes) ||
-			connection.nodes.length !== 1
-		) {
-			return undefined;
+		if (!isRecord(connection) || !Array.isArray(connection.nodes)) return undefined;
+		if (connection.nodes.length === 0) return { type: "missing-pr", branch };
+
+		const candidates: PullRequestFacts[] = [];
+		for (const node of connection.nodes) {
+			const pr = parsePullRequestFacts(node);
+			if (pr === undefined) return undefined;
+			candidates.push(pr);
 		}
-		const [node] = connection.nodes;
-		const pr = parsePullRequestFacts(node);
-		if (pr === undefined) return undefined;
-		prs.set(branch, pr);
+		const openCandidates = candidates.filter((candidate) => candidate.state === "OPEN");
+		if (openCandidates.length > 1) return undefined;
+		const selected = openCandidates[0] ?? candidates[0];
+		if (selected === undefined) return undefined;
+		prs.set(branch, selected);
 	}
-	return { prs };
+	return { type: "success", prs };
 }
 
 function parsePullRequestFacts(value: unknown): PullRequestFacts | undefined {

@@ -106,10 +106,7 @@ export async function executeStackLanding(
 			parsedArgs,
 			execution: options.execution ?? {
 				source: { type: "discover" },
-				approvedConfirmationKinds: approvedLandConfirmationKinds({
-					flags: parsedArgs,
-					hasUpfrontPromptApproval: false,
-				}),
+				approvedConfirmationKinds: approvedLandConfirmationKinds({ flags: parsedArgs }),
 			},
 			session,
 		});

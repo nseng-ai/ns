@@ -16,18 +16,6 @@ export interface LandProgressReporter {
  */
 export type LandResultKind = "success" | "refusal" | "failure";
 
-export interface LandConfirmationPlanRow {
-	label: string;
-	value: string;
-}
-
-export interface LandConfirmationPreview {
-	headline: string;
-	impactLines: readonly string[];
-	planRows: readonly LandConfirmationPlanRow[];
-	guidance: string;
-}
-
 export interface AutocompleteItem {
 	value: string;
 	label?: string;
@@ -86,8 +74,6 @@ export interface LandStackCommandContext {
 	 * the CLI context, house-style ANSI never leaks into the shared Pi surface.
 	 */
 	renderResultBlock?: (kind: LandResultKind, message: string) => string;
-	/** CLI-only structured stack-confirmation preview highlighter; never used for non-interactive refusal text. */
-	renderConfirmationDetails?: (details: LandConfirmationPreview) => string;
 }
 
 export interface PrintAwareLandStackCommandContext extends LandStackCommandContext {

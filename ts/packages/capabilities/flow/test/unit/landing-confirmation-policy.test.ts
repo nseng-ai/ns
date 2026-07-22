@@ -37,7 +37,7 @@ function managedShape(): LandingShape {
 	};
 }
 
-describe("upfront confirmation approval mapping", () => {
+describe("canonical confirmation approval mapping", () => {
 	test("--yes approves main and previewed cleanup but leaves pre-merge prompts canonical", () => {
 		const cleanupPreview = planPostLandingSlotCleanup({
 			args: expectParsed("--yes"),
@@ -46,33 +46,28 @@ describe("upfront confirmation approval mapping", () => {
 		expect([
 			...approvedLandConfirmationKinds({
 				flags: expectParsed("--yes"),
-				hasUpfrontPromptApproval: false,
 				...optionalEntry("cleanupPreview", cleanupPreview),
 			}),
 		]).toEqual(["main-landing", "post-landing-cleanup"]);
 	});
 
-	test("interactive upfront approval covers pre-merge requests and only previewed cleanup", () => {
+	test("--force approves only previewed cleanup", () => {
+		const cleanupPreview = planPostLandingSlotCleanup({
+			args: expectParsed("--force"),
+			shape: managedShape(),
+		});
 		expect([
 			...approvedLandConfirmationKinds({
 				flags: expectParsed("--force"),
-				hasUpfrontPromptApproval: true,
+				...optionalEntry("cleanupPreview", cleanupPreview),
 			}),
-		]).toEqual(["main-landing", "free-managed-slots", "submit-required-updates"]);
+		]).toEqual(["post-landing-cleanup"]);
 	});
 
-	test("dry run and unobserved approval grant no request kinds", () => {
+	test("interactive and dry-run calls grant no request kinds", () => {
+		expect(approvedLandConfirmationKinds({ flags: expectParsed("") })).toEqual(new Set());
 		expect(
-			approvedLandConfirmationKinds({
-				flags: expectParsed("--dry-run --yes"),
-				hasUpfrontPromptApproval: true,
-			}),
-		).toEqual(new Set());
-		expect(
-			approvedLandConfirmationKinds({
-				flags: expectParsed("--force"),
-				hasUpfrontPromptApproval: false,
-			}),
+			approvedLandConfirmationKinds({ flags: expectParsed("--dry-run --yes --force") }),
 		).toEqual(new Set());
 	});
 });
