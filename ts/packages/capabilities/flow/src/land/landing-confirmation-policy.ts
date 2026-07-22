@@ -12,12 +12,14 @@ export function approvedLandConfirmationKinds(options: {
 	readonly flags: Pick<ParsedArgs, "isDryRun" | "shouldSkipConfirmation" | "shouldForceCleanup">;
 	readonly cleanupPreview?: PostLandingSlotCleanupPreview;
 }): ReadonlySet<LandConfirmationRequest["kind"]> {
-	if (options.flags.isDryRun) return new Set();
-	return new Set<LandConfirmationRequest["kind"]>([
-		...(options.flags.shouldSkipConfirmation ? (["main-landing"] as const) : []),
-		...(options.cleanupPreview !== undefined &&
+	const approved = new Set<LandConfirmationRequest["kind"]>();
+	if (options.flags.isDryRun) return approved;
+	if (options.flags.shouldSkipConfirmation) approved.add("main-landing");
+	if (
+		options.cleanupPreview !== undefined &&
 		(options.flags.shouldSkipConfirmation || options.flags.shouldForceCleanup)
-			? (["post-landing-cleanup"] as const)
-			: []),
-	]);
+	) {
+		approved.add("post-landing-cleanup");
+	}
+	return approved;
 }

@@ -204,20 +204,61 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 		expect(prs.get(BRANCHES[0])).toMatchObject({ number: 101, state: "OPEN" });
 	});
 
-	test("reports an absent PR separately from malformed batched output", async () => {
-		const absentPi = new FakePi(
+	test("reports an absent PR", async () => {
+		const pi = new FakePi(
 			batchedSteps({ b0: { nodes: [] }, b1: { nodes: [] }, b2: { nodes: [] } }),
 		);
-		expect(expectFailure(await loadPrsByBranch(absentPi, ROOT, BRANCHES)).message).toContain(
+
+		expect(expectFailure(await loadPrsByBranch(pi, ROOT, BRANCHES)).message).toContain(
 			"No GitHub pull request is associated with branch feature-a",
 		);
+	});
 
-		const malformedPi = new FakePi(
-			batchedSteps({ b0: { nodes: "invalid" }, b1: { nodes: [] }, b2: { nodes: [] } }),
+	test("reports a malformed top-level envelope", async () => {
+		const pi = new FakePi([
+			step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
+				stdout: JSON.stringify({ nameWithOwner: "owner/repo" }),
+			}),
+			step("gh", batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, BRANCHES), {
+				stdout: JSON.stringify({ data: null }),
+			}),
+		]);
+
+		const message = expectFailure(await loadPrsByBranch(pi, ROOT, BRANCHES)).message;
+		expect(message).toContain("malformed top-level envelope");
+		expect(message).not.toContain("unexpected shape");
+	});
+
+	test("reports the branch with a malformed PR connection", async () => {
+		const pi = new FakePi(
+			batchedSteps({
+				b0: {
+					nodes: [prFacts({ branch: BRANCHES[0], number: 101, state: "OPEN", sha: SHA_A })],
+				},
+				b1: { nodes: "invalid" },
+				b2: { nodes: [] },
+			}),
 		);
-		expect(expectFailure(await loadPrsByBranch(malformedPi, ROOT, BRANCHES)).message).toContain(
-			"unexpected shape",
+
+		const message = expectFailure(await loadPrsByBranch(pi, ROOT, BRANCHES)).message;
+		expect(message).toContain("malformed PR connection");
+		expect(message).toContain("feature-b");
+	});
+
+	test("reports the branch with malformed PR candidate data", async () => {
+		const pi = new FakePi(
+			batchedSteps({
+				b0: {
+					nodes: [prFacts({ branch: BRANCHES[0], number: 101, state: "OPEN", sha: SHA_A })],
+				},
+				b1: { nodes: [{ number: 102 }] },
+				b2: { nodes: [] },
+			}),
 		);
+
+		const message = expectFailure(await loadPrsByBranch(pi, ROOT, BRANCHES)).message;
+		expect(message).toContain("malformed PR candidate data");
+		expect(message).toContain("feature-b");
 	});
 
 	test("rejects multiple open candidates as ambiguous", async () => {
@@ -230,9 +271,12 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 			}),
 		);
 
-		expect(expectFailure(await loadPrsByBranch(pi, ROOT, BRANCHES)).message).toContain(
-			"unexpected shape",
-		);
+		const message = expectFailure(await loadPrsByBranch(pi, ROOT, BRANCHES)).message;
+		expect(message).toContain("feature-a");
+		expect(message).toContain("#101");
+		expect(message).toContain("#111");
+		expect(message).toContain("cannot choose safely");
+		expect(message).not.toContain("unexpected shape");
 	});
 });
 
