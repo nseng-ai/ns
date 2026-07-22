@@ -7,6 +7,9 @@ import {
 	type ReviewDefinitionParseErrorCode,
 } from "../../src/core/review-definition.ts";
 
+const NS_TYPESCRIPT_STYLE_TRIPWIRE_PATH =
+	"../../../../../../.ns/reviews/ns-typescript-style-tripwire/review.md";
+
 interface RealReviewCase {
 	readonly path: string;
 	readonly name: string;
@@ -45,7 +48,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 		expectedLocalOnly: true,
 	},
 	{
-		path: "../../../../../../.ns/reviews/ns-typescript-style-tripwire/review.md",
+		path: NS_TYPESCRIPT_STYLE_TRIPWIRE_PATH,
 		name: "ns-typescript-style-tripwire",
 		expectedModelProfile: "fast",
 		expectedApplicability: {
@@ -96,6 +99,20 @@ describe("parseReviewDefinition", () => {
 		expect(definition.applicability).toEqual(reviewCase.expectedApplicability);
 		expect(definition.localOnly).toBe(reviewCase.expectedLocalOnly);
 		expect(definition.instructions.trim()).not.toBe("");
+	});
+
+	test("preserves the actionable undefined tripwire instructions", () => {
+		const source = readFileSync(
+			new URL(NS_TYPESCRIPT_STYLE_TRIPWIRE_PATH, import.meta.url),
+			"utf8",
+		);
+
+		const definition = expectOk(
+			parseReviewDefinition(source, { name: "ns-typescript-style-tripwire" }),
+		);
+
+		expect(definition.instructions).toContain("**Actionable failure erased as `undefined`.**");
+		expect(definition.instructions).toContain("ordinary collection/map/index lookups");
 	});
 
 	test("parses a simple definition", () => {

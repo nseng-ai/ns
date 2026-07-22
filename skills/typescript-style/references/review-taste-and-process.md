@@ -78,9 +78,27 @@ Symptoms:
 
 - callers must catch exceptions for validation, missing files, user cancellation, or backend rejection;
 - async streams reject instead of producing a terminal failure event;
-- errors carry only strings when callers need stable reasons.
+- errors carry only strings when callers need stable reasons;
+- a named operation returns `undefined` after erasing a meaningful non-success reason.
 
-Fix: return `Result<T,E>` or a terminal error event with a stable reason/code/message.
+High-signal evidence of `undefined` erasure:
+
+- the direct caller hard-codes a failure message because the operation returned no reason;
+- callers need different branches but receive no category to distinguish outcomes;
+- retry or recovery depends on information that the operation discarded;
+- preparation or validation knows the concrete reason and collapses it to `undefined`.
+
+Do not flag `undefined` when absence itself is the complete contract: optional input/config, an ordinary
+lookup or find miss, parser/type-guard/probe no-match, a cache miss, a local lifecycle slot, or an
+explicitly documented no-value/cancellation state. Impossible states remain throws; do not turn every
+absence into an error object.
+
+Fix: return a coherent discriminated result or project-local `Result` equivalent from the operation that
+classifies the outcome, carrying a reason, message, or code as appropriate. Do not prescribe a particular
+library or tag spelling.
+
+Review wording: "This `undefined` erases an actionable failure reason that the caller must present or
+recover from; return a named result from the operation that classifies the failure."
 
 ### Unowned complexity
 

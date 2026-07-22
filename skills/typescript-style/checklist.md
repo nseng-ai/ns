@@ -59,6 +59,7 @@ and conventions as the baseline; this checklist catches design drift.
 - [ ] Expected async/system failures are returned as data, not thrown for callers to discover.
 - [ ] Fallible synchronous logic uses `Result<T,E>` or an equivalent discriminated shape.
 - [ ] Failures carry enough structure to act on: code/reason/message/cause as appropriate.
+- [ ] Actionable failures retain a named result/reason instead of collapsing to `undefined`.
 - [ ] `AbortSignal` is threaded through long-running work and cancellation is distinguished from error.
 - [ ] Plugin/listener/handler failures are isolated unless crash-on-failure is the contract.
 - [ ] Throws are reserved for programmer errors, impossible states, and broken invariants.
