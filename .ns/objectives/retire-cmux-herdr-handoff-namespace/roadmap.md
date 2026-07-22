@@ -23,7 +23,7 @@
 - [x] Deliver refreshed-trunk Saved Plan dispatch
   - Extract a neutral shared Graphite trunk preparation/preview operation while preserving prompt dispatch behavior.
   - Extend Branch Context creation with a coherent explicit start-point and Graphite-parent pair while retaining current-HEAD defaults and canonical collision/race policy.
-  - Compose `space:trunk-plan` from latest-session plan selection, refreshed trunk preparation, Branch Context attachment, Slots checkout, and Attached Plan launch in a new Herdr space.
+  - Compose `space:dispatch-trunk-plan` from latest-session plan selection, refreshed trunk preparation, Branch Context attachment, Slots checkout, and Attached Plan launch in a new Herdr space.
   - Evidence: focused tests prove non-mutating refresh preview, exact refreshed-SHA branch creation, explicit Graphite parent, current-HEAD defaults, collision suffixing and race revalidation, latest-session selection, preparation failures, partial-failure diagnostics, downstream launch failures, and dry-run non-mutation.
 
 - [x] Reconcile live topology and documentation
