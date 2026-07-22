@@ -14,23 +14,18 @@
 # Regeneration instructions: when any of those source documents changes, refresh this file
 # by re-reading those source documents, keep only diff-grounded/mechanically
 # reviewable rules in the Active Tier A section, move higher-context design rules
-# to the NOT ACTIVE Tier B comment, preserve the frontmatter schema accepted by
+# to the sibling `tier-b.md` file because the Reviews loader ships the review body
+# verbatim and Tier B must never ship, preserve the frontmatter schema accepted by
 # Reviews, and then run:
 #
 #   dprint check .ns/reviews/ns-typescript-style-tripwire/review.md
+#   dprint check .ns/reviews/ns-typescript-style-tripwire/tier-b.md
 #   pnpm --dir ts exec vitest run packages/capabilities/reviews/test/unit/review-definition.test.ts
 description: |
-  NS TypeScript style Tripwire: enforce ns TypeScript style guide and
-  ns TypeScript overlay on the supplied diff. Flag concrete,
-  mechanically detectable violations: non-erasable TypeScript, ordinary `any`,
-  banned double-casts, import-boundary drift, strict-indexed-access bypasses,
-  exact-optional-property drift, impossible optional states for guaranteed
-  dependencies, actionable failures erased as `undefined`, broad casts,
-  top-level arrow module logic, mutation of
-  owned-boundary data, misplaced real-gateway construction,
-  demonstrated gateway clumps, naming hygiene, suppression hygiene, and other
-  Tier A rules. Intended for cheap, per-diff detection; resolution stays
-  with the engineer in a later, higher-context workflow.
+  NS TypeScript style Tripwire: flag concrete, mechanically detectable Tier A
+  violations of the ns TypeScript style guide and ns TypeScript overlay in the
+  supplied diff. Intended for cheap, per-diff detection; resolution stays with
+  the engineer in a later, higher-context workflow.
 model_profile: fast
 applies_to:
   include:
@@ -237,28 +232,10 @@ to each rule's exceptions.
 ## Severity
 
 - `error` — hard mechanical violations of core rules that should fail review
-  outright, such as non-erasable TypeScript constructs, ordinary explicit
-  `any`, banned `as unknown as` double-casts, and `@ts-ignore`.
+  outright.
 - `warning` — enforceable style conventions and likely violations that should
   be reviewed but may require human judgment.
 - `info` — use sparingly; most findings should be `warning` or `error`.
 
 If there are no active Tier A violations in the diff, return an empty findings
 list.
-
-<!--
-NOT ACTIVE — future Tier B ideas only. Do not flag these yet.
-
-- External/HTTP/model/tool input consumed without an obvious Zod schema.
-- Hand-written type/interface that appears to mirror a nearby Zod schema instead of `z.infer`.
-- Multiple booleans modeling one state machine where a discriminated union would be clearer.
-- Internal discriminated union using a non-`type` tag without an obvious domain/external-contract reason.
-- Mutation of returned/shared collections where ownership is unclear.
-- Backend/runtime sniffing via name substring checks instead of capability flags.
-- Hidden globals where a collaborator should be injected.
-- Third-party SDK/client/library shapes leaking through core instead of a project-owned seam.
-- Hand-authored parallel identity, slug, type, schema, or registry key that should be derived from one source of truth.
-- New public API surface without a contract comment or test coverage for the promised behavior.
-- Higher-context error-handling boundary/model questions not affirmatively demonstrated by the supplied
-  diff, after the deferred error-handling standard is settled.
--->
