@@ -71,17 +71,17 @@ describe("herdr Pi extension", () => {
 		await registerHerdrPiExtension(pi);
 
 		expect(HERDR_COMMAND_NAMES).toEqual([
-			"ns:herdr:space:dispatch-plan",
-			"ns:herdr:space:dispatch-prompt",
-			"ns:herdr:space:dispatch-trunk-plan",
-			"ns:herdr:space:dispatch-trunk-prompt",
 			"ns:herdr:space:goal",
 			"ns:herdr:space:new",
 			"ns:herdr:space:objective-summary",
-			"ns:herdr:tab:dispatch-plan",
+			"ns:herdr:space:plan",
+			"ns:herdr:space:prompt",
+			"ns:herdr:space:trunk-plan",
+			"ns:herdr:space:trunk-prompt",
 			"ns:herdr:tab:goal",
 			"ns:herdr:tab:handoff",
 			"ns:herdr:tab:new",
+			"ns:herdr:tab:plan",
 		]);
 		expect([...commands.keys()].sort()).toEqual(HERDR_BASE_COMMAND_NAMES);
 		const registered = [...commands.keys()];
