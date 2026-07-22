@@ -1022,21 +1022,51 @@ describe("land-stack pure helpers", () => {
 			).message,
 		).toContain("draft");
 
-		expect(
-			expectDomainFailure(
-				validateOpenPrBasics({
+		const closedFailure = expectDomainFailure(
+			validateOpenPrBasics({
+				branch: "feature-a",
+				localSha: SHA_A,
+				pr: prSnapshot({
+					number: 101,
 					branch: "feature-a",
-					localSha: SHA_A,
-					pr: prSnapshot({
-						number: 101,
-						branch: "feature-a",
-						base: TRUNK,
-						sha: SHA_A,
-						state: "CLOSED",
-					}),
+					base: TRUNK,
+					sha: SHA_A,
+					state: "CLOSED",
 				}),
-			).message,
-		).toContain("CLOSED");
+			}),
+		);
+		expect(closedFailure).toMatchObject({
+			reason: "pull-request-not-open",
+			failedBranch: "feature-a",
+			failedPrNumber: 101,
+		});
+		expect(closedFailure.message).toContain("CLOSED");
+		expect(
+			"suggestedAction" in closedFailure ? closedFailure.suggestedAction : undefined,
+		).toContain("Reopen");
+
+		const mergedFailure = expectDomainFailure(
+			validateOpenPrBasics({
+				branch: "feature-a",
+				localSha: SHA_A,
+				pr: prSnapshot({
+					number: 101,
+					branch: "feature-a",
+					base: TRUNK,
+					sha: SHA_A,
+					state: "MERGED",
+				}),
+			}),
+		);
+		expect(mergedFailure).toMatchObject({
+			reason: "pull-request-not-open",
+			failedBranch: "feature-a",
+			failedPrNumber: 101,
+		});
+		expect(mergedFailure.message).toContain("already MERGED");
+		expect(
+			"suggestedAction" in mergedFailure ? mergedFailure.suggestedAction : undefined,
+		).toContain("repair/reparent/restack");
 		expect(
 			expectDomainFailure(
 				validateOpenPrBasics({

@@ -1,26 +1,25 @@
-// Flow-side upfront confirmation approval policy.
+// Flow-side confirmation approval policy.
 //
-// Maps ParsedArgs flags, the observed interactive upfront prompt outcome, and an optional
-// cleanup preview into the confirmation request kinds the upfront-approved gateway may
-// approve without prompting again. This is adapter-layer policy: ParsedArgs and prompt
-// provenance stay out of the land execution core.
+// Maps explicit ParsedArgs flags and an optional cleanup preview into the canonical
+// confirmation request kinds those flags authorize. Interactive main-plan approval is
+// handled by the confirmation gateway and never grants authority to separate actions.
 
 import type { LandConfirmationRequest } from "./execution/host-seams.ts";
 import type { PostLandingSlotCleanupPreview } from "./execution/post-landing-cleanup.ts";
 import type { ParsedArgs } from "./stack/types.ts";
 
 export function approvedLandConfirmationKinds(options: {
-	readonly flags: Pick<ParsedArgs, "isDryRun" | "shouldSkipConfirmation">;
-	readonly hasUpfrontPromptApproval: boolean;
+	readonly flags: Pick<ParsedArgs, "isDryRun" | "shouldSkipConfirmation" | "shouldForceCleanup">;
 	readonly cleanupPreview?: PostLandingSlotCleanupPreview;
 }): ReadonlySet<LandConfirmationRequest["kind"]> {
-	if (options.flags.isDryRun) return new Set();
-	if (!options.flags.shouldSkipConfirmation && !options.hasUpfrontPromptApproval) return new Set();
-	return new Set<LandConfirmationRequest["kind"]>([
-		"main-landing",
-		...(options.hasUpfrontPromptApproval
-			? (["free-managed-slots", "submit-required-updates"] as const)
-			: []),
-		...(options.cleanupPreview === undefined ? [] : (["post-landing-cleanup"] as const)),
-	]);
+	const approved = new Set<LandConfirmationRequest["kind"]>();
+	if (options.flags.isDryRun) return approved;
+	if (options.flags.shouldSkipConfirmation) approved.add("main-landing");
+	if (
+		options.cleanupPreview !== undefined &&
+		(options.flags.shouldSkipConfirmation || options.flags.shouldForceCleanup)
+	) {
+		approved.add("post-landing-cleanup");
+	}
+	return approved;
 }

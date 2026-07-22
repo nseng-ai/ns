@@ -11,12 +11,7 @@
 
 import type { Caps } from "@nseng-ai/clinkr";
 import { formatCommand } from "@nseng-ai/foundation/command";
-import {
-	bold,
-	paint,
-	renderResultBlock,
-	renderResultBlockFromMessage,
-} from "@nseng-ai/foundation/cli-theme";
+import { renderResultBlock, renderResultBlockFromMessage } from "@nseng-ai/foundation/cli-theme";
 import {
 	linkifyPrReferences,
 	prLinksFromDetails,
@@ -48,7 +43,6 @@ import {
 import { restackTargetForSubmit } from "./graphite-operations.ts";
 import type {
 	CommandStreamMessageDetails,
-	LandConfirmationPreview,
 	LandResultKind,
 	LandStackCommandContext,
 	NotifyLevel,
@@ -107,76 +101,6 @@ export function renderLandResultBlockFromMessage(
 	input: LandResultMessageBlock,
 ): string {
 	return renderResultBlockFromMessage(caps, input);
-}
-
-export function renderPlainLandConfirmationDetails(input: LandConfirmationPreview): string {
-	return buildConfirmationLines(input, plainConfirmationStyle()).join("\n");
-}
-
-export function renderLandConfirmationDetails(caps: Caps, input: LandConfirmationPreview): string {
-	return buildConfirmationLines(input, styledConfirmationStyle(caps)).join("\n");
-}
-
-interface ConfirmationLineStyle {
-	headline(text: string): string;
-	section(text: string): string;
-	bulletPrefix(text: string): string;
-	planLabel(text: string): string;
-	guidance(text: string): string;
-}
-
-function plainConfirmationStyle(): ConfirmationLineStyle {
-	return {
-		headline: identity,
-		section: identity,
-		bulletPrefix: identity,
-		planLabel: identity,
-		guidance: identity,
-	};
-}
-
-function styledConfirmationStyle(caps: Caps): ConfirmationLineStyle {
-	return {
-		headline: (text) => bold(paint(caps, "accent", text)),
-		section: (text) => paint(caps, "accent", text),
-		bulletPrefix: (text) => paint(caps, "accent", text),
-		planLabel: (text) => paint(caps, "muted", text),
-		guidance: (text) => paint(caps, "success", text),
-	};
-}
-
-function identity(text: string): string {
-	return text;
-}
-
-function buildConfirmationLines(
-	input: LandConfirmationPreview,
-	style: ConfirmationLineStyle,
-): string[] {
-	const labelWidth = confirmationPlanLabelWidth(input);
-	return [
-		style.headline(input.headline),
-		"",
-		style.section("Impact"),
-		...input.impactLines.map((line) => `${style.bulletPrefix("  •")} ${line}`),
-		"",
-		style.section("Plan"),
-		...input.planRows.map((row) => renderConfirmationPlanRow(row, labelWidth, style)),
-		"",
-		style.guidance(input.guidance),
-	];
-}
-
-function confirmationPlanLabelWidth(input: LandConfirmationPreview): number {
-	return input.planRows.reduce((width, row) => Math.max(width, row.label.length), 0);
-}
-
-function renderConfirmationPlanRow(
-	row: LandConfirmationPreview["planRows"][number],
-	labelWidth: number,
-	style: ConfirmationLineStyle,
-): string {
-	return `${style.planLabel(`  ${row.label.padEnd(labelWidth)}`)}  ${row.value}`;
 }
 
 // --------------------------------------------------------------------------

@@ -12,9 +12,17 @@ interface GitHubRepositoryName {
 	readonly name: string;
 }
 
-interface BatchedPullRequestParseResult {
-	readonly prs: ReadonlyMap<string, PullRequestFacts>;
-}
+type BatchedPullRequestParseResult =
+	| { readonly type: "success"; readonly prs: ReadonlyMap<string, PullRequestFacts> }
+	| { readonly type: "missing-pr"; readonly branch: string }
+	| { readonly type: "malformed-envelope" }
+	| { readonly type: "malformed-connection"; readonly branch: string }
+	| { readonly type: "malformed-candidate"; readonly branch: string }
+	| {
+			readonly type: "ambiguous-open-prs";
+			readonly branch: string;
+			readonly prNumbers: readonly number[];
+	  };
 
 interface GhJsonRequest<T> {
 	readonly pi: LandStackExtensionAPI;
@@ -87,11 +95,47 @@ export async function loadPrsByBranch(
 		execFailureMessage: "Could not load batched GitHub PR facts.",
 		parseFailureMessage: (error) =>
 			`Failed to parse batched gh api graphql PR output: ${formatErrorMessage(error)}.`,
-		validationFailureMessage: "Batched gh api graphql PR output had an unexpected shape.",
+		validationFailureMessage: "Batched gh api graphql PR output could not be classified.",
 		parse: (value) => parseBatchedPullRequestFacts(value, branches),
 	});
 	if (parsed.type === "failure") return parsed;
-	return landSuccess(parsed.value.prs);
+
+	switch (parsed.value.type) {
+		case "success":
+			return landSuccess(parsed.value.prs);
+		case "missing-pr":
+			return landFailure(
+				landingExecutionFailure(
+					`No GitHub pull request is associated with branch ${parsed.value.branch}.`,
+				),
+			);
+		case "malformed-envelope":
+			return landFailure(
+				landingExecutionFailure(
+					"Batched gh api graphql PR output had a malformed top-level envelope.",
+				),
+			);
+		case "malformed-connection":
+			return landFailure(
+				landingExecutionFailure(
+					`Batched gh api graphql PR output had a malformed PR connection for branch ${parsed.value.branch}.`,
+				),
+			);
+		case "malformed-candidate":
+			return landFailure(
+				landingExecutionFailure(
+					`Batched gh api graphql PR output had malformed PR candidate data for branch ${parsed.value.branch}.`,
+				),
+			);
+		case "ambiguous-open-prs":
+			return landFailure(
+				landingExecutionFailure(
+					`Multiple open GitHub pull requests are associated with branch ${parsed.value.branch}: ${parsed.value.prNumbers.map((number) => `#${number}`).join(", ")}. Flow cannot choose safely.`,
+				),
+			);
+		default:
+			return assertNever(parsed.value);
+	}
 }
 
 async function loadGitHubRepositoryName(
@@ -164,7 +208,7 @@ function batchedPullRequestFactsQuery(branchCount: number): string {
 	const selections = Array.from(
 		{ length: branchCount },
 		(_, index) =>
-			`b${index}: pullRequests(headRefName: $head${index}, states: OPEN, first: 1) { nodes { ${prSelection} } }`,
+			`b${index}: pullRequests(headRefName: $head${index}, first: 10, orderBy: { field: UPDATED_AT, direction: DESC }) { nodes { ${prSelection} } }`,
 	).join(" ");
 	return `query(${variableDeclarations}) { repository(owner: $owner, name: $name) { ${selections} } }`;
 }
@@ -182,29 +226,40 @@ function parseGitHubRepositoryName(value: unknown): GitHubRepositoryName | undef
 function parseBatchedPullRequestFacts(
 	value: unknown,
 	branches: readonly string[],
-): BatchedPullRequestParseResult | undefined {
+): BatchedPullRequestParseResult {
 	if (!isRecord(value) || !isRecord(value.data) || !isRecord(value.data.repository)) {
-		return undefined;
+		return { type: "malformed-envelope" };
 	}
 
 	const prs = new Map<string, PullRequestFacts>();
-	for (let index = 0; index < branches.length; index += 1) {
-		const branch = branches[index];
-		if (branch === undefined) return undefined;
+	for (const [index, branch] of branches.entries()) {
 		const connection = value.data.repository[`b${index}`];
-		if (
-			!isRecord(connection) ||
-			!Array.isArray(connection.nodes) ||
-			connection.nodes.length !== 1
-		) {
-			return undefined;
+		if (!isRecord(connection) || !Array.isArray(connection.nodes)) {
+			return { type: "malformed-connection", branch };
 		}
-		const [node] = connection.nodes;
-		const pr = parsePullRequestFacts(node);
-		if (pr === undefined) return undefined;
-		prs.set(branch, pr);
+		if (connection.nodes.length === 0) return { type: "missing-pr", branch };
+
+		const [firstNode, ...remainingNodes] = connection.nodes;
+		const firstCandidate = parsePullRequestFacts(firstNode);
+		if (firstCandidate === undefined) return { type: "malformed-candidate", branch };
+		const candidates = [firstCandidate];
+		for (const node of remainingNodes) {
+			const candidate = parsePullRequestFacts(node);
+			if (candidate === undefined) return { type: "malformed-candidate", branch };
+			candidates.push(candidate);
+		}
+
+		const openCandidates = candidates.filter((candidate) => candidate.state === "OPEN");
+		if (openCandidates.length > 1) {
+			return {
+				type: "ambiguous-open-prs",
+				branch,
+				prNumbers: openCandidates.map((candidate) => candidate.number),
+			};
+		}
+		prs.set(branch, openCandidates[0] ?? firstCandidate);
 	}
-	return { prs };
+	return { type: "success", prs };
 }
 
 function parsePullRequestFacts(value: unknown): PullRequestFacts | undefined {
@@ -248,4 +303,8 @@ function parsePullRequestFacts(value: unknown): PullRequestFacts | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assertNever(value: never): never {
+	throw new Error(`Unhandled batched pull request parse result: ${JSON.stringify(value)}`);
 }

@@ -420,15 +420,7 @@ function validateOpenPrBasicsFromMismatches(
 ): LandOutcome {
 	const { branch, localSha, pr } = input;
 	if (mismatches.isNotOpen) {
-		return landOutcomeFailure(
-			domainFailure({
-				phase: "preflight",
-				reason: "pull-request-not-open",
-				message: `PR #${pr.number} for ${branch} is ${pr.state}, expected OPEN.`,
-				failedBranch: branch,
-				failedPrNumber: pr.number,
-			}),
-		);
+		return landOutcomeFailure(nonOpenPullRequestFailure(branch, pr));
 	}
 	if (mismatches.isDraft) {
 		return landOutcomeFailure(
@@ -465,6 +457,36 @@ function validateOpenPrBasicsFromMismatches(
 		);
 	}
 	return landCompleted();
+}
+
+function nonOpenPullRequestFailure(branch: string, pr: PullRequestFacts): LandingDomainFailure {
+	const base = {
+		phase: "preflight" as const,
+		reason: "pull-request-not-open" as const,
+		failedBranch: branch,
+		failedPrNumber: pr.number,
+	};
+	if (pr.state === "MERGED") {
+		return domainFailure({
+			...base,
+			message: `PR #${pr.number} for ${branch} is already MERGED, but the selected Graphite landing path still contains it.`,
+			suggestedAction:
+				"Inspect the Graphite stack, then repair/reparent/restack the first remaining open branch onto the intended parent or trunk. Submit the affected branches to update PR bases, verify the repaired stack, and rerun /ns:flow:land.",
+		});
+	}
+	if (pr.state === "CLOSED") {
+		return domainFailure({
+			...base,
+			message: `PR #${pr.number} for ${branch} is CLOSED and cannot be landed.`,
+			suggestedAction:
+				"Reopen the PR if it is still valid, or remove, replace, or retarget the branch in the Graphite path. Submit affected branches, inspect the updated stack, and rerun /ns:flow:land.",
+		});
+	}
+	return domainFailure({
+		...base,
+		message: `PR #${pr.number} for ${branch} is ${pr.state}, expected OPEN.`,
+		suggestedAction: "Make the PR open and verify the Graphite stack, then rerun /ns:flow:land.",
+	});
 }
 
 export function collectPrSubmitRequirements(
