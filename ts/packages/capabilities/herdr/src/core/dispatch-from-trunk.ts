@@ -19,8 +19,6 @@ import {
 } from "./dispatch-prompt.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
-import { formatGoalWorkspaceLabel, generateWorkspaceGoalSlug } from "./space-goal.ts";
-import { slotLabelInput } from "./workspace-label.ts";
 
 const COMMAND_NAME = HERDR_SPACE_DISPATCH_TRUNK_PROMPT_COMMAND_NAME;
 
@@ -49,12 +47,6 @@ export async function handleHerdrSlotDispatchFromTrunk(
 		return;
 	}
 	await options.ctx.waitForIdle();
-	options.notifyProgress("Generating workspace name…");
-	const workspaceSlug = await generateWorkspaceGoalSlug(options.pi, options.ctx.cwd, prompt);
-	if (!workspaceSlug.ok) {
-		options.ctx.ui.notify(workspaceSlug.message, "error");
-		return;
-	}
 	const branch = await createTrackedBranchFromTrunkForPrompt({
 		pi: options.pi,
 		cwd: options.ctx.cwd,
@@ -74,12 +66,6 @@ export async function handleHerdrSlotDispatchFromTrunk(
 		ctx: options.ctx,
 		branch,
 		content: buildTrackedBranchLaunchPrompt(prompt, TRUNK_DISPATCH_CONTEXT_NOTE),
-		description: `herdr dispatch-from-trunk from ${branch.parentBranch}`,
-		workspaceLabel: (worktreePath) =>
-			formatGoalWorkspaceLabel({
-				slug: workspaceSlug.text,
-				...slotLabelInput(worktreePath),
-			}),
 		successDetails: { parentLabel: "Parent (trunk)", entryLocator: "omit" },
 		payloadOptions: options.payloadOptions,
 		...optionalEntry("slotClient", options.slotClient),

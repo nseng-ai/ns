@@ -5,13 +5,9 @@ import { HERDR_TAB_GOAL_COMMAND_NAME, HERDR_TAB_NEW_COMMAND_NAME } from "./comma
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrSpaceLabelDeriver } from "./new-space.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
-import {
-	formatGoalWorkspaceLabel,
-	generateWorkspaceGoalSlug,
-	resolveHerdrGoal,
-} from "./space-goal.ts";
+import { generateWorkspaceGoalSlug, resolveHerdrGoal } from "./space-goal.ts";
 import { getCallerTabId, getCallerWorkspaceId } from "./sidebar.ts";
-import { slotLabelInput } from "./workspace-label.ts";
+import { formatGoalWorkspaceLabel, slotLabelInput } from "./workspace-label.ts";
 
 export interface HandleHerdrNewTabOptions {
 	herdr: Pick<HerdrGateway, "createTab">;

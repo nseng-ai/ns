@@ -229,8 +229,60 @@ describe("tracked branch payload public API", () => {
 		commands.assertDone();
 		expect(result).toEqual({
 			branchName: "implement-feature-2",
+			semanticSlug: "implement-feature",
 			parentBranch: "feature/source",
 			startPoint: "abc123",
+		});
+	});
+
+	test("returns the semantic slug for a non-colliding resolved trunk branch", async () => {
+		const prompt = "Implement the trunk feature";
+		const commands = new FakeCommands([
+			{
+				command: "git",
+				args: ["rev-parse", "--show-toplevel"],
+				result: exited({ stdout: `${REPO_ROOT}\n` }),
+			},
+			{
+				command: "pi",
+				args: buildRawTextModelArgs(
+					buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
+					TEST_MODEL_SELECTION,
+				),
+				result: exited({ stdout: "implement-trunk-feature\n" }),
+			},
+			{
+				command: "git",
+				args: ["show-ref", "--verify", "--quiet", "refs/heads/implement-trunk-feature"],
+				result: exited({ code: 1 }),
+			},
+			{
+				command: "git",
+				args: ["branch", "implement-trunk-feature", "main"],
+				result: exited(),
+			},
+			{
+				command: "gt",
+				args: ["track", "implement-trunk-feature", "--parent", "main", "--no-interactive"],
+				result: exited(),
+			},
+		]);
+
+		const result = await createTrackedBranchFromResolvedParent({
+			pi: commands,
+			cwd: REPO_ROOT,
+			prompt,
+			parentBranch: "main",
+			startPoint: "def456",
+			startRef: "main",
+		});
+
+		commands.assertDone();
+		expect(result).toEqual({
+			branchName: "implement-trunk-feature",
+			semanticSlug: "implement-trunk-feature",
+			parentBranch: "main",
+			startPoint: "def456",
 		});
 	});
 

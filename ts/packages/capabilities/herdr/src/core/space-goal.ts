@@ -17,14 +17,9 @@ import { HERDR_SPACE_GOAL_COMMAND_NAME } from "./command-surfaces.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { getCallerWorkspaceId } from "./sidebar.ts";
-import { compactSlotSlug, slotLabelInput } from "./workspace-label.ts";
+import { formatGoalWorkspaceLabel, slotLabelInput } from "./workspace-label.ts";
 
 const COMMAND_NAME = HERDR_SPACE_GOAL_COMMAND_NAME;
-
-export interface GoalWorkspaceLabelInput {
-	slug: string;
-	slotSlug?: string;
-}
 
 export interface HandleHerdrSpaceGoalOptions {
 	pi: HerdrPiCommandApi;
@@ -32,11 +27,6 @@ export interface HandleHerdrSpaceGoalOptions {
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
-}
-
-export function formatGoalWorkspaceLabel(input: GoalWorkspaceLabelInput): string {
-	if (input.slotSlug === undefined) return input.slug;
-	return `${compactSlotSlug(input.slotSlug)}:${input.slug}`;
 }
 
 export function buildWorkspaceGoalSlugPrompt(goal: string): string {

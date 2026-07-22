@@ -46,7 +46,7 @@ import {
 	buildHerdrCreateWorkspaceArgs,
 	buildHerdrPaneRunArgs,
 } from "./cli-gateway.ts";
-import { openBranchInHerdrWorkspace, openBranchInHerdrCallerTab } from "./slot.ts";
+import { dispatchPreparedBranch, type PreparedDispatchDestination } from "./prepared-dispatch.ts";
 import { createHerdrSlotClient } from "./slot-checkout.ts";
 import { getCallerWorkspaceId } from "./sidebar.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
@@ -100,15 +100,12 @@ export async function handleHerdrSlotDispatchPlan(
 		return;
 	}
 
-	const callerWorkspaceId = config.destination === "tab" ? getCallerWorkspaceId() : undefined;
-	if (config.destination === "tab" && callerWorkspaceId === undefined) {
-		present(
-			ctx,
-			"launch:plan:br:tab requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
-			"error",
-		);
+	const preparedDestination = prepareDispatchDestination(config.destination);
+	if (preparedDestination.type === "failed") {
+		present(ctx, preparedDestination.message, "error");
 		return;
 	}
+	const destination = preparedDestination.destination;
 
 	options.notifyProgress("Finding latest saved plan…");
 	await ctx.waitForIdle();
@@ -170,7 +167,7 @@ export async function handleHerdrSlotDispatchPlan(
 					operation,
 					branchContextPreview: prepared.preview,
 					launchOptions,
-					config,
+					destination,
 					...optionalEntry("trunk", trunk),
 				}),
 				{ status: "dry-run", targetBranch: operation.branch, key: operation.key },
@@ -186,7 +183,7 @@ export async function handleHerdrSlotDispatchPlan(
 			prepared,
 			config,
 			dispatchOptions: options.options,
-			...(callerWorkspaceId === undefined ? {} : { callerWorkspaceId }),
+			destination,
 		});
 	} catch (error) {
 		present(
@@ -229,6 +226,27 @@ async function prepareDispatchTrunk(options: {
 	});
 }
 
+type PrepareDispatchDestinationResult =
+	| { readonly type: "ready"; readonly destination: PreparedDispatchDestination }
+	| { readonly type: "failed"; readonly message: string };
+
+function prepareDispatchDestination(
+	destination: DispatchDestination,
+): PrepareDispatchDestinationResult {
+	if (destination === "workspace") {
+		return { type: "ready", destination: { type: "workspace" } };
+	}
+	const callerWorkspaceId = getCallerWorkspaceId();
+	if (callerWorkspaceId === undefined) {
+		return {
+			type: "failed",
+			message:
+				"launch:plan:br:tab requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+		};
+	}
+	return { type: "ready", destination: { type: "tab", callerWorkspaceId } };
+}
+
 function parseCommandArgs(rawArgs: string): CommandArgs | { error: string } {
 	const tokens = rawArgs
 		.trim()
@@ -257,9 +275,9 @@ async function createAttachAndLaunch(options: {
 	prepared: ReadyPreparedPlanBranchContext;
 	config: DispatchPlanConfig;
 	dispatchOptions: HerdrSlotDispatchPlanOptions;
-	callerWorkspaceId?: string;
+	destination: PreparedDispatchDestination;
 }): Promise<void> {
-	const { pi, herdr, ctx, prepared, config, dispatchOptions } = options;
+	const { pi, herdr, ctx, prepared, config, dispatchOptions, destination } = options;
 	const { checkout, operation } = prepared;
 
 	present(ctx, `Creating Graphite-tracked branch context ${operation.branch}…`, "info");
@@ -272,7 +290,7 @@ async function createAttachAndLaunch(options: {
 		present(
 			ctx,
 			formatBranchContextCreateFailure(operation, error, {
-				consequence: formatDispatchFailureConsequence(config.destination),
+				consequence: formatDispatchFailureConsequence(destination.type),
 			}),
 			"error",
 		);
@@ -295,46 +313,14 @@ async function createAttachAndLaunch(options: {
 	const slotClient =
 		dispatchOptions.slotClient ?? createHerdrSlotClient({ cwd: checkout.repoRoot });
 
-	if (config.destination === "workspace") {
-		await openBranchInHerdrWorkspace({
-			pi,
-			herdr,
-			cwd: checkout.repoRoot,
+	const result = await dispatchPreparedBranch({
+		payload: {
 			branchName: operation.branch,
-			command: launchCommand,
-			description: operation.slug,
-			slotClient,
-			notify: (message, level) => ctx.ui.notify(message, level),
-			onStatus: (message) => setStatus(ctx, config, message),
-			successMessage: (target) =>
-				[
-					"Dispatched plan in Herdr workspace.",
-					`Branch: ${operation.branch}`,
-					`Slot: ${target.slotName}`,
-					`Worktree: ${target.worktreePath}`,
-					`Attached plan: ${BRANCH_CONTEXT_NAMESPACE}/${operation.key}`,
-					`Command: ${launchCommand}`,
-				].join("\n"),
-			notifyProgress: () => {},
-		});
-		return;
-	}
-
-	// The tab precondition captured this before any plan lookup or durable mutation.
-	const callerWorkspaceId = options.callerWorkspaceId;
-	if (callerWorkspaceId === undefined) {
-		throw new Error("Missing validated Herdr caller workspace ID for tab launch.");
-	}
-
-	setStatus(ctx, config, "opening Herdr tab…");
-	const result = await openBranchInHerdrCallerTab({
-		pi,
+			semanticSlug: operation.slug,
+			launchCommand,
+		},
+		destination,
 		herdr,
-		cwd: checkout.repoRoot,
-		branchName: operation.branch,
-		callerWorkspaceId,
-		command: launchCommand,
-		tabTitle: operation.branch,
 		slotClient,
 		notify: (message, level) => ctx.ui.notify(message, level),
 		onStatus: (message) => setStatus(ctx, config, message),
@@ -344,12 +330,13 @@ async function createAttachAndLaunch(options: {
 		present(
 			ctx,
 			[
-				"Dispatched plan in Herdr tab.",
+				`Dispatched plan in Herdr ${destination.type}.`,
 				`Branch: ${operation.branch}`,
-				`Slot: ${result.target.slotName}`,
-				`Worktree: ${result.target.worktreePath}`,
-				`Tab: ${result.tabId}`,
-				`Pane: ${result.paneId}`,
+				`Slot: ${result.target.checkout.slotName}`,
+				`Worktree: ${result.target.checkout.worktreePath}`,
+				...(result.destination === "tab"
+					? [`Tab: ${result.target.tabId}`, `Pane: ${result.target.paneId}`]
+					: []),
 				`Attached plan: ${BRANCH_CONTEXT_NAMESPACE}/${operation.key}`,
 				`Command: ${launchCommand}`,
 			].join("\n"),
@@ -363,16 +350,16 @@ function formatDryRun(options: {
 	operation: BranchContextCreateOperation;
 	branchContextPreview: string;
 	launchOptions: PiLaunchOptions;
-	config: DispatchPlanConfig;
+	destination: PreparedDispatchDestination;
 	trunk?: GraphiteTrunkPreparation;
 }): string {
-	const { plan, operation, branchContextPreview, launchOptions, config } = options;
+	const { plan, operation, branchContextPreview, launchOptions, destination } = options;
 	const launchCommand = buildPiLaunchCommand(
 		formatImplBranchContextCommand(operation.key),
 		launchOptions,
 	);
 	return [
-		`Dry run: no branch was created, no plan was attached, and no Herdr ${config.destination} was opened.`,
+		`Dry run: no branch was created, no plan was attached, and no Herdr ${destination.type} was opened.`,
 		"",
 		"Selected saved plan:",
 		`Path: ${plan.filePath}`,
@@ -406,9 +393,8 @@ function formatDryRun(options: {
 			"--no-clipboard",
 		]),
 		formatHerdrLaunchPreview({
-			destination: config.destination,
-			branch: operation.branch,
-			description: operation.slug,
+			destination: destination.type,
+			semanticSlug: operation.slug,
 			launchCommand,
 		}),
 	]
@@ -423,17 +409,17 @@ function formatDryRun(options: {
  */
 function formatHerdrLaunchPreview(options: {
 	destination: DispatchDestination;
-	branch: string;
-	description: string;
+	semanticSlug: string;
 	launchCommand: string;
 }): string {
 	if (options.destination === "workspace") {
 		return [
+			"Workspace label: [sN:]" + options.semanticSlug,
 			formatCommand(
 				"herdr",
 				buildHerdrCreateWorkspaceArgs({
 					cwd: "<slot-worktree-path>",
-					label: options.description,
+					label: `<optional-compact-slot-prefix>${options.semanticSlug}`,
 				}),
 			),
 			formatCommand("herdr", buildHerdrPaneRunArgs("<returned-root-pane>", options.launchCommand)),
@@ -446,7 +432,7 @@ function formatHerdrLaunchPreview(options: {
 			buildHerdrCreateTabArgs({
 				workspaceId: "<caller-workspace>",
 				cwd: "<slot-worktree-path>",
-				label: options.branch,
+				label: options.semanticSlug,
 				shouldFocus: true,
 			}),
 		),
