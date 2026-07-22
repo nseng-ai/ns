@@ -1,18 +1,18 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	executeIsolatedLanding,
-	isIsolatedFastPath,
-	type IsolatedLandingOutcome,
-} from "../../src/land/execution/isolated-landing.ts";
+	executeSingleBranchLanding,
+	isSingleBranchFastPath,
+	type SingleBranchLandingOutcome,
+} from "../../src/land/execution/single-branch-landing.ts";
 import type {
 	LandConfirmationGateway,
 	LandExecutionMessageProgress,
 } from "../../src/land/execution/host-seams.ts";
 import {
 	failureLevel,
-	formatIsolatedDryRunNotification,
-	formatIsolatedLandingSuccessNotification,
+	formatSingleBranchDryRunNotification,
+	formatSingleBranchLandingSuccessNotification,
 } from "../../src/land/land-presentation.ts";
 import {
 	createInMemoryLandContext,
@@ -39,12 +39,12 @@ const nullProgress: LandExecutionMessageProgress = {
 	setStatus() {},
 };
 
-describe("isolated landing core", () => {
+describe("single-branch landing core", () => {
 	test("selects only the single-current-branch shape", () => {
-		expect(isIsolatedFastPath(stackSnapshot({ current: FEATURE }))).toBe(true);
-		expect(isIsolatedFastPath(stackSnapshot({ current: TRUNK }))).toBe(false);
+		expect(isSingleBranchFastPath(stackSnapshot({ current: FEATURE }))).toBe(true);
+		expect(isSingleBranchFastPath(stackSnapshot({ current: TRUNK }))).toBe(false);
 		expect(
-			isIsolatedFastPath(
+			isSingleBranchFastPath(
 				stackSnapshot({ current: FEATURE, descendantBranches: ["feature-child"] }),
 			),
 		).toBe(false);
@@ -79,13 +79,13 @@ describe("isolated landing core", () => {
 			type: "execution" as const,
 			level: "error" as const,
 			message:
-				"Refusing to land an isolated PR without confirmation in non-interactive mode. Re-run with --yes.",
+				"Refusing to land a single-branch PR without confirmation in non-interactive mode. Re-run with --yes.",
 			outcome: "refusal" as const,
 			refusalReason: "non-interactive" as const,
 		};
 		const fakes = createInMemoryLandContext({ github: { pullRequests: [openPullRequest()] } });
 		const outcome = await run(fakes.context, {
-			shape: isolatedShape(MANAGED_ROOT),
+			shape: singleBranchShape(MANAGED_ROOT),
 			confirmation: {
 				confirm: async (request) => {
 					requests.push(request);
@@ -96,7 +96,7 @@ describe("isolated landing core", () => {
 
 		expect(requests).toEqual([
 			{
-				kind: "isolated-main-landing",
+				kind: "single-branch-main-landing",
 				pullRequest: expect.objectContaining({ number: 101, headRefName: FEATURE }),
 				trunk: TRUNK,
 			},
@@ -147,10 +147,10 @@ describe("isolated landing core", () => {
 		};
 		const fakes = createInMemoryLandContext({ github: { pullRequests: [openPullRequest()] } });
 		const outcome = await run(fakes.context, {
-			shape: isolatedShape(MANAGED_ROOT),
+			shape: singleBranchShape(MANAGED_ROOT),
 			confirmation: {
 				confirm: async (request) =>
-					request.kind === "isolated-main-landing"
+					request.kind === "single-branch-main-landing"
 						? { type: "approved", approvalSource: "prompted" }
 						: { type: "refused-with-fully-worded-failure", failure: refusal },
 			},
@@ -246,12 +246,12 @@ describe("isolated landing core", () => {
 		});
 	});
 
-	test("keeps isolated dry-run and success notification text byte-identical", () => {
-		expect(formatIsolatedDryRunNotification(101, TRUNK)).toBe(
+	test("keeps single-branch dry-run and success notification text byte-identical", () => {
+		expect(formatSingleBranchDryRunNotification(101, TRUNK)).toBe(
 			"Dry run only; would merge PR #101 into main.",
 		);
 		expect(
-			formatIsolatedLandingSuccessNotification({
+			formatSingleBranchLandingSuccessNotification({
 				pullRequestNumber: 101,
 				commandOutput: "merged\nnotice",
 			}),
@@ -279,11 +279,11 @@ async function run(
 		readonly confirmation?: LandConfirmationGateway;
 		readonly shape?: LandingShape;
 	} = {},
-): Promise<IsolatedLandingOutcome> {
-	return await executeIsolatedLanding({
+): Promise<SingleBranchLandingOutcome> {
+	return await executeSingleBranchLanding({
 		context,
 		host: { confirmation: overrides.confirmation ?? approvedConfirmation, progress: nullProgress },
-		target: overrides.shape ?? isolatedShape(),
+		target: overrides.shape ?? singleBranchShape(),
 		isDryRun: overrides.isDryRun ?? false,
 		cleanup: {
 			mode: (overrides.isDryRun ?? false) ? "dry-run" : "execute",
@@ -292,7 +292,7 @@ async function run(
 	});
 }
 
-function isolatedShape(repoRoot = ROOT): LandingShape {
+function singleBranchShape(repoRoot = ROOT): LandingShape {
 	return {
 		repoRoot,
 		current: FEATURE,

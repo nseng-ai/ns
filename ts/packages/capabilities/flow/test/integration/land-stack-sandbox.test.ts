@@ -655,6 +655,31 @@ function branchSha(branch) {
 function prByBranchOrNumber(value) {
   return Object.values(state.prs || {}).find((pr) => pr.headRefName === value || String(pr.number) === value);
 }
+function graphqlPrConnections() {
+  const heads = args
+    .filter((arg) => arg.startsWith("head"))
+    .map((arg) => {
+      const separator = arg.indexOf("=");
+      return {
+        index: Number(arg.slice(4, separator)),
+        branch: arg.slice(separator + 1),
+      };
+    })
+    .sort((left, right) => left.index - right.index);
+  const pullRequests = Object.values(state.prs || {});
+  return Object.fromEntries(
+    heads.flatMap(({ index, branch }) => {
+      const matches = pullRequests.filter((pr) => pr.headRefName === branch);
+      return [
+        ["open" + index, { nodes: matches.filter((pr) => pr.state === "OPEN").slice(0, 2) }],
+        [
+          "history" + index,
+          { nodes: matches.filter((pr) => pr.state === "CLOSED" || pr.state === "MERGED").slice(0, 1) },
+        ],
+      ];
+    }),
+  );
+}
 function metadataRows() {
   const scriptedTopologies = state.topologyReads || [];
   const topology = scriptedTopologies.length > 0 ? scriptedTopologies.shift() : (state.topology || []);
@@ -675,6 +700,12 @@ if (command === "ns") {
 }
 
 if (command === "gh") {
+  if (args[0] === "repo" && args[1] === "view" && args[2] === "--json" && args[3] === "nameWithOwner") {
+    finish(0, JSON.stringify({ nameWithOwner: "owner/repo" }) + "\\n");
+  }
+  if (args[0] === "api" && args[1] === "graphql") {
+    finish(0, JSON.stringify({ data: { repository: graphqlPrConnections() } }) + "\\n");
+  }
   if (args[0] === "pr" && args[1] === "view") {
     const pr = prByBranchOrNumber(args[2]);
     if (!pr) finish(1, "", "no such PR: " + args[2] + "\\n");

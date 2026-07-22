@@ -471,8 +471,8 @@ Unrecorded terms:
 - **Land Backup Refs** — pre-land SHAs under `refs/ns/flow-land-backup/<branch>` with
   one previous generation under `refs/ns/flow-land-backup-prev/<branch>`.
   (src/land/stack/constants.ts:13-14)
-- **Isolated Fast Path** — the land shortcut when the snapshot is exactly one landing
-  branch with no descendants. (src/land/isolated-fast-path.ts:43-50)
+- **Single-Branch Fast Path** — the land shortcut when the snapshot is exactly one landing
+  branch with no descendants. (src/land/single-branch-fast-path.ts:43-50)
 - **Post-Landing Slot Cleanup** — after-land decisions `not-needed | approved |
   declined`. (src/land/post-landing-slot-cleanup.ts:22-41)
 - **Graphite Maintenance Mode** — per-landing maintenance vocabulary `required-next-
@@ -498,9 +498,9 @@ Suspects:
   (CONTEXT.md:7-9, src/ns/commands/cp.ts:24)
 - **Stack Landing Target vs `LandingShape`** — the glossary term corresponds to code
   type `LandingShape`; neither references the other. (CONTEXT.md:39-41,
-  src/land/isolated-fast-path.ts:12, 32)
+  src/land/single-branch-fast-path.ts:12, 32)
 - **Stack Snapshot unrecorded** — the fact shape the recorded Stack Landing Plan is
-  planned from. (src/land/isolated-fast-path.ts:17, 43-50)
+  planned from. (src/land/single-branch-fast-path.ts:17, 43-50)
 - **Exec naming residue** — command registered as `read-graphite-branch-metadata`
   while module/subpath are `exec-read-graphite-branch-metadata`.
   (src/ns/extension.ts:69-77)

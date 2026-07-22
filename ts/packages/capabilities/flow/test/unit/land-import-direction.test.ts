@@ -15,7 +15,7 @@ const MIGRATED_MODULES = [
 	"working-tree-operations.ts",
 	"execution/host-seams.ts",
 	"execution/execute.ts",
-	"execution/isolated-landing.ts",
+	"execution/single-branch-landing.ts",
 	"execution/maintenance-plan.ts",
 	"execution/maintenance.ts",
 	"execution/merge-loop.ts",

@@ -16,7 +16,7 @@ export function approvedLandConfirmationKinds(options: {
 	if (options.flags.isDryRun) return approved;
 	if (options.flags.shouldSkipConfirmation) {
 		approved.add("main-landing");
-		approved.add("isolated-main-landing");
+		approved.add("single-branch-main-landing");
 	}
 	if (
 		options.cleanupPreview !== undefined &&

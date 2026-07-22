@@ -3064,7 +3064,7 @@ describe("land-stack command scenarios", () => {
 		);
 	});
 
-	test("dispatch refuses isolated non-interactive landing before mutation without --yes", async () => {
+	test("dispatch refuses single-branch non-interactive landing before mutation without --yes", async () => {
 		const pullRequest = prSnapshot({
 			number: 101,
 			branch: "feature-a",
@@ -3097,7 +3097,7 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(exitCode).toBe(1);
 		expect(output.join("\n")).toContain(
-			"Refusing to land an isolated PR without confirmation in non-interactive mode. Re-run with --yes.",
+			"Refusing to land a single-branch PR without confirmation in non-interactive mode. Re-run with --yes.",
 		);
 		expect(
 			pi.execCalls.some(

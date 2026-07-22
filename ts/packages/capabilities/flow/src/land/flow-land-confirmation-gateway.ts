@@ -12,14 +12,14 @@ import type {
 } from "./execution/host-seams.ts";
 import {
 	formatFreeManagedSlotsConfirmationDetails,
-	formatIsolatedMainLandingConfirmationDetails,
+	formatSingleBranchMainLandingConfirmationDetails,
 	formatPlan,
 	formatPostLandingCleanupConfirmationDetails,
 	formatSubmitRequiredUpdatesConfirmationDetails,
 	freeManagedSlotsConfirmationTitle,
 	freeManagedSlotsNonInteractiveRefusalMessage,
-	isolatedMainLandingConfirmationTitle,
-	isolatedMainLandingNonInteractiveRefusalMessage,
+	singleBranchMainLandingConfirmationTitle,
+	singleBranchMainLandingNonInteractiveRefusalMessage,
 	postLandingCleanupConfirmationTitle,
 	postLandingCleanupNonInteractiveRefusalMessage,
 	submitRequiredUpdatesConfirmationTitle,
@@ -50,7 +50,7 @@ export function createUpfrontApprovedLandConfirmationGateway(
 		confirm: async (request) => {
 			switch (request.kind) {
 				case "main-landing":
-				case "isolated-main-landing":
+				case "single-branch-main-landing":
 				case "free-managed-slots":
 				case "submit-required-updates":
 				case "post-landing-cleanup":
@@ -83,8 +83,8 @@ function confirmationOptions(
 	switch (request.kind) {
 		case "main-landing":
 			return mainLandingOptions(ctx, request);
-		case "isolated-main-landing":
-			return isolatedMainLandingOptions(ctx, request);
+		case "single-branch-main-landing":
+			return singleBranchMainLandingOptions(ctx, request);
 		case "free-managed-slots":
 			return freeManagedSlotsOptions(ctx, request);
 		case "submit-required-updates":
@@ -109,16 +109,16 @@ function mainLandingOptions(
 	};
 }
 
-function isolatedMainLandingOptions(
+function singleBranchMainLandingOptions(
 	ctx: PrintAwareLandStackCommandContext,
-	request: Extract<LandConfirmationRequest, { readonly kind: "isolated-main-landing" }>,
+	request: Extract<LandConfirmationRequest, { readonly kind: "single-branch-main-landing" }>,
 ): ConfirmLandStackActionOptions {
 	return {
 		ctx,
 		shouldPrompt: true,
-		title: isolatedMainLandingConfirmationTitle(),
-		details: formatIsolatedMainLandingConfirmationDetails(request),
-		nonInteractiveMessage: isolatedMainLandingNonInteractiveRefusalMessage(request),
+		title: singleBranchMainLandingConfirmationTitle(),
+		details: formatSingleBranchMainLandingConfirmationDetails(request),
+		nonInteractiveMessage: singleBranchMainLandingNonInteractiveRefusalMessage(request),
 	};
 }
 

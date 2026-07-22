@@ -94,15 +94,15 @@ const mainLandingEntry: ConfirmationRequestEntry = {
 	detailIncludes: ["feature-a", "#7"],
 };
 
-const isolatedMainLandingEntry: ConfirmationRequestEntry = {
-	name: "isolated-main-landing",
+const singleBranchMainLandingEntry: ConfirmationRequestEntry = {
+	name: "single-branch-main-landing",
 	request: {
-		kind: "isolated-main-landing",
-		pullRequest: pullRequestFacts({ number: 9, headRefName: "feature-isolated" }),
+		kind: "single-branch-main-landing",
+		pullRequest: pullRequestFacts({ number: 9, headRefName: "feature-single-branch" }),
 		trunk: "main",
 	},
-	title: "Land this isolated PR?",
-	detailIncludes: ["#9", "feature-isolated", "main"],
+	title: "Land this PR?",
+	detailIncludes: ["#9", "feature-single-branch", "main"],
 };
 
 const freeManagedSlotsEntry: ConfirmationRequestEntry = {
@@ -117,7 +117,7 @@ const freeManagedSlotsEntry: ConfirmationRequestEntry = {
 
 const requestTable: ReadonlyArray<ConfirmationRequestEntry> = [
 	mainLandingEntry,
-	isolatedMainLandingEntry,
+	singleBranchMainLandingEntry,
 	freeManagedSlotsEntry,
 	{
 		name: "submit-required-updates",

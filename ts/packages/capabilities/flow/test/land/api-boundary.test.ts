@@ -31,7 +31,7 @@ function raiseMissingBranchPlan(): never {
 }
 
 // Intentional runtime surface of `@nseng-ai/flow/land/api`. Execution internals
-// (executeStackLandingPlan, isolated landing, pre-merge phase helpers) are deliberately not
+// (executeStackLandingPlan, single-branch landing, pre-merge phase helpers) are deliberately not
 // public; this allowlist prevents future execution-internal leakage.
 const LAND_API_RUNTIME_ALLOWLIST = [
 	"LAND_CAPABILITY_ID",

@@ -99,7 +99,7 @@ export async function executeLandingRequest(
 			phase: "request-validation",
 			message:
 				options.source.type === "prepared"
-					? "A prepared stack landing shape cannot execute an isolated pull-request target."
+					? "A prepared stack landing shape cannot execute a single-branch pull-request target."
 					: "@nseng-ai/flow land preflight planning currently supports stack landing targets only.",
 		});
 	}

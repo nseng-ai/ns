@@ -48,7 +48,7 @@ describe("canonical confirmation approval mapping", () => {
 				flags: expectParsed("--yes"),
 				...optionalEntry("cleanupPreview", cleanupPreview),
 			}),
-		]).toEqual(["main-landing", "isolated-main-landing", "post-landing-cleanup"]);
+		]).toEqual(["main-landing", "single-branch-main-landing", "post-landing-cleanup"]);
 	});
 
 	test("--force approves only previewed cleanup", () => {

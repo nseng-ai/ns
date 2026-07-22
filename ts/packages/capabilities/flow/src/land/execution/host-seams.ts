@@ -11,7 +11,7 @@ import type {
 export type LandConfirmationRequest =
 	| { readonly kind: "main-landing"; readonly plan: LandingPlan }
 	| {
-			readonly kind: "isolated-main-landing";
+			readonly kind: "single-branch-main-landing";
 			readonly pullRequest: PullRequestFacts;
 			readonly trunk: string;
 	  }

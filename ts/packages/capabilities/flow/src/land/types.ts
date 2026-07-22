@@ -1,14 +1,14 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
 
-export type LandingTarget = StackLandingTarget | IsolatedPullRequestLandingTarget;
+export type LandingTarget = StackLandingTarget | SingleBranchPullRequestLandingTarget;
 
 export interface StackLandingTarget {
 	readonly type: "stack";
 	readonly landingBranchLimit?: number;
 }
 
-export interface IsolatedPullRequestLandingTarget {
-	readonly type: "isolated-pull-request";
+export interface SingleBranchPullRequestLandingTarget {
+	readonly type: "single-branch-pull-request";
 	readonly branchOrNumber: string;
 }
 
