@@ -8,6 +8,10 @@ description: "Turn a thermonuclear code-quality review of the current Graphite s
 
 Thermostack turns a thermonuclear maintainability review of the current Graphite stack changes into a **local-only Graphite child stack** of follow-up fixes. The original checked-out branch is the target/original change and remains untouched; Thermostack creates approved children above it.
 
+## Current Slots prerequisite
+
+This workflow currently requires `@nseng-ai/slots` installed and enabled because its structured downstack topology helper lives under `ns slot gt exec`. If that capability is unavailable, stop before creating any child branch or other mutation. The current placement of generic helpers such as `stack-branches`, `descendants-report`, and `backup-refs` does not decide their permanent semantic ownership; that migration is tracked separately.
+
 ## Safety boundaries
 
 - Require explicit user approval after the preview and before any branch, commit, or stack mutation.

@@ -20,6 +20,10 @@ allowed-tools:
 
 Run the user-facing `just-the-stack` workflow: validate the current Graphite stack path from bottom to top with `just`, fix failures on the branch where they occur, create separate checkpoint-style fix commits, restack descendants as needed, and submit the stack once every branch is green.
 
+## Current Slots prerequisite
+
+This workflow currently requires `@nseng-ai/slots` installed and enabled because structured stack topology and the conditional Slot-freeing safety path rely on helpers under `ns slot gt exec`. If that capability is unavailable, stop before any mutation. The current placement of generic helpers such as `stack-branches`, `descendants-report`, and `backup-refs` does not decide their permanent semantic ownership; that migration is tracked separately.
+
 Invocation authorizes validating, fixing, restacking, and `gt submit --no-interactive` for the current stack. It does **not** authorize guessing across sibling stacks, carrying a dirty worktree, weakening checks, or freeing other occupied slots without confirmation.
 
 ## Related skills

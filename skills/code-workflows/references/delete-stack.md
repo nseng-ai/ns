@@ -7,6 +7,7 @@ safety and making PR/remote cleanup intentional.
 
 ## Contract
 
+- Current prerequisite: `@nseng-ai/slots` must be installed and enabled because structured stack helpers currently live under `ns slot gt exec`; if unavailable, stop before mutation. Their current placement does not decide permanent semantic ownership of generic helpers (`stack-branches`, `descendants-report`, `backup-refs`); that migration is tracked separately.
 - Selector: `root_branch`, not "current stack". If the user did not give a
   root branch, ask for one before destructive work.
 - Target set: `root_branch` plus every Graphite descendant/upstack branch.

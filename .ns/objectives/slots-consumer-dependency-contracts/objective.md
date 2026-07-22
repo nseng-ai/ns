@@ -19,7 +19,7 @@ The former cmux capability has been retired. Its useful destination behavior mig
 - Make optional compact labels in all current Herdr label surfaces require both canonical managed-Slot path identity and `NsExtensionApi.hasExtension("@nseng-ai/slots")`, while retaining Slot-backed Herdr dispatch as an explicit hard requirement.
 - Record the former cmux relationship as satisfied by the proved capability retirement and resource-first Herdr migration; do not recreate cmux code or terminology in live contracts.
 - Keep smart-restack and affected portable skills explicitly Slots-required for now, with precise missing-capability behavior and prominent prerequisites.
-- Establish focused follow-up ownership for moving generic structured Graphite topology away from `ns slot gt exec`; Slots retains occupancy, freeing, and Slot-aware safety.
+- Make the accidental placement of generic Graphite topology and Git recovery helpers under `ns slot gt exec` explicit without requiring a command migration now; Slots retains occupancy, freeing, and Slot-aware safety.
 - Use the effective ns command catalog's exact package identities as the canonical capability-presence fact. Every Pi-hosted Herdr host supplies a complete ns extension API factory; each relevant command handler resolves exact Slots presence before entering core rather than probing a command surface.
 
 ## Non-Goals
@@ -29,7 +29,7 @@ The former cmux capability has been retired. Its useful destination behavior mig
 - Making smart-restack Slot-neutral or weakening its cross-worktree occupancy safety.
 - Redesigning affected portable skills for repositories without Slots in this Objective.
 - Creating a universal cross-host capability-presence abstraction: this work constructs the complete ns extension API at each relevant Pi command boundary and passes only the resolved required boolean into Herdr core.
-- Implementing a new Graphite-topology owner inside this coordination record unless the work proves small and independently coherent; otherwise a linked focused Objective owns it.
+- Moving or aliasing the generic Graphite/Git helpers solely to correct their current command path; revisit ownership only when concrete consumer work justifies migration.
 - Changing the Slots capability's own command or Capability API behavior merely to accommodate an accidental consumer coupling.
 
 ## Completion Criteria
@@ -40,7 +40,7 @@ The former cmux capability has been retired. Its useful destination behavior mig
 - The former cmux relationship remains retired and accounted for through source/history evidence rather than new implementation work.
 - `flow-slots-opt-in` is completed or its remaining work is explicitly re-delegated with no ambiguity about Flow's optional runtime relationship.
 - Smart-restack and every currently affected portable skill clearly declare Slots as a prerequisite and fail or stop with actionable missing-capability guidance.
-- Generic Graphite topology migration has a precise owner and linked Objective when it remains larger than this record; topology-only consumers are accounted for without silently treating Slots as their permanent owner.
+- Generic Graphite topology and Git recovery helpers are documented as compatibility placements rather than Slot semantics; topology-only consumers are accounted for without requiring a speculative migration owner.
 - Package manifests, registration surfaces, README/CONTEXT/AGENTS guidance, and tests agree with each consumer's decided relationship. Relevant targeted checks and broader repository validation pass for delivered changes, with commands and unrelated blockers recorded.
 - The Objective closes only after each relationship is delivered directly or delegated to a linked focused Objective with explicit completion criteria, and the cross-consumer outcome is synthesized here.
 
@@ -55,11 +55,10 @@ The former cmux capability has been retired. Its useful destination behavior mig
 - **Risk — duplicate complete API construction drifts.** CLI and non-CLI hosts must share one SDK-owned constructor rather than maintaining parallel `NsExtensionApi` object literals.
 - **Risk — wrong Herdr API lifetime, cwd, or ordering.** Registration-time or cross-invocation caching would make presence checks stale. Construct at most once per relevant command invocation from that handler's exact `ctx.cwd`, before entering core and therefore before caller targeting, validation, prompting, model work, or early returns; registration and unrelated commands remain lazy.
 - **Risk — topology extraction weakens safety.** Moving generic Graphite facts away from Slots must not remove Slot occupancy checks from restack, freeing, or deletion workflows.
-- **Risk — prerequisite comments become permanent accidental coupling.** Skills deliberately remain Slots-required now because portability decisions lack context; the later audit must distinguish topology convenience from occupancy and mutation requirements.
+- **Accepted risk — compatibility placement may persist.** Skills remain operationally Slots-required while `stack-branches`, `descendants-report`, and `backup-refs` live under `ns slot gt exec`, but code-adjacent contracts state that these helpers do not use Slot semantics. Revisit command ownership only when concrete migration demand outweighs compatibility churn.
 - **Risk — the coordination record becomes an indefinite backlog.** Closure requires either delivery or a concrete linked owner for every relationship, not merely an inventory entry.
 
 ## Open Questions
 
-- Which package or capability should own the future structured Graphite topology surface, and what exact contract can topology-only consumers share without importing Slots semantics?
 - Should future Herdr dispatch pluggability use a destination-specific checkout strategy seam or participate in a broader checkout composition contract?
 - After affected skills carry explicit prerequisites, which should be audited first for Slot-neutral operation when sufficient workflow context is available?

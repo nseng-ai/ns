@@ -353,6 +353,8 @@ export const slotCommandSpecs = [
 		handler: runGtFreeStack,
 		renderHuman: renderGtFreeStack,
 	}),
+	// Compatibility placement only: this helper uses Graphite topology, not Slot inventory or lifecycle
+	// semantics. Keep it here until a concrete consumer justifies moving the command face.
 	slotCommandSpec({
 		group: "gt-exec",
 		name: "stack-branches",
@@ -373,6 +375,8 @@ export const slotCommandSpecs = [
 		handler: runGtStackMapBranches,
 		renderHuman: renderStackMapBranches,
 	}),
+	// Compatibility placement only: this helper uses Git recovery mechanics for Graphite workflows,
+	// not Slot inventory or lifecycle semantics. Avoid inferring ownership from the command path.
 	slotCommandSpec({
 		group: "gt-exec",
 		name: "backup-refs",
@@ -394,6 +398,8 @@ export const slotCommandSpecs = [
 		handler: runGtQuiescence,
 		renderHuman: renderGtQuiescence,
 	}),
+	// Compatibility placement only: this report uses Graphite topology plus Git/PR evidence, not Slot
+	// inventory or lifecycle semantics. Keep it here until a concrete consumer justifies a move.
 	slotCommandSpec<
 		typeof gtDescendantsReportRequestSchema,
 		GtDescendantsReportResult | { target: string }

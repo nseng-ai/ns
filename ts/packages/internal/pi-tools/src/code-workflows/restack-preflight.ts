@@ -155,7 +155,7 @@ export function createCommandRestackPreflight(
 function commandRefusal(result: ExecResult): SmartRestackPreflightResult {
 	return {
 		type: "refused",
-		message: `Cannot run ns restack preflight; not starting gt restack.\n\n${formatCommandOutput(result, COMMAND_OUTPUT_TAIL_OPTIONS)}`,
+		message: `Cannot run ns restack preflight. Smart-restack requires the @nseng-ai/slots extension; install and enable it before retrying. Not starting gt restack or the resolver.\n\n${formatCommandOutput(result, COMMAND_OUTPUT_TAIL_OPTIONS)}`,
 	};
 }
 

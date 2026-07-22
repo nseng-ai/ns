@@ -8,6 +8,10 @@ description: Use when the user asks to linearize, reorder, consolidate, or colla
 
 Linearize descendant PRs above a named Graphite stack branch. This workflow is safe-by-default: inspect first, propose a compact final stack, then perform supervised stack rewrites.
 
+## Current Slots prerequisite
+
+This workflow currently requires `@nseng-ai/slots` installed and enabled because structured descendant discovery and backup helpers live under `ns slot gt exec`. If that capability is unavailable, stop before any mutation. The current placement of generic helpers such as `stack-branches`, `descendants-report`, and `backup-refs` does not decide their permanent semantic ownership; that migration is tracked separately.
+
 ## Safety contract
 
 - Planning is read-only.

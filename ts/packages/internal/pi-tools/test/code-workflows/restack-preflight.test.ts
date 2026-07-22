@@ -233,9 +233,13 @@ describe("command-backed smart-restack preflight", () => {
 		const result = await setupResult.run({ cwd: "/repo" });
 
 		expect(result.type).toBe("refused");
-		expect(result.type === "refused" ? result.message : "").toContain(
-			"Cannot run ns restack preflight",
-		);
+		const message = result.type === "refused" ? result.message : "";
+		expect(message).toContain("Cannot run ns restack preflight");
+		expect(message).toContain("@nseng-ai/slots");
+		expect(message).toContain("install and enable it before retrying");
+		expect(message).toContain("Not starting gt restack or the resolver");
+		expect(message).toContain("ns: command not found");
+		expect(message).not.toMatch(/bypass|manual fallback|continue anyway/i);
 	});
 
 	test.each([
