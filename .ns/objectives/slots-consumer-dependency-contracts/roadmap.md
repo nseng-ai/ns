@@ -2,9 +2,9 @@
 
 ## Work
 
-- [ ] Establish the durable consumer accounting and reconcile current state: for each package, Pi workflow, internal tool, skill, test, and documentation surface, record its current behavior, decided dependency contract, presence or identity signal, and delivery owner.
-  - Revalidate the implemented SDK `hasExtension` / `requiresExtension` seam and reconcile historical `kernel` wording and stale status in `flow-slots-opt-in` against current ns SDK/host source.
-  - Record the former cmux relationship as completed by the proved package retirement and migration to resource-first Herdr; do not create work against deleted surfaces.
+- [x] Establish the durable consumer accounting and reconcile current state: for each package, Pi workflow, internal tool, skill, test, and documentation surface, record its current behavior, decided dependency contract, presence or identity signal, and delivery owner.
+  - Revalidated the implemented SDK `hasExtension` / `requiresExtension` seam and recorded that historical `kernel` wording and seam status in `flow-slots-opt-in` are stale; Flow owns rebaselining its record and consuming the delivered SDK/host mechanism.
+  - Recorded the former cmux relationship as completed by the proved package retirement and migration to resource-first Herdr; no work targets deleted surfaces.
 - [x] Correct optional Herdr label enrichment: require every Pi host to supply a complete ns extension API factory, resolve exact Slots presence once at each relevant command boundary before entering core, require both effective presence and managed-Slot path identity for prefixes, and align tests plus README/CONTEXT/AGENTS contracts.
   - Apply the rule to `/ns:herdr:space:goal`, `/ns:herdr:tab:goal`, and `/ns:herdr:space:objective-summary`; factory/configuration/programming failures propagate before core operation or rename, while extension absence is normal and unprefixed.
   - Retain Herdr dispatch as explicitly Slots-required and record pluggable dispatch only as future direction.
