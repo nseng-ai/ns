@@ -601,6 +601,26 @@ export function presentLandingSuccess(options: PresentLandingSuccessOptions): vo
 	});
 }
 
+export function isolatedMainLandingConfirmationTitle(): string {
+	return "Land this isolated PR?";
+}
+
+export function formatIsolatedMainLandingConfirmationDetails(
+	request: Extract<LandConfirmationRequest, { readonly kind: "isolated-main-landing" }>,
+): string {
+	return [
+		`PR: #${request.pullRequest.number} ${request.pullRequest.title}`,
+		`Head branch: ${request.pullRequest.headRefName}`,
+		`Target trunk: ${request.trunk}`,
+	].join("\n");
+}
+
+export function isolatedMainLandingNonInteractiveRefusalMessage(
+	request: Extract<LandConfirmationRequest, { readonly kind: "isolated-main-landing" }>,
+): string {
+	return `Refusing to land an isolated PR without confirmation in non-interactive mode. Re-run with --yes.\n\n${formatIsolatedMainLandingConfirmationDetails(request)}`;
+}
+
 export function formatIsolatedDryRunNotification(pullRequestNumber: number, trunk: string): string {
 	return `Dry run only; would merge PR #${pullRequestNumber} into ${trunk}.`;
 }

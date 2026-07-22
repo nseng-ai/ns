@@ -161,17 +161,31 @@ function batchedSteps(repository: Record<string, unknown>): ScriptedExec[] {
 }
 
 describe("loadPrsByBranch batched boundary parsing", () => {
+	test("queries two open candidates and one historical fallback per branch", () => {
+		const queryArg = batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, [
+			"feature-a",
+		]).at(-1);
+
+		expect(queryArg).toContain("open0: pullRequests(headRefName: $head0, states: OPEN, first: 2)");
+		expect(queryArg).toContain(
+			"history0: pullRequests(headRefName: $head0, states: [CLOSED, MERGED], first: 1, orderBy: { field: UPDATED_AT, direction: DESC })",
+		);
+	});
+
 	test.each(["MERGED", "CLOSED"] as const)("loads a valid %s PR candidate", async (state) => {
 		const first = prFacts({ branch: BRANCHES[0], number: 101, state, sha: SHA_A });
 		const pi = new FakePi(
 			batchedSteps({
-				b0: { nodes: [first] },
-				b1: {
+				open0: { nodes: [] },
+				history0: { nodes: [first] },
+				open1: {
 					nodes: [prFacts({ branch: BRANCHES[1], number: 102, state: "OPEN", sha: SHA_B })],
 				},
-				b2: {
+				history1: { nodes: [] },
+				open2: {
 					nodes: [prFacts({ branch: BRANCHES[2], number: 103, state: "OPEN", sha: SHA_C })],
 				},
+				history2: { nodes: [] },
 			}),
 		);
 
@@ -184,18 +198,20 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 	test("prefers the unique open PR over newer historical candidates", async () => {
 		const pi = new FakePi(
 			batchedSteps({
-				b0: {
-					nodes: [
-						prFacts({ branch: BRANCHES[0], number: 111, state: "CLOSED", sha: SHA_A }),
-						prFacts({ branch: BRANCHES[0], number: 101, state: "OPEN", sha: SHA_A }),
-					],
+				open0: {
+					nodes: [prFacts({ branch: BRANCHES[0], number: 101, state: "OPEN", sha: SHA_A })],
 				},
-				b1: {
+				history0: {
+					nodes: [prFacts({ branch: BRANCHES[0], number: 111, state: "CLOSED", sha: SHA_A })],
+				},
+				open1: {
 					nodes: [prFacts({ branch: BRANCHES[1], number: 102, state: "OPEN", sha: SHA_B })],
 				},
-				b2: {
+				history1: { nodes: [] },
+				open2: {
 					nodes: [prFacts({ branch: BRANCHES[2], number: 103, state: "OPEN", sha: SHA_C })],
 				},
+				history2: { nodes: [] },
 			}),
 		);
 
@@ -204,9 +220,42 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 		expect(prs.get(BRANCHES[0])).toMatchObject({ number: 101, state: "OPEN" });
 	});
 
+	test.each([[["feature-a"]], [["feature-a", "feature-b"]]])(
+		"uses the batched selection contract for %s",
+		async (branches) => {
+			const prs = branches.map((branch, index) =>
+				prFacts({ branch, number: 101 + index, state: "OPEN", sha: index === 0 ? SHA_A : SHA_B }),
+			);
+			const repository = Object.fromEntries(
+				prs.flatMap((pr, index) => [
+					[`open${index}`, { nodes: [pr] }],
+					[`history${index}`, { nodes: [] }],
+				]),
+			);
+			const pi = new FakePi([
+				step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
+					stdout: JSON.stringify({ nameWithOwner: "owner/repo" }),
+				}),
+				step("gh", batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, branches), {
+					stdout: JSON.stringify({ data: { repository } }),
+				}),
+			]);
+
+			expect(expectSuccess(await loadPrsByBranch(pi, ROOT, branches)).size).toBe(branches.length);
+			pi.assertDone();
+		},
+	);
+
 	test("reports an absent PR", async () => {
 		const pi = new FakePi(
-			batchedSteps({ b0: { nodes: [] }, b1: { nodes: [] }, b2: { nodes: [] } }),
+			batchedSteps({
+				open0: { nodes: [] },
+				history0: { nodes: [] },
+				open1: { nodes: [] },
+				history1: { nodes: [] },
+				open2: { nodes: [] },
+				history2: { nodes: [] },
+			}),
 		);
 
 		expect(expectFailure(await loadPrsByBranch(pi, ROOT, BRANCHES)).message).toContain(
@@ -232,11 +281,14 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 	test("reports the branch with a malformed PR connection", async () => {
 		const pi = new FakePi(
 			batchedSteps({
-				b0: {
+				open0: {
 					nodes: [prFacts({ branch: BRANCHES[0], number: 101, state: "OPEN", sha: SHA_A })],
 				},
-				b1: { nodes: "invalid" },
-				b2: { nodes: [] },
+				history0: { nodes: [] },
+				open1: { nodes: "invalid" },
+				history1: { nodes: [] },
+				open2: { nodes: [] },
+				history2: { nodes: [] },
 			}),
 		);
 
@@ -248,11 +300,14 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 	test("reports the branch with malformed PR candidate data", async () => {
 		const pi = new FakePi(
 			batchedSteps({
-				b0: {
+				open0: {
 					nodes: [prFacts({ branch: BRANCHES[0], number: 101, state: "OPEN", sha: SHA_A })],
 				},
-				b1: { nodes: [{ number: 102 }] },
-				b2: { nodes: [] },
+				history0: { nodes: [] },
+				open1: { nodes: [{ number: 102 }] },
+				history1: { nodes: [] },
+				open2: { nodes: [] },
+				history2: { nodes: [] },
 			}),
 		);
 
@@ -265,9 +320,16 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 		const open = prFacts({ branch: BRANCHES[0], number: 101, state: "OPEN", sha: SHA_A });
 		const pi = new FakePi(
 			batchedSteps({
-				b0: { nodes: [open, { ...open, id: "PR_node_111", number: 111 }] },
-				b1: { nodes: [prFacts({ branch: BRANCHES[1], number: 102, state: "OPEN", sha: SHA_B })] },
-				b2: { nodes: [prFacts({ branch: BRANCHES[2], number: 103, state: "OPEN", sha: SHA_C })] },
+				open0: { nodes: [open, { ...open, id: "PR_node_111", number: 111 }] },
+				history0: { nodes: [] },
+				open1: {
+					nodes: [prFacts({ branch: BRANCHES[1], number: 102, state: "OPEN", sha: SHA_B })],
+				},
+				history1: { nodes: [] },
+				open2: {
+					nodes: [prFacts({ branch: BRANCHES[2], number: 103, state: "OPEN", sha: SHA_C })],
+				},
+				history2: { nodes: [] },
 			}),
 		);
 

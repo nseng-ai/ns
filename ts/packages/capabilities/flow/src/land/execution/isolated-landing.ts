@@ -1,4 +1,4 @@
-import { landingExecutionFailure } from "../results.ts";
+import { landingCancelledBeforeMergeFailure, landingExecutionFailure } from "../results.ts";
 import type {
 	LandContext,
 	LandingFailure,
@@ -45,7 +45,13 @@ export type IsolatedLandingOutcome =
 	  }
 	| {
 			readonly type: "failure";
-			readonly stage: "load" | "base-check" | "cleanup-confirmation" | "merge" | "verification";
+			readonly stage:
+				| "load"
+				| "base-check"
+				| "confirmation"
+				| "cleanup-confirmation"
+				| "merge"
+				| "verification";
 			readonly failure: LandingFailure;
 			readonly cleanupDecision: PostLandingSlotCleanupDecision;
 	  };
@@ -94,6 +100,23 @@ export async function executeIsolatedLanding(
 			type: "completed",
 			result: "dry-run",
 			pullRequest,
+			cleanupDecision: noCleanup,
+		};
+	}
+
+	const confirmation = await options.host.confirmation.confirm({
+		kind: "isolated-main-landing",
+		pullRequest,
+		trunk: options.target.trunk,
+	});
+	if (confirmation.type !== "approved") {
+		return {
+			type: "failure",
+			stage: "confirmation",
+			failure:
+				confirmation.type === "declined"
+					? landingCancelledBeforeMergeFailure()
+					: confirmation.failure,
 			cleanupDecision: noCleanup,
 		};
 	}

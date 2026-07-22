@@ -12,11 +12,14 @@ import type {
 } from "./execution/host-seams.ts";
 import {
 	formatFreeManagedSlotsConfirmationDetails,
+	formatIsolatedMainLandingConfirmationDetails,
 	formatPlan,
 	formatPostLandingCleanupConfirmationDetails,
 	formatSubmitRequiredUpdatesConfirmationDetails,
 	freeManagedSlotsConfirmationTitle,
 	freeManagedSlotsNonInteractiveRefusalMessage,
+	isolatedMainLandingConfirmationTitle,
+	isolatedMainLandingNonInteractiveRefusalMessage,
 	postLandingCleanupConfirmationTitle,
 	postLandingCleanupNonInteractiveRefusalMessage,
 	submitRequiredUpdatesConfirmationTitle,
@@ -47,6 +50,7 @@ export function createUpfrontApprovedLandConfirmationGateway(
 		confirm: async (request) => {
 			switch (request.kind) {
 				case "main-landing":
+				case "isolated-main-landing":
 				case "free-managed-slots":
 				case "submit-required-updates":
 				case "post-landing-cleanup":
@@ -79,6 +83,8 @@ function confirmationOptions(
 	switch (request.kind) {
 		case "main-landing":
 			return mainLandingOptions(ctx, request);
+		case "isolated-main-landing":
+			return isolatedMainLandingOptions(ctx, request);
 		case "free-managed-slots":
 			return freeManagedSlotsOptions(ctx, request);
 		case "submit-required-updates":
@@ -100,6 +106,19 @@ function mainLandingOptions(
 		title: "Land this stack path?",
 		details: formatPlan(request.plan),
 		nonInteractiveMessage: `Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${formatPlan(request.plan)}`,
+	};
+}
+
+function isolatedMainLandingOptions(
+	ctx: PrintAwareLandStackCommandContext,
+	request: Extract<LandConfirmationRequest, { readonly kind: "isolated-main-landing" }>,
+): ConfirmLandStackActionOptions {
+	return {
+		ctx,
+		shouldPrompt: true,
+		title: isolatedMainLandingConfirmationTitle(),
+		details: formatIsolatedMainLandingConfirmationDetails(request),
+		nonInteractiveMessage: isolatedMainLandingNonInteractiveRefusalMessage(request),
 	};
 }
 

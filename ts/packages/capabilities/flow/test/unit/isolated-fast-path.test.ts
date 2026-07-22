@@ -73,6 +73,43 @@ describe("isolated landing core", () => {
 		expect(fakes.github.squashMergePullRequestCalls).toEqual([]);
 	});
 
+	test("refuses main landing authority before cleanup or merge", async () => {
+		const requests: Parameters<LandConfirmationGateway["confirm"]>[0][] = [];
+		const refusal = {
+			type: "execution" as const,
+			level: "error" as const,
+			message:
+				"Refusing to land an isolated PR without confirmation in non-interactive mode. Re-run with --yes.",
+			outcome: "refusal" as const,
+			refusalReason: "non-interactive" as const,
+		};
+		const fakes = createInMemoryLandContext({ github: { pullRequests: [openPullRequest()] } });
+		const outcome = await run(fakes.context, {
+			shape: isolatedShape(MANAGED_ROOT),
+			confirmation: {
+				confirm: async (request) => {
+					requests.push(request);
+					return { type: "refused-with-fully-worded-failure", failure: refusal };
+				},
+			},
+		});
+
+		expect(requests).toEqual([
+			{
+				kind: "isolated-main-landing",
+				pullRequest: expect.objectContaining({ number: 101, headRefName: FEATURE }),
+				trunk: TRUNK,
+			},
+		]);
+		expect(outcome).toEqual({
+			type: "failure",
+			stage: "confirmation",
+			failure: refusal,
+			cleanupDecision: { type: "not-needed" },
+		});
+		expect(fakes.github.squashMergePullRequestCalls).toEqual([]);
+	});
+
 	test("merges, verifies auto-MERGED fake facts, and preserves command output", async () => {
 		const fakes = createInMemoryLandContext({
 			github: {
@@ -112,10 +149,10 @@ describe("isolated landing core", () => {
 		const outcome = await run(fakes.context, {
 			shape: isolatedShape(MANAGED_ROOT),
 			confirmation: {
-				confirm: async () => ({
-					type: "refused-with-fully-worded-failure",
-					failure: refusal,
-				}),
+				confirm: async (request) =>
+					request.kind === "isolated-main-landing"
+						? { type: "approved", approvalSource: "prompted" }
+						: { type: "refused-with-fully-worded-failure", failure: refusal },
 			},
 		});
 

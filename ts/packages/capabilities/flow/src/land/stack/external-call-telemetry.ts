@@ -165,10 +165,10 @@ function classifyGithubCliInvocation(args: readonly string[]): CommandInvocation
 				provider: "github",
 				graphqlRequests: 1,
 				restRequests: 0,
-				rateLimitCost: Math.max(1, branchCount),
+				rateLimitCost: Math.max(1, branchCount * 2),
 				description:
 					branchCount > 0
-						? "gh api graphql batched PR facts uses one GraphQL query with one PR connection per branch"
+						? "gh api graphql batched PR facts uses one GraphQL query with two PR connections per branch"
 						: "gh api graphql uses one GraphQL query",
 			},
 		};

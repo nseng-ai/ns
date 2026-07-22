@@ -72,9 +72,9 @@ describe("flow land external-call telemetry classification", () => {
 			quota: {
 				graphqlRequests: 1,
 				restRequests: 0,
-				rateLimitCost: 2,
+				rateLimitCost: 4,
 				description:
-					"gh api graphql batched PR facts uses one GraphQL query with one PR connection per branch",
+					"gh api graphql batched PR facts uses one GraphQL query with two PR connections per branch",
 			},
 		});
 	});

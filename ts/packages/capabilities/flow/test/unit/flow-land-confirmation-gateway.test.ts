@@ -22,6 +22,7 @@ interface GatewayContextFixture {
 	readonly ctx: PrintAwareLandStackCommandContext;
 	readonly confirmations: Array<{
 		readonly title: string;
+		readonly message: string;
 		readonly options?: { readonly defaultAnswer?: "yes" | "no" };
 	}>;
 	readonly notifications: Array<{ readonly message: string; readonly level?: NotifyLevel }>;
@@ -41,9 +42,10 @@ function createGatewayContext(options: {
 				notify(message, level) {
 					notifications.push({ message, ...optionalEntry("level", level) });
 				},
-				async confirm(title, _message, confirmOptions) {
+				async confirm(title, message, confirmOptions) {
 					confirmations.push({
 						title,
+						message,
 						...(confirmOptions === undefined ? {} : { options: confirmOptions }),
 					});
 					return options.shouldConfirm ?? true;
@@ -81,6 +83,7 @@ interface ConfirmationRequestEntry {
 	readonly name: string;
 	readonly request: LandConfirmationRequest;
 	readonly title: string;
+	readonly detailIncludes: readonly string[];
 	readonly defaultAnswer?: "yes";
 }
 
@@ -88,6 +91,18 @@ const mainLandingEntry: ConfirmationRequestEntry = {
 	name: "main-landing",
 	request: { kind: "main-landing", plan: landingPlan() },
 	title: "Land this stack path?",
+	detailIncludes: ["feature-a", "#7"],
+};
+
+const isolatedMainLandingEntry: ConfirmationRequestEntry = {
+	name: "isolated-main-landing",
+	request: {
+		kind: "isolated-main-landing",
+		pullRequest: pullRequestFacts({ number: 9, headRefName: "feature-isolated" }),
+		trunk: "main",
+	},
+	title: "Land this isolated PR?",
+	detailIncludes: ["#9", "feature-isolated", "main"],
 };
 
 const freeManagedSlotsEntry: ConfirmationRequestEntry = {
@@ -97,10 +112,12 @@ const freeManagedSlotsEntry: ConfirmationRequestEntry = {
 		slots: [{ type: "managed-slot", branch: "feature-a", path: SLOT_ROOT, slotName: "slot-02" }],
 	},
 	title: "Free landing slots?",
+	detailIncludes: ["feature-a", "slot-02"],
 };
 
 const requestTable: ReadonlyArray<ConfirmationRequestEntry> = [
 	mainLandingEntry,
+	isolatedMainLandingEntry,
 	freeManagedSlotsEntry,
 	{
 		name: "submit-required-updates",
@@ -120,6 +137,7 @@ const requestTable: ReadonlyArray<ConfirmationRequestEntry> = [
 			restackRequirements: [],
 		},
 		title: "Run gt submit/update?",
+		detailIncludes: ["feature-a", "#7"],
 	},
 	{
 		name: "post-landing-cleanup",
@@ -131,6 +149,7 @@ const requestTable: ReadonlyArray<ConfirmationRequestEntry> = [
 			localBranchDisposition: "delete",
 		},
 		title: "Free current slot and delete local branch?",
+		detailIncludes: ["feature-a", "slot-02"],
 		defaultAnswer: "yes",
 	},
 ];
@@ -144,14 +163,16 @@ describe("flow land confirmation gateway", () => {
 			type: "approved",
 			approvalSource: "prompted",
 		});
-		expect(fixture.confirmations).toEqual([
-			{
-				title: entry.title,
-				...(entry.defaultAnswer === undefined
-					? {}
-					: { options: { defaultAnswer: entry.defaultAnswer } }),
-			},
-		]);
+		expect(fixture.confirmations).toHaveLength(1);
+		expect(fixture.confirmations[0]).toMatchObject({
+			title: entry.title,
+			...(entry.defaultAnswer === undefined
+				? {}
+				: { options: { defaultAnswer: entry.defaultAnswer } }),
+		});
+		for (const detail of entry.detailIncludes) {
+			expect(fixture.confirmations[0]?.message).toContain(detail);
+		}
 	});
 
 	test.each(requestTable)("$name maps an interactive decline to declined", async (entry) => {

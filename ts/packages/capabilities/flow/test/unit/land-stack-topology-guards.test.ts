@@ -4,6 +4,10 @@ import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { shortSha } from "../../src/commit-display/index.ts";
 import { BACKUP_REF_NAMESPACE, PR_FIELDS } from "../../src/land/stack/constants.ts";
+import {
+	GH_REPO_VIEW_NAME_WITH_OWNER_ARGS,
+	batchedPullRequestFactsGraphqlArgs,
+} from "../../src/land/stack/pr-facts.ts";
 import { type LandResult } from "../../src/land/results.ts";
 import {
 	executeStackLanding,
@@ -340,21 +344,17 @@ function cleanRepoChecks(): ScriptedExec[] {
 }
 
 function initialBranchPlans(options: { featureBBase?: string } = {}): ScriptedExec[] {
-	return [
-		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
-			stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A })),
-		}),
-		step("gh", ["pr", "view", "feature-b", "--json", PR_FIELDS], {
-			stdout: prStdout(
-				prSnapshot({
-					number: 102,
-					branch: "feature-b",
-					base: options.featureBBase ?? "feature-a",
-					sha: SHA_B,
-				}),
-			),
+	const branches = ["feature-a", "feature-b"];
+	const prs = [
+		prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A }),
+		prSnapshot({
+			number: 102,
+			branch: "feature-b",
+			base: options.featureBBase ?? "feature-a",
+			sha: SHA_B,
 		}),
 	];
+	return batchedPrSteps(branches, prs);
 }
 
 function featureStackPreflight(
@@ -393,13 +393,35 @@ function singleBranchPreflightWithRefs(options: {
 			branchShaOverrides: { "feature-a": options.localSha },
 		}),
 		...cleanRepoChecks(),
-		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
-			stdout: prStdout(
-				prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: options.prSha }),
-			),
-		}),
+		...batchedPrSteps(
+			["feature-a"],
+			[prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: options.prSha })],
+		),
 		step("git", ["worktree", "list", "--porcelain"], {
 			stdout: options.worktrees ?? worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
+		}),
+	];
+}
+
+function batchedPrSteps(
+	branches: readonly string[],
+	prs: readonly ReturnType<typeof prSnapshot>[],
+): ScriptedExec[] {
+	return [
+		step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
+			stdout: `${JSON.stringify({ nameWithOwner: "owner/repo" })}\n`,
+		}),
+		step("gh", batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, branches), {
+			stdout: `${JSON.stringify({
+				data: {
+					repository: Object.fromEntries(
+						prs.flatMap((pr, index) => [
+							[`open${index}`, { nodes: [pr] }],
+							[`history${index}`, { nodes: [] }],
+						]),
+					),
+				},
+			})}\n`,
 		}),
 	];
 }

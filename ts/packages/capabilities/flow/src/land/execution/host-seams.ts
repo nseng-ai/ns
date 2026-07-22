@@ -5,10 +5,16 @@ import type {
 	PrSubmitRequirement,
 	RestackRequirement,
 	LandedPullRequest,
+	PullRequestFacts,
 } from "../types.ts";
 
 export type LandConfirmationRequest =
 	| { readonly kind: "main-landing"; readonly plan: LandingPlan }
+	| {
+			readonly kind: "isolated-main-landing";
+			readonly pullRequest: PullRequestFacts;
+			readonly trunk: string;
+	  }
 	| { readonly kind: "free-managed-slots"; readonly slots: readonly ManagedSlotWorktree[] }
 	| {
 			readonly kind: "submit-required-updates";
