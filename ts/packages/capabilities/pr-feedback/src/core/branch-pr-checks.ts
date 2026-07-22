@@ -85,6 +85,20 @@ export async function collectBranchPrChecks(
 			failure: outcomes.error,
 		};
 	}
+	const partialOutcome = outcomes.value.find(
+		(outcome) => outcome.type === "found" && outcome.checks.counts.hasMore,
+	);
+	if (partialOutcome?.type === "found") {
+		return {
+			type: "failure",
+			message: "Failed to fetch complete branch PR checks",
+			failure: {
+				code: "github_pr_feedback_response_invalid",
+				message: `GitHub branch PR checks for branch ${partialOutcome.branch} (PR ${partialOutcome.pr.number}) have incomplete check pagination.`,
+				details: { operation: "getBranchPrChecks", prNumber: partialOutcome.pr.number },
+			},
+		};
+	}
 	const entries = outcomes.value.map(branchPrChecksEntry);
 	return {
 		type: "ok",

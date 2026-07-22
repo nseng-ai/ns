@@ -97,6 +97,7 @@ export const branchPrCheckContextsQuery = `
 query($owner: String!, $repo: String!, $number: Int!, $checkCursor: String!) {
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
+      headRefOid
 ${statusCheckRollupSelection({ indent: "      ", workflowRunSelection: BRANCH_PR_CHECKS_WORKFLOW_RUN_SELECTION }).replace("contexts(first: 100)", "contexts(first: 100, after: $checkCursor)")}
     }
   }
@@ -106,6 +107,7 @@ export const branchPrCheckThreadsQuery = `
 query($owner: String!, $repo: String!, $number: Int!, $threadCursor: String!) {
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
+      headRefOid
       reviewThreads(first: 100, after: $threadCursor) {
         pageInfo { hasNextPage endCursor }
         nodes { isResolved }

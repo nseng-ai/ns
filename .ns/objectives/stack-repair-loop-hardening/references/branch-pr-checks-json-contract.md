@@ -186,7 +186,13 @@ Successful found-entry classification is complete:
 
 - Follow every page of the status-check-context connection until `hasNextPage` is false.
 - Follow every page of the review-thread connection until `hasNextPage` is false.
-- Do not classify a PR from a partial first page.
+- Every check-context and review-thread continuation response carries the PR `headRefOid`
+  and must match the head observed by the initial branch query. A moved head is a
+  `github_pr_feedback_pagination_invalid` whole-command failure; callers rerun the command,
+  and the command does not automatically restart pagination.
+- Do not classify a PR from a partial first page. The capability layer also rejects any
+  found outcome with `counts.hasMore: true` from any gateway implementation before deriving
+  `pr_status` or returning a partial collection.
 - Preserve `counts.hasMore` for additive compatibility, but set it to `false` on every
   successfully fully collected found entry.
 - Treat a missing/invalid continuation cursor, malformed continuation response, or failure

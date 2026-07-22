@@ -1321,6 +1321,114 @@ describe("RealGithubPrFeedbackGateway", () => {
 		runner.assertDone();
 	});
 
+	test("rejects a moved head during check-context pagination", async () => {
+		const initialArgs = branchPrChecksArgs(["feature/base"]);
+		const continuationArgs = branchPrCheckContextsPageArgs(101, "CHECK_CURSOR");
+		const runner = new ScriptedCommandRunner([
+			step("gh", initialArgs, {
+				stdout: branchPrChecksResponse({
+					b0: {
+						nodes: [
+							branchPrNode({
+								statusCheckRollup: {
+									contexts: {
+										nodes: [],
+										pageInfo: { hasNextPage: true, endCursor: "CHECK_CURSOR" },
+									},
+								},
+							}),
+						],
+					},
+				}),
+			}),
+			step("gh", continuationArgs, {
+				stdout: JSON.stringify({
+					data: {
+						repository: {
+							pullRequest: {
+								headRefOid: "new-head",
+								statusCheckRollup: {
+									contexts: {
+										nodes: [],
+										pageInfo: { hasNextPage: false, endCursor: null },
+									},
+								},
+							},
+						},
+					},
+				}),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(
+			await gateway.getBranchPrChecks({ cwd: "/repo", branches: ["feature/base"] }),
+		).toMatchObject({
+			ok: false,
+			error: {
+				code: "github_pr_feedback_pagination_invalid",
+				details: {
+					operation: "getBranchPrChecks",
+					prNumber: 101,
+					cursorContext: "branchPrCheckContexts",
+				},
+			},
+		});
+		runner.assertDone();
+	});
+
+	test("rejects a moved head during review-thread pagination", async () => {
+		const initialArgs = branchPrChecksArgs(["feature/base"]);
+		const continuationArgs = branchPrCheckThreadsPageArgs(101, "THREAD_CURSOR");
+		const runner = new ScriptedCommandRunner([
+			step("gh", initialArgs, {
+				stdout: branchPrChecksResponse({
+					b0: {
+						nodes: [
+							branchPrNode({
+								reviewThreads: {
+									nodes: [],
+									pageInfo: { hasNextPage: true, endCursor: "THREAD_CURSOR" },
+								},
+							}),
+						],
+					},
+				}),
+			}),
+			step("gh", continuationArgs, {
+				stdout: JSON.stringify({
+					data: {
+						repository: {
+							pullRequest: {
+								headRefOid: "new-head",
+								reviewThreads: {
+									nodes: [],
+									pageInfo: { hasNextPage: false, endCursor: null },
+								},
+							},
+						},
+					},
+				}),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(
+			await gateway.getBranchPrChecks({ cwd: "/repo", branches: ["feature/base"] }),
+		).toMatchObject({
+			ok: false,
+			error: {
+				code: "github_pr_feedback_pagination_invalid",
+				details: {
+					operation: "getBranchPrChecks",
+					prNumber: 101,
+					cursorContext: "branchPrCheckReviewThreads",
+				},
+			},
+		});
+		runner.assertDone();
+	});
+
 	test("completes branch check and review-thread continuation pages", async () => {
 		const initialArgs = branchPrChecksArgs(["feature/base"]);
 		const checkArgs = branchPrCheckContextsPageArgs(101, "CHECK_CURSOR");
@@ -1363,6 +1471,7 @@ describe("RealGithubPrFeedbackGateway", () => {
 					data: {
 						repository: {
 							pullRequest: {
+								headRefOid: "abc101",
 								statusCheckRollup: {
 									contexts: {
 										nodes: [secondCheck],
@@ -1379,6 +1488,7 @@ describe("RealGithubPrFeedbackGateway", () => {
 					data: {
 						repository: {
 							pullRequest: {
+								headRefOid: "abc101",
 								reviewThreads: {
 									nodes: [{ isResolved: false }],
 									pageInfo: { hasNextPage: false, endCursor: null },
@@ -1454,6 +1564,7 @@ describe("RealGithubPrFeedbackGateway", () => {
 					data: {
 						repository: {
 							pullRequest: {
+								headRefOid: "abc101",
 								statusCheckRollup: {
 									contexts: {
 										nodes: [latestRun],

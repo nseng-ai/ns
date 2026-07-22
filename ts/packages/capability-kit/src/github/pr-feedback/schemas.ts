@@ -292,7 +292,9 @@ export const ghBranchPrCheckContextsResponseSchema = z
 	.object({
 		data: z.object({
 			repository: z.object({
-				pullRequest: z.object({ statusCheckRollup: ghStatusCheckRollupSchema }).nullable(),
+				pullRequest: z
+					.object({ headRefOid: z.string(), statusCheckRollup: ghStatusCheckRollupSchema })
+					.nullable(),
 			}),
 		}),
 	})
@@ -302,7 +304,9 @@ export const ghBranchPrCheckThreadsResponseSchema = z
 	.object({
 		data: z.object({
 			repository: z.object({
-				pullRequest: z.object({ reviewThreads: ghBranchPrCheckThreadConnectionSchema }).nullable(),
+				pullRequest: z
+					.object({ headRefOid: z.string(), reviewThreads: ghBranchPrCheckThreadConnectionSchema })
+					.nullable(),
 			}),
 		}),
 	})

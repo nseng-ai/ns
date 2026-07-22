@@ -15,6 +15,44 @@ import {
 const GATEWAY_OPTIONS = { cwd: "/repo" };
 
 describe("collectBranchPrChecks", () => {
+	test("rejects a partial found outcome before deriving PR status", async () => {
+		const prFeedback = new InMemoryGithubPrFeedbackGateway({
+			prs: [
+				prSummary({
+					number: 11,
+					title: "A",
+					url: "https://github.example/pr/11",
+					headRefName: "feature-a",
+					baseRefName: "main",
+					headRefOid: "oid-a",
+				}),
+			],
+			checks: {
+				11: {
+					counts: { passing: 1, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: true },
+					checks: [],
+				},
+			},
+		});
+
+		const result = await collectBranchPrChecks({
+			branches: ["feature-a"],
+			prFeedback,
+			gatewayOptions: GATEWAY_OPTIONS,
+		});
+
+		expect(result).toEqual({
+			type: "failure",
+			message: "Failed to fetch complete branch PR checks",
+			failure: {
+				code: "github_pr_feedback_response_invalid",
+				message:
+					"GitHub branch PR checks for branch feature-a (PR 11) have incomplete check pagination.",
+				details: { operation: "getBranchPrChecks", prNumber: 11 },
+			},
+		});
+	});
+
 	test("returns found entries in request order with target and check payloads", async () => {
 		const prFeedback = new InMemoryGithubPrFeedbackGateway({
 			prs: [
@@ -37,7 +75,7 @@ describe("collectBranchPrChecks", () => {
 			],
 			checks: {
 				11: {
-					counts: { passing: 1, pending: 0, failing: 1, cancelled: 0, unknown: 0, hasMore: true },
+					counts: { passing: 1, pending: 0, failing: 1, cancelled: 0, unknown: 0, hasMore: false },
 					checks: [failingCheck()],
 				},
 			},
@@ -95,7 +133,14 @@ describe("collectBranchPrChecks", () => {
 							base_ref_name: "main",
 							head_ref_oid: "oid-a",
 						},
-						counts: { passing: 1, pending: 0, failing: 1, cancelled: 0, unknown: 0, hasMore: true },
+						counts: {
+							passing: 1,
+							pending: 0,
+							failing: 1,
+							cancelled: 0,
+							unknown: 0,
+							hasMore: false,
+						},
 						checks: [
 							{
 								bucket: "failing",
