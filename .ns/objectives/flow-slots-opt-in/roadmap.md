@@ -2,54 +2,28 @@
 
 ## Work
 
-- [x] Pin the presence semantics: define what "slots is installed" means for the
-      in-process `SlotClient` path (autoslot) versus the `ns slot` runtime command group
-      (land cleanup), and record the decision.
-  - Decided: one notion — the slots extension is present in the kernel's effective
-    declared-extension registry, identified by
-    `DeclaredExtensionDescriptor.packageName` (`"@nseng-ai/slots"`). All seven design
-    decisions (presence, absent-UX, identity, severing, land behavior, naming, scope)
-    are recorded in `updates/2026-07-12T182349Z-design-decisions-frontloaded.md`.
-- [ ] Capability-presence seam in the kernel: a declarative `requiresExtension` field
-      on extension command entries, filtered where the registry builds command
-      candidates (`kernel/src/extensions/registry.ts`), plus a
-      `hasExtension(packageName): boolean` predicate on `NsExtensionApi` — both
-      reading the same declared-extension registry fact.
-  - Document both surfaces in `ts/packages/kernel/docs/sdk-reference.md` (the
-    authoritative SDK export inventory).
-  - Verify hidden-entry filtering against the preinstalled descriptor catalog's
-    injected metadata; the absent state needs scenario coverage in a repo without
-    slots (the dev workspace always has slots present).
-  - Gates both flow-side slices below.
-- [ ] Autoslot decoupling: rewrite the slot step in `src/autoslot/slot-checkout.ts`
-      from the in-process `createSlotClient` call to exec
-      `ns slot checkout --format json` (covers both `--current` and branch modes),
-      with a gateway seam for tests; gate the `autoslot` entry with
-      `requiresExtension: "@nseng-ai/slots"`; delete `@nseng-ai/slots` from flow's
-      `package.json`.
-  - Severing mechanism was forced by the isolated managed-extension install trees
-    (see `objective.md` Assumptions and Risks); optional/peer dependencies cannot
-    resolve across sibling extension trees.
-- [ ] Land graceful degradation: LBYL handling for the uninstalled-after-use edge case
-      (slot-patterned worktrees exist but slots is absent), using `hasExtension` at
-      invocation time.
-  - Pre-merge: route managed-slot conflicts into the existing manual-detach guidance,
-    extended to name the missing slots capability; blocks before any PR lands.
-  - Post-landing: reuse the existing skipped-outcome shape
-    (`src/land/execution/post-landing-cleanup.ts`); report the skip, never block.
-  - The common no-slots repo needs no change: managed slots are path-detected
-    (`src/land/worktree-paths.ts`), so zero matches means the slots path never runs.
-  - Evidence: fake-driven tests for both presence states pass alongside the existing
-    land suite.
-- [ ] Contract docs: the flow README documents slots as an optional dependency, the
-      hidden-`autoslot` degraded surface, and land's degraded reporting.
+- [x] Establish one presence contract and deliver the generic ns mechanism.
+  - Presence is the exact package identity in the effective ns command catalog, not package resolution, path identity, or command probing.
+  - `ExtensionCommandEntry.requiresExtension` and `NsExtensionApi.hasExtension(packageName)` are implemented in `@nseng-ai/sdk`, documented in `ts/packages/sdk/docs/sdk-reference.md`, and composed by the ns host from the same effective package-name set.
+  - SDK unit coverage includes present/absent project providers, preinstalled and commandless providers, lazy gated modules, and exact-name lookup; ns-host integration coverage proves exact package identity and rejects descriptor subpaths.
+- [ ] Decouple and gate `autoslot` across both command surfaces.
+  - Replace the in-process `@nseng-ai/slots/api` client in `src/autoslot/` with an injected gateway over `ns slot checkout --format json`, preserving current and named-branch modes, structured failures, and the required parent-shell navigation contract.
+  - Add `requiresExtension: "@nseng-ai/slots"` to the ns command entry and make the Pi mirror omit `/ns:flow:autoslot` when exact Slots presence is absent; keep unrelated command registration lazy and unchanged.
+  - Remove the Flow manifest dependency and generated lockfile edge only after production imports are gone.
+  - Evidence: fake-driven gateway tests plus ns and Pi registration scenarios for present and absent catalogs; no real Slots backend in default tests.
+- [ ] Make land degrade explicitly when Slots is absent.
+  - Resolve `hasExtension("@nseng-ai/slots")` once at the land command boundary and pass the boolean into land composition; do not cache across invocations or infer it from paths.
+  - Preserve canonical managed-Slot path detection. Repositories with no matching worktrees take the ordinary path regardless of Slots presence.
+  - Before merge, a stale managed-Slot conflict with Slots absent blocks before PR mutation and gives actionable manual-detach guidance naming `@nseng-ai/slots`.
+  - After a successful landing, absent Slots turns optional managed-Slot cleanup into an explicit skipped outcome and never blocks the landing.
+  - Evidence: fake-driven present/absent/stale-path scenarios plus focused presentation and command-boundary tests.
+- [ ] Align user-facing and code-adjacent contracts, then record delivery evidence.
+  - Update the Flow README requirements, command matrix, `autoslot` integration text, and land cleanup/degraded-mode explanation to call Slots optional.
+  - Recheck package manifest, ns/Pi registration, README/CONTEXT where needed, and tests for one consistent relationship.
+  - Record targeted and repository validation plus material PR evidence for `slots-consumer-dependency-contracts` synthesis.
 
 ## Parked
 
-- cmux adoption of the presence seam. cmux's coupling is much deeper than flow's was
-  (~7 core files import `@nseng-ai/slots`, and `SlotClient` is re-exported from its
-  public API), and slots may be a genuinely hard dependency of its dispatch model
-  rather than an optional enhancement — evaluate before assuming the seam applies.
-- A generalized optional inter-capability dependency convention doc under
-  `docs/conventions/`; write it after a second consumer proves the pattern. It should
-  record the isolated-install-trees constraint.
+- A generalized optional inter-capability dependency convention; write one only after another consumer proves a reusable pattern beyond the existing SDK presence primitives.
+- Alternative Slot-neutral implementations of `autoslot` or land cleanup; this Objective keeps Slots as the provider and makes its use optional.
+- Changes to Herdr, smart-restack, portable skills, or generic Graphite/Git helper placement; those relationships are accounted for by `slots-consumer-dependency-contracts`.

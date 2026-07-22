@@ -10,102 +10,48 @@ edges:
 
 ## Thesis
 
-Flow hard-depends on the slots capability even though slot-awareness is peripheral to
-its core loop: `@nseng-ai/slots` is a plain `dependencies` entry consumed only by the
-`autoslot` command, and `land` shells out to `ns slot free` for post-landing managed-slot
-cleanup. This Objective makes slots an opt-in enhancement: when the slots capability is
-installed, flow is slot-aware (`autoslot` is available and land cleans up managed slots);
-when it is not, every other flow command works unchanged and flow's package and runtime
-surfaces carry no slots requirement. The capability-presence seam this requires does not
-exist today — extension `entries` are static and nothing can ask "is capability X
-installed?" — so the mechanism is designed platform-ready (cmux has the same hard
-coupling and should be able to adopt it later), but this Objective ships it flow-scoped.
+Flow's core Graphite lifecycle does not require the Slots capability, but its current package and command surfaces still do. `@nseng-ai/slots` remains a runtime dependency used directly by `autoslot`, the ns and Pi catalogs expose `autoslot` unconditionally, and land invokes `ns slot free` whenever path-based worktree facts identify a managed Slot. This Objective makes Slots an opt-in Flow enhancement: installing and enabling `@nseng-ai/slots` adds `autoslot` and managed-Slot land cleanup; without it, the rest of Flow remains coherent and operational.
+
+The generic presence mechanism is already delivered in `@nseng-ai/sdk` and the ns host. `ExtensionCommandEntry.requiresExtension` filters command candidates by exact package identity, while `NsExtensionApi.hasExtension(packageName)` reads the same effective-catalog package-name set at command invocation. Flow now owns consuming those surfaces, severing its direct Capability API dependency, and documenting precise absent-Slots behavior.
 
 ## Scope
 
-- Sever the hard `@nseng-ai/slots` dependency in `ts/packages/capabilities/flow/package.json`;
-  the compile-time import surface is only `src/autoslot/slot-checkout.ts` and
-  `src/autoslot/autoslot.ts`.
-- Pin the presence semantics: "slots installed" for the in-process `SlotClient` path
-  (autoslot) versus the `ns slot` runtime command group (land's cleanup shell-out), and
-  record the decision.
-- A minimal capability-presence seam with two faces reading one kernel registry fact:
-  a declarative `requiresExtension` entry field (registration-time filtering) and a
-  `hasExtension(packageName)` predicate on `NsExtensionApi` (invocation-time checks);
-  designed so a second capability could consume it without rework, consumed here only
-  by flow.
-- Gate `autoslot` on slots presence: the entry is not registered when slots is absent,
-  so a repo without slots gets a coherent `ns flow` surface rather than a crash.
-- Land degrades gracefully without slots: the post-landing managed-slot cleanup path
-  (`src/land/execution/post-landing-cleanup.ts` over `LandWorktreeSlotFactsGateway`)
-  skips or reports clearly when `ns slot` is absent, with tests covering both presence
-  states.
-- The flow README contract (`ts/packages/capabilities/flow/README.md`) documents slots
-  as an optional dependency and what changes when it is absent.
+- Gate `autoslot` on exact effective-catalog presence of `@nseng-ai/slots` across both the ns command catalog and the Pi mirror, so absence removes the command rather than exposing a broken path.
+- Replace Flow's in-process `@nseng-ai/slots/api` checkout composition with an injected `ns slot checkout --format json` command gateway that covers current-commit and named-branch checkout modes while preserving typed outcomes and testability.
+- Remove `@nseng-ai/slots` from `ts/packages/capabilities/flow/package.json` and its generated lockfile edge after all direct imports are gone.
+- Pass exact invocation-time Slots presence into land from the ns command boundary. Keep canonical managed-Slot path identity as the worktree fact, but do not treat path shape or command execution failure as capability presence.
+- Define land's absent-Slots behavior for the uninstalled-after-use edge case: before merge, stale managed-Slot conflicts block with actionable manual-detach guidance; after landing, optional cleanup is reported as skipped and never changes a successful merge into a cleanup failure.
+- Align fake-driven and command-surface tests, Flow's README command/requirements contract, and code-adjacent guidance with the optional dependency.
 
 ## Non-Goals
 
-- Migrating cmux off its hard `@nseng-ai/slots` dependency (it validates the seam's
-  platform-readiness on paper only; adoption is parked).
-- Changing slots capability behavior, its CLI surface, or its API.
-- A general plugin/DI or inter-capability dependency-resolution system beyond the
-  minimal presence seam.
-- Abstracting Graphite or revisiting flow's Graphite-native identity (owned by
-  `generic-flow-extension` and the graphite-dependency-boundary convention).
+- Changing Slots commands, the Slots Capability API, Slot inventory semantics, or managed-Slot path identity.
+- Building another capability-presence mechanism, an installed-extension enumeration API, a general plugin/dependency resolver, or a universal cross-host abstraction.
+- Reintroducing or migrating cmux; the capability is retired and its useful destination behavior moved to resource-first Herdr.
+- Making Herdr dispatch, smart-restack, portable skills, or other consumers Slot-neutral; `slots-consumer-dependency-contracts` owns their separate classifications.
+- Abstracting Graphite or changing Flow's Graphite-native identity.
+- Writing a general optional inter-capability convention before another consumer proves enough common behavior to justify one.
 
 ## Completion Criteria
 
-- `ts/packages/capabilities/flow/package.json` carries no hard `@nseng-ai/slots`
-  dependency.
-- In a repo with slots installed, `ns flow` behavior is unchanged, including `autoslot`
-  and land's managed-slot cleanup.
-- In a repo without slots, the `ns flow` command surface is coherent (no broken
-  `autoslot` crash path), and `ns flow land` completes landings with slot cleanup
-  skipped and explicitly reported.
-- Both presence states are covered by tests (fake-driven for domain paths, scenario
-  coverage for the command surface).
-- The flow README documents the optional slots dependency; the presence-semantics
-  decision is recorded.
+- `ts/packages/capabilities/flow/package.json` has no `@nseng-ai/slots` dependency, and Flow production source has no direct Slots package imports.
+- With Slots present in the effective catalog, ns and Pi retain `autoslot`; its successful checkout behavior uses the `ns slot checkout --format json` boundary with focused fake-driven coverage.
+- Without Slots, neither the ns nor Pi Flow surface registers `autoslot`, while every other Flow command remains available.
+- Land receives the exact `hasExtension("@nseng-ai/slots")` fact at invocation time. Ordinary repositories with no managed-Slot paths land unchanged; stale managed-Slot conflicts without Slots block before merge with manual-detach guidance; post-landing cleanup without Slots records an explicit skipped outcome and does not block an otherwise successful landing.
+- Present, absent, stale-path, command-failure, and relevant registration behavior are covered without relying on package resolvability or a real Slot backend in default tests.
+- The Flow README presents Slots as optional, explains hidden `autoslot` behavior and land degradation, and agrees with package manifests, registration code, and tests.
+- The linked `slots-consumer-dependency-contracts` Objective receives enough completion evidence to synthesize Flow's delivered relationship.
 
 ## Assumptions and Risks
 
-- **Assumption — presence detection can be deterministic. Validated.** The kernel's
-  declared-extension loading already resolves a manifest-validated `packageName` for
-  every extension on every source level
-  (`kernel/src/extensions/declared-descriptors.ts`), and the registry holds the
-  declared set in scope where command candidates are built. The presence fact is
-  `DeclaredExtensionDescriptor.packageName === "@nseng-ai/slots"`.
-- **Assumption — autoslot is the only compile-time coupling. Confirmed.** Exactly one
-  value import exists (`createSlotClient` in `src/autoslot/slot-checkout.ts`); all
-  other `@nseng-ai/slots` imports in flow are type-only and erasable.
-- **Constraint (discovered) — isolated extension install trees.** npm-declared
-  extensions install into isolated per-package trees under
-  `.ns/managed-extensions/npm/<pkg>/`
-  (`kernel/src/project-config/managed-extension-paths.ts`), so one extension's
-  imports can never resolve against a sibling extension's tree in a consumer repo.
-  This rules out the optional/peer-dependency severing family outright and drove the
-  shell-out decision; it binds any future inter-capability dependency work.
-- **Risk — two presence notions diverge. De-risked.** One presence notion was decided
-  (extension declared in the registry), and the shell-out severing makes both flow
-  consumers use the same runtime surface (`ns slot ...`) in practice.
-- **Risk — net-new kernel mechanism over-generalizes.** Still open until built.
-  Mitigations decided: an entry-level declarative field (not a dependency system), a
-  boolean predicate on `NsExtensionApi` (not an installed-extensions list), cmux
-  adoption parked, convention doc parked until a second consumer.
-- **Risk — degraded-mode UX reads as breakage.** Reshaped by the hidden-autoslot
-  decision: hiding was chosen deliberately over fail-fast, accepting reduced
-  discoverability in exchange for a clean surface and a kernel-internal registration
-  gate. Land's degraded paths report explicitly (manual-detach guidance pre-merge,
-  skipped-cleanup outcome post-landing); the README documents the degraded surface.
+- **Validated mechanism — exact effective-catalog presence.** `@nseng-ai/sdk` constructs one package-name set from valid project descriptors and explicit preinstalled metadata. `requiresExtension` filters against it before candidate validation/loading, and the ns host passes it into `createNsExtensionApi`, whose `hasExtension` performs an exact, case-sensitive lookup. Package resolution, aliases, subpaths, and command probes are not presence facts.
+- **Validated constraint — isolated extension install trees.** Managed npm extensions install under `.ns/managed-extensions/npm/<package>/`; one extension cannot rely on a sibling extension's dependency tree. Optional or peer dependency declarations therefore cannot preserve Flow's direct Slots import in consumer repositories. The command boundary is required.
+- **Current coupling — autoslot is the direct package edge.** Flow still imports `SlotClient` and `createSlotClient` through `src/autoslot/` and declares `@nseng-ai/slots` in its manifest. The migration must preserve structured checkout failures and shell-navigation behavior while removing those types and constructors.
+- **Risk — ns and Pi surfaces diverge.** `requiresExtension` governs SDK catalog candidates, while the Pi mirror currently carries a static `NS_FLOW_COMMANDS` list. Both registration paths need explicit absent-Slots evidence; gating only the ns descriptor would leave Pi advertising a command the CLI does not expose.
+- **Risk — path identity and capability presence become conflated.** A canonical Slot path can remain after Slots is removed. Land must use path shape only to identify managed-Slot worktrees and the catalog boolean only to decide whether Slot operations are available.
+- **Risk — degraded mode is mistaken for silent data loss.** Pre-merge cleanup cannot be silently skipped when stale worktrees conflict with branches about to land. It must stop before mutation with manual recovery guidance; only post-landing cleanup may degrade to a visible skipped outcome.
+- **Risk — command-gateway migration changes autoslot side effects.** The current in-process client suppresses clipboard writes and requests parent-shell navigation. The replacement command contract and tests must prove equivalent user-visible checkout/navigation behavior or record a deliberate change.
 
 ## Open Questions
 
-All three original questions were resolved by the recorded design decisions (see
-`updates/2026-07-12T182349Z-design-decisions-frontloaded.md`):
-
-- Presence detection: a kernel registry fact keyed by extension package name —
-  declaratively via a `requiresExtension` entry field, imperatively via
-  `hasExtension(packageName)` on `NsExtensionApi`.
-- Absent `autoslot`: hidden (not registered), via the declarative gate.
-- Platform convention doc: deferred until a second consumer proves the pattern; the
-  SDK surfaces are documented in `ts/packages/kernel/docs/sdk-reference.md` now.
+No design question currently blocks implementation. Exact package identity, hidden absent-`autoslot` UX, command-boundary severing, and pre-/post-landing degradation were decided in `updates/2026-07-12T182349Z-design-decisions-frontloaded.md`; this refresh corrects their implementation location and current delivery status.
