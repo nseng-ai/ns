@@ -107,23 +107,27 @@ export async function dispatchTrackedBranchPrompt(options: {
 		);
 		return;
 	}
-	const result = await dispatchPreparedBranch({
-		payload: {
-			branchName: options.branch.branchName,
-			semanticSlug: options.branch.semanticSlug,
-			launchCommand: buildTrackedBranchPayloadLaunchCommand(
-				options.branch.branchName,
-				getPiLaunchOptions(options.pi, options.ctx),
-			),
+	const result = await dispatchPreparedBranch(
+		{
+			herdr: options.herdr,
+			slotClient: options.slotClient ?? createHerdrSlotClient({ cwd: options.ctx.cwd }),
+			notify: (message, level) => options.ctx.ui.notify(message, level),
+			onStatus: (message) => {
+				if (message !== undefined) options.notifyProgress(message);
+			},
 		},
-		destination: { type: "workspace" },
-		herdr: options.herdr,
-		slotClient: options.slotClient ?? createHerdrSlotClient({ cwd: options.ctx.cwd }),
-		notify: (message, level) => options.ctx.ui.notify(message, level),
-		onStatus: (message) => {
-			if (message !== undefined) options.notifyProgress(message);
+		{
+			payload: {
+				branchName: options.branch.branchName,
+				semanticSlug: options.branch.semanticSlug,
+				launchCommand: buildTrackedBranchPayloadLaunchCommand(
+					options.branch.branchName,
+					getPiLaunchOptions(options.pi, options.ctx),
+				),
+			},
+			destination: { type: "workspace" },
 		},
-	});
+	);
 	if (result.type === "opened") {
 		options.ctx.ui.notify(
 			[
