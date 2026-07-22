@@ -210,6 +210,12 @@ describe("/pr:download-feedback", () => {
 			"apply unambiguous, behavior-preserving fixes directly to this branch",
 		);
 		expect(ctx.editorTexts[0]).toContain(
+			"create a separate follow-up commit for the feedback changes without amending or rewriting existing commits",
+		);
+		expect(ctx.editorTexts[0]).toContain(
+			"Amend only when the user explicitly requests it or a documented workflow specifically requires commit replacement",
+		);
+		expect(ctx.editorTexts[0]).toContain(
 			"Do not wait for or poll CI, Graphite mergeability, automated review jobs, or newly generated feedback",
 		);
 		expect(ctx.editorTexts[0]).not.toContain("disposition plan");
@@ -267,6 +273,9 @@ describe("/pr:download-feedback", () => {
 		expect(ctx.editorTexts[0]).toContain("## Addressing workflow boundary");
 		expect(ctx.editorTexts[0]).toContain(
 			"apply unambiguous, behavior-preserving fixes directly to this branch",
+		);
+		expect(ctx.editorTexts[0]).toContain(
+			"create a separate follow-up commit for the feedback changes without amending or rewriting existing commits",
 		);
 		expect(ctx.notifications.at(-1)?.level).toBe("info");
 		expect(pi.userMessages).toEqual([]);
@@ -439,6 +448,7 @@ describe("/pr:download-stack-feedback", () => {
 		expect(report).not.toContain(
 			"apply unambiguous, behavior-preserving fixes directly to this branch",
 		);
+		expect(report).not.toContain("create a separate follow-up commit");
 		expect(report).toContain(
 			"Re-download feedback only when the user explicitly requests another pass or invokes a stack-repair/checks workflow",
 		);
