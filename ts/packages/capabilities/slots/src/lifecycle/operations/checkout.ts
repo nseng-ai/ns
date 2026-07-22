@@ -15,6 +15,10 @@ export const checkoutRequestSchema = z.object({
 	new: z.boolean().default(false).describe("Create BRANCH_NAME before assigning it."),
 	current: z.boolean().default(false).describe("Move the current branch into a slot."),
 	clipboard: z.boolean().default(true).describe("Copy the cd command to the clipboard."),
+	cdDirective: z
+		.boolean()
+		.default(true)
+		.describe("Write the destination for the parent shell to navigate to."),
 });
 
 export const checkoutResultSchema = z.object({
@@ -58,7 +62,7 @@ export async function runCheckout(ctx: SlotCliContext, request: CheckoutRequest)
 		return failure(lifecycleResult.failure.errorType, lifecycleResult.failure.message);
 	const navigation = await prepareNavigation(ctx, lifecycleResult.outcome.worktreePath, {
 		shouldCopyClipboard: request.clipboard,
-		shouldWriteCdDirective: ctx.shouldWriteCdDirective,
+		shouldWriteCdDirective: request.cdDirective && ctx.shouldWriteCdDirective,
 	});
 	return ok({ ...lifecycleResult.outcome, ...navigation });
 }

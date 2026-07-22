@@ -89,6 +89,8 @@ export const nsExtensionParity = definePiSurfaceParity(
 export interface NsExtensionOptions {
 	/** Explicit host-composed ns CLI runner. */
 	runCli: CliCommandExtensionSpec["runCli"];
+	/** Exact startup-catalog presence of the Slots extension. */
+	hasSlotsExtension: boolean;
 	/** Host-composed recovery prompt boundary; defaults to the real Node filesystem adapter. */
 	recoveryPromptGateway?: SubmitCheckRecoveryPromptGateway;
 	/** Host-composed recovery Git consumer; defaults to Git over the Pi exec channel. */
@@ -102,7 +104,9 @@ export default function nsExtension(pi: NsExtensionAPI, options: NsExtensionOpti
 	registerCliCommandExtension(pi, {
 		cliName: "ns",
 		piNamespace: "ns:flow",
-		commands: NS_FLOW_COMMANDS,
+		commands: options.hasSlotsExtension
+			? NS_FLOW_COMMANDS
+			: NS_FLOW_COMMANDS.filter((command) => command.name !== "autoslot"),
 		runCli: options.runCli,
 		afterCommandComplete: async (details) => {
 			if (details.piCommandName !== nsFlowCommandSurface("submit")) return;

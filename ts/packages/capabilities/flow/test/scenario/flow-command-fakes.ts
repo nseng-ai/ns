@@ -456,11 +456,8 @@ export function branchLatestCommitChildBranchRefusalExec(): ScriptedExecResponse
 	];
 }
 
-// `ns flow autoslot` wraps Flow autobranch + slot-checkout orchestration through `runFlowCli`.
-// The happy path moves a managed slot via a real `SlotClient` (filesystem/git side effects), which is
-// out of the default fake lane. These flow scenarios exercise the wrapper end-to-end on the outcomes
-// that settle BEFORE slot checkout: caps resolution, house-style rendering, and stdout/stderr routing
-// via `runFlowCli`.
+// `ns flow autoslot` wraps Flow autobranch + the Slots CLI boundary through `runFlowCli`.
+// Scripted command responses keep the complete path in the default fake lane without a Slots backend.
 export function runFlowAutoslotCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
 	return runFlowCommandWithFakes({
 		requiresModelPolicy: true,
@@ -476,6 +473,26 @@ export function runFlowAutoslotCommandWithFakes(options: RunFlowCommandWithFakes
 
 // Snapshot probe failure: `git status` fails while loading the pending-worktree snapshot, so the
 // autobranch step fails before any branch is created or slot checkout is attempted.
+export function autoslotHappyExec(): ScriptedExecResponse[] {
+	return [
+		...autobranchDirtyHappyExec(),
+		{
+			match: "ns slot checkout --current --no-clipboard --no-cd-directive --format json",
+			result: {
+				stdout: JSON.stringify({
+					status: "ok",
+					exitCode: 0,
+					data: {
+						slotName: "slot-03",
+						branchName: "move-work",
+						worktreePath: "/slots/repos/work/worktrees/slot-03",
+					},
+				}),
+			},
+		},
+	];
+}
+
 export function autoslotStatusProbeFailExec(): ScriptedExecResponse[] {
 	return [
 		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },

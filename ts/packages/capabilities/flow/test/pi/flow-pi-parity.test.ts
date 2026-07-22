@@ -15,6 +15,7 @@ async function collectFlowPiSurfaces(): Promise<LivePiSurface[]> {
 	await registerWithFakeHost(pi, stackSquashExtension);
 	await registerWithFakeHost(pi, (host: NsExtensionAPI) =>
 		nsExtension(host, {
+			hasSlotsExtension: true,
 			recoveryGit: new InMemoryGitGateway({ optionalRepoRoot: "/repo" }),
 			runCli: async () => 0,
 		}),

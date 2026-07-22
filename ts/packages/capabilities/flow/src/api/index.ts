@@ -12,6 +12,14 @@ export { createFlowAutobranchCheckpointFlow } from "../autobranch/checkpoint-flo
 
 export type { AutoslotCliInput, AutoslotFlowInput } from "../autoslot/autoslot.ts";
 export { createAutoslotFlow, runAutoslotCli } from "../autoslot/autoslot.ts";
+export type {
+	AutoslotDirectiveWriter,
+	SlotCheckoutFailure,
+	SlotCheckoutNavigationWarning,
+	SlotCheckoutRef,
+	SlotCheckoutResult,
+	SlotCheckoutTarget,
+} from "../autoslot/slot-checkout.ts";
 
 export type {
 	ExecResult,

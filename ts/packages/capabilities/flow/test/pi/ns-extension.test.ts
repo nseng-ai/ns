@@ -100,8 +100,14 @@ class FakePi implements NsExtensionAPI {
 	}
 }
 
-function registerNsExtension(pi: FakePi, options: NsExtensionOptions): void {
+function registerNsExtension(
+	pi: FakePi,
+	options: Omit<NsExtensionOptions, "hasSlotsExtension"> & {
+		hasSlotsExtension?: boolean;
+	},
+): void {
 	nsExtension(pi, {
+		hasSlotsExtension: options.hasSlotsExtension ?? true,
 		recoveryGit: new InMemoryGitGateway({ optionalRepoRoot: "/repo" }),
 		...options,
 	});
@@ -168,6 +174,18 @@ describe("ns Pi extension", () => {
 		expect(pi.commands.get("ns:flow:land")?.description).toBe(
 			"ns flow land: Land the current PR or Graphite stack into trunk.",
 		);
+		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
+	});
+
+	test("omits only autoslot when Slots is absent from the startup catalog", () => {
+		const pi = new FakePi();
+
+		registerNsExtension(pi, { hasSlotsExtension: false, runCli: async () => 0 });
+
+		expect([...pi.commands.keys()]).toEqual(
+			FLOW_COMMANDS.filter((name) => name !== "autoslot").map((name) => `ns:flow:${name}`),
+		);
+		expect(pi.commands.has("ns:flow:autoslot")).toBe(false);
 		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 	});
 

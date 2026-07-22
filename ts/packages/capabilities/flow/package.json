@@ -39,7 +39,6 @@
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/sdk": "workspace:*",
-		"@nseng-ai/slots": "workspace:*",
 		"zod": "catalog:"
 	},
 	"devDependencies": {

@@ -3,6 +3,7 @@ import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
 import {
 	autobranchGtCreateFailExec,
+	autoslotHappyExec,
 	autoslotStatusProbeFailExec,
 	branchLatestCommitChildBranchRefusalExec,
 	runFlowAutoslotCommandWithFakes,
@@ -10,10 +11,49 @@ import {
 import { formattedExecCalls } from "./ns-cli-fakes.ts";
 
 // `ns flow autoslot` routes through the Flow CLI runner (`runFlowCli` → `runAutoslotCli`), which
-// renders durable outcomes in the house style next to where their facts are computed. The happy
-// slot-move path uses a real `SlotClient`; these scenarios pin the wrapper's caps resolution +
-// stdout/stderr routing on the outcomes that settle before slot checkout.
+// renders durable outcomes in the house style next to where their facts are computed. Slot placement
+// crosses the injected command-exec seam, so the complete path remains fake-driven here.
 describe("flow autoslot command outcomes", () => {
+	test("creates a branch and moves it through the Slots CLI boundary", async () => {
+		const run = runFlowAutoslotCommandWithFakes({
+			state: {
+				exec: autoslotHappyExec(),
+				textGeneration: [
+					{ ok: true, text: "[cp] Move autoslot work\n\n- Preserve pending changes" },
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		const stdout = stripAnsi(run.stdout.join(""));
+		expect(stdout).toContain("Autoslot moved move-work to slot-03.");
+		expect(stdout).toContain("Worktree: /slots/repos/work/worktrees/slot-03");
+		expect(stdout).toContain("ns slot co move-work");
+		expect(formattedExecCalls(run.context)).toContain(
+			"ns slot checkout --current --no-clipboard --no-cd-directive --format json",
+		);
+	});
+
+	test("keeps successful placement and guidance when the parent-shell directive write fails", async () => {
+		const run = runFlowAutoslotCommandWithFakes({
+			env: { SLOT_CD_DIRECTIVE_FILE: "/missing-parent/ns-cd" },
+			state: {
+				exec: autoslotHappyExec(),
+				textGeneration: [
+					{ ok: true, text: "[cp] Move autoslot work\n\n- Preserve pending changes" },
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(stripAnsi(run.stderr.join(""))).toContain(
+			"Slot checkout succeeded, but the parent-shell navigation directive could not be written",
+		);
+		const stdout = stripAnsi(run.stdout.join(""));
+		expect(stdout).toContain("Autoslot moved move-work to slot-03.");
+		expect(stdout).toContain("ns slot co move-work");
+	});
+
 	test("snapshot probe failure exits 1 on stderr with a house-style failure block", async () => {
 		const run = runFlowAutoslotCommandWithFakes({
 			state: { exec: autoslotStatusProbeFailExec(), textGeneration: [] },

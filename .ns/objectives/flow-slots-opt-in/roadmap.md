@@ -6,11 +6,11 @@
   - Presence is the exact package identity in the effective ns command catalog, not package resolution, path identity, or command probing.
   - `ExtensionCommandEntry.requiresExtension` and `NsExtensionApi.hasExtension(packageName)` are implemented in `@nseng-ai/sdk`, documented in `ts/packages/sdk/docs/sdk-reference.md`, and composed by the ns host from the same effective package-name set.
   - SDK unit coverage includes present/absent project providers, preinstalled and commandless providers, lazy gated modules, and exact-name lookup; ns-host integration coverage proves exact package identity and rejects descriptor subpaths.
-- [ ] Decouple and gate `autoslot` across both command surfaces.
-  - Replace the in-process `@nseng-ai/slots/api` client in `src/autoslot/` with an injected gateway over `ns slot checkout --format json`, preserving current and named-branch modes, structured failures, and the required parent-shell navigation contract.
-  - Add `requiresExtension: "@nseng-ai/slots"` to the ns command entry and make the Pi mirror omit `/ns:flow:autoslot` when exact Slots presence is absent; keep unrelated command registration lazy and unchanged.
-  - Remove the Flow manifest dependency and generated lockfile edge only after production imports are gone.
-  - Evidence: fake-driven gateway tests plus ns and Pi registration scenarios for present and absent catalogs; no real Slots backend in default tests.
+- [x] Decouple and gate `autoslot` across both command surfaces.
+  - Flow now owns two-mode checkout domain logic over its injected command-exec seam for `ns slot checkout --format json`; it validates the result envelope, preserves Slots domain failures, types execution/protocol failures, and writes the parent-shell cd directive only after success.
+  - The ns entry uses `requiresExtension: "@nseng-ai/slots"`; the Pi mirror resolves exact startup-catalog presence and omits only `/ns:flow:autoslot` when absent.
+  - Flow production source and its manifest/lockfile importer no longer depend on `@nseng-ai/slots`.
+  - Evidence: focused fake-driven gateway, autoslot scenario, Slots JSON checkout, SDK catalog, and ns/Pi present/absent registration tests; full `just` passed on the implementing branch.
 - [ ] Make land degrade explicitly when Slots is absent.
   - Resolve `hasExtension("@nseng-ai/slots")` once at the land command boundary and pass the boolean into land composition; do not cache across invocations or infer it from paths.
   - Preserve canonical managed-Slot path detection. Repositories with no matching worktrees take the ordinary path regardless of Slots presence.

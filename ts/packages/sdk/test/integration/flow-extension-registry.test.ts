@@ -7,7 +7,10 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { loadNsCommandCatalog, loadSelectedNsCommand } from "../../src/extensions/registry.ts";
-import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
+import {
+	installCheckedInFlowAndSlotsExtensions,
+	installCheckedInFlowExtension,
+} from "../helpers/flow-extension.ts";
 import { runCliWithFakes } from "../scenario/ns-cli-fakes.ts";
 
 const tempDirs: string[] = [];
@@ -26,25 +29,18 @@ describe("checked-in flow ns extension registry loading", () => {
 		expect(catalog.extensionPackageNames.has("@nseng-ai/slots")).toBe(true);
 	});
 
-	test("real loader discovers and imports every checked-in flow command entry", async () => {
+	test("Flow-only catalog omits autoslot while retaining every unrelated Flow entry", async () => {
 		const directory = await mkdtemp(join(tmpdir(), "ns-flow-extension-registry-"));
 		tempDirs.push(directory);
 		const cwd = join(directory, "project");
 		const homeDir = join(directory, "home");
 		installCheckedInFlowExtension(cwd);
 
-		const catalog = await loadNsCommandCatalog({
-			cwd,
-			homeDir: homeDir,
-		});
+		const catalog = await loadNsCommandCatalog({ cwd, homeDir });
 
 		expect(catalog.diagnostics).toEqual([]);
-		const flowCandidates = [...catalog.candidates].filter(
-			([_key, candidate]) => candidate.source.level === "project",
-		);
-		expect(flowCandidates.map(([key]) => key)).toEqual([
+		expect(projectFlowCandidates(catalog).map(([key]) => key)).toEqual([
 			"flow/autobranch",
-			"flow/autoslot",
 			"flow/branch-latest-commit",
 			"flow/changes",
 			"flow/cp",
@@ -56,7 +52,20 @@ describe("checked-in flow ns extension registry loading", () => {
 			"flow/squash-stack",
 			"flow/submit",
 		]);
+	});
 
+	test("Flow and Slots catalog includes and lazy-loads autoslot", async () => {
+		const directory = await mkdtemp(join(tmpdir(), "ns-flow-slots-extension-registry-"));
+		tempDirs.push(directory);
+		const cwd = join(directory, "project");
+		const homeDir = join(directory, "home");
+		installCheckedInFlowAndSlotsExtensions(cwd);
+
+		const catalog = await loadNsCommandCatalog({ cwd, homeDir });
+		const flowCandidates = projectFlowCandidates(catalog);
+
+		expect(catalog.diagnostics).toEqual([]);
+		expect(flowCandidates.map(([key]) => key)).toContain("flow/autoslot");
 		const failures: string[] = [];
 		for (const [key, candidate] of flowCandidates) {
 			const loaded = await loadSelectedNsCommand(candidate);
@@ -87,3 +96,9 @@ describe("checked-in flow ns extension registry loading", () => {
 		expect(execHelp.stdout.join("")).toContain("read-graphite-branch-metadata");
 	});
 });
+
+function projectFlowCandidates(catalog: Awaited<ReturnType<typeof loadNsCommandCatalog>>) {
+	return [...catalog.candidates].filter(
+		([key, candidate]) => key.startsWith("flow/") && candidate.source.level === "project",
+	);
+}

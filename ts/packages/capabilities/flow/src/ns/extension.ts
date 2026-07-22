@@ -48,6 +48,7 @@ export const flowExtensionDescriptor = defineExtension({
 		},
 		{
 			name: "autoslot",
+			requiresExtension: "@nseng-ai/slots",
 			load: async () => ({ default: (await import("./commands/autoslot.ts")).flowAutoslotCommand }),
 		},
 		{

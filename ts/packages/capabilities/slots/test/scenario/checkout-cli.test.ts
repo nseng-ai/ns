@@ -1,5 +1,12 @@
+import { existsSync } from "node:fs";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+
+import { SLOT_CD_DIRECTIVE_FILE } from "../../src/core/shell/cd-directive.ts";
 
 import {
 	completeScenario,
@@ -7,6 +14,14 @@ import {
 	runScenario,
 	slotWorktree,
 } from "../support/run-scenario.ts";
+
+const directiveRoots: string[] = [];
+
+afterEach(async () => {
+	await Promise.all(
+		directiveRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
+	);
+});
 
 describe("slot checkout CLI", () => {
 	it("appears in root help with co alias", async () => {
@@ -41,6 +56,42 @@ describe("slot checkout CLI", () => {
 		expect(run.git.operations()).toEqual([
 			{ type: "checkout-branch", path: "/slots/repos/repo/worktrees/slot-01", branch: "feature/a" },
 		]);
+	});
+
+	it("writes the shell directive by default", async () => {
+		const directivePath = await makeDirectivePath();
+		const run = runScenario(["checkout", "feature/a", "--no-clipboard"], {
+			env: { PATH: "/fake/bin", [SLOT_CD_DIRECTIVE_FILE]: directivePath },
+			git: { localBranches: ["master", "feature/a"], worktrees: [slotWorktree("slot-01")] },
+		});
+
+		expect(await run.exit).toBe(0);
+		await expect(readFile(directivePath, "utf8")).resolves.toBe(
+			"/slots/repos/repo/worktrees/slot-01",
+		);
+	});
+
+	it("--no-cd-directive suppresses only the directive", async () => {
+		const directivePath = await makeDirectivePath();
+		const run = runScenario(
+			["checkout", "feature/a", "--no-clipboard", "--no-cd-directive", "--format", "json"],
+			{
+				env: { PATH: "/fake/bin", [SLOT_CD_DIRECTIVE_FILE]: directivePath },
+				git: { localBranches: ["master", "feature/a"], worktrees: [slotWorktree("slot-01")] },
+			},
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: {
+				slotName: "slot-01",
+				branchName: "feature/a",
+				worktreePath: "/slots/repos/repo/worktrees/slot-01",
+				clipboardCopied: false,
+				clipboardSkipped: true,
+			},
+		});
+		expect(existsSync(directivePath)).toBe(false);
 	});
 
 	it("co alias routes through the checkout human renderer", async () => {
@@ -213,3 +264,9 @@ describe("slot checkout CLI", () => {
 		expect(run.git.operations()).toEqual([]);
 	});
 });
+
+async function makeDirectivePath(): Promise<string> {
+	const root = await mkdtemp(join(tmpdir(), "slot-checkout-cd-directive-"));
+	directiveRoots.push(root);
+	return join(root, "directive");
+}
