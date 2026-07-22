@@ -59,10 +59,11 @@ When asked to address feedback on a single PR, run one bounded autonomous pass:
 
 1. Apply unambiguous, behavior-preserving fixes directly to the branch.
 2. Run appropriate local validation.
-3. Resubmit the branch through the repo's normal workflow.
-4. Resolve the addressed threads. Verifiable declines (already fixed, stale) are also automatic: reply and resolve directly.
-5. Batch judgment-call declines and deferrals and bring them back to the human at the end of the pass.
-6. Stop and report the changes, validation, submission, and thread resolution.
+3. Create a separate follow-up commit for the feedback changes; do not amend or rewrite existing commits unless the human explicitly requests it or a documented workflow specifically requires commit replacement.
+4. Resubmit the branch through the repo's normal workflow.
+5. Resolve the addressed threads. Verifiable declines (already fixed, stale) are also automatic: reply and resolve directly.
+6. Batch judgment-call declines and deferrals and bring them back to the human at the end of the pass.
+7. Stop and report the changes, validation, submission, and thread resolution.
 
 The pass behaves the same regardless of stack position. A restack conflict is an ordinary abort: stop and report rather than resolving it in-pass.
 

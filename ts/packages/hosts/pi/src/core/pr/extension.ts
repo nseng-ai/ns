@@ -27,7 +27,7 @@ const NO_POLLING_PARAGRAPH =
 const SINGLE_PR_ADDRESSING_FOLLOW_UP = [
 	"## Addressing workflow boundary",
 	"",
-	"If asked to address this feedback: apply unambiguous, behavior-preserving fixes directly to this branch, resubmit, and resolve the addressed threads. Obvious declines (already fixed, stale) may be replied to and resolved directly; bring judgment calls back to the user at the end of the pass. Treat this download as one snapshot, then stop and report.",
+	"If asked to address this feedback: apply unambiguous, behavior-preserving fixes directly to this branch, create a separate follow-up commit for the feedback changes without amending or rewriting existing commits, resubmit, and resolve the addressed threads. Amend only when the user explicitly requests it or a documented workflow specifically requires commit replacement. Obvious declines (already fixed, stale) may be replied to and resolved directly; bring judgment calls back to the user at the end of the pass. Treat this download as one snapshot, then stop and report.",
 	"",
 	NO_POLLING_PARAGRAPH,
 ].join("\n");
