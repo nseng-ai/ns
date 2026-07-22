@@ -71,6 +71,8 @@ export {
 } from "./local-ref-reader.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
+const REPO_ROOT_FAILED_CODE: KnownGitErrorCode = "repo_root_failed";
+const REPO_ROOT_EMPTY_CODE: KnownGitErrorCode = "repo_root_empty";
 
 const GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_FORMAT =
 	"%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)";
@@ -118,7 +120,7 @@ export class RealGitGateway implements GitGateway {
 		const root = firstNonEmptyLine(run.value.result.stdout);
 		if (root === undefined) {
 			return error(
-				"repo_root_empty",
+				REPO_ROOT_EMPTY_CODE,
 				`git rev-parse --show-toplevel returned no repo root.\nCommand: ${run.value.displayCommand}`,
 				run.value.displayCommand,
 			);
@@ -128,11 +130,25 @@ export class RealGitGateway implements GitGateway {
 
 	async optionalRepoRoot(params: GitCwdParams): Promise<GitOptionalResult<string>> {
 		const run = await this.runGit(params, ["rev-parse", "--show-toplevel"]);
-		if (!run.ok) return { type: "missing" };
-		if (!commandSucceeded(run.value.result)) return { type: "missing" };
+		if (!run.ok) return { type: "error", error: run.error };
+		if (!commandSucceeded(run.value.result)) {
+			if (isNotRepositoryResult(run.value.result)) return { type: "missing" };
+			return {
+				type: "error",
+				error: failure(REPO_ROOT_FAILED_CODE, "git rev-parse --show-toplevel failed", run.value),
+			};
+		}
 
 		const root = firstNonEmptyLine(run.value.result.stdout);
-		return root === undefined ? { type: "missing" } : { type: "found", value: root };
+		if (root !== undefined) return { type: "found", value: root };
+		return {
+			type: "error",
+			error: error(
+				REPO_ROOT_EMPTY_CODE,
+				`git rev-parse --show-toplevel returned no repo root.\nCommand: ${run.value.displayCommand}`,
+				run.value.displayCommand,
+			).error,
+		};
 	}
 
 	async currentBranch(params: GitCwdParams): Promise<GitCurrentBranchResult> {
@@ -567,6 +583,15 @@ function execOptions(params: GitCwdParams, timeout: number): ExecOptions {
 		...(params.env === undefined ? {} : { env: params.env }),
 		...(params.signal === undefined ? {} : { signal: params.signal }),
 	};
+}
+
+function isNotRepositoryResult(result: ExecResult): boolean {
+	return (
+		result.type === "exited" &&
+		result.signal === null &&
+		result.code === 128 &&
+		outputIncludesAnyPhrase(result, ["fatal: not a git repository"])
+	);
 }
 
 function isMissingRevisionResult(result: ExecResult): boolean {

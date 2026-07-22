@@ -25,6 +25,10 @@ import { resolveFlowSubmitRecoveryDefault } from "../support/submit-check-recove
 
 type RegisteredCommand = Parameters<NsExtensionAPI["registerCommand"]>[1];
 type CustomMessage = Parameters<NonNullable<NsExtensionAPI["sendMessage"]>>[0];
+interface Notification {
+	message: string;
+	level: "info" | "warning" | "error" | undefined;
+}
 type FlowCommandName =
 	| "changes"
 	| "cp"
@@ -61,6 +65,7 @@ class FakePi implements NsExtensionAPI {
 	readonly ackMessages: CustomMessage[] = [];
 	readonly progressMessages: CustomMessage[] = [];
 	readonly userMessages: string[] = [];
+	readonly notifications: Notification[] = [];
 	readonly deliveryEvents: string[] = [];
 
 	registerCommand(name: string, command: RegisteredCommand): void {
@@ -116,12 +121,15 @@ function expectSingleCommandOutput(
 	expect(String(messages[0]?.content)).toContain(expectedOutput);
 }
 
-function createContext(cwd: string): CommandContext {
+function createContext(cwd: string, pi?: FakePi): CommandContext {
 	return {
 		cwd,
 		hasUI: true,
 		ui: {
-			notify() {},
+			notify(message, level) {
+				pi?.notifications.push({ message, level });
+				pi?.deliveryEvents.push("warning");
+			},
 			setStatus() {},
 			setWidget() {},
 		},
@@ -257,44 +265,91 @@ describe("ns Pi extension", () => {
 		expect(otherPi.userMessages).toEqual([]);
 	});
 
-	test("hard-fails recovery when the command cwd has no Git root", async () => {
+	test("warns after the primary failure when Git root resolution fails", async () => {
+		const pi = new FakePi();
+		registerNsExtension(pi, {
+			recoveryPromptGateway: createRecoveryPromptGateway(),
+			recoveryGit: new InMemoryGitGateway({
+				optionalRepoRoot: {
+					type: "failure",
+					error: { code: "git_startup_failed", message: "git executable unavailable" },
+				},
+			}),
+			runCli: async (_args, deps) => {
+				deps.stderr(
+					`${FLOW_SUBMIT_CHECK_FAILURE_MARKER}\nprivate registry authentication failed\n`,
+				);
+				return 1;
+			},
+		});
+
+		await expect(
+			commandFor(pi, "ns:flow:submit").handler("", createContext("/outside/work", pi)),
+		).resolves.toBeUndefined();
+
+		expectSingleCommandOutput(pi.sentMessages, "private registry authentication failed");
+		expect(pi.notifications).toEqual([
+			{
+				message:
+					"Automatic follow-up for /ns:flow:submit could not complete: Could not start flow submit-check recovery: Could not resolve the Git repository root from cwd /outside/work: git executable unavailable",
+				level: "warning",
+			},
+		]);
+		expect(pi.deliveryEvents).toEqual(["command-output", "warning"]);
+		expect(pi.userMessages).toEqual([]);
+	});
+
+	test("warns after the primary failure when the command cwd has no Git root", async () => {
 		const pi = new FakePi();
 		registerNsExtension(pi, {
 			recoveryPromptGateway: createRecoveryPromptGateway(),
 			recoveryGit: new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } }),
 			runCli: async (_args, deps) => {
-				deps.stderr(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
+				deps.stderr(`${FLOW_SUBMIT_CHECK_FAILURE_MARKER}\ncheck failed\n`);
 				return 1;
 			},
 		});
 
 		await expect(
-			commandFor(pi, "ns:flow:submit").handler("", createContext("/outside/work")),
-		).rejects.toThrow(
-			"Could not start flow submit-check recovery: Could not find a Git repository root from cwd /outside/work",
+			commandFor(pi, "ns:flow:submit").handler("", createContext("/outside/work", pi)),
+		).resolves.toBeUndefined();
+
+		expectSingleCommandOutput(pi.sentMessages, "check failed");
+		expect(pi.notifications[0]?.message).toContain(
+			"Could not find a Git repository root from cwd /outside/work",
 		);
-		expect(pi.sentMessages).toHaveLength(1);
+		expect(pi.deliveryEvents).toEqual(["command-output", "warning"]);
 		expect(pi.userMessages).toEqual([]);
 	});
 
 	test.each([
-		["empty", { prompt: " \n" }],
-		["unreadable", { promptReadError: "permission denied" }],
-	] as const)("hard-fails recovery when the selected prompt is %s", async (_name, state) => {
-		const pi = new FakePi();
-		registerNsExtension(pi, {
-			recoveryPromptGateway: createRecoveryPromptGateway(state),
-			runCli: async (_args, deps) => {
-				deps.stderr(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
-				return 1;
-			},
-		});
+		["empty", { prompt: " \n" }, "is empty"],
+		["unreadable", { promptReadError: "permission denied" }, "permission denied"],
+	] as const)(
+		"warns after the primary failure when the selected prompt is %s",
+		async (_name, state, expectedWarning) => {
+			const pi = new FakePi();
+			registerNsExtension(pi, {
+				recoveryPromptGateway: createRecoveryPromptGateway(state),
+				runCli: async (_args, deps) => {
+					deps.stderr(`${FLOW_SUBMIT_CHECK_FAILURE_MARKER}\ncheck failed\n`);
+					return 1;
+				},
+			});
 
-		await expect(
-			commandFor(pi, "ns:flow:submit").handler("", createContext("/repo")),
-		).rejects.toThrow("Could not start flow submit-check recovery:");
-		expect(pi.userMessages).toEqual([]);
-	});
+			await expect(
+				commandFor(pi, "ns:flow:submit").handler("", createContext("/repo", pi)),
+			).resolves.toBeUndefined();
+
+			expectSingleCommandOutput(pi.sentMessages, "check failed");
+			expect(pi.notifications).toHaveLength(1);
+			expect(pi.notifications[0]).toMatchObject({ level: "warning" });
+			expect(pi.notifications[0]?.message).toContain("Could not start flow submit-check recovery:");
+			expect(pi.notifications[0]?.message).toContain(expectedWarning);
+			expect(pi.deliveryEvents).toEqual(["command-output", "warning"]);
+			expect(pi.userMessages).toEqual([]);
+		},
+	);
 
 	test("sends bounded context with the original submit arguments", async () => {
 		const pi = new FakePi();
