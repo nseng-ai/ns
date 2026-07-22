@@ -4,6 +4,8 @@ Address provides feedback report download plus shared PR feedback primitives thr
 
 ## Download / stack plumbing
 
+Stack-plumbing prerequisite: `@nseng-ai/slots` must be installed and enabled because the structured stack helper currently lives under `ns slot gt exec`; if unavailable, stop before any feedback-driven mutation that depends on stack discovery. Its current placement does not decide permanent semantic ownership of generic helpers (`stack-branches`, `descendants-report`, `backup-refs`); that migration is tracked separately.
+
 ### `download-feedback`
 
 Download one PR's current feedback as a Markdown report.

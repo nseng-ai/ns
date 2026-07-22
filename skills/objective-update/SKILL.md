@@ -18,6 +18,10 @@ Also run when `objective-next`'s Tracking Gate routes here for the same Objectiv
 
 If the user only asks about the skill or pastes it with no clear update intent, ask: `Do you want me to run objective-update for the current branch now?`
 
+## Current Slots prerequisite
+
+This workflow currently requires `@nseng-ai/slots` installed and enabled because structured Graphite stack topology used as update evidence currently lives under `ns slot gt exec`. If that capability is unavailable, stop before editing Objective records. The current placement of generic helpers such as `stack-branches`, `descendants-report`, and `backup-refs` does not decide their permanent semantic ownership; that migration is tracked separately.
+
 ## Mutation boundary
 
 The umbrella skill owns the storage model, required headings, and status semantics — this skill does not restate them. Objective records are Markdown: read/edit them directly, using `ns objective exec` only for deterministic reads such as candidate listing, inventory, and closed-marker detection.

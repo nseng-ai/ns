@@ -17,6 +17,10 @@ Smush is **experimental** and runs only on explicit user invocation. No other
 workflow — Flow, CCC, the default agent workflow — may fire it implicitly, and a
 stack "looking like it needs packaging" is not an invocation.
 
+## Current Slots prerequisite
+
+This workflow currently requires `@nseng-ai/slots` installed and enabled because Slot-aware quiescence, stack-map safety, structured topology, and backup helpers live under `ns slot gt exec`. If that capability is unavailable, stop before any packaging mutation. The current placement of generic helpers such as `stack-branches`, `descendants-report`, and `backup-refs` does not decide their permanent semantic ownership; that migration is tracked separately.
+
 ## Vocabulary
 
 - **Commit Run** — a linear, merge-free commit sequence `trunk..tip` on one feature

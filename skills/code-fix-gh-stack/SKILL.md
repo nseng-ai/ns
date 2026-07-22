@@ -9,6 +9,10 @@ metadata:
 
 Repair loop for a Graphite/GitHub PR stack: work lowest-first, fix one branch's blocker at a time, and judge every check through **Reading checks**. The stack is done only per the **Done definition** — one definition, checks-only.
 
+## Current Slots prerequisite
+
+This workflow currently requires `@nseng-ai/slots` installed and enabled because its structured stack helpers live under `ns slot gt exec`. If that capability is unavailable, stop before any stack mutation. The current placement of generic helpers such as `stack-branches`, `descendants-report`, and `backup-refs` does not decide their permanent semantic ownership; that migration is tracked separately.
+
 ## Core loop
 
 1. **Inventory the stack**

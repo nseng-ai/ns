@@ -6,6 +6,8 @@ Review Pi extension command changes for cross-harness parity. This skill is advi
 
 ## Core model
 
+Current prerequisite: `@nseng-ai/slots` must be installed and enabled because structured stack helpers currently live under `ns slot gt exec`; if unavailable, stop before any Objective-tracking mutation. Their current placement does not decide permanent semantic ownership of generic helpers (`stack-branches`, `descendants-report`, `backup-refs`); that migration is tracked separately.
+
 Pi is additive when deterministic workflow logic lives in a shared CLI plus an installed skill, or in documented primitive commands for very thin workflows. A parity concern exists when a Pi command contains workflow orchestration that Claude/Codex cannot reach outside Pi, or when the counterpart skill/docs are missing. Pi tool calls are host-native bridges and do not require their own parity metadata rows; check dependent command workflows instead.
 
 Use live repo evidence as the source of truth. Documentation and Objective tables can drift; source registration sites, CLI surfaces, installed skills, and actual command behavior win. Use severity labels for review triage, not as merge-blocking authority.

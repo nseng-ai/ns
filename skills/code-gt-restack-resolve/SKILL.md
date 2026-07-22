@@ -22,6 +22,10 @@ below. Do not restate or improvise per-file resolution policy here.
 It also defers to **`code-graphite`** for the `gt` mental model, stack navigation,
 and the "Recovering from Interrupted Rebase" section.
 
+## Current Slots prerequisite
+
+This workflow currently requires `@nseng-ai/slots` installed and enabled because its structured cross-worktree Slot occupancy preflight and topology helpers live under `ns slot gt exec`. If that capability is unavailable, stop before starting a restack, freeing a Slot, or otherwise mutating the stack. The current placement of generic helpers such as `stack-branches`, `descendants-report`, and `backup-refs` does not decide their permanent semantic ownership; that migration is tracked separately.
+
 ## Harness entry points
 
 - **Pi users:** `/code:gt-restack-resolve` is the single command entry point.
