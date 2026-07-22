@@ -1,5 +1,7 @@
 import {
+	branchPrCheckContextsQuery,
 	branchPrChecksQuery,
+	branchPrCheckThreadsQuery,
 	discussionCommentsQuery,
 	prChecksQuery,
 	replyToReviewThreadMutation,
@@ -185,6 +187,20 @@ export function branchPrChecksArgs(branches: readonly string[]): string[] {
 			})),
 		],
 		branchPrChecksQuery(branches.length),
+	);
+}
+
+export function branchPrCheckContextsPageArgs(prNumber: number, cursor: string): string[] {
+	return graphqlArgs(
+		[...repoPrFields(prNumber), { flag: "-f", name: "checkCursor", value: cursor }],
+		branchPrCheckContextsQuery,
+	);
+}
+
+export function branchPrCheckThreadsPageArgs(prNumber: number, cursor: string): string[] {
+	return graphqlArgs(
+		[...repoPrFields(prNumber), { flag: "-f", name: "threadCursor", value: cursor }],
+		branchPrCheckThreadsQuery,
 	);
 }
 

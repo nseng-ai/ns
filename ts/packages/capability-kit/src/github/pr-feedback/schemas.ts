@@ -222,17 +222,21 @@ export const ghReviewThreadsResponseSchema = z
 	})
 	.loose();
 
+const ghStatusCheckContextsSchema = z
+	.object({ nodes: z.array(z.unknown()), pageInfo: ghPageInfoSchema })
+	.loose();
+
 const ghStatusCheckRollupSchema = z
-	.object({
-		contexts: z
-			.object({
-				nodes: z.array(z.unknown()),
-				pageInfo: z.object({ hasNextPage: z.boolean() }).loose(),
-			})
-			.loose(),
-	})
+	.object({ contexts: ghStatusCheckContextsSchema })
 	.loose()
 	.nullable();
+
+const ghBranchPrCheckThreadConnectionSchema = z
+	.object({
+		nodes: z.array(z.object({ isResolved: z.boolean() }).loose()),
+		pageInfo: ghPageInfoSchema,
+	})
+	.loose();
 
 export const ghPrChecksResponseSchema = z
 	.object({
@@ -252,7 +256,20 @@ const ghBranchPrChecksNodeSchema = z
 		headRefName: z.string(),
 		headRefOid: z.string().nullable().optional(),
 		baseRefName: z.string(),
+		isDraft: z.boolean(),
+		commits: z
+			.object({
+				nodes: z.array(
+					z
+						.object({
+							commit: z.object({ oid: z.string(), committedDate: z.string().nullable() }).loose(),
+						})
+						.loose(),
+				),
+			})
+			.loose(),
 		statusCheckRollup: ghStatusCheckRollupSchema,
+		reviewThreads: ghBranchPrCheckThreadConnectionSchema,
 	})
 	.loose();
 
@@ -270,6 +287,26 @@ export const ghBranchPrChecksResponseSchema = z
 	.loose();
 
 export type GhBranchPrChecksResponse = z.infer<typeof ghBranchPrChecksResponseSchema>;
+
+export const ghBranchPrCheckContextsResponseSchema = z
+	.object({
+		data: z.object({
+			repository: z.object({
+				pullRequest: z.object({ statusCheckRollup: ghStatusCheckRollupSchema }).nullable(),
+			}),
+		}),
+	})
+	.loose();
+
+export const ghBranchPrCheckThreadsResponseSchema = z
+	.object({
+		data: z.object({
+			repository: z.object({
+				pullRequest: z.object({ reviewThreads: ghBranchPrCheckThreadConnectionSchema }).nullable(),
+			}),
+		}),
+	})
+	.loose();
 
 export const ghReviewThreadCommentsResponseSchema = z
 	.object({

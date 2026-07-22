@@ -116,11 +116,18 @@ export interface GithubReviewThreadState {
 	readonly isResolved: boolean;
 }
 
+export interface GithubBranchPrCheckReviewThread {
+	readonly isResolved: boolean;
+}
+
 export type GithubBranchPrChecksOutcome =
 	| {
 			readonly branch: string;
 			readonly type: "found";
 			readonly pr: GithubPrSummary;
+			readonly isDraft: boolean;
+			readonly headCommitCommittedAt: string | null;
+			readonly reviewThreads: readonly GithubBranchPrCheckReviewThread[];
 			readonly checks: GithubStatusChecks;
 	  }
 	| { readonly branch: string; readonly type: "missing" }

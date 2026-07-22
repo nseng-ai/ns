@@ -69,6 +69,15 @@ export interface InMemoryPrFeedbackState {
 		| ReadonlyMap<number, readonly GithubPrDiscussionComment[]>
 		| Record<number, readonly GithubPrDiscussionComment[]>;
 	checks?: ReadonlyMap<number, GithubStatusChecks> | Record<number, GithubStatusChecks>;
+	branchPrFacts?:
+		| ReadonlyMap<
+				number,
+				{ readonly isDraft?: boolean; readonly headCommitCommittedAt?: string | null }
+		  >
+		| Record<
+				number,
+				{ readonly isDraft?: boolean; readonly headCommitCommittedAt?: string | null }
+		  >;
 	checksFailurePrNumbers?: ReadonlySet<number>;
 	ambiguousBranchPrs?:
 		| ReadonlyMap<string, readonly GithubPrSummary[]>
@@ -108,6 +117,10 @@ export class InMemoryGithubPrFeedbackGateway implements PrAddressGithubGateway {
 	private readonly reviewThreads: ReadonlyMap<number, readonly GithubPrReviewThread[]>;
 	private readonly discussionComments: ReadonlyMap<number, readonly GithubPrDiscussionComment[]>;
 	private readonly checks: ReadonlyMap<number, GithubStatusChecks>;
+	private readonly branchPrFacts: ReadonlyMap<
+		number,
+		{ readonly isDraft?: boolean; readonly headCommitCommittedAt?: string | null }
+	>;
 	private readonly checksFailurePrNumbers: ReadonlySet<number>;
 	private readonly ambiguousBranchPrs: ReadonlyMap<string, readonly GithubPrSummary[]>;
 	private readonly branchPrChecksFailure: GithubPrFeedbackFailure | undefined;
@@ -140,6 +153,7 @@ export class InMemoryGithubPrFeedbackGateway implements PrAddressGithubGateway {
 		this.reviewThreads = numberMap(state.reviewThreads);
 		this.discussionComments = numberMap(state.discussionComments);
 		this.checks = numberMap(state.checks);
+		this.branchPrFacts = numberMap(state.branchPrFacts);
 		this.checksFailurePrNumbers = state.checksFailurePrNumbers ?? new Set();
 		this.ambiguousBranchPrs = stringMap(state.ambiguousBranchPrs);
 		this.branchPrChecksFailure = state.branchPrChecksFailure;
@@ -271,10 +285,18 @@ export class InMemoryGithubPrFeedbackGateway implements PrAddressGithubGateway {
 				outcomes.push({ branch, type: "missing" });
 				continue;
 			}
+			const facts = this.branchPrFacts.get(pr.number);
 			outcomes.push({
 				branch,
 				type: "found",
 				pr: clone(pr),
+				isDraft: facts?.isDraft ?? false,
+				headCommitCommittedAt: facts?.headCommitCommittedAt ?? null,
+				reviewThreads: clone(
+					(this.reviewThreads.get(pr.number) ?? []).map((thread) => ({
+						isResolved: thread.isResolved,
+					})),
+				),
 				checks: clone(
 					this.checks.get(pr.number) ?? {
 						counts: {
