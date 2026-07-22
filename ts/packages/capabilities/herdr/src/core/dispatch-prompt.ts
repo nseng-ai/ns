@@ -18,8 +18,8 @@ import type { SlotClient } from "@nseng-ai/slots/api";
 import { HERDR_SPACE_DISPATCH_PROMPT_COMMAND_NAME } from "./command-surfaces.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
+import { dispatchPreparedBranch } from "./prepared-dispatch.ts";
 import { createHerdrSlotClient } from "./slot-checkout.ts";
-import { openBranchInHerdrWorkspace } from "./slot.ts";
 
 type DispatchPromptRuntime = CommandExecApi & Pick<HerdrPiCommandApi, "getThinkingLevel">;
 const COMMAND_NAME = HERDR_SPACE_DISPATCH_PROMPT_COMMAND_NAME;
@@ -59,7 +59,6 @@ export async function handleHerdrSlotDispatchPrompt(
 		ctx: options.ctx,
 		branch,
 		content: buildTrackedBranchLaunchPrompt(prompt),
-		description: `herdr dispatch-prompt from ${branch.parentBranch}`,
 		successDetails: { parentLabel: "Parent", entryLocator: "include" },
 		payloadOptions: options.payloadOptions,
 		...optionalEntry("slotClient", options.slotClient),
@@ -84,9 +83,7 @@ export async function dispatchTrackedBranchPrompt(options: {
 	ctx: CommandContext;
 	branch: TrackedBranchEvidence;
 	content: string;
-	description: string;
 	successDetails: HerdrTrackedBranchDispatchSuccessDetails;
-	workspaceLabel?: (worktreePath: string) => string;
 	payloadOptions: ResolvedTrackedBranchPayloadOptions;
 	slotClient?: SlotClient;
 	notifyProgress: (message: string) => void;
@@ -110,25 +107,27 @@ export async function dispatchTrackedBranchPrompt(options: {
 		);
 		return;
 	}
-	const workspaceLabel = options.workspaceLabel;
-	await openBranchInHerdrWorkspace({
-		pi: options.pi,
+	const result = await dispatchPreparedBranch({
+		payload: {
+			branchName: options.branch.branchName,
+			semanticSlug: options.branch.semanticSlug,
+			launchCommand: buildTrackedBranchPayloadLaunchCommand(
+				options.branch.branchName,
+				getPiLaunchOptions(options.pi, options.ctx),
+			),
+		},
+		destination: { type: "workspace" },
 		herdr: options.herdr,
-		cwd: options.ctx.cwd,
-		branchName: options.branch.branchName,
-		command: buildTrackedBranchPayloadLaunchCommand(
-			options.branch.branchName,
-			getPiLaunchOptions(options.pi, options.ctx),
-		),
-		description: options.description,
-		...(workspaceLabel === undefined
-			? {}
-			: { workspaceLabel: (target) => workspaceLabel(target.worktreePath) }),
 		slotClient: options.slotClient ?? createHerdrSlotClient({ cwd: options.ctx.cwd }),
 		notify: (message, level) => options.ctx.ui.notify(message, level),
-		successMessage: (target) =>
+		onStatus: (message) => {
+			if (message !== undefined) options.notifyProgress(message);
+		},
+	});
+	if (result.type === "opened") {
+		options.ctx.ui.notify(
 			[
-				`Opened Herdr workspace: ${target.branchName}`,
+				`Opened Herdr workspace: ${result.target.checkout.branchName}`,
 				`${options.successDetails.parentLabel}: ${options.branch.parentBranch}`,
 				`Start point: ${options.branch.startPoint}`,
 				`Dispatch payload: ${stored.value.namespace}/${stored.value.key}`,
@@ -136,8 +135,9 @@ export async function dispatchTrackedBranchPrompt(options: {
 					? [`Entry Locator: ${stored.value.refName}`]
 					: []),
 			].join("\n"),
-		notifyProgress: options.notifyProgress,
-	});
+			"info",
+		);
+	}
 }
 
 export const resolveDispatchPromptPayloadOptions = resolveTrackedBranchPayloadOptions;

@@ -56,6 +56,7 @@ const GIT_TRUNK_REFRESH_TIMEOUT_MS = 2 * 60 * 1000;
 
 export interface TrackedBranchEvidence {
 	branchName: string;
+	semanticSlug: string;
 	parentBranch: string;
 	startPoint: string;
 }
@@ -150,7 +151,12 @@ export async function createTrackedBranchFromResolvedParent(options: {
 			].join("\n"),
 		};
 	}
-	return { branchName, parentBranch: options.parentBranch, startPoint: options.startPoint };
+	return {
+		branchName,
+		semanticSlug: slug.text,
+		parentBranch: options.parentBranch,
+		startPoint: options.startPoint,
+	};
 }
 
 export async function prepareGraphiteTrunk(options: {

@@ -46,7 +46,7 @@ The catalog contains exactly eleven commands. The first ten are base registratio
 
 - `HERDR_WORKSPACE_ID` identifies the caller space for space rename, tab creation, tab plan dispatch, and Handoff tab launch. Commands fail rather than target UI focus when it is absent.
 - `HERDR_TAB_ID` identifies the exact caller tab for `/ns:herdr:tab:goal`. It is not interchangeable with the workspace ID.
-- Herdr owns destination creation, labels, and pane launch. Plans, Branch Context, Slots, Graphite preparation, and Handoff Artifact lifecycle remain owned by their respective capabilities.
+- Herdr owns destination creation, labels, and pane launch. Prepared dispatch labels use the model-derived semantic slug rather than a collision-resolved Git branch name: spaces may add the compact slot prefix derived from the actual checked-out worktree path, while tabs use the exact semantic slug. Plans, Branch Context, Slots, Graphite preparation, and Handoff Artifact lifecycle remain owned by their respective capabilities.
 - Hidden `ns herdr exec handoff-tab launch` is a reference-based implementation command, not a public generic launcher or an additional Pi command.
 
 ## Parked Herdr work
