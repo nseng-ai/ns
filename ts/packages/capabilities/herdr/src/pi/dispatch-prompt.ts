@@ -28,8 +28,7 @@ export function registerHerdrSlotDispatchPromptCommand(
 		host: pi,
 		commandName: COMMAND_NAME,
 		commandDefinition: {
-			description:
-				"Create a Graphite-tracked branch and dispatch a prompt in a new Herdr workspace.",
+			description: "Launch a prompt from the current branch in a new space.",
 			argumentHint: "<prompt>",
 			handler: async (args, ctx) => {
 				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });

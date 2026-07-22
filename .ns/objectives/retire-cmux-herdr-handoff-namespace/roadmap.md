@@ -8,10 +8,11 @@
   - Regenerate the pnpm lockfile and prune Capability Kit cmux exports only after a clean surviving-consumer audit.
   - Evidence: the `cmux-and-open-branch-removal-complete` Semantic Update records the clean consumer audit, package/import inventory, focused tests, and TypeScript validation proving removal without breaking Herdr dispatch or portable Handoff workflows.
 
-- [x] Replace the superseded workflow-family catalog with the exact resource-first catalog
-  - Register `/ns:herdr:space:{new,goal,objective-summary,dispatch-prompt,dispatch-trunk-prompt,dispatch-plan,dispatch-trunk-plan}` and `/ns:herdr:tab:{new,goal,dispatch-plan,handoff}`.
+- [x] Replace the superseded workflow-family catalog with the exact compositional catalog
+  - Register direct operations under `/ns:herdr:space:{new,goal,objective-summary}` and `/ns:herdr:tab:{new,goal,handoff}`.
+  - Register the five supported `/ns:herdr:launch:<plan|prompt>:<br|tr>:<space|tab>` combinations, where `br` means current branch and `tr` means refreshed trunk.
   - Preserve conditional registration of `tab:handoff` through the optional Handoffs integration and keep hidden `ns herdr exec handoff-tab launch` unchanged.
-  - Remove all interim `/ns:herdr:handoff:*`, `/ns:herdr:tab:plan-dispatch`, and `/ns:herdr:objective:sidebar-summary` aliases from live registration and exports.
+  - Remove all interim workflow-family, compound dispatch, and resource-first dispatch aliases from live registration and exports.
   - Evidence: the canonical catalog and extension tests prove exact ten-command base membership, optional `tab:handoff`, eleven total commands, and explicit absence of old registrations; the prior namespace evidence remains immutable history.
 
 - [x] Add explicit tab resource operations
@@ -23,7 +24,7 @@
 - [x] Deliver refreshed-trunk Saved Plan dispatch
   - Extract a neutral shared Graphite trunk preparation/preview operation while preserving prompt dispatch behavior.
   - Extend Branch Context creation with a coherent explicit start-point and Graphite-parent pair while retaining current-HEAD defaults and canonical collision/race policy.
-  - Compose `space:dispatch-trunk-plan` from latest-session plan selection, refreshed trunk preparation, Branch Context attachment, Slots checkout, and Attached Plan launch in a new Herdr space.
+  - Compose `launch:plan:tr:space` from latest-session plan selection, refreshed trunk preparation, Branch Context attachment, Slots checkout, and Attached Plan launch in a new Herdr space.
   - Evidence: focused tests prove non-mutating refresh preview, exact refreshed-SHA branch creation, explicit Graphite parent, current-HEAD defaults, collision suffixing and race revalidation, latest-session selection, preparation failures, partial-failure diagnostics, downstream launch failures, and dry-run non-mutation.
 
 - [x] Reconcile live topology and documentation

@@ -67,11 +67,13 @@ function registerDispatchPlanCommand(
 	options: HerdrSlotDispatchPlanOptions,
 ): void {
 	const herdr = createCliHerdrGateway(pi);
+	const basis = config.branchBasis === "trunk" ? "refreshed trunk" : "the current branch";
+	const destination = config.destination === "workspace" ? "space" : "tab";
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: config.commandName,
 		commandDefinition: {
-			description: `Attach the latest session-saved plan to a new Graphite-tracked branch${config.branchBasis === "trunk" ? " from refreshed trunk" : ""} via branch-context and launch it in a new Herdr ${config.destination}.`,
+			description: `Launch a plan from ${basis} in a new ${destination}.`,
 			argumentHint: "[--dry-run] [--help]",
 			handler: async (rawArgs, ctx) => {
 				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });

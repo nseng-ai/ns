@@ -60,9 +60,9 @@ The `/ns:herdr:space:objective-summary` workflow that resolves an Objective slug
 The current `/ns:herdr:space:objective-summary` implementation applies only a workspace label. Branch metadata reporting remains deferred.
 *Avoid*: metadata transport, inferred slot from arbitrary basename, partial cmux parity
 
-**Resource-first Herdr command catalog**:
-The eleven-command Pi surface organized by destination resource: seven space commands (`new`, `goal`, `objective-summary`, `dispatch-prompt`, `dispatch-trunk-prompt`, `dispatch-plan`, `dispatch-trunk-plan`) and four tab commands (`new`, `goal`, `dispatch-plan`, `handoff`). `tab:handoff` is the only optional registration.
-*Avoid*: workflow-family catalog, `/ns:herdr:handoff:*`, `/ns:herdr:objective:*`, `tab:plan-dispatch`
+**Herdr command catalog**:
+The eleven-command Pi surface has six direct resource operations (`space:{new,goal,objective-summary}` and `tab:{new,goal,handoff}`) plus five compositional launch commands. Launch commands use `/ns:herdr:launch:<plan|prompt>:<br|tr>:<space|tab>`, where `br` means the current branch and `tr` means refreshed trunk; only supported combinations are registered. `tab:handoff` is the only optional registration.
+*Avoid*: workflow-family catalog, compound dispatch action names, spelling `br` as `current`, `/ns:herdr:handoff:*`, `/ns:herdr:objective:*`, `tab:plan-dispatch`
 
 **Herdr capability boundary**:
 The `pi` subpackage is the only Herdr capability subpackage that imports neutral `@nseng-ai/pi/...` host helpers; `ns` composes hidden reference-based commands and real same-channel gateways; core stays host-independent.
