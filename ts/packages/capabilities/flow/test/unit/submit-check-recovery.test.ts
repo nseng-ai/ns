@@ -50,6 +50,27 @@ describe("flow submit-check recovery", () => {
 		});
 	});
 
+	test("preserves Git gateway errors when repository-root resolution fails", async () => {
+		const cwd = join(REPO_ROOT, "nested");
+		const result = await resolveFlowSubmitRecoveryRepositoryRoot({
+			cwd,
+			git: new InMemoryGitGateway({
+				optionalRepoRoot: {
+					type: "failure",
+					error: {
+						code: "git_startup_failed",
+						message: "git executable could not start: spawn ENOENT",
+					},
+				},
+			}),
+		});
+
+		expect(result).toEqual({
+			ok: false,
+			error: `Could not resolve the Git repository root from cwd ${cwd}: git executable could not start: spawn ENOENT`,
+		});
+	});
+
 	test("resolves ns.toml and conventional repository prompts before the descriptor default", () => {
 		const configuredPath = join(REPO_ROOT, "policy", "recovery.md");
 		const configuredGateway = new InMemorySubmitCheckRecoveryGateway({

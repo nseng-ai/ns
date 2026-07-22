@@ -215,9 +215,13 @@ The prompt content comes from the `flow.submit.pre.recovery` prompt point:
 
   A typical override points the agent at the repository's fix-it skill or runbook.
 
-The recovery message includes the failed command, working directory, exit code, and
-the tail of the check's output. Recovery never runs commands itself; it only instructs
-the agent.
+The failed pre-submit check remains the command result, including its original output.
+Automatic recovery is best-effort assistance: if Flow cannot resolve the repository or
+read the selected recovery prompt, Pi reports that setup failure afterward as a
+secondary warning rather than replacing the submit failure. When recovery starts
+successfully, its message includes the failed command, working directory, exit code,
+and the tail of the check's output. Recovery never runs commands itself; it only
+instructs the agent.
 
 ## Customizing Flow
 

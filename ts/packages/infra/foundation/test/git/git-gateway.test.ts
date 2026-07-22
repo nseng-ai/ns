@@ -116,13 +116,62 @@ describe("real git gateway", () => {
 		]);
 	});
 
-	test("softens optional repo root failures", async () => {
+	test.each([
+		{
+			name: "successful root",
+			result: { stdout: `\n${ROOT}\n` },
+			expected: { type: "found", value: ROOT },
+		},
+		{
+			name: "recognized non-repository exit",
+			result: {
+				code: 128,
+				stderr: "fatal: not a git repository (or any parent directories): .git",
+			},
+			expected: { type: "missing" },
+		},
+		{
+			name: "unexpected nonzero exit",
+			result: { code: 128, stderr: "fatal: unsafe repository ownership" },
+			expected: { type: "error", error: { code: "repo_root_failed" } },
+		},
+		{
+			name: "timed-out probe",
+			result: {
+				type: "timed-out",
+				stdout: "",
+				stderr: "git hung",
+				code: null,
+				signal: "SIGTERM",
+			},
+			expected: { type: "error", error: { code: "repo_root_failed" } },
+		},
+		{
+			name: "empty successful output",
+			result: { stdout: "\n" },
+			expected: { type: "error", error: { code: "repo_root_empty" } },
+		},
+	] as const)("classifies optional repo root $name", async ({ result, expected }) => {
+		const commands = new ScriptedCommands([step("git", ["rev-parse", "--show-toplevel"], result)]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.optionalRepoRoot({ cwd: "/work" })).toMatchObject(expected);
+		commands.assertDone();
+	});
+
+	test("preserves optional repo root startup failures", async () => {
 		const commands = new ScriptedCommands([
 			errorStep("git", ["rev-parse", "--show-toplevel"], new Error("spawn ENOENT")),
 		]);
 		const git = new RealGitGateway(commands);
 
-		expect(await git.optionalRepoRoot({ cwd: "/work" })).toEqual({ type: "missing" });
+		expect(await git.optionalRepoRoot({ cwd: "/work" })).toMatchObject({
+			type: "error",
+			error: {
+				code: "git_startup_failed",
+				message: expect.stringContaining("spawn ENOENT"),
+			},
+		});
 		commands.assertDone();
 	});
 

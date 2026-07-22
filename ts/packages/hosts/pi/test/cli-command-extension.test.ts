@@ -73,6 +73,7 @@ class FakePi implements CliCommandExtensionAPI {
 	readonly ackMessages: CustomMessage[] = [];
 	readonly progressMessages: CustomMessage[] = [];
 	readonly commandFinishedEvents: PiExtensionCommandFinishedEvent[] = [];
+	readonly deliveryEvents: string[] = [];
 	readonly messageRenderers = new Map<string, MessageRenderer>();
 	readonly events = {
 		emit: (
@@ -114,6 +115,7 @@ class FakePi implements CliCommandExtensionAPI {
 					return;
 				}
 				this.sentMessages.push(message);
+				this.deliveryEvents.push("command-output");
 			};
 		}
 	}
@@ -545,6 +547,42 @@ describe("cli command extension helper", () => {
 			},
 		]);
 		expectSingleCliOutputMessage(pi, "stdout:\nstatus ok\n\nstderr:\nwarning\n");
+	});
+
+	test("keeps failed command output primary when the completion hook fails", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			afterCommandComplete: () => {
+				throw new Error("recovery setup exploded");
+			},
+			runCli: (_args, deps) => {
+				deps.stderr("private registry authentication failed\n");
+				return 1;
+			},
+		});
+		const context = createContext();
+		context.ctx.ui.notify = (message, level): void => {
+			context.notifications.push({ message, level });
+			pi.deliveryEvents.push("warning");
+		};
+
+		await expect(
+			commandFor(pi, "dev:preview-status").handler("", context.ctx),
+		).resolves.toBeUndefined();
+
+		expectSingleCliOutputMessage(
+			pi,
+			"fake-cli preview-status exited with code 1.\n\nstderr:\nprivate registry authentication failed\n",
+			"error",
+		);
+		expect(context.notifications).toEqual([
+			{
+				message:
+					"Automatic follow-up for /dev:preview-status could not complete: recovery setup exploded",
+				level: "warning",
+			},
+		]);
+		expect(pi.deliveryEvents).toEqual(["command-output", "warning"]);
 	});
 
 	test("emits configured start feedback before waiting for idle", async () => {

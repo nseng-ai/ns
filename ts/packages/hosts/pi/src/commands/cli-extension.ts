@@ -97,9 +97,10 @@ export interface CliCommandExtensionSpec {
 	/**
 	 * Narrow CLI-adapter completion hook for awaited, adapter-local side effects
 	 * such as refreshing Pi worktree status after slash-command execution.
-	 * The extension command event remains best-effort activity/observability;
-	 * consumers that need ordered completion should use this hook instead of
-	 * transient inter-extension pub/sub.
+	 * Hook failures are presented as secondary warnings and do not replace the
+	 * already-rendered command result. The extension command event remains
+	 * best-effort activity/observability; consumers that need ordered completion
+	 * should use this hook instead of transient inter-extension pub/sub.
 	 */
 	afterCommandComplete?: (details: CliCommandOutputDetails) => Promise<void> | void;
 	env?: Record<string, string | undefined>;
@@ -510,7 +511,22 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		});
 		traceCliCommand("usageError_restored", { commandName: command.name, piCommandName, restored });
 	}
-	await spec.afterCommandComplete?.(details);
+	try {
+		await spec.afterCommandComplete?.(details);
+	} catch (error) {
+		const message = formatErrorMessage(error);
+		traceCliCommand("completion_hook_failure", {
+			commandName: command.name,
+			error: message,
+			piCommandName,
+		});
+		withSafePiUi(() => {
+			ctx.ui.notify(
+				`Automatic follow-up for /${piCommandName} could not complete: ${message}`,
+				"warning",
+			);
+		});
+	}
 }
 
 interface BuildOutputDetailsOptions {
