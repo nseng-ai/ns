@@ -39,6 +39,17 @@ export type PreparedDispatchResult =
 			paneId?: string;
 	  };
 
+type FailedPreparedDispatchResult = Extract<PreparedDispatchResult, { type: "failed" }>;
+
+interface CreatedPreparedDispatchDestination {
+	readonly type: "created";
+	readonly destination: "workspace" | "tab";
+	readonly label: string;
+	readonly workspaceId: string;
+	readonly tabId: string;
+	readonly paneId: string;
+}
+
 export async function dispatchPreparedBranch(options: {
 	payload: PreparedDispatchPayload;
 	destination: PreparedDispatchDestination;
@@ -62,104 +73,32 @@ export async function dispatchPreparedBranch(options: {
 		return { type: "failed", stage: "slot-checkout", message };
 	}
 	const target = checkout.target;
-
-	if (options.destination.type === "workspace") {
-		options.onStatus?.("opening Herdr workspace…");
-		const label = formatGoalWorkspaceLabel({
-			slug: payload.semanticSlug,
-			...slotLabelInput(target.worktreePath),
-		});
-		const created = await options.herdr.createWorkspace({ cwd: target.worktreePath, label });
-		if (created.type === "failed") {
-			options.notify(
-				[
-					"Checked out the branch slot, but failed to open the Herdr workspace.",
-					`Branch: ${target.branchName}`,
-					`Worktree: ${target.worktreePath}`,
-					created.message,
-				].join("\n"),
-				"error",
-			);
-			return {
-				type: "failed",
-				stage: "destination-create",
-				message: created.message,
-				target,
-			};
-		}
-		options.onStatus?.("launching command in Herdr workspace…");
-		const ran = await options.herdr.runInPane(created.rootPaneId, payload.launchCommand);
-		if (ran.type === "failed") {
-			options.notify(
-				[
-					"Opened Herdr workspace, but failed to launch command.",
-					`Branch: ${target.branchName}`,
-					`Workspace: ${created.workspaceId}`,
-					`Tab: ${created.tabId}`,
-					`Pane: ${created.rootPaneId}`,
-					ran.message,
-				].join("\n"),
-				"error",
-			);
-			return {
-				type: "failed",
-				stage: "pane-launch",
-				message: ran.message,
-				target,
-				workspaceId: created.workspaceId,
-				tabId: created.tabId,
-				paneId: created.rootPaneId,
-			};
-		}
-		options.onStatus?.(undefined);
-		return {
-			type: "opened",
-			destination: "workspace",
-			target: {
-				checkout: target,
-				label,
-				workspaceId: created.workspaceId,
-				tabId: created.tabId,
-				paneId: created.rootPaneId,
-			},
-		};
-	}
-
-	options.onStatus?.("creating Herdr tab…");
-	const created = await options.herdr.createTab({
-		workspaceId: options.destination.callerWorkspaceId,
-		cwd: target.worktreePath,
-		label: payload.semanticSlug,
-		shouldFocus: true,
+	const created = await createPreparedDispatchDestination({
+		destination: options.destination,
+		target,
+		semanticSlug: payload.semanticSlug,
+		herdr: options.herdr,
+		notify: options.notify,
+		...(options.onStatus === undefined ? {} : { onStatus: options.onStatus }),
 	});
 	if (created.type === "failed") {
-		options.notify(
-			[
-				"Checked out the branch slot, but failed to create Herdr tab.",
-				`Branch: ${target.branchName}`,
-				`Worktree: ${target.worktreePath}`,
-				`Caller workspace: ${options.destination.callerWorkspaceId}`,
-				created.message,
-			].join("\n"),
-			"error",
-		);
-		return {
-			type: "failed",
-			stage: "destination-create",
-			message: created.message,
-			target,
-		};
+		return created;
 	}
-	options.onStatus?.("launching command in Herdr tab…");
-	const ran = await options.herdr.runInPane(created.rootPaneId, payload.launchCommand);
+
+	options.onStatus?.(`launching command in Herdr ${created.destination}…`);
+	const ran = await options.herdr.runInPane(created.paneId, payload.launchCommand);
 	if (ran.type === "failed") {
+		const failureLead =
+			created.destination === "workspace"
+				? "Opened Herdr workspace, but failed to launch command."
+				: "Created Herdr tab, but failed to launch command.";
 		options.notify(
 			[
-				"Created Herdr tab, but failed to launch command.",
+				failureLead,
 				`Branch: ${target.branchName}`,
 				`Workspace: ${created.workspaceId}`,
 				`Tab: ${created.tabId}`,
-				`Pane: ${created.rootPaneId}`,
+				`Pane: ${created.paneId}`,
 				ran.message,
 			].join("\n"),
 			"error",
@@ -171,19 +110,100 @@ export async function dispatchPreparedBranch(options: {
 			target,
 			workspaceId: created.workspaceId,
 			tabId: created.tabId,
-			paneId: created.rootPaneId,
+			paneId: created.paneId,
 		};
 	}
+
 	options.onStatus?.(undefined);
 	return {
 		type: "opened",
-		destination: "tab",
+		destination: created.destination,
 		target: {
 			checkout: target,
-			label: payload.semanticSlug,
+			label: created.label,
+			workspaceId: created.workspaceId,
+			tabId: created.tabId,
+			paneId: created.paneId,
+		},
+	};
+}
+
+async function createPreparedDispatchDestination(options: {
+	destination: PreparedDispatchDestination;
+	target: SlotCheckoutTarget;
+	semanticSlug: string;
+	herdr: HerdrGateway;
+	notify: (message: string, level: NotifyLevel) => void;
+	onStatus?: (message: string | undefined) => void;
+}): Promise<CreatedPreparedDispatchDestination | FailedPreparedDispatchResult> {
+	if (options.destination.type === "workspace") {
+		options.onStatus?.("opening Herdr workspace…");
+		const label = formatGoalWorkspaceLabel({
+			slug: options.semanticSlug,
+			...slotLabelInput(options.target.worktreePath),
+		});
+		const created = await options.herdr.createWorkspace({
+			cwd: options.target.worktreePath,
+			label,
+		});
+		if (created.type === "failed") {
+			options.notify(
+				[
+					"Checked out the branch slot, but failed to open the Herdr workspace.",
+					`Branch: ${options.target.branchName}`,
+					`Worktree: ${options.target.worktreePath}`,
+					created.message,
+				].join("\n"),
+				"error",
+			);
+			return {
+				type: "failed",
+				stage: "destination-create",
+				message: created.message,
+				target: options.target,
+			};
+		}
+		return {
+			type: "created",
+			destination: "workspace",
+			label,
 			workspaceId: created.workspaceId,
 			tabId: created.tabId,
 			paneId: created.rootPaneId,
-		},
+		};
+	}
+
+	options.onStatus?.("creating Herdr tab…");
+	const created = await options.herdr.createTab({
+		workspaceId: options.destination.callerWorkspaceId,
+		cwd: options.target.worktreePath,
+		label: options.semanticSlug,
+		shouldFocus: true,
+	});
+	if (created.type === "failed") {
+		options.notify(
+			[
+				"Checked out the branch slot, but failed to create Herdr tab.",
+				`Branch: ${options.target.branchName}`,
+				`Worktree: ${options.target.worktreePath}`,
+				`Caller workspace: ${options.destination.callerWorkspaceId}`,
+				created.message,
+			].join("\n"),
+			"error",
+		);
+		return {
+			type: "failed",
+			stage: "destination-create",
+			message: created.message,
+			target: options.target,
+		};
+	}
+	return {
+		type: "created",
+		destination: "tab",
+		label: options.semanticSlug,
+		workspaceId: created.workspaceId,
+		tabId: created.tabId,
+		paneId: created.rootPaneId,
 	};
 }

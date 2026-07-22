@@ -173,25 +173,67 @@ describe("prepared Herdr dispatch", () => {
 		},
 	);
 
-	test("preserves destination IDs when pane launch fails", async () => {
-		const herdr = new FakeHerdrGateway({
-			paneRunResult: { type: "failed", message: "pane unavailable" },
-		});
-
-		const result = await dispatchPreparedBranch({
-			payload,
-			destination: { type: "tab", callerWorkspaceId: "caller-ws" },
-			herdr,
-			slotClient: slotClient("/ordinary/worktree"),
-			notify: () => {},
-		});
-
-		expect(result).toMatchObject({
-			type: "failed",
-			stage: "pane-launch",
-			workspaceId: "fake-ws-1",
-			tabId: "fake-ws-1:t2",
+	test.each([
+		{
+			name: "workspace",
+			destination: { type: "workspace" } as const,
+			paneId: "fake-ws-1:p1",
+			tabId: "fake-ws-1:t1",
+			expectedNotification: "Opened Herdr workspace, but failed to launch command.",
+			expectedStatuses: [
+				"checking out branch slot…",
+				"opening Herdr workspace…",
+				"launching command in Herdr workspace…",
+			],
+		},
+		{
+			name: "tab",
+			destination: { type: "tab", callerWorkspaceId: "caller-ws" } as const,
 			paneId: "fake-ws-1:p2",
-		});
-	});
+			tabId: "fake-ws-1:t2",
+			expectedNotification: "Created Herdr tab, but failed to launch command.",
+			expectedStatuses: [
+				"checking out branch slot…",
+				"creating Herdr tab…",
+				"launching command in Herdr tab…",
+			],
+		},
+	])(
+		"preserves $name evidence when pane launch fails",
+		async ({ destination, paneId, tabId, expectedNotification, expectedStatuses }) => {
+			const herdr = new FakeHerdrGateway({
+				paneRunResult: { type: "failed", message: "pane unavailable" },
+			});
+			const notifications: string[] = [];
+			const statuses: Array<string | undefined> = [];
+
+			const result = await dispatchPreparedBranch({
+				payload,
+				destination,
+				herdr,
+				slotClient: slotClient("/ordinary/worktree"),
+				notify: (message) => notifications.push(message),
+				onStatus: (message) => statuses.push(message),
+			});
+
+			expect(result).toMatchObject({
+				type: "failed",
+				stage: "pane-launch",
+				target: { branchName: "implement-feature-2" },
+				workspaceId: "fake-ws-1",
+				tabId,
+				paneId,
+			});
+			expect(herdr.createWorkspaceCalls.length + herdr.createTabCalls.length).toBe(1);
+			expect(herdr.paneRunCalls).toEqual([{ paneId, command: "pi 'implement'" }]);
+			expect(notifications).toHaveLength(1);
+			expect(notifications[0]).toContain(expectedNotification);
+			expect(notifications[0]).toContain("Branch: implement-feature-2");
+			expect(notifications[0]).toContain("Workspace: fake-ws-1");
+			expect(notifications[0]).toContain(`Tab: ${tabId}`);
+			expect(notifications[0]).toContain(`Pane: ${paneId}`);
+			expect(notifications[0]).toContain("pane unavailable");
+			expect(statuses).toEqual(expectedStatuses);
+		},
+	);
 });
