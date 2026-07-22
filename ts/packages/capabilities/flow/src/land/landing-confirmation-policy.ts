@@ -14,7 +14,10 @@ export function approvedLandConfirmationKinds(options: {
 }): ReadonlySet<LandConfirmationRequest["kind"]> {
 	const approved = new Set<LandConfirmationRequest["kind"]>();
 	if (options.flags.isDryRun) return approved;
-	if (options.flags.shouldSkipConfirmation) approved.add("main-landing");
+	if (options.flags.shouldSkipConfirmation) {
+		approved.add("main-landing");
+		approved.add("single-branch-main-landing");
+	}
 	if (
 		options.cleanupPreview !== undefined &&
 		(options.flags.shouldSkipConfirmation || options.flags.shouldForceCleanup)

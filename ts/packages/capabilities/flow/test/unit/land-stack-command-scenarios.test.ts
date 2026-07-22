@@ -610,27 +610,27 @@ function numberedPreflightPrSteps(options: {
 			title: `PR ${200 + index}`,
 		});
 	});
-	if (options.planBranches.length > 2) {
-		return [
-			step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
-				stdout: `${JSON.stringify({ nameWithOwner: "owner/repo" })}\n`,
-			}),
-			step(
-				"gh",
-				batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, options.planBranches),
-				{ stdout: batchedPrStdout(prs) },
-			),
-		];
-	}
-	return prs.map((pr) =>
-		step("gh", ["pr", "view", pr.headRefName, "--json", PR_FIELDS], { stdout: prStdout(pr) }),
-	);
+	return [
+		step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
+			stdout: `${JSON.stringify({ nameWithOwner: "owner/repo" })}\n`,
+		}),
+		step(
+			"gh",
+			batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, options.planBranches),
+			{ stdout: batchedPrStdout(prs) },
+		),
+	];
 }
 
 function batchedPrStdout(prs: readonly PullRequestFacts[]): string {
 	return `${JSON.stringify({
 		data: {
-			repository: Object.fromEntries(prs.map((pr, index) => [`b${index}`, { nodes: [pr] }])),
+			repository: Object.fromEntries(
+				prs.flatMap((pr, index) => [
+					[`open${index}`, { nodes: pr.state === "OPEN" ? [pr] : [] }],
+					[`history${index}`, { nodes: pr.state === "OPEN" ? [] : [pr] }],
+				]),
+			),
 		},
 	})}\n`;
 }
@@ -738,19 +738,22 @@ function mergeNumberedBranch(
 }
 
 function initialBranchPlans(options: { featureBBase?: string } = {}): ScriptedExec[] {
-	return [
-		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
-			stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A })),
+	const branches = ["feature-a", "feature-b"];
+	const prs = [
+		prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A }),
+		prSnapshot({
+			number: 102,
+			branch: "feature-b",
+			base: options.featureBBase ?? "feature-a",
+			sha: SHA_B,
 		}),
-		step("gh", ["pr", "view", "feature-b", "--json", PR_FIELDS], {
-			stdout: prStdout(
-				prSnapshot({
-					number: 102,
-					branch: "feature-b",
-					base: options.featureBBase ?? "feature-a",
-					sha: SHA_B,
-				}),
-			),
+	];
+	return [
+		step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
+			stdout: `${JSON.stringify({ nameWithOwner: "owner/repo" })}\n`,
+		}),
+		step("gh", batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, branches), {
+			stdout: batchedPrStdout(prs),
 		}),
 	];
 }
@@ -932,11 +935,18 @@ function singleBranchPreflightWithRepoIntro(
 			branchShaOverrides: { "feature-a": options.localSha },
 		}),
 		...cleanRepoChecks(),
-		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
-			stdout: prStdout(
-				prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: options.prSha }),
-			),
+		step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
+			stdout: `${JSON.stringify({ nameWithOwner: "owner/repo" })}\n`,
 		}),
+		step(
+			"gh",
+			batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, ["feature-a"]),
+			{
+				stdout: batchedPrStdout([
+					prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: options.prSha }),
+				]),
+			},
+		),
 		step("git", ["worktree", "list", "--porcelain"], {
 			stdout: options.worktrees ?? worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
 		}),
@@ -1011,10 +1021,16 @@ function mergeSingleFeatureA(): ScriptedExec[] {
 }
 
 function badInitialPrPreflight(pr: PullRequestFacts): ScriptedExec[] {
+	const branches = ["feature-a"];
 	return [
 		...repoIntro({ current: "feature-a", dbRows: DB_SINGLE_BRANCH }),
 		...cleanRepoChecks(),
-		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], { stdout: prStdout(pr) }),
+		step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
+			stdout: `${JSON.stringify({ nameWithOwner: "owner/repo" })}\n`,
+		}),
+		step("gh", batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, branches), {
+			stdout: batchedPrStdout([pr]),
+		}),
 	];
 }
 
@@ -1186,7 +1202,7 @@ describe("land-stack command scenarios", () => {
 						git: 41,
 						"other-command": 0,
 					},
-					githubQuota: { graphqlRequests: 56, restRequests: 0, rateLimitCost: 66 },
+					githubQuota: { graphqlRequests: 56, restRequests: 0, rateLimitCost: 77 },
 				},
 			},
 			{
@@ -1202,7 +1218,7 @@ describe("land-stack command scenarios", () => {
 						git: 83,
 						"other-command": 0,
 					},
-					githubQuota: { graphqlRequests: 126, restRequests: 0, rateLimitCost: 150 },
+					githubQuota: { graphqlRequests: 126, restRequests: 0, rateLimitCost: 175 },
 				},
 			},
 		] as const;
@@ -3046,6 +3062,52 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain(
 			"Submit/update failed after merging #101; stopping before merging feature-b.",
 		);
+	});
+
+	test("dispatch refuses single-branch non-interactive landing before mutation without --yes", async () => {
+		const pullRequest = prSnapshot({
+			number: 101,
+			branch: "feature-a",
+			base: TRUNK,
+			sha: SHA_A,
+		});
+		const pi = new FakePi([
+			...repoIntro({ current: "feature-a", dbRows: DB_SINGLE_BRANCH }),
+			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
+				stdout: prStdout(pullRequest),
+			}),
+		]);
+		const output: string[] = [];
+		const progressIo = {
+			phase: (message: string) => output.push(message),
+			notify: (message: string) => output.push(message),
+			message: (message: string) => output.push(message),
+			clearPhase: () => {},
+		};
+
+		const exitCode = await runLandCli({
+			cwd: ROOT,
+			rawArgs: "",
+			exec: async (command, args, options) => await pi.exec(command, args, options),
+			stdout: (text) => output.push(text),
+			stderr: (text) => output.push(text),
+			progressIo,
+		});
+
+		pi.assertDone();
+		expect(exitCode).toBe(1);
+		expect(output.join("\n")).toContain(
+			"Refusing to land a single-branch PR without confirmation in non-interactive mode. Re-run with --yes.",
+		);
+		expect(
+			pi.execCalls.some(
+				(call) =>
+					(call.command === "gh" && call.args.includes("merge")) ||
+					(call.command === "gt" && ["restack", "submit", "delete"].includes(call.args[0] ?? "")) ||
+					(call.command === "git" && call.args[0] === "update-ref") ||
+					(call.command === "ns" && call.args[0] === "slot"),
+			),
+		).toBe(false);
 	});
 
 	test("dispatch prompts once with the canonical plan after healthy preflight", async () => {

@@ -43,8 +43,8 @@ export type {
 	FlowLandExternalCallTelemetrySink,
 	FlowLandObservabilityChannels,
 };
-export type { ValidPullRequestView } from "../land/isolated-fast-path.ts";
-export { isIsolatedFastPath, parsePullRequestView } from "../land/isolated-fast-path.ts";
+export type { ValidPullRequestView } from "../land/single-branch-fast-path.ts";
+export { isSingleBranchFastPath, parsePullRequestView } from "../land/single-branch-fast-path.ts";
 
 export type LandCommandContext = PrintAwareLandStackCommandContext;
 

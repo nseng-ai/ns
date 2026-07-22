@@ -78,7 +78,7 @@ export type {
 	BranchLandingPlan,
 	CurrentWorktreeConflict,
 	DescendantMaintenancePlan,
-	IsolatedPullRequestLandingTarget,
+	SingleBranchPullRequestLandingTarget,
 	LandCommandResult,
 	LandContext,
 	LandedChunk,

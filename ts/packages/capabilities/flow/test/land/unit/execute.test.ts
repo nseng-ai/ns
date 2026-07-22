@@ -867,14 +867,14 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		});
 	});
 
-	test("rejects a prepared stack shape for an isolated target before discovery", async () => {
+	test("rejects a prepared stack shape for a single-branch target before discovery", async () => {
 		const memory = createInMemoryLandContext();
 		const outcome = await executeLanding({
 			context: memory.context,
 			source: { type: "prepared", shape: stackLandingShape() },
 			request: {
 				...executeRequest(),
-				target: { type: "isolated-pull-request", branchOrNumber: "feature-a" },
+				target: { type: "single-branch-pull-request", branchOrNumber: "feature-a" },
 			},
 			host: approvedHost(),
 		});

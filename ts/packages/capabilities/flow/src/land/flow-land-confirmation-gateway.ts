@@ -12,11 +12,14 @@ import type {
 } from "./execution/host-seams.ts";
 import {
 	formatFreeManagedSlotsConfirmationDetails,
+	formatSingleBranchMainLandingConfirmationDetails,
 	formatPlan,
 	formatPostLandingCleanupConfirmationDetails,
 	formatSubmitRequiredUpdatesConfirmationDetails,
 	freeManagedSlotsConfirmationTitle,
 	freeManagedSlotsNonInteractiveRefusalMessage,
+	singleBranchMainLandingConfirmationTitle,
+	singleBranchMainLandingNonInteractiveRefusalMessage,
 	postLandingCleanupConfirmationTitle,
 	postLandingCleanupNonInteractiveRefusalMessage,
 	submitRequiredUpdatesConfirmationTitle,
@@ -47,6 +50,7 @@ export function createUpfrontApprovedLandConfirmationGateway(
 		confirm: async (request) => {
 			switch (request.kind) {
 				case "main-landing":
+				case "single-branch-main-landing":
 				case "free-managed-slots":
 				case "submit-required-updates":
 				case "post-landing-cleanup":
@@ -79,6 +83,8 @@ function confirmationOptions(
 	switch (request.kind) {
 		case "main-landing":
 			return mainLandingOptions(ctx, request);
+		case "single-branch-main-landing":
+			return singleBranchMainLandingOptions(ctx, request);
 		case "free-managed-slots":
 			return freeManagedSlotsOptions(ctx, request);
 		case "submit-required-updates":
@@ -100,6 +106,19 @@ function mainLandingOptions(
 		title: "Land this stack path?",
 		details: formatPlan(request.plan),
 		nonInteractiveMessage: `Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${formatPlan(request.plan)}`,
+	};
+}
+
+function singleBranchMainLandingOptions(
+	ctx: PrintAwareLandStackCommandContext,
+	request: Extract<LandConfirmationRequest, { readonly kind: "single-branch-main-landing" }>,
+): ConfirmLandStackActionOptions {
+	return {
+		ctx,
+		shouldPrompt: true,
+		title: singleBranchMainLandingConfirmationTitle(),
+		details: formatSingleBranchMainLandingConfirmationDetails(request),
+		nonInteractiveMessage: singleBranchMainLandingNonInteractiveRefusalMessage(request),
 	};
 }
 

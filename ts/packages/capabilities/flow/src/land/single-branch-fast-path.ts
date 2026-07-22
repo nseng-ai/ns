@@ -1,9 +1,9 @@
 import type { NsCommandIo } from "@nseng-ai/sdk";
 import {
-	executeIsolatedLanding,
-	isIsolatedFastPath,
-	type IsolatedLandingOutcome,
-} from "./execution/isolated-landing.ts";
+	executeSingleBranchLanding,
+	isSingleBranchFastPath,
+	type SingleBranchLandingOutcome,
+} from "./execution/single-branch-landing.ts";
 import type {
 	LandConfirmationRequest,
 	LandExecutionMessageProgress,
@@ -13,8 +13,8 @@ import type {
 	PostLandingSlotCleanupDecision,
 } from "./execution/post-landing-cleanup.ts";
 import {
-	formatIsolatedDryRunNotification,
-	formatIsolatedLandingSuccessNotification,
+	formatSingleBranchDryRunNotification,
+	formatSingleBranchLandingSuccessNotification,
 	notifyPrintAware,
 	presentFailureAndReturn,
 	setStatus,
@@ -36,7 +36,7 @@ export interface ValidPullRequestView {
 	headRefOid: string;
 }
 
-interface RunIsolatedFastPathLandingOptions {
+interface RunSingleBranchFastPathLandingOptions {
 	landContext: LandContext;
 	ctx: PrintAwareLandStackCommandContext;
 	target: LandingShape;
@@ -46,41 +46,43 @@ interface RunIsolatedFastPathLandingOptions {
 	progressIo?: NsCommandIo;
 }
 
-export interface IsolatedFastPathLandingResult<BeforeMergeValue = PostLandingSlotCleanupDecision> {
+export interface SingleBranchFastPathLandingResult<
+	BeforeMergeValue = PostLandingSlotCleanupDecision,
+> {
 	readonly outcome: LandOutcome;
 	readonly beforeMergeValue: BeforeMergeValue | undefined;
 }
 
-export { isIsolatedFastPath };
+export { isSingleBranchFastPath };
 
-export async function runIsolatedFastPathLanding(
-	options: RunIsolatedFastPathLandingOptions,
-): Promise<IsolatedFastPathLandingResult> {
-	const coreOutcome = await executeIsolatedLanding({
+export async function runSingleBranchFastPathLanding(
+	options: RunSingleBranchFastPathLandingOptions,
+): Promise<SingleBranchFastPathLandingResult> {
+	const coreOutcome = await executeSingleBranchLanding({
 		context: options.landContext,
 		host: {
 			confirmation: createUpfrontApprovedLandConfirmationGateway(
 				createFlowLandConfirmationGateway(options.ctx),
 				options.approvedConfirmationKinds,
 			),
-			progress: isolatedLandingProgress(options.ctx, options.progressIo),
+			progress: singleBranchLandingProgress(options.ctx, options.progressIo),
 		},
 		target: options.target,
 		isDryRun: options.isDryRun,
 		cleanup: options.cleanup,
 	});
-	return presentIsolatedLandingOutcome(options.ctx, coreOutcome);
+	return presentSingleBranchLandingOutcome(options.ctx, coreOutcome);
 }
 
-function presentIsolatedLandingOutcome(
+function presentSingleBranchLandingOutcome(
 	ctx: PrintAwareLandStackCommandContext,
-	outcome: IsolatedLandingOutcome,
-): IsolatedFastPathLandingResult {
+	outcome: SingleBranchLandingOutcome,
+): SingleBranchFastPathLandingResult {
 	if (outcome.type === "failure") {
 		const landOutcome =
 			outcome.stage === "base-check" || outcome.stage === "verification"
-				? presentVerbatimIsolatedFailure(ctx, outcome.failure)
-				: presentIsolatedFailure(ctx, outcome.failure);
+				? presentVerbatimSingleBranchFailure(ctx, outcome.failure)
+				: presentSingleBranchFailure(ctx, outcome.failure);
 		return {
 			outcome: landOutcome,
 			beforeMergeValue:
@@ -90,7 +92,7 @@ function presentIsolatedLandingOutcome(
 	if (outcome.result === "dry-run") {
 		notifyPrintAware({
 			ctx,
-			message: formatIsolatedDryRunNotification(
+			message: formatSingleBranchDryRunNotification(
 				outcome.pullRequest.number,
 				outcome.pullRequest.baseRefName,
 			),
@@ -102,7 +104,7 @@ function presentIsolatedLandingOutcome(
 
 	notifyPrintAware({
 		ctx,
-		message: formatIsolatedLandingSuccessNotification({
+		message: formatSingleBranchLandingSuccessNotification({
 			pullRequestNumber: outcome.pullRequest.number,
 			commandOutput: outcome.commandOutput,
 		}),
@@ -112,7 +114,7 @@ function presentIsolatedLandingOutcome(
 	return { outcome: landCompleted(), beforeMergeValue: outcome.cleanupDecision };
 }
 
-function presentIsolatedFailure(
+function presentSingleBranchFailure(
 	ctx: PrintAwareLandStackCommandContext,
 	failure: LandingFailure,
 ): LandOutcome {
@@ -120,9 +122,9 @@ function presentIsolatedFailure(
 	return landOutcomeFailure(failure);
 }
 
-function presentVerbatimIsolatedFailure(
+function presentVerbatimSingleBranchFailure(
 	ctx: PrintAwareLandStackCommandContext,
-	failure: Extract<IsolatedLandingOutcome, { readonly type: "failure" }>["failure"],
+	failure: Extract<SingleBranchLandingOutcome, { readonly type: "failure" }>["failure"],
 ): LandOutcome {
 	notifyPrintAware({
 		ctx,
@@ -133,7 +135,7 @@ function presentVerbatimIsolatedFailure(
 	return landOutcomeFailure(failure);
 }
 
-function isolatedLandingProgress(
+function singleBranchLandingProgress(
 	ctx: PrintAwareLandStackCommandContext,
 	progressIo: NsCommandIo | undefined,
 ): LandExecutionMessageProgress {

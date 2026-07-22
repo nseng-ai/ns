@@ -1,4 +1,4 @@
-import { landingExecutionFailure } from "../results.ts";
+import { landingCancelledBeforeMergeFailure, landingExecutionFailure } from "../results.ts";
 import type {
 	LandContext,
 	LandingFailure,
@@ -16,20 +16,20 @@ import {
 
 const SQUASH_MERGE_PROGRESS = "Running gh pr merge --squash with PR title/body as commit message…";
 
-export interface IsolatedLandingHost {
+export interface SingleBranchLandingHost {
 	readonly confirmation: LandConfirmationGateway;
 	readonly progress: LandExecutionMessageProgress;
 }
 
-export interface ExecuteIsolatedLandingOptions {
+export interface ExecuteSingleBranchLandingOptions {
 	readonly context: LandContext;
-	readonly host: IsolatedLandingHost;
+	readonly host: SingleBranchLandingHost;
 	readonly target: LandingShape;
 	readonly isDryRun: boolean;
 	readonly cleanup: PostLandingCleanupRequest;
 }
 
-export type IsolatedLandingOutcome =
+export type SingleBranchLandingOutcome =
 	| {
 			readonly type: "completed";
 			readonly result: "dry-run";
@@ -45,12 +45,18 @@ export type IsolatedLandingOutcome =
 	  }
 	| {
 			readonly type: "failure";
-			readonly stage: "load" | "base-check" | "cleanup-confirmation" | "merge" | "verification";
+			readonly stage:
+				| "load"
+				| "base-check"
+				| "confirmation"
+				| "cleanup-confirmation"
+				| "merge"
+				| "verification";
 			readonly failure: LandingFailure;
 			readonly cleanupDecision: PostLandingSlotCleanupDecision;
 	  };
 
-export function isIsolatedFastPath(stack: StackSnapshot): boolean {
+export function isSingleBranchFastPath(stack: StackSnapshot): boolean {
 	return (
 		stack.actualCurrentBranch !== stack.trunk &&
 		stack.landingBranches.length === 1 &&
@@ -59,9 +65,9 @@ export function isIsolatedFastPath(stack: StackSnapshot): boolean {
 	);
 }
 
-export async function executeIsolatedLanding(
-	options: ExecuteIsolatedLandingOptions,
-): Promise<IsolatedLandingOutcome> {
+export async function executeSingleBranchLanding(
+	options: ExecuteSingleBranchLandingOptions,
+): Promise<SingleBranchLandingOutcome> {
 	const noCleanup: PostLandingSlotCleanupDecision = { type: "not-needed" };
 	const prResult = await options.context.github.pullRequestFacts({
 		repoRoot: options.target.repoRoot,
@@ -94,6 +100,23 @@ export async function executeIsolatedLanding(
 			type: "completed",
 			result: "dry-run",
 			pullRequest,
+			cleanupDecision: noCleanup,
+		};
+	}
+
+	const confirmation = await options.host.confirmation.confirm({
+		kind: "single-branch-main-landing",
+		pullRequest,
+		trunk: options.target.trunk,
+	});
+	if (confirmation.type !== "approved") {
+		return {
+			type: "failure",
+			stage: "confirmation",
+			failure:
+				confirmation.type === "declined"
+					? landingCancelledBeforeMergeFailure()
+					: confirmation.failure,
 			cleanupDecision: noCleanup,
 		};
 	}

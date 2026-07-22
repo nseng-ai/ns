@@ -34,8 +34,6 @@ interface GhJsonRequest<T> {
 	readonly parse: (value: unknown) => T | undefined;
 }
 
-const BATCHED_PULL_REQUEST_FACTS_MIN_BRANCHES = 3;
-
 export const GH_REPO_VIEW_NAME_WITH_OWNER_ARGS = ["repo", "view", "--json", "nameWithOwner"];
 
 export function batchedPullRequestFactsGraphqlArgs(
@@ -80,9 +78,6 @@ export async function loadPrsByBranch(
 	branches: readonly string[],
 ): Promise<LandResult<ReadonlyMap<string, PullRequestFacts>>> {
 	if (branches.length === 0) return landSuccess(new Map());
-	if (branches.length < BATCHED_PULL_REQUEST_FACTS_MIN_BRANCHES) {
-		return await loadPrsByBranchSequentially(pi, repoRoot, branches);
-	}
 
 	const repo = await loadGitHubRepositoryName(pi, repoRoot);
 	if (repo.type === "failure") return repo;
@@ -154,20 +149,6 @@ async function loadGitHubRepositoryName(
 	});
 }
 
-async function loadPrsByBranchSequentially(
-	pi: LandStackExtensionAPI,
-	repoRoot: string,
-	branches: readonly string[],
-): Promise<LandResult<ReadonlyMap<string, PullRequestFacts>>> {
-	const prs = new Map<string, PullRequestFacts>();
-	for (const branch of branches) {
-		const pr = await loadPr(pi, repoRoot, branch);
-		if (pr.type === "failure") return pr;
-		prs.set(branch, pr.value);
-	}
-	return landSuccess(prs);
-}
-
 async function execAndParseJson<T>(request: GhJsonRequest<T>): Promise<LandResult<T>> {
 	const args = [...request.args];
 	const result = await exec({
@@ -205,10 +186,11 @@ function batchedPullRequestFactsQuery(branchCount: number): string {
 		...Array.from({ length: branchCount }, (_, index) => `$head${index}: String!`),
 	].join(", ");
 	const prSelection = PR_FIELD_NAMES.join(" ");
-	const selections = Array.from(
-		{ length: branchCount },
-		(_, index) =>
-			`b${index}: pullRequests(headRefName: $head${index}, first: 10, orderBy: { field: UPDATED_AT, direction: DESC }) { nodes { ${prSelection} } }`,
+	const selections = Array.from({ length: branchCount }, (_, index) =>
+		[
+			`open${index}: pullRequests(headRefName: $head${index}, states: OPEN, first: 2) { nodes { ${prSelection} } }`,
+			`history${index}: pullRequests(headRefName: $head${index}, states: [CLOSED, MERGED], first: 1, orderBy: { field: UPDATED_AT, direction: DESC }) { nodes { ${prSelection} } }`,
+		].join(" "),
 	).join(" ");
 	return `query(${variableDeclarations}) { repository(owner: $owner, name: $name) { ${selections} } }`;
 }
@@ -233,23 +215,22 @@ function parseBatchedPullRequestFacts(
 
 	const prs = new Map<string, PullRequestFacts>();
 	for (const [index, branch] of branches.entries()) {
-		const connection = value.data.repository[`b${index}`];
-		if (!isRecord(connection) || !Array.isArray(connection.nodes)) {
+		const openConnection = value.data.repository[`open${index}`];
+		const historyConnection = value.data.repository[`history${index}`];
+		if (
+			!isRecord(openConnection) ||
+			!Array.isArray(openConnection.nodes) ||
+			!isRecord(historyConnection) ||
+			!Array.isArray(historyConnection.nodes)
+		) {
 			return { type: "malformed-connection", branch };
 		}
-		if (connection.nodes.length === 0) return { type: "missing-pr", branch };
 
-		const [firstNode, ...remainingNodes] = connection.nodes;
-		const firstCandidate = parsePullRequestFacts(firstNode);
-		if (firstCandidate === undefined) return { type: "malformed-candidate", branch };
-		const candidates = [firstCandidate];
-		for (const node of remainingNodes) {
-			const candidate = parsePullRequestFacts(node);
-			if (candidate === undefined) return { type: "malformed-candidate", branch };
-			candidates.push(candidate);
+		const openCandidates = parsePullRequestCandidates(openConnection.nodes);
+		const historicalCandidates = parsePullRequestCandidates(historyConnection.nodes);
+		if (openCandidates === undefined || historicalCandidates === undefined) {
+			return { type: "malformed-candidate", branch };
 		}
-
-		const openCandidates = candidates.filter((candidate) => candidate.state === "OPEN");
 		if (openCandidates.length > 1) {
 			return {
 				type: "ambiguous-open-prs",
@@ -257,9 +238,24 @@ function parseBatchedPullRequestFacts(
 				prNumbers: openCandidates.map((candidate) => candidate.number),
 			};
 		}
-		prs.set(branch, openCandidates[0] ?? firstCandidate);
+
+		const selected = openCandidates[0] ?? historicalCandidates[0];
+		if (selected === undefined) return { type: "missing-pr", branch };
+		prs.set(branch, selected);
 	}
 	return { type: "success", prs };
+}
+
+function parsePullRequestCandidates(
+	values: readonly unknown[],
+): readonly PullRequestFacts[] | undefined {
+	const candidates: PullRequestFacts[] = [];
+	for (const value of values) {
+		const candidate = parsePullRequestFacts(value);
+		if (candidate === undefined) return undefined;
+		candidates.push(candidate);
+	}
+	return candidates;
 }
 
 function parsePullRequestFacts(value: unknown): PullRequestFacts | undefined {

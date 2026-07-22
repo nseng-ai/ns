@@ -25,7 +25,7 @@ The compatibility rule that land consumers continue to enter through **Flow Capa
 *Avoid*: direct downstream import from `@nseng-ai/flow/land`, direct downstream import from Flow land-stack internals, removing existing `@nseng-ai/flow/api` exports without a consumer audit
 
 **Flow Land Execution**:
-The Flow-owned adapter layer around canonical land execution: command presentation, prompt rendering, the confirmation gateway, ParsedArgs-to-request mapping, and routing (no-op, isolated fast path, stack). Merge execution, Graphite maintenance, and post-landing managed-slot cleanup are owned by **Canonical Landing Execution** in the land domain core.
+The Flow-owned adapter layer around canonical land execution: command presentation, prompt rendering, the confirmation gateway, ParsedArgs-to-request mapping, and routing (no-op, single-branch fast path, stack). Merge execution, Graphite maintenance, and post-landing managed-slot cleanup are owned by **Canonical Landing Execution** in the land domain core.
 *Avoid*: direct `executeStackLandingPlan` call, Flow-side post-landing cleanup for stack landings, pure preflight plan, standalone land CLI behavior
 
 **Canonical Landing Execution**:
@@ -37,7 +37,7 @@ The deterministic land logic in the `@nseng-ai/flow/land` subpackage that consum
 *Avoid*: CLI parser, renderer, Pi command, direct subprocess script
 
 **Land Capability API**:
-The curated `@nseng-ai/flow/land/api` surface: `executeLanding`, planning entry points, result/failure vocabulary, confirmation/progress host seams, and domain types. Deliberately narrowed after the execution migration — execution internals (`executeStackLandingPlan`, isolated landing internals, pre-merge phase helpers) are not public; a runtime allowlist test guards the surface, package-local tests import implementation modules directly, and the sweep found no workspace production consumers of the removed exports.
+The curated `@nseng-ai/flow/land/api` surface: `executeLanding`, planning entry points, result/failure vocabulary, confirmation/progress host seams, and domain types. Deliberately narrowed after the execution migration — execution internals (`executeStackLandingPlan`, single-branch landing internals, pre-merge phase helpers) are not public; a runtime allowlist test guards the surface, package-local tests import implementation modules directly, and the sweep found no workspace production consumers of the removed exports.
 *Avoid*: package-root import, Flow compatibility API, command export, execution-internal re-export
 
 **Land Testing Surface**:
@@ -46,7 +46,7 @@ The `@nseng-ai/flow/land/testing` surface that provides in-memory fakes and fixt
 
 **Stack Landing Target**:
 The supported land-domain target shape: a Graphite stack path whose preflight can be planned without rendering or mutating merges.
-*Avoid*: isolated PR land execution, arbitrary branch merge, fully general land target
+*Avoid*: single-branch PR land execution, arbitrary branch merge, fully general land target
 
 **Stack Landing Plan**:
 The renderer-independent plan produced for a **Stack Landing Target**, including branch plans, PR submit requirements, managed-slot conflicts, and descendant maintenance needs.

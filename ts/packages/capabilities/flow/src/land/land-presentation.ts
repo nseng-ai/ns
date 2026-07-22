@@ -221,7 +221,7 @@ export function usage(): string {
 		`/${COMMAND_NAME} ${landUsageTokens().join(" ")}`,
 		"",
 		"Lands the current PR or Graphite stack into gt trunk.",
-		"Fast path requires Graphite to prove an isolated single-PR stack. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
+		"Fast path requires Graphite to prove a single-branch PR shape. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
 		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts; descendant worktree conflicts skip optional post-landing restack/update.",
 		"After successful landing, this command frees the current managed slot and deletes the landed local branch by default; use --preserve to keep them.",
 		"",
@@ -601,11 +601,34 @@ export function presentLandingSuccess(options: PresentLandingSuccessOptions): vo
 	});
 }
 
-export function formatIsolatedDryRunNotification(pullRequestNumber: number, trunk: string): string {
+export function singleBranchMainLandingConfirmationTitle(): string {
+	return "Land this PR?";
+}
+
+export function formatSingleBranchMainLandingConfirmationDetails(
+	request: Extract<LandConfirmationRequest, { readonly kind: "single-branch-main-landing" }>,
+): string {
+	return [
+		`PR: #${request.pullRequest.number} ${request.pullRequest.title}`,
+		`Head branch: ${request.pullRequest.headRefName}`,
+		`Target trunk: ${request.trunk}`,
+	].join("\n");
+}
+
+export function singleBranchMainLandingNonInteractiveRefusalMessage(
+	request: Extract<LandConfirmationRequest, { readonly kind: "single-branch-main-landing" }>,
+): string {
+	return `Refusing to land a single-branch PR without confirmation in non-interactive mode. Re-run with --yes.\n\n${formatSingleBranchMainLandingConfirmationDetails(request)}`;
+}
+
+export function formatSingleBranchDryRunNotification(
+	pullRequestNumber: number,
+	trunk: string,
+): string {
 	return `Dry run only; would merge PR #${pullRequestNumber} into ${trunk}.`;
 }
 
-export function formatIsolatedLandingSuccessNotification(options: {
+export function formatSingleBranchLandingSuccessNotification(options: {
 	readonly pullRequestNumber: number;
 	readonly commandOutput: string;
 }): string {

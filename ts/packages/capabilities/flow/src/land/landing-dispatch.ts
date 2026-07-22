@@ -6,7 +6,10 @@ import { landOutcomeFailure, type LandOutcome } from "./results.ts";
 import { presentFailureAndReturn } from "./land-presentation.ts";
 import type { ParsedArgs, PrintAwareLandStackCommandContext } from "./stack/types.ts";
 import { loadStackLandingShape } from "./api.ts";
-import { isIsolatedFastPath, runIsolatedFastPathLanding } from "./isolated-fast-path.ts";
+import {
+	isSingleBranchFastPath,
+	runSingleBranchFastPathLanding,
+} from "./single-branch-fast-path.ts";
 import { approvedLandConfirmationKinds } from "./landing-confirmation-policy.ts";
 import {
 	planPostLandingSlotCleanup,
@@ -39,8 +42,8 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 		flags: options.parsedArgs,
 		...optionalEntry("cleanupPreview", cleanupPreview),
 	});
-	if (isIsolatedFastPath(shape.value.stack)) {
-		const result = await runIsolatedFastPathLanding({
+	if (isSingleBranchFastPath(shape.value.stack)) {
+		const result = await runSingleBranchFastPathLanding({
 			landContext,
 			ctx: options.ctx,
 			target: shape.value,

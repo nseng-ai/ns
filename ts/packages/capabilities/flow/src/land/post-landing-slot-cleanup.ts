@@ -1,7 +1,7 @@
 // Flow-side glue for post-landing managed-slot cleanup.
 //
 // Canonical stack execution owns cleanup end to end; this module keeps the deterministic
-// ParsedArgs -> cleanup policy mapping, the upfront-confirmation preview, and the isolated
+// ParsedArgs -> cleanup policy mapping, the upfront-confirmation preview, and the single-branch
 // fast-path glue that still runs cleanup outside canonical stack execution.
 
 import type { LandExecutionStatusProgress } from "./execution/host-seams.ts";
@@ -58,7 +58,7 @@ interface RunPostLandingSlotCleanupOptions {
 	readonly cleanupDecision: PostLandingSlotCleanupDecision;
 }
 
-/** Isolated fast-path glue: run cleanup after landing outside canonical stack execution. */
+/** Single-branch fast-path glue: run cleanup after landing outside canonical stack execution. */
 export async function runPostLandingSlotCleanup(
 	options: RunPostLandingSlotCleanupOptions,
 ): Promise<LandOutcome> {
