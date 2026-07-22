@@ -50,23 +50,29 @@ interface CreatedPreparedDispatchDestination {
 	readonly paneId: string;
 }
 
-export async function dispatchPreparedBranch(options: {
-	payload: PreparedDispatchPayload;
-	destination: PreparedDispatchDestination;
-	herdr: HerdrGateway;
-	slotClient: SlotClient;
-	notify: (message: string, level: NotifyLevel) => void;
-	onStatus?: (message: string | undefined) => void;
-}): Promise<PreparedDispatchResult> {
+export interface PreparedDispatchContext {
+	readonly herdr: HerdrGateway;
+	readonly slotClient: SlotClient;
+	readonly notify: (message: string, level: NotifyLevel) => void;
+	readonly onStatus?: (message: string | undefined) => void;
+}
+
+export async function dispatchPreparedBranch(
+	context: PreparedDispatchContext,
+	options: {
+		payload: PreparedDispatchPayload;
+		destination: PreparedDispatchDestination;
+	},
+): Promise<PreparedDispatchResult> {
 	const { payload } = options;
-	options.onStatus?.("checking out branch slot…");
-	const checkout = await checkoutSlot(options.slotClient, {
+	context.onStatus?.("checking out branch slot…");
+	const checkout = await checkoutSlot(context.slotClient, {
 		kind: "branch",
 		branchName: payload.branchName,
 	});
 	if (!checkout.ok) {
 		const message = formatSlotCheckoutFailureCause(checkout.failure);
-		options.notify(
+		context.notify(
 			["Failed to check out branch slot.", `Branch: ${payload.branchName}`, "", message].join("\n"),
 			"error",
 		);
@@ -77,22 +83,22 @@ export async function dispatchPreparedBranch(options: {
 		destination: options.destination,
 		target,
 		semanticSlug: payload.semanticSlug,
-		herdr: options.herdr,
-		notify: options.notify,
-		...(options.onStatus === undefined ? {} : { onStatus: options.onStatus }),
+		herdr: context.herdr,
+		notify: context.notify,
+		...(context.onStatus === undefined ? {} : { onStatus: context.onStatus }),
 	});
 	if (created.type === "failed") {
 		return created;
 	}
 
-	options.onStatus?.(`launching command in Herdr ${created.destination}…`);
-	const ran = await options.herdr.runInPane(created.paneId, payload.launchCommand);
+	context.onStatus?.(`launching command in Herdr ${created.destination}…`);
+	const ran = await context.herdr.runInPane(created.paneId, payload.launchCommand);
 	if (ran.type === "failed") {
 		const failureLead =
 			created.destination === "workspace"
 				? "Opened Herdr workspace, but failed to launch command."
 				: "Created Herdr tab, but failed to launch command.";
-		options.notify(
+		context.notify(
 			[
 				failureLead,
 				`Branch: ${target.branchName}`,
@@ -114,7 +120,7 @@ export async function dispatchPreparedBranch(options: {
 		};
 	}
 
-	options.onStatus?.(undefined);
+	context.onStatus?.(undefined);
 	return {
 		type: "opened",
 		destination: created.destination,

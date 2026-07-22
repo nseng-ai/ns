@@ -52,13 +52,14 @@ describe("prepared Herdr dispatch", () => {
 	test("labels a workspace from the actual managed slot path and launches explicitly", async () => {
 		const herdr = new FakeHerdrGateway();
 
-		const result = await dispatchPreparedBranch({
-			payload,
-			destination: { type: "workspace" },
-			herdr,
-			slotClient: slotClient("/state/slots/repos/ns/worktrees/slot-07"),
-			notify: () => {},
-		});
+		const result = await dispatchPreparedBranch(
+			{
+				herdr,
+				slotClient: slotClient("/state/slots/repos/ns/worktrees/slot-07"),
+				notify: () => {},
+			},
+			{ payload, destination: { type: "workspace" } },
+		);
 
 		expect(result).toMatchObject({
 			type: "opened",
@@ -81,13 +82,14 @@ describe("prepared Herdr dispatch", () => {
 	test("labels a workspace without a slot prefix outside a managed slot", async () => {
 		const herdr = new FakeHerdrGateway();
 
-		const result = await dispatchPreparedBranch({
-			payload,
-			destination: { type: "workspace" },
-			herdr,
-			slotClient: slotClient("/ordinary/worktree"),
-			notify: () => {},
-		});
+		const result = await dispatchPreparedBranch(
+			{
+				herdr,
+				slotClient: slotClient("/ordinary/worktree"),
+				notify: () => {},
+			},
+			{ payload, destination: { type: "workspace" } },
+		);
 
 		expect(result).toMatchObject({
 			type: "opened",
@@ -99,13 +101,14 @@ describe("prepared Herdr dispatch", () => {
 	test("labels a caller tab with the semantic slug rather than the collision branch", async () => {
 		const herdr = new FakeHerdrGateway();
 
-		const result = await dispatchPreparedBranch({
-			payload,
-			destination: { type: "tab", callerWorkspaceId: "caller-ws" },
-			herdr,
-			slotClient: slotClient("/ordinary/worktree"),
-			notify: () => {},
-		});
+		const result = await dispatchPreparedBranch(
+			{
+				herdr,
+				slotClient: slotClient("/ordinary/worktree"),
+				notify: () => {},
+			},
+			{ payload, destination: { type: "tab", callerWorkspaceId: "caller-ws" } },
+		);
 
 		expect(result).toMatchObject({ type: "opened", destination: "tab" });
 		expect(herdr.createTabCalls).toEqual([
@@ -124,13 +127,14 @@ describe("prepared Herdr dispatch", () => {
 		const herdr = new FakeHerdrGateway();
 		const notifications: string[] = [];
 
-		const result = await dispatchPreparedBranch({
-			payload,
-			destination: { type: "workspace" },
-			herdr,
-			slotClient: failingSlotClient,
-			notify: (message) => notifications.push(message),
-		});
+		const result = await dispatchPreparedBranch(
+			{
+				herdr,
+				slotClient: failingSlotClient,
+				notify: (message) => notifications.push(message),
+			},
+			{ payload, destination: { type: "workspace" } },
+		);
 
 		expect(result).toMatchObject({ type: "failed", stage: "slot-checkout" });
 		expect(herdr.createWorkspaceCalls).toEqual([]);
@@ -159,13 +163,14 @@ describe("prepared Herdr dispatch", () => {
 			const herdr = new FakeHerdrGateway(failureOptions);
 			const notifications: string[] = [];
 
-			const result = await dispatchPreparedBranch({
-				payload,
-				destination,
-				herdr,
-				slotClient: slotClient("/ordinary/worktree"),
-				notify: (message) => notifications.push(message),
-			});
+			const result = await dispatchPreparedBranch(
+				{
+					herdr,
+					slotClient: slotClient("/ordinary/worktree"),
+					notify: (message) => notifications.push(message),
+				},
+				{ payload, destination },
+			);
 
 			expect(result).toMatchObject({ type: "failed", stage: "destination-create" });
 			expect(herdr.paneRunCalls).toEqual([]);
@@ -207,14 +212,15 @@ describe("prepared Herdr dispatch", () => {
 			const notifications: string[] = [];
 			const statuses: Array<string | undefined> = [];
 
-			const result = await dispatchPreparedBranch({
-				payload,
-				destination,
-				herdr,
-				slotClient: slotClient("/ordinary/worktree"),
-				notify: (message) => notifications.push(message),
-				onStatus: (message) => statuses.push(message),
-			});
+			const result = await dispatchPreparedBranch(
+				{
+					herdr,
+					slotClient: slotClient("/ordinary/worktree"),
+					notify: (message) => notifications.push(message),
+					onStatus: (message) => statuses.push(message),
+				},
+				{ payload, destination },
+			);
 
 			expect(result).toMatchObject({
 				type: "failed",

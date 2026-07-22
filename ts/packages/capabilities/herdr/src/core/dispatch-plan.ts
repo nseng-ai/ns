@@ -313,18 +313,22 @@ async function createAttachAndLaunch(options: {
 	const slotClient =
 		dispatchOptions.slotClient ?? createHerdrSlotClient({ cwd: checkout.repoRoot });
 
-	const result = await dispatchPreparedBranch({
-		payload: {
-			branchName: operation.branch,
-			semanticSlug: operation.slug,
-			launchCommand,
+	const result = await dispatchPreparedBranch(
+		{
+			herdr,
+			slotClient,
+			notify: (message, level) => ctx.ui.notify(message, level),
+			onStatus: (message) => setStatus(ctx, config, message),
 		},
-		destination,
-		herdr,
-		slotClient,
-		notify: (message, level) => ctx.ui.notify(message, level),
-		onStatus: (message) => setStatus(ctx, config, message),
-	});
+		{
+			payload: {
+				branchName: operation.branch,
+				semanticSlug: operation.slug,
+				launchCommand,
+			},
+			destination,
+		},
+	);
 
 	if (result.type === "opened") {
 		present(
