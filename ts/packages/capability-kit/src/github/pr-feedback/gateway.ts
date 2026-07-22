@@ -536,6 +536,16 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 									cursorContext: "branchPrCheckContexts",
 								}),
 							);
+						if (pullRequest.headRefOid !== node.headRefOid)
+							return feedbackErr(
+								failureFromMessage({
+									code: "github_pr_feedback_pagination_invalid",
+									operation: "getBranchPrChecks",
+									message: `GitHub PR ${node.number} head changed during check pagination; rerun the command.`,
+									prNumber: node.number,
+									cursorContext: "branchPrCheckContexts",
+								}),
+							);
 						return feedbackOk(pullRequest.statusCheckRollup.contexts);
 					},
 					mapNode: (check) => feedbackOk(check),
@@ -565,6 +575,16 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 									code: "github_pr_feedback_pagination_invalid",
 									operation: "getBranchPrChecks",
 									message: `GitHub returned no PR ${node.number} for review-thread continuation.`,
+									prNumber: node.number,
+									cursorContext: "branchPrCheckReviewThreads",
+								}),
+							);
+						if (pullRequest.headRefOid !== node.headRefOid)
+							return feedbackErr(
+								failureFromMessage({
+									code: "github_pr_feedback_pagination_invalid",
+									operation: "getBranchPrChecks",
+									message: `GitHub PR ${node.number} head changed during review-thread pagination; rerun the command.`,
 									prNumber: node.number,
 									cursorContext: "branchPrCheckReviewThreads",
 								}),
