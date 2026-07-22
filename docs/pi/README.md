@@ -130,7 +130,7 @@ External or personal surface:
 
 Rules:
 
-- Repo-owned first-party product/orchestration Pi extension command families should use `/ns:<extension>:<action...>` names when introduced or renamed, such as `/ns:objective:list`, `/ns:objective:next`, or `/ns:herdr:space:dispatch-plan`. Reserve `/skill:<name>` for Pi's skill-command namespace, and keep `/pi:*` for Pi-native UI/session affordances.
+- Repo-owned first-party product/orchestration Pi extension command families should use `/ns:<extension>:<action...>` names when introduced or renamed, such as `/ns:objective:list`, `/ns:objective:next`, or `/ns:herdr:launch:plan:br:space`. Reserve `/skill:<name>` for Pi's skill-command namespace, and keep `/pi:*` for Pi-native UI/session affordances.
 - Repo-owned Pi slash commands must acknowledge receipt synchronously before waiting for Pi idle state or doing slow I/O. Engineered commands should use `registerCommandWithImmediateAck` from `@nseng-ai/pi/commands/ack` at each registration site and must choose an explicit delivery. The helper implementation default remains `none`, but repository policy normally requires `options: { delivery: "message" }` for a durable above-fold transcript acknowledgement. Use `{ delivery: "status" }` only when transcript output is inappropriate and the registration states why; do not omit delivery and rely on the helper default.
 - `ctx.ui.setStatus(...)` is footer/status UI and must not implicitly emit transcript progress. Use `sendCommandProgressOrNotify({ host, ctx, message, delivery, level, shouldNotifyWhenNoUi })` only at explicit transcript-progress milestones. See [Pi extension command checklist](extension-command-checklist.md) before adding or changing repo-owned Pi commands.
 - Existing short top-level extension commands may remain when they are deliberately standalone or awaiting explicit disposition. Do not add legacy aliases only for autocomplete convenience; visible aliases increase surface area.
@@ -144,7 +144,7 @@ Rules:
 Use command namespaces to communicate workflow ownership, not implementation file location:
 
 - `/pi:*` — Pi-native UI or session affordances whose portable counterpart is a skill or ordinary harness behavior. Current examples: `/pi:grill-me` and `/pi:grill-with-docs`.
-- `/ns:herdr:space:*` and `/ns:herdr:tab:*` — Herdr resource operations and dispatch. Resource identity comes before the action; Handoff Artifact launch is the optional `/ns:herdr:tab:handoff` integration.
+- `/ns:herdr:space:*` and `/ns:herdr:tab:*` — direct Herdr resource operations. Multidimensional launches use `/ns:herdr:launch:<plan|prompt>:<br|tr>:<space|tab>`, where `br` means current branch and `tr` means refreshed trunk. Handoff Artifact launch remains the optional `/ns:herdr:tab:handoff` integration.
 - `/code:*` — review/watch or code-management workflows intentionally outside the ns code-lifecycle family. Current project-owned use is `/code:pr-feedback-watch`, which is being retargeted to download-feedback-only behavior; migrated code-lifecycle workflows should not keep `/code:*` compatibility aliases.
 - `/ns:handoff:*` — durable Handoff Artifact lifecycle: create, pick up, and list. `/ns:herdr:tab:handoff` composes that lifecycle with a Herdr tab destination; it does not move artifact ownership into Herdr.
 - `/ns:objective:*` — domain-owned Objective workflows.

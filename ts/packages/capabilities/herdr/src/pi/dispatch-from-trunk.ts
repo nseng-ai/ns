@@ -37,8 +37,7 @@ export function registerHerdrSlotDispatchFromTrunkCommand(
 		host: pi,
 		commandName: COMMAND_NAME,
 		commandDefinition: {
-			description:
-				"Create a Graphite-tracked branch from the refreshed trunk and launch it in a new Herdr workspace.",
+			description: "Launch a prompt from refreshed trunk in a new space.",
 			argumentHint: "<task>",
 			handler: async (args, ctx) => {
 				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });

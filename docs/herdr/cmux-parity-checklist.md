@@ -23,24 +23,24 @@ The catalog contains exactly eleven commands. The first ten are base registratio
 
 ### Space resources
 
-| Command                                           | Behavior                                                                                                                    |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `/ns:herdr:space:new [description]`               | Create and focus a space at the current cwd, optionally with a model-derived semantic label.                                |
-| `/ns:herdr:space:goal <goal>`                     | Derive a goal label and rename the explicit caller space.                                                                   |
-| `/ns:herdr:space:objective-summary [objective]`   | Resolve an Objective and apply its label to the explicit caller space.                                                      |
-| `/ns:herdr:space:dispatch-prompt <prompt>`        | Prepare a tracked branch and slot, create a space, and launch the prompt in Pi.                                             |
-| `/ns:herdr:space:dispatch-trunk-prompt <prompt>`  | Refresh trunk, prepare the dispatch branch and slot, create a space, and launch the prompt in Pi.                           |
-| `/ns:herdr:space:dispatch-plan [--dry-run]`       | Select a Saved Plan, prepare its Branch Context and slot, create a space, and launch Attached Plan implementation.          |
-| `/ns:herdr:space:dispatch-trunk-plan [--dry-run]` | Select a Saved Plan and prepare it from refreshed trunk before creating a space and launching Attached Plan implementation. |
+| Command                                         | Behavior                                                                                     |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `/ns:herdr:space:new [description]`             | Create and focus a space at the current cwd, optionally with a model-derived semantic label. |
+| `/ns:herdr:space:goal <goal>`                   | Derive a goal label and rename the explicit caller space.                                    |
+| `/ns:herdr:space:objective-summary [objective]` | Resolve an Objective and apply its label to the explicit caller space.                       |
+| `/ns:herdr:launch:prompt:br:space <prompt>`     | Launch a prompt from the current branch in a new space.                                      |
+| `/ns:herdr:launch:prompt:tr:space <prompt>`     | Launch a prompt from refreshed trunk in a new space.                                         |
+| `/ns:herdr:launch:plan:br:space [--dry-run]`    | Launch a plan from the current branch in a new space.                                        |
+| `/ns:herdr:launch:plan:tr:space [--dry-run]`    | Launch a plan from refreshed trunk in a new space.                                           |
 
 ### Tab resources
 
-| Command                                   | Behavior                                                                                                                                    |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/ns:herdr:tab:new [description]`         | Create and focus a tab in the explicit caller space at the current cwd, optionally with a model-derived label.                              |
-| `/ns:herdr:tab:goal <goal>`               | Derive a goal label and rename the exact caller tab identified by `HERDR_TAB_ID`.                                                           |
-| `/ns:herdr:tab:dispatch-plan [--dry-run]` | Select and prepare a Saved Plan, create a focused tab in the explicit caller space, and launch Attached Plan implementation.                |
-| `/ns:herdr:tab:handoff`                   | Create a durable Handoff Artifact, then create a focused tab in the explicit caller space and launch pickup. Optional Handoffs integration. |
+| Command                                    | Behavior                                                                                                                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/ns:herdr:tab:new [description]`          | Create and focus a tab in the explicit caller space at the current cwd, optionally with a model-derived label.                              |
+| `/ns:herdr:tab:goal <goal>`                | Derive a goal label and rename the exact caller tab identified by `HERDR_TAB_ID`.                                                           |
+| `/ns:herdr:launch:plan:br:tab [--dry-run]` | Launch a plan from the current branch in a new tab.                                                                                         |
+| `/ns:herdr:tab:handoff`                    | Create a durable Handoff Artifact, then create a focused tab in the explicit caller space and launch pickup. Optional Handoffs integration. |
 
 ## Targeting and boundaries
 

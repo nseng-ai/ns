@@ -1,10 +1,10 @@
-# Retire cmux and Establish the Resource-First Herdr Catalog
+# Retire cmux and Establish the Compositional Herdr Catalog
 
 ## Thesis
 
-The dedicated cmux capability is redundant with Herdr and has been removed. Herdr's public Pi catalog should now use a resource-first grammar in which the third segment always identifies the destination resource (`space` or `tab`), while only the tab workflow that creates and verifies a durable Handoff Artifact uses the `handoff` action name.
+The dedicated cmux capability is redundant with Herdr and has been removed. Herdr's public Pi catalog should use direct resource operations for `space` and `tab`, plus a compositional launch grammar that keeps every supported payload, branch basis, and destination visible in Pi's narrow command picker.
 
-This Objective tracks the completed cmux removal and the superseding hard migration from the interim generic workflow-family namespaces to the exact resource-first catalog, including explicit tab resource operations and refreshed-trunk Saved Plan dispatch.
+This Objective tracks the completed cmux removal and the superseding hard migration from interim workflow-family and compound dispatch names to the exact Herdr catalog, including explicit tab resource operations and refreshed-trunk Saved Plan launch.
 
 The reviewed current implementation plan is saved in the local plan store at:
 
@@ -20,8 +20,8 @@ not durable or shared).
 
 - Register exactly these public Pi commands, with no compatibility aliases:
   - `/ns:herdr:space:{new,goal,objective-summary}`
-  - `/ns:herdr:space:{dispatch-prompt,dispatch-trunk-prompt,dispatch-plan,dispatch-trunk-plan}`
-  - `/ns:herdr:tab:{new,goal,dispatch-plan,handoff}`
+  - `/ns:herdr:tab:{new,goal,handoff}`
+  - `/ns:herdr:launch:{plan,prompt}:{br,tr}:{space,tab}` for the five supported combinations: `plan:br:space`, `plan:br:tab`, `plan:tr:space`, `prompt:br:space`, and `prompt:tr:space`.
 - Preserve the behavior of renamed commands, including label-only Objective summary behavior and the hidden portable `ns herdr exec handoff-tab launch` mechanism.
 - Add explicit tab creation and goal labeling, targeted only through trimmed `HERDR_WORKSPACE_ID` and `HERDR_TAB_ID` caller identity respectively.
 - Deliver refreshed-trunk Saved Plan dispatch by deepening the shared Graphite trunk-preparation and Branch Context explicit-parent/start-point seams rather than duplicating their policy in Herdr.
@@ -45,10 +45,10 @@ not durable or shared).
 
 ## Completion Criteria
 
-- The exact eleven-command resource-first catalog is registered with base-versus-optional membership preserved, and every interim alias is absent from live surfaces.
+- The exact eleven-command Herdr catalog is registered with base-versus-optional membership preserved, launch names follow `/ns:herdr:launch:<plan|prompt>:<br|tr>:<space|tab>`, and every interim alias is absent from live surfaces.
 - `tab:new` requires explicit caller workspace identity before model work or mutation, creates a focused tab at the command cwd, and uses the existing semantic label policy when a description is supplied.
 - `tab:goal` requires explicit caller tab identity, shares the existing goal slug and slot-prefix policy, and renames that exact tab without UI-focus fallback.
-- `space:dispatch-trunk-plan` selects the latest current-session Saved Plan, truthfully supports help and non-mutating dry-run, refreshes Graphite trunk through shared policy, creates and tracks from the exact refreshed trunk with Branch Context's canonical collision policy, attaches the plan, checks out through Slots, and launches Attached Plan implementation in a new Herdr space.
+- `launch:plan:tr:space` selects the latest current-session Saved Plan, truthfully supports help and non-mutating dry-run, refreshes Graphite trunk through shared policy, creates and tracks from the exact refreshed trunk with Branch Context's canonical collision policy, attaches the plan, checks out through Slots, and launches Attached Plan implementation in a new Herdr space.
 - `/ns:herdr:space:open-branch`, `@nseng-ai/cmux`, `.pi/extensions/cmux.ts`, `ns cmux exec`, and old cmux Pi surfaces remain absent from live implementation and configuration.
 - Workspace dependencies, generated lockfile, publish inventories, style guards, runtime import checks, package counts, contexts, and live user documentation match the resulting topology; gated `docs-site/` drift is explicitly classified.
 - Remaining old Herdr and cmux strings occur only in accurate historical evidence or the explicitly gated docs-site follow-up.
