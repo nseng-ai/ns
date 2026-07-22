@@ -25,7 +25,8 @@ description: |
   mechanically detectable violations: non-erasable TypeScript, ordinary `any`,
   banned double-casts, import-boundary drift, strict-indexed-access bypasses,
   exact-optional-property drift, impossible optional states for guaranteed
-  dependencies, broad casts, top-level arrow module logic, mutation of
+  dependencies, actionable failures erased as `undefined`, broad casts,
+  top-level arrow module logic, mutation of
   owned-boundary data, misplaced real-gateway construction,
   demonstrated gateway clumps, naming hygiene, suppression hygiene, and other
   Tier A rules. Intended for cheap, per-diff detection; resolution stays
@@ -180,16 +181,34 @@ to each rule's exceptions.
     inputs, lookup results, persisted paths, capabilities absent in a supported
     runtime, or other concrete absence states. `?.`, `??`, `?:`, and
     `NonNullable` are supporting evidence only; never flag them by themselves.
-18. **Unchecked indexed-access bypass.** Flag non-null assertions or broad casts
+18. **Actionable failure erased as `undefined`.** Flag only when the supplied
+    diff affirmatively shows all of the following: a named operation has a
+    meaningful non-success reason or category; bare `undefined` has no complete
+    meaning in the application's domain for that outcome; its direct caller
+    needs the information to present or distinguish the failure, retry, recover,
+    or preserve an invariant; and the changed API returns `undefined`, forcing
+    the caller to reconstruct or hard-code the missing information or lose it.
+    Severity: `warning`. Report this as a contract mismatch and recommend a
+    coherent named result, discriminated union, or project-local `Result`
+    equivalent; do not prescribe a specific library or discriminant tag.
+    Exclude ordinary collection/map/index lookups and find misses; optional
+    inputs or configuration; parser, type-guard, or probe no-match; caches or
+    local lifecycle state; explicit contracts where complete absence or
+    cancellation is the outcome; and cases where the reason exists only outside
+    the supplied diff. `| undefined`, `return undefined`, optional chaining,
+    and `=== undefined` are supporting syntax only, never sufficient evidence.
+    If the caller's need or the operation's non-success meaning is ambiguous,
+    skip the finding.
+19. **Unchecked indexed-access bypass.** Flag non-null assertions or broad casts
     that bypass `noUncheckedIndexedAccess` on array/record lookups, such as
     `items[index]!`, `handlers[key]!`, or `(record[key] as Handler)` without a
     nearby guard. Severity: `warning`. Do not flag a lookup followed by an
     explicit `undefined` guard that stores the narrowed value in a local.
-19. **Mega-barrels or sweeping exports.** Flag `export * from "..."`,
+20. **Mega-barrels or sweeping exports.** Flag `export * from "..."`,
     especially in `index.ts` or package public roots. Severity: `warning`. Do
     not flag explicit curated exports such as `export { Foo } from "./foo.ts"`
     or `export type { FooOptions } from "./foo.ts"`.
-20. **Real gateway construction below the composition edge.** Flag added
+21. **Real gateway construction below the composition edge.** Flag added
     `new Real*Gateway(...)` or `createReal*Gateway(...)` calls inside domain or
     workflow operations when the changed code is not visibly a top-level
     composition root, a named `createReal*Context` or equivalent composition
@@ -200,7 +219,7 @@ to each rule's exceptions.
     domain logic should receive its narrowed Consumer Gateway through an
     injected context. Do not flag direct construction in tests, focused
     real-adapter tests, or clear entrypoint/context factories.
-21. **Demonstrated gateway clumps without a named context.** Flag when the diff
+22. **Demonstrated gateway clumps without a named context.** Flag when the diff
     visibly makes two or more runtime collaborators travel together through
     multiple operations or layers without a capability-owned `*Context`.
     Gateways, the ns extension API object, Pi runtime `ExtensionAPI`, and
@@ -240,5 +259,6 @@ NOT ACTIVE — future Tier B ideas only. Do not flag these yet.
 - Third-party SDK/client/library shapes leaking through core instead of a project-owned seam.
 - Hand-authored parallel identity, slug, type, schema, or registry key that should be derived from one source of truth.
 - New public API surface without a contract comment or test coverage for the promised behavior.
-- Error-handling boundary/model findings after the deferred error-handling standard is settled.
+- Higher-context error-handling boundary/model questions not affirmatively demonstrated by the supplied
+  diff, after the deferred error-handling standard is settled.
 -->

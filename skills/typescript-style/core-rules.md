@@ -104,11 +104,28 @@ Full reasoning: `references/type-system.md`.
 - **Model state machines as explicit unions.** Prefer one field like
   `mode: { type: "search"; query: string } | { type: "replace"; pattern: string } | null` over several
   booleans that can drift into impossible combinations.
-- **Classify absence where it arises.** Resolve defaultable absence to a concrete value. Handle
-  `undefined` from optional inputs and lookups immediately instead of carrying it into the rest of the
-  code. Represent meaningful states—including `none`, `not-found`, and `unavailable`—as named
-  discriminated variants. Treat an impossible miss as an invariant failure through a checked accessor
-  that returns `T`.
+- **Classify absence where it arises.** Resolve defaultable absence to a concrete value. `undefined` is
+  a complete contract for optional input/config, an ordinary lookup or find miss, parser/type-guard/probe
+  no-match, a cache miss, a local lifecycle slot, or an explicitly documented no-value/cancellation state.
+  Represent meaningful non-success states as named discriminated variants. Treat an impossible miss as
+  an invariant failure through a checked accessor that returns `T`.
+- **Do not erase actionable failures as `undefined`.** When a named operation knows why it did not
+  succeed and its direct caller must present a message, distinguish outcomes, retry, recover, or preserve
+  an invariant, classify the outcome where it arises. Return a coherent discriminated result or the
+  project-local `Result` equivalent, carrying a reason, message, or code as appropriate. Do not turn
+  ordinary absence into an error object or weaken impossible states from throws.
+  ```ts
+  // Avoid: preparation discards the reason and makes the caller invent one.
+  function prepareDestination(input: Input): PreparedDestination | undefined;
+  const destination = prepareDestination(input);
+  if (destination === undefined) return { type: "failed", message: "Could not prepare destination" };
+
+  // Prefer: preparation returns the failure it can classify.
+  type DestinationPreparation =
+    | { type: "ready"; destination: PreparedDestination }
+    | { type: "failed"; message: string };
+  function prepareDestination(input: Input): DestinationPreparation;
+  ```
 - **Do not model an impossible optional state.** Ask: **What supported runtime state does this absence
   represent?** If every supported runtime guarantees a dependency or member, make it required. Making
   a guaranteed dependency or its methods optional lets incomplete composition compile and forces every
