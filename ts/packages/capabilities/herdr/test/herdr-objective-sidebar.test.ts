@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import {
 	createHerdrSidebarControllerWithPiWiring,
 	registerHerdrSidebarCommands,
@@ -23,6 +24,8 @@ import {
 	resetHerdrTestEnvironment,
 	step,
 } from "./herdr-test-harness.ts";
+
+const NOW = Date.parse("2026-01-15T00:00:00Z");
 
 afterEach(resetHerdrTestEnvironment);
 
@@ -124,7 +127,9 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const controller = createHerdrSidebarController(adaptedPi, herdr, {
+			clock: createManualClock(NOW).clock,
+		});
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot, selectIndices: [1] });
 
@@ -136,8 +141,8 @@ describe("herdr Objective sidebar", () => {
 			{
 				title: "Select an active Objective for Herdr sidebar",
 				items: [
-					"alpha-objective — open — latest update 2026-01-01T00:00:00Z",
-					"bravo-objective — open — latest update 2026-01-02T00:00:00Z",
+					"alpha-objective — open — latest update 2 weeks ago",
+					"bravo-objective — open — latest update 2 weeks ago",
 				],
 			},
 		]);
@@ -162,7 +167,9 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const controller = createHerdrSidebarController(adaptedPi, herdr, {
+			clock: createManualClock(NOW).clock,
+		});
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
@@ -173,7 +180,7 @@ describe("herdr Objective sidebar", () => {
 			{
 				title: "Select an active Objective for Herdr sidebar (only Objective changed vs master)",
 				items: [
-					"bravo-objective — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
+					"bravo-objective — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
 					"View other active Objectives…",
 				],
 			},
@@ -193,7 +200,9 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const controller = createHerdrSidebarController(adaptedPi, herdr, {
+			clock: createManualClock(NOW).clock,
+		});
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ shouldCancelSelect: true });
 
@@ -213,7 +222,9 @@ describe("herdr Objective sidebar", () => {
 		const pi = new FakePi({ script: [objectiveListStep([])] });
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const controller = createHerdrSidebarController(adaptedPi, herdr, {
+			clock: createManualClock(NOW).clock,
+		});
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 

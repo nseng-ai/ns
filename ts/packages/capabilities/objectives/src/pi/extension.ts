@@ -1,3 +1,4 @@
+import type { Clock } from "@nseng-ai/foundation/clock";
 import { commandSucceeded, nsCommandSurface } from "@nseng-ai/foundation/command";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import {
@@ -83,6 +84,7 @@ const OBJECTIVE_LIST_COMMAND = {
 } satisfies CliCommandInfo;
 
 export interface ObjectiveExtensionOptions {
+	clock?: Clock;
 	createObjectiveClient?: (options: ObjectiveClientOptions) => ObjectiveClient;
 }
 
@@ -442,12 +444,15 @@ export default function objectiveExtension(
 	options: ObjectiveExtensionOptions = {},
 ): void {
 	const commands = createPiCommandExecApi(pi);
-	const selectionHost = objectiveSelectionHostFromExec({
-		...commands,
-		...(pi.loadObjectiveList === undefined
-			? {}
-			: { loadObjectiveList: pi.loadObjectiveList.bind(pi) }),
-	});
+	const selectionHost = objectiveSelectionHostFromExec(
+		{
+			...commands,
+			...(pi.loadObjectiveList === undefined
+				? {}
+				: { loadObjectiveList: pi.loadObjectiveList.bind(pi) }),
+		},
+		options.clock === undefined ? {} : { clock: options.clock },
+	);
 	const objectiveCommandCompleter = createObjectiveCommandCompleter(pi, commands);
 
 	registerCliCommandExtension(pi, {

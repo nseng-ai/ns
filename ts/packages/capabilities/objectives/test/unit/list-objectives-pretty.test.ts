@@ -2,10 +2,8 @@ import type { Caps, ColorDepth } from "@nseng-ai/clinkr";
 import { describe, expect, test, vi } from "vitest";
 
 import type { ObjectiveListResult } from "../../src/core/operations/list-objectives.ts";
-import {
-	relativeTime,
-	renderObjectiveListPretty,
-} from "../../src/core/operations/list-objectives-pretty.ts";
+import { renderObjectiveListPretty } from "../../src/core/operations/list-objectives-pretty.ts";
+import { relativeTime } from "../../src/core/relative-time.ts";
 
 const ESC = String.fromCharCode(0x1b);
 const NOW = Date.parse("2026-06-27T18:00:00Z");

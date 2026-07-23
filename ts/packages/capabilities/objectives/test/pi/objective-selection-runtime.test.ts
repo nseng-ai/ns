@@ -5,6 +5,7 @@ import {
 	objectiveSelectionContextFromCommandContext,
 } from "../../src/api/index.ts";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import type { CommandContext } from "@nseng-ai/pi/runtime/types";
 import { createTestSessionReader } from "./test-session-reader.ts";
 
@@ -30,6 +31,65 @@ describe("objective selection runtime behavior", () => {
 		expect(notifications).toEqual(["still visible"]);
 	});
 
+	test("objective selection captures one deterministic instant for picker labels", async () => {
+		const selections: string[][] = [];
+		const ctx: CommandContext = {
+			cwd: "/repo",
+			hasUI: true,
+			ui: {
+				notify: () => {},
+				select: async (_title, items) => {
+					selections.push([...items]);
+					return items[0];
+				},
+			},
+			modelRegistry: { find: () => undefined },
+			sessionManager: createTestSessionReader(),
+			waitForIdle: async () => {},
+		};
+		let clockReads = 0;
+		const manualClock = createManualClock(Date.parse("2026-01-15T00:00:00Z"));
+		const host = {
+			clock: {
+				nowMs: () => {
+					clockReads += 1;
+					return manualClock.clock.nowMs();
+				},
+			},
+			git: new InMemoryGitGateway(),
+			loadObjectiveList: async () => ({
+				type: "loaded" as const,
+				list: {
+					trunkBranch: "master",
+					rootPath: "/repo",
+					statusFilter: "active" as const,
+					namesOnly: false,
+					records: [
+						{
+							slug: "alpha",
+							status: "open" as const,
+							latestUpdateIso: "2026-01-01T00:00:00Z",
+							hasOutstandingChanges: false,
+						},
+					],
+				},
+			}),
+		};
+
+		const slug = await chooseActiveObjectiveSlug(
+			host,
+			objectiveSelectionContextFromCommandContext(ctx),
+			{
+				statusKey: "objective:test",
+				selectionTitle: "Select an Objective",
+			},
+		);
+
+		expect(slug).toBe("alpha");
+		expect(clockReads).toBe(1);
+		expect(selections).toEqual([["alpha — open — latest update 2 weeks ago"]]);
+	});
+
 	test("objective selection with notifications but no picker skips picker-only work", async () => {
 		const notifications: string[] = [];
 		const ctx: CommandContext = {
@@ -42,7 +102,15 @@ describe("objective selection runtime behavior", () => {
 			sessionManager: createTestSessionReader(),
 			waitForIdle: async () => {},
 		};
+		let clockReads = 0;
+		const manualClock = createManualClock(0);
 		const host = {
+			clock: {
+				nowMs: () => {
+					clockReads += 1;
+					return manualClock.clock.nowMs();
+				},
+			},
 			git: new InMemoryGitGateway(),
 			loadObjectiveList: async () => ({
 				type: "loaded" as const,
@@ -75,6 +143,7 @@ describe("objective selection runtime behavior", () => {
 
 		expect(slug).toBeUndefined();
 		expect(notifications).toEqual([]);
+		expect(clockReads).toBe(0);
 	});
 
 	test("objective selection with notifications but no picker suppresses empty-list notification", async () => {
@@ -90,6 +159,7 @@ describe("objective selection runtime behavior", () => {
 			waitForIdle: async () => {},
 		};
 		const host = {
+			clock: createManualClock(0).clock,
 			git: new InMemoryGitGateway(),
 			loadObjectiveList: async () => ({
 				type: "loaded" as const,
@@ -129,6 +199,7 @@ describe("objective selection runtime behavior", () => {
 			waitForIdle: async () => {},
 		};
 		const host = {
+			clock: createManualClock(0).clock,
 			git: new InMemoryGitGateway(),
 			loadObjectiveList: async () => ({ type: "failed" as const, message: "boom" }),
 		};

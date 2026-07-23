@@ -1,3 +1,4 @@
+import type { Clock } from "@nseng-ai/foundation/clock";
 import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
@@ -26,13 +27,18 @@ export interface HerdrSidebarController {
 	handleObjectiveCommand(args: string, ctx: CommandContext): Promise<void>;
 }
 
+export interface HerdrSidebarControllerOptions {
+	clock?: Clock;
+}
+
 export function createHerdrSidebarController(
 	pi: HerdrPiCommandApi,
 	herdr: HerdrGateway,
+	options: HerdrSidebarControllerOptions = {},
 ): HerdrSidebarController {
 	return {
 		async handleObjectiveCommand(args, ctx): Promise<void> {
-			await handleDeterministicObjectiveSidebar(pi, herdr, args, ctx);
+			await handleDeterministicObjectiveSidebar(pi, herdr, args, ctx, options);
 		},
 	};
 }
@@ -63,6 +69,7 @@ async function handleDeterministicObjectiveSidebar(
 	herdr: HerdrGateway,
 	args: string,
 	ctx: CommandContext,
+	options: HerdrSidebarControllerOptions,
 ): Promise<void> {
 	await ctx.waitForIdle();
 
@@ -72,7 +79,7 @@ async function handleDeterministicObjectiveSidebar(
 		return;
 	}
 
-	const slug = await resolveObjectiveSidebarSlug(pi, args, ctx);
+	const slug = await resolveObjectiveSidebarSlug(pi, args, ctx, options);
 	if (slug === undefined) {
 		return;
 	}
@@ -105,6 +112,7 @@ async function resolveObjectiveSidebarSlug(
 	pi: HerdrPiCommandApi,
 	args: string,
 	ctx: CommandContext,
+	options: HerdrSidebarControllerOptions,
 ): Promise<string | undefined> {
 	if (args.trim().length > 0) {
 		const selector = resolveObjectiveSelector(args, ctx.cwd);
@@ -121,7 +129,7 @@ async function resolveObjectiveSidebarSlug(
 	}
 
 	return chooseActiveObjectiveSlug(
-		objectiveSelectionHostFromExec(pi),
+		objectiveSelectionHostFromExec(pi, options.clock === undefined ? {} : { clock: options.clock }),
 		objectiveSelectionContextFromCommandContext(ctx),
 		OBJECTIVE_SIDEBAR_SELECTION_SPEC,
 	);

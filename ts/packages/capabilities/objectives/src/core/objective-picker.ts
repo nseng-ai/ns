@@ -1,4 +1,5 @@
 import type { ObjectiveListRecord, ObjectiveListResult } from "./operations/list-objectives.ts";
+import { relativeTime } from "./relative-time.ts";
 
 export type ObjectiveList = ObjectiveListResult;
 
@@ -65,6 +66,7 @@ export function changedActiveObjectiveSelection(
 
 export function formatObjectiveChoice(
 	record: ObjectiveListRecord,
+	nowMs: number,
 	selection: ObjectiveDiffSelection | undefined = undefined,
 ): string {
 	let diffLabel = "";
@@ -74,7 +76,9 @@ export function formatObjectiveChoice(
 		diffLabel = `${selection.changeBasisLabel} — `;
 	}
 
-	return `${record.slug} — ${diffLabel}${record.status} — latest update ${record.latestUpdateIso ?? "—"}`;
+	const latestUpdate =
+		record.latestUpdateIso === null ? "—" : relativeTime(record.latestUpdateIso, nowMs);
+	return `${record.slug} — ${diffLabel}${record.status} — latest update ${latestUpdate}`;
 }
 
 export function objectiveRecordsWithChangedFirst(
@@ -93,11 +97,12 @@ export function objectiveRecordsWithChangedFirst(
 
 export function objectiveChoiceMap(
 	records: ObjectiveListRecord[],
+	nowMs: number,
 	selection: ObjectiveDiffSelection | undefined = undefined,
 ): Map<string, string> {
 	const choices = new Map<string, string>();
 	for (const record of records) {
-		choices.set(formatObjectiveChoice(record, selection), record.slug);
+		choices.set(formatObjectiveChoice(record, nowMs, selection), record.slug);
 	}
 	return choices;
 }

@@ -18,6 +18,7 @@ import {
 	truncatePlain,
 } from "@nseng-ai/foundation/cli-theme";
 
+import { relativeTime } from "../relative-time.ts";
 import {
 	edgeCountCell,
 	emptyMessage,
@@ -31,28 +32,6 @@ import {
 /** caps-aware truncation: ascii mode degrades the ellipsis to "..." too. */
 function clip(caps: Caps, text: string, width: number): string {
 	return truncatePlain(text, width, ellipsisFor(caps));
-}
-
-// Relative time for the human surface ("2 hours ago" beats a raw ISO stamp). `nowMs` is injected so
-// output stays stable under test; the json path keeps the ISO.
-function ago(count: number, word: string): string {
-	return `${count} ${word}${count === 1 ? "" : "s"} ago`;
-}
-
-export function relativeTime(iso: string, nowMs: number): string {
-	const then = Date.parse(iso);
-	if (Number.isNaN(then)) return iso;
-	const seconds = Math.max(0, Math.round((nowMs - then) / 1000));
-	if (seconds < 45) return "just now";
-	const minutes = Math.round(seconds / 60);
-	if (minutes < 60) return ago(minutes, "minute");
-	const hours = Math.round(minutes / 60);
-	if (hours < 24) return ago(hours, "hour");
-	const days = Math.round(hours / 24);
-	if (days < 7) return ago(days, "day");
-	if (days < 30) return ago(Math.round(days / 7), "week");
-	if (days < 365) return ago(Math.round(days / 30), "month");
-	return ago(Math.round(days / 365), "year");
 }
 
 function subtitle(result: ObjectiveListResult): string {

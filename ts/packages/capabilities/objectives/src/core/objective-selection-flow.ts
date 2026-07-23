@@ -1,6 +1,8 @@
+import type { Clock } from "@nseng-ai/foundation/clock";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import { systemClock } from "@nseng-ai/foundation/time";
 
 import type { ObjectiveListRecord, ObjectiveListResult } from "./operations/list-objectives.ts";
 import {
@@ -23,6 +25,7 @@ const OBJECTIVE_COMMAND_TIMEOUT_MS = 30_000;
 export type ObjectiveSelectionNotifyLevel = "info" | "warning" | "error";
 
 export interface ObjectiveSelectionHost {
+	clock: Clock;
 	git: GitGateway;
 	loadObjectiveList?: (
 		ctx: ObjectiveSelectionContext,
@@ -36,10 +39,16 @@ export interface ObjectiveSelectionUi {
 	setStatus?: (key: string, value: string | undefined) => void;
 }
 
+export interface ObjectiveSelectionHostFromExecOptions {
+	clock?: Clock;
+}
+
 export function objectiveSelectionHostFromExec(
 	execApi: CommandExecApi & Pick<Partial<ObjectiveSelectionHost>, "loadObjectiveList">,
+	options: ObjectiveSelectionHostFromExecOptions = {},
 ): ObjectiveSelectionHost {
 	return {
+		clock: options.clock ?? systemClock,
 		git: new RealGitGateway(execApi, { timeoutMs: OBJECTIVE_COMMAND_TIMEOUT_MS }),
 		...optionalEntry(
 			"loadObjectiveList",
@@ -132,6 +141,7 @@ interface ObjectiveStatusChangedSlugsOptions {
 
 interface SelectObjectiveSlugOptions {
 	ctx: ObjectivePickerContext;
+	nowMs: number;
 	title: string;
 	records: ObjectiveListRecord[];
 	selection: ObjectiveDiffSelection | undefined;
@@ -139,6 +149,7 @@ interface SelectObjectiveSlugOptions {
 
 interface SelectChangedObjectivesOrOtherOptions {
 	ctx: ObjectivePickerContext;
+	nowMs: number;
 	spec: ObjectiveSelectionSpec;
 	objectiveList: ObjectiveListResult;
 	selection: ObjectiveDiffSelection;
@@ -293,9 +304,9 @@ function usesCompactDiffSuggestion(spec: ObjectiveSelectionSpec): boolean {
 async function selectObjectiveSlug(
 	options: SelectObjectiveSlugOptions,
 ): Promise<string | undefined> {
-	const { ctx, title, records, selection } = options;
+	const { ctx, nowMs, title, records, selection } = options;
 	const select = ctx.ui.select;
-	const choices = objectiveChoiceMap(records, selection);
+	const choices = objectiveChoiceMap(records, nowMs, selection);
 	const selected = await select(title, [...choices.keys()]);
 	if (!selected) {
 		ctx.ui.notify("Objective selection cancelled.", "info");
@@ -314,20 +325,21 @@ async function selectObjectiveSlug(
 async function selectChangedObjectivesOrOther(
 	options: SelectChangedObjectivesOrOtherOptions,
 ): Promise<string | undefined> {
-	const { ctx, spec, objectiveList, selection } = options;
+	const { ctx, nowMs, spec, objectiveList, selection } = options;
 	const changedSet = new Set(selection.changedActiveSlugs);
 	const changedRecords = objectiveList.records.filter((record) => changedSet.has(record.slug));
 	const otherRecords = objectiveList.records.filter((record) => !changedSet.has(record.slug));
 	if (changedRecords.length === 0) {
 		return selectObjectiveSlug({
 			ctx,
+			nowMs,
 			title: spec.selectionTitle,
 			records: objectiveList.records,
 			selection: undefined,
 		});
 	}
 
-	const choices = objectiveChoiceMap(changedRecords, selection);
+	const choices = objectiveChoiceMap(changedRecords, nowMs, selection);
 	const items = [...choices.keys()];
 	if (otherRecords.length > 0) {
 		items.push(VIEW_OTHER_OBJECTIVES_CHOICE);
@@ -343,6 +355,7 @@ async function selectChangedObjectivesOrOther(
 	if (selected === VIEW_OTHER_OBJECTIVES_CHOICE) {
 		return selectObjectiveSlug({
 			ctx,
+			nowMs,
 			title: `${spec.selectionTitle} (other active Objectives)`,
 			records: otherRecords,
 			selection: undefined,
@@ -389,10 +402,12 @@ export async function chooseActiveObjectiveSlug(
 		return undefined;
 	}
 
+	const nowMs = host.clock.nowMs();
 	const changedSelection = await changedObjectiveSelection({ host, ctx, objectiveList, spec });
 	if (changedSelection && usesCompactDiffSuggestion(spec)) {
 		return selectChangedObjectivesOrOther({
 			ctx,
+			nowMs,
 			spec,
 			objectiveList,
 			selection: changedSelection,
@@ -409,6 +424,7 @@ export async function chooseActiveObjectiveSlug(
 	}
 	return selectObjectiveSlug({
 		ctx,
+		nowMs,
 		title: spec.selectionTitle,
 		records: objectiveRecordsWithChangedFirst(objectiveList.records, changedSelection),
 		selection: changedSelection,

@@ -22,7 +22,7 @@ import {
 	objectiveStatusPresentation,
 	type ObjectiveStatusPresentationInput,
 } from "./list-objectives.ts";
-import { relativeTime } from "./list-objectives-pretty.ts";
+import { relativeTime } from "../relative-time.ts";
 import { resolveObjectiveRecordTarget, targetToEmptyResultFields } from "./objective-target.ts";
 import { readParsedObjectiveFrontmatter } from "./record-frontmatter-read.ts";
 
