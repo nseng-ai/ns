@@ -52,7 +52,9 @@ describe("slot foreach CLI", () => {
 				],
 			},
 		});
-		expect(run.stderr.join("")).toBe("");
+		expect(run.stderr.join("")).toContain(
+			"Finished slot-02 (feature/b) [3/3]: succeeded (exit 0).",
+		);
 	});
 
 	it("excludes named Slots only, including when every Slot is excluded", async () => {
@@ -214,12 +216,12 @@ describe("slot foreach CLI", () => {
 		expect(run.command.invocations()).toEqual([]);
 	});
 
-	it("requires --yes in JSON mode", async () => {
+	it("reports an aborted confirmation in JSON mode", async () => {
 		const run = runScenario(["foreach", "--format", "json", "--", "git", "status"], {
 			git: { worktrees: [mainWorktree, slotWorktree("slot-01")] },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "confirmation-required" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "aborted" });
 		expect(run.command.invocations()).toEqual([]);
 	});
 

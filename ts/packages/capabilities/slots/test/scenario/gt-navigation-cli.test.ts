@@ -44,6 +44,9 @@ describe("slot gt navigation CLI", () => {
 				branchName: "feature/child",
 				alreadyAssigned: true,
 				cdCommand: "cd /slots/repos/repo/worktrees/slot-01",
+				cdDirectiveStatus: "inactive",
+				cdDirectivePath: null,
+				cdDirectiveFailureDetail: null,
 			},
 		});
 		expect(output).not.toMatchObject({ data: { is_already_assigned: expect.anything() } });

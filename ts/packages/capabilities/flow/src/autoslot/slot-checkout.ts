@@ -1,22 +1,16 @@
-import { writeFile } from "node:fs/promises";
-
 import { buildMachineEnvelopeSchema } from "@nseng-ai/clinkr";
 import type { ExecResult } from "@nseng-ai/foundation/command";
 import { z } from "zod";
 
 const SLOT_CHECKOUT_TIMEOUT_MS = 120_000;
-const SLOT_CD_DIRECTIVE_FILE = "SLOT_CD_DIRECTIVE_FILE";
-const NS_CD_DIRECTIVE_FILE = "NS_CD_DIRECTIVE_FILE";
-
-const slotCheckoutTargetSchema = z.object({
-	slotName: z.string(),
-	branchName: z.string(),
-	worktreePath: z.string(),
-});
-const slotCheckoutEnvelopeSchema = buildMachineEnvelopeSchema(slotCheckoutTargetSchema);
 
 export type SlotCheckoutRef = { kind: "branch"; branchName: string } | { kind: "current" };
-export type SlotCheckoutTarget = z.infer<typeof slotCheckoutTargetSchema>;
+
+export interface SlotCheckoutTarget {
+	slotName: string;
+	branchName: string;
+	worktreePath: string;
+}
 
 export interface SlotCheckoutFailure {
 	errorType: string;
@@ -29,7 +23,13 @@ export type SlotCheckoutNavigationWarning = {
 };
 
 type SlotCheckoutCommandResult =
-	| { ok: true; target: SlotCheckoutTarget }
+	| {
+			ok: true;
+			target: SlotCheckoutTarget;
+			cdDirectiveStatus: "inactive" | "written" | "failed";
+			cdDirectivePath: string | null;
+			cdDirectiveFailureDetail: string | null;
+	  }
 	| { ok: false; failure: SlotCheckoutFailure };
 
 export type SlotCheckoutResult =
@@ -46,60 +46,15 @@ export type SlotCheckoutExec = (
 	timeoutMs: number,
 ) => Promise<ExecResult>;
 
-export interface AutoslotDirectiveFilesystem {
-	writeText(path: string, content: string): Promise<void>;
-}
-
-export type AutoslotDirectiveWriteResult =
-	| { status: "inactive" }
-	| { status: "written"; path: string }
-	| { status: "failed"; path: string; error: string };
-
-export interface AutoslotDirectiveWriter {
-	write(destination: string): Promise<AutoslotDirectiveWriteResult>;
-}
-
 export function buildSlotCheckoutArgs(ref: SlotCheckoutRef): string[] {
 	return [
 		"slot",
 		"checkout",
 		...(ref.kind === "current" ? ["--current"] : [ref.branchName]),
 		"--no-clipboard",
-		"--no-cd-directive",
 		"--format",
 		"json",
 	];
-}
-
-export function createAutoslotDirectiveWriter(options: {
-	env: Readonly<Record<string, string | undefined>>;
-	filesystem: AutoslotDirectiveFilesystem;
-}): AutoslotDirectiveWriter {
-	return {
-		async write(destination) {
-			const path = activeDirectivePath(options.env);
-			if (path === null) return { status: "inactive" };
-			try {
-				await options.filesystem.writeText(path, destination);
-				return { status: "written", path };
-			} catch (error) {
-				return { status: "failed", path, error: errorMessage(error) };
-			}
-		},
-	};
-}
-
-export function createRealAutoslotDirectiveWriter(options: {
-	env: Readonly<Record<string, string | undefined>>;
-}): AutoslotDirectiveWriter {
-	return createAutoslotDirectiveWriter({
-		env: options.env,
-		filesystem: {
-			async writeText(path, content) {
-				await writeFile(path, content, "utf8");
-			},
-		},
-	});
 }
 
 export function parseSlotCheckoutResult(result: ExecResult): SlotCheckoutCommandResult {
@@ -131,7 +86,7 @@ export function parseSlotCheckoutResult(result: ExecResult): SlotCheckoutCommand
 			"The ns slot checkout command returned invalid JSON.",
 		);
 	}
-	const envelopeResult = slotCheckoutEnvelopeSchema.safeParse(json);
+	const envelopeResult = buildSlotCheckoutEnvelopeSchema().safeParse(json);
 	if (!envelopeResult.success) {
 		return boundaryFailure(
 			"slot-checkout-invalid-envelope",
@@ -147,8 +102,23 @@ export function parseSlotCheckoutResult(result: ExecResult): SlotCheckoutCommand
 	}
 
 	switch (envelope.status) {
-		case "ok":
-			return { ok: true, target: envelope.data };
+		case "ok": {
+			const {
+				slotName,
+				branchName,
+				worktreePath,
+				cdDirectiveStatus,
+				cdDirectivePath,
+				cdDirectiveFailureDetail,
+			} = envelope.data;
+			return {
+				ok: true,
+				target: { slotName, branchName, worktreePath },
+				cdDirectiveStatus,
+				cdDirectivePath,
+				cdDirectiveFailureDetail,
+			};
+		}
 		case "failure":
 			return { ok: false, failure: { errorType: envelope.errorType, message: envelope.message } };
 		case "negative":
@@ -162,21 +132,24 @@ export function parseSlotCheckoutResult(result: ExecResult): SlotCheckoutCommand
 
 export async function checkoutSlot(
 	exec: SlotCheckoutExec,
-	directiveWriter: AutoslotDirectiveWriter,
 	ref: SlotCheckoutRef,
 ): Promise<SlotCheckoutResult> {
 	const result = await exec("ns", buildSlotCheckoutArgs(ref), SLOT_CHECKOUT_TIMEOUT_MS);
 	const checkout = parseSlotCheckoutResult(result);
 	if (!checkout.ok) return checkout;
+	if (checkout.cdDirectiveStatus !== "failed") {
+		return { ok: true, target: checkout.target, warnings: [] };
+	}
 
-	const directive = await directiveWriter.write(checkout.target.worktreePath);
-	if (directive.status !== "failed") return { ...checkout, warnings: [] };
+	const path = checkout.cdDirectivePath ?? "the configured directive path";
+	const detail = checkout.cdDirectiveFailureDetail ?? "directive write failed";
 	return {
-		...checkout,
+		ok: true,
+		target: checkout.target,
 		warnings: [
 			{
 				type: "cd-directive-write-failed",
-				message: `Slot checkout succeeded, but the parent-shell navigation directive could not be written to ${directive.path}: ${directive.error}`,
+				message: `Slot checkout succeeded, but the parent-shell navigation directive could not be written to ${path}: ${detail}`,
 			},
 		],
 	};
@@ -186,16 +159,26 @@ export function formatSlotCheckoutFailureCause(failure: SlotCheckoutFailure): st
 	return `Slot checkout failed (${failure.errorType}): ${failure.message}`;
 }
 
-function activeDirectivePath(env: Readonly<Record<string, string | undefined>>): string | null {
-	const path = env[SLOT_CD_DIRECTIVE_FILE] ?? env[NS_CD_DIRECTIVE_FILE];
-	if (path === undefined || path === "") return null;
-	return path;
+function buildSlotCheckoutEnvelopeSchema() {
+	return buildMachineEnvelopeSchema(
+		z.object({
+			slotName: z.string(),
+			branchName: z.string(),
+			worktreePath: z.string(),
+			cdDirectiveStatus: z.union([
+				z.literal("inactive"),
+				z.literal("written"),
+				z.literal("failed"),
+			]),
+			cdDirectivePath: z.string().nullable(),
+			cdDirectiveFailureDetail: z.string().nullable(),
+		}),
+	);
 }
 
-function boundaryFailure(errorType: string, message: string): SlotCheckoutResult {
+function boundaryFailure(
+	errorType: string,
+	message: string,
+): { ok: false; failure: SlotCheckoutFailure } {
 	return { ok: false, failure: { errorType, message } };
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

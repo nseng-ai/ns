@@ -56,6 +56,31 @@ describe("slot navigation presentation", () => {
 		expect(findRenderedCdLine(rendered)).toBe("cd /slots/repos/repo/worktrees/slot-01");
 	});
 
+	it("warns only when the parent-shell directive write failed", () => {
+		const failed = renderSlotNavigationSuccess(
+			{
+				...copiedInput(),
+				cdDirectiveStatus: "failed",
+				cdDirectivePath: "/tmp/directive",
+				cdDirectiveFailureDetail: "disk full",
+			},
+			{ canEmitAnsi: true, caps: unicodeColorCaps },
+		);
+		const written = renderSlotNavigationSuccess(
+			{
+				...copiedInput(),
+				cdDirectiveStatus: "written",
+				cdDirectivePath: "/tmp/directive",
+			},
+			{ canEmitAnsi: true, caps: unicodeColorCaps },
+		);
+
+		expect(stripAnsi(failed).split("\n")).toContain(
+			"Parent-shell navigation unavailable at /tmp/directive (disk full)",
+		);
+		expect(stripAnsi(written)).not.toContain("Parent-shell navigation unavailable");
+	});
+
 	it("degrades the success glyph for ascii-only sinks", () => {
 		const rendered = renderSlotNavigationSuccess(copiedInput(), {
 			canEmitAnsi: true,
@@ -93,6 +118,9 @@ function copiedInput(): SlotNavigationPresentationInput {
 		clipboardSkipped: false,
 		clipboardFailureReason: null,
 		clipboardFailureDetail: null,
+		cdDirectiveStatus: "inactive",
+		cdDirectivePath: null,
+		cdDirectiveFailureDetail: null,
 	};
 }
 

@@ -4,9 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
 	buildSlotCheckoutArgs,
 	checkoutSlot,
-	createAutoslotDirectiveWriter,
 	parseSlotCheckoutResult,
-	type AutoslotDirectiveFilesystem,
 } from "../../src/autoslot/slot-checkout.ts";
 
 const target = {
@@ -15,28 +13,20 @@ const target = {
 	worktreePath: "/slots/repo/slot-02",
 };
 
-class FakeDirectiveFilesystem implements AutoslotDirectiveFilesystem {
-	readonly writes: Array<{ path: string; content: string }> = [];
-	private readonly error: Error | undefined;
-
-	constructor(error?: Error) {
-		this.error = error;
-	}
-
-	async writeText(path: string, content: string): Promise<void> {
-		if (this.error !== undefined) throw this.error;
-		this.writes.push({ path, content });
-	}
-}
+const checkoutData = {
+	...target,
+	cdDirectiveStatus: "written" as const,
+	cdDirectivePath: "/tmp/slot-cd",
+	cdDirectiveFailureDetail: null,
+};
 
 describe("Flow slot checkout", () => {
-	it("builds current and named-branch commands with child side effects disabled", () => {
+	it("builds current and named-branch commands with clipboard copying disabled", () => {
 		expect(buildSlotCheckoutArgs({ kind: "current" })).toEqual([
 			"slot",
 			"checkout",
 			"--current",
 			"--no-clipboard",
-			"--no-cd-directive",
 			"--format",
 			"json",
 		]);
@@ -45,31 +35,25 @@ describe("Flow slot checkout", () => {
 			"checkout",
 			"feature/demo",
 			"--no-clipboard",
-			"--no-cd-directive",
 			"--format",
 			"json",
 		]);
 	});
 
-	it("executes both checkout modes and applies navigation after validated success", async () => {
+	it("executes both checkout modes through the injected command seam", async () => {
 		const calls: Array<{ command: string; args: string[]; timeoutMs: number }> = [];
 		const exec = async (command: string, args: string[], timeoutMs: number) => {
 			calls.push({ command, args, timeoutMs });
-			return exited({ status: "ok", exitCode: 0, data: target });
+			return exited({ status: "ok", exitCode: 0, data: checkoutData });
 		};
-		const filesystem = new FakeDirectiveFilesystem();
-		const directiveWriter = createAutoslotDirectiveWriter({
-			env: { SLOT_CD_DIRECTIVE_FILE: "/tmp/slot-cd" },
-			filesystem,
-		});
 
-		await expect(checkoutSlot(exec, directiveWriter, { kind: "current" })).resolves.toEqual({
+		await expect(checkoutSlot(exec, { kind: "current" })).resolves.toEqual({
 			ok: true,
 			target,
 			warnings: [],
 		});
 		await expect(
-			checkoutSlot(exec, directiveWriter, { kind: "branch", branchName: "feature/demo" }),
+			checkoutSlot(exec, { kind: "branch", branchName: "feature/demo" }),
 		).resolves.toEqual({ ok: true, target, warnings: [] });
 		expect(calls).toEqual([
 			{ command: "ns", args: buildSlotCheckoutArgs({ kind: "current" }), timeoutMs: 120_000 },
@@ -79,31 +63,25 @@ describe("Flow slot checkout", () => {
 				timeoutMs: 120_000,
 			},
 		]);
-		expect(filesystem.writes).toEqual([
-			{ path: "/tmp/slot-cd", content: target.worktreePath },
-			{ path: "/tmp/slot-cd", content: target.worktreePath },
-		]);
 	});
 
-	it("supports an in-memory command seam", async () => {
-		const filesystem = new FakeDirectiveFilesystem();
-		const directiveWriter = createAutoslotDirectiveWriter({
-			env: { SLOT_CD_DIRECTIVE_FILE: "/tmp/slot-cd" },
-			filesystem,
-		});
-
+	it.each([
+		["written", checkoutData],
+		[
+			"inactive",
+			{
+				...checkoutData,
+				cdDirectiveStatus: "inactive",
+				cdDirectivePath: null,
+			},
+		],
+	] as const)("keeps checkout successful when directive status is %s", async (_status, data) => {
 		await expect(
-			checkoutSlot(
-				async () => exited({ status: "ok", exitCode: 0, data: target }),
-				directiveWriter,
-				{ kind: "current" },
-			),
+			checkoutSlot(async () => exited({ status: "ok", exitCode: 0, data }), { kind: "current" }),
 		).resolves.toEqual({ ok: true, target, warnings: [] });
-		expect(filesystem.writes).toEqual([{ path: "/tmp/slot-cd", content: target.worktreePath }]);
 	});
 
-	it("preserves a valid Slots domain failure and does not navigate", async () => {
-		const filesystem = new FakeDirectiveFilesystem();
+	it("preserves a valid Slots domain failure", async () => {
 		const exec = async () =>
 			exited(
 				{
@@ -114,16 +92,11 @@ describe("Flow slot checkout", () => {
 				},
 				2,
 			);
-		const directiveWriter = createAutoslotDirectiveWriter({
-			env: { NS_CD_DIRECTIVE_FILE: "/tmp/ns-cd" },
-			filesystem,
-		});
 
-		await expect(checkoutSlot(exec, directiveWriter, { kind: "current" })).resolves.toEqual({
+		await expect(checkoutSlot(exec, { kind: "current" })).resolves.toEqual({
 			ok: false,
 			failure: { errorType: "branch-in-use", message: "Branch is checked out elsewhere." },
 		});
-		expect(filesystem.writes).toEqual([]);
 	});
 
 	it.each([
@@ -167,8 +140,17 @@ describe("Flow slot checkout", () => {
 			"slot-checkout-invalid-envelope",
 		],
 		[
+			"missing directive evidence",
+			exited({
+				status: "ok",
+				exitCode: 0,
+				data: { ...checkoutData, cdDirectiveStatus: undefined },
+			}),
+			"slot-checkout-invalid-envelope",
+		],
+		[
 			"process/envelope mismatch",
-			exited({ status: "ok", exitCode: 0, data: target }, 2),
+			exited({ status: "ok", exitCode: 0, data: checkoutData }, 2),
 			"slot-checkout-status-mismatch",
 		],
 		[
@@ -188,34 +170,29 @@ describe("Flow slot checkout", () => {
 		expect(parseSlotCheckoutResult(result)).toMatchObject({ ok: false, failure: { errorType } });
 	});
 
-	it("keeps checkout successful and warns when directive writing fails", async () => {
-		const exec = async () => exited({ status: "ok", exitCode: 0, data: target });
-		const directiveWriter = createAutoslotDirectiveWriter({
-			env: { SLOT_CD_DIRECTIVE_FILE: "/tmp/slot-cd", NS_CD_DIRECTIVE_FILE: "/tmp/ns-cd" },
-			filesystem: new FakeDirectiveFilesystem(new Error("permission denied")),
-		});
+	it("keeps checkout successful and warns when Slots reports directive writing failed", async () => {
+		const failedData = {
+			...checkoutData,
+			cdDirectiveStatus: "failed" as const,
+			cdDirectiveFailureDetail: "permission denied",
+		};
 
-		await expect(checkoutSlot(exec, directiveWriter, { kind: "current" })).resolves.toMatchObject({
+		await expect(
+			checkoutSlot(async () => exited({ status: "ok", exitCode: 0, data: failedData }), {
+				kind: "current",
+			}),
+		).resolves.toEqual({
 			ok: true,
 			target,
 			warnings: [
 				{
 					type: "cd-directive-write-failed",
-					message: expect.stringContaining("/tmp/slot-cd: permission denied"),
+					message:
+						"Slot checkout succeeded, but the parent-shell navigation directive could not be written to /tmp/slot-cd: permission denied",
 				},
 			],
 		});
 	});
-
-	it.each([{}, { SLOT_CD_DIRECTIVE_FILE: "", NS_CD_DIRECTIVE_FILE: "" }])(
-		"treats missing or empty directive paths as inactive",
-		async (env) => {
-			const filesystem = new FakeDirectiveFilesystem();
-			const writer = createAutoslotDirectiveWriter({ env, filesystem });
-			await expect(writer.write(target.worktreePath)).resolves.toEqual({ status: "inactive" });
-			expect(filesystem.writes).toEqual([]);
-		},
-	);
 });
 
 function exited(data: unknown, code = 0): ExecResult {

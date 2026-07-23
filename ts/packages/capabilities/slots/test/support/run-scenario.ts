@@ -1,5 +1,4 @@
 import {
-	isClinkrHumanOutputInvocation,
 	resolveClinkrInteraction,
 	type ConfirmationResult,
 	type RenderCapabilities,
@@ -86,7 +85,7 @@ export function runScenario(
 	args: readonly string[],
 	options: ScenarioRunOptions = {},
 ): ScenarioRun {
-	const fixture = buildScenarioFixture(args, options);
+	const fixture = buildScenarioFixture(options);
 	const exit = buildSlotCommandGroup<SlotCliContext>()
 		.run(args, {
 			context: fixture.context,
@@ -108,7 +107,7 @@ export function completeScenario(
 	words: readonly string[],
 	options: ScenarioRunOptions = {},
 ): CompletionScenarioRun {
-	const fixture = buildScenarioFixture(words, options);
+	const fixture = buildScenarioFixture(options);
 	const values = buildSlotCommandGroup<SlotCliContext>()
 		.completeAsync({ words }, { context: fixture.context })
 		.then((result) => {
@@ -135,7 +134,6 @@ function completionScenarioRunFields(
 }
 
 function buildScenarioFixture(
-	args: readonly string[],
 	options: ScenarioRunOptions,
 ): Omit<ScenarioRun, "exit"> & { assertComplete: () => void } {
 	const stdout: string[] = [];
@@ -179,7 +177,7 @@ function buildScenarioFixture(
 		stderr: (text) => stderr.push(text),
 		env: options.env ?? { PATH: "/fake/bin" },
 		slotsRoot: "/slots",
-		shouldWriteCdDirective: isClinkrHumanOutputInvocation(args),
+		shouldWriteCdDirective: true,
 	};
 	return {
 		stdout,

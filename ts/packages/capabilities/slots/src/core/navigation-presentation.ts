@@ -14,11 +14,15 @@ export function renderSlotNavigationSuccess(
 ): string {
 	const caps = resolveRenderCapabilities(renderCapabilities);
 	const clipboardLine = renderClipboardLine(input, caps);
+	const guidance = [
+		...(clipboardLine === undefined ? [] : [clipboardLine]),
+		...(input.cdDirectiveStatus === "failed" ? [renderCdDirectiveFailureLine(input, caps)] : []),
+	];
 	return renderResultBlock(caps, {
 		kind: "success",
 		headline: input.headline,
 		body: [...(input.details ?? []), input.cdCommand].join("\n"),
-		...(clipboardLine === undefined ? {} : { guidance: clipboardLine }),
+		...(guidance.length === 0 ? {} : { guidance: guidance.join("\n") }),
 	});
 }
 
@@ -29,5 +33,13 @@ function renderClipboardLine(input: NavigationResultFields, caps: Caps): string 
 		caps,
 		"warn",
 		`Clipboard unavailable (${input.clipboardFailureDetail ?? "pbcopy failed"})`,
+	);
+}
+
+function renderCdDirectiveFailureLine(input: NavigationResultFields, caps: Caps): string {
+	return paint(
+		caps,
+		"warn",
+		`Parent-shell navigation unavailable at ${input.cdDirectivePath ?? "the configured directive path"} (${input.cdDirectiveFailureDetail ?? "directive write failed"})`,
 	);
 }

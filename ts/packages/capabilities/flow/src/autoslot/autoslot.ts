@@ -13,16 +13,10 @@ import {
 	prepareAutobranchCheckpointMessage,
 } from "../autobranch/checkpoint.ts";
 import { renderAutoslotResultBlock } from "./presentation.ts";
-import {
-	checkoutSlot,
-	createRealAutoslotDirectiveWriter,
-	formatSlotCheckoutFailureCause,
-	type AutoslotDirectiveWriter,
-} from "./slot-checkout.ts";
+import { checkoutSlot, formatSlotCheckoutFailureCause } from "./slot-checkout.ts";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 export interface AutoslotFlowInput extends FlowAutobranchCheckpointInput {
-	directiveWriter: AutoslotDirectiveWriter;
 	io: NsCommandIo;
 	/** Resolved terminal caps for house-style rendering of durable outcomes. */
 	caps: Caps;
@@ -30,7 +24,6 @@ export interface AutoslotFlowInput extends FlowAutobranchCheckpointInput {
 
 export interface AutoslotCliInput {
 	cwd: string;
-	env: Record<string, string | undefined>;
 	args: FlowAutobranchRequest;
 	textGenerator: TextGenerator;
 	modelSelection: ModelSelection;
@@ -72,7 +65,6 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 					message,
 				),
 			io,
-			directiveWriter: createRealAutoslotDirectiveWriter({ env: input.env }),
 		});
 	});
 	return hasError ? 1 : 0;
@@ -127,7 +119,7 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 	}
 
 	input.io.phase("Checking out branch slot…");
-	const slot = await checkoutSlot(input.exec, input.directiveWriter, { kind: "current" });
+	const slot = await checkoutSlot(input.exec, { kind: "current" });
 	if (!slot.ok) {
 		input.io.notify(
 			renderAutoslotResultBlock(input.caps, {

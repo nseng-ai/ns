@@ -51,6 +51,9 @@ describe("slot checkout CLI", () => {
 				alreadyAssigned: false,
 				createdBranch: false,
 				clipboardCopied: true,
+				cdDirectiveStatus: "inactive",
+				cdDirectivePath: null,
+				cdDirectiveFailureDetail: null,
 			},
 		});
 		expect(run.git.operations()).toEqual([
@@ -58,14 +61,24 @@ describe("slot checkout CLI", () => {
 		]);
 	});
 
-	it("writes the shell directive by default", async () => {
+	it("writes the shell directive for JSON output and reports the result", async () => {
 		const directivePath = await makeDirectivePath();
-		const run = runScenario(["checkout", "feature/a", "--no-clipboard"], {
+		const run = runScenario(["checkout", "feature/a", "--no-clipboard", "--format", "json"], {
 			env: { PATH: "/fake/bin", [SLOT_CD_DIRECTIVE_FILE]: directivePath },
-			git: { localBranches: ["master", "feature/a"], worktrees: [slotWorktree("slot-01")] },
+			git: {
+				localBranches: ["master", "feature/a"],
+				worktrees: [slotWorktree("slot-01")],
+			},
 		});
 
 		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: {
+				cdDirectiveStatus: "written",
+				cdDirectivePath: directivePath,
+				cdDirectiveFailureDetail: null,
+			},
+		});
 		await expect(readFile(directivePath, "utf8")).resolves.toBe(
 			"/slots/repos/repo/worktrees/slot-01",
 		);
@@ -89,9 +102,48 @@ describe("slot checkout CLI", () => {
 				worktreePath: "/slots/repos/repo/worktrees/slot-01",
 				clipboardCopied: false,
 				clipboardSkipped: true,
+				cdDirectiveStatus: "inactive",
+				cdDirectivePath: directivePath,
+				cdDirectiveFailureDetail: null,
 			},
 		});
 		expect(existsSync(directivePath)).toBe(false);
+	});
+
+	it("keeps directive write failure non-fatal and reports it", async () => {
+		const directivePath = "/missing/slot-directive-parent/directive";
+		const run = runScenario(["checkout", "feature/a", "--no-clipboard", "--format", "json"], {
+			env: { PATH: "/fake/bin", [SLOT_CD_DIRECTIVE_FILE]: directivePath },
+			git: {
+				localBranches: ["master", "feature/a"],
+				worktrees: [slotWorktree("slot-01")],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			exitCode: 0,
+			data: {
+				cdDirectiveStatus: "failed",
+				cdDirectivePath: directivePath,
+				cdDirectiveFailureDetail: "parent directory does not exist: /missing/slot-directive-parent",
+			},
+		});
+	});
+
+	it("warns on directive write failure in human output", async () => {
+		const run = runScenario(["checkout", "feature/a", "--no-clipboard"], {
+			env: {
+				PATH: "/fake/bin",
+				[SLOT_CD_DIRECTIVE_FILE]: "/missing/slot-directive-parent/directive",
+			},
+			git: { localBranches: ["master", "feature/a"], worktrees: [slotWorktree("slot-01")] },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(stripAnsi(run.stdout.join(""))).toContain(
+			"Parent-shell navigation unavailable at /missing/slot-directive-parent/directive (parent directory does not exist: /missing/slot-directive-parent)",
+		);
 	});
 
 	it("co alias routes through the checkout human renderer", async () => {

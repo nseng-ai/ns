@@ -7,7 +7,7 @@
   - `ExtensionCommandEntry.requiresExtension` and `NsExtensionApi.hasExtension(packageName)` are implemented in `@nseng-ai/sdk`, documented in `ts/packages/sdk/docs/sdk-reference.md`, and composed by the ns host from the same effective package-name set.
   - SDK unit coverage includes present/absent project providers, preinstalled and commandless providers, lazy gated modules, and exact-name lookup; ns-host integration coverage proves exact package identity and rejects descriptor subpaths.
 - [x] Decouple and gate `autoslot` across both command surfaces.
-  - Flow now owns two-mode checkout domain logic over its injected command-exec seam for `ns slot checkout --format json`; it validates the result envelope, preserves Slots domain failures, types execution/protocol failures, and writes the parent-shell cd directive only after success.
+  - Flow now owns two-mode checkout domain logic over its injected command-exec seam for `ns slot checkout --format json`; it validates the result envelope, preserves Slots domain failures, types execution/protocol failures, and consumes Slots-owned structured parent-shell navigation outcomes without writing directive files itself.
   - The ns entry uses `requiresExtension: "@nseng-ai/slots"`; the Pi mirror resolves exact startup-catalog presence and omits only `/ns:flow:autoslot` when absent.
   - Flow production source and its manifest/lockfile importer no longer depend on `@nseng-ai/slots`.
   - Evidence: focused fake-driven gateway, autoslot scenario, Slots JSON checkout, SDK catalog, and ns/Pi present/absent registration tests; full `just` passed on the implementing branch.

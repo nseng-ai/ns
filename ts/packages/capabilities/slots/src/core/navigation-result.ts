@@ -1,13 +1,19 @@
 import type { SlotCliContext } from "./context.ts";
 import { writeCdDirectiveIfActive } from "./shell/cd-directive.ts";
 
-export interface NavigationResultFields {
+interface ClipboardNavigationResultFields {
 	worktreePath: string;
 	cdCommand: string;
 	clipboardCopied: boolean;
 	clipboardSkipped: boolean;
 	clipboardFailureReason: "backend-missing" | "subprocess-error" | null;
 	clipboardFailureDetail: string | null;
+}
+
+export interface NavigationResultFields extends ClipboardNavigationResultFields {
+	cdDirectiveStatus: "inactive" | "written" | "failed";
+	cdDirectivePath: string | null;
+	cdDirectiveFailureDetail: string | null;
 }
 
 /**
@@ -25,18 +31,29 @@ export async function prepareNavigation(
 	worktreePath: string,
 	sideEffects: CheckoutSideEffects,
 ): Promise<NavigationResultFields> {
-	await writeCdDirectiveIfActive(worktreePath, {
+	const cdDirectiveResult = await writeCdDirectiveIfActive(worktreePath, {
 		env: ctx.env,
 		isEnabled: sideEffects.shouldWriteCdDirective,
 	});
-	return await buildNavigationResultFields(ctx, worktreePath, sideEffects.shouldCopyClipboard);
+	const navigation = await buildClipboardNavigationResultFields(
+		ctx,
+		worktreePath,
+		sideEffects.shouldCopyClipboard,
+	);
+	return {
+		...navigation,
+		cdDirectiveStatus: cdDirectiveResult.status,
+		cdDirectivePath: cdDirectiveResult.path,
+		cdDirectiveFailureDetail:
+			cdDirectiveResult.status === "failed" ? cdDirectiveResult.error : null,
+	};
 }
 
-async function buildNavigationResultFields(
+async function buildClipboardNavigationResultFields(
 	ctx: SlotCliContext,
 	worktreePath: string,
 	shouldCopyClipboard: boolean,
-): Promise<NavigationResultFields> {
+): Promise<ClipboardNavigationResultFields> {
 	const cdCommand = `cd ${worktreePath}`;
 	if (!shouldCopyClipboard) {
 		return {

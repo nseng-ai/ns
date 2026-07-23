@@ -8,7 +8,7 @@ Flow will own current and named-branch checkout domain logic with Flow-owned tar
 
 The gateway preserves valid Slots domain failures by retaining their `errorType` and message. Command execution, termination, malformed JSON, and invalid success-envelope failures receive explicit Flow-owned boundary error types and remain inside autoslot's existing result and presentation path rather than escaping as exceptions.
 
-Because JSON output suppresses the Slots CLI's normal navigation side effect, Flow's checkout logic will write the established parent-shell cd directive after a validated success using the returned worktree path. This preserves current autoslot navigation without changing machine-output behavior in the Slots command.
+This initial decision was superseded after the Slots composition path was audited. JSON controls stdout representation, not whether the already-active parent-shell wrapper may navigate. Flow therefore does not write directive files: it invokes Slots without `--no-cd-directive`, and Slots owns the established wrapper/environment protocol and returns structured inactive, written, or failed navigation evidence. A directive-write failure remains a successful placement and becomes a visible autoslot warning with manual navigation guidance.
 
 The ns catalog entry will use `requiresExtension: "@nseng-ai/slots"`. The Pi mirror will resolve exact Slots presence once from the startup repository's effective catalog, omit only `/ns:flow:autoslot` when absent, and keep registration static for the Pi session. Dynamic command re-registration and invocation-time visible-command guards remain out of scope.
 
@@ -20,7 +20,7 @@ The Pi decision closes the timing ambiguity created by registration occurring be
 
 ## Follow-Ups
 
-- Implement Flow-owned two-mode checkout logic over the injected command-exec seam and fake-driven success, domain-failure, execution-failure, malformed-protocol, and cd-directive scenarios.
+- Implement Flow-owned two-mode checkout logic over the injected command-exec seam and fake-driven success, domain-failure, execution-failure, malformed-protocol, and Slots-owned cd-directive outcome scenarios.
 - Gate the ns entry declaratively and compose startup-catalog presence into the Pi mirror so absent Slots removes only autoslot.
 - Remove production Slots imports, the Flow manifest dependency, and the generated lockfile edge after the adapter migration.
 - Run relevant targeted validation, broaden when shared wrappers or workspace configuration are touched, and document commands run plus unrelated blockers.

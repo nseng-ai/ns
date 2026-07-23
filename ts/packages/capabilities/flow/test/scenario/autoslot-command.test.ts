@@ -30,15 +30,18 @@ describe("flow autoslot command outcomes", () => {
 		expect(stdout).toContain("Worktree: /slots/repos/work/worktrees/slot-03");
 		expect(stdout).toContain("ns slot co move-work");
 		expect(formattedExecCalls(run.context)).toContain(
-			"ns slot checkout --current --no-clipboard --no-cd-directive --format json",
+			"ns slot checkout --current --no-clipboard --format json",
 		);
 	});
 
 	test("keeps successful placement and guidance when the parent-shell directive write fails", async () => {
 		const run = runFlowAutoslotCommandWithFakes({
-			env: { SLOT_CD_DIRECTIVE_FILE: "/missing-parent/ns-cd" },
 			state: {
-				exec: autoslotHappyExec(),
+				exec: autoslotHappyExec({
+					status: "failed",
+					path: "/missing-parent/ns-cd",
+					failureDetail: "parent directory does not exist",
+				}),
 				textGeneration: [
 					{ ok: true, text: "[cp] Move autoslot work\n\n- Preserve pending changes" },
 				],

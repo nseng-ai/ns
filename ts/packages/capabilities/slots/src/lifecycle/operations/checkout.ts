@@ -36,6 +36,9 @@ export const checkoutResultSchema = z.object({
 		.union([z.literal("backend-missing"), z.literal("subprocess-error")])
 		.nullable(),
 	clipboardFailureDetail: z.string().nullable(),
+	cdDirectiveStatus: z.union([z.literal("inactive"), z.literal("written"), z.literal("failed")]),
+	cdDirectivePath: z.string().nullable(),
+	cdDirectiveFailureDetail: z.string().nullable(),
 });
 
 export type CheckoutRequest = z.infer<typeof checkoutRequestSchema>;

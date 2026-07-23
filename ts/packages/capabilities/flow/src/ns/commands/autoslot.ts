@@ -35,7 +35,6 @@ export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = defineComma
 			run: async (io) =>
 				await runAutoslotCli({
 					cwd: ctx.cwd,
-					env: ctx.env,
 					args: request.slug === undefined ? {} : { slug: request.slug },
 					textGenerator: ctx.textGenerator,
 					modelSelection: model.modelSelection,

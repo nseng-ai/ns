@@ -193,7 +193,7 @@ describe("slot free CLI", () => {
 				],
 			},
 		});
-		expect(run.stderr.join("")).toBe("");
+		expect(run.stderr.join("")).toContain("Deleting local branch feature/a…");
 		expect(run.git.operations()).toEqual([
 			{ type: "detach-head", path: "/slots/repos/repo/worktrees/slot-01", ref: "master" },
 			{ type: "delete-local-branch", branch: "feature/a", shouldForce: true },

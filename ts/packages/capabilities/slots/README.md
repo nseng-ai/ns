@@ -71,11 +71,11 @@ ns slot shell install --shell zsh
 ns slot shell install --shell bash
 ```
 
-`ns slot shell` installs the canonical ns shell wrapper. The wrapper defines `ns()`, uses `NS_CD_DIRECTIVE_FILE`, invokes `command ns "$@"`, and lets successful human-output navigation commands such as `ns slot checkout`, `ns slot goto`, `ns slot gt up`, and `ns slot gt down` move the parent shell.
+`ns slot shell` installs the canonical ns shell wrapper. The wrapper defines `ns()`, creates a temporary directive file, sets `NS_CD_DIRECTIVE_FILE` only for `command ns "$@"`, and moves the parent shell after a successful navigation command writes a non-empty destination. The active wrapper environment is the navigation capability: Slots honors it for `ns slot checkout`, `ns slot goto`, `ns slot gt up`, and `ns slot gt down` independently of whether stdout uses human or JSON format.
 
-`--no-clipboard` skips clipboard writes only; it does not disable an active parent-shell `cd`.
+`--no-clipboard` skips clipboard writes only; it does not disable an active parent-shell `cd`. `--no-cd-directive` is the explicit checkout opt-out. If Slots places a branch but cannot write the active directive, placement remains successful and the result reports the navigation failure so callers can warn and provide manual navigation guidance.
 
-During the extension-contract transition, the Slot ns extension uses the current `@nseng-ai/sdk` command metadata. Some legacy short option aliases, hidden-help details, and machine-output cd-directive behavior may differ from the old Clinkr-mounted command group until the generic extension contract grows those features.
+During the extension-contract transition, the Slot ns extension uses the current `@nseng-ai/sdk` command metadata. Some legacy short option aliases and hidden-help details may differ from the old Clinkr-mounted command group until the generic extension contract grows those features.
 
 ## Completion
 

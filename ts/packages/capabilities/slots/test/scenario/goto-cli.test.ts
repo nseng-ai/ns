@@ -29,6 +29,9 @@ describe("slot goto CLI", () => {
 				branchName: "feature/a",
 				operation: null,
 				cdCommand: "cd /slots/repos/repo/worktrees/slot-01",
+				cdDirectiveStatus: "inactive",
+				cdDirectivePath: null,
+				cdDirectiveFailureDetail: null,
 			},
 		});
 	});
@@ -198,7 +201,7 @@ describe("slot goto CLI", () => {
 	});
 
 	it.each(["json", "markdown", "md"])(
-		"does not write the shell cd directive for %s output",
+		"writes the shell cd directive independent of %s output rendering",
 		async (format) => {
 			const directivePath = await makeDirectivePath();
 			const run = runScenario(["goto", "-n", "1", "--format", format], {
@@ -206,7 +209,9 @@ describe("slot goto CLI", () => {
 				git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] },
 			});
 			expect(await run.exit).toBe(0);
-			await expect(readDirectiveFile(directivePath)).resolves.toBeNull();
+			await expect(readDirectiveFile(directivePath)).resolves.toBe(
+				"/slots/repos/repo/worktrees/slot-01",
+			);
 		},
 	);
 

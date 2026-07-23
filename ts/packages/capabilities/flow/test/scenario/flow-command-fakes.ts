@@ -473,11 +473,17 @@ export function runFlowAutoslotCommandWithFakes(options: RunFlowCommandWithFakes
 
 // Snapshot probe failure: `git status` fails while loading the pending-worktree snapshot, so the
 // autobranch step fails before any branch is created or slot checkout is attempted.
-export function autoslotHappyExec(): ScriptedExecResponse[] {
+export function autoslotHappyExec(
+	directive: {
+		status: "inactive" | "written" | "failed";
+		path: string | null;
+		failureDetail: string | null;
+	} = { status: "written", path: "/tmp/ns-cd", failureDetail: null },
+): ScriptedExecResponse[] {
 	return [
 		...autobranchDirtyHappyExec(),
 		{
-			match: "ns slot checkout --current --no-clipboard --no-cd-directive --format json",
+			match: "ns slot checkout --current --no-clipboard --format json",
 			result: {
 				stdout: JSON.stringify({
 					status: "ok",
@@ -486,6 +492,9 @@ export function autoslotHappyExec(): ScriptedExecResponse[] {
 						slotName: "slot-03",
 						branchName: "move-work",
 						worktreePath: "/slots/repos/work/worktrees/slot-03",
+						cdDirectiveStatus: directive.status,
+						cdDirectivePath: directive.path,
+						cdDirectiveFailureDetail: directive.failureDetail,
 					},
 				}),
 			},
