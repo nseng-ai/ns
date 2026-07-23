@@ -4,11 +4,15 @@ Routed from the root `AGENTS.md` ("Architecture rules" section). Read before dec
 
 A single canonical provider gateway (the 21-method `GitGateway` at `ts/packages/capability-kit/src/git/contract.ts`) is consumed by many capabilities, most of which touch only a handful of methods. This convention keeps that consumption narrow and keeps shared command mechanics in the kit. It is a three-tier rule plus an inversion rule.
 
-## Domain-first gateway shape
+## Domain-first, policy-light gateway shape
 
-A capability gateway must expose domain operations over domain objects, even when its current real adapter is a thin wrapper over the filesystem, Git, a command, or another external substrate. Do not promote raw substrate primitives such as `readOptionalTextFile`, `listDirectory`, `statPath`, or `writeFile` into a capability-facing gateway just because the first implementation delegates to those calls. The gateway's interface should name what the capability needs: read an installed manifest, discover module artifact declarations, write a provisioned harness artifact, resolve a worktree status, load a plan-store entry, etc.
+The `typescript-fake-driven-testing` skill's Core model and Gateway style sections are canonical for Gateway classification: a Gateway is the canonical semantic interface to an external or non-deterministic capability, including process execution, Git, GitHub, filesystem, network, clock, and timers. This convention adds consumer narrowing and command-shape placement rules; it does not redefine Gateway.
 
-Thin substrate helpers may still exist inside a real adapter, fake, or kit gateway implementation, but callers should cross the seam in the capability's vocabulary. If a proposed gateway method could be reused unchanged by an unrelated domain because it is just filesystem or process mechanics, it probably belongs below the capability seam, not on the capability gateway.
+A capability gateway must expose domain operations over domain objects, even when its current real adapter is a thin wrapper over the filesystem, Git, a command, or another external substrate. Do not promote raw substrate primitives such as `readOptionalTextFile`, `listDirectory`, `statPath`, or `writeFile` into a capability-facing gateway just because the first implementation delegates to those calls. The gateway's interface should name the narrow external fact or effect the capability needs: read an installed manifest, discover module artifact declarations, write a provisioned harness artifact, resolve a worktree status, load a plan-store entry, etc.
+
+Domain-shaped does **not** mean arbitrarily high-level. Keep selection and workflow policy in domain logic above the Gateway. A CLI-backed adapter owns argv, process execution, wire-format parsing, and external failure translation, but crossing a CLI does not justify moving capability-owned orchestration or policy into its Gateway interface. Test classification at the behavior boundary: fake the external or non-deterministic capability beneath domain logic, never the domain logic itself.
+
+Thin substrate helpers may still exist inside a real adapter, fake, or kit gateway implementation, but callers should cross the seam in the capability's vocabulary. If a proposed gateway method could be reused unchanged by an unrelated domain because it is just filesystem or process mechanics, it probably belongs below the capability seam, not on the capability gateway. If it selects, sequences, or decides workflow policy rather than representing the external capability, keep it in domain logic above the Gateway.
 
 ## Tier 1 — Consumer Gateways
 
@@ -74,6 +78,9 @@ ADR 0019 gates **where** a Real gateway implementation lives (which package owns
 
 ## Avoid
 
+- Renaming an existing high-level interface to `*Gateway` solely because its new implementation crosses a CLI, HTTP, or process boundary.
+- Calling selection or workflow policy a Gateway; keep that domain logic above the semantic external-capability Gateway.
+- Inferring Gateway classification from injection, fakeability, promises, or structured error results rather than whether the interface canonically represents an external or non-deterministic capability.
 - "consumer port", "domain port", "partial gateway" — say **Consumer Gateway** (root `CONTEXT.md` bans "port" as a noun for these interfaces).
 - `ExecGateway` — retired name. Foundation's exec seam keeps its incumbent generic name `CommandExecApi`; incumbent generic names win absent confusion.
 - widening a consumer to the full `GitGateway` "for convenience" when it uses a handful of methods.
