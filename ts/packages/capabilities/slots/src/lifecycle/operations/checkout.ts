@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import type { SlotCliContext } from "../../core/context.ts";
 import { checkoutBranch, checkoutCurrent } from "../checkout.ts";
-import { prepareNavigation } from "../../core/navigation-result.ts";
+import { navigationResultSchema, prepareNavigation } from "../../core/navigation-result.ts";
 import { renderSlotNavigationSuccess } from "../../core/navigation-presentation.ts";
 import { extractSlotNumber } from "../../core/naming.ts";
 import { renderPlacementProvisionLines } from "./provision-rendering.ts";
@@ -21,25 +21,16 @@ export const checkoutRequestSchema = z.object({
 		.describe("Write the destination for the parent shell to navigate to."),
 });
 
-export const checkoutResultSchema = z.object({
-	slotName: z.string(),
-	branchName: z.string(),
-	worktreePath: z.string(),
-	cdCommand: z.string(),
-	alreadyAssigned: z.boolean(),
-	createdBranch: z.boolean(),
-	currentWtNote: z.string().nullable(),
-	provision: placementProvisionSchema.nullable(),
-	clipboardCopied: z.boolean(),
-	clipboardSkipped: z.boolean(),
-	clipboardFailureReason: z
-		.union([z.literal("backend-missing"), z.literal("subprocess-error")])
-		.nullable(),
-	clipboardFailureDetail: z.string().nullable(),
-	cdDirectiveStatus: z.union([z.literal("inactive"), z.literal("written"), z.literal("failed")]),
-	cdDirectivePath: z.string().nullable(),
-	cdDirectiveFailureDetail: z.string().nullable(),
-});
+export const checkoutResultSchema = z
+	.object({
+		slotName: z.string(),
+		branchName: z.string(),
+		alreadyAssigned: z.boolean(),
+		createdBranch: z.boolean(),
+		currentWtNote: z.string().nullable(),
+		provision: placementProvisionSchema.nullable(),
+	})
+	.and(navigationResultSchema);
 
 export type CheckoutRequest = z.infer<typeof checkoutRequestSchema>;
 export type CheckoutResult = z.infer<typeof checkoutResultSchema>;

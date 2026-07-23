@@ -149,6 +149,60 @@ describe("Flow slot checkout", () => {
 			"slot-checkout-invalid-envelope",
 		],
 		[
+			"failed directive with a null path",
+			exited({
+				status: "ok",
+				exitCode: 0,
+				data: {
+					...checkoutData,
+					cdDirectiveStatus: "failed",
+					cdDirectivePath: null,
+					cdDirectiveFailureDetail: "permission denied",
+				},
+			}),
+			"slot-checkout-invalid-envelope",
+		],
+		[
+			"failed directive with a null detail",
+			exited({
+				status: "ok",
+				exitCode: 0,
+				data: { ...checkoutData, cdDirectiveStatus: "failed" },
+			}),
+			"slot-checkout-invalid-envelope",
+		],
+		[
+			"written directive with a null path",
+			exited({
+				status: "ok",
+				exitCode: 0,
+				data: { ...checkoutData, cdDirectivePath: null },
+			}),
+			"slot-checkout-invalid-envelope",
+		],
+		[
+			"inactive directive with a failure detail",
+			exited({
+				status: "ok",
+				exitCode: 0,
+				data: {
+					...checkoutData,
+					cdDirectiveStatus: "inactive",
+					cdDirectiveFailureDetail: "unexpected",
+				},
+			}),
+			"slot-checkout-invalid-envelope",
+		],
+		[
+			"written directive with a failure detail",
+			exited({
+				status: "ok",
+				exitCode: 0,
+				data: { ...checkoutData, cdDirectiveFailureDetail: "unexpected" },
+			}),
+			"slot-checkout-invalid-envelope",
+		],
+		[
 			"process/envelope mismatch",
 			exited({ status: "ok", exitCode: 0, data: checkoutData }, 2),
 			"slot-checkout-status-mismatch",
@@ -168,6 +222,18 @@ describe("Flow slot checkout", () => {
 		],
 	] as const)("classifies %s as a protocol failure", (_name, result, errorType) => {
 		expect(parseSlotCheckoutResult(result)).toMatchObject({ ok: false, failure: { errorType } });
+	});
+
+	it("accepts an inactive directive with a non-null disabled-wrapper path", () => {
+		expect(
+			parseSlotCheckoutResult(
+				exited({
+					status: "ok",
+					exitCode: 0,
+					data: { ...checkoutData, cdDirectiveStatus: "inactive" },
+				}),
+			),
+		).toMatchObject({ ok: true, cdDirectiveStatus: "inactive" });
 	});
 
 	it("keeps checkout successful and warns when Slots reports directive writing failed", async () => {

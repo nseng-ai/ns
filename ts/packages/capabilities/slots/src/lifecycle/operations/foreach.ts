@@ -123,8 +123,11 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 	];
 	if (inProgress.length > 0) return failure("operation-in-progress", inProgressMessage(inProgress));
 	if (!request.yes) {
-		if (!ctx.shouldWriteCdDirective)
-			return failure("confirmation-required", "ns slot foreach requires --yes in JSON mode.");
+		if (ctx.outputFormat !== "human")
+			return failure(
+				"confirmation-required",
+				"ns slot foreach requires --yes with non-human output.",
+			);
 		const confirmed = await repoCtx.interaction.confirm({
 			message: `Run \`${formatCommand(command, commandArgs)}\` in the main worktree and ${records.length} ${records.length === 1 ? "slot" : "slots"}?`,
 			defaultAnswer: "no",

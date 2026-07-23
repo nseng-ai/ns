@@ -11,6 +11,7 @@
   - The ns entry uses `requiresExtension: "@nseng-ai/slots"`; the Pi mirror resolves exact startup-catalog presence and omits only `/ns:flow:autoslot` when absent.
   - Flow production source and its manifest/lockfile importer no longer depend on `@nseng-ai/slots`.
   - Evidence: focused fake-driven gateway, autoslot scenario, Slots JSON checkout, SDK catalog, and ns/Pi present/absent registration tests; full `just` passed on the implementing branch.
+  - Follow-up PR #3830 tightens the command-boundary protocol: Slots emits only legal flat directive-field combinations, Flow rejects malformed combinations, and non-human `slot foreach` invocations deterministically require `--yes`.
 - [ ] Make land degrade explicitly when Slots is absent.
   - Resolve `hasExtension("@nseng-ai/slots")` once at the land command boundary and pass the boolean into land composition; do not cache across invocations or infer it from paths.
   - Preserve canonical managed-Slot path detection. Repositories with no matching worktrees take the ordinary path regardless of Slots presence.

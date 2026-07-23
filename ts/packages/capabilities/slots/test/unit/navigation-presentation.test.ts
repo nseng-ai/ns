@@ -71,6 +71,7 @@ describe("slot navigation presentation", () => {
 				...copiedInput(),
 				cdDirectiveStatus: "written",
 				cdDirectivePath: "/tmp/directive",
+				cdDirectiveFailureDetail: null,
 			},
 			{ canEmitAnsi: true, caps: unicodeColorCaps },
 		);

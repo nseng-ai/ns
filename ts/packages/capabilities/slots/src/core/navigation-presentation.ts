@@ -3,10 +3,10 @@ import { dim, paint, renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 
 import type { NavigationResultFields } from "./navigation-result.ts";
 
-export interface SlotNavigationPresentationInput extends NavigationResultFields {
+export type SlotNavigationPresentationInput = NavigationResultFields & {
 	headline: string;
 	details?: readonly string[];
-}
+};
 
 export function renderSlotNavigationSuccess(
 	input: SlotNavigationPresentationInput,

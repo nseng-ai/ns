@@ -216,12 +216,24 @@ describe("slot foreach CLI", () => {
 		expect(run.command.invocations()).toEqual([]);
 	});
 
-	it("reports an aborted confirmation in JSON mode", async () => {
+	it("requires --yes for JSON output even when directive writing is enabled", async () => {
 		const run = runScenario(["foreach", "--format", "json", "--", "git", "status"], {
 			git: { worktrees: [mainWorktree, slotWorktree("slot-01")] },
+			stdin: "yes\n",
+		});
+		expect(run.context.shouldWriteCdDirective).toBe(true);
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "confirmation-required" });
+		expect(run.command.invocations()).toEqual([]);
+	});
+
+	it("requires --yes for Markdown output without prompting", async () => {
+		const run = runScenario(["foreach", "--format", "markdown", "--", "git", "status"], {
+			git: { worktrees: [mainWorktree, slotWorktree("slot-01")] },
+			stdin: "yes\n",
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "aborted" });
+		expect(run.stderr.join("")).toContain("requires --yes with non-human output");
 		expect(run.command.invocations()).toEqual([]);
 	});
 

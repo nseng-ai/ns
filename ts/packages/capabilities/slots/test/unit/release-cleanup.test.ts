@@ -75,6 +75,7 @@ function context(options: {
 		clock: createManualClock(0).clock,
 		cwd: "/repo",
 		renderCapabilities: { canEmitAnsi: false },
+		outputFormat: "human",
 		interaction: createFakeClinkrInteraction().interaction,
 		stderr: () => {},
 		env: { PATH: "/fake/bin" },

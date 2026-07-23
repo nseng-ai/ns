@@ -51,6 +51,7 @@ async function createSlotExtensionContext(ctx: NsExtensionApi): Promise<SlotCliC
 		env: ctx.env,
 		...optionalEntry("stderr", ctx.stderr),
 		renderCapabilities: ctx.renderCapabilities,
+		outputFormat: ctx.outputFormat ?? "human",
 		...optionalEntry("extensions", ctx.extensions),
 		shouldWriteCdDirective: true,
 	});

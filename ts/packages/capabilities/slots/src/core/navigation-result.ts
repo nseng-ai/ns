@@ -1,20 +1,43 @@
+import { z } from "zod";
+
 import type { SlotCliContext } from "./context.ts";
-import { writeCdDirectiveIfActive } from "./shell/cd-directive.ts";
+import { writeCdDirectiveIfActive, type CdDirectiveResult } from "./shell/cd-directive.ts";
 
-interface ClipboardNavigationResultFields {
-	worktreePath: string;
-	cdCommand: string;
-	clipboardCopied: boolean;
-	clipboardSkipped: boolean;
-	clipboardFailureReason: "backend-missing" | "subprocess-error" | null;
-	clipboardFailureDetail: string | null;
-}
+const clipboardNavigationResultSchema = z.object({
+	worktreePath: z.string(),
+	cdCommand: z.string(),
+	clipboardCopied: z.boolean(),
+	clipboardSkipped: z.boolean(),
+	clipboardFailureReason: z
+		.union([z.literal("backend-missing"), z.literal("subprocess-error")])
+		.nullable(),
+	clipboardFailureDetail: z.string().nullable(),
+});
 
-export interface NavigationResultFields extends ClipboardNavigationResultFields {
-	cdDirectiveStatus: "inactive" | "written" | "failed";
-	cdDirectivePath: string | null;
-	cdDirectiveFailureDetail: string | null;
-}
+const cdDirectiveNavigationResultSchema = z.discriminatedUnion("cdDirectiveStatus", [
+	z.object({
+		cdDirectiveStatus: z.literal("inactive"),
+		cdDirectivePath: z.string().nullable(),
+		cdDirectiveFailureDetail: z.null(),
+	}),
+	z.object({
+		cdDirectiveStatus: z.literal("written"),
+		cdDirectivePath: z.string(),
+		cdDirectiveFailureDetail: z.null(),
+	}),
+	z.object({
+		cdDirectiveStatus: z.literal("failed"),
+		cdDirectivePath: z.string(),
+		cdDirectiveFailureDetail: z.string(),
+	}),
+]);
+
+/** Canonical schema for the stable flat navigation wire fields and their legal combinations. */
+export const navigationResultSchema = clipboardNavigationResultSchema.and(
+	cdDirectiveNavigationResultSchema,
+);
+
+export type NavigationResultFields = z.infer<typeof navigationResultSchema>;
 
 /**
  * Canonical side-effect contract for checkout navigation. The Capability API
@@ -40,25 +63,44 @@ export async function prepareNavigation(
 		worktreePath,
 		sideEffects.shouldCopyClipboard,
 	);
-	return {
-		...navigation,
-		cdDirectiveStatus: cdDirectiveResult.status,
-		cdDirectivePath: cdDirectiveResult.path,
-		cdDirectiveFailureDetail:
-			cdDirectiveResult.status === "failed" ? cdDirectiveResult.error : null,
-	};
+	return { ...navigation, ...flattenCdDirectiveResult(cdDirectiveResult) };
+}
+
+function flattenCdDirectiveResult(
+	result: CdDirectiveResult,
+): z.infer<typeof cdDirectiveNavigationResultSchema> {
+	switch (result.status) {
+		case "inactive":
+			return {
+				cdDirectiveStatus: "inactive",
+				cdDirectivePath: result.path,
+				cdDirectiveFailureDetail: null,
+			};
+		case "written":
+			return {
+				cdDirectiveStatus: "written",
+				cdDirectivePath: result.path,
+				cdDirectiveFailureDetail: null,
+			};
+		case "failed":
+			return {
+				cdDirectiveStatus: "failed",
+				cdDirectivePath: result.path,
+				cdDirectiveFailureDetail: result.error,
+			};
+	}
 }
 
 async function buildClipboardNavigationResultFields(
 	ctx: SlotCliContext,
 	worktreePath: string,
 	shouldCopyClipboard: boolean,
-): Promise<ClipboardNavigationResultFields> {
+): Promise<z.infer<typeof clipboardNavigationResultSchema>> {
 	const cdCommand = `cd ${worktreePath}`;
 	if (!shouldCopyClipboard) {
 		return {
-			worktreePath: worktreePath,
-			cdCommand: cdCommand,
+			worktreePath,
+			cdCommand,
 			clipboardCopied: false,
 			clipboardSkipped: true,
 			clipboardFailureReason: null,
@@ -68,8 +110,8 @@ async function buildClipboardNavigationResultFields(
 	const copyResult = await ctx.clipboard.copy(cdCommand);
 	if (copyResult.type === "copied") {
 		return {
-			worktreePath: worktreePath,
-			cdCommand: cdCommand,
+			worktreePath,
+			cdCommand,
 			clipboardCopied: true,
 			clipboardSkipped: false,
 			clipboardFailureReason: null,
@@ -77,8 +119,8 @@ async function buildClipboardNavigationResultFields(
 		};
 	}
 	return {
-		worktreePath: worktreePath,
-		cdCommand: cdCommand,
+		worktreePath,
+		cdCommand,
 		clipboardCopied: false,
 		clipboardSkipped: false,
 		clipboardFailureReason: copyResult.reason,

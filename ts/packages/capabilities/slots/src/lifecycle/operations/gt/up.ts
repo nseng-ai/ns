@@ -2,6 +2,7 @@ import { failure, negative, ok } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../core/context.ts";
+import { navigationResultSchema } from "../../../core/navigation-result.ts";
 import { buildGtNavigationResult, resolveOrCheckoutWorktreeForBranch } from "./navigation.ts";
 import { resolveRepoAndCurrentBranch } from "./shared.ts";
 
@@ -9,22 +10,13 @@ export const gtUpRequestSchema = z.object({
 	clipboard: z.boolean().default(true).describe("Copy the cd command to the clipboard."),
 });
 
-export const gtNavigationResultSchema = z.object({
-	slotName: z.string().nullable(),
-	branchName: z.string(),
-	worktreePath: z.string(),
-	cdCommand: z.string(),
-	alreadyAssigned: z.boolean(),
-	clipboardCopied: z.boolean(),
-	clipboardSkipped: z.boolean(),
-	clipboardFailureReason: z
-		.union([z.literal("backend-missing"), z.literal("subprocess-error")])
-		.nullable(),
-	clipboardFailureDetail: z.string().nullable(),
-	cdDirectiveStatus: z.union([z.literal("inactive"), z.literal("written"), z.literal("failed")]),
-	cdDirectivePath: z.string().nullable(),
-	cdDirectiveFailureDetail: z.string().nullable(),
-});
+export const gtNavigationResultSchema = z
+	.object({
+		slotName: z.string().nullable(),
+		branchName: z.string(),
+		alreadyAssigned: z.boolean(),
+	})
+	.and(navigationResultSchema);
 
 export type GtUpRequest = z.infer<typeof gtUpRequestSchema>;
 

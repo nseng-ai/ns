@@ -65,6 +65,7 @@ async function resolveSlotContext(options: SlotClientOptions): Promise<SlotCliCo
 	return await createRealSlotContext({
 		cwd: options.cwd,
 		renderCapabilities: { canEmitAnsi: false },
+		outputFormat: "human",
 		...(options.env === undefined ? {} : { env: options.env as NodeJS.ProcessEnv }),
 	});
 }

@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../../core/context.ts";
 import { buildSlotInventory, findBySlot } from "../../core/inventory.ts";
-import { prepareNavigation } from "../../core/navigation-result.ts";
+import { navigationResultSchema, prepareNavigation } from "../../core/navigation-result.ts";
 import { renderSlotNavigationSuccess } from "../../core/navigation-presentation.ts";
 import { poolSize } from "../../core/inventory.ts";
 import { resolveNum, resolveWt } from "../../core/selectors.ts";
@@ -14,22 +14,13 @@ export const gotoRequestSchema = z.object({
 	clipboard: z.boolean().default(true).describe("Copy the cd command to the clipboard."),
 });
 
-export const gotoResultSchema = z.object({
-	slotName: z.string(),
-	branchName: z.string().nullable(),
-	operation: z.string().nullable(),
-	worktreePath: z.string(),
-	cdCommand: z.string(),
-	clipboardCopied: z.boolean(),
-	clipboardSkipped: z.boolean(),
-	clipboardFailureReason: z
-		.union([z.literal("backend-missing"), z.literal("subprocess-error")])
-		.nullable(),
-	clipboardFailureDetail: z.string().nullable(),
-	cdDirectiveStatus: z.union([z.literal("inactive"), z.literal("written"), z.literal("failed")]),
-	cdDirectivePath: z.string().nullable(),
-	cdDirectiveFailureDetail: z.string().nullable(),
-});
+export const gotoResultSchema = z
+	.object({
+		slotName: z.string(),
+		branchName: z.string().nullable(),
+		operation: z.string().nullable(),
+	})
+	.and(navigationResultSchema);
 
 export type GotoRequest = z.infer<typeof gotoRequestSchema>;
 export type GotoResult = z.infer<typeof gotoResultSchema>;

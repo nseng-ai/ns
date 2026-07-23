@@ -4,6 +4,7 @@ import {
 	resolveClinkrInteraction,
 	resolveRenderCapabilities,
 	type Caps,
+	type ClinkrFormat,
 	type ClinkrInteraction,
 	type ConfirmationPromptFormatter,
 	type RenderCapabilities,
@@ -45,6 +46,7 @@ export interface SlotCliContext {
 	clock: Clock;
 	cwd: string;
 	renderCapabilities: RenderCapabilities;
+	outputFormat: ClinkrFormat;
 	extensions?: Readonly<Record<string, unknown>>;
 	interaction: ClinkrInteraction;
 	stderr: (text: string) => void;
@@ -58,6 +60,7 @@ export type RepoSlotContext = SlotCliContext & { repo: RepoContext };
 export async function createRealSlotContext(options: {
 	cwd: string;
 	renderCapabilities: RenderCapabilities;
+	outputFormat: ClinkrFormat;
 	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 	extensions?: Readonly<Record<string, unknown>>;
 	formatPrompt?: ConfirmationPromptFormatter;
@@ -82,6 +85,7 @@ export async function createRealSlotContext(options: {
 		clock: systemClock,
 		cwd: options.cwd,
 		renderCapabilities: options.renderCapabilities,
+		outputFormat: options.outputFormat,
 		...(options.extensions === undefined ? {} : { extensions: options.extensions }),
 		interaction: resolveClinkrInteraction({
 			stdin: readStdinLine,

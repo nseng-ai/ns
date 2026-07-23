@@ -22,14 +22,25 @@ export type SlotCheckoutNavigationWarning = {
 	message: string;
 };
 
-type SlotCheckoutCommandResult =
+type SlotCheckoutDirectiveResult =
 	| {
-			ok: true;
-			target: SlotCheckoutTarget;
-			cdDirectiveStatus: "inactive" | "written" | "failed";
+			cdDirectiveStatus: "inactive";
 			cdDirectivePath: string | null;
-			cdDirectiveFailureDetail: string | null;
+			cdDirectiveFailureDetail: null;
 	  }
+	| {
+			cdDirectiveStatus: "written";
+			cdDirectivePath: string;
+			cdDirectiveFailureDetail: null;
+	  }
+	| {
+			cdDirectiveStatus: "failed";
+			cdDirectivePath: string;
+			cdDirectiveFailureDetail: string;
+	  };
+
+type SlotCheckoutCommandResult =
+	| ({ ok: true; target: SlotCheckoutTarget } & SlotCheckoutDirectiveResult)
 	| { ok: false; failure: SlotCheckoutFailure };
 
 export type SlotCheckoutResult =
@@ -103,21 +114,34 @@ export function parseSlotCheckoutResult(result: ExecResult): SlotCheckoutCommand
 
 	switch (envelope.status) {
 		case "ok": {
-			const {
-				slotName,
-				branchName,
-				worktreePath,
-				cdDirectiveStatus,
-				cdDirectivePath,
-				cdDirectiveFailureDetail,
-			} = envelope.data;
-			return {
-				ok: true,
-				target: { slotName, branchName, worktreePath },
-				cdDirectiveStatus,
-				cdDirectivePath,
-				cdDirectiveFailureDetail,
-			};
+			const { slotName, branchName, worktreePath } = envelope.data;
+			const target = { slotName, branchName, worktreePath };
+			switch (envelope.data.cdDirectiveStatus) {
+				case "inactive":
+					return {
+						ok: true,
+						target,
+						cdDirectiveStatus: "inactive",
+						cdDirectivePath: envelope.data.cdDirectivePath,
+						cdDirectiveFailureDetail: null,
+					};
+				case "written":
+					return {
+						ok: true,
+						target,
+						cdDirectiveStatus: "written",
+						cdDirectivePath: envelope.data.cdDirectivePath,
+						cdDirectiveFailureDetail: null,
+					};
+				case "failed":
+					return {
+						ok: true,
+						target,
+						cdDirectiveStatus: "failed",
+						cdDirectivePath: envelope.data.cdDirectivePath,
+						cdDirectiveFailureDetail: envelope.data.cdDirectiveFailureDetail,
+					};
+			}
 		}
 		case "failure":
 			return { ok: false, failure: { errorType: envelope.errorType, message: envelope.message } };
@@ -141,15 +165,13 @@ export async function checkoutSlot(
 		return { ok: true, target: checkout.target, warnings: [] };
 	}
 
-	const path = checkout.cdDirectivePath ?? "the configured directive path";
-	const detail = checkout.cdDirectiveFailureDetail ?? "directive write failed";
 	return {
 		ok: true,
 		target: checkout.target,
 		warnings: [
 			{
 				type: "cd-directive-write-failed",
-				message: `Slot checkout succeeded, but the parent-shell navigation directive could not be written to ${path}: ${detail}`,
+				message: `Slot checkout succeeded, but the parent-shell navigation directive could not be written to ${checkout.cdDirectivePath}: ${checkout.cdDirectiveFailureDetail}`,
 			},
 		],
 	};
@@ -160,20 +182,29 @@ export function formatSlotCheckoutFailureCause(failure: SlotCheckoutFailure): st
 }
 
 function buildSlotCheckoutEnvelopeSchema() {
-	return buildMachineEnvelopeSchema(
+	const targetSchema = z.object({
+		slotName: z.string(),
+		branchName: z.string(),
+		worktreePath: z.string(),
+	});
+	const directiveSchema = z.discriminatedUnion("cdDirectiveStatus", [
 		z.object({
-			slotName: z.string(),
-			branchName: z.string(),
-			worktreePath: z.string(),
-			cdDirectiveStatus: z.union([
-				z.literal("inactive"),
-				z.literal("written"),
-				z.literal("failed"),
-			]),
+			cdDirectiveStatus: z.literal("inactive"),
 			cdDirectivePath: z.string().nullable(),
-			cdDirectiveFailureDetail: z.string().nullable(),
+			cdDirectiveFailureDetail: z.null(),
 		}),
-	);
+		z.object({
+			cdDirectiveStatus: z.literal("written"),
+			cdDirectivePath: z.string(),
+			cdDirectiveFailureDetail: z.null(),
+		}),
+		z.object({
+			cdDirectiveStatus: z.literal("failed"),
+			cdDirectivePath: z.string(),
+			cdDirectiveFailureDetail: z.string(),
+		}),
+	]);
+	return buildMachineEnvelopeSchema(targetSchema.and(directiveSchema));
 }
 
 function boundaryFailure(
