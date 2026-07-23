@@ -43,16 +43,20 @@ export async function runObjectiveCheckCommand(
 			return usageError(
 				"Pass --all by itself; --skip-update-format-checks applies only to a single Objective check.",
 				{
-					slug: request.slug,
-					skipUpdateFormatChecks: request.skipUpdateFormatChecks,
+					...(request.slug === undefined ? {} : { slug: request.slug }),
+					...(request.skipUpdateFormatChecks === undefined
+						? {}
+						: { skipUpdateFormatChecks: request.skipUpdateFormatChecks }),
 				},
 			);
 		}
 		return await runEdgeSweep(ctx.storage);
 	}
 	return await runCheckObjective(ctx, {
-		slug: request.slug,
-		skipUpdateFormatChecks: request.skipUpdateFormatChecks,
+		...(request.slug === undefined ? {} : { slug: request.slug }),
+		...(request.skipUpdateFormatChecks === undefined
+			? {}
+			: { skipUpdateFormatChecks: request.skipUpdateFormatChecks }),
 	});
 }
 
