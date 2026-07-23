@@ -145,8 +145,30 @@ describe("PR description helpers", () => {
 		};
 		const region = formatManagedGeneratedRegion("Generated body", metadata);
 
-		expect(region).toContain("<details open>");
+		expect(region).toContain("<details>");
+		expect(region).not.toContain("<details open>");
+		expect(region).toContain("<summary><h2>Mechanical inventory of changes</h2></summary>");
 		expect(parseManagedGeneratedRegion(region)).toMatchObject({
+			type: "found",
+			metadata,
+			body: "Generated body",
+		});
+		expect(
+			parseManagedGeneratedRegion(region.replace("<details>", "<details open>")),
+		).toMatchObject({
+			type: "found",
+			metadata,
+			body: "Generated body",
+		});
+		// Legacy summary label from previously generated PR bodies.
+		expect(
+			parseManagedGeneratedRegion(
+				region.replace(
+					"<summary><h2>Mechanical inventory of changes</h2></summary>",
+					"<summary>Generated PR description</summary>",
+				),
+			),
+		).toMatchObject({
 			type: "found",
 			metadata,
 			body: "Generated body",
@@ -156,6 +178,7 @@ describe("PR description helpers", () => {
 				existingBody: `Intro\n\n${region}\n\nFooter`,
 				generatedBody: "New generated body",
 				fingerprint: { ...metadata, patchId: "patch-2" },
+				commits: [],
 			}),
 		).toBe(
 			`Intro\n\n${formatManagedGeneratedRegion("New generated body", { ...metadata, patchId: "patch-2" })}\n\nFooter`,
@@ -175,8 +198,28 @@ describe("PR description helpers", () => {
 				existingBody: "Human note",
 				generatedBody: "Generated body",
 				fingerprint: metadata,
+				commits: [{ headline: "Add widget", body: "Commit body" }],
 			}),
 		).toBe(`${formatManagedGeneratedRegion("Generated body", metadata)}\n\nHuman note`);
+	});
+
+	test("replaces a GitHub commit-message prefill instead of preserving its HTML-like text", () => {
+		const metadata = {
+			version: "2" as const,
+			patchId: "patch-1",
+			promptHash: hashPrDescriptionPrompt("prompt"),
+			generator: "ns-pr-description-v2",
+		};
+		const commitBody = "Flip the region from <details open> to <details>.";
+
+		expect(
+			mergeGeneratedBody({
+				existingBody: commitBody,
+				generatedBody: "Generated body",
+				fingerprint: metadata,
+				commits: [{ headline: "Collapse generated descriptions", body: commitBody }],
+			}),
+		).toBe(formatManagedGeneratedRegion("Generated body", metadata));
 	});
 
 	test("treats duplicate managed generated regions as malformed", () => {
@@ -206,6 +249,7 @@ describe("PR description helpers", () => {
 				existingBody: `Old generated\n\n${GENERATED_BODY_MARKER}`,
 				generatedBody: "Generated body",
 				fingerprint: metadata,
+				commits: [],
 			}),
 		).toBe(formatManagedGeneratedRegion("Generated body", metadata));
 	});

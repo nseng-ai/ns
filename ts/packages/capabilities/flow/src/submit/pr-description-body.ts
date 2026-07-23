@@ -66,6 +66,7 @@ export function mergeGeneratedBody(input: {
 	existingBody: string;
 	generatedBody: string;
 	fingerprint: PrDescriptionFingerprintMetadata;
+	commits: readonly PrCommitMessage[];
 }): string {
 	const region = formatManagedGeneratedRegion(input.generatedBody, input.fingerprint);
 	const parsed = parseManagedGeneratedRegion(input.existingBody);
@@ -84,7 +85,10 @@ export function mergeGeneratedBody(input: {
 			replacement: region,
 		});
 	}
-	if (input.existingBody.includes(GENERATED_BODY_MARKER)) {
+	if (
+		input.existingBody.includes(GENERATED_BODY_MARKER) ||
+		isCommitMessagePrefillBody(input.existingBody, input.commits)
+	) {
 		return region;
 	}
 	const trimmedExisting = input.existingBody.trim();
@@ -120,8 +124,8 @@ export function formatManagedGeneratedRegion(
 	const begin = `${MANAGED_BODY_BEGIN_MARKER} version=${metadata.version} patch-id=${metadata.patchId} prompt=${metadata.promptHash} generator=${metadata.generator} -->`;
 	return [
 		begin,
-		"<details open>",
-		"<summary>Generated PR description</summary>",
+		"<details>",
+		"<summary><h2>Mechanical inventory of changes</h2></summary>",
 		"",
 		body.trim(),
 		"",
@@ -181,8 +185,11 @@ function parseManagedRegionMetadata(comment: string): PrDescriptionFingerprintMe
 
 function extractManagedRegionBody(regionContents: string): string {
 	const normalized = regionContents.replace(/\r/g, "");
+	// Accept the current collapsed inventory form plus the legacy forms
+	// (`<details open>` disclosure, plain "Generated PR description" summary)
+	// still present in previously generated PR bodies.
 	const match = normalized.match(
-		/<details open>\n<summary>Generated PR description<\/summary>\n\n([\s\S]*?)\n\n<\/details>/,
+		/<details(?: open)?>\n<summary>(?:<h2>Mechanical inventory of changes<\/h2>|Generated PR description)<\/summary>\n\n([\s\S]*?)\n\n<\/details>/,
 	);
 	return match?.[1]?.trim() ?? normalized.trim();
 }

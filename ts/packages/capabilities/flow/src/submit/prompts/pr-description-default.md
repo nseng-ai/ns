@@ -29,8 +29,7 @@ Analyze the diff following these principles:
 - Strategic change description focusing on purpose and impact
 - Focus on what capabilities changed, not implementation details
 
-<details>
-<summary>Files Changed</summary>
+## Files Changed
 
 ### Added (N files)
 
@@ -43,8 +42,6 @@ Analyze the diff following these principles:
 ### Deleted (N files)
 
 - \`path/to/file.ts\` - Why removed (strategic reason)
-
-</details>
 
 ## User Experience
 
