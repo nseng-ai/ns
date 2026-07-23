@@ -5,6 +5,7 @@ import {
 	withTempRepoSkill,
 	type TempRepoSkill,
 } from "@nseng-ai/foundation/test-kit";
+import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import type {
 	ObjectiveClient,
 	ObjectiveListResult,
@@ -30,6 +31,7 @@ import type {
 
 const ROOT = "/repo";
 const TRUNK = "master";
+const NOW = Date.parse("2026-01-15T00:00:00Z");
 
 const OBJECTIVE_COMMAND_NAMES = [
 	"ns:objective:next",
@@ -327,7 +329,7 @@ async function runObjectiveAutorun(
 	waitForIdleCalls: () => number;
 }> {
 	const pi = new FakePi(script, commandInfos);
-	objectiveExtension(pi);
+	objectiveExtension(pi, { clock: createManualClock(NOW).clock });
 	const command = pi.commands.get("ns:objective:autorun");
 	expect(command).toBeDefined();
 	if (!command) {
@@ -350,7 +352,7 @@ async function runObjectiveNext(
 	waitForIdleCalls: () => number;
 }> {
 	const pi = new FakePi(script);
-	objectiveExtension(pi);
+	objectiveExtension(pi, { clock: createManualClock(NOW).clock });
 	const command = pi.commands.get("ns:objective:next");
 	expect(command).toBeDefined();
 	const context = createContext(contextOptions);
@@ -371,7 +373,7 @@ async function runObjectiveCommand(
 	waitForIdleCalls: () => number;
 }> {
 	const pi = new FakePi(script, commandInfos);
-	objectiveExtension(pi);
+	objectiveExtension(pi, { clock: createManualClock(NOW).clock });
 	const command = pi.commands.get(commandName);
 	expect(command).toBeDefined();
 	if (!command) {
@@ -751,7 +753,7 @@ describe("ns:objective:autorun command", () => {
 			expect(result.selections[0]).toEqual({
 				title: "Select an active Objective to autorun (only Objective changed vs master)",
 				items: [
-					"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
+					"bravo — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
 					"View other active Objectives…",
 				],
 			});
@@ -783,9 +785,7 @@ describe("ns:objective:autorun command", () => {
 			);
 
 			result.pi.assertDone();
-			expect(result.selections[0]?.items).toEqual([
-				"alpha — open — latest update 2026-01-01T00:00:00Z",
-			]);
+			expect(result.selections[0]?.items).toEqual(["alpha — open — latest update 2 weeks ago"]);
 			expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
 		});
 	});
@@ -807,8 +807,8 @@ describe("ns:objective:autorun command", () => {
 			expect(result.selections[1]).toEqual({
 				title: "Select an active Objective to autorun (other active Objectives)",
 				items: [
-					"alpha — open — latest update 2026-01-01T00:00:00Z",
-					"charlie — open — latest update 2026-01-03T00:00:00Z",
+					"alpha — open — latest update 2 weeks ago",
+					"charlie — open — latest update 2 weeks ago",
 				],
 			});
 			expect(result.pi.sentUserMessages[0]).toContain("```text\ncharlie\n```");
@@ -854,7 +854,7 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (only Objective changed vs master)",
 			items: [
-				"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
+				"bravo — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -879,7 +879,7 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (only Objective changed in checkout or vs master)",
 			items: [
-				"bravo — suggested: only Objective changed in checkout or vs master — open — latest update 2026-01-02T00:00:00Z",
+				"bravo — suggested: only Objective changed in checkout or vs master — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -898,7 +898,7 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (only Objective changed in checkout)",
 			items: [
-				"bravo — suggested: only Objective changed in checkout — open — latest update 2026-01-02T00:00:00Z",
+				"bravo — suggested: only Objective changed in checkout — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -916,8 +916,8 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (changed Objectives in checkout or vs master)",
 			items: [
-				"alpha — changed in checkout or vs master — open — latest update 2026-01-01T00:00:00Z",
-				"charlie — changed in checkout or vs master — open — latest update 2026-01-03T00:00:00Z",
+				"alpha — changed in checkout or vs master — open — latest update 2 weeks ago",
+				"charlie — changed in checkout or vs master — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -934,8 +934,8 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]?.items).toEqual([
-			"alpha — open — latest update 2026-01-01T00:00:00Z",
-			"bravo — open — latest update 2026-01-02T00:00:00Z",
+			"alpha — open — latest update 2 weeks ago",
+			"bravo — open — latest update 2 weeks ago",
 		]);
 	});
 
@@ -959,8 +959,8 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]?.items).toEqual([
-			"alpha — open — latest update 2026-01-01T00:00:00Z",
-			"charlie — open — latest update 2026-01-03T00:00:00Z",
+			"alpha — open — latest update 2 weeks ago",
+			"charlie — open — latest update 2 weeks ago",
 		]);
 		expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
 	});
@@ -981,8 +981,8 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (other active Objectives)",
 			items: [
-				"alpha — open — latest update 2026-01-01T00:00:00Z",
-				"charlie — open — latest update 2026-01-03T00:00:00Z",
+				"alpha — open — latest update 2 weeks ago",
+				"charlie — open — latest update 2 weeks ago",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("charlie");
@@ -1002,8 +1002,8 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (changed Objectives vs master)",
 			items: [
-				"alpha — changed vs master — open — latest update 2026-01-01T00:00:00Z",
-				"charlie — changed vs master — open — latest update 2026-01-03T00:00:00Z",
+				"alpha — changed vs master — open — latest update 2 weeks ago",
+				"charlie — changed vs master — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -1031,8 +1031,8 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (other active Objectives)",
 			items: [
-				"bravo — open — latest update 2026-01-02T00:00:00Z",
-				"delta — open — latest update 2026-01-04T00:00:00Z",
+				"bravo — open — latest update 2 weeks ago",
+				"delta — open — latest update 2 weeks ago",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("delta");
@@ -1052,8 +1052,8 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (changed Objectives vs master)",
 			items: [
-				"alpha — changed vs master — open — latest update 2026-01-01T00:00:00Z",
-				"bravo — changed vs master — open — latest update 2026-01-02T00:00:00Z",
+				"alpha — changed vs master — open — latest update 2 weeks ago",
+				"bravo — changed vs master — open — latest update 2 weeks ago",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("alpha");
@@ -1069,8 +1069,8 @@ describe("objective picker suggestion", () => {
 		result.pi.assertDone();
 		const items = result.selections[0]?.items ?? [];
 		expect(items).toEqual([
-			"alpha — open — latest update 2026-01-01T00:00:00Z",
-			"bravo — open — latest update 2026-01-02T00:00:00Z",
+			"alpha — open — latest update 2 weeks ago",
+			"bravo — open — latest update 2 weeks ago",
 		]);
 		expect(items.some((item) => item.includes("suggested"))).toBe(false);
 	});
@@ -1090,7 +1090,7 @@ describe("objective picker suggestion", () => {
 		result.pi.assertDone();
 		const items = result.selections[0]?.items ?? [];
 		expect(items).toEqual([
-			"pi-extension-deepening — changed vs master — open — latest update 2026-01-01T00:00:00Z",
+			"pi-extension-deepening — changed vs master — open — latest update 2 weeks ago",
 		]);
 		expect(items.some((item) => item.includes("pi-extension-architecture-deepening"))).toBe(false);
 		expect(result.pi.sentUserMessages[0]).toContain("pi-extension-deepening");
@@ -1114,7 +1114,7 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (changed Objectives vs master)",
 			items: [
-				"bravo — changed vs master — open — latest update 2026-01-02T00:00:00Z",
+				"bravo — changed vs master — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -1142,7 +1142,7 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (only Objective changed vs master)",
 			items: [
-				"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
+				"bravo — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -1160,7 +1160,7 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (only Objective changed in checkout or vs master)",
 			items: [
-				"bravo — suggested: only Objective changed in checkout or vs master — open — latest update 2026-01-02T00:00:00Z",
+				"bravo — suggested: only Objective changed in checkout or vs master — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -1180,8 +1180,8 @@ describe("objective picker suggestion", () => {
 		result.pi.assertDone();
 		const items = result.selections[0]?.items ?? [];
 		expect(items).toEqual([
-			"alpha — open — latest update 2026-01-01T00:00:00Z",
-			"bravo — open — latest update 2026-01-02T00:00:00Z",
+			"alpha — open — latest update 2 weeks ago",
+			"bravo — open — latest update 2 weeks ago",
 		]);
 		expect(result.notifications).toEqual([
 			{ message: "Objective selection cancelled.", level: "info" },
@@ -1205,9 +1205,9 @@ describe("objective picker suggestion", () => {
 			{
 				title: "Select an active Objective to close",
 				items: [
-					"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
-					"alpha — open — latest update 2026-01-01T00:00:00Z",
-					"charlie — open — latest update 2026-01-03T00:00:00Z",
+					"bravo — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
+					"alpha — open — latest update 2 weeks ago",
+					"charlie — open — latest update 2 weeks ago",
 				],
 			},
 		]);

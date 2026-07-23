@@ -33,6 +33,8 @@ describe("objectiveChangedSlugsFromPaths", () => {
 	});
 });
 
+const NOW = Date.parse("2026-06-03T10:00:00Z");
+
 describe("Objective picker policy", () => {
 	test("changedActiveObjectiveSelection returns undefined when there are no changed active records", () => {
 		expect(
@@ -81,31 +83,31 @@ describe("Objective picker policy", () => {
 
 	test("ordinary label uses checkout-local status and latest update", () => {
 		expect(
-			formatObjectiveChoice(record("alpha", { latestUpdateIso: "2026-05-20T10:00:00Z" })),
-		).toBe("alpha — open — latest update 2026-05-20T10:00:00Z");
+			formatObjectiveChoice(record("alpha", { latestUpdateIso: "2026-06-03T08:00:00Z" }), NOW),
+		).toBe("alpha — open — latest update 2 hours ago");
 	});
 
 	test("ordinary label renders missing latest update as an em dash", () => {
-		expect(formatObjectiveChoice(record("alpha", { latestUpdateIso: null }))).toBe(
+		expect(formatObjectiveChoice(record("alpha", { latestUpdateIso: null }), NOW)).toBe(
 			"alpha — open — latest update —",
 		);
 	});
 
 	test("suggested-only label", () => {
-		expect(formatObjectiveChoice(record("alpha"), selection(["alpha"], ["alpha"]))).toBe(
-			"alpha — suggested: only Objective changed vs master — open — latest update 2026-05-20T10:00:00Z",
+		expect(formatObjectiveChoice(record("alpha"), NOW, selection(["alpha"], ["alpha"]))).toBe(
+			"alpha — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
 		);
 	});
 
 	test("changed label", () => {
-		expect(formatObjectiveChoice(record("alpha"), selection(["alpha", "closed"], ["alpha"]))).toBe(
-			"alpha — changed vs master — open — latest update 2026-05-20T10:00:00Z",
-		);
+		expect(
+			formatObjectiveChoice(record("alpha"), NOW, selection(["alpha", "closed"], ["alpha"])),
+		).toBe("alpha — changed vs master — open — latest update 2 weeks ago");
 	});
 
 	test("unchanged record has no diff label", () => {
-		expect(formatObjectiveChoice(record("bravo"), selection(["alpha"], ["alpha"]))).toBe(
-			"bravo — open — latest update 2026-05-20T10:00:00Z",
+		expect(formatObjectiveChoice(record("bravo"), NOW, selection(["alpha"], ["alpha"]))).toBe(
+			"bravo — open — latest update 2 weeks ago",
 		);
 	});
 
@@ -121,10 +123,10 @@ describe("Objective picker policy", () => {
 	});
 
 	test("choice map maps labels to slugs", () => {
-		const choices = objectiveChoiceMap([record("alpha"), record("bravo")], undefined);
+		const choices = objectiveChoiceMap([record("alpha"), record("bravo")], NOW);
 
-		expect(choices.get("alpha — open — latest update 2026-05-20T10:00:00Z")).toBe("alpha");
-		expect(choices.get("bravo — open — latest update 2026-05-20T10:00:00Z")).toBe("bravo");
+		expect(choices.get("alpha — open — latest update 2 weeks ago")).toBe("alpha");
+		expect(choices.get("bravo — open — latest update 2 weeks ago")).toBe("bravo");
 	});
 
 	test("picker title variants", () => {
