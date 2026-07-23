@@ -52,7 +52,7 @@ not durable or shared).
 - `/ns:herdr:space:open-branch`, `@nseng-ai/cmux`, `.pi/extensions/cmux.ts`, `ns cmux exec`, and old cmux Pi surfaces remain absent from live implementation and configuration.
 - Workspace dependencies, generated lockfile, publish inventories, style guards, runtime import checks, package counts, contexts, and live user documentation match the resulting topology; gated `docs-site/` drift is explicitly classified.
 - Remaining old Herdr and cmux strings occur only in accurate historical evidence or the explicitly gated docs-site follow-up.
-- Relevant focused tests, Objective structural checks subject to the immutable legacy-update caveat, and the repository `just` entrypoint pass.
+- Relevant focused tests, Objective structural checks using the repo-authorized immutable-history compatibility option, and the repository `just` entrypoint pass.
 
 ## Assumptions and Risks
 
@@ -71,10 +71,14 @@ not durable or shared).
 - Ambient caller identity could mutate the wrong tab or workspace; new tab operations must reject absent or blank explicit IDs before model or destination work.
 - Broad command-name and documentation edits can leave stale prompt copy, parity metadata, tests, or generated inventories. The migration requires an exact final inventory and semantic stale-reference review.
 - Historical documents legitimately contain removed names, so a repository-wide zero-match requirement would destroy useful evidence. Review must distinguish historical and live surfaces.
-- The immutable legacy update `20260719T181812Z-reference-based-herdr-handoff-launch.md` may remain structurally incompatible with the current Objective checker; report that compatibility blocker rather than rewriting the update.
+- The immutable legacy update `20260719T181812Z-reference-based-herdr-handoff-launch.md` remains structurally incompatible with the current authoring contract. The repo-authorized checker option preserves its inventory and readability checks while leaving the file unchanged.
 
 ## Open Questions
 
 No product-contract questions remain open. Implementation selected an additive explicit-start-point Git Gateway operation and colocated strict caller workspace/tab identity helpers at the existing Herdr targeting seam.
 
-All substantive implementation, catalog, documentation, and validation criteria are complete. Objective closure remains blocked by the immutable legacy Semantic Update `20260719T181812Z-reference-based-herdr-handoff-launch.md`, which lacks three headings required by the current per-record checker. Historical updates must not be rewritten, so `closed.md` remains absent pending an authorized compatibility mechanism; the repository `just` Objective edge sweep is otherwise green.
+All substantive implementation, catalog, documentation, and validation criteria are complete. The immutable legacy Semantic Update `20260719T181812Z-reference-based-herdr-handoff-launch.md` remains byte-for-byte historical evidence; the repo-authorized `--skip-update-format-checks` compatibility option now permits structural validation without weakening readability checks or the authoring contract for new updates.
+
+## Closure
+
+Completed the cmux retirement and compositional Herdr catalog migration, including explicit tab operations, refreshed-trunk Saved Plan dispatch, live topology reconciliation, and validation. Focused Objectives tests, package checks, the repo-authorized per-record compatibility check, the Objective edge sweep, and `just` pass. Existing Semantic Updates remain immutable; the historical format exception is governed by the repository's inclusive `20260719T181812Z` cutoff, while newly authored updates retain the current required structure.

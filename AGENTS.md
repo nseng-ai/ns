@@ -85,6 +85,7 @@ Treat authoritative plans and handoffs as evidence caches: start from their supp
 ## Formatting and validation
 
 - `just` is the default repo validation entrypoint. If it reports a `dprint check` formatting failure, run `just dprint-fix` instead of hand-editing formatter output, then rerun validation.
+- When `ns objective check <slug>` fails only because immutable Semantic Updates timestamped at or before the inclusive `20260719T181812Z` cutoff lack the current title/required-heading structure, rerun it as `ns objective check <slug> --skip-update-format-checks`. The option preserves update inventory and readability checks. Do not use it when any post-cutoff update has a format failure or as permission to omit the required structure from newly authored updates.
 - TypeScript format/lint autofixers (`just ts-format-fix`, `just ts-lint-fix`) and the rest of the `ts/` rules live in `ts/AGENTS.md`.
 
 ## Skills

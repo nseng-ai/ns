@@ -171,6 +171,7 @@ Rules:
 - A meaningful update may exist without durable-file edits when the durable files remain correct after meaningful evidence was considered.
 - Maintenance edits to `objective.md` or `roadmap.md` do not require an update file when they add no new semantic information.
 - Do not write ceremonial updates, status pings, branch changelogs, or multi-objective updates.
+- `--skip-update-format-checks` is a compatibility option for explicitly reviewed immutable history; it does not relax this authoring contract for new updates. The checker still inventories and verifies readability of every update when the option is used.
 
 ### `closed.md`
 
@@ -267,6 +268,7 @@ Contract:
 - Structural violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors.
 - One non-failing **warning** advisory: a record carrying a Blocked Sentence while at least one edge counterpart is closed is flagged, naming the closed counterpart(s). The advisory is deterministic marker state (blocked-present plus counterpart `closed.md`), not prose interpretation, and it never fails the check or the sweep; disposing of the Blocked Sentence stays skill judgment.
 - Heading checks are presence-only structure; the command does not interpret prose meaning, roadmap state, or execution policy.
+- `--skip-update-format-checks` omits Semantic Update title and required-heading rows for a per-slug check while retaining update inventory and readability checks. It is incompatible with `--all` and is intended only for an explicitly reviewed compatibility case; newly authored updates still require the standard title and headings.
 - Supports `--format md` / `--format json` like the other Objective commands.
 - Run it after any Record Frontmatter edit; the mutating step skills require this.
 

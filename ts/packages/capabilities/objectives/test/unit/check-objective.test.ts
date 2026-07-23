@@ -28,6 +28,7 @@ const COMPLETE_OBJECTIVE_MD = [
 ].join("\n");
 
 const ROADMAP_MD = "# Roadmap\n\n## Work\n\n## Parked\n";
+const MALFORMED_UPDATE_MD = "Historical update without required structure.\n";
 
 const FRONTMATTER = [
 	"---",
@@ -201,6 +202,53 @@ describe("objective check with Record Frontmatter", () => {
 	});
 });
 
+describe("objective check Semantic Update format option", () => {
+	test("keeps strict update format checks by default", async () => {
+		const updateName = "historical-update.md";
+		const exit = await checkUpdate({ updateName });
+
+		if (exit.type !== "negative" || exit.data?.status !== "failed") {
+			throw new Error("expected failed result");
+		}
+		expect(updateCheckLabels(exit.data.checks, updateName)).toEqual([
+			`updates/${updateName} is readable Markdown`,
+			`updates/${updateName} has title heading`,
+			`updates/${updateName} has ## Summary`,
+			`updates/${updateName} has ## Objective Impact`,
+			`updates/${updateName} has ## Follow-Ups`,
+		]);
+	});
+
+	test("omits update format checks when explicitly requested", async () => {
+		const updateName = "historical-update.md";
+		const exit = await checkUpdate({ updateName, skipUpdateFormatChecks: true });
+
+		if (exit.type !== "ok") throw new Error("expected ok exit");
+		expect(exit.data.status).toBe("ok");
+		expect(updateCheckLabels(exit.data.checks, updateName)).toEqual([
+			`updates/${updateName} is readable Markdown`,
+		]);
+	});
+
+	test("retains update readability failures when format checks are skipped", async () => {
+		const updateName = "unreadable-update.md";
+		const path = `.ns/objectives/alpha/updates/${updateName}`;
+		const exit = await checkUpdate({
+			updateName,
+			skipUpdateFormatChecks: true,
+			unreadableFiles: { [path]: "permission denied" },
+		});
+
+		if (exit.type !== "negative" || exit.data?.status !== "failed") {
+			throw new Error("expected failed result");
+		}
+		expect(updateCheckLabels(exit.data.checks, updateName)).toEqual([
+			`updates/${updateName} is readable Markdown`,
+		]);
+		expect(exit.data.checks.find((check) => check.path === path)?.detail).toBe("permission denied");
+	});
+});
+
 describe("objective check --all edge sweep", () => {
 	test("rejects a slug combined with --all", async () => {
 		const exit = await runObjectiveCheckCommand(
@@ -209,6 +257,15 @@ describe("objective check --all edge sweep", () => {
 			}),
 			{ slug: "alpha", all: true },
 		);
+
+		expect(exit.type).toBe("usageError");
+	});
+
+	test("rejects update-format skipping combined with --all", async () => {
+		const exit = await runObjectiveCheckCommand(contextWithFakeStorage({}), {
+			all: true,
+			skipUpdateFormatChecks: true,
+		});
 
 		expect(exit.type).toBe("usageError");
 	});
@@ -296,6 +353,41 @@ describe("objective check --all edge sweep", () => {
 		]);
 	});
 });
+
+async function checkUpdate(options: {
+	updateName: string;
+	skipUpdateFormatChecks?: boolean;
+	unreadableFiles?: Readonly<Record<string, string>>;
+}) {
+	const slug = "alpha";
+	return runCheckObjective(
+		contextWithFakeStorage({
+			...(options.unreadableFiles === undefined
+				? {}
+				: { unreadableFiles: options.unreadableFiles }),
+			records: [
+				{
+					slug,
+					objectiveMd: COMPLETE_OBJECTIVE_MD,
+					roadmapMd: ROADMAP_MD,
+					updates: { [options.updateName]: MALFORMED_UPDATE_MD },
+				},
+			],
+		}),
+		{
+			slug,
+			...(options.skipUpdateFormatChecks === undefined
+				? {}
+				: { skipUpdateFormatChecks: options.skipUpdateFormatChecks }),
+		},
+	);
+}
+
+function updateCheckLabels(checks: readonly { path: string; label: string }[], updateName: string) {
+	return checks
+		.filter((check) => check.path.endsWith(`/updates/${updateName}`))
+		.map((check) => check.label);
+}
 
 function contextWithFakeStorage(fake: FakeObjectiveStorageGatewayOptions): ObjectiveCliContext {
 	return {

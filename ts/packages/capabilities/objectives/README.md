@@ -61,6 +61,9 @@ inspecting records:
 ```bash
 ns objective list           # open Objectives (auto-detects trunk; reads .ns/objectives/)
 ns objective show <slug>    # inspect one record
+ns objective check <slug>   # validate one record
 ```
 
 `ns objective list` is zero-config; closed records drop out of the default listing.
+
+`ns objective check <slug>` validates required files, Markdown headings, Semantic Update readability and structure, and Record Frontmatter. For explicitly reviewed immutable history only, `--skip-update-format-checks` omits Semantic Update title and required-heading checks while retaining update inventory and readability checks. It does not relax the required authoring structure for new updates.

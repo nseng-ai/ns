@@ -47,6 +47,10 @@ const requiredUpdateHeadings = ["## Summary", "## Objective Impact", "## Follow-
 
 export const checkObjectiveRequestSchema = z.object({
 	slug: z.string().optional().describe("Objective slug to check."),
+	skipUpdateFormatChecks: z
+		.boolean()
+		.optional()
+		.describe("Skip title and required-heading checks for Semantic Updates."),
 });
 
 export const checkObjectiveBaseResultSchema = z.object({
@@ -113,7 +117,11 @@ export async function runCheckObjective(
 	ctx: ObjectiveCliContext,
 	request: CheckObjectiveRequest,
 ): Promise<ClinkrExit<CheckObjectiveResult>> {
-	const result = await checkObjective(ctx.storage, request.slug);
+	const result = await checkObjective(
+		ctx.storage,
+		request.slug,
+		request.skipUpdateFormatChecks === true,
+	);
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
 	const slugValidationError = handleObjectiveSlugValidationErrors(result.value, request.slug);
 	if (slugValidationError !== null) return slugValidationError;
@@ -188,6 +196,7 @@ export function renderCheckObjective(
 async function checkObjective(
 	storage: ObjectiveStorage,
 	slug: string | undefined,
+	skipUpdateFormatChecks: boolean,
 ): Promise<
 	| { type: "ok"; value: CheckObjectiveResult }
 	| { type: "storage-error"; error: { code: string; message: string } }
@@ -230,6 +239,7 @@ async function checkObjective(
 					updateMarkdownChecks({
 						update,
 						read: await storage.readMarkdownFile(`${relativePath}/updates/${update.name}`),
+						skipFormatChecks: skipUpdateFormatChecks,
 					}),
 				),
 			)
@@ -404,6 +414,7 @@ function roadmapMarkdownChecks(options: {
 function updateMarkdownChecks(options: {
 	update: ObjectiveUpdateFile;
 	read: ObjectiveMarkdownReadResult;
+	skipFormatChecks: boolean;
 }): ObjectiveCheckItem[] {
 	const read = options.read;
 	if (read.type === "missing") return [];
@@ -413,7 +424,7 @@ function updateMarkdownChecks(options: {
 		displayPath,
 		read,
 	});
-	if (read.type !== "ok") return readableChecks;
+	if (read.type !== "ok" || options.skipFormatChecks) return readableChecks;
 	return [
 		...readableChecks,
 		checkItem({
