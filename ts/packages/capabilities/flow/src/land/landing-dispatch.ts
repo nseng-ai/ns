@@ -22,6 +22,7 @@ interface RunLandingDispatchOptions {
 	ctx: PrintAwareLandStackCommandContext;
 	parsedArgs: ParsedArgs;
 	observabilityChannels: FlowLandObservabilityChannels;
+	hasSlotsExtension: boolean;
 }
 
 export async function runLandingDispatch(options: RunLandingDispatchOptions): Promise<LandOutcome> {
@@ -37,6 +38,7 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 	const cleanupPreview = planPostLandingSlotCleanup({
 		args: options.parsedArgs,
 		shape: shape.value,
+		hasSlotsExtension: options.hasSlotsExtension,
 	});
 	const approvedConfirmationKinds = approvedLandConfirmationKinds({
 		flags: options.parsedArgs,
@@ -48,7 +50,7 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 			ctx: options.ctx,
 			target: shape.value,
 			isDryRun: options.parsedArgs.isDryRun,
-			cleanup: postLandingCleanupRequestFromArgs(options.parsedArgs),
+			cleanup: postLandingCleanupRequestFromArgs(options.parsedArgs, options.hasSlotsExtension),
 			approvedConfirmationKinds,
 			...optionalEntry("progressIo", observabilityChannels.progressIo),
 		});
@@ -59,15 +61,18 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 			args: options.parsedArgs,
 			shape: shape.value,
 			cleanupDecision: result.beforeMergeValue ?? { type: "not-needed" },
+			hasSlotsExtension: options.hasSlotsExtension,
 		});
 	}
 
 	return await executeStackLanding(runtime.source, options.ctx, options.parsedArgs, {
+		hasSlotsExtension: options.hasSlotsExtension,
 		graphite: runtime.graphite,
 		observabilityChannels,
 		execution: {
 			source: { type: "prepared", shape: shape.value },
 			approvedConfirmationKinds,
+			hasSlotsExtension: options.hasSlotsExtension,
 		},
 	});
 }

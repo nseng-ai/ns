@@ -40,6 +40,7 @@ function managedShape(): LandingShape {
 describe("canonical confirmation approval mapping", () => {
 	test("--yes approves main and previewed cleanup but leaves pre-merge prompts canonical", () => {
 		const cleanupPreview = planPostLandingSlotCleanup({
+			hasSlotsExtension: true,
 			args: expectParsed("--yes"),
 			shape: managedShape(),
 		});
@@ -53,6 +54,7 @@ describe("canonical confirmation approval mapping", () => {
 
 	test("--force approves only previewed cleanup", () => {
 		const cleanupPreview = planPostLandingSlotCleanup({
+			hasSlotsExtension: true,
 			args: expectParsed("--force"),
 			shape: managedShape(),
 		});

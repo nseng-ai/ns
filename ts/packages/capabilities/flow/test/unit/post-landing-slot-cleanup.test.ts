@@ -115,7 +115,11 @@ async function resolveCleanupDecisionForArgs(options: {
 	| { readonly type: "success"; readonly value: PostLandingSlotCleanupDecision }
 	| { readonly type: "failure"; readonly failure: { readonly message: string } }
 > {
-	const cleanupPreview = planPostLandingSlotCleanup({ args: options.args, shape: options.shape });
+	const cleanupPreview = planPostLandingSlotCleanup({
+		hasSlotsExtension: true,
+		args: options.args,
+		shape: options.shape,
+	});
 	return await resolveManagedSlotPostLandingCleanupDecision({
 		confirmation: createUpfrontApprovedLandConfirmationGateway(
 			createFlowLandConfirmationGateway(options.ctx),
@@ -124,7 +128,7 @@ async function resolveCleanupDecisionForArgs(options: {
 				...optionalEntry("cleanupPreview", cleanupPreview),
 			}),
 		),
-		cleanup: postLandingCleanupRequestFromArgs(options.args),
+		cleanup: postLandingCleanupRequestFromArgs(options.args, true),
 		shape: options.shape,
 	});
 }
@@ -141,7 +145,11 @@ describe("parsed-args to cleanup policy mapping", () => {
 		{ rawArgs: "--dry-run", policy: "free-slot", mode: "dry-run" },
 		{ rawArgs: "--dry-run --force", policy: "force-cleanup", mode: "dry-run" },
 	])("maps '$rawArgs' to $policy/$mode", ({ rawArgs, policy, mode }) => {
-		expect(postLandingCleanupRequestFromArgs(expectParsed(rawArgs))).toEqual({ mode, policy });
+		expect(postLandingCleanupRequestFromArgs(expectParsed(rawArgs), true)).toEqual({
+			mode,
+			policy,
+			hasSlotsExtension: true,
+		});
 	});
 });
 
@@ -159,6 +167,7 @@ describe("post-landing slot cleanup defaults", () => {
 		expect(decision).toEqual({ type: "success", value: { type: "approved" } });
 
 		const outcome = await runPostLandingSlotCleanup({
+			hasSlotsExtension: true,
 			landContext: context,
 			ctx: fixture.ctx,
 			args,
@@ -189,6 +198,7 @@ describe("post-landing slot cleanup defaults", () => {
 		const fixture = createCleanupContext({ hasUI: true });
 
 		const outcome = await runPostLandingSlotCleanup({
+			hasSlotsExtension: true,
 			landContext: context,
 			ctx: fixture.ctx,
 			args: expectParsed(""),
@@ -203,7 +213,13 @@ describe("post-landing slot cleanup defaults", () => {
 	});
 
 	test("plans managed-slot cleanup only when the cleanup policy allows it", () => {
-		expect(planPostLandingSlotCleanup({ args: expectParsed(""), shape: managedShape() })).toEqual({
+		expect(
+			planPostLandingSlotCleanup({
+				hasSlotsExtension: true,
+				args: expectParsed(""),
+				shape: managedShape(),
+			}),
+		).toEqual({
 			branch: BRANCH,
 			repoRoot: SLOT_ROOT,
 			slotName: "slot-02",
@@ -211,6 +227,7 @@ describe("post-landing slot cleanup defaults", () => {
 		});
 		expect(
 			planPostLandingSlotCleanup({
+				hasSlotsExtension: true,
 				args: expectParsed(""),
 				shape: managedShape({ current: "main", landingBranches: [] }),
 			}),
@@ -221,8 +238,45 @@ describe("post-landing slot cleanup defaults", () => {
 			localBranchDisposition: "keep-trunk",
 		});
 		expect(
-			planPostLandingSlotCleanup({ args: expectParsed("--preserve"), shape: managedShape() }),
+			planPostLandingSlotCleanup({
+				hasSlotsExtension: true,
+				args: expectParsed("--preserve"),
+				shape: managedShape(),
+			}),
 		).toBeUndefined();
+	});
+
+	test("does not preview, prompt, or mutate when optional Slots cleanup is unavailable", async () => {
+		const { context, worktrees, graphite } = createInMemoryLandContext();
+		const fixture = createCleanupContext({ hasUI: true });
+		const args = expectParsed("");
+		const shape = managedShape();
+
+		expect(planPostLandingSlotCleanup({ args, shape, hasSlotsExtension: false })).toBeUndefined();
+		const decision = await resolveManagedSlotPostLandingCleanupDecision({
+			confirmation: createFlowLandConfirmationGateway(fixture.ctx),
+			cleanup: postLandingCleanupRequestFromArgs(args, false),
+			shape,
+		});
+		expect(decision).toEqual({ type: "success", value: { type: "not-needed" } });
+
+		const outcome = await runPostLandingSlotCleanup({
+			hasSlotsExtension: false,
+			landContext: context,
+			ctx: fixture.ctx,
+			args,
+			shape,
+			cleanupDecision: expectDecision(decision),
+		});
+
+		expect(outcome).toEqual({ type: "completed" });
+		expect(fixture.confirmations).toEqual([]);
+		expect(worktrees.freeSlotsCalls).toEqual([]);
+		expect(graphite.deleteLocalBranchCalls).toEqual([]);
+		expect(fixture.notifications.at(-1)).toEqual({
+			message: `Landing completed. Managed-worktree cleanup was not run because @nseng-ai/slots is not installed; worktree ${SLOT_ROOT} and local branch ${BRANCH} were kept.`,
+			level: "success",
+		});
 	});
 
 	test("upfront decline keeps the slot and local branch after landing", async () => {
@@ -238,6 +292,7 @@ describe("post-landing slot cleanup defaults", () => {
 		expect(decision).toEqual({ type: "success", value: { type: "declined" } });
 
 		const outcome = await runPostLandingSlotCleanup({
+			hasSlotsExtension: true,
 			landContext: context,
 			ctx: fixture.ctx,
 			args,
@@ -273,6 +328,7 @@ describe("post-landing slot cleanup defaults", () => {
 		expect(decision).toEqual({ type: "success", value: { type: "approved" } });
 
 		const outcome = await runPostLandingSlotCleanup({
+			hasSlotsExtension: true,
 			landContext: context,
 			ctx: fixture.ctx,
 			args: expectParsed(""),
@@ -308,6 +364,7 @@ describe("post-landing slot cleanup defaults", () => {
 			expect(decision).toEqual({ type: "success", value: { type: "not-needed" } });
 
 			const outcome = await runPostLandingSlotCleanup({
+				hasSlotsExtension: true,
 				landContext: context,
 				ctx: fixture.ctx,
 				args,
@@ -354,6 +411,7 @@ describe("post-landing slot cleanup defaults", () => {
 
 describe("core post-landing cleanup", () => {
 	const cleanup: PostLandingCleanupRequest = {
+		hasSlotsExtension: true,
 		mode: "execute",
 		policy: "free-slot",
 	};

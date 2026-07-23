@@ -12,7 +12,12 @@ import {
 	type PostLandingSlotCleanupDecision,
 	type PostLandingSlotCleanupPreview,
 } from "./execution/post-landing-cleanup.ts";
-import { notifyPrintAware, presentFailureAndReturn, setStatus } from "./land-presentation.ts";
+import {
+	formatSlotsExtensionNotInstalledCleanupNotice,
+	notifyPrintAware,
+	presentFailureAndReturn,
+	setStatus,
+} from "./land-presentation.ts";
 import { landCompleted, landOutcomeFailure, type LandOutcome } from "./results.ts";
 import type { PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/types.ts";
 import type { LandContext, LandingCleanupPolicy, LandingShape } from "./types.ts";
@@ -33,19 +38,22 @@ export function landingCleanupPolicyFromArgs(
 
 export function postLandingCleanupRequestFromArgs(
 	args: Pick<ParsedArgs, "isDryRun" | "shouldPreserveSlot" | "shouldForceCleanup">,
+	hasSlotsExtension: boolean,
 ): PostLandingCleanupRequest {
 	return {
 		mode: args.isDryRun ? "dry-run" : "execute",
 		policy: landingCleanupPolicyFromArgs(args),
+		hasSlotsExtension,
 	};
 }
 
 export function planPostLandingSlotCleanup(options: {
 	readonly args: ParsedArgs;
 	readonly shape: LandingShape;
+	readonly hasSlotsExtension: boolean;
 }): PostLandingSlotCleanupPreview | undefined {
 	return planManagedSlotPostLandingCleanup({
-		cleanup: postLandingCleanupRequestFromArgs(options.args),
+		cleanup: postLandingCleanupRequestFromArgs(options.args, options.hasSlotsExtension),
 		shape: options.shape,
 	});
 }
@@ -56,6 +64,7 @@ interface RunPostLandingSlotCleanupOptions {
 	readonly args: ParsedArgs;
 	readonly shape: LandingShape;
 	readonly cleanupDecision: PostLandingSlotCleanupDecision;
+	readonly hasSlotsExtension: boolean;
 }
 
 /** Single-branch fast-path glue: run cleanup after landing outside canonical stack execution. */
@@ -65,7 +74,7 @@ export async function runPostLandingSlotCleanup(
 	const result = await runManagedSlotPostLandingCleanup({
 		landContext: options.landContext,
 		progress: createCleanupProgress(options.ctx),
-		cleanup: postLandingCleanupRequestFromArgs(options.args),
+		cleanup: postLandingCleanupRequestFromArgs(options.args, options.hasSlotsExtension),
 		shape: options.shape,
 		cleanupDecision: options.cleanupDecision,
 	});
@@ -73,10 +82,15 @@ export async function runPostLandingSlotCleanup(
 		presentFailureAndReturn(options.ctx, result.failure);
 		return landOutcomeFailure(result.failure);
 	}
-	if (result.successMessage !== undefined) {
+	const message =
+		result.successMessage ??
+		(result.outcome.type === "slots-extension-not-installed"
+			? formatSlotsExtensionNotInstalledCleanupNotice(result.outcome)
+			: undefined);
+	if (message !== undefined) {
 		notifyPrintAware({
 			ctx: options.ctx,
-			message: result.successMessage,
+			message,
 			level: "success",
 			kind: "success",
 		});

@@ -1,4 +1,6 @@
+import { detectWorktreeConflicts } from "../preflight.ts";
 import { landingCancelledBeforeMergeFailure, landingExecutionFailure } from "../results.ts";
+import { managedSlotConflictWithoutSlotsExtensionFailure } from "./pre-merge.ts";
 import type {
 	LandContext,
 	LandingFailure,
@@ -45,7 +47,13 @@ export type SingleBranchLandingOutcome =
 	  }
 	| {
 			readonly type: "failure";
-			readonly stage: "load" | "base-check" | "confirmation" | "merge" | "verification";
+			readonly stage:
+				| "load"
+				| "base-check"
+				| "worktree-safety"
+				| "confirmation"
+				| "merge"
+				| "verification";
 			readonly failure: LandingFailure;
 			readonly cleanupDecision: PostLandingSlotCleanupDecision;
 	  };
@@ -96,6 +104,34 @@ export async function executeSingleBranchLanding(
 			pullRequest,
 			cleanupDecision: noCleanup,
 		};
+	}
+
+	if (!options.cleanup.hasSlotsExtension) {
+		const conflicts = await detectWorktreeConflicts({
+			context: options.context,
+			repoRoot: options.target.repoRoot,
+			currentBranch: options.target.stack.actualCurrentBranch,
+			relevantBranches: options.target.stack.landingBranches,
+		});
+		if (conflicts.type === "failure") {
+			return {
+				type: "failure",
+				stage: "worktree-safety",
+				failure: conflicts.failure,
+				cleanupDecision: noCleanup,
+			};
+		}
+		const managedSlotConflicts = conflicts.value.filter(
+			(conflict) => conflict.type === "managed-slot",
+		);
+		if (managedSlotConflicts.length > 0) {
+			return {
+				type: "failure",
+				stage: "worktree-safety",
+				failure: managedSlotConflictWithoutSlotsExtensionFailure(managedSlotConflicts),
+				cleanupDecision: noCleanup,
+			};
+		}
 	}
 
 	const cleanupPreview = planManagedSlotPostLandingCleanup({

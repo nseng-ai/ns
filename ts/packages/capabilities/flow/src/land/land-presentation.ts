@@ -234,6 +234,15 @@ function formatUsageOptionRow(row: { aliases: readonly string[]; description: st
 	return `  ${row.aliases.join(", ").padEnd(15, " ")} ${row.description}`;
 }
 
+export function formatSlotsExtensionNotInstalledCleanupNotice(
+	outcome: Extract<
+		PostLandingSlotCleanupReport,
+		{ readonly type: "slots-extension-not-installed" }
+	>,
+): string {
+	return `Landing completed. Managed-worktree cleanup was not run because @nseng-ai/slots is not installed; worktree ${outcome.worktreePath} and local branch ${outcome.branch} were kept.`;
+}
+
 export function formatSuccessSummary(
 	landed: LandedPullRequest[],
 	descendantMaintenance: DescendantMaintenancePlan,

@@ -12,14 +12,15 @@
   - Flow production source and its manifest/lockfile importer no longer depend on `@nseng-ai/slots`.
   - Evidence: focused fake-driven gateway, autoslot scenario, Slots JSON checkout, SDK catalog, and ns/Pi present/absent registration tests; full `just` passed on the implementing branch.
   - Follow-up PR #3830 tightens the command-boundary protocol: Slots emits only legal flat directive-field combinations, Flow rejects malformed combinations, and non-human `slot foreach` invocations deterministically require `--yes`.
-- [ ] Make land degrade explicitly when Slots is absent.
-  - Resolve `hasExtension("@nseng-ai/slots")` once at the land command boundary and pass the boolean into land composition; do not cache across invocations or infer it from paths.
-  - Preserve canonical managed-Slot path detection. Repositories with no matching worktrees take the ordinary path regardless of Slots presence.
-  - Before merge, a stale managed-Slot conflict with Slots absent blocks before PR mutation and gives actionable manual-detach guidance naming `@nseng-ai/slots`.
-  - After a successful landing, absent Slots turns optional managed-Slot cleanup into an explicit skipped outcome and never blocks the landing.
-  - Evidence: fake-driven present/absent/stale-path scenarios plus focused presentation and command-boundary tests.
+- [x] Make land treat Slots cleanup as an optional enhancement.
+  - `hasExtension("@nseng-ai/slots")` is resolved once at the land command boundary and passed explicitly through land composition; it is not cached across invocations or inferred from paths.
+  - Canonical managed-Slot path detection remains independent. Repositories with no matching worktrees take the ordinary path regardless of Slots presence.
+  - Before merge, a managed-worktree conflict with Slots absent blocks before confirmation or PR/Graphite/ref mutation and gives tool-neutral detach/remove guidance without suggesting installation.
+  - After a successful landing, unavailable optional managed-worktree cleanup records `slots-extension-not-installed`, keeps the worktree and local branch, and never blocks the landing; preserve and dry-run precedence remain unchanged.
+  - No-PR/trunk managed-path execution remains the existing successful nothing-to-do outcome when Slots is absent.
+  - Evidence: fake-driven present/absent/conflict, cleanup policy, stack completion, and single-branch tests; the full Flow package default suite passes.
 - [ ] Align user-facing and code-adjacent contracts, then record delivery evidence.
-  - Update the Flow README requirements, command matrix, `autoslot` integration text, and land cleanup/degraded-mode explanation to call Slots optional.
+  - Update the Flow README requirements, command matrix, `autoslot` integration text, and optional land-cleanup explanation to call Slots optional.
   - Recheck package manifest, ns/Pi registration, README/CONTEXT where needed, and tests for one consistent relationship.
   - Record targeted and repository validation plus material PR evidence for `slots-consumer-dependency-contracts` synthesis.
 

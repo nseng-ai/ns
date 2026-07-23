@@ -744,6 +744,7 @@ describe("land-stack command scenarios", () => {
 		};
 
 		const exitCode = await runLandCli({
+			hasSlotsExtension: true,
 			cwd: ROOT,
 			rawArgs: "",
 			exec: async (command, args, options) => await pi.exec(command, args, options),

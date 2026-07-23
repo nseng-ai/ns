@@ -40,7 +40,11 @@ import {
 	type PostLandingCleanupRequest,
 	type PostLandingSlotCleanupDecision,
 } from "./post-landing-cleanup.ts";
-import { confirmAndFreeManagedSlots, submitRequiredUpdatesAndRecheckPlan } from "./pre-merge.ts";
+import {
+	confirmAndFreeManagedSlots,
+	managedSlotConflictWithoutSlotsExtensionFailure,
+	submitRequiredUpdatesAndRecheckPlan,
+} from "./pre-merge.ts";
 
 export interface LandStackExecutionHost {
 	readonly confirmation: LandConfirmationGateway;
@@ -56,6 +60,7 @@ export interface ExecuteLandingRequestOptions {
 	readonly request: LandingRequest;
 	readonly host: LandStackExecutionHost;
 	readonly source: LandingExecutionSource;
+	readonly hasSlotsExtension: boolean;
 }
 
 const CLEANUP_NOT_RUN: PostLandingSlotCleanupReport = {
@@ -135,6 +140,7 @@ export async function executeLandingRequest(
 	const cleanupRequest: PostLandingCleanupRequest = {
 		mode: request.mode,
 		policy: request.cleanup,
+		hasSlotsExtension: options.hasSlotsExtension,
 	};
 
 	if (
@@ -177,6 +183,14 @@ export async function executeLandingRequest(
 		draft.phases.push(completed("dry-run"));
 		draft.postLandingSlotCleanup = postLandingCleanupSkipReport(cleanupRequest, shape);
 		return completedResult(draft);
+	}
+
+	if (plan.value.managedSlotConflicts.length > 0 && !options.hasSlotsExtension) {
+		return failedResult(
+			draft,
+			"submit-preparation",
+			managedSlotConflictWithoutSlotsExtensionFailure(plan.value.managedSlotConflicts),
+		);
 	}
 
 	const cleanupPreview = planManagedSlotPostLandingCleanup({ cleanup: cleanupRequest, shape });
@@ -390,6 +404,11 @@ function postLandingCleanupPhase(outcome: PostLandingSlotCleanupReport): Landing
 			);
 		case "dry-run":
 			return skipped("post-landing-cleanup", "dry run performs no cleanup mutation");
+		case "slots-extension-not-installed":
+			return skipped(
+				"post-landing-cleanup",
+				"optional managed-worktree cleanup is unavailable because @nseng-ai/slots is not installed",
+			);
 		case "not-run":
 			return skipped("post-landing-cleanup", outcome.reason);
 		case "declined":

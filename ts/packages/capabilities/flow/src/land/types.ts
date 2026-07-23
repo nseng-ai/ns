@@ -189,6 +189,12 @@ export type PostLandingSlotCleanupReport =
 	| { readonly type: "not-applicable" }
 	| { readonly type: "preserved" }
 	| { readonly type: "dry-run" }
+	| {
+			readonly type: "slots-extension-not-installed";
+			readonly slotName: string;
+			readonly branch: string;
+			readonly worktreePath: string;
+	  }
 	| { readonly type: "not-run"; readonly reason: string }
 	| { readonly type: "declined"; readonly slotName: string; readonly branch: string }
 	| {

@@ -261,7 +261,7 @@ async function runLandStack(
 	registerLandStackRenderer(pi);
 	const context = createContext(contextOptions);
 	const parsedArgs = expectSuccess(parseArgs(args));
-	await executeStackLanding(pi, context.ctx, parsedArgs);
+	await executeStackLanding(pi, context.ctx, parsedArgs, { hasSlotsExtension: true });
 	return { pi, messages: pi.messages, ...context };
 }
 

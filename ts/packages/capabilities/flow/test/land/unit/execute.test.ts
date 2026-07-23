@@ -41,6 +41,7 @@ describe("land execute mode over in-memory gateways", () => {
 	test("lands a linear stack and mirrors the semantic sequence of the permanent single-PR transcript", async () => {
 		const memory = createInMemoryLandContext(linearState());
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest(),
@@ -134,6 +135,7 @@ describe("land execute mode over in-memory gateways", () => {
 	test("records supplied shape observation without claiming repository discovery", async () => {
 		const memory = createInMemoryLandContext(linearState());
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "prepared", shape: stackLandingShape() },
 			request: executeRequest(),
@@ -151,6 +153,7 @@ describe("land execute mode over in-memory gateways", () => {
 	test("refuses safely with the default host before merge mutation", async () => {
 		const memory = createInMemoryLandContext(linearState());
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest(),
@@ -186,6 +189,7 @@ describe("land execute mode over in-memory gateways", () => {
 		const memory = createInMemoryLandContext(linearState());
 		const confirmation = decidingConfirmation({ "main-landing": { type: "declined" } });
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest(),
@@ -237,6 +241,7 @@ describe("land execute mode over in-memory gateways", () => {
 		);
 		const confirmation = approvingConfirmation();
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest(),
@@ -271,6 +276,7 @@ describe("land execute mode over in-memory gateways", () => {
 		);
 		const confirmation = approvingConfirmation();
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest(),
@@ -296,6 +302,45 @@ describe("land execute mode over in-memory gateways", () => {
 			"free-managed-slots",
 		]);
 		expect(memory.worktrees.freeSlotsCalls).toHaveLength(1);
+	});
+
+	test("refuses a managed checkout conflict without Slots before cleanup confirmation or mutation", async () => {
+		const slot = { path: "/slots/slot-03", branch: BRANCH };
+		const memory = createInMemoryLandContext(
+			linearState({
+				worktrees: {
+					worktrees: [slot],
+					classifications: { [slot.path]: { type: "managed-slot", slotName: "slot-03" } },
+				},
+			}),
+		);
+		const confirmation = approvingConfirmation();
+		const outcome = await executeLanding({
+			hasSlotsExtension: false,
+			context: memory.context,
+			source: { type: "discover" },
+			request: executeRequest(),
+			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
+		});
+
+		expect(outcome).toMatchObject({
+			type: "failed",
+			failedPhase: "submit-preparation",
+			failure: {
+				outcome: "refusal",
+				message: expect.stringContaining("Landing branches are checked out in other worktrees"),
+				suggestedAction: expect.stringContaining("Detach or remove the blocking worktrees"),
+			},
+		});
+		expect(confirmation.requests).toEqual([]);
+		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
+		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
+		expect(memory.graphite.prepareSubmitUpdateCalls).toEqual([]);
+		expect(memory.git.snapshotBackupRefsCalls).toEqual([]);
+		if (outcome.type === "failed") {
+			expect(outcome.failure.message).not.toContain("install");
+			expect(outcome.failure.message).not.toContain("ns slot");
+		}
 	});
 
 	test("preserves rich slot-free boundary diagnostics through the pre-merge failure", async () => {
@@ -325,6 +370,7 @@ describe("land execute mode over in-memory gateways", () => {
 			}),
 		);
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest(),
@@ -387,6 +433,7 @@ describe("land execute mode over in-memory gateways", () => {
 			}),
 		);
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest(),
@@ -433,6 +480,7 @@ describe("land execute mode over in-memory gateways", () => {
 			}),
 		);
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest(),
@@ -483,6 +531,7 @@ describe("land execute mode over in-memory gateways", () => {
 			}),
 		);
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest(),
@@ -508,6 +557,7 @@ describe("land execute mode over in-memory gateways", () => {
 			}),
 		);
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest(),
@@ -560,6 +610,7 @@ describe("land execute mode over in-memory gateways", () => {
 			},
 		});
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest(),
@@ -585,6 +636,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const memory = createInMemoryLandContext(managedSlotState());
 		const confirmation = approvingConfirmation();
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
@@ -622,6 +674,41 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		expect(memory.worktrees.freeSlotsCalls).toHaveLength(1);
 	});
 
+	test.each<LandingCleanupPolicy>(["free-slot", "force-cleanup"])(
+		"lands successfully with %s when optional Slots cleanup is unavailable",
+		async (cleanup) => {
+			const memory = createInMemoryLandContext(managedSlotState());
+			const confirmation = approvingConfirmation();
+			const outcome = await executeLanding({
+				hasSlotsExtension: false,
+				context: memory.context,
+				source: { type: "discover" },
+				request: executeRequest({ cwd: SLOT_ROOT, cleanup }),
+				host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
+			});
+
+			expect(outcome).toMatchObject({
+				type: "completed",
+				report: {
+					cleanup: {
+						postLandingSlotCleanup: {
+							type: "slots-extension-not-installed",
+							slotName: "slot-02",
+							branch: BRANCH,
+							worktreePath: SLOT_ROOT,
+						},
+					},
+				},
+			});
+			expect(confirmation.requests.map((request) => request.kind)).toEqual(["main-landing"]);
+			expect(memory.worktrees.freeSlotsCalls).toEqual([]);
+			expect(memory.github.squashMergePullRequestCalls).toHaveLength(1);
+			expect(memory.graphite.deleteLocalBranchCalls).toEqual([
+				{ repoRoot: SLOT_ROOT, branch: BRANCH, checkedOutConflictHandling: "retain" },
+			]);
+		},
+	);
+
 	test("combined landing and cleanup refusal stops before any mutation", async () => {
 		const memory = createInMemoryLandContext(managedSlotState());
 		const confirmation = decidingConfirmation({
@@ -637,6 +724,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			},
 		});
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
@@ -669,6 +757,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const memory = createInMemoryLandContext(managedSlotState());
 		const confirmation = approvingConfirmation();
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "preserve" }),
@@ -691,6 +780,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const memory = createInMemoryLandContext(managedSlotState());
 		const confirmation = approvingConfirmation();
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "force-cleanup" }),
@@ -715,6 +805,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			"main-landing": { type: "approved", approvalSource: "approved-upfront" },
 		});
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
@@ -743,6 +834,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			const memory = createInMemoryLandContext(managedSlotState());
 			const confirmation = approvingConfirmation();
 			const outcome = await executeLanding({
+				hasSlotsExtension: true,
 				context: memory.context,
 				source: { type: "discover" },
 				request: executeRequest({ cwd: SLOT_ROOT, mode: "dry-run", cleanup: policy }),
@@ -771,6 +863,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			"main-landing": { type: "declined" },
 		});
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
@@ -815,6 +908,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			}),
 		);
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "force-cleanup" }),
@@ -858,6 +952,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			}),
 		);
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "force-cleanup" }),
@@ -884,6 +979,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 	test("rejects a prepared stack shape for a single-branch target before discovery", async () => {
 		const memory = createInMemoryLandContext();
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "prepared", shape: stackLandingShape() },
 			request: {
@@ -904,6 +1000,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 	test("rejects a prepared shape that cannot represent the requested branch scope", async () => {
 		const memory = createInMemoryLandContext();
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "prepared", shape: stackLandingShape() },
 			request: { ...executeRequest(), target: { type: "stack", landingBranchLimit: 2 } },
@@ -936,6 +1033,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		});
 		const confirmation = approvingConfirmation();
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
@@ -993,6 +1091,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			},
 		});
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
@@ -1034,6 +1133,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			},
 		});
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
@@ -1054,6 +1154,42 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		});
 		expect(memory.worktrees.freeSlotsCalls).toHaveLength(1);
 		expect(memory.graphite.deleteLocalBranchCalls).toHaveLength(1);
+		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
+	});
+
+	test("managed trunk checkout without Slots remains an informational nothing-to-land outcome", async () => {
+		const memory = createInMemoryLandContext({
+			git: {
+				repoRoot: SLOT_ROOT,
+				currentBranch: "main",
+				localBranches: [{ name: "main", sha: SHA }],
+			},
+			graphite: {
+				stackShape: stackSnapshot({
+					trunk: "main",
+					current: "main",
+					actualCurrentBranch: "main",
+					landingTargetBranch: "main",
+					landingBranches: [],
+				}),
+			},
+		});
+		const confirmation = approvingConfirmation();
+		const outcome = await executeLanding({
+			hasSlotsExtension: false,
+			context: memory.context,
+			source: { type: "discover" },
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
+			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
+		});
+
+		expect(outcome).toMatchObject({
+			type: "completed",
+			report: { completionDisposition: { type: "nothing-to-land", currentBranch: "main" } },
+		});
+		expect(confirmation.requests).toEqual([]);
+		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
+		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
 	});
 
@@ -1080,6 +1216,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		});
 		const confirmation = approvingConfirmation();
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context: memory.context,
 			source: { type: "discover" },
 			request: executeRequest({

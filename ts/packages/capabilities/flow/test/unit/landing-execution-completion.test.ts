@@ -87,6 +87,7 @@ describe("Flow presentation of canonical completion dispositions", () => {
 			runtime: { landContext: memory.context },
 			parsedArgs: args({ shouldPreserveSlot: true }),
 			execution: {
+				hasSlotsExtension: true,
 				source: { type: "prepared", shape: trunkShape(ROOT) },
 				approvedConfirmationKinds: new Set(),
 			},
@@ -122,6 +123,7 @@ describe("Flow presentation of canonical completion dispositions", () => {
 			runtime: { landContext: memory.context },
 			parsedArgs: args({ shouldForceCleanup: true }),
 			execution: {
+				hasSlotsExtension: true,
 				source: { type: "prepared", shape: trunkShape(SLOT_ROOT) },
 				approvedConfirmationKinds: new Set(),
 			},
@@ -169,6 +171,7 @@ describe("Flow presentation of canonical completion dispositions", () => {
 			runtime: { landContext: memory.context },
 			parsedArgs: args({ shouldForceCleanup: true }),
 			execution: {
+				hasSlotsExtension: true,
 				source: { type: "prepared", shape },
 				approvedConfirmationKinds: new Set(["main-landing"]),
 			},

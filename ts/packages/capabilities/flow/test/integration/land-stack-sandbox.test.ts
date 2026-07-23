@@ -392,7 +392,9 @@ async function executeSandboxLanding(sandbox: Sandbox): Promise<{
 			});
 		},
 	};
-	const outcome = await executeStackLanding(pi, ctx, parsed.value);
+	const outcome = await executeStackLanding(pi, ctx, parsed.value, {
+		hasSlotsExtension: true,
+	});
 	return { outcome, notifications };
 }
 

@@ -60,6 +60,7 @@ export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 		// edge so the settled land result blocks render in the house style; the shared Pi command-stream
 		// path is never given caps and stays ANSI-free.
 		const caps = resolveFlowStreamCaps(ctx);
+		const hasSlotsExtension = ctx.hasExtension("@nseng-ai/slots");
 		const telemetry = createFlowLandTelemetryRun({ env: ctx.env, clock: systemClock });
 		let telemetryFinish: FlowLandTelemetryRunFinish | undefined;
 		const rawArgs = landRawArgsFromCommandRequest(request);
@@ -82,6 +83,7 @@ export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 					await runLandCli({
 						cwd: ctx.cwd,
 						rawArgs: rawArgs.join(" "),
+						hasSlotsExtension,
 						exec: io.exec,
 						stdout: io.stdout,
 						stderr: io.stderr,

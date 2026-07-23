@@ -46,6 +46,7 @@ export type { LandStackExtensionAPI } from "./stack/types.ts";
 
 export interface ExecuteStackLandingOptions {
 	io?: NsCommandIo;
+	readonly hasSlotsExtension: boolean;
 	execution?: FlowLandingExecutionInput;
 	liveProgress?: LandLiveProgressSink;
 	graphite?: LandGraphiteCommandChannel;
@@ -72,7 +73,7 @@ export async function executeStackLanding(
 	pi: LandStackExtensionAPI,
 	ctx: LandStackCommandContext,
 	parsedArgs: ParsedArgs,
-	options: ExecuteStackLandingOptions = {},
+	options: ExecuteStackLandingOptions,
 ): Promise<LandOutcome> {
 	const observabilityChannels = executeStackLandingObservabilityChannels(options);
 	const io = observabilityChannels.progressIo ?? createLandUiCommandIo(pi, ctx);
@@ -107,6 +108,7 @@ export async function executeStackLanding(
 			execution: options.execution ?? {
 				source: { type: "discover" },
 				approvedConfirmationKinds: approvedLandConfirmationKinds({ flags: parsedArgs }),
+				hasSlotsExtension: options.hasSlotsExtension,
 			},
 			session,
 		});

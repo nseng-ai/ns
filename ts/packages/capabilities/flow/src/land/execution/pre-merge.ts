@@ -47,6 +47,23 @@ export interface PreMergeExecutionHost {
 	readonly progress: LandExecutionProgress;
 }
 
+export function managedSlotConflictWithoutSlotsExtensionFailure(
+	conflicts: readonly WorktreeConflict[],
+): LandingFailure {
+	return landingExecutionFailure(
+		[
+			"Landing branches are checked out in other worktrees.",
+			...conflicts.map((conflict) => `- ${formatConflict(conflict)}`),
+			"No PRs were landed.",
+		].join("\n"),
+		{
+			outcome: "refusal",
+			suggestedAction:
+				"Detach or remove the blocking worktrees using your worktree workflow, then rerun /ns:flow:land.",
+		},
+	);
+}
+
 export async function confirmAndFreeManagedSlots(options: {
 	readonly context: LandContext;
 	readonly host: PreMergeExecutionHost;

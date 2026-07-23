@@ -33,6 +33,7 @@ export type PostLandingSlotCleanupDecision =
 export interface PostLandingCleanupRequest {
 	readonly mode: LandingMode;
 	readonly policy: LandingCleanupPolicy;
+	readonly hasSlotsExtension: boolean;
 }
 
 export type PostLandingCleanupResult =
@@ -76,6 +77,16 @@ export function postLandingCleanupSkipReport(
 	}
 	if (cleanup.mode === "dry-run") return { type: "dry-run" };
 	if (cleanup.policy === "preserve") return { type: "preserved" };
+	if (!cleanup.hasSlotsExtension) {
+		const slotName = slotNameFromPath(shape.repoRoot);
+		if (slotName === undefined) return { type: "not-applicable" };
+		return {
+			type: "slots-extension-not-installed",
+			slotName,
+			branch: shape.stack.actualCurrentBranch,
+			worktreePath: shape.repoRoot,
+		};
+	}
 	return { type: "not-applicable" };
 }
 
@@ -88,7 +99,9 @@ export async function resolveManagedSlotPostLandingCleanupDecision(options: {
 	| { readonly type: "failure"; readonly failure: LandingFailure }
 > {
 	const target = postLandingCleanupTarget(options.cleanup, options.shape);
-	if (target === undefined) return { type: "success", value: { type: "not-needed" } };
+	if (target === undefined || !options.cleanup.hasSlotsExtension) {
+		return { type: "success", value: { type: "not-needed" } };
+	}
 	if (options.cleanup.policy === "force-cleanup") {
 		return { type: "success", value: { type: "approved" } };
 	}
@@ -113,7 +126,11 @@ export async function runManagedSlotPostLandingCleanup(options: {
 	readonly cleanupDecision: PostLandingSlotCleanupDecision;
 }): Promise<PostLandingCleanupResult> {
 	const target = postLandingCleanupTarget(options.cleanup, options.shape);
-	if (options.cleanupDecision.type === "not-needed" || target === undefined) {
+	if (
+		options.cleanupDecision.type === "not-needed" ||
+		target === undefined ||
+		!options.cleanup.hasSlotsExtension
+	) {
 		return {
 			type: "completed",
 			outcome: postLandingCleanupSkipReport(options.cleanup, options.shape),
@@ -215,7 +232,9 @@ function postLandingCleanupTarget(
 	cleanup: PostLandingCleanupRequest,
 	shape: LandingShape,
 ): PostLandingSlotCleanupTarget | undefined {
-	if (cleanup.policy === "preserve" || cleanup.mode === "dry-run") return undefined;
+	if (cleanup.policy === "preserve" || cleanup.mode === "dry-run" || !cleanup.hasSlotsExtension) {
+		return undefined;
+	}
 
 	const slotName = isManagedSlotPath(shape.repoRoot) ? slotNameFromPath(shape.repoRoot) : undefined;
 	if (slotName === undefined) return undefined;

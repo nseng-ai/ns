@@ -72,7 +72,8 @@ export function registerLandCommand(pi: LandExtensionAPI, commands: CommandExecA
 		description: "Land the current PR or Graphite stack into trunk",
 		getArgumentCompletions: landArgumentCompletions,
 		handler: async (rawArgs, ctx) => {
-			await runLandCommand(commands, rawArgs, ctx);
+			// This legacy Pi composition is registered only when Flow's Slots-backed surface is present.
+			await runLandCommand(commands, rawArgs, ctx, { hasSlotsExtension: true });
 		},
 	});
 }
@@ -83,13 +84,15 @@ export type LandCliConfirmPrompt = (
 	options?: NsConfirmOptions,
 ) => Promise<boolean> | boolean;
 
-type RunLandCommandOptions = FlowLandObservabilityChannels;
+type RunLandCommandOptions = FlowLandObservabilityChannels & {
+	readonly hasSlotsExtension: boolean;
+};
 
 async function runLandCommand(
 	pi: LandStackExtensionAPI,
 	rawArgs: string,
 	ctx: LandCommandContext,
-	options: RunLandCommandOptions = {},
+	options: RunLandCommandOptions,
 ): Promise<LandOutcome> {
 	const progressIo = options.progressIo;
 	const args = parseArgs(rawArgs);
@@ -115,6 +118,7 @@ async function runLandCommand(
 		ctx,
 		parsedArgs: args.value,
 		observabilityChannels: options,
+		hasSlotsExtension: options.hasSlotsExtension,
 	});
 }
 
@@ -129,6 +133,7 @@ async function runLandCommand(
 export interface LandCliInput {
 	cwd: string;
 	rawArgs: string;
+	hasSlotsExtension: boolean;
 	exec(
 		command: string,
 		args: string[],
@@ -193,7 +198,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 						caps === undefined ? undefined : createCliResultBlockRenderer(caps),
 					),
 				},
-				observabilityChannels,
+				{ ...observabilityChannels, hasSlotsExtension: input.hasSlotsExtension },
 			),
 	);
 	return outcome.type === "failure" && failureLevel(outcome.failure) === "error" ? 1 : 0;

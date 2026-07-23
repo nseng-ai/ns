@@ -5,6 +5,7 @@ import {
 	buildLandFailurePresentation,
 	formatPlan,
 	formatPostLandingCleanupSuccessNotice,
+	formatSlotsExtensionNotInstalledCleanupNotice,
 	formatSuccessSummary,
 	notifyPrintAware,
 	presentBrief,
@@ -57,6 +58,7 @@ export interface LandingSession {
 export interface FlowLandingExecutionInput {
 	readonly source: LandingExecutionSource;
 	readonly approvedConfirmationKinds: ReadonlySet<LandConfirmationRequest["kind"]>;
+	readonly hasSlotsExtension: boolean;
 }
 
 export interface RunFlowStackLandingOptions {
@@ -90,6 +92,7 @@ export async function runFlowStackLanding(
 			progress: session.progress,
 		},
 		source: execution.source,
+		hasSlotsExtension: execution.hasSlotsExtension,
 	});
 	const report = outcome.report;
 
@@ -129,10 +132,13 @@ function presentCompletedPostLandingCleanup(
 	ctx: LandStackCommandContext,
 	report: PostLandingSlotCleanupReport,
 ): void {
-	if (report.type !== "completed") return;
+	if (report.type !== "completed" && report.type !== "slots-extension-not-installed") return;
 	notifyPrintAware({
 		ctx,
-		message: formatPostLandingCleanupSuccessNotice(report),
+		message:
+			report.type === "completed"
+				? formatPostLandingCleanupSuccessNotice(report)
+				: formatSlotsExtensionNotInstalledCleanupNotice(report),
 		level: "success",
 		kind: "success",
 	});

@@ -176,6 +176,30 @@ describe("single-branch landing core", () => {
 		expect(fakes.github.squashMergePullRequestCalls).toHaveLength(1);
 	});
 
+	test("merges a managed single branch without prompting for unavailable optional cleanup", async () => {
+		const requests: Parameters<LandConfirmationGateway["confirm"]>[0][] = [];
+		const fakes = createInMemoryLandContext({ github: { pullRequests: [openPullRequest()] } });
+		const outcome = await run(fakes.context, {
+			shape: singleBranchShape(MANAGED_ROOT),
+			hasSlotsExtension: false,
+			confirmation: {
+				confirm: async (request) => {
+					requests.push(request);
+					return { type: "approved", approvalSource: "prompted" };
+				},
+			},
+		});
+
+		expect(outcome).toMatchObject({
+			type: "completed",
+			result: "merged",
+			cleanupDecision: { type: "not-needed" },
+		});
+		expect(requests.map((request) => request.kind)).toEqual(["single-branch-main-landing"]);
+		expect(fakes.github.squashMergePullRequestCalls).toHaveLength(1);
+		expect(fakes.worktrees.freeSlotsCalls).toEqual([]);
+	});
+
 	test("preserves every merge boundary failure field", async () => {
 		const mergeFailure: LandingBoundaryFailure = {
 			type: "boundary",
@@ -289,6 +313,7 @@ async function run(
 		readonly isDryRun?: boolean;
 		readonly confirmation?: LandConfirmationGateway;
 		readonly shape?: LandingShape;
+		readonly hasSlotsExtension?: boolean;
 	} = {},
 ): Promise<SingleBranchLandingOutcome> {
 	return await executeSingleBranchLanding({
@@ -297,6 +322,7 @@ async function run(
 		target: overrides.shape ?? singleBranchShape(),
 		isDryRun: overrides.isDryRun ?? false,
 		cleanup: {
+			hasSlotsExtension: overrides.hasSlotsExtension ?? true,
 			mode: (overrides.isDryRun ?? false) ? "dry-run" : "execute",
 			policy: "free-slot",
 		},

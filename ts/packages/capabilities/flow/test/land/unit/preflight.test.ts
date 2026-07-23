@@ -115,6 +115,7 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 		});
 
 		const outcome = await executeLanding({
+			hasSlotsExtension: true,
 			context,
 			source: { type: "discover" },
 			host: {

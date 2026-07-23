@@ -198,7 +198,9 @@ export async function runLandStack(
 		cwd?: string;
 		hasUI?: boolean;
 		confirms?: boolean[];
-		executeOptions?: Parameters<typeof executeStackLanding>[3];
+		executeOptions?: Omit<Parameters<typeof executeStackLanding>[3], "hasSlotsExtension"> & {
+			hasSlotsExtension?: boolean;
+		};
 	} = {},
 ): Promise<{
 	pi: FakePi;
@@ -213,7 +215,10 @@ export async function runLandStack(
 	registerLandStackRenderer(pi);
 	const context = createContext(contextOptions);
 	const parsedArgs = expectSuccess(parseArgs(args));
-	await executeStackLanding(pi, context.ctx, parsedArgs, contextOptions.executeOptions);
+	await executeStackLanding(pi, context.ctx, parsedArgs, {
+		...contextOptions.executeOptions,
+		hasSlotsExtension: contextOptions.executeOptions?.hasSlotsExtension ?? true,
+	});
 	return { pi, messages: pi.messages, ...context };
 }
 

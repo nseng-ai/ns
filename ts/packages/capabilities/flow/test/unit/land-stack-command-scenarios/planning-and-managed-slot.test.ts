@@ -54,6 +54,7 @@ describe("land-stack command scenarios", () => {
 		const pi = new FakePi(script);
 		const confirmations: Confirmation[] = [];
 		const exitCode = await runLandCli({
+			hasSlotsExtension: true,
 			cwd: CURRENT_SLOT_ROOT,
 			rawArgs: "",
 			exec: async (command, args, options) => await pi.exec(command, args, options),
@@ -135,6 +136,7 @@ describe("land-stack command scenarios", () => {
 		);
 		const confirmations: Confirmation[] = [];
 		const exitCode = await runLandCli({
+			hasSlotsExtension: true,
 			cwd: CURRENT_SLOT_ROOT,
 			rawArgs: "",
 			exec: async (command, args, options) => await pi.exec(command, args, options),
@@ -172,6 +174,7 @@ describe("land-stack command scenarios", () => {
 		);
 		const output: string[] = [];
 		const exitCode = await runLandCli({
+			hasSlotsExtension: true,
 			cwd: CURRENT_SLOT_ROOT,
 			rawArgs: "",
 			exec: async (command, args, options) => await pi.exec(command, args, options),
