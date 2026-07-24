@@ -144,6 +144,12 @@ This flag stages the decided cheap-submit engine without changing default
 `ns flow submit`. Moving the default and implementing `ns flow ship` remain open under
 the Prod Submit Objective; no live publication claim is implied by this documentation.
 
+## Ordinary submit PR metadata
+
+Ordinary `ns flow submit` temporarily generates an initial title and ns-managed description for PRs newly created by that invocation. A PR that existed before the invocation has its title and body left untouched, regardless of whether its body is empty or its managed fingerprint is missing, malformed, stale, or unchanged.
+
+Use `ns flow submit --regenerate-descriptions` to force coupled title and managed-description regeneration for every PR in the submitted scope. Use `ns flow regenerate-pr` for the focused, confirmed current-branch operation. This initial new-PR metadata behavior is interim; the Prod Submit Objective still moves all prose work out of cheap submit and into future `ship`.
+
 ## Pre-submit checks
 
 Before ordinary `ns flow submit` checkpoints and submits the stack, it runs the repository's
