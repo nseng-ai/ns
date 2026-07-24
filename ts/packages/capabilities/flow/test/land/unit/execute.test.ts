@@ -88,7 +88,7 @@ describe("land execute mode over in-memory gateways", () => {
 			},
 		});
 		expect(memory.git.resolveRepoRootCalls).toEqual([{ cwd: ROOT }]);
-		// Cross-check: `land-stack-command-scenarios.test.ts`, scenario
+		// Cross-check: `land-stack-command-scenarios/`, scenario
 		// "renders final landed PR numbers as terminal hyperlinks". This compares semantic gateway
 		// requests in order; the permanent transcript remains the raw command-shape authority.
 		expect(memory.callEvents).toEqual([
