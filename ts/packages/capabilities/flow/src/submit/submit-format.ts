@@ -7,6 +7,10 @@ import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 
 import type { SubmitPrLink } from "./gt-output.ts";
 import type { SubmitPrDescriptionSummary } from "./submit-pr-description-summary.ts";
+import type {
+	SubmitPrReconciliationFailure,
+	SubmitPrReconciliationFailureDisposition,
+} from "./submit-pr-reconciliation.ts";
 import {
 	formatCurrentPrVerificationFailureCause,
 	formatSubmitSemanticFailureCause,
@@ -51,6 +55,40 @@ export function formatSubmitSuccessText(
 		}
 	}
 	return lines.join("\n");
+}
+
+export function formatSubmitInventoryFailureOutput(failure: SubmitPrReconciliationFailure): string {
+	const knownPrs = failure.resolvedPrs.map((pr) => ({ label: pr.label, url: pr.url }));
+	return [
+		"PRs were submitted, but Flow could not establish an authoritative PR identity for every planned branch. No PR metadata was edited.",
+		"",
+		"Unresolved branches:",
+		...failure.dispositions.map(formatSubmitInventoryFailureDisposition),
+		...(knownPrs.length === 0
+			? []
+			: ["", "Submitted PRs identified:", ...knownPrs.map((pr) => `• ${formatPrLinkText(pr)}`)]),
+		"",
+		"Repair the GitHub PR/head-branch association, then rerun `ns flow submit`.",
+		"The retry will leave PRs that now exist untouched; checkout any branch whose initial metadata was skipped and run `ns flow regenerate-pr`.",
+	].join("\n");
+}
+
+function formatSubmitInventoryFailureDisposition(
+	disposition: SubmitPrReconciliationFailureDisposition,
+): string {
+	switch (disposition.kind) {
+		case "missing":
+			return `• ${disposition.branch}: no open PR found`;
+		case "ambiguous":
+			return `• ${disposition.branch}: multiple open PRs found (${disposition.candidates.map((pr) => formatPrLinkText(pr)).join(", ")})`;
+		case "query-failed":
+		case "malformed":
+			return `• ${disposition.branch}: ${disposition.diagnostic.message}`;
+		case "existing-pr-changed":
+			return `• ${disposition.branch}: pre-existing ${formatPrLinkText(disposition.expected)} changed to ${formatPrLinkText(disposition.actual)}`;
+		case "duplicate-pr":
+			return `• ${disposition.branch}: ${formatPrLinkText(disposition.pr)} also resolves branch ${disposition.otherBranch}`;
+	}
 }
 
 export function formatSubmitSuccessFallbackText(stdout: string, stderr: string): string {

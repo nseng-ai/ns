@@ -15,23 +15,6 @@ export function mergePrLinks(
 	return links;
 }
 
-export function partitionPrLinksByExisting(
-	links: readonly SubmitPrLink[],
-	existingLinks: readonly SubmitPrLink[],
-): { newPrLinks: SubmitPrLink[]; existingPrLinks: SubmitPrLink[] } {
-	const existingKeys = new Set(existingLinks.map(prLinkIdentityKey));
-	const newPrLinks: SubmitPrLink[] = [];
-	const matchedExistingPrLinks: SubmitPrLink[] = [];
-	for (const link of links) {
-		if (existingKeys.has(prLinkIdentityKey(link))) {
-			matchedExistingPrLinks.push(link);
-		} else {
-			newPrLinks.push(link);
-		}
-	}
-	return { newPrLinks, existingPrLinks: matchedExistingPrLinks };
-}
-
 export function formatPrLinkText(link: SubmitPrLink): string {
 	if (link.label === link.url) return link.url;
 	return `${link.label} ${link.url}`;

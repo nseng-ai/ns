@@ -13,11 +13,12 @@ import {
 	type PreparedPrMetadataReplacement,
 } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
+import type { ReconciledSubmitPr } from "./submit-pr-reconciliation.ts";
 import type {
 	SubmitPrDescriptionPreview,
 	SubmitPrDescriptionSummary,
 } from "./submit-pr-description-summary.ts";
-import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
+import { formatPrLinkTextRow } from "./submit-pr-link.ts";
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
 import { formatBatchPosition } from "./submit-format.ts";
 import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
@@ -49,13 +50,13 @@ export interface SubmitPrDescriptionProgressEvent {
 export async function generateSubmitPrDescriptions(input: {
 	cwd: string;
 	prDescription: SubmitPrDescriptionOptions;
-	prLinks: readonly SubmitPrLink[];
+	targets: readonly ReconciledSubmitPr[];
 	progress?: SubmitProgressListeners<SubmitPrDescriptionProgressEvent>;
 }): Promise<SubmitPrDescriptionGenerationResult> {
-	const selected = input.prLinks
-		.map((link) => ({ link, number: prNumberFromLink(link) }))
-		.filter((item): item is { link: SubmitPrLink; number: number } => item.number !== undefined)
-		.sort((left, right) => left.link.url.localeCompare(right.link.url));
+	const selected = input.targets.map((target) => ({
+		link: { label: target.label, url: target.url },
+		number: target.number,
+	}));
 	if (selected.length === 0) {
 		input.progress?.onProgress?.("no PRs selected for metadata replacement");
 		return { ok: true, applied: [], previews: [] };

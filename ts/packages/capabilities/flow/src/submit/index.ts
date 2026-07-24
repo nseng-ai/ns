@@ -82,6 +82,9 @@ export {
 } from "./submit.ts";
 export {
 	RealSubmitStackInspectionGateway,
+	type SubmitBranchPrDisposition,
+	type SubmitBranchPrIdentity,
+	type SubmitBranchPrInventoryResult,
 	type SubmitStackBranch,
 	type SubmitStackExistingBranch,
 	type SubmitStackInspection,
@@ -91,7 +94,15 @@ export {
 	type SubmitStackNewBranch,
 } from "./submit-stack-inspection.ts";
 export { buildSubmitPlan, type BuildSubmitPlanResult, type SubmitPlan } from "./submit-plan.ts";
-export { mergePrLinks, partitionPrLinksByExisting } from "./submit-pr-link.ts";
+export { mergePrLinks } from "./submit-pr-link.ts";
+export {
+	reconcileSubmitPrInventory,
+	type ReconciledSubmitPr,
+	type SubmitPrReconciliationFailure,
+	type SubmitPrReconciliationFailureDisposition,
+	type SubmitPrReconciliationResult,
+	type SubmitPrReconciliationSuccess,
+} from "./submit-pr-reconciliation.ts";
 export { extractPrLinks, prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
 export { bindMatrixSubmitProgress, type SubmitProgress } from "./submit-progress.ts";
 export {

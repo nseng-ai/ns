@@ -24,7 +24,7 @@ Run from the repository root:
 ns flow submit
 ```
 
-The CLI owns checkpointing, readiness/restack, Graphite submission, current-PR verification, and post-submit metadata for newly created PRs.
+The CLI owns checkpointing, readiness/restack, Graphite submission, exact-scope post-submit PR inventory, and metadata for newly created PRs.
 
 If the CLI says a restack is required:
 
@@ -35,7 +35,9 @@ If the CLI says a restack is required:
 ns flow submit --restack
 ```
 
-Ordinary submit leaves every PR that existed before the invocation untouched. After Graphite creates new PRs, Flow prepares complete generated title/body replacements for all of them before any GitHub edit, then applies replacements sequentially. A preparation failure edits none; an edit failure stops and reports applied, failed, and not-attempted PRs.
+Ordinary submit leaves every PR that existed before the invocation untouched. After Graphite publishes, Flow re-queries GitHub for exactly the planned branches and uses those authoritative branch-keyed PR identities—not URLs parsed from Graphite output—to select newly created PRs. It prepares complete generated title/body replacements for all selected PRs before any GitHub edit, then applies replacements sequentially. A preparation failure edits none; an edit failure stops and reports applied, failed, and not-attempted PRs.
+
+If any planned branch has no open PR, multiple open PRs, malformed lookup data, a query failure, or a changed pre-existing identity, submit fails after publication but before metadata generation and edits no PR metadata. Repair the PR/head-branch association and rerun `ns flow submit`; because the retry treats now-existing PRs as untouched, use `ns flow regenerate-pr` on any branch whose initial metadata was skipped.
 
 To widen that batch to every PR resolved in the submitted scope — existing and new — run:
 

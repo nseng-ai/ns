@@ -333,6 +333,10 @@ function successfulSubmitResponses(cwd: string): ScriptedExecResponse[] {
 			result: { stdout: JSON.stringify({ number: 123, url: PR_URL }) },
 		},
 		{
+			match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
+			result: { stdout: JSON.stringify([{ number: 123, url: PR_URL }]) },
+		},
+		{
 			match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
 			result: { stdout: prJson({ body: "Hand edited body" }) },
 		},

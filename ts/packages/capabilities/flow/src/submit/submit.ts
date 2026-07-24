@@ -9,9 +9,7 @@ import type {
 	TextGenerator,
 	TimeServices,
 } from "./index.ts";
-import type { SubmitPrLink } from "./gt-output.ts";
 import type {
-	CurrentPrVerificationResult,
 	SubmitCommandOutput,
 	SubmitCommandParams,
 	SubmitCommandResult,
@@ -37,6 +35,7 @@ import {
 } from "./submit-failure-catalog.ts";
 import {
 	formatPostSubmitFailureOutput,
+	formatSubmitInventoryFailureOutput,
 	formatItemCount,
 	formatSubmitFailureOutput,
 	formatSubmitSuccessFallbackText,
@@ -55,7 +54,8 @@ import {
 	formatStackUpdateCommandDisplay,
 	formatSubmitCommandDisplays,
 } from "./submit-command-spec.ts";
-import { mergePrLinks, partitionPrLinksByExisting, prNumberFromLink } from "./submit-pr-link.ts";
+import { mergePrLinks } from "./submit-pr-link.ts";
+import { reconcileSubmitPrInventory } from "./submit-pr-reconciliation.ts";
 import type { NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import type { SubmitProgress } from "./submit-progress.ts";
 import type { SubmitTransportReady } from "./submit-transport.ts";
@@ -259,10 +259,7 @@ export async function runSubmitCommand(
 			label: "checking current PR",
 		});
 		const currentPr = await submittedTransport.verifyCurrentPr(commandParams);
-		if (
-			combinedSubmitOutcome.semanticFailureCause !== undefined ||
-			shouldFailPostSubmitVerification(combinedSubmitOutcome, currentPr)
-		) {
+		if (combinedSubmitOutcome.semanticFailureCause !== undefined) {
 			emitPhase(options, {
 				type: "phase-failed",
 				phaseKey: "verification",
@@ -288,31 +285,56 @@ export async function runSubmitCommand(
 			});
 		}
 
-		const prLinks =
+		const outputPrLinks =
 			currentPr.kind === "present"
 				? mergePrLinks(combinedSubmitOutcome.prLinks, currentPr.prLinks)
 				: mergePrLinks(combinedSubmitOutcome.prLinks, []);
-		options.progress.matrix?.applyPrLinks(prLinks);
+		const inventory = await options.metadataGateway.inspectOpenPrsForBranches({
+			cwd: options.cwd,
+			branches: planToExecute.branches.map((branch) => branch.branch),
+			onProgress: (message) =>
+				emitPhase(options, { type: "phase-progress", phaseKey: "verification", label: message }),
+		});
+		const reconciliation = reconcileSubmitPrInventory({
+			plannedBranches: planToExecute.branches,
+			inventory,
+		});
+		if (reconciliation.kind === "failure") {
+			emitPhase(options, {
+				type: "phase-failed",
+				phaseKey: "verification",
+				detail: "branch PR inventory unresolved",
+			});
+			const stderr = formatSubmitInventoryFailureOutput(reconciliation);
+			return failure(1, stderr, {
+				failurePresentation: "deterministic",
+				rawFailureTranscript: submitTextFailureTranscript(
+					"post-submit branch PR inventory",
+					stderr,
+					outputPrLinks.map((link) => `${link.label} ${link.url}`),
+				),
+			});
+		}
+		const prLinks = reconciliation.prs.map((pr) => ({ label: pr.label, url: pr.url }));
+		options.progress.matrix?.applyBranchPrs(reconciliation.prs);
 		emitPhase(options, {
 			type: "phase-done",
 			phaseKey: "verification",
-			detail:
-				currentPr.kind === "present"
-					? formatVerifiedCurrentPrText(currentPr.prLinks)
-					: "current PR not detected",
+			detail: `${prLinks.length} ${prLinks.length === 1 ? "branch PR" : "branch PRs"} verified`,
 		});
-		const partitionedPrLinks = partitionPrLinksByExisting(prLinks, planToExecute.existingPrLinks);
-		const descriptionPrLinks =
-			options.shouldReplaceAllPrMetadata === true ? prLinks : partitionedPrLinks.newPrLinks;
+		const descriptionTargets =
+			options.shouldReplaceAllPrMetadata === true
+				? reconciliation.prs
+				: reconciliation.metadataTargets;
 		emitSubmitPhase(
 			options,
 			{
 				type: "phase-started",
 				phaseKey: "descriptions",
-				label: formatDescriptionPhaseStart(descriptionPrLinks.length),
+				label: formatDescriptionPhaseStart(descriptionTargets.length),
 			},
 			(matrix) => {
-				if (descriptionPrLinks.length === 0) {
+				if (descriptionTargets.length === 0) {
 					matrix.setAllCells("description", { state: "skipped" });
 				}
 			},
@@ -321,7 +343,7 @@ export async function runSubmitCommand(
 		const descriptionResult = await generateSubmitPrDescriptions({
 			cwd: options.cwd,
 			prDescription: options.prDescription,
-			prLinks: descriptionPrLinks,
+			targets: descriptionTargets,
 			progress: submitPhaseProgressListeners<SubmitPrDescriptionProgressEvent>(
 				options,
 				"descriptions",
@@ -368,12 +390,6 @@ export async function runSubmitCommand(
 function formatDescriptionPhaseStart(prCount: number): string {
 	if (prCount === 0) return "checking PR descriptions; no PR descriptions selected";
 	return `preparing complete metadata for ${formatItemCount(prCount, "PR", "PRs")}`;
-}
-
-function formatVerifiedCurrentPrText(prLinks: readonly SubmitPrLink[]): string {
-	const prNumber = prLinks.map(prNumberFromLink).find((number) => number !== undefined);
-	if (prNumber === undefined) return "current PR verified";
-	return `current PR verified (#${prNumber})`;
 }
 
 function knownSubmitFailureFor(input: {
@@ -529,15 +545,6 @@ function submitPhaseProgressListeners<ItemProgressEvent>(
 		onActiveOperations: (operations) => options.progress.matrix?.setActiveOperations(operations),
 		onItemProgress,
 	};
-}
-
-function shouldFailPostSubmitVerification(
-	submitted: Extract<SubmitRunResult, { kind: "success" }>,
-	currentPr: CurrentPrVerificationResult,
-): boolean {
-	if (currentPr.kind === "present") return false;
-	if (currentPr.kind === "no_current_pr" && submitted.prLinks.length > 0) return false;
-	return true;
 }
 
 function success(stdout: string): SubmitCommandResult {

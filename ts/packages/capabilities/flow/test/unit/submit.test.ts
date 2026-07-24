@@ -737,10 +737,10 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 });
 
 describe("runSubmitCommand", () => {
-	test("records submit and verify globally while selecting only the new PR", async () => {
+	test("uses authoritative inventory when Graphite output has no PR URLs and current verification lags", async () => {
 		const selectedPrs = [456];
-		const linkA = { label: "#123", url: "https://github.com/acme/repo/pull/123" };
-		const linkB = { label: "#456", url: "https://github.com/acme/repo/pull/456" };
+		const linkA = { number: 123, label: "#123", url: "https://github.com/acme/repo/pull/123" };
+		const linkB = { number: 456, label: "#456", url: "https://github.com/acme/repo/pull/456" };
 		const submitMatrix = new RecordingSubmitMatrix();
 		const gateway: SubmitGateway = {
 			checkSubmitReadiness: async () => ({
@@ -750,18 +750,24 @@ describe("runSubmitCommand", () => {
 			restackCurrentStack: async () => unexpectedCall("restackCurrentStack"),
 			submitCurrentStack: async () => ({
 				kind: "success",
-				output: exitedResult({ stdout: "submitted", stderr: "", code: 0 }),
-				prLinks: [linkA, linkB],
+				output: exitedResult({ stdout: "submitted without PR URLs", stderr: "", code: 0 }),
+				prLinks: [],
 			}),
 			updateStackPrs: async () => unexpectedCall("updateStackPrs"),
 			verifyCurrentPr: async () => ({
-				kind: "present",
-				output: exitedResult({ stdout: "current", stderr: "", code: 0 }),
-				prLinks: [linkB],
+				kind: "no_current_pr",
+				cause: "no_current_pr",
+				output: exitedResult({ stderr: "no pull requests found", code: 1 }),
 			}),
 		};
 		const metadataGateway: SubmitStackInspectionGateway = {
 			inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),
+			inspectOpenPrsForBranches: async () => ({
+				dispositions: [
+					{ kind: "resolved", branch: "feature/a", pr: linkA },
+					{ kind: "resolved", branch: "feature/b", pr: linkB },
+				],
+			}),
 			inspectSubmitStack: async () => ({
 				ok: true,
 				value: {
@@ -827,7 +833,7 @@ describe("runSubmitCommand", () => {
 			),
 		).toEqual([
 			{ type: "phase-started", phaseKey: "verification", label: "checking current PR" },
-			{ type: "phase-done", phaseKey: "verification", detail: "current PR verified (#456)" },
+			{ type: "phase-done", phaseKey: "verification", detail: "2 branch PRs verified" },
 		]);
 		expect(submitMatrix.prCellEvents).toEqual(
 			selectedPrs.flatMap((prNumber) => [
@@ -870,8 +876,8 @@ describe("runSubmitCommand", () => {
 
 	test("shouldReplaceAllPrMetadata selects existing and new PR links for one prepared batch", async () => {
 		const selectedPrs = [123, 456];
-		const linkA = { label: "#123", url: "https://github.com/acme/repo/pull/123" };
-		const linkB = { label: "#456", url: "https://github.com/acme/repo/pull/456" };
+		const linkA = { number: 123, label: "#123", url: "https://github.com/acme/repo/pull/123" };
+		const linkB = { number: 456, label: "#456", url: "https://github.com/acme/repo/pull/456" };
 		const submitMatrix = new RecordingSubmitMatrix();
 		const gateway: SubmitGateway = {
 			checkSubmitReadiness: async () => ({
@@ -909,6 +915,12 @@ describe("runSubmitCommand", () => {
 						},
 					],
 				},
+			}),
+			inspectOpenPrsForBranches: async () => ({
+				dispositions: [
+					{ kind: "resolved", branch: "feature/a", pr: linkA },
+					{ kind: "resolved", branch: "feature/b", pr: linkB },
+				],
 			}),
 		};
 		const githubPr = new SubmitDescriptionGithubPrGateway();
@@ -979,9 +991,79 @@ describe("runSubmitCommand", () => {
 		textGenerator.assertDone();
 	});
 
+	test("fails unresolved post-submit inventory before any metadata work", async () => {
+		const link = { number: 123, label: "#123", url: "https://github.com/acme/repo/pull/123" };
+		const gateway: SubmitGateway = {
+			checkSubmitReadiness: async () => ({
+				kind: "ready",
+				output: exitedResult({ stdout: "ready", code: 0 }),
+			}),
+			restackCurrentStack: async () => unexpectedCall("restackCurrentStack"),
+			submitCurrentStack: async () => ({
+				kind: "success",
+				output: exitedResult({ stdout: "submitted", code: 0 }),
+				prLinks: [],
+			}),
+			updateStackPrs: async () => unexpectedCall("updateStackPrs"),
+			verifyCurrentPr: async () => ({
+				kind: "present",
+				output: exitedResult({ stdout: "current", code: 0 }),
+				prLinks: [link],
+			}),
+		};
+		const metadataGateway: SubmitStackInspectionGateway = {
+			inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),
+			inspectSubmitStack: async () => ({
+				ok: true,
+				value: {
+					currentBranch: "feature/b",
+					hasUpstackBranches: false,
+					branches: [
+						{ kind: "new", branch: "feature/a", parentBranch: "main" },
+						{ kind: "new", branch: "feature/b", parentBranch: "feature/a" },
+					],
+				},
+			}),
+			inspectOpenPrsForBranches: async () => ({
+				dispositions: [
+					{ kind: "missing", branch: "feature/a" },
+					{
+						kind: "ambiguous",
+						branch: "feature/b",
+						candidates: [link, { number: 124, label: "#124", url: "https://x/pull/124" }],
+					},
+				],
+			}),
+		};
+		const result = await runSubmitCommand({
+			cwd: "/repo",
+			gateway,
+			metadataGateway,
+			restack: true,
+			force: false,
+			prDescription: {
+				githubPr: unusedGithubPrGateway,
+				textGenerator: unusedTextGenerator,
+				git: unusedGitGateway,
+				descriptorSource: flowExtensionDescriptorSource,
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.6-luna",
+					thinking: "minimal" as const,
+				},
+				env: {},
+			},
+			progress: testSubmitProgress(),
+		});
+		expect(result.exitCode).toBe(1);
+		expect(result.stderr).toContain("feature/a: no open PR found");
+		expect(result.stderr).toContain("feature/b: multiple open PRs found");
+		expect(result.stderr).toContain("No PR metadata was edited");
+	});
+
 	test("stops an upstack submit before stack update when primary submit reports semantic failure", async () => {
 		const operations: string[] = [];
-		const link = { label: "#123", url: "https://github.com/acme/repo/pull/123" };
+		const link = { number: 123, label: "#123", url: "https://github.com/acme/repo/pull/123" };
 		const gateway: SubmitGateway = {
 			checkSubmitReadiness: async () => {
 				operations.push("readiness");
@@ -1018,6 +1100,7 @@ describe("runSubmitCommand", () => {
 		};
 		const metadataGateway: SubmitStackInspectionGateway = {
 			inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),
+			inspectOpenPrsForBranches: async () => unexpectedCall("inspectOpenPrsForBranches"),
 			inspectSubmitStack: async () => {
 				operations.push("inventory");
 				return {
@@ -1155,7 +1238,7 @@ class RecordingSubmitMatrix implements SubmitMatrixProgressSink {
 
 	setPendingCells(): void {}
 
-	applyPrLinks(): void {}
+	applyBranchPrs(): void {}
 }
 
 class SubmitDescriptionGithubPrGateway implements GithubPrGateway {
@@ -1197,6 +1280,7 @@ function optionalText(text: string | undefined): { text?: string } {
 const unusedSubmitStackInspectionGateway: SubmitStackInspectionGateway = {
 	inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),
 	inspectSubmitStack: async () => unexpectedCall("inspectSubmitStack"),
+	inspectOpenPrsForBranches: async () => unexpectedCall("inspectOpenPrsForBranches"),
 };
 
 const unusedGithubPrGateway: GithubPrGateway = {

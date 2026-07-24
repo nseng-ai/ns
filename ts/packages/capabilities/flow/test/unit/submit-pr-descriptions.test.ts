@@ -74,7 +74,20 @@ function descriptionOptions(githubPr: GithubPrGateway, textGenerator: TextGenera
 }
 
 describe("generateSubmitPrDescriptions", () => {
-	test("prepares every PR before editing and applies each once in link order", async () => {
+	test("accepts an explicitly empty authoritative target list", async () => {
+		const gateway = new GeneratedDescriptionGithubPrGateway();
+		const generator = new ScriptedTextGenerator([]);
+		const result = await generateSubmitPrDescriptions({
+			cwd: "/repo",
+			targets: [],
+			prDescription: descriptionOptions(gateway, generator),
+		});
+		expect(result).toEqual({ ok: true, applied: [], previews: [] });
+		expect(gateway.operations).toEqual([]);
+		generator.assertDone();
+	});
+
+	test("prepares every PR before editing and applies each once in planned order", async () => {
 		const gateway = new GeneratedDescriptionGithubPrGateway();
 		const generator = new ScriptedTextGenerator([
 			{ ok: true, text: "Title 12\n\nBody 12" },
@@ -82,22 +95,32 @@ describe("generateSubmitPrDescriptions", () => {
 		]);
 		const result = await generateSubmitPrDescriptions({
 			cwd: "/repo",
-			prLinks: [
-				{ label: "#13", url: "https://github.com/acme/repo/pull/13" },
-				{ label: "#12", url: "https://github.com/acme/repo/pull/12" },
+			targets: [
+				{
+					branch: "feature/13",
+					number: 13,
+					label: "#13",
+					url: "https://github.com/acme/repo/pull/13",
+				},
+				{
+					branch: "feature/12",
+					number: 12,
+					label: "#12",
+					url: "https://github.com/acme/repo/pull/12",
+				},
 			],
 			prDescription: descriptionOptions(gateway, generator),
 		});
-		expect(result).toMatchObject({ ok: true, applied: [{ label: "#12" }, { label: "#13" }] });
+		expect(result).toMatchObject({ ok: true, applied: [{ label: "#13" }, { label: "#12" }] });
 		expect(gateway.operations).toEqual([
-			"view:12",
-			"diff:12",
-			"commits:12",
 			"view:13",
 			"diff:13",
 			"commits:13",
-			"edit:12",
+			"view:12",
+			"diff:12",
+			"commits:12",
 			"edit:13",
+			"edit:12",
 		]);
 	});
 
@@ -106,9 +129,19 @@ describe("generateSubmitPrDescriptions", () => {
 		const generator = new ScriptedTextGenerator([{ ok: true, text: "Title 12\n\nBody 12" }]);
 		const result = await generateSubmitPrDescriptions({
 			cwd: "/repo",
-			prLinks: [
-				{ label: "#12", url: "https://github.com/acme/repo/pull/12" },
-				{ label: "#13", url: "https://github.com/acme/repo/pull/13" },
+			targets: [
+				{
+					branch: "feature/12",
+					number: 12,
+					label: "#12",
+					url: "https://github.com/acme/repo/pull/12",
+				},
+				{
+					branch: "feature/13",
+					number: 13,
+					label: "#13",
+					url: "https://github.com/acme/repo/pull/13",
+				},
 			],
 			prDescription: descriptionOptions(gateway, generator),
 		});
@@ -125,7 +158,9 @@ describe("generateSubmitPrDescriptions", () => {
 		]);
 		const result = await generateSubmitPrDescriptions({
 			cwd: "/repo",
-			prLinks: [12, 13, 14].map((number) => ({
+			targets: [12, 13, 14].map((number) => ({
+				branch: `feature/${number}`,
+				number,
 				label: `#${number}`,
 				url: `https://github.com/acme/repo/pull/${number}`,
 			})),
@@ -149,7 +184,7 @@ describe("generateSubmitPrDescriptions", () => {
 		const gateway = new GeneratedDescriptionGithubPrGateway();
 		const result = await generateSubmitPrDescriptions({
 			cwd: "/repo",
-			prLinks: [],
+			targets: [],
 			prDescription: descriptionOptions(gateway, new ScriptedTextGenerator([])),
 			progress: { onProgress: (message) => messages.push(message) },
 		});
@@ -180,7 +215,14 @@ describe("generateSubmitPrDescriptions", () => {
 		]);
 		const result = await generateSubmitPrDescriptions({
 			cwd: "/repo",
-			prLinks: [{ label: "#12", url: "https://github.com/acme/repo/pull/12" }],
+			targets: [
+				{
+					branch: "feature/12",
+					number: 12,
+					label: "#12",
+					url: "https://github.com/acme/repo/pull/12",
+				},
+			],
 			prDescription: descriptionOptions(gateway, generator),
 			progress: { onActiveOperations: (operations) => snapshots.push([...operations]) },
 		});
