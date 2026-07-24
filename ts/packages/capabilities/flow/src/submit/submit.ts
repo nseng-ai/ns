@@ -164,11 +164,6 @@ export async function runSubmitCommand(
 		phaseKey: "inventory",
 		detail: `${plan.branches.length} ${plan.branches.length === 1 ? "branch" : "branches"} in submit stack`,
 	});
-	emitPhase(options, {
-		type: "phase-done",
-		phaseKey: "metadata",
-		detail: "deferred until PR creation",
-	});
 	return executeSubmitPlan(plan, readiness.transport);
 
 	async function executeSubmitPlan(

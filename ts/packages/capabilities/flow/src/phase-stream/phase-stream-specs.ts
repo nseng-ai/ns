@@ -108,14 +108,6 @@ export const SUBMIT_CORE_PHASES: readonly PhaseSpec[] = [
 		item: { name: "Restack", detail: "not required", label: "running gt restack…" },
 	},
 	{
-		key: "metadata",
-		item: {
-			name: "Metadata",
-			detail: "metadata prepared",
-			label: "inspecting stack and preparing PR metadata if needed…",
-		},
-	},
-	{
 		key: "submit",
 		item: {
 			name: "Submit",

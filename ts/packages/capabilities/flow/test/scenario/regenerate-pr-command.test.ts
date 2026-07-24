@@ -66,7 +66,7 @@ function prJson(body: string): string {
 
 function commitsJson(): string {
 	return JSON.stringify({
-		commits: [{ messageHeadline: "Add regenerate-pr", messageBody: "Stale body" }],
+		commits: [{ messageHeadline: "Add regenerate-pr" }],
 	});
 }
 

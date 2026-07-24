@@ -156,7 +156,7 @@ describe("RealGithubPrGateway", () => {
 		const runner = new ScriptedCommandRunner([
 			execStep("gh", ["pr", "view", "12", "--json", "commits"], {
 				stdout: JSON.stringify({
-					commits: [{ messageHeadline: "Add feature", messageBody: "Body" }],
+					commits: [{ messageHeadline: "Add feature" }],
 				}),
 			}),
 			execStep("gh", ["pr", "diff", "12"], {

@@ -56,8 +56,6 @@ export interface GithubPrDetails {
 
 export interface PrCommitMessage {
 	headline: string;
-	/** Temporary prewrite compatibility only; generation consumes headlines exclusively. */
-	body?: string;
 }
 
 export interface PrDiffLocator {

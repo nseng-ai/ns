@@ -14,14 +14,7 @@ export function bindMatrixSubmitProgress(input: {
 	matrix: SubmitMatrixProgressController;
 }): SubmitProgress {
 	return {
-		phase: (event) => {
-			input.matrix.phase(event);
-			// Surface the full metadata progress message as the matrix tail line so
-			// compact branch-cell labels are never the only source of detail.
-			if (event.type === "phase-progress" && event.phaseKey === "metadata") {
-				input.matrix.note(event.label);
-			}
-		},
+		phase: (event) => input.matrix.phase(event),
 		matrix: input.matrix,
 	};
 }

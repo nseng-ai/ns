@@ -5,7 +5,6 @@ import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import {
 	applyPrLinksToRows,
-	compactSubmitMetadataCellText,
 	renderSubmitMatrixProgressFrame,
 	resolveSubmitProgress,
 	submitMatrixRowsFromTopology,
@@ -82,7 +81,7 @@ describe("submit progress resolution", () => {
 		});
 		resolved.matrix.setRows([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
 		resolved.matrix.phase({ type: "phase-started", phaseKey: "inventory" });
-		resolved.matrix.setCell("feature/a", "metadata", { state: "active", text: "gen" });
+		resolved.matrix.setCell("feature/a", "description", { state: "active", text: "preparing" });
 		resolved.matrix.setActiveOperations([{ kind: "command", display: "gt submit" }]);
 		resolved.onOutput?.("stdout", "raw transcript");
 
@@ -99,7 +98,7 @@ describe("submit progress resolution", () => {
 		}
 		expect(raw).toEqual([]);
 		const frame = stripAnsi(capture.redraws.at(-1) ?? "");
-		expect(frame).toContain("gen");
+		expect(frame).toContain("preparing");
 		expect(frame).toContain("Running: gt submit");
 		expect(frame).toContain("raw transcript");
 	});
@@ -145,7 +144,6 @@ describe("submit matrix progress", () => {
 			"checkpoint",
 			"preflight",
 			"restack",
-			"metadata",
 			"submit",
 			"verification",
 			"descriptions",
@@ -169,20 +167,17 @@ describe("submit matrix progress", () => {
 			hasChecks: false,
 		}).matrix;
 		controller.setRows([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
-		controller.setCell("feature/a", "metadata", { state: "done", text: "ready" });
+		controller.setCell("feature/a", "description", { state: "done", text: "ready" });
 
 		expect(recording.events.find((event) => event.type === "matrix-declared")).toEqual({
 			type: "matrix-declared",
-			columns: [
-				{ key: "metadata", label: "Metadata", width: 8 },
-				{ key: "description", label: "Description", width: 11 },
-			],
+			columns: [{ key: "description", label: "Description", width: 11 }],
 			labelHeader: "Branch / PR",
 		});
 		expect(recording.events).toContainEqual({
 			type: "matrix-cell",
 			rowKey: "feature/a",
-			columnKey: "metadata",
+			columnKey: "description",
 			state: "done",
 			text: "ready",
 		});
@@ -219,7 +214,7 @@ describe("submit matrix progress", () => {
 					branch: "feature/a",
 					label: "feature/a",
 					kind: "new",
-					cells: { metadata: { state: "done", text: "ready" }, description: { state: "pending" } },
+					cells: { description: { state: "done", text: "ready" } },
 				},
 			],
 		});
@@ -248,8 +243,7 @@ describe("submit matrix progress", () => {
 		]);
 	});
 
-	test("compact metadata labels and topology rows remain stable", () => {
-		expect(compactSubmitMetadataCellText("metadata-prepared")).toBe("ready");
+	test("topology rows remain stable", () => {
 		expect(
 			submitMatrixRowsFromTopology({
 				currentBranch: "feature/a",
