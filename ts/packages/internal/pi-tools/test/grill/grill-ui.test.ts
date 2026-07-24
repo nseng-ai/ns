@@ -37,8 +37,19 @@ interface Notification {
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
+	/** Registered tool catalog, distinct from the active model-visible tool set. */
 	readonly tools = new Map<string, ToolDefinition>();
 	readonly sentUserMessages: string[] = [];
+	readonly events: string[] = [];
+	private readonly lifecycleHandlers = new Map<
+		string,
+		Array<(event: unknown, ctx: unknown) => unknown>
+	>();
+	private activeTools: string[];
+
+	constructor(activeTools: string[] = []) {
+		this.activeTools = [...activeTools];
+	}
 
 	registerCommand(name: string, options: RegisteredCommand): void {
 		this.commands.set(name, options);
@@ -48,7 +59,29 @@ class FakePi implements ExtensionAPI {
 		this.tools.set(definition.name, definition);
 	}
 
+	getActiveTools(): string[] {
+		return [...this.activeTools];
+	}
+
+	setActiveTools(names: string[]): void {
+		this.events.push(`set-active:${names.join(",")}`);
+		this.activeTools = [...names];
+	}
+
+	on(event: string, handler: (event: unknown, ctx: unknown) => unknown): void {
+		const handlers = this.lifecycleHandlers.get(event) ?? [];
+		handlers.push(handler);
+		this.lifecycleHandlers.set(event, handlers);
+	}
+
+	emitSessionStart(): void {
+		for (const handler of this.lifecycleHandlers.get("session_start") ?? []) {
+			handler({}, { hasUI: false, ui: {} });
+		}
+	}
+
 	sendUserMessage(content: string): void {
+		this.events.push("send");
 		this.sentUserMessages.push(content);
 	}
 }
@@ -827,18 +860,10 @@ describe("registerGrillUiExtension", () => {
 		expect(schema.type).toBe("object");
 		expect(schema.required).toEqual(["question", "recommended", "options"]);
 		expect(schema.additionalProperties).toBe(false);
-		expect(
-			tool.promptGuidelines?.some((guideline) => guideline.includes(GRILL_ASK_TOOL_NAME)),
-		).toBe(true);
-		expect(tool.promptGuidelines?.some((guideline) => guideline.includes("status-request"))).toBe(
-			true,
-		);
-		expect(
-			tool.promptGuidelines?.some((guideline) => guideline.includes("estimatedRemaining")),
-		).toBe(true);
-		expect(tool.promptGuidelines?.some((guideline) => guideline.includes("validation-scope"))).toBe(
-			true,
-		);
+		// The grill contract lives in the self-contained kickoff prompts; the tool
+		// definition must not carry active-only global prompt metadata.
+		expect(tool.promptSnippet).toBeUndefined();
+		expect(tool.promptGuidelines).toBeUndefined();
 		expect(
 			(schema as { properties?: Record<string, unknown> }).properties?.estimatedRemaining,
 		).toBeDefined();
@@ -851,5 +876,92 @@ describe("registerGrillUiExtension", () => {
 			promptGuidelines: tool.promptGuidelines,
 		});
 		for (const term of removedTerms) expect(metadata.toLowerCase()).not.toContain(term);
+	});
+});
+
+describe("grill_ask activation lifecycle", () => {
+	test("session_start removes only grill_ask from the active set", () => {
+		const pi = new FakePi(["read", GRILL_ASK_TOOL_NAME, "bash"]);
+		register(pi);
+
+		pi.emitSessionStart();
+
+		expect(pi.tools.has(GRILL_ASK_TOOL_NAME)).toBe(true);
+		expect(pi.getActiveTools()).toEqual(["read", "bash"]);
+	});
+
+	test("session_start is a no-op when grill_ask is already inactive", () => {
+		const pi = new FakePi(["read", "bash"]);
+		register(pi);
+
+		pi.emitSessionStart();
+
+		expect(pi.getActiveTools()).toEqual(["read", "bash"]);
+		expect(pi.events.filter((event) => event.startsWith("set-active"))).toEqual([]);
+	});
+
+	test("/pi:grill-me fallback path activates grill_ask before sending and preserves unrelated tools", async () => {
+		// commandContext cwd has no repo skill, so this exercises the skill-expansion
+		// fallback branch; activation must still precede the kickoff send.
+		const pi = new FakePi(["read", "bash"]);
+		const { command } = register(pi);
+
+		await command.handler("Target design", commandContext({ hasUI: false }));
+
+		expect(pi.getActiveTools()).toEqual(["read", "bash", GRILL_ASK_TOOL_NAME]);
+		expect(pi.events).toEqual([`set-active:read,bash,${GRILL_ASK_TOOL_NAME}`, "send"]);
+	});
+
+	test("/pi:grill-me skill-expanded path activates grill_ask before sending", async () => {
+		await withTempRepoSkill(
+			{
+				skillName: GRILL_UI_SKILL_NAME,
+				markdown: `---\nname: ${GRILL_UI_SKILL_NAME}\ndescription: test\n---\n\nBody.\n`,
+				prefix: "pi-grill-ui-activation-test-",
+			},
+			async ({ repoDir }) => {
+				const pi = new FakePi(["read"]);
+				const { command } = register(pi);
+
+				await command.handler("Target design", commandContext({ cwd: repoDir, hasUI: false }));
+
+				expect(pi.getActiveTools()).toEqual(["read", GRILL_ASK_TOOL_NAME]);
+				expect(pi.events).toEqual([`set-active:read,${GRILL_ASK_TOOL_NAME}`, "send"]);
+			},
+		);
+	});
+
+	test("/pi:grill-with-docs activates grill_ask before sending", async () => {
+		const pi = new FakePi(["read"]);
+		const { docsCommand } = register(pi);
+
+		await docsCommand.handler("Docs target", commandContext({ hasUI: false }));
+
+		expect(pi.getActiveTools()).toEqual(["read", GRILL_ASK_TOOL_NAME]);
+		expect(pi.events).toEqual([`set-active:read,${GRILL_ASK_TOOL_NAME}`, "send"]);
+	});
+
+	test("repeated grill commands keep activation idempotent", async () => {
+		const pi = new FakePi(["read"]);
+		const { command, docsCommand } = register(pi);
+
+		await command.handler("Target one", commandContext({ hasUI: false }));
+		await docsCommand.handler("Target two", commandContext({ hasUI: false }));
+
+		expect(pi.getActiveTools()).toEqual(["read", GRILL_ASK_TOOL_NAME]);
+		expect(pi.events.filter((event) => event.startsWith("set-active"))).toEqual([
+			`set-active:read,${GRILL_ASK_TOOL_NAME}`,
+		]);
+	});
+
+	test("blank/cancelled grill target does not activate grill_ask", async () => {
+		const pi = new FakePi(["read"]);
+		const { command } = register(pi);
+
+		await command.handler("", commandContext({ editorResult: "   " }));
+
+		expect(pi.getActiveTools()).toEqual(["read"]);
+		expect(pi.events.filter((event) => event.startsWith("set-active"))).toEqual([]);
+		expect(pi.sentUserMessages).toEqual([]);
 	});
 });

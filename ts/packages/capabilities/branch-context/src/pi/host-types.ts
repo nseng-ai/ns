@@ -132,6 +132,8 @@ export interface ExtensionAPI {
 		},
 	): void;
 	registerTool(definition: ToolDefinition): void;
+	getActiveTools(): string[];
+	setActiveTools(names: string[]): void;
 	exec(command: string, args: string[], options?: RawPiExecOptions): Promise<RawPiExecResult>;
 	sendMessage?(message: CustomMessage, options?: SendMessageOptions): void;
 	sendUserMessage(content: string): void;

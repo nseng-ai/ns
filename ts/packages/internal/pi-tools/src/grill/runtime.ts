@@ -1,4 +1,8 @@
-import { GRILL_UI_SKILL_NAME, GRILL_WITH_DOCS_UI_SKILL_NAME } from "@nseng-ai/pi/grill/surfaces";
+import {
+	GRILL_UI_SKILL_NAME,
+	GRILL_WITH_DOCS_UI_SKILL_NAME,
+	activateGrillAskTool,
+} from "@nseng-ai/pi/grill/surfaces";
 import type { NotifyLevel } from "@nseng-ai/pi/runtime/tool-types";
 import { expandRepoSkillBlock } from "@nseng-ai/pi/skills/expansion";
 
@@ -63,6 +67,9 @@ async function handleStructuredGrillCommand(
 		notify(ctx, options.expansionFailureMessage, "warning");
 	}
 
+	// Activate only after a non-empty target: the kickoff prompt requires grill_ask,
+	// and the first model request for this message must see the tool.
+	activateGrillAskTool(pi);
 	pi.sendUserMessage(options.buildPrompt(skillBlock, target));
 }
 
