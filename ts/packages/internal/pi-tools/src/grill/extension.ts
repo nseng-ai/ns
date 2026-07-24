@@ -3,6 +3,7 @@ import {
 	GRILL_ASK_TOOL_NAME,
 	GRILL_UI_COMMAND_NAME,
 	GRILL_WITH_DOCS_UI_COMMAND_NAME,
+	deactivateGrillAskTool,
 } from "@nseng-ai/pi/grill/surfaces";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 
@@ -81,6 +82,7 @@ export const grillUiParity = definePiSurfaceParity([
 
 export function registerGrillUiExtension(pi: ExtensionAPI): void {
 	registerGrillStatusLifecycle(pi);
+	registerGrillAskStartupDeactivation(pi);
 
 	registerCommandWithImmediateAck({
 		host: pi,
@@ -105,22 +107,33 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 		label: "Grill Ask",
 		description:
 			"Ask exactly one grill-me question through a structured UI with explicit answer choices, an optional recommendation/rationale, an honest remaining-question estimate, and first-class freeform, status checkpoint, and end-session paths.",
-		promptSnippet:
-			"Ask one grill-me question through structured choices, freeform, status, or end-session UI",
-		promptGuidelines: [
-			"Use grill_ask for each user-facing question in grill-me sessions; do not ask those questions in prose while grill_ask is available.",
-			"Ask exactly one question per grill_ask call and include 2–5 affirmative, mutually exclusive options plus your recommendation.",
-			"Include estimatedRemaining on every grill_ask call; use exact only when known, otherwise use a range with basis or unknown with basis.",
-			"Use grill_ask with freeform and end-session paths enabled unless there is a strong reason not to.",
-			"Do not ask routine validation-scope or test-coverage questions; defer ordinary validation coverage to the implementing agent unless validation is itself a product/design requirement, release gate, or user-visible compatibility promise.",
-			'If grill_ask returns action: "end-grill", stop asking questions and summarize decisions, unresolved branches, and final recommendation.',
-			'If grill_ask returns action: "status-request", use the requested status-report format, then call grill_ask again with the same pending question; do not treat the status request as an answer.',
-			'If grill_ask returns action: "ui-unavailable", ask the same one question normally with numbered choices, including Other/freeform, Show current grill status, and End grilling session when applicable.',
-		],
 		parameters: GRILL_ASK_PARAMETERS,
 		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
 			executeGrillAsk(params, ctx, signal === undefined ? {} : { signal }),
 	});
+}
+
+/**
+ * Make `grill_ask` inactive at each session start (new, resumed, forked, or reloaded).
+ * The tool stays catalog-registered; an explicit structured-grill command activates it
+ * for the remainder of the session. Removing only `grill_ask` preserves every other
+ * extension's active-tool choices.
+ */
+function registerGrillAskStartupDeactivation(pi: ExtensionAPI): void {
+	if (!isSessionLifecycleHost(pi)) return;
+	pi.on("session_start", () => deactivateGrillAskTool(pi));
+}
+
+interface SessionLifecycleHost {
+	on(event: "session_start", handler: () => void): void;
+}
+
+function isSessionLifecycleHost(value: unknown): value is SessionLifecycleHost {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		typeof (value as { on?: unknown }).on === "function"
+	);
 }
 
 export default registerGrillUiExtension;

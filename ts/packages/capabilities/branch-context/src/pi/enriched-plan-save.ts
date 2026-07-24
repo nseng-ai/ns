@@ -27,7 +27,7 @@ import {
 	type SavedPlanFileEvidence,
 } from "@nseng-ai/plans/api";
 import { isRecord } from "@nseng-ai/pi/runtime/primitives";
-import { GRILL_ASK_TOOL_NAME } from "@nseng-ai/pi/grill/surfaces";
+import { GRILL_ASK_TOOL_NAME, activateGrillAskTool } from "@nseng-ai/pi/grill/surfaces";
 import { resolveBranchContextOperations, resolvePlanStoreRootOption } from "./options.ts";
 import type {
 	BranchContextExtensionOptions,
@@ -219,6 +219,9 @@ export async function handleWriteGrilledPlanCommand(
 		message: `Starting /${WRITE_GRILLED_PLAN_COMMAND_NAME} planning grill…`,
 	});
 	await ctx.waitForIdle();
+	// The grilled prompt requires grill_ask; activate it (session-long, idempotent,
+	// additive) so the first model request for this message sees the tool.
+	activateGrillAskTool(pi);
 	pi.sendUserMessage(buildWriteGrilledPlanPrompt(steering));
 }
 

@@ -101,6 +101,9 @@ export class FakePi implements ExtensionAPI {
 	readonly sentUserMessages: string[] = [];
 	private readonly script: ScriptedQueue<ScriptedExec>;
 	private readonly events: string[] | undefined;
+	// Mutated in place (never reassigned) so state is shared with the
+	// Object.create-based BranchContextPiCommandApi delegation adapter.
+	private readonly activeTools: string[] = [];
 
 	constructor(script: ScriptedExec[] = [], events?: string[]) {
 		this.script = new ScriptedQueue(script, (step) => step);
@@ -113,6 +116,19 @@ export class FakePi implements ExtensionAPI {
 
 	registerTool(definition: ToolDefinition): void {
 		this.tools.set(definition.name, definition);
+	}
+
+	seedActiveTools(names: string[]): void {
+		this.activeTools.splice(0, this.activeTools.length, ...names);
+	}
+
+	getActiveTools(): string[] {
+		return [...this.activeTools];
+	}
+
+	setActiveTools(names: string[]): void {
+		this.events?.push(`set-active:${names.join(",")}`);
+		this.activeTools.splice(0, this.activeTools.length, ...names);
 	}
 
 	async exec(

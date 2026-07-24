@@ -138,5 +138,7 @@ export interface ExtensionAPI {
 		},
 	): void;
 	registerTool(definition: ToolDefinition): void;
+	getActiveTools(): string[];
+	setActiveTools(names: string[]): void;
 	sendUserMessage(content: string): void;
 }

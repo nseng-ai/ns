@@ -76,6 +76,60 @@ describe("enriched-plan-commands", () => {
 		expect(pi.sentUserMessages[0]).toContain("User steering for this planning request: (none)");
 	});
 
+	test("ns:plan:grill-and-save activates grill_ask before sending, preserving other active tools", async () => {
+		const events: string[] = [];
+		const pi = new FakePi([], events);
+		pi.seedActiveTools(["read", "bash"]);
+		registerBranchContextExtension(pi);
+		const command = pi.commands.get("ns:plan:grill-and-save");
+		const context = createContext(events);
+
+		await command?.handler("grill this plan", context.ctx);
+
+		pi.assertDone();
+		expect(pi.getActiveTools()).toEqual(["read", "bash", "grill_ask"]);
+		const waitIndex = events.indexOf("wait");
+		const activateIndex = events.indexOf("set-active:read,bash,grill_ask");
+		const sendIndex = events.indexOf("send");
+		expect(waitIndex).toBeGreaterThanOrEqual(0);
+		expect(activateIndex).toBeGreaterThan(waitIndex);
+		expect(sendIndex).toBeGreaterThan(activateIndex);
+	});
+
+	test("ns:plan:grill-and-save activation is idempotent across repeated invocations", async () => {
+		const events: string[] = [];
+		const pi = new FakePi([], events);
+		pi.seedActiveTools(["read"]);
+		registerBranchContextExtension(pi);
+		const command = pi.commands.get("ns:plan:grill-and-save");
+
+		await command?.handler("first grill", createContext(events).ctx);
+		await command?.handler("second grill", createContext(events).ctx);
+
+		pi.assertDone();
+		expect(pi.getActiveTools()).toEqual(["read", "grill_ask"]);
+		expect(events.filter((event) => event.startsWith("set-active"))).toEqual([
+			"set-active:read,grill_ask",
+		]);
+	});
+
+	test("ns:plan:save does not activate grill_ask", async () => {
+		const events: string[] = [];
+		const repoRoot = await makeRepoPrompt();
+		const pi = new FakePi([gitRootStep(repoRoot)], events);
+		pi.seedActiveTools(["read"]);
+		registerBranchContextExtension(pi);
+		const command = pi.commands.get("ns:plan:save");
+		expect(command).toBeDefined();
+		const context = createContext(events, { cwd: repoRoot });
+
+		await command?.handler("plain plan save", context.ctx);
+
+		pi.assertDone();
+		expect(pi.getActiveTools()).toEqual(["read"]);
+		expect(events.filter((event) => event.startsWith("set-active"))).toEqual([]);
+	});
+
 	test("ns:plan:save waits for idle, reads repo prompt, and dispatches the generated prompt", async () => {
 		const events: string[] = [];
 		const repoRoot = await makeRepoPrompt();

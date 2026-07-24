@@ -112,7 +112,11 @@ skill-audit family.
   per tool call, explicit choices, recommendations, `estimatedRemaining`,
   freeform/status/end paths, no routine validation-scope questions, status-request
   re-asking, the shared-understanding confirmation gate, and docs-aware
-  `Documentation updates:` reporting for `/pi:grill-with-docs`.
+  `Documentation updates:` reporting for `/pi:grill-with-docs`. Operational `grill_ask`
+  instructions live only in this self-contained kickoff skill/prompt content: the
+  `grill_ask` tool definition carries no global `promptSnippet`/`promptGuidelines`, and
+  the tool itself is inactive until an explicit structured-grill command activates it
+  for the session.
 - **Validation-scope policy is ns-owned.** It lives in repo/project instructions and
   first-party Pi prompts; do not rely on upstream Matt wrappers to carry it.
 - **Writing-great-skills and skill-audit.** The vendored `writing-great-skills` is the
