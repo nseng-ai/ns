@@ -10,7 +10,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	RealGithubPrGateway,
 	RealSubmitGateway,
-	RealSubmitMetadataGateway,
+	RealSubmitStackInspectionGateway,
 	runSubmitCommand,
 	type FlowPrDescriptionDescriptorSource,
 	type RunSubmitCommandOptions,
@@ -28,7 +28,12 @@ import { createFlowGraphiteStackGitGateway } from "../stack-squash/graphite-stac
 
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 
-export { RealGithubPrGateway, RealSubmitGateway, RealSubmitMetadataGateway, runSubmitCommand };
+export {
+	RealGithubPrGateway,
+	RealSubmitGateway,
+	RealSubmitStackInspectionGateway,
+	runSubmitCommand,
+};
 export type { RunSubmitCommandOptions, SubmitCommandResult, SubmitFailureTranscript };
 
 export interface NsSubmitRuntime {
@@ -37,7 +42,7 @@ export interface NsSubmitRuntime {
 		onActiveOperations?: CheckpointRunContext["onActiveOperations"],
 	) => CheckpointRunContext;
 	submitGateway: RealSubmitGateway;
-	metadataGateway: RealSubmitMetadataGateway;
+	metadataGateway: RealSubmitStackInspectionGateway;
 	prDescription: Omit<RunSubmitCommandOptions["prDescription"], "modelSelection">;
 	git: Pick<GitGateway, "optionalRepoRoot">;
 }
@@ -86,7 +91,7 @@ export function createNsSubmitRuntime(
 			};
 		},
 		submitGateway: new RealSubmitGateway(commandRunner),
-		metadataGateway: new RealSubmitMetadataGateway({ graphite, runner: commandRunner }),
+		metadataGateway: new RealSubmitStackInspectionGateway({ graphite, runner: commandRunner }),
 		git,
 		prDescription: {
 			githubPr: new RealGithubPrGateway(commandRunner),

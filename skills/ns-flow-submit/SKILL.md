@@ -24,12 +24,7 @@ Run from the repository root:
 ns flow submit
 ```
 
-The CLI owns the orchestration:
-
-- if the worktree is dirty, first creates a checkpoint with `ns flow cp`;
-- checks submit readiness with `gt submit -nps --no-ai --no-interactive --dry-run`;
-- runs `gt submit -nps --no-ai --no-interactive` to submit/update the current stack;
-- verifies that the current branch has a PR after submit.
+The CLI owns checkpointing, readiness/restack, Graphite submission, current-PR verification, and post-submit metadata for newly created PRs.
 
 If the CLI says a restack is required:
 
@@ -40,27 +35,30 @@ If the CLI says a restack is required:
 ns flow submit --restack
 ```
 
-Ordinary `ns flow submit` generates initial titles and ns-managed descriptions only for PRs newly created by that invocation. It never edits the title or body of a PR that existed before the invocation, even when the body is empty or its managed fingerprint is missing, malformed, stale, or unchanged.
+Ordinary submit leaves every PR that existed before the invocation untouched. After Graphite creates new PRs, Flow prepares complete generated title/body replacements for all of them before any GitHub edit, then applies replacements sequentially. A preparation failure edits none; an edit failure stops and reports applied, failed, and not-attempted PRs.
 
-To explicitly regenerate titles and managed descriptions for every PR in the submitted stack scope, including existing PRs with non-empty bodies or matching fingerprints, run:
+To widen that batch to every PR resolved in the submitted scope — existing and new — run:
 
 ```bash
 ns flow submit --regenerate-descriptions
 ```
 
-To regenerate only the current branch PR explicitly, run:
+This replaces the complete title and body of every selected PR and removes all existing body content, including human-authored prose; there is no managed-region merging and no rollback. It requires a TTY confirmation, or `--yes`/`-y` for explicit non-interactive approval, and it cannot be combined with `--minimal`. The same prepare-all-before-edit and sequential-application failure behavior applies.
+
+To replace the complete title and body of only an existing current-branch PR, run:
 
 ```bash
 ns flow regenerate-pr
 ```
 
-Both explicit regeneration paths keep title and managed-body updates coupled and preserve human-authored text outside the managed region. `ns flow regenerate-pr` asks before editing GitHub.
+That focused command confirms by default and accepts `--yes` for explicit non-interactive approval. Generated bodies carry visible command, prompt-source, and model provenance.
 
 ## Failure handling
 
-Surface CLI output directly, including any `AI interpretation` section. Do not bypass the checkpoint failure, Graphite submit failure, or post-submit PR verification failure. Do not fall back to raw `gt submit` unless the user explicitly asks for a manual fallback after seeing the CLI failure.
+Surface CLI output directly, including any `AI interpretation` section and partial metadata-application report. Do not bypass checkpoint, Graphite submit, post-submit verification, or metadata failures. Do not fall back to raw `gt submit` unless the user explicitly asks after seeing the CLI failure.
 
 ## Boundaries
 
 - It does not land/merge PRs.
-- Ordinary submit edits titles/bodies only for PRs it creates; existing PR prose requires `--regenerate-descriptions` or explicit `ns flow regenerate-pr`.
+- Ordinary submit edits titles/bodies only for PRs it creates.
+- Stack-wide regeneration of existing PR metadata happens only under explicit `--regenerate-descriptions` authorization; never pass `--yes` on the user's behalf without their explicit approval.

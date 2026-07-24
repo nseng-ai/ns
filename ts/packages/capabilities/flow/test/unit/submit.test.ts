@@ -8,7 +8,7 @@ import {
 	type GithubPrGateway,
 	type SubmitGateway,
 	type SubmitMatrixProgressSink,
-	type SubmitMetadataGateway,
+	type SubmitStackInspectionGateway,
 	type SubmitProgress,
 	type TextGenerator,
 } from "../../src/submit/index.ts";
@@ -54,10 +54,7 @@ describe("formatSubmitSuccessText", () => {
 		const link = { label: "#123", url: "https://github.com/acme/repo/pull/123" };
 
 		const output = formatSubmitSuccessText([link], {
-			generated: [link],
-			skipped: [],
-			prewritten: [],
-			prewriteFallbacks: [],
+			applied: [link],
 			previews: [{ link, title: "Generated title", descriptionFirstLine: undefined }],
 		});
 
@@ -740,144 +737,249 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 });
 
 describe("runSubmitCommand", () => {
-	test.each([
-		{ name: "default submit selects only the new PR", shouldRegenerate: false, selectedPrs: [456] },
-		{
-			name: "explicit regeneration selects the full scope",
-			shouldRegenerate: true,
-			selectedPrs: [123, 456],
-		},
-	])(
-		"records submit and verify globally while $name",
-		async ({ shouldRegenerate, selectedPrs }) => {
-			const linkA = { label: "#123", url: "https://github.com/acme/repo/pull/123" };
-			const linkB = { label: "#456", url: "https://github.com/acme/repo/pull/456" };
-			const submitMatrix = new RecordingSubmitMatrix();
-			const gateway: SubmitGateway = {
-				checkSubmitReadiness: async () => ({
-					kind: "ready",
-					output: exitedResult({ stdout: "ready", stderr: "", code: 0 }),
-				}),
-				restackCurrentStack: async () => unexpectedCall("restackCurrentStack"),
-				submitCurrentStack: async () => ({
-					kind: "success",
-					output: exitedResult({ stdout: "submitted", stderr: "", code: 0 }),
-					prLinks: [linkA, linkB],
-				}),
-				updateStackPrs: async () => unexpectedCall("updateStackPrs"),
-				verifyCurrentPr: async () => ({
-					kind: "present",
-					output: exitedResult({ stdout: "current", stderr: "", code: 0 }),
-					prLinks: [linkB],
-				}),
-			};
-			const metadataGateway: SubmitMetadataGateway = {
-				inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),
-				inspectSubmitStack: async () => ({
-					ok: true,
-					value: {
-						currentBranch: "feature/b",
-						hasUpstackBranches: false,
-						branches: [
-							{ kind: "existing", branch: "feature/a", parentBranch: "main", pr: linkA },
-							{
-								kind: "new",
-								branch: "feature/b",
-								parentBranch: "feature/a",
-								commitMessages: [{ headline: "Add b" }, { headline: "Refine b" }],
-								diff: "diff --git a/b b/b\n+b",
-							},
-						],
-					},
-				}),
-				ensureCleanWorktree: async () => unexpectedCall("ensureCleanWorktree"),
-				amendBranchMetadataCommit: async () => unexpectedCall("amendBranchMetadataCommit"),
-			};
-			const githubPr = new SubmitDescriptionGithubPrGateway();
-			const textGenerator = new ScriptedTextGenerator(
-				selectedPrs.map((number) => ({
-					ok: true as const,
-					text: `Title ${number}\n\nBody ${number}`,
-				})),
-			);
+	test("records submit and verify globally while selecting only the new PR", async () => {
+		const selectedPrs = [456];
+		const linkA = { label: "#123", url: "https://github.com/acme/repo/pull/123" };
+		const linkB = { label: "#456", url: "https://github.com/acme/repo/pull/456" };
+		const submitMatrix = new RecordingSubmitMatrix();
+		const gateway: SubmitGateway = {
+			checkSubmitReadiness: async () => ({
+				kind: "ready",
+				output: exitedResult({ stdout: "ready", stderr: "", code: 0 }),
+			}),
+			restackCurrentStack: async () => unexpectedCall("restackCurrentStack"),
+			submitCurrentStack: async () => ({
+				kind: "success",
+				output: exitedResult({ stdout: "submitted", stderr: "", code: 0 }),
+				prLinks: [linkA, linkB],
+			}),
+			updateStackPrs: async () => unexpectedCall("updateStackPrs"),
+			verifyCurrentPr: async () => ({
+				kind: "present",
+				output: exitedResult({ stdout: "current", stderr: "", code: 0 }),
+				prLinks: [linkB],
+			}),
+		};
+		const metadataGateway: SubmitStackInspectionGateway = {
+			inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),
+			inspectSubmitStack: async () => ({
+				ok: true,
+				value: {
+					currentBranch: "feature/b",
+					hasUpstackBranches: false,
+					branches: [
+						{ kind: "existing", branch: "feature/a", parentBranch: "main", pr: linkA },
+						{
+							kind: "new",
+							branch: "feature/b",
+							parentBranch: "feature/a",
+							commitMessages: [{ headline: "Add b" }, { headline: "Refine b" }],
+							diff: "diff --git a/b b/b\n+b",
+						},
+					],
+				},
+			}),
+		};
+		const githubPr = new SubmitDescriptionGithubPrGateway();
+		const textGenerator = new ScriptedTextGenerator(
+			selectedPrs.map((number) => ({
+				ok: true as const,
+				text: `Title ${number}\n\nBody ${number}`,
+			})),
+		);
 
-			const result = await runSubmitCommand({
-				cwd: "/repo",
-				gateway,
-				metadataGateway,
-				restack: true,
-				force: false,
-				shouldRegenerateExistingPrDescriptions: shouldRegenerate,
-				prDescription: {
-					githubPr,
-					textGenerator,
-					git: new InMemoryGitGateway({ repoRoot: "/repo" }),
-					descriptorSource: flowExtensionDescriptorSource,
-					modelSelection: {
-						provider: "openai-codex",
-						modelId: "gpt-5.6-luna",
-						thinking: "minimal" as const,
-					},
-					env: {},
+		const result = await runSubmitCommand({
+			cwd: "/repo",
+			gateway,
+			metadataGateway,
+			restack: true,
+			force: false,
+			prDescription: {
+				githubPr,
+				textGenerator,
+				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
+				descriptorSource: flowExtensionDescriptorSource,
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.6-luna",
+					thinking: "minimal" as const,
 				},
-				progress: testSubmitProgress(submitMatrix),
-			});
+				env: {},
+			},
+			progress: testSubmitProgress(submitMatrix),
+		});
 
-			expect(result.exitCode).toBe(0);
-			expect(
-				submitMatrix.phaseEvents.filter(
-					(event) => "phaseKey" in event && event.phaseKey === "submit",
-				),
-			).toEqual([
+		expect(result.exitCode).toBe(0);
+		expect(
+			submitMatrix.phaseEvents.filter(
+				(event) => "phaseKey" in event && event.phaseKey === "submit",
+			),
+		).toEqual([
+			{
+				type: "phase-started",
+				phaseKey: "submit",
+				label:
+					"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+			},
+			{ type: "phase-done", phaseKey: "submit", detail: "stack submitted" },
+		]);
+		expect(
+			submitMatrix.phaseEvents.filter(
+				(event) => "phaseKey" in event && event.phaseKey === "verification",
+			),
+		).toEqual([
+			{ type: "phase-started", phaseKey: "verification", label: "checking current PR" },
+			{ type: "phase-done", phaseKey: "verification", detail: "current PR verified (#456)" },
+		]);
+		expect(submitMatrix.prCellEvents).toEqual(
+			selectedPrs.flatMap((prNumber) => [
+				{ prNumber, column: "description", state: "active", text: "preparing complete metadata" },
 				{
-					type: "phase-started",
-					phaseKey: "submit",
-					label:
-						"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+					prNumber,
+					column: "description",
+					state: "active",
+					text: "prepared; waiting to apply batch",
 				},
-				{ type: "phase-done", phaseKey: "submit", detail: "stack submitted" },
-			]);
-			expect(
-				submitMatrix.phaseEvents.filter(
-					(event) => "phaseKey" in event && event.phaseKey === "verification",
+				{ prNumber, column: "description", state: "done", text: "complete metadata replaced" },
+			]),
+		);
+		// The metadata phase reports only work that is actually pending: never the former broad
+		// six-command snapshot, only true single operations (detailed ordering is covered at the
+		// prepareSubmitPrMetadata and generateSubmitPrDescriptions seams).
+		expect(submitMatrix.operationSnapshots.every((snapshot) => snapshot.length <= 1)).toBe(true);
+		expect(
+			submitMatrix.operationSnapshots.some((snapshot) =>
+				snapshot.some(
+					(operation) =>
+						operation.kind === "command" &&
+						operation.display === "gt log --stack --reverse --no-interactive",
 				),
-			).toEqual([
-				{ type: "phase-started", phaseKey: "verification", label: "checking current PR" },
-				{ type: "phase-done", phaseKey: "verification", detail: "current PR verified (#456)" },
-			]);
-			expect(submitMatrix.prCellEvents).toEqual(
-				selectedPrs.flatMap((prNumber) => [
-					{ prNumber, column: "description", state: "active", text: "loading PR metadata" },
-					{ prNumber, column: "description", state: "done", text: "generated" },
-				]),
-			);
-			// The metadata phase reports only work that is actually pending: never the former broad
-			// six-command snapshot, only true single operations (detailed ordering is covered at the
-			// prepareSubmitPrMetadata and generateSubmitPrDescriptions seams).
-			expect(submitMatrix.operationSnapshots.every((snapshot) => snapshot.length <= 1)).toBe(true);
-			expect(
-				submitMatrix.operationSnapshots.some((snapshot) =>
-					snapshot.some(
-						(operation) =>
-							operation.kind === "command" &&
-							operation.display === "gt log --stack --reverse --no-interactive",
-					),
-				),
-			).toBe(false);
-			expect(submitMatrix.operationSnapshots).toContainEqual([
-				{ kind: "command", display: "gh pr view --json number,url" },
-			]);
-			expect(submitMatrix.operationSnapshots).toContainEqual([
+			),
+		).toBe(false);
+		expect(submitMatrix.operationSnapshots).toContainEqual([
+			{ kind: "command", display: "gh pr view --json number,url" },
+		]);
+		expect(submitMatrix.operationSnapshots).toContainEqual([
+			{
+				kind: "model",
+				operation: "generating PR description",
+				modelRef: "openai-codex/gpt-5.6-luna",
+				detail: `PR 1/${selectedPrs.length}`,
+			},
+		]);
+		textGenerator.assertDone();
+	});
+
+	test("shouldReplaceAllPrMetadata selects existing and new PR links for one prepared batch", async () => {
+		const selectedPrs = [123, 456];
+		const linkA = { label: "#123", url: "https://github.com/acme/repo/pull/123" };
+		const linkB = { label: "#456", url: "https://github.com/acme/repo/pull/456" };
+		const submitMatrix = new RecordingSubmitMatrix();
+		const gateway: SubmitGateway = {
+			checkSubmitReadiness: async () => ({
+				kind: "ready",
+				output: exitedResult({ stdout: "ready", stderr: "", code: 0 }),
+			}),
+			restackCurrentStack: async () => unexpectedCall("restackCurrentStack"),
+			submitCurrentStack: async () => ({
+				kind: "success",
+				output: exitedResult({ stdout: "submitted", stderr: "", code: 0 }),
+				prLinks: [linkA, linkB],
+			}),
+			updateStackPrs: async () => unexpectedCall("updateStackPrs"),
+			verifyCurrentPr: async () => ({
+				kind: "present",
+				output: exitedResult({ stdout: "current", stderr: "", code: 0 }),
+				prLinks: [linkB],
+			}),
+		};
+		const metadataGateway: SubmitStackInspectionGateway = {
+			inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),
+			inspectSubmitStack: async () => ({
+				ok: true,
+				value: {
+					currentBranch: "feature/b",
+					hasUpstackBranches: false,
+					branches: [
+						{ kind: "existing", branch: "feature/a", parentBranch: "main", pr: linkA },
+						{
+							kind: "new",
+							branch: "feature/b",
+							parentBranch: "feature/a",
+							commitMessages: [{ headline: "Add b" }],
+							diff: "diff --git a/b b/b\n+b",
+						},
+					],
+				},
+			}),
+		};
+		const githubPr = new SubmitDescriptionGithubPrGateway();
+		const textGenerator = new ScriptedTextGenerator(
+			selectedPrs.map((number) => ({
+				ok: true as const,
+				text: `Title ${number}\n\nBody ${number}`,
+			})),
+		);
+
+		const result = await runSubmitCommand({
+			cwd: "/repo",
+			gateway,
+			metadataGateway,
+			restack: true,
+			force: false,
+			shouldReplaceAllPrMetadata: true,
+			prDescription: {
+				githubPr,
+				textGenerator,
+				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
+				descriptorSource: flowExtensionDescriptorSource,
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.6-luna",
+					thinking: "minimal" as const,
+				},
+				env: {},
+			},
+			progress: testSubmitProgress(submitMatrix),
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(
+			submitMatrix.phaseEvents.find(
+				(event) => event.type === "phase-started" && event.phaseKey === "descriptions",
+			),
+		).toEqual({
+			type: "phase-started",
+			phaseKey: "descriptions",
+			label: "preparing complete metadata for 2 PRs",
+		});
+		expect(submitMatrix.prCellEvents).toEqual([
+			...selectedPrs.flatMap((prNumber) => [
+				{ prNumber, column: "description", state: "active", text: "preparing complete metadata" },
 				{
-					kind: "model",
-					operation: "generating PR description",
-					modelRef: "openai-codex/gpt-5.6-luna",
-					detail: `PR 1/${selectedPrs.length}`,
+					prNumber,
+					column: "description",
+					state: "active",
+					text: "prepared; waiting to apply batch",
 				},
-			]);
-			textGenerator.assertDone();
-		},
-	);
+			]),
+			...selectedPrs.map((prNumber) => ({
+				prNumber,
+				column: "description",
+				state: "done",
+				text: "complete metadata replaced",
+			})),
+		]);
+		expect(submitMatrix.operationSnapshots).toContainEqual([
+			{
+				kind: "model",
+				operation: "generating PR description",
+				modelRef: "openai-codex/gpt-5.6-luna",
+				detail: `PR 2/${selectedPrs.length}`,
+			},
+		]);
+		textGenerator.assertDone();
+	});
 
 	test("stops an upstack submit before stack update when primary submit reports semantic failure", async () => {
 		const operations: string[] = [];
@@ -916,7 +1018,7 @@ describe("runSubmitCommand", () => {
 				};
 			},
 		};
-		const metadataGateway: SubmitMetadataGateway = {
+		const metadataGateway: SubmitStackInspectionGateway = {
 			inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),
 			inspectSubmitStack: async () => {
 				operations.push("inventory");
@@ -936,8 +1038,6 @@ describe("runSubmitCommand", () => {
 					},
 				} as const;
 			},
-			ensureCleanWorktree: async () => unexpectedCall("ensureCleanWorktree"),
-			amendBranchMetadataCommit: async () => unexpectedCall("amendBranchMetadataCommit"),
 		};
 
 		const result = await runSubmitCommand({
@@ -962,7 +1062,7 @@ describe("runSubmitCommand", () => {
 		});
 
 		expect(result.exitCode).toBe(1);
-		expect(operations).toEqual(["readiness", "inventory", "readiness", "submit", "verification"]);
+		expect(operations).toEqual(["readiness", "inventory", "submit", "verification"]);
 		expect(operations).not.toContain("update");
 	});
 
@@ -982,7 +1082,7 @@ describe("runSubmitCommand", () => {
 		const result = await runSubmitCommand({
 			cwd: "/repo",
 			gateway,
-			metadataGateway: unusedSubmitMetadataGateway,
+			metadataGateway: unusedSubmitStackInspectionGateway,
 			restack: false,
 			force: false,
 			prDescription: {
@@ -1096,11 +1196,9 @@ function optionalText(text: string | undefined): { text?: string } {
 	return text === undefined ? {} : { text };
 }
 
-const unusedSubmitMetadataGateway: SubmitMetadataGateway = {
+const unusedSubmitStackInspectionGateway: SubmitStackInspectionGateway = {
 	inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),
 	inspectSubmitStack: async () => unexpectedCall("inspectSubmitStack"),
-	ensureCleanWorktree: async () => unexpectedCall("ensureCleanWorktree"),
-	amendBranchMetadataCommit: async () => unexpectedCall("amendBranchMetadataCommit"),
 };
 
 const unusedGithubPrGateway: GithubPrGateway = {

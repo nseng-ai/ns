@@ -3,13 +3,8 @@ import {
 	formatOutputSection,
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
-import {
-	formatCommandFailureConciseCause,
-	type ErrorInfo,
-} from "@nseng-ai/capability-kit/gateway-result";
 import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 
-import type { PrewrittenPrMetadata } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
 import type { SubmitPrDescriptionSummary } from "./submit-pr-description-summary.ts";
 import {
@@ -17,7 +12,7 @@ import {
 	formatSubmitSemanticFailureCause,
 	type SubmitCurrentPrVerificationFailure,
 } from "./submit-failure-catalog.ts";
-import { formatPrLinkText, formatPrLinkTextRow } from "./submit-pr-link.ts";
+import { formatPrLinkText } from "./submit-pr-link.ts";
 import type {
 	CurrentPrVerificationResult,
 	SubmitCommandOutput,
@@ -55,13 +50,6 @@ export function formatSubmitSuccessText(
 			lines.push(`  - ${status}`);
 		}
 	}
-	if (descriptions.skipped.length > 0) {
-		lines.push(
-			"",
-			"Skipped unchanged PR descriptions:",
-			...descriptions.skipped.map(formatPrLinkTextRow),
-		);
-	}
 	return lines.join("\n");
 }
 
@@ -82,14 +70,8 @@ function formatSubmitSuccessStatuses(
 	descriptions: SubmitPrDescriptionSummary,
 ): string[] {
 	const statuses: string[] = [];
-	if (hasMatchingLink(descriptions.prewritten, link)) {
-		statuses.push("initial metadata prepared");
-	}
-	if (
-		hasMatchingLink(descriptions.generated, link) ||
-		hasMatchingLink(descriptions.prewriteFallbacks, link)
-	) {
-		statuses.push("description updated");
+	if (hasMatchingLink(descriptions.applied, link)) {
+		statuses.push("complete title and body replaced");
 	}
 	const preview = findMatchingLink(descriptions.previews, link, (candidate) => candidate.link);
 	if (preview !== undefined) {
@@ -224,37 +206,8 @@ export function formatRestackFailureOutput(output: SubmitCommandOutput): string 
 	});
 }
 
-export function formatPrewriteFailureOutput(options: {
-	error: string;
-	amendedBranches: readonly string[];
-	diagnostic?: ErrorInfo;
-}): string {
-	const cause = formatCommandFailureConciseCause(options.diagnostic);
-	return [
-		options.error,
-		...(cause === undefined ? [] : [`Cause: ${cause}`]),
-		...(options.amendedBranches.length === 0
-			? []
-			: [
-					"",
-					"Local PR metadata commit messages were amended before the failure:",
-					...options.amendedBranches.map((branch) => `- ${branch}`),
-				]),
-	]
-		.filter(Boolean)
-		.join("\n");
-}
-
-export function formatPrewrittenMetadataAdvisory(
-	prewrittenMetadata: readonly PrewrittenPrMetadata[],
-	message: string,
-): readonly string[] {
-	return prewrittenMetadata.length === 0 ? [] : [message];
-}
-
 export function formatSubmitFailureOutput(
 	output: SubmitCommandOutput,
-	prewrittenMetadata: readonly PrewrittenPrMetadata[],
 	submitCommandDisplay: string,
 ): string {
 	return formatCommandFailureText({
@@ -265,10 +218,6 @@ export function formatSubmitFailureOutput(
 			timedOut: `${submitCommandDisplay} timed out and was terminated.`,
 			exit: (exitCode) => `${submitCommandDisplay} failed with exit code ${exitCode}.`,
 		},
-		detailLines: formatPrewrittenMetadataAdvisory(
-			prewrittenMetadata,
-			"Local PR metadata commit messages were prepared before submit; rerun ns flow submit after resolving the Graphite failure.",
-		),
 	});
 }
 

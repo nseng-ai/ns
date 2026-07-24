@@ -7,9 +7,6 @@ export interface SubmitPrDescriptionPreview {
 }
 
 export interface SubmitPrDescriptionSummary {
-	generated: readonly SubmitPrLink[];
-	skipped: readonly SubmitPrLink[];
-	prewritten: readonly SubmitPrLink[];
-	prewriteFallbacks: readonly SubmitPrLink[];
+	applied: readonly SubmitPrLink[];
 	previews: readonly SubmitPrDescriptionPreview[];
 }

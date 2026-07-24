@@ -12,15 +12,11 @@ export {
 	appendPrMetadataProvenance,
 	applyPreparedPrMetadataReplacement,
 	formatPromptSourceLabel,
-	orchestratePrDescription,
 	preparePrMetadataReplacement,
 	preparePrMetadataReplacementForCurrentBranch,
 	type ApplyPrMetadataReplacementResult,
 	type CurrentBranchPrMetadataReplacementOptions,
 	type PreparedPrMetadataReplacement,
-	type PrewrittenPrMetadata,
-	type PrDescriptionOrchestrationOptions,
-	type PrDescriptionOrchestrationResult,
 	type PrDescriptionProgressListeners,
 	type PrMetadataReplacementOptions,
 	type PrMetadataReplacementResult,
@@ -85,26 +81,16 @@ export {
 	type SubmitSemanticFailureCause,
 } from "./submit.ts";
 export {
-	RealSubmitMetadataGateway,
-	parseCommitMessages,
-	prewriteSubmitMetadata,
-	type SubmitBranchMetadataProgressEvent,
-	type SubmitBranchMetadataProgressListener,
-	type SubmitMetadataCommandParams,
-	type SubmitMetadataGateway,
-	type SubmitMetadataPrewriteDependencies,
-	type SubmitMetadataPrewriteResult,
+	RealSubmitStackInspectionGateway,
 	type SubmitStackBranch,
 	type SubmitStackExistingBranch,
 	type SubmitStackInspection,
+	type SubmitStackInspectionGateway,
+	type SubmitStackInspectionParams,
+	type SubmitStackInspectionProgressListener,
 	type SubmitStackNewBranch,
-} from "./submit-pr-metadata-prewrite.ts";
-export {
-	buildSubmitPlan,
-	planMetadataPrewrite,
-	type BuildSubmitPlanResult,
-	type SubmitPlan,
-} from "./submit-plan.ts";
+} from "./submit-stack-inspection.ts";
+export { buildSubmitPlan, type BuildSubmitPlanResult, type SubmitPlan } from "./submit-plan.ts";
 export { mergePrLinks, partitionPrLinksByExisting } from "./submit-pr-link.ts";
 export { extractPrLinks, prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
 export { bindMatrixSubmitProgress, type SubmitProgress } from "./submit-progress.ts";

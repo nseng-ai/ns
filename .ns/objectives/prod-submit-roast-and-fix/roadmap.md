@@ -50,11 +50,12 @@ Fog the answer makes stateable, and rewire or drop invalidated rows.
       shipped" and no ship attestation is recorded. Add an incident-regression scenario
       for a three-branch new stack so partial metadata cannot report ship success.
       Note: PR title/description generation currently remains inside `ns flow submit`
-      only for PRs newly created by the invocation. Ordinary submit leaves pre-existing
-      PR titles/bodies untouched; `--regenerate-descriptions` is the explicit stack-scope
-      rewrite. This interim safety contract supersedes the 5636cb792 empty-existing-body
-      backfill, but this row still owns moving all prose work to `ship` so `submit` can
-      honor its decided no-prose contract.
+      only for PRs newly created by the invocation, and runs post-submit with prepare-all-before-edit
+      batching. Ordinary submit leaves pre-existing PR titles/bodies untouched; focused
+      `regenerate-pr` replaces complete current-branch metadata with visible provenance. This interim
+      safety contract supersedes both the 5636cb792 empty-existing-body backfill and stack-wide submit
+      regeneration, but this row still owns moving all prose work to `ship` so `submit` can honor its
+      decided no-prose contract.
       Blocked by: Fixer engine.
 - [ ] (grilling) Remote roaster's residual role — whether the remote review workflow
       (`.github/workflows/reviews.yml`) keeps running tripwires as a backstop, shrinks

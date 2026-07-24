@@ -44,6 +44,7 @@ import {
 import {
 	defineCommand,
 	failure,
+	negative,
 	ok,
 	usageError,
 	z,
@@ -51,6 +52,8 @@ import {
 	type NsCommand,
 	type NsExtensionApi,
 } from "@nseng-ai/sdk";
+import { createNsClinkrInteraction } from "@nseng-ai/capability-kit";
+import { confirmInteractiveOrUsageError } from "@nseng-ai/clinkr";
 import { flowExtensionDescriptorSource } from "../extension.ts";
 import { FLOW_COMMAND_FAILED, exitCodeToFlowCommandExit } from "../flow-cli-runner.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
@@ -82,17 +85,24 @@ const submitSchema = z.object({
 		.describe(
 			'Run pre-submit checks installed at [points]."flow.submit.pre" in repo-root ns.toml before checkpointing. Use --no-checks to skip.',
 		),
-	regenerateDescriptions: z
-		.boolean()
-		.default(false)
-		.describe(
-			"Regenerate titles and ns-managed descriptions for every PR in the submitted scope, including existing PRs with matching fingerprints or non-empty bodies.",
-		),
+
 	minimal: z
 		.boolean()
 		.default(false)
 		.describe(
 			"Clean-tree cheap submit with no hooks, checkpoint, metadata preparation, PR prose, or model calls.",
+		),
+	regenerateDescriptions: z
+		.boolean()
+		.default(false)
+		.describe(
+			"Replace the complete generated title and body of every PR resolved in the submitted scope, including pre-existing PRs. All existing body content is removed. Requires interactive confirmation or --yes.",
+		),
+	yes: z
+		.boolean()
+		.default(false)
+		.describe(
+			"Approve the stack-wide complete PR metadata replacement of --regenerate-descriptions without prompting.",
 		),
 });
 
@@ -107,7 +117,7 @@ Environment:
 
   NS_SUBMIT_FAILURE_LOG_DIR     Optional directory for raw submit-failure transcripts.
 
-By default, newly created PRs receive initial generated titles and ns-managed descriptions. PRs that existed before the invocation are never title/body edited, regardless of body contents or managed fingerprint state. Use --regenerate-descriptions to force regeneration of titles and managed descriptions for every PR in the submitted scope.
+By default, newly created PRs receive complete generated titles and bodies after Graphite creates them; PRs that existed before the invocation are left untouched. Use --regenerate-descriptions to widen that batch to every PR resolved in the submitted scope, existing and new: each selected PR gets a complete generated title and body, and all existing body content is removed, including human-authored prose. Because this is destructive, --regenerate-descriptions asks for confirmation before any workflow work; pass --yes/-y to approve non-interactively. It cannot be combined with --minimal. Flow prepares every replacement before the first GitHub edit, then applies them sequentially; there is no rollback. Use ns flow regenerate-pr from an existing PR's branch for a focused single-PR replacement.
 
 The command owns its output and exit code. It does not support --format.`;
 
@@ -132,6 +142,7 @@ export function createFlowSubmitCommand(
 			force: { short: "-f" },
 			verbose: { short: "-v" },
 			minimal: { short: "-m" },
+			yes: { short: "-y" },
 		},
 		handler: async (ctx: NsExtensionApi, request: SubmitRequest) => {
 			if (request.minimal && request.regenerateDescriptions) {
@@ -139,6 +150,16 @@ export function createFlowSubmitCommand(
 					"--minimal cannot be combined with --regenerate-descriptions because minimal submit never generates PR prose.",
 					{ conflictingOptions: ["--minimal", "--regenerate-descriptions"] },
 				);
+			}
+			if (request.yes && !request.regenerateDescriptions) {
+				return usageError(
+					"--yes only approves the stack-wide replacement of --regenerate-descriptions; pass both flags together or omit --yes.",
+					{ invalidOption: "--yes", requiresOption: "--regenerate-descriptions" },
+				);
+			}
+			if (request.regenerateDescriptions && !request.yes) {
+				const confirmation = await confirmRegenerateAllPrMetadata(ctx);
+				if (confirmation !== undefined) return confirmation;
 			}
 			if (request.minimal) {
 				return await runMinimalSubmit({
@@ -191,6 +212,48 @@ export function createFlowSubmitCommand(
 			});
 		},
 	});
+}
+
+const REGENERATE_ALL_CONFIRMATION_MESSAGE = [
+	"--regenerate-descriptions replaces the complete title and body of every PR resolved from the current submit scope, existing and new.",
+	"All current body content on those PRs will be removed, including human-authored prose.",
+	"There is no rollback.",
+].join("\n");
+
+/**
+ * Early, generic authorization for stack-wide complete PR metadata replacement.
+ * Runs before hooks, checkpointing, model resolution, and any Graphite/GitHub
+ * command; the exact final PR set does not exist yet, so the warning describes
+ * the submit scope rather than concrete PR numbers.
+ *
+ * Returns undefined when the replacement is approved.
+ */
+async function confirmRegenerateAllPrMetadata(
+	ctx: NsExtensionApi,
+): Promise<CommandExit | undefined> {
+	const confirmation = await confirmInteractiveOrUsageError(
+		createNsClinkrInteraction(ctx, {
+			title: "Replace complete PR metadata for every PR in the submitted scope?",
+			formatMessage: () => REGENERATE_ALL_CONFIRMATION_MESSAGE,
+		}),
+		{
+			nonInteractive: {
+				message:
+					"Confirmation is unavailable; pass --yes to replace the complete title and body of every PR in the submitted scope non-interactively.",
+				missingFlag: "--yes",
+				howToSupply:
+					"Pass --yes/-y to approve the stack-wide complete replacement without prompting.",
+			},
+			confirmation: { message: REGENERATE_ALL_CONFIRMATION_MESSAGE, defaultAnswer: "no" },
+		},
+	);
+	if ("errorType" in confirmation) {
+		return usageError(confirmation.message, confirmation.data);
+	}
+	if (confirmation.type !== "confirmed") {
+		return negative("Submit was cancelled; no commands were run and no PR metadata was edited.");
+	}
+	return undefined;
 }
 
 export const flowSubmitCommand = createFlowSubmitCommand({
@@ -379,7 +442,7 @@ async function runSubmitWithProgress(input: {
 			force: request.force,
 			shouldForwardCommandOutput: request.verbose,
 			prDescription: { ...runtime.prDescription, modelSelection: prDescriptionModelSelection },
-			shouldRegenerateExistingPrDescriptions: request.regenerateDescriptions,
+			shouldReplaceAllPrMetadata: request.regenerateDescriptions,
 			progress,
 			...(onOutput === undefined ? {} : { onOutput }),
 		});
