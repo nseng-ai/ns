@@ -21,6 +21,7 @@ export interface PostLandingSlotCleanupPreview {
 	readonly branch: string;
 	readonly repoRoot: string;
 	readonly slotName: string;
+	readonly localBranchDisposition: "delete" | "keep-trunk";
 }
 
 export type PostLandingSlotCleanupDecision =
@@ -47,7 +48,6 @@ export type PostLandingCleanupResult =
 	  };
 
 interface PostLandingSlotCleanupTarget extends PostLandingSlotCleanupPreview {
-	readonly localBranchDisposition: "delete" | "keep-trunk";
 	readonly successMessage: string;
 	readonly suggestedAction: string;
 }
@@ -58,7 +58,12 @@ export function planManagedSlotPostLandingCleanup(options: {
 }): PostLandingSlotCleanupPreview | undefined {
 	const target = postLandingCleanupTarget(options.cleanup, options.shape);
 	if (target === undefined) return undefined;
-	return { branch: target.branch, repoRoot: target.repoRoot, slotName: target.slotName };
+	return {
+		branch: target.branch,
+		repoRoot: target.repoRoot,
+		slotName: target.slotName,
+		localBranchDisposition: target.localBranchDisposition,
+	};
 }
 
 /** Observed cleanup outcome when the target is skipped before any cleanup mutation runs. */

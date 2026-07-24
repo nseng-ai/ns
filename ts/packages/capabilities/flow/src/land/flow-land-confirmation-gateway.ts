@@ -11,6 +11,7 @@ import type {
 	LandConfirmationRequest,
 } from "./execution/host-seams.ts";
 import {
+	appendPostLandingCleanupImpact,
 	formatFreeManagedSlotsConfirmationDetails,
 	formatSingleBranchMainLandingConfirmationDetails,
 	formatPlan,
@@ -100,12 +101,13 @@ function mainLandingOptions(
 	ctx: PrintAwareLandStackCommandContext,
 	request: Extract<LandConfirmationRequest, { readonly kind: "main-landing" }>,
 ): ConfirmLandStackActionOptions {
+	const details = appendPostLandingCleanupImpact(formatPlan(request.plan), request.cleanup);
 	return {
 		ctx,
 		shouldPrompt: true,
 		title: "Land this stack path?",
-		details: formatPlan(request.plan),
-		nonInteractiveMessage: `Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${formatPlan(request.plan)}`,
+		details,
+		nonInteractiveMessage: `Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${details}`,
 	};
 }
 

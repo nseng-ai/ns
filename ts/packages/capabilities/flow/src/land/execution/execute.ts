@@ -179,7 +179,12 @@ export async function executeLandingRequest(
 		return completedResult(draft);
 	}
 
-	const mainDecision = await host.confirmation.confirm({ kind: "main-landing", plan: plan.value });
+	const cleanupPreview = planManagedSlotPostLandingCleanup({ cleanup: cleanupRequest, shape });
+	const mainDecision = await host.confirmation.confirm({
+		kind: "main-landing",
+		plan: plan.value,
+		...(cleanupPreview === undefined ? {} : { cleanup: cleanupPreview }),
+	});
 	if (mainDecision.type !== "approved") {
 		const failure =
 			mainDecision.type === "declined"
@@ -193,15 +198,10 @@ export async function executeLandingRequest(
 			: skipped("confirmation", "approved upfront before canonical execution"),
 	);
 
-	// Resolve cleanup authorization before any merge mutation; the mutation itself only runs
-	// after a fully successful landing.
-	const cleanupAuthorization = await resolveCleanupAuthorization({
-		confirmation: host.confirmation,
-		cleanupRequest,
-		shape,
-		draft,
-	});
-	if (cleanupAuthorization.type === "failed") return cleanupAuthorization.result;
+	// Approval authorizes only the cleanup impact disclosed by this main request. The mutation
+	// itself still runs only after a fully successful landing.
+	const cleanupDecision: PostLandingSlotCleanupDecision =
+		cleanupPreview === undefined ? { type: "not-needed" } : { type: "approved" };
 
 	host.progress.note(formatPreparingLandingMilestone(plan.value));
 
@@ -259,7 +259,7 @@ export async function executeLandingRequest(
 		host,
 		shape,
 		cleanupRequest,
-		cleanupDecision: cleanupAuthorization.decision,
+		cleanupDecision,
 		draft,
 	});
 }

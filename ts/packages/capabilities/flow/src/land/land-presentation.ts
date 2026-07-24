@@ -608,11 +608,14 @@ export function singleBranchMainLandingConfirmationTitle(): string {
 export function formatSingleBranchMainLandingConfirmationDetails(
 	request: Extract<LandConfirmationRequest, { readonly kind: "single-branch-main-landing" }>,
 ): string {
-	return [
-		`PR: #${request.pullRequest.number} ${request.pullRequest.title}`,
-		`Head branch: ${request.pullRequest.headRefName}`,
-		`Target trunk: ${request.trunk}`,
-	].join("\n");
+	return appendPostLandingCleanupImpact(
+		[
+			`PR: #${request.pullRequest.number} ${request.pullRequest.title}`,
+			`Head branch: ${request.pullRequest.headRefName}`,
+			`Target trunk: ${request.trunk}`,
+		].join("\n"),
+		request.cleanup,
+	);
 }
 
 export function singleBranchMainLandingNonInteractiveRefusalMessage(
@@ -741,25 +744,46 @@ export function postLandingCleanupConfirmationTitle(): string {
 	return "Free current slot and delete local branch?";
 }
 
-export function formatPostLandingCleanupConfirmationDetails(
-	request: Extract<LandConfirmationRequest, { readonly kind: "post-landing-cleanup" }>,
+export function formatPostLandingCleanupImpact(
+	cleanup: NonNullable<
+		Extract<LandConfirmationRequest, { readonly kind: "main-landing" }>["cleanup"]
+	>,
 ): string {
-	const keepsTrunk = request.localBranchDisposition === "keep-trunk";
-	const commands = postLandingCleanupCommands(request);
+	const keepsTrunk = cleanup.localBranchDisposition === "keep-trunk";
+	const commands = postLandingCleanupCommands(cleanup);
 	return [
 		keepsTrunk
 			? "Post-landing cleanup will detach the current managed slot to trunk. The local trunk branch is kept."
 			: "Post-landing cleanup will detach the current managed slot to trunk, then delete the landed local Graphite branch.",
 		"",
-		`Slot: ${request.slotName}`,
-		`Worktree: ${request.repoRoot}`,
+		`Slot: ${cleanup.slotName}`,
+		`Worktree: ${cleanup.repoRoot}`,
 		keepsTrunk
-			? `Local branch: ${request.branch} (trunk; will not be deleted)`
-			: `Local branch: ${request.branch}`,
+			? `Local branch: ${cleanup.branch} (trunk; will not be deleted)`
+			: `Local branch: ${cleanup.branch}`,
 		"",
 		"Commands:",
 		...commands.map((command) => `$ ${command}`),
 	].join("\n");
+}
+
+export function appendPostLandingCleanupImpact(
+	landingDetails: string,
+	cleanup: Extract<LandConfirmationRequest, { readonly kind: "main-landing" }>["cleanup"],
+): string {
+	if (cleanup === undefined) return landingDetails;
+	return [
+		landingDetails,
+		"",
+		"Post-landing cleanup:",
+		formatPostLandingCleanupImpact(cleanup),
+	].join("\n");
+}
+
+export function formatPostLandingCleanupConfirmationDetails(
+	request: Extract<LandConfirmationRequest, { readonly kind: "post-landing-cleanup" }>,
+): string {
+	return formatPostLandingCleanupImpact(request);
 }
 
 /** Success notice for a completed post-landing cleanup, derived from the observed report facts. */

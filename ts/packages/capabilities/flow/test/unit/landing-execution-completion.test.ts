@@ -1,21 +1,13 @@
 import { describe, expect, test } from "vitest";
 
 import { noopNsCommandIo } from "@nseng-ai/sdk";
-import {
-	executeLanding,
-	nullLandExecutionProgress,
-	type LandConfirmationGateway,
-	type StackLandingShape,
-} from "@nseng-ai/flow/land/api";
+import { nullLandExecutionProgress, type StackLandingShape } from "@nseng-ai/flow/land/api";
 import {
 	createInMemoryLandContext,
 	pullRequestFacts,
 	stackSnapshot,
 } from "@nseng-ai/flow/land/testing";
-import {
-	presentFlowStackLandingFailure,
-	runFlowStackLanding,
-} from "../../src/land/landing-execution.ts";
+import { runFlowStackLanding } from "../../src/land/landing-execution.ts";
 import { LandStackCommandStream } from "../../src/land/stack/command-stream.ts";
 import type { LandResultKind } from "../../src/land/land-presentation.ts";
 import type { LandStackCommandContext, ParsedArgs } from "../../src/land/stack/types.ts";
@@ -200,59 +192,5 @@ describe("Flow presentation of canonical completion dispositions", () => {
 				kind: "success",
 			},
 		]);
-	});
-
-	test("presents landed success before a declined post-landing cleanup failure", async () => {
-		const branch = "feature-a";
-		const memory = createInMemoryLandContext({
-			git: {
-				repoRoot: SLOT_ROOT,
-				currentBranch: branch,
-				localBranches: [{ name: branch, sha: SHA }],
-			},
-			graphite: {
-				stackShape: stackSnapshot({ current: branch, landingBranches: [branch] }),
-			},
-			github: {
-				pullRequests: [pullRequestFacts({ number: 101, headRefName: branch, headRefOid: SHA })],
-			},
-		});
-		const confirmation: LandConfirmationGateway = {
-			confirm: async (request) =>
-				request.kind === "post-landing-cleanup"
-					? { type: "declined" }
-					: { type: "approved", approvalSource: "prompted" },
-		};
-		const execution = await executeLanding({
-			context: memory.context,
-			request: {
-				cwd: SLOT_ROOT,
-				target: { type: "stack" },
-				mode: "execute",
-				preflight: { shouldAllowSubmitRequiredState: true },
-				cleanup: "free-slot",
-			},
-			host: { confirmation, progress: nullLandExecutionProgress },
-			source: { type: "discover" },
-		});
-		if (execution.type !== "failed") throw new Error("Expected cleanup refusal");
-
-		const fixture = contextFixture(SLOT_ROOT);
-		const outcome = presentFlowStackLandingFailure({
-			session: {
-				ctx: fixture.ctx,
-				commandStream: new LandStackCommandStream(noopNsCommandIo),
-				progress: nullLandExecutionProgress,
-			},
-			outcome: { ...execution, report: { ...execution.report, phases: [] } },
-		});
-
-		expect(outcome.type).toBe("failure");
-		expect(fixture.notifications).toHaveLength(2);
-		expect(fixture.notifications[0]).toMatchObject({ level: "success", kind: "success" });
-		expect(fixture.notifications[1]).toMatchObject({ level: "warning", kind: "refusal" });
-		expect(fixture.notifications[1]?.message).toContain(
-			"Skipped post-landing cleanup by upfront choice",
-		);
 	});
 });

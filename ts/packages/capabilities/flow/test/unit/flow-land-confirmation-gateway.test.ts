@@ -87,22 +87,49 @@ interface ConfirmationRequestEntry {
 	readonly defaultAnswer?: "yes";
 }
 
+const cleanupPreview = {
+	branch: "feature-a",
+	repoRoot: SLOT_ROOT,
+	slotName: "slot-02",
+	localBranchDisposition: "delete" as const,
+};
+
 const mainLandingEntry: ConfirmationRequestEntry = {
-	name: "main-landing",
-	request: { kind: "main-landing", plan: landingPlan() },
+	name: "main-landing with cleanup",
+	request: { kind: "main-landing", plan: landingPlan(), cleanup: cleanupPreview },
 	title: "Land this stack path?",
-	detailIncludes: ["feature-a", "#7"],
+	detailIncludes: [
+		"feature-a",
+		"#7",
+		"Post-landing cleanup:",
+		"Slot: slot-02",
+		`Worktree: ${SLOT_ROOT}`,
+		"Local branch: feature-a",
+		"$ ns slot free --wt slot-02",
+		"$ gt delete feature-a -f -q",
+	],
 };
 
 const singleBranchMainLandingEntry: ConfirmationRequestEntry = {
-	name: "single-branch-main-landing",
+	name: "single-branch-main-landing with cleanup",
 	request: {
 		kind: "single-branch-main-landing",
 		pullRequest: pullRequestFacts({ number: 9, headRefName: "feature-single-branch" }),
 		trunk: "main",
+		cleanup: { ...cleanupPreview, branch: "feature-single-branch" },
 	},
 	title: "Land this PR?",
-	detailIncludes: ["#9", "feature-single-branch", "main"],
+	detailIncludes: [
+		"#9",
+		"feature-single-branch",
+		"main",
+		"Post-landing cleanup:",
+		"Slot: slot-02",
+		`Worktree: ${SLOT_ROOT}`,
+		"Local branch: feature-single-branch",
+		"$ ns slot free --wt slot-02",
+		"$ gt delete feature-single-branch -f -q",
+	],
 };
 
 const freeManagedSlotsEntry: ConfirmationRequestEntry = {

@@ -19,8 +19,6 @@ import {
 	stackSnapshot,
 	type InMemoryLandContextState,
 } from "@nseng-ai/flow/land/testing";
-import { isPostLandingCleanupFailureAfterLanding } from "../../../src/land/landing-execution.ts";
-
 const ROOT = "/repo";
 const SLOT_ROOT = "/state/ns/slots/repos/repo/worktrees/slot-02";
 const BRANCH = "feature-a";
@@ -213,7 +211,14 @@ describe("land execute mode over in-memory gateways", () => {
 			type: "failed",
 			phase: "confirmation",
 		});
+		expect(confirmation.requests).toEqual([
+			{
+				kind: "main-landing",
+				plan: expect.objectContaining({ repoRoot: ROOT }),
+			},
+		]);
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
+		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
 	});
 
 	test("takes the submit-required preparation path before reporting residual remote metadata", async () => {
@@ -576,7 +581,7 @@ describe("land execute mode over in-memory gateways", () => {
 });
 
 describe("post-landing managed-slot cleanup under canonical execution", () => {
-	test("free-slot policy confirms cleanup before merge and mutates only after landing", async () => {
+	test("free-slot policy discloses cleanup in one main approval and mutates only after landing", async () => {
 		const memory = createInMemoryLandContext(managedSlotState());
 		const confirmation = approvingConfirmation();
 		const outcome = await executeLanding({
@@ -586,9 +591,17 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
 		});
 
-		expect(confirmation.requests.map((request) => request.kind)).toEqual([
-			"main-landing",
-			"post-landing-cleanup",
+		expect(confirmation.requests).toEqual([
+			{
+				kind: "main-landing",
+				plan: expect.objectContaining({ repoRoot: SLOT_ROOT }),
+				cleanup: {
+					branch: BRANCH,
+					repoRoot: SLOT_ROOT,
+					slotName: "slot-02",
+					localBranchDisposition: "delete",
+				},
+			},
 		]);
 		expect(outcome).toMatchObject({
 			type: "completed",
@@ -609,15 +622,15 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		expect(memory.worktrees.freeSlotsCalls).toHaveLength(1);
 	});
 
-	test("cleanup authorization failure stops normal execution in the confirmation phase", async () => {
+	test("combined landing and cleanup refusal stops before any mutation", async () => {
 		const memory = createInMemoryLandContext(managedSlotState());
 		const confirmation = decidingConfirmation({
-			"post-landing-cleanup": {
+			"main-landing": {
 				type: "refused-with-fully-worded-failure",
 				failure: {
 					type: "execution",
 					level: "error",
-					message: "Cleanup confirmation unavailable.",
+					message: "Combined landing confirmation unavailable.",
 					outcome: "refusal",
 					refusalReason: "non-interactive",
 				},
@@ -633,12 +646,20 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		expect(outcome).toMatchObject({
 			type: "failed",
 			failedPhase: "confirmation",
-			failure: { message: "Cleanup confirmation unavailable." },
+			failure: { message: "Combined landing confirmation unavailable." },
 			report: { cleanup: { postLandingSlotCleanup: { type: "not-run" } } },
 		});
-		expect(confirmation.requests.map((request) => request.kind)).toEqual([
-			"main-landing",
-			"post-landing-cleanup",
+		expect(confirmation.requests).toEqual([
+			{
+				kind: "main-landing",
+				plan: expect.objectContaining({ repoRoot: SLOT_ROOT }),
+				cleanup: {
+					branch: BRANCH,
+					repoRoot: SLOT_ROOT,
+					slotName: "slot-02",
+					localBranchDisposition: "delete",
+				},
+			},
 		]);
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
 		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
@@ -692,7 +713,6 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const memory = createInMemoryLandContext(managedSlotState());
 		const upfrontConfirmation = decidingConfirmation({
 			"main-landing": { type: "approved", approvalSource: "approved-upfront" },
-			"post-landing-cleanup": { type: "approved", approvalSource: "approved-upfront" },
 		});
 		const outcome = await executeLanding({
 			context: memory.context,
@@ -704,10 +724,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			},
 		});
 
-		expect(upfrontConfirmation.requests.map((request) => request.kind)).toEqual([
-			"main-landing",
-			"post-landing-cleanup",
-		]);
+		expect(upfrontConfirmation.requests.map((request) => request.kind)).toEqual(["main-landing"]);
 		expect(outcome).toMatchObject({
 			type: "completed",
 			report: { cleanup: { postLandingSlotCleanup: { type: "completed" } } },
@@ -748,10 +765,10 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		},
 	);
 
-	test("declined cleanup lands the stack and fails with the partial report intact", async () => {
+	test("declining the combined landing and cleanup request causes no mutation", async () => {
 		const memory = createInMemoryLandContext(managedSlotState());
 		const confirmation = decidingConfirmation({
-			"post-landing-cleanup": { type: "declined" },
+			"main-landing": { type: "declined" },
 		});
 		const outcome = await executeLanding({
 			context: memory.context,
@@ -762,28 +779,25 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 
 		expect(outcome).toMatchObject({
 			type: "failed",
+			failedPhase: "confirmation",
 			failure: {
 				type: "execution",
-				level: "warning",
 				outcome: "refusal",
-				message: expect.stringContaining("Skipped post-landing cleanup by upfront choice"),
+				refusalReason: "declined",
 			},
 			report: {
-				landedChunks: [{ landed: [{ number: 101 }] }],
-				cleanup: {
-					postLandingSlotCleanup: { type: "declined", slotName: "slot-02", branch: BRANCH },
-				},
+				landedChunks: [],
+				cleanup: { postLandingSlotCleanup: { type: "not-run" } },
 			},
 		});
-		if (outcome.type !== "failed") return;
-		expect(outcome.failedPhase).toBe("post-landing-cleanup");
-		expect(
-			isPostLandingCleanupFailureAfterLanding({
-				...outcome,
-				report: { ...outcome.report, phases: [] },
-			}),
-		).toBe(true);
+		expect(confirmation.requests).toHaveLength(1);
+		expect(confirmation.requests[0]).toMatchObject({
+			kind: "main-landing",
+			cleanup: { localBranchDisposition: "delete" },
+		});
+		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
 		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
+		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 	});
 
 	test("slot free failure after landing keeps landed chunks and reports failed cleanup", async () => {

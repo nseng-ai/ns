@@ -99,6 +99,12 @@ describe("single-branch landing core", () => {
 				kind: "single-branch-main-landing",
 				pullRequest: expect.objectContaining({ number: 101, headRefName: FEATURE }),
 				trunk: TRUNK,
+				cleanup: {
+					branch: FEATURE,
+					repoRoot: MANAGED_ROOT,
+					slotName: "slot-03",
+					localBranchDisposition: "delete",
+				},
 			},
 		]);
 		expect(outcome).toEqual({
@@ -136,33 +142,38 @@ describe("single-branch landing core", () => {
 		]);
 	});
 
-	test("refuses cleanup confirmation at the exact pre-merge point", async () => {
-		const refusal = {
-			type: "execution" as const,
-			level: "error" as const,
-			message:
-				"Refusing to land before merge: post-landing slot cleanup requires confirmation in non-interactive mode. No PRs were landed.",
-			outcome: "refusal" as const,
-			refusalReason: "non-interactive" as const,
-		};
+	test("one approval authorizes the disclosed cleanup without a second request", async () => {
+		const requests: Parameters<LandConfirmationGateway["confirm"]>[0][] = [];
 		const fakes = createInMemoryLandContext({ github: { pullRequests: [openPullRequest()] } });
 		const outcome = await run(fakes.context, {
 			shape: singleBranchShape(MANAGED_ROOT),
 			confirmation: {
-				confirm: async (request) =>
-					request.kind === "single-branch-main-landing"
-						? { type: "approved", approvalSource: "prompted" }
-						: { type: "refused-with-fully-worded-failure", failure: refusal },
+				confirm: async (request) => {
+					requests.push(request);
+					return { type: "approved", approvalSource: "prompted" };
+				},
 			},
 		});
 
-		expect(outcome).toEqual({
-			type: "failure",
-			stage: "cleanup-confirmation",
-			failure: refusal,
-			cleanupDecision: { type: "not-needed" },
+		expect(requests).toEqual([
+			{
+				kind: "single-branch-main-landing",
+				pullRequest: openPullRequest(),
+				trunk: TRUNK,
+				cleanup: {
+					branch: FEATURE,
+					repoRoot: MANAGED_ROOT,
+					slotName: "slot-03",
+					localBranchDisposition: "delete",
+				},
+			},
+		]);
+		expect(outcome).toMatchObject({
+			type: "completed",
+			result: "merged",
+			cleanupDecision: { type: "approved" },
 		});
-		expect(fakes.github.squashMergePullRequestCalls).toEqual([]);
+		expect(fakes.github.squashMergePullRequestCalls).toHaveLength(1);
 	});
 
 	test("preserves every merge boundary failure field", async () => {
