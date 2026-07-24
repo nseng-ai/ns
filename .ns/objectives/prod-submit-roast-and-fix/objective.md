@@ -24,12 +24,15 @@ cleaned up after the fact.
 
 The semantic cheap-submit engine is staged behind `ns flow submit --minimal`: it is a
 clean-tree readiness/restack/submit/verification path with no hooks, checkpoint,
-metadata prewrite, PR prose, or model work. Default `ns flow submit` has not migrated
-and retains its existing behavior, but its legacy path now reacquires Graphite readiness
-only after metadata amendments and stops before follow-up stack publication when the
-primary submit reports a semantic failure. `ns flow ship`, review/autofix integration,
-prose migration, and live dogfooding remain open; the staged mode carries no live
-publication claim.
+metadata prewrite, PR prose, or model work. Default `ns flow submit` has not migrated.
+As an interim safety contract, its legacy path generates initial metadata only for PRs
+newly created by that invocation; ordinary resubmission never edits a pre-existing PR's
+title or body, while `--regenerate-descriptions` explicitly forces stack-scope title and
+managed-body regeneration. The legacy path also reacquires Graphite readiness only after
+metadata amendments and stops before follow-up stack publication when the primary submit
+reports a semantic failure. `ns flow ship`, review/autofix integration, final prose
+migration, and live dogfooding remain open; the staged mode carries no live publication
+claim.
 
 ## Scope
 
@@ -92,12 +95,15 @@ publication claim.
   feedback-remediation stack created PRs #3395–#3397 through raw non-interactive
   `gt submit`; Graphite pushed successfully, but the completion workflow skipped
   Flow's title/description generation and left default commit-subject metadata
-  (#3395/#3396 later merged, #3397 closed). The symptom is partially mitigated on
-  trunk: commit 5636cb792 ("Generate descriptions for empty existing PRs",
-  2026-07-11) makes `ns flow submit` backfill titles and managed descriptions for
-  existing PRs with empty bodies by default, so bare PRs left by raw `gt submit` are
-  repaired on the next submit. The routing gap itself remains open: command
-  capability alone is insufficient — agent-facing submission policy must route WIP
+  (#3395/#3396 later merged, #3397 closed). The symptom was partially mitigated by
+  commit 5636cb792 ("Generate descriptions for empty existing PRs", 2026-07-11),
+  which made ordinary submit backfill existing PRs with empty bodies. That mitigation
+  is now superseded because implicit prose edits can overwrite accountable descriptions:
+  ordinary submit leaves every pre-existing title/body untouched, while explicit
+  `--regenerate-descriptions` owns stack-scope rewrites. Initial metadata for PRs newly
+  created by an invocation remains a temporary bridge until `ship` owns prose. The
+  routing gap itself remains open: command capability alone is insufficient —
+  agent-facing submission policy must route WIP
   synchronization to `submit`, completion/review-readiness to `ship`, and raw
   `gt submit` only to an explicit recovery path. As of this refresh,
   `skills/code-gh/SKILL.md` still presents `ns flow submit` and
