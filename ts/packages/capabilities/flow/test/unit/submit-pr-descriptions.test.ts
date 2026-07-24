@@ -34,10 +34,6 @@ class PrewrittenDescriptionGithubPrGateway implements GithubPrGateway {
 		throw new Error("getPrDiff should not be called");
 	}
 
-	async stablePatchIdForPr(): Promise<never> {
-		throw new Error("stablePatchIdForPr should not be called");
-	}
-
 	async editPr(): Promise<never> {
 		throw new Error("editPr should not be called");
 	}
@@ -74,10 +70,6 @@ class GeneratedDescriptionGithubPrGateway implements GithubPrGateway {
 
 	async getPrDiff() {
 		return ok("diff --git a/file b/file\n+change");
-	}
-
-	async stablePatchIdForPr() {
-		return ok({ patchId: "patch-1", diff: "diff --git a/file b/file\n+change" });
 	}
 
 	async editPr() {

@@ -1,60 +1,61 @@
+import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
 import { createNsClinkrInteraction } from "@nseng-ai/capability-kit";
 import { confirmInteractiveOrUsageError } from "@nseng-ai/clinkr";
 import { renderResultBlock, renderResultBlockFromMessage } from "@nseng-ai/foundation/cli-theme";
 import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
-import { defineCommand, negative, ok, z, type NsCommand, type NsExtensionApi } from "@nseng-ai/sdk";
-
 import {
-	applyPreparedPrDescriptionUpdate,
-	PR_DESCRIPTION_PROMPT_ENV,
-	REPO_PR_DESCRIPTION_PROMPT_PATH,
+	defineCommand,
+	negative,
+	ok,
+	usageError,
+	z,
+	type NsCommand,
+	type NsExtensionApi,
+} from "@nseng-ai/sdk";
+
+import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
+import {
+	applyPreparedPrMetadataReplacement,
 	createNsPrDescriptionRuntime,
 	formatPromptSourceLabel,
-	prDescriptionFingerprintPolicyForForce,
-	preparePrDescriptionUpdateForCurrentBranch,
-	type PreparedPrDescriptionUpdate,
-	type PrDescriptionUpdateResult,
+	preparePrMetadataReplacementForCurrentBranch,
+	PR_DESCRIPTION_PROMPT_ENV,
+	REPO_PR_DESCRIPTION_PROMPT_PATH,
+	type PreparedPrMetadataReplacement,
+	type PrMetadataReplacementResult,
 } from "../../submit/index.ts";
-import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { flowExtensionDescriptorSource } from "../extension.ts";
-import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
 import { resolveFlowModelSelection } from "../model-policy.ts";
 
-const REGENERATE_PR_DESCRIPTION = `Regenerate the current branch PR title and ns-managed generated body region.
+const REGENERATE_PR_DESCRIPTION = `Regenerate and completely replace the current branch PR title and body.
 
-The command reads the current branch PR with gh, generates fresh PR metadata from the PR diff and commit headlines, then updates the PR title and only the ns-managed generated description region. By default it asks before editing GitHub. Human-authored PR body text outside that managed region is preserved. Use --force to regenerate even when the generated fingerprint is current and bypass confirmation.
+The command reads the current branch PR with gh, generates fresh PR metadata from the PR diff and commit headlines, then replaces the complete PR title and body. All existing body content is removed, including human prose and other ns-managed regions. By default it asks before editing GitHub. Use --yes/-y to approve the destructive replacement non-interactively.
 
 Environment:
   ${PR_DESCRIPTION_PROMPT_ENV}  Optional path to a custom PR description prompt. Overrides ${REPO_PR_DESCRIPTION_PROMPT_PATH} and the built-in prompt.`;
 
 const regeneratePrSchema = z.object({
-	force: z
+	yes: z
 		.boolean()
 		.default(false)
-		.describe("Regenerate even when the fingerprint is current and bypass confirmation."),
+		.describe("Replace the complete PR title and body without prompting."),
 });
 
 type RegeneratePrRequest = z.output<typeof regeneratePrSchema>;
 
 export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = defineCommand({
 	name: "regenerate-pr",
-	summary: "Regenerate the PR title and ns-managed body region.",
+	summary: "Regenerate and replace the complete PR title and body.",
 	description: REGENERATE_PR_DESCRIPTION,
 	schema: regeneratePrSchema,
 	resultSchema: z.string(),
-	options: { force: { short: "-f" } },
+	options: { yes: { short: "-y" } },
 	handler: async (ctx: NsExtensionApi, request: RegeneratePrRequest) => {
 		return await runWithNsCommandIo(commandIoFromNsExtensionApi(ctx), async (io) => {
-			// `regenerate-pr` is flow-local (no cmux-capability dependency, no streaming): it reads PR metadata, generates new
-			// metadata, and reports one settled outcome whose body is domain-authored prose rather than a
-			// single git/Graphite `ExecResult` transcript. So it renders through the shared finite
-			// result block (success / failure / refusal), the same house-style block
-			// `branch-latest-commit` uses. It still emits coarse transient phase text so the user is not
-			// left staring at a blank terminal while GitHub/model work happens before confirmation.
 			const caps = resolveFlowStreamCaps(ctx);
 			const runtime = createNsPrDescriptionRuntime(ctx);
 			const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowPrDescription);
-			if (!model.ok)
+			if (!model.ok) {
 				return negative(
 					renderResultBlockFromMessage(caps, {
 						kind: "failure",
@@ -62,22 +63,22 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = def
 						cwd: ctx.cwd,
 					}),
 				);
-			io.phase("Preparing PR metadata update…");
-			const prepared: PrDescriptionUpdateResult = await preparePrDescriptionUpdateForCurrentBranch({
-				cwd: ctx.cwd,
-				env: ctx.env,
-				githubPr: runtime.githubPr,
-				git: runtime.git,
-				descriptorSource: flowExtensionDescriptorSource,
-				modelSelection: model.modelSelection,
-				textGenerator: ctx.textGenerator,
-				fingerprintPolicy: prDescriptionFingerprintPolicyForForce(request.force),
-				progress: { onProgress: (message) => io.phase(message) },
-			});
+			}
+
+			io.phase("Preparing complete PR metadata replacement…");
+			const prepared: PrMetadataReplacementResult =
+				await preparePrMetadataReplacementForCurrentBranch({
+					cwd: ctx.cwd,
+					env: ctx.env,
+					githubPr: runtime.githubPr,
+					git: runtime.git,
+					descriptorSource: flowExtensionDescriptorSource,
+					modelSelection: model.modelSelection,
+					textGenerator: ctx.textGenerator,
+					source: "regenerate-pr",
+					progress: { onProgress: (message) => io.phase(message) },
+				});
 			if (prepared.type === "failed") {
-				// PR lookup / diff / prompt / generation failure: the domain string already leads with a
-				// summary sentence, so route its first line to the bold headline and the rest to the body
-				// (house-style §7.1 "direct domain message"). The cause stays visible; GitHub was not edited.
 				return negative(
 					renderResultBlockFromMessage(caps, {
 						kind: "failure",
@@ -87,72 +88,48 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = def
 				);
 			}
 
-			if (prepared.type === "skipped") {
-				return ok(
-					renderResultBlock(caps, {
-						kind: "success",
-						headline: "PR title and description are already current.",
-						cwd: ctx.cwd,
-						body: [
-							`PR: #${prepared.pr.number} ${prepared.pr.url}`,
-							`Prompt: ${formatPromptSourceLabel(prepared.promptSource)}`,
-						].join("\n"),
-					}),
-				);
-			}
-
-			if (!request.force) {
+			if (!request.yes) {
 				const confirmationMessage = formatConfirmationMessage({ generated: prepared });
 				const confirmation = await confirmInteractiveOrUsageError(
 					createNsClinkrInteraction(ctx, {
-						title: "Regenerate PR metadata?",
+						title: "Replace complete PR metadata and remove all existing body content?",
 						formatMessage: () => confirmationMessage,
 					}),
 					{
 						nonInteractive: {
 							message:
-								"Confirmation is unavailable; pass --force to edit GitHub non-interactively.",
-							missingFlag: "--force",
-							howToSupply: "Pass --force to regenerate and edit GitHub without prompting.",
+								"Confirmation is unavailable; pass --yes to replace the complete PR title and body non-interactively.",
+							missingFlag: "--yes",
+							howToSupply: "Pass --yes/-y to approve the complete replacement without prompting.",
 						},
-						confirmation: {
-							message: confirmationMessage,
-							defaultAnswer: "yes",
-						},
+						confirmation: { message: confirmationMessage, defaultAnswer: "no" },
 					},
 				);
 				if ("errorType" in confirmation) {
-					return negative(
-						renderResultBlock(caps, {
-							kind: "refusal",
-							headline: confirmation.message,
-							cwd: ctx.cwd,
-						}),
-					);
+					return usageError(confirmation.message, confirmation.data);
 				}
 				if (confirmation.type !== "confirmed") {
-					// Declined/aborted confirmation is a warn refusal: GitHub stays untouched.
 					return negative(
 						renderResultBlock(caps, {
 							kind: "refusal",
-							headline: "PR metadata regeneration was cancelled; GitHub was not edited.",
+							headline: "PR metadata replacement was cancelled; GitHub was not edited.",
 							cwd: ctx.cwd,
 						}),
 					);
 				}
 			}
 
-			io.phase(`Updating PR #${prepared.pr.number} metadata on GitHub…`);
-			const edited = await applyPreparedPrDescriptionUpdate({
+			io.phase(`Replacing PR #${prepared.pr.number} title and body on GitHub…`);
+			const edited = await applyPreparedPrMetadataReplacement({
 				cwd: ctx.cwd,
 				githubPr: runtime.githubPr,
-				update: prepared,
+				replacement: prepared,
 			});
 			if (!edited.ok) {
 				return negative(
 					renderResultBlock(caps, {
 						kind: "failure",
-						headline: `Generated a PR description, but failed to update PR #${prepared.pr.number}.`,
+						headline: `Generated PR metadata, but failed to update PR #${prepared.pr.number}.`,
 						cwd: ctx.cwd,
 						body: edited.reason.trimEnd(),
 					}),
@@ -162,7 +139,7 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = def
 			return ok(
 				renderResultBlock(caps, {
 					kind: "success",
-					headline: "Regenerated PR title and description.",
+					headline: "Replaced complete PR title and body.",
 					cwd: ctx.cwd,
 					body: [
 						`PR: #${prepared.pr.number} ${prepared.pr.url}`,
@@ -177,12 +154,14 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = def
 
 export default flowRegeneratePrCommand;
 
-function formatConfirmationMessage(input: { generated: PreparedPrDescriptionUpdate }): string {
+function formatConfirmationMessage(input: { generated: PreparedPrMetadataReplacement }): string {
 	return [
 		`PR #${input.generated.pr.number}: ${input.generated.pr.url}`,
 		`Current title: ${input.generated.pr.title}`,
 		`New title: ${input.generated.title}`,
+		`Prompt: ${formatPromptSourceLabel(input.generated.promptSource)}`,
 		"",
-		"This will update the PR title and ns-managed generated description region.",
+		"This replaces the complete PR title and body.",
+		"All existing PR body content will be removed, including human prose and other ns-managed regions.",
 	].join("\n");
 }

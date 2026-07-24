@@ -1,21 +1,12 @@
-import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { ErrorInfo } from "@nseng-ai/foundation/result";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { formatModelRef } from "@nseng-ai/foundation/model-slug";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import type { ErrorInfo } from "@nseng-ai/foundation/result";
 
 import { modelOperation, withActiveOperations } from "../phase-stream/matrix-progress-core.ts";
-import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import type { GithubPrDetails, GithubPrGateway } from "./github-pr-gateway.ts";
-import {
-	buildFingerprint,
-	decidePrBodyUpdate,
-	mergeGeneratedBody,
-	prewrittenFallbackBody,
-	prewrittenMetadataMatches,
-	type PrDescriptionFingerprintPolicy,
-} from "./pr-description-body.ts";
 import {
 	preparePrDescription,
 	resolvePrDescriptionGeneration,
@@ -24,6 +15,9 @@ import {
 	type PromptSource,
 	type TimeServices,
 } from "./pr-description.ts";
+import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
+
+/** Temporary submit-pipeline compatibility shape. PR 2 removes metadata prewrite entirely. */
 export interface PrewrittenPrMetadata {
 	branch: string;
 	parentBranch: string;
@@ -38,14 +32,14 @@ export interface PrDescriptionContent {
 	previewBody: string;
 }
 
-export type { PrDescriptionFingerprintPolicy } from "./pr-description-body.ts";
+export type PrMetadataReplacementSource = "submit" | "regenerate-pr";
 
 export type PrDescriptionProgressListeners = Pick<
 	SubmitProgressListeners<never>,
 	"onProgress" | "onActiveOperations"
 >;
 
-export interface PrDescriptionUpdateOptions {
+export interface PrMetadataReplacementOptions {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	git: GitGateway;
@@ -54,25 +48,28 @@ export interface PrDescriptionUpdateOptions {
 	githubPr: GithubPrGateway;
 	textGenerator: TextGenerator;
 	pr: GithubPrDetails;
+	source: PrMetadataReplacementSource;
 	generation?: Extract<PrDescriptionGenerationResolution, { ok: true }>;
-	fingerprintPolicy?: PrDescriptionFingerprintPolicy;
 	activeOperationDetail?: string;
 	progress?: PrDescriptionProgressListeners;
 	time?: TimeServices;
 }
 
-export type CurrentBranchPrDescriptionUpdateOptions = Omit<PrDescriptionUpdateOptions, "pr">;
+export type CurrentBranchPrMetadataReplacementOptions = Omit<PrMetadataReplacementOptions, "pr">;
 
-export type PreparedPrDescriptionUpdate = Extract<PrDescriptionUpdateResult, { type: "prepared" }>;
+export interface PreparedPrMetadataReplacement {
+	type: "prepared";
+	pr: GithubPrDetails;
+	title: string;
+	body: string;
+	previewBody: string;
+	promptSource: PromptSource;
+	modelSelection: ModelSelection;
+	source: PrMetadataReplacementSource;
+}
 
-export type PrDescriptionUpdateResult =
-	| { type: "skipped"; pr: GithubPrDetails; patchId: string; promptSource: PromptSource }
-	| ({
-			type: "prepared";
-			pr: GithubPrDetails;
-			mergedBody: string;
-			promptSource: PromptSource;
-	  } & PrDescriptionContent)
+export type PrMetadataReplacementResult =
+	| PreparedPrMetadataReplacement
 	| {
 			type: "failed";
 			pr?: GithubPrDetails;
@@ -81,45 +78,38 @@ export type PrDescriptionUpdateResult =
 			diagnostic?: ErrorInfo;
 	  };
 
-export type ApplyPrDescriptionUpdateResult =
+export type ApplyPrMetadataReplacementResult =
 	| { ok: true }
 	| { ok: false; reason: string; diagnostic?: ErrorInfo };
 
-export function prDescriptionFingerprintPolicyForForce(
-	shouldForce: boolean,
-): PrDescriptionFingerprintPolicy {
-	return shouldForce ? "force" : "skip-current";
-}
-
-export interface PrDescriptionOrchestrationOptions extends PrDescriptionUpdateOptions {
+export interface PrDescriptionOrchestrationOptions extends Omit<
+	PrMetadataReplacementOptions,
+	"source"
+> {
+	/** Temporary adapter for the submit prewrite pipeline; PR 2 deletes this path. */
 	prewrittenMetadata?: PrewrittenPrMetadata;
 	shouldForce?: boolean;
 }
 
 export type PrDescriptionOrchestrationResult =
-	| { type: "skipped"; pr: GithubPrDetails; patchId: string }
 	| ({ type: "matched_prewritten"; pr: GithubPrDetails } & PrDescriptionContent)
 	| ({ type: "updated"; pr: GithubPrDetails } & PrDescriptionContent)
-	| ({
-			type: "generated";
-			pr: GithubPrDetails;
-			promptSource: PromptSource;
-	  } & PrDescriptionContent)
-	| Extract<PrDescriptionUpdateResult, { type: "failed" }>;
+	| ({ type: "generated"; pr: GithubPrDetails; promptSource: PromptSource } & PrDescriptionContent)
+	| Extract<PrMetadataReplacementResult, { type: "failed" }>;
 
-export async function preparePrDescriptionUpdateForCurrentBranch(
-	options: CurrentBranchPrDescriptionUpdateOptions,
-): Promise<PrDescriptionUpdateResult> {
+export async function preparePrMetadataReplacementForCurrentBranch(
+	options: CurrentBranchPrMetadataReplacementOptions,
+): Promise<PrMetadataReplacementResult> {
 	const pr = await options.githubPr.viewCurrentBranchPr({ cwd: options.cwd });
 	if (!pr.ok) {
 		return { type: "failed", reason: `Could not resolve current branch PR.\n${pr.error.message}` };
 	}
-	return preparePrDescriptionUpdate({ ...options, pr: pr.value });
+	return preparePrMetadataReplacement({ ...options, pr: pr.value });
 }
 
-export async function preparePrDescriptionUpdate(
-	options: PrDescriptionUpdateOptions,
-): Promise<PrDescriptionUpdateResult> {
+export async function preparePrMetadataReplacement(
+	options: PrMetadataReplacementOptions,
+): Promise<PrMetadataReplacementResult> {
 	const pr = options.pr;
 	const generation =
 		options.generation ??
@@ -139,39 +129,15 @@ export async function preparePrDescriptionUpdate(
 		};
 	}
 
-	options.progress?.onProgress?.(`checking PR #${pr.number} description fingerprint`);
-	const patchId = await options.githubPr.stablePatchIdForPr({
+	options.progress?.onProgress?.(`loading PR #${pr.number} diff`);
+	const diff = await options.githubPr.getPrDiff({
 		cwd: options.cwd,
 		number: pr.number,
-		...(pr.baseRefName === undefined ? {} : { baseRefName: pr.baseRefName }),
-		...(pr.headRefName === undefined ? {} : { headRefName: pr.headRefName }),
+		baseRefName: pr.baseRefName,
+		headRefName: pr.headRefName,
 	});
-	if (!patchId.ok) {
-		return { type: "failed", pr, reason: patchId.error.message, diagnostic: patchId.error };
-	}
+	if (!diff.ok) return { type: "failed", pr, reason: diff.error.message, diagnostic: diff.error };
 
-	const fingerprint = buildFingerprint({
-		patchId: patchId.value.patchId,
-		promptText: generation.promptText,
-	});
-	const decision = decidePrBodyUpdate({
-		existingBody: pr.body,
-		fingerprint,
-		policy: options.fingerprintPolicy ?? "skip-current",
-	});
-	if (decision.type === "skip") {
-		options.progress?.onProgress?.(
-			`skipping PR #${pr.number} description; generated fingerprint is unchanged`,
-		);
-		return {
-			type: "skipped",
-			pr,
-			patchId: patchId.value.patchId,
-			promptSource: generation.promptSource,
-		};
-	}
-
-	options.progress?.onProgress?.(`recomputing PR #${pr.number} description (${decision.reason})`);
 	const commits = await options.githubPr.getPrCommitMessages({
 		cwd: options.cwd,
 		number: pr.number,
@@ -198,11 +164,10 @@ export async function preparePrDescriptionUpdate(
 					kind: "github",
 					number: pr.number,
 					url: pr.url,
-					title: pr.title,
 					headRefName: pr.headRefName,
 					baseRefName: pr.baseRefName,
 					commitMessages: commits.value,
-					diff: patchId.value.diff,
+					diff: diff.value,
 				},
 				...optionalEntry("onProgress", options.progress?.onProgress),
 				...(options.time === undefined ? {} : { time: options.time }),
@@ -214,134 +179,117 @@ export async function preparePrDescriptionUpdate(
 		type: "prepared",
 		pr,
 		title: prepared.title,
-		mergedBody: mergeGeneratedBody({
-			existingBody: pr.body,
-			generatedBody: prepared.body,
-			fingerprint,
-			commits: commits.value,
+		body: appendPrMetadataProvenance({
+			body: prepared.body,
+			source: options.source,
+			promptSource: generation.promptSource,
+			modelSelection: generation.modelSelection,
 		}),
 		previewBody: prepared.body,
 		promptSource: generation.promptSource,
+		modelSelection: generation.modelSelection,
+		source: options.source,
 	};
 }
 
-export async function applyPreparedPrDescriptionUpdate(input: {
+export async function applyPreparedPrMetadataReplacement(input: {
 	cwd: string;
 	githubPr: GithubPrGateway;
-	update: PreparedPrDescriptionUpdate;
-}): Promise<ApplyPrDescriptionUpdateResult> {
+	replacement: PreparedPrMetadataReplacement;
+}): Promise<ApplyPrMetadataReplacementResult> {
 	const edited = await input.githubPr.editPr({
 		cwd: input.cwd,
-		number: input.update.pr.number,
-		title: input.update.title,
-		body: input.update.mergedBody,
+		number: input.replacement.pr.number,
+		title: input.replacement.title,
+		body: input.replacement.body,
 	});
 	if (edited.ok) return { ok: true };
 	return { ok: false, reason: edited.error.message, diagnostic: edited.error };
 }
 
+export function formatPromptSourceLabel(source: PromptSource): string {
+	switch (source.type) {
+		case "builtin":
+			return "built-in flow.submit.pr-description";
+		case "repo":
+			return "repository flow.submit.pr-description";
+		case "env":
+			return "environment override flow.submit.pr-description";
+	}
+}
+
+export function appendPrMetadataProvenance(input: {
+	body: string;
+	source: PrMetadataReplacementSource;
+	promptSource: PromptSource;
+	modelSelection: ModelSelection;
+}): string {
+	return `${input.body.trim()}\n\n---\n\n_Generated by \`ns flow ${input.source}\`. Prompt: ${formatPromptSourceLabel(input.promptSource)}. Model: \`${formatModelRef(input.modelSelection)}\`._`;
+}
+
+/** Temporary compile-preserving submit adapter. PR 2 replaces this orchestration. */
 export async function orchestratePrDescription(
 	options: PrDescriptionOrchestrationOptions,
 ): Promise<PrDescriptionOrchestrationResult> {
-	const pr = options.pr;
-
 	if (options.prewrittenMetadata !== undefined) {
-		return await reconcilePrewrittenPr({
-			options,
-			pr,
-			metadata: options.prewrittenMetadata,
+		if (
+			options.pr.title === options.prewrittenMetadata.title &&
+			options.pr.body === options.prewrittenMetadata.body
+		) {
+			return {
+				type: "matched_prewritten",
+				pr: options.pr,
+				title: options.prewrittenMetadata.title,
+				previewBody: options.prewrittenMetadata.body,
+			};
+		}
+		const edited = await options.githubPr.editPr({
+			cwd: options.cwd,
+			number: options.pr.number,
+			title: options.prewrittenMetadata.title,
+			body: options.prewrittenMetadata.body,
 		});
-	}
-
-	const prepared = await preparePrDescriptionUpdate({
-		cwd: options.cwd,
-		env: options.env,
-		git: options.git,
-		descriptorSource: options.descriptorSource,
-		modelSelection: options.modelSelection,
-		githubPr: options.githubPr,
-		textGenerator: options.textGenerator,
-		pr,
-		...(options.generation === undefined ? {} : { generation: options.generation }),
-		fingerprintPolicy: prDescriptionFingerprintPolicyForForce(options.shouldForce === true),
-		...(options.activeOperationDetail === undefined
-			? {}
-			: { activeOperationDetail: options.activeOperationDetail }),
-		...optionalEntry("progress", options.progress),
-		...(options.time === undefined ? {} : { time: options.time }),
-	});
-	if (prepared.type === "failed") return prepared;
-	if (prepared.type === "skipped") {
+		if (!edited.ok) {
+			return {
+				type: "failed",
+				pr: options.pr,
+				reason: `Generated initial metadata, but failed to update PR #${options.pr.number} after Graphite created metadata.\n${edited.error.message}`,
+				diagnostic: edited.error,
+			};
+		}
 		return {
-			type: "skipped",
-			pr,
-			patchId: prepared.patchId,
+			type: "updated",
+			pr: options.pr,
+			title: options.prewrittenMetadata.title,
+			previewBody: options.prewrittenMetadata.body,
 		};
 	}
 
-	options.progress?.onProgress?.(`updating PR #${pr.number} description`);
-	const edited = await applyPreparedPrDescriptionUpdate({
+	const prepared = await preparePrMetadataReplacement({
+		...options,
+		source: "submit",
+	});
+	if (prepared.type === "failed") return prepared;
+
+	options.progress?.onProgress?.(`updating PR #${options.pr.number} title and body`);
+	const edited = await applyPreparedPrMetadataReplacement({
 		cwd: options.cwd,
 		githubPr: options.githubPr,
-		update: prepared,
+		replacement: prepared,
 	});
 	if (!edited.ok) {
 		return {
 			type: "failed",
-			pr,
-			reason: `Generated a PR description, but failed to update PR #${pr.number}.\n${edited.reason}`,
+			pr: options.pr,
+			reason: `Generated PR metadata, but failed to update PR #${options.pr.number}.\n${edited.reason}`,
 			...(edited.diagnostic === undefined ? {} : { diagnostic: edited.diagnostic }),
 		};
 	}
-
 	return {
 		type: "generated",
-		pr,
+		pr: options.pr,
 		title: prepared.title,
 		previewBody: prepared.previewBody,
 		promptSource: prepared.promptSource,
-	};
-}
-
-async function reconcilePrewrittenPr(params: {
-	options: Pick<PrDescriptionOrchestrationOptions, "cwd" | "githubPr" | "progress">;
-	pr: GithubPrDetails;
-	metadata: PrewrittenPrMetadata;
-}): Promise<PrDescriptionOrchestrationResult> {
-	params.options.progress?.onProgress?.(
-		`validating prewritten metadata for PR #${params.pr.number}`,
-	);
-	if (prewrittenMetadataMatches(params.pr.title, params.pr.body, params.metadata)) {
-		return {
-			type: "matched_prewritten",
-			pr: params.pr,
-			title: params.metadata.title,
-			previewBody: params.metadata.body,
-		};
-	}
-
-	params.options.progress?.onProgress?.(
-		`updating PR #${params.pr.number} with prewritten metadata`,
-	);
-	const edited = await params.options.githubPr.editPr({
-		cwd: params.options.cwd,
-		number: params.pr.number,
-		title: params.metadata.title,
-		body: prewrittenFallbackBody(params.metadata.body),
-	});
-	if (edited.ok) {
-		return {
-			type: "updated",
-			pr: params.pr,
-			title: params.metadata.title,
-			previewBody: params.metadata.body,
-		};
-	}
-
-	return {
-		type: "failed",
-		pr: params.pr,
-		reason: `Generated initial metadata, but failed to update PR #${params.pr.number} after Graphite created mismatched metadata.\n${edited.error.message}`,
-		diagnostic: edited.error,
 	};
 }

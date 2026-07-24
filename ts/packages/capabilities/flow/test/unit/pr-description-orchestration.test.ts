@@ -1,23 +1,18 @@
 import { describe, expect, test } from "vitest";
 
+import { ScriptedTextGenerator } from "@nseng-ai/capability-kit/text-generation/testing";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { ActiveOperation } from "@nseng-ai/sdk";
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import {
-	GENERATED_BODY_MARKER,
-	formatManagedGeneratedRegion,
-	hashPrDescriptionPrompt,
-	orchestratePrDescription,
-	parseManagedGeneratedRegion,
-	preparePrDescriptionUpdate,
+	applyPreparedPrMetadataReplacement,
+	preparePrMetadataReplacement,
 	type GithubPrDetails,
 	type GithubPrGateway,
 	type PrCommitMessage,
 	type PromptSource,
-	type StablePatchIdForPrResult,
 	type TextGenerator,
 } from "../../src/submit/index.ts";
-import { ScriptedTextGenerator } from "@nseng-ai/capability-kit/text-generation/testing";
 
 const PROMPT_SOURCE: PromptSource = { type: "builtin" };
 const GENERATION = {
@@ -42,36 +37,23 @@ interface EditCall {
 
 class FakeGithubPrGateway implements GithubPrGateway {
 	private readonly pr: GithubPrDetails;
-	private readonly patchIdResult: StablePatchIdForPrResult;
 	private readonly commits: PrCommitMessage[];
-	private readonly editError: string | undefined;
 	readonly editCalls: EditCall[] = [];
+	readonly diff = "diff --git a/a b/a\n+a";
 	commitMessageCalls = 0;
-	stablePatchIdCalls = 0;
+	diffCalls = 0;
 
-	constructor(
-		options: {
-			pr?: GithubPrDetails;
-			patchIdResult?: StablePatchIdForPrResult;
-			commits?: readonly PrCommitMessage[];
-			editError?: string;
-		} = {},
-	) {
+	constructor(options: { pr?: GithubPrDetails; commits?: readonly PrCommitMessage[] } = {}) {
 		this.pr = options.pr ?? DEFAULT_PR;
-		this.patchIdResult = options.patchIdResult ?? {
-			patchId: "patch-1",
-			diff: "diff --git a/a b/a\n+a",
-		};
 		this.commits = [...(options.commits ?? [{ headline: "Add feature" }])];
-		this.editError = options.editError;
 	}
 
 	async viewCurrentBranchPr() {
 		return { ok: true, value: this.pr } as const;
 	}
 
-	async viewPr(): Promise<never> {
-		throw new Error("orchestratePrDescription should not look up PR details");
+	async viewPr() {
+		return { ok: true, value: this.pr } as const;
 	}
 
 	async getPrCommitMessages() {
@@ -80,172 +62,89 @@ class FakeGithubPrGateway implements GithubPrGateway {
 	}
 
 	async getPrDiff() {
-		return { ok: true, value: this.patchIdResult.diff } as const;
-	}
-
-	async stablePatchIdForPr() {
-		this.stablePatchIdCalls += 1;
-		return { ok: true, value: this.patchIdResult } as const;
+		this.diffCalls += 1;
+		return { ok: true, value: this.diff } as const;
 	}
 
 	async editPr(params: { number: number; title: string; body: string }) {
 		this.editCalls.push({ number: params.number, title: params.title, body: params.body });
-		if (this.editError !== undefined) {
-			return { ok: false, error: { code: "edit_failed", message: this.editError } } as const;
-		}
 		return { ok: true, value: undefined } as const;
 	}
 }
 
-describe("orchestratePrDescription", () => {
-	test("matches prewritten metadata without generation or model calls", async () => {
-		const githubPr = new FakeGithubPrGateway({
-			pr: prDetails({ title: "Prepared title", body: "Prepared body" }),
-		});
-		const textGeneration = new ScriptedTextGenerator([]);
+describe("PR metadata replacement", () => {
+	test.each([
+		["submit", { type: "builtin" }, "built-in flow.submit.pr-description"],
+		[
+			"regenerate-pr",
+			{ type: "repo", path: "/private/repo/.ns/prompt.md" },
+			"repository flow.submit.pr-description",
+		],
+		[
+			"regenerate-pr",
+			{ type: "env", path: "/secret/custom.md" },
+			"environment override flow.submit.pr-description",
+		],
+	] as const)(
+		"prepares a complete %s replacement with stable provenance",
+		async (source, promptSource, label) => {
+			const pr = prDetails({
+				title: "Old secret title",
+				body: "Human intro\n<!-- ns-pr-description:begin -->\nOld generated body\n<!-- ns-objective-runner:begin -->",
+			});
+			const githubPr = new FakeGithubPrGateway({ pr });
+			const textGeneration = new ScriptedTextGenerator([
+				{ ok: true, text: "Generated title\n\nGenerated body" },
+			]);
 
-		const result = await orchestratePrDescription({
-			cwd: "/repo",
-			env: {},
-			git: UNUSED_GIT,
-			descriptorSource: flowExtensionDescriptorSource,
-			modelSelection: {
-				provider: "openai-codex",
-				modelId: "gpt-5.6-luna",
-				thinking: "minimal" as const,
-			},
-			githubPr,
-			textGenerator: textGeneration,
-			pr: prDetails({ title: "Prepared title", body: "Prepared body" }),
-			prewrittenMetadata: preparedMetadata({ title: "Prepared title", body: "Prepared body" }),
-		});
+			const result = await preparePrMetadataReplacement({
+				cwd: "/repo",
+				env: {},
+				git: UNUSED_GIT,
+				descriptorSource: flowExtensionDescriptorSource,
+				modelSelection: GENERATION.modelSelection,
+				githubPr,
+				textGenerator: textGeneration,
+				pr,
+				source,
+				generation: { ...GENERATION, promptSource },
+			});
 
-		expect(result).toMatchObject({ type: "matched_prewritten" });
-		expect(githubPr.stablePatchIdCalls).toBe(0);
-		expect(githubPr.commitMessageCalls).toBe(0);
-		expect(githubPr.editCalls).toEqual([]);
-		textGeneration.assertDone();
-	});
+			expect(result).toMatchObject({ type: "prepared", title: "Generated title" });
+			if (result.type !== "prepared") return;
+			expect(result.body).toBe(
+				`Generated body\n\n---\n\n_Generated by \`ns flow ${source}\`. Prompt: ${label}. Model: \`test/test-model\`._`,
+			);
+			expect(result.body).not.toContain("/private/repo");
+			expect(result.body).not.toContain("/secret/custom.md");
+			expect(textGeneration.requests[0]?.prompt).not.toContain("Old secret title");
+			expect(textGeneration.requests[0]?.prompt).not.toContain("Human intro");
+			expect(githubPr.editCalls).toEqual([]);
+		},
+	);
 
-	test("updates mismatched prewritten metadata with the legacy generated marker", async () => {
+	test("applies the exact prepared title and complete body", async () => {
 		const githubPr = new FakeGithubPrGateway();
-
-		const result = await orchestratePrDescription({
+		const prepared = await preparePrMetadataReplacement({
 			cwd: "/repo",
 			env: {},
 			git: UNUSED_GIT,
 			descriptorSource: flowExtensionDescriptorSource,
-			modelSelection: {
-				provider: "openai-codex",
-				modelId: "gpt-5.6-luna",
-				thinking: "minimal" as const,
-			},
+			modelSelection: GENERATION.modelSelection,
 			githubPr,
-			textGenerator: new ScriptedTextGenerator([]),
+			textGenerator: new ScriptedTextGenerator([{ ok: true, text: "New title\n\nNew body" }]),
 			pr: DEFAULT_PR,
-			prewrittenMetadata: preparedMetadata({ title: "Prepared title", body: "Prepared body" }),
+			source: "regenerate-pr",
+			generation: GENERATION,
 		});
+		if (prepared.type !== "prepared") throw new Error(prepared.reason);
 
-		expect(result).toMatchObject({
-			type: "updated",
-			title: "Prepared title",
-		});
+		expect(
+			await applyPreparedPrMetadataReplacement({ cwd: "/repo", githubPr, replacement: prepared }),
+		).toEqual({ ok: true });
 		expect(githubPr.editCalls).toEqual([
-			{ number: 12, title: "Prepared title", body: `Prepared body\n\n${GENERATED_BODY_MARKER}` },
+			{ number: 12, title: prepared.title, body: prepared.body },
 		]);
-	});
-
-	test("matches generated fingerprints without reading commits or calling the model", async () => {
-		const body = formatManagedGeneratedRegion("Generated body", {
-			version: "2",
-			patchId: "patch-1",
-			promptHash: hashPrDescriptionPrompt(GENERATION.promptText),
-			generator: "ns-pr-description-v2",
-		});
-		const githubPr = new FakeGithubPrGateway({ pr: prDetails({ body }) });
-		const textGeneration = new ScriptedTextGenerator([]);
-		const operationSnapshots: ActiveOperation[][] = [];
-
-		const result = await orchestratePrDescription({
-			cwd: "/repo",
-			env: {},
-			git: UNUSED_GIT,
-			descriptorSource: flowExtensionDescriptorSource,
-			modelSelection: {
-				provider: "openai-codex",
-				modelId: "gpt-5.6-luna",
-				thinking: "minimal" as const,
-			},
-			githubPr,
-			textGenerator: textGeneration,
-			pr: prDetails({ body }),
-			generation: GENERATION,
-			progress: {
-				onActiveOperations: (operations) => operationSnapshots.push([...operations]),
-			},
-		});
-
-		expect(result).toMatchObject({
-			type: "skipped",
-			patchId: "patch-1",
-		});
-		expect(githubPr.stablePatchIdCalls).toBe(1);
-		expect(githubPr.commitMessageCalls).toBe(0);
-		expect(githubPr.editCalls).toEqual([]);
-		expect(operationSnapshots).toEqual([]);
-		textGeneration.assertDone();
-	});
-
-	test("generates and edits a managed generated region", async () => {
-		const githubPr = new FakeGithubPrGateway();
-		const textGeneration = new ScriptedTextGenerator([
-			{
-				ok: true,
-				text: "Generated title\n\nGenerated body\n\n## Key Changes\n\n- Adds behavior",
-			},
-		]);
-		const operationSnapshots: ActiveOperation[][] = [];
-
-		const result = await orchestratePrDescription({
-			cwd: "/repo",
-			env: {},
-			git: UNUSED_GIT,
-			descriptorSource: flowExtensionDescriptorSource,
-			modelSelection: {
-				provider: "openai-codex",
-				modelId: "gpt-5.6-luna",
-				thinking: "minimal" as const,
-			},
-			githubPr,
-			textGenerator: textGeneration,
-			pr: DEFAULT_PR,
-			generation: GENERATION,
-			progress: {
-				onActiveOperations: (operations) => operationSnapshots.push([...operations]),
-			},
-		});
-
-		expect(result).toMatchObject({ type: "generated", title: "Generated title" });
-		expect(githubPr.commitMessageCalls).toBe(1);
-		expect(githubPr.editCalls).toHaveLength(1);
-		expect(githubPr.editCalls[0]?.title).toBe("Generated title");
-		expect(parseManagedGeneratedRegion(githubPr.editCalls[0]?.body ?? "")).toMatchObject({
-			type: "found",
-			body: "Generated body\n\n## Key Changes\n\n- Adds behavior",
-		});
-		expect(textGeneration.requests).toHaveLength(1);
-		expect(operationSnapshots).toEqual([
-			[
-				{
-					kind: "model",
-					operation: "generating PR description",
-					modelRef: "test/test-model",
-					detail: "PR #12",
-				},
-			],
-			[],
-		]);
-		textGeneration.assertDone();
 	});
 
 	test("clears active operations when text generation rejects", async () => {
@@ -258,73 +157,24 @@ describe("orchestratePrDescription", () => {
 		};
 
 		await expect(
-			preparePrDescriptionUpdate({
+			preparePrMetadataReplacement({
 				cwd: "/repo",
 				env: {},
 				git: UNUSED_GIT,
 				descriptorSource: flowExtensionDescriptorSource,
-				modelSelection: {
-					provider: "openai-codex",
-					modelId: "gpt-5.6-luna",
-					thinking: "minimal" as const,
-				},
+				modelSelection: GENERATION.modelSelection,
 				githubPr,
 				textGenerator: throwingGenerator,
 				pr: DEFAULT_PR,
+				source: "regenerate-pr",
 				generation: GENERATION,
 				progress: {
 					onActiveOperations: (operations) => operationSnapshots.push([...operations]),
 				},
 			}),
 		).rejects.toThrow("model transport failed");
-
-		expect(operationSnapshots).toEqual([
-			[
-				{
-					kind: "model",
-					operation: "generating PR description",
-					modelRef: "test/test-model",
-					detail: "PR #12",
-				},
-			],
-			[],
-		]);
+		expect(operationSnapshots.at(-1)).toEqual([]);
 		expect(githubPr.editCalls).toEqual([]);
-	});
-
-	test("forced regeneration bypasses a matching fingerprint", async () => {
-		const body = formatManagedGeneratedRegion("Old body", {
-			version: "2",
-			patchId: "patch-1",
-			promptHash: hashPrDescriptionPrompt(GENERATION.promptText),
-			generator: "ns-pr-description-v2",
-		});
-		const githubPr = new FakeGithubPrGateway({ pr: prDetails({ body }) });
-		const textGeneration = new ScriptedTextGenerator([
-			{ ok: true, text: "Forced title\n\nForced body" },
-		]);
-
-		const result = await orchestratePrDescription({
-			cwd: "/repo",
-			env: {},
-			git: UNUSED_GIT,
-			descriptorSource: flowExtensionDescriptorSource,
-			modelSelection: {
-				provider: "openai-codex",
-				modelId: "gpt-5.6-luna",
-				thinking: "minimal" as const,
-			},
-			githubPr,
-			textGenerator: textGeneration,
-			pr: prDetails({ body }),
-			generation: GENERATION,
-			shouldForce: true,
-		});
-
-		expect(result).toMatchObject({ type: "generated", title: "Forced title" });
-		expect(githubPr.commitMessageCalls).toBe(1);
-		expect(githubPr.editCalls).toHaveLength(1);
-		textGeneration.assertDone();
 	});
 });
 
@@ -337,16 +187,5 @@ function prDetails(overrides: Partial<GithubPrDetails>): GithubPrDetails {
 		headRefName: "feature/demo",
 		baseRefName: "main",
 		...overrides,
-	};
-}
-
-function preparedMetadata(overrides: { title: string; body: string }) {
-	return {
-		branch: "feature/demo",
-		parentBranch: "main",
-		title: overrides.title,
-		body: overrides.body,
-		commitRange: "main..feature/demo",
-		promptSource: PROMPT_SOURCE,
 	};
 }

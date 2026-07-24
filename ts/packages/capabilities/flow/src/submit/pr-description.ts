@@ -10,7 +10,7 @@ import {
 	type TextGenerationUsage,
 	type TextGenerator,
 } from "@nseng-ai/capability-kit/text-generation";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { buildFencedTextBlock, formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { normalizeTextOutput, trimOuterBlankLines } from "@nseng-ai/foundation/text-normalization";
 import { truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
 import { prepareRepairedText } from "@nseng-ai/capability-kit/text-repair";
@@ -73,7 +73,6 @@ export interface ExistingPrDescriptionPromptContext {
 	kind: "github";
 	number: number;
 	url: string;
-	title: string;
 	headRefName: string;
 	baseRefName: string;
 	commitMessages?: readonly PrCommitMessage[];
@@ -243,8 +242,8 @@ export function buildPrDescriptionUserPrompt(input: PrDescriptionPromptContext):
 		sections.push(`## Commit Messages\n\n${commitMessages}`);
 	}
 	sections.push(
-		`## Diff\n\n\`\`\`diff\n${diff.trimEnd()}\n\`\`\``,
-		"Generate a fresh PR title and body for this diff. Do not preserve an existing PR title unless the diff independently supports it:",
+		`## Diff\n\n${buildFencedTextBlock(diff.trimEnd(), "diff")}`,
+		"Generate a fresh PR title and body from this evidence:",
 	);
 	return `${sections.join("\n\n")}\n`;
 }
@@ -373,10 +372,7 @@ function formatTextGenerationUsage(usage: TextGenerationUsage | undefined): stri
 function formatPrContextLines(input: PrDescriptionPromptContext): string[] {
 	switch (input.kind) {
 		case "github":
-			return [
-				`- PR: #${input.number} (${input.url})`,
-				`- Current PR title (stale context only; regenerate from the diff): ${input.title}`,
-			];
+			return [`- PR: #${input.number} (${input.url})`];
 		case "local":
 			return [
 				"- PR: not yet created; generate initial metadata for Graphite submit",

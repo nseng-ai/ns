@@ -10,18 +10,10 @@ import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import {
 	buildPrDescriptionUserPrompt,
 	filterLockfileSections,
-	formatManagedGeneratedRegion,
-	GENERATED_BODY_MARKER,
-	hashPrDescriptionPrompt,
 	MAX_DIFF_CHARS,
-	hasGeneratedMarker,
-	isCommitMessagePrefillBody,
-	mergeGeneratedBody,
-	parseManagedGeneratedRegion,
 	parsePrDescriptionOutput,
 	preparePrDescription,
 	PR_DESCRIPTION_PROMPT_ENV,
-	prewrittenFallbackBody,
 	REPO_PR_DESCRIPTION_PROMPT_PATH,
 	resolvePrDescriptionPrompt,
 	truncateDiff,
@@ -77,7 +69,6 @@ describe("PR description helpers", () => {
 				kind: "github",
 				number: 12,
 				url: "https://github.com/acme/project/pull/12",
-				title: "Current title",
 				headRefName: "feature/demo",
 				baseRefName: "main",
 				commitMessages: [{ headline: "Add feature" }],
@@ -129,146 +120,6 @@ describe("PR description helpers", () => {
 		});
 	});
 
-	test("marker helpers append and detect the generated body marker", () => {
-		const body = prewrittenFallbackBody("Body text");
-
-		expect(body).toBe(`Body text\n\n${GENERATED_BODY_MARKER}`);
-		expect(hasGeneratedMarker(body)).toBe(true);
-	});
-
-	test("formats, parses, and replaces the managed generated region", () => {
-		const metadata = {
-			version: "2" as const,
-			patchId: "patch-1",
-			promptHash: hashPrDescriptionPrompt("prompt"),
-			generator: "ns-pr-description-v2",
-		};
-		const region = formatManagedGeneratedRegion("Generated body", metadata);
-
-		expect(region).toContain("<details open>");
-		expect(region).toContain("<summary>Generated PR description</summary>");
-		expect(parseManagedGeneratedRegion(region)).toMatchObject({
-			type: "found",
-			metadata,
-			body: "Generated body",
-		});
-		expect(
-			mergeGeneratedBody({
-				existingBody: `Intro\n\n${region}\n\nFooter`,
-				generatedBody: "New generated body",
-				fingerprint: { ...metadata, patchId: "patch-2" },
-				commits: [],
-			}),
-		).toBe(
-			`Intro\n\n${formatManagedGeneratedRegion("New generated body", { ...metadata, patchId: "patch-2" })}\n\nFooter`,
-		);
-	});
-
-	test("inserts managed generated regions before unowned human body content", () => {
-		const metadata = {
-			version: "2" as const,
-			patchId: "patch-1",
-			promptHash: hashPrDescriptionPrompt("prompt"),
-			generator: "ns-pr-description-v2",
-		};
-
-		expect(
-			mergeGeneratedBody({
-				existingBody: "Human note",
-				generatedBody: "Generated body",
-				fingerprint: metadata,
-				commits: [{ headline: "Add widget", body: "Commit body" }],
-			}),
-		).toBe(`${formatManagedGeneratedRegion("Generated body", metadata)}\n\nHuman note`);
-	});
-
-	test("replaces a GitHub commit-message prefill instead of preserving its HTML-like text", () => {
-		const metadata = {
-			version: "2" as const,
-			patchId: "patch-1",
-			promptHash: hashPrDescriptionPrompt("prompt"),
-			generator: "ns-pr-description-v2",
-		};
-		const commitBody = "Flip the region from <details open> to <details>.";
-
-		expect(
-			mergeGeneratedBody({
-				existingBody: commitBody,
-				generatedBody: "Generated body",
-				fingerprint: metadata,
-				commits: [{ headline: "Collapse generated descriptions", body: commitBody }],
-			}),
-		).toBe(formatManagedGeneratedRegion("Generated body", metadata));
-	});
-
-	test("treats duplicate managed generated regions as malformed", () => {
-		const metadata = {
-			version: "2" as const,
-			patchId: "patch-1",
-			promptHash: hashPrDescriptionPrompt("prompt"),
-			generator: "ns-pr-description-v2",
-		};
-		const region = formatManagedGeneratedRegion("Generated body", metadata);
-
-		expect(parseManagedGeneratedRegion(`${region}\n\n${region}`)).toMatchObject({
-			type: "malformed",
-		});
-	});
-
-	test("legacy generated marker bodies regenerate as fully machine-owned", () => {
-		const metadata = {
-			version: "2" as const,
-			patchId: "patch-1",
-			promptHash: hashPrDescriptionPrompt("prompt"),
-			generator: "ns-pr-description-v2",
-		};
-
-		expect(
-			mergeGeneratedBody({
-				existingBody: `Old generated\n\n${GENERATED_BODY_MARKER}`,
-				generatedBody: "Generated body",
-				fingerprint: metadata,
-				commits: [],
-			}),
-		).toBe(formatManagedGeneratedRegion("Generated body", metadata));
-	});
-
-	test("detects a body that exactly matches a commit message body", () => {
-		const commits = [{ headline: "Add widget", body: "Implements the widget flow." }];
-
-		expect(isCommitMessagePrefillBody("Implements the widget flow.", commits)).toBe(true);
-	});
-
-	test("detects a prefill body despite trailing-newline differences", () => {
-		const commits = [{ headline: "Add widget", body: "Implements the widget flow.\n" }];
-
-		expect(isCommitMessagePrefillBody("Implements the widget flow.", commits)).toBe(true);
-	});
-
-	test("detects a prefill body matching a later commit of a multi-commit PR", () => {
-		const commits = [
-			{ headline: "First commit", body: "First body." },
-			{ headline: "Second commit", body: "Second body." },
-		];
-
-		expect(isCommitMessagePrefillBody("Second body.", commits)).toBe(true);
-	});
-
-	test("does not treat hand-edited text as a prefill body", () => {
-		const commits = [{ headline: "Add widget", body: "Implements the widget flow." }];
-
-		expect(isCommitMessagePrefillBody("Manually rewritten description.", commits)).toBe(false);
-	});
-
-	test("does not treat an empty PR body as a prefill body, even with bodyless commits", () => {
-		expect(isCommitMessagePrefillBody("", [{ headline: "Add widget" }])).toBe(false);
-		expect(isCommitMessagePrefillBody("  \n", [{ headline: "Add widget", body: "" }])).toBe(false);
-	});
-
-	test("does not match a commit without a body", () => {
-		expect(isCommitMessagePrefillBody("Some body.", [{ headline: "Add widget" }])).toBe(false);
-	});
-
 	test("filters lockfile diff sections and keeps source sections", () => {
 		const filtered = filterLockfileSections(
 			[
@@ -302,47 +153,33 @@ describe("PR description helpers", () => {
 			kind: "github",
 			number: 12,
 			url: "https://github.com/acme/project/pull/12",
-			title: "Current title",
 			headRefName: "feature/demo",
 			baseRefName: "main",
-			commitMessages: [{ headline: "Add feature", body: "Body" }],
+			commitMessages: [{ headline: "Add feature" }],
 			diff: "diff --git a/src/app.ts b/src/app.ts\n+code\n",
 		});
 
 		expect(prompt).toContain("## Context");
 		expect(prompt).toContain("- PR: #12");
-		expect(prompt).toContain(
-			"- Current PR title (stale context only; regenerate from the diff): Current title",
-		);
+		expect(prompt).not.toContain("Current title");
 		expect(prompt).toContain("## Commit Messages");
 		expect(prompt).toContain("Add feature");
 		expect(prompt).not.toContain("Body");
 		expect(prompt).toContain("## Diff");
-		expect(prompt).toContain(
-			"Generate a fresh PR title and body for this diff. Do not preserve an existing PR title unless the diff independently supports it:",
-		);
+		expect(prompt).toContain("Generate a fresh PR title and body from this evidence:");
 	});
 
-	test("omits commit bodies from the generation prompt so stale PR descriptions are not echoed", () => {
+	test("uses a collision-safe fence for diffs containing backticks", () => {
 		const prompt = buildPrDescriptionUserPrompt({
 			kind: "github",
-			number: 1587,
-			url: "https://github.com/acme/project/pull/1587",
-			title: "Current title",
+			number: 12,
+			url: "https://github.com/acme/project/pull/12",
 			headRefName: "feature/demo",
 			baseRefName: "main",
-			commitMessages: [
-				{
-					headline: "Address PR stack feedback",
-					body: "Prior generated PR description.\n\n## Key Changes\n\n- Old generated detail\n\nCo-Authored-By: Example <noreply@example.com>",
-				},
-			],
-			diff: "diff --git a/src/app.ts b/src/app.ts\n+code\n",
+			diff: "+```",
 		});
 
-		expect(prompt).toContain("Address PR stack feedback");
-		expect(prompt).not.toContain("Prior generated PR description");
-		expect(prompt).not.toContain("Co-Authored-By");
+		expect(prompt).toContain("## Diff\n\n````diff\n+```\n````");
 	});
 
 	test("resolves the full env, ns.toml, conventional, and descriptor-default ladder", async () => {

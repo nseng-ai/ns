@@ -21,7 +21,6 @@ const PR_VIEW_FIELDS = "number,url,title,body,headRefName,baseRefName";
 const VIEW_TIMEOUT_MS = GITHUB_CLI_TIMEOUT_MS;
 const VIEW_PR_RETRY_DELAYS_MS = [500, 1_500, 3_000] as const;
 const DIFF_TIMEOUT_MS = 60_000;
-const PATCH_ID_TIMEOUT_MS = 60_000;
 const EDIT_TIMEOUT_MS = 60_000;
 
 interface RunGitOptions {
@@ -57,12 +56,8 @@ export interface GithubPrDetails {
 
 export interface PrCommitMessage {
 	headline: string;
+	/** Temporary prewrite compatibility only; generation consumes headlines exclusively. */
 	body?: string;
-}
-
-export interface StablePatchIdForPrResult {
-	patchId: string;
-	diff: string;
 }
 
 export interface PrDiffLocator {
@@ -87,7 +82,6 @@ export interface GithubPrGateway {
 		number: number;
 	}): Promise<GatewayResult<PrCommitMessage[]>>;
 	getPrDiff(params: PrDiffLocator): Promise<GatewayResult<string>>;
-	stablePatchIdForPr(params: PrDiffLocator): Promise<GatewayResult<StablePatchIdForPrResult>>;
 	editPr(params: {
 		cwd: string;
 		number: number;
@@ -146,11 +140,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		const messages: PrCommitMessage[] = [];
 		for (const commit of parsed.commits) {
 			if (!isRecord(commit) || typeof commit.messageHeadline !== "string") continue;
-			const message: PrCommitMessage = { headline: commit.messageHeadline };
-			if (typeof commit.messageBody === "string" && commit.messageBody.trim() !== "") {
-				message.body = commit.messageBody;
-			}
-			messages.push(message);
+			messages.push({ headline: commit.messageHeadline });
 		}
 		return ok(messages);
 	}
@@ -181,35 +171,6 @@ export class RealGithubPrGateway implements GithubPrGateway {
 			});
 		}
 		return run.checked;
-	}
-
-	async stablePatchIdForPr(
-		params: PrDiffLocator,
-	): Promise<GatewayResult<StablePatchIdForPrResult>> {
-		const diff = await this.getPrDiff(params);
-		if (!diff.ok) return diff;
-
-		const args = ["patch-id", "--stable"];
-		const result = await this.runCheckedGit({
-			args,
-			cwd: params.cwd,
-			timeoutMs: PATCH_ID_TIMEOUT_MS,
-			stdin: diff.value,
-			failure: {
-				code: "git_patch_id_failed",
-				message: `Could not compute stable patch id for PR #${params.number}.`,
-			},
-		});
-		if (!result.ok) return result;
-
-		const patchId = result.value.stdout.trim().split(/\s+/, 1)[0] ?? "";
-		if (patchId === "") {
-			return err({
-				code: "git_patch_id_parse_failed",
-				message: `Stable patch-id output for PR #${params.number} was empty or malformed.`,
-			});
-		}
-		return ok({ patchId, diff: diff.value });
 	}
 
 	async editPr(params: {
