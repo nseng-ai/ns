@@ -144,3 +144,25 @@ but not yet stateable as one-session questions — stays here:
   downloaded feedback).
 - **Fog:** interaction with `flow land` — whether landing requires a prod submission,
   and what happens to review state at land time.
+
+## Closure
+
+Outcome: **abandoned**.
+
+The proposed `ns flow ship` review-and-autofix pipeline is not being pursued under this
+Objective. Its completion criteria were not met: `ship`, stack-tip review/autofix,
+anti-incremental local/remote review coordination, final no-prose migration for default
+`submit`, and live dogfooding remain unimplemented or unresolved. The open roadmap rows
+remain historical exploration rather than committed follow-up work.
+
+The work that did land remains useful but does not establish the abandoned destination:
+`ns flow submit --minimal` stages a cheap-submit engine, local dispatch consumes that
+mode, and existing-PR prose rewrites require explicit `--regenerate-descriptions`.
+These behaviors must be evaluated against the current implementation and its owning
+documentation before reuse; this closed Objective is not an ongoing architecture
+contract.
+
+No successor Objective is designated. Any future attempt to add completion-oriented
+submission, automatic review fixes, or review attestations should start with a fresh
+baseline and explicitly revisit the unresolved safety, latency, stack-placement, and
+state-encoding questions recorded in `roadmap.md`.
