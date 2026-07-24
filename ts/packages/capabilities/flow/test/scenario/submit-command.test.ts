@@ -326,7 +326,6 @@ describe("project-local submit extension", () => {
 					rowKey: "feature/demo",
 					columnKey: "description",
 					state: "skipped",
-					text: "existing description",
 				},
 				{ type: "phase-done", phaseKey: "preflight", detail: "ready to submit" },
 				{ type: "phase-done", phaseKey: "restack", detail: "not required" },
@@ -455,7 +454,7 @@ describe("project-local submit extension", () => {
 		);
 	});
 
-	test("clean success preserves a non-empty existing PR description by default", async () => {
+	test("clean success leaves a non-empty existing PR title and body untouched by default", async () => {
 		const run = runWithFakes();
 
 		expect(await run.exit).toBe(0);
@@ -463,30 +462,33 @@ describe("project-local submit extension", () => {
 		expect(output).toContain("Submitted 1 PR:");
 		expect(output).toContain(`✓ #123 ${PR_URL}`);
 		expect(output).not.toContain("description updated");
-		expect(formattedExecCalls(run.context)).toContain(
+		const calls = formattedExecCalls(run.context);
+		expect(calls).not.toContain(
 			"gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
 		);
-		expect(formattedExecCalls(run.context)).not.toContain("gh pr view 123 --json commits");
-		expect(run.liveOutput).toContainEqual(
-			transient("skipping PR #123 description; existing PR body is not empty"),
-		);
+		expect(calls).not.toContain("gh pr view 123 --json commits");
+		expect(calls).not.toContain("gh pr diff 123");
+		expect(calls.some((call) => call.startsWith("git patch-id"))).toBe(false);
+		expect(calls.some((call) => call.startsWith("gh pr edit 123"))).toBe(false);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
-	test("clean success generates a description for an empty existing PR by default", async () => {
+	test("clean success leaves an empty existing PR title and body untouched by default", async () => {
 		const run = runWithFakes({
 			state: { exec: successfulSubmitResponses({ existingPrBody: "" }) },
 		});
 
 		expect(await run.exit).toBe(0);
-		const output = run.stdout.join("");
-		expect(output).toContain("description updated");
-		expect(output).toContain("new title: Generated PR");
-		expect(formattedExecCalls(run.context)).toContain("gh pr view 123 --json commits");
-		expect(formattedExecCalls(run.context)).toContainEqual(
-			expect.stringMatching(/^gh pr edit 123 --title Generated PR --body-file /),
+		expect(run.stdout.join("")).not.toContain("description updated");
+		const calls = formattedExecCalls(run.context);
+		expect(calls).not.toContain(
+			"gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
 		);
-		expect(run.context.textGeneratorCalls).toHaveLength(1);
+		expect(calls).not.toContain("gh pr view 123 --json commits");
+		expect(calls).not.toContain("gh pr diff 123");
+		expect(calls.some((call) => call.startsWith("git patch-id"))).toBe(false);
+		expect(calls.some((call) => call.startsWith("gh pr edit 123"))).toBe(false);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("--verbose streams raw Graphite output in addition to concise progress", async () => {
@@ -767,7 +769,7 @@ describe("project-local submit extension", () => {
 		);
 	});
 
-	test("matching PR description fingerprint skips model generation and PR edits", async () => {
+	test("--regenerate-descriptions forcefully regenerates a matching PR description fingerprint", async () => {
 		const managedBody = formatManagedGeneratedRegion("Generated body", {
 			version: "2",
 			patchId: "default-patch-id",
@@ -807,19 +809,25 @@ describe("project-local submit extension", () => {
 						match: "git patch-id --stable",
 						result: { stdout: "default-patch-id 0000000000000000000000000000000000000000\n" },
 					},
+					{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
+					{ match: /^gh pr edit 123 --title Generated PR --body-file /, result: {} },
+				],
+				textGeneration: [
+					{
+						ok: true,
+						text: defaultPrDescriptionText(),
+						usage: { inputTokens: 1234, outputTokens: 56 },
+					},
 				],
 			},
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Skipped unchanged PR descriptions");
-		expect(run.context.textGeneratorCalls).toEqual([]);
-		expect(run.liveOutput).toContainEqual(
-			transient("skipping PR #123 description; generated fingerprint is unchanged"),
-		);
-		expect(formattedExecCalls(run.context)).not.toContain("gh pr view 123 --json commits");
-		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gh pr edit 123"))).toBe(
-			false,
+		expect(run.stdout.join("")).toContain("description updated");
+		expect(run.context.textGeneratorCalls).toHaveLength(1);
+		expect(formattedExecCalls(run.context)).toContain("gh pr view 123 --json commits");
+		expect(formattedExecCalls(run.context)).toContainEqual(
+			expect.stringMatching(/^gh pr edit 123 --title Generated PR --body-file /),
 		);
 	});
 
