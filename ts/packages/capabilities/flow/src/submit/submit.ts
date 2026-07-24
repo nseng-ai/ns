@@ -376,10 +376,9 @@ export async function runSubmitCommand(
 		const shouldRegenerateExistingPrDescriptions =
 			options.shouldRegenerateExistingPrDescriptions === true;
 		const partitionedPrLinks = partitionPrLinksByExisting(prLinks, planToExecute.existingPrLinks);
-		const descriptionPrLinks = prLinks;
-		const emptyBodyOnlyPrLinks = shouldRegenerateExistingPrDescriptions
-			? []
-			: partitionedPrLinks.existingPrLinks;
+		const descriptionPrLinks = shouldRegenerateExistingPrDescriptions
+			? prLinks
+			: partitionedPrLinks.newPrLinks;
 		emitSubmitPhase(
 			options,
 			{
@@ -388,7 +387,9 @@ export async function runSubmitCommand(
 				label: formatDescriptionPhaseStart(descriptionPrLinks.length),
 			},
 			(matrix) => {
-				if (prLinks.length === 0) matrix.setAllCells("description", { state: "skipped" });
+				if (descriptionPrLinks.length === 0) {
+					matrix.setAllCells("description", { state: "skipped" });
+				}
 			},
 		);
 		options.progress.matrix?.setActiveOperations([]);
@@ -396,7 +397,7 @@ export async function runSubmitCommand(
 			cwd: options.cwd,
 			prDescription: options.prDescription,
 			prLinks: descriptionPrLinks,
-			emptyBodyOnlyPrLinks,
+			...(shouldRegenerateExistingPrDescriptions ? { shouldForce: true } : {}),
 			prewrittenMetadata: prepared,
 			progress: submitPhaseProgressListeners<SubmitPrDescriptionProgressEvent>(
 				options,
@@ -442,7 +443,7 @@ export async function runSubmitCommand(
 }
 
 function formatDescriptionPhaseStart(prCount: number): string {
-	if (prCount === 0) return "checking PR descriptions; no PR links detected yet";
+	if (prCount === 0) return "checking PR descriptions; no PR descriptions selected";
 	return `checking ${formatItemCount(prCount, "PR description", "PR descriptions")} for skip or regeneration`;
 }
 
