@@ -86,7 +86,7 @@ const submitSchema = z.object({
 		.boolean()
 		.default(false)
 		.describe(
-			"Regenerate titles and ns-managed descriptions for all existing PRs, including PRs with non-empty bodies.",
+			"Regenerate titles and ns-managed descriptions for every PR in the submitted scope, including existing PRs with matching fingerprints or non-empty bodies.",
 		),
 	minimal: z
 		.boolean()
@@ -107,7 +107,7 @@ Environment:
 
   NS_SUBMIT_FAILURE_LOG_DIR     Optional directory for raw submit-failure transcripts.
 
-By default, existing PRs with empty bodies receive generated titles and descriptions; existing PRs with non-empty bodies are left unchanged. Use --regenerate-descriptions to regenerate titles and ns-managed descriptions for every existing PR.
+By default, newly created PRs receive initial generated titles and ns-managed descriptions. PRs that existed before the invocation are never title/body edited, regardless of body contents or managed fingerprint state. Use --regenerate-descriptions to force regeneration of titles and managed descriptions for every PR in the submitted scope.
 
 The command owns its output and exit code. It does not support --format.`;
 

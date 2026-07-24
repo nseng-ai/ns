@@ -40,13 +40,21 @@ If the CLI says a restack is required:
 ns flow submit --restack
 ```
 
-To regenerate the current branch PR explicitly, run:
+Ordinary `ns flow submit` generates initial titles and ns-managed descriptions only for PRs newly created by that invocation. It never edits the title or body of a PR that existed before the invocation, even when the body is empty or its managed fingerprint is missing, malformed, stale, or unchanged.
+
+To explicitly regenerate titles and managed descriptions for every PR in the submitted stack scope, including existing PRs with non-empty bodies or matching fingerprints, run:
+
+```bash
+ns flow submit --regenerate-descriptions
+```
+
+To regenerate only the current branch PR explicitly, run:
 
 ```bash
 ns flow regenerate-pr
 ```
 
-`ns flow submit` preserves unchanged generated descriptions by comparing the GitHub PR diff patch id, prompt hash, and generator version stored in the managed body region. Explicit `ns flow regenerate-pr` asks before editing GitHub, always regenerates the current branch PR title and managed generated body region, and preserves human-authored body text outside that region.
+Both explicit regeneration paths keep title and managed-body updates coupled and preserve human-authored text outside the managed region. `ns flow regenerate-pr` asks before editing GitHub.
 
 ## Failure handling
 
@@ -55,4 +63,4 @@ Surface CLI output directly, including any `AI interpretation` section. Do not b
 ## Boundaries
 
 - It does not land/merge PRs.
-- It edits PR titles/bodies through `ns flow submit` or explicit `ns flow regenerate-pr`.
+- Ordinary submit edits titles/bodies only for PRs it creates; existing PR prose requires `--regenerate-descriptions` or explicit `ns flow regenerate-pr`.
