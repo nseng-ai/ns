@@ -1,6 +1,6 @@
 ---
 name: slots
-description: "Manage ns Slot worktrees via the `ns slot` CLI: pool lifecycle (init, checkout, list, free, gc, resize), running a command in every slot with `ns slot foreach`, fast-forwarding detached slots to trunk, and keeping direnv `.envrc` approvals fresh across slots. Use when the user mentions slots, slot worktrees, `ns slot`, foreach across worktrees, or direnv in slots."
+description: "Manage ns Slot worktrees. Use for Slot pool lifecycle, `ns slot foreach`, refreshing detached slots from trunk, or direnv approvals across Slot worktrees."
 allowed-tools:
   - "Bash(ns slot *)"
   - "Bash(git *)"
@@ -10,78 +10,43 @@ allowed-tools:
 
 <!-- PUBLIC SKILL: Do not reference ns-internal module paths or class names in this file. Describe CLI operations, not implementation. -->
 
+<!-- PROVENANCE: This skill is entirely LM-generated and has not yet been human-curated. Treat its guidance as plausible but unverified; curation pass still required. -->
+
 # slots
 
-Slots are numbered, managed git worktrees (`slot-01`, `slot-02`, ...) that hold
-branches for parallel work. A slot is either **attached** (a branch is checked
-out in it) or **detached** (parked at a commit, usually trunk, ready to accept
-a checkout).
+Slots are numbered managed worktrees (`slot-01`, `slot-02`, ...). An
+**attached** Slot holds a branch; a **detached** Slot is parked at a commit and
+available for checkout.
 
-This skill covers pool-wide maintenance: running commands across the pool with
-`ns slot foreach`, fast-forwarding detached slots to trunk, and keeping direnv
-working in every slot. For individual slot lifecycle operations, use
-`ns slot --help` and the per-command `--json-schema` output.
-
-## Core commands
-
-- `ns slot init --size N` — create the pool as detached worktrees at trunk.
-- `ns slot checkout BRANCH` — check a branch out into the lowest clean detached slot.
-- `ns slot list` — show the pool.
-- `ns slot free` / `ns slot gc` / `ns slot resize` — reclaim or resize.
-- `ns slot foreach -- CMD...` — run a command in the main worktree and every slot.
+For lifecycle commands, run `ns slot --help`, then the subcommand's `--help` or
+`--json-schema`. The guidance below covers pool-wide maintenance.
 
 ## foreach ground rules
 
-- The command is a **plain argv**, not a shell line. There is no shell
-  interpretation: `ns slot foreach -- sh -c '...'` does **not** work (the `-c`
-  is rejected). If you need shell logic, write a small executable script to a
-  temp path and pass that script as the command.
-- Always pass the command after `--`; flag-bearing commands (e.g. `git clean -fd`)
-  require the separator.
-- The **main worktree is always included** and runs first; slots follow in
-  slot-number order. Exclude specific slots with `-x/--exclude SLOT` (repeatable).
-- It refuses to run if any included worktree has a git operation (rebase/merge)
-  in progress, and prompts for confirmation unless `--yes` is passed.
-- A failure in one worktree does not stop the others; the overall exit code is
-  nonzero if any worktree failed.
+- Pass a plain argv after `--`; shell operators and globbing are not interpreted.
+  Invoke a shell explicitly (`ns slot foreach -- sh -c '...'`) or use a temporary
+  executable for complex logic.
+- The main worktree runs first, followed by Slots in number order. Exclude a Slot
+  with repeatable `-x/--exclude SLOT`; the main worktree cannot be excluded.
+- Any included worktree with a git operation in progress blocks the whole run.
+- Human mode prompts unless `--yes` is passed; JSON mode requires `--yes`.
+- A failed invocation does not stop later worktrees. The aggregate exits nonzero.
 
 ## Fast-forward detached slots to trunk
 
-To bring parked (detached) slots up to the current local trunk:
+Use a guard so attached branches—including the main worktree and stale branches
+that trunk could fast-forward—stay unchanged. Replace `master` if the repository
+uses another trunk branch.
 
 ```bash
-ns slot foreach --yes -- git merge --ff-only master
+ns slot foreach --yes -- sh -c \
+  'git symbolic-ref -q HEAD >/dev/null || exec git merge --ff-only master'
 ```
 
-Behavior per worktree:
-
-- **Detached slot that is an ancestor of `master`**: fast-forwards and stays
-  detached. This is the intended effect.
-- **Main worktree on `master`**: "Already up to date" no-op.
-- **Attached feature branches**: normally diverged, so git aborts with "Not
-  possible to fast-forward" and changes nothing. This makes the overall exit
-  code nonzero — cosmetic, not a problem.
-- **Dirty worktree** whose files the fast-forward would touch: git aborts with
-  "local changes would be overwritten"; nothing is lost.
-
-`--ff-only` never starts a real merge, so merge conflicts are impossible: each
-worktree either moves cleanly or is left exactly as it was.
-
-**Caveat**: an *attached* branch that happens to be a strict ancestor of
-`master` (a stale branch with no commits of its own) would also be
-fast-forwarded. If the pool might contain such branches and they must not
-move, use a guard script instead:
-
-```bash
-printf '%s\n' '#!/bin/sh' \
-  'git symbolic-ref -q HEAD >/dev/null || exec git merge --ff-only master' \
-  > /tmp/ns-ff-detached && chmod +x /tmp/ns-ff-detached
-ns slot foreach --yes -- /tmp/ns-ff-detached
-rm /tmp/ns-ff-detached
-```
-
-Never use `git checkout --detach` or `git reset --hard` in a foreach for this:
-both would detach or clobber attached branches, including the main worktree.
+A detached Slot fast-forwards only when its commit is an ancestor of trunk. A
+diverged or dirty Slot fails without starting a merge; later Slots still run.
+Keep attached worktrees intact: use neither `git checkout --detach` nor
+`git reset --hard` across the pool.
 
 ## direnv across slots
 
