@@ -207,6 +207,18 @@ describe("post-landing slot cleanup defaults", () => {
 			branch: BRANCH,
 			repoRoot: SLOT_ROOT,
 			slotName: "slot-02",
+			localBranchDisposition: "delete",
+		});
+		expect(
+			planPostLandingSlotCleanup({
+				args: expectParsed(""),
+				shape: managedShape({ current: "main", landingBranches: [] }),
+			}),
+		).toEqual({
+			branch: "main",
+			repoRoot: SLOT_ROOT,
+			slotName: "slot-02",
+			localBranchDisposition: "keep-trunk",
 		});
 		expect(
 			planPostLandingSlotCleanup({ args: expectParsed("--preserve"), shape: managedShape() }),

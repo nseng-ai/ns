@@ -1,3 +1,4 @@
+import type { PostLandingSlotCleanupPreview } from "./post-landing-cleanup.ts";
 import type {
 	LandingFailure,
 	LandingPlan,
@@ -9,11 +10,16 @@ import type {
 } from "../types.ts";
 
 export type LandConfirmationRequest =
-	| { readonly kind: "main-landing"; readonly plan: LandingPlan }
+	| {
+			readonly kind: "main-landing";
+			readonly plan: LandingPlan;
+			readonly cleanup?: PostLandingSlotCleanupPreview;
+	  }
 	| {
 			readonly kind: "single-branch-main-landing";
 			readonly pullRequest: PullRequestFacts;
 			readonly trunk: string;
+			readonly cleanup?: PostLandingSlotCleanupPreview;
 	  }
 	| { readonly kind: "free-managed-slots"; readonly slots: readonly ManagedSlotWorktree[] }
 	| {

@@ -9,7 +9,7 @@ import type {
 import type { LandConfirmationGateway, LandExecutionMessageProgress } from "./host-seams.ts";
 import { isVerifiedMergedPullRequest } from "./merged-pull-request-verification.ts";
 import {
-	resolveManagedSlotPostLandingCleanupDecision,
+	planManagedSlotPostLandingCleanup,
 	type PostLandingCleanupRequest,
 	type PostLandingSlotCleanupDecision,
 } from "./post-landing-cleanup.ts";
@@ -45,13 +45,7 @@ export type SingleBranchLandingOutcome =
 	  }
 	| {
 			readonly type: "failure";
-			readonly stage:
-				| "load"
-				| "base-check"
-				| "confirmation"
-				| "cleanup-confirmation"
-				| "merge"
-				| "verification";
+			readonly stage: "load" | "base-check" | "confirmation" | "merge" | "verification";
 			readonly failure: LandingFailure;
 			readonly cleanupDecision: PostLandingSlotCleanupDecision;
 	  };
@@ -104,10 +98,15 @@ export async function executeSingleBranchLanding(
 		};
 	}
 
+	const cleanupPreview = planManagedSlotPostLandingCleanup({
+		cleanup: options.cleanup,
+		shape: options.target,
+	});
 	const confirmation = await options.host.confirmation.confirm({
 		kind: "single-branch-main-landing",
 		pullRequest,
 		trunk: options.target.trunk,
+		...(cleanupPreview === undefined ? {} : { cleanup: cleanupPreview }),
 	});
 	if (confirmation.type !== "approved") {
 		return {
@@ -121,19 +120,8 @@ export async function executeSingleBranchLanding(
 		};
 	}
 
-	const cleanupDecision = await resolveManagedSlotPostLandingCleanupDecision({
-		confirmation: options.host.confirmation,
-		cleanup: options.cleanup,
-		shape: options.target,
-	});
-	if (cleanupDecision.type === "failure") {
-		return {
-			type: "failure",
-			stage: "cleanup-confirmation",
-			failure: cleanupDecision.failure,
-			cleanupDecision: noCleanup,
-		};
-	}
+	const cleanupDecision: PostLandingSlotCleanupDecision =
+		cleanupPreview === undefined ? noCleanup : { type: "approved" };
 
 	options.host.progress.setStatus(SQUASH_MERGE_PROGRESS);
 	options.host.progress.note(SQUASH_MERGE_PROGRESS);
@@ -146,7 +134,7 @@ export async function executeSingleBranchLanding(
 			type: "failure",
 			stage: "merge",
 			failure: mergeResult.failure,
-			cleanupDecision: cleanupDecision.value,
+			cleanupDecision,
 		};
 	}
 
@@ -161,7 +149,7 @@ export async function executeSingleBranchLanding(
 			failure: landingExecutionFailure(
 				`gh pr merge exited 0, but verification could not load PR #${pullRequest.number}; post-landing cleanup skipped.\n${verified.failure.message}`,
 			),
-			cleanupDecision: cleanupDecision.value,
+			cleanupDecision,
 		};
 	}
 
@@ -176,7 +164,7 @@ export async function executeSingleBranchLanding(
 			failure: landingExecutionFailure(
 				"gh pr merge exited 0 but PR did not verify as MERGED; post-landing cleanup skipped.",
 			),
-			cleanupDecision: cleanupDecision.value,
+			cleanupDecision,
 		};
 	}
 
@@ -185,7 +173,7 @@ export async function executeSingleBranchLanding(
 		result: "merged",
 		pullRequest,
 		commandOutput: successfulCommandOutput(mergeResult.value),
-		cleanupDecision: cleanupDecision.value,
+		cleanupDecision,
 	};
 }
 
