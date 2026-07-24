@@ -7,4 +7,4 @@ export const SUBAGENT_FLEET_COMMAND_NAME = `${AGENTS_COMMAND_NAMESPACE}:fleet`;
  * at least one works everywhere Pi's own defaults work.
  */
 export const SUBAGENT_FLEET_SHORTCUTS = ["f2", "alt+e", "shift+ctrl+e"] as const;
-export const SUBAGENT_FLEET_SHORTCUT_LABEL = "F2/alt+e";
+export const SUBAGENT_FLEET_SHORTCUT_LABEL = "f2/alt+e/option+e";
