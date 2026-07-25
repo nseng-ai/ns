@@ -139,7 +139,9 @@ function runNodeEval(options: NodeEvalOptions): SpawnSyncReturns<string> {
 
 function runPiExtensionLoad(extensionArgs: readonly string[]): SpawnSyncReturns<string> {
 	const tempConfigDir = mkdtempSync(join(tmpdir(), "ns-pi-extension-load-"));
+	const tempGitRepo = mkdtempSync(join(tmpdir(), "ns-pi-extension-git-"));
 	try {
+		prepareGraphiteRepository(tempGitRepo);
 		// `--list-models` exits before extensions are initialized, so it never
 		// exercises extension loading. RPC mode with `--approve` trusts and actually
 		// imports extensions, which is what surfaces module-resolution regressions in
@@ -165,6 +167,8 @@ function runPiExtensionLoad(extensionArgs: readonly string[]): SpawnSyncReturns<
 				encoding: "utf8",
 				env: {
 					...process.env,
+					GIT_DIR: join(tempGitRepo, ".git"),
+					GIT_WORK_TREE: REPO_ROOT,
 					PI_CODING_AGENT_DIR: tempConfigDir,
 					PI_OFFLINE: "1",
 				},
@@ -172,7 +176,26 @@ function runPiExtensionLoad(extensionArgs: readonly string[]): SpawnSyncReturns<
 		);
 	} finally {
 		rmSync(tempConfigDir, { force: true, recursive: true });
+		rmSync(tempGitRepo, { force: true, recursive: true });
 	}
+}
+
+function prepareGraphiteRepository(repo: string): void {
+	runSetupCommand("git", ["init", "--initial-branch", "master", repo], repo);
+	runSetupCommand("git", ["config", "user.name", "ns integration"], repo);
+	runSetupCommand("git", ["config", "user.email", "integration@ns.invalid"], repo);
+	runSetupCommand("git", ["commit", "--allow-empty", "-m", "Initialize test repository"], repo);
+	runSetupCommand("gt", ["repo", "init", "--trunk", "master", "--no-interactive"], repo);
+}
+
+function runSetupCommand(command: string, args: readonly string[], cwd: string): void {
+	const result = spawnSync(command, args, { cwd, encoding: "utf8" });
+	if (result.status === 0) return;
+	throw new Error(
+		[`Failed to prepare Pi extension test repository: ${command} ${args.join(" ")}`, result.stderr]
+			.filter((line) => line.length > 0)
+			.join("\n"),
+	);
 }
 
 function discoverProjectExtensionAdapters(): readonly string[] {

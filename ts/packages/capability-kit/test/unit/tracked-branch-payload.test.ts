@@ -129,15 +129,12 @@ describe("tracked branch payload public API", () => {
 			},
 		]);
 
-		const result = await storeTrackedBranchPayload(
-			{ pi: commands },
-			{
-				cwd: REPO_ROOT,
-				branchName: "feature-demo",
-				content: "Implement the feature.\n",
-				payloadOptions: resolveTrackedBranchPayloadOptions({ stagingDir, now: () => 123 }),
-			},
-		);
+		const result = await storeTrackedBranchPayload(commands, {
+			cwd: REPO_ROOT,
+			branchName: "feature-demo",
+			content: "Implement the feature.\n",
+			payloadOptions: resolveTrackedBranchPayloadOptions({ stagingDir, now: () => 123 }),
+		});
 
 		commands.assertDone();
 		expect(result).toMatchObject({
@@ -167,15 +164,12 @@ describe("tracked branch payload public API", () => {
 			},
 		]);
 
-		const result = await storeTrackedBranchPayload(
-			{ pi: commands },
-			{
-				cwd: REPO_ROOT,
-				branchName: "feature-demo",
-				content: "Do not overwrite.\n",
-				payloadOptions: resolveTrackedBranchPayloadOptions({ stagingDir, now: () => 123 }),
-			},
-		);
+		const result = await storeTrackedBranchPayload(commands, {
+			cwd: REPO_ROOT,
+			branchName: "feature-demo",
+			content: "Do not overwrite.\n",
+			payloadOptions: resolveTrackedBranchPayloadOptions({ stagingDir, now: () => 123 }),
+		});
 
 		commands.assertDone();
 		expect(result).toMatchObject({ ok: false, error: { code: "dispatch_prompt_collision" } });
@@ -185,21 +179,6 @@ describe("tracked branch payload public API", () => {
 	test("creates from the current branch and suffixes a colliding slug", async () => {
 		const prompt = "Implement the feature";
 		const commands = new FakeCommands([
-			{
-				command: "git",
-				args: ["symbolic-ref", "--short", "HEAD"],
-				result: exited({ stdout: "feature/source\n" }),
-			},
-			{
-				command: "git",
-				args: ["rev-parse", "HEAD"],
-				result: exited({ stdout: "abc123\n" }),
-			},
-			{
-				command: "git",
-				args: ["rev-parse", "--show-toplevel"],
-				result: exited({ stdout: `${REPO_ROOT}\n` }),
-			},
 			{
 				command: "pi",
 				args: buildRawTextModelArgs(
@@ -225,13 +204,20 @@ describe("tracked branch payload public API", () => {
 			},
 		]);
 
-		const git = new InMemoryGitGateway();
+		const git = new InMemoryGitGateway({
+			repoRoot: REPO_ROOT,
+			currentBranch: "feature/source",
+			headCommit: "abc123",
+		});
 		const result = await createTrackedBranchForPrompt(
 			{ pi: commands, git },
 			{ cwd: REPO_ROOT, prompt },
 		);
 
 		commands.assertDone();
+		expect(git.currentBranchCalls).toEqual([{ cwd: REPO_ROOT }]);
+		expect(git.headCommitCalls).toEqual([{ cwd: REPO_ROOT }]);
+		expect(git.repoRootCalls).toEqual([{ cwd: REPO_ROOT }]);
 		expect(git.createBranchAtStartPointCalls).toEqual([
 			{ cwd: REPO_ROOT, branch: "implement-feature-2", startPoint: "abc123" },
 		]);
@@ -243,14 +229,70 @@ describe("tracked branch payload public API", () => {
 		});
 	});
 
+	test("rejects detached HEAD before commands or branch creation", async () => {
+		const commands = new FakeCommands([]);
+		const git = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
+
+		const result = await createTrackedBranchForPrompt(
+			{ pi: commands, git },
+			{ cwd: REPO_ROOT, prompt: "Implement the feature" },
+		);
+
+		commands.assertDone();
+		expect(result).toEqual({ error: "Could not resolve current branch: HEAD is detached." });
+		expect(git.currentBranchCalls).toEqual([{ cwd: REPO_ROOT }]);
+		expect(git.headCommitCalls).toEqual([]);
+		expect(git.createBranchAtStartPointCalls).toEqual([]);
+	});
+
+	test("reports current-branch failure before commands or branch creation", async () => {
+		const commands = new FakeCommands([]);
+		const git = new InMemoryGitGateway({
+			currentBranch: {
+				type: "failure",
+				error: { code: "branch-failed", message: "current branch unavailable" },
+			},
+		});
+
+		const result = await createTrackedBranchForPrompt(
+			{ pi: commands, git },
+			{ cwd: REPO_ROOT, prompt: "Implement the feature" },
+		);
+
+		commands.assertDone();
+		expect(result).toEqual({
+			error: "Could not resolve current branch: current branch unavailable",
+		});
+		expect(git.currentBranchCalls).toEqual([{ cwd: REPO_ROOT }]);
+		expect(git.headCommitCalls).toEqual([]);
+		expect(git.createBranchAtStartPointCalls).toEqual([]);
+	});
+
+	test("reports HEAD resolution failure before commands or branch creation", async () => {
+		const commands = new FakeCommands([]);
+		const git = new InMemoryGitGateway({
+			currentBranch: "feature/source",
+			headCommit: {
+				type: "failure",
+				error: { code: "head-failed", message: "HEAD unavailable" },
+			},
+		});
+
+		const result = await createTrackedBranchForPrompt(
+			{ pi: commands, git },
+			{ cwd: REPO_ROOT, prompt: "Implement the feature" },
+		);
+
+		commands.assertDone();
+		expect(result).toEqual({ error: "Could not resolve HEAD: HEAD unavailable" });
+		expect(git.currentBranchCalls).toEqual([{ cwd: REPO_ROOT }]);
+		expect(git.headCommitCalls).toEqual([{ cwd: REPO_ROOT }]);
+		expect(git.createBranchAtStartPointCalls).toEqual([]);
+	});
+
 	test("returns the semantic slug for a non-colliding resolved trunk branch", async () => {
 		const prompt = "Implement the trunk feature";
 		const commands = new FakeCommands([
-			{
-				command: "git",
-				args: ["rev-parse", "--show-toplevel"],
-				result: exited({ stdout: `${REPO_ROOT}\n` }),
-			},
 			{
 				command: "pi",
 				args: buildRawTextModelArgs(
@@ -271,7 +313,7 @@ describe("tracked branch payload public API", () => {
 			},
 		]);
 
-		const git = new InMemoryGitGateway();
+		const git = new InMemoryGitGateway({ repoRoot: REPO_ROOT });
 		const result = await createTrackedBranchFromResolvedParent(
 			{ pi: commands, git },
 			{
@@ -304,7 +346,7 @@ describe("tracked branch payload public API", () => {
 		]);
 
 		const result = await prepareLocalGraphiteTrunk(
-			{ pi: commands, graphite: { trunkBranch: async () => ({ ok: true, branch: "main" }) } },
+			{ pi: commands, trunkBranch: "main" },
 			{ cwd: REPO_ROOT },
 		);
 
@@ -320,11 +362,6 @@ describe("tracked branch payload public API", () => {
 	test("creates from the resolved commit and reports a later Graphite tracking failure", async () => {
 		const prompt = "Implement the feature";
 		const commands = new FakeCommands([
-			{
-				command: "git",
-				args: ["rev-parse", "--show-toplevel"],
-				result: exited({ stdout: `${REPO_ROOT}\n` }),
-			},
 			{
 				command: "pi",
 				args: buildRawTextModelArgs(
@@ -345,7 +382,7 @@ describe("tracked branch payload public API", () => {
 			},
 		]);
 
-		const git = new InMemoryGitGateway();
+		const git = new InMemoryGitGateway({ repoRoot: REPO_ROOT });
 		const result = await createTrackedBranchFromResolvedParent(
 			{ pi: commands, git },
 			{

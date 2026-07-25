@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { isAbsolute, join, resolve } from "node:path";
+import { join } from "node:path";
 
 import {
 	checkBrmemEntry,
@@ -22,20 +22,10 @@ import {
 	sanitizeBranchName,
 	trimBranchSlugToLength,
 } from "@nseng-ai/foundation/branch-slug";
-import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorMessage, type TextResult } from "@nseng-ai/foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
-import { runGraphiteCommand, type GraphiteBranchGateway } from "../graphite/branch.ts";
-import {
-	createGraphiteMetadataDbAccess,
-	GRAPHITE_BRANCH_METADATA_QUERY,
-	GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY,
-	graphiteMetadataDbPath,
-	hasExpectedGraphiteBranchMetadataSchema,
-	parseGraphiteBranchMetadataRows,
-	resolveGraphiteTrunkBranchFromTopology,
-	type GraphiteMetadataDbAccess,
-} from "../graphite/metadata.ts";
+import { runGraphiteCommand } from "../graphite/branch.ts";
 import { formatRawTextModelFailure, generateRawTextWithModel } from "./model-slug.ts";
 import { MODEL_OPERATION_IDS, loadModelPolicy, resolveModelOperation } from "./model-policy.ts";
 import { buildPiLaunchArgs, type PiLaunchOptions } from "./pi-launch.ts";
@@ -77,9 +67,13 @@ export type TrackedBranchPayloadStorageResult =
 	| { ok: true; value: BrmemPutData }
 	| { ok: false; error: BrmemCommandErrorInfo };
 
-export interface TrackedBranchCreationContext {
+export interface ResolvedTrackedBranchCreationContext {
 	pi: CommandExecApi;
-	git: Pick<GitGateway, "createBranchAtStartPoint">;
+	git: Pick<GitGateway, "repoRoot" | "createBranchAtStartPoint">;
+}
+
+export interface TrackedBranchCreationContext extends ResolvedTrackedBranchCreationContext {
+	git: Pick<GitGateway, "repoRoot" | "createBranchAtStartPoint" | "currentBranch" | "headCommit">;
 }
 
 export interface CreateTrackedBranchForPromptOptions {
@@ -97,13 +91,12 @@ export interface CreateTrackedBranchFromResolvedParentOptions {
 
 export interface LocalGraphiteTrunkPreparationContext {
 	pi: CommandExecApi;
-	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	trunkBranch: string;
 }
 
 export interface PrepareLocalGraphiteTrunkOptions {
 	cwd: string;
 	notify?: (message: string) => void;
-	metadataDbAccess?: GraphiteMetadataDbAccess;
 }
 
 export type TrackedBranchFromLocalTrunkCreationContext = LocalGraphiteTrunkPreparationContext &
@@ -138,23 +131,32 @@ export async function createTrackedBranchForPrompt(
 	context: TrackedBranchCreationContext,
 	options: CreateTrackedBranchForPromptOptions,
 ): Promise<TrackedBranchEvidence | { error: string }> {
-	const parent = await runText(context.pi, options.cwd, "git", ["symbolic-ref", "--short", "HEAD"]);
-	if (!parent.ok) return { error: `Could not resolve current branch: ${parent.message}` };
-	const startPoint = await runText(context.pi, options.cwd, "git", ["rev-parse", "HEAD"]);
-	if (!startPoint.ok) return { error: `Could not resolve HEAD: ${startPoint.message}` };
+	const parent = await context.git.currentBranch({ cwd: options.cwd });
+	if (parent.type === "detached")
+		return { error: "Could not resolve current branch: HEAD is detached." };
+	if (parent.type === "failure") {
+		return { error: `Could not resolve current branch: ${parent.error.message}` };
+	}
+	const startPoint = await context.git.headCommit({ cwd: options.cwd });
+	if (!startPoint.ok) return { error: `Could not resolve HEAD: ${startPoint.error.message}` };
 	return createTrackedBranchFromResolvedParent(context, {
 		cwd: options.cwd,
 		prompt: options.prompt,
-		parentBranch: parent.text,
-		startPoint: startPoint.text,
+		parentBranch: parent.branch,
+		startPoint: startPoint.value,
 	});
 }
 
 export async function createTrackedBranchFromResolvedParent(
-	context: TrackedBranchCreationContext,
+	context: ResolvedTrackedBranchCreationContext,
 	options: CreateTrackedBranchFromResolvedParentOptions,
 ): Promise<TrackedBranchEvidence | { error: string }> {
-	const slug = await generateTrackedBranchSlug(context.pi, options.cwd, options.prompt);
+	const slug = await generateTrackedBranchSlug(
+		context.pi,
+		context.git,
+		options.cwd,
+		options.prompt,
+	);
 	if (!slug.ok) return { error: slug.message };
 	const branchName = await chooseAvailableBranchName(context.pi, options.cwd, slug.text);
 	const create = await context.git.createBranchAtStartPoint({
@@ -196,14 +198,7 @@ export async function prepareLocalGraphiteTrunk(
 	options: PrepareLocalGraphiteTrunkOptions,
 ): Promise<LocalGraphiteTrunkPreparation | { error: string }> {
 	options.notify?.("Resolving local Graphite trunk…");
-	const trunk = await resolveGraphiteTrunkBranch({
-		pi: context.pi,
-		cwd: options.cwd,
-		graphite: context.graphite,
-		metadataDbAccess: options.metadataDbAccess ?? createGraphiteMetadataDbAccess(),
-	});
-	if ("error" in trunk) return trunk;
-	const startRef = `refs/heads/${trunk.branch}`;
+	const startRef = `refs/heads/${context.trunkBranch}`;
 	const startPoint = await runText(context.pi, options.cwd, "git", [
 		"rev-parse",
 		"--verify",
@@ -211,12 +206,12 @@ export async function prepareLocalGraphiteTrunk(
 	]);
 	if (!startPoint.ok) {
 		return {
-			error: `Could not resolve local Graphite trunk ${trunk.branch}; no branch was created.\n${startPoint.message}`,
+			error: `Could not resolve local Graphite trunk ${context.trunkBranch}; no branch was created.\n${startPoint.message}`,
 		};
 	}
 	return {
 		type: "resolved-local-trunk",
-		trunkBranch: trunk.branch,
+		trunkBranch: context.trunkBranch,
 		startRef,
 		startPoint: startPoint.text,
 	};
@@ -239,11 +234,11 @@ export async function createTrackedBranchFromLocalTrunkForPrompt(
 }
 
 export async function storeTrackedBranchPayload(
-	context: TrackedBranchPayloadStorageContext,
+	pi: CommandExecApi,
 	options: StoreTrackedBranchPayloadOptions,
 ): Promise<TrackedBranchPayloadStorageResult> {
 	const presence = await checkBrmemEntry({
-		gateway: context.pi,
+		gateway: pi,
 		cwd: options.cwd,
 		namespace: TRACKED_BRANCH_PAYLOAD_NAMESPACE,
 		key: TRACKED_BRANCH_PAYLOAD_KEY,
@@ -274,7 +269,7 @@ export async function storeTrackedBranchPayload(
 	}
 	try {
 		return await putBrmemEntryFromFile({
-			gateway: context.pi,
+			gateway: pi,
 			cwd: options.cwd,
 			namespace: TRACKED_BRANCH_PAYLOAD_NAMESPACE,
 			key: TRACKED_BRANCH_PAYLOAD_KEY,
@@ -343,10 +338,11 @@ export function formatTrackedBranchPayloadStorageFailure(
 
 async function generateTrackedBranchSlug(
 	pi: CommandExecApi,
+	git: Pick<GitGateway, "repoRoot">,
 	cwd: string,
 	content: string,
 ): Promise<TextResult> {
-	const repository = await new RealGitGateway(pi).repoRoot({ cwd });
+	const repository = await git.repoRoot({ cwd });
 	if (!repository.ok) {
 		return {
 			ok: false,
@@ -460,56 +456,5 @@ async function runText(
 	return {
 		ok: false,
 		message: stderr !== "" ? stderr : stdout !== "" ? stdout : formatCommandDetails(result),
-	};
-}
-
-async function resolveGraphiteTrunkBranch(context: {
-	pi: CommandExecApi;
-	cwd: string;
-	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
-	metadataDbAccess: GraphiteMetadataDbAccess;
-}): Promise<{ branch: string } | { error: string }> {
-	const trunk = await context.graphite.trunkBranch({ cwd: context.cwd });
-	if (trunk.ok) return { branch: trunk.branch };
-	if (trunk.reason !== "detached-head")
-		return { error: `Could not resolve Graphite trunk.\n${trunk.error.message}` };
-	const commonDir = await runText(context.pi, context.cwd, "git", [
-		"rev-parse",
-		"--git-common-dir",
-	]);
-	if (!commonDir.ok)
-		return {
-			error: `${trunk.error.message}\n\nCould not inspect Graphite metadata fallback: ${commonDir.message}`,
-		};
-	const dbPath = graphiteMetadataDbPath(
-		isAbsolute(commonDir.text) ? commonDir.text : resolve(context.cwd, commonDir.text),
-	);
-	if (!context.metadataDbAccess.exists(dbPath))
-		return {
-			error: `${trunk.error.message}\n\nGraphite metadata fallback unavailable: metadata store not found at ${dbPath}`,
-		};
-	const schema = context.metadataDbAccess.queryJson(dbPath, GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY);
-	if (!schema.ok)
-		return {
-			error: `${trunk.error.message}\n\nGraphite metadata fallback failed: ${schema.error.message}`,
-		};
-	if (!hasExpectedGraphiteBranchMetadataSchema(schema.value))
-		return {
-			error: `${trunk.error.message}\n\nGraphite metadata fallback failed: branch_metadata schema mismatch.`,
-		};
-	const rows = context.metadataDbAccess.queryJson(dbPath, GRAPHITE_BRANCH_METADATA_QUERY);
-	if (!rows.ok)
-		return {
-			error: `${trunk.error.message}\n\nGraphite metadata fallback failed: ${rows.error.message}`,
-		};
-	const parsed = parseGraphiteBranchMetadataRows(rows.value);
-	if (parsed.type === "not_array")
-		return {
-			error: `${trunk.error.message}\n\nGraphite metadata fallback failed: branch_metadata rows were not an array.`,
-		};
-	const resolution = resolveGraphiteTrunkBranchFromTopology(parsed.topology);
-	if (resolution.type === "trunk") return { branch: resolution.branch };
-	return {
-		error: `${trunk.error.message}\n\n${resolution.type === "none" ? "Graphite metadata fallback found no trunk marker." : `Graphite metadata fallback found multiple trunk markers: ${resolution.branches.join(", ")}`}`,
 	};
 }

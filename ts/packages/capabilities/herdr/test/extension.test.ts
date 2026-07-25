@@ -12,8 +12,13 @@ function makeFakeExtensionApi(commands: Map<string, unknown>): ExtensionAPI {
 			commands.set(name, definition);
 		},
 		on() {},
-		async exec() {
-			return { code: 0, stdout: "", stderr: "", killed: false };
+		async exec(command, args) {
+			return {
+				code: 0,
+				stdout: command === "gt" && args.join(" ") === "trunk --no-interactive" ? "main\n" : "",
+				stderr: "",
+				killed: false,
+			};
 		},
 		getCommands() {
 			return [];
@@ -44,8 +49,13 @@ function makeToolExtensionApi(
 		registerTool(definition) {
 			tools.set(definition.name, definition);
 		},
-		async exec() {
-			return { code: 0, stdout: "", stderr: "", killed: false };
+		async exec(command, args) {
+			return {
+				code: 0,
+				stdout: command === "gt" && args.join(" ") === "trunk --no-interactive" ? "main\n" : "",
+				stderr: "",
+				killed: false,
+			};
 		},
 		getCommands() {
 			return [];
@@ -64,12 +74,37 @@ function makeToolExtensionApi(
 }
 
 describe("herdr Pi extension", () => {
-	test("registers the base Herdr command surface without tool support", async () => {
+	test("fails before registration when Graphite trunk resolution fails", async () => {
 		const commands = new Map<string, unknown>();
 		const pi = makeFakeExtensionApi(commands);
+		let trunkCalls = 0;
+		pi.exec = async (command, args) => {
+			if (command === "gt" && args.join(" ") === "trunk --no-interactive") trunkCalls += 1;
+			return { code: 1, stdout: "", stderr: "not a Graphite repository", killed: false };
+		};
+
+		await expect(registerHerdrPiExtension(pi)).rejects.toThrow("not a Graphite repository");
+		expect(trunkCalls).toBe(1);
+		expect(commands.size).toBe(0);
+	});
+
+	test("resolves Graphite trunk once at startup and registers the base command surface", async () => {
+		const commands = new Map<string, unknown>();
+		const pi = makeFakeExtensionApi(commands);
+		const trunkCalls: Array<{ command: string; args: string[]; cwd: string | undefined }> = [];
+		pi.exec = async (command, args, options) => {
+			if (command === "gt" && args.join(" ") === "trunk --no-interactive") {
+				trunkCalls.push({ command, args: [...args], cwd: options?.cwd });
+				return { code: 0, stdout: "main\n", stderr: "", killed: false };
+			}
+			return { code: 0, stdout: "", stderr: "", killed: false };
+		};
 
 		await registerHerdrPiExtension(pi);
 
+		expect(trunkCalls).toEqual([
+			{ command: "gt", args: ["trunk", "--no-interactive"], cwd: process.cwd() },
+		]);
 		expect(HERDR_COMMAND_NAMES).toEqual([
 			"ns:herdr:impl:plan:space",
 			"ns:herdr:impl:plan:tab",
