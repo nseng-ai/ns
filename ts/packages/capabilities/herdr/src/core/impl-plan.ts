@@ -79,20 +79,25 @@ interface CommandArgs {
 	shouldShowHelp: boolean;
 }
 
-export interface HandleHerdrSlotImplPlanOptions {
-	pi: HerdrPiCommandApi;
+export interface HerdrImplPlanContext {
+	commands: HerdrPiCommandApi;
 	herdr: HerdrGateway;
+	pi: CommandContext;
+}
+
+export interface HandleHerdrSlotImplPlanOptions {
 	rawArgs: string;
-	ctx: CommandContext;
-	options: ResolvedHerdrSlotImplPlanOptions;
+	dependencies: ResolvedHerdrSlotImplPlanOptions;
 	config: ImplPlanConfig;
 	notifyProgress: (message: string) => void;
 }
 
 export async function handleHerdrSlotImplPlan(
+	context: HerdrImplPlanContext,
 	options: HandleHerdrSlotImplPlanOptions,
 ): Promise<void> {
-	const { pi, herdr, rawArgs, ctx, config } = options;
+	const { commands: pi, herdr, pi: ctx } = context;
+	const { rawArgs, config } = options;
 
 	const parsed = parseCommandArgs(rawArgs);
 	if ("error" in parsed) {
@@ -116,7 +121,7 @@ export async function handleHerdrSlotImplPlan(
 	try {
 		const selection = await resolveImplBranchBasis({
 			cwd: ctx.cwd,
-			git: options.options.git,
+			git: options.dependencies.git,
 			interaction: ctx,
 		});
 		if (selection.type === "cancelled") {
@@ -133,7 +138,7 @@ export async function handleHerdrSlotImplPlan(
 		const selected = await prepareLatestSessionSavedPlan(pi, {
 			cwd: ctx.cwd,
 			entries: ctx.sessionManager?.getBranch?.() ?? [],
-			...optionalEntry("planStoreRoot", options.options.planStoreRoot),
+			...optionalEntry("planStoreRoot", options.dependencies.planStoreRoot),
 		});
 		if (!selected.ok) {
 			present(ctx, selected.error, "error");
@@ -147,7 +152,7 @@ export async function handleHerdrSlotImplPlan(
 				? await prepareImplTrunkBasis({
 						pi,
 						cwd: checkout.repoRoot,
-						options: options.options,
+						options: options.dependencies,
 						notify: options.notifyProgress,
 					})
 				: ({ type: "current-head" } as const);
@@ -156,7 +161,7 @@ export async function handleHerdrSlotImplPlan(
 			return;
 		}
 		if (selection.basis === "current") {
-			const revalidated = await options.options.git.currentBranch({ cwd: checkout.repoRoot });
+			const revalidated = await options.dependencies.git.currentBranch({ cwd: checkout.repoRoot });
 			if (revalidated.type !== "branch" || revalidated.branch !== selection.currentBranch) {
 				present(
 					ctx,
@@ -170,7 +175,7 @@ export async function handleHerdrSlotImplPlan(
 		const prepared = await preparePlanBranchContext(pi, {
 			plan: selectedPlan,
 			checkout,
-			context: implBranchContextContext(pi, checkout.repoRoot, options.options),
+			context: implBranchContextContext(pi, checkout.repoRoot, options.dependencies),
 			shouldBuildPreview: parsed.isDryRun,
 			creation:
 				basis.type === "current-head"
@@ -210,7 +215,7 @@ export async function handleHerdrSlotImplPlan(
 			ctx,
 			prepared,
 			config,
-			planImplOptions: options.options,
+			planImplOptions: options.dependencies,
 			destination,
 		});
 	} catch (error) {
@@ -246,13 +251,14 @@ async function prepareImplTrunkBasis(options: {
 	options: ResolvedHerdrSlotImplPlanOptions;
 	notify: (message: string) => void;
 }): Promise<PreparedImplBasis | { error: string }> {
-	const preparation = await prepareLocalGraphiteTrunk({
-		pi: options.pi,
-		cwd: options.cwd,
-		graphite: options.options.graphite,
-		notify: options.notify,
-		...optionalEntry("metadataDbAccess", options.options.metadataDbAccess),
-	});
+	const preparation = await prepareLocalGraphiteTrunk(
+		{ pi: options.pi, graphite: options.options.graphite },
+		{
+			cwd: options.cwd,
+			notify: options.notify,
+			...optionalEntry("metadataDbAccess", options.options.metadataDbAccess),
+		},
+	);
 	return "error" in preparation ? preparation : { type: "resolved-local-trunk", preparation };
 }
 

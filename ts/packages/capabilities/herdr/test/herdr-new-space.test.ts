@@ -3,7 +3,6 @@ import { describe, expect, test } from "vitest";
 import type { CustomMessage } from "@nseng-ai/capability-kit/pi-types";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { handleHerdrNewSpace, type HerdrSpaceLabelDeriver } from "../src/core/new-space.ts";
-import type { HerdrPiContext } from "../src/pi/context.ts";
 import { registerHerdrNewSpaceCommand } from "../src/pi/new-space.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import {
@@ -12,16 +11,7 @@ import {
 	FakePi,
 	notificationMessages,
 	ROOT,
-	step,
 } from "./herdr-test-harness.ts";
-
-const WORKSPACE_CREATE_RESPONSE = JSON.stringify({
-	result: {
-		workspace: { workspace_id: "ws-new" },
-		root_pane: { pane_id: "pane-new" },
-		tab: { tab_id: "tab-new" },
-	},
-});
 
 function labelDeriver(label = "review-brmem-contract"): HerdrSpaceLabelDeriver {
 	return { deriveLabel: async () => label };
@@ -93,14 +83,8 @@ describe("Herdr new space", () => {
 		expect(notificationMessages(ctx).join("\n")).toContain("model unavailable");
 	});
 
-	test("registered command acknowledges before idle wait and creates through the CLI gateway", async () => {
-		const pi = new FakePi({
-			script: [
-				step("herdr", ["workspace", "create", "--cwd", ROOT], {
-					stdout: WORKSPACE_CREATE_RESPONSE,
-				}),
-			],
-		});
+	test("registered command acknowledges before idle wait and uses the composed gateway", async () => {
+		const pi = new FakePi();
 		const sentMessages: CustomMessage[] = [];
 		const renderedPi = Object.create(pi) as FakePi & {
 			sendMessage(message: CustomMessage): void;
@@ -113,11 +97,13 @@ describe("Herdr new space", () => {
 				expect(sentMessages[0]?.customType).toBe("ns-command-ack");
 			},
 		});
-		const context: HerdrPiContext = {
-			pi: createHerdrPiCommandApi(renderedPi),
+		const herdr = new FakeHerdrGateway();
+		const dependencies = {
+			commands: createHerdrPiCommandApi(renderedPi),
 			git: new InMemoryGitGateway({ optionalRepoRoot: ROOT }),
+			herdr,
 		};
-		registerHerdrNewSpaceCommand(context);
+		registerHerdrNewSpaceCommand(dependencies);
 		const command = pi.commands.get("ns:herdr:space:new");
 
 		await command?.handler("", ctx);
@@ -125,6 +111,7 @@ describe("Herdr new space", () => {
 		pi.assertDone();
 		expect(sentMessages[0]?.customType).toBe("ns-command-ack");
 		expect(ctx.events[0]).toBe("wait-for-idle");
+		expect(herdr.createWorkspaceCalls).toEqual([{ options: { cwd: ROOT, shouldFocus: true } }]);
 		expect(notificationMessages(ctx)).toContain(`Opened Herdr space at ${ROOT}.`);
 	});
 });

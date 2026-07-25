@@ -77,6 +77,53 @@ export type TrackedBranchPayloadStorageResult =
 	| { ok: true; value: BrmemPutData }
 	| { ok: false; error: BrmemCommandErrorInfo };
 
+export interface TrackedBranchCreationContext {
+	pi: CommandExecApi;
+	git: Pick<GitGateway, "createBranchAtStartPoint">;
+}
+
+export interface CreateTrackedBranchForPromptOptions {
+	cwd: string;
+	prompt: string;
+}
+
+export interface CreateTrackedBranchFromResolvedParentOptions {
+	cwd: string;
+	prompt: string;
+	parentBranch: string;
+	startPoint: string;
+	createFailureContext?: string;
+}
+
+export interface LocalGraphiteTrunkPreparationContext {
+	pi: CommandExecApi;
+	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+}
+
+export interface PrepareLocalGraphiteTrunkOptions {
+	cwd: string;
+	notify?: (message: string) => void;
+	metadataDbAccess?: GraphiteMetadataDbAccess;
+}
+
+export type TrackedBranchFromLocalTrunkCreationContext = LocalGraphiteTrunkPreparationContext &
+	TrackedBranchCreationContext;
+
+export interface CreateTrackedBranchFromLocalTrunkForPromptOptions extends PrepareLocalGraphiteTrunkOptions {
+	prompt: string;
+}
+
+export interface TrackedBranchPayloadStorageContext {
+	pi: CommandExecApi;
+}
+
+export interface StoreTrackedBranchPayloadOptions {
+	cwd: string;
+	branchName: string;
+	content: string;
+	payloadOptions: ResolvedTrackedBranchPayloadOptions;
+}
+
 export function resolveTrackedBranchPayloadOptions(
 	options: TrackedBranchPayloadOptions,
 ): ResolvedTrackedBranchPayloadOptions {
@@ -88,49 +135,42 @@ export function resolveTrackedBranchPayloadOptions(
 }
 
 export async function createTrackedBranchForPrompt(
-	pi: CommandExecApi,
-	cwd: string,
-	prompt: string,
-	git: Pick<GitGateway, "createBranchAtStartPoint">,
+	context: TrackedBranchCreationContext,
+	options: CreateTrackedBranchForPromptOptions,
 ): Promise<TrackedBranchEvidence | { error: string }> {
-	const parent = await runText(pi, cwd, "git", ["symbolic-ref", "--short", "HEAD"]);
+	const parent = await runText(context.pi, options.cwd, "git", ["symbolic-ref", "--short", "HEAD"]);
 	if (!parent.ok) return { error: `Could not resolve current branch: ${parent.message}` };
-	const startPoint = await runText(pi, cwd, "git", ["rev-parse", "HEAD"]);
+	const startPoint = await runText(context.pi, options.cwd, "git", ["rev-parse", "HEAD"]);
 	if (!startPoint.ok) return { error: `Could not resolve HEAD: ${startPoint.message}` };
-	return createTrackedBranchFromResolvedParent({
-		pi,
-		git,
-		cwd,
-		prompt,
+	return createTrackedBranchFromResolvedParent(context, {
+		cwd: options.cwd,
+		prompt: options.prompt,
 		parentBranch: parent.text,
 		startPoint: startPoint.text,
 	});
 }
 
-export async function createTrackedBranchFromResolvedParent(options: {
-	pi: CommandExecApi;
-	git: Pick<GitGateway, "createBranchAtStartPoint">;
-	cwd: string;
-	prompt: string;
-	parentBranch: string;
-	startPoint: string;
-	createFailureContext?: string;
-}): Promise<TrackedBranchEvidence | { error: string }> {
-	const slug = await generateTrackedBranchSlug(options.pi, options.cwd, options.prompt);
+export async function createTrackedBranchFromResolvedParent(
+	context: TrackedBranchCreationContext,
+	options: CreateTrackedBranchFromResolvedParentOptions,
+): Promise<TrackedBranchEvidence | { error: string }> {
+	const slug = await generateTrackedBranchSlug(context.pi, options.cwd, options.prompt);
 	if (!slug.ok) return { error: slug.message };
-	const branchName = await chooseAvailableBranchName(options.pi, options.cwd, slug.text);
-	const create = await options.git.createBranchAtStartPoint({
+	const branchName = await chooseAvailableBranchName(context.pi, options.cwd, slug.text);
+	const create = await context.git.createBranchAtStartPoint({
 		cwd: options.cwd,
 		branch: branchName,
 		startPoint: options.startPoint,
 	});
 	if (!create.ok) {
-		const context =
+		const failureContext =
 			options.createFailureContext === undefined ? "" : ` ${options.createFailureContext}`;
-		return { error: `Failed to create branch ${branchName}${context}: ${create.error.message}` };
+		return {
+			error: `Failed to create branch ${branchName}${failureContext}: ${create.error.message}`,
+		};
 	}
 	const trackArgs = ["track", branchName, "--parent", options.parentBranch, "--no-interactive"];
-	const track = await runGraphiteCommand(execApiToCommandRunner(options.pi), {
+	const track = await runGraphiteCommand(execApiToCommandRunner(context.pi), {
 		cwd: options.cwd,
 		args: trackArgs,
 	});
@@ -151,23 +191,20 @@ export async function createTrackedBranchFromResolvedParent(options: {
 	};
 }
 
-export async function prepareLocalGraphiteTrunk(options: {
-	pi: CommandExecApi;
-	cwd: string;
-	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
-	notify?: (message: string) => void;
-	metadataDbAccess?: GraphiteMetadataDbAccess;
-}): Promise<LocalGraphiteTrunkPreparation | { error: string }> {
+export async function prepareLocalGraphiteTrunk(
+	context: LocalGraphiteTrunkPreparationContext,
+	options: PrepareLocalGraphiteTrunkOptions,
+): Promise<LocalGraphiteTrunkPreparation | { error: string }> {
 	options.notify?.("Resolving local Graphite trunk…");
 	const trunk = await resolveGraphiteTrunkBranch({
-		pi: options.pi,
+		pi: context.pi,
 		cwd: options.cwd,
-		graphite: options.graphite,
+		graphite: context.graphite,
 		metadataDbAccess: options.metadataDbAccess ?? createGraphiteMetadataDbAccess(),
 	});
 	if ("error" in trunk) return trunk;
 	const startRef = `refs/heads/${trunk.branch}`;
-	const startPoint = await runText(options.pi, options.cwd, "git", [
+	const startPoint = await runText(context.pi, options.cwd, "git", [
 		"rev-parse",
 		"--verify",
 		startRef,
@@ -185,21 +222,14 @@ export async function prepareLocalGraphiteTrunk(options: {
 	};
 }
 
-export async function createTrackedBranchFromLocalTrunkForPrompt(options: {
-	pi: CommandExecApi;
-	cwd: string;
-	prompt: string;
-	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
-	git: Pick<GitGateway, "createBranchAtStartPoint">;
-	notify?: (message: string) => void;
-	metadataDbAccess?: GraphiteMetadataDbAccess;
-}): Promise<TrackedBranchEvidence | { error: string }> {
-	const prepared = await prepareLocalGraphiteTrunk(options);
+export async function createTrackedBranchFromLocalTrunkForPrompt(
+	context: TrackedBranchFromLocalTrunkCreationContext,
+	options: CreateTrackedBranchFromLocalTrunkForPromptOptions,
+): Promise<TrackedBranchEvidence | { error: string }> {
+	const prepared = await prepareLocalGraphiteTrunk(context, options);
 	if ("error" in prepared) return prepared;
 	options.notify?.("Generating branch name…");
-	return createTrackedBranchFromResolvedParent({
-		pi: options.pi,
-		git: options.git,
+	return createTrackedBranchFromResolvedParent(context, {
 		cwd: options.cwd,
 		prompt: options.prompt,
 		parentBranch: prepared.trunkBranch,
@@ -208,15 +238,12 @@ export async function createTrackedBranchFromLocalTrunkForPrompt(options: {
 	});
 }
 
-export async function storeTrackedBranchPayload(options: {
-	pi: CommandExecApi;
-	cwd: string;
-	branchName: string;
-	content: string;
-	payloadOptions: ResolvedTrackedBranchPayloadOptions;
-}): Promise<TrackedBranchPayloadStorageResult> {
+export async function storeTrackedBranchPayload(
+	context: TrackedBranchPayloadStorageContext,
+	options: StoreTrackedBranchPayloadOptions,
+): Promise<TrackedBranchPayloadStorageResult> {
 	const presence = await checkBrmemEntry({
-		gateway: options.pi,
+		gateway: context.pi,
 		cwd: options.cwd,
 		namespace: TRACKED_BRANCH_PAYLOAD_NAMESPACE,
 		key: TRACKED_BRANCH_PAYLOAD_KEY,
@@ -247,7 +274,7 @@ export async function storeTrackedBranchPayload(options: {
 	}
 	try {
 		return await putBrmemEntryFromFile({
-			gateway: options.pi,
+			gateway: context.pi,
 			cwd: options.cwd,
 			namespace: TRACKED_BRANCH_PAYLOAD_NAMESPACE,
 			key: TRACKED_BRANCH_PAYLOAD_KEY,

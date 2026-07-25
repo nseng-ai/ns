@@ -1,4 +1,6 @@
+import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import type { CommandDefinition, ExtensionAPI } from "@nseng-ai/capability-kit/pi-types";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import type {
 	HandoffExtensionAPI,
@@ -6,17 +8,18 @@ import type {
 } from "@nseng-ai/handoffs/pi/handoff-launch";
 import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
 
+import { createCliHerdrGateway } from "../core/cli-gateway.ts";
 import {
 	createHerdrSidebarControllerWithPiWiring,
 	registerHerdrSidebarCommands,
 } from "./sidebar.ts";
 import { registerHerdrPromptSpaceImplCommand } from "./impl-prompt.ts";
 import { registerHerdrPlanSpaceImplCommand, registerHerdrPlanTabImplCommand } from "./impl-plan.ts";
-import { createHerdrPiContext } from "./context.ts";
 import { registerHerdrHandoffTab } from "./handoff-tab.ts";
 import { registerHerdrNewSpaceCommand } from "./new-space.ts";
 import { registerHerdrSpaceGoalCommand } from "./space-goal.ts";
 import { registerHerdrNewTabCommand, registerHerdrTabGoalCommand } from "./tab.ts";
+import { createHerdrPiCommandApi } from "./pi-command-api.ts";
 
 export type HandoffIntegrationLoader = () => Promise<{
 	createHandoffLaunchIntegration(pi: HandoffExtensionAPI): HandoffPromptCreateIntegration;
@@ -32,15 +35,18 @@ export async function registerHerdrPiExtension(
 	options: { loadHandoffIntegration?: HandoffIntegrationLoader } = {},
 ): Promise<void> {
 	const herdrPi = adaptHerdrExtensionApi(pi);
-	const context = createHerdrPiContext(herdrPi);
+	const commands = createHerdrPiCommandApi(herdrPi);
+	const git = new RealGitGateway(commands);
+	const graphite = new RealGraphiteBranchGateway(commands);
+	const herdr = createCliHerdrGateway(commands);
 	const sidebarController = createHerdrSidebarControllerWithPiWiring(herdrPi);
 	registerHerdrSidebarCommands(herdrPi, sidebarController);
 	registerHerdrSpaceGoalCommand(herdrPi);
-	registerHerdrPromptSpaceImplCommand(herdrPi);
-	registerHerdrPlanSpaceImplCommand(herdrPi);
-	registerHerdrPlanTabImplCommand(herdrPi);
-	registerHerdrNewSpaceCommand(context);
-	registerHerdrNewTabCommand(context);
+	registerHerdrPromptSpaceImplCommand({ commands, git, graphite, herdr });
+	registerHerdrPlanSpaceImplCommand({ commands, git, graphite, herdr });
+	registerHerdrPlanTabImplCommand({ commands, git, graphite, herdr });
+	registerHerdrNewSpaceCommand({ commands, git, herdr });
+	registerHerdrNewTabCommand({ commands, git, herdr });
 	registerHerdrTabGoalCommand(herdrPi);
 
 	if (!("registerTool" in pi) || pi.registerTool === undefined) return;
