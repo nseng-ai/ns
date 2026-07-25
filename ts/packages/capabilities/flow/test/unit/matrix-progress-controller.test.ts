@@ -16,8 +16,6 @@ import type {
 	MatrixProgressSnapshot,
 	MatrixRowSpec,
 } from "../../src/phase-stream/matrix-progress-state.ts";
-import { applyPrLinksToRows } from "../../src/submit/submit-matrix-progress.ts";
-import type { SubmitPrLink } from "../../src/submit/gt-output.ts";
 import { streamCapture } from "./stream-test-helpers.ts";
 
 const COLUMNS = [
@@ -930,33 +928,4 @@ describe("matrix event progress controller", () => {
 			]);
 		},
 	);
-});
-
-describe("applyPrLinksToRows", () => {
-	const existingPr: SubmitPrLink = {
-		label: "#10",
-		url: "https://github.com/acme/repo/pull/10",
-	};
-	const newPr: SubmitPrLink = {
-		label: "#11",
-		url: "https://github.com/acme/repo/pull/11",
-	};
-	const rows = [
-		{ branch: "feature/a", label: "feature/a (#10)", kind: "existing" as const, pr: existingPr },
-		{ branch: "feature/b", label: "feature/b", kind: "new" as const },
-	];
-
-	test("returns label deltas for links not already represented", () => {
-		expect(applyPrLinksToRows(rows, [existingPr, newPr])).toEqual([
-			{ branch: "feature/b", pr: newPr, label: "feature/b (#11)" },
-		]);
-		expect(rows[1]).toEqual({ branch: "feature/b", label: "feature/b", kind: "new" });
-	});
-
-	test("preserves the all-or-nothing rule when link counts do not match", () => {
-		expect(applyPrLinksToRows(rows, [])).toEqual([]);
-		expect(applyPrLinksToRows(rows, [newPr, { label: "#12", url: "https://x/pull/12" }])).toEqual(
-			[],
-		);
-	});
 });

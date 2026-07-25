@@ -23,6 +23,7 @@ import {
 	type PhaseSpec,
 } from "../phase-stream/phase-stream-specs.ts";
 import { prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
+import type { ReconciledSubmitPr } from "./submit-pr-reconciliation.ts";
 
 export type SubmitMatrixCellState = MatrixCellState;
 export type SubmitMatrixColumnKey = "description";
@@ -61,7 +62,7 @@ export interface SubmitMatrixProgressSink {
 	): void;
 	setAllCells(column: SubmitMatrixColumnKey, update: SubmitMatrixCellUpdate): void;
 	setPendingCells(column: SubmitMatrixColumnKey, update: SubmitMatrixCellUpdate): void;
-	applyPrLinks(prLinks: readonly SubmitPrLink[]): void;
+	applyBranchPrs(prs: readonly ReconciledSubmitPr[]): void;
 }
 
 export interface SubmitMatrixProgressController extends SubmitMatrixProgressSink {
@@ -175,10 +176,12 @@ function adaptSubmitMatrixProgressController(
 ): SubmitMatrixProgressController {
 	const actions = bindMatrixWorkflowActions(controller);
 
-	function applyPrLinks(prLinks: readonly SubmitPrLink[]): void {
-		const deltas = applyPrLinksToRows(controller.getRows(), prLinks);
-		for (const delta of deltas) {
-			actions.patchRow(delta.branch, { pr: delta.pr, label: delta.label });
+	function applyBranchPrs(prs: readonly ReconciledSubmitPr[]): void {
+		for (const pr of prs) {
+			actions.patchRow(pr.branch, {
+				pr: { label: pr.label, url: pr.url },
+				label: formatRowLabel(pr.branch, pr),
+			});
 		}
 	}
 
@@ -207,40 +210,11 @@ function adaptSubmitMatrixProgressController(
 		setCellByPrNumber,
 		setAllCells: actions.setAllCells,
 		setPendingCells,
-		applyPrLinks,
+		applyBranchPrs,
 		note: actions.note,
 		finish: controller.finish,
 		stop: controller.stop,
 	};
-}
-
-export interface SubmitMatrixRowLabelDelta {
-	branch: string;
-	pr: SubmitPrLink;
-	label: string;
-}
-
-export function applyPrLinksToRows(
-	rows: readonly SubmitMatrixRowSpec[],
-	prLinks: readonly SubmitPrLink[],
-): readonly SubmitMatrixRowLabelDelta[] {
-	const existingNumbers = new Set(
-		rows.flatMap((row) => {
-			const number = prNumberForRow(row);
-			return number === undefined ? [] : [number];
-		}),
-	);
-	const newRows = rows.filter((row) => row.kind === "new");
-	const remainingLinks = prLinks.filter((link) => {
-		const number = prNumberFromLink(link);
-		return number === undefined || !existingNumbers.has(number);
-	});
-	if (remainingLinks.length !== newRows.length) return [];
-	return newRows.flatMap((row, index) => {
-		const link = remainingLinks[index];
-		if (link === undefined) return [];
-		return [{ branch: row.branch, pr: link, label: formatRowLabel(row.branch, link) }];
-	});
 }
 
 export function renderSubmitMatrixProgressFrame(

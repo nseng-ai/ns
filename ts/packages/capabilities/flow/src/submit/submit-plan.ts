@@ -1,4 +1,3 @@
-import type { SubmitPrLink } from "./gt-output.ts";
 import type {
 	SubmitStackBranch,
 	SubmitStackInspectionGateway,
@@ -8,7 +7,6 @@ import type {
 export interface SubmitPlan {
 	readonly currentBranch: string;
 	readonly branches: readonly SubmitStackBranch[];
-	readonly existingPrLinks: readonly SubmitPrLink[];
 	readonly hasUpstackBranches: boolean;
 }
 
@@ -32,9 +30,6 @@ export async function buildSubmitPlan(input: {
 		plan: {
 			currentBranch: inspected.value.currentBranch,
 			branches: inspected.value.branches,
-			existingPrLinks: inspected.value.branches.flatMap((branch) =>
-				branch.kind === "existing" ? [branch.pr] : [],
-			),
 			hasUpstackBranches: inspected.value.hasUpstackBranches,
 		},
 	};

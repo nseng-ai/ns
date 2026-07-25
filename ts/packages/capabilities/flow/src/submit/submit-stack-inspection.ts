@@ -36,11 +36,15 @@ export interface SubmitStackInspection {
 
 export type SubmitStackBranch = SubmitStackExistingBranch | SubmitStackNewBranch;
 
+export interface SubmitBranchPrIdentity extends SubmitPrLink {
+	number: number;
+}
+
 export interface SubmitStackExistingBranch {
 	kind: "existing";
 	branch: string;
 	parentBranch: string;
-	pr: SubmitPrLink;
+	pr: SubmitBranchPrIdentity;
 }
 
 export interface SubmitStackNewBranch {
@@ -60,6 +64,17 @@ interface SubmitStackTopologyFacts {
 	hasUpstackBranches: boolean;
 }
 
+export type SubmitBranchPrDisposition =
+	| { kind: "resolved"; branch: string; pr: SubmitBranchPrIdentity }
+	| { kind: "missing"; branch: string }
+	| { kind: "ambiguous"; branch: string; candidates: readonly SubmitBranchPrIdentity[] }
+	| { kind: "query-failed"; branch: string; diagnostic: ErrorInfo }
+	| { kind: "malformed"; branch: string; diagnostic: ErrorInfo };
+
+export interface SubmitBranchPrInventoryResult {
+	dispositions: readonly SubmitBranchPrDisposition[];
+}
+
 export interface SubmitStackInspectionGateway {
 	inspectSubmitStackTopology(
 		params: SubmitStackInspectionParams,
@@ -67,6 +82,11 @@ export interface SubmitStackInspectionGateway {
 	inspectSubmitStack(
 		params: SubmitStackInspectionParams,
 	): Promise<GatewayResult<SubmitStackInspection>>;
+	inspectOpenPrsForBranches(params: {
+		cwd: string;
+		branches: readonly string[];
+		onProgress?: SubmitStackInspectionProgressListener;
+	}): Promise<SubmitBranchPrInventoryResult>;
 }
 
 interface RealSubmitStackInspectionGatewayOptions {
@@ -97,6 +117,21 @@ export class RealSubmitStackInspectionGateway implements SubmitStackInspectionGa
 		return ok({ currentBranch: inspected.value.currentBranch, branches });
 	}
 
+	async inspectOpenPrsForBranches(params: {
+		cwd: string;
+		branches: readonly string[];
+		onProgress?: SubmitStackInspectionProgressListener;
+	}): Promise<SubmitBranchPrInventoryResult> {
+		const dispositions: SubmitBranchPrDisposition[] = [];
+		for (const [index, branch] of params.branches.entries()) {
+			params.onProgress?.(
+				`checking submitted PR for ${branch} (${index + 1}/${params.branches.length})`,
+			);
+			dispositions.push(await this.readOpenPrDisposition(params.cwd, branch));
+		}
+		return { dispositions };
+	}
+
 	async inspectSubmitStack(
 		params: SubmitStackInspectionParams,
 	): Promise<GatewayResult<SubmitStackInspection>> {
@@ -110,16 +145,28 @@ export class RealSubmitStackInspectionGateway implements SubmitStackInspectionGa
 			params.onProgress?.(
 				`checking existing PR for ${info.branch} (${index + 1}/${facts.value.branches.length})`,
 			);
-			const existingPr = await this.readOpenPrForBranch(params.cwd, info.branch);
-			if (!existingPr.ok) return existingPr;
+			const disposition = await this.readOpenPrDisposition(params.cwd, info.branch);
+			if (disposition.kind === "query-failed" || disposition.kind === "malformed") {
+				return err(disposition.diagnostic);
+			}
+			if (disposition.kind === "ambiguous") {
+				return err({
+					code: "submit_branch_pr_lookup_ambiguous",
+					message: `GitHub reported more than one open PR for branch ${info.branch}; close the duplicate PR or repair its head branch before submitting.`,
+					details: {
+						branch: info.branch,
+						pr_numbers: disposition.candidates.map((pr) => pr.number),
+					},
+				});
+			}
 			branches.push(
-				existingPr.value === undefined
+				disposition.kind === "missing"
 					? { kind: "new", branch: info.branch, parentBranch: info.parentBranch }
 					: {
 							kind: "existing",
 							branch: info.branch,
 							parentBranch: info.parentBranch,
-							pr: existingPr.value,
+							pr: disposition.pr,
 						},
 			);
 		}
@@ -130,10 +177,10 @@ export class RealSubmitStackInspectionGateway implements SubmitStackInspectionGa
 		});
 	}
 
-	private async readOpenPrForBranch(
+	private async readOpenPrDisposition(
 		cwd: string,
 		branch: string,
-	): Promise<GatewayResult<SubmitPrLink | undefined>> {
+	): Promise<SubmitBranchPrDisposition> {
 		const args = [
 			"pr",
 			"list",
@@ -159,23 +206,26 @@ export class RealSubmitStackInspectionGateway implements SubmitStackInspectionGa
 			code: "submit_branch_pr_lookup_failed",
 			message: `Could not query open GitHub PRs for branch ${branch}.`,
 		});
-		if (resultError !== undefined) return err(resultError);
+		if (resultError !== undefined) return { kind: "query-failed", branch, diagnostic: resultError };
 		const parsed = githubPrIdentityListSchema.safeParse(parseExternalJson(result.stdout));
 		if (!parsed.success) {
-			return err({
-				code: "submit_branch_pr_lookup_parse_failed",
-				message: `GitHub PR lookup for branch ${branch} returned malformed JSON.`,
-			});
+			return {
+				kind: "malformed",
+				branch,
+				diagnostic: {
+					code: "submit_branch_pr_lookup_parse_failed",
+					message: `GitHub PR lookup for branch ${branch} returned malformed JSON.`,
+				},
+			};
 		}
-		if (parsed.data.length > 1) {
-			return err({
-				code: "submit_branch_pr_lookup_ambiguous",
-				message: `GitHub reported more than one open PR for branch ${branch}; close the duplicate PR or repair its head branch before submitting.`,
-				details: { branch, pr_numbers: parsed.data.map((pr) => pr.number) },
-			});
-		}
-		const pr = parsed.data[0];
-		return ok(pr === undefined ? undefined : { label: `#${pr.number}`, url: pr.url });
+		const candidates = parsed.data.map((pr) => ({
+			number: pr.number,
+			label: `#${pr.number}`,
+			url: pr.url,
+		}));
+		if (candidates.length > 1) return { kind: "ambiguous", branch, candidates };
+		const pr = candidates[0];
+		return pr === undefined ? { kind: "missing", branch } : { kind: "resolved", branch, pr };
 	}
 }
 

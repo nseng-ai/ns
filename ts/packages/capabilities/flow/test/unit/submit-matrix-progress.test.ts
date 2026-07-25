@@ -4,7 +4,6 @@ import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import {
-	applyPrLinksToRows,
 	renderSubmitMatrixProgressFrame,
 	resolveSubmitProgress,
 	submitMatrixRowsFromTopology,
@@ -222,25 +221,29 @@ describe("submit matrix progress", () => {
 		expect(lines.join("\n")).toContain("ready");
 	});
 
-	test("applies PR links only when unmatched links align with new rows", () => {
-		const rows = [
-			{
-				branch: "existing",
-				label: "existing (#1)",
-				kind: "existing" as const,
-				pr: { label: "#1", url: "https://github.com/o/r/pull/1" },
-			},
-			{ branch: "new", label: "new", kind: "new" as const },
-		];
-		expect(
-			applyPrLinksToRows(rows, [{ label: "#2", url: "https://github.com/o/r/pull/2" }]),
-		).toEqual([
-			{
-				branch: "new",
-				label: "new (#2)",
-				pr: { label: "#2", url: "https://github.com/o/r/pull/2" },
-			},
+	test("applies authoritative PR identities by branch", () => {
+		const recording = recordingProgress();
+		const controller = resolveSubmitProgress({
+			caps: caps(),
+			deps: streamCapture().deps,
+			liveProgress: recording.progress,
+			hasChecks: false,
+		}).matrix;
+		controller.setRows([
+			{ branch: "feature/a", label: "feature/a", kind: "new" },
+			{ branch: "feature/b", label: "feature/b", kind: "new" },
 		]);
+		controller.applyBranchPrs([
+			{ branch: "feature/b", number: 2, label: "#2", url: "https://github.com/o/r/pull/2" },
+			{ branch: "feature/a", number: 1, label: "#1", url: "https://github.com/o/r/pull/1" },
+		]);
+		expect(recording.events.at(-1)).toMatchObject({
+			type: "matrix-rows",
+			rows: [
+				{ rowKey: "feature/a", label: "feature/a (#1)" },
+				{ rowKey: "feature/b", label: "feature/b (#2)" },
+			],
+		});
 	});
 
 	test("topology rows remain stable", () => {

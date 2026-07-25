@@ -26,7 +26,9 @@ The semantic cheap-submit engine is staged behind `ns flow submit --minimal`: it
 clean-tree readiness/restack/submit/verification path with no hooks, checkpoint,
 metadata prewrite, PR prose, or model work. Default `ns flow submit` has not migrated.
 As an interim safety contract, its legacy path generates initial complete metadata only for PRs
-newly created by that invocation, after Graphite creates them; ordinary resubmission never edits a
+newly created by that invocation, after Graphite creates them. It re-queries every planned branch on
+GitHub and reconciles that authoritative branch-keyed inventory before metadata preparation; unresolved
+inventory fails after publication with zero metadata edits. Ordinary resubmission never edits a
 pre-existing PR's title or body. Flow prepares every new-PR replacement before any GitHub edit and
 then applies them sequentially. Existing-PR replacement is focused in `ns flow regenerate-pr`, which
 replaces the complete title and body with visible provenance. `ns flow ship`, review/autofix integration, final prose

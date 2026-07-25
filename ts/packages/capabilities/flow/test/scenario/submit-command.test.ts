@@ -46,10 +46,10 @@ function runWithFakes(options: Parameters<typeof runFlowSubmitCommandWithFakes>[
 	});
 }
 
-function cleanCheckpointResponses(): ScriptedExecResponse[] {
+function cleanCheckpointResponses(branch = "feature/demo"): ScriptedExecResponse[] {
 	return [
 		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+		{ match: "git symbolic-ref --short HEAD", result: { stdout: `${branch}\n` } },
 		{ match: "git status --porcelain=v1", result: { stdout: "" } },
 		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
 		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
@@ -160,6 +160,10 @@ function successfulSubmitResponses(
 			result: { stdout: prIdentityJson(123, PR_URL) },
 		},
 		{
+			match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
+			result: { stdout: prIdentityListJson(123, PR_URL) },
+		},
+		{
 			match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
 			result: { stdout: prJson({ body: options.existingPrBody ?? "Hand edited body" }) },
 		},
@@ -183,15 +187,22 @@ function prIdentityJson(number: number, url: string): string {
 }
 
 function prJson(
-	options: { body: string; title?: string; headRefName?: string } = { body: "" },
+	options: {
+		body: string;
+		title?: string;
+		number?: number;
+		url?: string;
+		headRefName?: string;
+		baseRefName?: string;
+	} = { body: "" },
 ): string {
 	return JSON.stringify({
-		number: 123,
-		url: PR_URL,
+		number: options.number ?? 123,
+		url: options.url ?? PR_URL,
 		title: options.title ?? "Existing PR title",
 		body: options.body,
 		headRefName: options.headRefName ?? "feature/demo",
-		baseRefName: "main",
+		baseRefName: options.baseRefName ?? "main",
 	});
 }
 
@@ -303,7 +314,7 @@ describe("project-local submit extension", () => {
 				{ type: "phase-done", phaseKey: "preflight", detail: "ready to submit" },
 				{ type: "phase-done", phaseKey: "restack", detail: "not required" },
 				{ type: "phase-done", phaseKey: "submit", detail: "stack submitted" },
-				{ type: "phase-done", phaseKey: "verification", detail: "current PR verified (#123)" },
+				{ type: "phase-done", phaseKey: "verification", detail: "1 branch PR verified" },
 				{ type: "matrix-active-operations", operations: [] },
 			]),
 		);
@@ -743,7 +754,7 @@ describe("project-local submit extension", () => {
 		);
 	});
 
-	test("accepts submit-output PR links when current PR verification lags", async () => {
+	test("uses authoritative branch inventory when current PR verification lags", async () => {
 		const run = runWithFakes({
 			state: {
 				exec: [
@@ -770,6 +781,10 @@ describe("project-local submit extension", () => {
 							code: 1,
 							stderr: 'no pull requests found for branch "feature/demo"\n',
 						},
+					},
+					{
+						match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
+						result: { stdout: prIdentityListJson(123, PR_URL) },
 					},
 					{
 						match: "gh pr view 1517 --json number,url,title,body,headRefName,baseRefName",
@@ -805,12 +820,184 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("Submitted 1 PR:");
-		expect(run.stdout.join("")).toContain(`#1517 ${LAGGING_VERIFICATION_PR_URL}`);
+		expect(run.stdout.join("")).toContain(`#123 ${PR_URL}`);
+		expect(run.stdout.join("")).not.toContain(LAGGING_VERIFICATION_PR_URL);
 		expect(run.stderr.join("")).toBe("");
 		expect(formattedExecCalls(run.context)).toContain("gh pr view --json number,url");
 	});
 
-	test("deduplicates the submitted PR when Graphite and GitHub URL forms differ", async () => {
+	test("finds a newly created downstack PR omitted from Graphite output through branch inventory", async () => {
+		const downstackUrl = "https://github.com/acme/repo/pull/123";
+		const tipUrl = "https://github.com/acme/repo/pull/456";
+		const run = runWithFakes({
+			graphiteStack: {
+				stack: {
+					type: "stack",
+					stack: fakeStackInfo({
+						trunk: "main",
+						current: "feature/top",
+						ancestors: ["main", "feature/downstack"],
+					}),
+				},
+			},
+			state: {
+				exec: [
+					...cleanCheckpointResponses("feature/top"),
+					{
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+						result: { stdout: "ready\n" },
+					},
+					{
+						match: "gh pr list --head feature/downstack --state open --limit 2 --json number,url",
+						result: { stdout: "[]" },
+					},
+					{
+						match: "gh pr list --head feature/top --state open --limit 2 --json number,url",
+						result: { stdout: "[]" },
+					},
+					{
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+						result: { stdout: `Submitted ${tipUrl}\n` },
+					},
+					{
+						match: "gh pr view --json number,url",
+						result: { stdout: prIdentityJson(456, tipUrl) },
+					},
+					{
+						match: "gh pr list --head feature/downstack --state open --limit 2 --json number,url",
+						result: { stdout: prIdentityListJson(123, downstackUrl) },
+					},
+					{
+						match: "gh pr list --head feature/top --state open --limit 2 --json number,url",
+						result: { stdout: prIdentityListJson(456, tipUrl) },
+					},
+					{
+						match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
+						result: {
+							stdout: prJson({
+								body: "",
+								number: 123,
+								url: downstackUrl,
+								headRefName: "feature/downstack",
+							}),
+						},
+					},
+					{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "gh pr diff 123", result: { stdout: "diff --git a/down b/down\n" } },
+					{
+						match: "git patch-id --stable",
+						result: { stdout: "down-patch 0000000000000000000000000000000000000000\n" },
+					},
+					{
+						match: "gh pr view 456 --json number,url,title,body,headRefName,baseRefName",
+						result: {
+							stdout: prJson({
+								body: "",
+								number: 456,
+								url: tipUrl,
+								headRefName: "feature/top",
+								baseRefName: "feature/downstack",
+							}),
+						},
+					},
+					{ match: "gh pr view 456 --json commits", result: { stdout: commitsJson() } },
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "gh pr diff 456", result: { stdout: "diff --git a/top b/top\n" } },
+					{
+						match: "git patch-id --stable",
+						result: { stdout: "top-patch 0000000000000000000000000000000000000000\n" },
+					},
+					{ match: /^gh pr edit 123 --title Generated PR --body-file /, result: {} },
+					{ match: /^gh pr edit 456 --title Generated PR --body-file /, result: {} },
+				],
+				textGeneration: [
+					{ ok: true, text: defaultPrDescriptionText() },
+					{ ok: true, text: defaultPrDescriptionText() },
+				],
+			},
+		});
+
+		expect(await run.exit, run.stderr.join("")).toBe(0);
+		const output = run.stdout.join("");
+		expect(output).toContain(`#123 ${downstackUrl}`);
+		expect(output).toContain(`#456 ${tipUrl}`);
+		expect(run.context.textGeneratorCalls).toHaveLength(2);
+		expect(formattedExecCalls(run.context)).toEqual(
+			expect.arrayContaining([
+				expect.stringMatching(/^gh pr edit 123 /),
+				expect.stringMatching(/^gh pr edit 456 /),
+			]),
+		);
+	});
+
+	test("fails unresolved multi-branch inventory before model or metadata edit with recovery guidance", async () => {
+		const downstackUrl = "https://github.com/acme/repo/pull/123";
+		const tipUrl = "https://github.com/acme/repo/pull/456";
+		const run = runWithFakes({
+			graphiteStack: {
+				stack: {
+					type: "stack",
+					stack: fakeStackInfo({
+						trunk: "main",
+						current: "feature/top",
+						ancestors: ["main", "feature/downstack"],
+					}),
+				},
+			},
+			state: {
+				exec: [
+					...cleanCheckpointResponses("feature/top"),
+					{
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+						result: { stdout: "ready\n" },
+					},
+					{
+						match: "gh pr list --head feature/downstack --state open --limit 2 --json number,url",
+						result: { stdout: "[]" },
+					},
+					{
+						match: "gh pr list --head feature/top --state open --limit 2 --json number,url",
+						result: { stdout: "[]" },
+					},
+					{
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+						result: { stdout: `Submitted ${tipUrl}\n` },
+					},
+					{
+						match: "gh pr view --json number,url",
+						result: { stdout: prIdentityJson(456, tipUrl) },
+					},
+					{
+						match: "gh pr list --head feature/downstack --state open --limit 2 --json number,url",
+						result: { stdout: prIdentityListJson(123, downstackUrl) },
+					},
+					{
+						match: "gh pr list --head feature/top --state open --limit 2 --json number,url",
+						result: { stdout: "[]" },
+					},
+				],
+				textGeneration: [],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain("feature/top: no open PR found");
+		expect(error).toContain("No PR metadata was edited");
+		expect(error).toContain("Repair the GitHub PR/head-branch association");
+		expect(error).toContain("ns flow regenerate-pr");
+		expect(run.context.textGeneratorCalls).toEqual([]);
+		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gh pr edit"))).toBe(
+			false,
+		);
+	});
+
+	test("uses canonical inventory identity when Graphite and GitHub URL forms differ", async () => {
 		const run = runWithFakes({
 			state: {
 				exec: [
@@ -834,6 +1021,10 @@ describe("project-local submit extension", () => {
 						result: { stdout: prIdentityJson(123, PR_URL) },
 					},
 					{
+						match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
+						result: { stdout: prIdentityListJson(123, PR_URL) },
+					},
+					{
 						match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
 						result: { stdout: prJson({ body: "Hand edited body" }) },
 					},
@@ -853,11 +1044,11 @@ describe("project-local submit extension", () => {
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output.match(/^✓ #123 /gm)).toHaveLength(1);
-		expect(output).toContain(`✓ #123 ${GRAPHITE_PR_URL}`);
-		expect(output).not.toContain(PR_URL);
+		expect(output).toContain(`✓ #123 ${PR_URL}`);
+		expect(output).not.toContain(GRAPHITE_PR_URL);
 	});
 
-	test("post-submit no-current-PR failure gives checkpoint guidance", async () => {
+	test("accepts authoritative inventory when submit output has no URL and current verification lags", async () => {
 		const run = runWithFakes({
 			state: {
 				exec: [
@@ -883,20 +1074,18 @@ describe("project-local submit extension", () => {
 							stderr: 'no pull requests found for branch "feature/demo"\n',
 						},
 					},
+					{
+						match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
+						result: { stdout: prIdentityListJson(123, PR_URL) },
+					},
 				],
-				textGeneration: [{ ok: false, error: "summary unavailable" }],
+				textGeneration: [],
 			},
 		});
 
-		expect(await run.exit).toBe(1);
-		const error = run.stderr.join("");
-		expect(error).toContain("gt submit exited 0, but the current branch still has no PR.");
-		expect(error).toContain("Submitted stack without PR URL");
-		expect(error).toContain(
-			"`ns flow submit` checkpoints outstanding worktree changes before submitting.",
-		);
-		expect(error).toContain("Raw log:");
-		expect(run.context.textGeneratorCalls).toHaveLength(1);
+		expect(await run.exit, run.stderr.join("")).toBe(0);
+		expect(run.stdout.join("")).toContain(`#123 ${PR_URL}`);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("dirty worktree checkpoints before submitting", async () => {
@@ -1716,6 +1905,10 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 					{
 						match: "gh pr view --json number,url",
 						result: { stdout: prIdentityJson(123, PR_URL) },
+					},
+					{
+						match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
+						result: { stdout: prIdentityListJson(123, PR_URL) },
 					},
 					{
 						match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
