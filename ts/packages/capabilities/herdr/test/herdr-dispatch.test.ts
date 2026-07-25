@@ -44,7 +44,6 @@ import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
-	fakeHerdrNsExtensionApiFactory,
 	makeTempDir,
 	notificationMessages,
 	resetHerdrTestEnvironment,
@@ -123,7 +122,7 @@ const testSlotClient = {
 describe("herdr Pi extension — full suite", () => {
 	test("registers all herdr command surfaces", () => {
 		const pi = new FakePi();
-		registerHerdrPiExtension(pi, fakeHerdrNsExtensionApiFactory());
+		registerHerdrPiExtension(pi);
 		expect([...pi.commands.keys()].sort()).toEqual([...HERDR_BASE_COMMAND_NAMES].sort());
 	});
 });
@@ -960,7 +959,7 @@ describe("ns:herdr:launch:plan:br:space — dry-run (no Herdr mutations)", () =>
 				headStep(),
 			],
 		});
-		await registerHerdrPiExtension(pi, fakeHerdrNsExtensionApiFactory());
+		await registerHerdrPiExtension(pi);
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],

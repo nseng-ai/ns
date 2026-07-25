@@ -13,7 +13,6 @@ import { handleHerdrNewTab, handleHerdrTabGoal } from "../core/tab.ts";
 import type { HerdrPiContext } from "./context.ts";
 import { createHerdrSpaceLabelDeriver } from "./new-space-label.ts";
 import { createHerdrPiCommandApi } from "./pi-command-api.ts";
-import { hasSlotsExtension, type HerdrNsExtensionApiFactory } from "./slots-capability.ts";
 
 export function registerHerdrNewTabCommand(context: HerdrPiContext): void {
 	const herdr = createCliHerdrGateway(context.pi);
@@ -34,10 +33,7 @@ export function registerHerdrNewTabCommand(context: HerdrPiContext): void {
 	});
 }
 
-export function registerHerdrTabGoalCommand(
-	rawPi: ExtensionAPI,
-	createNsExtensionApi: HerdrNsExtensionApiFactory,
-): void {
+export function registerHerdrTabGoalCommand(rawPi: ExtensionAPI): void {
 	const pi = createHerdrPiCommandApi(rawPi);
 	const herdr = createCliHerdrGateway(pi);
 	registerCommandWithImmediateAck({
@@ -48,8 +44,7 @@ export function registerHerdrTabGoalCommand(
 			argumentHint: "<goal>",
 			handler: async (args, ctx) => {
 				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });
-				const hasSlots = await hasSlotsExtension(createNsExtensionApi, ctx.cwd);
-				await handleHerdrTabGoal({ pi, herdr, args, ctx, notifyProgress, hasSlots });
+				await handleHerdrTabGoal({ pi, herdr, args, ctx, notifyProgress });
 			},
 		},
 		options: { delivery: "message" },

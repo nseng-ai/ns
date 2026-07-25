@@ -1,16 +1,14 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { getCallerTabId } from "../src/core/sidebar.ts";
 import { handleHerdrNewTab, handleHerdrTabGoal } from "../src/core/tab.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
-import { registerHerdrTabGoalCommand } from "../src/pi/tab.ts";
 import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
 	gitRootStep,
 	notificationMessages,
-	fakeNsExtensionApi,
 	ROOT,
 	step,
 } from "./herdr-test-harness.ts";
@@ -135,7 +133,6 @@ describe("Herdr tab resources", () => {
 		await handleHerdrTabGoal({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
-			hasSlots: true,
 			args: "ship auth",
 			ctx,
 			notifyProgress: () => {},
@@ -144,28 +141,6 @@ describe("Herdr tab resources", () => {
 		expect(herdr.renameTabCalls).toEqual([{ tabId: "t-9", label: "s3:add-auth" }]);
 		expect(herdr.renameCalls).toEqual([]);
 		expect(notificationMessages(ctx)).toContain("Applied Herdr tab goal label: s3:add-auth");
-		pi.assertDone();
-	});
-
-	test("tab:goal leaves a managed-slot path unprefixed when Slots is unavailable", async () => {
-		const pi = new FakePi({
-			script: [gitRootStep(ROOT), step("pi", undefined, { stdout: "add-auth" })],
-			shouldRequireExpectedArgs: false,
-		});
-		const herdr = new FakeHerdrGateway();
-		const ctx = new FakeCommandContext({
-			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3",
-		});
-		await handleHerdrTabGoal({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			hasSlots: false,
-			args: "ship auth",
-			ctx,
-			notifyProgress: () => {},
-			env: { HERDR_TAB_ID: "t-9" },
-		});
-		expect(herdr.renameTabCalls).toEqual([{ tabId: "t-9", label: "add-auth" }]);
 		pi.assertDone();
 	});
 
@@ -179,7 +154,6 @@ describe("Herdr tab resources", () => {
 		await handleHerdrTabGoal({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
-			hasSlots: false,
 			args: "",
 			ctx,
 			notifyProgress: () => {},
@@ -194,7 +168,6 @@ describe("Herdr tab resources", () => {
 		await handleHerdrTabGoal({
 			pi: createHerdrPiCommandApi(cancelledPi),
 			herdr: cancelledHerdr,
-			hasSlots: false,
 			args: "",
 			ctx: cancelledCtx,
 			notifyProgress: () => {},
@@ -214,7 +187,6 @@ describe("Herdr tab resources", () => {
 		await handleHerdrTabGoal({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
-			hasSlots: false,
 			args: "ship auth",
 			ctx,
 			notifyProgress: () => {},
@@ -223,89 +195,6 @@ describe("Herdr tab resources", () => {
 		expect(herdr.renameTabCalls).toEqual([]);
 		expect(notificationMessages(ctx).join("\n")).toContain("model failed");
 		pi.assertDone();
-	});
-
-	test("tab:goal keeps an ordinary cwd unprefixed when Slots is present", async () => {
-		const pi = new FakePi({
-			script: [gitRootStep(ROOT), step("pi", undefined, { stdout: "add-auth" })],
-			shouldRequireExpectedArgs: false,
-		});
-		const herdr = new FakeHerdrGateway();
-		const ctx = new FakeCommandContext({ cwd: "/repo" });
-		await handleHerdrTabGoal({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			hasSlots: true,
-			args: "ship auth",
-			ctx,
-			notifyProgress: () => {},
-			env: { HERDR_TAB_ID: "t-9" },
-		});
-		expect(herdr.renameTabCalls).toEqual([{ tabId: "t-9", label: "add-auth" }]);
-		pi.assertDone();
-	});
-
-	test("tab:goal Pi wiring constructs once with exact cwd before core work", async () => {
-		vi.stubEnv("HERDR_TAB_ID", "t-9");
-		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3";
-		const pi = new FakePi({
-			script: [
-				gitRootStep(ROOT),
-				step("pi", undefined, { stdout: "add-auth" }),
-				step("herdr", ["tab", "rename", "t-9", "s3:add-auth"]),
-			],
-			shouldRequireExpectedArgs: false,
-		});
-		const factoryCalls: string[] = [];
-		registerHerdrTabGoalCommand(pi, async (factoryCwd) => {
-			factoryCalls.push(factoryCwd);
-			return fakeNsExtensionApi(factoryCwd, true);
-		});
-
-		await pi.commands
-			.get("ns:herdr:tab:goal")
-			?.handler("ship auth", new FakeCommandContext({ cwd }));
-
-		pi.assertDone();
-		expect(factoryCalls).toEqual([cwd]);
-	});
-
-	test("tab:goal Pi wiring resolves Slots presence before caller and input early returns", async () => {
-		const cwd = "/repo";
-		const pi = new FakePi();
-		const factoryCalls: string[] = [];
-		registerHerdrTabGoalCommand(pi, async (factoryCwd) => {
-			factoryCalls.push(factoryCwd);
-			return fakeNsExtensionApi(factoryCwd);
-		});
-
-		vi.stubEnv("HERDR_TAB_ID", undefined);
-		await pi.commands
-			.get("ns:herdr:tab:goal")
-			?.handler("ship auth", new FakeCommandContext({ cwd }));
-
-		vi.stubEnv("HERDR_TAB_ID", "t-9");
-		await pi.commands
-			.get("ns:herdr:tab:goal")
-			?.handler("", new FakeCommandContext({ cwd, inputValues: [undefined] }));
-
-		pi.assertDone();
-		expect(factoryCalls).toEqual([cwd, cwd]);
-	});
-
-	test("tab:goal Pi wiring propagates factory rejection before core work", async () => {
-		vi.stubEnv("HERDR_TAB_ID", "t-9");
-		const pi = new FakePi();
-		registerHerdrTabGoalCommand(pi, async () => {
-			throw new Error("ns unavailable");
-		});
-
-		await expect(
-			pi.commands
-				.get("ns:herdr:tab:goal")
-				?.handler("ship auth", new FakeCommandContext({ cwd: "/repo" })),
-		).rejects.toThrow("ns unavailable");
-		expect(pi.execCalls).toEqual([]);
 	});
 
 	test("tab:goal reports rename gateway failure", async () => {
@@ -320,7 +209,6 @@ describe("Herdr tab resources", () => {
 		await handleHerdrTabGoal({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
-			hasSlots: false,
 			args: "ship auth",
 			ctx,
 			notifyProgress: () => {},
@@ -337,7 +225,6 @@ describe("Herdr tab resources", () => {
 		await handleHerdrTabGoal({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
-			hasSlots: false,
 			args: "ship auth",
 			ctx,
 			notifyProgress: () => {},

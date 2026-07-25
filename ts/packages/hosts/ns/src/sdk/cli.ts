@@ -1,9 +1,7 @@
 export {
 	buildCli,
-	createNsExtensionApi,
 	extensionDescriptorToPreinstalledCatalog,
 	listNsCommands,
-	loadNsCommandCatalog,
 	preinstalledNsCommandCatalogFromRegistrations,
 	NS_BUILT_IN_HELP_GROUP,
 	runCli,
@@ -11,7 +9,6 @@ export {
 } from "@nseng-ai/sdk/cli";
 export type {
 	BuildNsCliOptions,
-	CreateNsExtensionApiOptions,
 	NsCliBaseContext,
 	NsCliDeps,
 	NsCommandInfo,

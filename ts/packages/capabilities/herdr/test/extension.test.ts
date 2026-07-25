@@ -1,11 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandDefinition, ExtensionAPI } from "@nseng-ai/capability-kit/pi-types";
+import type { ExtensionAPI } from "@nseng-ai/capability-kit/pi-types";
 import type { HandoffExtensionAPI, ToolDefinition } from "@nseng-ai/handoffs/pi/handoff-launch";
 import { HERDR_BASE_COMMAND_NAMES, HERDR_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
 
 import registerHerdrPiExtension from "../src/pi/extension.ts";
-import { FakeCommandContext, fakeHerdrNsExtensionApiFactory } from "./herdr-test-harness.ts";
 
 function makeFakeExtensionApi(commands: Map<string, unknown>): ExtensionAPI {
 	return {
@@ -65,12 +64,11 @@ function makeToolExtensionApi(
 }
 
 describe("herdr Pi extension", () => {
-	test("registers the base Herdr command surface without tool support or eager API construction", async () => {
+	test("registers the base Herdr command surface without tool support", async () => {
 		const commands = new Map<string, unknown>();
 		const pi = makeFakeExtensionApi(commands);
-		const factory = fakeHerdrNsExtensionApiFactory(true);
 
-		await registerHerdrPiExtension(pi, factory);
+		await registerHerdrPiExtension(pi);
 
 		expect(HERDR_COMMAND_NAMES).toEqual([
 			"ns:herdr:launch:plan:br:space",
@@ -90,19 +88,6 @@ describe("herdr Pi extension", () => {
 		expect(registered.some((name) => name.startsWith("ns:herdr:handoff:"))).toBe(false);
 		expect(registered).not.toContain("ns:herdr:tab:plan-dispatch");
 		expect(registered).not.toContain("ns:herdr:objective:sidebar-summary");
-		expect(factory.calls).toEqual([]);
-	});
-
-	test("unrelated command invocation does not construct the ns API", async () => {
-		const commands = new Map<string, unknown>();
-		const pi = makeFakeExtensionApi(commands);
-		const factory = fakeHerdrNsExtensionApiFactory(true);
-		await registerHerdrPiExtension(pi, factory);
-		const dispatch = commands.get("ns:herdr:space:dispatch-plan") as CommandDefinition | undefined;
-
-		await dispatch?.handler("", new FakeCommandContext({ cwd: "/repo", hasUI: false }));
-
-		expect(factory.calls).toEqual([]);
 	});
 
 	test("registers the optional Handoffs command and shared slug tool when installed", async () => {
@@ -110,7 +95,7 @@ describe("herdr Pi extension", () => {
 		const tools = new Map<string, ToolDefinition>();
 		const pi = makeToolExtensionApi(commands, tools);
 
-		await registerHerdrPiExtension(pi, fakeHerdrNsExtensionApiFactory());
+		await registerHerdrPiExtension(pi);
 		pi.runSessionStart();
 
 		expect([...commands.keys()].sort()).toEqual(
@@ -129,7 +114,7 @@ describe("herdr Pi extension", () => {
 			{ code: "ERR_MODULE_NOT_FOUND" },
 		);
 
-		await registerHerdrPiExtension(pi, fakeHerdrNsExtensionApiFactory(), {
+		await registerHerdrPiExtension(pi, {
 			loadHandoffIntegration: async () => Promise.reject(absence),
 		});
 
@@ -143,7 +128,7 @@ describe("herdr Pi extension", () => {
 		const pi = makeToolExtensionApi(commands, tools);
 
 		await expect(
-			registerHerdrPiExtension(pi, fakeHerdrNsExtensionApiFactory(), {
+			registerHerdrPiExtension(pi, {
 				loadHandoffIntegration: async () => Promise.reject(new SyntaxError("broken integration")),
 			}),
 		).rejects.toThrow("broken integration");

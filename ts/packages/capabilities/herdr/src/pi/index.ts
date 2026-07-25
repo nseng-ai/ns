@@ -1,7 +1,4 @@
 export { default, registerHerdrPiExtension } from "./extension.ts";
-export type { RegisterHerdrPiExtensionOptions } from "./extension.ts";
-export { hasSlotsExtension } from "./slots-capability.ts";
-export type { HerdrNsExtensionApiFactory } from "./slots-capability.ts";
 export {
 	HERDR_BASE_COMMAND_NAMES,
 	HERDR_COMMAND_NAMES,

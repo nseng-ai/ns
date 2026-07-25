@@ -5,9 +5,6 @@
 - [ ] Establish the durable consumer accounting and reconcile current state: for each package, Pi workflow, internal tool, skill, test, and documentation surface, record its current behavior, decided dependency contract, presence or identity signal, and delivery owner.
   - Revalidate the implemented SDK `hasExtension` / `requiresExtension` seam and reconcile historical `kernel` wording and stale status in `flow-slots-opt-in` against current ns SDK/host source.
   - Record the former cmux relationship as completed by the proved package retirement and migration to resource-first Herdr; do not create work against deleted surfaces.
-- [x] Correct optional Herdr label enrichment: require every Pi host to supply a complete ns extension API factory, resolve exact Slots presence once at each relevant command boundary before entering core, require both effective presence and managed-Slot path identity for prefixes, and align tests plus README/CONTEXT/AGENTS contracts.
-  - Apply the rule to `/ns:herdr:space:goal`, `/ns:herdr:tab:goal`, and `/ns:herdr:space:objective-summary`; factory/configuration/programming failures propagate before core operation or rename, while extension absence is normal and unprefixed.
-  - Retain Herdr dispatch as explicitly Slots-required and record pluggable dispatch only as future direction.
 - [ ] Complete or explicitly re-delegate the linked `flow-slots-opt-in` work: remove Flow's hard package/API coupling, gate autoslot across ns and Pi registration surfaces, and make land's pre-merge and post-landing behavior explicit when Slots is absent.
 - [ ] Make current hard workflow dependencies legible: smart-restack must refuse precisely when its Slot-aware safety preflight is unavailable, and every affected portable skill must declare the Slots prerequisite prominently near its entry contract.
   - Preserve the later audit question; do not claim each skill's dependency is permanent.
@@ -21,4 +18,3 @@
 - Herdr pluggable dispatch design and non-Slots checkout strategies.
 - A portability audit of currently Slots-required skills after their prerequisites are explicit and enough workflow context exists to classify them safely.
 - A generic Git-worktree occupancy service that could eventually replace Slots in smart-restack; current smart-restack safety remains Slots-required.
-- A universal cross-host capability-presence abstraction; the current design requires a complete ns extension API factory from each Herdr Pi host and resolves the required boolean at the relevant command boundary.
