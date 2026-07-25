@@ -5,17 +5,17 @@ import type { HerdrGateway } from "./herdr-gateway.ts";
 import { checkoutSlot, formatSlotCheckoutFailureCause } from "./slot-checkout.ts";
 import { formatGoalWorkspaceLabel, slotLabelInput } from "./workspace-label.ts";
 
-export interface PreparedDispatchPayload {
+export interface PreparedLaunchPayload {
 	readonly branchName: string;
 	readonly semanticSlug: string;
 	readonly launchCommand: string;
 }
 
-export type PreparedDispatchDestination =
+export type PreparedLaunchDestination =
 	| { readonly type: "workspace" }
 	| { readonly type: "tab"; readonly callerWorkspaceId: string };
 
-export interface OpenedPreparedDispatchTarget {
+export interface OpenedPreparedLaunchTarget {
 	readonly checkout: SlotCheckoutTarget;
 	readonly label: string;
 	readonly workspaceId: string;
@@ -23,11 +23,11 @@ export interface OpenedPreparedDispatchTarget {
 	readonly paneId: string;
 }
 
-export type PreparedDispatchResult =
+export type PreparedLaunchResult =
 	| {
 			type: "opened";
 			destination: "workspace" | "tab";
-			target: OpenedPreparedDispatchTarget;
+			target: OpenedPreparedLaunchTarget;
 	  }
 	| {
 			type: "failed";
@@ -39,9 +39,9 @@ export type PreparedDispatchResult =
 			paneId?: string;
 	  };
 
-type FailedPreparedDispatchResult = Extract<PreparedDispatchResult, { type: "failed" }>;
+type FailedPreparedLaunchResult = Extract<PreparedLaunchResult, { type: "failed" }>;
 
-interface CreatedPreparedDispatchDestination {
+interface CreatedPreparedLaunchDestination {
 	readonly type: "created";
 	readonly destination: "workspace" | "tab";
 	readonly label: string;
@@ -50,20 +50,20 @@ interface CreatedPreparedDispatchDestination {
 	readonly paneId: string;
 }
 
-export interface PreparedDispatchContext {
+export interface PreparedLaunchContext {
 	readonly herdr: HerdrGateway;
 	readonly slotClient: SlotClient;
 	readonly notify: (message: string, level: NotifyLevel) => void;
 	readonly onStatus?: (message: string | undefined) => void;
 }
 
-export async function dispatchPreparedBranch(
-	context: PreparedDispatchContext,
+export async function launchPreparedBranch(
+	context: PreparedLaunchContext,
 	options: {
-		payload: PreparedDispatchPayload;
-		destination: PreparedDispatchDestination;
+		payload: PreparedLaunchPayload;
+		destination: PreparedLaunchDestination;
 	},
-): Promise<PreparedDispatchResult> {
+): Promise<PreparedLaunchResult> {
 	const { payload } = options;
 	context.onStatus?.("checking out branch slot…");
 	const checkout = await checkoutSlot(context.slotClient, {
@@ -79,7 +79,7 @@ export async function dispatchPreparedBranch(
 		return { type: "failed", stage: "slot-checkout", message };
 	}
 	const target = checkout.target;
-	const created = await createPreparedDispatchDestination({
+	const created = await createPreparedLaunchDestination({
 		destination: options.destination,
 		target,
 		semanticSlug: payload.semanticSlug,
@@ -134,14 +134,14 @@ export async function dispatchPreparedBranch(
 	};
 }
 
-async function createPreparedDispatchDestination(options: {
-	destination: PreparedDispatchDestination;
+async function createPreparedLaunchDestination(options: {
+	destination: PreparedLaunchDestination;
 	target: SlotCheckoutTarget;
 	semanticSlug: string;
 	herdr: HerdrGateway;
 	notify: (message: string, level: NotifyLevel) => void;
 	onStatus?: (message: string | undefined) => void;
-}): Promise<CreatedPreparedDispatchDestination | FailedPreparedDispatchResult> {
+}): Promise<CreatedPreparedLaunchDestination | FailedPreparedLaunchResult> {
 	if (options.destination.type === "workspace") {
 		options.onStatus?.("opening Herdr workspace…");
 		const label = formatGoalWorkspaceLabel({

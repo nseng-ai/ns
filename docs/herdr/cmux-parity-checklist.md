@@ -4,7 +4,7 @@ This document records the completed migration from the former cmux capability to
 
 ## Migration disposition
 
-The former cmux workflows were evaluated by behavior rather than copied as a namespace. Herdr retained the useful destination operations—creating spaces, creating tabs, dispatching prompts or Saved Plans, and applying semantic labels—then organized them around Herdr resources.
+The former cmux workflows were evaluated by behavior rather than copied as a namespace. Herdr retained the useful destination operations—creating spaces, creating tabs, launching prompts or Saved Plans, and applying semantic labels—then organized them around Herdr resources.
 
 Not carried forward:
 
@@ -15,7 +15,7 @@ Not carried forward:
 - cmux metadata, status-pill, and raw workspace/surface operations;
 - interim Herdr workflow-family names under `/ns:herdr:handoff:*` or `/ns:herdr:objective:*`.
 
-The only Handoff-specific Herdr workflow is the real Handoff Artifact integration at `/ns:herdr:tab:handoff`. Ordinary prompt and plan dispatches are not handoffs.
+The only Handoff-specific Herdr workflow is the real Handoff Artifact integration at `/ns:herdr:tab:handoff`. Ordinary prompt and plan launches are not handoffs.
 
 ## Current Herdr Pi catalog
 
@@ -44,9 +44,9 @@ The launch branch-basis policy is uniform: named `main` or `master` automaticall
 
 ## Targeting and boundaries
 
-- `HERDR_WORKSPACE_ID` identifies the caller space for space rename, tab creation, tab plan dispatch, and Handoff tab launch. Tab plan dispatch validates and captures it before Git inspection or branch-basis interaction. Commands fail rather than target UI focus when it is absent.
+- `HERDR_WORKSPACE_ID` identifies the caller space for space rename, tab creation, tab plan launch, and Handoff tab launch. Tab plan launch validates and captures it before Git inspection or branch-basis interaction. Commands fail rather than target UI focus when it is absent.
 - `HERDR_TAB_ID` identifies the exact caller tab for `/ns:herdr:tab:goal`. It is not interchangeable with the workspace ID.
-- Herdr owns destination creation, labels, and pane launch. Prepared dispatch labels use the model-derived semantic slug rather than a collision-resolved Git branch name: spaces may add the compact slot prefix derived from the actual checked-out worktree path, while tabs use the exact semantic slug. Plans, Branch Context, Slots, Graphite preparation, and Handoff Artifact lifecycle remain owned by their respective capabilities.
+- Herdr owns destination creation, labels, and pane launch. Prepared launch labels use the model-derived semantic slug rather than a collision-resolved Git branch name: spaces may add the compact slot prefix derived from the actual checked-out worktree path, while tabs use the exact semantic slug. Plans, Branch Context, Slots, Graphite preparation, and Handoff Artifact lifecycle remain owned by their respective capabilities.
 - Hidden `ns herdr exec handoff-tab launch` is a reference-based implementation command, not a public generic launcher or an additional Pi command.
 
 ## Parked Herdr work

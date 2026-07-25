@@ -10,4 +10,4 @@ The `/ns:herdr:space:objective-summary` command applies one workspace label via 
 
 ## Herdr caller targeting
 
-Use `HERDR_WORKSPACE_ID` from `getCallerWorkspaceId()` for explicit caller space targeting, including tab creation and dispatch into the caller space. Use `HERDR_TAB_ID` from `getCallerTabId()` when a command must mutate the exact caller tab, such as `/ns:herdr:tab:goal`; never substitute the workspace ID. Do not fall back to UI focus or `--current` without explicit documentation of the specific Herdr command's semantics.
+Use `HERDR_WORKSPACE_ID` from `getCallerWorkspaceId()` for explicit caller space targeting, including tab creation and launch into the caller space. Use `HERDR_TAB_ID` from `getCallerTabId()` when a command must mutate the exact caller tab, such as `/ns:herdr:tab:goal`; never substitute the workspace ID. Do not fall back to UI focus or `--current` without explicit documentation of the specific Herdr command's semantics.

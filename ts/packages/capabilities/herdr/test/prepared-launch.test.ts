@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { dispatchPreparedBranch } from "../src/core/prepared-dispatch.ts";
+import { launchPreparedBranch } from "../src/core/prepared-launch.ts";
 import { FakeHerdrGateway } from "./herdr-test-harness.ts";
 
 function slotClient(worktreePath: string) {
@@ -42,23 +42,23 @@ const failingSlotClient = {
 	},
 };
 
-const payload = {
+const launchPayload = {
 	branchName: "implement-feature-2",
 	semanticSlug: "implement-feature",
 	launchCommand: "pi 'implement'",
 };
 
-describe("prepared Herdr dispatch", () => {
+describe("prepared Herdr launch", () => {
 	test("labels a workspace from the actual managed slot path and launches explicitly", async () => {
 		const herdr = new FakeHerdrGateway();
 
-		const result = await dispatchPreparedBranch(
+		const result = await launchPreparedBranch(
 			{
 				herdr,
 				slotClient: slotClient("/state/slots/repos/ns/worktrees/slot-07"),
 				notify: () => {},
 			},
-			{ payload, destination: { type: "workspace" } },
+			{ payload: launchPayload, destination: { type: "workspace" } },
 		);
 
 		expect(result).toMatchObject({
@@ -82,13 +82,13 @@ describe("prepared Herdr dispatch", () => {
 	test("labels a workspace without a slot prefix outside a managed slot", async () => {
 		const herdr = new FakeHerdrGateway();
 
-		const result = await dispatchPreparedBranch(
+		const result = await launchPreparedBranch(
 			{
 				herdr,
 				slotClient: slotClient("/ordinary/worktree"),
 				notify: () => {},
 			},
-			{ payload, destination: { type: "workspace" } },
+			{ payload: launchPayload, destination: { type: "workspace" } },
 		);
 
 		expect(result).toMatchObject({
@@ -101,13 +101,13 @@ describe("prepared Herdr dispatch", () => {
 	test("labels a caller tab with the semantic slug rather than the collision branch", async () => {
 		const herdr = new FakeHerdrGateway();
 
-		const result = await dispatchPreparedBranch(
+		const result = await launchPreparedBranch(
 			{
 				herdr,
 				slotClient: slotClient("/ordinary/worktree"),
 				notify: () => {},
 			},
-			{ payload, destination: { type: "tab", callerWorkspaceId: "caller-ws" } },
+			{ payload: launchPayload, destination: { type: "tab", callerWorkspaceId: "caller-ws" } },
 		);
 
 		expect(result).toMatchObject({ type: "opened", destination: "tab" });
@@ -127,13 +127,13 @@ describe("prepared Herdr dispatch", () => {
 		const herdr = new FakeHerdrGateway();
 		const notifications: string[] = [];
 
-		const result = await dispatchPreparedBranch(
+		const result = await launchPreparedBranch(
 			{
 				herdr,
 				slotClient: failingSlotClient,
 				notify: (message) => notifications.push(message),
 			},
-			{ payload, destination: { type: "workspace" } },
+			{ payload: launchPayload, destination: { type: "workspace" } },
 		);
 
 		expect(result).toMatchObject({ type: "failed", stage: "slot-checkout" });
@@ -163,13 +163,13 @@ describe("prepared Herdr dispatch", () => {
 			const herdr = new FakeHerdrGateway(failureOptions);
 			const notifications: string[] = [];
 
-			const result = await dispatchPreparedBranch(
+			const result = await launchPreparedBranch(
 				{
 					herdr,
 					slotClient: slotClient("/ordinary/worktree"),
 					notify: (message) => notifications.push(message),
 				},
-				{ payload, destination },
+				{ payload: launchPayload, destination },
 			);
 
 			expect(result).toMatchObject({ type: "failed", stage: "destination-create" });
@@ -212,14 +212,14 @@ describe("prepared Herdr dispatch", () => {
 			const notifications: string[] = [];
 			const statuses: Array<string | undefined> = [];
 
-			const result = await dispatchPreparedBranch(
+			const result = await launchPreparedBranch(
 				{
 					herdr,
 					slotClient: slotClient("/ordinary/worktree"),
 					notify: (message) => notifications.push(message),
 					onStatus: (message) => statuses.push(message),
 				},
-				{ payload, destination },
+				{ payload: launchPayload, destination },
 			);
 
 			expect(result).toMatchObject({

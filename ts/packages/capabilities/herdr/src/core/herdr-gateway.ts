@@ -40,7 +40,7 @@ export interface HerdrGateway {
 	 * `herdr tab create --workspace <workspaceId> [--focus|--no-focus] [--cwd <cwd>] [--label <label>]`
 	 *
 	 * Pass `shouldFocus: true` to activate/focus the tab immediately after creation
-	 * (used for tab dispatch so the caller sees the new tab). Defaults to
+	 * (used for tab launch so the caller sees the new tab). Defaults to
 	 * `false` (`--no-focus`).
 	 *
 	 * Returns the created tab ID, root pane ID, and workspace ID on success.
@@ -66,7 +66,7 @@ export type HerdrTabRenameResult = { type: "applied" } | { type: "failed"; messa
 export interface HerdrCreateWorkspaceOptions {
 	cwd: string;
 	label?: string;
-	/** Focus the new workspace by omitting `--no-focus`. Defaults to false for background dispatch. */
+	/** Focus the new workspace by omitting `--no-focus`. Defaults to false for background launch. */
 	shouldFocus?: boolean;
 }
 
