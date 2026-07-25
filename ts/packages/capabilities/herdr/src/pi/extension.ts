@@ -11,10 +11,8 @@ import {
 	registerHerdrSidebarCommands,
 } from "./sidebar.ts";
 import { registerHerdrSlotDispatchPromptCommand } from "./dispatch-prompt.ts";
-import { registerHerdrSlotDispatchFromTrunkCommand } from "./dispatch-from-trunk.ts";
 import {
 	registerHerdrSlotDispatchPlanCommand,
-	registerHerdrSlotDispatchTrunkPlanCommand,
 	registerHerdrSurfaceDispatchPlanCommand,
 } from "./dispatch-plan.ts";
 import { createHerdrPiContext } from "./context.ts";
@@ -42,9 +40,7 @@ export async function registerHerdrPiExtension(
 	registerHerdrSidebarCommands(herdrPi, sidebarController);
 	registerHerdrSpaceGoalCommand(herdrPi);
 	registerHerdrSlotDispatchPromptCommand(herdrPi);
-	registerHerdrSlotDispatchFromTrunkCommand(herdrPi);
 	registerHerdrSlotDispatchPlanCommand(herdrPi);
-	registerHerdrSlotDispatchTrunkPlanCommand(herdrPi);
 	registerHerdrSurfaceDispatchPlanCommand(herdrPi);
 	registerHerdrNewSpaceCommand(context);
 	registerHerdrNewTabCommand(context);

@@ -1,3 +1,5 @@
+import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	makeCommandProgressNotifier,
@@ -23,12 +25,14 @@ export function registerHerdrSlotDispatchPromptCommand(
 	const pi = createHerdrPiCommandApi(rawPi);
 	const herdr = createCliHerdrGateway(pi);
 	const payloadOptions = resolveDispatchPromptPayloadOptions(options);
+	const git = options.git ?? new RealGitGateway(pi);
+	const graphite = options.graphite ?? new RealGraphiteBranchGateway(pi);
 
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: COMMAND_NAME,
 		commandDefinition: {
-			description: "Launch a prompt from the current branch in a new space.",
+			description: "Launch a prompt in a new space.",
 			argumentHint: "<prompt>",
 			handler: async (args, ctx) => {
 				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });
@@ -37,11 +41,15 @@ export function registerHerdrSlotDispatchPromptCommand(
 					herdr,
 					payloadOptions,
 					...optionalEntry("slotClient", options.slotClient),
+					graphite,
+					git,
+					...optionalEntry("metadataDbAccess", options.metadataDbAccess),
 					args,
 					ctx,
 					notifyProgress,
 				});
 			},
 		},
+		options: { delivery: "message" },
 	});
 }

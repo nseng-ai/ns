@@ -10,32 +10,22 @@ export const HERDR_SPACE_OBJECTIVE_SUMMARY_COMMAND_NAME = nsCommandSurface(
 );
 export const HERDR_SPACE_DISPATCH_PROMPT_COMMAND_NAME = nsCommandSurface(
 	"herdr",
-	"launch:prompt:br:space",
-);
-export const HERDR_SPACE_DISPATCH_TRUNK_PROMPT_COMMAND_NAME = nsCommandSurface(
-	"herdr",
-	"launch:prompt:tr:space",
+	"launch:prompt:space",
 );
 export const HERDR_SPACE_DISPATCH_PLAN_COMMAND_NAME = nsCommandSurface(
 	"herdr",
-	"launch:plan:br:space",
-);
-export const HERDR_SPACE_DISPATCH_TRUNK_PLAN_COMMAND_NAME = nsCommandSurface(
-	"herdr",
-	"launch:plan:tr:space",
+	"launch:plan:space",
 );
 export const HERDR_TAB_NEW_COMMAND_NAME = nsCommandSurface("herdr", "tab:new");
 export const HERDR_TAB_GOAL_COMMAND_NAME = nsCommandSurface("herdr", "tab:goal");
-export const HERDR_TAB_DISPATCH_PLAN_COMMAND_NAME = nsCommandSurface("herdr", "launch:plan:br:tab");
+export const HERDR_TAB_DISPATCH_PLAN_COMMAND_NAME = nsCommandSurface("herdr", "launch:plan:tab");
 export const HERDR_TAB_HANDOFF_COMMAND_NAME = nsCommandSurface("herdr", "tab:handoff");
 
 // Handoff remains optional; every other resource-first command is base registration.
 export const HERDR_BASE_COMMAND_NAMES = [
 	HERDR_SPACE_DISPATCH_PLAN_COMMAND_NAME,
 	HERDR_TAB_DISPATCH_PLAN_COMMAND_NAME,
-	HERDR_SPACE_DISPATCH_TRUNK_PLAN_COMMAND_NAME,
 	HERDR_SPACE_DISPATCH_PROMPT_COMMAND_NAME,
-	HERDR_SPACE_DISPATCH_TRUNK_PROMPT_COMMAND_NAME,
 	HERDR_SPACE_GOAL_COMMAND_NAME,
 	HERDR_SPACE_NEW_COMMAND_NAME,
 	HERDR_SPACE_OBJECTIVE_SUMMARY_COMMAND_NAME,
@@ -48,9 +38,7 @@ export const HERDR_OPTIONAL_HANDOFF_COMMAND_NAMES = [HERDR_TAB_HANDOFF_COMMAND_N
 export const HERDR_COMMAND_NAMES = [
 	HERDR_SPACE_DISPATCH_PLAN_COMMAND_NAME,
 	HERDR_TAB_DISPATCH_PLAN_COMMAND_NAME,
-	HERDR_SPACE_DISPATCH_TRUNK_PLAN_COMMAND_NAME,
 	HERDR_SPACE_DISPATCH_PROMPT_COMMAND_NAME,
-	HERDR_SPACE_DISPATCH_TRUNK_PROMPT_COMMAND_NAME,
 	HERDR_SPACE_GOAL_COMMAND_NAME,
 	HERDR_SPACE_NEW_COMMAND_NAME,
 	HERDR_SPACE_OBJECTIVE_SUMMARY_COMMAND_NAME,

@@ -51,6 +51,9 @@ export const TRACKED_BRANCH_PAYLOAD_KEY = "prompt.md";
 /** Dispatch-context note stored with prompts dispatched from refreshed trunk. */
 export const TRUNK_DISPATCH_CONTEXT_NOTE =
 	"This branch was created from refreshed Graphite trunk and is intentionally unrelated to the caller's current stack.";
+/** Dispatch-context note stored with prompts dispatched from the existing local trunk. */
+export const LOCAL_TRUNK_DISPATCH_CONTEXT_NOTE =
+	"This branch was created from the existing local Graphite trunk and is intentionally unrelated to the caller's current stack.";
 const MAX_SLUG_INPUT_CHARS = 12_000;
 const GIT_TRUNK_REFRESH_TIMEOUT_MS = 2 * 60 * 1000;
 
@@ -68,6 +71,12 @@ export interface GraphiteTrunkPreparation {
 	startRef: string;
 	startPoint?: string;
 	preview: boolean;
+}
+
+export interface LocalGraphiteTrunkPreparation {
+	trunkBranch: string;
+	startRef: string;
+	startPoint: string;
 }
 
 export interface TrackedBranchPayloadOptions {
@@ -226,6 +235,61 @@ export async function prepareGraphiteTrunk(options: {
 		startPoint: startPoint.text,
 		preview: false,
 	};
+}
+
+export async function prepareLocalGraphiteTrunk(options: {
+	pi: CommandExecApi;
+	cwd: string;
+	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	notify?: (message: string) => void;
+	metadataDbAccess?: GraphiteMetadataDbAccess;
+}): Promise<LocalGraphiteTrunkPreparation | { error: string }> {
+	options.notify?.("Resolving local Graphite trunk…");
+	const trunk = await resolveGraphiteTrunkBranch({
+		pi: options.pi,
+		cwd: options.cwd,
+		graphite: options.graphite,
+		metadataDbAccess: options.metadataDbAccess ?? createGraphiteMetadataDbAccess(),
+	});
+	if ("error" in trunk) return trunk;
+	const startRef = `refs/heads/${trunk.branch}`;
+	const startPoint = await runText(options.pi, options.cwd, "git", [
+		"rev-parse",
+		"--verify",
+		startRef,
+	]);
+	if (!startPoint.ok) {
+		return {
+			error: `Could not resolve local Graphite trunk ${trunk.branch}; no branch was created.\n${startPoint.message}`,
+		};
+	}
+	return {
+		trunkBranch: trunk.branch,
+		startRef,
+		startPoint: startPoint.text,
+	};
+}
+
+export async function createTrackedBranchFromLocalTrunkForPrompt(options: {
+	pi: CommandExecApi;
+	cwd: string;
+	prompt: string;
+	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	notify?: (message: string) => void;
+	metadataDbAccess?: GraphiteMetadataDbAccess;
+}): Promise<TrackedBranchEvidence | { error: string }> {
+	const prepared = await prepareLocalGraphiteTrunk(options);
+	if ("error" in prepared) return prepared;
+	options.notify?.("Generating branch name…");
+	return createTrackedBranchFromResolvedParent({
+		pi: options.pi,
+		cwd: options.cwd,
+		prompt: options.prompt,
+		parentBranch: prepared.trunkBranch,
+		startPoint: prepared.startPoint,
+		startRef: prepared.startPoint,
+		createFailureContext: `from local trunk ${prepared.trunkBranch}`,
+	});
 }
 
 export async function createTrackedBranchFromTrunkForPrompt(options: {

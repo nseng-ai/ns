@@ -9,6 +9,7 @@ import {
 	createTrackedBranchForPrompt,
 	createTrackedBranchFromResolvedParent,
 	prepareGraphiteTrunk,
+	prepareLocalGraphiteTrunk,
 	resolveTrackedBranchPayloadOptions,
 	storeTrackedBranchPayload,
 	TRACKED_BRANCH_PAYLOAD_KEY,
@@ -283,6 +284,29 @@ describe("tracked branch payload public API", () => {
 			semanticSlug: "implement-trunk-feature",
 			parentBranch: "main",
 			startPoint: "def456",
+		});
+	});
+
+	test("resolves the configured local trunk SHA without upstream inspection or refresh", async () => {
+		const commands = new FakeCommands([
+			{
+				command: "git",
+				args: ["rev-parse", "--verify", "refs/heads/main"],
+				result: exited({ stdout: "local123\n" }),
+			},
+		]);
+
+		const result = await prepareLocalGraphiteTrunk({
+			pi: commands,
+			cwd: REPO_ROOT,
+			graphite: { trunkBranch: async () => ({ ok: true, branch: "main" }) },
+		});
+
+		commands.assertDone();
+		expect(result).toEqual({
+			trunkBranch: "main",
+			startRef: "refs/heads/main",
+			startPoint: "local123",
 		});
 	});
 
