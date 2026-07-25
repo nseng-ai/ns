@@ -2,6 +2,8 @@ import { isAbsolute, posix, relative, resolve, sep } from "node:path";
 
 import { runJsonExecCommand } from "@nseng-ai/extension-kit/machine-envelope-exec";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import { formatHerdrResourceLabel } from "./resource-label.ts";
 
 const OBJECTIVE_READ_TIMEOUT_MS = 30_000;
@@ -88,7 +90,7 @@ export async function validateObjectiveSidebarSlug(
 export function formatObjectiveSidebarLabel(input: ObjectiveSidebarFormatInput): string {
 	return formatHerdrResourceLabel({
 		semanticLabel: `obj:${input.objectiveSlug}`,
-		...(input.slotSlug === undefined ? {} : { slotSlug: input.slotSlug }),
+		...optionalEntry("slotSlug", input.slotSlug),
 	});
 }
 
