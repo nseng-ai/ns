@@ -108,6 +108,7 @@ const mainLandingEntry: ConfirmationRequestEntry = {
 		"$ ns slot free --wt slot-02",
 		"$ gt delete feature-a -f -q",
 	],
+	defaultAnswer: "yes",
 };
 
 const singleBranchMainLandingEntry: ConfirmationRequestEntry = {
@@ -130,6 +131,7 @@ const singleBranchMainLandingEntry: ConfirmationRequestEntry = {
 		"$ ns slot free --wt slot-02",
 		"$ gt delete feature-single-branch -f -q",
 	],
+	defaultAnswer: "yes",
 };
 
 const freeManagedSlotsEntry: ConfirmationRequestEntry = {
