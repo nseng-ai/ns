@@ -4,9 +4,19 @@ import { join } from "node:path";
 
 import { afterEach } from "vitest";
 
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
+import type { NsCliBaseContext } from "@nseng-ai/sdk/cli";
+
 import { runNsCli } from "../../src/cli/index.ts";
 
 const tempDirs: string[] = [];
+
+export interface NsCliRun {
+	readonly exit: number;
+	readonly stdout: string;
+	readonly stderr: string;
+	readonly execCalls: readonly string[];
+}
 
 export interface NsCliJsonRun {
 	readonly exit: number;
@@ -59,6 +69,64 @@ export default defineExtension({
 		"# module skill\n",
 		"utf8",
 	);
+}
+
+export async function runNsCliWithFakeContext(
+	args: readonly string[],
+	options: { readonly format?: "json"; readonly gitRoot?: "not-found" } = {},
+): Promise<NsCliRun> {
+	const cwd = "/work/ns-project";
+	const homeDir = "/home/ns-test";
+	const env = {
+		HOME: homeDir,
+		XDG_STATE_HOME: "/state/ns-test",
+		CLAUDE_CONFIG_DIR: "/config/claude",
+	};
+	const stdout: string[] = [];
+	const stderr: string[] = [];
+	const execCalls: string[] = [];
+	const context: NsCliBaseContext = {
+		cwd,
+		homeDir,
+		env,
+		commandIo: noopNsCommandIo,
+		progress: noopNsProgress,
+		renderCapabilities: { canEmitAnsi: false },
+		exec: async (command, commandArgs) => {
+			const display = [command, ...commandArgs].join(" ");
+			execCalls.push(display);
+			if (options.gitRoot === "not-found" && display === "git rev-parse --show-toplevel") {
+				return {
+					type: "exited",
+					code: 128,
+					signal: null,
+					stdout: "",
+					stderr: "fatal: not a git repository",
+				};
+			}
+			throw new Error(`Default host contract attempted an external command: ${display}`);
+		},
+		textGenerator: {
+			generateText: async () => {
+				throw new Error("Default host contract unexpectedly requested text generation.");
+			},
+		},
+	};
+	const cliArgs = options.format === "json" ? [...args, "--format", "json"] : [...args];
+	const exit = await runNsCli(cliArgs, {
+		context,
+		cwd,
+		homeDir,
+		env,
+		stdout: (text) => stdout.push(text),
+		stderr: (text) => stderr.push(text),
+	});
+	return {
+		exit,
+		stdout: stdout.join(""),
+		stderr: stderr.join(""),
+		execCalls,
+	};
 }
 
 export async function runNsCliJson(args: readonly string[], cwd: string): Promise<NsCliJsonRun> {

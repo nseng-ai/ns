@@ -17,6 +17,19 @@ import {
 } from "../support/cli-harness.ts";
 
 describe("extension install host integration", () => {
+	test("maps real non-Git repository detection through the host context", async () => {
+		const cwd = await createEmptyProject();
+
+		const run = await runNsCliJson(["extension", "list"], cwd);
+
+		expect(run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "failure",
+			errorType: "ns-extension-list-not-a-git-repo",
+			data: { diagnostics: [{ code: "not-a-git-repo" }] },
+		});
+	});
+
 	test("streams ns init lifecycle trace separately from its final human result", async () => {
 		const cwd = await createEmptyProject();
 		await initializeGitRepo(cwd);
