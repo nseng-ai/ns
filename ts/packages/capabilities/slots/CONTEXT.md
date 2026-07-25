@@ -1,6 +1,6 @@
 # @nseng-ai/slots
 
-This context captures Slot language for the Git-worktree-backed slot pool and the boundary between Slot command usage, in-process Capability API composition, ns-owned shell integration, and Graphite-aware slot helpers.
+This context captures Slot language for the Git-worktree-backed slot pool and the boundary between Slot command usage, in-process extension-package-API composition, ns-owned shell integration, and Graphite-aware slot helpers.
 
 ## Language
 
@@ -30,17 +30,17 @@ The canonical result shape describing where a branch was placed or already lives
 
 The `ns slot ...` command surface — the user- and agent-facing commands mounted as `ns slot ...`, including lifecycle commands, human output, machine-readable output, and command-only Graphite helpers — is an ordinary architectural layer, not a defined term.
 
-**Slot Capability API**:
+**Slot extension package API**:
 The curated `@nseng-ai/slots/api` surface for downstream in-process consumers that need Slot behavior without invoking the CLI or importing private modules.
 *Avoid*: command output parsing, `@nseng-ai/slots/src/...` import, package-root convenience import, `ctx`-passing API
 
 **Checkout Side-Effect Policy**:
-The rule that **Slot Capability API** checkout side effects are explicit opt-ins, while safe in-process defaults do not copy to the clipboard or write parent-shell navigation directives.
+The rule that **Slot extension package API** checkout side effects are explicit opt-ins, while safe in-process defaults do not copy to the clipboard or write parent-shell navigation directives.
 *Avoid*: hidden navigation side effect, JSON command moving the shell, treating `--no-clipboard` as a no-`cd` option
 
 **Parent-Shell Navigation**:
 A human-output command behavior where successful navigation commands can ask the installed ns shell wrapper to move the caller's shell after the child process exits.
-*Avoid*: child process `cd`, Capability API navigation, standalone Slot shell wrapper
+*Avoid*: child process `cd`, extension-package-API navigation, standalone Slot shell wrapper
 
 **Shell Directive**:
 A short-lived file-based signal that carries the destination path from an ns child process to the installed ns shell wrapper.
@@ -51,11 +51,11 @@ The compatibility `ns slot shell ...` command group that exposes the same ns-own
 *Avoid*: Slot-owned shell installer, separate `slot()` wrapper, `@nseng-ai/slots/shell-support`
 **Slot Graphite Command Group**:
 The `ns slot gt ...` command surface for Graphite-aware Slot navigation, stack release, and hidden skill/agent helpers.
-*Avoid*: Graphite support package, Slot Capability API by default, cmux-capability landing policy
+*Avoid*: Graphite support package, Slot extension package API by default, cmux-capability landing policy
 
 **Slot Graphite Exec Helper**:
-A hidden command-face helper under `ns slot gt exec ...` that emits structured Graphite/Slot facts for skills or agents while staying outside the **Slot Capability API** until an in-process consumer proves the need.
-*Avoid*: public human command, Capability API promotion, parsing `gt` display output
+A hidden command-face helper under `ns slot gt exec ...` that emits structured Graphite/Slot facts for skills or agents while staying outside the **Slot extension package API** until an in-process consumer proves the need.
+*Avoid*: public human command, extension-package-API promotion, parsing `gt` display output
 
 **Slot Provisioning**:
 The Slot feature that copies declared gitignored files (for example `.env.local`) from the **Provision Store** into slot worktrees — filling gaps after placement and on `ns slot provision apply`, never overwriting except via `--force`.

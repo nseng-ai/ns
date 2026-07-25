@@ -5,8 +5,8 @@
 ## Language
 
 **Foundation Infrastructure**:
-A surface owned by `@nseng-ai/foundation` because its public contract is ns-independent and its design states a credible external-consumer scenario; it may perform real-world I/O. Capability-specific policy, ns workflow semantics, and ns extension-building substrate are excluded regardless of genericity.
-*Avoid*: pure-utility-only foundation, dumping ground for generic-looking helpers, Capability Kit substitute.
+A surface owned by `@nseng-ai/foundation` because its public contract is ns-independent and its design states a credible external-consumer scenario; it may perform real-world I/O. Extension-specific policy, ns workflow semantics, and ns extension-building substrate are excluded regardless of genericity.
+*Avoid*: pure-utility-only foundation, dumping ground for generic-looking helpers, Extension Kit substitute.
 
 **ns-Independent Contract**:
 A public contract whose types, lifecycle, errors, configuration, and dependencies make sense without ns vocabulary or ns runtime assumptions — the first half of the ADR 0032 admission test.
@@ -18,8 +18,8 @@ The concrete, reviewable prose scenario in which a consumer outside ns would use
 
 **API-Kind Foundation Subpackage**:
 A declared foundation subpackage with supported cross-package runtime exports (`exec`, `time`, `cli-runtime`, …) — one of several precise public doors, each anchoring its own inbound edge class. Private implementation layers live as folders inside the owning subpackage, never as a `@nseng-ai/foundation/api` barrel.
-*Avoid*: sole public door, façade barrel, Capability API.
+*Avoid*: sole public door, façade barrel, extension package API.
 
 **Harness Session**:
 A prospective foundation surface for consuming a coding harness (Claude Code, Codex) through a bounded session lifecycle — start, exchange turns, observe events, terminate. It qualifies as Foundation Infrastructure only while its contract stays free of ns-specific routing or review policy; no implementation exists in this package yet.
-*Avoid*: text-generation routing policy, Reviews integration, ns capability surface.
+*Avoid*: text-generation routing policy, Reviews integration, ns extension surface.

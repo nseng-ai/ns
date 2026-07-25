@@ -1,27 +1,27 @@
 # @nseng-ai/flow
 
-This context captures Flow language for lifecycle commands, the curated `@nseng-ai/flow/api` Capability API consumed by downstream publication composition, and the current boundary between Flow-owned presentation/orchestration and the `@nseng-ai/flow/land` domain core subpackage.
+This context captures Flow language for lifecycle commands, the curated `@nseng-ai/flow/api` extension package API consumed by downstream publication composition, and the current boundary between Flow-owned presentation/orchestration and the `@nseng-ai/flow/land` domain core subpackage.
 
 ## Language
 
 **Flow**:
-The ns Capability that owns public lifecycle workflows such as changes, copy, autoslot, autobranch, submit, pull-trunk, regenerate-pr, push, and land.
+The ns extension that owns public lifecycle workflows such as changes, copy, autoslot, autobranch, submit, pull-trunk, regenerate-pr, push, and land.
 *Avoid*: Herdr dispatch helper, Pi workflow package, Graphite wrapper
 
 **Flow Command Face**:
 The user- and agent-facing `ns flow ...` command surface and its Pi mirrors, including CLI parsing, completions, renderer registration, prompts, progress, and human output for Flow workflows.
-*Avoid*: land domain core, Herdr capability adapter, standalone land command surface
+*Avoid*: land domain core, Herdr extension adapter, standalone land command surface
 
 **Flow Pi Presentation Boundary**:
 The `@nseng-ai/flow/pi` host surface owns generic `/ns:flow:*` mirrors and `/gt:squash-stack`. Repository-specific `/code-workflows`, `/gh-ci-debug`, and `/code:gt-restack-resolve` presentation belongs to `@internal/pi-tools/code-workflows`; `.pi/extensions/code.ts` is the discovery-layer composition seam for internal smart restack plus Flow stack squash.
 *Avoid*: Flow-owned code-workflow skill policy, Internal Pi-tool import from Flow, cross-owner aggregate inside a package
 
-**Flow Capability API**:
-The curated `@nseng-ai/flow/api` in-process surface consumed by downstream packages so they do not import Flow private source modules. Its surviving cross-capability consumer is Objectives publication, which composes **Flow Branch Publication** for trusted parent-owned external writes after Objective Runner checkpoint judgment.
+**Flow extension package API**:
+The curated `@nseng-ai/flow/api` in-process surface consumed by downstream packages so they do not import Flow private source modules. Its surviving cross-extension consumer is Objectives publication, which composes **Flow Branch Publication** for trusted parent-owned external writes after Objective Runner checkpoint judgment.
 *Avoid*: package-root import, private `@nseng-ai/flow/src/...` import, narrowed land-only API, consumer-owned Flow seam, exposing private submit machinery as a compatibility contract
 
 **Flow Land Compatibility Boundary**:
-The compatibility rule that land consumers continue to enter through **Flow Capability API** while Flow keeps renderer-independent planning in the `@nseng-ai/flow/land` subpackage.
+The compatibility rule that land consumers continue to enter through the **Flow extension package API** while Flow keeps renderer-independent planning in the `@nseng-ai/flow/land` subpackage.
 *Avoid*: direct downstream import from `@nseng-ai/flow/land`, direct downstream import from Flow land-stack internals, removing existing `@nseng-ai/flow/api` exports without a consumer audit
 
 **Flow Land Execution**:
@@ -29,14 +29,14 @@ The Flow-owned adapter layer around canonical land execution: command presentati
 *Avoid*: direct `executeStackLandingPlan` call, Flow-side post-landing cleanup for stack landings, pure preflight plan, standalone land CLI behavior
 
 **Canonical Landing Execution**:
-The `executeLanding` entry point on **Land Capability API** that owns the full `LandingRequest` lifecycle — discovery, preflight planning, confirmation, pre-merge preparation, merge, per-merge maintenance, and post-landing managed-slot cleanup under the closed cleanup policy (`preserve` / `free-slot` / `force-cleanup`) — and returns a `LandingExecutionResult` whose completed and failed variants carry the same observed-fact `LandingExecutionReport`.
+The `executeLanding` entry point on the **Land subpackage API** that owns the full `LandingRequest` lifecycle — discovery, preflight planning, confirmation, pre-merge preparation, merge, per-merge maintenance, and post-landing managed-slot cleanup under the closed cleanup policy (`preserve` / `free-slot` / `force-cleanup`) — and returns a `LandingExecutionResult` whose completed and failed variants carry the same observed-fact `LandingExecutionReport`.
 *Avoid*: phase synthesis from plan shape, gateway-level `LandResult` widening, second execution report model, Flow-owned cleanup ordering
 
 **Land Domain Core**:
 The deterministic land logic in the `@nseng-ai/flow/land` subpackage that consumes injected Git, Graphite, GitHub PR, and worktree-slot gateways to produce land-domain results.
 *Avoid*: CLI parser, renderer, Pi command, direct subprocess script
 
-**Land Capability API**:
+**Land subpackage API**:
 The curated `@nseng-ai/flow/land/api` surface: `executeLanding`, planning entry points, result/failure vocabulary, confirmation/progress host seams, and domain types. Deliberately narrowed after the execution migration — execution internals (`executeStackLandingPlan`, single-branch landing internals, pre-merge phase helpers) are not public; a runtime allowlist test guards the surface, package-local tests import implementation modules directly, and the sweep found no workspace production consumers of the removed exports.
 *Avoid*: package-root import, Flow compatibility API, command export, execution-internal re-export
 
@@ -66,20 +66,20 @@ The injected Git, Graphite, GitHub PR, and worktree-slot fact seams that keep **
 
 **Flow Stack Preflight Adapter**:
 The internal Flow adapter that maps Flow's land-stack gateways and current stack facts into `@nseng-ai/flow/land` stack preflight planning, then maps the result back to Flow's existing land-stack shapes.
-*Avoid*: public API, downstream capability integration point, presentation layer
+*Avoid*: public API, downstream extension integration point, presentation layer
 
 **Flow Submit Boundary**:
 The Flow ownership boundary for submit, PR description regeneration, Graphite submit orchestration, and related lifecycle policy; reusable Graphite facts and command mechanics remain below Flow in Graphite/gateway packages.
-*Avoid*: neutral Graphite domain, downstream capability submit owner, land-domain behavior
+*Avoid*: neutral Graphite domain, downstream extension submit owner, land-domain behavior
 
 **Submit Plan**:
 The typed, renderer-independent result of inspecting the Graphite submit scope after readiness and any required restack, containing stack branches, existing PR links, upstack status, and the partition of branches eligible or ineligible for metadata prewrite.
 *Avoid*: stale pre-checkpoint topology, command transcript, metadata generation result, submit execution result
 
 **Flow Branch Publication**:
-The narrow **Flow Capability API** behavior used by trusted Objectives publication to bind the current non-trunk branch to its existing PR, reverify the bound source before mutation, push the exact commit without force, and preserve non-managed PR prose while updating the managed Objective Runner region. Objectives owns publication eligibility, checkpoint judgment, and Objective Runner summary policy.
+The narrow **Flow extension package API** behavior used by trusted Objectives publication to bind the current non-trunk branch to its existing PR, reverify the bound source before mutation, push the exact commit without force, and preserve non-managed PR prose while updating the managed Objective Runner region. Objectives owns publication eligibility, checkpoint judgment, and Objective Runner summary policy.
 *Avoid*: implementation-child external write, generic submit client, Objective Runner policy owned by Flow, force push, whole-body PR replacement
 
 **Flow Autobranch Boundary**:
 The Flow ownership boundary for public `ns flow autobranch` behavior.
-*Avoid*: Herdr capability public command owner, plain branch helper, Graphite primitive
+*Avoid*: Herdr extension public command owner, plain branch helper, Graphite primitive

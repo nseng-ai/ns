@@ -1,12 +1,12 @@
 # @nseng-ai/reviews Context
 
-Reviews is an ns Capability for configured PR-diff reviews. Its Domain Core runs read-only checks, records structured findings, and owns guarded publication; it is not a remediation workflow.
+Reviews is an ns extension for configured PR-diff reviews. Its Domain Core runs read-only checks, records structured findings, and owns guarded publication; it is not a remediation workflow.
 
 ## Glossary
 
 ### Reviews
 
-The ns Capability that runs configured read-only PR-diff checks and emits structured findings.
+The ns extension that runs configured read-only PR-diff checks and emits structured findings.
 
 Avoid: describing Reviews runs as remediation workflows or as agents that edit code.
 
@@ -22,11 +22,11 @@ The canonical user-facing command surface for Reviews: `ns reviews ...`, includi
 
 Avoid: teaching the removed standalone `reviews` binary as an active compatibility surface or canonical invocation path.
 
-### Reviews Capability API
+### Reviews extension package API
 
 The curated in-process consumer API exported as `@nseng-ai/reviews/api` for packages that need Reviews behavior without shelling out.
 
-Avoid: importing private `@nseng-ai/reviews/src/...` modules or treating the broad package root as the Capability API.
+Avoid: importing private `@nseng-ai/reviews/src/...` modules or treating the broad package root as the extension package API.
 
 ### Review definition
 

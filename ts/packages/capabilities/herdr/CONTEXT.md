@@ -1,15 +1,15 @@
 # @nseng-ai/herdr
 
-`@nseng-ai/herdr` is the private Herdr capability. It owns Herdr-native space and tab operations and composes ns-owned Git, Graphite, Slots, Saved Plan, Branch Context, and optional Handoff behavior into those resource destinations.
+`@nseng-ai/herdr` is the private Herdr extension. It owns Herdr-native space and tab operations and composes ns-owned Git, Graphite, Slots, Saved Plan, Branch Context, and optional Handoff behavior into those resource destinations.
 
 ## Language
 
-**Herdr capability**:
-The first-party **Capability** that drives Herdr spaces and tabs by composing branch, slot, plan, and Pi-session inputs into Herdr operations.
-*Avoid*: generic terminal multiplexer wrapper, cmux adapter, Herdr plugin
+**Herdr extension**:
+The **first-party extension** that drives Herdr spaces and tabs by composing branch, slot, plan, and Pi-session inputs into Herdr operations.
+*Avoid*: Herdr capability (retired name), generic terminal multiplexer wrapper, cmux adapter, Herdr plugin
 
 **Herdr Consumer Gateway**:
-The narrow domain-shaped interface (`HerdrGateway`) exposing only the workspace and tab operations the capability currently needs, backed by the installed `herdr` CLI.
+The narrow domain-shaped interface (`HerdrGateway`) exposing only the workspace and tab operations the extension currently needs, backed by the installed `herdr` CLI.
 *Avoid*: raw socket gateway, full Herdr API surface, generic CLI wrapper
 
 **Prepared Herdr Launch**:
@@ -84,6 +84,6 @@ The nine-command Pi surface has six direct resource operations (`space:{new,goal
 Launch remains correct vocabulary for supporting mechanics: **Prepared Herdr Launch** owns destination creation and process startup, Pi launch mechanics start the Pi process, `ns-impl` identifies prompt transport/storage for implementation workflows in Branch Memory, and Handoff launch starts pickup after a durable Handoff Artifact is verified. These are distinct from the user-facing implementation workflow.
 *Avoid*: banning launch vocabulary globally, `ns-impl` as command name, Handoff launch for ordinary prompt or plan implementation
 
-**Herdr capability boundary**:
-The `pi` subpackage is the only Herdr capability subpackage that imports neutral `@nseng-ai/pi/...` host helpers; `ns` composes hidden reference-based commands and real same-channel gateways; core stays host-independent.
+**Herdr extension boundary**:
+The `pi` subpackage is the only Herdr subpackage that imports neutral `@nseng-ai/pi/...` host helpers; `ns` composes hidden reference-based commands and real same-channel gateways; core stays host-independent.
 *Avoid*: host-owned Herdr domain, Pi imports from core, package cycle
