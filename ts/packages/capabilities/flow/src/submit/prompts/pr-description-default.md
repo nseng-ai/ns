@@ -29,6 +29,18 @@ Analyze the diff following these principles:
 - Strategic change description focusing on purpose and impact
 - Focus on what capabilities changed, not implementation details
 
+## User Experience
+
+[Only include this section if changes affect user-facing behavior: CLI commands, prompts, output, workflows]
+
+**Before:** [old user experience]
+**After:** [new user experience]
+[Optional 1-2 sentence explanation of the improvement]
+
+## Critical Notes
+
+[Only if there are breaking changes, security concerns, or important warnings - 1-2 bullets max]
+
 <details>
 <summary>Files Changed</summary>
 
@@ -45,18 +57,6 @@ Analyze the diff following these principles:
 - \`path/to/file.ts\` - Why removed (strategic reason)
 
 </details>
-
-## User Experience
-
-[Only include this section if changes affect user-facing behavior: CLI commands, prompts, output, workflows]
-
-**Before:** [old user experience]
-**After:** [new user experience]
-[Optional 1-2 sentence explanation of the improvement]
-
-## Critical Notes
-
-[Only if there are breaking changes, security concerns, or important warnings - 1-2 bullets max]
 
 ## Rules
 
