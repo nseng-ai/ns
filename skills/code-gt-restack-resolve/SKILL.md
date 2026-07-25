@@ -19,7 +19,7 @@ delegated to one fresh, same-worktree subagent that follows the engine skill,
 (`skills/code-resolve-merge-conflicts/SKILL.md`), with the **Engine parameters**
 below. Do not restate or improvise per-file resolution policy here.
 
-It also defers to **`graphite`** for the `gt` mental model, stack navigation,
+It also defers to **`code-graphite`** for the `gt` mental model, stack navigation,
 and the "Recovering from Interrupted Rebase" section.
 
 ## Harness entry points
@@ -88,7 +88,7 @@ statements: structured full-scope preflight already reported
 `gt restack` without completing cleanly. Treat either statement as inherited
 evidence that must be refreshed, not as permission to assume repository state.
 
-Before normal preflight, run `git status` as the `graphite` skill's interrupted
+Before normal preflight, run `git status` as the `code-graphite` skill's interrupted
 rebase context reset requires. Skip preflight only when that fresh status
 confirms a rebase is still in progress (including a rebase stopped at unmerged
 conflicts). In that confirmed wrapper path:
@@ -153,7 +153,7 @@ The stable `data` fields are:
 
 If `rebaseInProgress` is true, do **not** start a new restack or free stack
 slots. Jump straight to the **Loop** at the resolve step, following the
-`graphite` skill's "Recovering from Interrupted Rebase (Context Reset)"
+`code-graphite` skill's "Recovering from Interrupted Rebase (Context Reset)"
 section. Otherwise, if `tracked` is false, stop with the helper's `gt track`
 guidance. If `clean` is false, stop and ask the user to commit or stash first.
 Review all warnings before continuing.

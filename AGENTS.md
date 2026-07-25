@@ -109,6 +109,7 @@ Treat authoritative plans and handoffs as evidence caches: start from their supp
 
 ## Git, Graphite, GitHub
 
-- This repo uses Graphite (`gt`) as the default tool for branch and PR workflow; for branch creation, commits/amends, PR submit/update, and stack navigation/reshaping, load the `graphite` skill (if absent from available skills, resolve it with `areg skill find graphite --format json`) and prefer `gt` over raw `git` where possible.
+- This repo uses Graphite (`gt`) as the default tool for branch and PR workflow; for branch creation, commits/amends, PR submit/update, and stack navigation/reshaping, load the `code-graphite` skill (if absent from available skills, resolve it with `areg skill find code-graphite --format json`).
+- Canonical gt-over-git doctrine: prefer `gt` (`gt create`, `gt modify`, `gt submit --no-interactive`) over the raw `git`/`gh` equivalents, falling back to raw `git` only for operations `gt` cannot express. Diagnose topology with plumbing (`gt branch info --no-interactive`, `gt parent`/`gt children --no-interactive`); `gt ls` is human display only, never parsed.
 - Runtime package code must not depend on Graphite by default; prefer `GitGateway`. Before adding any runtime Graphite dependency, read `docs/conventions/graphite-dependency-boundary.md`. `slot gt` is the sanctioned exception.
 - For GitHub backend work via GraphQL, REST, or `gh`, load the `code-gh` skill (if absent from available skills, resolve it with `areg skill find code-gh --format json`).

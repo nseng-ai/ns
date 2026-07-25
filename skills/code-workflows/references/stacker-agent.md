@@ -68,7 +68,7 @@ The core protocol is harness-neutral, not repo-neutral. Use the repo's
 branch workflow conventions when naming branches, creating commits, and
 inspecting stack shape.
 
-In this repo, consult the `graphite` skill for branch mechanics and use
+In this repo, consult the `code-graphite` skill for branch mechanics and use
 Graphite conventions rather than inventing your own.
 
 ## Workflow

@@ -78,7 +78,7 @@ If the user changes scope, revise the preview and ask again. Proceed only after 
 
 - Run within the confirmed scope only.
 - Use optional runner subagents at most one at a time, in the current worktree, with complete prompts and parent verification of results.
-- If branch creation, commit amendment, restacking, or submission is in scope in this repo, consult the Graphite skill first.
+- If branch creation, commit amendment, restacking, or submission is in scope in this repo, consult the `code-graphite` skill first.
 - Keep work only when it is evidenced against `## Definition of Progress`, the prior recommendation's completion evidence, or equivalent progress criteria and passes appropriate validation.
 - Discard ambiguous, speculative, or out-of-scope changes instead of preserving them as run artifacts.
 - Write Objective tracking only for meaningful progress, changed assumptions, invalidated assumptions, reusable findings, changed roadmap/policy guidance, or other durable Objective impact under the selected slug.

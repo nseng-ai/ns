@@ -28,7 +28,6 @@
     "-skills/refactor-swarm",
     "-skills/setup-dprint",
     "-skills/setup-dprint-gh-ci",
-    "-skills/setup-graphite",
     "-skills/code-thermostack",
     "-skills/objective-retro",
     "-skills/ns-cli-design",

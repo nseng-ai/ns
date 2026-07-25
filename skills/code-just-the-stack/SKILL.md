@@ -24,7 +24,7 @@ Invocation authorizes validating, fixing, restacking, and `gt submit --no-intera
 
 ## Related skills
 
-- Use `graphite` for the Graphite navigation mental model.
+- Use `code-graphite` for the Graphite navigation mental model.
 - For `just` failures, follow the `code-just-fix` posture: fix root causes; never weaken checks.
 - For conflict-heavy or ambiguous restacks, use `code-gt-restack-resolve` or `code-resolve-merge-conflicts`; do not invent conflict policy here.
 - For separate fix commits, use `ns flow cp`; do not hand-roll checkpoint commits or amend/squash unless the user explicitly asks for a different commit mode.

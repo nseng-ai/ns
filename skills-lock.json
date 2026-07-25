@@ -51,6 +51,11 @@
       "sourceType": "local",
       "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
     },
+    "code-graphite": {
+      "source": "skills/code-graphite",
+      "sourceType": "local",
+      "computedHash": "46fce8a7e25097c3533502a585becdfb07eec53c89afc1a1492b352b5418c530"
+    },
     "code-gt-linearize-descendants": {
       "source": "skills/code-gt-linearize-descendants",
       "sourceType": "local",
@@ -139,12 +144,6 @@
       "sourceType": "github",
       "skillPath": "skills/fdt-refactor-mock-to-fake/SKILL.md",
       "computedHash": "a7c88842ce3f9e65d3db5227fd6da2ea4f379f832641d83cece6868e7a457445"
-    },
-    "graphite": {
-      "source": "withgraphite/agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/graphite/SKILL.md",
-      "computedHash": "9315b842df6de2a23216a2e72033fa99337398a8d62c11d6c320e55a6b810339"
     },
     "grill-me": {
       "source": "mattpocock/skills",
@@ -373,11 +372,6 @@
       "source": "skills/setup-dprint-gh-ci",
       "sourceType": "local",
       "computedHash": "917991d5963b9005c31a154994373e88fce0c51e6312020f83cddd84ec484781"
-    },
-    "setup-graphite": {
-      "source": "skills/setup-graphite",
-      "sourceType": "local",
-      "computedHash": "e3fca57ff87c0916e4c03264824f9d9106b96b9f26b077a0bbcd040363e950f6"
     },
     "skill-audit": {
       "source": "skills/skill-audit",
