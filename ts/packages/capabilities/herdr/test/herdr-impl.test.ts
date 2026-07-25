@@ -173,8 +173,12 @@ describe("herdr Pi extension — full suite", () => {
 				expect(sentMessages[0]?.customType).toBe("ns-command-ack");
 			},
 		});
-		scenario.register(renderedPi, {
+		const commands = createHerdrPiCommandApi(renderedPi);
+		scenario.register({
+			commands,
 			git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
+			graphite: testGraphiteBranchGateway,
+			herdr: new FakeHerdrGateway(),
 		});
 
 		await pi.commands.get(scenario.commandName)?.handler(scenario.args, ctx);
@@ -244,21 +248,25 @@ describe("Herdr prompt implementation", () => {
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 		const git = new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH });
 
-		await handleHerdrSlotImplPrompt({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			payloadOptions: resolveImplPromptPayloadOptions({
-				stagingDir,
-				now: () => 123,
-				shouldCleanupStagingFile: false,
-			}),
-			slotClient: testSlotClient,
-			graphite: testGraphiteBranchGateway,
-			git,
-			args: prompt,
-			ctx,
-			notifyProgress: () => {},
-		});
+		await handleHerdrSlotImplPrompt(
+			{
+				commands: createHerdrPiCommandApi(pi),
+				pi: ctx,
+				herdr,
+				graphite: testGraphiteBranchGateway,
+				git,
+			},
+			{
+				payloadOptions: resolveImplPromptPayloadOptions({
+					stagingDir,
+					now: () => 123,
+					shouldCleanupStagingFile: false,
+				}),
+				slotClient: testSlotClient,
+				args: prompt,
+				notifyProgress: () => {},
+			},
+		);
 
 		pi.assertDone();
 		expect(git.currentBranchCalls).toEqual([{ cwd: ROOT }, { cwd: ROOT }]);
@@ -333,21 +341,25 @@ describe("Herdr prompt implementation", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotImplPrompt({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			payloadOptions: resolveImplPromptPayloadOptions({
-				stagingDir,
-				now: () => 123,
-				shouldCleanupStagingFile: false,
-			}),
-			graphite: { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) },
-			git,
-			slotClient: testSlotClient,
-			args: prompt,
-			ctx,
-			notifyProgress: () => {},
-		});
+		await handleHerdrSlotImplPrompt(
+			{
+				commands: createHerdrPiCommandApi(pi),
+				pi: ctx,
+				herdr,
+				graphite: { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) },
+				git,
+			},
+			{
+				payloadOptions: resolveImplPromptPayloadOptions({
+					stagingDir,
+					now: () => 123,
+					shouldCleanupStagingFile: false,
+				}),
+				slotClient: testSlotClient,
+				args: prompt,
+				notifyProgress: () => {},
+			},
+		);
 
 		pi.assertDone();
 		expect(ctx.selections).toEqual([]);
@@ -422,17 +434,21 @@ describe("Herdr prompt implementation", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotImplPrompt({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			payloadOptions: resolveImplPromptPayloadOptions({ stagingDir, now: () => 123 }),
-			slotClient: testSlotClient,
-			graphite: testGraphiteBranchGateway,
-			git,
-			args: prompt,
-			ctx,
-			notifyProgress: () => {},
-		});
+		await handleHerdrSlotImplPrompt(
+			{
+				commands: createHerdrPiCommandApi(pi),
+				pi: ctx,
+				herdr,
+				graphite: testGraphiteBranchGateway,
+				git,
+			},
+			{
+				payloadOptions: resolveImplPromptPayloadOptions({ stagingDir, now: () => 123 }),
+				slotClient: testSlotClient,
+				args: prompt,
+				notifyProgress: () => {},
+			},
+		);
 
 		pi.assertDone();
 		expect(herdr.createWorkspaceCalls).toEqual([]);
@@ -449,16 +465,20 @@ describe("Herdr prompt implementation", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT, shouldCancelSelect: true });
 
-		await handleHerdrSlotImplPrompt({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			payloadOptions: resolveImplPromptPayloadOptions({ stagingDir }),
-			graphite: testGraphiteBranchGateway,
-			git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
-			args: "Do not implement this prompt",
-			ctx,
-			notifyProgress: () => {},
-		});
+		await handleHerdrSlotImplPrompt(
+			{
+				commands: createHerdrPiCommandApi(pi),
+				pi: ctx,
+				herdr,
+				graphite: testGraphiteBranchGateway,
+				git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
+			},
+			{
+				payloadOptions: resolveImplPromptPayloadOptions({ stagingDir }),
+				args: "Do not implement this prompt",
+				notifyProgress: () => {},
+			},
+		);
 
 		pi.assertDone();
 		expect(herdr.createWorkspaceCalls).toEqual([]);
@@ -477,19 +497,19 @@ describe("ns:herdr:impl:plan:space", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "--help",
-			ctx,
-			options: dispatchPlanDependencies(),
-			config: {
-				commandName: "ns:herdr:impl:plan:space",
-				statusKey: "ns:herdr:impl:plan:space",
-				destination: "workspace",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "--help",
+				dependencies: dispatchPlanDependencies(),
+				config: {
+					commandName: "ns:herdr:impl:plan:space",
+					statusKey: "ns:herdr:impl:plan:space",
+					destination: "workspace",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		expect(herdr.createWorkspaceCalls).toHaveLength(0);
 		expect(pi.execCalls).toHaveLength(0);
@@ -501,19 +521,19 @@ describe("ns:herdr:impl:plan:space", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "--unknown-flag",
-			ctx,
-			options: dispatchPlanDependencies(),
-			config: {
-				commandName: "ns:herdr:impl:plan:space",
-				statusKey: "ns:herdr:impl:plan:space",
-				destination: "workspace",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "--unknown-flag",
+				dependencies: dispatchPlanDependencies(),
+				config: {
+					commandName: "ns:herdr:impl:plan:space",
+					statusKey: "ns:herdr:impl:plan:space",
+					destination: "workspace",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		expect(herdr.createWorkspaceCalls).toHaveLength(0);
 		const errors = ctx.notifications.filter((n) => n.level === "error");
@@ -523,8 +543,13 @@ describe("ns:herdr:impl:plan:space", () => {
 
 	test("registers space and tab plan implementation and impl:plan:tab via Pi adapter", () => {
 		const pi = new FakePi();
-		registerHerdrPlanSpaceImplCommand(pi);
-		registerHerdrPlanTabImplCommand(pi);
+		const dependencies = {
+			commands: createHerdrPiCommandApi(pi),
+			...dispatchPlanDependencies(),
+			herdr: new FakeHerdrGateway(),
+		};
+		registerHerdrPlanSpaceImplCommand(dependencies);
+		registerHerdrPlanTabImplCommand(dependencies);
 		expect(pi.commands.has("ns:herdr:impl:plan:space")).toBe(true);
 		expect(pi.commands.has("ns:herdr:impl:plan:tab")).toBe(true);
 	});
@@ -536,19 +561,19 @@ describe("ns:herdr:impl:plan:space", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "",
-			ctx,
-			options: dispatchPlanDependencies(),
-			config: {
-				commandName: "ns:herdr:impl:plan:tab",
-				statusKey: "ns:herdr:impl:plan:tab",
-				destination: "tab",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "",
+				dependencies: dispatchPlanDependencies(),
+				config: {
+					commandName: "ns:herdr:impl:plan:tab",
+					statusKey: "ns:herdr:impl:plan:tab",
+					destination: "tab",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		expect(pi.execCalls).toHaveLength(0);
 		expect(herdr.createTabCalls).toHaveLength(0);
@@ -571,19 +596,19 @@ describe("ns:herdr:impl:plan:tab", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "",
-			ctx,
-			options: dispatchPlanDependencies(),
-			config: {
-				commandName: "ns:herdr:impl:plan:tab",
-				statusKey: "ns:herdr:impl:plan:tab",
-				destination: "tab",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "",
+				dependencies: dispatchPlanDependencies(),
+				config: {
+					commandName: "ns:herdr:impl:plan:tab",
+					statusKey: "ns:herdr:impl:plan:tab",
+					destination: "tab",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		expect(pi.execCalls).toHaveLength(0);
 		expect(herdr.createTabCalls).toHaveLength(0);
@@ -625,21 +650,21 @@ describe("ns:herdr:impl:plan:tab", () => {
 		});
 		const destinationReads: Array<"workspace" | "tab"> = ["tab", "workspace", "tab"];
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "",
-			ctx,
-			options,
-			config: {
-				commandName: "ns:herdr:impl:plan:tab",
-				statusKey: "ns:herdr:impl:plan:tab",
-				get destination() {
-					return destinationReads.shift() ?? "tab";
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "",
+				dependencies: options,
+				config: {
+					commandName: "ns:herdr:impl:plan:tab",
+					statusKey: "ns:herdr:impl:plan:tab",
+					get destination() {
+						return destinationReads.shift() ?? "tab";
+					},
 				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		expect(git.createBranchAtHeadCalls).toEqual([]);
 		expect(brmem.attachPlanCalls).toEqual([]);
@@ -657,19 +682,19 @@ describe("ns:herdr:impl:plan:tab", () => {
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 		const progress: string[] = [];
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "",
-			ctx,
-			options: dispatchPlanDependencies(),
-			config: {
-				commandName: "ns:herdr:impl:plan:tab",
-				statusKey: "ns:herdr:impl:plan:tab",
-				destination: "tab",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "",
+				dependencies: dispatchPlanDependencies(),
+				config: {
+					commandName: "ns:herdr:impl:plan:tab",
+					statusKey: "ns:herdr:impl:plan:tab",
+					destination: "tab",
+				},
+				notifyProgress: (message) => progress.push(message),
 			},
-			notifyProgress: (message) => progress.push(message),
-		});
+		);
 
 		expect(pi.execCalls).toEqual([]);
 		expect(progress).toEqual([]);
@@ -686,19 +711,19 @@ describe("ns:herdr:impl:plan:tab", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "--help",
-			ctx,
-			options: dispatchPlanDependencies(),
-			config: {
-				commandName: "ns:herdr:impl:plan:tab",
-				statusKey: "ns:herdr:impl:plan:tab",
-				destination: "tab",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "--help",
+				dependencies: dispatchPlanDependencies(),
+				config: {
+					commandName: "ns:herdr:impl:plan:tab",
+					statusKey: "ns:herdr:impl:plan:tab",
+					destination: "tab",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		expect(pi.execCalls).toEqual([]);
 		expect(ctx.waitCount).toBe(0);
@@ -833,19 +858,19 @@ describe("ns:herdr:impl:plan:space", () => {
 			graphite,
 		});
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "",
-			ctx,
-			options,
-			config: {
-				commandName: "ns:herdr:impl:plan:space",
-				statusKey: "ns:herdr:impl:plan:space",
-				destination: "workspace",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "",
+				dependencies: options,
+				config: {
+					commandName: "ns:herdr:impl:plan:space",
+					statusKey: "ns:herdr:impl:plan:space",
+					destination: "workspace",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		pi.assertDone();
 		expect(git.createBranchAtStartPointCalls).toEqual([
@@ -869,19 +894,19 @@ describe("ns:herdr:impl:plan:space", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT, branchEntries: [] });
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "",
-			ctx,
-			options: dispatchPlanDependencies(),
-			config: {
-				commandName: "ns:herdr:impl:plan:space",
-				statusKey: "ns:herdr:impl:plan:space",
-				destination: "workspace",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "",
+				dependencies: dispatchPlanDependencies(),
+				config: {
+					commandName: "ns:herdr:impl:plan:space",
+					statusKey: "ns:herdr:impl:plan:space",
+					destination: "workspace",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => call.args)).toEqual([
@@ -926,19 +951,19 @@ describe("ns:herdr:impl:plan:space", () => {
 			graphite: new InMemoryGraphiteBranchGateway(),
 		});
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "",
-			ctx,
-			options,
-			config: {
-				commandName: "ns:herdr:impl:plan:space",
-				statusKey: "ns:herdr:impl:plan:space",
-				destination: "workspace",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "",
+				dependencies: options,
+				config: {
+					commandName: "ns:herdr:impl:plan:space",
+					statusKey: "ns:herdr:impl:plan:space",
+					destination: "workspace",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		pi.assertDone();
 		expect(git.createBranchAtStartPointCalls).toEqual([]);
@@ -987,19 +1012,19 @@ describe("ns:herdr:impl:plan:space", () => {
 			graphite: new InMemoryGraphiteBranchGateway(),
 		});
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "--dry-run",
-			ctx,
-			options,
-			config: {
-				commandName: "ns:herdr:impl:plan:space",
-				statusKey: "ns:herdr:impl:plan:space",
-				destination: "workspace",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "--dry-run",
+				dependencies: options,
+				config: {
+					commandName: "ns:herdr:impl:plan:space",
+					statusKey: "ns:herdr:impl:plan:space",
+					destination: "workspace",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		pi.assertDone();
 		expect(git.createBranchAtHeadCalls).toEqual([]);
@@ -1081,19 +1106,19 @@ describe("ns:herdr:impl:plan:space — dry-run (no Herdr mutations)", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "--dry-run",
-			ctx,
-			options: herdrPlanImplTestOptions(planStoreRoot),
-			config: {
-				commandName: "ns:herdr:impl:plan:space",
-				statusKey: "ns:herdr:impl:plan:space",
-				destination: "workspace",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "--dry-run",
+				dependencies: herdrPlanImplTestOptions(planStoreRoot),
+				config: {
+					commandName: "ns:herdr:impl:plan:space",
+					statusKey: "ns:herdr:impl:plan:space",
+					destination: "workspace",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		pi.assertDone();
 		expect(herdr.createWorkspaceCalls).toHaveLength(0);
@@ -1161,19 +1186,19 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			graphite,
 		});
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "",
-			ctx,
-			options,
-			config: {
-				commandName: "ns:herdr:impl:plan:tab",
-				statusKey: "ns:herdr:impl:plan:tab",
-				destination: "tab",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "",
+				dependencies: options,
+				config: {
+					commandName: "ns:herdr:impl:plan:tab",
+					statusKey: "ns:herdr:impl:plan:tab",
+					destination: "tab",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		pi.assertDone();
 		expect(git.createBranchAtStartPointCalls).toEqual([
@@ -1237,19 +1262,19 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			graphite,
 		});
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "--dry-run",
-			ctx,
-			options,
-			config: {
-				commandName: "ns:herdr:impl:plan:tab",
-				statusKey: "ns:herdr:impl:plan:tab",
-				destination: "tab",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "--dry-run",
+				dependencies: options,
+				config: {
+					commandName: "ns:herdr:impl:plan:tab",
+					statusKey: "ns:herdr:impl:plan:tab",
+					destination: "tab",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		pi.assertDone();
 		expect(pi.execCalls).not.toContainEqual(
@@ -1280,19 +1305,19 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "--dry-run",
-			ctx,
-			options: dispatchPlanDependencies(),
-			config: {
-				commandName: "ns:herdr:impl:plan:tab",
-				statusKey: "ns:herdr:impl:plan:tab",
-				destination: "tab",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "--dry-run",
+				dependencies: dispatchPlanDependencies(),
+				config: {
+					commandName: "ns:herdr:impl:plan:tab",
+					statusKey: "ns:herdr:impl:plan:tab",
+					destination: "tab",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		expect(pi.execCalls).toEqual([]);
 		expect(ctx.waitCount).toBe(0);
@@ -1339,19 +1364,19 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			};
 		};
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "",
-			ctx,
-			options,
-			config: {
-				commandName: "ns:herdr:impl:plan:tab",
-				statusKey: "ns:herdr:impl:plan:tab",
-				destination: "tab",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "",
+				dependencies: options,
+				config: {
+					commandName: "ns:herdr:impl:plan:tab",
+					statusKey: "ns:herdr:impl:plan:tab",
+					destination: "tab",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		pi.assertDone();
 		expect(contextConstructions).toBe(1);
@@ -1400,19 +1425,19 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			}),
 		});
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "",
-			ctx,
-			options,
-			config: {
-				commandName: "ns:herdr:impl:plan:space",
-				statusKey: "ns:herdr:impl:plan:space",
-				destination: "workspace",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "",
+				dependencies: options,
+				config: {
+					commandName: "ns:herdr:impl:plan:space",
+					statusKey: "ns:herdr:impl:plan:space",
+					destination: "workspace",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		pi.assertDone();
 		const failure = notificationMessages(ctx).join("\n---\n");
@@ -1460,19 +1485,19 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			}),
 		});
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "",
-			ctx,
-			options,
-			config: {
-				commandName: "ns:herdr:impl:plan:tab",
-				statusKey: "ns:herdr:impl:plan:tab",
-				destination: "tab",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "",
+				dependencies: options,
+				config: {
+					commandName: "ns:herdr:impl:plan:tab",
+					statusKey: "ns:herdr:impl:plan:tab",
+					destination: "tab",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		pi.assertDone();
 		const failure = notificationMessages(ctx).join("\n---\n");
@@ -1509,19 +1534,19 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 
-		await handleHerdrSlotImplPlan({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			rawArgs: "--dry-run",
-			ctx,
-			options: herdrPlanImplTestOptions(planStoreRoot),
-			config: {
-				commandName: "ns:herdr:impl:plan:tab",
-				statusKey: "ns:herdr:impl:plan:tab",
-				destination: "tab",
+		await handleHerdrSlotImplPlan(
+			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
+			{
+				rawArgs: "--dry-run",
+				dependencies: herdrPlanImplTestOptions(planStoreRoot),
+				config: {
+					commandName: "ns:herdr:impl:plan:tab",
+					statusKey: "ns:herdr:impl:plan:tab",
+					destination: "tab",
+				},
+				notifyProgress: () => {},
 			},
-			notifyProgress: () => {},
-		});
+		);
 
 		pi.assertDone();
 		expect(herdr.createWorkspaceCalls).toHaveLength(0);

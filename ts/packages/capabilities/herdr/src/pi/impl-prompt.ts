@@ -1,51 +1,59 @@
-import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
+import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
+import type { GraphiteMetadataDbAccess } from "@nseng-ai/capability-kit/graphite/metadata";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	makeCommandProgressNotifier,
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi/commands/ack";
-import type { ExtensionAPI } from "@nseng-ai/capability-kit/pi-types";
+import type { SlotClient } from "@nseng-ai/slots/api";
 
+import { HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME } from "../core/command-surfaces.ts";
+import type { HerdrGateway } from "../core/herdr-gateway.ts";
 import {
 	handleHerdrSlotImplPrompt,
 	resolveImplPromptPayloadOptions,
 	type ImplPromptPayloadOptions,
 } from "../core/impl-prompt.ts";
-import { HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME } from "../core/command-surfaces.ts";
-import { createCliHerdrGateway } from "../core/cli-gateway.ts";
-import { createHerdrPiCommandApi } from "./pi-command-api.ts";
+import type { HerdrPiCommandApi } from "../core/pi-command-api.ts";
+import { HerdrPiContext } from "./context.ts";
 
 const COMMAND_NAME = HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME;
 
+export interface HerdrPromptSpaceImplDependencies {
+	commands: HerdrPiCommandApi;
+	git: Pick<GitGateway, "createBranchAtStartPoint" | "currentBranch" | "optionalRepoRoot">;
+	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	herdr: HerdrGateway;
+}
+
+export interface HerdrPromptSpaceImplRegistrationOptions extends ImplPromptPayloadOptions {
+	slotClient?: SlotClient;
+	metadataDbAccess?: GraphiteMetadataDbAccess;
+}
+
 export function registerHerdrPromptSpaceImplCommand(
-	rawPi: ExtensionAPI,
-	options: ImplPromptPayloadOptions = {},
+	dependencies: HerdrPromptSpaceImplDependencies,
+	options: HerdrPromptSpaceImplRegistrationOptions = {},
 ): void {
-	const pi = createHerdrPiCommandApi(rawPi);
-	const herdr = createCliHerdrGateway(pi);
 	const payloadOptions = resolveImplPromptPayloadOptions(options);
-	const git = options.git ?? new RealGitGateway(pi);
-	const graphite = options.graphite ?? new RealGraphiteBranchGateway(pi);
 
 	registerCommandWithImmediateAck({
-		host: pi,
+		host: dependencies.commands,
 		commandName: COMMAND_NAME,
 		commandDefinition: {
 			description: "Implement a prompt in a new space.",
 			argumentHint: "<prompt>",
 			handler: async (args, ctx) => {
-				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });
-				await handleHerdrSlotImplPrompt({
-					pi,
-					herdr,
+				const notifyProgress = makeCommandProgressNotifier({
+					host: dependencies.commands,
+					ctx,
+				});
+				await handleHerdrSlotImplPrompt(new HerdrPiContext({ ...dependencies, pi: ctx }), {
 					payloadOptions,
 					...optionalEntry("slotClient", options.slotClient),
-					graphite,
-					git,
 					...optionalEntry("metadataDbAccess", options.metadataDbAccess),
 					args,
-					ctx,
 					notifyProgress,
 				});
 			},

@@ -129,13 +129,15 @@ describe("tracked branch payload public API", () => {
 			},
 		]);
 
-		const result = await storeTrackedBranchPayload({
-			pi: commands,
-			cwd: REPO_ROOT,
-			branchName: "feature-demo",
-			content: "Implement the feature.\n",
-			payloadOptions: resolveTrackedBranchPayloadOptions({ stagingDir, now: () => 123 }),
-		});
+		const result = await storeTrackedBranchPayload(
+			{ pi: commands },
+			{
+				cwd: REPO_ROOT,
+				branchName: "feature-demo",
+				content: "Implement the feature.\n",
+				payloadOptions: resolveTrackedBranchPayloadOptions({ stagingDir, now: () => 123 }),
+			},
+		);
 
 		commands.assertDone();
 		expect(result).toMatchObject({
@@ -165,13 +167,15 @@ describe("tracked branch payload public API", () => {
 			},
 		]);
 
-		const result = await storeTrackedBranchPayload({
-			pi: commands,
-			cwd: REPO_ROOT,
-			branchName: "feature-demo",
-			content: "Do not overwrite.\n",
-			payloadOptions: resolveTrackedBranchPayloadOptions({ stagingDir, now: () => 123 }),
-		});
+		const result = await storeTrackedBranchPayload(
+			{ pi: commands },
+			{
+				cwd: REPO_ROOT,
+				branchName: "feature-demo",
+				content: "Do not overwrite.\n",
+				payloadOptions: resolveTrackedBranchPayloadOptions({ stagingDir, now: () => 123 }),
+			},
+		);
 
 		commands.assertDone();
 		expect(result).toMatchObject({ ok: false, error: { code: "dispatch_prompt_collision" } });
@@ -222,7 +226,10 @@ describe("tracked branch payload public API", () => {
 		]);
 
 		const git = new InMemoryGitGateway();
-		const result = await createTrackedBranchForPrompt(commands, REPO_ROOT, prompt, git);
+		const result = await createTrackedBranchForPrompt(
+			{ pi: commands, git },
+			{ cwd: REPO_ROOT, prompt },
+		);
 
 		commands.assertDone();
 		expect(git.createBranchAtStartPointCalls).toEqual([
@@ -265,14 +272,15 @@ describe("tracked branch payload public API", () => {
 		]);
 
 		const git = new InMemoryGitGateway();
-		const result = await createTrackedBranchFromResolvedParent({
-			pi: commands,
-			git,
-			cwd: REPO_ROOT,
-			prompt,
-			parentBranch: "main",
-			startPoint: "def456",
-		});
+		const result = await createTrackedBranchFromResolvedParent(
+			{ pi: commands, git },
+			{
+				cwd: REPO_ROOT,
+				prompt,
+				parentBranch: "main",
+				startPoint: "def456",
+			},
+		);
 
 		commands.assertDone();
 		expect(git.createBranchAtStartPointCalls).toEqual([
@@ -295,11 +303,10 @@ describe("tracked branch payload public API", () => {
 			},
 		]);
 
-		const result = await prepareLocalGraphiteTrunk({
-			pi: commands,
-			cwd: REPO_ROOT,
-			graphite: { trunkBranch: async () => ({ ok: true, branch: "main" }) },
-		});
+		const result = await prepareLocalGraphiteTrunk(
+			{ pi: commands, graphite: { trunkBranch: async () => ({ ok: true, branch: "main" }) } },
+			{ cwd: REPO_ROOT },
+		);
 
 		commands.assertDone();
 		expect(result).toEqual({
@@ -339,14 +346,15 @@ describe("tracked branch payload public API", () => {
 		]);
 
 		const git = new InMemoryGitGateway();
-		const result = await createTrackedBranchFromResolvedParent({
-			pi: commands,
-			git,
-			cwd: REPO_ROOT,
-			prompt,
-			parentBranch: "feature/source",
-			startPoint: "abc123",
-		});
+		const result = await createTrackedBranchFromResolvedParent(
+			{ pi: commands, git },
+			{
+				cwd: REPO_ROOT,
+				prompt,
+				parentBranch: "feature/source",
+				startPoint: "abc123",
+			},
+		);
 
 		commands.assertDone();
 		expect(git.createBranchAtStartPointCalls).toEqual([

@@ -1,23 +1,24 @@
+import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
+import type { GraphiteMetadataDbAccess } from "@nseng-ai/capability-kit/graphite/metadata";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
 	makeCommandProgressNotifier,
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi/commands/ack";
-import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
-import type { ExtensionAPI } from "@nseng-ai/capability-kit/pi-types";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
+import type { SlotClient } from "@nseng-ai/slots/api";
 
+import {
+	HERDR_PLAN_TAB_IMPL_COMMAND_NAME,
+	HERDR_PLAN_SPACE_IMPL_COMMAND_NAME,
+} from "../core/command-surfaces.ts";
+import type { HerdrGateway } from "../core/herdr-gateway.ts";
 import {
 	handleHerdrSlotImplPlan,
 	type ImplPlanConfig,
 	type HerdrSlotImplPlanOptions,
 	type ResolvedHerdrSlotImplPlanOptions,
 } from "../core/impl-plan.ts";
-import {
-	HERDR_PLAN_TAB_IMPL_COMMAND_NAME,
-	HERDR_PLAN_SPACE_IMPL_COMMAND_NAME,
-} from "../core/command-surfaces.ts";
-import { createCliHerdrGateway } from "../core/cli-gateway.ts";
-import { createHerdrPiCommandApi, type HerdrPiCommandApi } from "./pi-command-api.ts";
+import type { HerdrPiCommandApi } from "../core/pi-command-api.ts";
 
 const WORKSPACE_COMMAND_NAME = HERDR_PLAN_SPACE_IMPL_COMMAND_NAME;
 const TAB_COMMAND_NAME = HERDR_PLAN_TAB_IMPL_COMMAND_NAME;
@@ -34,49 +35,64 @@ const TAB_CONFIG: ImplPlanConfig = {
 	destination: "tab",
 };
 
+export interface HerdrPlanImplDependencies {
+	commands: HerdrPiCommandApi;
+	git: Pick<GitGateway, "currentBranch" | "optionalRepoRoot">;
+	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	herdr: HerdrGateway;
+}
+
+export interface HerdrPlanImplRegistrationOptions extends Omit<
+	HerdrSlotImplPlanOptions,
+	"git" | "graphite"
+> {
+	planStoreRoot?: string;
+	slotClient?: SlotClient;
+	metadataDbAccess?: GraphiteMetadataDbAccess;
+}
+
 export function registerHerdrPlanSpaceImplCommand(
-	rawPi: ExtensionAPI,
-	options: HerdrSlotImplPlanOptions = {},
+	dependencies: HerdrPlanImplDependencies,
+	options: HerdrPlanImplRegistrationOptions = {},
 ): void {
-	registerPlanImplCommand(createHerdrPiCommandApi(rawPi), WORKSPACE_CONFIG, options);
+	registerPlanImplCommand(dependencies, WORKSPACE_CONFIG, options);
 }
 
 export function registerHerdrPlanTabImplCommand(
-	rawPi: ExtensionAPI,
-	options: HerdrSlotImplPlanOptions = {},
+	dependencies: HerdrPlanImplDependencies,
+	options: HerdrPlanImplRegistrationOptions = {},
 ): void {
-	registerPlanImplCommand(createHerdrPiCommandApi(rawPi), TAB_CONFIG, options);
+	registerPlanImplCommand(dependencies, TAB_CONFIG, options);
 }
 
 function registerPlanImplCommand(
-	pi: HerdrPiCommandApi,
+	context: HerdrPlanImplDependencies,
 	config: ImplPlanConfig,
-	options: HerdrSlotImplPlanOptions,
+	options: HerdrPlanImplRegistrationOptions,
 ): void {
-	const herdr = createCliHerdrGateway(pi);
 	const dependencies: ResolvedHerdrSlotImplPlanOptions = {
 		...options,
-		graphite: options.graphite ?? new RealGraphiteBranchGateway(pi),
-		git: options.git ?? new RealGitGateway(pi),
+		graphite: context.graphite,
+		git: context.git,
 	};
 	const destination = config.destination === "workspace" ? "space" : "tab";
 	registerCommandWithImmediateAck({
-		host: pi,
+		host: context.commands,
 		commandName: config.commandName,
 		commandDefinition: {
 			description: `Implement a plan in a new ${destination}.`,
 			argumentHint: "[--dry-run] [--help]",
-			handler: async (rawArgs, ctx) => {
-				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });
-				await handleHerdrSlotImplPlan({
-					pi,
-					herdr,
-					rawArgs,
-					ctx,
-					options: dependencies,
-					config,
-					notifyProgress,
-				});
+			handler: async (rawArgs, pi) => {
+				const notifyProgress = makeCommandProgressNotifier({ host: context.commands, ctx: pi });
+				await handleHerdrSlotImplPlan(
+					{ commands: context.commands, herdr: context.herdr, pi },
+					{
+						rawArgs,
+						dependencies,
+						config,
+						notifyProgress,
+					},
+				);
 			},
 		},
 		options: { delivery: "message" },
