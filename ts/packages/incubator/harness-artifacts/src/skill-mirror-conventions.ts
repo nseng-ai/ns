@@ -39,7 +39,7 @@ export interface SkillMirrorRelativePathInfo {
 }
 
 /**
- * Returns parsed mirror information for an exact areg-managed skill mirror
+ * Returns parsed mirror information for an exact project-managed skill mirror
  * location, or undefined when the path is not a valid mirror path.
  */
 export function parseSkillMirrorRelativePath(
@@ -65,7 +65,7 @@ export function parseSkillMirrorRelativePath(
 }
 
 /**
- * Returns true when the relative path is exactly an areg-managed skill mirror
+ * Returns true when the relative path is exactly a project-managed skill mirror
  * location: `.agents/skills/<name>` or `.claude/skills/<name>` with a plain
  * single-segment skill name.
  */

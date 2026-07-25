@@ -1,5 +1,4 @@
-[areg]
-agents = ["codex", "claude-code"]
+extensions = ["./.ns/extensions/skill-exposure"]
 
 [slots]
 provision = [".env.local"]

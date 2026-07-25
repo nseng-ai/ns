@@ -73,3 +73,11 @@ Risks:
 - What is the smallest retained `list`/`show`/`check` interface when explicit paths, rather than discovery by name, are authoritative?
 - Which existing callers depend on generic `areg` inventory or diagnostics, and which should move to `npx skills`, `ns skills`, or direct policy inspection?
 - What pinning mechanism best keeps local development, CI contract checks, and skill-management guidance on the same supported `skills` CLI release?
+
+## Closure
+
+**Outcome: Abandoned.**
+
+The standalone successor thesis and the broader upstream/nested-catalog program were rejected. The closing change intentionally salvages only this repository's useful Skill Exposure Policy as the explicitly declared, private project-local `ns skill-exposure` extension. It does not complete or silently transfer the proposed upstream `skills` pin and contract tests, the nested Objective-family catalog steelthread, or general ecosystem productization; the unchecked roadmap rows remain unchanged.
+
+Durable current ownership now lives in `.ns/extensions/skill-exposure/` and the active skill conventions rather than only in this Objective. The remaining risk is that both the policy and its Pi replacement registry are coupled to this repository. Promote the extension to `ts/packages/internal/*` only if broader package-grade reuse appears, and promote it to a first-party extension only after another consumer proves the product need.

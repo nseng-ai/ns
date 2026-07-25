@@ -91,15 +91,15 @@ jobs:
       - name: Build docs site
         run: pnpm --dir docs-site run build
 
-  areg-check:
+  skill-exposure-check:
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-typescript
-      - name: Run areg check
-        run: just areg-check
+      - name: Check skill exposure policy
+        run: just skill-exposure-check
 
   objective-check:
     if: github.event.pull_request.draft != true

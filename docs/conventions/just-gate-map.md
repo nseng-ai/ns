@@ -13,7 +13,7 @@ The single home for mapping a failing signal to the narrowest `just` gate in thi
 | Isolated-lane tests                         | `just ts-test-isolated`                                |
 | TypeScript style guard                      | `just ts-test-typescript-style-guard`                  |
 | Objective record structure                  | `just objective-check`                                 |
-| Skill/harness registry drift                | `just areg-check`                                      |
+| Skill Exposure Policy drift                 | `just skill-exposure-check`                            |
 | Docs/markdown only                          | `just dprint-check`; no code gate                      |
 | Mixed or uncertain                          | `just check` (the full default suite)                  |
 

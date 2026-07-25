@@ -134,9 +134,13 @@ The action that materializes a **Harness artifact** into a **Harness** root.
 The user-facing CLI noun for `ns skills ...`, the current steelthread surface over `skill` **Harness artifact** provisioning.
 *Avoid*: artifacts as the user-facing noun
 
-**Harness overlay**:
-Per-invocation-kind harness integration files reconciled by areg, such as frontmatter flags, Codex sidecars, Pi settings exclusions, and mirror symlinks. Harness overlays are the seam where repo-owned invocation policy layers onto first-party or externally sourced skill content.
-*Avoid*: managed artifacts, kind overlays
+**Skill Exposure Policy**:
+The explicit repo-local declaration of how a skill is surfaced across harnesses. The retained policies are exactly `normal`, `invoke-only`, and `command-backed`; declarations target an explicit skill directory or direct `SKILL.md` path and are reconciled by `ns skill-exposure`.
+*Avoid*: invocation kind, ambient-only, unlisted, inferred exposure
+
+**Harness Overlay**:
+The per-harness integration files derived from **Skill Exposure Policy**, such as frontmatter flags, Codex sidecars, and Pi settings exclusions. Harness Overlay ownership is limited to cross-harness exposure and the command-backed replacement invariant; acquisition, layout, hashes, mirrors, and install health belong to `npx skills` or `ns skills` / `ns update` as appropriate.
+*Avoid*: registry, managed artifact, install record, skill health check
 
 **Commit Run**:
 A linear, merge-free commit sequence on one feature branch off trunk — the branch is the run, `trunk..tip`, with no run identity beyond it. Packageable when its tip validates and its commit messages narrate intent well enough for **Packaging** to judge slice boundaries; there are no structured decision markers — narrative prose is the signal.
@@ -228,7 +232,7 @@ The consumer action of configuring a **Hook** or **Prompt** at a **Point**.
 *Avoid*: define, register, enable extension code
 
 **Point catalog**:
-The SDK-computed view that joins point definitions with consumer installations and diagnostics. Catalog is the point-system word; **Registry** remains areg vocabulary.
+The SDK-computed view that joins point definitions with consumer installations and diagnostics. Catalog is the point-system word.
 *Avoid*: registry, hook registry, prompt registry
 **Neutral Infra**:
 The floor below the SDK — packages/subpackages that depend only on other Neutral Infra (`@nseng-ai/foundation`, `@nseng-ai/foundation/exec`, `@nseng-ai/foundation/git`, `@nseng-ai/foundation/cli-theme`, `@nseng-ai/clinkr`). Neutral means independent of ns, not effect-free: a surface qualifies when its public contract is ns-independent and its design states a credible external-consumer scenario (ADR 0032); it may perform real-world I/O. **Pure Utility** is the narrower term for its deterministic, I/O-free members. ns-shaped gateways remain **Kit Gateway** material; a gateway passing the external-applicability test may be Neutral Infra owned by foundation.
@@ -321,7 +325,7 @@ The `testing` **Subpackage**: the cross-package test-time contract exporting fak
 *Avoid*: test folder, test utils, mocks folder
 
 **Host-surface subpackage**:
-A **Subpackage** that exists because exactly one host consumes it as an entry surface — `ns` (the ns **Command Face**), `pi` (Pi mirrors), `ns-extension` (SDK extension descriptor loading) — and that only its host may import, with one sanctioned exception: areg's command-backed-skill-registry module imports ns extensions' `pi` subpackages to enumerate command-backed skill surfaces. It holds thin per-feature adapters, not domain logic.
+A **Subpackage** that exists because exactly one host consumes it as an entry surface — `ns` (the ns **Command Face**), `pi` (Pi mirrors), `ns-extension` (SDK extension descriptor loading) — and that only its host may import. It holds thin per-feature adapters, not domain logic.
 *Avoid*: context subpackage, commands, shell, presentation layer
 
 **Feature subpackage**:

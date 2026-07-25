@@ -713,7 +713,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 	const syntheticPackages = new Set([
 		"@internal/pi-tools/grill",
 		"@internal/ns-pi-subagents/runner-subagents",
-		"@nseng-ai/areg",
+		"@nseng-ai/vibechk",
 		"@nseng-ai/slots",
 		"@nseng-ai/extension-kit",
 		"@nseng-ai/foundation",
@@ -726,7 +726,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 	const baseTiers = new Map<string, SyntheticTier>([
 		["@internal/pi-tools/grill", "internal-tool"],
 		["@internal/ns-pi-subagents/runner-subagents", "internal-tool"],
-		["@nseng-ai/areg", "standalone-tool"],
+		["@nseng-ai/vibechk", "standalone-tool"],
 		["@nseng-ai/slots", "extension"],
 		["@nseng-ai/extension-kit", "extension-kit"],
 		["@nseng-ai/foundation", "neutral-infra"],
@@ -769,7 +769,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		},
 		{
 			name: "standalone tool to host is allowed",
-			edges: [{ from: "@nseng-ai/areg", to: "@nseng-ai/pi" }],
+			edges: [{ from: "@nseng-ai/vibechk", to: "@nseng-ai/pi" }],
 			expectedViolation: false,
 		},
 		{
@@ -791,12 +791,12 @@ describe("TypeScript style guard package tier layering rules", () => {
 		},
 		{
 			name: "internal tool to standalone tool is allowed",
-			edges: [{ from: "@internal/pi-tools/grill", to: "@nseng-ai/areg" }],
+			edges: [{ from: "@internal/pi-tools/grill", to: "@nseng-ai/vibechk" }],
 			expectedViolation: false,
 		},
 		{
 			name: "standalone tool to internal tool is rejected",
-			edges: [{ from: "@nseng-ai/areg", to: "@internal/pi-tools/grill" }],
+			edges: [{ from: "@nseng-ai/vibechk", to: "@internal/pi-tools/grill" }],
 			expectedTextIncludes: "standalone-tool-must-not-depend-on-internal-tool",
 		},
 		{
@@ -972,7 +972,7 @@ describe("TypeScript style guard tier-directory projection rule", () => {
 		{
 			name: "standalone-tool outside tools role dir is rejected",
 			tier: "standalone-tool",
-			packageDir: "ts/packages/areg",
+			packageDir: "ts/packages/vibechk",
 			shouldViolate: true,
 		},
 		{

@@ -45,8 +45,9 @@ are a permitted supplement to the lineage block, not a replacement for the regis
 
 `npx skills` has no rename flag. To import an upstream skill under a different ns name:
 install with `--skill <upstream-name>`, then rename the vendored dir, the lockfile key,
-and the frontmatter `name:` line per the `skill-management` rename flow, and verify with
-`areg check`. The lock **key** is the local name; the `skillPath` field keeps recording
+and the frontmatter `name:` line per the `skill-management` rename flow, and verify install/layout with the supported `npx skills` workflow. If the skill
+has an exposure declaration, check its explicit renamed path with
+`ns skill-exposure check <path>`. The lock **key** is the local name; the `skillPath` field keeps recording
 the upstream in-repo path. Record every rename in the instance doc's rename table with
 its rationale (usually a name collision with a first-party or harness surface).
 
@@ -54,8 +55,9 @@ its rationale (usually a name collision with a first-party or harness surface).
 
 Vendored dirs stay byte-identical to upstream except:
 
-- areg-owned invocation overlays (`disable-model-invocation` frontmatter,
-  `agents/openai.yaml`), which are re-derived with `areg skill apply`, never hand-merged;
+- repo-owned Harness Overlays (`disable-model-invocation` frontmatter,
+  `agents/openai.yaml`), which are re-derived with `ns skill-exposure apply` on an
+  explicit path, never hand-merged;
 - recorded forks: the smallest possible edit (ideally one line), recorded in the
   instance doc with its rationale, and re-applied after every refresh.
 
@@ -69,7 +71,7 @@ When an upstream repo moves:
 1. Read the upstream changelog and diff the vendored skills against upstream HEAD.
 2. Refresh vendored skills with targeted `npx skills add <source> --skill <name>`
    commands (never a broad update), then re-apply recorded forks and re-derive
-   invocation overlays via `areg skill apply`.
+   Harness Overlays via `ns skill-exposure apply <policy> <explicit-path>`.
 3. Import or reject new upstream skills deliberately; record rejections and renames in
    the instance doc.
 4. Walk the melded-surfaces registry and apply each row's sync action. Semantic-merge
@@ -80,9 +82,11 @@ When an upstream repo moves:
    for unattributed embeddings. Verified hits get a lineage block and a registry row;
    near-misses are dismissed in writing in the instance doc.
 6. Bump the pin in the instance doc.
-7. Validate: `areg check` and `areg doctor skills`; byte-diff every refreshed vendored
-   dir against upstream (only recorded forks and overlays may differ); inspect
-   `skills-lock.json` for unrelated churn; run repo validation (`just`).
+7. Validate acquisition and lock state with supported `npx skills` commands; run
+   `ns skill-exposure check <path...>` only for the explicitly refreshed skills;
+   byte-diff every refreshed vendored dir against upstream (only recorded forks and
+   overlays may differ); inspect `skills-lock.json` for unrelated churn; run repo
+   validation (`just`).
 
 ## Conflict classes
 
@@ -97,7 +101,7 @@ instance doc and inherited by every registry row, so refreshes do not relitigate
   and other ns-native workflows are never replaced by upstream workflow skills without a
   separate product decision.
 - **Harness invocation semantics.** Upstream invocation intent is mapped onto ns
-  invocation kinds via `areg skill apply`, taking harness caveats
+  Skill Exposure Policy via `ns skill-exposure apply` on explicit paths, taking harness caveats
   (`docs/research/harness-skill-invocation.md`) into account.
 
 ## Instance docs

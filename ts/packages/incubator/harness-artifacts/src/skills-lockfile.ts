@@ -97,7 +97,7 @@ export function parseInspectedLockfile(input: {
 	if (input.lockfile.type !== "file")
 		return resultErr({
 			code: "lockfile_missing",
-			message: `skills-lock.json not found in ${input.projectDir}. Is this an areg project?`,
+			message: `skills-lock.json not found in ${input.projectDir}. Is this a skill-managed project?`,
 		});
 	return parseLockfileText(input.lockfile.text);
 }

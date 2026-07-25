@@ -16,7 +16,8 @@ allowed-tools:
   - "Bash(cat skills-lock.json)"
   - "Bash(cat .claude/skills/*)"
   - "Bash(rg *)"
-  - "Bash(areg check)"
+  - "Bash(npx skills check)"
+  - "Bash(ns skill-exposure check *)"
   - "Bash(git add *)"
   - "Bash(git mv *)"
   - "Bash(git diff *)"
@@ -37,10 +38,10 @@ canonical source is `skills/<name>/` (see **Mental model**).
 This skill covers the `npx skills` channels: repo-local first-party skills
 (`skills/<name>/` + the symlink layout + `skills-lock.json`) and third-party
 GitHub-sourced vendored skills. Out of scope: first-party npm-module-bundled
-provisioning (`ns skills` / `ns update` territory), and invocation kinds /
-harness overlays, which are managed by `areg skill apply` — not by `npx skills`
-or by hand-editing `disable-model-invocation`, `agents/openai.yaml`, or Pi
-skill exclusions.
+provisioning (`ns skills` / `ns update` territory), and Skill Exposure Policy /
+Harness Overlays, which are managed by `ns skill-exposure` on explicit skill
+paths — not by `npx skills` or by hand-editing `disable-model-invocation`,
+`agents/openai.yaml`, or Pi skill exclusions.
 
 ## Goal
 
@@ -61,7 +62,8 @@ For every skill-management operation, produce an end state with:
   path, rewrite it to the repo-relative form before committing.
 - **Committed `computedHash` values must be real 64-character lowercase hex
   hashes.** Do not leave `PENDING_REGEN`, shortened hashes, or other
-  placeholders in the lockfile; `areg check` rejects them.
+  placeholders in the lockfile; use the supported `npx skills` workflow to
+  regenerate and check lock state.
 - **Always install with `--agent codex claude-code -y`.** Never use
   `--agent claude-code` alone; it creates the Claude symlink without ensuring
   `.agents/skills/` is populated. Never omit `-a`; the CLI may auto-detect
@@ -201,12 +203,13 @@ The rename is complete only when both checks pass:
 
 ```bash
 rg -l '<old>' skills/ .agents/ .claude/ .pi/ docs/ skills-lock.json   # expect: no matches
-areg check                                                            # expect: all OK
+npx skills list | rg '<new>'                                          # expect: installed
 ```
 
 Any remaining `rg` hit is either updated to `<new>` or explicitly reported to the
 user as a deliberate historical mention; do not report the rename done while
-unexplained hits remain.
+unexplained hits remain. If exposure policy is declared, check both old and new
+explicit paths with `ns skill-exposure check <path...>`.
 
 ## Inspect and troubleshoot
 

@@ -2,6 +2,7 @@ packages:
   - packages/*
   - packages/*/*
   - ../.ns/reviews/*/tools/*
+  - ../.ns/extensions/*
 
 allowBuilds:
   '@google/genai': true

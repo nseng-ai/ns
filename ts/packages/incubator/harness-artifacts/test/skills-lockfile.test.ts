@@ -80,9 +80,12 @@ describe("skills lockfile parser", () => {
 			lockfile: { type: "missing" },
 		});
 
-		expect(result).toMatchObject({
+		expect(result).toEqual({
 			ok: false,
-			error: { code: "lockfile_missing" },
+			error: {
+				code: "lockfile_missing",
+				message: "skills-lock.json not found in /repo. Is this a skill-managed project?",
+			},
 		});
 	});
 
