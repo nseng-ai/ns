@@ -12,9 +12,9 @@ The domain term **"capability"** is renamed to **"extension"** across ns vocabul
 
 ## Scope
 
-- The vocabulary verdict: "extension" replaces "capability" as the canonical ns domain term; decide the qualified forms (e.g. always "pi extension" vs "ns extension" where ambiguity is possible) and the contexts where the bare term is permitted.
+- The vocabulary verdict: "extension" replaces "capability" as the canonical ns domain term. **ns extension** covers both the technical package and the feature area; use bare **extension** when context is unambiguous, and qualify **ns extension** versus **Pi extension** when either could be meant.
 - The disambiguation contract, written down where agents and readers will find it: root `CONTEXT.md` (canonical term + *Avoid* entries for "capability"), relevant nested CONTEXT files, and `CONTEXT-MAP.md` if routing changes.
-- Reconcile `professional-repo-curation`'s `references/root-readme-positioning.md` taxonomy: the settled five-axis presentation (core = objectives/handoffs/flow/pr-feedback; extensions = slots/reviews/plans/branch-context; harness integrations; tools; skills) uses "extensions" as one axis distinct from "core capabilities" — decide what the axes become under the new vocabulary (e.g. core extensions vs optional extensions, or a new axis name) without reopening the settled positioning decisions.
+- Reconcile `professional-repo-curation`'s `references/root-readme-positioning.md` taxonomy without reopening its settled positioning decisions: the objectives/handoffs/flow/pr-feedback group is presented as **the core**, while slots/reviews/plans/branch-context is presented simply as **extensions**.
 - Docs/prose sweep: rename "capability" in READMEs, docs/, skills prose, and Objective records where the term is domain vocabulary (not historical quotations or immutable Semantic Updates).
 - Inventory the code-level blast radius — `ts/packages/capability-kit`, identifiers, config keys, path literals — and produce the rename plan that the demotion commit (or an adjacent slice) executes; this Subobjective decides, the parent sequences the code moves.
 
@@ -41,12 +41,11 @@ Assumptions:
 
 Risks:
 
-- **Ambiguity leakage.** "Extension" is already taken by pi (`.pi/extensions/*`) and the repo works with both daily. Mitigation: the contract mandates qualified forms wherever both could be meant, and CONTEXT *Avoid* entries make bare-term misuse lintable by review.
+- **Ambiguity leakage.** "Extension" is already taken by Pi (`.pi/extensions/*`) and the repo works with both daily. The accepted mitigation is contextual qualification: use bare **extension** only where its referent is unambiguous, otherwise write **ns extension** or **Pi extension**. The vocabulary sweep must make that rule discoverable and reviewable.
 - **Double-move churn.** Renaming `capability-kit` and path literals before or after the demotion commit independently moves paths twice. Mitigation: hard-ordering — vocabulary verdict here, code moves sequenced by the parent with the demotion commit.
 - **Taxonomy drift.** Reconciling the README taxonomy could quietly reopen settled positioning decisions. Mitigation: the non-goal above; only the axis vocabulary changes.
 
 ## Open Questions
 
-- What do the presentation taxonomy axes become: "core extensions" vs "extensions"? "core" vs "extensions" with extension as the generic noun? A different axis name entirely?
-- Does `capability-kit` rename to `extension-kit` (tier directory and package scope), and does that happen inside the demotion commit or as its own adjacent commit?
+- Does the `extension-kit` directory/package rename happen inside the demotion commit or as its own adjacent commit? Its intended meaning is the shared library for extensions defined in the ns repository, not yet a general third-party extension framework.
 - Which surfaces keep "capability" deliberately (historical ADRs, quotations, external references)?
