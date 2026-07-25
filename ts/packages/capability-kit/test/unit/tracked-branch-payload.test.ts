@@ -215,7 +215,7 @@ describe("tracked branch payload public API", () => {
 			},
 			{
 				command: "git",
-				args: ["branch", "implement-feature-2", "HEAD"],
+				args: ["branch", "implement-feature-2", "abc123"],
 				result: exited(),
 			},
 			{
@@ -259,7 +259,7 @@ describe("tracked branch payload public API", () => {
 			},
 			{
 				command: "git",
-				args: ["branch", "implement-trunk-feature", "main"],
+				args: ["branch", "implement-trunk-feature", "def456"],
 				result: exited(),
 			},
 			{
@@ -275,7 +275,6 @@ describe("tracked branch payload public API", () => {
 			prompt,
 			parentBranch: "main",
 			startPoint: "def456",
-			startRef: "main",
 		});
 
 		commands.assertDone();
@@ -311,7 +310,7 @@ describe("tracked branch payload public API", () => {
 		});
 	});
 
-	test("reports the created Git branch when Graphite tracking fails", async () => {
+	test("creates from the resolved commit and reports a later Graphite tracking failure", async () => {
 		const prompt = "Implement the feature";
 		const commands = new FakeCommands([
 			{
@@ -334,7 +333,7 @@ describe("tracked branch payload public API", () => {
 			},
 			{
 				command: "git",
-				args: ["branch", "implement-feature", "HEAD"],
+				args: ["branch", "implement-feature", "abc123"],
 				result: exited(),
 			},
 			{
@@ -350,7 +349,6 @@ describe("tracked branch payload public API", () => {
 			prompt,
 			parentBranch: "feature/source",
 			startPoint: "abc123",
-			startRef: "HEAD",
 		});
 
 		commands.assertDone();

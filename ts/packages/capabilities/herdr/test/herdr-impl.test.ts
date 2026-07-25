@@ -207,7 +207,7 @@ describe("Herdr prompt implementation", () => {
 					{ stdout: `${BRANCH}\n` },
 				),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
-				step("git", ["branch", BRANCH, "HEAD"], {}),
+				step("git", ["branch", BRANCH, START_POINT], {}),
 				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
 				step(
 					"brmem",
@@ -382,7 +382,7 @@ describe("Herdr prompt implementation", () => {
 					{ stdout: `${BRANCH}\n` },
 				),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
-				step("git", ["branch", BRANCH, "HEAD"], {}),
+				step("git", ["branch", BRANCH, START_POINT], {}),
 				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
 				step(
 					"brmem",
