@@ -4,6 +4,8 @@ edges:
     annotation: Primary Subobjective that settled and implemented extension vocabulary, package/tier naming, and the extension-package move into the incubation zone; its remaining prose sweep must close before final presentation.
   - objective: foundation-readme-driven-pass
     annotation: Parallel Subobjective umbrella owning the per-package README-driven pass over Clinkr, Foundation, Brmem, SDK, and Extension Kit.
+  - objective: package-disposition-and-host-ontology
+    annotation: Subobjective replacing the interim flat-incubator direction with the approved public/incubating/internal disposition model, host-owned package ontologies, and atomic repository reorganization.
 ---
 
 # Professional Repo: Curation, First Ships, and Transfer
