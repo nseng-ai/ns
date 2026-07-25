@@ -138,6 +138,30 @@ as cold Node CLI/import smoke tests, real Git repositories, sqlite-backed fixtur
 discovery/import, or other subprocess or filesystem-heavy behavior that should remain available but not
 slow the default path.
 
+### Cross-product coverage model
+
+Test coverage has two complementary axes:
+
+- Fast in-process, fake-driven scenarios prove the broader matrix of application behavior: routing,
+  argument shaping, exits, envelopes, and consistency within the application. Drive real entrypoints and
+  composition through injected fakes where practical.
+- Integration tests prove compatibility with production adapters, external protocols and backends,
+  runtime loader or import paths, terminal interpretation layers, and real composition or wiring.
+
+Neither axis substitutes for the other, and the suite should not form a Cartesian product of every
+behavior against every real backend. Exercise each **distinct real boundary surface** meaningfully at
+least once, then cover its wider behavior matrix through fakes. A distinct surface is a materially
+different production adapter, external protocol or backend, runtime loader or import path, terminal
+interpretation layer, or composition or wiring path whose compatibility the same fake cannot establish.
+Different inputs, errors, or configuration variants of one adapter are not distinct surfaces. Merely
+importing or constructing an adapter is not a meaningful exercise unless importability or constructability
+is itself the contract.
+
+Before moving or removing a test case, inventory every confidence claim it makes and name the retained
+default or integration test that owns each claim. Do not delete a case merely because another layer has
+superficially similar assertions: default scenarios own application behavior, while integration tests own
+real-boundary compatibility and wiring.
+
 Computationally expensive smoke tests belong in the integration lane when they primarily prove
 compatibility, bootability, real module importability, real adapter wiring, or runtime behavior rather
 than localized business logic. Examples include cold Node/runtime CLI smokes, direct Jiti or workspace
@@ -192,7 +216,8 @@ Default-path tests should prefer small fake-driven seams:
   such as `flowCpCommand`, execute them with a fake `NsExtensionApi`, scripted command runner, scripted
   text generation, and inert temp files, then keep a small ji integration smoke proving the checked-in
   `.ns/extensions/flow` adapter manifest is discoverable/loadable through the real CLI loader.
-- Assert the same behavior contract that a real-adapter integration test preserves at the boundary.
+- Account for complementary confidence claims: default scenarios should assert application behavior
+  through fakes, while representative integration tests should prove each distinct real boundary surface.
 - Keep package scenario tests focused on user-visible CLI behavior that does not require slow external
   setup.
 
