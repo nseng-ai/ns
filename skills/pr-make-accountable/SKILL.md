@@ -159,8 +159,10 @@ Code might report `anthropic/claude-opus-4-6` and `Claude Code`.
 
 Show the complete draft, including the footer, and say explicitly that it is
 not final: the author's name goes on it, so they must read every claim and edit
-anything false or unlike their voice. Require explicit approval or edits before
-writing.
+anything false or unlike their voice. Explain that the text shown in the harness
+is not directly editable: the author can request changes in chat before approval,
+and final hands-on editing happens in the GitHub UI after the body is written.
+Require explicit approval or requested edits before writing.
 
 The author's wording wins. If an edit restores a claim disproved during the
 interview, push back once with evidence before accepting their decision. Remind
