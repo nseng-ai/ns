@@ -222,8 +222,9 @@ Full reasoning: `references/error-handling.md`.
   the main path linear. A single-line `if (condition) return value;` is fine when it reads clearly.
 - **Use `??` and `?.` for nullish semantics.** Do not use `||` for defaults when `""`, `0`, or `false`
   are valid values that must be preserved.
-- **Use options objects for several or optional inputs.** Prefer a named `*Options` object over long
-  positional parameter lists when call sites need defaults, flags, or optional values.
+- **Use options objects for long or optional input lists.** Up to four required positional parameters
+  are acceptable when their order is clear at call sites. Prefer a named `*Options` object for five or
+  more positional parameters, or when call sites need defaults, flags, or multiple optional values.
 - **Keep engine functions readable.** A top-level dispatcher can be large if it is linear and names the
   phases; move real sub-work into small private helpers when it improves the narrative.
 - **Inline trivial single-use helpers unless they hide a real boundary.** A one-call-site helper whose

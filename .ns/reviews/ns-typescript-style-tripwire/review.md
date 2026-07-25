@@ -121,11 +121,11 @@ to each rule's exceptions.
     `0`, or `false` are valid values that must survive. Do not flag boolean
     logic conditions where `||` is just logical disjunction.
 12. **Long positional parameter lists or optional positional parameters.** Flag
-    function declarations with four or more positional parameters, or with
-    multiple optional/defaulted positional parameters. Severity: `warning`. The
-    style guide prefers a named `*Options` object for several or optional
-    inputs. Do not flag callbacks whose signature is imposed by a library or
-    framework.
+    function declarations with five or more positional parameters, or with
+    multiple optional/defaulted positional parameters. Severity: `warning`. Up
+    to four required positional parameters are acceptable when their order is
+    clear; beyond that, the style guide prefers a named `*Options` object. Do
+    not flag callbacks whose signature is imposed by a library or framework.
 13. **Unitless measured constants.** Flag measured constants whose names omit
     units, especially names such as `TIMEOUT`, `DELAY`, `INTERVAL`,
     `DURATION`, `MAX_SIZE`, `LIMIT`, or `MAX_PAYLOAD` that imply time or size
