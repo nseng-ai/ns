@@ -22,13 +22,7 @@ import {
 	sanitizeBranchName,
 	trimBranchSlugToLength,
 } from "@nseng-ai/foundation/branch-slug";
-import {
-	planLocalBranchRefreshFromWorktrees,
-	type GitBranchUpstream,
-	type GitGateway,
-	type LocalBranchRefreshPlan,
-	RealGitGateway,
-} from "@nseng-ai/foundation/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorMessage, type TextResult } from "@nseng-ai/foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { runGraphiteCommand, type GraphiteBranchGateway } from "../graphite/branch.ts";
@@ -48,29 +42,16 @@ import { buildPiLaunchArgs, type PiLaunchOptions } from "./pi-launch.ts";
 
 export const TRACKED_BRANCH_PAYLOAD_NAMESPACE = "ns-dispatch";
 export const TRACKED_BRANCH_PAYLOAD_KEY = "prompt.md";
-/** Dispatch-context note stored with prompts dispatched from refreshed trunk. */
-export const TRUNK_DISPATCH_CONTEXT_NOTE =
-	"This branch was created from refreshed Graphite trunk and is intentionally unrelated to the caller's current stack.";
 /** Dispatch-context note stored with prompts dispatched from the existing local trunk. */
 export const LOCAL_TRUNK_DISPATCH_CONTEXT_NOTE =
 	"This branch was created from the existing local Graphite trunk and is intentionally unrelated to the caller's current stack.";
 const MAX_SLUG_INPUT_CHARS = 12_000;
-const GIT_TRUNK_REFRESH_TIMEOUT_MS = 2 * 60 * 1000;
 
 export interface TrackedBranchEvidence {
 	branchName: string;
 	semanticSlug: string;
 	parentBranch: string;
 	startPoint: string;
-}
-
-export interface GraphiteTrunkPreparation {
-	trunkBranch: string;
-	upstream: GitBranchUpstream;
-	refreshPlan: LocalBranchRefreshPlan;
-	startRef: string;
-	startPoint?: string;
-	preview: boolean;
 }
 
 export interface LocalGraphiteTrunkPreparation {
@@ -168,75 +149,6 @@ export async function createTrackedBranchFromResolvedParent(options: {
 	};
 }
 
-export async function prepareGraphiteTrunk(options: {
-	pi: CommandExecApi;
-	cwd: string;
-	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
-	git: Pick<GitGateway, "branchUpstream">;
-	preview?: boolean;
-	notify?: (message: string) => void;
-	metadataDbAccess?: GraphiteMetadataDbAccess;
-}): Promise<GraphiteTrunkPreparation | { error: string }> {
-	options.notify?.("Resolving Graphite trunk…");
-	const trunk = await resolveGraphiteTrunkBranch({
-		pi: options.pi,
-		cwd: options.cwd,
-		graphite: options.graphite,
-		metadataDbAccess: options.metadataDbAccess ?? createGraphiteMetadataDbAccess(),
-	});
-	if ("error" in trunk) return trunk;
-	options.notify?.("Resolving configured Git upstream…");
-	const upstream = await options.git.branchUpstream({ cwd: options.cwd, branch: trunk.branch });
-	if (upstream.type === "missing") {
-		return {
-			error: `Graphite trunk ${trunk.branch} has no configured Git upstream; no branch was created.\nConfigure one with git branch --set-upstream-to=<remote>/<remote-branch> ${trunk.branch}, then retry.`,
-		};
-	}
-	if (upstream.type === "error") {
-		return {
-			error: `Could not inspect the configured Git upstream for Graphite trunk ${trunk.branch}; no branch was created.\n${upstream.error.message}`,
-		};
-	}
-	const refreshPlan = await resolveLocalTrunkRefreshPlan({
-		pi: options.pi,
-		cwd: options.cwd,
-		trunkBranch: trunk.branch,
-		upstream: upstream.value,
-	});
-	if (!refreshPlan.ok) {
-		return {
-			error: `Graphite trunk refresh failed for ${trunk.branch}; no branch was created.\n${refreshPlan.message}`,
-		};
-	}
-	if (options.preview === true) {
-		return {
-			trunkBranch: trunk.branch,
-			upstream: upstream.value,
-			refreshPlan: refreshPlan.plan,
-			startRef: trunk.branch,
-			preview: true,
-		};
-	}
-	options.notify?.("Refreshing Graphite trunk…");
-	const refresh = await executeLocalTrunkRefresh(options.pi, trunk.branch, refreshPlan.plan);
-	if (!refresh.ok) {
-		return {
-			error: `Graphite trunk refresh failed for ${trunk.branch}; no branch was created.\n${refresh.message}`,
-		};
-	}
-	const startPoint = await runText(options.pi, options.cwd, "git", ["rev-parse", trunk.branch]);
-	if (!startPoint.ok)
-		return { error: `Could not resolve refreshed trunk ${trunk.branch}: ${startPoint.message}` };
-	return {
-		trunkBranch: trunk.branch,
-		upstream: upstream.value,
-		refreshPlan: refreshPlan.plan,
-		startRef: trunk.branch,
-		startPoint: startPoint.text,
-		preview: false,
-	};
-}
-
 export async function prepareLocalGraphiteTrunk(options: {
 	pi: CommandExecApi;
 	cwd: string;
@@ -289,31 +201,6 @@ export async function createTrackedBranchFromLocalTrunkForPrompt(options: {
 		startPoint: prepared.startPoint,
 		startRef: prepared.startPoint,
 		createFailureContext: `from local trunk ${prepared.trunkBranch}`,
-	});
-}
-
-export async function createTrackedBranchFromTrunkForPrompt(options: {
-	pi: CommandExecApi;
-	cwd: string;
-	prompt: string;
-	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
-	git: Pick<GitGateway, "branchUpstream">;
-	notify?: (message: string) => void;
-	metadataDbAccess?: GraphiteMetadataDbAccess;
-}): Promise<TrackedBranchEvidence | { error: string }> {
-	const prepared = await prepareGraphiteTrunk(options);
-	if ("error" in prepared) return prepared;
-	if (prepared.startPoint === undefined)
-		throw new Error("Trunk execution omitted its start point.");
-	options.notify?.("Generating branch name…");
-	return createTrackedBranchFromResolvedParent({
-		pi: options.pi,
-		cwd: options.cwd,
-		prompt: options.prompt,
-		parentBranch: prepared.trunkBranch,
-		startPoint: prepared.startPoint,
-		startRef: prepared.startRef,
-		createFailureContext: `from refreshed trunk ${prepared.trunkBranch}`,
 	});
 }
 
@@ -587,57 +474,4 @@ async function resolveGraphiteTrunkBranch(context: {
 	return {
 		error: `${trunk.error.message}\n\n${resolution.type === "none" ? "Graphite metadata fallback found no trunk marker." : `Graphite metadata fallback found multiple trunk markers: ${resolution.branches.join(", ")}`}`,
 	};
-}
-
-async function resolveLocalTrunkRefreshPlan(options: {
-	pi: CommandExecApi;
-	cwd: string;
-	trunkBranch: string;
-	upstream: GitBranchUpstream;
-}): Promise<{ ok: true; plan: LocalBranchRefreshPlan } | { ok: false; message: string }> {
-	const worktrees = await options.pi.exec("git", ["worktree", "list", "--porcelain"], {
-		cwd: options.cwd,
-		timeout: GIT_TRUNK_REFRESH_TIMEOUT_MS,
-	});
-	if (!commandSucceeded(worktrees)) {
-		return {
-			ok: false,
-			message: formatCommandFailure(
-				"Could not inspect Git worktrees.",
-				"git worktree list --porcelain",
-				worktrees,
-			),
-		};
-	}
-	return {
-		ok: true,
-		plan: planLocalBranchRefreshFromWorktrees({
-			branch: options.trunkBranch,
-			cwd: options.cwd,
-			upstream: options.upstream,
-			worktreePorcelain: worktrees.stdout,
-		}),
-	};
-}
-
-async function executeLocalTrunkRefresh(
-	pi: CommandExecApi,
-	trunkBranch: string,
-	plan: LocalBranchRefreshPlan,
-): Promise<{ ok: true } | { ok: false; message: string }> {
-	const refresh = await pi.exec("git", plan.args, {
-		cwd: plan.cwd,
-		timeout: GIT_TRUNK_REFRESH_TIMEOUT_MS,
-	});
-	if (commandSucceeded(refresh)) return { ok: true };
-	return {
-		ok: false,
-		message: `${formatCommandFailure(formatTrunkRefreshFailureTitle(plan, trunkBranch), formatCommand("git", plan.args), refresh)}\nCwd: ${plan.cwd}`,
-	};
-}
-
-function formatTrunkRefreshFailureTitle(plan: LocalBranchRefreshPlan, trunkBranch: string): string {
-	return plan.type === "pull-checked-out-branch"
-		? `Could not pull checked-out trunk branch ${trunkBranch}.`
-		: `Could not fetch trunk branch ${trunkBranch}.`;
 }
