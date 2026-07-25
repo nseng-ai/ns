@@ -34,7 +34,7 @@ child PATH. Local repairs are green. The local prompt command now derives conten
 semantic anchor slugs (or accepts `--slug/-s`), uses a validated/defaulted repository IANA
 timezone, and exhausts exact remote-name collisions through `-50` before anchor mutation; source
 publication now precedes that availability check and uses exact-SHA Git for definitively
-untracked branches or authorized Flow minimal submit for tracked current/downstack scope.
+untracked branches or authorized Vercel-owned Graphite source publication for tracked current/downstack scope.
 Both paths revalidate the final remote SHA before anchor creation and are locally covered,
 not live-proven. One controlled rerun must prove first-call
 Bash, agent-created commit, subagent spawn, and normal landing before the Pi steel thread closes.

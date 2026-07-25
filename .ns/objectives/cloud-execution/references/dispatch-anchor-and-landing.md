@@ -28,8 +28,8 @@ then:
    - definitive untracked state pushes `<captured-SHA>:refs/heads/<source>` with ordinary
      non-force Git;
    - tracked state previews current plus non-trunk downstack branches and requires TTY
-     confirmation or non-interactive dispatch `--force/-f`, then invokes Flow minimal
-     submit with automatic restack and Flow `force: false`;
+     confirmation or non-interactive dispatch `--force/-f`, then invokes Vercel-owned
+     Graphite source publication with automatic restack and Graphite force disabled;
    - metadata/provider/topology ambiguity fails closed without a Git fallback;
 7. after publication, re-resolve repository/branch/HEAD, require a clean worktree, rerun
    dispatch preflight, and verify the remote tip equals refreshed HEAD; only Graphite may
@@ -63,7 +63,7 @@ the dispatch-owned content-slug Consumer Gateway; the same interface accepts `ki
 for the future plan command after it resolves full plan content. The implementation reuses
 capability-kit content-slug generation and Foundation branch-slug normalization without
 invoking Flow's Graphite/worktree autobranch workflow. This read-only semantic derivation is
-separate from Flow minimal-submit source publication; model failure is terminal, and the
+separate from Vercel-owned Graphite source publication; model failure is terminal, and the
 explicit slug override is the recovery and automation path.
 
 ## Why the anchor needs an initialization commit

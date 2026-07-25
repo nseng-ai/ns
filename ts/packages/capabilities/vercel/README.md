@@ -15,6 +15,16 @@ merges into this README as that objective completes; nothing below replaces
 or overrides it. This README currently documents the **Saved Plan dispatch**
 contract, which is settled and locally implemented.
 
+## Local source publication
+
+Before creating an anchor, local dispatch verifies that the exact source revision is
+remote-reachable. Untracked branches use an exact-SHA Git push. Graphite-tracked
+branches use the dispatch-owned source-publication engine under
+`src/dispatch-client/source-publication/`: it plans the current/downstack scope,
+requires dispatch authorization, restacks when Graphite requires it, submits without
+bypassing Graphite remote-divergence safeguards, and revalidates the observed result.
+This is local, fake-driven behavior; it is not a claim of live publication verification.
+
 ## Dispatch a Saved Plan
 
 `ns vercel` has the ability to dispatch long-running work remotely. Long-running

@@ -1,17 +1,24 @@
-import type { FlowMinimalSubmitClient } from "@nseng-ai/flow/api";
+import type { DispatchSourcePublicationClient } from "../../src/dispatch-client/source-publication/source-publication.ts";
 import { describe, expect, test } from "vitest";
 
 import {
 	createRealDispatchGraphitePublicationAuthorizationGateway,
-	createRealDispatchSourcePublicationGateway,
+	createDispatchSourcePublicationGatewayFromClient,
 } from "../../src/dispatch-client/real-source-publication-gateways.ts";
 
-type FlowMinimalSubmitInput = Parameters<FlowMinimalSubmitClient["submitCurrentBranch"]>[0];
-type FlowMinimalSubmitPlanResult = Awaited<
-	ReturnType<FlowMinimalSubmitClient["planCurrentBranch"]>
+type DispatchSourcePublicationInput = Parameters<
+	DispatchSourcePublicationClient["submitCurrentBranch"]
+>[0];
+type DispatchSourcePublicationPlanResult = Awaited<
+	ReturnType<DispatchSourcePublicationClient["planCurrentBranch"]>
 >;
-type FlowMinimalSubmitResult = Awaited<ReturnType<FlowMinimalSubmitClient["submitCurrentBranch"]>>;
-type FlowMinimalSubmitPlan = Extract<FlowMinimalSubmitPlanResult, { type: "tracked" }>["plan"];
+type DispatchSourcePublicationResult = Awaited<
+	ReturnType<DispatchSourcePublicationClient["submitCurrentBranch"]>
+>;
+type DispatchSourcePublicationPlan = Extract<
+	DispatchSourcePublicationPlanResult,
+	{ type: "tracked" }
+>["plan"];
 
 const SHA = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
 const DISPATCH_PLAN = {
@@ -19,14 +26,14 @@ const DISPATCH_PLAN = {
 	affectedBranches: ["feature/widgets", "feature/base"],
 };
 
-class FakeFlowMinimalSubmitClient implements FlowMinimalSubmitClient {
+class FakeDispatchSourcePublicationClient implements DispatchSourcePublicationClient {
 	private readonly planLog: Array<{
 		expectedSource?: { branch: string; headSha: string };
 	}> = [];
 	private readonly submissionLog: Array<
 		| {
 				type: "planned";
-				expectedPlan: FlowMinimalSubmitPlan;
+				expectedPlan: DispatchSourcePublicationPlan;
 				restack?: boolean;
 				force?: boolean;
 		  }
@@ -37,12 +44,12 @@ class FakeFlowMinimalSubmitClient implements FlowMinimalSubmitClient {
 				force?: boolean;
 		  }
 	> = [];
-	private readonly planResult: FlowMinimalSubmitPlanResult;
-	private readonly submitResult: FlowMinimalSubmitResult;
+	private readonly planResult: DispatchSourcePublicationPlanResult;
+	private readonly submitResult: DispatchSourcePublicationResult;
 
 	constructor(options: {
-		readonly planResult: FlowMinimalSubmitPlanResult;
-		readonly submitResult: FlowMinimalSubmitResult;
+		readonly planResult: DispatchSourcePublicationPlanResult;
+		readonly submitResult: DispatchSourcePublicationResult;
 	}) {
 		this.planResult = options.planResult;
 		this.submitResult = options.submitResult;
@@ -59,7 +66,7 @@ class FakeFlowMinimalSubmitClient implements FlowMinimalSubmitClient {
 	get submissions(): ReadonlyArray<
 		| {
 				readonly type: "planned";
-				readonly expectedPlan: FlowMinimalSubmitPlan;
+				readonly expectedPlan: DispatchSourcePublicationPlan;
 				readonly restack?: boolean;
 				readonly force?: boolean;
 		  }
@@ -95,7 +102,7 @@ class FakeFlowMinimalSubmitClient implements FlowMinimalSubmitClient {
 		return this.planResult;
 	}
 
-	async submitCurrentBranch(input: FlowMinimalSubmitInput) {
+	async submitCurrentBranch(input: DispatchSourcePublicationInput) {
 		this.submissionLog.push(
 			input.type === "planned"
 				? {
@@ -120,7 +127,7 @@ class FakeFlowMinimalSubmitClient implements FlowMinimalSubmitClient {
 	}
 }
 
-function trackedPlan(): Extract<FlowMinimalSubmitPlanResult, { type: "tracked" }> {
+function trackedPlan(): Extract<DispatchSourcePublicationPlanResult, { type: "tracked" }> {
 	return {
 		type: "tracked",
 		plan: {
@@ -131,7 +138,7 @@ function trackedPlan(): Extract<FlowMinimalSubmitPlanResult, { type: "tracked" }
 	};
 }
 
-function submitted(): Extract<FlowMinimalSubmitResult, { type: "submitted" }> {
+function submitted(): Extract<DispatchSourcePublicationResult, { type: "submitted" }> {
 	return {
 		type: "submitted",
 		stage: "verification",
@@ -142,12 +149,12 @@ function submitted(): Extract<FlowMinimalSubmitResult, { type: "submitted" }> {
 }
 
 describe("dispatch source publication gateways", () => {
-	test("copies Flow plan scope into dispatch vocabulary", async () => {
-		const client = new FakeFlowMinimalSubmitClient({
+	test("copies source publication plan scope into dispatch vocabulary", async () => {
+		const client = new FakeDispatchSourcePublicationClient({
 			planResult: trackedPlan(),
 			submitResult: submitted(),
 		});
-		const gateway = createRealDispatchSourcePublicationGateway(client);
+		const gateway = createDispatchSourcePublicationGatewayFromClient(client);
 		const result = await gateway.planGraphitePublication({
 			expectedBranch: "feature/widgets",
 			expectedHeadSha: SHA,
@@ -160,13 +167,13 @@ describe("dispatch source publication gateways", () => {
 		expect(client.plans).toEqual([{ expectedSource: { branch: "feature/widgets", headSha: SHA } }]);
 	});
 
-	test("always enables restack and disables Flow force during publication", async () => {
-		const client = new FakeFlowMinimalSubmitClient({
+	test("always enables restack and disables source publication force during publication", async () => {
+		const client = new FakeDispatchSourcePublicationClient({
 			planResult: trackedPlan(),
 			submitResult: submitted(),
 		});
 		const phases: string[] = [];
-		const gateway = createRealDispatchSourcePublicationGateway(client);
+		const gateway = createDispatchSourcePublicationGatewayFromClient(client);
 		const result = await gateway.publishGraphiteSource({
 			expectedBranch: "feature/widgets",
 			expectedHeadSha: SHA,

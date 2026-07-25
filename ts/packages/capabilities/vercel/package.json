@@ -34,7 +34,6 @@
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@nseng-ai/brmem": "workspace:*",
 		"@nseng-ai/capability-kit": "workspace:*",
-		"@nseng-ai/flow": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/plans": "workspace:*",
 		"@nseng-ai/sdk": "workspace:*",

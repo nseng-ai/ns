@@ -13,9 +13,9 @@ Fog the answer makes stateable, and rewire or drop invalidated rows.
       autofixes, reconciles stack-wide PR titles and managed descriptions, pushes,
       and attests. Agent completion workflows must route to `ship`; raw `gt submit`
       is an explicit recovery fallback, not a semantic substitute. Staging status:
-      the clean-tree cheap engine is staged as the programmatic minimal-submit client
-      in `@nseng-ai/flow/api` (the interim `ns flow submit --minimal` flag was
-      removed); default migration and `ship` remain open.
+      the interim `ns flow submit --minimal` flag and its single-consumer Flow API
+      were removed; local dispatch now owns its Graphite source-publication engine.
+      Default submit migration and `ship` remain open.
 - [ ] (grilling) Stack-tip review semantics — what diff the tip review sees
       (merge-base of the whole stack against trunk?), and whether findings map back to
       owning branches or stay stack-scoped.

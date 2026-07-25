@@ -21,10 +21,6 @@ import {
 } from "@nseng-ai/foundation/typescript-analysis";
 
 const PACKAGE_ROOT = fileURLToPath(new URL("../../", import.meta.url));
-const ALLOWED_FLOW_IMPORTERS = new Set([
-	"src/dispatch-client/context.ts",
-	"src/dispatch-client/real-source-publication-gateways.ts",
-]);
 const PRODUCTION_ROOTS = ["api", "scripts", "src", "workflows"] as const;
 const DEPLOYABLE_ROOTS = [
 	...typescriptFilesAt("api"),
@@ -49,25 +45,20 @@ describe("dispatch package boundaries", () => {
 		expect(existsSync(resolve(PACKAGE_ROOT, "src/config/project-config.ts"))).toBe(true);
 	});
 
-	test("allows only the curated Flow API at local dispatch composition", () => {
+	test("keeps source publication local to dispatch production code", () => {
 		const violations: string[] = [];
 		for (const file of productionTypescriptFiles()) {
 			const source = readPackageFile(file);
 			for (const specifier of importSpecifiers(file, source)) {
 				if (specifier.startsWith("@nseng-ai/flow")) {
-					if (specifier !== "@nseng-ai/flow/api" || !ALLOWED_FLOW_IMPORTERS.has(file)) {
-						violations.push(`${file}: forbidden Flow import ${specifier}`);
-					}
-				}
-				if (
-					specifier === "@nseng-ai/capability-kit/graphite" ||
-					specifier.startsWith("@nseng-ai/capability-kit/graphite/")
-				) {
-					violations.push(`${file}: forbidden Graphite import ${specifier}`);
+					violations.push(`${file}: forbidden Flow import ${specifier}`);
 				}
 			}
-			if (hasExactGtLiteral(file, source)) {
-				violations.push(`${file}: direct gt invocation is forbidden`);
+			if (
+				!file.startsWith("src/dispatch-client/source-publication/") &&
+				hasExactGtLiteral(file, source)
+			) {
+				violations.push(`${file}: direct gt invocation outside source publication`);
 			}
 		}
 

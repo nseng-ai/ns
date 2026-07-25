@@ -4,34 +4,34 @@ import { FakeGraphiteStackGateway, fakeStackInfo } from "@nseng-ai/capability-ki
 import type { ExecResult } from "@nseng-ai/foundation/command";
 
 import {
-	createFlowMinimalSubmitClientFromGateways,
-	type FlowMinimalSubmitSource,
-	type MinimalSubmitRepositoryGateway,
-	type MinimalSubmitRepositoryInspection,
-	type MinimalSubmitRepositoryObservation,
-} from "../../src/submit/minimal-submit.ts";
+	createDispatchSourcePublicationClientFromGateways,
+	type DispatchSourcePublicationSource,
+	type SourcePublicationRepositoryGateway,
+	type SourcePublicationRepositoryInspection,
+	type SourcePublicationRepositoryObservation,
+} from "../../../src/dispatch-client/source-publication/source-publication.ts";
 import type {
 	CurrentPrVerificationResult,
 	SubmitCommandParams,
 	SubmitPreflightResult,
 	SubmitRestackResult,
 	SubmitRunResult,
-} from "../../src/submit/submit.ts";
-import type { SubmitTransportGateway } from "../../src/submit/submit-transport.ts";
+} from "../../../src/dispatch-client/source-publication/submit-contracts.ts";
+import type { SubmitTransportGateway } from "../../../src/dispatch-client/source-publication/submit-transport.ts";
 
 const HEAD = "a".repeat(40);
 const RESTACKED_HEAD = "b".repeat(40);
-const SOURCE: FlowMinimalSubmitSource = { branch: "feature/top", headSha: HEAD };
+const SOURCE: DispatchSourcePublicationSource = { branch: "feature/top", headSha: HEAD };
 
 interface RepositoryState {
-	readonly source?: FlowMinimalSubmitSource;
+	readonly source?: DispatchSourcePublicationSource;
 	readonly dirtyPaths?: readonly string[];
 	readonly inspectionFails?: boolean;
 	readonly postMutationObservationFails?: boolean;
 }
 
-class FakeMinimalRepository implements MinimalSubmitRepositoryGateway {
-	private source: FlowMinimalSubmitSource;
+class FakeMinimalRepository implements SourcePublicationRepositoryGateway {
+	private source: DispatchSourcePublicationSource;
 	private dirtyPaths: readonly string[];
 	private readonly inspectionFails: boolean;
 	private readonly postMutationObservationFails: boolean;
@@ -67,7 +67,7 @@ class FakeMinimalRepository implements MinimalSubmitRepositoryGateway {
 				...this.inspection(),
 				localTips: selectTips(this.localTips, branches, "missing-local"),
 				remoteTips: selectTips<string | null>(this.remoteTips, branches, null),
-			} satisfies MinimalSubmitRepositoryObservation,
+			} satisfies SourcePublicationRepositoryObservation,
 		};
 	}
 
@@ -92,7 +92,7 @@ class FakeMinimalRepository implements MinimalSubmitRepositoryGateway {
 		}
 	}
 
-	private inspection(): MinimalSubmitRepositoryInspection {
+	private inspection(): SourcePublicationRepositoryInspection {
 		return {
 			source: { ...this.source },
 			dirtyPaths: [...this.dirtyPaths],
@@ -212,7 +212,7 @@ function fixture(
 	);
 	const submit = new FakeMinimalSubmitGateway(repository, options.submit);
 	return {
-		client: createFlowMinimalSubmitClientFromGateways({
+		client: createDispatchSourcePublicationClientFromGateways({
 			cwd: "/repo",
 			repository,
 			graphite,
@@ -224,7 +224,7 @@ function fixture(
 	};
 }
 
-describe("Flow minimal submit", () => {
+describe("Flow source publication", () => {
 	test("plans current plus non-trunk downstack scope from structured Graphite metadata", async () => {
 		const { client, graphite } = fixture();
 
@@ -262,7 +262,7 @@ describe("Flow minimal submit", () => {
 					failure: { message: "schema mismatch", returnCode: null },
 				},
 			},
-			code: "flow-minimal-submit-topology-provider-failure",
+			code: "dispatch-source-publication-topology-provider-failure",
 		},
 		{
 			name: "topology cycle",
@@ -277,7 +277,7 @@ describe("Flow minimal submit", () => {
 					}),
 				},
 			},
-			code: "flow-minimal-submit-topology-ancestor-cycle",
+			code: "dispatch-source-publication-topology-ancestor-cycle",
 		},
 	])("fails closed on $name", async ({ stack, code }) => {
 		const { client } = fixture({ stack });
@@ -298,7 +298,7 @@ describe("Flow minimal submit", () => {
 		expect(await client.planCurrentBranch({ expectedSource: SOURCE })).toMatchObject({
 			type: "failed",
 			stage: "planning",
-			error: { code: "flow-minimal-submit-branch-drift" },
+			error: { code: "dispatch-source-publication-branch-drift" },
 			mutation: { local: "none", remote: "none" },
 		});
 		expect(graphite.operations()).toEqual([]);
@@ -308,12 +308,12 @@ describe("Flow minimal submit", () => {
 		{
 			name: "source drift",
 			repository: { source: { branch: "feature/other", headSha: HEAD } },
-			code: "flow-minimal-submit-branch-drift",
+			code: "dispatch-source-publication-branch-drift",
 		},
 		{
 			name: "dirty worktree",
 			repository: { dirtyPaths: ["src/app.ts"] },
-			code: "flow-minimal-submit-dirty-worktree",
+			code: "dispatch-source-publication-dirty-worktree",
 		},
 	])("refuses $name before Graphite", async ({ repository, code }) => {
 		const { client, graphite, submit } = fixture({ repository });
@@ -345,7 +345,7 @@ describe("Flow minimal submit", () => {
 		).toMatchObject({
 			type: "failed",
 			stage: "planning",
-			error: { code: "flow-minimal-submit-plan-drift" },
+			error: { code: "dispatch-source-publication-plan-drift" },
 			mutation: { local: "none", remote: "none" },
 		});
 		expect(submit.operations()).toEqual([]);
@@ -380,7 +380,7 @@ describe("Flow minimal submit", () => {
 		).toMatchObject({
 			type: "failed",
 			stage: "readiness",
-			error: { code: "flow-minimal-submit-restack-required" },
+			error: { code: "dispatch-source-publication-restack-required" },
 			mutation: { local: "none", remote: "none" },
 		});
 		expect(submit.operations()).toEqual([{ operation: "readiness", force: false }]);
@@ -406,8 +406,8 @@ describe("Flow minimal submit", () => {
 	});
 
 	test.each([
-		{ restack: "conflict" as const, code: "flow-minimal-submit-restack-conflict" },
-		{ restack: "failed" as const, code: "flow-minimal-submit-restack-failed" },
+		{ restack: "conflict" as const, code: "dispatch-source-publication-restack-conflict" },
+		{ restack: "failed" as const, code: "dispatch-source-publication-restack-failed" },
 	])("reports conservative local evidence for restack $restack", async ({ restack, code }) => {
 		const { client } = fixture({
 			submit: { readiness: "restack-required", restack },
@@ -489,7 +489,7 @@ describe("Flow minimal submit", () => {
 		).toMatchObject({
 			type: "failed",
 			stage: "verification",
-			error: { code: "flow-minimal-submit-verification-no_current_pr" },
+			error: { code: "dispatch-source-publication-verification-no_current_pr" },
 			mutation: { remote: "observed" },
 		});
 	});
@@ -544,7 +544,7 @@ describe("Flow minimal submit", () => {
 		expect(result).toMatchObject({
 			type: "failed",
 			stage: "verification",
-			error: { code: "flow-minimal-submit-verification-failed" },
+			error: { code: "dispatch-source-publication-verification-failed" },
 			mutation: { local: "none", remote: "observed" },
 		});
 		expect(submit.operations().map((entry) => entry.operation)).toEqual([
@@ -564,7 +564,7 @@ describe("Flow minimal submit", () => {
 		).toMatchObject({
 			type: "failed",
 			stage: "verification",
-			error: { code: "flow-minimal-submit-after-observation-failed" },
+			error: { code: "dispatch-source-publication-after-observation-failed" },
 			mutation: { local: "possible", remote: "observed" },
 		});
 	});
@@ -582,7 +582,7 @@ describe("Flow minimal submit", () => {
 function repositoryFailure(message: string) {
 	return {
 		ok: false as const,
-		error: { code: "flow-minimal-submit-observation-failed" as const, message },
+		error: { code: "dispatch-source-publication-observation-failed" as const, message },
 	};
 }
 

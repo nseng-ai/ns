@@ -231,10 +231,10 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
      `[dispatch].anchor_timezone`, checks exact remote availability through `-50`, and keeps
      model/config/availability failures mutation-free; this naming change is fake-driven and
      not a new live-dispatch claim. A further local-only slice now classifies stale
-     source publication through Flow's structured Graphite plan: definitive untracked
-     branches use an exact-SHA non-force Git push, while tracked current/downstack scope
-     requires TTY confirmation or dispatch `--force/-f` before Flow minimal submit with
-     Graphite force disabled. Both already-current and newly published sources now pass one
+     source publication through the Vercel dispatch client's structured Graphite plan:
+     definitive untracked branches use an exact-SHA non-force Git push, while tracked
+     current/downstack scope requires TTY confirmation or dispatch `--force/-f` before
+     Vercel-owned Graphite source publication with Graphite force disabled. Both already-current and newly published sources now pass one
      final repository/HEAD/clean-tree/preflight/remote-tip validation after anchor-name
      availability probing and immediately before anchor mutation. Failures after source
      publication retain that publication's mutation evidence through later anchor, PR,

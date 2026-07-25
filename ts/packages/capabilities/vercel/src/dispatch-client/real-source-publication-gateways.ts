@@ -1,7 +1,10 @@
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+
+import { createDispatchSourcePublicationClient } from "./source-publication/real-source-publication.ts";
 import type {
-	FlowMinimalSubmitClient,
-	FlowMinimalSubmitMutationEvidence,
-} from "@nseng-ai/flow/api";
+	DispatchPublicationEngineMutationEvidence,
+	DispatchSourcePublicationClient,
+} from "./source-publication/source-publication.ts";
 
 import type {
 	DispatchGraphitePublicationAuthorizationGateway,
@@ -18,9 +21,24 @@ interface DispatchPublicationInteraction {
 	}): Promise<{ readonly type: "confirmed" | "declined" | "aborted" }>;
 }
 
-/** Translate Flow's curated minimal-submit API into dispatch source-publication vocabulary. */
+export interface CreateRealDispatchSourcePublicationGatewayOptions {
+	readonly cwd: string;
+	readonly commands: CommandExecApi;
+	readonly env?: NodeJS.ProcessEnv;
+}
+
+/** Bind dispatch source publication to the caller's local command channel. */
 export function createRealDispatchSourcePublicationGateway(
-	client: FlowMinimalSubmitClient,
+	options: CreateRealDispatchSourcePublicationGatewayOptions,
+): DispatchSourcePublicationGateway {
+	return createDispatchSourcePublicationGatewayFromClient(
+		createDispatchSourcePublicationClient(options),
+	);
+}
+
+/** Package-private seam for fake-driven translation tests. */
+export function createDispatchSourcePublicationGatewayFromClient(
+	client: DispatchSourcePublicationClient,
 ): DispatchSourcePublicationGateway {
 	return {
 		async planGraphitePublication(options) {
@@ -112,7 +130,7 @@ export function createRealDispatchGraphitePublicationAuthorizationGateway(
 }
 
 function translateMutation(
-	mutation: FlowMinimalSubmitMutationEvidence,
+	mutation: DispatchPublicationEngineMutationEvidence,
 ): DispatchSourcePublicationMutationEvidence {
 	return { local: mutation.local, remote: mutation.remote };
 }

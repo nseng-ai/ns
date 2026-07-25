@@ -14,7 +14,6 @@ import {
 	resolveModelOperation,
 } from "@nseng-ai/capability-kit/model-policy";
 import { createNsClinkrInteraction } from "@nseng-ai/capability-kit/ns-context";
-import { createFlowMinimalSubmitClient } from "@nseng-ai/flow/api";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
@@ -109,9 +108,11 @@ function createSharedDispatchGateways(
 		git: overrides?.git ?? createRealDispatchWorkspaceGitGateway(localGitFacts, runner),
 		sourcePublication:
 			overrides?.sourcePublication ??
-			createRealDispatchSourcePublicationGateway(
-				createFlowMinimalSubmitClient({ cwd: ctx.cwd, commands: execApi, env: ctx.env }),
-			),
+			createRealDispatchSourcePublicationGateway({
+				cwd: ctx.cwd,
+				commands: execApi,
+				env: ctx.env,
+			}),
 		publicationAuthorization:
 			overrides?.publicationAuthorization ??
 			createRealDispatchGraphitePublicationAuthorizationGateway(

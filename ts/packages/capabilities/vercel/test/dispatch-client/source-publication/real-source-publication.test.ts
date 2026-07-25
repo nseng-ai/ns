@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { ScriptedCommandExecApi, exitedResult } from "@nseng-ai/foundation/exec/testing";
 
-import { createMinimalSubmitRepositoryGateway } from "../../src/submit/real-minimal-submit.ts";
+import { createSourcePublicationRepositoryGateway } from "../../../src/dispatch-client/source-publication/real-source-publication.ts";
 
 const TOP_HEAD = "a".repeat(40);
 const BASE_HEAD = "b".repeat(40);
@@ -30,10 +30,10 @@ function localRows(upstreams: readonly [string, string]): string {
 }
 
 function gateway(commands: ScriptedCommandExecApi) {
-	return createMinimalSubmitRepositoryGateway({ cwd: "/repo", commands }, git);
+	return createSourcePublicationRepositoryGateway({ cwd: "/repo", commands }, git);
 }
 
-describe("real minimal-submit repository observation", () => {
+describe("real source-publication repository observation", () => {
 	test("observes branches without upstreams using one local plumbing read", async () => {
 		const commands = new ScriptedCommandExecApi([exitedResult({ stdout: localRows(["", ""]) })]);
 
@@ -76,7 +76,7 @@ describe("real minimal-submit repository observation", () => {
 
 		expect(await gateway(commands).observeAffectedBranches(BRANCHES)).toMatchObject({
 			ok: false,
-			error: { code: "flow-minimal-submit-remote-observation-incomplete" },
+			error: { code: "dispatch-source-publication-remote-observation-incomplete" },
 		});
 	});
 
@@ -95,7 +95,7 @@ describe("real minimal-submit repository observation", () => {
 
 		expect(await gateway(commands).observeAffectedBranches(BRANCHES)).toMatchObject({
 			ok: false,
-			error: { code: "flow-minimal-submit-remote-observation-parse-failed" },
+			error: { code: "dispatch-source-publication-remote-observation-parse-failed" },
 		});
 	});
 
@@ -108,7 +108,7 @@ describe("real minimal-submit repository observation", () => {
 		expect(await gateway(commands).observeAffectedBranches(BRANCHES)).toMatchObject({
 			ok: false,
 			error: {
-				code: "flow-minimal-submit-remote-observation-failed",
+				code: "dispatch-source-publication-remote-observation-failed",
 				displayCommand: "git show-ref --verify refs/remotes/origin/top",
 			},
 		});

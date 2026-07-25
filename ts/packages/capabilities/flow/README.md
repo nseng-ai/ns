@@ -126,21 +126,6 @@ There is no environment override ladder or model inspection command.
 Prompt content is configured separately from model identity through the prompt points
 documented below.
 
-## Minimal-submit engine
-
-The minimal-submit engine is the clean-tree cheap-submit path exposed programmatically
-through `@nseng-ai/flow/api` (`createFlowMinimalSubmitClient`). It reads structured
-Graphite metadata to identify the current branch and its non-trunk downstack ancestors,
-refuses dirty or drifting source state, checks submit readiness, automatically runs
-`gt restack --downstack --no-interactive` when required, rechecks readiness, runs
-`gt submit --no-stack`, and verifies the current PR.
-
-The engine deliberately runs no `flow.submit.pre` hooks, checkpoint, PR-description
-generation, or model calls. It has no `ns flow submit` CLI flag; its consumers are
-programmatic (for example, local dispatch source publication). Moving the default
-submit path and implementing `ns flow ship` remain open under the Prod Submit
-Objective; no live publication claim is implied by this documentation.
-
 ## Ordinary submit PR metadata
 
 Ordinary `ns flow submit` temporarily generates an initial complete title and body only for PRs newly created by that invocation. Generation happens after Graphite creates every PR: Flow prepares every selected replacement before writing any, then applies replacements sequentially. A preparation failure edits no PR; an edit failure stops the batch and reports applied, failed, and not-attempted PRs. There is no rollback. By default, PRs that existed before the invocation are left untouched.
