@@ -1,4 +1,3 @@
-import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import type { CommandContext } from "@nseng-ai/capability-kit/pi-types";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 
@@ -7,27 +6,23 @@ import type { HerdrPiCommandApi } from "../core/pi-command-api.ts";
 
 export type HerdrGitGateway = Pick<
 	GitGateway,
-	"createBranchAtStartPoint" | "currentBranch" | "optionalRepoRoot"
+	"createBranchAtStartPoint" | "currentBranch" | "headCommit" | "optionalRepoRoot" | "repoRoot"
 >;
 
-export class HerdrPiContext {
+export interface HerdrPiContext {
 	readonly commands: HerdrPiCommandApi;
 	readonly git: HerdrGitGateway;
-	readonly graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	readonly trunkBranch: string;
 	readonly herdr: HerdrGateway;
-	readonly pi: CommandContext;
+}
 
-	constructor(options: {
-		commands: HerdrPiCommandApi;
-		git: HerdrGitGateway;
-		graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
-		herdr: HerdrGateway;
-		pi: CommandContext;
-	}) {
-		this.commands = options.commands;
-		this.git = options.git;
-		this.graphite = options.graphite;
-		this.herdr = options.herdr;
-		this.pi = options.pi;
-	}
+export interface HerdrPiCommandContext extends HerdrPiContext {
+	readonly pi: CommandContext;
+}
+
+export function createHerdrPiCommandContext(
+	context: HerdrPiContext,
+	pi: CommandContext,
+): HerdrPiCommandContext {
+	return { ...context, pi };
 }

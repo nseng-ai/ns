@@ -149,6 +149,13 @@ export class FakePi implements ExtensionAPI {
 	): Promise<RawPiExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		if (
+			command === "gt" &&
+			sameArgs(args, ["trunk", "--no-interactive"]) &&
+			this.script.peek()?.command !== "gt"
+		) {
+			return execResult({ stdout: "master\n" });
+		}
+		if (
 			command === "git" &&
 			sameArgs(args, ["rev-parse", "--show-toplevel"]) &&
 			!isGitRootStep(this.script.peek())

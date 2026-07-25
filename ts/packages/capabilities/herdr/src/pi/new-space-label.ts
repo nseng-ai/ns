@@ -11,8 +11,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import type { HerdrSpaceLabelDeriver } from "../core/new-space.ts";
-import type { HerdrGitGateway } from "./context.ts";
-import type { HerdrPiCommandApi } from "../core/pi-command-api.ts";
+import type { HerdrPiContext } from "./context.ts";
 
 const MAX_SPACE_LABEL_WORDS = 6;
 const MAX_SPACE_DESCRIPTION_CHARS = 8_000;
@@ -40,13 +39,12 @@ const SPACE_LABEL_VARIANT: ContentSlugDerivationVariant = {
 	validateSlug: validateSpaceLabel,
 };
 
-export function createHerdrSpaceLabelDeriver(dependencies: {
-	commands: HerdrPiCommandApi;
-	git: HerdrGitGateway;
-}): HerdrSpaceLabelDeriver {
+export function createHerdrSpaceLabelDeriver(
+	context: Pick<HerdrPiContext, "commands" | "git">,
+): HerdrSpaceLabelDeriver {
 	return {
 		async deriveLabel(input) {
-			const repository = await dependencies.git.optionalRepoRoot({ cwd: input.cwd });
+			const repository = await context.git.optionalRepoRoot({ cwd: input.cwd });
 			if (repository.type !== "found") {
 				throw new Error("Could not determine the repository root for ns.toml.");
 			}
@@ -58,7 +56,7 @@ export function createHerdrSpaceLabelDeriver(dependencies: {
 			const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
 			if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
 			const evidence = await deriveKitContentSlug(
-				dependencies.commands,
+				context.commands,
 				{
 					content: input.description,
 					cwd: input.cwd,

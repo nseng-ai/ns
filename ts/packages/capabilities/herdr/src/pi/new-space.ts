@@ -5,18 +5,12 @@ import {
 
 import { HERDR_SPACE_NEW_COMMAND_NAME } from "../core/command-surfaces.ts";
 import { handleHerdrNewSpace } from "../core/new-space.ts";
-import type { HerdrGateway } from "../core/herdr-gateway.ts";
-import type { HerdrPiCommandApi } from "../core/pi-command-api.ts";
-import type { HerdrGitGateway } from "./context.ts";
+import type { HerdrPiContext } from "./context.ts";
 import { createHerdrSpaceLabelDeriver } from "./new-space-label.ts";
 
-export function registerHerdrNewSpaceCommand(dependencies: {
-	commands: HerdrPiCommandApi;
-	git: HerdrGitGateway;
-	herdr: HerdrGateway;
-}): void {
-	const { commands, herdr } = dependencies;
-	const labelDeriver = createHerdrSpaceLabelDeriver(dependencies);
+export function registerHerdrNewSpaceCommand(context: HerdrPiContext): void {
+	const { commands, herdr } = context;
+	const labelDeriver = createHerdrSpaceLabelDeriver(context);
 
 	registerCommandWithImmediateAck({
 		host: commands,

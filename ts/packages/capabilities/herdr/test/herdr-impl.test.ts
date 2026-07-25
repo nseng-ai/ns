@@ -17,7 +17,7 @@ const TEST_MODEL_SELECTION = {
 	thinking: "minimal" as const,
 };
 
-import { HERDR_BASE_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
+import { HERDR_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
 import registerHerdrPiExtension from "../src/pi/extension.ts";
 import {
 	registerHerdrPlanSpaceImplCommand,
@@ -68,14 +68,37 @@ afterEach(resetHerdrTestEnvironment);
 const IMPL_PROMPT_NAMESPACE = "ns-impl";
 const IMPL_PROMPT_KEY = "prompt.md";
 const TRUNK_BRANCH = "master";
-const testGraphiteBranchGateway = {
-	trunkBranch: async () => ({ ok: true as const, branch: TRUNK_BRANCH }),
-};
-
 function dispatchPlanDependencies() {
 	return {
 		git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
-		graphite: testGraphiteBranchGateway,
+		trunkBranch: TRUNK_BRANCH,
+	};
+}
+
+function herdrPiTestContext(
+	pi: FakePi,
+	herdr: FakeHerdrGateway,
+	git: InMemoryGitGateway = new InMemoryGitGateway(),
+) {
+	return {
+		commands: createHerdrPiCommandApi(pi),
+		git,
+		trunkBranch: TRUNK_BRANCH,
+		herdr,
+	};
+}
+
+interface HerdrPlanTestContextOptions {
+	pi: FakePi;
+	ctx: FakeCommandContext;
+	herdr: FakeHerdrGateway;
+	git?: InMemoryGitGateway;
+}
+
+function herdrPlanTestContext(options: HerdrPlanTestContextOptions) {
+	return {
+		...herdrPiTestContext(options.pi, options.herdr, options.git),
+		pi: options.ctx,
 	};
 }
 
@@ -130,10 +153,10 @@ const testSlotClient = {
 // ---------------------------------------------------------------------------
 
 describe("herdr Pi extension — full suite", () => {
-	test("registers all herdr command surfaces", () => {
+	test("registers all herdr command surfaces", async () => {
 		const pi = new FakePi();
-		registerHerdrPiExtension(pi);
-		expect([...pi.commands.keys()].sort()).toEqual([...HERDR_BASE_COMMAND_NAMES].sort());
+		await registerHerdrPiExtension(pi);
+		expect([...pi.commands.keys()].sort()).toEqual([...HERDR_COMMAND_NAMES].sort());
 	});
 
 	test.each([
@@ -177,7 +200,7 @@ describe("herdr Pi extension — full suite", () => {
 		scenario.register({
 			commands,
 			git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
-			graphite: testGraphiteBranchGateway,
+			trunkBranch: TRUNK_BRANCH,
 			herdr: new FakeHerdrGateway(),
 		});
 
@@ -199,9 +222,6 @@ describe("Herdr prompt implementation", () => {
 		const prompt = "Implement the Herdr implementation flow with literal --from trunk text";
 		const pi = new FakePi({
 			script: [
-				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
-				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
-				gitRootStep(ROOT),
 				step(
 					"pi",
 					buildRawTextModelArgs(
@@ -246,14 +266,18 @@ describe("Herdr prompt implementation", () => {
 		});
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
-		const git = new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH });
+		const git = new InMemoryGitGateway({
+			currentBranch: SOURCE_BRANCH,
+			headCommit: START_POINT,
+			repoRoot: ROOT,
+		});
 
 		await handleHerdrSlotImplPrompt(
 			{
 				commands: createHerdrPiCommandApi(pi),
 				pi: ctx,
 				herdr,
-				graphite: testGraphiteBranchGateway,
+				trunkBranch: TRUNK_BRANCH,
 				git,
 			},
 			{
@@ -269,7 +293,7 @@ describe("Herdr prompt implementation", () => {
 		);
 
 		pi.assertDone();
-		expect(git.currentBranchCalls).toEqual([{ cwd: ROOT }, { cwd: ROOT }]);
+		expect(git.currentBranchCalls).toEqual([{ cwd: ROOT }, { cwd: ROOT }, { cwd: ROOT }]);
 		expect(git.createBranchAtStartPointCalls).toEqual([
 			{ cwd: ROOT, branch: BRANCH, startPoint: START_POINT },
 		]);
@@ -294,7 +318,6 @@ describe("Herdr prompt implementation", () => {
 				step("git", ["rev-parse", "--verify", `refs/heads/${TRUNK_BRANCH}`], {
 					stdout: `${START_POINT}\n`,
 				}),
-				gitRootStep(ROOT),
 				step(
 					"pi",
 					buildRawTextModelArgs(
@@ -337,7 +360,7 @@ describe("Herdr prompt implementation", () => {
 				),
 			],
 		});
-		const git = new InMemoryGitGateway({ currentBranch: TRUNK_BRANCH });
+		const git = new InMemoryGitGateway({ currentBranch: TRUNK_BRANCH, repoRoot: ROOT });
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
@@ -346,7 +369,7 @@ describe("Herdr prompt implementation", () => {
 				commands: createHerdrPiCommandApi(pi),
 				pi: ctx,
 				herdr,
-				graphite: { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) },
+				trunkBranch: TRUNK_BRANCH,
 				git,
 			},
 			{
@@ -385,9 +408,6 @@ describe("Herdr prompt implementation", () => {
 		const prompt = "Implement the Herdr implementation flow";
 		const pi = new FakePi({
 			script: [
-				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
-				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
-				gitRootStep(ROOT),
 				step(
 					"pi",
 					buildRawTextModelArgs(
@@ -430,7 +450,11 @@ describe("Herdr prompt implementation", () => {
 				),
 			],
 		});
-		const git = new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH });
+		const git = new InMemoryGitGateway({
+			currentBranch: SOURCE_BRANCH,
+			headCommit: START_POINT,
+			repoRoot: ROOT,
+		});
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
@@ -439,7 +463,7 @@ describe("Herdr prompt implementation", () => {
 				commands: createHerdrPiCommandApi(pi),
 				pi: ctx,
 				herdr,
-				graphite: testGraphiteBranchGateway,
+				trunkBranch: TRUNK_BRANCH,
 				git,
 			},
 			{
@@ -470,7 +494,7 @@ describe("Herdr prompt implementation", () => {
 				commands: createHerdrPiCommandApi(pi),
 				pi: ctx,
 				herdr,
-				graphite: testGraphiteBranchGateway,
+				trunkBranch: TRUNK_BRANCH,
 				git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
 			},
 			{
@@ -497,19 +521,16 @@ describe("ns:herdr:impl:plan:space", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "--help",
-				dependencies: dispatchPlanDependencies(),
-				config: {
-					commandName: "ns:herdr:impl:plan:space",
-					statusKey: "ns:herdr:impl:plan:space",
-					destination: "workspace",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "--help",
+			dependencies: dispatchPlanDependencies(),
+			config: {
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
+				destination: "workspace",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		expect(herdr.createWorkspaceCalls).toHaveLength(0);
 		expect(pi.execCalls).toHaveLength(0);
@@ -521,19 +542,16 @@ describe("ns:herdr:impl:plan:space", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "--unknown-flag",
-				dependencies: dispatchPlanDependencies(),
-				config: {
-					commandName: "ns:herdr:impl:plan:space",
-					statusKey: "ns:herdr:impl:plan:space",
-					destination: "workspace",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "--unknown-flag",
+			dependencies: dispatchPlanDependencies(),
+			config: {
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
+				destination: "workspace",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		expect(herdr.createWorkspaceCalls).toHaveLength(0);
 		const errors = ctx.notifications.filter((n) => n.level === "error");
@@ -561,19 +579,16 @@ describe("ns:herdr:impl:plan:space", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "",
-				dependencies: dispatchPlanDependencies(),
-				config: {
-					commandName: "ns:herdr:impl:plan:tab",
-					statusKey: "ns:herdr:impl:plan:tab",
-					destination: "tab",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "",
+			dependencies: dispatchPlanDependencies(),
+			config: {
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
+				destination: "tab",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		expect(pi.execCalls).toHaveLength(0);
 		expect(herdr.createTabCalls).toHaveLength(0);
@@ -596,19 +611,16 @@ describe("ns:herdr:impl:plan:tab", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "",
-				dependencies: dispatchPlanDependencies(),
-				config: {
-					commandName: "ns:herdr:impl:plan:tab",
-					statusKey: "ns:herdr:impl:plan:tab",
-					destination: "tab",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "",
+			dependencies: dispatchPlanDependencies(),
+			config: {
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
+				destination: "tab",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		expect(pi.execCalls).toHaveLength(0);
 		expect(herdr.createTabCalls).toHaveLength(0);
@@ -650,21 +662,18 @@ describe("ns:herdr:impl:plan:tab", () => {
 		});
 		const destinationReads: Array<"workspace" | "tab"> = ["tab", "workspace", "tab"];
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "",
-				dependencies: options,
-				config: {
-					commandName: "ns:herdr:impl:plan:tab",
-					statusKey: "ns:herdr:impl:plan:tab",
-					get destination() {
-						return destinationReads.shift() ?? "tab";
-					},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "",
+			dependencies: options,
+			config: {
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
+				get destination() {
+					return destinationReads.shift() ?? "tab";
 				},
-				notifyProgress: () => {},
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		expect(git.createBranchAtHeadCalls).toEqual([]);
 		expect(brmem.attachPlanCalls).toEqual([]);
@@ -682,19 +691,16 @@ describe("ns:herdr:impl:plan:tab", () => {
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 		const progress: string[] = [];
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "",
-				dependencies: dispatchPlanDependencies(),
-				config: {
-					commandName: "ns:herdr:impl:plan:tab",
-					statusKey: "ns:herdr:impl:plan:tab",
-					destination: "tab",
-				},
-				notifyProgress: (message) => progress.push(message),
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "",
+			dependencies: dispatchPlanDependencies(),
+			config: {
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
+				destination: "tab",
 			},
-		);
+			notifyProgress: (message) => progress.push(message),
+		});
 
 		expect(pi.execCalls).toEqual([]);
 		expect(progress).toEqual([]);
@@ -711,19 +717,16 @@ describe("ns:herdr:impl:plan:tab", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "--help",
-				dependencies: dispatchPlanDependencies(),
-				config: {
-					commandName: "ns:herdr:impl:plan:tab",
-					statusKey: "ns:herdr:impl:plan:tab",
-					destination: "tab",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "--help",
+			dependencies: dispatchPlanDependencies(),
+			config: {
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
+				destination: "tab",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		expect(pi.execCalls).toEqual([]);
 		expect(ctx.waitCount).toBe(0);
@@ -800,7 +803,6 @@ function herdrPlanImplTestOptions(
 	return {
 		planStoreRoot,
 		slotClient: testSlotClient,
-		graphite: testGraphiteBranchGateway,
 		git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
 		createBranchContextContext(pi, cwd) {
 			const stdinCapablePi: StdinCapableCommandExecApi = {
@@ -844,10 +846,13 @@ describe("ns:herdr:impl:plan:space", () => {
 		const git = new InMemoryGitGateway({
 			optionalRepoRoot: { type: "missing" },
 			existingBranches: [PLAN_SLUG],
+			branchUpstream: {
+				remoteName: "origin",
+				remoteRef: `refs/heads/${TRUNK_BRANCH}`,
+			},
 		});
 		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		const graphite = new InMemoryGraphiteBranchGateway();
-		options.graphite = { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) };
 		options.git = {
 			currentBranch: async () => ({ type: "branch", branch: SOURCE_BRANCH }),
 		};
@@ -858,19 +863,16 @@ describe("ns:herdr:impl:plan:space", () => {
 			graphite,
 		});
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "",
-				dependencies: options,
-				config: {
-					commandName: "ns:herdr:impl:plan:space",
-					statusKey: "ns:herdr:impl:plan:space",
-					destination: "workspace",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "",
+			dependencies: options,
+			config: {
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
+				destination: "workspace",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		pi.assertDone();
 		expect(git.createBranchAtStartPointCalls).toEqual([
@@ -894,19 +896,16 @@ describe("ns:herdr:impl:plan:space", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT, branchEntries: [] });
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "",
-				dependencies: dispatchPlanDependencies(),
-				config: {
-					commandName: "ns:herdr:impl:plan:space",
-					statusKey: "ns:herdr:impl:plan:space",
-					destination: "workspace",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "",
+			dependencies: dispatchPlanDependencies(),
+			config: {
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
+				destination: "workspace",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => call.args)).toEqual([
@@ -937,10 +936,9 @@ describe("ns:herdr:impl:plan:space", () => {
 			selectIndices: [1],
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
-		const git = new InMemoryGitGateway();
+		const git = new InMemoryGitGateway({ branchUpstream: { type: "missing" } });
 		const brmem = new InMemoryBranchMemoryGateway();
 		const options = herdrPlanImplTestOptions(planStoreRoot);
-		options.graphite = { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) };
 		options.git = {
 			currentBranch: async () => ({ type: "branch", branch: SOURCE_BRANCH }),
 		};
@@ -951,19 +949,16 @@ describe("ns:herdr:impl:plan:space", () => {
 			graphite: new InMemoryGraphiteBranchGateway(),
 		});
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "",
-				dependencies: options,
-				config: {
-					commandName: "ns:herdr:impl:plan:space",
-					statusKey: "ns:herdr:impl:plan:space",
-					destination: "workspace",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "",
+			dependencies: options,
+			config: {
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
+				destination: "workspace",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		pi.assertDone();
 		expect(git.createBranchAtStartPointCalls).toEqual([]);
@@ -1001,7 +996,6 @@ describe("ns:herdr:impl:plan:space", () => {
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
 		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
-		options.graphite = { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) };
 		options.git = {
 			currentBranch: async () => ({ type: "branch", branch: SOURCE_BRANCH }),
 		};
@@ -1012,19 +1006,16 @@ describe("ns:herdr:impl:plan:space", () => {
 			graphite: new InMemoryGraphiteBranchGateway(),
 		});
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "--dry-run",
-				dependencies: options,
-				config: {
-					commandName: "ns:herdr:impl:plan:space",
-					statusKey: "ns:herdr:impl:plan:space",
-					destination: "workspace",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "--dry-run",
+			dependencies: options,
+			config: {
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
+				destination: "workspace",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		pi.assertDone();
 		expect(git.createBranchAtHeadCalls).toEqual([]);
@@ -1106,19 +1097,16 @@ describe("ns:herdr:impl:plan:space — dry-run (no Herdr mutations)", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "--dry-run",
-				dependencies: herdrPlanImplTestOptions(planStoreRoot),
-				config: {
-					commandName: "ns:herdr:impl:plan:space",
-					statusKey: "ns:herdr:impl:plan:space",
-					destination: "workspace",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "--dry-run",
+			dependencies: herdrPlanImplTestOptions(planStoreRoot),
+			config: {
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
+				destination: "workspace",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		pi.assertDone();
 		expect(herdr.createWorkspaceCalls).toHaveLength(0);
@@ -1175,7 +1163,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		const graphite = new InMemoryGraphiteBranchGateway();
 		const options = herdrPlanImplTestOptions(planStoreRoot);
-		options.graphite = { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) };
 		options.git = {
 			currentBranch: async () => ({ type: "branch", branch: SOURCE_BRANCH }),
 		};
@@ -1186,19 +1173,16 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			graphite,
 		});
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "",
-				dependencies: options,
-				config: {
-					commandName: "ns:herdr:impl:plan:tab",
-					statusKey: "ns:herdr:impl:plan:tab",
-					destination: "tab",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "",
+			dependencies: options,
+			config: {
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
+				destination: "tab",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		pi.assertDone();
 		expect(git.createBranchAtStartPointCalls).toEqual([
@@ -1251,7 +1235,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		const graphite = new InMemoryGraphiteBranchGateway();
 		const options = herdrPlanImplTestOptions(planStoreRoot);
-		options.graphite = { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) };
 		options.git = {
 			currentBranch: async () => ({ type: "branch", branch: SOURCE_BRANCH }),
 		};
@@ -1262,19 +1245,16 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			graphite,
 		});
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "--dry-run",
-				dependencies: options,
-				config: {
-					commandName: "ns:herdr:impl:plan:tab",
-					statusKey: "ns:herdr:impl:plan:tab",
-					destination: "tab",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "--dry-run",
+			dependencies: options,
+			config: {
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
+				destination: "tab",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		pi.assertDone();
 		expect(pi.execCalls).not.toContainEqual(
@@ -1305,19 +1285,16 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "--dry-run",
-				dependencies: dispatchPlanDependencies(),
-				config: {
-					commandName: "ns:herdr:impl:plan:tab",
-					statusKey: "ns:herdr:impl:plan:tab",
-					destination: "tab",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "--dry-run",
+			dependencies: dispatchPlanDependencies(),
+			config: {
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
+				destination: "tab",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		expect(pi.execCalls).toEqual([]);
 		expect(ctx.waitCount).toBe(0);
@@ -1364,19 +1341,16 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			};
 		};
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "",
-				dependencies: options,
-				config: {
-					commandName: "ns:herdr:impl:plan:tab",
-					statusKey: "ns:herdr:impl:plan:tab",
-					destination: "tab",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "",
+			dependencies: options,
+			config: {
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
+				destination: "tab",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		pi.assertDone();
 		expect(contextConstructions).toBe(1);
@@ -1425,19 +1399,16 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			}),
 		});
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "",
-				dependencies: options,
-				config: {
-					commandName: "ns:herdr:impl:plan:space",
-					statusKey: "ns:herdr:impl:plan:space",
-					destination: "workspace",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "",
+			dependencies: options,
+			config: {
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
+				destination: "workspace",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		pi.assertDone();
 		const failure = notificationMessages(ctx).join("\n---\n");
@@ -1485,19 +1456,16 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			}),
 		});
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "",
-				dependencies: options,
-				config: {
-					commandName: "ns:herdr:impl:plan:tab",
-					statusKey: "ns:herdr:impl:plan:tab",
-					destination: "tab",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "",
+			dependencies: options,
+			config: {
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
+				destination: "tab",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		pi.assertDone();
 		const failure = notificationMessages(ctx).join("\n---\n");
@@ -1534,19 +1502,16 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 
-		await handleHerdrSlotImplPlan(
-			{ commands: createHerdrPiCommandApi(pi), herdr, pi: ctx },
-			{
-				rawArgs: "--dry-run",
-				dependencies: herdrPlanImplTestOptions(planStoreRoot),
-				config: {
-					commandName: "ns:herdr:impl:plan:tab",
-					statusKey: "ns:herdr:impl:plan:tab",
-					destination: "tab",
-				},
-				notifyProgress: () => {},
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
+			rawArgs: "--dry-run",
+			dependencies: herdrPlanImplTestOptions(planStoreRoot),
+			config: {
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
+				destination: "tab",
 			},
-		);
+			notifyProgress: () => {},
+		});
 
 		pi.assertDone();
 		expect(herdr.createWorkspaceCalls).toHaveLength(0);

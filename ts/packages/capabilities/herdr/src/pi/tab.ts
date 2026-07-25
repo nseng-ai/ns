@@ -10,19 +10,13 @@ import {
 	HERDR_TAB_NEW_COMMAND_NAME,
 } from "../core/command-surfaces.ts";
 import { handleHerdrNewTab, handleHerdrTabGoal } from "../core/tab.ts";
-import type { HerdrGateway } from "../core/herdr-gateway.ts";
-import type { HerdrPiCommandApi } from "../core/pi-command-api.ts";
-import type { HerdrGitGateway } from "./context.ts";
+import type { HerdrPiContext } from "./context.ts";
 import { createHerdrSpaceLabelDeriver } from "./new-space-label.ts";
 import { createHerdrPiCommandApi } from "./pi-command-api.ts";
 
-export function registerHerdrNewTabCommand(dependencies: {
-	commands: HerdrPiCommandApi;
-	git: HerdrGitGateway;
-	herdr: HerdrGateway;
-}): void {
-	const { commands, herdr } = dependencies;
-	const labelDeriver = createHerdrSpaceLabelDeriver(dependencies);
+export function registerHerdrNewTabCommand(context: HerdrPiContext): void {
+	const { commands, herdr } = context;
+	const labelDeriver = createHerdrSpaceLabelDeriver(context);
 	registerCommandWithImmediateAck({
 		host: commands,
 		commandName: HERDR_TAB_NEW_COMMAND_NAME,

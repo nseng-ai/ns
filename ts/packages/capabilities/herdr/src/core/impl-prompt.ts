@@ -11,8 +11,6 @@ import {
 	type TrackedBranchEvidence,
 	type TrackedBranchPayloadOptions,
 } from "@nseng-ai/capability-kit/tracked-branch-payload";
-import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
-import type { GraphiteMetadataDbAccess } from "@nseng-ai/capability-kit/graphite/metadata";
 import { getPiLaunchOptions } from "@nseng-ai/capability-kit/pi-launch";
 import type { CommandContext } from "@nseng-ai/capability-kit/pi-types";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
@@ -32,23 +30,20 @@ const COMMAND_NAME = HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME;
 
 export interface ImplPromptPayloadOptions extends TrackedBranchPayloadOptions {
 	slotClient?: SlotClient;
-	graphite?: Pick<GraphiteBranchGateway, "trunkBranch">;
-	git?: Pick<GitGateway, "createBranchAtStartPoint" | "currentBranch">;
-	metadataDbAccess?: GraphiteMetadataDbAccess;
+	git?: Pick<GitGateway, "createBranchAtStartPoint" | "currentBranch" | "headCommit" | "repoRoot">;
 }
 
 export interface HerdrImplPromptContext {
 	commands: ImplPromptRuntime;
 	pi: CommandContext;
-	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
-	git: Pick<GitGateway, "createBranchAtStartPoint" | "currentBranch">;
+	trunkBranch: string;
+	git: Pick<GitGateway, "createBranchAtStartPoint" | "currentBranch" | "headCommit" | "repoRoot">;
 	herdr: HerdrGateway;
 }
 
 export interface HandleHerdrSlotImplPromptOptions {
 	payloadOptions: ResolvedTrackedBranchPayloadOptions;
 	slotClient?: SlotClient;
-	metadataDbAccess?: GraphiteMetadataDbAccess;
 	args: string;
 	notifyProgress: (message: string) => void;
 }
@@ -126,12 +121,11 @@ async function createTrunkPromptBranch(
 	prompt: string,
 ): Promise<TrackedBranchEvidence | { error: string }> {
 	return createTrackedBranchFromLocalTrunkForPrompt(
-		{ pi: context.commands, graphite: context.graphite, git: context.git },
+		{ pi: context.commands, trunkBranch: context.trunkBranch, git: context.git },
 		{
 			cwd: context.pi.cwd,
 			prompt,
 			notify: options.notifyProgress,
-			...optionalEntry("metadataDbAccess", options.metadataDbAccess),
 		},
 	);
 }
@@ -159,15 +153,12 @@ export async function implTrackedBranchPrompt(
 	},
 ): Promise<void> {
 	options.notifyProgress("Storing implementation prompt in Branch Memory…");
-	const stored = await storeTrackedBranchPayload(
-		{ pi: context.commands },
-		{
-			cwd: context.pi.cwd,
-			branchName: options.branch.branchName,
-			content: options.content,
-			payloadOptions: options.payloadOptions,
-		},
-	);
+	const stored = await storeTrackedBranchPayload(context.commands, {
+		cwd: context.pi.cwd,
+		branchName: options.branch.branchName,
+		content: options.content,
+		payloadOptions: options.payloadOptions,
+	});
 	if (!stored.ok) {
 		context.pi.ui.notify(
 			formatTrackedBranchPayloadStorageFailure(

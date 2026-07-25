@@ -19,6 +19,7 @@ import { registerHerdrHandoffTab } from "./handoff-tab.ts";
 import { registerHerdrNewSpaceCommand } from "./new-space.ts";
 import { registerHerdrSpaceGoalCommand } from "./space-goal.ts";
 import { registerHerdrNewTabCommand, registerHerdrTabGoalCommand } from "./tab.ts";
+import type { HerdrPiContext } from "./context.ts";
 import { createHerdrPiCommandApi } from "./pi-command-api.ts";
 
 export type HandoffIntegrationLoader = () => Promise<{
@@ -38,15 +39,25 @@ export async function registerHerdrPiExtension(
 	const commands = createHerdrPiCommandApi(herdrPi);
 	const git = new RealGitGateway(commands);
 	const graphite = new RealGraphiteBranchGateway(commands);
+	// Graphite trunk changes are heavyweight process-wide reconfiguration. Resolve it once at
+	// startup and treat the result as immutable for this extension lifetime; gateway injection
+	// remains the test seam for trunk resolution.
+	const trunk = await graphite.trunkBranch({ cwd: process.cwd() });
+	if (!trunk.ok) {
+		throw new Error(
+			`Could not initialize Herdr: failed to resolve Graphite trunk. ${trunk.error.message}`,
+		);
+	}
 	const herdr = createCliHerdrGateway(commands);
+	const context: HerdrPiContext = { commands, git, trunkBranch: trunk.branch, herdr };
 	const sidebarController = createHerdrSidebarControllerWithPiWiring(herdrPi);
 	registerHerdrSidebarCommands(herdrPi, sidebarController);
 	registerHerdrSpaceGoalCommand(herdrPi);
-	registerHerdrPromptSpaceImplCommand({ commands, git, graphite, herdr });
-	registerHerdrPlanSpaceImplCommand({ commands, git, graphite, herdr });
-	registerHerdrPlanTabImplCommand({ commands, git, graphite, herdr });
-	registerHerdrNewSpaceCommand({ commands, git, herdr });
-	registerHerdrNewTabCommand({ commands, git, herdr });
+	registerHerdrPromptSpaceImplCommand(context);
+	registerHerdrPlanSpaceImplCommand(context);
+	registerHerdrPlanTabImplCommand(context);
+	registerHerdrNewSpaceCommand(context);
+	registerHerdrNewTabCommand(context);
 	registerHerdrTabGoalCommand(herdrPi);
 
 	if (!("registerTool" in pi) || pi.registerTool === undefined) return;

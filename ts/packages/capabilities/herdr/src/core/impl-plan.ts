@@ -29,8 +29,6 @@ import {
 	prepareLocalGraphiteTrunk,
 	type LocalGraphiteTrunkPreparation,
 } from "@nseng-ai/capability-kit/tracked-branch-payload";
-import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
-import type { GraphiteMetadataDbAccess } from "@nseng-ai/capability-kit/graphite/metadata";
 import type { PiLaunchOptions } from "@nseng-ai/capability-kit/pi-launch";
 import { formatCommand } from "@nseng-ai/foundation/command";
 import type { GitGateway } from "@nseng-ai/foundation/git";
@@ -64,13 +62,10 @@ export interface HerdrSlotImplPlanOptions {
 	planStoreRoot?: string;
 	createBranchContextContext?: BranchContextContextFactory<[pi: HerdrPiCommandApi, cwd: string]>;
 	slotClient?: SlotClient;
-	graphite?: Pick<GraphiteBranchGateway, "trunkBranch">;
 	git?: Pick<GitGateway, "currentBranch">;
-	metadataDbAccess?: GraphiteMetadataDbAccess;
 }
 
 export interface ResolvedHerdrSlotImplPlanOptions extends HerdrSlotImplPlanOptions {
-	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
 	git: Pick<GitGateway, "currentBranch">;
 }
 
@@ -81,6 +76,8 @@ interface CommandArgs {
 
 export interface HerdrImplPlanContext {
 	commands: HerdrPiCommandApi;
+	git: Pick<GitGateway, "currentBranch">;
+	trunkBranch: string;
 	herdr: HerdrGateway;
 	pi: CommandContext;
 }
@@ -96,7 +93,7 @@ export async function handleHerdrSlotImplPlan(
 	context: HerdrImplPlanContext,
 	options: HandleHerdrSlotImplPlanOptions,
 ): Promise<void> {
-	const { commands: pi, herdr, pi: ctx } = context;
+	const { commands: pi, trunkBranch, herdr, pi: ctx } = context;
 	const { rawArgs, config } = options;
 
 	const parsed = parseCommandArgs(rawArgs);
@@ -151,6 +148,7 @@ export async function handleHerdrSlotImplPlan(
 			selection.basis === "trunk"
 				? await prepareImplTrunkBasis({
 						pi,
+						trunkBranch,
 						cwd: checkout.repoRoot,
 						options: options.dependencies,
 						notify: options.notifyProgress,
@@ -247,16 +245,16 @@ type PreparedImplBasis =
 
 async function prepareImplTrunkBasis(options: {
 	pi: HerdrPiCommandApi;
+	trunkBranch: string;
 	cwd: string;
 	options: ResolvedHerdrSlotImplPlanOptions;
 	notify: (message: string) => void;
 }): Promise<PreparedImplBasis | { error: string }> {
 	const preparation = await prepareLocalGraphiteTrunk(
-		{ pi: options.pi, graphite: options.options.graphite },
+		{ pi: options.pi, trunkBranch: options.trunkBranch },
 		{
 			cwd: options.cwd,
 			notify: options.notify,
-			...optionalEntry("metadataDbAccess", options.options.metadataDbAccess),
 		},
 	);
 	return "error" in preparation ? preparation : { type: "resolved-local-trunk", preparation };
