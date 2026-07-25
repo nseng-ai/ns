@@ -95,8 +95,8 @@ writeFileSync(
 	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
 );
 export const WORKTREE = "/slot/worktree";
-export const BRANCH = "herdr-dispatch-feature";
-export const PLAN_SLUG = "herdr-dispatch-feature";
+export const BRANCH = "herdr-launch-feature";
+export const PLAN_SLUG = "herdr-launch-feature";
 export const PLAN_KEY = `${PLAN_SLUG}.md`;
 export const SOURCE_BRANCH = "herdr-capability-parity";
 export const START_POINT = "deadbeef1234567890abcdef1234567890abcdef";
@@ -574,7 +574,7 @@ export function headStep(): ScriptedExec {
 	return step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` });
 }
 
-export function dispatchValidationScript(repoRoot: string): ScriptedExec[] {
+export function launchValidationScript(repoRoot: string): ScriptedExec[] {
 	return [gitRootStep(repoRoot), gitCurrentBranchStep(), gitOriginStep()];
 }
 

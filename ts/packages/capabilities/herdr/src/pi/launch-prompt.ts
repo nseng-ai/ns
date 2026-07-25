@@ -8,23 +8,23 @@ import {
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/pi-types";
 
 import {
-	handleHerdrSlotDispatchPrompt,
-	resolveDispatchPromptPayloadOptions,
-	type DispatchPromptPayloadOptions,
-} from "../core/dispatch-prompt.ts";
-import { HERDR_SPACE_DISPATCH_PROMPT_COMMAND_NAME } from "../core/command-surfaces.ts";
+	handleHerdrSlotLaunchPrompt,
+	resolveLaunchPromptPayloadOptions,
+	type LaunchPromptPayloadOptions,
+} from "../core/launch-prompt.ts";
+import { HERDR_PROMPT_SPACE_LAUNCH_COMMAND_NAME } from "../core/command-surfaces.ts";
 import { createCliHerdrGateway } from "../core/cli-gateway.ts";
 import { createHerdrPiCommandApi } from "./pi-command-api.ts";
 
-const COMMAND_NAME = HERDR_SPACE_DISPATCH_PROMPT_COMMAND_NAME;
+const COMMAND_NAME = HERDR_PROMPT_SPACE_LAUNCH_COMMAND_NAME;
 
-export function registerHerdrSlotDispatchPromptCommand(
+export function registerHerdrPromptSpaceLaunchCommand(
 	rawPi: ExtensionAPI,
-	options: DispatchPromptPayloadOptions = {},
+	options: LaunchPromptPayloadOptions = {},
 ): void {
 	const pi = createHerdrPiCommandApi(rawPi);
 	const herdr = createCliHerdrGateway(pi);
-	const payloadOptions = resolveDispatchPromptPayloadOptions(options);
+	const payloadOptions = resolveLaunchPromptPayloadOptions(options);
 	const git = options.git ?? new RealGitGateway(pi);
 	const graphite = options.graphite ?? new RealGraphiteBranchGateway(pi);
 
@@ -36,7 +36,7 @@ export function registerHerdrSlotDispatchPromptCommand(
 			argumentHint: "<prompt>",
 			handler: async (args, ctx) => {
 				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });
-				await handleHerdrSlotDispatchPrompt({
+				await handleHerdrSlotLaunchPrompt({
 					pi,
 					herdr,
 					payloadOptions,

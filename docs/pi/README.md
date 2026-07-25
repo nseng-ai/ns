@@ -102,7 +102,7 @@ Do not promote behavior merely because the extension is checked in. Do not extra
 | `ts/packages/capabilities/flow/src/autobranch/*` and `checkpoint/*` | Engineered implementation | Autobranch workflow engine over pending-worktree, preparation, latest-commit extraction, and transaction helpers; the public surface is `ns flow autobranch` / `/ns:flow:autobranch`. |
 | `ns flow submit` | ns project-local extension command | SDK-only project-local Graphite submit command mirrored into Pi as `/ns:flow:submit`; no flat or legacy submit aliases are retained. |
 | `ts/packages/internal/ns-pi-subagents/src/runner-subagents/extension-api.ts` and submodules | Internal Pi-tool package | Runner-subagent subprocess, JSON-event parsing, generated runtime extension, terminal capture, and final-text results. |
-| `ts/packages/capabilities/herdr/src/pi/extension.ts` and `core/*` | Engineered implementation | Private Herdr resource command suite, explicit caller space/tab targeting, dispatch composition, and optional Handoff Artifact tab launch. |
+| `ts/packages/capabilities/herdr/src/pi/extension.ts` and `core/*` | Engineered implementation | Private Herdr resource command suite, explicit caller space/tab targeting, launch composition, and optional Handoff Artifact tab launch. |
 | `ts/packages/hosts/pi/src/terminal/presentation.ts` | Engineered implementation | Shared terminal hyperlink/linkification and custom-message text helpers. |
 
 ### Repository-local ripgrep defaults

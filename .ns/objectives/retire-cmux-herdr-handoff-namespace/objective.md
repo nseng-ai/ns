@@ -27,19 +27,19 @@ not durable or shared).
 - Preserve caller workspace preflight before Git inspection or interaction for plan-to-tab, and preserve contextual selection in plan dry runs.
 - Preserve the behavior of renamed commands, including label-only Objective summary behavior and the hidden portable `ns herdr exec handoff-tab launch` mechanism.
 - Add explicit tab creation and goal labeling, targeted only through trimmed `HERDR_WORKSPACE_ID` and `HERDR_TAB_ID` caller identity respectively.
-- Deliver local-trunk Saved Plan dispatch by resolving the configured Graphite trunk and exact existing local SHA, then using Branch Context's explicit-parent/start-point seams without duplicating their policy in Herdr.
+- Deliver local-trunk Saved Plan launch by resolving the configured Graphite trunk and exact existing local SHA, then using Branch Context's explicit-parent/start-point seams without duplicating their policy in Herdr.
 - Preserve Branch Context's bounded deterministic collision selection and immediate race revalidation.
-- Keep cmux and standalone Herdr open-branch implementation removed while retaining shared Herdr workspace/tab launch mechanics used by dispatch flows.
+- Keep cmux and standalone Herdr open-branch implementation removed while retaining shared Herdr workspace/tab launch mechanics used by launch flows.
 - Reconcile live Herdr, Handoff, Pi, and repository domain documentation while preserving accurate historical ADRs, closed Objective records, retrospectives, reshape specifications, and immutable Semantic Updates.
 - Keep gated `docs-site/` content unchanged and record its stale catalog entry as a follow-up.
 
-`handoff` is now an action only on `/ns:herdr:tab:handoff`, where the workflow really creates and verifies a durable Handoff Artifact before destination launch. Prompt and plan dispatch do not imply Handoff Artifact creation.
+`handoff` is now an action only on `/ns:herdr:tab:handoff`, where the workflow really creates and verifies a durable Handoff Artifact before destination launch. Prompt and plan launch do not imply Handoff Artifact creation.
 
 ## Non-Goals
 
-- Adding a tab prompt-dispatch variant.
+- Adding a tab prompt-launch variant.
 - Adding `--from` or another public branch-basis override, parsing prompt text as flags, or retaining visible or hidden aliases for the five removed `br`/`tr` commands.
-- Changing prompt payloads, latest-session Saved Plan selection, Attached Plan implementation semantics, or existing space/tab destinations except where local-trunk plan dispatch explicitly requires new parentage.
+- Changing prompt payloads, latest-session Saved Plan selection, Attached Plan implementation semantics, or existing space/tab destinations except where local-trunk plan launch explicitly requires new parentage.
 - Expanding Objective summary beyond its existing label-only behavior.
 - Introducing a generic terminal-multiplexer abstraction or lowest-common-denominator cmux/Herdr interface.
 - Adding a generic Herdr workspace-summary CLI, raw socket integration, event subscriptions, layouts, or plugin behavior.
@@ -66,7 +66,7 @@ not durable or shared).
 
 - The installed Herdr CLI supports explicit-workspace focused tab creation, `herdr tab rename <tab-id> <label>`, and pane command launch; implementation must revalidate installed help because Herdr is moving quickly.
 - Herdr-managed panes inject both `HERDR_WORKSPACE_ID` and `HERDR_TAB_ID`.
-- Existing prompt and plan dispatch core logic can be composed behind shared contextual branch-basis selection without duplicating local Graphite trunk resolution, Branch Context, or prepared destination policy.
+- Existing prompt and plan launch core logic can be composed behind shared contextual branch-basis selection without duplicating local Graphite trunk resolution, Branch Context, or prepared destination policy.
 - Branch Context remains the owning policy boundary for deterministic collision selection and race revalidation.
 
 **Risks**

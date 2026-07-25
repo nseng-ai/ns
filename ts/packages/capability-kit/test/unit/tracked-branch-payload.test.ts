@@ -92,7 +92,7 @@ describe("tracked branch payload public API", () => {
 					"check",
 					"prompt.md",
 					"--namespace",
-					"ns-dispatch",
+					"ns-launch",
 					"--branch",
 					"feature-demo",
 					"--format",
@@ -106,7 +106,7 @@ describe("tracked branch payload public API", () => {
 					"put",
 					"prompt.md",
 					"--namespace",
-					"ns-dispatch",
+					"ns-launch",
 					"--branch",
 					"feature-demo",
 					"--file",
@@ -116,10 +116,10 @@ describe("tracked branch payload public API", () => {
 				],
 				result: exited({
 					stdout: brmemEnvelope({
-						namespace: "ns-dispatch",
+						namespace: "ns-launch",
 						key: "prompt.md",
 						branch: "feature-demo",
-						refName: "refs/brmem/ns/ns-dispatch/feature-demo:prompt.md",
+						refName: "refs/brmem/ns/ns-launch/feature-demo:prompt.md",
 						commit: "abc123",
 						sourceFile,
 					}),
@@ -153,7 +153,7 @@ describe("tracked branch payload public API", () => {
 					"check",
 					"prompt.md",
 					"--namespace",
-					"ns-dispatch",
+					"ns-launch",
 					"--branch",
 					"feature-demo",
 					"--format",
@@ -366,7 +366,7 @@ describe("tracked branch payload public API", () => {
 			thinkingLevel: "high",
 		});
 
-		expect(command).toContain("brmem get prompt.md --namespace ns-dispatch --branch feature/demo");
+		expect(command).toContain("brmem get prompt.md --namespace ns-launch --branch feature/demo");
 		expect(command).toContain("pi --provider anthropic --model claude-sonnet --thinking high");
 	});
 });

@@ -6,13 +6,13 @@
   - Replace the five public `br`/`tr` launch commands with prompt-to-space, plan-to-space, and plan-to-tab commands and no compatibility aliases.
   - Select current branch or existing local trunk through one fake-driven policy covering named trunk, named feature branches, detached HEAD, lookup failure, cancellation, and unavailable interaction.
   - Preserve shared local Graphite trunk resolution, Branch Context ownership, tab caller preflight, prompt payload semantics, plan dry-run behavior, immediate acknowledgement, and non-mutation ordering without fetching or refreshing trunk.
-  - Evidence: the exact catalog tests prove eight base commands, nine with optional Handoff, and absence of all five old registrations; fake-driven resolver and dispatch scenarios cover all basis outcomes, both plan destinations, tab preflight, current-branch revalidation, exact local-trunk SHA execution, no-fetch dry runs, prompt free-form content, and acknowledgement ordering. The focused package checks, TypeScript default/integration/style-guard lanes, dprint, and repository `just` pass. The Objective checker retains only its known immutable legacy-update compatibility failure.
+  - Evidence: the exact catalog tests prove eight base commands, nine with optional Handoff, and absence of all five old registrations; fake-driven resolver and launch scenarios cover all basis outcomes, both plan destinations, tab preflight, current-branch revalidation, exact local-trunk SHA execution, no-fetch dry runs, prompt free-form content, and acknowledgement ordering. The focused package checks, TypeScript default/integration/style-guard lanes, dprint, and repository `just` pass. The Objective checker retains only its known immutable legacy-update compatibility failure.
 
 - [x] Remove standalone Herdr open-branch and the cmux capability
-  - Delete the dedicated Herdr open-branch command modules and tests while retaining launch helpers consumed by dispatch.
+  - Delete the dedicated Herdr open-branch command modules and tests while retaining launch helpers consumed by launch workflows.
   - Delete `@nseng-ai/cmux`, `.pi/extensions/cmux.ts`, `ns cmux exec`, and all cmux workspace/surface/sidebar registrations, tests, and package wiring.
   - Regenerate the pnpm lockfile and prune Capability Kit cmux exports only after a clean surviving-consumer audit.
-  - Evidence: the `cmux-and-open-branch-removal-complete` Semantic Update records the clean consumer audit, package/import inventory, focused tests, and TypeScript validation proving removal without breaking Herdr dispatch or portable Handoff workflows.
+  - Evidence: the `cmux-and-open-branch-removal-complete` Semantic Update records the clean consumer audit, package/import inventory, focused tests, and TypeScript validation proving removal without breaking Herdr launch or portable Handoff workflows.
 
 - [x] Replace the superseded workflow-family catalog with the exact compositional catalog
   - Register direct operations under `/ns:herdr:space:{new,goal,objective-summary}` and `/ns:herdr:tab:{new,goal,handoff}`.
@@ -43,4 +43,4 @@
 
 - Herdr event subscriptions, agent waits, declarative layouts, plugins, and raw socket/generated protocol integration remain outside this Objective until a concrete workflow requires them.
 - A public generic Herdr workspace-summary command remains parked pending a separate concrete consumer and installed runtime support.
-- Tab prompt dispatch remains outside this Objective.
+- Tab prompt launch remains outside this Objective.

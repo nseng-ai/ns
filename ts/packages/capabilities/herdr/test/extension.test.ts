@@ -2,7 +2,13 @@ import { describe, expect, test } from "vitest";
 
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/pi-types";
 import type { HandoffExtensionAPI, ToolDefinition } from "@nseng-ai/handoffs/pi/handoff-launch";
-import { HERDR_BASE_COMMAND_NAMES, HERDR_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
+import {
+	HERDR_BASE_COMMAND_NAMES,
+	HERDR_COMMAND_NAMES,
+	HERDR_PLAN_SPACE_LAUNCH_COMMAND_NAME,
+	HERDR_PLAN_TAB_LAUNCH_COMMAND_NAME,
+	HERDR_PROMPT_SPACE_LAUNCH_COMMAND_NAME,
+} from "../src/core/command-surfaces.ts";
 
 import registerHerdrPiExtension from "../src/pi/extension.ts";
 
@@ -71,9 +77,9 @@ describe("herdr Pi extension", () => {
 		await registerHerdrPiExtension(pi);
 
 		expect(HERDR_COMMAND_NAMES).toEqual([
-			"ns:herdr:launch:plan:space",
-			"ns:herdr:launch:plan:tab",
-			"ns:herdr:launch:prompt:space",
+			HERDR_PLAN_SPACE_LAUNCH_COMMAND_NAME,
+			HERDR_PLAN_TAB_LAUNCH_COMMAND_NAME,
+			HERDR_PROMPT_SPACE_LAUNCH_COMMAND_NAME,
 			"ns:herdr:space:goal",
 			"ns:herdr:space:new",
 			"ns:herdr:space:objective-summary",

@@ -12,16 +12,16 @@ The first-party **Capability** that drives Herdr spaces and tabs by composing br
 The narrow domain-shaped interface (`HerdrGateway`) exposing only the workspace and tab operations the capability currently needs, backed by the installed `herdr` CLI.
 *Avoid*: raw socket gateway, full Herdr API surface, generic CLI wrapper
 
-**Prepared Herdr Dispatch**:
+**Prepared Herdr Launch**:
 The internal operation that accepts a prepared branch identity, semantic slug, launch command, and workspace-or-caller-tab destination, then owns Slot checkout, destination labeling and creation, explicit pane launch, status, notifications, and structured outcome evidence.
 *Avoid*: workflow-specific launch helper, optional or fallback label, separate workspace and tab dispatch pipelines
 
 **Semantic and Git identity invariant**:
-A dispatched work item keeps its model-derived normalized semantic slug distinct from its collision-resolved Git branch name. Herdr workspace and tab labels describe the work using the semantic slug; Git, Graphite, Branch Memory, and Slot operations use the actual branch name. Workspace labels may prefix the semantic slug with the compact slot derived from the actual checked-out worktree path; tab labels are exactly the semantic slug.
+A launched work item keeps its model-derived normalized semantic slug distinct from its collision-resolved Git branch name. Herdr workspace and tab labels describe the work using the semantic slug; Git, Graphite, Branch Memory, and Slot operations use the actual branch name. Workspace labels may prefix the semantic slug with the compact slot derived from the actual checked-out worktree path; tab labels are exactly the semantic slug.
 *Avoid*: collision suffix as display identity, branch name as tab label, guessed dry-run slot prefix
 
 **Herdr space**:
-The Herdr workspace resource addressed by `/ns:herdr:space:*` commands. Space commands create or rename a workspace, or dispatch work into a newly created workspace. Plan dispatch labels the new space with the content-derived branch-context slug so its displayed name describes the planned work.
+The Herdr workspace resource addressed by `/ns:herdr:space:*` commands. Space commands create or rename a workspace, or launch work into a newly created workspace. Plan launch labels the new space with the content-derived branch-context slug so its displayed name describes the planned work.
 *Avoid*: workflow family, dispatch workspace as a separate resource kind, cmux workspace, command-and-source-branch sentence as a plan-dispatch label
 
 **Herdr tab**:
@@ -49,7 +49,7 @@ The optional `/ns:herdr:tab:handoff` integration with `@nseng-ai/handoffs`. The 
 *Avoid*: generic Herdr handoff workflow family, model-facing launch tool, Markdown transport through Herdr, Handoffs-owned destination, compatibility alias
 
 **Caller space targeting**:
-Identifying the Herdr space to act on through `HERDR_WORKSPACE_ID`, injected by Herdr into a managed pane. Space rename and tab-creation/dispatch flows validate and capture this ID before dependent work or destination mutation.
+Identifying the Herdr space to act on through `HERDR_WORKSPACE_ID`, injected by Herdr into a managed pane. Space rename and tab-creation/launch flows validate and capture this ID before dependent work or destination mutation.
 *Avoid*: UI focus targeting, ambient workspace, implicit workspace
 
 **Caller tab targeting**:

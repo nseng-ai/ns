@@ -1,5 +1,5 @@
 /**
- * Herdr dispatch-plan: attaches the latest session-saved plan to a
+ * Herdr launch-plan: attaches the latest session-saved plan to a
  * Graphite-tracked branch via branch-context, then opens the branch either in
  * a new Herdr space (launch:plan:space) or in a focused tab inside
  * the caller's Herdr space (launch:plan:tab).
@@ -39,28 +39,28 @@ import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/pi-ty
 import type { SlotClient } from "@nseng-ai/slots/api";
 import { formatImplBranchContextCommand } from "@nseng-ai/branch-context/pi";
 
-// Command names are used in the Pi layer (pi/dispatch-plan.ts) via DispatchPlanConfig.
+// Command names are used in the Pi layer (pi/launch-plan.ts) via LaunchPlanConfig.
 import {
 	buildHerdrCreateTabArgs,
 	buildHerdrCreateWorkspaceArgs,
 	buildHerdrPaneRunArgs,
 } from "./cli-gateway.ts";
-import { dispatchPreparedBranch, type PreparedDispatchDestination } from "./prepared-dispatch.ts";
+import { launchPreparedBranch, type PreparedLaunchDestination } from "./prepared-launch.ts";
 import { createHerdrSlotClient } from "./slot-checkout.ts";
 import { getCallerWorkspaceId } from "./sidebar.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import { resolveLaunchBranchBasis } from "./launch-branch-basis.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 
-export type DispatchDestination = "workspace" | "tab";
+export type LaunchDestination = "workspace" | "tab";
 
-export interface DispatchPlanConfig {
+export interface LaunchPlanConfig {
 	commandName: string;
 	statusKey: string;
-	destination: DispatchDestination;
+	destination: LaunchDestination;
 }
 
-export interface HerdrSlotDispatchPlanOptions {
+export interface HerdrSlotLaunchPlanOptions {
 	planStoreRoot?: string;
 	createBranchContextContext?: BranchContextContextFactory<[pi: HerdrPiCommandApi, cwd: string]>;
 	slotClient?: SlotClient;
@@ -69,7 +69,7 @@ export interface HerdrSlotDispatchPlanOptions {
 	metadataDbAccess?: GraphiteMetadataDbAccess;
 }
 
-export interface ResolvedHerdrSlotDispatchPlanOptions extends HerdrSlotDispatchPlanOptions {
+export interface ResolvedHerdrSlotLaunchPlanOptions extends HerdrSlotLaunchPlanOptions {
 	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
 	git: Pick<GitGateway, "currentBranch">;
 }
@@ -79,18 +79,18 @@ interface CommandArgs {
 	shouldShowHelp: boolean;
 }
 
-export interface HandleHerdrSlotDispatchPlanOptions {
+export interface HandleHerdrSlotLaunchPlanOptions {
 	pi: HerdrPiCommandApi;
 	herdr: HerdrGateway;
 	rawArgs: string;
 	ctx: CommandContext;
-	options: ResolvedHerdrSlotDispatchPlanOptions;
-	config: DispatchPlanConfig;
+	options: ResolvedHerdrSlotLaunchPlanOptions;
+	config: LaunchPlanConfig;
 	notifyProgress: (message: string) => void;
 }
 
-export async function handleHerdrSlotDispatchPlan(
-	options: HandleHerdrSlotDispatchPlanOptions,
+export async function handleHerdrSlotLaunchPlan(
+	options: HandleHerdrSlotLaunchPlanOptions,
 ): Promise<void> {
 	const { pi, herdr, rawArgs, ctx, config } = options;
 
@@ -104,7 +104,7 @@ export async function handleHerdrSlotDispatchPlan(
 		return;
 	}
 
-	const preparedDestination = prepareDispatchDestination(config.destination);
+	const preparedDestination = prepareLaunchDestination(config.destination);
 	if (preparedDestination.type === "failed") {
 		present(ctx, preparedDestination.message, "error");
 		return;
@@ -144,7 +144,7 @@ export async function handleHerdrSlotDispatchPlan(
 		const selectedPlan = selected.plan;
 		const trunk =
 			selection.basis === "trunk"
-				? await prepareDispatchTrunk({
+				? await prepareLaunchTrunk({
 						pi,
 						cwd: checkout.repoRoot,
 						options: options.options,
@@ -170,7 +170,7 @@ export async function handleHerdrSlotDispatchPlan(
 		const prepared = await preparePlanBranchContext(pi, {
 			plan: selectedPlan,
 			checkout,
-			context: dispatchBranchContextContext(pi, checkout.repoRoot, options.options),
+			context: launchBranchContextContext(pi, checkout.repoRoot, options.options),
 			shouldBuildPreview: parsed.isDryRun,
 			...(trunk === undefined
 				? {}
@@ -209,7 +209,7 @@ export async function handleHerdrSlotDispatchPlan(
 			ctx,
 			prepared,
 			config,
-			dispatchOptions: options.options,
+			planLaunchOptions: options.options,
 			destination,
 		});
 	} catch (error) {
@@ -227,18 +227,18 @@ export async function handleHerdrSlotDispatchPlan(
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function dispatchBranchContextContext(
+function launchBranchContextContext(
 	pi: HerdrPiCommandApi,
 	cwd: string,
-	options: ResolvedHerdrSlotDispatchPlanOptions,
+	options: ResolvedHerdrSlotLaunchPlanOptions,
 ): BranchContextContext {
 	return options.createBranchContextContext?.(pi, cwd) ?? createRealBranchContextContext({ cwd });
 }
 
-async function prepareDispatchTrunk(options: {
+async function prepareLaunchTrunk(options: {
 	pi: HerdrPiCommandApi;
 	cwd: string;
-	options: ResolvedHerdrSlotDispatchPlanOptions;
+	options: ResolvedHerdrSlotLaunchPlanOptions;
 	notify: (message: string) => void;
 }): Promise<LocalGraphiteTrunkPreparation | { error: string }> {
 	return prepareLocalGraphiteTrunk({
@@ -250,13 +250,11 @@ async function prepareDispatchTrunk(options: {
 	});
 }
 
-type PrepareDispatchDestinationResult =
-	| { readonly type: "ready"; readonly destination: PreparedDispatchDestination }
+type PrepareLaunchDestinationResult =
+	| { readonly type: "ready"; readonly destination: PreparedLaunchDestination }
 	| { readonly type: "failed"; readonly message: string };
 
-function prepareDispatchDestination(
-	destination: DispatchDestination,
-): PrepareDispatchDestinationResult {
+function prepareLaunchDestination(destination: LaunchDestination): PrepareLaunchDestinationResult {
 	if (destination === "workspace") {
 		return { type: "ready", destination: { type: "workspace" } };
 	}
@@ -297,11 +295,11 @@ async function createAttachAndLaunch(options: {
 	herdr: HerdrGateway;
 	ctx: CommandContext;
 	prepared: ReadyPreparedPlanBranchContext;
-	config: DispatchPlanConfig;
-	dispatchOptions: ResolvedHerdrSlotDispatchPlanOptions;
-	destination: PreparedDispatchDestination;
+	config: LaunchPlanConfig;
+	planLaunchOptions: ResolvedHerdrSlotLaunchPlanOptions;
+	destination: PreparedLaunchDestination;
 }): Promise<void> {
-	const { pi, herdr, ctx, prepared, config, dispatchOptions, destination } = options;
+	const { pi, herdr, ctx, prepared, config, planLaunchOptions, destination } = options;
 	const { checkout, operation } = prepared;
 
 	present(ctx, `Creating Graphite-tracked branch context ${operation.branch}…`, "info");
@@ -314,7 +312,7 @@ async function createAttachAndLaunch(options: {
 		present(
 			ctx,
 			formatBranchContextCreateFailure(operation, error, {
-				consequence: formatDispatchFailureConsequence(destination.type),
+				consequence: formatLaunchFailureConsequence(destination.type),
 			}),
 			"error",
 		);
@@ -335,9 +333,9 @@ async function createAttachAndLaunch(options: {
 		launchOptions,
 	);
 	const slotClient =
-		dispatchOptions.slotClient ?? createHerdrSlotClient({ cwd: checkout.repoRoot });
+		planLaunchOptions.slotClient ?? createHerdrSlotClient({ cwd: checkout.repoRoot });
 
-	const result = await dispatchPreparedBranch(
+	const result = await launchPreparedBranch(
 		{
 			herdr,
 			slotClient,
@@ -358,7 +356,7 @@ async function createAttachAndLaunch(options: {
 		present(
 			ctx,
 			[
-				`Dispatched plan in Herdr ${destination.type}.`,
+				`Launched plan in Herdr ${destination.type}.`,
 				`Branch: ${operation.branch}`,
 				`Slot: ${result.target.checkout.slotName}`,
 				`Worktree: ${result.target.checkout.worktreePath}`,
@@ -378,7 +376,7 @@ function formatDryRun(options: {
 	operation: BranchContextCreateOperation;
 	branchContextPreview: string;
 	launchOptions: PiLaunchOptions;
-	destination: PreparedDispatchDestination;
+	destination: PreparedLaunchDestination;
 	trunk?: LocalGraphiteTrunkPreparation;
 }): string {
 	const { plan, operation, branchContextPreview, launchOptions, destination } = options;
@@ -434,7 +432,7 @@ function formatDryRun(options: {
  * values only known after the slot checkout or Herdr response.
  */
 function formatHerdrLaunchPreview(options: {
-	destination: DispatchDestination;
+	destination: LaunchDestination;
 	semanticSlug: string;
 	launchCommand: string;
 }): string {
@@ -466,16 +464,16 @@ function formatHerdrLaunchPreview(options: {
 	].join("\n");
 }
 
-function formatDispatchFailureConsequence(destination: DispatchDestination): string {
+function formatLaunchFailureConsequence(destination: LaunchDestination): string {
 	return destination === "workspace"
 		? "No Herdr workspace was opened."
 		: "No Herdr tab was opened.";
 }
 
-function formatUsage(config: DispatchPlanConfig): string {
+function formatUsage(config: LaunchPlanConfig): string {
 	return `Usage: /${config.commandName} [--dry-run]
 
-Dispatch the latest saved plan into a new Herdr ${config.destination} for implementation. Choose the current branch or local Graphite trunk contextually at invocation time.
+Launch the latest saved plan into a new Herdr ${config.destination} for implementation. Choose the current branch or local Graphite trunk contextually at invocation time.
 
 Options:
   --dry-run    Show the selected plan and commands without mutating.
@@ -504,10 +502,6 @@ function present(ctx: CommandContext, message: string, level: PresentLevel): voi
 	ctx.ui.notify(message, level);
 }
 
-function setStatus(
-	ctx: CommandContext,
-	config: DispatchPlanConfig,
-	value: string | undefined,
-): void {
+function setStatus(ctx: CommandContext, config: LaunchPlanConfig, value: string | undefined): void {
 	ctx.ui.setStatus?.(config.statusKey, value);
 }
