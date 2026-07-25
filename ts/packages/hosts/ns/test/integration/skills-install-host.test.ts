@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { access, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
@@ -11,6 +11,23 @@ import {
 } from "../support/cli-harness.ts";
 
 describe("ns CLI skills install host integration", () => {
+	test("previews installation without writing the target or manifest", async () => {
+		const cwd = await createEmptyProject();
+		const run = await runNsCliJson(
+			["skills", "install", "objective", "--harness", "pi", "--scope", "project", "--dry-run"],
+			cwd,
+		);
+		const data = dataFromEnvelope(parseJsonOutput(run));
+		const targetPath = join(cwd, ".pi", "skills", "objective", "SKILL.md");
+		const manifestPath = join(cwd, ".pi", "skills", ".ns-harness-artifacts-manifest.json");
+
+		expect(run.exit).toBe(0);
+		expect(data).toMatchObject({ mode: "dry-run", skill: "objective", writtenFiles: [] });
+		await expect(access(targetPath)).rejects.toMatchObject({ code: "ENOENT" });
+		await expect(access(manifestPath)).rejects.toMatchObject({ code: "ENOENT" });
+		expect(run.stderr).toBe("");
+	});
+
 	test("installs a skill into a project target and writes the manifest", async () => {
 		const cwd = await createEmptyProject();
 		const run = await runNsCliJson(
