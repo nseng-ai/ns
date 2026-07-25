@@ -1,4 +1,5 @@
 import type { GitGateway } from "@nseng-ai/foundation/git";
+import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
 import type { CommandContext } from "@nseng-ai/capability-kit/pi-types";
 
 export const LOCAL_TRUNK_CHOICE_LABEL = "Local trunk";
@@ -49,7 +50,14 @@ export async function resolveLaunchBranchBasis(
 	const reason =
 		current.type === "detached"
 			? "The current Git HEAD is detached, so current-branch launch is unavailable."
-			: `The current Git branch could not be determined, so current-branch launch is unavailable.\n${boundMessage(current.error.message)}`;
+			: `The current Git branch could not be determined, so current-branch launch is unavailable.\n${truncateTextHead(
+					{
+						value: current.error.message,
+						maxChars: MAX_GIT_FAILURE_MESSAGE_CHARS,
+						buildMarker: () => "…",
+						shouldTrimInput: true,
+					},
+				)}`;
 	if (options.interaction.hasUI !== true || options.interaction.ui.confirm === undefined) {
 		return interactionUnavailable("confirm local-trunk fallback", reason);
 	}
@@ -71,10 +79,4 @@ function interactionUnavailable(action: string, context?: string): LaunchBranchB
 			.filter((line): line is string => line !== undefined)
 			.join("\n"),
 	};
-}
-
-function boundMessage(message: string): string {
-	const normalized = message.trim();
-	if (normalized.length <= MAX_GIT_FAILURE_MESSAGE_CHARS) return normalized;
-	return `${normalized.slice(0, MAX_GIT_FAILURE_MESSAGE_CHARS)}…`;
 }

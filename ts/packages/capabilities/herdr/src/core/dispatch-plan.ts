@@ -30,11 +30,10 @@ import {
 	type LocalGraphiteTrunkPreparation,
 } from "@nseng-ai/capability-kit/tracked-branch-payload";
 import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
-import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import type { GraphiteMetadataDbAccess } from "@nseng-ai/capability-kit/graphite/metadata";
 import type { PiLaunchOptions } from "@nseng-ai/capability-kit/pi-launch";
 import { formatCommand } from "@nseng-ai/foundation/command";
-import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/pi-types";
 import type { SlotClient } from "@nseng-ai/slots/api";
@@ -70,6 +69,11 @@ export interface HerdrSlotDispatchPlanOptions {
 	metadataDbAccess?: GraphiteMetadataDbAccess;
 }
 
+export interface ResolvedHerdrSlotDispatchPlanOptions extends HerdrSlotDispatchPlanOptions {
+	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	git: Pick<GitGateway, "currentBranch">;
+}
+
 interface CommandArgs {
 	isDryRun: boolean;
 	shouldShowHelp: boolean;
@@ -80,7 +84,7 @@ export interface HandleHerdrSlotDispatchPlanOptions {
 	herdr: HerdrGateway;
 	rawArgs: string;
 	ctx: CommandContext;
-	options: HerdrSlotDispatchPlanOptions;
+	options: ResolvedHerdrSlotDispatchPlanOptions;
 	config: DispatchPlanConfig;
 	notifyProgress: (message: string) => void;
 }
@@ -110,10 +114,9 @@ export async function handleHerdrSlotDispatchPlan(
 	await ctx.waitForIdle();
 
 	try {
-		const git = options.options.git ?? new RealGitGateway(pi);
 		const selection = await resolveLaunchBranchBasis({
 			cwd: ctx.cwd,
-			git,
+			git: options.options.git,
 			interaction: ctx,
 		});
 		if (selection.type === "cancelled") {
@@ -153,7 +156,7 @@ export async function handleHerdrSlotDispatchPlan(
 			return;
 		}
 		if (selection.basis === "current") {
-			const revalidated = await git.currentBranch({ cwd: checkout.repoRoot });
+			const revalidated = await options.options.git.currentBranch({ cwd: checkout.repoRoot });
 			if (revalidated.type !== "branch" || revalidated.branch !== selection.currentBranch) {
 				present(
 					ctx,
@@ -227,7 +230,7 @@ export async function handleHerdrSlotDispatchPlan(
 function dispatchBranchContextContext(
 	pi: HerdrPiCommandApi,
 	cwd: string,
-	options: HerdrSlotDispatchPlanOptions,
+	options: ResolvedHerdrSlotDispatchPlanOptions,
 ): BranchContextContext {
 	return options.createBranchContextContext?.(pi, cwd) ?? createRealBranchContextContext({ cwd });
 }
@@ -235,13 +238,13 @@ function dispatchBranchContextContext(
 async function prepareDispatchTrunk(options: {
 	pi: HerdrPiCommandApi;
 	cwd: string;
-	options: HerdrSlotDispatchPlanOptions;
+	options: ResolvedHerdrSlotDispatchPlanOptions;
 	notify: (message: string) => void;
 }): Promise<LocalGraphiteTrunkPreparation | { error: string }> {
 	return prepareLocalGraphiteTrunk({
 		pi: options.pi,
 		cwd: options.cwd,
-		graphite: options.options.graphite ?? new RealGraphiteBranchGateway(options.pi),
+		graphite: options.options.graphite,
 		notify: options.notify,
 		...optionalEntry("metadataDbAccess", options.options.metadataDbAccess),
 	});
@@ -295,7 +298,7 @@ async function createAttachAndLaunch(options: {
 	ctx: CommandContext;
 	prepared: ReadyPreparedPlanBranchContext;
 	config: DispatchPlanConfig;
-	dispatchOptions: HerdrSlotDispatchPlanOptions;
+	dispatchOptions: ResolvedHerdrSlotDispatchPlanOptions;
 	destination: PreparedDispatchDestination;
 }): Promise<void> {
 	const { pi, herdr, ctx, prepared, config, dispatchOptions, destination } = options;

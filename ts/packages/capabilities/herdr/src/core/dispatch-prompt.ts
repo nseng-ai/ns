@@ -12,12 +12,11 @@ import {
 	type TrackedBranchPayloadOptions,
 } from "@nseng-ai/capability-kit/tracked-branch-payload";
 import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
-import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import type { GraphiteMetadataDbAccess } from "@nseng-ai/capability-kit/graphite/metadata";
 import { getPiLaunchOptions } from "@nseng-ai/capability-kit/pi-launch";
 import type { CommandContext } from "@nseng-ai/capability-kit/pi-types";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
@@ -43,8 +42,8 @@ export interface HandleHerdrSlotDispatchPromptOptions {
 	herdr: HerdrGateway;
 	payloadOptions: ResolvedTrackedBranchPayloadOptions;
 	slotClient?: SlotClient;
-	graphite?: Pick<GraphiteBranchGateway, "trunkBranch">;
-	git?: Pick<GitGateway, "currentBranch">;
+	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	git: Pick<GitGateway, "currentBranch">;
 	metadataDbAccess?: GraphiteMetadataDbAccess;
 	args: string;
 	ctx: CommandContext;
@@ -60,10 +59,9 @@ export async function handleHerdrSlotDispatchPrompt(
 		return;
 	}
 	await options.ctx.waitForIdle();
-	const git = options.git ?? new RealGitGateway(options.pi);
 	const selection = await resolveLaunchBranchBasis({
 		cwd: options.ctx.cwd,
-		git,
+		git: options.git,
 		interaction: options.ctx,
 	});
 	if (selection.type === "cancelled") {
@@ -77,7 +75,7 @@ export async function handleHerdrSlotDispatchPrompt(
 
 	const branch =
 		selection.basis === "current"
-			? await createCurrentPromptBranch(options, prompt, selection.currentBranch, git)
+			? await createCurrentPromptBranch(options, prompt, selection.currentBranch)
 			: await createTrunkPromptBranch(options, prompt);
 	if ("error" in branch) {
 		options.ctx.ui.notify(branch.error, "error");
@@ -106,9 +104,8 @@ async function createCurrentPromptBranch(
 	options: HandleHerdrSlotDispatchPromptOptions,
 	prompt: string,
 	selectedBranch: string,
-	git: Pick<GitGateway, "currentBranch">,
 ): Promise<TrackedBranchEvidence | { error: string }> {
-	const revalidated = await git.currentBranch({ cwd: options.ctx.cwd });
+	const revalidated = await options.git.currentBranch({ cwd: options.ctx.cwd });
 	if (revalidated.type !== "branch" || revalidated.branch !== selectedBranch) {
 		return {
 			error: `Current branch changed after selection; expected ${selectedBranch}. No branch was created.`,
@@ -126,7 +123,7 @@ async function createTrunkPromptBranch(
 		pi: options.pi,
 		cwd: options.ctx.cwd,
 		prompt,
-		graphite: options.graphite ?? new RealGraphiteBranchGateway(options.pi),
+		graphite: options.graphite,
 		notify: options.notifyProgress,
 		...optionalEntry("metadataDbAccess", options.metadataDbAccess),
 	});

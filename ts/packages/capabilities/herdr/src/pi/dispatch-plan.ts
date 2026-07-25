@@ -2,12 +2,15 @@ import {
 	makeCommandProgressNotifier,
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi/commands/ack";
+import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/pi-types";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 
 import {
 	handleHerdrSlotDispatchPlan,
 	type DispatchPlanConfig,
 	type HerdrSlotDispatchPlanOptions,
+	type ResolvedHerdrSlotDispatchPlanOptions,
 } from "../core/dispatch-plan.ts";
 import {
 	HERDR_TAB_DISPATCH_PLAN_COMMAND_NAME,
@@ -51,6 +54,11 @@ function registerDispatchPlanCommand(
 	options: HerdrSlotDispatchPlanOptions,
 ): void {
 	const herdr = createCliHerdrGateway(pi);
+	const dependencies: ResolvedHerdrSlotDispatchPlanOptions = {
+		...options,
+		graphite: options.graphite ?? new RealGraphiteBranchGateway(pi),
+		git: options.git ?? new RealGitGateway(pi),
+	};
 	const destination = config.destination === "workspace" ? "space" : "tab";
 	registerCommandWithImmediateAck({
 		host: pi,
@@ -65,7 +73,7 @@ function registerDispatchPlanCommand(
 					herdr,
 					rawArgs,
 					ctx,
-					options,
+					options: dependencies,
 					config,
 					notifyProgress,
 				});

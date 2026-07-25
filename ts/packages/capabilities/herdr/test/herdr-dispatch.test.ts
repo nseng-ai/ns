@@ -68,6 +68,16 @@ afterEach(resetHerdrTestEnvironment);
 const DISPATCH_PROMPT_NAMESPACE = "ns-dispatch";
 const DISPATCH_PROMPT_KEY = "prompt.md";
 const TRUNK_BRANCH = "master";
+const testGraphiteBranchGateway = {
+	trunkBranch: async () => ({ ok: true as const, branch: TRUNK_BRANCH }),
+};
+
+function dispatchPlanDependencies() {
+	return {
+		git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
+		graphite: testGraphiteBranchGateway,
+	};
+}
 
 function brmemCheckJson(isPresent: boolean): string {
 	return JSON.stringify({ exitCode: 0, data: { present: isPresent } });
@@ -244,6 +254,7 @@ describe("Herdr prompt dispatch", () => {
 				shouldCleanupStagingFile: false,
 			}),
 			slotClient: testSlotClient,
+			graphite: testGraphiteBranchGateway,
 			git,
 			args: prompt,
 			ctx,
@@ -413,6 +424,7 @@ describe("Herdr prompt dispatch", () => {
 			herdr,
 			payloadOptions: resolveDispatchPromptPayloadOptions({ stagingDir, now: () => 123 }),
 			slotClient: testSlotClient,
+			graphite: testGraphiteBranchGateway,
 			git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
 			args: prompt,
 			ctx,
@@ -438,6 +450,7 @@ describe("Herdr prompt dispatch", () => {
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			payloadOptions: resolveDispatchPromptPayloadOptions({ stagingDir }),
+			graphite: testGraphiteBranchGateway,
 			git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
 			args: "Do not dispatch this prompt",
 			ctx,
@@ -466,7 +479,7 @@ describe("ns:herdr:launch:plan:space", () => {
 			herdr,
 			rawArgs: "--help",
 			ctx,
-			options: {},
+			options: dispatchPlanDependencies(),
 			config: {
 				commandName: "ns:herdr:launch:plan:space",
 				statusKey: "ns:herdr:launch:plan:space",
@@ -490,7 +503,7 @@ describe("ns:herdr:launch:plan:space", () => {
 			herdr,
 			rawArgs: "--unknown-flag",
 			ctx,
-			options: {},
+			options: dispatchPlanDependencies(),
 			config: {
 				commandName: "ns:herdr:launch:plan:space",
 				statusKey: "ns:herdr:launch:plan:space",
@@ -525,7 +538,7 @@ describe("ns:herdr:launch:plan:space", () => {
 			herdr,
 			rawArgs: "",
 			ctx,
-			options: {},
+			options: dispatchPlanDependencies(),
 			config: {
 				commandName: "ns:herdr:launch:plan:tab",
 				statusKey: "ns:herdr:launch:plan:tab",
@@ -560,7 +573,7 @@ describe("ns:herdr:launch:plan:tab", () => {
 			herdr,
 			rawArgs: "",
 			ctx,
-			options: {},
+			options: dispatchPlanDependencies(),
 			config: {
 				commandName: "ns:herdr:launch:plan:tab",
 				statusKey: "ns:herdr:launch:plan:tab",
@@ -646,7 +659,7 @@ describe("ns:herdr:launch:plan:tab", () => {
 			herdr,
 			rawArgs: "",
 			ctx,
-			options: {},
+			options: dispatchPlanDependencies(),
 			config: {
 				commandName: "ns:herdr:launch:plan:tab",
 				statusKey: "ns:herdr:launch:plan:tab",
@@ -675,7 +688,7 @@ describe("ns:herdr:launch:plan:tab", () => {
 			herdr,
 			rawArgs: "--help",
 			ctx,
-			options: {},
+			options: dispatchPlanDependencies(),
 			config: {
 				commandName: "ns:herdr:launch:plan:tab",
 				statusKey: "ns:herdr:launch:plan:tab",
@@ -755,10 +768,11 @@ describe("herdr Pi extension — gateway wiring", () => {
 
 function herdrDispatchPlanTestOptions(
 	planStoreRoot: string,
-): import("../src/core/dispatch-plan.ts").HerdrSlotDispatchPlanOptions {
+): import("../src/core/dispatch-plan.ts").ResolvedHerdrSlotDispatchPlanOptions {
 	return {
 		planStoreRoot,
 		slotClient: testSlotClient,
+		graphite: testGraphiteBranchGateway,
 		git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
 		createBranchContextContext(pi, cwd) {
 			const stdinCapablePi: StdinCapableCommandExecApi = {
@@ -857,7 +871,7 @@ describe("ns:herdr:launch:plan:space", () => {
 			herdr,
 			rawArgs: "",
 			ctx,
-			options: { git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }) },
+			options: dispatchPlanDependencies(),
 			config: {
 				commandName: "ns:herdr:launch:plan:space",
 				statusKey: "ns:herdr:launch:plan:space",
@@ -1268,7 +1282,7 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 			herdr,
 			rawArgs: "--dry-run",
 			ctx,
-			options: {},
+			options: dispatchPlanDependencies(),
 			config: {
 				commandName: "ns:herdr:launch:plan:tab",
 				statusKey: "ns:herdr:launch:plan:tab",
