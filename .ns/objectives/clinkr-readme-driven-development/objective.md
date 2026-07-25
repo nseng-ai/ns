@@ -1,0 +1,59 @@
+---
+edges:
+  - objective: foundation-readme-driven-pass
+    annotation: Parent umbrella; this Subobjective owns its Clinkr gate dry-run and returns process amendments before the Foundation package pass begins.
+---
+
+# Clinkr README-Driven Development
+
+## Thesis
+
+Develop Clinkr's cold-audience package contract in `references/README-draft.md`, then reconcile the package and its callers to that settled contract before promoting it to `ts/packages/infra/clinkr/README.md`. Clinkr is the first package dry-run under `foundation-readme-driven-pass`, so this Objective also identifies concrete amendments needed to make the README-driven graduation gate repeatable for later foundation packages.
+
+## Scope
+
+- Draft and human-steer user-facing documentation for `@nseng-ai/clinkr`: its purpose, requirements, rendered command model, schema-derived CLI surface, outcome and output semantics, nested groups, completion, interaction, raw and streaming escape hatches, testing utilities, and public entrypoints.
+- Audit Clinkr's implementation, tests, package exports, and representative callers against the emerging contract.
+- Record each meaningful mismatch with an explicit disposition: reconcile implementation or caller, change the draft contract, or park it with rationale.
+- Surface accidental complexity and contract-supporting refactoring proposals, but discuss every refactoring with the user before implementation.
+- Reconcile approved mismatches, verify observable behavior, promote the settled draft to `ts/packages/infra/clinkr/README.md`, and replace the Objective draft with a provenance pointer.
+- Return gate-calibration lessons and any process amendments to `foundation-readme-driven-pass` before that umbrella advances to Foundation.
+
+## Non-Goals
+
+- Redesigning Clinkr beyond what an honest, coherent package contract requires.
+- Changing Clinkr's neutral-infrastructure tier, package name, or repository placement.
+- Refactoring implementation or callers without prior user discussion and approval.
+- Auditing or documenting downstream packages except where representative callers provide evidence about Clinkr's contract.
+- Starting the Foundation package pass or other sibling package Subobjectives.
+
+## Completion Criteria
+
+- `references/README-draft.md` has been settled through the README-driven-development loop as coherent cold-audience product documentation with no silently invented commitments.
+- The implementation, tests, package exports, and representative callers have been audited against the contract; every material mismatch is resolved or explicitly parked with rationale.
+- Any implemented refactoring was discussed with and approved by the user before code changes.
+- The reconciled contract is verified and promoted to `ts/packages/infra/clinkr/README.md`; this Objective is not complete while the canonical contract exists only under `references/`.
+- The draft is replaced with a provenance pointer, and reusable gate lessons or process amendments are recorded in `foundation-readme-driven-pass`.
+
+## Assumptions and Risks
+
+Assumptions:
+
+- Clinkr's current package exports and tested behavior are a strong starting point for the draft, but neither automatically defines the desired public contract.
+- Representative callers can reveal whether the proposed contract explains real use without requiring an exhaustive repository-wide redesign.
+- Clinkr has no internal workspace dependency that must complete another README-driven pass first.
+
+Risks:
+
+- **Contract-by-implementation.** Existing code may look authoritative even where behavior is accidental. Treat discrepancies as decisions and settle public claims through the draft.
+- **Perfectionism stall.** Clinkr has a broad surface. Optimize for a coherent adopter path and explicit mismatch dispositions rather than exhaustive API narration or unrelated cleanup.
+- **Refactoring before agreement.** Discovery may expose attractive simplifications. Record and discuss them before implementation instead of silently changing the package while documenting it.
+- **Gate overfitting.** A Clinkr-specific process could become the default for later packages. Return only reusable, evidenced amendments to the umbrella.
+- **README drift during reconciliation.** Keep the draft canonical until promotion and verify final claims against the reconciled package.
+
+## Open Questions
+
+- Is the primary cold-audience story a schema-driven CLI framework for ns package authors, or a more general public framework for external TypeScript adopters?
+- How much of the root API should the README teach directly versus route to focused entrypoint sections and API examples?
+- Which current behaviors are intentional contract—especially raw-command framework options, renderer precedence, unexpected throws, and automatic `list`/`ls` aliases—and which should be revised or documented more narrowly?
+- What gate amendments from this dry-run should become mandatory for later package Subobjectives?

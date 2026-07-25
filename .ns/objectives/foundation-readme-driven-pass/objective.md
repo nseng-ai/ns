@@ -2,6 +2,8 @@
 edges:
   - objective: professional-repo-curation
     annotation: Parent umbrella; this pass is its sanctioned parallel Subobjective, calibrating the README-driven graduation gate on foundation packages that remain outside incubation.
+  - objective: clinkr-readme-driven-development
+    annotation: Clinkr package Subobjective; it owns the first contract draft, implementation and caller audit, mismatch dispositions, reconciliation, and gate-calibration lessons returned to this umbrella.
 ---
 
 # Foundation README-Driven Pass
