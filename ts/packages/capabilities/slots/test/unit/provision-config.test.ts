@@ -5,11 +5,11 @@ import { parseSlotsProvisionConfigToml } from "../../src/core/provision-config.t
 describe("parseSlotsProvisionConfigToml", () => {
 	it("parses declared provision paths, including nested ones", () => {
 		const result = parseSlotsProvisionConfigToml(
-			'[slots]\nprovision = [".env.local", "ts/packages/capabilities/vercel/.env.local"]\n',
+			'[slots]\nprovision = [".env.local", "config/local/tool.env"]\n',
 		);
 		expect(result).toEqual({
 			ok: true,
-			value: { provision: [".env.local", "ts/packages/capabilities/vercel/.env.local"] },
+			value: { provision: [".env.local", "config/local/tool.env"] },
 		});
 	});
 

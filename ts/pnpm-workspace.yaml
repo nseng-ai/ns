@@ -15,19 +15,15 @@ catalog:
   '@earendil-works/pi-ai': 0.80.5
   '@earendil-works/pi-coding-agent': 0.80.5
   '@earendil-works/pi-tui': 0.80.5
-  '@octokit/auth-app': ^8.2.0
   '@pierre/diffs': ^1.2.10
   '@types/node': ^24.0.0
   '@typescript/native': npm:typescript@^7.0.2
-  '@vercel/sandbox': ^2.5.0
-  '@workflow/world-vercel': 5.0.0-beta.30
   '@withgraphite/graphite-cli': ^1.8.6
   '@xterm/headless': ^6.0.0
   ansis: ^4.3.1
   commander: ^14.0.0
   esbuild: ^0.27.0
   jiti: 2.7.0
-  jose: ^6.2.3
   jsonc-parser: ^3.3.1
   log-update: ^8.0.0
   oxfmt: ^0.55.0
@@ -36,7 +32,6 @@ catalog:
   syncpack: ^15.3.2
   typescript: npm:@typescript/typescript6@^6.0.2
   vitest: ^4.1.8
-  workflow: ^5.0.0-beta.34
   yaml: ^2.9.0
   zod: ^4.4.3
 
@@ -45,19 +40,3 @@ minimumReleaseAgeExclude:
   - '@earendil-works/pi-ai@0.80.5'
   - '@earendil-works/pi-coding-agent@0.80.5'
   - '@earendil-works/pi-tui@0.80.5'
-  - '@workflow/astro@5.0.0-beta.34'
-  - '@workflow/builders@5.0.0-beta.34'
-  - '@workflow/cli@5.0.0-beta.34'
-  - '@workflow/core@5.0.0-beta.34'
-  - '@workflow/nest@5.0.0-beta.34'
-  - '@workflow/next@5.0.0-beta.34'
-  - '@workflow/nitro@5.0.0-beta.34'
-  - '@workflow/nuxt@5.0.0-beta.34'
-  - '@workflow/rollup@5.0.0-beta.34'
-  - '@workflow/sveltekit@5.0.0-beta.34'
-  - '@workflow/vite@5.0.0-beta.34'
-  - '@workflow/web@5.0.0-beta.34'
-  - '@workflow/world-local@5.0.0-beta.28'
-  - '@workflow/world-vercel@5.0.0-beta.30'
-  - '@workflow/world@5.0.0-beta.20'
-  - workflow@5.0.0-beta.34

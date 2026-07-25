@@ -445,3 +445,34 @@ Risks:
   recorded alternative with mid-run interactivity as its revisit trigger.
 - Eve integration timing: which future use case (channels, durable HITL)
   first justifies an Eve app consuming the seams?
+
+## Closure
+
+Abandoned 2026-07-24. The Vercel cloud-dispatch product direction and its
+`@nseng-ai/vercel` implementation are intentionally removed rather than
+superseded by another backend. No replacement cloud execution architecture is
+selected. The repository no longer provides the `ns dispatch` command surfaces,
+Vercel Workflow/Sandbox deployable, supporting skills, configuration, or the
+Vercel-to-Flow publication exception.
+
+The Objective's orientation, roadmap, Semantic Updates, references, research,
+and live-evidence records remain in place as trustworthy historical descriptions
+of the retired experiment, not current contracts. Current architecture
+documentation no longer sanctions the Vercel-to-Flow exception. No durable rule
+from the Vercel-native direction should graduate into `AGENTS.md`; any future
+cloud execution effort requires a new product and architecture decision.
+
+External infrastructure decommissioning remains a separate human action. In a
+separately authorized session, without printing or persisting secret values:
+
+- inspect and stop any still-running `ns-dispatch` Workflow or Sandbox work;
+- disable or remove the Vercel `ns-dispatch` project/deployments, aliases,
+  Queues/Workflow resources, and dispatch environment variables as appropriate;
+- revoke or remove the `ns-dispatch` GitHub App installation and active key
+  material as appropriate;
+- verify that the former production endpoint no longer serves the dispatch
+  application.
+
+All three edge counterparts were already closed when this Objective was closed.
+None carries a `blocked:` sentence, so their historical edge annotations remain
+unchanged and all mirrored edges stay in place.
