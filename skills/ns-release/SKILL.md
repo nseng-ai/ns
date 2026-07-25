@@ -124,7 +124,7 @@ propagation lag. `finalStatus: "verified"` means done.
 
 The release left a Graphite checkpoint on `transactional-npm-release/v<VERSION>`
 containing the version bump and any lockfile update. Land it like any other
-branch — load the `graphite` skill and submit it. Then update `CHANGELOG.md` to
+branch — load the `code-graphite` skill and submit it. Then update `CHANGELOG.md` to
 move `[Unreleased]` under the released version.
 
 ## Recovering a refused or interrupted release

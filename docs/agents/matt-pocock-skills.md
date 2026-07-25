@@ -154,7 +154,7 @@ additions:
   2026-07-12: consolidated into `skills/skill-audit/` and de-melded to a context
   pointer at the vendored skill; the registry collapsed to zero rows for this pairing
   (see "De-melded" note above).
-- Melding assessments for other upstreams when their first update lands: `graphite`
-  (gt skill family), `thermo-nuclear-code-quality-review` (vs first-party
+- Melding assessments for other upstreams when their first update lands:
+  `thermo-nuclear-code-quality-review` (vs first-party
   `review-thermonuclear-review`), `fdt-refactor-mock-to-fake` (cross-repo coherence
   with the fake-driven-testing family).

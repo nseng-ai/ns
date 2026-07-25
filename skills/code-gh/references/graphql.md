@@ -1614,4 +1614,4 @@ Use online GraphQL validator or GitHub's schema explorer.
 ### Related Skills
 
 - `gh` skill: General GitHub CLI guidance (`references/gh.md`)
-- `graphite` skill: Stacked PR workflows (uses gh under the hood)
+- `code-graphite` skill: Stacked PR workflows (uses gh under the hood)

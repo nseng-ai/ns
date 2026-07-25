@@ -18,12 +18,11 @@ lives in the `nseng-ai/ns-python` repo, not here.
 
 ## Routes
 
-| Route                           | Scope contract                                                                                                                                       |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `create-bun-typescript-project` | Scaffold a Bun-centric TypeScript project: package.json (no build step), strict ESM tsconfig, oxlint + oxfmt via ultracite, bun test, bunfig.toml.   |
-| `setup-dprint`                  | Set up dprint formatting for Markdown and TOML locally, with build-system integration. Does not add GitHub CI — use `setup-dprint-gh-ci` for that.   |
-| `setup-dprint-gh-ci`            | Add a GitHub Actions workflow that runs `dprint check` on pushes and PRs. Requires dprint.json to already exist (run `setup-dprint` first).          |
-| `setup-graphite`                | Configure a repo for agentic use of Graphite (gt): install the graphite skill and add a branching/PR convention to AGENTS.md. Assumes `gt init` ran. |
+| Route                           | Scope contract                                                                                                                                     |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create-bun-typescript-project` | Scaffold a Bun-centric TypeScript project: package.json (no build step), strict ESM tsconfig, oxlint + oxfmt via ultracite, bun test, bunfig.toml. |
+| `setup-dprint`                  | Set up dprint formatting for Markdown and TOML locally, with build-system integration. Does not add GitHub CI — use `setup-dprint-gh-ci` for that. |
+| `setup-dprint-gh-ci`            | Add a GitHub Actions workflow that runs `dprint check` on pushes and PRs. Requires dprint.json to already exist (run `setup-dprint` first).        |
 
 ## Routing
 

@@ -35,7 +35,7 @@ Capability and configuration:
 
 ## 1. Preflight
 
-1. Use the `graphite` skill for Graphite operations, stack mental model, and recovery guidance.
+1. Use the `code-graphite` skill for Graphite operations, stack mental model, and recovery guidance.
 2. Confirm and record the current branch as the original-change target for this run. Keep this recorded `BASE_BRANCH` for every generated branch name, even after Thermostack checks out the first child branch:
    - `git branch --show-current` must be a non-trunk branch.
    - `git status --short` must be clean before review planning and again before mutation.

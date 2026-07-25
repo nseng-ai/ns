@@ -46,7 +46,7 @@ Repair loop for a Graphite/GitHub PR stack: work lowest-first, fix one branch's 
    - If Graphite restacks into conflicts, resolve by the **Conflict canon**, then re-run local validation for the affected branch.
 
 8. **Submit**
-   - Use `gt submit --no-interactive` instead of `git push` / `gh pr create` (canonical wording: the setup-graphite admonition payload).
+   - Use `gt submit --no-interactive` instead of `git push` / `gh pr create` (canonical wording: the gt-over-git doctrine in root `AGENTS.md` §Git, Graphite, GitHub).
 
 9. **Wait for checks to settle**
    - Pass the stack's branch names to
