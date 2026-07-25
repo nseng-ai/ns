@@ -13,7 +13,7 @@ const fakeDefaults = {
 	textGenerationResults: () => [],
 };
 
-const flowPackageRoot = fileURLToPath(new URL("../../../capabilities/flow/", import.meta.url));
+const flowPackageRoot = fileURLToPath(new URL("../../../incubator/flow/", import.meta.url));
 
 describe("ns extension point introspection", () => {
 	test("lists point catalog for human readers", async () => {

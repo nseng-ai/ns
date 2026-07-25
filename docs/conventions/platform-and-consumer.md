@@ -1,15 +1,15 @@
 # Platform and Consumer: ns Is Self-Hosting
 
-Routed from the root `AGENTS.md` ("Architecture rules" section). Read before deciding whether new code is a platform capability or a consumer instance.
+Routed from the root `AGENTS.md` ("Architecture rules" section). Read before deciding whether new code is a platform extension or a consumer instance.
 
-ns is **self-hosting**: the same `ns` repo that **develops** the platform is also its **first consumer**. The reviews engine, objectives, handoffs, branch-context, and review loaders are capabilities built here — and the concrete `.ns/reviews/*` and `.ns/objectives/*` instances that exercise those capabilities are authored and run here too. Dogfooding is not incidental; it is the default state of the repo. Because both live side by side, developer-hat and consumer-hat get conflated constantly. This doc exists to make the distinction explicit.
+ns is **self-hosting**: the same `ns` repo that **develops** the platform is also its **first consumer**. The reviews engine, objectives, handoffs, branch-context, and review loaders are extensions built here — and the concrete `.ns/reviews/*` and `.ns/objectives/*` instances that exercise those extensions are authored and run here too. Dogfooding is not incidental; it is the default state of the repo. Because both live side by side, developer-hat and consumer-hat get conflated constantly. This doc exists to make the distinction explicit.
 
 ## The two hats
 
 Ask which of these you are doing:
 
-- **Platform (developer hat):** changing a *capability* — the engine, loader, CLI, or storage contract that many instances depend on. Lives in `ts/packages/*` (for example `ts/packages/capabilities/reviews`, `ts/packages/capabilities/objectives`), is tested, and ships to every consumer of that capability.
-- **Consumer (consumer hat):** changing an *instance* — one concrete artifact that a capability loads and runs. Lives in `.ns/*` (for example a single `.ns/reviews/<slug>/review.md` review or a `.ns/objectives/<slug>/` objective). It is configuration and content, not capability.
+- **Platform (developer hat):** changing an *extension* — the engine, loader, CLI, or storage contract that many instances depend on. Lives in `ts/packages/*` (for example `ts/packages/incubator/reviews`, `ts/packages/incubator/objectives`), is tested, and ships to every consumer of that extension.
+- **Consumer (consumer hat):** changing an *instance* — one concrete artifact that an extension loads and runs. Lives in `.ns/*` (for example a single `.ns/reviews/<slug>/review.md` review or a `.ns/objectives/<slug>/` objective). It is configuration and content, not extension.
 
 Rule of thumb: if your change alters what the tool *can do*, it is platform; if it alters one thing the tool *is currently doing to this repo*, it is consumer.
 

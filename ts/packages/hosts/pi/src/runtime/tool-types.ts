@@ -1,5 +1,5 @@
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
-import type { PiSessionReader } from "@nseng-ai/capability-kit/pi-types";
+import type { PiSessionReader } from "@nseng-ai/extension-kit/pi-types";
 
 import type { ModelInfo } from "./types.ts";
 

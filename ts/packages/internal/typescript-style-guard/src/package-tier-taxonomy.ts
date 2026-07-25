@@ -16,8 +16,8 @@ export interface AllowedPackageTierDebtEdge {
 }
 
 export const packageTierIds = [
-	"capability",
-	"capability-kit",
+	"extension",
+	"extension-kit",
 	"sdk",
 	"neutral-infra",
 	"host",
@@ -36,24 +36,24 @@ export const tierRank = [
 	"internal-tool",
 	"standalone-tool",
 	"host",
-	"capability",
-	"capability-kit",
+	"extension",
+	"extension-kit",
 	"sdk",
 	"neutral-infra",
 ] as const satisfies readonly PackageTierId[];
 
 const packageTierDefinitionsInput = {
-	capability: {
-		name: "capability",
+	extension: {
+		name: "extension",
 		fill: "#bbf7d0",
 		stroke: "#10b981",
-		allowedTargets: downwardTierTargets("capability"),
+		allowedTargets: downwardTierTargets("extension"),
 	},
-	"capability-kit": {
-		name: "capability kit",
+	"extension-kit": {
+		name: "extension kit",
 		fill: "#d9f99d",
 		stroke: "#65a30d",
-		allowedTargets: downwardTierTargets("capability-kit"),
+		allowedTargets: downwardTierTargets("extension-kit"),
 	},
 	sdk: {
 		name: "SDK",
@@ -106,9 +106,9 @@ function downwardTierTargets(tier: PackageTierId): readonly PackageTierId[] {
 export const packageTierDebtEdgeDefinitions = [
 	{
 		from: "@nseng-ai/sdk",
-		to: "@nseng-ai/capability-kit",
+		to: "@nseng-ai/extension-kit",
 		reason:
-			"SDK-to-capability-kit CLI shell-support debt: @nseng-ai/sdk still reuses Capability Kit shell wrappers for the ns shell operation.",
+			"SDK-to-extension-kit CLI shell-support debt: @nseng-ai/sdk still reuses Extension Kit shell wrappers for the ns shell operation.",
 	},
 ] as const satisfies readonly AllowedPackageTierDebtEdge[];
 

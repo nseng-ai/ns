@@ -2,7 +2,7 @@
 
 **Point in time:** 2026-07-18\
 **Origin:** the `local-feedback-resolution` Objective and its seven-PR Graphite stack (`add-local-feedback-resolution-foundation` #3715 → `crystallize-manual-review-steelthread` #3718 → `reviews-revision-range-roster-core` #3722 → `lm-backed-review-aggregation-resolution` #3724 → `refactor-review-runners-structured-output` #3752 → `split-review-aggregation-resolution-api` #3753), closed unmerged on 2026-07-18 with all branches deleted. The Objective record (`.ns/objectives/local-feedback-resolution/`) existed only on those branches and was never on `master`; this note is its surviving capture.\
-**Status at capture:** requirements fully crystallized into a manual-first steelthread roadmap; capability-layer implementation (roster runs, LM aggregation, engineer resolution) built and reviewed but never landed; command-journey and real-usage exercise never started.
+**Status at capture:** requirements fully crystallized into a manual-first steelthread roadmap; extension-layer implementation (roster runs, LM aggregation, engineer resolution) built and reviewed but never landed; command-journey and real-usage exercise never started.
 
 ## The idea
 
@@ -33,7 +33,7 @@ Non-goals held throughout: no `ns flow submit`/`ship`/landing/deploy design, no 
 
 ## What was actually built (closed unmerged)
 
-The capability-layer slices existed as working, tested code on the deleted branches:
+The extension-layer slices existed as working, tested code on the deleted branches:
 
 - **Revision-range roster runs** (#3722): Reviews Capability API extension with strict roster request/result contracts — ordered entries, coverage, usage, failures, timestamped source-attributed finding occurrences; revision-range Git diffs; typed progress; read-only execution; `ns reviews run` single-review compatibility preserved.
 - **LM-backed aggregation** (#3724, reshaped by #3753): one schema-constrained LM call clustering roster findings while preserving every source-attributed finding exactly once; iterative correction; conflict-aware bulk confirmation; typed all-or-nothing failures; no persistence or checkout mutation.
@@ -53,7 +53,7 @@ Never started: the end-to-end local command journey (range/roster confirmation U
 ## Reverify before acting
 
 - Whether the closed PR branches' code is recoverable/still relevant (closed PRs #3715–#3754 retain their diffs on GitHub even after branch deletion; check remote refs).
-- The current state of the Reviews and Address capabilities — the roster/aggregation APIs were designed against their 2026-07 shape.
+- The current state of the Reviews and Address extensions — the roster/aggregation APIs were designed against their 2026-07 shape.
 - Whether `prod-submit-roast-and-fix`, `roaster-review-convergence`, or `reviews-via-pi-gateway` have since absorbed or obsoleted parts of this scope.
 - The shared structured-output transport (#3752) as a possible first, standalone re-landing candidate.
 

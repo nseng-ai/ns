@@ -76,7 +76,7 @@ function isAllowedPiSubpackagePeerEdge(
 ): boolean {
 	if (edge.to !== "@nseng-ai/pi" || edge.field !== "peerDependencies") return false;
 	const metadata = metadataByName.get(edge.from);
-	if (metadata?.nsTier !== "capability") return false;
+	if (metadata?.nsTier !== "extension") return false;
 	if (!metadata.nsSubpackages.includes("pi")) return false;
 	return isOptionalPeer(metadata.manifest.peerDependenciesMeta, "@nseng-ai/pi");
 }

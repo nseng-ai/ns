@@ -11,7 +11,7 @@
  * surfaced as their own result variants so the caller can decide how loud to be.
  *
  * The `contexts.nodes` selection mirrors `githubWorktreePrStatusQuery` in
- * `@nseng-ai/capability-kit/github/pr-status` so `classifyGithubStatusCheck` /
+ * `@nseng-ai/extension-kit/github/pr-status` so `classifyGithubStatusCheck` /
  * `normalizeGithubStatusChecks` see exactly the item shape they expect (including
  * `__typename`, the CheckRun conclusion/status/workflow-run fields used for
  * workflow-run dedupe, and the StatusContext state/context fields).
@@ -29,12 +29,12 @@ import type { StackViewExecContext } from "./exec.ts";
 import {
 	GITHUB_CLI_TIMEOUT_MS,
 	type GithubRepositoryIdentity,
-} from "@nseng-ai/capability-kit/github";
-import { normalizeGithubStatusChecks } from "@nseng-ai/capability-kit/github/pr-status";
+} from "@nseng-ai/extension-kit/github";
+import { normalizeGithubStatusChecks } from "@nseng-ai/extension-kit/github/pr-status";
 import {
 	graphqlErrorMessages,
 	parseJsonUnknown,
-} from "@nseng-ai/capability-kit/github/graphql-json";
+} from "@nseng-ai/extension-kit/github/graphql-json";
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 

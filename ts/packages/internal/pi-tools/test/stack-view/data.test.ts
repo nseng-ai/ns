@@ -33,7 +33,7 @@ import type {
 	StackInfo,
 	StackResult,
 	TrunkResult,
-} from "@nseng-ai/capability-kit/graphite/stack";
+} from "@nseng-ai/extension-kit/graphite/stack";
 import { loadStackView } from "../../src/stack-view/data.ts";
 import { buildStackPrQuery } from "../../src/stack-view/graphql.ts";
 

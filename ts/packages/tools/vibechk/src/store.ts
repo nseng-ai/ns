@@ -5,7 +5,7 @@ import {
 	ensurePrivateDirectory,
 	resolvePathOverride,
 	resolveXdgHome,
-} from "@nseng-ai/capability-kit/xdg";
+} from "@nseng-ai/extension-kit/xdg";
 
 import type { LoadedBundle, RunBundle } from "./models.ts";
 import { encodeRunBundle, parseRunBundle } from "./models.ts";

@@ -16,7 +16,7 @@
 # frontmatter schema accepted by Reviews, and then run:
 #
 #   dprint check .ns/reviews/dry-but-not-too-dry/review.md
-#   pnpm --dir ts exec vitest run packages/capabilities/reviews/test/unit/review-definition.test.ts
+#   pnpm --dir ts exec vitest run packages/incubator/reviews/test/unit/review-definition.test.ts
 description: |
   High-bar DRY reviewer: assess whether duplicated code or structure represents
   shared semantics or change-coupling worth consolidating, while rejecting

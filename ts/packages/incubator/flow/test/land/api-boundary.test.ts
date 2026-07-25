@@ -1,0 +1,280 @@
+import { readFileSync } from "node:fs";
+
+import { describe, expect, test } from "vitest";
+
+import {
+	LAND_EXTENSION_ID,
+	LAND_EXTENSION_METADATA,
+	LAND_PACKAGE_NAME,
+	collectPrSubmitRequirements,
+	collectSubmitRestackRequirements,
+	isLandFailure,
+	landCompleted,
+	landFailure,
+	landOutcomeFailure,
+	landingParentEdges,
+	landSuccess,
+	scopeStackSnapshot,
+	validateStrictMergeGate,
+	type BranchLandingPlan,
+	type LandExtensionMetadata,
+	type LandingBoundaryFailure,
+	type StackSnapshot,
+} from "@nseng-ai/flow/land/api";
+
+function describeLandExtension(metadata: LandExtensionMetadata): string {
+	return `${metadata.packageName}:${metadata.extensionId}:${metadata.tier}`;
+}
+
+function raiseMissingBranchPlan(): never {
+	throw new Error("Expected test branch plan.");
+}
+
+// Intentional runtime surface of `@nseng-ai/flow/land/api`. Execution internals
+// (executeStackLandingPlan, single-branch landing, pre-merge phase helpers) are deliberately not
+// public; this allowlist prevents future execution-internal leakage.
+const LAND_API_RUNTIME_ALLOWLIST = [
+	"LAND_EXTENSION_ID",
+	"LAND_EXTENSION_METADATA",
+	"LAND_PACKAGE_NAME",
+	"boundaryFailureDiagnostics",
+	"buildDescendantMaintenancePlan",
+	"buildStackLandingPlan",
+	"collectPrSubmitRequirements",
+	"collectSubmitRestackRequirements",
+	"createRefusingLandConfirmationGateway",
+	"executeLanding",
+	"isLandFailure",
+	"landCompleted",
+	"landFailure",
+	"landOutcomeFailure",
+	"landSuccess",
+	"landingExecutionFailure",
+	"landingFailureFacts",
+	"landingParentEdges",
+	"loadStackLandingShape",
+	"nullLandConfirmationGateway",
+	"nullLandExecutionProgress",
+	"scopeStackSnapshot",
+	"validateOpenPrBasics",
+	"validateStrictMergeGate",
+] as const;
+
+describe("@nseng-ai/flow/land API boundary", () => {
+	test("keeps the runtime API surface at the intentional allowlist", async () => {
+		const landApiModule = await import("@nseng-ai/flow/land/api");
+		expect(Object.keys(landApiModule).sort()).toEqual([...LAND_API_RUNTIME_ALLOWLIST]);
+	});
+
+	test("exposes land extension package identity through the API subpath", () => {
+		expect(describeLandExtension(LAND_EXTENSION_METADATA)).toBe("@nseng-ai/flow:land:extension");
+		expect(LAND_EXTENSION_METADATA).toEqual({
+			extensionId: LAND_EXTENSION_ID,
+			packageName: LAND_PACKAGE_NAME,
+			tier: "extension",
+		});
+	});
+
+	test("keeps public identity constants aligned with package metadata", () => {
+		const packageJson = readLandPackageJson();
+
+		expect(LAND_PACKAGE_NAME).toBe(packageJson.name);
+		expect(LAND_EXTENSION_METADATA.packageName).toBe(packageJson.name);
+		expect(LAND_EXTENSION_METADATA.tier).toBe(packageJson.ns.tier);
+		expect(LAND_EXTENSION_ID).toBe("land");
+	});
+
+	test("exports land-owned result helpers", () => {
+		const failure: LandingBoundaryFailure = {
+			type: "boundary",
+			phase: "preflight",
+			source: "git",
+			code: "failed",
+			message: "failed",
+		};
+
+		expect(landSuccess("ok")).toEqual({ type: "success", value: "ok" });
+		expect(landFailure(failure)).toEqual({ type: "failure", failure });
+		expect(landCompleted()).toEqual({ type: "completed" });
+		expect(landOutcomeFailure(failure)).toEqual({ type: "failure", failure });
+		expect(isLandFailure(landFailure(failure))).toBe(true);
+		expect(isLandFailure(landSuccess("ok"))).toBe(false);
+		expect(isLandFailure(landCompleted())).toBe(false);
+	});
+
+	test("exports renderer-independent preflight utilities", () => {
+		const branchPlans: readonly BranchLandingPlan[] = [
+			{
+				branch: "feature/a",
+				localSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				pr: {
+					id: "PR_node_101",
+					number: 101,
+					title: "Feature A",
+					body: null,
+					state: "OPEN",
+					isDraft: false,
+					headRefName: "feature/a",
+					baseRefName: "develop",
+					headRefOid: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				},
+			},
+		];
+		const stack: StackSnapshot = {
+			trunk: "main",
+			current: "feature/b",
+			actualCurrentBranch: "feature/b",
+			landingTargetBranch: "feature/b",
+			landingBranches: ["feature/a", "feature/b"],
+			remainingLandingBranches: [],
+			descendantBranches: ["feature/c"],
+			descendantRootBranches: ["feature/c"],
+			warnings: [],
+		};
+
+		expect(collectPrSubmitRequirements(branchPlans, "main")).toEqual([
+			{
+				branch: "feature/a",
+				prNumber: 101,
+				localSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				prHeadSha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				baseRefName: "develop",
+				expectedBaseRefName: "main",
+				reasons: ["head bbbbbbb != local aaaaaaa", "base develop != main"],
+			},
+		]);
+		expect(landingParentEdges(stack)).toEqual([
+			{ branch: "feature/a", parent: "main" },
+			{ branch: "feature/b", parent: "feature/a" },
+		]);
+		expect(scopeStackSnapshot(stack, 1)).toEqual({
+			...stack,
+			current: "feature/b",
+			landingTargetBranch: "feature/a",
+			landingBranches: ["feature/a"],
+			remainingLandingBranches: ["feature/b"],
+			warnings: [],
+		});
+		const branchPlan = branchPlans[0] ?? raiseMissingBranchPlan();
+		expect(
+			validateStrictMergeGate({
+				branch: branchPlan.branch,
+				localSha: branchPlan.pr.headRefOid,
+				pr: branchPlan.pr,
+				trunk: "main",
+			}),
+		).toMatchObject({
+			type: "failure",
+			failure: {
+				type: "domain",
+				phase: "merge",
+				reason: "pull-request-base-mismatch",
+				failedBranch: "feature/a",
+				failedPrNumber: 101,
+			},
+		});
+	});
+
+	test("exports submit-restack planning through land gateway vocabulary", async () => {
+		const stack: StackSnapshot = {
+			trunk: "main",
+			current: "feature/b",
+			actualCurrentBranch: "feature/b",
+			landingTargetBranch: "feature/b",
+			landingBranches: ["feature/a", "feature/b"],
+			remainingLandingBranches: [],
+			descendantBranches: [],
+			descendantRootBranches: [],
+			warnings: [],
+		};
+		const result = await collectSubmitRestackRequirements(
+			{
+				git: {
+					resolveRepoRoot: async () => landSuccess("/repo"),
+					currentBranch: async () => landSuccess("feature/b"),
+					workingTreeStatus: async () => landSuccess({ isClean: true }),
+					localBranchExists: async () => landCompleted(),
+					localBranchSha: async () => landSuccess("aaaaaaaa"),
+					listLocalBranches: async () => landSuccess([]),
+					branchContainsParent: async ({ branch }) => landSuccess(branch === "feature/a"),
+					snapshotBackupRefs: async () => landSuccess(new Map()),
+				},
+				graphite: {
+					trunk: async () => landSuccess("main"),
+					metadataDbPath: async () => landSuccess("/repo/.git/graphite.db"),
+					stackShape: async () => landSuccess(stack),
+					prepareSubmitUpdate: async () => landCompleted(),
+					prepareRestackForSubmit: async () => landCompleted(),
+					refreshBranchFromRemote: async () => ({
+						type: "success",
+						result: { stdout: "", stderr: "", code: 0, type: "exited", signal: null },
+					}),
+					deleteLocalBranch: async () => ({ type: "deleted" }),
+					restack: async () => ({
+						type: "success",
+						result: { stdout: "", stderr: "", code: 0, type: "exited", signal: null },
+					}),
+					submitUpdate: async () => ({
+						type: "success",
+						result: { stdout: "", stderr: "", code: 0, type: "exited", signal: null },
+					}),
+					branchChildren: async () => landSuccess([]),
+				},
+				github: {
+					pullRequestFacts: async () =>
+						landSuccess({
+							id: "PR_node_1",
+							number: 1,
+							title: "Feature",
+							body: null,
+							state: "OPEN",
+							isDraft: false,
+							headRefName: "feature/a",
+							baseRefName: "main",
+							headRefOid: "aaaaaaaa",
+						}),
+					squashMergePullRequest: async () => landSuccess({ stdout: "", stderr: "" }),
+				},
+				worktrees: {
+					worktrees: async () => landSuccess([]),
+					classifyWorktree: async () => landSuccess({ type: "manual-worktree" }),
+					freeSlots: async ({ slots }) => landSuccess(slots),
+				},
+			},
+			"/repo",
+			stack,
+		);
+
+		expect(result).toEqual({
+			type: "success",
+			value: [{ branch: "feature/b", parent: "feature/a" }],
+		});
+	});
+});
+
+interface LandPackageJson {
+	readonly name: string;
+	readonly ns: { readonly tier: "extension" };
+}
+
+function readLandPackageJson(): LandPackageJson {
+	const raw = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
+	if (!isLandPackageJson(raw)) {
+		throw new Error("@nseng-ai/flow package.json does not match expected test shape");
+	}
+	return raw;
+}
+
+function isLandPackageJson(value: unknown): value is LandPackageJson {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"name" in value &&
+		typeof value.name === "string" &&
+		"ns" in value &&
+		typeof value.ns === "object" &&
+		value.ns !== null &&
+		"tier" in value.ns &&
+		value.ns.tier === "extension"
+	);
+}

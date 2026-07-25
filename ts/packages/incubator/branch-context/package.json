@@ -1,0 +1,63 @@
+{
+	"name": "@nseng-ai/branch-context",
+	"version": "0.1.4",
+	"type": "module",
+	"exports": {
+		".": "./src/core/index.ts",
+		"./api": "./src/api/index.ts",
+		"./ns-extension": "./src/ns/extension.ts",
+		"./api/prompt-assets": "./src/api/prompt-assets.ts",
+		"./ns/commands/attach": "./src/ns/commands/attach.ts",
+		"./ns/commands/check": "./src/ns/commands/check.ts",
+		"./ns/commands/delete": "./src/ns/commands/delete.ts",
+		"./ns/commands/from-plan": "./src/ns/commands/from-plan.ts",
+		"./ns/commands/list": "./src/ns/commands/list.ts",
+		"./ns/commands/load": "./src/ns/commands/load.ts",
+		"./testing": "./src/testing/index.ts",
+		"./pi": "./src/pi/index.ts",
+		"./pi/extension": "./src/pi/extension.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "tsc -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/incubator/branch-context/test",
+		"pack:local": "pnpm --workspace-root exec ns-dev prepare-source-publish-package \"$PWD\" && npm pack ./dist/publish --pack-destination dist",
+		"publish:dry-run": "pnpm --workspace-root exec ns-dev prepare-source-publish-package \"$PWD\" && npm publish --dry-run ./dist/publish"
+	},
+	"dependencies": {
+		"@earendil-works/pi-tui": "catalog:",
+		"@nseng-ai/brmem": "workspace:*",
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/extension-kit": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
+		"@nseng-ai/plans": "workspace:*",
+		"zod": "catalog:"
+	},
+	"peerDependencies": {
+		"@nseng-ai/pi": "workspace:*"
+	},
+	"peerDependenciesMeta": {
+		"@nseng-ai/pi": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@nseng-ai/pi": "workspace:*"
+	},
+	"ns": {
+		"tier": "extension",
+		"subpackages": [
+			"api",
+			"core",
+			"testing",
+			"ns",
+			"pi"
+		]
+	},
+	"publishConfig": {
+		"access": "public"
+	}
+}

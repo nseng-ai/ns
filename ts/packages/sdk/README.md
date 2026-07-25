@@ -1,6 +1,6 @@
 # @nseng-ai/sdk
 
-`@nseng-ai/sdk` owns the `ns` CLI host and the `@nseng-ai/sdk` author API for command-contributing extensions. It owns command discovery, precedence, selected-command loading, argument/schema parsing, rendering glue, completion plumbing, shell integration, and execution-context construction. It does not own concrete workflow policy or capability command surfaces; those belong to the extension or capability package that contributes them.
+`@nseng-ai/sdk` owns the `ns` CLI host and the `@nseng-ai/sdk` author API for command-contributing extensions. It owns command discovery, precedence, selected-command loading, argument/schema parsing, rendering glue, completion plumbing, shell integration, and execution-context construction. It does not own concrete workflow policy or extension command surfaces; those belong to the extension package that contributes them.
 
 ## Command catalog
 
@@ -103,7 +103,7 @@ Descriptor modules are leaf authoring surfaces, not shared libraries. If reusabl
 Use these cut lines when deciding where code belongs:
 
 - **SDK service:** discovery, loading, precedence, command presentation, completion, execution/context primitives, shell integration, and small author helpers with proven reuse or explicit necessity.
-- **Extension or capability package:** workflow policy, prompts, external command choreography, gateway construction, domain behavior, command-specific rendering, and command names that should travel with the owning package rather than every SDK installation.
+- **Extension package:** workflow policy, prompts, external command choreography, gateway construction, domain behavior, command-specific rendering, and command names that should travel with the owning package rather than every SDK installation.
 - **Preinstalled catalog entry:** distribution metadata for a reusable extension command, not proof that the SDK owns the command's behavior.
 - **Internal workspace export:** package-to-package sharing for SDK-owned implementation seams, not an author API and not a reason for extension files to import SDK internals.
 

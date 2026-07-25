@@ -5,7 +5,7 @@ import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers
 
 export type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 
-/** The structural result returned by Pi's upstream exec capability. */
+/** The structural result returned by Pi's upstream exec extension. */
 export interface RawPiExecResult {
 	readonly stdout?: string;
 	readonly stderr?: string;

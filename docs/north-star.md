@@ -51,7 +51,7 @@ this goal," because it does not model branches or goals.
 ## The inversion: embed, don't wrap
 
 ns goes the other way. It is a **substrate of embeddable building blocks** that you
-**inject into** the harnesses developers already use. A capability is not reached through a
+**inject into** the harnesses developers already use. An extension is not reached through a
 wrapper — it becomes part of the harness. Because injection adds rather than abstracts,
 ns expresses the **union** of the harnesses, not their intersection: the best of each, in
 its own native idiom.
@@ -133,7 +133,7 @@ shallow without a durable, scoped memory beneath it. ns is that memory.
 
 ## The ns core
 
-A coherent developer workflow, decomposed into composable, git-native capabilities — each
+A coherent developer workflow, decomposed into composable, git-native extensions — each
 usable alone, stronger together, each anchored to a context scope. This is the
 **core**: the part of the system that everything else is built on.
 
@@ -170,7 +170,7 @@ The discipline is not "everything in git"; it is *drawing the line between durab
 and working-local deliberately, and deriving storage from lifetime.*
 
 **2. Reachable in any harness; richly skinned where it pays.**
-Every capability is **reachable** in every harness — the plumbing (registration,
+Every extension is **reachable** in every harness — the plumbing (registration,
 invocation policy, argument passing) is compiled, not hand-maintained, so reachability
 targets 100%. The **rich native skin** — pickers, TUIs, commit-cards — is a deliberate
 per-harness investment, never owed, because polish bottoms out in each harness's own UI

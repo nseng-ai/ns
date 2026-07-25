@@ -59,7 +59,7 @@ export const detectorMetadata: ReadonlyArray<DetectorMetadata> = [
   {
     kind: "xdg-path",
     canonical: "requireNsStatePath / resolveNsXdgPath / resolveXdgHome",
-    import: "@nseng-ai/foundation/xdg-path; @nseng-ai/capability-kit/xdg",
+    import: "@nseng-ai/foundation/xdg-path; @nseng-ai/extension-kit/xdg",
     precision: "medium",
   },
   {

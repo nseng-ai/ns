@@ -151,7 +151,7 @@ function apiOnlyFinding(apiOnly, exposesApi) {
       `These packages ship an <span class="font-mono text-sm">/api</span>-style export but no command or main entry: `
       + apiOnly.map((p) => mono(p)).join(", ") + `. Of ${plural(Object.keys(exposesApi).length, "package")} that expose an API, these are the ones with no other face.`,
     solution:
-      `Confirm intent: either a deliberate provider-only seam (document it) or a capability still missing its command face (add one).`,
+      `Confirm intent: either a deliberate provider-only seam (document it) or an extension still missing its command face (add one).`,
     wins: ["resolves an export-shape anomaly"],
   };
 }
@@ -377,7 +377,7 @@ function synthScorecard(analysis, f) {
       evidence: `${mono(spine.name)} with ${spine.count} dependents — the most depended-on package.`,
     },
     {
-      invariant: `Capability API seam adoption`,
+      invariant: `Extension API seam adoption`,
       status: plural(Object.keys(exposesApi).length, "package"),
       statusKind: apiOnly.length ? "partial" : "holds",
       evidence: Object.keys(exposesApi).length
@@ -386,7 +386,7 @@ function synthScorecard(analysis, f) {
         : `no package exposes an /api-style seam.`,
     },
     {
-      invariant: `Capability Kit consumers`,
+      invariant: `Extension Kit consumers`,
       status: plural(kitConsumers.length, "package"),
       statusKind: "holds",
       evidence: kitConsumers.length ? kitConsumers.map(mono).join(", ") : `no package depends on the kit.`,

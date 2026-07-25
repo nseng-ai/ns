@@ -12,19 +12,19 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 
 | Kind         | Names                                                                    | Sanctioned importers                    |
 | ------------ | ------------------------------------------------------------------------ | --------------------------------------- |
-| API-kind     | open; `api` required for a Capability API                                | any package (runtime)                   |
+| API-kind     | open; `api` required for an Extension API                                | any package (runtime)                   |
 | Testing      | `testing`                                                                | any package (tests only)                |
 | Host surface | `ns`, `pi`                                                               | the named host only                     |
 | Feature      | open, domain-meaningful (`land-stack`, `submit`, `cmux`, `lifecycle`, …) | sibling subpackages in the same package |
 
-- **API-kind** subpackages are the package's deliberate cross-package programmatic doors: any declared subpackage with supported cross-package runtime exports is API-kind, regardless of name, and a container may have several (`@nseng-ai/foundation/exec` and `@nseng-ai/foundation/time` are both API-kind). A capability's Capability API must still be the literally named `api` subpackage (`@nseng-ai/<cap>/api`), a thin contract/facade; logic lives in features, not here. Do not consolidate precise API-kind doors into one façade barrel.
+- **API-kind** subpackages are the package's deliberate cross-package programmatic doors: any declared subpackage with supported cross-package runtime exports is API-kind, regardless of name, and a container may have several (`@nseng-ai/foundation/exec` and `@nseng-ai/foundation/time` are both API-kind). An extension's Extension API must still be the literally named `api` subpackage (`@nseng-ai/<ext>/api`), a thin contract/facade; logic lives in features, not here. Do not consolidate precise API-kind doors into one façade barrel.
 - **Testing** exports fakes and test kits for other packages' tests. Never imported by runtime code.
 - **Host surfaces** are thin adapters consumed by exactly one host: `ns` by the ns CLI SDK wiring and `pi` by the Pi host stack. Per-feature entry points live inside the surface (`pi/land-stack.ts`), so surfaces stay thin and features stay host-free.
 - **Features** are the package's real domain verticals — the entries that make the topology report say something package-specific. They never import host surfaces, and their edges stay intra-package. Private implementation layers of an API-kind subpackage are folders inside it, not sibling feature subpackages.
 
 ## Naming rules
 
-- The Capability API, testing, and host-surface vocabulary is **closed**: `api`, `testing`, `ns`, `pi`. Do not invent synonyms such as `public` or `contract`. Other API-kind subpackages carry their domain name (`exec`, `time`), exactly like features — being exported is what makes them API-kind, not a reserved name.
+- The Extension API, testing, and host-surface vocabulary is **closed**: `api`, `testing`, `ns`, `pi`. Do not invent synonyms such as `public` or `contract`. Other API-kind subpackages carry their domain name (`exec`, `time`), exactly like features — being exported is what makes them API-kind, not a reserved name.
 - Never declare internal layers as subpackages: `operations`, `gateways`, `commands`, `shared`, `shell`, `kit`. They are folders inside the kind that owns them.
 - `core` is acceptable only as the feature subpackage naming the package's central domain (when the package's namesake concept *is* the feature). It is not a home for consolidated layers.
 - Feature names must mean something in the package's domain. Prefer the term the package's `CONTEXT.md` already uses.

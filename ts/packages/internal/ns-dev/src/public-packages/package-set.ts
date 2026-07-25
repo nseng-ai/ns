@@ -35,12 +35,12 @@ export const intendedPublicPackages: readonly string[] = [
 	"@nseng-ai/areg",
 	"@nseng-ai/packagechk",
 	"@nseng-ai/vibechk",
-	"@nseng-ai/capability-kit",
+	"@nseng-ai/extension-kit",
 	"@nseng-ai/harness-artifacts",
 	"@nseng-ai/flow",
 	"@nseng-ai/pi-editor-mods",
 ];
-export const firstBatchPackages: readonly string[] = ["@nseng-ai/capability-kit", "@nseng-ai/flow"];
+export const firstBatchPackages: readonly string[] = ["@nseng-ai/extension-kit", "@nseng-ai/flow"];
 export const excludedPackages = new Set([
 	"@nseng-ai/pi",
 	"@internal/pi-tools",
@@ -50,7 +50,7 @@ export const publicPublishOrder: readonly string[] = [
 	"@nseng-ai/clinkr",
 	"@nseng-ai/foundation",
 	"@nseng-ai/sdk",
-	"@nseng-ai/capability-kit",
+	"@nseng-ai/extension-kit",
 	"@nseng-ai/harness-artifacts",
 	"@nseng-ai/brmem",
 	"@nseng-ai/plans",

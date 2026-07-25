@@ -19,7 +19,7 @@ const NS_PROJECT_EXTENSION_ADAPTER = ".pi/extensions/ns.ts";
 const EXTENSION_LOAD_FAILURE_MARKER = "Failed to load extension";
 
 const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
-	"@nseng-ai/capability-kit/graphite/status",
+	"@nseng-ai/extension-kit/graphite/status",
 	"@nseng-ai/foundation/exec",
 	"@nseng-ai/branch-context",
 	"@nseng-ai/plans",
@@ -27,16 +27,16 @@ const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 ] as const;
 
 const SDK_EXPORT_IMPORTS = [
-	"@nseng-ai/capability-kit/checkpoint-flow",
-	"@nseng-ai/capability-kit/checkpoint-message",
+	"@nseng-ai/extension-kit/checkpoint-flow",
+	"@nseng-ai/extension-kit/checkpoint-message",
 	"@nseng-ai/foundation/exec",
 	"@nseng-ai/sdk/cli",
 	"@nseng-ai/sdk/context",
-	"@nseng-ai/capability-kit/pending-worktree",
+	"@nseng-ai/extension-kit/pending-worktree",
 	"@nseng-ai/sdk",
 	"@nseng-ai/ns/cli",
-	"@nseng-ai/capability-kit/text-generation",
-	"@nseng-ai/capability-kit/text-repair",
+	"@nseng-ai/extension-kit/text-generation",
+	"@nseng-ai/extension-kit/text-repair",
 ] as const;
 
 interface NodeEvalOptions {

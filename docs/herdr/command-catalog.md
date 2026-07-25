@@ -1,6 +1,6 @@
 # Herdr Command Catalog and Migration History
 
-This document is the exact current inventory of the Herdr Pi surface. It also records the completed migration from the former cmux capability: the cmux package, extension adapter, CLI commands, and `/ns:cmux:*` commands have been removed. The historical filename `cmux-parity-checklist.md` was retired once this document became predominantly a current command catalog.
+This document is the exact current inventory of the Herdr Pi surface. It also records the completed migration from the former cmux extension: the cmux package, extension adapter, CLI commands, and `/ns:cmux:*` commands have been removed. The historical filename `cmux-parity-checklist.md` was retired once this document became predominantly a current command catalog.
 
 ## Current Herdr Pi catalog
 
@@ -44,7 +44,7 @@ The command cutover does not remove launch as a process or destination concept:
 
 - `HERDR_WORKSPACE_ID` identifies the caller space for space rename, tab creation, tab plan implementation, and Handoff tab launch. Commands fail rather than target UI focus when it is absent.
 - `HERDR_TAB_ID` identifies the exact caller tab for `/ns:herdr:tab:goal`. It is not interchangeable with the workspace ID.
-- Herdr owns destination creation, labels, and pane process startup. Prepared Herdr Launch labels use the model-derived semantic slug rather than a collision-resolved Git branch name: spaces may add the compact slot prefix derived from the actual checked-out worktree path, while tabs use the exact semantic slug. Plans, Branch Context, Slots, Graphite preparation, and Handoff Artifact lifecycle remain owned by their respective capabilities.
+- Herdr owns destination creation, labels, and pane process startup. Prepared Herdr Launch labels use the model-derived semantic slug rather than a collision-resolved Git branch name: spaces may add the compact slot prefix derived from the actual checked-out worktree path, while tabs use the exact semantic slug. Plans, Branch Context, Slots, Graphite preparation, and Handoff Artifact lifecycle remain owned by their respective extensions.
 - Hidden `ns herdr exec handoff-tab launch` is a reference-based implementation command for Handoff launch, not a public generic launcher or an additional Pi command.
 
 ## Migration disposition

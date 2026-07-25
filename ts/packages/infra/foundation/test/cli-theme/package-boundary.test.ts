@@ -15,7 +15,7 @@ interface ImportOffender {
 	reason: string;
 }
 
-function isForbiddenCapabilityImport(specifier: string): boolean {
+function isForbiddenExtensionImport(specifier: string): boolean {
 	return (
 		specifier.startsWith("@nseng-ai/flow") ||
 		specifier.startsWith("@nseng-ai/slots") ||
@@ -43,11 +43,11 @@ function sourceImportOffenders(): readonly ImportOffender[] {
 					reason: "theme source must not deep-import another package's source tree",
 				});
 			}
-			if (isForbiddenCapabilityImport(specifier)) {
+			if (isForbiddenExtensionImport(specifier)) {
 				offenders.push({
 					file: fileForReport(file),
 					specifier,
-					reason: "theme source must stay below capability/domain packages",
+					reason: "theme source must stay below extension/domain packages",
 				});
 			}
 		}

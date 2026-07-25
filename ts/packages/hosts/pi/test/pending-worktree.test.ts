@@ -4,7 +4,7 @@ import {
 	loadPendingWorktreeSnapshot,
 	type ExecGit,
 	type WorktreeCommandResult,
-} from "@nseng-ai/capability-kit/pending-worktree";
+} from "@nseng-ai/extension-kit/pending-worktree";
 import type { GitGateway, GitOptionalResult } from "@nseng-ai/foundation/git";
 
 function ok(stdout = "", stderr = ""): WorktreeCommandResult {

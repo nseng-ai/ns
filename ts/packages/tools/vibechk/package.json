@@ -16,8 +16,8 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/tools/vibechk/test"
 	},
 	"dependencies": {
-		"@nseng-ai/capability-kit": "workspace:*",
 		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/extension-kit": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
 		"zod": "catalog:"
 	},

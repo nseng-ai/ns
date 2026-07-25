@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { installDescriptorExtension } from "./extension-descriptor-install.ts";
 
 export const REVIEWS_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../capabilities/reviews", import.meta.url),
+	new URL("../../../incubator/reviews", import.meta.url),
 );
 
 export function installCheckedInReviewsExtension(projectRoot: string): void {

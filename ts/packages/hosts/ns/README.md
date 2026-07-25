@@ -5,7 +5,7 @@ the `ns` binary — the shared command surface that you and your coding agents u
 multi-session, multi-branch software work in a git-native way.
 
 `@nseng-ai/ns` ships **bare core**: repository activation (`ns init`) and extension
-management (`ns extension …`). Capabilities such as Objectives are installed on top as ns
+management (`ns extension …`). Extensions such as Objectives are installed on top as ns
 extensions — see [Add Objectives](#add-objectives).
 
 ## Prerequisites
@@ -67,7 +67,7 @@ ns extension install npm:@nseng-ai/objectives
 This records the extension in `ns.toml`, activates it for your configured harness, adds the
 `ns objective` CLI, and provisions the ten Objective skills into your harness's skill root
 (`.claude/skills/` for Claude Code). See
-[`@nseng-ai/objectives`](../../capabilities/objectives/README.md) for the full lifecycle.
+[`@nseng-ai/objectives`](../../incubator/objectives/README.md) for the full lifecycle.
 
 Once installed, drive an Objective through its lifecycle with your agent:
 

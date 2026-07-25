@@ -18,7 +18,7 @@
 # the frontmatter schema accepted by Reviews, and then run:
 #
 #   dprint check .ns/reviews/thermonuclear-review/review.md
-#   pnpm --dir ts exec vitest run packages/capabilities/reviews/test/unit/review-definition.test.ts
+#   pnpm --dir ts exec vitest run packages/incubator/reviews/test/unit/review-definition.test.ts
 description: |
   Run an extremely strict maintainability and implementation-quality review on
   the supplied diff. Push for structural simplification, code-judo reframings,

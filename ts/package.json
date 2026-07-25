@@ -34,7 +34,7 @@
 		"@nseng-ai/pr-feedback": "workspace:*",
 		"@nseng-ai/branch-context": "workspace:*",
 		"@nseng-ai/brmem": "workspace:*",
-		"@nseng-ai/capability-kit": "workspace:*",
+		"@nseng-ai/extension-kit": "workspace:*",
 		"@nseng-ai/ns": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/flow": "workspace:*",

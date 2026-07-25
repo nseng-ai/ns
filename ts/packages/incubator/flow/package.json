@@ -1,0 +1,75 @@
+{
+	"name": "@nseng-ai/flow",
+	"version": "0.1.4",
+	"files": [
+		"src"
+	],
+	"type": "module",
+	"exports": {
+		"./api": "./src/api/index.ts",
+		"./ns-extension": "./src/ns/extension.ts",
+		"./commands/changes": "./src/ns/commands/changes.ts",
+		"./commands/cp": "./src/ns/commands/cp.ts",
+		"./commands/autobranch": "./src/ns/commands/autobranch.ts",
+		"./commands/branch-latest-commit": "./src/ns/commands/branch-latest-commit.ts",
+		"./commands/autoslot": "./src/ns/commands/autoslot.ts",
+		"./commands/submit": "./src/ns/commands/submit.ts",
+		"./commands/regenerate-pr": "./src/ns/commands/regenerate-pr.ts",
+		"./commands/push": "./src/ns/commands/push.ts",
+		"./commands/land": "./src/ns/commands/land.ts",
+		"./commands/pull-trunk": "./src/ns/commands/pull-trunk.ts",
+		"./commands/squash-stack": "./src/ns/commands/squash-stack.ts",
+		"./commands/exec-read-graphite-branch-metadata": "./src/ns/commands/exec-read-graphite-branch-metadata.ts",
+		"./land/api": "./src/land/api.ts",
+		"./land/testing": "./src/land/testing.ts",
+		"./pi": "./src/pi/index.ts",
+		"./pi/ns-extension": "./src/pi/ns-extension.ts"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"check": "tsc -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/incubator/flow/test",
+		"pack:local": "pnpm --workspace-root exec ns-dev prepare-source-publish-package \"$PWD\" && npm pack ./dist/publish --pack-destination dist",
+		"publish:dry-run": "pnpm --workspace-root exec ns-dev prepare-source-publish-package \"$PWD\" && npm publish --dry-run ./dist/publish"
+	},
+	"dependencies": {
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/extension-kit": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
+		"@nseng-ai/slots": "workspace:*",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@nseng-ai/pi": "workspace:*"
+	},
+	"peerDependencies": {
+		"@nseng-ai/pi": "*"
+	},
+	"peerDependenciesMeta": {
+		"@nseng-ai/pi": {
+			"optional": true
+		}
+	},
+	"ns": {
+		"tier": "extension",
+		"subpackages": [
+			"api",
+			"autobranch",
+			"autoslot",
+			"changes",
+			"checkpoint",
+			"commit-display",
+			"land",
+			"phase-stream",
+			"publication",
+			"pi",
+			"ns",
+			"submit",
+			"trunk-pull",
+			"stack-squash"
+		]
+	}
+}

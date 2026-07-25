@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { installDescriptorExtension } from "./extension-descriptor-install.ts";
 
 export const FLOW_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../capabilities/flow", import.meta.url),
+	new URL("../../../incubator/flow", import.meta.url),
 );
 
 export function installCheckedInFlowExtension(projectRoot: string): void {

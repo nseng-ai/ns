@@ -1,0 +1,329 @@
+import { describe, expect, test } from "vitest";
+
+import type { ExecResult } from "@nseng-ai/foundation/exec";
+
+type ExitedResult = Extract<ExecResult, { type: "exited" }>;
+type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
+import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import { RealGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/branch";
+import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
+import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
+
+const ROOT = "/repo";
+const BRANCH = "branch-contexts/branch-scoped-plan";
+const PARENT_BRANCH = "feature/source-plan";
+
+interface ExecCall {
+	command: string;
+	args: string[];
+	options: ExecOptions | undefined;
+}
+
+type ScriptedExec =
+	| {
+			command: string;
+			args: string[];
+			result: ExecResultFixture;
+	  }
+	| {
+			command: string;
+			args: string[];
+			error: Error;
+	  };
+
+class ScriptedCommands implements CommandExecApi {
+	readonly execCalls: ExecCall[] = [];
+	private readonly script: ScriptedQueue<ScriptedExec>;
+
+	constructor(script: readonly ScriptedExec[]) {
+		this.script = new ScriptedQueue(script, (step) => step);
+	}
+
+	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+		this.execCalls.push({ command, args: [...args], options });
+		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
+		const expected = this.script.shiftOrRecordError(missingStepMessage);
+		if (expected === undefined) {
+			return execResult({ code: 99, stderr: missingStepMessage });
+		}
+		if (expected.command !== command || !sameArgs(expected.args, args)) {
+			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
+			this.script.recordError(message);
+			return execResult({ code: 99, stderr: message });
+		}
+		if ("error" in expected) throw expected.error;
+		return execResult(expected.result);
+	}
+
+	assertDone(): void {
+		this.script.assertDone();
+	}
+}
+
+function execResult(overrides: ExecResultFixture = {}): ExecResult {
+	if ("type" in overrides) return overrides;
+	return {
+		type: "exited",
+		stdout: overrides.stdout ?? "",
+		stderr: overrides.stderr ?? "",
+		code: overrides.code ?? 0,
+		signal: overrides.signal ?? null,
+	};
+}
+
+function step(command: string, args: string[], result: ExecResultFixture = {}): ScriptedExec {
+	return { command, args, result };
+}
+
+function errorStep(command: string, args: string[], error: Error): ScriptedExec {
+	return { command, args, error };
+}
+
+function sameArgs(left: readonly string[], right: readonly string[]): boolean {
+	return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function infoArgs(branch = PARENT_BRANCH): string[] {
+	return ["info", branch, "--no-interactive"];
+}
+
+function trackArgs(branch = BRANCH, parentBranch = PARENT_BRANCH): string[] {
+	return ["track", branch, "--parent", parentBranch, "--no-interactive"];
+}
+
+describe("in-memory branch-context graphite gateway", () => {
+	test("records trackedness checks and succeeds by default", async () => {
+		const graphite = new InMemoryGraphiteBranchGateway();
+
+		expect(await graphite.checkBranchTracked({ cwd: ROOT, branch: PARENT_BRANCH })).toEqual({
+			ok: true,
+			tracked: true,
+		});
+		expect(graphite.checkBranchTrackedCalls).toEqual([{ cwd: ROOT, branch: PARENT_BRANCH }]);
+	});
+
+	test("returns configured untracked branch checks", async () => {
+		const graphite = new InMemoryGraphiteBranchGateway({
+			untrackedBranches: [PARENT_BRANCH],
+			untrackedDetail: "untracked parent",
+		});
+
+		expect(await graphite.checkBranchTracked({ cwd: ROOT, branch: PARENT_BRANCH })).toEqual({
+			ok: true,
+			tracked: false,
+			detail: "untracked parent",
+		});
+		expect(graphite.checkBranchTrackedCalls).toEqual([{ cwd: ROOT, branch: PARENT_BRANCH }]);
+	});
+
+	test("records track calls and succeeds by default", async () => {
+		const graphite = new InMemoryGraphiteBranchGateway();
+
+		expect(
+			await graphite.trackBranch({ cwd: ROOT, branch: BRANCH, parentBranch: PARENT_BRANCH }),
+		).toEqual({ ok: true });
+		expect(graphite.trackBranchCalls).toEqual([
+			{ cwd: ROOT, branch: BRANCH, parentBranch: PARENT_BRANCH },
+		]);
+	});
+
+	test("returns configured track failures", async () => {
+		const graphite = new InMemoryGraphiteBranchGateway({
+			trackFailure: { code: "graphite_track_failed", message: "Graphite failed." },
+		});
+
+		expect(
+			await graphite.trackBranch({ cwd: ROOT, branch: BRANCH, parentBranch: PARENT_BRANCH }),
+		).toEqual({
+			ok: false,
+			error: { code: "graphite_track_failed", message: "Graphite failed." },
+		});
+		expect(graphite.trackBranchCalls).toEqual([
+			{ cwd: ROOT, branch: BRANCH, parentBranch: PARENT_BRANCH },
+		]);
+	});
+});
+
+describe("real branch-context graphite gateway", () => {
+	test("preserves trackedness command protocol", async () => {
+		const commands = new ScriptedCommands([step("gt", infoArgs())]);
+		const graphite = new RealGraphiteBranchGateway(commands);
+
+		expect(await graphite.checkBranchTracked({ cwd: ROOT, branch: PARENT_BRANCH })).toEqual({
+			ok: true,
+			tracked: true,
+		});
+		commands.assertDone();
+		expect(commands.execCalls).toEqual([
+			{ command: "gt", args: infoArgs(), options: { cwd: ROOT, timeout: 30_000 } },
+		]);
+	});
+
+	test("threads AbortSignal into the trackedness command", async () => {
+		const controller = new AbortController();
+		const commands = new ScriptedCommands([step("gt", infoArgs())]);
+		const graphite = new RealGraphiteBranchGateway(commands);
+
+		expect(
+			await graphite.checkBranchTracked({
+				cwd: ROOT,
+				branch: PARENT_BRANCH,
+				signal: controller.signal,
+			}),
+		).toEqual({ ok: true, tracked: true });
+		commands.assertDone();
+		expect(commands.execCalls[0]?.options).toEqual({
+			cwd: ROOT,
+			timeout: 30_000,
+			signal: controller.signal,
+		});
+	});
+
+	test("returns nonzero trackedness checks as untracked with detail", async () => {
+		const commands = new ScriptedCommands([
+			step("gt", infoArgs(), {
+				code: 1,
+				stderr: `ERROR: Cannot perform this operation on untracked branch ${PARENT_BRANCH}`,
+			}),
+		]);
+		const graphite = new RealGraphiteBranchGateway(commands);
+
+		const result = await graphite.checkBranchTracked({ cwd: ROOT, branch: PARENT_BRANCH });
+
+		expect(result).toMatchObject({ ok: true, tracked: false });
+		if (result.ok && !result.tracked) {
+			expect(result.detail).toContain("gt info could not verify Graphite tracking");
+			expect(result.detail).toContain(`Command: gt info ${PARENT_BRANCH} --no-interactive`);
+			expect(result.detail).toContain("Cannot perform this operation on untracked branch");
+		}
+		commands.assertDone();
+	});
+
+	test("returns startup failures from trackedness checks as typed errors", async () => {
+		const commands = new ScriptedCommands([
+			errorStep("gt", infoArgs(), new Error("spawn gt ENOENT")),
+		]);
+		const graphite = new RealGraphiteBranchGateway(commands);
+
+		const result = await graphite.checkBranchTracked({ cwd: ROOT, branch: PARENT_BRANCH });
+
+		expect(result).toMatchObject({ ok: false, error: { code: "graphite_startup_failed" } });
+		if (!result.ok) {
+			expect(result.error.message).toContain("gt command failed before completion");
+			expect(result.error.message).toContain(`Command: gt info ${PARENT_BRANCH} --no-interactive`);
+			expect(result.error.message).toContain("spawn gt ENOENT");
+		}
+		commands.assertDone();
+	});
+
+	test("preserves track command protocol", async () => {
+		const commands = new ScriptedCommands([step("gt", trackArgs())]);
+		const graphite = new RealGraphiteBranchGateway(commands);
+
+		expect(
+			await graphite.trackBranch({ cwd: ROOT, branch: BRANCH, parentBranch: PARENT_BRANCH }),
+		).toEqual({ ok: true });
+		commands.assertDone();
+		expect(commands.execCalls).toEqual([
+			{ command: "gt", args: trackArgs(), options: { cwd: ROOT, timeout: 30_000 } },
+		]);
+	});
+
+	test("threads AbortSignal into the track command", async () => {
+		const controller = new AbortController();
+		const commands = new ScriptedCommands([step("gt", trackArgs())]);
+		const graphite = new RealGraphiteBranchGateway(commands);
+
+		expect(
+			await graphite.trackBranch({
+				cwd: ROOT,
+				branch: BRANCH,
+				parentBranch: PARENT_BRANCH,
+				signal: controller.signal,
+			}),
+		).toEqual({ ok: true });
+		commands.assertDone();
+		expect(commands.execCalls[0]?.options).toEqual({
+			cwd: ROOT,
+			timeout: 30_000,
+			signal: controller.signal,
+		});
+	});
+
+	test("returns nonzero track failures as typed errors", async () => {
+		const commands = new ScriptedCommands([
+			step("gt", trackArgs(), { code: 2, stderr: "parent branch is not tracked" }),
+		]);
+		const graphite = new RealGraphiteBranchGateway(commands);
+
+		const result = await graphite.trackBranch({
+			cwd: ROOT,
+			branch: BRANCH,
+			parentBranch: PARENT_BRANCH,
+		});
+
+		expect(result).toMatchObject({
+			ok: false,
+			error: {
+				code: "graphite-track-failed",
+				displayCommand: `gt track ${BRANCH} --parent ${PARENT_BRANCH} --no-interactive`,
+			},
+		});
+		if (!result.ok) {
+			expect(result.error.message).toContain("gt track failed");
+			expect(result.error.message).toContain(
+				`Command: gt track ${BRANCH} --parent ${PARENT_BRANCH} --no-interactive`,
+			);
+			expect(result.error.message).toContain("parent branch is not tracked");
+		}
+		commands.assertDone();
+	});
+
+	test("returns timed-out track failures with timeout wording", async () => {
+		const commands = new ScriptedCommands([
+			step("gt", trackArgs(), {
+				type: "timed-out",
+				stdout: "",
+				stderr: "",
+				code: 124,
+				signal: "SIGTERM",
+			}),
+		]);
+		const graphite = new RealGraphiteBranchGateway(commands);
+
+		const result = await graphite.trackBranch({
+			cwd: ROOT,
+			branch: BRANCH,
+			parentBranch: PARENT_BRANCH,
+		});
+
+		expect(result).toMatchObject({ ok: false, error: { code: "graphite-track-failed" } });
+		if (!result.ok) {
+			expect(result.error.message).toContain("timed out; signal SIGTERM");
+		}
+		commands.assertDone();
+	});
+
+	test("returns startup failures as typed errors", async () => {
+		const commands = new ScriptedCommands([
+			errorStep("gt", trackArgs(), new Error("spawn gt ENOENT")),
+		]);
+		const graphite = new RealGraphiteBranchGateway(commands);
+
+		const result = await graphite.trackBranch({
+			cwd: ROOT,
+			branch: BRANCH,
+			parentBranch: PARENT_BRANCH,
+		});
+
+		expect(result).toMatchObject({ ok: false, error: { code: "graphite_startup_failed" } });
+		if (!result.ok) {
+			expect(result.error.message).toContain("gt command failed before completion");
+			expect(result.error.message).toContain(
+				`Command: gt track ${BRANCH} --parent ${PARENT_BRANCH} --no-interactive`,
+			);
+			expect(result.error.message).toContain("spawn gt ENOENT");
+		}
+		commands.assertDone();
+	});
+});

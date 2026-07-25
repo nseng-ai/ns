@@ -9,21 +9,21 @@ test("repo-local extensions can import package subpaths without source aliases",
 	const jiti = createNsJiti();
 
 	const pendingWorktreeModule = await jiti.import<
-		typeof import("@nseng-ai/capability-kit/pending-worktree")
-	>("@nseng-ai/capability-kit/pending-worktree");
+		typeof import("@nseng-ai/extension-kit/pending-worktree")
+	>("@nseng-ai/extension-kit/pending-worktree");
 	expect(typeof pendingWorktreeModule.loadPendingWorktreeSnapshot).toBe("function");
 	expect(typeof pendingWorktreeModule.formatPendingWorktreeCommandDetails).toBe("function");
 
 	const checkpointFlowModule = await jiti.import<
-		typeof import("@nseng-ai/capability-kit/checkpoint-flow")
-	>("@nseng-ai/capability-kit/checkpoint-flow");
+		typeof import("@nseng-ai/extension-kit/checkpoint-flow")
+	>("@nseng-ai/extension-kit/checkpoint-flow");
 	expect(typeof checkpointFlowModule.prepareCheckpointMessage).toBe("function");
 	expect(typeof checkpointFlowModule.buildCheckpointUserPrompt).toBe("function");
 	expect(typeof checkpointFlowModule.createCommitWithPreparedMessage).toBe("function");
 
 	const textGenerationModule = await jiti.import<
-		typeof import("@nseng-ai/capability-kit/text-generation")
-	>("@nseng-ai/capability-kit/text-generation");
+		typeof import("@nseng-ai/extension-kit/text-generation")
+	>("@nseng-ai/extension-kit/text-generation");
 	expect(Object.keys(textGenerationModule)).toEqual([]);
 
 	const coreModelSlugModule = await jiti.import<typeof import("@nseng-ai/foundation/model-slug")>(
@@ -32,7 +32,7 @@ test("repo-local extensions can import package subpaths without source aliases",
 	expect(typeof coreModelSlugModule.parseModelRef).toBe("function");
 
 	const modelSlugModule = await jiti.import<{ deriveSlugWithModel: unknown }>(
-		"@nseng-ai/capability-kit/model-slug",
+		"@nseng-ai/extension-kit/model-slug",
 	);
 	expect(typeof modelSlugModule.deriveSlugWithModel).toBe("function");
 

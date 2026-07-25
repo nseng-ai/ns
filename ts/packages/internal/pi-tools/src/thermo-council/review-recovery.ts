@@ -7,7 +7,7 @@ import {
 	prepareRepairedText,
 	type TextGenerationResult,
 	type ValidateGeneratedTextResult,
-} from "@nseng-ai/capability-kit/text-repair";
+} from "@nseng-ai/extension-kit/text-repair";
 import {
 	createSubprocessSubagentRuntime,
 	dispatchTrackedSingleSubagentFleetRun,

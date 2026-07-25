@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 
-import { githubWorktreePrStatusQuery } from "@nseng-ai/capability-kit/github/pr-status";
-import { githubCheckRun } from "@nseng-ai/capability-kit/github/testing";
+import { githubWorktreePrStatusQuery } from "@nseng-ai/extension-kit/github/pr-status";
+import { githubCheckRun } from "@nseng-ai/extension-kit/github/testing";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import type { CommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { GraphiteMetadataWorkerDiagnostic } from "@nseng-ai/capability-kit/graphite/status";
+import type { GraphiteMetadataWorkerDiagnostic } from "@nseng-ai/extension-kit/graphite/status";
 import {
 	formatGhStatus,
 	formatGtStatus,
@@ -26,7 +26,7 @@ import {
 	type WorktreeStatus,
 	type WorktreeStatusIdentity,
 } from "@nseng-ai/pi/worktree-status";
-import type { GraphiteMetadataStatus } from "@nseng-ai/capability-kit/graphite/status";
+import type { GraphiteMetadataStatus } from "@nseng-ai/extension-kit/graphite/status";
 
 const ROOT = "/repo";
 const HEAD_OID = "abc123";

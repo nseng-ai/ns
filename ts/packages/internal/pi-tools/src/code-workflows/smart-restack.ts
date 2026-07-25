@@ -1,4 +1,4 @@
-import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
+import { runGraphiteCommand } from "@nseng-ai/extension-kit/graphite/branch";
 import { formatCommandTermination } from "@nseng-ai/foundation/command";
 import {
 	commandSucceeded,

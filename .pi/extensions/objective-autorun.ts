@@ -21,7 +21,7 @@ import type { z as ZodNamespace } from "zod";
 // package exports are not resolvable without the ts workspace's node_modules ancestry. Static imports
 // mostly reach into the ts workspace by relative path; ns-pi-subagents is consumed exclusively through
 // its `/api` surface, resolved through .pi/lib/workspace-packages.ts so the direct Node import smoke works.
-import { OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE } from "../../ts/packages/capabilities/objectives/src/core/objective-runner-rules.ts";
+import { OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE } from "../../ts/packages/incubator/objectives/src/core/objective-runner-rules.ts";
 import { parseMachineEnvelopeData } from "../../ts/packages/hosts/pi/src/runtime/machine-envelope.ts";
 import type {
 	ToolContext,
