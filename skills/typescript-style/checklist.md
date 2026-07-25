@@ -72,8 +72,8 @@ and conventions as the baseline; this checklist catches design drift.
 - [ ] Logic is in pure functions; classes coordinate lifecycle/state.
 - [ ] Guard clauses handle preconditions and edge cases before the main path.
 - [ ] `??` / `?.` are used for nullish semantics; `||` is not used when valid falsy values must survive.
-- [ ] Functions with several or optional inputs use a named `*Options` object instead of long positional
-      parameter lists.
+- [ ] Functions with five or more positional inputs, or multiple optional/defaulted inputs, use a named
+      `*Options` object; up to four required positional parameters are acceptable when order is clear.
 - [ ] One-use helpers are inlined unless extraction improves readability.
 - [ ] No tiny new module exists only to host one trivial helper.
 - [ ] Inputs, returned values, and shared/public state are not mutated in place; public contracts use
