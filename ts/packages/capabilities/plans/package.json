@@ -4,8 +4,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./api": "./src/api.ts",
-		"./testing": "./src/testing.ts"
+		"./api": "./src/api.ts"
 	},
 	"files": [
 		"src"
