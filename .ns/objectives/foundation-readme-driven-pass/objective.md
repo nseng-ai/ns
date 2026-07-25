@@ -1,51 +1,54 @@
 ---
 edges:
   - objective: professional-repo-curation
-    annotation: Parent umbrella; this pass is its sanctioned parallel Subobjective, calibrating the README-driven graduation gate on the foundation packages that never move.
+    annotation: Parent umbrella; this pass is its sanctioned parallel Subobjective, calibrating the README-driven graduation gate on foundation packages that remain outside incubation.
 ---
 
 # Foundation README-Driven Pass
 
 ## Thesis
 
-The foundation packages — the clean zone the repo will be judged on — get a bottoms-up README-driven development pass, in place and in dependency order: `infra/clinkr` → `infra/foundation` → `infra/brmem` → `sdk` → `capability-kit`. This is an umbrella Objective: each package pass is created as its own Readme-Driven-Development Subobjective with its own draft, decisions, reconciliation work, and closure evidence; this umbrella owns ordering, gate calibration, and synthesis of cross-package lessons — never package-level mismatch backlogs. These packages never move; the pass proves the graduation gate on the cheapest, most stable packages before anything in the incubator uses it.
+Give the foundation packages a bottoms-up README-driven development pass in dependency-respecting order: `infra/clinkr` → `infra/foundation` → `infra/brmem` and `sdk` → `extension-kit`. This umbrella creates one Readme-Driven-Development Subobjective per package and owns sequencing, gate calibration, and synthesis; package-level contract decisions and mismatch backlogs belong to those children.
 
-The pass is the parent umbrella's sanctioned parallel track: it proceeds independently through the infra packages while the capability→extension rename is in flight, and sequences the extension-adjacent tail (`sdk`, `capability-kit`) behind that rename's vocabulary verdict so contracts are drafted in the settled vocabulary.
+The extension vocabulary verdict and machine-readable rename have landed. The former `capability-kit` tail is now `extension-kit`, so vocabulary no longer blocks the SDK or Extension Kit passes. No package child has yet been created, and the first slice remains the Clinkr gate dry-run.
 
 ## Scope
 
-- Per-package Readme-Driven-Development Subobjectives, spawned one at a time in dependency order, `clinkr` first (smallest, zero internal deps) as the gate dry-run. Each Subobjective: develops `references/README-draft.md` as the package's provisional cold-audience contract through a human-steered interrogative process; audits exports, behavior, errors, configuration, tests, examples, and caller expectations against the emerging contract; records every mismatch in its own roadmap with an explicit disposition (implement, rename, split, deprecate, delete, or deliberately amend the draft); probes accidental implementation complexity relative to the contract; discusses every proposed refactoring with the user before implementation (including refactoring proposed before the draft settles); reconciles implementation to the settled contract; promotes the draft to the package README; verifies it; and returns lessons and closure evidence here for synthesis.
-- Public-interface and observable-behavior decisions settle through the draft rather than being decided silently by implementation work.
-- Gate calibration: the clinkr dry-run may amend the process itself; amendments are recorded here and applied to subsequent children.
-- Sequencing: `sdk` and `capability-kit` passes start only after the `rename-capability-to-extension` vocabulary verdict, and `capability-kit`'s pass adopts whatever rename plan that verdict produced for the tier.
+- Spawn one package-level Readme-Driven-Development Subobjective at a time, beginning with Clinkr. Each child develops `references/README-draft.md` as a provisional cold-audience contract, audits implementation and callers against it, explicitly dispositions mismatches, discusses refactoring with the user before implementation, reconciles the package to the settled contract, promotes the draft to the package README, verifies it, and returns lessons here.
+- Process packages in a dependency-respecting sequence. Clinkr has no internal workspace dependency; Foundation depends on Clinkr; Brmem and SDK can follow Foundation independently; Extension Kit depends on SDK, Foundation, and Clinkr.
+- Let public-interface and observable-behavior decisions settle through the draft rather than silently through implementation.
+- Use the Clinkr dry-run to calibrate the graduation gate, recording process amendments here before applying them to later children.
+- Keep these packages outside the incubator. The pass proves an honest-and-explainable contract gate on stable foundation packages before incubating extensions graduate through it.
 
 ## Non-Goals
 
-- These packages never move; no demotion, no directory changes owned here (tier renames belong to the rename plan and the parent's sequencing).
-- The gate is "honest and explainable", never "ideal": no unrelated feature work or redesign inside a package pass; contract-supporting refactoring only after discussion and approval.
-- No incubator-package work of any kind.
-- This umbrella performs no package audit directly; all audit work lives in the per-package children.
+- Moving these packages into or out of the incubator, changing their tiers, or renaming them.
+- Incubator-package work.
+- Unrelated feature work or redesign. Contract-supporting refactoring requires prior user discussion and approval.
+- Performing package audits in this umbrella record; package audits belong to child Objectives.
+- Treating existing package READMEs as evidence that this process completed without the required child record, draft, mismatch dispositions, and closure evidence.
 
 ## Completion Criteria
 
-- All five foundation packages carry promoted, verified cold-audience README contracts, each delivered by a closed Readme-Driven-Development Subobjective.
-- Every child's mismatch dispositions are resolved or explicitly parked in that child's record.
-- Synthesis: cross-package lessons and gate calibration outcomes are recorded here, and the calibrated gate definition is handed back to the parent umbrella for incubator graduations.
+- Clinkr, Foundation, Brmem, SDK, and Extension Kit each carry a promoted, verified cold-audience README contract delivered by a closed Readme-Driven-Development Subobjective.
+- Every child's mismatches are resolved or explicitly parked in that child record.
+- Cross-package lessons and gate-calibration outcomes are synthesized here and handed back to `professional-repo-curation` for future incubator graduations.
 
 ## Assumptions and Risks
 
 Assumptions:
 
-- Foundations need no incubator dependencies, so the pass runs unblocked in place. Disproven if an audit surfaces a hidden dependency on an incubator-destined package.
-- One-package-at-a-time is fast enough; the pass does not gate the parent's demotion commit or first ship. Disproven if a foundation contract decision turns out to block a graduation.
+- Foundation packages do not depend on incubator residents. Their manifests currently support this assumption.
+- Serializing the package passes is acceptable even though Brmem and SDK are independent after Foundation; the umbrella favors learning transfer over maximum parallelism.
 
 Risks:
 
-- **Perfectionism stall.** README-driven audits invite redesign. Mitigation: the child-record boundary, explicit dispositions, and the user-approval gate for every refactoring; a slice growing unrelated work gets split out.
-- **Vocabulary churn in drafts.** Contracts drafted mid-rename could bake in the old term. Mitigation: infra packages rarely use the term; `sdk`/`capability-kit` are hard-ordered behind the rename verdict.
-- **Gate drift across children.** Each child amending the process ad hoc erodes consistency. Mitigation: calibration amendments are recorded here, once, and applied forward.
+- **Perfectionism stall.** README-driven audits can invite redesign. Keep each child bounded to contract reconciliation, require explicit mismatch dispositions, and split unrelated work.
+- **Gate drift.** Record process amendments once in this umbrella and apply them forward rather than allowing each child to invent a different gate.
+- **Existing-doc false confidence.** Brmem and SDK already have READMEs, but no package child or draft exists; do not mark work complete from file presence alone.
+- **Hidden dependency drift.** Recheck manifests as each child starts so the clean-foundation assumption does not become stale.
 
 ## Open Questions
 
-- Does the clinkr dry-run change the Readme-Driven-Development process definition, and what amendments carry forward?
-- Does `capability-kit`'s pass execute the tier rename itself, or draft against the post-rename name and leave the move to the parent's sequencing?
+- What process amendments, if any, does the Clinkr dry-run establish for later package children?
+- After Foundation, should Brmem and SDK remain deliberately serial for learning transfer, or may their package children proceed in parallel?
