@@ -1,34 +1,39 @@
-# ns host contracts now enforce non-spawning default execution
+# ns host contracts separate static defaults from dynamic loading
 
 ## Summary
 
-Re-layered the mixed `@nseng-ai/ns` host suite into explicit responsibility and performance boundaries:
+Corrected the first layering of the `@nseng-ai/ns` host suite after profiling showed that its supposedly default-safe composition contracts still dynamically imported every real preinstalled command module during root help.
 
-- `test/sdk-export-surfaces.test.ts` owns static checkout-free SDK barrel parity;
-- `test/ns-cli-host-contracts.test.ts` owns default-lane host composition and CLI contracts through the real `runNsCli` entrypoint and real preinstalled registrations;
-- `test/integration/extension-install-host.test.ts` now includes one narrow real-context non-Git repository smoke;
-- `test/integration/skills-install-host.test.ts` owns the two selected real-filesystem skills smokes: successful install/manifest creation and local-edit refusal/preservation.
+Final ownership is explicit:
 
-The mixed `test/ns-cli.test.ts` was removed after its contracts were assigned explicit owners.
+- `test/sdk-export-surfaces.test.ts` owns static checkout-source SDK barrel parity;
+- `test/preinstalled-command-catalog.test.ts` owns static host registration/catalog integrity without invoking lazy loaders;
+- package-owned default CLI contract tests in `@nseng-ai/ns-init` and `@nseng-ai/harness-artifacts` exercise real command objects through fake SDK registry/context seams;
+- `test/integration/preinstalled-command-loading-host.test.ts` owns exactly three real preinstalled dynamic-loading smokes: root help, selected `init --help`, and selected `skills list --help`;
+- the existing host integration files retain real non-Git and skills provisioning behavior.
+
+The former `test/ns-cli-host-contracts.test.ts` was removed after its assertions were assigned to the static host test, package-owned contract suites, existing SDK coverage, or the three dynamic-loading smokes.
 
 ## Boundary lesson
 
-Host composition tests should inject a non-spawning `NsCliBaseContext` unless real adapter behavior is the explicit subject. The host-local fake records semantic exec attempts, scripts only the expected `git rev-parse --show-toplevel` outside-repository probe used by three contracts, and throws for every other attempted command. This preserves proof that tests traverse `runNsCli` and its real `ns-init`/harness-artifacts registrations without permitting accidental subprocess execution.
+A non-spawning command context does not make a default CLI test static or cheap when command discovery still calls lazy module loaders. Classify dynamic module import as an integration boundary independently from subprocess and filesystem behavior.
 
-Implementation revealed that skills list/path and bare update perform a repository-root probe even though they continue outside a repository. The default tests therefore assert the exact fake probe rather than incorrectly asserting that these commands never call the injected exec seam.
+For descriptor-based preinstalled commands, default host tests should inspect the real registration/catalog source of truth without invoking loader thunks. Broad help, schema, usage, alias, envelope, and command behavior contracts belong with package-owned command objects and injected registry/context fakes. Retain a small host integration set to prove that the actual descriptor loaders compose correctly.
 
 ## Performance evidence
 
-- Measured baseline command: `node ~/.cache/node/corepack/v1/pnpm/11.8.0/bin/pnpm.cjs --dir ts exec vitest run --config vitest.config.ts packages/hosts/ns/test/ns-cli.test.ts`.
-- Baseline: 16 tests; file test times 321/293/286 ms (median 293 ms, range 286–321 ms); total Vitest durations 774/780/690 ms; command wall times 1.20/1.22/1.03 s.
-- Measured post-change command: the same pinned pnpm/Vitest config targeting `sdk-export-surfaces.test.ts` and `ns-cli-host-contracts.test.ts`.
-- Post-change: 13 tests; combined test times 273/188/163 ms (median 188 ms, range 163–273 ms); total Vitest durations 897/667/534 ms; command wall times 1.41/1.10/0.91 s.
-- Repetition/noise: both measurements used three consecutive local runs. Transform/import and wall-time variance is large; the narrower test-time median improved by 105 ms, but this is not evidence of a repository-wide speedup.
-- Cost handling: subprocess cost was eliminated from the retained default host contracts through the injected context. One real non-Git adapter smoke and two real skills filesystem smokes shifted to integration. The old dry-run filesystem assertion was not duplicated at host level because `@nseng-ai/harness-artifacts` already owns fake-driven dry-run/no-write semantics; host registration remains covered by list/path plus the real install smokes.
-- Coverage retention: static export parity, help/grouping/registration, extension metadata/schema/usage/alias behavior, skills list/path wiring, update contracts, stable real non-Git mapping, successful skills provisioning/manifest creation, and local-edit preservation all remain represented.
+- Original mixed baseline retained from the first implementation: median test time 293 ms.
+- Transitional baseline command: `corepack pnpm@11.8.0 --dir ts exec vitest run --config vitest.config.ts --reporter=verbose packages/hosts/ns/test/sdk-export-surfaces.test.ts packages/hosts/ns/test/ns-cli-host-contracts.test.ts`.
+- Transitional baseline on 2026-07-25: combined test times 204/187/176 ms (median 187 ms); Vitest durations 692/840/555 ms; wall times 1.19/1.24/0.93 s. The first root-help contract alone cost 177/159/153 ms, while subsequent contracts cost 0–4 ms.
+- Corrected default command: the same pinned toolchain and reporter targeting `sdk-export-surfaces.test.ts` and `preinstalled-command-catalog.test.ts`.
+- Corrected result: combined test times 12/11/6 ms (median 11 ms); Vitest durations 386/353/291 ms; wall times 0.82/0.76/0.73 s.
+- The corrected 11 ms median is below the directional 50 ms threshold, materially beats the transitional 187 ms median, and is a 282 ms reduction from the original 293 ms median. Transform/import and wall-time variance remain larger than test execution variance, so these are targeted default-file measurements rather than a repository-wide speed claim.
+- Cost handling: real preinstalled module loading moved to explicit integration; package-owned default contracts use no dynamic loader or real subprocess/filesystem setup.
 
-## Lane evidence
+## Coverage and lane evidence
 
-Normal package-tree discovery with `vitest list` showed both new default files and no `test/integration/` files under the default config. Integration discovery listed `extension-install-host.test.ts`, `skills-install-host.test.ts`, and the existing `skills-path.test.ts` under `vitest.integration.config.ts`.
+Static host coverage asserts exactly the `@nseng-ai/ns-init` and `@nseng-ai/harness-artifacts` registrations, their display paths, the full nine-command lazy inventory, built-in grouping metadata, no Objective path, and `hasStaticCommandInfo: false` without calling `.load()`.
 
-Targeted validation passed 13 default tests and 9 selected integration tests. The package default test script passed 3 files / 18 tests and did not include integration files.
+`@nseng-ai/ns-init` now owns loaded init help plus extension install/list/uninstall help, schema, usage, and retired-alias contracts. `@nseng-ai/harness-artifacts` owns skills list/path help and machine contracts plus update help/schema/failure/retired-flag contracts. Existing SDK scenarios retain generic root grouping and extension point/points merging behavior. Existing host integration retains real non-Git mapping, path matrices, and skills install/manifest/conflict bytes.
+
+Default host discovery lists nine tests across `pi-text-generation`, `sdk-export-surfaces`, and `preinstalled-command-catalog`, with no integration file. Integration discovery lists all three `preinstalled-command-loading-host` smokes. The selected focused run passed 14 default contract tests across four files and 11 integration tests across the new loader smoke plus the existing extension/skills host files.
