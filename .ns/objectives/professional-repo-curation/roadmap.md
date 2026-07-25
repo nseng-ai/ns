@@ -2,29 +2,24 @@
 
 ## Work
 
-- [~] Subobjective `rename-capability-to-extension` (primary, first): settle the capability→extension vocabulary verdict and pi-extension/ns-extension disambiguation contract, reconcile the README taxonomy in `references/root-readme-positioning.md`, and land the docs/CONTEXT rename; code/tier renames sequence with the demotion commit. This row closes when the child closes.
-- [~] Subobjective `foundation-readme-driven-pass` (sanctioned parallel track): umbrella child spawning per-package Readme-Driven-Development Subobjectives bottoms-up (`infra/clinkr` → `infra/foundation` → `infra/brmem` → `sdk` → `capability-kit`), clinkr first as the gate dry-run. Proceeds in parallel with the rename until it reaches extension-adjacent packages (`sdk`, `capability-kit`), which sequence behind the rename verdict. This row closes when the child closes.
-- [ ] The demotion commit / two-zone reorg (after the rename verdict; spawn a Subobjective or execute directly — open question): create `ts/packages/incubator/` (flat), `git mv` all 14 capabilities, both hosts, and the rough tools/internal packages (areg, vibechk, pi-editor-mods, pi-tools, ns-pi-subagents) into it; fix the path-literal blast radius (`.pi/extensions/*`, `.pi/settings.json`, justfiles, docs); land `incubator/README.md` stating the isolation contract, using post-rename vocabulary. Evidence: `just` green after the move.
-- [ ] Wire the zone invariant into the tier machinery / `packagechk`: no package outside `incubator/` may depend on a package inside it; CI-enforced.
-- [ ] First team-facing ship: single-player objective system — graduate `objectives` far enough that colleagues can install and use it outside this checkout. Owns the dependency verdict: `@nseng-ai/objectives` currently depends on `branch-context` and `flow` (both incubator-destined) — cut the edges or graduate a minimal slice together. Likely Subobjective when scoped; spawn only when it becomes the primary Subobjective.
-- [ ] Repo presentation: root README reframing for org readers — supported surface, curation process, adoption ladder — plus the linked `why-ns.md` manifesto. Positioning, taxonomy, and outline settled in `references/root-readme-positioning.md`; taxonomy vocabulary reconciled by the rename Subobjective. Blocked on the quickstart decision: verify a cold-checkout install path exists.
-- [ ] Second ship: seamless pr-feedback install/quickstart (pure CLI, no pi dependency) from a cold checkout-free install; leading root-README quickstart candidate. May fold into the repo-presentation row's quickstart work.
-- [ ] Pre-transfer hardening — secrets and privacy: full-history scan and scrub (deployment IDs, tokens-adjacent config, personal paths). Hard-ordered before the transfer row; history transfers with the repo.
-- [ ] Pre-transfer hardening — operational decoupling and org policy: re-point or isolate the Vercel project/deployables coupling (sequence against cloud-execution's in-flight state), CI, `gh` auth, Graphite org config; negotiate branch-protection/review policy that preserves the stacked-PR velocity. Keep a personal fork as escape hatch.
-- [ ] Repository transfer to the target organization — the umbrella's final act. Evidence: CI green in the new org; remotes redirected; fork retained.
+- [~] Close Subobjective `rename-capability-to-extension`. The vocabulary verdict, CONTEXT layer, `@nseng-ai/extension-kit` cutover, `extension`/`extension-kit` tiers, and direct move of 11 extensions into `ts/packages/incubator/` landed. Remaining: live prose/skills sweep, parent positioning terminology, final handoff, and child closure.
+- [~] Advance Subobjective `foundation-readme-driven-pass`. No package child or README draft exists yet; start with Clinkr, then Foundation, Brmem/SDK, and Extension Kit, synthesizing gate lessons here.
+- [~] Complete the two-zone reorganization. ADR 0044 created the flat incubation zone and moved all 11 ns extensions there. Remaining: decide and execute placement for both hosts and rough tool/internal packages, add `ts/packages/incubator/README.md`, and remove stale transition guidance.
+- [ ] Enforce the zone dependency invariant: no package outside `incubator/` may depend on a package inside it. Do not confuse this with ADR 0044's tier-directory projection exemption. Verify and resolve current clean-to-incubator edges, including `hosts/ns` dependencies on Branch Context, Harness Artifacts, and ns-init.
+- [~] Reconcile the first team-facing Objectives ship. Coordinated npm `0.1.3` already proved bare-core install, checkout-free Objectives acquisition, ten-skill provisioning, and `ns objective list` in a foreign repository. Decide whether Objectives' current Branch Context/Flow dependencies satisfy the intended single-player boundary; reverify the presented release if needed.
+- [ ] Finish repo presentation: replace the one-line root README with the settled progressive-disclosure structure and add `why-ns.md`. First reconcile `references/root-readme-positioning.md` to extension terminology and current landed product evidence.
+- [ ] Ship the checkout-free PR Feedback install/quickstart as the second product slice and leading root-README quickstart. Its current README still describes source-checkout, unpublished use; verify registry/install/command behavior before using it publicly.
+- [ ] Pre-transfer privacy and secrets hardening: scan full history and remediate sensitive data before transfer.
+- [ ] Pre-transfer operational decoupling and organization-policy negotiation: CI, deployment ownership, authentication, remotes, Graphite configuration, branch protection, and review requirements. Preserve a personal fork as the escape hatch.
+- [ ] Transfer the repository to the target organization. Evidence: remotes redirected, CI green there, and fork retained.
 
 ## Parked
 
-Demand-driven graduation tail (restructure decision, 2026-07-25: no longer completion criteria; spawn a Subobjective only when a sponsor or consumer appears; original sequencing notes preserved):
+Demand-driven graduation work, activated only by a sponsor or transfer requirement:
 
-- Hosts graduation wave: hosts/pi, hosts/ns plus their capability dependencies — pr-feedback, ns-init, harness-artifacts, branch-context (→ plans). Owns resolving the host→capability coupling verdict (cut vs. graduate-together).
-- Remaining daily-driver graduations, dependency order: slots; handoffs; reviews (sequence against reviews-via-pi-gateway — land or deliberately graduate mid-stream). `objectives` is covered by the first-ship row.
-- Flow graduation: 28.7k src lines, the largest package; sequence against the in-flight flow-* objectives (flow-slots-opt-in, flow-fold-stack-skills-into-workflows, flow-pi-tier-stack-view-promotion, flow-value-led-readme-restructure).
-- Herdr graduation for the internal stakeholders: land or sequence against retire-cmux-herdr-handoff-namespace first so stakeholders never see the mid-reshape surface. Includes the stakeholder-facing install story.
-- Pi extension experience batch: pi-tools, ns-pi-subagents, areg graduations plus a pi-partner quickstart/install path that does not assume the consumer sits inside this checkout.
-
-Package residents with no graduation path:
-
-- cmux — being retired by retire-cmux-herdr-handoff-namespace; expected disposition is deletion, not graduation.
-- vercel — cloud-execution steel thread in flight and Vercel-account coupling unresolved; revisit after ops decoupling and steel-thread closure.
-- retros, vibechk, pi-editor-mods — graduate only if a sponsor writes the README; otherwise dispositioned at closure as permanent residents or deleted.
+- Hosts graduation or placement follow-up after their incubator dependencies are resolved.
+- Remaining daily-driver extensions, including Slots, Handoffs, Reviews, Plans, and Branch Context.
+- Flow graduation after its active reshaping settles.
+- Herdr graduation after current orchestration reshaping settles.
+- Pi integration/tooling graduation and checkout-free partner install story.
+- Retros, Vibechk, and Pi Editor Mods: retain in incubation or delete unless a sponsor establishes a contract.
