@@ -22,7 +22,7 @@ This is a Subobjective of `professional-repo-curation`. It owns the package onto
 - Define and document the nested package ontology, including `extensions/` for harness-independent ns extensions and `hosts/<host>/` for all code specific to an external assistant harness.
 - Reserve `hosts/pi/extensions/pi-ns-<domain>/` and `@nseng-ai/pi-ns-<domain>` for Pi extensions that adapt corresponding ns extensions; Pi-native extensions use natural Pi-facing identities instead.
 - Separate all current Pi code from ns extension packages into one Pi package per integrated ns extension, consuming only the ns extension's curated package API.
-- Move the checkout-free `@nseng-ai/ns` product distribution to `public/ns/` and rename the current shared Pi package to `@nseng-ai/pi-runtime` at `public/hosts/pi/pi-runtime/`, subject to confirmation in the approved destination map.
+- Move the checkout-free `@nseng-ai/ns` product distribution to `public/ns/` and rename the current shared Pi package to incubating `@nseng-ai/pi-runtime` at `incubating/hosts/pi/runtime/pi-runtime/`, as settled by the approved destination map.
 - Place project-only Pi packages under the `internal/hosts/pi/` ontology, with categories such as tools and subagents chosen according to their role.
 - Require each package leaf directory to equal the unscoped package identity and prohibit duplicate leaf identities.
 - Enforce npm scope by disposition: `public` and `incubating` use `@nseng-ai/*`; `internal` uses `@internal/*` and remains private.
@@ -65,18 +65,16 @@ Assumptions:
 
 Risks:
 
-- **Release-intent misclassification.** Several current tools and infrastructure packages do not have an obvious disposition. The complete destination map and explicit user approval are the mitigation; implementation must not silently decide ambiguous intent.
+- **Release-intent misclassification.** The complete destination map and explicit user approval settled the initial classifications: all ns extensions and extracted `pi-ns-*` adapters remain incubating for the organizational cutover, while Pi Editor Mods is internal. Future promotions remain deliberate disposition changes; implementation must not silently reclassify packages.
 - **Hidden Pi coupling.** Existing ns extension `pi` subpackages may reach private domain or command internals that are not available through package APIs. Extraction may expose API design work and must not be bypassed with private imports.
 - **Large atomic conflict surface.** Moving and renaming the entire package inventory at once can produce difficult review and merge conflicts. The ADR and destination map land first, and the implementation may use multiple reviewable branches/commits while remaining one coordinated landing boundary.
 - **Identity ripple.** Renaming `@nseng-ai/pi` and creating multiple Pi extension packages affects imports, exports, lockfiles, scripts, fixtures, documentation, and package preparation. The destination map must enumerate consumers before cutover.
 - **Guard blind spots.** Path checks alone may miss runtime imports, generated metadata, or subpath exports. Completion requires both topology/dependency enforcement and focused structural checks for forbidden Pi surfaces in ns extensions.
 - **Terminology ambiguity.** `public` describes release warrant, not TypeScript visibility or proof of current npm publication. The package contract must state this explicitly.
-- **Parent-guidance contradiction.** Until reconciled, `professional-repo-curation` still describes the flat `incubator/` state as direction. The design phase must update that active record before implementation begins.
+- **Parent-guidance contradiction.** The approved design supersedes `professional-repo-curation`'s flat-incubator direction. The parent record and orientation must be reconciled before implementation begins; historical ADR 0044 and immutable updates remain unchanged.
 
 ## Open Questions
 
-- What is the approved final disposition, nested path, and identity of each current TypeScript package?
-- Which current Pi surfaces should survive as ns-backed Pi extensions, which are Pi-native extensions, and which are project-only tools or runtime substrate?
-- Beyond `pi-runtime`, which reusable responsibilities in the current `@nseng-ai/pi` package warrant separate packages rather than remaining in the runtime package?
-- Which focused host-level READMEs are necessary after `ts/packages/README.md` defines the shared contract?
+- During implementation-stack design, what exact boundary changes remove or fold public `@nseng-ai/ns` runtime dependencies on incubating Branch Context and Harness Artifacts?
+- Which focused host-level READMEs, beyond the authoritative package-tree contract and the approved Internal Pi Tools inventory, are necessary?
 - What exact Graphite stack shape best preserves an atomic landing while keeping mechanical moves, integration extraction, and guard changes reviewable?
