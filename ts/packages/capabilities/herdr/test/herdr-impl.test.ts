@@ -1,8 +1,8 @@
 /**
- * Scenario tests for the Herdr launch commands:
- *  - ns:herdr:launch:prompt:space
- *  - ns:herdr:launch:plan:space
- *  - ns:herdr:launch:plan:tab
+ * Scenario tests for the Herdr implementation commands:
+ *  - ns:herdr:impl:prompt:space
+ *  - ns:herdr:impl:plan:space
+ *  - ns:herdr:impl:plan:tab
  */
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -20,17 +20,17 @@ const TEST_MODEL_SELECTION = {
 import { HERDR_BASE_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
 import registerHerdrPiExtension from "../src/pi/extension.ts";
 import {
-	registerHerdrPlanSpaceLaunchCommand,
-	registerHerdrPlanTabLaunchCommand,
-} from "../src/pi/launch-plan.ts";
-import { handleHerdrSlotLaunchPlan } from "../src/core/launch-plan.ts";
+	registerHerdrPlanSpaceImplCommand,
+	registerHerdrPlanTabImplCommand,
+} from "../src/pi/impl-plan.ts";
+import { handleHerdrSlotImplPlan } from "../src/core/impl-plan.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import { createCliHerdrGateway } from "../src/core/cli-gateway.ts";
 import {
-	handleHerdrSlotLaunchPrompt,
-	resolveLaunchPromptPayloadOptions,
-} from "../src/core/launch-prompt.ts";
-import { registerHerdrPromptSpaceLaunchCommand } from "../src/pi/launch-prompt.ts";
+	handleHerdrSlotImplPrompt,
+	resolveImplPromptPayloadOptions,
+} from "../src/core/impl-prompt.ts";
+import { registerHerdrPromptSpaceImplCommand } from "../src/pi/impl-prompt.ts";
 import { buildPlanContentSlugPrompt } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import { createBranchContextContext } from "@nseng-ai/branch-context/api";
@@ -56,7 +56,7 @@ import {
 	PLAN_KEY,
 	SOURCE_BRANCH,
 	START_POINT,
-	launchValidationScript,
+	implValidationScript,
 	gitRootStep,
 	headStep,
 	writePlanStoreFile,
@@ -65,8 +65,8 @@ import {
 
 afterEach(resetHerdrTestEnvironment);
 
-const LAUNCH_PROMPT_NAMESPACE = "ns-launch";
-const LAUNCH_PROMPT_KEY = "prompt.md";
+const IMPL_PROMPT_NAMESPACE = "ns-launch";
+const IMPL_PROMPT_KEY = "prompt.md";
 const TRUNK_BRANCH = "master";
 const testGraphiteBranchGateway = {
 	trunkBranch: async () => ({ ok: true as const, branch: TRUNK_BRANCH }),
@@ -83,14 +83,14 @@ function brmemCheckJson(isPresent: boolean): string {
 	return JSON.stringify({ exitCode: 0, data: { present: isPresent } });
 }
 
-function launchPromptPutJson(sourceFile: string): string {
+function implPromptPutJson(sourceFile: string): string {
 	return JSON.stringify({
 		exitCode: 0,
 		data: {
-			namespace: LAUNCH_PROMPT_NAMESPACE,
-			key: LAUNCH_PROMPT_KEY,
+			namespace: IMPL_PROMPT_NAMESPACE,
+			key: IMPL_PROMPT_KEY,
 			branch: BRANCH,
-			refName: `refs/brmem/ns/${LAUNCH_PROMPT_NAMESPACE}/${BRANCH}:${LAUNCH_PROMPT_KEY}`,
+			refName: `refs/brmem/ns/${IMPL_PROMPT_NAMESPACE}/${BRANCH}:${IMPL_PROMPT_KEY}`,
 			commit: START_POINT,
 			sourceFile,
 		},
@@ -138,20 +138,20 @@ describe("herdr Pi extension — full suite", () => {
 
 	test.each([
 		{
-			commandName: "ns:herdr:launch:prompt:space",
-			register: registerHerdrPromptSpaceLaunchCommand,
-			args: "Do not launch this prompt",
+			commandName: "ns:herdr:impl:prompt:space",
+			register: registerHerdrPromptSpaceImplCommand,
+			args: "Do not implement this prompt",
 			shouldSetCallerWorkspace: false,
 		},
 		{
-			commandName: "ns:herdr:launch:plan:space",
-			register: registerHerdrPlanSpaceLaunchCommand,
+			commandName: "ns:herdr:impl:plan:space",
+			register: registerHerdrPlanSpaceImplCommand,
 			args: "",
 			shouldSetCallerWorkspace: false,
 		},
 		{
-			commandName: "ns:herdr:launch:plan:tab",
-			register: registerHerdrPlanTabLaunchCommand,
+			commandName: "ns:herdr:impl:plan:tab",
+			register: registerHerdrPlanTabImplCommand,
 			args: "",
 			shouldSetCallerWorkspace: true,
 		},
@@ -185,14 +185,14 @@ describe("herdr Pi extension — full suite", () => {
 });
 
 // ---------------------------------------------------------------------------
-// space prompt launch
+// space prompt implementation
 // ---------------------------------------------------------------------------
 
-describe("Herdr prompt launch", () => {
+describe("Herdr prompt implementation", () => {
 	test("stores a neutral free-form payload and launches it in the created workspace", async () => {
 		const stagingDir = await makeTempDir();
 		const stagedPromptFile = join(stagingDir, `123-${BRANCH}.md`);
-		const prompt = "Implement the Herdr launch flow with literal --from trunk text";
+		const prompt = "Implement the Herdr implementation flow with literal --from trunk text";
 		const pi = new FakePi({
 			script: [
 				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
@@ -213,9 +213,9 @@ describe("Herdr prompt launch", () => {
 					"brmem",
 					[
 						"check",
-						LAUNCH_PROMPT_KEY,
+						IMPL_PROMPT_KEY,
 						"--namespace",
-						LAUNCH_PROMPT_NAMESPACE,
+						IMPL_PROMPT_NAMESPACE,
 						"--branch",
 						BRANCH,
 						"--format",
@@ -227,9 +227,9 @@ describe("Herdr prompt launch", () => {
 					"brmem",
 					[
 						"put",
-						LAUNCH_PROMPT_KEY,
+						IMPL_PROMPT_KEY,
 						"--namespace",
-						LAUNCH_PROMPT_NAMESPACE,
+						IMPL_PROMPT_NAMESPACE,
 						"--branch",
 						BRANCH,
 						"--file",
@@ -237,7 +237,7 @@ describe("Herdr prompt launch", () => {
 						"--format",
 						"json",
 					],
-					{ stdout: launchPromptPutJson(stagedPromptFile) },
+					{ stdout: implPromptPutJson(stagedPromptFile) },
 				),
 			],
 		});
@@ -245,10 +245,10 @@ describe("Herdr prompt launch", () => {
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 		const git = new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH });
 
-		await handleHerdrSlotLaunchPrompt({
+		await handleHerdrSlotImplPrompt({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
-			payloadOptions: resolveLaunchPromptPayloadOptions({
+			payloadOptions: resolveImplPromptPayloadOptions({
 				stagingDir,
 				now: () => 123,
 				shouldCleanupStagingFile: false,
@@ -268,14 +268,14 @@ describe("Herdr prompt launch", () => {
 		expect(herdr.createWorkspaceCalls).toEqual([{ options: { cwd: WORKTREE, label: BRANCH } }]);
 		expect(herdr.paneRunCalls).toHaveLength(1);
 		expect(herdr.paneRunCalls[0]?.command).toContain(
-			`brmem get ${LAUNCH_PROMPT_KEY} --namespace ${LAUNCH_PROMPT_NAMESPACE} --branch ${BRANCH}`,
+			`brmem get ${IMPL_PROMPT_KEY} --namespace ${IMPL_PROMPT_NAMESPACE} --branch ${BRANCH}`,
 		);
 		expect(notificationMessages(ctx).join("\n")).toContain(
-			`${LAUNCH_PROMPT_NAMESPACE}/${LAUNCH_PROMPT_KEY}`,
+			`${IMPL_PROMPT_NAMESPACE}/${IMPL_PROMPT_KEY}`,
 		);
 	});
 
-	test("launches from local trunk through the neutral payload", async () => {
+	test("implements from local trunk through the neutral payload", async () => {
 		const stagingDir = await makeTempDir();
 		const stagedPromptFile = join(stagingDir, `123-${BRANCH}.md`);
 		const prompt = "Implement the Herdr trunk flow";
@@ -300,9 +300,9 @@ describe("Herdr prompt launch", () => {
 					"brmem",
 					[
 						"check",
-						LAUNCH_PROMPT_KEY,
+						IMPL_PROMPT_KEY,
 						"--namespace",
-						LAUNCH_PROMPT_NAMESPACE,
+						IMPL_PROMPT_NAMESPACE,
 						"--branch",
 						BRANCH,
 						"--format",
@@ -314,9 +314,9 @@ describe("Herdr prompt launch", () => {
 					"brmem",
 					[
 						"put",
-						LAUNCH_PROMPT_KEY,
+						IMPL_PROMPT_KEY,
 						"--namespace",
-						LAUNCH_PROMPT_NAMESPACE,
+						IMPL_PROMPT_NAMESPACE,
 						"--branch",
 						BRANCH,
 						"--file",
@@ -324,17 +324,17 @@ describe("Herdr prompt launch", () => {
 						"--format",
 						"json",
 					],
-					{ stdout: launchPromptPutJson(stagedPromptFile) },
+					{ stdout: implPromptPutJson(stagedPromptFile) },
 				),
 			],
 		});
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotLaunchPrompt({
+		await handleHerdrSlotImplPrompt({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
-			payloadOptions: resolveLaunchPromptPayloadOptions({
+			payloadOptions: resolveImplPromptPayloadOptions({
 				stagingDir,
 				now: () => 123,
 				shouldCleanupStagingFile: false,
@@ -361,13 +361,13 @@ describe("Herdr prompt launch", () => {
 		expect(slugCalls[0]?.options?.cwd).toBe(ROOT);
 		expect(slugCalls[0]?.args.at(-1)).toContain("Generate a concise git branch slug");
 		expect(slugCalls[0]?.args.at(-1)).toContain(prompt);
-		expect(herdr.paneRunCalls[0]?.command).toContain(`--namespace ${LAUNCH_PROMPT_NAMESPACE}`);
+		expect(herdr.paneRunCalls[0]?.command).toContain(`--namespace ${IMPL_PROMPT_NAMESPACE}`);
 	});
 
 	test("does not open a Herdr workspace when payload storage fails", async () => {
 		const stagingDir = await makeTempDir();
 		const stagedPromptFile = join(stagingDir, `123-${BRANCH}.md`);
-		const prompt = "Implement the Herdr launch flow";
+		const prompt = "Implement the Herdr implementation flow";
 		const pi = new FakePi({
 			script: [
 				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
@@ -388,9 +388,9 @@ describe("Herdr prompt launch", () => {
 					"brmem",
 					[
 						"check",
-						LAUNCH_PROMPT_KEY,
+						IMPL_PROMPT_KEY,
 						"--namespace",
-						LAUNCH_PROMPT_NAMESPACE,
+						IMPL_PROMPT_NAMESPACE,
 						"--branch",
 						BRANCH,
 						"--format",
@@ -402,9 +402,9 @@ describe("Herdr prompt launch", () => {
 					"brmem",
 					[
 						"put",
-						LAUNCH_PROMPT_KEY,
+						IMPL_PROMPT_KEY,
 						"--namespace",
-						LAUNCH_PROMPT_NAMESPACE,
+						IMPL_PROMPT_NAMESPACE,
 						"--branch",
 						BRANCH,
 						"--file",
@@ -419,10 +419,10 @@ describe("Herdr prompt launch", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotLaunchPrompt({
+		await handleHerdrSlotImplPrompt({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
-			payloadOptions: resolveLaunchPromptPayloadOptions({ stagingDir, now: () => 123 }),
+			payloadOptions: resolveImplPromptPayloadOptions({ stagingDir, now: () => 123 }),
 			slotClient: testSlotClient,
 			graphite: testGraphiteBranchGateway,
 			git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
@@ -435,7 +435,7 @@ describe("Herdr prompt launch", () => {
 		expect(herdr.createWorkspaceCalls).toEqual([]);
 		expect(herdr.paneRunCalls).toEqual([]);
 		expect(notificationMessages(ctx).join("\n")).toContain(
-			"failed to store launch prompt payload in Branch Memory",
+			"failed to store implementation prompt payload in Branch Memory",
 		);
 		expect(notificationMessages(ctx).join("\n")).toContain("No Herdr workspace was opened.");
 	});
@@ -446,13 +446,13 @@ describe("Herdr prompt launch", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT, shouldCancelSelect: true });
 
-		await handleHerdrSlotLaunchPrompt({
+		await handleHerdrSlotImplPrompt({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
-			payloadOptions: resolveLaunchPromptPayloadOptions({ stagingDir }),
+			payloadOptions: resolveImplPromptPayloadOptions({ stagingDir }),
 			graphite: testGraphiteBranchGateway,
 			git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
-			args: "Do not launch this prompt",
+			args: "Do not implement this prompt",
 			ctx,
 			notifyProgress: () => {},
 		});
@@ -460,29 +460,29 @@ describe("Herdr prompt launch", () => {
 		pi.assertDone();
 		expect(herdr.createWorkspaceCalls).toEqual([]);
 		expect(herdr.paneRunCalls).toEqual([]);
-		expect(notificationMessages(ctx)).toContain("Herdr launch cancelled.");
+		expect(notificationMessages(ctx)).toContain("Herdr implementation cancelled.");
 	});
 });
 
 // ---------------------------------------------------------------------------
-// space and tab plan launch
+// space and tab plan implementation
 // ---------------------------------------------------------------------------
 
-describe("ns:herdr:launch:plan:space", () => {
+describe("ns:herdr:impl:plan:space", () => {
 	test("shows help without side-effects on --help", async () => {
 		const pi = new FakePi();
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "--help",
 			ctx,
 			options: dispatchPlanDependencies(),
 			config: {
-				commandName: "ns:herdr:launch:plan:space",
-				statusKey: "ns:herdr:launch:plan:space",
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -498,15 +498,15 @@ describe("ns:herdr:launch:plan:space", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "--unknown-flag",
 			ctx,
 			options: dispatchPlanDependencies(),
 			config: {
-				commandName: "ns:herdr:launch:plan:space",
-				statusKey: "ns:herdr:launch:plan:space",
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -518,30 +518,30 @@ describe("ns:herdr:launch:plan:space", () => {
 		expect(errors[0]?.message).toContain("Unknown flag");
 	});
 
-	test("registers space and tab plan launch and launch:plan:tab via Pi adapter", () => {
+	test("registers space and tab plan implementation and impl:plan:tab via Pi adapter", () => {
 		const pi = new FakePi();
-		registerHerdrPlanSpaceLaunchCommand(pi);
-		registerHerdrPlanTabLaunchCommand(pi);
-		expect(pi.commands.has("ns:herdr:launch:plan:space")).toBe(true);
-		expect(pi.commands.has("ns:herdr:launch:plan:tab")).toBe(true);
+		registerHerdrPlanSpaceImplCommand(pi);
+		registerHerdrPlanTabImplCommand(pi);
+		expect(pi.commands.has("ns:herdr:impl:plan:space")).toBe(true);
+		expect(pi.commands.has("ns:herdr:impl:plan:tab")).toBe(true);
 	});
 
-	test("launch:plan:tab requires HERDR_WORKSPACE_ID", async () => {
+	test("impl:plan:tab requires HERDR_WORKSPACE_ID", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
 		const repoRoot = await makeTempDir();
 		const pi = new FakePi({ script: [] });
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "",
 			ctx,
 			options: dispatchPlanDependencies(),
 			config: {
-				commandName: "ns:herdr:launch:plan:tab",
-				statusKey: "ns:herdr:launch:plan:tab",
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
 				destination: "tab",
 			},
 			notifyProgress: () => {},
@@ -551,32 +551,32 @@ describe("ns:herdr:launch:plan:space", () => {
 		expect(herdr.createTabCalls).toHaveLength(0);
 		expect(ctx.notifications).toContainEqual({
 			message:
-				"launch:plan:tab requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+				"impl:plan:tab requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
 			level: "error",
 		});
 	});
 });
 
 // ---------------------------------------------------------------------------
-// launch:plan:tab with caller workspace
+// impl:plan:tab with caller workspace
 // ---------------------------------------------------------------------------
 
-describe("ns:herdr:launch:plan:tab", () => {
+describe("ns:herdr:impl:plan:tab", () => {
 	test("requires HERDR_WORKSPACE_ID; stops without tab creation if absent", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
 		const pi = new FakePi({ script: [] });
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "",
 			ctx,
 			options: dispatchPlanDependencies(),
 			config: {
-				commandName: "ns:herdr:launch:plan:tab",
-				statusKey: "ns:herdr:launch:plan:tab",
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
 				destination: "tab",
 			},
 			notifyProgress: () => {},
@@ -593,7 +593,7 @@ describe("ns:herdr:launch:plan:tab", () => {
 		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
-				...launchValidationScript(repoRoot),
+				...implValidationScript(repoRoot),
 				gitRootStep(repoRoot),
 				step(
 					"pi",
@@ -613,7 +613,7 @@ describe("ns:herdr:launch:plan:tab", () => {
 			headCommit: START_POINT,
 		});
 		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
-		const options = herdrPlanLaunchTestOptions(planStoreRoot);
+		const options = herdrPlanImplTestOptions(planStoreRoot);
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
@@ -622,15 +622,15 @@ describe("ns:herdr:launch:plan:tab", () => {
 		});
 		const destinationReads: Array<"workspace" | "tab"> = ["tab", "workspace", "tab"];
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "",
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:launch:plan:tab",
-				statusKey: "ns:herdr:launch:plan:tab",
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
 				get destination() {
 					return destinationReads.shift() ?? "tab";
 				},
@@ -643,7 +643,7 @@ describe("ns:herdr:launch:plan:tab", () => {
 		expect(herdr.createWorkspaceCalls).toEqual([]);
 		expect(herdr.createTabCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toBe(
-			"launch:plan:tab requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+			"impl:plan:tab requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
 		);
 	});
 
@@ -654,15 +654,15 @@ describe("ns:herdr:launch:plan:tab", () => {
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 		const progress: string[] = [];
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "",
 			ctx,
 			options: dispatchPlanDependencies(),
 			config: {
-				commandName: "ns:herdr:launch:plan:tab",
-				statusKey: "ns:herdr:launch:plan:tab",
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
 				destination: "tab",
 			},
 			notifyProgress: (message) => progress.push(message),
@@ -673,7 +673,7 @@ describe("ns:herdr:launch:plan:tab", () => {
 		expect(ctx.waitCount).toBe(0);
 		expect(herdr.createTabCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toBe(
-			"launch:plan:tab requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+			"impl:plan:tab requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
 		);
 	});
 
@@ -683,15 +683,15 @@ describe("ns:herdr:launch:plan:tab", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "--help",
 			ctx,
 			options: dispatchPlanDependencies(),
 			config: {
-				commandName: "ns:herdr:launch:plan:tab",
-				statusKey: "ns:herdr:launch:plan:tab",
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
 				destination: "tab",
 			},
 			notifyProgress: () => {},
@@ -700,7 +700,7 @@ describe("ns:herdr:launch:plan:tab", () => {
 		expect(pi.execCalls).toEqual([]);
 		expect(ctx.waitCount).toBe(0);
 		expect(notificationMessages(ctx).join("\n")).toContain(
-			"Usage: /ns:herdr:launch:plan:tab [--dry-run]",
+			"Usage: /ns:herdr:impl:plan:tab [--dry-run]",
 		);
 	});
 });
@@ -763,12 +763,12 @@ describe("herdr Pi extension — gateway wiring", () => {
 });
 
 // ---------------------------------------------------------------------------
-// plan launch dry-run — no Herdr mutations
+// plan implementation dry-run — no Herdr mutations
 // ---------------------------------------------------------------------------
 
-function herdrPlanLaunchTestOptions(
+function herdrPlanImplTestOptions(
 	planStoreRoot: string,
-): import("../src/core/launch-plan.ts").ResolvedHerdrSlotLaunchPlanOptions {
+): import("../src/core/impl-plan.ts").ResolvedHerdrSlotImplPlanOptions {
 	return {
 		planStoreRoot,
 		slotClient: testSlotClient,
@@ -787,14 +787,14 @@ function herdrPlanLaunchTestOptions(
 	};
 }
 
-describe("ns:herdr:launch:plan:space", () => {
+describe("ns:herdr:impl:plan:space", () => {
 	test("executes from local exact SHA with explicit Graphite parent and inherited collision suffix", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
-				...launchValidationScript(repoRoot),
+				...implValidationScript(repoRoot),
 				step("git", ["rev-parse", "--verify", `refs/heads/${TRUNK_BRANCH}`], {
 					stdout: `${START_POINT}\n`,
 				}),
@@ -812,7 +812,7 @@ describe("ns:herdr:launch:plan:space", () => {
 			selectIndices: [1],
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
-		const options = herdrPlanLaunchTestOptions(planStoreRoot);
+		const options = herdrPlanImplTestOptions(planStoreRoot);
 		const git = new InMemoryGitGateway({
 			optionalRepoRoot: { type: "missing" },
 			existingBranches: [PLAN_SLUG],
@@ -830,15 +830,15 @@ describe("ns:herdr:launch:plan:space", () => {
 			graphite,
 		});
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "",
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:launch:plan:space",
-				statusKey: "ns:herdr:launch:plan:space",
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -862,19 +862,19 @@ describe("ns:herdr:launch:plan:space", () => {
 	});
 
 	test("fails without a session saved plan before trunk preparation or mutation", async () => {
-		const pi = new FakePi({ script: launchValidationScript(ROOT) });
+		const pi = new FakePi({ script: implValidationScript(ROOT) });
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT, branchEntries: [] });
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "",
 			ctx,
 			options: dispatchPlanDependencies(),
 			config: {
-				commandName: "ns:herdr:launch:plan:space",
-				statusKey: "ns:herdr:launch:plan:space",
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -896,7 +896,7 @@ describe("ns:herdr:launch:plan:space", () => {
 		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
-				...launchValidationScript(repoRoot),
+				...implValidationScript(repoRoot),
 				step("git", ["rev-parse", "--verify", `refs/heads/${TRUNK_BRANCH}`], {
 					code: 1,
 					stderr: "unknown revision",
@@ -911,7 +911,7 @@ describe("ns:herdr:launch:plan:space", () => {
 		});
 		const git = new InMemoryGitGateway();
 		const brmem = new InMemoryBranchMemoryGateway();
-		const options = herdrPlanLaunchTestOptions(planStoreRoot);
+		const options = herdrPlanImplTestOptions(planStoreRoot);
 		options.graphite = { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) };
 		options.git = {
 			currentBranch: async () => ({ type: "branch", branch: SOURCE_BRANCH }),
@@ -923,15 +923,15 @@ describe("ns:herdr:launch:plan:space", () => {
 			graphite: new InMemoryGraphiteBranchGateway(),
 		});
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "",
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:launch:plan:space",
-				statusKey: "ns:herdr:launch:plan:space",
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -952,7 +952,7 @@ describe("ns:herdr:launch:plan:space", () => {
 		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
-				...launchValidationScript(repoRoot),
+				...implValidationScript(repoRoot),
 				step("git", ["rev-parse", "--verify", `refs/heads/${TRUNK_BRANCH}`], {
 					stdout: `${START_POINT}\n`,
 				}),
@@ -970,7 +970,7 @@ describe("ns:herdr:launch:plan:space", () => {
 			selectIndices: [1],
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
-		const options = herdrPlanLaunchTestOptions(planStoreRoot);
+		const options = herdrPlanImplTestOptions(planStoreRoot);
 		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
 		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		options.graphite = { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) };
@@ -984,15 +984,15 @@ describe("ns:herdr:launch:plan:space", () => {
 			graphite: new InMemoryGraphiteBranchGateway(),
 		});
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "--dry-run",
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:launch:plan:space",
-				statusKey: "ns:herdr:launch:plan:space",
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -1013,7 +1013,7 @@ describe("ns:herdr:launch:plan:space", () => {
 	});
 });
 
-describe("ns:herdr:launch:plan:space — dry-run (no Herdr mutations)", () => {
+describe("ns:herdr:impl:plan:space — dry-run (no Herdr mutations)", () => {
 	test("registered command selects a plan saved in the current Pi session", async () => {
 		const repoRoot = await makeTempDir();
 		const xdgStateHome = await makeTempDir();
@@ -1025,7 +1025,7 @@ describe("ns:herdr:launch:plan:space — dry-run (no Herdr mutations)", () => {
 		const pi = new FakePi({
 			script: [
 				step("git", ["branch", "--show-current"], { stdout: `${SOURCE_BRANCH}\n` }),
-				...launchValidationScript(repoRoot),
+				...implValidationScript(repoRoot),
 				step("git", ["branch", "--show-current"], { stdout: `${SOURCE_BRANCH}\n` }),
 				gitRootStep(repoRoot),
 				step(
@@ -1042,11 +1042,11 @@ describe("ns:herdr:launch:plan:space — dry-run (no Herdr mutations)", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 
-		await pi.commands.get("ns:herdr:launch:plan:space")?.handler("--dry-run", ctx);
+		await pi.commands.get("ns:herdr:impl:plan:space")?.handler("--dry-run", ctx);
 
 		const output = notificationMessages(ctx).join("\n");
 		expect(ctx.statuses).toContainEqual({
-			key: "ns:herdr:launch:plan:space",
+			key: "ns:herdr:impl:plan:space",
 			value: "deriving branch-context slug…",
 		});
 		expect(output).not.toContain("No saved plan from /ns:plan:save was found");
@@ -1060,7 +1060,7 @@ describe("ns:herdr:launch:plan:space — dry-run (no Herdr mutations)", () => {
 		});
 		const pi = new FakePi({
 			script: [
-				...launchValidationScript(repoRoot),
+				...implValidationScript(repoRoot),
 				gitRootStep(repoRoot),
 				step(
 					"pi",
@@ -1078,15 +1078,15 @@ describe("ns:herdr:launch:plan:space — dry-run (no Herdr mutations)", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "--dry-run",
 			ctx,
-			options: herdrPlanLaunchTestOptions(planStoreRoot),
+			options: herdrPlanImplTestOptions(planStoreRoot),
 			config: {
-				commandName: "ns:herdr:launch:plan:space",
-				statusKey: "ns:herdr:launch:plan:space",
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -1116,7 +1116,7 @@ describe("ns:herdr:launch:plan:space — dry-run (no Herdr mutations)", () => {
 	});
 });
 
-describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
+describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 	test("executes from local trunk using the caller workspace captured before interaction", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "caller-workspace-before-interaction");
 		const repoRoot = await makeTempDir();
@@ -1124,7 +1124,7 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
-				...launchValidationScript(repoRoot),
+				...implValidationScript(repoRoot),
 				step("git", ["rev-parse", "--verify", `refs/heads/${TRUNK_BRANCH}`], {
 					stdout: `${START_POINT}\n`,
 				}),
@@ -1146,7 +1146,7 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
 		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		const graphite = new InMemoryGraphiteBranchGateway();
-		const options = herdrPlanLaunchTestOptions(planStoreRoot);
+		const options = herdrPlanImplTestOptions(planStoreRoot);
 		options.graphite = { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) };
 		options.git = {
 			currentBranch: async () => ({ type: "branch", branch: SOURCE_BRANCH }),
@@ -1158,15 +1158,15 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 			graphite,
 		});
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "",
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:launch:plan:tab",
-				statusKey: "ns:herdr:launch:plan:tab",
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
 				destination: "tab",
 			},
 			notifyProgress: () => {},
@@ -1194,14 +1194,14 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 		expect(notificationMessages(ctx).join("\n")).toContain(`Graphite parent: ${TRUNK_BRANCH}`);
 	});
 
-	test("local-trunk dry-run previews the tab launch without fetching or mutating", async () => {
+	test("local-trunk dry-run previews the tab implementation without fetching or mutating", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "caller-workspace-dry-run-trunk");
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
-				...launchValidationScript(repoRoot),
+				...implValidationScript(repoRoot),
 				step("git", ["rev-parse", "--verify", `refs/heads/${TRUNK_BRANCH}`], {
 					stdout: `${START_POINT}\n`,
 				}),
@@ -1222,7 +1222,7 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
 		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		const graphite = new InMemoryGraphiteBranchGateway();
-		const options = herdrPlanLaunchTestOptions(planStoreRoot);
+		const options = herdrPlanImplTestOptions(planStoreRoot);
 		options.graphite = { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) };
 		options.git = {
 			currentBranch: async () => ({ type: "branch", branch: SOURCE_BRANCH }),
@@ -1234,15 +1234,15 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 			graphite,
 		});
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "--dry-run",
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:launch:plan:tab",
-				statusKey: "ns:herdr:launch:plan:tab",
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
 				destination: "tab",
 			},
 			notifyProgress: () => {},
@@ -1277,15 +1277,15 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "--dry-run",
 			ctx,
 			options: dispatchPlanDependencies(),
 			config: {
-				commandName: "ns:herdr:launch:plan:tab",
-				statusKey: "ns:herdr:launch:plan:tab",
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
 				destination: "tab",
 			},
 			notifyProgress: () => {},
@@ -1303,7 +1303,7 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
-				...launchValidationScript(repoRoot),
+				...implValidationScript(repoRoot),
 				gitRootStep(repoRoot),
 				step(
 					"pi",
@@ -1319,7 +1319,7 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 			cwd: repoRoot,
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
-		const options = herdrPlanLaunchTestOptions(planStoreRoot);
+		const options = herdrPlanImplTestOptions(planStoreRoot);
 		let contextConstructions = 0;
 		options.createBranchContextContext = (_commands, _cwd) => {
 			contextConstructions += 1;
@@ -1336,15 +1336,15 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 			};
 		};
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "",
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:launch:plan:tab",
-				statusKey: "ns:herdr:launch:plan:tab",
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
 				destination: "tab",
 			},
 			notifyProgress: () => {},
@@ -1361,13 +1361,13 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 		expect(notificationMessages(ctx).join("\n")).toContain(`Branch: ${PLAN_SLUG}-2`);
 	});
 
-	test("workspace launch branch-context failure names the unopened Herdr workspace", async () => {
+	test("workspace implementation branch-context failure names the unopened Herdr workspace", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
-				...launchValidationScript(repoRoot),
+				...implValidationScript(repoRoot),
 				gitRootStep(repoRoot),
 				step(
 					"pi",
@@ -1383,7 +1383,7 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 			cwd: repoRoot,
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
-		const options = herdrPlanLaunchTestOptions(planStoreRoot);
+		const options = herdrPlanImplTestOptions(planStoreRoot);
 		options.createBranchContextContext = (_commands, _cwd) => ({
 			commands: createHerdrPiCommandApi(pi),
 			git: new InMemoryGitGateway({
@@ -1397,15 +1397,15 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 			}),
 		});
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "",
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:launch:plan:space",
-				statusKey: "ns:herdr:launch:plan:space",
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -1420,14 +1420,14 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 		expect(herdr.createTabCalls).toEqual([]);
 	});
 
-	test("tab launch branch-context failure names the unopened Herdr tab", async () => {
+	test("tab implementation branch-context failure names the unopened Herdr tab", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "caller-workspace-failure");
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
-				...launchValidationScript(repoRoot),
+				...implValidationScript(repoRoot),
 				gitRootStep(repoRoot),
 				step(
 					"pi",
@@ -1443,7 +1443,7 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 			cwd: repoRoot,
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
-		const options = herdrPlanLaunchTestOptions(planStoreRoot);
+		const options = herdrPlanImplTestOptions(planStoreRoot);
 		options.createBranchContextContext = (_commands, _cwd) => ({
 			commands: createHerdrPiCommandApi(pi),
 			git: new InMemoryGitGateway({
@@ -1457,15 +1457,15 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 			}),
 		});
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "",
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:launch:plan:tab",
-				statusKey: "ns:herdr:launch:plan:tab",
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
 				destination: "tab",
 			},
 			notifyProgress: () => {},
@@ -1488,7 +1488,7 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 		});
 		const pi = new FakePi({
 			script: [
-				...launchValidationScript(repoRoot),
+				...implValidationScript(repoRoot),
 				gitRootStep(repoRoot),
 				step(
 					"pi",
@@ -1506,15 +1506,15 @@ describe("ns:herdr:launch:plan:tab — dry-run (no Herdr mutations)", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 
-		await handleHerdrSlotLaunchPlan({
+		await handleHerdrSlotImplPlan({
 			pi: createHerdrPiCommandApi(pi),
 			herdr,
 			rawArgs: "--dry-run",
 			ctx,
-			options: herdrPlanLaunchTestOptions(planStoreRoot),
+			options: herdrPlanImplTestOptions(planStoreRoot),
 			config: {
-				commandName: "ns:herdr:launch:plan:tab",
-				statusKey: "ns:herdr:launch:plan:tab",
+				commandName: "ns:herdr:impl:plan:tab",
+				statusKey: "ns:herdr:impl:plan:tab",
 				destination: "tab",
 			},
 			notifyProgress: () => {},
