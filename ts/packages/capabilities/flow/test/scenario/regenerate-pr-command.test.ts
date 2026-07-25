@@ -3,30 +3,16 @@ import { rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { describe, expect, test } from "vitest";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
+import { describe, expect, test } from "vitest";
 
-import {
-	formatManagedGeneratedRegion,
-	GENERATED_BODY_MARKER,
-	hashPrDescriptionPrompt,
-} from "../../src/submit/index.ts";
-
-import { readFlowPrDescriptionDefault } from "../support/pr-description.ts";
 import { runFlowRegeneratePrCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ExecCall, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
-// The truecolor red swatch used for `error`-intent headlines; a warn refusal must never carry it.
-const ERROR_TRUECOLOR = "\x1b[38;2;248;81;73m";
 const generatedText = `Improve PR descriptions
 
-This regenerates the PR title and body with the ns-owned prompt.
-
-## Key Changes
-
-- Adds title generation
-- Adds guarded body updates`;
+This regenerates the PR title and body with the ns-owned prompt.`;
 
 function runRegeneratePrWithFakes(
 	options: Parameters<typeof runFlowRegeneratePrCommandWithFakes>[0] = {},
@@ -34,59 +20,45 @@ function runRegeneratePrWithFakes(
 	return runFlowRegeneratePrCommandWithFakes({
 		...options,
 		defaults: {
-			execResponses: successfulRegeneratePrResponses,
+			execResponses: successfulResponses,
 			textGenerationResults: () => [{ ok: true, text: generatedText }],
 			missingTextGenerationResult: () => ({ ok: true, text: generatedText }),
 		},
 	});
 }
 
-function successfulRegeneratePrResponses(): ScriptedExecResponse[] {
+function successfulResponses(): ScriptedExecResponse[] {
 	return [
 		{
 			match: "gh pr view --json number,url,title,body,headRefName,baseRefName",
-			result: { stdout: prJson({ body: `Old body\n${GENERATED_BODY_MARKER}` }) },
+			result: { stdout: prJson("Human prose\n<!-- ns-objective-runner:begin -->") },
 		},
 		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 		{
 			match: "gh pr diff 123",
 			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n+export const value = true;\n" },
 		},
-		{
-			match: "git patch-id --stable",
-			result: { stdout: "default-patch-id 0000000000000000000000000000000000000000\n" },
-		},
 		{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
-		successfulGhPrEditResponse(),
+		bodyInspectingEditResponse(),
 	];
 }
 
-function successfulGhPrEditResponse(): ScriptedExecResponse {
-	return { match: /^gh pr edit 123 --title Improve PR descriptions --body-file /, result: {} };
+function readOnlyResponses(body = "Human prose"): ScriptedExecResponse[] {
+	return successfulResponses()
+		.filter((response) => !(response.match instanceof Function))
+		.map((response) =>
+			response.match === "gh pr view --json number,url,title,body,headRefName,baseRefName"
+				? { ...response, result: { stdout: prJson(body) } }
+				: response,
+		);
 }
 
-function successfulReadOnlyRegeneratePrResponses(
-	options: { body?: string } = {},
-): ScriptedExecResponse[] {
-	return successfulRegeneratePrResponses()
-		.filter((response) => !(response.match instanceof RegExp))
-		.map((response) => {
-			if (response.match !== "gh pr view --json number,url,title,body,headRefName,baseRefName") {
-				return response;
-			}
-			return {
-				...response,
-				result: { stdout: prJson({ body: options.body ?? `Old body\n${GENERATED_BODY_MARKER}` }) },
-			};
-		});
-}
-
-function prJson(options: { body: string; title?: string } = { body: "" }): string {
+function prJson(body: string): string {
 	return JSON.stringify({
 		number: 123,
 		url: PR_URL,
-		title: options.title ?? "Existing PR title",
-		body: options.body,
+		title: "Existing secret PR title",
+		body,
 		headRefName: "feature/demo",
 		baseRefName: "main",
 	});
@@ -94,32 +66,27 @@ function prJson(options: { body: string; title?: string } = { body: "" }): strin
 
 function commitsJson(): string {
 	return JSON.stringify({
-		commits: [{ messageHeadline: "Add regenerate-pr", messageBody: "Body from commit" }],
+		commits: [{ messageHeadline: "Add regenerate-pr", messageBody: "Stale body" }],
 	});
 }
 
-function currentManagedBody(): string {
-	return formatManagedGeneratedRegion("Existing generated body", {
-		version: "2",
-		patchId: "default-patch-id",
-		promptHash: hashPrDescriptionPrompt(readFlowPrDescriptionDefault()),
-		generator: "ns-pr-description-v2",
-	});
-}
-
-function bodyInspectingEditResponse(assertBody: (body: string) => void): ScriptedExecResponse {
+function bodyInspectingEditResponse(): ScriptedExecResponse {
 	return {
 		match: (call: ExecCall) => {
 			if (
 				call.command !== "gh" ||
 				call.args.slice(0, 5).join(" ") !== "pr edit 123 --title Improve PR descriptions"
-			) {
+			)
 				return false;
-			}
-			const bodyFileFlagIndex = call.args.indexOf("--body-file");
-			const bodyPath = call.args[bodyFileFlagIndex + 1];
+			const bodyPath = call.args[call.args.indexOf("--body-file") + 1];
 			if (bodyPath === undefined) return false;
-			assertBody(readFileSync(bodyPath, "utf8"));
+			const body = readFileSync(bodyPath, "utf8");
+			expect(body).toContain("This regenerates the PR title and body");
+			expect(body).toContain("Generated by `ns flow regenerate-pr`");
+			expect(body).toContain("Prompt: built-in flow.submit.pr-description");
+			expect(body).toContain("Model: `openai-codex/gpt-5.6-luna`");
+			expect(body).not.toContain("Human prose");
+			expect(body).not.toContain("ns-objective-runner");
 			return true;
 		},
 		result: {},
@@ -127,213 +94,70 @@ function bodyInspectingEditResponse(assertBody: (body: string) => void): Scripte
 }
 
 describe("project-local regenerate-pr extension behavior", () => {
-	test("regenerates the current branch PR after confirmation", async () => {
-		let confirmCalls = 0;
+	test("confirms destructive complete replacement and edits exact generated metadata", async () => {
+		let confirmation = "";
 		const run = runRegeneratePrWithFakes({
 			state: {
-				confirm: () => {
-					confirmCalls += 1;
+				confirm: (message) => {
+					confirmation = message;
 					return true;
 				},
 			},
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(confirmCalls).toBe(1);
-		const stdout = stripAnsi(run.stdout.join(""));
-		expect(stdout).toContain("Regenerated PR title and description.");
-		expect(stdout).toContain(`PR: #123 ${PR_URL}`);
-		expect(stdout).toContain("Title: Improve PR descriptions");
-		expect(stdout).toContain("Prompt: built-in");
-		expect(stdout).toContain(`Cwd: ${run.context.cwd}`);
-		// Success stays concise: no failure/debug plumbing leaks into the success block.
-		expect(stdout).not.toContain("Exit:");
-		expect(stdout).not.toContain("stdout:");
-		expect(run.stderr.join("")).toBe("");
-		expect(run.liveOutput).toEqual([
-			{ stream: "stderr", text: "Preparing PR metadata update…\n" },
-			{ stream: "stderr", text: "checking PR #123 description fingerprint\n" },
-			{
-				stream: "stderr",
-				text: "recomputing PR #123 description (no generated fingerprint found)\n",
-			},
-			{ stream: "stderr", text: "generating PR metadata (attempt 1/2)\n" },
-			{ stream: "stderr", text: "PR metadata generated (token usage unavailable)\n" },
-			{ stream: "stderr", text: "Updating PR #123 metadata on GitHub…\n" },
-		]);
-		expect(formattedExecCalls(run.context)).toEqual(
-			expect.arrayContaining([
-				"gh pr view --json number,url,title,body,headRefName,baseRefName",
-				"git rev-parse --show-toplevel",
-				"gh pr diff 123",
-				"git patch-id --stable",
-				"gh pr view 123 --json commits",
-				expect.stringMatching(/^gh pr edit 123 --title Improve PR descriptions --body-file /),
-			]),
-		);
-		expect(run.context.textGeneratorCalls[0]).toMatchObject({
-			operation: "pr-description",
-			modelSelection: {
-				provider: "openai-codex",
-				modelId: "gpt-5.6-luna",
-				thinking: "minimal" as const,
-			},
-			maxTokens: 2048,
-		});
-		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("## Context");
-		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("## Diff");
-	});
-
-	test("declined confirmation renders a warn refusal and does not edit GitHub", async () => {
-		const run = runRegeneratePrWithFakes({
-			state: { confirm: () => false, exec: successfulReadOnlyRegeneratePrResponses() },
-		});
-
-		expect(await run.exit).toBe(1);
-		expect(run.stdout.join("")).toBe("");
-		const rawStderr = run.stderr.join("");
-		// A declined guardrail renders warn — its headline must not carry the red error swatch.
-		expect(rawStderr.split("\n")[0] ?? "").not.toContain(ERROR_TRUECOLOR);
-		const stderr = stripAnsi(rawStderr);
-		expect(stderr).toContain("PR metadata regeneration was cancelled; GitHub was not edited.");
-		expect(stderr).toContain(`Cwd: ${run.context.cwd}`);
-		expect(formattedExecCalls(run.context)).not.toContainEqual(
-			expect.stringContaining("gh pr edit"),
-		);
-	});
-
-	test("missing confirmation channel exits 2 and does not edit GitHub", async () => {
-		const run = runRegeneratePrWithFakes({
-			state: { exec: successfulReadOnlyRegeneratePrResponses() },
-		});
-
-		expect(await run.exit).toBe(1);
-		expect(run.stdout.join("")).toBe("");
-		const rawStderr = run.stderr.join("");
-		// Missing confirmation is a usage-style guardrail (warn), not a red subprocess failure.
-		expect(rawStderr.split("\n")[0] ?? "").not.toContain(ERROR_TRUECOLOR);
-		const stderr = stripAnsi(rawStderr);
-		expect(stderr).toContain(
-			"Confirmation is unavailable; pass --force to edit GitHub non-interactively.",
-		);
-		expect(formattedExecCalls(run.context)).not.toContainEqual(
-			expect.stringContaining("gh pr edit"),
-		);
-	});
-
-	test("already-current managed region succeeds without confirming, generating, or editing", async () => {
-		let confirmCalls = 0;
-		const currentBody = currentManagedBody();
-		const run = runRegeneratePrWithFakes({
-			state: {
-				confirm: () => {
-					confirmCalls += 1;
-					return true;
-				},
-				exec: successfulReadOnlyRegeneratePrResponses({ body: currentBody }),
-			},
-		});
-
-		expect(await run.exit).toBe(0);
-		expect(confirmCalls).toBe(0);
-		const stdout = stripAnsi(run.stdout.join(""));
-		expect(stdout).toContain("PR title and description are already current.");
-		expect(stdout).toContain(`PR: #123 ${PR_URL}`);
-		expect(run.stderr.join("")).toBe("");
-		expect(run.context.textGeneratorCalls).toEqual([]);
+		expect(confirmation).toContain("remove all existing body content");
+		expect(stripAnsi(run.stdout.join(""))).toContain("Replaced complete PR title and body.");
 		const calls = formattedExecCalls(run.context);
-		expect(calls).not.toContain("gh pr view 123 --json commits");
-		expect(calls).not.toContainEqual(expect.stringContaining("gh pr edit"));
+		expect(calls).toContain("gh pr diff 123");
+		expect(calls).not.toContain("git patch-id --stable");
+		expect(run.context.textGeneratorCalls[0]?.prompt).not.toContain("Existing secret PR title");
+		expect(run.context.textGeneratorCalls[0]?.prompt).not.toContain("Human prose");
 	});
 
-	test("--force regenerates a current managed region without prompting", async () => {
+	test("declined confirmation does not edit GitHub", async () => {
+		const run = runRegeneratePrWithFakes({
+			state: { confirm: () => false, exec: readOnlyResponses() },
+		});
+		expect(await run.exit).toBe(1);
+		expect(stripAnsi(run.stderr.join(""))).toContain(
+			"PR metadata replacement was cancelled; GitHub was not edited.",
+		);
+		expect(formattedExecCalls(run.context)).not.toContainEqual(
+			expect.stringContaining("gh pr edit"),
+		);
+	});
+
+	test("fails fast non-interactively without --yes", async () => {
+		const run = runRegeneratePrWithFakes({ state: { exec: readOnlyResponses() } });
+		expect(await run.exit).toBe(2);
+		expect(stripAnsi(run.stderr.join(""))).toContain(
+			"pass --yes to replace the complete PR title and body non-interactively",
+		);
+		expect(formattedExecCalls(run.context)).not.toContainEqual(
+			expect.stringContaining("gh pr edit"),
+		);
+	});
+
+	test("--yes skips confirmation and replaces arbitrary existing content", async () => {
 		let confirmCalls = 0;
 		const run = runRegeneratePrWithFakes({
-			request: { force: true },
+			request: { yes: true },
 			state: {
 				confirm: () => {
 					confirmCalls += 1;
 					return false;
 				},
-				exec: [
-					...successfulReadOnlyRegeneratePrResponses({ body: currentManagedBody() }),
-					successfulGhPrEditResponse(),
-				],
 			},
 		});
-
 		expect(await run.exit).toBe(0);
 		expect(confirmCalls).toBe(0);
-		expect(run.context.textGeneratorCalls).toHaveLength(1);
-		expect(formattedExecCalls(run.context)).toContainEqual(
-			expect.stringMatching(/^gh pr edit 123 --title Improve PR descriptions --body-file /),
-		);
-	});
-
-	test("preserves human body text outside the managed generated region", async () => {
-		const oldRegion = formatManagedGeneratedRegion("Old generated body", {
-			version: "2",
-			patchId: "old-patch",
-			promptHash: "sha256:old-prompt",
-			generator: "ns-pr-description-v2",
-		});
-		const existingBody = `Human intro\n\n${oldRegion}\n\nHuman footer`;
-		const run = runRegeneratePrWithFakes({
-			state: {
-				confirm: () => true,
-				exec: [
-					...successfulReadOnlyRegeneratePrResponses({ body: existingBody }),
-					bodyInspectingEditResponse((body) => {
-						expect(body).toContain("Human intro");
-						expect(body).toContain("Human footer");
-						expect(body).toContain("This regenerates the PR title and body");
-						expect(body).not.toContain("Old generated body");
-					}),
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(0);
-	});
-
-	test("preserves an ns decisions-log block verbatim outside the managed region", async () => {
-		const oldRegion = formatManagedGeneratedRegion("Old generated body", {
-			version: "2",
-			patchId: "old-patch",
-			promptHash: "sha256:old-prompt",
-			generator: "ns-pr-description-v2",
-		});
-		const decisionsLog = `<!-- ns-decisions-log:begin -->
-## Decisions log
-
-- **Pending → Accepted — 2026-07-11 (@reviewer)** — Keep replacement-stack construction.
-  - Rationale: It preserves the reviewed stack while the replacement is verified.
-  - Record: \`.ns/objectives/example/updates/2026-07-11T120000Z-replacement-stack.md\`
-<!-- ns-decisions-log:end -->`;
-		const existingBody = `${oldRegion}\n\n${decisionsLog}`;
-		const run = runRegeneratePrWithFakes({
-			state: {
-				confirm: () => true,
-				exec: [
-					...successfulReadOnlyRegeneratePrResponses({ body: existingBody }),
-					bodyInspectingEditResponse((body) => {
-						expect(body).toContain(decisionsLog);
-						expect(body.match(/<!-- ns-decisions-log:begin -->/g)).toHaveLength(1);
-						expect(body.match(/<!-- ns-decisions-log:end -->/g)).toHaveLength(1);
-						expect(body).toContain("This regenerates the PR title and body");
-						expect(body).not.toContain("Old generated body");
-					}),
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(0);
 	});
 
 	test("reports no current PR clearly", async () => {
 		const run = runRegeneratePrWithFakes({
+			request: { yes: true },
 			state: {
-				confirm: () => true,
 				exec: [
 					{
 						match: "gh pr view --json number,url,title,body,headRefName,baseRefName",
@@ -342,51 +166,34 @@ describe("project-local regenerate-pr extension behavior", () => {
 				],
 			},
 		});
-
 		expect(await run.exit).toBe(1);
-		const stderr = stripAnsi(run.stderr.join(""));
-		// The domain summary becomes the failure headline; the cause line stays visible in the body.
-		expect(stderr).toContain("Could not resolve current branch PR.");
-		expect(stderr).toContain("Could not read GitHub PR details.");
-		expect(stderr).toContain(`Cwd: ${run.context.cwd}`);
-		expect(run.context.execCalls).toHaveLength(2);
+		expect(stripAnsi(run.stderr.join(""))).toContain("Could not resolve current branch PR.");
 	});
 
-	test("PR description generation receives the resolved model reference explicitly", async () => {
-		const run = runRegeneratePrWithFakes({ state: { confirm: () => true } });
-
-		expect(await run.exit).toBe(0);
-		expect(run.context.textGeneratorCalls[0]?.modelSelection).toEqual({
-			provider: "openai-codex",
-			modelId: "gpt-5.6-luna",
-			thinking: "minimal",
-		});
-	});
-
-	test("uses env prompt overrides from the built-in point catalog", async () => {
+	test("uses stable environment prompt labeling without exposing the path", async () => {
 		const promptPath = join(tmpdir(), `ns-regenerate-pr-prompt-${Date.now()}.md`);
 		await writeFile(promptPath, "custom system prompt", "utf8");
 		try {
 			const run = runRegeneratePrWithFakes({
-				state: { confirm: () => true },
+				request: { yes: true },
 				env: { NS_DEV_PR_DESCRIPTION_PROMPT: promptPath },
+				state: {
+					exec: [
+						...readOnlyResponses(),
+						{
+							match: /^gh pr edit 123 --title Improve PR descriptions --body-file /,
+							result: {},
+						},
+					],
+				},
 			});
-
-			expect(await run.exit).toBe(0);
-			expect(run.stdout.join("")).toContain(`Prompt: ${promptPath}`);
-			expect(run.context.textGeneratorCalls[0]?.system).toBe("custom system prompt");
+			const exit = await run.exit;
+			expect(exit, stripAnsi(run.stderr.join(""))).toBe(0);
+			const stdout = run.stdout.join("");
+			expect(stdout).toContain("Prompt: environment override flow.submit.pr-description");
+			expect(stdout).not.toContain(promptPath);
 		} finally {
 			await rm(promptPath, { force: true });
 		}
-	});
-
-	test("unreadable prompt env path reports the point override read failure", async () => {
-		const run = runRegeneratePrWithFakes({
-			state: { confirm: () => true },
-			env: { NS_DEV_PR_DESCRIPTION_PROMPT: "/path/that/does/not/exist.md" },
-		});
-
-		expect(await run.exit).toBe(1);
-		expect(run.stderr.join("")).toContain("Could not read NS_DEV_PR_DESCRIPTION_PROMPT");
 	});
 });

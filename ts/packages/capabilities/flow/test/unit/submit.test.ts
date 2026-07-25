@@ -1087,10 +1087,6 @@ class SubmitDescriptionGithubPrGateway implements GithubPrGateway {
 		return ok("diff --git a/file b/file\n+change");
 	}
 
-	async stablePatchIdForPr() {
-		return ok({ patchId: "patch-id", diff: "diff --git a/file b/file\n+change" });
-	}
-
 	async editPr() {
 		return ok(undefined);
 	}
@@ -1112,7 +1108,6 @@ const unusedGithubPrGateway: GithubPrGateway = {
 	viewPr: async () => unexpectedCall("viewPr"),
 	getPrCommitMessages: async () => unexpectedCall("getPrCommitMessages"),
 	getPrDiff: async () => unexpectedCall("getPrDiff"),
-	stablePatchIdForPr: async () => unexpectedCall("stablePatchIdForPr"),
 	editPr: async () => unexpectedCall("editPr"),
 };
 

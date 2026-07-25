@@ -152,85 +152,6 @@ describe("RealGithubPrGateway", () => {
 		runner.assertDone();
 	});
 
-	test("computes stable patch ids from GitHub PR diffs", async () => {
-		const diff = "diff --git a/src/app.ts b/src/app.ts\n+code\n";
-		const calls: Array<{ command: string; args: readonly string[]; stdin?: string }> = [];
-		const runner: CommandRunner = async (command, args, options = {}) => {
-			calls.push({
-				command,
-				args: [...args],
-				...(options.stdin === undefined ? {} : { stdin: options.stdin }),
-			});
-			if (command === "gh")
-				return { stdout: diff, stderr: "", code: 0, type: "exited", signal: null };
-			return {
-				stdout: "abc123 0000000000000000000000000000000000000000\n",
-				stderr: "",
-				code: 0,
-				type: "exited",
-				signal: null,
-			};
-		};
-		const gateway = new RealGithubPrGateway(runner);
-
-		expect(await gateway.stablePatchIdForPr({ cwd: "/repo", number: 12 })).toEqual({
-			ok: true,
-			value: { patchId: "abc123", diff },
-		});
-		expect(calls).toEqual([
-			{ command: "gh", args: ["pr", "diff", "12"] },
-			{ command: "git", args: ["patch-id", "--stable"], stdin: diff },
-		]);
-	});
-
-	test("computes stable patch ids from local diff fallback when GitHub diff is oversized", async () => {
-		const diff = "diff --git a/src/app.ts b/src/app.ts\n+local\n";
-		const runner = new ScriptedCommandRunner([
-			execStep("gh", ["pr", "diff", "12"], {
-				code: 1,
-				stderr:
-					"HTTP 406: Sorry, the diff exceeded the maximum number of files (300)\nPullRequest.diff too_large",
-			}),
-			execStep("git", ["diff", "main...feature/demo"], { stdout: diff }),
-			execStep("git", ["patch-id", "--stable"], {
-				stdout: "abc123 0000000000000000000000000000000000000000\n",
-			}),
-		]);
-		const gateway = new RealGithubPrGateway(runner.runner);
-
-		expect(
-			await gateway.stablePatchIdForPr({
-				cwd: "/repo",
-				number: 12,
-				baseRefName: "main",
-				headRefName: "feature/demo",
-			}),
-		).toEqual({
-			ok: true,
-			value: { patchId: "abc123", diff },
-		});
-		runner.assertDone();
-	});
-
-	test("rejects empty stable patch-id output", async () => {
-		const runner = new ScriptedCommandRunner([
-			execStep("gh", ["pr", "diff", "12"], {
-				stdout: "diff --git a/src/app.ts b/src/app.ts\n+code\n",
-			}),
-			execStep("git", ["patch-id", "--stable"], { stdout: "\n" }),
-		]);
-		const gateway = new RealGithubPrGateway(runner.runner);
-
-		expect(await gateway.stablePatchIdForPr({ cwd: "/repo", number: 12 })).toEqual({
-			ok: false,
-			error: {
-				code: "git_patch_id_parse_failed",
-				message: "Stable patch-id output for PR #12 was empty or malformed.",
-			},
-		});
-		runner.assertDone();
-	});
-
 	test("reads commit messages and diff for a PR", async () => {
 		const runner = new ScriptedCommandRunner([
 			execStep("gh", ["pr", "view", "12", "--json", "commits"], {
@@ -246,7 +167,7 @@ describe("RealGithubPrGateway", () => {
 
 		expect(await gateway.getPrCommitMessages({ cwd: "/repo", number: 12 })).toEqual({
 			ok: true,
-			value: [{ headline: "Add feature", body: "Body" }],
+			value: [{ headline: "Add feature" }],
 		});
 		expect(await gateway.getPrDiff({ cwd: "/repo", number: 12 })).toEqual({
 			ok: true,

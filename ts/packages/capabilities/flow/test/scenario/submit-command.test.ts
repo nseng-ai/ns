@@ -8,16 +8,11 @@ import { afterEach, describe, expect, test } from "vitest";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { fakeStackInfo } from "@nseng-ai/capability-kit/graphite/testing";
 import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
-import {
-	PR_DESCRIPTION_GENERATOR_VERSION,
-	formatManagedGeneratedRegion,
-	hashPrDescriptionPrompt,
-} from "../../src/submit/index.ts";
+import {} from "../../src/submit/index.ts";
 import { FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "../../src/submit/submit-hooks.ts";
 
 import { runFlowSubmitCommandWithFakes } from "./flow-command-fakes.ts";
 import { writeTestPointManifest } from "../support/point-manifest.ts";
-import { readFlowPrDescriptionDefault } from "../support/pr-description.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
 // A non-tty transient progress line, as routed to onOutput (the Pi widget path / captured liveOutput).
@@ -410,11 +405,10 @@ describe("project-local submit extension", () => {
 				transient("preparing descriptions for 1 PR"),
 				transient("loading PR #123 metadata (1/1)"),
 				transient("resolving PR description prompt and model"),
-				transient("checking PR #123 description fingerprint"),
-				transient("recomputing PR #123 description (no generated fingerprint found)"),
+				transient("loading PR #123 diff"),
 				transient("generating PR metadata (attempt 1/2)"),
 				transient("PR metadata generated (tokens in 1234, out 56)"),
-				transient("updating PR #123 description"),
+				transient("updating PR #123 title and body"),
 				transient("finished PR #123 description"),
 			]),
 		);
@@ -770,12 +764,7 @@ describe("project-local submit extension", () => {
 	});
 
 	test("--regenerate-descriptions forcefully regenerates a matching PR description fingerprint", async () => {
-		const managedBody = formatManagedGeneratedRegion("Generated body", {
-			version: "2",
-			patchId: "default-patch-id",
-			promptHash: hashPrDescriptionPrompt(readFlowPrDescriptionDefault()),
-			generator: PR_DESCRIPTION_GENERATOR_VERSION,
-		});
+		const managedBody = "Existing generated body";
 		const run = runWithFakes({
 			request: { regenerateDescriptions: true },
 			state: {

@@ -175,8 +175,12 @@ describe("checked-in flow ns extension loading", () => {
 		expect(await help.exit).toBe(0);
 		const output = help.stdout.join("");
 		expect(output).toContain("Usage: ns flow regenerate-pr");
-		expect(output).toContain("Regenerate the current branch PR title");
-		expect(output).toContain("--force");
+		expect(output).toContain(
+			"Regenerate and completely replace the current branch PR title and body",
+		);
+		expect(output).toContain("--yes");
+		expect(output).toContain("-y");
+		expect(output).not.toContain("--force");
 		expect(output).not.toContain("NS_DEV_PR_DESCRIPTION_MODEL");
 		expect(output).toContain("NS_DEV_PR_DESCRIPTION_PROMPT");
 		expect(help.stderr.join("")).toBe("");

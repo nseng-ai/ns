@@ -198,8 +198,6 @@ function prProgressForResult(result: PrDescriptionOrchestrationResult): {
 	message?: string;
 } {
 	switch (result.type) {
-		case "skipped":
-			return { state: "skipped", message: "skipped (unchanged)" };
 		case "matched_prewritten":
 			return { state: "done", message: "prewritten" };
 		case "updated":
@@ -219,11 +217,6 @@ function collectPrDescriptionResult(input: {
 	onProgress?: (message: string) => void;
 }): PrDescriptionAccumulator {
 	switch (input.result.type) {
-		case "skipped":
-			return {
-				...input.accumulator,
-				skipped: [...input.accumulator.skipped, input.link],
-			};
 		case "matched_prewritten":
 			return collectPrDescriptionSuccess({
 				accumulator: input.accumulator,

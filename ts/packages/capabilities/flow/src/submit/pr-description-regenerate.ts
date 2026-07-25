@@ -3,7 +3,6 @@ import { createNsCommandRunner } from "@nseng-ai/capability-kit";
 import { createNsGitGateway } from "@nseng-ai/capability-kit";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 import { RealGithubPrGateway } from "./github-pr-gateway.ts";
-import type { PromptSource } from "./pr-description.ts";
 
 export interface NsPrDescriptionRuntime {
 	githubPr: RealGithubPrGateway;
@@ -17,8 +16,4 @@ export function createNsPrDescriptionRuntime(ctx: NsExtensionApi): NsPrDescripti
 		githubPr: new RealGithubPrGateway(runner),
 		git: createNsGitGateway(ctx),
 	};
-}
-
-export function formatPromptSourceLabel(source: PromptSource): string {
-	return source.type === "builtin" ? "built-in" : source.path;
 }
