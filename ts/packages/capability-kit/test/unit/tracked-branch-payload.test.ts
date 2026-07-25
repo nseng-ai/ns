@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+	buildTrackedBranchImplPrompt,
 	buildTrackedBranchPayloadLaunchCommand,
 	buildTrackedBranchSlugPrompt,
 	createTrackedBranchForPrompt,
@@ -92,7 +93,7 @@ describe("tracked branch payload public API", () => {
 					"check",
 					"prompt.md",
 					"--namespace",
-					"ns-dispatch",
+					"ns-impl",
 					"--branch",
 					"feature-demo",
 					"--format",
@@ -106,7 +107,7 @@ describe("tracked branch payload public API", () => {
 					"put",
 					"prompt.md",
 					"--namespace",
-					"ns-dispatch",
+					"ns-impl",
 					"--branch",
 					"feature-demo",
 					"--file",
@@ -116,10 +117,10 @@ describe("tracked branch payload public API", () => {
 				],
 				result: exited({
 					stdout: brmemEnvelope({
-						namespace: "ns-dispatch",
+						namespace: "ns-impl",
 						key: "prompt.md",
 						branch: "feature-demo",
-						refName: "refs/brmem/ns/ns-dispatch/feature-demo:prompt.md",
+						refName: "refs/brmem/ns/ns-impl/feature-demo:prompt.md",
 						commit: "abc123",
 						sourceFile,
 					}),
@@ -153,7 +154,7 @@ describe("tracked branch payload public API", () => {
 					"check",
 					"prompt.md",
 					"--namespace",
-					"ns-dispatch",
+					"ns-impl",
 					"--branch",
 					"feature-demo",
 					"--format",
@@ -360,13 +361,34 @@ describe("tracked branch payload public API", () => {
 		);
 	});
 
+	test("builds an implementation prompt without changing the existing agent instructions", () => {
+		const rawPrompt = "Implement exactly this.\n\nKeep arbitrary `markdown` and $shell text.";
+		const contextNote = "This branch starts from local trunk.";
+
+		const prompt = buildTrackedBranchImplPrompt(rawPrompt, contextNote);
+
+		expect(prompt).toBe(
+			[
+				"## Completion instructions",
+				"After you finish the implementation:",
+				"1. Create or update the branch commit using the repo's normal workflow.",
+				"2. Then run `!ns flow submit`.",
+				"",
+				"## Launch context",
+				contextNote,
+				"",
+				rawPrompt,
+			].join("\n"),
+		);
+	});
+
 	test("launch command propagates model and thinking while reading the neutral locator", () => {
 		const command = buildTrackedBranchPayloadLaunchCommand("feature/demo", {
 			model: { provider: "anthropic", id: "claude-sonnet" },
 			thinkingLevel: "high",
 		});
 
-		expect(command).toContain("brmem get prompt.md --namespace ns-dispatch --branch feature/demo");
+		expect(command).toContain("brmem get prompt.md --namespace ns-impl --branch feature/demo");
 		expect(command).toContain("pi --provider anthropic --model claude-sonnet --thinking high");
 	});
 });

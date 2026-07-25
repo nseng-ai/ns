@@ -10,11 +10,8 @@ import {
 	createHerdrSidebarControllerWithPiWiring,
 	registerHerdrSidebarCommands,
 } from "./sidebar.ts";
-import { registerHerdrSlotDispatchPromptCommand } from "./dispatch-prompt.ts";
-import {
-	registerHerdrSlotDispatchPlanCommand,
-	registerHerdrSurfaceDispatchPlanCommand,
-} from "./dispatch-plan.ts";
+import { registerHerdrPromptSpaceImplCommand } from "./impl-prompt.ts";
+import { registerHerdrPlanSpaceImplCommand, registerHerdrPlanTabImplCommand } from "./impl-plan.ts";
 import { createHerdrPiContext } from "./context.ts";
 import { registerHerdrHandoffTab } from "./handoff-tab.ts";
 import { registerHerdrNewSpaceCommand } from "./new-space.ts";
@@ -39,9 +36,9 @@ export async function registerHerdrPiExtension(
 	const sidebarController = createHerdrSidebarControllerWithPiWiring(herdrPi);
 	registerHerdrSidebarCommands(herdrPi, sidebarController);
 	registerHerdrSpaceGoalCommand(herdrPi);
-	registerHerdrSlotDispatchPromptCommand(herdrPi);
-	registerHerdrSlotDispatchPlanCommand(herdrPi);
-	registerHerdrSurfaceDispatchPlanCommand(herdrPi);
+	registerHerdrPromptSpaceImplCommand(herdrPi);
+	registerHerdrPlanSpaceImplCommand(herdrPi);
+	registerHerdrPlanTabImplCommand(herdrPi);
 	registerHerdrNewSpaceCommand(context);
 	registerHerdrNewTabCommand(context);
 	registerHerdrTabGoalCommand(herdrPi);

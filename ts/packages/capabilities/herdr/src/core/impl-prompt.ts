@@ -1,5 +1,5 @@
 import {
-	buildTrackedBranchLaunchPrompt,
+	buildTrackedBranchImplPrompt,
 	buildTrackedBranchPayloadLaunchCommand,
 	createTrackedBranchForPrompt,
 	createTrackedBranchFromLocalTrunkForPrompt,
@@ -20,25 +20,25 @@ import type { GitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
-import { HERDR_SPACE_DISPATCH_PROMPT_COMMAND_NAME } from "./command-surfaces.ts";
+import { HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME } from "./command-surfaces.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
-import { resolveLaunchBranchBasis } from "./launch-branch-basis.ts";
+import { resolveImplBranchBasis } from "./impl-branch-basis.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
-import { dispatchPreparedBranch } from "./prepared-dispatch.ts";
+import { launchPreparedBranch } from "./prepared-launch.ts";
 import { createHerdrSlotClient } from "./slot-checkout.ts";
 
-type DispatchPromptRuntime = CommandExecApi & Pick<HerdrPiCommandApi, "getThinkingLevel">;
-const COMMAND_NAME = HERDR_SPACE_DISPATCH_PROMPT_COMMAND_NAME;
+type ImplPromptRuntime = CommandExecApi & Pick<HerdrPiCommandApi, "getThinkingLevel">;
+const COMMAND_NAME = HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME;
 
-export interface DispatchPromptPayloadOptions extends TrackedBranchPayloadOptions {
+export interface ImplPromptPayloadOptions extends TrackedBranchPayloadOptions {
 	slotClient?: SlotClient;
 	graphite?: Pick<GraphiteBranchGateway, "trunkBranch">;
 	git?: Pick<GitGateway, "currentBranch">;
 	metadataDbAccess?: GraphiteMetadataDbAccess;
 }
 
-export interface HandleHerdrSlotDispatchPromptOptions {
-	pi: DispatchPromptRuntime;
+export interface HandleHerdrSlotImplPromptOptions {
+	pi: ImplPromptRuntime;
 	herdr: HerdrGateway;
 	payloadOptions: ResolvedTrackedBranchPayloadOptions;
 	slotClient?: SlotClient;
@@ -50,8 +50,8 @@ export interface HandleHerdrSlotDispatchPromptOptions {
 	notifyProgress: (message: string) => void;
 }
 
-export async function handleHerdrSlotDispatchPrompt(
-	options: HandleHerdrSlotDispatchPromptOptions,
+export async function handleHerdrSlotImplPrompt(
+	options: HandleHerdrSlotImplPromptOptions,
 ): Promise<void> {
 	const prompt = options.args.trim();
 	if (prompt.length === 0) {
@@ -59,13 +59,13 @@ export async function handleHerdrSlotDispatchPrompt(
 		return;
 	}
 	await options.ctx.waitForIdle();
-	const selection = await resolveLaunchBranchBasis({
+	const selection = await resolveImplBranchBasis({
 		cwd: options.ctx.cwd,
 		git: options.git,
 		interaction: options.ctx,
 	});
 	if (selection.type === "cancelled") {
-		options.ctx.ui.notify("Herdr launch cancelled.", "info");
+		options.ctx.ui.notify("Herdr implementation cancelled.", "info");
 		return;
 	}
 	if (selection.type === "failed") {
@@ -81,12 +81,12 @@ export async function handleHerdrSlotDispatchPrompt(
 		options.ctx.ui.notify(branch.error, "error");
 		return;
 	}
-	await dispatchTrackedBranchPrompt({
+	await implTrackedBranchPrompt({
 		pi: options.pi,
 		herdr: options.herdr,
 		ctx: options.ctx,
 		branch,
-		content: buildTrackedBranchLaunchPrompt(
+		content: buildTrackedBranchImplPrompt(
 			prompt,
 			selection.basis === "trunk" ? LOCAL_TRUNK_DISPATCH_CONTEXT_NOTE : undefined,
 		),
@@ -101,7 +101,7 @@ export async function handleHerdrSlotDispatchPrompt(
 }
 
 async function createCurrentPromptBranch(
-	options: HandleHerdrSlotDispatchPromptOptions,
+	options: HandleHerdrSlotImplPromptOptions,
 	prompt: string,
 	selectedBranch: string,
 ): Promise<TrackedBranchEvidence | { error: string }> {
@@ -116,7 +116,7 @@ async function createCurrentPromptBranch(
 }
 
 async function createTrunkPromptBranch(
-	options: HandleHerdrSlotDispatchPromptOptions,
+	options: HandleHerdrSlotImplPromptOptions,
 	prompt: string,
 ): Promise<TrackedBranchEvidence | { error: string }> {
 	return createTrackedBranchFromLocalTrunkForPrompt({
@@ -129,29 +129,29 @@ async function createTrunkPromptBranch(
 	});
 }
 
-/** Per-flow wording differences in the Herdr dispatch success message. */
-export interface HerdrTrackedBranchDispatchSuccessDetails {
+/** Per-flow wording differences in the Herdr implementation success message. */
+export interface HerdrTrackedBranchImplSuccessDetails {
 	parentLabel: "Parent" | "Parent (trunk)";
 	entryLocator: "include" | "omit";
 }
 
 /**
- * Herdr-owned tracked-branch dispatch sequence shared by current-branch and
- * local-trunk prompt dispatch: store the payload in Branch Memory
+ * Herdr-owned tracked-branch implementation sequence shared by current-branch and
+ * local-trunk prompt implementation: store the payload in Branch Memory
  * (refusing collisions), then open the branch in a new Herdr workspace.
  */
-export async function dispatchTrackedBranchPrompt(options: {
-	pi: DispatchPromptRuntime;
+export async function implTrackedBranchPrompt(options: {
+	pi: ImplPromptRuntime;
 	herdr: HerdrGateway;
 	ctx: CommandContext;
 	branch: TrackedBranchEvidence;
 	content: string;
-	successDetails: HerdrTrackedBranchDispatchSuccessDetails;
+	successDetails: HerdrTrackedBranchImplSuccessDetails;
 	payloadOptions: ResolvedTrackedBranchPayloadOptions;
 	slotClient?: SlotClient;
 	notifyProgress: (message: string) => void;
 }): Promise<void> {
-	options.notifyProgress("Storing dispatch prompt in Branch Memory…");
+	options.notifyProgress("Storing implementation prompt in Branch Memory…");
 	const stored = await storeTrackedBranchPayload({
 		pi: options.pi,
 		cwd: options.ctx.cwd,
@@ -170,7 +170,7 @@ export async function dispatchTrackedBranchPrompt(options: {
 		);
 		return;
 	}
-	const result = await dispatchPreparedBranch(
+	const result = await launchPreparedBranch(
 		{
 			herdr: options.herdr,
 			slotClient: options.slotClient ?? createHerdrSlotClient({ cwd: options.ctx.cwd }),
@@ -197,7 +197,7 @@ export async function dispatchTrackedBranchPrompt(options: {
 				`Opened Herdr workspace: ${result.target.checkout.branchName}`,
 				`${options.successDetails.parentLabel}: ${options.branch.parentBranch}`,
 				`Start point: ${options.branch.startPoint}`,
-				`Dispatch payload: ${stored.value.namespace}/${stored.value.key}`,
+				`Implementation payload: ${stored.value.namespace}/${stored.value.key}`,
 				...(options.successDetails.entryLocator === "include"
 					? [`Entry Locator: ${stored.value.refName}`]
 					: []),
@@ -207,4 +207,4 @@ export async function dispatchTrackedBranchPrompt(options: {
 	}
 }
 
-export const resolveDispatchPromptPayloadOptions = resolveTrackedBranchPayloadOptions;
+export const resolveImplPromptPayloadOptions = resolveTrackedBranchPayloadOptions;

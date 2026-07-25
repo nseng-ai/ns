@@ -71,9 +71,9 @@ describe("herdr Pi extension", () => {
 		await registerHerdrPiExtension(pi);
 
 		expect(HERDR_COMMAND_NAMES).toEqual([
-			"ns:herdr:launch:plan:space",
-			"ns:herdr:launch:plan:tab",
-			"ns:herdr:launch:prompt:space",
+			"ns:herdr:impl:plan:space",
+			"ns:herdr:impl:plan:tab",
+			"ns:herdr:impl:prompt:space",
 			"ns:herdr:space:goal",
 			"ns:herdr:space:new",
 			"ns:herdr:space:objective-summary",
@@ -89,6 +89,9 @@ describe("herdr Pi extension", () => {
 		expect(registered).not.toContain("ns:herdr:tab:plan-dispatch");
 		expect(registered).not.toContain("ns:herdr:objective:sidebar-summary");
 		for (const oldName of [
+			"ns:herdr:launch:prompt:space",
+			"ns:herdr:launch:plan:space",
+			"ns:herdr:launch:plan:tab",
 			"ns:herdr:launch:prompt:br:space",
 			"ns:herdr:launch:prompt:tr:space",
 			"ns:herdr:launch:plan:br:space",

@@ -5,16 +5,16 @@ import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import {
 	formatCurrentBranchChoice,
 	LOCAL_TRUNK_CHOICE_LABEL,
-	resolveLaunchBranchBasis,
-} from "../src/core/launch-branch-basis.ts";
+	resolveImplBranchBasis,
+} from "../src/core/impl-branch-basis.ts";
 import { FakeCommandContext, ROOT } from "./herdr-test-harness.ts";
 
-describe("resolveLaunchBranchBasis", () => {
+describe("resolveImplBranchBasis", () => {
 	test.each(["main", "master"])("selects local trunk automatically on %s", async (branch) => {
 		const git = new InMemoryGitGateway({ currentBranch: branch });
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
-		await expect(resolveLaunchBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
+		await expect(resolveImplBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
 			type: "selected",
 			basis: "trunk",
 		});
@@ -27,7 +27,7 @@ describe("resolveLaunchBranchBasis", () => {
 		const git = new InMemoryGitGateway({ currentBranch: "feature/contextual-launch" });
 		const ctx = new FakeCommandContext({ cwd: ROOT, selectIndices: [0] });
 
-		await expect(resolveLaunchBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
+		await expect(resolveImplBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
 			type: "selected",
 			basis: "current",
 			currentBranch: "feature/contextual-launch",
@@ -42,7 +42,7 @@ describe("resolveLaunchBranchBasis", () => {
 		const git = new InMemoryGitGateway({ currentBranch: "feature/contextual-launch" });
 		const ctx = new FakeCommandContext({ cwd: ROOT, selectIndices: [1] });
 
-		await expect(resolveLaunchBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
+		await expect(resolveImplBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
 			type: "selected",
 			basis: "trunk",
 		});
@@ -52,7 +52,7 @@ describe("resolveLaunchBranchBasis", () => {
 		const git = new InMemoryGitGateway({ currentBranch: "feature/contextual-launch" });
 		const ctx = new FakeCommandContext({ cwd: ROOT, shouldCancelSelect: true });
 
-		await expect(resolveLaunchBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
+		await expect(resolveImplBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
 			type: "cancelled",
 		});
 	});
@@ -61,7 +61,7 @@ describe("resolveLaunchBranchBasis", () => {
 		const git = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
 		const ctx = new FakeCommandContext({ cwd: ROOT, confirmValues: [true] });
 
-		await expect(resolveLaunchBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
+		await expect(resolveImplBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
 			type: "selected",
 			basis: "trunk",
 		});
@@ -72,7 +72,7 @@ describe("resolveLaunchBranchBasis", () => {
 		const git = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
 		const ctx = new FakeCommandContext({ cwd: ROOT, confirmValues: [false] });
 
-		await expect(resolveLaunchBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
+		await expect(resolveImplBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
 			type: "cancelled",
 		});
 	});
@@ -86,7 +86,7 @@ describe("resolveLaunchBranchBasis", () => {
 		});
 		const ctx = new FakeCommandContext({ cwd: ROOT, confirmValues: [true] });
 
-		await expect(resolveLaunchBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
+		await expect(resolveImplBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
 			type: "selected",
 			basis: "trunk",
 		});
@@ -103,7 +103,7 @@ describe("resolveLaunchBranchBasis", () => {
 		});
 		const ctx = new FakeCommandContext({ cwd: ROOT, confirmValues: [false] });
 
-		await expect(resolveLaunchBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
+		await expect(resolveImplBranchBasis({ cwd: ROOT, git, interaction: ctx })).resolves.toEqual({
 			type: "cancelled",
 		});
 	});
@@ -112,7 +112,7 @@ describe("resolveLaunchBranchBasis", () => {
 		const git = new InMemoryGitGateway({ currentBranch: "feature/contextual-launch" });
 		const ctx = new FakeCommandContext({ cwd: ROOT, hasUI: false });
 
-		const result = await resolveLaunchBranchBasis({ cwd: ROOT, git, interaction: ctx });
+		const result = await resolveImplBranchBasis({ cwd: ROOT, git, interaction: ctx });
 		expect(result.type).toBe("failed");
 		if (result.type === "failed")
 			expect(result.message).toContain("Rerun this command interactively");
@@ -127,7 +127,7 @@ describe("resolveLaunchBranchBasis", () => {
 			ui: { notify: ctx.ui.notify },
 		};
 
-		const result = await resolveLaunchBranchBasis({ cwd: ROOT, git, interaction });
+		const result = await resolveImplBranchBasis({ cwd: ROOT, git, interaction });
 		expect(result.type).toBe("failed");
 		if (result.type === "failed") {
 			expect(result.message).toContain("choose the current branch or local trunk");
@@ -143,7 +143,7 @@ describe("resolveLaunchBranchBasis", () => {
 			ui: { notify: ctx.ui.notify },
 		};
 
-		const result = await resolveLaunchBranchBasis({ cwd: ROOT, git, interaction });
+		const result = await resolveImplBranchBasis({ cwd: ROOT, git, interaction });
 		expect(result.type).toBe("failed");
 		if (result.type === "failed") {
 			expect(result.message).toContain("detached");
