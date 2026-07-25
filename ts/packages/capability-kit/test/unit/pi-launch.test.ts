@@ -70,13 +70,13 @@ describe("buildTrackedBranchPayloadLaunchCommand", () => {
 				thinkingLevel: "high",
 			}),
 		).toBe(
-			'payload="$(brmem get prompt.md --namespace ns-launch --branch feature/demo)" && exec pi --provider anthropic --model claude-sonnet --thinking high "$payload"',
+			'payload="$(brmem get prompt.md --namespace ns-impl --branch feature/demo)" && exec pi --provider anthropic --model claude-sonnet --thinking high "$payload"',
 		);
 	});
 
 	test("omits model and thinking flags when unset", () => {
 		expect(buildTrackedBranchPayloadLaunchCommand("feature/demo", { thinkingLevel: "off" })).toBe(
-			'payload="$(brmem get prompt.md --namespace ns-launch --branch feature/demo)" && exec pi "$payload"',
+			'payload="$(brmem get prompt.md --namespace ns-impl --branch feature/demo)" && exec pi "$payload"',
 		);
 	});
 });

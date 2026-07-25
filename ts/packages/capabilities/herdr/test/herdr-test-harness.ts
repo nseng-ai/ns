@@ -574,7 +574,7 @@ export function headStep(): ScriptedExec {
 	return step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` });
 }
 
-export function launchValidationScript(repoRoot: string): ScriptedExec[] {
+export function implValidationScript(repoRoot: string): ScriptedExec[] {
 	return [gitRootStep(repoRoot), gitCurrentBranchStep(), gitOriginStep()];
 }
 

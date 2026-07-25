@@ -40,7 +40,7 @@ import { formatRawTextModelFailure, generateRawTextWithModel } from "./model-slu
 import { MODEL_OPERATION_IDS, loadModelPolicy, resolveModelOperation } from "./model-policy.ts";
 import { buildPiLaunchArgs, type PiLaunchOptions } from "./pi-launch.ts";
 
-export const TRACKED_BRANCH_PAYLOAD_NAMESPACE = "ns-launch";
+export const TRACKED_BRANCH_PAYLOAD_NAMESPACE = "ns-impl";
 export const TRACKED_BRANCH_PAYLOAD_KEY = "prompt.md";
 /** Launch-context note stored with prompts launched from the existing local trunk. */
 export const LOCAL_TRUNK_DISPATCH_CONTEXT_NOTE =
@@ -280,7 +280,14 @@ export function buildTrackedBranchPayloadLaunchCommand(
 	return `payload="$(${getCommand})" && exec ${launchCommand}`;
 }
 
-export function buildTrackedBranchLaunchPrompt(prompt: string, contextNote?: string): string {
+/**
+ * Builds the agent instruction paired with the tracked-branch payload transport.
+ *
+ * Single-consumer justification: keeping the completion envelope beside the payload contract prevents
+ * storage and execution instructions from drifting. Demote this builder to Herdr if its content becomes
+ * Herdr-specific or no longer travels through the tracked-branch payload contract.
+ */
+export function buildTrackedBranchImplPrompt(prompt: string, contextNote?: string): string {
 	return [
 		"## Completion instructions",
 		"After you finish the implementation:",
@@ -298,9 +305,9 @@ export function formatTrackedBranchPayloadStorageFailure(
 	destinationName: string,
 ): string {
 	if (error.code === "dispatch_prompt_collision") {
-		return `Created Graphite-tracked branch ${branchName}, but launch prompt payload already exists at Branch Memory ${TRACKED_BRANCH_PAYLOAD_NAMESPACE}/${TRACKED_BRANCH_PAYLOAD_KEY} on that branch.\nRefusing to overwrite; no ${destinationName} was opened.`;
+		return `Created Graphite-tracked branch ${branchName}, but implementation prompt payload already exists at Branch Memory ${TRACKED_BRANCH_PAYLOAD_NAMESPACE}/${TRACKED_BRANCH_PAYLOAD_KEY} on that branch.\nRefusing to overwrite; no ${destinationName} was opened.`;
 	}
-	return `Created Graphite-tracked branch ${branchName}, but failed to store launch prompt payload in Branch Memory.\nNo ${destinationName} was opened.\n\n${error.message}`;
+	return `Created Graphite-tracked branch ${branchName}, but failed to store implementation prompt payload in Branch Memory.\nNo ${destinationName} was opened.\n\n${error.message}`;
 }
 
 async function generateTrackedBranchSlug(
@@ -394,7 +401,7 @@ async function stagePayload(
 	branchName: string,
 	content: string,
 ): Promise<{ filePath: string; cleanup(): Promise<void> }> {
-	const directory = options.stagingDir ?? (await mkdtemp(join(tmpdir(), "ns-launch-prompt-")));
+	const directory = options.stagingDir ?? (await mkdtemp(join(tmpdir(), "ns-impl-prompt-")));
 	await mkdir(directory, { recursive: true });
 	const stem = sanitizeBranchName(branchName)?.replace(/\//g, "-") ?? "prompt";
 	const filePath = join(directory, `${options.now()}-${stem}.md`);

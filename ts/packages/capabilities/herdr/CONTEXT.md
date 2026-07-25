@@ -21,7 +21,7 @@ A launched work item keeps its model-derived normalized semantic slug distinct f
 *Avoid*: collision suffix as display identity, branch name as tab label, guessed dry-run slot prefix
 
 **Herdr space**:
-The Herdr workspace resource addressed by `/ns:herdr:space:*` commands. Space commands create or rename a workspace, or launch work into a newly created workspace. Plan launch labels the new space with the content-derived branch-context slug so its displayed name describes the planned work.
+The Herdr workspace resource addressed by `/ns:herdr:space:*` commands. Space commands create or rename a workspace; implementation workflows may use a newly created space as their destination. Plan implementation labels the new space with the content-derived branch-context slug so its displayed name describes the planned work.
 *Avoid*: workflow family, dispatch workspace as a separate resource kind, cmux workspace, command-and-source-branch sentence as a plan-dispatch label
 
 **Herdr tab**:
@@ -68,13 +68,21 @@ The `/ns:herdr:space:objective-summary` workflow that resolves an Objective slug
 The current `/ns:herdr:space:objective-summary` implementation applies only a workspace label. Branch metadata reporting remains deferred.
 *Avoid*: metadata transport, inferred slot from arbitrary basename, partial cmux parity
 
-**Contextual launch branch basis**:
-The invocation-time policy shared by prompt-to-space, plan-to-space, and plan-to-tab. Named `main` or `master` selects the existing local Graphite trunk automatically; another named branch offers Current branch (`<name>`) or Local trunk; detached HEAD or current-branch lookup failure offers confirmed local-trunk fallback. Herdr never fetches or refreshes trunk: callers update local trunk separately before launch when desired. Required interaction without UI and user cancellation both stop before downstream mutation. Plan-to-tab validates and captures caller space identity before Git inspection or interaction.
+**Contextual implementation branch basis**:
+The invocation-time policy shared by prompt-to-space, plan-to-space, and plan-to-tab implementation. Named `main` or `master` selects the existing local Graphite trunk automatically; another named branch offers Current branch (`<name>`) or Local trunk; detached HEAD or current-branch lookup failure offers confirmed local-trunk fallback. Herdr never fetches or refreshes trunk: callers update local trunk separately when desired. Required interaction without UI and user cancellation both stop before downstream mutation. Plan-to-tab validates and captures caller space identity before Git inspection or interaction.
 *Avoid*: command-name branch basis, `--from` override, refreshed trunk, implicit fetch, silent noninteractive default, duplicated prompt/plan selection policy
 
+**Herdr implementation workflow**:
+A Herdr `impl` workflow that implements a prompt or Saved Plan using the existing agent instructions and workflow behavior. `impl` is shorter, avoids collision with dispatch terminology for remote systems, and describes the outcome more accurately than `launch`; destination and process launch remain supporting mechanics.
+*Avoid*: remote dispatch, new agent-behavior contract, process startup as the workflow outcome
+
 **Herdr command catalog**:
-The nine-command Pi surface has six direct resource operations (`space:{new,goal,objective-summary}` and `tab:{new,goal,handoff}`) plus `/ns:herdr:launch:prompt:space`, `/ns:herdr:launch:plan:space`, and `/ns:herdr:launch:plan:tab`. The eight non-Handoff commands are base registrations; `tab:handoff` is the only optional registration. The five former `br`/`tr` launch names have no visible or hidden compatibility aliases.
-*Avoid*: workflow-family catalog, compound dispatch action names, branch-basis command segment, `/ns:herdr:handoff:*`, `/ns:herdr:objective:*`, `tab:plan-dispatch`
+The nine-command Pi surface has six direct resource operations (`space:{new,goal,objective-summary}` and `tab:{new,goal,handoff}`) plus `/ns:herdr:impl:prompt:space`, `/ns:herdr:impl:plan:space`, and `/ns:herdr:impl:plan:tab`. The eight non-Handoff commands are base registrations; `tab:handoff` is the only optional registration. The former `launch` implementation names and the earlier five `br`/`tr` launch names have no visible or hidden compatibility aliases.
+*Avoid*: workflow-family catalog, compound dispatch action names, branch-basis command segment, `/ns:herdr:handoff:*`, `/ns:herdr:objective:*`, `tab:plan-dispatch`, implementation commands under `/ns:herdr:launch:*`
+
+**Launch mechanics boundary**:
+Launch remains correct vocabulary for supporting mechanics: **Prepared Herdr Launch** owns destination creation and process startup, Pi launch mechanics start the Pi process, `ns-impl` identifies prompt transport/storage for implementation workflows in Branch Memory, and Handoff launch starts pickup after a durable Handoff Artifact is verified. These are distinct from the user-facing implementation workflow.
+*Avoid*: banning launch vocabulary globally, `ns-impl` as command name, Handoff launch for ordinary prompt or plan implementation
 
 **Herdr capability boundary**:
 The `pi` subpackage is the only Herdr capability subpackage that imports neutral `@nseng-ai/pi/...` host helpers; `ns` composes hidden reference-based commands and real same-channel gateways; core stays host-independent.
