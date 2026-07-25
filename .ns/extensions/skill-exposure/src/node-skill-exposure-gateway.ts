@@ -1,6 +1,9 @@
 import { lstat, mkdir, readFile, realpath, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { transformSkillFrontmatter } from "@nseng-ai/harness-artifacts/api";
+import {
+  parseSkillFrontmatterBlock,
+  transformSkillFrontmatter,
+} from "@nseng-ai/harness-artifacts/api";
 import { commandBackedSkillSurface } from "./replacement-registry.ts";
 import { diagnosticsFor, implicationsFor, inferPolicy } from "./policy.ts";
 import type {
@@ -106,6 +109,13 @@ export class NodeSkillExposureGateway implements SkillExposureGateway {
         frontmatter.error.message,
         skillMdDisplay,
       );
+    const parsedFrontmatter = parseSkillFrontmatterBlock(skillMdText);
+    if (!parsedFrontmatter.ok)
+      throw repositoryError(
+        "malformed-skill-frontmatter",
+        `${skillMdDisplay} ${parsedFrontmatter.error.message}`,
+        skillMdDisplay,
+      );
     const sidecarDisplay = `${resolved.relativePath}/agents/openai.yaml`;
     const sidecar = await inspectSidecar(path.join(agentsPath, "openai.yaml"), sidecarDisplay);
     if (sidecar === "symlink" || sidecar === "unexpected")
@@ -116,7 +126,7 @@ export class NodeSkillExposureGateway implements SkillExposureGateway {
       );
     const replacementSurface = commandBackedSkillSurface(resolved.skill);
     const facts: SkillFacts = {
-      modelInvocationDisabled: readBooleanFrontmatter(skillMdText, DISABLE_KEY),
+      modelInvocationDisabled: parsedFrontmatter.value.fields[DISABLE_KEY] === "true",
       managedSidecar: sidecar === "managed",
       sidecarState: sidecar,
       piExcluded: settings.exclusions.includes(`-skills/${resolved.skill}`),
@@ -380,12 +390,6 @@ function result(
 
 function settingsEqual(left: PiSettings, right: PiSettings): boolean {
   return left.exists === right.exists && JSON.stringify(left.data) === JSON.stringify(right.data);
-}
-
-function readBooleanFrontmatter(text: string, key: string): boolean {
-  const end = text.indexOf("\n---", 4);
-  const frontmatter = end === -1 ? "" : text.slice(0, end);
-  return new RegExp(`^${key}:\\s*true\\s*$`, "m").test(frontmatter);
 }
 
 async function safeLstat(target: string) {
