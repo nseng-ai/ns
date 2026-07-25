@@ -182,7 +182,7 @@ Consume hook points:
   command strings. The workflow owns execution: whitespace-split each entry into
   an argv, run sequentially with no shell, abort the surrounding step on first
   failure. `ns flow submit` pre-checks are the production example
-  (`ts/packages/capabilities/flow/src/submit/submit-hooks.ts`).
+  (`ts/packages/incubator/flow/src/submit/submit-hooks.ts`).
 
 Consume prompt points:
 

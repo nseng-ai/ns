@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { installDescriptorExtension } from "./extension-descriptor-install.ts";
 
 export const HANDOFF_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../capabilities/handoffs", import.meta.url),
+	new URL("../../../incubator/handoffs", import.meta.url),
 );
 
 export function installCheckedInHandoffExtension(projectRoot: string): void {

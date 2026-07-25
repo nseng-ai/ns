@@ -15,6 +15,7 @@ import { dirname, join, normalize, relative, resolve } from "node:path";
 
 import {
   ALLOWED_PACKAGE_TIER_DEBT_EDGES,
+  EXTENSION_TIER_ID,
   PACKAGE_TIER_IDS,
   PACKAGE_TIER_POLICY,
   packageEdgeKey,
@@ -28,7 +29,7 @@ function arg(name, fallback) {
 }
 
 const ROOT = arg("root", "ts/packages");
-const KIT = arg("kit", "@nseng-ai/capability-kit");
+const KIT = arg("kit", "@nseng-ai/extension-kit");
 
 // The workspace's own TypeScript compiler, when installed, gives AST-grade
 // import scanning (dynamic import(), multi-line forms, no matches inside
@@ -233,7 +234,7 @@ function tierViolationForEdge(from, to) {
 
 function isAllowedPiSubpackagePeerEdge(from, to) {
   if (to !== "@nseng-ai/pi") return false;
-  if (pkgs[from]?.tier !== "capability") return false;
+  if (pkgs[from]?.tier !== EXTENSION_TIER_ID) return false;
   const manifest = manifests[from];
   return (
     Array.isArray(manifest?.ns?.subpackages) &&

@@ -1,0 +1,741 @@
+import { afterEach, describe, expect, test } from "vitest";
+import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { formatCommand } from "@nseng-ai/foundation/exec";
+import {
+	BRANCH_CONTEXT_NAMESPACE,
+	buildBranchContextCreateOperation,
+	createBranchContextFromFile,
+	createBranchContextFromResolvedSource,
+	formatBranchContextCreateFailure,
+	formatBranchContextCreatePreview,
+	formatBranchContextEvidence,
+	resolveBranchContextCreatePreviewContext,
+	selectBranchContextCreateOperationTarget,
+} from "../src/core/branch-context-creation.ts";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
+import type { BranchContextContext } from "../src/core/context.ts";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
+
+const PLAN_SLUG = "branch-scoped-plan";
+const PLAN_KEY = `${PLAN_SLUG}.md`;
+const PLAN_FILE = "/tmp/branch-scoped-plan.md";
+const TARGET_BRANCH = "branch-contexts/branch-scoped-plan";
+const START_POINT = "0123456789abcdef0123456789abcdef01234567";
+const SOURCE_BRANCH = "feature/source-plan";
+const ROOT = "/repo";
+
+const tempDirs: string[] = [];
+
+const NO_COMMANDS: CommandExecApi = {
+	async exec() {
+		throw new Error("unexpected command execution");
+	},
+};
+
+function branchContext(overrides: Partial<BranchContextContext> = {}): BranchContextContext {
+	const commands = overrides.commands ?? NO_COMMANDS;
+	return {
+		commands,
+		git: overrides.git ?? new InMemoryGitGateway(),
+		brmem: overrides.brmem ?? new InMemoryBranchMemoryGateway(),
+		graphite: overrides.graphite ?? new InMemoryGraphiteBranchGateway(),
+	};
+}
+
+afterEach(async () => {
+	const dirs = tempDirs.splice(0);
+	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
+});
+
+async function makeTempDir(prefix = "branch-context-create-operation-"): Promise<string> {
+	const dir = await realpath(await mkdtemp(join(tmpdir(), prefix)));
+	tempDirs.push(dir);
+	return dir;
+}
+
+async function makePlanFile(): Promise<string> {
+	const dir = await makeTempDir();
+	const filePath = join(dir, "plan.md");
+	await writeFile(filePath, "# Plan\n", "utf8");
+	return filePath;
+}
+
+describe("buildBranchContextCreateOperation", () => {
+	test("derives the default branch, key, namespace, params, and normalized summary", () => {
+		const operation = buildBranchContextCreateOperation({
+			slug: `  ${PLAN_SLUG}  `,
+			filePath: PLAN_FILE,
+			creation: { type: "graphite-current-parent-current-head" },
+			summary: "  Create the branch.  ",
+		});
+
+		expect(operation).toEqual({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			creation: { type: "graphite-current-parent-current-head" },
+			branch: PLAN_SLUG,
+			namespace: BRANCH_CONTEXT_NAMESPACE,
+			key: PLAN_KEY,
+			params: {
+				slug: PLAN_SLUG,
+				filePath: PLAN_FILE,
+				creation: { type: "graphite-current-parent-current-head" },
+				summary: "Create the branch.",
+			},
+			branchSelection: {
+				type: "exact",
+				requestedBranch: PLAN_SLUG,
+				selectedBranch: PLAN_SLUG,
+				collisions: [],
+			},
+			summary: "Create the branch.",
+		});
+		expect(operation.params).not.toHaveProperty("branchSelection");
+	});
+
+	test("keeps the storage key slug-derived when an explicit branch is supplied", () => {
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			creation: { type: "plain-git-current-head" },
+			branchName: `  ${TARGET_BRANCH}  `,
+			summary: "   ",
+		});
+
+		expect(operation.branch).toBe(TARGET_BRANCH);
+		expect(operation.key).toBe(PLAN_KEY);
+		expect(operation.summary).toBeUndefined();
+		expect(operation.branchSelection).toEqual({
+			type: "exact",
+			requestedBranch: TARGET_BRANCH,
+			selectedBranch: TARGET_BRANCH,
+			collisions: [],
+		});
+		expect(operation.params).toEqual({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			creation: { type: "plain-git-current-head" },
+			branchName: TARGET_BRANCH,
+		});
+	});
+});
+
+describe("branch-context create preview", () => {
+	test("formats Graphite mutation commands owned by branch-context", () => {
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			creation: { type: "graphite-current-parent-current-head" },
+			branchName: TARGET_BRANCH,
+		});
+
+		const text = formatBranchContextCreatePreview(operation, {
+			type: "graphite",
+			startPoint: START_POINT,
+			parent: { type: "resolved", branch: SOURCE_BRANCH },
+		});
+
+		expect(text).toContain("Target:");
+		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);
+		expect(text).toContain("Branch creation: graphite");
+		expect(text).toContain(`Start point: ${START_POINT}`);
+		expect(text).toContain(`Branch Memory namespace: ${BRANCH_CONTEXT_NAMESPACE}`);
+		expect(text).toContain(`Branch Memory key: ${PLAN_KEY}`);
+		expect(text).toContain(formatCommand("gt", ["info", SOURCE_BRANCH, "--no-interactive"]));
+		expect(text).toContain(formatCommand("git", ["branch", TARGET_BRANCH, "HEAD"]));
+		expect(text).toContain(
+			formatCommand("gt", ["track", TARGET_BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"]),
+		);
+		expect(text).toContain("Branch-context operations that would run:");
+		expect(text).toContain("Attach plan through the in-process Branch Memory gateway:");
+		expect(text).toContain(`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`);
+		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);
+		expect(text).toContain(`Key: ${PLAN_KEY}`);
+		expect(text).toContain(`Source file: ${PLAN_FILE}`);
+		expect(text).not.toContain("brmem put");
+	});
+
+	test("explicit-basis preview creates at the exact SHA while retaining start-ref provenance", () => {
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			branchName: TARGET_BRANCH,
+			creation: {
+				type: "graphite-explicit",
+				startPoint: START_POINT,
+				startRef: SOURCE_BRANCH,
+				parentBranch: SOURCE_BRANCH,
+			},
+		});
+
+		const text = formatBranchContextCreatePreview(operation, {
+			type: "graphite",
+			startPoint: START_POINT,
+			parent: { type: "resolved", branch: SOURCE_BRANCH },
+		});
+
+		expect(text).toContain(formatCommand("git", ["branch", TARGET_BRANCH, START_POINT]));
+		expect(text).not.toContain(formatCommand("git", ["branch", TARGET_BRANCH, SOURCE_BRANCH]));
+		expect(text).toContain(`Start point: ${START_POINT}`);
+		expect(text).toContain(`--parent ${SOURCE_BRANCH}`);
+	});
+
+	test("omits Graphite tracking for plain Git preview", () => {
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			creation: { type: "plain-git-current-head" },
+		});
+
+		const text = formatBranchContextCreatePreview(operation, {
+			type: "plain-git",
+			startPoint: START_POINT,
+		});
+
+		expect(text).toContain(formatCommand("git", ["branch", PLAN_SLUG, "HEAD"]));
+		expect(text).not.toContain("gt info");
+		expect(text).not.toContain("gt track");
+	});
+
+	test("resolves preview context through the semantic git gateway", async () => {
+		const git = new InMemoryGitGateway({ headCommit: START_POINT });
+
+		const context = await resolveBranchContextCreatePreviewContext(NO_COMMANDS, {
+			cwd: "/repo",
+			context: branchContext({ git }),
+			creation: { type: "plain-git-current-head" },
+		});
+
+		expect(context).toEqual({ type: "plain-git", startPoint: START_POINT });
+		expect(git.headCommitCalls).toEqual([{ cwd: "/repo" }]);
+	});
+});
+
+describe("branch-context create execution", () => {
+	test("resolved-source core creates and attaches through injected gateways", async () => {
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
+			headCommit: START_POINT,
+		});
+		const brmem = new InMemoryBranchMemoryGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const sourceFile = await makePlanFile();
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			creation: { type: "plain-git-current-head" },
+			branchName: TARGET_BRANCH,
+			summary: "Attach the saved plan.",
+		});
+
+		const evidence = await createBranchContextFromResolvedSource({
+			cwd: ROOT,
+			operation,
+			sourceFile,
+			git,
+			brmem,
+			graphite,
+		});
+
+		expect(evidence).toMatchObject({
+			slug: PLAN_SLUG,
+			branch: TARGET_BRANCH,
+			startPoint: START_POINT,
+			key: PLAN_KEY,
+			sourceFile,
+			summary: "Attach the saved plan.",
+		});
+		expect(git.validateBranchRefCalls).toEqual([]);
+		expect(git.headCommitCalls).toEqual([{ cwd: ROOT }]);
+		expect(git.localBranchPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(git.createBranchAtHeadCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(graphite.checkBranchTrackedCalls).toEqual([]);
+		expect(graphite.trackBranchCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toMatchObject([
+			{
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				branch: TARGET_BRANCH,
+				key: PLAN_KEY,
+				content: "# Plan\n",
+			},
+		]);
+	});
+
+	test("invalid target branch refs fail before source file resolution, branch creation, or attachment", async () => {
+		const invalidBranch = "bad branch";
+		const git = new InMemoryGitGateway({ invalidBranchRefs: [invalidBranch] });
+		const brmem = new InMemoryBranchMemoryGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const filePath = await makePlanFile();
+
+		await expect(
+			createBranchContextFromFile(
+				NO_COMMANDS,
+				{
+					slug: PLAN_SLUG,
+					filePath,
+					branchName: invalidBranch,
+					creation: { type: "plain-git-current-head" },
+				},
+				{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
+			),
+		).rejects.toThrow(`Invalid branch ref: ${invalidBranch}`);
+		expect(git.validateBranchRefCalls).toEqual([{ cwd: ROOT, branch: invalidBranch }]);
+		expect(git.headCommitCalls).toEqual([]);
+		expect(git.localBranchPresenceCalls).toEqual([]);
+		expect(git.createBranchAtHeadCalls).toEqual([]);
+		expect(brmem.attachmentPresenceCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
+		expect(graphite.checkBranchTrackedCalls).toEqual([]);
+		expect(graphite.trackBranchCalls).toEqual([]);
+	});
+
+	test("explicit basis creates at the supplied ref and tracks under its coherent parent", async () => {
+		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
+		const brmem = new InMemoryBranchMemoryGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const filePath = await makePlanFile();
+
+		const evidence = await createBranchContextFromFile(
+			NO_COMMANDS,
+			{
+				slug: PLAN_SLUG,
+				filePath,
+				branchName: TARGET_BRANCH,
+				creation: {
+					type: "graphite-explicit",
+					startPoint: START_POINT,
+					startRef: SOURCE_BRANCH,
+					parentBranch: SOURCE_BRANCH,
+				},
+			},
+			{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
+		);
+
+		expect(evidence).toMatchObject({
+			startPoint: START_POINT,
+			creation: {
+				type: "graphite",
+				startRef: SOURCE_BRANCH,
+				parentBranch: SOURCE_BRANCH,
+			},
+		});
+		expect(git.headCommitCalls).toEqual([]);
+		expect(git.currentBranchCalls).toEqual([]);
+		expect(git.createBranchAtStartPointCalls).toEqual([
+			{ cwd: ROOT, branch: TARGET_BRANCH, startPoint: START_POINT },
+		]);
+		expect(graphite.trackBranchCalls).toEqual([
+			{ cwd: ROOT, branch: TARGET_BRANCH, parentBranch: SOURCE_BRANCH },
+		]);
+	});
+
+	test("explicit-basis attachment partial failure reports exact SHA, provenance ref, and Graphite parent", async () => {
+		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
+		const brmem = new InMemoryBranchMemoryGateway({
+			attachFailure: { code: "put_failed", message: "attachment unavailable" },
+		});
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const filePath = await makePlanFile();
+
+		await expect(
+			createBranchContextFromFile(
+				NO_COMMANDS,
+				{
+					slug: PLAN_SLUG,
+					filePath,
+					branchName: TARGET_BRANCH,
+					creation: {
+						type: "graphite-explicit",
+						startPoint: START_POINT,
+						startRef: SOURCE_BRANCH,
+						parentBranch: SOURCE_BRANCH,
+					},
+				},
+				{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
+			),
+		).rejects.toThrow(
+			expect.objectContaining({
+				message: expect.stringContaining(
+					`Start point: ${START_POINT}\nStart ref: ${SOURCE_BRANCH}\nGraphite parent: ${SOURCE_BRANCH}`,
+				),
+			}),
+		);
+		expect(git.createBranchAtStartPointCalls).toEqual([
+			{ cwd: ROOT, branch: TARGET_BRANCH, startPoint: START_POINT },
+		]);
+	});
+
+	test("Graphite creation checks parent trackedness before tracking the new branch", async () => {
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
+			currentBranch: SOURCE_BRANCH,
+			headCommit: START_POINT,
+		});
+		const brmem = new InMemoryBranchMemoryGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const filePath = await makePlanFile();
+
+		const evidence = await createBranchContextFromFile(
+			NO_COMMANDS,
+			{
+				slug: PLAN_SLUG,
+				filePath,
+				branchName: TARGET_BRANCH,
+				creation: { type: "graphite-current-parent-current-head" },
+			},
+			{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
+		);
+
+		expect(evidence).toMatchObject({
+			branch: TARGET_BRANCH,
+			key: PLAN_KEY,
+			sourceFile: filePath,
+		});
+		expect(graphite.checkBranchTrackedCalls).toEqual([{ cwd: ROOT, branch: SOURCE_BRANCH }]);
+		expect(git.createBranchAtHeadCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(graphite.trackBranchCalls).toEqual([
+			{ cwd: ROOT, branch: TARGET_BRANCH, parentBranch: SOURCE_BRANCH },
+		]);
+		expect(brmem.attachPlanCalls).toMatchObject([
+			{
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				branch: TARGET_BRANCH,
+				key: PLAN_KEY,
+				content: "# Plan\n",
+			},
+		]);
+	});
+
+	test("default target branch collision selects a suffixed branch before creation", async () => {
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
+			headCommit: START_POINT,
+			existingBranches: [PLAN_SLUG],
+		});
+		const brmem = new InMemoryBranchMemoryGateway();
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			creation: { type: "plain-git-current-head" },
+		});
+
+		const selected = await selectBranchContextCreateOperationTarget({
+			cwd: ROOT,
+			operation,
+			git,
+			brmem,
+			isExplicitTargetBranch: false,
+		});
+
+		expect(selected.branch).toBe(`${PLAN_SLUG}-2`);
+		expect(selected.key).toBe(PLAN_KEY);
+		expect(selected.branchSelection).toEqual({
+			type: "auto-suffixed",
+			requestedBranch: PLAN_SLUG,
+			selectedBranch: `${PLAN_SLUG}-2`,
+			collisions: [{ branch: PLAN_SLUG, isLocalBranch: true, hasAttachedPlan: false }],
+		});
+		expect(git.createBranchAtHeadCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
+	});
+
+	test("multiple default target collisions select the first absent suffix", async () => {
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
+			headCommit: START_POINT,
+			existingBranches: [PLAN_SLUG, `${PLAN_SLUG}-2`],
+		});
+		const brmem = new InMemoryBranchMemoryGateway();
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			creation: { type: "plain-git-current-head" },
+		});
+
+		const selected = await selectBranchContextCreateOperationTarget({
+			cwd: ROOT,
+			operation,
+			git,
+			brmem,
+			isExplicitTargetBranch: false,
+		});
+
+		expect(selected.branch).toBe(`${PLAN_SLUG}-3`);
+		expect(selected.branchSelection.type).toBe("auto-suffixed");
+		expect(selected.branchSelection.collisions.map((collision) => collision.branch)).toEqual([
+			PLAN_SLUG,
+			`${PLAN_SLUG}-2`,
+		]);
+	});
+
+	test("default target selection treats stale Branch Memory as occupied", async () => {
+		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
+		const brmem = new InMemoryBranchMemoryGateway({
+			entries: [{ branch: PLAN_SLUG, key: PLAN_KEY, content: "# Old plan\n" }],
+		});
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			creation: { type: "plain-git-current-head" },
+		});
+
+		const selected = await selectBranchContextCreateOperationTarget({
+			cwd: ROOT,
+			operation,
+			git,
+			brmem,
+			isExplicitTargetBranch: false,
+		});
+
+		expect(selected.branch).toBe(`${PLAN_SLUG}-2`);
+		expect(selected.branchSelection).toMatchObject({
+			type: "auto-suffixed",
+			collisions: [{ branch: PLAN_SLUG, isLocalBranch: false, hasAttachedPlan: true }],
+		});
+	});
+
+	test("existing target branches fail before checking Branch Memory", async () => {
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
+			headCommit: START_POINT,
+			existingBranches: [TARGET_BRANCH],
+		});
+		const brmem = new InMemoryBranchMemoryGateway({
+			entries: [{ branch: TARGET_BRANCH, key: PLAN_KEY, content: "# Old plan\n" }],
+		});
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const sourceFile = await makePlanFile();
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			creation: { type: "plain-git-current-head" },
+			branchName: TARGET_BRANCH,
+		});
+
+		await expect(
+			createBranchContextFromResolvedSource({
+				cwd: ROOT,
+				operation,
+				sourceFile,
+				git,
+				brmem,
+				graphite,
+			}),
+		).rejects.toThrow("Target branch already exists; refusing to overwrite.");
+		expect(git.localBranchPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(brmem.attachmentPresenceCalls).toEqual([]);
+		expect(git.createBranchAtHeadCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
+	});
+
+	test("stale Branch Memory attachments fail before branch creation", async () => {
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
+			headCommit: START_POINT,
+		});
+		const brmem = new InMemoryBranchMemoryGateway({
+			entries: [{ branch: TARGET_BRANCH, key: PLAN_KEY, content: "# Old plan\n" }],
+		});
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const sourceFile = await makePlanFile();
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			creation: { type: "plain-git-current-head" },
+			branchName: TARGET_BRANCH,
+		});
+
+		await expect(
+			createBranchContextFromResolvedSource({
+				cwd: ROOT,
+				operation,
+				sourceFile,
+				git,
+				brmem,
+				graphite,
+			}),
+		).rejects.toThrow(
+			[
+				"Stale Branch Memory attachment exists for target branch; refusing to create branch context.",
+				"Local branch is absent, but Branch Memory already contains the attached plan key.",
+				`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`,
+				`Branch: ${TARGET_BRANCH}`,
+				`Key: ${PLAN_KEY}`,
+				"Cleanup: run `brmem gc` to preview stale Branch Memory Snapshots, then `brmem gc --yes` to delete them.",
+			].join("\n"),
+		);
+		expect(git.localBranchPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(brmem.attachmentPresenceCalls).toEqual([{ branch: TARGET_BRANCH, key: PLAN_KEY }]);
+		expect(git.createBranchAtHeadCalls).toEqual([]);
+		expect(git.existingBranches).not.toContain(TARGET_BRANCH);
+		expect(brmem.attachPlanCalls).toEqual([]);
+	});
+
+	test("local branch presence failures fail before creating a branch or attaching the plan", async () => {
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
+			headCommit: START_POINT,
+			localBranchPresenceFailures: {
+				[TARGET_BRANCH]: { type: "failure" },
+			},
+		});
+		const brmem = new InMemoryBranchMemoryGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const filePath = await makePlanFile();
+
+		await expect(
+			createBranchContextFromFile(
+				NO_COMMANDS,
+				{
+					slug: PLAN_SLUG,
+					filePath,
+					branchName: TARGET_BRANCH,
+					creation: { type: "plain-git-current-head" },
+				},
+				{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
+			),
+		).rejects.toThrow("Could not determine local branch presence.");
+		expect(git.localBranchPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(git.createBranchAtHeadCalls).toEqual([]);
+		expect(git.existingBranches).not.toContain(TARGET_BRANCH);
+		expect(brmem.attachmentPresenceCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
+	});
+
+	test("untracked Graphite parents fail before creating a branch or attaching the plan", async () => {
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
+			currentBranch: SOURCE_BRANCH,
+			headCommit: START_POINT,
+		});
+		const brmem = new InMemoryBranchMemoryGateway();
+		const graphite = new InMemoryGraphiteBranchGateway({
+			untrackedBranches: [SOURCE_BRANCH],
+			untrackedDetail: `ERROR: Cannot perform this operation on untracked branch ${SOURCE_BRANCH}.`,
+		});
+		const filePath = await makePlanFile();
+
+		await expect(
+			createBranchContextFromFile(
+				NO_COMMANDS,
+				{
+					slug: PLAN_SLUG,
+					filePath,
+					branchName: TARGET_BRANCH,
+					creation: { type: "graphite-current-parent-current-head" },
+				},
+				{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
+			),
+		).rejects.toThrow(
+			"Current branch is not tracked by Graphite; refusing to stack a branch context on it.",
+		);
+		expect(git.createBranchAtHeadCalls).toEqual([]);
+		expect(git.existingBranches).not.toContain(TARGET_BRANCH);
+		expect(graphite.checkBranchTrackedCalls).toEqual([{ cwd: ROOT, branch: SOURCE_BRANCH }]);
+		expect(graphite.trackBranchCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
+	});
+});
+
+describe("branch-context create formatting", () => {
+	test("formats all success evidence fields", () => {
+		const text = formatBranchContextEvidence({
+			slug: PLAN_SLUG,
+			branch: TARGET_BRANCH,
+			creation: {
+				type: "graphite",
+				startRef: "HEAD",
+				parentBranch: SOURCE_BRANCH,
+			},
+			startPoint: START_POINT,
+			namespace: BRANCH_CONTEXT_NAMESPACE,
+			key: PLAN_KEY,
+			refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/branch-contexts---branch-scoped-plan:${PLAN_KEY}`,
+			commit: "abc123",
+			sourceFile: PLAN_FILE,
+			summary: "Create the branch.",
+		});
+
+		expect(text).toContain("Created branch context and attached plan.");
+		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);
+		expect(text).toContain("Branch creation: graphite");
+		expect(text).toContain(`Start point: ${START_POINT}`);
+		expect(text).toContain(`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`);
+		expect(text).toContain(`Key: ${PLAN_KEY}`);
+		expect(text).toContain(
+			`Ref: refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/branch-contexts---branch-scoped-plan:${PLAN_KEY}`,
+		);
+		expect(text).toContain("Commit: abc123");
+		expect(text).toContain(`Source file: ${PLAN_FILE}`);
+		expect(text).toContain(`Slug: ${PLAN_SLUG}`);
+		expect(text).toContain("Summary: Create the branch.");
+	});
+
+	test("formats branch-context failure context with normalized error messages", () => {
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			creation: { type: "graphite-current-parent-current-head" },
+			branchName: TARGET_BRANCH,
+		});
+
+		const text = formatBranchContextCreateFailure(operation, new Error("branch already exists"));
+
+		expect(text).toContain("Failed to create branch context and attach plan.");
+		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);
+		expect(text).toContain("Branch creation: graphite");
+		expect(text).toContain(`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`);
+		expect(text).toContain(`Key: ${PLAN_KEY}`);
+		expect(text).toContain(`Source file: ${PLAN_FILE}`);
+		expect(text).toContain("branch already exists");
+	});
+
+	test("formats explicit basis in failure context", () => {
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			branchName: TARGET_BRANCH,
+			creation: {
+				type: "graphite-explicit",
+				startPoint: START_POINT,
+				startRef: SOURCE_BRANCH,
+				parentBranch: SOURCE_BRANCH,
+			},
+		});
+
+		const text = formatBranchContextCreateFailure(operation, new Error("attach failed"));
+
+		expect(text).toContain(`Start point: ${START_POINT}`);
+		expect(text).toContain(`Start ref: ${SOURCE_BRANCH}`);
+		expect(text).toContain(`Graphite parent: ${SOURCE_BRANCH}`);
+	});
+
+	test("inserts a consequence line before the underlying cause without changing option-less output", () => {
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			creation: { type: "graphite-current-parent-current-head" },
+			branchName: TARGET_BRANCH,
+		});
+		const error = new Error("branch already exists");
+
+		const plain = formatBranchContextCreateFailure(operation, error);
+		const withConsequence = formatBranchContextCreateFailure(operation, error, {
+			consequence: "No Herdr workspace was opened.",
+		});
+
+		expect(withConsequence).toBe(
+			plain.replace(
+				`Source file: ${PLAN_FILE}\n`,
+				`Source file: ${PLAN_FILE}\nNo Herdr workspace was opened.\n`,
+			),
+		);
+		expect(formatBranchContextCreateFailure(operation, error, {})).toBe(plain);
+	});
+});

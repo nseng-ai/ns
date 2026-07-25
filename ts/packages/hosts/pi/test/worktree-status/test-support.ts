@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 
-import { githubWorktreePrStatusQuery } from "@nseng-ai/capability-kit/github/pr-status";
+import { githubWorktreePrStatusQuery } from "@nseng-ai/extension-kit/github/pr-status";
 import type {
 	ExecResult,
 	GtStatus,

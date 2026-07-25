@@ -1,0 +1,33 @@
+{
+	"name": "@nseng-ai/plans",
+	"version": "0.1.4",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./api": "./src/api.ts"
+	},
+	"files": [
+		"src"
+	],
+	"bin": {
+		"enriched-plan": "./src/cli.ts"
+	},
+	"scripts": {
+		"check": "tsc -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/incubator/plans/test",
+		"pack:local": "pnpm --workspace-root exec ns-dev prepare-source-publish-package \"$PWD\" && npm pack ./dist/publish --pack-destination dist",
+		"publish:dry-run": "pnpm --workspace-root exec ns-dev prepare-source-publish-package \"$PWD\" && npm publish --dry-run ./dist/publish"
+	},
+	"dependencies": {
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/extension-kit": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"zod": "catalog:"
+	},
+	"ns": {
+		"tier": "extension"
+	},
+	"publishConfig": {
+		"access": "public"
+	}
+}

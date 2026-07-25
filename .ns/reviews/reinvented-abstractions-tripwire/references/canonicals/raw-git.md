@@ -2,7 +2,7 @@
 
 - Kind key: `raw-git`
 - Canonical: GitGateway
-- Import/path hints: @nseng-ai/foundation/git or capability-owned GitGateway
+- Import/path hints: @nseng-ai/foundation/git or extension-owned GitGateway
 - Raw-form tell: git subprocess invocation and hand-parsed git failures/output
 - Why reuse matters: typed git surface with in-memory fakes and consistent failure behavior
 - Structural exemptions: operations without an equivalent gateway method; sanctioned Graphite boundary calls

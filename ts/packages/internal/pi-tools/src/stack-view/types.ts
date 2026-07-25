@@ -5,7 +5,7 @@
  * can depend on it without pulling in exec or GraphQL concerns.
  */
 
-import type { GithubRepositoryIdentity } from "@nseng-ai/capability-kit/github";
+import type { GithubRepositoryIdentity } from "@nseng-ai/extension-kit/github";
 
 /** Review-thread resolution counts for a single PR. */
 export interface StackViewPrThreads {

@@ -17,7 +17,7 @@
 #   pnpm --dir .ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention --config.verify-deps-before-run=false run check
 #   pnpm --dir .ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention --config.verify-deps-before-run=false run test
 #   pnpm --dir .ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention --config.verify-deps-before-run=false run test:integration
-#   pnpm --dir ts exec vitest run packages/capabilities/reviews/test/unit/review-definition.test.ts
+#   pnpm --dir ts exec vitest run packages/incubator/reviews/test/unit/review-definition.test.ts
 description: |
   Reinvented Abstractions Tripwire: scan the diff for code that reinvents a
   non-trivial abstraction the repo already provides. Start with the local

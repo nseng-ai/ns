@@ -10,7 +10,7 @@ import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
 import type { Clock } from "@nseng-ai/foundation/clock";
 import { systemClock } from "@nseng-ai/foundation/time";
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
-import { shutdownGraphiteMetadataWorker } from "@nseng-ai/capability-kit/graphite/status";
+import { shutdownGraphiteMetadataWorker } from "@nseng-ai/extension-kit/graphite/status";
 import {
 	createPiCommandExecApi,
 	type CommandExecApi,

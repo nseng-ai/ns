@@ -17,9 +17,9 @@ export type {
 	SessionStartContext,
 	ThinkingLevel,
 	UiLike,
-} from "@nseng-ai/capability-kit/pi-types";
+} from "@nseng-ai/extension-kit/pi-types";
 
-import type { ThinkingLevel } from "@nseng-ai/capability-kit/pi-types";
+import type { ThinkingLevel } from "@nseng-ai/extension-kit/pi-types";
 
 const THINKING_LEVELS = [
 	"off",

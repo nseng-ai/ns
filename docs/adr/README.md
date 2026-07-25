@@ -61,3 +61,4 @@ ADRs are durable records of architectural decisions as they were accepted at the
 | 0041 | [Rename SDL to ji](0041-rename-sdl-to-ji.md)                                                                                               |
 | 0042 | [Build Pi Explore Subagents on the Runner-Subagent Substrate](0042-build-pi-explore-subagents-on-runner-subagent-substrate.md)             |
 | 0043 | [Unify subagent tool and runtime selection](0043-unify-subagent-tool-and-runtime-selection.md)                                             |
+| 0044 | [`extension` tier values and a path-derived incubation zone](0044-extension-tier-rename-and-path-derived-incubation-zone.md)               |

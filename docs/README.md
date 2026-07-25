@@ -30,7 +30,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Matt Pocock Skills upstream adaptation](agents/matt-pocock-skills.md): imported Matt-sourced skills, ns-owned overlays, invocation semantics, and future update checklist.
 - [Conflict resolution by thesis reapplication](patterns/thesis-reapplication.md): how to land a branch whose history can no longer be replayed by re-applying its intent against the current baseline, instead of rebasing or resolving conflicts.
 - [Package extraction refactors](patterns/package-extraction-refactors.md): checklist for moving code into a new package while preserving dependency direction, public import boundaries, tests, docs, and validation evidence.
-- [Reviews package README](../ts/packages/capabilities/reviews/README.md): how to configure `.ns/reviews/<key>/review.md`, run Reviews locally, and understand CI discovery/execution.
+- [Reviews package README](../ts/packages/incubator/reviews/README.md): how to configure `.ns/reviews/<key>/review.md`, run Reviews locally, and understand CI discovery/execution.
 - [Reviews and `@pierre/diffs`](reviews-pierre-diffs.md): the reviews diff-parser integration boundary, Pierre APIs used, APIs deliberately not used, and accepted semantic changes from delegating to Pierre.
 - [XDG Base Directory Specification](research/xdg-base-directory-spec.md): where programs read/write config, data, state, cache, and runtime files; the env-var defaults and rules; and how the standard relates to ns's git-native storage principle.
 

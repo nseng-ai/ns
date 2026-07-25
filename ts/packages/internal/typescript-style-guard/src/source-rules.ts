@@ -3,11 +3,11 @@ import * as ts from "typescript";
 
 import {
 	BAN_AS_UNKNOWN_AS,
-	BAN_CAPABILITY_PRIVATE_PEER_IMPORT,
 	BAN_EMPTY_INTERFACE_EXTENDS,
 	BAN_EXTENSION_DESCRIPTOR_STATIC_IMPORT,
+	BAN_EXTENSION_PRIVATE_PEER_IMPORT,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
-	BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE,
+	BAN_LOWER_LAYER_CONCRETE_EXTENSION_SURFACE,
 	BAN_RAW_PRODUCTION_TIMERS,
 	BAN_SHARED_TEST_FAKE_TIMERS,
 	BAN_SHARED_TEST_GLOBAL_LISTENERS,
@@ -15,9 +15,9 @@ import {
 	BAN_SHARED_TEST_PROCESS_MUTATION,
 	BAN_SHARED_TEST_SINGLETON_STATE,
 	BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
-	capabilityPackageNames,
-	type ConcreteCapabilityCommandSurface,
-	concreteCapabilityCommandSurfaces,
+	type ConcreteExtensionCommandSurface,
+	concreteExtensionCommandSurfaces,
+	extensionPackageNames,
 	standaloneToolCommandSurfaces,
 } from "./config.ts";
 import {
@@ -31,6 +31,7 @@ import {
 	packageSubpathForSpecifier,
 	type PackageMetadata,
 } from "./package-metadata.ts";
+import type { PackageTierId } from "./package-tier-taxonomy.ts";
 
 export interface SourceRuleViolation {
 	readonly rule: string;
@@ -161,10 +162,10 @@ export function collectViolations(
 
 		if (
 			ts.isImportDeclaration(node) &&
-			isPrivateCapabilityPeerImport(node, path, packageMetadataByName)
+			isPrivateExtensionPeerImport(node, path, packageMetadataByName)
 		) {
 			violations.push(
-				buildViolation(BAN_CAPABILITY_PRIVATE_PEER_IMPORT, path, sourceFile, node.moduleSpecifier),
+				buildViolation(BAN_EXTENSION_PRIVATE_PEER_IMPORT, path, sourceFile, node.moduleSpecifier),
 			);
 		}
 
@@ -172,14 +173,14 @@ export function collectViolations(
 			violations.push(buildViolation(BAN_AS_UNKNOWN_AS, path, sourceFile, node));
 		}
 
-		if (isLowerLayerConcreteCapabilitySurfaceNode(node, path, packageMetadataByName)) {
+		if (isLowerLayerConcreteExtensionSurfaceNode(node, path, packageMetadataByName)) {
 			violations.push(
 				buildViolationWithText(
-					BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE,
+					BAN_LOWER_LAYER_CONCRETE_EXTENSION_SURFACE,
 					path,
 					sourceFile,
 					node,
-					"Lower-layer production source must not import or encode concrete capability package/command surfaces; keep ownership in the contributing capability package.",
+					"Lower-layer production source must not import or encode concrete extension package/command surfaces; keep ownership in the contributing extension package.",
 				),
 			);
 		}
@@ -226,7 +227,7 @@ const GRAPHITE_METADATA_SINGLETON_METHODS = new Set([
 	"shutdownGraphiteMetadataWorker",
 ]);
 const DESCRIPTOR_ALLOWED_VALUE_IMPORT = "@nseng-ai/sdk";
-const LOWER_LAYER_SURFACE_TIERS = new Set(["neutral-infra", "sdk", "capability-kit"]);
+const LOWER_LAYER_SURFACE_TIERS = new Set<PackageTierId>(["neutral-infra", "sdk", "extension-kit"]);
 const RAW_TIMER_ADAPTER_PATHS = new Set([
 	"ts/packages/infra/foundation/src/time/index.ts",
 	"ts/packages/hosts/pi/src/kit/shared/timers.ts",
@@ -399,7 +400,7 @@ function isFirstPartyExtensionDescriptorPath(
 	return path === `${metadata.packageDir}/${descriptorExport.replace(/^\.\//, "")}`;
 }
 
-function isLowerLayerConcreteCapabilitySurfaceNode(
+function isLowerLayerConcreteExtensionSurfaceNode(
 	node: ts.Node,
 	path: string,
 	packageMetadataByName: ReadonlyMap<string, PackageMetadata>,
@@ -408,8 +409,8 @@ function isLowerLayerConcreteCapabilitySurfaceNode(
 	const literal = stringLiteralText(node);
 	if (literal === undefined) return false;
 	return (
-		isConcreteCapabilityPackageSpecifier(literal) ||
-		isConcreteCapabilityCommandSurfaceLiteral(literal)
+		isConcreteExtensionPackageSpecifier(literal) ||
+		isConcreteExtensionCommandSurfaceLiteral(literal)
 	);
 }
 
@@ -428,7 +429,7 @@ function stringLiteralText(node: ts.Node): string | undefined {
 	return ts.isStringLiteralLike(node) ? node.text : undefined;
 }
 
-function isConcreteCapabilityPackageSpecifier(value: string): boolean {
+function isConcreteExtensionPackageSpecifier(value: string): boolean {
 	const packageName = packageNameForSpecifier(value);
 	if (packageName === undefined) return false;
 	return isConcreteSurfacePackageName(packageName);
@@ -436,12 +437,12 @@ function isConcreteCapabilityPackageSpecifier(value: string): boolean {
 
 function isConcreteSurfacePackageName(packageName: string): boolean {
 	return (
-		capabilityPackageNames.has(packageName) ||
+		extensionPackageNames.has(packageName) ||
 		standaloneToolCommandSurfaces.some((surface) => surface.packageName === packageName)
 	);
 }
 
-function isConcreteCapabilityCommandSurfaceLiteral(value: string): boolean {
+function isConcreteExtensionCommandSurfaceLiteral(value: string): boolean {
 	const nsColonMatch = value.match(/(?:^|\/)ns:([a-z0-9-]+)/);
 	if (nsColonMatch?.[1] !== undefined && hasConcreteSlashPrefix(nsColonMatch[1])) return true;
 
@@ -461,16 +462,16 @@ function hasConcreteCliPrefix(prefix: string): boolean {
 
 function hasConcretePrefix(
 	prefix: string,
-	prefixesOf: (surface: ConcreteCapabilityCommandSurface) => readonly string[],
+	prefixesOf: (surface: ConcreteExtensionCommandSurface) => readonly string[],
 ): boolean {
 	return allConcreteCommandSurfaces().some((surface) => prefixesOf(surface).includes(prefix));
 }
 
-function allConcreteCommandSurfaces(): readonly ConcreteCapabilityCommandSurface[] {
-	return [...concreteCapabilityCommandSurfaces, ...standaloneToolCommandSurfaces];
+function allConcreteCommandSurfaces(): readonly ConcreteExtensionCommandSurface[] {
+	return [...concreteExtensionCommandSurfaces, ...standaloneToolCommandSurfaces];
 }
 
-function isPrivateCapabilityPeerImport(
+function isPrivateExtensionPeerImport(
 	node: ts.ImportDeclaration,
 	path: string,
 	packageMetadataByName: ReadonlyMap<string, PackageMetadata>,
@@ -481,26 +482,26 @@ function isPrivateCapabilityPeerImport(
 	const importerPackageName = packageNameForPath(path, packageMetadataByName);
 	if (importerPackageName === undefined) return false;
 	const importerPackageMetadata = packageMetadataByName.get(importerPackageName);
-	if (importerPackageMetadata?.nsTier !== "capability") return false;
+	if (importerPackageMetadata?.nsTier !== "extension") return false;
 
 	const importedPackageName = packageNameForSpecifier(specifier);
 	if (importedPackageName === undefined) return false;
 	if (importedPackageName === importerPackageName) return false;
 	const importedPackageMetadata = packageMetadataByName.get(importedPackageName);
 	if (importedPackageMetadata?.nsTier === "neutral-infra") return false;
-	if (importedPackageMetadata?.nsTier === "capability-kit") return false;
+	if (importedPackageMetadata?.nsTier === "extension-kit") return false;
 	if (importedPackageName === "@nseng-ai/sdk") return false;
-	if (importedPackageMetadata?.nsTier !== "capability") return false;
+	if (importedPackageMetadata?.nsTier !== "extension") return false;
 
 	const importedSubpath = packageSubpathForSpecifier(specifier, importedPackageName);
 	if (importedSubpath === ".") return false;
 	if (importedSubpath === "./api") return false;
-	if (isPrivateCapabilitySubpath(importedSubpath)) return true;
+	if (isPrivateExtensionSubpath(importedSubpath)) return true;
 
 	return !importedPackageMetadata.exportSubpaths.has(importedSubpath);
 }
 
-function isPrivateCapabilitySubpath(subpath: string): boolean {
+function isPrivateExtensionSubpath(subpath: string): boolean {
 	return (
 		subpath.startsWith("./src/") || subpath === "./internal" || subpath.startsWith("./internal/")
 	);

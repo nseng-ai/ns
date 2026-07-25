@@ -36,9 +36,7 @@ describe("extension point descriptor resolution", () => {
 		"resolves the checked-in Flow $pointId default relative to its descriptor",
 		async ({ pointId, defaultPath, promptFileName }) => {
 			const root = await projectRoot();
-			const flowPackageRoot = fileURLToPath(
-				new URL("../../../capabilities/flow/", import.meta.url),
-			);
+			const flowPackageRoot = fileURLToPath(new URL("../../../incubator/flow/", import.meta.url));
 			await writeFile(join(root, "ns.toml"), `extensions = [${JSON.stringify(flowPackageRoot)}]\n`);
 
 			const catalog = await loadPointCatalogWithDescriptors({

@@ -30,7 +30,7 @@ import {
 import {
 	resolveGithubRepositoryIdentityFromOrigin,
 	type GithubRepositoryIdentity,
-} from "@nseng-ai/capability-kit/github";
+} from "@nseng-ai/extension-kit/github";
 import { objectiveSlugsForBranch } from "./objectives.ts";
 import {
 	execGitCommonDir,
@@ -38,7 +38,7 @@ import {
 	type GraphiteStackGateway,
 	type GraphiteStackGitGateway,
 	type StackInfo,
-} from "@nseng-ai/capability-kit/graphite/stack";
+} from "@nseng-ai/extension-kit/graphite/stack";
 import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
 
 export interface LoadStackViewParams extends StackViewExecContext {

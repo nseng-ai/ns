@@ -6,7 +6,7 @@ It combines the Pi runtime extension API with this repo's command-registration p
 ## Ground rules
 
 - Pi extension commands are registered with `pi.registerCommand(name, { description, handler, ... })`; `name` is the command without the leading `/`.
-- Project-local discovery adapters live under `.pi/extensions/`; durable tested implementation belongs in its owning engineered destination: `@nseng-ai/pi`, a capability `pi` subpackage, or an Internal Pi-tool package under `ts/packages/internal/pi-tools/`.
+- Project-local discovery adapters live under `.pi/extensions/`; durable tested implementation belongs in its owning engineered destination: `@nseng-ai/pi`, an extension `pi` subpackage, or an Internal Pi-tool package under `ts/packages/internal/pi-tools/`.
 - Command handlers receive Pi's `ExtensionCommandContext`. Use command-only methods such as `ctx.waitForIdle()` only inside command handlers.
 - `ctx.ui.setStatus(...)` is footer/status UI. It is not transcript progress.
 - Above-fold transcript progress is explicit: use `sendCommandProgressOrNotify(...)` or `sendCommandProgressMessage(...)` at selected milestones.
@@ -73,13 +73,13 @@ If the same workflow is reachable from both an ns CLI command and a Pi slash-com
 - in CLI adapters, route phases to `ctx.onOutput?.("stderr", text)` when available, otherwise to `stderr`;
 - in Pi rendered flows, avoid duplicating a custom `pi.sendMessage(...)` stream through `NsCommandIo`; use `NsCommandIo` as the fallback when no rendered/live message path exists.
 
-For Herdr capability workflows, read `ts/packages/capabilities/herdr/AGENTS.md` before changing progress behavior. `sendCommandProgressOrNotify(...)` remains the right primitive for Pi-only adapter milestones; `NsCommandIo` is the portable seam for shared CLI/Pi execution.
+For Herdr extension workflows, read `ts/packages/incubator/herdr/AGENTS.md` before changing progress behavior. `sendCommandProgressOrNotify(...)` remains the right primitive for Pi-only adapter milestones; `NsCommandIo` is the portable seam for shared CLI/Pi execution.
 
 ## Checklist for adding or changing a command
 
 Before editing:
 
-- [ ] Identify the owning layer: `.pi/extensions/` discovery adapter, `@nseng-ai/pi` host behavior, a capability `pi` subpackage, or an Internal Pi-tool package.
+- [ ] Identify the owning layer: `.pi/extensions/` discovery adapter, `@nseng-ai/pi` host behavior, an extension `pi` subpackage, or an Internal Pi-tool package.
 - [ ] Read the relevant package `AGENTS.md` and `CONTEXT.md` before naming new concepts.
 - [ ] Pick a command namespace by workflow ownership, not file location. First-party product/orchestration commands default to `/ns:<extension>:...`; keep `/pi:*` for Pi-native UI/session affordances.
 - [ ] Check for existing command names with `rg` or Pi RPC inventory; avoid duplicate public slash commands unless intentionally documented.

@@ -1,0 +1,52 @@
+import { runAutoslotCli } from "../../autoslot/autoslot.ts";
+import { defineCommand, failure, z, type NsCommand } from "@nseng-ai/sdk";
+
+import { runFlowCli } from "../flow-cli-runner.ts";
+import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
+import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
+import { resolveFlowModelSelection } from "../model-policy.ts";
+import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
+
+const autoslotSchema = z.object({
+	slug: z
+		.string()
+		.optional()
+		.describe("Branch slug to use instead of deriving one from the worktree or latest commit."),
+});
+
+export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = defineCommand({
+	name: "autoslot",
+	summary: "Create a Graphite branch from current work, then move it into a managed slot worktree.",
+	description:
+		"Create a Graphite branch from current work, then move it into a managed slot worktree.",
+	schema: autoslotSchema,
+	resultSchema: z.string(),
+	options: { slug: { short: "-s" } },
+	handler: async (ctx, request) => {
+		// Resolve caps at the host-extension seam (house-style §1) and thread them into the Flow CLI
+		// edge so autoslot durable outcomes render in the house style next to where facts are computed.
+		const caps = resolveFlowStreamCaps(ctx);
+		const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
+		if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
+		return await runFlowCli({
+			ctx,
+			successMessage: "Autoslot completed.",
+			failureMessage: "Autoslot failed.",
+			run: async (io) =>
+				await runAutoslotCli({
+					cwd: ctx.cwd,
+					env: ctx.env,
+					args: request.slug === undefined ? {} : { slug: request.slug },
+					textGenerator: ctx.textGenerator,
+					modelSelection: model.modelSelection,
+					caps,
+					exec: io.exec,
+					stdout: io.stdout,
+					stderr: io.stderr,
+					...(ctx.onOutput === undefined ? {} : { onOutput: ctx.onOutput }),
+				}),
+		});
+	},
+});
+
+export default flowAutoslotCommand;

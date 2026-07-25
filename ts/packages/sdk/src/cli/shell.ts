@@ -10,7 +10,7 @@ import {
 	rcPathForShell,
 	renderCommandCdWrapperScript,
 	resolveRequestedShell,
-} from "@nseng-ai/capability-kit/shell-support";
+} from "@nseng-ai/extension-kit/shell-support";
 
 import type { NsCliContext } from "./context.ts";
 

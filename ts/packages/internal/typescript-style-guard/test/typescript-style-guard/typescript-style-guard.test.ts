@@ -8,14 +8,14 @@ import { describe, expect, test } from "vitest";
 import {
 	ADVISORY_OPTIONAL_UNDEFINED_PROPERTY,
 	BAN_AS_UNKNOWN_AS,
-	BAN_CAPABILITY_PRIVATE_PEER_IMPORT,
 	BAN_EMPTY_INTERFACE_EXTENDS,
 	BAN_EXPORTS_SUBPACKAGE_CONFORMANCE,
 	BAN_EXTENSION_DEPENDENCY_CYCLE,
 	BAN_EXTENSION_DESCRIPTOR_STATIC_IMPORT,
+	BAN_EXTENSION_PRIVATE_PEER_IMPORT,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
 	BAN_INTERNAL_SPACE_ADMISSION,
-	BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE,
+	BAN_LOWER_LAYER_CONCRETE_EXTENSION_SURFACE,
 	BAN_PACKAGE_TIER_LAYERING,
 	BAN_RAW_PRODUCTION_TIMERS,
 	BAN_SHARED_TEST_FAKE_TIMERS,
@@ -27,11 +27,11 @@ import {
 	BAN_TOPOLOGY_CIRCLE_CYCLE,
 	BAN_TOPOLOGY_CIRCLE_LAYERING,
 	BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
-	capabilityPackageNames,
-	concreteCapabilityCommandSurfaces,
+	concreteExtensionCommandSurfaces,
 	deferredExtensionCycleComponents,
 	deferredTopologyCircleCycles,
 	extensionGraphPackageNames,
+	extensionPackageNames,
 	type DeferredTopologyCircleCycle,
 	type ManifestDependencyField,
 	type PackageTier,
@@ -79,18 +79,14 @@ const sourceRuleShards: readonly SourceRuleShard[] = [
 		includes: (path) => isInDirectory(path, "ts/packages/infra"),
 	},
 	{
-		name: "ts/packages/capabilities",
-		includes: (path) => isInDirectory(path, "ts/packages/capabilities"),
+		name: "ts/packages/incubator",
+		includes: (path) => isInDirectory(path, "ts/packages/incubator"),
 	},
 	{
 		name: "other ts/packages",
 		includes: (path) =>
 			isInDirectory(path, "ts/packages") &&
-			!isInAnyDirectory(path, [
-				"ts/packages/hosts",
-				"ts/packages/infra",
-				"ts/packages/capabilities",
-			]),
+			!isInAnyDirectory(path, ["ts/packages/hosts", "ts/packages/infra", "ts/packages/incubator"]),
 	},
 	{
 		name: "docs-site",
@@ -131,33 +127,33 @@ describe("TypeScript style guard source rules", () => {
 			expectedRules: [],
 		},
 		{
-			name: "capability peer api import is allowed",
+			name: "extension peer api import is allowed",
 			code: 'import { createHandoff } from "@nseng-ai/handoffs/api";',
-			path: "ts/packages/capabilities/slots/src/core/peer.ts",
+			path: "ts/packages/incubator/slots/src/core/peer.ts",
 			expectedRules: [],
 		},
 		{
-			name: "capability private src import is rejected",
+			name: "extension private src import is rejected",
 			code: 'import { createHandoff } from "@nseng-ai/handoffs/src/create.ts";',
-			path: "ts/packages/capabilities/slots/src/core/peer.ts",
-			expectedRules: [BAN_CAPABILITY_PRIVATE_PEER_IMPORT],
+			path: "ts/packages/incubator/slots/src/core/peer.ts",
+			expectedRules: [BAN_EXTENSION_PRIVATE_PEER_IMPORT],
 		},
 		{
-			name: "capability undeclared subpath import is rejected",
+			name: "extension undeclared subpath import is rejected",
 			code: 'import { createHandoff } from "@nseng-ai/handoffs/private-helper";',
-			path: "ts/packages/capabilities/slots/src/core/peer.ts",
-			expectedRules: [BAN_CAPABILITY_PRIVATE_PEER_IMPORT],
+			path: "ts/packages/incubator/slots/src/core/peer.ts",
+			expectedRules: [BAN_EXTENSION_PRIVATE_PEER_IMPORT],
 		},
 		{
-			name: "foundation git seam import is allowed for capabilities",
+			name: "foundation git seam import is allowed for extensions",
 			code: 'import { RealGitGateway } from "@nseng-ai/foundation/git";',
-			path: "ts/packages/capabilities/slots/src/core/peer.ts",
+			path: "ts/packages/incubator/slots/src/core/peer.ts",
 			expectedRules: [],
 		},
 		{
-			name: "capability-kit import is allowed for capabilities",
-			code: 'import { createNsGitGateway } from "@nseng-ai/capability-kit";',
-			path: "ts/packages/capabilities/slots/src/core/peer.ts",
+			name: "extension-kit import is allowed for extensions",
+			code: 'import { createNsGitGateway } from "@nseng-ai/extension-kit";',
+			path: "ts/packages/incubator/slots/src/core/peer.ts",
 			expectedRules: [],
 		},
 		{
@@ -203,53 +199,53 @@ describe("TypeScript style guard source rules", () => {
 		{
 			name: "ns-extension descriptor implementation import is rejected",
 			code: 'import { defineExtension } from "@nseng-ai/sdk";\nimport { makeCommand } from "./command.ts";',
-			path: "ts/packages/capabilities/pr-feedback/src/ns-extension.ts",
+			path: "ts/packages/incubator/pr-feedback/src/ns-extension.ts",
 			expectedRules: [BAN_EXTENSION_DESCRIPTOR_STATIC_IMPORT],
 		},
 		{
 			name: "ns extension descriptor allows sdk value imports and local type imports",
 			code: 'import { defineExtension, type ExtensionDescriptor } from "@nseng-ai/sdk";\nimport type { CommandConfig } from "./command.ts";\nimport { type LocalDescriptorFact } from "./facts.ts";',
-			path: "ts/packages/capabilities/slots/src/ns/ns-extension.ts",
+			path: "ts/packages/incubator/slots/src/ns/ns-extension.ts",
 			expectedRules: [],
 		},
 		{
-			name: "lower-layer source cannot import concrete capability packages",
+			name: "lower-layer source cannot import concrete extension packages",
 			code: 'import { listObjectives } from "@nseng-ai/slots/api";',
 			path: "ts/packages/sdk/src/example.ts",
-			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
+			expectedRules: [BAN_LOWER_LAYER_CONCRETE_EXTENSION_SURFACE],
 		},
 		{
 			name: "lower-layer source cannot encode concrete slash command surfaces",
 			code: 'const command = "/ns:objective:list";',
 			path: "ts/packages/infra/foundation/src/example.ts",
-			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
+			expectedRules: [BAN_LOWER_LAYER_CONCRETE_EXTENSION_SURFACE],
 		},
 		{
 			name: "lower-layer source cannot encode concrete ns command surfaces",
 			code: 'const command = "ns slot checkout";',
-			path: "ts/packages/capability-kit/src/example.ts",
-			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
+			path: "ts/packages/extension-kit/src/example.ts",
+			expectedRules: [BAN_LOWER_LAYER_CONCRETE_EXTENSION_SURFACE],
 		},
 		{
 			name: "lower-layer source detects singular plan slash alias from descriptor data",
 			code: 'const command = "/ns:plan:save";',
 			path: "ts/packages/infra/brmem/src/example.ts",
-			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
+			expectedRules: [BAN_LOWER_LAYER_CONCRETE_EXTENSION_SURFACE],
 		},
 		{
 			name: "lower-layer source detects real lower-layer package paths through metadata",
 			code: 'const command = "ns flow cp";',
 			path: "ts/packages/sdk/src/example.ts",
-			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
+			expectedRules: [BAN_LOWER_LAYER_CONCRETE_EXTENSION_SURFACE],
 		},
 		{
-			name: "lower-layer source cannot import reviews without treating reviews as a capability",
+			name: "lower-layer source cannot import reviews without treating reviews as an extension",
 			code: 'import { createReviewsClient } from "@nseng-ai/reviews/api";',
 			path: "ts/packages/sdk/src/example.ts",
-			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
+			expectedRules: [BAN_LOWER_LAYER_CONCRETE_EXTENSION_SURFACE],
 		},
 		{
-			name: "capability tests may mention concrete capability command surfaces",
+			name: "extension tests may mention concrete extension command surfaces",
 			code: 'const command = "/ns:objective:list";',
 			path: "ts/packages/sdk/test/scenario/example.test.ts",
 			expectedRules: [],
@@ -423,7 +419,7 @@ describe("TypeScript style guard source rules", () => {
 		{
 			name: "shared tests reject known Graphite metadata singleton lifecycle operations",
 			code: "loadGraphiteMetadataStatusInWorker(input); shutdownGraphiteMetadataWorker();",
-			path: "ts/packages/capability-kit/test/graphite/status.test.ts",
+			path: "ts/packages/extension-kit/test/graphite/status.test.ts",
 			expectedRules: [BAN_SHARED_TEST_SINGLETON_STATE, BAN_SHARED_TEST_SINGLETON_STATE],
 		},
 		{
@@ -458,13 +454,13 @@ describe("TypeScript style guard source rules", () => {
 		},
 	];
 
-	test("concrete capability command-surface descriptors match the capability package set", () => {
+	test("concrete extension command-surface descriptors match the extension package set", () => {
 		expect(
-			concreteCapabilityCommandSurfaces.filter(
-				(surface) => !capabilityPackageNames.has(surface.packageName),
+			concreteExtensionCommandSurfaces.filter(
+				(surface) => !extensionPackageNames.has(surface.packageName),
 			),
 		).toEqual([]);
-		expect(capabilityPackageNames.has("@nseng-ai/reviews")).toBe(false);
+		expect(extensionPackageNames.has("@nseng-ai/reviews")).toBe(false);
 	});
 
 	test.each(cases)("$name", (testCase) => {
@@ -481,16 +477,16 @@ describe("TypeScript style guard source rules", () => {
 		const metadataByName = new Map(packageMetadataByName);
 		metadataByName.set("@acme/conditional", {
 			name: "@acme/conditional",
-			packageDir: "ts/packages/capabilities/conditional",
-			packageJsonPath: "ts/packages/capabilities/conditional/package.json",
+			packageDir: "ts/packages/incubator/conditional",
+			packageJsonPath: "ts/packages/incubator/conditional/package.json",
 			manifest: {
 				name: "@acme/conditional",
 				exports: { "./ns-extension": { import: "./src/ns/extension.ts" } },
-				ns: { tier: "capability" },
+				ns: { tier: "extension" },
 			},
 			manifestContent: "",
-			nsTier: "capability",
-			rawNsTier: "capability",
+			nsTier: "extension",
+			rawNsTier: "extension",
 			nsSubpackages: [],
 			nsRemainder: false,
 			exportSubpaths: new Set(["./ns-extension"]),
@@ -498,7 +494,7 @@ describe("TypeScript style guard source rules", () => {
 
 		const actualRules = collectViolations(
 			'import { defineExtension } from "@nseng-ai/sdk";\nimport { makeCommand } from "./command.ts";',
-			"ts/packages/capabilities/conditional/src/ns/extension.ts",
+			"ts/packages/incubator/conditional/src/ns/extension.ts",
 			metadataByName,
 		).map((violation) => violation.rule);
 
@@ -669,7 +665,7 @@ describe("TypeScript style guard internal-space admission rules", () => {
 				}),
 				internalSpaceSyntheticPackage({
 					name: "@nseng-ai/slots",
-					packageDir: "ts/packages/capabilities/slots",
+					packageDir: "ts/packages/incubator/slots",
 					privateValue: true,
 					dependencies: { "@internal/pi-tools": "workspace:*" },
 				}),
@@ -719,7 +715,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		"@internal/ns-pi-subagents/runner-subagents",
 		"@nseng-ai/areg",
 		"@nseng-ai/slots",
-		"@nseng-ai/capability-kit",
+		"@nseng-ai/extension-kit",
 		"@nseng-ai/foundation",
 		"@nseng-ai/handoffs",
 		"@nseng-ai/pi",
@@ -731,14 +727,14 @@ describe("TypeScript style guard package tier layering rules", () => {
 		["@internal/pi-tools/grill", "internal-tool"],
 		["@internal/ns-pi-subagents/runner-subagents", "internal-tool"],
 		["@nseng-ai/areg", "standalone-tool"],
-		["@nseng-ai/slots", "capability"],
-		["@nseng-ai/capability-kit", "capability-kit"],
+		["@nseng-ai/slots", "extension"],
+		["@nseng-ai/extension-kit", "extension-kit"],
 		["@nseng-ai/foundation", "neutral-infra"],
-		["@nseng-ai/handoffs", "capability"],
+		["@nseng-ai/handoffs", "extension"],
 		["@nseng-ai/pi", "host"],
 		["@nseng-ai/ns", "host"],
 		["@nseng-ai/sdk", "sdk"],
-		["@nseng-ai/slots", "capability"],
+		["@nseng-ai/slots", "extension"],
 	]);
 	const cases: readonly TierLayeringCase[] = [
 		{
@@ -752,22 +748,22 @@ describe("TypeScript style guard package tier layering rules", () => {
 			expectedTextIncludes: "unknown ns.tier",
 		},
 		{
-			name: "capability to host is rejected",
+			name: "extension to host is rejected",
 			edges: [{ from: "@nseng-ai/handoffs", to: "@nseng-ai/pi" }],
-			expectedTextIncludes: "capability-must-not-depend-on-host",
+			expectedTextIncludes: "extension-must-not-depend-on-host",
 		},
 		{
-			name: "sdk to capability is rejected",
+			name: "sdk to extension is rejected",
 			edges: [{ from: "@nseng-ai/sdk", to: "@nseng-ai/handoffs" }],
-			expectedTextIncludes: "sdk-must-not-depend-on-capability",
+			expectedTextIncludes: "sdk-must-not-depend-on-extension",
 		},
 		{
-			name: "retired sdk to slot capability debt is rejected",
+			name: "retired sdk to slot extension debt is rejected",
 			edges: [{ from: "@nseng-ai/sdk", to: "@nseng-ai/slots" }],
-			expectedTextIncludes: "sdk-must-not-depend-on-capability",
+			expectedTextIncludes: "sdk-must-not-depend-on-extension",
 		},
 		{
-			name: "capability to capability is allowed",
+			name: "extension to extension is allowed",
 			edges: [{ from: "@nseng-ai/slots", to: "@nseng-ai/handoffs" }],
 			expectedViolation: false,
 		},
@@ -804,23 +800,23 @@ describe("TypeScript style guard package tier layering rules", () => {
 			expectedTextIncludes: "standalone-tool-must-not-depend-on-internal-tool",
 		},
 		{
-			name: "internal tool to capability is allowed",
+			name: "internal tool to extension is allowed",
 			edges: [{ from: "@internal/ns-pi-subagents/runner-subagents", to: "@nseng-ai/handoffs" }],
 			expectedViolation: false,
 		},
 		{
-			name: "internal tool to capability kit is deliberately allowed by rank policy",
+			name: "internal tool to extension kit is deliberately allowed by rank policy",
 			edges: [
 				{
 					from: "@internal/ns-pi-subagents/runner-subagents",
-					to: "@nseng-ai/capability-kit",
+					to: "@nseng-ai/extension-kit",
 				},
 			],
 			expectedViolation: false,
 		},
 		{
-			name: "capability to capability kit is allowed",
-			edges: [{ from: "@nseng-ai/handoffs", to: "@nseng-ai/capability-kit" }],
+			name: "extension to extension kit is allowed",
+			edges: [{ from: "@nseng-ai/handoffs", to: "@nseng-ai/extension-kit" }],
 			expectedViolation: false,
 		},
 	];
@@ -847,7 +843,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 			new Set(["@nseng-ai/flow", "@nseng-ai/ns"]),
 			[{ from: "@nseng-ai/flow", to: "@nseng-ai/ns" }],
 			new Map([
-				["@nseng-ai/flow", "capability"],
+				["@nseng-ai/flow", "extension"],
 				["@nseng-ai/ns", "host"],
 			]),
 		);
@@ -861,7 +857,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		const violations = collectPackageTierLayeringViolations(metadataByName);
 
 		expect(formatViolations(violations)).toContain(
-			"@nseng-ai/flow (capability) -> @nseng-ai/ns (host)",
+			"@nseng-ai/flow (extension) -> @nseng-ai/ns (host)",
 		);
 	});
 
@@ -908,21 +904,21 @@ describe("TypeScript style guard tier-directory projection rule", () => {
 
 	const cases: readonly TierProjectionCase[] = [
 		{
-			name: "capability in capabilities role dir is allowed",
-			tier: "capability",
-			packageDir: "ts/packages/capabilities/handoffs",
+			name: "extension in extensions role dir is allowed",
+			tier: "extension",
+			packageDir: "ts/packages/extensions/handoffs",
 			shouldViolate: false,
 		},
 		{
-			name: "capability outside capabilities role dir is rejected",
-			tier: "capability",
+			name: "extension outside extensions role dir and the incubation zone is rejected",
+			tier: "extension",
 			packageDir: "ts/packages/hosts/handoffs",
 			shouldViolate: true,
 		},
 		{
-			name: "capability nested below a role-dir child is rejected",
-			tier: "capability",
-			packageDir: "ts/packages/capabilities/handoffs/pi",
+			name: "extension nested below a role-dir child is rejected",
+			tier: "extension",
+			packageDir: "ts/packages/extensions/handoffs/pi",
 			shouldViolate: true,
 		},
 		{
@@ -938,15 +934,27 @@ describe("TypeScript style guard tier-directory projection rule", () => {
 			shouldViolate: true,
 		},
 		{
-			name: "capability-kit at its top-level single-package home is allowed",
-			tier: "capability-kit",
-			packageDir: "ts/packages/capability-kit",
+			name: "extension-kit at its top-level single-package home is allowed",
+			tier: "extension-kit",
+			packageDir: "ts/packages/extension-kit",
 			shouldViolate: false,
 		},
 		{
-			name: "capability-kit below a role dir is rejected",
-			tier: "capability-kit",
-			packageDir: "ts/packages/capabilities/capability-kit",
+			name: "extension-kit outside its top-level home and the incubation zone is rejected",
+			tier: "extension-kit",
+			packageDir: "ts/packages/infra/extension-kit",
+			shouldViolate: true,
+		},
+		{
+			name: "extension-kit inside the incubation zone is exempt from projection",
+			tier: "extension-kit",
+			packageDir: "ts/packages/incubator/extension-kit",
+			shouldViolate: false,
+		},
+		{
+			name: "the incubation zone exemption is one segment deep only",
+			tier: "extension",
+			packageDir: "ts/packages/incubator/slots/pi",
 			shouldViolate: true,
 		},
 		{
@@ -991,13 +999,13 @@ describe("TypeScript style guard tier-directory projection rule", () => {
 	test("packages without a recognized tier are left to the tier layering rule", () => {
 		const metadataByName = buildTierProjectionMetadata(
 			"@nseng-ai/example",
-			"capability",
+			"extension",
 			"ts/packages/hosts/example",
 		);
 		const metadata = metadataByName.get("@nseng-ai/example");
 		if (metadata === undefined) throw new Error("Missing synthetic metadata");
 		const { nsTier, ...metadataWithoutTier } = metadata;
-		expect(nsTier).toBe("capability");
+		expect(nsTier).toBe("extension");
 		metadataByName.set("@nseng-ai/example", metadataWithoutTier);
 
 		expect(formatViolations(collectTierDirectoryProjectionViolations(metadataByName))).toBe("");
@@ -1058,7 +1066,7 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 			id: "@nseng-ai/slots",
 			packageName: "@nseng-ai/slots",
 			component: ".",
-			tier: "capability",
+			tier: "extension",
 			path: "synthetic/slot/src",
 		},
 	];
@@ -1140,7 +1148,7 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 				...buildSyntheticSubpackageMetadata({
 					packageName: "@nseng-ai/consumer",
 					packageDir: "synthetic/consumer",
-					tier: "capability",
+					tier: "extension",
 					subpackages: [],
 					remainder: false,
 				}),
@@ -1611,7 +1619,7 @@ describe("TypeScript style guard extension dependency graph rules", () => {
 		"@nseng-ai/sdk",
 		"@nseng-ai/flow",
 	]);
-	const syntheticCapabilitySdkPiCycleEdges: readonly SyntheticEdge[] = [
+	const syntheticExtensionSdkPiCycleEdges: readonly SyntheticEdge[] = [
 		{ from: "@nseng-ai/flow", to: "@nseng-ai/pi" },
 		{ from: "@nseng-ai/pi", to: "@nseng-ai/sdk" },
 		{ from: "@nseng-ai/sdk", to: "@nseng-ai/flow" },
@@ -1632,8 +1640,8 @@ describe("TypeScript style guard extension dependency graph rules", () => {
 			expectedTextIncludes: "dependencies.@nseng-ai/pi",
 		},
 		{
-			name: "synthetic capability pi sdk manifest cycle is rejected",
-			edges: syntheticCapabilitySdkPiCycleEdges,
+			name: "synthetic extension pi sdk manifest cycle is rejected",
+			edges: syntheticExtensionSdkPiCycleEdges,
 			shouldHaveCycle: true,
 			expectedTextIncludes: "dependencies.@nseng-ai/pi",
 		},
@@ -1898,7 +1906,7 @@ function buildSyntheticPackageMetadata(
 		if (fields === undefined) throw new Error(`Unknown synthetic package ${packageName}`);
 		const rawNsTier = tiersByPackage.has(packageName)
 			? tiersByPackage.get(packageName)
-			: "capability";
+			: "extension";
 		const manifest = buildSyntheticManifest(packageName, fields, rawNsTier);
 		const nsTier = isSyntheticPackageTier(rawNsTier) ? rawNsTier : undefined;
 		metadataByName.set(packageName, {
@@ -1973,8 +1981,8 @@ function buildSyntheticManifest(
 
 function isSyntheticPackageTier(value: SyntheticTier): value is PackageTier {
 	return (
-		value === "capability" ||
-		value === "capability-kit" ||
+		value === "extension" ||
+		value === "extension-kit" ||
 		value === "sdk" ||
 		value === "neutral-infra" ||
 		value === "host" ||

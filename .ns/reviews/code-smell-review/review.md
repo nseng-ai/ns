@@ -16,7 +16,7 @@
 # Reviews, and then run:
 #
 #   dprint check .ns/reviews/code-smell-review/review.md
-#   pnpm --dir ts exec vitest run packages/capabilities/reviews/test/unit/review-definition.test.ts
+#   pnpm --dir ts exec vitest run packages/incubator/reviews/test/unit/review-definition.test.ts
 description: |
   Code-smell-only review: inspect the supplied diff for Fowler-style
   code smells, with blunt but evidence-based feedback and small refactor fixes.

@@ -11,7 +11,7 @@ const BASE_FILES = {
 		scripts: { "pack:local": "node pack.js" },
 	}),
 	"/repo/ts/packages/extensions/example/dist/nseng-ai-example-extension-1.2.3.tgz": "tgz",
-	"/repo/ts/packages/capabilities/objectives/package.json": JSON.stringify({
+	"/repo/ts/packages/incubator/objectives/package.json": JSON.stringify({
 		name: "@nseng-ai/objectives",
 		version: "1.0.0",
 	}),
@@ -219,7 +219,7 @@ describe("install-local-ns-extension", () => {
 				command: "npm",
 				args: [
 					"pack",
-					"/repo/ts/packages/capabilities/objectives",
+					"/repo/ts/packages/incubator/objectives",
 					"--pack-destination",
 					"/repo/tmp/local-npm-packs",
 				],
@@ -246,7 +246,7 @@ describe("install-local-ns-extension", () => {
 			status: "ok",
 			data: {
 				packageName: "@nseng-ai/objectives",
-				packagePath: "/repo/ts/packages/capabilities/objectives",
+				packagePath: "/repo/ts/packages/incubator/objectives",
 			},
 		});
 	});

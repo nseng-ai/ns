@@ -1,7 +1,7 @@
 # Adversarial Reviews
 
 How ns authors and maintains the review definitions under `.ns/reviews/<key>/review.md`
-and keeps their skill stubs consistent. The Reviews capability loads the definitions
+and keeps their skill stubs consistent. The Reviews extension loads the definitions
 and runs them; this document owns the authoring convention: where a review's content
 comes from, how that lineage is recorded, and how the invocation stubs under `skills/`
 stay a single-template surface. Decided 2026-07-12; the product decision and its
@@ -66,7 +66,7 @@ sources and its regeneration procedure end to end. The block records:
 
   ```bash
   dprint check .ns/reviews/<key>/review.md
-  pnpm --dir ts exec vitest run packages/capabilities/reviews/test/unit/review-definition.test.ts
+  pnpm --dir ts exec vitest run packages/incubator/reviews/test/unit/review-definition.test.ts
   ```
 
 The frontmatter below the block must remain loadable by the Reviews capability;

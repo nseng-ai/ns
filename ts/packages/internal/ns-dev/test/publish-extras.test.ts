@@ -173,7 +173,7 @@ describe("generic publish extras", () => {
 	test("a package with no extras is unchanged", async () => {
 		const fixture = await createFixture();
 		const extras = await validatePublishExtras({
-			manifest: { ns: { tier: "capability" } },
+			manifest: { ns: { tier: "extension" } },
 			sourceRoot: fixture.sourceRoot,
 			publishRoot: fixture.publishRoot,
 		});
@@ -192,7 +192,7 @@ interface RawExtra {
 }
 
 function manifest(publishExtras: readonly RawExtra[]) {
-	return { ns: { tier: "capability", subpackages: ["internal"], publishExtras } };
+	return { ns: { tier: "extension", subpackages: ["internal"], publishExtras } };
 }
 
 async function createFixture() {

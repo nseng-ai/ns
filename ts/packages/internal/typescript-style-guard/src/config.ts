@@ -20,7 +20,7 @@ export const skippedDirectoryNames = new Set([
 export const BAN_AS_UNKNOWN_AS = "NS_TS_BAN_AS_UNKNOWN_AS";
 export const BAN_IMPORT_ALIAS_FOR_FIRST_PARTY = "NS_TS_BAN_IMPORT_ALIAS_FOR_FIRST_PARTY";
 export const BAN_EMPTY_INTERFACE_EXTENDS = "NS_TS_BAN_EMPTY_INTERFACE_EXTENDS";
-export const BAN_CAPABILITY_PRIVATE_PEER_IMPORT = "NS_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT";
+export const BAN_EXTENSION_PRIVATE_PEER_IMPORT = "NS_TS_BAN_EXTENSION_PRIVATE_PEER_IMPORT";
 export const BAN_SNAKE_CASE_CLI_MACHINE_VALUE = "NS_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE";
 export const BAN_RAW_PRODUCTION_TIMERS = "NS_TS_BAN_RAW_PRODUCTION_TIMERS";
 export const BAN_SHARED_TEST_MODULE_STATE = "NS_TS_BAN_SHARED_TEST_MODULE_STATE";
@@ -28,8 +28,8 @@ export const BAN_SHARED_TEST_FAKE_TIMERS = "NS_TS_BAN_SHARED_TEST_FAKE_TIMERS";
 export const BAN_SHARED_TEST_PROCESS_MUTATION = "NS_TS_BAN_SHARED_TEST_PROCESS_MUTATION";
 export const BAN_SHARED_TEST_GLOBAL_LISTENERS = "NS_TS_BAN_SHARED_TEST_GLOBAL_LISTENERS";
 export const BAN_SHARED_TEST_SINGLETON_STATE = "NS_TS_BAN_SHARED_TEST_SINGLETON_STATE";
-export const BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE =
-	"NS_TS_BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE";
+export const BAN_LOWER_LAYER_CONCRETE_EXTENSION_SURFACE =
+	"NS_TS_BAN_LOWER_LAYER_CONCRETE_EXTENSION_SURFACE";
 export const BAN_EXTENSION_DESCRIPTOR_STATIC_IMPORT =
 	"NS_TS_BAN_EXTENSION_DESCRIPTOR_STATIC_IMPORT";
 export const BAN_EXTENSION_DEPENDENCY_CYCLE = "NS_TS_BAN_EXTENSION_DEPENDENCY_CYCLE";
@@ -65,13 +65,13 @@ function buildPackageTierAllowedTargets(): Readonly<Record<PackageTier, Readonly
 	return targets;
 }
 
-export interface ConcreteCapabilityCommandSurface {
+export interface ConcreteExtensionCommandSurface {
 	readonly packageName: string;
 	readonly cliPrefixes: readonly string[];
 	readonly slashPrefixes: readonly string[];
 }
 
-export const concreteCapabilityCommandSurfaces = [
+export const concreteExtensionCommandSurfaces = [
 	{ packageName: "@nseng-ai/pr-feedback", cliPrefixes: ["address"], slashPrefixes: ["address"] },
 	{
 		packageName: "@nseng-ai/branch-context",
@@ -83,7 +83,7 @@ export const concreteCapabilityCommandSurfaces = [
 	{ packageName: "@nseng-ai/objectives", cliPrefixes: ["objective"], slashPrefixes: ["objective"] },
 	{ packageName: "@nseng-ai/plans", cliPrefixes: ["plans"], slashPrefixes: ["plans", "plan"] },
 	{ packageName: "@nseng-ai/slots", cliPrefixes: ["slot"], slashPrefixes: ["slot"] },
-] as const satisfies readonly ConcreteCapabilityCommandSurface[];
+] as const satisfies readonly ConcreteExtensionCommandSurface[];
 
 export const standaloneToolCommandSurfaces = [
 	{
@@ -91,10 +91,10 @@ export const standaloneToolCommandSurfaces = [
 		cliPrefixes: ["reviews", "review"],
 		slashPrefixes: ["reviews", "review"],
 	},
-] as const satisfies readonly ConcreteCapabilityCommandSurface[];
+] as const satisfies readonly ConcreteExtensionCommandSurface[];
 
-export const capabilityPackageNames: ReadonlySet<string> = new Set(
-	concreteCapabilityCommandSurfaces.map((surface) => surface.packageName),
+export const extensionPackageNames: ReadonlySet<string> = new Set(
+	concreteExtensionCommandSurfaces.map((surface) => surface.packageName),
 );
 
 export const manifestDependencyFields = [
@@ -104,8 +104,8 @@ export const manifestDependencyFields = [
 ] as const;
 
 export const extensionGraphPackageNames = new Set([
-	...capabilityPackageNames,
-	"@nseng-ai/capability-kit",
+	...extensionPackageNames,
+	"@nseng-ai/extension-kit",
 	"@nseng-ai/sdk",
 	"@nseng-ai/ns",
 	"@nseng-ai/pi",

@@ -1,4 +1,4 @@
-import type { PiSessionReader } from "@nseng-ai/capability-kit/pi-types";
+import type { PiSessionReader } from "@nseng-ai/extension-kit/pi-types";
 
 export function createTestSessionReader(): PiSessionReader {
 	return {

@@ -72,7 +72,7 @@ Criteria" sections carry the invariants), `roadmap.md` (what is done vs. pending
 live there.
 
 Extract the target into a checklist of **invariants** — testable statements like "the
-dependency graph is acyclic", "below-SDK packages hold no domain", "every capability
+dependency graph is acyclic", "below-SDK packages hold no domain", "every extension
 exposes a command face", "package X must delete to zero". These become the report's
 scorecard rows. Use the project's own vocabulary (from `CONTEXT.md` and the target doc)
 for layer and seam names — don't invent your own.
@@ -90,7 +90,7 @@ node <skill-dir>/scripts/extract-graph.mjs --pretty --out <tmp>/graph.json
 `--out` tees the JSON to a file as well as stdout, so step 4 can pass `--graph <tmp>/graph.json`
 and skip a second extraction — one invocation surfaces the facts *and* caches them.
 
-Defaults are tuned for ns (`--root ts/packages`, `--kit @nseng-ai/capability-kit`,
+Defaults are tuned for ns (`--root ts/packages`, `--kit @nseng-ai/extension-kit`,
 `--api-needle api`). Override the flags for a different workspace. The script reports, over
 **runtime edges only** (`dependencies` + `peerDependencies`):
 
@@ -100,7 +100,7 @@ Defaults are tuned for ns (`--root ts/packages`, `--kit @nseng-ai/capability-kit
   highest-level consumer; high fan-in marks the load-bearing infra.
 - `exposesApi` — which packages ship an `/api`-style export (the curated-seam convention).
 - `apiOnly` — packages that expose *only* an API with no command/main face (an anomaly if
-  the target says every capability needs a command face).
+  the target says every extension needs a command face).
 - `kitConsumers` — packages depending on the named substrate/kit (a proxy for "migrated to
   the gateway-injected pattern").
 - `orphans` — zero runtime fan-in; unwired leaves, often the furthest from the model.
@@ -117,7 +117,7 @@ or `"debt"` when the offending edge is on the allowlist. It does not write the e
 verdict. In target mode, map the measured facts to the target's invariants yourself (the
 launcher's synthesizer does this mapping for raw mode). When you need finer detail than package-level manifest edges, prefer the extracted
 `circleGraph` first; use targeted source greps only for questions the static circle graph does not
-classify, such as whether a capability import is intentionally through `/api` or an internal-looking
+classify, such as whether an extension import is intentionally through `/api` or an internal-looking
 subpath.
 
 **This JSON is the evidence base** — it already answers most scorecard rows (`cycles`,
@@ -193,6 +193,6 @@ a register the spec does not express — and prefer extending `build-report.mjs`
 
 Give the user the path, the scorecard/inventory verdict in a compact table, the keystone
 recommendation (target mode) or first deeper-read recommendation (raw inventory mode), and any
-sharp loose ends (an orphan capability, an api-only package, a declared tier violation, a debt
+sharp loose ends (an orphan extension, an api-only package, a declared tier violation, a debt
 edge from a package that is supposed to disappear when a target says so). Offer to drill into
 any finding.

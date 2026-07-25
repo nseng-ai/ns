@@ -5,7 +5,7 @@
  * discriminated-union values, never thrown.
  */
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
-import { GITHUB_CLI_TIMEOUT_MS } from "@nseng-ai/capability-kit/github";
+import { GITHUB_CLI_TIMEOUT_MS } from "@nseng-ai/extension-kit/github";
 
 import { CHECK_LOG_TAIL_MAX_CHARS } from "./enrichment-prompts.ts";
 import type { CommandExecApi } from "./exec.ts";

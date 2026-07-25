@@ -51,7 +51,7 @@ describe("architecture topology report scripts", () => {
 	});
 
 	it("hard-fails on any ns.subpackageTiers declaration, even a well-formed one", () => {
-		const root = writeSubpackageFixture({ admission: "capability" });
+		const root = writeSubpackageFixture({ admission: "extension" });
 
 		const result = spawnSync("node", [extractGraphScript, "--root", root], {
 			encoding: "utf8",

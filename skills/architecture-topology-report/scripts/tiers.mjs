@@ -32,3 +32,16 @@ export function label(id) {
   if (id === "@internal/pi-tools") return "ipt";
   return id.replace(/^@internal\/pi-tools\//, "ipt:").replace(/^@nseng-ai\//, "");
 }
+
+// The tier whose packages present ns extensions. Exported so extraction policy compares
+// against the taxonomy rather than repeating an untyped string literal — this file is .mjs,
+// so `just` never typechecks it and a silent tier rename would decommission the rule that
+// reads it (ADR 0044). Validated against the taxonomy at load so a rename fails loudly here
+// instead of quietly returning no extension edges.
+export const EXTENSION_TIER_ID = "extension";
+if (!PACKAGE_TIER_IDS.includes(EXTENSION_TIER_ID)) {
+  throw new Error(
+    `EXTENSION_TIER_ID ${JSON.stringify(EXTENSION_TIER_ID)} is not a known package tier `
+      + `(${PACKAGE_TIER_IDS.join(", ")}). The tier taxonomy was renamed without updating tiers.mjs.`,
+  );
+}

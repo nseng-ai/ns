@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
-import { runAvailableBrmemCommand } from "@nseng-ai/capability-kit/brmem-cli";
+import { runAvailableBrmemCommand } from "@nseng-ai/extension-kit/brmem-cli";
 import {
 	commandSucceeded,
 	execApiToCommandRunner,
@@ -11,15 +11,15 @@ import {
 } from "@nseng-ai/foundation/command";
 import { RealGitGateway, resolveWorktreeGitDirs } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
-import { runGitHubCli } from "@nseng-ai/capability-kit/github/cli";
-import { resolveGithubRepositoryIdentityFromOrigin } from "@nseng-ai/capability-kit/github/identity";
+import { runGitHubCli } from "@nseng-ai/extension-kit/github/cli";
+import { resolveGithubRepositoryIdentityFromOrigin } from "@nseng-ai/extension-kit/github/identity";
 import {
 	githubWorktreePrStatusArgs,
 	parseGithubWorktreePrStatusJsonResult,
 	type GithubCheckTally,
 	type GithubReviewThreadCounts,
 	type GithubWorktreePrStatusParseResult,
-} from "@nseng-ai/capability-kit/github/pr-status";
+} from "@nseng-ai/extension-kit/github/pr-status";
 import {
 	formatErrorMessage,
 	optionalEntries,
@@ -41,7 +41,7 @@ import {
 	type GraphiteStackTopologyCounts,
 	type GraphiteMetadataWorkerDiagnostic,
 	type LoadGraphiteMetadataStatusInWorkerOptions,
-} from "@nseng-ai/capability-kit/graphite/status";
+} from "@nseng-ai/extension-kit/graphite/status";
 
 import type { CommandExecApi } from "../kit/shared/command-exec.ts";
 import type { CustomMessage, RenderComponent, RenderTheme } from "./types.ts";

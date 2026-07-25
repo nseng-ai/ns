@@ -2,7 +2,7 @@ import {
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
 	resolveModelOperation,
-} from "@nseng-ai/capability-kit/model-policy";
+} from "@nseng-ai/extension-kit/model-policy";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import {
 	dispatchTrackedSingleSubagentFleetRun,

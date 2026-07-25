@@ -162,7 +162,7 @@ Until then, this note preserves the opportunity and its reasoning without implyi
 - `.agents/skills/objective/references/objective-patterns.md`
 - `skills/objective-update/SKILL.md`
 - `docs/objective-system.md`
-- `ts/packages/capabilities/objectives/`
+- `ts/packages/incubator/objectives/`
 - `ns objective exec read-objective ship-objectives-to-customers --format md`
 - `ns objective show ship-objectives-to-customers --format md`
-- `rg -n "read-objective" ts/packages/capabilities/objectives skills .agents/skills`
+- `rg -n "read-objective" ts/packages/incubator/objectives skills .agents/skills`

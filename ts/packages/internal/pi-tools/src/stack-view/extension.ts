@@ -13,7 +13,7 @@ import {
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
 	resolveModelOperation,
-} from "@nseng-ai/capability-kit/model-policy";
+} from "@nseng-ai/extension-kit/model-policy";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import { errorMessage } from "@nseng-ai/pi/shared/errors";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";

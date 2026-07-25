@@ -1,4 +1,4 @@
-import type { PiSessionReader } from "@nseng-ai/capability-kit/pi-types";
+import type { PiSessionReader } from "@nseng-ai/extension-kit/pi-types";
 
 import type {
 	SessionReplacementContext,
@@ -21,7 +21,7 @@ export interface RawPiExecOptions {
 	readonly signal?: AbortSignal;
 	readonly timeout?: number;
 }
-export type { PiSessionEntry, PiSessionReader } from "@nseng-ai/capability-kit/pi-types";
+export type { PiSessionEntry, PiSessionReader } from "@nseng-ai/extension-kit/pi-types";
 export type { ModelInfo, ThinkingLevel } from "./types.ts";
 export type {
 	ExtensionMode,

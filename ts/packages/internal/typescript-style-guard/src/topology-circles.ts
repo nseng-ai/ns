@@ -455,5 +455,5 @@ function isAllowedPiSubpackageCircleEdge(
 	from: TopologyCircleFact,
 	to: TopologyCircleFact,
 ): boolean {
-	return from.tier === "capability" && from.component === "pi" && to.packageName === "@nseng-ai/pi";
+	return from.tier === "extension" && from.component === "pi" && to.packageName === "@nseng-ai/pi";
 }

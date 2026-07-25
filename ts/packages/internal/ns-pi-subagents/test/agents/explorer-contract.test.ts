@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { findWorkspaceRootByMarkers } from "@nseng-ai/capability-kit/workspace-root";
+import { findWorkspaceRootByMarkers } from "@nseng-ai/extension-kit/workspace-root";
 import {
 	PI_AGENT_DEFINITION_SCHEMA,
 	loadPiAgentDefinition,
