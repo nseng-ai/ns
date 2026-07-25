@@ -35,7 +35,6 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		surface: IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 		kind: "specialized-command",
 	},
-	{ skillName: "branch-retro", surface: "branch:retro", kind: "generic-backing-skill" },
 	{ skillName: "changelog-update", surface: "changelog:update", kind: "generic-backing-skill" },
 	{
 		skillName: "code-gt-linearize-descendants",
@@ -85,11 +84,6 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 	{
 		skillName: "objective-refresh",
 		surface: "ns:objective:refresh",
-		kind: "generic-backing-skill",
-	},
-	{
-		skillName: "objective-retro",
-		surface: "ns:objective:retro",
 		kind: "generic-backing-skill",
 	},
 	{ skillName: "pi-grill-ui", surface: "pi:grill-me", kind: "specialized-command" },

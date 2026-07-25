@@ -19,6 +19,7 @@ This root `AGENTS.md` contains only repo-wide rules needed before choosing a dir
 ## Documentation surface
 
 - Pre-launch, user-facing product documentation lives in package `README`s — treat them as the canonical install/quickstart/usage surface. Do not do `docs-site/` content work unless explicitly asked; its deploys are gated until a launch slice removes the gate.
+- ADRs are immutable time-in-place records. Present-tense statements describe the accepted architecture when the ADR was written; do not rewrite an ADR to match the current system. Record later changes in a new superseding ADR and preserve the original decision context.
 
 ## Architecture rules
 

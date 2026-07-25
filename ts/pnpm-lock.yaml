@@ -120,9 +120,6 @@ importers:
       '@nseng-ai/pr-feedback':
         specifier: workspace:*
         version: link:packages/capabilities/pr-feedback
-      '@nseng-ai/retros':
-        specifier: workspace:*
-        version: link:packages/capabilities/retros
       '@nseng-ai/review-reinvention-scanner':
         specifier: workspace:*
         version: link:../.ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention
@@ -389,24 +386,6 @@ importers:
         version: 4.4.3
 
   packages/capabilities/pr-feedback:
-    dependencies:
-      '@nseng-ai/capability-kit':
-        specifier: workspace:*
-        version: link:../../capability-kit
-      '@nseng-ai/clinkr':
-        specifier: workspace:*
-        version: link:../../infra/clinkr
-      '@nseng-ai/foundation':
-        specifier: workspace:*
-        version: link:../../infra/foundation
-      '@nseng-ai/sdk':
-        specifier: workspace:*
-        version: link:../../sdk
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/capabilities/retros:
     dependencies:
       '@nseng-ai/capability-kit':
         specifier: workspace:*

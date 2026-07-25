@@ -118,7 +118,6 @@ describe("command-backed skill registry", () => {
 
 		expect(skillNames).toContain("code-workflows");
 		expect(skillNames).toContain("objective-refresh");
-		expect(skillNames).toContain("objective-retro");
 		expect(skillNames).not.toContain("unregistered-skill-name");
 		expect(skillNames).not.toContain("objective-close");
 		expect(skillNames).not.toContain("objective-create");
@@ -185,8 +184,6 @@ describe("command-backed skill registry", () => {
 describe("derivePiReplacementCommand", () => {
 	test.each([
 		["objective-refresh", "ns:objective:refresh"],
-		["objective-retro", "ns:objective:retro"],
-		["branch-retro", "branch:retro"],
 		["code-workflows", "code:workflows"],
 		["ns-cli-design", "ns:cli:design"],
 		["ns-typescript-style-tripwire", "ns:typescript:style-tripwire"],

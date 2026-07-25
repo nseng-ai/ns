@@ -25,7 +25,7 @@ export default {
     stats: [
       { value: "0", label: "cycles in the graph", sub: "fully acyclic — the old keystone landed", health: "green" },
       { value: "2", label: "hard tier violations", sub: `<span class="font-mono">sdk→slot</span> · <span class="font-mono">cmux→pi</span>`, health: "red" },
-      { value: "6", total: "9", label: "capabilities migrated", sub: "flow ref + 5 closed children", health: "amber" },
+      { value: "6", total: "8", label: "capabilities migrated", sub: "flow ref + 5 closed children", health: "amber" },
       { value: "4", label: "transitional consumers", sub: "completion marker → must hit 0", health: "red" },
     ],
     read:
@@ -34,7 +34,7 @@ export default {
        the <span class="font-mono text-sm">/api</span> seam convention is in place and guarded — and the once-headline
        <span class="font-mono text-sm">autobranch → pi → sdk</span> cycle is <strong>broken</strong>, so the graph is fully acyclic
        and the <span class="font-mono text-sm">ts-guard</span> acyclicity check can hard-fail. Most of what remains is
-       <em>distance</em>: three capabilities not yet modeled, the transitional holding-pen not yet drained, and
+       <em>distance</em>: two capabilities not yet modeled, the transitional holding-pen not yet drained, and
        <span class="font-mono text-sm">cmux</span> still reaching up into the host. <strong>One</strong> item is genuine
        <em>drift</em>, not distance — the SDK imports a capability (<span class="font-mono text-sm">@nseng-ai/sdk → @nseng-ai/slots</span>),
        a layering inversion that should be isolated and cut, not waited out.`,
@@ -49,7 +49,7 @@ export default {
       { label: "Consumer", bg: "#1e293b", labelBg: "#0f172a", noteColor: "#cbd5e1", chipBorder: "#334155",
         packages: [{ name: "cmux" }], note: "highest-fan-out consumer (13) · holds no privileged tier · depends on providers through their /api only" },
       { label: "Capabilities", bg: "#ecfdf5", labelBg: "#10b981", noteColor: "#047857", chipBorder: "#6ee7b7",
-        packages: ["flow*", "handoff", "objective", "branch-context", "plans", "slot", "pr-address", "reviews", "retros"],
+        packages: ["flow*", "handoff", "objective", "branch-context", "plans", "slot", "pr-address", "reviews"],
         note: "command face over a gateway-injected domain core; /api only where a consumer needs it · *flow = in-repo reference" },
       { label: "Kit", bg: "#eef2ff", labelBg: "#818cf8", noteColor: "#4338ca", chipBorder: "#c7d2fe",
         packages: ["capability-kit"], note: "above-SDK substrate — the ctx→gateway adapter + shared result/error shapes (holds no domain)" },
@@ -88,9 +88,9 @@ export default {
     { invariant: `Capability API convention (<span class="font-mono text-xs">@nseng-ai/&lt;cap&gt;/api</span>), gateway-core rule, and deep-import/cycle guard documented + enforced`,
       status: "holds", statusKind: "holds",
       evidence: `6 capabilities ship <span class="font-mono text-xs">/api</span> (<span class="font-mono text-xs">pr-address, slot, plans, branch-context, handoff, objective</span>); guarded by <span class="font-mono text-xs">NS_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT</span>.` },
-    { invariant: `All nine capabilities are above-SDK Capabilities (command face + gateway-injected core), each via a completed child Objective (flow excepted)`,
-      status: "6 / 9", statusKind: "partial",
-      evidence: `Done: <span class="font-mono text-xs">flow</span>(ref) + closed children <span class="font-mono text-xs">slot, branch-context, plans, objective, handoff</span>. Pending: <span class="font-mono text-xs">pr-address, reviews, retros</span> — no child Objective, no kit dependency, no gateway-injected core.` },
+    { invariant: `All eight capabilities are above-SDK Capabilities (command face + gateway-injected core), each via a completed child Objective (flow excepted)`,
+      status: "6 / 8", statusKind: "partial",
+      evidence: `Done: <span class="font-mono text-xs">flow</span>(ref) + closed children <span class="font-mono text-xs">slot, branch-context, plans, objective, handoff</span>. Pending: <span class="font-mono text-xs">pr-address, reviews</span> — no child Objective, no kit dependency, no gateway-injected core.` },
     { invariant: `<span class="font-mono text-xs">cmux</span> depends on providers through their Capability APIs, not <span class="font-mono text-xs">@nseng-ai/pi</span>/<span class="font-mono text-xs">@nseng-ai/sdk</span> internals; no privileged tier`,
       status: "partial", statusKind: "partial",
       evidence: `Fan-out leader (13, highest in the graph) ✓ and reaches <span class="font-mono text-xs">objective/slot/branch-context/plans</span> via <span class="font-mono text-xs">/api</span>. But still imports <span class="font-mono text-xs">@nseng-ai/pi/commands/ack</span> (×9), <span class="font-mono text-xs">@nseng-ai/pi/terminal/presentation</span>, <span class="font-mono text-xs">@nseng-ai/pi/runtime/machine-envelope</span>, and <span class="font-mono text-xs">domain-primitives-transitional</span>.` },
@@ -174,11 +174,11 @@ export default {
     sequence: [
       `1 · cmux off <span class="font-mono">@nseng-ai/pi</span> host internals`,
       `2 · isolate-and-cut <span class="font-mono">sdk → slot</span> via loader mount`,
-      `3 · migrate pr-address / reviews / retros`,
+      `3 · migrate pr-address / reviews`,
       `4 · delete transitional`,
     ],
   },
 
   provenance:
-    `Structural facts extracted deterministically from <span class="font-mono">package.json</span> runtime edges (32 packages, cycles = []); target invariants read from <span class="font-mono">.ns/objectives/sdl-extension-architecture</span> (ADR 0009 / 0012 / 0016).`,
+    `Structural facts extracted deterministically from <span class="font-mono">package.json</span> runtime edges (31 packages, cycles = []); target invariants read from <span class="font-mono">.ns/objectives/sdl-extension-architecture</span> (ADR 0009 / 0012 / 0016).`,
 };

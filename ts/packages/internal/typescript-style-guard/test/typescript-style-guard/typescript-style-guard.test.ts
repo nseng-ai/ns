@@ -1203,15 +1203,6 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 		expect(packageMetadataByName.has(retiredTimePackageName)).toBe(false);
 	});
 
-	test("does not auto-discover undeclared source directories as circles", () => {
-		const circles = discoverTopologyCircles(REPO_ROOT, loadPackageMetadata(REPO_ROOT));
-
-		expect(circles.has("@nseng-ai/retros/operations")).toBe(false);
-		expect(circles.has("@nseng-ai/retros/payloads")).toBe(false);
-		expect(circles.has("@nseng-ai/retros/ns")).toBe(false);
-		expect(circles.has("@nseng-ai/retros/sessions")).toBe(false);
-	});
-
 	test("real repo source circle edges satisfy inherited tier layering", () => {
 		const packageMetadataByName = loadPackageMetadata(REPO_ROOT);
 		const importEdges = collectTopologyCircleImportEdges({
