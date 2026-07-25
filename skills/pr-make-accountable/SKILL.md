@@ -42,13 +42,15 @@ a useful outcome; surface it rather than forcing agreement.
 - Target one existing PR: an explicit number/URL or the current branch's PR. If
   none exists, stop and ask the user to submit first (for example, with
   `ns flow submit`).
-- Use `gh` for PR metadata and the body update; use local `git` read-only for
-  the diff.
-- The only write is complete PR-body replacement with
-  `gh pr edit <n> --body-file <tmpfile>`. Leave commits, branches, labels,
-  reviewers, and repo files unchanged.
-- Keep proposed PR changes advise-only. The author decides and performs them
-  outside this skill.
+- Use `gh` for PR metadata and the body update. Use local `git` to inspect the
+  diff and, when the author approves a change during the interview, to edit and
+  validate the checked-out PR branch.
+- Do not change code speculatively. Before editing, state the proposed change
+  and get the author's explicit approval. Keep unrelated files, labels, and
+  reviewers unchanged.
+- After an approved code change, use the repo's normal commit workflow and
+  resubmit the PR or stack with `ns flow submit`, then rebuild the inventory
+  from the new PR head before continuing the interview.
 
 ## 1. Build the inventory
 
@@ -108,9 +110,11 @@ Apply these rules:
   incomplete-but-correct answers without adding inventory detail.
 - If the interview exposes an undefended decision, unintended behavior, or
   scope that should change, record it and ask whether the author wants to amend
-  the PR first. If yes, pause for external changes and restart at inventory. If
-  no, represent the current PR honestly and route the item to a limitation,
-  reviewer focus, or the consumability report.
+  the PR first. If yes, offer to make the change in the checked-out branch;
+  after approval, edit, validate, commit, resubmit, and restart at inventory.
+  The author may instead make the change externally. If no, represent the
+  current PR honestly and route the item to a limitation, reviewer focus, or
+  the consumability report.
 
 Track every material decision, tradeoff, limitation, and inventory gap as:
 
@@ -171,7 +175,7 @@ gh pr edit <n> --body-file <tmpfile>
 
 ## 4. Report consumability
 
-After the update, give an advise-only verdict with concrete recommendations for
+After the update, give a verdict with concrete recommendations for
 each axis:
 
 - **Size and cohesion** — reviewable and focused, or better split?
