@@ -14,7 +14,7 @@ import {
 import type { CommandContext, NotifyLevel } from "@nseng-ai/extension-kit/pi-types";
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
-import { slotLabelInput } from "./workspace-label.ts";
+import { slotLabelInput } from "./resource-label.ts";
 
 const PI_SIDEBAR_STATUS_KEY = "pi:herdr-sidebar";
 const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {

@@ -4,9 +4,9 @@ Use the repository's Pi extension command checklist for command registration, ac
 
 - [`docs/pi/extension-command-checklist.md`](../../../../docs/pi/extension-command-checklist.md)
 
-## Objective space label
+## Herdr resource labels
 
-The `/ns:herdr:space:objective-summary` command applies one workspace label via `herdr workspace rename`. In a managed ns slot, the label prefixes the Objective with the compact slot (`s1:obj:<slug>`); outside slots it remains `obj:<slug>`. Do not infer slot use from a directory basename alone, add metadata reporting, or add a public generic workspace-summary command. The label-composition policy is provisional and should move behind a Herdr workflow pluggability point when that extension surface is designed.
+Every ns-authored label for a Herdr space associated with a managed ns Slot uses the compact Slot prefix (`s1:<semantic-label>`); outside Slots the semantic label stands alone. Tab labels never use Slot prefixes. Derive Slot identity only from the canonical managed worktree path, never from an arbitrary directory basename. Objective space labels use `[sN:]obj:<slug>`, Handoff tabs use `handoff:<slug>`, and implementation labels use the collision-resolved branch name. Unlabeled resource creation remains unlabeled. The label-composition policy is provisional and should move behind a Herdr workflow pluggability point when that extension surface is designed.
 
 ## Herdr caller targeting
 

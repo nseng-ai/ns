@@ -20,9 +20,11 @@ describe("Herdr tab resources", () => {
 		expect(getCallerTabId({})).toBeUndefined();
 	});
 
-	test("tab:new preflights caller workspace then creates a focused tab at cwd", async () => {
+	test("tab:new preflights caller workspace then creates an unprefixed focused tab at cwd", async () => {
 		const herdr = new FakeHerdrGateway();
-		const ctx = new FakeCommandContext({ cwd: "/repo/package" });
+		const ctx = new FakeCommandContext({
+			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3",
+		});
 		await handleHerdrNewTab({
 			herdr,
 			labelDeriver: { deriveLabel: async () => "review-api" },
@@ -35,7 +37,7 @@ describe("Herdr tab resources", () => {
 			{
 				options: {
 					workspaceId: "w-1",
-					cwd: "/repo/package",
+					cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3",
 					shouldFocus: true,
 					label: "review-api",
 				},
@@ -121,7 +123,7 @@ describe("Herdr tab resources", () => {
 		expect(herdr.createTabCalls).toEqual([]);
 	});
 
-	test("tab:goal shares goal slug and slot-prefix policy but renames only caller tab", async () => {
+	test("tab:goal uses an unprefixed goal slug and renames only caller tab", async () => {
 		const pi = new FakePi({
 			script: [gitRootStep(ROOT), step("pi", undefined, { stdout: "add-auth" })],
 			shouldRequireExpectedArgs: false,
@@ -138,9 +140,9 @@ describe("Herdr tab resources", () => {
 			notifyProgress: () => {},
 			env: { HERDR_TAB_ID: " t-9 " },
 		});
-		expect(herdr.renameTabCalls).toEqual([{ tabId: "t-9", label: "s3:add-auth" }]);
+		expect(herdr.renameTabCalls).toEqual([{ tabId: "t-9", label: "add-auth" }]);
 		expect(herdr.renameCalls).toEqual([]);
-		expect(notificationMessages(ctx)).toContain("Applied Herdr tab goal label: s3:add-auth");
+		expect(notificationMessages(ctx)).toContain("Applied Herdr tab goal label: add-auth");
 		pi.assertDone();
 	});
 

@@ -11,12 +11,12 @@ import {
 } from "../core/command-surfaces.ts";
 import { handleHerdrNewTab, handleHerdrTabGoal } from "../core/tab.ts";
 import type { HerdrPiContext } from "./context.ts";
-import { createHerdrSpaceLabelDeriver } from "./new-space-label.ts";
+import { createHerdrResourceLabelDeriver } from "./resource-label.ts";
 import { createHerdrPiCommandApi } from "./pi-command-api.ts";
 
 export function registerHerdrNewTabCommand(context: HerdrPiContext): void {
 	const { commands, herdr } = context;
-	const labelDeriver = createHerdrSpaceLabelDeriver(context);
+	const labelDeriver = createHerdrResourceLabelDeriver(context);
 	registerCommandWithImmediateAck({
 		host: commands,
 		commandName: HERDR_TAB_NEW_COMMAND_NAME,

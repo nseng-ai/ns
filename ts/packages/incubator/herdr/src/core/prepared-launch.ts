@@ -3,11 +3,10 @@ import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slots/api";
 
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import { checkoutSlot, formatSlotCheckoutFailureCause } from "./slot-checkout.ts";
-import { formatGoalWorkspaceLabel, slotLabelInput } from "./workspace-label.ts";
+import { formatHerdrResourceLabel, slotLabelInput } from "./resource-label.ts";
 
 export interface PreparedLaunchPayload {
 	readonly branchName: string;
-	readonly semanticSlug: string;
 	readonly launchCommand: string;
 }
 
@@ -82,7 +81,6 @@ export async function launchPreparedBranch(
 	const created = await createPreparedLaunchDestination({
 		destination: options.destination,
 		target,
-		semanticSlug: payload.semanticSlug,
 		herdr: context.herdr,
 		notify: context.notify,
 		...(context.onStatus === undefined ? {} : { onStatus: context.onStatus }),
@@ -137,15 +135,14 @@ export async function launchPreparedBranch(
 async function createPreparedLaunchDestination(options: {
 	destination: PreparedLaunchDestination;
 	target: SlotCheckoutTarget;
-	semanticSlug: string;
 	herdr: HerdrGateway;
 	notify: (message: string, level: NotifyLevel) => void;
 	onStatus?: (message: string | undefined) => void;
 }): Promise<CreatedPreparedLaunchDestination | FailedPreparedLaunchResult> {
 	if (options.destination.type === "workspace") {
 		options.onStatus?.("opening Herdr workspace…");
-		const label = formatGoalWorkspaceLabel({
-			slug: options.semanticSlug,
+		const label = formatHerdrResourceLabel({
+			semanticLabel: options.target.branchName,
 			...slotLabelInput(options.target.worktreePath),
 		});
 		const created = await options.herdr.createWorkspace({
@@ -183,7 +180,7 @@ async function createPreparedLaunchDestination(options: {
 	const created = await options.herdr.createTab({
 		workspaceId: options.destination.callerWorkspaceId,
 		cwd: options.target.worktreePath,
-		label: options.semanticSlug,
+		label: options.target.branchName,
 		shouldFocus: true,
 	});
 	if (created.type === "failed") {
@@ -207,7 +204,7 @@ async function createPreparedLaunchDestination(options: {
 	return {
 		type: "created",
 		destination: "tab",
-		label: options.semanticSlug,
+		label: options.target.branchName,
 		workspaceId: created.workspaceId,
 		tabId: created.tabId,
 		paneId: created.rootPaneId,

@@ -6,14 +6,14 @@ export function compactSlotSlug(slotSlug: string): string {
 	return `s${Number(match[1])}`;
 }
 
-export interface GoalWorkspaceLabelInput {
-	slug: string;
+export interface HerdrResourceLabelInput {
+	semanticLabel: string;
 	slotSlug?: string;
 }
 
-export function formatGoalWorkspaceLabel(input: GoalWorkspaceLabelInput): string {
-	if (input.slotSlug === undefined) return input.slug;
-	return `${compactSlotSlug(input.slotSlug)}:${input.slug}`;
+export function formatHerdrResourceLabel(input: HerdrResourceLabelInput): string {
+	if (input.slotSlug === undefined) return input.semanticLabel;
+	return `${compactSlotSlug(input.slotSlug)}:${input.semanticLabel}`;
 }
 
 export function slotLabelInput(cwd: string): { slotSlug: string } | Record<string, never> {

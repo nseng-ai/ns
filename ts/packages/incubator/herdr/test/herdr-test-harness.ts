@@ -94,7 +94,7 @@ writeFileSync(
 	join(ROOT, "ns.toml"),
 	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
 );
-export const WORKTREE = "/slot/worktree";
+export const WORKTREE = "/state/slots/repos/ns/worktrees/slot-1";
 export const BRANCH = "herdr-launch-feature";
 export const PLAN_SLUG = "herdr-launch-feature";
 export const PLAN_KEY = `${PLAN_SLUG}.md`;

@@ -24,7 +24,7 @@ import { isExactOptionalIntegrationAbsence } from "../src/pi/extension.ts";
 import { FakeHerdrGateway } from "./herdr-test-harness.ts";
 
 const launchOptions = {
-	cwd: "/repo",
+	cwd: "/state/slots/repos/ns/worktrees/slot-6",
 	launchOptions: {
 		model: { provider: "anthropic", id: "claude-test" },
 		thinkingLevel: "high" as const,
@@ -67,8 +67,8 @@ describe("Herdr Handoff tab destination", () => {
 			{
 				options: {
 					workspaceId: "workspace-1",
-					cwd: "/repo",
-					label: "handoff: continue-feature",
+					cwd: "/state/slots/repos/ns/worktrees/slot-6",
+					label: "handoff:continue-feature",
 					shouldFocus: true,
 				},
 			},
@@ -135,7 +135,7 @@ describe("ns herdr exec handoff-tab launch", () => {
 				workspaceId: "workspace-from-prompt",
 				tabId: "tab-1",
 				rootPaneId: "pane-1",
-				label: "handoff: continue-work",
+				label: "handoff:continue-work",
 				pickupCommand: "/ns:handoff:pickup --branch feature/test continue-work",
 				command:
 					"pi --provider anthropic --model claude-test --thinking high '/ns:handoff:pickup --branch feature/test continue-work'",
@@ -145,7 +145,7 @@ describe("ns herdr exec handoff-tab launch", () => {
 		expect(herdr.createTabCalls[0]?.options).toEqual({
 			workspaceId: "workspace-from-prompt",
 			cwd: "/repo",
-			label: "handoff: continue-work",
+			label: "handoff:continue-work",
 			shouldFocus: true,
 		});
 	});

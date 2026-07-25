@@ -14,7 +14,7 @@ import { HERDR_SPACE_GOAL_COMMAND_NAME } from "./command-surfaces.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { getCallerWorkspaceId } from "./sidebar.ts";
-import { formatGoalWorkspaceLabel, slotLabelInput } from "./workspace-label.ts";
+import { formatHerdrResourceLabel, slotLabelInput } from "./resource-label.ts";
 
 const COMMAND_NAME = HERDR_SPACE_GOAL_COMMAND_NAME;
 
@@ -105,7 +105,10 @@ export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions)
 		return;
 	}
 
-	const label = formatGoalWorkspaceLabel({ slug: slug.text, ...slotLabelInput(options.ctx.cwd) });
+	const label = formatHerdrResourceLabel({
+		semanticLabel: slug.text,
+		...slotLabelInput(options.ctx.cwd),
+	});
 	options.notifyProgress("Renaming Herdr workspace…");
 	const renameResult = await options.herdr.renameWorkspace(workspaceId, label);
 	if (renameResult.type === "failed") {

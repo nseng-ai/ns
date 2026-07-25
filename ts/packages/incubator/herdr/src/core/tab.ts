@@ -3,15 +3,14 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { HERDR_TAB_GOAL_COMMAND_NAME, HERDR_TAB_NEW_COMMAND_NAME } from "./command-surfaces.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
-import type { HerdrSpaceLabelDeriver } from "./new-space.ts";
+import type { HerdrResourceLabelDeriver } from "./new-space.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { generateWorkspaceGoalSlug, resolveHerdrGoal } from "./space-goal.ts";
 import { getCallerTabId, getCallerWorkspaceId } from "./sidebar.ts";
-import { formatGoalWorkspaceLabel, slotLabelInput } from "./workspace-label.ts";
 
 export interface HandleHerdrNewTabOptions {
 	herdr: Pick<HerdrGateway, "createTab">;
-	labelDeriver: HerdrSpaceLabelDeriver;
+	labelDeriver: HerdrResourceLabelDeriver;
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
@@ -30,7 +29,10 @@ export async function handleHerdrNewTab(options: HandleHerdrNewTabOptions): Prom
 	if (description.length > 0) {
 		options.notifyProgress("Deriving a semantic label for the new Herdr tab…");
 		try {
-			label = await options.labelDeriver.deriveLabel({ description, cwd: options.ctx.cwd });
+			label = await options.labelDeriver.deriveLabel({
+				description,
+				cwd: options.ctx.cwd,
+			});
 		} catch (error) {
 			const detail = error instanceof Error ? error.message : String(error);
 			options.ctx.ui.notify(
@@ -99,7 +101,7 @@ export async function handleHerdrTabGoal(options: HandleHerdrTabGoalOptions): Pr
 		if (options.ctx.hasUI !== false) options.ctx.ui.notify(slug.message, "error");
 		return;
 	}
-	const label = formatGoalWorkspaceLabel({ slug: slug.text, ...slotLabelInput(options.ctx.cwd) });
+	const label = slug.text;
 	options.notifyProgress("Renaming Herdr tab…");
 	const result = await options.herdr.renameTab(tabId, label);
 	if (result.type === "failed") {

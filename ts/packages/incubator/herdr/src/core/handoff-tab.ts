@@ -32,7 +32,7 @@ export async function launchHerdrHandoffTab(options: {
 	pickupCommand: string;
 }): Promise<HerdrHandoffTabLaunchResult> {
 	const command = buildPiLaunchCommand(options.pickupCommand, options.launchOptions);
-	const label = `handoff: ${options.slug}`;
+	const label = `handoff:${options.slug}`;
 	const created = await options.herdr.createTab({
 		workspaceId: options.workspaceId,
 		cwd: options.cwd,

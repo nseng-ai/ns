@@ -3,14 +3,15 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { HERDR_SPACE_NEW_COMMAND_NAME } from "./command-surfaces.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
+import { formatHerdrResourceLabel, slotLabelInput } from "./resource-label.ts";
 
-export interface HerdrSpaceLabelDeriver {
+export interface HerdrResourceLabelDeriver {
 	deriveLabel(input: { description: string; cwd: string; signal?: AbortSignal }): Promise<string>;
 }
 
 export interface HandleHerdrNewSpaceOptions {
 	herdr: Pick<HerdrGateway, "createWorkspace">;
-	labelDeriver: HerdrSpaceLabelDeriver;
+	labelDeriver: HerdrResourceLabelDeriver;
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
@@ -22,9 +23,13 @@ export async function handleHerdrNewSpace(options: HandleHerdrNewSpaceOptions): 
 	if (description.length > 0) {
 		options.notifyProgress("Deriving a semantic label for the new Herdr space…");
 		try {
-			label = await options.labelDeriver.deriveLabel({
+			const semanticLabel = await options.labelDeriver.deriveLabel({
 				description,
 				cwd: options.ctx.cwd,
+			});
+			label = formatHerdrResourceLabel({
+				semanticLabel,
+				...slotLabelInput(options.ctx.cwd),
 			});
 		} catch (error) {
 			options.ctx.ui.notify(formatLabelError(error), "error");
