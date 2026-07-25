@@ -153,7 +153,7 @@ usable alone, stronger together, each anchored to a context scope. This is the
 Everything that is not the core is an **extension** built on it. Today's slate includes
 **reviews** (code reviews) and **pr-address** (PR-feedback triage). Extensions get the
 core's scopes, memory, places, and gate for free; skills —
-the harness-facing instructions that let agents drive a capability — ship as part of
+the harness-facing instructions that let agents drive an ns extension — ship as part of
 their extension, not as a separate surface. The core stays small on purpose; the
 ecosystem is where surface area grows. Extensions are the proof the core is a platform,
 not a toolbox.

@@ -50,4 +50,12 @@ Risks:
 
 ## Open Questions
 
-- Which remaining mixed live occurrences are genuine ns-domain residue versus generic ability/support language? Resolve by semantic classification, not repository-wide substring elimination.
+- None. The final scoped pass classified the remaining mixed occurrences as generic ability/support language, code symbols/literals, or qualified model-capability prose.
+
+## Closure
+
+Completed by the final semantic prose cutover. Live product, architecture, Pi, and first-party skill guidance now uses **ns extension**, **Pi extension**, and **extension package API** according to the root `CONTEXT.md` contract; the parent README-positioning reference teaches **the core** and the settled presentation taxonomy without treating capability as an ns category.
+
+The machine-readable cutover had already landed in commit `4afa42169` with ADR 0044: the clean-zone package is `@nseng-ai/extension-kit`, canonical tiers are `extension` and `extension-kit`, and all 11 first-party ns extension packages live directly under `ts/packages/incubator/`. The final Semantic Update records this parent handoff and the deliberately retained generic capability language and code symbols.
+
+Evidence: the bounded scoped terminology search classified every remaining match; `dprint check` passed for all scoped files; `just` passed, including the TypeScript style guard, dependency check, formatting, lint, typecheck, default test suite, and repository-wide Objective edge sweep; and `ns objective check rename-capability-to-extension` passed after closure tracking. No material rename work remains. Historical records and generic ability/support wording remain intentionally unchanged.

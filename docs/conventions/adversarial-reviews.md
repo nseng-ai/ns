@@ -18,7 +18,7 @@ mechanically reviewable per-diff.
 
 Review definitions are managed HITL: **agent-authored, human-reviewed, occasionally
 refreshed and audited**. There is deliberately no codegen and no generation from the
-Reviews capability's skill-surface derivation. The derivation from source doctrine to
+Reviews extension's skill-surface derivation. The derivation from source doctrine to
 per-diff rules is judgment — deciding what is mechanically reviewable in a diff, what
 needs higher context, and how to phrase a rule so a cheap model applies it without
 inventing findings — and no toolchain captures that. The drift failure modes that
@@ -69,7 +69,7 @@ sources and its regeneration procedure end to end. The block records:
   pnpm --dir ts exec vitest run packages/incubator/reviews/test/unit/review-definition.test.ts
   ```
 
-The frontmatter below the block must remain loadable by the Reviews capability;
+The frontmatter below the block must remain loadable by the Reviews extension;
 `review-definition.test.ts` guards this.
 
 ## SKILL.md stub template

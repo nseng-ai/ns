@@ -97,9 +97,10 @@ Review guidance:
 ## Encoded contracts over ambient bags
 
 Per the `typescript-style` ambient-bags rule (`core-rules.md`):
-in ns, extension API dynamic data remains available only for genuinely project-local or
-extension-owned dynamic data. Do not use it to transport first-party SDK/capability values between
-packages; promote those values to typed SDK fields, Capability API parameters, or gateway seams. For
+in ns, `ctx.extensions` dynamic data remains available only for genuinely project-local or
+extension-owned dynamic data. Do not use it to transport first-party SDK or ns-extension values
+between packages; promote those values to typed SDK fields, extension package API parameters, or
+gateway seams. For
 example, prefer `ctx.renderCapabilities: RenderCapabilities` over
 `ctx.extensions?.["ns.clinkr.caps"]`.
 
