@@ -19,6 +19,7 @@ import {
 } from "./surfaces.ts";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
+	branchContextCreationPolicyFromMethod,
 	buildBranchContextOutputMessage,
 	buildBranchContextPlanKey,
 	buildImplBranchContextPrompt,
@@ -421,7 +422,7 @@ export async function deriveCreateBranchContextPreview(
 	const requestedOperation = buildBranchContextCreateOperation({
 		slug: slugEvidence.slug,
 		filePath: selectedFile.filePath,
-		branchCreation,
+		creation: branchContextCreationPolicyFromMethod(branchCreation),
 		...optionalEntry("branchName", target.branchNameForCreation),
 	});
 	let selectedOperation = requestedOperation;
@@ -974,13 +975,13 @@ async function createBranchContextFromPreview({
 	const params: {
 		slug: string;
 		filePath: string;
-		branchCreation: BranchCreationMethod;
+		creation: ReturnType<typeof branchContextCreationPolicyFromMethod>;
 		branchName?: string;
 		summary?: string;
 	} = {
 		slug: preview.slug,
 		filePath: preview.filePath,
-		branchCreation: preview.branchCreation,
+		creation: branchContextCreationPolicyFromMethod(preview.branchCreation),
 	};
 	if (preview.branchNameForCreation !== undefined) {
 		params.branchName = preview.branchNameForCreation;

@@ -44,6 +44,7 @@ import {
 	BRANCH_CREATION_METHODS,
 	createBranchContextFromFile,
 	DEFAULT_BRANCH_CREATION_METHOD,
+	branchContextCreationPolicyFromMethod,
 	formatBranchContextEvidence,
 	type BranchContextEvidence,
 } from "./branch-context-creation.ts";
@@ -119,8 +120,15 @@ const branchSelectionBaseSchema = z.object({
 export const branchContextResultSchema = z.object({
 	slug: z.string(),
 	branch: z.string(),
-	branchCreation: z.enum(BRANCH_CREATION_METHODS),
 	startPoint: z.string(),
+	creation: z.union([
+		z.object({ type: z.literal("plain-git"), startRef: z.string() }),
+		z.object({
+			type: z.literal("graphite"),
+			startRef: z.string(),
+			parentBranch: z.string(),
+		}),
+	]),
 	namespace: z.string(),
 	key: z.string(),
 	refName: z.string(),
@@ -232,7 +240,7 @@ export async function handleCreate(
 					slug: request.slug,
 					filePath: request.planFile,
 					...(request.branch === undefined ? {} : { branchName: request.branch }),
-					branchCreation: request.branchCreation,
+					creation: branchContextCreationPolicyFromMethod(request.branchCreation),
 					...(request.summary === undefined ? {} : { summary: request.summary }),
 				},
 				operationOptions(ctx),
@@ -473,8 +481,8 @@ function formatLoadPlanHuman(
 function branchContextJson(evidence: BranchContextEvidence): {
 	slug: string;
 	branch: string;
-	branchCreation: BranchContextEvidence["branchCreation"];
 	startPoint: string;
+	creation: BranchContextEvidence["creation"];
 	namespace: string;
 	key: string;
 	refName: string;
@@ -492,8 +500,8 @@ function branchContextJson(evidence: BranchContextEvidence): {
 	return {
 		slug: evidence.slug,
 		branch: evidence.branch,
-		branchCreation: evidence.branchCreation,
 		startPoint: evidence.startPoint,
+		creation: evidence.creation,
 		namespace: evidence.namespace,
 		key: evidence.key,
 		refName: evidence.refName,

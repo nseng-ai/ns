@@ -462,7 +462,7 @@ describe("branch-context-from-plan", () => {
 		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
 			slug: PLAN_SLUG,
 			filePath,
-			branchCreation: "plain-git",
+			creation: { type: "plain-git-current-head" },
 		});
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(pi.sentMessages[0]?.content).toContain("Created branch context and attached plan.");
@@ -508,7 +508,11 @@ describe("branch-context-from-plan", () => {
 
 		pi.assertDone();
 		const params = fakes.createBranchCalls[0]?.[1];
-		expect(params).toMatchObject({ slug: PLAN_SLUG, filePath, branchCreation: "plain-git" });
+		expect(params).toMatchObject({
+			slug: PLAN_SLUG,
+			filePath,
+			creation: { type: "plain-git-current-head" },
+		});
 		expect(params).not.toHaveProperty("branchName");
 		expect(params).not.toHaveProperty("branchSelection");
 	});
@@ -528,7 +532,7 @@ describe("branch-context-from-plan", () => {
 		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
 			slug: PLAN_SLUG,
 			filePath,
-			branchCreation: "plain-git",
+			creation: { type: "plain-git-current-head" },
 		});
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(pi.sentMessages[0]?.content).toContain("Created branch context and attached plan.");
@@ -553,7 +557,7 @@ describe("branch-context-from-plan", () => {
 		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
 			slug: PLAN_SLUG,
 			filePath,
-			branchCreation: "graphite",
+			creation: { type: "graphite-current-parent-current-head" },
 		});
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 	});
@@ -571,7 +575,9 @@ describe("branch-context-from-plan", () => {
 		await command?.handler(`${filePath} --yes`, createContext().ctx);
 
 		pi.assertDone();
-		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({ branchCreation: "graphite" });
+		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
+			creation: { type: "graphite-current-parent-current-head" },
+		});
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Key: ${PLAN_KEY}`);
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
@@ -590,7 +596,9 @@ describe("branch-context-from-plan", () => {
 		await command?.handler(`${filePath} --yes --plain-git`, createContext().ctx);
 
 		pi.assertDone();
-		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({ branchCreation: "plain-git" });
+		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
+			creation: { type: "plain-git-current-head" },
+		});
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
 	});
@@ -612,7 +620,7 @@ describe("branch-context-from-plan", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
 			branchName: prefixedBranch,
-			branchCreation: "graphite",
+			creation: { type: "graphite-current-parent-current-head" },
 		});
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${prefixedBranch}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Key: ${PLAN_KEY}`);

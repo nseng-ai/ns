@@ -104,11 +104,16 @@ Full reasoning: `references/type-system.md`.
 - **Model state machines as explicit unions.** Prefer one field like
   `mode: { type: "search"; query: string } | { type: "replace"; pattern: string } | null` over several
   booleans that can drift into impossible combinations.
-- **Classify absence where it arises.** Resolve defaultable absence to a concrete value. `undefined` is
-  a complete contract for optional input/config, an ordinary lookup or find miss, parser/type-guard/probe
-  no-match, a cache miss, a local lifecycle slot, or an explicitly documented no-value/cancellation state.
-  Represent meaningful non-success states as named discriminated variants. Treat an impossible miss as
-  an invariant failure through a checked accessor that returns `T`.
+- **Classify absence where it arises.** Resolve defaultable absence to a concrete value, and handle
+  `undefined` from optional inputs and lookups immediately instead of carrying it into the rest of the
+  code. `undefined` is a complete contract for optional input/config, an ordinary lookup or find miss, a
+  parser/type-guard/probe no-match, a cache miss, a local lifecycle slot, or an explicitly documented
+  no-value/cancellation state; ordinary optional metadata, callbacks, dependency-injection overrides, and
+  `AbortSignal` inputs remain appropriately optional. But **`undefined` with domain meaning** is a code
+  smell: when absence means a domain state such as `current-head`, `legacy-unavailable`, `none`, or
+  `not-found`, model that state as a named discriminated variant rather than an optional property or
+  `T | undefined`. Treat an impossible miss as an invariant failure through a checked accessor that
+  returns `T`.
 - **Do not erase actionable failures as `undefined`.** When a named operation knows why it did not
   succeed and its direct caller must present a message, distinguish outcomes, retry, recover, or preserve
   an invariant, classify the outcome where it arises. Return a coherent discriminated result or the

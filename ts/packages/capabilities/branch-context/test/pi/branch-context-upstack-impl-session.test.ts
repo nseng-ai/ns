@@ -70,7 +70,7 @@ describe("branch-context-upstack-impl-session", () => {
 		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
 			slug: PLAN_SLUG,
 			filePath,
-			branchCreation: "graphite",
+			creation: { type: "graphite-current-parent-current-head" },
 		});
 		expect(
 			pi.execCalls.map((call) => ({
@@ -604,7 +604,9 @@ describe("branch-context-upstack-impl-session", () => {
 		await command?.handler(`${filePath} --yes --plain-git`, context.ctx);
 
 		pi.assertDone();
-		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({ branchCreation: "plain-git" });
+		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
+			creation: { type: "plain-git-current-head" },
+		});
 		expect(
 			pi.execCalls.map((call) => ({
 				command: call.command,

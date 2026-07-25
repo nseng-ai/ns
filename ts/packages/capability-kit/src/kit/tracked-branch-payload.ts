@@ -55,6 +55,7 @@ export interface TrackedBranchEvidence {
 }
 
 export interface LocalGraphiteTrunkPreparation {
+	type: "resolved-local-trunk";
 	trunkBranch: string;
 	startRef: string;
 	startPoint: string;
@@ -176,6 +177,7 @@ export async function prepareLocalGraphiteTrunk(options: {
 		};
 	}
 	return {
+		type: "resolved-local-trunk",
 		trunkBranch: trunk.branch,
 		startRef,
 		startPoint: startPoint.text,

@@ -328,8 +328,11 @@ describe("branch-context CLI surface pinning", () => {
 			data: {
 				slug: PLAN_SLUG,
 				branch: PLAN_SLUG,
-				branchCreation: "plain-git",
 				startPoint: START_POINT,
+				creation: {
+					type: "plain-git",
+					startRef: "HEAD",
+				},
 				namespace: BRANCH_CONTEXT_NAMESPACE,
 				key: PLAN_KEY,
 				refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${PLAN_SLUG}:${PLAN_KEY}`,
@@ -474,8 +477,11 @@ describe("branch-context CLI surface pinning", () => {
 					data: {
 						slug: PLAN_SLUG,
 						branch,
-						branchCreation: "plain-git",
 						startPoint: START_POINT,
+						creation: {
+							type: "plain-git",
+							startRef: "HEAD",
+						},
 						namespace: BRANCH_CONTEXT_NAMESPACE,
 						key: PLAN_KEY,
 						refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,

@@ -1,5 +1,5 @@
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import type { PlanStoreDirectoryEvidence, ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
 import { resolvePlanSourceFile } from "@nseng-ai/plans";
 
@@ -11,8 +11,8 @@ import {
 	resolveBranchContextCreatePreviewContext,
 	selectBranchContextCreateOperationTarget,
 	type BranchContextCreateOperation,
+	type BranchContextCreationPolicy,
 	type BranchContextEvidence,
-	type BranchContextExplicitBasis,
 } from "./branch-context-creation.ts";
 import type { BranchContextContext } from "./context.ts";
 import { derivePlanContentSlug } from "./plan-content-slug.ts";
@@ -44,7 +44,7 @@ export async function preparePlanBranchContext(
 		checkout: PlanStoreDirectoryEvidence;
 		context: BranchContextContext;
 		shouldBuildPreview?: boolean;
-		explicitBasis?: BranchContextExplicitBasis;
+		creation: BranchContextCreationPolicy;
 	},
 ): Promise<PreparedPlanBranchContext> {
 	const slugEvidence = await derivePlanContentSlug(pi, {
@@ -54,12 +54,11 @@ export async function preparePlanBranchContext(
 	const initialOperation = buildBranchContextCreateOperation({
 		slug: slugEvidence.slug,
 		filePath: options.plan.filePath,
-		branchCreation: "graphite",
-		...optionalEntry("explicitBasis", options.explicitBasis),
-		...optionalEntry("summary", options.plan.summary),
+		creation: options.creation,
+		...optionalEntries({ summary: options.plan.summary }),
 	});
 	const operation =
-		options.explicitBasis === undefined
+		options.creation.type === "graphite-current-parent-current-head"
 			? initialOperation
 			: await selectBranchContextCreateOperationTarget({
 					cwd: options.checkout.repoRoot,
@@ -78,22 +77,27 @@ export async function preparePlanBranchContext(
 		return { type: "ready", ...details };
 	}
 	const previewContext =
-		options.explicitBasis === undefined
+		options.creation.type === "graphite-current-parent-current-head"
 			? await resolveBranchContextCreatePreviewContext(pi, {
 					cwd: options.checkout.repoRoot,
 					context: options.context,
+					creation: options.creation,
 				})
-			: {
-					startPoint: options.explicitBasis.startPoint,
-					graphiteParentBranch: options.explicitBasis.graphiteParentBranch,
-				};
+			: options.creation.type === "graphite-explicit"
+				? {
+						type: "graphite" as const,
+						startPoint: options.creation.startPoint,
+						parent: { type: "resolved" as const, branch: options.creation.parentBranch },
+					}
+				: {
+						type: "plain-git" as const,
+						startPoint:
+							options.creation.type === "plain-git-explicit" ? options.creation.startPoint : "HEAD",
+					};
 	return {
 		type: "preview",
 		...details,
-		preview: formatBranchContextCreatePreview(operation, {
-			...previewContext,
-			graphiteParentBranch: previewContext.graphiteParentBranch ?? options.checkout.sourceBranch,
-		}),
+		preview: formatBranchContextCreatePreview(operation, previewContext),
 	};
 }
 
@@ -101,7 +105,10 @@ export async function createPreparedPlanBranchContext(
 	pi: CommandExecApi,
 	prepared: PreparedPlanBranchContext,
 ): Promise<BranchContextEvidence> {
-	if (prepared.operation.explicitBasis === undefined) {
+	if (
+		prepared.operation.creation.type === "plain-git-current-head" ||
+		prepared.operation.creation.type === "graphite-current-parent-current-head"
+	) {
 		return createBranchContextFromFile(pi, prepared.operation.params, {
 			cwd: prepared.checkout.repoRoot,
 			context: prepared.context,

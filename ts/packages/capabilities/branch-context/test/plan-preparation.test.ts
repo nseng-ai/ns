@@ -124,19 +124,19 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: context({ git, brmem, graphite }),
+			creation: { type: "graphite-current-parent-current-head" },
 			shouldBuildPreview: true,
 		});
 
 		expect(prepared.operation).toMatchObject({
 			slug: "add-dispatch-preparation-tests",
 			branch: "add-dispatch-preparation-tests",
-			branchCreation: "graphite",
 			key: "add-dispatch-preparation-tests.md",
 			summary: "Implement the owner APIs.",
 		});
 		if (prepared.type !== "preview") throw new Error("Expected the preview variant.");
 		expect(prepared.preview).toContain(`Start point: ${START_POINT}`);
-		expect(prepared.preview).toContain(`gt info ${SOURCE_BRANCH} --no-interactive`);
+		expect(prepared.preview).toContain("gt info '<current-graphite-parent>' --no-interactive");
 		expect(git.createBranchAtHeadCalls).toEqual([]);
 		expect(graphite.trackBranchCalls).toEqual([]);
 		expect(brmem.attachPlanCalls).toEqual([]);
@@ -149,6 +149,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: context(),
+			creation: { type: "graphite-current-parent-current-head" },
 		});
 
 		expect(prepared.type).toBe("ready");
@@ -169,6 +170,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: ownerContext,
+			creation: { type: "graphite-current-parent-current-head" },
 		});
 
 		const evidence = await createPreparedPlanBranchContext(
@@ -211,6 +213,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: ownerContext,
+			creation: { type: "graphite-current-parent-current-head" },
 		});
 
 		await expect(

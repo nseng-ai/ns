@@ -56,7 +56,7 @@ export async function confirmInferredBranchContext(
 			`Use branch "${evidence.branch}" from the latest [branch-context-output] and ${options.destinationDescription}?`,
 			"",
 			`Key: ${evidence.key}`,
-			`Branch creation: ${evidence.branchCreation}`,
+			`Branch creation: ${evidence.creation.type === "plain-git" ? "plain-git" : "graphite"}`,
 			`Start point: ${evidence.startPoint}`,
 			`Commit: ${evidence.commit}`,
 			`Source file: ${evidence.sourceFile}`,
