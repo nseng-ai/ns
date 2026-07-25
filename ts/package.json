@@ -32,7 +32,6 @@
 		"@internal/pi-tools": "workspace:*",
 		"@internal/ns-pi-subagents": "workspace:*",
 		"@nseng-ai/pr-feedback": "workspace:*",
-		"@nseng-ai/retros": "workspace:*",
 		"@nseng-ai/branch-context": "workspace:*",
 		"@nseng-ai/brmem": "workspace:*",
 		"@nseng-ai/capability-kit": "workspace:*",

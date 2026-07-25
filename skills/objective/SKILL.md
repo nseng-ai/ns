@@ -41,7 +41,6 @@ Use these step skills for explicit workflow requests:
 - `objective-close`: explicit close only — records `## Closure` and the Closure Marker without deleting checked-in history.
 - `objective-runner-step`: parent playbook for exactly one verified runner step; it never updates tracking.
 - `objective-autorun`: parent orchestration loop over repeated `objective-runner-step` invocations; also the path for implementing one Objective as a small Graphite stack.
-- `objective-retro`: read-only retrospective over one Objective's delivered unit of work (formerly `objective-review-briefing`); it never mutates Objective records.
 
 ## Conditional references
 

@@ -41,13 +41,6 @@ test("repo-local extensions can import package subpaths without source aliases",
 	}>("@nseng-ai/pr-feedback/ns/commands/exec-download-feedback");
 	expect(addressDownloadFeedbackModule.default.name).toBe("download-feedback");
 
-	const retrosCollectEvidenceModule = await jiti.import<{
-		retrosExecCollectEvidenceNsCommand: { name: string };
-	}>("@nseng-ai/retros/ns/commands/exec-collect-evidence");
-	expect(retrosCollectEvidenceModule.retrosExecCollectEvidenceNsCommand.name).toBe(
-		"collect-evidence",
-	);
-
 	const branchContextFromPlanModule = await jiti.import<{
 		default: { name: string };
 	}>("@nseng-ai/branch-context/ns/commands/from-plan");

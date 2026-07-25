@@ -21,11 +21,6 @@
       "sourceType": "local",
       "computedHash": "d0470ef006f5a9eaf67f7ed306c69dd7426ec5c251bef3546c78de631d3bb352"
     },
-    "branch-retro": {
-      "source": "skills/branch-retro",
-      "sourceType": "local",
-      "computedHash": "858c800d126c1ef58090eb390a140138473e30aef629b81413ce8647147fcb21"
-    },
     "brmem": {
       "source": "skills/brmem",
       "sourceType": "local",
@@ -117,11 +112,6 @@
       "sourceType": "github",
       "skillPath": "skills/engineering/diagnosing-bugs/SKILL.md",
       "computedHash": "1a993ce9b2aaa653ee441c8d7efb7f27de03493c722be6dfb8137bcb8db1bc72"
-    },
-    "docs-retro": {
-      "source": "skills/docs-retro",
-      "sourceType": "local",
-      "computedHash": "2c954157b91800ee98567cb56acebbed505714e81f8a17da96b9587e2631f528"
     },
     "domain-modeling": {
       "source": "mattpocock/skills",
@@ -253,11 +243,6 @@
       "source": "skills/objective-refresh",
       "sourceType": "local",
       "computedHash": "8f787ae6e70b22f1298b9281e8d7293f3825e67f116f09c8863cdf2ec549ebce"
-    },
-    "objective-retro": {
-      "source": "skills/objective-retro",
-      "sourceType": "local",
-      "computedHash": "dc21206e36df8c70c91f3fb2ec338c43bf50dce91a2259e7cab85ef8c06f118c"
     },
     "objective-runner-step": {
       "source": "skills/objective-runner-step",

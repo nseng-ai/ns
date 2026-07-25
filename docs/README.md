@@ -20,7 +20,6 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Writing an ns extension](../ts/packages/sdk/docs/writing-an-ns-extension.md): extension-author package layout, typed descriptor modules, command modules, points, bundled artifacts, activation, and initialized-project installation from explicit `npm:` or local source specs with `ns extension install`.
 - [Objective system](objective-system.md): how checked-in Objectives structure durable project work.
 - [Follow-ups](follow-ups/README.md): point-in-time candidate ideas that need revalidation and further formation before becoming Objectives.
-- [Branch retrospective evidence](retro.md): deterministic session evidence aggregation and the tool-vs-LM boundary.
 - [Pi docs](pi/README.md): Pi-specific notes used by this repo.
 - [Skill/extension router pattern](patterns/skill-extension-router-pattern.md): consolidate rare workflow skills behind one router with lazy-loaded playbooks and optional selector commands.
 - [Retired Python `sdl exec` commands](sdl-exec/README.md): disposition notes and TypeScript replacement pointers for the former root exec surface.

@@ -96,12 +96,6 @@
 			},
 			{
 				"kind": "skill",
-				"name": "objective-retro",
-				"sourcePath": "skills/objective-retro",
-				"publishPath": "skills/objective-retro"
-			},
-			{
-				"kind": "skill",
 				"name": "objective-runner-step",
 				"sourcePath": "skills/objective-runner-step",
 				"publishPath": "skills/objective-runner-step"
