@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import { noopNsCommandIo, noopNsProgress, type DescriptorCommand } from "@nseng-ai/sdk";
-import { runCli, type NsCliBaseContext, type NsCliDeps } from "@nseng-ai/sdk/cli";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
+import { runCli, type NsCliBaseContext } from "@nseng-ai/sdk/cli";
+import { createTestNsCliExtensionRegistry } from "@nseng-ai/sdk/testing";
 import { nsExtensionInstallCommand } from "@nseng-ai/ns-init/ns/commands/extension-install";
 import { nsExtensionUninstallCommand } from "@nseng-ai/ns-init/ns/commands/extension-uninstall";
 import { nsInitNsCommand } from "@nseng-ai/ns-init/ns/commands/init";
@@ -14,72 +15,30 @@ interface CliRun {
 	readonly stderr: string;
 }
 
-const commands = [
-	{ command: nsInitNsCommand, segments: ["init"] },
-	{ command: nsExtensionInstallCommand, segments: ["extension", "install"] },
-	{ command: nsExtensionListCommand, segments: ["extension", "list"] },
-	{ command: nsExtensionUninstallCommand, segments: ["extension", "uninstall"] },
-] as const satisfies readonly { command: DescriptorCommand; segments: readonly string[] }[];
+const extensionGroupDescription = "Inspect and manage ns extensions.";
 
-const extensionRegistry: NonNullable<NsCliDeps["extensionRegistry"]> = {
-	async loadCommandCatalog() {
-		const candidates = new Map(
-			commands.map(({ command, segments }) => {
-				const key = segments.join("/");
-				return [
-					key,
-					{
-						name: command.name,
-						segments,
-						...(segments[0] === "extension"
-							? { groupDescription: "Inspect and manage ns extensions." }
-							: {}),
-						description: command.summary,
-						fullDescription: command.description,
-						source: { level: "preinstalled" as const, label: "ns-init contract test" },
-						moduleReference: { type: "file" as const, path: `fake://${key}` },
-						hasStaticCommandInfo: true,
-					},
-				] as const;
-			}),
-		);
-		return {
-			candidates,
-			commandInfos: commands.map(({ command, segments }) => ({
-				name: command.name,
-				segments,
-				...(segments[0] === "extension"
-					? { groupDescription: "Inspect and manage ns extensions." }
-					: {}),
-				description: command.summary,
-				fullDescription: command.description,
-			})),
-			diagnostics: [],
-			extensionPackageNames: new Set(["@nseng-ai/ns-init"]),
-		};
-	},
-	async loadSelectedCommand(candidate) {
-		const key = candidate.segments?.join("/") ?? candidate.name;
-		const entry = commands.find(({ segments }) => segments.join("/") === key);
-		if (entry === undefined) {
-			return {
-				ok: false,
-				diagnostic: {
-					severity: "error",
-					code: "extension_command_missing",
-					message: `Missing fake command ${key}`,
-					commandName: key,
-				},
-			};
-		}
-		return {
-			ok: true,
-			command: entry.command,
-			source: candidate.source,
-			path: { name: entry.command.name, segments: entry.segments },
-		};
-	},
-};
+const extensionRegistry = createTestNsCliExtensionRegistry({
+	commands: [
+		{ command: nsInitNsCommand, segments: ["init"] },
+		{
+			command: nsExtensionInstallCommand,
+			segments: ["extension", "install"],
+			groupDescription: extensionGroupDescription,
+		},
+		{
+			command: nsExtensionListCommand,
+			segments: ["extension", "list"],
+			groupDescription: extensionGroupDescription,
+		},
+		{
+			command: nsExtensionUninstallCommand,
+			segments: ["extension", "uninstall"],
+			groupDescription: extensionGroupDescription,
+		},
+	],
+	extensionPackageNames: ["@nseng-ai/ns-init"],
+	sourceLabel: "ns-init contract test",
+});
 
 const context: NsCliBaseContext = {
 	cwd: "/work/ns-init-contracts",

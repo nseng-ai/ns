@@ -2,8 +2,9 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { noopNsCommandIo, noopNsProgress, type DescriptorCommand } from "@nseng-ai/sdk";
-import { runCli, type NsCliBaseContext, type NsCliDeps } from "@nseng-ai/sdk/cli";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
+import { runCli, type NsCliBaseContext } from "@nseng-ai/sdk/cli";
+import { createTestNsCliExtensionRegistry } from "@nseng-ai/sdk/testing";
 import { skillsListNsCommand } from "@nseng-ai/harness-artifacts/ns/commands/list";
 import { skillsPathNsCommand } from "@nseng-ai/harness-artifacts/ns/commands/path";
 import { nsUpdateCommand } from "@nseng-ai/harness-artifacts/ns/commands/update";
@@ -15,74 +16,25 @@ interface CliRun {
 	readonly execCalls: readonly string[];
 }
 
-const commands = [
-	{ command: skillsListNsCommand, segments: ["skills", "list"] },
-	{ command: skillsPathNsCommand, segments: ["skills", "path"] },
-	{ command: nsUpdateCommand, segments: ["update"] },
-] as const satisfies readonly { command: DescriptorCommand; segments: readonly string[] }[];
+const skillsGroupDescription = "List and provision ns-owned skills into assistant harnesses.";
 
-const extensionRegistry: NonNullable<NsCliDeps["extensionRegistry"]> = {
-	async loadCommandCatalog() {
-		const candidates = new Map(
-			commands.map(({ command, segments }) => {
-				const key = segments.join("/");
-				return [
-					key,
-					{
-						name: command.name,
-						segments,
-						...(segments[0] === "skills"
-							? { groupDescription: "List and provision ns-owned skills into assistant harnesses." }
-							: {}),
-						description: command.summary,
-						fullDescription: command.description,
-						source: {
-							level: "preinstalled" as const,
-							label: "harness-artifacts contract test",
-						},
-						moduleReference: { type: "file" as const, path: `fake://${key}` },
-						hasStaticCommandInfo: true,
-					},
-				] as const;
-			}),
-		);
-		return {
-			candidates,
-			commandInfos: commands.map(({ command, segments }) => ({
-				name: command.name,
-				segments,
-				...(segments[0] === "skills"
-					? { groupDescription: "List and provision ns-owned skills into assistant harnesses." }
-					: {}),
-				description: command.summary,
-				fullDescription: command.description,
-			})),
-			diagnostics: [],
-			extensionPackageNames: new Set(["@nseng-ai/harness-artifacts"]),
-		};
-	},
-	async loadSelectedCommand(candidate) {
-		const key = candidate.segments?.join("/") ?? candidate.name;
-		const entry = commands.find(({ segments }) => segments.join("/") === key);
-		if (entry === undefined) {
-			return {
-				ok: false,
-				diagnostic: {
-					severity: "error",
-					code: "extension_command_missing",
-					message: `Missing fake command ${key}`,
-					commandName: key,
-				},
-			};
-		}
-		return {
-			ok: true,
-			command: entry.command,
-			source: candidate.source,
-			path: { name: entry.command.name, segments: entry.segments },
-		};
-	},
-};
+const extensionRegistry = createTestNsCliExtensionRegistry({
+	commands: [
+		{
+			command: skillsListNsCommand,
+			segments: ["skills", "list"],
+			groupDescription: skillsGroupDescription,
+		},
+		{
+			command: skillsPathNsCommand,
+			segments: ["skills", "path"],
+			groupDescription: skillsGroupDescription,
+		},
+		{ command: nsUpdateCommand, segments: ["update"] },
+	],
+	extensionPackageNames: ["@nseng-ai/harness-artifacts"],
+	sourceLabel: "harness-artifacts contract test",
+});
 
 async function run(args: readonly string[]): Promise<CliRun> {
 	const cwd = "/work/harness-artifacts-contracts";
