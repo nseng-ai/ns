@@ -355,7 +355,6 @@ async function createAttachAndImplement(options: {
 		{
 			payload: {
 				branchName: operation.branch,
-				semanticSlug: operation.slug,
 				launchCommand,
 			},
 			destination,
@@ -429,7 +428,7 @@ function formatDryRun(options: {
 		]),
 		formatHerdrImplPreview({
 			destination: destination.type,
-			semanticSlug: operation.slug,
+			branchName: operation.branch,
 			description: `herdr ${options.config.commandName.split(":").at(-1) ?? "impl-plan"} from ${options.basis.type === "resolved-local-trunk" ? options.basis.preparation.trunkBranch : plan.sourceBranch}`,
 			launchCommand,
 		}),
@@ -445,19 +444,19 @@ function formatDryRun(options: {
  */
 function formatHerdrImplPreview(options: {
 	destination: ImplDestination;
-	semanticSlug: string;
+	branchName: string;
 	description: string;
 	launchCommand: string;
 }): string {
 	if (options.destination === "workspace") {
 		return [
 			`Herdr workspace: ${options.description}`,
-			"Workspace label: [sN:]" + options.semanticSlug,
+			"Workspace label: [sN:]" + options.branchName,
 			formatCommand(
 				"herdr",
 				buildHerdrCreateWorkspaceArgs({
 					cwd: "<slot-worktree-path>",
-					label: `<optional-compact-slot-prefix>${options.semanticSlug}`,
+					label: `<optional-compact-slot-prefix>${options.branchName}`,
 				}),
 			),
 			formatCommand("herdr", buildHerdrPaneRunArgs("<returned-root-pane>", options.launchCommand)),
@@ -466,13 +465,13 @@ function formatHerdrImplPreview(options: {
 
 	return [
 		`Herdr tab: ${options.description}`,
-		"Tab label: " + options.semanticSlug,
+		"Tab label: " + options.branchName,
 		formatCommand(
 			"herdr",
 			buildHerdrCreateTabArgs({
 				workspaceId: "<caller-workspace>",
 				cwd: "<slot-worktree-path>",
-				label: options.semanticSlug,
+				label: options.branchName,
 				shouldFocus: true,
 			}),
 		),

@@ -44,7 +44,6 @@ const failingSlotClient = {
 
 const launchPayload = {
 	branchName: "implement-feature-2",
-	semanticSlug: "implement-feature",
 	launchCommand: "pi 'implement'",
 };
 
@@ -65,7 +64,7 @@ describe("prepared Herdr launch", () => {
 			type: "opened",
 			destination: "workspace",
 			target: {
-				label: "s7:implement-feature",
+				label: "s7:implement-feature-2",
 				workspaceId: "fake-ws-1",
 				tabId: "fake-ws-1:t1",
 				paneId: "fake-ws-1:p1",
@@ -73,7 +72,10 @@ describe("prepared Herdr launch", () => {
 		});
 		expect(herdr.createWorkspaceCalls).toEqual([
 			{
-				options: { cwd: "/state/slots/repos/ns/worktrees/slot-07", label: "s7:implement-feature" },
+				options: {
+					cwd: "/state/slots/repos/ns/worktrees/slot-07",
+					label: "s7:implement-feature-2",
+				},
 			},
 		]);
 		expect(herdr.paneRunCalls).toEqual([{ paneId: "fake-ws-1:p1", command: "pi 'implement'" }]);
@@ -93,12 +95,12 @@ describe("prepared Herdr launch", () => {
 
 		expect(result).toMatchObject({
 			type: "opened",
-			target: { label: "implement-feature" },
+			target: { label: "implement-feature-2" },
 		});
-		expect(herdr.createWorkspaceCalls[0]?.options.label).toBe("implement-feature");
+		expect(herdr.createWorkspaceCalls[0]?.options.label).toBe("implement-feature-2");
 	});
 
-	test("labels a caller tab with the semantic slug without a slot prefix or collision branch", async () => {
+	test("labels a caller tab with the collision-resolved branch name without a slot prefix", async () => {
 		const herdr = new FakeHerdrGateway();
 
 		const result = await launchPreparedBranch(
@@ -113,14 +115,14 @@ describe("prepared Herdr launch", () => {
 		expect(result).toMatchObject({
 			type: "opened",
 			destination: "tab",
-			target: { label: "implement-feature" },
+			target: { label: "implement-feature-2" },
 		});
 		expect(herdr.createTabCalls).toEqual([
 			{
 				options: {
 					workspaceId: "caller-ws",
 					cwd: "/state/slots/repos/ns/worktrees/slot-07",
-					label: "implement-feature",
+					label: "implement-feature-2",
 					shouldFocus: true,
 				},
 			},

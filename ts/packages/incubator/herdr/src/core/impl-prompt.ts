@@ -182,7 +182,6 @@ export async function implTrackedBranchPrompt(
 		{
 			payload: {
 				branchName: options.branch.branchName,
-				semanticSlug: options.branch.semanticSlug,
 				launchCommand: buildTrackedBranchPayloadLaunchCommand(
 					options.branch.branchName,
 					getPiLaunchOptions(context.commands, context.pi),

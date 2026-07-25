@@ -17,8 +17,8 @@ The internal operation that accepts a prepared branch identity, semantic slug, l
 *Avoid*: workflow-specific launch helper, optional or fallback label, separate workspace and tab dispatch pipelines
 
 **Semantic and Git identity invariant**:
-A launched work item keeps its model-derived normalized semantic slug distinct from its collision-resolved Git branch name. Herdr space and tab labels describe the work using the semantic slug; Git, Graphite, Branch Memory, and Slot operations use the actual branch name. Every ns-authored space label associated with a managed Slot prefixes its semantic label with the compact slot derived from the resource cwd or actual checked-out worktree path; tab labels never use Slot prefixes.
-*Avoid*: collision suffix as display identity, branch name as resource label, Slot-prefixed tab label, guessed dry-run slot prefix
+A launched work item keeps its model-derived normalized semantic slug distinct from its collision-resolved Git branch name. Prepared Herdr Launch labels use the actual collision-resolved branch name so the displayed destination matches the branch used by Git, Graphite, Branch Memory, and Slot operations. Managed-Slot space labels prefix that branch name with the compact slot derived from the actual checked-out worktree path; tab labels use the branch name without a Slot prefix.
+*Avoid*: semantic slug as implementation destination label, Slot-prefixed tab label, guessed dry-run slot prefix
 
 **Herdr space**:
 The Herdr workspace resource addressed by `/ns:herdr:space:*` commands. Space commands create or rename a workspace; implementation workflows may use a newly created space as their destination. Plan implementation labels the new space with the content-derived branch-context slug so its displayed name describes the planned work.
@@ -57,8 +57,8 @@ Identifying the exact Herdr tab to rename through `HERDR_TAB_ID`, injected by He
 *Avoid*: caller space ID, focused tab, current tab inference
 
 **Herdr resource label**:
-An ns-authored display label for a Herdr space or tab. Space labels use `s<number>:<semantic-label>` when the resource cwd is a managed ns Slot and `<semantic-label>` otherwise; tab labels always use `<semantic-label>` without a Slot prefix. Goal labels use `<goal-slug>`, Objective space labels use `obj:<objective-slug>`, implementation labels use the prepared semantic slug, and Handoff tab labels use `handoff:<handoff-slug>`. Unlabeled resource creation remains unlabeled.
-*Avoid*: Slot-prefixed tab label, branch collision suffix, unconditional slot prefix
+An ns-authored display label for a Herdr space or tab. Space labels use `s<number>:<label>` when the resource cwd is a managed ns Slot and `<label>` otherwise; tab labels always use `<label>` without a Slot prefix. Goal labels use `<goal-slug>`, Objective space labels use `obj:<objective-slug>`, implementation labels use the collision-resolved branch name, and Handoff tab labels use `handoff:<handoff-slug>`. Unlabeled resource creation remains unlabeled.
+*Avoid*: Slot-prefixed tab label, semantic slug as implementation label, unconditional slot prefix
 
 **Objective space summary**:
 The `/ns:herdr:space:objective-summary` workflow that resolves an Objective slug and labels the explicit caller space `s<number>:obj:<objective-slug>` in a managed ns slot and `obj:<objective-slug>` otherwise.

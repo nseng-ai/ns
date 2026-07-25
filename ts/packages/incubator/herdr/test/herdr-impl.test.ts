@@ -885,7 +885,7 @@ describe("ns:herdr:impl:plan:space", () => {
 		]);
 		expect(brmem.attachPlanCalls[0]).toMatchObject({ branch: `${PLAN_SLUG}-2`, key: PLAN_KEY });
 		expect(herdr.createWorkspaceCalls).toEqual([
-			{ options: { cwd: WORKTREE, label: `s1:${PLAN_SLUG}` } },
+			{ options: { cwd: WORKTREE, label: `s1:${PLAN_SLUG}-2` } },
 		]);
 		expect(herdr.paneRunCalls).toHaveLength(1);
 		const messages = notificationMessages(ctx).join("\n");
