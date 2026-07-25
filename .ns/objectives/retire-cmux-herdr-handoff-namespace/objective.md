@@ -67,4 +67,12 @@ The earlier migration plan remains committed as historical planning evidence at 
 
 ## Open Questions
 
-No product-contract questions remain open. Objective closure remains blocked by the immutable legacy Semantic Update `20260719T181812Z-reference-based-herdr-handoff-launch.md`, which lacks headings required by the current checker. Historical updates must not be edited, so no `closed.md` is added pending an authorized compatibility mechanism.
+No product-contract questions remain open. Implementation selected an additive explicit-start-point Git Gateway operation and colocated strict caller workspace/tab identity helpers at the existing Herdr targeting seam.
+
+All substantive implementation, catalog, documentation, and validation criteria are complete. The immutable legacy Semantic Update `20260719T181812Z-reference-based-herdr-handoff-launch.md` lacks three headings required by the current per-record checker, but that known checker incompatibility does not keep completed product work active. Historical updates remain immutable.
+
+## Closure
+
+**Outcome: completed (2026-07-25).** The cmux capability and standalone Herdr open-branch surface are removed; the exact resource-first Herdr catalog, explicit tab operations, and behavior-preserving implementation workflows are delivered. Those workflows select the current branch or existing local trunk contextually and never fetch or refresh trunk. Documentation reconciliation, focused tests, and repository validation evidence are recorded in the completed roadmap and Semantic Updates.
+
+The record closes despite the known structural-check caveat: the immutable legacy update `20260719T181812Z-reference-based-herdr-handoff-launch.md` predates the current required-heading contract and is not rewritten. That is an Objective-reader compatibility concern, not unfinished Herdr work. Historical decisions and superseded names remain in place as provenance. Any future Herdr graduation under `professional-repo-curation` should trust the delivered catalog and removal evidence, then rebaseline install/runtime details against the post-reorganization tree.

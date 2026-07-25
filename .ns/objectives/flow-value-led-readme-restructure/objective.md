@@ -119,3 +119,9 @@ Risks:
   adopt the shared policy?
 - How should a future policy-inspection surface, if needed, fit the generic config
   contract without making v1 depend on one?
+
+## Closure
+
+**Outcome: superseded (2026-07-25).** The shared top-level `[models]` policy and corresponding draft section shipped, but the central value-led rewrite and README promotion did not. `professional-repo-curation` now owns a repository-wide README-driven graduation gate and parks Flow graduation until sponsored, so independent Flow README promotion would be unsanctioned incubator polish and would collide with the extension vocabulary and package reorganization.
+
+The four value pillars, intended human-adopter-first structure, everyday-loop narrative, settings evidence, workflow/Pi integration constraints, open content decisions, and promotion guardrails are consolidated in `docs/follow-ups/2026-07-25-flow-after-reorganization.md`. A future Flow Readme-Driven-Development Subobjective should trust the already-shipped shared model policy only after revalidation, use the historical draft as input rather than a file to copy, and rebuild the contract from post-reorganization behavior. The old draft remains provenance; the canonical README must not be replaced until every external claim is true in a cold consumer repository.
