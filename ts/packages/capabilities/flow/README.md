@@ -28,19 +28,19 @@ repositories customize its behavior through
 
 Each command depends on a distinct slice of the underlying technology stack:
 
-| Command                        | What it does                                                                                   | git | Graphite (`gt`) | GitHub (`gh`) | slots | LLM |
-| ------------------------------ | ---------------------------------------------------------------------------------------------- | :-: | :-------------: | :-----------: | :---: | :-: |
-| `ns flow changes`              | Summarize outstanding worktree changes without committing.                                     |  ✓  |                 |               |       |  ✓  |
-| `ns flow cp`                   | Create a checkpoint commit for the current diff.                                               |  ✓  |        ✓        |               |       |  ✓  |
-| `ns flow autobranch`           | Create a Graphite branch from dirty worktree changes.                                          |  ✓  |        ✓        |               |       |  ✓  |
-| `ns flow branch-latest-commit` | Move the latest eligible commit to a new Graphite branch.                                      |  ✓  |        ✓        |               |       |  ✓  |
-| `ns flow autoslot`             | Create a Graphite branch from current work, then move it into a managed slot worktree.         |  ✓  |        ✓        |               |   ✓   |  ✓  |
-| `ns flow submit`               | Submit the current/downstack Graphite branches; `--minimal` selects the clean-tree cheap path. |  ✓  |        ✓        |       ✓       |       |  ✓  |
-| `ns flow regenerate-pr`        | Regenerate and completely replace the current PR title and body.                               |  ✓  |                 |       ✓       |       |  ✓  |
-| `ns flow push`                 | Push committed non-Graphite branch work with `git push`.                                       |  ✓  |                 |               |       |     |
-| `ns flow land`                 | Land the current PR or Graphite stack into trunk.                                              |  ✓  |        ✓        |       ✓       |   ✓   |     |
-| `ns flow pull-trunk`           | Refresh the configured Graphite trunk from its configured Git upstream.                        |  ✓  |        ✓        |               |       |     |
-| `ns flow squash-stack`         | Squash every branch in the current Graphite stack to one commit, then restore the tip branch.  |  ✓  |        ✓        |               |       |     |
+| Command                        | What it does                                                                                  | git | Graphite (`gt`) | GitHub (`gh`) | slots | LLM |
+| ------------------------------ | --------------------------------------------------------------------------------------------- | :-: | :-------------: | :-----------: | :---: | :-: |
+| `ns flow changes`              | Summarize outstanding worktree changes without committing.                                    |  ✓  |                 |               |       |  ✓  |
+| `ns flow cp`                   | Create a checkpoint commit for the current diff.                                              |  ✓  |        ✓        |               |       |  ✓  |
+| `ns flow autobranch`           | Create a Graphite branch from dirty worktree changes.                                         |  ✓  |        ✓        |               |       |  ✓  |
+| `ns flow branch-latest-commit` | Move the latest eligible commit to a new Graphite branch.                                     |  ✓  |        ✓        |               |       |  ✓  |
+| `ns flow autoslot`             | Create a Graphite branch from current work, then move it into a managed slot worktree.        |  ✓  |        ✓        |               |   ✓   |  ✓  |
+| `ns flow submit`               | Submit the current/downstack Graphite branches.                                               |  ✓  |        ✓        |       ✓       |       |  ✓  |
+| `ns flow regenerate-pr`        | Regenerate and completely replace the current PR title and body.                              |  ✓  |                 |       ✓       |       |  ✓  |
+| `ns flow push`                 | Push committed non-Graphite branch work with `git push`.                                      |  ✓  |                 |               |       |     |
+| `ns flow land`                 | Land the current PR or Graphite stack into trunk.                                             |  ✓  |        ✓        |       ✓       |   ✓   |     |
+| `ns flow pull-trunk`           | Refresh the configured Graphite trunk from its configured Git upstream.                       |  ✓  |        ✓        |               |       |     |
+| `ns flow squash-stack`         | Squash every branch in the current Graphite stack to one commit, then restore the tip branch. |  ✓  |        ✓        |               |       |     |
 
 Every command is also available in the Pi harness as `/ns:flow:<command>`, delegating
 to the CLI. Pi is optional; the CLI commands do not require the Pi host.
@@ -126,28 +126,26 @@ There is no environment override ladder or model inspection command.
 Prompt content is configured separately from model identity through the prompt points
 documented below.
 
-## Minimal submit
+## Minimal-submit engine
 
-`ns flow submit --minimal` is the staged clean-tree cheap-submit path. It reads
-structured Graphite metadata to identify the current branch and its non-trunk
-downstack ancestors, refuses dirty or drifting source state, checks submit readiness,
-automatically runs `gt restack --downstack --no-interactive` when required, rechecks
-readiness, runs `gt submit --no-stack`, and verifies the current PR.
+The minimal-submit engine is the clean-tree cheap-submit path exposed programmatically
+through `@nseng-ai/flow/api` (`createFlowMinimalSubmitClient`). It reads structured
+Graphite metadata to identify the current branch and its non-trunk downstack ancestors,
+refuses dirty or drifting source state, checks submit readiness, automatically runs
+`gt restack --downstack --no-interactive` when required, rechecks readiness, runs
+`gt submit --no-stack`, and verifies the current PR.
 
-Minimal mode deliberately runs no `flow.submit.pre` hooks, checkpoint, PR-description
-generation, or model calls. `--no-checks` is accepted but redundant. Graphite `--force`
-is omitted by default; the Flow CLI's explicit `--force` retains its existing opt-in
-meaning.
-
-This flag stages the decided cheap-submit engine without changing default
-`ns flow submit`. Moving the default and implementing `ns flow ship` remain open under
-the Prod Submit Objective; no live publication claim is implied by this documentation.
+The engine deliberately runs no `flow.submit.pre` hooks, checkpoint, PR-description
+generation, or model calls. It has no `ns flow submit` CLI flag; its consumers are
+programmatic (for example, local dispatch source publication). Moving the default
+submit path and implementing `ns flow ship` remain open under the Prod Submit
+Objective; no live publication claim is implied by this documentation.
 
 ## Ordinary submit PR metadata
 
 Ordinary `ns flow submit` temporarily generates an initial complete title and body only for PRs newly created by that invocation. Generation happens after Graphite creates every PR: Flow prepares every selected replacement before writing any, then applies replacements sequentially. A preparation failure edits no PR; an edit failure stops the batch and reports applied, failed, and not-attempted PRs. There is no rollback. By default, PRs that existed before the invocation are left untouched.
 
-`ns flow submit --regenerate-descriptions` widens the same batch to every PR resolved in the submitted scope, existing and new. Every selected PR receives a complete generated title and body; all existing body content is removed, including human-authored prose — there is no managed-region merging. Because this is destructive, the flag requires a TTY confirmation before any workflow work, or `--yes`/`-y` for explicit non-interactive approval, and it cannot be combined with `--minimal`.
+`ns flow submit --regenerate-descriptions` widens the same batch to every PR resolved in the submitted scope, existing and new. Every selected PR receives a complete generated title and body; all existing body content is removed, including human-authored prose — there is no managed-region merging. Because this is destructive, the flag requires a TTY confirmation before any workflow work, or `--yes`/`-y` for explicit non-interactive approval.
 
 Use `ns flow regenerate-pr` from an existing PR's branch for a focused, confirmed complete title/body replacement. Generated bodies include visible command, prompt-source, and model provenance. This initial new-PR metadata behavior is interim; the Prod Submit Objective still moves all prose work out of cheap submit and into future `ship`.
 
