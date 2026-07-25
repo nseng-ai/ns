@@ -106,4 +106,12 @@ All three original questions were resolved by the recorded design decisions (see
   `hasExtension(packageName)` on `NsExtensionApi`.
 - Absent `autoslot`: hidden (not registered), via the declarative gate.
 - Platform convention doc: deferred until a second consumer proves the pattern; the
-  SDK surfaces are documented in `ts/packages/kernel/docs/sdk-reference.md` now.
+  SDK surfaces were intended to be documented in the authoritative SDK reference as part of implementation.
+
+## Closure
+
+**Outcome: deferred (2026-07-25).** The seven design decisions are complete, but the presence seam, autoslot decoupling, land degradation behavior, tests, and contract documentation were not implemented. The work closes to avoid SDK, package, and documentation churn during `professional-repo-curation`’s capability→extension rename and two-zone reorganization.
+
+**Restart pointer:** first let the single-player Objectives ship decide whether it needs a minimal Flow slice. If not, resume only inside a sponsored Flow graduation. Trust the recorded isolated managed-extension-tree constraint and the decisions in `updates/2026-07-12T182349Z-design-decisions-frontloaded.md` as design evidence, but rebaseline the effective extension registry, SDK entry/context types, Flow and Slots package identities, command JSON contracts, land worktree detection, and managed-extension installation layout. Then reconsider the proposed `requiresExtension` / `hasExtension` names before executing the four unchecked roadmap rows.
+
+The preserved decisions, candidate slices, and verification requirements are consolidated in `docs/follow-ups/2026-07-25-flow-after-reorganization.md`; a general optional inter-extension convention remains unjustified until a second consumer exists.

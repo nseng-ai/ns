@@ -109,6 +109,14 @@ Risks:
 No contract-level questions remain. The enriched command keeps stack-view's exact PR
 status vocabulary (`draft`, `checks-failing`, `unresolved`, `ready`, `no-pr`) in a new
 `pr_status` field separate from mapping `status`; pending checks may coexist with `ready`.
-The `flow-pi-tier` Objective owns the decided migration of promoted stack-view to this
+The `flow-pi-tier` Objective owned the decided migration of promoted stack-view to this
 backend. Adapter placement and GraphQL pagination shape remain implementation choices,
 not user-visible contract questions.
+
+## Closure
+
+**Outcome: deferred (2026-07-25).** The interim repair-skill rewrite, enriched `branch-pr-checks` JSON contract, complete check/thread pagination, freshness classification, exact trailing-signal handling, review-thread counts, and stack-view-compatible `pr_status` implementation are delivered. The remaining push-down work is deliberately deferred so it does not compete with `professional-repo-curation` or promote more Flow-adjacent structure immediately before the reorganization.
+
+**Restart pointer:** trust the delivered enriched command, its tests, and `references/branch-pr-checks-json-contract.md` as the semantic baseline. After the reorganization, rebaseline the PR-feedback/Address package name and paths, the installed repair skill, stack-view’s current data layer, and the sanctioned exec surfaces. Resume the three unchecked roadmap rows: implement a tested failed-check log excerpt command; rewrite the repair skill around one enriched triage invocation; and audit remaining deterministic push-down candidates with an explicit push-down/defer/reject decision for each.
+
+The Flow-consumer implications and future work are graduated into `docs/follow-ups/2026-07-25-flow-after-reorganization.md`; the closed Objective is not the only discovery path for those facts.

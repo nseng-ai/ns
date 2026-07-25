@@ -56,3 +56,11 @@ Harness selection stays implicit in the model reference's provider prefix (the e
 ## Open Questions
 
 - Whether a credentialed deep review confirms text-mode extraction is reliable in practice; focused tests support the selected single-object parser, so JSONL final-message parsing remains only a separately justified remediation if live evidence fails.
+
+## Closure
+
+**Outcome: deferred (2026-07-25).** The Pi/Vercel AI Gateway runner, provider routing, configured profiles, CI workflow migration, and quick-tripwire eligibility are implemented and tested. The Objective closes rather than competing with the higher-priority `professional-repo-curation` rename, package-move, CI, and operational-decoupling work.
+
+**Restart pointer:** resume only when Reviews is selected for a supported ship or sponsored graduation. Trust the implemented runner tests, provider-prefix compatibility contract, profile migration, and `ns reviews list --ci` evidence as the baseline. Rebaseline package paths, Pi invocation/version, Vercel and GitHub configuration, workflow installation, credentials, and the current review command names after the repository reorganization. Then complete the two partially finished roadmap rows: run a credentialed local deep review end-to-end and prove on a real PR that both quick reviews execute and publish findings. If live text-mode extraction fails, evaluate JSON-mode final-message parsing from observed evidence rather than preemptively redesigning the runner.
+
+The direct Claude Code and Codex runners remain an intentional compatibility boundary; closure does not deprecate them.

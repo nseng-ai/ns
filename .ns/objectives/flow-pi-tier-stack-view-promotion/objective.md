@@ -102,3 +102,9 @@ Risks:
 - Single-shot promotion or staged (data layer with tests first, TUI/overlay
   after)?
 - Old-name disposition for both surfaces: aliases for a window or clean break?
+
+## Closure
+
+**Outcome: superseded (2026-07-25).** None of the namespace-normalization or stack-view promotion slices began. Flow is now incubator-destined under `professional-repo-curation`, and moving internal Pi tooling into Flow immediately before the extension rename, package reorganization, and eventual README-driven graduation would promote and move the same surface twice.
+
+The product decision that a stack-oriented view belongs in Flow’s Pi tier, the requirement to earn tests at promotion, the sanctioned Slot/Graphite plus PR-feedback data-source boundary, rejected standalone-package path, naming questions, and staged-promotion option are consolidated in `docs/follow-ups/2026-07-25-flow-after-reorganization.md`. A future sponsored Flow graduation must rebaseline stack-view’s current behavior, tests, GraphQL duplication, parity metadata, registrations, and command names before deciding whether that ownership verdict still holds. Do not resume the old file-move roadmap by default.

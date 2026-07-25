@@ -121,3 +121,9 @@ Risks:
 - Whether any of the four workflows needs a new `ns flow exec` primitive beyond what
   the upstream Objectives land, decided per slice against the "no sanctioned home
   elsewhere" rule.
+
+## Closure
+
+**Outcome: superseded (2026-07-25).** No fold-in slice began. `professional-repo-curation` now makes Flow an incubator resident, prohibits unsponsored incubator polish, and places Flow graduation in a demand-driven parked tail. Performing skill renames, workflow moves, and canonical README edits before the extension-vocabulary and two-zone reorganization would create avoidable churn.
+
+The detailed stack-state domain boundary, two-tier command/workflow model, candidate workflow list, upstream primitive dependencies, open naming decisions, and future slices are consolidated in `docs/follow-ups/2026-07-25-flow-after-reorganization.md`. A future sponsored Flow graduation should begin from that note and rebaseline current skill conventions, command names, exec schemas, and package paths; it should not resume this roadmap mechanically. Existing upstream Objective edges remain as historical provenance, not live gates.
