@@ -73,9 +73,15 @@ export interface InputPrompt {
 	placeholder: string | undefined;
 }
 
+export interface Confirmation {
+	title: string;
+	message: string;
+}
+
 export interface FakeCommandContextOptions {
 	cwd?: string;
 	hasUI?: boolean;
+	confirmValues?: boolean[];
 	inputValues?: Array<string | undefined>;
 	onWaitForIdle?: () => void;
 	selectIndices?: number[];
@@ -230,6 +236,7 @@ export class FakeCommandContext implements CommandContext {
 	readonly notifications: Notification[] = [];
 	readonly statuses: Array<{ key: string; value: string | undefined }> = [];
 	readonly selections: Selection[] = [];
+	readonly confirmations: Confirmation[] = [];
 	readonly inputPrompts: InputPrompt[] = [];
 	readonly autocompleteProviders: Array<(current: AutocompleteProvider) => AutocompleteProvider> =
 		[];
@@ -239,6 +246,7 @@ export class FakeCommandContext implements CommandContext {
 	readonly sessionManager: NonNullable<CommandContext["sessionManager"]>;
 	waitCount = 0;
 	shouldCancelSelect = false;
+	private readonly confirmValues: boolean[];
 	private readonly inputValues: Array<string | undefined>;
 	private readonly selectIndices: number[];
 	private readonly onWaitForIdle: (() => void) | undefined;
@@ -246,6 +254,7 @@ export class FakeCommandContext implements CommandContext {
 	constructor(options: FakeCommandContextOptions = {}) {
 		this.cwd = options.cwd ?? ROOT;
 		this.hasUI = options.hasUI ?? true;
+		this.confirmValues = [...(options.confirmValues ?? [true])];
 		this.inputValues = [...(options.inputValues ?? [])];
 		this.onWaitForIdle = options.onWaitForIdle;
 		this.selectIndices = [...(options.selectIndices ?? [0])];
@@ -266,7 +275,10 @@ export class FakeCommandContext implements CommandContext {
 			setStatus: (key, value) => {
 				this.statuses.push({ key, value });
 			},
-			confirm: async () => true,
+			confirm: async (title, message) => {
+				this.confirmations.push({ title, message });
+				return this.confirmValues.shift() ?? true;
+			},
 			input: async (title, placeholder) => {
 				this.inputPrompts.push({ title, placeholder });
 				return this.inputValues.shift();

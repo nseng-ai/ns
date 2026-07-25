@@ -2,21 +2,28 @@ import {
 	buildTrackedBranchLaunchPrompt,
 	buildTrackedBranchPayloadLaunchCommand,
 	createTrackedBranchForPrompt,
+	createTrackedBranchFromLocalTrunkForPrompt,
 	formatTrackedBranchPayloadStorageFailure,
 	resolveTrackedBranchPayloadOptions,
 	storeTrackedBranchPayload,
+	LOCAL_TRUNK_DISPATCH_CONTEXT_NOTE,
 	type ResolvedTrackedBranchPayloadOptions,
 	type TrackedBranchEvidence,
 	type TrackedBranchPayloadOptions,
 } from "@nseng-ai/capability-kit/tracked-branch-payload";
+import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
+import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
+import type { GraphiteMetadataDbAccess } from "@nseng-ai/capability-kit/graphite/metadata";
 import { getPiLaunchOptions } from "@nseng-ai/capability-kit/pi-launch";
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { CommandContext } from "@nseng-ai/capability-kit/pi-types";
+import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
 import { HERDR_SPACE_DISPATCH_PROMPT_COMMAND_NAME } from "./command-surfaces.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
+import { resolveLaunchBranchBasis } from "./launch-branch-basis.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { dispatchPreparedBranch } from "./prepared-dispatch.ts";
 import { createHerdrSlotClient } from "./slot-checkout.ts";
@@ -26,6 +33,9 @@ const COMMAND_NAME = HERDR_SPACE_DISPATCH_PROMPT_COMMAND_NAME;
 
 export interface DispatchPromptPayloadOptions extends TrackedBranchPayloadOptions {
 	slotClient?: SlotClient;
+	graphite?: Pick<GraphiteBranchGateway, "trunkBranch">;
+	git?: Pick<GitGateway, "currentBranch">;
+	metadataDbAccess?: GraphiteMetadataDbAccess;
 }
 
 export interface HandleHerdrSlotDispatchPromptOptions {
@@ -33,6 +43,9 @@ export interface HandleHerdrSlotDispatchPromptOptions {
 	herdr: HerdrGateway;
 	payloadOptions: ResolvedTrackedBranchPayloadOptions;
 	slotClient?: SlotClient;
+	graphite?: Pick<GraphiteBranchGateway, "trunkBranch">;
+	git?: Pick<GitGateway, "currentBranch">;
+	metadataDbAccess?: GraphiteMetadataDbAccess;
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
@@ -46,9 +59,26 @@ export async function handleHerdrSlotDispatchPrompt(
 		options.ctx.ui.notify(`Usage: /${COMMAND_NAME} <prompt>`, "error");
 		return;
 	}
-	options.notifyProgress("Generating branch name…");
 	await options.ctx.waitForIdle();
-	const branch = await createTrackedBranchForPrompt(options.pi, options.ctx.cwd, prompt);
+	const git = options.git ?? new RealGitGateway(options.pi);
+	const selection = await resolveLaunchBranchBasis({
+		cwd: options.ctx.cwd,
+		git,
+		interaction: options.ctx,
+	});
+	if (selection.type === "cancelled") {
+		options.ctx.ui.notify("Herdr launch cancelled.", "info");
+		return;
+	}
+	if (selection.type === "failed") {
+		options.ctx.ui.notify(selection.message, "error");
+		return;
+	}
+
+	const branch =
+		selection.basis === "current"
+			? await createCurrentPromptBranch(options, prompt, selection.currentBranch, git)
+			: await createTrunkPromptBranch(options, prompt);
 	if ("error" in branch) {
 		options.ctx.ui.notify(branch.error, "error");
 		return;
@@ -58,11 +88,47 @@ export async function handleHerdrSlotDispatchPrompt(
 		herdr: options.herdr,
 		ctx: options.ctx,
 		branch,
-		content: buildTrackedBranchLaunchPrompt(prompt),
-		successDetails: { parentLabel: "Parent", entryLocator: "include" },
+		content: buildTrackedBranchLaunchPrompt(
+			prompt,
+			selection.basis === "trunk" ? LOCAL_TRUNK_DISPATCH_CONTEXT_NOTE : undefined,
+		),
+		successDetails:
+			selection.basis === "trunk"
+				? { parentLabel: "Parent (trunk)", entryLocator: "omit" }
+				: { parentLabel: "Parent", entryLocator: "include" },
 		payloadOptions: options.payloadOptions,
 		...optionalEntry("slotClient", options.slotClient),
 		notifyProgress: options.notifyProgress,
+	});
+}
+
+async function createCurrentPromptBranch(
+	options: HandleHerdrSlotDispatchPromptOptions,
+	prompt: string,
+	selectedBranch: string,
+	git: Pick<GitGateway, "currentBranch">,
+): Promise<TrackedBranchEvidence | { error: string }> {
+	const revalidated = await git.currentBranch({ cwd: options.ctx.cwd });
+	if (revalidated.type !== "branch" || revalidated.branch !== selectedBranch) {
+		return {
+			error: `Current branch changed after selection; expected ${selectedBranch}. No branch was created.`,
+		};
+	}
+	options.notifyProgress("Generating branch name…");
+	return createTrackedBranchForPrompt(options.pi, options.ctx.cwd, prompt);
+}
+
+async function createTrunkPromptBranch(
+	options: HandleHerdrSlotDispatchPromptOptions,
+	prompt: string,
+): Promise<TrackedBranchEvidence | { error: string }> {
+	return createTrackedBranchFromLocalTrunkForPrompt({
+		pi: options.pi,
+		cwd: options.ctx.cwd,
+		prompt,
+		graphite: options.graphite ?? new RealGraphiteBranchGateway(options.pi),
+		notify: options.notifyProgress,
+		...optionalEntry("metadataDbAccess", options.metadataDbAccess),
 	});
 }
 
@@ -73,9 +139,9 @@ export interface HerdrTrackedBranchDispatchSuccessDetails {
 }
 
 /**
- * Herdr-owned tracked-branch dispatch sequence shared by prompt and trunk
- * dispatch: store the payload in Branch Memory (refusing collisions), then
- * open the branch in a new Herdr workspace with the Pi launch command.
+ * Herdr-owned tracked-branch dispatch sequence shared by current-branch and
+ * local-trunk prompt dispatch: store the payload in Branch Memory
+ * (refusing collisions), then open the branch in a new Herdr workspace.
  */
 export async function dispatchTrackedBranchPrompt(options: {
 	pi: DispatchPromptRuntime;

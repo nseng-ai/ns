@@ -28,7 +28,7 @@ export function registerHerdrSlotDispatchPromptCommand(
 		host: pi,
 		commandName: COMMAND_NAME,
 		commandDefinition: {
-			description: "Launch a prompt from the current branch in a new space.",
+			description: "Launch a prompt in a new space.",
 			argumentHint: "<prompt>",
 			handler: async (args, ctx) => {
 				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });
@@ -37,11 +37,15 @@ export function registerHerdrSlotDispatchPromptCommand(
 					herdr,
 					payloadOptions,
 					...optionalEntry("slotClient", options.slotClient),
+					...optionalEntry("graphite", options.graphite),
+					...optionalEntry("git", options.git),
+					...optionalEntry("metadataDbAccess", options.metadataDbAccess),
 					args,
 					ctx,
 					notifyProgress,
 				});
 			},
 		},
+		options: { delivery: "message" },
 	});
 }

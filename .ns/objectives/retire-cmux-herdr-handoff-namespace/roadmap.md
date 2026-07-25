@@ -2,6 +2,12 @@
 
 ## Work
 
+- [x] Collapse branch-basis launch commands behind contextual selection
+  - Replace the five public `br`/`tr` launch commands with prompt-to-space, plan-to-space, and plan-to-tab commands and no compatibility aliases.
+  - Select current branch or existing local trunk through one fake-driven policy covering named trunk, named feature branches, detached HEAD, lookup failure, cancellation, and unavailable interaction.
+  - Preserve shared local Graphite trunk resolution, Branch Context ownership, tab caller preflight, prompt payload semantics, plan dry-run behavior, immediate acknowledgement, and non-mutation ordering without fetching or refreshing trunk.
+  - Evidence: the exact catalog tests prove eight base commands, nine with optional Handoff, and absence of all five old registrations; fake-driven resolver and dispatch scenarios cover all basis outcomes, both plan destinations, tab preflight, current-branch revalidation, exact local-trunk SHA execution, no-fetch dry runs, prompt free-form content, and acknowledgement ordering. The focused package checks, TypeScript default/integration/style-guard lanes, dprint, and repository `just` pass. The Objective checker retains only its known immutable legacy-update compatibility failure.
+
 - [x] Remove standalone Herdr open-branch and the cmux capability
   - Delete the dedicated Herdr open-branch command modules and tests while retaining launch helpers consumed by dispatch.
   - Delete `@nseng-ai/cmux`, `.pi/extensions/cmux.ts`, `ns cmux exec`, and all cmux workspace/surface/sidebar registrations, tests, and package wiring.

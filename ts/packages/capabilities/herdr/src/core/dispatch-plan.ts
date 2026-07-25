@@ -1,8 +1,8 @@
 /**
  * Herdr dispatch-plan: attaches the latest session-saved plan to a
  * Graphite-tracked branch via branch-context, then opens the branch either in
- * a new Herdr space (launch:plan:br:space) or in a focused tab inside
- * the caller's Herdr space (launch:plan:br:tab).
+ * a new Herdr space (launch:plan:space) or in a focused tab inside
+ * the caller's Herdr space (launch:plan:tab).
  *
  * ns owns: Saved Plan resolution, branch-context creation, slot checkout,
  *          Pi launch command building.
@@ -26,8 +26,8 @@ import {
 import { prepareLatestSessionSavedPlan, type ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/capability-kit/pi-launch";
 import {
-	prepareGraphiteTrunk,
-	type GraphiteTrunkPreparation,
+	prepareLocalGraphiteTrunk,
+	type LocalGraphiteTrunkPreparation,
 } from "@nseng-ai/capability-kit/tracked-branch-payload";
 import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
@@ -50,6 +50,7 @@ import { dispatchPreparedBranch, type PreparedDispatchDestination } from "./prep
 import { createHerdrSlotClient } from "./slot-checkout.ts";
 import { getCallerWorkspaceId } from "./sidebar.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
+import { resolveLaunchBranchBasis } from "./launch-branch-basis.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 
 export type DispatchDestination = "workspace" | "tab";
@@ -58,7 +59,6 @@ export interface DispatchPlanConfig {
 	commandName: string;
 	statusKey: string;
 	destination: DispatchDestination;
-	branchBasis?: "current" | "trunk";
 }
 
 export interface HerdrSlotDispatchPlanOptions {
@@ -66,7 +66,7 @@ export interface HerdrSlotDispatchPlanOptions {
 	createBranchContextContext?: BranchContextContextFactory<[pi: HerdrPiCommandApi, cwd: string]>;
 	slotClient?: SlotClient;
 	graphite?: Pick<GraphiteBranchGateway, "trunkBranch">;
-	git?: Pick<GitGateway, "branchUpstream">;
+	git?: Pick<GitGateway, "currentBranch">;
 	metadataDbAccess?: GraphiteMetadataDbAccess;
 }
 
@@ -107,11 +107,26 @@ export async function handleHerdrSlotDispatchPlan(
 	}
 	const destination = preparedDestination.destination;
 
-	options.notifyProgress("Finding latest saved plan…");
 	await ctx.waitForIdle();
-	setStatus(ctx, config, "finding latest saved plan…");
 
 	try {
+		const git = options.options.git ?? new RealGitGateway(pi);
+		const selection = await resolveLaunchBranchBasis({
+			cwd: ctx.cwd,
+			git,
+			interaction: ctx,
+		});
+		if (selection.type === "cancelled") {
+			present(ctx, "Herdr launch cancelled.", "info");
+			return;
+		}
+		if (selection.type === "failed") {
+			present(ctx, selection.message, "error");
+			return;
+		}
+
+		options.notifyProgress("Finding latest saved plan…");
+		setStatus(ctx, config, "finding latest saved plan…");
 		const selected = await prepareLatestSessionSavedPlan(pi, {
 			cwd: ctx.cwd,
 			entries: ctx.sessionManager?.getBranch?.() ?? [],
@@ -125,11 +140,10 @@ export async function handleHerdrSlotDispatchPlan(
 		const checkout = selected.directory;
 		const selectedPlan = selected.plan;
 		const trunk =
-			config.branchBasis === "trunk"
+			selection.basis === "trunk"
 				? await prepareDispatchTrunk({
 						pi,
 						cwd: checkout.repoRoot,
-						preview: parsed.isDryRun,
 						options: options.options,
 						notify: options.notifyProgress,
 					})
@@ -137,6 +151,17 @@ export async function handleHerdrSlotDispatchPlan(
 		if (trunk !== undefined && "error" in trunk) {
 			present(ctx, trunk.error, "error");
 			return;
+		}
+		if (selection.basis === "current") {
+			const revalidated = await git.currentBranch({ cwd: checkout.repoRoot });
+			if (revalidated.type !== "branch" || revalidated.branch !== selection.currentBranch) {
+				present(
+					ctx,
+					`Current branch changed after selection; expected ${selection.currentBranch}. No branch was created.`,
+					"error",
+				);
+				return;
+			}
 		}
 		setStatus(ctx, config, "deriving branch-context slug…");
 		const prepared = await preparePlanBranchContext(pi, {
@@ -148,8 +173,7 @@ export async function handleHerdrSlotDispatchPlan(
 				? {}
 				: {
 						explicitBasis: {
-							startPoint:
-								trunk.startPoint ?? `<result of ${formatCommand("git", trunk.refreshPlan.args)}>`,
+							startPoint: trunk.startPoint,
 							startRef: trunk.startRef,
 							graphiteParentBranch: trunk.trunkBranch,
 						},
@@ -211,16 +235,13 @@ function dispatchBranchContextContext(
 async function prepareDispatchTrunk(options: {
 	pi: HerdrPiCommandApi;
 	cwd: string;
-	preview: boolean;
 	options: HerdrSlotDispatchPlanOptions;
 	notify: (message: string) => void;
-}): Promise<GraphiteTrunkPreparation | { error: string }> {
-	return prepareGraphiteTrunk({
+}): Promise<LocalGraphiteTrunkPreparation | { error: string }> {
+	return prepareLocalGraphiteTrunk({
 		pi: options.pi,
 		cwd: options.cwd,
 		graphite: options.options.graphite ?? new RealGraphiteBranchGateway(options.pi),
-		git: options.options.git ?? new RealGitGateway(options.pi),
-		preview: options.preview,
 		notify: options.notify,
 		...optionalEntry("metadataDbAccess", options.options.metadataDbAccess),
 	});
@@ -241,7 +262,7 @@ function prepareDispatchDestination(
 		return {
 			type: "failed",
 			message:
-				"launch:plan:br:tab requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+				"launch:plan:tab requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
 		};
 	}
 	return { type: "ready", destination: { type: "tab", callerWorkspaceId } };
@@ -355,7 +376,7 @@ function formatDryRun(options: {
 	branchContextPreview: string;
 	launchOptions: PiLaunchOptions;
 	destination: PreparedDispatchDestination;
-	trunk?: GraphiteTrunkPreparation;
+	trunk?: LocalGraphiteTrunkPreparation;
 }): string {
 	const { plan, operation, branchContextPreview, launchOptions, destination } = options;
 	const launchCommand = buildPiLaunchCommand(
@@ -379,12 +400,10 @@ function formatDryRun(options: {
 			? []
 			: [
 					"",
-					"Graphite trunk preparation (preview only; not executed):",
+					"Local Graphite trunk (read only):",
 					`Trunk branch / Graphite parent: ${options.trunk.trunkBranch}`,
-					`Configured upstream: ${options.trunk.upstream.remoteName}/${options.trunk.upstream.remoteRef.replace(/^refs\/heads\//, "")}`,
-					`Refresh cwd: ${options.trunk.refreshPlan.cwd}`,
-					`Refresh command: ${formatCommand("git", options.trunk.refreshPlan.args)}`,
-					`Start point after refresh: result of ${formatCommand("git", ["rev-parse", options.trunk.startRef])}`,
+					`Local start ref: ${options.trunk.startRef}`,
+					`Local start point: ${options.trunk.startPoint}`,
 				]),
 		"",
 		branchContextPreview,
@@ -453,7 +472,7 @@ function formatDispatchFailureConsequence(destination: DispatchDestination): str
 function formatUsage(config: DispatchPlanConfig): string {
 	return `Usage: /${config.commandName} [--dry-run]
 
-Dispatch the latest saved plan into a new Herdr ${config.destination} for implementation${config.branchBasis === "trunk" ? " from refreshed Graphite trunk" : ""}.
+Dispatch the latest saved plan into a new Herdr ${config.destination} for implementation. Choose the current branch or local Graphite trunk contextually at invocation time.
 
 Options:
   --dry-run    Show the selected plan and commands without mutating.

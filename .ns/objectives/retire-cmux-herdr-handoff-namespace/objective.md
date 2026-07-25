@@ -2,9 +2,9 @@
 
 ## Thesis
 
-The dedicated cmux capability is redundant with Herdr and has been removed. Herdr's public Pi catalog should use direct resource operations for `space` and `tab`, plus a compositional launch grammar that keeps every supported payload, branch basis, and destination visible in Pi's narrow command picker.
+The dedicated cmux capability is redundant with Herdr and has been removed. Herdr's public Pi catalog should use direct resource operations for `space` and `tab`, plus destination/payload launch commands that choose current branch or existing local trunk contextually at invocation time.
 
-This Objective tracks the completed cmux removal and the superseding hard migration from interim workflow-family and compound dispatch names to the exact Herdr catalog, including explicit tab resource operations and refreshed-trunk Saved Plan launch.
+This Objective tracks the completed cmux removal, the earlier hard migration from interim workflow-family and compound dispatch names, and the superseding collapse of branch-basis-specific launch commands into one uniform contextual-selection policy across prompt-to-space, plan-to-space, and plan-to-tab.
 
 The reviewed current implementation plan is saved in the local plan store at:
 
@@ -21,10 +21,13 @@ not durable or shared).
 - Register exactly these public Pi commands, with no compatibility aliases:
   - `/ns:herdr:space:{new,goal,objective-summary}`
   - `/ns:herdr:tab:{new,goal,handoff}`
-  - `/ns:herdr:launch:{plan,prompt}:{br,tr}:{space,tab}` for the five supported combinations: `plan:br:space`, `plan:br:tab`, `plan:tr:space`, `prompt:br:space`, and `prompt:tr:space`.
+  - `/ns:herdr:launch:prompt:space`, `/ns:herdr:launch:plan:space`, and `/ns:herdr:launch:plan:tab`.
+- Select current branch or existing local trunk at invocation time through one policy: `main`/`master` select local trunk automatically; other named branches offer current branch or local trunk; detached HEAD and lookup failure offer confirmed local-trunk fallback; required interaction without UI fails before mutation.
+- Never fetch or refresh trunk in Herdr launch workflows; callers update local trunk separately before launch when desired.
+- Preserve caller workspace preflight before Git inspection or interaction for plan-to-tab, and preserve contextual selection in plan dry runs.
 - Preserve the behavior of renamed commands, including label-only Objective summary behavior and the hidden portable `ns herdr exec handoff-tab launch` mechanism.
 - Add explicit tab creation and goal labeling, targeted only through trimmed `HERDR_WORKSPACE_ID` and `HERDR_TAB_ID` caller identity respectively.
-- Deliver refreshed-trunk Saved Plan dispatch by deepening the shared Graphite trunk-preparation and Branch Context explicit-parent/start-point seams rather than duplicating their policy in Herdr.
+- Deliver local-trunk Saved Plan dispatch by resolving the configured Graphite trunk and exact existing local SHA, then using Branch Context's explicit-parent/start-point seams without duplicating their policy in Herdr.
 - Preserve Branch Context's bounded deterministic collision selection and immediate race revalidation.
 - Keep cmux and standalone Herdr open-branch implementation removed while retaining shared Herdr workspace/tab launch mechanics used by dispatch flows.
 - Reconcile live Herdr, Handoff, Pi, and repository domain documentation while preserving accurate historical ADRs, closed Objective records, retrospectives, reshape specifications, and immutable Semantic Updates.
@@ -35,7 +38,8 @@ not durable or shared).
 ## Non-Goals
 
 - Adding a tab prompt-dispatch variant.
-- Changing prompt payloads, latest-session Saved Plan selection, Attached Plan implementation semantics, or existing space/tab destinations except where refreshed-trunk plan dispatch explicitly requires new parentage.
+- Adding `--from` or another public branch-basis override, parsing prompt text as flags, or retaining visible or hidden aliases for the five removed `br`/`tr` commands.
+- Changing prompt payloads, latest-session Saved Plan selection, Attached Plan implementation semantics, or existing space/tab destinations except where local-trunk plan dispatch explicitly requires new parentage.
 - Expanding Objective summary beyond its existing label-only behavior.
 - Introducing a generic terminal-multiplexer abstraction or lowest-common-denominator cmux/Herdr interface.
 - Adding a generic Herdr workspace-summary CLI, raw socket integration, event subscriptions, layouts, or plugin behavior.
@@ -45,10 +49,12 @@ not durable or shared).
 
 ## Completion Criteria
 
-- The exact eleven-command Herdr catalog is registered with base-versus-optional membership preserved, launch names follow `/ns:herdr:launch:<plan|prompt>:<br|tr>:<space|tab>`, and every interim alias is absent from live surfaces.
+- The exact nine-command Herdr catalog is registered with eight base commands plus optional `/ns:herdr:tab:handoff`; the only launch names are `/ns:herdr:launch:prompt:space`, `/ns:herdr:launch:plan:space`, and `/ns:herdr:launch:plan:tab`; all five former `br`/`tr` launch names and every interim alias are absent from live surfaces.
+- All three launch commands share the contextual branch-basis policy, cancellation and unavailable-interaction paths mutate nothing, and named `main`/`master` use the exact existing local configured Graphite trunk without fetching or refreshing it.
+- Plan-to-tab supports both current and local-trunk basis while validating and capturing `HERDR_WORKSPACE_ID` before Git inspection or interaction; plan dry-run remains non-mutating.
 - `tab:new` requires explicit caller workspace identity before model work or mutation, creates a focused tab at the command cwd, and uses the existing semantic label policy when a description is supplied.
 - `tab:goal` requires explicit caller tab identity, shares the existing goal slug and slot-prefix policy, and renames that exact tab without UI-focus fallback.
-- `launch:plan:tr:space` selects the latest current-session Saved Plan, truthfully supports help and non-mutating dry-run, refreshes Graphite trunk through shared policy, creates and tracks from the exact refreshed trunk with Branch Context's canonical collision policy, attaches the plan, checks out through Slots, and launches Attached Plan implementation in a new Herdr space.
+- A local-trunk selection for `launch:plan:space` or `launch:plan:tab` selects the latest current-session Saved Plan, truthfully supports help and non-mutating dry-run, resolves the exact existing local trunk SHA without upstream inspection or refresh, creates and tracks from that SHA with Branch Context's canonical collision policy, attaches the plan, checks out through Slots, and launches Attached Plan implementation in the selected Herdr destination.
 - `/ns:herdr:space:open-branch`, `@nseng-ai/cmux`, `.pi/extensions/cmux.ts`, `ns cmux exec`, and old cmux Pi surfaces remain absent from live implementation and configuration.
 - Workspace dependencies, generated lockfile, publish inventories, style guards, runtime import checks, package counts, contexts, and live user documentation match the resulting topology; gated `docs-site/` drift is explicitly classified.
 - Remaining old Herdr and cmux strings occur only in accurate historical evidence or the explicitly gated docs-site follow-up.
@@ -60,14 +66,14 @@ not durable or shared).
 
 - The installed Herdr CLI supports explicit-workspace focused tab creation, `herdr tab rename <tab-id> <label>`, and pane command launch; implementation must revalidate installed help because Herdr is moving quickly.
 - Herdr-managed panes inject both `HERDR_WORKSPACE_ID` and `HERDR_TAB_ID`.
-- Existing prompt and plan dispatch core logic can be renamed at command interfaces without semantic changes.
+- Existing prompt and plan dispatch core logic can be composed behind shared contextual branch-basis selection without duplicating local Graphite trunk resolution, Branch Context, or prepared destination policy.
 - Branch Context remains the owning policy boundary for deterministic collision selection and race revalidation.
 
 **Risks**
 
-- Copying prompt-specific trunk refresh or Branch Context collision logic into Herdr would create divergent policy; implementation must deepen the owning APIs instead.
-- A Graphite parent/start-point mismatch could track a branch under trunk while leaving its tip based on current `HEAD`; tests and evidence must prove both facts derive from the refreshed trunk.
-- A dry-run that refreshes trunk would violate its non-mutation promise; trunk preparation needs a truthful preview mode if the existing helper cannot inspect safely.
+- Copying prompt-specific local-trunk resolution or Branch Context collision logic into Herdr would create divergent policy; implementation must deepen the owning APIs instead.
+- A Graphite parent/start-point mismatch could track a branch under trunk while leaving its tip based on current `HEAD`; tests and evidence must prove both facts derive from the exact existing local trunk SHA.
+- Fetching or refreshing trunk inside Herdr would violate the composability decision; tests must prove local-trunk execution and dry-run perform neither operation.
 - Ambient caller identity could mutate the wrong tab or workspace; new tab operations must reject absent or blank explicit IDs before model or destination work.
 - Broad command-name and documentation edits can leave stale prompt copy, parity metadata, tests, or generated inventories. The migration requires an exact final inventory and semantic stale-reference review.
 - Historical documents legitimately contain removed names, so a repository-wide zero-match requirement would destroy useful evidence. Review must distinguish historical and live surfaces.
