@@ -218,6 +218,7 @@ export async function preparePrDescriptionUpdate(
 			existingBody: pr.body,
 			generatedBody: prepared.body,
 			fingerprint,
+			commits: commits.value,
 		}),
 		previewBody: prepared.body,
 		promptSource: generation.promptSource,

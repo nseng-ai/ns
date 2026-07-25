@@ -66,6 +66,7 @@ export function mergeGeneratedBody(input: {
 	existingBody: string;
 	generatedBody: string;
 	fingerprint: PrDescriptionFingerprintMetadata;
+	commits: readonly PrCommitMessage[];
 }): string {
 	const region = formatManagedGeneratedRegion(input.generatedBody, input.fingerprint);
 	const parsed = parseManagedGeneratedRegion(input.existingBody);
@@ -84,7 +85,10 @@ export function mergeGeneratedBody(input: {
 			replacement: region,
 		});
 	}
-	if (input.existingBody.includes(GENERATED_BODY_MARKER)) {
+	if (
+		input.existingBody.includes(GENERATED_BODY_MARKER) ||
+		isCommitMessagePrefillBody(input.existingBody, input.commits)
+	) {
 		return region;
 	}
 	const trimmedExisting = input.existingBody.trim();

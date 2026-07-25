@@ -311,6 +311,11 @@
       "sourceType": "local",
       "computedHash": "0d2187fa43f59d6d34f9ebc4d8dfa3fb229b47e11fad1729a02a14fae9639912"
     },
+    "pr-make-accountable": {
+      "source": "skills/pr-make-accountable",
+      "sourceType": "local",
+      "computedHash": "8fbb4bff3082e75ddb9c2c8c07bb8043eacd1863ae8aab07b670a2d2a9da19c7"
+    },
     "project-setup": {
       "source": "skills/project-setup",
       "sourceType": "local",
