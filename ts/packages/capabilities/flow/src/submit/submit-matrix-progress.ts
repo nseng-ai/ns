@@ -25,17 +25,8 @@ import {
 import { prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
 
 export type SubmitMatrixCellState = MatrixCellState;
-export type SubmitMatrixColumnKey = "metadata" | "description";
+export type SubmitMatrixColumnKey = "description";
 export type SubmitMatrixCellUpdate = MatrixCellUpdate;
-export type SubmitMetadataProgressReason =
-	| "existing-pr"
-	| "amendment-not-applicable"
-	| "generating-metadata"
-	| "metadata-drafted"
-	| "amending-metadata-commit"
-	| "metadata-prepared"
-	| "metadata-amendment-failed"
-	| "metadata-generation-failed";
 
 export type SubmitMatrixColumnSpec = MatrixColumnSpec<SubmitMatrixColumnKey>;
 
@@ -89,30 +80,8 @@ export interface SubmitMatrixRowView {
 }
 
 export const SUBMIT_MATRIX_COLUMNS: readonly SubmitMatrixColumnSpec[] = [
-	{ key: "metadata", label: "Metadata", width: 8 },
 	{ key: "description", label: "Description", width: 11 },
 ];
-
-/** Map a branch-level metadata reason to a compact label that fits the 8-column Metadata cell. */
-export function compactSubmitMetadataCellText(reason: SubmitMetadataProgressReason): string {
-	switch (reason) {
-		case "existing-pr":
-			return "exists";
-		case "amendment-not-applicable":
-			return "n/a";
-		case "generating-metadata":
-			return "gen";
-		case "metadata-drafted":
-			return "drafted";
-		case "amending-metadata-commit":
-			return "amend";
-		case "metadata-prepared":
-			return "ready";
-		case "metadata-amendment-failed":
-		case "metadata-generation-failed":
-			return "failed";
-	}
-}
 
 export function submitMatrixRowsFromTopology(
 	topology: SubmitStackTopology,

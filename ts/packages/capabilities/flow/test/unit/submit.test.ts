@@ -773,8 +773,6 @@ describe("runSubmitCommand", () => {
 							kind: "new",
 							branch: "feature/b",
 							parentBranch: "feature/a",
-							commitMessages: [{ headline: "Add b" }, { headline: "Refine b" }],
-							diff: "diff --git a/b b/b\n+b",
 						},
 					],
 				},
@@ -843,9 +841,9 @@ describe("runSubmitCommand", () => {
 				{ prNumber, column: "description", state: "done", text: "complete metadata replaced" },
 			]),
 		);
-		// The metadata phase reports only work that is actually pending: never the former broad
+		// Active operations report only work that is actually pending: never the former broad
 		// six-command snapshot, only true single operations (detailed ordering is covered at the
-		// prepareSubmitPrMetadata and generateSubmitPrDescriptions seams).
+		// description preparation and generation seams).
 		expect(submitMatrix.operationSnapshots.every((snapshot) => snapshot.length <= 1)).toBe(true);
 		expect(
 			submitMatrix.operationSnapshots.some((snapshot) =>

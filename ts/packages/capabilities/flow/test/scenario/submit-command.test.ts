@@ -197,7 +197,7 @@ function prJson(
 
 function commitsJson(): string {
 	return JSON.stringify({
-		commits: [{ messageHeadline: "Add submit", messageBody: "Body from commit" }],
+		commits: [{ messageHeadline: "Add submit" }],
 	});
 }
 
@@ -259,10 +259,7 @@ describe("project-local submit extension", () => {
 		expect(declaration).toEqual({
 			type: "matrix-declared",
 			labelHeader: "Branch / PR",
-			columns: [
-				{ key: "metadata", label: "Metadata", width: 8 },
-				{ key: "description", label: "Description", width: 11 },
-			],
+			columns: [{ key: "description", label: "Description", width: 11 }],
 		});
 		const phaseDeclaration = events.find((event) => event.type === "phases-declared");
 		if (phaseDeclaration?.type !== "phases-declared") throw new Error("phase declaration missing");
@@ -271,7 +268,6 @@ describe("project-local submit extension", () => {
 			"checkpoint",
 			"preflight",
 			"restack",
-			"metadata",
 			"submit",
 			"verification",
 			"descriptions",
