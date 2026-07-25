@@ -108,6 +108,7 @@ function mainLandingOptions(
 		title: "Land this stack path?",
 		details,
 		nonInteractiveMessage: `Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${details}`,
+		defaultAnswer: "yes",
 	};
 }
 
@@ -121,6 +122,7 @@ function singleBranchMainLandingOptions(
 		title: singleBranchMainLandingConfirmationTitle(),
 		details: formatSingleBranchMainLandingConfirmationDetails(request),
 		nonInteractiveMessage: singleBranchMainLandingNonInteractiveRefusalMessage(request),
+		defaultAnswer: "yes",
 	};
 }
 
