@@ -82,8 +82,9 @@ honor. To change the shared body, edit the template here, then re-instantiate ev
 stub on the checklist.
 
 Frontmatter is not part of the template: each stub keeps its existing `name:` and
-`description:` values, and the invocation-kind fields (`disable-model-invocation`,
-`agents/openai.yaml`) are areg-owned harness overlays — never hand-edit them (see
+`description:` values, and exposure fields (`disable-model-invocation`, `agents/openai.yaml`) are
+repo-owned Harness Overlays managed with `ns skill-exposure` on explicit paths —
+never hand-edit them (see
 [skill-conventions.md](skill-conventions.md)).
 
 ```markdown

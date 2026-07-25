@@ -62,7 +62,8 @@ export default {
     ],
     offAxis:
       `Off this axis (not modeled as capabilities): the <span class="font-mono">@nseng-ai/pi</span> presentation host, standalone tools
-       <span class="font-mono">areg / vibechk / packagechk</span>, and the <span class="font-mono">@internal/pi-tools/*</span> presentation tools.`,
+       <span class="font-mono">vibechk / packagechk</span>, the project-local <span class="font-mono">skill-exposure</span> extension,
+       and the <span class="font-mono">@internal/pi-tools/*</span> presentation tools.`,
   },
 
   graphIntro:

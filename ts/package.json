@@ -11,10 +11,10 @@
 		"check": "tsc -p tsconfig.json",
 		"deps:check": "syncpack lint",
 		"deps:fix": "syncpack fix",
-		"fmt": "oxfmt 'packages/**/*.ts' '*.ts'",
-		"fmt:check": "oxfmt --check 'packages/**/*.ts' '*.ts'",
-		"lint": "oxlint .",
-		"lint:fix": "oxlint . --fix",
+		"fmt": "cd .. && ts/node_modules/.bin/oxfmt 'ts/packages/**/*.ts' '.ns/extensions/**/*.ts' 'ts/*.ts'",
+		"fmt:check": "cd .. && ts/node_modules/.bin/oxfmt --check 'ts/packages/**/*.ts' '.ns/extensions/**/*.ts' 'ts/*.ts'",
+		"lint": "cd .. && ts/node_modules/.bin/oxlint ts .ns/extensions",
+		"lint:fix": "cd .. && ts/node_modules/.bin/oxlint ts .ns/extensions --fix",
 		"release:bump-version": "ns-dev bump-public-package-version",
 		"release:publish": "ns-dev publish-public-package-set publish",
 		"release:publish-dry-run": "ns-dev publish-public-package-set dry-run",
@@ -59,7 +59,8 @@
 	"workspaces": [
 		"packages/*",
 		"packages/*/*",
-		"../.ns/reviews/*/tools/*"
+		"../.ns/reviews/*/tools/*",
+		"../.ns/extensions/*"
 	],
 	"dependencies": {
 		"@nseng-ai/foundation": "workspace:*"

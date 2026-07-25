@@ -160,6 +160,43 @@ importers:
         specifier: 'catalog:'
         version: 4.1.9(@opentelemetry/api@1.9.0)(@types/node@24.13.2)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
 
+  ../.ns/extensions/skill-exposure:
+    dependencies:
+      '@nseng-ai/branch-context':
+        specifier: workspace:*
+        version: link:../../../ts/packages/incubator/branch-context
+      '@nseng-ai/flow':
+        specifier: workspace:*
+        version: link:../../../ts/packages/incubator/flow
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../../ts/packages/infra/foundation
+      '@nseng-ai/handoffs':
+        specifier: workspace:*
+        version: link:../../../ts/packages/incubator/handoffs
+      '@nseng-ai/harness-artifacts':
+        specifier: workspace:*
+        version: link:../../../ts/packages/incubator/harness-artifacts
+      '@nseng-ai/objectives':
+        specifier: workspace:*
+        version: link:../../../ts/packages/incubator/objectives
+      '@nseng-ai/sdk':
+        specifier: workspace:*
+        version: link:../../../ts/packages/sdk
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@internal/ns-dev':
+        specifier: workspace:*
+        version: link:../../../ts/packages/internal/ns-dev
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.9(@opentelemetry/api@1.9.0)(@types/node@24.13.2)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
+
   ../.ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention:
     dependencies:
       '@nseng-ai/foundation':
@@ -618,9 +655,6 @@ importers:
       '@internal/ns-pi-subagents':
         specifier: workspace:*
         version: link:../ns-pi-subagents
-      '@nseng-ai/areg':
-        specifier: workspace:*
-        version: link:../../tools/areg
       '@nseng-ai/extension-kit':
         specifier: workspace:*
         version: link:../../extension-kit
@@ -630,6 +664,9 @@ importers:
       '@nseng-ai/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
+      '@nseng-ai/skill-exposure':
+        specifier: workspace:*
+        version: link:../../../../.ns/extensions/skill-exposure
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -666,43 +703,6 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
-
-  packages/tools/areg:
-    dependencies:
-      '@nseng-ai/branch-context':
-        specifier: workspace:*
-        version: link:../../incubator/branch-context
-      '@nseng-ai/clinkr':
-        specifier: workspace:*
-        version: link:../../infra/clinkr
-      '@nseng-ai/extension-kit':
-        specifier: workspace:*
-        version: link:../../extension-kit
-      '@nseng-ai/flow':
-        specifier: workspace:*
-        version: link:../../incubator/flow
-      '@nseng-ai/foundation':
-        specifier: workspace:*
-        version: link:../../infra/foundation
-      '@nseng-ai/handoffs':
-        specifier: workspace:*
-        version: link:../../incubator/handoffs
-      '@nseng-ai/harness-artifacts':
-        specifier: workspace:*
-        version: link:../../incubator/harness-artifacts
-      '@nseng-ai/objectives':
-        specifier: workspace:*
-        version: link:../../incubator/objectives
-      '@nseng-ai/sdk':
-        specifier: workspace:*
-        version: link:../../sdk
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-    devDependencies:
-      '@internal/ns-dev':
-        specifier: workspace:*
-        version: link:../../internal/ns-dev
 
   packages/tools/packagechk:
     dependencies:

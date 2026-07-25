@@ -1,9 +1,6 @@
 /**
- * Filesystem inspection states shared by harness-artifact convention checks.
- *
- * Moved from `@nseng-ai/areg` (`AregPathState` / `AregTextFileState`) so the
- * harness-artifact subsystem and areg speak one vocabulary for "what is at
- * this path".
+ * Filesystem inspection states shared by harness-artifact convention checks
+ * and project-local harness-overlay management.
  */
 
 export type PathState =

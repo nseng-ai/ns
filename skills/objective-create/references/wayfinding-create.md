@@ -2,7 +2,7 @@
 
 Load this reference only when the interview settles on the wayfinding (ideation) pattern: an Objective deliberately held in the formation phase, where the way to the Destination is found by resolving questions, not by executing slices.
 
-Recognition and definitional prose live in the `objective` skill's patterns catalog (`skills/objective/references/objective-patterns.md`, Ideation entry). The `wayfinder` skill owns the wayfinding method (destination, tickets, fog of war) — read it before charting; if it is absent from available skills, resolve it with `areg skill find wayfinder --format json` and read the returned preferred `SKILL.md`. Never edit it.
+Recognition and definitional prose live in the `objective` skill's patterns catalog (`skills/objective/references/objective-patterns.md`, Ideation entry). The `wayfinder` skill owns the wayfinding method (destination, tickets, fog of war) — read it before charting; if it is absent from available skills, search for it with `npx skills find wayfinder`, install the intended result through the `skill-management` workflow, and read its `SKILL.md`. Never edit it.
 
 The Objective record is the map: `objective.md` holds the Destination and Fog; `roadmap.md` holds the tickets as Question Rows. Create no issue-tracker map.
 

@@ -25,7 +25,7 @@
 		"@earendil-works/pi-ai": "catalog:",
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@earendil-works/pi-tui": "catalog:",
-		"@nseng-ai/areg": "workspace:*",
+		"@nseng-ai/skill-exposure": "workspace:*",
 		"@nseng-ai/extension-kit": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
 		"@internal/ns-pi-subagents": "workspace:*",

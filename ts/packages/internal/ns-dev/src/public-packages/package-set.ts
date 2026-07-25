@@ -32,7 +32,6 @@ export const intendedPublicPackages: readonly string[] = [
 	"@nseng-ai/brmem",
 	"@nseng-ai/clinkr",
 	"@nseng-ai/foundation",
-	"@nseng-ai/areg",
 	"@nseng-ai/packagechk",
 	"@nseng-ai/vibechk",
 	"@nseng-ai/extension-kit",
@@ -65,7 +64,6 @@ export const publicPublishOrder: readonly string[] = [
 	"@nseng-ai/vibechk",
 	"@nseng-ai/flow",
 	"@nseng-ai/pi-editor-mods",
-	"@nseng-ai/areg",
 ];
 
 export interface PackageManifest extends Record<string, unknown> {

@@ -11,8 +11,8 @@ description: "Audit and tighten agent skills. Summon by name to review a SKILL.m
   from the vendored writing-great-skills skill (.agents/skills/writing-great-skills/,
   upstream mattpocock/skills; pin and de-meld history: docs/agents/matt-pocock-skills.md),
   so upstream refreshes need no re-sync of this file.
-  Installed as a command-backed support skill via areg. Keep invocation artifacts
-  managed by `areg skill apply command-backed skill-audit`.
+  Declared command-backed through Skill Exposure Policy. Keep Harness Overlay
+  artifacts managed with `ns skill-exposure apply command-backed skills/skill-audit`.
 -->
 
 Audit and tighten `SKILL.md` files for **predictability** (see Vocabulary): high signal, low token cost, clear routing. Default goal: preserve behavior while deleting prompt burden.
@@ -28,7 +28,7 @@ Read `.agents/skills/writing-great-skills/SKILL.md` before auditing. It defines 
 - `skill-management`: when adding/removing/renaming/installing skills.
 - `cli-push-down`: when the skill has shell, parsing, data gathering, or long procedural mechanics.
 - `typescript-style` + `typescript-fake-driven-testing`: when the skill carries TypeScript code or tests.
-- `docs/conventions/skill-conventions.md`: for invocation-kind (`areg`), frontmatter, naming, and vendoring rules.
+- `docs/conventions/skill-conventions.md`: for Skill Exposure Policy, frontmatter, naming, and vendoring rules.
 
 ## Audit Order
 
@@ -37,7 +37,7 @@ Read `.agents/skills/writing-great-skills/SKILL.md` before auditing. It defines 
 3. Check **Frontmatter** and the trigger surface.
 4. Audit the body against **Token Cuts**, **Clarity**, **Progressive Disclosure**, and **CLI Push-Down**, naming each finding with a Vocabulary failure mode.
 5. Edit only when requested or clearly implied; follow **Edit Rules**.
-6. Verify install state (`areg skill show <name>`) if the skill was added, moved, or renamed.
+6. Verify install/layout with `npx skills list`; when exposure policy changed, run `ns skill-exposure show <explicit-path>` and `check <explicit-path>`.
 7. Produce the **Final Report**.
 
 Completion criterion: every section of the target accounted for — flagged with a named failure mode or explicitly judged clean. A change list with no verdict per section is premature completion.
@@ -48,7 +48,7 @@ Check:
 
 - `name` matches directory/install name.
 - `description` is a trigger (when to use), not a workflow summary.
-- Invocation kind fits the skill (see Vocabulary → Invocation): model-routable skills need a real trigger description; explicit-only skills are `invoke-only` via `areg`, not a hand-pasted `Command:` stub.
+- Exposure policy fits the skill (see Vocabulary → Invocation): model-routable skills need a real trigger description; explicit-only skills use `invoke-only` through `ns skill-exposure` on an explicit path, not a hand-pasted `Command:` stub.
 - Model-invoked descriptions are narrow but discoverable; one trigger per **branch**.
 - No duplicate skill index in `AGENTS.md`.
 
@@ -109,5 +109,5 @@ Report: files changed; line/token reduction if meaningful; main findings (each n
 
 ## Harness & overlay notes
 
-- Per-harness invocation mechanics (including Codex keeping descriptions ambient) live in `docs/research/harness-skill-invocation.md`; invocation kind is managed by `areg` per the conventions doc in **Load With**.
+- Per-harness invocation mechanics (including Codex keeping descriptions ambient) live in `docs/research/harness-skill-invocation.md`; Skill Exposure Policy and Harness Overlays are managed by `ns skill-exposure` per the conventions doc in **Load With**.
 - Vendored skills (real directories under `.agents/skills/`): limit findings to integration-boundary issues unless the task is explicitly to modify the dependency (conventions doc in **Load With**).

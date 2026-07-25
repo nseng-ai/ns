@@ -26,7 +26,7 @@ _check-core: dprint-check _ts-deps-check _ts-format-check _ts-lint _ts-check _ts
 # Local equivalent of CI excluding docs-site and Reviews; local metadata checks remain included.
 ci: _ts-workspace-ready (_run-parallel "check" "_ci-additional")
 
-_ci-additional: (_run-parallel "ts-test-integration" "areg-check")
+_ci-additional: (_run-parallel "ts-test-integration" "skill-exposure-check")
 
 dprint-check:
     dprint check
@@ -51,6 +51,7 @@ _ts-workspace-ready:
         if find "$ts_dir/packages" -name package.json -not -path '*/node_modules/*' -newer "$stamp" -print -quit | grep -q .; then return 0; fi; \
         if [ -d "$ts_dir/patches" ] && find "$ts_dir/patches" -type f -newer "$stamp" -print -quit | grep -q .; then return 0; fi; \
         if [ -d "$root/.ns/reviews" ] && find "$root/.ns/reviews" -path '*/tools/*/package.json' -newer "$stamp" -print -quit | grep -q .; then return 0; fi; \
+        if [ -d "$root/.ns/extensions" ] && find "$root/.ns/extensions" -mindepth 2 -maxdepth 2 -name package.json -newer "$stamp" -print -quit | grep -q .; then return 0; fi; \
         return 1; \
       }; \
       if [ -f "$ts_dir/node_modules/.modules.yaml" ] && [ -f "$stamp" ] && ! inputs_changed; then \
@@ -162,13 +163,6 @@ install-ns: (_install-ts-shim "ns" "ts/packages/hosts/ns/src/cli.ts" "just insta
 # inside an sdl checkout, this checkout's sources everywhere else.
 install-brmem: (_install-ts-shim "brmem" "ts/packages/infra/brmem/src/cli.ts" "just install-brmem or just install-tools")
 
-# Install the areg shim to ~/.local/bin so `areg` on PATH runs the
-# TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an sdl checkout, this checkout's sources everywhere else.
-install-areg: (_install-ts-shim "areg" "ts/packages/tools/areg/src/cli.ts" "just install-areg or just install-tools")
-    rm -f "{{justfile_directory()}}/.venv/bin/areg"
-    @echo "removed stale project venv areg script if present"
-
 # Install the vibechk shim to ~/.local/bin so `vibechk` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
@@ -207,14 +201,27 @@ _remove-stale-branch-context-bin:
     rm -f "{{justfile_directory()}}/ts/node_modules/.bin/branch-context"
     @echo "removed stale standalone branch-context shims if present"
 
-areg-check: _ts-workspace-ready
-    node {{justfile_directory()}}/ts/packages/tools/areg/src/cli.ts check --path {{justfile_directory()}}
-
 # Repo-wide Objective edge/blocked structural sweep (Record Frontmatter linter).
 objective-check: _ts-workspace-ready _objective-check
 
 _objective-check:
     node {{justfile_directory()}}/ts/packages/hosts/ns/src/cli.ts objective check --all
+
+# Repo-wide Skill Exposure Policy sweep. Discovery belongs to this consumer
+# gate; the extension itself intentionally accepts only explicit skill paths.
+skill-exposure-check: _ts-workspace-ready
+    @set -e; \
+      root="{{justfile_directory()}}"; \
+      set --; \
+      for skill in "$root"/skills/*; do \
+        if [ -d "$skill" ]; then set -- "$@" "$skill"; fi; \
+      done; \
+      for skill in "$root"/.agents/skills/*; do \
+        if [ -d "$skill" ] && [ ! -L "$skill" ]; then set -- "$@" "$skill"; fi; \
+      done; \
+      if [ "$#" -eq 0 ]; then echo "No skills found for exposure check." >&2; exit 1; fi; \
+      cd "$root"; \
+      node "$root/ts/packages/hosts/ns/src/cli.ts" skill-exposure check "$@"
 
 # Render the architecture topology report (raw inventory) and open it. No agent
 # in the loop — extracts the package graph and renders from a synthesized spec.
@@ -223,8 +230,8 @@ topology *args:
     {{justfile_directory()}}/skills/architecture-topology-report/scripts/topology {{args}}
 
 # Install public tools via TypeScript source shims.
-install-tools: _remove-stale-branch-context-bin install-ns install-brmem install-areg install-vibechk install-packagechk
-    @echo "installed: ns, brmem, areg, vibechk, and packagechk (TypeScript shims); branch-context is available via ns branch-context"
+install-tools: _remove-stale-branch-context-bin install-ns install-brmem install-vibechk install-packagechk
+    @echo "installed: ns, brmem, vibechk, and packagechk (TypeScript shims); branch-context is available via ns branch-context"
 
 clean-stale-node-modules-leftovers:
     node {{justfile_directory()}}/scripts/clean-stale-node-modules-leftovers.mjs

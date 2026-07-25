@@ -92,7 +92,7 @@ Treat authoritative plans and handoffs as evidence caches: start from their supp
 
 - Use a skill when the user names it or the task matches its description. Multiple named skills mean use all; do not carry skills across turns unless re-mentioned.
 - Read the skill's `SKILL.md` progressively; resolve relative paths from the skill directory; load only needed `references/`; prefer scripts/assets/templates over retyping large blocks.
-- For ns first-party skills, `skills/<name>/SKILL.md` is canonical. If a repo skill is named in docs or another skill but absent from the prompt's available-skill inventory, run `areg skill find <name> --format json`; if it succeeds, read the returned preferred `SKILL.md` path. If it returns suggestions, ask/choose deliberately rather than auto-loading a fuzzy match.
+- For ns first-party skills, resolve known names directly at `skills/<name>/SKILL.md`. Installed vendored skills resolve at `.agents/skills/<name>/SKILL.md`. If neither explicit path exists, report the missing skill rather than searching or guessing.
 - If a named skill is missing or unreadable, say so briefly and continue with the best fallback.
 - Before creating, editing, installing, renaming, publishing skills, or touching `skills/` or `.agents/skills/`, read `docs/conventions/skill-conventions.md`.
 - Review boundary: real directories under `.agents/skills/` are vendored third-party code. Review agents ignore embedded upstream code for normal lint/type/cleanup expectations and flag only integration-boundary issues unless explicitly asked to review the vendored dependency itself.
@@ -110,7 +110,7 @@ Treat authoritative plans and handoffs as evidence caches: start from their supp
 
 ## Git, Graphite, GitHub
 
-- This repo uses Graphite (`gt`) as the default tool for branch and PR workflow; for branch creation, commits/amends, PR submit/update, and stack navigation/reshaping, load the `code-graphite` skill (if absent from available skills, resolve it with `areg skill find code-graphite --format json`).
+- This repo uses Graphite (`gt`) as the default tool for branch and PR workflow; for branch creation, commits/amends, PR submit/update, and stack navigation/reshaping, load `skills/code-graphite/SKILL.md` if `code-graphite` is absent from the available-skill inventory.
 - Canonical gt-over-git doctrine: prefer `gt` (`gt create`, `gt modify`, `gt submit --no-interactive`) over the raw `git`/`gh` equivalents, falling back to raw `git` only for operations `gt` cannot express. Diagnose topology with plumbing (`gt branch info --no-interactive`, `gt parent`/`gt children --no-interactive`); `gt ls` is human display only, never parsed.
 - Runtime package code must not depend on Graphite by default; prefer `GitGateway`. Before adding any runtime Graphite dependency, read `docs/conventions/graphite-dependency-boundary.md`. `slot gt` is the sanctioned exception.
-- For GitHub backend work via GraphQL, REST, or `gh`, load the `code-gh` skill (if absent from available skills, resolve it with `areg skill find code-gh --format json`).
+- For GitHub backend work via GraphQL, REST, or `gh`, load `skills/code-gh/SKILL.md` if `code-gh` is absent from the available-skill inventory.

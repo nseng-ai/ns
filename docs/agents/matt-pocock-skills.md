@@ -43,7 +43,7 @@ under `skills/<name>/`.
 
 ## Recorded forks
 
-Vendored dirs are byte-identical to upstream except areg-owned invocation overlays and:
+Vendored dirs are byte-identical to upstream except repo-owned Harness Overlays managed by `ns skill-exposure` and:
 
 - `pocock-review/SKILL.md`: the frontmatter `name:` line (rename on import).
 - `pocock-resolving-merge-conflicts/SKILL.md`: the frontmatter `name:` line (rename on import).
@@ -126,8 +126,9 @@ skill-audit family.
   vocabulary back into the audit skill.
 - **Invocation semantics.** Matt Skills uses `disable-model-invocation: true` for
   user-invoked wrappers and rich descriptions for reusable model-invoked skills. ns maps
-  this through `areg skill apply`; `docs/research/harness-skill-invocation.md` records
-  the harness caveat that Codex may not make invoke-only skills truly zero-ambient.
+  this through `ns skill-exposure apply <policy> <explicit-path>`;
+  `docs/research/harness-skill-invocation.md` records the harness caveat that Codex may
+  not make invoke-only skills truly zero-ambient.
 
 ## Update steps (Pocock-specific)
 

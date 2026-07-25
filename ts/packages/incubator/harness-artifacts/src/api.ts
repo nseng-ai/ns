@@ -1,8 +1,7 @@
 /**
  * Extension API for `@nseng-ai/harness-artifacts` — the shared home for
- * harness-artifact conventions pushed down from `@nseng-ai/areg` (see the
- * `skill-management-subsystem` Objective). Cross-package consumers import
- * from this door only.
+ * harness-artifact and harness-overlay conventions. Cross-package consumers
+ * import from this door only.
  */
 
 export {
