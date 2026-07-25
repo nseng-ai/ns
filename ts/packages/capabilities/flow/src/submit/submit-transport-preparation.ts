@@ -2,7 +2,6 @@ import { commandOperations } from "../phase-stream/matrix-progress-core.ts";
 import type { NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 import {
-	formatPrewrittenMetadataAdvisory,
 	formatPreflightFailureOutput,
 	formatReadinessRecheckFailureOutput,
 	formatRestackConfirmationPrompt,
@@ -12,7 +11,6 @@ import {
 	formatRestackRequiredOutput,
 } from "./submit-format.ts";
 import { formatSubmitPreflightFailureCause } from "./submit-failure-catalog.ts";
-import type { PrewrittenPrMetadata } from "./pr-description-orchestration.ts";
 import type {
 	SubmitCommandOutput,
 	SubmitCommandParams,
@@ -22,7 +20,6 @@ import type {
 } from "./submit-contracts.ts";
 import {
 	deterministicSubmitCommandFailure,
-	POST_METADATA_GRAPHITE_FAILURE_ADVISORY,
 	unknownSubmitCommandFailure,
 } from "./submit-failure-result.ts";
 import type { SubmitProgress } from "./submit-progress.ts";
@@ -66,7 +63,6 @@ interface OrdinarySubmitTransportOptions {
 	params: SubmitCommandParams;
 	submitCommandDisplay: string;
 	submitDryRunCommandDisplay: string;
-	prewrittenMetadata?: readonly PrewrittenPrMetadata[];
 }
 
 export async function prepareOrdinarySubmitTransport(
@@ -91,9 +87,6 @@ export async function prepareOrdinarySubmitTransport(
 				result: readiness.outcome,
 				phase: "preflight",
 				submitDryRunCommandDisplay: options.submitDryRunCommandDisplay,
-				...(options.prewrittenMetadata === undefined
-					? {}
-					: { prewrittenMetadata: options.prewrittenMetadata }),
 			}),
 		};
 	}
@@ -127,7 +120,7 @@ export async function prepareOrdinarySubmitTransport(
 				phase: "preflight",
 				commandDisplay: options.submitDryRunCommandDisplay,
 				output: readiness.outcome.output,
-				stderr: withMetadataAdvisory(formatRestackRequiredOutput(), options.prewrittenMetadata),
+				stderr: formatRestackRequiredOutput(),
 				exitCode: 1,
 			}),
 		};
@@ -140,7 +133,7 @@ export async function prepareOrdinarySubmitTransport(
 				phase: "preflight",
 				commandDisplay: options.submitDryRunCommandDisplay,
 				output: readiness.outcome.output,
-				stderr: withMetadataAdvisory(formatRestackDeclinedOutput(), options.prewrittenMetadata),
+				stderr: formatRestackDeclinedOutput(),
 				exitCode: 1,
 			}),
 		};
@@ -165,10 +158,7 @@ export async function prepareOrdinarySubmitTransport(
 					phase: "restack",
 					commandDisplay: RESTACK_COMMAND_DISPLAY,
 					output: restacked.outcome.output,
-					stderr: withMetadataAdvisory(
-						formatRestackConflictOutput(restacked.outcome.conflictedFiles),
-						options.prewrittenMetadata,
-					),
+					stderr: formatRestackConflictOutput(restacked.outcome.conflictedFiles),
 					exitCode: 1,
 				}),
 			};
@@ -179,10 +169,7 @@ export async function prepareOrdinarySubmitTransport(
 				phase: "restack",
 				commandDisplay: RESTACK_COMMAND_DISPLAY,
 				output: restacked.outcome.output,
-				stderr: withMetadataAdvisory(
-					formatRestackFailureOutput(restacked.outcome.output),
-					options.prewrittenMetadata,
-				),
+				stderr: formatRestackFailureOutput(restacked.outcome.output),
 			}),
 		};
 	}
@@ -198,9 +185,6 @@ export async function prepareOrdinarySubmitTransport(
 			result: restacked.outcome,
 			phase: "readiness recheck",
 			submitDryRunCommandDisplay: options.submitDryRunCommandDisplay,
-			...(options.prewrittenMetadata === undefined
-				? {}
-				: { prewrittenMetadata: options.prewrittenMetadata }),
 			isRecheck: true,
 		}),
 	};
@@ -210,7 +194,6 @@ function readinessFailure(input: {
 	result: SubmitPreflightResult;
 	phase: string;
 	submitDryRunCommandDisplay: string;
-	prewrittenMetadata?: readonly PrewrittenPrMetadata[];
 	isRecheck?: boolean;
 }): SubmitCommandResult {
 	if (input.result.kind === "failed" && input.result.cause !== undefined) {
@@ -219,7 +202,7 @@ function readinessFailure(input: {
 			phase: input.phase,
 			commandDisplay: input.submitDryRunCommandDisplay,
 			output: input.result.output,
-			stderr: withMetadataAdvisory(message, input.prewrittenMetadata),
+			stderr: message,
 		});
 	}
 	if (input.isRecheck === true) {
@@ -227,20 +210,14 @@ function readinessFailure(input: {
 			phase: input.phase,
 			commandDisplay: input.submitDryRunCommandDisplay,
 			output: input.result.output,
-			stderr: withMetadataAdvisory(
-				formatReadinessRecheckFailureOutput(input.submitDryRunCommandDisplay),
-				input.prewrittenMetadata,
-			),
+			stderr: formatReadinessRecheckFailureOutput(input.submitDryRunCommandDisplay),
 		});
 	}
 	return unknownSubmitCommandFailure({
 		phase: input.phase,
 		commandDisplay: input.submitDryRunCommandDisplay,
 		output: input.result.output,
-		stderr: withMetadataAdvisory(
-			formatPreflightFailureOutput(input.result.output, input.submitDryRunCommandDisplay),
-			input.prewrittenMetadata,
-		),
+		stderr: formatPreflightFailureOutput(input.result.output, input.submitDryRunCommandDisplay),
 	});
 }
 
@@ -253,17 +230,6 @@ async function shouldRunRestack(
 	if (options.confirmRestack === undefined) return "unavailable";
 	const confirmed = await options.confirmRestack(formatRestackConfirmationPrompt(output, displays));
 	return confirmed ? "run" : "declined";
-}
-
-function withMetadataAdvisory(
-	message: string,
-	prewrittenMetadata: readonly PrewrittenPrMetadata[] | undefined,
-): string {
-	const advisory = formatPrewrittenMetadataAdvisory(
-		prewrittenMetadata ?? [],
-		POST_METADATA_GRAPHITE_FAILURE_ADVISORY,
-	);
-	return [message, ...(advisory.length === 0 ? [] : ["", ...advisory])].join("\n");
 }
 
 function ordinarySubmitTransportObservationSink(

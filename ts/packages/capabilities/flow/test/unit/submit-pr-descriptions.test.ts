@@ -5,240 +5,187 @@ import { ScriptedTextGenerator } from "@nseng-ai/capability-kit/text-generation/
 import type { ActiveOperation } from "@nseng-ai/sdk";
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import { ok, type GithubPrGateway, type TextGenerator } from "../../src/submit/index.ts";
-import { generateSubmitPrDescriptions } from "../../src/submit/submit-pr-descriptions.ts";
-
-class PrewrittenDescriptionGithubPrGateway implements GithubPrGateway {
-	async viewCurrentBranchPr(): Promise<never> {
-		throw new Error("viewCurrentBranchPr should not be called");
-	}
-
-	async viewPr(params: { number: number }) {
-		return {
-			ok: true,
-			value: {
-				number: params.number,
-				url: `https://github.com/acme/repo/pull/${params.number}`,
-				title: "Prepared title",
-				body: "Prepared body",
-				headRefName: "feature/demo",
-				baseRefName: "main",
-			},
-		} as const;
-	}
-
-	async getPrCommitMessages(): Promise<never> {
-		throw new Error("getPrCommitMessages should not be called");
-	}
-
-	async getPrDiff(): Promise<never> {
-		throw new Error("getPrDiff should not be called");
-	}
-
-	async editPr(): Promise<never> {
-		throw new Error("editPr should not be called");
-	}
-}
-
-const unusedTextGenerator: TextGenerator = {
-	generateText: async () => {
-		throw new Error("generateText should not be called");
-	},
-};
+import {
+	formatPrDescriptionFailureText,
+	generateSubmitPrDescriptions,
+} from "../../src/submit/submit-pr-descriptions.ts";
 
 class GeneratedDescriptionGithubPrGateway implements GithubPrGateway {
+	readonly operations: string[] = [];
+	readonly failPreparationNumber: number | undefined;
+	readonly failEditNumber: number | undefined;
+
+	constructor(options: { failPreparationNumber?: number; failEditNumber?: number } = {}) {
+		this.failPreparationNumber = options.failPreparationNumber;
+		this.failEditNumber = options.failEditNumber;
+	}
+
 	async viewCurrentBranchPr(): Promise<never> {
 		throw new Error("viewCurrentBranchPr should not be called");
 	}
 
 	async viewPr(params: { number: number }) {
-		return {
-			ok: true,
-			value: {
-				number: params.number,
-				url: `https://github.com/acme/repo/pull/${params.number}`,
-				title: "Current title",
-				body: "Current body",
-				headRefName: "feature/gen",
-				baseRefName: "main",
-			},
-		} as const;
+		this.operations.push(`view:${params.number}`);
+		return ok({
+			number: params.number,
+			url: `https://github.com/acme/repo/pull/${params.number}`,
+			title: "Current title",
+			body: "Current body",
+			headRefName: `feature/${params.number}`,
+			baseRefName: "main",
+		});
 	}
 
-	async getPrCommitMessages() {
-		return ok([{ headline: "Add feature" }]);
+	async getPrCommitMessages(params: { number: number }) {
+		this.operations.push(`commits:${params.number}`);
+		return ok([{ headline: `Add feature ${params.number}` }]);
 	}
 
-	async getPrDiff() {
+	async getPrDiff(params: { number: number }) {
+		this.operations.push(`diff:${params.number}`);
+		if (params.number === this.failPreparationNumber) {
+			return { ok: false as const, error: { code: "diff_failed", message: "diff failed" } };
+		}
 		return ok("diff --git a/file b/file\n+change");
 	}
 
-	async editPr() {
+	async editPr(params: { number: number }) {
+		this.operations.push(`edit:${params.number}`);
+		if (params.number === this.failEditNumber) {
+			return { ok: false as const, error: { code: "edit_failed", message: "edit failed" } };
+		}
 		return ok(undefined);
 	}
 }
 
-describe("generateSubmitPrDescriptions", () => {
-	test("emits PR-addressed progress after PR metadata loads", async () => {
-		const events: Array<{
-			prNumber: number;
-			state: string;
-			message?: string;
-		}> = [];
+function descriptionOptions(githubPr: GithubPrGateway, textGenerator: TextGenerator) {
+	return {
+		githubPr,
+		textGenerator,
+		git: new InMemoryGitGateway({ repoRoot: "/repo" }),
+		descriptorSource: flowExtensionDescriptorSource,
+		modelSelection: {
+			provider: "openai-codex",
+			modelId: "gpt-5.6-luna",
+			thinking: "minimal" as const,
+		},
+		env: {},
+	};
+}
 
+describe("generateSubmitPrDescriptions", () => {
+	test("prepares every PR before editing and applies each once in link order", async () => {
+		const gateway = new GeneratedDescriptionGithubPrGateway();
+		const generator = new ScriptedTextGenerator([
+			{ ok: true, text: "Title 12\n\nBody 12" },
+			{ ok: true, text: "Title 13\n\nBody 13" },
+		]);
 		const result = await generateSubmitPrDescriptions({
 			cwd: "/repo",
-			prLinks: [{ label: "#12", url: "https://github.com/acme/repo/pull/12" }],
-			prewrittenMetadata: [
-				{
-					branch: "feature/demo",
-					parentBranch: "main",
-					title: "Prepared title",
-					body: "Prepared body",
-					commitRange: "main..feature/demo",
-					promptSource: { type: "builtin" },
-				},
+			prLinks: [
+				{ label: "#13", url: "https://github.com/acme/repo/pull/13" },
+				{ label: "#12", url: "https://github.com/acme/repo/pull/12" },
 			],
-			prDescription: {
-				githubPr: new PrewrittenDescriptionGithubPrGateway(),
-				textGenerator: unusedTextGenerator,
-				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
-				descriptorSource: flowExtensionDescriptorSource,
-				modelSelection: {
-					provider: "openai-codex",
-					modelId: "gpt-5.6-luna",
-					thinking: "minimal" as const,
-				},
-				env: {},
-			},
-			progress: {
-				onItemProgress: (event) => {
-					events.push(event);
-				},
-			},
+			prDescription: descriptionOptions(gateway, generator),
 		});
-
-		expect(result).toMatchObject({ ok: true, prewritten: [{ label: "#12" }] });
-		expect(events).toEqual([
-			{ prNumber: 12, state: "active", message: "loading PR metadata" },
-			{ prNumber: 12, state: "done", message: "prewritten" },
+		expect(result).toMatchObject({ ok: true, applied: [{ label: "#12" }, { label: "#13" }] });
+		expect(gateway.operations).toEqual([
+			"view:12",
+			"diff:12",
+			"commits:12",
+			"view:13",
+			"diff:13",
+			"commits:13",
+			"edit:12",
+			"edit:13",
 		]);
 	});
 
-	test("prewritten descriptions emit no active operations", async () => {
-		const snapshots: ActiveOperation[][] = [];
-
+	test("a preparation failure causes zero edits", async () => {
+		const gateway = new GeneratedDescriptionGithubPrGateway({ failPreparationNumber: 13 });
+		const generator = new ScriptedTextGenerator([{ ok: true, text: "Title 12\n\nBody 12" }]);
 		const result = await generateSubmitPrDescriptions({
 			cwd: "/repo",
-			prLinks: [{ label: "#12", url: "https://github.com/acme/repo/pull/12" }],
-			prewrittenMetadata: [
-				{
-					branch: "feature/demo",
-					parentBranch: "main",
-					title: "Prepared title",
-					body: "Prepared body",
-					commitRange: "main..feature/demo",
-					promptSource: { type: "builtin" },
-				},
+			prLinks: [
+				{ label: "#12", url: "https://github.com/acme/repo/pull/12" },
+				{ label: "#13", url: "https://github.com/acme/repo/pull/13" },
 			],
-			prDescription: {
-				githubPr: new PrewrittenDescriptionGithubPrGateway(),
-				textGenerator: unusedTextGenerator,
-				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
-				descriptorSource: flowExtensionDescriptorSource,
-				modelSelection: {
-					provider: "openai-codex",
-					modelId: "gpt-5.6-luna",
-					thinking: "minimal" as const,
-				},
-				env: {},
-			},
-			progress: {
-				onActiveOperations: (operations) => {
-					snapshots.push([...operations]);
-				},
-			},
+			prDescription: descriptionOptions(gateway, generator),
 		});
-
-		expect(result).toMatchObject({ ok: true });
-		expect(snapshots).toEqual([]);
+		expect(result).toMatchObject({ ok: false, stage: "preparation", applied: [] });
+		expect(gateway.operations.some((operation) => operation.startsWith("edit:"))).toBe(false);
 	});
 
-	test("reports one model operation exactly while a description generates", async () => {
+	test("application stops at first failure and reports applied and not attempted", async () => {
+		const gateway = new GeneratedDescriptionGithubPrGateway({ failEditNumber: 13 });
+		const generator = new ScriptedTextGenerator([
+			{ ok: true, text: "Title 12\n\nBody 12" },
+			{ ok: true, text: "Title 13\n\nBody 13" },
+			{ ok: true, text: "Title 14\n\nBody 14" },
+		]);
+		const result = await generateSubmitPrDescriptions({
+			cwd: "/repo",
+			prLinks: [12, 13, 14].map((number) => ({
+				label: `#${number}`,
+				url: `https://github.com/acme/repo/pull/${number}`,
+			})),
+			prDescription: descriptionOptions(gateway, generator),
+		});
+		expect(result).toMatchObject({
+			ok: false,
+			stage: "application",
+			applied: [{ label: "#12" }],
+			failures: [{ number: 13 }],
+			notAttempted: [{ label: "#14" }],
+		});
+		expect(gateway.operations.filter((operation) => operation.startsWith("edit:"))).toEqual([
+			"edit:12",
+			"edit:13",
+		]);
+	});
+
+	test("empty selection reports mode-neutral progress and succeeds without gateway calls", async () => {
+		const messages: string[] = [];
+		const gateway = new GeneratedDescriptionGithubPrGateway();
+		const result = await generateSubmitPrDescriptions({
+			cwd: "/repo",
+			prLinks: [],
+			prDescription: descriptionOptions(gateway, new ScriptedTextGenerator([])),
+			progress: { onProgress: (message) => messages.push(message) },
+		});
+		expect(result).toEqual({ ok: true, applied: [], previews: [] });
+		expect(messages).toEqual(["no PRs selected for metadata replacement"]);
+		expect(gateway.operations).toEqual([]);
+	});
+
+	test("failure text uses mode-neutral headline for the shared batch", async () => {
+		const link = { label: "#12", url: "https://github.com/acme/repo/pull/12" };
+		const text = formatPrDescriptionFailureText([link], {
+			ok: false,
+			stage: "preparation",
+			failures: [{ link, number: 12, reason: "diff failed" }],
+			applied: [],
+			notAttempted: [],
+		});
+		expect(text).toContain("PRs were submitted; PR metadata replacement failed.");
+		expect(text).not.toContain("initial metadata replacement");
+		expect(text).toContain("Preparation failures (no PR metadata was edited):");
+	});
+
+	test("reports one model operation while generation runs", async () => {
 		const snapshots: ActiveOperation[][] = [];
-		const textGenerator = new ScriptedTextGenerator([
+		const gateway = new GeneratedDescriptionGithubPrGateway();
+		const generator = new ScriptedTextGenerator([
 			{ ok: true, text: "Generated title\n\nGenerated body" },
 		]);
-
 		const result = await generateSubmitPrDescriptions({
 			cwd: "/repo",
 			prLinks: [{ label: "#12", url: "https://github.com/acme/repo/pull/12" }],
-			prDescription: {
-				githubPr: new GeneratedDescriptionGithubPrGateway(),
-				textGenerator,
-				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
-				descriptorSource: flowExtensionDescriptorSource,
-				modelSelection: {
-					provider: "openai-codex",
-					modelId: "gpt-5.6-luna",
-					thinking: "minimal" as const,
-				},
-				env: {},
-			},
-			progress: {
-				onActiveOperations: (operations) => {
-					snapshots.push([...operations]);
-				},
-			},
+			prDescription: descriptionOptions(gateway, generator),
+			progress: { onActiveOperations: (operations) => snapshots.push([...operations]) },
 		});
-
-		expect(result).toMatchObject({ ok: true, generated: [{ label: "#12" }] });
-		expect(snapshots).toEqual([
-			[
-				{
-					kind: "model",
-					operation: "generating PR description",
-					modelRef: "openai-codex/gpt-5.6-luna",
-					detail: "PR 1/1",
-				},
-			],
-			[],
-		]);
-		textGenerator.assertDone();
-	});
-
-	test("a rejecting text generator still leaves the last operation snapshot empty", async () => {
-		const snapshots: ActiveOperation[][] = [];
-		const throwingGenerator: TextGenerator = {
-			generateText: async () => {
-				throw new Error("model transport failed");
-			},
-		};
-
-		await expect(
-			generateSubmitPrDescriptions({
-				cwd: "/repo",
-				prLinks: [{ label: "#12", url: "https://github.com/acme/repo/pull/12" }],
-				prDescription: {
-					githubPr: new GeneratedDescriptionGithubPrGateway(),
-					textGenerator: throwingGenerator,
-					git: new InMemoryGitGateway({ repoRoot: "/repo" }),
-					descriptorSource: flowExtensionDescriptorSource,
-					modelSelection: {
-						provider: "openai-codex",
-						modelId: "gpt-5.6-luna",
-						thinking: "minimal" as const,
-					},
-					env: {},
-				},
-				progress: {
-					onActiveOperations: (operations) => {
-						snapshots.push([...operations]);
-					},
-				},
-			}),
-		).rejects.toThrow("model transport failed");
-
-		expect(snapshots.length).toBeGreaterThan(0);
+		expect(result).toMatchObject({ ok: true, applied: [{ label: "#12" }] });
+		expect(snapshots[0]?.[0]).toMatchObject({ kind: "model", detail: "PR 1/1" });
 		expect(snapshots.at(-1)).toEqual([]);
 	});
 });

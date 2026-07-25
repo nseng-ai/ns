@@ -36,7 +36,7 @@ Each command depends on a distinct slice of the underlying technology stack:
 | `ns flow branch-latest-commit` | Move the latest eligible commit to a new Graphite branch.                                      |  ✓  |        ✓        |               |       |  ✓  |
 | `ns flow autoslot`             | Create a Graphite branch from current work, then move it into a managed slot worktree.         |  ✓  |        ✓        |               |   ✓   |  ✓  |
 | `ns flow submit`               | Submit the current/downstack Graphite branches; `--minimal` selects the clean-tree cheap path. |  ✓  |        ✓        |       ✓       |       |  ✓  |
-| `ns flow regenerate-pr`        | Regenerate the current PR title and ns-managed body region.                                    |  ✓  |                 |       ✓       |       |  ✓  |
+| `ns flow regenerate-pr`        | Regenerate and completely replace the current PR title and body.                               |  ✓  |                 |       ✓       |       |  ✓  |
 | `ns flow push`                 | Push committed non-Graphite branch work with `git push`.                                       |  ✓  |                 |               |       |     |
 | `ns flow land`                 | Land the current PR or Graphite stack into trunk.                                              |  ✓  |        ✓        |       ✓       |   ✓   |     |
 | `ns flow pull-trunk`           | Refresh the configured Graphite trunk from its configured Git upstream.                        |  ✓  |        ✓        |               |       |     |
@@ -134,9 +134,8 @@ downstack ancestors, refuses dirty or drifting source state, checks submit readi
 automatically runs `gt restack --downstack --no-interactive` when required, rechecks
 readiness, runs `gt submit --no-stack`, and verifies the current PR.
 
-Minimal mode deliberately runs no `flow.submit.pre` hooks, checkpoint, metadata
-prewrite, PR-description generation, or model calls. `--no-checks` is accepted but
-redundant. `--regenerate-descriptions` conflicts with `--minimal`. Graphite `--force`
+Minimal mode deliberately runs no `flow.submit.pre` hooks, checkpoint, PR-description
+generation, or model calls. `--no-checks` is accepted but redundant. Graphite `--force`
 is omitted by default; the Flow CLI's explicit `--force` retains its existing opt-in
 meaning.
 
@@ -146,9 +145,11 @@ the Prod Submit Objective; no live publication claim is implied by this document
 
 ## Ordinary submit PR metadata
 
-Ordinary `ns flow submit` temporarily generates an initial title and ns-managed description for PRs newly created by that invocation. A PR that existed before the invocation has its title and body left untouched, regardless of whether its body is empty or its managed fingerprint is missing, malformed, stale, or unchanged.
+Ordinary `ns flow submit` temporarily generates an initial complete title and body only for PRs newly created by that invocation. Generation happens after Graphite creates every PR: Flow prepares every selected replacement before writing any, then applies replacements sequentially. A preparation failure edits no PR; an edit failure stops the batch and reports applied, failed, and not-attempted PRs. There is no rollback. By default, PRs that existed before the invocation are left untouched.
 
-Use `ns flow submit --regenerate-descriptions` to force coupled title and managed-description regeneration for every PR in the submitted scope. Use `ns flow regenerate-pr` for the focused, confirmed current-branch operation. This initial new-PR metadata behavior is interim; the Prod Submit Objective still moves all prose work out of cheap submit and into future `ship`.
+`ns flow submit --regenerate-descriptions` widens the same batch to every PR resolved in the submitted scope, existing and new. Every selected PR receives a complete generated title and body; all existing body content is removed, including human-authored prose — there is no managed-region merging. Because this is destructive, the flag requires a TTY confirmation before any workflow work, or `--yes`/`-y` for explicit non-interactive approval, and it cannot be combined with `--minimal`.
+
+Use `ns flow regenerate-pr` from an existing PR's branch for a focused, confirmed complete title/body replacement. Generated bodies include visible command, prompt-source, and model provenance. This initial new-PR metadata behavior is interim; the Prod Submit Objective still moves all prose work out of cheap submit and into future `ship`.
 
 ## Pre-submit checks
 

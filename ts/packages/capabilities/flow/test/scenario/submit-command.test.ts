@@ -5,10 +5,8 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { fakeStackInfo } from "@nseng-ai/capability-kit/graphite/testing";
 import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
-import {} from "../../src/submit/index.ts";
 import { FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "../../src/submit/submit-hooks.ts";
 
 import { runFlowSubmitCommandWithFakes } from "./flow-command-fakes.ts";
@@ -18,15 +16,6 @@ import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts
 // A non-tty transient progress line, as routed to onOutput (the Pi widget path / captured liveOutput).
 function transient(text: string): { stream: "stderr"; text: string } {
 	return { stream: "stderr", text: `${text}\n` };
-}
-
-function expectPlainHostedOutput(
-	entries: readonly { stream: "stdout" | "stderr"; text: string }[],
-): void {
-	for (const entry of entries) {
-		expect(entry.text).toBe(stripAnsi(entry.text));
-		expect(entry.text).not.toContain("\r");
-	}
 }
 
 function lastStderrOutput(
@@ -312,13 +301,6 @@ describe("project-local submit extension", () => {
 				{
 					type: "matrix-cell",
 					rowKey: "feature/demo",
-					columnKey: "metadata",
-					state: "skipped",
-					text: "exists",
-				},
-				{
-					type: "matrix-cell",
-					rowKey: "feature/demo",
 					columnKey: "description",
 					state: "skipped",
 				},
@@ -365,89 +347,6 @@ describe("project-local submit extension", () => {
 		expect(settled).not.toContain("Branch / PR");
 	});
 
-	test("clean success with --regenerate-descriptions submits, verifies current PR, prints quiet progress, and rewrites PR bodies", async () => {
-		const run = runWithFakes({
-			request: { regenerateDescriptions: true },
-			state: {
-				textGeneration: [
-					{
-						ok: true,
-						text: defaultPrDescriptionText(),
-						usage: { inputTokens: 1234, outputTokens: 56 },
-					},
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(0);
-		const output = run.stdout.join("");
-		expect(output).toContain("Submitted 1 PR:");
-		expect(output).toContain(`✓ #123 ${PR_URL}`);
-		expect(output).toContain("description updated");
-		expect(output).toContain("new title: Generated PR");
-		expect(output).toContain("new description: Generated body");
-		expect(output).not.toContain("gt submit succeeded");
-		expect(output).not.toContain("PRs:");
-		expect(output).not.toContain("Updated PR descriptions after submit");
-		expect(run.stderr.join("")).toBe("");
-		expectPlainHostedOutput(run.liveOutput);
-		expect(run.liveOutput).toEqual(
-			expect.arrayContaining([
-				transient("checkpointing pending changes…"),
-				transient("inspecting worktree…"),
-				transient("checking submit readiness…"),
-				transient("inspecting stack and preparing PR metadata if needed…"),
-				transient(
-					"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
-				),
-				transient("checking current PR"),
-				transient("checking 1 PR description for skip or regeneration"),
-				transient("preparing descriptions for 1 PR"),
-				transient("loading PR #123 metadata (1/1)"),
-				transient("resolving PR description prompt and model"),
-				transient("loading PR #123 diff"),
-				transient("generating PR metadata (attempt 1/2)"),
-				transient("PR metadata generated (tokens in 1234, out 56)"),
-				transient("updating PR #123 title and body"),
-				transient("finished PR #123 description"),
-			]),
-		);
-		const settled = lastStderrOutput(run.liveOutput);
-		expect(settled).toContain("ns flow submit");
-		expect(settled).toContain("checkpoint complete");
-		expect(settled).toContain("✓ Inspect");
-		expect(settled).toContain("worktree inspected");
-		expect(settled).toContain("– Generate");
-		expect(settled).toContain("checkpoint message ready");
-		expect(settled).toContain("– Commit");
-		expect(settled).toContain("checkpoint committed");
-		expect(settled).toContain("ready to submit");
-		expect(settled).toContain("metadata prepared");
-		expect(settled).toContain("stack submitted");
-		expect(settled).toContain("PRs verified");
-		expect(settled).toContain("descriptions ready");
-		// The gt submit phase streams its raw output live even without --verbose.
-		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: `Submitted ${PR_URL}\n` });
-		// Preflight dry-run output stays quiet unless --verbose is passed.
-		expect(run.liveOutput).not.toContainEqual({ stream: "stdout", text: "ready\n" });
-		const calls = formattedExecCalls(run.context);
-		expect(calls).toContain("gh pr view --json number,url");
-		expect(calls).not.toContain("gt branch info --no-interactive");
-		expect(calls).not.toContain("gt log --stack --reverse --no-interactive");
-		expect(
-			calls.indexOf("gh pr list --head feature/demo --state open --limit 2 --json number,url"),
-		).toBeGreaterThan(
-			calls.indexOf(
-				"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
-			),
-		);
-		expect(run.stackGateway.operations()).toEqual([{ type: "stack", cwd: run.context.cwd }]);
-		expect(formattedExecCalls(run.context)).toContain("gh pr diff 123");
-		expect(formattedExecCalls(run.context)).toContainEqual(
-			expect.stringMatching(/^gh pr edit 123 --title Generated PR --body-file /),
-		);
-	});
-
 	test("clean success leaves a non-empty existing PR title and body untouched by default", async () => {
 		const run = runWithFakes();
 
@@ -483,6 +382,108 @@ describe("project-local submit extension", () => {
 		expect(calls.some((call) => call.startsWith("git patch-id"))).toBe(false);
 		expect(calls.some((call) => call.startsWith("gh pr edit 123"))).toBe(false);
 		expect(run.context.textGeneratorCalls).toEqual([]);
+	});
+
+	test("--minimal rejects --regenerate-descriptions before any command or model call", async () => {
+		const run = runWithFakes({
+			request: { minimal: true, regenerateDescriptions: true, yes: true },
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain(
+			"--minimal cannot be combined with --regenerate-descriptions",
+		);
+		expect(await run.result).toMatchObject({
+			type: "usageError",
+			data: { conflictingOptions: ["--minimal", "--regenerate-descriptions"] },
+		});
+		expect(formattedExecCalls(run.context)).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
+	});
+
+	test("--yes without --regenerate-descriptions is rejected before any command or model call", async () => {
+		const run = runWithFakes({ request: { yes: true } });
+
+		expect(await run.exit).toBe(2);
+		expect(await run.result).toMatchObject({
+			type: "usageError",
+			data: { invalidOption: "--yes", requiresOption: "--regenerate-descriptions" },
+		});
+		expect(formattedExecCalls(run.context)).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
+	});
+
+	test("non-interactive --regenerate-descriptions without --yes fails fast naming --yes", async () => {
+		const run = runWithFakes({ request: { regenerateDescriptions: true } });
+
+		expect(await run.exit).toBe(2);
+		expect(await run.result).toMatchObject({
+			type: "usageError",
+			data: { missingFlag: "--yes" },
+		});
+		expect(run.stderr.join("")).toContain("--yes");
+		expect(formattedExecCalls(run.context)).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
+	});
+
+	test("declined --regenerate-descriptions confirmation cancels before any command or model call", async () => {
+		const run = runWithFakes({
+			request: { regenerateDescriptions: true },
+			state: { confirm: () => false },
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain("no PR metadata was edited");
+		expect(formattedExecCalls(run.context)).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
+	});
+
+	test("approved --regenerate-descriptions confirmation warns about complete replacement, then rewrites the existing PR", async () => {
+		let confirmTitle = "";
+		let confirmMessage = "";
+		const run = runWithFakes({
+			request: { regenerateDescriptions: true },
+			state: {
+				confirm: (title, message) => {
+					confirmTitle = title;
+					confirmMessage = message;
+					return true;
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(confirmTitle).toContain("Replace complete PR metadata");
+		expect(confirmMessage).toContain("complete title and body");
+		expect(confirmMessage).toContain("All current body content on those PRs will be removed");
+		const calls = formattedExecCalls(run.context);
+		expect(calls.some((call) => call.startsWith("gh pr edit 123"))).toBe(true);
+	});
+
+	test("--regenerate-descriptions --yes rewrites a pre-existing PR title and body without prompting", async () => {
+		let confirmCalls = 0;
+		const run = runWithFakes({
+			request: { regenerateDescriptions: true, yes: true },
+			state: {
+				confirm: () => {
+					confirmCalls += 1;
+					return false;
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(confirmCalls).toBe(0);
+		const output = run.stdout.join("");
+		expect(output).toContain("Submitted 1 PR:");
+		expect(output).toContain(`✓ #123 ${PR_URL}`);
+		expect(output).toContain("new title: Generated PR");
+		const calls = formattedExecCalls(run.context);
+		expect(calls).toContain("gh pr view 123 --json number,url,title,body,headRefName,baseRefName");
+		expect(calls).toContain("gh pr view 123 --json commits");
+		expect(calls).toContain("gh pr diff 123");
+		expect(calls.some((call) => call.startsWith("gh pr edit 123"))).toBe(true);
+		expect(run.context.textGeneratorCalls.length).toBe(1);
 	});
 
 	test("--verbose streams raw Graphite output in addition to concise progress", async () => {
@@ -601,23 +602,6 @@ describe("project-local submit extension", () => {
 				{ stream: "stdout", text: `Submitted ${PR_URL}\n` },
 			]),
 		);
-	});
-
-	test("minimal mode rejects PR-description regeneration before any command", async () => {
-		const run = runWithFakes({
-			request: { minimal: true, regenerateDescriptions: true },
-		});
-
-		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain(
-			"--minimal cannot be combined with --regenerate-descriptions",
-		);
-		expect(await run.result).toMatchObject({
-			type: "usageError",
-			data: { conflictingOptions: ["--minimal", "--regenerate-descriptions"] },
-		});
-		expect(formattedExecCalls(run.context)).toEqual([]);
-		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("configured pre-submit check runs before checkpoint and submit", async () => {
@@ -761,346 +745,6 @@ describe("project-local submit extension", () => {
 		expect(formattedExecCalls(run.context)).toContain(
 			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --force",
 		);
-	});
-
-	test("--regenerate-descriptions forcefully regenerates a matching PR description fingerprint", async () => {
-		const managedBody = "Existing generated body";
-		const run = runWithFakes({
-			request: { regenerateDescriptions: true },
-			state: {
-				exec: [
-					...cleanCheckpointResponses(),
-					{
-						match:
-							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
-						result: { stdout: "ready\n" },
-					},
-					{
-						match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
-						result: { stdout: prIdentityListJson(123, PR_URL) },
-					},
-					{
-						match:
-							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
-						result: { stdout: `Submitted ${PR_URL}\n` },
-					},
-					{
-						match: "gh pr view --json number,url",
-						result: { stdout: prIdentityJson(123, PR_URL) },
-					},
-					{
-						match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
-						result: { stdout: prJson({ body: `Human intro\n\n${managedBody}\n\nHuman footer` }) },
-					},
-					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-					{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
-					{
-						match: "git patch-id --stable",
-						result: { stdout: "default-patch-id 0000000000000000000000000000000000000000\n" },
-					},
-					{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
-					{ match: /^gh pr edit 123 --title Generated PR --body-file /, result: {} },
-				],
-				textGeneration: [
-					{
-						ok: true,
-						text: defaultPrDescriptionText(),
-						usage: { inputTokens: 1234, outputTokens: 56 },
-					},
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("description updated");
-		expect(run.context.textGeneratorCalls).toHaveLength(1);
-		expect(formattedExecCalls(run.context)).toContain("gh pr view 123 --json commits");
-		expect(formattedExecCalls(run.context)).toContainEqual(
-			expect.stringMatching(/^gh pr edit 123 --title Generated PR --body-file /),
-		);
-	});
-
-	test("pre-submit metadata preparation reports progress across large stacks", async () => {
-		const run = runWithFakes({
-			request: { regenerateDescriptions: true },
-			graphiteStack: {
-				stack: {
-					type: "stack",
-					stack: fakeStackInfo({
-						trunk: "main",
-						current: "feature/top",
-						ancestors: ["main", "feature/base"],
-						descendants: ["feature/upstack"],
-					}),
-				},
-			},
-			state: {
-				exec: [
-					...cleanCheckpointResponses(),
-					{
-						match:
-							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
-						result: { stdout: "ready\n" },
-					},
-					{
-						match: "gh pr list --head feature/base --state open --limit 2 --json number,url",
-						result: { stdout: prIdentityListJson(123, PR_URL) },
-					},
-					{
-						match: "gh pr list --head feature/top --state open --limit 2 --json number,url",
-						result: { stdout: "[]" },
-					},
-					{
-						match: "git log --format=%B%x00 feature/base..feature/top",
-						result: { stdout: "Add top branch\0" },
-					},
-					{
-						match: "git diff feature/base..feature/top",
-						result: { stdout: "diff --git a/src/top.ts b/src/top.ts\n" },
-					},
-					{ match: "git status --porcelain", result: { stdout: "" } },
-					{ match: "gt modify --no-interactive -m Generated PR -m Generated body", result: {} },
-					{
-						match:
-							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
-						result: { stdout: `Submitted ${PR_URL}\n` },
-					},
-					{
-						match:
-							"gt submit --no-edit --publish --stack --update-only --no-ai --no-interactive --no-view --no-web",
-						result: { stdout: "Updated existing upstack PRs\n" },
-					},
-					{
-						match: "gh pr view --json number,url",
-						result: { stdout: prIdentityJson(123, PR_URL) },
-					},
-					{
-						match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
-						result: {
-							stdout: prJson({
-								title: "Generated PR",
-								body: "Generated body",
-								headRefName: "feature/top",
-							}),
-						},
-					},
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(0);
-		const output = run.stdout.join("");
-		expect(output).toContain("Submitted 1 PR:");
-		expect(output).toContain("initial metadata prepared");
-		expect(output).toContain("new title: Generated PR");
-		expect(output).toContain("new description: Generated body");
-		expect(output).not.toContain("Prepared initial PR metadata:");
-		expect(run.liveOutput).toEqual(
-			expect.arrayContaining([
-				transient("inspecting Graphite submit scope before metadata preparation"),
-				transient("inspecting Graphite submit branch metadata for 2 branches"),
-				transient("inspecting PR metadata for feature/base (1/2)"),
-				transient("inspecting PR metadata for feature/top (2/2)"),
-				transient("reading local commits and diff for feature/top"),
-				transient("found 2 submit branches; 1 new single-commit branch needs initial PR metadata"),
-				transient("generating initial PR metadata for feature/top (1/1)"),
-				transient("checking clean worktree before metadata amendment"),
-				transient("amending local PR metadata commit for feature/top (1/1)"),
-				transient("prepared pre-submit PR metadata for 1 branch"),
-				{ stream: "stdout", text: "Updated existing upstack PRs\n" },
-			]),
-		);
-		expect(formattedExecCalls(run.context)).toContain(
-			"gt submit --no-edit --publish --stack --update-only --no-ai --no-interactive --no-view --no-web",
-		);
-		expect(formattedExecCalls(run.context)).not.toContain(
-			"gh pr list --head feature/upstack --state open --limit 2 --json number,url",
-		);
-		expect(run.stackGateway.operations()).toEqual([{ type: "stack", cwd: run.context.cwd }]);
-		expect(formattedExecCalls(run.context)).not.toContain(
-			"git log --format=%B%x00 feature/top..feature/upstack",
-		);
-		expect(formattedExecCalls(run.context)).not.toContain("git diff feature/top..feature/upstack");
-		const calls = formattedExecCalls(run.context);
-		const dryRun =
-			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run";
-		const amendment = "gt modify --no-interactive -m Generated PR -m Generated body";
-		const submit =
-			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web";
-		expect(calls.filter((call) => call === dryRun)).toHaveLength(2);
-		expect(calls.indexOf(dryRun)).toBeLessThan(calls.indexOf(amendment));
-		expect(calls.lastIndexOf(dryRun)).toBeGreaterThan(calls.indexOf(amendment));
-		expect(calls.lastIndexOf(dryRun)).toBeLessThan(calls.indexOf(submit));
-	});
-
-	test("final readiness failure after metadata amendment stops before publication", async () => {
-		const dryRun =
-			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run";
-		const run = runWithFakes({
-			graphiteStack: {
-				stack: {
-					type: "stack",
-					stack: fakeStackInfo({ trunk: "main", current: "feature/top", ancestors: ["main"] }),
-				},
-			},
-			state: {
-				textGeneration: [
-					{ ok: true, text: defaultPrDescriptionText() },
-					{ ok: false, error: "failure interpretation unavailable" },
-				],
-				exec: [
-					...cleanCheckpointResponses(),
-					{ match: dryRun, result: { stdout: "initially ready\n" }, times: 1 },
-					{
-						match: "gh pr list --head feature/top --state open --limit 2 --json number,url",
-						result: { stdout: "[]" },
-					},
-					{
-						match: "git log --format=%B%x00 main..feature/top",
-						result: { stdout: "Add top branch\0" },
-					},
-					{
-						match: "git diff main..feature/top",
-						result: { stdout: "diff --git a/src/top.ts b/src/top.ts\n" },
-					},
-					{ match: "git status --porcelain", result: { stdout: "" } },
-					{ match: "gt modify --no-interactive -m Generated PR -m Generated body", result: {} },
-					{
-						match: dryRun,
-						result: { code: 1, stderr: "metadata rewrite requires manual repair\n" },
-					},
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(1);
-		const error = run.stderr.join("");
-		expect(error).toContain("Local PR metadata commit messages were prepared before submit");
-		const calls = formattedExecCalls(run.context);
-		expect(calls.filter((call) => call === dryRun)).toHaveLength(2);
-		expect(calls).not.toContain(
-			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
-		);
-		expect(calls).not.toContain(
-			"gt submit --no-edit --publish --stack --update-only --no-ai --no-interactive --no-view --no-web",
-		);
-		expect(calls).not.toContain("gh pr view --json number,url");
-	});
-
-	test("pre-submit metadata amend failure reports concise cause and raw diagnostics", async () => {
-		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-test-"));
-		tempDirs.push(logRoot);
-		const run = runWithFakes({
-			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
-			graphiteStack: {
-				stack: {
-					type: "stack",
-					stack: fakeStackInfo({
-						trunk: "main",
-						current: "feature/top",
-						ancestors: ["main", "feature/base", "feature/mid"],
-					}),
-				},
-			},
-			state: {
-				exec: [
-					...cleanCheckpointResponses(),
-					{
-						match:
-							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
-						result: { stdout: "ready\n" },
-					},
-					{
-						match: "gh pr list --head feature/base --state open --limit 2 --json number,url",
-						result: { stdout: "[]" },
-					},
-					{
-						match: "gh pr list --head feature/mid --state open --limit 2 --json number,url",
-						result: { stdout: "[]" },
-					},
-					{
-						match: "gh pr list --head feature/top --state open --limit 2 --json number,url",
-						result: { stdout: "[]" },
-					},
-					{
-						match: "git log --format=%B%x00 main..feature/base",
-						result: { stdout: "Add base\0" },
-					},
-					{
-						match: "git diff main..feature/base",
-						result: { stdout: "diff --git a/src/base.ts b/src/base.ts\n" },
-					},
-					{
-						match: "git log --format=%B%x00 feature/base..feature/mid",
-						result: { stdout: "Add mid\0" },
-					},
-					{
-						match: "git diff feature/base..feature/mid",
-						result: { stdout: "diff --git a/src/mid.ts b/src/mid.ts\n" },
-					},
-					{
-						match: "git log --format=%B%x00 feature/mid..feature/top",
-						result: { stdout: "Add top\0" },
-					},
-					{
-						match: "git diff feature/mid..feature/top",
-						result: { stdout: "diff --git a/src/top.ts b/src/top.ts\n" },
-					},
-					{ match: "git status --porcelain", result: { stdout: "" } },
-					{
-						match:
-							"gt modify --no-interactive --into feature/base -m Generated PR -m Generated body",
-						result: {},
-					},
-					{
-						match:
-							"gt modify --no-interactive --into feature/mid -m Generated PR -m Generated body",
-						result: {
-							code: 1,
-							stderr: "Graphite cannot modify branch: descendants need restack\n",
-						},
-					},
-				],
-				textGeneration: [
-					{ ok: true, text: defaultPrDescriptionText() },
-					{ ok: true, text: defaultPrDescriptionText() },
-					{ ok: true, text: defaultPrDescriptionText() },
-					{ ok: false, error: "submit failure interpretation unavailable" },
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(1);
-		const error = run.stderr.join("");
-		expect(error).toContain("Could not amend local PR metadata for feature/mid");
-		expect(error).toContain("Submission was not attempted");
-		expect(error).toContain(
-			"Cause: gt exited 1: Graphite cannot modify branch: descendants need restack",
-		);
-		expect(error).toContain("Local PR metadata commit messages were amended before the failure:");
-		expect(error).toContain("- feature/base");
-		expect(error).toContain("Raw log:");
-		expect(
-			formattedExecCalls(run.context).some(
-				(call) =>
-					call.startsWith("gt submit --no-edit --publish --no-stack") &&
-					!call.endsWith("--dry-run"),
-			),
-		).toBe(false);
-
-		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
-		const rawLog = await readFile(rawPath ?? "", "utf8");
-		expect(rawLog).toContain("phase: pre-submit metadata");
-		expect(rawLog).toContain("code: submit_metadata_amend_failed");
-		expect(rawLog).toContain("message: Could not amend local PR metadata commit for feature/mid.");
-		expect(rawLog).toContain("command: gt");
-		expect(rawLog).toContain(
-			"args: modify --no-interactive --into feature/mid -m Generated PR -m Generated body",
-		);
-		expect(rawLog).toContain("exit_code: 1");
-		expect(rawLog).toContain("stderr: Graphite cannot modify branch: descendants need restack");
-		expect(rawLog).toContain("Local PR metadata commit messages were amended before the failure:");
-		expect(rawLog).toContain("- feature/base");
 	});
 
 	test("accepts submit-output PR links when current PR verification lags", async () => {
@@ -1619,92 +1263,6 @@ describe("project-local submit extension", () => {
 		expect(await readFile(rawPath ?? "", "utf8")).toContain("phase: submit preflight");
 	});
 
-	test("Graphite PR-info lookup submit failure gives deterministic manual recovery guidance", async () => {
-		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-test-"));
-		tempDirs.push(logRoot);
-		const submitCommand =
-			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web";
-		const run = runWithFakes({
-			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
-			graphiteStack: {
-				stack: {
-					type: "stack",
-					stack: fakeStackInfo({
-						trunk: "main",
-						current: "feature/top",
-						ancestors: ["main", "feature/base"],
-					}),
-				},
-			},
-			state: {
-				exec: [
-					...cleanCheckpointResponses(),
-					{
-						match: `${submitCommand} --dry-run`,
-						result: { stdout: "ready\n" },
-					},
-					{
-						match: "gh pr list --head feature/base --state open --limit 2 --json number,url",
-						result: { stdout: prIdentityListJson(123, PR_URL) },
-					},
-					{
-						match: "gh pr list --head feature/top --state open --limit 2 --json number,url",
-						result: { stdout: "[]" },
-					},
-					{
-						match: "git log --format=%B%x00 feature/base..feature/top",
-						result: { stdout: "Add top branch\0" },
-					},
-					{
-						match: "git diff feature/base..feature/top",
-						result: { stdout: "diff --git a/src/top.ts b/src/top.ts\n" },
-					},
-					{ match: "git status --porcelain", result: { stdout: "" } },
-					{ match: "gt modify --no-interactive -m Generated PR -m Generated body", result: {} },
-					{
-						match: submitCommand,
-						result: {
-							code: 1,
-							stdout:
-								"Running in non-interactive mode. Inline prompts to fill PR fields will be skipped.\n\n🥞 Validating that this Graphite stack is ready to submit...\n",
-							stderr: "ERROR: Failed to get pull request info. Please try again.\n",
-						},
-					},
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(1);
-		const error = run.stderr.join("");
-		expect(error).toContain("Graphite failed while looking up pull request info during submit.");
-		expect(error).toContain("suspected Graphite CLI edge case");
-		expect(error).toContain(
-			"run `gt submit` manually, then verify the current branch has a PR with `gt pr` or `gh pr view <branch>`",
-		);
-		expect(error).toContain(
-			"Local PR metadata commit messages were prepared before submit; verify the metadata after resolving the Graphite failure.",
-		);
-		expect(error).toContain("Raw log:");
-		expect(error).not.toContain("----- AI interpretation (model-generated) -----");
-		expect(error).not.toContain(`${submitCommand} failed with exit code 1.`);
-		const calls = formattedExecCalls(run.context);
-		expect(calls.filter((call) => call === submitCommand)).toHaveLength(1);
-		expect(calls).not.toContain("gt submit");
-		expect(run.context.textGeneratorCalls.map((call) => call.modelSelection)).not.toContain(
-			"openai-codex/submit-summary",
-		);
-		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
-		expect(rawPath?.startsWith(logRoot)).toBe(true);
-		const rawLog = await readFile(rawPath ?? "", "utf8");
-		expect(rawLog).toContain("phase: submit preflight");
-		expect(rawLog).toContain(submitCommand);
-		expect(rawLog).toContain("exit code: 1");
-		expect(rawLog).toContain(
-			"Running in non-interactive mode. Inline prompts to fill PR fields will be skipped.",
-		);
-		expect(rawLog).toContain("ERROR: Failed to get pull request info. Please try again.");
-	});
-
 	test("unknown dry-run failure uses model-primary message and writes a raw log", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-test-"));
 		const run = runWithFakes({
@@ -2142,7 +1700,6 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 
 	test("description edit failure keeps submitted PR links visible", async () => {
 		const run = runWithFakes({
-			request: { regenerateDescriptions: true },
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -2153,7 +1710,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 					},
 					{
 						match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
-						result: { stdout: prIdentityListJson(123, PR_URL) },
+						result: { stdout: "[]" },
 					},
 					{
 						match:
@@ -2171,11 +1728,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 					{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 					{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
-					{
-						match: "git patch-id --stable",
-						result: { stdout: "default-patch-id 0000000000000000000000000000000000000000\n" },
-					},
-					{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
+
 					{
 						match: /^gh pr edit 123 --title Generated PR --body-file /,
 						result: { code: 1, stderr: "edit denied\n" },
@@ -2187,7 +1740,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 
 		expect(await run.exit).toBe(1);
 		const error = run.stderr.join("");
-		expect(error).toContain("PRs were submitted; description generation failed.");
+		expect(error).toContain("PRs were submitted; PR metadata replacement failed.");
 		expect(error).toContain(`#123 ${PR_URL}`);
 		expect(error).toContain("Could not update PR #123.");
 		expect(error).toContain("Raw log:");

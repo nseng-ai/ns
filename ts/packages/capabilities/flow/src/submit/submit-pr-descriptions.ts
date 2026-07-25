@@ -6,27 +6,32 @@ import {
 	formatErrorInfoDiagnosticLines,
 } from "@nseng-ai/capability-kit/gateway-result";
 
-import { orchestratePrDescription } from "./index.ts";
-import { resolvePrDescriptionGeneration, type PrDescriptionGenerationResolution } from "./index.ts";
-import type { PrewrittenPrMetadata } from "./index.ts";
+import {
+	applyPreparedPrMetadataReplacement,
+	preparePrMetadataReplacement,
+	resolvePrDescriptionGeneration,
+	type PreparedPrMetadataReplacement,
+} from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
 import type {
 	SubmitPrDescriptionPreview,
 	SubmitPrDescriptionSummary,
 } from "./submit-pr-description-summary.ts";
-import type {
-	PrDescriptionContent,
-	PrDescriptionOrchestrationResult,
-} from "./pr-description-orchestration.ts";
 import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
-import { formatBatchPosition, formatItemCount } from "./submit-format.ts";
+import { formatBatchPosition } from "./submit-format.ts";
 import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import type { SubmitMatrixCellState } from "./submit-matrix-progress.ts";
 
 export type SubmitPrDescriptionGenerationResult =
 	| ({ ok: true } & SubmitPrDescriptionSummary)
-	| { ok: false; failures: PrDescriptionFailure[] };
+	| {
+			ok: false;
+			stage: "preparation" | "application";
+			failures: PrDescriptionFailure[];
+			applied: readonly SubmitPrLink[];
+			notAttempted: readonly SubmitPrLink[];
+	  };
 
 export interface PrDescriptionFailure {
 	link: SubmitPrLink;
@@ -35,103 +40,74 @@ export interface PrDescriptionFailure {
 	diagnostic?: ErrorInfo;
 }
 
-interface PrDescriptionAccumulator {
-	generated: SubmitPrLink[];
-	skipped: SubmitPrLink[];
-	prewritten: SubmitPrLink[];
-	prewriteFallbacks: SubmitPrLink[];
-	previews: SubmitPrDescriptionPreview[];
-	failures: PrDescriptionFailure[];
-}
-
-type PrDescriptionLinkBucketName = "generated" | "prewritten" | "prewriteFallbacks";
-
 export interface SubmitPrDescriptionProgressEvent {
 	prNumber: number;
 	state: Exclude<SubmitMatrixCellState, "pending">;
 	message?: string;
 }
 
-export type SubmitPrDescriptionProgressListener = (event: SubmitPrDescriptionProgressEvent) => void;
-
 export async function generateSubmitPrDescriptions(input: {
 	cwd: string;
 	prDescription: SubmitPrDescriptionOptions;
 	prLinks: readonly SubmitPrLink[];
-	shouldForce?: boolean;
-	prewrittenMetadata?: readonly PrewrittenPrMetadata[];
 	progress?: SubmitProgressListeners<SubmitPrDescriptionProgressEvent>;
 }): Promise<SubmitPrDescriptionGenerationResult> {
-	let accumulator: PrDescriptionAccumulator = createPrDescriptionAccumulator();
-	const prewrittenByBranch = new Map(
-		(input.prewrittenMetadata ?? []).map((metadata) => [metadata.branch, metadata]),
-	);
-	let generation: Extract<PrDescriptionGenerationResolution, { ok: true }> | undefined;
-
-	if (input.prLinks.length === 0) {
-		input.progress?.onProgress?.("no PR links available for description generation");
-	} else {
-		input.progress?.onProgress?.(
-			`preparing descriptions for ${formatItemCount(input.prLinks.length, "PR", "PRs")}`,
-		);
+	const selected = input.prLinks
+		.map((link) => ({ link, number: prNumberFromLink(link) }))
+		.filter((item): item is { link: SubmitPrLink; number: number } => item.number !== undefined)
+		.sort((left, right) => left.link.url.localeCompare(right.link.url));
+	if (selected.length === 0) {
+		input.progress?.onProgress?.("no PRs selected for metadata replacement");
+		return { ok: true, applied: [], previews: [] };
 	}
 
-	// Intentionally sequential: deterministic output ordering and gentler on gh/API rate limits.
-	for (const [index, link] of input.prLinks.entries()) {
-		const number = prNumberFromLink(link);
-		if (number === undefined) continue;
+	input.progress?.onProgress?.("resolving PR description prompt and model");
+	const generation = await resolvePrDescriptionGeneration({
+		cwd: input.cwd,
+		env: input.prDescription.env,
+		git: input.prDescription.git,
+		descriptorSource: input.prDescription.descriptorSource,
+		modelSelection: input.prDescription.modelSelection,
+	});
+	if (!generation.ok) {
+		const first = selected[0];
+		if (first === undefined) throw new Error("Selected PR list unexpectedly empty.");
+		return {
+			ok: false,
+			stage: "preparation",
+			failures: [{ link: first.link, number: first.number, reason: generation.error }],
+			applied: [],
+			notAttempted: selected.slice(1).map((item) => item.link),
+		};
+	}
 
-		input.progress?.onProgress?.(
-			`loading PR #${number} metadata (${index + 1}/${input.prLinks.length})`,
-		);
+	const prepared: Array<{ link: SubmitPrLink; replacement: PreparedPrMetadataReplacement }> = [];
+	const failures: PrDescriptionFailure[] = [];
+	for (const [index, item] of selected.entries()) {
 		input.progress?.onItemProgress?.({
-			prNumber: number,
+			prNumber: item.number,
 			state: "active",
-			message: "loading PR metadata",
+			message: "preparing complete metadata",
 		});
-		const viewed = await input.prDescription.githubPr.viewPr({ cwd: input.cwd, number });
+		const viewed = await input.prDescription.githubPr.viewPr({
+			cwd: input.cwd,
+			number: item.number,
+		});
 		if (!viewed.ok) {
-			input.progress?.onItemProgress?.({
-				prNumber: number,
-				state: "failed",
-				message: firstNonEmptyLine(viewed.error.message) ?? "metadata load failed",
-			});
-			accumulator = collectPrDescriptionFailure(accumulator, {
-				link,
-				number,
+			failures.push({
+				link: item.link,
+				number: item.number,
 				reason: viewed.error.message,
 				diagnostic: viewed.error,
 			});
+			input.progress?.onItemProgress?.({
+				prNumber: item.number,
+				state: "failed",
+				message: firstNonEmptyLine(viewed.error.message) ?? "metadata load failed",
+			});
 			continue;
 		}
-
-		const prewrittenMetadata = prewrittenByBranch.get(viewed.value.headRefName);
-		if (prewrittenMetadata === undefined && generation === undefined) {
-			input.progress?.onProgress?.("resolving PR description prompt and model");
-			const resolvedGeneration = await resolvePrDescriptionGeneration({
-				cwd: input.cwd,
-				env: input.prDescription.env,
-				git: input.prDescription.git,
-				descriptorSource: input.prDescription.descriptorSource,
-				modelSelection: input.prDescription.modelSelection,
-			});
-			if (!resolvedGeneration.ok) {
-				input.progress?.onItemProgress?.({
-					prNumber: number,
-					state: "failed",
-					message: firstNonEmptyLine(resolvedGeneration.error) ?? "generation setup failed",
-				});
-				accumulator = collectPrDescriptionFailure(accumulator, {
-					link,
-					number,
-					reason: resolvedGeneration.error,
-				});
-				continue;
-			}
-			generation = resolvedGeneration;
-		}
-
-		const result = await orchestratePrDescription({
+		const result = await preparePrMetadataReplacement({
 			cwd: input.cwd,
 			env: input.prDescription.env,
 			githubPr: input.prDescription.githubPr,
@@ -140,185 +116,112 @@ export async function generateSubmitPrDescriptions(input: {
 			descriptorSource: input.prDescription.descriptorSource,
 			modelSelection: input.prDescription.modelSelection,
 			pr: viewed.value,
-			...(input.shouldForce === true ? { shouldForce: true } : {}),
-			...(generation === undefined ? {} : { generation }),
-			activeOperationDetail: formatBatchPosition({
-				noun: "PR",
-				index,
-				total: input.prLinks.length,
-			}),
-			...(prewrittenMetadata === undefined ? {} : { prewrittenMetadata }),
+			source: "submit",
+			generation,
+			activeOperationDetail: formatBatchPosition({ noun: "PR", index, total: selected.length }),
 			...optionalEntry("progress", input.progress),
 			...(input.prDescription.time === undefined ? {} : { time: input.prDescription.time }),
 		});
-
-		const progress = prProgressForResult(result);
-		input.progress?.onItemProgress?.({
-			prNumber: number,
-			state: progress.state,
-			...optionalEntry("message", progress.message),
-		});
-		accumulator = collectPrDescriptionResult({
-			result,
-			link,
-			number,
-			accumulator,
-			...(input.progress?.onProgress === undefined
-				? {}
-				: { onProgress: input.progress.onProgress }),
-		});
-	}
-
-	if (accumulator.failures.length > 0) {
-		return { ok: false, failures: accumulator.failures };
-	}
-	return {
-		ok: true,
-		generated: accumulator.generated,
-		skipped: accumulator.skipped,
-		prewritten: accumulator.prewritten,
-		prewriteFallbacks: accumulator.prewriteFallbacks,
-		previews: accumulator.previews,
-	};
-}
-
-function createPrDescriptionAccumulator(): PrDescriptionAccumulator {
-	return {
-		generated: [],
-		skipped: [],
-		prewritten: [],
-		prewriteFallbacks: [],
-		previews: [],
-		failures: [],
-	};
-}
-
-function prProgressForResult(result: PrDescriptionOrchestrationResult): {
-	state: SubmitPrDescriptionProgressEvent["state"];
-	message?: string;
-} {
-	switch (result.type) {
-		case "matched_prewritten":
-			return { state: "done", message: "prewritten" };
-		case "updated":
-			return { state: "done", message: "updated" };
-		case "generated":
-			return { state: "done", message: "generated" };
-		case "failed":
-			return { state: "failed", message: firstNonEmptyLine(result.reason) ?? "description failed" };
-	}
-}
-
-function collectPrDescriptionResult(input: {
-	result: PrDescriptionOrchestrationResult;
-	link: SubmitPrLink;
-	number: number;
-	accumulator: PrDescriptionAccumulator;
-	onProgress?: (message: string) => void;
-}): PrDescriptionAccumulator {
-	switch (input.result.type) {
-		case "matched_prewritten":
-			return collectPrDescriptionSuccess({
-				accumulator: input.accumulator,
-				bucketName: "prewritten",
-				link: input.link,
-				content: input.result,
+		if (result.type === "failed") {
+			failures.push({
+				link: item.link,
+				number: item.number,
+				reason: result.reason,
+				...optionalEntry("diagnostic", result.diagnostic),
 			});
-		case "updated":
-			return collectPrDescriptionSuccess({
-				accumulator: input.accumulator,
-				bucketName: "prewriteFallbacks",
-				link: input.link,
-				content: input.result,
+			input.progress?.onItemProgress?.({
+				prNumber: item.number,
+				state: "failed",
+				message: firstNonEmptyLine(result.reason) ?? "metadata preparation failed",
 			});
-		case "generated": {
-			const accumulator = collectPrDescriptionSuccess({
-				accumulator: input.accumulator,
-				bucketName: "generated",
-				link: input.link,
-				content: input.result,
-			});
-			input.onProgress?.(`finished PR #${input.number} description`);
-			return accumulator;
+			continue;
 		}
-		case "failed":
-			return collectPrDescriptionFailure(input.accumulator, {
-				link: input.link,
-				number: input.number,
-				reason: input.result.reason,
-				...(input.result.diagnostic === undefined ? {} : { diagnostic: input.result.diagnostic }),
+		prepared.push({ link: item.link, replacement: result });
+		input.progress?.onItemProgress?.({
+			prNumber: item.number,
+			state: "active",
+			message: "prepared; waiting to apply batch",
+		});
+	}
+	if (failures.length > 0) {
+		return {
+			ok: false,
+			stage: "preparation",
+			failures,
+			applied: [],
+			notAttempted: prepared.map((item) => item.link),
+		};
+	}
+
+	const applied: SubmitPrLink[] = [];
+	const previews: SubmitPrDescriptionPreview[] = [];
+	for (const [index, item] of prepared.entries()) {
+		const appliedResult = await applyPreparedPrMetadataReplacement({
+			cwd: input.cwd,
+			githubPr: input.prDescription.githubPr,
+			replacement: item.replacement,
+		});
+		if (!appliedResult.ok) {
+			input.progress?.onItemProgress?.({
+				prNumber: item.replacement.pr.number,
+				state: "failed",
+				message: firstNonEmptyLine(appliedResult.reason) ?? "metadata replacement failed",
 			});
+			return {
+				ok: false,
+				stage: "application",
+				failures: [
+					{
+						link: item.link,
+						number: item.replacement.pr.number,
+						reason: appliedResult.reason,
+						...optionalEntry("diagnostic", appliedResult.diagnostic),
+					},
+				],
+				applied,
+				notAttempted: prepared.slice(index + 1).map((candidate) => candidate.link),
+			};
+		}
+		applied.push(item.link);
+		previews.push({
+			link: item.link,
+			title: item.replacement.title.trim(),
+			descriptionFirstLine: firstNonEmptyLine(item.replacement.previewBody),
+		});
+		input.progress?.onItemProgress?.({
+			prNumber: item.replacement.pr.number,
+			state: "done",
+			message: "complete metadata replaced",
+		});
 	}
-}
-
-function collectPrDescriptionFailure(
-	accumulator: PrDescriptionAccumulator,
-	failure: PrDescriptionFailure,
-): PrDescriptionAccumulator {
-	return {
-		...accumulator,
-		failures: [...accumulator.failures, failure],
-	};
-}
-
-function collectPrDescriptionSuccess(input: {
-	accumulator: PrDescriptionAccumulator;
-	bucketName: PrDescriptionLinkBucketName;
-	link: SubmitPrLink;
-	content: PrDescriptionContent;
-}): PrDescriptionAccumulator {
-	const preview = prDescriptionPreview(input.link, input.content.title, input.content.previewBody);
-	switch (input.bucketName) {
-		case "generated":
-			return {
-				...input.accumulator,
-				generated: [...input.accumulator.generated, input.link],
-				previews: [...input.accumulator.previews, preview],
-			};
-		case "prewritten":
-			return {
-				...input.accumulator,
-				prewritten: [...input.accumulator.prewritten, input.link],
-				previews: [...input.accumulator.previews, preview],
-			};
-		case "prewriteFallbacks":
-			return {
-				...input.accumulator,
-				prewriteFallbacks: [...input.accumulator.prewriteFallbacks, input.link],
-				previews: [...input.accumulator.previews, preview],
-			};
-	}
-}
-
-function prDescriptionPreview(
-	link: SubmitPrLink,
-	title: string,
-	previewBody: string,
-): SubmitPrDescriptionPreview {
-	return {
-		link,
-		title: title.trim(),
-		descriptionFirstLine: firstNonEmptyLine(previewBody),
-	};
+	return { ok: true, applied, previews };
 }
 
 export function formatPrDescriptionFailureText(
 	prLinks: readonly SubmitPrLink[],
-	failures: readonly PrDescriptionFailure[],
+	result: Extract<SubmitPrDescriptionGenerationResult, { ok: false }>,
 ): string {
 	const lines = [
-		"PRs were submitted; description generation failed.",
+		"PRs were submitted; PR metadata replacement failed.",
 		"",
 		"Submitted PRs:",
 		...(prLinks.length > 0
 			? prLinks.map(formatPrLinkTextRow)
 			: ["• (no PR URLs detected in submit output)"]),
 		"",
-		"Description failures:",
-		...failures.map(formatPrDescriptionFailureRow),
-		"",
-		"Checkout the branch and run `ns flow regenerate-pr` to regenerate its PR description.",
+		result.stage === "preparation"
+			? "Preparation failures (no PR metadata was edited):"
+			: "Application failure:",
+		...result.failures.map(formatPrDescriptionFailureRow),
 	];
+	if (result.applied.length > 0)
+		lines.push("", "Applied before failure:", ...result.applied.map(formatPrLinkTextRow));
+	if (result.notAttempted.length > 0)
+		lines.push("", "Prepared but not attempted:", ...result.notAttempted.map(formatPrLinkTextRow));
+	lines.push(
+		"",
+		"Checkout an affected branch and run `ns flow regenerate-pr` to replace its complete PR metadata.",
+	);
 	return lines.join("\n");
 }
 
@@ -331,21 +234,15 @@ function formatPrDescriptionFailureRow(failure: PrDescriptionFailure): string {
 export function formatPrDescriptionFailureDiagnostics(
 	failures: readonly PrDescriptionFailure[],
 ): string[] {
-	return failures.flatMap((failure) => {
-		if (failure.diagnostic === undefined) return [];
-		return [formatPrDescriptionFailureDiagnostic(failure)];
-	});
-}
-
-function formatPrDescriptionFailureDiagnostic(failure: PrDescriptionFailure): string {
-	const diagnostic = failure.diagnostic;
-	if (diagnostic === undefined) {
-		throw new Error("Cannot format PR description diagnostic without a diagnostic.");
-	}
-
-	const lines = [
-		`PR #${failure.number} ${failure.link.url}:`,
-		...formatErrorInfoDiagnosticLines(diagnostic).map((line) => `  ${line}`),
-	];
-	return lines.join("\n");
+	return failures.flatMap((failure) =>
+		failure.diagnostic === undefined
+			? []
+			: [
+					`PR #${failure.number} ${failure.link.url}:\n${formatErrorInfoDiagnosticLines(
+						failure.diagnostic,
+					)
+						.map((line) => `  ${line}`)
+						.join("\n")}`,
+				],
+	);
 }

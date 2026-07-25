@@ -1,13 +1,11 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/foundation/git";
-import { formatErrorInfoDiagnosticLines } from "@nseng-ai/capability-kit/gateway-result";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 import { withCommandOperations } from "../phase-stream/matrix-progress-core.ts";
 import type {
 	FlowPrDescriptionDescriptorSource,
 	GithubPrGateway,
-	PrewrittenPrMetadata,
 	TextGenerator,
 	TimeServices,
 } from "./index.ts";
@@ -24,14 +22,12 @@ import type {
 import {
 	deterministicSubmitCommandFailure,
 	normalizedSubmitFailureExitCode,
-	POST_METADATA_GRAPHITE_FAILURE_ADVISORY,
 	postSubmitFailureTranscript,
 	submitCommandFailureTranscript,
 	submitFailureResult,
 	submitTextFailureTranscript,
 } from "./submit-failure-result.ts";
 import {
-	compactSubmitMetadataCellText,
 	submitMatrixRowsFromTopology,
 	type SubmitMatrixProgressSink,
 } from "./submit-matrix-progress.ts";
@@ -41,18 +37,12 @@ import {
 } from "./submit-failure-catalog.ts";
 import {
 	formatPostSubmitFailureOutput,
-	formatPrewrittenMetadataAdvisory,
-	formatPrewriteFailureOutput,
 	formatItemCount,
 	formatSubmitFailureOutput,
 	formatSubmitSuccessFallbackText,
 	formatSubmitSuccessText,
 } from "./submit-format.ts";
-import {
-	prewriteSubmitMetadata,
-	type SubmitBranchMetadataProgressEvent,
-	type SubmitMetadataGateway,
-} from "./submit-pr-metadata-prewrite.ts";
+import type { SubmitStackInspectionGateway } from "./submit-stack-inspection.ts";
 import { buildSubmitPlan, type SubmitPlan } from "./submit-plan.ts";
 import {
 	formatPrDescriptionFailureDiagnostics,
@@ -69,10 +59,7 @@ import { mergePrLinks, partitionPrLinksByExisting, prNumberFromLink } from "./su
 import type { NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import type { SubmitProgress } from "./submit-progress.ts";
 import type { SubmitTransportReady } from "./submit-transport.ts";
-import {
-	checkOrdinarySubmitEligibility,
-	prepareOrdinarySubmitTransport,
-} from "./submit-transport-preparation.ts";
+import { prepareOrdinarySubmitTransport } from "./submit-transport-preparation.ts";
 
 export { RealSubmitGateway } from "./submit-gateway.ts";
 
@@ -123,7 +110,7 @@ export interface SubmitPrDescriptionOptions {
 export interface RunSubmitCommandOptions {
 	cwd: string;
 	gateway: SubmitGateway;
-	metadataGateway: SubmitMetadataGateway;
+	metadataGateway: SubmitStackInspectionGateway;
 	restack: boolean;
 	force: boolean;
 	shouldForwardCommandOutput?: boolean;
@@ -132,7 +119,12 @@ export interface RunSubmitCommandOptions {
 	progress: SubmitProgress;
 	confirmRestack?: SubmitRestackConfirmation;
 	prDescription: SubmitPrDescriptionOptions;
-	shouldRegenerateExistingPrDescriptions?: boolean;
+	/**
+	 * Widen the post-submit metadata batch from newly created PRs to every
+	 * resolved PR link in the submitted scope. The caller owns authorization for
+	 * this destructive replacement of existing PR titles and bodies.
+	 */
+	shouldReplaceAllPrMetadata?: boolean;
 }
 
 export async function runSubmitCommand(
@@ -143,15 +135,13 @@ export async function runSubmitCommand(
 	});
 	const stackUpdateCommandDisplay = formatStackUpdateCommandDisplay({ shouldForce: options.force });
 	const commandParams = submitCommandParams(options);
-	// Check eligibility before metadata work, then reacquire readiness below because metadata
-	// amendments can change every affected branch SHA.
-	const eligibility = await checkOrdinarySubmitEligibility({
+	const readiness = await prepareOrdinarySubmitTransport({
 		command: options,
 		params: commandParams,
 		submitCommandDisplay,
 		submitDryRunCommandDisplay,
 	});
-	if (eligibility.kind === "failure") return eligibility.failure;
+	if (readiness.kind === "failure") return readiness.failure;
 
 	emitPhase(options, { type: "phase-started", phaseKey: "inventory" });
 	const planned = await buildSubmitPlan({
@@ -162,10 +152,9 @@ export async function runSubmitCommand(
 	});
 	if (planned.kind === "failed") {
 		emitPhase(options, { type: "phase-failed", phaseKey: "inventory", detail: "inventory failed" });
-		const stderr = formatPrewriteFailureOutput({ error: planned.error, amendedBranches: [] });
-		return failure(1, stderr, {
-			failurePresentation: "unknown",
-			rawFailureTranscript: submitTextFailureTranscript("pre-submit metadata", stderr, []),
+		return failure(1, planned.error, {
+			failurePresentation: "deterministic",
+			rawFailureTranscript: submitTextFailureTranscript("submit inventory", planned.error, []),
 		});
 	}
 	const plan = planned.plan;
@@ -175,62 +164,15 @@ export async function runSubmitCommand(
 		phaseKey: "inventory",
 		detail: `${plan.branches.length} ${plan.branches.length === 1 ? "branch" : "branches"} in submit stack`,
 	});
-
-	emitPhase(options, { type: "phase-started", phaseKey: "metadata" });
-	// The metadata workflow reports its own operations (model generation and each `gt modify`
-	// amendment) at their true source, so no broad command snapshot wraps this phase.
-	const prewrite = await prewriteSubmitMetadata(plan, {
-		cwd: options.cwd,
-		env: options.prDescription.env,
-		gateway: options.metadataGateway,
-		git: options.prDescription.git,
-		descriptorSource: options.prDescription.descriptorSource,
-		textGenerator: options.prDescription.textGenerator,
-		modelSelection: options.prDescription.modelSelection,
-		...(options.prDescription.time === undefined ? {} : { time: options.prDescription.time }),
-		progress: submitPhaseProgressListeners<SubmitBranchMetadataProgressEvent>(
-			options,
-			"metadata",
-			(event) => {
-				const text =
-					event.reason === undefined ? undefined : compactSubmitMetadataCellText(event.reason);
-				options.progress.matrix?.setCell(event.branch, "metadata", {
-					state: event.state,
-					...optionalEntry("text", text),
-				});
-			},
-		),
+	emitPhase(options, {
+		type: "phase-done",
+		phaseKey: "metadata",
+		detail: "deferred until PR creation",
 	});
-	if (prewrite.kind === "failed") {
-		emitPhase(options, { type: "phase-failed", phaseKey: "metadata", detail: "metadata failed" });
-		const stderr = formatPrewriteFailureOutput({
-			error: prewrite.error,
-			amendedBranches: prewrite.amendedBranches,
-			...(prewrite.diagnostic === undefined ? {} : { diagnostic: prewrite.diagnostic }),
-		});
-		const details =
-			prewrite.diagnostic === undefined ? [] : formatErrorInfoDiagnosticLines(prewrite.diagnostic);
-		return failure(prewrite.exitCode ?? 1, stderr, {
-			failurePresentation: "unknown",
-			rawFailureTranscript: submitTextFailureTranscript("pre-submit metadata", stderr, details),
-		});
-	}
-
-	emitPhase(options, { type: "phase-done", phaseKey: "metadata", detail: "metadata prepared" });
-	// Do not reuse the eligibility transport: prewrite may have amended commit SHAs.
-	const finalReadiness = await prepareOrdinarySubmitTransport({
-		command: options,
-		params: commandParams,
-		submitCommandDisplay,
-		submitDryRunCommandDisplay,
-		prewrittenMetadata: prewrite.prepared,
-	});
-	if (finalReadiness.kind === "failure") return finalReadiness.failure;
-	return executeSubmitPlan(plan, prewrite.prepared, finalReadiness.transport);
+	return executeSubmitPlan(plan, readiness.transport);
 
 	async function executeSubmitPlan(
 		planToExecute: SubmitPlan,
-		prepared: readonly PrewrittenPrMetadata[],
 		readyTransport: SubmitTransportReady,
 	): Promise<SubmitCommandResult> {
 		emitPhase(options, {
@@ -252,16 +194,11 @@ export async function runSubmitCommand(
 				output: submittedTransport.outcome.output,
 				phase: "submit preflight",
 				transcriptCommandDisplay: submitCommandDisplay,
-				prewrittenMetadata: prepared,
 			});
 			if (knownFailure !== undefined) return knownFailure;
 			return failure(
 				normalizedSubmitFailureExitCode(submittedTransport.outcome.output),
-				formatSubmitFailureOutput(
-					submittedTransport.outcome.output,
-					prepared,
-					submitCommandDisplay,
-				),
+				formatSubmitFailureOutput(submittedTransport.outcome.output, submitCommandDisplay),
 				{
 					failurePresentation: "unknown",
 					rawFailureTranscript: submitCommandFailureTranscript({
@@ -287,14 +224,11 @@ export async function runSubmitCommand(
 				phaseKey: "verification",
 				detail: "verification failed",
 			});
-			const stderr = [
-				formatPostSubmitFailureOutput({
-					submitted: combinedSubmitOutcome,
-					currentPr,
-					submitCommandDisplay,
-				}),
-				...formatPrewrittenMetadataAdvisory(prepared, POST_METADATA_GRAPHITE_FAILURE_ADVISORY),
-			].join("\n");
+			const stderr = formatPostSubmitFailureOutput({
+				submitted: combinedSubmitOutcome,
+				currentPr,
+				submitCommandDisplay,
+			});
 			return failure(1, stderr, {
 				failurePresentation: "unknown",
 				rawFailureTranscript: postSubmitFailureTranscript({
@@ -317,7 +251,6 @@ export async function runSubmitCommand(
 				options,
 				phaseLabel: "stack update",
 				commandDisplay: stackUpdateCommandDisplay,
-				prepared,
 				run: (gateway, params) => gateway.updateStackPrs(params),
 			});
 			if (stackUpdateStep.kind === "failure") return stackUpdateStep.failure;
@@ -373,12 +306,9 @@ export async function runSubmitCommand(
 					? formatVerifiedCurrentPrText(currentPr.prLinks)
 					: "current PR not detected",
 		});
-		const shouldRegenerateExistingPrDescriptions =
-			options.shouldRegenerateExistingPrDescriptions === true;
 		const partitionedPrLinks = partitionPrLinksByExisting(prLinks, planToExecute.existingPrLinks);
-		const descriptionPrLinks = shouldRegenerateExistingPrDescriptions
-			? prLinks
-			: partitionedPrLinks.newPrLinks;
+		const descriptionPrLinks =
+			options.shouldReplaceAllPrMetadata === true ? prLinks : partitionedPrLinks.newPrLinks;
 		emitSubmitPhase(
 			options,
 			{
@@ -397,8 +327,6 @@ export async function runSubmitCommand(
 			cwd: options.cwd,
 			prDescription: options.prDescription,
 			prLinks: descriptionPrLinks,
-			...(shouldRegenerateExistingPrDescriptions ? { shouldForce: true } : {}),
-			prewrittenMetadata: prepared,
 			progress: submitPhaseProgressListeners<SubmitPrDescriptionProgressEvent>(
 				options,
 				"descriptions",
@@ -417,7 +345,7 @@ export async function runSubmitCommand(
 				phaseKey: "descriptions",
 				detail: "PR description generation failed",
 			});
-			const stderr = formatPrDescriptionFailureText(prLinks, descriptionResult.failures);
+			const stderr = formatPrDescriptionFailureText(prLinks, descriptionResult);
 			const details = formatPrDescriptionFailureDiagnostics(descriptionResult.failures);
 			return failure(1, stderr, {
 				failurePresentation: "deterministic",
@@ -444,7 +372,7 @@ export async function runSubmitCommand(
 
 function formatDescriptionPhaseStart(prCount: number): string {
 	if (prCount === 0) return "checking PR descriptions; no PR descriptions selected";
-	return `checking ${formatItemCount(prCount, "PR description", "PR descriptions")} for skip or regeneration`;
+	return `preparing complete metadata for ${formatItemCount(prCount, "PR", "PRs")}`;
 }
 
 function formatVerifiedCurrentPrText(prLinks: readonly SubmitPrLink[]): string {
@@ -458,7 +386,6 @@ function knownSubmitFailureFor(input: {
 	output: SubmitCommandOutput;
 	phase: string;
 	transcriptCommandDisplay: string;
-	prewrittenMetadata?: readonly PrewrittenPrMetadata[];
 }): SubmitCommandResult | undefined {
 	if (input.cause === undefined) return undefined;
 
@@ -469,7 +396,6 @@ function knownSubmitFailureFor(input: {
 		stderr: formatPreflightCauseOutput({
 			cause: input.cause,
 			output: input.output,
-			prewrittenMetadata: input.prewrittenMetadata ?? [],
 		}),
 	});
 }
@@ -477,14 +403,8 @@ function knownSubmitFailureFor(input: {
 function formatPreflightCauseOutput(input: {
 	cause: SubmitPreflightFailureCause;
 	output: SubmitCommandOutput;
-	prewrittenMetadata: readonly PrewrittenPrMetadata[];
 }): string {
-	const message = formatSubmitPreflightFailureCause(input.cause, input.output);
-	const advisory = formatPrewrittenMetadataAdvisory(
-		input.prewrittenMetadata,
-		POST_METADATA_GRAPHITE_FAILURE_ADVISORY,
-	);
-	return [message, ...(advisory.length === 0 ? [] : ["", ...advisory])].join("\n");
+	return formatSubmitPreflightFailureCause(input.cause, input.output);
 }
 
 type SuccessfulSubmitRunResult = Extract<SubmitRunResult, { kind: "success" }>;
@@ -510,7 +430,6 @@ async function runSubmitPhaseStep(input: {
 	options: Pick<RunSubmitCommandOptions, "cwd" | "force" | "gateway" | "onOutput" | "progress">;
 	phaseLabel: string;
 	commandDisplay: string;
-	prepared: readonly PrewrittenPrMetadata[];
 	knownFailurePhase?: string;
 	run: (gateway: SubmitGateway, params: SubmitCommandParams) => Promise<SubmitRunResult>;
 }): Promise<SubmitPhaseStepResult> {
@@ -532,7 +451,6 @@ async function runSubmitPhaseStep(input: {
 			output: result.output,
 			phase: input.knownFailurePhase,
 			transcriptCommandDisplay: input.commandDisplay,
-			prewrittenMetadata: input.prepared,
 		});
 		if (knownFailure !== undefined) return { kind: "failure", failure: knownFailure };
 	}
@@ -541,7 +459,7 @@ async function runSubmitPhaseStep(input: {
 		kind: "failure",
 		failure: failure(
 			normalizedSubmitFailureExitCode(result.output),
-			formatSubmitFailureOutput(result.output, input.prepared, input.commandDisplay),
+			formatSubmitFailureOutput(result.output, input.commandDisplay),
 			{
 				failurePresentation: "unknown",
 				rawFailureTranscript: submitCommandFailureTranscript({

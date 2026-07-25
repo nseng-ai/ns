@@ -25,12 +25,11 @@ cleaned up after the fact.
 The semantic cheap-submit engine is staged behind `ns flow submit --minimal`: it is a
 clean-tree readiness/restack/submit/verification path with no hooks, checkpoint,
 metadata prewrite, PR prose, or model work. Default `ns flow submit` has not migrated.
-As an interim safety contract, its legacy path generates initial metadata only for PRs
-newly created by that invocation; ordinary resubmission never edits a pre-existing PR's
-title or body, while `--regenerate-descriptions` explicitly forces stack-scope title and
-managed-body regeneration. The legacy path also reacquires Graphite readiness only after
-metadata amendments and stops before follow-up stack publication when the primary submit
-reports a semantic failure. `ns flow ship`, review/autofix integration, final prose
+As an interim safety contract, its legacy path generates initial complete metadata only for PRs
+newly created by that invocation, after Graphite creates them; ordinary resubmission never edits a
+pre-existing PR's title or body. Flow prepares every new-PR replacement before any GitHub edit and
+then applies them sequentially. Existing-PR replacement is focused in `ns flow regenerate-pr`, which
+replaces the complete title and body with visible provenance. `ns flow ship`, review/autofix integration, final prose
 migration, and live dogfooding remain open; the staged mode carries no live publication
 claim.
 
@@ -99,9 +98,9 @@ claim.
   commit 5636cb792 ("Generate descriptions for empty existing PRs", 2026-07-11),
   which made ordinary submit backfill existing PRs with empty bodies. That mitigation
   is now superseded because implicit prose edits can overwrite accountable descriptions:
-  ordinary submit leaves every pre-existing title/body untouched, while explicit
-  `--regenerate-descriptions` owns stack-scope rewrites. Initial metadata for PRs newly
-  created by an invocation remains a temporary bridge until `ship` owns prose. The
+  ordinary submit leaves every pre-existing title/body untouched. Focused
+  `regenerate-pr` owns explicit complete replacement for the current branch. Initial metadata for PRs
+  newly created by an invocation remains a temporary post-submit bridge until `ship` owns prose. The
   routing gap itself remains open: command capability alone is insufficient —
   agent-facing submission policy must route WIP
   synchronization to `submit`, completion/review-readiness to `ship`, and raw
