@@ -98,24 +98,28 @@ describe("prepared Herdr launch", () => {
 		expect(herdr.createWorkspaceCalls[0]?.options.label).toBe("implement-feature");
 	});
 
-	test("labels a caller tab with the semantic slug rather than the collision branch", async () => {
+	test("labels a caller tab with the semantic slug without a slot prefix or collision branch", async () => {
 		const herdr = new FakeHerdrGateway();
 
 		const result = await launchPreparedBranch(
 			{
 				herdr,
-				slotClient: slotClient("/ordinary/worktree"),
+				slotClient: slotClient("/state/slots/repos/ns/worktrees/slot-07"),
 				notify: () => {},
 			},
 			{ payload: launchPayload, destination: { type: "tab", callerWorkspaceId: "caller-ws" } },
 		);
 
-		expect(result).toMatchObject({ type: "opened", destination: "tab" });
+		expect(result).toMatchObject({
+			type: "opened",
+			destination: "tab",
+			target: { label: "implement-feature" },
+		});
 		expect(herdr.createTabCalls).toEqual([
 			{
 				options: {
 					workspaceId: "caller-ws",
-					cwd: "/ordinary/worktree",
+					cwd: "/state/slots/repos/ns/worktrees/slot-07",
 					label: "implement-feature",
 					shouldFocus: true,
 				},

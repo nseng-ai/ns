@@ -2,7 +2,7 @@ import { isAbsolute, posix, relative, resolve, sep } from "node:path";
 
 import { runJsonExecCommand } from "@nseng-ai/extension-kit/machine-envelope-exec";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import { compactSlotSlug } from "./workspace-label.ts";
+import { formatHerdrResourceLabel } from "./resource-label.ts";
 
 const OBJECTIVE_READ_TIMEOUT_MS = 30_000;
 const ACTIVE_OBJECTIVE_PREFIX = ".ns/objectives/";
@@ -81,14 +81,15 @@ export async function validateObjectiveSidebarSlug(
  * Format the workspace label that will be applied via `herdr workspace rename`.
  *
  * A compact slot prefix is included only when the caller is running in a
- * managed ns slot. Keep this formatter narrow for now: workspace-label
+ * managed ns slot. Keep this formatter narrow for now: resource-label
  * composition should eventually become a Herdr workflow pluggability point
  * rather than accumulating more hard-coded consumer policy here.
  */
 export function formatObjectiveSidebarLabel(input: ObjectiveSidebarFormatInput): string {
-	const objectiveLabel = `obj:${input.objectiveSlug}`;
-	if (input.slotSlug === undefined) return objectiveLabel;
-	return `${compactSlotSlug(input.slotSlug)}:${objectiveLabel}`;
+	return formatHerdrResourceLabel({
+		semanticLabel: `obj:${input.objectiveSlug}`,
+		...(input.slotSlug === undefined ? {} : { slotSlug: input.slotSlug }),
+	});
 }
 
 function resolveAbsoluteObjectiveSelector(

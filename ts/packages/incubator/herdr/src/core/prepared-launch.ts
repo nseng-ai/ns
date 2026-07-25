@@ -3,7 +3,7 @@ import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slots/api";
 
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import { checkoutSlot, formatSlotCheckoutFailureCause } from "./slot-checkout.ts";
-import { formatGoalWorkspaceLabel, slotLabelInput } from "./workspace-label.ts";
+import { formatHerdrResourceLabel, slotLabelInput } from "./resource-label.ts";
 
 export interface PreparedLaunchPayload {
 	readonly branchName: string;
@@ -144,8 +144,8 @@ async function createPreparedLaunchDestination(options: {
 }): Promise<CreatedPreparedLaunchDestination | FailedPreparedLaunchResult> {
 	if (options.destination.type === "workspace") {
 		options.onStatus?.("opening Herdr workspace…");
-		const label = formatGoalWorkspaceLabel({
-			slug: options.semanticSlug,
+		const label = formatHerdrResourceLabel({
+			semanticLabel: options.semanticSlug,
 			...slotLabelInput(options.target.worktreePath),
 		});
 		const created = await options.herdr.createWorkspace({

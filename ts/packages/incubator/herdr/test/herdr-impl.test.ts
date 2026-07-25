@@ -299,7 +299,9 @@ describe("Herdr prompt implementation", () => {
 		]);
 		expect(await readFile(stagedPromptFile, "utf8")).toContain(prompt);
 		expect(await readFile(stagedPromptFile, "utf8")).toContain("literal --from trunk text");
-		expect(herdr.createWorkspaceCalls).toEqual([{ options: { cwd: WORKTREE, label: BRANCH } }]);
+		expect(herdr.createWorkspaceCalls).toEqual([
+			{ options: { cwd: WORKTREE, label: `s1:${BRANCH}` } },
+		]);
 		expect(herdr.paneRunCalls).toHaveLength(1);
 		expect(herdr.paneRunCalls[0]?.command).toContain(
 			`brmem get ${IMPL_PROMPT_KEY} --namespace ${IMPL_PROMPT_NAMESPACE} --branch ${BRANCH}`,
@@ -393,7 +395,7 @@ describe("Herdr prompt implementation", () => {
 			"created from the existing local Graphite trunk",
 		);
 		expect(herdr.createWorkspaceCalls).toHaveLength(1);
-		expect(herdr.createWorkspaceCalls[0]?.options.label).toBe(BRANCH);
+		expect(herdr.createWorkspaceCalls[0]?.options.label).toBe(`s1:${BRANCH}`);
 		const slugCalls = pi.execCalls.filter((call) => call.command === "pi");
 		expect(slugCalls).toHaveLength(1);
 		expect(slugCalls[0]?.options?.cwd).toBe(ROOT);
@@ -882,7 +884,9 @@ describe("ns:herdr:impl:plan:space", () => {
 			{ cwd: repoRoot, branch: `${PLAN_SLUG}-2`, parentBranch: TRUNK_BRANCH },
 		]);
 		expect(brmem.attachPlanCalls[0]).toMatchObject({ branch: `${PLAN_SLUG}-2`, key: PLAN_KEY });
-		expect(herdr.createWorkspaceCalls).toEqual([{ options: { cwd: WORKTREE, label: PLAN_SLUG } }]);
+		expect(herdr.createWorkspaceCalls).toEqual([
+			{ options: { cwd: WORKTREE, label: `s1:${PLAN_SLUG}` } },
+		]);
 		expect(herdr.paneRunCalls).toHaveLength(1);
 		const messages = notificationMessages(ctx).join("\n");
 		expect(messages).toContain(`Start point: ${START_POINT}`);
@@ -1274,6 +1278,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		expect(dryRun).toContain(`Local start point: ${START_POINT}`);
 		expect(dryRun).toContain(`git branch ${PLAN_SLUG} ${START_POINT}`);
 		expect(dryRun).toContain(`--parent ${TRUNK_BRANCH}`);
+		expect(dryRun).toContain(`Tab label: ${PLAN_SLUG}`);
 		expect(dryRun).toContain(
 			`herdr tab create --workspace '<caller-workspace>' --focus --cwd '<slot-worktree-path>' --label ${PLAN_SLUG}`,
 		);
@@ -1527,6 +1532,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		expect(dryRun).toContain(`ns slot checkout ${PLAN_SLUG} --format json --no-clipboard`);
 		expect(dryRun).toContain("herdr tab create --workspace");
 		expect(dryRun).toContain("--focus");
+		expect(dryRun).toContain(`Tab label: ${PLAN_SLUG}`);
 		expect(dryRun).toContain(`--label ${PLAN_SLUG}`);
 		expect(dryRun).toContain("herdr pane run");
 		expect(dryRun).toContain(`/ns:branch-context:impl-attached-plan ${PLAN_KEY}`);

@@ -466,6 +466,7 @@ function formatHerdrImplPreview(options: {
 
 	return [
 		`Herdr tab: ${options.description}`,
+		"Tab label: " + options.semanticSlug,
 		formatCommand(
 			"herdr",
 			buildHerdrCreateTabArgs({

@@ -6,11 +6,11 @@ import {
 import { HERDR_SPACE_NEW_COMMAND_NAME } from "../core/command-surfaces.ts";
 import { handleHerdrNewSpace } from "../core/new-space.ts";
 import type { HerdrPiContext } from "./context.ts";
-import { createHerdrSpaceLabelDeriver } from "./new-space-label.ts";
+import { createHerdrResourceLabelDeriver } from "./resource-label.ts";
 
 export function registerHerdrNewSpaceCommand(context: HerdrPiContext): void {
 	const { commands, herdr } = context;
-	const labelDeriver = createHerdrSpaceLabelDeriver(context);
+	const labelDeriver = createHerdrResourceLabelDeriver(context);
 
 	registerCommandWithImmediateAck({
 		host: commands,

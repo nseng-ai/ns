@@ -17,8 +17,8 @@ The internal operation that accepts a prepared branch identity, semantic slug, l
 *Avoid*: workflow-specific launch helper, optional or fallback label, separate workspace and tab dispatch pipelines
 
 **Semantic and Git identity invariant**:
-A launched work item keeps its model-derived normalized semantic slug distinct from its collision-resolved Git branch name. Herdr workspace and tab labels describe the work using the semantic slug; Git, Graphite, Branch Memory, and Slot operations use the actual branch name. Workspace labels may prefix the semantic slug with the compact slot derived from the actual checked-out worktree path; tab labels are exactly the semantic slug.
-*Avoid*: collision suffix as display identity, branch name as tab label, guessed dry-run slot prefix
+A launched work item keeps its model-derived normalized semantic slug distinct from its collision-resolved Git branch name. Herdr space and tab labels describe the work using the semantic slug; Git, Graphite, Branch Memory, and Slot operations use the actual branch name. Every ns-authored space label associated with a managed Slot prefixes its semantic label with the compact slot derived from the resource cwd or actual checked-out worktree path; tab labels never use Slot prefixes.
+*Avoid*: collision suffix as display identity, branch name as resource label, Slot-prefixed tab label, guessed dry-run slot prefix
 
 **Herdr space**:
 The Herdr workspace resource addressed by `/ns:herdr:space:*` commands. Space commands create or rename a workspace; implementation workflows may use a newly created space as their destination. Plan implementation labels the new space with the content-derived branch-context slug so its displayed name describes the planned work.
@@ -29,11 +29,11 @@ A tab resource inside a Herdr space, addressed by `/ns:herdr:tab:*` commands. Co
 *Avoid*: surface, pane, workflow family, implicit focused tab
 
 **New space**:
-The focused Herdr space created by `/ns:herdr:space:new` at the Pi command's current working directory. An optional natural-language description is interpreted by the configured slug model into a flat semantic label.
+The focused Herdr space created by `/ns:herdr:space:new` at the Pi command's current working directory. An optional natural-language description is interpreted by the configured slug model into a flat semantic label and receives the compact Slot prefix when the current directory is a managed Slot.
 *Avoid*: dispatch space, slot checkout, raw workspace-create wrapper, deterministic label fallback
 
 **New tab**:
-The focused Herdr tab created by `/ns:herdr:tab:new` in the caller space at the Pi command's current working directory. An optional natural-language description is interpreted by the configured slug model into a semantic label.
+The focused Herdr tab created by `/ns:herdr:tab:new` in the caller space at the Pi command's current working directory. An optional natural-language description is interpreted by the configured slug model into an unprefixed semantic label.
 *Avoid*: new space, implicit focused workspace, raw tab-create wrapper
 
 **Space goal**:
@@ -45,7 +45,7 @@ The `/ns:herdr:tab:goal` operation that interprets a goal and renames the explic
 *Avoid*: space goal, UI-focus targeting, workspace rename
 
 **Herdr Handoff tab**:
-The optional `/ns:herdr:tab:handoff` integration with `@nseng-ai/handoffs`. The Handoff Pi create flow owns Handoff Artifact composition, content-derived slugging, and persistence; the hidden reference-based `ns herdr exec handoff-tab launch` command verifies the stored artifact by branch and slug before Herdr creates a focused labeled tab and launches pickup in its root pane. Registration is conditional on the curated Handoffs Pi integration being available.
+The optional `/ns:herdr:tab:handoff` integration with `@nseng-ai/handoffs`. The Handoff Pi create flow owns Handoff Artifact composition, content-derived slugging, and persistence; the hidden reference-based `ns herdr exec handoff-tab launch` command verifies the stored artifact by branch and slug before Herdr creates a focused tab labeled `handoff:<handoff-slug>` and launches pickup in its root pane. Registration is conditional on the curated Handoffs Pi integration being available.
 *Avoid*: generic Herdr handoff workflow family, model-facing launch tool, Markdown transport through Herdr, Handoffs-owned destination, compatibility alias
 
 **Caller space targeting**:
@@ -56,9 +56,9 @@ Identifying the Herdr space to act on through `HERDR_WORKSPACE_ID`, injected by 
 Identifying the exact Herdr tab to rename through `HERDR_TAB_ID`, injected by Herdr into a managed pane. Tab rename flows validate this ID before model work or mutation and never substitute `HERDR_WORKSPACE_ID` or UI focus.
 *Avoid*: caller space ID, focused tab, current tab inference
 
-**Goal label**:
-A display label derived from a user goal and applied with `herdr workspace rename` or `herdr tab rename`: `s<number>:<goal-slug>` in a managed ns slot and `<goal-slug>` otherwise.
-*Avoid*: metadata description, Objective label, unconditional slot prefix
+**Herdr resource label**:
+An ns-authored display label for a Herdr space or tab. Space labels use `s<number>:<semantic-label>` when the resource cwd is a managed ns Slot and `<semantic-label>` otherwise; tab labels always use `<semantic-label>` without a Slot prefix. Goal labels use `<goal-slug>`, Objective space labels use `obj:<objective-slug>`, implementation labels use the prepared semantic slug, and Handoff tab labels use `handoff:<handoff-slug>`. Unlabeled resource creation remains unlabeled.
+*Avoid*: Slot-prefixed tab label, branch collision suffix, unconditional slot prefix
 
 **Objective space summary**:
 The `/ns:herdr:space:objective-summary` workflow that resolves an Objective slug and labels the explicit caller space `s<number>:obj:<objective-slug>` in a managed ns slot and `obj:<objective-slug>` otherwise.
