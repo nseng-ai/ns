@@ -337,7 +337,9 @@ Unrecorded terms:
   (src/core/attached-plan.ts:386-426)
 - **Plans-Write Point / write_saved_plan_file tool** — the `branch-context.plans-write`
   prompt point, the phased tool flow, and the plan-authoring Pi commands
-  `/ns:plan:save`, `/ns:plan:grill-and-save`, `/ns:plan:impl-current`.
+  `/ns:plan:save`, `/ns:plan:grill-and-save`, `/ns:plan:impl-saved-plan`. The
+  implementation command accepts an explicit Saved Plan or session-first/latest-store
+  fallback selection.
   (src/ns/extension.ts:7-13, src/pi/enriched-plan-save.ts:55-68, src/pi/surfaces.ts:5-7)
 - **Upstack Impl Launch** — checkout of a just-created branch context plus a
   replacement implementation session running `/ns:branch-context:impl-attached-plan`.

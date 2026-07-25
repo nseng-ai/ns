@@ -52,9 +52,12 @@ Pi surfaces:
 
 - `/ns:plan:save`
 - `/ns:plan:grill-and-save` (Pi-only structured UI over the same Saved plan artifact)
+- `/ns:plan:impl-saved-plan` directly implements a selected Saved plan in a fresh Pi session on the current branch without attaching Branch Context or writing Branch Memory. With no path it prefers current-session Saved Plan evidence, then the newest branch-scoped local-store plan; an explicit path selects that file even when it is older.
 - `/ns:branch-context:from-plan`
 - `/ns:branch-context:upstack-impl-from-plan`
-- `/ns:branch-context:impl-attached-plan`
+- `/ns:branch-context:impl-attached-plan` implements the branch-scoped Attached Plan selected by the branch-context loader, including its documented local-plan-store fallback when no attached entry is available.
+
+`impl-saved-plan` names the durable artifact boundary rather than implying recency. It accepts only a **Saved plan**, distinct from the **Attached plan** consumed through the branch-context workflow.
 
 CLI surfaces:
 
