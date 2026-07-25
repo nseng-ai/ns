@@ -19,6 +19,10 @@ Graphite (`gt`) mechanics: given an operation the repository or user has already
 
 Examples write `<trunk>` for the repository's trunk branch; resolve it from repository instructions or `.graphite_repo_config`. When a flag misbehaves, suspect version drift and check `gt <command> --help`.
 
+## Mental model
+
+A Graphite stack is a parent/child chain of tracked git branches rooted at trunk. Each tracked branch maps to one PR on submit, and its reviewable diff is relative to its parent, not trunk. Because of that dependency, changing a lower branch invalidates everything above it until the descendants are restacked. "Upstack" means toward dependent children; "downstack" means toward trunk. Graphite's tracking metadata is a layer on top of git refs, not part of them: tracking or untracking a branch changes only what Graphite knows about topology and never creates or deletes commits or branches.
+
 ## Quick Reference
 
 | I want to...                              | Command                                        |
