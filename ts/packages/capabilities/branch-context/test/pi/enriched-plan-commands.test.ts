@@ -24,14 +24,15 @@ describe("enriched-plan-commands", () => {
 			"ns:branch-context:impl-attached-plan",
 			"ns:branch-context:upstack-impl-from-plan",
 			"ns:plan:grill-and-save",
-			"ns:plan:impl-current",
+			"ns:plan:impl-saved-plan",
 			"ns:plan:save",
 		]);
 		expect([...pi.commands.keys()].filter((name) => name.startsWith("ns:plan:"))).toEqual([
 			"ns:plan:save",
 			"ns:plan:grill-and-save",
-			"ns:plan:impl-current",
+			"ns:plan:impl-saved-plan",
 		]);
+		expect(pi.commands.has("ns:plan:impl-current")).toBe(false);
 		expect([...pi.commands.keys()].some((name) => name.startsWith("enriched-plan:"))).toBe(false);
 		expect([...pi.commands.keys()].some((name) => name.startsWith("branch-context:"))).toBe(false);
 		expect(pi.tools.has("write_saved_plan_file")).toBe(true);
