@@ -203,10 +203,26 @@ describe("checked-in flow ns extension loading", () => {
 		expect(output).toContain("--no-restack");
 		expect(output).toContain("--force");
 		expect(output).toContain("--verbose");
+		expect(output).not.toContain("--minimal");
+		expect(output).not.toMatch(/(?:^|\s)-m(?:,|\s|$)/mu);
 		expect(output).not.toContain("NS_DEV_PR_DESCRIPTION_MODEL");
 		expect(output).toContain("NS_SUBMIT_FAILURE_LOG_DIR");
 		expect(help.stderr.join("")).toBe("");
 	});
+
+	test.each(["--minimal", "-m"])(
+		"real loader rejects removed submit option %s before command or model calls",
+		async (option) => {
+			const cwd = await createFlowProject();
+			const run = runWithRealFlowExtension({ args: ["flow", "submit", option], cwd });
+
+			expect(await run.exit).toBe(2);
+			expect(run.stdout.join("")).toBe("");
+			expect(run.stderr.join("")).not.toBe("");
+			expect(run.context.execCalls).toEqual([]);
+			expect(run.context.textGeneratorCalls).toEqual([]);
+		},
+	);
 
 	test("real loader reaches a simple submit invocation path", async () => {
 		const cwd = await createFlowProjectWithGraphiteStack();

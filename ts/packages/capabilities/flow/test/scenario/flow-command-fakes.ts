@@ -24,7 +24,6 @@ import type { CommandExit, NsCommand, NsExtensionApi, NsProgress } from "@nseng-
 import { createFlowSubmitCommand } from "../../src/ns/commands/submit.ts";
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import { createNsSubmitRuntime } from "../../src/submit/ns-runtime.ts";
-import { createFlowMinimalSubmitClientForRuntime } from "../../src/submit/real-minimal-submit.ts";
 
 import {
 	ScriptedNsTestContext,
@@ -535,11 +534,6 @@ export function runFlowSubmitCommandWithFakes(options: RunFlowSubmitCommandWithF
 				createNsSubmitRuntime(ctx, flowExtensionDescriptorSource, {
 					graphiteStackGateway: stackGateway,
 				}),
-			createMinimalClient: (ctx) =>
-				createFlowMinimalSubmitClientForRuntime(
-					{ cwd: ctx.cwd, commands: ctx, env: ctx.env },
-					{ graphite: stackGateway },
-				),
 		}),
 		request: options.request ?? {},
 		options,

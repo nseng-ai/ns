@@ -45,7 +45,7 @@ To widen that batch to every PR resolved in the submitted scope — existing and
 ns flow submit --regenerate-descriptions
 ```
 
-This replaces the complete title and body of every selected PR and removes all existing body content, including human-authored prose; there is no managed-region merging and no rollback. It requires a TTY confirmation, or `--yes`/`-y` for explicit non-interactive approval, and it cannot be combined with `--minimal`. The same prepare-all-before-edit and sequential-application failure behavior applies.
+This replaces the complete title and body of every selected PR and removes all existing body content, including human-authored prose; there is no managed-region merging and no rollback. It requires a TTY confirmation, or `--yes`/`-y` for explicit non-interactive approval. The same prepare-all-before-edit and sequential-application failure behavior applies.
 
 To replace the complete title and body of only an existing current-branch PR, run:
 

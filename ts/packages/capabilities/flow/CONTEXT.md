@@ -17,7 +17,7 @@ The `@nseng-ai/flow/pi` host surface owns generic `/ns:flow:*` mirrors and `/gt:
 *Avoid*: Flow-owned code-workflow skill policy, Internal Pi-tool import from Flow, cross-owner aggregate inside a package
 
 **Flow Capability API**:
-The curated `@nseng-ai/flow/api` in-process surface consumed by downstream packages so they do not import Flow private source modules. Its surviving cross-capability consumer is Objectives publication, which composes **Flow Branch Publication** for trusted parent-owned external writes after Objective Runner checkpoint judgment; Flow's minimal submit machinery is internal command implementation rather than a downstream compatibility contract.
+The curated `@nseng-ai/flow/api` in-process surface consumed by downstream packages so they do not import Flow private source modules. Its surviving cross-capability consumer is Objectives publication, which composes **Flow Branch Publication** for trusted parent-owned external writes after Objective Runner checkpoint judgment.
 *Avoid*: package-root import, private `@nseng-ai/flow/src/...` import, narrowed land-only API, consumer-owned Flow seam, exposing private submit machinery as a compatibility contract
 
 **Flow Land Compatibility Boundary**:
@@ -75,14 +75,6 @@ The Flow ownership boundary for submit, PR description regeneration, Graphite su
 **Submit Plan**:
 The typed, renderer-independent result of inspecting the Graphite submit scope after readiness and any required restack, containing stack branches, existing PR links, upstack status, and the partition of branches eligible or ineligible for metadata prewrite.
 *Avoid*: stale pre-checkpoint topology, command transcript, metadata generation result, submit execution result
-
-**Flow Minimal Submit Client**:
-The internal two-phase implementation used by Flow's `ns flow submit` command for read-only planning and clean-tree execution of current/downstack Graphite publication. It reports structured stages and conservative local/remote mutation evidence while keeping submit gateways, runtime wiring, progress matrices, metadata, and prose generation private; it is not a downstream **Flow Capability API** compatibility contract.
-*Avoid*: public downstream client, full submit runtime API, Graphite display-prose parser, ship pipeline, metadata-free alias for default submit
-
-**Minimal Submit Plan**:
-The internal read-only tracked-source result produced by the **Flow Minimal Submit Client**, containing the verified source, Graphite trunk, and affected current plus non-trunk downstack branches. Definitive untracked state is distinct from provider or topology failure.
-*Avoid*: public compatibility DTO, authorization, mutation result, arbitrary Git ancestry, upstack PR-update scope
 
 **Flow Branch Publication**:
 The narrow **Flow Capability API** behavior used by trusted Objectives publication to bind the current non-trunk branch to its existing PR, reverify the bound source before mutation, push the exact commit without force, and preserve non-managed PR prose while updating the managed Objective Runner region. Objectives owns publication eligibility, checkpoint judgment, and Objective Runner summary policy.
