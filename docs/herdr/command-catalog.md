@@ -47,6 +47,10 @@ The command cutover does not remove launch as a process or destination concept:
 - Herdr owns destination creation, labels, and pane process startup. Every ns-authored space label associated with a managed Slot uses the compact `s<number>:` prefix derived from the resource cwd or actual checked-out worktree path; tab labels never use Slot prefixes. Prepared Herdr Launch labels use the collision-resolved Git branch name so the displayed resource matches the branch it runs. Objective space labels use `[s<number>:]obj:<slug>`, and Handoff tabs use `handoff:<slug>`. Unlabeled resource creation remains unlabeled. Plans, Branch Context, Slots, Graphite preparation, and Handoff Artifact lifecycle remain owned by their respective extensions.
 - Hidden `ns herdr exec handoff-tab launch` is a reference-based implementation command for Handoff launch, not a public generic launcher or an additional Pi command.
 
+### Graduation requirement
+
+Before Herdr moves out of `ts/packages/incubator/`, its dependency on `@nseng-ai/slots` must become conditional. Herdr must remain usable without Slots installed; Slot-aware checkout and compact Slot label behavior should activate only when the Slots integration is available.
+
 ## Migration disposition
 
 The former cmux workflows were evaluated by behavior rather than copied as a namespace. Herdr retained useful destination operations—creating spaces and tabs, starting prompt or Saved Plan implementation, and applying semantic labels—then organized them around Herdr resources.
