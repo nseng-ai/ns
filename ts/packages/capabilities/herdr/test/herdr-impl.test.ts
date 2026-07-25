@@ -207,7 +207,6 @@ describe("Herdr prompt implementation", () => {
 					{ stdout: `${BRANCH}\n` },
 				),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
-				step("git", ["branch", BRANCH, START_POINT], {}),
 				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
 				step(
 					"brmem",
@@ -263,6 +262,9 @@ describe("Herdr prompt implementation", () => {
 
 		pi.assertDone();
 		expect(git.currentBranchCalls).toEqual([{ cwd: ROOT }, { cwd: ROOT }]);
+		expect(git.createBranchAtStartPointCalls).toEqual([
+			{ cwd: ROOT, branch: BRANCH, startPoint: START_POINT },
+		]);
 		expect(await readFile(stagedPromptFile, "utf8")).toContain(prompt);
 		expect(await readFile(stagedPromptFile, "utf8")).toContain("literal --from trunk text");
 		expect(herdr.createWorkspaceCalls).toEqual([{ options: { cwd: WORKTREE, label: BRANCH } }]);
@@ -294,7 +296,6 @@ describe("Herdr prompt implementation", () => {
 					{ stdout: `${BRANCH}\n` },
 				),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
-				step("git", ["branch", BRANCH, START_POINT], {}),
 				step("gt", ["track", BRANCH, "--parent", TRUNK_BRANCH, "--no-interactive"], {}),
 				step(
 					"brmem",
@@ -328,6 +329,7 @@ describe("Herdr prompt implementation", () => {
 				),
 			],
 		});
+		const git = new InMemoryGitGateway({ currentBranch: TRUNK_BRANCH });
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
@@ -340,9 +342,7 @@ describe("Herdr prompt implementation", () => {
 				shouldCleanupStagingFile: false,
 			}),
 			graphite: { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) },
-			git: {
-				currentBranch: async () => ({ type: "branch", branch: TRUNK_BRANCH }),
-			},
+			git,
 			slotClient: testSlotClient,
 			args: prompt,
 			ctx,
@@ -351,6 +351,9 @@ describe("Herdr prompt implementation", () => {
 
 		pi.assertDone();
 		expect(ctx.selections).toEqual([]);
+		expect(git.createBranchAtStartPointCalls).toEqual([
+			{ cwd: ROOT, branch: BRANCH, startPoint: START_POINT },
+		]);
 		expect(await readFile(stagedPromptFile, "utf8")).toContain(
 			"created from the existing local Graphite trunk",
 		);
@@ -382,7 +385,6 @@ describe("Herdr prompt implementation", () => {
 					{ stdout: `${BRANCH}\n` },
 				),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
-				step("git", ["branch", BRANCH, START_POINT], {}),
 				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
 				step(
 					"brmem",
@@ -416,6 +418,7 @@ describe("Herdr prompt implementation", () => {
 				),
 			],
 		});
+		const git = new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH });
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
@@ -425,7 +428,7 @@ describe("Herdr prompt implementation", () => {
 			payloadOptions: resolveImplPromptPayloadOptions({ stagingDir, now: () => 123 }),
 			slotClient: testSlotClient,
 			graphite: testGraphiteBranchGateway,
-			git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
+			git,
 			args: prompt,
 			ctx,
 			notifyProgress: () => {},

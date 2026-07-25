@@ -17,6 +17,7 @@ import {
 } from "@nseng-ai/capability-kit/tracked-branch-payload";
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { afterEach, describe, expect, test } from "vitest";
 
 const REPO_ROOT = mkdtempSync(join(tmpdir(), "tracked-branch-payload-root-"));
@@ -214,20 +215,19 @@ describe("tracked branch payload public API", () => {
 				result: exited({ code: 1 }),
 			},
 			{
-				command: "git",
-				args: ["branch", "implement-feature-2", "abc123"],
-				result: exited(),
-			},
-			{
 				command: "gt",
 				args: ["track", "implement-feature-2", "--parent", "feature/source", "--no-interactive"],
 				result: exited(),
 			},
 		]);
 
-		const result = await createTrackedBranchForPrompt(commands, REPO_ROOT, prompt);
+		const git = new InMemoryGitGateway();
+		const result = await createTrackedBranchForPrompt(commands, REPO_ROOT, prompt, git);
 
 		commands.assertDone();
+		expect(git.createBranchAtStartPointCalls).toEqual([
+			{ cwd: REPO_ROOT, branch: "implement-feature-2", startPoint: "abc123" },
+		]);
 		expect(result).toEqual({
 			branchName: "implement-feature-2",
 			semanticSlug: "implement-feature",
@@ -258,19 +258,16 @@ describe("tracked branch payload public API", () => {
 				result: exited({ code: 1 }),
 			},
 			{
-				command: "git",
-				args: ["branch", "implement-trunk-feature", "def456"],
-				result: exited(),
-			},
-			{
 				command: "gt",
 				args: ["track", "implement-trunk-feature", "--parent", "main", "--no-interactive"],
 				result: exited(),
 			},
 		]);
 
+		const git = new InMemoryGitGateway();
 		const result = await createTrackedBranchFromResolvedParent({
 			pi: commands,
+			git,
 			cwd: REPO_ROOT,
 			prompt,
 			parentBranch: "main",
@@ -278,6 +275,9 @@ describe("tracked branch payload public API", () => {
 		});
 
 		commands.assertDone();
+		expect(git.createBranchAtStartPointCalls).toEqual([
+			{ cwd: REPO_ROOT, branch: "implement-trunk-feature", startPoint: "def456" },
+		]);
 		expect(result).toEqual({
 			branchName: "implement-trunk-feature",
 			semanticSlug: "implement-trunk-feature",
@@ -332,19 +332,16 @@ describe("tracked branch payload public API", () => {
 				result: exited({ code: 1 }),
 			},
 			{
-				command: "git",
-				args: ["branch", "implement-feature", "abc123"],
-				result: exited(),
-			},
-			{
 				command: "gt",
 				args: ["track", "implement-feature", "--parent", "feature/source", "--no-interactive"],
 				result: exited({ code: 1, stderr: "not tracked" }),
 			},
 		]);
 
+		const git = new InMemoryGitGateway();
 		const result = await createTrackedBranchFromResolvedParent({
 			pi: commands,
+			git,
 			cwd: REPO_ROOT,
 			prompt,
 			parentBranch: "feature/source",
@@ -352,6 +349,9 @@ describe("tracked branch payload public API", () => {
 		});
 
 		commands.assertDone();
+		expect(git.createBranchAtStartPointCalls).toEqual([
+			{ cwd: REPO_ROOT, branch: "implement-feature", startPoint: "abc123" },
+		]);
 		expect(result).toMatchObject({
 			error: expect.stringContaining("Created git branch implement-feature"),
 		});

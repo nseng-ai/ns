@@ -22,7 +22,7 @@ import {
 	sanitizeBranchName,
 	trimBranchSlugToLength,
 } from "@nseng-ai/foundation/branch-slug";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
+import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorMessage, type TextResult } from "@nseng-ai/foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { runGraphiteCommand, type GraphiteBranchGateway } from "../graphite/branch.ts";
@@ -91,6 +91,7 @@ export async function createTrackedBranchForPrompt(
 	pi: CommandExecApi,
 	cwd: string,
 	prompt: string,
+	git: Pick<GitGateway, "createBranchAtStartPoint">,
 ): Promise<TrackedBranchEvidence | { error: string }> {
 	const parent = await runText(pi, cwd, "git", ["symbolic-ref", "--short", "HEAD"]);
 	if (!parent.ok) return { error: `Could not resolve current branch: ${parent.message}` };
@@ -98,6 +99,7 @@ export async function createTrackedBranchForPrompt(
 	if (!startPoint.ok) return { error: `Could not resolve HEAD: ${startPoint.message}` };
 	return createTrackedBranchFromResolvedParent({
 		pi,
+		git,
 		cwd,
 		prompt,
 		parentBranch: parent.text,
@@ -107,6 +109,7 @@ export async function createTrackedBranchForPrompt(
 
 export async function createTrackedBranchFromResolvedParent(options: {
 	pi: CommandExecApi;
+	git: Pick<GitGateway, "createBranchAtStartPoint">;
 	cwd: string;
 	prompt: string;
 	parentBranch: string;
@@ -116,15 +119,15 @@ export async function createTrackedBranchFromResolvedParent(options: {
 	const slug = await generateTrackedBranchSlug(options.pi, options.cwd, options.prompt);
 	if (!slug.ok) return { error: slug.message };
 	const branchName = await chooseAvailableBranchName(options.pi, options.cwd, slug.text);
-	const create = await runText(options.pi, options.cwd, "git", [
-		"branch",
-		branchName,
-		options.startPoint,
-	]);
+	const create = await options.git.createBranchAtStartPoint({
+		cwd: options.cwd,
+		branch: branchName,
+		startPoint: options.startPoint,
+	});
 	if (!create.ok) {
 		const context =
 			options.createFailureContext === undefined ? "" : ` ${options.createFailureContext}`;
-		return { error: `Failed to create branch ${branchName}${context}: ${create.message}` };
+		return { error: `Failed to create branch ${branchName}${context}: ${create.error.message}` };
 	}
 	const trackArgs = ["track", branchName, "--parent", options.parentBranch, "--no-interactive"];
 	const track = await runGraphiteCommand(execApiToCommandRunner(options.pi), {
@@ -187,6 +190,7 @@ export async function createTrackedBranchFromLocalTrunkForPrompt(options: {
 	cwd: string;
 	prompt: string;
 	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	git: Pick<GitGateway, "createBranchAtStartPoint">;
 	notify?: (message: string) => void;
 	metadataDbAccess?: GraphiteMetadataDbAccess;
 }): Promise<TrackedBranchEvidence | { error: string }> {
@@ -195,6 +199,7 @@ export async function createTrackedBranchFromLocalTrunkForPrompt(options: {
 	options.notify?.("Generating branch name…");
 	return createTrackedBranchFromResolvedParent({
 		pi: options.pi,
+		git: options.git,
 		cwd: options.cwd,
 		prompt: options.prompt,
 		parentBranch: prepared.trunkBranch,

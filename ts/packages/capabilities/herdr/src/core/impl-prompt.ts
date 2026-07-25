@@ -33,7 +33,7 @@ const COMMAND_NAME = HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME;
 export interface ImplPromptPayloadOptions extends TrackedBranchPayloadOptions {
 	slotClient?: SlotClient;
 	graphite?: Pick<GraphiteBranchGateway, "trunkBranch">;
-	git?: Pick<GitGateway, "currentBranch">;
+	git?: Pick<GitGateway, "createBranchAtStartPoint" | "currentBranch">;
 	metadataDbAccess?: GraphiteMetadataDbAccess;
 }
 
@@ -43,7 +43,7 @@ export interface HandleHerdrSlotImplPromptOptions {
 	payloadOptions: ResolvedTrackedBranchPayloadOptions;
 	slotClient?: SlotClient;
 	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
-	git: Pick<GitGateway, "currentBranch">;
+	git: Pick<GitGateway, "createBranchAtStartPoint" | "currentBranch">;
 	metadataDbAccess?: GraphiteMetadataDbAccess;
 	args: string;
 	ctx: CommandContext;
@@ -112,7 +112,7 @@ async function createCurrentPromptBranch(
 		};
 	}
 	options.notifyProgress("Generating branch name…");
-	return createTrackedBranchForPrompt(options.pi, options.ctx.cwd, prompt);
+	return createTrackedBranchForPrompt(options.pi, options.ctx.cwd, prompt, options.git);
 }
 
 async function createTrunkPromptBranch(
@@ -124,6 +124,7 @@ async function createTrunkPromptBranch(
 		cwd: options.ctx.cwd,
 		prompt,
 		graphite: options.graphite,
+		git: options.git,
 		notify: options.notifyProgress,
 		...optionalEntry("metadataDbAccess", options.metadataDbAccess),
 	});
