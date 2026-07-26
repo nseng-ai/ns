@@ -16,9 +16,9 @@ import {
 import { firstFailure, validateNamespaceName, validationMessage } from "../../validation.ts";
 import { gatewayFailure } from "../../entry-request.ts";
 
-const SNAPSHOT_SCAN_PROGRESS_INTERVAL = 100;
-const SNAPSHOT_DELETE_PROGRESS_INTERVAL = 100;
-const GC_DETAIL_TABLE_LIMIT = 20;
+const SNAPSHOT_SCAN_PROGRESS_INTERVAL_REFS = 100;
+const SNAPSHOT_DELETE_PROGRESS_INTERVAL_REFS = 100;
+const GC_DETAIL_TABLE_LIMIT_ROWS = 20;
 
 interface GcNamespaceSummary {
 	namespace: string;
@@ -72,7 +72,12 @@ export async function runGc(ctx: BrmemCliContext, request: GcRequest) {
 		...(scope.allNamespaces ? {} : { namespace: scope.namespace }),
 		onProgress: ({ processed, total }) => {
 			if (
-				shouldReportProgress(processed, total, lastScanProgress, SNAPSHOT_SCAN_PROGRESS_INTERVAL)
+				shouldReportProgress(
+					processed,
+					total,
+					lastScanProgress,
+					SNAPSHOT_SCAN_PROGRESS_INTERVAL_REFS,
+				)
 			) {
 				lastScanProgress = processed;
 				writeGcStatus(ctx, `Scanned ${processed}/${total} Branch Memory Snapshot refs…`);
@@ -108,7 +113,7 @@ export async function runGc(ctx: BrmemCliContext, request: GcRequest) {
 					deletedCount,
 					staleSnapshotCandidates.length,
 					lastDeleteProgress,
-					SNAPSHOT_DELETE_PROGRESS_INTERVAL,
+					SNAPSHOT_DELETE_PROGRESS_INTERVAL_REFS,
 				)
 			) {
 				lastDeleteProgress = deletedCount;
@@ -150,7 +155,7 @@ export function renderGc(
 	const heading = result.deleted
 		? "Deleted stale Branch Memory Snapshots."
 		: "Stale Branch Memory Snapshots found. No refs were deleted; rerun with --yes to delete.";
-	if (result.staleSnapshots.length <= GC_DETAIL_TABLE_LIMIT) {
+	if (result.staleSnapshots.length <= GC_DETAIL_TABLE_LIMIT_ROWS) {
 		return [heading, renderGcTable(result.staleSnapshots, caps)].join("\n");
 	}
 	return [

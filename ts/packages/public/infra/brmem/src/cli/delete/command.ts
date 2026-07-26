@@ -1,10 +1,10 @@
 import {
 	confirmationUsageErrorDataSchema,
+	confirmInteractiveOrUsageError,
 	defineCommand,
 	failure,
 	negative,
 	ok,
-	requireInteractiveOrUsageError,
 } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
@@ -39,16 +39,18 @@ export async function runDelete(ctx: BrmemCliContext, request: DeleteRequest) {
 	const locator = mustEntryLocator(namespace, key, branch);
 
 	if (!request.yes) {
-		const gate = requireInteractiveOrUsageError(ctx.interaction, {
-			message: "Deleting a Branch Memory Entry requires --yes when non-interactive.",
-			missingFlag: "--yes",
-			howToSupply: "Pass --yes (or -y) to confirm deletion without prompting.",
+		const confirmed = await confirmInteractiveOrUsageError(ctx.interaction, {
+			nonInteractive: {
+				message: "Deleting a Branch Memory Entry requires --yes when non-interactive.",
+				missingFlag: "--yes",
+				howToSupply: "Pass --yes (or -y) to confirm deletion without prompting.",
+			},
+			confirmation: {
+				message: `Delete Entry Key ${key} from ${namespaceDisplayLabel(namespace)} on Branch ${branch}?`,
+				defaultAnswer: "no",
+			},
 		});
-		if (gate) return gate;
-		const confirmed = await ctx.interaction.confirm({
-			message: `Delete Entry Key ${key} from ${namespaceDisplayLabel(namespace)} on Branch ${branch}?`,
-			defaultAnswer: "no",
-		});
+		if (confirmed.type === "usageError") return confirmed;
 		if (confirmed.type === "declined") {
 			return ok({
 				namespace,
