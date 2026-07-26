@@ -7,10 +7,14 @@ Clinkr is a TypeScript toolkit for building CLIs that work for people and coding
 - one schema-backed model for command input, JSON Schema, and help;
 - standardized JSON output for success, negative results, and errors.
 
+## Fast by default
+
+A CLI should pay to construct only what the invocation needs. Named commands and groups are lazy routes at every level: top-level help and name completion use cheap route metadata, while execution, deep help, and option/argument completion load only the selected path. Schemas, handlers, renderers, completion providers, and child routes stay behind one shared loader. Successful loads are cached for that app; unrelated routes are never constructed.
+
 The agentic era makes CLIs more important, not less—and humans still matter. So Clinkr also provides:
 
 - human-readable output from the same handlers;
-- shell autocomplete derived from the command tree.
+- shell autocomplete derived from the same lazy route tree.
 
 Commands take a schema-validated request object and return a schema-validated result. JSON in and out is uniform; flag spelling and human output stay customizable per application.
 
@@ -42,37 +46,43 @@ Clinkr suits applications that want structured commands and explicit output cont
 
 ## Define and run one command
 
-A CLI needs no subcommands, command group, or application context. Start with one top-level command and give it to a `ClinkrApp`, the executable wrapper that runs every Clinkr command tree:
+A CLI needs no subcommands, command group, or application context. Create it asynchronously with a framework-supplied builder. The app owns the executable name; its root scope is transparent, and its one nameless default command is built eagerly with that scope:
 
 ```ts
-import { ClinkrApp, ClinkrCommand, ok } from "@nseng-ai/clinkr";
+import { ClinkrApp, ok } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
-const cli = new ClinkrCommand({
-	name: "greet",
-	description: "Greet a person.",
-	schema: z.object({
-		name: z.string(),
-		enthusiastic: z.boolean().default(false),
-	}),
-	resultSchema: z.object({ message: z.string() }),
-	positionals: {
-		name: { index: 0, description: "Person to greet." },
+const app = await ClinkrApp.create(
+	{ name: "greet", moduleUrl: import.meta.url },
+	async (appBuilder) => {
+		appBuilder.defaultCommand(async (commandBuilder) =>
+			commandBuilder.define({
+				schema: z.object({
+					name: z.string(),
+					enthusiastic: z.boolean().default(false),
+				}),
+				positionals: {
+					name: { index: 0, description: "Person to greet." },
+				},
+				options: {
+					enthusiastic: { description: "Add emphasis." },
+				},
+				resultSchema: z.object({ message: z.string() }),
+				handler: async (request) =>
+					ok({
+						message: `Hello, ${request.name}${request.enthusiastic ? "!" : "."}`,
+					}),
+				renderHuman: (result) => result.message,
+			}),
+		);
+		return await appBuilder.define();
 	},
-	options: {
-		enthusiastic: { description: "Add emphasis." },
-	},
-	handler: async (request) =>
-		ok({
-			message: `Hello, ${request.name}${request.enthusiastic ? "!" : "."}`,
-		}),
-	renderHuman: (result) => result.message,
-});
-
-const app = new ClinkrApp({ root: cli });
+);
 
 process.exitCode = await app.run(process.argv.slice(2));
 ```
+
+The precise unimplemented method spellings in this draft are provisional; the settled contract is not: public authoring uses `ClinkrAppBuilder`, `ClinkrGroupBuilder`, and `ClinkrCommandBuilder`, callbacks are async and return the immutable object produced by the supplied builder, and runtime verifies that provenance. Every command builder defines exactly once; app/group `define()` finalizes its scope. Only `ClinkrApp` runs or computes completion.
 
 This creates a command that can be called directly:
 
@@ -96,20 +106,9 @@ $ greet Ada --enthusiastic --format json
 
 The request schema drives parsing and validation. Schema keys are camelCase in TypeScript and become kebab-case CLI options. Mark positional fields with `positionals`; use `options` for option-specific help and surface metadata.
 
-That is the minimum structured-result path: define a command, describe its request and result with Zod, give it to an app, and assign the returned exit code. `ClinkrCommand` describes one operation; `ClinkrApp` owns execution. Add context or groups only when the CLI needs them.
+That is the minimum structured-result path: define a command through its builder, describe its request and result with Zod, finalize the app, and assign the returned exit code. Add context or named routes only when the CLI needs them.
 
-A command that only performs an imperative action needs no `resultSchema`. Return `ok()` with no data:
-
-```ts
-const hello = new ClinkrCommand({
-	name: "hello",
-	schema: z.object({}),
-	handler: async () => {
-		console.error("Hello world");
-		return ok();
-	},
-});
-```
+A command that only performs an imperative action needs no `resultSchema`. Its builder handler may write application-owned stderr chatter and return `ok()` with no data.
 
 Omitting all outcome data schemas is a bodyless-outcome contract, not an untyped result contract. Clinkr emits no result body for `ok()`. TypeScript rejects structured data on an outcome without a corresponding schema, and runtime validation rejects it at untyped boundaries. Any imperative writes are application-owned stderr chatter, which keeps JSON stdout clean. User-facing result output belongs in a structured result with command-level renderers.
 
@@ -157,15 +156,16 @@ $ echo $?
 Failure and usage-error envelopes have the same shape plus an `errorType` string; success envelopes carry configured result data under `data` (shown in the first example above). Any outcome can carry structured `data` when the command declares its corresponding schema:
 
 ```ts
-const findContact = new ClinkrCommand({
-	name: "find",
-	schema: z.object({ name: z.string() }),
-	resultSchema: contactSchema,
-	negativeSchema: z.object({ searchedName: z.string() }),
-	failureSchema: z.object({ service: z.string() }),
-	usageErrorSchema: z.object({ conflictingFlags: z.array(z.string()) }),
-	// ...
-});
+appBuilder.command({ name: "find" }, async (commandBuilder) =>
+	commandBuilder.define({
+		schema: z.object({ name: z.string() }),
+		resultSchema: contactSchema,
+		negativeSchema: z.object({ searchedName: z.string() }),
+		failureSchema: z.object({ service: z.string() }),
+		usageErrorSchema: z.object({ conflictingFlags: z.array(z.string()) }),
+		// handler and renderers...
+	}),
+);
 ```
 
 Clinkr composes these command data schemas with its fixed fields into one top-level discriminated JSON Schema. Each `status` branch has predictable standard fields and either requires `data` matching its configured schema or omits `data` when no schema was configured. `--json-schema` publishes this complete input-and-outcome contract.
@@ -181,14 +181,15 @@ Unexpected exceptions do not become expected failure outcomes. They propagate so
 A rendered command may provide separate command-level success renderers:
 
 ```ts
-const status = new ClinkrCommand({
-	name: "status",
-	schema: z.object({}),
-	resultSchema: z.object({ state: z.string() }),
-	handler: async () => ok({ state: "ready" }),
-	renderHuman: (result) => `State: ${result.state}`,
-	renderMarkdown: (result) => `**State:** ${result.state}`,
-});
+appBuilder.command({ name: "status" }, async (commandBuilder) =>
+	commandBuilder.define({
+		schema: z.object({}),
+		resultSchema: z.object({ state: z.string() }),
+		handler: async () => ok({ state: "ready" }),
+		renderHuman: (result) => `State: ${result.state}`,
+		renderMarkdown: (result) => `**State:** ${result.state}`,
+	}),
+);
 ```
 
 Clinkr selects the output format from its framework options. Without a Markdown renderer, Markdown output falls back to the human renderer. Without a human renderer, successful data prints as indented JSON. Outcomes do not carry per-exit human or Markdown overrides; rendering remains part of the command contract.
@@ -224,38 +225,34 @@ Two refinements when a command needs them:
 
 ## Build a CLI with subcommands
 
-Use one `ClinkrGroup` when a CLI has several top-level commands:
+Declare several lazy command routes directly in the app's transparent root scope:
 
 ```ts
-const cli = new ClinkrGroup({
-	name: "contacts",
-	description: "Manage contacts.",
-});
-
-cli.command({
-	name: "list",
-	description: "List contacts.",
-	schema: z.object({}),
-	resultSchema: z.object({ contacts: z.array(z.string()) }),
-	handler: async () => ok({ contacts: ["Ada", "Grace"] }),
-	renderHuman: (result) => result.contacts.join("\n"),
-});
-
-cli.command({
-	name: "add",
-	description: "Add a contact.",
-	schema: z.object({ name: z.string() }),
-	resultSchema: z.object({ name: z.string() }),
-	positionals: {
-		name: { index: 0, description: "Contact name." },
+const app = await ClinkrApp.create(
+	{ name: "contacts", moduleUrl: import.meta.url },
+	async (appBuilder) => {
+		appBuilder.command(
+			{ name: "list", description: "List contacts." },
+			async (commandBuilder) =>
+				commandBuilder.define({
+					schema: z.object({}),
+					resultSchema: z.object({ contacts: z.array(z.string()) }),
+					handler: async () => ok({ contacts: ["Ada", "Grace"] }),
+					renderHuman: (result) => result.contacts.join("\n"),
+				}),
+		);
+		appBuilder.command(
+			{ name: "add", description: "Add a contact." },
+			async (commandBuilder) =>
+				commandBuilder.define({
+					schema: z.object({ name: z.string() }),
+					resultSchema: z.object({ name: z.string() }),
+					handler: async (request) => ok({ name: request.name }),
+				}),
+		);
+		return await appBuilder.define();
 	},
-	handler: async (request) => ok({ name: request.name }),
-	renderHuman: (result) => `Added ${result.name}`,
-});
-
-const app = new ClinkrApp({ root: cli });
-
-process.exitCode = await app.run(process.argv.slice(2));
+);
 ```
 
 This gives one level of subcommands: `contacts list`, `contacts add Ada`. Invoking the group without a command prints its help.
@@ -264,52 +261,46 @@ Aliases are application-defined. Clinkr does not infer aliases from command or g
 
 ## Organize commands into subgroups
 
-When a CLI has several related command families, add one level of subgroups:
+When a CLI has related command families, declare lazy group routes. Keep the app definition flat by putting each group's children in its own builder module:
 
 ```ts
-const cli = new ClinkrGroup({
-	name: "forge",
-	description: "Work with a code forge.",
-});
-
-const issues = new ClinkrGroup({
-	name: "issues",
-	description: "Work with issues.",
-});
-
-issues.command({
-	name: "list",
-	description: "List open issues.",
-	schema: z.object({}),
-	resultSchema: z.object({ issues: z.array(z.string()) }),
-	handler: async () => ok({ issues: ["Fix login", "Improve help"] }),
-	renderHuman: (result) => result.issues.join("\n"),
-});
-
-const pulls = new ClinkrGroup({
-	name: "pulls",
-	description: "Work with pull requests.",
-});
-
-pulls.command({
-	name: "list",
-	description: "List open pull requests.",
-	schema: z.object({}),
-	resultSchema: z.object({ pulls: z.array(z.string()) }),
-	handler: async () => ok({ pulls: ["Add completion"] }),
-	renderHuman: (result) => result.pulls.join("\n"),
-});
-
-cli.group(issues);
-cli.group(pulls);
-
-const app = new ClinkrApp({
-	root: cli,
-	version: "1.0.0",
-});
-
-process.exitCode = await app.run(process.argv.slice(2));
+const app = await ClinkrApp.create(
+	{ name: "forge", version: "1.0.0", moduleUrl: import.meta.url },
+	async (appBuilder) => {
+		appBuilder.group(
+			{ name: "issues", description: "Work with issues." },
+			async (groupBuilder) => groupBuilder.import("./issues-group.ts"),
+		);
+		appBuilder.group(
+			{ name: "pulls", description: "Work with pull requests." },
+			async (groupBuilder) => groupBuilder.import("./pulls-group.ts"),
+		);
+		return await appBuilder.define();
+	},
+);
 ```
+
+The imported module builds one group without nesting that work inside the app declaration:
+
+```ts
+// issues-group.ts
+export async function build(
+	groupBuilder: ClinkrGroupBuilder,
+): Promise<ClinkrGroup> {
+	groupBuilder.command(
+		{ name: "list", description: "List open issues." },
+		async (commandBuilder) =>
+			commandBuilder.define({
+				schema: z.object({}),
+				resultSchema: z.object({ issues: z.array(z.string()) }),
+				handler: async () => ok({ issues: ["Fix login"] }),
+			}),
+	);
+	return await groupBuilder.define();
+}
+```
+
+Builder imports are terminal: relative specifiers resolve from the module currently being built, whose standard named async `build(builder)` export returns the finalized immutable node. Named route callbacks load only when selected. `forge issues -h` constructs `issues` and its one default command, if present, but no named child or sibling. Route metadata—not loaded nodes—owns names, aliases, descriptions/help grouping, and hidden state.
 
 This produces commands such as `forge issues list` and `forge pulls list`. Invoking `forge`, `forge issues`, or `forge pulls` without a leaf command prints help for that level.
 
@@ -347,28 +338,20 @@ interface GitContext {
 	readonly git: GitGateway;
 }
 
-const forge = new ClinkrGroup<GitContext>({ name: "forge" });
-
-forge.command({
-	name: "checkout",
-	description: "Check out a branch.",
-	schema: z.object({ branch: z.string() }),
-	resultSchema: z.object({ branch: z.string() }),
-	positionals: {
-		branch: { index: 0, description: "Branch name." },
-	},
-	completionProvider: async (context, request) =>
-		(await context.git.listBranches())
-			.filter((branch) => branch.startsWith(request.current))
-			.map((branch) => ({
-				value: branch,
-				type: "positional-value" as const,
-			})),
-	handler: async (context, request) => {
-		await context.git.checkout(request.branch);
-		return ok({ branch: request.branch });
-	},
-});
+appBuilder.command({ name: "checkout" }, async (commandBuilder) =>
+	commandBuilder.define({
+		schema: z.object({ branch: z.string() }),
+		resultSchema: z.object({ branch: z.string() }),
+		completionProvider: async (context: GitContext, request) =>
+			(await context.git.listBranches())
+				.filter((branch) => branch.startsWith(request.current))
+				.map((branch) => ({ value: branch, type: "positional-value" as const })),
+		handler: async (context: GitContext, request) => {
+			await context.git.checkout(request.branch);
+			return ok({ branch: request.branch });
+		},
+	}),
+);
 ```
 
 Clinkr merges dynamic candidates with static ones and removes duplicates. If a provider throws, Clinkr invokes the app's optional completion-error callback with the thrown error and relevant command/completion context, then falls back to static candidates. The callback lets the application log or observe the failure without coupling providers to process stderr; a transient dependency failure still does not break Tab completion.
@@ -377,44 +360,15 @@ Clinkr merges dynamic candidates with static ones and removes duplicates. If a p
 
 Most real commands depend on something external: a filesystem, API client, repository, clock, or configuration. Pass those dependencies as **context** instead of constructing them inside handlers or reading globals. This lets you write full end-to-end tests of CLI commands with injected dependencies.
 
-A group declares one context type for its whole command tree. Commands do not repeat it: handlers infer the type from the group where they are registered. The app receives one context value per run and passes it to the selected handler, including handlers in subgroups.
+A contextful app declares one context type for its whole route tree. Commands infer it from their containing builder scope. The app receives one context value per run and passes it to the selected handler, including handlers in subgroups. Context construction and narrower adaptation stay above Clinkr.
 
 ```ts
 interface ContactsContext {
-	readonly contacts: {
-		list(): Promise<readonly string[]>;
-		add(name: string): Promise<void>;
-	};
+	readonly contacts: ContactsGateway;
 }
 
-const contacts = new ClinkrGroup<ContactsContext>({ name: "contacts" });
-
-contacts.command({
-	name: "list",
-	schema: z.object({}),
-	resultSchema: z.object({ contacts: z.array(z.string()) }),
-	handler: async (context) => ok({ contacts: await context.contacts.list() }),
-	renderHuman: (result) => result.contacts.join("\n"),
-});
-
-contacts.command({
-	name: "add",
-	schema: z.object({ name: z.string() }),
-	resultSchema: z.object({ name: z.string() }),
-	positionals: { name: { index: 0 } },
-	handler: async (context, request) => {
-		await context.contacts.add(request.name);
-		return ok({ name: request.name });
-	},
-});
-
-const app = new ClinkrApp({ root: contacts });
-
-process.exitCode = await app.run(process.argv.slice(2), {
-	context: {
-		contacts: new RealContactsGateway(),
-	},
-});
+const context: ContactsContext = { contacts: new RealContactsGateway() };
+process.exitCode = await app.run(process.argv.slice(2), { context });
 ```
 
 The context type also applies to every subgroup beneath `contacts`; groups do not create, merge, or override context. There is no global context object—the value belongs to one `app.run(...)` invocation. Use it for explicit runtime dependencies, not miscellaneous mutable state.
@@ -473,17 +427,7 @@ A command that requires a prompt must return a usage error when interaction is u
 
 Use this escape hatch when exact passthrough is the command's job, when an existing Commander tree must be reused, or when an application needs to work around a Clinkr limitation without abandoning Clinkr for the rest of its CLI.
 
-```ts
-import { Command } from "commander";
-
-const legacy = new Command("legacy").action(() => {
-	process.stdout.write("legacy output\n");
-});
-
-root.rawCommand(legacy);
-```
-
-See `@nseng-ai/clinkr/raw` and its exported types for the exact mounting API.
+The exact builder mounting shape remains to be settled during the raw-path reconciliation. See `@nseng-ai/clinkr/raw` and its exported types for the current mounting surface; the promoted README will show the reconciled builder form.
 
 ### Streaming output
 
