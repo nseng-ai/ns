@@ -1,7 +1,9 @@
 import { expect, test } from "vitest";
+import { z } from "zod";
 
 import { ClinkrGroup } from "@nseng-ai/clinkr";
 import {
+	buildSurfacePlan,
 	createCaptureIo,
 	createFakeClinkrInteraction,
 	createOneShotStdinAdapter,
@@ -16,6 +18,13 @@ test("subpath exports resolve through the package name", async () => {
 	const run: CapturedRun | null = null;
 	expect(run).toBeNull();
 	expect(typeof ClinkrGroup).toBe("function");
+	const surface = buildSurfacePlan({
+		commandName: "probe",
+		schema: z.object({ name: z.string().describe("Name") }),
+	});
+	expect(surface.options).toEqual([
+		expect.objectContaining({ key: "name", flag: "--name <value>" }),
+	]);
 
 	const fake = createFakeClinkrInteraction({ confirmations: [{ type: "confirmed" }] });
 	await expect(

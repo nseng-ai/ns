@@ -1,3 +1,7 @@
-import claudeExtension from "../../ts/packages/incubating/extensions/handoffs/src/pi/claude-extension.ts";
+import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
+
+const claudeExtension = await importTypeScriptWorkspaceDefault(
+	"@nseng-ai/handoffs/pi/claude-extension",
+);
 
 export default claudeExtension;

@@ -1,7 +1,11 @@
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { describe, expect, test } from "vitest";
 
-import { createObjectiveClient, type ObjectiveClientOptions } from "../../src/api/index.ts";
+import {
+	createObjectiveClient,
+	OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE,
+	type ObjectiveClientOptions,
+} from "../../src/api/index.ts";
 import type { ObjectiveCliContext } from "../../src/core/context.ts";
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
@@ -40,7 +44,11 @@ function buildClient(): ReturnType<typeof createObjectiveClient> {
 	return createObjectiveClient(options);
 }
 
-describe("createObjectiveClient", () => {
+describe("objectives API", () => {
+	test("exports the canonical objective runner child prohibition", () => {
+		expect(OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE).toContain("Do not push");
+	});
+
 	test("listActiveCandidates returns only open records", async () => {
 		const result = await buildClient().listActiveCandidates();
 		expect(result.ok).toBe(true);

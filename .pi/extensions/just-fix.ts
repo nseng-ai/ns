@@ -1,11 +1,18 @@
-import { runCommand } from "../../ts/packages/public/infra/foundation/src/exec/index.ts";
+import { importTypeScriptWorkspaceModule } from "../lib/workspace-packages.ts";
 
-import {
-	sendCommandProgressOrNotify,
-	registerCommandWithImmediateAck,
-} from "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/commands/ack.ts";
-import { LiveCommandProgress } from "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/commands/cli-command-live-progress.ts";
-import { expandRepoSkillBlock } from "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/kit/skills/expansion.ts";
+const { runCommand } = await importTypeScriptWorkspaceModule<
+	typeof import("@nseng-ai/foundation/exec")
+>("@nseng-ai/foundation/exec");
+const { sendCommandProgressOrNotify, registerCommandWithImmediateAck } =
+	await importTypeScriptWorkspaceModule<typeof import("@nseng-ai/pi-runtime/commands/ack")>(
+		"@nseng-ai/pi-runtime/commands/ack",
+	);
+const { LiveCommandProgress } = await importTypeScriptWorkspaceModule<
+	typeof import("@nseng-ai/pi-runtime/commands/cli-command-live-progress")
+>("@nseng-ai/pi-runtime/commands/cli-command-live-progress");
+const { expandRepoSkillBlock } = await importTypeScriptWorkspaceModule<
+	typeof import("@nseng-ai/pi-runtime/skills/expansion")
+>("@nseng-ai/pi-runtime/skills/expansion");
 
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
 const JUST_CI_TIMEOUT_MS = 30 * 60 * 1000;

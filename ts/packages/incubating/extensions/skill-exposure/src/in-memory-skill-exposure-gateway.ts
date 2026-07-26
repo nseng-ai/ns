@@ -1,3 +1,4 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { transformSkillFrontmatter } from "@nseng-ai/ns/api";
 import { diagnosticsFor, implicationsFor, inferPolicy } from "./policy.ts";
 import { commandBackedSkillSurface } from "./replacement-registry.ts";
@@ -133,7 +134,7 @@ export class InMemorySkillExposureGateway implements SkillExposureGateway {
 			managedSidecar: sidecarState === "managed",
 			sidecarState,
 			piExcluded: settings.exclusions.includes(`-skills/${name}`),
-			...(replacementSurface === undefined ? {} : { replacementSurface }),
+			...optionalEntry("replacementSurface", replacementSurface),
 			replacementVerified: replacementSurface !== undefined,
 		};
 		const policy = inferPolicy(facts);

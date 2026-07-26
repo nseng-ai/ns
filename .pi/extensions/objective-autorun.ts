@@ -4,6 +4,7 @@ import { importTypeScriptWorkspaceModule } from "../lib/workspace-packages.ts";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI as PiExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExecResult } from "@nseng-ai/foundation/exec";
 import type { z as ZodNamespace } from "zod";
 
 // Provisional consumer artifact (docs/platform-and-consumer.md): a vibecoded Pi tool for the
@@ -17,17 +18,14 @@ import type { z as ZodNamespace } from "zod";
 // `@internal/pi-tools` subpackage beside thermo-council (package.json `exports` + `ns.subpackages` +
 // `.pi/lib/workspace-packages.ts` fallback map + parity test).
 //
-// Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace
-// package exports are not resolvable without the ts workspace's node_modules ancestry. Static imports
-// mostly reach into the ts workspace by relative path; ns-pi-subagents is consumed exclusively through
-// its `/api` surface, resolved through .pi/lib/workspace-packages.ts so the direct Node import smoke works.
-import { OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE } from "../../ts/packages/incubating/extensions/objectives/src/core/objective-runner-rules.ts";
-import { parseMachineEnvelopeData } from "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/runtime/machine-envelope.ts";
+// Project-local Pi adapters use curated package specifiers for erased type imports and resolve
+// runtime values through .pi/lib/workspace-packages.ts, preserving direct Node import smoke support
+// even though .pi/extensions has no ts workspace node_modules ancestry.
 import type {
 	ToolContext,
 	ToolDefinition,
 	ToolResult,
-} from "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/runtime/tool-types.ts";
+} from "@nseng-ai/pi-runtime/runtime/tool-types";
 import type {
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
@@ -35,13 +33,6 @@ import type {
 	SubagentFleetRegistry,
 } from "@internal/ns-pi-subagents/api";
 import type { RawPiExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
-import {
-	formatZodError,
-	isRecord,
-	optionalEntries,
-	optionalEntry,
-} from "../../ts/packages/public/infra/foundation/src/primitives/primitives.ts";
-import { tailText, type ExecResult } from "../../ts/packages/public/infra/foundation/src/exec/index.ts";
 
 // Bare "zod" is not resolvable from .pi/extensions (no node_modules ancestry at the repo root);
 // resolve it through the ts workspace package that declares it, matching .pi/lib/workspace-packages.ts.
@@ -49,6 +40,20 @@ const requireFromPiTools = createRequire(
 	new URL("../../ts/packages/internal/hosts/pi/subagents/ns-pi-subagents/package.json", import.meta.url),
 );
 const { z } = requireFromPiTools("zod") as typeof import("zod");
+const { OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE } =
+	await importTypeScriptWorkspaceModule<typeof import("@nseng-ai/objectives/api")>(
+		"@nseng-ai/objectives/api",
+	);
+const { parseMachineEnvelopeData } = await importTypeScriptWorkspaceModule<
+	typeof import("@nseng-ai/pi-runtime/runtime/machine-envelope")
+>("@nseng-ai/pi-runtime/runtime/machine-envelope");
+const { formatZodError, isRecord, optionalEntries, optionalEntry } =
+	await importTypeScriptWorkspaceModule<typeof import("@nseng-ai/foundation/primitives")>(
+		"@nseng-ai/foundation/primitives",
+	);
+const { tailText } = await importTypeScriptWorkspaceModule<
+	typeof import("@nseng-ai/foundation/exec")
+>("@nseng-ai/foundation/exec");
 const {
 	dispatchRunnerSubagent,
 	formatRunnerSubagentActivityWidgetLines,

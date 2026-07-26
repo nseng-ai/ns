@@ -147,6 +147,16 @@ export {
 	sourceFilesUnder,
 } from "./import-scanner.ts";
 export type { LiteralSpecifierUse } from "./import-scanner.ts";
+export { buildSurfacePlan } from "../surface.ts";
+export type {
+	BuildSurfacePlanOptions,
+	FieldKind,
+	OptionPlan,
+	OptionSpec,
+	PositionalPlan,
+	PositionalSpec,
+	SurfacePlan,
+} from "../surface.ts";
 
 export function parseEnvelope(stdout: string): MachineEnvelope {
 	return machineEnvelopeSchema.parse(JSON.parse(stdout)) as MachineEnvelope;

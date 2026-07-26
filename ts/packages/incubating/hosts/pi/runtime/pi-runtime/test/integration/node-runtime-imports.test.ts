@@ -28,6 +28,14 @@ const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@nseng-ai/sdk/cli",
 ] as const;
 
+const PI_RUNTIME_ADAPTER_EXPORT_IMPORTS = [
+	"@nseng-ai/handoffs/pi/claude-extension",
+	"@nseng-ai/pi-runtime/commands/cli-command-live-progress",
+	"@nseng-ai/pi-runtime/core/model-shortcuts/extension",
+	"@nseng-ai/pi-runtime/core/pr/extension",
+	"@nseng-ai/pi-runtime/sessions/harness-session",
+] as const;
+
 const SDK_EXPORT_IMPORTS = [
 	"@nseng-ai/extension-kit/checkpoint-flow",
 	"@nseng-ai/extension-kit/checkpoint-message",
@@ -113,6 +121,19 @@ describe("Node runtime import smoke", () => {
 		expectSuccessfulNodeRun(result, {
 			cwd: PI_EXTENSIONS_PACKAGE_ROOT,
 			label: "pi package imports",
+		});
+		expect(result.stdout).toContain("imported 5 package specifiers");
+	});
+
+	test("Pi adapter package exports import in a cold Node process", () => {
+		const result = runNodeEval({
+			cwd: PI_EXTENSIONS_PACKAGE_ROOT,
+			source: buildPackageImportScript(PI_RUNTIME_ADAPTER_EXPORT_IMPORTS),
+		});
+
+		expectSuccessfulNodeRun(result, {
+			cwd: PI_EXTENSIONS_PACKAGE_ROOT,
+			label: "Pi adapter package exports",
 		});
 		expect(result.stdout).toContain("imported 5 package specifiers");
 	});

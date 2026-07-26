@@ -97,6 +97,25 @@ describe("skill-exposure CLI scenarios", () => {
 		}
 	});
 
+	test("omits absent replacement surfaces and serializes verified replacements", async () => {
+		const { run } = createRunner({
+			skills: [inMemorySkill("skills/unknown"), inMemorySkill("skills/skill-management")],
+		});
+		const result = await run([
+			"skill-exposure",
+			"show",
+			"skills/unknown",
+			"skills/skill-management",
+			"--format",
+			"json",
+		]);
+		expect(result.exit).toBe(0);
+		const envelope = json(result);
+		const skills = (envelope.data as { skills: Array<{ facts: Record<string, unknown> }> }).skills;
+		expect(Object.hasOwn(skills[0]?.facts ?? {}, "replacementSurface")).toBe(false);
+		expect(skills[1]?.facts.replacementSurface).toBe("skill:management");
+	});
+
 	test("returns representative ok, negative, and usage JSON envelopes", async () => {
 		const { run } = createRunner({
 			skills: [inMemorySkill("skills/code-gh"), inMemorySkill("skills/unknown")],

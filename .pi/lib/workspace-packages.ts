@@ -20,9 +20,25 @@ const workspacePackageFallbacks: Record<string, string> = {
 		"../../ts/packages/internal/hosts/pi/tools/pi-tools/src/slash-command-rerank/extension.ts",
 	"@internal/pi-tools/thermo-council/extension":
 		"../../ts/packages/internal/hosts/pi/tools/pi-tools/src/thermo-council/extension.ts",
+	"@nseng-ai/pi-runtime/commands/ack":
+		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/commands/ack.ts",
+	"@nseng-ai/pi-runtime/commands/cli-command-live-progress":
+		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/commands/cli-command-live-progress.ts",
+	"@nseng-ai/pi-runtime/core/model-shortcuts/extension":
+		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/core/model-shortcuts/extension.ts",
+	"@nseng-ai/pi-runtime/core/pr/extension":
+		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/core/pr/extension.ts",
+	"@nseng-ai/pi-runtime/runtime/machine-envelope":
+		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/runtime/machine-envelope.ts",
+	"@nseng-ai/pi-runtime/runtime/primitives":
+		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/runtime/primitives.ts",
 	"@nseng-ai/pi-runtime/search/ripgrep-defaults":
 		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/kit/search/ripgrep-defaults.ts",
+	"@nseng-ai/pi-runtime/sessions/harness-session":
+		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/core/sessions/harness-session.ts",
 	"@nseng-ai/pi-runtime/shared/command-exec": "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/kit/shared/command-exec.ts",
+	"@nseng-ai/pi-runtime/skills/expansion":
+		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/kit/skills/expansion.ts",
 	"@nseng-ai/pi-runtime/worktree-status/extension":
 		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/worktree-status/extension.ts",
 };
