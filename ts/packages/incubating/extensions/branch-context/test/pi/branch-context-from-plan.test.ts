@@ -212,8 +212,8 @@ describe("branch-context-from-plan", () => {
 
 	test("ns:branch-context:from-plan dry-run repairs overlong model slug output", async () => {
 		const filePath = await makeNamedPlanFile();
-		const rawOutput = "sdl docs site slot page conventions skeleton theme foundation\n";
-		const repairedSlug = "sdl-docs-site-slot-page-conventions-skeleton";
+		const rawOutput = "sdl portal pages slot page conventions skeleton theme foundation\n";
+		const repairedSlug = "sdl-portal-pages-slot-page-conventions-skeleton";
 		const pi = new FakePi([
 			planSlugStep(DEFAULT_PLAN_CONTENT, repairedSlug, { stdout: rawOutput }),
 		]);

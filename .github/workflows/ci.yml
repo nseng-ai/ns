@@ -68,29 +68,6 @@ jobs:
       - name: Run TypeScript style guard tests
         run: just ts-test-typescript-style-guard
 
-  # docs-site CI is gated off until a launch slice removes the gate (mirrors the Vercel
-  # ignoreCommand gate in docs-site). Restore `if` to the draft check below to re-enable.
-  docs-build:
-    if: false
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10.14.0
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 26.3.0
-          cache: pnpm
-          cache-dependency-path: docs-site/pnpm-lock.yaml
-      - name: Install docs dependencies
-        run: pnpm --dir docs-site install --frozen-lockfile
-      - name: Run docs typecheck
-        run: pnpm --dir docs-site run check
-      - name: Build docs site
-        run: pnpm --dir docs-site run build
-
   skill-exposure-check:
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest

@@ -402,7 +402,7 @@ describe("RealGitBrmemGateway integration", () => {
 			const corrupt = createCorruptSnapshot(repo, {
 				namespace: "notes",
 				branch: "source",
-				entries: [{ key: "docs-site/app/[lang]/page.tsx", content: "corrupt" }],
+				entries: [{ key: "website/app/[lang]/page.tsx", content: "corrupt" }],
 			});
 			const listed = await gateway.listEntries({ namespace: "notes", branch: "source" });
 			expect(listed).toMatchObject({ type: "ok", value: [] });
@@ -421,7 +421,7 @@ describe("RealGitBrmemGateway integration", () => {
 			const corrupt = createCorruptSnapshot(repo, {
 				namespace: "base",
 				branch: "main",
-				entries: [{ key: "docs-site/app/[lang]/page.tsx", content: "corrupt" }],
+				entries: [{ key: "website/app/[lang]/page.tsx", content: "corrupt" }],
 			});
 			const put = await gateway.putEntry({
 				namespace: "base",
@@ -429,7 +429,7 @@ describe("RealGitBrmemGateway integration", () => {
 				key: "valid.md",
 				content: "valid",
 			});
-			expectSnapshotCorrupt(put, "docs-site/app/[lang]/page.tsx");
+			expectSnapshotCorrupt(put, "website/app/[lang]/page.tsx");
 			expect(repo.runGit(["rev-parse", "--verify", corrupt.snapshotRef]).trim()).toBe(
 				corrupt.commitSha,
 			);
@@ -447,7 +447,7 @@ describe("RealGitBrmemGateway integration", () => {
 				branch: "main",
 				entries: [
 					{ key: "valid.md", content: "valid" },
-					{ key: "docs-site/app/[lang]/page.tsx", content: "corrupt" },
+					{ key: "website/app/[lang]/page.tsx", content: "corrupt" },
 				],
 			});
 			const deleted = await gateway.deleteEntry({
@@ -455,7 +455,7 @@ describe("RealGitBrmemGateway integration", () => {
 				branch: "main",
 				key: "valid.md",
 			});
-			expectSnapshotCorrupt(deleted, "docs-site/app/[lang]/page.tsx");
+			expectSnapshotCorrupt(deleted, "website/app/[lang]/page.tsx");
 			expect(repo.runGit(["rev-parse", "--verify", corrupt.snapshotRef]).trim()).toBe(
 				corrupt.commitSha,
 			);
@@ -471,7 +471,7 @@ describe("RealGitBrmemGateway integration", () => {
 			const corrupt = createCorruptSnapshot(repo, {
 				namespace: "notes",
 				branch: "source",
-				entries: [{ key: "docs-site/app/[lang]/page.tsx", content: "corrupt" }],
+				entries: [{ key: "website/app/[lang]/page.tsx", content: "corrupt" }],
 			});
 			const destRef = mustSnapshotRef("notes", "dest");
 			const copied = await gateway.copyEntries({
@@ -480,7 +480,7 @@ describe("RealGitBrmemGateway integration", () => {
 				toBranch: "dest",
 				shouldOverwrite: true,
 			});
-			expectSnapshotCorrupt(copied, "docs-site/app/[lang]/page.tsx");
+			expectSnapshotCorrupt(copied, "website/app/[lang]/page.tsx");
 			expect(repo.runGit(["rev-parse", "--verify", corrupt.snapshotRef]).trim()).toBe(
 				corrupt.commitSha,
 			);
@@ -507,7 +507,7 @@ describe("RealGitBrmemGateway integration", () => {
 			const corrupt = createCorruptSnapshot(repo, {
 				namespace: "notes",
 				branch: "dest",
-				entries: [{ key: "docs-site/app/[lang]/page.tsx", content: "corrupt" }],
+				entries: [{ key: "website/app/[lang]/page.tsx", content: "corrupt" }],
 			});
 			const copied = await gateway.copyEntries({
 				namespace: "notes",
@@ -515,7 +515,7 @@ describe("RealGitBrmemGateway integration", () => {
 				toBranch: "dest",
 				shouldOverwrite: true,
 			});
-			expectSnapshotCorrupt(copied, "docs-site/app/[lang]/page.tsx");
+			expectSnapshotCorrupt(copied, "website/app/[lang]/page.tsx");
 			expect(repo.runGit(["rev-parse", "--verify", corrupt.snapshotRef]).trim()).toBe(
 				corrupt.commitSha,
 			);
@@ -533,7 +533,7 @@ describe("RealGitBrmemGateway integration", () => {
 				branch: "source",
 				entries: [
 					{ key: "foo/body.md", content: "valid" },
-					{ key: "docs-site/app/[lang]/page.tsx", content: "corrupt" },
+					{ key: "website/app/[lang]/page.tsx", content: "corrupt" },
 				],
 			});
 			const destRef = mustSnapshotRef("base", "dest");
@@ -544,7 +544,7 @@ describe("RealGitBrmemGateway integration", () => {
 				shouldOverwrite: true,
 				keyGlob: "foo/*",
 			});
-			expectSnapshotCorrupt(copied, "docs-site/app/[lang]/page.tsx");
+			expectSnapshotCorrupt(copied, "website/app/[lang]/page.tsx");
 			expect(repo.runGit(["rev-parse", "--verify", corrupt.snapshotRef]).trim()).toBe(
 				corrupt.commitSha,
 			);
@@ -585,9 +585,9 @@ describe("RealGitBrmemGateway integration", () => {
 			// Craft a poisoned snapshot whose tree contains a path that is not a valid
 			// Entry Key (the bracket fails key validation) alongside a valid Entry.
 			writeFileSync(join(repo.path, "good.md"), "good\n", "utf8");
-			mkdirSync(join(repo.path, "docs-site/app/[lang]/(home)"), { recursive: true });
-			writeFileSync(join(repo.path, "docs-site/app/[lang]/(home)/page.tsx"), "x\n", "utf8");
-			repo.runGit(["add", "good.md", "docs-site/app/[lang]/(home)/page.tsx"]);
+			mkdirSync(join(repo.path, "website/app/[lang]/(home)"), { recursive: true });
+			writeFileSync(join(repo.path, "website/app/[lang]/(home)/page.tsx"), "x\n", "utf8");
+			repo.runGit(["add", "good.md", "website/app/[lang]/(home)/page.tsx"]);
 			const tree = repo.runGit(["write-tree"]).trim();
 			const commit = repo.runGit(["commit-tree", tree, "-m", "poison"]).trim();
 			repo.runGit(["update-ref", "refs/brmem/ns/branch-context/poison", commit]);
@@ -596,7 +596,7 @@ describe("RealGitBrmemGateway integration", () => {
 			if (listed.type !== "ok") throw new Error("list should not abort on an invalid key");
 			const keys = listed.value.map((entry) => entry.key);
 			expect(keys).toContain("good.md");
-			expect(keys).not.toContain("docs-site/app/[lang]/(home)/page.tsx");
+			expect(keys).not.toContain("website/app/[lang]/(home)/page.tsx");
 		} finally {
 			repo.cleanup();
 		}
