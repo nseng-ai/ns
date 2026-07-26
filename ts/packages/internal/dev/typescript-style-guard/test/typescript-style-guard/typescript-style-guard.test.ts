@@ -613,8 +613,8 @@ describe("TypeScript style guard documentation references", () => {
 			"utf8",
 		);
 
-		expect(adr).toContain("exposes a curated **extension package API**");
-		expect(adr).toContain("The resulting Extension Dependency Graph must be acyclic.");
+		expect(adr).toContain("exposes curated **extension package API**");
+		expect(adr).toContain("Resulting Extension Dependency Graph must be acyclic.");
 	});
 });
 
