@@ -1,29 +1,31 @@
-import { createNsDomainCommand } from "@nseng-ai/extension-kit/ns-command";
-import type { NsCommand, NsExtensionApi } from "@nseng-ai/sdk";
+import type { NsExtensionApi } from "@nseng-ai/sdk";
 
+import { objectiveCommandMetadata, objectiveNsCommand } from "../../../objective-command.ts";
 import {
 	publicationPublishRequestSchema,
 	publicationPublishResultSchema,
 	runPublicationPublish,
-	type PublicationPublishResult,
-} from "../publication-commands.ts";
+} from "../../../publication-commands.ts";
 import {
 	createNsObjectiveRunnerPublicationContext,
 	type ObjectiveRunnerPublicationCommandContext,
-} from "../publication-context.ts";
+} from "../../../publication-context.ts";
 
 const DESCRIPTION =
 	"Publish one verified parent checkpoint to its bound branch and best-effort update the existing pull request.";
 
-export function createObjectiveExecPublicationPublishNsCommand(
+export function metadata() {
+	return objectiveCommandMetadata(DESCRIPTION);
+}
+
+export async function command(
 	createContext: (
-		ctx: NsExtensionApi,
-	) => Promise<ObjectiveRunnerPublicationCommandContext> = createNsObjectiveRunnerPublicationContext,
-): NsCommand<typeof publicationPublishRequestSchema, PublicationPublishResult> {
-	return createNsDomainCommand({
-		name: "publication-publish",
-		summary: DESCRIPTION,
-		description: DESCRIPTION,
+		api: NsExtensionApi,
+	) =>
+		| Promise<ObjectiveRunnerPublicationCommandContext>
+		| ObjectiveRunnerPublicationCommandContext = createNsObjectiveRunnerPublicationContext,
+) {
+	return objectiveNsCommand({
 		schema: publicationPublishRequestSchema,
 		resultSchema: publicationPublishResultSchema,
 		createContext,
@@ -40,8 +42,3 @@ export function createObjectiveExecPublicationPublishNsCommand(
 		},
 	});
 }
-
-export const objectiveExecPublicationPublishNsCommand =
-	createObjectiveExecPublicationPublishNsCommand();
-
-export default objectiveExecPublicationPublishNsCommand;

@@ -128,7 +128,7 @@ export async function runReadObjective(
 	if (result.value.status === "not-found") {
 		return negative(
 			`No Objective record found for slug ${pythonStringRepr(result.value.slug ?? "")}.`,
-			{ data: result.value },
+			result.value,
 		);
 	}
 	return ok(result.value);

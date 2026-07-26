@@ -84,9 +84,10 @@ export async function runTrackingGate(
 		return failure(recordResult.error.code, recordResult.error.message);
 	}
 	if (recordResult.value.status === "not-found") {
-		return negative(`No Objective record found for slug ${pythonStringRepr(request.slug)}.`, {
-			data: buildMissingResult(ctx, request.slug),
-		});
+		return negative(
+			`No Objective record found for slug ${pythonStringRepr(request.slug)}.`,
+			buildMissingResult(ctx, request.slug),
+		);
 	}
 	if (recordResult.value.status !== "ok") {
 		return failure(

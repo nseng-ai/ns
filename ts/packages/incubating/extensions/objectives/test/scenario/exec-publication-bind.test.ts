@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { ObjectiveRunnerPublicationCommandContext } from "../../src/ns/publication-context.ts";
-import { createObjectiveExecPublicationBindNsCommand } from "../../src/ns/commands/exec-publication-bind.ts";
+import { command } from "../../src/ns/objective/exec/publication-bind/command.ts";
 import type { PublicationAuthorizationStore } from "../../src/publication/authorization-store.ts";
 import { createFakeObjectiveNsApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
 
@@ -25,11 +25,11 @@ class RecordingAuthorizationStore implements PublicationAuthorizationStore {
 describe("ns objective exec publication-bind scenario", () => {
 	test("binds typed @file attestation without invoking an external command", async () => {
 		const store = new RecordingAuthorizationStore();
-		const command = createObjectiveExecPublicationBindNsCommand(async () => context(store));
+		const commandDefinition = await command(async () => context(store));
 		const api = createFakeObjectiveNsApi({ outputFormat: "json" });
 
 		const exit = await runObjectiveCommand(
-			command,
+			commandDefinition,
 			{
 				attestation: "@/scratch/attestation.json",
 				authorization: "@/scratch/authorization.json",

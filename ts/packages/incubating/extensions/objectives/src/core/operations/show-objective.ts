@@ -100,9 +100,10 @@ export async function runShowObjective(
 	const slugValidationError = handleObjectiveSlugValidationErrors(value, request.slug);
 	if (slugValidationError !== null) return slugValidationError;
 	if (value.status === "not-found") {
-		return negative(`No Objective record found for slug ${pythonStringRepr(value.slug ?? "")}.`, {
-			data: value,
-		});
+		return negative(
+			`No Objective record found for slug ${pythonStringRepr(value.slug ?? "")}.`,
+			value,
+		);
 	}
 	return ok(value);
 }

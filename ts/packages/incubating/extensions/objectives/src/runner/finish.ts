@@ -230,7 +230,7 @@ export async function runRunnerFinish(
 		if (status === "stop") return ok(result);
 		emitCheckpointStdout(ctx, result);
 		const reason = report.stopReason === undefined ? "" : `: ${report.stopReason}`;
-		return negative(`Child reported blocked${reason}.`, { data: result });
+		return negative(`Child reported blocked${reason}.`, result);
 	}
 
 	ctx.phase("verifying");
@@ -251,7 +251,7 @@ export async function runRunnerFinish(
 		emitCheckpointStdout(ctx, result);
 		return negative(
 			`Verification failed: ${failedChecks.length} of ${gate.checks.length} gate check(s) failed (${failedChecks.map((check) => check.id).join(", ")}).`,
-			{ data: result },
+			result,
 		);
 	}
 

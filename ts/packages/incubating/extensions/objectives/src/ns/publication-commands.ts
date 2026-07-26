@@ -60,7 +60,8 @@ export async function runPublicationBind(
 	});
 	if (!bound.ok) {
 		return negative(bound.refusal.message, {
-			data: { type: "refused", code: bound.refusal.code },
+			type: "refused",
+			code: bound.refusal.code,
 		});
 	}
 	const stored = await ctx.authorizations.bind(
@@ -164,11 +165,13 @@ export async function runPublicationPublish(
 		checkpoint: checkpoint.value,
 	});
 	if (result.type === "refused") {
-		return negative(result.message, { data: { type: result.type, code: result.code } });
+		return negative(result.message, { type: result.type, code: result.code });
 	}
 	if (result.type === "publication-refused") {
 		return negative(result.error.message, {
-			data: { type: result.type, reason: result.reason, error: result.error },
+			type: result.type,
+			reason: result.reason,
+			error: result.error,
 		});
 	}
 	if (result.type === "push-failed") {

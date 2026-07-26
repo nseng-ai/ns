@@ -8,7 +8,7 @@ import type { ExecResult } from "@nseng-ai/sdk";
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 import type { RunnerTextFileReadResult } from "../../src/runner/context.ts";
-import { objectiveExecRunnerFinishNsCommand } from "../../src/ns/commands/exec-runner-finish.ts";
+import { command } from "../../src/ns/objective/exec/runner-finish/command.ts";
 import { SequencedGitGateway, type SequencedGitGatewayState } from "../unit/runner/context.ts";
 import { stagedWhitespaceFailure } from "../support/git-fixtures.ts";
 import { FakeObjectiveNsApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
@@ -105,7 +105,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		const api = makeApi();
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishNsCommand,
+			await command(),
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -142,7 +142,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		const api = makeApi();
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishNsCommand,
+			await command(),
 			{ slug: SLUG, facts: JSON.stringify(factsData()) },
 			{ api },
 		);
@@ -155,7 +155,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		const api = makeApi({ files: {} });
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishNsCommand,
+			await command(),
 			{
 				slug: SLUG,
 				facts: factsEnvelopeText(),
@@ -178,7 +178,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		});
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishNsCommand,
+			await command(),
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -201,7 +201,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		};
 		const humanApi = makeApi({ files: blockedFiles });
 		const humanExit = await runObjectiveCommand(
-			objectiveExecRunnerFinishNsCommand,
+			await command(),
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api: humanApi },
 		);
@@ -212,7 +212,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 
 		const jsonApi = makeApi({ files: blockedFiles, outputFormat: "json" });
 		const jsonExit = await runObjectiveCommand(
-			objectiveExecRunnerFinishNsCommand,
+			await command(),
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api: jsonApi },
 		);
@@ -223,7 +223,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		const api = makeApi({ git: gateHappyGitState({ currentBranch: "main" }) });
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishNsCommand,
+			await command(),
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -240,7 +240,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		const api = makeApi({ git: gateHappyGitState({ headCommit: "other999" }) });
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishNsCommand,
+			await command(),
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -255,7 +255,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		const api = makeApi({ git: gateHappyGitState({ hasStagedChanges: true }) });
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishNsCommand,
+			await command(),
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -277,7 +277,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		});
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishNsCommand,
+			await command(),
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -299,7 +299,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		const api = makeApi({ files: {} });
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishNsCommand,
+			await command(),
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -318,7 +318,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		});
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishNsCommand,
+			await command(),
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -340,7 +340,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		});
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishNsCommand,
+			await command(),
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -374,7 +374,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		];
 		for (const { request, expectIn } of cases) {
 			const api = makeApi();
-			const exit = await runObjectiveCommand(objectiveExecRunnerFinishNsCommand, request, {
+			const exit = await runObjectiveCommand(await command(), request, {
 				api,
 			});
 			expect(exit.type).toBe("usageError");
@@ -389,7 +389,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		const api = makeApi();
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishNsCommand,
+			await command(),
 			{ slug: SLUG, facts: "@/scratch/missing-facts.json" },
 			{ api },
 		);
@@ -403,7 +403,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		const api = makeApi({ outputFormat: "json" });
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishNsCommand,
+			await command(),
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);

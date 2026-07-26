@@ -50,9 +50,4 @@ test("repo-local extensions can import package subpaths without source aliases",
 		handoffListNsCommand: { name: string };
 	}>("@nseng-ai/handoffs/ns/commands/list");
 	expect(handoffListModule.handoffListNsCommand.name).toBe("list");
-
-	const objectiveListModule = await jiti.import<{
-		objectiveListNsCommand: { name: string };
-	}>("@nseng-ai/objectives/ns/commands/list");
-	expect(objectiveListModule.objectiveListNsCommand.name).toBe("list");
 }, 30_000);

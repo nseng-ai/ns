@@ -10,7 +10,7 @@ import type {
 	RunnerFilePresenceResult,
 	RunnerTextFileReadResult,
 } from "../../src/runner/context.ts";
-import { objectiveExecRunnerBeginNsCommand } from "../../src/ns/commands/exec-runner-begin.ts";
+import { command } from "../../src/ns/objective/exec/runner-begin/command.ts";
 import { SequencedGitGateway, type SequencedGitGatewayState } from "../unit/runner/context.ts";
 import { FakeObjectiveNsApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
 
@@ -73,7 +73,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 		const api = makeApi();
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginNsCommand,
+			await command(),
 			{ slug: SLUG, reportPath: REPORT_PATH },
 			{ api },
 		);
@@ -100,7 +100,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 		const api = makeApi({ outputFormat: "json" });
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginNsCommand,
+			await command(),
 			{ slug: SLUG, reportPath: REPORT_PATH },
 			{ api },
 		);
@@ -113,7 +113,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 		const api = makeApi();
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginNsCommand,
+			await command(),
 			{ slug: SLUG, reportPath: "../scratch/report.json" },
 			{ api },
 		);
@@ -133,7 +133,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 		});
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginNsCommand,
+			await command(),
 			{ slug: SLUG, recover: true, reportPath: REPORT_PATH },
 			{ api },
 		);
@@ -150,7 +150,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 	test("guidance reaches the prompt verbatim, inline and via @file", async () => {
 		const inlineApi = makeApi();
 		const inlineExit = await runObjectiveCommand(
-			objectiveExecRunnerBeginNsCommand,
+			await command(),
 			{ slug: SLUG, reportPath: REPORT_PATH, guidance: "Only touch the parser." },
 			{ api: inlineApi },
 		);
@@ -165,7 +165,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 			}),
 		});
 		const fileExit = await runObjectiveCommand(
-			objectiveExecRunnerBeginNsCommand,
+			await command(),
 			{ slug: SLUG, reportPath: REPORT_PATH, guidance: "@notes/guidance.md" },
 			{ api: fileApi },
 		);
@@ -181,7 +181,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 			{ slug: "bad/slug", reportPath: REPORT_PATH },
 		]) {
 			const api = makeApi();
-			const exit = await runObjectiveCommand(objectiveExecRunnerBeginNsCommand, request, { api });
+			const exit = await runObjectiveCommand(await command(), request, { api });
 			expect(exit.type).toBe("usageError");
 		}
 	});
@@ -189,11 +189,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 	test("missing --report-path is a usage error before any git access", async () => {
 		const api = makeApi();
 
-		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginNsCommand,
-			{ slug: SLUG },
-			{ api },
-		);
+		const exit = await runObjectiveCommand(await command(), { slug: SLUG }, { api });
 
 		expect(exit.type).toBe("usageError");
 		if (exit.type !== "usageError") throw new Error("expected usageError exit");
@@ -203,11 +199,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 	test("a report path inside the repository worktree is refused", async () => {
 		for (const reportPath of ["/repo/report.json", "report.json", "/repo", "sub/dir/report.json"]) {
 			const api = makeApi();
-			const exit = await runObjectiveCommand(
-				objectiveExecRunnerBeginNsCommand,
-				{ slug: SLUG, reportPath },
-				{ api },
-			);
+			const exit = await runObjectiveCommand(await command(), { slug: SLUG, reportPath }, { api });
 			expect(exit.type).toBe("usageError");
 			if (exit.type !== "usageError") throw new Error("expected usageError exit");
 			expect(exit.message).toContain("inside the repository worktree");
@@ -220,7 +212,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 		});
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginNsCommand,
+			await command(),
 			{ slug: SLUG, reportPath: REPORT_PATH },
 			{ api },
 		);
@@ -236,7 +228,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 		});
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginNsCommand,
+			await command(),
 			{ slug: SLUG, reportPath: REPORT_PATH },
 			{ api },
 		);
@@ -252,7 +244,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 		const api = makeApi();
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginNsCommand,
+			await command(),
 			{ slug: SLUG, reportPath: REPORT_PATH, guidance: "@missing/notes.md" },
 			{ api },
 		);
@@ -268,7 +260,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 		});
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginNsCommand,
+			await command(),
 			{ slug: SLUG, reportPath: REPORT_PATH },
 			{ api },
 		);
@@ -281,7 +273,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 	test("clean tree and trunk branch are negative refusals in recover mode", async () => {
 		const cleanApi = makeApi({ git: cleanGitState({ currentBranch: "feature/x" }) });
 		const cleanExit = await runObjectiveCommand(
-			objectiveExecRunnerBeginNsCommand,
+			await command(),
 			{ slug: SLUG, recover: true, reportPath: REPORT_PATH },
 			{ api: cleanApi },
 		);
@@ -291,7 +283,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 			git: cleanGitState({ statusPaths: { changedPaths: ["src/a.ts"] } }),
 		});
 		const trunkExit = await runObjectiveCommand(
-			objectiveExecRunnerBeginNsCommand,
+			await command(),
 			{ slug: SLUG, recover: true, reportPath: REPORT_PATH },
 			{ api: trunkApi },
 		);
@@ -310,7 +302,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 			readTextFile: missingReportFileReader(),
 		});
 		const closedExit = await runObjectiveCommand(
-			objectiveExecRunnerBeginNsCommand,
+			await command(),
 			{ slug: SLUG, reportPath: REPORT_PATH },
 			{ api: closedApi },
 		);
@@ -318,7 +310,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 
 		const unknownApi = makeApi();
 		const unknownExit = await runObjectiveCommand(
-			objectiveExecRunnerBeginNsCommand,
+			await command(),
 			{ slug: "never-heard-of-it", reportPath: REPORT_PATH },
 			{ api: unknownApi },
 		);

@@ -59,12 +59,12 @@ export async function runEdgeSweep(
 	// Warnings (for example a Blocked Sentence whose edge counterpart is closed) are
 	// advisory: they list in the violations table but never fail the sweep.
 	if (base.errorCount > 0) {
-		const data = { ...base, status: "sweep-failed" as const, error: "sweep-failed" as const };
 		return negative(
 			`Objective edge sweep failed: ${base.errorCount} error(s), ${base.warningCount} warning(s) across ${base.recordCount} record(s).`,
 			{
-				data,
-				human: renderEdgeSweep(data, { canEmitAnsi: true }),
+				...base,
+				status: "sweep-failed" as const,
+				error: "sweep-failed" as const,
 			},
 		);
 	}

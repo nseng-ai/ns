@@ -11,12 +11,12 @@ export function handleObjectiveSlugValidationErrors<Result extends ObjectiveSlug
 	slug: string | undefined,
 ): ClinkrExit<Result> | null {
 	if (result.status === "missing-slug") {
-		return negative("Missing Objective slug. Pass an explicit slug.", { data: result });
+		return negative("Missing Objective slug. Pass an explicit slug.", result);
 	}
 	if (result.status === "invalid-slug") {
 		return negative(
 			`Invalid Objective slug ${pythonStringRepr(slug ?? "")}. Pass a single slug, not a path.`,
-			{ data: result },
+			result,
 		);
 	}
 	return null;

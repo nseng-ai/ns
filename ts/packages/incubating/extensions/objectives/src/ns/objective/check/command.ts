@@ -1,21 +1,21 @@
 import { usageError, type ClinkrExit, type RenderCapabilities } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
-import { objectiveNsCommand } from "../command.ts";
-import type { ObjectiveCliContext } from "../../core/context.ts";
+import { objectiveCommandMetadata, objectiveNsCommand } from "../../objective-command.ts";
+import type { ObjectiveCliContext } from "../../../core/context.ts";
 import {
 	checkObjectiveRequestSchema,
 	checkObjectiveResultSchema,
 	renderCheckObjective,
 	runCheckObjective,
 	type CheckObjectiveResult,
-} from "../../core/operations/check-objective.ts";
+} from "../../../core/operations/check-objective.ts";
 import {
 	objectiveEdgeSweepResultSchema,
 	renderEdgeSweep,
 	runEdgeSweep,
 	type ObjectiveEdgeSweepResult,
-} from "../../core/operations/edge-sweep.ts";
+} from "../../../core/operations/edge-sweep.ts";
 
 export const objectiveCheckCommandRequestSchema = checkObjectiveRequestSchema.extend({
 	all: z
@@ -57,17 +57,20 @@ export function renderObjectiveCheckCommand(
 	return renderCheckObjective(result, caps);
 }
 
-export const objectiveCheckNsCommand = objectiveNsCommand({
-	name: "check",
-	summary: "Check one Objective record, or sweep all record edges with --all.",
-	description:
+export function metadata() {
+	return objectiveCommandMetadata(
 		"Check one Objective record for required files, Markdown headings, and Record Frontmatter edge/blocked structure. With --all, sweep every active record's Record Frontmatter and report structural edge/blocked violations.",
-	schema: objectiveCheckCommandRequestSchema,
-	resultSchema: objectiveCheckCommandResultSchema,
-	positionals: { slug: { position: 0 } },
-	options: { all: { short: "-a" } },
-	handler: runObjectiveCheckCommand,
-	renderHuman: renderObjectiveCheckCommand,
-});
+		{ summary: "Check one Objective record, or sweep all record edges with --all." },
+	);
+}
 
-export default objectiveCheckNsCommand;
+export async function command() {
+	return objectiveNsCommand({
+		schema: objectiveCheckCommandRequestSchema,
+		resultSchema: objectiveCheckCommandResultSchema,
+		positionals: { slug: { position: 0 } },
+		options: { all: { short: "-a" } },
+		handler: runObjectiveCheckCommand,
+		renderHuman: renderObjectiveCheckCommand,
+	});
+}

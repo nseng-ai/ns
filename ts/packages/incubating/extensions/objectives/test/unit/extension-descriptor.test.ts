@@ -1,3 +1,4 @@
+import { inspectClinkrCommandStructure } from "@nseng-ai/clinkr";
 import { validateExtensionDescriptor } from "@nseng-ai/sdk";
 import objectivesExtension from "@nseng-ai/objectives/ns-extension";
 import { describe, expect, test } from "vitest";
@@ -20,11 +21,13 @@ const EXPECTED_OBJECTIVES_INSTRUCTIONS = [
 ].join("\n");
 
 describe("Objectives extension descriptor", () => {
-	test("declares its exact activation contract", () => {
+	test("declares its exact activation and filesystem command contract", async () => {
 		const result = validateExtensionDescriptor(objectivesExtension);
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
+		expect(result.descriptor).not.toHaveProperty("group");
+		expect(result.descriptor).not.toHaveProperty("entries");
 		expect(result.descriptor.activation).toEqual({
 			instructions: EXPECTED_OBJECTIVES_INSTRUCTIONS,
 			consumerDirs: [".ns/objectives"],
@@ -32,5 +35,25 @@ describe("Objectives extension descriptor", () => {
 		expect(result.descriptor.bundledArtifacts).toEqual(
 			deriveObjectiveBundledArtifacts(packageManifest),
 		);
+		if (result.descriptor.commandDirectory === undefined) return;
+		const routes = await inspectClinkrCommandStructure(result.descriptor.commandDirectory);
+		expect(
+			routes.filter((route) => route.type === "command").map((route) => route.path.join("/")),
+		).toEqual([
+			"objective/check",
+			"objective/exec/list-candidates",
+			"objective/exec/load-orientations",
+			"objective/exec/publication-bind",
+			"objective/exec/publication-publish",
+			"objective/exec/read-objective",
+			"objective/exec/runner-begin",
+			"objective/exec/runner-finish",
+			"objective/exec/runner-subagent-usage",
+			"objective/exec/tracking-gate",
+			"objective/list",
+			"objective/show",
+		]);
+		const exec = routes.find((route) => route.path.join("/") === "objective/exec");
+		expect(exec).toMatchObject({ type: "group", metadata: { isHidden: true } });
 	});
 });

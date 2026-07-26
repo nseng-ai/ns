@@ -1,4 +1,4 @@
-import { defineExtension, hiddenExecGroup } from "@nseng-ai/sdk";
+import { defineExtension } from "@nseng-ai/sdk";
 
 const { objectiveBundledArtifacts } = await import("./publish-artifacts.ts");
 
@@ -17,92 +17,11 @@ const OBJECTIVES_INSTRUCTIONS = [
 ].join("\n");
 
 export default defineExtension({
-	group: "objective",
 	description: "Inspect and maintain ns Objective records.",
+	commandDirectory: import.meta.dirname,
 	activation: {
 		instructions: OBJECTIVES_INSTRUCTIONS,
 		consumerDirs: [".ns/objectives"],
 	},
 	bundledArtifacts: objectiveBundledArtifacts,
-	entries: [
-		{
-			name: "list",
-			load: async () => ({ default: (await import("./commands/list.ts")).objectiveListNsCommand }),
-		},
-		{
-			name: "show",
-			load: async () => ({ default: (await import("./commands/show.ts")).objectiveShowNsCommand }),
-		},
-		{
-			name: "check",
-			load: async () => ({
-				default: (await import("./commands/check.ts")).objectiveCheckNsCommand,
-			}),
-		},
-		hiddenExecGroup("Agent-only Objective operations.", [
-			{
-				name: "list-candidates",
-				load: async () => ({
-					default: (await import("./commands/exec-list-candidates.ts"))
-						.objectiveExecListCandidatesNsCommand,
-				}),
-			},
-			{
-				name: "load-orientations",
-				load: async () => ({
-					default: (await import("./commands/exec-load-orientations.ts"))
-						.objectiveExecLoadOrientationsNsCommand,
-				}),
-			},
-			{
-				name: "read-objective",
-				load: async () => ({
-					default: (await import("./commands/exec-read-objective.ts"))
-						.objectiveExecReadObjectiveNsCommand,
-				}),
-			},
-			{
-				name: "publication-bind",
-				load: async () => ({
-					default: (await import("./commands/exec-publication-bind.ts"))
-						.objectiveExecPublicationBindNsCommand,
-				}),
-			},
-			{
-				name: "publication-publish",
-				load: async () => ({
-					default: (await import("./commands/exec-publication-publish.ts"))
-						.objectiveExecPublicationPublishNsCommand,
-				}),
-			},
-			{
-				name: "runner-begin",
-				load: async () => ({
-					default: (await import("./commands/exec-runner-begin.ts"))
-						.objectiveExecRunnerBeginNsCommand,
-				}),
-			},
-			{
-				name: "runner-finish",
-				load: async () => ({
-					default: (await import("./commands/exec-runner-finish.ts"))
-						.objectiveExecRunnerFinishNsCommand,
-				}),
-			},
-			{
-				name: "runner-subagent-usage",
-				load: async () => ({
-					default: (await import("./commands/exec-runner-subagent-usage.ts"))
-						.objectiveExecRunnerSubagentUsageNsCommand,
-				}),
-			},
-			{
-				name: "tracking-gate",
-				load: async () => ({
-					default: (await import("./commands/exec-tracking-gate.ts"))
-						.objectiveExecTrackingGateNsCommand,
-				}),
-			},
-		]),
-	],
 });

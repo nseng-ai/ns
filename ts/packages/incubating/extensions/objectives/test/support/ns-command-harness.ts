@@ -1,12 +1,10 @@
 import type { ClinkrExit, ClinkrFormat } from "@nseng-ai/clinkr";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
-import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
 import { noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	ExecResult,
-	NsCommand,
-	NsCommandIo,
 	NsCommandSchema,
+	NsCommandIo,
 	NsExecOptions,
 	NsExtensionApi,
 	TextGenerationRequest,
@@ -129,22 +127,15 @@ export function createFakeObjectiveNsApi(
 	return new FakeObjectiveNsApi(options);
 }
 
-/**
- * Runs one objective ns command against a fake API: the request goes through
- * the command's own SDK adapter (mirroring SDK argv decoding).
- */
 export async function runObjectiveCommand<S extends NsCommandSchema, T>(
-	command: NsCommand<S, T>,
+	command: import("@nseng-ai/clinkr").ClinkrCommandDefinition<NsExtensionApi, S, T>,
 	request: unknown,
 	options: { api?: NsExtensionApi } = {},
 ): Promise<ClinkrExit<T>> {
-	const exit = await command.run(options.api ?? createFakeObjectiveNsApi(), {
-		argv: requestObjectToArgv(request, { positionalKeys: ["slug", "sessionFiles"] }),
-	});
+	const parsedRequest = command.schema.parse(request);
+	const exit = await command.handler(options.api ?? createFakeObjectiveNsApi(), parsedRequest);
 	if (!isClinkrExit<T>(exit)) {
-		throw new Error(
-			`Command ${command.name} returned a legacy ns result instead of a Clinkr exit.`,
-		);
+		throw new Error("Objective command returned a non-Clinkr result.");
 	}
 	return exit;
 }

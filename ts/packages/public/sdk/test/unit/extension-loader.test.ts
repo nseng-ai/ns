@@ -57,23 +57,6 @@ export default {
 		expect(command.schema).toBeInstanceOf(z.ZodObject);
 	});
 
-	test("loads package-specifier references through host package resolution", async () => {
-		const loaded = await loadNsExtensionContribution({
-			type: "package",
-			specifier: "@nseng-ai/objectives/ns/commands/list",
-		});
-
-		expect(loaded.ok).toBe(true);
-		if (!loaded.ok) return;
-		const validation = validateDescriptorCommandContribution(
-			loaded.defaultExport,
-			{ name: "list" },
-			"@nseng-ai/objectives/ns/commands/list",
-		);
-		expect(validation.ok).toBe(true);
-		if (!validation.ok) return;
-		expect(validation.command.name).toBe("list");
-	});
 
 	test("validates nested-path manifest entries against the loaded command leaf", async () => {
 		const modulePath = await createModule(`
