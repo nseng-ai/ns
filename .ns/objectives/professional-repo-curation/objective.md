@@ -6,6 +6,8 @@ edges:
     annotation: Parallel Subobjective umbrella owning the per-package README-driven pass over Clinkr, Foundation, Brmem, SDK, and Extension Kit.
   - objective: package-disposition-and-host-ontology
     annotation: Subobjective replacing the interim flat-incubator direction with the approved public/incubating/internal disposition model, host-owned package ontologies, and atomic repository reorganization.
+  - objective: skill-disposition-and-owner-ontology
+    annotation: Parallel Subobjective applying explicit public/incubating/internal support verdicts and domain/family ownership to first-party skills through a nested canonical tree and flat harness overlays.
 ---
 
 # Professional Repo: Curation, First Ships, and Transfer
