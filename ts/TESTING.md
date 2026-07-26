@@ -83,7 +83,8 @@ Put repository-wide TypeScript style guard tests at:
 ts/packages/<package>/test/typescript-style-guard/**/*.test.ts
 ```
 
-The shared globs also support packages nested one additional directory below `ts/packages/`. Keep the
+The shared globs are depth-agnostic (`packages/**/test/...`), so they find packages at any nesting
+depth below the `public/`, `incubating/`, and `internal/` disposition roots. Keep the
 lane directory directly under the package's `test/` root so discovery includes it in exactly one
 specialized command.
 

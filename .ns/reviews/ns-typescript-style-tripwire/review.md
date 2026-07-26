@@ -20,7 +20,7 @@
 #
 #   dprint check .ns/reviews/ns-typescript-style-tripwire/review.md
 #   dprint check .ns/reviews/ns-typescript-style-tripwire/tier-b.md
-#   pnpm --dir ts exec vitest run packages/incubator/reviews/test/unit/review-definition.test.ts
+#   pnpm --dir ts exec vitest run packages/incubating/extensions/reviews/test/unit/review-definition.test.ts
 description: |
   NS TypeScript style Tripwire: flag concrete, mechanically detectable Tier A
   violations of the ns TypeScript style guide and ns TypeScript overlay in the

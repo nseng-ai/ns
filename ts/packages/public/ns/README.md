@@ -67,7 +67,7 @@ ns extension install npm:@nseng-ai/objectives
 This records the extension in `ns.toml`, activates it for your configured harness, adds the
 `ns objective` CLI, and provisions the ten Objective skills into your harness's skill root
 (`.claude/skills/` for Claude Code). See
-[`@nseng-ai/objectives`](../../incubator/objectives/README.md) for the full lifecycle.
+[`@nseng-ai/objectives`](../../incubating/extensions/objectives/README.md) for the full lifecycle.
 
 Once installed, drive an Objective through its lifecycle with your agent:
 

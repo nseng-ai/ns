@@ -8,7 +8,7 @@ maintains the record; you review it in ordinary diffs. Objectives live as Markdo
 `.ns/objectives/` in your repository.
 
 This package is an ns extension: it is installed on top of the bare-core
-[`@nseng-ai/ns`](../../hosts/ns/README.md) CLI, not bundled with it.
+[`@nseng-ai/ns`](../../../public/ns/README.md) CLI, not bundled with it.
 
 ## Install
 

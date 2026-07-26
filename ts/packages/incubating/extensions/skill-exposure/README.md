@@ -1,6 +1,9 @@
-# skill-exposure
+# @nseng-ai/skill-exposure
 
-Private, tested consumer tooling for reconciling this repository's skill exposure overlays.
-It remains local while the policy and registry are repository-specific. Promote it to
-`ts/packages/internal/*` only if broader package-grade reuse appears, and to a first-party
-extension only after another consumer proves the need.
+Tested tooling for reconciling this repository's skill exposure overlays, packaged as an ns
+extension at `ts/packages/incubating/extensions/skill-exposure/`.
+
+Its disposition is **incubating**: there is real external release intent, but the exposure
+policy and registry are still repository-specific, so the package remains `private: true` and
+unpublished. Promotion to `public/` waits on a general policy model and a second consumer
+proving the contract, not on a rename.

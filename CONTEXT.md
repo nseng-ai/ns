@@ -123,7 +123,7 @@ A target assistant environment for a **Harness artifact**, currently `claude-cod
 *Avoid*: platform
 
 **Pi (the harness)**:
-The third-party coding-agent **Harness** built by Earendil and shipped as `@earendil-works/pi-coding-agent`; ns integrates with it deeply but does not own or control it — upstream API or behavior changes can only be absorbed, never made. Canonical Pi-domain vocabulary lives in `ts/packages/hosts/pi/CONTEXT.md`.
+The third-party coding-agent **Harness** built by Earendil and shipped as `@earendil-works/pi-coding-agent`; ns integrates with it deeply but does not own or control it — upstream API or behavior changes can only be absorbed, never made. Canonical Pi-domain vocabulary lives in `ts/packages/incubating/hosts/pi/runtime/pi-runtime/CONTEXT.md`.
 *Avoid*: ns-owned harness, first-party Pi
 
 **Provision**:
@@ -191,7 +191,7 @@ The ns extension stack and its governing rules are:
 - **Neutral gateway exception:** a gateway whose public contract is ns-independent with a credible external-consumer scenario may instead be **Neutral Infra** owned by foundation (ADR 0032). `@nseng-ai/foundation/exec` and `@nseng-ai/foundation/git` are the live examples, with the Extension Kit keeping the ctx→gateway adapter (`createNsGitGateway`). Remaining Kit Gateways stay put absent explicit follow-up work.
 - **Host boundary:** intrinsic host services expose author-facing interfaces through `@nseng-ai/sdk` / `ctx`, with implementations hidden in the SDK. The SDK boundary is permeable downward only to concepts that prove general worth.
 - **Dependency rule:** first-party extensions form an **Extension Dependency Graph** that must stay acyclic.
-- **Decision sources:** ADR 0012 holds the layering diagram and the rule that extension domain logic lives in ns extensions rather than the `@nseng-ai/pi` runtime host or SDK (the ADR states it in the older capability vocabulary). ADR 0009 holds the dependency-graph invariant. ADR 0018 holds the four-bucket neutral-infra classification rule, refined by ADR 0019's package-placement gate and ADR 0032's external-applicability admission test. ADR 0031 holds the point-system decision.
+- **Decision sources:** ADR 0012 holds the layering diagram and the rule that extension domain logic lives in ns extensions rather than the `@nseng-ai/pi-runtime` runtime host or SDK (the ADR states it in the older capability vocabulary). ADR 0009 holds the dependency-graph invariant. ADR 0018 holds the four-bucket neutral-infra classification rule, refined by ADR 0019's package-placement gate and ADR 0032's external-applicability admission test. ADR 0031 holds the point-system decision.
 
 These terms name the parts of that architecture.
 
@@ -293,11 +293,15 @@ The directed edge of the **Extension Dependency Graph**: a **consumer** (downstr
 *Avoid*: sibling, peer, peer dependency
 
 **Herdr extension**:
-The **first-party extension** that drives Herdr spaces and tabs for repo-local dispatch, labeling, Saved Plan, and Handoff flows by composing narrower **extension package APIs** and infrastructure. Detailed resource vocabulary lives in `ts/packages/incubator/herdr/CONTEXT.md`.
+The **first-party extension** that drives Herdr spaces and tabs for repo-local dispatch, labeling, Saved Plan, and Handoff flows by composing narrower **extension package APIs** and infrastructure. Detailed resource vocabulary lives in `ts/packages/incubating/extensions/herdr/CONTEXT.md`.
 *Avoid*: Herdr capability (retired name), cmux capability, generic terminal multiplexer wrapper, orchestrator extension, apex extension, kernel orchestrator, sdk orchestrator
 
+**Release disposition**:
+The declared release commitment of a TypeScript workspace package, carried by the first path segment below `ts/packages/` and by nothing else: `public/` (warranted for external release and ongoing support), `incubating/` (genuine external release intent, contract not yet warranted), or `internal/` (exists to operate this repository, no current external release intent). Public and incubating packages are `@nseng-ai/<leaf>`; internal packages are `@internal/<leaf>` and `private: true`. Every leaf directory equals the unscoped package name and is globally unique, and runtime dependencies obey a closure matrix (public → public; incubating → public/incubating; internal → anything). `NS_TS_PACKAGE_DISPOSITION_TOPOLOGY` enforces all of it; `ts/packages/README.md` is the authoritative contract and ADR 0045 the decision. Changing disposition is a deliberate release decision expressed as a path move, not a rename or a manifest field. `public` names release warrant, not TypeScript visibility and not evidence that the current version is on npm.
+*Avoid*: incubator, incubation zone, path-derived tier zone, tier directory, disposition as a `ns.tier` value, public as a synonym for exported or published, internal as a synonym for secret
+
 **Package Tier**:
-The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `ns.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `extension-kit`, `extension`, `host`, `standalone-tool`, and `internal-tool`. Tier remains canonical, but packages under `ts/packages/incubator/<name>` are a path-derived zone exempt from the tier→directory projection (ADR 0044). A package lives in a single tier: `ns.tier` is the tier for the package and every declared **Subpackage**, `ns.subpackageTiers` overrides are rejected by the guard, and cross-package layering is enforced against the owning package's tier for every **Topology circle** (ADR 0032). Hosts and tools are off-axis: hosts present/register/consume ns extensions, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` and `capability-gateway-backend` tiers are deleted, `capability-pi` is deleted (an extension's Pi presentation lives in its own `pi` subpackage), and `internal-pi-tool` is merged into `internal-tool`; do not reintroduce a live transitional/backend tier as a debt label, and do not add a `platform` tier for I/O-performing Neutral Infra.
+The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `ns.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `extension-kit`, `extension`, `host`, `standalone-tool`, and `internal-tool`. Tier is orthogonal to **Release disposition**: it no longer projects onto any directory segment, and the guard rule that once did (`NS_TS_TIER_DIRECTORY_PROJECTION`) is retired (ADR 0045). A package lives in a single tier: `ns.tier` is the tier for the package and every declared **Subpackage**, `ns.subpackageTiers` overrides are rejected by the guard, and cross-package layering is enforced against the owning package's tier for every **Topology circle** (ADR 0032). Hosts and tools are off-axis: hosts present/register/consume ns extensions, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` and `capability-gateway-backend` tiers are deleted, `capability-pi` is deleted (an extension's Pi presentation lives in its own `pi` subpackage), and `internal-pi-tool` is merged into `internal-tool`; do not reintroduce a live transitional/backend tier as a debt label, and do not add a `platform` tier for I/O-performing Neutral Infra.
 *Avoid*: hand-authored report color, implied layer, rank-only layer, permanent transitional layer, subpackage tier override, effective subpackage tier
 
 **Published package**:
@@ -345,8 +349,8 @@ The assembly step that produces `@nseng-ai/ns`'s publishable form: prebuilt bin,
 *Avoid*: build step (bare), publish (the separate authorized step), bundling
 
 **Internal space**:
-The private workspace area for repo-local Pi-tool packages: packages under `ts/packages/internal/` using the `@internal/*` scope, marked private, and without outside workspace dependents.
-*Avoid*: Local space, experimental area, staging area, sandbox, public package namespace
+The `internal/` **Release disposition** root viewed as a workspace area: packages under `ts/packages/internal/` using the `@internal/*` scope, marked `private: true`, and without outside runtime dependents. It holds repository development machinery (`internal/dev/`) and project-only harness tooling such as the Pi tools, subagents, and editor mods (`internal/hosts/pi/`).
+*Avoid*: Local space, experimental area, staging area, sandbox, public package namespace, Pi-tools-only area
 
 **Topology circle**:
 An architecture topology graph node representing an architecture unit: a **Standalone package**, a **Container package**'s declared **Subpackage**, or its declared **Remainder subpackage** during conversion. Topology circles preserve architectural granularity inside coarse published packages and are sourced from manifests, not directory auto-discovery.

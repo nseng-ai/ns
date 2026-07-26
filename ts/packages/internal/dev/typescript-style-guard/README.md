@@ -7,7 +7,7 @@ not to ship as part of ns-the-product, and owns both the implementation and the
 repository-wide style-guard suite under its own `test/typescript-style-guard/`
 directory.
 
-Per [`docs/conventions/platform-and-consumer.md`](../../../../docs/conventions/platform-and-consumer.md),
+Per [`docs/conventions/platform-and-consumer.md`](../../../../../docs/conventions/platform-and-consumer.md),
 this is a middle-rung **internal** package: package-grade repo-operating machinery
 sitting between `.ns/*` prototypes and platform packages. It carries an explicit
 promotion path — should the subpackage-declaration/`exports` conformance machinery

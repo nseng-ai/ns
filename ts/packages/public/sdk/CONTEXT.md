@@ -33,7 +33,7 @@ Generic mechanics for parsing an explicit source spec, resolving an unprefixed l
 *Avoid*: lifecycle transaction, harness selection, activation reconciliation, implicit bare-name npm lookup, copying local packages into managed storage.
 
 **Extension lifecycle orchestration**:
-The ns-init-owned workflow behind `ns extension install` that requires persisted project harnesses, checks declaration identity, composes SDK acquisition with full prospective descriptor validation, records the exact source spec, and applies descriptor-driven repository activation with forward recovery.
+The workflow behind `ns extension install`, owned by the `init` feature of `@nseng-ai/ns` (formerly the separate `@nseng-ai/ns-init` package, folded in). It requires persisted project harnesses, checks declaration identity, composes SDK acquisition with full prospective descriptor validation, records the exact source spec, and applies descriptor-driven repository activation with forward recovery.
 *Avoid*: SDK built-in command, point introspection, descriptor loader, implicit floating-package refresh, rollback of completed activation duties.
 
 **Extension descriptor**:
@@ -114,6 +114,6 @@ The boundary between the SDK-owned author surface and code above it. SDK promoti
 
 ## Extension layering
 
-The SDK is the host layer of the extension stack. Below it are neutral infra packages. Above it are the Extension Kit and the ns extension packages that own domain behavior, gateways, and command-specific policy. Generic source acquisition and descriptor inspection do not make extension lifecycle policy SDK-owned: `@nseng-ai/ns-init` composes those mechanics with project activation for `ns extension install`. The SDK loader is unaware of extension-to-extension programmatic dependencies; those dependencies are ordinary package edges through documented extension package APIs.
+The SDK is the host layer of the extension stack. Below it are neutral infra packages. Above it are the Extension Kit and the ns extension packages that own domain behavior, gateways, and command-specific policy. Generic source acquisition and descriptor inspection do not make extension lifecycle policy SDK-owned: the `@nseng-ai/ns` product package composes those mechanics with project activation for `ns extension install`, in its folded-in `src/init/` area exposed as `@nseng-ai/ns/api`. The SDK loader is unaware of extension-to-extension programmatic dependencies; those dependencies are ordinary package edges through documented extension package APIs.
 
 Dynamic Pi command registration is not a generic SDK feature. A host mirror, when one exists, is a host adapter over a selected CLI command or extension package API and must be owned/tested by the host or extension presentation package that registers it.

@@ -35,6 +35,8 @@ for placement, automatic restore behavior, and the remediation hierarchy.
 
 ## Package and subpackage structure
 
+`ts/packages/README.md` is the authoritative contract for the package tree. The first path segment below `ts/packages/` is release disposition — `public/`, `incubating/`, or `internal/` — with architectural ownership nested beneath it. Every leaf directory equals the unscoped package name and is globally unique; public/incubating are `@nseng-ai/*`, internal is `@internal/*` plus `private: true`; runtime dependencies obey the closure matrix (public → public; incubating → public/incubating; internal → anything). `NS_TS_PACKAGE_DISPOSITION_TOPOLOGY` enforces all of it. Read that README before adding, moving, or renaming a package. `ns.tier` still declares architectural role and is enforced separately; it does not project onto a directory.
+
 Before creating a workspace package, declaring or renaming `ns.subpackages` entries, adding `exports` subpaths to a container package, or restructuring a package's `src/` layout, read `docs/conventions/subpackage-conventions.md` (rank test, subpackage kinds, importer rules; decisions in ADR 0022/0023).
 
 ## Time seams

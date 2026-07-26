@@ -7,7 +7,7 @@ outstanding work, turn it into Graphite branches, submit stacks with generated P
 descriptions and repository-defined pre-submit checks, and land finished work into
 trunk. It is an ns extension: its commands appear under `ns flow ...`, and consuming
 repositories customize its behavior through
-[extension points](../../../../docs/guides/points.md), never by forking Flow.
+[extension points](../../../../../docs/guides/points.md), never by forking Flow.
 
 ## Requirements
 
@@ -216,7 +216,7 @@ instructs the agent.
 ## Customizing Flow
 
 All customization goes through extension points. See the
-[points guide](../../../../docs/guides/points.md) for point mechanics, conventional
+[points guide](../../../../../docs/guides/points.md) for point mechanics, conventional
 `.ns/prompts/` paths, and resolution precedence. Use `ns extension points` to inspect
 the active catalog.
 

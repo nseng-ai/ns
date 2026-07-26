@@ -1,6 +1,6 @@
 # @nseng-ai/pi-runtime
 
-`@nseng-ai/pi-runtime` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for ns extension domains may instead live in the owning extension's `pi` subpackage stacked above `@nseng-ai/pi-runtime`; Pi-native standalone tools may live in Internal Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. Generic Flow mirrors and stack squash live in `@nseng-ai/flow/pi`, while the repo-specific code-workflow picker and smart-restack presentation live in `@internal/pi-tools/code-workflows` and meet only in project-local discovery composition. The Herdr extension separately drives Herdr spaces, tabs, and responsible implementation workflows; its `pi` subpackage imports Herdr core APIs and neutral `@nseng-ai/pi-runtime/...` helpers.
+`@nseng-ai/pi-runtime` is the unified TypeScript workspace package for this repository's Pi runtime integration, at incubating disposition under `ts/packages/incubating/hosts/pi/runtime/`. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for ns extension domains may instead live in the owning extension's `pi` subpackage stacked above `@nseng-ai/pi-runtime`; Pi-native standalone tools may live in Internal Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. Generic Flow mirrors and stack squash live in `@nseng-ai/flow/pi`, while the repo-specific code-workflow picker and smart-restack presentation live in `@internal/pi-tools/code-workflows` and meet only in project-local discovery composition. The Herdr extension separately drives Herdr spaces, tabs, and responsible implementation workflows; its `pi` subpackage imports Herdr core APIs and neutral `@nseng-ai/pi-runtime/...` helpers.
 
 ## Language
 
@@ -8,9 +8,9 @@
 The third-party coding-agent harness this repository integrates with, built by Earendil and shipped as `@earendil-works/pi-coding-agent`. ns consumes Pi's extension, command, and library surfaces but does not own or control Pi itself: upstream API or behavior changes can only be absorbed, never made, and designs must not assume ns can fix or extend Pi upstream.
 *Avoid*: ns-owned harness, first-party Pi, our Pi.
 
-**Unified Pi package**:
-The private workspace package at `ts/packages/incubating/hosts/pi/runtime/pi-runtime/` named `@nseng-ai/pi-runtime`. It replaces the former split between Pi command constants, neutral runtime helpers, and engineered project-local extension modules.
-*Avoid*: compatibility shim, old package facade, published npm API.
+**Pi Runtime package**:
+The workspace package at `ts/packages/incubating/hosts/pi/runtime/pi-runtime/` named `@nseng-ai/pi-runtime`. Its **Release disposition** is incubating, so it is still `private: true` and unpublished while its external contract is unwarranted. It replaces the former split between Pi command constants, neutral runtime helpers, and engineered project-local extension modules. The old identity `@nseng-ai/pi` was a hard cutover with no alias or forwarding package (ADR 0045).
+*Avoid*: `@nseng-ai/pi` (retired name), unified Pi package (retired phrasing), compatibility shim, old package facade, published npm API.
 
 **Project-local Pi extension surface**:
 The checked-in `.pi/extensions/*.ts` files that Pi auto-discovers for this repository.

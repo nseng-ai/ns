@@ -4,12 +4,12 @@ This package contains unified Pi runtime helper and extension modules. Keep exte
 
 ## Package Boundary
 
-`@nseng-ai/pi-runtime` is a private package with two kinds of modules:
+`@nseng-ai/pi-runtime` lives at `ts/packages/incubating/hosts/pi/runtime/pi-runtime/`. Its disposition is **incubating** — real external release intent, contract not yet warranted — so it is still `private: true` and unpublished, and it may runtime-depend only on public and incubating packages. It has two kinds of modules:
 
 - neutral helper subpaths exported as `@nseng-ai/pi-runtime/...` for other workspace packages such as the Herdr extension, Objective, branch-context, and autobranch;
 - project-local Pi extension entrypoints imported by `.pi/extensions/*.ts` discovery adapters.
 
-Other workspace packages may import curated neutral `@nseng-ai/pi-runtime/...` exports. They must not import project-local extension entrypoints or deep-import `ts/packages/pi/src/**` as helpers. If a non-Pi package needs behavior that currently lives only in a project-local entrypoint, extract a neutral helper subpath or move the orchestration to the owning package instead.
+Other workspace packages may import curated neutral `@nseng-ai/pi-runtime/...` exports. They must not import project-local extension entrypoints or deep-import `ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/**` as helpers. If a non-Pi package needs behavior that currently lives only in a project-local entrypoint, extract a neutral helper subpath or move the orchestration to the owning package instead.
 
 `@nseng-ai/pi-runtime/shared/*` exports are curated neutral infrastructure helpers for Pi-hosted code and extracted Internal Pi-tool packages. A Internal Pi-tool package may import helpers such as `@nseng-ai/pi-runtime/shared/command-exec` or `@nseng-ai/pi-runtime/shared/gh-command` when the helper is host/runtime infrastructure. Do not invert the dependency by making `@nseng-ai/pi-runtime` import Internal Pi-tool packages, and do not move tool-specific PR feedback/watch/preview domain behavior into `@nseng-ai/pi-runtime/shared/*` just to deduplicate it.
 

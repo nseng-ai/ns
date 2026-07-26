@@ -1,6 +1,6 @@
 # @nseng-ai/objectives
 
-This context captures domain language for the Objectives ns extension package: the CLI surfaces over checked-in Objective records and the in-process extension-package-API boundary that lets sibling extensions reuse Objective behavior without depending on the Pi host. It names only CLI- and extension-specific terms; the Objective *system* vocabulary (Objective, Active Objective Root, Objective Update/Close, Semantic Update, Closure Marker, …) stays canonical in the root [ns](../../../CONTEXT.md) context and is cited here, not redefined.
+This context captures domain language for the Objectives ns extension package: the CLI surfaces over checked-in Objective records and the in-process extension-package-API boundary that lets sibling extensions reuse Objective behavior without depending on the Pi host. It names only CLI- and extension-specific terms; the Objective *system* vocabulary (Objective, Active Objective Root, Objective Update/Close, Semantic Update, Closure Marker, …) stays canonical in the root [ns](../../../../../CONTEXT.md) context and is cited here, not redefined.
 
 ## Language
 

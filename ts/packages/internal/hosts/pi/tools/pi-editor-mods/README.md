@@ -27,12 +27,8 @@ needed.
 
 ## Install
 
-From npm:
-
-```sh
-pi install npm:@internal/pi-editor-mods
-pi remove npm:@internal/pi-editor-mods
-```
+This package is **internal** disposition: `@internal/*`, `private: true`, and never published.
+There is no npm install path — install it from a checkout.
 
 From a trusted git checkout:
 

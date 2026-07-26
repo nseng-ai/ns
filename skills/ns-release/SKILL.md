@@ -76,7 +76,7 @@ package inventory. It writes nothing. It refuses unless:
 - you are **not** on Graphite trunk, and the current branch **is** Graphite-tracked;
 - the release branch `transactional-npm-release/v<VERSION>` does not exist;
 - `<VERSION>` is a concrete semver (no ranges);
-- the canonical source manifests match the intended public package inventory.
+- the canonical source manifests match the derived public release inventory.
 
 Fix any refusal here before releasing — a refusal at plan time costs nothing, a
 refusal mid-transaction leaves state to reason about.
