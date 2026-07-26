@@ -20,37 +20,34 @@ const expectedPaths = [
 ] as const;
 
 describe("preinstalled ns command catalog", () => {
-	test("registers exactly the two host-owned extension packages", () => {
+	test("registers exactly the two host-owned extension descriptors", () => {
 		expect(preinstalledExtensionRegistrations.map(({ packageName }) => packageName)).toEqual([
-			"@nseng-ai/ns-init",
-			"@nseng-ai/harness-artifacts",
+			"@nseng-ai/ns",
+			"@nseng-ai/ns",
 		]);
 		expect(preinstalledExtensionRegistrations.map(({ displayPath }) => displayPath)).toEqual([
-			"@nseng-ai/ns-init/ns-extension",
-			"@nseng-ai/harness-artifacts/ns-extension",
+			"@nseng-ai/ns/init/ns-extension",
+			"@nseng-ai/ns/harness-artifacts/ns-extension",
 		]);
 	});
 
 	test("derives the complete lazy command inventory without loading commands", () => {
 		const catalog = loadPreinstalledNsCommandCatalog();
 
-		expect(catalog.extensionPackageNames).toEqual([
-			"@nseng-ai/ns-init",
-			"@nseng-ai/harness-artifacts",
-		]);
+		expect(catalog.extensionPackageNames).toEqual(["@nseng-ai/ns", "@nseng-ai/ns"]);
 		expect(catalog.entries.map(({ path }) => path?.join("/"))).toEqual(expectedPaths);
 		expect(
 			catalog.entries.map((entry) => ("displayPath" in entry ? entry.displayPath : undefined)),
 		).toEqual([
-			"@nseng-ai/ns-init/ns-extension#init",
-			"@nseng-ai/ns-init/ns-extension#extension/install",
-			"@nseng-ai/ns-init/ns-extension#extension/list",
-			"@nseng-ai/ns-init/ns-extension#extension/update",
-			"@nseng-ai/ns-init/ns-extension#extension/uninstall",
-			"@nseng-ai/harness-artifacts/ns-extension#skills/list",
-			"@nseng-ai/harness-artifacts/ns-extension#skills/path",
-			"@nseng-ai/harness-artifacts/ns-extension#skills/install",
-			"@nseng-ai/harness-artifacts/ns-extension#update",
+			"@nseng-ai/ns/init/ns-extension#init",
+			"@nseng-ai/ns/init/ns-extension#extension/install",
+			"@nseng-ai/ns/init/ns-extension#extension/list",
+			"@nseng-ai/ns/init/ns-extension#extension/update",
+			"@nseng-ai/ns/init/ns-extension#extension/uninstall",
+			"@nseng-ai/ns/harness-artifacts/ns-extension#skills/list",
+			"@nseng-ai/ns/harness-artifacts/ns-extension#skills/path",
+			"@nseng-ai/ns/harness-artifacts/ns-extension#skills/install",
+			"@nseng-ai/ns/harness-artifacts/ns-extension#update",
 		]);
 		expect(catalog.entries.every(({ load }) => typeof load === "function")).toBe(true);
 		expect(

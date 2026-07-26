@@ -3,6 +3,7 @@
 	"version": "0.1.4",
 	"description": "Checkout-free ns CLI package.",
 	"files": [
+		"api",
 		"bin",
 		"cli",
 		"sdk",
@@ -10,6 +11,7 @@
 	],
 	"type": "module",
 	"exports": {
+		"./api": "./src/api/index.ts",
 		"./cli": "./src/cli/index.ts",
 		"./sdk": "./src/sdk/sdk.ts",
 		"./sdk/cli": "./src/sdk/cli.ts",
@@ -22,8 +24,8 @@
 	"scripts": {
 		"build:bundle": "node scripts/build-bundle.mjs",
 		"check": "tsc -p tsconfig.json",
-		"pack:local": "pnpm run build:bundle && node scripts/prepare-local-package.mjs && npm pack ./dist/publish --pack-destination dist",
-		"publish:dry-run": "pnpm run build:bundle && node scripts/prepare-local-package.mjs && npm publish --dry-run ./dist/publish",
+		"pack:local": "pnpm run build:bundle && node scripts/prepare-local-package.mjs && npm pack --no-workspaces ./dist/publish --pack-destination dist",
+		"publish:dry-run": "pnpm run build:bundle && node scripts/prepare-local-package.mjs && npm publish --no-workspaces --dry-run ./dist/publish",
 		"smoke:checkout-free": "node scripts/smoke-checkout-free.mjs",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/ns/test",
 		"prepublishOnly": "node -e \"throw new Error('Use pnpm --dir ts run release:publish / release:publish-dry-run; @nseng-ai/ns is published from dist/publish only.')\""
@@ -32,11 +34,12 @@
 		"@earendil-works/pi-agent-core": "catalog:",
 		"@earendil-works/pi-ai": "catalog:",
 		"@earendil-works/pi-coding-agent": "catalog:",
-		"@nseng-ai/branch-context": "workspace:*",
-		"@nseng-ai/harness-artifacts": "workspace:*",
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/extension-kit": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/sdk": "workspace:*",
-		"@nseng-ai/ns-init": "workspace:*",
 		"jiti": "catalog:",
+		"smol-toml": "catalog:",
 		"zod": "catalog:"
 	},
 	"devDependencies": {
@@ -48,8 +51,19 @@
 	},
 	"ns": {
 		"tier": "host",
+		"settings": [
+			{
+				"path": [
+					"harnesses"
+				],
+				"description": "Harness IDs ns init should activate when --harness is not supplied."
+			}
+		],
 		"subpackages": [
+			"api",
 			"cli",
+			"harness-artifacts",
+			"init",
 			"sdk"
 		],
 		"remainder": true

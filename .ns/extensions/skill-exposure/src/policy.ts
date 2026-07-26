@@ -1,4 +1,4 @@
-import { transformSkillFrontmatter } from "@nseng-ai/harness-artifacts/api";
+import { transformSkillFrontmatter } from "@nseng-ai/ns/api";
 import type {
   ExposurePolicy,
   PiSettings,

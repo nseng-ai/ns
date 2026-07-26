@@ -1,9 +1,8 @@
 #!/usr/bin/env node
-import { chmod, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { branchContextImplPromptTemplatePath } from "@nseng-ai/branch-context/api/prompt-assets";
 import { build } from "esbuild";
 
 import { publicRuntimeDependencies } from "./public-runtime-dependencies.mjs";
@@ -12,7 +11,6 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const bundleRoot = resolve(packageRoot, "dist", "bundle");
 const outfile = resolve(bundleRoot, "cli.js");
 const bundleEntry = resolve(packageRoot, "dist", "bundle-entry.mjs");
-const bundledPromptsDir = resolve(bundleRoot, "prompts");
 const sdkExportSpecs = JSON.parse(
 	await readFile(resolve(packageRoot, "scripts", "sdk-export-entries.json"), "utf8"),
 );
@@ -50,6 +48,7 @@ await build({
 await build({
 	entryPoints: {
 		...sdkExportEntries,
+		"api/index": resolve(packageRoot, "src", "api", "index.ts"),
 		"cli/index": resolve(packageRoot, "src", "cli", "index.ts"),
 	},
 	outdir: bundleRoot,
@@ -69,12 +68,3 @@ if (!bundled.startsWith("#!/usr/bin/env node\n")) {
 	await writeFile(outfile, `#!/usr/bin/env node\n${bundled}`);
 }
 await chmod(outfile, 0o755);
-await copyRuntimeAssets();
-
-async function copyRuntimeAssets() {
-	await mkdir(bundledPromptsDir, { recursive: true });
-	await copyFile(
-		branchContextImplPromptTemplatePath(),
-		resolve(bundledPromptsDir, "branch-context-impl.md"),
-	);
-}

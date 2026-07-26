@@ -1,9 +1,6 @@
 import { lstat, mkdir, readFile, realpath, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import {
-  parseSkillFrontmatterBlock,
-  transformSkillFrontmatter,
-} from "@nseng-ai/harness-artifacts/api";
+import { parseSkillFrontmatterBlock, transformSkillFrontmatter } from "@nseng-ai/ns/api";
 import { commandBackedSkillSurface } from "./replacement-registry.ts";
 import { diagnosticsFor, implicationsFor, inferPolicy } from "./policy.ts";
 import type {
