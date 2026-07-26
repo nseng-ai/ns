@@ -596,7 +596,7 @@ describe("TypeScript style guard documentation references", () => {
 			"docs/adr/README.md",
 			"docs/pi/extension-command-checklist.md",
 			"justfile",
-			"skills/ns-typescript/SKILL.md",
+			"skills/internal/typescript/ns-typescript/SKILL.md",
 		];
 
 		const offenders = checkedFiles.filter((path) => {

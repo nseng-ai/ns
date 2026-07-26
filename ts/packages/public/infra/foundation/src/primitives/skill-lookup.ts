@@ -1,7 +1,6 @@
 import { join } from "node:path";
 
 export const SKILL_LOOKUP_ROOT_DESCRIPTORS = [
-	{ root: "skills", sourceType: "repo" },
 	{ root: ".agents/skills", sourceType: "vendored" },
 	{ root: ".claude/skills", sourceType: "claude" },
 ] as const satisfies ReadonlyArray<{ root: string; sourceType: string }>;

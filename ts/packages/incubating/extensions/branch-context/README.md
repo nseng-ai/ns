@@ -11,9 +11,9 @@ No data migration, compatibility shim, Branch Memory mutation, runtime feature f
 If manually reverting instead of using a PR/commit revert, remove the prototype-owned prompt sections and test assertions from:
 
 - `.ns/prompts/branch-context.plans-write.md`
-- `skills/enriched-plan-save/SKILL.md`
-- `skills/branch-context-impl/SKILL.md`
-- `skills/branch-context/SKILL.md`
+- `skills/incubating/branch-context/enriched-plan-save/SKILL.md`
+- `skills/incubating/branch-context/branch-context-impl/SKILL.md`
+- `skills/incubating/branch-context/branch-context/SKILL.md`
 - `ts/packages/incubating/extensions/branch-context/src/core/prompts/branch-context-impl.md`
 - `ts/packages/incubating/extensions/branch-context/test/attached-plan.test.ts`
 

@@ -29,7 +29,7 @@ const skillArtifact = {
 	source: {
 		type: "first-party",
 		packageName: "@nseng-ai/ns",
-		relativePath: "skills/objective-next",
+		relativePath: "skills/incubating/objectives/objective-next",
 	},
 } as const satisfies SkillHarnessArtifactEntry;
 
@@ -120,19 +120,19 @@ describe("provision plan", () => {
 			source: {
 				type: "first-party",
 				packageName: "@nseng-ai/ns",
-				relativePath: "skills/objective-next",
+				relativePath: "skills/incubating/objectives/objective-next",
 				version: "git:abc123",
 			},
 			files: [
 				{
 					relativePath: "SKILL.md",
-					sourcePath: "skills/objective-next/SKILL.md",
+					sourcePath: "skills/incubating/objectives/objective-next/SKILL.md",
 					targetPath: join(targetRoot, "objective-next/SKILL.md"),
 					contentHash: contentHashForText("skill"),
 				},
 				{
 					relativePath: "references/guide.md",
-					sourcePath: "skills/objective-next/references/guide.md",
+					sourcePath: "skills/incubating/objectives/objective-next/references/guide.md",
 					targetPath: join(targetRoot, "objective-next/references/guide.md"),
 					contentHash: contentHashForText("guide"),
 				},
@@ -216,17 +216,17 @@ describe("install manifest", () => {
 			source: {
 				type: "first-party",
 				packageName: "@nseng-ai/ns",
-				relativePath: "skills/objective-next",
+				relativePath: "skills/incubating/objectives/objective-next",
 				version: "git:abc123",
 			},
 			files: {
 				"SKILL.md": {
-					sourcePath: "skills/objective-next/SKILL.md",
+					sourcePath: "skills/incubating/objectives/objective-next/SKILL.md",
 					targetPath: "/repo/.pi/skills/objective-next/SKILL.md",
 					contentHash: contentHashForText("skill"),
 				},
 				"references/guide.md": {
-					sourcePath: "skills/objective-next/references/guide.md",
+					sourcePath: "skills/incubating/objectives/objective-next/references/guide.md",
 					targetPath: "/repo/.pi/skills/objective-next/references/guide.md",
 					contentHash: contentHashForText("guide"),
 				},

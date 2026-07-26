@@ -55,55 +55,55 @@
 			{
 				"kind": "skill",
 				"name": "objective",
-				"sourcePath": "skills/objective",
+				"sourcePath": "skills/incubating/objectives/objective",
 				"publishPath": "skills/objective"
 			},
 			{
 				"kind": "skill",
 				"name": "objective-autorun",
-				"sourcePath": "skills/objective-autorun",
+				"sourcePath": "skills/incubating/objectives/objective-autorun",
 				"publishPath": "skills/objective-autorun"
 			},
 			{
 				"kind": "skill",
 				"name": "objective-close",
-				"sourcePath": "skills/objective-close",
+				"sourcePath": "skills/incubating/objectives/objective-close",
 				"publishPath": "skills/objective-close"
 			},
 			{
 				"kind": "skill",
 				"name": "objective-create",
-				"sourcePath": "skills/objective-create",
+				"sourcePath": "skills/incubating/objectives/objective-create",
 				"publishPath": "skills/objective-create"
 			},
 			{
 				"kind": "skill",
 				"name": "objective-critique",
-				"sourcePath": "skills/objective-critique",
+				"sourcePath": "skills/incubating/objectives/objective-critique",
 				"publishPath": "skills/objective-critique"
 			},
 			{
 				"kind": "skill",
 				"name": "objective-next",
-				"sourcePath": "skills/objective-next",
+				"sourcePath": "skills/incubating/objectives/objective-next",
 				"publishPath": "skills/objective-next"
 			},
 			{
 				"kind": "skill",
 				"name": "objective-refresh",
-				"sourcePath": "skills/objective-refresh",
+				"sourcePath": "skills/incubating/objectives/objective-refresh",
 				"publishPath": "skills/objective-refresh"
 			},
 			{
 				"kind": "skill",
 				"name": "objective-runner-step",
-				"sourcePath": "skills/objective-runner-step",
+				"sourcePath": "skills/incubating/objectives/objective-runner-step",
 				"publishPath": "skills/objective-runner-step"
 			},
 			{
 				"kind": "skill",
 				"name": "objective-update",
-				"sourcePath": "skills/objective-update",
+				"sourcePath": "skills/incubating/objectives/objective-update",
 				"publishPath": "skills/objective-update"
 			}
 		]

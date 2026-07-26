@@ -257,7 +257,7 @@ Read it alongside this doc when authoring the next one.
   — the conceptual model and anti-goals this playbook operates within.
 - [`docs/objective-system.md`](../objective-system.md) — canonical record shape
   and operations.
-- `skills/objective-create/references/execution-friendly-create.md` — the
+- `skills/incubating/objectives/objective-create/references/execution-friendly-create.md` — the
   agent-facing interview/template guidance for the policy sections.
 - `.ns/objectives/eliminate-redundant-optional-undefined/autonomous-objective-lessons.md`
   — lessons from the *standing* (maintain-forever) autoobjective variant; useful

@@ -292,11 +292,18 @@ async function resolveSkillInput(root: string, input: string) {
 		throw new SkillExposureInputError(`Skill input is not a directory or SKILL.md: ${input}`);
 	const relativePath = path.relative(root, canonical).split(path.sep).join("/");
 	const segments = relativePath.split("/");
-	const firstParty = segments.length === 2 && segments[0] === "skills";
+	const disposition = segments[1];
+	const firstPartyFamilySkill =
+		segments.length === 4 && segments[0] === "skills" && isSkillDisposition(disposition);
+	const firstPartyProductSkill =
+		segments.length === 3 &&
+		segments[0] === "skills" &&
+		disposition === "incubating" &&
+		(segments[2] === "brmem" || segments[2] === "slots");
 	const vendored = segments.length === 3 && segments[0] === ".agents" && segments[1] === "skills";
-	if (!firstParty && !vendored)
+	if (!firstPartyFamilySkill && !firstPartyProductSkill && !vendored)
 		throw new SkillExposureInputError(
-			`Skill path must resolve canonically to skills/<name> or .agents/skills/<name>: ${input}`,
+			`Skill path must resolve canonically to skills/<public|incubating|internal>/<family>/<name>, skills/incubating/{brmem|slots}, or .agents/skills/<name>: ${input}`,
 		);
 	const skill = segments.at(-1);
 	if (skill === undefined || skill.length === 0)
@@ -404,6 +411,10 @@ export function skillPathResolutionError(input: string, error: unknown): Error {
 			`Skill path does not exist: ${input} (${errorMessage(error)})`,
 		);
 	return ioError(`Cannot resolve skill path ${input}`, error);
+}
+
+function isSkillDisposition(value: string | undefined): boolean {
+	return value === "public" || value === "incubating" || value === "internal";
 }
 
 function isNodeError(error: unknown, code: string): error is NodeJS.ErrnoException {

@@ -26,7 +26,7 @@ const skillArtifact = {
 	source: {
 		type: "first-party",
 		packageName: "@nseng-ai/ns",
-		relativePath: "skills/objective-next",
+		relativePath: "skills/incubating/objectives/objective-next",
 	},
 } as const satisfies SkillHarnessArtifactEntry;
 
@@ -78,22 +78,22 @@ describe("harness artifact provision apply", () => {
 					source: {
 						type: "first-party",
 						packageName: "@nseng-ai/ns",
-						relativePath: "skills/objective-next",
+						relativePath: "skills/incubating/objectives/objective-next",
 						version: "git:test",
 					},
 					files: {
 						"SKILL.md": {
-							sourcePath: "skills/objective-next/SKILL.md",
+							sourcePath: "skills/incubating/objectives/objective-next/SKILL.md",
 							targetPath: join(fixture.projectRoot, ".pi/skills/objective-next/SKILL.md"),
 							contentHash: contentHashForText("skill instructions\n"),
 						},
 						"assets/icon.bin": {
-							sourcePath: "skills/objective-next/assets/icon.bin",
+							sourcePath: "skills/incubating/objectives/objective-next/assets/icon.bin",
 							targetPath: join(fixture.projectRoot, ".pi/skills/objective-next/assets/icon.bin"),
 							contentHash: contentHashForBytes(binaryAssetBytes),
 						},
 						"references/guide.md": {
-							sourcePath: "skills/objective-next/references/guide.md",
+							sourcePath: "skills/incubating/objectives/objective-next/references/guide.md",
 							targetPath: join(
 								fixture.projectRoot,
 								".pi/skills/objective-next/references/guide.md",
@@ -181,9 +181,18 @@ describe("harness artifact provision apply", () => {
 
 	test("applies through an injected fake filesystem gateway", async () => {
 		const fixture = await createFixture();
-		const sourceSkill = join(fixture.sourceRoot, "skills/objective-next/SKILL.md");
-		const sourceGuide = join(fixture.sourceRoot, "skills/objective-next/references/guide.md");
-		const sourceIcon = join(fixture.sourceRoot, "skills/objective-next/assets/icon.bin");
+		const sourceSkill = join(
+			fixture.sourceRoot,
+			"skills/incubating/objectives/objective-next/SKILL.md",
+		);
+		const sourceGuide = join(
+			fixture.sourceRoot,
+			"skills/incubating/objectives/objective-next/references/guide.md",
+		);
+		const sourceIcon = join(
+			fixture.sourceRoot,
+			"skills/incubating/objectives/objective-next/assets/icon.bin",
+		);
 		const textEncoder = new TextEncoder();
 		const textDecoder = new TextDecoder();
 		const fakeFs = new InMemoryHarnessFs({
@@ -322,7 +331,7 @@ describe("harness artifact provision apply", () => {
 });
 
 function fakeProvisionFixture() {
-	const sourcePath = "/source/skills/objective-next/SKILL.md";
+	const sourcePath = "/source/skills/incubating/objectives/objective-next/SKILL.md";
 	const targetPath = "/repo/.pi/skills/objective-next/SKILL.md";
 	const manifestPath = `/repo/.pi/skills/${INSTALL_MANIFEST_FILE_NAME}`;
 	const fs = new InMemoryHarnessFs({ [sourcePath]: "prepared source\n" });
@@ -374,13 +383,16 @@ async function createFixture() {
 	const sourceRoot = join(root, "source");
 	const projectRoot = join(root, "project");
 	const homeDir = join(root, "home");
-	await writeTextFile(join(sourceRoot, "skills/objective-next/SKILL.md"), "skill instructions\n");
 	await writeTextFile(
-		join(sourceRoot, "skills/objective-next/references/guide.md"),
+		join(sourceRoot, "skills/incubating/objectives/objective-next/SKILL.md"),
+		"skill instructions\n",
+	);
+	await writeTextFile(
+		join(sourceRoot, "skills/incubating/objectives/objective-next/references/guide.md"),
 		"reference guide\n",
 	);
 	await writeBinaryFile(
-		join(sourceRoot, "skills/objective-next/assets/icon.bin"),
+		join(sourceRoot, "skills/incubating/objectives/objective-next/assets/icon.bin"),
 		binaryAssetBytes,
 	);
 	return {

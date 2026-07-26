@@ -23,31 +23,31 @@ const EXPECTED_ROUTES = [
 	{
 		route: "delete-stack",
 		alias: "gt-delete-stack",
-		reference: "skills/code-workflows/references/delete-stack.md",
+		reference: ".agents/skills/code-workflows/references/delete-stack.md",
 		menuVisibility: "visible",
 	},
 	{
 		route: "stackify-branch",
 		alias: "gt-stackify-branch",
-		reference: "skills/code-workflows/references/gt-stackify-branch.md",
+		reference: ".agents/skills/code-workflows/references/gt-stackify-branch.md",
 		menuVisibility: "visible",
 	},
 	{
 		route: "stacker-agent",
 		alias: "stacker",
-		reference: "skills/code-workflows/references/stacker-agent.md",
+		reference: ".agents/skills/code-workflows/references/stacker-agent.md",
 		menuVisibility: "visible",
 	},
 	{
 		route: "parity-review",
 		alias: "cross-harness-parity",
-		reference: "skills/code-workflows/references/parity-review.md",
+		reference: ".agents/skills/code-workflows/references/parity-review.md",
 		menuVisibility: "visible",
 	},
 	{
 		route: "gh-ci-debug",
 		alias: "ci-debug",
-		reference: "skills/code-workflows/references/gh-ci-debug.md",
+		reference: ".agents/skills/code-workflows/references/gh-ci-debug.md",
 		menuVisibility: "explicit-only",
 	},
 ] as const;

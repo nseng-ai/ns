@@ -48,4 +48,4 @@ When consolidating an existing package:
 1. Fold layer entries (`operations`, `gateways`, `commands`, `shared`, `shell`) into the feature, `api`, or host surface that owns them.
 2. Merge crumb entries that anchor no distinct edge class into their nearest owner.
 3. Move per-feature host adapters into the host-surface subpackage.
-4. Update `ns.subpackages` and the `exports` map together; the topology report (`skills/architecture-topology-report`) is the fastest way to eyeball the result.
+4. Update `ns.subpackages` and the `exports` map together; the topology report (`skills/internal/review-system/architecture-topology-report`) is the fastest way to eyeball the result.

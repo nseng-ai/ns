@@ -17,7 +17,7 @@ const firstPartyObjective = artifact({
 	skillName: "objective",
 	packageName: "@nseng-ai/ns",
 	sourceType: "first-party",
-	relativePath: "skills/objective",
+	relativePath: "skills/incubating/objectives/objective",
 });
 const modulePlan = artifact({
 	id: "@acme/plans:plan-skill",

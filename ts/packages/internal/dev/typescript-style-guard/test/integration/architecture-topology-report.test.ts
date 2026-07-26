@@ -12,9 +12,12 @@ import { describe, expect, it } from "vitest";
 const repoRoot = fileURLToPath(new URL("../../../../../../../", import.meta.url));
 const extractGraphScript = join(
 	repoRoot,
-	"skills/architecture-topology-report/scripts/extract-graph.mjs",
+	"skills/internal/review-system/architecture-topology-report/scripts/extract-graph.mjs",
 );
-const topologyScript = join(repoRoot, "skills/architecture-topology-report/scripts/topology");
+const topologyScript = join(
+	repoRoot,
+	"skills/internal/review-system/architecture-topology-report/scripts/topology",
+);
 
 describe("architecture topology report scripts", () => {
 	it("ignores stale dist/ build output when scanning package manifests", () => {

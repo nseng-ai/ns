@@ -25,7 +25,7 @@ describe("harness artifact catalog model", () => {
 					source: {
 						type: "first-party",
 						packageName: "@nseng-ai/ns",
-						relativePath: "skills/objective-next",
+						relativePath: "skills/incubating/objectives/objective-next",
 					},
 				},
 				{

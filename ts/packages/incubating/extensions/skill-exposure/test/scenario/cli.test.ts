@@ -76,7 +76,10 @@ function json(result: CliRun): Record<string, unknown> {
 }
 
 const defaultState: InMemorySkillExposureState = {
-	skills: [inMemorySkill("skills/code-gh"), inMemorySkill("skills/other")],
+	skills: [
+		inMemorySkill("skills/internal/code/code-gh"),
+		inMemorySkill("skills/internal/test/other"),
+	],
 };
 
 describe("skill-exposure CLI scenarios", () => {
@@ -99,13 +102,16 @@ describe("skill-exposure CLI scenarios", () => {
 
 	test("omits absent replacement surfaces and serializes verified replacements", async () => {
 		const { run } = createRunner({
-			skills: [inMemorySkill("skills/unknown"), inMemorySkill("skills/skill-management")],
+			skills: [
+				inMemorySkill("skills/internal/test/unknown"),
+				inMemorySkill("skills/internal/skill-system/skill-management"),
+			],
 		});
 		const result = await run([
 			"skill-exposure",
 			"show",
-			"skills/unknown",
-			"skills/skill-management",
+			"skills/internal/test/unknown",
+			"skills/internal/skill-system/skill-management",
 			"--format",
 			"json",
 		]);
@@ -118,7 +124,10 @@ describe("skill-exposure CLI scenarios", () => {
 
 	test("returns representative ok, negative, and usage JSON envelopes", async () => {
 		const { run } = createRunner({
-			skills: [inMemorySkill("skills/code-gh"), inMemorySkill("skills/unknown")],
+			skills: [
+				inMemorySkill("skills/internal/code/code-gh"),
+				inMemorySkill("skills/internal/test/unknown"),
+			],
 			settings: {
 				path: "/repo/.pi/settings.json",
 				exists: true,
@@ -126,13 +135,19 @@ describe("skill-exposure CLI scenarios", () => {
 				exclusions: ["-skills/unknown"],
 			},
 		});
-		const okRun = await run(["skill-exposure", "show", "skills/code-gh", "--format", "json"]);
+		const okRun = await run([
+			"skill-exposure",
+			"show",
+			"skills/internal/code/code-gh",
+			"--format",
+			"json",
+		]);
 		expect(okRun.exit).toBe(0);
 		expect(json(okRun)).toMatchObject({ status: "ok" });
 		const negativeRun = await run([
 			"skill-exposure",
 			"check",
-			"skills/unknown",
+			"skills/internal/test/unknown",
 			"--format",
 			"json",
 		]);
@@ -146,7 +161,7 @@ describe("skill-exposure CLI scenarios", () => {
 	test("dry-run does not mutate and noninteractive deletion requires --yes", async () => {
 		const state = {
 			skills: [
-				inMemorySkill("skills/code-gh", {
+				inMemorySkill("skills/internal/code/code-gh", {
 					sidecarState: "managed" as const,
 					skillMdText: "---\nname: code-gh\ndisable-model-invocation: true\n---\n",
 				}),
@@ -159,7 +174,7 @@ describe("skill-exposure CLI scenarios", () => {
 					"skill-exposure",
 					"apply",
 					"normal",
-					"skills/code-gh",
+					"skills/internal/code/code-gh",
 					"--dry-run",
 					"--format",
 					"json",
@@ -172,7 +187,7 @@ describe("skill-exposure CLI scenarios", () => {
 			"skill-exposure",
 			"apply",
 			"normal",
-			"skills/code-gh",
+			"skills/internal/code/code-gh",
 			"--format",
 			"json",
 		]);
@@ -184,16 +199,16 @@ describe("skill-exposure CLI scenarios", () => {
 	test("preflights all paths before mutation and consolidates settings", async () => {
 		const { gateway, run } = createRunner({
 			skills: [
-				inMemorySkill("skills/code-gh"),
-				inMemorySkill("skills/other", { skillMdSymlink: true }),
+				inMemorySkill("skills/internal/code/code-gh"),
+				inMemorySkill("skills/internal/test/other", { skillMdSymlink: true }),
 			],
 		});
 		const result = await run([
 			"skill-exposure",
 			"apply",
 			"command-backed",
-			"skills/code-gh",
-			"skills/other",
+			"skills/internal/code/code-gh",
+			"skills/internal/test/other",
 			"--format",
 			"json",
 		]);
@@ -201,9 +216,42 @@ describe("skill-exposure CLI scenarios", () => {
 		expect(gateway.appliedBatches).toHaveLength(0);
 	});
 
+	test("accepts canonical nested, product-exception, and vendored skill paths", async () => {
+		const runner = createRunner({
+			skills: [
+				inMemorySkill("skills/internal/code/code-gh"),
+				inMemorySkill("skills/incubating/brmem"),
+				inMemorySkill(".agents/skills/diagnosing-bugs"),
+			],
+		});
+		const result = await runner.run([
+			"skill-exposure",
+			"show",
+			"skills/internal/code/code-gh",
+			"skills/incubating/brmem",
+			".agents/skills/diagnosing-bugs",
+			"--format",
+			"json",
+		]);
+		expect(result.exit).toBe(0);
+		expect(json(result)).toMatchObject({ status: "ok" });
+	});
+
+	test.each([
+		"skills/code-gh",
+		"skills/internal/code-gh",
+		"skills/internal/code/code-gh/extra",
+		"skills/public/brmem",
+	])("rejects noncanonical first-party path %s", async (skillPath) => {
+		const runner = createRunner({ skills: [inMemorySkill(skillPath)] });
+		const result = await runner.run(["skill-exposure", "show", skillPath, "--format", "json"]);
+		expect(result.exit).toBe(2);
+		expect(json(result)).toMatchObject({ status: "usageError" });
+	});
+
 	test("is idempotent and accepts a canonical first-party symlink spelling", async () => {
 		const linked = inMemorySkill(".agents/skills/code-gh", {
-			canonicalPath: "/repo/skills/code-gh",
+			canonicalPath: "/repo/skills/internal/code/code-gh",
 		});
 		const runner = createRunner({ skills: [linked] });
 		expect(
@@ -235,9 +283,9 @@ describe("skill-exposure CLI scenarios", () => {
 	test("rejects duplicate canonical inputs before mutation", async () => {
 		const runner = createRunner({
 			skills: [
-				inMemorySkill("skills/code-gh"),
+				inMemorySkill("skills/internal/code/code-gh"),
 				inMemorySkill(".agents/skills/code-gh", {
-					canonicalPath: "/repo/skills/code-gh",
+					canonicalPath: "/repo/skills/internal/code/code-gh",
 				}),
 			],
 		});
@@ -245,7 +293,7 @@ describe("skill-exposure CLI scenarios", () => {
 			"skill-exposure",
 			"apply",
 			"invoke-only",
-			"skills/code-gh",
+			"skills/internal/code/code-gh",
 			".agents/skills/code-gh",
 			"--format",
 			"json",
@@ -256,12 +304,14 @@ describe("skill-exposure CLI scenarios", () => {
 	});
 
 	test("reports the consolidated settings operation exactly once", async () => {
-		const changed = createRunner({ skills: [inMemorySkill("skills/skill-management")] });
+		const changed = createRunner({
+			skills: [inMemorySkill("skills/internal/skill-system/skill-management")],
+		});
 		const applied = await changed.run([
 			"skill-exposure",
 			"apply",
 			"command-backed",
-			"skills/skill-management",
+			"skills/internal/skill-system/skill-management",
 			"--format",
 			"json",
 		]);
@@ -273,12 +323,14 @@ describe("skill-exposure CLI scenarios", () => {
 				],
 			},
 		});
-		const dry = createRunner({ skills: [inMemorySkill("skills/skill-management")] });
+		const dry = createRunner({
+			skills: [inMemorySkill("skills/internal/skill-system/skill-management")],
+		});
 		const planned = await dry.run([
 			"skill-exposure",
 			"apply",
 			"command-backed",
-			"skills/skill-management",
+			"skills/internal/skill-system/skill-management",
 			"--dry-run",
 			"--format",
 			"json",
@@ -286,12 +338,12 @@ describe("skill-exposure CLI scenarios", () => {
 		expect(json(planned)).toMatchObject({
 			data: { sharedOperations: [{ type: "write-settings", outcome: "planned" }] },
 		});
-		const unchanged = createRunner({ skills: [inMemorySkill("skills/code-gh")] });
+		const unchanged = createRunner({ skills: [inMemorySkill("skills/internal/code/code-gh")] });
 		const skipped = await unchanged.run([
 			"skill-exposure",
 			"apply",
 			"normal",
-			"skills/code-gh",
+			"skills/internal/code/code-gh",
 			"--format",
 			"json",
 		]);
@@ -306,7 +358,7 @@ describe("skill-exposure CLI scenarios", () => {
 
 	test("rejects malformed settings and non-managed or symlink sidecars as repository failures", async () => {
 		const malformed = createRunner({
-			skills: [inMemorySkill("skills/code-gh")],
+			skills: [inMemorySkill("skills/internal/code/code-gh")],
 			settings: {
 				path: "/repo/.pi/settings.json",
 				exists: true,
@@ -317,7 +369,7 @@ describe("skill-exposure CLI scenarios", () => {
 		const malformedResult = await malformed.run([
 			"skill-exposure",
 			"show",
-			"skills/code-gh",
+			"skills/internal/code/code-gh",
 			"--format",
 			"json",
 		]);
@@ -328,12 +380,12 @@ describe("skill-exposure CLI scenarios", () => {
 			data: { path: ".pi/settings.json" },
 		});
 		const malformedFrontmatter = createRunner({
-			skills: [inMemorySkill("skills/code-gh", { skillMdText: "not frontmatter\n" })],
+			skills: [inMemorySkill("skills/internal/code/code-gh", { skillMdText: "not frontmatter\n" })],
 		});
 		const frontmatterResult = await malformedFrontmatter.run([
 			"skill-exposure",
 			"check",
-			"skills/code-gh",
+			"skills/internal/code/code-gh",
 			"--format",
 			"json",
 		]);
@@ -341,15 +393,17 @@ describe("skill-exposure CLI scenarios", () => {
 		expect(json(frontmatterResult)).toMatchObject({
 			status: "failure",
 			errorType: "malformed-skill-frontmatter",
-			data: { path: "skills/code-gh/SKILL.md" },
+			data: { path: "skills/internal/code/code-gh/SKILL.md" },
 		});
 		for (const sidecarState of ["unexpected", "symlink"] as const) {
-			const runner = createRunner({ skills: [inMemorySkill("skills/code-gh", { sidecarState })] });
+			const runner = createRunner({
+				skills: [inMemorySkill("skills/internal/code/code-gh", { sidecarState })],
+			});
 			const result = await runner.run([
 				"skill-exposure",
 				"apply",
 				"invoke-only",
-				"skills/code-gh",
+				"skills/internal/code/code-gh",
 				"--format",
 				"json",
 			]);
@@ -366,7 +420,7 @@ describe("skill-exposure CLI scenarios", () => {
 		for (const command of ["show", "check"] as const) {
 			const runner = createRunner({
 				skills: [
-					inMemorySkill("skills/code-gh", {
+					inMemorySkill("skills/internal/code/code-gh", {
 						agentsParentState: "symlink",
 						sidecarState: "missing",
 					}),
@@ -375,7 +429,7 @@ describe("skill-exposure CLI scenarios", () => {
 			const result = await runner.run([
 				"skill-exposure",
 				command,
-				"skills/code-gh",
+				"skills/internal/code/code-gh",
 				"--format",
 				"json",
 			]);
@@ -383,12 +437,12 @@ describe("skill-exposure CLI scenarios", () => {
 			expect(json(result)).toMatchObject({
 				status: "failure",
 				errorType: "unsafe-managed-path",
-				data: { path: "skills/code-gh/agents" },
+				data: { path: "skills/internal/code/code-gh/agents" },
 			});
 		}
 		const apply = createRunner({
 			skills: [
-				inMemorySkill("skills/code-gh", {
+				inMemorySkill("skills/internal/code/code-gh", {
 					agentsParentState: "symlink",
 					sidecarState: "missing",
 				}),
@@ -398,7 +452,7 @@ describe("skill-exposure CLI scenarios", () => {
 			"skill-exposure",
 			"apply",
 			"normal",
-			"skills/code-gh",
+			"skills/internal/code/code-gh",
 			"--format",
 			"json",
 		]);

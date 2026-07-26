@@ -1,7 +1,7 @@
 ---
 edges:
   - objective: professional-repo-curation
-    annotation: Parallel Subobjective that curates the first-party skill tree by release disposition and domain/family ownership while preserving flat harness-facing skill identities.
+    annotation: Completed Parallel Subobjective whose skill-tree outcome is synthesized by the parent while ADR 0046 and skills/README.md preserve the durable support-disposition and ownership contract.
 ---
 
 # Skill Disposition and Owner Ontology
@@ -69,5 +69,16 @@ Risks:
 
 ## Open Questions
 
-- Which additional live path consumers will the atomic cutover uncover beyond the source-backed inventory?
-- What focused verification best demonstrates unchanged discovery, explicit invocation, command-backed replacement behavior, and internal-skill handling after the move?
+- None at closure. The cutover updated the additional live consumers it uncovered, and repository, specialized-lane, exposure, and structural checks provide the required verification.
+
+## Closure
+
+Outcome: **completed**.
+
+The approved ontology and destination map are fully implemented: all 58 first-party canonical skill leaves match their approved paths (`public` 1, `incubating` 23, `internal` 34), no first-party skill remains directly under `skills/`, leaf identities match frontmatter, and `skills/README.md` now owns the authoritative tree and convention-only dependency-closure contract. The 58 flat first-party `.agents` symlinks resolve to those nested sources, `.claude` remains flat through `.agents`, all 16 real vendored `.agents` directories are unchanged, and `skills-lock.json` contains exactly the 58 local source-path changes with hashes and vendored entries unchanged.
+
+Exposure behavior is unchanged: live first-party output remains 14 normal, 35 command-backed, and 9 invoke-only. The earlier 14/34/10 aggregate was stale; the migration did not change exposure sidecars, and the four Flow edits only removed contradictory `metadata.internal`. Dependency review confirmed that public `pr-make-accountable` requires only Git and authenticated `gh`, with `ns flow submit` clearly optional. Independent review also led to remediation of an incubating `objective-next` mandatory internal `code-graphite` dependency and two skill-management procedure/safety defects.
+
+Validation passed with `just` (including style guard 170, default Vitest 555 files/5771 tests, and the Objective check sweep), `just ts-test-integration` (48 files/194 tests), `just ts-test-isolated` (5 files/16 tests), `just skill-exposure-check`, the structural checks above, and earlier focused package suites. `INSTALL_INTERNAL_SKILLS=1 npx skills check` is not passing evidence: it attempted an external vendored refresh, failed for two skills, and mutated vendored files; all accidental effects were restored. This is accepted tooling behavior rather than a cutover failure. The runtime `.agents` descriptor's legacy `sourceType: vendored` label for first-party symlinks remains a nomenclature-only follow-up, not a behavioral or closure blocker.
+
+No live Blocked Sentence exists to clear. The mirrored edge to `professional-repo-curation` remains in place for parent synthesis; its counterpart is not blocked on this Objective. The durable ontology is graduated to ADR 0046 and `skills/README.md`, so this closed record is not its sole home.

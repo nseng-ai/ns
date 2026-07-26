@@ -1,10 +1,11 @@
 ---
 # Provenance: this is the ns-specific Reviews review definition produced
-# by merging the portable TypeScript style guide (`skills/typescript-style/`,
-# especially `core-rules.md`, `checklist.md`, and
-# `references/review-taste-and-process.md`) with the project overlay
-# (`skills/ns-typescript/SKILL.md`), the fake-driven gateway guidance in
-# `skills/typescript-fake-driven-testing/SKILL.md`, the composition rules in
+# by merging the portable TypeScript style guide
+# (`skills/internal/typescript/typescript-style/`, especially `core-rules.md`,
+# `checklist.md`, and `references/review-taste-and-process.md`) with the project
+# overlay (`skills/internal/typescript/ns-typescript/SKILL.md`), the fake-driven
+# gateway guidance in
+# `skills/internal/typescript/typescript-fake-driven-testing/SKILL.md`, the composition rules in
 # `docs/conventions/consumer-gateways-and-command-shape.md`, and the repo
 # enforcement rules in `ts/AGENTS.md` (test-lane hard gates, time seams,
 # style-guard ids). It is intentionally not a generic

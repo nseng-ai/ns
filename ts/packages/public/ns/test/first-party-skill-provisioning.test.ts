@@ -17,8 +17,9 @@ const MANIFEST_PATH = join(TARGET_ROOT, INSTALL_MANIFEST_FILE_NAME);
 
 function sourceFixtureFs(): InMemoryHarnessFs {
 	return new InMemoryHarnessFs({
-		[join(SOURCE_ROOT, "skills/objective/SKILL.md")]: "objective skill\n",
-		[join(SOURCE_ROOT, "skills/objective/references/guide.md")]: "objective guide\n",
+		[join(SOURCE_ROOT, "skills/incubating/objectives/objective/SKILL.md")]: "objective skill\n",
+		[join(SOURCE_ROOT, "skills/incubating/objectives/objective/references/guide.md")]:
+			"objective guide\n",
 	});
 }
 

@@ -160,7 +160,7 @@ Until then, this note preserves the opportunity and its reasoning without implyi
 - `.ns/objectives/ship-objectives-to-customers/updates/`
 - `.agents/skills/objective/SKILL.md`
 - `.agents/skills/objective/references/objective-patterns.md`
-- `skills/objective-update/SKILL.md`
+- `skills/incubating/objectives/objective-update/SKILL.md`
 - `docs/objective-system.md`
 - `ts/packages/incubating/extensions/objectives/`
 - `ns objective exec read-objective ship-objectives-to-customers --format md`

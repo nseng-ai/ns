@@ -62,7 +62,10 @@ describe("harness artifact reconcile driver", () => {
 	test("source changes refresh target files and manifest hashes", async () => {
 		const fixture = createFixture({ nsToml: 'harnesses = ["pi"]\n' });
 		await runHarnessArtifactReconcile(fixture.request());
-		fixture.fs.setFile("/first-party/skills/objective/SKILL.md", "objective v2\n");
+		fixture.fs.setFile(
+			"/first-party/skills/incubating/objectives/objective/SKILL.md",
+			"objective v2\n",
+		);
 
 		const result = await runHarnessArtifactReconcile(fixture.request());
 
@@ -370,7 +373,7 @@ describe("harness artifact reconcile driver", () => {
 
 function createFixture(options: { nsToml: string | undefined; includeModule?: boolean }) {
 	const files: Record<string, string> = {
-		"/first-party/skills/objective/SKILL.md": "objective v1\n",
+		"/first-party/skills/incubating/objectives/objective/SKILL.md": "objective v1\n",
 	};
 	if (options.nsToml !== undefined) {
 		files["/repo/ns.toml"] =

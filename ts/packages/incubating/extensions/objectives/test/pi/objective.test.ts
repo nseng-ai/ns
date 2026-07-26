@@ -288,6 +288,7 @@ function withAutorunSkill<T>(callback: (skill: TempRepoSkill) => Promise<T>): Pr
 			skillName: "objective-autorun",
 			markdown: AUTORUN_SKILL_MARKDOWN,
 			prefix: "objective-autorun-",
+			skillRoot: ".agents/skills",
 		},
 		callback,
 	);
@@ -1429,6 +1430,7 @@ hidden-frontmatter-token: do-not-include
 Use the selected Objective.
 `,
 				prefix: "objective-next-skill-",
+				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir, skillDir, skillPath }) => {
 				const result = await runObjectiveCommand(

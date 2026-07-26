@@ -60,11 +60,26 @@ describe("FakePi exec recording", () => {
 describe("branch-context from-plan policy docs", () => {
 	test("direct skill invocation honors repo Graphite policy precedence", async () => {
 		const skillText = await readFile(
-			join(REPO_ROOT, "skills", "branch-context-from-plan", "SKILL.md"),
+			join(
+				REPO_ROOT,
+				"skills",
+				"incubating",
+				"branch-context",
+				"branch-context-from-plan",
+				"SKILL.md",
+			),
 			"utf8",
 		);
 		const lifecycleText = await readFile(
-			join(REPO_ROOT, "skills", "branch-context", "references", "lifecycle.md"),
+			join(
+				REPO_ROOT,
+				"skills",
+				"incubating",
+				"branch-context",
+				"branch-context",
+				"references",
+				"lifecycle.md",
+			),
 			"utf8",
 		);
 		const agentsText = await readFile(join(REPO_ROOT, "AGENTS.md"), "utf8");
@@ -154,7 +169,9 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("Do not include secrets");
 		// PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance
 		expect(prompt).toContain("Refactor execution strategy");
-		expect(prompt).toContain("skills/enriched-plan-save/references/refactor-execution-strategy.md");
+		expect(prompt).toContain(
+			"skills/incubating/branch-context/enriched-plan-save/references/refactor-execution-strategy.md",
+		);
 		expect(prompt).toContain("same-shape edits across multiple files");
 		expect(prompt).toContain("stale-terminology grep/equivalent check");
 		// PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance
@@ -196,12 +213,12 @@ describe("buildWritePlanPrompt", () => {
 		// PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("Refactor execution strategy:");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain(
-			"skills/enriched-plan-save/references/refactor-execution-strategy.md",
+			"skills/incubating/branch-context/enriched-plan-save/references/refactor-execution-strategy.md",
 		);
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("same-shape edits across multiple files");
 		expect(checkedInContent).toContain("Refactor execution strategy:");
 		expect(checkedInContent).toContain(
-			"skills/enriched-plan-save/references/refactor-execution-strategy.md",
+			"skills/incubating/branch-context/enriched-plan-save/references/refactor-execution-strategy.md",
 		);
 		expect(checkedInContent).toContain("same-shape edits across multiple files");
 		expect(checkedInContent).toContain("stale-terminology grep/equivalent check");
@@ -283,7 +300,9 @@ describe("buildWriteGrilledPlanPrompt", () => {
 		expect(prompt).toContain("do not save");
 		expect(prompt).toContain("Do not include a full Q&A transcript or special Q&A section");
 		// PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance
-		expect(prompt).toContain("skills/enriched-plan-save/references/refactor-execution-strategy.md");
+		expect(prompt).toContain(
+			"skills/incubating/branch-context/enriched-plan-save/references/refactor-execution-strategy.md",
+		);
 		expect(prompt).toContain("same-shape edits across multiple files");
 		expect(prompt).toContain("explicitly choose an execution strategy");
 		// PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance

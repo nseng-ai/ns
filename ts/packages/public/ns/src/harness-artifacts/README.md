@@ -31,7 +31,7 @@ Adding another harness is intended to be a pure data addition to `HARNESS_SPECS`
 
 ## Catalog and provision flow
 
-The first-party catalog lives in `src/first-party-catalog.ts` as `NS_FIRST_PARTY_HARNESS_ARTIFACT_CATALOG`. The current catalog contains the `objective` skill (`objective-skill`) sourced from `skills/objective` in the `@nseng-ai/ns` repository package.
+The first-party catalog lives in `src/first-party-catalog.ts` as `NS_FIRST_PARTY_HARNESS_ARTIFACT_CATALOG`. The current catalog contains the `objective` skill (`objective-skill`) sourced from `skills/incubating/objectives/objective` in the `@nseng-ai/ns` repository package.
 
 Provisioning follows one deterministic path:
 

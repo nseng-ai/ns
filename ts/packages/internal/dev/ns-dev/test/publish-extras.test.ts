@@ -47,6 +47,29 @@ describe("generic publish extras", () => {
 		});
 	});
 
+	test("supports a nested canonical skill source with a flat publish destination", async () => {
+		const fixture = await createFixture();
+		await writeSkill(fixture.sourceRoot, "skills/incubating/objectives/objective", "objective");
+		const extras = await validatePublishExtras({
+			manifest: manifest([
+				{
+					kind: "skill",
+					name: "objective",
+					sourcePath: "skills/incubating/objectives/objective",
+					publishPath: "skills/objective",
+				},
+			]),
+			sourceRoot: fixture.sourceRoot,
+			publishRoot: fixture.publishRoot,
+		});
+
+		await copyPublishExtras(extras);
+
+		expect(
+			await readFile(join(fixture.publishRoot, "skills/objective/SKILL.md"), "utf8"),
+		).toContain("name: objective");
+	});
+
 	test.each(["../outside", "/absolute", "skills/../outside", "C:/absolute"])(
 		"rejects unsafe source path %s",
 		async (sourcePath) => {

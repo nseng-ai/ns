@@ -265,12 +265,13 @@ Do next work.
 });
 
 describe("repo skill expansion", () => {
-	test("walks up from cwd and expands skills/<name>/SKILL.md directly", async () => {
+	test("walks up from cwd and expands flat .agents/skills/<name>/SKILL.md", async () => {
 		await withTempRepoSkill(
 			{
 				skillName: "objective-create",
 				markdown: "---\nname: objective-create\n---\n\n# Objective Create\n",
 				prefix: "repo-skill-expansion-",
+				skillRoot: join(".agents", "skills"),
 			},
 			async ({ repoDir, skillDir, skillPath }) => {
 				const nestedCwd = join(repoDir, "packages", "example");
@@ -317,18 +318,18 @@ describe("repo skill expansion", () => {
 		);
 	});
 
-	test("uses shared skill lookup precedence across repo, vendored, and Claude roots", async () => {
+	test("uses shared skill lookup precedence across flat agents and Claude roots", async () => {
 		await withTempGitRepo({ prefix: "repo-skill-precedence-" }, async ({ repoDir }) => {
 			const nestedCwd = join(repoDir, "packages", "example");
 			await mkdir(nestedCwd, { recursive: true });
-			for (const root of ["skills", join(".agents", "skills"), join(".claude", "skills")]) {
+			for (const root of [join(".agents", "skills"), join(".claude", "skills")]) {
 				const skillDir = join(repoDir, root, "shared");
 				await mkdir(skillDir, { recursive: true });
 				await writeFile(join(skillDir, "SKILL.md"), `# ${root}\n`, "utf8");
 			}
 
 			expect(await resolveRepoSkillPath({ cwd: nestedCwd, skillName: "shared" })).toBe(
-				join(repoDir, "skills", "shared", "SKILL.md"),
+				join(repoDir, ".agents", "skills", "shared", "SKILL.md"),
 			);
 		});
 	});
@@ -369,7 +370,9 @@ describe("repo skill expansion", () => {
 
 				await expect(
 					resolveRepoSkillPath({ cwd: nestedCwd, skillName: "parent-only" }),
-				).rejects.toThrow("Could not find skills/parent-only/SKILL.md");
+				).rejects.toThrow(
+					"Could not find .agents/skills/parent-only/SKILL.md, .claude/skills/parent-only/SKILL.md",
+				);
 			},
 		);
 	});
@@ -378,7 +381,7 @@ describe("repo skill expansion", () => {
 		await withTempGitRepo({ prefix: "repo-skill-symlink-" }, async ({ repoDir }) => {
 			const symlinkTargetDir = join(repoDir, "skill-targets", "linked");
 			const vendoredRoot = join(repoDir, ".agents", "skills");
-			const directSymlinkDir = join(repoDir, "skills", "direct-link");
+			const directSymlinkDir = join(repoDir, ".claude", "skills", "direct-link");
 			await mkdir(symlinkTargetDir, { recursive: true });
 			await mkdir(vendoredRoot, { recursive: true });
 			await mkdir(directSymlinkDir, { recursive: true });
@@ -401,12 +404,12 @@ describe("repo skill expansion", () => {
 			{ prefix: "repo-skill-containment-", repoName: "repo" },
 			async ({ repoDir, tempDir }) => {
 				const siblingSkillDir = join(tempDir, "repo-other", "outside");
-				await mkdir(join(repoDir, "skills"), { recursive: true });
+				await mkdir(join(repoDir, ".agents", "skills"), { recursive: true });
 				await mkdir(siblingSkillDir, { recursive: true });
 				await writeFile(join(siblingSkillDir, "SKILL.md"), "# Outside\n", "utf8");
 
 				await expect(
-					resolveRepoSkillPath({ cwd: repoDir, skillName: "../../repo-other/outside" }),
+					resolveRepoSkillPath({ cwd: repoDir, skillName: "../../../../repo-other/outside" }),
 				).rejects.toThrow("resolves outside repository root");
 			},
 		);
