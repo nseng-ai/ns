@@ -20,42 +20,53 @@ Manual CLI fallback:
 ns address exec download-feedback --pr-number <pr-number> --format json
 ```
 
-The JSON result includes a `markdown` field intended for editor/session viewing. It is a report, not an automatic triage or implementation prompt by itself; inspect it before acting. If the human asks you to address feedback, that instruction includes the normal authorization to edit and to resolve or reply to review threads directly addressed by the implemented and validated change, unless the human says otherwise.
+The JSON result includes a `markdown` field intended for editor/session viewing. It is a read-only report: submitting it to the agent triggers proactive analysis and disposition planning, but does not authorize implementation or GitHub mutation. After proposing the plan below, wait for the human to confirm it, revise it, or request something else. An approved addressing plan includes the normal authorization to edit and to resolve or reply to review threads directly addressed by the implemented and validated change, unless the human says otherwise.
 
 ## Disposition structures
 
-Feedback fixes land through one of three structures:
+Every feedback item belongs to exactly one disposition:
 
-- **Omnibus** — one follow-up PR that absorbs a stack's mechanical fixes. *Avoid:* an omnibus is not a place for design-bearing refactors; those get a split-out.
+- **Primary batch** — the default bounded home for mechanical, behavior-preserving fixes. For one PR this is a direct batch on the current PR branch; for a stack this is an omnibus follow-up PR. *Avoid:* do not call the single-PR batch an omnibus, and do not put design-bearing refactors in either primary batch.
 - **Split-out** — a single-thesis PR carrying one design-bearing fix. *Avoid:* do not batch unrelated design-bearing fixes into one split-out; one thesis per PR.
-- **Downstack surgery** — amending the offending PR in place. *Avoid:* surgery is explicit opt-in only — it restacks upstack work; never choose it silently.
+- **Decline** — a stale, already-fixed, or rejected item. Itemize each decline, give the reason, and flag judgment calls so the human can override them.
+- **Defer** — an item intentionally kept outside the approved immediate batch. Itemize each deferral and explain why.
+
+**Downstack surgery** is an execution-placement option, not a disposition. Amending an offending PR in place is explicit opt-in only because it restacks upstack work; never choose it silently.
 
 ## Addressing workflows
 
 Both workflows below are one bounded pass over one downloaded snapshot, and both stop at the same boundary: PR feedback addressing owns that snapshot through fix, validation, submit, and thread resolution, then stops. `code-fix-gh-stack` explicitly owns waiting, re-querying checks, and iterative repair until the stack is green. After the pass, do not wait for or poll CI, Graphite mergeability, automated review jobs, or newly generated feedback; re-download feedback only when the user explicitly requests another pass or invokes a stack-repair/checks workflow.
 
-### Stack feedback: disposition plan (always HITL)
+### Downloaded feedback: disposition plan (always HITL)
 
-When presented with downloaded stack feedback, proactively produce a disposition plan even if the human only submitted the report. Ask the human to confirm it, explicitly offering the option to revise the plan or do something else, and wait for explicit approval before changing anything.
+When presented with downloaded single-PR or stack feedback, proactively summarize the feedback and likely implementation impact, then propose a disposition plan even if the human only submitted the report. The download authorizes this read-only planning, not edits, commits, submission, replies, or thread resolution. Explicitly offer the human the choices to confirm, revise the plan, or do something else, and wait for approval before changing anything.
 
 Plan format:
 
-- Group items by disposition (omnibus, split-out, decline, defer) with counts and category lines per group.
+- Account for every item under primary batch, split-out, decline, or defer.
+- Show counts and a concise category line for each non-empty group.
+- Suggest coherent change batches rather than merely restating comments.
+- Identify likely code, test, and documentation impacts where the report and repository inspection support them.
 - Itemize every decline and deferral individually; never fold them into counts.
-- Flag judgment-call declines explicitly so the human can override them.
-- Propose split-out placement and build-now-vs-defer per item, with rationale — there is no universal rule.
+- Distinguish verifiably stale or already-fixed declines from judgment calls, and flag judgment calls so the human can override them.
+- Propose placement and build-now-vs-defer rationale for each split-out when relevant; there is no universal rule.
 
-Omnibus placement:
+Single-PR variant:
 
-- At the stack tip, stack the omnibus there.
-- Not at the tip: never silently choose. Surface the situation and offer stacking at the tip vs a mid-stack insert (`gt create -i`).
-- Extend the omnibus already known to this session by default; recognition is session-context only — no naming conventions, no branch metadata. Create a fresh omnibus when none is known.
+- The primary batch lands directly on the current PR branch as a separate follow-up commit after approval.
+- Design-bearing work is proposed as one single-thesis split-out per change.
+- Do not introduce omnibus or stack-placement terminology.
 
-After approval, the bounded pass covers the omnibus plus the approved build-now split-outs, then submit, resolve the addressed threads, and stop.
+Stack variant:
 
-### Single PR: autonomous pass
+- The primary batch is one omnibus follow-up PR for mechanical fixes.
+- At the stack tip, stack the omnibus there. Otherwise never choose silently: offer stacking at the tip versus a mid-stack insert (`gt create -i`).
+- Extend the omnibus already known to this session by default; recognition is session-context only — no naming conventions or branch metadata. Create a fresh omnibus when none is known.
+- After approval, the bounded pass covers the omnibus plus approved build-now split-outs, then submit, resolve the addressed threads, and stop.
 
-When asked to address feedback on a single PR, run one bounded autonomous pass:
+### Single PR: approved addressing pass
+
+After the human approves the disposition plan for a single PR, run one bounded pass:
 
 1. Apply unambiguous, behavior-preserving fixes directly to the branch.
 2. Run appropriate local validation.
