@@ -2,7 +2,7 @@
 
 Load this reference when the user asks for execution-friendly Objectives, runner policy, `objective-next` execution, autonomous pursuit, direct execution after preview, `## Definition of Progress`, `## Runner Policy`, or row-level `Policy:` notes.
 
-This is shared policy guidance. Creation-specific interview/template guidance lives in the `objective-create` skill's execution-friendly creation reference. `objective-next` preview and confirmed-execution rules live in the `objective-next` skill's confirmed-execution reference.
+This is shared policy guidance. Creation-specific interview/template guidance lives in the `objective-create` skill's execution-friendly creation reference. `objective-next` preview and confirmed-execution rules live in the `objective-next` skill's confirmed-execution reference. Shaping the *prompts* an Objective produces is a separate, execution-independent construct: `## Prompt Guidance` (see `references/prompt-guidance.md`); do not restate prompt-shaping inside Runner Policy prose.
 
 ## Optional sections
 
