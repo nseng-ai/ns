@@ -209,6 +209,26 @@ Durable answer streaming to stdout is exceptional. The host must expose the sele
 
 **Rationale:** Ordinary commands should return one outcome for Clinkr to render. Explicit streaming support remains necessary for progressive terminal experiences and commands whose answer cannot be buffered conveniently.
 
+### 17. Teach workflows, not the complete export catalog
+
+The package README teaches the core adopter path directly: applications, commands and groups, outcomes, rendering, context, and end-to-end testing. Optional Clinkr features—completion, interaction, raw Commander subtrees, and streaming—remain in the README with one compact example or usage path each.
+
+The README does not attempt to catalog every supported root export. Low-level capability, I/O, envelope, format, emission, completion-planning, and testing utilities remain supported public API and are discoverable through their exported TypeScript types. An individual utility belongs in the narrative only when a core workflow needs it or its behavioral contract is otherwise easy to miss.
+
+Application-architecture guidance such as plugin-owned context factories is not part of the primary package narrative. It should live in a focused example or guide rather than making the README an exhaustive handbook.
+
+**Rationale:** A cold adopter needs a coherent route from one command to a testable CLI, plus clear discovery points for optional features. Teaching every export and every host-architecture pattern would obscure that route and duplicate the typed API surface.
+
+**Documentation consequences:**
+
+- keep one `runForTest` example and briefly route to the remaining testing-helper categories;
+- keep interaction as an optional feature with one context, confirmation, non-interactive, and fake-driven example;
+- shorten completion to app-level enablement, concise shell activation guidance, one dynamic-provider example, and its fallback/error-observation contract;
+- keep raw and streaming as concise escape hatches with explicit ownership and stream contracts;
+- route exact APIs to the five public package entrypoints and their exported types.
+
+**Deferred decision:** The evidence bar for accepting detailed observable-behavior claims will be settled during the implementation, test, export, and representative-caller audit. This contract-boundary pass neither requires separate external-adopter proof nor treats current ns usage as automatically sufficient.
+
 ## Accepted implementation behavior
 
 The following current behavior aligns with the settled contract and should not be treated as a mismatch during audit:
@@ -242,7 +262,7 @@ These are starting facts, not authorization for an unreviewed refactor. Each mat
 
 The following topics remain open and should be settled through the remaining README-driven audit:
 
-- How much of the remaining root API the package README should teach directly versus route to focused entrypoint sections and API examples.
+- What evidence bar should govern detailed observable-behavior claims, including how current ns usage, API currency, focused tests, and independently verified operational instructions contribute.
 - Which additional observable current behaviors deserve public-contract status after the package, export, test, and representative-caller audit.
 - Which concrete gate-calibration lessons from the Clinkr dry run should become mandatory for later package Subobjectives.
 - Whether any discovered complexity should be reconciled in this Objective or parked as unrelated redesign.
