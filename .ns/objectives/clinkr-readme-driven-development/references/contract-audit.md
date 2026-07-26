@@ -23,7 +23,7 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 **Impact and complexity:** High, cross-cutting migration. The group currently combines namespace, executable, default operation, completion host, and dispatch lifecycle. Foundation's `defineCli` is the primary executable-construction seam; SDK adapters and testing helpers are the next leverage points. Mounted feature groups such as Slots must remain non-executable tree components.
 
-**Proposed disposition:** **Reconcile implementation and callers.** Introduce `ClinkrApp` and a real standalone `ClinkrCommand`, retain `ClinkrGroup` for organization, and migrate through Foundation and SDK rather than forcing every feature package to become an executable.
+**Approved disposition:** **Reconcile implementation and callers through the foundational clean break.** Introduce private-constructor async `ClinkrApp.create(...)` plus public app/group/command builders that return immutable nodes from terminal `define()`. The app owns a transparent root scope and is the only executable/completion host; groups remain non-executable organization. Named command/group declarations become recursive lazy routes, while one nameless default command remains eagerly built with its containing scope. Migrate through Foundation and SDK rather than forcing every feature package to become an executable.
 
 ### 2. Executable features live on groups
 
@@ -31,7 +31,7 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 **Impact and complexity:** Medium-high. Root conditionals mix executable policy into recursive group construction. Completion ownership must move with version/runtime ownership.
 
-**Proposed disposition:** **Reconcile implementation and callers.** Put version, runtime diagnostics, and completion on opt-in `ClinkrApp` configuration while preserving the currently exercised behavior for apps that enable them.
+**Approved disposition:** **Reconcile implementation and callers.** Put version, runtime diagnostics, and completion on opt-in `ClinkrApp` configuration while preserving the currently exercised behavior for apps that enable them. Version/runtime bypass route/default construction; one lazy loader serves execution, help, and deep completion.
 
 ### 3. `list`/`ls` aliases are inferred
 
@@ -149,18 +149,28 @@ The audit found evidence supporting these already settled behaviors:
 
 These remain accepted unless reconciliation evidence exposes a contradiction.
 
-## Refactoring proposals requiring user discussion
+## Refactoring approval and remaining discussion gates
 
-The following are contract-supporting refactors, not authorization to implement:
+The user approved the foundational app/builder/lazy-route refactor for later implementation. It is bounded as follows:
 
-1. Split `ClinkrGroup` into an app lifecycle, standalone command node, and organizational group while retaining a shared internal tree representation.
-2. Centralize all four status schemas, runtime validation, schema publication, and rendering in one command/outcome model.
-3. Redesign the SDK adapter before removing render overrides; eliminate SDK-owned duplicate validation and rendering policy.
-4. Replace automatic-alias logic with explicit aliases across dispatch, completion, and SDK pre-routing.
-5. Replace the hybrid raw path with opaque Commander mounting and reclassify every current raw caller.
-6. Move completion enablement and failure observation to app policy.
-7. Remove `ClinkrFailure` conversion after exhaustive usage confirmation.
+- framework-owned builders, provenance checks, immutable nodes, one-parent identity, and transactional loader publication;
+- cheap route-only identity/help metadata; selected-path loading; shared in-flight loads, per-app success caching, retryable failures, and fresh Commander trees per run;
+- scope-time name/alias/reserved-name validation without child loading;
+- relative terminal builder imports using a named async `build(builder)` export;
+- fresh app creation per Foundation invocation after discovery, with package builders contributing route declarations;
+- coordinated clean-cut migration in this dependency order: Clinkr internals/tests, old API replacement, Foundation, SDK/catalog routing, remaining CLIs/testing, obsolete routing/API deletion, README promotion.
+
+This approval authorizes the direction, not TypeScript work in this documentation update. It does not authorize a compatibility layer, two public models, manual application argv pre-routing, or a filesystem-routes API. The latter may later compile to builders.
+
+Other proposals remain discussion-gated where their prior disposition is not independently settled:
+
+1. Centralize all four status schemas, runtime validation, schema publication, and rendering in one command/outcome model.
+2. Redesign the SDK adapter before removing render overrides; eliminate SDK-owned duplicate validation and rendering policy.
+3. Replace the hybrid raw path with opaque Commander mounting and reclassify every current raw caller.
+4. Move completion failure observation to app policy while preserving static fallback.
+5. Remove `ClinkrFailure` conversion after exhaustive usage confirmation.
+6. Settle `position` versus `index` and the `md` alias explicitly.
 
 ## Audit conclusion
 
-All ten known mismatches have implementation, test, and representative-caller evidence plus proposed dispositions. The audit added six material findings. Two API choices—`position` versus `index`, and whether `md` remains a public format alias—require user steering. The implementation sequence and every contract-supporting refactor must be discussed before TypeScript changes begin. An exhaustive search found `ClinkrFailure` construction only in Clinkr tests plus a TypeScript style-guard fixture, strengthening the proposed removal disposition but not authorizing it.
+All ten known mismatches have implementation, test, and representative-caller evidence plus proposed dispositions. The audit added six material findings. Two API choices—`position` versus `index`, and whether `md` remains a public format alias—require user steering. The foundational split and migration sequence are approved, but TypeScript implementation has not begun. Remaining disputed dispositions must still be discussed before their implementation. An exhaustive search found `ClinkrFailure` construction only in Clinkr tests plus a TypeScript style-guard fixture, strengthening the proposed removal disposition but not authorizing it.
