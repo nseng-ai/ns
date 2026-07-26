@@ -24,17 +24,13 @@ This Objective-only PR deliberately does not reconcile implementation. Premature
 
 ### 1. Separate application, operation, and organization
 
-Every executable uses a `ClinkrApp`. Its root is either one standalone `ClinkrCommand` or one `ClinkrGroup`.
+Every executable is an immutable `ClinkrApp`. The app owns its executable name and has a transparent root scope containing a nameless default command and/or named command and group routes. `ClinkrCommand` represents one operation; `ClinkrGroup` organizes routes. Only `ClinkrApp` executes or computes completion—commands and groups have no `run`/`complete` compatibility methods.
 
-- `ClinkrApp` owns the executable entry point and execution lifecycle.
-- `ClinkrCommand` represents one operation directly.
-- `ClinkrGroup` organizes commands and subgroups.
+**Rationale:** Entry-point concerns are distinct from operation definition and command-tree organization. A transparent root avoids representing the executable as a command or degenerate group.
 
-**Rationale:** Entry-point concerns are distinct from operation definition and command-tree organization. A standalone operation should not be represented as a null or degenerate case of a group.
+**Tradeoff:** This adds explicit app and immutable node abstractions instead of one multipurpose group abstraction. The additional concepts make ownership and lifecycle clear.
 
-**Tradeoff:** This adds explicit app and command abstractions instead of one multipurpose group abstraction. The additional concepts make ownership clearer and give standalone commands a natural representation.
-
-**Current mismatch:** The implementation has no `ClinkrApp` or standalone `ClinkrCommand`. Execution, version, and runtime metadata currently live on `ClinkrGroup`, with operations registered through `command(...)` or `defaultCommand(...)`.
+**Current mismatch:** The implementation has no `ClinkrApp` or standalone immutable `ClinkrCommand`. Execution, version, runtime metadata, and completion currently live on `ClinkrGroup`, with operations registered through `command(...)` or `defaultCommand(...)`.
 
 ### 2. App-level executable features are opt-in
 
@@ -228,6 +224,50 @@ Application-architecture guidance such as plugin-owned context factories is not 
 - route exact APIs to the five public package entrypoints and their exported types.
 
 **Deferred decision:** The evidence bar for accepting detailed observable-behavior claims will be settled during the implementation, test, export, and representative-caller audit. This contract-boundary pass neither requires separate external-adopter proof nor treats current ns usage as automatically sufficient.
+
+## Settled builder and lazy-route reconciliation (2026-07-25)
+
+This section records the focused design review that approved the foundational refactor. It supersedes earlier constructor and root-object examples in this record and the draft: there is no desired `new ClinkrCommand(...)`, `new ClinkrGroup(...)`, or app `{ root }` public model.
+
+### Creation and immutable authoring
+
+- `ClinkrApp` has a private constructor. Creation is async: `ClinkrApp.create(options, async (appBuilder) => { ...; return await appBuilder.define(); })`. `options` owns the executable name and includes `moduleUrl: import.meta.url` for relative imports.
+- Public authoring uses `ClinkrAppBuilder`, `ClinkrGroupBuilder`, and `ClinkrCommandBuilder`. Terminal `define()` returns immutable `ClinkrApp`, `ClinkrGroup`, or `ClinkrCommand`; command/group constructors are not public.
+- Every async build callback must return the immutable object produced by the supplied builder, and runtime verifies provenance. The standard local names are `appBuilder`, `groupBuilder`, and `commandBuilder`; documented terminal form is `return await ...define()`.
+- Every command builder defines exactly once. Group/app `define()` finalizes its scope. App definition cannot change after definition.
+
+### Scope and routing contract
+
+- A scope exposes `defaultCommand(async (commandBuilder) => ...)`, `command(metadata, async (commandBuilder) => ...)`, `group(metadata, async (groupBuilder) => ...)`, and `define()`.
+- The one nameless default command belongs to its containing scope and is built eagerly while that scope is constructed. Keep this behavior. Named routes and explicit aliases beat default positional parsing; a group with neither a selected child nor a default shows help.
+- Named commands and groups are lazy routes at every level. Route metadata is cheap and contains only kind, name, description/summary/help grouping, explicit aliases, hidden state, and loader. Identity/help metadata exists only on the route, never duplicated on the loaded node. Schemas, handlers, renderers, completion providers, and children remain behind the loader.
+- Only the selected path is constructed. For example, `some_cli some_group -h` constructs `some_group` and its one default command, but no sibling or named child. Parent/top-level help uses route metadata without loading children.
+- Clinkr owns argv traversal; applications do not manually pre-route. One route loader serves execution, help, and deep completion. Name completion uses metadata; option/argument completion loads the selected command. There is no separate completion loader.
+- The app root is transparent. Context-free apps use `void` with no ceremony. Contextful apps require one per-run context homogeneous throughout the tree; adaptation remains above Clinkr.
+
+### Imports and module composition
+
+Builders provide terminal `builder.import("./relative-module.ts")`. Specifiers must be relative and resolve from the module currently being built. The imported module exports standard named async `build(builder)`, and `import()` returns the finalized immutable object. A concise route may use `appBuilder.group(metadata, async (groupBuilder) => groupBuilder.import("./admin-group.ts"))`.
+
+A future higher-level filesystem-routes API is desirable but explicitly outside this reconciliation. It should compile to this builder model; the builder model is the one authoring path now.
+
+### Loading, identity, and validation
+
+- Route construction is transactional. Framework-owned builders establish node identity; publish/cache only after the callback succeeds and definition validates.
+- Concurrent requests share an in-flight load. Successful loads cache for the app lifetime; failed loads are cleared and retryable. Commander trees are fresh per run.
+- Command/group nodes have one parent. Reuse requires a fresh builder/factory.
+- Route name, alias, and reserved-name conflicts validate when the containing scope is built without loading children. Aliases are explicit only.
+- App-level `--version` and `--runtime` bypass all named routes and default-command construction.
+
+### Foundation and migration boundary
+
+Here, Foundation means `@nseng-ai/foundation`'s `defineCli`. After `prepareRun`/discovery, it creates a fresh `ClinkrApp` per invocation; package builders contribute route declarations, then Foundation wraps and runs them. It is not a process singleton. Direct external consumers create an app themselves. Current ns request-specific extension loading migrates behind Clinkr's lazy routes, while mounted feature groups remain non-executable.
+
+This is a hard clean break, not a compatibility layer or two public models. Migration order is: Clinkr internals/tests; replace the old API; Foundation; SDK/catalog lazy routing; remaining CLIs/testing; delete obsolete group execution, automatic aliases, and duplicated SDK pre-routing; then update and promote the README. Reviewable internal commits or a stack are acceptable, but cutover is coordinated.
+
+### Explicitly unresolved and unchanged
+
+`position` versus `index` and whether `md` remains a public format alias are still unresolved. Outcome, raw mounting, rendering, and completion-error decisions remain as recorded elsewhere in this document; approval of the foundational refactor does not silently settle or reopen them.
 
 ## Accepted implementation behavior
 
