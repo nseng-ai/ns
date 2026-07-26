@@ -28,11 +28,11 @@ mechanical sync.
 
 Canonical semantics live in exactly one place, with thin hooks elsewhere:
 
-- **Canonical pattern spec** (recognition-level): `skills/objective/references/objective-patterns.md`,
+- **Canonical pattern spec** (recognition-level): `skills/incubating/objectives/objective/references/objective-patterns.md`,
   "Ideation Objective" section.
 - **Canonical vocabulary**: root `CONTEXT.md` entries — Ideation Objective, Destination,
   Question Row, Frontier, Fog, Crystallization.
-- **Creation reference**: `skills/objective-create/references/wayfinding-create.md`
+- **Creation reference**: `skills/incubating/objectives/objective-create/references/wayfinding-create.md`
   owns the charting rules (Destination-first, typed Question Rows, Fog held back);
   maintainers edit it during upstream syncs.
 - **Step-skill hooks** (behavioral one-liners that defer to the pattern spec):
@@ -125,7 +125,7 @@ noticed):
      `edges`). Record notable rejections here so the next sync doesn't relitigate them.
 3. Update this document — the kept/dropped/added tables must describe the *current*
    upstream, or the next sync starts from a stale map.
-4. Re-check the creation reference (`skills/objective-create/references/wayfinding-create.md`)
+4. Re-check the creation reference (`skills/incubating/objectives/objective-create/references/wayfinding-create.md`)
    and the step-skill hooks (`objective-next`, `objective-update`) only if a flowed
    change alters what that step does.
 5. Never let a dropped concept re-enter as machine state; the promotion path for any

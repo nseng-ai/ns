@@ -283,6 +283,7 @@ describe("/pi:grill-me command", () => {
 				skillName: GRILL_UI_SKILL_NAME,
 				markdown: `---\nname: ${GRILL_UI_SKILL_NAME}\ndescription: test\n---\n\nBackend skill body from test.\n`,
 				prefix: "pi-grill-ui-test-",
+				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir, skillPath }) => {
 				const { pi, command } = register();
@@ -349,6 +350,7 @@ describe("/pi:grill-with-docs command", () => {
 				skillName: GRILL_WITH_DOCS_UI_SKILL_NAME,
 				markdown: `---\nname: ${GRILL_WITH_DOCS_UI_SKILL_NAME}\ndescription: test\n---\n\nDocs-aware backend skill body from test.\n`,
 				prefix: "pi-grill-with-docs-ui-test-",
+				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir, skillPath }) => {
 				const { pi, docsCommand } = register();
@@ -918,6 +920,7 @@ describe("grill_ask activation lifecycle", () => {
 				skillName: GRILL_UI_SKILL_NAME,
 				markdown: `---\nname: ${GRILL_UI_SKILL_NAME}\ndescription: test\n---\n\nBody.\n`,
 				prefix: "pi-grill-ui-activation-test-",
+				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir }) => {
 				const pi = new FakePi(["read"]);

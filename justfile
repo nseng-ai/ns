@@ -211,8 +211,8 @@ skill-exposure-check: _ts-workspace-ready
     @set -e; \
       root="{{justfile_directory()}}"; \
       set --; \
-      for skill in "$root"/skills/*; do \
-        if [ -d "$skill" ]; then set -- "$@" "$skill"; fi; \
+      for skill_md in $(find "$root/skills/public" "$root/skills/incubating" "$root/skills/internal" -type f -name SKILL.md -print | sort); do \
+        set -- "$@" "${skill_md%/SKILL.md}"; \
       done; \
       for skill in "$root"/.agents/skills/*; do \
         if [ -d "$skill" ] && [ ! -L "$skill" ]; then set -- "$@" "$skill"; fi; \
@@ -225,7 +225,7 @@ skill-exposure-check: _ts-workspace-ready
 # in the loop — extracts the package graph and renders from a synthesized spec.
 # Pass --no-open to print the path only, or any extract-graph flag (--root, --kit, ...).
 topology *args:
-    {{justfile_directory()}}/skills/architecture-topology-report/scripts/topology {{args}}
+    {{justfile_directory()}}/skills/internal/review-system/architecture-topology-report/scripts/topology {{args}}
 
 # Install public tools via TypeScript source shims.
 install-tools: _remove-stale-branch-context-bin install-ns install-brmem install-vibechk install-packagechk

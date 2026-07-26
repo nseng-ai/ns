@@ -251,6 +251,7 @@ describe("registerBackingSkillCommands", () => {
 				skillName: "code-workflows",
 				markdown: "---\nname: code-workflows\n---\n\n# Code Workflows\n",
 				prefix: "backing-skill-command-",
+				skillRoot: join(".agents", "skills"),
 			},
 			async ({ repoDir, skillPath }) => {
 				const host = new FakeBackingSkillHost();

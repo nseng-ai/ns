@@ -4,7 +4,7 @@ Rules for working under `ts/`, the pnpm workspace holding the ns first-party Typ
 
 ## TypeScript
 
-- Before TypeScript work, read `.agents/skills/typescript-style/SKILL.md` and `.agents/skills/ns-typescript/SKILL.md`.
+- Before TypeScript work, read the flat Harness Overlays `.agents/skills/typescript-style/SKILL.md` and `.agents/skills/ns-typescript/SKILL.md`. `../skills/README.md` defines their nested canonical-source topology.
 - Typecheck with the native TypeScript 7 `tsc`: `just ts-check` or `pnpm --dir ts run check`.
 - `ts/` package tests are Vitest-backed; default to the full TS validation suite rather than asking to narrow scope.
 - Do not add Bun-runner package tests. Only standalone Bun templates/projects may use Bun tests, and then run `bun test --sequential`.
@@ -62,7 +62,7 @@ shape, so do not work around alias bans with `const LocalName = ImportedName`.
 
 ## CLI work
 
-Before designing, authoring, or reviewing CLI commands, command groups, `exec` subgroups, machine output, exit/error behavior, or destructive flows, read `skills/ns-cli-design/SKILL.md`. Ambient CLI hard gates:
+Before designing, authoring, or reviewing CLI commands, command groups, `exec` subgroups, machine output, exit/error behavior, or destructive flows, read `skills/internal/agent-engineering/ns-cli-design/SKILL.md`. Ambient CLI hard gates:
 
 - CLI scenario tests must cover `--version`, `--runtime`, and `-h` when those surfaces are part of the user-facing contract.
 - Skill/agent-only commands must live under a nested `exec` `ClinkrGroup` constructed with `isHidden: true`; keep top-level `--help` human-focused.

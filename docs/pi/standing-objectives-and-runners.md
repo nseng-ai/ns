@@ -8,10 +8,10 @@ This document is a design brief, not the canonical Objective spec. The canonical
 
 Agent-facing progressive-disclosure guidance lives in skill references so ordinary Objective workflows do not load standing/runner context by default:
 
-- `skills/objective/references/standing-objectives.md`
-- `skills/objective/references/execution-policy.md`
-- `skills/objective-create/references/execution-friendly-create.md`
-- `skills/objective-next/references/confirmed-execution.md`
+- `skills/incubating/objectives/objective/references/standing-objectives.md`
+- `skills/incubating/objectives/objective/references/execution-policy.md`
+- `skills/incubating/objectives/objective-create/references/execution-friendly-create.md`
+- `skills/incubating/objectives/objective-next/references/confirmed-execution.md`
 
 ---
 
@@ -54,7 +54,7 @@ Do not call every execution-friendly Objective autonomous. Human-assisted execut
 
 ### Autoobjective branch policy
 
-Autoobjective runners that create implementation branches should follow the branch-context branch creation policy (`skills/branch-context/references/lifecycle.md`): use branch-context Graphite creation rather than `gt create`.
+Autoobjective runners that create implementation branches should follow the branch-context branch creation policy (`skills/incubating/branch-context/branch-context/references/lifecycle.md`): use branch-context Graphite creation rather than `gt create`.
 
 No-submit autoobjective runs should avoid `gt modify`, `gt restack`, and submit/update Graphite mutations; those belong to explicit submit or reconciliation flows.
 

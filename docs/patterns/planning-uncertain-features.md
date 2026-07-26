@@ -14,14 +14,14 @@ PLAN-VERIFICATION-WORKSTREAM:END <feature-slug>
 ### `enriched-plan-save-plan-quality`
 
 - Status: existing unsure planning feature.
-- Marker evidence: `skills/enriched-plan-save/SKILL.md` wraps the saved-plan quality and cold-read executability/fact-check workflow.
+- Marker evidence: `skills/incubating/branch-context/enriched-plan-save/SKILL.md` wraps the saved-plan quality and cold-read executability/fact-check workflow.
 - Why unsure: it adds workflow overhead to saved-plan creation and may be too policy-heavy for a skill prompt if the behavior is better owned by a CLI command or removed.
 - Pull-out approach: remove the marked block and then re-check the remaining enriched-plan-save workflow for numbering and stale references to cold-read review/freshness gates.
 
 ### `refactor-execution-strategy-guidance`
 
 - Status: current branch experiment.
-- Marker evidence: marked additions in `.ns/prompts/plans-write.md`, `skills/enriched-plan-save/SKILL.md`, `ts/packages/pi/src/branch-context/enriched-plan-save.ts`, and associated TypeScript prompt tests.
+- Marker evidence: marked additions in `.ns/prompts/branch-context.plans-write.md`, `skills/incubating/branch-context/enriched-plan-save/SKILL.md`, `ts/packages/incubating/extensions/branch-context/src/pi/enriched-plan-save.ts`, and associated TypeScript prompt tests.
 - Why unsure: it may over-prescribe implementation mechanics in durable plans, may bias agents toward named skills when local judgment is enough, and overlaps with normal implementation-agent responsibility.
 - Pull-out approach: remove every block/comment group carrying this slug, then remove or relax any tests whose only purpose is asserting the refactor-execution wording.
 

@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
@@ -192,6 +193,7 @@ hidden-frontmatter-token: do-not-include
 Repair the failed just run.
 `,
 				prefix: "code-just-fix-skill-",
+				skillRoot: join(".agents", "skills"),
 			},
 			async ({ repoDir, skillDir, skillPath }) => {
 				const pi = new FakePi(

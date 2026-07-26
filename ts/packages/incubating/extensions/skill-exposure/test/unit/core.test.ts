@@ -18,8 +18,8 @@ const settings: PiSettings = {
 function inspection(overrides: Partial<SkillInspection> = {}): SkillInspection {
 	return {
 		skill: "demo",
-		canonicalPath: "/repo/skills/demo",
-		relativePath: "skills/demo",
+		canonicalPath: "/repo/skills/internal/test/demo",
+		relativePath: "skills/internal/test/demo",
 		policy: "normal",
 		facts: {
 			modelInvocationDisabled: false,
@@ -42,10 +42,10 @@ describe("skill exposure policy", () => {
 		const missing = Object.assign(new Error("missing"), { code: "ENOENT" });
 		const inaccessible = Object.assign(new Error("denied"), { code: "EACCES" });
 
-		expect(skillPathResolutionError("skills/missing", missing)).toBeInstanceOf(
+		expect(skillPathResolutionError("skills/internal/test/missing", missing)).toBeInstanceOf(
 			SkillExposureInputError,
 		);
-		expect(skillPathResolutionError("skills/private", inaccessible)).toBeInstanceOf(
+		expect(skillPathResolutionError("skills/internal/test/private", inaccessible)).toBeInstanceOf(
 			SkillExposureIoError,
 		);
 	});
@@ -54,11 +54,11 @@ describe("skill exposure policy", () => {
 		const plan = planSkillExposure(inspection(), "invoke-only");
 		expect(plan.operations.filter((operation) => operation.type === "write")).toEqual([
 			expect.objectContaining({
-				path: "skills/demo/SKILL.md",
+				path: "skills/internal/test/demo/SKILL.md",
 				content: expect.stringContaining("custom: retained"),
 			}),
 			expect.objectContaining({
-				path: "skills/demo/agents/openai.yaml",
+				path: "skills/internal/test/demo/agents/openai.yaml",
 				content: MANAGED_OPENAI_POLICY,
 			}),
 		]);

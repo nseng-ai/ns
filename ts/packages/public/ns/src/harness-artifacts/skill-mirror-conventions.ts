@@ -1,18 +1,20 @@
 import type { ErrorInfo } from "@nseng-ai/foundation/result";
 
 import type { PathState } from "./fs-state.ts";
+import { findFirstPartySkillArtifact } from "./first-party-catalog.ts";
 
-export function expectedAgentsSkillSymlinkTarget(skillName: string): string {
-	return `../../skills/${skillName}`;
+export function expectedAgentsSkillSymlinkTarget(sourceRelativePath: string): string {
+	return `../../${sourceRelativePath}`;
 }
 
 export function expectedClaudeSkillSymlinkTarget(skillName: string): string {
 	return `../../.agents/skills/${skillName}`;
 }
 
-export function isAgentsSkillMirror(pathState: PathState, skillName: string): boolean {
+export function isAgentsSkillMirror(pathState: PathState, sourceRelativePath: string): boolean {
 	return (
-		pathState.type === "symlink" && pathState.target === expectedAgentsSkillSymlinkTarget(skillName)
+		pathState.type === "symlink" &&
+		pathState.target === expectedAgentsSkillSymlinkTarget(sourceRelativePath)
 	);
 }
 
@@ -49,12 +51,15 @@ export function parseSkillMirrorRelativePath(
 	if (parts.length !== 3 || parts[1] !== "skills") return undefined;
 	const skillName = parts[2];
 	if (skillName === undefined || !isPlainSkillNameSegment(skillName)) return undefined;
-	if (parts[0] === ".agents")
+	if (parts[0] === ".agents") {
+		const artifact = findFirstPartySkillArtifact(skillName);
+		if (artifact === undefined) return undefined;
 		return {
 			mirrorKind: "agents",
 			skillName,
-			expectedTarget: expectedAgentsSkillSymlinkTarget(skillName),
+			expectedTarget: expectedAgentsSkillSymlinkTarget(artifact.source.relativePath),
 		};
+	}
 	if (parts[0] === ".claude")
 		return {
 			mirrorKind: "claude",

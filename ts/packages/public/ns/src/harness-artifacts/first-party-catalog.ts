@@ -17,7 +17,7 @@ export const NS_FIRST_PARTY_HARNESS_ARTIFACT_CATALOG = {
 			source: {
 				type: "first-party",
 				packageName: "@nseng-ai/ns",
-				relativePath: "skills/objective",
+				relativePath: "skills/incubating/objectives/objective",
 			},
 		},
 	],

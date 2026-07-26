@@ -28,18 +28,18 @@ Keep the router body small:
 
 - State the routing contract and when to ask for clarification.
 - Keep a route table mapping canonical route names and old aliases to reference files.
-- Put full playbooks under `skills/<router-name>/references/` as ordinary Markdown.
+- Put full playbooks under the router's nested canonical source, `skills/<disposition>/<family>/<router-name>/references/`, as ordinary Markdown.
 - Resolve relative reference paths from the router skill directory.
 - Treat old standalone names as aliases only, not as installed duplicate skills.
 
-For repo-local skills, `skills/<name>/` is the canonical source. The installed `.agents/skills/<name>` and `.claude/skills/<name>` entries should be symlinks to that source. When migrating old standalone skills into a router, remove the old canonical directories and installed symlink surfaces instead of leaving hidden duplicates.
+For first-party repo-local skills, `skills/<disposition>/<family>/<name>/` is the canonical source (except approved top-level product paths such as `skills/incubating/<name>/`). The installed `.agents/skills/<name>` entry should point to that source, and `.claude/skills/<name>` should point through the flat `.agents` overlay. When migrating old standalone skills into a router, remove the old canonical directories and installed symlink surfaces instead of leaving hidden duplicates.
 
 ## Migration checklist
 
-1. Create or update `skills/<router-name>/SKILL.md` with terse frontmatter, routing rules, and a route table.
-2. Move each old playbook into `skills/<router-name>/references/<route>.md`.
+1. Create or update `skills/<disposition>/<family>/<router-name>/SKILL.md` with terse frontmatter, routing rules, and a route table.
+2. Move each old playbook into `skills/<disposition>/<family>/<router-name>/references/<route>.md`.
 3. Add canonical route rows and old-name alias rows to the router table.
-4. Remove old `skills/<old-name>/`, `.agents/skills/<old-name>/`, and `.claude/skills/<old-name>/` entries.
+4. Remove each old nested canonical directory plus its `.agents/skills/<old-name>/` and `.claude/skills/<old-name>/` entries.
 5. Remove old skill lockfile entries if the migration changes installed skill state.
 6. Validate skill inventory, symlink/install state, and formatting.
 
@@ -71,7 +71,7 @@ For a skill migration, also verify the installed router and repository consisten
 
 ```bash
 INSTALL_INTERNAL_SKILLS=1 npx skills list | rg "<router-name>"
-ns skill-exposure check skills/<router-name>
+ns skill-exposure check skills/<disposition>/<family>/<router-name>
 ```
 
 For selector code changes, load the TypeScript style skill before editing and run the relevant package checks/tests, normally through the repo `just` targets or the changed package's `pnpm --dir ts/packages/pi ...` scripts.

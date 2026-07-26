@@ -13,33 +13,46 @@ import {
 
 describe("skill mirror conventions", () => {
 	test("computes convention symlink targets", () => {
-		expect(expectedAgentsSkillSymlinkTarget("demo")).toBe("../../skills/demo");
-		expect(expectedClaudeSkillSymlinkTarget("demo")).toBe("../../.agents/skills/demo");
+		expect(expectedAgentsSkillSymlinkTarget("skills/incubating/objectives/objective")).toBe(
+			"../../skills/incubating/objectives/objective",
+		);
+		expect(expectedClaudeSkillSymlinkTarget("objective")).toBe("../../.agents/skills/objective");
 	});
 
 	test("recognizes convention mirror symlinks by state and target", () => {
-		expect(isAgentsSkillMirror({ type: "symlink", target: "../../skills/demo" }, "demo")).toBe(
-			true,
-		);
-		expect(isAgentsSkillMirror({ type: "symlink", target: "../../skills/other" }, "demo")).toBe(
-			false,
-		);
-		expect(isAgentsSkillMirror({ type: "directory" }, "demo")).toBe(false);
 		expect(
-			isClaudeSkillMirror({ type: "symlink", target: "../../.agents/skills/demo" }, "demo"),
+			isAgentsSkillMirror(
+				{ type: "symlink", target: "../../skills/incubating/objectives/objective" },
+				"skills/incubating/objectives/objective",
+			),
+		).toBe(true);
+		expect(
+			isAgentsSkillMirror(
+				{ type: "symlink", target: "../../skills/other" },
+				"skills/incubating/objectives/objective",
+			),
+		).toBe(false);
+		expect(
+			isAgentsSkillMirror({ type: "directory" }, "skills/incubating/objectives/objective"),
+		).toBe(false);
+		expect(
+			isClaudeSkillMirror(
+				{ type: "symlink", target: "../../.agents/skills/objective" },
+				"objective",
+			),
 		).toBe(true);
 	});
 
 	test("parses mirror relative paths for both mirror kinds", () => {
-		expect(parseSkillMirrorRelativePath(".agents/skills/demo")).toEqual({
+		expect(parseSkillMirrorRelativePath(".agents/skills/objective")).toEqual({
 			mirrorKind: "agents",
-			skillName: "demo",
-			expectedTarget: "../../skills/demo",
+			skillName: "objective",
+			expectedTarget: "../../skills/incubating/objectives/objective",
 		});
-		expect(parseSkillMirrorRelativePath(".claude/skills/demo")).toEqual({
+		expect(parseSkillMirrorRelativePath(".claude/skills/objective")).toEqual({
 			mirrorKind: "claude",
-			skillName: "demo",
-			expectedTarget: "../../.agents/skills/demo",
+			skillName: "objective",
+			expectedTarget: "../../.agents/skills/objective",
 		});
 	});
 
@@ -60,10 +73,10 @@ describe("skill mirror conventions", () => {
 	test("classifies deletable convention symlinks as undefined", () => {
 		expect(
 			classifySkillMirrorSymlinkState(
-				".agents/skills/demo",
-				{ type: "symlink", target: "../../skills/demo" },
+				".agents/skills/objective",
+				{ type: "symlink", target: "../../skills/incubating/objectives/objective" },
 				"agents mirror",
-				"/repo/.agents/skills/demo",
+				"/repo/.agents/skills/objective",
 			),
 		).toBeUndefined();
 	});
@@ -75,16 +88,16 @@ describe("skill mirror conventions", () => {
 			{ type: "symlink", target: "../../skills/demo" } as const,
 			"skill-kind-delete-symlink-refused",
 		],
-		["missing state", ".agents/skills/demo", undefined, "skill-kind-delete-symlink-missing"],
+		["missing state", ".agents/skills/objective", undefined, "skill-kind-delete-symlink-missing"],
 		[
 			"non-symlink state",
-			".agents/skills/demo",
+			".agents/skills/objective",
 			{ type: "directory" } as const,
 			"skill-kind-delete-symlink-not-symlink",
 		],
 		[
 			"wrong target",
-			".agents/skills/demo",
+			".agents/skills/objective",
 			{ type: "symlink", target: "../../skills/other" } as const,
 			"skill-kind-delete-symlink-wrong-target",
 		],

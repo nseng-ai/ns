@@ -95,9 +95,9 @@ export class InMemorySkillExposureGateway implements SkillExposureGateway {
 			throw new SkillExposureInputError(`Skill path does not exist: ${input}`);
 		const canonical = skill.canonicalPath ?? `${this.root}/${skill.path}`;
 		const relativePath = canonical.slice(this.root.length + 1);
-		if (!/^skills\/[^/]+$/.test(relativePath) && !/^\.agents\/skills\/[^/]+$/.test(relativePath))
+		if (!isCanonicalSkillRelativePath(relativePath))
 			throw new SkillExposureInputError(
-				`Skill path must resolve canonically to skills/<name> or .agents/skills/<name>: ${input}`,
+				`Skill path must resolve canonically to skills/<public|incubating|internal>/<family>/<name>, skills/incubating/{brmem|slots}, or .agents/skills/<name>: ${input}`,
 			);
 		if (skill.skillMdSymlink)
 			throw new SkillExposureRepositoryError(
@@ -269,6 +269,22 @@ export function inMemorySkill(path: string, options: Partial<InMemorySkill> = {}
 		skillMdText: `---\nname: ${name}\ndescription: Test skill\n---\n\nBody\n`,
 		...options,
 	};
+}
+
+function isCanonicalSkillRelativePath(relativePath: string): boolean {
+	const segments = relativePath.split("/");
+	const disposition = segments[1];
+	const familySkill =
+		segments.length === 4 &&
+		segments[0] === "skills" &&
+		(disposition === "public" || disposition === "incubating" || disposition === "internal");
+	const productSkill =
+		segments.length === 3 &&
+		segments[0] === "skills" &&
+		disposition === "incubating" &&
+		(segments[2] === "brmem" || segments[2] === "slots");
+	const vendored = segments.length === 3 && segments[0] === ".agents" && segments[1] === "skills";
+	return familySkill || productSkill || vendored;
 }
 
 function copySettings(settings: PiSettings): PiSettings {

@@ -136,7 +136,11 @@ describe("ns:objective:create command", () => {
 
 	test("reads objective-create backing skill directly and preserves initial user request", async () => {
 		await withTempRepoSkill(
-			{ skillName: "objective-create", markdown: CREATE_SKILL_MARKDOWN },
+			{
+				skillName: "objective-create",
+				markdown: CREATE_SKILL_MARKDOWN,
+				skillRoot: ".agents/skills",
+			},
 			async ({ repoDir, skillPath, skillDir }) => {
 				const result = await runObjectiveCreate({
 					args: "  create slug alpha for typeahead-friendly Objective creation  ",
@@ -170,7 +174,11 @@ describe("ns:objective:create command", () => {
 
 	test("empty args still invokes the objective-create interview from backing skill", async () => {
 		await withTempRepoSkill(
-			{ skillName: "objective-create", markdown: CREATE_SKILL_MARKDOWN },
+			{
+				skillName: "objective-create",
+				markdown: CREATE_SKILL_MARKDOWN,
+				skillRoot: ".agents/skills",
+			},
 			async ({ repoDir, skillPath }) => {
 				const result = await runObjectiveCreate({ args: "", cwd: repoDir });
 
@@ -202,7 +210,7 @@ describe("ns:objective:create command", () => {
 				"Failed to read objective-create backing skill",
 			);
 			expect(result.notifications[0]?.message).toContain(
-				"Could not find skills/objective-create/SKILL.md",
+				"Could not find .agents/skills/objective-create/SKILL.md, .claude/skills/objective-create/SKILL.md",
 			);
 			expect(result.notifications[0]?.message).toContain(repoDir);
 		});
@@ -210,7 +218,11 @@ describe("ns:objective:create command", () => {
 
 	test("objective-create initial request fence grows beyond embedded backticks", async () => {
 		await withTempRepoSkill(
-			{ skillName: "objective-create", markdown: CREATE_SKILL_MARKDOWN },
+			{
+				skillName: "objective-create",
+				markdown: CREATE_SKILL_MARKDOWN,
+				skillRoot: ".agents/skills",
+			},
 			async ({ repoDir }) => {
 				const result = await runObjectiveCreate({
 					args: "make `code` and ```nested``` safe",

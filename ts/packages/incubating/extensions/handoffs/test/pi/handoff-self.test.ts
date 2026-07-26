@@ -20,9 +20,9 @@ import {
 } from "./handoff-test-fakes.ts";
 
 const SELF_TOOL_NAME = "handoff_self_queue_pickup";
-const FAKE_SKILL_PATH = "/repo/skills/handoff-create/SKILL.md";
+const FAKE_SKILL_PATH = "/repo/.agents/skills/handoff-create/SKILL.md";
 const FAKE_SKILL_BLOCK = `<skill name="handoff-create" location="${FAKE_SKILL_PATH}">
-References are relative to /repo/skills/handoff-create.
+References are relative to /repo/.agents/skills/handoff-create.
 
 # handoff-create
 
@@ -495,7 +495,7 @@ function fakeHandoffCreateSkillLoader(): HandoffCreateSkillLoader {
 					name: "handoff-create",
 					commandName: "direct:handoff-create",
 					path: FAKE_SKILL_PATH,
-					baseDir: "/repo/skills/handoff-create",
+					baseDir: "/repo/.agents/skills/handoff-create",
 					body: "# handoff-create\n\nCreate a handoff from the skill body.",
 					block: FAKE_SKILL_BLOCK,
 				},

@@ -74,8 +74,8 @@ The frontmatter below the block must remain loadable by the Reviews extension;
 
 ## SKILL.md stub template
 
-Each review's interactive surface is a lean invocation stub under `skills/`,
-hand-instantiated from the template below. The only variables are the review key and
+Each review's interactive surface is a lean invocation stub under
+`skills/internal/review-system/`, hand-instantiated from the template below. The only variables are the review key and
 the display name. Stubs are **sanctioned duplication** of this template: each carries a
 marker comment pointing back at this document, and that marker is what future audits
 honor. To change the shared body, edit the template here, then re-instantiate every
@@ -118,11 +118,11 @@ runner-only line here. Keep this list in sync when adding or removing reviews.
 | Review key                         | Stub                                                                                                                                                               |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `code-smell-review`                | **runner-only** — no stub by policy; the `pocock-review` skill is already its interactive surface, and `ns reviews review run code-smell-review` covers automation |
-| `dry-but-not-too-dry`              | `skills/review-dry-but-not-too-dry`                                                                                                                                |
-| `improve-codebase-architecture`    | `skills/review-improve-codebase-architecture`                                                                                                                      |
-| `ns-typescript-style-tripwire`     | `skills/ns-typescript-style-tripwire`                                                                                                                              |
-| `reinvented-abstractions-tripwire` | `skills/reinvented-abstractions-tripwire`                                                                                                                          |
-| `thermonuclear-review`             | `skills/review-thermonuclear-review`                                                                                                                               |
+| `dry-but-not-too-dry`              | `skills/internal/review-system/review-dry-but-not-too-dry`                                                                                                         |
+| `improve-codebase-architecture`    | `skills/internal/review-system/review-improve-codebase-architecture`                                                                                               |
+| `ns-typescript-style-tripwire`     | `skills/internal/typescript/ns-typescript-style-tripwire`                                                                                                          |
+| `reinvented-abstractions-tripwire` | `skills/internal/review-system/reinvented-abstractions-tripwire`                                                                                                   |
+| `thermonuclear-review`             | `skills/internal/review-system/review-thermonuclear-review`                                                                                                        |
 
 Stub names are not forced to a `review-` prefix; the tripwire stubs keep their existing
 names, and the template's H1 (`# Review: …`) carries the review framing either way.
