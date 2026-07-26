@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildGitSetupPlan } from "../../src/operations/setup-git.ts";
+import { buildGitSetupPlan } from "../../src/git-setup.ts";
 
 const brmemRefspec = "refs/brmem/*:refs/brmem/*";
 
