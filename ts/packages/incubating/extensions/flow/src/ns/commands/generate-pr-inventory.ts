@@ -21,7 +21,6 @@ import {
 	preparePrMetadataReplacementForCurrentBranch,
 	PR_INVENTORY_PROMPT_ENV,
 	REPO_PR_INVENTORY_PROMPT_PATH,
-	type PreparedPrMetadataReplacement,
 	type PrMetadataReplacementResult,
 } from "../../submit/index.ts";
 import { flowExtensionDescriptorSource } from "../extension.ts";
@@ -29,7 +28,7 @@ import { resolveFlowModelSelection } from "../model-policy.ts";
 
 const GENERATE_PR_INVENTORY = `Generate and completely replace the current branch PR title and body.
 
-The command reads the current branch PR with gh, generates fresh PR inventory from the PR diff and commit headlines, then replaces the complete PR title and body. All existing body content is removed, including human prose and other ns-managed regions. By default it asks before editing GitHub. Use --yes/-y to approve the destructive replacement non-interactively.
+The command asks for confirmation before model work, reads the current branch PR with gh, generates fresh PR inventory from the PR diff and commit headlines, then replaces the complete PR title and body. All existing body content is removed, including human prose and other ns-managed regions. Use --yes/-y to approve generation and destructive replacement non-interactively.
 
 Environment:
   ${PR_INVENTORY_PROMPT_ENV}  Optional path to a custom PR inventory prompt. Overrides ${REPO_PR_INVENTORY_PROMPT_PATH} and the built-in prompt.`;
@@ -38,7 +37,7 @@ const generatePrInventorySchema = z.object({
 	yes: z
 		.boolean()
 		.default(false)
-		.describe("Replace the complete PR title and body without prompting."),
+		.describe("Generate and replace the complete PR title and body without prompting."),
 });
 
 type GeneratePrInventoryRequest = z.output<typeof generatePrInventorySchema>;
@@ -54,6 +53,42 @@ export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventor
 		handler: async (ctx: NsExtensionApi, request: GeneratePrInventoryRequest) => {
 			return await runWithNsCommandIo(commandIoFromNsExtensionApi(ctx), async (io) => {
 				const caps = resolveFlowStreamCaps(ctx);
+				if (!request.yes) {
+					const confirmationMessage = [
+						"This generates a fresh PR inventory with the configured model, then replaces the complete PR title and body.",
+						"All existing PR body content will be removed, including human prose and other ns-managed regions.",
+					].join("\n");
+					const confirmation = await confirmInteractiveOrUsageError(
+						createNsClinkrInteraction(ctx, {
+							title: "Generate and replace complete PR metadata?",
+							formatMessage: () => confirmationMessage,
+						}),
+						{
+							nonInteractive: {
+								message:
+									"Confirmation is unavailable; pass --yes to generate and replace the complete PR title and body non-interactively.",
+								missingFlag: "--yes",
+								howToSupply:
+									"Pass --yes/-y to approve generation and complete replacement without prompting.",
+							},
+							confirmation: { message: confirmationMessage, defaultAnswer: "no" },
+						},
+					);
+					if ("errorType" in confirmation) {
+						return usageError(confirmation.message, confirmation.data);
+					}
+					if (confirmation.type !== "confirmed") {
+						return negative(
+							renderResultBlock(caps, {
+								kind: "refusal",
+								headline:
+									"PR inventory generation and metadata replacement were cancelled; no model or GitHub request was made.",
+								cwd: ctx.cwd,
+							}),
+						);
+					}
+				}
+
 				const runtime = createNsPrInventoryRuntime(ctx);
 				const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowPrInventory);
 				if (!model.ok) {
@@ -90,37 +125,6 @@ export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventor
 					);
 				}
 
-				if (!request.yes) {
-					const confirmationMessage = formatConfirmationMessage({ generated: prepared });
-					const confirmation = await confirmInteractiveOrUsageError(
-						createNsClinkrInteraction(ctx, {
-							title: "Replace complete PR metadata and remove all existing body content?",
-							formatMessage: () => confirmationMessage,
-						}),
-						{
-							nonInteractive: {
-								message:
-									"Confirmation is unavailable; pass --yes to replace the complete PR title and body non-interactively.",
-								missingFlag: "--yes",
-								howToSupply: "Pass --yes/-y to approve the complete replacement without prompting.",
-							},
-							confirmation: { message: confirmationMessage, defaultAnswer: "no" },
-						},
-					);
-					if ("errorType" in confirmation) {
-						return usageError(confirmation.message, confirmation.data);
-					}
-					if (confirmation.type !== "confirmed") {
-						return negative(
-							renderResultBlock(caps, {
-								kind: "refusal",
-								headline: "PR metadata replacement was cancelled; GitHub was not edited.",
-								cwd: ctx.cwd,
-							}),
-						);
-					}
-				}
-
 				io.phase(`Replacing PR #${prepared.pr.number} title and body on GitHub…`);
 				const edited = await applyPreparedPrMetadataReplacement({
 					cwd: ctx.cwd,
@@ -155,15 +159,3 @@ export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventor
 	});
 
 export default flowGeneratePrInventoryCommand;
-
-function formatConfirmationMessage(input: { generated: PreparedPrMetadataReplacement }): string {
-	return [
-		`PR #${input.generated.pr.number}: ${input.generated.pr.url}`,
-		`Current title: ${input.generated.pr.title}`,
-		`New title: ${input.generated.title}`,
-		`Prompt: ${formatPromptSourceLabel(input.generated.promptSource)}`,
-		"",
-		"This replaces the complete PR title and body.",
-		"All existing PR body content will be removed, including human prose and other ns-managed regions.",
-	].join("\n");
-}

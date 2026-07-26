@@ -10,7 +10,6 @@ import { ScriptedTextGenerator } from "@nseng-ai/extension-kit/text-generation/t
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import {
 	buildPrInventoryUserPrompt,
-	composePrInventoryPrompt,
 	filterLockfileSections,
 	MAX_DIFF_CHARS,
 	parsePrInventoryOutput,
@@ -42,17 +41,6 @@ This updates submit to generate PR inventories through the ns prompt pipeline.
 }
 
 describe("PR inventory helpers", () => {
-	test("composes Flow-owned evidence policy ahead of customizable presentation guidance", () => {
-		const prompt = composePrInventoryPrompt(
-			"Use only supplied evidence. Do not infer intent.",
-			"Lead with a playful heading.",
-		);
-
-		expect(prompt).toBe(
-			"Use only supplied evidence. Do not infer intent.\n\n## Presentation guidance\n\nLead with a playful heading.\n",
-		);
-	});
-
 	test("reports elapsed model-generation progress through the preparation seam", async () => {
 		const clock = createManualClock(0);
 		const timers = createManualTimerScheduler();
@@ -220,9 +208,7 @@ describe("PR inventory helpers", () => {
 		expect(prompt).toContain("Add feature");
 		expect(prompt).not.toContain("Body");
 		expect(prompt).toContain("## Diff");
-		expect(prompt).toContain(
-			"Generate a fresh PR title and body using only the evidence above. Do not infer intent, rationale, or guarantees.",
-		);
+		expect(prompt).toContain("Generate a fresh PR title and body from the supplied context.");
 	});
 
 	test("uses a collision-safe fence for diffs containing backticks", () => {

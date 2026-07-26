@@ -33,8 +33,6 @@ export const FLOW_PR_INVENTORY_POINT_ID = "flow.submit.pr-inventory";
 export const REPO_PR_INVENTORY_PROMPT_PATH = `.ns/prompts/${FLOW_PR_INVENTORY_POINT_ID}.md`;
 export const MAX_DIFF_CHARS = 120_000;
 
-const PR_INVENTORY_POLICY_URL = new URL("./prompts/pr-inventory-policy.md", import.meta.url);
-
 const prInventoryPromptEnvOverride = {
 	pointId: FLOW_PR_INVENTORY_POINT_ID,
 	envVar: PR_INVENTORY_PROMPT_ENV,
@@ -127,27 +125,12 @@ export async function resolvePrInventoryGeneration(input: {
 		return { ok: false, error: prompt.error, exitCode: 2 };
 	}
 
-	let policy: string;
-	try {
-		policy = await readFile(PR_INVENTORY_POLICY_URL, "utf8");
-	} catch (error) {
-		return {
-			ok: false,
-			error: `Could not read Flow-owned PR inventory policy: ${formatErrorMessage(error)}`,
-			exitCode: 2,
-		};
-	}
-
 	return {
 		ok: true,
 		modelSelection: input.modelSelection,
-		promptText: composePrInventoryPrompt(policy, prompt.text),
+		promptText: prompt.text,
 		promptSource: prompt.source,
 	};
-}
-
-export function composePrInventoryPrompt(policy: string, presentationGuidance: string): string {
-	return `${policy.trim()}\n\n## Presentation guidance\n\n${presentationGuidance.trim()}\n`;
 }
 
 interface PrInventoryPointContext {
@@ -260,7 +243,7 @@ export function buildPrInventoryUserPrompt(input: PrInventoryPromptContext): str
 	}
 	sections.push(
 		`## Diff\n\n${buildFencedTextBlock(diff.trimEnd(), "diff")}`,
-		"Generate a fresh PR title and body using only the evidence above. Do not infer intent, rationale, or guarantees.",
+		"Generate a fresh PR title and body from the supplied context.",
 	);
 	return `${sections.join("\n\n")}\n`;
 }

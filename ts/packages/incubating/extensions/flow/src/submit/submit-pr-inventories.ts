@@ -121,7 +121,7 @@ export async function generateSubmitPrInventories(input: {
 			generation,
 			activeOperationDetail: formatBatchPosition({ noun: "PR", index, total: selected.length }),
 			...optionalEntry("progress", input.progress),
-			...(input.prInventory.time === undefined ? {} : { time: input.prInventory.time }),
+			...optionalEntry("time", input.prInventory.time),
 		});
 		if (result.type === "failed") {
 			failures.push({

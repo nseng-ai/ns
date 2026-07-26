@@ -135,13 +135,13 @@ from the diff and commit headlines. It is not authored or co-authored rationale:
 the author for intent, steer the draft through an interview, or request author approval. It may
 therefore omit rationale, constraints, tradeoffs, or context absent from the evidence.
 
-Every assembled body begins with a short italicized disclosure that it was automatically generated
-from the diff and commit headlines without author steering, interview, or approval, and may omit
-intent, rationale, constraints, or context not visible in that evidence. Flow, not the model, adds
-that disclosure at the top and a footer naming the evidence inputs, invoking command, resolved prompt
-source, and exact qualified model identity. Flow also applies its evidence policy independently of the
-selected prompt; custom prompt content supplies presentation guidance and cannot replace that policy or
-remove or rewrite either provenance boundary.
+The default prompt asks the model to begin each assembled body with a short italicized disclosure that
+it was automatically generated from the diff and commit headlines without author steering, interview,
+or approval, and may omit intent, rationale, constraints, or context not visible in that evidence.
+Disclosure wording is prompt-owned: a custom prompt may change or omit it as part of replacing the
+complete generation policy. Flow mechanically adds a standardized footer naming the evidence inputs,
+invoking command, resolved prompt source, and exact qualified model identity; custom prompts cannot
+remove or rewrite that provenance boundary.
 
 Ordinary `ns flow submit` assembles a complete title and body only for PRs newly created by that
 invocation. After Graphite publishes, Flow re-queries GitHub for exactly the planned branches and
@@ -160,8 +160,9 @@ before the first edit, then applies them sequentially. A preparation failure edi
 failure stops and reports applied, failed, and not-attempted PRs. There is no rollback.
 
 Use `ns flow generate-pr-inventory` from an existing PR's branch for a focused,
-confirmed complete title/body replacement. It has the same disclosure, provenance, evidence limits,
-and destructive replacement semantics.
+confirmed complete title/body replacement. Confirmation happens before model resolution, evidence
+collection, or generation so declining does not spend model tokens. The command has the same
+disclosure, provenance, evidence limits, and destructive replacement semantics.
 
 ## Pre-submit checks
 
@@ -249,11 +250,11 @@ All customization goes through extension points. See the
 `.ns/prompts/` paths, and resolution precedence. Use `ns extension points` to inspect
 the active catalog.
 
-| Point                      | Kind   | What it customizes                                                                            |
-| -------------------------- | ------ | --------------------------------------------------------------------------------------------- |
-| `flow.submit.pre`          | hook   | Commands run as pre-submit checks.                                                            |
-| `flow.submit.pre.recovery` | prompt | Agent guidance after a pre-submit check failure.                                              |
-| `flow.submit.pr-inventory` | prompt | Presentation guidance for Assembled PR inventories during submit and `generate-pr-inventory`. |
+| Point                      | Kind   | What it customizes                                                                                 |
+| -------------------------- | ------ | -------------------------------------------------------------------------------------------------- |
+| `flow.submit.pre`          | hook   | Commands run as pre-submit checks.                                                                 |
+| `flow.submit.pre.recovery` | prompt | Agent guidance after a pre-submit check failure.                                                   |
+| `flow.submit.pr-inventory` | prompt | Complete generation policy for Assembled PR inventories during submit and `generate-pr-inventory`. |
 
 Install the conventional prompt at `.ns/prompts/flow.submit.pr-inventory.md`, or configure an
 explicit path under `[points]."flow.submit.pr-inventory"`. For extension development,
