@@ -1,4 +1,5 @@
 ---
+blocked: The umbrella is gated on completion of the Clinkr dry-run and return of its gate-calibration lessons before the Foundation package pass begins.
 edges:
   - objective: professional-repo-curation
     annotation: Parent umbrella; this pass is its sanctioned parallel Subobjective, calibrating the README-driven graduation gate on foundation packages that remain outside incubation.
@@ -12,7 +13,7 @@ edges:
 
 Give the foundation packages a bottoms-up README-driven development pass in dependency-respecting order: `infra/clinkr` → `infra/foundation` → `infra/brmem` and `sdk` → `extension-kit`. This umbrella creates one Readme-Driven-Development Subobjective per package and owns sequencing, gate calibration, and synthesis; package-level contract decisions and mismatch backlogs belong to those children.
 
-The extension vocabulary verdict and machine-readable rename have landed. The former `capability-kit` tail is now `extension-kit`, so vocabulary no longer blocks the SDK or Extension Kit passes. No package child has yet been created, and the first slice remains the Clinkr gate dry-run.
+The extension vocabulary verdict and machine-readable rename have landed. The former `capability-kit` tail is now `extension-kit`, so vocabulary no longer blocks the SDK or Extension Kit passes. The Clinkr Subobjective now owns the active gate dry-run; this umbrella remains gated until that child completes and returns its process amendments before the Foundation package pass begins.
 
 ## Scope
 
