@@ -1,4 +1,5 @@
 import type { NsExtensionApi } from "@nseng-ai/sdk";
+import { z } from "zod";
 
 import { objectiveNsCommand } from "../../../objective-command.ts";
 import {
@@ -21,6 +22,9 @@ export async function command(
 	return objectiveNsCommand({
 		schema: publicationPublishRequestSchema,
 		resultSchema: publicationPublishResultSchema,
+		negativeSchema: publicationPublishResultSchema,
+		failureSchema: publicationPublishResultSchema,
+		usageErrorSchema: z.any(),
 		createContext,
 		handler: runPublicationPublish,
 		renderHuman: (result) => {

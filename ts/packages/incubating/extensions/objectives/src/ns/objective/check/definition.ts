@@ -61,6 +61,8 @@ export async function command() {
 	return objectiveNsCommand({
 		schema: objectiveCheckCommandRequestSchema,
 		resultSchema: objectiveCheckCommandResultSchema,
+		negativeSchema: objectiveCheckCommandResultSchema,
+		usageErrorSchema: z.any(),
 		positionals: { slug: { position: 0 } },
 		options: { all: { short: "-a" } },
 		handler: runObjectiveCheckCommand,

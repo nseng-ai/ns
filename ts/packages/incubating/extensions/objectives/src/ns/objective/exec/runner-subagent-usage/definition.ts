@@ -10,6 +10,7 @@ export async function command() {
 	return objectiveNsCommand({
 		schema: runnerSubagentUsageRequestSchema,
 		resultSchema: runnerSubagentUsageResultSchema,
+		usageErrorSchema: runnerSubagentUsageResultSchema,
 		positionals: { sessionFiles: { position: 0 } },
 		handler: runRunnerSubagentUsage,
 		renderHuman: renderRunnerSubagentUsageMarkdown,
