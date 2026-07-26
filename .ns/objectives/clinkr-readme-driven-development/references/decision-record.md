@@ -118,6 +118,8 @@ Omitting all outcome schemas permits bodyless outcomes such as `ok()`. Clinkr em
 
 **Current mismatch:** Result validation is optional and success-only, while non-success outcomes can carry arbitrary data. The current JSON Schema does not express the complete configured outcome union.
 
+**Approved reconciliation:** Clinkr owns one internal outcome-schema model spanning all four statuses. The same model drives handler return typing, runtime validation, machine-envelope construction, and `--json-schema`; adapters must not reconstruct or partially enforce it.
+
 ### 9. Invalid handler output is a programmer error
 
 Request-schema failures are usage errors. Outcome data that violates the command's declared schema is invalid handler output and propagates as a programmer error to the application's crash policy.
@@ -125,6 +127,8 @@ Request-schema failures are usage errors. Outcome data that violates the command
 Clinkr does not turn invalid output into an operational failure envelope.
 
 **Rationale:** Schema-invalid output means the implementation violated its own declared contract. Preserving the thrown error retains stack traces, source lines, and attribution needed to fix the bug.
+
+**Approved reconciliation:** Validate the selected outcome's configured data schema in Clinkr before rendering or envelope emission. An omitted schema requires a bodyless outcome; `z.any()` is the explicit untyped escape hatch. Remove SDK-only success parsing once the adapter delegates validation to Clinkr.
 
 ### 10. Applications explicitly return expected failures
 
@@ -152,6 +156,8 @@ Fallback order is:
 **Supporting context:** Markdown is an active caller contract, not speculative surface. Handoff list preserves a distinct Markdown table; Objective commands emit Markdown for direct agent consumption; Pi integrations deliberately request Markdown; SDK and extension registration carry Markdown renderers.
 
 **Current mismatch:** `ok(...)` and `negative(...)` currently support per-exit human or Markdown overrides.
+
+**Approved reconciliation:** Migrate the SDK adapter and direct callers first so every presentation branch is represented by typed outcome data and stable command-level renderers. Then remove per-exit render fields and constructors' override parameters. SDK must pass schemas and renderers into Clinkr rather than capturing exits, validating success itself, and synthesizing rendered strings back onto outcomes.
 
 ### 12. Bodyless imperative commands emit no Clinkr result body
 
@@ -304,7 +310,7 @@ Builders remain a public advanced escape hatch for unusual or programmatic topol
 
 The exact filesystem bootstrap/helper API used by `app.ts` is unresolved. README examples may show a coherent conceptual bootstrap only when clearly labeled provisional, while `command.ts` and `group.ts` exports should be concrete. Runtime discovery also creates a packaging constraint: route files and directories must ship intact. Bundled or single-file environments may need the builder escape hatch or a later dedicated adapter. This decision does not authorize a manifest fallback.
 
-The remaining outcome, raw, rendering, and completion-error discussions remain unresolved. Positional metadata and the Markdown format alias were subsequently settled below.
+Raw mounting and completion-error policy remain unresolved. Positional metadata, the Markdown format alias, and the outcome/rendering reconciliation were subsequently settled below.
 
 ## Public-surface naming decisions (2026-07-25)
 
@@ -312,7 +318,17 @@ Clinkr retains `position` as the positional-metadata field name. It is the estab
 
 Clinkr also retains and documents `md` as an explicit alias for the canonical `markdown` format value. The alias is intentional and already has focused parsing, rendering, validation-text, and completion coverage. Reconciliation must preserve both the long spelling and alias rather than leaving `md` as undocumented behavior.
 
-These decisions settle only the two naming questions. They do not alter the remaining outcome, raw mounting, rendering, completion-error, or bootstrap-API discussions.
+These decisions settle only the two naming questions. They do not alter raw mounting, completion-error policy, `ClinkrFailure` removal, or the bootstrap API. The outcome and rendering reconciliation was subsequently approved below.
+
+## Outcome and rendering reconciliation approved (2026-07-25)
+
+The outcome and rendering decisions above are approved as one migration cluster. Clinkr owns the four status-specific data schemas, their composed discriminated machine contract, runtime validation, and command-level rendering policy. Invalid configured outcome data is a programmer error and escapes to app crash policy; it is never converted into a failure outcome.
+
+Migration order is part of the approval. First extend the SDK command model and direct callers so each reachable status carries typed data sufficient for stable command-level human and Markdown renderers. Then route all status validation and rendering through Clinkr, remove SDK's `withRenderOverrides`-style success parsing and render synthesis, migrate remaining direct per-exit override callers, and finally delete override fields and constructor options from Clinkr outcomes.
+
+Do not mechanically delete branch-dependent presentation or preserve it as an adapter-side policy. Move the distinguishing facts into typed outcome data. Bodyless means no `data` field and no human result body, while JSON still emits the status envelope. An explicit `z.any()` remains the only intentionally untyped data escape hatch.
+
+This approval does not settle raw mounting, completion-error policy, `ClinkrFailure` removal, or the exact filesystem bootstrap API.
 
 ## Accepted implementation behavior
 
