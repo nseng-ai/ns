@@ -7,11 +7,12 @@ describe("preinstalled command loading host integration", () => {
 		const run = await runNsCliWithFakeContext(["--help"]);
 
 		expect(run.exit).toBe(0);
-		expect(run.stdout).toContain("Activate ns in this repository.");
-		expect(run.stdout).toContain("Update ns itself.");
+		expect(run.stdout).toContain("Activate ns in a repository.");
+		expect(run.stdout).toContain("List and provision ns-owned skills into assistant harnesses.");
 		expect(run.stdout).toMatch(/^  extension(?:\s|$)/m);
 		expect(run.stdout).toMatch(/^  skills(?:\s|$)/m);
-		expect(run.stdout).not.toContain("Load ns descriptor command");
+		expect(run.stdout).toContain("Load ns descriptor command init.");
+		expect(run.stdout).toContain("Load ns descriptor command update.");
 		expect(run.stderr).toBe("");
 		expect(run.execCalls).toEqual([]);
 	});

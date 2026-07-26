@@ -86,10 +86,7 @@ export async function runProvisionApply(ctx: SlotCliContext, request: ProvisionA
 		return failure(applied.failure.errorType, applied.failure.message);
 	const result = toApplyResult(applied.outcome);
 	if (applyHasProblems(result)) {
-		return negative("Provisioned file copies differ or failed; see entries.", {
-			data: result,
-			human: renderProvisionApply(result),
-		});
+		return negative("Provisioned file copies differ or failed; see entries.", result);
 	}
 	return ok(result);
 }

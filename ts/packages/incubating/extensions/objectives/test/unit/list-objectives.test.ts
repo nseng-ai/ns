@@ -245,8 +245,8 @@ describe("objective list helpers", () => {
 		// A record without frontmatter lists exactly as before: no edge/blocked keys at all.
 		const withoutFrontmatter = await listWithObjectiveMd("# alpha\n\n## Thesis\n");
 		if (withoutFrontmatter.type !== "ok") throw new Error("expected ok exit");
-		if (withoutFrontmatter.data === undefined) throw new Error("expected ok data");
-		expect(withoutFrontmatter.data.records).toEqual([
+		if (withoutFrontmatter.data! === undefined) throw new Error("expected ok data");
+		expect(withoutFrontmatter.data!.records).toEqual([
 			{
 				slug: "alpha",
 				status: "open",
@@ -282,8 +282,8 @@ describe("objective list helpers", () => {
 			].join("\n"),
 		);
 		if (blockedWithEdges.type !== "ok") throw new Error("expected ok exit");
-		if (blockedWithEdges.data === undefined) throw new Error("expected ok data");
-		expect(blockedWithEdges.data.records).toEqual([
+		if (blockedWithEdges.data! === undefined) throw new Error("expected ok data");
+		expect(blockedWithEdges.data!.records).toEqual([
 			{
 				slug: "alpha",
 				status: "open",
@@ -332,10 +332,10 @@ describe("objective list helpers", () => {
 
 		const exit = await runListObjectives(ctx, { names: false, status: "active" });
 		if (exit.type !== "ok") throw new Error("expected ok exit");
-		if (exit.data === undefined) throw new Error("expected ok data");
+		if (exit.data! === undefined) throw new Error("expected ok data");
 
-		expect(exit.data.records[0]).toMatchObject({ slug: "alpha", updatedBranchCount: 2 });
-		expect(renderObjectiveListHuman(exit.data)).toContain("2");
+		expect(exit.data!.records[0]).toMatchObject({ slug: "alpha", updatedBranchCount: 2 });
+		expect(renderObjectiveListHuman(exit.data!)).toContain("2");
 	});
 
 	test("attributes branch-authored objective changes instead of trunk-only drift", async () => {

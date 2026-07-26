@@ -70,7 +70,7 @@ describe("initNs", () => {
 		const result = await initNs(context, { cwd: "/repo", harness: ["codex", "claude-code"] });
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
-		expect(result.data).toMatchObject({
+		expect(result.data!!).toMatchObject({
 			repoRoot: "/repo",
 			trunkBranch: "main",
 			harnesses: ["codex", "claude-code"],
@@ -98,7 +98,7 @@ describe("initNs", () => {
 		);
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
-		expect(result.data.steps.map((step) => step.type)).toEqual([
+		expect(result.data!!.steps.map((step) => step.type)).toEqual([
 			"phase",
 			"repository-resolved",
 			"phase",
@@ -117,7 +117,7 @@ describe("initNs", () => {
 			"phase",
 			"phase",
 		]);
-		expect(trace.collectedLines()).toEqual(result.data.steps.map(renderLifecycleStepHuman));
+		expect(trace.collectedLines()).toEqual(result.data!!.steps.map(renderLifecycleStepHuman));
 	});
 
 	it("ends configuration failures with the correct accumulated phase", async () => {
@@ -141,7 +141,7 @@ describe("initNs", () => {
 			},
 		});
 		if (result.type !== "failure") return;
-		const data = tracedFailureDataSchema.parse(result.data);
+		const data = tracedFailureDataSchema.parse(result.data!!);
 		expect(trace.collectedLines()).toEqual(data.steps.map(renderLifecycleStepHuman));
 		expect(files.operations()).toEqual([]);
 	});
@@ -177,7 +177,7 @@ describe("initNs", () => {
 			},
 		});
 		if (result.type !== "failure") return;
-		const data = tracedFailureDataSchema.parse(result.data);
+		const data = tracedFailureDataSchema.parse(result.data!!);
 		expect(data.steps.at(-2)).toEqual({
 			type: "phase",
 			phase: "activation-apply",
@@ -219,7 +219,7 @@ describe("initNs", () => {
 		const result = await initNs(context, { cwd: "/repo", harness: ["codex", "claude-code"] });
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
-		expect(renderInitNsHuman(result.data)).toBe(
+		expect(renderInitNsHuman(result.data!!)).toBe(
 			[
 				"Activated ns in /repo.",
 				"Harnesses (explicit): codex, claude-code.",
@@ -333,7 +333,7 @@ describe("initNs", () => {
 		const result = await initNs(context, { cwd: "/repo", harness: ["pi"] });
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
-		const structured = initNsResultSchema.parse(result.data);
+		const structured = initNsResultSchema.parse(result.data!!);
 		expect(structured.completed.artifacts).toMatchObject([
 			{ action: "removed", removalReason: "removed-source", removedFiles: [expect.any(String)] },
 			{

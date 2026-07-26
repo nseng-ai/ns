@@ -174,7 +174,7 @@ class ExtensionListRowAccumulator {
 export async function listExtensions(
 	context: ExtensionListContext,
 	request: ListExtensionsRequest,
-): Promise<ClinkrExit<ListExtensionsResult>> {
+): Promise<ClinkrExit<ListExtensionsResult, unknown, unknown, unknown>> {
 	const repository = await context.git.optionalRepoRoot({ cwd: request.cwd });
 	if (repository.type === "missing") {
 		return failure(
@@ -396,7 +396,7 @@ function extensionListConfigFailure(diagnostic: {
 	readonly code: string;
 	readonly message: string;
 	readonly path: string;
-}): ClinkrExit<ListExtensionsResult> {
+}): ClinkrExit<ListExtensionsResult, unknown, unknown, unknown> {
 	const normalized = normalizeExtensionListDiagnostic(diagnostic);
 	return failure("ns-extension-list-config-invalid", normalized.message, {
 		diagnostics: [normalized],

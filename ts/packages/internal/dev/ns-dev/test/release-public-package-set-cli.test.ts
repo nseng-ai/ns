@@ -272,7 +272,7 @@ describe("transactional release CLI adapter", () => {
 		expect(await harness.run([version, "--json-schema"])).toBe(0);
 		const document = JSON.parse(harness.stdout.join(""));
 		expect(document.machineEnvelopeJsonSchema).toMatchObject({
-			oneOf: expect.any(Array),
+			anyOf: expect.any(Array),
 		});
 		expect(harness.release.operations).toEqual([]);
 	});
@@ -285,7 +285,7 @@ describe("transactional release CLI adapter", () => {
 			status: "ok",
 			data: { finalStatus: "planned", version, releaseBranch },
 		});
-		expect(output.data.packages).toEqual(releaseInventoryFixture);
+		expect(output.data!.packages).toEqual(releaseInventoryFixture);
 		expect(harness.release.operations).toEqual([`inspect:${releaseBranch}`]);
 		expect(harness.reports.writes).toEqual([]);
 		expect(harness.registryReads).toEqual([]);
@@ -371,9 +371,9 @@ describe("transactional release CLI adapter", () => {
 				finalStatus: "verified",
 			},
 		});
-		expect(evidence.data.candidates).toHaveLength(releaseInventoryFixture.length);
-		expect(evidence.data.classifications).toHaveLength(releaseInventoryFixture.length);
-		expect(evidence.data.writes).toEqual(releaseInventoryFixture);
+		expect(evidence.data!.candidates).toHaveLength(releaseInventoryFixture.length);
+		expect(evidence.data!.classifications).toHaveLength(releaseInventoryFixture.length);
+		expect(evidence.data!.writes).toEqual(releaseInventoryFixture);
 	});
 
 	it("automatically adopts a proven checkpointing report and continues", async () => {

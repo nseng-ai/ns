@@ -75,13 +75,11 @@ async function runWaitForChecksOperation(
 		case "passing":
 			return ok(report);
 		case "failing":
-			return negative(failingMessage(report), { data: report });
+			return negative(failingMessage(report), report);
 		case "timeout":
-			return negative(timeoutMessage(report, request.timeoutSeconds), { data: report });
+			return negative(timeoutMessage(report, request.timeoutSeconds), report);
 		case "mapping-gap":
-			return negative(branchPrMappingGapsMessage(branchPrChecksMappingGaps(report)), {
-				data: report,
-			});
+			return negative(branchPrMappingGapsMessage(branchPrChecksMappingGaps(report)), report);
 	}
 }
 

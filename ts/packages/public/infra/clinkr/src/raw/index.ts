@@ -2,6 +2,7 @@ import type { ClinkrDynamicCompletionProvider } from "../completion.ts";
 import type { RawCommandSpec } from "../group.ts";
 
 export type { RawCommandInvocation, RawCommandSpec } from "../group.ts";
+export type { PositionalSpec } from "../surface.ts";
 
 export interface RawCommandOptions<TContext> {
 	name: string;

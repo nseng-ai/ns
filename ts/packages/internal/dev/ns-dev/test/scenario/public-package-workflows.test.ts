@@ -490,7 +490,7 @@ describe("typed public-package workflows", () => {
 				status: string;
 			};
 			expect(nonStrictOutput.status).toBe("ok");
-			expect(nonStrictOutput.data.results.slice(0, 2)).toMatchObject([
+			expect(nonStrictOutput.data!.results.slice(0, 2)).toMatchObject([
 				{ status: "missing" },
 				{ status: "mismatched" },
 			]);
@@ -510,7 +510,7 @@ describe("typed public-package workflows", () => {
 				errorType: "registry-verification-failed",
 				data: { strict: true },
 			});
-			expect(strictOutput.data.results.slice(0, 2)).toMatchObject([
+			expect(strictOutput.data!.results.slice(0, 2)).toMatchObject([
 				{ status: "missing" },
 				{ status: "mismatched" },
 			]);
@@ -539,7 +539,7 @@ describe("typed public-package workflows", () => {
 				status: "failure",
 				errorType: "registry-verification-failed",
 			});
-			expect(output.data.results[0]).toMatchObject({ status: "error" });
+			expect(output.data!.results[0]).toMatchObject({ status: "error" });
 		});
 
 		it("validates candidate hash evidence and candidate-report identity before registry calls", async () => {
@@ -564,7 +564,7 @@ describe("typed public-package workflows", () => {
 				status: string;
 			};
 			expect(validOutput.status).toBe("ok");
-			expect(validOutput.data.results[0]?.evidence).toEqual([
+			expect(validOutput.data!.results[0]?.evidence).toEqual([
 				"dist.integrity exact",
 				"dist.shasum exact",
 			]);

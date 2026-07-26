@@ -62,7 +62,7 @@ describe("skill exposure policy", () => {
 				content: MANAGED_OPENAI_POLICY,
 			}),
 		]);
-		expect(settingsForPolicy(settings, "demo", "invoke-only").data).toEqual(settings.data);
+		expect(settingsForPolicy(settings, "demo", "invoke-only").data).toEqual(settings.data!);
 	});
 
 	test("requires replacement evidence and evolves one settings document", () => {

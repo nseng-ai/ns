@@ -1,3 +1,7 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, test } from "vitest";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
@@ -20,6 +24,9 @@ describe("flow autoslot command outcomes", () => {
 		});
 
 		expect(await run.exit).toBe(1);
+		const result = await run.result;
+		expect(result.type).toBe("negative");
+		if (result.type === "negative") expect(result.data!).toBe(result.message);
 		expect(run.stdout.join("")).toBe("");
 		const stderr = stripAnsi(run.stderr.join(""));
 		expect(stderr).toContain("Autoslot could not create a Graphite branch.");
@@ -68,6 +75,24 @@ describe("flow autoslot command outcomes", () => {
 		expect(run.context.textGeneratorCalls[0]).toMatchObject({
 			operation: "checkpoint-message",
 		});
+	});
+
+	test("model-policy failure carries the same string as failure message and data", async () => {
+		const cwd = await mkdtemp(join(tmpdir(), "ns-flow-autoslot-model-policy-"));
+		try {
+			await writeFile(join(cwd, "ns.toml"), "[models.profiles.fast]\nmodel = 42\n", "utf8");
+			const run = runFlowAutoslotCommandWithFakes({ cwd });
+
+			expect(await run.exit).toBe(2);
+			const result = await run.result;
+			expect(result.type).toBe("failure");
+			if (result.type === "failure") {
+				expect(result.message).toContain("Invalid model policy in ns.toml");
+				expect(result.data!).toBe(result.message);
+			}
+		} finally {
+			await rm(cwd, { recursive: true, force: true });
+		}
 	});
 
 	test("transient phases route through onOutput on stderr, never stdout", async () => {

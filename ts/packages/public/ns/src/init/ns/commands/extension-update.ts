@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
 	renderUpdateExtensionHuman,
 	renderUpdateExtensionMarkdown,
@@ -16,6 +18,8 @@ export const nsExtensionUpdateCommand = nsInitCommand({
 	options: { dryRun: { short: "-n" } },
 	positionals: { source: { position: 0 } },
 	resultSchema: updateExtensionResultSchema,
+	failureSchema: z.any(),
+	usageErrorSchema: z.any(),
 	handler: (context, request) => updateExtension(context, { ...request, cwd: context.cwd }),
 	renderHuman: renderUpdateExtensionHuman,
 	renderMarkdown: renderUpdateExtensionMarkdown,

@@ -205,7 +205,7 @@ describe("extension command option specs", () => {
 		expect(await run.exit).toBe(0);
 		const envelope = parseJsonOutput(run);
 		expect(envelope.status).toBe("ok");
-		expect(envelope.data).toEqual({
+		expect(envelope.data!).toEqual({
 			request: { force: true, clipboard: false },
 			outputFormat: "json",
 		});

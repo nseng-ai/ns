@@ -113,14 +113,21 @@ export interface SlotCommandSpec extends Omit<
 }
 
 interface TypedSlotCommandSpec<S extends z.ZodObject, T> extends Omit<
-	ClinkrCommandSpec<SlotCliContext, S, T>,
-	"completionProvider" | "summary" | "description" | "resultSchema"
+	ClinkrCommandSpec<SlotCliContext, S, T, unknown, unknown, unknown>,
+	| "completionProvider"
+	| "summary"
+	| "description"
+	| "resultSchema"
+	| "renderHuman"
+	| "renderMarkdown"
 > {
 	group: SlotCommandGroup;
 	summary: string;
 	description: string;
 	resultSchema: z.ZodType<T>;
 	completionKind?: SlotCompletionKind;
+	renderHuman?: (data: T, caps: RenderCapabilities) => string;
+	renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
 }
 
 export function slotCommandBaseSpec(spec: SlotCommandSpec) {

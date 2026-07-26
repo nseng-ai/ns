@@ -192,13 +192,13 @@ describe("export operation", () => {
 		const parsed = parseJsonOutput(run) as {
 			data: { outputDir: string; exported: readonly { path: string }[] };
 		};
-		const [exported] = parsed.data.exported;
+		const [exported] = parsed.data!.exported;
 		expect(exported).toBeDefined();
 		try {
-			expect(basename(parsed.data.outputDir)).toMatch(/^brmem-export-[0-9a-f]{16}$/u);
+			expect(basename(parsed.data!.outputDir)).toMatch(/^brmem-export-[0-9a-f]{16}$/u);
 			expect(await readFile(exported?.path ?? "", "utf8")).toBe("temp");
 		} finally {
-			await rm(parsed.data.outputDir, { recursive: true, force: true });
+			await rm(parsed.data!.outputDir, { recursive: true, force: true });
 		}
 	});
 

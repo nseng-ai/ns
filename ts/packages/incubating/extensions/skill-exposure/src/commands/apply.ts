@@ -2,7 +2,11 @@ import { defineCommand, negative, ok, usageError, z } from "@nseng-ai/sdk";
 import { commandError, duplicateCanonicalInput } from "../command-support.ts";
 import { NodeSkillExposureGateway } from "../node-skill-exposure-gateway.ts";
 import { planSkillExposure, settingsForPolicy } from "../policy.ts";
-import { applyResultSchema } from "../schemas.ts";
+import {
+	applyResultSchema,
+	commandFailureDataSchema,
+	commandUsageErrorDataSchema,
+} from "../schemas.ts";
 import type {
 	OperationResult,
 	SkillExposureBatch,
@@ -31,6 +35,9 @@ export function createSkillExposureApplyCommand(
 		positionals: { policy: { position: 0 }, paths: { position: 1 } },
 		options: { dryRun: { short: "-n" }, yes: { short: "-y" } },
 		resultSchema: applyResultSchema,
+		negativeSchema: applyResultSchema,
+		failureSchema: commandFailureDataSchema,
+		usageErrorSchema: commandUsageErrorDataSchema,
 		handler: async (ctx, request) => {
 			const gateway = createGateway(ctx.cwd);
 			try {
@@ -57,6 +64,7 @@ export function createSkillExposureApplyCommand(
 					if (ctx.confirm === undefined)
 						return usageError("Managed overlay deletion requires --yes in non-interactive use.", {
 							missingFlag: "--yes",
+							paths: [...request.paths],
 						});
 					const accepted = await ctx.confirm(
 						"Delete managed skill overlays?",
@@ -70,9 +78,7 @@ export function createSkillExposureApplyCommand(
 						{ defaultAnswer: "no" },
 					);
 					if (!accepted)
-						return negative("Skill exposure apply was cancelled.", {
-							data: resultFor(batch, false, []),
-						});
+						return negative("Skill exposure apply was cancelled.", resultFor(batch, false, []));
 				}
 				const applied = request.dryRun ? [] : await gateway.applyBatch(batch);
 				return ok(resultFor(batch, request.dryRun, applied));

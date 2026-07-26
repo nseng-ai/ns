@@ -38,9 +38,9 @@ export type ClinkrHandler<
 	TContext,
 	S extends z.ZodObject,
 	TResult,
-	TNegative = TResult,
-	TFailure = TResult,
-	TUsageError = TResult,
+	TNegative = unknown,
+	TFailure = unknown,
+	TUsageError = unknown,
 > = (
 	ctx: TContext,
 	request: z.output<S>,
@@ -50,9 +50,9 @@ export interface ClinkrCommandSpec<
 	TContext,
 	S extends z.ZodObject,
 	TResult,
-	TNegative = TResult,
-	TFailure = TResult,
-	TUsageError = TResult,
+	TNegative = unknown,
+	TFailure = unknown,
+	TUsageError = unknown,
 > {
 	name: string;
 	description?: string;
@@ -82,15 +82,9 @@ export interface ClinkrCommandSpec<
 	 * (data, caps): parsed request flags are never threaded to renderers, so a display toggle
 	 * needs explicit plumbing — prefer keeping full detail on the markdown surface instead.
 	 */
-	renderHuman?: (
-		data: TResult | TNegative | TFailure | TUsageError,
-		caps: RenderCapabilities,
-	) => string;
+	renderHuman?: (data: TResult, caps: RenderCapabilities) => string;
 	/** Markdown rendering falls back to human rendering when absent. */
-	renderMarkdown?: (
-		data: TResult | TNegative | TFailure | TUsageError,
-		caps: RenderCapabilities,
-	) => string;
+	renderMarkdown?: (data: TResult, caps: RenderCapabilities) => string;
 	/** Rendered commands cannot opt into raw mode; use `@nseng-ai/clinkr/raw`. */
 	isRawExit?: never;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
@@ -143,9 +137,9 @@ export interface DefaultCommandSpec<
 	TContext,
 	S extends z.ZodObject,
 	TResult,
-	TNegative = TResult,
-	TFailure = TResult,
-	TUsageError = TResult,
+	TNegative = unknown,
+	TFailure = unknown,
+	TUsageError = unknown,
 > extends Omit<
 	ClinkrCommandSpec<TContext, S, TResult, TNegative, TFailure, TUsageError>,
 	"name" | "summary" | "description"
@@ -218,6 +212,7 @@ interface RunState {
 interface BuildLeafCommandOptions<TContext> {
 	registered: RegisteredCommand<TContext>;
 	aliases: readonly string[];
+	commandPath: readonly string[];
 	context: TContext;
 	io: ClinkrIo;
 	state: RunState;
@@ -235,6 +230,7 @@ interface BuildCommandOptions<TContext> {
 	io: ClinkrIo;
 	state: RunState;
 	isRoot: boolean;
+	commandPath: readonly string[];
 }
 
 const leafCommandMetadataSetters = [
@@ -396,7 +392,13 @@ export class LegacyClinkrGroup<TContext> {
 		const state: RunState = { exitCode: 0 };
 		// A fresh commander tree per invocation: Command objects hold parse
 		// state, so rebuilding keeps run() re-entrant.
-		const program = this.buildCommand({ context: options.context, io, state, isRoot: true });
+		const program = this.buildCommand({
+			context: options.context,
+			io,
+			state,
+			isRoot: true,
+			commandPath: [this.name],
+		});
 		if (this.runtimeInfo !== undefined && argv[0] === "--runtime") {
 			io.stdout(this.runtimeInfo());
 			return 0;
@@ -443,7 +445,7 @@ export class LegacyClinkrGroup<TContext> {
 	}
 
 	private buildCommand(options: BuildCommandOptions<TContext>): Command {
-		const { context, io, state, isRoot } = options;
+		const { context, io, state, isRoot, commandPath } = options;
 		const command = createContainedCommand(this.name, io);
 		if (this.description !== undefined) command.description(this.description);
 		if (this.helpGroup !== undefined) command.helpGroup(this.helpGroup);
@@ -457,6 +459,7 @@ export class LegacyClinkrGroup<TContext> {
 			configureCommandExecution({
 				command,
 				registered: this.defaultRegisteredCommand,
+				commandPath,
 				context,
 				io,
 				state,
@@ -467,6 +470,7 @@ export class LegacyClinkrGroup<TContext> {
 				buildLeafCommand({
 					registered,
 					aliases: registered.aliases,
+					commandPath: [...commandPath, registered.name],
 					context,
 					io,
 					state,
@@ -475,7 +479,13 @@ export class LegacyClinkrGroup<TContext> {
 			);
 		}
 		for (const child of this.subgroups) {
-			const childCommand = child.buildCommand({ context, io, state, isRoot: false });
+			const childCommand = child.buildCommand({
+				context,
+				io,
+				state,
+				isRoot: false,
+				commandPath: [...commandPath, child.name],
+			});
 			for (const alias of child.aliases) {
 				childCommand.alias(alias);
 			}
@@ -629,7 +639,7 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 function configureCommandExecution<TContext>(
 	options: ConfigureCommandExecutionOptions<TContext>,
 ): void {
-	const { command, registered, context, io, state } = options;
+	const { command, registered, commandPath, context, io, state } = options;
 	if (registered.shouldPassThrough) {
 		command.helpOption(false);
 		command.allowUnknownOption(true);
@@ -714,7 +724,7 @@ function configureCommandExecution<TContext>(
 				const format = clinkrFormatFromOption(opts["format"]);
 				const handled = await registered.execution.handler(context, parsed.data);
 				const exit = registered.validateOutcomes
-					? validateOutcomeData(handled, registered.execution.outcomeSchemas)
+					? validateOutcomeData(handled, registered.execution.outcomeSchemas, { commandPath })
 					: handled;
 				state.exitCode = emitExit(exit, {
 					format,

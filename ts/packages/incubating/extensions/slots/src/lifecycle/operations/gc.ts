@@ -119,10 +119,7 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 	const outcome = await executeGcPlan(repoCtx, plan.outcome, { cleanupActions });
 	const result = toGcResult(outcome);
 	if (outcome.cleanupErrorCount > 0)
-		return negative("Slot gc completed with cleanup errors.", {
-			data: result,
-			human: renderGc(result),
-		});
+		return negative("Slot gc completed with cleanup errors.", result);
 	return ok(result);
 }
 

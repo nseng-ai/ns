@@ -76,14 +76,7 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 				z.object({ report: packageCheckReportSchema }),
 			]),
 			handler: runCheck,
-			renderHuman: (data) =>
-				renderHuman(
-					"report" in data
-						? data.report
-						: "results" in data
-							? data
-							: { inputName: "", results: [] },
-				),
+			renderHuman: (data) => renderHuman(data),
 		});
 
 		root.command({

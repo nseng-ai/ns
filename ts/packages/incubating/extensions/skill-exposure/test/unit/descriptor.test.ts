@@ -11,7 +11,7 @@ describe("skill exposure extension descriptor", () => {
 		for (const entry of descriptor.entries) {
 			const loaded = await entry.load();
 			expect(loaded.default.name).toBe(entry.name);
-			expect(loaded.default.nsParsedCommandSpec).toBeDefined();
+			expect(loaded.default.schema).toBeDefined();
 		}
 	});
 });

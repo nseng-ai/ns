@@ -43,21 +43,31 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 		return exitCode;
 	}
 	if (exit.type === "negative" && !Object.hasOwn(exit, "data")) {
-		options.io.stdout(`${exit.message}\n`);
+		options.io.stdout(`${exit.human ?? exit.message}\n`);
 		return exitCode;
 	}
 	if (!Object.hasOwn(exit, "data")) return exitCode;
-	options.io.stdout(`${renderOutcomeData(exit.data as T, options)}\n`);
+	options.io.stdout(`${renderOutcomeData(exit, options)}\n`);
 	return exitCode;
 }
 
-function renderOutcomeData<T>(data: T, options: EmitExitOptions<T>): string {
+function renderOutcomeData<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): string {
 	const caps = renderCapabilities(options);
+	const legacyOverride =
+		exit.type === "ok"
+			? options.format === "markdown"
+				? (exit.markdown ?? exit.human)
+				: exit.human
+			: exit.type === "negative"
+				? exit.human
+				: undefined;
 	const renderer =
 		options.format === "markdown"
 			? (options.renderMarkdown ?? options.renderHuman)
 			: options.renderHuman;
-	const rendered = renderer === undefined ? envelopeJsonText(data) : renderer(data, caps);
+	const data = exit.data as T;
+	const rendered =
+		legacyOverride ?? (renderer === undefined ? envelopeJsonText(data) : renderer(data, caps));
 	return caps.canEmitAnsi ? rendered : stripAnsi(rendered);
 }
 

@@ -12,9 +12,9 @@ export interface NsDomainCommandOptions<
 	S extends NsCommandSchema,
 	TResult,
 	TContext,
-	TNegative = TResult,
-	TFailure = TResult,
-	TUsageError = TResult,
+	TNegative = unknown,
+	TFailure = unknown,
+	TUsageError = unknown,
 > {
 	name: string;
 	summary: string;
@@ -54,9 +54,9 @@ export function createNsDomainCommand<
 	S extends NsCommandSchema,
 	TResult,
 	TContext,
-	TNegative = TResult,
-	TFailure = TResult,
-	TUsageError = TResult,
+	TNegative = unknown,
+	TFailure = unknown,
+	TUsageError = unknown,
 >(
 	options: NsDomainCommandOptions<S, TResult, TContext, TNegative, TFailure, TUsageError>,
 ): NsCommand<S, TResult, TNegative, TFailure, TUsageError> {

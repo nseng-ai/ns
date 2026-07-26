@@ -40,16 +40,20 @@ export function harnessResolutionContext(context: SkillsCommandContext) {
 	});
 }
 
-export function unknownSkillExit<T>(skill: string): ClinkrExit<T> {
+export function unknownSkillExit<T>(skill: string): ClinkrExit<T, unknown, unknown, unknown> {
 	return negative(`Unknown first-party ns skill ${JSON.stringify(skill)}.`);
 }
 
-export function provisionErrorExit<T>(error: HarnessArtifactProvisionErrorInfo): ClinkrExit<T> {
+export function provisionErrorExit<T>(
+	error: HarnessArtifactProvisionErrorInfo,
+): ClinkrExit<T, unknown, unknown, unknown> {
 	if (error.code === "unknown_harness") return harnessPathErrorExit(error);
 	return genericFailureExit(error);
 }
 
-export function harnessPathErrorExit<T>(error: HarnessPathErrorInfo): ClinkrExit<T> {
+export function harnessPathErrorExit<T>(
+	error: HarnessPathErrorInfo,
+): ClinkrExit<T, unknown, unknown, unknown> {
 	if (error.code === "unknown_harness") {
 		return usageError(error.message, { field: "harness", ...error.details });
 	}
@@ -60,6 +64,6 @@ function genericFailureExit<T>(error: {
 	code: string;
 	message: string;
 	details?: unknown;
-}): ClinkrExit<T> {
+}): ClinkrExit<T, unknown, unknown, unknown> {
 	return failure(error.code.replaceAll("_", "-"), error.message, error.details);
 }

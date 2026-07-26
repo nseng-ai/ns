@@ -56,14 +56,14 @@ type InstallLocalNsExtensionResult = z.output<typeof installLocalNsExtensionResu
 export async function runInstallLocalNsExtension(
 	context: NsDevCliContext,
 	request: InstallLocalNsExtensionRequest,
-): Promise<ClinkrExit<InstallLocalNsExtensionResult>> {
+): Promise<ClinkrExit<InstallLocalNsExtensionResult, unknown, unknown, unknown>> {
 	return guardFilesystemErrors(() => runInstallLocalNsExtensionInner(context, request));
 }
 
 async function runInstallLocalNsExtensionInner(
 	context: NsDevCliContext,
 	request: InstallLocalNsExtensionRequest,
-): Promise<ClinkrExit<InstallLocalNsExtensionResult>> {
+): Promise<ClinkrExit<InstallLocalNsExtensionResult, unknown, unknown, unknown>> {
 	if (request.target === undefined) {
 		return usageError("Missing required --target <path>.", { argument: "--target" });
 	}
@@ -186,7 +186,10 @@ async function runInstallLocalNsExtensionInner(
 
 type RegisterPackageExtensionResult =
 	| { readonly type: "ok" }
-	| { readonly type: "error"; readonly exit: ClinkrExit<InstallLocalNsExtensionResult> };
+	| {
+			readonly type: "error";
+			readonly exit: ClinkrExit<InstallLocalNsExtensionResult, unknown, unknown, unknown>;
+	  };
 
 async function registerPackageExtension(
 	context: NsDevCliContext,
@@ -217,7 +220,10 @@ async function readNsTomlTable(
 	nsTomlPath: string,
 ): Promise<
 	| { readonly type: "ok"; readonly table: Record<string, unknown> }
-	| { readonly type: "error"; readonly exit: ClinkrExit<InstallLocalNsExtensionResult> }
+	| {
+			readonly type: "error";
+			readonly exit: ClinkrExit<InstallLocalNsExtensionResult, unknown, unknown, unknown>;
+	  }
 > {
 	if (!(await context.fs.exists(nsTomlPath))) return { type: "ok", table: {} };
 	try {

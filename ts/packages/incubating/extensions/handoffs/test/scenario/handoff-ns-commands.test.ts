@@ -389,7 +389,7 @@ describe("handoff ns command objects", () => {
 			type: "ok",
 			data: { resolution: "ambiguous", selected: null, matchedBy: null },
 		});
-		expect(emptySelector.type === "ok" ? emptySelector.data.candidates : []).toHaveLength(2);
+		expect(emptySelector.type === "ok" ? emptySelector.data!!.candidates : []).toHaveLength(2);
 	});
 
 	test("exec match spans branches with --all and rejects --branch with --all", async () => {
@@ -411,7 +411,7 @@ describe("handoff ns command objects", () => {
 			type: "ok",
 			data: { scope: "all-branches", branch: null, resolution: "ambiguous" },
 		});
-		expect(crossBranch.type === "ok" ? crossBranch.data.candidates : []).toHaveLength(2);
+		expect(crossBranch.type === "ok" ? crossBranch.data!!.candidates : []).toHaveLength(2);
 
 		const scoped = await runHandoffCommand(
 			handoffExecMatchNsCommand,

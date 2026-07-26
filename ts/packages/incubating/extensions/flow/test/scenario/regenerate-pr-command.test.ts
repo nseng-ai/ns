@@ -120,6 +120,14 @@ describe("project-local regenerate-pr extension behavior", () => {
 			state: { confirm: () => false, exec: readOnlyResponses() },
 		});
 		expect(await run.exit).toBe(1);
+		const result = await run.result;
+		expect(result).toMatchObject({
+			type: "negative",
+			message: expect.stringContaining(
+				"PR metadata replacement was cancelled; GitHub was not edited.",
+			),
+		});
+		if (result.type === "negative") expect("data" in result).toBe(false);
 		expect(stripAnsi(run.stderr.join(""))).toContain(
 			"PR metadata replacement was cancelled; GitHub was not edited.",
 		);
@@ -131,6 +139,16 @@ describe("project-local regenerate-pr extension behavior", () => {
 	test("fails fast non-interactively without --yes", async () => {
 		const run = runRegeneratePrWithFakes({ state: { exec: readOnlyResponses() } });
 		expect(await run.exit).toBe(2);
+		expect(await run.result).toEqual({
+			type: "usageError",
+			errorType: "usageError",
+			message:
+				"Confirmation is unavailable; pass --yes to replace the complete PR title and body non-interactively.",
+			data: {
+				missingFlag: "--yes",
+				howToSupply: "Pass --yes/-y to approve the complete replacement without prompting.",
+			},
+		});
 		expect(stripAnsi(run.stderr.join(""))).toContain(
 			"pass --yes to replace the complete PR title and body non-interactively",
 		);
@@ -167,6 +185,9 @@ describe("project-local regenerate-pr extension behavior", () => {
 			},
 		});
 		expect(await run.exit).toBe(1);
+		const result = await run.result;
+		expect(result.type).toBe("negative");
+		if (result.type === "negative") expect("data" in result).toBe(false);
 		expect(stripAnsi(run.stderr.join(""))).toContain("Could not resolve current branch PR.");
 	});
 

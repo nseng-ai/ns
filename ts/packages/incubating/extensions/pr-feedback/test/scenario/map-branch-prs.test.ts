@@ -66,7 +66,7 @@ describe("ns address exec map-branch-prs", () => {
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope(run);
 		expect(envelope.exitCode).toBe(0);
-		expect(envelope.data?.branchPrs).toEqual([
+		expect(envelope.data!?.branchPrs).toEqual([
 			{
 				branch: "feature-b",
 				pr_number: 12,
@@ -84,9 +84,9 @@ describe("ns address exec map-branch-prs", () => {
 				base_ref_name: "master",
 			},
 		]);
-		expect(envelope.data?.missingBranches).toEqual([]);
-		expect(envelope.data?.ambiguousBranches).toEqual([]);
-		expect(envelope.data?.summary).toEqual({ requested: 2, matched: 2, missing: 0, ambiguous: 0 });
+		expect(envelope.data!?.missingBranches).toEqual([]);
+		expect(envelope.data!?.ambiguousBranches).toEqual([]);
+		expect(envelope.data!?.summary).toEqual({ requested: 2, matched: 2, missing: 0, ambiguous: 0 });
 	});
 
 	test("returns semantic exit 1 with full data and a message naming missing branches", async () => {
@@ -98,10 +98,10 @@ describe("ns address exec map-branch-prs", () => {
 		const envelope = parseEnvelope(run);
 		expect(envelope.exitCode).toBe(1);
 		expect(envelope.message).toBe("No open PR found for branches: no-such-branch, feature-merged");
-		expect(envelope.data?.branchPrs.map((entry) => entry.pr_number)).toEqual([11]);
-		expect(envelope.data?.missingBranches).toEqual(["no-such-branch", "feature-merged"]);
-		expect(envelope.data?.ambiguousBranches).toEqual([]);
-		expect(envelope.data?.summary).toEqual({ requested: 3, matched: 1, missing: 2, ambiguous: 0 });
+		expect(envelope.data!?.branchPrs.map((entry) => entry.pr_number)).toEqual([11]);
+		expect(envelope.data!?.missingBranches).toEqual(["no-such-branch", "feature-merged"]);
+		expect(envelope.data!?.ambiguousBranches).toEqual([]);
+		expect(envelope.data!?.summary).toEqual({ requested: 3, matched: 1, missing: 2, ambiguous: 0 });
 	});
 
 	test("accepts the payload via --branches-json", async () => {
@@ -130,8 +130,8 @@ describe("ns address exec map-branch-prs", () => {
 		const envelope = parseEnvelope(run);
 		expect(envelope.exitCode).toBe(1);
 		expect(envelope.message).toBe("Multiple open PRs found for branches: feature-shared");
-		expect(envelope.data?.branchPrs).toEqual([]);
-		expect(envelope.data?.ambiguousBranches).toEqual([
+		expect(envelope.data!?.branchPrs).toEqual([]);
+		expect(envelope.data!?.ambiguousBranches).toEqual([
 			{
 				branch: "feature-shared",
 				candidates: expect.arrayContaining([
@@ -140,7 +140,7 @@ describe("ns address exec map-branch-prs", () => {
 				]),
 			},
 		]);
-		expect(envelope.data?.summary).toEqual({ requested: 1, matched: 0, missing: 0, ambiguous: 1 });
+		expect(envelope.data!?.summary).toEqual({ requested: 1, matched: 0, missing: 0, ambiguous: 1 });
 	});
 
 	test("rejects duplicate branches with invalid_request", async () => {

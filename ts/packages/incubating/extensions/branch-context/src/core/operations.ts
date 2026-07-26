@@ -45,7 +45,6 @@ import {
 	createBranchContextFromFile,
 	DEFAULT_BRANCH_CREATION_METHOD,
 	branchContextCreationPolicyFromMethod,
-	formatBranchContextEvidence,
 	type BranchContextEvidence,
 } from "./branch-context-creation.ts";
 import { createRealBranchContextContext, type BranchContextContext } from "./context.ts";
@@ -222,7 +221,7 @@ export interface BranchContextCliContext {
 export async function handleCreate(
 	ctx: BranchContextCliContext,
 	request: CreateRequest,
-): Promise<ClinkrExit<BranchContextData>> {
+): Promise<ClinkrExit<BranchContextData, unknown, unknown, unknown>> {
 	return await runOperationCommand({
 		operation: "create",
 		action: async () => {
@@ -245,7 +244,7 @@ export async function handleCreate(
 				},
 				operationOptions(ctx),
 			);
-			return ok(branchContextJson(evidence), { human: formatBranchContextEvidence(evidence) });
+			return ok(branchContextJson(evidence));
 		},
 		failureFromError: branchContextExitFromError,
 	});
@@ -254,7 +253,7 @@ export async function handleCreate(
 export async function handleLoad(
 	ctx: BranchContextCliContext,
 	request: LoadRequest,
-): Promise<ClinkrExit<LoadPlanData>> {
+): Promise<ClinkrExit<LoadPlanData, unknown, unknown, unknown>> {
 	return await runOperationCommand({
 		operation: "load",
 		action: async () => {
@@ -276,7 +275,13 @@ export async function handleLoad(
 				...(request.includeContent === true ? { attachedPlanContent: plan.content } : {}),
 				...(request.includePrompt === true ? { implementationPrompt } : {}),
 			});
-			return ok(data, { human: formatLoadPlanHuman(plan, promptFile, implementationPrompt) });
+			if (request.includePrompt !== true) {
+				Object.defineProperty(data, "implementationPrompt", {
+					value: implementationPrompt,
+					enumerable: false,
+				});
+			}
+			return ok(data);
 		},
 		failureFromError: branchContextExitFromError,
 	});
@@ -285,7 +290,7 @@ export async function handleLoad(
 export async function handleAttach(
 	ctx: BranchContextCliContext,
 	request: AttachRequest,
-): Promise<ClinkrExit<AttachData>> {
+): Promise<ClinkrExit<AttachData, unknown, unknown, unknown>> {
 	return await runOperationCommand({
 		operation: "attach",
 		action: async () => {
@@ -301,7 +306,7 @@ export async function handleAttach(
 				},
 				operationOptions(ctx),
 			);
-			return ok(attachJson(evidence), { human: formatAttachEvidence(evidence) });
+			return ok(attachJson(evidence));
 		},
 		failureFromError: branchContextExitFromError,
 	});
@@ -310,7 +315,7 @@ export async function handleAttach(
 export async function handleList(
 	ctx: BranchContextCliContext,
 	request: ListRequest,
-): Promise<ClinkrExit<ListData>> {
+): Promise<ClinkrExit<ListData, unknown, unknown, unknown>> {
 	return await runOperationCommand({
 		operation: "list",
 		action: async () => {
@@ -318,7 +323,7 @@ export async function handleList(
 				request.branch === undefined ? {} : { branch: request.branch },
 				operationOptions(ctx),
 			);
-			return ok(listJson(list), { human: formatListEvidence(list.branch, list.entries) });
+			return ok(listJson(list));
 		},
 		failureFromError: branchContextExitFromError,
 	});
@@ -327,7 +332,7 @@ export async function handleList(
 export async function handleCheck(
 	ctx: BranchContextCliContext,
 	request: KeyRequest,
-): Promise<ClinkrExit<CheckData>> {
+): Promise<ClinkrExit<CheckData, unknown, unknown, unknown>> {
 	return await runOperationCommand({
 		operation: "check",
 		action: async () => {
@@ -338,7 +343,7 @@ export async function handleCheck(
 				},
 				operationOptions(ctx),
 			);
-			return ok(checkJson(evidence), { human: formatCheckEvidence(evidence) });
+			return ok(checkJson(evidence));
 		},
 		failureFromError: branchContextExitFromError,
 	});
@@ -347,7 +352,7 @@ export async function handleCheck(
 export async function handleDelete(
 	ctx: BranchContextCliContext,
 	request: KeyRequest,
-): Promise<ClinkrExit<DeleteData>> {
+): Promise<ClinkrExit<DeleteData, unknown, unknown, unknown>> {
 	return await runOperationCommand({
 		operation: "delete",
 		action: async () => {
@@ -358,7 +363,7 @@ export async function handleDelete(
 				},
 				operationOptions(ctx),
 			);
-			return ok(deleteJson(evidence), { human: formatDeleteEvidence(evidence) });
+			return ok(deleteJson(evidence));
 		},
 		failureFromError: branchContextExitFromError,
 	});
@@ -367,7 +372,7 @@ export async function handleDelete(
 function branchContextExitFromError(
 	operation: BranchContextOperation,
 	error: unknown,
-): ClinkrExit<never> {
+): ClinkrExit<never, never, unknown, unknown> {
 	if (error instanceof AttachBranchContextUsageError) {
 		return usageError(error.message, { code: error.code });
 	}
@@ -467,17 +472,6 @@ function operationOptions(ctx: BranchContextCliContext) {
 	};
 }
 
-function formatLoadPlanHuman(
-	plan: LoadedAttachedPlan,
-	promptFile: string | undefined,
-	implementationPrompt: string,
-): string {
-	if (promptFile !== undefined) {
-		return `${formatLoadedAttachedPlanEvidence(plan)}\nImplementation prompt file: ${promptFile}`;
-	}
-	return `${formatLoadedAttachedPlanEvidence(plan)}\n\n${implementationPrompt}`;
-}
-
 function branchContextJson(evidence: BranchContextEvidence): {
 	slug: string;
 	branch: string;
@@ -516,6 +510,42 @@ interface LoadedPlanJsonOptions {
 	promptFile?: string;
 	attachedPlanContent?: string;
 	implementationPrompt?: string;
+}
+
+export function renderLoadPlanData(data: LoadPlanData): string {
+	const evidence = formatLoadedAttachedPlanEvidence({
+		branch: data.branch,
+		namespace: data.namespace,
+		selectedKey: data.selectedKey,
+		refName: data.refName,
+		byteCount: data.byteCount,
+		availableKeys: data.availableKeys,
+		source: data.source,
+		...(data.sourceFile === undefined ? {} : { sourceFile: data.sourceFile }),
+		content: data.attachedPlanContent ?? "",
+	});
+	if (data.implementationPromptFile !== undefined) {
+		return `${evidence}\nImplementation prompt file: ${data.implementationPromptFile}`;
+	}
+	return data.implementationPrompt === undefined
+		? evidence
+		: `${evidence}\n\n${data.implementationPrompt}`;
+}
+
+export function renderAttachData(data: AttachData): string {
+	return formatAttachEvidence(data);
+}
+
+export function renderListData(data: ListData): string {
+	return formatListEvidence(data.branch, data.entries);
+}
+
+export function renderCheckData(data: CheckData): string {
+	return formatCheckEvidence(data);
+}
+
+export function renderDeleteData(data: DeleteData): string {
+	return formatDeleteEvidence(data);
 }
 
 function listJson(list: BranchContextListEvidence): {

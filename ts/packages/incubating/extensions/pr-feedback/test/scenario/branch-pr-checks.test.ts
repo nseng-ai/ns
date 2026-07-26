@@ -89,7 +89,7 @@ describe("ns address exec branch-pr-checks", () => {
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope(run);
 		expect(envelope.exitCode).toBe(0);
-		expect(envelope.data?.entries).toEqual([
+		expect(envelope.data!?.entries).toEqual([
 			expect.objectContaining({
 				branch: "feature-b",
 				status: "found",
@@ -118,7 +118,7 @@ describe("ns address exec branch-pr-checks", () => {
 				],
 			}),
 		]);
-		expect(envelope.data?.summary).toEqual({ requested: 2, matched: 2, missing: 0, ambiguous: 0 });
+		expect(envelope.data!?.summary).toEqual({ requested: 2, matched: 2, missing: 0, ambiguous: 0 });
 	});
 
 	test("returns semantic exit 1 with full data and a message naming missing branches", async () => {
@@ -130,11 +130,11 @@ describe("ns address exec branch-pr-checks", () => {
 		const envelope = parseEnvelope(run);
 		expect(envelope.exitCode).toBe(1);
 		expect(envelope.message).toBe("No open PR found for branches: no-such-branch");
-		expect(envelope.data?.entries).toEqual([
+		expect(envelope.data!?.entries).toEqual([
 			expect.objectContaining({ branch: "feature-a", status: "found" }),
 			{ branch: "no-such-branch", status: "missing", pr_status: "no-pr" },
 		]);
-		expect(envelope.data?.summary).toEqual({ requested: 2, matched: 1, missing: 1, ambiguous: 0 });
+		expect(envelope.data!?.summary).toEqual({ requested: 2, matched: 1, missing: 1, ambiguous: 0 });
 	});
 
 	test("returns semantic exit 1 with candidates for ambiguous branches", async () => {
@@ -153,7 +153,7 @@ describe("ns address exec branch-pr-checks", () => {
 		expect(await run.exit).toBe(1);
 		const envelope = parseEnvelope(run);
 		expect(envelope.message).toBe("Multiple open PRs found for branches: feature-shared");
-		expect(envelope.data?.entries).toEqual([
+		expect(envelope.data!?.entries).toEqual([
 			expect.objectContaining({
 				branch: "feature-shared",
 				status: "ambiguous",
@@ -164,7 +164,7 @@ describe("ns address exec branch-pr-checks", () => {
 				],
 			}),
 		]);
-		expect(envelope.data?.summary).toEqual({ requested: 1, matched: 0, missing: 0, ambiguous: 1 });
+		expect(envelope.data!?.summary).toEqual({ requested: 1, matched: 0, missing: 0, ambiguous: 1 });
 	});
 
 	test("accepts the payload via --branches-json", async () => {

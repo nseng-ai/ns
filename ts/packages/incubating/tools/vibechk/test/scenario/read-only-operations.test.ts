@@ -211,7 +211,7 @@ describe("vibechk read-only operations", () => {
 		it("reports error for missing run", async () => {
 			const run = runScenario(["show", "missing", "--store", storeRoot]);
 			expect(await run.exit).toBe(1);
-			expect(run.stderr.join("")).toContain("No run matches prefix 'missing'");
+			expect(run.stdout.join("")).toContain("No run matches prefix 'missing'");
 		});
 
 		it("reports error for ambiguous prefix", async () => {
@@ -220,8 +220,8 @@ describe("vibechk read-only operations", () => {
 
 			const run = runScenario(["show", "abc", "--store", storeRoot]);
 			expect(await run.exit).toBe(1);
-			expect(run.stderr.join("")).toContain("Run prefix 'abc' is ambiguous");
-			expect(run.stderr.join("")).toContain("abc11111, abc22222");
+			expect(run.stdout.join("")).toContain("Run prefix 'abc' is ambiguous");
+			expect(run.stdout.join("")).toContain("abc11111, abc22222");
 
 			const jsonRun = runScenario(["show", "abc", "--store", storeRoot, "--format", "json"]);
 			expect(await jsonRun.exit).toBe(1);

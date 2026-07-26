@@ -3,11 +3,7 @@ import { checkHandoffArtifact, parseFlatHandoffSlug } from "@nseng-ai/handoffs/a
 import { failure, negative, ok } from "@nseng-ai/sdk";
 import { z } from "zod";
 
-import {
-	formatHerdrHandoffTabLaunchSuccess,
-	formatHerdrHandoffTabRunFailure,
-	launchHerdrHandoffTab,
-} from "../../core/handoff-tab.ts";
+import { formatHerdrHandoffTabRunFailure, launchHerdrHandoffTab } from "../../core/handoff-tab.ts";
 import { herdrNsCommand } from "../command.ts";
 
 const thinkingLevelSchema = z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]);
@@ -109,20 +105,17 @@ export const herdrHandoffTabLaunchNsCommand = herdrNsCommand({
 			);
 		}
 
-		return ok(
-			{
-				...reference,
-				key: checked.value.key,
-				entryLocator: checked.value.entryLocator,
-				workspaceId: launched.workspaceId,
-				tabId: launched.tabId,
-				rootPaneId: launched.rootPaneId,
-				label: launched.label,
-				pickupCommand,
-				command: launched.command,
-			},
-			{ human: formatHerdrHandoffTabLaunchSuccess(launched) },
-		);
+		return ok({
+			...reference,
+			key: checked.value.key,
+			entryLocator: checked.value.entryLocator,
+			workspaceId: launched.workspaceId,
+			tabId: launched.tabId,
+			rootPaneId: launched.rootPaneId,
+			label: launched.label,
+			pickupCommand,
+			command: launched.command,
+		});
 	},
 });
 

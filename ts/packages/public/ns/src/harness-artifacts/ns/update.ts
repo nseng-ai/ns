@@ -17,14 +17,14 @@ export type NsUpdateResult = z.output<typeof nsUpdateResultSchema>;
 export async function runNsUpdateCli(
 	_context: SkillsCommandContext,
 	_request: NsUpdateCliRequest,
-): Promise<ClinkrExit<NsUpdateResult>> {
+): Promise<ClinkrExit<NsUpdateResult, unknown, unknown, unknown>> {
 	return selfUpdateNotImplemented();
 }
 
 export async function runNsUpdate(
 	context: SkillsCommandContext,
 	request: NsUpdateRequest,
-): Promise<ClinkrExit<NsUpdateResult>> {
+): Promise<ClinkrExit<NsUpdateResult, unknown, unknown, unknown>> {
 	return await runNsUpdateCli(context, request);
 }
 
@@ -32,7 +32,7 @@ export function renderNsUpdateHuman(result: NsUpdateResult): string {
 	return result.isImplemented ? "ns self-update complete." : "ns self-update is not implemented.";
 }
 
-function selfUpdateNotImplemented(): ClinkrExit<NsUpdateResult> {
+function selfUpdateNotImplemented(): ClinkrExit<NsUpdateResult, unknown, unknown, unknown> {
 	return failure(
 		"self-update-not-implemented",
 		"ns self-update is not implemented yet; use ns extension update <source> to update one declared extension.",

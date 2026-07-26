@@ -162,7 +162,7 @@ describe("uninstallExtension", () => {
 			},
 		});
 		if (result.type !== "ok") throw new Error("Expected uninstall to succeed.");
-		expect(phaseHistory(result.data.steps)).toEqual([
+		expect(phaseHistory(result.data!!.steps)).toEqual([
 			{ type: "phase", phase: "repository-preflight", status: "started" },
 			{ type: "phase", phase: "repository-preflight", status: "completed" },
 			{ type: "phase", phase: "configuration-preflight", status: "started" },
@@ -177,20 +177,20 @@ describe("uninstallExtension", () => {
 			{ type: "phase", phase: "managed-package-cleanup", status: "completed" },
 			{ type: "phase", phase: "completion", status: "completed" },
 		]);
-		const activationApplyCompleted = result.data.steps.findIndex(
+		const activationApplyCompleted = result.data!!.steps.findIndex(
 			(step) =>
 				step.type === "phase" && step.phase === "activation-apply" && step.status === "completed",
 		);
-		const preservation = result.data.steps.findIndex(
+		const preservation = result.data!!.steps.findIndex(
 			(step) => step.type === "preservation" && step.subject === "consumer-data",
 		);
-		const cleanupStarted = result.data.steps.findIndex(
+		const cleanupStarted = result.data!!.steps.findIndex(
 			(step) =>
 				step.type === "phase" &&
 				step.phase === "managed-package-cleanup" &&
 				step.status === "started",
 		);
-		const acquisitionDecided = result.data.steps.findIndex(
+		const acquisitionDecided = result.data!!.steps.findIndex(
 			(step) => step.type === "acquisition-decided" && step.intent === "remove-managed",
 		);
 		expect(activationApplyCompleted).toBeLessThan(preservation);

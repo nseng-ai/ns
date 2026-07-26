@@ -117,7 +117,7 @@ describe("skill-exposure CLI scenarios", () => {
 		]);
 		expect(result.exit).toBe(0);
 		const envelope = json(result);
-		const skills = (envelope.data as { skills: Array<{ facts: Record<string, unknown> }> }).skills;
+		const skills = (envelope.data! as { skills: Array<{ facts: Record<string, unknown> }> }).skills;
 		expect(Object.hasOwn(skills[0]?.facts ?? {}, "replacementSurface")).toBe(false);
 		expect(skills[1]?.facts.replacementSurface).toBe("skill:management");
 	});

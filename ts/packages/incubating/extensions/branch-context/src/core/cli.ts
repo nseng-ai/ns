@@ -4,8 +4,10 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import {
 	attachRequestSchema,
+	checkResultSchema,
 	createRealBranchContextCliContext,
 	createRequestSchema,
+	deleteResultSchema,
 	handleAttach,
 	handleCheck,
 	handleCreate,
@@ -14,7 +16,13 @@ import {
 	handleLoad,
 	keyRequestSchema,
 	listRequestSchema,
+	listResultSchema,
 	loadRequestSchema,
+	renderAttachData,
+	renderCheckData,
+	renderDeleteData,
+	renderListData,
+	renderLoadPlanData,
 	type BranchContextCliContext,
 	type CliDeps,
 } from "./operations.ts";
@@ -56,6 +64,7 @@ const entry = defineCli<BranchContextCliContext, CliDeps, undefined>({
 			schema: loadRequestSchema,
 			positionals: { key: { position: 0 } },
 			handler: handleLoad,
+			renderHuman: renderLoadPlanData,
 		});
 		execGroup.command({
 			name: "attach",
@@ -63,26 +72,33 @@ const entry = defineCli<BranchContextCliContext, CliDeps, undefined>({
 			schema: attachRequestSchema,
 			positionals: { key: { position: 0 } },
 			handler: handleAttach,
+			renderHuman: renderAttachData,
 		});
 		execGroup.command({
 			name: "list",
 			description: "List branch-context entries.",
 			schema: listRequestSchema,
+			resultSchema: listResultSchema,
 			handler: handleList,
+			renderHuman: renderListData,
 		});
 		execGroup.command({
 			name: "check",
 			description: "Check whether a branch-context entry exists.",
 			schema: keyRequestSchema,
 			positionals: { key: { position: 0 } },
+			resultSchema: checkResultSchema,
 			handler: handleCheck,
+			renderHuman: renderCheckData,
 		});
 		execGroup.command({
 			name: "delete",
 			description: "Delete a branch-context entry.",
 			schema: keyRequestSchema,
 			positionals: { key: { position: 0 } },
+			resultSchema: deleteResultSchema,
 			handler: handleDelete,
+			renderHuman: renderDeleteData,
 		});
 		root.group(execGroup);
 		appBuilder.importLegacyClinkrGroupForMigration(root);
