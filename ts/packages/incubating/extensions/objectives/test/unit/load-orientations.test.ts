@@ -62,6 +62,7 @@ describe("objective load-orientations operation", () => {
 		const exit = await runLoadOrientations(ctx, {});
 
 		if (exit.type !== "ok") throw new Error("expected ok exit");
+		if (exit.data === undefined) throw new Error("expected ok data");
 		expect(exit.data.records.map((record) => record.slug)).toEqual(["alpha", "charlie"]);
 	});
 
@@ -74,6 +75,7 @@ describe("objective load-orientations operation", () => {
 		});
 		const exit = await runLoadOrientations(ctx, {});
 		if (exit.type !== "ok") throw new Error("expected ok exit");
+		if (exit.data === undefined) throw new Error("expected ok data");
 
 		expect(renderLoadOrientationsMarkdown(exit.data)).toBe(
 			[
@@ -103,6 +105,7 @@ describe("objective load-orientations operation", () => {
 		);
 
 		if (withoutFrontmatter.type !== "ok") throw new Error("expected ok exit");
+		if (withoutFrontmatter.data === undefined) throw new Error("expected ok data");
 		expect(withoutFrontmatter.data.records).toEqual([
 			{
 				slug: "alpha",

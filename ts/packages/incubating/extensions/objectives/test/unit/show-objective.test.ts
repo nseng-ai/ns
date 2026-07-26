@@ -415,6 +415,6 @@ function plainHuman(data: ShowObjectiveOkResult): string {
 
 function expectOk(exit: Awaited<ReturnType<typeof runShowObjective>>): ShowObjectiveOkResult {
 	if (exit.type !== "ok") throw new Error(`expected ok exit, got ${exit.type}`);
-	if (exit.data.status !== "ok") throw new Error(`expected ok status, got ${exit.data.status}`);
+	if (exit.data?.status !== "ok") throw new Error("expected ok status");
 	return exit.data;
 }

@@ -76,6 +76,7 @@ describe("objective check with Record Frontmatter", () => {
 		);
 
 		if (withoutFrontmatter.type !== "ok") throw new Error("expected ok exit");
+		if (withoutFrontmatter.data === undefined) throw new Error("expected ok data");
 		expect(withoutFrontmatter.data.status).toBe("ok");
 		expect(withoutFrontmatter.data.errorCount).toBe(0);
 		expect(withFrontmatter).toEqual(withoutFrontmatter);
@@ -145,6 +146,7 @@ describe("objective check with Record Frontmatter", () => {
 		);
 
 		if (exit.type !== "ok") throw new Error("expected ok exit");
+		if (exit.data === undefined) throw new Error("expected ok data");
 		if (exit.data.status !== "ok") throw new Error("expected ok result");
 		const closureCheck = exit.data.checks.find((check) =>
 			check.label.includes("## Closure for closed Objective"),
@@ -190,6 +192,7 @@ describe("objective check with Record Frontmatter", () => {
 		);
 
 		if (exit.type !== "ok") throw new Error("expected ok exit");
+		if (exit.data === undefined) throw new Error("expected ok data");
 		expect(exit.data.status).toBe("ok");
 		expect(exit.data.errorCount).toBe(0);
 		expect(exit.data.warningCount).toBe(1);
@@ -230,6 +233,7 @@ describe("objective check --all edge sweep", () => {
 		);
 
 		if (exit.type !== "ok") throw new Error("expected ok exit");
+		if (exit.data === undefined) throw new Error("expected ok data");
 		expect(exit.data.status).toBe("sweep-ok");
 		if (exit.data.status !== "sweep-ok") throw new Error("expected sweep-ok result");
 		expect(exit.data.recordCount).toBe(3);
@@ -252,6 +256,7 @@ describe("objective check --all edge sweep", () => {
 		);
 
 		if (exit.type !== "ok") throw new Error("expected ok exit");
+		if (exit.data === undefined) throw new Error("expected ok data");
 		expect(exit.data.status).toBe("sweep-ok");
 		if (exit.data.status !== "sweep-ok") throw new Error("expected sweep-ok result");
 		expect(exit.data.errorCount).toBe(0);

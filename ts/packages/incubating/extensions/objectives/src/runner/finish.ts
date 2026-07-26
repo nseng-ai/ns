@@ -9,7 +9,16 @@
  * building) are deliberately duplicated, not shared: step.ts is deleted with
  * the legacy blocking command once the decomposed flow has dogfooding mileage.
  */
-import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import {
+	failure,
+	negative,
+	ok,
+	usageError,
+	type ClinkrExit,
+	type ClinkrFailureExit,
+} from "@nseng-ai/clinkr";
+
+import type { ArgumentUsageErrorData } from "./preconditions.ts";
 import { isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
@@ -113,7 +122,9 @@ export type RunnerFinishResult = z.infer<typeof runnerFinishResultSchema>;
 export async function runRunnerFinish(
 	ctx: ObjectiveRunnerCoreContext,
 	request: RunnerFinishRequest,
-): Promise<ClinkrExit<RunnerFinishResult>> {
+): Promise<
+	ClinkrExit<RunnerFinishResult, RunnerFinishResult, RunnerFinishResult, ArgumentUsageErrorData>
+> {
 	if (request.slug === undefined) {
 		return usageError("Objective slug is required.", { argument: "slug" });
 	}
@@ -171,7 +182,7 @@ export async function runRunnerFinish(
 		errorType: string,
 		message: string,
 		options: { diagnostics?: readonly string[]; narrative?: string; branch?: string } = {},
-	): Promise<ClinkrExit<RunnerFinishResult>> => {
+	): Promise<ClinkrFailureExit<RunnerFinishResult>> => {
 		const result = buildCheckpointResult(
 			{
 				status: "malfunction",
