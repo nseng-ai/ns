@@ -1,9 +1,6 @@
 import { formatZodIssue } from "@nseng-ai/foundation/primitives";
 
-import {
-	listCandidatesResultSchema,
-	type ObjectiveCandidateRecord,
-} from "./operations/list-candidates.ts";
+import { listCandidatesResultSchema, type ObjectiveCandidateRecord } from "./candidate-listing.ts";
 
 export type ObjectiveCandidatesParseResult =
 	| { type: "valid"; records: ObjectiveCandidateRecord[] }

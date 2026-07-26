@@ -5,7 +5,7 @@ import type { PublicationAuthorizationStore } from "../../../src/publication/aut
 import {
 	publicationPublishRequestSchema,
 	runPublicationPublish,
-} from "../../../src/ns/publication-commands.ts";
+} from "../../../src/cli/objective/exec/publication-publish/command.ts";
 import type { ObjectiveRunnerPublicationFactsGateway } from "../../../src/publication/facts-gateway.ts";
 import type { ObjectiveRunnerBranchPublisher } from "../../../src/publication/publish.ts";
 

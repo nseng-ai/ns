@@ -9,7 +9,7 @@ import {
 import {
 	renderLoadOrientationsMarkdown,
 	runLoadOrientations,
-} from "../../src/core/operations/load-orientations.ts";
+} from "../../src/cli/objective/exec/load-orientations/command.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 
 describe("objective load-orientations operation", () => {

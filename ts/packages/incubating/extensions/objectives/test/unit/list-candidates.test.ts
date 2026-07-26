@@ -9,7 +9,7 @@ import {
 import {
 	renderListCandidates,
 	runListCandidates,
-} from "../../src/core/operations/list-candidates.ts";
+} from "../../src/cli/objective/exec/list-candidates/command.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 
 describe("objective list-candidates operation", () => {

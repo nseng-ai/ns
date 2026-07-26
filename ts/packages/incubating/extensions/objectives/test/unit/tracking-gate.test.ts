@@ -6,7 +6,10 @@ import {
 	FakeObjectiveStorageGateway,
 	type FakeObjectiveStorageGatewayOptions,
 } from "../../src/core/fake-storage.ts";
-import { renderTrackingGate, runTrackingGate } from "../../src/core/operations/tracking-gate.ts";
+import {
+	renderTrackingGate,
+	runTrackingGate,
+} from "../../src/cli/objective/exec/tracking-gate/command.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 
 describe("objective tracking-gate operation", () => {
@@ -20,7 +23,7 @@ describe("objective tracking-gate operation", () => {
 				changedPaths: {
 					"master...HEAD|.": [
 						".ns/objectives/flow-cleanup/roadmap.md",
-						"ts/packages/incubating/extensions/objectives/src/core/operations/tracking-gate.ts",
+						"ts/packages/incubating/extensions/objectives/src/cli/objective/exec/tracking-gate/command.ts",
 					],
 				},
 			},
@@ -49,13 +52,13 @@ describe("objective tracking-gate operation", () => {
 					status: "ok",
 					changedPaths: [
 						".ns/objectives/flow-cleanup/roadmap.md",
-						"ts/packages/incubating/extensions/objectives/src/core/operations/tracking-gate.ts",
+						"ts/packages/incubating/extensions/objectives/src/cli/objective/exec/tracking-gate/command.ts",
 					],
 					changedPathCount: 2,
 					objectiveChangedPaths: [".ns/objectives/flow-cleanup/roadmap.md"],
 					objectiveChangedPathCount: 1,
 					materialNonObjectivePaths: [
-						"ts/packages/incubating/extensions/objectives/src/core/operations/tracking-gate.ts",
+						"ts/packages/incubating/extensions/objectives/src/cli/objective/exec/tracking-gate/command.ts",
 					],
 					materialNonObjectivePathCount: 1,
 				},
