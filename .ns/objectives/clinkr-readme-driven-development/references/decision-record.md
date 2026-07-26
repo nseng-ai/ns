@@ -308,9 +308,23 @@ Laziness is recursive and fast by default. Help and name completion may import i
 
 Builders remain a public advanced escape hatch for unusual or programmatic topology, extension mounting, custom loading, and framework integration. The package README should mention this briefly and point to a separate future advanced builder guide; its main flow must not teach builder callbacks.
 
-The exact filesystem bootstrap/helper API used by `app.ts` is unresolved. README examples may show a coherent conceptual bootstrap only when clearly labeled provisional, while `command.ts` and `group.ts` exports should be concrete. Runtime discovery also creates a packaging constraint: route files and directories must ship intact. Bundled or single-file environments may need the builder escape hatch or a later dedicated adapter. This decision does not authorize a manifest fallback.
+Runtime discovery creates a packaging constraint: command/group files and directories must ship intact. Bundled or single-file environments may need the builder escape hatch or a later dedicated adapter. This decision does not authorize a manifest fallback.
 
-Raw mounting and completion-error policy remain unresolved. Positional metadata, the Markdown format alias, and the outcome/rendering reconciliation were subsequently settled below.
+The common bootstrap and completion-error policy were subsequently settled below. Raw mounting remains unresolved. Positional metadata, the Markdown format alias, and the outcome/rendering reconciliation were also subsequently settled below.
+
+## Filesystem bootstrap API settled (2026-07-26)
+
+The common `cli/app.ts` interface is `createClinkrApp({ name, commandDirectory, version?, runtimeInfo?, completion? })`. Public language describes a filesystem-defined **command structure**, command directory, command path, command module, and group module; it does not describe Clinkr's command model as routes.
+
+`commandDirectory` is a required absolute filesystem path string. The colocated Node 24+ form is `commandDirectory: import.meta.dirname`; a nested structure uses an absolute derived path such as `path.join(import.meta.dirname, "commands")`. Clinkr rejects relative paths and never resolves the command structure against `process.cwd()`. `name` is explicit; Clinkr does not inspect package metadata or infer a bin name. Foundation continues to own package metadata lookup and supplies its derived name, version, and runtime diagnostics.
+
+`createClinkrApp` returns `Promise<ClinkrApp<TContext>>`. Context-free apps use `app.run(args)` and `app.complete(request)`; contextful apps require per-invocation options carrying `context` (and optional I/O). Context is not captured during app creation or stored globally. Only `ClinkrApp` executes commands or computes completion.
+
+The factory is the common-path convenience over the same immutable builder/App runtime. Advanced and Foundation composition may add the filesystem command structure and programmatic commands through the app builder; the filesystem adapter is not a second parser or command-dispatch implementation. Foundation runs `prepareRun` first, creates a fresh app for each unhandled invocation, then runs it with the prepared context and I/O. No app, invocation context, or per-app successful-load cache is shared between Foundation invocations.
+
+Completion remains opt-in app policy. Optional `completion.onProviderError` receives the thrown provider error, command path, completion request, and invocation context. Clinkr then returns static candidates without printing the provider error; observer failure cannot break that fallback. This callback is not a general application-error observer.
+
+The public builder operation's exact spelling may be finalized during implementation, but its semantics are fixed: adapt an absolute command directory into the same command/group model, preserving transactional selected-command loading, concurrent in-flight sharing, per-app success caching, retry after failure, provenance, and fresh Commander trees. There is no manifest, production codegen, compatibility runtime, manual argv pre-dispatch, or second command-dispatch implementation.
 
 ## Public-surface naming decisions (2026-07-25)
 
@@ -318,7 +332,7 @@ Clinkr retains `position` as the positional-metadata field name. It is the estab
 
 Clinkr also retains and documents `md` as an explicit alias for the canonical `markdown` format value. The alias is intentional and already has focused parsing, rendering, validation-text, and completion coverage. Reconciliation must preserve both the long spelling and alias rather than leaving `md` as undocumented behavior.
 
-These decisions settle only the two naming questions. They do not alter raw mounting, completion-error policy, `ClinkrFailure` removal, or the bootstrap API. The outcome and rendering reconciliation was subsequently approved below.
+These decisions settle only the two naming questions. They do not alter raw mounting or `ClinkrFailure` removal. The outcome/rendering reconciliation and the bootstrap/completion-error policy were settled separately.
 
 ## Outcome and rendering reconciliation approved (2026-07-25)
 
@@ -328,7 +342,7 @@ Migration order is part of the approval. First extend the SDK command model and 
 
 Do not mechanically delete branch-dependent presentation or preserve it as an adapter-side policy. Move the distinguishing facts into typed outcome data. Bodyless means no `data` field and no human result body, while JSON still emits the status envelope. An explicit `z.any()` remains the only intentionally untyped data escape hatch.
 
-This approval does not settle raw mounting, completion-error policy, `ClinkrFailure` removal, or the exact filesystem bootstrap API.
+This approval does not settle raw mounting or `ClinkrFailure` removal. The filesystem bootstrap and completion-error policy were settled separately.
 
 ## Accepted implementation behavior
 

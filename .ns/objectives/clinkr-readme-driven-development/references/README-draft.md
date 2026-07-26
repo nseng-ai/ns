@@ -7,16 +7,10 @@ Clinkr is a TypeScript toolkit for building CLIs that work for people and coding
 - one schema-backed model for command input, JSON Schema, and help;
 - standardized JSON output for success, negative results, and errors.
 
-## Fast by default
-
-Clinkr discovers routes from a direct filesystem hierarchy, but it does not construct the whole command tree. For parent routing, help, and name completion, it imports immediate child modules, calls each command module's cheap `metadata()`, and calls each group module's cheap, complete `group()` definition. A group's children still come from its directory. Command schemas, handlers, gateways, renderers, completion providers, and expensive imports belong inside `command()`, which runs only after that command is selected.
-
-Successful selected-command loads are cached for that app, concurrent loads share their in-flight work, and failed loads remain retryable. Sibling command definitions are not constructed. A heavy command may dynamically import a private implementation from inside `command()`, but normal commands stay in one file. Group module top levels and `group()` itself must remain cheap.
-
 The agentic era makes CLIs more important, not less—and humans still matter. So Clinkr also provides:
 
 - human-readable output from the same handlers;
-- shell autocomplete derived from the same lazy route tree.
+- shell autocomplete derived from the same lazy command tree.
 
 Commands take a schema-validated request object and return a schema-validated result. JSON in and out is uniform; flag spelling and human output stay customizable per application.
 
@@ -27,6 +21,12 @@ Commander parses commands, options, and arguments well. We needed consistency in
 Without a shared layer, each CLI invents its own way to describe inputs, emit JSON, represent errors, and expose schemas. Those differences make commands hard to discover and hard to call reliably. Clinkr centralizes the choices: a command's Zod schemas define its typed inputs and outputs, and Clinkr uses them to validate requests, publish JSON Schema, and produce a standard JSON response envelope.
 
 Norms for agent-facing CLIs are still evolving. Keeping the mechanics in one package gives one point of leverage: as norms change, we improve Clinkr instead of redesigning every command.
+
+## Fast by default
+
+Clinkr discovers a command structure from a direct filesystem hierarchy, but it does not construct the whole command tree. For command selection, help, and name completion, it imports immediate child modules, calls each command module's cheap `metadata()`, and calls each group module's cheap, complete `group()` definition. A group's children still come from its directory. Command schemas, handlers, gateways, renderers, completion providers, and expensive imports belong inside `command()`, which runs only after that command is selected.
+
+Successful selected-command loads are cached for that app, concurrent loads share their in-flight work, and failed loads remain retryable. Sibling command definitions are not constructed. A heavy command may dynamically import a private implementation from inside `command()`, but normal commands stay in one file. Group module top levels and `group()` itself must remain cheap.
 
 > **Status:** This is a provisional contract under active review. Examples and behavior claims must be verified before this document is promoted to the package README.
 
@@ -90,20 +90,22 @@ export async function command() {
 }
 ```
 
-The exact type and helper spellings are provisional; the examples consistently show the desired authoring shape. Directory structure supplies the route name. A command's explicitly typed `metadata()` supplies description or summary, explicit aliases, hidden state, and help grouping, while its selected `command()` returns `defineCommand({...})`. The generic helper lets `schema` and `resultSchema` drive handler and renderer inference. Command module top levels and `metadata()` must stay cheap; heavy static imports belong behind `command()` or a private dynamic import it performs.
+The exact command-definition type and helper spellings are provisional; the examples consistently show the desired authoring shape. Directory structure supplies the command or group name. A command's explicitly typed `metadata()` supplies description or summary, explicit aliases, hidden state, and help grouping, while its selected `command()` returns `defineCommand({...})`. The generic helper lets `schema` and `resultSchema` drive handler and renderer inference. Command module top levels and `metadata()` must stay cheap; heavy static imports belong behind `command()` or a private dynamic import it performs.
 
-`cli/app.ts` discovers the route directory and runs the app. The exact bootstrap helper has **not** been settled; this is conceptual spelling, not a committed API:
+`cli/app.ts` identifies the command directory and runs the app:
 
 ```ts
-// cli/app.ts — conceptual bootstrap API; exact names are provisional
-import { createFilesystemApp } from "@nseng-ai/clinkr";
+// cli/app.ts
+import { createClinkrApp } from "@nseng-ai/clinkr";
 
-const app = await createFilesystemApp({
+const app = await createClinkrApp({
   name: "greet",
-  routesDirectory: new URL("./", import.meta.url),
+  commandDirectory: import.meta.dirname,
 });
 process.exitCode = await app.run(process.argv.slice(2));
 ```
+
+`import.meta.dirname` is the absolute directory containing `app.ts` in Node 24+. When the command structure lives in a child directory, pass an absolute path such as `path.join(import.meta.dirname, "commands")`. Clinkr never resolves `commandDirectory` relative to the process working directory.
 
 This creates a command callable as `greet Ada --enthusiastic`. Clinkr adds `--format <human|json|markdown>` and `--json-schema` to every rendered command; `md` is a supported alias for `markdown`. The request schema drives parsing and validation; camelCase schema keys become kebab-case options. Mark positional fields with `positionals`, use `position` to declare their zero-based ordinal placement, and use `options` for option-specific help and surface metadata.
 
@@ -227,7 +229,7 @@ Two refinements when a command needs them:
 
 ## Build a CLI with subcommands
 
-Filesystem paths are CLI paths. There are no `groups/`, `commands/`, or per-level `routes/` taxonomy directories:
+Filesystem paths are command paths. There are no required `groups/`, `commands/`, or other per-level taxonomy directories:
 
 ```text
 cli/
@@ -251,9 +253,9 @@ The conventions are mechanical:
 - `command.ts` beside `group.ts` is that group's default command;
 - root `cli/command.ts` is the app default.
 
-Normal routes use one file. There is no `route.ts` metadata sidecar, generated manifest, generated runtime module, or production codegen step.
+A normal command or group uses one public definition file. There is no metadata sidecar, generated manifest, generated runtime module, or production codegen step.
 
-A group module exports one cheap, complete definition function. There is no separate group `metadata()` or lazy second definition function; child routes come from the directory:
+A group module exports one cheap, complete definition function. There is no separate group `metadata()` or lazy second definition function; child commands and groups come from the directory:
 
 ```ts
 // cli/issues/group.ts
@@ -292,9 +294,9 @@ export async function command() {
 }
 ```
 
-Aliases are explicit public API; Clinkr never infers them. Invoking a scope without a selected child runs its default command when present and otherwise shows help. Hidden routes remain invocable but do not appear in parent help.
+Aliases are explicit public API; Clinkr never infers them. Invoking a scope without a selected child runs its default command when present and otherwise shows help. Hidden commands and groups remain invocable but do not appear in parent help.
 
-Runtime discovery requires these route files and directories to ship intact. Bundlers and single-file packaging may need the programmatic builder escape hatch or a future dedicated adapter; Clinkr does not solve this with a generated manifest.
+Runtime discovery requires these command/group files and directories to ship intact. Bundlers and single-file packaging may need the programmatic builder escape hatch or a future dedicated adapter; Clinkr does not solve this with a generated manifest.
 
 ## Shell completion
 
@@ -438,7 +440,7 @@ Progress belongs on stderr so JSON stdout stays clean. Durable answer streaming 
 
 ## Advanced: programmatic builders
 
-Filesystem routes are the common authoring path. Public async immutable builders remain the lower-level escape hatch for unusual or programmatic topology, extension mounting, custom loading, framework integration, and packaging environments that cannot preserve route directories. They lower to the same app and routing runtime as filesystem discovery. A separate advanced builder guide will document callbacks, terminal `define()`/`import()`, provenance, and loading semantics; this README intentionally does not teach that callback API.
+Filesystem-defined command structures are the common authoring path. Public async immutable builders remain the lower-level escape hatch for unusual or programmatic topology, extension mounting, custom loading, framework integration, and packaging environments that cannot preserve command directories. They lower to the same app and command-dispatch runtime as filesystem discovery. A separate advanced builder guide will document callbacks, terminal `define()`/`import()`, provenance, and loading semantics; this README intentionally does not teach that callback interface.
 
 ## Public entrypoints
 
