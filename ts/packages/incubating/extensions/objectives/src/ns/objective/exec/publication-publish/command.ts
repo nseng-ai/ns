@@ -10,14 +10,14 @@ import {
 	createNsObjectiveRunnerPublicationContext,
 	type ObjectiveRunnerPublicationCommandContext,
 } from "../../../publication-context.ts";
-import { objectiveNsCommand } from "../../../objective-command.ts";
+import { objectiveNsCommandWithContext } from "../../../objective-command.ts";
 
 export async function command(
 	createContext?: (
 		api: NsExtensionApi,
 	) => Promise<ObjectiveRunnerPublicationCommandContext> | ObjectiveRunnerPublicationCommandContext,
 ) {
-	return objectiveNsCommand({
+	return objectiveNsCommandWithContext({
 		schema: publicationPublishRequestSchema,
 		resultSchema: publicationPublishResultSchema,
 		negativeSchema: publicationPublishResultSchema,
