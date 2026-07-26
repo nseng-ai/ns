@@ -25,7 +25,7 @@ describe("delete operation", () => {
 
 		const get = runScenario(["get", "plan/plan.md", "--namespace", "scratch"], { gateway });
 		expect(await get.exit).toBe(1);
-		expect(get.stderr.join("")).toContain("No content for Entry Key plan/plan.md");
+		expect(get.stdout.join("")).toContain("No content for Entry Key plan/plan.md");
 	});
 
 	it("emits Python-compatible JSON fields", async () => {
@@ -114,7 +114,7 @@ describe("delete operation", () => {
 			fake: { currentBranch: "feat/x" },
 		});
 		expect(await human.exit).toBe(1);
-		const humanError = human.stderr.join("");
+		const humanError = human.stdout.join("");
 		expect(humanError).toContain("No Entry to delete");
 		expect(humanError).toContain("Entry Key=plan/plan.md");
 		expect(humanError).toContain("Namespace=scratch");

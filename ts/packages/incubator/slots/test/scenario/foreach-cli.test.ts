@@ -316,7 +316,7 @@ describe("slot foreach CLI", () => {
 			"Finished main worktree (master) [1/2]: failed (spawn failed).",
 		);
 		expect(run.stderr.join("")).toContain("Running in slot-01 (feature/a) [2/2]…");
-		expect(run.stderr.join("")).toContain("—");
+		expect(run.stdout.join("")).toContain("—");
 	});
 
 	it("captures a flag-bearing command after --", async () => {
