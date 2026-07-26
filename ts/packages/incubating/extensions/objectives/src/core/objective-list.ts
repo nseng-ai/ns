@@ -13,16 +13,16 @@ import type { GitGateway } from "@nseng-ai/foundation/git";
 import { glyph, type GlyphName, type Intent } from "@nseng-ai/foundation/cli-theme";
 import { renderTextTable } from "@nseng-ai/foundation/text-table";
 
-import type { ObjectiveCliContext } from "../context.ts";
+import type { ObjectiveCliContext } from "./context.ts";
 import {
 	activeRecordRelativePath,
 	activeRootRelativePath,
 	type ObjectiveRecordStatus,
 	type ObjectiveStorage,
-} from "../storage.ts";
+} from "./storage.ts";
 
 import { removeOneTrailingNewline } from "./format.ts";
-import { buildObjectiveBranchAttributionForContext } from "./list-branch-attribution.ts";
+import { buildObjectiveBranchAttributionForContext } from "./branch-attribution.ts";
 import { readParsedObjectiveFrontmatter } from "./record-frontmatter-read.ts";
 
 export const objectiveStatusFilterSchema = z.enum(["all", "active", "open", "closed"]);

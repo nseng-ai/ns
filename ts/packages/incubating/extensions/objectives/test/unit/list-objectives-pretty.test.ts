@@ -1,8 +1,8 @@
 import type { Caps, ColorDepth } from "@nseng-ai/clinkr";
 import { describe, expect, test, vi } from "vitest";
 
-import type { ObjectiveListResult } from "../../src/core/operations/list-objectives.ts";
-import { renderObjectiveListPretty } from "../../src/core/operations/list-objectives-pretty.ts";
+import type { ObjectiveListResult } from "../../src/core/objective-list.ts";
+import { renderObjectiveListPretty } from "../../src/cli/objective/list/command.ts";
 import { relativeTime } from "../../src/core/relative-time.ts";
 
 const ESC = String.fromCharCode(0x1b);

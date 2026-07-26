@@ -4,7 +4,7 @@ import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
 
-import type { ObjectiveListRecord, ObjectiveListResult } from "./operations/list-objectives.ts";
+import type { ObjectiveListRecord, ObjectiveListResult } from "./objective-list.ts";
 import {
 	VIEW_OTHER_OBJECTIVES_CHOICE,
 	changedActiveObjectiveSelection,

@@ -7,8 +7,8 @@ import {
 	activeRootRelativePath,
 	isValidObjectiveSlug,
 } from "../storage.ts";
-import { pythonStringRepr, removeOneTrailingNewline } from "./format.ts";
-import { readObjectiveRecord } from "./read-objective.ts";
+import { pythonStringRepr, removeOneTrailingNewline } from "../format.ts";
+import { readObjectiveRecord } from "../objective-read.ts";
 
 export const trackingGateRequestSchema = z.object({
 	slug: z.string().optional().describe("Objective slug to inspect."),

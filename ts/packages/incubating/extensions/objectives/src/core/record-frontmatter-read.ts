@@ -1,5 +1,5 @@
-import type { ObjectiveRecordFrontmatter } from "../record-frontmatter.ts";
-import type { ObjectiveRecordDocumentReadResult } from "../storage.ts";
+import type { ObjectiveRecordFrontmatter } from "./record-frontmatter.ts";
+import type { ObjectiveRecordDocumentReadResult } from "./storage.ts";
 
 export interface ParsedObjectiveFrontmatterRead {
 	frontmatter: ObjectiveRecordFrontmatter | null;

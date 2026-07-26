@@ -4,7 +4,7 @@ import {
 	isValidObjectiveSlug,
 	type ObjectiveStorage,
 	type ObjectiveStorageError,
-} from "../storage.ts";
+} from "./storage.ts";
 
 type ObjectiveTargetStatus = "missing-slug" | "invalid-slug" | "not-found" | "found";
 

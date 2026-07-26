@@ -1,4 +1,4 @@
-import type { ObjectiveListRecord, ObjectiveListResult } from "./operations/list-objectives.ts";
+import type { ObjectiveListRecord, ObjectiveListResult } from "./objective-list.ts";
 import { relativeTime } from "./relative-time.ts";
 
 export type ObjectiveList = ObjectiveListResult;

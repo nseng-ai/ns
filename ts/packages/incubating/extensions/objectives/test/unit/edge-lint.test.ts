@@ -7,10 +7,10 @@ import {
 import {
 	objectiveEdgeLintChecks,
 	sweepObjectiveEdgeLint,
-} from "../../src/core/operations/edge-lint.ts";
+} from "../../src/core/edge-lint.ts";
 import { splitObjectiveRecordDocument } from "../../src/core/record-frontmatter.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
-import type { ObjectiveCheckItem } from "../../src/core/operations/check-items.ts";
+import type { ObjectiveCheckItem } from "../../src/core/check-items.ts";
 
 function recordContent(frontmatterLines: readonly string[]): string {
 	return ["---", ...frontmatterLines, "---", "", "# Record", ""].join("\n");

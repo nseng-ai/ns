@@ -3,8 +3,8 @@ import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
 import { activeRecordRelativePath, activeRootRelativePath } from "../storage.ts";
-import { removeOneTrailingNewline } from "./format.ts";
-import { matchesStatusFilter } from "./list-objectives.ts";
+import { removeOneTrailingNewline } from "../format.ts";
+import { matchesStatusFilter } from "../objective-list.ts";
 
 export const loadOrientationsRequestSchema = z.object({});
 

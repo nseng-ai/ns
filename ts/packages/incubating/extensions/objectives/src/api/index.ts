@@ -3,7 +3,7 @@
 // gateway-injected Domain Core (`ObjectiveCliContext`, which carries the git and
 // storage gateways) and never exposes command-face (`ClinkrExit`) types.
 
-import type { ObjectiveListResult } from "../core/operations/list-objectives.ts";
+import type { ObjectiveListResult } from "../core/objective-list.ts";
 
 export { createObjectiveClient } from "../core/objective-api-client.ts";
 export { OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE } from "../core/objective-runner-rules.ts";
@@ -82,16 +82,16 @@ export type {
 } from "../core/objective-command-specs.ts";
 export { parseObjectiveListData } from "../core/objective-list-json.ts";
 export type { ObjectiveListParseResult } from "../core/objective-list-json.ts";
-export { renderObjectiveListMarkdown } from "../core/operations/list-objectives.ts";
+export { renderObjectiveListMarkdown } from "../core/objective-list.ts";
 export type {
 	ObjectiveListRecord,
 	ObjectiveListResult,
 	ObjectiveStatusFilter,
-} from "../core/operations/list-objectives.ts";
+} from "../core/objective-list.ts";
 export type {
 	ReadObjectiveOptions,
 	ReadObjectiveResult,
-} from "../core/operations/read-objective.ts";
+} from "../core/objective-read.ts";
 export type { ObjectiveCliContext } from "../core/context.ts";
 export {
 	objectiveRunnerCumulativeSummaryV1Schema,

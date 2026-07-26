@@ -1,7 +1,7 @@
 import type { GitErrorInfo, GitGateway, GitLocalBranchTip } from "@nseng-ai/foundation/git";
 
-import type { ObjectiveCliContext } from "../context.ts";
-import { activeRootRelativePath, objectiveSlugFromActivePath } from "../storage.ts";
+import type { ObjectiveCliContext } from "./context.ts";
+import { activeRootRelativePath, objectiveSlugFromActivePath } from "./storage.ts";
 
 export const MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS = 50;
 

@@ -2,11 +2,11 @@ import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import type { ObjectiveCliContext } from "../context.ts";
+import type { ObjectiveCliContext } from "./context.ts";
 import {
 	objectiveRecordFrontmatterParseSchema,
 	type ObjectiveRecordFrontmatterParse,
-} from "../record-frontmatter.ts";
+} from "./record-frontmatter.ts";
 import { pythonStringRepr, removeOneTrailingNewline } from "./format.ts";
 import { handleObjectiveSlugValidationErrors } from "./slug-validation-errors.ts";
 import {
@@ -19,7 +19,7 @@ import {
 	type ObjectiveMarkdownReadResult,
 	type ObjectiveStorage,
 	type ObjectiveUpdateFile,
-} from "../storage.ts";
+} from "./storage.ts";
 import { resolveObjectiveRecordTarget, targetToEmptyResultFields } from "./objective-target.ts";
 
 export const readObjectiveRequestSchema = z.object({

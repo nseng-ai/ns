@@ -6,9 +6,11 @@ import {
 	FakeObjectiveStorageGateway,
 	type FakeObjectiveStorageGatewayOptions,
 } from "../../src/core/fake-storage.ts";
-import { runCheckObjective } from "../../src/core/operations/check-objective.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
-import { runObjectiveCheckCommand } from "../../src/cli/objective/check/command.ts";
+import {
+	runCheckObjective,
+	runObjectiveCheckCommand,
+} from "../../src/cli/objective/check/command.ts";
 
 const COMPLETE_OBJECTIVE_MD = [
 	"# Objective alpha",

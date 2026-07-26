@@ -3,7 +3,7 @@ import {
 	readObjectiveResultSchema,
 	renderReadObjective,
 	runReadObjective,
-} from "../../../../core/operations/read-objective.ts";
+} from "../../../../core/objective-read.ts";
 import { objectiveNsCommand } from "../../../../ns/objective-command.ts";
 
 export async function command() {

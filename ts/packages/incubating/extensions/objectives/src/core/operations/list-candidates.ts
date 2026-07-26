@@ -2,7 +2,7 @@ import { failure, ok, type ClinkrExit } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
-import { matchesStatusFilter } from "./list-objectives.ts";
+import { matchesStatusFilter } from "../objective-list.ts";
 
 export const listCandidatesRequestSchema = z.object({});
 

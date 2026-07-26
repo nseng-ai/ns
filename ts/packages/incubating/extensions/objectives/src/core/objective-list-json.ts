@@ -3,7 +3,7 @@ import { formatZodIssue } from "@nseng-ai/foundation/primitives";
 import {
 	objectiveListResultSchema,
 	type ObjectiveListResult,
-} from "./operations/list-objectives.ts";
+} from "./objective-list.ts";
 
 export interface ObjectiveListParseValid {
 	type: "valid";

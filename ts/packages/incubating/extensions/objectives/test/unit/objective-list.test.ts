@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import type { ObjectiveCliContext } from "../../src/core/context.ts";
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
-import { buildObjectiveBranchAttribution } from "../../src/core/operations/list-branch-attribution.ts";
+import { buildObjectiveBranchAttribution } from "../../src/core/branch-attribution.ts";
 import {
 	latestUpdateIsoFromUpdateNames,
 	matchesStatusFilter,
@@ -11,7 +11,7 @@ import {
 	renderObjectiveListHuman,
 	renderObjectiveListMarkdown,
 	runListObjectives,
-} from "../../src/core/operations/list-objectives.ts";
+} from "../../src/core/objective-list.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 
 const SAMPLE_RESULT: ObjectiveListResult = {

@@ -1,11 +1,11 @@
-import type { ObjectiveRecordDocument, ObjectiveRecordFrontmatter } from "../record-frontmatter.ts";
+import type { ObjectiveRecordDocument, ObjectiveRecordFrontmatter } from "./record-frontmatter.ts";
 import {
 	activeRecordRelativePath,
 	isValidObjectiveSlug,
 	type ObjectiveRecordDocumentReadResult,
 	type ObjectiveStorage,
 	type ObjectiveStorageResult,
-} from "../storage.ts";
+} from "./storage.ts";
 import {
 	checkItem,
 	objectiveMdExistsCheck,

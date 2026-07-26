@@ -10,7 +10,7 @@ import {
 	readObjectiveRequestSchema,
 	renderReadObjective,
 	runReadObjective,
-} from "../../src/core/operations/read-objective.ts";
+} from "../../src/core/objective-read.ts";
 import { ObjectiveStorage, type ObjectiveMarkdownReadResult } from "../../src/core/storage.ts";
 
 const OBJECTIVE_BODY = "# Objective alpha\n\n## Thesis\n\nBody text.\n";

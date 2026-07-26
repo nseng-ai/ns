@@ -13,7 +13,7 @@ import {
 	renderShowObjectiveMarkdown,
 	runShowObjective,
 	type ShowObjectiveOkResult,
-} from "../../src/core/operations/show-objective.ts";
+} from "../../src/cli/objective/show/command.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 
 const NOW_MS = Date.parse("2026-07-05T00:00:00Z");
