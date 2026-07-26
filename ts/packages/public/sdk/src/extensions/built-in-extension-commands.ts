@@ -16,8 +16,8 @@ import {
 import { defineCommand, type NsCommand } from "../sdk/index.ts";
 
 const knownPromptEnvOverride = {
-	pointId: "flow.submit.pr-description",
-	envVar: "NS_DEV_PR_DESCRIPTION_PROMPT",
+	pointId: "flow.submit.pr-inventory",
+	envVar: "NS_FLOW_PR_INVENTORY_PROMPT",
 } as const;
 
 const pointDiagnosticSchema = z.object({

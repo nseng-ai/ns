@@ -2,12 +2,18 @@ import { describe, expect, test } from "vitest";
 
 import {
 	loadModelPolicy,
+	MODEL_OPERATION_IDS,
 	parseModelPolicyToml,
 	resolveModelOperation,
 } from "@nseng-ai/extension-kit/model-policy";
 import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 describe("model policy", () => {
+	test("publishes the focused Flow PR inventory operation identifier", () => {
+		expect(MODEL_OPERATION_IDS.flowPrInventory).toBe("flow.pr-inventory");
+		expect(MODEL_OPERATION_IDS).not.toHaveProperty("flowPrDescription");
+	});
+
 	test("requires the fast profile with zero config", () => {
 		expect(parseModelPolicyToml("")).toMatchObject({
 			ok: false,

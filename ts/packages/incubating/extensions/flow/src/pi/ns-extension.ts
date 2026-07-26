@@ -55,7 +55,10 @@ const NS_FLOW_COMMANDS = [
 		"Create a Graphite branch from current work, then move it into a managed slot worktree.",
 	),
 	flowCommand("submit", "Checkpoint outstanding changes, then submit the current Graphite stack."),
-	flowCommand("regenerate-pr", "Regenerate and replace the current branch PR title and body."),
+	flowCommand(
+		"generate-pr-inventory",
+		"Generate and replace the current branch PR title and body.",
+	),
 	flowCommand("push", "Push committed non-Graphite branch work with git push."),
 	flowCommand("land", "Land the current PR or Graphite stack into trunk."),
 	flowCommand(

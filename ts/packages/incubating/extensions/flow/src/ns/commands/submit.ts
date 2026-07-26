@@ -75,17 +75,17 @@ const submitSchema = z.object({
 			'Run pre-submit checks installed at [points]."flow.submit.pre" in repo-root ns.toml before checkpointing. Use --no-checks to skip.',
 		),
 
-	regenerateDescriptions: z
+	generatePrInventory: z
 		.boolean()
 		.default(false)
 		.describe(
-			"Replace the complete generated title and body of every PR resolved in the submitted scope, including pre-existing PRs. All existing body content is removed. Requires interactive confirmation or --yes.",
+			"Replace the complete generated inventory title and body of every PR resolved in the submitted scope, including pre-existing PRs. All existing body content is removed. Requires interactive confirmation or --yes.",
 		),
 	yes: z
 		.boolean()
 		.default(false)
 		.describe(
-			"Approve the stack-wide complete PR metadata replacement of --regenerate-descriptions without prompting.",
+			"Approve the stack-wide complete PR metadata replacement of --generate-pr-inventory without prompting.",
 		),
 });
 
@@ -94,11 +94,11 @@ const SUBMIT_COMMAND_DESCRIPTION = `Run configured pre-submit checks, checkpoint
 Pre-submit checks are consumer config in the repo-root ns.toml ([points]."flow.submit.pre", an array of command strings such as ["just"]). Each entry is whitespace-split and executed directly without a shell; the first failing check aborts the submit. Skip them with --no-checks.
 
 Environment:
-  NS_DEV_PR_DESCRIPTION_PROMPT  Optional path to a custom PR description prompt.
+  NS_FLOW_PR_INVENTORY_PROMPT  Optional path to a custom PR inventory prompt.
 
   NS_SUBMIT_FAILURE_LOG_DIR     Optional directory for raw submit-failure transcripts.
 
-By default, newly created PRs receive complete generated titles and bodies after Graphite creates them; PRs that existed before the invocation are left untouched. Use --regenerate-descriptions to widen that batch to every PR resolved in the submitted scope, existing and new: each selected PR gets a complete generated title and body, and all existing body content is removed, including human-authored prose. Because this is destructive, --regenerate-descriptions asks for confirmation before any workflow work; pass --yes/-y to approve non-interactively. Flow prepares every replacement before the first GitHub edit, then applies them sequentially; there is no rollback. Use ns flow regenerate-pr from an existing PR's branch for a focused single-PR replacement.
+By default, newly created PRs receive complete generated inventory titles and bodies after Graphite creates them; PRs that existed before the invocation are left untouched. Use --generate-pr-inventory to widen that batch to every PR resolved in the submitted scope, existing and new: each selected PR gets a complete generated inventory title and body, and all existing body content is removed, including human-authored prose. Because this is destructive, --generate-pr-inventory asks for confirmation before any workflow work; pass --yes/-y to approve non-interactively. Flow prepares every replacement before the first GitHub edit, then applies them sequentially; there is no rollback. Use ns flow generate-pr-inventory from an existing PR's branch for a focused single-PR replacement.
 
 The command owns its output and exit code. It does not support --format.`;
 
@@ -124,14 +124,14 @@ export function createFlowSubmitCommand(
 			yes: { short: "-y" },
 		},
 		handler: async (ctx: NsExtensionApi, request: SubmitRequest) => {
-			if (request.yes && !request.regenerateDescriptions) {
+			if (request.yes && !request.generatePrInventory) {
 				return usageError(
-					"--yes only approves the stack-wide replacement of --regenerate-descriptions; pass both flags together or omit --yes.",
-					{ invalidOption: "--yes", requiresOption: "--regenerate-descriptions" },
+					"--yes only approves the stack-wide replacement of --generate-pr-inventory; pass both flags together or omit --yes.",
+					{ invalidOption: "--yes", requiresOption: "--generate-pr-inventory" },
 				);
 			}
-			if (request.regenerateDescriptions && !request.yes) {
-				const confirmation = await confirmRegenerateAllPrMetadata(ctx);
+			if (request.generatePrInventory && !request.yes) {
+				const confirmation = await confirmGenerateAllPrMetadata(ctx);
 				if (confirmation !== undefined) return confirmation;
 			}
 			const runtime = dependencies.createRuntime(ctx);
@@ -143,11 +143,11 @@ export function createFlowSubmitCommand(
 				MODEL_OPERATION_IDS.flowCheckpoint,
 			);
 			if (!checkpointModel.ok) return failure(FLOW_COMMAND_FAILED, checkpointModel.error);
-			const prDescriptionModel = await resolveFlowModelSelection(
+			const prInventoryModel = await resolveFlowModelSelection(
 				ctx,
-				MODEL_OPERATION_IDS.flowPrDescription,
+				MODEL_OPERATION_IDS.flowPrInventory,
 			);
-			if (!prDescriptionModel.ok) return failure(FLOW_COMMAND_FAILED, prDescriptionModel.error);
+			if (!prInventoryModel.ok) return failure(FLOW_COMMAND_FAILED, prInventoryModel.error);
 			const checkpointContext: SubmitCheckpointContext = {
 				modelSelection: checkpointModel.modelSelection,
 				...optionalEntry("repoRoot", repoRoot),
@@ -173,15 +173,15 @@ export function createFlowSubmitCommand(
 				runtime,
 				checksLoad,
 				checkpointContext,
-				prDescriptionModelSelection: prDescriptionModel.modelSelection,
+				prInventoryModelSelection: prInventoryModel.modelSelection,
 				...structuredProgress,
 			});
 		},
 	});
 }
 
-const REGENERATE_ALL_CONFIRMATION_MESSAGE = [
-	"--regenerate-descriptions replaces the complete title and body of every PR resolved from the current submit scope, existing and new.",
+const GENERATE_PR_INVENTORY_CONFIRMATION_MESSAGE = [
+	"--generate-pr-inventory replaces the complete title and body of every PR resolved from the current submit scope, existing and new.",
 	"All current body content on those PRs will be removed, including human-authored prose.",
 	"There is no rollback.",
 ].join("\n");
@@ -194,13 +194,11 @@ const REGENERATE_ALL_CONFIRMATION_MESSAGE = [
  *
  * Returns undefined when the replacement is approved.
  */
-async function confirmRegenerateAllPrMetadata(
-	ctx: NsExtensionApi,
-): Promise<CommandExit | undefined> {
+async function confirmGenerateAllPrMetadata(ctx: NsExtensionApi): Promise<CommandExit | undefined> {
 	const confirmation = await confirmInteractiveOrUsageError(
 		createNsClinkrInteraction(ctx, {
 			title: "Replace complete PR metadata for every PR in the submitted scope?",
-			formatMessage: () => REGENERATE_ALL_CONFIRMATION_MESSAGE,
+			formatMessage: () => GENERATE_PR_INVENTORY_CONFIRMATION_MESSAGE,
 		}),
 		{
 			nonInteractive: {
@@ -210,7 +208,7 @@ async function confirmRegenerateAllPrMetadata(
 				howToSupply:
 					"Pass --yes/-y to approve the stack-wide complete replacement without prompting.",
 			},
-			confirmation: { message: REGENERATE_ALL_CONFIRMATION_MESSAGE, defaultAnswer: "no" },
+			confirmation: { message: GENERATE_PR_INVENTORY_CONFIRMATION_MESSAGE, defaultAnswer: "no" },
 		},
 	);
 	if ("errorType" in confirmation) {
@@ -252,7 +250,7 @@ async function runSubmitWithProgress(input: {
 	runtime: NsSubmitRuntime;
 	checksLoad: Awaited<ReturnType<typeof loadFlowSubmitHooks>>;
 	checkpointContext: SubmitCheckpointContext;
-	prDescriptionModelSelection: ModelSelection;
+	prInventoryModelSelection: ModelSelection;
 	matrix: SubmitMatrixProgressController;
 	onOutput?: FlowLiveOutput;
 }) {
@@ -262,7 +260,7 @@ async function runSubmitWithProgress(input: {
 		runtime,
 		checksLoad,
 		checkpointContext,
-		prDescriptionModelSelection,
+		prInventoryModelSelection,
 		matrix,
 		onOutput,
 	} = input;
@@ -327,8 +325,8 @@ async function runSubmitWithProgress(input: {
 			restack: request.restack,
 			force: request.force,
 			shouldForwardCommandOutput: request.verbose,
-			prDescription: { ...runtime.prDescription, modelSelection: prDescriptionModelSelection },
-			shouldReplaceAllPrMetadata: request.regenerateDescriptions,
+			prInventory: { ...runtime.prInventory, modelSelection: prInventoryModelSelection },
+			shouldReplaceAllPrMetadata: request.generatePrInventory,
 			progress,
 			...(onOutput === undefined ? {} : { onOutput }),
 		});

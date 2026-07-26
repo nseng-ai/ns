@@ -4,12 +4,9 @@ export {
 	type GithubPrGateway,
 	type PrCommitMessage,
 } from "./github-pr-gateway.ts";
+export { createNsPrInventoryRuntime, type NsPrInventoryRuntime } from "./pr-inventory-generate.ts";
 export {
-	createNsPrDescriptionRuntime,
-	type NsPrDescriptionRuntime,
-} from "./pr-description-regenerate.ts";
-export {
-	appendPrMetadataProvenance,
+	assemblePrInventoryBody,
 	applyPreparedPrMetadataReplacement,
 	formatPromptSourceLabel,
 	preparePrMetadataReplacement,
@@ -17,29 +14,29 @@ export {
 	type ApplyPrMetadataReplacementResult,
 	type CurrentBranchPrMetadataReplacementOptions,
 	type PreparedPrMetadataReplacement,
-	type PrDescriptionProgressListeners,
+	type PrInventoryProgressListeners,
 	type PrMetadataReplacementOptions,
 	type PrMetadataReplacementResult,
 	type PrMetadataReplacementSource,
-} from "./pr-description-orchestration.ts";
+} from "./pr-inventory-orchestration.ts";
 export {
-	buildPrDescriptionUserPrompt,
+	buildPrInventoryUserPrompt,
 	filterLockfileSections,
 	MAX_DIFF_CHARS,
-	parsePrDescriptionOutput,
-	preparePrDescription,
-	PR_DESCRIPTION_PROMPT_ENV,
-	resolvePrDescriptionGeneration,
-	resolvePrDescriptionPrompt,
-	REPO_PR_DESCRIPTION_PROMPT_PATH,
+	parsePrInventoryOutput,
+	preparePrInventory,
+	PR_INVENTORY_PROMPT_ENV,
+	resolvePrInventoryGeneration,
+	resolvePrInventoryPrompt,
+	REPO_PR_INVENTORY_PROMPT_PATH,
 	truncateDiff,
-	type FlowPrDescriptionDescriptorSource,
-	type PrDescriptionGenerationResolution,
-	type PrDescriptionPromptContext,
-	type PreparedPrDescription,
+	type FlowPrInventoryDescriptorSource,
+	type PrInventoryGenerationResolution,
+	type PrInventoryPromptContext,
+	type PreparedPrInventory,
 	type PromptSource,
 	type TimeServices,
-} from "./pr-description.ts";
+} from "./pr-inventory.ts";
 export {
 	commandFailure,
 	err,
@@ -73,7 +70,7 @@ export {
 	type SubmitOutputStream,
 	type SubmitPreflightFailureCause,
 	type SubmitPreflightResult,
-	type SubmitPrDescriptionOptions,
+	type SubmitPrInventoryOptions,
 	type SubmitRestackConfirmation,
 	type SubmitRestackConfirmationPrompt,
 	type SubmitRestackResult,

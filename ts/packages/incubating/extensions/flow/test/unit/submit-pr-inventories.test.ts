@@ -6,11 +6,11 @@ import type { ActiveOperation } from "@nseng-ai/sdk";
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import { ok, type GithubPrGateway, type TextGenerator } from "../../src/submit/index.ts";
 import {
-	formatPrDescriptionFailureText,
-	generateSubmitPrDescriptions,
-} from "../../src/submit/submit-pr-descriptions.ts";
+	formatPrInventoryFailureText,
+	generateSubmitPrInventories,
+} from "../../src/submit/submit-pr-inventories.ts";
 
-class GeneratedDescriptionGithubPrGateway implements GithubPrGateway {
+class GeneratedInventoryGithubPrGateway implements GithubPrGateway {
 	readonly operations: string[] = [];
 	readonly failPreparationNumber: number | undefined;
 	readonly failEditNumber: number | undefined;
@@ -58,7 +58,7 @@ class GeneratedDescriptionGithubPrGateway implements GithubPrGateway {
 	}
 }
 
-function descriptionOptions(githubPr: GithubPrGateway, textGenerator: TextGenerator) {
+function inventoryOptions(githubPr: GithubPrGateway, textGenerator: TextGenerator) {
 	return {
 		githubPr,
 		textGenerator,
@@ -73,14 +73,14 @@ function descriptionOptions(githubPr: GithubPrGateway, textGenerator: TextGenera
 	};
 }
 
-describe("generateSubmitPrDescriptions", () => {
+describe("generateSubmitPrInventories", () => {
 	test("accepts an explicitly empty authoritative target list", async () => {
-		const gateway = new GeneratedDescriptionGithubPrGateway();
+		const gateway = new GeneratedInventoryGithubPrGateway();
 		const generator = new ScriptedTextGenerator([]);
-		const result = await generateSubmitPrDescriptions({
+		const result = await generateSubmitPrInventories({
 			cwd: "/repo",
 			targets: [],
-			prDescription: descriptionOptions(gateway, generator),
+			prInventory: inventoryOptions(gateway, generator),
 		});
 		expect(result).toEqual({ ok: true, applied: [], previews: [] });
 		expect(gateway.operations).toEqual([]);
@@ -88,12 +88,12 @@ describe("generateSubmitPrDescriptions", () => {
 	});
 
 	test("prepares every PR before editing and applies each once in planned order", async () => {
-		const gateway = new GeneratedDescriptionGithubPrGateway();
+		const gateway = new GeneratedInventoryGithubPrGateway();
 		const generator = new ScriptedTextGenerator([
 			{ ok: true, text: "Title 12\n\nBody 12" },
 			{ ok: true, text: "Title 13\n\nBody 13" },
 		]);
-		const result = await generateSubmitPrDescriptions({
+		const result = await generateSubmitPrInventories({
 			cwd: "/repo",
 			targets: [
 				{
@@ -109,7 +109,7 @@ describe("generateSubmitPrDescriptions", () => {
 					url: "https://github.com/acme/repo/pull/12",
 				},
 			],
-			prDescription: descriptionOptions(gateway, generator),
+			prInventory: inventoryOptions(gateway, generator),
 		});
 		expect(result).toMatchObject({ ok: true, applied: [{ label: "#13" }, { label: "#12" }] });
 		expect(gateway.operations).toEqual([
@@ -125,9 +125,9 @@ describe("generateSubmitPrDescriptions", () => {
 	});
 
 	test("a preparation failure causes zero edits", async () => {
-		const gateway = new GeneratedDescriptionGithubPrGateway({ failPreparationNumber: 13 });
+		const gateway = new GeneratedInventoryGithubPrGateway({ failPreparationNumber: 13 });
 		const generator = new ScriptedTextGenerator([{ ok: true, text: "Title 12\n\nBody 12" }]);
-		const result = await generateSubmitPrDescriptions({
+		const result = await generateSubmitPrInventories({
 			cwd: "/repo",
 			targets: [
 				{
@@ -143,20 +143,20 @@ describe("generateSubmitPrDescriptions", () => {
 					url: "https://github.com/acme/repo/pull/13",
 				},
 			],
-			prDescription: descriptionOptions(gateway, generator),
+			prInventory: inventoryOptions(gateway, generator),
 		});
 		expect(result).toMatchObject({ ok: false, stage: "preparation", applied: [] });
 		expect(gateway.operations.some((operation) => operation.startsWith("edit:"))).toBe(false);
 	});
 
 	test("application stops at first failure and reports applied and not attempted", async () => {
-		const gateway = new GeneratedDescriptionGithubPrGateway({ failEditNumber: 13 });
+		const gateway = new GeneratedInventoryGithubPrGateway({ failEditNumber: 13 });
 		const generator = new ScriptedTextGenerator([
 			{ ok: true, text: "Title 12\n\nBody 12" },
 			{ ok: true, text: "Title 13\n\nBody 13" },
 			{ ok: true, text: "Title 14\n\nBody 14" },
 		]);
-		const result = await generateSubmitPrDescriptions({
+		const result = await generateSubmitPrInventories({
 			cwd: "/repo",
 			targets: [12, 13, 14].map((number) => ({
 				branch: `feature/${number}`,
@@ -164,7 +164,7 @@ describe("generateSubmitPrDescriptions", () => {
 				label: `#${number}`,
 				url: `https://github.com/acme/repo/pull/${number}`,
 			})),
-			prDescription: descriptionOptions(gateway, generator),
+			prInventory: inventoryOptions(gateway, generator),
 		});
 		expect(result).toMatchObject({
 			ok: false,
@@ -181,11 +181,11 @@ describe("generateSubmitPrDescriptions", () => {
 
 	test("empty selection reports mode-neutral progress and succeeds without gateway calls", async () => {
 		const messages: string[] = [];
-		const gateway = new GeneratedDescriptionGithubPrGateway();
-		const result = await generateSubmitPrDescriptions({
+		const gateway = new GeneratedInventoryGithubPrGateway();
+		const result = await generateSubmitPrInventories({
 			cwd: "/repo",
 			targets: [],
-			prDescription: descriptionOptions(gateway, new ScriptedTextGenerator([])),
+			prInventory: inventoryOptions(gateway, new ScriptedTextGenerator([])),
 			progress: { onProgress: (message) => messages.push(message) },
 		});
 		expect(result).toEqual({ ok: true, applied: [], previews: [] });
@@ -195,7 +195,7 @@ describe("generateSubmitPrDescriptions", () => {
 
 	test("failure text uses mode-neutral headline for the shared batch", async () => {
 		const link = { label: "#12", url: "https://github.com/acme/repo/pull/12" };
-		const text = formatPrDescriptionFailureText([link], {
+		const text = formatPrInventoryFailureText([link], {
 			ok: false,
 			stage: "preparation",
 			failures: [{ link, number: 12, reason: "diff failed" }],
@@ -209,11 +209,11 @@ describe("generateSubmitPrDescriptions", () => {
 
 	test("reports one model operation while generation runs", async () => {
 		const snapshots: ActiveOperation[][] = [];
-		const gateway = new GeneratedDescriptionGithubPrGateway();
+		const gateway = new GeneratedInventoryGithubPrGateway();
 		const generator = new ScriptedTextGenerator([
 			{ ok: true, text: "Generated title\n\nGenerated body" },
 		]);
-		const result = await generateSubmitPrDescriptions({
+		const result = await generateSubmitPrInventories({
 			cwd: "/repo",
 			targets: [
 				{
@@ -223,7 +223,7 @@ describe("generateSubmitPrDescriptions", () => {
 					url: "https://github.com/acme/repo/pull/12",
 				},
 			],
-			prDescription: descriptionOptions(gateway, generator),
+			prInventory: inventoryOptions(gateway, generator),
 			progress: { onActiveOperations: (operations) => snapshots.push([...operations]) },
 		});
 		expect(result).toMatchObject({ ok: true, applied: [{ label: "#12" }] });

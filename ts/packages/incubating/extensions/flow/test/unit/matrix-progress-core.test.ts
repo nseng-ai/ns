@@ -449,7 +449,7 @@ describe("matrix progress core", () => {
 
 	test("clears arbitrary active operations when the wrapped work rejects", async () => {
 		const snapshots: ActiveOperation[][] = [];
-		const operation = modelOperation("generating PR description", "openai/gpt-test");
+		const operation = modelOperation("generating PR inventory", "openai/gpt-test");
 
 		await expect(
 			withActiveOperations(

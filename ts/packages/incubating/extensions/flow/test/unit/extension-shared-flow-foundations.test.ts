@@ -23,9 +23,9 @@ const SUBMIT_COMMAND_PATH = join(
 	REPO_ROOT,
 	"ts/packages/incubating/extensions/flow/src/ns/commands/submit.ts",
 );
-const REGENERATE_PR_COMMAND_PATH = join(
+const GENERATE_PR_INVENTORY_COMMAND_PATH = join(
 	REPO_ROOT,
-	"ts/packages/incubating/extensions/flow/src/ns/commands/regenerate-pr.ts",
+	"ts/packages/incubating/extensions/flow/src/ns/commands/generate-pr-inventory.ts",
 );
 const AUTOBRANCH_COMMAND_PATH = join(
 	REPO_ROOT,
@@ -109,7 +109,7 @@ describe("project extension shared flow foundations", () => {
 
 	test("flow commands use package-owned migration seams instead of bundled submit and PR internals", async () => {
 		const submitSource = await readFile(SUBMIT_COMMAND_PATH, "utf8");
-		const regeneratePrSource = await readFile(REGENERATE_PR_COMMAND_PATH, "utf8");
+		const generatePrInventorySource = await readFile(GENERATE_PR_INVENTORY_COMMAND_PATH, "utf8");
 		const worktreeSource = await readFile(WORKTREE_SUPPORT_PATH, "utf8");
 		const pushSource = await readFile(PUSH_COMMAND_PATH, "utf8");
 
@@ -117,10 +117,10 @@ describe("project extension shared flow foundations", () => {
 		expect(submitSource).not.toContain(["@sdl", ["co", "re"].join(""), "submit"].join("/"));
 		expect(submitSource).not.toContain(["@sdl", "graphite", "submit"].join("/"));
 		expect(submitSource).toContain("../../submit/ns-runtime.ts");
-		expect(regeneratePrSource).not.toContain("MANAGED_BODY_BEGIN_MARKER");
-		expect(regeneratePrSource).not.toContain("parseManagedRegionMetadata");
-		expect(regeneratePrSource).not.toContain('ctx.exec("git"');
-		expect(regeneratePrSource).toContain("../../submit/index.ts");
+		expect(generatePrInventorySource).not.toContain("MANAGED_BODY_BEGIN_MARKER");
+		expect(generatePrInventorySource).not.toContain("parseManagedRegionMetadata");
+		expect(generatePrInventorySource).not.toContain('ctx.exec("git"');
+		expect(generatePrInventorySource).toContain("../../submit/index.ts");
 		await expect(access(REMOVED_CORE_DIR_PATH, constants.F_OK)).rejects.toThrow();
 		expect(worktreeSource).toContain("@nseng-ai/extension-kit/pending-worktree");
 		expect(worktreeSource).toContain("./exec.ts");

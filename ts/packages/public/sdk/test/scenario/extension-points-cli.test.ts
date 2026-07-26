@@ -29,7 +29,7 @@ describe("ns extension point introspection", () => {
 				"flow.submit.pre (hook, many) — repo ns.toml commands: just check",
 			);
 			expect(run.stdout.join("")).toContain(
-				"flow.submit.pr-description (prompt, one) — env NS_DEV_PR_DESCRIPTION_PROMPT -> dev-prompt.md",
+				"flow.submit.pr-inventory (prompt, one) — env NS_FLOW_PR_INVENTORY_PROMPT -> dev-prompt.md",
 			);
 			expect(run.stdout.join("")).toContain(
 				"flow.submit.pre.recovery (prompt, one) — conventional .ns/prompts/flow.submit.pre.recovery.md",
@@ -59,15 +59,16 @@ describe("ns extension point introspection", () => {
 			};
 			expect(data.points.map((point) => point.id)).toEqual([
 				"branch-context.plans-write",
-				"flow.submit.pr-description",
+				"flow.submit.pr-inventory",
 				"flow.submit.pre",
 				"flow.submit.pre.recovery",
 			]);
+			expect(data.points.map((point) => point.id)).not.toContain("flow.submit.pr-description");
 			expect(
-				data.points.find((point) => point.id === "flow.submit.pr-description")?.activeSource,
+				data.points.find((point) => point.id === "flow.submit.pr-inventory")?.activeSource,
 			).toEqual({
 				source: "env",
-				envVar: "NS_DEV_PR_DESCRIPTION_PROMPT",
+				envVar: "NS_FLOW_PR_INVENTORY_PROMPT",
 				path: "dev-prompt.md",
 			});
 			expect(
@@ -100,7 +101,7 @@ describe("ns extension point introspection", () => {
 				"branch-context.plans-write",
 				"descriptor.prompt",
 				"descriptor.scan.pre",
-				"flow.submit.pr-description",
+				"flow.submit.pr-inventory",
 				"flow.submit.pre",
 				"flow.submit.pre.recovery",
 			]);
@@ -182,13 +183,13 @@ describe("ns extension point introspection", () => {
 		}
 	});
 
-	test("shows the descriptor-backed Flow PR-description default without a development override", async () => {
+	test("ignores the retired prompt env and shows the descriptor-backed PR-inventory default", async () => {
 		const cwd = await createPointProject();
 		try {
 			const run = runCli(
-				["extension", "point", "flow.submit.pr-description", "--format", "json"],
+				["extension", "point", "flow.submit.pr-inventory", "--format", "json"],
 				cwd,
-				{},
+				{ NS_DEV_PR_DESCRIPTION_PROMPT: "retired.md" },
 			);
 
 			expect(await run.exit).toBe(0);
@@ -203,12 +204,12 @@ describe("ns extension point introspection", () => {
 				};
 			};
 			const manifestPath = join(flowPackageRoot, "src", "ns", "extension.ts");
-			expect(data.point.id).toBe("flow.submit.pr-description");
-			expect(data.point.defaultPath).toBe("../submit/prompts/pr-description-default.md");
+			expect(data.point.id).toBe("flow.submit.pr-inventory");
+			expect(data.point.defaultPath).toBe("../submit/prompts/pr-inventory-default.md");
 			expect(data.point.manifestPath).toBe(manifestPath);
 			expect(data.point.activeSource).toEqual({
 				source: "default",
-				path: "../submit/prompts/pr-description-default.md",
+				path: "../submit/prompts/pr-inventory-default.md",
 				manifestPath,
 			});
 			expect(run.stderr.join("")).toBe("");
@@ -263,7 +264,7 @@ function runCli(
 	args: readonly string[],
 	cwd: string,
 	env: Record<string, string | undefined> = {
-		NS_DEV_PR_DESCRIPTION_PROMPT: "dev-prompt.md",
+		NS_FLOW_PR_INVENTORY_PROMPT: "dev-prompt.md",
 	},
 ) {
 	return runCliWithFakes(
@@ -338,11 +339,11 @@ async function createPointProject(): Promise<string> {
 					description: "Runs before submit.",
 				},
 				{
-					path: ["submit", "pr-description"],
+					path: ["submit", "pr-inventory"],
 					accepts: "prompt",
 					semantics: "override",
-					default: "./prompts/pr-description.md",
-					description: "PR description prompt.",
+					default: "./prompts/pr-inventory.md",
+					description: "PR inventory prompt.",
 				},
 			],
 		},

@@ -80,7 +80,7 @@ describe("submit progress resolution", () => {
 		});
 		resolved.matrix.setRows([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
 		resolved.matrix.phase({ type: "phase-started", phaseKey: "inventory" });
-		resolved.matrix.setCell("feature/a", "description", { state: "active", text: "preparing" });
+		resolved.matrix.setCell("feature/a", "inventory", { state: "active", text: "preparing" });
 		resolved.matrix.setActiveOperations([{ kind: "command", display: "gt submit" }]);
 		resolved.onOutput?.("stdout", "raw transcript");
 
@@ -145,7 +145,7 @@ describe("submit matrix progress", () => {
 			"restack",
 			"submit",
 			"verification",
-			"descriptions",
+			"inventories",
 		]);
 		expect(
 			declaration.phases
@@ -166,17 +166,17 @@ describe("submit matrix progress", () => {
 			hasChecks: false,
 		}).matrix;
 		controller.setRows([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
-		controller.setCell("feature/a", "description", { state: "done", text: "ready" });
+		controller.setCell("feature/a", "inventory", { state: "done", text: "ready" });
 
 		expect(recording.events.find((event) => event.type === "matrix-declared")).toEqual({
 			type: "matrix-declared",
-			columns: [{ key: "description", label: "Description", width: 11 }],
+			columns: [{ key: "inventory", label: "Inventory", width: 11 }],
 			labelHeader: "Branch / PR",
 		});
 		expect(recording.events).toContainEqual({
 			type: "matrix-cell",
 			rowKey: "feature/a",
-			columnKey: "description",
+			columnKey: "inventory",
 			state: "done",
 			text: "ready",
 		});
@@ -213,7 +213,7 @@ describe("submit matrix progress", () => {
 					branch: "feature/a",
 					label: "feature/a",
 					kind: "new",
-					cells: { description: { state: "done", text: "ready" } },
+					cells: { inventory: { state: "done", text: "ready" } },
 				},
 			],
 		});

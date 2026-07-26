@@ -3,8 +3,8 @@
 Graphite-backed branch, submit, and land workflows for the `ns` CLI.
 
 Flow owns the everyday loop of stacked-PR development: summarize and checkpoint
-outstanding work, turn it into Graphite branches, submit stacks with generated PR
-descriptions and repository-defined pre-submit checks, and land finished work into
+outstanding work, turn it into Graphite branches, submit stacks with assembled PR
+inventories and repository-defined pre-submit checks, and land finished work into
 trunk. It is an ns extension: its commands appear under `ns flow ...`, and consuming
 repositories customize its behavior through
 [extension points](../../../../../docs/guides/points.md), never by forking Flow.
@@ -28,19 +28,19 @@ repositories customize its behavior through
 
 Each command depends on a distinct slice of the underlying technology stack:
 
-| Command                        | What it does                                                                                                 | git | Graphite (`gt`) | GitHub (`gh`) | slots | LLM |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------ | :-: | :-------------: | :-----------: | :---: | :-: |
-| `ns flow changes`              | Summarize outstanding worktree changes without committing.                                                   |  ✓  |                 |               |       |  ✓  |
-| `ns flow cp`                   | Create a checkpoint commit for the current diff.                                                             |  ✓  |        ✓        |               |       |  ✓  |
-| `ns flow autobranch`           | Create a Graphite branch from dirty worktree changes.                                                        |  ✓  |        ✓        |               |       |  ✓  |
-| `ns flow branch-latest-commit` | Move the latest eligible commit to a new Graphite branch.                                                    |  ✓  |        ✓        |               |       |  ✓  |
-| `ns flow autoslot`             | Create a Graphite branch from current work, then move it into a managed slot worktree.                       |  ✓  |        ✓        |               |   ✓   |  ✓  |
-| `ns flow submit`               | Run configured checks, checkpoint, submit current/downstack Graphite branches, and generate new-PR metadata. |  ✓  |        ✓        |       ✓       |       |  ✓  |
-| `ns flow regenerate-pr`        | Regenerate and completely replace the current PR title and body.                                             |  ✓  |                 |       ✓       |       |  ✓  |
-| `ns flow push`                 | Push committed non-Graphite branch work with `git push`.                                                     |  ✓  |                 |               |       |     |
-| `ns flow land`                 | Land the current PR or Graphite stack into trunk.                                                            |  ✓  |        ✓        |       ✓       |   ✓   |     |
-| `ns flow pull-trunk`           | Refresh the configured Graphite trunk from its configured Git upstream.                                      |  ✓  |        ✓        |               |       |     |
-| `ns flow squash-stack`         | Squash every branch in the current Graphite stack to one commit, then restore the tip branch.                |  ✓  |        ✓        |               |       |     |
+| Command                         | What it does                                                                                                 | git | Graphite (`gt`) | GitHub (`gh`) | slots | LLM |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------ | :-: | :-------------: | :-----------: | :---: | :-: |
+| `ns flow changes`               | Summarize outstanding worktree changes without committing.                                                   |  ✓  |                 |               |       |  ✓  |
+| `ns flow cp`                    | Create a checkpoint commit for the current diff.                                                             |  ✓  |        ✓        |               |       |  ✓  |
+| `ns flow autobranch`            | Create a Graphite branch from dirty worktree changes.                                                        |  ✓  |        ✓        |               |       |  ✓  |
+| `ns flow branch-latest-commit`  | Move the latest eligible commit to a new Graphite branch.                                                    |  ✓  |        ✓        |               |       |  ✓  |
+| `ns flow autoslot`              | Create a Graphite branch from current work, then move it into a managed slot worktree.                       |  ✓  |        ✓        |               |   ✓   |  ✓  |
+| `ns flow submit`                | Run configured checks, checkpoint, submit current/downstack Graphite branches, and generate new-PR metadata. |  ✓  |        ✓        |       ✓       |       |  ✓  |
+| `ns flow generate-pr-inventory` | Assemble and completely replace the current PR title and body.                                               |  ✓  |                 |       ✓       |       |  ✓  |
+| `ns flow push`                  | Push committed non-Graphite branch work with `git push`.                                                     |  ✓  |                 |               |       |     |
+| `ns flow land`                  | Land the current PR or Graphite stack into trunk.                                                            |  ✓  |        ✓        |       ✓       |   ✓   |     |
+| `ns flow pull-trunk`            | Refresh the configured Graphite trunk from its configured Git upstream.                                      |  ✓  |        ✓        |               |       |     |
+| `ns flow squash-stack`          | Squash every branch in the current Graphite stack to one commit, then restore the tip branch.                |  ✓  |        ✓        |               |       |     |
 
 Every command is also available in the Pi harness as `/ns:flow:<command>`, delegating
 to the CLI. Pi is optional; the CLI commands do not require the Pi host.
@@ -77,7 +77,7 @@ reshaped stack.
 - **slots** — ns managed worktree slots: `autoslot` checks branches out into a slot;
   `land` cleans up managed slots that held landed branches.
 - **LLM** — injected text generation for change summaries, checkpoint messages,
-  branch-name slugs, and PR titles and descriptions.
+  branch-name slugs, and assembled PR inventories.
 
 ### Command-scoped integrations
 
@@ -113,26 +113,54 @@ model = "openai/gpt-5.6-luna"
 thinking = "minimal"
 
 [models.operations]
-"flow.pr-description" = "fast"
+"flow.pr-inventory" = "fast"
 ```
 
 `models.profiles` maps profile names to qualified provider/model references and required
 thinking policies. `[models.profiles.fast]` is required; there is no built-in model fallback.
 `models.operations` maps operation IDs to profiles. Omitted operations resolve to the configured
-`fast` profile. Flow uses `slug` for generated branch
-names, `flow.checkpoint` for checkpoint messages, and `flow.pr-description` for PR metadata.
-There is no environment override ladder or model inspection command.
+`fast` profile. Flow uses `slug` for generated branch names, `flow.checkpoint` for checkpoint
+messages, and `flow.pr-inventory` for an Assembled PR inventory. There is no environment override
+ladder or model inspection command.
 
-Prompt content is configured separately from model identity through the prompt points
-documented below.
+This is a clean breaking cutover. The old `flow.pr-description` operation configuration is
+ignored; because `flow.pr-inventory` is then omitted, selection falls through to the configured
+`fast` profile. There is no compatibility alias. Prompt content is configured separately from
+model identity through the prompt point documented below.
 
-## Ordinary submit PR metadata
+## Assembled PR inventory
 
-Ordinary `ns flow submit` temporarily generates an initial complete title and body only for PRs newly created by that invocation. After Graphite publishes, Flow re-queries GitHub for exactly the planned branches and reconciles those authoritative branch-keyed PR identities against the pre-submit inventory; Graphite's human-oriented output does not select metadata targets. Every planned branch must resolve exactly one open PR before metadata preparation starts. Missing, ambiguous, malformed, query-failed, changed, or duplicate identities fail after publication with branch-specific recovery guidance and zero metadata generation or edits. On success, Flow prepares every selected replacement before writing any, then applies replacements sequentially. A preparation failure edits no PR; an edit failure stops the batch and reports applied, failed, and not-attempted PRs. There is no rollback. By default, PRs that existed before the invocation are left untouched.
+An **Assembled PR inventory** is a best-effort mechanical account of observable changes, assembled
+from the diff and commit headlines. It is not authored or co-authored rationale: Flow does not ask
+the author for intent, steer the draft through an interview, or request author approval. It may
+therefore omit rationale, constraints, tradeoffs, or context absent from the evidence.
 
-`ns flow submit --regenerate-descriptions` widens the same batch to every PR resolved in the submitted scope, existing and new. Every selected PR receives a complete generated title and body; all existing body content is removed, including human-authored prose — there is no managed-region merging. Because this is destructive, the flag requires a TTY confirmation before any workflow work, or `--yes`/`-y` for explicit non-interactive approval.
+Every assembled body begins with a short italicized disclosure that it was automatically generated
+from the diff and commit headlines without author steering, interview, or approval, and may omit
+intent, rationale, constraints, or context not visible in that evidence. Flow, not the model, adds
+that disclosure at the top and a footer naming the evidence inputs, invoking command, resolved prompt
+source, and exact qualified model identity. A custom prompt cannot remove or rewrite either provenance
+boundary.
 
-Use `ns flow regenerate-pr` from an existing PR's branch for a focused, confirmed complete title/body replacement. Generated bodies include visible command, prompt-source, and model provenance. This initial new-PR metadata behavior is interim; the Prod Submit Objective still moves all prose work out of cheap submit and into future `ship`.
+Ordinary `ns flow submit` assembles a complete title and body only for PRs newly created by that
+invocation. After Graphite publishes, Flow re-queries GitHub for exactly the planned branches and
+reconciles those authoritative branch-keyed PR identities against the pre-submit inventory;
+Graphite's human-oriented output does not select targets. Every planned branch must resolve exactly
+one open PR before preparation starts. Missing, ambiguous, malformed, query-failed, changed, or
+duplicate identities fail after publication with branch-specific recovery guidance and no inventory
+generation or edits. By default, PRs that existed before the invocation are left untouched.
+
+`ns flow submit --generate-pr-inventory` widens the batch to every reconciled PR in the submitted
+scope, existing and new. Its destructive warning and confirmation happen before checks,
+checkpointing, model resolution, or Graphite/GitHub work; use `--yes`/`-y` only for explicit
+non-interactive authorization. Every selected PR receives a complete replacement title and body,
+removing all existing body content, including human-authored prose. Flow prepares all replacements
+before the first edit, then applies them sequentially. A preparation failure edits none; an apply
+failure stops and reports applied, failed, and not-attempted PRs. There is no rollback.
+
+Use `ns flow generate-pr-inventory` from an existing PR's branch for a focused,
+confirmed complete title/body replacement. It has the same disclosure, provenance, evidence limits,
+and destructive replacement semantics.
 
 ## Pre-submit checks
 
@@ -220,8 +248,14 @@ All customization goes through extension points. See the
 `.ns/prompts/` paths, and resolution precedence. Use `ns extension points` to inspect
 the active catalog.
 
-| Point                        | Kind   | What it customizes                                                     |
-| ---------------------------- | ------ | ---------------------------------------------------------------------- |
-| `flow.submit.pre`            | hook   | Commands run as pre-submit checks.                                     |
-| `flow.submit.pre.recovery`   | prompt | Agent guidance after a pre-submit check failure.                       |
-| `flow.submit.pr-description` | prompt | PR title and description generation during submit and `regenerate-pr`. |
+| Point                      | Kind   | What it customizes                                                           |
+| -------------------------- | ------ | ---------------------------------------------------------------------------- |
+| `flow.submit.pre`          | hook   | Commands run as pre-submit checks.                                           |
+| `flow.submit.pre.recovery` | prompt | Agent guidance after a pre-submit check failure.                             |
+| `flow.submit.pr-inventory` | prompt | Assembled PR inventory generation during submit and `generate-pr-inventory`. |
+
+Install the conventional prompt at `.ns/prompts/flow.submit.pr-inventory.md`, or configure an
+explicit path under `[points]."flow.submit.pr-inventory"`. For extension development,
+`NS_FLOW_PR_INVENTORY_PROMPT` overrides the point resolution ladder. These names are a clean
+breaking cutover; the former PR-description point, prompt path, and environment variable are not
+aliases.

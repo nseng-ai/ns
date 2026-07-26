@@ -34,7 +34,7 @@ describe("ns flow changes CLI availability", () => {
 		expect(help).not.toContain("changes");
 		expect(help).not.toContain("cp");
 		expect(help).not.toContain("submit");
-		expect(help).not.toContain("regenerate-pr");
+		expect(help).not.toContain("generate-pr-inventory");
 		expect(topHelp.stderr.join("")).toBe("");
 	});
 

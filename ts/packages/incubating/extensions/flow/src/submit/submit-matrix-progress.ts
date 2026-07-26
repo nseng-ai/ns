@@ -26,7 +26,7 @@ import { prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
 import type { ReconciledSubmitPr } from "./submit-pr-reconciliation.ts";
 
 export type SubmitMatrixCellState = MatrixCellState;
-export type SubmitMatrixColumnKey = "description";
+export type SubmitMatrixColumnKey = "inventory";
 export type SubmitMatrixCellUpdate = MatrixCellUpdate;
 
 export type SubmitMatrixColumnSpec = MatrixColumnSpec<SubmitMatrixColumnKey>;
@@ -81,7 +81,7 @@ export interface SubmitMatrixRowView {
 }
 
 export const SUBMIT_MATRIX_COLUMNS: readonly SubmitMatrixColumnSpec[] = [
-	{ key: "description", label: "Description", width: 11 },
+	{ key: "inventory", label: "Inventory", width: 11 },
 ];
 
 export function submitMatrixRowsFromTopology(

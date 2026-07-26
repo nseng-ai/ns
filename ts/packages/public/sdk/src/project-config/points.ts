@@ -52,10 +52,10 @@ const builtInPointDefinitions = [
 		defaultPath: "prompts/plans-write-default.md",
 	},
 	{
-		id: "flow.submit.pr-description",
+		id: "flow.submit.pr-inventory",
 		accepts: "prompt",
 		cardinality: "one",
-		description: "Prompt for generating pull request descriptions during flow submit.",
+		description: "Prompt for generating pull request inventories during flow submit.",
 	},
 	{
 		id: "flow.submit.pre",

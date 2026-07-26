@@ -18,7 +18,7 @@ export const MODEL_OPERATION_IDS = {
 	flowCheckpoint: "flow.checkpoint",
 	flowChanges: "flow.changes",
 	flowSubmitFailure: "flow.submit-failure",
-	flowPrDescription: "flow.pr-description",
+	flowPrInventory: "flow.pr-inventory",
 	thermoCouncilSynthesis: "thermo-council.synthesis",
 	piFastDraft: "pi.fast-draft",
 	stackViewEnrichment: "stack-view.enrichment",

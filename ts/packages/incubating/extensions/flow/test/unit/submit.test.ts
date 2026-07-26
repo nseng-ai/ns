@@ -55,11 +55,11 @@ describe("formatSubmitSuccessText", () => {
 
 		const output = formatSubmitSuccessText([link], {
 			applied: [link],
-			previews: [{ link, title: "Generated title", descriptionFirstLine: undefined }],
+			previews: [{ link, title: "Generated title", inventoryFirstLine: undefined }],
 		});
 
 		expect(output).toContain("new title: Generated title");
-		expect(output).not.toContain("new description:");
+		expect(output).not.toContain("new inventory:");
 	});
 });
 
@@ -784,7 +784,7 @@ describe("runSubmitCommand", () => {
 				},
 			}),
 		};
-		const githubPr = new SubmitDescriptionGithubPrGateway();
+		const githubPr = new SubmitInventoryGithubPrGateway();
 		const textGenerator = new ScriptedTextGenerator(
 			selectedPrs.map((number) => ({
 				ok: true as const,
@@ -798,7 +798,7 @@ describe("runSubmitCommand", () => {
 			metadataGateway,
 			restack: true,
 			force: false,
-			prDescription: {
+			prInventory: {
 				githubPr,
 				textGenerator,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
@@ -837,14 +837,14 @@ describe("runSubmitCommand", () => {
 		]);
 		expect(submitMatrix.prCellEvents).toEqual(
 			selectedPrs.flatMap((prNumber) => [
-				{ prNumber, column: "description", state: "active", text: "preparing complete metadata" },
+				{ prNumber, column: "inventory", state: "active", text: "preparing complete metadata" },
 				{
 					prNumber,
-					column: "description",
+					column: "inventory",
 					state: "active",
 					text: "prepared; waiting to apply batch",
 				},
-				{ prNumber, column: "description", state: "done", text: "complete metadata replaced" },
+				{ prNumber, column: "inventory", state: "done", text: "complete metadata replaced" },
 			]),
 		);
 		// Active operations report only work that is actually pending: never the former broad
@@ -866,7 +866,7 @@ describe("runSubmitCommand", () => {
 		expect(submitMatrix.operationSnapshots).toContainEqual([
 			{
 				kind: "model",
-				operation: "generating PR description",
+				operation: "generating PR inventory",
 				modelRef: "openai-codex/gpt-5.6-luna",
 				detail: `PR 1/${selectedPrs.length}`,
 			},
@@ -923,7 +923,7 @@ describe("runSubmitCommand", () => {
 				],
 			}),
 		};
-		const githubPr = new SubmitDescriptionGithubPrGateway();
+		const githubPr = new SubmitInventoryGithubPrGateway();
 		const textGenerator = new ScriptedTextGenerator(
 			selectedPrs.map((number) => ({
 				ok: true as const,
@@ -938,7 +938,7 @@ describe("runSubmitCommand", () => {
 			restack: true,
 			force: false,
 			shouldReplaceAllPrMetadata: true,
-			prDescription: {
+			prInventory: {
 				githubPr,
 				textGenerator,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
@@ -956,26 +956,26 @@ describe("runSubmitCommand", () => {
 		expect(result.exitCode).toBe(0);
 		expect(
 			submitMatrix.phaseEvents.find(
-				(event) => event.type === "phase-started" && event.phaseKey === "descriptions",
+				(event) => event.type === "phase-started" && event.phaseKey === "inventories",
 			),
 		).toEqual({
 			type: "phase-started",
-			phaseKey: "descriptions",
+			phaseKey: "inventories",
 			label: "preparing complete metadata for 2 PRs",
 		});
 		expect(submitMatrix.prCellEvents).toEqual([
 			...selectedPrs.flatMap((prNumber) => [
-				{ prNumber, column: "description", state: "active", text: "preparing complete metadata" },
+				{ prNumber, column: "inventory", state: "active", text: "preparing complete metadata" },
 				{
 					prNumber,
-					column: "description",
+					column: "inventory",
 					state: "active",
 					text: "prepared; waiting to apply batch",
 				},
 			]),
 			...selectedPrs.map((prNumber) => ({
 				prNumber,
-				column: "description",
+				column: "inventory",
 				state: "done",
 				text: "complete metadata replaced",
 			})),
@@ -983,7 +983,7 @@ describe("runSubmitCommand", () => {
 		expect(submitMatrix.operationSnapshots).toContainEqual([
 			{
 				kind: "model",
-				operation: "generating PR description",
+				operation: "generating PR inventory",
 				modelRef: "openai-codex/gpt-5.6-luna",
 				detail: `PR 2/${selectedPrs.length}`,
 			},
@@ -1041,7 +1041,7 @@ describe("runSubmitCommand", () => {
 			metadataGateway,
 			restack: true,
 			force: false,
-			prDescription: {
+			prInventory: {
 				githubPr: unusedGithubPrGateway,
 				textGenerator: unusedTextGenerator,
 				git: unusedGitGateway,
@@ -1127,7 +1127,7 @@ describe("runSubmitCommand", () => {
 			metadataGateway,
 			restack: true,
 			force: false,
-			prDescription: {
+			prInventory: {
 				githubPr: unusedGithubPrGateway,
 				textGenerator: unusedTextGenerator,
 				git: unusedGitGateway,
@@ -1166,7 +1166,7 @@ describe("runSubmitCommand", () => {
 			metadataGateway: unusedSubmitStackInspectionGateway,
 			restack: false,
 			force: false,
-			prDescription: {
+			prInventory: {
 				githubPr: unusedGithubPrGateway,
 				textGenerator: unusedTextGenerator,
 				git: unusedGitGateway,
@@ -1241,7 +1241,7 @@ class RecordingSubmitMatrix implements SubmitMatrixProgressSink {
 	applyBranchPrs(): void {}
 }
 
-class SubmitDescriptionGithubPrGateway implements GithubPrGateway {
+class SubmitInventoryGithubPrGateway implements GithubPrGateway {
 	async viewCurrentBranchPr(): Promise<never> {
 		return unexpectedCall("viewCurrentBranchPr");
 	}

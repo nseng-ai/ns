@@ -6,7 +6,7 @@ import {
 import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 
 import type { SubmitPrLink } from "./gt-output.ts";
-import type { SubmitPrDescriptionSummary } from "./submit-pr-description-summary.ts";
+import type { SubmitPrInventorySummary } from "./submit-pr-inventory-summary.ts";
 import type {
 	SubmitPrReconciliationFailure,
 	SubmitPrReconciliationFailureDisposition,
@@ -45,12 +45,12 @@ export function formatBatchPosition(options: {
 
 export function formatSubmitSuccessText(
 	prLinks: SubmitPrLink[],
-	descriptions: SubmitPrDescriptionSummary,
+	inventories: SubmitPrInventorySummary,
 ): string {
 	const lines = [`Submitted ${formatItemCount(prLinks.length, "PR", "PRs")}:`];
 	for (const link of prLinks) {
 		lines.push(`✓ ${formatPrLinkText(link)}`);
-		for (const status of formatSubmitSuccessStatuses(link, descriptions)) {
+		for (const status of formatSubmitSuccessStatuses(link, inventories)) {
 			lines.push(`  - ${status}`);
 		}
 	}
@@ -69,7 +69,7 @@ export function formatSubmitInventoryFailureOutput(failure: SubmitPrReconciliati
 			: ["", "Submitted PRs identified:", ...knownPrs.map((pr) => `• ${formatPrLinkText(pr)}`)]),
 		"",
 		"Repair the GitHub PR/head-branch association, then rerun `ns flow submit`.",
-		"The retry will leave PRs that now exist untouched; checkout any branch whose initial metadata was skipped and run `ns flow regenerate-pr`.",
+		"The retry will leave PRs that now exist untouched; checkout any branch whose initial metadata was skipped and run `ns flow generate-pr-inventory`.",
 	].join("\n");
 }
 
@@ -94,7 +94,7 @@ function formatSubmitInventoryFailureDisposition(
 export function formatSubmitSuccessFallbackText(stdout: string, stderr: string): string {
 	const lines = [
 		"Submit succeeded, but no PR URLs were detected in output.",
-		"PR descriptions were not generated. Checkout a branch and run `ns flow regenerate-pr` if needed.",
+		"PR inventories were not generated. Checkout a branch and run `ns flow generate-pr-inventory` if needed.",
 	];
 	const outputTail = formatSubmitOutputTail(stdout, stderr);
 	if (outputTail) {
@@ -105,17 +105,17 @@ export function formatSubmitSuccessFallbackText(stdout: string, stderr: string):
 
 function formatSubmitSuccessStatuses(
 	link: SubmitPrLink,
-	descriptions: SubmitPrDescriptionSummary,
+	inventories: SubmitPrInventorySummary,
 ): string[] {
 	const statuses: string[] = [];
-	if (hasMatchingLink(descriptions.applied, link)) {
+	if (hasMatchingLink(inventories.applied, link)) {
 		statuses.push("complete title and body replaced");
 	}
-	const preview = findMatchingLink(descriptions.previews, link, (candidate) => candidate.link);
+	const preview = findMatchingLink(inventories.previews, link, (candidate) => candidate.link);
 	if (preview !== undefined) {
 		statuses.push(`new title: ${preview.title}`);
-		if (preview.descriptionFirstLine !== undefined) {
-			statuses.push(`new description: ${preview.descriptionFirstLine}`);
+		if (preview.inventoryFirstLine !== undefined) {
+			statuses.push(`new inventory: ${preview.inventoryFirstLine}`);
 		}
 	}
 	return statuses;

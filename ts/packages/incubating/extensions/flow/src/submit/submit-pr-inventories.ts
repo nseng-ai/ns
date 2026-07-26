@@ -9,50 +9,50 @@ import {
 import {
 	applyPreparedPrMetadataReplacement,
 	preparePrMetadataReplacement,
-	resolvePrDescriptionGeneration,
+	resolvePrInventoryGeneration,
 	type PreparedPrMetadataReplacement,
 } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
 import type { ReconciledSubmitPr } from "./submit-pr-reconciliation.ts";
 import type {
-	SubmitPrDescriptionPreview,
-	SubmitPrDescriptionSummary,
-} from "./submit-pr-description-summary.ts";
+	SubmitPrInventoryPreview,
+	SubmitPrInventorySummary,
+} from "./submit-pr-inventory-summary.ts";
 import { formatPrLinkTextRow } from "./submit-pr-link.ts";
-import type { SubmitPrDescriptionOptions } from "./submit.ts";
+import type { SubmitPrInventoryOptions } from "./submit.ts";
 import { formatBatchPosition } from "./submit-format.ts";
 import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import type { SubmitMatrixCellState } from "./submit-matrix-progress.ts";
 
-export type SubmitPrDescriptionGenerationResult =
-	| ({ ok: true } & SubmitPrDescriptionSummary)
+export type SubmitPrInventoryGenerationResult =
+	| ({ ok: true } & SubmitPrInventorySummary)
 	| {
 			ok: false;
 			stage: "preparation" | "application";
-			failures: PrDescriptionFailure[];
+			failures: PrInventoryFailure[];
 			applied: readonly SubmitPrLink[];
 			notAttempted: readonly SubmitPrLink[];
 	  };
 
-export interface PrDescriptionFailure {
+export interface PrInventoryFailure {
 	link: SubmitPrLink;
 	number: number;
 	reason: string;
 	diagnostic?: ErrorInfo;
 }
 
-export interface SubmitPrDescriptionProgressEvent {
+export interface SubmitPrInventoryProgressEvent {
 	prNumber: number;
 	state: Exclude<SubmitMatrixCellState, "pending">;
 	message?: string;
 }
 
-export async function generateSubmitPrDescriptions(input: {
+export async function generateSubmitPrInventories(input: {
 	cwd: string;
-	prDescription: SubmitPrDescriptionOptions;
+	prInventory: SubmitPrInventoryOptions;
 	targets: readonly ReconciledSubmitPr[];
-	progress?: SubmitProgressListeners<SubmitPrDescriptionProgressEvent>;
-}): Promise<SubmitPrDescriptionGenerationResult> {
+	progress?: SubmitProgressListeners<SubmitPrInventoryProgressEvent>;
+}): Promise<SubmitPrInventoryGenerationResult> {
 	const selected = input.targets.map((target) => ({
 		link: { label: target.label, url: target.url },
 		number: target.number,
@@ -62,13 +62,13 @@ export async function generateSubmitPrDescriptions(input: {
 		return { ok: true, applied: [], previews: [] };
 	}
 
-	input.progress?.onProgress?.("resolving PR description prompt and model");
-	const generation = await resolvePrDescriptionGeneration({
+	input.progress?.onProgress?.("resolving PR inventory prompt and model");
+	const generation = await resolvePrInventoryGeneration({
 		cwd: input.cwd,
-		env: input.prDescription.env,
-		git: input.prDescription.git,
-		descriptorSource: input.prDescription.descriptorSource,
-		modelSelection: input.prDescription.modelSelection,
+		env: input.prInventory.env,
+		git: input.prInventory.git,
+		descriptorSource: input.prInventory.descriptorSource,
+		modelSelection: input.prInventory.modelSelection,
 	});
 	if (!generation.ok) {
 		const first = selected[0];
@@ -83,14 +83,14 @@ export async function generateSubmitPrDescriptions(input: {
 	}
 
 	const prepared: Array<{ link: SubmitPrLink; replacement: PreparedPrMetadataReplacement }> = [];
-	const failures: PrDescriptionFailure[] = [];
+	const failures: PrInventoryFailure[] = [];
 	for (const [index, item] of selected.entries()) {
 		input.progress?.onItemProgress?.({
 			prNumber: item.number,
 			state: "active",
 			message: "preparing complete metadata",
 		});
-		const viewed = await input.prDescription.githubPr.viewPr({
+		const viewed = await input.prInventory.githubPr.viewPr({
 			cwd: input.cwd,
 			number: item.number,
 		});
@@ -110,18 +110,18 @@ export async function generateSubmitPrDescriptions(input: {
 		}
 		const result = await preparePrMetadataReplacement({
 			cwd: input.cwd,
-			env: input.prDescription.env,
-			githubPr: input.prDescription.githubPr,
-			textGenerator: input.prDescription.textGenerator,
-			git: input.prDescription.git,
-			descriptorSource: input.prDescription.descriptorSource,
-			modelSelection: input.prDescription.modelSelection,
+			env: input.prInventory.env,
+			githubPr: input.prInventory.githubPr,
+			textGenerator: input.prInventory.textGenerator,
+			git: input.prInventory.git,
+			descriptorSource: input.prInventory.descriptorSource,
+			modelSelection: input.prInventory.modelSelection,
 			pr: viewed.value,
 			source: "submit",
 			generation,
 			activeOperationDetail: formatBatchPosition({ noun: "PR", index, total: selected.length }),
 			...optionalEntry("progress", input.progress),
-			...(input.prDescription.time === undefined ? {} : { time: input.prDescription.time }),
+			...(input.prInventory.time === undefined ? {} : { time: input.prInventory.time }),
 		});
 		if (result.type === "failed") {
 			failures.push({
@@ -155,11 +155,11 @@ export async function generateSubmitPrDescriptions(input: {
 	}
 
 	const applied: SubmitPrLink[] = [];
-	const previews: SubmitPrDescriptionPreview[] = [];
+	const previews: SubmitPrInventoryPreview[] = [];
 	for (const [index, item] of prepared.entries()) {
 		const appliedResult = await applyPreparedPrMetadataReplacement({
 			cwd: input.cwd,
-			githubPr: input.prDescription.githubPr,
+			githubPr: input.prInventory.githubPr,
 			replacement: item.replacement,
 		});
 		if (!appliedResult.ok) {
@@ -187,7 +187,7 @@ export async function generateSubmitPrDescriptions(input: {
 		previews.push({
 			link: item.link,
 			title: item.replacement.title.trim(),
-			descriptionFirstLine: firstNonEmptyLine(item.replacement.previewBody),
+			inventoryFirstLine: firstNonEmptyLine(item.replacement.previewBody),
 		});
 		input.progress?.onItemProgress?.({
 			prNumber: item.replacement.pr.number,
@@ -198,9 +198,9 @@ export async function generateSubmitPrDescriptions(input: {
 	return { ok: true, applied, previews };
 }
 
-export function formatPrDescriptionFailureText(
+export function formatPrInventoryFailureText(
 	prLinks: readonly SubmitPrLink[],
-	result: Extract<SubmitPrDescriptionGenerationResult, { ok: false }>,
+	result: Extract<SubmitPrInventoryGenerationResult, { ok: false }>,
 ): string {
 	const lines = [
 		"PRs were submitted; PR metadata replacement failed.",
@@ -213,7 +213,7 @@ export function formatPrDescriptionFailureText(
 		result.stage === "preparation"
 			? "Preparation failures (no PR metadata was edited):"
 			: "Application failure:",
-		...result.failures.map(formatPrDescriptionFailureRow),
+		...result.failures.map(formatPrInventoryFailureRow),
 	];
 	if (result.applied.length > 0)
 		lines.push("", "Applied before failure:", ...result.applied.map(formatPrLinkTextRow));
@@ -221,19 +221,19 @@ export function formatPrDescriptionFailureText(
 		lines.push("", "Prepared but not attempted:", ...result.notAttempted.map(formatPrLinkTextRow));
 	lines.push(
 		"",
-		"Checkout an affected branch and run `ns flow regenerate-pr` to replace its complete PR metadata.",
+		"Checkout an affected branch and run `ns flow generate-pr-inventory` to replace its complete PR metadata.",
 	);
 	return lines.join("\n");
 }
 
-function formatPrDescriptionFailureRow(failure: PrDescriptionFailure): string {
+function formatPrInventoryFailureRow(failure: PrInventoryFailure): string {
 	const cause = formatCommandFailureConciseCause(failure.diagnostic);
 	if (cause === undefined) return `${formatPrLinkTextRow(failure.link)}: ${failure.reason}`;
 	return `${formatPrLinkTextRow(failure.link)}: ${failure.reason}\n  Cause: ${cause}`;
 }
 
-export function formatPrDescriptionFailureDiagnostics(
-	failures: readonly PrDescriptionFailure[],
+export function formatPrInventoryFailureDiagnostics(
+	failures: readonly PrInventoryFailure[],
 ): string[] {
 	return failures.flatMap((failure) =>
 		failure.diagnostic === undefined
