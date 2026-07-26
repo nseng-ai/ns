@@ -2,9 +2,9 @@
 
 Resolves the ontology-reshape roadmap row "Reexamine extension, host, and kernel
 layering vocabulary (grilling)", 2026-07-11. Decisions ratified in a live grilling
-session; rationale and the durable rules live in ADR 0033
-(`docs/adr/0033-layering-reshape-tier-projected-directories-and-seam-naming.md`).
-This spec is the execution handoff: per-item mechanics, verification, and which doc
+session. This historical spec preserves that session's decisions; current durable
+locators are ADR 0017 (tiers), ADR 0019 (seams and placement), ADR 0023
+(subpackages), and ADR 0045 (paths and disposition). This spec is the execution handoff: per-item mechanics, verification, and which doc
 edits ride which change. Constraints honored: `cross-harness-parity` (Pi additive,
 never canonical) and `extension-descriptor-contract` (descriptor modules stay cheap;
 author contract untouched).

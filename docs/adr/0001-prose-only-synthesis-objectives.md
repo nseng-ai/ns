@@ -1,19 +1,28 @@
-# ADR 0001: Prose-only Synthesis Objectives
+# ADR 0001: Umbrella Objectives
 
 ## Status
 
-Accepted; naming superseded by ADR 0030 (the pattern is now **Umbrella Objective**; this ADR's substance stands)
+Accepted
 
 ## Context
 
-The existing fire-and-forget umbrella Objective pattern is useful when a parent only creates child Objectives and then stops tracking their work. The TypeScript toolchain port needs a different parent shape: child Objectives should own implementation details, but the parent should retain cross-child lessons, migration guides, synthesized outcomes, and closure evidence.
+Some Objectives coordinate a family of narrower Subobjectives. The parent must preserve cross-child lessons, migration guidance, synthesized outcomes, and closure evidence without becoming a task database or duplicating every child roadmap.
 
 ## Decision
 
-Adopt **Synthesis Objective** as a prose-only Objective-system pattern. A Synthesis Objective may coordinate child Objectives, use parent roadmap rows such as `[~]` to show that a child exists and is in progress, and close only after child outcomes have been closed or explicitly parked and synthesized in the parent.
+An **Umbrella Objective** is a prose-only Objective pattern. Its Subobjectives are ordinary Objectives that own their implementation or research slices. The parent remains the durable synthesis point and closes only after its children have closed or been explicitly parked and their outcomes have been synthesized.
 
-This is not a new Objective CLI feature, status model, registry, hidden metadata system, or task database. Child Objective records remain ordinary Objectives with deterministic `open`/`closed` status from the existing `closed.md` marker.
+Umbrella Objective is not a CLI feature, lifecycle status, registry, or hidden metadata model. Objective lifecycle remains determined by the ordinary Objective record and Closure Marker.
 
-## Why
+The synthesis duty is mandatory. A parent that merely creates children and stops tracking their outcomes is a **fire-and-forget umbrella**, not an Umbrella Objective. **Synthesis Objective** is the retired name for this pattern.
 
-This preserves durable cross-child learning without mirroring every child roadmap or adding workflow-control semantics to Objective tooling. It also gives future agents explicit rationale for using a synthesis parent instead of incorrectly applying the fire-and-forget umbrella convention.
+## Consequences
+
+- Large initiatives can delegate narrow ownership while retaining one coherent account of the whole.
+- Parent roadmaps may summarize child progress without mirroring child task detail.
+- Closure requires synthesized evidence, not merely the existence of child records.
+
+## Alternatives
+
+- **Fire-and-forget umbrella:** rejected because it loses cross-child learning and closure evidence.
+- **Machine-level Objective category:** rejected because the pattern needs prose discipline, not new workflow-control state.

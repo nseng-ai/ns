@@ -607,14 +607,14 @@ describe("TypeScript style guard documentation references", () => {
 		expect(offenders).toEqual([]);
 	});
 
-	test("historical ADR text is preserved instead of rewritten for guard target migrations", () => {
+	test("the consolidated extension-layering ADR preserves package API and acyclic-graph decisions", () => {
 		const adr = readFileSync(
 			join(REPO_ROOT, "docs/adr/0009-extension-layering-and-peer-dependencies.md"),
 			"utf8",
 		);
 
-		expect(adr).toContain("define curated subpaths, and `just ts-guard` rejects");
-		expect(adr).toContain("topological cycle analysis in `just ts-guard` enforces this invariant");
+		expect(adr).toContain("exposes a curated **extension package API**");
+		expect(adr).toContain("The resulting Extension Dependency Graph must be acyclic.");
 	});
 });
 

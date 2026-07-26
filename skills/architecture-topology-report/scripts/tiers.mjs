@@ -36,7 +36,7 @@ export function label(id) {
 // The tier whose packages present ns extensions. Exported so extraction policy compares
 // against the taxonomy rather than repeating an untyped string literal — this file is .mjs,
 // so `just` never typechecks it and a silent tier rename would decommission the rule that
-// reads it (ADR 0044). Validated against the taxonomy at load so a rename fails loudly here
+// reads it (ADR 0017). Validated against the taxonomy at load so a rename fails loudly here
 // instead of quietly returning no extension edges.
 export const EXTENSION_TIER_ID = "extension";
 if (!PACKAGE_TIER_IDS.includes(EXTENSION_TIER_ID)) {

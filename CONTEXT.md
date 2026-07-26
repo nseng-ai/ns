@@ -13,7 +13,7 @@ A checked-in documentation workstream for durable multi-session, multi-branch, o
 *Avoid*: hidden agent state, ticket
 
 **Umbrella Objective**:
-A prose-only **Objective** pattern that coordinates a family of narrower **Subobjectives** while remaining the durable place for cross-child lessons, migration guides, and synthesized closure evidence. The synthesis duty is part of the pattern, not optional (renamed from Synthesis Objective per `docs/adr/0030-rename-synthesis-objective-to-umbrella-objective.md`).
+A prose-only **Objective** pattern that coordinates a family of narrower **Subobjectives** while remaining the durable place for cross-child lessons, migration guides, and synthesized closure evidence. The synthesis duty is part of the pattern, not optional (the current name and durable pattern are recorded in `docs/adr/0001-prose-only-synthesis-objectives.md`).
 *Avoid*: Synthesis Objective (retired name), fire-and-forget umbrella, mirrored task tracker, hidden parent state, Objective CLI feature
 
 **Subobjective**:
@@ -191,7 +191,7 @@ The ns extension stack and its governing rules are:
 - **Neutral gateway exception:** a gateway whose public contract is ns-independent with a credible external-consumer scenario may instead be **Neutral Infra** owned by foundation (ADR 0032). `@nseng-ai/foundation/exec` and `@nseng-ai/foundation/git` are the live examples, with the Extension Kit keeping the ctx→gateway adapter (`createNsGitGateway`). Remaining Kit Gateways stay put absent explicit follow-up work.
 - **Host boundary:** intrinsic host services expose author-facing interfaces through `@nseng-ai/sdk` / `ctx`, with implementations hidden in the SDK. The SDK boundary is permeable downward only to concepts that prove general worth.
 - **Dependency rule:** first-party extensions form an **Extension Dependency Graph** that must stay acyclic.
-- **Decision sources:** ADR 0012 holds the layering diagram and the rule that extension domain logic lives in ns extensions rather than the `@nseng-ai/pi-runtime` runtime host or SDK (the ADR states it in the older capability vocabulary). ADR 0009 holds the dependency-graph invariant. ADR 0018 holds the four-bucket neutral-infra classification rule, refined by ADR 0019's package-placement gate and ADR 0032's external-applicability admission test. ADR 0031 holds the point-system decision.
+- **Decision sources:** ADR 0009 holds extension layering, domain ownership, and the dependency-graph invariant. ADR 0019 holds the consumption classification and package-placement gate, refined by ADR 0032's external-applicability admission test. ADR 0031 holds the point-system decision.
 
 These terms name the parts of that architecture.
 

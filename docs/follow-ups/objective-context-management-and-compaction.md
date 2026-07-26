@@ -136,7 +136,7 @@ Compare them on:
 - Re-measure the Objective and assembled reader output; this note captures only the 2026-07-11 state.
 - Confirm whether `read-objective` behavior, output limits, or consumers have changed.
 - Inspect all current consumers before changing defaults.
-- Check current Objective doctrine, especially `docs/objective-system.md`, `CONTEXT.md`, ADR 0025, ADR 0030, and Objective skill references.
+- Check current Objective doctrine, especially `docs/objective-system.md`, `CONTEXT.md`, ADR 0025, ADR 0001, and Objective skill references.
 - Verify that the candidate Subobjectives still represent outstanding coherent outcomes.
 - Test token counts with the actual harnesses/tokenizers that matter rather than relying only on character estimates.
 - Validate that compact output is sufficient for real `objective-next`, update, runner, and implementation sessions, not merely smaller.

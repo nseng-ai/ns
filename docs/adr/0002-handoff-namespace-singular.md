@@ -6,27 +6,28 @@ Accepted
 
 ## Context
 
-Handoff artifacts are workflow-owned Branch Memory entries. Earlier implementation and docs used the plural namespace `handoffs`, while the domain model now names a single workflow-owned **Handoff Namespace** and keeps each artifact identified by a flat Handoff Key.
-
-Keeping both names in normal flows would make storage ambiguous and would require hidden fallback behavior in create, pickup, list, delete, garbage-collection, and Pi status surfaces.
+A Handoff Artifact is a directed, durable baton for a future session. It is distinct from a Saved Plan and from standing Branch Context, even though all three may use Markdown and Handoffs use Branch Memory for storage. Multiple storage names would make Handoff creation, pickup, listing, deletion, and garbage collection ambiguous.
 
 ## Decision
 
-Use Branch Memory namespace `handoff` as the canonical Handoff Namespace.
+The canonical Handoff Namespace is the singular Branch Memory namespace `handoff`.
 
-The Handoff Key remains flat:
+Each Handoff Artifact uses a flat Handoff Key:
 
 ```text
 <semantic-slug>.md
 ```
 
-Normal handoff flows read and write only namespace `handoff`. They do not silently fall back to `handoffs`, and they do not treat `session-artifacts/handoffs/...` as handoff storage.
-
-Legacy local entries under `handoffs` are handled, if needed, as one-off operational migration work rather than as a permanent compatibility surface or official handoff command.
+Normal Handoff flows read and write only `handoff`. They do not dual-read or normalize the legacy `handoffs` namespace or session-artifact paths. Moving legacy local entries, when needed, is an explicit one-off operation rather than compatibility policy.
 
 ## Consequences
 
-- There is one canonical technical locator for Handoff Artifacts: namespace `handoff`, key `<semantic-slug>.md`, and the owning branch.
-- Normal flows become simpler and easier to reason about because there is no dual-read storage policy.
-- Users with old local `handoffs` entries must move them as part of one-off operational work before normal handoff commands will see them.
-- Pi worktree status displays Branch Memory namespaces as stored; it does not normalize `session-artifacts/handoffs/...` or legacy `handoffs` entries into `handoff`.
+- A Handoff Technical Locator consists of its branch, namespace `handoff`, and flat Markdown key.
+- Handoff workflows have one unambiguous storage contract.
+- Old local entries remain invisible until explicitly moved.
+- This decision does not make Handoffs Branch Context: a Handoff is one-shot continuation context, while Branch Context is standing branch-scoped context.
+
+## Alternatives
+
+- **Silent fallback or normalization:** rejected because it creates permanent hidden storage behavior and ambiguous listings.
+- **Plural canonical namespace:** rejected in favor of the domain's singular workflow-owned namespace.

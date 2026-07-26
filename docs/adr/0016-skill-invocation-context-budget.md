@@ -1,47 +1,38 @@
-# ADR 0016: Skill Invocation Kinds Spend the Ambient Context Budget Deliberately
+# ADR 0016: Skill Exposure Spends the Ambient Context Budget Deliberately
 
 ## Status
 
-Accepted (amended 2026-07: added `unlisted`)
+Accepted
 
 ## Context
 
-Pi and Claude Code include model-invoked skill frontmatter in the model's ambient context. The skill body remains progressively disclosed, but every `name` and `description` for an ambient skill is paid on every session. As the SDL skill set grew, specialized workflow skills, setup skills, and leaf operation skills accumulated enough frontmatter to become a measurable context cost.
-
-SDL already has an `areg`-managed invocation taxonomy in `docs/conventions/skill-conventions.md`: `normal`, `ambient-only`, `invoke-only`, `command-backed`, and `unlisted`. The missing decision was not the mechanics of those kinds, but the policy for when a skill deserves ambient model discovery.
+Agent harnesses place discoverable skill names and descriptions in ambient model context even though skill bodies are progressively disclosed. Every ambient skill therefore has a per-session context cost. Specialized workflows should remain available without making all of their metadata ambient, and cross-harness exposure artifacts must not drift through manual edits.
 
 ## Decision
 
-Skill invocation kind is a context-budget decision and must be managed through `areg`, not by hand-editing frontmatter or sidecar files.
+Every managed skill has an explicit **Skill Exposure Policy**. The current policy set has exactly three values:
 
-SDL will use domain-specific defaults:
+- `normal` for skills the model should discover from ordinary language, especially broad routers, common standards, safety-sensitive workflows, and widely applicable boundary guidance;
+- `invoke-only` for specialized, rare, setup, migration, language-specific, administrative, or otherwise explicitly named workflows that should not consume ambient discovery context; and
+- `command-backed` when a verified namespaced command is the preferred user surface and the backing skill should not also appear as a raw skill invocation.
 
-- Keep a skill ambient (`normal`) only when the model must discover it from ordinary user language and one of these eligibility categories applies: umbrella/router, common coding standard, safety-sensitive workflow, or broad external-boundary guidance.
-- Use `command-backed` when a verified namespaced Pi command is the preferred user surface. The backing skill is hidden from ambient model context and from Pi's raw `/skill:<name>` surface, while the replacement command remains available.
-- Use `invoke-only` for specialized, rare, setup, migration, language-specific, admin, or otherwise explicit workflows that remain useful by name but should not consume ambient context.
-- Use `unlisted` for one-shot bootstrap/scaffold skills that should have no invocation surface at all: `areg skill apply unlisted` writes the invoke-only artifact bundle (`disable-model-invocation: true` + Codex `agents/openai.yaml`) plus the Pi `-skills/<name>` exclusion, and additionally **removes both mirror symlinks** (`.agents/skills/<name>`, `.claude/skills/<name>`) so the skill is hidden from every harness typeahead and `$name`/`/skill:name` reference. Unlike `command-backed`, `unlisted` has **no** Pi replacement command — conversion requires removing the registry entry first, and discovery moves to an ambient router skill (`metadata.category: <family>` on each leaf) that points at the canonical `skills/<name>/` source.
-- Treat internal backend skills as explicit-only unless their extension wrapper requires model discovery. `metadata.internal: true` is a visibility axis, not an invocation kind.
-- Treat vendored/upstream skills as a separate review class: do not casually rewrite upstream content, but allow recorded local invocation-kind changes when ambient token cost is material.
+Policies target an explicit skill directory or direct `SKILL.md` path and are applied, shown, and checked through `ns skill-exposure`. Its reconciliation owns the cross-harness exposure overlays and the command-backed replacement invariant. Authors do not hand-edit those derived artifacts or maintain a parallel registry table.
 
-The documentation should include stable examples by category, not a full current-state registry table. `areg skill list` and `areg skill show <name>` are the live source of truth.
+Historically, `unlisted` removed all invocation surfaces for one-shot bootstrap and scaffold skills, including mirror-backed typeahead surfaces. That policy is retired: it is not a current Skill Exposure Policy, and `ns skill-exposure` does not remove installation mirrors or provide a hidden/unlisted mode. `ambient-only` is likewise retired. Acquisition, installation, layout, and mirror health belong to their owning tooling rather than exposure policy.
+
+Vendored or upstream skill directories are a separate review class. Normal repository review does not rewrite their embedded upstream code for local style or cleanup; repo-owned exposure overlays may still be reconciled with `ns skill-exposure`, and the integration boundary remains reviewable.
 
 ## Consequences
 
-- New and audited skills must justify ambient discovery instead of inheriting it by default.
-- Specialized leaf workflows can remain available to humans and wrapper commands without spending ambient frontmatter tokens.
-- Command-backed conversion has a stronger precondition than invoke-only conversion: a verified Pi replacement command must exist and be the preferred surface.
-- A skill with `description: "Command: <name>"` while still ambient is a misconfiguration, because it spends context while providing no useful routing trigger.
-- The repo avoids stale hand-maintained skill-kind tables; live state stays in `areg` output.
-- `unlisted` leaves keep their real `description` in `SKILL.md` at no token cost, because nothing injects it into any harness context — the router carries the ambient triggers instead.
-- Reverting an `unlisted` skill to a listed kind requires the skill re-install flow (recreating both mirror symlinks), not just an `areg skill apply`, since the mirrors were removed.
-- `unlisted-mirrors-present` is the drift signal: an `unlisted` skill whose mirror symlinks still exist is a misconfiguration `areg check` flags.
+- Ambient discovery must justify its recurring context cost.
+- Specialized skills remain explicitly invocable, while command-backed workflows expose one preferred surface.
+- Current policy is mechanically reconciled rather than inferred from artifact combinations.
+- Retired `unlisted` and `ambient-only` terminology cannot be used to describe current exposure state.
+- Vendored content stays upstream-owned while local exposure integration remains controlled.
 
-## Rejected Alternatives
+## Alternatives
 
-- **Ambient by default:** preserves maximum discoverability but lets frontmatter grow without a budget.
-- **Explicit-only by default for every skill:** saves tokens but makes the human remember too many routers and safety standards.
-- **Full registry table in docs:** gives an audit snapshot but will drift from `areg skill list`.
-- **Hand-editing `disable-model-invocation`:** creates inconsistent artifact bundles; `areg check` should catch this drift.
-- **Keeping bootstrap skills command-backed:** the scaffold family has no verified Pi replacement commands and no ongoing invocation demand, so paying for the `/ns:cmd` surface (and the Codex `$name` / Claude Code typeahead entries the mirrors expose) buys nothing; `unlisted` drops all of it.
-- **Deleting the bootstrap skills outright:** loses the shipped scaffold playbooks; `unlisted` keeps the content invoke-able through the router while removing the ambient/typeahead cost.
-- **A lockfile or frontmatter "kind" marker for unlisted:** would add a hand-maintained state field parallel to the artifacts `areg` already reconciles; the kind is derived from artifact facts (bundle present + mirrors absent), consistent with the rest of the taxonomy.
+- **Make every skill ambient:** rejected because frontmatter consumes an unbounded shared context budget.
+- **Make every skill explicit-only:** rejected because routers, standards, and safety workflows need ordinary-language discovery.
+- **Maintain a hand-written exposure table or edit harness artifacts directly:** rejected because it duplicates mechanically checkable state and drifts.
+- **Retain `unlisted` as a current exposure policy:** rejected because removing all invocation and mirror surfaces crosses into acquisition and installation ownership.

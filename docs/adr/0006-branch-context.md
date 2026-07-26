@@ -1,68 +1,35 @@
-# ADR 0006: Branch Context
+# ADR 0006: Saved Plans and Branch Context
 
 ## Status
 
-Accepted; amended by named branch-context plan keys
+Accepted
 
 ## Context
 
-ADR 0005 originally retained `planned-branch` as sdl's branch-attached-plan vocabulary. A follow-up grill session on 2026-06-12 reversed that clause: the durable concept is not a special branch type, but the standing context attached to any branch through Branch Memory.
-
-The new vocabulary keeps ADR 0005's additive thesis intact. `enriched-plan` remains the pre-branch saved-plan intake surface. Once a plan is attached to a branch, it is one entry in that branch's context, not evidence that the branch has a special type.
+Agent harnesses author plans. ns adds durable plan intake and branch-scoped working context without claiming the bare plan concept or inventing a special branch type. The model must also distinguish a reusable Saved Plan, an Attached Plan on an implementation branch, standing Branch Context, and a directed Handoff.
 
 ## Decision
 
-### Branch context
+A **Saved Plan** is inert Markdown saved in the machine-local Local Plan Store and keyed by repository and source branch. Saving adds ns metadata and attachment readiness but does not mutate the source plan. The source branch identifies where the plan came from; it is not the future implementation branch.
 
-**Branch context** is the branch's standing working context stored in Branch Memory. A plan can be the founding entry where one exists, but the concept generalizes to additional standing entries such as notes, constraints, or implementation context.
+**Branch Context** is standing branch-scoped context stored through Branch Memory namespace `branch-context` and distinguished from raw Branch Memory by a workflow loading contract. An **Attached Plan** is a named Markdown Branch Memory entry in that context, usually `<slug>.md`. It is one Branch Context entry, not a special branch type.
 
-The discriminator from raw Branch Memory is the **loading contract**: a higher-level workflow can promise to load a branch-context entry into an implementation session. Today the implementation entrypoint is the only contractual loader. Broader adoption and automatic injection are deferred.
+Attach and load are primitives usable on any branch. Workflows may compose them with explicit branch creation, but branch creation policy remains caller-owned; Graphite is used only when explicitly requested. Named keys support multiple entries. Exact-key loading is required when selection is ambiguous, and the legacy key `plan.md` is rejected. There are no hidden compatibility fallbacks.
 
-Handoff remains a sibling concept, not a branch-context subtype. A handoff is a directed one-shot baton for a future continuation; branch context is standing context for the branch.
+The source Saved Plan remains immutable when an orchestration overlay or attachment is created; regenerable overlays belong beside it rather than rewriting it.
 
-### Primitives over branded branch type
-
-sdl does not claim a special branch type. `attach` and `load` are primitives usable on any branch, created any way, at any time.
-
-The fused from-plan flow survives as documented sugar: `sdl branch-context exec from-plan --slug <branch-context-slug> --plan-file <path> [--branch-creation plain-git|graphite]`. That sugar keeps the branch-creation policy logic from the previous planned-branch flow: plain git by default, Graphite only when explicitly requested by the caller or wrapper.
-
-### Namespace and key
-
-Branch context uses Branch Memory namespace `branch-context`.
-
-Branch-context attached plans use named Markdown keys. `sdl branch-context exec from-plan` and Pi from-plan workflows derive `<branch-context-slug>.md`; `sdl branch-context exec attach --plan <saved-plan-slug>` uses `<saved-plan-slug>.md`; `attach <key> --file <path>` remains the explicit arbitrary-key escape hatch except that `plan.md` is rejected as an unsupported legacy plan key.
-
-There are no migration shims. This is unreleased private software, so pre-rename attached plans in namespace `planned-branch` with `<slug>.md` keys and old `planned-branch-output` session artifacts become orphaned. Manual recovery can read them through raw Branch Memory locators if needed.
-
-### Surface map
-
-| Old surface                                                                                 | New surface                                                                                                             |
-| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `@sdl/planned-branch`, bin `planned-branch`, `ts/packages/planned-branch/`                  | `@sdl/branch-context`, bin `branch-context`, `ts/packages/branch-context/`                                              |
-| `planned-branch exec create`                                                                | `sdl branch-context exec from-plan --slug <slug> --plan-file <path>`                                                    |
-| `planned-branch exec load-plan <key-or-slug>`                                               | `sdl branch-context exec load [<key>]`; no argument loads only when exactly one entry exists                            |
-| attached-plan-only operation set                                                            | branch-context primitives: `attach`, `list`, `check`, `delete`                                                          |
-| Branch Memory namespace `planned-branch`, key `<slug>.md`                                   | namespace `branch-context`, named Markdown plan keys                                                                    |
-| Pi `/planned-branch:create`, `/planned-branch:impl`, `/planned-branch:upstack-impl-session` | `/sdl:branch-context:from-plan`, `/sdl:branch-context:impl-attached-plan`, `/sdl:branch-context:upstack-impl-from-plan` |
-| skills `planned-branch`, `planned-branch-create`, `planned-branch-impl`                     | `branch-context`, `branch-context-from-plan`, `branch-context-impl`                                                     |
-
-### `attach --file` source constraint
-
-`attach <key> --file <path>` reuses the enriched-plan file resolver. Its current outside-repo constraint is acceptable but relaxable: arbitrary branch-context entries may later need to attach files from outside the repository or saved-plan store. That relaxation is not part of this ADR.
+A Handoff is a sibling concept: a directed one-shot baton for future continuation. Branch Context is standing context for the branch.
 
 ## Consequences
 
-- Active surfaces use branch-context vocabulary instead of planned-branch vocabulary.
-- `enriched-plan` is untouched: it remains the saved-plan intake surface from ADR 0005.
-- Existing planned-branch Branch Memory entries and session artifacts are not migrated.
-- No-argument implementation loading auto-selects only when exactly one supported named Markdown branch-context entry exists; multiple supported entries require an explicit key.
-- Exact-key loading for non-plan entries is available for the multi-entry case; `my-notes` no longer fuzzy-matches `my-notes.md`.
-- CONTEXT files are not edited by this ADR. Their planned-branch language is known drift to handle in a dedicated rebaseline session.
+- `@nseng-ai/plans` owns Saved Plan storage, evidence, and selection; `@nseng-ai/branch-context` owns attachment and loading behavior.
+- Any branch may acquire Branch Context; there is no planned-branch type.
+- Multiple named Markdown entries can coexist without fuzzy lookup.
+- Source-plan provenance, implementation-branch context, and Handoff continuation remain separate concepts.
 
-## Rejected Alternatives
+## Alternatives
 
-- **enriched-branch:** too brand-forward and less descriptive than branch context.
-- **seed:** failed the accretion model; branch context can grow beyond its first entry.
-- **primer / brief:** plausible for implementation prompts but too narrow once the contract generalized beyond impl-only loading.
-- **attachment / payload:** mechanism words that do not discriminate the concept from raw Branch Memory storage or derive useful user surfaces.
-- **impl-context:** too narrow because branch context can hold standing context beyond implementation-only material, and it stutters in implementation command names.
+- **Planned branch or another branded branch type:** rejected because attachment does not change the kind of branch.
+- **One magic `plan.md` entry:** rejected because it prevents named multi-entry context and preserves obsolete assumptions.
+- **In-place enrichment:** rejected because it mixes reviewed human intent with regenerable workflow overlay.
+- **Arbitrary hidden fallback:** rejected because exact storage and selection behavior must remain inspectable.

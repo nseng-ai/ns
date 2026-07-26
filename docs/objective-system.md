@@ -76,7 +76,7 @@ Additional narrative sections are allowed when they clarify the work, but avoid 
 
 For standing Objectives with no natural goal-met finish line, `## Completion Criteria` should describe retirement or closure criteria. Standing design rationale lives in [Standing Objectives & Objective Runners](pi/standing-objectives-and-runners.md); agent-facing guidance lives in `skills/objective/references/standing-objectives.md`.
 
-Objectives also take recognizable prose-only **patterns** — Umbrella (formerly Synthesis; ADR 0030), Child, Standing, Autoobjective, Orienting (formerly cross-cutting), and Ideation. Patterns compose, are never a machine category or frontmatter key, and are recognized by reading the record; product surfaces that need a pattern's properties verify at dispatch time and refuse when unsatisfied. The agent-facing catalog lives in `skills/objective/references/objective-patterns.md`; canonical terms live in the root `CONTEXT.md`.
+Objectives also take recognizable prose-only **patterns** — Umbrella (formerly Synthesis; ADR 0001), Child, Standing, Autoobjective, Orienting (formerly cross-cutting), and Ideation. Patterns compose, are never a machine category or frontmatter key, and are recognized by reading the record; product surfaces that need a pattern's properties verify at dispatch time and refuse when unsatisfied. The agent-facing catalog lives in `skills/objective/references/objective-patterns.md`; canonical terms live in the root `CONTEXT.md`.
 
 Optional execution-friendly `## Definition of Progress` and `## Runner Policy` sections may be added for Objectives that should let future `objective-next` runs proactively offer confirmed execution. Ordinary Objectives may omit these sections and remain recommendation-first; a user can still explicitly continue from a concrete current-session `objective-next` recommendation. Policy is durable prose, not schema, lifecycle state, automation metadata, or a hidden queue.
 
@@ -423,7 +423,7 @@ ADR 0037 permits a separate conditional action by trusted parent orchestration o
 
 The parent-owned managed section contains the Objective slug, ordered Runner commits and validation outcomes, material tracking commits when present, and parent-judged escalatable decisions. It replaces one slug-bound region while preserving all other PR prose. No permission or publication artifact reaches the implementation child, and this exception does not include PR creation, stack submission/restacking, force-push, merge/land, deployment, or arbitrary external writes.
 
-Core step design lives in ADR 0040 (Objective Runner; formerly numbered 0022) and ADR 0024 (decomposed begin/finish); the conditional parent publication contract lives in ADR 0037. The parent-facing step contract lives in `skills/objective-runner-step/SKILL.md`, and the loop around repeated steps in `skills/objective-autorun/SKILL.md`. The legacy blocking `ns objective exec runner-step` remains only during the transition and is scheduled for deletion.
+Core step design lives in ADR 0024; the conditional parent publication contract lives in ADR 0037. The parent-facing step contract lives in `skills/objective-runner-step/SKILL.md`, and the loop around repeated steps in `skills/objective-autorun/SKILL.md`. The former blocking `ns objective exec runner-step` surface has been replaced by these decomposed bookends.
 
 ### `ns objective exec runner-subagent-usage`
 

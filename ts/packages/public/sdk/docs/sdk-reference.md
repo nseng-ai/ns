@@ -116,7 +116,7 @@ interface ExtensionGroupEntry {
 ```
 
 `requiresExtension` is an optional exact extension-package-name gate on an ns command entry. During
-extension discovery and catalog construction, the kernel compares it with the effective registry of
+extension discovery and catalog construction, the SDK runtime compares it with the effective registry of
 successfully validated extension packages. When the package is absent, the entry is omitted silently
 from the ns command surface: it does not appear in help or completion, cannot be invoked, and does not
 participate in command collisions or override diagnostics. The command module remains lazy and is not

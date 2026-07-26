@@ -8,9 +8,9 @@ current status lives in each objective's `roadmap.md`. This document owns the *w
 *shape*.
 
 On the name: **ns** is short for **nonslop**; **nseng** — nonslop engineering — is the
-site and public shell (`nseng.ai`). Always lowercase. The CLI shipping today is `ji`,
-itself mid-cutover from `sdl`; this document is written for the destination name, and
-concrete paths/commands are quoted as they exist today.
+site and public shell (`nseng.ai`). Always lowercase. The shipping CLI is `ns`; this
+document uses that current product name, and concrete paths and commands are quoted as
+they exist today.
 
 ## The enemy: the software factory
 

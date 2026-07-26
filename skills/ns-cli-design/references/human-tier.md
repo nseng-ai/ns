@@ -17,7 +17,7 @@ but it must stay honest and low-noise. Source: clig.dev, summarized in
   debug-only, never the primary error surface.
 - **stderr vs stdout.** Human status, progress, and negative/error messaging go
   to stderr; the primary result goes to stdout. In human mode a `negative(...)`
-  message renders to stderr while still exiting 1 (ADR 0013).
+  message renders to stderr while still exiting 1 (ADR 0010).
 - **TTY, color, pager.** Rich formatting, color, and paging are for interactive
   TTYs only. Degrade to plain line-oriented output when stdout is not a TTY so
   pipes and captures stay clean. Never auto-switch the *machine* contract on TTY —

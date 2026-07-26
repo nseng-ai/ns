@@ -1,4 +1,4 @@
-# ADR 0003: Remove TypeScript Planned-Branch Recipes
+# ADR 0003: Plans Are Inert Markdown
 
 ## Status
 
@@ -6,19 +6,21 @@ Accepted
 
 ## Context
 
-The planned-branch workflow briefly included an experimental TypeScript recipe format backed by `@sdl/ts-plans`, `.plan.ts` local saved plans, Pi-only recipe evaluation, TypeScript-specific Pi commands/tools, and a hidden preview CLI operation.
-
-That experiment showed useful design possibilities, but it also added a second planning language, trusted local code evaluation, cross-harness ambiguity, and broad maintenance surface across package dependencies, tests, docs, skills, and lockfile state.
+ns accepts implementation plans authored by agent harnesses and saves or attaches them for later work. Treating a plan as executable TypeScript would introduce a second planning language, trusted local code evaluation, and portability differences across harnesses.
 
 ## Decision
 
-Remove TypeScript planned-branch recipe support from active code and user-facing workflow surfaces now.
+Active Saved Plans and Attached Plans are inert Markdown. ns does not evaluate `.plan.ts` files or provide a trusted TypeScript recipe format.
 
-Markdown remains the only active planned-branch plan format. The TypeScript recipe design is parked in `docs/pi/ts-plans-design-retrospective.md` for possible future revival after an explicit product, trust, and portability decision.
+A future executable-plan feature requires a new, explicit decision covering product need, trust boundaries, and cross-harness portability. Historical recipe design may inform that decision, but dormant compatibility code is not retained.
 
 ## Consequences
 
-- `@sdl/ts-plans` and active `.plan.ts` commands, tools, CLI operations, dependencies, and tests are removed.
-- Planned-branch saved plans and attached plans use Markdown files and `.md` Branch Memory keys only.
-- Current-repo local saved `.plan.ts` artifacts are obsolete and deleted as part of this cleanup.
-- Future TypeScript recipe work should reintroduce new active code deliberately, using the retrospective as historical input rather than keeping dormant compatibility code.
+- Plan content is inspectable and portable without execution.
+- The Plans and Branch Context extensions need no TypeScript recipe runtime.
+- Saving, selecting, attaching, and loading plans do not imply trusting plan content as code.
+
+## Alternatives
+
+- **Retain an inactive TypeScript recipe path:** rejected because dormant code preserves cost and ambiguity without a supported product surface.
+- **Treat the old design as compatibility policy:** rejected; it remains historical design input only.

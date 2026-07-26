@@ -676,11 +676,11 @@ Unrecorded terms (the convergence layer is the largest coherent cluster):
 Suspects:
 
 - **Roaster residue is doc-side only** — ADR 0007 speaks of "the TypeScript roaster
-  package" in present tense; ADR 0015 teaches `roaster exec publish-findings`; the
+  package" in present tense; the then-current ADR 0015 taught `roaster exec publish-findings` (the current raw-exit authority is ADR 0010); the
   glossary retires the standalone binary but never names Roaster as the retired
   brand, leaving no recorded bridge from ADR vocabulary to Reviews. Feeds the
   review/feedback residue row. (docs/adr/0007-roaster-shared-diff-parser.md:1-22,
-  docs/adr/0015-cli-surface-conformance-decisions.md:53)
+  historical ADR 0015, line 53; current locator ADR 0010)
 - **Convergence cluster unrecorded** — glossary records two inputs (Prior-findings
   context, Last-reviewed head) but not the umbrella term, the suppression/dedupe
   split, or the `reviews-state:v1` store. (CONTEXT.md:67-77 vs README.md:112-123)
