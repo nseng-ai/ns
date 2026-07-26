@@ -1,11 +1,6 @@
 import { resolve } from "node:path";
 
-import {
-	intendedPublicPackages,
-	isConcreteNpmVersion,
-	publicPublishOrder,
-	workspaceRoot,
-} from "../public-packages/package-set.ts";
+import { isConcreteNpmVersion, workspaceRoot } from "../public-packages/package-set.ts";
 
 import type {
 	FreshReleaseGateway,
@@ -53,14 +48,9 @@ export async function planFreshRelease(
 				"publish-tarballs",
 				"verify-registry",
 			],
-			packages: orderedReleaseInventory(),
+			packages: [...inspected.value.inventory],
 		},
 	};
-}
-
-export function orderedReleaseInventory(): readonly string[] {
-	assertInventory(publicPublishOrder, intendedPublicPackages);
-	return [...publicPublishOrder];
 }
 
 /** Derives the one release branch name used by preflight and Graphite checkpoint creation. */
@@ -92,7 +82,7 @@ export async function startFreshRelease(
 	const bump = await context.release.bumpCoordinatedVersion(options.version);
 	if (!bump.ok) return { type: "refused", error: bump.error };
 	context.onProgress?.(
-		`Qualifying ${orderedReleaseInventory().length} public packages (checks, tests, and npm dry runs)...`,
+		`Qualifying ${inspected.value.inventory.length} public packages (checks, tests, and npm dry runs)...`,
 	);
 	const qualified = await context.release.qualifyPublicPackages(options.version);
 	if (!qualified.ok) return { type: "refused", error: qualified.error };
@@ -110,6 +100,7 @@ export async function startFreshRelease(
 				commit: inspected.value.headCommit,
 				version: options.version,
 			},
+			inventory: inspected.value.inventory,
 			publishRoots: qualified.value,
 			reportPath: options.reportPath,
 			...(options.releaseDirectory === undefined
@@ -178,7 +169,7 @@ export async function prepareFrozenCandidates(
 	context: PrepareCandidatesContext,
 	options: PrepareCandidatesOptions,
 ): Promise<PrepareCandidatesResult> {
-	const inventory = orderedReleaseInventory();
+	const inventory = [...options.inventory];
 	const rootsResult = orderPublishRoots(options.publishRoots, inventory);
 	const initialReport: ReleaseTransactionReport = {
 		schemaVersion: 1,
@@ -256,17 +247,6 @@ function requiredRoot(
 	return root;
 }
 
-function assertInventory(order: readonly string[], intended: readonly string[]): void {
-	if (
-		new Set(order).size !== order.length ||
-		!sameOrderedValues([...order].sort(), [...intended].sort())
-	) {
-		throw new Error(
-			"Public publish order does not exactly match the intended public package inventory",
-		);
-	}
-}
-
 function sameOrderedValues(left: readonly string[], right: readonly string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
@@ -307,13 +287,19 @@ function validateFreshState(state: FreshReleaseState): ReleaseFailure | undefine
 			message: "The deterministic release branch already exists",
 		};
 	}
+	if (state.inventory.length === 0 || new Set(state.inventory).size !== state.inventory.length) {
+		return {
+			code: "release-inventory-invalid",
+			message: "The derived public release inventory is empty or contains duplicates",
+		};
+	}
 	if (
-		state.sourceManifestPaths.length !== intendedPublicPackages.length ||
+		state.sourceManifestPaths.length !== state.inventory.length ||
 		new Set(state.sourceManifestPaths).size !== state.sourceManifestPaths.length
 	) {
 		return {
 			code: "release-manifest-inventory-mismatch",
-			message: "Canonical source manifests do not match the intended public package inventory",
+			message: "Canonical source manifests do not match the derived public release inventory",
 		};
 	}
 	return undefined;

@@ -18,7 +18,6 @@ import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 
 import { isMissingPackageResult } from "../public-packages/helpers.ts";
 import {
-	intendedPublicPackages,
 	isConcreteNpmVersion,
 	loadPublicPackageContext,
 	publishRootForEntry,
@@ -143,20 +142,21 @@ export function createSystemReleaseResetGateway(
 
 			const packageContextResult = await loadPublicPackageContextResult(packageContextLoader);
 			if (!packageContextResult.ok) return packageContextResult;
+			const inventory = packageContextResult.value.releaseInventory;
 			const manifests: ReleaseResetManifestState[] = [];
-			for (const packageName of intendedPublicPackages) {
+			for (const packageName of inventory) {
 				const entry = packageContextResult.value.manifestByName.get(packageName);
 				if (entry === undefined) {
 					return resultErr({
 						code: "release-manifest-missing",
-						message: `Intended public package is missing: ${packageName}`,
+						message: `Release candidate is missing: ${packageName}`,
 					});
 				}
 				const path = relative(repoRoot, entry.path);
 				if (path.startsWith("..")) {
 					return resultErr({
 						code: "release-manifest-outside-repository",
-						message: `Intended public package manifest is outside the repository: ${entry.path}`,
+						message: `Release candidate manifest is outside the repository: ${entry.path}`,
 						details: { packageName, path: entry.path },
 					});
 				}
@@ -214,6 +214,7 @@ export function createSystemReleaseResetGateway(
 				headCommit,
 				releaseBranch: request.releaseBranch,
 				releaseBranchExists: branchRef.value.code === 0,
+				inventory: [...inventory],
 				manifests,
 				trackedChanges: parsedStatus.value.trackedChanges,
 				untrackedPaths: parsedStatus.value.untrackedPaths,
@@ -302,14 +303,14 @@ export function createSystemFreshReleaseGateway(
 			if (!packageContextResult.ok) return packageContextResult;
 			const packageContext = packageContextResult.value;
 			const sourceManifestPaths: string[] = [];
-			for (const packageName of intendedPublicPackages) {
+			for (const packageName of packageContext.releaseInventory) {
 				const entry = packageContext.manifestByName.get(packageName);
 				if (entry === undefined) {
 					return {
 						ok: false,
 						error: {
 							code: "release-manifest-missing",
-							message: `Intended public package is missing: ${packageName}`,
+							message: `Release candidate is missing: ${packageName}`,
 						},
 					};
 				}
@@ -325,6 +326,7 @@ export function createSystemFreshReleaseGateway(
 					isWorktreeClean: status.value.length === 0,
 					releaseBranchExists: branchRef.code === 0,
 					sourceManifestPaths,
+					inventory: [...packageContext.releaseInventory],
 				},
 			};
 		},
@@ -342,7 +344,7 @@ export function createSystemFreshReleaseGateway(
 			const qualified = await execute(
 				commandRunner,
 				"pnpm",
-				["--dir", "ts", "run", "release:qualify-public", "-a", "-v", version],
+				["--dir", "ts", "run", "release:qualify-public", "-v", version],
 				repoRoot,
 			);
 			if (!qualified.ok) return qualified;
@@ -351,7 +353,7 @@ export function createSystemFreshReleaseGateway(
 			const packageContext = packageContextResult.value;
 			return {
 				ok: true,
-				value: intendedPublicPackages.map((name) => {
+				value: packageContext.releaseInventory.map((name) => {
 					const entry = packageContext.manifestByName.get(name);
 					if (entry === undefined)
 						throw new Error(`Missing public package after qualification: ${name}`);
@@ -410,14 +412,14 @@ export function createSystemResumeReleaseGateway(
 			if (!packageContextResult.ok) return packageContextResult;
 			const packageContext = packageContextResult.value;
 			const versions = new Set<string>();
-			for (const packageName of intendedPublicPackages) {
+			for (const packageName of packageContext.releaseInventory) {
 				const version = packageContext.manifestByName.get(packageName)?.manifest.version;
 				if (version === undefined) {
 					return {
 						ok: false,
 						error: {
 							code: "release-version-missing",
-							message: `Intended public package has no version: ${packageName}`,
+							message: `Release candidate has no version: ${packageName}`,
 						},
 					};
 				}
@@ -428,7 +430,7 @@ export function createSystemResumeReleaseGateway(
 					ok: false,
 					error: {
 						code: "release-versions-uncoordinated",
-						message: "Intended public package source manifests are not coordinated",
+						message: "Release candidate source manifests are not coordinated",
 					},
 				};
 			}
@@ -442,6 +444,7 @@ export function createSystemResumeReleaseGateway(
 					headParentCommit: parent.value.trim(),
 					isWorktreeClean: checkpoint.value.isWorktreeClean,
 					coordinatedVersion,
+					inventory: [...packageContext.releaseInventory],
 				},
 			};
 		},

@@ -1,4 +1,4 @@
-import { dirname, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { isRecord, optionalEntries } from "@nseng-ai/foundation/primitives";
@@ -23,52 +23,11 @@ import { sdkFoldEntries, sdkPublicExports } from "./sdk-public-subpaths.ts";
 export const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
 export const repoRoot = resolve(workspaceRoot, "..");
 
-export const intendedPublicPackages: readonly string[] = [
-	"@nseng-ai/branch-context",
-	"@nseng-ai/handoffs",
-	"@nseng-ai/sdk",
-	"@nseng-ai/objectives",
-	"@nseng-ai/plans",
-	"@nseng-ai/pr-feedback",
-	"@nseng-ai/reviews",
-	"@nseng-ai/slots",
-	"@nseng-ai/ns",
-	"@nseng-ai/brmem",
-	"@nseng-ai/clinkr",
-	"@nseng-ai/foundation",
-	"@nseng-ai/packagechk",
-	"@nseng-ai/vibechk",
-	"@nseng-ai/extension-kit",
-	"@nseng-ai/harness-artifacts",
-	"@nseng-ai/flow",
-	"@internal/pi-editor-mods",
-];
-export const firstBatchPackages: readonly string[] = ["@nseng-ai/extension-kit", "@nseng-ai/flow"];
-export const excludedPackages = new Set([
-	"@nseng-ai/pi-runtime",
-	"@internal/pi-tools",
-	"@internal/typescript-style-guard",
-]);
-export const publicPublishOrder: readonly string[] = [
-	"@nseng-ai/clinkr",
-	"@nseng-ai/foundation",
-	"@nseng-ai/sdk",
-	"@nseng-ai/extension-kit",
-	"@nseng-ai/harness-artifacts",
-	"@nseng-ai/brmem",
-	"@nseng-ai/plans",
-	"@nseng-ai/branch-context",
-	"@nseng-ai/objectives",
-	"@nseng-ai/handoffs",
-	"@nseng-ai/pr-feedback",
-	"@nseng-ai/reviews",
-	"@nseng-ai/slots",
-	"@nseng-ai/ns",
-	"@nseng-ai/packagechk",
-	"@nseng-ai/vibechk",
-	"@nseng-ai/flow",
-	"@internal/pi-editor-mods",
-];
+/**
+ * The `public/` release-disposition root (ADR 0045). Release-candidate membership is derived from
+ * this directory alone; there is deliberately no hand-maintained intended-public list to drift.
+ */
+export const publicDispositionRoot = resolve(workspaceRoot, "packages", "public");
 
 export interface PackageManifest extends Record<string, unknown> {
 	readonly name: string;
@@ -96,6 +55,8 @@ export interface PublicPackageContext {
 	readonly workspaceYaml: string;
 	readonly packageManifests: readonly PublicPackageEntry[];
 	readonly manifestByName: ReadonlyMap<string, PublicPackageEntry>;
+	/** Release candidates derived from `public/`, in dependency-safe publish order. */
+	readonly releaseInventory: readonly string[];
 }
 export interface PublishPlanEntry {
 	readonly packageName: string;
@@ -110,9 +71,77 @@ export async function loadPublicPackageContext(
 	const workspaceYaml = await fs.readText(workspaceRoot + "/pnpm-workspace.yaml");
 	const packageManifests = await readWorkspacePackageManifests(fs);
 	const manifestByName = new Map(packageManifests.map((entry) => [entry.manifest.name, entry]));
-	assertIntendedSet(manifestByName);
+	const releaseInventory = deriveReleaseInventory(packageManifests);
+	assertReleaseInventory(releaseInventory, manifestByName);
 	assertSdkExports(manifestByName);
-	return { workspaceManifest, workspaceYaml, packageManifests, manifestByName };
+	return {
+		workspaceManifest,
+		workspaceYaml,
+		packageManifests,
+		manifestByName,
+		releaseInventory,
+	};
+}
+
+/**
+ * The release-candidate qualification rule: a workspace manifest that lives under the `public/`
+ * disposition root and is not `private: true`. Membership follows the tree, so moving a package
+ * into `public/` makes it a candidate with no second edit anywhere, and nothing outside `public/`
+ * can ever become one.
+ */
+export function isReleaseCandidate(entry: PublicPackageEntry): boolean {
+	if (entry.manifest.private === true) return false;
+	const relativeRoot = relative(publicDispositionRoot, entry.root);
+	return relativeRoot.length > 0 && !relativeRoot.startsWith("..") && !isAbsolute(relativeRoot);
+}
+
+/**
+ * Derives the ordered release inventory. Order is a genuine constraint — Clinkr and Foundation
+ * must precede their dependents — so it is computed topologically from the candidates' own
+ * workspace dependency edges rather than restated as a second list that could drift from
+ * membership. Ties break alphabetically to keep the order a deterministic function of the tree.
+ */
+export function deriveReleaseInventory(entries: readonly PublicPackageEntry[]): readonly string[] {
+	const candidates = entries.filter(isReleaseCandidate);
+	const candidateNames = new Set(candidates.map((entry) => entry.manifest.name));
+	if (candidateNames.size !== candidates.length) {
+		throw new Error(`Release candidates under ${publicDispositionRoot} share a package name`);
+	}
+	const edges = new Map(
+		candidates.map((entry) => [entry.manifest.name, candidateDependencies(entry, candidateNames)]),
+	);
+	const remaining = new Set(candidateNames);
+	const ordered: string[] = [];
+	while (remaining.size > 0) {
+		const next = [...remaining]
+			.filter((name) => (edges.get(name) ?? []).every((dependency) => !remaining.has(dependency)))
+			.sort()[0];
+		if (next === undefined) {
+			throw new Error(
+				`Release candidate dependencies are cyclic among: ${[...remaining].sort().join(", ")}`,
+			);
+		}
+		ordered.push(next);
+		remaining.delete(next);
+	}
+	return ordered;
+}
+
+function candidateDependencies(
+	entry: PublicPackageEntry,
+	candidateNames: ReadonlySet<string>,
+): readonly string[] {
+	const names = new Set<string>();
+	for (const block of [
+		entry.manifest.dependencies,
+		entry.manifest.optionalDependencies,
+		entry.manifest.peerDependencies,
+	]) {
+		for (const name of Object.keys(block ?? {})) {
+			if (name !== entry.manifest.name && candidateNames.has(name)) names.add(name);
+		}
+	}
+	return [...names];
 }
 
 export async function readWorkspacePackageManifests(
@@ -154,14 +183,14 @@ export function assertPlausibleNpmVersion(version: unknown): asserts version is 
 }
 export function assertCoordinatedVersion(context: PublicPackageContext, version: string): void {
 	assertPlausibleNpmVersion(version);
-	const mismatches = intendedPublicPackages.flatMap((name) =>
+	const mismatches = context.releaseInventory.flatMap((name) =>
 		context.manifestByName.get(name)?.manifest.version === version
 			? []
 			: [`${name}: ${context.manifestByName.get(name)?.manifest.version ?? "<missing>"}`],
 	);
 	if (mismatches.length > 0)
 		throw new Error(
-			`Intended public package versions do not all match ${version}:\n- ${mismatches.join("\n- ")}`,
+			`Release candidate versions do not all match ${version}:\n- ${mismatches.join("\n- ")}`,
 		);
 }
 export function buildPublishPlan(
@@ -169,8 +198,7 @@ export function buildPublishPlan(
 	version: string,
 ): PublishPlanEntry[] {
 	assertCoordinatedVersion(context, version);
-	assertPublishOrder();
-	return publicPublishOrder.map((packageName) => {
+	return context.releaseInventory.map((packageName) => {
 		const entry = context.manifestByName.get(packageName);
 		if (entry === undefined) throw new Error(`Unknown workspace package ${packageName}`);
 		return { packageName, version, publishRoot: publishRootForEntry(entry) };
@@ -202,7 +230,7 @@ export async function preparePublishRoot(
 		await copyTree(fs, resolve(entry.root, fileEntry), resolve(publishRoot, fileEntry));
 	await copyPublishExtras(extras, fs);
 	const manifest = buildPublishManifest(entry.manifest, context, extras);
-	assertPublishManifest(manifest);
+	assertPublishManifest(manifest, context);
 	await fs.writeText(
 		resolve(publishRoot, "package.json"),
 		`${JSON.stringify(manifest, null, "\t")}\n`,
@@ -262,24 +290,32 @@ function rewritePeerDependencyBlock(
 	return Object.fromEntries(
 		Object.entries(dependencies).map(([name, value]) => [
 			name,
-			name === "@nseng-ai/pi-runtime" ? "*" : rewriteDependency(name, String(value), context),
+			// A peer edge on a private workspace package is host-provided, never registry-resolved.
+			context.manifestByName.get(name)?.manifest.private === true
+				? "*"
+				: rewriteDependency(name, String(value), context),
 		]),
 	);
 }
 function rewriteDependency(name: string, specifier: string, context: PublicPackageContext): string {
-	if (excludedPackages.has(name))
-		throw new Error(`Publish manifest must not depend on excluded package ${name}`);
+	const entry = context.manifestByName.get(name);
+	if (entry?.manifest.private === true)
+		throw new Error(`Publish manifest must not depend on private workspace package ${name}`);
 	if (specifier === "workspace:*") {
-		const version = context.manifestByName.get(name)?.manifest.version;
-		if (version === undefined || !intendedPublicPackages.includes(name))
-			throw new Error(`${name} is not in the intended public package set`);
+		const version = entry?.manifest.version;
+		if (version === undefined)
+			throw new Error(`${name} has no workspace version to publish a dependency against`);
 		return version;
 	}
 	return specifier === "catalog:" ? catalogVersion(context.workspaceYaml, name) : specifier;
 }
-function assertPublishManifest(manifest: Record<string, unknown>): void {
+function assertPublishManifest(
+	manifest: Record<string, unknown>,
+	context: PublicPackageContext,
+): void {
 	if (manifest.private !== undefined)
 		throw new Error(`${String(manifest.name)} publish manifest must not include private`);
+	const candidates = new Set(context.releaseInventory);
 	for (const blockName of [
 		"dependencies",
 		"optionalDependencies",
@@ -289,11 +325,17 @@ function assertPublishManifest(manifest: Record<string, unknown>): void {
 		const value = manifest[blockName];
 		const block = isRecord(value) ? value : {};
 		for (const [name, specifier] of Object.entries(block)) {
+			// Disposition closure, derived rather than listed: a released package may only carry
+			// workspace edges onto other release candidates. The one exception is a host-provided
+			// peer, which is published as an unconstrained `*` and resolved by the host.
 			if (
-				excludedPackages.has(name) &&
-				!(blockName === "peerDependencies" && name === "@nseng-ai/pi-runtime")
+				context.manifestByName.has(name) &&
+				!candidates.has(name) &&
+				!(blockName === "peerDependencies" && String(specifier) === "*")
 			)
-				throw new Error(`${String(manifest.name)} ${blockName} leaks excluded package ${name}`);
+				throw new Error(
+					`${String(manifest.name)} ${blockName} leaks non-public workspace package ${name}`,
+				);
 			if (String(specifier).startsWith("workspace:"))
 				throw new Error(`${String(manifest.name)} ${blockName}.${name} uses workspace:`);
 			if (String(specifier).startsWith("catalog:"))
@@ -301,19 +343,17 @@ function assertPublishManifest(manifest: Record<string, unknown>): void {
 		}
 	}
 }
-function assertPublishOrder(): void {
-	if (
-		new Set(publicPublishOrder).size !== publicPublishOrder.length ||
-		intendedPublicPackages.some((name) => !publicPublishOrder.includes(name))
-	)
-		throw new Error("Explicit publish order does not match intended public set");
-}
-function assertIntendedSet(manifests: ReadonlyMap<string, PublicPackageEntry>): void {
-	for (const name of intendedPublicPackages) {
+function assertReleaseInventory(
+	inventory: readonly string[],
+	manifests: ReadonlyMap<string, PublicPackageEntry>,
+): void {
+	if (inventory.length === 0)
+		throw new Error(`No release candidates were found under ${publicDispositionRoot}`);
+	for (const name of inventory) {
 		const manifest = manifests.get(name)?.manifest;
-		if (manifest === undefined) throw new Error(`Intended public package is missing: ${name}`);
-		if (manifest.private === true)
-			throw new Error(`Intended public package is still private: ${name}`);
+		if (manifest === undefined) throw new Error(`Release candidate is missing: ${name}`);
+		if (typeof manifest.version !== "string")
+			throw new Error(`Release candidate has no version: ${name}`);
 	}
 }
 function assertSdkExports(manifests: ReadonlyMap<string, PublicPackageEntry>): void {

@@ -175,6 +175,7 @@ export const releaseResetInspectionSchema = z
 		headCommit: nonemptyStringSchema,
 		releaseBranch: nonemptyStringSchema,
 		releaseBranchExists: z.boolean(),
+		inventory: z.array(nonemptyStringSchema).readonly(),
 		manifests: z.array(releaseResetManifestStateSchema).readonly(),
 		trackedChanges: z.array(releaseResetTrackedChangeSchema).readonly(),
 		untrackedPaths: z.array(nonemptyStringSchema).readonly(),
@@ -210,6 +211,8 @@ export interface FreshReleaseState {
 	readonly isWorktreeClean: boolean;
 	readonly releaseBranchExists: boolean;
 	readonly sourceManifestPaths: readonly string[];
+	/** Release candidates derived from `public/`, in publish order. */
+	readonly inventory: readonly string[];
 }
 
 export interface ReleaseCheckpoint {
@@ -271,6 +274,7 @@ export interface PrepareCandidatesContext {
 
 export interface PrepareCandidatesOptions {
 	readonly identity: ReleaseIdentity;
+	readonly inventory: readonly string[];
 	readonly publishRoots: readonly QualifiedPublishRoot[];
 	readonly reportPath: string;
 	readonly releaseDirectory?: string;
@@ -309,6 +313,8 @@ export interface ResumeReleaseState {
 	readonly headParentCommit: string;
 	readonly isWorktreeClean: boolean;
 	readonly coordinatedVersion: string;
+	/** Release candidates derived from `public/`, in publish order. */
+	readonly inventory: readonly string[];
 }
 
 export interface ResumeReleaseGateway {
@@ -320,6 +326,7 @@ export interface ValidateResumeOptions {
 	readonly currentBranch: string;
 	readonly headCommit: string;
 	readonly coordinatedVersion: string;
+	readonly inventory: readonly string[];
 }
 
 export interface RecoverCheckpointingOptions extends ValidateResumeOptions {

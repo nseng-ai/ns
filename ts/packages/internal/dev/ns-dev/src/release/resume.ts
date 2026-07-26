@@ -1,5 +1,3 @@
-import { intendedPublicPackages, publicPublishOrder } from "../public-packages/package-set.ts";
-
 import type {
 	CandidateFileGateway,
 	RecoverCheckpointingOptions,
@@ -109,7 +107,13 @@ export function validateResumeMetadata(
 			`Report version ${report.release.version} does not match coordinated version ${options.coordinatedVersion}`,
 		);
 	}
-	const inventory = orderedResumeInventory();
+	const inventory = options.inventory;
+	if (inventory.length === 0 || new Set(inventory).size !== inventory.length) {
+		return refuse(
+			"wrong-inventory",
+			"The derived public release inventory is empty or contains duplicates",
+		);
+	}
 	if (!sameOrderedValues(report.inventory, inventory)) {
 		return refuse(
 			"wrong-inventory",
@@ -143,18 +147,6 @@ export function validateResumeMetadata(
 		);
 	}
 	return { type: "valid", report };
-}
-
-function orderedResumeInventory(): readonly string[] {
-	if (
-		new Set(publicPublishOrder).size !== publicPublishOrder.length ||
-		!sameOrderedValues([...publicPublishOrder].sort(), [...intendedPublicPackages].sort())
-	) {
-		throw new Error(
-			"Public publish order does not exactly match the intended public package inventory",
-		);
-	}
-	return [...publicPublishOrder];
 }
 
 function sameOrderedValues(left: readonly string[], right: readonly string[]): boolean {

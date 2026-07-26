@@ -2,7 +2,6 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { publicPublishOrder } from "../src/public-packages/package-set.ts";
 import type {
 	CandidateFileGateway,
 	CandidateFileState,
@@ -13,10 +12,14 @@ import type {
 	ReleaseReportStore,
 	ReleaseTransactionReport,
 } from "../src/release/contracts.ts";
-import { orderedReleaseInventory, prepareFrozenCandidates } from "../src/release/fresh.ts";
+import { prepareFrozenCandidates } from "../src/release/fresh.ts";
 import { classifyRegistryPackage } from "../src/release/publication.ts";
 import { recoverCheckpointingReport, validateReleaseResume } from "../src/release/resume.ts";
-import { buildReleaseCandidate, buildReleaseReport } from "./release-transaction-builders.ts";
+import {
+	buildReleaseCandidate,
+	buildReleaseReport,
+	releaseInventoryFixture,
+} from "./release-transaction-builders.ts";
 
 const version = "1.2.3";
 const branch = "release/1.2.3";
@@ -83,9 +86,21 @@ class InMemoryCandidateFiles implements CandidateFileGateway {
 }
 
 describe("release candidate preparation", () => {
-	it("uses the canonical deterministic package inventory and order", () => {
-		expect(orderedReleaseInventory()).toEqual(publicPublishOrder);
-		expect(new Set(orderedReleaseInventory()).size).toBe(orderedReleaseInventory().length);
+	it("refuses qualified roots that do not match the supplied derived inventory", async () => {
+		const result = await prepareFrozenCandidates(
+			{ npmCandidates: new InMemoryNpmCandidates(), reports: new InMemoryReports() },
+			{
+				identity: { branch, commit, version },
+				inventory: releaseInventoryFixture,
+				publishRoots: rootsInReverseOrder().slice(1),
+				reportPath: "/release/report.json",
+			},
+		);
+
+		expect(result).toMatchObject({
+			type: "refused",
+			error: { code: "publish-root-inventory-mismatch" },
+		});
 	});
 
 	it("packs each qualified root exactly once and freezes tarball metadata after every transition", async () => {
@@ -97,6 +112,7 @@ describe("release candidate preparation", () => {
 			{ npmCandidates, reports },
 			{
 				identity: { branch, commit, version },
+				inventory: releaseInventoryFixture,
 				publishRoots,
 				reportPath: "/release/report.json",
 				releaseDirectory: "/workspace/ts/dist/releases/1.2.3",
@@ -104,24 +120,24 @@ describe("release candidate preparation", () => {
 		);
 
 		expect(result.type).toBe("prepared");
-		expect(npmCandidates.packCalls).toHaveLength(publicPublishOrder.length);
+		expect(npmCandidates.packCalls).toHaveLength(releaseInventoryFixture.length);
 		expect(
 			npmCandidates.packCalls.map((call) => call.publishRoot.replace("/qualified/", "")),
-		).toEqual(publicPublishOrder);
+		).toEqual(releaseInventoryFixture);
 		expect(new Set(npmCandidates.packCalls.map((call) => call.publishRoot)).size).toBe(
-			publicPublishOrder.length,
+			releaseInventoryFixture.length,
 		);
-		expect(reports.writes).toHaveLength(publicPublishOrder.length + 2);
+		expect(reports.writes).toHaveLength(releaseInventoryFixture.length + 2);
 		expect(reports.writes.map((report) => report.candidates.length)).toEqual([
 			0,
-			...publicPublishOrder.map((_name, index) => index + 1),
-			publicPublishOrder.length,
+			...releaseInventoryFixture.map((_name, index) => index + 1),
+			releaseInventoryFixture.length,
 		]);
 		const finalReport = reports.writes.at(-1);
 		expect(finalReport?.stage).toBe("candidates-prepared");
 		expect(finalReport?.completedWrites).toEqual([]);
 		expect(finalReport?.candidates.map((candidate) => candidate.order)).toEqual(
-			publicPublishOrder.map((_name, index) => index),
+			releaseInventoryFixture.map((_name, index) => index),
 		);
 		expect(
 			finalReport?.candidates.every((candidate) => candidate.tarballPath.endsWith(".tgz")),
@@ -135,7 +151,7 @@ describe("release candidate preparation", () => {
 });
 
 describe("registry package classification", () => {
-	const candidate = makeCandidate(publicPublishOrder[0]!, 0);
+	const candidate = makeCandidate(releaseInventoryFixture[0]!, 0);
 
 	it("requires both integrity and shasum for an exact publication", () => {
 		expect(
@@ -181,6 +197,7 @@ describe("automatic release resume validation", () => {
 			{ reports, candidateFiles: new InMemoryCandidateFiles() },
 			{
 				reportPath: "/release/report.json",
+				inventory: releaseInventoryFixture,
 				currentBranch: branch,
 				headCommit: commit,
 				headParentCommit: "parent-commit",
@@ -203,6 +220,7 @@ describe("automatic release resume validation", () => {
 			},
 			{
 				reportPath: "/release/report.json",
+				inventory: releaseInventoryFixture,
 				currentBranch: branch,
 				headCommit: commit,
 				headParentCommit: "parent-commit",
@@ -235,6 +253,7 @@ describe("automatic release resume validation", () => {
 			},
 			{
 				reportPath: "/release/report.json",
+				inventory: releaseInventoryFixture,
 				currentBranch: branch,
 				headCommit: commit,
 				headParentCommit: "parent-commit",
@@ -258,6 +277,7 @@ describe("automatic release resume validation", () => {
 			{ reports, candidateFiles: new InMemoryCandidateFiles() },
 			{
 				reportPath: "/release/report.json",
+				inventory: releaseInventoryFixture,
 				...identity,
 				headCommit: commit,
 				coordinatedVersion: version,
@@ -281,7 +301,7 @@ describe("automatic release resume validation", () => {
 			{ release: { branch, commit, version: "9.9.9" } },
 			"wrong-version",
 		],
-		["wrong inventory", { inventory: [...publicPublishOrder].reverse() }, "wrong-inventory"],
+		["wrong inventory", { inventory: [...releaseInventoryFixture].reverse() }, "wrong-inventory"],
 	] as const)("refuses %s", async (_label, patch, expectedCode) => {
 		const result = await validate({ ...makeReport(), ...patch });
 		expect(result.type).toBe("refused");
@@ -303,10 +323,13 @@ describe("automatic release resume validation", () => {
 			const result = await validateReleaseResume(
 				{
 					reports: new InMemoryReports({ type: "found", value: report }),
-					candidateFiles: new InMemoryCandidateFiles(new Map([[publicPublishOrder[0]!, state]])),
+					candidateFiles: new InMemoryCandidateFiles(
+						new Map([[releaseInventoryFixture[0]!, state]]),
+					),
 				},
 				{
 					reportPath: "/release/report.json",
+					inventory: releaseInventoryFixture,
 					currentBranch: branch,
 					headCommit: commit,
 					coordinatedVersion: version,
@@ -327,6 +350,7 @@ async function validate(report: ReleaseTransactionReport) {
 		},
 		{
 			reportPath: "/release/report.json",
+			inventory: releaseInventoryFixture,
 			currentBranch: branch,
 			headCommit: commit,
 			coordinatedVersion: version,
@@ -339,8 +363,8 @@ function makeReport(): ReleaseTransactionReport {
 		version,
 		branch,
 		commit,
-		inventory: publicPublishOrder,
-		candidates: publicPublishOrder.map(makeCandidate),
+		inventory: releaseInventoryFixture,
+		candidates: releaseInventoryFixture.map(makeCandidate),
 	});
 }
 
@@ -354,7 +378,9 @@ function makeCandidate(name: string, order: number): ReleaseCandidate {
 }
 
 function rootsInReverseOrder(): QualifiedPublishRoot[] {
-	return [...publicPublishOrder].reverse().map((name) => ({ name, path: `/qualified/${name}` }));
+	return [...releaseInventoryFixture]
+		.reverse()
+		.map((name) => ({ name, path: `/qualified/${name}` }));
 }
 
 function copyReport(report: ReleaseTransactionReport): ReleaseTransactionReport {

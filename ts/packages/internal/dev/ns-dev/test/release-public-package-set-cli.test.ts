@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { publicPublishOrder } from "../src/public-packages/package-set.ts";
 import type {
 	FreshReleaseGateway,
 	OperationResult,
@@ -16,7 +15,11 @@ import {
 	releaseCliResultSchema,
 	type ReleaseCliContext,
 } from "../src/release-public-package-set-cli.ts";
-import { buildReleaseCandidate, buildReleaseReport } from "./release-transaction-builders.ts";
+import {
+	buildReleaseCandidate,
+	buildReleaseReport,
+	releaseInventoryFixture,
+} from "./release-transaction-builders.ts";
 
 const version = "1.2.3";
 const releaseBranch = releaseBranchName(version);
@@ -64,7 +67,8 @@ class InMemoryFreshRelease implements FreshReleaseGateway {
 				isGraphiteTracked: true,
 				isWorktreeClean: true,
 				releaseBranchExists: false,
-				sourceManifestPaths: publicPublishOrder.map(
+				inventory: releaseInventoryFixture,
+				sourceManifestPaths: releaseInventoryFixture.map(
 					(_name, index) => `ts/packages/package-${index}/package.json`,
 				),
 			},
@@ -80,7 +84,7 @@ class InMemoryFreshRelease implements FreshReleaseGateway {
 		this.operations.push(`qualify:${requestedVersion}`);
 		return {
 			ok: true as const,
-			value: publicPublishOrder.map((name) => ({ name, path: `/qualified/${name}` })),
+			value: releaseInventoryFixture.map((name) => ({ name, path: `/qualified/${name}` })),
 		};
 	}
 
@@ -88,7 +92,9 @@ class InMemoryFreshRelease implements FreshReleaseGateway {
 		return {
 			ok: true as const,
 			value: [
-				...publicPublishOrder.map((_name, index) => `ts/packages/package-${index}/package.json`),
+				...releaseInventoryFixture.map(
+					(_name, index) => `ts/packages/package-${index}/package.json`,
+				),
 				"ts/pnpm-lock.yaml",
 			],
 		};
@@ -120,8 +126,8 @@ function makeReport(options: { branch?: string; commit?: string } = {}): Release
 		version,
 		branch: options.branch ?? releaseBranch,
 		commit: options.commit ?? releaseCommit,
-		inventory: publicPublishOrder,
-		candidates: publicPublishOrder.map((name, order) => candidate(name, order)),
+		inventory: releaseInventoryFixture,
+		candidates: releaseInventoryFixture.map((name, order) => candidate(name, order)),
 	});
 }
 
@@ -156,6 +162,7 @@ function createHarness(
 						headParentCommit: "source-commit",
 						isWorktreeClean: options.isResumeClean ?? true,
 						coordinatedVersion: version,
+						inventory: releaseInventoryFixture,
 					},
 				};
 			},
@@ -163,7 +170,7 @@ function createHarness(
 		npmCandidates: {
 			async pack(request) {
 				const name = request.publishRoot.replace("/qualified/", "");
-				const order = publicPublishOrder.indexOf(name);
+				const order = releaseInventoryFixture.indexOf(name);
 				return { ok: true, value: candidate(name, order) };
 			},
 		},
@@ -278,7 +285,7 @@ describe("transactional release CLI adapter", () => {
 			status: "ok",
 			data: { finalStatus: "planned", version, releaseBranch },
 		});
-		expect(output.data.packages).toEqual(publicPublishOrder);
+		expect(output.data.packages).toEqual(releaseInventoryFixture);
 		expect(harness.release.operations).toEqual([`inspect:${releaseBranch}`]);
 		expect(harness.reports.writes).toEqual([]);
 		expect(harness.registryReads).toEqual([]);
@@ -310,11 +317,11 @@ describe("transactional release CLI adapter", () => {
 		expect(reads).toBe(1);
 		const status = harness.stderr.join("");
 		expect(status).toContain("ns-dev release: Loading release state for 1.2.3...");
-		expect(status).toContain(`Qualifying ${publicPublishOrder.length} public packages`);
-		expect(status).toContain(`Packing candidate 1/${publicPublishOrder.length}`);
-		expect(status).toContain(`Checking registry 1/${publicPublishOrder.length}`);
+		expect(status).toContain(`Qualifying ${releaseInventoryFixture.length} public packages`);
+		expect(status).toContain(`Packing candidate 1/${releaseInventoryFixture.length}`);
+		expect(status).toContain(`Checking registry 1/${releaseInventoryFixture.length}`);
 		expect(status).toContain("Publish frozen package tarballs at 1.2.3 to npm? [y/N]: ");
-		expect(status).toContain(`Publishing 1/${publicPublishOrder.length}`);
+		expect(status).toContain(`Publishing 1/${releaseInventoryFixture.length}`);
 		expect(status).toContain("Release 1.2.3 is verified on npm.");
 	});
 
@@ -353,7 +360,7 @@ describe("transactional release CLI adapter", () => {
 			"stage",
 			"checkpoint",
 		]);
-		expect(harness.published).toHaveLength(publicPublishOrder.length);
+		expect(harness.published).toHaveLength(releaseInventoryFixture.length);
 		const evidence = JSON.parse(harness.stdout.join(""));
 		expect(evidence).toMatchObject({
 			status: "ok",
@@ -364,9 +371,9 @@ describe("transactional release CLI adapter", () => {
 				finalStatus: "verified",
 			},
 		});
-		expect(evidence.data.candidates).toHaveLength(publicPublishOrder.length);
-		expect(evidence.data.classifications).toHaveLength(publicPublishOrder.length);
-		expect(evidence.data.writes).toEqual(publicPublishOrder);
+		expect(evidence.data.candidates).toHaveLength(releaseInventoryFixture.length);
+		expect(evidence.data.classifications).toHaveLength(releaseInventoryFixture.length);
+		expect(evidence.data.writes).toEqual(releaseInventoryFixture);
 	});
 
 	it("automatically adopts a proven checkpointing report and continues", async () => {
@@ -382,14 +389,14 @@ describe("transactional release CLI adapter", () => {
 			release: { branch: releaseBranch, commit: releaseCommit, version },
 			stage: "candidates-prepared",
 		});
-		expect(harness.published).toHaveLength(publicPublishOrder.length);
+		expect(harness.published).toHaveLength(releaseInventoryFixture.length);
 	});
 
 	it("routes an exact report directly to publication without fresh-flow effects", async () => {
 		const harness = createHarness({ report: makeReport() });
 		expect(await harness.run([version, "--yes", "--format", "json"])).toBe(0);
 		expect(harness.release.operations).toEqual([]);
-		expect(harness.published).toHaveLength(publicPublishOrder.length);
+		expect(harness.published).toHaveLength(releaseInventoryFixture.length);
 		expect(JSON.parse(harness.stdout.join(""))).toMatchObject({
 			status: "ok",
 			data: { mode: "resume", finalStatus: "verified" },

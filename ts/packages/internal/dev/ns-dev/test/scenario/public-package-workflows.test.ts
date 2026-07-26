@@ -7,27 +7,32 @@ import { TimerScheduler } from "@nseng-ai/foundation/timers";
 import { describe, expect, it } from "vitest";
 
 import { resolveVerifyDelaysMs } from "../../src/commands/public-package-workflows.ts";
-import {
-	firstBatchPackages,
-	intendedPublicPackages,
-	publicPublishOrder,
-	repoRoot,
-	workspaceRoot,
-} from "../../src/public-packages/package-set.ts";
+import { repoRoot, workspaceRoot } from "../../src/public-packages/package-set.ts";
 import { nsPublishBin } from "../../src/public-packages/ns-publish-bin.ts";
 import { sdkFoldEntries, sdkPublicExports } from "../../src/public-packages/sdk-public-subpaths.ts";
 import {
 	createSystemReleaseCliContext,
 	type ReleaseCliContext,
 } from "../../src/release-public-package-set-cli.ts";
+import { releaseInventoryFixture } from "../release-transaction-builders.ts";
 import { exitedResult, parseJsonOutput, runScenario } from "./run-scenario.ts";
+
+/** Fixture packages live under the `public/` disposition root, which is what makes them candidates. */
+function fixtureRoot(index: number): string {
+	return resolve(workspaceRoot, "packages", "public", `fixture-${index}`);
+}
 
 function packageSetFiles(version: string): Record<string, string> {
 	const files: Record<string, string> = {
 		[resolve(workspaceRoot, "package.json")]: JSON.stringify({ engines: { node: ">=24" } }),
 		[resolve(workspaceRoot, "pnpm-workspace.yaml")]: "catalog:\n  '@types/node': 24.0.0\n",
+		// Never a release candidate: outside `public/`, so no list has to exclude it.
+		[resolve(workspaceRoot, "packages", "incubating", "flow", "package.json")]: JSON.stringify({
+			name: "@nseng-ai/flow",
+			version,
+		}),
 	};
-	for (const [index, name] of intendedPublicPackages.entries()) {
+	for (const [index, name] of releaseInventoryFixture.entries()) {
 		const exports =
 			name === "@nseng-ai/sdk"
 				? sdkPublicExports()
@@ -36,7 +41,7 @@ function packageSetFiles(version: string): Record<string, string> {
 							sdkFoldEntries.map((entry) => [entry.nsExport, `./src/sdk/${entry.name}.ts`]),
 						)
 					: undefined;
-		files[resolve(workspaceRoot, "packages", `fixture-${index}`, "package.json")] = JSON.stringify({
+		files[resolve(fixtureRoot(index), "package.json")] = JSON.stringify({
 			name,
 			version,
 			...(exports === undefined ? {} : { exports }),
@@ -47,7 +52,7 @@ function packageSetFiles(version: string): Record<string, string> {
 
 const version = "1.2.3";
 const qualificationCommandCount =
-	publicPublishOrder.length * 2 + publicPublishOrder.length - 1 + 2 + 1;
+	releaseInventoryFixture.length * 2 + releaseInventoryFixture.length - 1 + 2 + 1;
 
 function successfulResults(count: number): ExecResult[] {
 	return Array.from({ length: count }, () => exitedResult());
@@ -66,7 +71,7 @@ function registryResult(
 	requestedVersion = version,
 	overrides: Record<string, unknown> = {},
 ): ExecResult {
-	const index = intendedPublicPackages.indexOf(packageName);
+	const index = releaseInventoryFixture.indexOf(packageName);
 	const exports =
 		packageName === "@nseng-ai/sdk"
 			? sdkPublicExports()
@@ -95,7 +100,7 @@ function registryResult(
 }
 
 function registryResults(requestedVersion = version): ExecResult[] {
-	return intendedPublicPackages.map((name) => registryResult(name, requestedVersion));
+	return releaseInventoryFixture.map((name) => registryResult(name, requestedVersion));
 }
 
 function candidateReport(requestedVersion = version): Record<string, unknown> {
@@ -106,16 +111,16 @@ function candidateReport(requestedVersion = version): Record<string, unknown> {
 			commit: "release-commit",
 			version: requestedVersion,
 		},
-		inventory: publicPublishOrder,
-		candidates: publicPublishOrder.map((name, order) => ({
+		inventory: releaseInventoryFixture,
+		candidates: releaseInventoryFixture.map((name, order) => ({
 			name,
 			version: requestedVersion,
 			order,
 			tarballPath: `/release/${order}.tgz`,
-			integrity: `sha512-${intendedPublicPackages.indexOf(name)}`,
-			shasum: `sha1-${intendedPublicPackages.indexOf(name)}`,
+			integrity: `sha512-${releaseInventoryFixture.indexOf(name)}`,
+			shasum: `sha1-${releaseInventoryFixture.indexOf(name)}`,
 		})),
-		completedWrites: publicPublishOrder,
+		completedWrites: releaseInventoryFixture,
 		pendingWrite: null,
 		stage: "published",
 	};
@@ -168,8 +173,8 @@ function shimEnv(): NodeJS.ProcessEnv {
 describe("typed public-package workflows", () => {
 	it("bumps only changed manifests and refreshes the lockfile without a legacy script", async () => {
 		const files = packageSetFiles("1.0.0");
-		const unchangedPath = resolve(workspaceRoot, "packages", "fixture-0", "package.json");
-		files[unchangedPath] = JSON.stringify({ name: intendedPublicPackages[0], version: "1.2.3" });
+		const unchangedPath = resolve(fixtureRoot(0), "package.json");
+		files[unchangedPath] = JSON.stringify({ name: releaseInventoryFixture[0], version: "1.2.3" });
 		const run = runScenario(["bump-public-package-version", "1.2.3", "--format", "json"], {
 			files,
 		});
@@ -193,7 +198,7 @@ describe("typed public-package workflows", () => {
 		expect(run.fs.writtenFiles.map((entry) => entry.path)).not.toContain(unchangedPath);
 		expect(parseJsonOutput(run)).toMatchObject({
 			status: "ok",
-			data: { version: "1.2.3", changedPackages: intendedPublicPackages.slice(1) },
+			data: { version: "1.2.3", changedPackages: releaseInventoryFixture.slice(1) },
 		});
 	});
 
@@ -219,7 +224,7 @@ describe("typed public-package workflows", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(run.calls).toHaveLength(1);
-		expect(run.fs.writtenFiles).toHaveLength(intendedPublicPackages.length);
+		expect(run.fs.writtenFiles).toHaveLength(releaseInventoryFixture.length);
 		expect(parseJsonOutput(run)).toMatchObject({
 			status: "failure",
 			errorType: "subprocess-failed",
@@ -229,20 +234,20 @@ describe("typed public-package workflows", () => {
 
 	it("prepares the default cwd with rewritten source, README, extras, and manifest fields", async () => {
 		const files = packageSetFiles("1.0.0");
-		const packageRoot = resolve(workspaceRoot, "packages", "fixture-0");
+		const packageRoot = fixtureRoot(0);
 		const publishRoot = resolve(packageRoot, "dist", "publish");
 		const extraRoot = resolve(repoRoot, "skills", "fixture-skill");
 		files[resolve(workspaceRoot, "pnpm-workspace.yaml")] =
 			"catalog:\n  zod: 4.3.6\n  '@types/node': 24.0.0\n";
 		files[resolve(packageRoot, "package.json")] = JSON.stringify({
-			name: intendedPublicPackages[0],
+			name: releaseInventoryFixture[0],
 			version: "1.0.0",
 			type: "module",
 			files: ["src"],
 			bin: { branch: "./src/cli.ts" },
 			dependencies: {
 				"@nseng-ai/sdk": "workspace:*",
-				"@nseng-ai/handoffs": "workspace:^",
+				"@nseng-ai/foundation": "workspace:^",
 				zod: "catalog:",
 			},
 			ns: {
@@ -269,7 +274,7 @@ describe("typed public-package workflows", () => {
 		expect(run.calls).toEqual([]);
 		expect(parseJsonOutput(run)).toMatchObject({
 			status: "ok",
-			data: { packageName: intendedPublicPackages[0], publishRoot },
+			data: { packageName: releaseInventoryFixture[0], publishRoot },
 		});
 		expect(run.fs.copiedFiles).toEqual(
 			expect.arrayContaining([
@@ -301,7 +306,7 @@ describe("typed public-package workflows", () => {
 			bin: { branch: "src/cli.ts" },
 			dependencies: {
 				"@nseng-ai/ns": "1.0.0",
-				"@nseng-ai/handoffs": "1.0.0",
+				"@nseng-ai/foundation": "1.0.0",
 				zod: "4.3.6",
 			},
 			ns: {
@@ -313,9 +318,9 @@ describe("typed public-package workflows", () => {
 
 	it("honors an explicit package root when the CLI cwd is the workspace root", async () => {
 		const files = packageSetFiles("1.0.0");
-		const packageRoot = resolve(workspaceRoot, "packages", "fixture-0");
+		const packageRoot = fixtureRoot(0);
 		files[resolve(packageRoot, "package.json")] = JSON.stringify({
-			name: intendedPublicPackages[0],
+			name: releaseInventoryFixture[0],
 			version: "1.0.0",
 			type: "module",
 			files: ["src"],
@@ -368,16 +373,19 @@ describe("typed public-package workflows", () => {
 	});
 
 	describe("qualify-public-package-set", () => {
-		it("selects the first batch by default and preserves check, test, then publish order", async () => {
+		it("qualifies every derived candidate and only them, in check, test, then publish order", async () => {
 			const run = runScenario(["qualify-public-package-set", "--format", "json"], {
 				files: packageSetFiles(version),
 			});
 
 			expect(await run.exit).toBe(0);
-			expect(run.calls.map((call) => [call.command, call.args.at(-1)])).toEqual([
-				["pnpm", "check"],
-				["pnpm", "test"],
-				["npm", expect.stringContaining("dist/publish")],
+			expect(
+				run.calls
+					.filter((call) => call.command === "pnpm" && call.args.at(-1) === "check")
+					.map((call) => call.args[3]),
+			).toEqual(releaseInventoryFixture);
+			expect(run.calls.map((call) => call.args[3])).not.toContain("@nseng-ai/flow");
+			expect(run.calls.map((call) => [call.command, call.args.at(-1)]).slice(0, 3)).toEqual([
 				["pnpm", "check"],
 				["pnpm", "test"],
 				["npm", expect.stringContaining("dist/publish")],
@@ -385,24 +393,21 @@ describe("typed public-package workflows", () => {
 			expect(parseJsonOutput(run)).toMatchObject({
 				status: "ok",
 				data: {
-					packages: firstBatchPackages,
-					publishRoots: firstBatchPackages.map((name) =>
-						expect.stringContaining(`fixture-${intendedPublicPackages.indexOf(name)}/dist/publish`),
-					),
+					packages: releaseInventoryFixture,
+					publishRoots: releaseInventoryFixture
+						.filter((name) => name !== "@nseng-ai/ns")
+						.map((name) =>
+							expect.stringContaining(
+								`fixture-${releaseInventoryFixture.indexOf(name)}/dist/publish`,
+							),
+						),
 				},
 			});
 		});
 
-		it("selects all packages and applies both skip flags without hidden checks or dry runs", async () => {
+		it("applies both skip flags without hidden checks or dry runs", async () => {
 			const run = runScenario(
-				[
-					"qualify-public-package-set",
-					"--all",
-					"--skip-checks",
-					"--skip-dry-run",
-					"--format",
-					"json",
-				],
+				["qualify-public-package-set", "--skip-checks", "--skip-dry-run", "--format", "json"],
 				{ files: packageSetFiles(version) },
 			);
 
@@ -416,7 +421,7 @@ describe("typed public-package workflows", () => {
 			]);
 			expect(parseJsonOutput(run)).toMatchObject({
 				status: "ok",
-				data: { packages: publicPublishOrder },
+				data: { packages: releaseInventoryFixture },
 			});
 		});
 
@@ -455,13 +460,13 @@ describe("typed public-package workflows", () => {
 
 			expect(await run.exit).toBe(0);
 			expect(run.calls.map((call) => call.args[1])).toEqual(
-				intendedPublicPackages.map((name) => `${name}@${version}`),
+				releaseInventoryFixture.map((name) => `${name}@${version}`),
 			);
 			expect(parseJsonOutput(run)).toMatchObject({
 				status: "ok",
 				data: {
 					strict: true,
-					results: intendedPublicPackages.map((packageName) => ({
+					results: releaseInventoryFixture.map((packageName) => ({
 						packageName,
 						status: "published",
 					})),
@@ -472,8 +477,8 @@ describe("typed public-package workflows", () => {
 		it("allows missing and mismatched metadata non-strictly but rejects the same evidence strictly", async () => {
 			const evidence = () => [
 				missingResult(),
-				registryResult(intendedPublicPackages[1] ?? "", "0.0.1"),
-				...intendedPublicPackages.slice(2).map((name) => registryResult(name)),
+				registryResult(releaseInventoryFixture[1] ?? "", "0.0.1"),
+				...releaseInventoryFixture.slice(2).map((name) => registryResult(name)),
 			];
 			const nonStrict = runScenario(["verify-public-package-set", "--format", "json"], {
 				files: packageSetFiles(version),
@@ -603,7 +608,7 @@ describe("typed public-package workflows", () => {
 				run.calls
 					.filter((call) => call.command === "pnpm" && call.args.at(-1) === "check")
 					.map((call) => call.args[3]),
-			).toEqual(publicPublishOrder);
+			).toEqual(releaseInventoryFixture);
 			expect(run.calls.some((call) => call.args[0] === "view")).toBe(false);
 			expect(
 				run.calls.some((call) => call.args[0] === "publish" && call.args[1] !== "--dry-run"),
@@ -611,7 +616,7 @@ describe("typed public-package workflows", () => {
 			expect(confirmations).toEqual([]);
 			expect(parseJsonOutput(run)).toMatchObject({
 				status: "ok",
-				data: { mode: "dry-run", version, packages: publicPublishOrder },
+				data: { mode: "dry-run", version, packages: releaseInventoryFixture },
 			});
 		});
 
@@ -622,7 +627,7 @@ describe("typed public-package workflows", () => {
 				{
 					files: packageSetFiles(version),
 					commandResults: successfulResults(
-						1 + qualificationCommandCount + publicPublishOrder.length,
+						1 + qualificationCommandCount + releaseInventoryFixture.length,
 					),
 					release: confirmingReleaseContext(confirmations),
 				},
@@ -631,7 +636,7 @@ describe("typed public-package workflows", () => {
 			expect(await run.exit).toBe(2);
 			expect(confirmations).toEqual([]);
 			expect(run.calls.filter((call) => call.args[0] === "view")).toHaveLength(
-				publicPublishOrder.length,
+				releaseInventoryFixture.length,
 			);
 			expect(parseJsonOutput(run)).toMatchObject({
 				status: "failure",
@@ -642,7 +647,7 @@ describe("typed public-package workflows", () => {
 		it("publishes fake package roots in order and stops on the first publish failure", async () => {
 			const prefix = [
 				...successfulResults(1 + qualificationCommandCount),
-				...publicPublishOrder.map(() => missingResult()),
+				...releaseInventoryFixture.map(() => missingResult()),
 			];
 			const success = runScenario(
 				["publish-public-package-set", "publish", version, "--format", "json"],
@@ -650,7 +655,7 @@ describe("typed public-package workflows", () => {
 					files: packageSetFiles(version),
 					commandResults: [
 						...prefix,
-						...successfulResults(publicPublishOrder.length),
+						...successfulResults(releaseInventoryFixture.length),
 						...registryResults(),
 					],
 					release: confirmingReleaseContext([]),
@@ -665,8 +670,8 @@ describe("typed public-package workflows", () => {
 					)
 					.map((call) => call.args[1]),
 			).toEqual(
-				publicPublishOrder.map((name) =>
-					expect.stringContaining(`fixture-${intendedPublicPackages.indexOf(name)}/dist/publish`),
+				releaseInventoryFixture.map((name) =>
+					expect.stringContaining(`fixture-${releaseInventoryFixture.indexOf(name)}/dist/publish`),
 				),
 			);
 
@@ -713,11 +718,11 @@ describe("typed public-package workflows", () => {
 					files: packageSetFiles(version),
 					commandResults: [
 						...successfulResults(1 + qualificationCommandCount),
-						...publicPublishOrder.map(() => missingResult()),
-						...successfulResults(publicPublishOrder.length),
-						...publicPublishOrder.map(() => missingResult()),
-						...publicPublishOrder.map(() => missingResult()),
-						...publicPublishOrder.map(() => missingResult()),
+						...releaseInventoryFixture.map(() => missingResult()),
+						...successfulResults(releaseInventoryFixture.length),
+						...releaseInventoryFixture.map(() => missingResult()),
+						...releaseInventoryFixture.map(() => missingResult()),
+						...releaseInventoryFixture.map(() => missingResult()),
 						...registryResults(),
 					],
 					timers,
@@ -746,7 +751,7 @@ describe("typed public-package workflows", () => {
 						commandResults: [
 							...successfulResults(1 + qualificationCommandCount),
 							result,
-							...publicPublishOrder.slice(1).map(() => missingResult()),
+							...releaseInventoryFixture.slice(1).map(() => missingResult()),
 						],
 						release: confirmingReleaseContext([]),
 					},

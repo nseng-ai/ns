@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { publicPublishOrder } from "../src/public-packages/package-set.ts";
 import type {
 	NpmRegistryGateway,
 	OperationResult,
@@ -14,7 +13,11 @@ import type {
 	ReleaseTransactionReport,
 } from "../src/release/contracts.ts";
 import { executeReleasePublication } from "../src/release/publication.ts";
-import { buildReleaseCandidate, buildReleaseReport } from "./release-transaction-builders.ts";
+import {
+	buildReleaseCandidate,
+	buildReleaseReport,
+	releaseInventoryFixture,
+} from "./release-transaction-builders.ts";
 
 const version = "1.2.3";
 const reportPath = "/release/report.json";
@@ -142,7 +145,7 @@ describe("transactional npm publication", () => {
 		expect(result.type).toBe("verified");
 		expect(result.plan.releaseCommit).toBe("release-commit");
 		expect(result.plan.classifications.map((entry) => entry.classification.type)).toEqual(
-			publicPublishOrder.map(() => "missing"),
+			releaseInventoryFixture.map(() => "missing"),
 		);
 		expect(harness.confirmation.versions).toEqual([version]);
 		expect(harness.commands.publishedPaths).toEqual(
@@ -153,11 +156,11 @@ describe("transactional npm publication", () => {
 			false,
 		);
 		expect(harness.reports.writes.map((report) => report.stage)).toEqual([
-			...publicPublishOrder.flatMap(() => ["publishing", "publishing"]),
+			...releaseInventoryFixture.flatMap(() => ["publishing", "publishing"]),
 			"published",
 			"verified",
 		]);
-		expect(harness.reports.writes.at(-1)?.completedWrites).toEqual(publicPublishOrder);
+		expect(harness.reports.writes.at(-1)?.completedWrites).toEqual(releaseInventoryFixture);
 	});
 
 	it("declines once with zero npm or report writes", async () => {
@@ -184,9 +187,9 @@ describe("transactional npm publication", () => {
 		const failed = await run(first);
 		expect(failed.type).toBe("refused");
 		expect(reports.writes).toHaveLength(3);
-		expect(reports.writes[1]?.completedWrites).toEqual([publicPublishOrder[0]]);
+		expect(reports.writes[1]?.completedWrites).toEqual([releaseInventoryFixture[0]]);
 		const resumedReport = reports.writes[2]!;
-		expect(resumedReport.pendingWrite).toBe(publicPublishOrder[1]);
+		expect(resumedReport.pendingWrite).toBe(releaseInventoryFixture[1]);
 
 		const resumed = makeHarness({ report: resumedReport, registry, reports });
 		const result = await run(resumed);
@@ -206,7 +209,7 @@ describe("transactional npm publication", () => {
 		expect(failed).toMatchObject({
 			type: "refused",
 			error: { code: "report-write-failed" },
-			report: { pendingWrite: publicPublishOrder[0] },
+			report: { pendingWrite: releaseInventoryFixture[0] },
 		});
 
 		const pendingReport = reports.writes[0]!;
@@ -224,7 +227,7 @@ describe("transactional npm publication", () => {
 		const reports = new InMemoryReports(report, 2);
 		const first = makeHarness({ report, registry, reports });
 		await run(first);
-		registry.markMissing(publicPublishOrder[0]!);
+		registry.markMissing(releaseInventoryFixture[0]!);
 		const pendingReport = reports.writes[0]!;
 		const resumed = makeHarness({ report: pendingReport, registry });
 		const result = await run(resumed);
@@ -249,11 +252,11 @@ describe("transactional npm publication", () => {
 	] as const)(
 		"classifies all candidates and refuses %s before writes",
 		async (_label, state, code) => {
-			const registry = new InMemoryRegistry(new Map([[publicPublishOrder[0]!, state]]));
+			const registry = new InMemoryRegistry(new Map([[releaseInventoryFixture[0]!, state]]));
 			const harness = makeHarness({ registry });
 			const result = await run(harness);
 			expect(result).toMatchObject({ type: "refused", error: { code } });
-			expect(registry.reads).toHaveLength(publicPublishOrder.length);
+			expect(registry.reads).toHaveLength(releaseInventoryFixture.length);
 			expect(harness.confirmation.versions).toEqual([]);
 			expect(harness.commands.publishedPaths).toEqual([]);
 			expect(harness.reports.writes).toEqual([]);
@@ -276,7 +279,7 @@ describe("transactional npm publication", () => {
 		const baseReport = makeReport();
 		const report = {
 			...baseReport,
-			completedWrites: [...publicPublishOrder],
+			completedWrites: [...releaseInventoryFixture],
 			stage: "published" as const,
 		};
 		const harness = makeHarness({ report });
@@ -284,7 +287,7 @@ describe("transactional npm publication", () => {
 
 		expect(result.type).toBe("verified");
 		expect(result.plan.classifications.map((entry) => entry.classification.type)).toEqual(
-			publicPublishOrder.map(() => "missing"),
+			releaseInventoryFixture.map(() => "missing"),
 		);
 		expect(result.plan.tarballWritePlan).toEqual([]);
 		expect(harness.confirmation.versions).toEqual([]);
@@ -380,8 +383,8 @@ function makeReport(): ReleaseTransactionReport {
 		version,
 		branch: "release/1.2.3",
 		commit: "release-commit",
-		inventory: publicPublishOrder,
-		candidates: publicPublishOrder.map((name, order) =>
+		inventory: releaseInventoryFixture,
+		candidates: releaseInventoryFixture.map((name, order) =>
 			buildReleaseCandidate({
 				name,
 				version,

@@ -14,11 +14,8 @@ import {
 	assertPlausibleNpmVersion,
 	buildPublishManifest,
 	buildPublishPlan,
-	firstBatchPackages,
-	intendedPublicPackages,
 	loadPublicPackageContext,
 	preparePublishRoot,
-	publicPublishOrder,
 	repoRoot,
 	workspaceRoot,
 	type PackageManifest,
@@ -66,10 +63,9 @@ export async function runBumpPublicPackageVersion(
 		assertPlausibleNpmVersion(request.version);
 		const packages = await loadPublicPackageContext(context.fs);
 		const changedPackages: string[] = [];
-		for (const packageName of intendedPublicPackages) {
+		for (const packageName of packages.releaseInventory) {
 			const entry = packages.manifestByName.get(packageName);
-			if (entry === undefined)
-				throw new Error(`Intended public package is missing: ${packageName}`);
+			if (entry === undefined) throw new Error(`Release candidate is missing: ${packageName}`);
 			if (entry.manifest.version === request.version) continue;
 			await context.fs.writeText(
 				entry.path,
@@ -145,7 +141,6 @@ export async function runPrepareSourcePublishPackage(
 }
 
 export const qualifyPublicPackageSetRequestSchema = z.object({
-	all: z.boolean().optional(),
 	version: versionSchema.optional(),
 	skipChecks: z.boolean().optional(),
 	skipDryRun: z.boolean().optional(),
@@ -257,7 +252,7 @@ export async function runPublishPublicPackageSet(
 					commands,
 				});
 		}
-		const qualified = await qualifyPublicPackages(context, { all: true, version: request.version });
+		const qualified = await qualifyPublicPackages(context, { version: request.version });
 		if (qualified.type === "failure") return qualified.exit;
 		commands.push(...qualified.value.commands);
 		if (request.mode === "dry-run")
@@ -368,8 +363,8 @@ async function qualifyPublicPackages(
 	context: NsDevCliContext,
 	request: z.output<typeof qualifyPublicPackageSetRequestSchema>,
 ): Promise<WorkflowResult<z.output<typeof qualifyPublicPackageSetResultSchema>>> {
-	const packages = request.all === true ? publicPublishOrder : firstBatchPackages;
 	const packageContext = await loadPublicPackageContext(context.fs);
+	const packages = packageContext.releaseInventory;
 	if (request.version !== undefined) assertCoordinatedVersion(packageContext, request.version);
 	const commands: CommandSummary[] = [];
 	const publishRoots: string[] = [];
@@ -475,7 +470,7 @@ async function verifyPublicPackages(
 			? undefined
 			: parseCandidateReport(
 					JSON.parse(await context.fs.readText(resolve(request.candidateReport))),
-					publicPublishOrder,
+					packageContext.releaseInventory,
 				);
 	if (
 		candidate !== undefined &&
@@ -487,7 +482,7 @@ async function verifyPublicPackages(
 		);
 	const results: VerificationResult[] = [];
 	const commands: CommandSummary[] = [];
-	for (const packageName of intendedPublicPackages) {
+	for (const packageName of packageContext.releaseInventory) {
 		const manifest = packageContext.manifestByName.get(packageName)?.manifest;
 		if (manifest?.version === undefined)
 			throw new Error(`Local manifest for ${packageName} is missing a string version`);

@@ -2,7 +2,8 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { publicPublishOrder } from "../src/public-packages/package-set.ts";
+import { releaseInventoryFixture } from "./release-transaction-builders.ts";
+
 import type {
 	FreshReleaseGateway,
 	FreshReleaseState,
@@ -22,7 +23,7 @@ const version = "1.2.3-beta.1+build.7";
 const parentBranch = "transactional-npm-release-exact-resume";
 const parentCommit = "parent-commit";
 const releaseCommit = "release-commit";
-const manifestPaths = publicPublishOrder.map(
+const manifestPaths = releaseInventoryFixture.map(
 	(_name, index) => `ts/packages/public-${index}/package.json`,
 );
 const lockfilePath = "ts/pnpm-lock.yaml";
@@ -51,6 +52,7 @@ class InMemoryFreshRelease implements FreshReleaseGateway {
 			isGraphiteTracked: true,
 			isWorktreeClean: true,
 			releaseBranchExists: false,
+			inventory: releaseInventoryFixture,
 			sourceManifestPaths: manifestPaths,
 			...options.state,
 		};
@@ -84,7 +86,7 @@ class InMemoryFreshRelease implements FreshReleaseGateway {
 		this.#operations.push(`qualify:${requestedVersion}`);
 		return {
 			ok: true,
-			value: publicPublishOrder.map((name) => ({ name, path: `/qualified/${name}` })),
+			value: releaseInventoryFixture.map((name) => ({ name, path: `/qualified/${name}` })),
 		};
 	}
 
@@ -267,13 +269,13 @@ describe("fresh transactional release", () => {
 		expect(operations.filter((operation) => operation.startsWith("bump:"))).toHaveLength(1);
 		expect(operations.filter((operation) => operation.startsWith("qualify:"))).toHaveLength(1);
 		expect(operations.filter((operation) => operation.startsWith("pack:"))).toEqual(
-			publicPublishOrder.map((name) => `pack:${name}`),
+			releaseInventoryFixture.map((name) => `pack:${name}`),
 		);
 		expect(operations.indexOf(`bump:${version}`)).toBeLessThan(
 			operations.indexOf(`qualify:${version}`),
 		);
 		expect(operations.indexOf(`qualify:${version}`)).toBeLessThan(
-			operations.indexOf(`pack:${publicPublishOrder[0]}`),
+			operations.indexOf(`pack:${releaseInventoryFixture[0]}`),
 		);
 		expect(release.stagedPathRequests).toEqual([pathsWithLockfile]);
 		expect(operations).toContain(`stage:${pathsWithLockfile.join("|")}`);
@@ -331,6 +333,7 @@ describe("fresh transactional release", () => {
 			},
 			{
 				reportPath: "/release/report.json",
+				inventory: releaseInventoryFixture,
 				currentBranch: releaseBranchName(version),
 				headCommit: releaseCommit,
 				headParentCommit: parentCommit,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { intendedPublicPackages, publicPublishOrder } from "../src/public-packages/package-set.ts";
+import { releaseInventoryFixture } from "./release-transaction-builders.ts";
+
 import type {
 	OperationResult,
 	ReleaseResetGateway,
@@ -121,7 +122,7 @@ function manifestPath(index: number): string {
 
 function manifests(changedIndexes: readonly number[] = []): readonly ReleaseResetManifestState[] {
 	const changed = new Set(changedIndexes);
-	return intendedPublicPackages.map((packageName, index) => ({
+	return releaseInventoryFixture.map((packageName, index) => ({
 		packageName,
 		path: manifestPath(index),
 		headVersion: "1.2.2",
@@ -143,7 +144,7 @@ function report(
 			version,
 			...releasePatch,
 		},
-		inventory: [...publicPublishOrder],
+		inventory: [...releaseInventoryFixture],
 		candidates: [],
 		completedWrites: [],
 		pendingWrite: null,
@@ -153,7 +154,7 @@ function report(
 }
 
 function canonicalCandidates(): ReleaseTransactionReport["candidates"] {
-	return publicPublishOrder.map((name, order) => ({
+	return releaseInventoryFixture.map((name, order) => ({
 		name,
 		version,
 		tarballPath: `${releaseDirectory}/candidate-${order}.tgz`,
@@ -193,6 +194,7 @@ function inspection(
 		headCommit,
 		releaseBranch,
 		releaseBranchExists: options.releaseBranchExists ?? false,
+		inventory: releaseInventoryFixture,
 		manifests: (options.manifests ?? manifests(changedIndexes)).map((manifest) => ({
 			...manifest,
 			changedFields: [...manifest.changedFields],
@@ -286,9 +288,9 @@ describe("release reset planning", () => {
 
 	it("allows any partial set of canonical manifests plus the lockfile", () => {
 		const state = inspection({
-			changedIndexes: [1, 7],
+			changedIndexes: [1, 6],
 			trackedChanges: [
-				{ path: manifestPath(7), indexChanged: false, worktreeChanged: true },
+				{ path: manifestPath(6), indexChanged: false, worktreeChanged: true },
 				{ path: lockfilePath, indexChanged: true, worktreeChanged: false },
 				{ path: manifestPath(1), indexChanged: true, worktreeChanged: true },
 			],
@@ -297,7 +299,7 @@ describe("release reset planning", () => {
 
 		expect(result).toMatchObject({
 			outcome: "reset-planned",
-			trackedPathsToRestore: [lockfilePath, manifestPath(1), manifestPath(7)].sort(),
+			trackedPathsToRestore: [lockfilePath, manifestPath(1), manifestPath(6)].sort(),
 		});
 	});
 
@@ -388,7 +390,7 @@ describe("guarded release reset execution", () => {
 					report({
 						candidates: [
 							{
-								name: publicPublishOrder[0] ?? "@nseng-ai/clinkr",
+								name: releaseInventoryFixture[0] ?? "@nseng-ai/clinkr",
 								version,
 								tarballPath: `${releaseDirectory}/clinkr.tgz`,
 								integrity: "sha512-candidate",
@@ -521,7 +523,7 @@ describe("release reset hard refusals", () => {
 		[
 			"wrong report inventory",
 			inspection({
-				report: foundReport(report({ inventory: publicPublishOrder.slice(1) })),
+				report: foundReport(report({ inventory: releaseInventoryFixture.slice(1) })),
 			}),
 			"report-inventory-mismatch",
 		],

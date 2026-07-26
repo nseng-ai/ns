@@ -90,6 +90,7 @@ export async function runReleaseTransaction(
 			currentBranch: state.value.currentBranch,
 			headCommit: state.value.headCommit,
 			coordinatedVersion: state.value.coordinatedVersion,
+			inventory: state.value.inventory,
 		};
 		const validated =
 			loaded.value.stage === "checkpointing"

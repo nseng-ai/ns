@@ -138,7 +138,7 @@ const entry = defineCli<NsDevCliContext, CliDeps, undefined>({
 			name: "qualify-public-package-set",
 			description: "Qualify generated public packages without registry writes.",
 			schema: qualifyPublicPackageSetRequestSchema,
-			options: { all: { short: "-a" }, version: { short: "-v" }, skipChecks: {}, skipDryRun: {} },
+			options: { version: { short: "-v" }, skipChecks: {}, skipDryRun: {} },
 			resultSchema: qualifyPublicPackageSetResultSchema,
 			handler: runQualifyPublicPackageSet,
 			renderHuman: renderCommandResult,

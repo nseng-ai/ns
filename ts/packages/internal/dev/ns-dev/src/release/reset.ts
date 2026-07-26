@@ -3,7 +3,7 @@ import { isAbsolute, relative, sep } from "node:path";
 
 import { z } from "zod";
 
-import { intendedPublicPackages, isConcreteNpmVersion } from "../public-packages/package-set.ts";
+import { isConcreteNpmVersion } from "../public-packages/package-set.ts";
 
 import {
 	concreteNpmVersionSchema,
@@ -16,7 +16,7 @@ import {
 	type ReleaseResetReportState,
 	type ReleaseTransactionReport,
 } from "./contracts.ts";
-import { orderedReleaseInventory, releaseBranchName } from "./fresh.ts";
+import { releaseBranchName } from "./fresh.ts";
 
 const nonemptyStringSchema = z.string().min(1);
 
@@ -205,7 +205,21 @@ export function classifyReleaseReset(
 	const reportRefusal = validateReport(inspection.report, version, inspection, evidence);
 	if (reportRefusal !== undefined) return reportRefusal;
 
-	const manifestInventoryRefusal = validateManifestInventory(inspection.manifests, evidence);
+	if (
+		inspection.inventory.length === 0 ||
+		new Set(inspection.inventory).size !== inspection.inventory.length
+	) {
+		return refuse(
+			"manifest-inventory-mismatch",
+			"Re-inspect the derived public release inventory before resetting.",
+			evidence,
+		);
+	}
+	const manifestInventoryRefusal = validateManifestInventory(
+		inspection.manifests,
+		inspection.inventory,
+		evidence,
+	);
 	if (manifestInventoryRefusal !== undefined) return manifestInventoryRefusal;
 	if (inspection.untrackedPaths.length > 0) {
 		return refuse(
@@ -394,7 +408,7 @@ function validateReport(
 			evidence,
 		);
 	}
-	if (!sameOrderedValues(report.inventory, orderedReleaseInventory())) {
+	if (!sameOrderedValues(report.inventory, inspection.inventory)) {
 		return refuse(
 			"report-inventory-mismatch",
 			"Preserve the report and reconcile it with the canonical public package inventory.",
@@ -415,7 +429,9 @@ function validateReport(
 			evidence,
 		);
 	}
-	if (!hasCanonicalResetCandidates(report, version, inspection.releaseDirectory)) {
+	if (
+		!hasCanonicalResetCandidates(report, version, inspection.releaseDirectory, inspection.inventory)
+	) {
 		return refuse(
 			"report-candidate-inventory-mismatch",
 			"Preserve the report and reconcile its candidates with the canonical ordered release inventory and exact release directory.",
@@ -429,8 +445,8 @@ function hasCanonicalResetCandidates(
 	report: ReleaseTransactionReport,
 	version: string,
 	releaseDirectory: string | null,
+	canonicalInventory: readonly string[],
 ): boolean {
-	const canonicalInventory = orderedReleaseInventory();
 	if (report.candidates.length > canonicalInventory.length) return false;
 	if (
 		report.stage === "candidates-prepared" &&
@@ -471,6 +487,7 @@ function hasCanonicalResetCandidates(
 
 function validateManifestInventory(
 	manifests: readonly ReleaseResetManifestState[],
+	inventory: readonly string[],
 	evidence: ReleaseResetEvidence,
 ): Extract<ReleaseResetPlanResult, { readonly outcome: "refused" }> | undefined {
 	const names = manifests.map((manifest) => manifest.packageName);
@@ -478,11 +495,11 @@ function validateManifestInventory(
 	if (
 		new Set(names).size !== names.length ||
 		new Set(paths).size !== paths.length ||
-		!sameOrderedValues(sortedUnique(names), sortedUnique(intendedPublicPackages))
+		!sameOrderedValues(sortedUnique(names), sortedUnique(inventory))
 	) {
 		return refuse(
 			"manifest-inventory-mismatch",
-			"Re-inspect the exact intended public source manifest inventory before resetting.",
+			"Re-inspect the exact derived public source manifest inventory before resetting.",
 			evidence,
 		);
 	}

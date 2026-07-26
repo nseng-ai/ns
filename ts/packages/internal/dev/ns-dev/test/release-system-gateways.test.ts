@@ -13,11 +13,9 @@ import {
 } from "@nseng-ai/foundation/exec/testing";
 import { describe, expect, it } from "vitest";
 
-import {
-	intendedPublicPackages,
-	repoRoot,
-	type PublicPackageContext,
-} from "../src/public-packages/package-set.ts";
+import { releaseInventoryFixture } from "./release-transaction-builders.ts";
+
+import { repoRoot, type PublicPackageContext } from "../src/public-packages/package-set.ts";
 import { createSystemReleaseCliContext } from "../src/release-public-package-set-cli.ts";
 import type { OptionalResult, ReleaseTransactionReport } from "../src/release/contracts.ts";
 import {
@@ -35,7 +33,7 @@ const releaseDirectory = resolve(repoRoot, `ts/dist/releases/${releaseVersion}`)
 const reportPath = resolve(releaseDirectory, "report.json");
 
 function packageContextFixture(): PublicPackageContext {
-	const packageManifests = intendedPublicPackages.map((name, index) => ({
+	const packageManifests = releaseInventoryFixture.map((name, index) => ({
 		path: resolve(repoRoot, `ts/packages/package-${index}/package.json`),
 		root: resolve(repoRoot, `ts/packages/package-${index}`),
 		manifest: { name, version: "1.2.3" },
@@ -45,6 +43,7 @@ function packageContextFixture(): PublicPackageContext {
 		workspaceYaml: "",
 		packageManifests,
 		manifestByName: new Map(packageManifests.map((entry) => [entry.manifest.name, entry])),
+		releaseInventory: releaseInventoryFixture,
 	};
 }
 
@@ -76,7 +75,7 @@ class InMemoryReleaseResetFiles implements ReleaseResetFileOperations {
 function resetFiles(changedIndexes: readonly number[] = []): InMemoryReleaseResetFiles {
 	const changed = new Set(changedIndexes);
 	const files = new InMemoryReleaseResetFiles();
-	for (const [index, name] of intendedPublicPackages.entries()) {
+	for (const [index, name] of releaseInventoryFixture.entries()) {
 		files.texts.set(
 			resolve(repoRoot, manifestPath(index)),
 			`${JSON.stringify({ version: changed.has(index) ? releaseVersion : "1.2.2", name }, null, "\t")}\n`,
@@ -103,7 +102,7 @@ function resetInspectionScript(
 			["status", "--porcelain=v1", "-z", "--untracked-files=all"],
 			exitedResult({ stdout: status }),
 		),
-		...intendedPublicPackages.map((name, index) =>
+		...releaseInventoryFixture.map((name, index) =>
 			step(
 				"git",
 				["show", `HEAD:${manifestPath(index)}`],
@@ -124,7 +123,7 @@ function releaseReport(): ReleaseTransactionReport {
 			commit: headCommit,
 			version: releaseVersion,
 		},
-		inventory: [...intendedPublicPackages],
+		inventory: [...releaseInventoryFixture],
 		candidates: [],
 		completedWrites: [],
 		pendingWrite: null,
@@ -198,11 +197,7 @@ describe("release system command gateways", () => {
 	it("forwards pnpm script arguments without an extra separator", async () => {
 		const commands = new ScriptedCommandRunner([
 			step("pnpm", ["--dir", "ts", "run", "release:bump-version", "1.2.3"], exitedResult()),
-			step(
-				"pnpm",
-				["--dir", "ts", "run", "release:qualify-public", "-a", "-v", "1.2.3"],
-				exitedResult(),
-			),
+			step("pnpm", ["--dir", "ts", "run", "release:qualify-public", "-v", "1.2.3"], exitedResult()),
 			step(
 				"pnpm",
 				["--dir", "ts", "run", "release:verify-public", "-v", "1.2.3", "-s", "-c", "report.json"],
@@ -342,14 +337,14 @@ describe("release system command gateways", () => {
 		});
 		if (result.ok) {
 			expect(result.value.manifests[0]).toMatchObject({
-				packageName: intendedPublicPackages[0],
+				packageName: releaseInventoryFixture[0],
 				path: manifestPath(0),
 				headVersion: "1.2.2",
 				workingVersion: releaseVersion,
 				changedFields: ["version"],
 				isExactVersionOnlyChange: true,
 			});
-			expect(result.value.manifests).toHaveLength(intendedPublicPackages.length);
+			expect(result.value.manifests).toHaveLength(releaseInventoryFixture.length);
 		}
 		expect(readReportPaths).toEqual([reportPath]);
 		expect(commands.calls.every((call) => call.cwd === repoRoot)).toBe(true);
@@ -412,7 +407,7 @@ describe("release system command gateways", () => {
 		const files = resetFiles([0]);
 		files.texts.set(
 			resolve(repoRoot, manifestPath(0)),
-			JSON.stringify({ name: intendedPublicPackages[0], version: releaseVersion }),
+			JSON.stringify({ name: releaseInventoryFixture[0], version: releaseVersion }),
 		);
 		const commands = new ScriptedCommandRunner(resetInspectionScript());
 		const result = await createSystemReleaseResetGateway({

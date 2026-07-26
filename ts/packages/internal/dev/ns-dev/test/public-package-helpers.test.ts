@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import { normalizeBinPaths } from "../src/public-packages/helpers.ts";
 import {
 	buildPublishManifest,
-	intendedPublicPackages,
-	publicPublishOrder,
 	repoRoot,
 	workspaceRoot,
 	type PublicPackageContext,
@@ -28,12 +26,13 @@ describe("public package helpers", () => {
 			workspaceYaml: "catalog:\n  zod: ^4.4.3\n",
 			packageManifests: [],
 			manifestByName: new Map(),
+			releaseInventory: ["@nseng-ai/example"],
 		};
 
 		expect(
 			buildPublishManifest(
 				{
-					name: "@internal/pi-editor-mods",
+					name: "@nseng-ai/example",
 					version: "1.2.3",
 					keywords: ["pi-package"],
 					pi: { extensions: ["./src/extension.ts"] },
@@ -46,12 +45,5 @@ describe("public package helpers", () => {
 			pi: { extensions: ["./src/extension.ts"] },
 			dependencies: { zod: "^4.4.3" },
 		});
-	});
-
-	it("publishes the consolidated editor extension once", () => {
-		expect(intendedPublicPackages).toContain("@internal/pi-editor-mods");
-		expect(publicPublishOrder.filter((name) => name === "@internal/pi-editor-mods")).toEqual([
-			"@internal/pi-editor-mods",
-		]);
 	});
 });

@@ -2,7 +2,8 @@ import type { ClinkrInteraction } from "@nseng-ai/clinkr";
 import { machineEnvelopeSchema, createFakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
-import { intendedPublicPackages, publicPublishOrder } from "../src/public-packages/package-set.ts";
+import { releaseInventoryFixture } from "./release-transaction-builders.ts";
+
 import type {
 	OperationResult,
 	ReleaseResetGateway,
@@ -106,7 +107,7 @@ function manifestPath(index: number): string {
 
 function resetManifests(changedIndexes: readonly number[]): readonly ReleaseResetManifestState[] {
 	const changed = new Set(changedIndexes);
-	return intendedPublicPackages.map((packageName, index) => ({
+	return releaseInventoryFixture.map((packageName, index) => ({
 		packageName,
 		path: manifestPath(index),
 		headVersion: "1.2.2",
@@ -117,7 +118,7 @@ function resetManifests(changedIndexes: readonly number[]): readonly ReleaseRese
 }
 
 function canonicalCandidates(): ReleaseTransactionReport["candidates"] {
-	return publicPublishOrder.map((name, order) => ({
+	return releaseInventoryFixture.map((name, order) => ({
 		name,
 		version,
 		tarballPath: `${releaseDirectory}/candidate-${order}.tgz`,
@@ -131,7 +132,7 @@ function releaseReport(commit: string = headCommit): ReleaseTransactionReport {
 	return {
 		schemaVersion: 1,
 		release: { branch: sourceBranch, commit, version },
-		inventory: [...publicPublishOrder],
+		inventory: [...releaseInventoryFixture],
 		candidates: canonicalCandidates(),
 		completedWrites: [],
 		pendingWrite: null,
@@ -153,6 +154,7 @@ function resetInspection(
 		headCommit,
 		releaseBranch,
 		releaseBranchExists: options.releaseBranchExists ?? false,
+		inventory: releaseInventoryFixture,
 		manifests: resetManifests(changedIndexes),
 		trackedChanges: changedIndexes.map((index) => ({
 			path: manifestPath(index),
