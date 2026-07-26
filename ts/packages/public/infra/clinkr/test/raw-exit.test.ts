@@ -1,14 +1,14 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrGroup, ClinkrFailure, ok, type ClinkrCommandSpec } from "../src/index.ts";
+import { LegacyClinkrGroup, ClinkrFailure, ok, type ClinkrCommandSpec } from "../src/index.ts";
 import { rawCommand } from "../src/raw/index.ts";
 import { parseEnvelope, runForTest } from "../src/testing/index.ts";
 
 describe("raw-exit escape hatch", () => {
 	describe("handler exit code round-trip", () => {
 		test("exit 0 passes through", async () => {
-			const group = new ClinkrGroup<null>({ name: "test" });
+			const group = new LegacyClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "ok",
@@ -23,7 +23,7 @@ describe("raw-exit escape hatch", () => {
 		});
 
 		test("exit 1 passes through", async () => {
-			const group = new ClinkrGroup<null>({ name: "test" });
+			const group = new LegacyClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "fail",
@@ -38,7 +38,7 @@ describe("raw-exit escape hatch", () => {
 		});
 
 		test("exit 2 passes through", async () => {
-			const group = new ClinkrGroup<null>({ name: "test" });
+			const group = new LegacyClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "err",
@@ -51,7 +51,7 @@ describe("raw-exit escape hatch", () => {
 		});
 
 		test("exit 124 passes through", async () => {
-			const group = new ClinkrGroup<null>({ name: "test" });
+			const group = new LegacyClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "timeout",
@@ -64,7 +64,7 @@ describe("raw-exit escape hatch", () => {
 		});
 
 		test("arbitrary exit code passes through", async () => {
-			const group = new ClinkrGroup<null>({ name: "test" });
+			const group = new LegacyClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "custom",
@@ -79,7 +79,7 @@ describe("raw-exit escape hatch", () => {
 
 	describe("--format suppression", () => {
 		test("--format is not available on raw commands", async () => {
-			const group = new ClinkrGroup<null>({ name: "test" });
+			const group = new LegacyClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "act",
@@ -95,7 +95,7 @@ describe("raw-exit escape hatch", () => {
 
 	describe("--json-schema option", () => {
 		test("--json-schema is available on raw commands", async () => {
-			const group = new ClinkrGroup<null>({ name: "test" });
+			const group = new LegacyClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "act",
@@ -113,7 +113,7 @@ describe("raw-exit escape hatch", () => {
 
 	describe("leaf help", () => {
 		test("raw command help shows schema options and --json-schema, no rendered-command flags", async () => {
-			const group = new ClinkrGroup<null>({ name: "test" });
+			const group = new LegacyClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "act",
@@ -131,7 +131,7 @@ describe("raw-exit escape hatch", () => {
 		});
 
 		test("normal command help shows rendered-command flags", async () => {
-			const group = new ClinkrGroup<null>({ name: "test" });
+			const group = new LegacyClinkrGroup<null>({ name: "test" });
 			group.command({
 				name: "act",
 				description: "An action",
@@ -148,7 +148,7 @@ describe("raw-exit escape hatch", () => {
 	describe("zod usage errors", () => {
 		test("zod validation errors exit 2, raw stderr, handler not invoked", async () => {
 			let handlerInvoked = false;
-			const group = new ClinkrGroup<null>({ name: "test" });
+			const group = new LegacyClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "act",
@@ -168,7 +168,7 @@ describe("raw-exit escape hatch", () => {
 
 	describe("ClinkrFailure handling", () => {
 		test("ClinkrFailure converts to stderr error message, exit 2", async () => {
-			const group = new ClinkrGroup<null>({ name: "test" });
+			const group = new LegacyClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "act",
@@ -214,8 +214,8 @@ describe("raw-exit escape hatch", () => {
 
 	describe("summary field", () => {
 		test("summary appears in parent group help", async () => {
-			const parent = new ClinkrGroup<null>({ name: "parent" });
-			const child = new ClinkrGroup<null>({ name: "child" });
+			const parent = new LegacyClinkrGroup<null>({ name: "parent" });
+			const child = new LegacyClinkrGroup<null>({ name: "child" });
 			child.command(
 				rawCommand({
 					name: "act",
@@ -235,7 +235,7 @@ describe("raw-exit escape hatch", () => {
 
 	describe("mixed raw + normal leaves in one group", () => {
 		test("raw and normal commands coexist in same group", async () => {
-			const group = new ClinkrGroup<null>({ name: "test" });
+			const group = new LegacyClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "raw-act",
@@ -258,7 +258,7 @@ describe("raw-exit escape hatch", () => {
 		});
 
 		test("raw command does not accept rendered-command flags, normal accepts remaining rendered flags", async () => {
-			const group = new ClinkrGroup<null>({ name: "test" });
+			const group = new LegacyClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "raw-act",
@@ -300,7 +300,7 @@ describe("raw-exit escape hatch", () => {
 		}
 
 		test("raw command emits only handler-owned bytes via context io sinks", async () => {
-			const group = new ClinkrGroup<RawIoContext>({ name: "test" });
+			const group = new LegacyClinkrGroup<RawIoContext>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "speak",

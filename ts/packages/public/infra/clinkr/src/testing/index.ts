@@ -6,7 +6,7 @@ import type {
 	ConfirmationResult,
 } from "../confirmation.ts";
 import { machineEnvelopeSchema, type MachineEnvelope } from "../exit.ts";
-import type { ClinkrGroup } from "../group.ts";
+import type { LegacyClinkrGroup } from "../group.ts";
 import type { ClinkrIo } from "../io.ts";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
@@ -129,7 +129,7 @@ export function createCaptureIo(): CaptureIo {
 
 /** In-process invocation through the io seam. */
 export async function runForTest<TContext>(
-	group: ClinkrGroup<TContext>,
+	group: LegacyClinkrGroup<TContext>,
 	argv: readonly string[],
 	options: { context: TContext; io?: ClinkrIo },
 ): Promise<CapturedRun> {

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
 import {
-	ClinkrGroup,
+	LegacyClinkrGroup,
 	ok,
 	renderClinkrCompletionScript,
 	renderCompletionCandidatesNewline,
@@ -13,12 +13,15 @@ interface ProbeContext {
 	calls: string[];
 }
 
-function candidateValues(group: ClinkrGroup<ProbeContext>, words: readonly string[]): string[] {
+function candidateValues(
+	group: LegacyClinkrGroup<ProbeContext>,
+	words: readonly string[],
+): string[] {
 	return group.complete({ words }).candidates.map((candidate) => candidate.value);
 }
 
 async function asyncCandidateValues(
-	group: ClinkrGroup<ProbeContext>,
+	group: LegacyClinkrGroup<ProbeContext>,
 	words: readonly string[],
 	context: ProbeContext = { calls: [] },
 ): Promise<string[]> {
@@ -26,8 +29,8 @@ async function asyncCandidateValues(
 	return result.candidates.map((candidate) => candidate.value);
 }
 
-function buildCompletionTree(): ClinkrGroup<ProbeContext> {
-	const root = new ClinkrGroup<ProbeContext>({
+function buildCompletionTree(): LegacyClinkrGroup<ProbeContext> {
+	const root = new LegacyClinkrGroup<ProbeContext>({
 		name: "probe",
 		version: "1.2.3",
 		runtimeInfo: () => "runtime: test\n",
@@ -55,7 +58,10 @@ function buildCompletionTree(): ClinkrGroup<ProbeContext> {
 			},
 		}),
 	);
-	const sub = new ClinkrGroup<ProbeContext>({ name: "sub", description: "Visible subgroup." });
+	const sub = new LegacyClinkrGroup<ProbeContext>({
+		name: "sub",
+		description: "Visible subgroup.",
+	});
 	sub.command({
 		name: "list",
 		summary: "List nested items.",
@@ -75,7 +81,7 @@ function buildCompletionTree(): ClinkrGroup<ProbeContext> {
 		},
 	});
 	root.group(sub);
-	const exec = new ClinkrGroup<ProbeContext>({ name: "exec", isHidden: true });
+	const exec = new LegacyClinkrGroup<ProbeContext>({ name: "exec", isHidden: true });
 	exec.command({
 		name: "resolve",
 		schema: z.object({}),
@@ -164,7 +170,7 @@ describe("clinkr static completion", () => {
 	});
 
 	test("does not offer positional values while completing a non-enum option value", () => {
-		const group = new ClinkrGroup<ProbeContext>({ name: "probe" });
+		const group = new LegacyClinkrGroup<ProbeContext>({ name: "probe" });
 		group.command({
 			name: "choose",
 			schema: z.object({ name: z.string(), kind: z.enum(["one", "two"]) }),
@@ -186,7 +192,7 @@ describe("clinkr dynamic completion", () => {
 	});
 
 	test("appends dynamic candidates to static candidates and dedupes", async () => {
-		const group = new ClinkrGroup<ProbeContext>({ name: "probe" });
+		const group = new LegacyClinkrGroup<ProbeContext>({ name: "probe" });
 		group.command({
 			name: "choose",
 			schema: z.object({ kind: z.enum(["one", "two"]), name: z.string().optional() }),
@@ -203,7 +209,7 @@ describe("clinkr dynamic completion", () => {
 
 	test("provider sees current token, previous words, command args, and positional index", async () => {
 		const requests: unknown[] = [];
-		const group = new ClinkrGroup<ProbeContext>({ name: "probe" });
+		const group = new LegacyClinkrGroup<ProbeContext>({ name: "probe" });
 		group.command({
 			name: "checkout",
 			schema: z.object({ branch: z.string(), base: z.string().optional(), new: z.boolean() }),
@@ -232,7 +238,7 @@ describe("clinkr dynamic completion", () => {
 
 	test("sync completion remains static and provider is not a command handler", async () => {
 		const context: ProbeContext = { calls: [] };
-		const group = new ClinkrGroup<ProbeContext>({ name: "probe" });
+		const group = new LegacyClinkrGroup<ProbeContext>({ name: "probe" });
 		group.command({
 			name: "choose",
 			schema: z.object({ name: z.string().optional() }),
@@ -254,7 +260,7 @@ describe("clinkr dynamic completion", () => {
 
 	test("provider failure returns static candidates and reports the error", async () => {
 		const errors: unknown[] = [];
-		const group = new ClinkrGroup<ProbeContext>({ name: "probe" });
+		const group = new LegacyClinkrGroup<ProbeContext>({ name: "probe" });
 		group.command({
 			name: "choose",
 			schema: z.object({ kind: z.enum(["one", "two"]) }),

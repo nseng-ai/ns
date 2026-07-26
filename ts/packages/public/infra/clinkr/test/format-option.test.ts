@@ -2,15 +2,15 @@ import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
 import {
-	ClinkrGroup,
+	LegacyClinkrGroup,
 	clinkrFormatFromArgs,
 	isClinkrHumanOutputInvocation,
 	ok,
 } from "../src/index.ts";
 import { parseEnvelope, runForTest } from "../src/testing/index.ts";
 
-function buildGroup(): ClinkrGroup<null> {
-	const group = new ClinkrGroup<null>({ name: "probe" });
+function buildGroup(): LegacyClinkrGroup<null> {
+	const group = new LegacyClinkrGroup<null>({ name: "probe" });
 	group.command({
 		name: "win",
 		schema: z.object({}),
@@ -19,8 +19,8 @@ function buildGroup(): ClinkrGroup<null> {
 	return group;
 }
 
-function buildListAliasGroup(): ClinkrGroup<string[]> {
-	const group = new ClinkrGroup<string[]>({ name: "probe" });
+function buildListAliasGroup(): LegacyClinkrGroup<string[]> {
+	const group = new LegacyClinkrGroup<string[]>({ name: "probe" });
 	group.command({
 		name: "list",
 		schema: z.object({}),
@@ -29,7 +29,7 @@ function buildListAliasGroup(): ClinkrGroup<string[]> {
 			return ok({ answer: 42 });
 		},
 	});
-	const nested = new ClinkrGroup<string[]>({ name: "nested" });
+	const nested = new LegacyClinkrGroup<string[]>({ name: "nested" });
 	nested.command({
 		name: "list",
 		schema: z.object({}),
@@ -43,11 +43,11 @@ function buildListAliasGroup(): ClinkrGroup<string[]> {
 }
 
 function buildMarkdownGroup(): {
-	group: ClinkrGroup<null>;
+	group: LegacyClinkrGroup<null>;
 	markdownCalls: () => number;
 } {
 	let markdownCalls = 0;
-	const group = new ClinkrGroup<null>({ name: "probe" });
+	const group = new LegacyClinkrGroup<null>({ name: "probe" });
 	group.command({
 		name: "win",
 		schema: z.object({}),

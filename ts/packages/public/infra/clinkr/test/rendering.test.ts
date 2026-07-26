@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import {
 	ClinkrFailure,
-	ClinkrGroup,
+	LegacyClinkrGroup,
 	negative,
 	ok,
 	renderCapabilitiesForTerminal,
@@ -20,11 +20,11 @@ interface Payload {
 type Outcome = "ok" | "negative" | "failure";
 
 function buildGroup(outcome: "ok" | "negative"): {
-	group: ClinkrGroup<null>;
+	group: LegacyClinkrGroup<null>;
 	renderCalls: () => number;
 } {
 	let renderCalls = 0;
-	const group = new ClinkrGroup<null>({ name: "probe" });
+	const group = new LegacyClinkrGroup<null>({ name: "probe" });
 	group.command({
 		name: "act",
 		schema: z.object({}),
@@ -42,7 +42,7 @@ function buildMarkdownGroup(
 	outcome: Outcome,
 	options: { shouldIncludeHuman: boolean; shouldIncludeMarkdown: boolean },
 ): {
-	group: ClinkrGroup<null>;
+	group: LegacyClinkrGroup<null>;
 	humanCalls: () => number;
 	markdownCalls: () => number;
 } {
@@ -56,7 +56,7 @@ function buildMarkdownGroup(
 		markdownCalls += 1;
 		return `- plans: ${data.count}`;
 	};
-	const group = new ClinkrGroup<null>({ name: "probe" });
+	const group = new LegacyClinkrGroup<null>({ name: "probe" });
 	group.command({
 		name: "act",
 		schema: z.object({}),
@@ -136,7 +136,7 @@ describe("renderHuman", () => {
 	});
 
 	test("negative human override renders to stderr", async () => {
-		const group = new ClinkrGroup<null>({ name: "probe" });
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "act",
 			schema: z.object({}),
@@ -164,7 +164,7 @@ describe("renderHuman", () => {
 			columns: 72,
 			canRenderUnicode: false,
 		};
-		const group = new ClinkrGroup<null>({ name: "probe" });
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "act",
 			schema: z.object({}),
@@ -188,7 +188,7 @@ describe("renderHuman", () => {
 	});
 
 	test("default human rendering is indented JSON when absent", async () => {
-		const group = new ClinkrGroup<null>({ name: "probe" });
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "act",
 			schema: z.object({}),
@@ -200,7 +200,7 @@ describe("renderHuman", () => {
 
 	test("ok-exit human override takes precedence over command renderer", async () => {
 		let renderCalls = 0;
-		const group = new ClinkrGroup<null>({ name: "probe" });
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "act",
 			schema: z.object({}),
@@ -217,7 +217,7 @@ describe("renderHuman", () => {
 	});
 
 	test("json mode ignores ok-exit render overrides", async () => {
-		const group = new ClinkrGroup<null>({ name: "probe" });
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "act",
 			schema: z.object({}),
@@ -299,7 +299,7 @@ describe("renderMarkdown", () => {
 
 	test("uses ok-exit markdown override before command markdown renderer", async () => {
 		let markdownCalls = 0;
-		const group = new ClinkrGroup<null>({ name: "probe" });
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "act",
 			schema: z.object({}),
@@ -316,7 +316,7 @@ describe("renderMarkdown", () => {
 	});
 
 	test("markdown falls back to ok-exit human override", async () => {
-		const group = new ClinkrGroup<null>({ name: "probe" });
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "act",
 			schema: z.object({}),
@@ -340,7 +340,7 @@ describe("renderMarkdown", () => {
 
 describe("summary field", () => {
 	test("summary is used by commander for parent help lists", async () => {
-		const group = new ClinkrGroup<null>({ name: "probe" });
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "act",
 			description: "Detailed description for the command",
@@ -359,7 +359,7 @@ describe("summary field", () => {
 	});
 
 	test("summary is optional; commands work without it", async () => {
-		const group = new ClinkrGroup<null>({ name: "probe" });
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "act",
 			description: "No summary",

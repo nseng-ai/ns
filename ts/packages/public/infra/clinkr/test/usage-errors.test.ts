@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrGroup, ok } from "../src/index.ts";
+import { LegacyClinkrGroup, ok } from "../src/index.ts";
 import { runForTest } from "../src/testing/index.ts";
 
-function buildGroup(): ClinkrGroup<null> {
-	const group = new ClinkrGroup<null>({ name: "probe" });
+function buildGroup(): LegacyClinkrGroup<null> {
+	const group = new LegacyClinkrGroup<null>({ name: "probe" });
 	group.command({
 		name: "echo",
 		schema: z.object({

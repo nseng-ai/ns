@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import {
 	ClinkrFailure,
-	ClinkrGroup,
+	LegacyClinkrGroup,
 	negative,
 	ok,
 	usageError,
@@ -11,8 +11,8 @@ import {
 } from "../src/index.ts";
 import { parseEnvelope, runForTest } from "../src/testing/index.ts";
 
-function buildGroup(): ClinkrGroup<null> {
-	const group = new ClinkrGroup<null>({ name: "probe" });
+function buildGroup(): LegacyClinkrGroup<null> {
+	const group = new LegacyClinkrGroup<null>({ name: "probe" });
 	group.command({
 		name: "win",
 		schema: z.object({}),

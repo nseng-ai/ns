@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrGroup, ok } from "../src/index.ts";
+import { LegacyClinkrGroup, ok } from "../src/index.ts";
 import { buildJsonSchemaDocument } from "../src/json-schema.ts";
 import { runForTest } from "../src/testing/index.ts";
 
@@ -35,8 +35,8 @@ describe("buildJsonSchemaDocument", () => {
 });
 
 describe("--json-schema flag", () => {
-	function buildGroup(): ClinkrGroup<null> {
-		const group = new ClinkrGroup<null>({ name: "probe" });
+	function buildGroup(): LegacyClinkrGroup<null> {
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "make",
 			schema: z.object({ name: z.string().describe("the name") }),
@@ -77,7 +77,7 @@ describe("--json-schema flag", () => {
 
 	test("the handler does not run", async () => {
 		let invoked = false;
-		const group = new ClinkrGroup<null>({ name: "probe" });
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "make",
 			schema: z.object({}),
@@ -98,8 +98,8 @@ describe("schemaDocument override", () => {
 		machineEnvelopeJsonSchema: { type: "object", title: "pinned envelope" },
 	};
 
-	function buildGroup(): ClinkrGroup<null> {
-		const group = new ClinkrGroup<null>({ name: "probe" });
+	function buildGroup(): LegacyClinkrGroup<null> {
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "make",
 			schema: z.object({ name: z.string() }),
@@ -125,7 +125,7 @@ describe("schemaDocument override", () => {
 	});
 
 	test("absent override keeps generated documents", async () => {
-		const group = new ClinkrGroup<null>({ name: "probe" });
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "make",
 			schema: z.object({ name: z.string() }),

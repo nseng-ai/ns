@@ -41,6 +41,10 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	summary?: string;
 	/** Parent help section heading for this command. */
 	helpGroup?: string;
+	/** Explicit public aliases for this command. */
+	aliases?: readonly string[];
+	/** Suppresses this command from its parent's help; it stays invocable. */
+	isHidden?: boolean;
 	schema: S;
 	handler: ClinkrHandler<TContext, S, T>;
 	/** Source of `output_json_schema` for `--json-schema`; `{}` when absent. */
@@ -73,6 +77,10 @@ export interface RawCommandSpec<TContext, S extends z.ZodObject> {
 	summary?: string;
 	/** Parent help section heading for this command. */
 	helpGroup?: string;
+	/** Explicit public aliases for this command. */
+	aliases?: readonly string[];
+	/** Suppresses this command from its parent's help; it stays invocable. */
+	isHidden?: boolean;
 	schema: S;
 	isRawExit: true;
 	/** Pass all tokens through to the raw handler, including framework-looking options. */
@@ -113,10 +121,14 @@ export interface ClinkrGroupOptions {
 	helpGroup?: string;
 	/** Suppresses this group from its parent's help; it stays invocable. */
 	isHidden?: boolean;
+	/** Explicit public aliases for this group. */
+	aliases?: readonly string[];
 	/** Root-only package version exposed as `-V, --version`. */
 	version?: string;
 	/** Root-only runtime diagnostic text exposed as `--runtime`. */
 	runtimeInfo?: () => string;
+	/** Legacy compatibility only; immutable apps always use explicit aliases. */
+	inferAutomaticAliases?: boolean;
 }
 
 export interface ClinkrRunOptions<TContext> {
@@ -134,6 +146,8 @@ interface RegisteredCommand<TContext> {
 	description?: string;
 	summary?: string;
 	helpGroup?: string;
+	aliases: readonly string[];
+	isHidden: boolean;
 	schema: z.ZodObject;
 	schemaDocument?: () => JsonSchemaDocument;
 	execution: RenderedExecution<TContext> | RawExecution<TContext>;
@@ -193,15 +207,21 @@ const leafCommandMetadataSetters = [
 const LIST_COMMAND_NAME = "list";
 const LIST_COMMAND_ALIAS = "ls";
 
-export class ClinkrGroup<TContext> {
+/**
+ * @deprecated Migration-only mutable runtime. New code must use ClinkrApp builders.
+ * Removed after direct consumers move to the immutable app runtime.
+ */
+export class LegacyClinkrGroup<TContext> {
 	readonly name: string;
 	readonly description: string | undefined;
 	readonly helpGroup: string | undefined;
 	readonly isHidden: boolean;
+	readonly aliases: readonly string[];
 	private readonly version: string | undefined;
 	private readonly runtimeInfo: (() => string) | undefined;
+	private readonly inferAutomaticAliases: boolean;
 	private registeredCommands: RegisteredCommand<TContext>[];
-	private subgroups: ClinkrGroup<TContext>[];
+	private subgroups: LegacyClinkrGroup<TContext>[];
 	private defaultRegisteredCommand: RegisteredCommand<TContext> | undefined;
 
 	constructor(options: ClinkrGroupOptions) {
@@ -209,8 +229,10 @@ export class ClinkrGroup<TContext> {
 		this.description = options.description;
 		this.helpGroup = options.helpGroup;
 		this.isHidden = options.isHidden ?? false;
+		this.aliases = Object.freeze([...(options.aliases ?? [])]);
 		this.version = options.version;
 		this.runtimeInfo = options.runtimeInfo;
+		this.inferAutomaticAliases = options.inferAutomaticAliases ?? true;
 		this.registeredCommands = [];
 		this.subgroups = [];
 		this.defaultRegisteredCommand = undefined;
@@ -234,6 +256,8 @@ export class ClinkrGroup<TContext> {
 				summary: spec.summary,
 				helpGroup: spec.helpGroup,
 			}),
+			aliases: Object.freeze([...(spec.aliases ?? [])]),
+			isHidden: spec.isHidden ?? false,
 			schema: spec.schema,
 			...(spec.schemaDocument === undefined ? {} : { schemaDocument: spec.schemaDocument }),
 			execution: executionOf(spec),
@@ -260,6 +284,8 @@ export class ClinkrGroup<TContext> {
 		});
 		this.defaultRegisteredCommand = {
 			name: this.name,
+			aliases: [],
+			isHidden: false,
 			schema: spec.schema,
 			execution: executionOf(spec),
 			plan,
@@ -269,7 +295,7 @@ export class ClinkrGroup<TContext> {
 		return this;
 	}
 
-	group(child: ClinkrGroup<TContext>): this {
+	group(child: LegacyClinkrGroup<TContext>): this {
 		this.subgroups.push(child);
 		return this;
 	}
@@ -328,14 +354,21 @@ export class ClinkrGroup<TContext> {
 		const siblingNames = this.siblingNames();
 		return {
 			name: this.name,
-			...optionalEntries({ aliases: clinkrAutomaticAliasesForName(this.name, parentSiblingNames) }),
+			...optionalEntries({
+				aliases: mergeAliases(
+					this.aliases,
+					this.inferAutomaticAliases
+						? clinkrAutomaticAliasesForName(this.name, parentSiblingNames)
+						: undefined,
+				),
+			}),
 			...(this.description === undefined ? {} : { description: this.description }),
 			isRoot,
 			isHidden: this.isHidden,
 			hasVersionOption: this.version !== undefined,
 			hasRuntimeOption: this.runtimeInfo !== undefined,
 			commands: this.registeredCommands.map((registered) =>
-				completionNamedCommandPlan(registered, siblingNames),
+				completionNamedCommandPlan(registered, siblingNames, this.inferAutomaticAliases),
 			),
 			groups: this.subgroups.map((child) => child.buildCompletionPlan(false, siblingNames)),
 			...(this.defaultRegisteredCommand === undefined
@@ -369,16 +402,28 @@ export class ClinkrGroup<TContext> {
 			command.addCommand(
 				buildLeafCommand({
 					registered,
-					aliases: clinkrAutomaticAliasesForName(registered.name, siblingNames) ?? [],
+					aliases:
+						mergeAliases(
+							registered.aliases,
+							this.inferAutomaticAliases
+								? clinkrAutomaticAliasesForName(registered.name, siblingNames)
+								: undefined,
+						) ?? [],
 					context,
 					io,
 					state,
 				}),
+				{ hidden: registered.isHidden },
 			);
 		}
 		for (const child of this.subgroups) {
 			const childCommand = child.buildCommand({ context, io, state, isRoot: false });
-			for (const alias of clinkrAutomaticAliasesForName(child.name, siblingNames) ?? []) {
+			for (const alias of mergeAliases(
+				child.aliases,
+				this.inferAutomaticAliases
+					? clinkrAutomaticAliasesForName(child.name, siblingNames)
+					: undefined,
+			) ?? []) {
 				childCommand.alias(alias);
 			}
 			command.addCommand(childCommand, {
@@ -393,8 +438,12 @@ export class ClinkrGroup<TContext> {
 		const [head, ...tail] = argv;
 		if (head === undefined) return [];
 		const siblingNames = this.siblingNames();
-		const child = this.subgroups.find((candidate) =>
-			clinkrNameMatchesAutomaticAlias(candidate.name, siblingNames, head),
+		const child = this.subgroups.find(
+			(candidate) =>
+				candidate.name === head ||
+				candidate.aliases.includes(head) ||
+				(this.inferAutomaticAliases &&
+					clinkrNameMatchesAutomaticAlias(candidate.name, siblingNames, head)),
 		);
 		if (child === undefined) return undefined;
 		const childPath = child.findBareGroupPath(tail);
@@ -446,10 +495,18 @@ function shouldPassThroughOf<TContext, S extends z.ZodObject, T>(
 function completionNamedCommandPlan<TContext>(
 	registered: RegisteredCommand<TContext>,
 	siblingNames: ReadonlySet<string>,
+	inferAutomaticAliases: boolean,
 ): ClinkrCompletionCommandPlan<TContext> {
 	return {
 		...completionCommandPlan(registered),
-		...optionalEntries({ aliases: clinkrAutomaticAliasesForName(registered.name, siblingNames) }),
+		...optionalEntries({
+			aliases: mergeAliases(
+				registered.aliases,
+				inferAutomaticAliases
+					? clinkrAutomaticAliasesForName(registered.name, siblingNames)
+					: undefined,
+			),
+		}),
 	};
 }
 
@@ -465,6 +522,7 @@ function completionCommandPlan<TContext>(
 		...(registered.summary === undefined && registered.description === undefined
 			? {}
 			: { description: registered.summary ?? registered.description }),
+		isHidden: registered.isHidden,
 		options: [
 			...registered.plan.options.map((option) => completionOptionFromSurface(option)),
 			...frameworkOptions,
@@ -498,6 +556,14 @@ export function clinkrAutomaticAliasesForName(
 ): readonly string[] | undefined {
 	if (name !== LIST_COMMAND_NAME || siblingNames.has(LIST_COMMAND_ALIAS)) return undefined;
 	return [LIST_COMMAND_ALIAS];
+}
+
+function mergeAliases(
+	explicit: readonly string[],
+	automatic: readonly string[] | undefined,
+): readonly string[] | undefined {
+	const aliases = [...explicit, ...(automatic ?? [])];
+	return aliases.length === 0 ? undefined : aliases;
 }
 
 export function clinkrNameMatchesAutomaticAlias(

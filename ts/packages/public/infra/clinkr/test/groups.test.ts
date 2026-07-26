@@ -1,15 +1,18 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrGroup, ok } from "../src/index.ts";
+import { LegacyClinkrGroup, ok } from "../src/index.ts";
 import { parseEnvelope, runForTest } from "../src/testing/index.ts";
 
 interface ProbeContext {
 	calls: string[];
 }
 
-function buildTree(): ClinkrGroup<ProbeContext> {
-	const root = new ClinkrGroup<ProbeContext>({ name: "root", description: "Root group." });
+function buildTree(): LegacyClinkrGroup<ProbeContext> {
+	const root = new LegacyClinkrGroup<ProbeContext>({
+		name: "root",
+		description: "Root group.",
+	});
 	root.command({
 		name: "top",
 		schema: z.object({}),
@@ -18,7 +21,10 @@ function buildTree(): ClinkrGroup<ProbeContext> {
 			return ok({});
 		},
 	});
-	const sub = new ClinkrGroup<ProbeContext>({ name: "sub", description: "Visible subgroup." });
+	const sub = new LegacyClinkrGroup<ProbeContext>({
+		name: "sub",
+		description: "Visible subgroup.",
+	});
 	sub.command({
 		name: "inner",
 		schema: z.object({ x: z.number() }),
@@ -28,7 +34,7 @@ function buildTree(): ClinkrGroup<ProbeContext> {
 		},
 	});
 	root.group(sub);
-	const exec = new ClinkrGroup<ProbeContext>({
+	const exec = new LegacyClinkrGroup<ProbeContext>({
 		name: "exec",
 		description: "Skill-invoked operations.",
 		isHidden: true,
@@ -46,13 +52,13 @@ function buildTree(): ClinkrGroup<ProbeContext> {
 }
 
 describe("root group options", () => {
-	function buildRootOptionsTree(): ClinkrGroup<ProbeContext> {
-		const root = new ClinkrGroup<ProbeContext>({
+	function buildRootOptionsTree(): LegacyClinkrGroup<ProbeContext> {
+		const root = new LegacyClinkrGroup<ProbeContext>({
 			name: "root",
 			version: "1.2.3",
 			runtimeInfo: () => "runtime: test\n",
 		});
-		const sub = new ClinkrGroup<ProbeContext>({ name: "sub" });
+		const sub = new LegacyClinkrGroup<ProbeContext>({ name: "sub" });
 		sub.command({
 			name: "inner",
 			schema: z.object({}),
@@ -96,8 +102,8 @@ describe("root group options", () => {
 });
 
 describe("default raw commands", () => {
-	function buildDefaultTree(): ClinkrGroup<ProbeContext> {
-		const root = new ClinkrGroup<ProbeContext>({
+	function buildDefaultTree(): LegacyClinkrGroup<ProbeContext> {
+		const root = new LegacyClinkrGroup<ProbeContext>({
 			name: "root",
 			description: "Root group with a default action.",
 			version: "1.2.3",
@@ -118,7 +124,7 @@ describe("default raw commands", () => {
 				return 7;
 			},
 		});
-		const sub = new ClinkrGroup<ProbeContext>({ name: "sub" });
+		const sub = new LegacyClinkrGroup<ProbeContext>({ name: "sub" });
 		sub.command({
 			name: "inner",
 			schema: z.object({}),
@@ -201,7 +207,7 @@ describe("nested groups", () => {
 
 	test("a leaf command named ls blocks the bare list group alias", async () => {
 		const context: ProbeContext = { calls: [] };
-		const root = new ClinkrGroup<ProbeContext>({ name: "root" });
+		const root = new LegacyClinkrGroup<ProbeContext>({ name: "root" });
 		root.command({
 			name: "ls",
 			schema: z.object({}),
@@ -210,7 +216,7 @@ describe("nested groups", () => {
 				return ok({});
 			},
 		});
-		root.group(new ClinkrGroup<ProbeContext>({ name: "list" }));
+		root.group(new LegacyClinkrGroup<ProbeContext>({ name: "list" }));
 
 		const run = await runForTest(root, ["ls"], { context });
 
@@ -229,9 +235,11 @@ describe("nested groups", () => {
 	});
 
 	test("subgroups can render under a custom parent help section", async () => {
-		const root = new ClinkrGroup<ProbeContext>({ name: "root" });
-		root.group(new ClinkrGroup<ProbeContext>({ name: "built-in", helpGroup: "Built-ins:" }));
-		root.group(new ClinkrGroup<ProbeContext>({ name: "extension", helpGroup: "Extensions:" }));
+		const root = new LegacyClinkrGroup<ProbeContext>({ name: "root" });
+		root.group(new LegacyClinkrGroup<ProbeContext>({ name: "built-in", helpGroup: "Built-ins:" }));
+		root.group(
+			new LegacyClinkrGroup<ProbeContext>({ name: "extension", helpGroup: "Extensions:" }),
+		);
 
 		const run = await runForTest(root, ["--help"], { context: { calls: [] } });
 
@@ -242,7 +250,7 @@ describe("nested groups", () => {
 	});
 
 	test("commands can render under a custom parent help section", async () => {
-		const root = new ClinkrGroup<ProbeContext>({ name: "root" });
+		const root = new LegacyClinkrGroup<ProbeContext>({ name: "root" });
 		root.command({
 			name: "init",
 			summary: "Activate root.",

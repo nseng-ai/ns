@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrFailure, ClinkrGroup, ok } from "../src/index.ts";
+import { ClinkrFailure, LegacyClinkrGroup, ok } from "../src/index.ts";
 import { createCaptureIo, runForTest } from "../src/testing/index.ts";
 
-function buildGroup(error: () => Error): ClinkrGroup<null> {
-	const group = new ClinkrGroup<null>({ name: "probe" });
+function buildGroup(error: () => Error): LegacyClinkrGroup<null> {
+	const group = new LegacyClinkrGroup<null>({ name: "probe" });
 	group.command({
 		name: "explode",
 		schema: z.object({}),

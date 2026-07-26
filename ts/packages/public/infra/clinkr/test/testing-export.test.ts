@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { z } from "zod";
 
-import { ClinkrGroup } from "@nseng-ai/clinkr";
+import { LegacyClinkrGroup } from "@nseng-ai/clinkr";
 import {
 	buildSurfacePlan,
 	createCaptureIo,
@@ -17,7 +17,7 @@ test("subpath exports resolve through the package name", async () => {
 	expect(capture.stdout()).toBe("x");
 	const run: CapturedRun | null = null;
 	expect(run).toBeNull();
-	expect(typeof ClinkrGroup).toBe("function");
+	expect(typeof LegacyClinkrGroup).toBe("function");
 	const surface = buildSurfacePlan({
 		commandName: "probe",
 		schema: z.object({ name: z.string().describe("Name") }),

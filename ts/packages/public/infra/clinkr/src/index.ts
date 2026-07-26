@@ -44,7 +44,8 @@ export type {
 	RenderClinkrCompletionScriptOptions,
 } from "./completion.ts";
 export {
-	ClinkrGroup,
+	LegacyClinkrGroup,
+	LegacyClinkrGroup as ClinkrGroup,
 	clinkrAutomaticAliasesForName,
 	clinkrNameMatchesAutomaticAlias,
 } from "./group.ts";
@@ -97,3 +98,12 @@ export { emitExit, renderCapabilitiesForTerminal, resolveRenderCapabilities } fr
 export type { ClinkrFormat, EmitExitOptions, RenderCapabilities } from "./emit.ts";
 export type { JsonSchemaDocument } from "./json-schema.ts";
 export type { OptionSpec, PositionalSpec } from "./surface.ts";
+export {
+	ClinkrApp,
+	ClinkrAppBuilder,
+	ClinkrCommand,
+	ClinkrCommandBuilder,
+	ClinkrGroup as ImmutableClinkrGroup,
+	ClinkrGroupBuilder,
+} from "./runtime.ts";
+export type { ClinkrAppOptions, ClinkrCompleteOptions, ClinkrRouteMetadata } from "./runtime.ts";

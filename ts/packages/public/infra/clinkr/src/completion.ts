@@ -59,6 +59,7 @@ export interface ClinkrCompletionCommandPlan<TContext = unknown> {
 	name: string;
 	aliases?: readonly string[];
 	description?: string;
+	isHidden?: boolean;
 	options: readonly ClinkrCompletionOptionPlan[];
 	positionals: readonly PositionalPlan[];
 	completionProvider?: ClinkrDynamicCompletionProvider<TContext>;
@@ -239,7 +240,9 @@ function completeGroup<TContext>(
 	const options = groupOptions(group);
 	if (current.startsWith("-")) return optionCandidates(options, current);
 	const commandCandidates: ClinkrCompletionCandidate[] = [
-		...group.commands.flatMap((command) => commandCandidatesForPlan(command)),
+		...group.commands
+			.filter((command) => command.isHidden !== true)
+			.flatMap((command) => commandCandidatesForPlan(command)),
 		...group.groups
 			.filter((child) => !child.isHidden)
 			.flatMap((child) => commandCandidatesForPlan(child)),

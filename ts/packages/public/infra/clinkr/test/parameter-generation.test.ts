@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrGroup, ok } from "../src/index.ts";
+import { LegacyClinkrGroup, ok } from "../src/index.ts";
 import { parseEnvelope, runForTest } from "../src/testing/index.ts";
 
-function echoGroup(): ClinkrGroup<null> {
-	const group = new ClinkrGroup<null>({ name: "probe" });
+function echoGroup(): LegacyClinkrGroup<null> {
+	const group = new LegacyClinkrGroup<null>({ name: "probe" });
 	group.command({
 		name: "echo",
 		schema: z.object({
@@ -72,8 +72,8 @@ describe("generated options end to end", () => {
 });
 
 describe("positionals end to end", () => {
-	function positionalGroup(): ClinkrGroup<null> {
-		const group = new ClinkrGroup<null>({ name: "probe" });
+	function positionalGroup(): LegacyClinkrGroup<null> {
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "move",
 			schema: z.object({
@@ -112,7 +112,7 @@ describe("positionals end to end", () => {
 	});
 
 	test("final string-array positionals collect repeated arguments", async () => {
-		const group = new ClinkrGroup<null>({ name: "probe" });
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "apply",
 			schema: z.object({ kind: z.string(), skills: z.array(z.string()).min(1) }),
@@ -132,7 +132,7 @@ describe("positionals end to end", () => {
 
 describe("generated help", () => {
 	test("flag help text comes from describe() and surfaces defaults", async () => {
-		const group = new ClinkrGroup<null>({ name: "probe" });
+		const group = new LegacyClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "echo",
 			schema: z.object({
