@@ -223,7 +223,7 @@ function runNsWithObjectiveImportLog(
 	const logPath = join(directory, "imports.log");
 	writeFileSync(
 		hookPath,
-		`import { appendFileSync } from "node:fs";\nimport { registerHooks } from "node:module";\nconst markers = ${JSON.stringify(OBJECTIVE_ROUTES.map(({ implementation }) => `/objectives/src/${implementation}`))};\nregisterHooks({ resolve(specifier, context, nextResolve) { const result = nextResolve(specifier, context); if (result.url.includes("/objectives/src/cli/objective/") && markers.some((marker) => result.url.endsWith(marker))) appendFileSync(process.env.NS_OBJECTIVE_IMPORT_LOG, result.url + "\\n"); return result; } });\n`,
+		`import { appendFileSync } from "node:fs";\nimport { registerHooks } from "node:module";\nconst markers = ${JSON.stringify(OBJECTIVE_ROUTES.map(({ implementation }) => `/objectives/src/${implementation}`))};\nregisterHooks({ resolve(specifier, context, nextResolve) { const result = nextResolve(specifier, context); if (markers.some((marker) => result.url.endsWith(marker))) appendFileSync(process.env.NS_OBJECTIVE_IMPORT_LOG, result.url + "\\n"); return result; } });\n`,
 		"utf8",
 	);
 	const result = spawnSync(process.execPath, ["--import", hookPath, CLI_SOURCE, ...args], {

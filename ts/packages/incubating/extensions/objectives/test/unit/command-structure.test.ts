@@ -66,11 +66,11 @@ describe("objectives filesystem command structure", () => {
 
 		for (const metadataFile of metadataFiles) {
 			const source = await readFile(metadataFile, "utf8");
-			const imports = source.match(/^import .*;$/gm) ?? [];
+			const imports = source.match(/^import[\s\S]*?from\s+"[^"]+";/gm) ?? [];
 			expect(imports, metadataFile).toEqual([
 				'import type { ClinkrCommandMetadata } from "@nseng-ai/clinkr";',
 			]);
-			expect(source, metadataFile).not.toContain("operations/");
+			expect(source, metadataFile).not.toMatch(/from "\.\.?\//);
 		}
 	});
 
@@ -80,7 +80,7 @@ describe("objectives filesystem command structure", () => {
 
 		for (const groupFile of groupFiles) {
 			const source = await readFile(groupFile, "utf8");
-			const imports = source.match(/^import .*;$/gm) ?? [];
+			const imports = source.match(/^import[\s\S]*?from\s+"[^"]+";/gm) ?? [];
 			expect(imports, groupFile).toEqual([
 				'import type { ClinkrGroupDefinition } from "@nseng-ai/clinkr";',
 			]);

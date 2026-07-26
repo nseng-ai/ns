@@ -8,6 +8,8 @@ import { resolve } from "node:path";
 import { usageError, type ClinkrUsageErrorExit } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
+import type { ObjectiveRunnerPublicationCommandContext } from "./publication-context.ts";
+
 export const atFileSchema = z
 	.string()
 	.regex(/^@.+/u, "Expected a bare @file input.")
@@ -19,12 +21,7 @@ export const absoluteAtFileSchema = z
 	.describe("Absolute bare @file path for the parent-held authorization artifact.");
 
 export async function readJsonInput(
-	ctx: {
-		cwd: string;
-		readTextFile(
-			path: string,
-		): Promise<{ ok: true; content: string } | { ok: false; message: string }>;
-	},
+	ctx: Pick<ObjectiveRunnerPublicationCommandContext, "cwd" | "readTextFile">,
 	input: string,
 	argument: string,
 ): Promise<
