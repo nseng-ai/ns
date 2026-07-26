@@ -63,7 +63,7 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 **Impact and complexity:** Very high. Every rendered command must decide bodyless versus typed data for each reachable status. SDK command types and envelope helpers currently model only the success schema.
 
-**Proposed disposition:** **Reconcile implementation and callers**, staged around one internal outcome-schema model. Add `resultSchema`, `negativeSchema`, `failureSchema`, and `usageErrorSchema`; omission means bodyless and `z.any()` means deliberately untyped.
+**Approved disposition:** **Reconcile implementation and callers around one Clinkr-owned outcome-schema model.** Add `resultSchema`, `negativeSchema`, `failureSchema`, and `usageErrorSchema`; omission means bodyless and `z.any()` means deliberately untyped. Clinkr owns the composed discriminated machine schema and the runtime meaning of every configured status.
 
 ### 7. Handler output is not validated uniformly
 
@@ -71,7 +71,7 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 **Impact and complexity:** Medium-high. Enforcement currently depends on whether execution passes through SDK adaptation.
 
-**Proposed disposition:** **Reconcile implementation and callers.** Validate every configured status in Clinkr, remove duplicate SDK-only success validation, and let validation errors propagate unchanged as programmer errors.
+**Approved disposition:** **Validate every configured status in Clinkr.** Outcome-schema violations propagate unchanged as programmer errors to app crash policy rather than becoming failure envelopes. Remove SDK-only success validation after the SDK adapter delegates this policy to Clinkr.
 
 ### 8. Outcomes carry render overrides
 
@@ -79,7 +79,7 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 **Impact and complexity:** High. SDK redesign is prerequisite. Branch-dependent presentation must move into typed result data plus command-level renderers rather than being deleted mechanically.
 
-**Proposed disposition:** **Reconcile implementation and callers.** Make rendering command-level only after callers and SDK carry enough structured data for stable renderers.
+**Approved disposition:** **Make rendering command-level only.** First migrate the SDK adapter and direct callers so branch-dependent presentation is represented by typed outcome data and stable command-level renderers; then remove per-exit human/Markdown overrides. The SDK must stop synthesizing render overrides and must not retain a second rendering policy.
 
 ### 9. Completion error policy is per invocation
 
@@ -165,15 +165,15 @@ The user approved filesystem-first authoring over the foundational app/builder/l
 
 This approval authorizes direction, not TypeScript work in this documentation update. It does not authorize a compatibility layer, two routing implementations, manual application argv pre-routing, or a manifest fallback. The README leads with filesystem authoring and mentions builders only as a separately documented advanced escape hatch. Route files and directories must ship intact; bundling and single-file packaging remain an explicit risk that may require builders or a later adapter. The exact `app.ts` bootstrap API remains unsettled.
 
-Other proposals remain discussion-gated where their prior disposition is not independently settled:
+Approved reconciliation clusters and remaining discussion gates:
 
-1. Centralize all four status schemas, runtime validation, schema publication, and rendering in one command/outcome model.
-2. Redesign the SDK adapter before removing render overrides; eliminate SDK-owned duplicate validation and rendering policy.
-3. Replace the hybrid raw path with opaque Commander mounting and reclassify every current raw caller.
-4. Move completion failure observation to app policy while preserving static fallback.
-5. Remove `ClinkrFailure` conversion after exhaustive usage confirmation.
-6. Preserve the settled `position` spelling and documented `md` alias during reconciliation.
+1. **Approved:** centralize all four status schemas, runtime validation, schema publication, and rendering ownership in Clinkr's command/outcome model.
+2. **Approved:** redesign the SDK adapter and direct callers before removing render overrides; eliminate SDK-owned duplicate validation and rendering policy.
+3. **Discussion-gated:** replace the hybrid raw path with opaque Commander mounting and reclassify every current raw caller.
+4. **Discussion-gated:** move completion failure observation to app policy while preserving static fallback.
+5. **Discussion-gated:** remove `ClinkrFailure` conversion after exhaustive usage confirmation.
+6. **Settled current behavior:** preserve the `position` spelling and documented `md` alias during reconciliation.
 
 ## Audit conclusion
 
-All ten known mismatches have implementation, test, and representative-caller evidence plus proposed dispositions. The audit added six material findings. The positional spelling and Markdown alias decisions are now settled: retain `position`, and retain and document `md` as an alias for `markdown`. The foundational split and migration sequence are approved, but TypeScript implementation has not begun. Remaining disputed dispositions must still be discussed before their implementation. An exhaustive search found `ClinkrFailure` construction only in Clinkr tests plus a TypeScript style-guard fixture, strengthening the proposed removal disposition but not authorizing it.
+All ten known mismatches have implementation, test, and representative-caller evidence plus proposed dispositions. The audit added six material findings. The positional spelling and Markdown alias decisions are settled: retain `position`, and retain and document `md` as an alias for `markdown`. The outcome-schema, runtime-validation, command-level-rendering, and SDK-policy migration cluster is also approved. The foundational split and migration sequence are approved, but TypeScript implementation has not begun. Raw mounting, completion-error policy, and `ClinkrFailure` removal remain discussion-gated before their implementation. An exhaustive search found `ClinkrFailure` construction only in Clinkr tests plus a TypeScript style-guard fixture, strengthening the proposed removal disposition but not authorizing it.
