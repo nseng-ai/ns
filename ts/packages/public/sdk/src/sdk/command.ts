@@ -1,3 +1,5 @@
+import { isAbsolute } from "node:path";
+
 import {
 	defineCommand,
 	type ClinkrCommandDefinition,
@@ -156,5 +158,10 @@ export { defineNsCommand as defineCommand };
 export function defineExtension<const TDescriptor extends ExtensionDescriptor>(
 	extension: TDescriptor,
 ): TDescriptor {
+	if ("commandDirectory" in extension && !isAbsolute(extension.commandDirectory)) {
+		throw new Error(
+			`ns extension: commandDirectory must be absolute, received '${extension.commandDirectory}'`,
+		);
+	}
 	return extension;
 }

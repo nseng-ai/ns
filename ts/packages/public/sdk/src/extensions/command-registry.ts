@@ -39,6 +39,11 @@ export interface NsCommandCandidate extends NsCommandCliInfo {
 	entryPath?: string;
 }
 
+export interface FilesystemNsCommandCandidate extends NsCommandCandidate {
+	readonly commandDirectory: string;
+	readonly filesystemPath: readonly string[];
+}
+
 export interface BuiltInNsCommandCandidate extends NsCommandCandidate {
 	source: NsCommandSourceInfo & { level: "built-in" };
 	command: DescriptorCommand;

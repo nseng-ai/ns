@@ -1,6 +1,11 @@
 import { join } from "node:path";
 
-import { addClinkrCommandStructure, ClinkrApp, createClinkrApp } from "@nseng-ai/clinkr";
+import {
+	addClinkrCommandStructure,
+	ClinkrApp,
+	createClinkrApp,
+	inspectClinkrCommandStructure,
+} from "@nseng-ai/clinkr";
 import { runForTest } from "@nseng-ai/clinkr/testing";
 import { describe, expect, test } from "vitest";
 
@@ -63,6 +68,35 @@ describe("filesystem command structures", () => {
 			exitCode: 0,
 			stdout: "programmatic\n",
 		});
+	});
+
+	test("inspects route metadata and mounts selected routes with mapped invocation context", async () => {
+		const routes = await inspectClinkrCommandStructure(join(fixtureRoot, "basic"));
+		expect(routes).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ type: "command", path: ["hello"] }),
+				expect.objectContaining({ type: "group", path: ["admin"] }),
+			]),
+		);
+		const app = await ClinkrApp.create<{ readonly nested: { readonly value: string } }>(
+			{ name: "fixture", moduleUrl: import.meta.url },
+			async (appBuilder) => {
+				await addClinkrCommandStructure<
+					{ readonly nested: { readonly value: string } },
+					{ readonly value: string }
+				>(appBuilder, join(fixtureRoot, "basic"), {
+					include: (route) => route.path[0] === "hello",
+					mapContext: (context) => context.nested,
+				});
+				return await appBuilder.define();
+			},
+		);
+
+		await expect(
+			runForTest(app, ["hello", "--name", "Ada"], { context: { nested: { value: "x" } } }),
+		).resolves.toMatchObject({ exitCode: 0, stdout: "Hello, Ada.\n" });
+		const help = await runForTest(app, ["--help"], { context: { nested: { value: "x" } } });
+		expect(help.stdout).not.toContain("admin");
 	});
 
 	test("keeps hidden groups out of help", async () => {

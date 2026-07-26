@@ -67,6 +67,66 @@ export default defineExtension({
 		});
 	});
 
+	test("mounts filesystem descriptor commands with invocation-owned extension context", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const packageRoot = join(workspace.cwd, "extensions", "tools");
+		const commandDirectory = join(packageRoot, "src", "commands");
+		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/tools"]\n');
+		writeWorkspaceFile(
+			join(packageRoot, "package.json"),
+			JSON.stringify({
+				name: "tools",
+				version: "1.0.0",
+				exports: { "./ns-extension": "./src/ns-extension.ts" },
+			}),
+		);
+		writeWorkspaceFile(
+			join(packageRoot, "src", "ns-extension.ts"),
+			`
+import { defineExtension } from "@nseng-ai/sdk";
+export default defineExtension({
+  description: "Tool commands.",
+  commandDirectory: ${JSON.stringify(commandDirectory)},
+});
+`,
+		);
+		writeWorkspaceFile(
+			join(commandDirectory, "tools", "group.ts"),
+			`export function group() { return { description: "Tool commands." }; }\n`,
+		);
+		writeWorkspaceFile(
+			join(commandDirectory, "tools", "scan", "command.ts"),
+			`
+import { defineCommand } from ${JSON.stringify(
+				join(import.meta.dirname, "../../../infra/clinkr/src/index.ts"),
+			)};
+import { z } from ${JSON.stringify(join(import.meta.dirname, "../../node_modules/zod/index.js"))};
+export function metadata() { return { summary: "Scan.", description: "Scan with context." }; }
+export function command() { return defineCommand({
+  schema: z.object({}),
+  resultSchema: z.object({ cwd: z.string() }),
+  handler: async (ctx) => ({ type: "ok", data: { cwd: ctx.cwd } }),
+}); }
+`,
+		);
+
+		const run = runCliWithFakes(
+			{
+				args: ["tools", "scan", "--format", "json"],
+				cwd: workspace.cwd,
+				homeDir: workspace.homeDir,
+			},
+			{ execResponses: () => [], textGenerationResults: () => [] },
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr).toEqual([]);
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			status: "ok",
+			data: { cwd: workspace.cwd },
+		});
+	});
+
 	test("routes ls as an alias for descriptor list commands before loading", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/tools"]\n');

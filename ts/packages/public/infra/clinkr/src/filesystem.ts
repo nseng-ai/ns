@@ -62,6 +62,17 @@ export interface CreateClinkrAppOptions<TContext = void> extends Omit<
 	commandDirectory: string;
 }
 
+export interface ClinkrCommandStructureRoute {
+	readonly type: "command" | "group" | "default";
+	readonly path: readonly string[];
+	readonly metadata: Readonly<ClinkrRouteMetadata>;
+}
+
+export interface AddClinkrCommandStructureOptions<TContext, TFilesystemContext = TContext> {
+	readonly include?: (route: ClinkrCommandStructureRoute) => boolean;
+	readonly mapContext?: (context: TContext) => TFilesystemContext;
+}
+
 type CommandDefinition<TContext> =
 	| ClinkrCommandDefinition<TContext, z.ZodObject, unknown>
 	| ClinkrRawCommandDefinition<TContext>;
@@ -142,42 +153,99 @@ export async function createClinkrApp<TContext = void>(
 }
 
 /** Add one absolute filesystem command structure to an app or group builder. */
+export async function inspectClinkrCommandStructure(
+	commandDirectory: string,
+): Promise<readonly ClinkrCommandStructureRoute[]> {
+	assertAbsoluteCommandDirectory(commandDirectory);
+	const routes: ClinkrCommandStructureRoute[] = [];
+	await inspectCommandStructure(commandDirectory, [], routes, nodeCommandStructureGateway);
+	return Object.freeze(routes);
+}
+
 export async function addClinkrCommandStructure<TContext>(
 	builder: ClinkrAppBuilder<TContext> | ClinkrGroupBuilder<TContext>,
 	commandDirectory: string,
+	options?: AddClinkrCommandStructureOptions<TContext>,
+): Promise<void>;
+export async function addClinkrCommandStructure<TContext, TFilesystemContext>(
+	builder: ClinkrAppBuilder<TContext> | ClinkrGroupBuilder<TContext>,
+	commandDirectory: string,
+	options: AddClinkrCommandStructureOptions<TContext, TFilesystemContext> & {
+		readonly mapContext: (context: TContext) => TFilesystemContext;
+	},
+): Promise<void>;
+export async function addClinkrCommandStructure<TContext, TFilesystemContext = TContext>(
+	builder: ClinkrAppBuilder<TContext> | ClinkrGroupBuilder<TContext>,
+	commandDirectory: string,
+	options: AddClinkrCommandStructureOptions<TContext, TFilesystemContext> = {},
 ): Promise<void> {
 	assertAbsoluteCommandDirectory(commandDirectory);
-	await addCommandStructure(builder, commandDirectory, nodeCommandStructureGateway);
+	if (options.mapContext === undefined) {
+		await addCommandStructureWithSameContext(builder, commandDirectory, options.include);
+		return;
+	}
+	await addCommandStructure(builder, commandDirectory, nodeCommandStructureGateway, [], {
+		...(options.include === undefined ? {} : { include: options.include }),
+		mapContext: options.mapContext,
+	});
 }
 
-async function addCommandStructure<TContext>(
+async function addCommandStructureWithSameContext<TContext>(
+	builder: ClinkrAppBuilder<TContext> | ClinkrGroupBuilder<TContext>,
+	commandDirectory: string,
+	include: ((route: ClinkrCommandStructureRoute) => boolean) | undefined,
+): Promise<void> {
+	await addCommandStructure(builder, commandDirectory, nodeCommandStructureGateway, [], {
+		...(include === undefined ? {} : { include }),
+		mapContext: identityContext,
+	});
+}
+
+async function addCommandStructure<TContext, TFilesystemContext>(
 	builder: ClinkrAppBuilder<TContext> | ClinkrGroupBuilder<TContext>,
 	directory: string,
 	gateway: CommandStructureGateway,
+	path: readonly string[],
+	options: CommandStructureMountOptions<TContext, TFilesystemContext>,
 ): Promise<void> {
 	const entries = await gateway.readDirectory(directory);
 	const rootCommand = entries.find((entry) => entry.name === "command.ts" && entry.isFile);
 	if (rootCommand !== undefined) {
-		const module = await loadCommandModule<TContext>(join(directory, rootCommand.name), gateway);
-		module.metadata();
-		await builder.defaultCommand(async (commandBuilder) =>
-			defineFilesystemCommand(commandBuilder, module, undefined),
+		const module = await loadCommandModule<TFilesystemContext>(
+			join(directory, rootCommand.name),
+			gateway,
 		);
+		const metadata = validateCommandMetadata(module.metadata(), join(directory, rootCommand.name));
+		const route = structureRoute("default", path, path.at(-1) ?? "", metadata);
+		if (options.include?.(route) !== false) {
+			await builder.defaultCommand(async (commandBuilder) =>
+				defineFilesystemCommand(commandBuilder, module, undefined, options.mapContext),
+			);
+		}
 	}
 
 	const routeDirectories = entries
 		.filter((entry) => entry.isDirectory)
 		.toSorted((left, right) => left.name.localeCompare(right.name));
 	for (const entry of routeDirectories) {
-		await addDirectoryRoute(builder, join(directory, entry.name), entry.name, gateway);
+		await addDirectoryRoute(
+			builder,
+			join(directory, entry.name),
+			entry.name,
+			gateway,
+			[...path, entry.name],
+			options,
+		);
 	}
 }
 
-async function addDirectoryRoute<TContext>(
+async function addDirectoryRoute<TContext, TFilesystemContext>(
 	builder: ClinkrAppBuilder<TContext> | ClinkrGroupBuilder<TContext>,
 	directory: string,
 	name: string,
 	gateway: CommandStructureGateway,
+	path: readonly string[],
+	options: CommandStructureMountOptions<TContext, TFilesystemContext>,
 ): Promise<void> {
 	const entries = await gateway.readDirectory(directory);
 	const hasGroup = entries.some((entry) => entry.name === "group.ts" && entry.isFile);
@@ -188,35 +256,176 @@ async function addDirectoryRoute<TContext>(
 	if (hasGroup) {
 		const module = await loadGroupModule(join(directory, "group.ts"), gateway);
 		const definition = validateGroupDefinition(module.group(), join(directory, "group.ts"));
-		builder.group(routeMetadata(name, definition), async (groupBuilder) => {
-			await addCommandStructure(groupBuilder, directory, gateway);
-			return await groupBuilder.define();
-		});
+		const route = structureRoute("group", path, name, definition);
+		const includedChildren = await hasIncludedCommandRoute(
+			directory,
+			path,
+			gateway,
+			options.include,
+		);
+		if (options.include?.(route) !== false || includedChildren) {
+			builder.group(route.metadata, async (groupBuilder) => {
+				await addCommandStructure(groupBuilder, directory, gateway, path, options);
+				return await groupBuilder.define();
+			});
+		}
 		return;
 	}
 
-	const module = await loadCommandModule<TContext>(join(directory, "command.ts"), gateway);
+	const module = await loadCommandModule<TFilesystemContext>(
+		join(directory, "command.ts"),
+		gateway,
+	);
 	const metadata = validateCommandMetadata(module.metadata(), join(directory, "command.ts"));
-	builder.command(routeMetadata(name, metadata), async (commandBuilder) =>
-		defineFilesystemCommand(commandBuilder, module, name),
+	const route = structureRoute("command", path, name, metadata);
+	if (options.include?.(route) === false) return;
+	builder.command(route.metadata, async (commandBuilder) =>
+		defineFilesystemCommand(commandBuilder, module, name, options.mapContext),
 	);
 }
 
-async function defineFilesystemCommand<TContext>(
+async function defineFilesystemCommand<TContext, TFilesystemContext>(
 	builder: ClinkrCommandBuilder<TContext>,
-	module: CommandModule<TContext>,
+	module: CommandModule<TFilesystemContext>,
 	name: string | undefined,
+	mapContext: (context: TContext) => TFilesystemContext,
 ): Promise<ClinkrCommand<TContext>> {
-	const definition = await module.command();
-	if (!isObject(definition) || !commandDefinitions.has(definition)) {
+	const loadedDefinition = await module.command();
+	if (!isObject(loadedDefinition) || !commandDefinitions.has(loadedDefinition)) {
 		throw new Error("clinkr: command() must return a definition created by defineCommand()");
 	}
+	const definition = mapDefinitionContext(loadedDefinition, mapContext);
 	if (definition.isRawExit === true) {
 		if (name === undefined) return await builder.defineDefault(definition);
 		return await builder.define({ ...definition, name });
 	}
 	if (name === undefined) return await builder.defineDefault(definition);
 	return await builder.define({ ...definition, name });
+}
+
+type CommandStructureMountOptions<TContext, TFilesystemContext> = Required<
+	Pick<AddClinkrCommandStructureOptions<TContext, TFilesystemContext>, "mapContext">
+> &
+	Pick<AddClinkrCommandStructureOptions<TContext, TFilesystemContext>, "include">;
+
+function identityContext<TContext>(context: TContext): TContext {
+	return context;
+}
+
+function mapDefinitionContext<TContext, TFilesystemContext>(
+	definition: CommandDefinition<TFilesystemContext>,
+	mapContext: (context: TContext) => TFilesystemContext,
+): CommandDefinition<TContext> {
+	if (definition.isRawExit === true) {
+		const { completionProvider, ...spec } = definition;
+		return {
+			...spec,
+			run: async (context, invocation) => await definition.run(mapContext(context), invocation),
+			...(completionProvider === undefined
+				? {}
+				: {
+						completionProvider: async (context, request) =>
+							await completionProvider(mapContext(context), request),
+					}),
+		};
+	}
+	const { completionProvider, ...spec } = definition;
+	return {
+		...spec,
+		handler: async (context, request) => await definition.handler(mapContext(context), request),
+		...(completionProvider === undefined
+			? {}
+			: {
+					completionProvider: async (context, request) =>
+						await completionProvider(mapContext(context), request),
+				}),
+	};
+}
+
+async function inspectCommandStructure(
+	directory: string,
+	path: readonly string[],
+	routes: ClinkrCommandStructureRoute[],
+	gateway: CommandStructureGateway,
+): Promise<void> {
+	const entries = await gateway.readDirectory(directory);
+	const rootCommand = entries.find((entry) => entry.name === "command.ts" && entry.isFile);
+	if (rootCommand !== undefined) {
+		const file = join(directory, rootCommand.name);
+		const module = await loadCommandModule(file, gateway);
+		routes.push(
+			structureRoute(
+				"default",
+				path,
+				path.at(-1) ?? "",
+				validateCommandMetadata(module.metadata(), file),
+			),
+		);
+	}
+	const routeDirectories = entries
+		.filter((entry) => entry.isDirectory)
+		.toSorted((left, right) => left.name.localeCompare(right.name));
+	for (const entry of routeDirectories) {
+		const childDirectory = join(directory, entry.name);
+		const childPath = [...path, entry.name];
+		const childEntries = await gateway.readDirectory(childDirectory);
+		const hasGroup = childEntries.some((child) => child.name === "group.ts" && child.isFile);
+		const hasCommand = childEntries.some((child) => child.name === "command.ts" && child.isFile);
+		if (!hasGroup && !hasCommand) {
+			throw new Error(
+				`clinkr: command directory '${childDirectory}' must contain group.ts or command.ts`,
+			);
+		}
+		if (hasGroup) {
+			const file = join(childDirectory, "group.ts");
+			const module = await loadGroupModule(file, gateway);
+			routes.push(
+				structureRoute(
+					"group",
+					childPath,
+					entry.name,
+					validateGroupDefinition(module.group(), file),
+				),
+			);
+			await inspectCommandStructure(childDirectory, childPath, routes, gateway);
+			continue;
+		}
+		const file = join(childDirectory, "command.ts");
+		const module = await loadCommandModule(file, gateway);
+		routes.push(
+			structureRoute(
+				"command",
+				childPath,
+				entry.name,
+				validateCommandMetadata(module.metadata(), file),
+			),
+		);
+	}
+}
+
+async function hasIncludedCommandRoute(
+	directory: string,
+	path: readonly string[],
+	gateway: CommandStructureGateway,
+	include: ((route: ClinkrCommandStructureRoute) => boolean) | undefined,
+): Promise<boolean> {
+	if (include === undefined) return true;
+	const routes: ClinkrCommandStructureRoute[] = [];
+	await inspectCommandStructure(directory, path, routes, gateway);
+	return routes.some((route) => route.type !== "group" && include(route));
+}
+
+function structureRoute(
+	type: ClinkrCommandStructureRoute["type"],
+	path: readonly string[],
+	name: string,
+	definition: ClinkrCommandMetadata | ClinkrGroupDefinition,
+): ClinkrCommandStructureRoute {
+	return Object.freeze({
+		type,
+		path: Object.freeze([...path]),
+		metadata: Object.freeze(routeMetadata(name, definition)),
+	});
 }
 
 async function loadCommandModule<TContext>(

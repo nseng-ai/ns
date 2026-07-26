@@ -1,4 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
+
+import { inspectClinkrCommandStructure } from "@nseng-ai/clinkr";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,6 +14,7 @@ import {
 	listBuiltInNsCommandCandidates,
 	validateDescriptorCommandContribution,
 	type BuiltInNsCommandCandidate,
+	type FilesystemNsCommandCandidate,
 	type NsCommandCandidate,
 	type NsCommandCliInfo,
 	type NsCommandPath,
@@ -32,6 +35,7 @@ import {
 	type NsCommandModuleReference,
 } from "./module-reference.ts";
 import {
+	formatErrorMessage,
 	isPathInside,
 	optionalEntry,
 	type ExplicitUndefined,
@@ -63,7 +67,10 @@ interface LoadedCatalogFragment {
 	readonly extensionPackageNames: readonly string[];
 }
 
-export type ExtensionCommandCandidate = BuiltInNsCommandCandidate | ExternalNsCommandCandidate;
+export type ExtensionCommandCandidate =
+	| BuiltInNsCommandCandidate
+	| ExternalNsCommandCandidate
+	| FilesystemNsCommandCandidate;
 
 export interface ExternalNsCommandCandidate extends NsCommandCandidate {
 	moduleReference: NsCommandModuleReference;
@@ -234,6 +241,11 @@ export async function loadSelectedNsCommand(
 		return { ok: true, command: candidate.command, source: candidate.source, path: candidate };
 	}
 
+	if (isFilesystemCandidate(candidate)) {
+		throw new Error(
+			`ns: filesystem command ${commandKey(candidate)} must be loaded through its Clinkr mount`,
+		);
+	}
 	const loaded = await loadNsExtensionContribution(candidate.moduleReference);
 	if (!loaded.ok) {
 		return {
@@ -282,7 +294,7 @@ export async function loadListingCommandInfos(
 			loadedInfos.push({ commandInfo: toCommandCliInfo(candidate), diagnostic: undefined });
 			continue;
 		}
-		if (isBuiltInCandidate(candidate)) {
+		if (isBuiltInCandidate(candidate) || isFilesystemCandidate(candidate)) {
 			loadedInfos.push({ commandInfo: toCommandCliInfo(candidate), diagnostic: undefined });
 			continue;
 		}
@@ -402,26 +414,46 @@ async function loadProjectDescriptorCandidates(cwd: string): Promise<LoadedCatal
 	const declared = readDeclaredExtensionSpecs(cwd);
 	if (!declared.ok) return emptyLoadedCatalogFragment([declared.diagnostic]);
 	const loaded = await loadDeclaredExtensionDescriptors({ repoRoot: cwd, specs: declared.specs });
+	const fragments = await Promise.all(
+		loaded.descriptors.map(async (record): Promise<LoadedCatalogFragment> => {
+			try {
+				return {
+					diagnostics: [],
+					extensionPackageNames: [record.packageName],
+					candidates: await descriptorCommandCandidates({
+						cwd,
+						spec: record.spec,
+						packageDir: record.moduleRoot,
+						descriptorPath: record.descriptorPath,
+						descriptor: record.descriptor,
+						sourceLevel: "project",
+						sourceLabel: `ns.toml descriptor ${record.spec}`,
+					}),
+				};
+			} catch (error) {
+				return emptyLoadedCatalogFragment([
+					projectErrorDiagnostic(
+						"extension_command_structure_invalid",
+						`Invalid ns extension command structure ${record.descriptorPath}: ${formatErrorMessage(error)}`,
+						record.descriptorPath,
+					),
+				]);
+			}
+		}),
+	);
 	return {
-		diagnostics: loaded.diagnostics.map((diagnostic) =>
-			projectErrorDiagnostic(
-				diagnostic.code,
-				diagnostic.message,
-				diagnostic.path ?? join(cwd, "ns.toml"),
+		diagnostics: [
+			...loaded.diagnostics.map((diagnostic) =>
+				projectErrorDiagnostic(
+					diagnostic.code,
+					diagnostic.message,
+					diagnostic.path ?? join(cwd, "ns.toml"),
+				),
 			),
-		),
-		extensionPackageNames: loaded.descriptors.map((record) => record.packageName),
-		candidates: loaded.descriptors.flatMap((record) =>
-			descriptorCommandCandidates({
-				cwd,
-				spec: record.spec,
-				packageDir: record.moduleRoot,
-				descriptorPath: record.descriptorPath,
-				descriptor: record.descriptor,
-				sourceLevel: "project",
-				sourceLabel: `ns.toml descriptor ${record.spec}`,
-			}),
-		),
+			...fragments.flatMap((fragment) => fragment.diagnostics),
+		],
+		extensionPackageNames: fragments.flatMap((fragment) => fragment.extensionPackageNames),
+		candidates: fragments.flatMap((fragment) => fragment.candidates),
 	};
 }
 
@@ -447,7 +479,7 @@ function readDeclaredExtensionSpecs(
 	};
 }
 
-function descriptorCommandCandidates(options: {
+async function descriptorCommandCandidates(options: {
 	cwd: string;
 	spec: string;
 	packageDir: string;
@@ -455,7 +487,33 @@ function descriptorCommandCandidates(options: {
 	descriptor: ExtensionDescriptor;
 	sourceLevel: ExtensionSourceLevel;
 	sourceLabel: string;
-}): readonly ExtensionCommandCandidate[] {
+}): Promise<readonly ExtensionCommandCandidate[]> {
+	const commandDirectory = options.descriptor.commandDirectory;
+	if (commandDirectory !== undefined) {
+		const routes = await inspectClinkrCommandStructure(commandDirectory);
+		return routes.flatMap((route) => {
+			if (route.type !== "command") return [];
+			const name = route.path.at(-1);
+			if (name === undefined) return [];
+			return [
+				{
+					name,
+					segments: route.path,
+					description: route.metadata.summary ?? route.metadata.description ?? name,
+					fullDescription: route.metadata.description ?? route.metadata.summary ?? name,
+					...optionalEntry("helpGroup", route.metadata.helpGroup),
+					commandDirectory,
+					filesystemPath: route.path,
+					entryPath: options.descriptorPath,
+					source: {
+						level: options.sourceLevel,
+						label: options.sourceLabel,
+						path: options.descriptorPath,
+					},
+				},
+			];
+		});
+	}
 	const entries = options.descriptor.entries ?? [];
 	return entries.flatMap((entry) =>
 		descriptorEntryCommandCandidates({
@@ -626,7 +684,7 @@ async function loadSourceDevDescriptorCandidates(options: {
 	return {
 		diagnostics: [],
 		extensionPackageNames: [loaded.value.packageName],
-		candidates: descriptorCommandCandidates({
+		candidates: await descriptorCommandCandidates({
 			cwd: options.cwd,
 			spec,
 			packageDir: options.packageDir,
@@ -898,6 +956,12 @@ function sourceLevelRank(level: ExtensionSourceLevel): number {
 	return rank;
 }
 
+function isFilesystemCandidate(
+	candidate: ExtensionCommandCandidate,
+): candidate is FilesystemNsCommandCandidate {
+	return "commandDirectory" in candidate;
+}
+
 function isBuiltInCandidate(
 	candidate: ExtensionCommandCandidate,
 ): candidate is BuiltInNsCommandCandidate {
@@ -913,7 +977,9 @@ function fromLoadDiagnostic(
 }
 
 function candidateDiagnosticPath(candidate: ExtensionCommandCandidate): string {
-	if (isBuiltInCandidate(candidate)) return formatSource(candidate.source);
+	if (isBuiltInCandidate(candidate) || isFilesystemCandidate(candidate)) {
+		return formatSource(candidate.source);
+	}
 	return moduleReferenceDisplay(candidate.moduleReference);
 }
 

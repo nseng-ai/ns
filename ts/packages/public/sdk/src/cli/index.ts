@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import {
+	addClinkrCommandStructure,
 	ClinkrGroup,
 	clinkrFormatFromArgs,
 	clinkrNameMatchesAutomaticAlias,
@@ -70,6 +71,7 @@ import {
 	commandPathMatches,
 	commandSegments,
 	listStaticNsCommandInfos,
+	type FilesystemNsCommandCandidate,
 	type NsCommandInfo,
 	type NsCommandCliInfo,
 	type NsCommandPath,
@@ -122,6 +124,7 @@ export interface BuildNsCliOptions {
 
 interface NsCliBuildState {
 	commandInfos: readonly NsCommandCliInfo[];
+	filesystemCandidates?: readonly FilesystemNsCommandCandidate[];
 	selectedCommand?: DescriptorCommand;
 	selectedCommandPath?: NsCommandPath;
 }
@@ -259,10 +262,13 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 		return {
 			type: "run",
 			context: contextWithIO,
-			buildState: selectedCommandResolution.resolution,
+			buildState: {
+				...selectedCommandResolution.resolution,
+				filesystemCandidates: filesystemCandidates(commandCatalog),
+			},
 		};
 	},
-	buildCli: ({ appBuilder, description, version, runtimeInfo, buildState }) => {
+	buildCli: async ({ appBuilder, description, version, runtimeInfo, buildState }) => {
 		const root = new ClinkrGroup<NsCliContext>({
 			name: "ns",
 			description,
@@ -270,8 +276,10 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 			runtimeInfo,
 		});
 		const groups = new Map<string, ClinkrGroup<NsCliContext>>();
+		const mountedFilesystemCandidates = buildState.filesystemCandidates ?? [];
 		const topLevelHelpGroups = resolveTopLevelHelpGroups(buildState.commandInfos);
 		for (const commandInfo of buildState.commandInfos) {
+			if (isFilesystemCommandInfo(commandInfo, mountedFilesystemCandidates)) continue;
 			const parent = groupForCommand(root, groups, commandInfo, topLevelHelpGroups);
 			const topLevelSegment = commandSegments(commandInfo)[0];
 			const helpGroup =
@@ -358,6 +366,19 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 		root.group(buildNsShellGroup());
 		root.group(buildNsCompletionGroup());
 		appBuilder.importLegacyClinkrGroupForMigration(root);
+		for (const commandDirectory of new Set(
+			mountedFilesystemCandidates.map((candidate) => candidate.commandDirectory),
+		)) {
+			const includedKeys = new Set(
+				mountedFilesystemCandidates
+					.filter((candidate) => candidate.commandDirectory === commandDirectory)
+					.map((candidate) => candidate.filesystemPath.join("/")),
+			);
+			await addClinkrCommandStructure<NsCliContext, NsExtensionApi>(appBuilder, commandDirectory, {
+				include: (route) => route.type === "group" || includedKeys.has(route.path.join("/")),
+				mapContext: (context) => context.context,
+			});
+		}
 	},
 };
 
@@ -366,6 +387,7 @@ const entry = defineCli(entryOptions);
 export async function buildCli(options: BuildNsCliOptions = {}): Promise<ClinkrApp<NsCliContext>> {
 	return await entry.buildCli({
 		commandInfos: options.commandInfos ?? listStaticNsCommandInfos(),
+		filesystemCandidates: [],
 		...optionalEntries({
 			selectedCommand: options.selectedCommand,
 			selectedCommandPath: options.selectedCommandPath,
@@ -429,7 +451,10 @@ async function handleCompletionResolverInvocation(options: {
 			confirm: options.confirm,
 		}),
 	});
-	const app = await buildCli(selectedCommandResolution.resolution);
+	const app = await entry.buildCli({
+		...selectedCommandResolution.resolution,
+		filesystemCandidates: filesystemCandidates(options.commandCatalog),
+	});
 	const candidates = await app.complete({ words }, { context });
 	options.stdout(renderCompletionCandidatesNewline(candidates));
 	return { type: "handled", exitCode: 0 };
@@ -449,7 +474,9 @@ async function resolveSelectedNsCommand(options: {
 > {
 	const selectedCommandLoader = options.loadSelectedCommand ?? loadSelectedNsCommand;
 	const loadedSelectedCommand =
-		options.candidate === undefined ? undefined : await selectedCommandLoader(options.candidate);
+		options.candidate === undefined || "commandDirectory" in options.candidate
+			? undefined
+			: await selectedCommandLoader(options.candidate);
 	if (loadedSelectedCommand !== undefined && !loadedSelectedCommand.ok) {
 		options.stderr(`${formatExtensionErrorDiagnostics([loadedSelectedCommand.diagnostic])}\n`);
 		return { ok: false, handled: { type: "handled", exitCode: options.failureExitCode } };
@@ -524,6 +551,19 @@ async function buildNsCliContext(options: {
 		stdout: options.stdout,
 		stderr: options.stderr,
 	};
+}
+
+function filesystemCandidates(catalog: NsCommandCatalog): readonly FilesystemNsCommandCandidate[] {
+	return [...catalog.candidates.values()].filter(
+		(candidate): candidate is FilesystemNsCommandCandidate => "commandDirectory" in candidate,
+	);
+}
+
+function isFilesystemCommandInfo(
+	commandInfo: NsCommandCliInfo,
+	candidates: readonly FilesystemNsCommandCandidate[],
+): boolean {
+	return candidates.some((candidate) => commandPathMatches(candidate, commandInfo));
 }
 
 function clinkrIo(ctx: NsCliContext): ClinkrIo {

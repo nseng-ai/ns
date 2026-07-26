@@ -162,6 +162,42 @@ describe("extension descriptor SDK", () => {
 		});
 	});
 
+	test("accepts an absolute filesystem mount while preserving extension metadata", () => {
+		const descriptor = defineExtension({
+			description: "Filesystem commands.",
+			commandDirectory: "/extensions/example/commands",
+			points: [{ id: "example", accepts: "hook", cardinality: "many" }],
+			activation: { consumerDirs: [".ns/example"] },
+			bundledArtifacts: [{ kind: "skill", name: "example", path: "./skills/example" }],
+		});
+
+		expect(validateExtensionDescriptor(descriptor)).toEqual({ ok: true, descriptor });
+	});
+
+	test.each([
+		{ commandDirectory: "./commands", expected: "commandDirectory" },
+		{
+			commandDirectory: "/extensions/example/commands",
+			group: "example",
+			expected: "commandDirectory",
+		},
+		{
+			commandDirectory: "/extensions/example/commands",
+			entries: [],
+			expected: "commandDirectory",
+		},
+	])("rejects invalid or mixed filesystem descriptors %#", ({ expected, ...descriptor }) => {
+		const parsed = validateExtensionDescriptor({ description: "Invalid mount.", ...descriptor });
+
+		expect(parsed).toEqual({ ok: false, message: expect.stringContaining(expected) });
+	});
+
+	test("defineExtension rejects relative command directories immediately", () => {
+		expect(() =>
+			defineExtension({ description: "Relative mount.", commandDirectory: "./commands" }),
+		).toThrow("commandDirectory must be absolute");
+	});
+
 	test("accepts and preserves a command extension requirement", () => {
 		const load = () => ({
 			default: defineRawCommand({

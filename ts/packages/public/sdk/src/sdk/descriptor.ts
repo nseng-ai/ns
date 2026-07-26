@@ -1,3 +1,5 @@
+import { isAbsolute } from "node:path";
+
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
@@ -67,14 +69,26 @@ export interface ExtensionActivation {
 	readonly consumerDirs?: readonly string[];
 }
 
-export interface ExtensionDescriptor {
-	readonly group?: string;
+interface ExtensionDescriptorMetadata {
 	readonly description: string;
-	readonly entries?: readonly ExtensionEntry[];
 	readonly points?: readonly ExtensionPointDefinition[];
 	readonly activation?: ExtensionActivation;
 	readonly bundledArtifacts?: readonly BundledArtifactDefinition[];
 }
+
+export interface FilesystemExtensionDescriptor extends ExtensionDescriptorMetadata {
+	readonly commandDirectory: string;
+	readonly group?: never;
+	readonly entries?: never;
+}
+
+export interface LegacyExtensionDescriptor extends ExtensionDescriptorMetadata {
+	readonly commandDirectory?: never;
+	readonly group?: string;
+	readonly entries?: readonly ExtensionEntry[];
+}
+
+export type ExtensionDescriptor = FilesystemExtensionDescriptor | LegacyExtensionDescriptor;
 
 export function hiddenExecGroup(
 	description: string,
@@ -216,6 +230,11 @@ const extensionActivationSchema: z.ZodType<ExtensionActivation> = z
 
 export const extensionDescriptorSchema: z.ZodType<ExtensionDescriptor> = z
 	.strictObject({
+		commandDirectory: z
+			.string()
+			.min(1)
+			.refine(isAbsolute, { message: "must be an absolute filesystem path" })
+			.optional(),
 		group: z.string().min(1).optional(),
 		description: z.string().min(1),
 		entries: z.array(extensionEntrySchema).optional(),
@@ -223,18 +242,35 @@ export const extensionDescriptorSchema: z.ZodType<ExtensionDescriptor> = z
 		activation: extensionActivationSchema.optional(),
 		bundledArtifacts: z.array(bundledArtifactDefinitionSchema).optional(),
 	})
-	.transform(
-		(descriptor): ExtensionDescriptor => ({
-			...optionalEntries({ group: descriptor.group }),
+	.superRefine((descriptor, context) => {
+		if (
+			descriptor.commandDirectory !== undefined &&
+			(descriptor.group !== undefined || descriptor.entries !== undefined)
+		) {
+			context.addIssue({
+				code: "custom",
+				message: "cannot be combined with group or entries",
+				path: ["commandDirectory"],
+			});
+		}
+	})
+	.transform((descriptor): ExtensionDescriptor => {
+		const metadata = {
 			description: descriptor.description,
 			...optionalEntries({
-				entries: descriptor.entries,
 				points: descriptor.points,
 				activation: descriptor.activation,
 				bundledArtifacts: descriptor.bundledArtifacts,
 			}),
-		}),
-	);
+		};
+		if (descriptor.commandDirectory !== undefined) {
+			return { ...metadata, commandDirectory: descriptor.commandDirectory };
+		}
+		return {
+			...metadata,
+			...optionalEntries({ group: descriptor.group, entries: descriptor.entries }),
+		};
+	});
 
 function isSingleLevelTwoMarkdownSection(instructions: string): boolean {
 	const [heading, ...remainingLines] = instructions.split("\n");
