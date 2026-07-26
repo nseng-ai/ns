@@ -446,99 +446,24 @@ expect(run).toMatchObject({
 
 `@nseng-ai/clinkr/testing` provides captured I/O, test invocation helpers, fake confirmation, machine-envelope parsing, ANSI stripping, and import-boundary scanners. Tests exercise parsing, handlers, rendering, and exit codes together without touching process-global state or real external dependencies.
 
-## Advanced: Testable plugin systems
-
-A plugin may need dependencies the host does not know about. Do not grow the host context with every plugin's gateways. Give the whole Clinkr tree a small, stable host context, then let each plugin own a factory that derives or constructs its narrower domain context.
-
-```ts
-interface ToolHost {
-	readonly cwd: string;
-	readonly env: NodeJS.ProcessEnv;
-}
-
-interface PublishContext {
-	readonly cwd: string;
-	readonly registry: PackageRegistry;
-}
-
-function createPublishContext(host: ToolHost): PublishContext {
-	return {
-		cwd: host.cwd,
-		registry: new RealPackageRegistry({
-			token: host.env["REGISTRY_TOKEN"],
-		}),
-	};
-}
-```
-
-The plugin adapts the host-facing command to its domain handler. `defineDomainCommand` below is an application helper built on Clinkr, not a special kind of group:
-
-```ts
-function createPublishCommand(
-	createContext: (host: ToolHost) => PublishContext = createPublishContext,
-) {
-	return defineDomainCommand({
-		name: "publish",
-		schema: z.object({ packageName: z.string() }),
-		resultSchema: z.object({ packageName: z.string() }),
-		positionals: {
-			packageName: { index: 0 },
-		},
-		createContext,
-		handler: runPublish,
-		renderHuman: (result) => `Published ${result.packageName}`,
-	});
-}
-```
-
-Internally, that helper registers a `ClinkrCommand<ToolHost>` whose handler creates the plugin context before calling `runPublish`:
-
-```ts
-handler: async (host, request) => {
-	const context = await createContext(host);
-	return await runPublish(context, request);
-},
-```
-
-Clinkr still sees one homogeneous `ToolHost` context across the command tree. The plugin owns `PublishContext`, `RealPackageRegistry`, and their construction. Another plugin in the same tree can derive a different context without the group knowing about either domain type.
-
-Test the mounted plugin by replacing its context factory with one that supplies plugin-owned fakes:
-
-```ts
-test("publishes through the plugin command", async () => {
-	const registry = new FakePackageRegistry();
-	const publish = createPublishCommand(() => ({
-		cwd: "/workspace",
-		registry,
-	}));
-
-	const root = new ClinkrGroup<ToolHost>({ name: "tool" });
-	root.command(publish);
-
-	const app = new ClinkrApp({ root });
-	const run = await runForTest(app, ["publish", "widget"], {
-		context: {
-			cwd: "/workspace",
-			env: {},
-		},
-	});
-
-	expect(run).toEqual({
-		exitCode: 0,
-		stdout: "Published widget\n",
-		stderr: "",
-	});
-	expect(registry.publishedPackages).toEqual(["widget"]);
-});
-```
-
-This scenario exercises plugin registration, dispatch, argument parsing, host-to-domain adaptation, domain behavior, rendering, and exit status without calling a real registry. The domain handler can also be tested directly with a `PublishContext`; the mounted scenario proves the integration boundary.
-
-First-class per-command context factories may come later. Until then, a small adapter like `defineDomainCommand` keeps plugin contexts independently owned without changing the homogeneous group-context model.
+For plugin systems, keep the Clinkr tree's host context small and stable. Each plugin can own an application-level adapter that derives its narrower domain context before invoking its handler. This preserves Clinkr's homogeneous tree-context model without making every plugin dependency part of the host contract. Focused application-architecture examples should teach that pattern outside this primary package narrative.
 
 ## Interactive confirmation
 
-Use `createClinkrInteraction` and the confirmation helpers when a command may prompt. The interaction object keeps confirmation policy injectable for tests and non-interactive hosts. When interaction is unavailable, a command that requires a prompt should fail with a usage error—never hang or silently assume consent.
+Use `createClinkrInteraction` and the confirmation helpers when a command may prompt. Put the interaction in application context so the same command can receive a real terminal adapter, a deliberately unavailable interaction in non-interactive hosts, or a strict fake in tests.
+
+```ts
+handler: async (context, request) => {
+	const confirmation = await confirmInteractiveOrUsageError(context.interaction, {
+		message: `Delete ${request.name}?`,
+	});
+	if (confirmation.type !== "confirmed") return confirmation;
+	await context.records.delete(request.name);
+	return ok();
+},
+```
+
+A command that requires a prompt must return a usage error when interaction is unavailable—never hang or silently assume consent. `@nseng-ai/clinkr/testing` supplies strict interaction fakes for confirming expected prompts and answers without process-global terminal state. The exported interaction and testing types cover the lower-level policy and adapter options.
 
 ## Escape hatches
 
@@ -548,9 +473,31 @@ Use `createClinkrInteraction` and the confirmation helpers when a command may pr
 
 Use this escape hatch when exact passthrough is the command's job, when an existing Commander tree must be reused, or when an application needs to work around a Clinkr limitation without abandoning Clinkr for the rest of its CLI.
 
+```ts
+import { Command } from "commander";
+
+const legacy = new Command("legacy").action(() => {
+	process.stdout.write("legacy output\n");
+});
+
+root.rawCommand(legacy);
+```
+
+See `@nseng-ai/clinkr/raw` and its exported types for the exact mounting API.
+
 ### Streaming output
 
 `@nseng-ai/clinkr/stream` provides live-region sinks for progressive terminal output. TTY sinks may animate and manage cursor state; non-TTY sinks avoid cursor control and settle to ordinary output suitable for logs and automation.
+
+```ts
+const sink = createStreamSink(caps, deps);
+await runStream(sink, async (stream) => {
+	stream.update(["Fetching records…"]);
+	await fetchRecords();
+});
+```
+
+Progress belongs on stderr so JSON stdout stays clean. Durable answer streaming to stdout is exceptional and must be suppressed in JSON mode. See the stream entrypoint's exported types for sink, writer, clock, and rendering configuration.
 
 ## Public entrypoints
 
@@ -562,7 +509,7 @@ Use this escape hatch when exact passthrough is the command's job, when an exist
 | `@nseng-ai/clinkr/stream`     | Progressive terminal and settled-output sinks                                                   |
 | `@nseng-ai/clinkr/testing`    | Public command-testing utilities                                                                |
 
-Every entrypoint ships full TypeScript types; those types are the API reference until a separate docs surface exists.
+Every entrypoint ships full TypeScript types; those types are the detailed API reference until a separate docs surface exists. The README teaches adopter workflows rather than cataloging every low-level capability, I/O, envelope, format, emission, completion-planning, or testing utility.
 
 ## License
 
