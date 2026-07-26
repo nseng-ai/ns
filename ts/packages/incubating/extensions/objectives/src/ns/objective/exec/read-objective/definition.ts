@@ -10,6 +10,7 @@ export async function command() {
 	return objectiveNsCommand({
 		schema: readObjectiveRequestSchema,
 		resultSchema: readObjectiveResultSchema,
+		negativeSchema: readObjectiveResultSchema,
 		positionals: { slug: { position: 0 } },
 		handler: runReadObjective,
 		renderHuman: renderReadObjective,

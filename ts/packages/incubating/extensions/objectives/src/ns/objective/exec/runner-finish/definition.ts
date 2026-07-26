@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { objectiveNsCommand } from "../../../objective-command.ts";
 import {
 	runnerFinishRequestSchema,
@@ -10,6 +12,9 @@ export async function command() {
 	return objectiveNsCommand({
 		schema: runnerFinishRequestSchema,
 		resultSchema: runnerFinishResultSchema,
+		negativeSchema: runnerFinishResultSchema,
+		failureSchema: runnerFinishResultSchema,
+		usageErrorSchema: z.any(),
 		positionals: { slug: { position: 0 } },
 		createContext: createNsObjectiveRunnerCoreContext,
 		handler: runRunnerFinish,
