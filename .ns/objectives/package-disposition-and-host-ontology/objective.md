@@ -71,7 +71,7 @@ Risks:
 - **Identity ripple.** Renaming `@nseng-ai/pi` and creating multiple Pi extension packages affects imports, exports, lockfiles, scripts, fixtures, documentation, and package preparation. The destination map must enumerate consumers before cutover.
 - **Guard blind spots.** Path checks alone may miss runtime imports, generated metadata, or subpath exports. Completion requires both topology/dependency enforcement and focused structural checks for forbidden Pi surfaces in ns extensions.
 - **Terminology ambiguity.** `public` describes release warrant, not TypeScript visibility or proof of current npm publication. The package contract must state this explicitly.
-- **Parent-guidance contradiction.** The approved design supersedes `professional-repo-curation`'s flat-incubator direction. The parent record and orientation must be reconciled before implementation begins; historical ADR 0044 and immutable updates remain unchanged.
+- **Parent-guidance contradiction.** De-risked 2026-07-26: `professional-repo-curation`'s objective, roadmap, and always-loaded orientation were reconciled to the approved disposition ontology through that record's own tracking workflow, so active parent guidance no longer directs agents toward the flat-incubator destination. Historical ADR 0044 and immutable updates remain unchanged as time-in-place records.
 
 ## Open Questions
 
