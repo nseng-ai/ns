@@ -174,12 +174,12 @@ describe("derivePlanContentSlug", () => {
 
 	test("overlong model output is repaired to seven complete slug words", async () => {
 		const filePath = await makePlanFile();
-		const rawOutput = "sdl docs site slot page conventions skeleton theme foundation\n";
+		const rawOutput = "sdl portal pages slot page conventions skeleton theme foundation\n";
 		const pi = new FakeSlugPi({ result: { stdout: rawOutput } });
 
 		const evidence = await derivePlanContentSlug(pi, { filePath, cwd: CWD });
 
-		expect(evidence.slug).toBe("sdl-docs-site-slot-page-conventions-skeleton");
+		expect(evidence.slug).toBe("sdl-portal-pages-slot-page-conventions-skeleton");
 		expect(evidence.rawOutput).toBe(rawOutput);
 	});
 

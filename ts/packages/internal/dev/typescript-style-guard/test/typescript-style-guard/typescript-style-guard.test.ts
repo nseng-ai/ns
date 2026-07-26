@@ -87,12 +87,8 @@ const sourceRuleShards: readonly SourceRuleShard[] = [
 		includes: (path) => isInDirectory(path, "ts/packages/internal"),
 	},
 	{
-		name: "docs-site",
-		includes: (path) => isInDirectory(path, "docs-site"),
-	},
-	{
 		name: "top-level TS configs and other source files",
-		includes: (path) => !isInAnyDirectory(path, ["ts/packages", "docs-site"]),
+		includes: (path) => !isInDirectory(path, "ts/packages"),
 	},
 ];
 
@@ -107,11 +103,6 @@ describe("TypeScript style guard source rules", () => {
 		{
 			name: "relative namespace import is rejected",
 			code: 'import * as sdkModule from "./sdk.ts";',
-			expectedRules: [BAN_IMPORT_ALIAS_FOR_FIRST_PARTY],
-		},
-		{
-			name: "docs-site path alias import alias is rejected",
-			code: 'import { config as geistdocsConfig } from "@/lib/geistdocs/config";',
 			expectedRules: [BAN_IMPORT_ALIAS_FOR_FIRST_PARTY],
 		},
 		{
@@ -2352,10 +2343,6 @@ function formatShardCoverageErrors(
 		if (count === 0) errors.push(`${shardName}: TypeScript source shard is empty`);
 	}
 	return errors.sort();
-}
-
-function isInAnyDirectory(path: string, directories: readonly string[]): boolean {
-	return directories.some((directory) => isInDirectory(path, directory));
 }
 
 function isInDirectory(path: string, directory: string): boolean {

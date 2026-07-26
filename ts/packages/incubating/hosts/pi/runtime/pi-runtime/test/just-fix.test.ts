@@ -263,13 +263,13 @@ Repair the failed just run.
 		);
 	});
 
-	test("runs the CI recipe excluding docs-site and Reviews through just-ci", async () => {
+	test("runs the CI recipe excluding Reviews through just-ci", async () => {
 		const pi = new FakePi(execResult());
 		const justFixExtension = await loadJustFixExtension();
 		justFixExtension(pi, pi.exec.bind(pi));
 		const command = pi.commands.get("just-ci");
 		expect(command?.description).toBe(
-			"Run CI excluding docs-site and Reviews; if it fails, invoke code-just-fix.",
+			"Run CI excluding Reviews; if it fails, invoke code-just-fix.",
 		);
 		if (!command) {
 			throw new Error("just-ci command was not registered");

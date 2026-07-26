@@ -23,7 +23,7 @@ _run-parallel left right:
 
 _check-core: dprint-check _ts-deps-check _ts-format-check _ts-lint _ts-check _ts-test _objective-check
 
-# Local equivalent of CI excluding docs-site and Reviews; local metadata checks remain included.
+# Local equivalent of CI plus local metadata checks.
 ci: _ts-workspace-ready (_run-parallel "check" "_ci-additional")
 
 _ci-additional: (_run-parallel "ts-test-integration" "skill-exposure-check")
@@ -109,18 +109,6 @@ ts-test-typescript-style-guard: _ts-workspace-ready _ts-test-typescript-style-gu
 _ts-test-typescript-style-guard:
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run test:typescript-style-guard
 
-docs-install:
-    pnpm --dir {{justfile_directory()}}/docs-site install
-
-docs-dev: docs-install
-    pnpm --dir {{justfile_directory()}}/docs-site run dev
-
-docs-build: docs-install
-    pnpm --dir {{justfile_directory()}}/docs-site run build
-
-docs-check: docs-install
-    pnpm --dir {{justfile_directory()}}/docs-site run check
-
 js-test: ts-test
 
 bump-version VERSION: _ts-workspace-ready
@@ -146,7 +134,7 @@ release VERSION *args: _ts-workspace-ready
 
 # Install the ns shim to ~/.local/bin so `ns` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an sdl checkout, this checkout's sources everywhere else.
+# inside an ns checkout, this checkout's sources everywhere else.
 # The source @nseng-ai/ns manifest no longer advertises a workspace bin.
 # Remove legacy links left by the earlier package layout during safe upgrades;
 # ts/node_modules/.bin commonly precedes ~/.local/bin on PATH.
@@ -158,19 +146,19 @@ install-ns: (_install-ts-shim "ns" "ts/packages/public/ns/src/cli.ts" "just inst
 
 # Install the brmem shim to ~/.local/bin so `brmem` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an sdl checkout, this checkout's sources everywhere else.
+# inside an ns checkout, this checkout's sources everywhere else.
 install-brmem: (_install-ts-shim "brmem" "ts/packages/public/infra/brmem/src/cli.ts" "just install-brmem or just install-tools")
 
 # Install the vibechk shim to ~/.local/bin so `vibechk` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an sdl checkout, this checkout's sources everywhere else.
+# inside an ns checkout, this checkout's sources everywhere else.
 install-vibechk: (_install-ts-shim "vibechk" "ts/packages/incubating/tools/vibechk/src/cli.ts" "just install-vibechk or just install-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/vibechk"
     @echo "removed stale project venv vibechk script if present"
 
 # Install the packagechk shim to ~/.local/bin so `packagechk` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an sdl checkout, this checkout's sources everywhere else.
+# inside an ns checkout, this checkout's sources everywhere else.
 install-packagechk: (_install-ts-shim "packagechk" "ts/packages/public/tools/packagechk/src/cli.ts" "just install-packagechk or just install-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/packagechk"
     @echo "removed stale project venv packagechk script if present"
@@ -227,7 +215,7 @@ skill-exposure-check: _ts-workspace-ready
 topology *args:
     {{justfile_directory()}}/skills/internal/review-system/architecture-topology-report/scripts/topology {{args}}
 
-# Install public tools via TypeScript source shims.
+# Install repository tools via TypeScript source shims.
 install-tools: _remove-stale-branch-context-bin install-ns install-brmem install-vibechk install-packagechk
     @echo "installed: ns, brmem, vibechk, and packagechk (TypeScript shims); branch-context is available via ns branch-context"
 

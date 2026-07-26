@@ -76,7 +76,7 @@ const JUST_COMMANDS: readonly JustCommand[] = [
 		name: "just-ci",
 		recipeArgs: ["ci"],
 		displayCommand: "just ci",
-		description: "Run CI excluding docs-site and Reviews; if it fails, invoke code-just-fix.",
+		description: "Run CI excluding Reviews; if it fails, invoke code-just-fix.",
 		timeoutMs: JUST_CI_TIMEOUT_MS,
 	},
 ];
