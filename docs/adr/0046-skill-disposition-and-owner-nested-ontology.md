@@ -69,9 +69,9 @@ Promotion or demotion requires deliberate support-intent decision and canonical 
 Alone, it does not rename skill, change exposure policy, publish content, or alter owning
 package.
 
-### 2. Stable domain/family ownership is nested beneath disposition
+### 2. Stable domain/family ownership is normally nested beneath disposition
 
-Every canonical source lives at:
+The normal canonical shape is:
 
 ```text
 skills/<disposition>/<family>/<skill>/
@@ -86,9 +86,21 @@ not force siblings to move or change family. Families should survive individual 
 additions and removals, identify real owner, and avoid generic catch-alls or one-skill
 folders without genuine long-lived domain.
 
-Complete destination map will settle initial family vocabulary. Draft design inventory
-records representative clusters and unresolved boundaries without prematurely classifying
-every skill.
+A durable product skill may live directly beneath its disposition when its globally unique
+skill identity is itself the stable owner boundary and a repeated one-skill family folder
+would add no information:
+
+```text
+skills/<disposition>/<skill>/
+```
+
+This is an explicit map-level exception, not a general flat-layout fallback. The initial
+exceptions are `skills/incubating/brmem/` and `skills/incubating/slots/`. All other initial
+skills use family nesting.
+
+Complete destination map settles initial family vocabulary and any approved product-skill
+exception. Draft design inventory records representative clusters and unresolved
+boundaries without prematurely classifying every skill.
 
 ### 3. The leaf is the globally flat skill identity
 
@@ -188,8 +200,9 @@ Historical ADRs and immutable Objective updates retain time-in-place paths and p
 
 ## Consequences
 
-- Listing `skills/` communicates support intent first; family level communicates ownership;
-  leaf preserves invocation identity.
+- Listing `skills/` communicates support intent first; family level normally communicates
+  ownership, while approved top-level product skills carry ownership in their identity;
+  the leaf preserves invocation identity.
 - Skill can move between support dispositions without changing family or harness-visible
   name.
 - Public remains intentionally demanding and may initially be empty, avoiding accidental

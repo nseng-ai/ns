@@ -8,9 +8,9 @@ edges:
 
 ## Thesis
 
-Reorganize every first-party canonical skill source so its path communicates two independent facts: support disposition and domain/family ownership. Every skill will live at `skills/<disposition>/<family>/<skill>/`, where disposition is exactly `public`, `incubating`, or `internal`, and a family may span multiple dispositions.
+Reorganize every first-party canonical skill source so its path communicates support disposition and stable ownership. The normal shape is `skills/<disposition>/<family>/<skill>/`, where disposition is exactly `public`, `incubating`, or `internal`, and a family may span multiple dispositions. A durable product skill may instead live at `skills/<disposition>/<skill>/` when its identity is itself the owner boundary; the approved initial exceptions are `brmem` and `slots`.
 
-This is a parallel Subobjective of `professional-repo-curation`. It adopts the package tree's three disposition meanings but makes explicit skill-by-skill verdicts rather than inheriting package disposition. Public may initially be empty: portability or general usefulness alone does not constitute a public support warrant.
+This is a parallel Subobjective of `professional-repo-curation`. It adopts the package tree's three disposition meanings but makes explicit skill-by-skill verdicts rather than inheriting package disposition. Public support requires an explicit warrant rather than portability or general usefulness; `pr-make-accountable` is the approved first public skill.
 
 Canonical sources become nested while harness-facing overlays remain globally flat. `.agents/skills/<skill>` and `.claude/skills/<skill>` preserve skill names and invocation behavior through updated symlinks. The cutover is structural: it preserves content and behavior except where a path correction is required for the move.
 
@@ -19,17 +19,17 @@ Canonical sources become nested while harness-facing overlays remain globally fl
 - Write and explicitly approve a skill-specific ADR defining the three dispositions, domain/family ownership, skill identity, and the nested-canonical/flat-overlay boundary.
 - Produce and explicitly approve a complete destination map for every first-party skill before moving any skill.
 - Classify each skill independently. An owning package's disposition is evidence, not an inherited verdict.
-- Permit one family to appear under multiple dispositions; disposition belongs to the individual skill, while the middle folder expresses stable domain/family ownership only.
-- Record the initial user-set constraints: `public/` may be empty; the Flow skill family is incubating; and `cli-push-down`, `reinvented-abstractions-tripwire`, `plan-stack-from-findings`, `readme-driven-development`, `typescript-fake-driven-testing`, and `typescript-style` are internal.
+- Permit one family to appear under multiple dispositions; disposition belongs to the individual skill, while the middle folder expresses stable domain/family ownership only. Permit explicit top-level product-skill exceptions when the skill identity is itself the stable owner boundary.
+- Record the user-set classifications: `pr-make-accountable` is public; the Flow skill family is incubating; `brmem` and `slots` are top-level incubating product skills; and `code-graphite`, `changelog-update`, `project-setup`, `cli-push-down`, `reinvented-abstractions-tripwire`, `plan-stack-from-findings`, `readme-driven-development`, `typescript-fake-driven-testing`, and `typescript-style` are internal.
 - Document dependency closure as a review convention: public skills require only public supported surfaces; incubating skills may require public or incubating surfaces; internal skills may require anything. Documentation links and optional examples do not automatically constitute required operational dependencies.
-- Atomically move all first-party canonical skill sources to `skills/<disposition>/<family>/<skill>/` after design approval.
+- Atomically move all first-party canonical skill sources to their approved family-nested or top-level product paths after design approval.
 - Update flat `.agents/skills/<skill>` and `.claude/skills/<skill>` overlays, `skills-lock.json`, Skill Exposure Policy declarations, scripts, repository guidance, and live path references needed for the new canonical paths.
 - Write `skills/README.md` as the authoritative skill-tree contract.
 - Leave vendored third-party real directories under `.agents/skills/` untouched.
 
 ## Non-Goals
 
-- Publishing or promising any public skill merely because it is portable or broadly useful.
+- Publishing or promising any additional public skill merely because it is portable or broadly useful.
 - Automatically inheriting disposition from an owning TypeScript package.
 - Mechanically enforcing skill dependency closure with a parser, topology guard, or other formal tooling.
 - Nesting harness overlay directories or changing harness-visible skill names and invocation paths.
@@ -41,9 +41,9 @@ Canonical sources become nested while harness-facing overlays remain globally fl
 ## Completion Criteria
 
 - A skill-specific ADR and complete first-party destination map have been explicitly approved before migration.
-- Every first-party canonical skill lives at exactly one `skills/{public,incubating,internal}/<family>/<skill>/` path; no first-party skill remains directly under `skills/`.
-- Every destination has an explicit skill-level disposition verdict and a domain/family owner, including the user-set initial classifications.
-- Families may span dispositions without changing skill identity, and the authoritative `skills/README.md` documents that contract and the convention-only dependency closure matrix.
+- Every first-party canonical skill lives at exactly one approved path under `skills/{public,incubating,internal}/`; no first-party skill remains directly under `skills/`.
+- Every destination has an explicit skill-level disposition verdict and a stable owner, including the approved `brmem` and `slots` top-level product exceptions and other user-set classifications.
+- Families may span dispositions without changing skill identity, and the authoritative `skills/README.md` documents that contract, the narrow product-skill exception, and the convention-only dependency closure matrix.
 - `.agents/skills/<skill>` and `.claude/skills/<skill>` remain flat, resolve to the nested canonical source, and preserve existing harness-visible names and invocation behavior.
 - `skills-lock.json`, exposure declarations, scripts, repository instructions, and live references use the final canonical paths; no mixed-layout compatibility remains.
 - Vendored third-party directories are unchanged, and relevant skill listing, exposure, and repository validation checks pass.
@@ -53,7 +53,7 @@ Canonical sources become nested while harness-facing overlays remain globally fl
 
 Assumptions:
 
-- A three-disposition model usefully communicates skill support intent even when `public/` is initially empty.
+- A three-disposition model usefully communicates skill support intent, including the explicit first public support warrant for `pr-make-accountable`.
 - Stable domain/family folders improve navigation without becoming visibility containers; allowing families to span dispositions avoids conflating ownership with support warrant.
 - Flat harness overlays can preserve discovery and invocation while canonical source paths become nested.
 - Existing skill acquisition and exposure surfaces can accept explicit nested canonical paths after their references and symlinks are updated.
