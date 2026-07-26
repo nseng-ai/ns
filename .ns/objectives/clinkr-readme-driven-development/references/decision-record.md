@@ -183,15 +183,15 @@ If a dynamic provider throws:
 
 **Current mismatch:** Error observation exists only as a lower-level completion-call option, not as the desired app-level policy.
 
-### 14. Preserve a complete opaque escape hatch
+### 14. Preserve a narrow framework-neutral raw escape hatch
 
-The raw escape hatch mounts a Commander `Command` as an opaque subtree. That subtree owns parsing, options, help, schemas if any, context, I/O, completion, output bytes, and exit policy. Clinkr does not inject framework flags or interpret the subtree.
+The raw escape hatch lets a selected command receive its raw argv tail and own its output bytes and exit status. Clinkr still owns application routing and command metadata, but it does not parse the selected command's argv tail or impose the rendered-command output contract.
 
-**Rationale:** Frameworks inevitably have bugs, omissions, and unusual use cases. Applications need a way to work around them without abandoning Clinkr for the rest of the executable. Existing Commander trees should also be mountable without translation.
+**Rationale:** Current ns callers demonstrate two concrete needs: SDK commands that pass an argv tail to an embedded parser, and genuinely byte-owning operations such as `vibechk run`. Neither requires exposing Commander trees as public Clinkr objects. A framework-neutral seam meets those needs without adding a Commander-specific composition API.
 
-**Rejected alternative:** A schema-backed Clinkr command that owns only raw bytes and numeric exit status while Clinkr continues to manage its surface.
+**Rejected alternative:** Mount Commander `Command` subtrees as an opaque public contract without a concrete ns caller. That would add API and composition complexity for a hypothetical use case.
 
-**Current mismatch:** `@nseng-ai/clinkr/raw` currently exposes schema-backed `rawCommand()` specifications managed by Clinkr.
+**Current mismatch:** `@nseng-ai/clinkr/raw` currently exposes schema-backed `rawCommand()` specifications whose parsing and dispatch ownership is split across Clinkr-specific `isRawExit` and `shouldPassThrough` branches. Reconciliation should narrow and clarify that seam, preserve demonstrated passthrough/byte-owning uses, and migrate ordinary structured commands to `ClinkrCommand`.
 
 ### 15. Retain Clinkr's interaction subsystem under application control
 
@@ -213,7 +213,7 @@ Durable answer streaming to stdout is exceptional. The host must expose the sele
 
 ### 17. Teach workflows, not the complete export catalog
 
-The package README teaches the core adopter path directly: applications, commands and groups, outcomes, rendering, context, and end-to-end testing. Optional Clinkr features—completion, interaction, raw Commander subtrees, and streaming—remain in the README with one compact example or usage path each.
+The package README teaches the core adopter path directly: applications, commands and groups, outcomes, rendering, context, and end-to-end testing. Optional Clinkr features—completion, interaction, framework-neutral raw execution, and streaming—remain in the README with one compact example or usage path each.
 
 The README does not attempt to catalog every supported root export. Low-level capability, I/O, envelope, format, emission, completion-planning, and testing utilities remain supported public API and are discoverable through their exported TypeScript types. An individual utility belongs in the narrative only when a core workflow needs it or its behavioral contract is otherwise easy to miss.
 
@@ -273,7 +273,7 @@ This is a hard clean break, not a compatibility layer or two public models. Migr
 
 ### Explicitly unresolved and unchanged
 
-Outcome, raw mounting, rendering, and completion-error decisions remain as recorded elsewhere in this document; approval of the foundational refactor did not silently settle or reopen them. Positional metadata and the Markdown format alias were subsequently settled in [Public-surface naming decisions](#public-surface-naming-decisions-2026-07-25).
+Outcome, raw execution, rendering, and completion-error decisions remain as recorded elsewhere in this document; approval of the foundational refactor did not silently settle or reopen them. Positional metadata and the Markdown format alias were subsequently settled in [Public-surface naming decisions](#public-surface-naming-decisions-2026-07-25).
 
 ## Filesystem-first authoring (2026-07-25)
 
@@ -310,7 +310,7 @@ Builders remain a public advanced escape hatch for unusual or programmatic topol
 
 Runtime discovery creates a packaging constraint: command/group files and directories must ship intact. Bundled or single-file environments may need the builder escape hatch or a later dedicated adapter. This decision does not authorize a manifest fallback.
 
-The common bootstrap and completion-error policy were subsequently settled below. Raw mounting remains unresolved. Positional metadata, the Markdown format alias, and the outcome/rendering reconciliation were also subsequently settled below.
+The common bootstrap and completion-error policy were subsequently settled below. Raw execution was subsequently settled as a narrow framework-neutral seam. Positional metadata, the Markdown format alias, and the outcome/rendering reconciliation were also subsequently settled below.
 
 ## Filesystem bootstrap API settled (2026-07-26)
 
@@ -332,7 +332,7 @@ Clinkr retains `position` as the positional-metadata field name. It is the estab
 
 Clinkr also retains and documents `md` as an explicit alias for the canonical `markdown` format value. The alias is intentional and already has focused parsing, rendering, validation-text, and completion coverage. Reconciliation must preserve both the long spelling and alias rather than leaving `md` as undocumented behavior.
 
-These decisions settle only the two naming questions. They do not alter raw mounting or `ClinkrFailure` removal. The outcome/rendering reconciliation and the bootstrap/completion-error policy were settled separately.
+These decisions settle only the two naming questions. They do not alter raw execution or `ClinkrFailure` removal. The outcome/rendering reconciliation and the bootstrap/completion-error policy were settled separately.
 
 ## Outcome and rendering reconciliation approved (2026-07-25)
 
@@ -342,7 +342,7 @@ Migration order is part of the approval. First extend the SDK command model and 
 
 Do not mechanically delete branch-dependent presentation or preserve it as an adapter-side policy. Move the distinguishing facts into typed outcome data. Bodyless means no `data` field and no human result body, while JSON still emits the status envelope. An explicit `z.any()` remains the only intentionally untyped data escape hatch.
 
-This approval does not settle raw mounting or `ClinkrFailure` removal. The filesystem bootstrap and completion-error policy were settled separately.
+This approval does not settle raw execution or `ClinkrFailure` removal. The filesystem bootstrap and completion-error policy were settled separately.
 
 ## Accepted implementation behavior
 
@@ -365,7 +365,7 @@ The implementation and caller audit begins with these confirmed mismatches:
 1. No `ClinkrApp` or standalone `ClinkrCommand`; executable concerns live on `ClinkrGroup`.
 2. Version, runtime, and completion ownership must move to opt-in app configuration.
 3. Automatic `list`/`ls` alias generation must be removed in favor of explicit aliases.
-4. The schema-backed raw-command model must become an opaque Commander subtree mount.
+4. The hybrid schema-backed raw-command model must become a narrow framework-neutral argv/output/exit seam; opaque Commander mounting remains parked without a concrete caller.
 5. Human-readable negative results must move from stderr to stdout while retaining exit code `1`.
 6. Outcome data schemas must compose into one discriminated command contract with bodyless defaults and runtime validation.
 7. Outcome-schema violations must propagate as programmer errors.

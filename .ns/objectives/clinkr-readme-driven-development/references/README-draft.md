@@ -416,13 +416,11 @@ A command that requires a prompt must return a usage error when interaction is u
 
 ## Escape hatches
 
-### Raw Commander subtrees
+### Raw execution
 
-`@nseng-ai/clinkr/raw` lets an application mount a Commander `Command` as an opaque subtree. The mounted command owns its complete surface and behavior: parsing, options, help, schemas if any, context, I/O, completion, output bytes, and exit policy. Clinkr does not inject framework flags or interpret anything inside the subtree.
+`@nseng-ai/clinkr/raw` provides a narrow, framework-neutral escape hatch for a selected command that must receive its raw argv tail and own its output bytes and exit status. Clinkr still owns application routing and command metadata; it does not parse the selected command's argv tail or wrap its output in the rendered-command contract.
 
-Use this escape hatch when exact passthrough is the command's job, when an existing Commander tree must be reused, or when an application needs to work around a Clinkr limitation without abandoning Clinkr for the rest of its CLI.
-
-The exact opaque mounting shape remains to be settled during raw-path reconciliation. See `@nseng-ai/clinkr/raw` and its exported types for the current surface; the promoted README will show the reconciled form.
+Use this only for genuine passthrough or byte-owning operations, such as adapting an embedded parser or a process-like runner. Prefer an ordinary `ClinkrCommand` whenever Clinkr can model the operation's schema, outcomes, and rendering. Mounting an opaque Commander subtree is not part of this contract; add a framework-specific adapter only when a concrete application requires one.
 
 ### Streaming output
 
@@ -448,7 +446,7 @@ Filesystem-defined command structures are the common authoring path. Public asyn
 | ----------------------------- | ----------------------------------------------------------------------------------------------- |
 | `@nseng-ai/clinkr`            | Apps, commands, command groups, outcomes, rendering, I/O, interaction, and core completion APIs |
 | `@nseng-ai/clinkr/completion` | Completion planning and shell-script rendering                                                  |
-| `@nseng-ai/clinkr/raw`        | Mounting opaque Commander command subtrees                                                      |
+| `@nseng-ai/clinkr/raw`        | Framework-neutral raw argv, output-byte, and exit-status command escape hatch                    |
 | `@nseng-ai/clinkr/stream`     | Progressive terminal and settled-output sinks                                                   |
 | `@nseng-ai/clinkr/testing`    | Public command-testing utilities                                                                |
 
