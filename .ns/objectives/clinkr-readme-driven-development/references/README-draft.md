@@ -446,7 +446,7 @@ Filesystem-defined command structures are the common authoring path. Public asyn
 | ----------------------------- | ----------------------------------------------------------------------------------------------- |
 | `@nseng-ai/clinkr`            | Apps, commands, command groups, outcomes, rendering, I/O, interaction, and core completion APIs |
 | `@nseng-ai/clinkr/completion` | Completion planning and shell-script rendering                                                  |
-| `@nseng-ai/clinkr/raw`        | Framework-neutral raw argv, output-byte, and exit-status command escape hatch                    |
+| `@nseng-ai/clinkr/raw`        | Framework-neutral raw argv, output-byte, and exit-status command escape hatch                   |
 | `@nseng-ai/clinkr/stream`     | Progressive terminal and settled-output sinks                                                   |
 | `@nseng-ai/clinkr/testing`    | Public command-testing utilities                                                                |
 
