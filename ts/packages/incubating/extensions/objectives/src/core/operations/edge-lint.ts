@@ -7,7 +7,6 @@ import {
 	type ObjectiveStorageResult,
 } from "../storage.ts";
 import {
-	checkItem,
 	objectiveMdExistsCheck,
 	objectiveMdReadableCheck,
 	type ObjectiveCheckItem,
@@ -23,12 +22,6 @@ import {
  *
  * Mirror lookups resolve counterpart slugs in the active root only. Deleted
  * counterpart records are reported as missing edge endpoints.
- *
- * One non-failing advisory rides along: a record carrying a Blocked Sentence
- * while at least one of its edge counterparts is closed gets a warning-severity
- * item naming the closed counterpart(s). This is deterministic marker state
- * (blocked-present plus counterpart closed.md), never prose interpretation —
- * disposing of the Blocked Sentence stays skill judgment.
  */
 
 export interface ObjectiveEdgeLintOptions {
@@ -246,8 +239,6 @@ async function lintObjectiveRecordFrontmatterState(
 		);
 	}
 
-	const isBlocked = blockedSentence !== null && blockedSentence !== "";
-	const closedCounterparts: string[] = [];
 	const seenEndpoints = new Set<string>();
 	for (const edge of frontmatter.edges) {
 		const endpoint = edge.objective;
@@ -300,19 +291,6 @@ async function lintObjectiveRecordFrontmatterState(
 		});
 		if (!mirror.ok) return mirror;
 		if (mirror.value.violation !== null) violations.push(mirror.value.violation);
-		if (mirror.value.isCounterpartClosed) closedCounterparts.push(endpoint);
-	}
-	if (isBlocked && closedCounterparts.length > 0) {
-		violations.push(
-			checkItem({
-				path: options.state.path,
-				label: "objective.md Blocked Sentence has no closed edge counterparts",
-				isPassed: false,
-				severity: "warning",
-				passDetail: "safe",
-				failDetail: `blocked while edge counterpart(s) closed: ${closedCounterparts.join(", ")} — re-judge the Blocked Sentence`,
-			}),
-		);
 	}
 	return { ok: true, value: violations };
 }
@@ -326,8 +304,6 @@ interface MirrorFactsOptions {
 
 interface MirrorFacts {
 	violation: ObjectiveCheckItem | null;
-	/** Counterpart closed.md presence; false when the endpoint is dangling. */
-	isCounterpartClosed: boolean;
 }
 
 async function mirrorFacts(
@@ -345,17 +321,13 @@ async function mirrorFacts(
 					`objective.md edge ${endpoint} endpoint exists`,
 					"no record in the active root",
 				),
-				isCounterpartClosed: false,
 			},
 		};
 	}
 
-	const counterpartFiles = await storage.filePresence(counterpartPath.value);
-	if (!counterpartFiles.ok) return counterpartFiles;
-	const isCounterpartClosed = counterpartFiles.value.closedMd;
 	const asFacts = (violation: ObjectiveCheckItem | null): ObjectiveStorageResult<MirrorFacts> => ({
 		ok: true,
-		value: { violation, isCounterpartClosed },
+		value: { violation },
 	});
 
 	const label = `objective.md edge ${endpoint} is mirrored`;

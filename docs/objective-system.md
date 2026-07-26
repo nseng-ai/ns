@@ -98,7 +98,7 @@ edges:
 Rules:
 
 - **Objective Edges** are undirected, kind-less, mirrored connections between two Objective records. Each endpoint lists the other under `edges:` as `{objective: <slug>, annotation: <sentence>}`, with the required **Edge Annotation** written from that record's perspective — the two sentences are deliberately different texts. Edge identity is the unordered slug pair; at most one edge between two records. Direction, causality, and relationship kind live in the prose, never the schema.
-- **Blocked Sentence**: `blocked:` is prose-valued; its presence means the record is blocked (for any reason — another objective, an external gate) and its value says why. There is no boolean; blocked is a sub-state of open, not a lifecycle state. It is set and cleared only by skill judgment, never by machine auto-flip. `ns objective check` emits a non-failing warning when a blocked record has a closed edge counterpart, prompting that judgment.
+- **Blocked Sentence**: `blocked:` is prose-valued; its presence means the record is blocked (for any reason — another objective, an external gate) and its value says why. There is no boolean; blocked is a sub-state of open, not a lifecycle state. It is set and cleared only by skill judgment, never by machine auto-flip.
 - **Mutation is skill-owned.** There is no public CLI mutation surface; the `objective-create`, `objective-update`, and `objective-close` step skills own writing edges and judging Blocked Sentences (`objective-refresh` also re-judges Blocked Sentences whose gate is verifiably resolved, including through its inline close). Because edges are mirrored, an edge mutation is a two-file edit touching the counterpart record's frontmatter — the ordinary sanctioned exception to one-Objective mutation boundaries, limited strictly to the counterpart's frontmatter block. Objective Close has a broader bounded exception: any close path — explicit or inline — must inspect every edge-connected Objective's full current tracking, re-judge its Blocked Sentence, and update affected active counterparts when closure changes their durable meaning.
 - **Verification**: after any frontmatter edit, run `ns objective check <slug>` or `ns objective check --all`.
 
@@ -183,7 +183,7 @@ Rules:
 - Closing an objective does not move or delete its directory.
 - Closed objectives remain readable (for example via `ns objective exec read-objective`) but are not eligible for `objective-next` by default.
 - A human may delete a closed record through source control when it should no longer appear in the checkout.
-- There is no `objective-reopen` workflow in v1.
+- There is no separate public reopen command. On an explicit user request, `objective-close`'s guarded Reopen procedure deletes `closed.md`, amends `## Closure` into dated history (never rewriting close-time text), and re-runs the connected-Objective impact review in reverse with corrective Semantic Updates.
 
 ### Close-time connected-Objective propagation
 
@@ -263,6 +263,7 @@ Shipped CLI:
 - Run `ns objective show <slug>` for the default human detail view.
 - Run `ns objective show <slug> --format md` for Markdown detail output.
 - Run `ns objective show <slug> --format json` for the machine envelope including branch attribution and edge details.
+- Run `ns objective show <slug> --should-include-closed-edges` to include edges whose counterpart record is closed (hidden by default).
 
 ### `ns objective check`
 
@@ -273,7 +274,6 @@ Contract:
 - `ns objective check <slug>` checks one record: required files, required Markdown heading presence, and Record Frontmatter structure — edge shape, mirror lookups in counterpart records, non-empty Edge Annotations, non-empty Blocked Sentence, at most one edge per unordered slug pair, and no keys beyond `blocked` and `edges`.
 - `ns objective check --all` sweeps every active-root record's Record Frontmatter and reports structural edge/blocked violations.
 - Structural violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors.
-- One non-failing **warning** advisory: a record carrying a Blocked Sentence while at least one edge counterpart is closed is flagged, naming the closed counterpart(s). The advisory is deterministic marker state (blocked-present plus counterpart `closed.md`), not prose interpretation, and it never fails the check or the sweep; disposing of the Blocked Sentence stays skill judgment.
 - Heading checks are presence-only structure; the command does not interpret prose meaning, roadmap state, or execution policy.
 - Supports `--format md` / `--format json` like the other Objective commands.
 - Run it after any Record Frontmatter edit; the mutating step skills require this.
@@ -380,7 +380,7 @@ Contract:
 - Write a Semantic Update when there is meaningful semantic information to record.
 - A Semantic Update may be written even when durable files do not change, if it records a meaningful finding, decision, blocker, assumption or risk change, completion evidence, changed plan, or follow-up.
 - Maintenance-only edits to durable files do not require a Semantic Update.
-- Do not update a closed objective unless the user explicitly asks to amend the closed record; v1 has no reopen workflow.
+- Do not update a closed objective unless the user explicitly asks to amend the closed record; an explicit-request reopen routes through `objective-close`'s Reopen procedure — there is no separate public reopen command.
 
 Future CLI pushdown candidates:
 
@@ -397,14 +397,14 @@ Contract:
 
 - Resolve the objective using the selection rules.
 - Update `objective.md` with `## Closure` context, including remaining assumptions, risks, caveats, and follow-ups when relevant.
-- Inventory every edge-connected Objective, read both Edge Annotations and each counterpart's full current tracking, and assign `updated`, `unchanged`, or `already closed`.
+- Inventory every edge-connected Objective with `ns objective show <slug> --format md --should-include-closed-edges` (the flag keeps edges with closed counterparts in the inventory), read both Edge Annotations and each counterpart's full current tracking, and assign `updated`, `unchanged`, or `already closed`.
 - Update every affected active counterpart's durable tracking and write a new counterpart-local Semantic Update when closure is semantically meaningful there; this bounded graph propagation is the exception to ordinary one-Objective update scope.
 - Re-judge Blocked Sentences, preserve mirrored edges, and run `ns objective check --all` after frontmatter edits.
 - Do not recursively close a counterpart; report any counterpart made closure-ready.
 - Write `closed.md` as an existence-only Closure Marker.
 - Leave the objective directory in `.ns/objectives/<slug>/`.
 - Do not delete the objective implicitly. If the user wants the record outside active checkout state, delete it separately through source control.
-- Do not create a reopen mechanism in v1.
+- Do not reopen as part of a close. Reopening is its own explicit-user-request workflow inside `objective-close` (delete `closed.md`, amend `## Closure` into dated history, reverse the connected-Objective impact review); there is no separate public reopen command.
 
 Future CLI pushdown candidates:
 
