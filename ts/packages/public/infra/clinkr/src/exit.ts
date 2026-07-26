@@ -1,11 +1,24 @@
 import { z } from "zod";
 
-export interface ClinkrOkExit<T = unknown> {
-	readonly type: "ok";
+export interface ClinkrOkRenderOverrides {
+	readonly human?: string;
+	readonly markdown?: string;
+}
+
+export interface ClinkrNegativeRenderOverrides {
+	readonly human?: string;
+}
+
+export interface ClinkrNegativeOptions<T> extends ClinkrNegativeRenderOverrides {
 	readonly data?: T;
 }
 
-export interface ClinkrNegativeExit<T = unknown> {
+export interface ClinkrOkExit<T = unknown> extends ClinkrOkRenderOverrides {
+	readonly type: "ok";
+	readonly data: T;
+}
+
+export interface ClinkrNegativeExit<T = unknown> extends ClinkrNegativeRenderOverrides {
 	readonly type: "negative";
 	readonly message: string;
 	readonly data?: T;
@@ -168,17 +181,51 @@ function envelopeBranch(
 }
 
 export function ok(): ClinkrOkExit<never>;
-export function ok<T>(data: T): ClinkrOkExit<T>;
-export function ok<T>(...data: [] | [T]): ClinkrOkExit<T> {
-	return data.length === 0 ? { type: "ok" } : { type: "ok", data: data[0] };
+export function ok<T>(data: T, overrides?: ClinkrOkRenderOverrides): ClinkrOkExit<T>;
+export function ok<T>(
+	data?: T,
+	overrides: ClinkrOkRenderOverrides = {},
+): ClinkrOkExit<T> | ClinkrOkExit<never> {
+	if (arguments.length === 0) return { type: "ok" } as ClinkrOkExit<never>;
+	return {
+		type: "ok",
+		data: data as T,
+		...(overrides.human === undefined ? {} : { human: overrides.human }),
+		...(overrides.markdown === undefined ? {} : { markdown: overrides.markdown }),
+	};
 }
 
 export function negative(message: string): ClinkrNegativeExit<never>;
+export function negative<T>(
+	message: string,
+	options: ClinkrNegativeOptions<T>,
+): ClinkrNegativeExit<T>;
 export function negative<T>(message: string, data: T): ClinkrNegativeExit<T>;
-export function negative<T>(message: string, ...data: [] | [T]): ClinkrNegativeExit<T> {
-	return data.length === 0
-		? { type: "negative", message }
-		: { type: "negative", message, data: data[0] };
+export function negative<T>(
+	message: string,
+	...args: [] | [T | ClinkrNegativeOptions<T>]
+): ClinkrNegativeExit<T> {
+	if (args.length === 0) return { type: "negative", message };
+	const value = args[0];
+	if (isNegativeOptions<T>(value)) {
+		return {
+			type: "negative",
+			message,
+			...(value.data === undefined ? {} : { data: value.data }),
+			...(value.human === undefined ? {} : { human: value.human }),
+		};
+	}
+	return { type: "negative", message, data: value };
+}
+
+function isNegativeOptions<T>(
+	value: T | ClinkrNegativeOptions<T>,
+): value is ClinkrNegativeOptions<T> {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		(Object.hasOwn(value, "data") || Object.hasOwn(value, "human"))
+	);
 }
 
 export function failure(errorType: string, message: string): ClinkrFailureExit<never>;

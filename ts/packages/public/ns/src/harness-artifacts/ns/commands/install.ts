@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { harnessArtifactsNsCommand } from "../command.ts";
 import {
 	renderSkillsInstallHuman,
@@ -20,6 +22,9 @@ export const skillsInstallNsCommand = harnessArtifactsNsCommand({
 		force: { short: "-f" },
 	},
 	resultSchema: skillsInstallCommandResultSchema,
+	negativeSchema: skillsInstallCommandResultSchema,
+	failureSchema: z.any(),
+	usageErrorSchema: z.any(),
 	handler: runSkillsInstall,
 	renderHuman: renderSkillsInstallHuman,
 });

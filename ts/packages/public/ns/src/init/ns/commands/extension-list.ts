@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
 	listExtensions,
 	listExtensionsRequestSchema,
@@ -13,6 +15,7 @@ export const nsExtensionListCommand = nsInitCommand({
 		"Inspect repository extension declarations and installed artifact state without acquiring packages or changing files.",
 	schema: listExtensionsRequestSchema,
 	resultSchema: listExtensionsResultSchema,
+	failureSchema: z.any(),
 	handler: (context, _request) => listExtensions(context, { cwd: context.cwd }),
 	renderHuman: renderListExtensionsHuman,
 });

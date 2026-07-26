@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
 	renderUninstallExtensionHuman,
 	renderUninstallExtensionMarkdown,
@@ -15,6 +17,8 @@ export const nsExtensionUninstallCommand = nsInitCommand({
 	schema: uninstallExtensionRequestSchema,
 	positionals: { source: { position: 0 } },
 	resultSchema: uninstallExtensionResultSchema,
+	failureSchema: z.any(),
+	usageErrorSchema: z.any(),
 	handler: (context, request) => uninstallExtension(context, { ...request, cwd: context.cwd }),
 	renderHuman: renderUninstallExtensionHuman,
 	renderMarkdown: renderUninstallExtensionMarkdown,
