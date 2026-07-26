@@ -1,3 +1,4 @@
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import {
 	GRILL_UI_SKILL_NAME,
 	GRILL_WITH_DOCS_UI_SKILL_NAME,
@@ -12,9 +13,8 @@ import type { ExtensionAPI, GrillUiCommandContext } from "./protocol.ts";
 interface StructuredGrillCommandOptions {
 	skillName: string;
 	emptyTargetMessage: string;
-	expansionFailureMessage: string;
 	editorTitle: string;
-	buildPrompt(skillBlock: string | undefined, target: string): string;
+	buildPrompt(skillBlock: string, target: string): string;
 }
 
 export async function handleGrillUiCommand(
@@ -25,8 +25,6 @@ export async function handleGrillUiCommand(
 	await handleStructuredGrillCommand(pi, args, ctx, {
 		skillName: GRILL_UI_SKILL_NAME,
 		emptyTargetMessage: "No plan/design provided for /pi:grill-me.",
-		expansionFailureMessage:
-			"Could not expand pi-grill-ui skill; using fallback grill instructions.",
 		editorTitle: "What plan or design should be grilled?",
 		buildPrompt: buildGrillUiPrompt,
 	});
@@ -40,8 +38,6 @@ export async function handleGrillWithDocsUiCommand(
 	await handleStructuredGrillCommand(pi, args, ctx, {
 		skillName: GRILL_WITH_DOCS_UI_SKILL_NAME,
 		emptyTargetMessage: "No plan/design provided for /pi:grill-with-docs.",
-		expansionFailureMessage:
-			"Could not expand pi-grill-with-docs-ui skill; using fallback docs-aware grill instructions.",
 		editorTitle: "What plan or design should be grilled against docs?",
 		buildPrompt: buildGrillWithDocsUiPrompt,
 	});
@@ -54,21 +50,26 @@ async function handleStructuredGrillCommand(
 	options: StructuredGrillCommandOptions,
 ): Promise<void> {
 	await ctx.waitForIdle();
+	let skillBlock: string;
+	try {
+		skillBlock = (await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: options.skillName })).block;
+	} catch (cause) {
+		const detail = formatErrorMessage(cause);
+		const error = new Error(`Could not load required skill "${options.skillName}": ${detail}`, {
+			cause,
+		});
+		notify(ctx, formatErrorMessage(error), "error");
+		return;
+	}
+
 	const target = await resolveGrillTarget(args, ctx, options.editorTitle);
 	if (target.trim().length === 0) {
 		notify(ctx, options.emptyTargetMessage, "warning");
 		return;
 	}
 
-	let skillBlock: string | undefined;
-	try {
-		skillBlock = (await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: options.skillName })).block;
-	} catch {
-		notify(ctx, options.expansionFailureMessage, "warning");
-	}
-
-	// Activate only after a non-empty target: the kickoff prompt requires grill_ask,
-	// and the first model request for this message must see the tool.
+	// Activate only after both required inputs are ready: failed skill preflight must
+	// not open the editor, expose grill_ask, or send a model turn.
 	activateGrillAskTool(pi);
 	pi.sendUserMessage(options.buildPrompt(skillBlock, target));
 }

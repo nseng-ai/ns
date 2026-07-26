@@ -207,7 +207,7 @@ describe("ns:objective:create command", () => {
 			expect(result.notifications).toHaveLength(1);
 			expect(result.notifications[0]?.level).toBe("error");
 			expect(result.notifications[0]?.message).toContain(
-				"Failed to read objective-create backing skill",
+				'Could not load required skill "objective-create"',
 			);
 			expect(result.notifications[0]?.message).toContain(
 				"Could not find .agents/skills/objective-create/SKILL.md, .claude/skills/objective-create/SKILL.md",

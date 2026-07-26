@@ -117,17 +117,17 @@ function formatJustOutput(result: ExecResult): string {
 }
 
 function buildFailurePrompt(
-	skillBlock: string | undefined,
+	skillBlock: string,
 	result: ExecResult,
 	cwd: string,
 	displayCommand: JustCommand["displayCommand"],
 ): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
+	const status = result.killed
+		? `exit code ${result.code}; process was killed or timed out`
+		: `exit code ${result.code}`;
 	const justOutput = formatJustOutput(result);
-	const fallback =
-		"The code-just-fix skill was not found among loaded Pi skills. Follow the repository's code-just-fix workflow anyway.";
 
-	return `${skillBlock ?? fallback}
+	return `${skillBlock}
 
 \`${displayCommand}\` has already been run in ${cwd} and failed (${status}).
 
@@ -144,8 +144,21 @@ async function runJustThenInvokeSkill(
 	command: JustCommand,
 	exec: ExecCommand,
 ): Promise<void> {
-	sendCommandProgressOrNotify({ host: pi, ctx, message: `Running \`${command.displayCommand}\`…` });
 	await ctx.waitForIdle();
+
+	let skill: Awaited<ReturnType<typeof expandRepoSkillBlock>>;
+	try {
+		skill = await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME });
+	} catch (cause) {
+		const message = cause instanceof Error ? cause.message : String(cause);
+		const error = new Error(`Could not load required skill "${SKILL_NAME}": ${message}`, { cause });
+		if (ctx.hasUI) {
+			ctx.ui.notify(error.message, "error");
+		}
+		return;
+	}
+
+	sendCommandProgressOrNotify({ host: pi, ctx, message: `Running \`${command.displayCommand}\`…` });
 
 	const progress = new LiveCommandProgress(ctx, {
 		argv: command.recipeArgs,
@@ -173,23 +186,11 @@ async function runJustThenInvokeSkill(
 		return;
 	}
 
-	let skill: Awaited<ReturnType<typeof expandRepoSkillBlock>> | undefined;
-	try {
-		skill = await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME });
-	} catch {
-		// Missing skill is handled below by sending the repository workflow fallback prompt.
-		skill = undefined;
-	}
 	if (ctx.hasUI) {
-		ctx.ui.notify(
-			skill
-				? `\`${command.displayCommand}\` failed; invoking ${skill.name}.`
-				: `\`${command.displayCommand}\` failed; code-just-fix was not found.`,
-			skill ? "warning" : "error",
-		);
+		ctx.ui.notify(`\`${command.displayCommand}\` failed; invoking ${skill.name}.`, "warning");
 	}
 
-	pi.sendUserMessage(buildFailurePrompt(skill?.block, result, ctx.cwd, command.displayCommand));
+	pi.sendUserMessage(buildFailurePrompt(skill.block, result, ctx.cwd, command.displayCommand));
 }
 
 export default function justFixExtension(pi: ExtensionAPI, exec: ExecCommand = runCommand): void {

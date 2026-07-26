@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
-import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
+import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 const BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME = "ns:branch-context:from-plan";
 const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "ns:branch-context:impl-attached-plan";
 
@@ -274,6 +274,53 @@ describe("registerBackingSkillCommands", () => {
 				);
 				expect(host.sentMessages[0]).toContain("# Code Workflows");
 				expect(host.sentMessages[0]).toContain("````text\nfix ```this``` please\n````");
+			},
+		);
+	});
+
+	test("missing required skill reports an error and sends no prompt", async () => {
+		await withTempGitRepo({ prefix: "missing-backing-skill-command-" }, async ({ repoDir }) => {
+			const host = new FakeBackingSkillHost();
+			registerBackingSkillCommands(host);
+			const command = host.commands.get("code:workflows");
+			if (command === undefined) throw new Error("missing command");
+			const ctx = commandContext(repoDir);
+
+			await command.handler("do work", ctx);
+
+			expect(host.sentMessages).toEqual([]);
+			expect(ctx.notifications).toHaveLength(1);
+			expect(ctx.notifications[0]).toMatchObject({ level: "error" });
+			expect(ctx.notifications[0]?.message).toContain(
+				'Could not load required skill "code-workflows"',
+			);
+		});
+	});
+
+	test("unreadable required skill reports an error and sends no prompt", async () => {
+		await withTempRepoSkill(
+			{
+				skillName: "code-workflows",
+				markdown: "---\nname: code-workflows\n\n# missing closing fence\n",
+				prefix: "unreadable-backing-skill-command-",
+				skillRoot: join(".agents", "skills"),
+			},
+			async ({ repoDir }) => {
+				const host = new FakeBackingSkillHost();
+				registerBackingSkillCommands(host);
+				const command = host.commands.get("code:workflows");
+				if (command === undefined) throw new Error("missing command");
+				const ctx = commandContext(repoDir);
+
+				await command.handler("do work", ctx);
+
+				expect(host.sentMessages).toEqual([]);
+				expect(ctx.notifications).toEqual([
+					expect.objectContaining({
+						level: "error",
+						message: expect.stringContaining("missing a closing"),
+					}),
+				]);
 			},
 		);
 	});

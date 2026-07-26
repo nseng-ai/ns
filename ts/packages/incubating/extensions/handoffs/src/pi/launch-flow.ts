@@ -10,7 +10,6 @@ import { formatPickupHandoffCommand } from "./identity.ts";
 import { currentBranch } from "./branch-resolution.ts";
 import { DERIVE_HANDOFF_SLUG_TOOL_NAME } from "./command-constants.ts";
 import { resolveCreateFocus } from "./create-focus.ts";
-import { CREATE_HANDOFF_FALLBACK } from "./create-prompt.ts";
 import { realHandoffCreateSkillLoader, type HandoffCreateSkillLoader } from "./create-skill.ts";
 import { checkHandoffExists } from "./handoff-existence.ts";
 import {
@@ -37,13 +36,12 @@ export interface HandoffLaunchRequest {
 
 export interface PreparedHandoffCreateLaunch {
 	request: HandoffLaunchRequest;
-	skill: ExpandedSkillBlock | undefined;
-	skillReadError: string | undefined;
+	skill: ExpandedSkillBlock;
 	promptOptions: HandoffLaunchPreflightPromptOptions | undefined;
 }
 
 export interface HandoffLaunchPromptOptions {
-	skillBlock: string | undefined;
+	skillBlock: string;
 	request: HandoffLaunchRequest;
 	investigationSources: HandoffInvestigationSourceOptions;
 	extraTargetSections?: string[];
@@ -165,7 +163,7 @@ export function buildHandoffLaunchPrompt(
 		`Do not call ${copy.toolName} before the handoff is saved successfully.`,
 		...(options.extraRequirements ?? []),
 	];
-	return `${options.skillBlock ?? CREATE_HANDOFF_FALLBACK}
+	return `${options.skillBlock}
 
 This is a /${copy.commandName} request. ${copy.intentSentence}
 
@@ -196,8 +194,23 @@ export async function prepareHandoffCreateLaunch(
 		skillLoader?: HandoffCreateSkillLoader;
 	},
 ): Promise<PreparedHandoffCreateLaunch | undefined> {
+	let skill: ExpandedSkillBlock;
+	try {
+		skill = await (options.skillLoader ?? realHandoffCreateSkillLoader).loadCreateHandoffSkill(
+			ctx.cwd,
+		);
+	} catch (error) {
+		ctx.ui.notify(formatErrorMessage(error), "error");
+		return undefined;
+	}
+
 	const focus = await resolveCreateFocus(pi, args, ctx);
 	if (focus === undefined) {
+		return undefined;
+	}
+	const validatedFocus = buildHandoffLaunchRequest({ branch: "preflight", focus });
+	if (validatedFocus.type === "invalid") {
+		ctx.ui.notify(validatedFocus.message, "error");
 		return undefined;
 	}
 
@@ -209,12 +222,7 @@ export async function prepareHandoffCreateLaunch(
 		return undefined;
 	}
 
-	const builtRequest = buildHandoffLaunchRequest({ branch, focus });
-	if (builtRequest.type === "invalid") {
-		ctx.ui.notify(builtRequest.message, "error");
-		return undefined;
-	}
-	const request = builtRequest.request;
+	const request = { branch, focus: validatedFocus.request.focus };
 
 	const preflight = await options.preflight?.({ pi, ctx, request });
 	if (preflight?.type === "failed") {
@@ -222,16 +230,9 @@ export async function prepareHandoffCreateLaunch(
 		return undefined;
 	}
 
-	const loadedSkill = await (
-		options.skillLoader ?? realHandoffCreateSkillLoader
-	).loadCreateHandoffSkill(ctx.cwd);
-	const skill = loadedSkill.type === "found" ? loadedSkill.skill : undefined;
-	const skillReadError = loadedSkill.type === "failed" ? loadedSkill.message : undefined;
-
 	return {
 		request,
 		skill,
-		skillReadError,
 		promptOptions: preflight?.type === "ok" ? preflight.promptOptions : undefined,
 	};
 }
@@ -251,13 +252,10 @@ export async function runHandoffCreateCommand(
 		return;
 	}
 
-	ctx.ui.notify(
-		createHandoffStartMessage(spec.startMessages, prepared.skill, prepared.skillReadError),
-		prepared.skill ? "info" : "warning",
-	);
+	ctx.ui.notify(createHandoffStartMessage(spec.startMessages), "info");
 	pi.sendUserMessage(
 		buildHandoffLaunchPrompt(spec.promptCopy, {
-			skillBlock: prepared.skill?.block,
+			skillBlock: prepared.skill.block,
 			request: prepared.request,
 			investigationSources: deriveHandoffInvestigationSources(ctx),
 			...prepared.promptOptions,

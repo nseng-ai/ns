@@ -42,7 +42,8 @@ After this baseline, accepted ADRs are immutable time-in-place records. Do not r
 | 0043 | [Unified Subagent Tool and Runtime Selection](0043-unify-subagent-tool-and-runtime-selection.md)                       |
 | 0045 | [Release Disposition and Owner-Nested Package Ontology](0045-release-disposition-and-owner-nested-package-ontology.md) |
 | 0046 | [Skill Disposition and Owner-Nested Canonical Ontology](0046-skill-disposition-and-owner-nested-ontology.md)           |
-| 0047 | [Propagate Objective Closure Through Connected Records](0047-propagate-objective-closure-through-edges.md)                   |
+| 0047 | [Propagate Objective Closure Through Connected Records](0047-propagate-objective-closure-through-edges.md)             |
+| 0048 | [Required Skill-Backed Workflows Fail Closed](0048-required-skill-backed-workflows-fail-closed.md)                     |
 
 ## Proposed
 

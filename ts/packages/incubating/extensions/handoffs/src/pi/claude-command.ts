@@ -104,7 +104,6 @@ const CLAUDE_HANDOFF_PROMPT_COPY = {
 
 const CLAUDE_HANDOFF_START_MESSAGES = {
 	ready: "Starting Claude handoff create workflow…",
-	fallbackLabel: "handoff-create workflow prompt",
 } satisfies HandoffStartMessages;
 
 export function scrubClaudeEnv(
@@ -118,7 +117,7 @@ export function scrubClaudeEnv(
 }
 
 export function buildClaudeHandoffPrompt(options: {
-	skillBlock: string | undefined;
+	skillBlock: string;
 	request: ClaudeHandoffRequest;
 	investigationSources: HandoffInvestigationSourceOptions;
 }): string {
@@ -161,27 +160,28 @@ export async function handleClaudeHandoffCommand(
 	options: ClaudeHandoffCommandOptions,
 ): Promise<void> {
 	const { pi, args, ctx, git, launchToolRegistered } = options;
-	if (!canUseInteractiveClaude(ctx)) {
-		ctx.ui.notify(
-			"/claude:handoff requires interactive TUI mode so the terminal can be handed to Claude Code after the handoff is created.",
-			"error",
-		);
-		return;
-	}
-
-	if (!launchToolRegistered) {
-		ctx.ui.notify(
-			"/claude:handoff requires tool support so the saved handoff can launch Claude after creation.",
-			"error",
-		);
-		return;
-	}
-
 	await runHandoffCreateCommand(pi, args, ctx, {
 		git,
 		statusKey: CLAUDE_HANDOFF_STATUS_KEY,
 		promptCopy: CLAUDE_HANDOFF_PROMPT_COPY,
 		startMessages: CLAUDE_HANDOFF_START_MESSAGES,
+		preflight: async () => {
+			if (!canUseInteractiveClaude(ctx)) {
+				return {
+					type: "failed",
+					message:
+						"/claude:handoff requires interactive TUI mode so the terminal can be handed to Claude Code after the handoff is created.",
+				};
+			}
+			if (!launchToolRegistered) {
+				return {
+					type: "failed",
+					message:
+						"/claude:handoff requires tool support so the saved handoff can launch Claude after creation.",
+				};
+			}
+			return { type: "ok" };
+		},
 	});
 }
 

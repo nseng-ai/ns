@@ -9,6 +9,7 @@ import {
 	expandRepoSkillBlock,
 	expandSkillBlock,
 	expandSkillBlockFromPath,
+	invokeRepoSkillPromptTurn,
 	invokeSkillPromptTurn,
 	resolveRepoSkillPath,
 	type SkillCommandInfo,
@@ -430,8 +431,11 @@ describe("repo skill expansion", () => {
 			buildSkillInvocationPrompt({
 				skillName: "pr-address",
 				initialRequest: "",
+				skillBlock: "<skill>address body</skill>",
 			}),
-		).toBe("Run pr-address now. Follow the backing skill workflow exactly.");
+		).toBe(
+			"<skill>address body</skill>\n\nRun pr-address now. Follow the backing skill workflow exactly.",
+		);
 	});
 });
 
@@ -490,8 +494,7 @@ describe("invokeSkillPromptTurn", () => {
 					ctx: context.ctx,
 					skillName: "objective-create",
 					successMessage: (skill) => `Starting ${skill.name}`,
-					fallbackMessage: "missing skill",
-					buildPrompt: (skillBlock) => `prompt:\n${skillBlock ?? "fallback"}`,
+					buildPrompt: (skillBlock) => `prompt:\n${skillBlock}`,
 				});
 
 				expect(context.waits()).toBe(1);
@@ -507,23 +510,142 @@ describe("invokeSkillPromptTurn", () => {
 		);
 	});
 
-	test("uses the fallback prompt and warning when the skill is unavailable", async () => {
+	test("fails closed without sending a prompt when the required skill is not loaded", async () => {
 		const testHost = promptTurnHost([]);
 		const context = promptTurnContext();
 
-		await invokeSkillPromptTurn({
+		const invocation = invokeSkillPromptTurn({
 			host: testHost,
 			ctx: context.ctx,
 			skillName: "objective-create",
 			successMessage: "unused",
-			fallbackMessage: "objective-create skill was not found; using fallback prompt.",
-			buildPrompt: (skillBlock) => skillBlock ?? "fallback prompt",
+			buildPrompt: (skillBlock) => skillBlock,
 		});
 
+		await expect(invocation).rejects.toThrow(
+			'Could not load required skill "objective-create": Pi did not advertise the loaded skill:objective-create command.',
+		);
 		expect(context.waits()).toBe(1);
-		expect(context.notifications).toEqual([
-			{ message: "objective-create skill was not found; using fallback prompt.", level: "warning" },
+		expect(context.notifications).toEqual([]);
+		expect(testHost.sentUserMessages).toEqual([]);
+	});
+
+	test("wraps unreadable loaded skills with context and preserves the original cause", async () => {
+		const testHost = promptTurnHost([
+			skillCommand("objective-create", "/missing/objective-create/SKILL.md"),
 		]);
-		expect(testHost.sentUserMessages).toEqual(["fallback prompt"]);
+		const context = promptTurnContext();
+
+		let thrown: unknown;
+		try {
+			await invokeSkillPromptTurn({
+				host: testHost,
+				ctx: context.ctx,
+				skillName: "objective-create",
+				successMessage: "unused",
+				buildPrompt: (skillBlock) => skillBlock,
+			});
+		} catch (error) {
+			thrown = error;
+		}
+
+		expect(thrown).toBeInstanceOf(Error);
+		if (!(thrown instanceof Error)) throw new Error("Expected invocation to throw an Error.");
+		expect(thrown.message).toContain('Could not load required skill "objective-create"');
+		expect(thrown.message).toContain("ENOENT");
+		expect(thrown.cause).toBeInstanceOf(Error);
+		expect(testHost.sentUserMessages).toEqual([]);
+	});
+
+	test("does not send a prompt when a loaded skill is malformed", async () => {
+		await withTempRepoSkill(
+			{
+				skillName: "objective-create",
+				markdown: "---\nname: objective-create\n# Missing fence\n",
+				prefix: "malformed-skill-prompt-turn-",
+			},
+			async ({ skillDir, skillPath }) => {
+				const testHost = promptTurnHost([skillCommand("objective-create", skillPath, skillDir)]);
+				const context = promptTurnContext();
+
+				await expect(
+					invokeSkillPromptTurn({
+						host: testHost,
+						ctx: context.ctx,
+						skillName: "objective-create",
+						successMessage: "unused",
+						buildPrompt: (skillBlock) => skillBlock,
+					}),
+				).rejects.toThrow(
+					'Could not load required skill "objective-create": Skill Markdown frontmatter is missing a closing "---" fence.',
+				);
+				expect(testHost.sentUserMessages).toEqual([]);
+			},
+		);
+	});
+});
+
+describe("invokeRepoSkillPromptTurn", () => {
+	test("fails on repo-local absence even when Pi advertises a loaded skill", async () => {
+		await withTempGitRepo({ prefix: "missing-repo-prompt-skill-" }, async ({ repoDir }) => {
+			const testHost = promptTurnHost([
+				skillCommand("objective-create", "/loaded/objective-create/SKILL.md"),
+			]);
+			const context = promptTurnContext();
+
+			await expect(
+				invokeRepoSkillPromptTurn({
+					host: testHost,
+					ctx: { ...context.ctx, cwd: repoDir },
+					skillName: "objective-create",
+					successMessage: "unused",
+					buildPrompt: (skillBlock) => skillBlock,
+				}),
+			).rejects.toThrow(
+				'Could not load required skill "objective-create": Could not find .agents/skills/objective-create/SKILL.md, .claude/skills/objective-create/SKILL.md',
+			);
+			expect(testHost.sentUserMessages).toEqual([]);
+			expect(context.notifications).toEqual([]);
+		});
+	});
+
+	test("wraps repo-local read failures and preserves their cause without sending a prompt", async () => {
+		await withTempRepoSkill(
+			{
+				skillName: "objective-create",
+				markdown: "# Objective Create\n",
+				prefix: "unreadable-repo-prompt-skill-",
+				skillRoot: join(".agents", "skills"),
+			},
+			async ({ repoDir }) => {
+				const testHost = promptTurnHost([]);
+				const context = promptTurnContext();
+				const cause = new Error("cannot read repo skill");
+
+				let thrown: unknown;
+				try {
+					await invokeRepoSkillPromptTurn({
+						host: testHost,
+						ctx: { ...context.ctx, cwd: repoDir },
+						skillName: "objective-create",
+						successMessage: "unused",
+						buildPrompt: (skillBlock) => skillBlock,
+						readTextFile: async () => {
+							throw cause;
+						},
+					});
+				} catch (error) {
+					thrown = error;
+				}
+
+				expect(thrown).toBeInstanceOf(Error);
+				if (!(thrown instanceof Error)) throw new Error("Expected invocation to throw an Error.");
+				expect(thrown.message).toBe(
+					'Could not load required skill "objective-create": cannot read repo skill',
+				);
+				expect(thrown.cause).toBe(cause);
+				expect(testHost.sentUserMessages).toEqual([]);
+			},
+		);
 	});
 });

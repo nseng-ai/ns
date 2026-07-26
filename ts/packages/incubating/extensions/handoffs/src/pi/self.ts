@@ -43,7 +43,7 @@ export interface HandoffSelfReadyResult {
 }
 
 interface HandoffSelfPromptOptions {
-	skillBlock: string | undefined;
+	skillBlock: string;
 	request: HandoffLaunchRequest;
 	investigationSources: HandoffInvestigationSourceOptions;
 	workflowId?: string;
@@ -100,7 +100,6 @@ export const HANDOFF_SELF_PROMPT_COPY = {
 
 const HANDOFF_SELF_START_MESSAGES = {
 	ready: `Starting ${HANDOFF_SELF_COMMAND_NAME} workflow with content-derived slug…`,
-	fallbackLabel: `${HANDOFF_SELF_COMMAND_NAME} workflow prompt for a content-derived slug`,
 } satisfies HandoffStartMessages;
 
 export function createHandoffSelfWorkflow(
@@ -183,6 +182,11 @@ export function createHandoffSelfWorkflow(
 		try {
 			await ctx.waitForIdle();
 
+			const prepared = await prepareHandoffCreateLaunch(pi, args, ctx, prepareOptions);
+			if (prepared === undefined) {
+				return;
+			}
+
 			const newSession = ctx.newSession;
 			if (newSession === undefined) {
 				ctx.ui.notify(
@@ -192,24 +196,12 @@ export function createHandoffSelfWorkflow(
 				return;
 			}
 
-			const prepared = await prepareHandoffCreateLaunch(pi, args, ctx, prepareOptions);
-			if (prepared === undefined) {
-				return;
-			}
-
 			const completion = createWaitingWorkflow({ branch: prepared.request.branch, workflowId });
 			try {
-				ctx.ui.notify(
-					createHandoffStartMessage(
-						HANDOFF_SELF_START_MESSAGES,
-						prepared.skill,
-						prepared.skillReadError,
-					),
-					prepared.skill ? "info" : "warning",
-				);
+				ctx.ui.notify(createHandoffStartMessage(HANDOFF_SELF_START_MESSAGES), "info");
 				pi.sendUserMessage(
 					buildHandoffSelfPrompt({
-						skillBlock: prepared.skill?.block,
+						skillBlock: prepared.skill.block,
 						request: prepared.request,
 						investigationSources: deriveHandoffInvestigationSources(ctx),
 						workflowId,
