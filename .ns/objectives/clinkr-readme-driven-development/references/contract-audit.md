@@ -115,13 +115,13 @@ Current `ok(data)` requires data, `ClinkrOkExit` always carries it, and JSON alw
 
 The README examples use `{ index: 0 }`; the current public `PositionalSpec` and callers use `{ position: 0 }`.
 
-**Proposed disposition:** **User decision required before reconciliation.** Prefer retaining `position`, which is established current API and accurately names ordinal placement, unless the new command API deliberately chooses `index` as part of a clean break. This mismatch does not justify an implicit rename.
+**Approved disposition:** **Retain `position`.** It is the established public spelling, accurately names ordinal placement, and avoids an unmotivated rename during the clean break. The README now uses `position`; no implementation migration is required for this item.
 
 ### Markdown format also accepts `md`
 
 Current parsing and completion accept `md` in addition to the README's `human|json|markdown` spelling. Focused tests in `test/format-option.test.ts` and `test/completion.test.ts` deliberately pin parsing, rendering, validation text, and completion for the alias.
 
-**Proposed disposition:** **User decision required before reconciliation.** Prefer documenting `md` as an explicit alias because it is an intentional, comprehensively tested current surface; otherwise remove it deliberately. Do not leave an undocumented accepted spelling.
+**Approved disposition:** **Retain and document `md` as an explicit alias for `markdown`.** The alias is intentional and comprehensively covered by parsing, rendering, validation-text, and completion tests. Reconciliation must preserve that behavior and its focused coverage.
 
 ### Node 24 is not declared in package metadata
 
@@ -172,8 +172,8 @@ Other proposals remain discussion-gated where their prior disposition is not ind
 3. Replace the hybrid raw path with opaque Commander mounting and reclassify every current raw caller.
 4. Move completion failure observation to app policy while preserving static fallback.
 5. Remove `ClinkrFailure` conversion after exhaustive usage confirmation.
-6. Settle `position` versus `index` and the `md` alias explicitly.
+6. Preserve the settled `position` spelling and documented `md` alias during reconciliation.
 
 ## Audit conclusion
 
-All ten known mismatches have implementation, test, and representative-caller evidence plus proposed dispositions. The audit added six material findings. Two API choices—`position` versus `index`, and whether `md` remains a public format alias—require user steering. The foundational split and migration sequence are approved, but TypeScript implementation has not begun. Remaining disputed dispositions must still be discussed before their implementation. An exhaustive search found `ClinkrFailure` construction only in Clinkr tests plus a TypeScript style-guard fixture, strengthening the proposed removal disposition but not authorizing it.
+All ten known mismatches have implementation, test, and representative-caller evidence plus proposed dispositions. The audit added six material findings. The positional spelling and Markdown alias decisions are now settled: retain `position`, and retain and document `md` as an alias for `markdown`. The foundational split and migration sequence are approved, but TypeScript implementation has not begun. Remaining disputed dispositions must still be discussed before their implementation. An exhaustive search found `ClinkrFailure` construction only in Clinkr tests plus a TypeScript style-guard fixture, strengthening the proposed removal disposition but not authorizing it.
