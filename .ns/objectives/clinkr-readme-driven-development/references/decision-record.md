@@ -249,7 +249,7 @@ This section records the focused design review that approved the foundational re
 
 Builders provide terminal `builder.import("./relative-module.ts")`. Specifiers must be relative and resolve from the module currently being built. The imported module exports standard named async `build(builder)`, and `import()` returns the finalized immutable object. A concise route may use `appBuilder.group(metadata, async (groupBuilder) => groupBuilder.import("./admin-group.ts"))`.
 
-A future higher-level filesystem-routes API is desirable but explicitly outside this reconciliation. It should compile to this builder model; the builder model is the one authoring path now.
+The builder model remains the canonical lower-level runtime model. The later filesystem-first decision below supersedes it as the primary README authoring interface; builders remain public for advanced and programmatic uses.
 
 ### Loading, identity, and validation
 
@@ -268,6 +268,43 @@ This is a hard clean break, not a compatibility layer or two public models. Migr
 ### Explicitly unresolved and unchanged
 
 `position` versus `index` and whether `md` remains a public format alias are still unresolved. Outcome, raw mounting, rendering, and completion-error decisions remain as recorded elsewhere in this document; approval of the foundational refactor does not silently settle or reopen them.
+
+## Filesystem-first authoring (2026-07-25)
+
+This decision supersedes builders as the primary package-README interface without superseding the approved builder/runtime design above. The common path is a web-framework-like filesystem hierarchy:
+
+```text
+cli/
+  app.ts
+  command.ts
+  issues/
+    group.ts
+    command.ts
+    list/
+      command.ts
+    labels/
+      group.ts
+      add/
+        command.ts
+```
+
+The hierarchy is direct: there are no `groups/`, `commands/`, or per-level `routes/` taxonomy directories. Directory path is CLI path. A directory containing `group.ts` is a named group. A `command.ts` without a peer `group.ts` is the named command represented by that directory. A `command.ts` beside `group.ts` is that group's default command. Root `cli/command.ts` is the app default. Normal routes use one file; there is no `route.ts` metadata sidecar.
+
+Filesystem route modules retain exported functions for future-proofing, but commands and groups deliberately have different shapes. A `group.ts` exports one cheap, complete `group(): ClinkrGroupDefinition`; it includes description/summary, explicit aliases, hidden state, help grouping, and any other cheap group configuration. Children come from the filesystem, and an adjacent `command.ts` remains the default command. There is no separate group `metadata()` and no lazy second group-definition function. This explicitly supersedes the earlier filesystem-first `metadata()` plus lazy `group()` split for groups.
+
+A `command.ts` keeps two functions because its implementation may be expensive: cheap, explicitly typed `metadata(): ClinkrCommandMetadata` for description/summary, explicit aliases, hidden state, and help grouping, plus async `command()` for the selected definition. Command definitions use a generic typed `defineCommand({...})` helper rather than `satisfies ClinkrCommandDefinition`, so `schema` and `resultSchema` drive handler and renderer inference. The exact helper and type spellings remain provisional, but this is the desired README authoring style. Group and metadata functions use direct explicit return types rather than `satisfies`.
+
+Importing a route module evaluates its top level. For parent routing, help, and name completion, the adapter calls a command module's cheap `metadata()` or a group module's cheap, complete `group()`. Only a selected command's `command()` is invoked. Schemas, handlers, gateways, renderers, completion providers, expensive imports, and expensive construction belong inside `command()`; an unusually heavy command may dynamically import a private implementation there. Group top levels and `group()` itself must remain cheap, and the normal path remains one route file.
+
+Runtime filesystem discovery is the approved direction. There is no generated manifest, generated runtime module, filesystem code generation, or production-codegen requirement. The filesystem adapter owns traversal, dynamic imports, builder callbacks, transactional loading, successful per-app caching and retry after failure, ownership/provenance, and ESM resolution. It lowers into the same immutable builder/App model, so routing, execution, help, and completion retain one implementation.
+
+Laziness is recursive and fast by default. Help and name completion may import immediate child modules, call command metadata, and call cheap complete group definitions, but do not construct sibling command definitions. Only a selected command's `command()` runs. The existing lower-seam decisions remain approved: async immutable builders; terminal `define()` and `import()`; app-only execution and completion; transactional selected-command loads; successful per-app caching with retryable failures; a fresh Foundation app per invocation; and no compatibility layer.
+
+Builders remain a public advanced escape hatch for unusual or programmatic topology, extension mounting, custom loading, and framework integration. The package README should mention this briefly and point to a separate future advanced builder guide; its main flow must not teach builder callbacks.
+
+The exact filesystem bootstrap/helper API used by `app.ts` is unresolved. README examples may show a coherent conceptual bootstrap only when clearly labeled provisional, while `command.ts` and `group.ts` exports should be concrete. Runtime discovery also creates a packaging constraint: route files and directories must ship intact. Bundled or single-file environments may need the builder escape hatch or a later dedicated adapter. This decision does not authorize a manifest fallback.
+
+`position` versus `index`, the `md` alias, and the remaining outcome, raw, rendering, and completion-error discussions remain unresolved.
 
 ## Accepted implementation behavior
 
