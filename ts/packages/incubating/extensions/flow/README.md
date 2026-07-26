@@ -139,8 +139,9 @@ Every assembled body begins with a short italicized disclosure that it was autom
 from the diff and commit headlines without author steering, interview, or approval, and may omit
 intent, rationale, constraints, or context not visible in that evidence. Flow, not the model, adds
 that disclosure at the top and a footer naming the evidence inputs, invoking command, resolved prompt
-source, and exact qualified model identity. A custom prompt cannot remove or rewrite either provenance
-boundary.
+source, and exact qualified model identity. Flow also applies its evidence policy independently of the
+selected prompt; custom prompt content supplies presentation guidance and cannot replace that policy or
+remove or rewrite either provenance boundary.
 
 Ordinary `ns flow submit` assembles a complete title and body only for PRs newly created by that
 invocation. After Graphite publishes, Flow re-queries GitHub for exactly the planned branches and
@@ -248,11 +249,11 @@ All customization goes through extension points. See the
 `.ns/prompts/` paths, and resolution precedence. Use `ns extension points` to inspect
 the active catalog.
 
-| Point                      | Kind   | What it customizes                                                           |
-| -------------------------- | ------ | ---------------------------------------------------------------------------- |
-| `flow.submit.pre`          | hook   | Commands run as pre-submit checks.                                           |
-| `flow.submit.pre.recovery` | prompt | Agent guidance after a pre-submit check failure.                             |
-| `flow.submit.pr-inventory` | prompt | Assembled PR inventory generation during submit and `generate-pr-inventory`. |
+| Point                      | Kind   | What it customizes                                                                            |
+| -------------------------- | ------ | --------------------------------------------------------------------------------------------- |
+| `flow.submit.pre`          | hook   | Commands run as pre-submit checks.                                                            |
+| `flow.submit.pre.recovery` | prompt | Agent guidance after a pre-submit check failure.                                              |
+| `flow.submit.pr-inventory` | prompt | Presentation guidance for Assembled PR inventories during submit and `generate-pr-inventory`. |
 
 Install the conventional prompt at `.ns/prompts/flow.submit.pr-inventory.md`, or configure an
 explicit path under `[points]."flow.submit.pr-inventory"`. For extension development,

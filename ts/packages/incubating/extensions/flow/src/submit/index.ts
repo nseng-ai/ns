@@ -21,6 +21,7 @@ export {
 } from "./pr-inventory-orchestration.ts";
 export {
 	buildPrInventoryUserPrompt,
+	composePrInventoryPrompt,
 	filterLockfileSections,
 	MAX_DIFF_CHARS,
 	parsePrInventoryOutput,

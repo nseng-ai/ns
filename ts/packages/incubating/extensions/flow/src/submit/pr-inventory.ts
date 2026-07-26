@@ -33,6 +33,8 @@ export const FLOW_PR_INVENTORY_POINT_ID = "flow.submit.pr-inventory";
 export const REPO_PR_INVENTORY_PROMPT_PATH = `.ns/prompts/${FLOW_PR_INVENTORY_POINT_ID}.md`;
 export const MAX_DIFF_CHARS = 120_000;
 
+const PR_INVENTORY_POLICY_URL = new URL("./prompts/pr-inventory-policy.md", import.meta.url);
+
 const prInventoryPromptEnvOverride = {
 	pointId: FLOW_PR_INVENTORY_POINT_ID,
 	envVar: PR_INVENTORY_PROMPT_ENV,
@@ -97,8 +99,7 @@ export type PrInventoryValidationIssue =
 	| { type: "empty_title" }
 	| { type: "title_too_long"; length: number; maxLength: number }
 	| { type: "empty_body" }
-	| { type: "attribution_footer"; text: string }
-	| { type: "reserved_transparency_region"; text: string };
+	| { type: "attribution_footer"; text: string };
 
 export type PrInventoryValidationResult =
 	| { ok: true; inventory: ParsedPrInventory }
@@ -126,12 +127,27 @@ export async function resolvePrInventoryGeneration(input: {
 		return { ok: false, error: prompt.error, exitCode: 2 };
 	}
 
+	let policy: string;
+	try {
+		policy = await readFile(PR_INVENTORY_POLICY_URL, "utf8");
+	} catch (error) {
+		return {
+			ok: false,
+			error: `Could not read Flow-owned PR inventory policy: ${formatErrorMessage(error)}`,
+			exitCode: 2,
+		};
+	}
+
 	return {
 		ok: true,
 		modelSelection: input.modelSelection,
-		promptText: prompt.text,
+		promptText: composePrInventoryPrompt(policy, prompt.text),
 		promptSource: prompt.source,
 	};
+}
+
+export function composePrInventoryPrompt(policy: string, presentationGuidance: string): string {
+	return `${policy.trim()}\n\n## Presentation guidance\n\n${presentationGuidance.trim()}\n`;
 }
 
 interface PrInventoryPointContext {
@@ -244,7 +260,7 @@ export function buildPrInventoryUserPrompt(input: PrInventoryPromptContext): str
 	}
 	sections.push(
 		`## Diff\n\n${buildFencedTextBlock(diff.trimEnd(), "diff")}`,
-		"Generate a fresh PR title and body from this evidence:",
+		"Generate a fresh PR title and body using only the evidence above. Do not infer intent, rationale, or guarantees.",
 	);
 	return `${sections.join("\n\n")}\n`;
 }
@@ -272,15 +288,6 @@ export function validatePrInventory(inventory: ParsedPrInventory): PrInventoryVa
 	for (const line of inventory.body.split("\n")) {
 		if (/Generated with|Co-Authored-By/i.test(line)) {
 			issues.push({ type: "attribution_footer", text: line.trim() });
-		}
-		if (
-			/^\s*>\s*(?:\[!IMPORTANT\]|\*\*Assembled PR inventory\.\*\*)/i.test(line) ||
-			/^\*?Automatically generated (?:PR inventory|by `ns flow (?:submit|generate-pr-inventory)`) from the diff and commit headlines, without author steering, interview, or approval\. It may omit intent, rationale, constraints, or context not visible in that evidence\.\*?$/i.test(
-				line.trim(),
-			) ||
-			/^_?Evidence inputs:.*Command:.*Prompt:.*Model:.*_?$/i.test(line.trim())
-		) {
-			issues.push({ type: "reserved_transparency_region", text: line.trim() });
 		}
 	}
 	if (issues.length > 0) {
@@ -441,7 +448,5 @@ function formatPrInventoryValidationIssue(issue: PrInventoryValidationIssue): st
 			return "- Body is empty.";
 		case "attribution_footer":
 			return `- Body contains an attribution footer: ${issue.text}`;
-		case "reserved_transparency_region":
-			return `- Body attempts to supply Flow-owned disclosure or provenance: ${issue.text}`;
 	}
 }
