@@ -17,6 +17,7 @@ export const flowPullTrunkCommand: NsCommand<typeof pullTrunkSchema> = defineCom
 		"Pull the configured Graphite trunk branch from its configured Git upstream without running full gt sync.",
 	schema: pullTrunkSchema,
 	resultSchema: z.string(),
+	renderHuman: (text) => text,
 	handler: async (ctx) => {
 		const caps = resolveFlowStreamCaps(ctx);
 		const result = await runFlowCliOperation({

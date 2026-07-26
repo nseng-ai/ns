@@ -41,6 +41,7 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 	description: AUTOBRANCH_DESCRIPTION,
 	schema: autobranchRequestSchema,
 	resultSchema: z.string(),
+	renderHuman: (text) => text,
 	options: { slug: { short: "-s" } },
 	handler: async (ctx, request: AutobranchRequest) => {
 		const caps = resolveFlowStreamCaps(ctx);

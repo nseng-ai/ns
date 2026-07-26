@@ -38,27 +38,47 @@ describe("checked-in flow ns extension loading", () => {
 		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
 	});
 
-	test("real loader reaches a simple cp invocation path", async () => {
+	test("real loader renders cp strings verbatim for humans and Markdown while preserving JSON", async () => {
 		const cwd = await createFlowProject();
-		const run = runWithRealFlowExtension({
-			args: ["flow", "cp"],
-			cwd,
-			state: {
-				exec: dirtyCpExecResponses(cwd),
-				textGeneration: [
-					{
-						ok: true,
-						text: `[cp] Update integration checkpoint\n\n- Cover loader invocation`,
-					},
-				],
-			},
-		});
+		const styledHeadline = `abc123 \x1b[1m[cp] Update checkpoint\x1b[0m`;
+		const plainResult = `abc123 [cp] Update checkpoint\n[cp] Update integration checkpoint\n\n- Cover loader invocation`;
+		const styledResult = `${styledHeadline}\n[cp] Update integration checkpoint\n\n- Cover loader invocation`;
+		const runCp = (format?: "markdown" | "json", canEmitAnsi = false) =>
+			runWithRealFlowExtension({
+				args: ["flow", "cp", ...(format === undefined ? [] : ["--format", format])],
+				cwd,
+				renderCapabilities: { canEmitAnsi },
+				state: {
+					exec: dirtyCpExecResponses(cwd, styledHeadline),
+					textGeneration: [
+						{
+							ok: true,
+							text: `[cp] Update integration checkpoint\n\n- Cover loader invocation`,
+						},
+					],
+				},
+			});
 
-		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("abc123 [cp] Update checkpoint");
-		expect(formattedExecCalls(run.context)).toContain("gt trunk --no-interactive");
-		expect(formattedExecCalls(run.context)).toContain("git add -A");
-		expect(run.context.textGeneratorCalls).toHaveLength(1);
+		const human = runCp();
+		expect(await human.exit).toBe(0);
+		expect(human.stdout.join("")).toBe(`${plainResult}\n`);
+		expect(human.stdout.join("")).not.toContain("\\n");
+		expect(human.stdout.join("")).not.toContain("\\u001b");
+		expect(formattedExecCalls(human.context)).toContain("gt trunk --no-interactive");
+		expect(formattedExecCalls(human.context)).toContain("git add -A");
+		expect(human.context.textGeneratorCalls).toHaveLength(1);
+
+		const ansiHuman = runCp(undefined, true);
+		expect(await ansiHuman.exit).toBe(0);
+		expect(ansiHuman.stdout.join("")).toBe(`${styledResult}\n`);
+
+		const markdown = runCp("markdown");
+		expect(await markdown.exit).toBe(0);
+		expect(markdown.stdout.join("")).toBe(`${plainResult}\n`);
+
+		const json = runCp("json");
+		expect(await json.exit).toBe(0);
+		expect(parseJsonOutput(json)).toMatchObject({ status: "ok", data: styledResult });
 	});
 
 	test("real loader exposes changes help and JSON schema metadata", async () => {
@@ -289,12 +309,16 @@ function runWithRealFlowExtension(options: {
 	args: readonly string[];
 	cwd: string;
 	state?: Parameters<typeof runCliWithFakes>[0]["state"];
+	renderCapabilities?: Parameters<typeof runCliWithFakes>[0]["renderCapabilities"];
 }) {
 	return runCliWithFakes(
 		{
 			args: options.args,
 			cwd: options.cwd,
 			...(options.state === undefined ? {} : { state: options.state }),
+			...(options.renderCapabilities === undefined
+				? {}
+				: { renderCapabilities: options.renderCapabilities }),
 		},
 		{
 			execResponses: () => [],
@@ -304,7 +328,10 @@ function runWithRealFlowExtension(options: {
 	);
 }
 
-function dirtyCpExecResponses(cwd: string): ScriptedExecResponse[] {
+function dirtyCpExecResponses(
+	cwd: string,
+	logHeadline = "abc123 [cp] Update checkpoint",
+): ScriptedExecResponse[] {
 	return [
 		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
 		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
@@ -317,7 +344,7 @@ function dirtyCpExecResponses(cwd: string): ScriptedExecResponse[] {
 		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 		{ match: "git add -A", result: {} },
 		{ match: /^git commit -F /, result: {} },
-		{ match: "git log -1 --oneline", result: { stdout: "abc123 [cp] Update checkpoint\n" } },
+		{ match: "git log -1 --oneline", result: { stdout: `${logHeadline}\n` } },
 	];
 }
 

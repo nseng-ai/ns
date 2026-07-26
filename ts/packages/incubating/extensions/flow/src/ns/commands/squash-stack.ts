@@ -41,6 +41,7 @@ export function createFlowSquashStackCommand(
 			"Squash every branch in the current Graphite stack from the tip down, then restore the tip branch.",
 		schema: squashStackSchema,
 		resultSchema: z.string(),
+		renderHuman: (text) => text,
 		handler: async (ctx) => {
 			const caps = resolveFlowStreamCaps(ctx);
 			const matrix = createStackSquashMatrixProgressController({

@@ -19,8 +19,7 @@ import {
 	fakeStackInfo,
 	type FakeGraphiteStackGatewayOptions,
 } from "@nseng-ai/extension-kit/graphite/testing";
-import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
-import type { CommandExit, NsCommand, NsExtensionApi, NsProgress } from "@nseng-ai/sdk";
+import type { CommandExit, NsExtensionApi, NsProgress } from "@nseng-ai/sdk";
 import { createFlowSubmitCommand } from "../../src/ns/commands/submit.ts";
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import { createNsSubmitRuntime } from "../../src/submit/ns-runtime.ts";
@@ -57,7 +56,7 @@ interface RunFlowSubmitCommandWithFakesOptions extends RunFlowCommandWithFakesOp
 }
 
 interface FlowCommandFixture {
-	command: NsCommand;
+	command: unknown;
 	request: unknown;
 	defaults: RunWithFakesDefaults;
 	options: RunFlowCommandWithFakesOptions;
@@ -607,16 +606,39 @@ function runFlowCommandWithFakes(fixture: FlowCommandFixture) {
 
 async function runFlowCommand(input: {
 	context: NsExtensionApi;
-	command: NsCommand;
+	command: unknown;
 	request: unknown;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 }): Promise<{ exitCode: number; result: CommandExit }> {
-	const result = await input.command.run(input.context, {
-		argv: requestObjectToArgv(input.request, { negatedBooleanKeys: ["checks", "restack"] }),
-	});
+	if (
+		typeof input.command !== "object" ||
+		input.command === null ||
+		!("schema" in input.command) ||
+		typeof input.command.schema !== "object" ||
+		input.command.schema === null ||
+		!("parse" in input.command.schema) ||
+		typeof input.command.schema.parse !== "function" ||
+		!("handler" in input.command) ||
+		typeof input.command.handler !== "function"
+	) {
+		throw new Error("Expected a rendered Flow command definition.");
+	}
+	const request = input.command.schema.parse(input.request);
+	const result: unknown = await input.command.handler(input.context, request);
+	if (!isCommandExit(result)) throw new Error("Flow command returned an invalid exit.");
 	writeCommandExitOutput(result, input);
 	return { exitCode: exitCodeForCommandExit(result), result };
+}
+
+function isCommandExit(value: unknown): value is CommandExit {
+	if (typeof value !== "object" || value === null || !("type" in value)) return false;
+	return (
+		value.type === "ok" ||
+		value.type === "negative" ||
+		value.type === "failure" ||
+		value.type === "usageError"
+	);
 }
 
 function exitCodeForCommandExit(result: CommandExit): number {
@@ -634,7 +656,7 @@ function writeCommandExitOutput(
 		return;
 	}
 	if (result.type === "negative") {
-		if (result.message !== "") deps.stderr(`${result.human ?? result.message}\n`);
+		if (result.message !== "") deps.stderr(`${result.message}\n`);
 		return;
 	}
 	deps.stderr(`error: ${result.message}\n`);
