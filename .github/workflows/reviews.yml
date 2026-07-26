@@ -3,22 +3,20 @@ name: reviews
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-  workflow_dispatch:
 
 permissions:
   contents: read
   pull-requests: write
 
 concurrency:
-  group: reviews-pr-${{ github.event.pull_request.number || github.ref }}
+  group: reviews-pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   discover:
     if: >-
       github.event.pull_request.draft != true
-      && (github.event_name != 'pull_request'
-          || github.event.pull_request.head.repo.full_name == github.repository)
+      && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 2
     outputs:
@@ -28,6 +26,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
       - uses: pnpm/action-setup@v6
         with:
           version: 11.8.0
@@ -48,11 +47,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          if [ -n "${PR_NUMBER:-}" ]; then
-            BASE_REF=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json baseRefName --jq .baseRefName)
-          else
-            BASE_REF="${{ github.event.pull_request.base.ref }}"
-          fi
+          BASE_REF=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json baseRefName --jq .baseRefName)
           git fetch origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
 
           status=0
@@ -82,6 +77,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - uses: pnpm/action-setup@v6
         with:
@@ -118,8 +114,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          pr_context=$(gh pr view "$PR_NUMBER" --json baseRefName,headRefOid)
+          pr_context=$(gh pr view "$PR_NUMBER" --json baseRefName,headRefName,headRefOid)
           BASE_REF=$(jq -r .baseRefName <<< "$pr_context")
+          LOG_BRANCH=$(jq -r .headRefName <<< "$pr_context")
           PR_HEAD_SHA=$(jq -r .headRefOid <<< "$pr_context")
           git fetch origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
           git fetch origin "$PR_HEAD_SHA"
@@ -128,7 +125,7 @@ jobs:
           status=0
           output=$(node "$GITHUB_WORKSPACE/ts/packages/public/ns/src/cli.ts" reviews run "$REVIEW_KEY" \
             --base-ref "$BASE_REF" \
-            --log-branch "$GITHUB_HEAD_REF" \
+            --log-branch "$LOG_BRANCH" \
             --prior-findings-pr-number "$PR_NUMBER" \
             --format json) || status=$?
 
