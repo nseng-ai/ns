@@ -23,6 +23,13 @@ import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 import type { ReleaseCliContext } from "./release-public-package-set-cli.ts";
 import type { ReleaseResetGateway } from "./release/contracts.ts";
 
+/**
+ * Runaway-recursion backstop for filesystem walks of the `ts/packages` tree (symlink loops,
+ * pathological nesting). It is not a structural limit on how deep packages may live: raise it
+ * freely if the package tree grows, and do not treat it as a layout rule.
+ */
+export const MAX_PACKAGE_TREE_WALK_DEPTH = 12;
+
 export interface FileEntry {
 	readonly name: string;
 	readonly isDirectory: boolean;

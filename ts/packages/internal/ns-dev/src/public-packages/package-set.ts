@@ -3,7 +3,11 @@ import { fileURLToPath } from "node:url";
 
 import { isRecord, optionalEntries } from "@nseng-ai/foundation/primitives";
 
-import { realFileSystemGateway, type FileSystemGateway } from "../context.ts";
+import {
+	MAX_PACKAGE_TREE_WALK_DEPTH,
+	realFileSystemGateway,
+	type FileSystemGateway,
+} from "../context.ts";
 import { copyTree } from "./files.ts";
 import { catalogVersion } from "./catalog-version.ts";
 import { normalizeManifestBinPaths } from "./helpers.ts";
@@ -333,7 +337,7 @@ async function collectManifestPaths(
 	root: string,
 	depth: number,
 ): Promise<string[]> {
-	if (depth > 4) return [];
+	if (depth > MAX_PACKAGE_TREE_WALK_DEPTH) return [];
 	const paths: string[] = [];
 	for (const entry of await fs.readDir(root)) {
 		if (entry.name === "node_modules" || entry.name === "dist") continue;

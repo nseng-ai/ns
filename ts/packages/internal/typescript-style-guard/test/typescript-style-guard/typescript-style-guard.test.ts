@@ -16,6 +16,7 @@ import {
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
 	BAN_INTERNAL_SPACE_ADMISSION,
 	BAN_LOWER_LAYER_CONCRETE_EXTENSION_SURFACE,
+	BAN_PACKAGE_DISPOSITION_TOPOLOGY,
 	BAN_PACKAGE_TIER_LAYERING,
 	BAN_RAW_PRODUCTION_TIMERS,
 	BAN_SHARED_TEST_FAKE_TIMERS,
@@ -40,6 +41,10 @@ import { collectExtensionDependencyCycleViolations } from "@internal/typescript-
 import { collectExportsSubpackageConformanceViolations } from "@internal/typescript-style-guard/exports-subpackage-conformance";
 import { findTypeScriptSourceFiles } from "@internal/typescript-style-guard/file-discovery";
 import { collectInternalSpaceAdmissionViolations } from "@internal/typescript-style-guard/internal-space";
+import {
+	collectPackageDispositionViolations,
+	type PackageDispositionId,
+} from "@internal/typescript-style-guard/package-disposition";
 import {
 	collectExportSubpaths,
 	loadPackageMetadata,
@@ -1046,6 +1051,394 @@ describe("TypeScript style guard tier-directory projection rule", () => {
 	}
 });
 
+describe("TypeScript style guard package disposition topology rules", () => {
+	const cases: readonly PackageDispositionCase[] = [
+		// --- disposition roots (ADR 0045 section 1) ---
+		{
+			name: "a public leaf directly under its disposition root is allowed",
+			packages: [
+				dispositionPackage({ name: "@nseng-ai/sdk", packageDir: "ts/packages/public/sdk" }),
+			],
+			expectedViolation: false,
+		},
+		{
+			name: "an owner-nested public package is allowed",
+			packages: [
+				dispositionPackage({
+					name: "@nseng-ai/brmem",
+					packageDir: "ts/packages/public/infra/brmem",
+				}),
+			],
+			expectedViolation: false,
+		},
+		{
+			name: "a deeply owner-nested internal package is allowed",
+			packages: [
+				dispositionPackage({
+					name: "@internal/harness-session",
+					packageDir: "ts/packages/internal/hosts/pi/extensions/harness-session",
+					privateValue: true,
+				}),
+			],
+			expectedViolation: false,
+		},
+		{
+			name: "a legacy role directory is rejected rather than skipped",
+			packages: [
+				dispositionPackage({ name: "@nseng-ai/slots", packageDir: "ts/packages/incubator/slots" }),
+			],
+			expectedTextIncludes: "must be exactly one of public, incubating, internal",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "an unrecognized first segment is rejected even when identity is otherwise clean",
+			packages: [
+				dispositionPackage({
+					name: "@nseng-ai/herdr",
+					packageDir: "ts/packages/experimental/herdr",
+				}),
+			],
+			expectedTextIncludes: "must be exactly one of public, incubating, internal",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "package-grade code outside ts/packages is rejected",
+			packages: [
+				dispositionPackage({
+					name: "@nseng-ai/skill-exposure",
+					packageDir: ".ns/extensions/skill-exposure",
+				}),
+			],
+			expectedTextIncludes: "outside ts/packages/",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "a package at the disposition root itself has no leaf and is rejected",
+			packages: [dispositionPackage({ name: "@nseng-ai/ns", packageDir: "ts/packages/public" })],
+			expectedTextIncludes: "disposition root itself",
+			expectedViolationCount: 1,
+		},
+
+		// --- leaf identity (ADR 0045 section 3) ---
+		{
+			name: "a leaf that differs from the unscoped npm name is rejected",
+			packages: [
+				dispositionPackage({
+					name: "@nseng-ai/branch-memory",
+					packageDir: "ts/packages/public/infra/brmem",
+				}),
+			],
+			expectedTextIncludes:
+				"leaf directory brmem must equal the unscoped package name branch-memory",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "parent directories are ontology, not name prefixes",
+			packages: [
+				dispositionPackage({
+					name: "@nseng-ai/pi-runtime",
+					packageDir: "ts/packages/incubating/hosts/pi/runtime/pi-runtime",
+				}),
+			],
+			expectedViolation: false,
+		},
+		{
+			name: "a leaf naming the full owner path is rejected",
+			packages: [
+				dispositionPackage({
+					name: "@nseng-ai/pi-runtime",
+					packageDir: "ts/packages/incubating/hosts/pi/runtime/hosts-pi-runtime",
+				}),
+			],
+			expectedTextIncludes: "must equal the unscoped package name pi-runtime",
+			expectedViolationCount: 1,
+		},
+
+		// --- duplicate leaves (ADR 0045 section 3) ---
+		{
+			name: "two packages sharing a leaf across scopes and dispositions are both rejected",
+			packages: [
+				dispositionPackage({
+					name: "@nseng-ai/flow",
+					packageDir: "ts/packages/incubating/extensions/flow",
+				}),
+				dispositionPackage({
+					name: "@internal/flow",
+					packageDir: "ts/packages/internal/dev/flow",
+					privateValue: true,
+				}),
+			],
+			expectedTextIncludes: "shares leaf directory flow",
+			expectedViolationCount: 2,
+		},
+		{
+			name: "two packages sharing a leaf inside one disposition are rejected",
+			packages: [
+				dispositionPackage({
+					name: "@internal/pi-tools",
+					packageDir: "ts/packages/internal/hosts/pi/tools/pi-tools",
+					privateValue: true,
+				}),
+				dispositionPackage({
+					name: "@internal/pi-tools-legacy",
+					packageDir: "ts/packages/internal/dev/pi-tools",
+					privateValue: true,
+				}),
+			],
+			// The second package also fails leaf == unscoped name, so both defects surface.
+			expectedTextIncludes: "shares leaf directory pi-tools",
+			expectedViolationCount: 3,
+		},
+		{
+			name: "distinct leaves across dispositions are allowed",
+			packages: [
+				dispositionPackage({
+					name: "@nseng-ai/packagechk",
+					packageDir: "ts/packages/public/tools/packagechk",
+				}),
+				dispositionPackage({
+					name: "@nseng-ai/vibechk",
+					packageDir: "ts/packages/incubating/tools/vibechk",
+				}),
+			],
+			expectedViolation: false,
+		},
+
+		// --- scope and private agreement (ADR 0045 section 3) ---
+		{
+			name: "an internal-scope package under public is rejected",
+			packages: [
+				dispositionPackage({
+					name: "@internal/ns-dev",
+					packageDir: "ts/packages/public/ns-dev",
+					privateValue: true,
+				}),
+			],
+			expectedTextIncludes: "requires the @nseng-ai/ scope",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "a public-scope package under internal is rejected",
+			packages: [
+				dispositionPackage({
+					name: "@nseng-ai/pi-editor-mods",
+					packageDir: "ts/packages/internal/hosts/pi/tools/pi-editor-mods",
+					privateValue: true,
+				}),
+			],
+			expectedTextIncludes: "requires the @internal/ scope",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "an incubating package must use the @nseng-ai scope",
+			packages: [
+				dispositionPackage({
+					name: "@internal/vibechk",
+					packageDir: "ts/packages/incubating/tools/vibechk",
+					privateValue: true,
+				}),
+			],
+			expectedTextIncludes: "requires the @nseng-ai/ scope",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "an unscoped package name is rejected",
+			packages: [
+				dispositionPackage({ name: "brmem", packageDir: "ts/packages/public/infra/brmem" }),
+			],
+			expectedTextIncludes: "its npm scope is absent",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "an internal package without private true is rejected",
+			packages: [
+				dispositionPackage({
+					name: "@internal/ns-dev",
+					packageDir: "ts/packages/internal/dev/ns-dev",
+				}),
+			],
+			expectedTextIncludes: 'must declare "private": true',
+			expectedViolationCount: 1,
+		},
+		{
+			name: "an internal package declaring private false is rejected",
+			packages: [
+				dispositionPackage({
+					name: "@internal/ns-dev",
+					packageDir: "ts/packages/internal/dev/ns-dev",
+					privateValue: false,
+				}),
+			],
+			expectedTextIncludes: 'must declare "private": true',
+			expectedViolationCount: 1,
+		},
+		{
+			name: "private is orthogonal to disposition: a public package may be private-for-now",
+			packages: [
+				dispositionPackage({
+					name: "@nseng-ai/ns",
+					packageDir: "ts/packages/public/ns",
+					privateValue: true,
+				}),
+			],
+			expectedViolation: false,
+		},
+		{
+			name: "an incubating package may be private-for-now",
+			packages: [
+				dispositionPackage({
+					name: "@nseng-ai/herdr",
+					packageDir: "ts/packages/incubating/extensions/herdr",
+					privateValue: true,
+				}),
+			],
+			expectedViolation: false,
+		},
+
+		// --- disposition closure matrix (ADR 0045 section 4), every cell ---
+		{
+			name: "closure allows public -> public",
+			packages: dispositionEdge("public", "public"),
+			expectedViolation: false,
+		},
+		{
+			name: "closure rejects public -> incubating",
+			packages: dispositionEdge("public", "incubating"),
+			expectedTextIncludes: "public-must-not-depend-on-incubating",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "closure rejects public -> internal",
+			packages: dispositionEdge("public", "internal"),
+			expectedTextIncludes: "public-must-not-depend-on-internal",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "closure allows incubating -> public",
+			packages: dispositionEdge("incubating", "public"),
+			expectedViolation: false,
+		},
+		{
+			name: "closure allows incubating -> incubating",
+			packages: dispositionEdge("incubating", "incubating"),
+			expectedViolation: false,
+		},
+		{
+			name: "closure rejects incubating -> internal",
+			packages: dispositionEdge("incubating", "internal"),
+			expectedTextIncludes: "incubating-must-not-depend-on-internal",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "closure allows internal -> public",
+			packages: dispositionEdge("internal", "public"),
+			expectedViolation: false,
+		},
+		{
+			name: "closure allows internal -> incubating",
+			packages: dispositionEdge("internal", "incubating"),
+			expectedViolation: false,
+		},
+		{
+			name: "closure allows internal -> internal",
+			packages: dispositionEdge("internal", "internal"),
+			expectedViolation: false,
+		},
+
+		// --- which manifest fields closure covers ---
+		{
+			name: "closure covers optionalDependencies",
+			packages: dispositionEdge("public", "incubating", "optionalDependencies"),
+			expectedTextIncludes: "optionalDependencies.@nseng-ai/incubating-provider",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "closure covers peerDependencies",
+			packages: dispositionEdge("public", "internal", "peerDependencies"),
+			expectedTextIncludes: "peerDependencies.@internal/internal-provider",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "a devDependency may cross inward because it cannot affect a produced package",
+			packages: dispositionEdge("public", "internal", "devDependencies"),
+			expectedViolation: false,
+		},
+		{
+			name: "an incubating devDependency on an internal tool is allowed",
+			packages: dispositionEdge("incubating", "internal", "devDependencies"),
+			expectedViolation: false,
+		},
+		{
+			name: "an edge into an unrooted package reports only that package's root violation",
+			packages: [
+				dispositionPackage({
+					name: "@nseng-ai/ns",
+					packageDir: "ts/packages/public/ns",
+					dependencies: ["@nseng-ai/harness-artifacts"],
+				}),
+				dispositionPackage({
+					name: "@nseng-ai/harness-artifacts",
+					packageDir: "ts/packages/incubator/harness-artifacts",
+				}),
+			],
+			expectedTextIncludes: "must be exactly one of public, incubating, internal",
+			expectedViolationCount: 1,
+		},
+	];
+
+	test.each(cases)("$name", (testCase) => {
+		const violations = collectPackageDispositionViolations(
+			buildDispositionSyntheticMetadata(testCase.packages),
+		);
+
+		expect(
+			violations.every((violation) => violation.rule === BAN_PACKAGE_DISPOSITION_TOPOLOGY),
+		).toBe(true);
+		expect(violations.length > 0).toBe(testCase.expectedViolation ?? true);
+		const expectedTextIncludes = testCase.expectedTextIncludes;
+		if (expectedTextIncludes !== undefined) {
+			expect(violations.some((violation) => violation.text.includes(expectedTextIncludes))).toBe(
+				true,
+			);
+		}
+		const expectedViolationCount = testCase.expectedViolationCount;
+		if (expectedViolationCount !== undefined) {
+			expect(formatViolations(violations).split("\n").filter(Boolean)).toHaveLength(
+				expectedViolationCount,
+			);
+		}
+	});
+
+	test("a violation points at the offending manifest key", () => {
+		const violations = collectPackageDispositionViolations(
+			buildDispositionSyntheticMetadata([
+				dispositionPackage({
+					name: "@internal/ns-dev",
+					packageDir: "ts/packages/internal/dev/ns-dev",
+					privateValue: false,
+				}),
+			]),
+		);
+
+		expect(violations).toHaveLength(1);
+		expect(violations[0]?.path).toBe("ts/packages/internal/dev/ns-dev/package.json");
+		expect(violations[0]?.line).toBe(3);
+	});
+
+	/**
+	 * ACTIVATION SEAM. The rule is complete and unit-tested but deliberately inert against the
+	 * real tree, which still carries the pre-cutover role directories (`incubator/`, `hosts/`,
+	 * `infra/`, `tools/`). After the package move lands, replace the assertion below with
+	 * `expect(formatViolations(violations)).toBe("")` — that one line is the whole live wiring,
+	 * and it is what every other manifest-level rule in this suite already does.
+	 */
+	test("disposition topology is not yet enforced against the real tree", () => {
+		const violations = collectPackageDispositionViolations(loadPackageMetadata(REPO_ROOT));
+
+		expect(violations.length).toBeGreaterThan(0);
+	});
+});
+
 describe("TypeScript style guard topology-circle layering rules", () => {
 	const syntheticCircles: readonly TopologyCircleFact[] = [
 		{
@@ -1750,6 +2143,25 @@ interface InternalSpaceAdmissionCase {
 	readonly expectedTextIncludes?: string;
 }
 
+interface PackageDispositionCase {
+	readonly name: string;
+	readonly packages: readonly DispositionSyntheticPackage[];
+	readonly expectedViolation?: boolean;
+	readonly expectedTextIncludes?: string;
+	readonly expectedViolationCount?: number;
+}
+
+interface DispositionSyntheticPackage {
+	readonly name: string;
+	readonly packageDir: string;
+	/** Omitted means the manifest has no `private` key at all. */
+	readonly privateValue?: boolean;
+	readonly dependencies?: readonly string[];
+	readonly devDependencies?: readonly string[];
+	readonly optionalDependencies?: readonly string[];
+	readonly peerDependencies?: readonly string[];
+}
+
 interface InternalSpaceSyntheticPackage {
 	readonly name: string;
 	readonly packageDir: string;
@@ -1882,6 +2294,88 @@ function internalSpaceSyntheticPackage(
 	options: InternalSpaceSyntheticPackage,
 ): InternalSpaceSyntheticPackage {
 	return options;
+}
+
+function dispositionPackage(options: DispositionSyntheticPackage): DispositionSyntheticPackage {
+	return options;
+}
+
+function dispositionEdge(
+	consumer: PackageDispositionId,
+	provider: PackageDispositionId,
+	field: SyntheticDependencyField = "dependencies",
+): readonly DispositionSyntheticPackage[] {
+	const consumerIdentity = dispositionSyntheticIdentity(consumer, "consumer");
+	const providerIdentity = dispositionSyntheticIdentity(provider, "provider");
+	const edge = [providerIdentity.name];
+	return [
+		dispositionPackage({
+			...consumerIdentity,
+			...(field === "dependencies" ? { dependencies: edge } : {}),
+			...(field === "devDependencies" ? { devDependencies: edge } : {}),
+			...(field === "optionalDependencies" ? { optionalDependencies: edge } : {}),
+			...(field === "peerDependencies" ? { peerDependencies: edge } : {}),
+		}),
+		dispositionPackage(providerIdentity),
+	];
+}
+
+function dispositionSyntheticIdentity(
+	disposition: PackageDispositionId,
+	role: "consumer" | "provider",
+): DispositionSyntheticPackage {
+	const leaf = `${disposition}-${role}`;
+	const scope = disposition === "internal" ? "@internal" : "@nseng-ai";
+	return {
+		name: `${scope}/${leaf}`,
+		packageDir: `ts/packages/${disposition}/${leaf}`,
+		...(disposition === "internal" ? { privateValue: true } : {}),
+	};
+}
+
+function buildDispositionSyntheticMetadata(
+	packages: readonly DispositionSyntheticPackage[],
+): Map<string, PackageMetadata> {
+	return new Map(
+		packages.map((syntheticPackage) => {
+			const manifest: PackageManifest = {
+				name: syntheticPackage.name,
+				...(syntheticPackage.privateValue === undefined
+					? {}
+					: { private: syntheticPackage.privateValue }),
+				...workspaceDependencyField("dependencies", syntheticPackage.dependencies),
+				...workspaceDependencyField("devDependencies", syntheticPackage.devDependencies),
+				...workspaceDependencyField("optionalDependencies", syntheticPackage.optionalDependencies),
+				...workspaceDependencyField("peerDependencies", syntheticPackage.peerDependencies),
+				ns: { tier: "extension" },
+			};
+			return [
+				syntheticPackage.name,
+				{
+					name: syntheticPackage.name,
+					packageDir: syntheticPackage.packageDir,
+					packageJsonPath: `${syntheticPackage.packageDir}/package.json`,
+					manifest,
+					manifestContent: JSON.stringify(manifest, null, 2),
+					nsTier: "extension",
+					rawNsTier: "extension",
+					nsSubpackages: [],
+					nsRemainder: false,
+					exportSubpaths: new Set(["."]),
+				},
+			];
+		}),
+	);
+}
+
+function workspaceDependencyField(
+	field: SyntheticDependencyField,
+	dependencyNames: readonly string[] | undefined,
+): Record<string, Record<string, string>> {
+	if (dependencyNames === undefined) return {};
+	return {
+		[field]: Object.fromEntries(dependencyNames.map((name) => [name, "workspace:*"])),
+	};
 }
 
 function buildSyntheticPackageMetadata(

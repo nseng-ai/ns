@@ -57,12 +57,9 @@
 		"vitest": "catalog:"
 	},
 	"workspaces": [
-		"packages/*",
-		"packages/*/*",
+		"packages/**",
+		"!packages/**/dist/**",
 		"../.ns/reviews/*/tools/*",
 		"../.ns/extensions/*"
-	],
-	"dependencies": {
-		"@nseng-ai/foundation": "workspace:*"
-	}
+	]
 }

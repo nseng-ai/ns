@@ -11,7 +11,11 @@ import {
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import type { FileSystemGateway, NsDevCliContext } from "./context.ts";
+import {
+	MAX_PACKAGE_TREE_WALK_DEPTH,
+	type FileSystemGateway,
+	type NsDevCliContext,
+} from "./context.ts";
 
 const MAX_OUTPUT_SNIPPET_CHARS = 2_000;
 
@@ -261,7 +265,7 @@ async function collectPackageDirsAt(
 	current: string,
 	depth: number,
 ): Promise<readonly string[]> {
-	if (depth > 4) return [];
+	if (depth > MAX_PACKAGE_TREE_WALK_DEPTH) return [];
 	if (await fs.exists(join(current, "package.json"))) return [current];
 	let entries: readonly { readonly name: string; readonly isDirectory: boolean }[];
 	try {
