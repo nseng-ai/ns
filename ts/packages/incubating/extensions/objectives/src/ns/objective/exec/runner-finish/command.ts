@@ -9,7 +9,7 @@ import {
 	type RunnerFinishResult,
 } from "../../../../runner/finish.ts";
 import type { ArgumentUsageErrorData } from "../../../../runner/preconditions.ts";
-import { objectiveNsCommand } from "../../../objective-command.ts";
+import { objectiveNsCommandWithContext } from "../../../objective-command.ts";
 import { createNsObjectiveRunnerCoreContext } from "../../../runner-context.ts";
 
 export async function command(): Promise<
@@ -22,7 +22,7 @@ export async function command(): Promise<
 		ArgumentUsageErrorData
 	>
 > {
-	return objectiveNsCommand({
+	return objectiveNsCommandWithContext({
 		schema: runnerFinishRequestSchema,
 		resultSchema: runnerFinishResultSchema,
 		negativeSchema: runnerFinishResultSchema,
