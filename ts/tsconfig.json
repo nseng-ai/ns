@@ -28,13 +28,15 @@
   },
   "include": [
     "scripts/**/*.ts",
-    "packages/*/src/**/*.ts",
-    "packages/*/test/**/*.ts",
-    "packages/*/*/src/**/*.ts",
-    "packages/*/*/test/**/*.ts",
+    "packages/**/src/**/*.ts",
+    "packages/**/test/**/*.ts",
     "../.ns/reviews/*/tools/*/src/**/*.ts",
     "../.ns/reviews/*/tools/*/test/**/*.ts",
     "../.ns/extensions/*/src/**/*.ts",
     "../.ns/extensions/*/test/**/*.ts"
+  ],
+  "exclude": [
+    "**/node_modules/**",
+    "**/dist/**"
   ]
 }
