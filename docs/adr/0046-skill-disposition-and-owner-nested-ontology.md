@@ -2,9 +2,9 @@
 
 ## Status
 
-Proposed under `skill-disposition-and-owner-ontology` Objective. This draft and complete
-first-party destination map require explicit user approval together before any skill moves.
-Drafting this ADR authorizes no migration, publication, or skill support commitment.
+Accepted. Decided 2026-07-26 under the `skill-disposition-and-owner-ontology` Objective
+together with the complete first-party destination map. Acceptance authorizes the atomic
+structural migration but does not itself publish skills or move canonical sources.
 
 This ADR adapts release-disposition and owner-nesting pattern accepted for TypeScript
 packages in ADR 0045. It does not derive skill disposition from package, move package
@@ -42,8 +42,8 @@ all contain `skills/<skill>` or one-level `skills/*` assumptions. Source-backed 
 Partial migration could preserve apparent harness discovery while silently breaking
 management, provisioning, publication, or validation behavior.
 
-Separate destination map will record complete proposed classification. Acceptance requires
-approval of this ADR and complete map together.
+The approved destination map records the complete classification and is the implementation
+authority for the atomic cutover.
 
 ## Decision
 
@@ -60,8 +60,8 @@ support dispositions:
 - **`internal`**: skill operates this repository or its private workflows and has no current
   external support intent. Internal is not waiting room for publication.
 
-Roots: `skills/public/`, `skills/incubating/`, and `skills/internal/`. Public may be empty
-after initial classification. Each disposition decided skill by skill. Owning-package
+Roots: `skills/public/`, `skills/incubating/`, and `skills/internal/`. The initial map has
+one public skill, `pr-make-accountable`. Each disposition is decided skill by skill. Owning-package
 disposition, portability, broad usefulness, current exposure, and `metadata.internal` are
 evidence, not inherited verdicts.
 
@@ -98,9 +98,9 @@ This is an explicit map-level exception, not a general flat-layout fallback. The
 exceptions are `skills/incubating/brmem/` and `skills/incubating/slots/`. All other initial
 skills use family nesting.
 
-Complete destination map settles initial family vocabulary and any approved product-skill
-exception. Draft design inventory records representative clusters and unresolved
-boundaries without prematurely classifying every skill.
+The approved destination map settles the initial family vocabulary and product-skill
+exceptions. The design inventory preserves the source-backed baseline and review questions
+that informed those decisions.
 
 ### 3. The leaf is the globally flat skill identity
 
@@ -169,7 +169,7 @@ and source inspection to reject unexplained inward dependencies.
 
 ### 7. Classification and migration have separate approval boundaries
 
-Complete destination map must enumerate every first-party canonical skill with:
+The approved complete destination map enumerates every first-party canonical skill with:
 
 - current identity;
 - explicit disposition verdict and rationale;
@@ -178,8 +178,9 @@ Complete destination map must enumerate every first-party canonical skill with:
 - required dependency concerns relevant to closure; and
 - path-consumer or migration notes when exceptional.
 
-No skill moves until user explicitly approves both this ADR and complete map. Approval
-authorizes implementation planning, not external publication or unrelated content work.
+The user explicitly approved this ADR and the complete map together on 2026-07-26.
+Acceptance authorizes the atomic structural implementation, not external publication or
+unrelated content work.
 
 ### 8. The cutover is atomic
 
@@ -205,8 +206,8 @@ Historical ADRs and immutable Objective updates retain time-in-place paths and p
   the leaf preserves invocation identity.
 - Skill can move between support dispositions without changing family or harness-visible
   name.
-- Public remains intentionally demanding and may initially be empty, avoiding accidental
-  support promises based on portability or popularity.
+- Public remains intentionally demanding; `pr-make-accountable` is the initial explicit
+  support warrant rather than a promotion based on portability or popularity.
 - Flat overlay consumers continue working, but canonical-source tooling must become
   destination-aware instead of assuming `skills/<skill>`.
 - Skill acquisition, exposure, provisioning, publishing, and runtime lookup must preserve
@@ -216,8 +217,10 @@ Historical ADRs and immutable Objective updates retain time-in-place paths and p
 - Atomic migration has broad path ripple but avoids long-lived dual layout and prevents
   flat-path assumptions from silently surviving behind working symlinks.
 
-## Approval gate
+## Approval
 
-This ADR remains proposed. Next Objective slice must produce complete first-party
-destination map, resolve family vocabulary and classification ambiguities recorded in
-design inventory, and obtain explicit approval of both artifacts before moving any skill.
+Approved together with
+[`skill-destination-map.md`](../../.ns/objectives/skill-disposition-and-owner-ontology/references/skill-destination-map.md)
+on 2026-07-26. The map resolves all 58 initial destinations, including the `brmem` and
+`slots` top-level product exceptions, the cross-disposition `prs` family, the internal
+`code` family, and the first public support warrant for `pr-make-accountable`.

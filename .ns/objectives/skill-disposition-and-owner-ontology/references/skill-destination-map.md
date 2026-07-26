@@ -1,12 +1,12 @@
-# Proposed First-Party Skill Destination Map
+# Approved First-Party Skill Destination Map
 
-## Status and review boundary
+## Status and implementation boundary
 
-This document proposes the complete initial destination map for the 58 first-party
-canonical skills. It is a review artifact for the joint ADR 0046/map approval gate. It is
-**not approval**, does not authorize a move, and makes no publication or support
-commitment. `pr-make-accountable` is the first proposed `public` skill; that verdict is an
-explicit support commitment rather than an inference from usefulness or portability.
+This document is the approved complete initial destination map for the 58 first-party
+canonical skills. The user approved it together with ADR 0046 on 2026-07-26. Approval
+authorizes the atomic structural migration but does not itself move or publish a skill.
+`pr-make-accountable` is the first `public` skill; that verdict is an explicit support
+commitment rather than an inference from usefulness or portability.
 
 Inventory revalidation date: 2026-07-26. A fresh one-level inventory found exactly 58 real
 `skills/<identity>/` directories containing `SKILL.md`; its sorted identities exactly match
@@ -41,7 +41,7 @@ Two durable product skills are approved exceptions to family nesting:
 already the stable owner boundary, so a repeated one-skill family folder would add no
 information.
 
-## Complete proposed map
+## Complete approved map
 
 “Required dependency / closure concern” lists operational requirements, not optional links
 or examples. `internal` may depend on any disposition. Every `incubating` row must avoid a
@@ -96,7 +96,7 @@ are treated as incubating product surfaces unless a row says otherwise.
 | `pr-address`                           | `incubating` — PR Feedback is an externally intended ns product surface, but its checkout-free/support contract is still maturing.           | `prs`                   | `skills/incubating/prs/pr-address/`                                   | Requires `ns address exec`, GitHub authentication, Git/Graphite, and confirmation for mutations; these required surfaces must be incubating/public. | Root GitHub routing and command-backed PR prompts must retain flat identity; extensive CLI references move with directory.                               |
 | `pr-make-accountable`                  | `public` — explicitly approved as the first externally supported first-party skill.                                                          | `prs`                   | `skills/public/prs/pr-make-accountable/`                              | Public closure requires authenticated `gh` and Git only; any `ns flow submit` integration must be optional or removed as a required workflow.       | Preserve local `caveman.md`; verify the content fulfills the public closure rule before cutover.                                                         |
 | `project-setup`                        | `internal` — repository scaffolding templates have no current external support warrant.                                                      | `repository-operations` | `skills/internal/repository-operations/project-setup/`                | Requires Bun/dprint/GitHub tooling and this repository's selected setup conventions.                                                                | Large assets/templates subtree moves intact; no runtime identity change.                                                                                 |
-| `readme-driven-development`            | `internal` — user-set verdict; currently an ns product-design practice rather than an external promise.                                      | `planning`              | `skills/internal/planning/readme-driven-development/`                 | Requires a repository README and project decision context; upstream lineage is documentary, not operational.                                        | Preserve lineage comment; no exposure change.                                                                                                            |
+| `readme-driven-development`            | `internal` — user-set verdict; currently an ns product-design practice rather than an external promise.                                      | `agent-engineering`     | `skills/internal/agent-engineering/readme-driven-development/`        | Requires a repository README and project decision context; upstream lineage is documentary, not operational.                                        | Preserve lineage comment; no exposure change.                                                                                                            |
 | `refactor-swarm`                       | `internal` — harness-specific subagent refactoring procedure has no external support warrant.                                                | `agent-engineering`     | `skills/internal/agent-engineering/refactor-swarm/`                   | Requires harness subagent dispatch, approved model routing, Git diff review, and project validation.                                                | `.claude/workflows/refactor-swarm-workflow.js` direct path consumer must move.                                                                           |
 | `reinvented-abstractions-tripwire`     | `internal` — user-set verdict; adapter is bound to an ns-local review definition.                                                            | `review-system`         | `skills/internal/review-system/reinvented-abstractions-tripwire/`     | Requires `.ns/reviews/reinvented-abstractions-tripwire/review.md` and Git diff evidence.                                                            | Command-backed flat key remains; review path itself remains unchanged.                                                                                   |
 | `review-code-quality-subagents`        | `internal` — ns-local four-review orchestration is marked internal.                                                                          | `review-system`         | `skills/internal/review-system/review-code-quality-subagents/`        | Requires four local review definitions/skills, harness subagents, `ns reviews`, Git, and Graphite.                                                  | Preserve internal marker and flat referenced skill identities.                                                                                           |

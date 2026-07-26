@@ -69,7 +69,5 @@ Risks:
 
 ## Open Questions
 
-- What exact domain/family vocabulary gives every current first-party skill one stable owner while avoiding generic catch-all or one-skill folders?
-- What is the complete approved destination path for each first-party skill?
-- Which existing path consumers require coordinated updates for nested canonical sources beyond symlinks, `skills-lock.json`, Skill Exposure Policy, scripts, and documented procedures?
-- What focused verification demonstrates unchanged discovery, explicit invocation, command-backed replacement behavior, and internal-skill handling after the move?
+- Which additional live path consumers will the atomic cutover uncover beyond the source-backed inventory?
+- What focused verification best demonstrates unchanged discovery, explicit invocation, command-backed replacement behavior, and internal-skill handling after the move?
