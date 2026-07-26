@@ -21,12 +21,12 @@ landing this record said was still pending has landed. Verified against trunk HE
   on-disk `.ts` source paths. Run-from-source remains the only install path.
 - Remaining-work rows verified still accurate: no `ji init` or `ji skills` subcommand
   exists, no `@ji/init` package exists, and all four objective docs pages
-  (`docs-site/docs/get-started/installation.mdx`, `get-started/quickstart.mdx`,
+  (`retired website files`, `get-started/quickstart.mdx`,
   `concepts/objectives.mdx`, `tools/objective.mdx`) are still "Lorum ipsum" placeholders
   with deploys launch-gated.
 - Dependency states verified: `checkout-free-sdl-distribution` is open with only its
   bundle-strategy decision `[x]`; `skill-management-subsystem` (vocabulary row `[~]`),
-  `eve-parity-docs-site`, and `cross-harness-parity` are all open. `ji objective check
+  the retired website Objective, and `cross-harness-parity` are all open. `ji objective check
   ship-objectives-to-customers` passes (edge mirror intact).
 
 ## Objective Impact

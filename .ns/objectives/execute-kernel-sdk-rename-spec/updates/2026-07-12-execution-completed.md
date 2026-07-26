@@ -45,7 +45,7 @@ over disjoint roots with dual word-boundary + camelCase search, plus five
 scope-diff auditors) produced a fully accounted 162-hit inventory: 61
 historical, 43 out-of-scope, 5 avoid-term, 6 guard-fixture, 47 live-claims
 — all camelCase-internal identifiers (`ParsedKernelCommand*`,
-`KernelDiagnostic*`, `kernelSourceDir`, one docs-site catalog string) fixed
+`KernelDiagnostic*`, `kernelSourceDir`, one documentation catalog string) fixed
 in the closeout commit. Scope audits found zero unexplained extras across
 all five slices. No stale live kernel claim remains.
 
@@ -56,7 +56,7 @@ all five slices. No stale live kernel claim remains.
   `@nseng-ai/kernel@0.1.2` at the next publish.
 - Separate decisions, deliberately not taken here: renaming the parked
   `KernelCommandCompletion*` / `NsCommandCompletionProvider` exported
-  aliases, and the `docs/north-star.md` / docs-site product-vision framing
+  aliases, and the `docs/north-star.md` / documentation product-vision framing
   of ns itself as "the kernel" (distinct from the retired package brand).
 - The stack awaits human review and submission under the standard Graphite
   workflow.

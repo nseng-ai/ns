@@ -1,7 +1,7 @@
 .gitignore
 .ji/objectives/cross-harness-parity/parity-table.md
 .pi/extensions/objective-autopilot.ts
-docs-site/lib/extensions-catalog.ts
+retired website files
 docs/pi/branch-context-workflow.md
 docs/research/xdg-base-directory-spec.md
 skills/branch-retro/SKILL.md

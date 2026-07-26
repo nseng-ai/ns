@@ -10,7 +10,7 @@ The desired end state of the objective family is still a Node-centered TypeScrip
 
 This Objective covers only umbrella coordination for the Bun-to-Node migration family:
 
-- Preserve the overall migration intent: tests, package scripts, lockfiles, CLI launch paths, docs-site workflows, and project-local Pi extension runtime assumptions should converge on Node-compatible behavior.
+- Preserve the overall migration intent: tests, package scripts, lockfiles, CLI launch paths, documentation workflows, and project-local Pi extension runtime assumptions should converge on Node-compatible behavior.
 - Maintain the child Objective creation checklist for the major migration slices.
 - On `objective-next`, choose one unchecked roadmap item, create a child Objective with slug pattern `bun-to-node-ts-migration-<topic>`, and mark that umbrella item `[x]`.
 - Keep child implementation progress, validation evidence, risks discovered during implementation, parking decisions, and closure out of this umbrella after each child is created.
@@ -76,11 +76,11 @@ Risks:
 - Node TypeScript execution remains a policy choice: relying on native type stripping may produce experimental warnings or fail on non-erasable syntax, while building CLIs introduces a dist/build workflow.
 - Package-manager migration can expose dependency resolution differences, especially for patched dependencies and Pi peer dependencies.
 - Vitest mocking semantics may not exactly match Bun's `mock.module`, so module-mocking tests need careful conversion rather than blind import replacement.
-- Removing Bun from docs-site deploy configuration may surface hosting or Astro version constraints separate from the TypeScript workspace itself.
+- Removing Bun from documentation deploy configuration may surface hosting or Astro version constraints separate from the TypeScript workspace itself.
 
 ## Open Questions
 
-No umbrella setup questions remain open. The child Objectives should own their slice-specific open questions, especially CLI execution policy, `node:sqlite` warning handling, docs-site sequencing, and whether Bun-centric project templates should remain deliberate product guidance.
+No umbrella setup questions remain open. The child Objectives should own their slice-specific open questions, especially CLI execution policy, `node:sqlite` warning handling, documentation sequencing, and whether Bun-centric project templates should remain deliberate product guidance.
 
 ## Closure
 

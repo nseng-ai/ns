@@ -17,5 +17,5 @@ The refreshed-trunk workflow must reuse shared Graphite trunk preparation and Br
 - Implement the exact catalog and prove all interim aliases absent from live registration.
 - Add explicit caller workspace/tab validation and tab rename support before tab resource mutations.
 - Deepen Capability Kit and Branch Context seams for truthful trunk preparation, explicit start point, and explicit Graphite parent.
-- Reconcile current documentation while preserving historical records and leaving gated `docs-site/` unchanged.
+- Reconcile current documentation while preserving historical records and leaving gated `retired website files` unchanged.
 - Treat any current Objective-check incompatibility in the immutable legacy update as a reported structural blocker rather than rewriting history.

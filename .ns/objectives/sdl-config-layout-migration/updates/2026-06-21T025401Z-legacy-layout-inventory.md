@@ -4,7 +4,7 @@
 
 Completed a read-only inventory of active SDL layout compatibility surfaces and path references for the XDG plus in-repo `.sdl` cleanup Objective. No implementation fallbacks were deleted in this slice. The inventory separates immediate cleanup candidates from intentionally retained compatibility, Branch Memory durable storage, canonical XDG behavior, stale docs/skills, and historical provenance.
 
-Search evidence used focused `rg` sweeps across active source, tests, docs, skills, `.sdl/prompts`, and docs-site content for `~/.sdl`, `~/.slots`, `~/.brmem`, `.brmem/prompts`, `refs/brmem`, `XDG_*_HOME`, `.local/state/sdl`, `.local/share/sdl`, `.config/sdl`, `SLOTS_ROOT`, `legacyHomePath`, `requireSdlStatePath`, and `resolveSdlXdgPath`, excluding `node_modules`, `.git`, build outputs, and historical Objective/archive records when classifying active product surface.
+Search evidence used focused `rg` sweeps across active source, tests, docs, skills, `.sdl/prompts`, and package README content for `~/.sdl`, `~/.slots`, `~/.brmem`, `.brmem/prompts`, `refs/brmem`, `XDG_*_HOME`, `.local/state/sdl`, `.local/share/sdl`, `.config/sdl`, `SLOTS_ROOT`, `legacyHomePath`, `requireSdlStatePath`, and `resolveSdlXdgPath`, excluding `node_modules`, `.git`, build outputs, and historical Objective/archive records when classifying active product surface.
 
 ## Objective Impact
 
@@ -18,7 +18,7 @@ The first unchecked roadmap item, inventorying active backwards-compatibility co
 
 ### Retain with rationale / not a legacy filesystem fallback
 
-- **Slot `SLOTS_ROOT` override** — `ts/packages/slot/src/context.ts` resolves the default slot pool through `$XDG_STATE_HOME/sdl/slots` via `requireSdlStatePath`, with `SLOTS_ROOT` as an explicit absolute override. The implementation no longer defaults to `~/.slots`; mentions in `ts/packages/slot/README.md` and `docs-site/src/content/docs/tools/slot.md` describe an operator-chosen override for existing pools. Keep unless the product intentionally removes the override mechanism, which is broader than deleting automatic legacy fallback reads.
+- **Slot `SLOTS_ROOT` override** — `ts/packages/slot/src/context.ts` resolves the default slot pool through `$XDG_STATE_HOME/sdl/slots` via `requireSdlStatePath`, with `SLOTS_ROOT` as an explicit absolute override. The implementation no longer defaults to `~/.slots`; mentions in `ts/packages/slot/README.md` and `retired website files` describe an operator-chosen override for existing pools. Keep unless the product intentionally removes the override mechanism, which is broader than deleting automatic legacy fallback reads.
 - **Project-local `.brmem/prompts`** — `ts/packages/brmem/src/operations/resolve-prompt.ts` still checks `<repo>/.brmem/prompts/<name>.md` before global prompt roots. This is project-local prompt override behavior, not the legacy global `~/.brmem/prompts` root. Retain unless Branch Memory prompt policy is redesigned.
 - **Branch-context `plan.md` attached-plan key** — `ts/packages/branch-context/src/constants.ts`, `attach.ts`, `attached-plan.ts`, `impl-command.ts`, `skills/branch-context-impl/SKILL.md`, and `docs/pi/branch-context-workflow.md` preserve legacy readability for Branch Memory entry key `plan.md`. This is durable Branch Memory entry-key compatibility, not filesystem layout cleanup. Retain or handle with a separate branch-context safety story so existing branch contexts are not hidden accidentally.
 - **Branch Memory `refs/brmem/*`** — `ts/packages/brmem/src/ref-layout.ts`, `ts/packages/brmem/src/operations/setup-git.ts`, tests, `ts/packages/brmem/README.md`, `ts/packages/brmem/CONTEXT.md`, and dependent package tests use `refs/brmem/base/*` and `refs/brmem/ns/*` as the canonical Snapshot Ref contract. No alternate legacy ref-layout fallback was found in the active code sweep. Do not delete canonical `refs/brmem/*`; only revisit if a separate compatibility layout is discovered.
@@ -32,7 +32,7 @@ The first unchecked roadmap item, inventorying active backwards-compatibility co
 - `ts/packages/pi-extensions/CONTEXT.md` defines Local plan store as `~/.sdl/enriched-plan/...`; because CONTEXT files are domain-language artifacts, update deliberately in the docs/agent-guidance refresh slice, not incidentally.
 - `docs/research/xdg-base-directory-spec.md`, `docs/pi/README.md`, and `docs/pi/branch-context-workflow.md` intentionally document current live fallbacks. After code deletion, remove or narrow the fallback prose.
 - `ts/packages/sdl/README.md` documents extension precedence including legacy `~/.sdl/extensions`; update after deleting the extension fallback.
-- `docs-site/src/content/docs/tools/slot.md` and `ts/packages/slot/README.md` mention `SLOTS_ROOT=~/.slots` as an explicit override for existing pools; keep or rewrite depending on the product decision for retaining `SLOTS_ROOT` as an escape hatch.
+- `retired website files` and `ts/packages/slot/README.md` mention `SLOTS_ROOT=~/.slots` as an explicit override for existing pools; keep or rewrite depending on the product decision for retaining `SLOTS_ROOT` as an escape hatch.
 - `ts/packages/pi-extensions/src/branch-context/enriched-plan-save.ts` and related tests assert user-facing saved-plan tool descriptions mentioning legacy `~/.sdl/enriched-plan`; update alongside saved-plan fallback deletion.
 
 ### Historical/provenance-only hits

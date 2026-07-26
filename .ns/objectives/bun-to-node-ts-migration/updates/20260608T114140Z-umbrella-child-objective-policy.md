@@ -11,4 +11,4 @@ The umbrella now owns sequencing and child Objective creation only. It should no
 ## Follow-Ups
 
 - Create the first child Objective from the unchecked roadmap when ready.
-- Keep slice-specific decisions such as CLI execution policy, `node:sqlite` warning handling, docs-site sequencing, and template scope inside the relevant child Objective rather than this umbrella.
+- Keep slice-specific decisions such as CLI execution policy, `node:sqlite` warning handling, documentation sequencing, and template scope inside the relevant child Objective rather than this umbrella.

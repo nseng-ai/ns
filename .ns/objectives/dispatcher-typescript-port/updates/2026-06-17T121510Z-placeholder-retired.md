@@ -44,7 +44,7 @@ uv run pytest -q --ignore-glob='*/integration/*'
 objective exec read-objective dispatcher-typescript-port --format md
 objective exec read-objective port-asdl-toolkit-to-typescript --format md
 objective list --status all --minimal --format md | rg -n "dispatcher-typescript-port"
-rg -n "asdl-dispatcher|asdl_dispatcher|packages/asdl-dispatcher|dispatcher = \"asdl_dispatcher" pyproject.toml justfile uv.lock packages tests docs-site skills .pi ts CONTEXT-MAP.md
+rg -n "asdl-dispatcher|asdl_dispatcher|packages/asdl-dispatcher|dispatcher = \"asdl_dispatcher" pyproject.toml justfile uv.lock packages tests documentation skills .pi ts CONTEXT-MAP.md
 git diff --check
 ```
 

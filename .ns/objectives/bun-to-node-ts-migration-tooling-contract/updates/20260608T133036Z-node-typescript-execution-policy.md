@@ -49,7 +49,7 @@ Next roadmap item: decide the pnpm workspace contract for downstream migration.
 Questions for that slice:
 
 - Should the implementation enforce Node v24.12+ through `package.json` `engines`, documentation, `justfile` checks, or another mechanism?
-- Should `ts/` and `docs-site/` become one pnpm workspace or remain separate package-manager surfaces with coordinated scripts?
+- Should `ts/` and `retired website files` become one pnpm workspace or remain separate package-manager surfaces with coordinated scripts?
 - How should pnpm preserve the current workspace symlink behavior for source `.ts` package exports while respecting Node's native type-stripping dependency boundary?
 - How should the Bun patch entry for `@earendil-works/pi-ai@0.78.0` be represented under pnpm?
 - Which scripts should switch directly to `node`, and which should remain package-manager-mediated commands after the pnpm contract is decided?

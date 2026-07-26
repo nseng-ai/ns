@@ -3,11 +3,11 @@
 ## Work
 
 - [x] Inventory remaining Bun references by active surface.
-      Search active TypeScript workspace files, project-local Pi extension adapters/guidance, repo agent instructions, docs-site/deploy guidance, and relevant templates. Separate true active workflow references from historical text, patch provenance, substring noise, and compatibility/safety handling.
+      Search active TypeScript workspace files, project-local Pi extension adapters/guidance, repo agent instructions, retired website files guidance, and relevant templates. Separate true active workflow references from historical text, patch provenance, substring noise, and compatibility/safety handling.
       Evidence: Semantic Update `20260608T225406Z-bun-reference-inventory-and-policy.md` records the scoped search results, substring-noise filtering, active TypeScript workspace checks, and remaining reference classifications.
 
 - [x] Update stale active workflow guidance.
-      Replace or clarify references that still tell current contributors or agents to use Bun for TypeScript workspace install, tests, CLI launch, Pi extension development, or active docs-site commands when the settled contract is Node + pnpm + Vitest. Evidence should include targeted docs/script checks where applicable.
+      Replace or clarify references that still tell current contributors or agents to use Bun for TypeScript workspace install, tests, CLI launch, Pi extension development, or active documentation commands when the settled contract is Node + pnpm + Vitest. Evidence should include targeted docs/script checks where applicable.
       Evidence: `justfile` no longer says the planned-branch CLI uses a Bun shebang, and `skills/code-gt-restack-resolve/SKILL.md` no longer grants `Bash(bun run *)` for restack conflict resolution.
 
 - [x] Decide template policy for Bun-centric project creation guidance.

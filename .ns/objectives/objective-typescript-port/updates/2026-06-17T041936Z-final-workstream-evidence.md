@@ -17,10 +17,10 @@ Cutover evidence:
 - `objective exec read-objective objective-typescript-port --format md` confirmed active root `.asdl/objectives/objective-typescript-port`, state `open`, and no `closed.md`.
 - `command -v objective` resolved to `.venv/bin/objective`; `objective --runtime` reported `runtime: python` and `entry_point: asdl_objectives.main:main`.
 - Direct TypeScript source invocation works: `node ts/packages/objective/src/cli.ts --runtime` reported `runtime: typescript`, and `node ts/packages/objective/src/cli.ts list --minimal --format json` emitted the expected machine envelope against this checkout.
-- Fresh grep outside Objective records found no active skill/Pi/CCC callers of `asdl objective`; remaining non-historical references are docs-site install prose and the Python plugin implementation/test path.
+- Fresh grep outside Objective records found no active skill/Pi/CCC callers of `asdl objective`; remaining non-historical references are documentation install prose and the Python plugin implementation/test path.
 - Fresh grep identified the first-party JSON consumers that must be preserved or migrated during cutover: `ts/packages/pi-extension-runtime/src/objective-list.ts` for `objective list --minimal --format json`, `ts/packages/ccc/src/cmux/objective-sidebar.ts` for list/read validation JSON, and `ts/packages/pi-extensions/src/objective.ts` for `objective exec list-candidates --format json` typeahead.
 - `ts/packages/objective/src/cli.ts` still registers `legacyMachine` shims for `list`, `exec list-candidates`, `exec read-objective`, and `exec runner-subagent-usage`, so JSON-envelope cutover should be deliberate rather than opportunistic.
-- Current Python package/deletion targets are explicit: root `pyproject.toml`, `justfile`, `tests/scenario/test_plugins.py`, `packages/asdl-objectives/`, and docs-site install prose still contain active Python package/plugin/install references.
+- Current Python package/deletion targets are explicit: root `pyproject.toml`, `justfile`, `tests/scenario/test_plugins.py`, `packages/asdl-objectives/`, and documentation install prose still contain active Python package/plugin/install references.
 
 Validation evidence gathered before this update:
 

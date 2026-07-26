@@ -2,7 +2,7 @@
 
 ## Summary
 
-A scoped reconciliation audit classified the remaining Bun references across active repo guidance, TypeScript workspace files, project-local Pi extension surfaces, docs-site/deploy guidance, and relevant templates. The audit used the handoff search shape over `AGENTS.md`, `docs/`, `.github/`, `justfile`, `ts/`, `docs-site/`, `skills/`, and `.pi/extensions/`, then filtered substring noise such as `ubuntu-latest` and generic words like `bundled`.
+A scoped reconciliation audit classified the remaining Bun references across active repo guidance, TypeScript workspace files, project-local Pi extension surfaces, retired website files guidance, and relevant templates. The audit used the handoff search shape over `AGENTS.md`, `docs/`, `.github/`, `justfile`, `ts/`, `retired website files`, `skills/`, and `.pi/extensions/`, then filtered substring noise such as `ubuntu-latest` and generic words like `bundled`.
 
 Active TypeScript workspace scripts and configuration now align with Node + pnpm + Vitest: `ts/package.json` uses `pnpm@10.14.0`, Node `>=24.12.0`, and a Vitest root test script; package-local `ts/packages/*/package.json` test scripts invoke Vitest; `ts/tsconfig.json` uses only Node types; and GitHub Actions TypeScript/docs jobs use pnpm and Node without Bun setup.
 
@@ -20,14 +20,14 @@ Remaining accepted references are classified as follows:
 - `docs/retros/internal-pr-stack-address-retrospective.md` and older Objective records are historical/provenance evidence and should not be churned merely to reduce search hits.
 - `ts/packages/pi-extensions/src/runner-subagent/subagent-process.ts` keeps `node|bun` runtime detection and a `/$bunfs/root/` guard as compatibility/safety handling, not as an active Bun requirement.
 - `.github/workflows/*` matches from the broad search were substring noise in `ubuntu-latest`, not Bun setup.
-- `docs-site/` did not contain real Bun command/setup paths in the scoped search.
+- `retired website files` did not contain real Bun command/setup paths in the scoped search.
 - `ts/patches/@earendil-works%2Fpi-ai@0.78.0.patch` is active patch provenance. A local temp-copy probe removed the patch hunk from `dist/index.js` and confirmed Node still exposes `stream`, `complete`, `streamSimple`, and `completeSimple` through the unpatched `export *` barrel. That makes patch removal a good follow-up candidate, but the package metadata and pnpm lockfile were intentionally left unchanged in this reconciliation slice.
 
 ## Objective Impact
 
 This completes the inventory, stale-reference cleanup, template policy decision, accepted-reference classification, and reconciliation evidence rows for this Objective. The result is not a repository-wide Bun string purge; it is a classified end state where remaining references are either deliberate, historical/provenance-only, compatibility/safety handling, substring noise, or a focused follow-up.
 
-The project-template open question is resolved by retaining `create-bun-typescript-project` as explicitly Bun-centric product guidance while documenting its boundary. The docs-site scope question is resolved by evidence that no real docs-site Bun command/setup path remains in the scoped search. Compatibility references are recorded in Objective tracking rather than removed blindly.
+The project-template open question is resolved by retaining `create-bun-typescript-project` as explicitly Bun-centric product guidance while documenting its boundary. The documentation scope question is resolved by evidence that no real documentation Bun command/setup path remains in the scoped search. Compatibility references are recorded in Objective tracking rather than removed blindly.
 
 ## Follow-Ups
 

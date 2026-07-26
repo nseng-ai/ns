@@ -35,16 +35,16 @@
 AGENTS.md
 CONTEXT-MAP.md
 CONTEXT.md
-docs-site/app/[lang]/(home)/page.tsx
-docs-site/app/[lang]/extensions/page.tsx
-docs-site/docs/concepts/meta.json
-docs-site/lib/extensions-catalog.ts
-docs-site/lib/geistdocs/ai-assistant.ts
-docs-site/lib/geistdocs/nav.ts
-docs-site/lib/geistdocs/og-image.tsx
-docs-site/lib/geistdocs/rss.ts
-docs-site/lib/geistdocs/site-identity.ts
-docs-site/package.json
+retired website files]/(home)/page.tsx
+retired website files]/extensions/page.tsx
+retired website files
+retired website files
+retired website files
+retired website files
+retired website files
+retired website files
+retired website files
+retired website files
 docs/adr/0005-additive-plan-vocabulary.md
 docs/agent-era-cli-design-survey.md
 docs/aretro.md

@@ -10,7 +10,7 @@ The final `aretro` retirement slice removed the active Python fallback and recor
 - Deleted `packages/aretro/**` and removed root Python workspace/source/dev/test/Ruff/ty references plus the Python publish package.
 - Regenerated `uv.lock`; the editable `packages/aretro` lock entry is gone.
 - Removed the stale Python plugin smoke-test reference to `aretro.plugin:build_aretro_plugin`.
-- Updated `docs/aretro.md` from Python-layer wording to the current deterministic TypeScript CLI boundary; docs-site install/tool pages already pointed at `just install-aretro`.
+- Updated `docs/aretro.md` from Python-layer wording to the current deterministic TypeScript CLI boundary; package README install/tool sections already pointed at `just install-aretro`.
 - Rewrote `skills/branch-retro/scripts/aretro-run` to prefer `ts/packages/aretro/src/cli.ts`, then PATH `aretro`, then fail clearly with a TypeScript-shim installation hint.
 
 ## Validation notes

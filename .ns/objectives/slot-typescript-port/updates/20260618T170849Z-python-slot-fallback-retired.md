@@ -16,7 +16,7 @@ Prerequisite evidence inspected before deletion:
 
 - Deleted `packages/asdl-slots/`, including the dormant Python source, tests, README, and package-local configuration.
 - Removed the stale root Ruff exclude for `packages/asdl-slots/` from `pyproject.toml`.
-- Updated active user docs under `docs-site/` to direct users to the TypeScript source-shim install model (`just install-slot`, with `just ts-install` or `pnpm --dir ts install` when dependencies are missing) instead of `uv tool install asdl-slots` or `asdl slot`.
+- Updated active user docs under `retired website files` to direct users to the TypeScript source-shim install model (`just install-slot`, with `just ts-install` or `pnpm --dir ts install` when dependencies are missing) instead of `uv tool install asdl-slots` or `asdl slot`.
 - Updated `ts/packages/slot/README.md` to remove dormant Python fallback references while retaining the standalone-only / no TypeScript `asdl.plugins` boundary.
 - Updated `docs/research/vcs-evaluation-jujutsu.md` to describe the current TypeScript `slot` internals instead of the retired Python package path.
 - Updated `tests/scenario/test_plugins.py` so the wrong-shape plugin discovery test still uses a loadable non-plugin target (`click:Group`) without importing the retired package.

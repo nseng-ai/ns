@@ -222,7 +222,7 @@ marked-internal skills still require a skill-level support rationale.
 - Closed Objective records, retrospectives, wayfinding artifacts, cutover reports, and
   frozen research may retain historical paths when the prose describes the historical
   state. Each hit requires classification; bulk textual replacement is unsafe.
-- `docs-site/` remains gated and is out of scope unless a live reference is needed to avoid
+- `retired website files` remains gated and is out of scope unless a live reference is needed to avoid
   breakage; flat harness-root prose generally remains correct because overlays stay flat.
 
 ## Representative family taxonomy for review

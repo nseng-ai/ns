@@ -3,7 +3,7 @@
 ## Summary
 
 A charting session with the owner (2026-07-05) pinned the first shippable customer
-slice: a docs-site "happy path" where a stranger installs the core CLI and then the
+slice: a documentation "happy path" where a stranger installs the core CLI and then the
 objectives system, fully decoupled from everything else. Decisions:
 
 - **Pi-style extension delivery.** The published `@nseng-ai/ns` core ships bare;
@@ -17,8 +17,8 @@ objectives system, fully decoupled from everything else. Decisions:
   slot/flow/brmem/Graphite.
 - **Claude Code first**, explicitly superseding the 2026-07-01 all-three harness bar for
   this slice; Codex + Pi verification parked as follow-up.
-- **Fully-live ship bar**: both packages on npm, docs site publicly deployed
-  (nseng.ai, Vercel gate removed — gate removal owned by `eve-parity-docs-site`), and a
+- **Fully-live ship bar**: both packages on npm, documentation publicly deployed
+  (nseng.ai, Vercel gate removed — gate removal owned by the retired website Objective), and a
   stranger completes the path with zero improvisation.
 
 ## Objective Impact

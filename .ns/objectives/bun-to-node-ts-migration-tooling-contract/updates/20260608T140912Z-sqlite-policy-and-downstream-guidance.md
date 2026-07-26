@@ -8,12 +8,12 @@ If later Node runtime compatibility work chooses to adopt `node:sqlite`, warning
 
 The settled downstream guidance is:
 
-- pnpm workspace migration owns the separate-surface package-manager migration: `ts/` as a pnpm workspace for `packages/*`, `docs-site/` as a standalone pnpm surface, `packageManager` fields, `ts/package.json` `engines.node >=24.12.0`, `pnpm --dir ...` root orchestration, lockfile generation, Vercel command migration, frozen lockfile use for CI/deploy-style commands, and translating the current Pi patch to pnpm-native patch metadata.
+- pnpm workspace migration owns the separate-surface package-manager migration: `ts/` as a pnpm workspace for `packages/*`, `retired website files` as a standalone pnpm surface, `packageManager` fields, `ts/package.json` `engines.node >=24.12.0`, `pnpm --dir ...` root orchestration, lockfile generation, Vercel command migration, frozen lockfile use for CI/deploy-style commands, and translating the current Pi patch to pnpm-native patch metadata.
 - pnpm migration must preserve workspace source-link behavior so Node native TypeScript type stripping can import source `.ts` exports through local workspace package links. Build-to-JavaScript artifacts remain a fallback only if later package-boundary or publishing evidence requires them.
 - Patch handling is explicit: preserve the `@earendil-works/pi-ai@0.78.0` patch during migration, then remove it only after dependency evidence and representative Pi extension scenario coverage show the unpatched dependency is safe after the port.
 - Vitest migration owns `bun:test` imports, `bun test --sequential` scripts, and Bun-specific test-runner guidance such as the current AGENTS.md Bun test execution note.
 - Node runtime compatibility owns CLI shebang/runtime command changes, direct `node` source-entrypoint invocation, `erasableSyntaxOnly`, and any sqlite reader implementation change. If it adopts `node:sqlite`, it must use targeted adapter-boundary warning suppression.
-- Bun-reference reconciliation owns remaining docs, templates, and instructional cleanup after package-manager, runtime, and test-runner commands settle. Docs-site Vercel commands are package-manager policy and belong to pnpm migration, but prose/template cleanup can remain downstream reconciliation work.
+- Bun-reference reconciliation owns remaining docs, templates, and instructional cleanup after package-manager, runtime, and test-runner commands settle. Vercel commands are package-manager policy and belong to pnpm migration, but prose/template cleanup can remain downstream reconciliation work.
 
 ## Objective Impact
 
@@ -23,7 +23,7 @@ This completes the tooling contract Objective's decision set:
 
 - Node baseline: Node v24.12+.
 - TypeScript execution strategy: native Node type stripping for project-local CLIs and Pi extension modules, with build artifacts as fallback.
-- Package-manager contract: separate pnpm-managed `ts/` and `docs-site` surfaces, with root orchestration through directory-scoped pnpm commands.
+- Package-manager contract: separate pnpm-managed `ts/` and `documentation` surfaces, with root orchestration through directory-scoped pnpm commands.
 - sqlite policy: current `sqlite3` CLI reader remains acceptable; future `node:sqlite` usage must be adapter-isolated with targeted warning suppression.
 - Downstream guidance: pnpm, Vitest, Node runtime compatibility, and Bun-reference reconciliation have explicit ownership boundaries.
 

@@ -29,6 +29,6 @@ zero unexplained scope extras.
 Operator-only npm actions (claiming `@nseng-ai/sdk`, deprecating the
 published `@nseng-ai/kernel@0.1.2`) remain per ADR 0035. Two parked naming
 decisions were deliberately not taken: the `KernelCommandCompletion*`
-exported type aliases, and the north-star/docs-site product-vision framing
+exported type aliases, and the north-star/documentation product-vision framing
 of ns itself as "the kernel". The implementation stack awaits normal human
 review and submission.

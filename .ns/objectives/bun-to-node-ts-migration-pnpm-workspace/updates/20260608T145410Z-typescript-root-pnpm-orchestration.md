@@ -38,7 +38,7 @@ Bun remains in the TypeScript CI job only as explicitly named transitional test-
 
 ## Follow-Ups
 
-- Migrate `docs-site/` package-manager and deploy commands to pnpm as the next separate surface; docs-site Bun commands were intentionally left untouched.
+- Migrate `retired website files` package-manager and deploy commands to pnpm as the next separate surface; documentation Bun commands were intentionally left untouched.
 - Update user-facing and agent-facing command documentation, including active `asdl-dev` examples, after the relevant pnpm workflow surfaces are complete.
 - Convert `bun:test` imports and package-local test-runner semantics in the Vitest child Objective.
 - Leave CLI shebang and runtime compatibility cleanup, including the current Bun shebang for `planned-branch`, to the Node runtime compatibility sibling work.

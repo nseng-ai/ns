@@ -15,7 +15,7 @@ The command is lazily contributed by `@nseng-ai/ns-init` beside `install`, with 
 - The activation lifecycle roadmap row remains `[~]`, but install and uninstall reconciliation are now delivered. Single-target update reconciliation remains before that row can complete.
 - The broad `ns extension` acquisition-verbs row remains `[~]`. Its remaining verbs are single-target `update` and `list`, plus migration of the old top-level update extension mode.
 - The Objective-owned README draft now records absent-target orphan cleanup, activation-before-deletion ordering, exact-rerun recovery, bounded npm pruning, and preservation of local sources, edited/untracked artifacts, and consumer data.
-- No Objective completion criterion is newly complete. Bare-core republish, remaining verbs, docs-site finalization, and customer onboarding verification remain open.
+- No Objective completion criterion is newly complete. Bare-core republish, remaining verbs, documentation finalization, and customer onboarding verification remain open.
 
 Validation passed focused kernel, harness-artifacts, ns-init, and published-host checks/tests; real filesystem and host integration coverage; TypeScript format/lint/tsgo checks; the TypeScript style guard; dprint; dependency checks; the full default test suite; and the repository-wide Objective edge sweep through `just`.
 
@@ -23,4 +23,4 @@ Validation passed focused kernel, harness-artifacts, ns-init, and published-host
 
 - Implement single-target `ns extension update` with the same prepare/apply/reconcile discipline, then implement `ns extension list` and migrate the old top-level update extension mode.
 - Unbundle first-party extensions, republish the bare core, and run the registry-backed foreign-repository smoke through `ns extension install npm:@nseng-ai/objectives`.
-- Reconcile the public docs-site happy path and perform the zero-improvisation Claude Code onboarding verification after republish.
+- Reconcile the public documentation happy path and perform the zero-improvisation Claude Code onboarding verification after republish.

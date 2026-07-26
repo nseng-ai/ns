@@ -23,13 +23,13 @@ Validation evidence:
 
 - `node --version` -> `v24.2.0`.
 - `pnpm --version` -> `10.14.0`.
-- Focused stale-reference search found no `bun run --cwd ts`, `bun install --cwd ts`, `bun run --cwd docs-site`, `bun install --cwd docs-site`, or `underlying Bun invocation` matches in the active docs inspected for this slice.
-- Positive search found the pnpm `asdl-dev` fallback/examples, Node/pnpm baseline docs, planned-branch pnpm workspace wording, and existing docs-site pnpm deployment commands.
+- Focused stale-reference search found no `bun run --cwd ts`, `bun install --cwd ts`, `bun run --cwd documentation`, `bun install --cwd documentation`, or `underlying Bun invocation` matches in the active docs inspected for this slice.
+- Positive search found the pnpm `asdl-dev` fallback/examples, Node/pnpm baseline docs, planned-branch pnpm workspace wording, and existing documentation pnpm deployment commands.
 - `just dprint-check` passed.
 - `pnpm --dir ts run asdl-dev --help`, `pnpm --dir ts run asdl-dev submit --help`, and `pnpm --dir ts run asdl-dev preview-url --help` exited successfully and showed pnpm forwarding the documented argument shape, with the expected unsupported-engine warnings under local Node `v24.2.0`.
 - Direct `runCli` imports printed top-level, `submit`, and `preview-url` help text, confirming CLI parsing independent of the local direct `.ts` entrypoint behavior.
 
-`ts/` remains a pnpm workspace, `docs-site/` remains a standalone pnpm-managed docs surface, and the repository root remains orchestration-only. No root `package.json`, root `pnpm-workspace.yaml`, or docs-site workspace-folding change was introduced.
+`ts/` remains a pnpm workspace, `retired website files` remains a standalone pnpm-managed docs surface, and the repository root remains orchestration-only. No root `package.json`, root `pnpm-workspace.yaml`, or documentation workspace-folding change was introduced.
 
 ## Follow-Ups
 

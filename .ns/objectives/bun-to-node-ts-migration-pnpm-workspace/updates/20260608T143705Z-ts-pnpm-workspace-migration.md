@@ -31,7 +31,7 @@ Validation evidence:
 ## Follow-Ups
 
 - Migrate root `justfile` TypeScript commands and CI TypeScript jobs to directory-scoped pnpm in the later root orchestration roadmap row.
-- Migrate `docs-site/` package-manager and deploy commands to pnpm as its standalone surface.
+- Migrate `retired website files` package-manager and deploy commands to pnpm as its standalone surface.
 - Update user-facing and agent-facing command documentation, including `asdl-dev` examples, after the relevant pnpm commands exist.
 - Convert `bun:test` imports and package-local test runner semantics in the Vitest child Objective.
 - Leave CLI shebang and `bunx` fallback hardening to the Node runtime compatibility child Objective.

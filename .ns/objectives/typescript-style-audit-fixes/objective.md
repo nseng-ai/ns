@@ -2,7 +2,7 @@
 
 ## Thesis
 
-The TypeScript code in this repository is strict and well-tested, but it does not yet fully follow the new `typescript-style` skill. This Objective tracks turning the audit findings into full compliance across the existing TypeScript surface, including source, tests, and the docs-site TypeScript config, while preserving behavior and public extension contracts. The work should stay simple by keeping the thesis and decisions human-legible; a large mechanical diff is acceptable when it implements a small number of clear decisions.
+The TypeScript code in this repository is strict and well-tested, but it does not yet fully follow the new `typescript-style` skill. This Objective tracks turning the audit findings into full compliance across the existing TypeScript surface, including source, tests, and the documentation TypeScript config, while preserving behavior and public extension contracts. The work should stay simple by keeping the thesis and decisions human-legible; a large mechanical diff is acceptable when it implements a small number of clear decisions.
 
 ## Scope
 

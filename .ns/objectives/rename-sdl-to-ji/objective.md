@@ -8,8 +8,8 @@ the naming rationale, rejected alternatives, and accepted collisions live in ADR
 with the full naming brief checked into `docs/`.
 
 Timing was the forcing function: three in-flight objectives
-(`checkout-free-sdl-distribution`, `ship-objectives-to-customers`, `eve-parity-docs-site`)
-were about to freeze the name into published npm packages, customer repos, and docs-site
+(`checkout-free-sdl-distribution`, `ship-objectives-to-customers`, the retired website Objective)
+were about to freeze the name into published npm packages, customer repos, and documentation
 URLs — all three remain open and unlanded. Renaming pre-publish is a find-replace plus a
 manual machine migration; renaming after any of them lands is a published-package and
 customer-state migration. This Objective is therefore a **hard dependency of the first

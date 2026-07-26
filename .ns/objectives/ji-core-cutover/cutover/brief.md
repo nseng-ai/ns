@@ -58,7 +58,7 @@ DO NOT TOUCH (out-of-window survivors; later roadmap rows own them):
   `sdl-typescript-style-tripwire`), source filenames (`sdl-extension.ts`,
   `repo-local-sdl-extension.ts`), objective slugs (`rename-sdl-to-ji`, …)
 - `SPECIALIZED_SKILL_REPLACEMENTS` keys (skill dir names); only its VALUES rename
-- docs-site branding strings (`"sdl-docs"` site id, site titles) — branding row
+- website branding strings (`"sdl-docs"` site id, site titles) — branding row
 - brand PROSE: bare or uppercase "SDL" used as the product name in sentences,
   doc/section titles, describe()/test() labels, and user-facing message prose
   ("Invalid SDL command candidate…", "SDL kernel", "an sdl checkout",

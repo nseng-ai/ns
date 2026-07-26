@@ -6,7 +6,7 @@ The remaining closeout work for the TypeScript roaster port is implemented. `roa
 
 The harness cleanup is also landed: `FakeHarnessGateway` uses the shared record/map normalization helper, and the harness concerns are split into dedicated prompt, diff-cap, output, and gateway modules with tests importing helpers from their canonical modules.
 
-The install/docs closeout is landed without editing ADRs. The repo now has `just install-roaster`, docs-site install/tooling pages describe the TypeScript source shim instead of `uv tool install roaster` or `asdl roaster`, `AGENTS.md` no longer uses deleted Python roaster paths as canonical examples, and `CONTEXT-MAP.md` now treats roaster as `ts/packages/roaster` / `@asdl/roaster`.
+The install/docs closeout is landed without editing ADRs. The repo now has `just install-roaster`, documentation install/tooling pages describe the TypeScript source shim instead of `uv tool install roaster` or `asdl roaster`, `AGENTS.md` no longer uses deleted Python roaster paths as canonical examples, and `CONTEXT-MAP.md` now treats roaster as `ts/packages/roaster` / `@asdl/roaster`.
 
 Verification: `pnpm --dir ts --filter @asdl/roaster run test`, `pnpm --dir ts --filter @asdl/roaster run check`, `pnpm --dir ts run test`, `pnpm --dir ts run check`, `just docs-check`, and `just dprint-check` passed. Stale-reference greps were reviewed: remaining matches are valid TS package paths, generic Python plugin documentation, request/prompt snake_case fields that are not the review-run success data contract, or negative regression tests.
 

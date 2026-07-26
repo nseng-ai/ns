@@ -1,7 +1,7 @@
 .ji/prompts/AGENTS.md
 .pi/extensions/objective-autopilot.ts
 CONTEXT-MAP.md
-docs-site/lib/extensions-catalog.ts
+retired website files
 docs/pi/branch-context-workflow.md
 docs/pi/cmux-extension-pattern.md
 docs/pi/handoff-artifacts.md

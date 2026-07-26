@@ -23,8 +23,8 @@ AGENTS.md
 CLAUDE.md
 CONTEXT-MAP.md
 CONTEXT.md
-docs-site/lib/extensions-catalog.ts
-docs-site/lib/geistdocs/nav.ts
+retired website files
+retired website files
 docs/aretro.md
 docs/conventions/platform-and-consumer.md
 docs/conventions/skill-conventions.md

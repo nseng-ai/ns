@@ -40,4 +40,4 @@ Current docs and Objective tracking now use the implementation vocabulary and ex
 
 ## Follow-Ups
 
-Do not close the Objective or add `closed.md`. The unrelated immutable Semantic Update `20260719T181812Z-reference-based-herdr-handoff-launch.md` still lacks headings required by the current Objective checker. Existing Semantic Updates must not be edited; an authorized checker compatibility mechanism is still required. Gated `docs-site/` drift also remains untouched by policy.
+Do not close the Objective or add `closed.md`. The unrelated immutable Semantic Update `20260719T181812Z-reference-based-herdr-handoff-launch.md` still lacks headings required by the current Objective checker. Existing Semantic Updates must not be edited; an authorized checker compatibility mechanism is still required. Gated `retired website files` drift also remains untouched by policy.

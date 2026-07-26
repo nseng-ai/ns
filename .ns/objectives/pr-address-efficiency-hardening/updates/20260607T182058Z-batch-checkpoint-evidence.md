@@ -6,7 +6,7 @@ This branch adds `pr-address exec record-batch-checkpoint`, a deterministic help
 
 The helper returns `valid` separately from `batch_complete`, so failed validation commands or failed thread mutation results can be preserved as structured evidence without being mistaken for a completed batch. When the plan came from a payload-backed run, it writes a same-session `pr-address-batch-checkpoint.summary.json` artifact and returns a checkpoint reference. The artifact and stdout use compact plan summaries and IDs rather than raw feedback bodies.
 
-Verification evidence: targeted composite scenario tests passed for successful checkpoint artifact writing, `--payload-file`, conflicting input sources, unknown batches, missing thread payload evidence, failed thread resolution, unsafe changed files, and missing non-thread outcomes. The public skill, CLI reference, package README, and docs-site mirrors now route future agents through the checkpoint helper after each committed batch.
+Verification evidence: targeted composite scenario tests passed for successful checkpoint artifact writing, `--payload-file`, conflicting input sources, unknown batches, missing thread payload evidence, failed thread resolution, unsafe changed files, and missing non-thread outcomes. The public skill, CLI reference, package README, and documentation mirrors now route future agents through the checkpoint helper after each committed batch.
 
 ## Objective Impact
 

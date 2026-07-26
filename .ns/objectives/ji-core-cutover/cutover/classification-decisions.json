@@ -283,40 +283,40 @@
    "hint": "Only match is the import specifier \"sdl-flow/pi/code-extension\" — sdl-flow is a package name (survivor)."
   },
   {
-   "path": "docs-site/docs/concepts/meta.json",
+   "path": "retired website files,
    "decision": "skip",
    "reason": "only-package-or-skill-or-slug-name",
    "hint": "\"sdl-umbrella\" is a docs page slug/filename id in the concepts nav (survivor)."
   },
   {
-   "path": "docs-site/lib/geistdocs/ai-assistant.ts",
+   "path": "retired website files,
    "decision": "skip",
    "reason": "post-window-branding",
-   "hint": "docs-site AI-assistant branding: product name \"sdl\" and prose referencing 'sdl documentation pages' / 'sdl CLI behavior' are docs-site product-branding strings, deferred to the post-window branding sweep (docs-site is a standalone package)."
+   "hint": "documentation AI-assistant branding: product name \"sdl\" and prose referencing 'sdl documentation pages' / 'sdl CLI behavior' are documentation product-branding strings, deferred to the post-window branding sweep (documentation is a standalone package)."
   },
   {
-   "path": "docs-site/lib/geistdocs/nav.ts",
+   "path": "retired website files,
    "decision": "skip",
    "reason": "only-package-or-skill-or-slug-name",
    "hint": "Only match is repo: \"sdl-tools\" — repo name (survivor)."
   },
   {
-   "path": "docs-site/lib/geistdocs/rss.ts",
+   "path": "retired website files,
    "decision": "skip",
    "reason": "post-window-branding",
-   "hint": "RSS feed author name \"sdl\" and copyright 'All rights reserved, sdl' are docs-site branding strings — post-window branding sweep."
+   "hint": "RSS feed author name \"sdl\" and copyright 'All rights reserved, sdl' are website branding strings — post-window branding sweep."
   },
   {
-   "path": "docs-site/lib/geistdocs/site-identity.ts",
+   "path": "retired website files,
    "decision": "skip",
    "reason": "post-window-branding",
-   "hint": "siteId = \"sdl-docs\" is the docs-site site id, explicitly a post-window branding survivor."
+   "hint": "siteId = \"sdl-docs\" is the retired website id, explicitly a post-window branding survivor."
   },
   {
-   "path": "docs-site/package.json",
+   "path": "retired website files,
    "decision": "skip",
    "reason": "post-window-branding",
-   "hint": "package \"name\": \"sdl-docs\" is the docs-site package/branding name — post-window branding sweep, not the in-window manifest KEY rename."
+   "hint": "package \"name\": \"sdl-docs\" is the package/branding name — post-window branding sweep, not the in-window manifest KEY rename."
   },
   {
    "path": "skills-lock.json",
@@ -510,22 +510,22 @@
    "hint": "Multiple in-window sites: `.sdl/extensions/` path literals (lines 47, 94, 104, 105, 107, 313-316) → `.ji/extensions/`; command-instruction lines `sdl <name>` / `sdl flow <name>` (142, 292, 318-320 examples), `sdl --help` (162); manifest KEY `sdl` — prose refs on 307 and 327, `sdl.commands[]` on 311, and the `sdl: {` object key on 332 → `ji`/`ji.commands[]`/`ji: {`. LEAVE all identifiers (sdlExtensionManifestCommandSchema, sdlExtensionManifestSchema, sdlExtensionPackageManifestSchema on 309/325), the `@sdl/capability-kit/*` scope and `sdl-flow` package name (line 18, 312), and `internalWorkspaceExports`."
   },
   {
-   "path": "docs-site/app/[lang]/(home)/page.tsx",
+   "path": "retired website files]/(home)/page.tsx",
    "decision": "skip",
    "reason": "post-window-branding",
-   "hint": "'sdl Documentation' page titles/metadata and hero copy (:6,:9,:14,:63,:64) — docs-site product branding, post-window branding row (consistent with the ai-assistant.ts/rss.ts/site-identity.ts skips). [orchestrator-applied on G10 drift rerun, matching classifier precedent]"
+   "hint": "'sdl Documentation' page titles/metadata and hero copy (:6,:9,:14,:63,:64) — documentation product branding, post-window branding row (consistent with the ai-assistant.ts/rss.ts/site-identity.ts skips). [orchestrator-applied on G10 drift rerun, matching classifier precedent]"
   },
   {
-   "path": "docs-site/app/[lang]/extensions/page.tsx",
+   "path": "retired website files]/extensions/page.tsx",
    "decision": "skip",
    "reason": "post-window-branding",
-   "hint": "'sdl extensions …' description and 'sdl extension catalog' eyebrow (:32,:37) — docs-site branding copy, post-window branding row. [orchestrator-applied on G10 drift rerun, matching classifier precedent]"
+   "hint": "'sdl extensions …' description and 'sdl extension catalog' eyebrow (:32,:37) — website branding copy, post-window branding row. [orchestrator-applied on G10 drift rerun, matching classifier precedent]"
   },
   {
-   "path": "docs-site/lib/geistdocs/og-image.tsx",
+   "path": "retired website files,
    "decision": "skip",
    "reason": "post-window-branding",
-   "hint": "fallbackTitle 'sdl Documentation' (:46) — docs-site branding, post-window branding row. [orchestrator-applied on G10 drift rerun, matching classifier precedent]"
+   "hint": "fallbackTitle 'sdl Documentation' (:46) — website branding, post-window branding row. [orchestrator-applied on G10 drift rerun, matching classifier precedent]"
   },
   {
    "path": "ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts",

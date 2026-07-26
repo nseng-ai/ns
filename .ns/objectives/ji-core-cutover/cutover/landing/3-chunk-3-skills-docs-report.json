@@ -336,7 +336,7 @@
    "violations": [
     "ts/pnpm-lock.yaml, .ji/objectives, .ji/objective-archive, docs/adr correctly excluded per invariant scope; git ls-files | grep -F '.sdl' returned empty (clean)",
     ".claude/plans/plan-the-deletion-of-humming-tide.md:19: '...and **keep** the historical `.sdl/objectives/pr-address-*` records.' \u2014 literal residual `.sdl/` path reference, not an exempted TS identifier",
-    ".claude/plans/plan-the-deletion-of-humming-tide.md:130: '- **docs-site tool pages** and **`.sdl/objectives/pr-address-*`** \u2014 kept (live TS-tool docs; historical objective records).' \u2014 same residual `.sdl/` path reference",
+    ".claude/plans/plan-the-deletion-of-humming-tide.md:130: '- **package README tool sections** and **`.sdl/objectives/pr-address-*`** \u2014 kept (live TS-tool docs; historical objective records).' \u2014 same residual `.sdl/` path reference",
     "ts/packages/capabilities/address/test/scenario/extension-manifest.test.ts:27: 'const actualManifestCommands = manifest.sdl.commands' \u2014 `.sdl.` property access matches the [^A-Za-z] guard but is NOT one of the explicitly exempted identifiers (.sdlToml, .sdlTier, .sdlSubpackages, .sdlRemainder, \u2026sdlExtensionParity); it is a bare `.sdl` field access, so per the stated invariant it is an unexempted match"
    ]
   },
@@ -351,7 +351,7 @@
    "invariant": "residual-bin-argv",
    "pass": false,
    "violations": [
-    "ts/packages/capabilities/roaster/src/core/skill-reviews.ts:43 \u2014 `[\"sdl\", \"SDL\"],` inside the `ACRONYMS` map used by `humanizeKeyWord()` (see usage at line 143: `const acronym = ACRONYMS.get(lower);`). This is an exact \"sdl\" string literal within the ts/**/*.ts pathspec that is NOT one of the permitted exceptions (it is not a `join(..., \"sdl\", ...)` call building src/sdl/ module paths like module-loader.ts:67-69, nor a package.json subpackages entry, nor a docs-site branding field). It humanizes skill/word keys (e.g. turning a word 'sdl' into the acronym 'SDL' for display labels) and was left un-renamed by the sdl\u2192ji cutover, so it fails the invariant's 'every exact \"sdl\" string in TS source ... renames this window' requirement."
+    "ts/packages/capabilities/roaster/src/core/skill-reviews.ts:43 \u2014 `[\"sdl\", \"SDL\"],` inside the `ACRONYMS` map used by `humanizeKeyWord()` (see usage at line 143: `const acronym = ACRONYMS.get(lower);`). This is an exact \"sdl\" string literal within the ts/**/*.ts pathspec that is NOT one of the permitted exceptions (it is not a `join(..., \"sdl\", ...)` call building src/sdl/ module paths like module-loader.ts:67-69, nor a package.json subpackages entry, nor a website branding field). It humanizes skill/word keys (e.g. turning a word 'sdl' into the acronym 'SDL' for display labels) and was left un-renamed by the sdl\u2192ji cutover, so it fails the invariant's 'every exact \"sdl\" string in TS source ... renames this window' requirement."
    ]
   },
   {
@@ -1249,7 +1249,7 @@
    "violations": [
     "ts/pnpm-lock.yaml, .ji/objectives, .ji/objective-archive, docs/adr correctly excluded per invariant scope; git ls-files | grep -F '.sdl' returned empty (clean)",
     ".claude/plans/plan-the-deletion-of-humming-tide.md:19: '...and **keep** the historical `.sdl/objectives/pr-address-*` records.' \u2014 literal residual `.sdl/` path reference, not an exempted TS identifier",
-    ".claude/plans/plan-the-deletion-of-humming-tide.md:130: '- **docs-site tool pages** and **`.sdl/objectives/pr-address-*`** \u2014 kept (live TS-tool docs; historical objective records).' \u2014 same residual `.sdl/` path reference",
+    ".claude/plans/plan-the-deletion-of-humming-tide.md:130: '- **package README tool sections** and **`.sdl/objectives/pr-address-*`** \u2014 kept (live TS-tool docs; historical objective records).' \u2014 same residual `.sdl/` path reference",
     "ts/packages/capabilities/address/test/scenario/extension-manifest.test.ts:27: 'const actualManifestCommands = manifest.sdl.commands' \u2014 `.sdl.` property access matches the [^A-Za-z] guard but is NOT one of the explicitly exempted identifiers (.sdlToml, .sdlTier, .sdlSubpackages, .sdlRemainder, \u2026sdlExtensionParity); it is a bare `.sdl` field access, so per the stated invariant it is an unexempted match"
    ]
   },
@@ -1264,7 +1264,7 @@
    "invariant": "residual-bin-argv",
    "pass": false,
    "violations": [
-    "ts/packages/capabilities/roaster/src/core/skill-reviews.ts:43 \u2014 `[\"sdl\", \"SDL\"],` inside the `ACRONYMS` map used by `humanizeKeyWord()` (see usage at line 143: `const acronym = ACRONYMS.get(lower);`). This is an exact \"sdl\" string literal within the ts/**/*.ts pathspec that is NOT one of the permitted exceptions (it is not a `join(..., \"sdl\", ...)` call building src/sdl/ module paths like module-loader.ts:67-69, nor a package.json subpackages entry, nor a docs-site branding field). It humanizes skill/word keys (e.g. turning a word 'sdl' into the acronym 'SDL' for display labels) and was left un-renamed by the sdl\u2192ji cutover, so it fails the invariant's 'every exact \"sdl\" string in TS source ... renames this window' requirement."
+    "ts/packages/capabilities/roaster/src/core/skill-reviews.ts:43 \u2014 `[\"sdl\", \"SDL\"],` inside the `ACRONYMS` map used by `humanizeKeyWord()` (see usage at line 143: `const acronym = ACRONYMS.get(lower);`). This is an exact \"sdl\" string literal within the ts/**/*.ts pathspec that is NOT one of the permitted exceptions (it is not a `join(..., \"sdl\", ...)` call building src/sdl/ module paths like module-loader.ts:67-69, nor a package.json subpackages entry, nor a website branding field). It humanizes skill/word keys (e.g. turning a word 'sdl' into the acronym 'SDL' for display labels) and was left un-renamed by the sdl\u2192ji cutover, so it fails the invariant's 'every exact \"sdl\" string in TS source ... renames this window' requirement."
    ]
   },
   {

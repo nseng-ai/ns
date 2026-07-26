@@ -4,7 +4,7 @@
 
 This branch adds `pr-address exec finalize-run`, a deterministic local/read-only final verification helper. The command consumes the final compact `get-feedback` payload manifest (preferably fetched with `--include-resolved`) and the `data` objects returned by `record-batch-checkpoint`, then emits unresolved threads, unresolved unskipped work, skipped review/thread/discussion items, checkpoint summaries, failed validation evidence, and a `ready_to_stop` decision.
 
-The helper keeps the payload discipline intact: it accepts `GetFeedbackPayloadManifest` rather than raw inline feedback, does not read raw payload artifacts, does not mutate GitHub, and does not push, commit, or create branches. The public `pr-address` skill, CLI reference, package README, and docs-site mirrors now route final handoff through `get-feedback --include-resolved` plus `finalize-run` instead of a manual reconciliation checklist.
+The helper keeps the payload discipline intact: it accepts `GetFeedbackPayloadManifest` rather than raw inline feedback, does not read raw payload artifacts, does not mutate GitHub, and does not push, commit, or create branches. The public `pr-address` skill, CLI reference, package README, and documentation mirrors now route final handoff through `get-feedback --include-resolved` plus `finalize-run` instead of a manual reconciliation checklist.
 
 Verification: targeted finalization scenario/unit tests passed, adjacent checkpoint/get-feedback/summary regressions passed, `pr-address exec finalize-run --json-schema` printed successfully, targeted Ruff/format/type/dprint checks passed, and full `just check` passed.
 

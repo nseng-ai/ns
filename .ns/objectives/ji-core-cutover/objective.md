@@ -136,7 +136,7 @@ below; the answers are also reflected in
   the same landing. (Verified: `ji.toml` exists, `sdl.toml` gone.)
 - **Q3 — resolved:** rewrite the live "no legacy `~/.sdl/enriched-plan` fallback"
   strings to `~/.ji/…` — keep the no-fallback sentence, pointed at the ji path
-  (production text, the three test assertions, and the docs sites the inventory
+  (production text, the three test assertions, and the documentations the inventory
   enumerates).
 - **Q4 — resolved:** all small-fry brand literals become ji: the aretro tmpdir
   segment, the internal event key (`"ji:pi-extension-command:finished"`), and the

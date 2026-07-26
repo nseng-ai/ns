@@ -131,7 +131,7 @@ Risks:
 
 ## Open Questions
 
-- Answered: current inventory and fresh grep found no active skill/Pi/CCC consumers invoking `asdl objective`; the plugin path should be retired, with docs-site install prose and plugin smoke tests updated or removed as part of the cutover.
+- Answered: current inventory and fresh grep found no active skill/Pi/CCC consumers invoking `asdl objective`; the plugin path should be retired, with documentation install prose and plugin smoke tests updated or removed as part of the cutover.
 - Answered for the remaining port: preserve durable behavior and first-party consumer schemas until the coordinated JSON-envelope cutover branch; allow incidental Click/Python vs `@asdl/clinkr` help/parser byte differences with parity notes and scenario coverage.
 - Answered: do not create a new `packages/asdl-objectives/CONTEXT.md`; the Python package path is deleted. Follow-up remains to deliberately update `CONTEXT-MAP.md` for the deleted package path.
 - Answered default: record a rollback/reference artifact immediately before Python deletion. Sufficient evidence is a Semantic Update naming the pre-deletion git commit, the deleted `packages/asdl-objectives` path, the removed workspace/dev/test/build references, and the restoration route (`git checkout <pre-deletion-commit> -- packages/asdl-objectives` plus restoring manifest references if needed).
@@ -148,7 +148,7 @@ Evidence:
 - `just install-objective` installed the TypeScript source shim and removed the stale project `.venv/bin/objective` script.
 - `objective --runtime` reported `runtime: typescript`.
 - Root manifests, install recipes, plugin smoke tests, docs, and lockfile no longer depend on the Python Objective package.
-- Full validation passed: plugin smoke suite, root Python test suite, full TS check/test, and docs-site check.
+- Full validation passed: plugin smoke suite, root Python test suite, full TS check/test, and documentation check.
 - Umbrella TypeScript migration ledger/playbook/debt records were updated for the reusable Objective cutover lessons and the remaining Objective-local JSON projection debt.
 
 Caveats/follow-ups:

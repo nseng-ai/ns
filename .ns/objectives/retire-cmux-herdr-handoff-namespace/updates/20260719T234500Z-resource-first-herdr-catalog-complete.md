@@ -8,7 +8,7 @@ Explicit `tab:new` and `tab:goal` workflows now validate Herdr-injected caller i
 
 ## Objective Impact
 
-All substantive roadmap rows are complete. Live contexts and Pi/Herdr documentation describe current Herdr topology, dedicated deleted-cmux operating guides are removed, and historical records remain unchanged. The stale docs-site extension catalog remains an explicitly gated follow-up outside this slice.
+All substantive roadmap rows are complete. Live contexts and Pi/Herdr documentation describe current Herdr topology, dedicated deleted-cmux operating guides are removed, and historical records remain unchanged. The stale documentation extension catalog remains an explicitly gated follow-up outside this slice.
 
 Validation passed focused Herdr, Branch Context, Capability Kit, Foundation, and areg suites; TypeScript format, lint, typecheck, style guard, integration and isolated lanes; Markdown formatting; `git diff --check`; and the repository `just` entrypoint.
 
@@ -17,4 +17,4 @@ Objective closure is not recorded because the immutable legacy update `20260719T
 ## Follow-Ups
 
 - Provide an authorized Objective-check compatibility mechanism for immutable legacy Semantic Updates before closing this Objective.
-- Reconcile `docs-site/lib/extensions-catalog.ts` only when the gated docs-site launch slice authorizes edits.
+- Reconcile `retired website files` only when the gated documentation launch slice authorizes edits.

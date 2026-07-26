@@ -28,7 +28,7 @@ findings that shaped the decisions:
   consumes. areg's `init` also already does append/update/already-current/malformed
   handling and `--yes` — a strong *pattern reference*, but it is dev-facing (clones a
   `BOOTSTRAP_REPO`, hard-codes the symlink skill convention).
-- `eve-parity-docs-site` is built and buildable; the objective pages (installation,
+- the retired website Objective is built and buildable; the objective pages (installation,
   quickstart, concepts/objectives, tools/objective) exist as **Lorum-ipsum placeholders** —
   a fill-in-the-prose job, deploy-gated.
 

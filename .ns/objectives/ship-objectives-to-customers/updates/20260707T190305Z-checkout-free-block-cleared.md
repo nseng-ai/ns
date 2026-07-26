@@ -17,4 +17,4 @@ Cleared the Objective's `blocked:` frontmatter sentence. The prior Blocked Sente
 ## Follow-Ups
 
 - Verify the published `@nseng-ai/ns` + objective skill provisioning path end-to-end in a throwaway non-ns repo for Claude Code.
-- Remove stale "coming with the first release" copy from objective onboarding docs in coordination with the docs-site Objective.
+- Remove stale "coming with the first release" copy from objective onboarding docs in coordination with the documentation Objective.

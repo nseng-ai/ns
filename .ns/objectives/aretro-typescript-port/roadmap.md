@@ -4,8 +4,8 @@
 
 - [x] Inventory and lock the current `aretro` contract.
   - Policy: completed by read-only inventory after PR #1820 was submitted; future implementation should use the locked compatibility baseline in `objective.md` unless tests prove a correction is needed.
-  - Evidence: inspected Python source/tests under `packages/aretro`, `docs/aretro.md`, docs-site pages for `aretro` and `branch-retro`, `skills/branch-retro/SKILL.md`, `skills/branch-retro/scripts/aretro-run`, root workspace/build config, plugin smoke tests, `asdl-core.sessions`, `asdl-core.payloads`, and current TypeScript CLI conventions.
-  - Durable decisions: standalone `aretro exec` is the command boundary; docs-site `asdl aretro --help` is stale by default; TypeScript session/evidence/payload seams should start package-local; `just install-aretro` is opt-in by default; checkout-free `uvx`/prod use is an audit gate before Python deletion, not a blocker for TypeScript parity.
+  - Evidence: inspected Python source/tests under `packages/aretro`, `docs/aretro.md`, package README pages for `aretro` and `branch-retro`, `skills/branch-retro/SKILL.md`, `skills/branch-retro/scripts/aretro-run`, root workspace/build config, plugin smoke tests, `asdl-core.sessions`, `asdl-core.payloads`, and current TypeScript CLI conventions.
+  - Durable decisions: standalone `aretro exec` is the command boundary; documentation `asdl aretro --help` is stale by default; TypeScript session/evidence/payload seams should start package-local; `just install-aretro` is opt-in by default; checkout-free `uvx`/prod use is an audit gate before Python deletion, not a blocker for TypeScript parity.
   - Evidence to preserve: Semantic Update `20260619-0247-contract-inventory-locked.md` records the durable/incidental split, stop conditions, and single-invocation defaults.
 
 - [x] Create `@asdl/aretro` with CLI shell and contract tests.
@@ -36,7 +36,7 @@
   - Policy: completed by the `aretro-ts/skill-distribution-cutover` branch against Graphite parent `aretro-ts/payload-detail`.
   - Updated `skills/branch-retro/scripts/aretro-run` to prefer the repo-local TypeScript CLI when `ts/packages/aretro/src/cli.ts` is present, while preserving `ASDL_ARETRO_MODE=local` and `ASDL_ARETRO_MODE=prod` fallbacks.
   - Added opt-in `just install-aretro` source shim without adding it to the broad `install-tools` target because the audit found no active installed-tool consumer requiring that broader install.
-  - Updated active docs-site install/tool pages away from Python `uv tool install aretro` and stale `asdl aretro` defaults; the skill's negative `do not use asdl aretro` guidance remains intentional.
+  - Updated active package README install/tool sections away from Python `uv tool install aretro` and stale `asdl aretro` defaults; the skill's negative `do not use asdl aretro` guidance remains intentional.
   - Evidence: runner `--runtime` reports TypeScript in repo-local mode, Python local override still works, docs formatting passed, and active-reference grep found no required checkout-free/prod consumer outside the preserved runner fallback.
 
 - [x] Retire the Python `packages/aretro` fallback and active workspace wiring.

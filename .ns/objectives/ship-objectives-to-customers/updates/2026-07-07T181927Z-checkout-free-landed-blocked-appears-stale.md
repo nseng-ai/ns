@@ -46,7 +46,7 @@ Two other consumed dependencies also progressed:
   docs row are annotated with the landed publish.
 - Edge note: frontmatter edges #1 (`checkout-free-sdl-distribution`) and #2
   (`ns-skills-steelthread`) now point to **closed** objectives (dependencies satisfied);
-  edges #3 (`cross-harness-parity`) and #4 (`eve-parity-docs-site`) remain open. The body
+  edges #3 (`cross-harness-parity`) and #4 (the retired website Objective) remain open. The body
   prose historically referenced `skill-management-subsystem` (open umbrella) for skill
   delivery while the edge is `ns-skills-steelthread` (closed steelthread) — both exist;
   this is granularity drift, not a broken edge.
@@ -58,5 +58,5 @@ Two other consumed dependencies also progressed:
 - Verify onboarding end-to-end on Claude Code from the published `@nseng-ai/ns@0.1.1`
   (install → `ns init` → skill provisioning → create/next/update/close) in a throwaway
   non-ns repo — the still-open first-slice bar.
-- Remove the "coming with the first release" npm gate copy in the docs-site pages
-  (owned/coordinated with `eve-parity-docs-site`) now that `0.1.1` is published.
+- Remove the "coming with the first release" npm gate copy in the package README pages
+  (owned/coordinated with the retired website Objective) now that `0.1.1` is published.

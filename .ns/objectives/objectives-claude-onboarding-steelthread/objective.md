@@ -6,8 +6,6 @@ edges:
     annotation: Consumes its completed v1 extension inspection surface so the documented onboarding path is coherent and supportable.
   - objective: objectives-bare-core-release
     annotation: Consumes its published bare-core and standalone Objectives artifacts as the exact registry inputs to onboarding.
-  - objective: eve-parity-docs-site
-    annotation: Historical docs-site dependency; onboarding now proceeds from canonical package READMEs after that site Objective was intentionally deferred.
 ---
 
 # Claude E2E Onboarding
@@ -33,7 +31,7 @@ This is a durable production steelthread, not a mock or throwaway implementation
 - Codex or Pi onboarding verification; those remain deliberate post-thread breadth.
 - Additional harnesses such as Cursor, opencode, Gemini, or Windsurf.
 - Reimplementing extension acquisition or artifact provisioning inside this Objective.
-- Launching or completing the deferred docs site; package READMEs are the canonical pre-launch customer surface.
+- Launching or completing the deferred documentation; package READMEs are the canonical pre-launch customer surface.
 - General skill upgrade/drift management, telemetry, licensing, accounts, or release automation.
 - Broadening the v1 extension surface with fleet update, user scope, additional source kinds, or bare-name npm sugar.
 - Accepting a scripted CLI-only lifecycle as a substitute for Claude Code following the installed instructions and skills.
@@ -53,7 +51,7 @@ Assumptions:
 
 - Confirmed: completed `objectives-extension-customer-surface` supplies the complete v1 command contract documented by the journey.
 - Confirmed: completed `objectives-bare-core-release` published `0.1.3` artifacts that install successfully in an isolated environment, though those artifacts predate the canonical onboarding READMEs.
-- Revised: package READMEs are the canonical pre-launch customer surface; the intentionally deferred `eve-parity-docs-site` no longer gates this journey.
+- Revised: package READMEs are the canonical pre-launch customer surface; the intentionally deferred the retired website Objective no longer gates this journey.
 - `CLAUDE.md` importing `@AGENTS.md`, the pointer stanza, generated `.ns/instructions.md`, and repository-local `.claude/skills/` together make Objective guidance reachable to a fresh Claude Code session.
 
 Risks:

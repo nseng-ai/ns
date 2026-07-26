@@ -11,7 +11,7 @@
  "skips": [
   {
    "tier": "simple",
-   "file": "docs-site/lib/extensions-catalog.ts",
+   "file": "retired website files,
    "note": "Line 82 sourcePath \".pi/extensions/ji.ts\" is now stale (the actual file was moved to .pi/extensions/ns.ts per the brief's own file-move note), but the file-specific note explicitly scopes this file's work to 'rename only' the two named command hints and says 'do NOT reconcile pre-existing drift' — left sourcePath untouched per that explicit scoping."
   },
   {
@@ -676,7 +676,7 @@
    "skipped": []
   },
   {
-   "file": "docs-site/lib/extensions-catalog.ts",
+   "file": "retired website files,
    "changed": true,
    "replacements": [
     {
@@ -2498,7 +2498,7 @@
   {
    "id": "cs8-repo-identity",
    "files": [
-    "docs-site/lib/geistdocs/nav.ts",
+    "retired website files,
     "CLAUDE.md",
     "README.md",
     "skills/architecture-topology-report/scripts/example-spec.mjs"

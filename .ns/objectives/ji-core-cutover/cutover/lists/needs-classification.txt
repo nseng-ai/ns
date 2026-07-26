@@ -1,15 +1,15 @@
 .claude/plans/plan-the-deletion-of-humming-tide.md
 .pi/extensions/code-workflows.ts
 .pi/extensions/code.ts
-docs-site/app/[lang]/(home)/page.tsx
-docs-site/app/[lang]/extensions/page.tsx
-docs-site/docs/concepts/meta.json
-docs-site/lib/geistdocs/ai-assistant.ts
-docs-site/lib/geistdocs/nav.ts
-docs-site/lib/geistdocs/og-image.tsx
-docs-site/lib/geistdocs/rss.ts
-docs-site/lib/geistdocs/site-identity.ts
-docs-site/package.json
+retired website files]/(home)/page.tsx
+retired website files]/extensions/page.tsx
+retired website files
+retired website files
+retired website files
+retired website files
+retired website files
+retired website files
+retired website files
 skills-lock.json
 skills/architecture-topology-report/scripts/example-spec.mjs
 skills/architecture-topology-report/scripts/synthesize-spec.mjs

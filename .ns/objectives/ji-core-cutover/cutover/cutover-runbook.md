@@ -209,8 +209,8 @@ to the parent `rename-sdl-to-ji`.
 - **Diagnostic codes** (`missing-sdl`, `extension_manifest_missing_sdl`): rename to
   ji forms, decided in cs2's instructions, not per-agent.
 - **Skips**: 28 candidate files carry documented skip reasons in
-  `cutover-plan.json` `.skips` (package names, docs-site branding, historical plan
-  prose, `skills-lock.json` keys). Docs-site branding is the branding row's work.
+  `cutover-plan.json` `.skips` (package names, website branding, historical plan
+  prose, `skills-lock.json` keys). Website branding is the branding row's work.
 - **`.claude/plans/plan-the-deletion-of-humming-tide.md`** DOES contain in-window
   forms (`.sdl/objectives/pr-address-*` paths, `sdl pr-address` prose) but is skipped
   as a **historical record** — a checked-in plan doc for completed work, per the

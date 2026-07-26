@@ -98,7 +98,7 @@
   "cs8-repo-identity": {
    "why": "Repo-identity strings that carry NO ji token (sdl-era leftovers never swept by the previous cutover \u2014 pattern-blind, entered via the G7 allowlist) plus the one identity file that does. Grouped so a single agent applies the ADR-0026 identity verdict (repo = nseng-ai/ns) coherently.",
    "files": [
-    "docs-site/lib/geistdocs/nav.ts",
+    "retired website files,
     "CLAUDE.md",
     "README.md",
     "skills/architecture-topology-report/scripts/example-spec.mjs"
@@ -174,7 +174,7 @@
   "ts/packages/capabilities/branch-context/src/pi/enriched-plan-save.ts": "LLM-facing contract strings $XDG_STATE_HOME/ji/enriched-plan :95,292-298 \u2192 \u2026/ns/\u2026 + .ji safety-assertion literals :210-215,247 \u2192 .ns + keep the no-legacy-fallback sentence pointed at the NEW path (~/.local/state/ns/\u2026) with no compat language",
   "ts/packages/hosts/pi/src/runtime/agent-definition.ts": ".ji/pi/agents markers + error prose :47,51,63 \u2192 .ns (fails loudly)",
   ".pi/extensions/objective-autopilot.ts": ".ji literals :353,354,750 + `ji flow submit`/`ji branch-context` instruction prose :252,490 + argv command: \"ji\" :949 \u2192 ns forms",
-  "docs-site/lib/extensions-catalog.ts": "hand-curated command hints /ji:code:checkpoint :81 and /ji:branch-context:impl-attached-plan :94 \u2192 /ns:* \u2014 rename only, do NOT reconcile pre-existing drift",
+  "retired website files: "hand-curated command hints /ji:code:checkpoint :81 and /ji:branch-context:impl-attached-plan :94 \u2192 /ns:* \u2014 rename only, do NOT reconcile pre-existing drift",
   "ts/packages/capabilities/ccc/test/land-test-helpers.ts": "TOPOLOGY_COMMAND = \"ji\" :4 \u2192 \"ns\"",
   "ts/packages/capabilities/flow/test/unit/land-test-helpers.ts": "TOPOLOGY_COMMAND = \"ji\" :4 \u2192 \"ns\"",
   "ts/packages/capabilities/address/src/core/feedback-summary.ts": "PR-comment marker \"<!-- ji-reviewer:\" and map key \"ji_reviewer_marker\" :5 \u2192 ns forms (owner precedent 2026-07-02: hard rename; pre-cutover GitHub PR comments stop being recognized as reviewer feedback \u2014 accepted)",

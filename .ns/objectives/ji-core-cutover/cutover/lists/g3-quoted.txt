@@ -6,8 +6,8 @@
 .sdl/extensions/handoff/package.json
 .sdl/extensions/objective/package.json
 .sdl/extensions/roaster/package.json
-docs-site/lib/geistdocs/ai-assistant.ts
-docs-site/lib/geistdocs/rss.ts
+retired website files
+retired website files
 justfile
 ts/packages/capabilities/address/package.json
 ts/packages/capabilities/aretro/package.json

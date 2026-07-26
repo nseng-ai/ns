@@ -13,7 +13,7 @@ Inventory found that `@sdl/aretro` is currently a standalone TypeScript Capabili
 - Evidence kinds implemented match the documented deterministic boundary: `tool_usage_count`, `failed_tool_result`, `repeated_file_read`, `repeated_shell_command`, `token_usage_observed`, and `large_output_observed`.
 - Tests cover CLI shape, fake-driven collect-evidence scenarios, payload mode/detail lookup, source runner behavior, session evidence aggregation, and privacy checks that raw tool/command output is not emitted.
 - No TypeScript imports of `@sdl/aretro` from sibling packages were found outside Aretro's own tests/support. The concrete consumer is the `branch-retro` skill, which calls `skills/branch-retro/scripts/aretro-run` and explicitly says to use standalone `aretro exec collect-evidence`, not `sdl aretro`.
-- Docs/context agree with a skill/CLI-centered product boundary: `docs/aretro.md`, `docs/pi/README.md`, and `CONTEXT-MAP.md` describe Aretro as deterministic evidence collection whose semantic judgment lives in `branch-retro`. The package README and docs-site pages are stale/placeholders relative to the implemented functionality.
+- Docs/context agree with a skill/CLI-centered product boundary: `docs/aretro.md`, `docs/pi/README.md`, and `CONTEXT-MAP.md` describe Aretro as deterministic evidence collection whose semantic judgment lives in `branch-retro`. The package README and package README pages are stale/placeholders relative to the implemented functionality.
 
 ## Objective Impact
 
@@ -25,5 +25,5 @@ The inventory also confirms that Aretro already follows several desired capabili
 
 - Decide command-face strategy next. Current evidence favors retaining standalone `aretro exec ...` at least for `branch-retro` compatibility unless a separate SDL-mounted command-face policy overrides it.
 - Decide API disposition next. Current evidence favors recording “no `@sdl/aretro/api` yet” and tightening exports so the broad root is not treated as a peer Capability API.
-- Refresh stale docs after the durable command/API decision, especially `ts/packages/aretro/README.md` and docs-site placeholder pages.
+- Refresh stale docs after the durable command/API decision, especially `ts/packages/aretro/README.md` and package README placeholders.
 - When updating package exports, run focused Aretro checks/tests and any import-boundary/style guard relevant to package exports.

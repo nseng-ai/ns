@@ -127,7 +127,7 @@ retros, reviews, harness-artifacts, ns-init).
   mechanism: deferred, to be rebuilt later over the new core if wanted.
 - A trust/consent gate for extension code: the standing trusted-repo posture continues; this
   Objective only records that catalog build now executes descriptor code.
-- Pi-side or docs-site work beyond what failing tests force (cross-harness-parity: shared CLI is
+- Pi-side or documentation work beyond what failing tests force (cross-harness-parity: shared CLI is
   canonical; Pi is additive).
 - ns self-update mechanics (owned by remote-artifact-module-acquisition).
 

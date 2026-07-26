@@ -25,7 +25,7 @@
 - [x] Reconcile current documentation and Objective state
   - Update Herdr and Pi contexts, the Context Map, Pi guidance, and the exact command catalog.
   - Rename the predominantly current catalog from `cmux-parity-checklist.md` to `command-catalog.md`, preserve migration history in prose, and update live inbound links.
-  - Preserve historical ADRs, research, retrospectives, planning references, docs-site, and all existing immutable Semantic Updates.
+  - Preserve historical ADRs, research, retrospectives, planning references, documentation, and all existing immutable Semantic Updates.
   - Evidence: implementation validation supplied before this documentation slice passed Vitest (12 files, 149 tests), targeted Vitest (4 files, 58 tests), `just ts-check`, `just ts-format-check`, and `git diff --check`. The current Semantic Update records code/test anchors and the exact catalog.
 
 ## Parked

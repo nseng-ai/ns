@@ -38,7 +38,7 @@ resolution, full descriptor validation, forward recovery, and the trust boundary
 - The durable happy-path contract now requires `ns init --harness …` before
   `ns extension install`, superseding the prior install-before-init ordering.
 - No Objective completion criterion is newly complete. Bare-core republish, remaining
-  lifecycle verbs, docs-site finalization, and customer onboarding verification remain.
+  lifecycle verbs, documentation finalization, and customer onboarding verification remain.
 
 Validation evidence includes focused kernel, ns-init, and published-host checks/tests,
 TypeScript format/lint/tsgo, the TypeScript style guard, dprint, and command-contract
@@ -50,5 +50,5 @@ coverage. Final repository-wide validation remains part of implementation closeo
   artifact deprovisioning while preserving consumer data.
 - Unbundle first-party extensions, republish the bare core, and run the registry-backed
   foreign-repository smoke through `ns extension install npm:@nseng-ai/objectives`.
-- Reconcile the public docs-site happy path and perform the zero-improvisation Claude Code
+- Reconcile the public documentation happy path and perform the zero-improvisation Claude Code
   onboarding verification after republish.

@@ -42,7 +42,7 @@ This remains an umbrella of umbrellas. Child Objectives own bounded slices; this
 - Unconstrained redesign during package graduation. The gate is honest-and-explainable, with refactoring discussed and approved before implementation.
 - Polishing incubator packages outside an explicit graduation, first-ship, or quickstart slice.
 - Treating the demand-driven graduation tail—hosts, remaining daily drivers, Flow, Herdr, and Pi integration—as completion work unless a sponsor or transfer requirement activates it.
-- `docs-site/` content work while its launch gate remains in force.
+- `retired website files` content work while its launch gate remains in force.
 
 ## Completion Criteria
 

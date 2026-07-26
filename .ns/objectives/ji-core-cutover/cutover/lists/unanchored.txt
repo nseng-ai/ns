@@ -20,15 +20,15 @@
 .sdl/reviews/README.md
 .sdl/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention/package.json
 .sdl/reviews/sdl-typescript-style-tripwire/review.md
-docs-site/app/[lang]/(home)/page.tsx
-docs-site/app/[lang]/extensions/page.tsx
-docs-site/docs/concepts/meta.json
-docs-site/lib/geistdocs/ai-assistant.ts
-docs-site/lib/geistdocs/nav.ts
-docs-site/lib/geistdocs/og-image.tsx
-docs-site/lib/geistdocs/rss.ts
-docs-site/lib/geistdocs/site-identity.ts
-docs-site/package.json
+retired website files]/(home)/page.tsx
+retired website files]/extensions/page.tsx
+retired website files
+retired website files
+retired website files
+retired website files
+retired website files
+retired website files
+retired website files
 docs/agent-era-cli-design-survey.md
 docs/aretro.md
 docs/cli-surface-conformance-audit.md

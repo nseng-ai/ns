@@ -9,7 +9,7 @@ Changes:
 - `skills/branch-retro/scripts/aretro-run` now detects `ts/packages/aretro/src/cli.ts` in an asdl checkout and runs the TypeScript CLI by default.
 - `ASDL_ARETRO_MODE=local` still forces the Python repo-local command and `ASDL_ARETRO_MODE=prod` still uses the existing `uvx --from aretro==0.1.0` fallback.
 - `just install-aretro` installs an opt-in TypeScript source shim; it was deliberately not added to broad `install-tools` because the audit found no active installed-tool consumer requiring it.
-- Active docs-site install/tool pages now describe `aretro` as a TypeScript source-shim tool and no longer use Python `uv tool install aretro` or stale `asdl aretro` default examples.
+- Active package README install/tool sections now describe `aretro` as a TypeScript source-shim tool and no longer use Python `uv tool install aretro` or stale `asdl aretro` default examples.
 
 Audit evidence:
 
@@ -23,7 +23,7 @@ Verification:
 - `./skills/branch-retro/scripts/aretro-run --runtime` reported TypeScript.
 - `./skills/branch-retro/scripts/aretro-run exec collect-evidence --help` displayed TypeScript CLI help.
 - `ASDL_ARETRO_MODE=local ./skills/branch-retro/scripts/aretro-run --runtime` reported Python.
-- `dprint check docs-site/src/content/docs/tools/aretro.md docs-site/src/content/docs/start/installation.md` passed.
+- `dprint check retired website files retired website files` passed.
 - `just --summary` includes `install-aretro`.
 - Active-reference grep after edits matched the classification above.
 
