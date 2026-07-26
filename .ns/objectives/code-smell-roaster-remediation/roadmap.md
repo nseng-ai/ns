@@ -154,12 +154,12 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
   - fixed: Source-ref DTO duplication; the contract-level source-ref schema and conversion helpers are reused by collect-evidence and payload detail construction, removing payload-local duplicate converters.
   - fixed: Duplicated Pi JSONL directory stat checks; `requireDirectory` owns missing/not-directory warning construction for session roots and repo session directories.
   - validation: `pnpm --dir ts --filter @sdl/aretro run check`, `pnpm --dir ts --filter @sdl/aretro run test`, `just ts-format-check`, `just ts-lint`, and `just ts-check` passed on 2026-07-01.
-- [x] **docs-site** — 4 findings (1 high / 2 medium / 1 low). See `references/docs-site.md`.
+- [x] **documentation** — 4 findings (1 high / 2 medium / 1 low). See `references/documentation.md`.
   - fixed: Duplicated home/extensions hero markup; `MarketingHero` now owns the shared wrapper, heading, description, CTA row, and side-panel layout while the pages provide copy, CTAs, and previews.
   - fixed: Divergent Change in Geistdocs configuration; brand, nav/GitHub, AI assistant copy, and site identity now live in focused `lib/geistdocs/*` modules, with `config.tsx` composing them and root `geistdocs.tsx` preserving the existing re-export surface.
   - fixed: Speculative Generality in extension category descriptor coverage; the one-use recursive generic coverage-check types were removed, leaving a plain descriptor helper that only preserves the duplicate-category guard.
   - fixed: Duplicated page metadata casts; `getPageMetadata` now centralizes page data title/description/lastModified defaults for OG image and RSS generation.
-  - validation: `pnpm --dir docs-site run check` and `just dprint-check` passed on 2026-06-30.
+  - validation: `pnpm --dir documentation run check` and `just dprint-check` passed on 2026-06-30.
 - [x] **ccc** — 4 findings (1 high / 3 medium / 0 low). See `references/ccc.md`. The ccc capability package was renamed `capabilities/cmux` in the CCC-to-cmux reshape; the fixed helpers below were re-verified surviving there on 2026-07-12.
   - fixed: Duplicated dispatch prompt pipeline; `dispatchTrackedBranchPrompt` now owns Branch Memory payload storage, Pi launch command construction, cmux slot launch, and success-message formatting for both current-branch and refreshed-trunk dispatch flows.
   - fixed: Duplicated objective-sidebar exec/envelope handling; `runJsonExecCommand` centralizes startup failures, nonzero/killed results, machine-envelope parsing, and stdout-tail diagnostics while leaving slug and summary-specific validation local.

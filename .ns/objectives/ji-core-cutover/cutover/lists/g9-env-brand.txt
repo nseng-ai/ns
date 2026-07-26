@@ -18,11 +18,11 @@
 .sdl/reviews/sdl-typescript-style-tripwire/review.md
 CONTEXT-MAP.md
 CONTEXT.md
-docs-site/docs/concepts/meta.json
-docs-site/lib/extensions-catalog.ts
-docs-site/lib/geistdocs/nav.ts
-docs-site/lib/geistdocs/site-identity.ts
-docs-site/package.json
+retired website files
+retired website files
+retired website files
+retired website files
+retired website files
 docs/agent-era-cli-design-survey.md
 docs/cli-surface-conformance-audit.md
 docs/pi/cmux-extension-pattern.md

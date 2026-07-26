@@ -7,7 +7,7 @@ workflows were re-evaluated and retired rather than consolidated. The canonical
 `ns-cmux-available-work`, `ns-cmux-branch-triage`, and `ns-cmux-stack-map` skills,
 their harness mirrors and invocation metadata, their generic Pi backing-command
 registrations, and their consumer-only observational convention were removed. The
-docs-site cmux catalog now points at the independently live
+documentation cmux catalog now points at the independently live
 `/ns:cmux:workspace:open-branch` command.
 
 ## Objective Impact

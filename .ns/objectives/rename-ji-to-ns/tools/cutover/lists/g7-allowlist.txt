@@ -1,7 +1,7 @@
 .ji/objectives/cross-harness-parity/parity-table.md
 .pi/extensions/ji.ts
 CLAUDE.md
-docs-site/lib/geistdocs/nav.ts
+retired website files
 README.md
 ts/packages/capabilities/slot/src/core/index.ts
 ts/packages/capabilities/slot/test/unit/api.test.ts

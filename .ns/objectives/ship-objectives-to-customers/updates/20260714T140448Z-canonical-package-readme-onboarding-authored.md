@@ -6,13 +6,13 @@ The pre-launch canonical documentation surface now carries the bare-core Objecti
 
 ## Objective Impact
 
-This materially advances the customer-documentation row and aligns the Objective with the repository rule that package READMEs are the canonical pre-launch install/quickstart/usage surface. It does not complete the row: these README changes postdate the published `0.1.3` artifacts, the docs-site still carries stale release-gate copy, and the fresh-session Claude Code lifecycle has not been run without improvisation.
+This materially advances the customer-documentation row and aligns the Objective with the repository rule that package READMEs are the canonical pre-launch install/quickstart/usage surface. It does not complete the row: these README changes postdate the published `0.1.3` artifacts, the documentation still carries stale release-gate copy, and the fresh-session Claude Code lifecycle has not been run without improvisation.
 
-The Objective remains open and correctly unblocked. The next useful decision is the human-owned docs launch bar in `eve-parity-docs-site`; once that determines the minimal public corpus, the Objective-specific pages can be reconciled and the Claude Code steelthread can proceed.
+The Objective remains open and correctly unblocked. The next useful decision is the human-owned docs launch bar in the retired website Objective; once that determines the minimal public corpus, the Objective-specific pages can be reconciled and the Claude Code steelthread can proceed.
 
 ## Follow-Ups
 
-- Resolve the `eve-parity-docs-site` launch bar: hide, rewrite, or explicitly mark non-happy-path pages, and decide whether the first launch requires the full kernel/extensions IA restructure.
+- Resolve the the retired website Objective launch bar: hide, rewrite, or explicitly mark non-happy-path pages, and decide whether the first launch requires the full kernel/extensions IA restructure.
 - Reconcile the four Objective customer pages with the verified `0.1.3` command order and remove stale release-gate copy.
 - Ensure a future registry publication serves the canonical README guidance before treating it as public customer evidence.
 - Run the fresh Claude Code create → next → update → close journey after the publishable documentation gate clears.

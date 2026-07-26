@@ -50,7 +50,7 @@ These references are build/test configuration, not evidence of active user-facin
 Targeted search command used:
 
 ```bash
-rg -n "asdl-dispatcher|asdl_dispatcher|dispatcher" pyproject.toml justfile packages tests docs-site skills .pi ts .asdl/objectives
+rg -n "asdl-dispatcher|asdl_dispatcher|dispatcher" pyproject.toml justfile packages tests documentation skills .pi ts .asdl/objectives
 ```
 
 Active caller evidence found:
@@ -62,7 +62,7 @@ Non-caller or incidental evidence found:
 - Clinkr internals and documentation use "dispatcher" generically for command dispatch/failure-envelope behavior.
 - TypeScript Clinkr tests and Pi runner-subagent tests use dispatcher terminology unrelated to `asdl-dispatcher`.
 - Historical Objective records mention `asdl-dispatcher` as thin, operation-less, or out of context scope.
-- No skills, Pi/CCC wrappers, docs-site promises, TypeScript packages, or Python packages import or invoke `asdl_dispatcher` outside its own package/tests.
+- No skills, Pi/CCC wrappers, documentation promises, TypeScript packages, or Python packages import or invoke `asdl_dispatcher` outside its own package/tests.
 
 ## Durable vs Incidental Behavior
 

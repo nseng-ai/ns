@@ -1,7 +1,7 @@
 .pi/extensions/objective-autopilot.ts
 .sdl/prompts/AGENTS.md
 CONTEXT-MAP.md
-docs-site/lib/extensions-catalog.ts
+retired website files
 docs/cli-surface-conformance-audit.md
 docs/pi/branch-context-workflow.md
 docs/pi/README.md

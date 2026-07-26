@@ -4,10 +4,10 @@
 .sdl/prompts/AGENTS.md
 .sdl/prompts/plans-write.md
 CONTEXT-MAP.md
-docs-site/app/[lang]/(home)/page.tsx
-docs-site/app/[lang]/extensions/page.tsx
-docs-site/lib/geistdocs/og-image.tsx
-docs-site/lib/geistdocs/site-identity.ts
+retired website files]/(home)/page.tsx
+retired website files]/extensions/page.tsx
+retired website files
+retired website files
 docs/aretro.md
 docs/cli-surface-conformance-audit.md
 docs/cmux/help-querying.md

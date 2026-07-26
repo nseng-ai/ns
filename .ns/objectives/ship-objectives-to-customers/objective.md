@@ -6,8 +6,6 @@ edges:
     annotation: Consumed for skill delivery; customer onboarding requires objective skills provisioned into Claude Code, Codex, and Pi harness roots via its `ns skills` surface.
   - objective: cross-harness-parity
     annotation: Consumes its reachability contract (shared CLI + skill, Pi additive); onboarding must reach all three harnesses through that doctrine.
-  - objective: eve-parity-docs-site
-    annotation: Historical launch-substrate relationship; first customer launch now uses package READMEs while the docs-site Objective is intentionally deferred.
   - objective: skill-management-subsystem
     annotation: Downstream consumer of the reusable skill-management subsystem; customer Objectives rely on its `ns skills`/harness-artifact provisioning surface for skill delivery into Claude Code, Codex, and Pi.
   - objective: extension-descriptor-contract
@@ -36,7 +34,7 @@ This Objective owns the end-to-end customer onboarding thread. Treat it as the p
 2. `ns-skills-steelthread` — landed and closed: a first-party `ns skills` list/path/install surface (in `@nseng-ai/harness-artifacts`) now provisions the objective skill into harness roots. The broader `skill-management-subsystem` umbrella remains open for the rest of skill provisioning.
 3. `cross-harness-parity` — closed 2026-07-11, intentionally concluded rather than completed: it delivered the parity doctrine and reachability contract (deterministic logic in a shared CLI, a skill driving it, Pi additive); its remaining verification goals fold into the end-to-end docs/onboarding effort this Objective drives.
 4. `objectives-bare-core-release` — closed 2026-07-14 after publishing coordinated `0.1.3`, verifying registry tarballs, and passing the foreign-repository bare-core acquisition smoke.
-5. `eve-parity-docs-site` — intentionally deferred 2026-07-14; it no longer gates launch. Canonical package READMEs are the customer documentation surface for the first shipment.
+5. the retired website Objective — intentionally deferred 2026-07-14; it no longer gates launch. Canonical package READMEs are the customer documentation surface for the first shipment.
 
 This ordering is guidance in parent prose, not an edge taxonomy: Objective Edges remain kind-less, and this record carries no `blocked` sentence while no subobjective actively blocks the next useful parent slice.
 
@@ -46,7 +44,7 @@ This ordering is guidance in parent prose, not an edge taxonomy: Objective Edges
 - **Skill delivery to the customer's harness.** Objective skills bundled into the npm package and installable into the correct per-harness roots (`.claude/skills/` for Claude Code; `.agents/skills/` for Codex and Pi). Delivery is consumed from `@nseng-ai/harness-artifacts` (`skill-management-subsystem`), not rebuilt: the `ns skills` list/path/install surface plus descriptor-declared bundled-artifact provisioning during `ns init`/`ns extension` activation. Shipping CLI and skills together also resolves the CLI↔skill bidirectional dependency.
 - **Customer-repo bootstrap / activation.** A first-party path that materializes skills for the harnesses present in a repo, activates agent instructions through the pointer-stanza architecture (one minimal permanent `<!-- ns:begin -->` stanza in `AGENTS.md` pointing at the committed, tool-owned, wholly regenerated `.ns/instructions.md`), creates extension-declared consumer dirs such as `.ns/objectives/`, and verifies git posture. Activation has two independent requirements: the capability materialized where each harness looks, and the agents instructed to use it.
 - **Customer acquisition surface.** The `ns extension` verb group (`install`, `uninstall`, `update`, `list`) with the explicit `npm:`/local source-spec grammar shared verbatim with `ns.toml` — designed here (`references/README-draft.md`) over `extension-descriptor-contract`'s landed machinery.
-- **Onboarding documentation content.** Canonical install, activation, and Objective-lifecycle guidance in the `@nseng-ai/ns` and `@nseng-ai/objectives` package READMEs. The first customer launch uses these READMEs; the public docs-site expansion is intentionally deferred and no longer gates this Objective.
+- **Onboarding documentation content.** Canonical install, activation, and Objective-lifecycle guidance in the `@nseng-ai/ns` and `@nseng-ai/objectives` package READMEs. The first customer launch uses these READMEs; the public documentation expansion is intentionally deferred and no longer gates this Objective.
 - **Harness coverage.** Claude Code, Codex, and Pi are all first-class customer targets. Cross-harness reachability (deterministic logic in a shared CLI, a skill driving it, the Pi extension purely additive) was doctrine delivered by the now-closed `cross-harness-parity`; this Objective consumes it and adds the onboarding coverage for all three.
 
 ## Non-Goals
@@ -85,7 +83,7 @@ Risks:
 - Canonical package README guidance now exists in source for bare-core setup and the Objective lifecycle, but it postdates the `0.1.3` publication and is not yet registry-served evidence. A future package publication must expose it before the fresh-session customer journey can count as README-verbatim launch verification.
 - Writing into a customer's `AGENTS.md` risks clobbering their content; mitigated by the landed pointer-stanza managed-region design (one minimal permanent stanza; all regenerated content lives in `.ns/instructions.md`).
 - Codex cannot make explicit-only skills zero-ambient, so objective skills always cost context on Codex. Acceptable, but must be documented.
-- Dependency-Objective coordination risk has largely retired: `checkout-free-sdl-distribution`, `ns-skills-steelthread`, `extension-descriptor-contract`, and `cross-harness-parity` are closed; `eve-parity-docs-site` is intentionally deferred and no longer gates launch. The remaining open dependency is the broader `skill-management-subsystem` umbrella.
+- Dependency-Objective coordination risk has largely retired: `checkout-free-sdl-distribution`, `ns-skills-steelthread`, `extension-descriptor-contract`, and `cross-harness-parity` are closed; the retired website Objective is intentionally deferred and no longer gates launch. The remaining open dependency is the broader `skill-management-subsystem` umbrella.
 
 ## Resolved Decisions
 
@@ -127,7 +125,7 @@ Resolved 2026-07-05 in a happy-path charting session with the owner (full record
   path ships.
 - **Ship bar → fully live.** Both packages actually published to npm and a stranger able
   to follow the canonical package READMEs end-to-end with zero improvisation. *(Amended
-  2026-07-14: the docs-site deployment is intentionally deferred and no longer part of
+  2026-07-14: the documentation deployment is intentionally deferred and no longer part of
   the first launch bar.)*
 
 Resolved 2026-07-09 in a README-driven design session with the owner (design artifact:
@@ -234,7 +232,7 @@ Outcome: the shipping substrate is built; the launch itself is deferred. All thr
 
 Cross-child lessons worth carrying:
 
-- **README-driven design held up as the launch substrate** after the docs-site was deferred: package READMEs proved sufficient as the canonical install/quickstart surface, and defects found by verification were README defects to fix, not verifier improvisation to tolerate.
+- **README-driven design held up as the launch substrate** after the documentation was deferred: package READMEs proved sufficient as the canonical install/quickstart surface, and defects found by verification were README defects to fix, not verifier improvisation to tolerate.
 - **Publication is the recurring bottleneck**, not implementation: multiple children ended gated on "republish a qualified version," and the accepted decision to skip a republish is exactly what left the onboarding journey unfinished.
 - **Foreign-repo verification catches what checkout-based testing cannot** (provisioning roots, pointer stanzas, ambient-credential false passes); keep that bar for any future launch attempt.
 

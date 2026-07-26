@@ -183,5 +183,5 @@ uv run roaster exec format-findings-comment \
 **Slice 9 (delete Python):** gated on a green TS CI run on a real PR. Then remove
 `packages/roaster`, its `pyproject.toml` workspace membership, `asdl.plugins`/`[project.scripts]`
 entries, and any docs/build references. Grep for `roaster` across `pyproject.toml`, `justfile`,
-`uv.lock`, `docs/`, `docs-site/`, `.github/` to purge stragglers.
+`uv.lock`, `docs/`, `retired website files`, `.github/` to purge stragglers.
 </content>

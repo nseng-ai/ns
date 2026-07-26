@@ -7,7 +7,7 @@ packages verified. Do not read the bare-core split below as current/published st
 
 ## Summary
 
-Planning session with the owner (2026-07-05) charting the docs-site happy-path launch
+Planning session with the owner (2026-07-05) charting the documentation happy-path launch
 (`npm install -g @nseng-ai/ns` → `ns install @nseng-ai/objectives` → `ns init` → first
 objective) briefly targeted a published `@nseng-ai/ns` core that would ship **bare** —
 no capabilities preinstalled. In that superseded plan, `@nseng-ai/objectives` would

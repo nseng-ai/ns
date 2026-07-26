@@ -6,7 +6,7 @@
       Create a child Objective to decide the exact pnpm workspace shape, Node v24 baseline, TypeScript CLI execution/build policy, and how to treat `node:sqlite`'s experimental warning.
 
 - [x] pnpm workspace migration child Objective (`bun-to-node-ts-migration-pnpm-workspace`).
-      Create a child Objective to replace active Bun lock/install/run assumptions for the TypeScript workspace and docs-site where in scope, including `justfile`, deploy/build commands, and user-facing docs.
+      Create a child Objective to replace active Bun lock/install/run assumptions for the TypeScript workspace and documentation where in scope, including `justfile`, deploy/build commands, and user-facing docs.
 
 - [x] Vitest migration child Objective (`bun-to-node-ts-migration-vitest`).
       Create a child Objective to convert TypeScript tests from `bun:test` to Vitest while preserving behavior for lifecycle hooks, matcher usage, and Bun module mocking cases.

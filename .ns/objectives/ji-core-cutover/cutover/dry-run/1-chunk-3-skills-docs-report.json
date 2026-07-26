@@ -72,7 +72,7 @@
   {
    "tier": "complex",
    "id": "cohort-docs-3",
-   "note": "docs/skill-conventions.md:65 'SDL overlays' and :67 'first-party sdl work' \u2014 generic branding prose (same class as the docs-site branding row explicitly out of scope for this cohort); left as-is."
+   "note": "docs/skill-conventions.md:65 'SDL overlays' and :67 'first-party sdl work' \u2014 generic branding prose (same class as the website branding row explicitly out of scope for this cohort); left as-is."
   },
   {
    "tier": "complex",
@@ -132,7 +132,7 @@
   {
    "tier": "complex",
    "id": "cohort-dottree-2",
-   "note": "code-smell-roaster/review.md lines 20/24 ('SDL-local review prompt', \"SDL's\"): generic brand-name prose, not a literal CLI/path/env-var/namespace form in the brief's rename list; treated as out-of-window branding prose (brief notes docs-site/branding strings are a separate 'branding row')."
+   "note": "code-smell-roaster/review.md lines 20/24 ('SDL-local review prompt', \"SDL's\"): generic brand-name prose, not a literal CLI/path/env-var/namespace form in the brief's rename list; treated as out-of-window branding prose (brief notes retired website files strings are a separate 'branding row')."
   },
   {
    "tier": "complex",
@@ -223,7 +223,7 @@
     "ts/packages/kernel/src/runtime/module-loader.ts:67: const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"autoslot.ts\");",
     "ts/packages/kernel/src/runtime/module-loader.ts:68: const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"land.ts\");",
     "ts/packages/kernel/src/runtime/module-loader.ts:69: const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"trunk-pull.ts\");",
-    "These three hits are inside the mandated pathspec (ts/**/*.ts) where the grep must be empty; they reference a real on-disk directory ts/packages/capabilities/ccc/src/sdl/ (sibling to api/, cmux/, pi/ command-family dirs) that was left un-renamed, and they are not one of the two documented survivor classes (package.json subpackages arrays, docs-site branding)."
+    "These three hits are inside the mandated pathspec (ts/**/*.ts) where the grep must be empty; they reference a real on-disk directory ts/packages/capabilities/ccc/src/sdl/ (sibling to api/, cmux/, pi/ command-family dirs) that was left un-renamed, and they are not one of the two documented survivor classes (package.json subpackages arrays, website branding)."
    ]
   },
   {
@@ -1008,7 +1008,7 @@
    "skipped": [
     "docs/skill-conventions.md:7 'the canonical sdl install flag' and 'asdl's operational audit checklists' \u2014 ambiguous generic product-name prose, not a literal CLI/path/namespace form on the rename list; left as-is.",
     "docs/skill-conventions.md:57 'sdl-internal module paths' \u2014 adjectival brand reference, not a listed path/CLI/env-var pattern; left as-is.",
-    "docs/skill-conventions.md:65 'SDL overlays' and :67 'first-party sdl work' \u2014 generic branding prose (same class as the docs-site branding row explicitly out of scope for this cohort); left as-is.",
+    "docs/skill-conventions.md:65 'SDL overlays' and :67 'first-party sdl work' \u2014 generic branding prose (same class as the website branding row explicitly out of scope for this cohort); left as-is.",
     "ts/packages/capabilities/address/README.md:32 'the repo-local SDL extension' and :35 'an sdl checkout' \u2014 generic branding/prose noun references to the product, not matching any literal rename pattern; left as-is.",
     "ts/packages/capabilities/aretro/README.md:7 'the SDL extension command face' \u2014 same generic branding prose pattern; left as-is.",
     "ts/packages/capabilities/branch-context/README.md:3 'the SDL `branch-context` command group' and ts/packages/capabilities/ccc/AGENTS.md:5 'SDL CLI commands' \u2014 capitalized generic brand/product references, not literal CLI-invocation or path forms; left as-is."
@@ -1078,7 +1078,7 @@
    "skipped": [
     "regenerate-pr.ts and submit.ts: `export { default } from \"sdl-flow/commands/...\"` left untouched \u2014 `sdl-flow` is an explicit DO-NOT-TOUCH package name, not a CLI/path rename target.",
     "scan-reinvention/package.json lines 2 and 15: `@sdl/review-reinvention-scanner` and `@sdl/core` left untouched per changeset class guidance ('@sdl/ imports in scan-reinvention tool sources STAY') and the brief's @sdl/* package-scope survivor rule.",
-    "code-smell-roaster/review.md lines 20/24 ('SDL-local review prompt', \"SDL's\"): generic brand-name prose, not a literal CLI/path/env-var/namespace form in the brief's rename list; treated as out-of-window branding prose (brief notes docs-site/branding strings are a separate 'branding row').",
+    "code-smell-roaster/review.md lines 20/24 ('SDL-local review prompt', \"SDL's\"): generic brand-name prose, not a literal CLI/path/env-var/namespace form in the brief's rename list; treated as out-of-window branding prose (brief notes retired website files strings are a separate 'branding row').",
     "sdl-typescript-style-tripwire/review.md lines 2, 6, 19, 20, 44, 70, 136, 141, 145, 159 ('sdl-tools', 'sdl-typescript' skill dir, '@sdl/core/primitives', '@sdl/<pkg>/src/...', 'SDL TypeScript...', \"sdl's TypeScript style guide\", 'the intentional sdl pattern'): package/skill directory names and @sdl/ import specifiers are explicit DO-NOT-TOUCH survivors; remaining bare 'SDL'/'sdl' occurrences are brand-name prose describing the product/rule title, not a literal pattern from the brief's rename list \u2014 left as ambiguous branding prose rather than guessed at.",
     "sdl-typescript-style-tripwire/review.md and code-smell-roaster/review.md filenames/directory names themselves ('sdl-typescript-style-tripwire') were preserved verbatim per the brief's explicit skill/review-directory-name survivor list; only the `.sdl/` path prefix referencing those files elsewhere was renamed to `.ji/`."
    ]
@@ -1217,7 +1217,7 @@
     "ts/packages/kernel/src/runtime/module-loader.ts:67: const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"autoslot.ts\");",
     "ts/packages/kernel/src/runtime/module-loader.ts:68: const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"land.ts\");",
     "ts/packages/kernel/src/runtime/module-loader.ts:69: const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"trunk-pull.ts\");",
-    "These three hits are inside the mandated pathspec (ts/**/*.ts) where the grep must be empty; they reference a real on-disk directory ts/packages/capabilities/ccc/src/sdl/ (sibling to api/, cmux/, pi/ command-family dirs) that was left un-renamed, and they are not one of the two documented survivor classes (package.json subpackages arrays, docs-site branding)."
+    "These three hits are inside the mandated pathspec (ts/**/*.ts) where the grep must be empty; they reference a real on-disk directory ts/packages/capabilities/ccc/src/sdl/ (sibling to api/, cmux/, pi/ command-family dirs) that was left un-renamed, and they are not one of the two documented survivor classes (package.json subpackages arrays, website branding)."
    ]
   },
   {

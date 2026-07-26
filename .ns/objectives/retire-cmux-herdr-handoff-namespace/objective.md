@@ -25,7 +25,7 @@ The earlier migration plan remains committed as historical planning evidence at 
 - Preserve Prepared Herdr Launch for Slot checkout, destination creation/labeling, pane process startup, status, notifications, and structured evidence.
 - Keep cmux and standalone Herdr open-branch implementation removed.
 - Reconcile current domain and user documentation while preserving historical ADRs, research, retrospectives, reshape specifications, and immutable Semantic Updates.
-- Keep gated `docs-site/` content unchanged and retain its stale catalog entry as a follow-up.
+- Keep gated `retired website files` content unchanged and retain its stale catalog entry as a follow-up.
 
 ## Non-Goals
 
@@ -35,7 +35,7 @@ The earlier migration plan remains committed as historical planning evidence at 
 - Changing prompt payloads, latest-session Saved Plan selection, Attached Plan implementation semantics, or destination behavior.
 - Expanding Objective summary beyond label-only behavior.
 - Introducing a generic terminal-multiplexer abstraction, generic Herdr workspace-summary CLI, raw socket integration, event subscriptions, layouts, or plugins.
-- Rewriting historical records or gated `docs-site/` content.
+- Rewriting historical records or gated `retired website files` content.
 
 ## Completion Criteria
 

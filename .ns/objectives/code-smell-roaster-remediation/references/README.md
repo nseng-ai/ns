@@ -62,7 +62,6 @@ high → medium → low severity within the cluster:
 | `roaster.md`            | `ts/packages/roaster`                                                                                                                              | 6 (0/4/2)               |
 | `pi-extensions.md`      | `.pi/extensions`, `.pi/lib`                                                                                                                        | 5 (0/3/2)               |
 | `aretro.md`             | `ts/packages/aretro`                                                                                                                               | 5 (0/3/2)               |
-| `docs-site.md`          | `docs-site/*`                                                                                                                                      | 4 (1/2/1)               |
 | `ccc.md`                | `ts/packages/ccc`                                                                                                                                  | 4 (1/3/0)               |
 | `handoff.md`            | `ts/packages/handoff`                                                                                                                              | 4 (0/2/2)               |
 | `branch-context.md`     | `ts/packages/branch-context`                                                                                                                       | 3 (1/2/0)               |

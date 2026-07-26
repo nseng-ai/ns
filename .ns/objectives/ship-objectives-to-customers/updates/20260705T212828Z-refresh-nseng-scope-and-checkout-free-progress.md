@@ -41,7 +41,7 @@ shim replacement, and the published-name decision `[x]`; the module-loader repla
   ship-objectives-to-customers` passes (edge mirrors intact).
 - No completion criterion is met. Still-open verified: `ns --help` lists only `objective`
   (no `ns init`/`ns skills`), no `@nseng-ai/init` package exists, and all four docs pages
-  (`docs-site/docs/get-started/installation.mdx`, `get-started/quickstart.mdx`,
+  (`retired website files`, `get-started/quickstart.mdx`,
   `concepts/objectives.mdx`, `tools/objective.mdx`) are still Lorum-ipsum placeholders.
 
 ## Follow-Ups

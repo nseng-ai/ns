@@ -13,7 +13,7 @@
 AGENTS.md
 CONTEXT-MAP.md
 CONTEXT.md
-docs-site/lib/extensions-catalog.ts
+retired website files
 docs/adr/0005-additive-plan-vocabulary.md
 docs/pi/branch-context-workflow.md
 docs/subpackage-conventions.md

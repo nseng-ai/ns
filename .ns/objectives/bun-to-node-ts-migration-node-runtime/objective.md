@@ -19,7 +19,7 @@ This Objective covers Node runtime compatibility for the active TypeScript works
 
 ## Non-Goals
 
-- Do not redo the pnpm workspace/package-manager migration or change the separate `ts/` and `docs-site/` package-manager surfaces.
+- Do not redo the pnpm workspace/package-manager migration or change the separate `ts/` and `retired website files` package-manager surfaces.
 - Do not redo the Vitest migration or change test-runner semantics except to add runtime smoke coverage where needed.
 - Do not reconcile every historical, template, or prose Bun reference; broad cleanup belongs to the Bun-reference reconciliation child Objective.
 - Do not migrate Python tooling or Python runtime behavior.

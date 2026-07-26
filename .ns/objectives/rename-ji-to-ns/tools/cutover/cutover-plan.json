@@ -16,7 +16,7 @@
      "hint": ".ji literals :353,354,750 + `ji flow submit`/`ji branch-context` instruction prose :252,490 + argv command: \"ji\" :949 \u2192 ns forms"
     },
     {
-     "path": "docs-site/lib/extensions-catalog.ts",
+     "path": "retired website files,
      "hint": "hand-curated command hints /ji:code:checkpoint :81 and /ji:branch-context:impl-attached-plan :94 \u2192 /ns:* \u2014 rename only, do NOT reconcile pre-existing drift"
     },
     {
@@ -498,7 +498,7 @@
     {
      "id": "cs8-repo-identity",
      "files": [
-      "docs-site/lib/geistdocs/nav.ts",
+      "retired website files,
       "CLAUDE.md",
       "README.md",
       "skills/architecture-topology-report/scripts/example-spec.mjs"
@@ -1148,7 +1148,7 @@
   },
   {
    "key": "residual-env-vars",
-   "prompt": "Run `git grep -nE 'JI_[A-Z]' -- . ':!.ns/objectives' ':!.ns/objective-archive' ':!*/updates/*' ':!docs/adr' ':!docs/ji-naming-brief.md'` and judge each hit by POSITION: a hit is a VIOLATION when the JI_ token is an env-var NAME \u2014 inside a string literal (\"JI_PAYLOAD_ROOT\"), an env read (env.JI_*, process.env.JI_*), an env-object fixture key ({ JI_TEST: \"1\" }), a shim token (@@JI_*@@), or a docs/skills/justfile mention of setting/reading the variable. Every env var NAME (JI_CHECKPOINT_MODEL, JI_CHANGES_MODEL, JI_DEV_*, JI_SLUG_MODEL, JI_SUBMIT_FAILURE_*, JI_CCC_SIDEBAR_MODEL, JI_PI_CLI_TRACE*, JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS, JI_PAYLOAD_ROOT, JI_PAYLOAD_SESSION_ID, JI_CD_DIRECTIVE_FILE, JI_LOG_DIR, JI_PATH_DIFF, JI_ROOT, JI_RUNNER_PI_BIN, JI_SLOT_DIAGNOSTIC_LOG, JI_TEST, JI_TEST_MODEL, JI_TS_BAN_*/JI_TS_ADVISORY_*/JI_TS_EXPORTS_* style-guard rule names, justfile JI_TOOL/JI_CANONICAL_CHECKOUT/JI_CLI_REL_PATH/JI_INSTALL_HINT/JI_TEMPLATE/JI_OUTPUT/JI_FALLBACK_MODE) renames to NS_*. There are no known JI_-prefixed TypeScript IDENTIFIERS (the stale identifier layer is SDL_-prefixed and survives), so expect near-zero legitimate hits; anything found is almost certainly a violation. Readers and writers must agree: for each NS_* env var read in ts/, confirm the corresponding setter/documentation sites (justfile, skills, docs) use the same NS_* name. Also `git grep -n '\"ji-pi-cli' -- ts` must be empty (trace filename renamed)."
+   "prompt": "Run `git grep -nE 'JI_[A-Z]' -- . ':!.ns/objectives' ':!.ns/objective-archive' ':!*/updates/*' ':!docs/adr' ':!docs/ji-naming-brief.md'` and judge each hit by POSITION: a hit is a VIOLATION when the JI_ token is an env-var NAME \u2014 inside a string literal (\"JI_PAYLOAD_ROOT\"), an env read (env.JI_*, process.env.JI_*), an env-object fixture key ({ JI_TEST: \"1\" }), a shim token (@@JI_*@@), or a docs/skills/justfile mention of setting/reading the variable. Every env var NAME (JI_CHECKPOINT_MODEL, JI_CHANGES_MODEL, JI_DEV_*, JI_SLUG_MODEL, JI_SUBMIT_FAILURE_*, JI_CCC_SIDEBAR_MODEL, JI_PI_CLI_TRACE*, JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS, JI_PAYLOAD_ROOT, JI_PAYLOAD_SESSION_ID, JI_CD_DIRECTIVE_FILE, JI_LOG_DIR, JI_PATH_DIFF, JI_ROOT, JI_RUNNER_PI_BIN, JI_SLOT_DIAGNOSTIC_LOG, JI_TEST, JI_TEST_MODEL, JI_TS_BAN_*/JI_TS_ADVISORY_*/JI_TS_EXPORTS_* style-guard rule names, justfile JI_TOOL/JI_CANONICAL_CHECKOUT/JI_CLI_REL_PATH/JI_INSTALL_HINT/JI_TEMPLATE/JI_OUTPUT/JI_FALLBACK_MODE) renames to NS_*. There are no known JI_-prefixed TypeScript IDENTIFIERS (the stale identifier layer is SDL_-prefixed and survives), so expect near-zero legitimate hits; anything found is almost certainly a violation. Readers and writers must agree: for each NS_* env var read in ts/, confirm the corresponding setter/documentation (justfile, skills, docs) use the same NS_* name. Also `git grep -n '\"ji-pi-cli' -- ts` must be empty (trace filename renamed)."
   }
  ],
  "baselines": {

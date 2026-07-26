@@ -26,12 +26,12 @@
   },
   {
    "tier": "simple",
-   "file": "docs-site/lib/extensions-catalog.ts",
+   "file": "retired website files,
    "note": "Lines 81-82 (commandHint \"/ji:code:checkpoint\" and sourcePath \".pi/extensions/ji.ts\") and line 94 (commandHint \"/ji:branch-context:impl-attached-plan\") were already renamed in the working tree before I started (visible in `git diff HEAD`), matching the brief exactly \u2014 no further edit needed there."
   },
   {
    "tier": "simple",
-   "file": "docs-site/lib/extensions-catalog.ts",
+   "file": "retired website files,
    "note": "Line 74 slug \"sdl-command-mirrors\", line 75 name \"SDL command mirrors\", and line 78 details prose \"SDL's lifecycle commands\" left untouched: these are brand PROSE / a hand-curated display slug, not one of the enumerated literal RENAME forms (no `/sdl:` namespace, no `.sdl/` path, no `sdl_` machine code, no env var, no filename). The file-specific note limits scope to the command hints and says not to reconcile other pre-existing drift, and the brief defers bare/uppercase SDL product-name prose to the branding row."
   },
   {
@@ -907,7 +907,7 @@
    ]
   },
   {
-   "file": "docs-site/lib/extensions-catalog.ts",
+   "file": "retired website files,
    "changed": false,
    "replacements": [],
    "skipped": [

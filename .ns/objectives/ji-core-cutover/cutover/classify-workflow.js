@@ -48,7 +48,7 @@ bin \`sdl\`→\`ji\`; \`.sdl/\` path literals→\`.ji/\`; \`/sdl:*\` and \`sdl:*
 - \`src/sdl/\` path segments, \`./sdl/\` or \`../sdl/\` relative imports, \`/sdl/commands\` path fragments
 - bare \`"sdl"\` VALUES inside package.json \`subpackages\` arrays
 - package/dir/file names: \`sdl-flow\`, \`sdl-capability-kit\`, \`sdlcc\`, \`sdl-tools\`, skill dir names (\`sdl-flow-submit\`, \`sdl-typescript\`, \`sdl-cli-design\`), source filenames (\`sdl-extension.ts\`), objective slugs (\`rename-sdl-to-ji\`)
-- docs-site BRANDING strings ("sdl-docs" site id, site titles) — post-window branding row
+- documentation BRANDING strings ("sdl-docs" site id, site titles) — post-window branding row
 - \`skills-lock.json\` skill-name keys
 - historical prose in old plan documents
 

@@ -24,7 +24,7 @@ Updated active surfaces to match the new contract:
 - `docs/pi/README.md`
 - `docs/pi/branch-context-workflow.md`
 - `docs/adr/0006-branch-context.md` (current branch-context decision wording only)
-- `docs-site/src/content/docs/tools/slot.md`
+- `retired website files`
 - `ts/packages/sdl/README.md`
 - `ts/packages/slot/README.md`
 - `ts/packages/pi-extensions/src/branch-context/enriched-plan-save.ts`
@@ -48,7 +48,7 @@ Final sweep:
 
 ```bash
 rg -n "~/.sdl|~/.brmem|~/.slots|\.brmem/prompts|BRANCH_CONTEXT_LEGACY_PLAN_KEY|BRANCH_CONTEXT_PLAN_KEY|legacyPlanStoreRoot|SLOTS_ROOT" \
-  ts/packages docs skills .sdl/prompts docs-site/src/content/docs \
+  ts/packages docs skills .sdl/prompts retired website files \
   --glob '!**/node_modules/**' --glob '!**/dist/**'
 ```
 

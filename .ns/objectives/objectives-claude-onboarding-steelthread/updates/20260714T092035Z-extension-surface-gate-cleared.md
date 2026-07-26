@@ -2,7 +2,7 @@
 
 ## Summary
 
-The completed `objectives-extension-customer-surface` Objective now supplies the full v1 extension inspection contract consumed by this steelthread. The onboarding Blocked Sentence has been rejudged to remove that satisfied gate while retaining the bare-core npm release and publishable docs-site launch gates.
+The completed `objectives-extension-customer-surface` Objective now supplies the full v1 extension inspection contract consumed by this steelthread. The onboarding Blocked Sentence has been rejudged to remove that satisfied gate while retaining the bare-core npm release and publishable documentation launch gates.
 
 ## Objective Impact
 
@@ -12,5 +12,5 @@ Downstream verification must treat `ns extension list` as read-only, distinguish
 
 ## Follow-Ups
 
-- Resume the documented onboarding journey after the bare-core release and docs-site launch gates clear.
+- Resume the documented onboarding journey after the bare-core release and documentation launch gates clear.
 - Preserve exact package, documentation, and environment evidence during the eventual foreign-repository verification.

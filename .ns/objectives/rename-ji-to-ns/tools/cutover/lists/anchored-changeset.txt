@@ -2,7 +2,7 @@
 .pi/settings.json
 AGENTS.md
 CLAUDE.md
-docs-site/lib/geistdocs/nav.ts
+retired website files
 justfile
 README.md
 skills-lock.json

@@ -173,7 +173,7 @@ execution and committed the corrections to the spec only. The trust-nothing
 closeout audited each slice's changed files against its spec enumeration
 (zero unexplained extras) and produced a fully accounted 162-hit
 word-boundary + camelCase `kernel` inventory: 61 historical, 43 out-of-scope
-(parked `KernelCommandCompletion*` aliases, north-star/docs-site
+(parked `KernelCommandCompletion*` aliases, north-star/documentation
 product-vision usage), 5 avoid-term, 6 guard-fixture, and 47 live-claims all
 fixed in the closeout commit. No stale live kernel claim remains.
 

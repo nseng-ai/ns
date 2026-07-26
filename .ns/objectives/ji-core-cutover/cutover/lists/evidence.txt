@@ -2,7 +2,7 @@
 .claude/plans/plan-the-deletion-of-humming-tide.md:7:- **Python** — `packages/sdl-pr-address/` (import `sdl_pr_address`), the original implementation. Standalone console script `pr-address-py`, plus an `sdl pr-address` plugin subgroup.
 .claude/plans/plan-the-deletion-of-humming-tide.md:10:The TS port is complete: all 19 `exec` operations run in TypeScript. The Python package now survives only as (a) a source of golden test fixtures the TS tests load, and (b) the target of a "legacy bridge" the TS CLI falls back to for a few invalid-flag click error messages and the unused `sdl pr-address` plugin. Every skill, collector, and doc that actually *runs* pr-address invokes the TS `pr-address` binary, not the Python one.
 .claude/plans/plan-the-deletion-of-humming-tide.md:14:**Key exploration finding — there is no transitively-exclusive shared code to delete.** Everything `sdl-pr-address` imports from `sdl-core` (`clinkr`, `gh`, `git`, `payloads`, `plugin`) is heavily used by other packages (sdl-slots, aretro, sdl-handoff, sdl-objectives, brmem, roaster, etc.). Nothing in `sdl-core` becomes dead. `roaster` is independent (pr-address never imports it). So the deletable Python surface is the `sdl-pr-address` package itself — the rest of the work is removing references and retiring the now-orphaned TS bridge.
-.claude/plans/plan-the-deletion-of-humming-tide.md:19:2. **Reference cleanup → fix stale mentions too.** Repoint AGENTS.md canonical examples, drop the CONTEXT-MAP planned entry, and fix stale Python-specific mentions in skills / docs-site install instruction / TS README. **Keep** the docs-site tool pages (they describe the surviving TS tool) and **keep** the historical `.sdl/objectives/pr-address-*` records.
+.claude/plans/plan-the-deletion-of-humming-tide.md:19:2. **Reference cleanup → fix stale mentions too.** Repoint AGENTS.md canonical examples, drop the CONTEXT-MAP planned entry, and fix stale Python-specific mentions in skills / documentation install instruction / TS README. **Keep** the package README tool sections (they describe the surviving TS tool) and **keep** the historical `.sdl/objectives/pr-address-*` records.
 .claude/plans/plan-the-deletion-of-humming-tide.md:48:- **Delete the directory** `packages/sdl-pr-address/` in full (src, tests — golden already moved in Phase A, `README.md`, `docs/development.md`, `pyproject.toml`). This removes the `pr-address-py` console script and the `sdl pr-address` plugin entry point.
 .claude/plans/plan-the-deletion-of-humming-tide.md:56:- **`pyproject.toml`** (root) — remove every `sdl-pr-address` / `sdl_pr_address` entry:
 .claude/plans/plan-the-deletion-of-humming-tide.md:58:  - `[tool.uv.sources]` → `sdl-pr-address = { workspace = true }`
@@ -11,7 +11,7 @@
 .claude/plans/plan-the-deletion-of-humming-tide.md:118:- **`CONTEXT-MAP.md`** — remove the planned `packages/sdl-pr-address/CONTEXT.md` bullet (~line 30) and the `sdl-pr-address → sdl-core...` relationship line (~line 60).
 .claude/plans/plan-the-deletion-of-humming-tide.md:119:- **`skills/pr-address/SKILL.md`** and **`skills/pr-address/references/cli-reference.md`** — remove the now-false statements that the `sdl pr-address` plugin / legacy Python path still exists (SKILL.md ~lines 73–74; cli-reference legacy-compat note). The skill keeps invoking the TS `pr-address` binary, so no functional change. `skills/stack-address/` invokes TS `pr-address` and needs no change.
 .claude/plans/plan-the-deletion-of-humming-tide.md:127:- **`sdl-core`** and all its `clinkr`/`gh`/`git`/`payloads`/`plugin` modules — shared infrastructure, used everywhere. Nothing is pr-address-exclusive.
-.claude/plans/plan-the-deletion-of-humming-tide.md:130:- **docs-site tool pages** and **`.sdl/objectives/pr-address-*`** — kept (live TS-tool docs; historical objective records).
+.claude/plans/plan-the-deletion-of-humming-tide.md:130:- **package README tool sections** and **`.sdl/objectives/pr-address-*`** — kept (live TS-tool docs; historical objective records).
 .claude/plans/plan-the-deletion-of-humming-tide.md:131:- **Published `sdl-pr-address==0.1.1` on PyPI** — independent of the deleted source; remains available as a manual rollback if the README keeps that note.
 
 ### .pi/extensions/code-workflows.ts
@@ -20,38 +20,38 @@
 ### .pi/extensions/code.ts
 .pi/extensions/code.ts:3:const codeExtension = await importTypeScriptWorkspaceDefault("sdl-flow/pi/code-extension");
 
-### docs-site/app/[lang]/(home)/page.tsx
-docs-site/app/[lang]/(home)/page.tsx:6:  title: "sdl Documentation",
-docs-site/app/[lang]/(home)/page.tsx:9:    title: "sdl Documentation",
-docs-site/app/[lang]/(home)/page.tsx:14:    title: "sdl Documentation",
-docs-site/app/[lang]/(home)/page.tsx:63:        description="sdl lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-docs-site/app/[lang]/(home)/page.tsx:64:        eyebrow="sdl Documentation"
+### retired website files]/(home)/page.tsx
+retired website files]/(home)/page.tsx:6:  title: "sdl Documentation",
+retired website files]/(home)/page.tsx:9:    title: "sdl Documentation",
+retired website files]/(home)/page.tsx:14:    title: "sdl Documentation",
+retired website files]/(home)/page.tsx:63:        description="sdl lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+retired website files]/(home)/page.tsx:64:        eyebrow="sdl Documentation"
 
-### docs-site/app/[lang]/extensions/page.tsx
-docs-site/app/[lang]/extensions/page.tsx:32:        description="sdl extensions wire planning, branch context, PR feedback, and runtime visibility into Pi so agent sessions can continue work with the right controls already in reach."
-docs-site/app/[lang]/extensions/page.tsx:37:            eyebrow="sdl extension catalog"
+### retired website files]/extensions/page.tsx
+retired website files]/extensions/page.tsx:32:        description="sdl extensions wire planning, branch context, PR feedback, and runtime visibility into Pi so agent sessions can continue work with the right controls already in reach."
+retired website files]/extensions/page.tsx:37:            eyebrow="sdl extension catalog"
 
-### docs-site/docs/concepts/meta.json
-docs-site/docs/concepts/meta.json:3:  "pages": ["sdl-umbrella", "cli-conventions", "objectives"]
+### retired website files
+retired website files:3:  "pages": ["sdl-umbrella", "cli-conventions", "objectives"]
 
-### docs-site/lib/geistdocs/ai-assistant.ts
-docs-site/lib/geistdocs/ai-assistant.ts:11:    name: "sdl",
+### retired website files
+retired website files:11:    name: "sdl",
 
-### docs-site/lib/geistdocs/nav.ts
-docs-site/lib/geistdocs/nav.ts:3:  repo: "sdl-tools",
+### retired website files
+retired website files:3:  repo: "sdl-tools",
 
-### docs-site/lib/geistdocs/og-image.tsx
-docs-site/lib/geistdocs/og-image.tsx:46:    fallbackTitle: "sdl Documentation",
+### retired website files
+retired website files:46:    fallbackTitle: "sdl Documentation",
 
-### docs-site/lib/geistdocs/rss.ts
-docs-site/lib/geistdocs/rss.ts:29:          name: "sdl",
+### retired website files
+retired website files:29:          name: "sdl",
 
-### docs-site/lib/geistdocs/site-identity.ts
-docs-site/lib/geistdocs/site-identity.ts:1:export const title = "sdl Documentation";
-docs-site/lib/geistdocs/site-identity.ts:13:export const siteId: string | undefined = "sdl-docs";
+### retired website files
+retired website files:1:export const title = "sdl Documentation";
+retired website files:13:export const siteId: string | undefined = "sdl-docs";
 
-### docs-site/package.json
-docs-site/package.json:2:  "name": "sdl-docs",
+### retired website files
+retired website files:2:  "name": "sdl-docs",
 
 ### skills-lock.json
 skills-lock.json:334:    "sdl-cli-design": {

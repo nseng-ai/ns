@@ -150,7 +150,7 @@ Non-Goals.
   declares the namespace. `.pi/extensions/sdl.ts` filename is cosmetic.
 - **Production message strings:** `flow/src/sdl/commands/push.ts:18,70,84,108`,
   `ccc/src/cmux/slot-dispatch-plan.ts:245,246,483`,
-  `docs-site/lib/extensions-catalog.ts:81,94` (hand-curated, already drifted).
+  `retired website files:81,94` (hand-curated, already drifted).
 - **Tests failing immediately on rename:** `flow/test/pi/sdl-extension.test.ts:96-120`
   (asserts exact name set AND absence of legacy aliases), 4 branch-context pi test files,
   `hosts/pi/test/commands/pi-command-surfaces.test.ts`,
@@ -243,8 +243,8 @@ Non-Goals.
   planned).
 - **`checkout-free-sdl-distribution`** — its bundling work must target `.ji/extensions/*`
   and bin `ji` post-cutover.
-- **`eve-parity-docs-site`** — branding/copy (vocabulary sweep, time-sensitive but not
-  atomic). `docs-site/lib/extensions-catalog.ts` command hints are atomic-adjacent.
+- **the retired website Objective** — branding/copy (vocabulary sweep, time-sensitive but not
+  atomic). `retired website files` command hints are atomic-adjacent.
 - **`repo-ontology`, `ts-cli-core-structural-cleanup`, `skill-management-subsystem`** —
   prose goes stale on the package-scope sweep; refresh soon after cutover
   (skill-management-subsystem designs a `sdl skills` surface — reconcile before it
@@ -278,7 +278,7 @@ Non-Goals.
 **POST (trails):**
 
 - Historical records untouched forever (Non-Goals).
-- `repo-ontology` / `ts-cli-core-structural-cleanup` prose refresh; docs-site branding.
+- `repo-ontology` / `ts-cli-core-structural-cleanup` prose refresh; website branding.
 - Shim-template prose, internal event key if deferred.
 - GitHub repo rename (manual, last). XDG machine migration executes right after the
   landing installs the new bin.

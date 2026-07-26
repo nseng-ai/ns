@@ -6,8 +6,8 @@
 .pi/settings.json
 AGENTS.md
 CLAUDE.md
-docs-site/lib/extensions-catalog.ts
-docs-site/lib/geistdocs/nav.ts
+retired website files
+retired website files
 docs/pi/branch-context-workflow.md
 docs/research/xdg-base-directory-spec.md
 justfile

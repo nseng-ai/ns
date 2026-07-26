@@ -93,7 +93,7 @@ git grep -lIE 'ji shell integration' -- . "${EXCL[@]}" | sort -u > "$OUT/g13-she
   echo "${OBJ_ROOT}/objectives/cross-harness-parity/parity-table.md"
   echo "CLAUDE.md"
   echo "README.md"
-  echo "docs-site/lib/geistdocs/nav.ts"
+  echo "retired website files
   echo "ts/packages/capabilities/slot/src/core/index.ts"
   echo "ts/packages/capabilities/slot/test/unit/api.test.ts"
   echo ".pi/extensions/ji.ts"

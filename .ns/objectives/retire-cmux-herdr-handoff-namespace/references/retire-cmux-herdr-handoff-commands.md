@@ -71,7 +71,7 @@ There is no existing trunk-plan implementation. Do not mislabel `/ns:herdr:tab:p
 - `@nseng-ai/cmux` appears in root workspace dependencies, areg dependencies, release package inventories, style-guard command ownership, runtime import tests, docs, contexts, and the generated pnpm lockfile.
 - `.pi/settings.json` contains exclusions for the cmux adapter and stale `ns-cmux-sidebar` skill.
 - Historical ADRs, completed Objective records, retrospectives, and reshape specifications accurately describe past state. They should remain historical evidence rather than be rewritten as if cmux never existed.
-- `docs-site/` content is gated by repo policy. Do not modify it in this slice unless separately and explicitly authorized; report any stale catalog entry as gated follow-up.
+- `retired website files` content is gated by repo policy. Do not modify it in this slice unless separately and explicitly authorized; report any stale catalog entry as gated follow-up.
 
 ## Objective creation and tracking
 
@@ -242,7 +242,7 @@ Update live surfaces:
   - convert current “retained cmux” statements into completed migration/retirement evidence and record the open-branch retirement.
 - Other current README/catalog/help text that presents deleted commands as live.
 
-Do not rewrite historical ADR 0034, completed Objective records, retrospectives, or ontology reshape specifications merely to remove historical strings. A final grep must classify every remaining match as either valid history, surviving Herdr/Handoff vocabulary, or an explicitly gated docs-site follow-up.
+Do not rewrite historical ADR 0034, completed Objective records, retrospectives, or ontology reshape specifications merely to remove historical strings. A final grep must classify every remaining match as either valid history, surviving Herdr/Handoff vocabulary, or an explicitly gated documentation follow-up.
 
 ## Implementation sequence
 
@@ -276,7 +276,7 @@ Do not rewrite historical ADR 0034, completed Objective records, retrospectives,
 1. Update contexts, map counts/edges, Pi docs, Herdr parity documentation, and package inventories.
 2. Delete dedicated live cmux docs that no longer describe a supported surface.
 3. Preserve accurate history.
-4. Run a bounded stale-reference classification and record any docs-site catalog residue as gated follow-up.
+4. Run a bounded stale-reference classification and record any documentation catalog residue as gated follow-up.
 
 ### Phase 5: Design/disposition trunk-plan
 
@@ -334,7 +334,7 @@ ns:herdr:handoff:trunk-prompt
 ns:herdr:handoff:plan
 ```
 
-For each residual old string, classify it explicitly as historical evidence or gated docs-site residue; do not silently leave live docs stale.
+For each residual old string, classify it explicitly as historical evidence or gated documentation residue; do not silently leave live docs stale.
 
 ## Risks, assumptions, and open questions
 
@@ -346,7 +346,7 @@ For each residual old string, classify it explicitly as historical evidence or g
 - **Assumption — Herdr CLI:** version 0.7.3 supports `tab create --workspace ... --focus --cwd ... --label ...` and `pane run`; revalidate installed help at implementation time because Herdr is moving quickly.
 - **Assumption — caller identity:** `/ns:herdr:handoff:tab` runs in a Herdr-managed pane with `HERDR_WORKSPACE_ID`; missing identity fails before Handoff Artifact creation prompt or destination mutation.
 - **Open question — trunk-plan:** its semantics remain deliberately unresolved and block final Objective closure only, not migration landing.
-- **Gated follow-up:** `docs-site/lib/extensions-catalog.ts` may retain a stale cmux entry; repo policy forbids docs-site content work without explicit authorization.
+- **Gated follow-up:** `retired website files` may retain a stale cmux entry; repo policy forbids package README content work without explicit authorization.
 
 ## Review and remediation
 

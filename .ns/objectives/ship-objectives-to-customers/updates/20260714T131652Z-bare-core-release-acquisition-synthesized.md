@@ -12,10 +12,10 @@ The umbrella's bare-core unbundle, republish, and foreign-repository acquisition
 
 Claude Code skill provisioning from the published extension is now evidenced. The broader skill-delivery row remains partial because Codex and Pi end-to-end breadth is deliberately parked after the first Claude Code slice.
 
-The Objective remains open. Its next dependency-ordered work is to replace stale release-gate copy with the verified `0.1.3` happy path and then run a fresh Claude Code session through create → next → update → close without improvisation. The docs-site corpus and launch slice remain owned by `eve-parity-docs-site`.
+The Objective remains open. Its next dependency-ordered work is to replace stale release-gate copy with the verified `0.1.3` happy path and then run a fresh Claude Code session through create → next → update → close without improvisation. The documentation corpus and launch slice remain owned by the retired website Objective.
 
 ## Follow-Ups
 
 - Update installation and quickstart content to the verified install core → initialize Claude Code → install Objectives order and remove stale release-gate copy.
-- Advance `eve-parity-docs-site` far enough to provide the publishable launch substrate required by the onboarding steelthread.
+- Advance the retired website Objective far enough to provide the publishable launch substrate required by the onboarding steelthread.
 - Once that gate clears, run the docs-verbatim fresh-session Claude Code lifecycle and record every deviation as a product or documentation defect.

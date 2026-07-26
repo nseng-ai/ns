@@ -38,6 +38,6 @@ parent-level consequences.
   it scaffolds nothing into new repos.
 - **Cross-objective coupling list unchanged in substance:** the three
   name-freezing objectives (`checkout-free-sdl-distribution`,
-  `ship-objectives-to-customers`, `eve-parity-docs-site`) remain open and
+  `ship-objectives-to-customers`, the retired website Objective) remain open and
   unlanded; the hard-cutover safety assumption (consumer population = this repo +
   owner machines) still holds.

@@ -182,7 +182,7 @@
     "ts/packages/hosts/pi/src/runtime/agent-definition.ts": ".sdl/pi/agents :47,51,63 (fails loudly)",
     "ts/packages/hosts/pi/src/commands/cli-command-trace.ts": "XDG state/sdl trace-log path :16",
     ".pi/extensions/objective-autopilot.ts": ".sdl literals :353,354,750",
-    "docs-site/lib/extensions-catalog.ts": "hand-curated command hints :81,94 — rename only, do NOT reconcile pre-existing drift",
+    "retired website files: "hand-curated command hints :81,94 — rename only, do NOT reconcile pre-existing drift",
     "ts/packages/capabilities/ccc/test/land-test-helpers.ts": "TOPOLOGY_COMMAND = \"sdl\" :4",
     "ts/packages/capabilities/flow/test/unit/land-test-helpers.ts": "TOPOLOGY_COMMAND = \"sdl\" :4",
     "docs/xdg-base-directory-spec.md": "canonical enumeration of ALL XDG roots :110-129 — every root gets ji",

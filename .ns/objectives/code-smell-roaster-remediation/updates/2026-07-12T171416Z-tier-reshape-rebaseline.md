@@ -47,7 +47,7 @@ Corrections, each probe-backed:
   present-tense helpers named on completed rows found all surviving across
   the reshape (now under `capabilities/{branch-context,cmux,flow,handoffs,
   objectives,plans,pr-feedback,retros,reviews,slots}`, `capability-kit`,
-  `hosts/pi`, `kernel`, `tools/*`, docs-site, `.pi/lib`), with two renames
+  `hosts/pi`, `kernel`, `tools/*`, documentation, `.pi/lib`), with two renames
   annotated inline: `resolveSelectedSdlCommand` → `resolveSelectedNsCommand`
   (kernel) and `SPECIALIZED_TEST_CATEGORIES` →
   `SPECIALIZED_TEST_GLOBS_BY_CATEGORY` (`ts/vitest.shared.ts`). The

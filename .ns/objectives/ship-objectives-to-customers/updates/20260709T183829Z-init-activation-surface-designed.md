@@ -66,5 +66,5 @@ for the Codex/Pi end-to-end rows.
   `extension-descriptor-contract` public-shape steer at build time.
 - Verify Codex/Pi agents reliably follow the pointer line (feeds `cross-harness-parity`
   and the parked Codex/Pi verification rows).
-- Reflect the pointer-stanza shape in the docs-site quickstart rewrite when the docs row
+- Reflect the pointer-stanza shape in the documentation quickstart rewrite when the docs row
   unblocks (it already depends on the bare-core republish).

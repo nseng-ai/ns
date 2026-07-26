@@ -12,7 +12,7 @@
   {
    "tier": "complex",
    "id": "cohort-tests-1",
-   "note": "branch-context-from-plan.test.ts lines 193-194: sample fixture text 'sdl docs site slot page conventions skeleton theme foundation' / slug 'sdl-docs-site-slot-page-conventions-skeleton' used only as arbitrary long-string input to exercise model-slug-repair logic, not a CLI/path/namespace/env-var reference from the brief's rename categories \u2014 left unchanged as an ambiguous non-target rather than guess."
+   "note": "branch-context-from-plan.test.ts lines 193-194: sample fixture text 'sdl documentation slot page conventions skeleton theme foundation' / slug 'sdl-documentation-slot-page-conventions-skeleton' used only as arbitrary long-string input to exercise model-slug-repair logic, not a CLI/path/namespace/env-var reference from the brief's rename categories \u2014 left unchanged as an ambiguous non-target rather than guess."
   },
   {
    "tier": "complex",
@@ -27,7 +27,7 @@
   {
    "tier": "complex",
    "id": "cohort-tests-2",
-   "note": "ts/packages/capabilities/branch-context/test/plan-content-slug.test.ts lines 152/157: fixture string \"sdl docs site slot page conventions skeleton theme foundation\" (and its derived slug) is arbitrary sample prose for slug-generation testing, not a CLI/path/namespace/env-var literal the brief enumerates as a rename target; left untouched as a self-contained fixture with no coupling to renamed source identifiers."
+   "note": "ts/packages/capabilities/branch-context/test/plan-content-slug.test.ts lines 152/157: fixture string \"sdl documentation slot page conventions skeleton theme foundation\" (and its derived slug) is arbitrary sample prose for slug-generation testing, not a CLI/path/namespace/env-var literal the brief enumerates as a rename target; left untouched as a self-contained fixture with no coupling to renamed source identifiers."
   },
   {
    "tier": "complex",
@@ -257,7 +257,7 @@
    "changed": true,
    "summary": "Applied the sdl\u2192ji rename brief to all 10 test-cohort files. Renamed: CLI prose (\"sdl address exec ...\" \u2192 \"ji address exec ...\", \"sdl branch-context exec from-plan\" \u2192 \"ji ...\", \"sdl flow cp\" \u2192 \"ji flow cp\"); pi command namespaces (\"sdl:branch-context:from-plan\" \u2192 \"ji:branch-context:from-plan\" x49, \"/sdl:plan:save\" \u2192 \"/ji:plan:save\", \"/sdl:plan:grill-and-save\" \u2192 \"/ji:plan:grill-and-save\", \"/sdl:flow:cp\" \u2192 \"/ji:flow:cp\"); repo-state paths (\".sdl/prompts\" \u2192 \".ji/prompts\", \"~/.sdl/enriched-plan\" \u2192 \"~/.ji/enriched-plan\"); XDG namespace (\"$XDG_STATE_HOME/sdl/...\" \u2192 \".../ji/...\"); and env var key (\"SDL_PAYLOAD_ROOT\" \u2192 \"JI_PAYLOAD_ROOT\", verified against the already-renamed source constant JI_PAYLOAD_ROOT_ENV in aretro/src/payloads/root.ts). Cross-checked every rename against the already-migrated source it exercises (download-feedback.ts, attached-plan.ts, enriched-plan-save.ts, surfaces.ts, cp.ts) to confirm direction before editing.",
    "skipped": [
-    "branch-context-from-plan.test.ts lines 193-194: sample fixture text 'sdl docs site slot page conventions skeleton theme foundation' / slug 'sdl-docs-site-slot-page-conventions-skeleton' used only as arbitrary long-string input to exercise model-slug-repair logic, not a CLI/path/namespace/env-var reference from the brief's rename categories \u2014 left unchanged as an ambiguous non-target rather than guess.",
+    "branch-context-from-plan.test.ts lines 193-194: sample fixture text 'sdl documentation slot page conventions skeleton theme foundation' / slug 'sdl-documentation-slot-page-conventions-skeleton' used only as arbitrary long-string input to exercise model-slug-repair logic, not a CLI/path/namespace/env-var reference from the brief's rename categories \u2014 left unchanged as an ambiguous non-target rather than guess.",
     "attached-plan.test.ts lines 169/187/219/236: 'git@github.com:sdl/sdl-tools.git' \u2014 left unchanged; 'sdl-tools' is an explicit DO-NOT-TOUCH repo/package name survivor and the leading 'sdl' is the GitHub org segment of that same repo URL, not a standalone rename target.",
     "All @sdl/* import specifiers across every file left unchanged per explicit DO-NOT-TOUCH package-scope rule."
    ]
@@ -278,7 +278,7 @@
    "changed": true,
    "summary": "Renamed sdl->ji literal forms across the 9 branch-context/ccc test files that had them: namespaced command/status keys (sdl:branch-context:*, sdl:plan:* -> ji:*), the XDG path literal $XDG_STATE_HOME/sdl/enriched-plan and ~/.sdl/enriched-plan -> ji equivalents in enriched-plan-commands.test.ts and branch-context-write-tool.test.ts, and CLI prose \"sdl slot co\"/\"sdl slot checkout\" -> \"ji slot co\"/\"ji slot checkout\" in the two ccc autoslot test files. Verified against already-renamed source (surfaces.ts command-name constants, enriched-plan-save.ts prompt text, autoslot.ts/presentation.ts guidance strings) so string literals match runtime values. Left all @sdl/* import specifiers and ../src/sdl/*.ts relative import paths untouched (out-of-window survivors per brief). Ran the full 10-file vitest slice twice; all 71 tests pass (one transient flake on a run interleaved with an unrelated git stash/pop was not reproducible).",
    "skipped": [
-    "ts/packages/capabilities/branch-context/test/plan-content-slug.test.ts lines 152/157: fixture string \"sdl docs site slot page conventions skeleton theme foundation\" (and its derived slug) is arbitrary sample prose for slug-generation testing, not a CLI/path/namespace/env-var literal the brief enumerates as a rename target; left untouched as a self-contained fixture with no coupling to renamed source identifiers."
+    "ts/packages/capabilities/branch-context/test/plan-content-slug.test.ts lines 152/157: fixture string \"sdl documentation slot page conventions skeleton theme foundation\" (and its derived slug) is arbitrary sample prose for slug-generation testing, not a CLI/path/namespace/env-var literal the brief enumerates as a rename target; left untouched as a self-contained fixture with no coupling to renamed source identifiers."
    ]
   },
   {

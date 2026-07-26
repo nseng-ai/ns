@@ -22,10 +22,10 @@ acquisition-surface claims stale. Verified at HEAD:
 Also verified current (no change needed): the `blocked:` frontmatter is already absent
 (cleared in `updates/20260707T190305Z-checkout-free-block-cleared.md`); edge counterparts
 `checkout-free-sdl-distribution` and `ns-skills-steelthread` are closed while
-`cross-harness-parity`, `eve-parity-docs-site`, and `skill-management-subsystem` remain open;
+`cross-harness-parity`, the retired website Objective, and `skill-management-subsystem` remain open;
 `ns skills` (`list`/`path`/`install`) exists; `ns init` and `RealSkillMaterializer`
 (`provisionFirstPartySkill`) are wired; the docs "Coming with the first release" npm gate copy
-is still present in `docs-site/docs/get-started/installation.mdx`; and the Claude-Code
+is still present in `retired website files`; and the Claude-Code
 end-to-end verification row remains unstarted. Workspace package versions have advanced to
 `0.1.2` (`@nseng-ai/ns`, `@nseng-ai/objectives`); the record's `0.1.1` published/smoke-verified
 evidence is left as accurate historical fact since no `0.1.2` publish/verification is proven.
@@ -50,4 +50,4 @@ Provenance: objective-refresh basis target=a814ebe365b9164fdcd31c3cf09c681be670c
   reachable, and design/build `ns remove`.
 - Still open from prior updates: verify onboarding end-to-end on Claude Code from a published
   tarball in a throwaway non-ns repo, and remove the "Coming with the first release" npm gate
-  copy in coordination with `eve-parity-docs-site`.
+  copy in coordination with the retired website Objective.

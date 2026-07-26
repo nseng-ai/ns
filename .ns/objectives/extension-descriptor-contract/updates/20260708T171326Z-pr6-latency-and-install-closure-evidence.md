@@ -135,7 +135,7 @@ Objective records in this checkout
 OBJECTIVE                           STATUS        LATEST UPDATE  BRANCHES  EDGES
 code-smell-roaster-remediation      ● open     x  23 hours ago   0
 cross-harness-parity                ● open     x  23 hours ago   0         1
-eve-parity-docs-site                ● open     x  23 hours ago   0         1
+the retired website Objective                ● open     x  23 hours ago   0         1
 extension-descriptor-contract       ● open     x  —              0
 flow-land-incremental-perf-rollout  ● open     x  23 hours ago   0         1
 prod-submit-roast-and-fix           ● open     x  —              0

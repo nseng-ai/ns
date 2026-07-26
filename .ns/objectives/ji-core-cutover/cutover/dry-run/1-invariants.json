@@ -131,7 +131,7 @@
    "ts/packages/kernel/src/runtime/module-loader.ts:67: const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"autoslot.ts\");",
    "ts/packages/kernel/src/runtime/module-loader.ts:68: const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"land.ts\");",
    "ts/packages/kernel/src/runtime/module-loader.ts:69: const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"trunk-pull.ts\");",
-   "These three hits are inside the mandated pathspec (ts/**/*.ts) where the grep must be empty; they reference a real on-disk directory ts/packages/capabilities/ccc/src/sdl/ (sibling to api/, cmux/, pi/ command-family dirs) that was left un-renamed, and they are not one of the two documented survivor classes (package.json subpackages arrays, docs-site branding)."
+   "These three hits are inside the mandated pathspec (ts/**/*.ts) where the grep must be empty; they reference a real on-disk directory ts/packages/capabilities/ccc/src/sdl/ (sibling to api/, cmux/, pi/ command-family dirs) that was left un-renamed, and they are not one of the two documented survivor classes (package.json subpackages arrays, website branding)."
   ]
  },
  {
