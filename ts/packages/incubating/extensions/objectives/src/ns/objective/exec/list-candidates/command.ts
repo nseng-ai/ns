@@ -1,11 +1,20 @@
-import { objectiveCommandMetadata } from "../../../command-metadata.ts";
+import type { ClinkrCommandMetadata } from "@nseng-ai/clinkr";
 
-export function metadata() {
-	return objectiveCommandMetadata(COMMAND_DESCRIPTION);
+export function metadata(): ClinkrCommandMetadata {
+	return { description: COMMAND_DESCRIPTION };
 }
 
 export async function command() {
-	return await (await import("./definition.ts")).command();
+	const [{ objectiveNsCommand }, operation] = await Promise.all([
+		import("../../../objective-command.ts"),
+		import("../../../../core/operations/list-candidates.ts"),
+	]);
+	return objectiveNsCommand({
+		schema: operation.listCandidatesRequestSchema,
+		resultSchema: operation.listCandidatesResultSchema,
+		handler: operation.runListCandidates,
+		renderHuman: operation.renderListCandidates,
+	});
 }
 
 const COMMAND_DESCRIPTION =

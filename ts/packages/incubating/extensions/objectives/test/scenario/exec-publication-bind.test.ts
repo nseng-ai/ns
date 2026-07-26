@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { ObjectiveRunnerPublicationCommandContext } from "../../src/ns/publication-context.ts";
-import { command } from "../../src/ns/objective/exec/publication-bind/definition.ts";
+import { command } from "../../src/ns/objective/exec/publication-bind/command.ts";
 import type { PublicationAuthorizationStore } from "../../src/publication/authorization-store.ts";
 import { createFakeObjectiveNsApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
 
