@@ -1,29 +1,22 @@
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import {
 	expandRepoSkillBlock,
 	type ExpandedSkillBlock,
 } from "@nseng-ai/pi-runtime/skills/expansion";
 import { CREATE_HANDOFF_SKILL_NAME } from "./command-constants.ts";
 
-export type HandoffCreateSkillLoadResult =
-	| { type: "found"; skill: ExpandedSkillBlock }
-	| { type: "missing" }
-	| { type: "failed"; message: string };
-
 export interface HandoffCreateSkillLoader {
-	loadCreateHandoffSkill(cwd: string): Promise<HandoffCreateSkillLoadResult>;
+	loadCreateHandoffSkill(cwd: string): Promise<ExpandedSkillBlock>;
 }
 
 export const realHandoffCreateSkillLoader = {
-	async loadCreateHandoffSkill(cwd: string): Promise<HandoffCreateSkillLoadResult> {
+	async loadCreateHandoffSkill(cwd: string): Promise<ExpandedSkillBlock> {
 		try {
-			const skill = await expandHandoffSkill(cwd, CREATE_HANDOFF_SKILL_NAME);
-			if (skill === undefined) {
-				return { type: "missing" };
-			}
-			return { type: "found", skill };
+			return await expandRepoSkillBlock({ cwd, skillName: CREATE_HANDOFF_SKILL_NAME });
 		} catch (error) {
-			return { type: "failed", message: formatErrorMessage(error) };
+			const message = error instanceof Error ? error.message : String(error);
+			throw new Error(`Could not load required skill "${CREATE_HANDOFF_SKILL_NAME}": ${message}`, {
+				cause: error,
+			});
 		}
 	},
 } satisfies HandoffCreateSkillLoader;
@@ -31,14 +24,11 @@ export const realHandoffCreateSkillLoader = {
 export async function expandHandoffSkill(
 	cwd: string,
 	skillName: string,
-): Promise<ExpandedSkillBlock | undefined> {
+): Promise<ExpandedSkillBlock> {
 	try {
 		return await expandRepoSkillBlock({ cwd, skillName });
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		if (message.startsWith("Could not find ")) {
-			return undefined;
-		}
-		throw error;
+		throw new Error(`Could not load required skill "${skillName}": ${message}`, { cause: error });
 	}
 }

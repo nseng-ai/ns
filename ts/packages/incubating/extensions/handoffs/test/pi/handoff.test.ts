@@ -132,85 +132,89 @@ describe("handoff extension", () => {
 		});
 	});
 
-	test("create fallback uses the handoff namespace and semantic slug key", async () => {
+	test("create requires the handoff-create skill and sends no follow-up when it is missing", async () => {
 		const result = await runCommand("ns:handoff:create", "handoff focus");
 
 		result.pi.assertDone();
-		expect(result.pi.sentUserMessages[0]).toContain("Storage contract:");
-		expect(result.pi.sentUserMessages[0]).toContain("Namespace: `handoff`");
-		expect(result.pi.sentUserMessages[0]).toContain(
-			"ns handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin",
+		expect(result.pi.sentUserMessages).toEqual([]);
+		expect(result.notifications).toHaveLength(1);
+		expect(result.notifications[0]?.level).toBe("error");
+		expect(result.notifications[0]?.message).toContain(
+			'Could not load required skill "handoff-create"',
 		);
-		expect(result.pi.sentUserMessages[0]).toContain("Branch Memory recovery path");
-		expect(result.pi.sentUserMessages[0]).toContain("do not create a temporary artifact file");
-		expect(result.pi.sentUserMessages[0]).toContain("HANDOFF_EOF");
-		expect(result.pi.sentUserMessages[0]).toContain("handoff focus");
-		expect(result.pi.sentUserMessages[0]).toContain(
-			"Source Pi session log: unavailable (no persisted Pi session log was exposed)",
-		);
-		expect(result.pi.sentUserMessages[0]).not.toContain("--file <artifact.md>");
-		expect(result.pi.sentUserMessages[0]).not.toContain("Create a temporary Markdown file");
-		expect(result.pi.sentUserMessages[0]).not.toContain("session-artifacts");
-		expect(result.pi.sentUserMessages[0]).not.toContain("handoffs/<semantic-slug>");
-		expect(result.notifications).toEqual([
-			{
-				message:
-					"handoff-create skill was not found; using fallback handoff-create workflow prompt.",
-				level: "warning",
-			},
-		]);
 	});
 
 	test("create records an in-memory session id when no persisted log exists", async () => {
-		const result = await runCommand("ns:handoff:create", "handoff focus", [], {
-			sessionId: "in-memory-session-id",
-		});
+		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
+			const result = await runCommand(
+				"ns:handoff:create",
+				"handoff focus",
+				[],
+				{ cwd: repoDir, sessionId: "in-memory-session-id" },
+				[skillCommandInfo(skillPath)],
+			);
 
-		result.pi.assertDone();
-		expect(result.pi.sentUserMessages[0]).toContain("Source Pi session ID: in-memory-session-id");
-		expect(result.pi.sentUserMessages[0]).toContain(
-			"Source Pi session log: unavailable (no persisted Pi session log was exposed)",
-		);
+			result.pi.assertDone();
+			expect(result.pi.sentUserMessages[0]).toContain("Source Pi session ID: in-memory-session-id");
+			expect(result.pi.sentUserMessages[0]).toContain(
+				"Source Pi session log: unavailable (no persisted Pi session log was exposed)",
+			);
+		});
 	});
 
 	test("create with no args prompts for focus and continues when supplied", async () => {
-		const result = await runCommand("ns:handoff:create", "", [], {
-			inputResponse: "continue the list command",
-		});
+		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
+			const result = await runCommand(
+				"ns:handoff:create",
+				"",
+				[],
+				{ cwd: repoDir, inputResponse: "continue the list command" },
+				[skillCommandInfo(skillPath)],
+			);
 
-		result.pi.assertDone();
-		expect(result.inputs).toEqual([
-			{
-				title: "What should the future session continue from this handoff?",
-				placeholder: undefined,
-			},
-		]);
-		expect(result.pi.sentUserMessages).toHaveLength(1);
-		expect(result.pi.sentUserMessages[0]).toContain("continue the list command");
+			result.pi.assertDone();
+			expect(result.inputs).toEqual([
+				{
+					title: "What should the future session continue from this handoff?",
+					placeholder: undefined,
+				},
+			]);
+			expect(result.pi.sentUserMessages).toHaveLength(1);
+			expect(result.pi.sentUserMessages[0]).toContain("continue the list command");
+		});
 	});
 
 	test("create with no args and cancelled input stops without create prompt", async () => {
-		const result = await runCommand("ns:handoff:create", "");
+		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
+			const result = await runCommand("ns:handoff:create", "", [], { cwd: repoDir }, [
+				skillCommandInfo(skillPath),
+			]);
 
-		result.pi.assertDone();
-		expect(result.inputs).toHaveLength(1);
-		expect(result.notifications).toEqual([
-			{ message: "Continuation focus is required to create a handoff.", level: "warning" },
-		]);
-		expect(result.pi.sentUserMessages).toEqual([]);
+			result.pi.assertDone();
+			expect(result.inputs).toHaveLength(1);
+			expect(result.notifications).toEqual([
+				{ message: "Continuation focus is required to create a handoff.", level: "warning" },
+			]);
+			expect(result.pi.sentUserMessages).toEqual([]);
+		});
 	});
 
 	test("create with no input UI asks the assistant to request focus without creating", async () => {
-		const result = await runCommand("ns:handoff:create", "", [], {
-			hasUI: false,
-			inputUnavailable: true,
-		});
+		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
+			const result = await runCommand(
+				"ns:handoff:create",
+				"",
+				[],
+				{ cwd: repoDir, hasUI: false, inputUnavailable: true },
+				[skillCommandInfo(skillPath)],
+			);
 
-		result.pi.assertDone();
-		expect(result.pi.sentUserMessages).toEqual([
-			"Ask the user exactly this question before creating a handoff: What should the future session continue from this handoff?\n\nDo not create a handoff until the user answers with a meaningful continuation focus.",
-		]);
-		expect(result.notifications).toEqual([]);
+			result.pi.assertDone();
+			expect(result.pi.sentUserMessages).toEqual([
+				"Ask the user exactly this question before creating a handoff: What should the future session continue from this handoff?\n\nDo not create a handoff until the user answers with a meaningful continuation focus.",
+			]);
+			expect(result.notifications).toEqual([]);
+		});
 	});
 
 	test("pickup command picks up an explicit slug from the current branch", async () => {
@@ -563,12 +567,12 @@ describe("handoff pure helpers", () => {
 		expect(prompt).not.toContain("continue with the concrete next step");
 	});
 
-	test("create prompt includes fallback and focus", () => {
-		const prompt = buildCreateHandoffPrompt(undefined, "ship the frontend command", {
+	test("create prompt includes required skill and focus", () => {
+		const prompt = buildCreateHandoffPrompt("# handoff-create skill", "ship the frontend command", {
 			sourceSessionFile: "/sessions/2026-07-12T10-00-00-000Z_source-session.jsonl",
 		});
 
-		expect(prompt).toContain("Storage contract:");
+		expect(prompt).toContain("# handoff-create skill");
 		expect(prompt).toContain("ship the frontend command");
 		expect(prompt).toContain(
 			"ns handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin",

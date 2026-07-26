@@ -15,8 +15,6 @@ import { GRILL_ASK_PARAMETERS } from "./validate.ts";
 
 export { executeGrillAsk } from "./execution.ts";
 export {
-	FALLBACK_GRILL_UI_SKILL_BLOCK,
-	FALLBACK_GRILL_WITH_DOCS_UI_SKILL_BLOCK,
 	GRILL_UI_CONTRACT,
 	buildGrillAskSelectTitle,
 	buildGrillUiPrompt,

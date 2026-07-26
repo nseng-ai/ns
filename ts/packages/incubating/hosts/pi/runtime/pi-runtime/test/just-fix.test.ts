@@ -1,7 +1,9 @@
+import { chmod } from "node:fs/promises";
 import { join } from "node:path";
+
 import { describe, expect, test } from "vitest";
 
-import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
+import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 
 import type { SkillCommandInfo } from "../src/kit/skills/expansion.ts";
 import type { RawPiExecResult } from "../src/kit/shared/command-exec.ts";
@@ -263,44 +265,115 @@ Repair the failed just run.
 		);
 	});
 
-	test("runs the CI recipe excluding Reviews through just-ci", async () => {
-		const pi = new FakePi(execResult());
-		const justFixExtension = await loadJustFixExtension();
-		justFixExtension(pi, pi.exec.bind(pi));
-		const command = pi.commands.get("just-ci");
-		expect(command?.description).toBe(
-			"Run CI excluding Reviews; if it fails, invoke code-just-fix.",
-		);
-		if (!command) {
-			throw new Error("just-ci command was not registered");
-		}
+	test("does not run just or send a prompt when the required repo skill is missing", async () => {
+		await withTempGitRepo({ prefix: "missing-code-just-fix-skill-" }, async ({ repoDir }) => {
+			const pi = new FakePi(execResult());
+			const justFixExtension = await loadJustFixExtension();
+			justFixExtension(pi, pi.exec.bind(pi));
+			const command = pi.commands.get("just");
+			if (!command) throw new Error("just command was not registered");
 
-		const context = createContext();
-		await command.handler("", context.ctx);
+			const context = createContext(repoDir);
+			await command.handler("", context.ctx);
 
-		expect(context.waitForIdleCalls()).toBe(1);
-		expect(pi.execCalls).toEqual([
-			{
-				command: "just",
-				args: ["ci"],
-				options: {
-					cwd: ROOT,
-					timeout: JUST_CI_TIMEOUT_MS,
-					onStdout: expect.any(Function),
-					onStderr: expect.any(Function),
+			expect(pi.execCalls).toEqual([]);
+			expect(pi.sentUserMessages).toEqual([]);
+			expect(context.waitForIdleCalls()).toBe(1);
+			expect(context.notifications).toEqual([
+				{
+					message: expect.stringContaining(
+						'Could not load required skill "code-just-fix": Could not find .agents/skills/code-just-fix/SKILL.md, .claude/skills/code-just-fix/SKILL.md',
+					),
+					level: "error",
 				},
-			},
-		]);
-		expect(context.statuses).toEqual([{ key: "ns-cli-command", value: undefined }]);
-		expect(context.widgets.at(-1)?.value).toBeUndefined();
-		expect(pi.messages).toEqual([
+			]);
+		});
+	});
+
+	test("does not run just or send a prompt when the required repo skill cannot be read", async () => {
+		await withTempRepoSkill(
 			{
-				customType: "ns-command-progress",
-				content: "→ Running `just ci`…",
-				display: true,
+				skillName: "code-just-fix",
+				markdown: "# Code Just Fix\n",
+				prefix: "unreadable-code-just-fix-skill-",
+				skillRoot: join(".agents", "skills"),
 			},
-		]);
-		expect(context.notifications).toEqual([{ message: "`just ci` passed.", level: "info" }]);
-		expect(pi.sentUserMessages).toEqual([]);
+			async ({ repoDir, skillPath }) => {
+				await chmod(skillPath, 0o000);
+				try {
+					const pi = new FakePi(execResult());
+					const justFixExtension = await loadJustFixExtension();
+					justFixExtension(pi, pi.exec.bind(pi));
+					const command = pi.commands.get("just");
+					if (!command) throw new Error("just command was not registered");
+
+					const context = createContext(repoDir);
+					await command.handler("", context.ctx);
+
+					expect(pi.execCalls).toEqual([]);
+					expect(pi.sentUserMessages).toEqual([]);
+					expect(context.waitForIdleCalls()).toBe(1);
+					expect(context.notifications).toEqual([
+						{
+							message: expect.stringContaining('Could not load required skill "code-just-fix":'),
+							level: "error",
+						},
+					]);
+				} finally {
+					await chmod(skillPath, 0o600);
+				}
+			},
+		);
+	});
+
+	test("runs the CI recipe excluding Reviews through just-ci", async () => {
+		await withTempRepoSkill(
+			{
+				skillName: "code-just-fix",
+				markdown: "# Code Just Fix\n",
+				prefix: "passing-code-just-fix-skill-",
+				skillRoot: join(".agents", "skills"),
+			},
+			async ({ repoDir }) => {
+				const pi = new FakePi(execResult());
+				const justFixExtension = await loadJustFixExtension();
+				justFixExtension(pi, pi.exec.bind(pi));
+				const command = pi.commands.get("just-ci");
+				expect(command?.description).toBe(
+					"Run CI excluding Reviews; if it fails, invoke code-just-fix.",
+				);
+				if (!command) {
+					throw new Error("just-ci command was not registered");
+				}
+
+				const context = createContext(repoDir);
+				await command.handler("", context.ctx);
+
+				expect(context.waitForIdleCalls()).toBe(1);
+				expect(pi.execCalls).toEqual([
+					{
+						command: "just",
+						args: ["ci"],
+						options: {
+							cwd: repoDir,
+							timeout: JUST_CI_TIMEOUT_MS,
+							onStdout: expect.any(Function),
+							onStderr: expect.any(Function),
+						},
+					},
+				]);
+				expect(context.statuses).toEqual([{ key: "ns-cli-command", value: undefined }]);
+				expect(context.widgets.at(-1)?.value).toBeUndefined();
+				expect(pi.messages).toEqual([
+					{
+						customType: "ns-command-progress",
+						content: "→ Running `just ci`…",
+						display: true,
+					},
+				]);
+				expect(context.notifications).toEqual([{ message: "`just ci` passed.", level: "info" }]);
+				expect(pi.sentUserMessages).toEqual([]);
+			},
+		);
 	});
 });

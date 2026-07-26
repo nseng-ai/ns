@@ -72,24 +72,25 @@ describe("claude handoff command", () => {
 		{ name: "rpc mode", options: { mode: "rpc" as const, hasCustomUi: true } },
 		{ name: "missing custom UI", options: { mode: "tui" as const, hasCustomUi: false } },
 	])("refuses command outside an interactive TUI: $name", async ({ options }) => {
-		const pi = new FakePi();
-		const runClaude = registerTestCommand(pi);
-		const context = createContext(options);
-		const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
+		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
+			const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
+			const runClaude = registerTestCommand(pi);
+			const context = createContext({ ...options, cwd: repoDir });
+			const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
 
-		await command.handler("focus", context.ctx);
+			await command.handler("focus", context.ctx);
 
-		pi.assertDone();
-		expect(pi.execCalls).toEqual([]);
-		expect(pi.sentUserMessages).toEqual([]);
-		expect(runClaude.invocations).toEqual([]);
-		expect(context.notifications).toEqual([
-			{
-				message:
-					"/claude:handoff requires interactive TUI mode so the terminal can be handed to Claude Code after the handoff is created.",
-				level: "error",
-			},
-		]);
+			pi.assertDone();
+			expect(pi.sentUserMessages).toEqual([]);
+			expect(runClaude.invocations).toEqual([]);
+			expect(context.notifications).toEqual([
+				{
+					message:
+						"/claude:handoff requires interactive TUI mode so the terminal can be handed to Claude Code after the handoff is created.",
+					level: "error",
+				},
+			]);
+		});
 	});
 
 	test("command prompts the current Pi session to create the handoff before launching Claude", async () => {
@@ -134,41 +135,49 @@ describe("claude handoff command", () => {
 	});
 
 	test("command prompts for focus when args are empty", async () => {
-		const pi = new FakePi([branchStep()]);
-		registerTestCommand(pi);
-		const context = createContext({
-			mode: "tui",
-			hasCustomUi: true,
-			inputResponse: "continue from handoff",
+		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
+			const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
+			registerTestCommand(pi);
+			const context = createContext({
+				mode: "tui",
+				hasCustomUi: true,
+				cwd: repoDir,
+				inputResponse: "continue from handoff",
+			});
+			const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
+
+			await command.handler("", context.ctx);
+
+			pi.assertDone();
+			expect(context.inputs).toEqual([
+				{
+					title: "What should the future session continue from this handoff?",
+					placeholder: undefined,
+				},
+			]);
+			expect(pi.sentUserMessages[0]).toContain("continue from handoff");
 		});
-		const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
-
-		await command.handler("", context.ctx);
-
-		pi.assertDone();
-		expect(context.inputs).toEqual([
-			{
-				title: "What should the future session continue from this handoff?",
-				placeholder: undefined,
-			},
-		]);
-		expect(pi.sentUserMessages[0]).toContain("continue from handoff");
 	});
 
 	test("command validates continuation focus before creating prompt", async () => {
-		const pi = new FakePi([branchStep()]);
-		const runClaude = registerTestCommand(pi);
-		const context = createContext({ mode: "tui", hasCustomUi: true });
-		const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
+		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
+			const pi = new FakePi([], [skillCommandInfo(skillPath)]);
+			const runClaude = registerTestCommand(pi);
+			const context = createContext({ mode: "tui", hasCustomUi: true, cwd: repoDir });
+			const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
 
-		await command.handler("!!!", context.ctx);
+			await command.handler("!!!", context.ctx);
 
-		pi.assertDone();
-		expect(runClaude.invocations).toEqual([]);
-		expect(pi.sentUserMessages).toEqual([]);
-		expect(context.notifications).toEqual([
-			{ message: "Continuation focus must contain at least one letter or number.", level: "error" },
-		]);
+			pi.assertDone();
+			expect(runClaude.invocations).toEqual([]);
+			expect(pi.sentUserMessages).toEqual([]);
+			expect(context.notifications).toEqual([
+				{
+					message: "Continuation focus must contain at least one letter or number.",
+					level: "error",
+				},
+			]);
+		});
 	});
 
 	test.each([
@@ -185,19 +194,21 @@ describe("claude handoff command", () => {
 	])(
 		"command does not create prompt when branch lookup fails: $name",
 		async ({ branch, message }) => {
-			const pi = new FakePi([branch]);
-			const runClaude = registerTestCommand(pi);
-			const context = createContext({ mode: "tui", hasCustomUi: true });
-			const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
+			await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
+				const pi = new FakePi([branch], [skillCommandInfo(skillPath)]);
+				const runClaude = registerTestCommand(pi);
+				const context = createContext({ mode: "tui", hasCustomUi: true, cwd: repoDir });
+				const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
 
-			await command.handler("focus", context.ctx);
+				await command.handler("focus", context.ctx);
 
-			pi.assertDone();
-			expect(runClaude.invocations).toEqual([]);
-			expect(pi.sentUserMessages).toEqual([]);
-			expect(context.tuiEvents).toEqual([]);
-			expect(context.notifications[0]?.message).toMatch(message);
-			expect(context.notifications[0]?.level).toBe("error");
+				pi.assertDone();
+				expect(runClaude.invocations).toEqual([]);
+				expect(pi.sentUserMessages).toEqual([]);
+				expect(context.tuiEvents).toEqual([]);
+				expect(context.notifications[0]?.message).toMatch(message);
+				expect(context.notifications[0]?.level).toBe("error");
+			});
 		},
 	);
 
@@ -376,7 +387,7 @@ describe("claude handoff command", () => {
 
 	test("pure helpers build create and pickup prompts and scrub env", () => {
 		const createPrompt = buildClaudeHandoffPrompt({
-			skillBlock: undefined,
+			skillBlock: "# handoff-create skill",
 			request: { branch: BRANCH, focus: "continue work" },
 			investigationSources: {
 				sourceSessionFile: "/sessions/claude-helper.jsonl",

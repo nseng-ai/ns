@@ -1,7 +1,9 @@
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import {
 	registerCommandWithImmediateAck,
 	type ImmediateCommandAckCommandRegistrar,
 } from "@nseng-ai/pi-runtime/commands/ack";
+import { notifyCommandUi } from "@nseng-ai/pi-runtime/commands/helpers";
 import type {
 	PiCommandContext,
 	PiCommandHost,
@@ -52,24 +54,23 @@ export default registerBackingSkillCommands;
 
 async function handleBackingSkillCommand(options: HandleBackingSkillCommandOptions): Promise<void> {
 	const { host, spec, args, ctx } = options;
-	await invokeRepoSkillPromptTurn({
-		host,
-		ctx,
-		skillName: spec.skillName,
-		fallbackMessage: `Could not read ${spec.skillName} backing skill; invoking without backing skill content.`,
-		successMessage: `Invoking ${spec.skillName}${args.trim().length > 0 ? " with initial context" : ""}.`,
-		buildPrompt: (skillBlock) => buildBackingSkillPrompt(spec, skillBlock, args),
-	});
+	try {
+		await invokeRepoSkillPromptTurn({
+			host,
+			ctx,
+			skillName: spec.skillName,
+			successMessage: `Invoking ${spec.skillName}${args.trim().length > 0 ? " with initial context" : ""}.`,
+			buildPrompt: (skillBlock) => buildBackingSkillPrompt(spec, skillBlock, args),
+		});
+	} catch (error) {
+		notifyCommandUi(ctx, formatErrorMessage(error), "error");
+	}
 }
 
-function buildBackingSkillPrompt(
-	spec: DerivedPiCommand,
-	skillBlock: string | undefined,
-	args: string,
-): string {
+function buildBackingSkillPrompt(spec: DerivedPiCommand, skillBlock: string, args: string): string {
 	return buildSkillInvocationPrompt({
 		skillName: spec.skillName,
 		initialRequest: args,
-		...(skillBlock === undefined ? {} : { skillBlock }),
+		skillBlock,
 	});
 }

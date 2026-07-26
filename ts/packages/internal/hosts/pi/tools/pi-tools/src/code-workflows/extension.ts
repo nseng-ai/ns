@@ -1,4 +1,6 @@
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
+import { notifyCommandUi } from "@nseng-ai/pi-runtime/commands/helpers";
 import {
 	buildSkillInvocationPrompt,
 	invokeRepoSkillPromptTurn,
@@ -228,22 +230,25 @@ export async function invokeGhCiDebugWorkflow(
 	args: string,
 	invokePromptTurn: InvokeCodeWorkflowPromptTurn = invokeRepoSkillPromptTurn,
 ): Promise<void> {
-	await invokePromptTurn({
-		host: pi,
-		ctx,
-		skillName: CODE_WORKFLOWS_SKILL_NAME,
-		successMessage: `Invoking ${GH_CI_DEBUG_COMMAND_NAME}.`,
-		fallbackMessage: `Could not load ${CODE_WORKFLOWS_SKILL_NAME} backing skill; invoking ${GH_CI_DEBUG_COMMAND_NAME} by name.`,
-		buildPrompt: (skillBlock) => buildGhCiDebugPrompt(skillBlock, args),
-	});
+	try {
+		await invokePromptTurn({
+			host: pi,
+			ctx,
+			skillName: CODE_WORKFLOWS_SKILL_NAME,
+			successMessage: `Invoking ${GH_CI_DEBUG_COMMAND_NAME}.`,
+			buildPrompt: (skillBlock) => buildGhCiDebugPrompt(skillBlock, args),
+		});
+	} catch (error) {
+		notifyCommandUi(ctx, formatErrorMessage(error), "error");
+	}
 }
 
-export function buildGhCiDebugPrompt(skillBlock: string | undefined, args: string): string {
+export function buildGhCiDebugPrompt(skillBlock: string, args: string): string {
 	return buildSkillInvocationPrompt({
 		skillName: CODE_WORKFLOWS_SKILL_NAME,
 		route: GH_CI_DEBUG_ROUTE,
 		initialRequest: args,
-		...(skillBlock === undefined ? {} : { skillBlock }),
+		skillBlock,
 	});
 }
 

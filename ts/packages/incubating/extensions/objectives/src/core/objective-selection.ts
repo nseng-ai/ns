@@ -9,20 +9,19 @@ export interface ObjectiveSelectionSpec {
 }
 
 export interface ObjectiveSkillPromptSpec {
-	fallbackPrompt: string;
 	actionPrompt: string;
 }
 
 export interface BuildObjectiveSkillPromptOptions {
 	spec: ObjectiveSkillPromptSpec;
-	skillBlock: string | undefined;
+	skillBlock: string;
 	objective: string;
 	postSelectionReminder?: string;
 }
 
 export function buildObjectiveSkillPrompt(options: BuildObjectiveSkillPromptOptions): string {
 	const { spec, skillBlock, objective, postSelectionReminder = "" } = options;
-	return `${skillBlock ?? spec.fallbackPrompt}
+	return `${skillBlock}
 
 ${spec.actionPrompt}
 
