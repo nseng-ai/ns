@@ -2,7 +2,7 @@
 
 Read this before creating a workspace package, declaring or renaming entries in `ns.subpackages`, adding `exports` entries to a container package, or restructuring a container package's `src/` layout.
 
-Decision record: ADR 0022 (container packages, manifest-declared subpackages), ADR 0023 (subpackage kinds, edge-significance rank), and ADR 0032 (multiple API-kind subpackages, single-tier packages). Canonical vocabulary: the package-topology cluster in the root `CONTEXT.md`.
+Decision record: ADR 0023 (manifest-declared subpackages, subpackage kinds, edge-significance rank, and multiple API-kind subpackages) and ADR 0032 (Neutral Infra admission). Canonical vocabulary: the package-topology cluster in the root `CONTEXT.md`.
 
 ## The rank test
 
@@ -41,7 +41,7 @@ A package lives in a single tier: `ns.tier` is the tier for the package and ever
 
 ## Adding or consolidating
 
-When adding a subpackage: state its kind, confirm it passes the rank test, root it at `src/<name>/`, declare it in `ns.subpackages`, and keep every `exports` subpath resolving inside a declared subpackage (multiple export subpaths may belong to one subpackage); the TypeScript style guard enforces this via `NS_TS_EXPORTS_SUBPACKAGE_CONFORMANCE`. A container package mid-conversion may declare `ns.remainder: true` per ADR 0022; a properly formed container has no remainder.
+When adding a subpackage: state its kind, confirm it passes the rank test, root it at `src/<name>/`, declare it in `ns.subpackages`, and keep every `exports` subpath resolving inside a declared subpackage (multiple export subpaths may belong to one subpackage); the TypeScript style guard enforces this via `NS_TS_EXPORTS_SUBPACKAGE_CONFORMANCE`. A container package mid-conversion may declare `ns.remainder: true` per ADR 0023; a properly formed container has no remainder.
 
 When consolidating an existing package:
 

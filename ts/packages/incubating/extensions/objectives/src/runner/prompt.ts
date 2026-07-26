@@ -62,7 +62,7 @@ export interface BuildRunnerChildPromptOptions {
  * Deliberately thin: it points the child at the Objective record and the
  * repo's existing workflows/skills instead of inlining Objective content, and
  * it carries no tracking-update instruction — Semantic Update judgment
- * belongs to the parent (ADR 0040).
+ * belongs to the parent (ADR 0024).
  */
 export function buildRunnerChildPrompt(options: BuildRunnerChildPromptOptions): string {
 	const parts = [

@@ -61,7 +61,7 @@ Command shape:
 - Emit JSON to stdout. Logs go stderr.
 - Use the project CLI framework's result envelope when one exists — in this
   repo, the Clinkr status-keyed envelope (see `ns-cli-design` hard gates /
-  ADR 0011) — including its error and exit-code semantics.
+  ADR 0010) — including its error and exit-code semantics.
 - Fallback shape only when the project has no framework envelope: top level
   includes `success: bool`; failure includes `error.message` (+ `error.code`
   when useful).

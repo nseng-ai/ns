@@ -1,11 +1,11 @@
 # ji naming brief
 
-> Superseded 2026-07-03 by [docs/ns-naming-brief.md](ns-naming-brief.md) and [ADR 0026](adr/0026-rename-ji-to-ns.md); the historical narrative below is preserved verbatim.
+> Superseded 2026-07-03 by [docs/ns-naming-brief.md](ns-naming-brief.md) and [ADR 0026](adr/0026-rename-ji-to-ns.md); the historical narrative below is preserved except for its obsolete authority locator.
 
 The naming story and brand rationale for **ji**, the product formerly named SDL ("Source
-Development Lifecycle"). The binding verdicts — the casing rule, the accepted collisions,
-the npm package plan — live in [ADR 0041](adr/0041-rename-sdl-to-ji.md); this brief is the
-deliberation and the narrative, and it is the only in-repo home for the marketing story.
+Development Lifecycle"). The binding verdicts recorded for ji were historical and are preserved in this brief;
+[ADR 0026](adr/0026-rename-ji-to-ns.md) is the current naming authority. This brief is
+the deliberation and the narrative, and it is the only in-repo home for the ji marketing story.
 
 ## The spine
 
