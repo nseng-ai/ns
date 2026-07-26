@@ -156,10 +156,17 @@ const EXPECTED_SKILL_LOAD = {
 	skillName: "code-gt-restack-resolve",
 } as const;
 
-function recordingSkillLoader(calls: SkillLoadCall[], events?: string[]): LoadRestackSkillBlock {
-	return async (options) => {
-		calls.push({ ...options });
-		events?.push("load-skill");
+class RecordingSkillLoader {
+	readonly calls: SkillLoadCall[] = [];
+	private readonly events: string[];
+
+	constructor(events: string[] = []) {
+		this.events = events;
+	}
+
+	readonly loadSkillBlock: LoadRestackSkillBlock = async (options) => {
+		this.calls.push({ ...options });
+		this.events.push("load-skill");
 		return { block: SKILL_BLOCK };
 	};
 }
@@ -172,7 +179,7 @@ async function run(options: {
 	args?: string;
 	preflightResult?: SmartRestackPreflightResult;
 	loadSkill?: LoadRestackSkillBlock;
-	skillLoadCalls?: SkillLoadCall[];
+	skillLoader?: RecordingSkillLoader;
 }): Promise<FakeCommandContext> {
 	const ctx = options.ctx ?? new FakeCommandContext();
 	await runSmartRestack({
@@ -180,11 +187,7 @@ async function run(options: {
 		ctx,
 		args: options.args ?? "",
 		runPreflight: preflight(options.preflightResult ?? { type: "ready" }),
-		loadSkillBlock:
-			options.loadSkill ??
-			(options.skillLoadCalls === undefined
-				? loadSkillBlock
-				: recordingSkillLoader(options.skillLoadCalls)),
+		loadSkillBlock: options.loadSkill ?? options.skillLoader?.loadSkillBlock ?? loadSkillBlock,
 	});
 	return ctx;
 }
@@ -193,10 +196,10 @@ describe("smart restack extension registration", () => {
 	test("registers the stable command and acknowledges before idle wait and command I/O", async () => {
 		const events: string[] = [];
 		const pi = new FakePi([rawResult({ stdout: "Already up to date\n" })], events);
-		const skillLoadCalls: SkillLoadCall[] = [];
+		const skillLoader = new RecordingSkillLoader(events);
 		smartRestackExtension(pi, {
 			runPreflight: preflight({ type: "ready" }, events),
-			loadSkillBlock: recordingSkillLoader(skillLoadCalls, events),
+			loadSkillBlock: skillLoader.loadSkillBlock,
 		});
 		const command = pi.commands.get(SMART_RESTACK_COMMAND_NAME);
 		if (command === undefined) throw new Error("missing command");
@@ -218,7 +221,7 @@ describe("smart restack extension registration", () => {
 			"message:ns-command-progress",
 			"exec:gt restack",
 		]);
-		expect(skillLoadCalls).toEqual([EXPECTED_SKILL_LOAD]);
+		expect(skillLoader.calls).toEqual([EXPECTED_SKILL_LOAD]);
 		expect(events.indexOf(`message:${IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE}`)).toBeLessThan(
 			events.indexOf("exec:gt restack"),
 		);
@@ -371,16 +374,16 @@ describe("smart restack default preflight wiring", () => {
 describe("smart restack workflow", () => {
 	test("rebase preflight skips gt restack and starts the resolver", async () => {
 		const pi = new FakePi();
-		const skillLoadCalls: SkillLoadCall[] = [];
+		const skillLoader = new RecordingSkillLoader();
 
 		await run({
 			pi,
 			args: "continue carefully",
 			preflightResult: { type: "rebase-in-progress" },
-			skillLoadCalls,
+			skillLoader,
 		});
 
-		expect(skillLoadCalls).toEqual([EXPECTED_SKILL_LOAD]);
+		expect(skillLoader.calls).toEqual([EXPECTED_SKILL_LOAD]);
 		expect(pi.execCalls).toEqual([]);
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(pi.sentUserMessages[0]).toContain(
@@ -391,11 +394,11 @@ describe("smart restack workflow", () => {
 
 	test("ready preflight runs the deterministic fast path and stops without an LM turn on success", async () => {
 		const pi = new FakePi([rawResult({ stdout: "Already up to date\n" })]);
-		const skillLoadCalls: SkillLoadCall[] = [];
+		const skillLoader = new RecordingSkillLoader();
 
-		const ctx = await run({ pi, skillLoadCalls });
+		const ctx = await run({ pi, skillLoader });
 
-		expect(skillLoadCalls).toEqual([EXPECTED_SKILL_LOAD]);
+		expect(skillLoader.calls).toEqual([EXPECTED_SKILL_LOAD]);
 		expect(pi.execCalls).toEqual([{ command: "gt", args: ["restack"], cwd: "/repo" }]);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain("No LM turn was started");
@@ -403,15 +406,15 @@ describe("smart restack workflow", () => {
 
 	test("refused preflight never runs gt restack", async () => {
 		const pi = new FakePi();
-		const skillLoadCalls: SkillLoadCall[] = [];
+		const skillLoader = new RecordingSkillLoader();
 
 		const ctx = await run({
 			pi,
 			preflightResult: { type: "refused", message: "repository state is ambiguous" },
-			skillLoadCalls,
+			skillLoader,
 		});
 
-		expect(skillLoadCalls).toEqual([EXPECTED_SKILL_LOAD]);
+		expect(skillLoader.calls).toEqual([EXPECTED_SKILL_LOAD]);
 		expect(pi.execCalls).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.notifications).toEqual([
@@ -422,11 +425,11 @@ describe("smart restack workflow", () => {
 	test("failed fast path starts the resolver only after explicit selection", async () => {
 		const pi = new FakePi([rawResult({ code: 1, stderr: "CONFLICT\n" })]);
 		const ctx = new FakeCommandContext({ selection: "Start LM resolver" });
-		const skillLoadCalls: SkillLoadCall[] = [];
+		const skillLoader = new RecordingSkillLoader();
 
-		await run({ pi, ctx, args: "prefer parent stack", skillLoadCalls });
+		await run({ pi, ctx, args: "prefer parent stack", skillLoader });
 
-		expect(skillLoadCalls).toEqual([EXPECTED_SKILL_LOAD]);
+		expect(skillLoader.calls).toEqual([EXPECTED_SKILL_LOAD]);
 		expect(pi.execCalls).toEqual([{ command: "gt", args: ["restack"], cwd: "/repo" }]);
 		expect(ctx.selectCalls).toEqual([
 			{
@@ -444,11 +447,11 @@ describe("smart restack workflow", () => {
 	test("aborts rebase only after the explicit abort selection", async () => {
 		const pi = new FakePi([rawResult({ code: 1, stderr: "CONFLICT\n" }), rawResult()]);
 		const ctx = new FakeCommandContext({ selection: "Abort rebase" });
-		const skillLoadCalls: SkillLoadCall[] = [];
+		const skillLoader = new RecordingSkillLoader();
 
-		await run({ pi, ctx, skillLoadCalls });
+		await run({ pi, ctx, skillLoader });
 
-		expect(skillLoadCalls).toEqual([EXPECTED_SKILL_LOAD]);
+		expect(skillLoader.calls).toEqual([EXPECTED_SKILL_LOAD]);
 		expect(pi.execCalls).toEqual([
 			{ command: "gt", args: ["restack"], cwd: "/repo" },
 			{ command: "git", args: ["rebase", "--abort"], cwd: "/repo" },
@@ -465,11 +468,11 @@ describe("smart restack workflow", () => {
 		const pi = new FakePi([rawResult({ code: 1, stderr: "CONFLICT\n" })]);
 		const ctx =
 			selection === undefined ? new FakeCommandContext() : new FakeCommandContext({ selection });
-		const skillLoadCalls: SkillLoadCall[] = [];
+		const skillLoader = new RecordingSkillLoader();
 
-		await run({ pi, ctx, skillLoadCalls });
+		await run({ pi, ctx, skillLoader });
 
-		expect(skillLoadCalls).toEqual([EXPECTED_SKILL_LOAD]);
+		expect(skillLoader.calls).toEqual([EXPECTED_SKILL_LOAD]);
 		expect(pi.execCalls).toEqual([{ command: "gt", args: ["restack"], cwd: "/repo" }]);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain(expected);
@@ -478,11 +481,11 @@ describe("smart restack workflow", () => {
 	test("failed fast path does not start a turn or abort without selection UI", async () => {
 		const pi = new FakePi([rawResult({ code: 1, stderr: "failed\n" })]);
 		const ctx = new FakeCommandContext({ hasUI: false, withSelector: false });
-		const skillLoadCalls: SkillLoadCall[] = [];
+		const skillLoader = new RecordingSkillLoader();
 
-		await run({ pi, ctx, skillLoadCalls });
+		await run({ pi, ctx, skillLoader });
 
-		expect(skillLoadCalls).toEqual([EXPECTED_SKILL_LOAD]);
+		expect(skillLoader.calls).toEqual([EXPECTED_SKILL_LOAD]);
 		expect(pi.execCalls).toEqual([{ command: "gt", args: ["restack"], cwd: "/repo" }]);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.notifications).toEqual([
@@ -493,17 +496,17 @@ describe("smart restack workflow", () => {
 	test("missing sendUserMessage fails safely after loading the skill", async () => {
 		const pi = new FakePi();
 		Object.defineProperty(pi, "sendUserMessage", { value: undefined });
-		const skillLoadCalls: SkillLoadCall[] = [];
+		const skillLoader = new RecordingSkillLoader();
 		const ctx = new FakeCommandContext();
 
 		await run({
 			pi,
 			ctx,
 			preflightResult: { type: "rebase-in-progress" },
-			skillLoadCalls,
+			skillLoader,
 		});
 
-		expect(skillLoadCalls).toEqual([EXPECTED_SKILL_LOAD]);
+		expect(skillLoader.calls).toEqual([EXPECTED_SKILL_LOAD]);
 		expect(pi.execCalls).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)).toEqual({
