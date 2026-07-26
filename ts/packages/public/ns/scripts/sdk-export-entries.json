@@ -1,0 +1,18 @@
+{
+	"sdk/sdk": {
+		"host": "src/sdk/sdk.ts",
+		"sdk": "public/sdk/src/sdk/index.ts"
+	},
+	"sdk/cli": {
+		"host": "src/sdk/cli.ts",
+		"sdk": "public/sdk/src/cli/index.ts"
+	},
+	"sdk/command-io": {
+		"host": "src/sdk/command-io.ts",
+		"sdk": "public/sdk/src/runtime/command-io.ts"
+	},
+	"sdk/context": {
+		"host": "src/sdk/context.ts",
+		"sdk": "public/sdk/src/cli/context.ts"
+	}
+}

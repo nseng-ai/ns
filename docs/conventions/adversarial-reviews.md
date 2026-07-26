@@ -66,7 +66,7 @@ sources and its regeneration procedure end to end. The block records:
 
   ```bash
   dprint check .ns/reviews/<key>/review.md
-  pnpm --dir ts exec vitest run packages/incubator/reviews/test/unit/review-definition.test.ts
+  pnpm --dir ts exec vitest run packages/incubating/extensions/reviews/test/unit/review-definition.test.ts
   ```
 
 The frontmatter below the block must remain loadable by the Reviews extension;

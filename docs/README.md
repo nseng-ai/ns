@@ -17,7 +17,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 
 - [ADR maintenance policy](adr/README.md): how to preserve accepted ADRs while keeping mutable guidance current.
 - [Points guide](guides/points.md): user-facing guide to the point system — installing hooks and prompts via `ns.toml`/`.ns/prompts/`, and defining points in extension descriptors.
-- [Writing an ns extension](../ts/packages/sdk/docs/writing-an-ns-extension.md): extension-author package layout, typed descriptor modules, command modules, points, bundled artifacts, activation, and initialized-project installation from explicit `npm:` or local source specs with `ns extension install`.
+- [Writing an ns extension](../ts/packages/public/sdk/docs/writing-an-ns-extension.md): extension-author package layout, typed descriptor modules, command modules, points, bundled artifacts, activation, and initialized-project installation from explicit `npm:` or local source specs with `ns extension install`.
 - [Objective system](objective-system.md): how checked-in Objectives structure durable project work.
 - [Follow-ups](follow-ups/README.md): point-in-time candidate ideas that need revalidation and further formation before becoming Objectives.
 - [Pi docs](pi/README.md): Pi-specific notes used by this repo.
@@ -30,7 +30,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Matt Pocock Skills upstream adaptation](agents/matt-pocock-skills.md): imported Matt-sourced skills, ns-owned overlays, invocation semantics, and future update checklist.
 - [Conflict resolution by thesis reapplication](patterns/thesis-reapplication.md): how to land a branch whose history can no longer be replayed by re-applying its intent against the current baseline, instead of rebasing or resolving conflicts.
 - [Package extraction refactors](patterns/package-extraction-refactors.md): checklist for moving code into a new package while preserving dependency direction, public import boundaries, tests, docs, and validation evidence.
-- [Reviews package README](../ts/packages/incubator/reviews/README.md): how to configure `.ns/reviews/<key>/review.md`, run Reviews locally, and understand CI discovery/execution.
+- [Reviews package README](../ts/packages/incubating/extensions/reviews/README.md): how to configure `.ns/reviews/<key>/review.md`, run Reviews locally, and understand CI discovery/execution.
 - [Reviews and `@pierre/diffs`](reviews-pierre-diffs.md): the reviews diff-parser integration boundary, Pierre APIs used, APIs deliberately not used, and accepted semantic changes from delegating to Pierre.
 - [XDG Base Directory Specification](research/xdg-base-directory-spec.md): where programs read/write config, data, state, cache, and runtime files; the env-var defaults and rules; and how the standard relates to ns's git-native storage principle.
 

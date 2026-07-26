@@ -194,10 +194,10 @@ strings or fake writer calls. Keep terminal time deterministic, model actual and
 as separate values, and flush asynchronous terminal writes before asserting.
 
 See
-[`packages/infra/clinkr/docs/terminal-integration-testing.md`](packages/infra/clinkr/docs/terminal-integration-testing.md)
+[`packages/public/infra/clinkr/docs/terminal-integration-testing.md`](packages/public/infra/clinkr/docs/terminal-integration-testing.md)
 for the standard harness shape, PTY newline model, scenario matrix, assertion strategy, debugging workflow,
 and limitations. The reference test is
-[`packages/infra/clinkr/test/integration/stream-terminal-emulation.test.ts`](packages/infra/clinkr/test/integration/stream-terminal-emulation.test.ts).
+[`packages/public/infra/clinkr/test/integration/stream-terminal-emulation.test.ts`](packages/public/infra/clinkr/test/integration/stream-terminal-emulation.test.ts).
 
 ## Default-path test expectations
 

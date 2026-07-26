@@ -2,10 +2,10 @@
 
 Concrete `@nseng-ai/clinkr` surfaces behind each `ns-cli-design` rule, plus ADR
 rationale. Symbols are exported from `@nseng-ai/clinkr`
-(`ts/packages/infra/clinkr/src/index.ts`). File:line anchors in audits may drift;
+(`ts/packages/public/infra/clinkr/src/index.ts`). File:line anchors in audits may drift;
 re-grep before quoting line numbers.
 
-## Outcome constructors and machine envelope (`ts/packages/infra/clinkr/src/exit.ts`)
+## Outcome constructors and machine envelope (`ts/packages/public/infra/clinkr/src/exit.ts`)
 
 Result constructors — return these from a handler; never call `process.exit`:
 
@@ -43,7 +43,7 @@ publishes the machine-envelope schema (`json-schema.ts`), so a typed
 `resultSchema` is how agents learn the contract. `envelopeJsonText` serializes
 pretty two-space JSON.
 
-## Interaction (`ts/packages/infra/clinkr/src/confirmation.ts`)
+## Interaction (`ts/packages/public/infra/clinkr/src/confirmation.ts`)
 
 `ClinkrInteraction` is the whole confirmation surface for this slice:
 
@@ -61,7 +61,7 @@ There is deliberately no danger-tier enum, confirmation-policy metadata,
 framework `--yes`/`--force`/`--dry-run`, or typed-preview type. Those are
 command-local options plus the tier discipline in `SKILL.md`.
 
-## Command structure (`ts/packages/infra/clinkr/src/group.ts`)
+## Command structure (`ts/packages/public/infra/clinkr/src/group.ts`)
 
 - `ClinkrGroup` — command group; construct hidden agent-only subgroups with
   `isHidden: true` (`ClinkrGroupOptions.isHidden`). The subgroup stays invocable;
@@ -71,7 +71,7 @@ command-local options plus the tier discipline in `SKILL.md`.
 - Treat groups as configured at construction/registration time; do not mutate
   hidden state after construction.
 
-## Raw exit (`ts/packages/infra/clinkr/src/raw/index.ts` and `group.ts`)
+## Raw exit (`ts/packages/public/infra/clinkr/src/raw/index.ts` and `group.ts`)
 
 - `rawCommand(...)` marks a command spec with `isRawExit: true`.
 - Raw execution opts out of the envelope, `resultSchema`, and `--json-schema`.

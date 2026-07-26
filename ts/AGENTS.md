@@ -1,6 +1,6 @@
 # TypeScript Agent Instructions (`ts/`)
 
-Rules for working under `ts/`, the pnpm workspace holding the ns first-party TypeScript packages. Read this before editing any `.ts` file here. Deeper packages may add their own nested `AGENTS.md` (for example `ts/packages/incubator/herdr/AGENTS.md`); read the nearest applicable one as well. Repo-wide rules and orientation live in the root `AGENTS.md`.
+Rules for working under `ts/`, the pnpm workspace holding the ns first-party TypeScript packages. Read this before editing any `.ts` file here. Deeper packages may add their own nested `AGENTS.md` (for example `ts/packages/incubating/extensions/herdr/AGENTS.md`); read the nearest applicable one as well. Repo-wide rules and orientation live in the root `AGENTS.md`.
 
 ## TypeScript
 
@@ -39,7 +39,7 @@ Before creating a workspace package, declaring or renaming `ns.subpackages` entr
 
 ## Time seams
 
-Do not add raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, or wall-clock reads in ji-owned TypeScript logic. Inject/use `Clock` from `@nseng-ai/foundation/clock` for wall-clock reads and `TimerScheduler` / `ScheduledTimer` from `@nseng-ai/foundation/timers` for scheduling, cancellation, and awaited delays. Concrete system adapters (`systemClock`, `systemTimerScheduler`) live in `@nseng-ai/foundation/time`; manual test fakes (`createManualClock()`, `createManualTimerScheduler()`, and related harnesses) live in `@nseng-ai/foundation/time/testing`. Use `unrefTimerScheduler` from `@nseng-ai/pi/shared/timers` for Pi host background timers that must not keep the process alive. Raw timers belong in timer adapter modules or narrowly justified tests/integration smoke; the TypeScript style guard rejects raw production timers and `node:timers/promises` imports outside those homes (`NS_TS_BAN_RAW_PRODUCTION_TIMERS`).
+Do not add raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, or wall-clock reads in ji-owned TypeScript logic. Inject/use `Clock` from `@nseng-ai/foundation/clock` for wall-clock reads and `TimerScheduler` / `ScheduledTimer` from `@nseng-ai/foundation/timers` for scheduling, cancellation, and awaited delays. Concrete system adapters (`systemClock`, `systemTimerScheduler`) live in `@nseng-ai/foundation/time`; manual test fakes (`createManualClock()`, `createManualTimerScheduler()`, and related harnesses) live in `@nseng-ai/foundation/time/testing`. Use `unrefTimerScheduler` from `@nseng-ai/pi-runtime/shared/timers` for Pi host background timers that must not keep the process alive. Raw timers belong in timer adapter modules or narrowly justified tests/integration smoke; the TypeScript style guard rejects raw production timers and `node:timers/promises` imports outside those homes (`NS_TS_BAN_RAW_PRODUCTION_TIMERS`).
 
 ## TypeScript style guard
 

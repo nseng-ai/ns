@@ -8,7 +8,7 @@ ns is **self-hosting**: the same `ns` repo that **develops** the platform is als
 
 Ask which of these you are doing:
 
-- **Platform (developer hat):** changing an *extension* — the engine, loader, CLI, or storage contract that many instances depend on. Lives in `ts/packages/*` (for example `ts/packages/incubator/reviews`, `ts/packages/incubator/objectives`), is tested, and ships to every consumer of that extension.
+- **Platform (developer hat):** changing an *extension* — the engine, loader, CLI, or storage contract that many instances depend on. Lives in `ts/packages/*` (for example `ts/packages/incubating/extensions/reviews`, `ts/packages/incubating/extensions/objectives`), is tested, and ships to every consumer of that extension.
 - **Consumer (consumer hat):** changing an *instance* — one concrete artifact that an extension loads and runs. Lives in `.ns/*` (for example a single `.ns/reviews/<slug>/review.md` review or a `.ns/objectives/<slug>/` objective). It is configuration and content, not extension.
 
 Rule of thumb: if your change alters what the tool *can do*, it is platform; if it alters one thing the tool *is currently doing to this repo*, it is consumer.
@@ -23,12 +23,12 @@ Live example: for a review-specific detector tool, the fork was (1) build it as 
 
 ## The middle rung: tested consumer tooling (`packages/internal/*`)
 
-Not every tested package is platform. Between the two hats sits a third rung: **consumer-side tested tooling** — tested workspace packages under the reserved `@internal/*` scope that live in `ts/packages/internal/*`. They wear the consumer hat (they exist only to operate this repo) but are package-grade code rather than `.ns/*` content, and they are *not* platform surface. The charter for the space lives in [`ts/packages/README.md`](../../ts/packages/README.md).
+Not every tested package is platform. Between the two hats sits a third rung: **consumer-side tested tooling** — tested workspace packages under the reserved `@internal/*` scope that live under the `ts/packages/internal/` disposition root (owner-nested, for example `internal/dev/*` and `internal/hosts/*`). They wear the consumer hat (they exist only to operate this repo) but are package-grade code rather than `.ns/*` content, and they are *not* platform surface. The charter for the space lives in [`ts/packages/README.md`](../../ts/packages/README.md).
 
 The rung defines two promotion paths:
 
 - **In (from `.ns/*`):** a consumer-side `.ns/*` prototype that has outgrown in-place prototyping graduates into `packages/internal/*`, becoming a tested workspace citizen. This is the concrete first stop of the **explicit promotion path** the decision rule requires — the path back to a package does not have to jump straight to platform.
-- **Out (to platform):** an internal package that earns platform status — deterministic, reused, reliable enough that other consumers should depend on it — graduates to a platform package (`ts/packages/*` outside `internal/`) and leaves the space.
+- **Out (to platform):** an internal package that earns platform status — deterministic, reused, reliable enough that other consumers should depend on it — graduates to a platform package under a released disposition root (`ts/packages/public/*` or `ts/packages/incubating/*`) and leaves the space.
 
 The boundary that keeps the rung honest: internal packages have **no outside runtime dependents**, enforced by the style-guard rule `NS_TS_INTERNAL_SPACE_ADMISSION`, and are **never published**. Consumption from outside the space is limited to `devDependencies` and test-only use. When code inside `internal/` genuinely needs runtime dependents outside the space, that is the signal it has earned the platform rung — promote it out rather than piercing the boundary.
 

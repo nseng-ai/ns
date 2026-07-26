@@ -1,4 +1,4 @@
-import prExtension from "../../ts/packages/hosts/pi/src/core/pr/extension.ts";
+import prExtension from "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/core/pr/extension.ts";
 import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
 
 const prFeedbackWatchExtension = await importTypeScriptWorkspaceDefault(

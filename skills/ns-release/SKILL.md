@@ -14,7 +14,7 @@ Operate the transactional public npm release. One command does the whole
 release; this skill's job is to pick the right version, confirm it with the
 user, drive the command, and read its refusals correctly.
 
-Implementation lives in `ts/packages/internal/ns-dev/src/release/`. Do not
+Implementation lives in `ts/packages/internal/dev/ns-dev/src/release/`. Do not
 reimplement any stage by hand — the transaction's safety properties come from
 running it end to end.
 
@@ -46,7 +46,7 @@ The public packages share one coordinated version. Derive the current state
 rather than assuming it:
 
 ```bash
-rg -o '"version": "[^"]+"' ts/packages/hosts/ns/package.json   # what the workspace declares
+rg -o '"version": "[^"]+"' ts/packages/public/ns/package.json   # what the workspace declares
 npm view @nseng-ai/ns version                                   # what npm actually has
 ```
 

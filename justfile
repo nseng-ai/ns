@@ -50,8 +50,6 @@ _ts-workspace-ready:
         if [ "$ts_dir/package.json" -nt "$stamp" ] || [ "$ts_dir/pnpm-lock.yaml" -nt "$stamp" ] || [ "$ts_dir/pnpm-workspace.yaml" -nt "$stamp" ]; then return 0; fi; \
         if find "$ts_dir/packages" -name package.json -not -path '*/node_modules/*' -newer "$stamp" -print -quit | grep -q .; then return 0; fi; \
         if [ -d "$ts_dir/patches" ] && find "$ts_dir/patches" -type f -newer "$stamp" -print -quit | grep -q .; then return 0; fi; \
-        if [ -d "$root/.ns/reviews" ] && find "$root/.ns/reviews" -path '*/tools/*/package.json' -newer "$stamp" -print -quit | grep -q .; then return 0; fi; \
-        if [ -d "$root/.ns/extensions" ] && find "$root/.ns/extensions" -mindepth 2 -maxdepth 2 -name package.json -newer "$stamp" -print -quit | grep -q .; then return 0; fi; \
         return 1; \
       }; \
       if [ -f "$ts_dir/node_modules/.modules.yaml" ] && [ -f "$stamp" ] && ! inputs_changed; then \
@@ -152,7 +150,7 @@ release VERSION *args: _ts-workspace-ready
 # The source @nseng-ai/ns manifest no longer advertises a workspace bin.
 # Remove legacy links left by the earlier package layout during safe upgrades;
 # ts/node_modules/.bin commonly precedes ~/.local/bin on PATH.
-install-ns: (_install-ts-shim "ns" "ts/packages/hosts/ns/src/cli.ts" "just install-ns or just install-tools")
+install-ns: (_install-ts-shim "ns" "ts/packages/public/ns/src/cli.ts" "just install-ns or just install-tools")
     rm -f "{{justfile_directory()}}/ts/node_modules/.bin/ns"
     @echo "removed stale workspace ns shim if present"
     rm -f "{{justfile_directory()}}/.venv/bin/ns"
@@ -161,19 +159,19 @@ install-ns: (_install-ts-shim "ns" "ts/packages/hosts/ns/src/cli.ts" "just insta
 # Install the brmem shim to ~/.local/bin so `brmem` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
-install-brmem: (_install-ts-shim "brmem" "ts/packages/infra/brmem/src/cli.ts" "just install-brmem or just install-tools")
+install-brmem: (_install-ts-shim "brmem" "ts/packages/public/infra/brmem/src/cli.ts" "just install-brmem or just install-tools")
 
 # Install the vibechk shim to ~/.local/bin so `vibechk` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
-install-vibechk: (_install-ts-shim "vibechk" "ts/packages/tools/vibechk/src/cli.ts" "just install-vibechk or just install-tools")
+install-vibechk: (_install-ts-shim "vibechk" "ts/packages/incubating/tools/vibechk/src/cli.ts" "just install-vibechk or just install-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/vibechk"
     @echo "removed stale project venv vibechk script if present"
 
 # Install the packagechk shim to ~/.local/bin so `packagechk` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
-install-packagechk: (_install-ts-shim "packagechk" "ts/packages/tools/packagechk/src/cli.ts" "just install-packagechk or just install-tools")
+install-packagechk: (_install-ts-shim "packagechk" "ts/packages/public/tools/packagechk/src/cli.ts" "just install-packagechk or just install-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/packagechk"
     @echo "removed stale project venv packagechk script if present"
 
@@ -205,7 +203,7 @@ _remove-stale-branch-context-bin:
 objective-check: _ts-workspace-ready _objective-check
 
 _objective-check:
-    node {{justfile_directory()}}/ts/packages/hosts/ns/src/cli.ts objective check --all
+    node {{justfile_directory()}}/ts/packages/public/ns/src/cli.ts objective check --all
 
 # Repo-wide Skill Exposure Policy sweep. Discovery belongs to this consumer
 # gate; the extension itself intentionally accepts only explicit skill paths.
@@ -221,7 +219,7 @@ skill-exposure-check: _ts-workspace-ready
       done; \
       if [ "$#" -eq 0 ]; then echo "No skills found for exposure check." >&2; exit 1; fi; \
       cd "$root"; \
-      node "$root/ts/packages/hosts/ns/src/cli.ts" skill-exposure check "$@"
+      node "$root/ts/packages/public/ns/src/cli.ts" skill-exposure check "$@"
 
 # Render the architecture topology report (raw inventory) and open it. No agent
 # in the loop — extracts the package graph and renders from a synthesized spec.

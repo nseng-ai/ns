@@ -1,3 +1,3 @@
 import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
 
-export default await importTypeScriptWorkspaceDefault("@nseng-ai/pi/worktree-status/extension");
+export default await importTypeScriptWorkspaceDefault("@nseng-ai/pi-runtime/worktree-status/extension");

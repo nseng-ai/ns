@@ -5,7 +5,7 @@ platform behavior. Extension authors **define** points; repo consumers **install
 hooks or prompts at them. This guide covers both roles.
 
 Durable design rationale lives in [ADR 0031](../adr/0031-point-system.md);
-canonical vocabulary lives in [`ts/packages/sdk/CONTEXT.md`](../../ts/packages/sdk/CONTEXT.md).
+canonical vocabulary lives in [`ts/packages/public/sdk/CONTEXT.md`](../../ts/packages/public/sdk/CONTEXT.md).
 
 ## The model in one minute
 
@@ -182,7 +182,7 @@ Consume hook points:
   command strings. The workflow owns execution: whitespace-split each entry into
   an argv, run sequentially with no shell, abort the surrounding step on first
   failure. `ns flow submit` pre-checks are the production example
-  (`ts/packages/incubator/flow/src/submit/submit-hooks.ts`).
+  (`ts/packages/incubating/extensions/flow/src/submit/submit-hooks.ts`).
 
 Consume prompt points:
 

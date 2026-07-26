@@ -1,7 +1,8 @@
 ---
 # Provenance (standalone): first-party tripwire owned end to end by ns. Its
 # sources are this review's own assets — the canonical inventory under
-# `references/canonicals/` and the scanner in `tools/scan-reinvention` — and
+# `references/canonicals/` and the scanner package
+# `@internal/review-reinvention-scanner` — and
 # the `reinvented-abstractions-tripwire` skill stub is a first-party symlink.
 # Its final-judgment sibling is `dry-but-not-too-dry`: this tripwire is the
 # cheap scout that emits investigation leads; that review makes consolidation
@@ -14,10 +15,10 @@
 # accepted by Reviews, and then run:
 #
 #   dprint check .ns/reviews/reinvented-abstractions-tripwire/review.md
-#   pnpm --dir .ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention --config.verify-deps-before-run=false run check
-#   pnpm --dir .ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention --config.verify-deps-before-run=false run test
-#   pnpm --dir .ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention --config.verify-deps-before-run=false run test:integration
-#   pnpm --dir ts exec vitest run packages/incubator/reviews/test/unit/review-definition.test.ts
+#   pnpm --dir ts --filter @internal/review-reinvention-scanner --config.verify-deps-before-run=false run check
+#   pnpm --dir ts --filter @internal/review-reinvention-scanner --config.verify-deps-before-run=false run test
+#   pnpm --dir ts --filter @internal/review-reinvention-scanner --config.verify-deps-before-run=false run test:integration
+#   pnpm --dir ts exec vitest run packages/incubating/extensions/reviews/test/unit/review-definition.test.ts
 description: |
   Reinvented Abstractions Tripwire: scan the diff for code that reinvents a
   non-trivial abstraction the repo already provides. Start with the local
@@ -49,7 +50,7 @@ style consistency, or a canonical that should exist but does not.
 1. Run the review-local scanner first:
 
    ```bash
-   pnpm --dir "{review_dir}/tools/scan-reinvention" --config.verify-deps-before-run=false run scan -- --diff-base "{base_ref}"
+   pnpm --dir ts --filter @internal/review-reinvention-scanner --config.verify-deps-before-run=false run scan -- --diff-base "{base_ref}"
    ```
 
    The scanner is read-only. It resolves the repository root itself, derives changed
