@@ -7,7 +7,7 @@ import {
 	renderObjectiveListMarkdown,
 	runListObjectives,
 } from "../../../core/operations/list-objectives.ts";
-import { objectiveNsCommand } from "../../objective-command.ts";
+import { objectiveNsCommand } from "../../../ns/objective-command.ts";
 
 export async function command() {
 	return objectiveNsCommand({

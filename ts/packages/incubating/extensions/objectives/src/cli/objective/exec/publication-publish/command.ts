@@ -5,12 +5,12 @@ import {
 	publicationPublishRequestSchema,
 	publicationPublishResultSchema,
 	runPublicationPublish,
-} from "../../../publication-commands.ts";
+} from "../../../../ns/publication-commands.ts";
 import {
 	createNsObjectiveRunnerPublicationContext,
 	type ObjectiveRunnerPublicationCommandContext,
-} from "../../../publication-context.ts";
-import { objectiveNsCommandWithContext } from "../../../objective-command.ts";
+} from "../../../../ns/publication-context.ts";
+import { objectiveNsCommandWithContext } from "../../../../ns/objective-command.ts";
 
 export async function command(
 	createContext?: (

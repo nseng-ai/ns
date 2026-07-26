@@ -9,8 +9,8 @@ import {
 	type RunnerFinishResult,
 } from "../../../../runner/finish.ts";
 import type { ArgumentUsageErrorData } from "../../../../runner/preconditions.ts";
-import { objectiveNsCommandWithContext } from "../../../objective-command.ts";
-import { createNsObjectiveRunnerCoreContext } from "../../../runner-context.ts";
+import { objectiveNsCommandWithContext } from "../../../../ns/objective-command.ts";
+import { createNsObjectiveRunnerCoreContext } from "../../../../ns/runner-context.ts";
 
 export async function command(): Promise<
 	ClinkrCommandDefinition<

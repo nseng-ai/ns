@@ -6,7 +6,7 @@ import {
 	trackingGateRequestSchema,
 	trackingGateResultSchema,
 } from "../../../../core/operations/tracking-gate.ts";
-import { objectiveNsCommand } from "../../../objective-command.ts";
+import { objectiveNsCommand } from "../../../../ns/objective-command.ts";
 
 export async function command() {
 	return objectiveNsCommand({

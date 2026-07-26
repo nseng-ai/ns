@@ -15,7 +15,7 @@ import {
 	runEdgeSweep,
 	type ObjectiveEdgeSweepResult,
 } from "../../../core/operations/edge-sweep.ts";
-import { objectiveNsCommand } from "../../objective-command.ts";
+import { objectiveNsCommand } from "../../../ns/objective-command.ts";
 
 interface ObjectiveCheckCommandRequest {
 	readonly slug?: string | undefined;

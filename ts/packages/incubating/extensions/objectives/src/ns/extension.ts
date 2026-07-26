@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { defineExtension } from "@nseng-ai/sdk";
 
 const { objectiveBundledArtifacts } = await import("./publish-artifacts.ts");
@@ -18,7 +20,7 @@ const OBJECTIVES_INSTRUCTIONS = [
 
 export default defineExtension({
 	description: "Inspect and maintain ns Objective records.",
-	commandDirectory: import.meta.dirname,
+	commandDirectory: join(import.meta.dirname, "../cli"),
 	activation: {
 		instructions: OBJECTIVES_INSTRUCTIONS,
 		consumerDirs: [".ns/objectives"],
