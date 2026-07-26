@@ -12,6 +12,9 @@ export interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
 	skillName: ObjectiveSkillName;
 	cliSubcommand: ObjectiveCliSubcommand;
 	description: string;
+	// Used when the backing skill's SKILL.md cannot be expanded in this checkout (skill not
+	// provisioned/found): a condensed stand-in for the skill body so the command still enforces
+	// the workflow's core rules instead of sending only the bare action prompt.
 	fallbackPrompt: string;
 	actionPrompt: string;
 	postSelectionReminder?: string;
@@ -103,10 +106,10 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 		description: "Pick an active Objective, then invoke objective-close for the selected slug.",
 		selectionTitle: "Select an active Objective to close",
 		fallbackPrompt:
-			"The objective-close skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: close exactly one explicit Objective below only after confirming the closure outcome/rationale, then add ## Closure and closed.md without deleting, moving, or reopening the Objective.",
+			"The objective-close skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: close exactly one explicit Objective below only after confirming the closure outcome/rationale; inspect every edge-connected Objective's full tracking; update affected active counterparts to their post-closure state; then add ## Closure and closed.md without deleting, moving, reopening, or recursively closing Objectives.",
 		actionPrompt: "Run objective-close for this explicitly selected Objective slug or path:",
 		postSelectionReminder:
-			"\nAfter this explicit selection, follow objective-close's normal closure confirmation workflow before mutating Objective files.",
+			"\nAfter this explicit selection, follow objective-close's normal closure confirmation and connected-Objective propagation workflow before mutating Objective files.",
 	}),
 	defineObjectiveCommandSpec({
 		skillName: "objective-autorun",

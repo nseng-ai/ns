@@ -23,7 +23,7 @@ If the user only asks about the skill or pastes it with no clear update intent, 
 The umbrella skill owns the storage model, required headings, and status semantics — this skill does not restate them. Objective records are Markdown: read/edit them directly, using `ns objective exec` only for deterministic reads such as candidate listing, inventory, and closed-marker detection.
 
 - Edit only the selected Objective's `objective.md`, `roadmap.md`, `orientation.md` (optional; only when not closing), `closed.md` when closing, and new files under `updates/`.
-- One sanctioned exception exists for mirrored edge mutations; the Record Frontmatter section below defines it.
+- Two sanctioned exceptions exist: mirrored edge mutations may edit counterpart frontmatter, and an inline close must propagate semantic impact to every edge-connected Objective per `objective-close`. Outside inline closure, the Record Frontmatter section below defines the narrow exception.
 - Never move, delete, recreate, or normalize Objective slug directories during an update. The slug directory is durable identity; explicit slug migration is separate.
 - Treat existing Semantic Updates as immutable historical records per the `objective` umbrella skill; create new update files instead of changing old ones.
 
@@ -127,7 +127,7 @@ Closure-ready means the Objective is not already closed; outcome is clear (`comp
 
 Do not close merely because roadmap checkboxes are all `[x]`, or from any selection hint.
 
-If closure-ready after an explicit `objective-update`, close automatically inline per `objective-close` semantics — including its Record Frontmatter re-judgment duties — without a separate closure confirmation when outcome and rationale are clear.
+If closure-ready after an explicit `objective-update`, close automatically inline per the full `objective-close` semantics — including its connected-Objective propagation — without a separate closure confirmation when outcome and rationale are clear.
 
 If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` absent and report that closure was skipped because the Closure Gate was not clear. Do not create a duplicate Semantic Update solely for closure; create one only when closure introduces distinct semantic information beyond the normal update. Never amend an existing update for closure.
 
@@ -161,11 +161,11 @@ For existing update mutation, explain that updates are immutable and offer to wr
 
 ## Verify
 
-- Changed Objective files all live under exactly one `.ns/objectives/<slug>/` directory, with no added, deleted, moved, or recreated sibling Objective slug directories. Sole exception: mirrored edge mutations and counterpart Blocked Sentence re-judgment may change counterpart records' `objective.md` Record Frontmatter blocks, and nothing else in those records.
+- Changed Objective files all live under exactly one `.ns/objectives/<slug>/` directory, with no added, deleted, moved, or recreated sibling Objective slug directories. Exceptions: mirrored edge mutations may change counterpart Record Frontmatter; when the selected Objective closes inline, the full close-time connected-Objective propagation contract may also update affected counterparts' durable tracking and add counterpart-local Semantic Updates.
 - If Record Frontmatter was edited (own record or a counterpart), `ns objective check <slug>` or `ns objective check --all` was run and reports no structural errors.
 - New update file, if any, has a timestamped, human-readable filename under that Objective's `updates/` directory.
 - No existing file under the selected Objective's `updates/` directory was edited, deleted, moved, normalized, or recreated.
 - Required headings remain present in edited durable files, including `## Assumptions and Risks`.
 - If closure was performed, confirm `objective.md` contains `## Closure` and `closed.md` exists; if not, confirm no `closed.md` was created by this invocation.
 - If `orientation.md` was re-derived or newly added, confirm it was done only because the Objective is orienting and not closing, and that it follows the format; `orientation.md` remains optional.
-- Final response includes: selected Objective slug/path; durable files edited; whether a new Semantic Update was created or intentionally not written; confirmation that existing Semantic Updates were not modified; local uncommitted changes considered; local committed branch diff considered with base branch if known; PR evidence considered/unavailable/irrelevant; Graphite parent considered/unavailable/irrelevant; Closure Gate result (`not evaluated`, `not ready`, `auto-closed`, or `skipped-unclear`) and whether `closed.md` was written; verification run or skipped.
+- Final response includes: selected Objective slug/path; durable files edited; whether a new Semantic Update was created or intentionally not written; confirmation that existing Semantic Updates were not modified; local uncommitted changes considered; local committed branch diff considered with base branch if known; PR evidence considered/unavailable/irrelevant; Graphite parent considered/unavailable/irrelevant; Closure Gate result (`not evaluated`, `not ready`, `auto-closed`, or `skipped-unclear`) and whether `closed.md` was written; when auto-closed, every connected Objective's disposition and files changed; verification run or skipped.

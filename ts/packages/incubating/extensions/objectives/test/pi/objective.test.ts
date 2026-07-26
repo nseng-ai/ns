@@ -1504,10 +1504,16 @@ Use the selected Objective.
 			"close exactly one explicit Objective below only after confirming the closure outcome/rationale",
 		);
 		expect(result.pi.sentUserMessages[0]).toContain(
+			"inspect every edge-connected Objective's full tracking",
+		);
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"update affected active counterparts to their post-closure state",
+		);
+		expect(result.pi.sentUserMessages[0]).toContain(
 			"Run objective-close for this explicitly selected Objective slug or path:",
 		);
 		expect(result.pi.sentUserMessages[0]).toContain(
-			"After this explicit selection, follow objective-close's normal closure confirmation workflow before mutating Objective files.",
+			"After this explicit selection, follow objective-close's normal closure confirmation and connected-Objective propagation workflow before mutating Objective files.",
 		);
 	});
 

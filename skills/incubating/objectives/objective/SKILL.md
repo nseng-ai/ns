@@ -76,7 +76,7 @@ edges:
 
 - **Objective Edges** are undirected, kind-less, mirrored connections between two Objective records. Each endpoint lists the other under `edges:` as `{objective: <slug>, annotation: <sentence>}`. The **Edge Annotation** is required on both sides and written from that record's perspective — the two sentences are deliberately different texts. Edge identity is the unordered slug pair; at most one edge between two records. Direction, causality, and relationship kind live in the prose, never the schema.
 - **Blocked Sentence**: `blocked:` is prose-valued; its presence means the record is blocked (for any reason — another objective, an external gate) and its value says why. There is no boolean, and blocked is a sub-state of open, not a lifecycle state. It is set and cleared only by skill judgment, never by machine auto-flip.
-- **Mutation is skill-owned.** There is no public CLI mutation surface; the `objective-create`, `objective-update`, and `objective-close` step skills own writing edges and judging Blocked Sentences. Because edges are mirrored, an edge mutation is a two-file edit: it edits the counterpart record's frontmatter too — the one sanctioned exception to one-Objective mutation boundaries, limited strictly to the counterpart's frontmatter.
+- **Mutation is skill-owned.** There is no public CLI mutation surface; the `objective-create`, `objective-update`, and `objective-close` step skills own writing edges and judging Blocked Sentences. Because edges are mirrored, an edge mutation is a two-file edit: it edits the counterpart record's frontmatter too — the ordinary sanctioned exception to one-Objective mutation boundaries, limited strictly to the counterpart's frontmatter. Objective Close has one broader exception: closing an Objective requires a semantic impact review of every edge-connected Objective and may update each affected active counterpart's durable tracking. The `objective-close` skill owns that bounded close-time propagation.
 - **Verification**: after any frontmatter edit, run `ns objective check <slug>` (per-slug check validates that record's edges including mirror lookups) or `ns objective check --all` (repo-wide structural sweep). Structural violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors. `check` also emits one non-failing **warning** when a record carries a Blocked Sentence while an edge counterpart is closed; the warning is deterministic marker state (blocked-present plus counterpart `closed.md`), and disposing of it — clear, reword, or deliberately keep — is skill judgment for the close/update/refresh workflows, never a machine auto-flip.
 
 ### roadmap.md
@@ -110,6 +110,10 @@ AGENTS.md always-loads the `orientation.md` of every active (non-`closed.md`) Ob
 ### closed.md
 
 A minimal Closure Marker. Its existence means closed; closure meaning belongs in `objective.md`.
+
+### Close-time connected-Objective propagation
+
+Objective Close is a graph-aware tracking transaction, not only a marker write: every Objective Edge on the closing record gets an explicit impact disposition — `updated`, `unchanged`, or `already closed` — and an `updated` active counterpart's durable tracking is edited to its post-closure state. This is the bounded exception to ordinary one-Objective update scope; every close path (explicit or inline) carries it, and the `objective-close` skill owns the procedure.
 
 ## Selection
 
