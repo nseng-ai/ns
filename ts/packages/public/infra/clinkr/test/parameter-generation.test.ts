@@ -16,6 +16,7 @@ function echoGroup(): LegacyClinkrGroup<null> {
 			mode: z.enum(["fast", "slow"]).default("fast"),
 			tags: z.array(z.string()).default([]),
 		}),
+		resultSchema: z.any(),
 		handler: async (_ctx, request) => ok(request),
 	});
 	return group;
@@ -82,6 +83,7 @@ describe("positionals end to end", () => {
 				force: z.boolean().default(false),
 			}),
 			positionals: { source: { position: 0 }, target: { position: 1 } },
+			resultSchema: z.any(),
 			handler: async (_ctx, request) => ok(request),
 		});
 		return group;
@@ -117,6 +119,7 @@ describe("positionals end to end", () => {
 			name: "apply",
 			schema: z.object({ kind: z.string(), skills: z.array(z.string()).min(1) }),
 			positionals: { kind: { position: 0 }, skills: { position: 1 } },
+			resultSchema: z.any(),
 			handler: async (_ctx, request) => ok(request),
 		});
 
@@ -139,6 +142,7 @@ describe("generated help", () => {
 				name: z.string().describe("the plan name"),
 				limit: z.number().default(10).describe("max items"),
 			}),
+			resultSchema: z.any(),
 			handler: async (_ctx, request) => ok(request),
 		});
 		const run = await runForTest(group, ["echo", "--help"], { context: null });

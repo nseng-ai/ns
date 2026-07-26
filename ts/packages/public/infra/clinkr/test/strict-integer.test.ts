@@ -9,12 +9,14 @@ function buildGroup(): LegacyClinkrGroup<null> {
 	group.command({
 		name: "echo",
 		schema: z.object({ count: z.int() }),
+		resultSchema: z.any(),
 		handler: async (_ctx, request) => ok(request),
 	});
 	group.command({
 		name: "show",
 		schema: z.object({ prNumber: z.int() }),
 		positionals: { prNumber: { position: 0 } },
+		resultSchema: z.any(),
 		handler: async (_ctx, request) => ok(request),
 	});
 	return group;

@@ -16,6 +16,7 @@ function buildTree(): LegacyClinkrGroup<ProbeContext> {
 	root.command({
 		name: "top",
 		schema: z.object({}),
+		resultSchema: z.any(),
 		handler: async (ctx) => {
 			ctx.calls.push("top");
 			return ok({});
@@ -28,6 +29,7 @@ function buildTree(): LegacyClinkrGroup<ProbeContext> {
 	sub.command({
 		name: "inner",
 		schema: z.object({ x: z.number() }),
+		resultSchema: z.any(),
 		handler: async (ctx, request) => {
 			ctx.calls.push(`inner:${request.x}`);
 			return ok({ x: request.x });
@@ -42,6 +44,7 @@ function buildTree(): LegacyClinkrGroup<ProbeContext> {
 	exec.command({
 		name: "resolve",
 		schema: z.object({}),
+		resultSchema: z.any(),
 		handler: async (ctx) => {
 			ctx.calls.push("resolve");
 			return ok({ resolved: true });
@@ -62,6 +65,7 @@ describe("root group options", () => {
 		sub.command({
 			name: "inner",
 			schema: z.object({}),
+			resultSchema: z.any(),
 			handler: async (ctx) => {
 				ctx.calls.push("inner");
 				return ok({});
@@ -110,17 +114,9 @@ describe("default raw commands", () => {
 			runtimeInfo: () => "runtime: test\n",
 		});
 		root.defaultCommand({
-			schema: z.object({
-				name: z.string(),
-				registry: z.array(z.string()).optional(),
-				json: z.boolean().optional(),
-			}),
-			positionals: { name: { position: 0 } },
 			isRawExit: true,
-			run: async (ctx, request) => {
-				ctx.calls.push(
-					`default:${request.name}:${(request.registry ?? []).join(",")}:${request.json === true}`,
-				);
+			run: async (ctx, invocation) => {
+				ctx.calls.push(`default:${invocation.argv.join("|")}`);
 				return 7;
 			},
 		});
@@ -128,6 +124,7 @@ describe("default raw commands", () => {
 		sub.command({
 			name: "inner",
 			schema: z.object({}),
+			resultSchema: z.any(),
 			handler: async (ctx) => {
 				ctx.calls.push("inner");
 				return ok({});
@@ -148,7 +145,7 @@ describe("default raw commands", () => {
 		expect(run.exitCode).toBe(7);
 		expect(run.stdout).toBe("");
 		expect(run.stderr).toBe("");
-		expect(context.calls).toEqual(["default:pkg:pypi,npm:true"]);
+		expect(context.calls).toEqual(["default:pkg|--registry|pypi|--registry|npm|--json"]);
 	});
 
 	test("root runtime and help still win over default parsing", async () => {
@@ -161,17 +158,17 @@ describe("default raw commands", () => {
 		expect(help.exitCode).toBe(0);
 		expect(help.stdout).toContain("Usage:");
 		expect(help.stdout).toContain("Root group with a default action.");
-		expect(help.stdout).toContain("--registry");
+		expect(help.stdout).not.toContain("--registry");
 		expect(help.stdout).toContain("sub");
 		expect(help.stderr).toBe("");
 	});
 
-	test("bare root with required default positional exits 2", async () => {
-		const run = await runForTest(buildDefaultTree(), [], { context: { calls: [] } });
+	test("bare root dispatches an empty argv tail to the raw default", async () => {
+		const context: ProbeContext = { calls: [] };
+		const run = await runForTest(buildDefaultTree(), [], { context });
 
-		expect(run.exitCode).toBe(2);
-		expect(run.stdout).toBe("");
-		expect(run.stderr).toContain("name");
+		expect(run).toMatchObject({ exitCode: 7, stdout: "", stderr: "" });
+		expect(context.calls).toEqual(["default:"]);
 	});
 
 	test("subcommands win over root default parsing", async () => {
@@ -211,6 +208,7 @@ describe("nested groups", () => {
 		root.command({
 			name: "ls",
 			schema: z.object({}),
+			resultSchema: z.any(),
 			handler: async (ctx) => {
 				ctx.calls.push("ls");
 				return ok({});
@@ -256,6 +254,7 @@ describe("nested groups", () => {
 			summary: "Activate root.",
 			helpGroup: "Built-ins:",
 			schema: z.object({}),
+			resultSchema: z.any(),
 			handler: async () => ok({}),
 		});
 

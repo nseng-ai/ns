@@ -1,32 +1,26 @@
-import type { z } from "zod";
-
 import type { ClinkrDynamicCompletionProvider } from "../completion.ts";
 import type { RawCommandSpec } from "../group.ts";
-import type { OptionSpec, PositionalSpec } from "../surface.ts";
 
-export type { RawCommandSpec } from "../group.ts";
-export type { OptionSpec, PositionalSpec } from "../surface.ts";
+export type { RawCommandInvocation, RawCommandSpec } from "../group.ts";
 
-export interface RawCommandOptions<TContext, S extends z.ZodObject> {
+export interface RawCommandOptions<TContext> {
 	name: string;
 	description?: string;
 	summary?: string;
-	schema: S;
-	shouldPassThrough?: true;
-	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
-	options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
+	helpGroup?: string;
+	aliases?: readonly string[];
+	isHidden?: boolean;
 	completionProvider?: ClinkrDynamicCompletionProvider<TContext>;
-	run: (ctx: TContext, request: z.output<S>) => Promise<number>;
+	/** Receives the raw post-route argv tail and owns output bytes and exit status. */
+	run: RawCommandSpec<TContext>["run"];
 }
 
 /**
- * Factory for raw-exit commands. Brands a raw process-exit-code handler with
- * `isRawExit: true` so callers declare raw byte/exit ownership via the
- * `@nseng-ai/clinkr/raw` subpath. No framework bytes are emitted; all output is
- * handler-owned and exit codes pass through directly.
+ * Defines the narrow raw-execution escape hatch for passthrough and byte-owning commands.
+ * Clinkr selects the command, then leaves its argv tail, output, and exit status to the handler.
  */
-export function rawCommand<TContext, S extends z.ZodObject>(
-	options: RawCommandOptions<TContext, S>,
-): RawCommandSpec<TContext, S> {
+export function rawCommand<TContext>(
+	options: RawCommandOptions<TContext>,
+): RawCommandSpec<TContext> {
 	return { ...options, isRawExit: true };
 }

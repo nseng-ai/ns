@@ -25,12 +25,27 @@ describe("buildJsonSchemaDocument", () => {
 			type: "object",
 			properties: { created: { type: "boolean" } },
 		});
-		expect(document.machineEnvelopeJsonSchema).toMatchObject({ oneOf: expect.any(Array) });
+		expect(document.machineEnvelopeJsonSchema).toMatchObject({ anyOf: expect.any(Array) });
 	});
 
-	test("an absent result schema yields the anything schema", () => {
+	test("omitted schemas produce bodyless status branches", () => {
 		const document = buildJsonSchemaDocument(z.object({}), undefined);
 		expect(document.outputJsonSchema).toEqual({});
+		const machine = document.machineEnvelopeJsonSchema as { anyOf: Array<Record<string, unknown>> };
+		expect(machine.anyOf).toHaveLength(4);
+		expect(machine.anyOf.every((branch) => !JSON.stringify(branch).includes('"data"'))).toBe(true);
+	});
+
+	test("publishes independent data schemas for all four statuses", () => {
+		const document = buildJsonSchemaDocument(z.object({}), {
+			resultSchema: z.object({ result: z.string() }),
+			negativeSchema: z.object({ searched: z.string() }),
+			failureSchema: z.object({ service: z.string() }),
+			usageErrorSchema: z.object({ flag: z.string() }),
+		});
+		const machine = document.machineEnvelopeJsonSchema as { anyOf: Array<Record<string, unknown>> };
+		expect(machine.anyOf).toHaveLength(4);
+		expect(machine.anyOf.every((branch) => JSON.stringify(branch).includes('"data"'))).toBe(true);
 	});
 });
 

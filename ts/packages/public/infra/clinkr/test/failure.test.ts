@@ -1,62 +1,34 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrFailure, LegacyClinkrGroup, ok } from "../src/index.ts";
+import { LegacyClinkrGroup } from "../src/index.ts";
 import { createCaptureIo, runForTest } from "../src/testing/index.ts";
 
-function buildGroup(error: () => Error): LegacyClinkrGroup<null> {
+function buildGroup(error: Error): LegacyClinkrGroup<null> {
 	const group = new LegacyClinkrGroup<null>({ name: "probe" });
 	group.command({
 		name: "explode",
 		schema: z.object({}),
 		handler: async () => {
-			throw error();
+			throw error;
 		},
-	});
-	group.command({
-		name: "fine",
-		schema: z.object({}),
-		handler: async () => ok({}),
 	});
 	return group;
 }
 
-describe("ClinkrFailure conversion", () => {
-	test("a thrown ClinkrFailure becomes the failure channel in human mode", async () => {
-		const group = buildGroup(
-			() => new ClinkrFailure({ errorType: "missing-branch", message: "no such branch" }),
-		);
-		const run = await runForTest(group, ["explode"], { context: null });
-		expect(run.exitCode).toBe(2);
-		expect(run.stderr).toBe("error: no such branch\n");
-	});
-
-	test("a thrown ClinkrFailure becomes the failure envelope in json mode", async () => {
-		const group = buildGroup(
-			() => new ClinkrFailure({ errorType: "missing-branch", message: "no such branch" }),
-		);
-		const run = await runForTest(group, ["explode", "--format", "json"], { context: null });
-		expect(run.exitCode).toBe(2);
-		expect(JSON.parse(run.stdout)).toEqual({
-			status: "failure",
-			exitCode: 2,
-			errorType: "missing-branch",
-			message: "no such branch",
-		});
-	});
-});
-
 describe("unexpected throws", () => {
-	test("a non-ClinkrFailure throw propagates raw out of run()", async () => {
-		const group = buildGroup(() => new Error("kaboom"));
-		await expect(runForTest(group, ["explode"], { context: null })).rejects.toThrow("kaboom");
+	test("propagates the original exception unchanged", async () => {
+		const error = new Error("kaboom");
+		await expect(runForTest(buildGroup(error), ["explode"], { context: null })).rejects.toBe(error);
 	});
 
-	test("a crash writes nothing through the envelope channel", async () => {
-		const group = buildGroup(() => new Error("kaboom"));
+	test("writes nothing through the envelope channel", async () => {
 		const capture = createCaptureIo();
 		await expect(
-			group.run(["explode", "--format", "json"], { context: null, io: capture.io }),
+			buildGroup(new Error("kaboom")).run(["explode", "--format", "json"], {
+				context: null,
+				io: capture.io,
+			}),
 		).rejects.toThrow("kaboom");
 		expect(capture.stdout()).toBe("");
 		expect(capture.stderr()).toBe("");

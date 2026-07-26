@@ -15,9 +15,14 @@ import {
 	type ClinkrDynamicCompletionProvider,
 } from "./completion.ts";
 import { emitExit, type RenderCapabilities } from "./emit.ts";
-import { envelopeJsonText, type ClinkrExit, usageErrorMachineEnvelope } from "./exit.ts";
+import {
+	envelopeJsonText,
+	type ClinkrExit,
+	type ClinkrOutcomeSchemas,
+	usageErrorMachineEnvelope,
+	validateOutcomeData,
+} from "./exit.ts";
 import { clinkrFormatFromArgs, clinkrFormatFromOption } from "./format.ts";
-import { ClinkrFailure } from "./failure.ts";
 import { createProcessIo, type ClinkrIo } from "./io.ts";
 import { buildJsonSchemaDocument, type JsonSchemaDocument } from "./json-schema.ts";
 import {
@@ -29,12 +34,26 @@ import {
 	type SurfacePlan,
 } from "./surface.ts";
 
-export type ClinkrHandler<TContext, S extends z.ZodObject, T> = (
+export type ClinkrHandler<
+	TContext,
+	S extends z.ZodObject,
+	TResult,
+	TNegative = TResult,
+	TFailure = TResult,
+	TUsageError = TResult,
+> = (
 	ctx: TContext,
 	request: z.output<S>,
-) => Promise<ClinkrExit<T>>;
+) => Promise<ClinkrExit<TResult, TNegative, TFailure, TUsageError>>;
 
-export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
+export interface ClinkrCommandSpec<
+	TContext,
+	S extends z.ZodObject,
+	TResult,
+	TNegative = TResult,
+	TFailure = TResult,
+	TUsageError = TResult,
+> {
 	name: string;
 	description?: string;
 	/** Short summary for parent help lists; omitted from leaf command help body. */
@@ -46,9 +65,12 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	/** Suppresses this command from its parent's help; it stays invocable. */
 	isHidden?: boolean;
 	schema: S;
-	handler: ClinkrHandler<TContext, S, T>;
-	/** Source of `output_json_schema` for `--json-schema`; `{}` when absent. */
-	resultSchema?: z.ZodType<T>;
+	handler: ClinkrHandler<TContext, S, TResult, TNegative, TFailure, TUsageError>;
+	/** Supplying a status schema requires and validates data for that outcome. */
+	resultSchema?: z.ZodType<TResult>;
+	negativeSchema?: z.ZodType<TNegative>;
+	failureSchema?: z.ZodType<TFailure>;
+	usageErrorSchema?: z.ZodType<TUsageError>;
 	/**
 	 * Serve this document verbatim for `--json-schema` instead of generating one
 	 * from the schemas. For commands whose published schema document predates
@@ -60,9 +82,15 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	 * (data, caps): parsed request flags are never threaded to renderers, so a display toggle
 	 * needs explicit plumbing — prefer keeping full detail on the markdown surface instead.
 	 */
-	renderHuman?: (data: T, caps: RenderCapabilities) => string;
-	/** Markdown rendering for the ok variant; falls back to human rendering when absent. */
-	renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
+	renderHuman?: (
+		data: TResult | TNegative | TFailure | TUsageError,
+		caps: RenderCapabilities,
+	) => string;
+	/** Markdown rendering falls back to human rendering when absent. */
+	renderMarkdown?: (
+		data: TResult | TNegative | TFailure | TUsageError,
+		caps: RenderCapabilities,
+	) => string;
 	/** Rendered commands cannot opt into raw mode; use `@nseng-ai/clinkr/raw`. */
 	isRawExit?: never;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
@@ -70,7 +98,14 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	completionProvider?: ClinkrDynamicCompletionProvider<TContext>;
 }
 
-export interface RawCommandSpec<TContext, S extends z.ZodObject> {
+export interface RawCommandInvocation {
+	/** Every token after the selected command, preserved for the command-owned parser. */
+	readonly argv: readonly string[];
+	/** The invocation's output sinks; raw commands own every byte they write. */
+	readonly io: ClinkrIo;
+}
+
+export interface RawCommandSpec<TContext> {
 	name: string;
 	description?: string;
 	/** Short summary for parent help lists; omitted from leaf command help body. */
@@ -81,23 +116,22 @@ export interface RawCommandSpec<TContext, S extends z.ZodObject> {
 	aliases?: readonly string[];
 	/** Suppresses this command from its parent's help; it stays invocable. */
 	isHidden?: boolean;
-	schema: S;
 	isRawExit: true;
-	/** Pass all tokens through to the raw handler, including framework-looking options. */
-	shouldPassThrough?: true;
-	run: (ctx: TContext, request: z.output<S>) => Promise<number>;
-	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
-	options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
+	/** Receives the raw argv tail and owns output bytes and exit status. */
+	run: (ctx: TContext, invocation: RawCommandInvocation) => Promise<number>;
 	completionProvider?: ClinkrDynamicCompletionProvider<TContext>;
 	handler?: never;
 	resultSchema?: never;
+	negativeSchema?: never;
+	failureSchema?: never;
+	usageErrorSchema?: never;
 	renderHuman?: never;
 	renderMarkdown?: never;
 	schemaDocument?: never;
 }
 
-export interface DefaultRawCommandSpec<TContext, S extends z.ZodObject> extends Omit<
-	RawCommandSpec<TContext, S>,
+export interface DefaultRawCommandSpec<TContext> extends Omit<
+	RawCommandSpec<TContext>,
 	"name" | "summary" | "description"
 > {
 	name?: never;
@@ -105,8 +139,15 @@ export interface DefaultRawCommandSpec<TContext, S extends z.ZodObject> extends 
 	description?: never;
 }
 
-export interface DefaultCommandSpec<TContext, S extends z.ZodObject, T> extends Omit<
-	ClinkrCommandSpec<TContext, S, T>,
+export interface DefaultCommandSpec<
+	TContext,
+	S extends z.ZodObject,
+	TResult,
+	TNegative = TResult,
+	TFailure = TResult,
+	TUsageError = TResult,
+> extends Omit<
+	ClinkrCommandSpec<TContext, S, TResult, TNegative, TFailure, TUsageError>,
 	"name" | "summary" | "description"
 > {
 	name?: never;
@@ -129,6 +170,8 @@ export interface ClinkrGroupOptions {
 	runtimeInfo?: () => string;
 	/** Legacy compatibility only; immutable apps always use explicit aliases. */
 	inferAutomaticAliases?: boolean;
+	/** Migration-only: immutable apps enable the reconciled outcome contract. */
+	validateOutcomes?: boolean;
 }
 
 export interface ClinkrRunOptions<TContext> {
@@ -154,11 +197,12 @@ interface RegisteredCommand<TContext> {
 	plan: SurfacePlan;
 	completionProvider: ClinkrDynamicCompletionProvider<TContext> | undefined;
 	shouldPassThrough: boolean;
+	validateOutcomes: boolean;
 }
 
 interface RenderedExecution<TContext> {
 	type: "rendered";
-	resultSchema: z.ZodType | undefined;
+	outcomeSchemas: ClinkrOutcomeSchemas;
 	handler: (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>;
 	renderHuman: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
 	renderMarkdown: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
@@ -166,7 +210,7 @@ interface RenderedExecution<TContext> {
 
 interface RawExecution<TContext> {
 	type: "raw";
-	run: (ctx: TContext, request: unknown) => Promise<number>;
+	run: (ctx: TContext, invocation: RawCommandInvocation) => Promise<number>;
 }
 
 interface RunState {
@@ -220,6 +264,7 @@ export class LegacyClinkrGroup<TContext> {
 	private readonly version: string | undefined;
 	private readonly runtimeInfo: (() => string) | undefined;
 	private readonly inferAutomaticAliases: boolean;
+	private readonly validateOutcomes: boolean;
 	private registeredCommands: RegisteredCommand<TContext>[];
 	private subgroups: LegacyClinkrGroup<TContext>[];
 	private defaultRegisteredCommand: RegisteredCommand<TContext> | undefined;
@@ -233,21 +278,23 @@ export class LegacyClinkrGroup<TContext> {
 		this.version = options.version;
 		this.runtimeInfo = options.runtimeInfo;
 		this.inferAutomaticAliases = options.inferAutomaticAliases ?? true;
+		this.validateOutcomes = options.validateOutcomes ?? false;
 		this.registeredCommands = [];
 		this.subgroups = [];
 		this.defaultRegisteredCommand = undefined;
 	}
 
-	command<S extends z.ZodObject>(spec: RawCommandSpec<TContext, S>): this;
+	command(spec: RawCommandSpec<TContext>): this;
 	command<S extends z.ZodObject, T>(spec: ClinkrCommandSpec<TContext, S, T>): this;
 	command<S extends z.ZodObject, T>(
-		spec: ClinkrCommandSpec<TContext, S, T> | RawCommandSpec<TContext, S>,
+		spec: ClinkrCommandSpec<TContext, S, T> | RawCommandSpec<TContext>,
 	): this {
+		const schema = spec.isRawExit === true ? z.object({}) : spec.schema;
 		const plan = buildSurfacePlan({
 			commandName: spec.name,
-			schema: spec.schema,
-			positionals: spec.positionals ?? {},
-			optionSpecs: spec.options ?? {},
+			schema,
+			positionals: spec.isRawExit === true ? {} : (spec.positionals ?? {}),
+			optionSpecs: spec.isRawExit === true ? {} : (spec.options ?? {}),
 		});
 		this.registeredCommands.push({
 			name: spec.name,
@@ -258,39 +305,42 @@ export class LegacyClinkrGroup<TContext> {
 			}),
 			aliases: Object.freeze([...(spec.aliases ?? [])]),
 			isHidden: spec.isHidden ?? false,
-			schema: spec.schema,
+			schema,
 			...(spec.schemaDocument === undefined ? {} : { schemaDocument: spec.schemaDocument }),
 			execution: executionOf(spec),
 			plan,
 			completionProvider: spec.completionProvider,
-			shouldPassThrough: shouldPassThroughOf(spec),
+			shouldPassThrough: spec.isRawExit === true,
+			validateOutcomes: this.validateOutcomes,
 		});
 		return this;
 	}
 
-	defaultCommand<S extends z.ZodObject>(spec: DefaultRawCommandSpec<TContext, S>): this;
+	defaultCommand(spec: DefaultRawCommandSpec<TContext>): this;
 	defaultCommand<S extends z.ZodObject, T>(spec: DefaultCommandSpec<TContext, S, T>): this;
 	defaultCommand<S extends z.ZodObject, T>(
-		spec: DefaultRawCommandSpec<TContext, S> | DefaultCommandSpec<TContext, S, T>,
+		spec: DefaultRawCommandSpec<TContext> | DefaultCommandSpec<TContext, S, T>,
 	): this {
 		if (this.defaultRegisteredCommand !== undefined) {
 			throw new Error(`clinkr: group '${this.name}' already has a default command`);
 		}
+		const schema = spec.isRawExit === true ? z.object({}) : spec.schema;
 		const plan = buildSurfacePlan({
 			commandName: this.name,
-			schema: spec.schema,
-			positionals: spec.positionals ?? {},
-			optionSpecs: spec.options ?? {},
+			schema,
+			positionals: spec.isRawExit === true ? {} : (spec.positionals ?? {}),
+			optionSpecs: spec.isRawExit === true ? {} : (spec.options ?? {}),
 		});
 		this.defaultRegisteredCommand = {
 			name: this.name,
 			aliases: [],
 			isHidden: false,
-			schema: spec.schema,
+			schema,
 			execution: executionOf(spec),
 			plan,
 			completionProvider: spec.completionProvider,
-			shouldPassThrough: shouldPassThroughOf(spec),
+			shouldPassThrough: spec.isRawExit === true,
+			validateOutcomes: this.validateOutcomes,
 		};
 		return this;
 	}
@@ -325,6 +375,10 @@ export class LegacyClinkrGroup<TContext> {
 		const program = this.buildCommand({ context: options.context, io, state, isRoot: true });
 		if (this.runtimeInfo !== undefined && argv[0] === "--runtime") {
 			io.stdout(this.runtimeInfo());
+			return 0;
+		}
+		if (this.defaultRegisteredCommand?.execution.type === "raw" && argv[0] === "--help") {
+			io.stdout(program.helpInformation());
 			return 0;
 		}
 		const bareGroupPath = this.findBareGroupPath(argv);
@@ -462,14 +516,19 @@ export class LegacyClinkrGroup<TContext> {
 function executionOf<TContext, S extends z.ZodObject, T>(
 	spec:
 		| ClinkrCommandSpec<TContext, S, T>
-		| RawCommandSpec<TContext, S>
+		| RawCommandSpec<TContext>
 		| DefaultCommandSpec<TContext, S, T>
-		| DefaultRawCommandSpec<TContext, S>,
+		| DefaultRawCommandSpec<TContext>,
 ): RenderedExecution<TContext> | RawExecution<TContext> {
 	if (spec.isRawExit === true) return rawExecutionOf(spec);
 	return {
 		type: "rendered",
-		resultSchema: spec.resultSchema,
+		outcomeSchemas: {
+			...(spec.resultSchema === undefined ? {} : { resultSchema: spec.resultSchema }),
+			...(spec.negativeSchema === undefined ? {} : { negativeSchema: spec.negativeSchema }),
+			...(spec.failureSchema === undefined ? {} : { failureSchema: spec.failureSchema }),
+			...(spec.usageErrorSchema === undefined ? {} : { usageErrorSchema: spec.usageErrorSchema }),
+		},
 		// Erase the command generics once; zod re-establishes the request shape
 		// at parse time, so the cast is backed by a runtime guarantee.
 		handler: spec.handler as (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>,
@@ -480,16 +539,6 @@ function executionOf<TContext, S extends z.ZodObject, T>(
 			| ((data: unknown, caps: RenderCapabilities) => string)
 			| undefined,
 	};
-}
-
-function shouldPassThroughOf<TContext, S extends z.ZodObject, T>(
-	spec:
-		| ClinkrCommandSpec<TContext, S, T>
-		| RawCommandSpec<TContext, S>
-		| DefaultCommandSpec<TContext, S, T>
-		| DefaultRawCommandSpec<TContext, S>,
-): boolean {
-	return spec.isRawExit === true && spec.shouldPassThrough === true;
 }
 
 function completionNamedCommandPlan<TContext>(
@@ -516,7 +565,7 @@ function completionCommandPlan<TContext>(
 	const frameworkOptions =
 		registered.execution.type === "rendered"
 			? [...CLINKR_RENDERED_COMMAND_OPTIONS, CLINKR_JSON_SCHEMA_OPTION]
-			: [CLINKR_JSON_SCHEMA_OPTION];
+			: [];
 	return {
 		name: registered.name,
 		...(registered.summary === undefined && registered.description === undefined
@@ -535,15 +584,10 @@ function completionCommandPlan<TContext>(
 	};
 }
 
-function rawExecutionOf<TContext, S extends z.ZodObject>(
-	spec: Pick<RawCommandSpec<TContext, S>, "run">,
+function rawExecutionOf<TContext>(
+	spec: Pick<RawCommandSpec<TContext>, "run">,
 ): RawExecution<TContext> {
-	return {
-		type: "raw",
-		// Erase the command generics once; zod re-establishes the request shape
-		// at parse time, so the cast is backed by a runtime guarantee.
-		run: spec.run as (ctx: TContext, request: unknown) => Promise<number>,
-	};
+	return { type: "raw", run: spec.run };
 }
 
 function assertNever(value: never): never {
@@ -633,6 +677,7 @@ function configureCommandExecution<TContext>(
 	if (registered.shouldPassThrough) {
 		command.helpOption(false);
 		command.allowUnknownOption(true);
+		command.allowExcessArguments(true);
 	}
 	for (const positional of registered.plan.positionals) {
 		command.addArgument(buildCommanderArgument(positional));
@@ -664,13 +709,20 @@ function configureCommandExecution<TContext>(
 	}
 	command.action(async (...actionArgs: unknown[]) => {
 		const opts = command.opts<Record<string, unknown>>();
+		if (registered.execution.type === "raw") {
+			state.exitCode = await registered.execution.run(context, {
+				argv: Object.freeze([...command.args]),
+				io,
+			});
+			return;
+		}
 		// Eager like --help: schema printing happens before required-argument
 		// validation, which lives entirely in zod below.
 		if (opts["jsonSchema"] === true) {
-			const resultSchema =
-				registered.execution.type === "rendered" ? registered.execution.resultSchema : undefined;
+			const outcomeSchemas =
+				registered.execution.type === "rendered" ? registered.execution.outcomeSchemas : {};
 			const document =
-				registered.schemaDocument?.() ?? buildJsonSchemaDocument(registered.schema, resultSchema);
+				registered.schemaDocument?.() ?? buildJsonSchemaDocument(registered.schema, outcomeSchemas);
 			io.stdout(`${JSON.stringify(document, null, 2)}\n`);
 			state.exitCode = 0;
 			return;
@@ -702,36 +754,12 @@ function configureCommandExecution<TContext>(
 			return;
 		}
 		switch (registered.execution.type) {
-			case "raw":
-				try {
-					state.exitCode = await registered.execution.run(context, parsed.data);
-				} catch (error) {
-					if (!(error instanceof ClinkrFailure)) throw error;
-					state.exitCode = emitExit(
-						{
-							type: "failure",
-							errorType: error.errorType,
-							message: error.message,
-							...(error.data === undefined ? {} : { data: error.data }),
-						},
-						{ format: "human", io },
-					);
-				}
-				return;
 			case "rendered": {
 				const format = clinkrFormatFromOption(opts["format"]);
-				let exit: ClinkrExit<unknown>;
-				try {
-					exit = await registered.execution.handler(context, parsed.data);
-				} catch (error) {
-					if (!(error instanceof ClinkrFailure)) throw error;
-					exit = {
-						type: "failure",
-						errorType: error.errorType,
-						message: error.message,
-						...(error.data === undefined ? {} : { data: error.data }),
-					};
-				}
+				const handled = await registered.execution.handler(context, parsed.data);
+				const exit = registered.validateOutcomes
+					? validateOutcomeData(handled, registered.execution.outcomeSchemas)
+					: handled;
 				state.exitCode = emitExit(exit, {
 					format,
 					io,

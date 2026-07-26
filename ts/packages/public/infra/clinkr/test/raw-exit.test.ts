@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { LegacyClinkrGroup, ClinkrFailure, ok, type ClinkrCommandSpec } from "../src/index.ts";
+import { LegacyClinkrGroup, ok, type ClinkrCommandSpec } from "../src/index.ts";
 import { rawCommand } from "../src/raw/index.ts";
 import { parseEnvelope, runForTest } from "../src/testing/index.ts";
 
@@ -12,7 +12,6 @@ describe("raw-exit escape hatch", () => {
 			group.command(
 				rawCommand({
 					name: "ok",
-					schema: z.object({}),
 					run: async () => 0,
 				}),
 			);
@@ -27,7 +26,6 @@ describe("raw-exit escape hatch", () => {
 			group.command(
 				rawCommand({
 					name: "fail",
-					schema: z.object({}),
 					run: async () => 1,
 				}),
 			);
@@ -42,7 +40,6 @@ describe("raw-exit escape hatch", () => {
 			group.command(
 				rawCommand({
 					name: "err",
-					schema: z.object({}),
 					run: async () => 2,
 				}),
 			);
@@ -55,7 +52,6 @@ describe("raw-exit escape hatch", () => {
 			group.command(
 				rawCommand({
 					name: "timeout",
-					schema: z.object({}),
 					run: async () => 124,
 				}),
 			);
@@ -68,7 +64,6 @@ describe("raw-exit escape hatch", () => {
 			group.command(
 				rawCommand({
 					name: "custom",
-					schema: z.object({}),
 					run: async () => 42,
 				}),
 			);
@@ -77,57 +72,37 @@ describe("raw-exit escape hatch", () => {
 		});
 	});
 
-	describe("--format suppression", () => {
-		test("--format is not available on raw commands", async () => {
+	describe("argv ownership", () => {
+		test("passes framework-looking flags through unchanged", async () => {
 			const group = new LegacyClinkrGroup<null>({ name: "test" });
+			let received: readonly string[] = [];
 			group.command(
 				rawCommand({
 					name: "act",
-					schema: z.object({}),
-					run: async () => 0,
+					run: async (_ctx, invocation) => {
+						received = invocation.argv;
+						return 0;
+					},
 				}),
 			);
-			const run = await runForTest(group, ["act", "--format", "json"], { context: null });
-			expect(run.exitCode).toBe(2);
-			expect(run.stderr).toContain("unknown option '--format'");
-		});
-	});
-
-	describe("--json-schema option", () => {
-		test("--json-schema is available on raw commands", async () => {
-			const group = new LegacyClinkrGroup<null>({ name: "test" });
-			group.command(
-				rawCommand({
-					name: "act",
-					schema: z.object({ value: z.number() }),
-					run: async () => 0,
-				}),
-			);
-			const run = await runForTest(group, ["act", "--json-schema"], { context: null });
+			const run = await runForTest(group, ["act", "--format", "json", "--json-schema"], {
+				context: null,
+			});
 			expect(run.exitCode).toBe(0);
-			const schema = JSON.parse(run.stdout);
-			expect(schema).toHaveProperty("inputJsonSchema");
-			expect(schema).toHaveProperty("outputJsonSchema");
+			expect(received).toEqual(["--format", "json", "--json-schema"]);
 		});
-	});
 
-	describe("leaf help", () => {
-		test("raw command help shows schema options and --json-schema, no rendered-command flags", async () => {
+		test("raw commands own leaf help", async () => {
 			const group = new LegacyClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "act",
 					description: "An action",
-					schema: z.object({ value: z.number() }),
-					run: async () => 0,
+					run: async (_ctx, invocation) => (invocation.argv[0] === "--help" ? 7 : 0),
 				}),
 			);
 			const run = await runForTest(group, ["act", "--help"], { context: null });
-			expect(run.exitCode).toBe(0);
-			expect(run.stdout).toContain("--value");
-			expect(run.stdout).toContain("--json-schema");
-			expect(run.stdout).not.toContain("--format");
-			expect(run.stdout).not.toContain("--shell" + "-exit-code");
+			expect(run).toMatchObject({ exitCode: 7, stdout: "", stderr: "" });
 		});
 
 		test("normal command help shows rendered-command flags", async () => {
@@ -136,6 +111,7 @@ describe("raw-exit escape hatch", () => {
 				name: "act",
 				description: "An action",
 				schema: z.object({ value: z.number() }),
+				resultSchema: z.any(),
 				handler: async () => ok(5),
 			});
 			const run = await runForTest(group, ["act", "--help"], { context: null });
@@ -145,45 +121,19 @@ describe("raw-exit escape hatch", () => {
 		});
 	});
 
-	describe("zod usage errors", () => {
-		test("zod validation errors exit 2, raw stderr, handler not invoked", async () => {
-			let handlerInvoked = false;
+	describe("unexpected exceptions", () => {
+		test("raw commands propagate thrown errors unchanged", async () => {
+			const error = new Error("something went wrong");
 			const group = new LegacyClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "act",
-					schema: z.object({ value: z.number() }),
 					run: async () => {
-						handlerInvoked = true;
-						return 0;
+						throw error;
 					},
 				}),
 			);
-			const run = await runForTest(group, ["act", "--value", "not-a-number"], { context: null });
-			expect(run.exitCode).toBe(2);
-			expect(run.stderr).toContain("error");
-			expect(handlerInvoked).toBe(false);
-		});
-	});
-
-	describe("ClinkrFailure handling", () => {
-		test("ClinkrFailure converts to stderr error message, exit 2", async () => {
-			const group = new LegacyClinkrGroup<null>({ name: "test" });
-			group.command(
-				rawCommand({
-					name: "act",
-					schema: z.object({}),
-					run: async () => {
-						throw new ClinkrFailure({
-							errorType: "test-error",
-							message: "something went wrong",
-						});
-					},
-				}),
-			);
-			const run = await runForTest(group, ["act"], { context: null });
-			expect(run.exitCode).toBe(2);
-			expect(run.stderr).toBe("error: something went wrong\n");
+			await expect(runForTest(group, ["act"], { context: null })).rejects.toBe(error);
 		});
 	});
 
@@ -193,6 +143,7 @@ describe("raw-exit escape hatch", () => {
 			const spec: ClinkrCommandSpec<null, typeof schema, number> = {
 				name: "act",
 				schema,
+				resultSchema: z.any(),
 				handler: async () => ok(0),
 				// @ts-expect-error rendered specs cannot set the raw discriminant
 				isRawExit: true,
@@ -203,7 +154,6 @@ describe("raw-exit escape hatch", () => {
 		test("rawCommand cannot accept rendered-only renderHuman", () => {
 			const spec = rawCommand({
 				name: "act",
-				schema: z.object({}),
 				run: async () => 0,
 				// @ts-expect-error raw command options do not include rendered-only hooks
 				renderHuman: () => "rendered",
@@ -221,7 +171,6 @@ describe("raw-exit escape hatch", () => {
 					name: "act",
 					description: "Full description",
 					summary: "Short summary",
-					schema: z.object({}),
 					run: async () => 0,
 				}),
 			);
@@ -239,13 +188,13 @@ describe("raw-exit escape hatch", () => {
 			group.command(
 				rawCommand({
 					name: "raw-act",
-					schema: z.object({}),
 					run: async () => 42,
 				}),
 			);
 			group.command({
 				name: "normal-act",
 				schema: z.object({}),
+				resultSchema: z.any(),
 				handler: async () => ok({ value: "data" }),
 			});
 			const rawRun = await runForTest(group, ["raw-act"], { context: null });
@@ -257,23 +206,27 @@ describe("raw-exit escape hatch", () => {
 			expect(normalRun.stdout).toContain("value");
 		});
 
-		test("raw command does not accept rendered-command flags, normal accepts remaining rendered flags", async () => {
+		test("raw owns flags while normal commands retain framework parsing", async () => {
 			const group = new LegacyClinkrGroup<null>({ name: "test" });
+			let rawArgv: readonly string[] = [];
 			group.command(
 				rawCommand({
 					name: "raw-act",
-					schema: z.object({}),
-					run: async () => 0,
+					run: async (_ctx, invocation) => {
+						rawArgv = invocation.argv;
+						return 0;
+					},
 				}),
 			);
 			group.command({
 				name: "normal-act",
 				schema: z.object({}),
+				resultSchema: z.any(),
 				handler: async () => ok({ value: "data" }),
 			});
 			const rawRun = await runForTest(group, ["raw-act", "--format", "json"], { context: null });
-			expect(rawRun.exitCode).toBe(2);
-			expect(rawRun.stderr).toContain("unknown option");
+			expect(rawRun.exitCode).toBe(0);
+			expect(rawArgv).toEqual(["--format", "json"]);
 			const removedNegativeFlagRun = await runForTest(
 				group,
 				["normal-act", "--shell" + "-exit-code"],
@@ -299,15 +252,14 @@ describe("raw-exit escape hatch", () => {
 			stderr: (text: string) => void;
 		}
 
-		test("raw command emits only handler-owned bytes via context io sinks", async () => {
+		test("raw command emits only handler-owned bytes through invocation io", async () => {
 			const group = new LegacyClinkrGroup<RawIoContext>({ name: "test" });
 			group.command(
 				rawCommand({
 					name: "speak",
-					schema: z.object({}),
-					run: async (ctx) => {
-						ctx.stdout("handler out\n");
-						ctx.stderr("handler err\n");
+					run: async (_ctx, invocation) => {
+						invocation.io.stdout("handler out\n");
+						invocation.io.stderr("handler err\n");
 						return 3;
 					},
 				}),
@@ -325,10 +277,10 @@ describe("raw-exit escape hatch", () => {
 				},
 			});
 			expect(run.exitCode).toBe(3);
-			expect(run.stdout).toBe("");
-			expect(run.stderr).toBe("");
-			expect(stdout).toBe("handler out\n");
-			expect(stderr).toBe("handler err\n");
+			expect(run.stdout).toBe("handler out\n");
+			expect(run.stderr).toBe("handler err\n");
+			expect(stdout).toBe("");
+			expect(stderr).toBe("");
 		});
 	});
 });

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { buildMachineEnvelopeSchema } from "./exit.ts";
+import { buildMachineEnvelopeSchema, type ClinkrOutcomeSchemas } from "./exit.ts";
 
 export interface JsonSchemaDocument {
 	inputJsonSchema: unknown;
@@ -10,14 +10,17 @@ export interface JsonSchemaDocument {
 
 export function buildJsonSchemaDocument(
 	requestSchema: z.ZodObject,
-	resultSchema: z.ZodType | undefined,
+	schemas: ClinkrOutcomeSchemas | z.ZodType | undefined,
 ): JsonSchemaDocument {
-	const outputSchema = resultSchema ?? z.unknown();
+	const outcomeSchemas: ClinkrOutcomeSchemas =
+		schemas === undefined ? {} : schemas instanceof z.ZodType ? { resultSchema: schemas } : schemas;
 	return {
 		inputJsonSchema: z.toJSONSchema(requestSchema, { io: "input" }),
 		outputJsonSchema:
-			resultSchema === undefined ? {} : z.toJSONSchema(resultSchema, { io: "output" }),
-		machineEnvelopeJsonSchema: z.toJSONSchema(buildMachineEnvelopeSchema(outputSchema), {
+			outcomeSchemas.resultSchema === undefined
+				? {}
+				: z.toJSONSchema(outcomeSchemas.resultSchema, { io: "output" }),
+		machineEnvelopeJsonSchema: z.toJSONSchema(buildMachineEnvelopeSchema(outcomeSchemas), {
 			io: "output",
 		}),
 	};

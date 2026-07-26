@@ -51,7 +51,6 @@ function buildCompletionTree(): LegacyClinkrGroup<ProbeContext> {
 	root.command(
 		rawCommand({
 			name: "raw",
-			schema: z.object({ path: z.string() }),
 			run: async (ctx) => {
 				ctx.calls.push("raw");
 				return 0;
@@ -135,10 +134,10 @@ describe("clinkr static completion", () => {
 		expect(allFlagValues).toContain("-h");
 	});
 
-	test("keeps rendered-only options off raw commands", () => {
+	test("keeps framework options off raw commands", () => {
 		const values = candidateValues(buildCompletionTree(), ["raw", "--"]);
 
-		expect(values).toContain("--json-schema");
+		expect(values).not.toContain("--json-schema");
 		expect(values).not.toContain("--format");
 		expect(values).not.toContain("--shell" + "-exit-code");
 	});

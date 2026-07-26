@@ -74,6 +74,7 @@ export {
 	usageError,
 	usageErrorMachineEnvelope,
 	usageErrorMachineEnvelopeSchema,
+	validateOutcomeData,
 } from "./exit.ts";
 export type {
 	BuildFailureMachineEnvelopeSchemaOptions,
@@ -81,11 +82,10 @@ export type {
 	ClinkrFailureExit,
 	ClinkrNegativeExit,
 	ClinkrOkExit,
-	ClinkrOkRenderOverrides,
+	ClinkrOutcomeSchemas,
 	ClinkrUsageErrorExit,
 	MachineEnvelope,
 } from "./exit.ts";
-export { ClinkrFailure } from "./failure.ts";
 export {
 	clinkrFormatFromArgs,
 	clinkrFormatFromOption,
@@ -106,4 +106,10 @@ export {
 	ClinkrGroup as ImmutableClinkrGroup,
 	ClinkrGroupBuilder,
 } from "./runtime.ts";
-export type { ClinkrAppOptions, ClinkrCompleteOptions, ClinkrRouteMetadata } from "./runtime.ts";
+export type {
+	ClinkrAppOptions,
+	ClinkrCompleteOptions,
+	ClinkrCompletionOptions,
+	ClinkrCompletionProviderError,
+	ClinkrRouteMetadata,
+} from "./runtime.ts";

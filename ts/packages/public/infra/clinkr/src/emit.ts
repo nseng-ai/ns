@@ -1,11 +1,4 @@
-import {
-	envelopeJsonText,
-	exitCodeForExit,
-	toMachineEnvelope,
-	type ClinkrExit,
-	type ClinkrNegativeExit,
-	type ClinkrOkExit,
-} from "./exit.ts";
+import { envelopeJsonText, exitCodeForExit, toMachineEnvelope, type ClinkrExit } from "./exit.ts";
 import { stripAnsi } from "./ansi.ts";
 import { resolveSettledNonInteractiveCaps, type Caps } from "./caps.ts";
 import type { ClinkrIo } from "./io.ts";
@@ -38,47 +31,34 @@ export interface EmitExitOptions<T> {
 	renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
 }
 
-/**
- * Sole owner of format dispatch. Returns the process exit code; never exits.
- */
+/** Sole owner of format dispatch. Returns the process exit code; never exits. */
 export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): number {
 	const exitCode = exitCodeForExit(exit);
 	if (options.format === "json") {
 		options.io.stdout(`${envelopeJsonText(toMachineEnvelope(exit))}\n`);
 		return exitCode;
 	}
-	switch (exit.type) {
-		case "ok": {
-			options.io.stdout(`${renderOkExit(exit, options)}\n`);
-			break;
-		}
-		case "negative": {
-			const rendered = renderNegativeExit(exit, options);
-			options.io.stderr(`${rendered}\n`);
-			break;
-		}
-		case "failure": {
-			options.io.stderr(`error: ${exit.message}\n`);
-			break;
-		}
-		case "usageError": {
-			options.io.stderr(`error: ${exit.message}\n`);
-			break;
-		}
+	if (exit.type === "failure" || exit.type === "usageError") {
+		options.io.stderr(`error: ${exit.message}\n`);
+		return exitCode;
 	}
+	if (exit.type === "negative" && !Object.hasOwn(exit, "data")) {
+		options.io.stdout(`${exit.message}\n`);
+		return exitCode;
+	}
+	if (!Object.hasOwn(exit, "data")) return exitCode;
+	options.io.stdout(`${renderOutcomeData(exit.data as T, options)}\n`);
 	return exitCode;
 }
 
-function renderOkExit<T>(exit: ClinkrOkExit<T>, options: EmitExitOptions<T>): string {
+function renderOutcomeData<T>(data: T, options: EmitExitOptions<T>): string {
 	const caps = renderCapabilities(options);
-	const rendered = renderOkExitText(exit, options, caps);
+	const renderer =
+		options.format === "markdown"
+			? (options.renderMarkdown ?? options.renderHuman)
+			: options.renderHuman;
+	const rendered = renderer === undefined ? envelopeJsonText(data) : renderer(data, caps);
 	return caps.canEmitAnsi ? rendered : stripAnsi(rendered);
-}
-
-function renderNegativeExit<T>(exit: ClinkrNegativeExit<T>, options: EmitExitOptions<T>): string {
-	if (exit.human === undefined) return exit.message;
-	const caps = renderCapabilities(options);
-	return caps.canEmitAnsi ? exit.human : stripAnsi(exit.human);
 }
 
 function renderCapabilities<T>(options: EmitExitOptions<T>): RenderCapabilities {
@@ -86,26 +66,4 @@ function renderCapabilities<T>(options: EmitExitOptions<T>): RenderCapabilities 
 		canEmitAnsi: options.io.canEmitAnsi === true,
 		...(options.io.caps === undefined ? {} : { caps: options.io.caps }),
 	};
-}
-
-function renderOkExitText<T>(
-	exit: ClinkrOkExit<T>,
-	options: EmitExitOptions<T>,
-	caps: RenderCapabilities,
-): string {
-	if (options.format === "human") return renderHumanChain(exit, options, caps);
-	if (exit.markdown !== undefined) return exit.markdown;
-	if (options.renderMarkdown !== undefined) return options.renderMarkdown(exit.data, caps);
-	return renderHumanChain(exit, options, caps);
-}
-
-function renderHumanChain<T>(
-	exit: ClinkrOkExit<T>,
-	options: EmitExitOptions<T>,
-	caps: RenderCapabilities,
-): string {
-	if (exit.human !== undefined) return exit.human;
-	return options.renderHuman === undefined
-		? envelopeJsonText(exit.data)
-		: options.renderHuman(exit.data, caps);
 }

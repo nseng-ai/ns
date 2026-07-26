@@ -14,6 +14,7 @@ function buildGroup(): LegacyClinkrGroup<null> {
 	group.command({
 		name: "win",
 		schema: z.object({}),
+		resultSchema: z.any(),
 		handler: async () => ok({ answer: 42 }),
 	});
 	return group;
@@ -24,6 +25,7 @@ function buildListAliasGroup(): LegacyClinkrGroup<string[]> {
 	group.command({
 		name: "list",
 		schema: z.object({}),
+		resultSchema: z.any(),
 		handler: async (calls) => {
 			calls.push("list");
 			return ok({ answer: 42 });
@@ -33,6 +35,7 @@ function buildListAliasGroup(): LegacyClinkrGroup<string[]> {
 	nested.command({
 		name: "list",
 		schema: z.object({}),
+		resultSchema: z.any(),
 		handler: async (calls) => {
 			calls.push("nested:list");
 			return ok({ answer: 7 });
@@ -51,6 +54,7 @@ function buildMarkdownGroup(): {
 	group.command({
 		name: "win",
 		schema: z.object({}),
+		resultSchema: z.any(),
 		handler: async () => ok({ answer: 42 }),
 		renderHuman: (data) => `human answer: ${data.answer}`,
 		renderMarkdown: (data) => {

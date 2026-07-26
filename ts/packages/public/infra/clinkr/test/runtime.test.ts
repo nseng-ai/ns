@@ -16,6 +16,7 @@ async function defineProbeCommand(commandBuilder: ClinkrCommandBuilder<string[]>
 	return await commandBuilder.define({
 		name,
 		schema: emptySchema,
+		resultSchema: z.any(),
 		handler: async (calls) => {
 			calls.push(name);
 			return ok(name);
@@ -32,6 +33,7 @@ async function createProbeApp(loads: string[] = []) {
 				loads.push("default");
 				return await commandBuilder.defineDefault({
 					schema: emptySchema,
+					resultSchema: z.any(),
 					handler: async (calls) => {
 						calls.push("default");
 						return ok("default");
@@ -91,6 +93,7 @@ describe("immutable Clinkr runtime", () => {
 						loads.push("admin-default");
 						return await commandBuilder.defineDefault({
 							schema: emptySchema,
+							resultSchema: z.any(),
 							handler: async (calls) => {
 								calls.push("admin-default");
 								return ok("admin-default");
@@ -140,6 +143,48 @@ describe("immutable Clinkr runtime", () => {
 		expect(completion.candidates.map((candidate) => candidate.value)).not.toContain("ls");
 	});
 
+	test("reports dynamic completion errors with the full selected command path", async () => {
+		const observed: unknown[] = [];
+		const context: string[] = [];
+		const app = await ClinkrApp.create<string[]>(
+			{
+				name: "probe",
+				moduleUrl: import.meta.url,
+				completion: {
+					onProviderError: (event) => {
+						observed.push(event);
+						throw new Error("observer failed");
+					},
+				},
+			},
+			async (appBuilder) => {
+				appBuilder.group({ name: "admin" }, async (groupBuilder) => {
+					groupBuilder.command({ name: "choose" }, async (commandBuilder) =>
+						commandBuilder.define({
+							name: "choose",
+							schema: z.object({ kind: z.enum(["one", "two"]) }),
+							positionals: { kind: { position: 0 } },
+							completionProvider: () => {
+								throw new Error("provider failed");
+							},
+							handler: async () => ok(),
+						}),
+					);
+					return await groupBuilder.define();
+				});
+				return await appBuilder.define();
+			},
+		);
+		const request = { words: ["admin", "choose", ""] };
+
+		const completion = await app.complete(request, { context });
+
+		expect(completion.candidates.map((candidate) => candidate.value)).toEqual(["one", "two"]);
+		expect(observed).toMatchObject([
+			{ commandPath: ["admin", "choose"], request, context, error: expect.any(Error) },
+		]);
+	});
+
 	test("shares an in-flight load and retries a failed transactional load", async () => {
 		let attempts = 0;
 		let release: (() => void) | undefined;
@@ -175,6 +220,7 @@ describe("immutable Clinkr runtime", () => {
 					commandBuilder.define({
 						name: "alpha",
 						schema: emptySchema,
+						resultSchema: z.any(),
 						handler: async () => ok(null),
 					}),
 				);
@@ -223,6 +269,7 @@ describe("immutable Clinkr runtime", () => {
 		runtime.command({
 			name: "ping",
 			schema: emptySchema,
+			resultSchema: z.any(),
 			handler: async () => ok("pong"),
 			renderHuman: (value) => value,
 		});

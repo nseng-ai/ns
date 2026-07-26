@@ -1,53 +1,40 @@
 import { z } from "zod";
 
-export interface ClinkrOkRenderOverrides {
-	readonly human?: string;
-	readonly markdown?: string;
-}
-
-export interface ClinkrNegativeRenderOverrides {
-	readonly human?: string;
-}
-
-export interface ClinkrNegativeOptions<T> extends ClinkrNegativeRenderOverrides {
+export interface ClinkrOkExit<T = unknown> {
+	readonly type: "ok";
 	readonly data?: T;
 }
 
-export interface ClinkrOkExit<T> extends ClinkrOkRenderOverrides {
-	readonly type: "ok";
-	readonly data: T;
+export interface ClinkrNegativeExit<T = unknown> {
+	readonly type: "negative";
+	readonly message: string;
+	readonly data?: T;
 }
 
-export interface ClinkrNegativeExit<T> extends ClinkrNegativeRenderOverrides {
-	type: "negative";
-	message: string;
-	data?: T;
+export interface ClinkrFailureExit<T = unknown> {
+	readonly type: "failure";
+	readonly errorType: string;
+	readonly message: string;
+	readonly data?: T;
 }
 
-export interface ClinkrFailureExit {
-	type: "failure";
-	errorType: string;
-	message: string;
-	data?: unknown;
+export interface ClinkrUsageErrorExit<T = unknown> {
+	readonly type: "usageError";
+	readonly errorType: "usageError";
+	readonly message: string;
+	readonly data?: T;
 }
 
-export interface ClinkrUsageErrorExit {
-	type: "usageError";
-	errorType: "usageError";
-	message: string;
-	data?: unknown;
-}
-
-export type ClinkrExit<T> =
-	| ClinkrOkExit<T>
-	| ClinkrNegativeExit<T>
-	| ClinkrFailureExit
-	| ClinkrUsageErrorExit;
+export type ClinkrExit<TResult, TNegative = TResult, TFailure = TResult, TUsageError = TResult> =
+	| ClinkrOkExit<TResult>
+	| ClinkrNegativeExit<TNegative>
+	| ClinkrFailureExit<TFailure>
+	| ClinkrUsageErrorExit<TUsageError>;
 
 export interface OkMachineEnvelope {
 	status: "ok";
 	exitCode: 0;
-	data: unknown;
+	data?: unknown;
 }
 
 export interface NegativeMachineEnvelope {
@@ -79,10 +66,17 @@ export type MachineEnvelope =
 	| FailureMachineEnvelope
 	| UsageErrorMachineEnvelope;
 
+export interface ClinkrOutcomeSchemas {
+	readonly resultSchema?: z.ZodType;
+	readonly negativeSchema?: z.ZodType;
+	readonly failureSchema?: z.ZodType;
+	readonly usageErrorSchema?: z.ZodType;
+}
+
 export const okMachineEnvelopeSchema = z.strictObject({
 	status: z.literal("ok"),
 	exitCode: z.literal(0),
-	data: z.unknown(),
+	data: z.unknown().optional(),
 });
 export const negativeMachineEnvelopeSchema = z.strictObject({
 	status: z.literal("negative"),
@@ -119,13 +113,7 @@ export interface BuildFailureMachineEnvelopeSchemaOptions {
 export function buildSuccessMachineEnvelopeSchema<DataSchema extends z.ZodType>(
 	dataSchema: DataSchema,
 ) {
-	return z
-		.strictObject({
-			status: z.literal("ok"),
-			exitCode: z.literal(0),
-			data: dataSchema,
-		})
-		.strict();
+	return envelopeBranch({ status: "ok", exitCode: 0 }, dataSchema);
 }
 
 export function buildFailureMachineEnvelopeSchema(
@@ -142,47 +130,75 @@ export function buildFailureMachineEnvelopeSchema(
 		.strict();
 }
 
-export function buildMachineEnvelopeSchema<DataSchema extends z.ZodType>(dataSchema: DataSchema) {
-	return z.discriminatedUnion("status", [
-		buildSuccessMachineEnvelopeSchema(dataSchema),
-		negativeMachineEnvelopeSchema,
-		failureMachineEnvelopeSchema,
-		usageErrorMachineEnvelopeSchema,
+export function buildMachineEnvelopeSchema(schemas: ClinkrOutcomeSchemas | z.ZodType): z.ZodUnion {
+	const outcomeSchemas: ClinkrOutcomeSchemas =
+		schemas instanceof z.ZodType ? { resultSchema: schemas } : schemas;
+	return z.union([
+		envelopeBranch({ status: "ok", exitCode: 0 }, outcomeSchemas.resultSchema),
+		envelopeBranch(
+			{ status: "negative", exitCode: 1, message: z.string() },
+			outcomeSchemas.negativeSchema,
+		),
+		envelopeBranch(
+			{ status: "failure", exitCode: 2, errorType: z.string(), message: z.string() },
+			outcomeSchemas.failureSchema,
+		),
+		envelopeBranch(
+			{
+				status: "usageError",
+				exitCode: 2,
+				errorType: z.literal("usageError"),
+				message: z.string(),
+			},
+			outcomeSchemas.usageErrorSchema,
+		),
 	]);
 }
 
-export function ok<T>(data: T, overrides: ClinkrOkRenderOverrides = {}): ClinkrOkExit<T> {
-	return {
-		type: "ok",
-		data,
-		...(overrides.human === undefined ? {} : { human: overrides.human }),
-		...(overrides.markdown === undefined ? {} : { markdown: overrides.markdown }),
-	};
+function envelopeBranch(
+	fields: Record<string, z.ZodType | string | number>,
+	dataSchema: z.ZodType | undefined,
+): z.ZodObject {
+	const shape: Record<string, z.ZodType> = {};
+	for (const [key, value] of Object.entries(fields)) {
+		shape[key] = typeof value === "string" || typeof value === "number" ? z.literal(value) : value;
+	}
+	if (dataSchema !== undefined) shape["data"] = dataSchema;
+	return z.strictObject(shape);
 }
 
-export function negative<T = never>(
+export function ok(): ClinkrOkExit;
+export function ok<T>(data: T): ClinkrOkExit<T>;
+export function ok<T>(...data: [] | [T]): ClinkrOkExit<T> {
+	return data.length === 0 ? { type: "ok" } : { type: "ok", data: data[0] };
+}
+
+export function negative(message: string): ClinkrNegativeExit;
+export function negative<T>(message: string, data: T): ClinkrNegativeExit<T>;
+export function negative<T>(message: string, ...data: [] | [T]): ClinkrNegativeExit<T> {
+	return data.length === 0
+		? { type: "negative", message }
+		: { type: "negative", message, data: data[0] };
+}
+
+export function failure(errorType: string, message: string): ClinkrFailureExit;
+export function failure<T>(errorType: string, message: string, data: T): ClinkrFailureExit<T>;
+export function failure<T>(
+	errorType: string,
 	message: string,
-	options: ClinkrNegativeOptions<T> = {},
-): ClinkrNegativeExit<T> {
-	return {
-		type: "negative",
-		message,
-		...(options.data === undefined ? {} : { data: options.data }),
-		...(options.human === undefined ? {} : { human: options.human }),
-	};
+	...data: [] | [T]
+): ClinkrFailureExit<T> {
+	return data.length === 0
+		? { type: "failure", errorType, message }
+		: { type: "failure", errorType, message, data: data[0] };
 }
 
-export function failure(errorType: string, message: string, data?: unknown): ClinkrFailureExit {
-	return { type: "failure", errorType, message, ...(data === undefined ? {} : { data }) };
-}
-
-export function usageError(message: string, data?: unknown): ClinkrUsageErrorExit {
-	return {
-		type: "usageError",
-		errorType: "usageError",
-		message,
-		...(data === undefined ? {} : { data }),
-	};
+export function usageError(message: string): ClinkrUsageErrorExit;
+export function usageError<T>(message: string, data: T): ClinkrUsageErrorExit<T>;
+export function usageError<T>(message: string, ...data: [] | [T]): ClinkrUsageErrorExit<T> {
+	return data.length === 0
+		? { type: "usageError", errorType: "usageError", message }
+		: { type: "usageError", errorType: "usageError", message, data: data[0] };
 }
 
 const EXIT_CODE_BY_TYPE = {
@@ -196,40 +212,72 @@ export function exitCodeForExit(exit: ClinkrExit<unknown>): 0 | 1 | 2 {
 	return EXIT_CODE_BY_TYPE[exit.type];
 }
 
-export function toMachineEnvelope(exit: ClinkrExit<unknown>): MachineEnvelope {
+export function validateOutcomeData(
+	exit: ClinkrExit<unknown>,
+	schemas: ClinkrOutcomeSchemas,
+): ClinkrExit<unknown> {
+	const schema = schemaForExit(exit, schemas);
+	if (schema === undefined) {
+		if (Object.hasOwn(exit, "data")) {
+			throw new Error(
+				`clinkr: ${exit.type} outcome must be bodyless because its schema is omitted`,
+			);
+		}
+		return exit;
+	}
+	if (!Object.hasOwn(exit, "data")) {
+		throw new Error(`clinkr: ${exit.type} outcome requires data because its schema is configured`);
+	}
+	return { ...exit, data: schema.parse(exit.data) } as ClinkrExit<unknown>;
+}
+
+function schemaForExit(
+	exit: ClinkrExit<unknown>,
+	schemas: ClinkrOutcomeSchemas,
+): z.ZodType | undefined {
 	switch (exit.type) {
 		case "ok":
-			return { status: "ok", exitCode: EXIT_CODE_BY_TYPE.ok, data: exit.data };
+			return schemas.resultSchema;
 		case "negative":
-			return {
-				status: "negative",
-				exitCode: EXIT_CODE_BY_TYPE.negative,
-				message: exit.message,
-				...(exit.data === undefined ? {} : { data: exit.data }),
-			};
+			return schemas.negativeSchema;
+		case "failure":
+			return schemas.failureSchema;
+		case "usageError":
+			return schemas.usageErrorSchema;
+	}
+}
+
+export function toMachineEnvelope(exit: ClinkrExit<unknown>): MachineEnvelope {
+	const data = Object.hasOwn(exit, "data") ? { data: exit.data } : {};
+	switch (exit.type) {
+		case "ok":
+			return { status: "ok", exitCode: 0, ...data };
+		case "negative":
+			return { status: "negative", exitCode: 1, message: exit.message, ...data };
 		case "failure":
 			return {
 				status: "failure",
-				exitCode: EXIT_CODE_BY_TYPE.failure,
+				exitCode: 2,
 				errorType: exit.errorType,
 				message: exit.message,
-				...(exit.data === undefined ? {} : { data: exit.data }),
+				...data,
 			};
 		case "usageError":
-			return usageErrorMachineEnvelope(exit.message, exit.data);
+			return usageErrorMachineEnvelope(exit.message, exit.data, Object.hasOwn(exit, "data"));
 	}
 }
 
 export function usageErrorMachineEnvelope(
 	message: string,
 	data?: unknown,
+	hasData = data !== undefined,
 ): UsageErrorMachineEnvelope {
 	return {
 		status: "usageError",
-		exitCode: EXIT_CODE_BY_TYPE.usageError,
+		exitCode: 2,
 		errorType: "usageError",
 		message,
-		...(data === undefined ? {} : { data }),
+		...(hasData ? { data } : {}),
 	};
 }
 

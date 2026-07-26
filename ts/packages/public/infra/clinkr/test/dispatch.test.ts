@@ -1,14 +1,7 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import {
-	ClinkrFailure,
-	LegacyClinkrGroup,
-	negative,
-	ok,
-	usageError,
-	type ClinkrExit,
-} from "../src/index.ts";
+import { failure, LegacyClinkrGroup, negative, ok, usageError } from "../src/index.ts";
 import { parseEnvelope, runForTest } from "../src/testing/index.ts";
 
 function buildGroup(): LegacyClinkrGroup<null> {
@@ -16,6 +9,7 @@ function buildGroup(): LegacyClinkrGroup<null> {
 	group.command({
 		name: "win",
 		schema: z.object({}),
+		resultSchema: z.object({ answer: z.number() }),
 		handler: async () => ok({ answer: 42 }),
 	});
 	group.command({
@@ -26,20 +20,19 @@ function buildGroup(): LegacyClinkrGroup<null> {
 	group.command({
 		name: "no-data",
 		schema: z.object({}),
-		handler: async (): Promise<ClinkrExit<{ count: number }>> =>
-			negative("empty", { data: { count: 0 } }),
+		negativeSchema: z.object({ count: z.number() }),
+		handler: async () => negative("empty", { count: 0 }),
 	});
 	group.command({
 		name: "usage",
 		schema: z.object({}),
+		usageErrorSchema: z.object({ missingFlag: z.string() }),
 		handler: async () => usageError("missing --yes", { missingFlag: "--yes" }),
 	});
 	group.command({
 		name: "fail",
 		schema: z.object({}),
-		handler: async () => {
-			throw new ClinkrFailure({ errorType: "boom", message: "it broke" });
-		},
+		handler: async () => failure("boom", "it broke"),
 	});
 	return group;
 }
@@ -52,11 +45,11 @@ describe("human mode", () => {
 		expect(run.stderr).toBe("");
 	});
 
-	test("negative writes the message to stderr and exits 1", async () => {
+	test("negative writes the answer to stdout and exits 1", async () => {
 		const run = await runForTest(buildGroup(), ["no"], { context: null });
 		expect(run.exitCode).toBe(1);
-		expect(run.stdout).toBe("");
-		expect(run.stderr).toBe("nothing to do\n");
+		expect(run.stdout).toBe("nothing to do\n");
+		expect(run.stderr).toBe("");
 	});
 
 	test("failure writes an error-prefixed message to stderr and exits 2", async () => {

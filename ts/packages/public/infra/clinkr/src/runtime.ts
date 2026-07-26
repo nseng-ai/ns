@@ -26,24 +26,35 @@ export interface ClinkrRouteMetadata {
 	isHidden?: boolean;
 }
 
-export interface ClinkrAppOptions {
+export interface ClinkrCompletionProviderError<TContext> {
+	readonly error: unknown;
+	readonly commandPath: readonly string[];
+	readonly request: ClinkrCompletionRequest;
+	readonly context: TContext;
+}
+
+export interface ClinkrCompletionOptions<TContext> {
+	readonly onProviderError?: (event: ClinkrCompletionProviderError<TContext>) => void;
+}
+
+export interface ClinkrAppOptions<TContext = void> {
 	name: string;
 	moduleUrl: string;
 	version?: string;
 	runtimeInfo?: () => string;
+	completion?: ClinkrCompletionOptions<TContext>;
 }
 
 export interface ClinkrCompleteOptions<TContext> {
 	context: TContext;
-	onDynamicCompletionError?: (error: unknown) => void;
 }
 
 type NamedCommandSpec<TContext> =
 	| ClinkrCommandSpec<TContext, z.ZodObject, unknown>
-	| RawCommandSpec<TContext, z.ZodObject>;
+	| RawCommandSpec<TContext>;
 type DefaultSpec<TContext> =
 	| DefaultCommandSpec<TContext, z.ZodObject, unknown>
-	| DefaultRawCommandSpec<TContext, z.ZodObject>;
+	| DefaultRawCommandSpec<TContext>;
 
 interface ScopeDefinition<TContext> {
 	readonly defaultCommand: ClinkrCommand<TContext> | undefined;
@@ -215,15 +226,23 @@ export class ClinkrCommandBuilder<TContext> {
 		this.isDefault = isDefault;
 	}
 
+	async define(spec: RawCommandSpec<TContext>): Promise<ClinkrCommand<TContext>>;
 	async define<S extends z.ZodObject, T>(
-		spec: ClinkrCommandSpec<TContext, S, T> | RawCommandSpec<TContext, S>,
+		spec: ClinkrCommandSpec<TContext, S, T>,
+	): Promise<ClinkrCommand<TContext>>;
+	async define<S extends z.ZodObject, T>(
+		spec: ClinkrCommandSpec<TContext, S, T> | RawCommandSpec<TContext>,
 	): Promise<ClinkrCommand<TContext>> {
 		if (this.isDefault) throw new Error("clinkr: use defineDefault() for a default command");
 		return this.finalize(spec as NamedCommandSpec<TContext>);
 	}
 
+	async defineDefault(spec: DefaultRawCommandSpec<TContext>): Promise<ClinkrCommand<TContext>>;
 	async defineDefault<S extends z.ZodObject, T>(
-		spec: DefaultCommandSpec<TContext, S, T> | DefaultRawCommandSpec<TContext, S>,
+		spec: DefaultCommandSpec<TContext, S, T>,
+	): Promise<ClinkrCommand<TContext>>;
+	async defineDefault<S extends z.ZodObject, T>(
+		spec: DefaultCommandSpec<TContext, S, T> | DefaultRawCommandSpec<TContext>,
 	): Promise<ClinkrCommand<TContext>> {
 		if (!this.isDefault) throw new Error("clinkr: named command builders cannot define a default");
 		return this.finalize(spec as DefaultSpec<TContext>);
@@ -267,9 +286,9 @@ export class ClinkrGroupBuilder<TContext> extends ScopeBuilder<TContext, ClinkrG
 }
 
 export class ClinkrAppBuilder<TContext> extends ScopeBuilder<TContext, ClinkrApp<TContext>> {
-	private readonly options: Readonly<ClinkrAppOptions>;
+	private readonly options: Readonly<ClinkrAppOptions<TContext>>;
 
-	constructor(appOwner: symbol, options: ClinkrAppOptions) {
+	constructor(appOwner: symbol, options: ClinkrAppOptions<TContext>) {
 		super(appOwner, options.moduleUrl);
 		this.options = Object.freeze({ ...options });
 	}
@@ -286,13 +305,13 @@ export class ClinkrAppBuilder<TContext> extends ScopeBuilder<TContext, ClinkrApp
 export class ClinkrApp<TContext = void> {
 	readonly name: string;
 	private readonly owner: symbol;
-	private readonly options: Readonly<ClinkrAppOptions>;
+	private readonly options: Readonly<ClinkrAppOptions<TContext>>;
 	private readonly scope: ScopeDefinition<TContext>;
 
 	constructor(
 		provenance: symbol,
 		owner: symbol,
-		options: Readonly<ClinkrAppOptions>,
+		options: Readonly<ClinkrAppOptions<TContext>>,
 		scope: ScopeDefinition<TContext>,
 	) {
 		this.name = options.name;
@@ -304,7 +323,7 @@ export class ClinkrApp<TContext = void> {
 	}
 
 	static async create<TContext = void>(
-		options: ClinkrAppOptions,
+		options: ClinkrAppOptions<TContext>,
 		build: (appBuilder: ClinkrAppBuilder<TContext>) => Promise<ClinkrApp<TContext>>,
 	): Promise<ClinkrApp<TContext>> {
 		const owner = Symbol(`clinkr-app:${options.name}`);
@@ -338,11 +357,23 @@ export class ClinkrApp<TContext = void> {
 	): Promise<ClinkrCompletionResult> {
 		const invocation = options[0] as ClinkrCompleteOptions<TContext> | undefined;
 		const runtime = await this.buildRuntime(request.words);
+		const context = invocation?.context as TContext;
+		const onProviderError = this.options.completion?.onProviderError;
+		const commandPath =
+			onProviderError === undefined ? [] : await selectedCommandPath(this.scope, request.words);
 		const runtimeOptions: ClinkrCompleteAsyncOptions<TContext> = {
-			context: invocation?.context as TContext,
-			...(invocation?.onDynamicCompletionError === undefined
+			context,
+			...(onProviderError === undefined
 				? {}
-				: { onDynamicCompletionError: invocation.onDynamicCompletionError }),
+				: {
+						onDynamicCompletionError: (error: unknown) => {
+							try {
+								onProviderError({ error, commandPath, request, context });
+							} catch {
+								// Completion must preserve static fallback even when observation fails.
+							}
+						},
+					}),
 		};
 		return await runtime.completeAsync(request, runtimeOptions);
 	}
@@ -351,6 +382,7 @@ export class ClinkrApp<TContext = void> {
 		const runtime = new LegacyClinkrGroup<TContext>({
 			name: this.name,
 			inferAutomaticAliases: false,
+			validateOutcomes: true,
 			...(this.options.version === undefined ? {} : { version: this.options.version }),
 			...(this.options.runtimeInfo === undefined ? {} : { runtimeInfo: this.options.runtimeInfo }),
 		});
@@ -378,6 +410,7 @@ async function materializeScope<TContext>(
 		const child = new LegacyClinkrGroup<TContext>({
 			...groupOptions(route.metadata),
 			inferAutomaticAliases: false,
+			validateOutcomes: true,
 		});
 		if (route === selected) {
 			const group = await route.load.load();
@@ -396,6 +429,18 @@ function selectNamedRoute<TContext>(
 	return routes.find(
 		(route) => route.metadata.name === word || route.metadata.aliases?.includes(word) === true,
 	);
+}
+
+async function selectedCommandPath<TContext>(
+	scope: ScopeDefinition<TContext>,
+	words: readonly string[],
+): Promise<readonly string[]> {
+	const route = selectNamedRoute(scope.routes, words[0]);
+	if (route === undefined || route.type === "command") {
+		return route === undefined ? [] : [route.metadata.name];
+	}
+	const group = await route.load.load();
+	return [route.metadata.name, ...(await selectedCommandPath(group, words.slice(1)))];
 }
 
 function registerNamed<TContext>(
