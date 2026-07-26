@@ -1,8 +1,4 @@
-import {
-	defineCommand,
-	type ClinkrCommandDefinition,
-	type ClinkrCommandMetadata,
-} from "@nseng-ai/clinkr";
+import { defineCommand, type ClinkrCommandDefinition } from "@nseng-ai/clinkr";
 import type { NsCommandSchema, NsExtensionApi } from "@nseng-ai/sdk";
 import type { z } from "zod";
 
@@ -50,11 +46,4 @@ export function objectiveNsCommand<
 			return await options.handler(context, request);
 		},
 	});
-}
-
-export function objectiveCommandMetadata(
-	description: string,
-	overrides: Omit<ClinkrCommandMetadata, "description"> = {},
-): ClinkrCommandMetadata {
-	return { description, summary: description, ...overrides };
 }

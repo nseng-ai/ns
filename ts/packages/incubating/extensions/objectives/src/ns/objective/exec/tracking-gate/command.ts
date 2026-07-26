@@ -1,24 +1,11 @@
-import { objectiveCommandMetadata, objectiveNsCommand } from "../../../objective-command.ts";
-import {
-	renderTrackingGate,
-	runTrackingGate,
-	trackingGateRequestSchema,
-	trackingGateResultSchema,
-} from "../../../../core/operations/tracking-gate.ts";
+import { objectiveCommandMetadata } from "../../../command-metadata.ts";
 
 export function metadata() {
-	return objectiveCommandMetadata(
-		"Collect deterministic Objective tracking gate evidence for one slug.",
-	);
+	return objectiveCommandMetadata(COMMAND_DESCRIPTION);
 }
 
 export async function command() {
-	return objectiveNsCommand({
-		schema: trackingGateRequestSchema,
-		resultSchema: trackingGateResultSchema,
-		positionals: { slug: { position: 0 } },
-		handler: runTrackingGate,
-		renderHuman: renderTrackingGate,
-		renderMarkdown: renderTrackingGate,
-	});
+	return await (await import("./definition.ts")).command();
 }
+
+const COMMAND_DESCRIPTION = "Collect deterministic Objective tracking gate evidence for one slug.";

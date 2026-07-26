@@ -8,7 +8,7 @@ import {
 } from "../../src/core/fake-storage.ts";
 import { runCheckObjective } from "../../src/core/operations/check-objective.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
-import { runObjectiveCheckCommand } from "../../src/ns/objective/check/command.ts";
+import { runObjectiveCheckCommand } from "../../src/ns/objective/check/definition.ts";
 
 const COMPLETE_OBJECTIVE_MD = [
 	"# Objective alpha",

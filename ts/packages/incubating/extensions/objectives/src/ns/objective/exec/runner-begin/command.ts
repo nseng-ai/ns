@@ -1,27 +1,12 @@
-import { objectiveCommandMetadata, objectiveNsCommand } from "../../../objective-command.ts";
-import {
-	renderRunnerBegin,
-	runnerBeginRequestSchema,
-	runnerBeginResultSchema,
-	runRunnerBegin,
-} from "../../../../runner/begin.ts";
-import { createNsObjectiveRunnerCoreContext } from "../../../runner-context.ts";
-
-const DESCRIPTION =
-	"Check preconditions and emit step facts plus the subagent prompt for one decomposed Objective Runner step (ADR 0024).";
+import { objectiveCommandMetadata } from "../../../command-metadata.ts";
 
 export function metadata() {
-	return objectiveCommandMetadata(DESCRIPTION);
+	return objectiveCommandMetadata(COMMAND_DESCRIPTION);
 }
 
 export async function command() {
-	return objectiveNsCommand({
-		schema: runnerBeginRequestSchema,
-		resultSchema: runnerBeginResultSchema,
-		positionals: { slug: { position: 0 } },
-		createContext: createNsObjectiveRunnerCoreContext,
-		handler: runRunnerBegin,
-		renderHuman: renderRunnerBegin,
-		renderMarkdown: renderRunnerBegin,
-	});
+	return await (await import("./definition.ts")).command();
 }
+
+const COMMAND_DESCRIPTION =
+	"Check preconditions and emit step facts plus the subagent prompt for one decomposed Objective Runner step (ADR 0024).";

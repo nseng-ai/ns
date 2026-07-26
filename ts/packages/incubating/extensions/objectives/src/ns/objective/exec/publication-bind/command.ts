@@ -1,38 +1,12 @@
-import type { NsExtensionApi } from "@nseng-ai/sdk";
-
-import { objectiveCommandMetadata, objectiveNsCommand } from "../../../objective-command.ts";
-import {
-	publicationBindRequestSchema,
-	publicationBindResultSchema,
-	runPublicationBind,
-} from "../../../publication-commands.ts";
-import {
-	createNsObjectiveRunnerPublicationContext,
-	type ObjectiveRunnerPublicationCommandContext,
-} from "../../../publication-context.ts";
-
-const DESCRIPTION =
-	"Bind one parent-held Objective Runner publication authorization to the current branch and existing pull request.";
+import { objectiveCommandMetadata } from "../../../command-metadata.ts";
 
 export function metadata() {
-	return objectiveCommandMetadata(DESCRIPTION);
+	return objectiveCommandMetadata(COMMAND_DESCRIPTION);
 }
 
-export async function command(
-	createContext: (
-		api: NsExtensionApi,
-	) =>
-		| Promise<ObjectiveRunnerPublicationCommandContext>
-		| ObjectiveRunnerPublicationCommandContext = createNsObjectiveRunnerPublicationContext,
-) {
-	return objectiveNsCommand({
-		schema: publicationBindRequestSchema,
-		resultSchema: publicationBindResultSchema,
-		createContext,
-		handler: runPublicationBind,
-		renderHuman: (result) =>
-			result.type === "bound"
-				? `Bound Objective Runner publication authorization at ${result.authorizationPath}.`
-				: `Publication binding refused: ${result.code}.`,
-	});
+export async function command() {
+	return await (await import("./definition.ts")).command();
 }
+
+const COMMAND_DESCRIPTION =
+	"Bind one parent-held Objective Runner publication authorization to the current branch and existing pull request.";

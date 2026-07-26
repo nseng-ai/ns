@@ -1,24 +1,12 @@
-import { objectiveCommandMetadata, objectiveNsCommand } from "../../../objective-command.ts";
-import {
-	renderRunnerSubagentUsageMarkdown,
-	runnerSubagentUsageRequestSchema,
-	runnerSubagentUsageResultSchema,
-	runRunnerSubagentUsage,
-} from "../../../../core/operations/runner-subagent-usage.ts";
+import { objectiveCommandMetadata } from "../../../command-metadata.ts";
 
 export function metadata() {
-	return objectiveCommandMetadata(
-		"Summarize Pi runner subagent JSONL usage telemetry for Objective stack digests.",
-	);
+	return objectiveCommandMetadata(COMMAND_DESCRIPTION);
 }
 
 export async function command() {
-	return objectiveNsCommand({
-		schema: runnerSubagentUsageRequestSchema,
-		resultSchema: runnerSubagentUsageResultSchema,
-		positionals: { sessionFiles: { position: 0 } },
-		handler: runRunnerSubagentUsage,
-		renderHuman: renderRunnerSubagentUsageMarkdown,
-		renderMarkdown: renderRunnerSubagentUsageMarkdown,
-	});
+	return await (await import("./definition.ts")).command();
 }
+
+const COMMAND_DESCRIPTION =
+	"Summarize Pi runner subagent JSONL usage telemetry for Objective stack digests.";

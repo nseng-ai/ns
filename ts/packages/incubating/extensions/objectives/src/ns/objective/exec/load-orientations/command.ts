@@ -1,21 +1,11 @@
-import { objectiveCommandMetadata, objectiveNsCommand } from "../../../objective-command.ts";
-import {
-	loadOrientationsRequestSchema,
-	loadOrientationsResultSchema,
-	renderLoadOrientationsMarkdown,
-	runLoadOrientations,
-} from "../../../../core/operations/load-orientations.ts";
+import { objectiveCommandMetadata } from "../../../command-metadata.ts";
 
 export function metadata() {
-	return objectiveCommandMetadata("Load active Objective orientation files for agent onboarding.");
+	return objectiveCommandMetadata(COMMAND_DESCRIPTION);
 }
 
 export async function command() {
-	return objectiveNsCommand({
-		schema: loadOrientationsRequestSchema,
-		resultSchema: loadOrientationsResultSchema,
-		handler: runLoadOrientations,
-		renderHuman: renderLoadOrientationsMarkdown,
-		renderMarkdown: renderLoadOrientationsMarkdown,
-	});
+	return await (await import("./definition.ts")).command();
 }
+
+const COMMAND_DESCRIPTION = "Load active Objective orientation files for agent onboarding.";

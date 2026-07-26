@@ -8,7 +8,7 @@ import type { ExecResult } from "@nseng-ai/sdk";
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 import type { RunnerTextFileReadResult } from "../../src/runner/context.ts";
-import { command } from "../../src/ns/objective/exec/runner-finish/command.ts";
+import { command } from "../../src/ns/objective/exec/runner-finish/definition.ts";
 import { SequencedGitGateway, type SequencedGitGatewayState } from "../unit/runner/context.ts";
 import { stagedWhitespaceFailure } from "../support/git-fixtures.ts";
 import { FakeObjectiveNsApi, runObjectiveCommand } from "../support/ns-command-harness.ts";

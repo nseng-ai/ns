@@ -1,22 +1,12 @@
-import { objectiveCommandMetadata, objectiveNsCommand } from "../../../objective-command.ts";
-import {
-	listCandidatesRequestSchema,
-	listCandidatesResultSchema,
-	renderListCandidates,
-	runListCandidates,
-} from "../../../../core/operations/list-candidates.ts";
+import { objectiveCommandMetadata } from "../../../command-metadata.ts";
 
 export function metadata() {
-	return objectiveCommandMetadata(
-		"List active Objective slug candidates for shell and agent autocomplete.",
-	);
+	return objectiveCommandMetadata(COMMAND_DESCRIPTION);
 }
 
 export async function command() {
-	return objectiveNsCommand({
-		schema: listCandidatesRequestSchema,
-		resultSchema: listCandidatesResultSchema,
-		handler: runListCandidates,
-		renderHuman: renderListCandidates,
-	});
+	return await (await import("./definition.ts")).command();
 }
+
+const COMMAND_DESCRIPTION =
+	"List active Objective slug candidates for shell and agent autocomplete.";
