@@ -1,6 +1,6 @@
 {
   "packages": [
-    "../ts/packages/tools/pi-editor-mods"
+    "../ts/packages/internal/hosts/pi/tools/pi-editor-mods"
   ],
   "extensions": [],
   "skills": [

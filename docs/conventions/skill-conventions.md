@@ -6,7 +6,7 @@ Conventions for authoring, naming, vendoring, and managing skills in this repo. 
 
 Skill management in this repo is layered. The channels are additive and have distinct ownership:
 
-1. **First-party npm-module-bundled provisioning (`ns skills` / `ns update`).** `@nseng-ai/harness-artifacts` models harness artifacts statically declared by npm modules and reconciles them into harness roots. Record: `.ns-harness-artifacts-manifest.json`.
+1. **First-party npm-module-bundled provisioning (`ns skills` / `ns update`).** `@nseng-ai/ns` (harness-artifacts feature, `src/harness-artifacts/`, exposed to other packages through `@nseng-ai/ns/api`) models harness artifacts statically declared by npm modules and reconciles them into harness roots. Record: `.ns-harness-artifacts-manifest.json`.
 2. **Repo-local and third-party acquisition (`npx skills`).** Repo-local first-party skills have canonical source `skills/<name>/`, mirrored through `.agents/skills/` and `.claude/skills/`. GitHub-sourced skills are vendored as real directories under `.agents/skills/<name>/`. `npx skills` owns install/layout/list/update/remove operations and `skills-lock.json` checks for these skills.
 3. **Cross-harness overlays (`ns skill-exposure`).** This surface owns only repo-declared Skill Exposure Policy and Harness Overlay reconciliation, including the command-backed replacement invariant. It does not discover skills, inspect whole repositories, validate content hashes, verify mirrors, or diagnose install health.
 

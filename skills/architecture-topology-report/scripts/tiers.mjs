@@ -5,7 +5,7 @@ import {
   packageEdgeKey,
   packageTierDefinitions,
   tierRank,
-} from "../../../ts/packages/internal/typescript-style-guard/src/package-tier-taxonomy.ts";
+} from "../../../ts/packages/internal/dev/typescript-style-guard/src/package-tier-taxonomy.ts";
 
 export { packageEdgeKey };
 

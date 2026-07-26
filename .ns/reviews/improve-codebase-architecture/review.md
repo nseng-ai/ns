@@ -17,7 +17,7 @@
 # run:
 #
 #   dprint check .ns/reviews/improve-codebase-architecture/review.md
-#   pnpm --dir ts exec vitest run packages/incubator/reviews/test/unit/review-definition.test.ts
+#   pnpm --dir ts exec vitest run packages/incubating/extensions/reviews/test/unit/review-definition.test.ts
 description: |
   Review the supplied diff for architecture deepening opportunities: modules,
   interfaces, seams, adapters, leverage, and locality problems introduced or

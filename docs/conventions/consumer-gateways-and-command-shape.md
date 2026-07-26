@@ -2,7 +2,7 @@
 
 Routed from the root `AGENTS.md` ("Architecture rules" section). Read before declaring a new external-tool gateway interface, narrowing a consumer against one, or consolidating overlapping gateways.
 
-A single canonical provider gateway (the 21-method `GitGateway` at `ts/packages/extension-kit/src/git/contract.ts`) is consumed by many extensions, most of which touch only a handful of methods. This convention keeps that consumption narrow and keeps shared command mechanics in the kit. It is a three-tier rule plus an inversion rule.
+A single canonical provider gateway (the 21-method `GitGateway` at `ts/packages/public/extension-kit/src/git/contract.ts`) is consumed by many extensions, most of which touch only a handful of methods. This convention keeps that consumption narrow and keeps shared command mechanics in the kit. It is a three-tier rule plus an inversion rule.
 
 ## Domain-first gateway shape
 
@@ -14,14 +14,14 @@ Thin substrate helpers may still exist inside a real adapter, fake, or kit gatew
 
 An extension that consumes an external-tool gateway owns a **Consumer Gateway**: a narrowed interface (a subset of the provider's methods) plus result vocabulary in the extension's own domain terms. The extension owns the vocabulary; the kit owns the provider contract.
 
-- Canonical live examples: `LandGitGateway` (`ts/packages/incubator/flow/src/land/types.ts`), `GraphiteStackGitGateway` (`ts/packages/extension-kit/src/graphite/stack.ts`), and the `Pick` idiom `HandoffGitGateway = Pick<GitGateway, …>` (`ts/packages/incubator/handoffs/src/core/artifact-storage.ts`).
+- Canonical live examples: `LandGitGateway` (`ts/packages/incubating/extensions/flow/src/land/types.ts`), `GraphiteStackGitGateway` (`ts/packages/public/extension-kit/src/graphite/stack.ts`), and the `Pick` idiom `HandoffGitGateway = Pick<GitGateway, …>` (`ts/packages/incubating/extensions/handoffs/src/core/artifact-storage.ts`).
 - Default: a consumer that uses a handful of `GitGateway` methods should type against a `Pick`-narrowed Consumer Gateway, not the full interface. Widen to the full contract only when the consumer genuinely exercises most of it.
 
 ## Tier 2 — Kit-owned pure command-shape
 
 Argv builders, output parsers, and failure classifiers are pure command-shape and live in `@nseng-ai/extension-kit`. A standalone kit *export* is promoted to the shared barrel only when a **second** consumer exists.
 
-- Live example: flow land imports `GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS` from the kit (`ts/packages/incubator/flow/src/land/stack/land-context-adapter.ts`) rather than re-spelling the `for-each-ref` argv.
+- Live example: flow land imports `GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS` from the kit (`ts/packages/incubating/extensions/flow/src/land/stack/land-context-adapter.ts`) rather than re-spelling the `for-each-ref` argv.
 - The second-consumer rule governs standalone kit exports, **not** provider-contract methods. A method on the `GitGateway` contract may legitimately have a single caller — 6 of its 21 methods do — because the contract is one cohesive seam, not a grab-bag of independently-promoted helpers.
 
 ## Tier 3 — Gateway-object sharing
@@ -33,7 +33,7 @@ Sharing an actual gateway *object* across extensions (not just the contract type
 3. the ADR 0019 placement gate passes for the shared implementation.
 
 - Hard callout: flow land's `pi.exec` command-stream/telemetry channel must not be bypassed by handing land a differently-channeled gateway object. Reusing an object across a channel boundary silently drops the telemetry the original channel carried.
-- Positive example: `RealSlotRepositoryGateway` (`ts/packages/incubator/slots/src/core/gateways/repository.ts`) delegates its 8 read-facts to a `RealGitGateway` constructed over the same `NodeCommandExecApi` channel it uses for its own worktree commands — the channels coincide, so object reuse is sound.
+- Positive example: `RealSlotRepositoryGateway` (`ts/packages/incubating/extensions/slots/src/core/gateways/repository.ts`) delegates its 8 read-facts to a `RealGitGateway` constructed over the same `NodeCommandExecApi` channel it uses for its own worktree commands — the channels coincide, so object reuse is sound.
 
 ## Inversion rule
 
@@ -66,7 +66,7 @@ Duplication is not debt until divergence would be a bug. Two extensions each own
 
 ## Justified single-consumer kit export
 
-A single-consumer kit export needs an explicit justification and a demotion trigger. Example: `resolveWorktreeGitDirs` stays a kit export despite having one external consumer because the kit-internal `detectGitOperationInProgressAt` — itself reached by live flow and slots consumers — calls it (`ts/packages/extension-kit/src/git/worktree-state.ts`). Demoting it into that one external consumer would create a backwards kit→consumer edge. It landed via a deliberate consolidation slice. General form: name why the export stays in the kit, and name the trigger (a second external consumer, or the internal caller going away) that would move it.
+A single-consumer kit export needs an explicit justification and a demotion trigger. Example: `resolveWorktreeGitDirs` stays a kit export despite having one external consumer because the kit-internal `detectGitOperationInProgressAt` — itself reached by live flow and slots consumers — calls it (`ts/packages/public/extension-kit/src/git/worktree-state.ts`). Demoting it into that one external consumer would create a backwards kit→consumer edge. It landed via a deliberate consolidation slice. General form: name why the export stays in the kit, and name the trigger (a second external consumer, or the internal caller going away) that would move it.
 
 ## Relationship to ADR 0019
 

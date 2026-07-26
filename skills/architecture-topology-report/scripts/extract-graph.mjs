@@ -233,14 +233,14 @@ function tierViolationForEdge(from, to) {
 }
 
 function isAllowedPiSubpackagePeerEdge(from, to) {
-  if (to !== "@nseng-ai/pi") return false;
+  if (to !== "@nseng-ai/pi-runtime") return false;
   if (pkgs[from]?.tier !== EXTENSION_TIER_ID) return false;
   const manifest = manifests[from];
   return (
     Array.isArray(manifest?.ns?.subpackages) &&
     manifest.ns.subpackages.includes("pi") &&
-    manifest?.peerDependencies?.["@nseng-ai/pi"] !== undefined &&
-    manifest?.peerDependenciesMeta?.["@nseng-ai/pi"]?.optional === true
+    manifest?.peerDependencies?.["@nseng-ai/pi-runtime"] !== undefined &&
+    manifest?.peerDependenciesMeta?.["@nseng-ai/pi-runtime"]?.optional === true
   );
 }
 

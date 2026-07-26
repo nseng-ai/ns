@@ -75,7 +75,7 @@ single source of commit-level provenance.
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `grilling`                                  | `skills/pi-grill-ui/SKILL.md`                                                                                                                                                                                                     | Interview loop re-expressed in Pi structured `grill_ask` vocabulary        | Semantic merge on refresh                                                          |
 | `grilling`                                  | `skills/pi-grill-with-docs-ui/SKILL.md`                                                                                                                                                                                           | Same, composed with docs-aware behavior                                    | Semantic merge on refresh                                                          |
-| `grilling`                                  | `ts/packages/internal/pi-tools/src/grill/prompts.ts` (fallback blocks + `GRILL_UI_CONTRACT`), `.../grill/result.ts` (end-grill result)                                                                                            | Deliberately self-contained fallback duplicates of the backend skills      | Semantic merge on refresh; pin new behaviors in `test/grill/grill-ui.test.ts`      |
+| `grilling`                                  | `ts/packages/internal/hosts/pi/tools/pi-tools/src/grill/prompts.ts` (fallback blocks + `GRILL_UI_CONTRACT`), `.../grill/result.ts` (end-grill result)                                                                             | Deliberately self-contained fallback duplicates of the backend skills      | Semantic merge on refresh; pin new behaviors in `test/grill/grill-ui.test.ts`      |
 | `grilling`                                  | `skills/readme-driven-development/SKILL.md` (Grill step)                                                                                                                                                                          | Adapted interview-loop step                                                | Review on upstream `grilling` change                                               |
 | `domain-modeling`                           | `skills/pi-grill-with-docs-ui/SKILL.md`                                                                                                                                                                                           | Glossary challenge, `CONTEXT.md` discipline, sparing ADRs in Pi vocabulary | Semantic merge on refresh                                                          |
 | `code-review` (upstream rename of `review`) | `.ns/reviews/code-smell-review/review.md`                                                                                                                                                                                         | NS-local review prompt derived from the Fowler smell baseline              | Manually re-derive the smell baseline on refresh                                   |
@@ -107,7 +107,7 @@ skill-audit family.
   `grill-with-docs` wrappers are intentionally tiny; ns's Pi structured UI cannot depend
   on them for operational details. `skills/pi-grill-ui/SKILL.md`,
   `skills/pi-grill-with-docs-ui/SKILL.md`, and the fallback prompt blocks in
-  `ts/packages/internal/pi-tools/src/grill/prompts.ts` must stay self-contained and must
+  `ts/packages/internal/hosts/pi/tools/pi-tools/src/grill/prompts.ts` must stay self-contained and must
   continue to require `grill_ask` for user-facing questions when available, one question
   per tool call, explicit choices, recommendations, `estimatedRemaining`,
   freeform/status/end paths, no routine validation-scope questions, status-request
@@ -142,7 +142,7 @@ additions:
    update that document's mapping tables.
 2. If the grill/domain-modeling contract changes, semantically merge into the Pi backend
    skills and the pi-tools fallback prompts, and pin new behaviors in
-   `ts/packages/internal/pi-tools/test/grill/grill-ui.test.ts`.
+   `ts/packages/internal/hosts/pi/tools/pi-tools/test/grill/grill-ui.test.ts`.
 3. Re-apply the recorded forks listed above.
 
 ## Deferred follow-ups

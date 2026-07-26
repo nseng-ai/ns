@@ -1,0 +1,77 @@
+{
+	"name": "@nseng-ai/pi-runtime",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./commands/ack": "./src/commands/ack.ts",
+		"./commands/args": "./src/commands/args.ts",
+		"./commands/events": "./src/commands/events.ts",
+		"./commands/helpers": "./src/commands/helpers.ts",
+		"./commands/io": "./src/commands/io.ts",
+		"./grill/surfaces": "./src/kit/grill/surfaces.ts",
+		"./models/call": "./src/kit/models/call.ts",
+		"./models/lm-json": "./src/kit/models/lm-json.ts",
+		"./parity/check": "./src/parity/check.ts",
+		"./parity/extension": "./src/runtime/parity-extension.ts",
+		"./parity/testing": "./src/parity/testing.ts",
+		"./runtime/agent-definition": "./src/runtime/agent-definition.ts",
+		"./runtime/auth": "./src/runtime/auth.ts",
+		"./runtime/command-host": "./src/runtime/command-host.ts",
+		"./runtime/machine-envelope": "./src/runtime/machine-envelope.ts",
+		"./runtime/tool-types": "./src/runtime/tool-types.ts",
+		"./sessions/replacement": "./src/runtime/sessions-replacement.ts",
+		"./skills/expansion": "./src/kit/skills/expansion.ts",
+		"./skills/lookup": "./src/kit/skills/lookup.ts",
+		"./terminal/layout": "./src/kit/terminal/layout.ts",
+		"./terminal/overlay": "./src/kit/terminal/overlay.ts",
+		"./terminal/presentation": "./src/kit/terminal/presentation.ts",
+		"./shared/errors": "./src/kit/shared/errors.ts",
+		"./shared/gh-command": "./src/kit/shared/gh-command.ts",
+		"./shared/text-lines": "./src/kit/shared/text-lines.ts",
+		"./shared/timers": "./src/kit/shared/timers.ts",
+		"./runtime/types": "./src/runtime/types.ts",
+		"./commands/cli-extension": "./src/commands/cli-extension.ts",
+		"./runtime/extension-types": "./src/runtime/extension-types.ts",
+		"./runtime/primitives": "./src/runtime/primitives.ts",
+		"./runtime/status": "./src/runtime/status.ts",
+		"./search/ripgrep-defaults": "./src/kit/search/ripgrep-defaults.ts",
+		"./shared/command-exec": "./src/kit/shared/command-exec.ts",
+		"./shared/message-delivery": "./src/runtime/message-delivery.ts",
+		"./worktree-status": "./src/worktree-status/index.ts",
+		"./worktree-status/extension": "./src/worktree-status/extension.ts"
+	},
+	"scripts": {
+		"check": "tsc -p tsconfig.json",
+		"test": "cd ../../../../../.. && vitest run --config vitest.config.ts packages/incubating/hosts/pi/runtime/pi-runtime/test"
+	},
+	"dependencies": {
+		"@earendil-works/pi-agent-core": "catalog:",
+		"@earendil-works/pi-tui": "catalog:",
+		"@nseng-ai/pr-feedback": "workspace:*",
+		"@nseng-ai/extension-kit": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
+		"zod": "catalog:"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"devDependencies": {
+		"@earendil-works/pi-ai": "catalog:",
+		"@earendil-works/pi-coding-agent": "catalog:",
+		"@earendil-works/pi-tui": "catalog:"
+	},
+	"ns": {
+		"tier": "host",
+		"subpackages": [
+			"kit",
+			"commands",
+			"runtime",
+			"parity",
+			"worktree-status",
+			"core"
+		]
+	}
+}

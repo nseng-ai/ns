@@ -1,11 +1,14 @@
+# ADR 0045: the three release-disposition roots are the only package homes. Discovery
+# is narrowed to them so a package added outside a disposition root is not silently
+# ingested as a workspace project.
 packages:
-  - packages/**
+  - packages/public/**
+  - packages/incubating/**
+  - packages/internal/**
   # Build output contains a generated publish manifest with the same name as its
   # source package. Recursive discovery would ingest it as a second workspace
   # project that silently shadows the real one.
   - '!packages/**/dist/**'
-  - ../.ns/reviews/*/tools/*
-  - ../.ns/extensions/*
 
 allowBuilds:
   '@google/genai': true

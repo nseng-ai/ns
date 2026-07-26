@@ -83,7 +83,8 @@ Put repository-wide TypeScript style guard tests at:
 ts/packages/<package>/test/typescript-style-guard/**/*.test.ts
 ```
 
-The shared globs also support packages nested one additional directory below `ts/packages/`. Keep the
+The shared globs are depth-agnostic (`packages/**/test/...`), so they find packages at any nesting
+depth below the `public/`, `incubating/`, and `internal/` disposition roots. Keep the
 lane directory directly under the package's `test/` root so discovery includes it in exactly one
 specialized command.
 
@@ -194,10 +195,10 @@ strings or fake writer calls. Keep terminal time deterministic, model actual and
 as separate values, and flush asynchronous terminal writes before asserting.
 
 See
-[`packages/infra/clinkr/docs/terminal-integration-testing.md`](packages/infra/clinkr/docs/terminal-integration-testing.md)
+[`packages/public/infra/clinkr/docs/terminal-integration-testing.md`](packages/public/infra/clinkr/docs/terminal-integration-testing.md)
 for the standard harness shape, PTY newline model, scenario matrix, assertion strategy, debugging workflow,
 and limitations. The reference test is
-[`packages/infra/clinkr/test/integration/stream-terminal-emulation.test.ts`](packages/infra/clinkr/test/integration/stream-terminal-emulation.test.ts).
+[`packages/public/infra/clinkr/test/integration/stream-terminal-emulation.test.ts`](packages/public/infra/clinkr/test/integration/stream-terminal-emulation.test.ts).
 
 ## Default-path test expectations
 

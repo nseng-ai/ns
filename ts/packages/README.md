@@ -1,27 +1,107 @@
 # TypeScript Package Taxonomy
 
-This tree is a projection of the canonical `ns.tier` classification: each package's declared tier determines its directory, enforced tier→directory by the style-guard rule `NS_TS_TIER_DIRECTORY_PROJECTION` (ADR 0033). The projection map is `neutral-infra`→`infra/`, `sdk`→`sdk/`, `extension-kit`→`extension-kit/`, `extension`→`extensions/`, `host`→`hosts/`, `standalone-tool`→`tools/`, `internal-tool`→`internal/`. `extensions/` is declared but currently empty — it is the graduation home for `extension`-tiered packages — because every first-party ns extension currently sits in the path-derived `incubator/` zone described below, which is exempt from the tier→directory projection (ADR 0044). Directories are a guard-enforced view, never an independent classification.
+This file is the authoritative contract for the `ts/packages/` tree: dispositions, owner
+nesting, package identity, and dependency closure (ADR 0045). Where another document
+disagrees, this one wins.
+
+The tree encodes **release disposition** and nothing else. The first path segment below
+`ts/packages/` is exactly one of `public/`, `incubating/`, or `internal/`, and the style-guard
+rule `NS_TS_PACKAGE_DISPOSITION_TOPOLOGY` enforces the whole ontology mechanically — the
+disposition root, leaf directory equal to the unscoped npm name, globally unique leaves,
+scope-by-disposition, and the dependency-closure matrix. Architectural role is carried by
+`ns.tier`, which is independent of the directory and enforced separately by tier layering. Tier
+no longer projects onto a path: the rule that did so, `NS_TS_TIER_DIRECTORY_PROJECTION`, is
+retired.
 
 Structure *inside* a container package — which units earn `ns.subpackages` rank, naming, and importer rules — is governed by [`docs/conventions/subpackage-conventions.md`](../../docs/conventions/subpackage-conventions.md) (ADR 0022/0023).
 
-## Top-level packages
+## The three disposition roots
 
-- `sdk/` is the ns SDK and CLI package (`@nseng-ai/sdk`, tier `sdk`). It stays top-level by design.
-- `extension-kit/` is the first-party Extension Kit substrate (`@nseng-ai/extension-kit`, tier `extension-kit`). It stays top-level by design and does not need a category wrapper.
+Disposition is a statement about **release commitment**, decided deliberately and expressed as
+a path move.
 
-## Category directories
+- `public/` — the package is **warranted for external release and ongoing support**. A public
+  package may runtime-depend only on other public packages. Owner-appropriate nesting is
+  allowed (`public/infra/`, `public/tools/`); `public/ns`, `public/sdk`, and
+  `public/extension-kit` are deliberate direct leaves.
+- `incubating/` — the package has **genuine external release intent**, but its contract or
+  evidence is not ready for that commitment. Incubating may runtime-depend on public and
+  incubating. It nests by owner: `incubating/extensions/` for ns extensions,
+  `incubating/hosts/pi/` for Pi-owned packages, and `incubating/tools/` for standalone tools.
+- `internal/` — the package exists to **operate this repository and has no current external
+  release intent**. It is not a waiting room for publication. Internal packages use the
+  reserved `@internal/*` scope, are always `private: true`, and are never published. Internal
+  may depend on anything. It nests by owner: `internal/dev/` for repository development
+  machinery and `internal/hosts/pi/` for project-only Pi tooling, subagents, and extensions.
 
-- `infra/` contains below-SDK neutral packages such as core primitives, CLI framework support, Branch Memory, and Graphite support. Neutral means ns-independent, not effect-free: `@nseng-ai/foundation` is the home for generic infrastructure — including I/O-performing infrastructure such as `@nseng-ai/foundation/exec` — that passes ADR 0032's admission test (an ns-independent public contract plus a credible external-consumer scenario stated in reviewable prose). ns-shaped gateways and extension-building substrate stay in `@nseng-ai/extension-kit`. The former transitional domain-primitives package has been deleted; shared first-party extension-building primitives now live under precise `@nseng-ai/extension-kit/*` subpaths.
-- `extensions/` is the declared graduation home projected from the `extension` tier by `NS_TS_TIER_DIRECTORY_PROJECTION`. It is currently empty: every first-party ns extension still lives in the path-derived `incubator/` zone below, and graduating one out is a `git mv` into `extensions/`.
-- `incubator/` is the curation zone for packages that have not yet earned their tier directory. Membership is **path-derived**: any package at `ts/packages/incubator/<name>` is exempt from the tier→directory projection (ADR 0044). The exemption is tier-agnostic — it suspends *where* a package lives, never *what it is* — so an incubating package keeps its declared `ns.tier` and stays fully governed by tier layering, cycle rules, topology circles, and subpackage conformance. Graduating one is a `git mv` into its tier's directory, with no taxonomy or guard change. It currently holds every first-party ns extension; run `ls ts/packages/incubator` for the live roster rather than trusting a list here.
-- `hosts/` contains presentation/runtime hosts such as Pi.
-- `internal/` contains tested, repo-internal tooling under the reserved `@internal/*` scope — package-grade code that exists only to operate this repo, not to ship as part of ns-the-product. It is the middle rung between `.ns/*` prototypes and platform packages.
-  - **Promotion ladder:** `.ns/*` prototype → `packages/internal/*` (tested workspace citizen) → platform package. An internal package is the tested home for consumer-side tooling that has outgrown an in-place `.ns/*` prototype but is not yet (or never will be) a platform capability; if it earns platform status it graduates out of the space. See [`docs/conventions/platform-and-consumer.md`](../../docs/conventions/platform-and-consumer.md).
-  - **`internal/` vs `tools/`:** `internal/` packages are enforced to have no outside runtime dependents and are never published; `tools/` packages are standalone and potentially shippable. Choose `internal/` for repo-operating machinery, `tools/` for anything meant to stand on its own.
-  - **Dependency semantics:** runtime dependencies (`dependencies`, `optionalDependencies`, `peerDependencies`) on `internal/*` from outside the space are banned inbound, enforced by the style-guard rule `NS_TS_INTERNAL_SPACE_ADMISSION` (path↔scope coupling, mandatory `private: true`, no outside runtime dependents). `devDependencies` and test-only consumption are allowed — the root `ts/package.json` consumes `@internal/pi-tools` as a `devDependency`, the sanctioned carve-out.
-- `tools/` contains standalone tools that are off the extension completion axis.
+> **`public` is release warrant, not visibility and not evidence of publication.** It does not
+> mean "exported", "not `private` in TypeScript terms", or "currently on npm at this version".
+> A `public/` package can be unpublished, and an `@nseng-ai/*` package with published history
+> can sit in `incubating/` because the approved disposition — not historical release metadata —
+> is authoritative. Conversely `internal/` is about release intent, not secrecy: the whole
+> repository is private today.
 
-Package names, public import specifiers, binary names, and workspace dependency names are independent of this filesystem taxonomy and should remain stable unless an explicit package-rename plan says otherwise.
+Owner nesting below a disposition root is free-form: a host owns the categories under its own
+root and need not mirror another host's shape. Only the first segment is fixed vocabulary.
+
+Run `ls ts/packages/*/` for the live roster rather than trusting a list here.
+
+### Host ownership: Pi
+
+Pi is the only external harness with packages today, and it appears under two dispositions.
+Pi's category vocabulary is `runtime/` (reusable Pi integration substrate), `extensions/` (Pi
+runtime extensions), `tools/` (Pi tools), and `subagents/` (Pi subagent infrastructure); a
+category appears under whichever disposition its packages belong to. Live today:
+`incubating/hosts/pi/runtime/pi-runtime/` and `internal/hosts/pi/{tools,subagents}/`.
+
+A Pi integration written over an ns extension is named `pi-ns-<domain>` and consumes only that
+extension's curated package API — never its private source. A Pi-native extension that adapts
+nothing uses a natural Pi-facing identity instead. Another host would pick its own categories
+under its own root.
+
+## Identity invariants
+
+- **Leaf equals name.** Every package's leaf directory is exactly the unscoped part of its npm
+  package name. `incubating/hosts/pi/runtime/pi-runtime/` holds `@nseng-ai/pi-runtime`; the
+  parent directories are repository ontology, not name prefixes.
+- **Leaves are globally unique** across all three disposition trees, so a leaf directory names
+  exactly one package.
+- **Scope follows disposition.** Public and incubating packages are `@nseng-ai/<leaf>`; internal
+  packages are `@internal/<leaf>` with `private: true`.
+- **Identity changes are hard cutovers.** No forwarding packages, compatibility exports, or
+  old-name aliases.
+
+## Dependency closure
+
+Runtime workspace dependencies obey this matrix:
+
+| Consumer disposition | Allowed provider dispositions      |
+| -------------------- | ---------------------------------- |
+| `public`             | `public`                           |
+| `incubating`         | `public`, `incubating`             |
+| `internal`           | `public`, `incubating`, `internal` |
+
+## Rules that follow from the roots
+
+- **Discovery is closed.** `ts/pnpm-workspace.yaml`, `ts/package.json` `workspaces`,
+  `ts/tsconfig.json` `include`, and `ts/vitest.shared.ts` all enumerate the three roots. A
+  package added outside them is not a workspace project, and the guard reports it as a
+  violation rather than skipping it.
+- **Disposition is orthogonal to `private`.** Disposition governs path and scope; `private`
+  governs publish-readiness. The guard asserts `private: true` for `@internal/*` only, so a
+  public- or incubating-disposition package may still be private-for-now.
+- **Closure covers runtime edges only.** `dependencies`, `optionalDependencies`, and
+  `peerDependencies` must satisfy the matrix; `devDependencies` may cross inward, which is what
+  lets the root `ts/package.json` consume `@internal/*` tooling.
+- **Inbound edges into internal space** are additionally policed by
+  `NS_TS_INTERNAL_SPACE_ADMISSION` (path↔scope coupling, mandatory `private: true`, no outside
+  runtime dependents).
+- **Promotion is a review, not a rename.** Moving incubating → public means accepting the
+  support commitment and satisfying public closure. Moving internal → incubating or public
+  additionally changes npm scope and is a deliberate identity cutover.
+
+Package names, public import specifiers, binary names, and workspace dependency names follow the
+scope rule above but are otherwise independent of nesting below the disposition root.
 
 ## Public package local release flow
 
@@ -77,7 +157,7 @@ The compatibility wrappers below delegate to the corresponding flat `ns-dev` com
 - `just bump-version VERSION` coordinates source manifests and runs the lockfile refresh without registry writes; an already-current lockfile need not produce a diff.
 - `just publish-dry-run VERSION` runs the legacy full-set dry run without registry writes.
 - `just publish VERSION` is the legacy direct publisher.
-- `pnpm --dir ts run release:qualify-public -a -v VERSION` prepares and checks generated publish roots. `--skip-checks` and `--skip-dry-run` are diagnosis-only and are not release evidence.
+- `pnpm --dir ts run release:qualify-public -v VERSION` prepares and checks generated publish roots for the full derived candidate set. `--skip-checks` and `--skip-dry-run` are diagnosis-only and are not release evidence.
 - `pnpm --dir ts run release:verify-public -v VERSION -s -c ts/dist/releases/VERSION/report.json` performs candidate-aware, read-only strict registry verification. Without `-s`, missing or mismatched packages are reported without a failing exit.
 
 Package-local `pack:local` and `publish:dry-run` wrappers use `ns-dev prepare-source-publish-package` as the canonical publish-root preparation command.

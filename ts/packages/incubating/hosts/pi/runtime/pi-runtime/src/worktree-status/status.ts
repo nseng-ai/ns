@@ -1,0 +1,931 @@
+import { existsSync, readFileSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
+
+import { runAvailableBrmemCommand } from "@nseng-ai/extension-kit/brmem-cli";
+import {
+	commandSucceeded,
+	execApiToCommandRunner,
+	type ExecResult,
+	formatCommand,
+	tailText,
+} from "@nseng-ai/foundation/command";
+import { RealGitGateway, resolveWorktreeGitDirs } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
+import { runGitHubCli } from "@nseng-ai/extension-kit/github/cli";
+import { resolveGithubRepositoryIdentityFromOrigin } from "@nseng-ai/extension-kit/github/identity";
+import {
+	githubWorktreePrStatusArgs,
+	parseGithubWorktreePrStatusJsonResult,
+	type GithubCheckTally,
+	type GithubReviewThreadCounts,
+	type GithubWorktreePrStatusParseResult,
+} from "@nseng-ai/extension-kit/github/pr-status";
+import {
+	formatErrorMessage,
+	optionalEntries,
+	optionalEntry,
+} from "@nseng-ai/foundation/primitives";
+import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
+import { parseMachineEnvelopeData } from "@nseng-ai/pi-runtime/runtime/machine-envelope";
+import {
+	customMessageText,
+	linkifyPrReferences,
+	prLinksFromDetails,
+	safeTerminalHyperlink,
+	truncateDisplayLine,
+} from "@nseng-ai/pi-runtime/terminal/presentation";
+
+import {
+	loadGraphiteMetadataStatusInWorker,
+	type GraphiteMetadataStatus,
+	type GraphiteStackTopologyCounts,
+	type GraphiteMetadataWorkerDiagnostic,
+	type LoadGraphiteMetadataStatusInWorkerOptions,
+} from "@nseng-ai/extension-kit/graphite/status";
+
+import type { CommandExecApi } from "../kit/shared/command-exec.ts";
+import type { CustomMessage, RenderComponent, RenderTheme } from "./types.ts";
+
+export const WORKTREE_STATUS_UI_KEY = "worktree-status";
+const COMMAND_TIMEOUT_MS = 5_000;
+
+export type { ExecResult } from "@nseng-ai/foundation/command";
+
+interface BrmemEntry {
+	namespace: string;
+	key: string;
+}
+
+export interface WorktreeStatusGitPaths {
+	readonly repoDir: string;
+	readonly gitDir: string;
+	readonly commonGitDir: string;
+	readonly headPath: string;
+}
+
+export function repoNameFromWorktreeStatusGitPaths(
+	gitPaths: WorktreeStatusGitPaths,
+): string | undefined {
+	const repoDir =
+		basename(gitPaths.commonGitDir) === ".git" ? dirname(gitPaths.commonGitDir) : gitPaths.repoDir;
+	const repoName = basename(repoDir);
+	return repoName.length > 0 ? repoName : undefined;
+}
+
+export type GtCommitStatus =
+	| { type: "count"; count: number }
+	| { type: "unknown" }
+	| { type: "not-applicable" };
+
+export interface GtStatus {
+	down: string | undefined;
+	up: string;
+	/** Stack topology counts, omitted when metadata carries no available count. */
+	stackTopologyCounts?: GraphiteStackTopologyCounts;
+	commits: GtCommitStatus;
+	dirty: "yes" | "no";
+}
+
+export interface GraphiteMetadataLoaderOptions {
+	cwd: string;
+	signal?: AbortSignal;
+	onDiagnostic?: (diagnostic: GraphiteMetadataWorkerDiagnostic) => void;
+}
+
+export type GraphiteMetadataLoader = (
+	options: GraphiteMetadataLoaderOptions,
+) => Promise<GraphiteMetadataStatus>;
+
+export interface LoadGtStatusOptions {
+	pi: CommandExecApi;
+	cwd: string;
+	signal?: AbortSignal;
+	metadataLoader?: GraphiteMetadataLoader;
+	onDiagnostic?: (diagnostic: GraphiteMetadataWorkerDiagnostic) => void;
+}
+
+export interface LoadLocalWorktreeStatusOptions {
+	signal?: AbortSignal;
+	identity?: WorktreeStatusIdentity;
+	metadataLoader?: GraphiteMetadataLoader;
+	onDiagnostic?: (diagnostic: GraphiteMetadataWorkerDiagnostic) => void;
+}
+
+export interface LoadWorktreeGhStatusOptions {
+	signal?: AbortSignal;
+	identity?: WorktreeStatusIdentity;
+}
+
+export interface WorktreeStatusIdentity {
+	readonly cwd: string;
+	readonly head: { type: "branch"; name: string } | { type: "detached" } | { type: "unknown" };
+	readonly headOid?: string;
+}
+
+export interface GhPrDetails {
+	prNumber: number;
+	url?: string;
+	threads: GithubReviewThreadCounts;
+	checks: GithubCheckTally;
+}
+
+export interface GhStatus extends GhPrDetails {
+	type: "available";
+}
+
+export interface GhHeadMismatchStatus extends GhPrDetails {
+	type: "head-mismatch";
+	prHeadOid: string;
+}
+
+export type WorktreeGhStatus =
+	| GhStatus
+	| GhHeadMismatchStatus
+	| { type: "pending" }
+	| { type: "no-pr" }
+	| { type: "unavailable"; message?: string };
+
+export interface LocalWorktreeStatus {
+	identity: WorktreeStatusIdentity;
+	brmem: string | undefined;
+	gt: GtStatus;
+	gtMetadataDiagnostic?: GraphiteMetadataWorkerDiagnostic;
+}
+
+export interface WorktreeStatus extends LocalWorktreeStatus {
+	gh: WorktreeGhStatus;
+}
+
+interface LoadGhStatusInternalOptions {
+	readonly identity: WorktreeStatusIdentity;
+	readonly signal?: AbortSignal;
+}
+
+export async function loadLocalWorktreeStatus(
+	pi: CommandExecApi,
+	cwd: string,
+	options: LoadLocalWorktreeStatusOptions = {},
+): Promise<LocalWorktreeStatus> {
+	let gtMetadataDiagnostic: GraphiteMetadataWorkerDiagnostic | undefined;
+	const onDiagnostic = (diagnostic: GraphiteMetadataWorkerDiagnostic): void => {
+		gtMetadataDiagnostic = diagnostic;
+		options.onDiagnostic?.(diagnostic);
+	};
+	const identityPromise = options.identity ?? loadWorktreeStatusIdentity(pi, cwd, options.signal);
+	const [brmem, gt, identity] = await Promise.all([
+		loadBrmemStatus(pi, cwd, options.signal),
+		loadGtStatus({
+			pi,
+			cwd,
+			...optionalEntries({ signal: options.signal, metadataLoader: options.metadataLoader }),
+			onDiagnostic,
+		}),
+		identityPromise,
+	]);
+
+	const status: LocalWorktreeStatus = { identity, brmem, gt };
+	if (gtMetadataDiagnostic !== undefined) status.gtMetadataDiagnostic = gtMetadataDiagnostic;
+	return status;
+}
+
+export async function loadWorktreeGhStatus(
+	pi: CommandExecApi,
+	cwd: string,
+	options: LoadWorktreeGhStatusOptions = {},
+): Promise<WorktreeGhStatus> {
+	const identity = options.identity ?? (await loadWorktreeStatusIdentity(pi, cwd, options.signal));
+	return loadGhStatus(pi, cwd, {
+		identity,
+		...optionalEntry("signal", options.signal),
+	});
+}
+
+export function combineWorktreeStatus(
+	local: LocalWorktreeStatus,
+	gh: WorktreeGhStatus,
+): WorktreeStatus {
+	return { ...local, gh };
+}
+
+export function sameWorktreeStatusIdentity(
+	left: WorktreeStatusIdentity,
+	right: WorktreeStatusIdentity,
+): boolean {
+	return (
+		left.cwd === right.cwd &&
+		sameHeadIdentity(left.head, right.head) &&
+		left.headOid === right.headOid
+	);
+}
+
+export function isWorktreeStatusIdentityStillCurrent(
+	cwd: string,
+	identity: WorktreeStatusIdentity,
+): boolean {
+	const gitPaths = findWorktreeStatusGitPaths(cwd);
+	if (gitPaths === undefined) return identity.head.type === "unknown";
+	const currentBranch = currentWorktreeStatusBranchName(gitPaths);
+	if (identity.head.type !== "branch") return currentBranch === undefined;
+	if (currentBranch !== identity.head.name) return false;
+
+	const currentOid = currentBranchLooseOid(gitPaths, identity.head.name);
+	return (
+		currentOid === undefined || identity.headOid === undefined || currentOid === identity.headOid
+	);
+}
+
+export async function loadGtStatus(options: LoadGtStatusOptions): Promise<GtStatus> {
+	const { pi, cwd, signal } = options;
+	const metadataLoader = options.metadataLoader ?? loadCurrentGraphiteMetadataStatusAsync;
+	const metadataLoaderOptions: GraphiteMetadataLoaderOptions = {
+		cwd,
+		...optionalEntries({ signal, onDiagnostic: options.onDiagnostic }),
+	};
+	const metadata = await metadataLoader(metadataLoaderOptions);
+	const down = loadDownBranch(metadata, signal);
+	const up = loadUpBranch(metadata, signal);
+	const [commits, dirty] = await Promise.all([
+		loadHasCommits(pi, cwd, down, signal),
+		loadDirty(pi, cwd, signal),
+	]);
+
+	return { down, up, commits, dirty, ...stackCountsFromMetadata(metadata, signal) };
+}
+
+function stackCountsFromMetadata(
+	metadata: GraphiteMetadataStatus,
+	signal?: AbortSignal,
+): Pick<GtStatus, "stackTopologyCounts"> {
+	if (signal?.aborted || metadata.type !== "tracked" || metadata.stackTopologyCounts === undefined)
+		return {};
+	return { stackTopologyCounts: metadata.stackTopologyCounts };
+}
+
+async function loadBrmemStatus(
+	pi: CommandExecApi,
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<string | undefined> {
+	if (signal?.aborted) return undefined;
+
+	const run = await runAvailableBrmemCommand({
+		gateway: pi,
+		cwd,
+		brmemArgs: ["list", "--format", "json"],
+		timeoutMs: COMMAND_TIMEOUT_MS,
+		signal,
+	});
+	if (!run.ok) return signal?.aborted ? undefined : "unavailable";
+	if (!commandSucceeded(run.value.result)) {
+		return signal?.aborted ? undefined : "unavailable";
+	}
+
+	const parsed = parseMachineEnvelopeData(run.value.result.stdout, { label: "brmem list JSON" });
+	if (parsed.type !== "valid") return signal?.aborted ? undefined : "unavailable";
+
+	const status = formatBrmemScopes(parseBrmemEntries(parsed.data.entries));
+	return status.length > 0 ? status : undefined;
+}
+
+function parseBrmemEntries(value: unknown): BrmemEntry[] {
+	if (!Array.isArray(value)) return [];
+
+	const entries: BrmemEntry[] = [];
+	for (const item of value) {
+		const entry = brmemEntryFromValue(item);
+		if (entry !== undefined) entries.push(entry);
+	}
+	return entries;
+}
+
+function brmemEntryFromValue(value: unknown): BrmemEntry | undefined {
+	if (!isRecord(value)) return undefined;
+	if (typeof value.namespace !== "string" || typeof value.key !== "string") return undefined;
+	return { namespace: value.namespace, key: value.key };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function formatBrmemScopes(entries: readonly BrmemEntry[]): string {
+	const namespaces: Array<{ name: string; keys: string[]; seenKeys: Set<string> }> = [];
+	const seenNamespaces = new Map<string, { name: string; keys: string[]; seenKeys: Set<string> }>();
+
+	for (const entry of entries) {
+		const scope = displayScopeFromEntry(entry);
+		if (!scope) continue;
+
+		let namespace = seenNamespaces.get(scope.namespace);
+		if (!namespace) {
+			namespace = { name: scope.namespace, keys: [], seenKeys: new Set<string>() };
+			seenNamespaces.set(scope.namespace, namespace);
+			namespaces.push(namespace);
+		}
+
+		if (!namespace.seenKeys.has(scope.key)) {
+			namespace.seenKeys.add(scope.key);
+			namespace.keys.push(scope.key);
+		}
+	}
+
+	return namespaces
+		.filter((namespace) => namespace.keys.length > 0)
+		.map((namespace) => `(${namespace.name}: ${namespace.keys.join(", ")})`)
+		.join(" ");
+}
+
+function displayScopeFromEntry(entry: BrmemEntry): { namespace: string; key: string } | undefined {
+	const keyParts = entry.key.split("/").filter((part) => part.length > 0);
+	const topLevelKey = keyParts[0] ?? entry.key;
+	return topLevelKey.length > 0 ? { namespace: entry.namespace, key: topLevelKey } : undefined;
+}
+
+async function loadCurrentGraphiteMetadataStatusAsync(
+	options: GraphiteMetadataLoaderOptions,
+): Promise<GraphiteMetadataStatus> {
+	const gitPaths = findWorktreeStatusGitPaths(options.cwd);
+	if (gitPaths === undefined) return { type: "unavailable", reason: "not-a-git-repo" };
+
+	const currentBranch = currentWorktreeStatusBranchName(gitPaths);
+	if (currentBranch === undefined) return { type: "unavailable", reason: "no-current-branch" };
+
+	const workerOptions: LoadGraphiteMetadataStatusInWorkerOptions = {
+		signal: options.signal,
+		...optionalEntry("onDiagnostic", options.onDiagnostic),
+	};
+	return loadGraphiteMetadataStatusInWorker(
+		{ commonGitDir: gitPaths.commonGitDir, currentBranch },
+		workerOptions,
+	);
+}
+
+function loadDownBranch(
+	metadata: GraphiteMetadataStatus,
+	signal?: AbortSignal,
+): string | undefined {
+	if (signal?.aborted) return "-";
+	// Metadata is the only passive source used here; falling back to @{-1} produced misleading bases
+	// when users had merely checked out an unrelated branch previously.
+	if (metadata.type !== "tracked") return "-";
+	if (metadata.parent !== undefined) return metadata.parent;
+	if (metadata.isCurrentTrunk) return undefined;
+	return "-";
+}
+
+function loadUpBranch(metadata: GraphiteMetadataStatus, signal?: AbortSignal): string {
+	if (signal?.aborted) return "-";
+	if (metadata.type !== "tracked") return "-";
+	if (metadata.children.length === 0) return "-";
+	if (metadata.children.length === 1) return metadata.children[0] ?? "-";
+	return "<multiple>";
+}
+
+async function loadHasCommits(
+	pi: CommandExecApi,
+	cwd: string,
+	down: string | undefined,
+	signal?: AbortSignal,
+): Promise<GtCommitStatus> {
+	if (down === undefined) return { type: "not-applicable" };
+	if (down === "-" || signal?.aborted) return { type: "unknown" };
+
+	try {
+		const result = await pi.exec(
+			"git",
+			["rev-list", "--count", `${down}..HEAD`],
+			execOptions(cwd, signal),
+		);
+		if (!commandSucceeded(result)) return { type: "unknown" };
+
+		const count = Number.parseInt(result.stdout.trim(), 10);
+		if (!Number.isFinite(count) || count < 0) return { type: "unknown" };
+		return { type: "count", count };
+	} catch {
+		return { type: "unknown" };
+	}
+}
+
+async function loadDirty(
+	pi: CommandExecApi,
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<"yes" | "no"> {
+	if (signal?.aborted) return "no";
+
+	try {
+		const result = await pi.exec("git", ["status", "--porcelain=v1"], execOptions(cwd, signal));
+		return result.stdout.trim().length > 0 ? "yes" : "no";
+	} catch {
+		return "no";
+	}
+}
+
+export async function loadWorktreeStatusIdentity(
+	pi: CommandExecApi,
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<WorktreeStatusIdentity> {
+	const gitPaths = findWorktreeStatusGitPaths(cwd);
+	const head =
+		gitPaths === undefined ? { type: "unknown" as const } : currentHeadIdentity(gitPaths);
+	const git = gitGatewayFromExecApi(pi);
+	const headOid = await loadHeadOid(git, cwd, signal);
+	const identity: WorktreeStatusIdentity = { cwd: resolve(cwd), head };
+	return headOid === undefined ? identity : { ...identity, headOid };
+}
+
+type WorktreeStatusGitGateway = Pick<GitGateway, "headCommit">;
+
+async function loadHeadOid(
+	git: WorktreeStatusGitGateway,
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<string | undefined> {
+	if (signal?.aborted) return undefined;
+	const result = await git.headCommit({ cwd, signal });
+	return result.ok ? result.value : undefined;
+}
+
+async function loadGhStatus(
+	pi: CommandExecApi,
+	cwd: string,
+	options: LoadGhStatusInternalOptions,
+): Promise<WorktreeGhStatus> {
+	const { identity, signal } = options;
+	if (signal?.aborted) return { type: "unavailable", message: "request aborted" };
+	if (identity.head.type !== "branch") return { type: "unavailable", message: "not on a branch" };
+
+	const git = gitGatewayFromExecApi(pi);
+	const repository = await loadGitHubRepositoryIdentity(git, cwd, signal);
+	if (repository === undefined)
+		return {
+			type: "unavailable",
+			message: "could not identify GitHub repository from origin remote",
+		};
+
+	const args = githubWorktreePrStatusArgs({ ...repository, headRefName: identity.head.name });
+	const result = await runGitHubCli({
+		runner: execApiToCommandRunner(pi),
+		cwd,
+		signal,
+		timeoutMs: COMMAND_TIMEOUT_MS,
+		args,
+	});
+	if (result.type === "startup_error")
+		return { type: "unavailable", message: compactErrorMessage(result.message) };
+	if (!commandSucceeded(result.result)) {
+		return {
+			type: "unavailable",
+			message: compactCommandFailureMessage(compactGithubCommandName(args), result.result),
+		};
+	}
+
+	const parsed = parseGithubWorktreePrStatusJsonResult(result.result.stdout);
+	if (parsed.type !== "ok") return { type: "unavailable", message: ghParseFailureMessage(parsed) };
+	const { prs } = parsed;
+	if (prs.length === 0) return { type: "no-pr" };
+	if (identity.headOid === undefined)
+		return { type: "unavailable", message: "could not verify local HEAD" };
+
+	const pr = prs.find((candidate) => candidate.headRefOid === identity.headOid);
+	if (pr === undefined) {
+		const stalePr = prs[0];
+		if (stalePr === undefined) throw new Error("expected at least one GitHub PR candidate");
+		return {
+			type: "head-mismatch",
+			prNumber: stalePr.number,
+			...optionalEntry("url", stalePr.url),
+			threads: stalePr.threads,
+			checks: stalePr.checks,
+			prHeadOid: stalePr.headRefOid,
+		};
+	}
+	return {
+		type: "available",
+		prNumber: pr.number,
+		...optionalEntry("url", pr.url),
+		threads: pr.threads,
+		checks: pr.checks,
+	};
+}
+
+function ghParseFailureMessage(
+	result: Exclude<GithubWorktreePrStatusParseResult, { type: "ok" }>,
+): string {
+	switch (result.type) {
+		case "invalid-json":
+			return invalidJsonGhParseFailureMessage(result.kind);
+		case "graphql-errors":
+			return `GitHub GraphQL error: ${compactStatusDetail(result.messages.join("; "))}`;
+		case "schema-mismatch":
+			return "GitHub returned unexpected GraphQL response shape";
+		default:
+			return assertNever(result);
+	}
+}
+
+function invalidJsonGhParseFailureMessage(
+	kind: Extract<GithubWorktreePrStatusParseResult, { type: "invalid-json" }>["kind"],
+): string {
+	switch (kind) {
+		case "github-unicorn-html":
+			return "GitHub returned Unicorn HTML instead of JSON";
+		case "html":
+			return "GitHub returned non-JSON HTML instead of JSON";
+		case "non-json":
+			return "GitHub returned non-JSON output instead of JSON";
+		default:
+			return assertNever(kind);
+	}
+}
+
+function assertNever(value: never): never {
+	throw new Error(`Unexpected worktree GH status parse result: ${String(value)}`);
+}
+
+async function loadGitHubRepositoryIdentity(
+	git: Pick<GitGateway, "originUrl">,
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<{ owner: string; repo: string } | undefined> {
+	if (signal?.aborted) return undefined;
+	const identity = await resolveGithubRepositoryIdentityFromOrigin(git, { cwd, signal });
+	return identity.type === "found" ? identity.value : undefined;
+}
+
+function currentHeadIdentity(gitPaths: WorktreeStatusGitPaths): WorktreeStatusIdentity["head"] {
+	try {
+		const head = readFileSync(gitPaths.headPath, "utf8").trim();
+		const refPrefix = "ref: refs/heads/";
+		if (head.startsWith(refPrefix)) {
+			const branch = head.slice(refPrefix.length).trim();
+			return branch.length > 0 ? { type: "branch", name: branch } : { type: "unknown" };
+		}
+		return head.length > 0 ? { type: "detached" } : { type: "unknown" };
+	} catch {
+		return { type: "unknown" };
+	}
+}
+
+export function currentWorktreeStatusBranchName(
+	gitPaths: WorktreeStatusGitPaths,
+): string | undefined {
+	const head = currentHeadIdentity(gitPaths);
+	return head.type === "branch" ? head.name : undefined;
+}
+
+function sameHeadIdentity(
+	left: WorktreeStatusIdentity["head"],
+	right: WorktreeStatusIdentity["head"],
+): boolean {
+	if (left.type !== right.type) return false;
+	if (left.type !== "branch" || right.type !== "branch") return true;
+	return left.name === right.name;
+}
+
+function currentBranchLooseOid(
+	gitPaths: WorktreeStatusGitPaths,
+	branch: string,
+): string | undefined {
+	const refPath = join(gitPaths.commonGitDir, "refs", "heads", ...branch.split("/"));
+	if (!existsSync(refPath)) return undefined;
+	try {
+		const oid = readFileSync(refPath, "utf8").trim();
+		return oid.length > 0 ? oid : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function execOptions(cwd: string, signal?: AbortSignal) {
+	return signal === undefined
+		? { cwd, timeout: COMMAND_TIMEOUT_MS }
+		: { cwd, signal, timeout: COMMAND_TIMEOUT_MS };
+}
+
+function gitGatewayFromExecApi(pi: CommandExecApi): GitGateway {
+	return new RealGitGateway(pi);
+}
+
+function compactGithubCommandName(args: readonly string[]): string {
+	return formatCommand("gh", args.slice(0, 2));
+}
+
+function compactCommandFailureMessage(command: string, result: ExecResult): string {
+	const detail = compactStatusDetail(result.stderr.trim() || result.stdout.trim());
+	const termination =
+		result.type === "exited" ? `exited ${result.code ?? "unknown"}` : result.type.replace("-", " ");
+	if (detail.length === 0) return `${command} ${termination}`;
+	return `${command} ${termination}: ${detail}`;
+}
+
+function compactErrorMessage(error: unknown): string {
+	const message = compactStatusDetail(formatErrorMessage(error));
+	return message.length > 0 ? message : "unexpected error";
+}
+
+function compactStatusDetail(message: string): string {
+	return tailText(message.trim().replace(/\s+/g, " "), { maxChars: 160, maxLines: 1 });
+}
+
+export function renderWorktreeStatusMessage(
+	message: CustomMessage,
+	_options: { expanded: boolean },
+	theme: RenderTheme,
+): RenderComponent {
+	const content = customMessageText(message.content);
+	const prLinks = prLinksFromDetails(message.details);
+	return {
+		render(width: number): string[] {
+			return content
+				.split("\n")
+				.map((line) =>
+					theme.fg(worktreeStatusLineColor(line), renderWorktreeStatusLine(line, prLinks, width)),
+				);
+		},
+		invalidate(): void {},
+	};
+}
+
+function renderWorktreeStatusLine(
+	line: string,
+	prLinks: ReadonlyMap<number, string>,
+	width: number,
+): string {
+	const truncated = truncateDisplayLine(line, width);
+	if (prLinks.size === 0) return truncated;
+	return linkifyPrReferences(truncated, prLinks);
+}
+
+function worktreeStatusLineColor(line: string): string {
+	return line.startsWith("[gt]") ? "accent" : "dim";
+}
+
+const DORMANT_GH_STATUS_ANNOTATION_TEXT = " · dormant after 2m idle";
+
+export interface StatusTheme {
+	fg(color: string, value: string): string;
+	underline?(value: string): string;
+}
+
+export interface FormatWorktreeStatusOptions {
+	readonly theme?: StatusTheme;
+	readonly ghRefreshAgeMs?: number;
+	readonly isDormant?: boolean;
+}
+
+export function formatWorktreeStatus(
+	status: WorktreeStatus,
+	options: FormatWorktreeStatusOptions = {},
+): string[] {
+	const lines: string[] = [];
+	if (status.brmem !== undefined) {
+		lines.push(formatStatusSegment(`[brmem] ${status.brmem}`, options.theme));
+	}
+	lines.push(formatGtStatus(status.gt, options.theme));
+	lines.push(...formatWorktreeStatusForFooterTail(status, options));
+	return lines;
+}
+
+export function formatWorktreeStatusForFooter(
+	status: WorktreeStatus,
+	options: FormatWorktreeStatusOptions = {},
+): string[] {
+	const lines: string[] = [];
+	if (status.brmem !== undefined) {
+		lines.push(formatStatusSegment(`[brmem] ${status.brmem}`, options.theme));
+	}
+	lines.push(...formatWorktreeStatusForFooterTail(status, options));
+	return lines;
+}
+
+function formatWorktreeStatusForFooterTail(
+	status: WorktreeStatus,
+	options: FormatWorktreeStatusOptions,
+): string[] {
+	const lines: string[] = [formatGhStatus(status.gh, options)];
+	if (status.gtMetadataDiagnostic !== undefined) {
+		lines.push(
+			formatStatusSegment(
+				formatGraphiteMetadataDiagnostic(status.gtMetadataDiagnostic),
+				options.theme,
+			),
+		);
+	}
+	return lines;
+}
+
+function formatGraphiteMetadataDiagnostic(diagnostic: GraphiteMetadataWorkerDiagnostic): string {
+	switch (diagnostic.type) {
+		case "worker-timeout":
+			return `[gt] metadata worker timed out after ${diagnostic.timeoutMs}ms`;
+		case "worker-create-failed":
+			return "[gt] metadata worker could not start";
+		case "worker-error":
+			return `[gt] metadata worker error${diagnostic.message === undefined ? "" : `: ${diagnostic.message}`}`;
+		case "worker-failure-response":
+			return `[gt] metadata worker failed: ${diagnostic.message}`;
+		case "worker-malformed-response":
+			return "[gt] metadata worker returned a malformed response";
+		case "worker-post-message-failed":
+			return "[gt] metadata worker could not receive the lookup request";
+	}
+}
+
+export function formatGtStatus(status: GtStatus, theme?: StatusTheme): string {
+	const parts: string[] = [];
+	if (status.down !== undefined) parts.push(`↓ ${status.down}`);
+	parts.push(`↑ ${status.up}`);
+	const commits = formatGtCommitStatus(status.commits, "full");
+	if (commits !== undefined) parts.push(commits);
+	if (status.dirty === "yes") parts.push("✗");
+	return `${formatStatusSegment("[gt]", theme)}${formatStatusSegment(` ${parts.join(" · ")}`, theme)}`;
+}
+
+export function formatGtCommitStatus(commits: GtCommitStatus, style: "compact"): string;
+export function formatGtCommitStatus(commits: GtCommitStatus, style: "full"): string | undefined;
+export function formatGtCommitStatus(
+	commits: GtCommitStatus,
+	style: "full" | "compact",
+): string | undefined {
+	switch (commits.type) {
+		case "count":
+			return style === "full"
+				? `${commits.count} ${commits.count === 1 ? "commit" : "commits"}`
+				: commits.count.toString();
+		case "unknown":
+			return style === "full" ? "commits ?" : "?";
+		case "not-applicable":
+			return style === "full" ? undefined : "-";
+	}
+}
+
+export function formatGhStatus(
+	status: WorktreeGhStatus,
+	options: FormatWorktreeStatusOptions = {},
+): string {
+	return (
+		formatGhStatusLine(status, options) ??
+		formatGhStatusAnnotation(formatColoredSegment("[gh] checking…", "dim", options.theme), options)
+	);
+}
+
+function formatGhStatusLine(
+	status: WorktreeGhStatus,
+	options: FormatWorktreeStatusOptions,
+): string | undefined {
+	if (status.type === "pending") return undefined;
+	if (status.type === "no-pr")
+		return formatGhStatusAnnotation(
+			formatColoredSegment("[gh] no PR", "dim", options.theme),
+			options,
+		);
+	if (status.type === "unavailable") {
+		const detail =
+			status.message === undefined
+				? ""
+				: formatColoredSegment(`: ${status.message}`, "dim", options.theme);
+		return formatGhStatusAnnotation(
+			`${formatColoredSegment("[gh] unavailable", "warning", options.theme)}${detail}`,
+			options,
+		);
+	}
+
+	const pieces = formatGhPrDetailPieces(status, options);
+	if (status.type === "head-mismatch") {
+		pieces.push(
+			formatColoredSegment(" · PR behind local", "warning", options.theme),
+			...formatGhStatusAnnotationPieces(options),
+		);
+		return pieces.join("");
+	}
+	pieces.push(...formatGhStatusAnnotationPieces(options));
+	if (isGhStatusLandable(status)) {
+		pieces.push(
+			formatColoredSegment(" · ", "dim", options.theme),
+			formatColoredSegment("landable", "accent", options.theme),
+		);
+	}
+	return pieces.join("");
+}
+
+function formatGhPrDetailPieces(
+	status: GhPrDetails,
+	options: FormatWorktreeStatusOptions,
+): string[] {
+	const resolvedThreads = Math.max(0, status.threads.total - status.threads.unresolved);
+	const commentsValue = `${resolvedThreads}/${status.threads.total}${status.threads.hasMore ? "+" : ""}`;
+	return [
+		formatColoredSegment("[gh]", "dim", options.theme),
+		formatColoredSegment(" ", "dim", options.theme),
+		formatGhPrReference(status, options.theme),
+		formatColoredSegment(" · comments ", "dim", options.theme),
+		formatColoredSegment(
+			commentsValue,
+			status.threads.unresolved > 0 ? "warning" : "dim",
+			options.theme,
+		),
+		formatColoredSegment(" · checks ", "dim", options.theme),
+		...formatActionBucketSegments(status.checks, options.theme),
+	];
+}
+
+function formatGhStatusAnnotationPieces(options: FormatWorktreeStatusOptions): string[] {
+	const pieces: string[] = [];
+	if (options.ghRefreshAgeMs !== undefined) {
+		pieces.push(
+			formatColoredSegment(" · refreshed ", "dim", options.theme),
+			formatColoredSegment(`${formatElapsedMs(options.ghRefreshAgeMs)} ago`, "dim", options.theme),
+		);
+	}
+	if (options.isDormant === true) {
+		pieces.push(formatColoredSegment(DORMANT_GH_STATUS_ANNOTATION_TEXT, "dim", options.theme));
+	}
+	return pieces;
+}
+
+function formatGhPrReference(
+	status: Pick<GhPrDetails, "prNumber" | "url">,
+	theme: StatusTheme | undefined,
+): string {
+	const text = `#${status.prNumber}`;
+	return formatColoredSegment(safeTerminalHyperlink(text, status.url), "accent", theme);
+}
+
+function formatGhStatusAnnotation(
+	statusLine: string,
+	options: FormatWorktreeStatusOptions,
+): string {
+	return [statusLine, ...formatGhStatusAnnotationPieces(options)].join("");
+}
+
+function isGhStatusLandable(status: GhStatus): boolean {
+	return (
+		status.threads.unresolved === 0 &&
+		!status.threads.hasMore &&
+		hasNoBlockingChecks(status.checks) &&
+		!hasMoreStatusChecks(status.checks)
+	);
+}
+
+function hasNoBlockingChecks(checks: GithubCheckTally): boolean {
+	// Zero configured checks are treated as no blocking checks. Cancelled runs
+	// are deliberately excluded: like Graphite, a canceled check never blocks.
+	return checks.pending === 0 && checks.failing === 0 && checks.unknown === 0;
+}
+
+function hasMoreStatusChecks(checks: GithubCheckTally): boolean {
+	return checks.hasMore === true;
+}
+
+function formatActionBucketSegments(checks: GithubCheckTally, theme?: StatusTheme): string[] {
+	const buckets: string[] = [];
+	if (hasNoBlockingChecks(checks)) {
+		buckets.push(formatColoredSegment(`${checks.passing}✓`, "accent", theme));
+	} else {
+		if (checks.pending > 0)
+			buckets.push(formatColoredSegment(`${checks.pending}⏳`, "warning", theme));
+		if (checks.failing > 0)
+			buckets.push(formatColoredSegment(`${checks.failing}✗`, "error", theme));
+		if (checks.unknown > 0)
+			buckets.push(formatColoredSegment(`${checks.unknown}?`, "warning", theme));
+	}
+	if (checks.cancelled > 0)
+		buckets.push(formatColoredSegment(`${checks.cancelled}⊘`, "dim", theme));
+	if (hasMoreStatusChecks(checks)) buckets.push(formatColoredSegment("+", "warning", theme));
+	return intersperseActionBucketSpaces(buckets, theme);
+}
+
+function intersperseActionBucketSpaces(buckets: readonly string[], theme?: StatusTheme): string[] {
+	const segments: string[] = [];
+	for (const [index, bucket] of buckets.entries()) {
+		if (index > 0) segments.push(formatColoredSegment(" ", "dim", theme));
+		segments.push(bucket);
+	}
+	return segments;
+}
+
+function formatStatusSegment(text: string, theme: StatusTheme | undefined): string {
+	return formatColoredSegment(text, "dim", theme);
+}
+
+function formatColoredSegment(text: string, color: string, theme: StatusTheme | undefined): string {
+	return theme ? theme.fg(color, text) : text;
+}
+
+export function findWorktreeStatusGitPaths(cwd: string): WorktreeStatusGitPaths | undefined {
+	let dir = resolve(cwd);
+	for (;;) {
+		const resolution = resolveWorktreeGitDirs(dir);
+		if (resolution.type === "resolved") {
+			if (!resolution.dirs.hasHead) return undefined;
+			return { repoDir: dir, ...resolution.dirs };
+		}
+		if (resolution.type === "unreadable") return undefined;
+
+		const parent = dirname(dir);
+		if (parent === dir) return undefined;
+		dir = parent;
+	}
+}

@@ -1,11 +1,7 @@
-export function testGlobsFor(subdir?: string): readonly [string, string, string] {
+export function testGlobsFor(subdir?: string): readonly [string] {
 	const testPath = subdir === undefined ? "" : `${subdir}/`;
 
-	return [
-		`packages/**/test/${testPath}**/*.test.ts`,
-		`../.ns/reviews/*/tools/*/test/${testPath}**/*.test.ts`,
-		`../.ns/extensions/*/test/${testPath}**/*.test.ts`,
-	] as const;
+	return [`packages/**/test/${testPath}**/*.test.ts`] as const;
 }
 
 export const SPECIALIZED_TEST_GLOBS_BY_CATEGORY = {

@@ -11,10 +11,10 @@
 		"check": "tsc -p tsconfig.json",
 		"deps:check": "syncpack lint",
 		"deps:fix": "syncpack fix",
-		"fmt": "cd .. && ts/node_modules/.bin/oxfmt 'ts/packages/**/*.ts' '.ns/extensions/**/*.ts' 'ts/*.ts'",
-		"fmt:check": "cd .. && ts/node_modules/.bin/oxfmt --check 'ts/packages/**/*.ts' '.ns/extensions/**/*.ts' 'ts/*.ts'",
-		"lint": "cd .. && ts/node_modules/.bin/oxlint ts .ns/extensions",
-		"lint:fix": "cd .. && ts/node_modules/.bin/oxlint ts .ns/extensions --fix",
+		"fmt": "cd .. && ts/node_modules/.bin/oxfmt 'ts/packages/**/*.ts' 'ts/*.ts'",
+		"fmt:check": "cd .. && ts/node_modules/.bin/oxfmt --check 'ts/packages/**/*.ts' 'ts/*.ts'",
+		"lint": "cd .. && ts/node_modules/.bin/oxlint ts",
+		"lint:fix": "cd .. && ts/node_modules/.bin/oxlint ts --fix",
 		"release:bump-version": "ns-dev bump-public-package-version",
 		"release:publish": "ns-dev publish-public-package-set publish",
 		"release:publish-dry-run": "ns-dev publish-public-package-set dry-run",
@@ -43,7 +43,7 @@
 		"@nseng-ai/sdk": "workspace:*",
 		"@nseng-ai/objectives": "workspace:*",
 		"@nseng-ai/plans": "workspace:*",
-		"@nseng-ai/review-reinvention-scanner": "workspace:*",
+		"@internal/review-reinvention-scanner": "workspace:*",
 		"@nseng-ai/reviews": "workspace:*",
 		"@nseng-ai/slots": "workspace:*",
 		"@types/node": "catalog:",
@@ -57,9 +57,9 @@
 		"vitest": "catalog:"
 	},
 	"workspaces": [
-		"packages/**",
-		"!packages/**/dist/**",
-		"../.ns/reviews/*/tools/*",
-		"../.ns/extensions/*"
+		"packages/public/**",
+		"packages/incubating/**",
+		"packages/internal/**",
+		"!packages/**/dist/**"
 	]
 }

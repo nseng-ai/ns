@@ -5,26 +5,26 @@ const requireFromTypeScriptWorkspace = createRequire(
 	new URL("../../ts/package.json", import.meta.url),
 );
 const requireFromTypeScriptSdk = createRequire(
-	new URL("../../ts/packages/sdk/package.json", import.meta.url),
+	new URL("../../ts/packages/public/sdk/package.json", import.meta.url),
 );
 
 const workspacePackageFallbacks: Record<string, string> = {
-	"@internal/ns-pi-subagents/api": "../../ts/packages/internal/ns-pi-subagents/src/api/index.ts",
+	"@internal/ns-pi-subagents/api": "../../ts/packages/internal/hosts/pi/subagents/ns-pi-subagents/src/api/index.ts",
 	"@internal/ns-pi-subagents/extension":
-		"../../ts/packages/internal/ns-pi-subagents/src/extension.ts",
+		"../../ts/packages/internal/hosts/pi/subagents/ns-pi-subagents/src/extension.ts",
 	"@internal/pi-tools/context-profiler/extension":
-		"../../ts/packages/internal/pi-tools/src/context-profiler/extension.ts",
+		"../../ts/packages/internal/hosts/pi/tools/pi-tools/src/context-profiler/extension.ts",
 	"@internal/pi-tools/grill/extension":
-		"../../ts/packages/internal/pi-tools/src/grill/extension.ts",
+		"../../ts/packages/internal/hosts/pi/tools/pi-tools/src/grill/extension.ts",
 	"@internal/pi-tools/slash-command-rerank/extension":
-		"../../ts/packages/internal/pi-tools/src/slash-command-rerank/extension.ts",
+		"../../ts/packages/internal/hosts/pi/tools/pi-tools/src/slash-command-rerank/extension.ts",
 	"@internal/pi-tools/thermo-council/extension":
-		"../../ts/packages/internal/pi-tools/src/thermo-council/extension.ts",
-	"@nseng-ai/pi/search/ripgrep-defaults":
-		"../../ts/packages/hosts/pi/src/kit/search/ripgrep-defaults.ts",
-	"@nseng-ai/pi/shared/command-exec": "../../ts/packages/hosts/pi/src/kit/shared/command-exec.ts",
-	"@nseng-ai/pi/worktree-status/extension":
-		"../../ts/packages/hosts/pi/src/worktree-status/extension.ts",
+		"../../ts/packages/internal/hosts/pi/tools/pi-tools/src/thermo-council/extension.ts",
+	"@nseng-ai/pi-runtime/search/ripgrep-defaults":
+		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/kit/search/ripgrep-defaults.ts",
+	"@nseng-ai/pi-runtime/shared/command-exec": "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/kit/shared/command-exec.ts",
+	"@nseng-ai/pi-runtime/worktree-status/extension":
+		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/worktree-status/extension.ts",
 };
 
 type WorkspaceDefaultExport = (pi: unknown, options?: unknown) => void | Promise<void>;

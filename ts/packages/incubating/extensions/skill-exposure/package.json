@@ -1,0 +1,32 @@
+{
+	"name": "@nseng-ai/skill-exposure",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./ns-extension": "./src/ns-extension.ts",
+		"./replacement-registry": "./src/replacement-registry.ts"
+	},
+	"scripts": {
+		"check": "tsc -p tsconfig.json",
+		"test": "cd ../../../.. && vitest run --config vitest.config.ts packages/incubating/extensions/skill-exposure/test"
+	},
+	"dependencies": {
+		"@nseng-ai/branch-context": "workspace:*",
+		"@nseng-ai/flow": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/handoffs": "workspace:*",
+		"@nseng-ai/ns": "workspace:*",
+		"@nseng-ai/objectives": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@internal/ns-dev": "workspace:*",
+		"@types/node": "catalog:",
+		"vitest": "catalog:"
+	},
+	"ns": {
+		"tier": "extension"
+	}
+}

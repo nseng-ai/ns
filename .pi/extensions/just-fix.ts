@@ -1,11 +1,11 @@
-import { runCommand } from "../../ts/packages/infra/foundation/src/exec/index.ts";
+import { runCommand } from "../../ts/packages/public/infra/foundation/src/exec/index.ts";
 
 import {
 	sendCommandProgressOrNotify,
 	registerCommandWithImmediateAck,
-} from "../../ts/packages/hosts/pi/src/commands/ack.ts";
-import { LiveCommandProgress } from "../../ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts";
-import { expandRepoSkillBlock } from "../../ts/packages/hosts/pi/src/kit/skills/expansion.ts";
+} from "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/commands/ack.ts";
+import { LiveCommandProgress } from "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/commands/cli-command-live-progress.ts";
+import { expandRepoSkillBlock } from "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/kit/skills/expansion.ts";
 
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
 const JUST_CI_TIMEOUT_MS = 30 * 60 * 1000;

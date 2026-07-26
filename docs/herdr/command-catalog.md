@@ -49,7 +49,7 @@ The command cutover does not remove launch as a process or destination concept:
 
 ### Graduation requirement
 
-Before Herdr moves out of `ts/packages/incubator/`, its dependency on `@nseng-ai/slots` must become conditional. Herdr must remain usable without Slots installed; Slot-aware checkout and compact Slot label behavior should activate only when the Slots integration is available.
+Before Herdr graduates out of `ts/packages/incubating/` to a public disposition, its dependency on `@nseng-ai/slots` must become conditional. Herdr must remain usable without Slots installed; Slot-aware checkout and compact Slot label behavior should activate only when the Slots integration is available.
 
 ## Migration disposition
 

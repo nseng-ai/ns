@@ -1,0 +1,513 @@
+import { describe, expect, test } from "vitest";
+import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
+
+import { createDeferred } from "@nseng-ai/foundation/test-kit";
+import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+
+import { createPiHandoffContext } from "../../src/pi/api-context.ts";
+import { buildHandoffSelfPrompt, formatHandoffSelfKickoffPrompt } from "../../src/pi/extension.ts";
+import { createHandoffSelfWorkflow } from "../../src/pi/self.ts";
+import type { HandoffCreateSkillLoader } from "../../src/pi/create-skill.ts";
+import {
+	BRANCH,
+	FakePi,
+	branchStep,
+	checkStep,
+	createContext,
+	getRegisteredCommand,
+	getRegisteredTool,
+} from "./handoff-test-fakes.ts";
+
+const SELF_TOOL_NAME = "handoff_self_queue_pickup";
+const FAKE_SKILL_PATH = "/repo/skills/handoff-create/SKILL.md";
+const FAKE_SKILL_BLOCK = `<skill name="handoff-create" location="${FAKE_SKILL_PATH}">
+References are relative to /repo/skills/handoff-create.
+
+# handoff-create
+
+Create a handoff from the skill body.
+</skill>`;
+
+describe("ns:handoff:self extension", () => {
+	test("ns:handoff:self command sends create prompt with command-owned rendezvous instructions", async () => {
+		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
+		registerSelfOnly(pi, 30_000);
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const context = createContext({
+			sessionFile: "/sessions/self-filename.jsonl",
+			sessionId: "self-source-id",
+		});
+
+		const commandPromise = Promise.resolve(
+			command.handler("finish the self handoff workflow", context.ctx),
+		);
+		await waitForSentUserMessage(pi);
+
+		expect(context.waitForIdleCalls()).toBe(1);
+		expect(pi.execCalls.map((call) => [call.command, call.args])).toEqual([
+			["git", ["branch", "--show-current"]],
+		]);
+		expect(context.notifications).toEqual([
+			{ message: "Starting ns:handoff:self workflow with content-derived slug…", level: "info" },
+		]);
+		expect(pi.sentUserMessages).toHaveLength(1);
+		const prompt = pi.sentUserMessages[0] ?? "";
+		const workflowId = extractWorkflowId(prompt);
+		expect(prompt).toContain(`<skill name="handoff-create" location="${FAKE_SKILL_PATH}">`);
+		expect(prompt).toContain("This is a /ns:handoff:self request.");
+		expect(prompt).toContain("finish the self handoff workflow");
+		expect(prompt).toContain("Source Pi session ID: self-source-id");
+		expect(prompt).toContain("Source Pi session log: /sessions/self-filename.jsonl");
+		expect(prompt).toContain(`- Branch: ${BRANCH}`);
+		expect(prompt).toContain("derive_handoff_slug_from_content");
+		expect(prompt).toContain(`workflow_id: ${workflowId}`);
+		expect(prompt).toContain("After `ns handoff create` succeeds, call handoff_self_queue_pickup");
+		expect(prompt).toContain("do not clear context or pick up the handoff");
+		expect(prompt).toContain(
+			"Do not queue slash commands such as /ns:handoff:self-resume, /ns:handoff:self-pickup, or /new as user messages.",
+		);
+		expect(prompt).toContain(
+			"After saving and verification, the command will replace this session",
+		);
+		expect(prompt).not.toContain(`/ns:handoff:pickup --branch ${BRANCH} <returned-slug>`);
+		expect(prompt).toContain(formatHandoffSelfKickoffPrompt(BRANCH, "<returned-slug>"));
+
+		await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
+			undefined,
+			undefined,
+			context.ctx,
+		);
+		await commandPromise;
+		pi.assertDone();
+	});
+
+	test("ns:handoff:self waits for verified tool result, terminates the old turn, then replaces the session", async () => {
+		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
+		registerSelfOnly(pi, 30_000);
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const context = createContext({ sessionFile: "/sessions/current.jsonl" });
+		const originalNewSession = context.ctx.newSession;
+		let isOldContextStale = false;
+		context.ctx.newSession = async (options) => {
+			const result = await originalNewSession?.(options);
+			isOldContextStale = true;
+			return result ?? { cancelled: false };
+		};
+		context.ctx.ui.notify = (message, level) => {
+			if (isOldContextStale) {
+				throw new Error("old command context notify used after newSession");
+			}
+			context.notifications.push({ message, level });
+		};
+		context.ctx.ui.setStatus = (_key, value) => {
+			if (isOldContextStale) {
+				throw new Error("old command context status used after newSession");
+			}
+			context.statuses.push(value);
+		};
+		const secondIdleGate = createDeferred<void>();
+		let waitForIdleCalls = 0;
+		context.ctx.waitForIdle = async (): Promise<void> => {
+			waitForIdleCalls += 1;
+			if (waitForIdleCalls === 2) {
+				await secondIdleGate.promise;
+			}
+		};
+
+		const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
+		await waitForSentUserMessage(pi);
+		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
+
+		expect(context.newSessionCalls).toEqual([]);
+		const result = await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
+			undefined,
+			undefined,
+			context.ctx,
+		);
+
+		expect(result.isError).toBeUndefined();
+		expect(result.terminate).toBe(true);
+		expect(result.content[0]?.text).toContain("Verified ns:handoff:self artifact finish-widget");
+		expect(result.details).toEqual({
+			type: "self-handoff-ready",
+			branch: BRANCH,
+			slug: "finish-widget",
+			workflowId,
+		});
+		expect(pi.sentUserMessageCalls).toHaveLength(1);
+		await waitForCondition(() => waitForIdleCalls === 2);
+		expect(context.newSessionCalls).toEqual([]);
+
+		secondIdleGate.resolve();
+		await commandPromise;
+		pi.assertDone();
+		expect(waitForIdleCalls).toBe(2);
+		expect(context.newSessionCalls).toEqual([{ parentSession: "/sessions/current.jsonl" }]);
+		expect(context.replacementNotifications).toEqual([
+			{ message: `Picking up handoff finish-widget from branch ${BRANCH}…`, level: "info" },
+		]);
+		expect(context.replacementUserMessages).toEqual([
+			{ content: formatHandoffSelfKickoffPrompt(BRANCH, "finish-widget"), options: undefined },
+		]);
+		expect(context.statuses).toEqual(["verifying saved handoff…", undefined, "clearing context…"]);
+	});
+
+	test("cancelled replacement keeps verified handoff and reports manual recovery", async () => {
+		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
+		registerSelfOnly(pi, 30_000);
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const context = createContext({ isNewSessionCancelled: true });
+
+		const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
+		await waitForSentUserMessage(pi);
+		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
+		const result = await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
+			undefined,
+			undefined,
+			context.ctx,
+		);
+		await commandPromise;
+
+		expect(result.isError).toBeUndefined();
+		expect(result.terminate).toBe(true);
+		expect(context.newSessionCalls).toEqual([{ parentSession: undefined }]);
+		expect(context.replacementUserMessages).toEqual([]);
+		expect(pi.sentUserMessageCalls).toHaveLength(1);
+		expect(context.statuses).toEqual([
+			"verifying saved handoff…",
+			undefined,
+			"clearing context…",
+			undefined,
+		]);
+		const recoveryNotification = context.notifications.at(-1);
+		expect(recoveryNotification?.level).toBe("warning");
+		expect(recoveryNotification?.message).toContain(
+			"ns:handoff:self saved and verified handoff finish-widget",
+		);
+		expect(recoveryNotification?.message).toContain("session replacement was cancelled");
+		expect(recoveryNotification?.message).toContain("Context was not cleared");
+		expect(recoveryNotification?.message).toContain(
+			formatHandoffSelfKickoffPrompt(BRANCH, "finish-widget"),
+		);
+		pi.assertDone();
+	});
+
+	test("failed replacement keeps verified handoff and reports manual recovery", async () => {
+		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
+		registerSelfOnly(pi, 30_000);
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const context = createContext({ newSessionError: new Error("new session boom") });
+
+		const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
+		await waitForSentUserMessage(pi);
+		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
+		const result = await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
+			undefined,
+			undefined,
+			context.ctx,
+		);
+		await commandPromise;
+
+		expect(result.isError).toBeUndefined();
+		expect(result.terminate).toBe(true);
+		expect(context.newSessionCalls).toEqual([{ parentSession: undefined }]);
+		expect(context.replacementUserMessages).toEqual([]);
+		expect(pi.sentUserMessageCalls).toHaveLength(1);
+		expect(context.statuses).toEqual([
+			"verifying saved handoff…",
+			undefined,
+			"clearing context…",
+			undefined,
+		]);
+		const recoveryNotification = context.notifications.at(-1);
+		expect(recoveryNotification?.level).toBe("error");
+		expect(recoveryNotification?.message).toContain(
+			"ns:handoff:self saved and verified handoff finish-widget",
+		);
+		expect(recoveryNotification?.message).toContain("session replacement failed");
+		expect(recoveryNotification?.message).toContain("new session boom");
+		expect(recoveryNotification?.message).toContain("Context was not cleared");
+		expect(recoveryNotification?.message).toContain(
+			formatHandoffSelfKickoffPrompt(BRANCH, "finish-widget"),
+		);
+		pi.assertDone();
+	});
+
+	test("starting lock is released when session replacement support is unavailable", async () => {
+		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
+		registerSelfOnly(pi, 30_000);
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const unsupportedContext = createContext();
+		delete unsupportedContext.ctx.newSession;
+
+		await command.handler("first focus", unsupportedContext.ctx);
+
+		expect(unsupportedContext.notifications).toEqual([
+			{ message: "/ns:handoff:self requires Pi session replacement support.", level: "error" },
+		]);
+		expect(pi.sentUserMessages).toEqual([]);
+
+		const supportedContext = createContext();
+		const commandPromise = Promise.resolve(command.handler("finish widget", supportedContext.ctx));
+		await waitForSentUserMessage(pi);
+		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
+		await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
+			undefined,
+			undefined,
+			supportedContext.ctx,
+		);
+		await commandPromise;
+
+		pi.assertDone();
+		expect(supportedContext.newSessionCalls).toEqual([{ parentSession: undefined }]);
+	});
+
+	test("handoff_self_queue_pickup fails closed when no workflow is active", async () => {
+		const pi = new FakePi();
+		registerSelfOnly(pi, 30_000);
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const context = createContext();
+
+		const result = await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: "not-active" },
+			undefined,
+			undefined,
+			context.ctx,
+		);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0]?.text).toContain("no active /ns:handoff:self workflow");
+		expect(context.newSessionCalls).toEqual([]);
+		expect(pi.execCalls).toEqual([]);
+	});
+
+	test("handoff_self_queue_pickup fails closed for wrong workflow id and does not clear context", async () => {
+		const timers = createManualTimerScheduler();
+		const pi = new FakePi([branchStep()]);
+		registerSelfOnly(pi, 1, timers.timers);
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const context = createContext();
+
+		const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
+		await waitForSentUserMessage(pi);
+		const result = await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: "wrong" },
+			undefined,
+			undefined,
+			context.ctx,
+		);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0]?.text).toContain("wrong workflow_id");
+		expect(context.newSessionCalls).toEqual([]);
+		expect(pi.execCalls.map((call) => call.command)).toEqual(["git"]);
+
+		timers.advanceMs(1);
+		await commandPromise;
+		expect(timers.pendingTimerCount()).toBe(0);
+	});
+
+	test("missing handoff does not resolve the workflow or clear context", async () => {
+		const timers = createManualTimerScheduler();
+		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "missing.md", false)]);
+		registerSelfOnly(pi, 1, timers.timers);
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const context = createContext();
+
+		const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
+		await waitForSentUserMessage(pi);
+		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
+		const result = await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "missing", workflow_id: workflowId },
+			undefined,
+			undefined,
+			context.ctx,
+		);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0]?.text).toBe(
+			`No handoff missing found on branch ${BRANCH}; context was not cleared.`,
+		);
+		expect(context.newSessionCalls).toEqual([]);
+
+		timers.advanceMs(1);
+		await commandPromise;
+		expect(context.newSessionCalls).toEqual([]);
+		expect(timers.pendingTimerCount()).toBe(0);
+		pi.assertDone();
+	});
+
+	test("timeout clears the active workflow and later tool calls cannot clear context", async () => {
+		const timers = createManualTimerScheduler();
+		const pi = new FakePi([branchStep()]);
+		registerSelfOnly(pi, 1, timers.timers);
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const context = createContext();
+
+		const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
+		await waitForSentUserMessage(pi);
+		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
+		timers.advanceMs(1);
+		await commandPromise;
+
+		expect(context.newSessionCalls).toEqual([]);
+		expect(context.notifications.at(-1)).toEqual({
+			message:
+				"ns:handoff:self timed out waiting for handoff_self_queue_pickup; context was not cleared because the saved handoff was not verified.",
+			level: "error",
+		});
+
+		const lateResult = await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
+			undefined,
+			undefined,
+			context.ctx,
+		);
+		expect(lateResult.isError).toBe(true);
+		expect(lateResult.content[0]?.text).toContain("no active /ns:handoff:self workflow");
+		expect(context.newSessionCalls).toEqual([]);
+		expect(timers.pendingTimerCount()).toBe(0);
+		pi.assertDone();
+	});
+
+	test("concurrent ns:handoff:self invocation is rejected while one workflow is active", async () => {
+		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
+		registerSelfOnly(pi, 30_000);
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const context = createContext();
+
+		const firstPromise = Promise.resolve(command.handler("first focus", context.ctx));
+		await waitForSentUserMessage(pi);
+		await command.handler("second focus", context.ctx);
+
+		expect(pi.sentUserMessages).toHaveLength(1);
+		expect(
+			context.notifications.some((notification) =>
+				notification.message.includes("already waiting"),
+			),
+		).toBe(true);
+
+		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
+		await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
+			undefined,
+			undefined,
+			context.ctx,
+		);
+		await firstPromise;
+		pi.assertDone();
+	});
+});
+
+describe("ns:handoff:self pure helpers", () => {
+	test("ns:handoff:self prompt requires launch tool ordering and command-owned session replacement wording", () => {
+		const prompt = buildHandoffSelfPrompt({
+			skillBlock: "# handoff-create skill",
+			request: { focus: "make a fresh session", branch: BRANCH },
+			investigationSources: {},
+		});
+
+		expect(prompt).toContain("# handoff-create skill");
+		expect(prompt).toContain("This is a /ns:handoff:self request.");
+		expect(prompt).toContain("workflow_id: <workflow-id>");
+		expect(prompt).toContain(
+			"Source Pi session log: unavailable (no persisted Pi session log was exposed)",
+		);
+		expect(prompt).toContain(
+			"If `ns handoff create` reports an existing artifact, stop; do not overwrite and do not clear context or pick up the handoff.",
+		);
+		expect(prompt).toContain("After `ns handoff create` succeeds, call handoff_self_queue_pickup");
+		expect(prompt).toContain(
+			"Do not queue slash commands such as /ns:handoff:self-resume, /ns:handoff:self-pickup, or /new as user messages.",
+		);
+		expect(prompt).toContain(
+			"After saving and verification, the command will replace this session",
+		);
+		expect(prompt).toContain(formatHandoffSelfKickoffPrompt(BRANCH, "<returned-slug>"));
+		expect(prompt).not.toContain(`/ns:handoff:pickup --branch ${BRANCH} <returned-slug>`);
+	});
+});
+
+function registerSelfOnly(pi: FakePi, timeoutMs: number, timers?: TimerScheduler): void {
+	const commands = createPiCommandExecApi(pi);
+	const workflow = createHandoffSelfWorkflow(pi, {
+		git: createPiHandoffContext(commands).git,
+		commands,
+		timeoutMs,
+		...(timers === undefined ? {} : { timers }),
+		skillLoader: fakeHandoffCreateSkillLoader(),
+	});
+	pi.registerTool?.(workflow.buildTool());
+	pi.registerCommand("ns:handoff:self", {
+		description: "Create a handoff, clear context, and pick it up in this Pi session.",
+		handler: async (args, ctx) => workflow.handleCommand(args, ctx),
+	});
+}
+
+async function waitForSentUserMessage(pi: FakePi): Promise<void> {
+	await waitForCondition(() => pi.sentUserMessages.length > 0);
+}
+
+async function waitForCondition(condition: () => boolean): Promise<void> {
+	const deadline = Date.now() + 1_000;
+	while (Date.now() < deadline) {
+		if (condition()) {
+			return;
+		}
+		await new Promise<void>((resolve) => {
+			setTimeout(resolve, 1);
+		});
+	}
+	throw new Error("timed out waiting for condition");
+}
+
+function fakeHandoffCreateSkillLoader(): HandoffCreateSkillLoader {
+	return {
+		async loadCreateHandoffSkill() {
+			return {
+				type: "found",
+				skill: {
+					name: "handoff-create",
+					commandName: "direct:handoff-create",
+					path: FAKE_SKILL_PATH,
+					baseDir: "/repo/skills/handoff-create",
+					body: "# handoff-create\n\nCreate a handoff from the skill body.",
+					block: FAKE_SKILL_BLOCK,
+				},
+			};
+		},
+	};
+}
+
+function extractWorkflowId(prompt: string): string {
+	const match = /^- workflow_id: (.+)$/m.exec(prompt);
+	if (match?.[1] === undefined) {
+		throw new Error(`prompt did not contain workflow_id:\n${prompt}`);
+	}
+	return match[1].trim();
+}

@@ -1,0 +1,40 @@
+{
+	"name": "@nseng-ai/slots",
+	"version": "0.1.4",
+	"files": [
+		"src"
+	],
+	"type": "module",
+	"exports": {
+		".": "./src/core/index.ts",
+		"./api": "./src/api/index.ts",
+		"./command-face": "./src/ns/command-face.ts",
+		"./ns-extension": "./src/ns/ns-extension.ts"
+	},
+	"scripts": {
+		"check": "tsc -p tsconfig.json",
+		"test": "cd ../../../.. && vitest run --config vitest.config.ts packages/incubating/extensions/slots/test",
+		"pack:local": "pnpm --workspace-root exec ns-dev prepare-source-publish-package \"$PWD\" && npm pack ./dist/publish --pack-destination dist",
+		"publish:dry-run": "pnpm --workspace-root exec ns-dev prepare-source-publish-package \"$PWD\" && npm publish --dry-run ./dist/publish"
+	},
+	"dependencies": {
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/extension-kit": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
+		"zod": "catalog:"
+	},
+	"ns": {
+		"description": "Manage the NS worktree slot pool.",
+		"tier": "extension",
+		"subpackages": [
+			"api",
+			"core",
+			"lifecycle",
+			"ns"
+		]
+	},
+	"publishConfig": {
+		"access": "public"
+	}
+}

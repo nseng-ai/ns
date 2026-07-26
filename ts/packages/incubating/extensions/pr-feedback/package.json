@@ -1,0 +1,46 @@
+{
+	"name": "@nseng-ai/pr-feedback",
+	"version": "0.1.4",
+	"type": "module",
+	"exports": {
+		"./api": "./src/api.ts",
+		"./ns-extension": "./src/ns-extension.ts",
+		"./ns-command": "./src/ns-command.ts",
+		"./ns/commands/exec-download-feedback": "./src/ns/commands/exec-download-feedback.ts",
+		"./ns/commands/exec-map-branch-prs": "./src/ns/commands/exec-map-branch-prs.ts",
+		"./ns/commands/exec-branch-pr-checks": "./src/ns/commands/exec-branch-pr-checks.ts",
+		"./ns/commands/exec-wait-for-checks": "./src/ns/commands/exec-wait-for-checks.ts",
+		"./ns/commands/exec-pr-details": "./src/ns/commands/exec-pr-details.ts",
+		"./ns/commands/exec-branch-pr": "./src/ns/commands/exec-branch-pr.ts",
+		"./ns/commands/exec-open-prs": "./src/ns/commands/exec-open-prs.ts",
+		"./ns/commands/exec-pr-reviews": "./src/ns/commands/exec-pr-reviews.ts",
+		"./ns/commands/exec-pr-review-threads": "./src/ns/commands/exec-pr-review-threads.ts",
+		"./ns/commands/exec-pr-discussion-comments": "./src/ns/commands/exec-pr-discussion-comments.ts",
+		"./ns/commands/exec-pr-checks": "./src/ns/commands/exec-pr-checks.ts",
+		"./ns/commands/exec-reply-review-thread": "./src/ns/commands/exec-reply-review-thread.ts",
+		"./ns/commands/exec-resolve-review-thread": "./src/ns/commands/exec-resolve-review-thread.ts",
+		"./ns/commands/exec-close-review-threads": "./src/ns/commands/exec-close-review-threads.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "tsc -p tsconfig.json",
+		"test": "cd ../../../.. && vitest run --config vitest.config.ts packages/incubating/extensions/pr-feedback/test",
+		"pack:local": "pnpm --workspace-root exec ns-dev prepare-source-publish-package \"$PWD\" && npm pack ./dist/publish --pack-destination dist",
+		"publish:dry-run": "pnpm --workspace-root exec ns-dev prepare-source-publish-package \"$PWD\" && npm publish --dry-run ./dist/publish"
+	},
+	"dependencies": {
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/extension-kit": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
+		"zod": "catalog:"
+	},
+	"ns": {
+		"tier": "extension"
+	},
+	"publishConfig": {
+		"access": "public"
+	}
+}

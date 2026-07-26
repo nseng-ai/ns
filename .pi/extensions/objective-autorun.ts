@@ -21,32 +21,32 @@ import type { z as ZodNamespace } from "zod";
 // package exports are not resolvable without the ts workspace's node_modules ancestry. Static imports
 // mostly reach into the ts workspace by relative path; ns-pi-subagents is consumed exclusively through
 // its `/api` surface, resolved through .pi/lib/workspace-packages.ts so the direct Node import smoke works.
-import { OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE } from "../../ts/packages/incubator/objectives/src/core/objective-runner-rules.ts";
-import { parseMachineEnvelopeData } from "../../ts/packages/hosts/pi/src/runtime/machine-envelope.ts";
+import { OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE } from "../../ts/packages/incubating/extensions/objectives/src/core/objective-runner-rules.ts";
+import { parseMachineEnvelopeData } from "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/runtime/machine-envelope.ts";
 import type {
 	ToolContext,
 	ToolDefinition,
 	ToolResult,
-} from "../../ts/packages/hosts/pi/src/runtime/tool-types.ts";
+} from "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/runtime/tool-types.ts";
 import type {
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
 	SingleSubagentFleetRunTracking,
 	SubagentFleetRegistry,
 } from "@internal/ns-pi-subagents/api";
-import type { RawPiExecApi } from "@nseng-ai/pi/shared/command-exec";
+import type { RawPiExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import {
 	formatZodError,
 	isRecord,
 	optionalEntries,
 	optionalEntry,
-} from "../../ts/packages/infra/foundation/src/primitives/primitives.ts";
-import { tailText, type ExecResult } from "../../ts/packages/infra/foundation/src/exec/index.ts";
+} from "../../ts/packages/public/infra/foundation/src/primitives/primitives.ts";
+import { tailText, type ExecResult } from "../../ts/packages/public/infra/foundation/src/exec/index.ts";
 
 // Bare "zod" is not resolvable from .pi/extensions (no node_modules ancestry at the repo root);
 // resolve it through the ts workspace package that declares it, matching .pi/lib/workspace-packages.ts.
 const requireFromPiTools = createRequire(
-	new URL("../../ts/packages/internal/ns-pi-subagents/package.json", import.meta.url),
+	new URL("../../ts/packages/internal/hosts/pi/subagents/ns-pi-subagents/package.json", import.meta.url),
 );
 const { z } = requireFromPiTools("zod") as typeof import("zod");
 const {
@@ -60,8 +60,8 @@ const {
 	"@internal/ns-pi-subagents/api",
 );
 const { createPiCommandExecApi } = await importTypeScriptWorkspaceModule<
-	typeof import("@nseng-ai/pi/shared/command-exec")
->("@nseng-ai/pi/shared/command-exec");
+	typeof import("@nseng-ai/pi-runtime/shared/command-exec")
+>("@nseng-ai/pi-runtime/shared/command-exec");
 
 const TOOL_NAME = "objective_runner_step";
 const WIDGET_KEY = "objective-runner-step";

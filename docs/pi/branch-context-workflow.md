@@ -125,7 +125,7 @@ Agent workflows that need the full implementation prompt should pass `--prompt-f
 
 ## Branch-context plan contract trial rollback
 
-The code-adjacent rollback note for the trial protocol lives in `ts/packages/incubator/branch-context/README.md`.
+The code-adjacent rollback note for the trial protocol lives in `ts/packages/incubating/extensions/branch-context/README.md`.
 
 ## Branch-context primitives
 
