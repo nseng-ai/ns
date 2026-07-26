@@ -37,7 +37,8 @@ const entry = defineCli<BranchContextCliContext, CliDeps, undefined>({
 					};
 		return { type: "run", context, buildState: undefined };
 	},
-	configureCli: ({ root }) => {
+	buildCli: ({ appBuilder }) => {
+		const root = new ClinkrGroup<BranchContextCliContext>({ name: "branch-context" });
 		const execGroup = new ClinkrGroup<BranchContextCliContext>({
 			name: "exec",
 			description: "Run hidden deterministic branch-context operations for agents.",
@@ -84,13 +85,14 @@ const entry = defineCli<BranchContextCliContext, CliDeps, undefined>({
 			handler: handleDelete,
 		});
 		root.group(execGroup);
+		appBuilder.importLegacyClinkrGroupForMigration(root);
 	},
 });
 
 export const VERSION = entry.version;
 
-export function buildCli(): ClinkrGroup<BranchContextCliContext> {
-	return entry.buildCli(undefined);
+export async function buildCli() {
+	return await entry.buildCli(undefined);
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {

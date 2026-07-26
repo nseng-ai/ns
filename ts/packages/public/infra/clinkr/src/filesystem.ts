@@ -129,15 +129,25 @@ export async function createClinkrApp<TContext = void>(
 		{
 			name: options.name,
 			moduleUrl,
+			...(options.description === undefined ? {} : { description: options.description }),
 			...(options.version === undefined ? {} : { version: options.version }),
 			...(options.runtimeInfo === undefined ? {} : { runtimeInfo: options.runtimeInfo }),
 			...(options.completion === undefined ? {} : { completion: options.completion }),
 		},
 		async (appBuilder) => {
-			await addCommandStructure(appBuilder, options.commandDirectory, nodeCommandStructureGateway);
+			await addClinkrCommandStructure(appBuilder, options.commandDirectory);
 			return await appBuilder.define();
 		},
 	);
+}
+
+/** Add one absolute filesystem command structure to an app or group builder. */
+export async function addClinkrCommandStructure<TContext>(
+	builder: ClinkrAppBuilder<TContext> | ClinkrGroupBuilder<TContext>,
+	commandDirectory: string,
+): Promise<void> {
+	assertAbsoluteCommandDirectory(commandDirectory);
+	await addCommandStructure(builder, commandDirectory, nodeCommandStructureGateway);
 }
 
 async function addCommandStructure<TContext>(

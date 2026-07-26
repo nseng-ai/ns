@@ -9,6 +9,7 @@ import {
 	emitExit,
 	failure,
 	ok,
+	type ClinkrApp,
 	type ClinkrCommandSpec,
 	type ClinkrDynamicCompletionRequest,
 	type ClinkrIo,
@@ -152,6 +153,7 @@ function resolveNsCliCommandContextInput(options: NsCliRawContextInputs): NsCliC
 const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> = {
 	metaUrl: new URL("../cli.ts", import.meta.url).href,
 	runtime: "typescript",
+	name: "ns",
 	description: "ns tools.",
 	prepareRun: async ({ args, deps, cwd, env, stdout, stderr, io }) => {
 		const injectedContext = deps.context;
@@ -263,7 +265,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 			buildState: selectedCommandResolution.resolution,
 		};
 	},
-	buildCli: ({ description, version, runtimeInfo, buildState }) => {
+	buildCli: ({ appBuilder, description, version, runtimeInfo, buildState }) => {
 		const root = new ClinkrGroup<NsCliContext>({
 			name: "ns",
 			description,
@@ -379,14 +381,14 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 		}
 		root.group(buildNsShellGroup());
 		root.group(buildNsCompletionGroup());
-		return root;
+		appBuilder.importLegacyClinkrGroupForMigration(root);
 	},
 };
 
 const entry = defineCli(entryOptions);
 
-export function buildCli(options: BuildNsCliOptions = {}): ClinkrGroup<NsCliContext> {
-	return entry.buildCli({
+export async function buildCli(options: BuildNsCliOptions = {}): Promise<ClinkrApp<NsCliContext>> {
+	return await entry.buildCli({
 		commandInfos: options.commandInfos ?? listStaticNsCommandInfos(),
 		...optionalEntries({
 			selectedCommand: options.selectedCommand,
@@ -451,13 +453,8 @@ async function handleCompletionResolverInvocation(options: {
 			confirm: options.confirm,
 		}),
 	});
-	const candidates = await buildCli(selectedCommandResolution.resolution).completeAsync(
-		{ words },
-		{
-			context,
-			onDynamicCompletionError: () => {},
-		},
-	);
+	const app = await buildCli(selectedCommandResolution.resolution);
+	const candidates = await app.complete({ words }, { context });
 	options.stdout(renderCompletionCandidatesNewline(candidates));
 	return { type: "handled", exitCode: 0 };
 }

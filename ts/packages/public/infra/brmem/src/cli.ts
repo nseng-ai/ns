@@ -58,7 +58,8 @@ const entry = defineCli<BrmemCliContext, CliDeps, undefined>({
 		};
 		return { type: "run", context: runContext, buildState: undefined };
 	},
-	configureCli: ({ root }) => {
+	buildCli: ({ appBuilder, name }) => {
+		const root = new ClinkrGroup<BrmemCliContext>({ name });
 		root.command({
 			name: "put",
 			description: "Write content to a Branch Memory Entry.",
@@ -155,6 +156,7 @@ const entry = defineCli<BrmemCliContext, CliDeps, undefined>({
 			renderHuman: renderResolvePrompt,
 		});
 		root.group(execGroup);
+		appBuilder.importLegacyClinkrGroupForMigration(root);
 	},
 });
 
@@ -167,8 +169,8 @@ export interface CliDeps extends CliEntrypointDeps {
 	interaction?: BrmemCliContext["interaction"];
 }
 
-export function buildCli(): ClinkrGroup<BrmemCliContext> {
-	return entry.buildCli(undefined);
+export async function buildCli() {
+	return await entry.buildCli(undefined);
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {

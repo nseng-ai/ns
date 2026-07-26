@@ -97,7 +97,7 @@ export type { ClinkrIo, ClinkrIoOverrides } from "./io.ts";
 export { emitExit, renderCapabilitiesForTerminal, resolveRenderCapabilities } from "./emit.ts";
 export type { ClinkrFormat, EmitExitOptions, RenderCapabilities } from "./emit.ts";
 export type { JsonSchemaDocument } from "./json-schema.ts";
-export { createClinkrApp, defineCommand } from "./filesystem.ts";
+export { addClinkrCommandStructure, createClinkrApp, defineCommand } from "./filesystem.ts";
 export type {
 	ClinkrCommandDefinition,
 	ClinkrCommandMetadata,

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { createClinkrApp } from "@nseng-ai/clinkr";
+import { addClinkrCommandStructure, ClinkrApp, createClinkrApp } from "@nseng-ai/clinkr";
 import { runForTest } from "@nseng-ai/clinkr/testing";
 import { describe, expect, test } from "vitest";
 
@@ -31,6 +31,37 @@ describe("filesystem command structures", () => {
 		await expect(runForTest(app, ["admin", "secret"])).resolves.toMatchObject({
 			exitCode: 0,
 			stdout: "secret\n",
+		});
+	});
+
+	test("composes a filesystem command structure with programmatic routes", async () => {
+		const app = await ClinkrApp.create(
+			{ name: "fixture", moduleUrl: import.meta.url },
+			async (appBuilder) => {
+				await addClinkrCommandStructure(appBuilder, join(fixtureRoot, "basic"));
+				appBuilder.command(
+					{ name: "programmatic" },
+					async (commandBuilder) =>
+						await commandBuilder.define({
+							name: "programmatic",
+							isRawExit: true,
+							run: async (_context, invocation) => {
+								invocation.io.stdout("programmatic\n");
+								return 0;
+							},
+						}),
+				);
+				return await appBuilder.define();
+			},
+		);
+
+		await expect(runForTest(app, ["hi", "--name", "Ada"])).resolves.toMatchObject({
+			exitCode: 0,
+			stdout: "Hello, Ada.\n",
+		});
+		await expect(runForTest(app, ["programmatic"])).resolves.toMatchObject({
+			exitCode: 0,
+			stdout: "programmatic\n",
 		});
 	});
 

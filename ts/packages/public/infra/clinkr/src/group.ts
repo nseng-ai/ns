@@ -351,6 +351,29 @@ export class LegacyClinkrGroup<TContext> {
 	}
 
 	/**
+	 * Migration-only lowering seam for composing an existing mutable group into
+	 * the immutable app runtime. Remove when direct callers build routes natively.
+	 */
+	importLegacyClinkrGroupForMigration(source: LegacyClinkrGroup<TContext>): this {
+		if (
+			this.defaultRegisteredCommand !== undefined ||
+			source.defaultRegisteredCommand === undefined
+		) {
+			if (
+				this.defaultRegisteredCommand !== undefined &&
+				source.defaultRegisteredCommand !== undefined
+			) {
+				throw new Error(`clinkr: group '${this.name}' already has a default command`);
+			}
+		} else {
+			this.defaultRegisteredCommand = source.defaultRegisteredCommand;
+		}
+		this.registeredCommands.push(...source.registeredCommands);
+		this.subgroups.push(...source.subgroups);
+		return this;
+	}
+
+	/**
 	 * Parse and dispatch. Returns the process exit code; never calls
 	 * `process.exit`. Expected failures come back as codes; unexpected handler
 	 * throws propagate raw (no envelope), matching Python clinkr crashes.

@@ -81,7 +81,8 @@ const entry = defineCli<NsDevCliContext, CliDeps, undefined>({
 		});
 		return { type: "run", context, buildState: undefined };
 	},
-	configureCli: ({ root }) => {
+	buildCli: ({ appBuilder, name }) => {
+		const root = new ClinkrGroup<NsDevCliContext>({ name });
 		root.command({
 			name: "create-local-ns-project",
 			description:
@@ -194,13 +195,14 @@ const entry = defineCli<NsDevCliContext, CliDeps, undefined>({
 			handler: runVerifyPublicPackageSet,
 			renderHuman: renderCommandResult,
 		});
+		appBuilder.importLegacyClinkrGroupForMigration(root);
 	},
 });
 
 export const VERSION = entry.version;
 
-export function buildCli(): ClinkrGroup<NsDevCliContext> {
-	return entry.buildCli(undefined);
+export async function buildCli() {
+	return await entry.buildCli(undefined);
 }
 
 export async function runNsDevCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {

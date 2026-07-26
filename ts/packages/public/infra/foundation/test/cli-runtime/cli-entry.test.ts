@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { ClinkrGroup, failure, ok, type Caps } from "@nseng-ai/clinkr";
+import { failure, ok, type Caps } from "@nseng-ai/clinkr";
 import { rawCommand } from "@nseng-ai/clinkr/raw";
 import {
 	defineCli,
@@ -116,8 +116,7 @@ describe("defineCli", () => {
 			runtime: "typescript",
 			description: "Example CLI.",
 			prepareRun: () => ({ type: "handled", exitCode: 0 }),
-			buildCli: ({ name, description, version, runtimeInfo }) =>
-				new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo }),
+			buildCli: () => {},
 		});
 		expect(cli.metadata).toEqual({
 			packageName: "@nseng-ai/example",
@@ -132,6 +131,29 @@ describe("defineCli", () => {
 		);
 	});
 
+	test("keeps executable description on the immutable app help surface", async () => {
+		const root = makePackage({
+			name: "@nseng-ai/example",
+			version: "1.2.3",
+			bin: { example: "./src/cli.ts" },
+		});
+		const stdoutText: string[] = [];
+		const cli = defineCli<TestContext, TestDeps, undefined>({
+			metaUrl: packageMetaUrl(root),
+			runtime: "typescript",
+			description: "Example CLI.",
+			prepareRun: ({ stdout }) => ({
+				type: "run",
+				context: { value: "prepared", stdout },
+				buildState: undefined,
+			}),
+			buildCli: () => {},
+		});
+
+		await expect(cli.run(["--help"], { stdout: (text) => stdoutText.push(text) })).resolves.toBe(0);
+		expect(stdoutText.join("")).toContain("Example CLI.");
+	});
+
 	test("formats Bun runtime diagnostics", () => {
 		const root = makePackage({ name: "nscc", version: "0.1.0", bin: { nscc: "./src/cli.ts" } });
 		const cli = defineCli<TestContext, TestDeps, undefined>({
@@ -139,8 +161,7 @@ describe("defineCli", () => {
 			runtime: "bun",
 			description: "TUI CLI.",
 			prepareRun: () => ({ type: "handled", exitCode: 0 }),
-			buildCli: ({ name, description, version, runtimeInfo }) =>
-				new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo }),
+			buildCli: () => {},
 		});
 		expect(cli.runtimeInfo()).toBe(
 			`runtime: bun\nentry_point: nscc bin nscc -> ts/packages/${root.split("/").at(-1)}/src/cli.ts\n`,
@@ -169,21 +190,22 @@ describe("defineCli", () => {
 					buildState: { suffix: "!" },
 				};
 			},
-			buildCli: ({ name, description, version, runtimeInfo, buildState }) => {
+			buildCli: ({ appBuilder, version, buildState }) => {
 				buildInputVersion = version;
-				const group = new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo });
-				group.command(
-					rawCommand({
-						name: "go",
-						description: "Run test command.",
-						schema: z.object({}),
-						run: async (ctx) => {
-							ctx.stdout(`${ctx.value}${buildState.suffix}`);
-							return 7;
-						},
-					}),
+				appBuilder.command(
+					{ name: "go", description: "Run test command." },
+					async (commandBuilder) =>
+						await commandBuilder.define(
+							rawCommand({
+								name: "go",
+								description: "Run test command.",
+								run: async (ctx) => {
+									ctx.stdout(`${ctx.value}${buildState.suffix}`);
+									return 7;
+								},
+							}),
+						),
 				);
-				return group;
 			},
 		});
 		const exitCode = await cli.run(["go"], {
@@ -230,16 +252,18 @@ describe("defineCli", () => {
 					buildState: undefined,
 				};
 			},
-			buildCli: ({ name, description, version, runtimeInfo }) => {
-				const group = new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo });
-				group.command({
-					name: "go",
-					description: "Run test command.",
-					schema: z.object({}),
-					handler: async () => ok("result"),
-					renderHuman: () => "\u001b[31mcolored\u001b[0m",
-				});
-				return group;
+			buildCli: ({ appBuilder }) => {
+				appBuilder.command(
+					{ name: "go", description: "Run test command." },
+					async (commandBuilder) =>
+						await commandBuilder.define({
+							name: "go",
+							schema: z.object({}),
+							resultSchema: z.string(),
+							handler: async () => ok("result"),
+							renderHuman: () => "\u001b[31mcolored\u001b[0m",
+						}),
+				);
 			},
 		});
 
@@ -274,19 +298,21 @@ describe("defineCli", () => {
 					buildState: undefined,
 				};
 			},
-			buildCli: ({ name, description, version, runtimeInfo }) => {
-				const group = new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo });
-				group.command({
-					name: "go",
-					description: "Run test command.",
-					schema: z.object({}),
-					handler: async (ctx) => {
-						ctx.stdout(`${ctx.value}:context`);
-						return ok("rendered");
-					},
-					renderHuman: (data) => data,
-				});
-				return group;
+			buildCli: ({ appBuilder }) => {
+				appBuilder.command(
+					{ name: "go", description: "Run test command." },
+					async (commandBuilder) =>
+						await commandBuilder.define({
+							name: "go",
+							schema: z.object({}),
+							resultSchema: z.string(),
+							handler: async (ctx) => {
+								ctx.stdout(`${ctx.value}:context`);
+								return ok("rendered");
+							},
+							renderHuman: (data) => data,
+						}),
+				);
 			},
 		});
 		const exitCode = await cli.run(["alias"], {
@@ -316,8 +342,7 @@ describe("defineCli", () => {
 				stderr(`handled: ${error.message}\n`);
 				return 9;
 			},
-			buildCli: ({ name, description, version, runtimeInfo }) =>
-				new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo }),
+			buildCli: () => {},
 		});
 		await expect(cli.run([], { stderr: (text) => stderrText.push(text) })).resolves.toBe(9);
 		expect(stderrText).toEqual(["handled: expected failure\n"]);
@@ -337,8 +362,7 @@ describe("defineCli", () => {
 				throw new Error("unhandled failure");
 			},
 			handleRunError: () => undefined,
-			buildCli: ({ name, description, version, runtimeInfo }) =>
-				new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo }),
+			buildCli: () => {},
 		});
 		await expect(cli.run([])).rejects.toThrow("unhandled failure");
 	});
@@ -361,6 +385,41 @@ describe("defineCli", () => {
 		await expect(cli.run(["go"])).resolves.toBe(42);
 	});
 
+	test("prepares before creating a fresh immutable app for every unhandled invocation", async () => {
+		const root = makePackage({
+			name: "@nseng-ai/example",
+			version: "1.2.3",
+			bin: { example: "./src/cli.ts" },
+		});
+		const events: string[] = [];
+		const cli = defineCli<TestContext, TestDeps, number>({
+			metaUrl: packageMetaUrl(root),
+			runtime: "typescript",
+			description: "Example CLI.",
+			prepareRun: () => {
+				events.push("prepare");
+				return {
+					type: "run",
+					context: { value: "prepared", stdout: () => {} },
+					buildState: events.length,
+				};
+			},
+			buildCli: ({ appBuilder, buildState }) => {
+				events.push(`build:${buildState}`);
+				appBuilder.command({ name: "go" }, async (commandBuilder) => {
+					events.push(`load:${buildState}`);
+					return await commandBuilder.define(
+						rawCommand({ name: "go", run: async () => buildState }),
+					);
+				});
+			},
+		});
+
+		await expect(cli.run(["go"])).resolves.toBe(1);
+		await expect(cli.run(["go"])).resolves.toBe(4);
+		expect(events).toEqual(["prepare", "build:1", "load:1", "prepare", "build:4", "load:4"]);
+	});
+
 	test("fails loudly when package metadata has no version", () => {
 		const root = makePackage({ name: "@nseng-ai/example", bin: { example: "./src/cli.ts" } });
 		expect(() => defineNoopCli(root)).toThrow(/Invalid CLI package metadata.*version/);
@@ -373,8 +432,7 @@ describe("defineCli", () => {
 			runtime: "typescript",
 			description: "Example CLI.",
 			prepareRun: () => ({ type: "handled", exitCode: 0 }),
-			buildCli: ({ name, description, version, runtimeInfo }) =>
-				new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo }),
+			buildCli: () => {},
 		});
 		expect(cli.metadata.binName).toBe("example");
 		expect(cli.metadata.binPath).toBe("(no package bin)");
@@ -396,8 +454,7 @@ function defineNoopCli(root: string): void {
 		runtime: "typescript",
 		description: "Example CLI.",
 		prepareRun: () => ({ type: "handled", exitCode: 0 }),
-		buildCli: ({ name, description, version, runtimeInfo }) =>
-			new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo }),
+		buildCli: () => {},
 	});
 }
 

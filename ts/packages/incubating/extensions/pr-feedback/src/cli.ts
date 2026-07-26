@@ -27,7 +27,8 @@ const entry = defineCli<PrAddressExecContext, CliDeps, readonly ExecOperation[]>
 		};
 		return { type: "run", context: execContext, buildState: operations };
 	},
-	configureCli: ({ root, buildState: operations }) => {
+	buildCli: ({ appBuilder, name, buildState: operations }) => {
+		const root = new ClinkrGroup<PrAddressExecContext>({ name });
 		const execGroup = new ClinkrGroup<PrAddressExecContext>({
 			name: "exec",
 			description: "Operations for the pr-address skill.",
@@ -35,13 +36,12 @@ const entry = defineCli<PrAddressExecContext, CliDeps, readonly ExecOperation[]>
 		});
 		for (const operation of operations) operation.addTo(execGroup);
 		root.group(execGroup);
+		appBuilder.importLegacyClinkrGroupForMigration(root);
 	},
 });
 
-export function buildCli(
-	operations: readonly ExecOperation[] = EXEC_OPERATIONS,
-): ClinkrGroup<PrAddressExecContext> {
-	return entry.buildCli(operations);
+export async function buildCli(operations: readonly ExecOperation[] = EXEC_OPERATIONS) {
+	return await entry.buildCli(operations);
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {

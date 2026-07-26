@@ -4,9 +4,10 @@ import { basename, dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-	ClinkrGroup,
+	ClinkrApp,
 	failure,
 	resolveIo,
+	type ClinkrAppBuilder,
 	type ClinkrExit,
 	type ClinkrIo,
 	type RenderCapabilities,
@@ -76,7 +77,8 @@ export interface CliRunErrorInput<TDeps extends CliEntrypointDeps> {
 	readonly metadata: CliPackageMetadata;
 }
 
-export interface DefineCliBuildInput<TBuildState> {
+export interface DefineCliBuildInput<TContext, TBuildState> {
+	readonly appBuilder: ClinkrAppBuilder<TContext>;
 	readonly name: string;
 	readonly description: string;
 	readonly version: string;
@@ -85,56 +87,27 @@ export interface DefineCliBuildInput<TBuildState> {
 	readonly buildState: TBuildState;
 }
 
-export interface DefineCliConfigureInput<
-	TContext,
-	TBuildState,
-> extends DefineCliBuildInput<TBuildState> {
-	readonly root: ClinkrGroup<TContext>;
-}
-
-export interface DefineCliBaseOptions<TContext, TDeps extends CliEntrypointDeps, TBuildState> {
+export interface DefineCliOptions<TContext, TDeps extends CliEntrypointDeps, TBuildState> {
 	readonly metaUrl: string;
 	readonly runtime: CliRuntime;
+	readonly name?: string;
 	readonly description: string;
 	readonly prepareRun: (
 		input: CliPrepareRunInput<TDeps>,
 	) =>
 		| CliPrepareRunResult<TContext, TBuildState>
 		| Promise<CliPrepareRunResult<TContext, TBuildState>>;
+	readonly buildCli: (input: DefineCliBuildInput<TContext, TBuildState>) => void | Promise<void>;
 	readonly handleRunError?: (
 		input: CliRunErrorInput<TDeps>,
 	) => number | undefined | Promise<number | undefined>;
 }
 
-export interface DefineCliBuildOptions<
-	TContext,
-	TDeps extends CliEntrypointDeps,
-	TBuildState,
-> extends DefineCliBaseOptions<TContext, TDeps, TBuildState> {
-	readonly buildCli: (input: DefineCliBuildInput<TBuildState>) => ClinkrGroup<TContext>;
-	readonly configureCli?: never;
-}
-
-export interface DefineCliConfigureOptions<
-	TContext,
-	TDeps extends CliEntrypointDeps,
-	TBuildState,
-> extends DefineCliBaseOptions<TContext, TDeps, TBuildState> {
-	readonly configureCli: (
-		input: DefineCliConfigureInput<TContext, TBuildState>,
-	) => ClinkrGroup<TContext> | void;
-	readonly buildCli?: never;
-}
-
-export type DefineCliOptions<TContext, TDeps extends CliEntrypointDeps, TBuildState> =
-	| DefineCliBuildOptions<TContext, TDeps, TBuildState>
-	| DefineCliConfigureOptions<TContext, TDeps, TBuildState>;
-
 export interface DefinedCli<TContext, TDeps extends CliEntrypointDeps, TBuildState> {
 	readonly metadata: CliPackageMetadata;
 	readonly version: string;
 	readonly runtimeInfo: () => string;
-	readonly buildCli: (buildState: TBuildState) => ClinkrGroup<TContext>;
+	readonly buildCli: (buildState: TBuildState) => Promise<ClinkrApp<TContext>>;
 	readonly run: (args: readonly string[], deps?: CliRunDeps<TDeps>) => Promise<number>;
 	readonly runIfMain: (input: CliRunIfMainInput) => Promise<void>;
 }
@@ -165,7 +138,7 @@ export function isDirectCliInvocation(metaUrl: string, argvPath: string | undefi
 export async function runClinkrCommand<T>(
 	errorType: string,
 	operation: () => Promise<ClinkrExit<T>>,
-): Promise<ClinkrExit<T>> {
+): Promise<ClinkrExit<T | unknown>> {
 	return await runOperationCommand({
 		operation: errorType,
 		action: operation,
@@ -173,15 +146,15 @@ export async function runClinkrCommand<T>(
 	});
 }
 
-export interface RunOperationCommandOptions<TOperation, TData> {
+export interface RunOperationCommandOptions<TOperation, TData, TErrorData = unknown> {
 	readonly operation: TOperation;
 	readonly action: () => Promise<ClinkrExit<TData>>;
-	readonly failureFromError: (operation: TOperation, error: unknown) => ClinkrExit<never>;
+	readonly failureFromError: (operation: TOperation, error: unknown) => ClinkrExit<TErrorData>;
 }
 
-export async function runOperationCommand<TOperation, TData>(
-	options: RunOperationCommandOptions<TOperation, TData>,
-): Promise<ClinkrExit<TData>> {
+export async function runOperationCommand<TOperation, TData, TErrorData = unknown>(
+	options: RunOperationCommandOptions<TOperation, TData, TErrorData>,
+): Promise<ClinkrExit<TData | TErrorData>> {
 	try {
 		return await options.action();
 	} catch (error) {
@@ -197,26 +170,31 @@ export function defineCli<
 	options: DefineCliOptions<TContext, TDeps, TBuildState>,
 ): DefinedCli<TContext, TDeps, TBuildState> {
 	const metadata = readCliPackageMetadata(options.metaUrl);
+	const name = options.name ?? metadata.binName;
 	const runtimeInfo = (): string =>
 		`runtime: ${options.runtime}\nentry_point: ${metadata.packageName} bin ${metadata.binName} -> ts/${metadata.packagePath}/${metadata.binPath}\n`;
-	const buildCli = (buildState: TBuildState): ClinkrGroup<TContext> => {
-		const buildInput = {
-			name: metadata.binName,
-			description: options.description,
-			version: metadata.version,
-			runtimeInfo,
-			metadata,
-			buildState,
-		};
-		if (options.buildCli !== undefined) return options.buildCli(buildInput);
-		const root = new ClinkrGroup<TContext>({
-			name: buildInput.name,
-			description: buildInput.description,
-			version: buildInput.version,
-			runtimeInfo: buildInput.runtimeInfo,
-		});
-		return options.configureCli({ ...buildInput, root }) ?? root;
-	};
+	const buildCli = async (buildState: TBuildState): Promise<ClinkrApp<TContext>> =>
+		await ClinkrApp.create<TContext>(
+			{
+				name,
+				moduleUrl: options.metaUrl,
+				description: options.description,
+				version: metadata.version,
+				runtimeInfo,
+			},
+			async (appBuilder) => {
+				await options.buildCli({
+					appBuilder,
+					name,
+					description: options.description,
+					version: metadata.version,
+					runtimeInfo,
+					metadata,
+					buildState,
+				});
+				return await appBuilder.define();
+			},
+		);
 	const run = async (args: readonly string[], deps: CliRunDeps<TDeps> = {}): Promise<number> => {
 		const io = resolveIo({
 			...optionalEntries({
@@ -242,7 +220,8 @@ export function defineCli<
 				metadata,
 			});
 			if (prepareResult.type === "handled") return prepareResult.exitCode;
-			return await buildCli(prepareResult.buildState).run(prepareResult.args ?? args, {
+			const app = await buildCli(prepareResult.buildState);
+			return await app.runWithContext(prepareResult.args ?? args, {
 				context: prepareResult.context,
 				io,
 			});

@@ -61,7 +61,8 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 		};
 		return { type: "run", context, buildState: undefined };
 	},
-	configureCli: ({ root }) => {
+	buildCli: ({ appBuilder, name }) => {
+		const root = new ClinkrGroup<PackagechkCliContext>({ name });
 		root.defaultCommand({
 			schema: checkRequestSchema,
 			positionals: { name: { position: 0 } },
@@ -104,6 +105,7 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 					interaction: ctx.interaction,
 				}),
 		});
+		appBuilder.importLegacyClinkrGroupForMigration(root);
 	},
 });
 
@@ -173,8 +175,8 @@ interface PackagechkCliContext {
 	interaction: ClinkrInteraction;
 }
 
-export function buildCli(): ClinkrGroup<PackagechkCliContext> {
-	return entry.buildCli(undefined);
+export async function buildCli() {
+	return await entry.buildCli(undefined);
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {

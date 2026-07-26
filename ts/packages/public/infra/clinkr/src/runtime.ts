@@ -40,6 +40,7 @@ export interface ClinkrCompletionOptions<TContext> {
 export interface ClinkrAppOptions<TContext = void> {
 	name: string;
 	moduleUrl: string;
+	description?: string;
 	version?: string;
 	runtimeInfo?: () => string;
 	completion?: ClinkrCompletionOptions<TContext>;
@@ -59,6 +60,7 @@ type DefaultSpec<TContext> =
 interface ScopeDefinition<TContext> {
 	readonly defaultCommand: ClinkrCommand<TContext> | undefined;
 	readonly routes: readonly RouteDefinition<TContext>[];
+	readonly legacyImports: readonly LegacyClinkrGroup<TContext>[];
 }
 
 interface CommandRouteDefinition<TContext> {
@@ -120,10 +122,12 @@ export class ClinkrCommand<TContext> {
 export class ClinkrGroup<TContext> {
 	readonly defaultCommand: ClinkrCommand<TContext> | undefined;
 	readonly routes: readonly RouteDefinition<TContext>[];
+	readonly legacyImports: readonly LegacyClinkrGroup<TContext>[];
 
 	constructor(provenance: symbol, scope: ScopeDefinition<TContext>) {
 		this.defaultCommand = scope.defaultCommand;
 		this.routes = Object.freeze([...scope.routes]);
+		this.legacyImports = Object.freeze([...scope.legacyImports]);
 		builderProvenance.set(this, provenance);
 		Object.freeze(this);
 	}
@@ -134,6 +138,7 @@ abstract class ScopeBuilder<TContext, TNode extends object> {
 	protected readonly moduleUrl: string;
 	protected readonly provenance = Symbol("clinkr-builder");
 	private readonly routes: RouteDefinition<TContext>[] = [];
+	private readonly legacyImports: LegacyClinkrGroup<TContext>[] = [];
 	private defaultNode: ClinkrCommand<TContext> | undefined;
 	private isDefined = false;
 
@@ -198,6 +203,13 @@ abstract class ScopeBuilder<TContext, TNode extends object> {
 		return this;
 	}
 
+	/** Migration-only: lower an existing mutable group through this app runtime. */
+	importLegacyClinkrGroupForMigration(group: LegacyClinkrGroup<TContext>): this {
+		this.assertOpen();
+		this.legacyImports.push(group);
+		return this;
+	}
+
 	protected finalizeScope(): ScopeDefinition<TContext> {
 		this.assertOpen();
 		validateRoutes(this.routes);
@@ -205,6 +217,7 @@ abstract class ScopeBuilder<TContext, TNode extends object> {
 		return Object.freeze({
 			defaultCommand: this.defaultNode,
 			routes: Object.freeze([...this.routes]),
+			legacyImports: Object.freeze([...this.legacyImports]),
 		});
 	}
 
@@ -341,12 +354,19 @@ export class ClinkrApp<TContext = void> {
 			: [options: ClinkrRunOptions<TContext>]
 	): Promise<number> {
 		const invocation = options[0] as ClinkrRunOptions<TContext> | undefined;
-		const context = invocation?.context as TContext;
-		const runtime = await this.buildRuntime(argv);
-		return await runtime.run(argv, {
-			context,
+		return await this.runWithContext(argv, {
+			context: invocation?.context as TContext,
 			...(invocation?.io === undefined ? {} : { io: invocation.io }),
 		});
+	}
+
+	/** Run with an explicit context from a generic application host. */
+	async runWithContext(
+		argv: readonly string[],
+		options: ClinkrRunOptions<TContext>,
+	): Promise<number> {
+		const runtime = await this.buildRuntime(argv);
+		return await runtime.run(argv, options);
 	}
 
 	async complete(
@@ -381,8 +401,9 @@ export class ClinkrApp<TContext = void> {
 	private async buildRuntime(argv: readonly string[]): Promise<LegacyClinkrGroup<TContext>> {
 		const runtime = new LegacyClinkrGroup<TContext>({
 			name: this.name,
-			inferAutomaticAliases: false,
-			validateOutcomes: true,
+			...(this.options.description === undefined ? {} : { description: this.options.description }),
+			inferAutomaticAliases: this.scope.legacyImports.length > 0,
+			validateOutcomes: this.scope.legacyImports.length === 0,
 			...(this.options.version === undefined ? {} : { version: this.options.version }),
 			...(this.options.runtimeInfo === undefined ? {} : { runtimeInfo: this.options.runtimeInfo }),
 		});
@@ -399,6 +420,9 @@ async function materializeScope<TContext>(
 	owner: symbol,
 ): Promise<void> {
 	if (scope.defaultCommand !== undefined) registerDefault(runtime, scope.defaultCommand);
+	for (const legacyImport of scope.legacyImports) {
+		runtime.importLegacyClinkrGroupForMigration(legacyImport);
+	}
 	const selected = selectNamedRoute(scope.routes, argv[0]);
 	for (const route of scope.routes) {
 		if (route.type === "command") {

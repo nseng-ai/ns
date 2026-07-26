@@ -109,7 +109,8 @@ const entry = defineCli<VibechkCliContext, CliDeps, undefined>({
 			args: normalizeRunsFormatArgs(args),
 		};
 	},
-	configureCli: ({ root }) => {
+	buildCli: ({ appBuilder, name }) => {
+		const root = new ClinkrGroup<VibechkCliContext>({ name });
 		root.command({
 			name: "runs",
 			description: "List local vibechk run bundles from the configured store.",
@@ -149,6 +150,7 @@ const entry = defineCli<VibechkCliContext, CliDeps, undefined>({
 				run: runRun,
 			}),
 		);
+		appBuilder.importLegacyClinkrGroupForMigration(root);
 	},
 	handleRunError: ({ error, stderr }) => {
 		if (error instanceof VibechkError) {
@@ -160,8 +162,8 @@ const entry = defineCli<VibechkCliContext, CliDeps, undefined>({
 
 export const VERSION = entry.version;
 
-export function buildCli(): ClinkrGroup<VibechkCliContext> {
-	return entry.buildCli(undefined);
+export async function buildCli() {
+	return await entry.buildCli(undefined);
 }
 
 type RunsRequest = z.infer<typeof runsRequestSchema>;

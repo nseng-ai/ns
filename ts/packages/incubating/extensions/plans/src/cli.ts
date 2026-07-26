@@ -110,7 +110,8 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 		};
 		return { type: "run", context, buildState: undefined };
 	},
-	configureCli: ({ root }) => {
+	buildCli: ({ appBuilder, name }) => {
+		const root = new ClinkrGroup<PlansCliContext>({ name });
 		root.command({
 			name: "list",
 			description: "List saved plans for the current repository across all branch keys.",
@@ -139,13 +140,14 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 			renderHuman: renderResolvePlanData,
 		});
 		root.group(execGroup);
+		appBuilder.importLegacyClinkrGroupForMigration(root);
 	},
 });
 
 export const VERSION = entry.version;
 
-export function buildCli(): ClinkrGroup<PlansCliContext> {
-	return entry.buildCli(undefined);
+export async function buildCli() {
+	return await entry.buildCli(undefined);
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
