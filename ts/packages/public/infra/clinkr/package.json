@@ -12,6 +12,9 @@
 	"files": [
 		"src"
 	],
+	"engines": {
+		"node": ">=24"
+	},
 	"scripts": {
 		"check": "tsc -p tsconfig.json",
 		"test": "cd ../../../.. && vitest run --config vitest.config.ts packages/public/infra/clinkr/test",

@@ -8,6 +8,7 @@ import type {
 import { machineEnvelopeSchema, type MachineEnvelope } from "../exit.ts";
 import type { LegacyClinkrGroup } from "../group.ts";
 import type { ClinkrIo } from "../io.ts";
+import { ClinkrApp } from "../runtime.ts";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 export interface CapturedRun {
@@ -128,14 +129,34 @@ export function createCaptureIo(): CaptureIo {
 }
 
 /** In-process invocation through the io seam. */
+export async function runForTest(
+	app: ClinkrApp<void>,
+	argv: readonly string[],
+	options?: { io?: ClinkrIo },
+): Promise<CapturedRun>;
+export async function runForTest<TContext>(
+	app: ClinkrApp<TContext>,
+	argv: readonly string[],
+	options: { context: TContext; io?: ClinkrIo },
+): Promise<CapturedRun>;
 export async function runForTest<TContext>(
 	group: LegacyClinkrGroup<TContext>,
 	argv: readonly string[],
 	options: { context: TContext; io?: ClinkrIo },
+): Promise<CapturedRun>;
+export async function runForTest<TContext>(
+	executable: ClinkrApp<TContext> | LegacyClinkrGroup<TContext>,
+	argv: readonly string[],
+	options?: { context?: TContext; io?: ClinkrIo },
 ): Promise<CapturedRun> {
 	const capture = createCaptureIo();
-	const io = options.io ?? capture.io;
-	const exitCode = await group.run(argv, { context: options.context, io });
+	const io = options?.io ?? capture.io;
+	const context = options?.context as TContext;
+	const runExecutable = executable.run as (
+		args: readonly string[],
+		options: { context: TContext; io: ClinkrIo },
+	) => Promise<number>;
+	const exitCode = await runExecutable.call(executable, argv, { context, io });
 	return { exitCode, stdout: capture.stdout(), stderr: capture.stderr() };
 }
 
