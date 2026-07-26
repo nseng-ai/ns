@@ -20,10 +20,11 @@ function buildGroup(): LegacyClinkrGroup<null> {
 	return group;
 }
 
-function buildListAliasGroup(): LegacyClinkrGroup<string[]> {
+function buildExplicitAliasGroup(): LegacyClinkrGroup<string[]> {
 	const group = new LegacyClinkrGroup<string[]>({ name: "probe" });
 	group.command({
 		name: "list",
+		aliases: ["ls"],
 		schema: z.object({}),
 		resultSchema: z.any(),
 		handler: async (calls) => {
@@ -34,6 +35,7 @@ function buildListAliasGroup(): LegacyClinkrGroup<string[]> {
 	const nested = new LegacyClinkrGroup<string[]>({ name: "nested" });
 	nested.command({
 		name: "list",
+		aliases: ["ls"],
 		schema: z.object({}),
 		resultSchema: z.any(),
 		handler: async (calls) => {
@@ -88,10 +90,10 @@ describe("raw argv format detection", () => {
 	});
 });
 
-describe("automatic list aliases", () => {
-	test("routes ls to list commands at the root and in nested groups", async () => {
+describe("explicit aliases", () => {
+	test("routes explicit aliases at the root and in nested groups", async () => {
 		const calls: string[] = [];
-		const group = buildListAliasGroup();
+		const group = buildExplicitAliasGroup();
 
 		const root = await runForTest(group, ["ls", "--format", "json"], { context: calls });
 		const nested = await runForTest(group, ["nested", "ls", "--format", "json"], {

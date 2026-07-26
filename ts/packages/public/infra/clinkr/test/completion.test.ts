@@ -63,6 +63,7 @@ function buildCompletionTree(): LegacyClinkrGroup<ProbeContext> {
 	});
 	sub.command({
 		name: "list",
+		aliases: ["ls"],
 		summary: "List nested items.",
 		schema: z.object({}),
 		handler: async (ctx, request) => {
@@ -113,7 +114,7 @@ describe("clinkr static completion", () => {
 		expect(candidateValues(group, ["exec", ""])).toEqual(["resolve"]);
 	});
 
-	test("suggests ls as the automatic alias for list commands", () => {
+	test("suggests explicit command aliases", () => {
 		const values = candidateValues(buildCompletionTree(), ["sub", ""]);
 
 		expect(values).toContain("list");

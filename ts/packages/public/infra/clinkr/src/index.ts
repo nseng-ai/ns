@@ -43,12 +43,7 @@ export type {
 	CompleteClinkrWordsAsyncOptions,
 	RenderClinkrCompletionScriptOptions,
 } from "./completion.ts";
-export {
-	LegacyClinkrGroup,
-	LegacyClinkrGroup as ClinkrGroup,
-	clinkrAutomaticAliasesForName,
-	clinkrNameMatchesAutomaticAlias,
-} from "./group.ts";
+export { LegacyClinkrGroup, LegacyClinkrGroup as ClinkrGroup } from "./group.ts";
 export type {
 	ClinkrCommandSpec,
 	ClinkrCompleteAsyncOptions,
@@ -127,4 +122,5 @@ export type {
 	ClinkrCompletionOptions,
 	ClinkrCompletionProviderError,
 	ClinkrRouteMetadata,
+	ClinkrRouteSelection,
 } from "./runtime.ts";

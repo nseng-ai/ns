@@ -127,7 +127,7 @@ export function command() { return defineCommand({
 		});
 	});
 
-	test("routes ls as an alias for descriptor list commands before loading", async () => {
+	test("does not infer aliases for descriptor list commands", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/tools"]\n');
 		writeWorkspaceFile(
@@ -164,15 +164,12 @@ export default defineExtension({
 			{ execResponses: () => [], textGenerationResults: () => [] },
 		);
 
-		expect(await run.exit).toBe(0);
-		expect(run.stderr).toEqual([]);
-		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
-			status: "ok",
-			data: { message: "listed" },
-		});
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain("unknown command 'ls'");
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({ status: "usageError", exitCode: 2 });
 	});
 
-	test("does not route ls as a list alias when a sibling ls command exists", async () => {
+	test("routes an explicitly declared ls command", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/tools"]\n');
 		writeWorkspaceFile(

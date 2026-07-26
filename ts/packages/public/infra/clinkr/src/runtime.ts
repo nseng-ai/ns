@@ -63,6 +63,10 @@ interface ScopeDefinition<TContext> {
 	readonly legacyImports: readonly LegacyClinkrGroup<TContext>[];
 }
 
+export interface ClinkrRouteSelection {
+	readonly path: readonly string[];
+}
+
 interface CommandRouteDefinition<TContext> {
 	readonly type: "command";
 	readonly metadata: Readonly<ClinkrRouteMetadata>;
@@ -360,12 +364,16 @@ export class ClinkrApp<TContext = void> {
 		});
 	}
 
+	async selectRoute(words: readonly string[]): Promise<ClinkrRouteSelection> {
+		return { path: await selectRoutePath(this.scope, words) };
+	}
+
 	/** Run with an explicit context from a generic application host. */
 	async runWithContext(
 		argv: readonly string[],
 		options: ClinkrRunOptions<TContext>,
 	): Promise<number> {
-		const runtime = await this.buildRuntime(argv);
+		const { runtime } = await this.buildRuntime(argv);
 		return await runtime.run(argv, options);
 	}
 
@@ -376,11 +384,10 @@ export class ClinkrApp<TContext = void> {
 			: [options: ClinkrCompleteOptions<TContext>]
 	): Promise<ClinkrCompletionResult> {
 		const invocation = options[0] as ClinkrCompleteOptions<TContext> | undefined;
-		const runtime = await this.buildRuntime(request.words);
+		const { runtime, selectedPath } = await this.buildRuntime(request.words);
 		const context = invocation?.context as TContext;
 		const onProviderError = this.options.completion?.onProviderError;
-		const commandPath =
-			onProviderError === undefined ? [] : await selectedCommandPath(this.scope, request.words);
+		const commandPath = onProviderError === undefined ? [] : selectedPath;
 		const runtimeOptions: ClinkrCompleteAsyncOptions<TContext> = {
 			context,
 			...(onProviderError === undefined
@@ -398,18 +405,22 @@ export class ClinkrApp<TContext = void> {
 		return await runtime.completeAsync(request, runtimeOptions);
 	}
 
-	private async buildRuntime(argv: readonly string[]): Promise<LegacyClinkrGroup<TContext>> {
+	private async buildRuntime(argv: readonly string[]): Promise<{
+		runtime: LegacyClinkrGroup<TContext>;
+		selectedPath: readonly string[];
+	}> {
 		const runtime = new LegacyClinkrGroup<TContext>({
 			name: this.name,
 			...(this.options.description === undefined ? {} : { description: this.options.description }),
-			inferAutomaticAliases: this.scope.legacyImports.length > 0,
 			validateOutcomes: this.scope.legacyImports.length === 0,
 			...(this.options.version === undefined ? {} : { version: this.options.version }),
 			...(this.options.runtimeInfo === undefined ? {} : { runtimeInfo: this.options.runtimeInfo }),
 		});
-		if (argv[0] === "--version" || argv[0] === "-V" || argv[0] === "--runtime") return runtime;
-		await materializeScope(runtime, this.scope, argv, this.owner);
-		return runtime;
+		if (argv[0] === "--version" || argv[0] === "-V" || argv[0] === "--runtime") {
+			return { runtime, selectedPath: [] };
+		}
+		const selectedPath = await materializeScope(runtime, this.scope, argv, this.owner);
+		return { runtime, selectedPath };
 	}
 }
 
@@ -418,31 +429,36 @@ async function materializeScope<TContext>(
 	scope: ScopeDefinition<TContext>,
 	argv: readonly string[],
 	owner: symbol,
-): Promise<void> {
+): Promise<readonly string[]> {
 	if (scope.defaultCommand !== undefined) registerDefault(runtime, scope.defaultCommand);
 	for (const legacyImport of scope.legacyImports) {
 		runtime.importLegacyClinkrGroupForMigration(legacyImport);
 	}
 	const selected = selectNamedRoute(scope.routes, argv[0]);
+	let selectedPath: readonly string[] = [];
 	for (const route of scope.routes) {
 		if (route.type === "command") {
 			const command = route === selected ? await route.load.load() : placeholderCommand<TContext>();
+			if (route === selected) selectedPath = [route.metadata.name];
 			claimNode(command, owner);
 			registerNamed(runtime, route.metadata, command);
 			continue;
 		}
 		const child = new LegacyClinkrGroup<TContext>({
 			...groupOptions(route.metadata),
-			inferAutomaticAliases: false,
 			validateOutcomes: true,
 		});
 		if (route === selected) {
 			const group = await route.load.load();
 			claimNode(group, owner);
-			await materializeScope(child, group, argv.slice(1), owner);
+			selectedPath = [
+				route.metadata.name,
+				...(await materializeScope(child, group, argv.slice(1), owner)),
+			];
 		}
 		runtime.group(child);
 	}
+	return selectedPath;
 }
 
 function selectNamedRoute<TContext>(
@@ -455,7 +471,7 @@ function selectNamedRoute<TContext>(
 	);
 }
 
-async function selectedCommandPath<TContext>(
+async function selectRoutePath<TContext>(
 	scope: ScopeDefinition<TContext>,
 	words: readonly string[],
 ): Promise<readonly string[]> {
@@ -464,7 +480,7 @@ async function selectedCommandPath<TContext>(
 		return route === undefined ? [] : [route.metadata.name];
 	}
 	const group = await route.load.load();
-	return [route.metadata.name, ...(await selectedCommandPath(group, words.slice(1)))];
+	return [route.metadata.name, ...(await selectRoutePath(group, words.slice(1)))];
 }
 
 function registerNamed<TContext>(

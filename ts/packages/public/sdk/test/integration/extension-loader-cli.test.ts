@@ -77,7 +77,7 @@ describe("ns extension loader CLI integration", () => {
 		expect(run.context.execCalls).toEqual([]);
 	});
 
-	test("direct command summary appears in top-level help after importing the module", async () => {
+	test("top-level help uses catalog metadata without importing command modules", async () => {
 		const cwd = await createDescriptorProject(
 			"hello",
 			`import { ok } from "@nseng-ai/sdk";
@@ -95,7 +95,7 @@ export default {
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(helpSection(help, "Extensions:")).toContain("hello");
-		expect(helpSection(help, "Extensions:")).toContain("Say hello from help.");
+		expect(helpSection(help, "Extensions:")).toContain("Load ns descriptor command hello.");
 		expect(helpSection(help, "Built-ins:")).not.toContain("hello");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
@@ -120,7 +120,7 @@ export default { name: "aaa", summary: "Earlier project extension command.", des
 		expect(run.stderr.join("")).toBe("");
 	});
 
-	test("throwing direct command keeps placeholder in top-level help and warns", async () => {
+	test("throwing direct command stays unloaded for top-level help", async () => {
 		const cwd = await createDescriptorProject("hello", "throw new Error('module boom');\n");
 		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
 
@@ -128,8 +128,7 @@ export default { name: "aaa", summary: "Earlier project extension command.", des
 		const help = run.stdout.join("");
 		expect(help).toContain("hello");
 		expect(help).toContain("Load ns descriptor command hello.");
-		expect(run.stderr.join("")).toContain("Warning:");
-		expect(run.stderr.join("")).toContain("module boom");
+		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
 	});
 
@@ -184,7 +183,7 @@ export default {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("hello\n");
+		expect(run.stdout.join("")).toBe('"hello"\n');
 		expect(run.stderr.join("")).toBe("");
 		expect(formattedExecCalls(run.context)).toEqual(["echo hello"]);
 	});
@@ -226,8 +225,7 @@ export default {
 
 		const helpRun = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
 		expect(await helpRun.exit).toBe(0);
-		expect(helpRun.stderr.join("")).toContain("Warning:");
-		expect(helpRun.stderr.join("")).toContain("module boom");
+		expect(helpRun.stderr.join("")).toBe("");
 
 		const selectedRun = runWithFakes({ args: ["hello"], state: { exec: [] }, cwd });
 		expect(await selectedRun.exit).toBe(2);
@@ -248,7 +246,7 @@ export default { name: "hello", summary: "Hello", description: "Hello", run() { 
 		const run = runWithFakes({ args: ["hello"], state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("hello\n");
+		expect(run.stdout.join("")).toBe('"hello"\n');
 		expect(run.stderr.join("")).toContain("Warning:");
 		expect(run.stderr.join("")).toContain("Invalid ");
 		expect(run.stderr.join("")).toContain("description Invalid input");

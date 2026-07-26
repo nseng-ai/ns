@@ -202,7 +202,7 @@ describe("nested groups", () => {
 		expect(run.stdout).toContain("top");
 	});
 
-	test("a leaf command named ls blocks the bare list group alias", async () => {
+	test("explicit command names take precedence over unrelated group names", async () => {
 		const context: ProbeContext = { calls: [] };
 		const root = new LegacyClinkrGroup<ProbeContext>({ name: "root" });
 		root.command({
