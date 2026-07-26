@@ -63,3 +63,4 @@ ADRs are durable records of architectural decisions as they were accepted at the
 | 0043 | [Unify subagent tool and runtime selection](0043-unify-subagent-tool-and-runtime-selection.md)                                             |
 | 0044 | [`extension` tier values and a path-derived incubation zone](0044-extension-tier-rename-and-path-derived-incubation-zone.md)               |
 | 0045 | [Release disposition and owner-nested package ontology](0045-release-disposition-and-owner-nested-package-ontology.md)                     |
+| 0046 | [Skill disposition and owner-nested canonical ontology](0046-skill-disposition-and-owner-nested-ontology.md)                               |
