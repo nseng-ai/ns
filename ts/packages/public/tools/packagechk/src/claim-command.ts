@@ -53,6 +53,17 @@ export const claimCommandResultSchema = z.discriminatedUnion("type", [
 
 export type ClaimCommandResult = z.output<typeof claimCommandResultSchema>;
 
+export const claimCommandErrorSchema = z.object({
+	registry: z.enum(["pypi", "npm"]),
+	packageName: z.string(),
+	lookupName: z.string().optional(),
+	reason: z.string().optional(),
+	missingFlag: z.string().optional(),
+	howToSupply: z.string().optional(),
+});
+
+export type ClaimCommandError = z.output<typeof claimCommandErrorSchema>;
+
 export type ClaimRegistry = "pypi" | "npm";
 export type ClaimRegistryLabel = "PyPI" | "npm";
 

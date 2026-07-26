@@ -8,6 +8,7 @@ import type {
 	ExtensionCommandCandidate,
 	SelectedNsCommandLoadResult,
 } from "../../src/extensions/registry.ts";
+import type { DescriptorCommand } from "../../src/sdk/descriptor.ts";
 import { parseJsonOutput, runCliWithFakes } from "./ns-cli-fakes.ts";
 import {
 	defineCommand,
@@ -47,7 +48,10 @@ const colorProbeCommand = defineRawCommand({
 	name: "color-probe",
 	summary: "Probe raw extension color output.",
 	description: "Probe raw extension color output.",
-	run: () => ok({}, { human: "\u001b[31mcolored\u001b[0m" }),
+	run: (ctx) => {
+		ctx.stdout?.("\u001b[31mcolored\u001b[0m\n");
+		return ok();
+	},
 });
 
 const optionProbeCommand = defineCommand({
@@ -182,7 +186,7 @@ describe("extension command option specs", () => {
 		);
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("colored\n");
+		expect(run.stdout.join("")).toBe("\u001b[31mcolored\u001b[0m\n");
 	});
 
 	test("extension option specs render in help", async () => {
@@ -228,7 +232,7 @@ function runProgressProbeCli(options: { onProgress?: NsCliDeps["onProgress"] } =
 }
 
 function commandRegistry(
-	command: NsCommand,
+	command: DescriptorCommand,
 	extensionPackageNames: ReadonlySet<string> = new Set(),
 ): NonNullable<NsCliDeps["extensionRegistry"]> {
 	const candidate: ExtensionCommandCandidate = {

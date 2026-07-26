@@ -66,7 +66,6 @@ export type {
 	RawArgvCommandModule,
 	MachineEnvelope,
 	NegativeCommandExit,
-	NegativeCommandExitOptions,
 	NsCommand,
 	NsCommandCompletionCandidate,
 	NsCommandCompletionProvider,

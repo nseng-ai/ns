@@ -56,7 +56,6 @@ export type {
 	FailureCommandExit,
 	MachineEnvelope,
 	NegativeCommandExit,
-	NegativeCommandExitOptions,
 	OkCommandExit,
 	UsageErrorCommandExit,
 } from "./result.ts";

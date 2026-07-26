@@ -2,6 +2,7 @@ import type { ClinkrExit, ClinkrInteraction } from "@nseng-ai/clinkr";
 
 import { buildClaimProjectFiles, moduleNameFromPackage, type ClaimProjectSpec } from "./claim.ts";
 import type {
+	ClaimCommandError,
 	ClaimCommandResult,
 	ClaimDryRunData,
 	ClaimRequest,
@@ -26,7 +27,9 @@ export async function runPypiClaimCommand(options: {
 	pypiPublishGateway: PypiPublishGateway;
 	io: PackagechkIo;
 	interaction: ClinkrInteraction;
-}): Promise<ClinkrExit<ClaimCommandResult>> {
+}): Promise<
+	ClinkrExit<ClaimCommandResult, ClaimCommandResult, ClaimCommandError, ClaimCommandError>
+> {
 	const { request, registryGateway, pypiPublishGateway, io, interaction } = options;
 	return await runClaimCommand({
 		request,

@@ -85,7 +85,7 @@ describe("@nseng-ai/sdk runtime exports", () => {
 	});
 
 	test("provides result helpers, noop services, and the shared schema builder", () => {
-		expect(ok("done")).toEqual({ type: "ok", data: "done", human: "done" });
+		expect(ok("done")).toEqual({ type: "ok", data: "done" });
 		expect(ok({ done: true })).toEqual({ type: "ok", data: { done: true } });
 		expect(failure("test-failed", "nope")).toEqual({
 			type: "failure",

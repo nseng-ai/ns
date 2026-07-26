@@ -71,11 +71,6 @@ const missingPointDataSchema = z.object({
 	diagnostics: z.array(pointDiagnosticSchema),
 });
 
-const extensionPointResultSchema = z.union([
-	extensionPointDetailResultSchema,
-	missingPointDataSchema,
-]);
-
 export const extensionPointsCommand: NsCommand<
 	typeof extensionPointsRequestSchema,
 	z.infer<typeof extensionPointsResultSchema>
@@ -89,16 +84,14 @@ export const extensionPointsCommand: NsCommand<
 	renderHuman: renderPointsHuman,
 });
 
-export const extensionPointCommand: NsCommand<
-	typeof extensionPointDetailRequestSchema,
-	z.infer<typeof extensionPointResultSchema>
-> = defineCommand({
+export const extensionPointCommand = defineCommand({
 	name: "point",
 	summary: "Show one ns point definition and its active source.",
 	description: "Show one ns point definition and its active source.",
 	schema: extensionPointDetailRequestSchema,
 	positionals: { id: { position: 0 } },
-	resultSchema: extensionPointResultSchema,
+	resultSchema: extensionPointDetailResultSchema,
+	negativeSchema: missingPointDataSchema,
 	handler: async (ctx, request) => {
 		const catalog = await loadCatalog(ctx.cwd, ctx.env);
 		const entry = catalog.entries.find((candidate) => candidate.definition.id === request.id);
@@ -108,7 +101,7 @@ export const extensionPointCommand: NsCommand<
 				availablePointIds: catalog.entries.map((candidate) => candidate.definition.id),
 				diagnostics: catalog.diagnostics,
 			});
-			return negative(`Point ${request.id} is not defined.`, { data });
+			return negative(`Point ${request.id} is not defined.`, data);
 		}
 		return ok(toPointDetailResult(catalog, entry));
 	},

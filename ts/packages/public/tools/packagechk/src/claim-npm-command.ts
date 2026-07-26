@@ -2,6 +2,7 @@ import type { ClinkrExit, ClinkrInteraction } from "@nseng-ai/clinkr";
 
 import { buildNpmClaimProjectFiles, type NpmClaimProjectSpec } from "./claim.ts";
 import type {
+	ClaimCommandError,
 	ClaimCommandResult,
 	ClaimDryRunData,
 	ClaimRequest,
@@ -27,7 +28,9 @@ export async function runNpmClaimCommand(options: {
 	npmPublishGateway: NpmPublishGateway;
 	io: PackagechkIo;
 	interaction: ClinkrInteraction;
-}): Promise<ClinkrExit<ClaimCommandResult>> {
+}): Promise<
+	ClinkrExit<ClaimCommandResult, ClaimCommandResult, ClaimCommandError, ClaimCommandError>
+> {
 	const { request, registryGateway, npmPublishGateway, io, interaction } = options;
 	return await runClaimCommand({
 		request,

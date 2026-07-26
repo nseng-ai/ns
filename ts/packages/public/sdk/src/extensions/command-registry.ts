@@ -1,15 +1,7 @@
-import { formatErrorMessage, optionalEntries } from "@nseng-ai/foundation/primitives";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import { defineInternalParsedCommand } from "../sdk/command.ts";
-import {
-	failure,
-	type CommandExit,
-	type DescriptorCommand,
-	type OptionSpec,
-	type PositionalSpec,
-	type RenderCapabilities,
-} from "../sdk/index.ts";
+import type { DescriptorCommand } from "../sdk/index.ts";
 import { validateLoadedCommandName, type ExtensionCommandEntry } from "../sdk/descriptor.ts";
 
 import { extensionPointCommand, extensionPointsCommand } from "./built-in-extension-commands.ts";
@@ -79,29 +71,12 @@ const descriptorCommandSchema = z
 		name: z.string(),
 		summary: z.string(),
 		description: z.string(),
-		run: z.custom<DescriptorCommand["run"]>((value) => typeof value === "function"),
-		complete: z
-			.custom<DescriptorCommand["complete"]>((value) => typeof value === "function")
-			.optional(),
 	})
-	.passthrough();
-
-interface ParsedDescriptorCommandContribution {
-	readonly name: string;
-	readonly summary: string;
-	readonly description: string;
-	readonly schema: z.ZodObject;
-	readonly resultSchema?: z.ZodType;
-	readonly positionals?: Partial<Record<string, PositionalSpec>>;
-	readonly options?: Partial<Record<string, OptionSpec>>;
-	readonly renderHuman?: (data: unknown, caps: RenderCapabilities) => string;
-	readonly renderMarkdown?: (data: unknown, caps: RenderCapabilities) => string;
-	readonly completionProvider?: DescriptorCommand["complete"];
-	run(
-		ctx: Parameters<DescriptorCommand["run"]>[0],
-		request: unknown,
-	): ReturnType<DescriptorCommand["run"]>;
-}
+	.passthrough()
+	.refine(
+		(command) => typeof command["run"] === "function" || typeof command["handler"] === "function",
+		{ message: "command must define run or handler" },
+	);
 
 export function commandSegments(path: NsCommandPath): readonly string[] {
 	if (path.segments !== undefined) return path.segments;
@@ -206,156 +181,7 @@ export function validateDescriptorCommandContribution(
 			message: `Invalid ns descriptor command ${sourceLabel}: ${nameValidation.message}`,
 		};
 	}
-	return adaptParsedDescriptorCommand(command, sourceLabel);
-}
-
-export function extensionCommandFailedExit(
-	commandName: string,
-	error: unknown,
-): CommandExit<never> {
-	return failure(
-		"extension-command-failed",
-		`Command ${commandName} failed.\n${formatErrorMessage(error)}`,
-		{ command: commandName },
-	);
-}
-
-export function validateCommandExit(result: unknown, commandName: string): CommandExit {
-	if (isCommandExit(result)) return result;
-	return failure(
-		"invalid-extension-result",
-		`Command ${commandName} returned an invalid command exit.`,
-		{ command: commandName },
-	);
-}
-
-function adaptParsedDescriptorCommand(
-	command: DescriptorCommand,
-	sourceLabel: string,
-): { ok: true; command: DescriptorCommand } | { ok: false; message: string } {
-	if (!isRecord(command) || !("schema" in command)) return { ok: true, command };
-	const parsed = parseParsedDescriptorCommand(command);
-	if (!parsed.ok) {
-		return {
-			ok: false,
-			message: `Invalid ns descriptor command ${sourceLabel}: ${parsed.message}`,
-		};
-	}
-	return {
-		ok: true,
-		command: defineInternalParsedCommand({
-			name: parsed.command.name,
-			summary: parsed.command.summary,
-			description: parsed.command.description,
-			schema: parsed.command.schema,
-			...(parsed.command.resultSchema === undefined
-				? {}
-				: { resultSchema: parsed.command.resultSchema }),
-			...(parsed.command.positionals === undefined
-				? {}
-				: { positionals: parsed.command.positionals }),
-			...(parsed.command.options === undefined ? {} : { options: parsed.command.options }),
-			...(parsed.command.renderHuman === undefined
-				? {}
-				: { renderHuman: parsed.command.renderHuman }),
-			...(parsed.command.renderMarkdown === undefined
-				? {}
-				: { renderMarkdown: parsed.command.renderMarkdown }),
-			...(parsed.command.completionProvider === undefined
-				? {}
-				: { completionProvider: parsed.command.completionProvider }),
-			run: parsed.command.run,
-		}),
-	};
-}
-
-function parseParsedDescriptorCommand(
-	command: DescriptorCommand,
-): { ok: true; command: ParsedDescriptorCommandContribution } | { ok: false; message: string } {
-	const bridgedSpec = isRecord(command["nsParsedCommandSpec"])
-		? command["nsParsedCommandSpec"]
-		: undefined;
-	if (bridgedSpec !== undefined) {
-		const parsed = parseParsedCommandSpec(command, bridgedSpec, isZodObjectLike);
-		if (parsed.ok) return parsed;
-	}
-	const parsed = parseParsedCommandSpec(
-		command,
-		command,
-		(value): value is z.ZodObject => value instanceof z.ZodObject,
-	);
-	if (parsed.ok) return parsed;
-	return {
-		ok: false,
-		message: "command schema must be a Zod object schema from @nseng-ai/sdk.",
-	};
-}
-
-interface ParsedCommandSpecFields {
-	readonly schema?: unknown;
-	readonly resultSchema?: unknown;
-	readonly positionals?: unknown;
-	readonly options?: unknown;
-	readonly renderHuman?: unknown;
-	readonly renderMarkdown?: unknown;
-	readonly completionProvider?: unknown;
-	readonly run?: unknown;
-}
-
-function parseParsedCommandSpec(
-	command: DescriptorCommand,
-	spec: ParsedCommandSpecFields,
-	isSchema: (value: unknown) => value is z.ZodObject,
-): { ok: true; command: ParsedDescriptorCommandContribution } | { ok: false } {
-	if (!isSchema(spec.schema) || typeof spec.run !== "function") return { ok: false };
-	return {
-		ok: true,
-		command: {
-			name: command.name,
-			summary: command.summary,
-			description: command.description,
-			schema: spec.schema,
-			...(spec.resultSchema instanceof z.ZodType ? { resultSchema: spec.resultSchema } : {}),
-			...(isPositionals(spec.positionals) ? { positionals: spec.positionals } : {}),
-			...(isOptions(spec.options) ? { options: spec.options } : {}),
-			...(isRenderFunction(spec.renderHuman) ? { renderHuman: spec.renderHuman } : {}),
-			...(isRenderFunction(spec.renderMarkdown) ? { renderMarkdown: spec.renderMarkdown } : {}),
-			...(isCompletionProvider(spec.completionProvider)
-				? { completionProvider: spec.completionProvider }
-				: {}),
-			run: spec.run as ParsedDescriptorCommandContribution["run"],
-		},
-	};
-}
-
-function isZodObjectLike(value: unknown): value is z.ZodObject {
-	return isRecord(value) && typeof value.safeParse === "function";
-}
-
-function isCompletionProvider(value: unknown): value is DescriptorCommand["complete"] {
-	return typeof value === "function";
-}
-
-function isRenderFunction(
-	value: unknown,
-): value is (data: unknown, caps: RenderCapabilities) => string {
-	return typeof value === "function";
-}
-
-function isPositionals(value: unknown): value is Partial<Record<string, PositionalSpec>> {
-	if (!isRecord(value)) return false;
-	return Object.values(value).every(
-		(entry) => isRecord(entry) && typeof entry.position === "number",
-	);
-}
-
-function isOptions(value: unknown): value is Partial<Record<string, OptionSpec>> {
-	if (!isRecord(value)) return false;
-	return Object.values(value).every(
-		(entry) =>
-			isRecord(entry) &&
-			(!("short" in entry) || entry.short === undefined || typeof entry.short === "string"),
-	);
+	return { ok: true, command };
 }
 
 const nsCommandEntryIssueFields = [
@@ -394,21 +220,4 @@ function formatNsCommandEntryIssueKind(
 	const entry = nsCommandEntryIssueFields.find((field) => field.field === kind);
 	if (entry !== undefined) return entry.message;
 	return "command entry must include name, summary, description, and run";
-}
-
-function isCommandExit(value: unknown): value is CommandExit {
-	if (!isRecord(value)) return false;
-	if (value.type === "ok") return "data" in value;
-	if (value.type === "negative") return typeof value.message === "string";
-	if (value.type === "failure") {
-		return typeof value.errorType === "string" && typeof value.message === "string";
-	}
-	if (value.type === "usageError") {
-		return value.errorType === "usageError" && typeof value.message === "string";
-	}
-	return false;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

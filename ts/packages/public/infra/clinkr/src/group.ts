@@ -285,9 +285,13 @@ export class LegacyClinkrGroup<TContext> {
 	}
 
 	command(spec: RawCommandSpec<TContext>): this;
-	command<S extends z.ZodObject, T>(spec: ClinkrCommandSpec<TContext, S, T>): this;
-	command<S extends z.ZodObject, T>(
-		spec: ClinkrCommandSpec<TContext, S, T> | RawCommandSpec<TContext>,
+	command<S extends z.ZodObject, TResult, TNegative, TFailure, TUsageError>(
+		spec: ClinkrCommandSpec<TContext, S, TResult, TNegative, TFailure, TUsageError>,
+	): this;
+	command<S extends z.ZodObject, TResult, TNegative, TFailure, TUsageError>(
+		spec:
+			| ClinkrCommandSpec<TContext, S, TResult, TNegative, TFailure, TUsageError>
+			| RawCommandSpec<TContext>,
 	): this {
 		const schema = spec.isRawExit === true ? z.object({}) : spec.schema;
 		const plan = buildSurfacePlan({
@@ -317,9 +321,13 @@ export class LegacyClinkrGroup<TContext> {
 	}
 
 	defaultCommand(spec: DefaultRawCommandSpec<TContext>): this;
-	defaultCommand<S extends z.ZodObject, T>(spec: DefaultCommandSpec<TContext, S, T>): this;
-	defaultCommand<S extends z.ZodObject, T>(
-		spec: DefaultRawCommandSpec<TContext> | DefaultCommandSpec<TContext, S, T>,
+	defaultCommand<S extends z.ZodObject, TResult, TNegative, TFailure, TUsageError>(
+		spec: DefaultCommandSpec<TContext, S, TResult, TNegative, TFailure, TUsageError>,
+	): this;
+	defaultCommand<S extends z.ZodObject, TResult, TNegative, TFailure, TUsageError>(
+		spec:
+			| DefaultRawCommandSpec<TContext>
+			| DefaultCommandSpec<TContext, S, TResult, TNegative, TFailure, TUsageError>,
 	): this {
 		if (this.defaultRegisteredCommand !== undefined) {
 			throw new Error(`clinkr: group '${this.name}' already has a default command`);
@@ -536,11 +544,11 @@ export class LegacyClinkrGroup<TContext> {
 	}
 }
 
-function executionOf<TContext, S extends z.ZodObject, T>(
+function executionOf<TContext, S extends z.ZodObject, TResult, TNegative, TFailure, TUsageError>(
 	spec:
-		| ClinkrCommandSpec<TContext, S, T>
+		| ClinkrCommandSpec<TContext, S, TResult, TNegative, TFailure, TUsageError>
 		| RawCommandSpec<TContext>
-		| DefaultCommandSpec<TContext, S, T>
+		| DefaultCommandSpec<TContext, S, TResult, TNegative, TFailure, TUsageError>
 		| DefaultRawCommandSpec<TContext>,
 ): RenderedExecution<TContext> | RawExecution<TContext> {
 	if (spec.isRawExit === true) return rawExecutionOf(spec);

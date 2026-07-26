@@ -27,7 +27,7 @@ describe("ns domain command helper", () => {
 			}),
 		});
 
-		await expect(command.run(fakeApi(), { argv: ["--name", "Ada"] })).resolves.toEqual({
+		await expect(command.handler(fakeApi(), { name: "Ada" })).resolves.toEqual({
 			type: "ok",
 			data: { greeting: "Ada from /repo" },
 		});
@@ -52,12 +52,12 @@ describe("ns domain command helper", () => {
 			positionalIndex: 0,
 		};
 
-		await expect(Promise.resolve(command.complete?.(fakeApi(), request))).resolves.toEqual({
-			candidates: [{ value: "Ad", type: "positional-value" }],
-		});
+		await expect(
+			Promise.resolve(command.completionProvider?.(fakeApi(), request)),
+		).resolves.toEqual([{ value: "Ad", type: "positional-value" }]);
 	});
 
-	test("renders ok payloads through the result schema", async () => {
+	test("preserves command-level renderers", () => {
 		const command = createNsDomainCommand({
 			name: "hello",
 			summary: "Say hello",
@@ -69,10 +69,7 @@ describe("ns domain command helper", () => {
 			handler: async () => ({ type: "ok", data: { greeting: "unused" } }),
 		});
 
-		await expect(command.run(fakeApi(), { argv: ["--name", "Ada"] })).resolves.toMatchObject({
-			type: "ok",
-			human: "unused",
-		});
+		expect(command.renderHuman?.({ greeting: "unused" }, { canEmitAnsi: false })).toBe("unused");
 	});
 });
 

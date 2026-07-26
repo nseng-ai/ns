@@ -57,7 +57,6 @@ import {
 } from "../extensions/registry.ts";
 import type {
 	RenderCapabilities,
-	CommandExit,
 	DescriptorCommand,
 	NsConfirmPrompt,
 	NsExtensionApi,
@@ -70,14 +69,12 @@ import {
 	commandLeafName,
 	commandPathMatches,
 	commandSegments,
-	extensionCommandFailedExit,
 	listStaticNsCommandInfos,
-	validateCommandExit,
 	type NsCommandInfo,
 	type NsCommandCliInfo,
 	type NsCommandPath,
 } from "../extensions/command-registry.ts";
-import { parsedSpecForCommand } from "../sdk/command.ts";
+import type { NsCommand, RawArgvCommand } from "../sdk/command.ts";
 import {
 	NS_BUILT_IN_HELP_GROUP,
 	NS_EXTENSION_HELP_GROUP,
@@ -292,45 +289,21 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 				!commandPathMatches(buildState.selectedCommandPath, commandInfo)
 					? undefined
 					: selectedCommand;
-			const parsedCommandSpec = command === undefined ? undefined : parsedSpecForCommand(command);
-			if (command !== undefined && parsedCommandSpec !== undefined) {
+			if (command !== undefined && isNsCommand(command)) {
+				const { completionProvider, ...commandSpec } = command;
 				parent.command({
+					...commandSpec,
 					name: commandLeafName(commandInfo),
 					description: commandInfo.fullDescription,
 					summary: commandInfo.description,
-					schema: parsedCommandSpec.schema,
-					...(parsedCommandSpec.resultSchema === undefined
-						? {}
-						: { resultSchema: parsedCommandSpec.resultSchema }),
-					...(parsedCommandSpec.positionals === undefined
-						? {}
-						: { positionals: parsedCommandSpec.positionals }),
-					...(parsedCommandSpec.options === undefined
-						? {}
-						: { options: parsedCommandSpec.options }),
-					...(parsedCommandSpec.renderHuman === undefined
-						? {}
-						: { renderHuman: parsedCommandSpec.renderHuman }),
-					...(parsedCommandSpec.renderMarkdown === undefined
-						? {}
-						: { renderMarkdown: parsedCommandSpec.renderMarkdown }),
-					...(parsedCommandSpec.completionProvider === undefined
+					...(completionProvider === undefined
 						? {}
 						: {
 								completionProvider: (ctx: NsCliContext, request: ClinkrDynamicCompletionRequest) =>
-									parsedCommandSpec.completionProvider?.(ctx.context, request) ?? [],
+									completionProvider(ctx.context, request),
 							}),
 					helpGroup,
-					handler: async (ctx, request) => {
-						try {
-							return validateCommandExit(
-								await parsedCommandSpec.run(ctx.context, request),
-								command.name,
-							);
-						} catch (error) {
-							return extensionCommandFailedExit(command.name, error);
-						}
-					},
+					handler: async (ctx, request) => await command.handler(ctx.context, request),
 				});
 				continue;
 			}
@@ -347,7 +320,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 								shouldPassThrough: true,
 							}),
 					...optionalEntries({ helpGroup }),
-					...(command?.complete === undefined
+					...(command === undefined || !isRawArgvCommand(command) || command.complete === undefined
 						? {}
 						: {
 								completionProvider: (ctx: NsCliContext, request: ClinkrDynamicCompletionRequest) =>
@@ -365,12 +338,15 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 								io: clinkrIo(ctx),
 							});
 						}
-						const result = await runPassthroughCommand(
-							ctx,
-							command,
-							passthroughSchema.parse(request).argv,
-							commandInfo,
-						);
+						if (!isRawArgvCommand(command)) {
+							throw new Error(
+								`ns: command ${command.name} was not registered as a rendered command`,
+							);
+						}
+						const result = await command.run(ctx.context, {
+							argv: passthroughSchema.parse(request).argv,
+							commandPath: commandSegments(commandInfo),
+						});
 						return emitExit(result, {
 							format: ctx.context.outputFormat ?? "human",
 							io: clinkrIo(ctx),
@@ -644,8 +620,6 @@ function buildNsCompletionGroup(): ClinkrGroup<NsCliContext> {
 		rawCommand({
 			name: "resolve",
 			description: "Resolve newline-delimited shell completion candidates.",
-			schema: z.object({ words: z.array(z.string()).default([]) }),
-			positionals: { words: { position: 0 } },
 			run: async () => 0,
 		}),
 	);
@@ -698,7 +672,7 @@ function pathPrefixEquals(path: readonly string[], prefix: readonly string[]): b
 type ShellCommandSchema = z.ZodObject<{ shell: z.ZodOptional<z.ZodString> }>;
 
 type ShellCommandSpec<T> = Omit<
-	ClinkrCommandSpec<NsCliContext, ShellCommandSchema, T>,
+	ClinkrCommandSpec<NsCliContext, ShellCommandSchema, T, T, unknown, unknown>,
 	"name" | "description"
 >;
 
@@ -715,22 +689,30 @@ function buildNsShellGroup(): ClinkrGroup<NsCliContext> {
 	shell.command({
 		name: "show",
 		description: "Print the parent-shell wrapper script.",
-		...withShellOption({
+		...withShellOption<z.infer<typeof nsShellShowResultSchema>>({
 			schema: nsShellShowRequestSchema,
 			resultSchema: nsShellShowResultSchema,
 			handler: runNsShellShow,
-			renderHuman: renderNsShellShow,
+			renderHuman: (data) => renderNsShellShow(nsShellShowResultSchema.parse(data)),
 		}),
 	});
-	shell.command({
+	const installSpec: ClinkrCommandSpec<
+		NsCliContext,
+		typeof nsShellInstallRequestSchema,
+		z.infer<typeof nsShellInstallResultSchema>,
+		z.infer<typeof nsShellInstallResultSchema>,
+		unknown,
+		unknown
+	> = {
 		name: "install",
 		description: "Install the parent-shell wrapper in the detected or selected rc file.",
 		schema: nsShellInstallRequestSchema,
 		options: { shell: { short: "-s" }, yes: { short: "-y" } },
 		resultSchema: nsShellInstallResultSchema,
 		handler: runNsShellInstall,
-		renderHuman: renderNsShellInstall,
-	});
+		renderHuman: (data) => renderNsShellInstall(nsShellInstallResultSchema.parse(data)),
+	};
+	shell.command(installSpec);
 	return shell;
 }
 
@@ -822,21 +804,16 @@ function isStaticTopLevelMetadataRequest(args: readonly string[]): boolean {
 	return args.includes("--version") || args.includes("--runtime");
 }
 
-async function runPassthroughCommand(
-	ctx: NsCliContext,
+function isNsCommand(
 	command: DescriptorCommand,
-	argv: readonly string[],
-	path: NsCommandPath,
-): Promise<CommandExit> {
-	try {
-		const result = await command.run(ctx.context, {
-			argv,
-			commandPath: commandSegments(path),
-		});
-		return validateCommandExit(result, command.name);
-	} catch (error) {
-		return extensionCommandFailedExit(command.name, error);
-	}
+): command is DescriptorCommand & NsCommand<z.ZodObject, unknown> {
+	return command.schema instanceof z.ZodObject && typeof command.handler === "function";
+}
+
+function isRawArgvCommand(
+	command: DescriptorCommand,
+): command is DescriptorCommand & RawArgvCommand {
+	return !isNsCommand(command) && typeof command.run === "function";
 }
 
 export const VERSION = entry.version;

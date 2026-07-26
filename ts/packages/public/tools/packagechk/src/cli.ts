@@ -16,6 +16,7 @@ import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives"
 import { z } from "zod";
 
 import {
+	claimCommandErrorSchema,
 	claimCommandResultSchema,
 	claimRequestSchema,
 	runNpmClaimCommand,
@@ -67,8 +68,22 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 			schema: checkRequestSchema,
 			positionals: { name: { position: 0 } },
 			resultSchema: packageCheckReportSchema,
+			negativeSchema: packageCheckReportSchema,
+			failureSchema: z.object({ report: packageCheckReportSchema }),
+			usageErrorSchema: z.union([
+				z.object({ flag: z.string(), replacement: z.string() }),
+				z.object({ option: z.string(), allowedValues: z.array(registrySchema).readonly() }),
+				z.object({ report: packageCheckReportSchema }),
+			]),
 			handler: runCheck,
-			renderHuman,
+			renderHuman: (data) =>
+				renderHuman(
+					"report" in data
+						? data.report
+						: "results" in data
+							? data
+							: { inputName: "", results: [] },
+				),
 		});
 
 		root.command({
@@ -78,6 +93,10 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 			positionals: { name: { position: 0 } },
 			options: { yes: { short: "-y" } },
 			resultSchema: claimCommandResultSchema,
+			negativeSchema: claimCommandResultSchema,
+			failureSchema: claimCommandErrorSchema,
+			usageErrorSchema: claimCommandErrorSchema,
+			renderHuman: renderClaimCommandResult,
 			handler: async (ctx, request) =>
 				runPypiClaimCommand({
 					request,
@@ -96,6 +115,10 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 			positionals: { name: { position: 0 } },
 			options: { yes: { short: "-y" } },
 			resultSchema: claimCommandResultSchema,
+			negativeSchema: claimCommandResultSchema,
+			failureSchema: claimCommandErrorSchema,
+			usageErrorSchema: claimCommandErrorSchema,
+			renderHuman: renderClaimCommandResult,
 			handler: async (ctx, request) =>
 				runNpmClaimCommand({
 					request,
@@ -186,7 +209,16 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 async function runCheck(
 	ctx: PackagechkCliContext,
 	request: CheckRequest,
-): Promise<ClinkrExit<PackageCheckReport>> {
+): Promise<
+	ClinkrExit<
+		PackageCheckReport,
+		PackageCheckReport,
+		{ report: PackageCheckReport },
+		| { flag: string; replacement: string }
+		| { option: string; allowedValues: readonly Registry[] }
+		| { report: PackageCheckReport }
+	>
+> {
 	if (request.showJson === true) {
 		return usageError("--show-json is deprecated; use --format json.", {
 			flag: "showJson",
@@ -209,15 +241,29 @@ async function runCheck(
 	const data = packageCheckReportData(report);
 	if (exitCode === 0) return ok(data);
 	if (exitCode === 1) {
-		return negative("One or more package names are already taken.", {
-			data,
-			human: renderHuman(report),
-		});
+		return negative("One or more package names are already taken.", data);
 	}
 	if (report.results.some((result) => result.status === "invalid")) {
 		return usageError(renderHuman(report), { report: data });
 	}
 	return failure("registry-check-failed", "One or more registry checks failed.", { report: data });
+}
+
+function renderClaimCommandResult(
+	result: z.output<typeof claimCommandResultSchema> | z.output<typeof claimCommandErrorSchema>,
+): string {
+	if (!("type" in result))
+		return result.reason ?? `Could not claim ${result.registry} package '${result.packageName}'.`;
+	switch (result.type) {
+		case "dry-run":
+			return `[DRY RUN] Would claim ${result.registry} package name '${result.packageName}'.`;
+		case "claimed":
+			return `Claimed ${result.registry} package name '${result.packageName}'.`;
+		case "taken":
+			return `${result.registry}: taken: Package name is already taken.`;
+		case "aborted":
+			return "Aborted by user.";
+	}
 }
 
 function packageCheckReportData(report: PackageCheckReport): PackageCheckReport {

@@ -167,13 +167,13 @@ function envelopeBranch(
 	return z.strictObject(shape);
 }
 
-export function ok(): ClinkrOkExit;
+export function ok(): ClinkrOkExit<never>;
 export function ok<T>(data: T): ClinkrOkExit<T>;
 export function ok<T>(...data: [] | [T]): ClinkrOkExit<T> {
 	return data.length === 0 ? { type: "ok" } : { type: "ok", data: data[0] };
 }
 
-export function negative(message: string): ClinkrNegativeExit;
+export function negative(message: string): ClinkrNegativeExit<never>;
 export function negative<T>(message: string, data: T): ClinkrNegativeExit<T>;
 export function negative<T>(message: string, ...data: [] | [T]): ClinkrNegativeExit<T> {
 	return data.length === 0
@@ -181,7 +181,7 @@ export function negative<T>(message: string, ...data: [] | [T]): ClinkrNegativeE
 		: { type: "negative", message, data: data[0] };
 }
 
-export function failure(errorType: string, message: string): ClinkrFailureExit;
+export function failure(errorType: string, message: string): ClinkrFailureExit<never>;
 export function failure<T>(errorType: string, message: string, data: T): ClinkrFailureExit<T>;
 export function failure<T>(
 	errorType: string,
@@ -193,7 +193,7 @@ export function failure<T>(
 		: { type: "failure", errorType, message, data: data[0] };
 }
 
-export function usageError(message: string): ClinkrUsageErrorExit;
+export function usageError(message: string): ClinkrUsageErrorExit<never>;
 export function usageError<T>(message: string, data: T): ClinkrUsageErrorExit<T>;
 export function usageError<T>(message: string, ...data: [] | [T]): ClinkrUsageErrorExit<T> {
 	return data.length === 0

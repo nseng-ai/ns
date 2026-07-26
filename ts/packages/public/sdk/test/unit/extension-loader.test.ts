@@ -7,7 +7,6 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { validateDescriptorCommandContribution } from "../../src/extensions/command-registry.ts";
 import { loadNsExtensionContribution } from "../../src/extensions/loader.ts";
-import { parsedSpecForCommand } from "../../src/sdk/command.ts";
 import { z } from "@nseng-ai/sdk";
 
 const tempDirs: string[] = [];
@@ -55,7 +54,7 @@ export default {
 		if (!validation.ok) return;
 		const command = validation.command;
 		expect(command.name).toBe("greet");
-		expect(parsedSpecForCommand(command)?.schema).toBeInstanceOf(z.ZodObject);
+		expect(command.schema).toBeInstanceOf(z.ZodObject);
 	});
 
 	test("loads package-specifier references through host package resolution", async () => {

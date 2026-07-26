@@ -3,7 +3,16 @@ import { z } from "zod";
 
 import type { RawArgvCommand } from "./command.ts";
 
-export type DescriptorCommand = RawArgvCommand;
+export interface DescriptorCommand {
+	readonly name: string;
+	readonly summary: string;
+	readonly description: string;
+	readonly schema?: unknown;
+	readonly handler?: unknown;
+	readonly completionProvider?: unknown;
+	readonly run?: RawArgvCommand["run"];
+	readonly complete?: RawArgvCommand["complete"];
+}
 
 export interface RawArgvCommandModule<TCommand extends DescriptorCommand = DescriptorCommand> {
 	readonly default: TCommand;

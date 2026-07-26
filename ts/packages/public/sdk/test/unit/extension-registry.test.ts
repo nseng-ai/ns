@@ -705,6 +705,7 @@ export default defineExtension({ group: "extension", description: "Extension com
 		const command = await loadSelectedNsCommand(selected);
 		expect(command.ok).toBe(true);
 		if (!command.ok) return;
+		if (command.command.run === undefined) throw new Error("expected raw command");
 		const result = await command.command.run(
 			{
 				cwd: workspace.cwd,
@@ -724,7 +725,7 @@ export default defineExtension({ group: "extension", description: "Extension com
 			},
 			{ argv: [] },
 		);
-		expect(result).toEqual({ type: "ok", data: "thunk scan", human: "thunk scan" });
+		expect(result).toEqual({ type: "ok", data: "thunk scan" });
 	});
 
 	test("loaded command info uses explicit summary and full description", () => {

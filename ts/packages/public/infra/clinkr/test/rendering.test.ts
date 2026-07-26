@@ -9,6 +9,7 @@ import {
 	resolveRenderCapabilities,
 } from "../src/index.ts";
 import type { Caps } from "../src/caps.ts";
+import type { ClinkrExit } from "../src/exit.ts";
 import { runForTest } from "../src/testing/index.ts";
 
 const payloadSchema = z.object({ count: z.number() });
@@ -100,7 +101,10 @@ describe("command-level rendering", () => {
 
 describe("outcome validation", () => {
 	test("rejects missing, unexpected, and schema-invalid data as programmer errors", async () => {
-		const cases = [
+		const cases: ReadonlyArray<{
+			resultSchema?: z.ZodType;
+			handler: () => Promise<ClinkrExit<unknown>>;
+		}> = [
 			{ resultSchema: payloadSchema, handler: async () => ok() },
 			{ handler: async () => ok({ count: 2 }) },
 			{ resultSchema: payloadSchema, handler: async () => ok({ count: "bad" }) },

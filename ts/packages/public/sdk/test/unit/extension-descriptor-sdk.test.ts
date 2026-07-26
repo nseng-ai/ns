@@ -258,7 +258,7 @@ describe("extension descriptor SDK", () => {
 		});
 	});
 
-	test("defineCommand adapts a clinkr-style spec and consumes invocation argv", async () => {
+	test("defineCommand returns an immutable native Clinkr definition", () => {
 		const command = defineCommand({
 			name: "hello",
 			summary: "Say hello.",
@@ -269,10 +269,8 @@ describe("extension descriptor SDK", () => {
 			handler: async (_ctx, request) => ok({ greeting: `hello ${request.name}` }),
 		});
 
-		await expect(command.run(noopApi, { argv: ["ns"] })).resolves.toEqual({
-			type: "ok",
-			data: { greeting: "hello ns" },
-		});
+		expect(command.schema.parse({ name: "ns" })).toEqual({ name: "ns" });
+		expect(Object.isFrozen(command)).toBe(true);
 	});
 
 	test("exports neutral machine envelope schemas and constructors", () => {
@@ -290,15 +288,6 @@ describe("extension descriptor SDK", () => {
 			message: "no",
 			data: { exitCode: 3 },
 		});
-		expect(ok("string data gets human rendering for source compatibility")).toEqual({
-			type: "ok",
-			data: "string data gets human rendering for source compatibility",
-			human: "string data gets human rendering for source compatibility",
-		});
-		expect(ok("string payload")).toEqual({
-			type: "ok",
-			data: "string payload",
-			human: "string payload",
-		});
+		expect(ok("string payload")).toEqual({ type: "ok", data: "string payload" });
 	});
 });

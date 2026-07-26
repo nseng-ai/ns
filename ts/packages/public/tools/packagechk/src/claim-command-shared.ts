@@ -17,6 +17,7 @@ import type { PackagechkIo } from "./io.ts";
 import { checkStatusPolicy, type RegistryCheckResult } from "./models.ts";
 import { formatRegistryStatusLine } from "./output.ts";
 import type {
+	ClaimCommandError,
 	ClaimCommandResult,
 	ClaimDryRunData,
 	ClaimRegistry,
@@ -52,7 +53,9 @@ export async function runClaimCommand(options: {
 	io: PackagechkIo;
 	interaction: ClinkrInteraction;
 	adapter: ClaimRegistryAdapter;
-}): Promise<ClinkrExit<ClaimCommandResult>> {
+}): Promise<
+	ClinkrExit<ClaimCommandResult, ClaimCommandResult, ClaimCommandError, ClaimCommandError>
+> {
 	const { request, registryGateway, io, interaction, adapter } = options;
 	const { registry, registryLabel } = adapter;
 	const isDryRun = request.dryRun === true;
@@ -88,9 +91,7 @@ export async function runClaimCommand(options: {
 			? "Availability check: skipped (--skip-check)"
 			: `Availability check: would check ${registryLabel} before publishing`;
 		renderClaimDryRun({ io, ...project.dryRun, availabilityLine });
-		return ok(claimDryRunResult(registry, project.dryRun), {
-			human: `[DRY RUN] Would claim ${registryLabel} package name '${project.dryRun.packageName}'.`,
-		});
+		return ok(claimDryRunResult(registry, project.dryRun));
 	}
 	if (checkResult === undefined) {
 		writeLookupNameWhenDifferent({
@@ -133,16 +134,13 @@ export async function runClaimCommand(options: {
 	}
 	io.stderr(`✓ Claimed ${registryLabel} package name '${request.name}'.\n`);
 	io.stderr(`View ${project.view.noun}: ${project.view.url}\n`);
-	return ok(
-		{
-			type: "claimed",
-			registry,
-			packageName: request.name,
-			version: request.version,
-			url: project.view.url,
-		},
-		{ human: `Claimed ${registryLabel} package name '${request.name}'.` },
-	);
+	return ok({
+		type: "claimed",
+		registry,
+		packageName: request.name,
+		version: request.version,
+		url: project.view.url,
+	});
 }
 
 function writeLookupNameWhenDifferent(options: {
@@ -159,7 +157,7 @@ function writeLookupNameWhenDifferent(options: {
 export function precheckExitForResult(
 	registry: ClaimRegistry,
 	result: RegistryCheckResult,
-): ClinkrExit<ClaimCommandResult> | null {
+): ClinkrExit<ClaimCommandResult, ClaimCommandResult, ClaimCommandError, ClaimCommandError> | null {
 	const action = checkStatusPolicy(result.status).claimPrecheckAction;
 	if (action === "taken") {
 		const human = [
@@ -168,14 +166,11 @@ export function precheckExitForResult(
 		]
 			.filter((line) => line !== undefined)
 			.join("\n");
-		return negative("Package name is already taken.", {
-			data: {
-				type: "taken",
-				registry,
-				packageName: result.inputName,
-				lookupName: result.lookupName,
-			},
-			human,
+		return negative(human, {
+			type: "taken",
+			registry,
+			packageName: result.inputName,
+			lookupName: result.lookupName,
 		});
 	}
 	if (action === "usage-error") {
@@ -248,7 +243,12 @@ export async function requirePublishConfirmation(options: {
 	version: string;
 	io: PackagechkIo;
 	interaction: ClinkrInteraction;
-}): Promise<ClinkrExit<ClaimCommandResult> | null> {
+}): Promise<ClinkrExit<
+	ClaimCommandResult,
+	ClaimCommandResult,
+	ClaimCommandError,
+	ClaimCommandError
+> | null> {
 	const answer = await confirmInteractiveOrUsageError(options.interaction, {
 		nonInteractive: {
 			message: "Publishing a real package requires --yes (or -y) when non-interactive.",
@@ -261,11 +261,18 @@ export async function requirePublishConfirmation(options: {
 			options.io.stderr(`Package: ${options.packageName} (${options.version})\n`);
 		},
 	});
-	if (answer.type === "usageError") return answer;
+	if (answer.type === "usageError") {
+		return usageError(answer.message, {
+			registry: options.registry,
+			packageName: options.packageName,
+			...(answer.data === undefined ? {} : answer.data),
+		});
+	}
 	if (answer.type === "confirmed") return null;
 	options.io.stderr("Aborted by user.\n");
-	return negative("Publishing aborted by user.", {
-		data: { type: "aborted", registry: options.registry, packageName: options.packageName },
-		human: "Aborted by user.",
+	return negative("Aborted by user.", {
+		type: "aborted",
+		registry: options.registry,
+		packageName: options.packageName,
 	});
 }
