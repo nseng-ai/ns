@@ -553,7 +553,6 @@ export function withHandoffCreateSkill<T>(
 			skillName: "handoff-create",
 			markdown: HANDOFF_CREATE_SKILL_MARKDOWN,
 			prefix: "handoff-create-skill-",
-			skillRoot: ".agents/skills",
 		},
 		callback,
 	);

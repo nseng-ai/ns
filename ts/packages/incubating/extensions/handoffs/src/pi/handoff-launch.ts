@@ -15,6 +15,7 @@ import {
 	type HandoffLaunchToolSpec,
 } from "./launch-flow.ts";
 import { setStatus } from "./ui-status.ts";
+import type { HandoffCreateSkillLoader } from "./create-skill.ts";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { ExtensionAPI, ToolDefinition } from "./runtime-types.ts";
 
@@ -36,7 +37,14 @@ export interface HandoffLaunchIntegration extends HandoffPromptCreateIntegration
 	): ToolDefinition;
 }
 
-export function createHandoffLaunchIntegration(pi: ExtensionAPI): HandoffLaunchIntegration {
+export interface HandoffLaunchIntegrationOptions {
+	skillLoader?: HandoffCreateSkillLoader;
+}
+
+export function createHandoffLaunchIntegration(
+	pi: ExtensionAPI,
+	options: HandoffLaunchIntegrationOptions = {},
+): HandoffLaunchIntegration {
 	const commands = createPiCommandExecApi(pi);
 	const handoffContext = createPiHandoffContext(commands);
 	return {
@@ -52,7 +60,11 @@ export function createHandoffLaunchIntegration(pi: ExtensionAPI): HandoffLaunchI
 			this.registerContentSlugTool();
 		},
 		async runCreateCommand(args, ctx, spec): Promise<void> {
-			await runHandoffCreateCommand(pi, args, ctx, { ...spec, git: handoffContext.git });
+			await runHandoffCreateCommand(pi, args, ctx, {
+				...spec,
+				git: handoffContext.git,
+				...optionalEntry("skillLoader", options.skillLoader),
+			});
 		},
 		buildVerifiedLaunchTool<P extends HandoffLaunchParams>(
 			spec: HandoffLaunchToolSpec<P>,
@@ -148,4 +160,5 @@ export {
 	buildHandoffLaunchRequest,
 	parseHandoffLaunchParams,
 } from "./launch-flow.ts";
+export type { HandoffCreateSkillLoader } from "./create-skill.ts";
 export type { HandoffStartMessages } from "./ui-status.ts";

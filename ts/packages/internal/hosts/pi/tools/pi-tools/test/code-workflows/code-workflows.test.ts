@@ -128,16 +128,14 @@ class FakeCommandContext implements CommandContext {
 }
 
 function fakePromptTurn(
-	options: { skillBlock?: string; events?: string[] } = {},
+	options: { skillBlock?: string; events?: string[]; error?: Error } = {},
 ): InvokeCodeWorkflowPromptTurn {
 	return async (invocation) => {
 		options.events?.push("invoke-prompt-turn");
 		await invocation.ctx.waitForIdle();
-		const skillBlock = options.skillBlock;
-		invocation.ctx.ui.notify(
-			skillBlock === undefined ? invocation.fallbackMessage : String(invocation.successMessage),
-			skillBlock === undefined ? "warning" : "info",
-		);
+		if (options.error !== undefined) throw options.error;
+		const skillBlock = options.skillBlock ?? '<skill name="code-workflows">body</skill>';
+		invocation.ctx.ui.notify(String(invocation.successMessage), "info");
 		await invocation.host.sendUserMessage(invocation.buildPrompt(skillBlock));
 	};
 }
@@ -297,33 +295,34 @@ describe("code workflows extension", () => {
 		expect(pi.sentUserMessages[0]).toContain("https://github.com/example/repo/actions/runs/123");
 	});
 
-	test("uses the deterministic missing-skill prompt fallback", async () => {
+	test("reports a required-skill failure and sends no prompt", async () => {
 		const pi = new FakePi();
-		registerPicker(pi, { invokePromptTurn: fakePromptTurn() });
+		registerPicker(pi, {
+			invokePromptTurn: fakePromptTurn({
+				error: new Error('Could not load required skill "code-workflows": missing skill'),
+			}),
+		});
 		const command = pi.commands.get("gh-ci-debug");
 		if (command === undefined) throw new Error("missing command");
 		const ctx = new FakeCommandContext();
 
 		await command.handler("PR 42", ctx);
 
-		expect(pi.sentUserMessages).toEqual([buildGhCiDebugPrompt(undefined, "PR 42")]);
+		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)).toEqual({
-			message: "Could not load code-workflows backing skill; invoking gh-ci-debug by name.",
-			level: "warning",
+			message: 'Could not load required skill "code-workflows": missing skill',
+			level: "error",
 		});
 	});
 });
 
 describe("gh-ci-debug prompt assembly", () => {
-	test("assembles the same skill-backed and fallback prompts without filesystem I/O", () => {
+	test("assembles the skill-backed prompt without filesystem I/O", () => {
 		const skillBlock = '<skill name="code-workflows">body</skill>';
 
 		expect(buildGhCiDebugPrompt(skillBlock, "PR 42")).toContain(skillBlock);
 		expect(buildGhCiDebugPrompt(skillBlock, "PR 42")).toContain(
 			"Run code-workflows gh-ci-debug with this initial user request:",
-		);
-		expect(buildGhCiDebugPrompt(undefined, "")).toBe(
-			"Run code-workflows gh-ci-debug now. Follow the backing skill workflow exactly.",
 		);
 	});
 });

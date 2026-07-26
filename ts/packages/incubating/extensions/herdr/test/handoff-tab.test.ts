@@ -2,6 +2,7 @@ import { FakeBrmemGateway } from "@nseng-ai/brmem";
 import { createHandoffLaunchIntegration } from "@nseng-ai/handoffs/pi/handoff-launch";
 import type {
 	CommandContext,
+	HandoffCreateSkillLoader,
 	HandoffExtensionAPI,
 	ToolDefinition,
 } from "@nseng-ai/handoffs/pi/handoff-launch";
@@ -269,7 +270,7 @@ describe("Herdr Handoff Pi prompt", () => {
 			]);
 			registerHerdrHandoffTab(
 				pi,
-				createHandoffLaunchIntegration(pi),
+				createHandoffLaunchIntegration(pi, { skillLoader: fakeHandoffCreateSkillLoader() }),
 				workspaceId === undefined ? {} : { HERDR_WORKSPACE_ID: workspaceId },
 			);
 			await pi.command().handler("continue work", commandContext());
@@ -281,9 +282,13 @@ describe("Herdr Handoff Pi prompt", () => {
 		const pi = new HandoffTabFakePi([
 			{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" },
 		]);
-		registerHerdrHandoffTab(pi, createHandoffLaunchIntegration(pi), {
-			HERDR_WORKSPACE_ID: "workspace-'quoted",
-		});
+		registerHerdrHandoffTab(
+			pi,
+			createHandoffLaunchIntegration(pi, { skillLoader: fakeHandoffCreateSkillLoader() }),
+			{
+				HERDR_WORKSPACE_ID: "workspace-'quoted",
+			},
+		);
 		await pi.command().handler("continue work", commandContext(true));
 		const prompt = pi.sentUserMessages[0] ?? "";
 		expect(prompt).toContain("Compose the final Markdown handoff artifact content first");
@@ -303,9 +308,13 @@ describe("Herdr Handoff Pi prompt", () => {
 		const pi = new HandoffTabFakePi([
 			{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" },
 		]);
-		registerHerdrHandoffTab(pi, createHandoffLaunchIntegration(pi), {
-			HERDR_WORKSPACE_ID: "workspace-1",
-		});
+		registerHerdrHandoffTab(
+			pi,
+			createHandoffLaunchIntegration(pi, { skillLoader: fakeHandoffCreateSkillLoader() }),
+			{
+				HERDR_WORKSPACE_ID: "workspace-1",
+			},
+		);
 		await pi.command().handler("continue work", commandContext(false));
 		expect(pi.sentUserMessages).toEqual([]);
 	});
@@ -478,6 +487,24 @@ class FakeHerdrNsApi implements NsExtensionApi {
 	readonly textGenerator = {
 		generateText: async (request: TextGenerationRequest): Promise<TextGenerationResult> => {
 			throw new Error(`Unexpected text generation: ${JSON.stringify(request)}`);
+		},
+	};
+}
+
+function fakeHandoffCreateSkillLoader(): HandoffCreateSkillLoader {
+	return {
+		async resolveCreateHandoffSkillPath() {
+			return "/repo/skills/handoff-create/SKILL.md";
+		},
+		async loadCreateHandoffSkill() {
+			return {
+				name: "handoff-create",
+				commandName: "direct:handoff-create",
+				path: "/repo/skills/handoff-create/SKILL.md",
+				baseDir: "/repo/skills/handoff-create",
+				body: "# handoff-create",
+				block: "# handoff-create",
+			};
 		},
 	};
 }

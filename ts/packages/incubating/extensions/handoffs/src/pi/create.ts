@@ -1,7 +1,6 @@
-import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
+import { buildFencedTextBlock, formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
 import { resolveCreateFocus } from "./create-focus.ts";
-import { CREATE_HANDOFF_FALLBACK } from "./create-prompt.ts";
 import { realHandoffCreateSkillLoader } from "./create-skill.ts";
 import {
 	buildHandoffInvestigationSourcesPrompt,
@@ -13,16 +12,15 @@ import type { CommandContext, ExtensionAPI } from "./runtime-types.ts";
 
 const CREATE_HANDOFF_START_MESSAGES = {
 	ready: "Starting handoff create workflow…",
-	fallbackLabel: "handoff-create workflow prompt",
 } satisfies HandoffStartMessages;
 
 export function buildCreateHandoffPrompt(
-	skillBlock: string | undefined,
+	skillBlock: string,
 	focus: string,
 	investigationSources: HandoffInvestigationSourceOptions = {},
 ): string {
 	const focusText = focus.trim();
-	return `${skillBlock ?? CREATE_HANDOFF_FALLBACK}
+	return `${skillBlock}
 
 Create a directed handoff artifact for this session.
 
@@ -52,22 +50,31 @@ export async function handleCreateHandoffCommand(
 	ctx: CommandContext,
 ): Promise<void> {
 	await ctx.waitForIdle();
+	let skillPath: string;
+	try {
+		skillPath = await realHandoffCreateSkillLoader.resolveCreateHandoffSkillPath(ctx.cwd);
+	} catch (error) {
+		ctx.ui.notify(formatErrorMessage(error), "error");
+		return;
+	}
+
 	const focus = await resolveCreateFocus(pi, args, ctx);
 	if (focus === undefined) {
 		return;
 	}
 
-	const loadedSkill = await realHandoffCreateSkillLoader.loadCreateHandoffSkill(ctx.cwd);
-	const skill = loadedSkill.type === "found" ? loadedSkill.skill : undefined;
-	const skillReadError = loadedSkill.type === "failed" ? loadedSkill.message : undefined;
+	let skill;
+	try {
+		skill = await realHandoffCreateSkillLoader.loadCreateHandoffSkill(skillPath);
+	} catch (error) {
+		ctx.ui.notify(formatErrorMessage(error), "error");
+		return;
+	}
 
 	if (ctx.hasUI) {
-		ctx.ui.notify(
-			createHandoffStartMessage(CREATE_HANDOFF_START_MESSAGES, skill, skillReadError),
-			skill ? "info" : "warning",
-		);
+		ctx.ui.notify(createHandoffStartMessage(CREATE_HANDOFF_START_MESSAGES), "info");
 	}
 	pi.sendUserMessage(
-		buildCreateHandoffPrompt(skill?.block, focus, deriveHandoffInvestigationSources(ctx)),
+		buildCreateHandoffPrompt(skill.block, focus, deriveHandoffInvestigationSources(ctx)),
 	);
 }
