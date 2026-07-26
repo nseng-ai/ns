@@ -44,6 +44,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 	description: CP_COMMAND_DESCRIPTION,
 	schema: cpRequestSchema,
 	resultSchema: z.string(),
+	renderHuman: (text) => text,
 	options: { dryRun: { short: "-n" } },
 	handler: async (ctx, request: CpRequest) => {
 		const runtime = createNsCheckpointRuntime(ctx);

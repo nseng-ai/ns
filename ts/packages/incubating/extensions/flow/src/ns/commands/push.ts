@@ -24,6 +24,7 @@ export const flowPushCommand: NsCommand = defineCommand({
 	description: PUSH_COMMAND_DESCRIPTION,
 	schema: z.object({}),
 	resultSchema: z.string(),
+	renderHuman: (text) => text,
 	handler: async (ctx) => await runPush(ctx),
 });
 

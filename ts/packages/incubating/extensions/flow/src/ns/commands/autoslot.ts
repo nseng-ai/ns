@@ -21,6 +21,7 @@ export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = defineComma
 		"Create a Graphite branch from current work, then move it into a managed slot worktree.",
 	schema: autoslotSchema,
 	resultSchema: z.string(),
+	renderHuman: (text) => text,
 	options: { slug: { short: "-s" } },
 	handler: async (ctx, request) => {
 		// Resolve caps at the host-extension seam (house-style §1) and thread them into the Flow CLI
