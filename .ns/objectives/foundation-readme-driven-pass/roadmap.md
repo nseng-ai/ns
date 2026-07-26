@@ -2,7 +2,8 @@
 
 ## Work
 
-- [ ] Spawn the Clinkr Readme-Driven-Development Subobjective as the gate dry-run. Clinkr has no internal workspace dependencies and currently has no package README or `references/README-draft.md`. Synthesize its lessons and process amendments here before starting the next package.
+- [x] Spawn the Clinkr Readme-Driven-Development Subobjective as the gate dry-run. `clinkr-readme-driven-development` now owns the contract draft, audit, reconciliation, promotion, and gate-calibration work.
+- [ ] Receive and synthesize the Clinkr dry-run's lessons and process amendments here before starting the Foundation package pass.
 - [ ] Run the Foundation package Subobjective after Clinkr synthesis. Foundation depends on Clinkr and currently has no package README or draft.
 - [ ] Run the Brmem package Subobjective after Foundation. Brmem already has a README, but file presence is not completion evidence for this process.
 - [ ] Run the SDK package Subobjective after Foundation. The extension vocabulary gate is satisfied; SDK already has a README, but no package child or draft exists.
