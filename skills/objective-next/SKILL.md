@@ -1,12 +1,12 @@
 ---
 name: objective-next
 disable-model-invocation: true
-description: "Recommend the next useful work for an active Objective. Use when asking what to do next on an existing Objective: 'what's next on this objective', 'recommend next work', 'next step for objective X'. Recommend-first by default; routes clear stale tracking through objective-update before continuing, and may route to confirmed execution when durable Objective policy allows it. To create a new Objective use objective-create."
+description: "Prompt factory for an active Objective: emits a decision packet ending in the next proposed prompt, or an explicit decline with routing. Routes stale tracking through objective-update before continuing, and may route to confirmed execution when durable Objective policy allows it. To create a new Objective use objective-create."
 ---
 
 # objective-next
 
-Recommend the next useful work for an active Objective; the sections below own gating, routing, and execution behavior.
+A prompt factory for an active Objective: judge the next useful semantic step, then serialize it as a decision packet whose final element is a proposed prompt — or an explicit decline naming why and where to route instead. The sections below own gating, routing, and execution behavior.
 
 Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, safety boundaries, and family policy.
 
@@ -62,7 +62,7 @@ If the selected Objective is an ideation record — its roadmap is a Frontier of
 
 ## Recommendation-continuation execution
 
-A durable `## Runner Policy` is not required when the user explicitly asks to execute a concrete `objective-next` recommendation that is still in the current conversation.
+A durable `## Runner Policy` is not required when the user explicitly asks to execute a concrete `objective-next` recommendation that is still in the current conversation. A decision packet's proposed prompt, confirmed by the user, is the canonical form of this basis: the prompt already carries the bounded scope, a starting location, and the completion evidence the conditions below require.
 
 Use this path only when all are true:
 
@@ -84,16 +84,25 @@ If any condition is missing or ambiguous, do not execute yet: reread the Objecti
 6. Choose the smallest coherent next semantic step grounded in the Objective narrative, roadmap, active assumptions, and risks. The step may be agent-alone or human-steered; when open, unblocked candidates of both kinds exist, prefer the one that requires human intervention (grilling, prototype, live decisions, steering) — resolving human-gated questions de-risks and sharpens the Objective so the remaining work can run autonomously sooner. Deviate only when a specific hazard or dependency makes an agent-alone row clearly more urgent, and say why. On an ideation Objective, recommend from the **Frontier**: one open, unblocked Question Row (rows are unordered beyond blocking; resolve one per session). If the Frontier is empty and only ordinary execution rows remain, say the record has **crystallized** and recommend ordinary execution work instead.
 7. Form a best-effort work-left estimate: if the Objective narrative and roadmap make the remaining path clear, estimate the semantic steps remaining until Objective completion; if not, estimate the work remaining until the next discovery/decision step where additional work can be identified. Express this as step count, named slices, or coarse scope, not elapsed time.
 8. Recommend only semantic Objective work; validation-only rows follow the umbrella skill's roadmap validation-rows rule.
-9. If only routine validation-only non-parked rows remain, say no substantive Objective work remains. Suggest running ordinary validation outside the roadmap, then using `objective-update` to record evidence and/or `objective-close` if completion criteria are satisfied.
-10. If no active or planned semantic work remains, say the Objective may be ready for `objective-close` instead of inventing work.
+9. If only routine validation-only non-parked rows remain, emit a Declined packet: no substantive Objective work remains. Suggest running ordinary validation outside the roadmap, then using `objective-update` to record evidence and/or `objective-close` if completion criteria are satisfied.
+10. If no active or planned semantic work remains, emit a Declined packet routing to `objective-close` instead of inventing work.
 
-## Recommend-only output
+## Decision packet
 
-Use this path for ordinary `objective-next` recommendations, when the user only asked for advice, or when no safe execution basis exists.
+The factory's terminal artifact. Use this path for ordinary `objective-next` runs, when the user only asked for advice, or when no safe execution basis exists. Emit the packet in this order — context before proposal, so the human judges with context rather than anchoring on the prompt:
 
-- Recommend the next useful semantic step.
-- Explain the narrative or roadmap basis, likely files/areas, active assumption or risk exercised, and completion evidence to record afterward.
-- Include the step-7 work-left estimate.
+1. **Basis** — the roadmap row or narrative grounding, and the active assumption or risk the step exercises.
+2. **Work-left estimate** — the step-7 estimate.
+3. **Alternatives** — other open, unblocked candidates and why they lost to the proposed step.
+4. **Off-ramps** — what confirming, steering, deferring, or picking an alternative each means.
+5. **Proposed prompt** — a few sentences, self-contained and cold-start safe: it names the scope, a starting location, and the completion evidence, so it can run unmodified in a fresh session, a dispatched subagent, or an interactive session with the human in the loop (a grilling or live-decision prompt is still a prompt). Remember that agents can discover things on their own. For example, prefer listing a single folder to a list of files within that folder. Keep it minimal. Cite durable artifacts — the Objective slug, the roadmap row, paths, references — rather than replicating their content. Self-contained means free of *conversation* context, not a briefing that restates the record. Incorporate the record's `## Prompt Guidance` and the selected row's `Prompt:` prose when present (the `objective` skill's `references/prompt-guidance.md` owns their semantics); they shape serialization only, never step selection or execution permission.
+
+Default to exactly one proposed prompt. When two or more open candidates are genuinely co-equal — defensibly different directions rather than a ranked list where one clearly won — element 5 may instead present a small labeled set, each prompt self-contained under the same rules, with element 3 saying what picking each one commits to. Confirmation selects exactly one; a set is never authorization to run more than one.
+
+When the correct next move is not promptable work, the factory declines instead of prompting: element 5 becomes **Declined** with the reason and routing — run `objective-update` first, advance counterpart `<slug>`, the external gate must clear, or the Objective looks ready for `objective-close`. A decline is a valid packet, not a failure.
+
+In every packet:
+
 - If execution was requested but neither durable policy nor recommendation-continuation basis makes execution safe, say what information or confirmation is missing. Mention durable `## Definition of Progress` / `## Runner Policy` only when future sessions should proactively offer execution for this Objective.
 - Do not mutate files except through an explicit `objective-update` handoff.
 
@@ -110,7 +119,8 @@ Use this path for ordinary `objective-next` recommendations, when the user only 
 
 ## Verify
 
-- Name the selected slug and identify the roadmap item or narrative basis for the recommendation, steering question, or execution preview.
+- Name the selected slug and identify the roadmap item or narrative basis for the packet, steering question, or execution preview.
+- Confirm the decision packet ends with either a proposed prompt or an explicit Declined element, and that a proposed prompt is self-contained: a cold session could run it without this conversation. Confirm it stayed short, citing durable artifacts rather than replicating them.
 - If the record is blocked, confirm the response named the Blocked Sentence and either the unblocking counterpart Objective or why no edge counterpart applies.
 - If recommendation-only or steer-first, ensure no files changed except through an explicit `objective-update` handoff; report any handoff output separately and confirm it stayed under the selected slug.
 - If confirmed execution ran, verify and report according to `references/confirmed-execution.md`, including whether the basis was durable policy or recommendation-continuation confirmation.

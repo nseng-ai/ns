@@ -24,7 +24,7 @@ Durable policy is not required when the user explicitly asks to execute a concre
 Use this basis only when all are true:
 
 - the previous `objective-next` response selected the same Objective slug;
-- it recommended one coherent next semantic step rather than multiple alternatives;
+- it proposed one coherent next semantic step, or a small labeled set of co-equal candidates from which the user's confirmation selected exactly one — not a grab bag;
 - it named enough scope, likely areas, and completion evidence to bound execution;
 - the current user turn is a clear affirmative confirmation to execute that recommendation;
 - the work can stay within local repository edits, local validation, and meaningful Objective tracking unless the user separately requested branch/commit/PR/external writes.
@@ -33,13 +33,12 @@ This basis is not durable Objective state. It lets the current session continue 
 
 ## Output path selection
 
-### Recommend-only
+### Decision packet
 
-Use when no execution basis exists, durable policy is stale/incomplete, recommendation-continuation conditions are not met, policy does not allow direct execution for the selected slice, or the user only asked for advice.
+The default path: ordinary runs, advice-only requests, and every case where no execution basis exists — durable policy is stale/incomplete, recommendation-continuation conditions are not met, or policy does not allow direct execution for the selected slice.
 
-- Recommend the next useful semantic step.
-- Explain the narrative or roadmap basis, likely files/areas, active assumption or risk exercised, and completion evidence to record afterward.
-- Include a best-effort work-left estimate: either remaining semantic steps/slices until Objective completion, or remaining work until the next discovery/decision step that will reveal additional work. Do not estimate calendar time.
+The `objective-next` skill's `## Decision packet` section owns the packet's shape and ordering; do not restate it here.
+
 - If execution was requested but neither durable policy nor recommendation-continuation basis makes execution safe, say what information or confirmation is missing. Mention durable `## Definition of Progress` / `## Runner Policy` only when future sessions should proactively offer execution for this Objective.
 - Do not mutate files except through an explicit `objective-update` handoff.
 
