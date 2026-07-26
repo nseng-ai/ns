@@ -63,7 +63,7 @@ export function createHandoffLaunchIntegration(
 			await runHandoffCreateCommand(pi, args, ctx, {
 				...spec,
 				git: handoffContext.git,
-				...(options.skillLoader === undefined ? {} : { skillLoader: options.skillLoader }),
+				...optionalEntry("skillLoader", options.skillLoader),
 			});
 		},
 		buildVerifiedLaunchTool<P extends HandoffLaunchParams>(

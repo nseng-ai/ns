@@ -10,7 +10,11 @@ import {
 } from "@nseng-ai/pi-runtime/commands/cli-extension";
 import { parseMachineEnvelopeData } from "@nseng-ai/pi-runtime/runtime/machine-envelope";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import { buildFencedTextBlock, formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import {
+	buildFencedTextBlock,
+	formatErrorMessage,
+	optionalEntry,
+} from "@nseng-ai/foundation/primitives";
 import { notifyCommandUi } from "@nseng-ai/pi-runtime/commands/helpers";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import {
@@ -105,14 +109,14 @@ interface ObjectiveInvocationContext<TSpec = ObjectiveCommandSpec> {
 	spec: TSpec;
 }
 
-type PreparedObjectiveInvocation = ObjectiveInvocationContext & {
+interface PreparedObjectiveInvocation extends ObjectiveInvocationContext {
 	skill: ExpandedSkillBlock;
-};
+}
 
-type SkillPreparationInvocation = {
+interface SkillPreparationInvocation {
 	ctx: CommandContext;
 	spec: { skillName: string };
-};
+}
 
 interface InvokeObjectiveCreateSkillOptions extends ObjectiveInvocationContext<ObjectiveCreateCommandSpec> {
 	rawArgs: string;
@@ -149,9 +153,7 @@ async function invokeObjectiveSkill(
 			spec,
 			skillBlock: skill.block,
 			objective,
-			...(spec.postSelectionReminder === undefined
-				? {}
-				: { postSelectionReminder: spec.postSelectionReminder }),
+			...optionalEntry("postSelectionReminder", spec.postSelectionReminder),
 		}),
 	);
 }
