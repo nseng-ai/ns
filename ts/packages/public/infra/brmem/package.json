@@ -9,7 +9,7 @@
 		"src"
 	],
 	"bin": {
-		"brmem": "./src/cli.ts"
+		"brmem": "./src/cli/app.ts"
 	},
 	"scripts": {
 		"check": "tsc -p tsconfig.json",

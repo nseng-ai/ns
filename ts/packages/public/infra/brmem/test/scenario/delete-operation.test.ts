@@ -79,7 +79,10 @@ describe("delete operation", () => {
 		expect(JSON.parse(missingYes.stdout.join(""))).toMatchObject({
 			status: "usageError",
 			exitCode: 2,
-			data: { missingFlag: "--yes" },
+			data: {
+				missingFlag: "--yes",
+				howToSupply: "Pass --yes (or -y) to confirm deletion without prompting.",
+			},
 		});
 
 		const declined = runScenario(["delete", "plan/plan.md", "--namespace", "scratch"], {
@@ -259,6 +262,11 @@ describe("delete operation", () => {
 		const document = JSON.parse(run.stdout.join(""));
 		expect(document).toHaveProperty("inputJsonSchema");
 		expect(document).toHaveProperty("outputJsonSchema");
+		const machineText = JSON.stringify(document.machineEnvelopeJsonSchema);
+		expect(machineText).toContain('"missingFlag"');
+		expect(machineText).toContain('"howToSupply"');
+		expect(machineText).toContain('"commanderCode"');
+		expect(machineText).toContain('"issues"');
 	});
 
 	it("maps non-key gateway failures through the shared gateway failure path", async () => {

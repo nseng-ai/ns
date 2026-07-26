@@ -1,4 +1,4 @@
-import { failure, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, type ClinkrExit, type ClinkrFailureExit } from "@nseng-ai/clinkr";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
 import type { BrmemCliContext } from "../context.ts";
@@ -70,6 +70,6 @@ export async function resolveCurrentBranch(
 	return branch.value;
 }
 
-export function gatewayFailure<T>(error: BrmemErrorInfo): ClinkrExit<T> {
+export function gatewayFailure<T>(error: BrmemErrorInfo): ClinkrFailureExit<T> {
 	return failure(error.code, error.message);
 }

@@ -159,7 +159,7 @@ install-ns: (_install-ts-shim "ns" "ts/packages/public/ns/src/cli.ts" "just inst
 # Install the brmem shim to ~/.local/bin so `brmem` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
-install-brmem: (_install-ts-shim "brmem" "ts/packages/public/infra/brmem/src/cli.ts" "just install-brmem or just install-tools")
+install-brmem: (_install-ts-shim "brmem" "ts/packages/public/infra/brmem/src/cli/app.ts" "just install-brmem or just install-tools")
 
 # Install the vibechk shim to ~/.local/bin so `vibechk` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked

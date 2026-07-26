@@ -1,4 +1,4 @@
-import { defineCommand } from "@nseng-ai/clinkr";
+import { confirmationUsageErrorDataSchema, defineCommand } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
 import {
@@ -15,7 +15,7 @@ export async function command() {
 		options: { yes: { short: "-y" } },
 		resultSchema: deleteResultSchema,
 		negativeSchema: deleteResultSchema.extend({ message: z.string() }),
-		usageErrorSchema: z.unknown(),
+		usageErrorSchema: confirmationUsageErrorDataSchema,
 		handler: runDelete,
 		renderHuman: renderDelete,
 	});

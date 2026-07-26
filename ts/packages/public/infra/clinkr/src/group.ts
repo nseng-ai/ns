@@ -33,6 +33,11 @@ import {
 	type PositionalSpec,
 	type SurfacePlan,
 } from "./surface.ts";
+import {
+	commanderUsageErrorData,
+	requestValidationUsageErrorData,
+	type RequestValidationIssueData,
+} from "./usage-error-data.ts";
 
 export type ClinkrHandler<
 	TContext,
@@ -419,7 +424,7 @@ export class LegacyClinkrGroup<TContext> {
 			if (error instanceof CommanderError) {
 				const exitCode = exitCodeForCommanderError(error);
 				if (exitCode === 2 && clinkrFormatFromArgs(argv) === "json") {
-					emitUsageErrorJson(io, error.message, { commanderCode: error.code });
+					emitUsageErrorJson(io, error.message, commanderUsageErrorData(error.code));
 				}
 				return exitCode;
 			}
@@ -709,9 +714,13 @@ function configureCommandExecution<TContext>(
 				registered.execution.type === "rendered" &&
 				clinkrFormatFromOption(opts["format"]) === "json"
 			) {
-				emitUsageErrorJson(io, message, {
-					issues: parsed.error.issues.map((issue) => usageIssueData(registered.plan, issue)),
-				});
+				emitUsageErrorJson(
+					io,
+					message,
+					requestValidationUsageErrorData(
+						parsed.error.issues.map((issue) => usageIssueData(registered.plan, issue)),
+					),
+				);
 				state.exitCode = 2;
 				return;
 			}
@@ -815,15 +824,19 @@ function formatUsageError(error: z.ZodError, plan: SurfacePlan): string {
 	return `${lines.join("\n")}\n`;
 }
 
-function usageIssueData(plan: SurfacePlan, issue: z.core.$ZodIssue): Record<string, unknown> {
+function usageIssueData(plan: SurfacePlan, issue: z.core.$ZodIssue): RequestValidationIssueData {
 	return {
-		path: issue.path,
+		path: issue.path.map(jsonIssuePathSegment),
 		message: issue.message,
 		code: issue.code,
 		...(surfaceNameForIssue(plan, issue) === undefined
 			? {}
 			: { surface: surfaceNameForIssue(plan, issue) }),
 	};
+}
+
+function jsonIssuePathSegment(segment: PropertyKey): string | number {
+	return typeof segment === "symbol" ? String(segment) : segment;
 }
 
 function surfaceNameForIssue(plan: SurfacePlan, issue: z.core.$ZodIssue): string | undefined {

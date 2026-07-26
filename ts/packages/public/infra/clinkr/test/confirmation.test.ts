@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	confirmationUsageErrorDataSchema,
 	confirmInteractiveOrUsageError,
 	createClinkrInteraction,
 	requireInteractiveOrUsageError,
@@ -182,6 +183,30 @@ describe("ClinkrInteraction.confirm", () => {
 			isInteractive: () => false,
 		});
 		expect(interaction.isInteractive()).toBe(false);
+	});
+});
+
+describe("confirmationUsageErrorDataSchema", () => {
+	test("accepts the exact confirmation recovery payload", () => {
+		expect(
+			confirmationUsageErrorDataSchema.parse({
+				missingFlag: "--yes",
+				howToSupply: "Pass --yes to confirm.",
+			}),
+		).toEqual({ missingFlag: "--yes", howToSupply: "Pass --yes to confirm." });
+	});
+
+	test("rejects missing recovery fields and additional fields", () => {
+		expect(confirmationUsageErrorDataSchema.safeParse({ missingFlag: "--yes" }).success).toBe(
+			false,
+		);
+		expect(
+			confirmationUsageErrorDataSchema.safeParse({
+				missingFlag: "--yes",
+				howToSupply: "Pass --yes to confirm.",
+				extra: true,
+			}).success,
+		).toBe(false);
 	});
 });
 
