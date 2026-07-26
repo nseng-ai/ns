@@ -1,19 +1,41 @@
-# Subpackage kinds and edge-significance rank
+# ADR 0023: Manifest-Declared Subpackages and Edge-Significance Kinds
 
-Refined by ADR 0032: API-kind is generalized — a container may have multiple API-kind subpackages
-with cross-package runtime exports, and the literal `api` subpackage is the Capability API
-specialization rather than the sole public door. The rank test, Testing/Host-surface restrictions,
-and layers-are-folders rule stand.
+## Status
 
-Refines ADR 0022. A **Subpackage** earns declaration in `sdl.subpackages` by anchoring a class of dependency edges worth tracking — never by source size. A 40-line contract with fourteen importers outranks a 4,000-line internal layer; a low-LOC entry that anchors no edge class its siblings don't already anchor is consolidated away.
+Accepted
 
-Every declared subpackage is one of four kinds, each with a sanctioned importer set:
+## Context
 
-- **API subpackage** (`api`) — the package's sole cross-package programmatic import surface, hosting its **Capability API** as a thin contract/facade over the package's internals. Importable by any package.
-- **Testing subpackage** (`testing`) — the cross-package test-time contract (fakes, test kits). Importable by any package's tests, never by runtime code.
-- **Host-surface subpackages** (`sdl`, `pi`, `repo-local-sdl-extension`) — thin adapters a specific host consumes as its entry surface. Importable only by that host. Per-feature entry points live inside the surface (for example `pi/land-stack.ts`), keeping surfaces thin and features host-free.
-- **Feature subpackages** (open vocabulary: `land-stack`, `submit`, `cmux`, `lifecycle`, …) — named domain verticals that carry the package's meaning in topology views. Host-free: they never import host surfaces, and their edges stay inside the package. A feature may expose its own `api`/`testing` modules to sibling subpackages, but those are intra-package only; external appetite for a feature's contract is the signal it is outgrowing the package, not grounds for a second public door.
+A published package may contain several architecture units worth tracking without splitting them into separate npm packages. Those units must be explicit, importer-significant, and derived from manifests rather than guessed from directory layout or source size.
 
-Internal horizontal layers — `operations`, `gateways`, `commands`, `shared`, `shell` — do not earn subpackage rank and live as folders inside the kind that owns them. We explicitly rejected layers-as-subpackages: layer entries are uniform boilerplate that make per-package topology say nothing package-specific, and the load-bearing import rules attach to contract and host boundaries, not to internal layering. `core` remains legitimate only as the feature subpackage naming a package's central domain, not as a layer dump.
+## Decision
 
-Operational guidance (naming, checklists, consolidation mechanics) lives in `docs/conventions/subpackage-conventions.md`; canonical vocabulary lives in the root `CONTEXT.md` package-topology cluster.
+A container package declares its architecture units in `package.json` at `ns.subpackages`. Each named subpackage is rooted at `src/<name>/`; topology and guard tooling read the manifest declaration and export map. Multiple export subpaths may belong to one subpackage.
+
+A package being converted may declare `ns.remainder: true` for source not yet claimed by named subpackages. Remainder is explicit transition state, not a `"."` sentinel or a permanent miscellaneous unit. A properly formed container package has no remainder.
+
+A subpackage earns rank by anchoring a class of dependency edges its siblings do not, never by LOC. Every declared subpackage has one of four kinds:
+
+- **API-kind:** a deliberate cross-package runtime door. Names are open and a container may have several precise API-kind subpackages. The literal `api` name is required for an ns extension's curated extension package API at `@nseng-ai/<extension>/api`.
+- **Testing:** the literal `testing` cross-package test contract; runtime imports are forbidden.
+- **Host-surface:** a thin `ns`, `pi`, or `ns-extension` adapter imported only by its named host. The `ns-extension` surface carries descriptor metadata for SDK discovery; it is not an extension package API.
+- **Feature:** a domain-meaningful vertical whose edges stay inside the package and which remains host-free.
+
+A feature-level `api` or `testing` module serves sibling subpackages only unless its surface is deliberately promoted to API-kind or extracted. Internal horizontal layers such as operations, gateways, commands, shared code, and shell adapters are folders inside an owning kind, not subpackages. `core` is valid only when it names the package's central domain feature, not as a layer dump.
+
+Cross-package imports target declared exports belonging to API-kind subpackages, plus Testing exports from tests. Host surfaces remain host-restricted. Every subpackage inherits its package's single `ns.tier`; there are no subpackage tier overrides.
+
+## Consequences
+
+- Manifests, export maps, topology, and guards describe the same package-internal boundaries.
+- Foundation can expose several precise API-kind doors without a giant façade barrel.
+- Extension consumers get one literal `/api` specialization while command, descriptor, and Pi adapters remain separate host surfaces.
+- Large private implementation folders do not become architecture nodes merely because they are large.
+
+## Alternatives
+
+- **Directory auto-discovery:** rejected because arbitrary folders are not architecture units.
+- **One mandatory API façade:** rejected because it erases precise contracts and creates meaningless fan-in.
+- **Layers as subpackages:** rejected because layer names do not identify distinct importer classes.
+- **Hidden or sentinel remainder:** rejected because transition state must be explicit.
+- **Subpackage tier overrides:** rejected because one package is one distribution and tier unit.

@@ -75,7 +75,7 @@ command-local options plus the tier discipline in `SKILL.md`.
 
 - `rawCommand(...)` marks a command spec with `isRawExit: true`.
 - Raw execution opts out of the envelope, `resultSchema`, and `--json-schema`.
-- ADR 0015 limits raw exit to TUI, streaming protocol, or process-control /
+- ADR 0010 limits raw exit to TUI, streaming protocol, or process-control /
   third-party passthrough contracts. Ordinary finite agent-facing commands use
   rendered Clinkr exits.
 - Even raw commands must reserve exit `1` for semantic non-success and map real
@@ -83,14 +83,11 @@ command-local options plus the tier discipline in `SKILL.md`.
 
 ## ADR index
 
-| ADR                                                     | Decision                                                                                     |
-| ------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `docs/adr/0010-clinkr-exit-code-semantics.md`           | Coarse stable exit codes; detail in the envelope.                                            |
-| `docs/adr/0011-clinkr-ts-native-json-envelope.md`       | TS-native camelCase discriminated envelope; enveloped usage errors; published schema.        |
-| `docs/adr/0012-clinkr-output-volume-discipline.md`      | No framework output-volume API; bounded output is command-local.                             |
-| `docs/adr/0013-clinkr-negative-process-exit-default.md` | `negative=1`; removed `--shell-exit-code`/`shellNegative`.                                   |
-| `docs/adr/0014-clinkr-confirmation-danger-tiers.md`     | Four danger tiers; `--yes`/`-y` vs `--force`/`-f`; dry-run as `ok`.                          |
-| `docs/adr/0015-cli-surface-conformance-decisions.md`    | Raw-exit narrow exemption; hidden-`exec` write intent; miss/empty semantics; dotfile Tier 2. |
+| ADR                                                 | Decision                                                                              |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `docs/adr/0010-clinkr-exit-code-semantics.md`       | Coarse stable exits; camelCase envelope; raw-exit exemption; miss/empty semantics.    |
+| `docs/adr/0012-clinkr-output-volume-discipline.md`  | No framework output-volume API; bounded output is command-local.                      |
+| `docs/adr/0014-clinkr-confirmation-danger-tiers.md` | Four danger tiers; hidden-`exec` write intent; `--yes` vs `--force`; dry-run as `ok`. |
 
 ## ADR rationale and preserved dissent
 
@@ -101,7 +98,7 @@ disciplined `errorType`/`code` plus structured `data`. Dissent preserved: richer
 numeric exit taxonomies are convenient for shell conditionals but lossy for
 agents, who must parse JSON anyway.
 
-### ADR 0011 — TS-native JSON envelope
+### ADR 0010 — TS-native JSON envelope
 
 Decision: drop the byte-identical Python-parity snake_case contract for TS
 `--format json`; publish camelCase discriminated envelopes with
@@ -116,7 +113,7 @@ primitive, generic bounded-result wrapper, or JSONL/streaming API now. Bounded
 output is command-local `ns-cli-design` guidance. Reopen framework extraction
 only after repeated command pressure or one severe agent-context failure.
 
-### ADR 0013 — negative process-exit default
+### ADR 0010 — negative process-exit default
 
 Decision: `negative(...)` renders exit `1` by default; human/markdown negative
 messages go to stderr; JSON envelopes stay on stdout with `exitCode: 1`; the
@@ -131,7 +128,7 @@ non-interactive fail-fast; dry-run as `ok(...)`; `--yes`/`-y` (Tier 2 confirm)
 vs `--force`/`-f` (Tier 3 precondition/guard override). Tiers are
 `ns-cli-design` discipline, not a Clinkr framework type.
 
-### ADR 0015 — CLI surface conformance decisions
+### ADR 0010 and ADR 0014 — CLI surface conformance decisions
 
 Decision: raw exit is a narrow exemption; hidden `exec` is write-intent for
 agent-only operations; miss/empty semantics stay explicit; dotfile destructive
@@ -143,5 +140,5 @@ shortcut around machine envelopes.
 - Survey: `docs/research/agent-era-cli-design-survey.md` (competing positions + sources).
 - Gap audit:
   `.ns/objectives/agent-cli-design-discipline/references/clinkr-agent-era-gap-audit.md`.
-- ADRs: `docs/adr/0010`–`0015`.
+- ADRs: `docs/adr/0010`, `docs/adr/0012`, and `docs/adr/0014`.
 - Exec-subgroup + scenario-test conventions: root `AGENTS.md`.

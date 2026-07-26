@@ -14,7 +14,7 @@
 // - Not exported here: real GitHub adapters, GraphQL args/queries/normalizers,
 //   command schemas, Clinkr/exec wrappers, and Pi presentation/session helpers.
 //
-// ADR 0039 (formerly 0016) keeps PR Address as the extension-facing seam. Reusable GitHub
+// ADR 0004 keeps PR Address as the extension-facing seam. Reusable GitHub
 // backend mechanics now live in `@nseng-ai/extension-kit/github`; this file owns the seam vocabulary
 // by re-exporting only the consumer-facing types.
 

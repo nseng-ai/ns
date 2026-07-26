@@ -60,7 +60,7 @@ These apply to every ns CLI command regardless of audience.
    rendering (`renderHuman`) may evolve freely; the machine envelope may not,
    except additively.
 5. **Process exit codes are coarse and stable:** `ok=0`, `negative=1`,
-   `failure`/`usageError=2` (ADR 0010, ADR 0013). Detailed failure semantics live
+   `failure`/`usageError=2` (ADR 0010). Detailed failure semantics live
    in the machine envelope (`errorType` + structured `data`), not in numeric exit
    codes.
 6. **Non-interactive by default.** Prompts are allowed only when stdin is a TTY
@@ -70,7 +70,7 @@ These apply to every ns CLI command regardless of audience.
    (ADR-aligned with AGENTS.md "Skill-Invoked CLI Commands"). Construct the
    subgroup `ClinkrGroup` with `isHidden: true`; do not mutate it after
    construction.
-8. **Raw exit is exceptional** (ADR 0015). See "Raw-exit is a narrow exemption"
+8. **Raw exit is exceptional** (ADR 0010). See "Raw-exit is a narrow exemption"
    below for the sanctioned cases.
 
 ## Streams and help — the two audiences, separated at the byte level
@@ -93,12 +93,12 @@ Design *to* the typed machine envelope.
   `failure(errorType, message, data?)`, or `usageError(message, data?)`.
 - The envelope is a camelCase discriminated union keyed on `status`, carrying
   `exitCode` plus `errorType`/`message`/`data` where the variant has them. No
-  parallel snake_case or Python-parity shape (ADR 0011).
+  parallel snake_case or Python-parity shape (ADR 0010).
 - Publish the real envelope with `--json-schema`; this is how agents learn the
   stable contract from a type.
 - `negative(...)` is shell-visible non-success (exit 1). A harmless empty/no-op
   result returns `ok(...)` with empty data instead; there is no
-  `--shell-exit-code` opt-in (ADR 0013).
+  `--shell-exit-code` opt-in (ADR 0010).
 - `failure`/`negative` carry structured `data` for recovery under a stable,
   command-local `errorType`. Do not mint a global `errorType` enum (ADR 0010).
 - Property names are camelCase; serialized enum-like **values** are **kebab-case**
@@ -166,7 +166,7 @@ for new human-facing Tier 3 commands unless a steered exception says otherwise).
 - Treat command names, flags, subcommands, output formats, and config as
   long-lived interfaces; change them additively.
 
-## Raw-exit is a narrow exemption (ADR 0015)
+## Raw-exit is a narrow exemption (ADR 0010)
 
 `rawCommand` / `isRawExit` opts out of the envelope, `resultSchema`, and
 `--json-schema`. It is sanctioned **only** when the command's core contract is a

@@ -11,9 +11,9 @@ a design bug, not a style nit.
 - [ ] Process exit stays coarse: `ok=0`, `negative=1`, `failure`/`usageError=2`.
       No `process.exit`, no richer numeric taxonomy (ADR 0010).
 - [ ] Machine output is a camelCase discriminated envelope on `status`; no
-      parallel snake_case/Python-parity shape (ADR 0011).
+      parallel snake_case/Python-parity shape (ADR 0010).
 - [ ] `negative(...)` is reserved for shell-visible non-success; a harmless
-      empty/no-op result returns `ok(...)` with empty data (ADR 0013).
+      empty/no-op result returns `ok(...)` with empty data (ADR 0010).
 - [ ] `failure`/`negative` carry structured `data`; `errorType` is a stable,
       disciplined per-command string with no global enum (ADR 0010).
 - [ ] Serialized enum-like values (`errorType`, command-local
@@ -36,7 +36,7 @@ a design bug, not a style nit.
 - [ ] No promise of `--compact`/pagination/JSONL the framework does not ship.
 - [ ] Raw exit is used only for a TUI, streaming protocol, or process-control /
       third-party passthrough contract; ordinary finite agent-facing commands use
-      the Clinkr envelope (ADR 0015).
+      the Clinkr envelope (ADR 0010).
 
 ## Danger tier (ADR 0014)
 

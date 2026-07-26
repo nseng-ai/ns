@@ -41,7 +41,7 @@ A parent that coordinates a family of narrower **Subobjectives** (renamed from C
 Objective, 2026-07-06; Child Objective remains a valid synonym) via Objective Edges
 while remaining the durable home for cross-child lessons, migration guides, and
 synthesized closure evidence. The synthesis duty is part of the pattern (renamed from
-Synthesis Objective; ADR 0001 substance, ADR 0030 name). Recognize it by: a thread too
+Synthesis Objective; ADR 0001 substance, ADR 0001 name). Recognize it by: a thread too
 big for one record, children owning their slices, and completion criteria that include
 synthesizing child outcomes. Composes with orienting and standing; a steelthread child
 split is a natural first Subobjective. Creation: `objective-create`
@@ -58,11 +58,14 @@ never with steelthread. Deep guidance: `references/standing-objectives.md`. Crea
 ### Autoobjective
 
 An Objective whose roadmap and runner policy are intentionally shaped for repeated
-Objective Runner steps with parent-LM checkpoints between committed slices (ADR 0040).
+Objective Runner steps with parent-LM checkpoints between committed slices (ADR 0024).
 Colloquial shorthand for autonomous-pursuit design — do not formalize as schema, type,
-or required wording. Product hook: `ns objective exec runner-step <slug>`, which refuses
-records that do not satisfy its preconditions. Composes with either horizon; a
-steelthread autoobjective is a common combination. Creation: `objective-create`
+or required wording. The Objective Runner uses the decomposed ADR 0024 flow:
+`ns objective exec runner-begin <slug>` checks preconditions and emits the child prompt,
+a fresh subagent implements one slice, and `ns objective exec runner-finish <slug>`
+validates the report and worktree before creating the runner-owned commit. The
+`objective-runner-step` skill is the parent playbook for that flow. Composes with either
+horizon; a steelthread autoobjective is a common combination. Creation: `objective-create`
 `references/autoobjective-create.md`.
 
 ### Orienting Objective

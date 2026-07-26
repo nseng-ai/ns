@@ -1,4 +1,4 @@
-# ADR 0010: Clinkr Exit-Code Semantics
+# ADR 0010: Clinkr Rendered Result Contract
 
 ## Status
 
@@ -6,128 +6,38 @@ Accepted
 
 ## Context
 
-Agent-era CLI design has two consumers with different failure-reading behavior.
-Shell scripts and CI usually branch on the process exit status. Agents and other
-machine consumers can inspect structured output, but only when the command emits a
-stable machine envelope. Human users need useful prose, not a taxonomy lesson.
-
-The survey in `docs/research/agent-era-cli-design-survey.md` captures the tension:
-clig.dev says non-zero exit codes should map to important failure modes, while
-agent-era guidance treats structured, actionable errors as the primary recovery
-surface. The survey explicitly leaves open whether SDL should standardize richer
-numeric exit codes, keep simple `0`/`1`/`2` process semantics and rely on envelope
-fields, or define a hybrid.
-
-The Clinkr gap audit in `.sdl/objectives/agent-cli-design-discipline/references/clinkr-agent-era-gap-audit.md` shows why this must
-be decided before changing APIs. Clinkr currently has a typed machine envelope
-with `exit_code`, optional `error_type`, optional `message`, and optional `data`,
-but `error_type` is unconstrained. Handler failures can be represented as machine
-envelopes, while usage errors currently exit `2` as raw stderr for Python parity.
-`negative` outcomes are also split: machine envelopes report `exit_code: 1`, but
-the default process exit can remain `0` unless `--shell-exit-code` is requested.
-
-A richer numeric taxonomy such as `3=not-found`, `4=permission`, `5=conflict`, or
-`6=transient` would make some shell-only automation easier, but it would also
-compress domain-specific failure detail into a small global number space. Clinkr's
-existing design is already envelope-first: command handlers return typed results,
-JSON output is deterministic, and command-specific schemas can describe machine
-results more precisely than process status can.
+Clinkr serves humans, shells, and machine consumers. Process status must remain simple enough for shell control flow, while agents need structured detail that does not compress domain failures into a global numeric taxonomy. Finite agent-facing commands also need one machine contract for successful, semantic-negative, failed, and invalid invocations.
 
 ## Decision
 
-Clinkr will use a compact process exit taxonomy as the default contract:
+Rendered Clinkr commands use exactly this result and process-exit taxonomy:
 
-- `0` means success.
-- `1` means the command was invoked well enough to run, but the requested
-  operation failed semantically or operationally.
-- `2` means usage, invocation, validation, or configuration failure before the
-  requested operation could run normally.
+- `ok` exits `0`;
+- `negative` exits `1`; and
+- `failure` and `usageError` exit `2`.
 
-Detailed failure semantics belong in the machine envelope, not in an expanded
-process-exit code list. The authoritative machine-readable classification should
-be a disciplined `error_type` / `code` value plus structured `data` / details when
-extra recovery context is useful. Future Clinkr and `sdl-cli-design` work should
-therefore prioritize:
+`ok` is the only success outcome. A pure query, predicate, harmless empty result, or no-op returns `ok` with explicit data such as `found: false`, `present: false`, or an empty collection. A command that dereferences or acts on a specifically requested target returns `negative` when that target is absent. A predicate may offer an explicit require-presence mode that turns absence into `negative` without changing the default query contract.
 
-- optional structured `data` on failure exits;
-- a documented convention or schema path for `error_type` / `code` values;
-- structured usage-error envelopes for machine modes, if the Python-parity
-  constraint is later relaxed by a separate ADR;
-- remediation-oriented details such as invalid fields, allowed values,
-  retryability, or suggested next commands when those are useful to agents.
+JSON output uses a camelCase discriminated envelope with `status`, `exitCode`, and variant-appropriate `errorType`, `message`, and `data`. `status` is one of `ok`, `negative`, `failure`, or `usageError`. ns-owned serialized discriminants and error types use kebab-case values; external protocol spellings are preserved. JSON-mode usage errors are enveloped when Clinkr can safely identify machine mode without parsing human-oriented parser output.
 
-### Casing convention for envelope fields and values
+A command publishes its input schema, success-result schema, and actual envelope schema through `--json-schema`. Human output remains a separate, human-oriented rendering.
 
-The TS-native envelope (ADR 0011) settles the casing of these contracts:
+Raw exit is a narrow exception only when the command's true contract is a TUI, streaming protocol, process control, or third-party passthrough. Ordinary finite-result commands use the envelope and schemas. Raw and streaming contracts must still document their process behavior rather than pretending to return a Clinkr envelope.
 
-- **JSON object property names are camelCase** — `errorType`, `exitCode`,
-  `packageName`, and so on. The historical `error_type` / `exit_code` spellings in
-  the context above describe the pre-TS-native envelope and are retained only for
-  that history.
-- **Serialized enum-like values are kebab-case** when they are SDL-owned machine
-  contracts — `errorType` values, command-local `code` / `type` / `status` / `kind`
-  discriminants, and similar enumerations that cross an SDL CLI/API JSON boundary
-  (for example `registry-check-failed`, `branch-context-error`, `dry-run`,
-  `prompt-not-found`). This is a direct, breaking convention: emit kebab-case only,
-  with no dual spellings or backward-compatibility aliases.
-
-External protocol values (GitHub wire fields, Anthropic usage counters, Pi
-transcript shapes, Node error codes) and internal-only TypeScript discriminants
-that are never serialized across an SDL boundary are not governed by this rule;
-model known external strings as TypeScript literal unions and preserve their exact
-spelling. A focused TypeScript style guard
-(`SDL_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE`) enforces the high-confidence cases:
-snake_case Clinkr `failure(...)` error types and `errorType` literal values.
-
-Expanded numeric exit-code taxonomies are not the Clinkr default. Individual
-commands may still document additional process exit codes only when they have a
-specific shell/CI contract that cannot reasonably consume the machine envelope.
-Those command-local additions must remain additive and documented; they must not
-replace the envelope as the detailed failure contract.
-
-This ADR does not by itself resolve the separate Python-parity questions around
-usage-error enveloping, JSON compaction, or the current `negative` process-exit
-behavior. It sets the design direction those ADRs should respect: keep process
-status coarse; make structured machine errors rich.
+There is no shell-negative opt-in or compatibility mode: `negative` is non-zero by default, and `--shell-exit-code`, `shellNegative`, and equivalent APIs are not part of the contract. A command may define additional process codes only for a specific, documented shell-only contract that cannot reasonably consume the envelope.
 
 ## Consequences
 
-- Agents get one stable rule: inspect the machine envelope for detailed failure
-  meaning instead of trying to infer semantics from numeric process exits.
-- Shell users still get conventional status behavior: `0` for success, non-zero
-  for failure, and `2` for invocation/usage/configuration problems.
-- `sdl-cli-design` should teach CLI authors to design actionable envelope errors:
-  stable `errorType` / `code`, concise message, structured details, and recovery
-  hints where appropriate.
-- Machine-contract spelling is fixed: camelCase property names, kebab-case
-  enum-like values for SDL-owned contracts, and preserved external spellings modeled
-  as literal unions. Agents can rely on this without per-command guessing.
-- Clinkr should not grow a large global numeric enum before it has stronger
-  envelope semantics. The likely first implementation work is structured failure
-  `data` and an error-type discipline, not exit-code proliferation.
-- Commands with genuine shell-only integration needs still have an escape hatch,
-  but those extra codes are command-specific API and require documentation.
-- The existing `negative` default remains a known follow-up: this ADR favors
-  coarse non-zero process status for non-success, but any compatibility-sensitive
-  change to `negative` process exits needs its own decision.
-- Usage-error enveloping remains a separate decision. This ADR says that if SDL
-  later makes usage errors machine-readable, the details should be envelope data,
-  not a larger set of numeric process statuses.
+- Shell callers can treat every non-`ok` rendered outcome as non-zero.
+- Agents inspect the discriminated envelope for stable detail instead of inferring domain meaning from numbers.
+- Command authors must distinguish ordinary absence and emptiness from a requested action that did not succeed.
+- Machine contracts have one casing convention and one discoverable schema surface.
+- Genuine raw and streaming commands remain possible without becoming a general escape hatch.
 
-## Rejected Alternatives
+## Alternatives
 
-- **Adopt a global rich numeric taxonomy.** This helps shell-only conditionals,
-  but it is lossy for agents, hard to make domain-neutral, and likely to become
-  either incomplete or ceremonial. It also duplicates information that a typed
-  envelope can express more clearly.
-- **Keep only generic `0`/`1` with no special usage code.** This is simpler, but
-  loses a widely understood distinction between bad invocation and a command that
-  ran and failed. Clinkr already normalizes parser/usage errors to `2`, and that
-  distinction is useful for humans, scripts, and agents.
-- **Make every command invent its own numeric status map.** This maximizes local
-  flexibility but weakens Clinkr as a framework contract. Command-local additions
-  remain allowed for strong shell/CI reasons, but they are not the default design.
-- **Rely on free-form `error_type` strings without further discipline.** This
-  preserves maximum compatibility, but leaves agents without a reliable recovery
-  contract. The envelope should carry the detail, but the detail still needs
-  naming and schema discipline.
+- **A global rich numeric taxonomy:** rejected because it duplicates and loses domain detail better represented in the envelope.
+- **Success-like `negative` or a shell-exit opt-in:** rejected because machine truth and default process behavior would disagree.
+- **Uniform miss handling:** rejected because absence is a normal predicate answer but a failed requested-target operation is not.
+- **Dual snake_case and camelCase envelopes:** rejected because transitional aliases make the machine contract ambiguous.
+- **Envelope every TUI, stream, or passthrough:** rejected because a fabricated finite result misrepresents those contracts.

@@ -13,7 +13,7 @@ scope-by-disposition, and the dependency-closure matrix. Architectural role is c
 no longer projects onto a path: the rule that did so, `NS_TS_TIER_DIRECTORY_PROJECTION`, is
 retired.
 
-Structure *inside* a container package — which units earn `ns.subpackages` rank, naming, and importer rules — is governed by [`docs/conventions/subpackage-conventions.md`](../../docs/conventions/subpackage-conventions.md) (ADR 0022/0023).
+Structure *inside* a container package — which units earn `ns.subpackages` rank, naming, and importer rules — is governed by [`docs/conventions/subpackage-conventions.md`](../../docs/conventions/subpackage-conventions.md) (ADR 0023).
 
 ## The three disposition roots
 

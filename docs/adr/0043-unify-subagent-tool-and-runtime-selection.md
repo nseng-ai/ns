@@ -1,53 +1,42 @@
-# ADR 0043: Unify subagent tool and runtime selection
+# ADR 0043: Unified Subagent Tool and Runtime Selection
 
 ## Status
 
-Renumbered from ADR 0032 on 2026-07-20 to resolve a duplicate number (0032 stays with the earlier-created Neutral-Infra-admission ADR); content otherwise unchanged.
-
 Accepted
-
-This ADR partly supersedes the model-visible-tool consequence of ADR 0042 (formerly numbered 0023). The runner-subagent subprocess and protocol substrate from that decision remains current.
 
 ## Context
 
-Pi delegation grew as two separately registered tools: `explore` for bounded read-only scouting and `forked_pi_agent` for one focused general task. Each tool mixed two independent decisions: the behavioral policy assigned to the child and the architecture used to execute the child. Adding another policy would have added another model-visible tool and another copy of registration, dispatch, progress, and result behavior.
+Delegated behavior and child execution architecture are separate decisions. Read-only exploration and focused implementation need different permissions and task bounds, while either may execute through an isolated subprocess or an explicitly selected in-process session. Encoding each combination as a model-visible tool duplicates schemas and orchestration and lets runtime mechanics blur policy.
 
-The package also has two useful execution architectures. Subprocess children provide isolation and remain the established default. The pinned Pi SDK can run a real child session in-process, which is useful when a caller explicitly accepts same-process execution. Neither architecture should determine the child's permissions, prompt policy, model policy, batching, or result limits.
+ns also needs control over permission enforcement, prompt and result contracts, transcript evidence, progress presentation, and Pi-version integration. The existing in-house Runner-Subagent Substrate already provides subprocess isolation, JSON protocol handling, terminal capture, bounded results, and concurrency primitives; third-party projects are useful references but would not remove ownership of these policy and UX surfaces.
 
 ## Decision
 
-Register one model-visible Pi tool named `subagent`. Its stable input chooses an agent type, one or more tasks, an optional execution architecture, and model routing governed as described in the current-policy note below. The initial agent types are `explorer` and `task`.
+Pi registers exactly one model-visible typed tool named `subagent`. Its common input selects an Agent Type, supplies titled tasks, and may request an Execution Architecture or the closed `cheap` Routing Intent. There are no per-agent tools or compatibility aliases.
 
-Agent types are registered before the tool through an immutable typed Agent Registry. Each Agent Descriptor owns executable behavioral policy: task bounds and concurrency, permissions, prompt-context policy, model policy, result bounds, supported runtimes, and deterministic runtime preference. Markdown agent definitions continue to own child prompt and parent-steering prose and must declare `toolName: subagent`.
+An immutable typed **Agent Registry** contains **Agent Descriptors**. Each descriptor owns executable behavioral policy: task and concurrency bounds, timeout, tool permissions, prompt-context policy, model policy, result bounds, supported runtimes, and deterministic automatic runtime preference. Markdown agent definitions own prompt and steering prose only; they cannot grant executable permissions.
 
-Execution is selected independently through a Runtime Registry. Runtime adapters own subprocess or in-process mechanics; descriptors only declare compatibility and preference. Omitted or `auto` execution follows descriptor preference and initially chooses subprocess for both built-ins. An explicit supported runtime override is allowed, but cannot alter descriptor permissions. In-process execution uses the production Pi SDK with persistent child sessions, disables extensions to prevent recursion, retains skills and context-file discovery, and disables delegated prompt-template expansion.
+A separate **Runtime Registry** owns available Runtime Adapters and execution mechanics for `subprocess` and `in-process`. Omitted or `auto` execution follows descriptor preference deterministically; both built-ins initially prefer subprocess isolation. An explicit supported runtime may change how a child runs but can never add tools, relax task bounds, or otherwise weaken descriptor policy. Unsupported or unavailable combinations fail before launch.
 
-The migration is a hard cut: no `explore` or `forked_pi_agent` compatibility aliases remain. Lower-level `RunnerSubagent*`, `dispatchRunnerSubagent`, and `SubagentRuntime.dispatch` APIs remain valid substrate vocabulary and interfaces for direct consumers, including terminal-capture users.
+The built-in `explorer` descriptor permits bounded parallel read-only reconnaissance. Read-only behavior is enforced by its tool allowlist, not by prompting; if shell-like reconnaissance is needed, add a vetted read-only tool rather than admitting `bash`. The built-in `task` descriptor permits exactly one focused shared-worktree task. Results are bounded in parent context while the persistent child transcript remains authoritative, and orchestration owns concurrency and progress.
 
-## Current model-routing policy
+The model-visible routing contract is closed. Implementation task children inherit the parent provider, model, and thinking policy by default. The only caller-selected down-route is `routing: "cheap"`, resolved before dispatch to an approved model within the same concrete provider; when no approved mapping exists, it inherits. Launch failure never authorizes reactive provider or model rerouting. Descriptor-owned explorer routing and trusted direct-consumer contracts remain separate typed policies.
 
-The original optional free-form model override has been superseded for this model-visible interface. Omission applies descriptor policy: implementation `task` children inherit the parent provider, model, and thinking policy, while explorers retain descriptor-owned cheap-or-inherit routing. The only caller-selected implementation route is the closed `routing: "cheap"` intent, resolved before dispatch to an approved model within the parent's concrete provider; missing mappings inherit, and launch failure never authorizes reactive rerouting. Trusted lower-level `dispatchRunnerSubagent` consumers may retain explicit typed model mechanics for separate contracts.
+The unified tool is built in-house on the Runner-Subagent Substrate. Lower-level `RunnerSubagent*`, `dispatchRunnerSubagent`, and `SubagentRuntime.dispatch` contracts remain valid for direct consumers, including terminal-capture users. Third-party implementations remain design references rather than dependencies so ns retains permission enforcement, protocol, prompt, transcript, bounded-preview, and UI control without adopting a larger delegation framework or a forked agent runtime.
 
 ## Consequences
 
-- The parent model sees one delegation interface and an explicit catalog of behavioral choices.
-- New agent types extend a typed startup registry instead of adding model-visible tools.
-- Agent policy and execution architecture can evolve independently, and runtime selection cannot weaken permissions.
-- Subprocess remains the automatic isolation default; explicit in-process execution has weaker fault isolation but equivalent descriptor policy.
-- The host tool context exposes its concrete model registry so an in-process adapter resolves the same normalized provider/model decision to a Pi SDK model without casting a neutral model summary.
-- Agent definition identity changes require a restart because the tool schema is startup-bound; prompt prose is reloaded for the selected agent at execution time.
-- Existing prompts, skills, docs, and tests must migrate in one hard cut because aliases would preserve ambiguous routing language.
-- The unified tool preserves the pre-unification abnormal-completion UI notification at the tool layer: when any dispatched task ends without final text, the host UI is notified once per call.
+- The model sees one stable delegation interface and a typed catalog of behavioral choices.
+- New Agent Types extend the startup registry rather than adding visible tools; schema identity changes require restart.
+- Behavioral policy and execution architecture evolve independently, with equivalent descriptor enforcement across runtimes.
+- Subprocess provides the automatic isolation default. Explicit in-process execution accepts weaker fault isolation, disables extension recursion and delegated prompt-template expansion, and retains normal skills, context discovery, and persistent session evidence.
+- Fleet visibility is session-local and is not a durable job database.
+- The package owns Pi integration churn and orchestration code in exchange for precise policy, result, transcript, and presentation contracts.
 
-## Considered options
+## Alternatives
 
-- **Keep separate tools:** rejected because every agent type would enlarge the model-visible surface and duplicate orchestration.
-- **Require callers to choose a runtime:** rejected because most callers want behavioral delegation, not an architecture decision; `auto` preserves a safe deterministic default.
-- **Let the host choose runtime without an override:** rejected because explicit in-process testing and advanced same-process use are legitimate while still subject to descriptor policy.
-- **Scan a Markdown directory to discover agents:** rejected because prose cannot safely encode executable permissions, concurrency, retry policy, and runtime compatibility. Registration must be typed and immutable.
-- **Retain compatibility aliases:** rejected because the package is private and unreleased and aliases would keep obsolete routing concepts alive.
-- **Use agent-specific public option unions:** rejected because the common tool should stay agent-neutral; descriptors enforce policy rather than growing a public options bag.
-
-## Open questions
-
-Additional agent types may prove that the descriptor policy vocabulary needs another capability. Such a change should extend the typed descriptor deliberately without introducing agent-specific fields into the model-visible input.
+- **One model-visible tool per agent:** rejected because it duplicates orchestration and grows the model surface.
+- **Runtime-selected permissions or mandatory runtime choice:** rejected because execution mechanics must not determine behavior or burden ordinary callers.
+- **Markdown-defined executable policy:** rejected because permissions and bounds require typed validation and immutable registration.
+- **Adopt a third-party delegation framework:** rejected because available projects add incompatible Pi coupling or broader frameworks while leaving ns-specific policy and UX fork-owned.
+- **Free-form model overrides or failure fallback:** rejected because routing authority must remain closed, provider-local, and decided before launch.

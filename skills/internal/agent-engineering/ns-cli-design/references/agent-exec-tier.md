@@ -9,7 +9,7 @@ for AI agents", Speakeasy, Agent Layer (see the survey).
 
 - **Schema-first results.** Every agent-facing command returns a typed result
   with a `resultSchema`. `--json-schema` publishes the real machine-envelope
-  shape (ADR 0011; `buildMachineEnvelopeSchema` / `machineEnvelopeSchema`). Docs,
+  shape (ADR 0010; `buildMachineEnvelopeSchema` / `machineEnvelopeSchema`). Docs,
   help, schema, and skill prose must agree.
 - **One stable envelope.** `--format json` emits the camelCase discriminated
   envelope: `status` (`ok` | `negative` | `failure` | `usageError`), `exitCode`,
@@ -31,12 +31,12 @@ for AI agents", Speakeasy, Agent Layer (see the survey).
   failure schema for stable consumers.
 - **Usage errors are enveloped.** Modeled-argument / Zod validation failures
   return a `usageError` envelope with structured issue data, not bare stderr
-  (ADR 0011). Use `requireInteractiveOrUsageError` / handler-returned
+  (ADR 0010). Use `requireInteractiveOrUsageError` / handler-returned
   `usageError(...)` for missing-authorization in non-interactive mode.
 - **No prompts in the agent path.** Agent/`exec` commands must never block on a
   prompt. For a hidden `exec` command that performs an external/destructive write,
   the required operation arguments themselves are sufficient explicit intent
-  (ADR 0015 #2) — a separate `--yes`/confirmation flag is not required (e.g.
+  (ADR 0014) — a separate `--yes`/confirmation flag is not required (e.g.
   `ns address exec reply-review-thread`). Where a command does gate on a flag,
   fail fast non-interactively with a `usageError` naming it rather than prompting.
   This carve-out is scoped to agent-only hidden `exec`; human-facing Tier 2

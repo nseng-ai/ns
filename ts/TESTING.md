@@ -135,7 +135,7 @@ Use this remediation hierarchy when a guard fires:
 ## Integration boundary guidance
 
 Use integration tests for coverage that intentionally exercises real adapters or runtime boundaries, such
-as cold Node CLI/import smoke tests, real Git repositories, sqlite-backed fixtures, real ji CLI extension
+as cold Node CLI/import smoke tests, real Git repositories, sqlite-backed fixtures, real ns CLI extension
 discovery/import, or other subprocess or filesystem-heavy behavior that should remain available but not
 slow the default path.
 
@@ -166,13 +166,13 @@ real-boundary compatibility and wiring.
 Computationally expensive smoke tests belong in the integration lane when they primarily prove
 compatibility, bootability, real module importability, real adapter wiring, or runtime behavior rather
 than localized business logic. Examples include cold Node/runtime CLI smokes, direct Jiti or workspace
-package import-compatibility smokes, real ji extension loader discovery/import, and real
+package import-compatibility smokes, real ns extension loader discovery/import, and real
 Git/sqlite/subprocess/backend smokes. Keep the default lane for pure resolver or alias-selection logic,
 fake-driven behavior, cheap metadata parsing/discovery that does not import modules, and localized
 command behavior through package-owned fakes.
 
 Real CLI extension discovery/import is an integration boundary. Tests that create a temporary project with
-`.ns/extensions`, invoke `runCli()`, and rely on the ji loader to scan manifests and dynamically import
+`.ns/extensions`, invoke `runCli()`, and rely on the ns loader to scan manifests and dynamically import
 extension modules through `jiti` belong in `test/integration/` unless the test is explicitly about cheap
 metadata-only discovery that does not import modules.
 
@@ -212,10 +212,10 @@ Default-path tests should prefer small fake-driven seams:
 - Keep real Git, Graphite/sqlite, network, host-tool discovery, cold Node runtime, subprocess, and
   wall-clock behavior out of the default lane unless the test is a deliberately cheap user-facing scenario
   and there is no narrower boundary smoke to preserve the same confidence.
-- For ji extension command behavior, test in the package that owns the command implementation. For the
+- For ns extension command behavior, test in the package that owns the command implementation. For the
   grouped flow commands, `@nseng-ai/flow` owns direct behavior tests: import package-owned command objects
   such as `flowCpCommand`, execute them with a fake `NsExtensionApi`, scripted command runner, scripted
-  text generation, and inert temp files, then keep a small ji integration smoke proving the checked-in
+  text generation, and inert temp files, then keep a small ns integration smoke proving the checked-in
   `.ns/extensions/flow` adapter manifest is discoverable/loadable through the real CLI loader.
 - Account for complementary confidence claims: default scenarios should assert application behavior
   through fakes, while representative integration tests should prove each distinct real boundary surface.
@@ -224,7 +224,7 @@ Default-path tests should prefer small fake-driven seams:
 
 ## Deterministic time convention
 
-Production code that reads wall-clock time or schedules/cancels work should expose ji time seams first:
+Production code that reads wall-clock time or schedules/cancels work should expose ns time seams first:
 use `Clock` from `@nseng-ai/foundation/clock` for wall-clock reads and `TimerScheduler` from `@nseng-ai/foundation/timers`
 for timeouts, intervals, or awaited delays. Pi host background timers should use `unrefTimerScheduler` so timer work does
 not keep the process alive. Raw timers belong in the timer adapter modules or narrowly justified

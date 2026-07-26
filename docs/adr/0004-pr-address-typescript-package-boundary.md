@@ -1,4 +1,4 @@
-# ADR 0004: pr-address TypeScript Package Boundary
+# ADR 0004: PR Feedback and GitHub Package Boundary
 
 ## Status
 
@@ -6,36 +6,27 @@ Accepted
 
 ## Context
 
-`pr-address` is the first production vertical slice of the broader sdl TypeScript migration. Its public contract spans the skill wrapper, standalone `pr-address` CLI, hidden-but-invocable `pr-address exec ...` operations, JSON envelopes, payload artifacts, mutation helpers, scenario tests, and golden fixtures.
-
-The migration needs a TypeScript package boundary before individual operations are ported. The boundary must let local users exercise the new CLI shape without claiming operation parity too early or requiring unpublished npm distribution mechanics.
+PR Feedback owns ns workflows for finding pull requests, collecting feedback and checks, and mutating review threads. Those workflows need GitHub protocol machinery, but reusable GraphQL, pagination, normalization, and status-rollup mechanics are not PR Feedback domain policy.
 
 ## Decision
 
-- Create `@sdl/pr-address` in `ts/packages/pr-address`.
-- Preserve the public binary name `pr-address`, backed by `ts/packages/pr-address/src/cli.ts` and executable directly by Node.
-- Make the local checkout wrapper default to the TypeScript scaffold.
-- Delegate unported `pr-address exec ...` operations directly to the legacy Python CLI with the same arguments, stdin, stdout, stderr, and exit code.
-- Keep `sdl pr-address ...` TypeScript compatibility deferred; the existing Python plugin path remains the compatibility path for now.
-- Keep installed/prod behavior on the pinned Python package for now; npm publishing and installed-skill TypeScript cutover are deferred.
+`@nseng-ai/pr-feedback` owns the PR Feedback extension, the `ns address exec ...` Command Face, and the curated `@nseng-ai/pr-feedback/api` extension package API.
+
+The package API owns the consumer-facing seam: `PrAddressGithubGateway`, the narrowed Git seam, and the PR lookup, review, discussion-comment, review-thread, mutation, feedback, and check payload vocabulary needed by in-process consumers. Consumers import that vocabulary from `@nseng-ai/pr-feedback/api`, not from command schemas, Pi presentation, private source, or lower GitHub packages.
+
+Reusable GitHub protocol mechanics live below the extension in `@nseng-ai/extension-kit/github/*`, including the canonical provider gateway, real adapter, GraphQL and pagination machinery, normalization, and generic PR-status rollups. PR Feedback may project lower DTOs through its package API, but dependency direction is always PR Feedback → Extension Kit; lower GitHub mechanics never depend on PR Feedback.
+
+This boundary does not create a generic GitHub extension. GitHub is an external protocol used by multiple domains, while PR Feedback owns the domain-specific workflow and seam.
 
 ## Consequences
 
-This enables incremental operation ports behind a stable TypeScript package and CLI boundary. It avoids broad command-runtime framework work before repeated seams are proven, while maintaining local workflow compatibility through a short-lived Python fallback.
+- PR Feedback can evolve its workflow and consumer contract without exposing its command internals.
+- Lower GitHub mechanics remain reusable and policy-free.
+- Command-facing slices may be added incrementally without requiring a separate binary or generic runtime framework.
 
-The fallback creates temporary duplication, including the Python package version pin in the shell wrapper and TypeScript fallback. That duplication should be removed when operation parity and distribution cutover retire the fallback.
+## Alternatives
 
-## Rejected Alternatives
-
-- **Documentation-only slice:** would not prove CLI entrypoint, wrapper, or fallback routing behavior.
-- **Broad runtime framework first:** risks overfitting a clinkr replacement before actual operation ports reveal repeated seams.
-- **TypeScript plugin bridge now:** expands scope before standalone CLI routing is proven.
-- **Python plugin shim now:** adds another compatibility layer without advancing the TypeScript standalone boundary.
-- **npm prod default now:** requires distribution work for unreleased software before local behavior needs it.
-- **No runtime fallback:** would break unported operation behavior during the migration window.
-
-## Update
-
-The migration later moved again: the active package is now `@sdl/address` in `ts/packages/capabilities/address`, and the current command face is `sdl address exec ...`. The older standalone TypeScript `pr-address` CLI and `just install-pr-address` shim are no longer installed. The Python fallback described above no longer exists.
-
-(amended by ADR 0029: the package is now `@nseng-ai/pr-feedback` at `ts/packages/capabilities/pr-feedback`; the `address exec ...` command face is unchanged.)
+- **Generic GitHub extension:** rejected because no shared GitHub product domain justifies one.
+- **PR Feedback seam in lower infrastructure:** rejected because it would strand extension vocabulary below its owner.
+- **Consumers importing the lower provider directly:** rejected because it bypasses the curated extension package API.
+- **Compatibility binaries, shims, or legacy runtime fallbacks:** rejected; the pre-public system uses one current package and Command Face.
