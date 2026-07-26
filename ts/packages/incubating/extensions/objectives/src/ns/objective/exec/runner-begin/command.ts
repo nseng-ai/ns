@@ -1,16 +1,18 @@
-import type { ClinkrCommandDefinition, ClinkrCommandMetadata } from "@nseng-ai/clinkr";
+import type { ClinkrCommandDefinition } from "@nseng-ai/clinkr";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
+import { z } from "zod";
 
-import type {
+import {
+	renderRunnerBegin,
 	runnerBeginRequestSchema,
-	RunnerBeginFailureData,
-	RunnerBeginResult,
+	runnerBeginResultSchema,
+	runRunnerBegin,
+	type RunnerBeginFailureData,
+	type RunnerBeginResult,
 } from "../../../../runner/begin.ts";
 import type { ArgumentUsageErrorData } from "../../../../runner/preconditions.ts";
-
-export function metadata(): ClinkrCommandMetadata {
-	return { description: COMMAND_DESCRIPTION };
-}
+import { objectiveNsCommand } from "../../../objective-command.ts";
+import { createNsObjectiveRunnerCoreContext } from "../../../runner-context.ts";
 
 export async function command(): Promise<
 	ClinkrCommandDefinition<
@@ -22,25 +24,15 @@ export async function command(): Promise<
 		ArgumentUsageErrorData
 	>
 > {
-	const [{ z }, { objectiveNsCommand }, operation, { createNsObjectiveRunnerCoreContext }] =
-		await Promise.all([
-			import("zod"),
-			import("../../../objective-command.ts"),
-			import("../../../../runner/begin.ts"),
-			import("../../../runner-context.ts"),
-		]);
 	return objectiveNsCommand({
-		schema: operation.runnerBeginRequestSchema,
-		resultSchema: operation.runnerBeginResultSchema,
+		schema: runnerBeginRequestSchema,
+		resultSchema: runnerBeginResultSchema,
 		failureSchema: z.any(),
 		usageErrorSchema: z.any(),
 		positionals: { slug: { position: 0 } },
 		createContext: createNsObjectiveRunnerCoreContext,
-		handler: operation.runRunnerBegin,
-		renderHuman: operation.renderRunnerBegin,
-		renderMarkdown: operation.renderRunnerBegin,
+		handler: runRunnerBegin,
+		renderHuman: renderRunnerBegin,
+		renderMarkdown: renderRunnerBegin,
 	});
 }
-
-const COMMAND_DESCRIPTION =
-	"Check preconditions and emit step facts plus the subagent prompt for one decomposed Objective Runner step (ADR 0024).";

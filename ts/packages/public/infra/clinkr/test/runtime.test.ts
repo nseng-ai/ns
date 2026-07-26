@@ -69,17 +69,17 @@ async function runApp(app: Awaited<ReturnType<typeof createProbeApp>>, argv: str
 }
 
 describe("immutable Clinkr runtime", () => {
-	test("builds defaults eagerly, loads only the selected named route, and caches success", async () => {
+	test("loads only the selected route and caches success", async () => {
 		const loads: string[] = [];
 		const app = await createProbeApp(loads);
-		expect(loads).toEqual(["default"]);
+		expect(loads).toEqual([]);
 
 		const first = await runApp(app, ["one"]);
 		const second = await runApp(app, ["first"]);
 
 		expect(first).toMatchObject({ code: 0, stdout: "first\n", context: ["first"] });
 		expect(second).toMatchObject({ code: 0, stdout: "first\n", context: ["first"] });
-		expect(loads).toEqual(["default", "first"]);
+		expect(loads).toEqual(["first"]);
 	});
 
 	test("loads nested groups and their eager defaults only along the selected path", async () => {
@@ -126,7 +126,7 @@ describe("immutable Clinkr runtime", () => {
 		expect(help.stdout).not.toContain("second");
 		expect(completion.candidates.map((candidate) => candidate.value)).toContain("first");
 		expect(completion.candidates.map((candidate) => candidate.value)).not.toContain("second");
-		expect(loads).toEqual(["default"]);
+		expect(loads).toEqual([]);
 	});
 
 	test("does not infer aliases for immutable app routes", async () => {
@@ -261,7 +261,7 @@ describe("immutable Clinkr runtime", () => {
 		const app = await createProbeApp(loads);
 		const result = await runApp(app, ["--version"]);
 		expect(result).toMatchObject({ code: 0, stdout: "1.0.0\n" });
-		expect(loads).toEqual(["default"]);
+		expect(loads).toEqual([]);
 	});
 
 	test("retains the legacy Commander runtime only as an internal lowering target", async () => {
