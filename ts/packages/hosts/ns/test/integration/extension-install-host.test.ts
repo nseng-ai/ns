@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { commandSucceeded, runCommand } from "@nseng-ai/foundation/exec";
-import { installExtensionResultSchema } from "@nseng-ai/ns-init";
-import { nsExtensionInstallCommand } from "@nseng-ai/ns-init/ns/commands/extension-install";
-import { nsExtensionUninstallCommand } from "@nseng-ai/ns-init/ns/commands/extension-uninstall";
+import { installExtensionResultSchema } from "../../src/init/index.ts";
+import { nsExtensionInstallCommand } from "../../src/init/ns/commands/extension-install.ts";
+import { nsExtensionUninstallCommand } from "../../src/init/ns/commands/extension-uninstall.ts";
 
 import { runNsCli } from "../../src/cli/index.ts";
 import {

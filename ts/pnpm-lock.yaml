@@ -173,9 +173,9 @@ importers:
       '@nseng-ai/handoffs':
         specifier: workspace:*
         version: link:../../../ts/packages/incubator/handoffs
-      '@nseng-ai/harness-artifacts':
+      '@nseng-ai/ns':
         specifier: workspace:*
-        version: link:../../../ts/packages/incubator/harness-artifacts
+        version: link:../../../ts/packages/hosts/ns
       '@nseng-ai/objectives':
         specifier: workspace:*
         version: link:../../../ts/packages/incubator/objectives
@@ -241,21 +241,24 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
         version: 0.80.5(ws@8.21.0)(zod@4.4.3)
-      '@nseng-ai/branch-context':
+      '@nseng-ai/clinkr':
         specifier: workspace:*
-        version: link:../../incubator/branch-context
-      '@nseng-ai/harness-artifacts':
+        version: link:../../infra/clinkr
+      '@nseng-ai/extension-kit':
         specifier: workspace:*
-        version: link:../../incubator/harness-artifacts
-      '@nseng-ai/ns-init':
+        version: link:../../extension-kit
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../incubator/ns-init
+        version: link:../../infra/foundation
       '@nseng-ai/sdk':
         specifier: workspace:*
         version: link:../../sdk
       jiti:
         specifier: 'catalog:'
         version: 2.7.0
+      smol-toml:
+        specifier: 'catalog:'
+        version: 1.6.1
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -379,27 +382,6 @@ importers:
         specifier: workspace:*
         version: link:../../hosts/pi
 
-  packages/incubator/harness-artifacts:
-    dependencies:
-      '@nseng-ai/clinkr':
-        specifier: workspace:*
-        version: link:../../infra/clinkr
-      '@nseng-ai/extension-kit':
-        specifier: workspace:*
-        version: link:../../extension-kit
-      '@nseng-ai/foundation':
-        specifier: workspace:*
-        version: link:../../infra/foundation
-      '@nseng-ai/sdk':
-        specifier: workspace:*
-        version: link:../../sdk
-      smol-toml:
-        specifier: 'catalog:'
-        version: 1.6.1
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
   packages/incubator/herdr:
     dependencies:
       '@nseng-ai/branch-context':
@@ -436,27 +418,6 @@ importers:
       '@nseng-ai/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
-
-  packages/incubator/ns-init:
-    dependencies:
-      '@nseng-ai/clinkr':
-        specifier: workspace:*
-        version: link:../../infra/clinkr
-      '@nseng-ai/extension-kit':
-        specifier: workspace:*
-        version: link:../../extension-kit
-      '@nseng-ai/foundation':
-        specifier: workspace:*
-        version: link:../../infra/foundation
-      '@nseng-ai/harness-artifacts':
-        specifier: workspace:*
-        version: link:../harness-artifacts
-      '@nseng-ai/sdk':
-        specifier: workspace:*
-        version: link:../../sdk
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
 
   packages/incubator/objectives:
     dependencies:

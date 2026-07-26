@@ -17,6 +17,7 @@ const sourceManifest = JSON.parse(await readFile(sourceManifestPath, "utf8"));
 const workspaceManifest = JSON.parse(await readFile(resolve(workspaceRoot, "package.json"), "utf8"));
 const workspaceYaml = await readFile(resolve(workspaceRoot, "pnpm-workspace.yaml"), "utf8");
 const publishExports = {
+	"./api": "./api/index.js",
 	"./cli": "./cli/index.js",
 	"./sdk": "./sdk/sdk.js",
 	"./sdk/cli": "./sdk/cli.js",
@@ -32,14 +33,10 @@ const publishBinDir = dirname(publishBin);
 
 await rm(publishRoot, { recursive: true, force: true });
 await mkdir(publishBinDir, { recursive: true });
-await mkdir(resolve(publishBinDir, "prompts"), { recursive: true });
+await mkdir(resolve(publishRoot, "api"), { recursive: true });
 await mkdir(resolve(publishRoot, "cli"), { recursive: true });
 await mkdir(resolve(publishRoot, "sdk"), { recursive: true });
 await copyFile(bundledCli, publishBin);
-await copyFile(
-	resolve(packageRoot, "dist", "bundle", "prompts", "branch-context-impl.md"),
-	resolve(publishBinDir, "prompts", "branch-context-impl.md"),
-);
 await copyFile(readmePath, resolve(publishRoot, "README.md"));
 for (const exportPath of Object.values(publishExports)) {
 	await copyFile(resolve(packageRoot, "dist", "bundle", exportPath.slice(2)), resolve(publishRoot, exportPath.slice(2)));
@@ -78,14 +75,9 @@ function assertSourceManifest(manifest, workspaceManifest) {
 	if (manifest.bin !== undefined) {
 		throw new Error("@nseng-ai/ns source manifest must not advertise a bin; the publish artifact adds it.");
 	}
-	if (
-		!Array.isArray(manifest.files) ||
-		!manifest.files.includes("bin") ||
-		!manifest.files.includes("cli") ||
-		!manifest.files.includes("sdk") ||
-		!manifest.files.includes("README.md")
-	) {
-		throw new Error("@nseng-ai/ns source manifest files must include bin, cli, sdk, and README.md.");
+	const requiredFiles = ["api", "bin", "cli", "sdk", "README.md"];
+	if (!Array.isArray(manifest.files) || requiredFiles.some((entry) => !manifest.files.includes(entry))) {
+		throw new Error(`@nseng-ai/ns source manifest files must include ${requiredFiles.join(", ")}.`);
 	}
 	for (const [subpath, sourceTarget] of Object.entries(manifest.exports ?? {})) {
 		if (publishExports[subpath] === undefined) {

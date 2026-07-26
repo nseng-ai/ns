@@ -16,7 +16,7 @@
     "@nseng-ai/flow": "workspace:*",
     "@nseng-ai/foundation": "workspace:*",
     "@nseng-ai/handoffs": "workspace:*",
-    "@nseng-ai/harness-artifacts": "workspace:*",
+    "@nseng-ai/ns": "workspace:*",
     "@nseng-ai/objectives": "workspace:*",
     "@nseng-ai/sdk": "workspace:*",
     "zod": "catalog:"

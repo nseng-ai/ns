@@ -1,4 +1,4 @@
-import { transformSkillFrontmatter } from "@nseng-ai/harness-artifacts/api";
+import { transformSkillFrontmatter } from "@nseng-ai/ns/api";
 import { diagnosticsFor, implicationsFor, inferPolicy } from "./policy.ts";
 import { commandBackedSkillSurface } from "./replacement-registry.ts";
 import type {
