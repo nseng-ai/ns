@@ -57,7 +57,6 @@ import {
 	collectViolations,
 	type SourceRuleViolation,
 } from "@internal/typescript-style-guard/source-rules";
-import { collectTierDirectoryProjectionViolations } from "@internal/typescript-style-guard/tier-directory-projection";
 import { collectPackageTierLayeringViolations } from "@internal/typescript-style-guard/tier-layering";
 import { collectSubpackageDeclarationConformanceViolations } from "@internal/typescript-style-guard/subpackage-conformance";
 import {
