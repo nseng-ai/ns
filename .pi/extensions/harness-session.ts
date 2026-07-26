@@ -1,3 +1,7 @@
-import harnessSessionExtension from "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/kit/sessions/harness-session.ts";
+import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
+
+const harnessSessionExtension = await importTypeScriptWorkspaceDefault(
+	"@nseng-ai/pi-runtime/sessions/harness-session",
+);
 
 export default harnessSessionExtension;

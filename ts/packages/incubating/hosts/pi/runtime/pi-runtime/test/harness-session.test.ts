@@ -5,7 +5,7 @@ import {
 	shellSingleQuote,
 	type ExtensionAPI,
 	type ToolCallResult,
-} from "../src/kit/sessions/harness-session.ts";
+} from "../src/core/sessions/harness-session.ts";
 
 interface TestSessionContext {
 	sessionManager: {

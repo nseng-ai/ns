@@ -1,5 +1,6 @@
 import { lstat, mkdir, readFile, realpath, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { parseSkillFrontmatterBlock, transformSkillFrontmatter } from "@nseng-ai/ns/api";
 import { commandBackedSkillSurface } from "./replacement-registry.ts";
 import { diagnosticsFor, implicationsFor, inferPolicy } from "./policy.ts";
@@ -127,7 +128,7 @@ export class NodeSkillExposureGateway implements SkillExposureGateway {
 			managedSidecar: sidecar === "managed",
 			sidecarState: sidecar,
 			piExcluded: settings.exclusions.includes(`-skills/${resolved.skill}`),
-			...(replacementSurface === undefined ? {} : { replacementSurface }),
+			...optionalEntry("replacementSurface", replacementSurface),
 			replacementVerified: replacementSurface !== undefined,
 		};
 		const policy = inferPolicy(facts);

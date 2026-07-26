@@ -15,6 +15,7 @@
 		"./ns/commands/exec-match": "./src/ns/commands/exec-match.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts",
+		"./pi/claude-extension": "./src/pi/claude-extension.ts",
 		"./pi/handoff-launch": "./src/pi/handoff-launch.ts"
 	},
 	"files": [

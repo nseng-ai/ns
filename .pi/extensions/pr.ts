@@ -1,6 +1,8 @@
-import prExtension from "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/core/pr/extension.ts";
 import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
 
+const prExtension = await importTypeScriptWorkspaceDefault(
+	"@nseng-ai/pi-runtime/core/pr/extension",
+);
 const prFeedbackWatchExtension = await importTypeScriptWorkspaceDefault(
 	"@internal/pi-tools/pr-feedback-watch/extension",
 );

@@ -1,3 +1,7 @@
-import modelShortcutExtension from "../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/core/model-shortcuts/extension.ts";
+import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
+
+const modelShortcutExtension = await importTypeScriptWorkspaceDefault(
+	"@nseng-ai/pi-runtime/core/model-shortcuts/extension",
+);
 
 export default modelShortcutExtension;

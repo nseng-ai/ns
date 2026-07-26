@@ -4,6 +4,7 @@
 	"type": "module",
 	"exports": {
 		"./commands/ack": "./src/commands/ack.ts",
+		"./commands/cli-command-live-progress": "./src/commands/cli-command-live-progress.ts",
 		"./commands/args": "./src/commands/args.ts",
 		"./commands/events": "./src/commands/events.ts",
 		"./commands/helpers": "./src/commands/helpers.ts",
@@ -38,7 +39,10 @@
 		"./shared/command-exec": "./src/kit/shared/command-exec.ts",
 		"./shared/message-delivery": "./src/runtime/message-delivery.ts",
 		"./worktree-status": "./src/worktree-status/index.ts",
-		"./worktree-status/extension": "./src/worktree-status/extension.ts"
+		"./worktree-status/extension": "./src/worktree-status/extension.ts",
+		"./sessions/harness-session": "./src/core/sessions/harness-session.ts",
+		"./core/model-shortcuts/extension": "./src/core/model-shortcuts/extension.ts",
+		"./core/pr/extension": "./src/core/pr/extension.ts"
 	},
 	"scripts": {
 		"check": "tsc -p tsconfig.json",

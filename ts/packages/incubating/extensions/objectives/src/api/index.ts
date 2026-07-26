@@ -6,6 +6,7 @@
 import type { ObjectiveListResult } from "../core/operations/list-objectives.ts";
 
 export { createObjectiveClient } from "../core/objective-api-client.ts";
+export { OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE } from "../core/objective-runner-rules.ts";
 export type {
 	ObjectiveApiFailure,
 	ObjectiveCandidate,
