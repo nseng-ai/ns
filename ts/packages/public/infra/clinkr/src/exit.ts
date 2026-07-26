@@ -212,38 +212,51 @@ export function exitCodeForExit(exit: ClinkrExit<unknown>): 0 | 1 | 2 {
 	return EXIT_CODE_BY_TYPE[exit.type];
 }
 
+export interface ValidateOutcomeDataContext {
+	readonly commandPath: readonly string[];
+}
+
 export function validateOutcomeData(
 	exit: ClinkrExit<unknown>,
 	schemas: ClinkrOutcomeSchemas,
+	context?: ValidateOutcomeDataContext,
 ): ClinkrExit<unknown> {
-	const schema = schemaForExit(exit, schemas);
+	const schemaName = schemaNameForExit(exit);
+	const schema = schemas[schemaName];
+	const command = context === undefined ? "command" : `command '${context.commandPath.join(" ")}'`;
 	if (schema === undefined) {
 		if (Object.hasOwn(exit, "data")) {
 			throw new Error(
-				`clinkr: ${exit.type} outcome must be bodyless because its schema is omitted`,
+				`clinkr: ${command} returned status '${exit.type}' with data, but '${schemaName}' is omitted. Remove the data from the '${exit.type}' outcome, or configure '${schemaName}' (use z.any() for explicitly untyped data).`,
 			);
 		}
 		return exit;
 	}
 	if (!Object.hasOwn(exit, "data")) {
-		throw new Error(`clinkr: ${exit.type} outcome requires data because its schema is configured`);
+		throw new Error(
+			`clinkr: ${command} returned status '${exit.type}' without data, but '${schemaName}' is configured. Return data from the '${exit.type}' outcome that matches '${schemaName}', or omit '${schemaName}' for a bodyless outcome.`,
+		);
 	}
-	return { ...exit, data: schema.parse(exit.data) } as ClinkrExit<unknown>;
+	const parsed = schema.safeParse(exit.data);
+	if (!parsed.success) {
+		throw new Error(
+			`clinkr: ${command} returned status '${exit.type}' with data that does not match '${schemaName}'. Return data from the '${exit.type}' outcome that matches '${schemaName}', or change '${schemaName}' to describe the returned data (use z.any() for explicitly untyped data).`,
+			{ cause: parsed.error },
+		);
+	}
+	return { ...exit, data: parsed.data } as ClinkrExit<unknown>;
 }
 
-function schemaForExit(
-	exit: ClinkrExit<unknown>,
-	schemas: ClinkrOutcomeSchemas,
-): z.ZodType | undefined {
+function schemaNameForExit(exit: ClinkrExit<unknown>): keyof ClinkrOutcomeSchemas {
 	switch (exit.type) {
 		case "ok":
-			return schemas.resultSchema;
+			return "resultSchema";
 		case "negative":
-			return schemas.negativeSchema;
+			return "negativeSchema";
 		case "failure":
-			return schemas.failureSchema;
+			return "failureSchema";
 		case "usageError":
-			return schemas.usageErrorSchema;
+			return "usageErrorSchema";
 	}
 }
 

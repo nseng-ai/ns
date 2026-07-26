@@ -333,8 +333,11 @@ describe("project-local submit extension", () => {
 		const run = runWithFakes({ request: { yes: true } });
 
 		expect(await run.exit).toBe(2);
-		expect(await run.result).toMatchObject({
+		expect(await run.result).toEqual({
 			type: "usageError",
+			errorType: "usageError",
+			message:
+				"--yes only approves the stack-wide replacement of --regenerate-descriptions; pass both flags together or omit --yes.",
 			data: { invalidOption: "--yes", requiresOption: "--regenerate-descriptions" },
 		});
 		expect(formattedExecCalls(run.context)).toEqual([]);
@@ -345,9 +348,16 @@ describe("project-local submit extension", () => {
 		const run = runWithFakes({ request: { regenerateDescriptions: true } });
 
 		expect(await run.exit).toBe(2);
-		expect(await run.result).toMatchObject({
+		expect(await run.result).toEqual({
 			type: "usageError",
-			data: { missingFlag: "--yes" },
+			errorType: "usageError",
+			message:
+				"Confirmation is unavailable; pass --yes to replace the complete title and body of every PR in the submitted scope non-interactively.",
+			data: {
+				missingFlag: "--yes",
+				howToSupply:
+					"Pass --yes/-y to approve the stack-wide complete replacement without prompting.",
+			},
 		});
 		expect(run.stderr.join("")).toContain("--yes");
 		expect(formattedExecCalls(run.context)).toEqual([]);
@@ -361,8 +371,31 @@ describe("project-local submit extension", () => {
 		});
 
 		expect(await run.exit).toBe(1);
+		const result = await run.result;
+		expect(result.type).toBe("negative");
+		if (result.type === "negative") {
+			expect(result.data).toBe(result.message);
+			expect(result.message).toContain("no PR metadata was edited");
+		}
 		expect(run.stderr.join("")).toContain("no PR metadata was edited");
 		expect(formattedExecCalls(run.context)).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
+	});
+
+	test("early model-policy failure carries the same string as failure message and data", async () => {
+		const cwd = await mkdtemp(join(tmpdir(), "ns-flow-submit-model-policy-"));
+		tempDirs.push(cwd);
+		await writeFile(join(cwd, "ns.toml"), "[models.profiles.fast]\nmodel = 42\n", "utf8");
+		const run = runWithFakes({ cwd, request: { checks: false } });
+
+		expect(await run.exit).toBe(2);
+		const result = await run.result;
+		expect(result.type).toBe("failure");
+		if (result.type === "failure") {
+			expect(result.message).toContain("Invalid model policy in ns.toml");
+			expect(result.data).toBe(result.message);
+		}
+		expect(formattedExecCalls(run.context)).toEqual(["git rev-parse --show-toplevel"]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
@@ -1598,6 +1631,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 		const result = await run.result;
 		expect(result.type).toBe("negative");
 		if (result.type === "negative") {
+			expect(result.data).toBe(result.message);
 			expect(
 				result.message.startsWith(
 					"WARNING: This branch does not introduce any changes:\n▸ empty-branch-test",

@@ -230,6 +230,75 @@ describe("checked-in flow ns extension loading", () => {
 		expect(help.stderr.join("")).toBe("");
 	});
 
+	test("real loader preserves a failing submit check as a semantic negative result", async () => {
+		const cwd = await createFlowProject();
+		await appendFile(join(cwd, "ns.toml"), '\n[points]\n"flow.submit.pre" = ["just"]\n');
+		const run = runWithRealFlowExtension({
+			args: ["flow", "submit"],
+			cwd,
+			state: {
+				exec: [
+					{
+						match: "git rev-parse --show-toplevel",
+						result: { stdout: `${cwd}\n` },
+						isRepeatable: true,
+					},
+					{ match: "just", result: { code: 1, stderr: "check failed\n" } },
+				],
+			},
+		});
+
+		expect(await run.exit, run.stderr.join("")).toBe(1);
+		const answer = run.stdout.join("");
+		expect(answer.split("\n")[0]).toBe("NS_FLOW_SUBMIT_CHECK_FAILURE");
+		expect(answer).toContain("Pre-submit check failed (exit code 1).");
+		expect(answer).toContain("Command: just");
+		expect(answer).toContain("Submission was not attempted.");
+		expect(answer).toContain(
+			"Fix the failure, or rerun with --no-checks to skip pre-submit checks.",
+		);
+		expect(run.stderr.join("")).toBe("");
+		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "check failed\n" });
+		const execCalls = formattedExecCalls(run.context);
+		expect(execCalls).toContain("just");
+		expect(execCalls.some((call) => call.startsWith("gt submit"))).toBe(false);
+	});
+
+	test.each([
+		{ checkExit: 1, expectedStatus: "negative", expectedExit: 1 },
+		{ checkExit: 7, expectedStatus: "failure", expectedExit: 2 },
+	] as const)(
+		"real loader preserves submit check exit $checkExit as JSON $expectedStatus data",
+		async ({ checkExit, expectedStatus, expectedExit }) => {
+			const cwd = await createFlowProject();
+			await appendFile(join(cwd, "ns.toml"), '\n[points]\n"flow.submit.pre" = ["just"]\n');
+			const run = runWithRealFlowExtension({
+				args: ["flow", "submit", "--format", "json"],
+				cwd,
+				state: {
+					exec: [
+						{
+							match: "git rev-parse --show-toplevel",
+							result: { stdout: `${cwd}\n` },
+							isRepeatable: true,
+						},
+						{ match: "just", result: { code: checkExit, stderr: "check failed\n" } },
+					],
+				},
+			});
+
+			expect(await run.exit, run.stderr.join("")).toBe(expectedExit);
+			const envelope = parseJsonOutput(run);
+			expect(envelope).toMatchObject({
+				status: expectedStatus,
+				exitCode: expectedExit,
+				message: expect.stringContaining("NS_FLOW_SUBMIT_CHECK_FAILURE"),
+				data: expect.stringContaining("NS_FLOW_SUBMIT_CHECK_FAILURE"),
+			});
+			expect(envelope.data).toBe(envelope.message);
+		},
+	);
+
 	test.each(["--minimal", "-m"])(
 		"real loader rejects removed submit option %s before command or model calls",
 		async (option) => {

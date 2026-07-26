@@ -54,6 +54,8 @@ export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 	description: "Land the current PR or Graphite stack into trunk.",
 	schema: landSchema,
 	resultSchema: z.string(),
+	negativeSchema: z.string(),
+	failureSchema: z.string(),
 	renderHuman: (text) => text,
 	options: landCommandOptionSpecs(),
 	handler: async (ctx, request) => {
