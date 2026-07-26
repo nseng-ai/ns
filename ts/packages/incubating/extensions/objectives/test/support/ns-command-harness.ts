@@ -127,20 +127,35 @@ export function createFakeObjectiveNsApi(
 	return new FakeObjectiveNsApi(options);
 }
 
-export async function runObjectiveCommand<S extends NsCommandSchema, T>(
-	command: import("@nseng-ai/clinkr").ClinkrCommandDefinition<NsExtensionApi, S, T>,
+export async function runObjectiveCommand<
+	S extends NsCommandSchema,
+	TResult,
+	TNegative = TResult,
+	TFailure = TResult,
+	TUsageError = TResult,
+>(
+	command: import("@nseng-ai/clinkr").ClinkrCommandDefinition<
+		NsExtensionApi,
+		S,
+		TResult,
+		TNegative,
+		TFailure,
+		TUsageError
+	>,
 	request: unknown,
 	options: { api?: NsExtensionApi } = {},
-): Promise<ClinkrExit<T>> {
+): Promise<ClinkrExit<TResult, TNegative, TFailure, TUsageError>> {
 	const parsedRequest = command.schema.parse(request);
 	const exit = await command.handler(options.api ?? createFakeObjectiveNsApi(), parsedRequest);
-	if (!isClinkrExit<T>(exit)) {
+	if (!isClinkrExit<TResult, TNegative, TFailure, TUsageError>(exit)) {
 		throw new Error("Objective command returned a non-Clinkr result.");
 	}
 	return exit;
 }
 
-function isClinkrExit<T>(value: unknown): value is ClinkrExit<T> {
+function isClinkrExit<TResult, TNegative = TResult, TFailure = TResult, TUsageError = TResult>(
+	value: unknown,
+): value is ClinkrExit<TResult, TNegative, TFailure, TUsageError> {
 	if (typeof value !== "object" || value === null) return false;
 	const type = (value as { type?: unknown }).type;
 	return type === "ok" || type === "negative" || type === "failure" || type === "usageError";

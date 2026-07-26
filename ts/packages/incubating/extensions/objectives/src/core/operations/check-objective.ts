@@ -112,7 +112,7 @@ type CheckObjectiveStatus = CheckObjectiveResult["status"];
 export async function runCheckObjective(
 	ctx: ObjectiveCliContext,
 	request: CheckObjectiveRequest,
-): Promise<ClinkrExit<CheckObjectiveResult>> {
+): Promise<ClinkrExit<CheckObjectiveResult, CheckObjectiveResult, never, never>> {
 	const result = await checkObjective(ctx.storage, request.slug);
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
 	const slugValidationError = handleObjectiveSlugValidationErrors(result.value, request.slug);

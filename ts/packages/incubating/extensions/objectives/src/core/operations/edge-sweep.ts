@@ -43,7 +43,7 @@ export type ObjectiveEdgeSweepResult = z.infer<typeof objectiveEdgeSweepResultSc
 
 export async function runEdgeSweep(
 	storage: ObjectiveStorage,
-): Promise<ClinkrExit<ObjectiveEdgeSweepResult>> {
+): Promise<ClinkrExit<ObjectiveEdgeSweepResult, ObjectiveEdgeSweepResult, never, never>> {
 	const rootPresence = await storage.activeRootExists();
 	if (!rootPresence.ok) return failure(rootPresence.error.code, rootPresence.error.message);
 	const sweep = await sweepObjectiveEdgeLint(storage);

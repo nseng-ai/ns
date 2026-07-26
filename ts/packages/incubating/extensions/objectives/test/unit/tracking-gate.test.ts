@@ -83,6 +83,7 @@ describe("objective tracking-gate operation", () => {
 		);
 		const exit = await runTrackingGate(ctx, { slug: "flow-cleanup" });
 		if (exit.type !== "ok") throw new Error("expected ok exit");
+		if (exit.data === undefined) throw new Error("expected ok data");
 
 		expect(renderTrackingGate(exit.data)).toContain("Diff base: `master` via `master...HEAD`");
 		expect(renderTrackingGate(exit.data)).toContain("Objective files changed in branch diff: 1");

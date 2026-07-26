@@ -1,4 +1,11 @@
-import { failure, negative, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import {
+	failure,
+	negative,
+	usageError,
+	type ClinkrFailureExit,
+	type ClinkrNegativeExit,
+	type ClinkrUsageErrorExit,
+} from "@nseng-ai/clinkr";
 
 import { activeRecordRelativePath, isValidObjectiveSlug } from "../core/storage.ts";
 import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";
@@ -44,9 +51,19 @@ export function resolveRunnerStepIdentity(
 	return { type: "ok", slug: options.slug, mode: options.recover ? "recover" : "default" };
 }
 
-export function runnerPreconditionProblemExit<T>(
+/** Usage-error payload naming the malformed control-plane argument. */
+export interface ArgumentUsageErrorData {
+	readonly argument: string;
+}
+
+export type RunnerPreconditionProblemExit =
+	| ClinkrNegativeExit<never>
+	| ClinkrFailureExit<never>
+	| ClinkrUsageErrorExit<ArgumentUsageErrorData>;
+
+export function runnerPreconditionProblemExit(
 	problem: Exclude<RunnerPreconditionsResult, { type: "ok" }>,
-): ClinkrExit<T> {
+): RunnerPreconditionProblemExit {
 	if (problem.type === "usage-error") return usageError(problem.message, { argument: "slug" });
 	if (problem.type === "refused") return negative(problem.message);
 	return failure(problem.code, problem.message);
