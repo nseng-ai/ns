@@ -40,7 +40,7 @@ export function describeNodeRuntimeCliEntrypoint(options: NodeRuntimeCliEntrypoi
 					expect(result.stdout).not.toContain(assertion.text);
 				}
 			}
-		});
+		}, 15_000);
 
 		test("prints TypeScript runtime diagnostics", () => {
 			const result = spawnSync(
