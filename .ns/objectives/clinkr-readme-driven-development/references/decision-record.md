@@ -267,7 +267,7 @@ This is a hard clean break, not a compatibility layer or two public models. Migr
 
 ### Explicitly unresolved and unchanged
 
-`position` versus `index` and whether `md` remains a public format alias are still unresolved. Outcome, raw mounting, rendering, and completion-error decisions remain as recorded elsewhere in this document; approval of the foundational refactor does not silently settle or reopen them.
+Outcome, raw mounting, rendering, and completion-error decisions remain as recorded elsewhere in this document; approval of the foundational refactor did not silently settle or reopen them. Positional metadata and the Markdown format alias were subsequently settled in [Public-surface naming decisions](#public-surface-naming-decisions-2026-07-25).
 
 ## Filesystem-first authoring (2026-07-25)
 
@@ -304,7 +304,15 @@ Builders remain a public advanced escape hatch for unusual or programmatic topol
 
 The exact filesystem bootstrap/helper API used by `app.ts` is unresolved. README examples may show a coherent conceptual bootstrap only when clearly labeled provisional, while `command.ts` and `group.ts` exports should be concrete. Runtime discovery also creates a packaging constraint: route files and directories must ship intact. Bundled or single-file environments may need the builder escape hatch or a later dedicated adapter. This decision does not authorize a manifest fallback.
 
-`position` versus `index`, the `md` alias, and the remaining outcome, raw, rendering, and completion-error discussions remain unresolved.
+The remaining outcome, raw, rendering, and completion-error discussions remain unresolved. Positional metadata and the Markdown format alias were subsequently settled below.
+
+## Public-surface naming decisions (2026-07-25)
+
+Clinkr retains `position` as the positional-metadata field name. It is the established public spelling, accurately describes a positional argument's zero-based ordinal placement, and avoids an unmotivated rename during the clean break. The provisional README now uses `position`; reconciliation does not need an `index` migration.
+
+Clinkr also retains and documents `md` as an explicit alias for the canonical `markdown` format value. The alias is intentional and already has focused parsing, rendering, validation-text, and completion coverage. Reconciliation must preserve both the long spelling and alias rather than leaving `md` as undocumented behavior.
+
+These decisions settle only the two naming questions. They do not alter the remaining outcome, raw mounting, rendering, completion-error, or bootstrap-API discussions.
 
 ## Accepted implementation behavior
 
@@ -316,7 +324,9 @@ The following current behavior aligns with the settled contract and should not b
 - Markdown renderer support and its fallback to human rendering, then indented JSON;
 - handlers that do not directly receive output format;
 - application-controlled interaction passed through context;
-- static completion fallback after dynamic-provider failure.
+- static completion fallback after dynamic-provider failure;
+- positional metadata spelled `position`;
+- `md` accepted and documented as an alias for the canonical `markdown` format.
 
 ## Confirmed reconciliation mismatches
 
