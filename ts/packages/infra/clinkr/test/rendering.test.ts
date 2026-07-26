@@ -130,12 +130,12 @@ describe("renderHuman", () => {
 		const { group, renderCalls } = buildGroup("negative");
 		const run = await runForTest(group, ["act"], { context: null });
 		expect(run.exitCode).toBe(1);
-		expect(run.stdout).toBe("none\n");
-		expect(run.stderr).toBe("");
+		expect(run.stdout).toBe("");
+		expect(run.stderr).toBe("none\n");
 		expect(renderCalls()).toBe(0);
 	});
 
-	test("negative human override renders to stdout", async () => {
+	test("negative human override renders to stderr", async () => {
 		const group = new ClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "act",
@@ -145,8 +145,8 @@ describe("renderHuman", () => {
 		});
 		const run = await runForTest(group, ["act"], { context: null });
 		expect(run.exitCode).toBe(1);
-		expect(run.stdout).toBe("rendered negative\n");
-		expect(run.stderr).toBe("");
+		expect(run.stdout).toBe("");
+		expect(run.stderr).toBe("rendered negative\n");
 	});
 
 	test("is not called in json mode", async () => {
@@ -271,8 +271,8 @@ describe("renderMarkdown", () => {
 		});
 		const run = await runForTest(group, ["act", "--format", "markdown"], { context: null });
 		expect(run.exitCode).toBe(1);
-		expect(run.stdout).toBe("none\n");
-		expect(run.stderr).toBe("");
+		expect(run.stdout).toBe("");
+		expect(run.stderr).toBe("none\n");
 		expect(markdownCalls()).toBe(0);
 	});
 

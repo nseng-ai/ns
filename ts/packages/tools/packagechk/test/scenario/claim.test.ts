@@ -83,7 +83,7 @@ describe("packagechk claim commands", () => {
 		});
 
 		expect(run.code).toBe(1);
-		expect(run.stdout).toContain("pypi: taken");
+		expect(run.stderr).toContain("pypi: taken");
 		expect(registry.checkedNames("pypi")).toEqual([SAMPLE]);
 		expect(publisher.toolChecks).toBe(0);
 		expect(publisher.builtProjectDirs).toEqual([]);
@@ -206,7 +206,7 @@ describe("packagechk claim commands", () => {
 		});
 
 		expect(run.code).toBe(1);
-		expect(run.stdout).toContain("npm: taken");
+		expect(run.stderr).toContain("npm: taken");
 		expect(registry.checkedNames("npm")).toEqual([SAMPLE]);
 		expect(publisher.toolChecks).toBe(0);
 		expect(publisher.publishedProjectDirs).toEqual([]);

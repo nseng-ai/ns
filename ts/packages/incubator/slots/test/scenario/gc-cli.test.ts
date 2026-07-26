@@ -328,10 +328,10 @@ describe("slot gc CLI", () => {
 			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
 		});
 		expect(await human.exit).toBe(1);
-		expect(human.stderr.join("")).toBe("");
-		const stdout = human.stdout.join("");
-		expect(stdout).toContain("Slot gc completed with cleanup errors.");
-		expect(stdout).toContain(
+		expect(human.stdout.join("")).toBe("");
+		const stderr = human.stderr.join("");
+		expect(stderr).toContain("Slot gc completed with cleanup errors.");
+		expect(stderr).toContain(
 			"✗ Failed to force-delete local branch feature/closed: permission denied",
 		);
 	});

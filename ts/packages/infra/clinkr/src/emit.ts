@@ -53,11 +53,8 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 			break;
 		}
 		case "negative": {
-			// A negative result is an answer ("failed successfully"), not trouble: like `diff`
-			// (exit 1, differences on stdout) and `grep -c` (exit 1, `0` on stdout), it renders
-			// to stdout. stderr is reserved for failures, usage errors, and progress chatter.
 			const rendered = renderNegativeExit(exit, options);
-			options.io.stdout(`${rendered}\n`);
+			options.io.stderr(`${rendered}\n`);
 			break;
 		}
 		case "failure": {

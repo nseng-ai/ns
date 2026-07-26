@@ -52,11 +52,11 @@ describe("human mode", () => {
 		expect(run.stderr).toBe("");
 	});
 
-	test("negative writes the message to stdout and exits 1", async () => {
+	test("negative writes the message to stderr and exits 1", async () => {
 		const run = await runForTest(buildGroup(), ["no"], { context: null });
 		expect(run.exitCode).toBe(1);
-		expect(run.stdout).toBe("nothing to do\n");
-		expect(run.stderr).toBe("");
+		expect(run.stdout).toBe("");
+		expect(run.stderr).toBe("nothing to do\n");
 	});
 
 	test("failure writes an error-prefixed message to stderr and exits 2", async () => {

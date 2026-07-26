@@ -46,8 +46,8 @@ describe("packagechk CLI", () => {
 		const run = await runPackagechk([SAMPLE], { registryGateway: gateway });
 
 		expect(run.code).toBe(1);
-		expect(run.stderr).toBe("");
-		expect(splitLines(run.stdout)).toEqual(["pypi: available", "npm: taken", "brew: available"]);
+		expect(run.stdout).toBe("");
+		expect(splitLines(run.stderr)).toEqual(["pypi: available", "npm: taken", "brew: available"]);
 		expect(gateway.checkedNames("pypi")).toEqual([SAMPLE]);
 		expect(gateway.checkedNames("npm")).toEqual([SAMPLE]);
 		expect(gateway.checkedNames("brew")).toEqual([SAMPLE]);
@@ -145,7 +145,7 @@ describe("packagechk CLI", () => {
 
 		expect(run.code).toBe(1);
 		expect(requestedUrls).toEqual(["https://registry.npmjs.org/@sdl-io%2Fretros"]);
-		expect(run.stdout).toContain("https://www.npmjs.com/package/@sdl-io/retros");
+		expect(run.stderr).toContain("https://www.npmjs.com/package/@sdl-io/retros");
 	});
 
 	test("real gateway preserves validation and metadata behavior", async () => {
@@ -169,9 +169,9 @@ describe("packagechk CLI", () => {
 			await runPackagechk([SAMPLE, "--registry", "pypi"], { registryGateway: taken }),
 		).toMatchObject({
 			code: 1,
-			stdout:
+			stdout: "",
+			stderr:
 				"pypi: taken — latest 1.2.3 — Sample PyPI package — https://pypi.org/project/sample-name/\n",
-			stderr: "",
 		});
 
 		const invalid = await runPackagechk(["bad!name", "--registry", "pypi"], {
