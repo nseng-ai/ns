@@ -88,10 +88,7 @@ export type {
 	ObjectiveListResult,
 	ObjectiveStatusFilter,
 } from "../core/objective-list.ts";
-export type {
-	ReadObjectiveOptions,
-	ReadObjectiveResult,
-} from "../core/objective-read.ts";
+export type { ReadObjectiveOptions, ReadObjectiveResult } from "../core/objective-read.ts";
 export type { ObjectiveCliContext } from "../core/context.ts";
 export {
 	objectiveRunnerCumulativeSummaryV1Schema,

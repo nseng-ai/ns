@@ -1,7 +1,6 @@
-import { join } from "node:path";
-
 import { defineExtension } from "@nseng-ai/sdk";
 
+const { join } = await import("node:path");
 const { objectiveBundledArtifacts } = await import("./publish-artifacts.ts");
 
 const OBJECTIVES_INSTRUCTIONS = [

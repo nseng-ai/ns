@@ -4,10 +4,7 @@ import {
 	FakeObjectiveStorageGateway,
 	type FakeObjectiveRecordOptions,
 } from "../../src/core/fake-storage.ts";
-import {
-	objectiveEdgeLintChecks,
-	sweepObjectiveEdgeLint,
-} from "../../src/core/edge-lint.ts";
+import { objectiveEdgeLintChecks, sweepObjectiveEdgeLint } from "../../src/core/edge-lint.ts";
 import { splitObjectiveRecordDocument } from "../../src/core/record-frontmatter.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 import type { ObjectiveCheckItem } from "../../src/core/check-items.ts";

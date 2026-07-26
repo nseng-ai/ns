@@ -1,9 +1,6 @@
 import { formatZodIssue } from "@nseng-ai/foundation/primitives";
 
-import {
-	objectiveListResultSchema,
-	type ObjectiveListResult,
-} from "./objective-list.ts";
+import { objectiveListResultSchema, type ObjectiveListResult } from "./objective-list.ts";
 
 export interface ObjectiveListParseValid {
 	type: "valid";

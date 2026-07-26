@@ -5,7 +5,7 @@ This context captures domain language for the Objectives ns extension package: t
 ## Language
 
 **`ns objective` command surface**:
-The public ns-grouped Objective CLI surface — `ns objective ...` — whose commands `check`, `list`, and `show` view checked-in Objective records. The former top-level `bin.objective` executable is retired; the package's mountable command surface is the `./ns-extension` descriptor export plus the per-command `./ns/commands/*` exports, not a `command-face` export (none exists).
+The public ns-grouped Objective CLI surface — `ns objective ...` — whose commands `check`, `list`, and `show` view checked-in Objective records. The former top-level `bin.objective` executable is retired; the package's mountable command surface is the `./ns-extension` descriptor export pointing at the Clinkr-owned filesystem command directory `src/cli/`, not per-command exports or a `command-face` export (none exist).
 *Avoid*: Objective extension package API, hidden `exec` group, top-level `objective` binary, Objective record database, Pi command adapter
 
 **Checkout-local `ns objective list`**:
@@ -25,7 +25,7 @@ The structural **Record Frontmatter** lint in `ns objective check`: the per-slug
 *Avoid*: full-check sweep, prose-quality lint, blocked-state derivation, full-body record reads, edge mutation surface
 
 **Hidden `ns objective exec`**:
-The hidden `ns objective exec ...` command group of deterministic skill- and agent-facing fact helpers (`list-candidates`, `load-orientations`, `read-objective`, `runner-begin`, `runner-finish`, `runner-subagent-usage`, `tracking-gate`), kept out of the public human command surface and out of the extension package API. The visible `ns objective show` is the human-facing single-record detail sibling of the hidden `exec read-objective` filesystem reader, not a member of this group.
+The hidden `ns objective exec ...` command group of deterministic skill- and agent-facing fact helpers (`list-candidates`, `load-orientations`, `publication-bind`, `publication-publish`, `read-objective`, `runner-begin`, `runner-finish`, `runner-subagent-usage`, `tracking-gate`), kept out of the public human command surface and out of the extension package API. The visible `ns objective show` is the human-facing single-record detail sibling of the hidden `exec read-objective` filesystem reader, not a member of this group.
 *Avoid*: public human command, Objective extension package API, Markdown-meaning interpreter, stable scripting contract
 
 **Checked-in Objective record storage**:

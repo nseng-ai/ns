@@ -33,6 +33,7 @@
 		"tier": "extension",
 		"subpackages": [
 			"api",
+			"cli",
 			"core",
 			"runner",
 			"publication",

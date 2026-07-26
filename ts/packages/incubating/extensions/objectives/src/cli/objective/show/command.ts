@@ -35,10 +35,7 @@ import {
 import { readParsedObjectiveFrontmatter } from "../../../core/record-frontmatter-read.ts";
 import { relativeTime } from "../../../core/relative-time.ts";
 import { handleObjectiveSlugValidationErrors } from "../../../core/slug-validation-errors.ts";
-import type {
-	ObjectiveRecordDocumentReadResult,
-	ObjectiveStorage,
-} from "../../../core/storage.ts";
+import type { ObjectiveRecordDocumentReadResult, ObjectiveStorage } from "../../../core/storage.ts";
 import { objectiveNsCommand } from "../../../ns/objective-command.ts";
 
 export async function command() {
