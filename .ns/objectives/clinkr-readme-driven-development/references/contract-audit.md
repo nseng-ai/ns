@@ -161,18 +161,20 @@ The user approved filesystem-first authoring over the foundational app/builder/l
 - scope-time name/alias/reserved-name validation without constructing child definitions;
 - builders and relative terminal builder imports retained as the advanced lower-level seam;
 - fresh app creation per Foundation invocation after discovery;
-- coordinated clean-cut migration: establish the lower builder runtime, add the filesystem adapter and common public path, migrate Foundation, SDK/catalog routing, remaining CLIs/testing, delete obsolete routing/API, then promote the README.
+- the common bootstrap `createClinkrApp({ name, commandDirectory, version?, runtimeInfo?, completion? })`, with an absolute command-directory path such as `import.meta.dirname`, explicit app name, and invocation-owned context;
+- coordinated clean-cut migration: establish the lower builder runtime, add the filesystem adapter and common public path, migrate Foundation, SDK/catalog command selection, remaining CLIs/testing, delete obsolete command-dispatch/API paths, then promote the README.
 
-This approval authorizes direction, not TypeScript work in this documentation update. It does not authorize a compatibility layer, two routing implementations, manual application argv pre-routing, or a manifest fallback. The README leads with filesystem authoring and mentions builders only as a separately documented advanced escape hatch. Route files and directories must ship intact; bundling and single-file packaging remain an explicit risk that may require builders or a later adapter. The exact `app.ts` bootstrap API remains unsettled.
+This approval authorizes direction, not TypeScript work in this documentation update. It does not authorize a compatibility layer, two command-dispatch implementations, manual application argv pre-dispatch, or a manifest fallback. The README leads with filesystem command authoring and mentions builders only as a separately documented advanced escape hatch. Command/group files and directories must ship intact; bundling and single-file packaging remain an explicit risk that may require builders or a later adapter. The `app.ts` bootstrap API is settled in `references/decision-record.md`.
 
 Approved reconciliation clusters and remaining discussion gates:
 
 1. **Approved:** centralize all four status schemas, runtime validation, schema publication, and rendering ownership in Clinkr's command/outcome model.
 2. **Approved:** redesign the SDK adapter and direct callers before removing render overrides; eliminate SDK-owned duplicate validation and rendering policy.
-3. **Discussion-gated:** replace the hybrid raw path with opaque Commander mounting and reclassify every current raw caller.
-4. **Discussion-gated:** move completion failure observation to app policy while preserving static fallback.
-5. **Discussion-gated:** remove `ClinkrFailure` conversion after exhaustive usage confirmation.
-6. **Settled current behavior:** preserve the `position` spelling and documented `md` alias during reconciliation.
+3. **Approved:** expose the common filesystem command structure through `createClinkrApp`, require an absolute `commandDirectory`, keep context invocation-owned, and let Foundation create a fresh app after `prepareRun`.
+4. **Approved:** move completion-provider failure observation to optional `completion.onProviderError` app policy while preserving static fallback even when observation fails.
+5. **Discussion-gated:** replace the hybrid raw path with opaque Commander mounting and reclassify every current raw caller.
+6. **Discussion-gated:** remove `ClinkrFailure` conversion after exhaustive usage confirmation.
+7. **Settled current behavior:** preserve the `position` spelling and documented `md` alias during reconciliation.
 
 ## Audit conclusion
 
