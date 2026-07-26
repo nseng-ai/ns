@@ -139,7 +139,6 @@ describe("ns:objective:create command", () => {
 			{
 				skillName: "objective-create",
 				markdown: CREATE_SKILL_MARKDOWN,
-				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir, skillPath, skillDir }) => {
 				const result = await runObjectiveCreate({
@@ -177,7 +176,6 @@ describe("ns:objective:create command", () => {
 			{
 				skillName: "objective-create",
 				markdown: CREATE_SKILL_MARKDOWN,
-				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir, skillPath }) => {
 				const result = await runObjectiveCreate({ args: "", cwd: repoDir });
@@ -221,7 +219,6 @@ describe("ns:objective:create command", () => {
 			{
 				skillName: "objective-create",
 				markdown: CREATE_SKILL_MARKDOWN,
-				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir }) => {
 				const result = await runObjectiveCreate({

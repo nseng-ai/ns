@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { splitMarkdownFrontmatter } from "@nseng-ai/foundation/markdown-frontmatter";
-import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
+import { buildFencedTextBlock, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { NotifyLevel } from "../../runtime/tool-types.ts";
 import {
 	resolveExactSkillLookup,
@@ -47,7 +47,7 @@ export interface RepoSkillPathResolveOptions extends SkillLookupIo {
 	skillName: string;
 }
 
-export interface RepoSkillExpansionOptions extends SkillExpansionOptions {
+export interface RepoSkillExpansionOptions extends SkillExpansionOptions, SkillLookupIo {
 	cwd: string;
 	skillName: string;
 }
@@ -164,12 +164,26 @@ export async function resolveRepoSkillPath(options: RepoSkillPathResolveOptions)
 export async function expandRepoSkillBlock(
 	options: RepoSkillExpansionOptions,
 ): Promise<ExpandedSkillBlock> {
-	const skillPath = await resolveRepoSkillPath({ cwd: options.cwd, skillName: options.skillName });
+	const skillPath = await resolveRepoSkillPath({
+		cwd: options.cwd,
+		skillName: options.skillName,
+		...skillLookupIoOptions(options),
+	});
 	return expandSkillBlockFromPath({
 		skillName: options.skillName,
 		skillPath,
-		...(options.readTextFile === undefined ? {} : { readTextFile: options.readTextFile }),
+		...optionalEntry("readTextFile", options.readTextFile),
 	});
+}
+
+export async function requireRepoSkillBlock(
+	options: RepoSkillExpansionOptions,
+): Promise<ExpandedSkillBlock> {
+	try {
+		return await expandRepoSkillBlock(options);
+	} catch (error) {
+		throw requiredSkillError(options.skillName, error);
+	}
 }
 
 export async function expandSkillBlockFromPath(
@@ -226,21 +240,12 @@ export async function invokeRepoSkillPromptTurn(
 	const { host, ctx, skillName } = options;
 	await ctx.waitForIdle();
 
-	let skill: ExpandedSkillBlock;
-	try {
-		const skillPath = await resolveRepoSkillPath({
-			cwd: ctx.cwd,
-			skillName,
-			...skillLookupIoOptions(options),
-		});
-		skill = await expandSkillBlockFromPath({
-			skillName,
-			skillPath,
-			...(options.readTextFile === undefined ? {} : { readTextFile: options.readTextFile }),
-		});
-	} catch (error) {
-		throw requiredSkillError(skillName, error);
-	}
+	const skill = await requireRepoSkillBlock({
+		cwd: ctx.cwd,
+		skillName,
+		...skillLookupIoOptions(options),
+		...(options.readTextFile === undefined ? {} : { readTextFile: options.readTextFile }),
+	});
 
 	await deliverSkillPromptTurn({
 		host,

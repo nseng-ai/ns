@@ -1,5 +1,4 @@
-import { mkdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -291,7 +290,6 @@ function withAutorunSkill<T>(callback: (skill: TempRepoSkill) => Promise<T>): Pr
 			skillName: "objective-autorun",
 			markdown: AUTORUN_SKILL_MARKDOWN,
 			prefix: "objective-autorun-",
-			skillRoot: ".agents/skills",
 		},
 		callback,
 	);
@@ -698,22 +696,6 @@ describe("ns:objective:autorun command", () => {
 		});
 	});
 
-	test("explicit slug fails closed when the required skill is missing", async () => {
-		await withTempGitRepo({ prefix: "objective-autorun-missing-" }, async ({ repoDir }) => {
-			const result = await runObjectiveAutorun("bravo", [], { cwd: repoDir });
-
-			result.pi.assertDone();
-			expect(result.pi.execCalls).toEqual([]);
-			expect(result.selections).toEqual([]);
-			expect(result.pi.sentUserMessages).toEqual([]);
-			expect(result.notifications).toHaveLength(1);
-			expect(result.notifications[0]?.level).toBe("error");
-			expect(result.notifications[0]?.message).toContain(
-				'Could not load required skill "objective-autorun"',
-			);
-		});
-	});
-
 	test("missing required skill stops before picker, list, and git preparation", async () => {
 		await withTempGitRepo({ prefix: "objective-autorun-preflight-" }, async ({ repoDir }) => {
 			const result = await runObjectiveAutorun("", [], { cwd: repoDir });
@@ -722,24 +704,6 @@ describe("ns:objective:autorun command", () => {
 			expect(result.pi.execCalls).toEqual([]);
 			expect(result.selections).toEqual([]);
 			expect(result.pi.sentUserMessages).toEqual([]);
-			expect(result.notifications[0]?.message).toContain(
-				'Could not load required skill "objective-autorun"',
-			);
-		});
-	});
-
-	test("required skill read failure sends no prompt or command-specific preparation", async () => {
-		await withTempGitRepo({ prefix: "objective-autorun-read-failure-" }, async ({ repoDir }) => {
-			await mkdir(join(repoDir, "skills", "objective-autorun", "SKILL.md"), {
-				recursive: true,
-			});
-			const result = await runObjectiveAutorun("", [], { cwd: repoDir });
-
-			result.pi.assertDone();
-			expect(result.pi.execCalls).toEqual([]);
-			expect(result.selections).toEqual([]);
-			expect(result.pi.sentUserMessages).toEqual([]);
-			expect(result.notifications[0]?.level).toBe("error");
 			expect(result.notifications[0]?.message).toContain(
 				'Could not load required skill "objective-autorun"',
 			);
@@ -1464,7 +1428,6 @@ hidden-frontmatter-token: do-not-include
 Use the selected Objective.
 `,
 				prefix: "objective-next-skill-",
-				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir, skillDir, skillPath }) => {
 				const result = await runObjectiveCommand(

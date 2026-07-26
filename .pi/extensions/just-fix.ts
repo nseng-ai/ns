@@ -10,7 +10,7 @@ const { sendCommandProgressOrNotify, registerCommandWithImmediateAck } =
 const { LiveCommandProgress } = await importTypeScriptWorkspaceModule<
 	typeof import("@nseng-ai/pi-runtime/commands/cli-command-live-progress")
 >("@nseng-ai/pi-runtime/commands/cli-command-live-progress");
-const { expandRepoSkillBlock } = await importTypeScriptWorkspaceModule<
+const { requireRepoSkillBlock } = await importTypeScriptWorkspaceModule<
 	typeof import("@nseng-ai/pi-runtime/skills/expansion")
 >("@nseng-ai/pi-runtime/skills/expansion");
 
@@ -146,14 +146,12 @@ async function runJustThenInvokeSkill(
 ): Promise<void> {
 	await ctx.waitForIdle();
 
-	let skill: Awaited<ReturnType<typeof expandRepoSkillBlock>>;
+	let skill: Awaited<ReturnType<typeof requireRepoSkillBlock>>;
 	try {
-		skill = await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME });
-	} catch (cause) {
-		const message = cause instanceof Error ? cause.message : String(cause);
-		const error = new Error(`Could not load required skill "${SKILL_NAME}": ${message}`, { cause });
+		skill = await requireRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME });
+	} catch (error) {
 		if (ctx.hasUI) {
-			ctx.ui.notify(error.message, "error");
+			ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
 		}
 		return;
 	}

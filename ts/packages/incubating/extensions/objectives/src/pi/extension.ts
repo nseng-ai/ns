@@ -46,7 +46,7 @@ import {
 	type FullPiSurfaceParity,
 } from "@nseng-ai/pi-runtime/parity/extension";
 import {
-	expandRepoSkillBlock,
+	requireRepoSkillBlock,
 	type ExpandedSkillBlock,
 } from "@nseng-ai/pi-runtime/skills/expansion";
 import type {
@@ -129,15 +129,8 @@ async function prepareObjectiveSkill<TInvocation extends SkillPreparationInvocat
 ): Promise<TInvocation & { skill: ExpandedSkillBlock }> {
 	const { ctx, spec } = invocation;
 	await ctx.waitForIdle();
-	try {
-		const skill = await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: spec.skillName });
-		return { ...invocation, skill };
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		throw new Error(`Could not load required skill "${spec.skillName}": ${message}`, {
-			cause: error,
-		});
-	}
+	const skill = await requireRepoSkillBlock({ cwd: ctx.cwd, skillName: spec.skillName });
+	return { ...invocation, skill };
 }
 
 async function invokeObjectiveSkill(

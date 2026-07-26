@@ -1,6 +1,3 @@
-import { chmod } from "node:fs/promises";
-import { join } from "node:path";
-
 import { describe, expect, test } from "vitest";
 
 import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
@@ -195,7 +192,6 @@ hidden-frontmatter-token: do-not-include
 Repair the failed just run.
 `,
 				prefix: "code-just-fix-skill-",
-				skillRoot: join(".agents", "skills"),
 			},
 			async ({ repoDir, skillDir, skillPath }) => {
 				const pi = new FakePi(
@@ -290,49 +286,12 @@ Repair the failed just run.
 		});
 	});
 
-	test("does not run just or send a prompt when the required repo skill cannot be read", async () => {
-		await withTempRepoSkill(
-			{
-				skillName: "code-just-fix",
-				markdown: "# Code Just Fix\n",
-				prefix: "unreadable-code-just-fix-skill-",
-				skillRoot: join(".agents", "skills"),
-			},
-			async ({ repoDir, skillPath }) => {
-				await chmod(skillPath, 0o000);
-				try {
-					const pi = new FakePi(execResult());
-					const justFixExtension = await loadJustFixExtension();
-					justFixExtension(pi, pi.exec.bind(pi));
-					const command = pi.commands.get("just");
-					if (!command) throw new Error("just command was not registered");
-
-					const context = createContext(repoDir);
-					await command.handler("", context.ctx);
-
-					expect(pi.execCalls).toEqual([]);
-					expect(pi.sentUserMessages).toEqual([]);
-					expect(context.waitForIdleCalls()).toBe(1);
-					expect(context.notifications).toEqual([
-						{
-							message: expect.stringContaining('Could not load required skill "code-just-fix":'),
-							level: "error",
-						},
-					]);
-				} finally {
-					await chmod(skillPath, 0o600);
-				}
-			},
-		);
-	});
-
 	test("runs the CI recipe excluding Reviews through just-ci", async () => {
 		await withTempRepoSkill(
 			{
 				skillName: "code-just-fix",
 				markdown: "# Code Just Fix\n",
 				prefix: "passing-code-just-fix-skill-",
-				skillRoot: join(".agents", "skills"),
 			},
 			async ({ repoDir }) => {
 				const pi = new FakePi(execResult());

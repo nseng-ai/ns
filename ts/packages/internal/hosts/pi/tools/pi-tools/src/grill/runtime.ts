@@ -5,7 +5,7 @@ import {
 	activateGrillAskTool,
 } from "@nseng-ai/pi-runtime/grill/surfaces";
 import type { NotifyLevel } from "@nseng-ai/pi-runtime/runtime/tool-types";
-import { expandRepoSkillBlock } from "@nseng-ai/pi-runtime/skills/expansion";
+import { requireRepoSkillBlock } from "@nseng-ai/pi-runtime/skills/expansion";
 
 import { buildGrillUiPrompt, buildGrillWithDocsUiPrompt } from "./prompts.ts";
 import type { ExtensionAPI, GrillUiCommandContext } from "./protocol.ts";
@@ -52,12 +52,9 @@ async function handleStructuredGrillCommand(
 	await ctx.waitForIdle();
 	let skillBlock: string;
 	try {
-		skillBlock = (await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: options.skillName })).block;
-	} catch (cause) {
-		const detail = formatErrorMessage(cause);
-		const error = new Error(`Could not load required skill "${options.skillName}": ${detail}`, {
-			cause,
-		});
+		skillBlock = (await requireRepoSkillBlock({ cwd: ctx.cwd, skillName: options.skillName }))
+			.block;
+	} catch (error) {
 		notify(ctx, formatErrorMessage(error), "error");
 		return;
 	}

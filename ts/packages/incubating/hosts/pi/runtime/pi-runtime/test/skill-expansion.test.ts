@@ -11,6 +11,7 @@ import {
 	expandSkillBlockFromPath,
 	invokeRepoSkillPromptTurn,
 	invokeSkillPromptTurn,
+	requireRepoSkillBlock,
 	resolveRepoSkillPath,
 	type SkillCommandInfo,
 } from "../src/kit/skills/expansion.ts";
@@ -272,7 +273,6 @@ describe("repo skill expansion", () => {
 				skillName: "objective-create",
 				markdown: "---\nname: objective-create\n---\n\n# Objective Create\n",
 				prefix: "repo-skill-expansion-",
-				skillRoot: join(".agents", "skills"),
 			},
 			async ({ repoDir, skillDir, skillPath }) => {
 				const nestedCwd = join(repoDir, "packages", "example");
@@ -298,7 +298,6 @@ describe("repo skill expansion", () => {
 				markdown:
 					"---\nname: improve-codebase-architecture\n---\n\n# Improve Codebase Architecture\n",
 				prefix: "repo-vendored-skill-expansion-",
-				skillRoot: join(".agents", "skills"),
 			},
 			async ({ repoDir, skillPath }) => {
 				const nestedCwd = join(repoDir, "packages", "example");
@@ -585,8 +584,132 @@ describe("invokeSkillPromptTurn", () => {
 	});
 });
 
+async function captureError(operation: () => Promise<unknown>): Promise<Error> {
+	try {
+		await operation();
+	} catch (error) {
+		if (error instanceof Error) return error;
+		throw new Error("Expected operation to throw an Error.");
+	}
+	throw new Error("Expected operation to throw.");
+}
+
+describe("requireRepoSkillBlock", () => {
+	test("returns the expanded required repo skill", async () => {
+		await withTempRepoSkill(
+			{
+				skillName: "objective-create",
+				markdown: "---\nname: objective-create\n---\n\n# Objective Create\n",
+				prefix: "required-repo-skill-",
+			},
+			async ({ repoDir, skillPath }) => {
+				const expanded = await requireRepoSkillBlock({
+					cwd: repoDir,
+					skillName: "objective-create",
+				});
+
+				expect(expanded).toMatchObject({
+					name: "objective-create",
+					commandName: "direct:objective-create",
+					path: skillPath,
+					body: "# Objective Create",
+				});
+			},
+		);
+	});
+
+	test("wraps a missing skill with its exact name, lookup detail, and cause", async () => {
+		await withTempGitRepo({ prefix: "missing-required-repo-skill-" }, async ({ repoDir }) => {
+			const thrown = await captureError(() =>
+				requireRepoSkillBlock({ cwd: repoDir, skillName: "objective-create" }),
+			);
+
+			const detail =
+				`Could not find .agents/skills/objective-create/SKILL.md, ` +
+				`.claude/skills/objective-create/SKILL.md from ${repoDir}.`;
+			expect(thrown.message).toBe(`Could not load required skill "objective-create": ${detail}`);
+			expect(thrown.cause).toEqual(new Error(detail));
+		});
+	});
+
+	test("wraps an unreadable skill and preserves the exact Error cause", async () => {
+		await withTempRepoSkill(
+			{
+				skillName: "objective-create",
+				markdown: "# Objective Create\n",
+				prefix: "unreadable-required-repo-skill-",
+			},
+			async ({ repoDir }) => {
+				const cause = new Error("cannot read repo skill");
+				const thrown = await captureError(() =>
+					requireRepoSkillBlock({
+						cwd: repoDir,
+						skillName: "objective-create",
+						readTextFile: async () => {
+							throw cause;
+						},
+					}),
+				);
+
+				expect(thrown.message).toBe(
+					'Could not load required skill "objective-create": cannot read repo skill',
+				);
+				expect(thrown.cause).toBe(cause);
+			},
+		);
+	});
+
+	test("wraps malformed frontmatter and preserves the parser error as cause", async () => {
+		await withTempRepoSkill(
+			{
+				skillName: "objective-create",
+				markdown: "---\nname: objective-create\n# Missing fence\n",
+				prefix: "malformed-required-repo-skill-",
+			},
+			async ({ repoDir }) => {
+				const thrown = await captureError(() =>
+					requireRepoSkillBlock({ cwd: repoDir, skillName: "objective-create" }),
+				);
+
+				expect(thrown.message).toBe(
+					'Could not load required skill "objective-create": Skill Markdown frontmatter is missing a closing "---" fence.',
+				);
+				expect(thrown.cause).toEqual(
+					new Error('Skill Markdown frontmatter is missing a closing "---" fence.'),
+				);
+			},
+		);
+	});
+
+	test("stringifies and preserves a non-Error cause", async () => {
+		await withTempRepoSkill(
+			{
+				skillName: "objective-create",
+				markdown: "# Objective Create\n",
+				prefix: "non-error-required-repo-skill-",
+			},
+			async ({ repoDir }) => {
+				const thrown = await captureError(() =>
+					requireRepoSkillBlock({
+						cwd: repoDir,
+						skillName: "objective-create",
+						readTextFile: async () => {
+							throw "read rejected";
+						},
+					}),
+				);
+
+				expect(thrown.message).toBe(
+					'Could not load required skill "objective-create": read rejected',
+				);
+				expect(thrown.cause).toBe("read rejected");
+			},
+		);
+	});
+});
+
 describe("invokeRepoSkillPromptTurn", () => {
-	test("fails on repo-local absence even when Pi advertises a loaded skill", async () => {
+	test("fails on repo-local absence without sending a prompt", async () => {
 		await withTempGitRepo({ prefix: "missing-repo-prompt-skill-" }, async ({ repoDir }) => {
 			const testHost = promptTurnHost([
 				skillCommand("objective-create", "/loaded/objective-create/SKILL.md"),
@@ -609,42 +732,31 @@ describe("invokeRepoSkillPromptTurn", () => {
 		});
 	});
 
-	test("wraps repo-local read failures and preserves their cause without sending a prompt", async () => {
+	test("waits, notifies, and sends the required repo skill prompt", async () => {
 		await withTempRepoSkill(
 			{
 				skillName: "objective-create",
 				markdown: "# Objective Create\n",
-				prefix: "unreadable-repo-prompt-skill-",
-				skillRoot: join(".agents", "skills"),
+				prefix: "required-repo-prompt-skill-",
 			},
 			async ({ repoDir }) => {
 				const testHost = promptTurnHost([]);
 				const context = promptTurnContext();
-				const cause = new Error("cannot read repo skill");
 
-				let thrown: unknown;
-				try {
-					await invokeRepoSkillPromptTurn({
-						host: testHost,
-						ctx: { ...context.ctx, cwd: repoDir },
-						skillName: "objective-create",
-						successMessage: "unused",
-						buildPrompt: (skillBlock) => skillBlock,
-						readTextFile: async () => {
-							throw cause;
-						},
-					});
-				} catch (error) {
-					thrown = error;
-				}
+				await invokeRepoSkillPromptTurn({
+					host: testHost,
+					ctx: { ...context.ctx, cwd: repoDir },
+					skillName: "objective-create",
+					successMessage: (skill) => `Starting ${skill.name}`,
+					buildPrompt: (skillBlock) => `prompt:\n${skillBlock}`,
+				});
 
-				expect(thrown).toBeInstanceOf(Error);
-				if (!(thrown instanceof Error)) throw new Error("Expected invocation to throw an Error.");
-				expect(thrown.message).toBe(
-					'Could not load required skill "objective-create": cannot read repo skill',
-				);
-				expect(thrown.cause).toBe(cause);
-				expect(testHost.sentUserMessages).toEqual([]);
+				expect(context.waits()).toBe(1);
+				expect(context.notifications).toEqual([
+					{ message: "Starting objective-create", level: "info" },
+				]);
+				expect(testHost.sentUserMessages).toHaveLength(1);
+				expect(testHost.sentUserMessages[0]).toContain("# Objective Create");
 			},
 		);
 	});

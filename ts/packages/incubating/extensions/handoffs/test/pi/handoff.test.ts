@@ -132,18 +132,6 @@ describe("handoff extension", () => {
 		});
 	});
 
-	test("create requires the handoff-create skill and sends no follow-up when it is missing", async () => {
-		const result = await runCommand("ns:handoff:create", "handoff focus");
-
-		result.pi.assertDone();
-		expect(result.pi.sentUserMessages).toEqual([]);
-		expect(result.notifications).toHaveLength(1);
-		expect(result.notifications[0]?.level).toBe("error");
-		expect(result.notifications[0]?.message).toContain(
-			'Could not load required skill "handoff-create"',
-		);
-	});
-
 	test("create records an in-memory session id when no persisted log exists", async () => {
 		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
 			const result = await runCommand(

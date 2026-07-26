@@ -239,7 +239,6 @@ describe("/pi:grill-me command", () => {
 				skillName: GRILL_UI_SKILL_NAME,
 				markdown: `---\nname: ${GRILL_UI_SKILL_NAME}\ndescription: test\n---\n\nBackend skill body from test.\n`,
 				prefix: "pi-grill-ui-test-",
-				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir, skillPath }) => {
 				const { pi, command } = register();
@@ -306,7 +305,6 @@ describe("/pi:grill-with-docs command", () => {
 				skillName: GRILL_WITH_DOCS_UI_SKILL_NAME,
 				markdown: `---\nname: ${GRILL_WITH_DOCS_UI_SKILL_NAME}\ndescription: test\n---\n\nDocs-aware backend skill body from test.\n`,
 				prefix: "pi-grill-with-docs-ui-test-",
-				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir, skillPath }) => {
 				const { pi, docsCommand } = register();
@@ -886,51 +884,12 @@ describe("grill_ask activation lifecycle", () => {
 		]);
 	});
 
-	test("/pi:grill-me unreadable-skill failure does no activation or send", async () => {
-		await withTempRepoSkill(
-			{
-				skillName: GRILL_UI_SKILL_NAME,
-				markdown: `---\nname: ${GRILL_UI_SKILL_NAME}\n\nmissing closing fence\n`,
-				prefix: "pi-grill-ui-unreadable-test-",
-				skillRoot: ".agents/skills",
-			},
-			async ({ repoDir }) => {
-				const pi = new FakePi(["read"]);
-				const { command } = register(pi);
-				const notifications: Notification[] = [];
-
-				await command.handler(
-					"Target design",
-					commandContext({
-						cwd: repoDir,
-						onNotification: (notification) => notifications.push(notification),
-					}),
-				);
-
-				expect(pi.getActiveTools()).toEqual(["read"]);
-				expect(pi.events).toEqual([]);
-				expect(pi.sentUserMessages).toEqual([]);
-				expect(notifications).toEqual([
-					expect.objectContaining({
-						level: "error",
-						message: expect.stringMatching(
-							new RegExp(
-								`Could not load required skill "${GRILL_UI_SKILL_NAME}".*missing a closing`,
-							),
-						),
-					}),
-				]);
-			},
-		);
-	});
-
 	test("/pi:grill-me skill-expanded path activates grill_ask before sending", async () => {
 		await withTempRepoSkill(
 			{
 				skillName: GRILL_UI_SKILL_NAME,
 				markdown: `---\nname: ${GRILL_UI_SKILL_NAME}\ndescription: test\n---\n\nBody.\n`,
 				prefix: "pi-grill-ui-activation-test-",
-				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir }) => {
 				const pi = new FakePi(["read"]);
