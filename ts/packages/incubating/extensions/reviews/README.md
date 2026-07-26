@@ -131,16 +131,17 @@ Discovery job:
 Review job:
 
 1. Installs the TypeScript workspace and exposes the workspace-pinned Pi CLI.
-2. Runs each selected review with:
+2. Resolves `LOG_BRANCH` from the pull request's head branch.
+3. Runs each selected review with:
 
    ```bash
    ns reviews run "$REVIEW_KEY" \
      --base-ref "$BASE_REF" \
-     --log-branch "$GITHUB_HEAD_REF" \
+     --log-branch "$LOG_BRANCH" \
      --format json
    ```
 
-3. Pipes the result envelope to `ns reviews exec publish-findings` so findings are posted to the PR summary comment and inline comments when possible.
+4. Pipes the result envelope to `ns reviews exec publish-findings` so findings are posted to the PR summary comment and inline comments when possible.
 
 Operational notes:
 
