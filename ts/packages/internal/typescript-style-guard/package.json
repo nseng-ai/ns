@@ -9,6 +9,7 @@
 		"./file-discovery": "./src/file-discovery.ts",
 		"./internal-space": "./src/internal-space.ts",
 		"./optional-undefined-audit": "./src/optional-undefined-audit.ts",
+		"./package-disposition": "./src/package-disposition.ts",
 		"./package-tier-taxonomy": "./src/package-tier-taxonomy.ts",
 		"./package-metadata": "./src/package-metadata.ts",
 		"./source-rules": "./src/source-rules.ts",
