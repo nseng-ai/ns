@@ -139,7 +139,7 @@ Clinkr does not automatically convert arbitrary exceptions into `failure(...)` o
 
 **Rationale:** The framework cannot reliably distinguish expected operational conditions from bugs. Automatic conversion would hide attribution and collapse application policy into framework policy.
 
-**Audit concern:** Current Clinkr dispatch specially catches `ClinkrFailure` and converts it into a failure outcome. The reconciliation audit must decide how that behavior fits the settled explicit-return rule rather than preserving it accidentally.
+**Approved reconciliation:** Remove the public throwable `ClinkrFailure` API and Clinkr's special exception-to-failure conversion. Expected operational failures remain explicit returned `failure(...)` outcomes; application or Foundation adapters may deliberately catch known operational errors and return those outcomes. Unexpected exceptions propagate unchanged to app crash policy.
 
 ### 11. Rendering is command-level only
 
@@ -332,7 +332,7 @@ Clinkr retains `position` as the positional-metadata field name. It is the estab
 
 Clinkr also retains and documents `md` as an explicit alias for the canonical `markdown` format value. The alias is intentional and already has focused parsing, rendering, validation-text, and completion coverage. Reconciliation must preserve both the long spelling and alias rather than leaving `md` as undocumented behavior.
 
-These decisions settle only the two naming questions. They do not alter raw execution or `ClinkrFailure` removal. The outcome/rendering reconciliation and the bootstrap/completion-error policy were settled separately.
+These decisions settle only the two naming questions. They do not alter raw execution or exception policy. The outcome/rendering reconciliation, bootstrap/completion-error policy, and removal of the throwable `ClinkrFailure` API were settled separately.
 
 ## Outcome and rendering reconciliation approved (2026-07-25)
 
@@ -342,7 +342,7 @@ Migration order is part of the approval. First extend the SDK command model and 
 
 Do not mechanically delete branch-dependent presentation or preserve it as an adapter-side policy. Move the distinguishing facts into typed outcome data. Bodyless means no `data` field and no human result body, while JSON still emits the status envelope. An explicit `z.any()` remains the only intentionally untyped data escape hatch.
 
-This approval does not settle raw execution or `ClinkrFailure` removal. The filesystem bootstrap and completion-error policy were settled separately.
+This approval does not settle raw execution or exception policy. The filesystem bootstrap, completion-error policy, and removal of the throwable `ClinkrFailure` API were settled separately.
 
 ## Accepted implementation behavior
 
@@ -371,7 +371,7 @@ The implementation and caller audit begins with these confirmed mismatches:
 7. Outcome-schema violations must propagate as programmer errors.
 8. Per-exit human and Markdown rendering overrides must be removed.
 9. Dynamic-completion error observation must become one app-level callback while preserving static fallback.
-10. Special exception-to-failure conversion, including current `ClinkrFailure` handling, must be reconciled with the explicit application-owned failure policy.
+10. The public throwable `ClinkrFailure` API and special exception-to-failure conversion must be removed in favor of explicit returned failures and application-owned error adaptation.
 
 These are starting facts, not authorization for an unreviewed refactor. Each material implementation or caller change still requires an explicit disposition and user discussion under the Objective workflow.
 

@@ -95,7 +95,7 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 **Impact and complexity:** Low in production, concentrated in exports and tests, subject to a final exhaustive usage check before removal.
 
-**Proposed disposition:** **Reconcile implementation and callers.** Remove special framework conversion and the throwable public API; retain explicit application-owned adapters for expected operational errors.
+**Approved disposition:** **Reconcile implementation and callers.** Remove special framework conversion and the public throwable `ClinkrFailure` API. Expected operational failures remain explicit returned `failure(...)` outcomes; application-owned adapters may deliberately catch known operational errors. Unexpected exceptions propagate unchanged to app crash policy.
 
 ## Additional material findings
 
@@ -173,9 +173,9 @@ Approved reconciliation clusters and remaining discussion gates:
 3. **Approved:** expose the common filesystem command structure through `createClinkrApp`, require an absolute `commandDirectory`, keep context invocation-owned, and let Foundation create a fresh app after `prepareRun`.
 4. **Approved:** move completion-provider failure observation to optional `completion.onProviderError` app policy while preserving static fallback even when observation fails.
 5. **Approved:** replace the hybrid raw path with a narrow framework-neutral raw argv/output/exit seam, preserve demonstrated SDK passthrough and byte-owning uses, and keep opaque Commander mounting parked until a concrete caller requires it.
-6. **Discussion-gated:** remove `ClinkrFailure` conversion after exhaustive usage confirmation.
+6. **Approved:** remove the public throwable `ClinkrFailure` API and special exception-to-failure conversion; retain explicit returned failures and application-owned adaptation for known operational errors.
 7. **Settled current behavior:** preserve the `position` spelling and documented `md` alias during reconciliation.
 
 ## Audit conclusion
 
-All ten known mismatches have implementation, test, and representative-caller evidence plus proposed dispositions. The audit added six material findings. The positional spelling and Markdown alias decisions are settled: retain `position`, and retain and document `md` as an alias for `markdown`. The outcome-schema, runtime-validation, command-level-rendering, and SDK-policy migration cluster is also approved. The foundational split and migration sequence are approved, but TypeScript implementation has not begun. Raw execution and completion-error policy are settled; only `ClinkrFailure` removal remains discussion-gated before implementation. An exhaustive search found `ClinkrFailure` construction only in Clinkr tests plus a TypeScript style-guard fixture, strengthening the proposed removal disposition but not authorizing it.
+All ten known mismatches have implementation, test, and representative-caller evidence plus proposed dispositions. The audit added six material findings. The positional spelling and Markdown alias decisions are settled: retain `position`, and retain and document `md` as an alias for `markdown`. The outcome-schema, runtime-validation, command-level-rendering, and SDK-policy migration cluster is also approved. The foundational split and migration sequence are approved, but TypeScript implementation has not begun. Raw execution, completion-error policy, and removal of the public throwable `ClinkrFailure` API are settled; no contract-supporting refactoring disposition remains discussion-gated. An exhaustive search found `ClinkrFailure` construction only in Clinkr tests plus a TypeScript style-guard fixture, supporting the approved removal.
