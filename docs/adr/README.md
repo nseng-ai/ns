@@ -41,7 +41,7 @@ After this baseline, accepted ADRs are immutable time-in-place records. Do not r
 | 0037 | [Objective Runner Parent-Only Publication](0037-objective-runner-parent-only-publication.md)                           |
 | 0043 | [Unified Subagent Tool and Runtime Selection](0043-unify-subagent-tool-and-runtime-selection.md)                       |
 | 0045 | [Release Disposition and Owner-Nested Package Ontology](0045-release-disposition-and-owner-nested-package-ontology.md) |
-| 0046 | [Skill Disposition and Owner-Nested Canonical Ontology](0046-skill-disposition-and-owner-nested-ontology.md)             |
+| 0046 | [Skill Disposition and Owner-Nested Canonical Ontology](0046-skill-disposition-and-owner-nested-ontology.md)           |
 
 ## Proposed
 
