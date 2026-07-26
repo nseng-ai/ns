@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import type { ClinkrUsageErrorExit } from "./exit.ts";
 import { usageError } from "./exit.ts";
 
@@ -55,10 +57,12 @@ export interface ConfirmInteractiveOrUsageErrorOptions {
 	beforePrompt?: () => void;
 }
 
-export interface ConfirmationUsageErrorData {
-	readonly missingFlag: string;
-	readonly howToSupply: string;
-}
+export const confirmationUsageErrorDataSchema = z.strictObject({
+	missingFlag: z.string(),
+	howToSupply: z.string(),
+});
+
+export type ConfirmationUsageErrorData = Readonly<z.infer<typeof confirmationUsageErrorDataSchema>>;
 
 export type InteractiveConfirmationResult =
 	| ConfirmationResult

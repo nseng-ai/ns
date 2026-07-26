@@ -41,13 +41,23 @@ describe("usage errors", () => {
 		expect(run.stderr).toContain("--name");
 	});
 
-	test("missing required option is enveloped in json mode", async () => {
+	test("missing required option emits framework-owned issue data in json mode", async () => {
 		const run = await runForTest(buildGroup(), ["echo", "--format", "json"], { context: null });
 		expect(run.exitCode).toBe(2);
 		expect(JSON.parse(run.stdout)).toMatchObject({
 			status: "usageError",
 			exitCode: 2,
 			errorType: "usageError",
+			data: {
+				issues: [
+					{
+						path: ["name"],
+						message: expect.any(String),
+						code: expect.any(String),
+						surface: "--name",
+					},
+				],
+			},
 		});
 		expect(run.stderr).toBe("");
 	});
@@ -65,6 +75,22 @@ describe("usage errors", () => {
 		});
 		expect(run.exitCode).toBe(2);
 		expect(run.stdout).toBe("");
+		expect(run.stderr).toContain("expected a number");
+	});
+
+	test("malformed number emits framework-owned commander data in json mode", async () => {
+		const run = await runForTest(
+			buildGroup(),
+			["echo", "--name", "x", "--count", "abc", "--format", "json"],
+			{ context: null },
+		);
+		expect(run.exitCode).toBe(2);
+		expect(JSON.parse(run.stdout)).toMatchObject({
+			status: "usageError",
+			exitCode: 2,
+			errorType: "usageError",
+			data: { commanderCode: "commander.invalidArgument" },
+		});
 		expect(run.stderr).toContain("expected a number");
 	});
 

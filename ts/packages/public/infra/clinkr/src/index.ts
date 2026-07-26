@@ -1,4 +1,5 @@
 export {
+	confirmationUsageErrorDataSchema,
 	confirmInteractiveOrUsageError,
 	createClinkrInteraction,
 	requireInteractiveOrUsageError,
@@ -7,6 +8,7 @@ export {
 export type {
 	ClinkrInteraction,
 	ConfirmationDefault,
+	ConfirmationUsageErrorData,
 	ConfirmationPromptFormatter,
 	ConfirmationRequest,
 	ConfirmationResult,
