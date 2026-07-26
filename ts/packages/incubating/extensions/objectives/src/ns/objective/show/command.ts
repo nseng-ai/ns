@@ -1,25 +1,23 @@
-import type { ClinkrCommandMetadata } from "@nseng-ai/clinkr";
+import { resolveRenderCapabilities } from "@nseng-ai/clinkr";
 
-export function metadata(): ClinkrCommandMetadata {
-	return { description: COMMAND_DESCRIPTION };
-}
+import {
+	renderShowObjectiveHuman,
+	renderShowObjectiveMarkdown,
+	runShowObjective,
+	showObjectiveRequestSchema,
+	showObjectiveResultSchema,
+} from "../../../core/operations/show-objective.ts";
+import { objectiveNsCommand } from "../../objective-command.ts";
 
 export async function command() {
-	const [{ resolveRenderCapabilities }, { objectiveNsCommand }, show] = await Promise.all([
-		import("@nseng-ai/clinkr"),
-		import("../../objective-command.ts"),
-		import("../../../core/operations/show-objective.ts"),
-	]);
 	return objectiveNsCommand({
-		schema: show.showObjectiveRequestSchema,
-		resultSchema: show.showObjectiveResultSchema,
-		negativeSchema: show.showObjectiveResultSchema,
+		schema: showObjectiveRequestSchema,
+		resultSchema: showObjectiveResultSchema,
+		negativeSchema: showObjectiveResultSchema,
 		positionals: { slug: { position: 0 } },
-		handler: show.runShowObjective,
+		handler: runShowObjective,
 		renderHuman: (data, caps) =>
-			show.renderShowObjectiveHuman(data, resolveRenderCapabilities(caps), Date.now()),
-		renderMarkdown: show.renderShowObjectiveMarkdown,
+			renderShowObjectiveHuman(data, resolveRenderCapabilities(caps), Date.now()),
+		renderMarkdown: renderShowObjectiveMarkdown,
 	});
 }
-
-const COMMAND_DESCRIPTION = "Show one Objective record with branches and edge annotations.";

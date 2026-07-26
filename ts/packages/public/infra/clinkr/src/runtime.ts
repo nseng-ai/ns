@@ -58,7 +58,7 @@ type DefaultSpec<TContext> =
 	| DefaultRawCommandSpec<TContext>;
 
 interface ScopeDefinition<TContext> {
-	readonly defaultCommand: ClinkrCommand<TContext> | undefined;
+	readonly defaultCommand: LazyNode<ClinkrCommand<TContext>> | undefined;
 	readonly routes: readonly RouteDefinition<TContext>[];
 	readonly legacyImports: readonly LegacyClinkrGroup<TContext>[];
 }
@@ -124,7 +124,7 @@ export class ClinkrCommand<TContext> {
 }
 
 export class ClinkrGroup<TContext> {
-	readonly defaultCommand: ClinkrCommand<TContext> | undefined;
+	readonly defaultCommand: LazyNode<ClinkrCommand<TContext>> | undefined;
 	readonly routes: readonly RouteDefinition<TContext>[];
 	readonly legacyImports: readonly LegacyClinkrGroup<TContext>[];
 
@@ -143,7 +143,7 @@ abstract class ScopeBuilder<TContext, TNode extends object> {
 	protected readonly provenance = Symbol("clinkr-builder");
 	private readonly routes: RouteDefinition<TContext>[] = [];
 	private readonly legacyImports: LegacyClinkrGroup<TContext>[] = [];
-	private defaultNode: ClinkrCommand<TContext> | undefined;
+	private defaultNode: LazyNode<ClinkrCommand<TContext>> | undefined;
 	private isDefined = false;
 
 	constructor(appOwner: symbol, moduleUrl: string) {
@@ -157,11 +157,16 @@ abstract class ScopeBuilder<TContext, TNode extends object> {
 		this.assertOpen();
 		if (this.defaultNode !== undefined)
 			throw new Error("clinkr: scope already has a default command");
-		const commandBuilder = new ClinkrCommandBuilder<TContext>(this.appOwner, this.moduleUrl, true);
-		const node = await build(commandBuilder);
-		assertBuilderResult(node, commandBuilder.provenanceToken, "default command");
-		claimNode(node, this.appOwner);
-		this.defaultNode = node;
+		this.defaultNode = new LazyNode(this.appOwner, async () => {
+			const commandBuilder = new ClinkrCommandBuilder<TContext>(
+				this.appOwner,
+				this.moduleUrl,
+				true,
+			);
+			const node = await build(commandBuilder);
+			assertBuilderResult(node, commandBuilder.provenanceToken, "default command");
+			return node;
+		});
 		return this;
 	}
 
@@ -373,7 +378,7 @@ export class ClinkrApp<TContext = void> {
 		argv: readonly string[],
 		options: ClinkrRunOptions<TContext>,
 	): Promise<number> {
-		const { runtime } = await this.buildRuntime(argv);
+		const { runtime } = await this.buildRuntime(argv, argv[0] !== "--help" && argv[0] !== "-h");
 		return await runtime.run(argv, options);
 	}
 
@@ -384,7 +389,10 @@ export class ClinkrApp<TContext = void> {
 			: [options: ClinkrCompleteOptions<TContext>]
 	): Promise<ClinkrCompletionResult> {
 		const invocation = options[0] as ClinkrCompleteOptions<TContext> | undefined;
-		const { runtime, selectedPath } = await this.buildRuntime(request.words);
+		const { runtime, selectedPath } = await this.buildRuntime(
+			request.words,
+			request.words[0]?.startsWith("-") === true,
+		);
 		const context = invocation?.context as TContext;
 		const onProviderError = this.options.completion?.onProviderError;
 		const commandPath = onProviderError === undefined ? [] : selectedPath;
@@ -405,7 +413,10 @@ export class ClinkrApp<TContext = void> {
 		return await runtime.completeAsync(request, runtimeOptions);
 	}
 
-	private async buildRuntime(argv: readonly string[]): Promise<{
+	private async buildRuntime(
+		argv: readonly string[],
+		loadDefaultCommand: boolean,
+	): Promise<{
 		runtime: LegacyClinkrGroup<TContext>;
 		selectedPath: readonly string[];
 	}> {
@@ -419,7 +430,13 @@ export class ClinkrApp<TContext = void> {
 		if (argv[0] === "--version" || argv[0] === "-V" || argv[0] === "--runtime") {
 			return { runtime, selectedPath: [] };
 		}
-		const selectedPath = await materializeScope(runtime, this.scope, argv, this.owner);
+		const selectedPath = await materializeScope(
+			runtime,
+			this.scope,
+			argv,
+			this.owner,
+			loadDefaultCommand,
+		);
 		return { runtime, selectedPath };
 	}
 }
@@ -429,12 +446,15 @@ async function materializeScope<TContext>(
 	scope: ScopeDefinition<TContext>,
 	argv: readonly string[],
 	owner: symbol,
+	loadDefaultCommand: boolean,
 ): Promise<readonly string[]> {
-	if (scope.defaultCommand !== undefined) registerDefault(runtime, scope.defaultCommand);
+	const selected = selectNamedRoute(scope.routes, argv[0]);
+	if (scope.defaultCommand !== undefined && selected === undefined && loadDefaultCommand) {
+		registerDefault(runtime, await scope.defaultCommand.load());
+	}
 	for (const legacyImport of scope.legacyImports) {
 		runtime.importLegacyClinkrGroupForMigration(legacyImport);
 	}
-	const selected = selectNamedRoute(scope.routes, argv[0]);
 	let selectedPath: readonly string[] = [];
 	for (const route of scope.routes) {
 		if (route.type === "command") {
@@ -453,7 +473,7 @@ async function materializeScope<TContext>(
 			claimNode(group, owner);
 			selectedPath = [
 				route.metadata.name,
-				...(await materializeScope(child, group, argv.slice(1), owner)),
+				...(await materializeScope(child, group, argv.slice(1), owner, loadDefaultCommand)),
 			];
 		}
 		runtime.group(child);

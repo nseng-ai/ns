@@ -1,25 +1,22 @@
-import type { ClinkrCommandMetadata } from "@nseng-ai/clinkr";
+import { z } from "zod";
 
-export function metadata(): ClinkrCommandMetadata {
-	return { description: COMMAND_DESCRIPTION };
-}
+import {
+	renderTrackingGate,
+	runTrackingGate,
+	trackingGateRequestSchema,
+	trackingGateResultSchema,
+} from "../../../../core/operations/tracking-gate.ts";
+import { objectiveNsCommand } from "../../../objective-command.ts";
 
 export async function command() {
-	const [{ z }, { objectiveNsCommand }, operation] = await Promise.all([
-		import("zod"),
-		import("../../../objective-command.ts"),
-		import("../../../../core/operations/tracking-gate.ts"),
-	]);
 	return objectiveNsCommand({
-		schema: operation.trackingGateRequestSchema,
-		resultSchema: operation.trackingGateResultSchema,
-		negativeSchema: operation.trackingGateResultSchema,
+		schema: trackingGateRequestSchema,
+		resultSchema: trackingGateResultSchema,
+		negativeSchema: trackingGateResultSchema,
 		usageErrorSchema: z.any(),
 		positionals: { slug: { position: 0 } },
-		handler: operation.runTrackingGate,
-		renderHuman: operation.renderTrackingGate,
-		renderMarkdown: operation.renderTrackingGate,
+		handler: runTrackingGate,
+		renderHuman: renderTrackingGate,
+		renderMarkdown: renderTrackingGate,
 	});
 }
-
-const COMMAND_DESCRIPTION = "Collect deterministic Objective tracking gate evidence for one slug.";

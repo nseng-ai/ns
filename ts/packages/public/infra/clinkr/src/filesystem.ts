@@ -77,9 +77,17 @@ type CommandDefinition<TContext> =
 	| ClinkrCommandDefinition<TContext, z.ZodObject, unknown>
 	| ClinkrRawCommandDefinition<TContext>;
 
-interface CommandModule<TContext> {
+interface MetadataModule {
 	metadata(): ClinkrCommandMetadata;
+}
+
+interface CommandModule<TContext> {
 	command(): Promise<CommandDefinition<TContext>> | CommandDefinition<TContext>;
+}
+
+interface CommandPair {
+	readonly metadataFile: string;
+	readonly commandFile: string;
 }
 
 interface GroupModule {
@@ -209,17 +217,19 @@ async function addCommandStructure<TContext, TFilesystemContext>(
 	options: CommandStructureMountOptions<TContext, TFilesystemContext>,
 ): Promise<void> {
 	const entries = await gateway.readDirectory(directory);
-	const rootCommand = entries.find((entry) => entry.name === "command.ts" && entry.isFile);
-	if (rootCommand !== undefined) {
-		const module = await loadCommandModule<TFilesystemContext>(
-			join(directory, rootCommand.name),
-			gateway,
-		);
-		const metadata = validateCommandMetadata(module.metadata(), join(directory, rootCommand.name));
+	const rootPair = commandPair(directory, entries);
+	if (rootPair !== undefined) {
+		const metadata = await loadCommandMetadata(rootPair.metadataFile, gateway);
 		const route = structureRoute("default", path, path.at(-1) ?? "", metadata);
 		if (options.include?.(route) !== false) {
 			await builder.defaultCommand(async (commandBuilder) =>
-				defineFilesystemCommand(commandBuilder, module, undefined, options.mapContext),
+				defineFilesystemCommand(
+					commandBuilder,
+					rootPair.commandFile,
+					gateway,
+					undefined,
+					options.mapContext,
+				),
 			);
 		}
 	}
@@ -249,9 +259,11 @@ async function addDirectoryRoute<TContext, TFilesystemContext>(
 ): Promise<void> {
 	const entries = await gateway.readDirectory(directory);
 	const hasGroup = entries.some((entry) => entry.name === "group.ts" && entry.isFile);
-	const hasCommand = entries.some((entry) => entry.name === "command.ts" && entry.isFile);
-	if (!hasGroup && !hasCommand) {
-		throw new Error(`clinkr: command directory '${directory}' must contain group.ts or command.ts`);
+	const pair = commandPair(directory, entries);
+	if (!hasGroup && pair === undefined) {
+		throw new Error(
+			`clinkr: command directory '${directory}' must contain group.ts or a metadata.ts/command.ts pair`,
+		);
 	}
 	if (hasGroup) {
 		const module = await loadGroupModule(join(directory, "group.ts"), gateway);
@@ -272,24 +284,23 @@ async function addDirectoryRoute<TContext, TFilesystemContext>(
 		return;
 	}
 
-	const module = await loadCommandModule<TFilesystemContext>(
-		join(directory, "command.ts"),
-		gateway,
-	);
-	const metadata = validateCommandMetadata(module.metadata(), join(directory, "command.ts"));
+	if (pair === undefined) throw new Error(`clinkr: command directory '${directory}' is incomplete`);
+	const metadata = await loadCommandMetadata(pair.metadataFile, gateway);
 	const route = structureRoute("command", path, name, metadata);
 	if (options.include?.(route) === false) return;
 	builder.command(route.metadata, async (commandBuilder) =>
-		defineFilesystemCommand(commandBuilder, module, name, options.mapContext),
+		defineFilesystemCommand(commandBuilder, pair.commandFile, gateway, name, options.mapContext),
 	);
 }
 
 async function defineFilesystemCommand<TContext, TFilesystemContext>(
 	builder: ClinkrCommandBuilder<TContext>,
-	module: CommandModule<TFilesystemContext>,
+	commandFile: string,
+	gateway: CommandStructureGateway,
 	name: string | undefined,
 	mapContext: (context: TContext) => TFilesystemContext,
 ): Promise<ClinkrCommand<TContext>> {
+	const module = await loadCommandModule<TFilesystemContext>(commandFile, gateway);
 	const loadedDefinition = await module.command();
 	if (!isObject(loadedDefinition) || !commandDefinitions.has(loadedDefinition)) {
 		throw new Error("clinkr: command() must return a definition created by defineCommand()");
@@ -349,16 +360,14 @@ async function inspectCommandStructure(
 	gateway: CommandStructureGateway,
 ): Promise<void> {
 	const entries = await gateway.readDirectory(directory);
-	const rootCommand = entries.find((entry) => entry.name === "command.ts" && entry.isFile);
-	if (rootCommand !== undefined) {
-		const file = join(directory, rootCommand.name);
-		const module = await loadCommandModule(file, gateway);
+	const rootPair = commandPair(directory, entries);
+	if (rootPair !== undefined) {
 		routes.push(
 			structureRoute(
 				"default",
 				path,
 				path.at(-1) ?? "",
-				validateCommandMetadata(module.metadata(), file),
+				await loadCommandMetadata(rootPair.metadataFile, gateway),
 			),
 		);
 	}
@@ -370,10 +379,10 @@ async function inspectCommandStructure(
 		const childPath = [...path, entry.name];
 		const childEntries = await gateway.readDirectory(childDirectory);
 		const hasGroup = childEntries.some((child) => child.name === "group.ts" && child.isFile);
-		const hasCommand = childEntries.some((child) => child.name === "command.ts" && child.isFile);
-		if (!hasGroup && !hasCommand) {
+		const pair = commandPair(childDirectory, childEntries);
+		if (!hasGroup && pair === undefined) {
 			throw new Error(
-				`clinkr: command directory '${childDirectory}' must contain group.ts or command.ts`,
+				`clinkr: command directory '${childDirectory}' must contain group.ts or a metadata.ts/command.ts pair`,
 			);
 		}
 		if (hasGroup) {
@@ -390,14 +399,14 @@ async function inspectCommandStructure(
 			await inspectCommandStructure(childDirectory, childPath, routes, gateway);
 			continue;
 		}
-		const file = join(childDirectory, "command.ts");
-		const module = await loadCommandModule(file, gateway);
+		if (pair === undefined)
+			throw new Error(`clinkr: command directory '${childDirectory}' is incomplete`);
 		routes.push(
 			structureRoute(
 				"command",
 				childPath,
 				entry.name,
-				validateCommandMetadata(module.metadata(), file),
+				await loadCommandMetadata(pair.metadataFile, gateway),
 			),
 		);
 	}
@@ -409,9 +418,9 @@ async function hasIncludedCommandRoute(
 	gateway: CommandStructureGateway,
 	include: ((route: ClinkrCommandStructureRoute) => boolean) | undefined,
 ): Promise<boolean> {
-	if (include === undefined) return true;
 	const routes: ClinkrCommandStructureRoute[] = [];
 	await inspectCommandStructure(directory, path, routes, gateway);
+	if (include === undefined) return true;
 	return routes.some((route) => route.type !== "group" && include(route));
 }
 
@@ -428,26 +437,48 @@ function structureRoute(
 	});
 }
 
+function commandPair(
+	directory: string,
+	entries: readonly DirectoryEntry[],
+): CommandPair | undefined {
+	const hasMetadata = entries.some((entry) => entry.name === "metadata.ts" && entry.isFile);
+	const hasCommand = entries.some((entry) => entry.name === "command.ts" && entry.isFile);
+	if (hasMetadata !== hasCommand) {
+		const missingFile = hasMetadata ? "command.ts" : "metadata.ts";
+		throw new Error(
+			`clinkr: command directory '${directory}' has an incomplete command pair; missing ${missingFile}`,
+		);
+	}
+	if (!hasMetadata) return undefined;
+	return {
+		metadataFile: join(directory, "metadata.ts"),
+		commandFile: join(directory, "command.ts"),
+	};
+}
+
+async function loadCommandMetadata(
+	file: string,
+	gateway: CommandStructureGateway,
+): Promise<ClinkrCommandMetadata> {
+	const imported = await gateway.importModule(file);
+	if (!isObject(imported) || typeof imported["metadata"] !== "function") {
+		throw new Error(`clinkr: metadata module '${file}' must export metadata()`);
+	}
+	const metadata = imported["metadata"];
+	const module: MetadataModule = { metadata: () => metadata() };
+	return validateCommandMetadata(module.metadata(), file);
+}
+
 async function loadCommandModule<TContext>(
 	file: string,
 	gateway: CommandStructureGateway,
 ): Promise<CommandModule<TContext>> {
 	const imported = await gateway.importModule(file);
-	if (!isObject(imported)) {
-		throw new Error(`clinkr: command module '${file}' must export metadata()`);
-	}
-	const metadata = imported["metadata"];
-	const command = imported["command"];
-	if (typeof metadata !== "function") {
-		throw new Error(`clinkr: command module '${file}' must export metadata()`);
-	}
-	if (typeof command !== "function") {
+	if (!isObject(imported) || typeof imported["command"] !== "function") {
 		throw new Error(`clinkr: command module '${file}' must export command()`);
 	}
-	return {
-		metadata: () => metadata(),
-		command: async () => await command(),
-	};
+	const command = imported["command"];
+	return { command: async () => await command() };
 }
 
 async function loadGroupModule(

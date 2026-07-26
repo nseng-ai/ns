@@ -282,25 +282,29 @@ This decision supersedes builders as the primary package-README interface withou
 ```text
 cli/
   app.ts
+  metadata.ts
   command.ts
   issues/
     group.ts
+    metadata.ts
     command.ts
     list/
+      metadata.ts
       command.ts
     labels/
       group.ts
       add/
+        metadata.ts
         command.ts
 ```
 
-The hierarchy is direct: there are no `groups/`, `commands/`, or per-level `routes/` taxonomy directories. Directory path is CLI path. A directory containing `group.ts` is a named group. A `command.ts` without a peer `group.ts` is the named command represented by that directory. A `command.ts` beside `group.ts` is that group's default command. Root `cli/command.ts` is the app default. Normal routes use one file; there is no `route.ts` metadata sidecar.
+The hierarchy is direct: there are no `groups/`, `commands/`, or per-level `routes/` taxonomy directories. Directory path is CLI path. A directory containing `group.ts` is a named group. A required `metadata.ts` + `command.ts` pair without a peer `group.ts` is the named command represented by that directory. The pair beside `group.ts` is that group's default command. The pair at root is the app default. Groups use one `group.ts`; commands use the required pair. There is no `route.ts` or optional metadata sidecar.
 
-Filesystem route modules retain exported functions for future-proofing, but commands and groups deliberately have different shapes. A `group.ts` exports one cheap, complete `group(): ClinkrGroupDefinition`; it includes description/summary, explicit aliases, hidden state, help grouping, and any other cheap group configuration. Children come from the filesystem, and an adjacent `command.ts` remains the default command. There is no separate group `metadata()` and no lazy second group-definition function. This explicitly supersedes the earlier filesystem-first `metadata()` plus lazy `group()` split for groups.
+Filesystem route modules retain exported functions for future-proofing, but commands and groups deliberately have different shapes. A `group.ts` exports one cheap, complete `group(): ClinkrGroupDefinition`; it includes description/summary, explicit aliases, hidden state, help grouping, and any other cheap group configuration. Children come from the filesystem, and an adjacent `metadata.ts` + `command.ts` pair remains the default command. There is no separate group `metadata()` and no lazy second group-definition function. This explicitly supersedes the earlier filesystem-first `metadata()` plus lazy `group()` split for groups.
 
-A `command.ts` keeps two functions because its implementation may be expensive: cheap, explicitly typed `metadata(): ClinkrCommandMetadata` for description/summary, explicit aliases, hidden state, and help grouping, plus async `command()` for the selected definition. Command definitions use a generic typed `defineCommand({...})` helper rather than `satisfies ClinkrCommandDefinition`, so `schema` and `resultSchema` drive handler and renderer inference. The exact helper and type spellings remain provisional, but this is the desired README authoring style. Group and metadata functions use direct explicit return types rather than `satisfies`.
+A command directory requires two files. Its eager `metadata.ts` exports cheap, explicitly typed `metadata(): ClinkrCommandMetadata` for description/summary, explicit aliases, hidden state, and help grouping. Its selected-only `command.ts` exports async `command()` for the definition. Command definitions use a generic typed `defineCommand({...})` helper rather than `satisfies ClinkrCommandDefinition`, so `schema` and `resultSchema` drive handler and renderer inference. The exact helper and type spellings remain provisional, but this is the desired README authoring style. Group and metadata functions use direct explicit return types rather than `satisfies`.
 
-Importing a route module evaluates its top level. For parent routing, help, and name completion, the adapter calls a command module's cheap `metadata()` or a group module's cheap, complete `group()`. Only a selected command's `command()` is invoked. Schemas, handlers, gateways, renderers, completion providers, expensive imports, and expensive construction belong inside `command()`; an unusually heavy command may dynamically import a private implementation there. Group top levels and `group()` itself must remain cheap, and the normal path remains one route file.
+Importing a module evaluates its top level. Top-level/group help and command-name completion import eager command metadata and cheap, complete group definitions but do not import `command.ts`. Selection includes command execution, command help, schema introspection, and option-value completion; each may import the selected command's `command.ts` and construct its definition, but none except execution runs the handler. Because `command.ts` itself is selected-only, it may use ordinary top-level imports of schemas, handlers, gateways, renderers, and completion providers; private dynamic imports are optional implementation choices, not the required laziness seam. Group top levels and `group()` itself must remain cheap.
 
 Runtime filesystem discovery is the approved direction. There is no generated manifest, generated runtime module, filesystem code generation, or production-codegen requirement. The filesystem adapter owns traversal, dynamic imports, builder callbacks, transactional loading, successful per-app caching and retry after failure, ownership/provenance, and ESM resolution. It lowers into the same immutable builder/App model, so routing, execution, help, and completion retain one implementation.
 
@@ -308,7 +312,7 @@ Laziness is recursive and fast by default. Help and name completion may import i
 
 Builders remain a public advanced escape hatch for unusual or programmatic topology, extension mounting, custom loading, and framework integration. The package README should mention this briefly and point to a separate future advanced builder guide; its main flow must not teach builder callbacks.
 
-Runtime discovery creates a packaging constraint: command/group files and directories must ship intact. Bundled or single-file environments may need the builder escape hatch or a later dedicated adapter. This decision does not authorize a manifest fallback.
+Runtime discovery enforces strict shapes: every command directory has both `metadata.ts` and `command.ts`; neither half is valid alone; a group directory has one eager `group.ts` and may also contain the required pair as its default command; and a non-group command directory is represented by exactly that pair. Command/group files and directories must ship intact, including both command files. Bundled or single-file environments may need the builder escape hatch or a later dedicated adapter. This decision does not authorize a manifest fallback or compatibility shape.
 
 The common bootstrap and completion-error policy were subsequently settled below. Raw execution was subsequently settled as a narrow framework-neutral seam. Positional metadata, the Markdown format alias, and the outcome/rendering reconciliation were also subsequently settled below.
 
