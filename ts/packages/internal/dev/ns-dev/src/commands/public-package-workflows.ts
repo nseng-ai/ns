@@ -58,7 +58,9 @@ export const bumpPublicPackageVersionResultSchema = z.object({
 export async function runBumpPublicPackageVersion(
 	context: NsDevCliContext,
 	request: z.output<typeof bumpPublicPackageVersionRequestSchema>,
-): Promise<ClinkrExit<z.output<typeof bumpPublicPackageVersionResultSchema>>> {
+): Promise<
+	ClinkrExit<z.output<typeof bumpPublicPackageVersionResultSchema>, unknown, unknown, unknown>
+> {
 	try {
 		assertPlausibleNpmVersion(request.version);
 		const packages = await loadPublicPackageContext(context.fs);
@@ -102,7 +104,9 @@ export const prepareSourcePublishPackageResultSchema = z.object({
 export async function runPrepareSourcePublishPackage(
 	context: NsDevCliContext,
 	request: z.output<typeof prepareSourcePublishPackageRequestSchema>,
-): Promise<ClinkrExit<z.output<typeof prepareSourcePublishPackageResultSchema>>> {
+): Promise<
+	ClinkrExit<z.output<typeof prepareSourcePublishPackageResultSchema>, unknown, unknown, unknown>
+> {
 	try {
 		const packageRoot = resolve(request.packageRoot ?? context.cwd);
 		const publishRoot = resolve(packageRoot, "dist", "publish");
@@ -153,7 +157,9 @@ export const qualifyPublicPackageSetResultSchema = z.object({
 export async function runQualifyPublicPackageSet(
 	context: NsDevCliContext,
 	request: z.output<typeof qualifyPublicPackageSetRequestSchema>,
-): Promise<ClinkrExit<z.output<typeof qualifyPublicPackageSetResultSchema>>> {
+): Promise<
+	ClinkrExit<z.output<typeof qualifyPublicPackageSetResultSchema>, unknown, unknown, unknown>
+> {
 	try {
 		const result = await qualifyPublicPackages(context, request);
 		return result.type === "failure" ? result.exit : ok(result.value);
@@ -171,7 +177,9 @@ export const smokeSdkConsumerResolutionResultSchema = z.object({
 export async function runSmokeSdkConsumerResolution(
 	context: NsDevCliContext,
 	request: z.output<typeof smokeSdkConsumerResolutionRequestSchema>,
-): Promise<ClinkrExit<z.output<typeof smokeSdkConsumerResolutionResultSchema>>> {
+): Promise<
+	ClinkrExit<z.output<typeof smokeSdkConsumerResolutionResultSchema>, unknown, unknown, unknown>
+> {
 	try {
 		const result = await smokeSdkConsumer(context, resolve(request.publishRoot));
 		return result.type === "failure" ? result.exit : ok(result.value);
@@ -200,7 +208,9 @@ export const verifyPublicPackageSetResultSchema = z.object({
 export async function runVerifyPublicPackageSet(
 	context: NsDevCliContext,
 	request: z.output<typeof verifyPublicPackageSetRequestSchema>,
-): Promise<ClinkrExit<z.output<typeof verifyPublicPackageSetResultSchema>>> {
+): Promise<
+	ClinkrExit<z.output<typeof verifyPublicPackageSetResultSchema>, unknown, unknown, unknown>
+> {
 	try {
 		const result = await verifyPublicPackages(context, request);
 		const unsuccessful = result.results.some((entry) => entry.status !== "published");
@@ -232,7 +242,9 @@ export const publishPublicPackageSetResultSchema = z.object({
 export async function runPublishPublicPackageSet(
 	context: NsDevCliContext,
 	request: z.output<typeof publishPublicPackageSetRequestSchema>,
-): Promise<ClinkrExit<z.output<typeof publishPublicPackageSetResultSchema>>> {
+): Promise<
+	ClinkrExit<z.output<typeof publishPublicPackageSetResultSchema>, unknown, unknown, unknown>
+> {
 	try {
 		assertPlausibleNpmVersion(request.version);
 		const packageContext = await loadPublicPackageContext(context.fs);
@@ -320,7 +332,7 @@ export const renderCliShimRequestSchema = z.object({});
 export const renderCliShimResultSchema = z.object({ output: z.string() });
 export async function runRenderCliShim(
 	context: NsDevCliContext,
-): Promise<ClinkrExit<{ readonly output: string }>> {
+): Promise<ClinkrExit<{ readonly output: string }, unknown, unknown, unknown>> {
 	const missing = requiredShimEnv.filter((name) => context.env[name] === undefined);
 	if (missing.length > 0)
 		return usageError(`Missing required environment variables: ${missing.join(", ")}.`, {
@@ -357,7 +369,7 @@ export function renderCommandResult(_result: unknown): string {
 
 type WorkflowResult<T> =
 	| { readonly type: "ok"; readonly value: T }
-	| { readonly type: "failure"; readonly exit: ClinkrExit<never> };
+	| { readonly type: "failure"; readonly exit: ClinkrExit<never, never, unknown, never> };
 
 async function qualifyPublicPackages(
 	context: NsDevCliContext,
@@ -569,7 +581,8 @@ async function assertUnpublished(
 	plan: readonly PublishPlanEntry[],
 	version: string,
 ): Promise<
-	{ type: "ok"; commands: CommandSummary[] } | { type: "failure"; exit: ClinkrExit<never> }
+	| { type: "ok"; commands: CommandSummary[] }
+	| { type: "failure"; exit: ClinkrExit<never, never, unknown, never> }
 > {
 	const published: string[] = [];
 	const errors: string[] = [];
@@ -717,7 +730,10 @@ function consumerSource(): string {
 	});
 	return `${[...imports, ...keys, "export {};"].join("\n")}\n`;
 }
-function workflowFailure(errorType: string, error: unknown): ClinkrExit<never> {
+function workflowFailure(
+	errorType: string,
+	error: unknown,
+): ClinkrExit<never, never, unknown, never> {
 	return failure(errorType, formatErrorMessage(error), {
 		message: snippet(formatErrorMessage(error)),
 	});

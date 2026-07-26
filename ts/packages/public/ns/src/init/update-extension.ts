@@ -62,14 +62,14 @@ export type UpdateExtensionResult = z.infer<typeof updateExtensionResultSchema>;
 export async function updateExtension(
 	context: ExtensionUpdateContext,
 	request: UpdateExtensionRequest,
-): Promise<ClinkrExit<UpdateExtensionResult>> {
+): Promise<ClinkrExit<UpdateExtensionResult, unknown, unknown, unknown>> {
 	const recorder = createLifecycleRecorder(context.lifecycleTrace);
 	function tracedFailure<TData extends object>(options: {
 		readonly diagnostic: LifecycleDiagnostic;
 		readonly errorType: string;
 		readonly message: string;
 		readonly data: TData;
-	}): ClinkrExit<UpdateExtensionResult> {
+	}): ClinkrExit<UpdateExtensionResult, unknown, unknown, unknown> {
 		recorder.fail(options.diagnostic);
 		return failure(options.errorType, options.message, {
 			...options.data,

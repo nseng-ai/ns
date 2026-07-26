@@ -19,7 +19,7 @@ export type SkillsPathResult = z.infer<typeof skillsPathResultSchema>;
 export function runSkillsPath(
 	context: SkillsCommandContext,
 	request: z.output<typeof skillsPathRequestSchema>,
-): ClinkrExit<SkillsPathResult> {
+): ClinkrExit<SkillsPathResult, unknown, unknown, unknown> {
 	const artifact = findFirstPartySkillArtifact(request.skill);
 	if (artifact === undefined) return unknownSkillExit(request.skill);
 	const resolvedPath = resolveHarnessArtifactPath({

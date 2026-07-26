@@ -561,7 +561,7 @@ describe("putBrmemEntryFromFile", () => {
 
 		for (const testCase of cases) {
 			const mismatched = new FakeGateway([
-				step("brmem", putArgs, { code: 0, stdout: envelope(testCase.data) }),
+				step("brmem", putArgs, { code: 0, stdout: envelope(testCase.data!) }),
 			]);
 			const result = await putBrmemEntryFromFile({
 				gateway: mismatched,

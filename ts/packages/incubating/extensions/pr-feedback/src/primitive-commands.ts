@@ -346,9 +346,7 @@ async function runCloseReviewThreads(
 		...(request.body === undefined ? {} : { body: request.body }),
 	});
 	if (result.failed === 0) return ok(result);
-	return negative(`Failed to close ${result.failed} of ${result.requested} review threads`, {
-		data: result,
-	});
+	return negative(`Failed to close ${result.failed} of ${result.requested} review threads`, result);
 }
 
 function closeReviewThreadsValidationMessage(

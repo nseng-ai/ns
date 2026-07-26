@@ -295,7 +295,7 @@ describe("checked-in flow ns extension loading", () => {
 				message: expect.stringContaining("NS_FLOW_SUBMIT_CHECK_FAILURE"),
 				data: expect.stringContaining("NS_FLOW_SUBMIT_CHECK_FAILURE"),
 			});
-			expect(envelope.data).toBe(envelope.message);
+			expect(envelope.data!).toBe(envelope.message);
 		},
 	);
 

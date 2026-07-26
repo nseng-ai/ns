@@ -17,9 +17,9 @@ import {
 
 export type CommandExit<
 	TResult = unknown,
-	TNegative = TResult,
-	TFailure = TResult,
-	TUsageError = TResult,
+	TNegative = unknown,
+	TFailure = unknown,
+	TUsageError = unknown,
 > = ClinkrExit<TResult, TNegative, TFailure, TUsageError>;
 export type OkCommandExit<T = unknown> = ClinkrOkExit<T>;
 export type NegativeCommandExit<T = unknown> = ClinkrNegativeExit<T>;

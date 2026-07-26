@@ -348,10 +348,10 @@ describe("objective show", () => {
 		);
 
 		if (exit.type !== "negative") throw new Error("expected negative exit");
-		if (exit.data === undefined || exit.data.status !== "not-found") {
+		if (exit.data! === undefined || exit.data!.status !== "not-found") {
 			throw new Error("expected not-found data");
 		}
-		expect(exit.data.slug).toBe("missing");
+		expect(exit.data!.slug).toBe("missing");
 		expect(exit.message).toContain("missing");
 	});
 });
@@ -415,6 +415,6 @@ function plainHuman(data: ShowObjectiveOkResult): string {
 
 function expectOk(exit: Awaited<ReturnType<typeof runShowObjective>>): ShowObjectiveOkResult {
 	if (exit.type !== "ok") throw new Error(`expected ok exit, got ${exit.type}`);
-	if (exit.data?.status !== "ok") throw new Error("expected ok status");
-	return exit.data;
+	if (exit.data!?.status !== "ok") throw new Error("expected ok status");
+	return exit.data!;
 }

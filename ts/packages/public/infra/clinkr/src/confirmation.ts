@@ -55,12 +55,19 @@ export interface ConfirmInteractiveOrUsageErrorOptions {
 	beforePrompt?: () => void;
 }
 
-export type InteractiveConfirmationResult = ConfirmationResult | ClinkrUsageErrorExit;
+export interface ConfirmationUsageErrorData {
+	readonly missingFlag: string;
+	readonly howToSupply: string;
+}
+
+export type InteractiveConfirmationResult =
+	| ConfirmationResult
+	| ClinkrUsageErrorExit<ConfirmationUsageErrorData>;
 
 export function requireInteractiveOrUsageError(
 	interaction: ClinkrInteraction,
 	opts: { message: string; missingFlag: string; howToSupply: string },
-): ClinkrUsageErrorExit | undefined {
+): ClinkrUsageErrorExit<ConfirmationUsageErrorData> | undefined {
 	return interaction.isInteractive()
 		? undefined
 		: usageError(opts.message, { missingFlag: opts.missingFlag, howToSupply: opts.howToSupply });

@@ -82,10 +82,7 @@ export async function runProvisionImport(ctx: SlotCliContext, request: Provision
 		return failure(imported.failure.errorType, imported.failure.message);
 	const result = toImportResult(imported.outcome);
 	if (result.errorCount > 0) {
-		return negative("Provision import completed with errors.", {
-			data: result,
-			human: renderProvisionImport(result),
-		});
+		return negative("Provision import completed with errors.", result);
 	}
 	return ok(result);
 }

@@ -60,14 +60,14 @@ export type UninstallExtensionResult = z.infer<typeof uninstallExtensionResultSc
 export async function uninstallExtension(
 	context: ExtensionUninstallContext,
 	request: UninstallExtensionRequest,
-): Promise<ClinkrExit<UninstallExtensionResult>> {
+): Promise<ClinkrExit<UninstallExtensionResult, unknown, unknown, unknown>> {
 	const recorder = createLifecycleRecorder(context.lifecycleTrace);
 	function tracedFailure<TData extends object>(options: {
 		readonly diagnostic: LifecycleDiagnostic;
 		readonly errorType: string;
 		readonly message: string;
 		readonly data: TData;
-	}): ClinkrExit<UninstallExtensionResult> {
+	}): ClinkrExit<UninstallExtensionResult, unknown, unknown, unknown> {
 		recorder.fail(options.diagnostic);
 		return failure(options.errorType, options.message, {
 			...options.data,

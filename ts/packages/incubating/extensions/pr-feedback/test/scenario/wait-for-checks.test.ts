@@ -100,9 +100,9 @@ describe("ns address exec wait-for-checks", () => {
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope(run);
 		expect(envelope.exitCode).toBe(0);
-		expect(envelope.data?.outcome).toBe("passing");
-		expect(envelope.data?.polls).toBe(1);
-		expect(envelope.data?.counts).toEqual({
+		expect(envelope.data!?.outcome).toBe("passing");
+		expect(envelope.data!?.polls).toBe(1);
+		expect(envelope.data!?.counts).toEqual({
 			passing: 3,
 			pending: 0,
 			failing: 0,
@@ -110,8 +110,11 @@ describe("ns address exec wait-for-checks", () => {
 			unknown: 0,
 			hasMore: false,
 		});
-		expect(envelope.data?.entries.map((entry) => entry.branch)).toEqual(["feature-a", "feature-b"]);
-		expect(envelope.data?.summary).toEqual({ requested: 2, matched: 2, missing: 0, ambiguous: 0 });
+		expect(envelope.data!?.entries.map((entry) => entry.branch)).toEqual([
+			"feature-a",
+			"feature-b",
+		]);
+		expect(envelope.data!?.summary).toEqual({ requested: 2, matched: 2, missing: 0, ambiguous: 0 });
 	});
 
 	test("returns outcome failing with semantic exit 1 naming the failing branches", async () => {
@@ -125,8 +128,8 @@ describe("ns address exec wait-for-checks", () => {
 		const envelope = parseEnvelope(run);
 		expect(envelope.exitCode).toBe(1);
 		expect(envelope.message).toBe("PR checks concluded with failures for branches: feature-a");
-		expect(envelope.data?.outcome).toBe("failing");
-		expect(envelope.data?.polls).toBe(1);
+		expect(envelope.data!?.outcome).toBe("failing");
+		expect(envelope.data!?.polls).toBe(1);
 	});
 
 	test("polls on the requested interval until pending checks conclude", async () => {
@@ -144,9 +147,9 @@ describe("ns address exec wait-for-checks", () => {
 		});
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope(run);
-		expect(envelope.data?.outcome).toBe("passing");
-		expect(envelope.data?.polls).toBe(3);
-		expect(envelope.data?.waitedMs).toBe(60_000);
+		expect(envelope.data!?.outcome).toBe("passing");
+		expect(envelope.data!?.polls).toBe(3);
+		expect(envelope.data!?.waitedMs).toBe(60_000);
 		expect(timers.delays).toEqual([30_000, 30_000]);
 	});
 
@@ -164,9 +167,9 @@ describe("ns address exec wait-for-checks", () => {
 		expect(envelope.message).toBe(
 			"Timed out after 30s waiting for PR checks to settle; still pending: feature-a",
 		);
-		expect(envelope.data?.outcome).toBe("timeout");
-		expect(envelope.data?.polls).toBe(3);
-		expect(envelope.data?.waitedMs).toBe(30_000);
+		expect(envelope.data!?.outcome).toBe("timeout");
+		expect(envelope.data!?.polls).toBe(3);
+		expect(envelope.data!?.waitedMs).toBe(30_000);
 	});
 
 	test("returns outcome mapping-gap immediately with the sibling gaps message", async () => {
@@ -180,8 +183,8 @@ describe("ns address exec wait-for-checks", () => {
 		expect(await run.exit).toBe(1);
 		const envelope = parseEnvelope(run);
 		expect(envelope.message).toBe("No open PR found for branches: no-such-branch");
-		expect(envelope.data?.outcome).toBe("mapping-gap");
-		expect(envelope.data?.polls).toBe(1);
+		expect(envelope.data!?.outcome).toBe("mapping-gap");
+		expect(envelope.data!?.polls).toBe(1);
 	});
 
 	test("accepts the payload via --branches-json", async () => {

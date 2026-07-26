@@ -26,7 +26,7 @@ describe("flow autoslot command outcomes", () => {
 		expect(await run.exit).toBe(1);
 		const result = await run.result;
 		expect(result.type).toBe("negative");
-		if (result.type === "negative") expect(result.data).toBe(result.message);
+		if (result.type === "negative") expect(result.data!).toBe(result.message);
 		expect(run.stdout.join("")).toBe("");
 		const stderr = stripAnsi(run.stderr.join(""));
 		expect(stderr).toContain("Autoslot could not create a Graphite branch.");
@@ -88,7 +88,7 @@ describe("flow autoslot command outcomes", () => {
 			expect(result.type).toBe("failure");
 			if (result.type === "failure") {
 				expect(result.message).toContain("Invalid model policy in ns.toml");
-				expect(result.data).toBe(result.message);
+				expect(result.data!).toBe(result.message);
 			}
 		} finally {
 			await rm(cwd, { recursive: true, force: true });

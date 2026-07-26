@@ -68,5 +68,5 @@ async function runBranchPrChecksOperation(
 	const collection = result.collection;
 	const gaps = branchPrChecksMappingGaps(collection);
 	if (!hasBranchPrMappingGaps(gaps)) return ok(collection);
-	return negative(branchPrMappingGapsMessage(gaps), { data: collection });
+	return negative(branchPrMappingGapsMessage(gaps), collection);
 }

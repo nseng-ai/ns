@@ -374,7 +374,7 @@ describe("project-local submit extension", () => {
 		const result = await run.result;
 		expect(result.type).toBe("negative");
 		if (result.type === "negative") {
-			expect(result.data).toBe(result.message);
+			expect(result.data!).toBe(result.message);
 			expect(result.message).toContain("no PR metadata was edited");
 		}
 		expect(run.stderr.join("")).toContain("no PR metadata was edited");
@@ -393,7 +393,7 @@ describe("project-local submit extension", () => {
 		expect(result.type).toBe("failure");
 		if (result.type === "failure") {
 			expect(result.message).toContain("Invalid model policy in ns.toml");
-			expect(result.data).toBe(result.message);
+			expect(result.data!).toBe(result.message);
 		}
 		expect(formattedExecCalls(run.context)).toEqual(["git rev-parse --show-toplevel"]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
@@ -513,7 +513,7 @@ describe("project-local submit extension", () => {
 		const result = await run.result;
 		expect(result.type).toBe("failure");
 		if (result.type === "failure") {
-			expect(result.data).toBe(result.message);
+			expect(result.data!).toBe(result.message);
 			expect(result.message.split("\n")[0]).toBe(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 		}
 		const error = run.stderr.join("");
@@ -559,7 +559,7 @@ describe("project-local submit extension", () => {
 		const result = await run.result;
 		expect(result.type).toBe("negative");
 		if (result.type === "negative") {
-			expect(result.data).toBe(result.message);
+			expect(result.data!).toBe(result.message);
 			expect(result.message.split("\n")[0]).toBe(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 		}
 		const error = run.stderr.join("");
@@ -1631,7 +1631,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 		const result = await run.result;
 		expect(result.type).toBe("negative");
 		if (result.type === "negative") {
-			expect(result.data).toBe(result.message);
+			expect(result.data!).toBe(result.message);
 			expect(
 				result.message.startsWith(
 					"WARNING: This branch does not introduce any changes:\n▸ empty-branch-test",

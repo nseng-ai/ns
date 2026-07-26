@@ -54,7 +54,7 @@ export async function runCheck(ctx: BrmemCliContext, request: CheckRequest) {
 			...optionalEntry("at", request.at),
 		});
 		return request.require
-			? negative("The requested Branch Memory Entry does not exist.", { data })
+			? negative("The requested Branch Memory Entry does not exist.", data)
 			: ok(data);
 	}
 	return ok({

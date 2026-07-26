@@ -103,7 +103,7 @@ export async function runGtQuiescence(ctx: SlotCliContext, request: GtQuiescence
 			warnings: [],
 			isQuiescent: false,
 		});
-		return negative(`On trunk '${stack.trunk}'; no stack is checked out.`, { data: result });
+		return negative(`On trunk '${stack.trunk}'; no stack is checked out.`, result);
 	}
 
 	const branches = collectStackBranches(stack, {
@@ -140,7 +140,7 @@ export async function runGtQuiescence(ctx: SlotCliContext, request: GtQuiescence
 		blockers,
 		warnings: integrity.warnings,
 	});
-	if (blockers.length > 0) return negative("Stack is not quiescent.", { data: result });
+	if (blockers.length > 0) return negative("Stack is not quiescent.", result);
 	return ok(result);
 }
 

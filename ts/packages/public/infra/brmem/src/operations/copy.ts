@@ -99,9 +99,10 @@ export async function runCopy(ctx: BrmemCliContext, request: CopyRequest) {
 		.filter((entry) => request.keyGlob === undefined || keyGlobMatches(entry.key, request.keyGlob))
 		.sort(compareEntries);
 	if (selectedSourceEntries.length === 0) {
-		return negative(noMatchingEntriesMessage(namespace, request), {
-			data: emptyCopyResult(namespace, request),
-		});
+		return negative(
+			noMatchingEntriesMessage(namespace, request),
+			emptyCopyResult(namespace, request),
+		);
 	}
 
 	const destinationEntriesResult = await ctx.gateway.listEntries({
@@ -117,9 +118,7 @@ export async function runCopy(ctx: BrmemCliContext, request: CopyRequest) {
 	if (conflicts.length > 0 && !request.overwrite) {
 		return negative(
 			`Destination has conflicting Entries: ${conflicts.join(", ")}. Pass --overwrite to replace them.`,
-			{
-				data: emptyCopyResult(namespace, request),
-			},
+			emptyCopyResult(namespace, request),
 		);
 	}
 
@@ -146,9 +145,7 @@ export async function runCopy(ctx: BrmemCliContext, request: CopyRequest) {
 	});
 	if (copied.type === "error") {
 		if (copied.error.code === "copy-conflict") {
-			return negative(copied.error.message, {
-				data: result,
-			});
+			return negative(copied.error.message, result);
 		}
 		return gatewayFailure<CopyResult>(copied.error);
 	}

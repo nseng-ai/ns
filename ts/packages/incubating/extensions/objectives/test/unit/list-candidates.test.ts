@@ -37,9 +37,9 @@ describe("objective list-candidates operation", () => {
 		const ctx = contextWithFakeStorage({ records: [{ slug: "alpha" }, { slug: "charlie" }] });
 		const exit = await runListCandidates(ctx, {});
 		if (exit.type !== "ok") throw new Error("expected ok exit");
-		if (exit.data === undefined) throw new Error("expected ok data");
+		if (exit.data! === undefined) throw new Error("expected ok data");
 
-		expect(renderListCandidates(exit.data)).toBe("alpha\topen\ncharlie\topen");
+		expect(renderListCandidates(exit.data!)).toBe("alpha\topen\ncharlie\topen");
 	});
 });
 

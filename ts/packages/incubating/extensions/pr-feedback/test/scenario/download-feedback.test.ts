@@ -17,7 +17,7 @@ function parseEnvelope(stdout: readonly string[]): Record<string, unknown> {
 
 function dataFrom(runStdout: readonly string[]): Record<string, unknown> {
 	const envelope = parseEnvelope(runStdout);
-	const data = envelope.data;
+	const data = envelope.data!;
 	if (typeof data !== "object" || data === null || Array.isArray(data))
 		throw new Error("expected envelope data object");
 	return data as Record<string, unknown>;

@@ -146,15 +146,44 @@ export async function runClinkrCommand<T>(
 	});
 }
 
-export interface RunOperationCommandOptions<TOperation, TData, TErrorData = unknown> {
+export interface RunOperationCommandOptions<
+	TOperation,
+	TResult,
+	TNegative,
+	TFailure,
+	TUsageError,
+	TThrownFailure,
+	TThrownUsageError,
+> {
 	readonly operation: TOperation;
-	readonly action: () => Promise<ClinkrExit<TData>>;
-	readonly failureFromError: (operation: TOperation, error: unknown) => ClinkrExit<TErrorData>;
+	readonly action: () => Promise<ClinkrExit<TResult, TNegative, TFailure, TUsageError>>;
+	readonly failureFromError: (
+		operation: TOperation,
+		error: unknown,
+	) => ClinkrExit<never, never, TThrownFailure, TThrownUsageError>;
 }
 
-export async function runOperationCommand<TOperation, TData, TErrorData = unknown>(
-	options: RunOperationCommandOptions<TOperation, TData, TErrorData>,
-): Promise<ClinkrExit<TData | TErrorData>> {
+export async function runOperationCommand<
+	TOperation,
+	TResult,
+	TNegative,
+	TFailure,
+	TUsageError,
+	TThrownFailure,
+	TThrownUsageError,
+>(
+	options: RunOperationCommandOptions<
+		TOperation,
+		TResult,
+		TNegative,
+		TFailure,
+		TUsageError,
+		TThrownFailure,
+		TThrownUsageError
+	>,
+): Promise<
+	ClinkrExit<TResult, TNegative, TFailure | TThrownFailure, TUsageError | TThrownUsageError>
+> {
 	try {
 		return await options.action();
 	} catch (error) {

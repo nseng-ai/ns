@@ -38,9 +38,9 @@ export type ClinkrHandler<
 	TContext,
 	S extends z.ZodObject,
 	TResult,
-	TNegative = TResult,
-	TFailure = TResult,
-	TUsageError = TResult,
+	TNegative = unknown,
+	TFailure = unknown,
+	TUsageError = unknown,
 > = (
 	ctx: TContext,
 	request: z.output<S>,
@@ -50,9 +50,9 @@ export interface ClinkrCommandSpec<
 	TContext,
 	S extends z.ZodObject,
 	TResult,
-	TNegative = TResult,
-	TFailure = TResult,
-	TUsageError = TResult,
+	TNegative = unknown,
+	TFailure = unknown,
+	TUsageError = unknown,
 > {
 	name: string;
 	description?: string;
@@ -82,15 +82,9 @@ export interface ClinkrCommandSpec<
 	 * (data, caps): parsed request flags are never threaded to renderers, so a display toggle
 	 * needs explicit plumbing — prefer keeping full detail on the markdown surface instead.
 	 */
-	renderHuman?: (
-		data: TResult | TNegative | TFailure | TUsageError,
-		caps: RenderCapabilities,
-	) => string;
+	renderHuman?: (data: TResult, caps: RenderCapabilities) => string;
 	/** Markdown rendering falls back to human rendering when absent. */
-	renderMarkdown?: (
-		data: TResult | TNegative | TFailure | TUsageError,
-		caps: RenderCapabilities,
-	) => string;
+	renderMarkdown?: (data: TResult, caps: RenderCapabilities) => string;
 	/** Rendered commands cannot opt into raw mode; use `@nseng-ai/clinkr/raw`. */
 	isRawExit?: never;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
@@ -143,9 +137,9 @@ export interface DefaultCommandSpec<
 	TContext,
 	S extends z.ZodObject,
 	TResult,
-	TNegative = TResult,
-	TFailure = TResult,
-	TUsageError = TResult,
+	TNegative = unknown,
+	TFailure = unknown,
+	TUsageError = unknown,
 > extends Omit<
 	ClinkrCommandSpec<TContext, S, TResult, TNegative, TFailure, TUsageError>,
 	"name" | "summary" | "description"

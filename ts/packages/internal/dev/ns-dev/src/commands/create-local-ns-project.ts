@@ -49,14 +49,14 @@ type VerificationPassed = CommandRef;
 export async function runCreateLocalNsProject(
 	context: NsDevCliContext,
 	request: CreateLocalNsProjectRequest,
-): Promise<ClinkrExit<CreateLocalNsProjectResult>> {
+): Promise<ClinkrExit<CreateLocalNsProjectResult, unknown, unknown, unknown>> {
 	return guardFilesystemErrors(() => runCreateLocalNsProjectInner(context, request));
 }
 
 async function runCreateLocalNsProjectInner(
 	context: NsDevCliContext,
 	request: CreateLocalNsProjectRequest,
-): Promise<ClinkrExit<CreateLocalNsProjectResult>> {
+): Promise<ClinkrExit<CreateLocalNsProjectResult, unknown, unknown, unknown>> {
 	if (request.nsWorktree === undefined) {
 		return usageError("Missing required --ns-worktree <path>.", { argument: "--ns-worktree" });
 	}

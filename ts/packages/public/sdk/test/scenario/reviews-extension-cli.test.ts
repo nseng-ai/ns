@@ -109,7 +109,7 @@ describe("Reviews ns command face", () => {
 		const envelope = parseJsonOutput(run);
 		expect(envelope.status).toBe("ok");
 		expect(envelope.exitCode).toBe(0);
-		expect(envelope.data).toMatchObject({
+		expect(envelope.data!).toMatchObject({
 			commandKey: "reviews/list",
 			cwd: "/workspace/project",
 			request: { ci: true, baseRef: "main" },
@@ -129,7 +129,7 @@ describe("Reviews ns command face", () => {
 		expect(await run.exit, run.stderr.join("")).toBe(0);
 		const envelope = parseJsonOutput(run);
 		expect(envelope.status).toBe("ok");
-		expect(envelope.data).toMatchObject({
+		expect(envelope.data!).toMatchObject({
 			commandKey: "reviews/exec/publish-findings",
 			stdin: '{"status":"ok"}',
 			request: { prNumber: 47 },

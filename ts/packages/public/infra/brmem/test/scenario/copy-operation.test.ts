@@ -126,7 +126,7 @@ describe("copy operation", () => {
 				],
 			},
 		});
-		const data = parsed.data as Record<string, unknown>;
+		const data = parsed.data! as Record<string, unknown>;
 		expect(Object.keys(data).sort()).toEqual([
 			"copied",
 			"dryRun",

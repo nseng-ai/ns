@@ -53,7 +53,7 @@ export type InitNsResult = z.infer<typeof initNsResultSchema>;
 export async function initNs(
 	context: NsActivationContext,
 	request: InitNsRequest & { readonly cwd: string },
-): Promise<ClinkrExit<InitNsResult>> {
+): Promise<ClinkrExit<InitNsResult, unknown, unknown, unknown>> {
 	const recorder = createLifecycleRecorder(context.lifecycleTrace);
 	const tracedFailure = createTracedInitFailure(recorder);
 	recorder.beginPhase("repository-preflight");
@@ -228,12 +228,12 @@ interface TracedInitFailure {
 		readonly errorType: string;
 		readonly message: string;
 		readonly data: TData;
-	}): ClinkrExit<InitNsResult>;
+	}): ClinkrExit<never, never, unknown, never>;
 	usage<TData extends object>(options: {
 		readonly diagnostics: readonly LifecycleDiagnostic[];
 		readonly message: string;
 		readonly data: TData;
-	}): ClinkrExit<InitNsResult>;
+	}): ClinkrExit<never, never, never, unknown>;
 }
 
 function createTracedInitFailure(recorder: LifecycleRecorder): TracedInitFailure {
@@ -272,7 +272,7 @@ function selectInitFailureDiagnostic(
 function preflightFailure(
 	diagnostics: readonly LifecycleDiagnostic[],
 	tracedFailure: TracedInitFailure,
-): ClinkrExit<InitNsResult> {
+): ClinkrExit<InitNsResult, unknown, unknown, unknown> {
 	return tracedFailure.command({
 		diagnostics,
 		errorType: "ns-init-preflight-failed",
@@ -288,7 +288,7 @@ function preflightFailure(
 function repositoryFailure(
 	result: Exclude<ResolveActivationRepositoryResult, { type: "resolved" }>,
 	tracedFailure: TracedInitFailure,
-): ClinkrExit<InitNsResult> {
+): ClinkrExit<InitNsResult, unknown, unknown, unknown> {
 	const diagnostic = activationRepositoryFailureDiagnostic(result);
 	const errorType = activationRepositoryFailureType(result, {
 		"not-a-git-repo": "ns-init-not-a-git-repo",
