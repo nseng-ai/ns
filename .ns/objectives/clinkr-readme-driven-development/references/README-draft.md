@@ -75,7 +75,7 @@ export async function command() {
       enthusiastic: z.boolean().default(false),
     }),
     positionals: {
-      name: { index: 0, description: "Person to greet." },
+      name: { position: 0, description: "Person to greet." },
     },
     options: {
       enthusiastic: { description: "Add emphasis." },
@@ -105,7 +105,7 @@ const app = await createFilesystemApp({
 process.exitCode = await app.run(process.argv.slice(2));
 ```
 
-This creates a command callable as `greet Ada --enthusiastic`. Clinkr adds `--format <human|json|markdown>` and `--json-schema` to every rendered command. The request schema drives parsing and validation; camelCase schema keys become kebab-case options. Mark positional fields with `positionals` and use `options` for option-specific help and surface metadata.
+This creates a command callable as `greet Ada --enthusiastic`. Clinkr adds `--format <human|json|markdown>` and `--json-schema` to every rendered command; `md` is a supported alias for `markdown`. The request schema drives parsing and validation; camelCase schema keys become kebab-case options. Mark positional fields with `positionals`, use `position` to declare their zero-based ordinal placement, and use `options` for option-specific help and surface metadata.
 
 A command that only performs an imperative action needs no `resultSchema`. It may write application-owned stderr chatter and return `ok()` with no data. Omitting all outcome data schemas is bodyless, not untyped: Clinkr emits no human result body and no `data` field in its JSON envelope. Use `z.any()` explicitly for intentionally untyped data.
 
