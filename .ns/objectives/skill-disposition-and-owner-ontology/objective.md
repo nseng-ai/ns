@@ -1,7 +1,7 @@
 ---
 edges:
   - objective: professional-repo-curation
-    annotation: Parallel Subobjective that curates the first-party skill tree by release disposition and domain/family ownership while preserving flat harness-facing skill identities.
+    annotation: Completed Parallel Subobjective whose skill-tree outcome is synthesized by the parent while ADR 0046 and skills/README.md preserve the durable support-disposition and ownership contract.
 ---
 
 # Skill Disposition and Owner Ontology
