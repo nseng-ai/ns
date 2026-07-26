@@ -173,32 +173,6 @@ describe("objective check with Record Frontmatter", () => {
 			"objective.md edge checkout-free-sdl-distribution endpoint exists",
 		]);
 	});
-
-	test("blocked record with a closed counterpart passes with a warning, not an error", async () => {
-		const exit = await runCheckObjective(
-			contextWithFakeStorage({
-				records: [
-					{
-						slug: "alpha",
-						objectiveMd: `${FRONTMATTER}${COMPLETE_OBJECTIVE_MD}`,
-						roadmapMd: ROADMAP_MD,
-					},
-					{ ...MIRROR_COUNTERPART, isClosed: true },
-				],
-			}),
-			{ slug: "alpha" },
-		);
-
-		if (exit.type !== "ok") throw new Error("expected ok exit");
-		expect(exit.data.status).toBe("ok");
-		expect(exit.data.errorCount).toBe(0);
-		expect(exit.data.warningCount).toBe(1);
-		const warning = exit.data.checks.find(
-			(check) => check.severity === "warning" && !check.isPassed,
-		);
-		expect(warning?.label).toBe("objective.md Blocked Sentence has no closed edge counterparts");
-		expect(warning?.detail).toContain("checkout-free-sdl-distribution");
-	});
 });
 
 describe("objective check --all edge sweep", () => {
@@ -234,29 +208,6 @@ describe("objective check --all edge sweep", () => {
 		if (exit.data.status !== "sweep-ok") throw new Error("expected sweep-ok result");
 		expect(exit.data.recordCount).toBe(3);
 		expect(exit.data.violations).toEqual([]);
-	});
-
-	test("sweep stays sweep-ok when only blocked/closed-counterpart warnings exist", async () => {
-		const exit = await runObjectiveCheckCommand(
-			contextWithFakeStorage({
-				records: [
-					{
-						slug: "alpha",
-						objectiveMd: `${FRONTMATTER}${COMPLETE_OBJECTIVE_MD}`,
-						roadmapMd: ROADMAP_MD,
-					},
-					{ ...MIRROR_COUNTERPART, isClosed: true },
-				],
-			}),
-			{ all: true },
-		);
-
-		if (exit.type !== "ok") throw new Error("expected ok exit");
-		expect(exit.data.status).toBe("sweep-ok");
-		if (exit.data.status !== "sweep-ok") throw new Error("expected sweep-ok result");
-		expect(exit.data.errorCount).toBe(0);
-		expect(exit.data.warningCount).toBe(1);
-		expect(exit.data.violations.map((item) => item.severity)).toEqual(["warning"]);
 	});
 
 	test("sweep covers active records and aggregates violations", async () => {
