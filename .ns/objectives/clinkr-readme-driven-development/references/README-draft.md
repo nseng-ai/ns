@@ -109,7 +109,7 @@ This creates a command callable as `greet Ada --enthusiastic`. Clinkr adds `--fo
 
 A command that only performs an imperative action needs no `resultSchema`. It may write application-owned stderr chatter and return `ok()` with no data. Omitting all outcome data schemas is bodyless, not untyped: Clinkr emits no human result body and no `data` field in its JSON envelope. Use `z.any()` explicitly for intentionally untyped data.
 
-`resultSchema` configures successful `ok(data)`. Optional `negativeSchema`, `failureSchema`, and `usageErrorSchema` configure structured data for other statuses. Supplying a schema requires and validates data for that status; omitting it makes that outcome bodyless.
+`resultSchema` configures successful `ok(data)`. Optional `negativeSchema`, `failureSchema`, and `usageErrorSchema` configure structured data for other statuses. Supplying a schema requires and validates data for that status; omitting it makes that outcome bodyless. These four schemas are one Clinkr-owned command contract: the same model drives handler outcome types, runtime validation, machine-envelope construction, and `--json-schema`.
 
 ## Return explicit outcomes
 
@@ -167,7 +167,7 @@ export async function command() {
 }
 ```
 
-Clinkr composes these command data schemas with its fixed fields into one top-level discriminated JSON Schema. Each `status` branch has predictable standard fields and either requires `data` matching its configured schema or omits `data` when no schema was configured. `--json-schema` publishes this complete input-and-outcome contract.
+Clinkr composes these command data schemas with its fixed fields into one top-level discriminated JSON Schema. Each `status` branch has predictable standard fields and either requires `data` matching its configured schema or omits `data` when no schema was configured. `--json-schema` publishes this complete input-and-outcome contract. Adapters should pass these schemas through to Clinkr rather than validating or reconstructing a partial outcome contract themselves.
 
 Clinkr follows the [`grep` exit-status convention](https://www.gnu.org/software/grep/manual/html_node/Exit-Status.html): `0` positive, `1` expected negative, `2` error. This is Clinkr's convention, not a universal CLI rule.
 
@@ -194,7 +194,7 @@ export async function command() {
 }
 ```
 
-Clinkr selects the output format from its framework options. Without a Markdown renderer, Markdown output falls back to the human renderer. Without a human renderer, successful data prints as indented JSON. Outcomes do not carry per-exit human or Markdown overrides; rendering remains part of the command contract.
+Clinkr selects the output format from its framework options. Without a Markdown renderer, Markdown output falls back to the human renderer. Without a human renderer, successful data prints as indented JSON. Outcomes do not carry per-exit human or Markdown overrides; rendering remains part of the command contract. When presentation differs by outcome or handler branch, put the distinguishing facts in typed outcome data and let stable command-level renderers select the text. Do not synthesize rendered strings onto an individual returned outcome.
 
 Every structured outcome has a corresponding command schema. Clinkr validates outcome data at runtime and publishes the composed discriminated schema through `--json-schema`; schema introspection never invokes the handler. Invalid outcome data throws as a programmer error for the app's crash policy. Omit a status schema only when that outcome has no data, or use `z.any()` to declare intentionally untyped data.
 
