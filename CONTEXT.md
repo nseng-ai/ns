@@ -89,8 +89,8 @@ The explicit mutation workflow that updates objective tracking by editing durabl
 *Avoid*: Progress log, automatic refresh, hidden reconciliation
 
 **Objective Close**:
-The explicit mutation workflow that records an objective as complete or intentionally abandoned while preserving its checked-in active-root record and writing a **Closure Marker**.
-*Avoid*: Deletion, separate parking state machine
+The explicit, graph-aware mutation workflow that records an objective as complete or intentionally abandoned, writes its **Closure Marker**, and assesses every **Objective Edge** so affected connected Objectives are unblocked or otherwise updated to their post-closure state. It preserves the closed record and never recursively closes connected Objectives.
+*Avoid*: Marker-only close, frontmatter-only propagation, recursive cascade close, deletion, separate parking state machine
 
 **Closure Marker**:
 A lightweight `closed.md` file whose existence lets tools identify closed objectives without language-model interpretation.
