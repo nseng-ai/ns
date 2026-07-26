@@ -30,6 +30,7 @@ activate.sh
 .DS_Store
 .env
 .vercel/
+tmp/
 CLAUDE.local.md
 .mcp.json
 local.just

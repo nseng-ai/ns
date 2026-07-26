@@ -69,9 +69,9 @@ describe("flow land external-call telemetry run diagnostics", () => {
 		expect(write.path).toBe("/xdg-state/ns/flow/land/runs/run-1.json");
 		const parsed: unknown = JSON.parse(write.content);
 		expect(parsed).toEqual({
-			schemaVersion: 2,
+			schemaVersion: 3,
 			runId: "run-1",
-			command: "sdl flow land",
+			command: "ns flow land",
 			startedAtMs: 1_000,
 			finishedAtMs: 1_100,
 			durationMs: 100,

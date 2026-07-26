@@ -34,7 +34,7 @@ export type {
 	FlowLandTelemetryTotals,
 } from "./external-call-telemetry-summary.ts";
 
-export const FLOW_LAND_TELEMETRY_DIAGNOSTICS_SCHEMA_VERSION = 2;
+export const FLOW_LAND_TELEMETRY_DIAGNOSTICS_SCHEMA_VERSION = 3;
 
 export interface FlowLandExternalCallDiagnostic {
 	transport: FlowLandExternalCallTransport;
@@ -50,7 +50,7 @@ export interface FlowLandExternalCallDiagnostic {
 export interface FlowLandTelemetryDiagnostics {
 	schemaVersion: typeof FLOW_LAND_TELEMETRY_DIAGNOSTICS_SCHEMA_VERSION;
 	runId: string;
-	command: "sdl flow land";
+	command: "ns flow land";
 	startedAtMs: number;
 	finishedAtMs: number;
 	durationMs: number;
@@ -145,7 +145,7 @@ function buildFlowLandTelemetryDiagnostics(options: {
 	return {
 		schemaVersion: FLOW_LAND_TELEMETRY_DIAGNOSTICS_SCHEMA_VERSION,
 		runId: options.runId,
-		command: "sdl flow land",
+		command: "ns flow land",
 		startedAtMs: options.startedAtMs,
 		finishedAtMs: options.finishedAtMs,
 		durationMs: Math.max(0, options.finishedAtMs - options.startedAtMs),

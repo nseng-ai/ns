@@ -27,8 +27,11 @@ git branch --show-current
 gt parent --no-interactive 2>/dev/null || true
 git diff --name-status
 git diff --name-status <base>...HEAD  # when the branch base is known
-rg -n "pi\\.registerCommand|registerCliCommandExtension" ts/packages/pi-extensions/src -g '!**/node_modules/**'
-find skills -maxdepth 2 -name SKILL.md | sort
+rg -n --glob '!*.map' --glob '!**/node_modules/**' \
+  --max-columns 300 --max-columns-preview \
+  "registerCommand|registerCommandWithImmediateAck|registerCliCommandExtension" \
+  .pi/extensions ts/packages
+find skills/public skills/incubating skills/internal -type f -name SKILL.md | sort
 ```
 
 Prefer the Graphite parent from `gt parent --no-interactive` as the branch diff base when available, because this repo uses Graphite stacks. If Graphite is unavailable, use a best-effort plain git base (`origin/master`, `master`, `origin/main`, `main`) without failing the review.
@@ -39,11 +42,11 @@ For diff-scoped review, inspect changed files before the full inventory. For ful
 
 ## Inspecting Pi surfaces
 
-Look for these source shapes under `ts/packages/pi-extensions/src/`:
+Start at `.pi/extensions/*.ts`: every checked-in adapter is discovered by Pi, and most delegate to a package-owned extension entrypoint. Follow each adapter import into its owning package under `ts/packages/{public,incubating,internal}/...` and look for these source shapes:
 
-- Direct command registration: `pi.registerCommand(...)`.
-- CLI bridge registration: `registerCliCommandExtension(...)` in `ts/packages/pi-extensions/src/cli-command-extension.ts`.
-- Current bridge example: `ts/packages/pi-extensions/src/ns-extension.ts` maps ns commands to `/ns:*` and `/ns:code:*` Pi commands.
+- Direct command registration through `pi.registerCommand(...)` or the required `registerCommandWithImmediateAck(...)` helper.
+- CLI bridge registration through `registerCliCommandExtension(...)` in `@nseng-ai/pi-runtime/commands/cli-extension` consumers.
+- Current bridge example: `.pi/extensions/ns.ts` delegates to `@nseng-ai/flow/pi/ns-extension`, which maps the `ns flow` CLI family to `/ns:flow:*` Pi commands.
 
 Commands registered through `registerCliCommandExtension` are presumed CLI-backed. Verify skill/docs discoverability and flag surprising extra Pi-only behavior, but do not treat every generated bridge command as an orchestration gap.
 
