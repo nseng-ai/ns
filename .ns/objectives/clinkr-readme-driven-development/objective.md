@@ -42,9 +42,9 @@ Bless Clinkr's cold-audience package contract in `references/README-draft.md`, i
 
 ## Prompt Guidance
 
-When the selected semantic slice clearly calls for one or more landing PRs, the proposed prompt from `objective-next` must be one short command beginning with `/ns:plan:grill-and-save`. Name the slice, direct the fresh planning session to read this Objective as its primary architecture, sequencing, and acceptance source, and cite only the roadmap row, reference, or golden consumer branch needed for that slice. Ask for the fewest coherent PRs, with relevant deletion and validation evidence.
+Use `/ns:plan:grill-and-save` only when the selected next semantic step is itself bounded landing work: its material decisions are settled, it can proceed mostly autonomously, and one or more PRs are the expected direct result. The proposed prompt must be one short command naming the slice, directing the fresh planning session to read this Objective as its primary architecture, sequencing, and acceptance source, and citing only the roadmap row, reference, or golden consumer branch needed for that slice. Ask for the fewest coherent PRs, with relevant deletion and validation evidence.
 
-When the next semantic step is not clearly PR-shaped, produce a short plain-language prompt suited to that work instead of forcing it through implementation planning. In either form, do not restate the Objective in the prompt.
+When the selected step is a discussion, contract review, design decision, blessing gate, or otherwise requires active human steering, produce a short interactive plain-language prompt and do not construct an implementation plan. If a roadmap row mixes human-steered decisions with later implementation evidence, select and prompt the decision/steering substep first; planning may follow only after those decisions are recorded. For other work that is not clearly PR-shaped, likewise use a short plain-language prompt suited to that work. In every form, do not restate the Objective in the prompt.
 
 This guidance shapes prompt serialization only. It does not authorize implementation or choose the next roadmap row.
 
