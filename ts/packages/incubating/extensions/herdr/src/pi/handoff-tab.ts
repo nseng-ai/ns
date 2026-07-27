@@ -27,7 +27,6 @@ const PROMPT_COPY = {
 
 const START_MESSAGES = {
 	ready: `Starting ${HERDR_TAB_HANDOFF_COMMAND_NAME} workflow with content-derived slug…`,
-	fallbackLabel: `${HERDR_TAB_HANDOFF_COMMAND_NAME} workflow prompt for a content-derived slug`,
 } satisfies HandoffStartMessages;
 
 export function registerHerdrHandoffTab(

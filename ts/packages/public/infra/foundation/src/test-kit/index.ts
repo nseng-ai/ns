@@ -173,7 +173,7 @@ export async function withTempRepoSkill<T>(
 	return await withTempGitRepo(
 		{ prefix: options.prefix ?? `${options.skillName}-repo-` },
 		async ({ repoDir }) => {
-			const skillRoot = options.skillRoot ?? "skills";
+			const skillRoot = options.skillRoot ?? join(".agents", "skills");
 			const skillDir = join(repoDir, skillRoot, options.skillName);
 			const skillPath = join(skillDir, "SKILL.md");
 			await mkdir(skillDir, { recursive: true });

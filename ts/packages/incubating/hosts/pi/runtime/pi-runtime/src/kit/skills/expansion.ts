@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { splitMarkdownFrontmatter } from "@nseng-ai/foundation/markdown-frontmatter";
-import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
+import { buildFencedTextBlock, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { NotifyLevel } from "../../runtime/tool-types.ts";
 import {
 	resolveExactSkillLookup,
@@ -47,7 +47,7 @@ export interface RepoSkillPathResolveOptions extends SkillLookupIo {
 	skillName: string;
 }
 
-export interface RepoSkillExpansionOptions extends SkillExpansionOptions {
+export interface RepoSkillExpansionOptions extends SkillExpansionOptions, SkillLookupIo {
 	cwd: string;
 	skillName: string;
 }
@@ -57,7 +57,6 @@ export interface SkillPromptTurnHost extends SkillExpansionHost {
 }
 
 export interface RepoSkillPromptTurnHost {
-	getCommands?(): readonly SkillCommandInfo[];
 	sendUserMessage(content: string): Promise<void> | void;
 }
 
@@ -74,8 +73,7 @@ export interface InvokeSkillPromptTurnOptions {
 	ctx: SkillPromptTurnContext;
 	skillName: string;
 	successMessage: string | ((skill: ExpandedSkillBlock) => string);
-	fallbackMessage: string;
-	buildPrompt(skillBlock: string | undefined): string;
+	buildPrompt(skillBlock: string): string;
 }
 
 export interface RepoSkillPromptTurnContext extends SkillPromptTurnContext {
@@ -87,15 +85,14 @@ export interface InvokeRepoSkillPromptTurnOptions extends SkillLookupIo {
 	ctx: RepoSkillPromptTurnContext;
 	skillName: string;
 	successMessage: string | ((skill: ExpandedSkillBlock) => string);
-	fallbackMessage: string;
-	buildPrompt(skillBlock: string | undefined): string;
+	buildPrompt(skillBlock: string): string;
 	readTextFile?: (path: string) => Promise<string>;
 }
 
 export interface BuildSkillInvocationPromptOptions {
 	skillName: string;
 	initialRequest: string;
-	skillBlock?: string;
+	skillBlock: string;
 	route?: string;
 }
 
@@ -167,11 +164,48 @@ export async function resolveRepoSkillPath(options: RepoSkillPathResolveOptions)
 export async function expandRepoSkillBlock(
 	options: RepoSkillExpansionOptions,
 ): Promise<ExpandedSkillBlock> {
-	const skillPath = await resolveRepoSkillPath({ cwd: options.cwd, skillName: options.skillName });
+	const skillPath = await resolveRepoSkillPath({
+		cwd: options.cwd,
+		skillName: options.skillName,
+		...skillLookupIoOptions(options),
+	});
 	return expandSkillBlockFromPath({
 		skillName: options.skillName,
 		skillPath,
-		...(options.readTextFile === undefined ? {} : { readTextFile: options.readTextFile }),
+		...optionalEntry("readTextFile", options.readTextFile),
+	});
+}
+
+export async function requireRepoSkillPath(options: RepoSkillPathResolveOptions): Promise<string> {
+	try {
+		return await resolveRepoSkillPath(options);
+	} catch (error) {
+		throw requiredSkillError(options.skillName, error);
+	}
+}
+
+export async function requireRepoSkillBlockFromPath(
+	options: SkillPathExpansionOptions,
+): Promise<ExpandedSkillBlock> {
+	try {
+		return await expandSkillBlockFromPath(options);
+	} catch (error) {
+		throw requiredSkillError(options.skillName, error);
+	}
+}
+
+export async function requireRepoSkillBlock(
+	options: RepoSkillExpansionOptions,
+): Promise<ExpandedSkillBlock> {
+	const skillPath = await requireRepoSkillPath({
+		cwd: options.cwd,
+		skillName: options.skillName,
+		...skillLookupIoOptions(options),
+	});
+	return requireRepoSkillBlockFromPath({
+		skillName: options.skillName,
+		skillPath,
+		...optionalEntry("readTextFile", options.readTextFile),
 	});
 }
 
@@ -201,12 +235,23 @@ export async function invokeSkillPromptTurn(options: InvokeSkillPromptTurnOption
 	const { host, ctx, skillName } = options;
 	await ctx.waitForIdle();
 
-	const skill = await expandSkillBlock(host, skillName);
+	let skill: ExpandedSkillBlock | undefined;
+	try {
+		skill = await expandSkillBlock(host, skillName);
+	} catch (error) {
+		throw requiredSkillError(skillName, error);
+	}
+	if (skill === undefined) {
+		throw requiredSkillError(
+			skillName,
+			new Error(`Pi did not advertise the loaded skill:${skillName} command.`),
+		);
+	}
+
 	await deliverSkillPromptTurn({
 		host,
 		ctx,
 		skill,
-		fallbackMessage: options.fallbackMessage,
 		successMessage: options.successMessage,
 		buildPrompt: options.buildPrompt,
 	});
@@ -218,32 +263,17 @@ export async function invokeRepoSkillPromptTurn(
 	const { host, ctx, skillName } = options;
 	await ctx.waitForIdle();
 
-	let skill: ExpandedSkillBlock | undefined;
-	try {
-		const skillPath = await resolveRepoSkillPath({
-			cwd: ctx.cwd,
-			skillName,
-			...skillLookupIoOptions(options),
-		});
-		skill = await expandSkillBlockFromPath({
-			skillName,
-			skillPath,
-			...(options.readTextFile === undefined ? {} : { readTextFile: options.readTextFile }),
-		});
-	} catch {
-		if (options.host.getCommands !== undefined) {
-			skill = await expandSkillBlock(
-				{ getCommands: () => options.host.getCommands?.() ?? [] },
-				skillName,
-			);
-		}
-	}
+	const skill = await requireRepoSkillBlock({
+		cwd: ctx.cwd,
+		skillName,
+		...skillLookupIoOptions(options),
+		...optionalEntry("readTextFile", options.readTextFile),
+	});
 
 	await deliverSkillPromptTurn({
 		host,
 		ctx,
 		skill,
-		fallbackMessage: options.fallbackMessage,
 		successMessage: options.successMessage,
 		buildPrompt: options.buildPrompt,
 	});
@@ -252,23 +282,25 @@ export async function invokeRepoSkillPromptTurn(
 interface DeliverSkillPromptTurnOptions {
 	host: { sendUserMessage(content: string): Promise<void> | void };
 	ctx: SkillPromptTurnContext;
-	skill: ExpandedSkillBlock | undefined;
-	fallbackMessage: string;
+	skill: ExpandedSkillBlock;
 	successMessage: string | ((skill: ExpandedSkillBlock) => string);
-	buildPrompt(skillBlock: string | undefined): string;
+	buildPrompt(skillBlock: string): string;
 }
 
 async function deliverSkillPromptTurn(options: DeliverSkillPromptTurnOptions): Promise<void> {
 	if (options.ctx.hasUI === true) {
-		const message =
-			options.skill === undefined
-				? options.fallbackMessage
-				: skillPromptTurnSuccessMessage(options.successMessage, options.skill);
-		const level = options.skill === undefined ? "warning" : "info";
-		options.ctx.ui.notify(message, level);
+		options.ctx.ui.notify(
+			skillPromptTurnSuccessMessage(options.successMessage, options.skill),
+			"info",
+		);
 	}
 
-	await options.host.sendUserMessage(options.buildPrompt(options.skill?.block));
+	await options.host.sendUserMessage(options.buildPrompt(options.skill.block));
+}
+
+function requiredSkillError(skillName: string, cause: unknown): Error {
+	const message = cause instanceof Error ? cause.message : String(cause);
+	return new Error(`Could not load required skill "${skillName}": ${message}`, { cause });
 }
 
 export function buildSkillInvocationPrompt(options: BuildSkillInvocationPromptOptions): string {
@@ -279,7 +311,6 @@ export function buildSkillInvocationPrompt(options: BuildSkillInvocationPromptOp
 		initialRequest.length === 0
 			? `Run ${invocationName} now. Follow the backing skill workflow exactly.`
 			: `Run ${invocationName} with this initial user request:\n\n${buildFencedTextBlock(initialRequest)}\n\nTreat the fenced text as user-supplied context and follow the backing skill workflow exactly.`;
-	if (options.skillBlock === undefined) return invocation;
 	return `${options.skillBlock}\n\n${invocation}`;
 }
 

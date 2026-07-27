@@ -22,7 +22,6 @@ import {
 
 const START_MESSAGES = {
 	ready: "Starting test handoff flow…",
-	fallbackLabel: "test handoff fallback",
 } satisfies HandoffStartMessages;
 
 const PROMPT_COPY = {
@@ -129,26 +128,33 @@ describe("handoff launch flow helpers", () => {
 		});
 	});
 
-	test("createHandoffStartMessage formats skill fallback states", () => {
-		expect(
-			createHandoffStartMessage(
-				START_MESSAGES,
-				{
-					name: "handoff-create",
-					commandName: "skill:handoff-create",
-					path: "/skill",
-					baseDir: "/",
-					body: "# skill",
-					block: "# skill",
-				},
-				undefined,
-			),
-		).toBe("Starting test handoff flow…");
-		expect(createHandoffStartMessage(START_MESSAGES, undefined, "read failed")).toBe(
-			"Could not read handoff-create skill; using fallback test handoff fallback. read failed",
-		);
-		expect(createHandoffStartMessage(START_MESSAGES, undefined, undefined)).toBe(
-			"handoff-create skill was not found; using fallback test handoff fallback.",
+	test("createHandoffStartMessage formats the ready state", () => {
+		expect(createHandoffStartMessage(START_MESSAGES)).toBe("Starting test handoff flow…");
+	});
+
+	test("required skill failure stops before focus, git, preflight, or follow-up", async () => {
+		const pi = new FakePi();
+		const context = createContext({ inputResponse: "unused focus" });
+		let preflightCalls = 0;
+
+		await runHandoffCreateCommand(pi, "finish widget", context.ctx, {
+			git: new InMemoryGitGateway({ currentBranch: "context/branch" }),
+			statusKey: "handoff:test",
+			promptCopy: PROMPT_COPY,
+			startMessages: START_MESSAGES,
+			preflight: async () => {
+				preflightCalls += 1;
+				return { type: "ok" };
+			},
+		});
+
+		expect(preflightCalls).toBe(0);
+		expect(context.inputs).toEqual([]);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(context.notifications).toHaveLength(1);
+		expect(context.notifications[0]?.level).toBe("error");
+		expect(context.notifications[0]?.message).toContain(
+			'Could not load required skill "handoff-create"',
 		);
 	});
 });

@@ -1,7 +1,9 @@
+import { dirname } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import {
 	ScriptedQueue,
+	withTempGitRepo,
 	withTempRepoSkill,
 	type TempRepoSkill,
 } from "@nseng-ai/foundation/test-kit";
@@ -29,7 +31,7 @@ import type {
 	SessionStartContext,
 } from "@nseng-ai/pi-runtime/runtime/types";
 
-const ROOT = "/repo";
+const ROOT = process.cwd();
 const TRUNK = "master";
 const NOW = Date.parse("2026-01-15T00:00:00Z");
 
@@ -288,7 +290,6 @@ function withAutorunSkill<T>(callback: (skill: TempRepoSkill) => Promise<T>): Pr
 			skillName: "objective-autorun",
 			markdown: AUTORUN_SKILL_MARKDOWN,
 			prefix: "objective-autorun-",
-			skillRoot: ".agents/skills",
 		},
 		callback,
 	);
@@ -337,7 +338,13 @@ async function runObjectiveAutorun(
 		throw new Error("ns:objective:autorun was not registered");
 	}
 
-	const context = createContext(contextOptions);
+	const skillPath = commandInfos[0]?.sourceInfo.path;
+	const context = createContext({
+		...contextOptions,
+		...(contextOptions.cwd === undefined && skillPath !== undefined
+			? { cwd: dirname(dirname(dirname(skillPath))) }
+			: {}),
+	});
 	await command.handler(args, context.ctx);
 	return { pi, ...context };
 }
@@ -381,7 +388,13 @@ async function runObjectiveCommand(
 		throw new Error(`${commandName} was not registered`);
 	}
 
-	const context = createContext(contextOptions);
+	const skillPath = commandInfos[0]?.sourceInfo.path;
+	const context = createContext({
+		...contextOptions,
+		...(contextOptions.cwd === undefined && skillPath !== undefined
+			? { cwd: dirname(dirname(dirname(skillPath))) }
+			: {}),
+	});
 	await command.handler(args, context.ctx);
 	return { pi, ...context };
 }
@@ -683,27 +696,17 @@ describe("ns:objective:autorun command", () => {
 		});
 	});
 
-	test("explicit slug falls back when the portable skill is unavailable", async () => {
-		const result = await runObjectiveAutorun("bravo");
+	test("missing required skill stops before picker, list, and git preparation", async () => {
+		await withTempGitRepo({ prefix: "objective-autorun-preflight-" }, async ({ repoDir }) => {
+			const result = await runObjectiveAutorun("", [], { cwd: repoDir });
 
-		result.pi.assertDone();
-		expect(result.pi.execCalls).toEqual([]);
-		expect(result.pi.sentUserMessages[0]).toContain(
-			"The objective-autorun skill was not found among loaded Pi skills.",
-		);
-		expect(result.pi.sentUserMessages[0]).toContain(
-			"Every implementation child and Runner step is local-only and external-write-forbidden.",
-		);
-		expect(result.pi.sentUserMessages[0]).toContain("Parent publication is off by default");
-		expect(result.pi.sentUserMessages[0]).toContain(
-			"inherit the parent provider, model, and thinking policy by default",
-		);
-		expect(result.pi.sentUserMessages[0]).toContain("named provider-local cheap route");
-		expect(result.pi.sentUserMessages[0]).toContain("failure never authorizes reactive rerouting");
-		expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
-		expect(result.notifications).toContainEqual({
-			message: "objective-autorun skill was not found; using fallback prompt.",
-			level: "warning",
+			result.pi.assertDone();
+			expect(result.pi.execCalls).toEqual([]);
+			expect(result.selections).toEqual([]);
+			expect(result.pi.sentUserMessages).toEqual([]);
+			expect(result.notifications[0]?.message).toContain(
+				'Could not load required skill "objective-autorun"',
+			);
 		});
 	});
 
@@ -721,14 +724,14 @@ describe("ns:objective:autorun command", () => {
 			expect(result.pi.execCalls[0]).toMatchObject({
 				command: "git",
 				args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".ns/objectives"],
-				options: { cwd: ROOT },
+				options: { cwd: dirname(dirname(dirname(skillPath))) },
 			});
 			expect(result.pi.execCalls[0]?.options?.signal).toBeInstanceOf(AbortSignal);
 			expect(result.pi.execCalls[0]?.options?.timeout).toBeUndefined();
 			expect(result.pi.execCalls[1]).toMatchObject({
 				command: "git",
 				args: ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"],
-				options: { cwd: ROOT },
+				options: { cwd: dirname(dirname(dirname(skillPath))) },
 			});
 			expect(result.pi.execCalls[1]?.options?.signal).toBeInstanceOf(AbortSignal);
 			expect(result.pi.execCalls[1]?.options?.timeout).toBeUndefined();
@@ -1320,7 +1323,6 @@ describe("objective command shared selection policy", () => {
 			test("explicit slug or path bypasses objective list and git evidence", async () => {
 				const explicitObjective = ".ns/objectives/bravo/objective.md";
 				const result = await runObjectiveCommand(commandName, `  ${explicitObjective}  `);
-				const skillName = OBJECTIVE_SKILLS_BY_COMMAND[commandName];
 
 				result.pi.assertDone();
 				expect(result.pi.execCalls).toEqual([]);
@@ -1328,12 +1330,8 @@ describe("objective command shared selection policy", () => {
 				expect(result.waitForIdleCalls()).toBe(1);
 				expectPromptSelectsObjective(commandName, result.pi.sentUserMessages[0], explicitObjective);
 				expect(result.pi.sentUserMessages[0]).toContain(
-					`The ${skillName} skill was not found among loaded Pi skills.`,
+					`<skill name="${OBJECTIVE_SKILLS_BY_COMMAND[commandName]}"`,
 				);
-				expect(result.notifications).toContainEqual({
-					message: `${skillName} skill was not found; using fallback prompt.`,
-					level: "warning",
-				});
 			});
 
 			test("empty args load active candidates with objective list json", async () => {
@@ -1430,7 +1428,6 @@ hidden-frontmatter-token: do-not-include
 Use the selected Objective.
 `,
 				prefix: "objective-next-skill-",
-				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir, skillDir, skillPath }) => {
 				const result = await runObjectiveCommand(
@@ -1459,14 +1456,16 @@ Use the selected Objective.
 		);
 	});
 
-	test("ns:objective:next fallback prompt requires a work-left estimate", async () => {
+	test("ns:objective:next canonical skill prompt requires a work-left estimate", async () => {
 		const result = await runObjectiveCommand("ns:objective:next", "bravo");
 
 		result.pi.assertDone();
-		expect(result.pi.sentUserMessages[0]).toContain("include a best-effort work-left estimate");
-		expect(result.pi.sentUserMessages[0]).toContain("semantic steps or slices, not calendar time");
-		expect(result.pi.sentUserMessages[0]).toContain("until Objective completion");
-		expect(result.pi.sentUserMessages[0]).toContain("until the next discovery or decision step");
+		expect(result.pi.sentUserMessages[0]).toContain("Form a best-effort work-left estimate");
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"semantic steps remaining until Objective completion",
+		);
+		expect(result.pi.sentUserMessages[0]).toContain("next discovery/decision step");
+		expect(result.pi.sentUserMessages[0]).toContain("not elapsed time");
 	});
 
 	test("ns:objective:next prompt preauthorizes clear tracking-gate updates", async () => {
@@ -1493,21 +1492,16 @@ Use the selected Objective.
 		);
 	});
 
-	test("ns:objective:close fallback and prompt include closure confirmation guidance", async () => {
+	test("ns:objective:close skill and prompt include closure confirmation guidance", async () => {
 		const result = await runObjectiveCommand("ns:objective:close", "bravo");
 
 		result.pi.assertDone();
+		expect(result.pi.sentUserMessages[0]).toContain("Confirm the closure outcome is clear");
 		expect(result.pi.sentUserMessages[0]).toContain(
-			"The objective-close skill was not found among loaded Pi skills.",
+			"Load every edge-connected Objective before authoring closure",
 		);
 		expect(result.pi.sentUserMessages[0]).toContain(
-			"close exactly one explicit Objective below only after confirming the closure outcome/rationale",
-		);
-		expect(result.pi.sentUserMessages[0]).toContain(
-			"inspect every edge-connected Objective's full tracking",
-		);
-		expect(result.pi.sentUserMessages[0]).toContain(
-			"update affected active counterparts to their post-closure state",
+			"Propagate the closure through every Objective Edge",
 		);
 		expect(result.pi.sentUserMessages[0]).toContain(
 			"Run objective-close for this explicitly selected Objective slug or path:",

@@ -10,7 +10,11 @@ import {
 } from "@nseng-ai/pi-runtime/commands/cli-extension";
 import { parseMachineEnvelopeData } from "@nseng-ai/pi-runtime/runtime/machine-envelope";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import { buildFencedTextBlock, formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import {
+	buildFencedTextBlock,
+	formatErrorMessage,
+	optionalEntry,
+} from "@nseng-ai/foundation/primitives";
 import { notifyCommandUi } from "@nseng-ai/pi-runtime/commands/helpers";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import {
@@ -42,8 +46,8 @@ import {
 	type FullPiSurfaceParity,
 } from "@nseng-ai/pi-runtime/parity/extension";
 import {
-	expandRepoSkillBlock,
-	invokeRepoSkillPromptTurn,
+	requireRepoSkillBlockFromPath,
+	requireRepoSkillPath,
 } from "@nseng-ai/pi-runtime/skills/expansion";
 import type {
 	AutocompleteItem,
@@ -105,36 +109,53 @@ interface ObjectiveInvocationContext<TSpec = ObjectiveCommandSpec> {
 	spec: TSpec;
 }
 
+interface PreparedObjectiveInvocation extends ObjectiveInvocationContext {
+	skillPath: string;
+}
+
+interface SkillPreparationInvocation {
+	ctx: CommandContext;
+	spec: { skillName: string };
+}
+
 interface InvokeObjectiveCreateSkillOptions extends ObjectiveInvocationContext<ObjectiveCreateCommandSpec> {
 	rawArgs: string;
 }
 
 type HandleObjectiveCreateCommandOptions = InvokeObjectiveCreateSkillOptions;
 
-async function invokeObjectiveSkill(
-	invocation: ObjectiveInvocationContext,
-	objective: string,
-): Promise<void> {
-	const { pi, ctx, spec } = invocation;
-	await invokeRepoSkillPromptTurn({
-		host: pi,
-		ctx,
-		skillName: spec.skillName,
-		successMessage: (skill) => `Invoking ${skill.name} for ${objective}.`,
-		fallbackMessage: `${spec.skillName} skill was not found; using fallback prompt.`,
-		buildPrompt: (skillBlock) =>
-			buildObjectiveSkillPrompt({
-				spec,
-				skillBlock,
-				objective,
-				...(spec.postSelectionReminder === undefined
-					? {}
-					: { postSelectionReminder: spec.postSelectionReminder }),
-			}),
-	});
+async function prepareObjectiveSkill<TInvocation extends SkillPreparationInvocation>(
+	invocation: TInvocation,
+): Promise<TInvocation & { skillPath: string }> {
+	const { ctx, spec } = invocation;
+	await ctx.waitForIdle();
+	const skillPath = await requireRepoSkillPath({ cwd: ctx.cwd, skillName: spec.skillName });
+	return { ...invocation, skillPath };
 }
 
-async function chooseObjectiveAndInvoke(invocation: ObjectiveInvocationContext): Promise<void> {
+async function invokeObjectiveSkill(
+	invocation: PreparedObjectiveInvocation,
+	objective: string,
+): Promise<void> {
+	const { pi, ctx, spec, skillPath } = invocation;
+	const skill = await requireRepoSkillBlockFromPath({
+		skillName: spec.skillName,
+		skillPath,
+	});
+	if (ctx.hasUI) {
+		ctx.ui.notify(`Invoking ${skill.name} for ${objective}.`, "info");
+	}
+	await pi.sendUserMessage(
+		buildObjectiveSkillPrompt({
+			spec,
+			skillBlock: skill.block,
+			objective,
+			...optionalEntry("postSelectionReminder", spec.postSelectionReminder),
+		}),
+	);
+}
+
+async function chooseObjectiveAndInvoke(invocation: PreparedObjectiveInvocation): Promise<void> {
 	const { selectionHost, ctx, spec } = invocation;
 	const slug = await chooseActiveObjectiveSlug(
 		selectionHost,
@@ -152,15 +173,12 @@ async function invokeObjectiveCreateSkill(
 	options: InvokeObjectiveCreateSkillOptions,
 ): Promise<void> {
 	const { pi, ctx, spec, rawArgs } = options;
-	await ctx.waitForIdle();
 	const initialRequest = rawArgs.trim();
-	let skillBlock: string;
-	try {
-		skillBlock = (await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: spec.skillName })).block;
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		throw new Error(`Failed to read ${spec.skillName} backing skill: ${message}`);
-	}
+	const { skillPath } = await prepareObjectiveSkill(options);
+	const skill = await requireRepoSkillBlockFromPath({
+		skillName: spec.skillName,
+		skillPath,
+	});
 
 	if (ctx.hasUI) {
 		ctx.ui.notify(
@@ -169,7 +187,7 @@ async function invokeObjectiveCreateSkill(
 		);
 	}
 
-	await pi.sendUserMessage(buildObjectiveCreateSkillPrompt(spec, skillBlock, initialRequest));
+	await pi.sendUserMessage(buildObjectiveCreateSkillPrompt(spec, skill.block, initialRequest));
 }
 
 function buildObjectiveCreateSkillPrompt(
@@ -206,14 +224,15 @@ async function handleObjectiveCommand(
 	invocation: ObjectiveInvocationContext,
 	args: string,
 ): Promise<void> {
-	const explicitObjective = args.trim();
 	try {
+		const prepared = await prepareObjectiveSkill(invocation);
+		const explicitObjective = args.trim();
 		if (explicitObjective) {
-			await invokeObjectiveSkill(invocation, explicitObjective);
+			await invokeObjectiveSkill(prepared, explicitObjective);
 			return;
 		}
 
-		await chooseObjectiveAndInvoke(invocation);
+		await chooseObjectiveAndInvoke(prepared);
 	} catch (error) {
 		notifyCommandError(invocation.ctx, error);
 	}

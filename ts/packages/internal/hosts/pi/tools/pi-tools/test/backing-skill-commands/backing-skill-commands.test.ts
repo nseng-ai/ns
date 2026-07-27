@@ -1,7 +1,6 @@
-import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
-import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
+import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 const BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME = "ns:branch-context:from-plan";
 const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "ns:branch-context:impl-attached-plan";
 
@@ -251,7 +250,6 @@ describe("registerBackingSkillCommands", () => {
 				skillName: "code-workflows",
 				markdown: "---\nname: code-workflows\n---\n\n# Code Workflows\n",
 				prefix: "backing-skill-command-",
-				skillRoot: join(".agents", "skills"),
 			},
 			async ({ repoDir, skillPath }) => {
 				const host = new FakeBackingSkillHost();
@@ -278,6 +276,25 @@ describe("registerBackingSkillCommands", () => {
 		);
 	});
 
+	test("missing required skill reports an error and sends no prompt", async () => {
+		await withTempGitRepo({ prefix: "missing-backing-skill-command-" }, async ({ repoDir }) => {
+			const host = new FakeBackingSkillHost();
+			registerBackingSkillCommands(host);
+			const command = host.commands.get("code:workflows");
+			if (command === undefined) throw new Error("missing command");
+			const ctx = commandContext(repoDir);
+
+			await command.handler("do work", ctx);
+
+			expect(host.sentMessages).toEqual([]);
+			expect(ctx.notifications).toHaveLength(1);
+			expect(ctx.notifications[0]).toMatchObject({ level: "error" });
+			expect(ctx.notifications[0]?.message).toContain(
+				'Could not load required skill "code-workflows"',
+			);
+		});
+	});
+
 	test("generic commands can read vendored backing skills from .agents/skills", async () => {
 		await withTempRepoSkill(
 			{
@@ -285,7 +302,6 @@ describe("registerBackingSkillCommands", () => {
 				markdown:
 					"---\nname: improve-codebase-architecture\n---\n\n# Improve Codebase Architecture\n",
 				prefix: "vendored-backing-skill-command-",
-				skillRoot: join(".agents", "skills"),
 			},
 			async ({ repoDir, skillPath }) => {
 				const host = new FakeBackingSkillHost();

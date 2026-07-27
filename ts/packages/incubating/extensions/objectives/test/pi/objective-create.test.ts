@@ -139,7 +139,6 @@ describe("ns:objective:create command", () => {
 			{
 				skillName: "objective-create",
 				markdown: CREATE_SKILL_MARKDOWN,
-				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir, skillPath, skillDir }) => {
 				const result = await runObjectiveCreate({
@@ -177,7 +176,6 @@ describe("ns:objective:create command", () => {
 			{
 				skillName: "objective-create",
 				markdown: CREATE_SKILL_MARKDOWN,
-				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir, skillPath }) => {
 				const result = await runObjectiveCreate({ args: "", cwd: repoDir });
@@ -207,7 +205,7 @@ describe("ns:objective:create command", () => {
 			expect(result.notifications).toHaveLength(1);
 			expect(result.notifications[0]?.level).toBe("error");
 			expect(result.notifications[0]?.message).toContain(
-				"Failed to read objective-create backing skill",
+				'Could not load required skill "objective-create"',
 			);
 			expect(result.notifications[0]?.message).toContain(
 				"Could not find .agents/skills/objective-create/SKILL.md, .claude/skills/objective-create/SKILL.md",
@@ -221,7 +219,6 @@ describe("ns:objective:create command", () => {
 			{
 				skillName: "objective-create",
 				markdown: CREATE_SKILL_MARKDOWN,
-				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir }) => {
 				const result = await runObjectiveCreate({

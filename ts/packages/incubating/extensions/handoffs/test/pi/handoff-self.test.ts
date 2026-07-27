@@ -247,7 +247,11 @@ describe("ns:handoff:self extension", () => {
 	});
 
 	test("starting lock is released when session replacement support is unavailable", async () => {
-		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
+		const pi = new FakePi([
+			branchStep(),
+			branchStep(),
+			...checkStep(BRANCH, "finish-widget.md", true),
+		]);
 		registerSelfOnly(pi, 30_000);
 		const command = getRegisteredCommand(pi, "ns:handoff:self");
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
@@ -488,17 +492,17 @@ async function waitForCondition(condition: () => boolean): Promise<void> {
 
 function fakeHandoffCreateSkillLoader(): HandoffCreateSkillLoader {
 	return {
+		async resolveCreateHandoffSkillPath() {
+			return FAKE_SKILL_PATH;
+		},
 		async loadCreateHandoffSkill() {
 			return {
-				type: "found",
-				skill: {
-					name: "handoff-create",
-					commandName: "direct:handoff-create",
-					path: FAKE_SKILL_PATH,
-					baseDir: "/repo/.agents/skills/handoff-create",
-					body: "# handoff-create\n\nCreate a handoff from the skill body.",
-					block: FAKE_SKILL_BLOCK,
-				},
+				name: "handoff-create",
+				commandName: "direct:handoff-create",
+				path: FAKE_SKILL_PATH,
+				baseDir: "/repo/.agents/skills/handoff-create",
+				body: "# handoff-create\n\nCreate a handoff from the skill body.",
+				block: FAKE_SKILL_BLOCK,
 			};
 		},
 	};

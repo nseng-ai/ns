@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { describe, expect, test } from "vitest";
 
 import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
@@ -23,7 +25,7 @@ import {
 	type ToolResult,
 } from "../../src/grill/extension.ts";
 
-const ROOT = "/repo";
+const ROOT = resolve(import.meta.dirname, "../../../../../../../../..");
 const FORMER_PREFIX_INPUTS = [
 	["sq", ": ordinary inline text"].join(""),
 	["side", "quest", ": ordinary inline text"].join(""),
@@ -202,28 +204,6 @@ describe("grill-ui prompt", () => {
 			"Do not enact the plan until the user confirms shared understanding has been reached",
 		);
 	});
-
-	test("includes fallback grill instructions when no skill block is available", () => {
-		const prompt = buildGrillUiPrompt(undefined, "Fallback target");
-
-		expect(prompt).toContain('fallback="true"');
-		expect(prompt).toContain("portable grilling loop");
-		expect(prompt).toContain("self-contained");
-		expect(prompt).toContain("Interview the user relentlessly");
-		expect(prompt).toContain("estimatedRemaining");
-		expect(prompt).toContain("status-request handling");
-		expect(prompt).toContain("defer ordinary validation coverage to the implementing agent");
-		expect(prompt).toContain("Fallback target");
-		expect(prompt).toContain(
-			"If a fact can be found by exploring the codebase, look it up instead of asking",
-		);
-		expect(prompt).toContain("Decisions belong to the user");
-		expect(prompt).toContain(
-			"Do not enact the plan until the user confirms shared understanding has been reached",
-		);
-		expect(prompt).toContain('If grill_ask returns action: "end-grill"');
-		expect(prompt).toContain("Show current grill status");
-	});
 });
 
 describe("grill-with-docs-ui prompt", () => {
@@ -238,30 +218,6 @@ describe("grill-with-docs-ui prompt", () => {
 		expect(prompt).toContain("docs-aware preflight");
 		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
 		expect(prompt).toContain('If grill_ask returns action: "status-request"');
-	});
-
-	test("includes fallback docs-aware instructions when no skill block is available", () => {
-		const prompt = buildGrillWithDocsUiPrompt(undefined, "Fallback docs target");
-
-		expect(prompt).toContain('fallback="true"');
-		expect(prompt).toContain("portable grilling plus domain-modeling");
-		expect(prompt).toContain("self-contained");
-		expect(prompt).toContain("docs-first preflight");
-		expect(prompt).toContain("CONTEXT-MAP.md");
-		expect(prompt).toContain("CONTEXT.md");
-		expect(prompt).toContain("Offer ADRs sparingly");
-		expect(prompt).toContain("estimatedRemaining");
-		expect(prompt).toContain("status-request handling");
-		expect(prompt).toContain("defer ordinary validation coverage to the implementing agent");
-		expect(prompt).toContain("Documentation updates");
-		expect(prompt).toContain("Fallback docs target");
-		expect(prompt).toContain(
-			"If a fact can be found by exploring the codebase, look it up instead of asking",
-		);
-		expect(prompt).toContain("Decisions belong to the user");
-		expect(prompt).toContain(
-			"Do not enact the plan until the user confirms shared understanding has been reached",
-		);
 	});
 });
 
@@ -283,7 +239,6 @@ describe("/pi:grill-me command", () => {
 				skillName: GRILL_UI_SKILL_NAME,
 				markdown: `---\nname: ${GRILL_UI_SKILL_NAME}\ndescription: test\n---\n\nBackend skill body from test.\n`,
 				prefix: "pi-grill-ui-test-",
-				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir, skillPath }) => {
 				const { pi, command } = register();
@@ -340,7 +295,7 @@ describe("/pi:grill-with-docs command", () => {
 		expect(pi.sentUserMessages[0]).toContain("grill_ask");
 		expect(pi.sentUserMessages[0]).toContain("docs-first preflight");
 		expect(pi.sentUserMessages[0]).toContain("CONTEXT.md");
-		expect(pi.sentUserMessages[0]).toContain("Offer ADRs sparingly");
+		expect(pi.sentUserMessages[0]).toContain("Offer ADR creation sparingly");
 		expect(pi.sentUserMessages[0]).toContain("Documentation updates");
 	});
 
@@ -350,7 +305,6 @@ describe("/pi:grill-with-docs command", () => {
 				skillName: GRILL_WITH_DOCS_UI_SKILL_NAME,
 				markdown: `---\nname: ${GRILL_WITH_DOCS_UI_SKILL_NAME}\ndescription: test\n---\n\nDocs-aware backend skill body from test.\n`,
 				prefix: "pi-grill-with-docs-ui-test-",
-				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir, skillPath }) => {
 				const { pi, docsCommand } = register();
@@ -902,16 +856,32 @@ describe("grill_ask activation lifecycle", () => {
 		expect(pi.events.filter((event) => event.startsWith("set-active"))).toEqual([]);
 	});
 
-	test("/pi:grill-me fallback path activates grill_ask before sending and preserves unrelated tools", async () => {
-		// commandContext cwd has no repo skill, so this exercises the skill-expansion
-		// fallback branch; activation must still precede the kickoff send.
+	test("/pi:grill-me missing-skill failure does no editor work, activation, or send", async () => {
 		const pi = new FakePi(["read", "bash"]);
 		const { command } = register(pi);
+		const editorTitles: string[] = [];
+		const notifications: Notification[] = [];
 
-		await command.handler("Target design", commandContext({ hasUI: false }));
+		await command.handler(
+			"",
+			commandContext({
+				cwd: "/repo-without-skills",
+				editorResult: "must not be read",
+				onEditorTitle: (title) => editorTitles.push(title),
+				onNotification: (notification) => notifications.push(notification),
+			}),
+		);
 
-		expect(pi.getActiveTools()).toEqual(["read", "bash", GRILL_ASK_TOOL_NAME]);
-		expect(pi.events).toEqual([`set-active:read,bash,${GRILL_ASK_TOOL_NAME}`, "send"]);
+		expect(editorTitles).toEqual([]);
+		expect(pi.getActiveTools()).toEqual(["read", "bash"]);
+		expect(pi.events).toEqual([]);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(notifications).toEqual([
+			expect.objectContaining({
+				level: "error",
+				message: expect.stringContaining(`Could not load required skill "${GRILL_UI_SKILL_NAME}"`),
+			}),
+		]);
 	});
 
 	test("/pi:grill-me skill-expanded path activates grill_ask before sending", async () => {
@@ -920,7 +890,6 @@ describe("grill_ask activation lifecycle", () => {
 				skillName: GRILL_UI_SKILL_NAME,
 				markdown: `---\nname: ${GRILL_UI_SKILL_NAME}\ndescription: test\n---\n\nBody.\n`,
 				prefix: "pi-grill-ui-activation-test-",
-				skillRoot: ".agents/skills",
 			},
 			async ({ repoDir }) => {
 				const pi = new FakePi(["read"]);

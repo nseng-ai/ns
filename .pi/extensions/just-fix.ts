@@ -10,9 +10,10 @@ const { sendCommandProgressOrNotify, registerCommandWithImmediateAck } =
 const { LiveCommandProgress } = await importTypeScriptWorkspaceModule<
 	typeof import("@nseng-ai/pi-runtime/commands/cli-command-live-progress")
 >("@nseng-ai/pi-runtime/commands/cli-command-live-progress");
-const { expandRepoSkillBlock } = await importTypeScriptWorkspaceModule<
-	typeof import("@nseng-ai/pi-runtime/skills/expansion")
->("@nseng-ai/pi-runtime/skills/expansion");
+const { requireRepoSkillBlockFromPath, requireRepoSkillPath } =
+	await importTypeScriptWorkspaceModule<
+		typeof import("@nseng-ai/pi-runtime/skills/expansion")
+	>("@nseng-ai/pi-runtime/skills/expansion");
 
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
 const JUST_CI_TIMEOUT_MS = 30 * 60 * 1000;
@@ -117,17 +118,17 @@ function formatJustOutput(result: ExecResult): string {
 }
 
 function buildFailurePrompt(
-	skillBlock: string | undefined,
+	skillBlock: string,
 	result: ExecResult,
 	cwd: string,
 	displayCommand: JustCommand["displayCommand"],
 ): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
+	const status = result.killed
+		? `exit code ${result.code}; process was killed or timed out`
+		: `exit code ${result.code}`;
 	const justOutput = formatJustOutput(result);
-	const fallback =
-		"The code-just-fix skill was not found among loaded Pi skills. Follow the repository's code-just-fix workflow anyway.";
 
-	return `${skillBlock ?? fallback}
+	return `${skillBlock}
 
 \`${displayCommand}\` has already been run in ${cwd} and failed (${status}).
 
@@ -144,8 +145,19 @@ async function runJustThenInvokeSkill(
 	command: JustCommand,
 	exec: ExecCommand,
 ): Promise<void> {
-	sendCommandProgressOrNotify({ host: pi, ctx, message: `Running \`${command.displayCommand}\`…` });
 	await ctx.waitForIdle();
+
+	let skillPath: string;
+	try {
+		skillPath = await requireRepoSkillPath({ cwd: ctx.cwd, skillName: SKILL_NAME });
+	} catch (error) {
+		if (ctx.hasUI) {
+			ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
+		}
+		return;
+	}
+
+	sendCommandProgressOrNotify({ host: pi, ctx, message: `Running \`${command.displayCommand}\`…` });
 
 	const progress = new LiveCommandProgress(ctx, {
 		argv: command.recipeArgs,
@@ -173,23 +185,21 @@ async function runJustThenInvokeSkill(
 		return;
 	}
 
-	let skill: Awaited<ReturnType<typeof expandRepoSkillBlock>> | undefined;
+	let skill: Awaited<ReturnType<typeof requireRepoSkillBlockFromPath>>;
 	try {
-		skill = await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME });
-	} catch {
-		// Missing skill is handled below by sending the repository workflow fallback prompt.
-		skill = undefined;
-	}
-	if (ctx.hasUI) {
-		ctx.ui.notify(
-			skill
-				? `\`${command.displayCommand}\` failed; invoking ${skill.name}.`
-				: `\`${command.displayCommand}\` failed; code-just-fix was not found.`,
-			skill ? "warning" : "error",
-		);
+		skill = await requireRepoSkillBlockFromPath({ skillName: SKILL_NAME, skillPath });
+	} catch (error) {
+		if (ctx.hasUI) {
+			ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
+		}
+		return;
 	}
 
-	pi.sendUserMessage(buildFailurePrompt(skill?.block, result, ctx.cwd, command.displayCommand));
+	if (ctx.hasUI) {
+		ctx.ui.notify(`\`${command.displayCommand}\` failed; invoking ${skill.name}.`, "warning");
+	}
+
+	pi.sendUserMessage(buildFailurePrompt(skill.block, result, ctx.cwd, command.displayCommand));
 }
 
 export default function justFixExtension(pi: ExtensionAPI, exec: ExecCommand = runCommand): void {
