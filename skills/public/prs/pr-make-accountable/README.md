@@ -24,6 +24,10 @@ ultimately accountable for the change. More often than not it yields real
 changes to the PR itself: there is a reflexive relationship between PR prose
 and the code.
 
+The skill deliberately slows authors down to increase an organization’s
+capacity to produce high-quality software. It reduces review bottlenecks and
+improves the conceptual coherence of each change.
+
 ## How it works
 
 1. The agent inspects the PR and identifies the intent, rationale, and design
@@ -60,3 +64,8 @@ npx skills add nseng-ai/ns --skill pr-make-accountable --full-depth
 Point the skill at an existing PR (a number, a URL, or the current branch's PR)
 in a repo with an authenticated `gh` session. See [`SKILL.md`](SKILL.md) for
 the full procedure. The skill is standalone: it requires only `git` and `gh`.
+
+## Example
+
+See [PR #3940](https://github.com/nseng-ai/ns/pull/3940), which used
+`pr-make-accountable` to co-author the description for this documentation.
