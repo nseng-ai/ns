@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import type { ClinkrIo } from "../io.ts";
 import { createProcessIo } from "../io.ts";
-import { buildSurfacePlan } from "../surface.ts";
+import { buildSurfacePlan, type SurfacePlan } from "../surface.ts";
 import {
 	buildCommandJsonSchemaDocument,
 	cliAnnotationFor,
@@ -157,7 +157,7 @@ class FilesystemClinkrApp<TContext> {
 			return emitUsageError(io, withoutInput, formatResult.message, "invalid-request");
 		const format = formatResult.format;
 		if (argv.includes("--help") || argv.includes("-h")) {
-			io.stdout(buildCommander(this.name, definition).helpInformation());
+			io.stdout(buildCommandSurface(this.name, definition).command.helpInformation());
 			return 0;
 		}
 		if (argv.includes("--json-schema")) {
@@ -252,7 +252,17 @@ export function createClinkrApp<TContext>(
 	});
 }
 
-function buildCommander(name: string, definition: ClinkrCommandDefinition): Command {
+interface CommandSurface {
+	readonly command: Command;
+	readonly surface: SurfacePlan;
+}
+
+/**
+ * Single extraction pass from the declared schema to both the surface plan
+ * and the commander registration built from that same plan, so the two can
+ * never drift.
+ */
+function buildCommandSurface(name: string, definition: ClinkrCommandDefinition): CommandSurface {
 	const positionals: Record<string, { position: number }> = {};
 	const optionSpecs: Record<string, { short?: string }> = {};
 	for (const [key, field] of Object.entries(definition.schema.shape)) {
@@ -285,7 +295,7 @@ function buildCommander(name: string, definition: ClinkrCommandDefinition): Comm
 	);
 	command.addOption(new Option("--input-json"));
 	command.addOption(new Option("--json-schema"));
-	return command;
+	return { command, surface };
 }
 
 function parseArgv(
@@ -293,23 +303,7 @@ function parseArgv(
 	argv: readonly string[],
 	definition: ClinkrCommandDefinition,
 ): { success: true; data: unknown } | { success: false; message: string } {
-	const command = buildCommander(name, definition);
-	const surface = buildSurfacePlan({
-		commandName: name,
-		schema: definition.schema,
-		positionals: Object.fromEntries(
-			Object.entries(definition.schema.shape).flatMap(([key, field]) => {
-				const annotation = cliAnnotationFor(field as z.ZodType);
-				return annotation?.type === "positional" ? [[key, annotation.options]] : [];
-			}),
-		),
-		optionSpecs: Object.fromEntries(
-			Object.entries(definition.schema.shape).flatMap(([key, field]) => {
-				const annotation = cliAnnotationFor(field as z.ZodType);
-				return annotation?.type === "option" ? [[key, annotation.options]] : [];
-			}),
-		),
-	});
+	const { command, surface } = buildCommandSurface(name, definition);
 	try {
 		command.parse([...argv], { from: "user" });
 	} catch (error) {

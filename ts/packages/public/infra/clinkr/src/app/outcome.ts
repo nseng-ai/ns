@@ -129,8 +129,8 @@ export function toEnvelope(outcome: CommandOutcome<unknown>): Record<string, unk
 	}
 }
 
-export function envelopeJsonText(value: unknown): string {
-	return JSON.stringify(value, null, 2) ?? String(value);
+export function envelopeJsonText(value: object): string {
+	return JSON.stringify(value, null, 2);
 }
 
 /**

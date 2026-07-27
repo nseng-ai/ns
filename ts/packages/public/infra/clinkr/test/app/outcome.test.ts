@@ -10,6 +10,7 @@ import {
 	toEnvelope,
 	usageError,
 } from "@nseng-ai/clinkr/app";
+import { envelopeJsonText } from "../../src/app/outcome.ts";
 
 describe("outcome constructors", () => {
 	test("ok() carries an explicit undefined payload", () => {
@@ -117,6 +118,21 @@ describe("toEnvelope", () => {
 			errorType: "usage-error",
 			message: "bad flags",
 		});
+	});
+});
+
+describe("envelopeJsonText", () => {
+	test("renders an object as 2-space-indented JSON", () => {
+		expect(envelopeJsonText(toEnvelope(ok({ name: "Ada" })))).toBe(
+			'{\n  "status": "success",\n  "exitCode": 0,\n  "data": {\n    "name": "Ada"\n  }\n}',
+		);
+	});
+
+	test("accepts only objects at the type level", () => {
+		// Every call site passes an envelope or JSON-schema document object, so
+		// top-level undefined (which JSON.stringify cannot serialize) is a type error.
+		// @ts-expect-error non-object payloads are not part of the contract
+		envelopeJsonText(undefined);
 	});
 });
 
