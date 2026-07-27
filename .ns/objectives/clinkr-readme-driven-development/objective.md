@@ -42,9 +42,11 @@ Bless Clinkr's cold-audience package contract in `references/README-draft.md`, i
 
 ## Prompt Guidance
 
-The proposed prompt from `objective-next` must be one short command beginning with `/ns:plan:grill-and-save`. Name the selected semantic slice and direct the fresh planning session to read this Objective as its primary architecture, sequencing, and acceptance source; cite only the roadmap row, reference, or golden consumer branch needed for that slice. Ask for the fewest coherent PRs, with relevant deletion and validation evidence. Do not restate the Objective in the prompt.
+When the selected semantic slice clearly calls for one or more landing PRs, the proposed prompt from `objective-next` must be one short command beginning with `/ns:plan:grill-and-save`. Name the slice, direct the fresh planning session to read this Objective as its primary architecture, sequencing, and acceptance source, and cite only the roadmap row, reference, or golden consumer branch needed for that slice. Ask for the fewest coherent PRs, with relevant deletion and validation evidence.
 
-This guidance shapes planning only. It does not authorize implementation or choose the next roadmap row.
+When the next semantic step is not clearly PR-shaped, produce a short plain-language prompt suited to that work instead of forcing it through implementation planning. In either form, do not restate the Objective in the prompt.
+
+This guidance shapes prompt serialization only. It does not authorize implementation or choose the next roadmap row.
 
 ## Assumptions and Risks
 
