@@ -350,7 +350,24 @@ function parseJsonInput(
 			message: "stdin JSON must be an object",
 			errorType: "invalid-json-input",
 		};
-	const parsed = z.strictObject(schema.shape).safeParse(transported.data);
+	// Strict pre-check owns top-level unknown-key rejection even when the
+	// declared schema is passthrough; all other validation is deferred to the
+	// authoritative declared-schema parse below.
+	const strictCheck = z.strictObject(schema.shape).safeParse(transported.data);
+	if (!strictCheck.success) {
+		const unknownKeyIssues = strictCheck.error.issues.filter(
+			(issue) => issue.code === "unrecognized_keys",
+		);
+		if (unknownKeyIssues.length > 0) {
+			return {
+				success: false,
+				message: "request did not match its schema",
+				errorType: "invalid-request",
+				data: { issues: unknownKeyIssues },
+			};
+		}
+	}
+	const parsed = schema.safeParse(transported.data);
 	return parsed.success
 		? { success: true, data: parsed.data }
 		: {

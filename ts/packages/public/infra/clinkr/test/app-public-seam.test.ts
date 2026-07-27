@@ -281,6 +281,31 @@ test("JSON input rejects top-level unknown keys with schema issues", async () =>
 	);
 });
 
+test("JSON input enforces object-level refinements like the argv transport", async () => {
+	const refinedSchema = z
+		.strictObject({ a: z.string().optional(), b: z.string().optional() })
+		.refine((request) => request.a !== undefined || request.b !== undefined, {
+			message: "a or b required",
+		});
+	const commandDirectory = await createCommandDirectory({});
+	const app = createClinkrApp({ name: "fixture", commandDirectory });
+	Object.defineProperty(app, "loaded", {
+		value: Promise.resolve({ schema: refinedSchema, handler: async () => ok() }),
+	});
+	const argvRun = await runForTest(app, ["--format=json"]);
+	expect(argvRun.exitCode).toBe(2);
+	expect(JSON.parse(argvRun.stdout)).toMatchObject({
+		status: "usage-error",
+		errorType: "invalid-request",
+	});
+	const jsonRun = await runForTest(app, ["--input-json", "--format=json"], { stdin: "{}" });
+	expect(jsonRun.exitCode).toBe(2);
+	expect(JSON.parse(jsonRun.stdout)).toMatchObject({
+		status: "usage-error",
+		errorType: "invalid-request",
+	});
+});
+
 test("--help wins over an invalid --format value", async () => {
 	const commandDirectory = await createCommandDirectory({});
 	const run = await runForTest(createClinkrApp({ name: "fixture", commandDirectory }), [
