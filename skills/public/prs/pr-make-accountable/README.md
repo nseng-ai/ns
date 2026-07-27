@@ -53,6 +53,12 @@ footer naming the exact model and harness that co-authored it:
 The draft is never final until the author reads every claim and approves it.
 Accountability stays with the human; the footer makes the assistance visible.
 
+## Install
+
+```bash
+npx skills add nseng-ai/ns --skill pr-make-accountable
+```
+
 ## Usage
 
 Point the skill at an existing PR (a number, a URL, or the current branch's PR)
