@@ -18,7 +18,7 @@ describe("caveman", () => {
 		expect(stdout).toContain("--file");
 		expect(stdout).toContain("--lite");
 		expect(stdout).toContain("--full");
-		expect(stdout).toContain("--heavy");
+		expect(stdout).toContain("--ultra");
 	});
 
 	it("publishes the machine envelope schema", async () => {
@@ -51,13 +51,13 @@ describe("caveman", () => {
 	});
 
 	it("rejects combined intensity flags", async () => {
-		const run = runScenario(["caveman", "some text", "--lite", "--heavy", "--format", "json"], {
+		const run = runScenario(["caveman", "some text", "--lite", "--ultra", "--format", "json"], {
 			files: BASE_FILES,
 		});
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({
 			status: "usageError",
-			data: { arguments: ["--lite", "--heavy"] },
+			data: { arguments: ["--lite", "--ultra"] },
 		});
 	});
 
@@ -112,18 +112,18 @@ describe("caveman", () => {
 		expect(prompt).toContain("I would really just like to fix the bug now.");
 	});
 
-	it("reads --file input and honors --heavy", async () => {
-		const run = runScenario(["caveman", "--file", "notes.md", "--heavy", "--format", "json"], {
+	it("reads --file input and honors --ultra", async () => {
+		const run = runScenario(["caveman", "--file", "notes.md", "--ultra", "--format", "json"], {
 			files: { ...BASE_FILES, "/repo/notes.md": "The database connection pool is exhausted." },
 			commandResults: [exitedResult({ stdout: "DB pool exhausted.\n" })],
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			status: "ok",
-			data: { output: "DB pool exhausted.", intensity: "heavy" },
+			data: { output: "DB pool exhausted.", intensity: "ultra" },
 		});
 		const prompt = run.calls[0]?.args.at(-1) ?? "";
-		expect(prompt).toContain('intensity "heavy"');
+		expect(prompt).toContain('intensity "ultra"');
 		expect(prompt).toContain("The database connection pool is exhausted.");
 	});
 

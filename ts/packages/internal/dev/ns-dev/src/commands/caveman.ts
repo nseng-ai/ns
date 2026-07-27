@@ -19,7 +19,7 @@ export const CAVEMAN_MODEL_OPERATION_ID = "ns-dev.caveman";
 
 const MAX_INPUT_CHARS = 100_000;
 
-const CAVEMAN_INTENSITIES = ["lite", "full", "heavy"] as const;
+const CAVEMAN_INTENSITIES = ["lite", "full", "ultra"] as const;
 export type CavemanIntensity = (typeof CAVEMAN_INTENSITIES)[number];
 
 export const cavemanRequestSchema = z.object({
@@ -27,7 +27,7 @@ export const cavemanRequestSchema = z.object({
 	file: z.string().optional().describe("Read the input text from this file instead."),
 	lite: z.boolean().optional().describe("Lite intensity: no filler, keep full sentences."),
 	full: z.boolean().optional().describe("Full intensity: classic caveman. Default."),
-	heavy: z.boolean().optional().describe("Heavy intensity: maximum compression."),
+	ultra: z.boolean().optional().describe("Ultra intensity: maximum compression."),
 });
 
 export const cavemanResultSchema = z.object({
@@ -45,8 +45,8 @@ type CavemanResult = z.output<typeof cavemanResultSchema>;
 /**
  * Caveman style guide embedded from the upstream skill
  * (https://github.com/JuliusBrussee/caveman, skills/caveman/SKILL.md), adapted from an
- * interactive response mode into a one-shot text rewrite instruction. The upstream "ultra"
- * level is exposed here as "heavy".
+ * interactive response mode into a one-shot text rewrite instruction. Intensity levels
+ * match the upstream vocabulary: lite, full, ultra.
  */
 const CAVEMAN_STYLE_GUIDE = `Rewrite text terse like smart caveman. All technical substance stay. Only fluff die.
 
@@ -67,12 +67,12 @@ Yes: "Bug in auth middleware. Token expiry check use \`<\` not \`<=\`. Fix:"
 
 - lite: No filler/hedging. Keep articles + full sentences. Professional but tight.
 - full: Drop articles, fragments OK, short synonyms. Classic caveman. No decorative tables/emoji, no long raw error-log dumps. Standard acronyms OK; no invented abbreviations.
-- heavy: Strip conjunctions when cause-then-effect stay unambiguous. One word when one word enough. State each fact once. NO prose abbreviations (cfg/impl/req/res/fn/auth), NO arrows (X \u2192 Y). Code symbols, function names, API names, error strings: never touch.
+- ultra: Strip conjunctions when cause-then-effect stay unambiguous. One word when one word enough. State each fact once. NO prose abbreviations (cfg/impl/req/res/fn/auth), NO arrows (X \u2192 Y). Code symbols, function names, API names, error strings: never touch.
 
 Example — "Why does my React component re-render?"
 - lite: "Your component re-renders because you create a new object reference each render. Wrap it in \`useMemo\`."
 - full: "New object ref each render. Inline object prop = new ref = re-render. Wrap in \`useMemo\`."
-- heavy: "Inline obj prop, new ref, re-render. \`useMemo\`."
+- ultra: "Inline obj prop, new ref, re-render. \`useMemo\`."
 
 ## Auto-Clarity
 
@@ -159,7 +159,7 @@ function resolveIntensity(request: CavemanRequest): IntensityResolution {
 	if (selected.length > 1) {
 		return {
 			type: "error",
-			message: "--lite, --full, and --heavy are mutually exclusive.",
+			message: "--lite, --full, and --ultra are mutually exclusive.",
 			arguments: selected.map((level) => `--${level}`),
 		};
 	}
