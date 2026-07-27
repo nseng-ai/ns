@@ -6,8 +6,8 @@ import {
 	type LivePiSurface,
 } from "@nseng-ai/pi-runtime/parity/check";
 import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi-runtime/parity/testing";
-import { objectiveCommandSpecs } from "../../src/api/index.ts";
-import objectiveExtension, { objectiveParity } from "../../src/pi/extension.ts";
+import { objectiveCommandSpecs } from "@nseng-ai/objectives/api";
+import objectiveExtension, { objectiveParity } from "../src/extension.ts";
 
 async function collectObjectivePiSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();

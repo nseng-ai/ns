@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import {
 	createObjectiveClient,
+	objectiveCommandBackedSkillRegistrations,
 	OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE,
 	type ObjectiveClientOptions,
 } from "../../src/api/index.ts";
@@ -47,6 +48,36 @@ function buildClient(): ReturnType<typeof createObjectiveClient> {
 describe("objectives API", () => {
 	test("exports the canonical objective runner child prohibition", () => {
 		expect(OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE).toContain("Do not push");
+	});
+
+	test("exports host-neutral command-backed skill registrations", () => {
+		expect(objectiveCommandBackedSkillRegistrations).toEqual([
+			{
+				kind: "specialized-command",
+				skillName: "objective-create",
+				surface: "ns:objective:create",
+			},
+			{
+				kind: "specialized-command",
+				skillName: "objective-next",
+				surface: "ns:objective:next",
+			},
+			{
+				kind: "specialized-command",
+				skillName: "objective-update",
+				surface: "ns:objective:update",
+			},
+			{
+				kind: "specialized-command",
+				skillName: "objective-close",
+				surface: "ns:objective:close",
+			},
+			{
+				kind: "specialized-command",
+				skillName: "objective-autorun",
+				surface: "ns:objective:autorun",
+			},
+		]);
 	});
 
 	test("listActiveCandidates returns only open records", async () => {

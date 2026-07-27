@@ -6,7 +6,7 @@ import objectiveExtension, {
 	type RawPiExecResult,
 	type ObjectiveExtensionAPI,
 	type NotifyLevel,
-} from "../../src/pi/extension.ts";
+} from "../src/extension.ts";
 import { createTestSessionReader } from "./test-session-reader.ts";
 
 const ROOT = "/repo";

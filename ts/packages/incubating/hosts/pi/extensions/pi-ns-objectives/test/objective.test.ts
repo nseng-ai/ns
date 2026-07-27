@@ -14,14 +14,14 @@ import type {
 	ObjectiveSelectionContext,
 	ObjectiveSelectionListLoadResult,
 	ObjectiveSelectionSpec,
-} from "../../src/api/index.ts";
+} from "@nseng-ai/objectives/api";
 import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "@nseng-ai/pi-runtime/commands/cli-extension";
 import objectiveExtension, {
 	type CommandContext,
 	type RawPiExecResult,
 	type ObjectiveExtensionAPI,
 	type NotifyLevel,
-} from "../../src/pi/extension.ts";
+} from "../src/extension.ts";
 import { createTestSessionReader } from "./test-session-reader.ts";
 
 type RawPiExecResultFixture = Partial<RawPiExecResult>;

@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
-} from "../../src/api/index.ts";
+} from "@nseng-ai/objectives/api";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import type { CommandContext } from "@nseng-ai/pi-runtime/runtime/types";

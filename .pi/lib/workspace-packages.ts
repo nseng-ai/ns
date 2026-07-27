@@ -20,6 +20,8 @@ const workspacePackageFallbacks: Record<string, string> = {
 		"../../ts/packages/internal/hosts/pi/tools/pi-tools/src/slash-command-rerank/extension.ts",
 	"@internal/pi-tools/thermo-council/extension":
 		"../../ts/packages/internal/hosts/pi/tools/pi-tools/src/thermo-council/extension.ts",
+	"@nseng-ai/pi-ns-objectives/extension":
+		"../../ts/packages/incubating/hosts/pi/extensions/pi-ns-objectives/src/extension.ts",
 	"@nseng-ai/pi-runtime/commands/ack":
 		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/commands/ack.ts",
 	"@nseng-ai/pi-runtime/commands/cli-command-live-progress":

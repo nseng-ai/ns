@@ -9,7 +9,7 @@ import type { z as ZodNamespace } from "zod";
 
 // Provisional consumer artifact (docs/platform-and-consumer.md): a vibecoded Pi tool for the
 // objective-autorun skill. The canonical `/ns:objective:autorun` command lives in
-// `@nseng-ai/objectives/pi`; this local extension only registers the `objective_runner_step` tool,
+// `@nseng-ai/pi-ns-objectives`; this local extension only registers the `objective_runner_step` tool,
 // which mechanically wraps ONE runner step (runner-begin → implementation subagent with live widget
 // → runner-finish) and returns the Runner Checkpoint for the parent to judge. Judgment stays in the
 // parent LLM per ADR 0040/0024.
