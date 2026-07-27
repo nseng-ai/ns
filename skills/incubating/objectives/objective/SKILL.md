@@ -35,6 +35,7 @@ Do not use `docs/objectives/`.
 Use these step skills for explicit workflow requests:
 
 - `objective-create`: create one new active Objective record; it never updates or closes existing ones. Its interview offers the Objective patterns (wayfinding, steelthread, standing, umbrella, autoobjective, readme-driven-development); each pattern's creation procedure lives in its `references/<pattern>-create.md`.
+- `objective-list`: list direct open records by slug and `open`/`blocked` lifecycle only.
 - `objective-next`: recommend-first router for one selected open Objective; its Tracking Gate and confirmed-execution paths live in that skill.
 - `objective-update`: update exactly one selected active Objective; may close inline when its Closure Gate is clearly met.
 - `objective-refresh`: verified rebaseline for active Objective records; may close inline on probe-backed evidence, and never commits record edits.
@@ -115,21 +116,27 @@ A minimal Closure Marker. Its existence means closed; closure meaning belongs in
 
 Objective Close is a graph-aware tracking transaction, not only a marker write: every Objective Edge on the closing record gets an explicit impact disposition — `updated`, `unchanged`, or `already closed` — and an `updated` active counterpart's durable tracking is edited to its post-closure state. This is the bounded exception to ordinary one-Objective update scope; every close path (explicit or inline) carries it, and the `objective-close` skill owns the procedure.
 
+## Optional capability adaptation
+
+The seven portable skills have complete CLI-free procedures. An optional `ns objective` operation may replace a mechanical step only after a look-before-use probe of that exact operation succeeds. Probe the operation's help surface (for example, `ns objective list --help` before using `ns objective list`); detecting `ns`, another Objective subcommand, or an Objective package is insufficient. If the exact operation is unavailable, fails its probe, or cannot be probed safely, continue with the portable procedure without pretending the enhanced guarantee exists.
+
+Capability adaptation changes mechanics and evidence, never Objective record semantics. Narrative judgment and Markdown authoring remain skill-owned. Enhanced facts such as Git freshness, structural checking, orientation loading, and machine-readable envelopes may be claimed only when the concrete operation producing them ran successfully.
+
 ## Selection
 
 1. Use an explicit user-provided slug or path under `.ns/objectives/<slug>/`.
-2. If no slug or path is explicit, run `ns objective list --format md` to enumerate active checkout-local Objectives (`open` records in `.ns/objectives/`) and ask the user to choose.
+2. If no slug or path is explicit, enumerate direct record directories under `.ns/objectives/`, exclude records with a direct `closed.md`, and ask the user to choose. When the exact `ns objective list` operation is available under the capability-adaptation rule, `ns objective list --format md` may perform this inventory.
 3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
-Objective selection must come from an explicit slug/path or checkout-local `ns objective list` inventory. Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata — this includes branch names shown by `ns objective list`. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
+Objective selection must come from an explicit slug/path or checkout-local active-record inventory. Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata — this includes branch names shown by enhanced list output. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
 
-Two narrow sanctioned exceptions exist: `objective-update` (single active candidate, confirmed before proceeding) and `objective-critique` (single branch-changed record); each exception's terms live in its skill.
+The one sanctioned selection exception is `objective-update`: with exactly one active candidate, it may present that candidate but must obtain confirmation before proceeding. Its terms live in that skill.
 
 A picker UI may group changed active Objectives first and label a single changed record as suggested; the user must still confirm a changed Objective or choose another. The full non-binding picker grouping spec lives in `docs/objective-system.md` under Objective Selection.
 
 ## Repository status
 
-`ns objective list` is the default checkout-local Objective status inventory: active open records in `.ns/objectives/`, showing per-record status, latest update, related local-branch count, and Objective Edge count. It does not parse Objective prose or infer status from branches; for related-branch names and edge-annotation detail, use `ns objective show <slug>` for a single record.
+Use `objective-list` for the portable checkout-local inventory: direct open records in `.ns/objectives/`, labeled only `open` or `blocked`. When its exact capability probe succeeds, `ns objective list` is the enhanced inventory, adding latest update, related local-branch count, and Objective Edge count. It does not parse Objective prose or infer status from branches; when the exact show operation is also available, `ns objective show <slug>` provides related-branch names and edge-annotation detail for one record.
 
 - `--status all` means all statuses in the active root only. Closed Objectives display as `✓ closed` only when included with `--status closed` or `--status all`.
 - `--names`: emits filtered active-root slugs, one per line; use it only for machine-readable active-slug extraction.

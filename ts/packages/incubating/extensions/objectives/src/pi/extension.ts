@@ -447,7 +447,7 @@ export const objectiveParity = definePiSurfaceParity([
 		workflow: "List active Objectives in this repository without invoking the agent",
 		parity: "FULL",
 		cli: "ns objective list",
-		skill: "objective",
+		skill: "objective-list",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@nseng-ai/objectives/pi",
 		sourceModule: "objective",

@@ -5,6 +5,7 @@ const BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME = "ns:branch-context:from-plan";
 const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "ns:branch-context:impl-attached-plan";
 
 const OBJECTIVE_COMMAND_SURFACES = [
+	"ns:objective:list",
 	"ns:objective:next",
 	"ns:objective:update",
 	"ns:objective:close",
@@ -88,6 +89,7 @@ describe("command-backed skill registry", () => {
 		expect(commandBackedSkillSurface("handoff-create")).toBe("ns:handoff:create");
 		expect(commandBackedSkillSurface("handoff-pickup")).toBe("ns:handoff:pickup");
 		expect(commandBackedSkillSurface("objective-create")).toBe("ns:objective:create");
+		expect(commandBackedSkillSurface("objective-list")).toBe("ns:objective:list");
 		expect(commandBackedSkillSurface("objective-next")).toBe("ns:objective:next");
 		expect(commandBackedSkillSurface("objective-update")).toBe("ns:objective:update");
 		expect(commandBackedSkillSurface("objective-close")).toBe("ns:objective:close");
@@ -141,6 +143,7 @@ describe("command-backed skill registry", () => {
 				"handoff-create",
 				"handoff-pickup",
 				"objective-create",
+				"objective-list",
 				"objective-next",
 				"objective-close",
 				"objective-autorun",

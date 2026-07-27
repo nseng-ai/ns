@@ -78,9 +78,9 @@
 			},
 			{
 				"kind": "skill",
-				"name": "objective-critique",
-				"sourcePath": "skills/incubating/objectives/objective-critique",
-				"publishPath": "skills/objective-critique"
+				"name": "objective-list",
+				"sourcePath": "skills/incubating/objectives/objective-list",
+				"publishPath": "skills/objective-list"
 			},
 			{
 				"kind": "skill",
