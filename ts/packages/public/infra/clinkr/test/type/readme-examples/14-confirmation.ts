@@ -1,10 +1,10 @@
 import {
-	confirmInteractiveOrUsageError,
+	confirmOrUsageError,
 	defineCommand,
 	ok,
-	type ClinkrInteraction,
 	type ContextfulCommandDefinition,
-} from "@nseng-ai/clinkr";
+} from "@nseng-ai/clinkr/app";
+import type { ClinkrInteraction } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
 interface Context {
@@ -18,10 +18,10 @@ const definition: ContextfulCommandDefinition<Context, typeof schema> = {
 	schema,
 // README-FENCE-14-START
 handler: async (context, request) => {
-	const confirmation = await confirmInteractiveOrUsageError(context.interaction, {
+	const confirmation = await confirmOrUsageError(context.interaction, {
 		message: `Delete ${request.name}?`,
 	});
-	if (confirmation.type !== "confirmed") return confirmation;
+	if (confirmation.status !== "confirmed") return confirmation;
 	await context.records.delete(request.name);
 	return ok();
 },

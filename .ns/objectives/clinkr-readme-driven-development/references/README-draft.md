@@ -57,14 +57,14 @@ The `src/cli/metadata.ts` + `src/cli/command.ts` pair defines the app's optional
 
 ```ts
 // src/cli/metadata.ts
-import type { ClinkrCommandMetadata } from "@nseng-ai/clinkr";
+import type { ClinkrCommandMetadata } from "@nseng-ai/clinkr/app";
 
 export function metadata(): ClinkrCommandMetadata {
   return { description: "Greet a person." };
 }
 
 // src/cli/command.ts
-import { cliOption, cliPositional, defineCommand, ok } from "@nseng-ai/clinkr";
+import { cliOption, cliPositional, defineCommand, ok } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 export async function command() {
@@ -95,7 +95,7 @@ The directory structure supplies each command or group name. A command's explici
 
 ```ts
 // src/cli/app.ts
-import { createClinkrApp } from "@nseng-ai/clinkr";
+import { createClinkrApp } from "@nseng-ai/clinkr/app";
 
 export async function app() {
   return createClinkrApp({
@@ -155,7 +155,7 @@ Schemas own typed request data, but an application still owns the words people t
 
 ```ts
 // src/cli/contacts/find/metadata.ts
-import type { ClinkrCommandMetadata } from "@nseng-ai/clinkr";
+import type { ClinkrCommandMetadata } from "@nseng-ai/clinkr/app";
 
 export function metadata(): ClinkrCommandMetadata {
   return {
@@ -167,7 +167,7 @@ export function metadata(): ClinkrCommandMetadata {
 }
 
 // src/cli/contacts/find/command.ts
-import { cliOption, cliPositional, defineCommand } from "@nseng-ai/clinkr";
+import { cliOption, cliPositional, defineCommand } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 export async function command() {
@@ -200,7 +200,7 @@ Apply `cliOption(...)` or `cliPositional(...)` after Zod modifiers such as `.opt
 A rendered command may provide separate command-level renderers for successful results:
 
 ```ts
-import { defineCommand, ok } from "@nseng-ai/clinkr";
+import { defineCommand, ok } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 export async function command() {
@@ -277,7 +277,7 @@ A group uses one eager `group.ts`; a command uses exactly the two-file metadata/
 
 ```ts
 // cli/issues/group.ts
-import type { ClinkrGroupDefinition } from "@nseng-ai/clinkr";
+import type { ClinkrGroupDefinition } from "@nseng-ai/clinkr/app";
 
 export function group(): ClinkrGroupDefinition {
   return {
@@ -294,14 +294,14 @@ A leaf remains concrete as one required metadata/definition pair:
 
 ```ts
 // cli/issues/list/metadata.ts
-import type { ClinkrCommandMetadata } from "@nseng-ai/clinkr";
+import type { ClinkrCommandMetadata } from "@nseng-ai/clinkr/app";
 
 export function metadata(): ClinkrCommandMetadata {
   return { description: "List open issues." };
 }
 
 // cli/issues/list/command.ts
-import { defineCommand, ok } from "@nseng-ai/clinkr";
+import { defineCommand, ok } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 export async function command() {
@@ -344,7 +344,7 @@ Use a command's `completionProvider` for values known only at runtime. Like a ha
 For example, a checkout command can complete branch names from Git. This tree requires a context (`YourAppContext`), so the definition sets `requiresContext: true` and the handler and provider take `(context, request)` instead of the one-argument `handler(request)` form used earlier. This rule is covered in [Context and testability](#context-and-testability):
 
 ```ts
-import { defineCommand, ok } from "@nseng-ai/clinkr";
+import { defineCommand, ok } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 interface YourAppContext {
@@ -375,7 +375,7 @@ Most real commands depend on something external: a filesystem, API client, repos
 A contextful app sets `requiresContext: true` for its whole command tree and supplies the context type to `createClinkrApp`. Every structured command definition in that tree also sets `requiresContext: true`; Clinkr checks the app and selected definition agree when it loads the command. Omitting the property on both the app and its definitions selects the context-free form.
 
 ```ts
-import { createClinkrApp } from "@nseng-ai/clinkr";
+import { createClinkrApp } from "@nseng-ai/clinkr/app";
 
 interface ContactsContext {
   readonly contacts: Contacts;
@@ -404,10 +404,10 @@ This homogeneous tree context is the current contract. First-class per-command c
 
 Context-free command trees omit `requiresContext` and keep the simpler `handler(request)` and `clinkr.run(args)` forms shown above.
 
-The run boundary makes behavior easy to test. `runForTest` from `@nseng-ai/clinkr/testing` runs the app in-process and captures the observable CLI result; supply the same command tree with an in-memory fake context:
+The run boundary makes behavior easy to test. `runForTest` from `@nseng-ai/clinkr/app/testing` runs the app in-process and captures the observable CLI result; supply the same command tree with an in-memory fake context:
 
 ```ts
-import { runForTest } from "@nseng-ai/clinkr/testing";
+import { runForTest } from "@nseng-ai/clinkr/app/testing";
 
 // Same as running "contacts list" from the CLI, but with injected dependencies.
 const clinkr = await app();
@@ -443,7 +443,7 @@ Rendered command handlers return a `ClinkrExit` rather than writing output or te
 A **negative result** means the command worked but the answer was no: a lookup found nothing, a check did not pass, there was nothing to change. A **failure** means the command could not complete—a dependency was unavailable, or an unexpected condition occurred. A handler picks the outcome directly:
 
 ```ts
-import { failure, negative, ok } from "@nseng-ai/clinkr";
+import { failure, negative, ok } from "@nseng-ai/clinkr/app";
 
 handler: async (request) => {
 	const record = await lookupContact(request.name);
@@ -481,24 +481,21 @@ $ contacts find Ada --format json
 }
 ```
 
-Failure and usage-error envelopes have the same shape plus an `errorType` string. Any outcome can carry structured `data` when the command declares its corresponding schema:
+Failure and usage-error envelopes have the same shape plus an `errorType` string. The success payload is the only typed one: declare `resultSchema` and Clinkr validates every success outcome's `data` against it. A command without `resultSchema` emits bodyless success envelopes.
 
 ```ts
-import { defineCommand } from "@nseng-ai/clinkr";
+import { defineCommand } from "@nseng-ai/clinkr/app";
 
 export async function command() {
   return defineCommand({
     schema: z.object({ name: z.string() }),
     resultSchema: contactSchema,
-    negativeSchema: z.object({ searchedName: z.string() }),
-    failureSchema: z.object({ service: z.string() }),
-    usageErrorSchema: z.object({ conflictingFlags: z.array(z.string()) }),
     // handler and renderers...
   });
 }
 ```
 
-Clinkr validates each outcome against its corresponding schema and includes the complete outcome contract in `--json-schema`. An outcome without structured data does not need a schema.
+Negative, failure, and usage-error envelopes have fixed shapes — `status`, `exitCode`, `message`, plus `errorType` on failure and usage-error — and may carry optional freeform `data` for JSON-serializable diagnostics. Diagnostics need no declared schema and are never validated. `--json-schema` reflects exactly this envelope union: a typed success arm and the three fixed error arms.
 
 ## Interactive confirmation
 
@@ -506,10 +503,10 @@ Use `createClinkrInteraction` and the confirmation helpers when a command may pr
 
 ```ts
 handler: async (context, request) => {
-	const confirmation = await confirmInteractiveOrUsageError(context.interaction, {
+	const confirmation = await confirmOrUsageError(context.interaction, {
 		message: `Delete ${request.name}?`,
 	});
-	if (confirmation.type !== "confirmed") return confirmation;
+	if (confirmation.status !== "confirmed") return confirmation;
 	await context.records.delete(request.name);
 	return ok();
 },
@@ -531,12 +528,14 @@ Filesystem-defined command structures are the common authoring path. A narrow, s
 
 ## Public entrypoints
 
-| Entrypoint                    | Purpose                                                                                                       |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `@nseng-ai/clinkr`            | Apps, structured commands, command groups, outcomes, rendering, interaction, and app completion configuration |
-| `@nseng-ai/clinkr/completion` | Completion planning and shell-script rendering                                                                |
-| `@nseng-ai/clinkr/raw`        | Framework-neutral raw command construction and argv/output/exit ownership                                     |
-| `@nseng-ai/clinkr/stream`     | Progressive terminal and settled-output sinks                                                                 |
-| `@nseng-ai/clinkr/testing`    | Public command-testing utilities                                                                              |
+| Entrypoint                     | Purpose                                                                                                       |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `@nseng-ai/clinkr`             | Apps, structured commands, command groups, outcomes, rendering, interaction, and app completion configuration |
+| `@nseng-ai/clinkr/app`         | Filesystem app runtime, command definitions, and typed-success outcomes                                       |
+| `@nseng-ai/clinkr/app/testing` | In-process app-testing utilities                                                                              |
+| `@nseng-ai/clinkr/completion`  | Completion planning and shell-script rendering                                                                |
+| `@nseng-ai/clinkr/raw`         | Framework-neutral raw command construction and argv/output/exit ownership                                     |
+| `@nseng-ai/clinkr/stream`      | Progressive terminal and settled-output sinks                                                                 |
+| `@nseng-ai/clinkr/testing`     | Public command-testing utilities                                                                              |
 
 Specialized APIs are available only from their named subpaths; the package root does not re-export raw construction, completion planning, stream sinks, or testing helpers. Every entrypoint ships full TypeScript types; those types are the detailed API reference until a separate docs surface exists. The README teaches adopter workflows rather than cataloging every low-level capability, I/O, envelope, format, emission, completion-planning, or testing utility.

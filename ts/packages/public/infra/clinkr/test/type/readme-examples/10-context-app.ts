@@ -12,7 +12,7 @@ class RealContacts implements Contacts {
 }
 
 // README-FENCE-10-START
-import { createClinkrApp } from "@nseng-ai/clinkr";
+import { createClinkrApp } from "@nseng-ai/clinkr/app";
 
 interface ContactsContext {
   readonly contacts: Contacts;

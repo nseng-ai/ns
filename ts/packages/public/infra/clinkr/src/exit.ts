@@ -13,80 +13,41 @@ export interface ClinkrNegativeOptions<T> extends ClinkrNegativeRenderOverrides 
 	readonly data?: T;
 }
 
-interface ClinkrOkExitBase extends ClinkrOkRenderOverrides {
+export interface ClinkrOkExit<T> extends ClinkrOkRenderOverrides {
 	readonly type: "ok";
-}
-
-interface ClinkrNegativeExitBase extends ClinkrNegativeRenderOverrides {
-	readonly type: "negative";
-	readonly message: string;
-}
-
-interface ClinkrFailureExitBase {
-	readonly type: "failure";
-	readonly errorType: string;
-	readonly message: string;
-}
-
-interface ClinkrUsageErrorExitBase {
-	readonly type: "usageError";
-	readonly errorType: "usageError";
-	readonly message: string;
-}
-
-type BodylessOutcome<TBase> = TBase & { readonly data?: never };
-type WithOutcomeData<TBase, TData, TDataBearing> = [TData] extends [never]
-	? BodylessOutcome<TBase>
-	: TDataBearing;
-
-// Data-bearing variants are generic interfaces (not structural intersections) so that
-// TypeScript's inference from a contextual `ClinkrExit<T>` return type matches the ok
-// variant by type reference and keeps call-site object literals narrowly typed.
-interface ClinkrOkDataExit<T> extends ClinkrOkExitBase {
-	readonly data: T;
-}
-interface ClinkrNegativeDataExit<T> extends ClinkrNegativeExitBase {
-	readonly data: T;
-}
-interface ClinkrFailureDataExit<T> extends ClinkrFailureExitBase {
-	readonly data: T;
-}
-interface ClinkrUsageErrorDataExit<T> extends ClinkrUsageErrorExitBase {
 	readonly data: T;
 }
 
-type FlexibleOutcomeData<TBase, TDataBearing> = BodylessOutcome<TBase> | TDataBearing;
+export interface ClinkrNegativeExit<T> extends ClinkrNegativeRenderOverrides {
+	type: "negative";
+	message: string;
+	data?: T;
+}
 
-export type ClinkrOkExit<T = never> = WithOutcomeData<ClinkrOkExitBase, T, ClinkrOkDataExit<T>>;
-export type ClinkrNegativeExit<T = never> = WithOutcomeData<
-	ClinkrNegativeExitBase,
-	T,
-	ClinkrNegativeDataExit<T>
->;
-export type ClinkrFailureExit<T = never> = WithOutcomeData<
-	ClinkrFailureExitBase,
-	T,
-	ClinkrFailureDataExit<T>
->;
-export type ClinkrUsageErrorExit<T = never> = WithOutcomeData<
-	ClinkrUsageErrorExitBase,
-	T,
-	ClinkrUsageErrorDataExit<T>
->;
+export interface ClinkrFailureExit {
+	type: "failure";
+	errorType: string;
+	message: string;
+	data?: unknown;
+}
 
-export type ClinkrExit<T = never> =
-	| ClinkrOkDataExit<T>
-	| BodylessOutcome<ClinkrNegativeExitBase>
-	| ClinkrNegativeDataExit<T>
-	| FlexibleOutcomeData<ClinkrFailureExitBase, ClinkrFailureDataExit<unknown>>
-	| FlexibleOutcomeData<ClinkrUsageErrorExitBase, ClinkrUsageErrorDataExit<unknown>>;
+export interface ClinkrUsageErrorExit {
+	type: "usageError";
+	errorType: "usageError";
+	message: string;
+	data?: unknown;
+}
 
-type AnyClinkrExit = ClinkrExit<unknown> | ClinkrExit | ClinkrOkExit;
+export type ClinkrExit<T> =
+	| ClinkrOkExit<T>
+	| ClinkrNegativeExit<T>
+	| ClinkrFailureExit
+	| ClinkrUsageErrorExit;
 
 export interface OkMachineEnvelope {
 	status: "ok";
 	exitCode: 0;
-	data?: unknown;
+	data: unknown;
 }
 
 export interface NegativeMachineEnvelope {
@@ -121,7 +82,7 @@ export type MachineEnvelope =
 export const okMachineEnvelopeSchema = z.strictObject({
 	status: z.literal("ok"),
 	exitCode: z.literal(0),
-	data: z.unknown().optional(),
+	data: z.unknown(),
 });
 export const negativeMachineEnvelopeSchema = z.strictObject({
 	status: z.literal("negative"),
@@ -190,13 +151,7 @@ export function buildMachineEnvelopeSchema<DataSchema extends z.ZodType>(dataSch
 	]);
 }
 
-export function ok(): ClinkrOkExit;
-export function ok<T>(data: T, overrides?: ClinkrOkRenderOverrides): ClinkrOkDataExit<T>;
-export function ok(
-	data?: unknown,
-	overrides: ClinkrOkRenderOverrides = {},
-): ClinkrOkExit | ClinkrOkExit<unknown> {
-	if (arguments.length === 0) return { type: "ok" };
+export function ok<T>(data: T, overrides: ClinkrOkRenderOverrides = {}): ClinkrOkExit<T> {
 	return {
 		type: "ok",
 		data,
@@ -205,53 +160,29 @@ export function ok(
 	};
 }
 
-export function negative(message: string): ClinkrNegativeExit;
-export function negative<const T>(
-	message: string,
-	options: ClinkrNegativeOptions<T> & { readonly data: T },
-): ClinkrNegativeDataExit<T>;
-export function negative(
-	message: string,
-	options: ClinkrNegativeRenderOverrides,
-): ClinkrNegativeExit;
-export function negative<T>(
+export function negative<T = never>(
 	message: string,
 	options: ClinkrNegativeOptions<T> = {},
-): ClinkrNegativeExit | ClinkrNegativeExit<unknown> {
-	const base = {
-		type: "negative" as const,
+): ClinkrNegativeExit<T> {
+	return {
+		type: "negative",
 		message,
+		...(options.data === undefined ? {} : { data: options.data }),
 		...(options.human === undefined ? {} : { human: options.human }),
 	};
-	if (!Object.hasOwn(options, "data")) return base;
-	return { ...base, data: options.data as T };
 }
 
-export function failure(errorType: string, message: string): ClinkrFailureExit;
-export function failure<const T>(
-	errorType: string,
-	message: string,
-	data: T,
-): ClinkrFailureDataExit<T>;
-export function failure<T>(
-	errorType: string,
-	message: string,
-	...dataArgument: [] | [data: T]
-): ClinkrFailureExit | ClinkrFailureExit<unknown> {
-	const base = { type: "failure" as const, errorType, message };
-	if (dataArgument.length === 0) return base;
-	return { ...base, data: dataArgument[0] };
+export function failure(errorType: string, message: string, data?: unknown): ClinkrFailureExit {
+	return { type: "failure", errorType, message, ...(data === undefined ? {} : { data }) };
 }
 
-export function usageError(message: string): ClinkrUsageErrorExit;
-export function usageError<const T>(message: string, data: T): ClinkrUsageErrorDataExit<T>;
-export function usageError<T>(
-	message: string,
-	...dataArgument: [] | [data: T]
-): ClinkrUsageErrorExit | ClinkrUsageErrorExit<unknown> {
-	const base = { type: "usageError" as const, errorType: "usageError" as const, message };
-	if (dataArgument.length === 0) return base;
-	return { ...base, data: dataArgument[0] };
+export function usageError(message: string, data?: unknown): ClinkrUsageErrorExit {
+	return {
+		type: "usageError",
+		errorType: "usageError",
+		message,
+		...(data === undefined ? {} : { data }),
+	};
 }
 
 const EXIT_CODE_BY_TYPE = {
@@ -259,26 +190,22 @@ const EXIT_CODE_BY_TYPE = {
 	negative: 1,
 	failure: 2,
 	usageError: 2,
-} as const satisfies Record<AnyClinkrExit["type"], 0 | 1 | 2>;
+} as const satisfies Record<ClinkrExit<unknown>["type"], 0 | 1 | 2>;
 
-export function exitCodeForExit(exit: AnyClinkrExit): 0 | 1 | 2 {
+export function exitCodeForExit(exit: ClinkrExit<unknown>): 0 | 1 | 2 {
 	return EXIT_CODE_BY_TYPE[exit.type];
 }
 
-export function toMachineEnvelope(exit: AnyClinkrExit): MachineEnvelope {
+export function toMachineEnvelope(exit: ClinkrExit<unknown>): MachineEnvelope {
 	switch (exit.type) {
 		case "ok":
-			return {
-				status: "ok",
-				exitCode: EXIT_CODE_BY_TYPE.ok,
-				...("data" in exit ? { data: exit.data } : {}),
-			};
+			return { status: "ok", exitCode: EXIT_CODE_BY_TYPE.ok, data: exit.data };
 		case "negative":
 			return {
 				status: "negative",
 				exitCode: EXIT_CODE_BY_TYPE.negative,
 				message: exit.message,
-				...("data" in exit ? { data: exit.data } : {}),
+				...(exit.data === undefined ? {} : { data: exit.data }),
 			};
 		case "failure":
 			return {
@@ -286,34 +213,23 @@ export function toMachineEnvelope(exit: AnyClinkrExit): MachineEnvelope {
 				exitCode: EXIT_CODE_BY_TYPE.failure,
 				errorType: exit.errorType,
 				message: exit.message,
-				...("data" in exit ? { data: exit.data } : {}),
+				...(exit.data === undefined ? {} : { data: exit.data }),
 			};
 		case "usageError":
-			return {
-				status: "usageError",
-				exitCode: EXIT_CODE_BY_TYPE.usageError,
-				errorType: "usageError",
-				message: exit.message,
-				...("data" in exit ? { data: exit.data } : {}),
-			};
+			return usageErrorMachineEnvelope(exit.message, exit.data);
 	}
 }
 
-export function usageErrorMachineEnvelope(message: string): UsageErrorMachineEnvelope;
 export function usageErrorMachineEnvelope(
 	message: string,
-	data: unknown,
-): UsageErrorMachineEnvelope;
-export function usageErrorMachineEnvelope(
-	message: string,
-	...dataArgument: [] | [data: unknown]
+	data?: unknown,
 ): UsageErrorMachineEnvelope {
 	return {
 		status: "usageError",
 		exitCode: EXIT_CODE_BY_TYPE.usageError,
 		errorType: "usageError",
 		message,
-		...(dataArgument.length === 0 ? {} : { data: dataArgument[0] }),
+		...(data === undefined ? {} : { data }),
 	};
 }
 

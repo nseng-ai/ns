@@ -1,5 +1,5 @@
 // README-FENCE-12-A-START
-import { failure, negative, ok } from "@nseng-ai/clinkr";
+import { failure, negative, ok } from "@nseng-ai/clinkr/app";
 // README-FENCE-12-A-END
 
 interface Contact {

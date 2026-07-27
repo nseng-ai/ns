@@ -1,6 +1,6 @@
 // README-FENCE-4-B1-START
 // src/cli/contacts/find/command.ts
-import { cliOption, cliPositional, defineCommand } from "@nseng-ai/clinkr";
+import { cliOption, cliPositional, defineCommand } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 export async function command() {
@@ -35,7 +35,7 @@ export const completeCommand = defineCommand({
 	}),
 	resultSchema: z.object({ matches: z.array(z.string()) }),
 	handler: async (request) => ({
-		type: "ok" as const,
+		status: "success" as const,
 		data: { matches: request.includeArchived ? [request.name] : [] },
 	}),
 });

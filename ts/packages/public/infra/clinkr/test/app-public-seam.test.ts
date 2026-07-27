@@ -4,8 +4,8 @@ import path from "node:path";
 import { afterEach, expect, test } from "vitest";
 import { z } from "zod";
 
-import { createClinkrApp, failure, negative, ok, usageError } from "@nseng-ai/clinkr";
-import { runForTest } from "@nseng-ai/clinkr/testing";
+import { createClinkrApp, failure, negative, ok, usageError } from "@nseng-ai/clinkr/app";
+import { runForTest } from "@nseng-ai/clinkr/app/testing";
 
 const temporaryDirectories: string[] = [];
 
@@ -31,7 +31,7 @@ async function createCommandDirectory(input: {
 		writeFile(
 			path.join(directory, "command.ts"),
 			input.commandSource ??
-				'import { defineCommand, ok } from "@nseng-ai/clinkr";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({}), handler: async () => ok() }); }\n',
+				'import { defineCommand, ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({}), handler: async () => ok() }); }\n',
 		),
 	]);
 	return directory;
@@ -58,7 +58,7 @@ test("metadata() return values are validated exactly", async () => {
 test("command modules require the exact command() export", async () => {
 	const commandDirectory = await createCommandDirectory({
 		commandSource:
-			'import { defineCommand, ok } from "@nseng-ai/clinkr";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({}), handler: async () => ok() }); }\nexport const extra = true;\n',
+			'import { defineCommand, ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({}), handler: async () => ok() }); }\nexport const extra = true;\n',
 	});
 	const app = createClinkrApp({ name: "fixture", commandDirectory });
 	await expect(app.run([])).rejects.toThrow("malformed command module");
@@ -67,19 +67,23 @@ test("command modules require the exact command() export", async () => {
 for (const [label, commandSource] of [
 	[
 		"unknown keys",
-		'import { ok } from "@nseng-ai/clinkr";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), handler: async () => ok(), extra: true }; }\n',
+		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), handler: async () => ok(), extra: true }; }\n',
+	],
+	[
+		"retired per-status schema keys",
+		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), negativeSchema: z.object({}), handler: async () => ok() }; }\n',
 	],
 	[
 		"invalid schemas",
-		'import { ok } from "@nseng-ai/clinkr";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), resultSchema: {}, handler: async () => ok() }; }\n',
+		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), resultSchema: {}, handler: async () => ok() }; }\n',
 	],
 	[
 		"invalid renderers",
-		'import { ok } from "@nseng-ai/clinkr";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), renderHuman: "no", handler: async () => ok() }; }\n',
+		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), renderHuman: "no", handler: async () => ok() }; }\n',
 	],
 	[
 		"invalid context discriminants",
-		'import { ok } from "@nseng-ai/clinkr";\nimport { z } from "zod";\nexport async function command() { return { requiresContext: false, schema: z.object({}), handler: async () => ok() }; }\n',
+		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { requiresContext: false, schema: z.object({}), handler: async () => ok() }; }\n',
 	],
 ] as const) {
 	test(`selected definitions reject ${label}`, async () => {
@@ -96,7 +100,7 @@ test.each([["--help"], ["--json-schema"], ["--unknown"]])(
 		let stdinReads = 0;
 		const commandDirectory = await createCommandDirectory({
 			commandSource:
-				'import { defineCommand, ok } from "@nseng-ai/clinkr";\nimport { z } from "zod";\nimport { counter } from "./counter.ts";\nexport async function command() { return defineCommand({ schema: z.object({}), handler: async () => { counter.handlerCalls += 1; return ok(); } }); }\n',
+				'import { defineCommand, ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nimport { counter } from "./counter.ts";\nexport async function command() { return defineCommand({ schema: z.object({}), handler: async () => { counter.handlerCalls += 1; return ok(); } }); }\n',
 		});
 		const app = createClinkrApp({ name: "fixture", commandDirectory });
 		const run = await runForTest(app, [flag], {
@@ -119,10 +123,10 @@ test.each([["--help"], ["--json-schema"], ["--unknown"]])(
 	},
 );
 
-test("new-path JSON Schema composes status schemas and framework usage alternatives", async () => {
+test("JSON Schema exposes the unified four-arm envelope union", async () => {
 	const commandDirectory = await createCommandDirectory({
 		commandSource:
-			'import { defineCommand, ok } from "@nseng-ai/clinkr";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({ name: z.string() }), resultSchema: z.object({ result: z.string() }), negativeSchema: z.object({ negative: z.string() }), failureSchema: z.object({ failure: z.string() }), usageErrorSchema: z.object({ usage: z.string() }), handler: async () => ok({ result: "ok" }) }); }\n',
+			'import { defineCommand, ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({ name: z.string() }), resultSchema: z.object({ result: z.string() }), handler: async () => ok({ result: "ok" }) }); }\n',
 	});
 	const run = await runForTest(createClinkrApp({ name: "fixture", commandDirectory }), [
 		"--json-schema",
@@ -130,13 +134,11 @@ test("new-path JSON Schema composes status schemas and framework usage alternati
 	const document = JSON.parse(run.stdout) as {
 		machineEnvelopeJsonSchema: { anyOf: readonly Record<string, unknown>[] };
 	};
-	expect(document.machineEnvelopeJsonSchema.anyOf).toHaveLength(7);
+	expect(document.machineEnvelopeJsonSchema.anyOf).toHaveLength(4);
 	expect(run.stdout).toContain('"const": "success"');
 	expect(run.stdout).toContain('"const": "negative"');
 	expect(run.stdout).toContain('"const": "failure"');
 	expect(run.stdout).toContain('"const": "usage-error"');
-	expect(run.stdout).toContain('"commanderCode"');
-	expect(run.stdout).toContain('"issues"');
 });
 
 test("bodyless success omits data from JSON", async () => {
@@ -148,105 +150,61 @@ test("bodyless success omits data from JSON", async () => {
 });
 
 const emptySchema = z.object({});
-const stringSchema = z.string();
 
-for (const [label, definition] of [
-	["success", { schema: emptySchema, resultSchema: stringSchema, handler: async () => ok() }],
-	[
-		"negative",
-		{
+test("success data is validated against resultSchema", async () => {
+	const commandDirectory = await createCommandDirectory({});
+	const app = createClinkrApp({ name: "fixture", commandDirectory });
+	Object.defineProperty(app, "loaded", {
+		value: Promise.resolve({
 			schema: emptySchema,
-			negativeSchema: stringSchema,
-			handler: async () => negative("no"),
-		},
-	],
-	[
-		"failure",
-		{
-			schema: emptySchema,
-			failureSchema: stringSchema,
-			handler: async () => failure("failed", "failed"),
-		},
-	],
-	[
-		"usage error",
-		{
-			schema: emptySchema,
-			usageErrorSchema: stringSchema,
-			handler: async () => usageError("invalid"),
-		},
-	],
-] as const) {
-	test(`configured ${label} outcomes reject missing data`, async () => {
-		const commandDirectory = await createCommandDirectory({});
-		const app = createClinkrApp({ name: "fixture", commandDirectory });
-		Object.defineProperty(app, "loaded", { value: Promise.resolve(definition) });
-		await expect(app.run([])).rejects.toThrow("requires data for its status schema");
+			resultSchema: z.object({ value: z.string() }),
+			handler: async () => ok({ value: 1 }),
+		}),
 	});
-}
+	await expect(app.run([])).rejects.toThrow();
+});
 
-test("bodyless outcomes reject undeclared data", async () => {
+test("success without resultSchema rejects a data payload", async () => {
 	const commandDirectory = await createCommandDirectory({});
 	const app = createClinkrApp({ name: "fixture", commandDirectory });
 	Object.defineProperty(app, "loaded", {
 		value: Promise.resolve({ schema: emptySchema, handler: async () => ok("data") }),
 	});
-	await expect(app.run([])).rejects.toThrow("outcome data requires its status schema");
+	await expect(app.run([])).rejects.toThrow("success outcome data requires a resultSchema");
 });
 
-for (const [label, definition] of [
-	[
-		"success",
-		{ schema: emptySchema, resultSchema: z.undefined(), handler: async () => ok(undefined) },
-	],
-	[
-		"negative",
-		{
-			schema: emptySchema,
-			negativeSchema: z.undefined(),
-			handler: async () => negative("no", { data: undefined }),
-		},
-	],
-	[
-		"failure",
-		{
-			schema: emptySchema,
-			failureSchema: z.undefined(),
-			handler: async () => failure("failed", "failed", undefined),
-		},
-	],
-	[
-		"usage error",
-		{
-			schema: emptySchema,
-			usageErrorSchema: z.undefined(),
-			handler: async () => usageError("invalid", undefined),
-		},
-	],
+for (const [label, outcome, exitCode] of [
+	["negative", negative("no", { data: { anything: [1, "x"] } }), 1],
+	["failure", failure("failed", "failed", "freeform"), 2],
+	["usage error", usageError("invalid", [true]), 2],
 ] as const) {
-	test(`present undefined data is validated for configured ${label}`, async () => {
-		const commandDirectory = await createCommandDirectory({});
-		const app = createClinkrApp({ name: "fixture", commandDirectory });
-		Object.defineProperty(app, "loaded", { value: Promise.resolve(definition) });
-		const run = await runForTest(app, ["--format=json"]);
-		expect(run.exitCode).toBe(label === "success" ? 0 : label === "negative" ? 1 : 2);
-		expect(run.stdout).not.toContain('"data"');
-	});
-}
-
-for (const [label, outcome] of [
-	["success", ok(undefined)],
-	["negative", negative("no", { data: undefined })],
-	["failure", failure("failed", "failed", undefined)],
-	["usage error", usageError("invalid", undefined)],
-] as const) {
-	test(`present undefined data is rejected for bodyless ${label}`, async () => {
+	test(`${label} data passes through to the envelope unvalidated`, async () => {
 		const commandDirectory = await createCommandDirectory({});
 		const app = createClinkrApp({ name: "fixture", commandDirectory });
 		Object.defineProperty(app, "loaded", {
 			value: Promise.resolve({ schema: emptySchema, handler: async () => outcome }),
 		});
-		await expect(app.run([])).rejects.toThrow("outcome data requires its status schema");
+		const run = await runForTest(app, ["--format=json"]);
+		expect(run.exitCode).toBe(exitCode);
+		expect(JSON.parse(run.stdout)).toMatchObject({ status: outcome.status, data: outcome.data });
+	});
+}
+
+for (const [label, outcome, exitCode] of [
+	["success", ok(), 0],
+	["negative", negative("no", { data: undefined }), 1],
+	["failure", failure("failed", "failed", undefined), 2],
+	["usage error", usageError("invalid", undefined), 2],
+] as const) {
+	test(`undefined ${label} data is omitted from the envelope`, async () => {
+		const commandDirectory = await createCommandDirectory({});
+		const app = createClinkrApp({ name: "fixture", commandDirectory });
+		Object.defineProperty(app, "loaded", {
+			value: Promise.resolve({ schema: emptySchema, handler: async () => outcome }),
+		});
+		const run = await runForTest(app, ["--format=json"]);
+		expect(run.exitCode).toBe(exitCode);
+		expect(run.stdout).not.toContain('"data"');
 	});
 }
 

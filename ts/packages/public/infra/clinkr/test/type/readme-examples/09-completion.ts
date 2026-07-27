@@ -4,7 +4,7 @@ interface GitRepo {
 }
 
 // README-FENCE-9-START
-import { defineCommand, ok } from "@nseng-ai/clinkr";
+import { defineCommand, ok } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 interface YourAppContext {

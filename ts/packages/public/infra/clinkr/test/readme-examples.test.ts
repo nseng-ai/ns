@@ -4,7 +4,7 @@ import path from "node:path";
 import { expect, test } from "vitest";
 
 import { app } from "./fixtures/readme-greet/app.ts";
-import { runForTest } from "@nseng-ai/clinkr/testing";
+import { runForTest } from "@nseng-ai/clinkr/app/testing";
 
 const README_PATH = path.resolve(
 	import.meta.dirname,

@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import type { ClinkrContextfulApp } from "@nseng-ai/clinkr";
+import type { ClinkrContextfulApp } from "@nseng-ai/clinkr/app";
 
 interface ContactsContext {
 	readonly contacts: {
@@ -11,7 +11,7 @@ interface ContactsContext {
 declare function app(): Promise<ClinkrContextfulApp<ContactsContext>>;
 
 // README-FENCE-11-START
-import { runForTest } from "@nseng-ai/clinkr/testing";
+import { runForTest } from "@nseng-ai/clinkr/app/testing";
 
 // Same as running "contacts list" from the CLI, but with injected dependencies.
 const clinkr = await app();

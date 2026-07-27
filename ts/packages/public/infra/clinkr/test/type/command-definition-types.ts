@@ -5,7 +5,7 @@ import {
 	negative,
 	ok,
 	usageError,
-} from "@nseng-ai/clinkr";
+} from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 type IsAny<T> = 0 extends 1 & T ? true : false;
@@ -14,20 +14,14 @@ type Not<T extends boolean> = T extends true ? false : true;
 
 const requestSchema = z.object({ count: z.number() });
 const resultSchema = z.object({ value: z.string() });
-const negativeSchema = z.object({ reason: z.string() });
-const failureSchema = z.object({ service: z.string() });
-const usageErrorSchema = z.object({ flag: z.string() });
 
 defineCommand({
 	schema: requestSchema,
 	resultSchema,
-	negativeSchema,
-	failureSchema,
-	usageErrorSchema,
 	handler: async (request) => {
 		type RequestIsNotAny = Assert<Not<IsAny<typeof request>>>;
 		const requestIsNotAny: RequestIsNotAny = true;
-		if (!requestIsNotAny) return usageError("unreachable", { flag: "--count" });
+		if (!requestIsNotAny) return usageError("unreachable");
 		if (request.count === 0) return negative("zero", { data: { reason: "zero" } });
 		if (request.count < 0) return failure("service", "down", { service: "counter" });
 		if (!Number.isFinite(request.count)) return usageError("invalid", { flag: "--count" });
@@ -39,22 +33,22 @@ defineCommand({
 defineCommand({ schema: requestSchema, handler: async (request) => ok(request.missing) });
 // @ts-expect-error result data must match resultSchema.
 defineCommand({ schema: requestSchema, resultSchema, handler: async () => ok({ value: 1 }) });
-// @ts-expect-error configured negative status requires matching data.
-defineCommand({ schema: requestSchema, negativeSchema, handler: async () => negative("no") });
-defineCommand({
-	schema: requestSchema,
-	failureSchema,
-	// @ts-expect-error configured failure data must match failureSchema.
-	handler: async () => failure("x", "x", { service: 1 }),
-});
-defineCommand({
-	schema: requestSchema,
-	usageErrorSchema,
-	// @ts-expect-error configured usage-error data must match usageErrorSchema.
-	handler: async () => usageError("x", { flag: 1 }),
-});
-// @ts-expect-error bodyless success rejects data.
+// @ts-expect-error success without resultSchema rejects a data payload.
 defineCommand({ schema: requestSchema, handler: async () => ok("unexpected") });
+
+// Error outcomes accept any freeform diagnostics without declared schemas.
+defineCommand({
+	schema: requestSchema,
+	handler: async () => negative("no", { data: { arbitrary: [1, "x", true] } }),
+});
+defineCommand({
+	schema: requestSchema,
+	handler: async () => failure("x", "x", "freeform string diagnostics"),
+});
+defineCommand({
+	schema: requestSchema,
+	handler: async () => usageError("x", ["any", "json"]),
+});
 
 interface Context {
 	readonly prefix: string;

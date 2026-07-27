@@ -1,6 +1,6 @@
 // README-FENCE-8-B-START
 // cli/issues/list/command.ts
-import { defineCommand, ok } from "@nseng-ai/clinkr";
+import { defineCommand, ok } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 export async function command() {

@@ -1,5 +1,5 @@
 // src/cli/command.ts
-import { cliOption, cliPositional, defineCommand, ok } from "@nseng-ai/clinkr";
+import { cliOption, cliPositional, defineCommand, ok } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 export async function command() {

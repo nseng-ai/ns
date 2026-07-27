@@ -8,18 +8,22 @@ import {
 	ok,
 	toMachineEnvelope,
 	usageError,
-	type ClinkrExit,
 	type ClinkrFailureExit,
 	type ClinkrNegativeExit,
+	type ClinkrOkExit,
 	type ClinkrOkRenderOverrides,
 	type ClinkrUsageErrorExit,
 } from "@nseng-ai/clinkr";
 
-export type CommandExit<T = unknown> = ClinkrExit<T>;
-export type OkCommandExit<T> = Extract<ClinkrExit<T>, { type: "ok" }>;
+export type CommandExit<T = unknown> =
+	| OkCommandExit<T>
+	| NegativeCommandExit<T>
+	| FailureCommandExit
+	| UsageErrorCommandExit;
+export type OkCommandExit<T> = ClinkrOkExit<T>;
 export type NegativeCommandExit<T = never> = ClinkrNegativeExit<T>;
-export type FailureCommandExit<T = never> = ClinkrFailureExit<T>;
-export type UsageErrorCommandExit<T = never> = ClinkrUsageErrorExit<T>;
+export type FailureCommandExit = ClinkrFailureExit;
+export type UsageErrorCommandExit = ClinkrUsageErrorExit;
 export type { BuildFailureMachineEnvelopeSchemaOptions, MachineEnvelope } from "@nseng-ai/clinkr";
 
 export {

@@ -50,10 +50,12 @@ This file preserves implementation-relevant details intentionally removed from t
 
 ## Outcomes, schemas, and rendering
 
-- The four handler-returned statuses are success, negative, failure, and usage error. Their data schemas are `resultSchema`, `negativeSchema`, `failureSchema`, and `usageErrorSchema`.
-- Supplying a status schema requires and validates data for that status. Omitting it makes that handler outcome bodyless: no human result body and no `data` field in the JSON envelope. `z.any()` is the explicit intentionally-untyped escape hatch.
-- Framework-owned usage errors remain separate exact alternatives: Commander failures carry `commanderCode`, and request-validation failures carry structured `issues`. Generated machine schemas compose those alternatives with the command-owned `usageErrorSchema`; framework data is not validated against the command schema.
-- Clinkr alone validates selected outcome data, constructs machine envelopes, and publishes the composed discriminated contract through `--json-schema`. Adapters pass schemas through rather than rebuilding or partially validating outcomes.
+- The four handler-returned statuses are success, negative, failure, and usage error, with one unified status vocabulary used both as the outcome discriminant and on the wire: `success | negative | failure | usage-error`.
+- Typed success, untyped diagnostics (Design A; see `updates/2026-07-27-design-a-typed-success-untyped-diagnostics.md`): `resultSchema` is the only declared payload schema and validates every success outcome's `data`. Omitting it makes success bodyless: a success outcome carrying data without `resultSchema` is a programmer error.
+- Negative, failure, and usage-error outcomes have fixed shapes (`status`, `message`, plus `errorType` on failure and usage-error) and may carry optional freeform `data: unknown` diagnostics. Diagnostics are never validated and must be JSON-serializable.
+- The machine envelope is the outcome plus `exitCode`, minus render overrides. The `data` key is omitted entirely when its value is `undefined`; there is no distinct explicitly-undefined-payload representation.
+- Framework-owned usage errors use the same single usage-error envelope arm with `errorType` `invalid-request` or `invalid-json-input` and optional diagnostics such as `{ issues }` or `{ commanderCode }`; they are not separate schema alternatives.
+- Clinkr alone validates success data, constructs machine envelopes, and publishes the four-arm discriminated envelope union through `--json-schema` from one schema builder. Adapters pass schemas through rather than rebuilding or partially validating outcomes.
 - Invalid handler output is a programmer error and propagates to application crash policy. Unexpected exceptions likewise propagate; they do not become expected failure envelopes.
 - Exit semantics follow the grep convention: success `0`, expected negative `1`, failure/usage error `2`. Success and negative human output go to stdout; failure and usage-error human output go to stderr. Every JSON outcome envelope goes to stdout.
 - Rendering is command-level only. Do not restore per-exit human/Markdown overrides. Markdown falls back to the human renderer, then structured data falls back to indented JSON when no suitable renderer exists.
@@ -65,6 +67,7 @@ This file preserves implementation-relevant details intentionally removed from t
 - Raw definitions receive the selected argv tail and own output bytes and exit status. They do not use the structured request/outcome schema model.
 - Specialized APIs are available only from their named subpaths. The root does not re-export raw construction, completion planning/script rendering, stream sinks, or testing helpers.
 - The root owns apps, structured command/group authoring, outcomes, rendering, interaction, and app-level completion configuration.
+- Migration mechanics (temporary): the rebuild is quarantined under `@nseng-ai/clinkr/app` (runtime, command definitions, Design A outcomes, confirmation helper) and `@nseng-ai/clinkr/app/testing` (in-process app test runs) so shared legacy modules stay at their pre-rebuild shape for existing consumers. Nothing under `src/app/` imports legacy `exit.ts`, `emit.ts`, `group.ts`, `completion.ts`, or legacy confirmation logic, and legacy modules do not import from `src/app/`. The roadmap's tail deletion row flips the root export to the new surface and removes these temporary subpaths; the README-draft's `/app` import paths convert to root at that flip.
 
 ## Completion and progressive output
 

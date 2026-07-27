@@ -1,4 +1,11 @@
-import { envelopeJsonText, exitCodeForExit, toMachineEnvelope, type ClinkrExit } from "./exit.ts";
+import {
+	envelopeJsonText,
+	exitCodeForExit,
+	toMachineEnvelope,
+	type ClinkrExit,
+	type ClinkrNegativeExit,
+	type ClinkrOkExit,
+} from "./exit.ts";
 import { stripAnsi } from "./ansi.ts";
 import { resolveSettledNonInteractiveCaps, type Caps } from "./caps.ts";
 import type { ClinkrIo } from "./io.ts";
@@ -62,19 +69,13 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 	return exitCode;
 }
 
-function renderOkExit<T>(
-	exit: Extract<ClinkrExit<T>, { type: "ok" }>,
-	options: EmitExitOptions<T>,
-): string {
+function renderOkExit<T>(exit: ClinkrOkExit<T>, options: EmitExitOptions<T>): string {
 	const caps = renderCapabilities(options);
 	const rendered = renderOkExitText(exit, options, caps);
 	return caps.canEmitAnsi ? rendered : stripAnsi(rendered);
 }
 
-function renderNegativeExit<T>(
-	exit: Extract<ClinkrExit<T>, { type: "negative" }>,
-	options: EmitExitOptions<T>,
-): string {
+function renderNegativeExit<T>(exit: ClinkrNegativeExit<T>, options: EmitExitOptions<T>): string {
 	if (exit.human === undefined) return exit.message;
 	const caps = renderCapabilities(options);
 	return caps.canEmitAnsi ? exit.human : stripAnsi(exit.human);
@@ -88,24 +89,22 @@ function renderCapabilities<T>(options: EmitExitOptions<T>): RenderCapabilities 
 }
 
 function renderOkExitText<T>(
-	exit: Extract<ClinkrExit<T>, { type: "ok" }>,
+	exit: ClinkrOkExit<T>,
 	options: EmitExitOptions<T>,
 	caps: RenderCapabilities,
 ): string {
 	if (options.format === "human") return renderHumanChain(exit, options, caps);
 	if (exit.markdown !== undefined) return exit.markdown;
-	if (options.renderMarkdown !== undefined && "data" in exit)
-		return options.renderMarkdown(exit.data, caps);
+	if (options.renderMarkdown !== undefined) return options.renderMarkdown(exit.data, caps);
 	return renderHumanChain(exit, options, caps);
 }
 
 function renderHumanChain<T>(
-	exit: Extract<ClinkrExit<T>, { type: "ok" }>,
+	exit: ClinkrOkExit<T>,
 	options: EmitExitOptions<T>,
 	caps: RenderCapabilities,
 ): string {
 	if (exit.human !== undefined) return exit.human;
-	if (!("data" in exit)) return "";
 	return options.renderHuman === undefined
 		? envelopeJsonText(exit.data)
 		: options.renderHuman(exit.data, caps);

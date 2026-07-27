@@ -4,18 +4,24 @@ import { pathToFileURL } from "node:url";
 import { Command, CommanderError, Option } from "commander";
 import { z } from "zod";
 
+import type { ClinkrIo } from "../io.ts";
+import { createProcessIo } from "../io.ts";
+import { buildSurfacePlan } from "../surface.ts";
 import {
 	buildCommandJsonSchemaDocument,
 	cliAnnotationFor,
 	type ClinkrCommandDefinition,
-	type ClinkrOutcomeSchemaSet,
 	type ContextFreeCommandDefinition,
 	type ContextfulCommandDefinition,
 } from "./command-definition.ts";
-import { envelopeJsonText, exitCodeForExit, type ClinkrExit } from "./exit.ts";
-import type { ClinkrIo } from "./io.ts";
-import { createProcessIo } from "./io.ts";
-import { buildSurfacePlan } from "./surface.ts";
+import {
+	envelopeJsonText,
+	exitCodeFor,
+	toEnvelope,
+	type CommandOutcome,
+	type SuccessOutcome,
+	type UsageErrorOutcome,
+} from "./outcome.ts";
 
 export interface ClinkrRunOptions<TContext> {
 	readonly context: TContext;
@@ -95,9 +101,6 @@ function isCommandMetadata(value: unknown): boolean {
 const DEFINITION_KEYS = new Set([
 	"schema",
 	"resultSchema",
-	"negativeSchema",
-	"failureSchema",
-	"usageErrorSchema",
 	"renderHuman",
 	"renderMarkdown",
 	"handler",
@@ -111,13 +114,8 @@ function isCommandDefinition(value: unknown): value is ClinkrCommandDefinition<u
 	if (Object.keys(record).some((key) => !DEFINITION_KEYS.has(key))) return false;
 	if (!(record.schema instanceof z.ZodObject) || typeof record.handler !== "function") return false;
 	if (record.requiresContext !== undefined && record.requiresContext !== true) return false;
-	for (const key of [
-		"resultSchema",
-		"negativeSchema",
-		"failureSchema",
-		"usageErrorSchema",
-	] as const) {
-		if (record[key] !== undefined && !(record[key] instanceof z.ZodType)) return false;
+	if (record.resultSchema !== undefined && !(record.resultSchema instanceof z.ZodType)) {
+		return false;
 	}
 	for (const key of ["renderHuman", "renderMarkdown", "completionProvider"] as const) {
 		if (record[key] !== undefined && typeof record[key] !== "function") return false;
@@ -201,15 +199,14 @@ class FilesystemClinkrApp<TContext> {
 			request = parsed.data as Record<string, unknown>;
 		}
 		const outcome = this.requiresContext
-			? await (
-					definition as ContextfulCommandDefinition<TContext, z.ZodObject, ClinkrOutcomeSchemaSet>
-				).handler((options as ClinkrRunOptions<TContext>).context, request)
-			: await (
-					definition as ContextFreeCommandDefinition<z.ZodObject, ClinkrOutcomeSchemaSet>
-				).handler(request);
+			? await (definition as ContextfulCommandDefinition<TContext>).handler(
+					(options as ClinkrRunOptions<TContext>).context,
+					request,
+				)
+			: await (definition as ContextFreeCommandDefinition).handler(request);
 		validateOutcome(outcome, definition);
 		emitOutcome(io, outcome, definition, format);
-		return exitCodeForExit(outcome);
+		return exitCodeFor(outcome.status);
 	}
 
 	private async loadDefinition(): Promise<ClinkrCommandDefinition<TContext>> {
@@ -396,73 +393,61 @@ function formatFromArgs(argv: readonly string[]): "human" | "json" | "md" {
 	return result.success ? result.format : "human";
 }
 
-function validateOutcome(outcome: ClinkrExit<unknown>, definition: ClinkrCommandDefinition): void {
-	const schema =
-		outcome.type === "ok"
-			? definition.resultSchema
-			: outcome.type === "negative"
-				? definition.negativeSchema
-				: outcome.type === "failure"
-					? definition.failureSchema
-					: definition.usageErrorSchema;
-	if (schema === undefined) {
-		if ("data" in outcome)
-			throw new Error(`clinkr: ${outcome.type} outcome data requires its status schema`);
+/**
+ * Success data is the only validated payload: it must match `resultSchema`
+ * when declared and must be absent otherwise. Error-outcome `data` passes
+ * through unvalidated; it must be JSON-serializable.
+ */
+function validateOutcome(
+	outcome: CommandOutcome<unknown>,
+	definition: ClinkrCommandDefinition,
+): void {
+	if (outcome.status !== "success") return;
+	if (definition.resultSchema === undefined) {
+		if (outcome.data !== undefined)
+			throw new Error("clinkr: success outcome data requires a resultSchema");
 		return;
 	}
-	if (!("data" in outcome))
-		throw new Error(`clinkr: ${outcome.type} outcome requires data for its status schema`);
-	schema.parse(outcome.data);
+	definition.resultSchema.parse(outcome.data);
 }
 
 function emitOutcome(
 	io: ClinkrIo,
-	outcome: ClinkrExit<unknown>,
+	outcome: CommandOutcome<unknown>,
 	definition: ClinkrCommandDefinition,
 	format: "human" | "json" | "md",
 ): void {
 	if (format === "json") {
-		const envelope =
-			outcome.type === "ok"
-				? {
-						status: "success",
-						exitCode: 0,
-						...("data" in outcome ? { data: outcome.data } : {}),
-					}
-				: {
-						status: outcome.type === "usageError" ? "usage-error" : outcome.type,
-						exitCode: exitCodeForExit(outcome),
-						...(outcome.type === "negative" ? { message: outcome.message } : {}),
-						...(outcome.type === "failure"
-							? { errorType: outcome.errorType, message: outcome.message }
-							: {}),
-						...(outcome.type === "usageError"
-							? { errorType: outcome.errorType, message: outcome.message }
-							: {}),
-						...("data" in outcome ? { data: outcome.data } : {}),
-					};
-		io.stdout(`${envelopeJsonText(envelope)}\n`);
+		io.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
 		return;
 	}
-	if (outcome.type === "ok") {
+	if (outcome.status === "success") {
 		emitSuccess(io, outcome, definition, format);
 		return;
 	}
-	const stream = outcome.type === "negative" ? io.stdout : io.stderr;
-	stream(`${outcome.message}\n`);
+	if (outcome.status === "negative") {
+		io.stdout(`${outcome.human ?? outcome.message}\n`);
+		return;
+	}
+	io.stderr(`${outcome.message}\n`);
 }
 
 function emitSuccess(
 	io: ClinkrIo,
-	outcome: Extract<ClinkrExit<unknown>, { type: "ok" }>,
+	outcome: SuccessOutcome<unknown>,
 	definition: ClinkrCommandDefinition,
 	format: "human" | "json" | "md",
 ): void {
+	const override = format === "md" ? (outcome.markdown ?? outcome.human) : outcome.human;
+	if (override !== undefined) {
+		io.stdout(`${override}\n`);
+		return;
+	}
 	const renderer =
 		format === "md"
 			? (definition.renderMarkdown ?? definition.renderHuman)
 			: definition.renderHuman;
-	if (renderer === undefined || !("data" in outcome)) return;
+	if (renderer === undefined || outcome.data === undefined) return;
 	const text = renderer(outcome.data, { canEmitAnsi: io.canEmitAnsi === true });
 	io.stdout(`${text}\n`);
 }
@@ -474,11 +459,14 @@ function emitUsageError(
 	errorType: string,
 	data?: unknown,
 ): number {
+	const outcome: UsageErrorOutcome = {
+		status: "usage-error",
+		errorType,
+		message,
+		...(data === undefined ? {} : { data }),
+	};
 	const format = formatFromArgs(argv);
-	if (format === "json")
-		io.stdout(
-			`${envelopeJsonText({ status: "usage-error", exitCode: 2, errorType, message, ...(data === undefined ? {} : { data }) })}\n`,
-		);
+	if (format === "json") io.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
 	else io.stderr(`${message}\n`);
-	return 2;
+	return exitCodeFor(outcome.status);
 }

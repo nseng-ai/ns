@@ -1,5 +1,5 @@
 // src/cli/app.ts
-import { createClinkrApp } from "@nseng-ai/clinkr";
+import { createClinkrApp } from "@nseng-ai/clinkr/app";
 
 export async function app() {
   return createClinkrApp({

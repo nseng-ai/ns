@@ -6,8 +6,7 @@ import type {
 	ConfirmationResult,
 } from "../confirmation.ts";
 import { machineEnvelopeSchema, type MachineEnvelope } from "../exit.ts";
-import type { ClinkrContextFreeApp, ClinkrContextfulApp } from "../app.ts";
-import { ClinkrGroup } from "../group.ts";
+import type { ClinkrGroup } from "../group.ts";
 import type { ClinkrIo } from "../io.ts";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
@@ -128,58 +127,15 @@ export function createCaptureIo(): CaptureIo {
 	};
 }
 
-export interface RunForTestOptions<TContext> {
-	readonly context: TContext;
-	readonly io?: ClinkrIo;
-	readonly stdin?: string;
-}
-
-export interface ContextFreeRunForTestOptions {
-	readonly io?: ClinkrIo;
-	readonly stdin?: string;
-}
-
-/** In-process invocation through the public app/group I/O seam. */
-export async function runForTest(
-	app: ClinkrContextFreeApp,
-	argv: readonly string[],
-	options?: ContextFreeRunForTestOptions,
-): Promise<CapturedRun>;
+/** In-process invocation through the io seam. */
 export async function runForTest<TContext>(
-	app: ClinkrContextfulApp<TContext> | ClinkrGroup<TContext>,
+	group: ClinkrGroup<TContext>,
 	argv: readonly string[],
-	options: RunForTestOptions<TContext>,
-): Promise<CapturedRun>;
-export async function runForTest<TContext>(
-	app: ClinkrContextFreeApp | ClinkrContextfulApp<TContext> | ClinkrGroup<TContext>,
-	argv: readonly string[],
-	options: ContextFreeRunForTestOptions | RunForTestOptions<TContext> = {},
+	options: { context: TContext; io?: ClinkrIo },
 ): Promise<CapturedRun> {
 	const capture = createCaptureIo();
 	const io = options.io ?? capture.io;
-	const readStdin =
-		options.stdin === undefined ? undefined : createOneShotStdinAdapter(options.stdin);
-	let exitCode: number;
-	if (app instanceof ClinkrGroup) {
-		if (!("context" in options)) throw new Error("ClinkrGroup test runs require context");
-		exitCode = await app.run(argv, {
-			context: options.context,
-			io,
-			...(readStdin === undefined ? {} : { readStdin }),
-		});
-	} else if (app.requiresContext) {
-		if (!("context" in options)) throw new Error("Contextful app test runs require context");
-		exitCode = await app.run(argv, {
-			context: options.context,
-			io,
-			...(readStdin === undefined ? {} : { readStdin: async () => (await readStdin()) ?? "" }),
-		});
-	} else {
-		exitCode = await app.run(argv, {
-			io,
-			...(readStdin === undefined ? {} : { readStdin: async () => (await readStdin()) ?? "" }),
-		});
-	}
+	const exitCode = await group.run(argv, { context: options.context, io });
 	return { exitCode, stdout: capture.stdout(), stderr: capture.stderr() };
 }
 

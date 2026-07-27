@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { ok } from "@nseng-ai/clinkr";
+import { ok } from "@nseng-ai/clinkr/app";
 
 const contactSchema = z.object({ name: z.string() });
 
 // README-FENCE-13-A-START
-import { defineCommand } from "@nseng-ai/clinkr";
+import { defineCommand } from "@nseng-ai/clinkr/app";
 
 export async function command() {
 // README-FENCE-13-A-END
@@ -13,9 +13,6 @@ export async function command() {
   return defineCommand({
     schema: z.object({ name: z.string() }),
     resultSchema: contactSchema,
-    negativeSchema: z.object({ searchedName: z.string() }),
-    failureSchema: z.object({ service: z.string() }),
-    usageErrorSchema: z.object({ conflictingFlags: z.array(z.string()) }),
     // handler and renderers...
   });
 }
@@ -25,8 +22,5 @@ export async function command() {
 export const completeCommand = defineCommand({
 	schema: z.object({ name: z.string() }),
 	resultSchema: contactSchema,
-	negativeSchema: z.object({ searchedName: z.string() }),
-	failureSchema: z.object({ service: z.string() }),
-	usageErrorSchema: z.object({ conflictingFlags: z.array(z.string()) }),
 	handler: async (request) => ok({ name: request.name }),
 });

@@ -1,5 +1,5 @@
 // README-FENCE-5-START
-import { defineCommand, ok } from "@nseng-ai/clinkr";
+import { defineCommand, ok } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 export async function command() {
