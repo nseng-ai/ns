@@ -6,7 +6,7 @@ It combines the Pi runtime extension API with this repo's command-registration p
 ## Ground rules
 
 - Pi extension commands are registered with `pi.registerCommand(name, { description, handler, ... })`; `name` is the command without the leading `/`.
-- Project-local discovery adapters live under `.pi/extensions/`; durable tested implementation belongs in its owning engineered destination: `@nseng-ai/pi-runtime`, an extension `pi` subpackage, or an Internal Pi-tool package under `ts/packages/internal/hosts/pi/tools/pi-tools/`.
+- Project-local discovery adapters live under `.pi/extensions/`; durable tested implementation belongs in its owning engineered destination: `@nseng-ai/pi-runtime`, a separate `pi-ns-<domain>` host-adapter package, an extension `pi` subpackage where extraction has not yet occurred, or an Internal Pi-tool package under `ts/packages/internal/hosts/pi/tools/pi-tools/`.
 - Command handlers receive Pi's `ExtensionCommandContext`. Use command-only methods such as `ctx.waitForIdle()` only inside command handlers.
 - `ctx.ui.setStatus(...)` is footer/status UI. It is not transcript progress.
 - Above-fold transcript progress is explicit: use `sendCommandProgressOrNotify(...)` or `sendCommandProgressMessage(...)` at selected milestones.
@@ -79,7 +79,7 @@ For Herdr extension workflows, read `ts/packages/incubating/extensions/herdr/AGE
 
 Before editing:
 
-- [ ] Identify the owning layer: `.pi/extensions/` discovery adapter, `@nseng-ai/pi-runtime` host behavior, an extension `pi` subpackage, or an Internal Pi-tool package.
+- [ ] Identify the owning layer: `.pi/extensions/` discovery adapter, `@nseng-ai/pi-runtime` host behavior, a `pi-ns-<domain>` host adapter, a remaining extension `pi` subpackage, or an Internal Pi-tool package.
 - [ ] Read the relevant package `AGENTS.md` and `CONTEXT.md` before naming new concepts.
 - [ ] Pick a command namespace by workflow ownership, not file location. First-party product/orchestration commands default to `/ns:<extension>:...`; keep `/pi:*` for Pi-native UI/session affordances.
 - [ ] Check for existing command names with `rg` or Pi RPC inventory; avoid duplicate public slash commands unless intentionally documented.

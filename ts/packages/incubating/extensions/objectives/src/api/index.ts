@@ -73,6 +73,7 @@ export type {
 } from "../core/objective-candidates.ts";
 export {
 	allObjectiveCreateCommandSpecs,
+	objectiveCommandBackedSkillRegistrations,
 	objectiveCommandSpecs,
 	objectiveCreateCommandSpec,
 } from "../core/objective-command-specs.ts";

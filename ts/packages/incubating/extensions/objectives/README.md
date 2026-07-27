@@ -10,6 +10,12 @@ maintains the record; you review it in ordinary diffs. Objectives live as Markdo
 This package is an ns extension: it is installed on top of the bare-core
 [`@nseng-ai/ns`](../../../public/ns/README.md) CLI, not bundled with it.
 
+The package is harness-independent and has no Pi host surface. The separate incubating
+`@nseng-ai/pi-ns-objectives` adapter preserves the `/ns:objective:*` Pi command family by
+consuming this package's curated `@nseng-ai/objectives/api` surface; it does not move or
+redefine Objective domain behavior. That adapter is currently implemented on a feature
+branch, not landed or published.
+
 ## Install
 
 Requires `@nseng-ai/ns` installed and a repository already activated with `ns init`:

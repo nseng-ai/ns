@@ -57,6 +57,7 @@ export interface BasePiSurfaceParity {
 	 */
 	readonly sourcePackage:
 		| "@nseng-ai/pi-runtime"
+		| `@nseng-ai/pi-ns-${string}`
 		| "@internal/pi-tools/backing-skill-commands"
 		| "@internal/pi-tools/code-workflows"
 		| "@internal/pi-tools/context-profiler"
@@ -67,7 +68,6 @@ export interface BasePiSurfaceParity {
 		| "@nseng-ai/branch-context/pi"
 		| "@nseng-ai/flow/pi"
 		| "@nseng-ai/handoffs/pi"
-		| "@nseng-ai/objectives/pi"
 		| "@nseng-ai/pi-runtime/worktree-status";
 	/** Source module that owns the registration or the Pi-local parity adapter. */
 	readonly sourceModule: string;

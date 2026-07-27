@@ -303,10 +303,6 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
-    devDependencies:
-      '@nseng-ai/pi-runtime':
-        specifier: workspace:*
-        version: link:../../hosts/pi/runtime/pi-runtime
 
   packages/incubating/extensions/plans:
     dependencies:
@@ -419,6 +415,22 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
+
+  packages/incubating/hosts/pi/extensions/pi-ns-objectives:
+    dependencies:
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../../../../public/infra/foundation
+      '@nseng-ai/objectives':
+        specifier: workspace:*
+        version: link:../../../../extensions/objectives
+      '@nseng-ai/pi-runtime':
+        specifier: workspace:*
+        version: link:../../runtime/pi-runtime
+    devDependencies:
+      '@nseng-ai/extension-kit':
+        specifier: workspace:*
+        version: link:../../../../../public/extension-kit
 
   packages/incubating/hosts/pi/runtime/pi-runtime:
     dependencies:

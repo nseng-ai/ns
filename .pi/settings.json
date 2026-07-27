@@ -1,6 +1,7 @@
 {
   "packages": [
-    "../ts/packages/internal/hosts/pi/tools/pi-editor-mods"
+    "../ts/packages/internal/hosts/pi/tools/pi-editor-mods",
+    "../ts/packages/incubating/hosts/pi/extensions/pi-ns-objectives"
   ],
   "extensions": [],
   "skills": [

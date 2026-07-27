@@ -33,8 +33,8 @@ The rule that the `ns objective` CLI reads Objective records only as checked-in 
 *Avoid*: hidden database, Branch Memory storage, deleted-record store, Graphite-derived record set, tombstone registry
 
 **Objective extension package API**:
-The curated `@nseng-ai/objectives/api` surface for in-process sibling consumers (the Herdr extension and Pi's objective adapters): the `createObjectiveClient(...)` facade returning ok/failure results, plus the relocated Objective-selection, picker, and CLI-args/candidates helpers, used to reuse Objective behavior without invoking the CLI or importing private modules.
-*Avoid*: CLI JSON parsing, `@nseng-ai/objectives/src/...` deep import, package-root convenience import, `ctx`-passing API
+The curated `@nseng-ai/objectives/api` surface for in-process sibling consumers, including the Herdr extension and the separate `@nseng-ai/pi-ns-objectives` Pi host adapter: the `createObjectiveClient(...)` facade returning ok/failure results, plus Objective command specs, command-backed skill registrations, selection, picker, and CLI-args/candidates helpers, used to reuse Objective behavior without invoking the CLI or importing private modules.
+*Avoid*: CLI JSON parsing, `@nseng-ai/objectives/src/...` deep import, package-root convenience import, `ctx`-passing API, Pi registration surface
 
 **Objective Client**:
 The `ObjectiveClient` facade returned by `createObjectiveClient`, exposing `listObjectives` / `readObjective` / `listActiveCandidates` as clean ok/failure results.
@@ -52,6 +52,6 @@ A portable Objective-owned workflow core for executing one committed Objective i
 The parent-facing Markdown contract an **Objective Runner** step returns for every terminal state, composed of runner-attested verified facts and clearly labeled unverified child-reported narrative.
 *Avoid*: public JSON workflow state, child self-report treated as fact, hidden runner state
 
-**Objective Extension Dependency Boundary**:
-The directed-edge rule that Objective runtime/core code never imports the Pi host, while the container package's `pi` subpackage may use `@nseng-ai/pi-runtime` as an optional peer for Pi presentation; in-process consumers reach Objective behavior through `@nseng-ai/objectives/api`. The general acyclic invariant it serves lives in the root **Extension Layering** cluster and ADR 0009 and is not restated here.
-*Avoid*: restating the guard mechanics, non-`pi` Objective → `@nseng-ai/pi-runtime` imports, deep-import consumption, package-root consumer import
+**Objective Host Independence**:
+The rule that `@nseng-ai/objectives` contains no Pi host surface: no Pi registration, Pi subpackage, Pi entrypoint, or Pi-runtime dependency belongs in this package. The separate `@nseng-ai/pi-ns-objectives` host adapter consumes Objective behavior through `@nseng-ai/objectives/api`; Objective domain logic remains here rather than being redefined in the adapter. The general acyclic invariant lives in the root **Extension Layering** cluster and ADR 0009 and is not restated here.
+*Avoid*: `@nseng-ai/objectives/pi`, Objective → `@nseng-ai/pi-runtime` imports, private-source adapter imports, adapter-owned Objective semantics

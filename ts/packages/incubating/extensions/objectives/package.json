@@ -17,9 +17,7 @@
 		"./ns/commands/exec-runner-subagent-usage": "./src/ns/commands/exec-runner-subagent-usage.ts",
 		"./ns/commands/exec-tracking-gate": "./src/ns/commands/exec-tracking-gate.ts",
 		"./ns/commands/list": "./src/ns/commands/list.ts",
-		"./ns/commands/show": "./src/ns/commands/show.ts",
-		"./pi": "./src/pi/index.ts",
-		"./pi/extension": "./src/pi/extension.ts"
+		"./ns/commands/show": "./src/ns/commands/show.ts"
 	},
 	"files": [
 		"src",
@@ -48,8 +46,7 @@
 			"core",
 			"runner",
 			"publication",
-			"ns",
-			"pi"
+			"ns"
 		],
 		"publishExtras": [
 			{
@@ -107,17 +104,6 @@
 				"publishPath": "skills/objective-update"
 			}
 		]
-	},
-	"peerDependencies": {
-		"@nseng-ai/pi-runtime": "workspace:*"
-	},
-	"peerDependenciesMeta": {
-		"@nseng-ai/pi-runtime": {
-			"optional": true
-		}
-	},
-	"devDependencies": {
-		"@nseng-ai/pi-runtime": "workspace:*"
 	},
 	"publishConfig": {
 		"access": "public"

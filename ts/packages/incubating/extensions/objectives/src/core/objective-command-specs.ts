@@ -1,4 +1,5 @@
-import { OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE } from "./objective-runner-rules.ts";
+import { specializedCommandBackedSkillsFromSpecs } from "@nseng-ai/foundation/command";
+
 import type { ObjectiveSelectionSpec } from "./objective-selection.ts";
 
 export type ObjectiveCliSubcommand = "next" | "update" | "close" | "autorun";
@@ -62,14 +63,10 @@ export const objectiveCreateCommandSpec: ObjectiveCreateCommandSpec = {
 	actionPrompt: "Run objective-create with this initial user request:",
 };
 
-/** Every Pi command spec that expands an Objective-creation backing skill. */
+/** Every command spec that expands an Objective-creation backing skill. */
 export const allObjectiveCreateCommandSpecs: ObjectiveCreateCommandSpec[] = [
 	objectiveCreateCommandSpec,
 ];
-
-const OBJECTIVE_AUTORUN_PI_TOOL_REMINDER = `
-
-Pi session note: use the \`objective_runner_step\` tool for each runner step instead of hand-running \`ns objective exec runner-begin\`, dispatching a subagent yourself, and \`ns objective exec runner-finish\`. The tool owns the mechanical step, live progress widget, and fresh report/facts scratch paths for every call, including recovery attempts. Omit routing to inherit the parent provider, model, and thinking policy; the only deliberate implementation down-route is the named \`cheap\` intent, selected before dispatch and resolved within the parent's concrete provider. If no approved mapping exists, inherit. Launch failure or malfunction never authorizes reactive model or provider rerouting. The parent session still owns every judgment checkpoint: derive thin guidance, read each returned Runner Checkpoint, decide continue/recover/stop, route Semantic Updates through objective-update between steps, and honor this canonical forbidden-action rule: "${OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE}". To recover a failed step, call the tool again with \`recover: true\` and sharpened guidance, not a different model. Never mutate the worktree while a tool call is running.`;
 
 export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 	defineObjectiveCommandSpec({
@@ -109,7 +106,13 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 		selectionTitle: "Select an active Objective to autorun",
 		actionPrompt:
 			"Run objective-autorun with this Objective selection and launch scope (slug/path plus optional scope, step budget, and standing guidance):",
-		postSelectionReminder: OBJECTIVE_AUTORUN_PI_TOOL_REMINDER,
 		selectionMode: "advancement",
 	}),
 ];
+
+export const objectiveCommandBackedSkillRegistrations = specializedCommandBackedSkillsFromSpecs(
+	[...allObjectiveCreateCommandSpecs, ...objectiveCommandSpecs].map((spec) => ({
+		skillName: spec.skillName,
+		surface: spec.commandName,
+	})),
+);
