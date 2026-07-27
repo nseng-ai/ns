@@ -125,6 +125,8 @@ export async function runCaveman(
 		return failure("model-policy-error", `Invalid model policy in ns.toml: ${model.error.message}`);
 	}
 
+	const inputLabel = input.filePath ?? "input text";
+	context.status?.(`ns-dev caveman: rewriting ${inputLabel} with model…\n`);
 	const generated = await generateRawTextWithModel({
 		cwd: context.cwd,
 		prompt: buildCavemanPrompt(input.text, intensity.value),
@@ -135,7 +137,12 @@ export async function runCaveman(
 		return failure("model-error", formatRawTextModelFailure(generated.failure));
 	}
 
-	const output = generated.evidence.rawOutput.trim();
+	const output = generated.evidence.rawOutput
+		.replace(/\r\n?/gu, "\n")
+		.trim()
+		.split("\n")
+		.map((line) => line.trimEnd())
+		.join("\n");
 	if (input.filePath !== undefined) {
 		try {
 			await context.fs.writeText(input.filePath, output);

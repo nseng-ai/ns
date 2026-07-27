@@ -112,19 +112,28 @@ describe("caveman", () => {
 		expect(prompt).toContain("I would really just like to fix the bug now.");
 	});
 
-	it("rewrites --file input in place and honors --ultra", async () => {
+	it("reports progress on stderr while rewriting a file", async () => {
+		const run = runScenario(["caveman", "--file", "CONTEXT.md", "--full", "--format", "json"], {
+			files: { ...BASE_FILES, "/repo/CONTEXT.md": "Long project context." },
+			commandResults: [exitedResult({ stdout: "Project context.\n" })],
+		});
+		expect(await run.exit).toBe(0);
+		expect(run.stderr.join("")).toBe("ns-dev caveman: rewriting /repo/CONTEXT.md with model…\n");
+	});
+
+	it("rewrites --file input in place without model-generated trailing whitespace", async () => {
 		const run = runScenario(["caveman", "--file", "notes.md", "--ultra", "--format", "json"], {
 			files: { ...BASE_FILES, "/repo/notes.md": "The database connection pool is exhausted." },
-			commandResults: [exitedResult({ stdout: "DB pool exhausted.\n" })],
+			commandResults: [exitedResult({ stdout: "**Database**:  \r\nDB pool exhausted. \r\n" })],
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			status: "ok",
-			data: { output: "DB pool exhausted.", intensity: "ultra" },
+			data: { output: "**Database**:\nDB pool exhausted.", intensity: "ultra" },
 		});
 		expect(run.fs.writtenFiles).toContainEqual({
 			path: "/repo/notes.md",
-			content: "DB pool exhausted.",
+			content: "**Database**:\nDB pool exhausted.",
 		});
 		const prompt = run.calls[0]?.args.at(-1) ?? "";
 		expect(prompt).toContain('intensity "ultra"');
