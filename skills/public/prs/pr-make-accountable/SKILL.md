@@ -11,7 +11,6 @@ visible in the diff. Probe politely and insistently. Finish with shared
 understanding and a PR body aligned with the actual change:
 
 ```markdown
-
 ## What
 
 A one or two sentence summary of what this change is.
@@ -30,7 +29,7 @@ explained from zero.
 
 Anything you'd especially like reviewers to pay attention to.
 
-**PR:** [#<number>](<url>)
+**PR:** [#<number>](url)
 
 ---
 
@@ -140,9 +139,10 @@ only when the draft or final report states them honestly.
 
 Draft only from the shared interview record. Include intent, accepted risks, and
 judgment calls that the diff cannot communicate. Keep length proportional to the
-decision surface, not line count. Start the body with
+decision surface, not line count. End the description with
 `**PR:** [#<number>](<url>)`, replacing the placeholders with the PR number and
-canonical URL from the inventory.
+canonical URL from the inventory. Put this link immediately before the horizontal
+rule and provenance footer.
 
 In `## Changes`:
 
