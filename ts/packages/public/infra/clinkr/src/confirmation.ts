@@ -55,7 +55,10 @@ export interface ConfirmInteractiveOrUsageErrorOptions {
 	beforePrompt?: () => void;
 }
 
-export type InteractiveConfirmationResult = ConfirmationResult | ClinkrUsageErrorExit;
+export type InteractiveConfirmationResult =
+	| ConfirmationResult
+	| ClinkrUsageErrorExit
+	| ClinkrUsageErrorExit<unknown>;
 export type ConfirmationOutcome =
 	| { readonly type: "confirmed" }
 	| ClinkrNegativeExit<never>
@@ -64,7 +67,7 @@ export type ConfirmationOutcome =
 export function requireInteractiveOrUsageError(
 	interaction: ClinkrInteraction,
 	opts: { message: string; missingFlag: string; howToSupply: string },
-): ClinkrUsageErrorExit | undefined {
+): ClinkrUsageErrorExit<{ missingFlag: string; howToSupply: string }> | undefined {
 	return interaction.isInteractive()
 		? undefined
 		: usageError(opts.message, { missingFlag: opts.missingFlag, howToSupply: opts.howToSupply });
@@ -85,8 +88,10 @@ export async function confirmInteractiveOrUsageError(
 	if (!("confirmation" in options)) {
 		if (!interaction.isInteractive()) return usageError("Interactive confirmation is required.");
 		const result = await interaction.confirm({ message: options.message, defaultAnswer: "no" });
-		if (result.type === "declined") return negative("Confirmation declined.");
-		if (result.type === "aborted") return usageError("Confirmation was aborted.");
+		if (result.type === "declined")
+			return negative("Confirmation declined.") as ClinkrNegativeExit<never>;
+		if (result.type === "aborted")
+			return usageError("Confirmation was aborted.") as ClinkrUsageErrorExit<never>;
 		return result;
 	}
 	const gate = requireInteractiveOrUsageError(interaction, options.nonInteractive);

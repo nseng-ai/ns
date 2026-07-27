@@ -16,6 +16,32 @@ import {
 	type ClinkrExit,
 } from "../src/exit.ts";
 
+describe("outcome constructors", () => {
+	test("omit data from bodyless outcomes", () => {
+		for (const outcome of [
+			ok(),
+			negative("no"),
+			failure("failed", "failed"),
+			usageError("invalid"),
+		]) {
+			expect(outcome).not.toHaveProperty("data");
+		}
+	});
+
+	test("preserve explicitly undefined data by call and property presence", () => {
+		for (const outcome of [
+			ok(undefined),
+			negative("no", { data: undefined }),
+			failure("failed", "failed", undefined),
+			usageError("invalid", undefined),
+		]) {
+			expect(outcome).toHaveProperty("data");
+			expect("data" in outcome).toBe(true);
+			if ("data" in outcome) expect(outcome.data).toBeUndefined();
+		}
+	});
+});
+
 describe("usageError", () => {
 	test("builds a handler-reachable usage error exit", () => {
 		expect(usageError("missing --yes", { missingFlag: "--yes" })).toEqual({
@@ -186,6 +212,25 @@ describe("machine envelope schema builders", () => {
 });
 
 describe("toMachineEnvelope", () => {
+	test("bodyless ok omits data", () => {
+		const envelope = toMachineEnvelope(ok());
+		expect(envelope).toEqual({ status: "ok", exitCode: 0 });
+		expect(envelope).not.toHaveProperty("data");
+	});
+
+	test("explicitly undefined data remains present", () => {
+		for (const envelope of [
+			toMachineEnvelope(ok(undefined)),
+			toMachineEnvelope(negative("no", { data: undefined })),
+			toMachineEnvelope(failure("failed", "failed", undefined)),
+			toMachineEnvelope(usageError("invalid", undefined)),
+		]) {
+			expect(envelope).toHaveProperty("data");
+			expect("data" in envelope).toBe(true);
+			expect(envelope.data).toBeUndefined();
+		}
+	});
+
 	test("ok envelope carries exitCode and data only", () => {
 		const envelope = toMachineEnvelope(ok({ name: "x" }));
 		expect(envelope).toEqual({ status: "ok", exitCode: 0, data: { name: "x" } });

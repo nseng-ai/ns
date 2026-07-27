@@ -13,7 +13,7 @@ interface Context {
 }
 
 const schema = z.object({ name: z.string() });
-const definition: ContextfulCommandDefinition<Context, typeof schema, undefined> = {
+const definition: ContextfulCommandDefinition<Context, typeof schema> = {
 	requiresContext: true,
 	schema,
 // README-FENCE-14-START

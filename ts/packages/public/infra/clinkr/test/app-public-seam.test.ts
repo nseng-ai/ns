@@ -194,6 +194,135 @@ test("bodyless outcomes reject undeclared data", async () => {
 	await expect(app.run([])).rejects.toThrow("outcome data requires its status schema");
 });
 
+for (const [label, definition] of [
+	[
+		"success",
+		{ schema: emptySchema, resultSchema: z.undefined(), handler: async () => ok(undefined) },
+	],
+	[
+		"negative",
+		{
+			schema: emptySchema,
+			negativeSchema: z.undefined(),
+			handler: async () => negative("no", { data: undefined }),
+		},
+	],
+	[
+		"failure",
+		{
+			schema: emptySchema,
+			failureSchema: z.undefined(),
+			handler: async () => failure("failed", "failed", undefined),
+		},
+	],
+	[
+		"usage error",
+		{
+			schema: emptySchema,
+			usageErrorSchema: z.undefined(),
+			handler: async () => usageError("invalid", undefined),
+		},
+	],
+] as const) {
+	test(`present undefined data is validated for configured ${label}`, async () => {
+		const commandDirectory = await createCommandDirectory({});
+		const app = createClinkrApp({ name: "fixture", commandDirectory });
+		Object.defineProperty(app, "loaded", { value: Promise.resolve(definition) });
+		const run = await runForTest(app, ["--format=json"]);
+		expect(run.exitCode).toBe(label === "success" ? 0 : label === "negative" ? 1 : 2);
+		expect(run.stdout).not.toContain('"data"');
+	});
+}
+
+for (const [label, outcome] of [
+	["success", ok(undefined)],
+	["negative", negative("no", { data: undefined })],
+	["failure", failure("failed", "failed", undefined)],
+	["usage error", usageError("invalid", undefined)],
+] as const) {
+	test(`present undefined data is rejected for bodyless ${label}`, async () => {
+		const commandDirectory = await createCommandDirectory({});
+		const app = createClinkrApp({ name: "fixture", commandDirectory });
+		Object.defineProperty(app, "loaded", {
+			value: Promise.resolve({ schema: emptySchema, handler: async () => outcome }),
+		});
+		await expect(app.run([])).rejects.toThrow("outcome data requires its status schema");
+	});
+}
+
+test.each(["null", "[]", '"Ada"', "1", "true"])(
+	"JSON input rejects non-object transport value %s",
+	async (stdin) => {
+		const commandDirectory = await createCommandDirectory({});
+		const run = await runForTest(
+			createClinkrApp({ name: "fixture", commandDirectory }),
+			["--input-json", "--format=json"],
+			{ stdin },
+		);
+		expect(run.exitCode).toBe(2);
+		expect(JSON.parse(run.stdout)).toMatchObject({
+			status: "usage-error",
+			errorType: "invalid-json-input",
+		});
+	},
+);
+
+test("JSON input applies defaults and transforms while preserving nested schema policy", async () => {
+	const commandDirectory = await createCommandDirectory({});
+	const app = createClinkrApp({ name: "fixture", commandDirectory });
+	let handledRequest: unknown;
+	Object.defineProperty(app, "loaded", {
+		value: Promise.resolve({
+			schema: z
+				.object({
+					name: z
+						.string()
+						.default("Ada")
+						.transform((name) => name.toUpperCase()),
+					nested: z.object({ value: z.number() }).passthrough(),
+				})
+				.passthrough(),
+			handler: async (request: unknown) => {
+				handledRequest = request;
+				return ok();
+			},
+		}),
+	});
+	const run = await runForTest(app, ["--input-json"], {
+		stdin: '{"nested":{"value":1,"preserved":true}}',
+	});
+	expect(run.exitCode).toBe(0);
+	expect(handledRequest).toEqual({
+		name: "ADA",
+		nested: { value: 1, preserved: true },
+	});
+});
+
+test("JSON input rejects top-level unknown keys with schema issues", async () => {
+	const commandDirectory = await createCommandDirectory({});
+	const app = createClinkrApp({ name: "fixture", commandDirectory });
+	Object.defineProperty(app, "loaded", {
+		value: Promise.resolve({
+			schema: z.object({ name: z.string() }).passthrough(),
+			handler: async () => ok(),
+		}),
+	});
+	const run = await runForTest(app, ["--input-json", "--format=json"], {
+		stdin: '{"name":"Ada","unknown":true}',
+	});
+	const envelope = JSON.parse(run.stdout) as {
+		errorType: string;
+		data: { issues: readonly { code: string; keys?: readonly string[] }[] };
+	};
+	expect(run.exitCode).toBe(2);
+	expect(envelope.errorType).toBe("invalid-request");
+	expect(envelope.data.issues).toEqual(
+		expect.arrayContaining([
+			expect.objectContaining({ code: "unrecognized_keys", keys: ["unknown"] }),
+		]),
+	);
+});
+
 test.each(["yaml", "markdown", "JSON"])(
 	"rejects format value %s from the exact domain",
 	async (format) => {

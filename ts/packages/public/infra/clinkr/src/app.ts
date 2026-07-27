@@ -8,6 +8,7 @@ import {
 	buildCommandJsonSchemaDocument,
 	cliAnnotationFor,
 	type ClinkrCommandDefinition,
+	type ClinkrOutcomeSchemaSet,
 	type ContextFreeCommandDefinition,
 	type ContextfulCommandDefinition,
 } from "./command-definition.ts";
@@ -157,9 +158,8 @@ class FilesystemClinkrApp<TContext> {
 		if (!formatResult.success)
 			return emitUsageError(io, withoutInput, formatResult.message, "invalid-request");
 		const format = formatResult.format;
-		const parser = buildCommander(this.name, definition);
 		if (argv.includes("--help") || argv.includes("-h")) {
-			io.stdout(parser.helpInformation());
+			io.stdout(buildCommander(this.name, definition).helpInformation());
 			return 0;
 		}
 		if (argv.includes("--json-schema")) {
@@ -201,11 +201,12 @@ class FilesystemClinkrApp<TContext> {
 			request = parsed.data as Record<string, unknown>;
 		}
 		const outcome = this.requiresContext
-			? await (definition as ContextfulCommandDefinition<TContext>).handler(
-					(options as ClinkrRunOptions<TContext>).context,
-					request,
-				)
-			: await (definition as ContextFreeCommandDefinition).handler(request);
+			? await (
+					definition as ContextfulCommandDefinition<TContext, z.ZodObject, ClinkrOutcomeSchemaSet>
+				).handler((options as ClinkrRunOptions<TContext>).context, request)
+			: await (
+					definition as ContextFreeCommandDefinition<z.ZodObject, ClinkrOutcomeSchemaSet>
+				).handler(request);
 		validateOutcome(outcome, definition);
 		emitOutcome(io, outcome, definition, format);
 		return exitCodeForExit(outcome);
@@ -349,20 +350,14 @@ function parseJsonInput(
 			errorType: "invalid-json-input",
 		};
 	}
-	if (typeof value !== "object" || value === null || Array.isArray(value))
+	const transported = z.object({}).loose().safeParse(value);
+	if (!transported.success)
 		return {
 			success: false,
 			message: "stdin JSON must be an object",
 			errorType: "invalid-json-input",
 		};
-	const unknownKeys = Object.keys(value).filter((key) => !(key in schema.shape));
-	if (unknownKeys.length > 0)
-		return {
-			success: false,
-			message: `unknown request field: ${unknownKeys.join(", ")}`,
-			errorType: "invalid-request",
-		};
-	const parsed = schema.safeParse(value);
+	const parsed = z.strictObject(schema.shape).safeParse(transported.data);
 	return parsed.success
 		? { success: true, data: parsed.data }
 		: {
@@ -411,11 +406,11 @@ function validateOutcome(outcome: ClinkrExit<unknown>, definition: ClinkrCommand
 					? definition.failureSchema
 					: definition.usageErrorSchema;
 	if (schema === undefined) {
-		if (outcome.data !== undefined)
+		if ("data" in outcome)
 			throw new Error(`clinkr: ${outcome.type} outcome data requires its status schema`);
 		return;
 	}
-	if (outcome.data === undefined)
+	if (!("data" in outcome))
 		throw new Error(`clinkr: ${outcome.type} outcome requires data for its status schema`);
 	schema.parse(outcome.data);
 }
@@ -432,7 +427,7 @@ function emitOutcome(
 				? {
 						status: "success",
 						exitCode: 0,
-						...(outcome.data === undefined ? {} : { data: outcome.data }),
+						...("data" in outcome ? { data: outcome.data } : {}),
 					}
 				: {
 						status: outcome.type === "usageError" ? "usage-error" : outcome.type,
@@ -444,7 +439,7 @@ function emitOutcome(
 						...(outcome.type === "usageError"
 							? { errorType: outcome.errorType, message: outcome.message }
 							: {}),
-						...(outcome.data === undefined ? {} : { data: outcome.data }),
+						...("data" in outcome ? { data: outcome.data } : {}),
 					};
 		io.stdout(`${envelopeJsonText(envelope)}\n`);
 		return;
@@ -467,7 +462,7 @@ function emitSuccess(
 		format === "md"
 			? (definition.renderMarkdown ?? definition.renderHuman)
 			: definition.renderHuman;
-	if (renderer === undefined || outcome.data === undefined) return;
+	if (renderer === undefined || !("data" in outcome)) return;
 	const text = renderer(outcome.data, { canEmitAnsi: io.canEmitAnsi === true });
 	io.stdout(`${text}\n`);
 }

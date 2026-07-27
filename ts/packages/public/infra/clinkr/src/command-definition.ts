@@ -147,77 +147,72 @@ function statusEnvelopeSchema(status: "success", exitCode: 0, dataSchema: z.ZodT
 	});
 }
 
-type SchemaData<TSchema extends z.ZodType | undefined> = TSchema extends z.ZodType
+type OutcomeSchema = z.ZodType | undefined;
+
+export interface ClinkrOutcomeSchemaSet<
+	TResultSchema extends OutcomeSchema = OutcomeSchema,
+	TNegativeSchema extends OutcomeSchema = OutcomeSchema,
+	TFailureSchema extends OutcomeSchema = OutcomeSchema,
+	TUsageErrorSchema extends OutcomeSchema = OutcomeSchema,
+> {
+	readonly resultSchema: TResultSchema;
+	readonly negativeSchema: TNegativeSchema;
+	readonly failureSchema: TFailureSchema;
+	readonly usageErrorSchema: TUsageErrorSchema;
+}
+
+type BodylessOutcomeSchemaSet = ClinkrOutcomeSchemaSet<undefined, undefined, undefined, undefined>;
+
+type SchemaData<TSchema extends OutcomeSchema> = TSchema extends z.ZodType
 	? z.output<TSchema>
 	: never;
 
-type OkOutcome<TSchema extends z.ZodType | undefined> = TSchema extends z.ZodType
-	? ClinkrOkExit<SchemaData<TSchema>>
-	: ClinkrOkExit;
-type NegativeOutcome<TSchema extends z.ZodType | undefined> = TSchema extends z.ZodType
-	? ClinkrNegativeExit<SchemaData<TSchema>> & { readonly data: SchemaData<TSchema> }
-	: ClinkrNegativeExit<never>;
-type FailureOutcome<TSchema extends z.ZodType | undefined> = TSchema extends z.ZodType
-	? ClinkrFailureExit<SchemaData<TSchema>> & { readonly data: SchemaData<TSchema> }
-	: ClinkrFailureExit<never>;
-type UsageErrorOutcome<TSchema extends z.ZodType | undefined> = TSchema extends z.ZodType
-	? ClinkrUsageErrorExit<SchemaData<TSchema>> & { readonly data: SchemaData<TSchema> }
-	: ClinkrUsageErrorExit<never>;
+type SchemaOutcome<TSchema extends OutcomeSchema, TOutcome> = TSchema extends z.ZodType
+	? TOutcome & { readonly data: SchemaData<TSchema> }
+	: TOutcome;
 
-export type ClinkrCommandOutcome<
-	TResultSchema extends z.ZodType | undefined,
-	TNegativeSchema extends z.ZodType | undefined,
-	TFailureSchema extends z.ZodType | undefined,
-	TUsageErrorSchema extends z.ZodType | undefined,
-> =
-	| OkOutcome<TResultSchema>
-	| NegativeOutcome<TNegativeSchema>
-	| FailureOutcome<TFailureSchema>
-	| UsageErrorOutcome<TUsageErrorSchema>;
+export type ClinkrCommandOutcome<TSchemas extends ClinkrOutcomeSchemaSet> =
+	| SchemaOutcome<TSchemas["resultSchema"], ClinkrOkExit<SchemaData<TSchemas["resultSchema"]>>>
+	| SchemaOutcome<
+			TSchemas["negativeSchema"],
+			ClinkrNegativeExit<SchemaData<TSchemas["negativeSchema"]>>
+	  >
+	| SchemaOutcome<
+			TSchemas["failureSchema"],
+			ClinkrFailureExit<SchemaData<TSchemas["failureSchema"]>>
+	  >
+	| SchemaOutcome<
+			TSchemas["usageErrorSchema"],
+			ClinkrUsageErrorExit<SchemaData<TSchemas["usageErrorSchema"]>>
+	  >;
 
 type HandlerResult<TOutcome> = TOutcome | Promise<TOutcome>;
 
 interface CommandDefinitionBase<
 	TSchema extends z.ZodObject,
-	TResultSchema extends z.ZodType | undefined,
-	TNegativeSchema extends z.ZodType | undefined,
-	TFailureSchema extends z.ZodType | undefined,
-	TUsageErrorSchema extends z.ZodType | undefined,
+	TSchemas extends ClinkrOutcomeSchemaSet,
 > {
 	readonly schema: TSchema;
-	readonly resultSchema?: TResultSchema;
-	readonly negativeSchema?: TNegativeSchema;
-	readonly failureSchema?: TFailureSchema;
-	readonly usageErrorSchema?: TUsageErrorSchema;
+	readonly resultSchema?: TSchemas["resultSchema"];
+	readonly negativeSchema?: TSchemas["negativeSchema"];
+	readonly failureSchema?: TSchemas["failureSchema"];
+	readonly usageErrorSchema?: TSchemas["usageErrorSchema"];
 	readonly renderHuman?: (
-		result: SchemaData<TResultSchema>,
+		result: SchemaData<TSchemas["resultSchema"]>,
 		capabilities: RenderCapabilities,
 	) => string;
 	readonly renderMarkdown?: (
-		result: SchemaData<TResultSchema>,
+		result: SchemaData<TSchemas["resultSchema"]>,
 		capabilities: RenderCapabilities,
 	) => string;
 }
 
 export interface ContextFreeCommandDefinition<
 	TSchema extends z.ZodObject = z.ZodObject,
-	TResultSchema extends z.ZodType | undefined = undefined,
-	TNegativeSchema extends z.ZodType | undefined = undefined,
-	TFailureSchema extends z.ZodType | undefined = undefined,
-	TUsageErrorSchema extends z.ZodType | undefined = undefined,
-> extends CommandDefinitionBase<
-	TSchema,
-	TResultSchema,
-	TNegativeSchema,
-	TFailureSchema,
-	TUsageErrorSchema
-> {
+	TSchemas extends ClinkrOutcomeSchemaSet = BodylessOutcomeSchemaSet,
+> extends CommandDefinitionBase<TSchema, TSchemas> {
 	readonly requiresContext?: false;
-	readonly handler: (
-		request: z.output<TSchema>,
-	) => HandlerResult<
-		ClinkrCommandOutcome<TResultSchema, TNegativeSchema, TFailureSchema, TUsageErrorSchema>
-	>;
+	readonly handler: (request: z.output<TSchema>) => HandlerResult<ClinkrCommandOutcome<TSchemas>>;
 	readonly completionProvider?: (
 		request: ClinkrCompletionRequest,
 	) => readonly ClinkrCompletionCandidate[] | Promise<readonly ClinkrCompletionCandidate[]>;
@@ -226,24 +221,13 @@ export interface ContextFreeCommandDefinition<
 export interface ContextfulCommandDefinition<
 	TContext,
 	TSchema extends z.ZodObject = z.ZodObject,
-	TResultSchema extends z.ZodType | undefined = undefined,
-	TNegativeSchema extends z.ZodType | undefined = undefined,
-	TFailureSchema extends z.ZodType | undefined = undefined,
-	TUsageErrorSchema extends z.ZodType | undefined = undefined,
-> extends CommandDefinitionBase<
-	TSchema,
-	TResultSchema,
-	TNegativeSchema,
-	TFailureSchema,
-	TUsageErrorSchema
-> {
+	TSchemas extends ClinkrOutcomeSchemaSet = BodylessOutcomeSchemaSet,
+> extends CommandDefinitionBase<TSchema, TSchemas> {
 	readonly requiresContext: true;
 	readonly handler: (
 		context: TContext,
 		request: z.output<TSchema>,
-	) => HandlerResult<
-		ClinkrCommandOutcome<TResultSchema, TNegativeSchema, TFailureSchema, TUsageErrorSchema>
-	>;
+	) => HandlerResult<ClinkrCommandOutcome<TSchemas>>;
 	readonly completionProvider?: (
 		context: TContext,
 		request: ClinkrCompletionRequest,
@@ -251,66 +235,41 @@ export interface ContextfulCommandDefinition<
 }
 
 export type ClinkrCommandDefinition<TContext = never> =
-	| ContextFreeCommandDefinition<
-			z.ZodObject,
-			z.ZodType | undefined,
-			z.ZodType | undefined,
-			z.ZodType | undefined,
-			z.ZodType | undefined
-	  >
-	| ContextfulCommandDefinition<
-			TContext,
-			z.ZodObject,
-			z.ZodType | undefined,
-			z.ZodType | undefined,
-			z.ZodType | undefined,
-			z.ZodType | undefined
-	  >;
+	| ContextFreeCommandDefinition<z.ZodObject, ClinkrOutcomeSchemaSet>
+	| ContextfulCommandDefinition<TContext, z.ZodObject, ClinkrOutcomeSchemaSet>;
 
 export function defineCommand<
 	TSchema extends z.ZodObject,
-	TResultSchema extends z.ZodType | undefined = undefined,
-	TNegativeSchema extends z.ZodType | undefined = undefined,
-	TFailureSchema extends z.ZodType | undefined = undefined,
-	TUsageErrorSchema extends z.ZodType | undefined = undefined,
+	TResultSchema extends OutcomeSchema = undefined,
+	TNegativeSchema extends OutcomeSchema = undefined,
+	TFailureSchema extends OutcomeSchema = undefined,
+	TUsageErrorSchema extends OutcomeSchema = undefined,
 >(
 	definition: ContextFreeCommandDefinition<
 		TSchema,
-		TResultSchema,
-		TNegativeSchema,
-		TFailureSchema,
-		TUsageErrorSchema
+		ClinkrOutcomeSchemaSet<TResultSchema, TNegativeSchema, TFailureSchema, TUsageErrorSchema>
 	>,
 ): ContextFreeCommandDefinition<
 	TSchema,
-	TResultSchema,
-	TNegativeSchema,
-	TFailureSchema,
-	TUsageErrorSchema
+	ClinkrOutcomeSchemaSet<TResultSchema, TNegativeSchema, TFailureSchema, TUsageErrorSchema>
 >;
 export function defineCommand<
 	TContext,
 	TSchema extends z.ZodObject,
-	TResultSchema extends z.ZodType | undefined = undefined,
-	TNegativeSchema extends z.ZodType | undefined = undefined,
-	TFailureSchema extends z.ZodType | undefined = undefined,
-	TUsageErrorSchema extends z.ZodType | undefined = undefined,
+	TResultSchema extends OutcomeSchema = undefined,
+	TNegativeSchema extends OutcomeSchema = undefined,
+	TFailureSchema extends OutcomeSchema = undefined,
+	TUsageErrorSchema extends OutcomeSchema = undefined,
 >(
 	definition: ContextfulCommandDefinition<
 		TContext,
 		TSchema,
-		TResultSchema,
-		TNegativeSchema,
-		TFailureSchema,
-		TUsageErrorSchema
+		ClinkrOutcomeSchemaSet<TResultSchema, TNegativeSchema, TFailureSchema, TUsageErrorSchema>
 	>,
 ): ContextfulCommandDefinition<
 	TContext,
 	TSchema,
-	TResultSchema,
-	TNegativeSchema,
-	TFailureSchema,
-	TUsageErrorSchema
+	ClinkrOutcomeSchemaSet<TResultSchema, TNegativeSchema, TFailureSchema, TUsageErrorSchema>
 >;
 export function defineCommand(
 	definition: ClinkrCommandDefinition<unknown>,

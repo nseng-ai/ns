@@ -363,7 +363,10 @@ function textByByteLimit(text: string, maxBytes: number): string {
 
 function vibechkReadOnlyErrorExit(
 	error: unknown,
-): ClinkrNegativeExit<VibechkReadOnlyErrorData> | ClinkrFailureExit | ClinkrUsageErrorExit {
+):
+	| ClinkrNegativeExit<VibechkReadOnlyErrorData>
+	| ClinkrFailureExit<Record<string, unknown>>
+	| ClinkrUsageErrorExit<Record<string, unknown>> {
 	if (!(error instanceof VibechkError)) throw error;
 	if (error.code === "run_not_found" || error.code === "ambiguous_run") {
 		return negative(error.message, { data: vibechkReadOnlyErrorData(error.data) });

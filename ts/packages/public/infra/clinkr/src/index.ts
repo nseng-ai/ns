@@ -10,6 +10,7 @@ export { cliOption, cliPositional, defineCommand } from "./command-definition.ts
 export type {
 	ClinkrCommandDefinition,
 	ClinkrCommandMetadata,
+	ClinkrOutcomeSchemaSet,
 	ClinkrGroupDefinition,
 	ContextFreeCommandDefinition,
 	ContextfulCommandDefinition,
