@@ -90,7 +90,7 @@ const entry = defineCli<NsDevCliContext, CliDeps, undefined>({
 	configureCli: ({ root }) => {
 		root.command({
 			name: "caveman",
-			description: "Compress text or a file into caveman style through the embedded caveman skill.",
+			description: "Compress text or rewrite a file in place into caveman style.",
 			schema: cavemanRequestSchema,
 			positionals: { text: { position: 0 } },
 			options: { file: { short: "-f" } },

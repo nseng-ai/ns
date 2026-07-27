@@ -112,7 +112,7 @@ describe("caveman", () => {
 		expect(prompt).toContain("I would really just like to fix the bug now.");
 	});
 
-	it("reads --file input and honors --ultra", async () => {
+	it("rewrites --file input in place and honors --ultra", async () => {
 		const run = runScenario(["caveman", "--file", "notes.md", "--ultra", "--format", "json"], {
 			files: { ...BASE_FILES, "/repo/notes.md": "The database connection pool is exhausted." },
 			commandResults: [exitedResult({ stdout: "DB pool exhausted.\n" })],
@@ -122,9 +122,27 @@ describe("caveman", () => {
 			status: "ok",
 			data: { output: "DB pool exhausted.", intensity: "ultra" },
 		});
+		expect(run.fs.writtenFiles).toContainEqual({
+			path: "/repo/notes.md",
+			content: "DB pool exhausted.",
+		});
 		const prompt = run.calls[0]?.args.at(-1) ?? "";
 		expect(prompt).toContain('intensity "ultra"');
 		expect(prompt).toContain("The database connection pool is exhausted.");
+	});
+
+	it("reports --file write failures", async () => {
+		const run = runScenario(["caveman", "--file", "notes.md", "--format", "json"], {
+			files: { ...BASE_FILES, "/repo/notes.md": "Please fix the bug." },
+			writeFailures: { "/repo/notes.md": "permission denied" },
+			commandResults: [exitedResult({ stdout: "Fix bug.\n" })],
+		});
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "failure",
+			errorType: "file-write-error",
+			data: { path: "/repo/notes.md" },
+		});
 	});
 
 	it("renders only the rewritten text for humans", async () => {

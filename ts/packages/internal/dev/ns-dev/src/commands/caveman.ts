@@ -13,7 +13,7 @@ import {
 import { z } from "zod";
 
 import type { NsDevCliContext } from "../context.ts";
-import { resolvePath } from "../shared.ts";
+import { formatUnknownError, resolvePath } from "../shared.ts";
 
 export const CAVEMAN_MODEL_OPERATION_ID = "ns-dev.caveman";
 
@@ -136,6 +136,19 @@ export async function runCaveman(
 	}
 
 	const output = generated.evidence.rawOutput.trim();
+	if (input.filePath !== undefined) {
+		try {
+			await context.fs.writeText(input.filePath, output);
+		} catch (error) {
+			return failure(
+				"file-write-error",
+				`Could not write ${input.filePath}: ${formatUnknownError(error)}`,
+				{
+					path: input.filePath,
+				},
+			);
+		}
+	}
 	return ok({
 		output,
 		intensity: intensity.value,
@@ -179,6 +192,7 @@ interface InputResolutionOk {
 	type: "ok";
 	text: string;
 	argument: string;
+	filePath?: string;
 }
 
 interface InputResolutionError {
@@ -205,7 +219,12 @@ async function resolveInputText(
 		if (!(await context.fs.exists(filePath))) {
 			return { type: "error", message: `File not found: ${filePath}.`, argument: "--file" };
 		}
-		return { type: "ok", text: await context.fs.readText(filePath), argument: "--file" };
+		return {
+			type: "ok",
+			text: await context.fs.readText(filePath),
+			argument: "--file",
+			filePath,
+		};
 	}
 	if (request.text !== undefined) {
 		return { type: "ok", text: request.text, argument: "<text>" };
