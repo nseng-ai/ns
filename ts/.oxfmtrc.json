@@ -1,9 +1,13 @@
 {
-  "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "printWidth": 100,
-  "useTabs": true,
-  "semi": true,
-  "singleQuote": false,
-  "trailingComma": "all",
-  "ignorePatterns": ["node_modules/**"]
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"printWidth": 100,
+	"useTabs": true,
+	"semi": true,
+	"singleQuote": false,
+	"trailingComma": "all",
+	"ignorePatterns": [
+		"node_modules/**",
+		"packages/public/infra/clinkr/test/type/readme-examples/**",
+		"packages/public/infra/clinkr/test/fixtures/readme-greet/*.ts"
+	]
 }

@@ -1,3 +1,19 @@
+export { createClinkrApp } from "./app.ts";
+export type {
+	ClinkrApp,
+	ClinkrContextFreeApp,
+	ClinkrContextfulApp,
+	ClinkrContextFreeRunOptions,
+	ClinkrRunOptions as ClinkrAppRunOptions,
+} from "./app.ts";
+export { cliOption, cliPositional, defineCommand } from "./command-definition.ts";
+export type {
+	ClinkrCommandDefinition,
+	ClinkrCommandMetadata,
+	ClinkrGroupDefinition,
+	ContextFreeCommandDefinition,
+	ContextfulCommandDefinition,
+} from "./command-definition.ts";
 export {
 	confirmInteractiveOrUsageError,
 	createClinkrInteraction,

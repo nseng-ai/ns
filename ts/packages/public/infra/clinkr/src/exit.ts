@@ -13,7 +13,7 @@ export interface ClinkrNegativeOptions<T> extends ClinkrNegativeRenderOverrides 
 	readonly data?: T;
 }
 
-export interface ClinkrOkExit<T> extends ClinkrOkRenderOverrides {
+export interface ClinkrOkExit<T = undefined> extends ClinkrOkRenderOverrides {
 	readonly type: "ok";
 	readonly data: T;
 }
@@ -24,18 +24,18 @@ export interface ClinkrNegativeExit<T> extends ClinkrNegativeRenderOverrides {
 	data?: T;
 }
 
-export interface ClinkrFailureExit {
+export interface ClinkrFailureExit<T = unknown> {
 	type: "failure";
 	errorType: string;
 	message: string;
-	data?: unknown;
+	data?: T;
 }
 
-export interface ClinkrUsageErrorExit {
+export interface ClinkrUsageErrorExit<T = unknown> {
 	type: "usageError";
 	errorType: "usageError";
 	message: string;
-	data?: unknown;
+	data?: T;
 }
 
 export type ClinkrExit<T> =
@@ -151,7 +151,12 @@ export function buildMachineEnvelopeSchema<DataSchema extends z.ZodType>(dataSch
 	]);
 }
 
-export function ok<T>(data: T, overrides: ClinkrOkRenderOverrides = {}): ClinkrOkExit<T> {
+export function ok(): ClinkrOkExit;
+export function ok<T>(data: T, overrides?: ClinkrOkRenderOverrides): ClinkrOkExit<T>;
+export function ok<T>(
+	data?: T,
+	overrides: ClinkrOkRenderOverrides = {},
+): ClinkrOkExit<T | undefined> {
 	return {
 		type: "ok",
 		data,
@@ -160,6 +165,15 @@ export function ok<T>(data: T, overrides: ClinkrOkRenderOverrides = {}): ClinkrO
 	};
 }
 
+export function negative(message: string): ClinkrNegativeExit<never>;
+export function negative<const T>(
+	message: string,
+	options: ClinkrNegativeOptions<T> & { readonly data: T },
+): ClinkrNegativeExit<T> & { readonly data: T };
+export function negative<T>(
+	message: string,
+	options: ClinkrNegativeOptions<T>,
+): ClinkrNegativeExit<T>;
 export function negative<T = never>(
 	message: string,
 	options: ClinkrNegativeOptions<T> = {},
@@ -172,11 +186,26 @@ export function negative<T = never>(
 	};
 }
 
-export function failure(errorType: string, message: string, data?: unknown): ClinkrFailureExit {
+export function failure(errorType: string, message: string): ClinkrFailureExit<never>;
+export function failure<const T>(
+	errorType: string,
+	message: string,
+	data: T,
+): ClinkrFailureExit<T> & { readonly data: T };
+export function failure<T>(
+	errorType: string,
+	message: string,
+	data?: T,
+): ClinkrFailureExit<T | never> {
 	return { type: "failure", errorType, message, ...(data === undefined ? {} : { data }) };
 }
 
-export function usageError(message: string, data?: unknown): ClinkrUsageErrorExit {
+export function usageError(message: string): ClinkrUsageErrorExit<never>;
+export function usageError<const T>(
+	message: string,
+	data: T,
+): ClinkrUsageErrorExit<T> & { readonly data: T };
+export function usageError<T>(message: string, data?: T): ClinkrUsageErrorExit<T | never> {
 	return {
 		type: "usageError",
 		errorType: "usageError",

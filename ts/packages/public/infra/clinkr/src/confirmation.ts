@@ -1,5 +1,5 @@
-import type { ClinkrUsageErrorExit } from "./exit.ts";
-import { usageError } from "./exit.ts";
+import type { ClinkrNegativeExit, ClinkrUsageErrorExit } from "./exit.ts";
+import { negative, usageError } from "./exit.ts";
 
 export type ConfirmationDefault = "yes" | "no";
 
@@ -56,6 +56,10 @@ export interface ConfirmInteractiveOrUsageErrorOptions {
 }
 
 export type InteractiveConfirmationResult = ConfirmationResult | ClinkrUsageErrorExit;
+export type ConfirmationOutcome =
+	| { readonly type: "confirmed" }
+	| ClinkrNegativeExit<never>
+	| ClinkrUsageErrorExit<never>;
 
 export function requireInteractiveOrUsageError(
 	interaction: ClinkrInteraction,
@@ -66,10 +70,25 @@ export function requireInteractiveOrUsageError(
 		: usageError(opts.message, { missingFlag: opts.missingFlag, howToSupply: opts.howToSupply });
 }
 
-export async function confirmInteractiveOrUsageError(
+export function confirmInteractiveOrUsageError(
+	interaction: ClinkrInteraction,
+	options: { readonly message: string },
+): Promise<ConfirmationOutcome>;
+export function confirmInteractiveOrUsageError(
 	interaction: ClinkrInteraction,
 	options: ConfirmInteractiveOrUsageErrorOptions,
-): Promise<InteractiveConfirmationResult> {
+): Promise<InteractiveConfirmationResult>;
+export async function confirmInteractiveOrUsageError(
+	interaction: ClinkrInteraction,
+	options: ConfirmInteractiveOrUsageErrorOptions | { readonly message: string },
+): Promise<InteractiveConfirmationResult | ConfirmationOutcome> {
+	if (!("confirmation" in options)) {
+		if (!interaction.isInteractive()) return usageError("Interactive confirmation is required.");
+		const result = await interaction.confirm({ message: options.message, defaultAnswer: "no" });
+		if (result.type === "declined") return negative("Confirmation declined.");
+		if (result.type === "aborted") return usageError("Confirmation was aborted.");
+		return result;
+	}
 	const gate = requireInteractiveOrUsageError(interaction, options.nonInteractive);
 	if (gate !== undefined) return gate;
 	options.beforePrompt?.();

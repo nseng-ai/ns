@@ -3,6 +3,7 @@ import { resolveProcessCaps, resolveSettledNonInteractiveCaps, type Caps } from 
 export interface ClinkrIo {
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
+	readStdin?: () => Promise<string>;
 	/** Full terminal capabilities for the resolved stdout sink. */
 	caps?: Caps;
 	/** Whether human renderers may emit ANSI styling. Resolved from the stdout sink caps. */
@@ -18,6 +19,11 @@ export function createProcessIo(): ClinkrIo {
 		stderr: (text) => {
 			process.stderr.write(text);
 		},
+		readStdin: async () => {
+			const chunks: Buffer[] = [];
+			for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
+			return Buffer.concat(chunks).toString("utf8");
+		},
 		caps,
 		canEmitAnsi: caps.colorDepth !== "none",
 	};
@@ -26,6 +32,7 @@ export function createProcessIo(): ClinkrIo {
 export interface ClinkrIoOverrides {
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
+	readStdin?: () => Promise<string>;
 	canEmitAnsi?: boolean;
 	caps?: Caps;
 }
@@ -45,6 +52,9 @@ export function resolveIo(overrides: ClinkrIoOverrides = {}): ClinkrIo {
 	return {
 		stdout: overrides.stdout ?? base.stdout,
 		stderr: overrides.stderr ?? base.stderr,
+		...((overrides.readStdin ?? base.readStdin) === undefined
+			? {}
+			: { readStdin: overrides.readStdin ?? base.readStdin }),
 		...(caps === undefined ? {} : { caps }),
 		canEmitAnsi,
 	};

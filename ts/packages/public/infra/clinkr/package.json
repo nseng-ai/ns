@@ -29,6 +29,9 @@
 	"peerDependencies": {
 		"zod": "catalog:"
 	},
+	"engines": {
+		"node": ">=24.12.0"
+	},
 	"ns": {
 		"tier": "neutral-infra"
 	},
