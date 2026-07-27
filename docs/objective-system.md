@@ -211,7 +211,7 @@ Do not silently auto-select from candidate count or changed/touched files. Never
 
 ## Operations
 
-V1 keeps Objective meaning in Markdown. Small CLI surfaces (`ns objective list`, `ns objective show`, `ns objective check`, and under `ns objective exec`: `list-candidates`, `read-objective`, `load-orientations`, `tracking-gate`, `runner-begin`, `runner-finish`, and `runner-subagent-usage`) ship deterministic mechanics that the skills delegate to. Narrative mutations remain direct Markdown edits, and the runner's local commit is runner-owned bookkeeping around a verified step (ADR 0024), not a prose mutation surface.
+V1 keeps Objective meaning in Markdown. Small CLI surfaces (`ns objective list`, `ns objective show`, `ns objective check`, and under `ns objective exec`: `list-candidates`, `read-objective`, `load-orientations`, `tracking-gate`, `runner-begin`, `runner-finish`, and `runner-subagent-usage`) ship deterministic mechanics that skills may delegate to. Narrative mutations remain direct Markdown edits. In strict ADR 0024 Objective Runner execution, the local provenance commit is runner-owned bookkeeping around a verified step, not a prose mutation surface; portable autorun instead uses ordinary parent-created local commits.
 
 ### `ns objective list`
 
@@ -427,15 +427,26 @@ Contract:
 - Read-only: collect facts only; the LM authors the materiality interpretation and any update-and-continue routing.
 - Supports `--format md` / `--format json` like the other Objective commands.
 
+### `objective-autorun`
+
+`objective-autorun` is the normally invocable, self-contained parent orchestration skill for repeated **autorun steps**. Direct use requires Git, checkout-local Objective Markdown records, and harness implementation delegation. The optional `/ns:objective:autorun` Pi command selects an Objective and injects the same skill; it does not own the execution protocol. The advanced `objective-runner-step` skill remains invoke-only and is not an autorun dependency.
+
+Autorun selects and previews one of two modes with distinct trust contracts:
+
+- **`ns-bookended`** performs the strict ADR 0024 `runner-begin`, harness dispatch, and `runner-finish` sequence. Accepted steps produce runner-attested **Runner Checkpoints** and runner-owned provenance commits.
+- **`portable`** uses Git plus harness delegation. The parent manages one attached non-trunk feature branch for the entire run, verifies each child-produced uncommitted slice itself, and creates one ordinary local commit per accepted step. Portable conclusions are parent-verified; its commits carry no Objective Runner provenance and are never Runner Checkpoints.
+
+Both modes are local-only by default, and the parent judges scope, acceptance, continuation, recovery, and material Objective tracking between autorun steps. ADR 0037 publication is unavailable/not applicable in portable mode because it requires a real committed Runner Checkpoint. Any portable push, submit, or pull-request operation is a separate, explicitly requested workflow after autorun ends.
+
 ### Objective Runner (`runner-begin` / `runner-finish`)
 
-`ns objective exec runner-begin` and `ns objective exec runner-finish` are the deterministic bookends of one verified Objective Runner step: begin checks preconditions (LBYL) and emits step facts plus the subagent prompt; finish validates the subagent report fail-closed, runs the verification gate, creates the runner-owned local-only commit with provenance trailers, and prints the Runner Checkpoint. The implementation child and the step remain absolutely external-write-forbidden.
+**Objective Runner** and **Runner Checkpoint** name only the strict ADR 0024 bookended protocol. `ns objective exec runner-begin` and `ns objective exec runner-finish` are the deterministic bookends of one verified Objective Runner step: begin checks preconditions (LBYL) and emits step facts plus the subagent prompt; finish validates the subagent report fail-closed, runs the verification gate, creates the runner-owned local-only commit with provenance trailers, and prints the Runner Checkpoint. The implementation child and the step remain absolutely external-write-forbidden.
 
-ADR 0037 permits a separate conditional action by trusted parent orchestration only after a committed checkpoint: the parent reads runner-attested facts, records and commits any material Objective tracking, and supplies a typed cumulative summary before invoking publication. Eligibility requires both durable Runner Policy permission and exact human-confirmed launch attestation, bound for one invocation to the selected Objective, current non-trunk branch, existing PR, and launch/last-published heads. The CLI must not parse Runner Policy or persist authorization. Binding drift refuses before mutation; a branch-push failure is fatal to publication, while push success followed by PR-description failure is a reported successful-partial outcome that a later full cumulative update can heal without rollback.
+ADR 0037 permits a separate conditional action by trusted parent orchestration only after a real committed Runner Checkpoint: the parent reads runner-attested facts, records and commits any material Objective tracking, and supplies a typed cumulative summary before invoking publication. Eligibility requires both durable Runner Policy permission and exact human-confirmed launch attestation, bound for one invocation to the selected Objective, current non-trunk branch, existing PR, and launch/last-published heads. The CLI must not parse Runner Policy or persist authorization. Binding drift refuses before mutation; a branch-push failure is fatal to publication, while push success followed by PR-description failure is a reported successful-partial outcome that a later full cumulative update can heal without rollback.
 
 The parent-owned managed section contains the Objective slug, ordered Runner commits and validation outcomes, material tracking commits when present, and parent-judged escalatable decisions. It replaces one slug-bound region while preserving all other PR prose. No permission or publication artifact reaches the implementation child, and this exception does not include PR creation, stack submission/restacking, force-push, merge/land, deployment, or arbitrary external writes.
 
-Core step design lives in ADR 0024; the conditional parent publication contract lives in ADR 0037. The parent-facing step contract lives in `skills/incubating/objectives/objective-runner-step/SKILL.md`, and the loop around repeated steps in `skills/incubating/objectives/objective-autorun/SKILL.md`. The former blocking `ns objective exec runner-step` surface has been replaced by these decomposed bookends.
+Core bookended-step design lives in ADR 0024; the conditional parent publication contract lives in ADR 0037. The advanced invoke-only parent-facing contract for one strict step lives in `skills/incubating/objectives/objective-runner-step/SKILL.md`; the self-contained dual-mode loop lives in `skills/incubating/objectives/objective-autorun/SKILL.md`. The former blocking `ns objective exec runner-step` surface has been replaced by the decomposed bookends.
 
 ### `ns objective exec runner-subagent-usage`
 

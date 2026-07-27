@@ -39,8 +39,8 @@ Use these step skills for explicit workflow requests:
 - `objective-update`: update exactly one selected active Objective; may close inline when its Closure Gate is clearly met.
 - `objective-refresh`: verified rebaseline for active Objective records; may close inline on probe-backed evidence, and never commits record edits.
 - `objective-close`: explicit close only — records `## Closure` and the Closure Marker without deleting checked-in history.
-- `objective-runner-step`: parent playbook for exactly one verified runner step; it never updates tracking.
-- `objective-autorun`: parent orchestration loop over repeated `objective-runner-step` invocations; also the path for implementing one Objective as a small Graphite stack.
+- `objective-runner-step`: advanced invoke-only parent playbook for exactly one strict ADR 0024 Objective Runner step; it never updates tracking.
+- `objective-autorun`: normally invocable, self-contained parent orchestration loop over repeated autorun steps. It supports `ns-bookended` mode (ADR 0024 `runner-begin` / `runner-finish`, runner-attested Runner Checkpoints) and portable mode (Git plus harness delegation, parent-verified ordinary local commits). It does not depend on `objective-runner-step`.
 
 ## Conditional references
 

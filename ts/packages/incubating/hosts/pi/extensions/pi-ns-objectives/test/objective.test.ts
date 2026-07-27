@@ -281,6 +281,8 @@ hidden-frontmatter-token: do-not-include
 
 # Test Objective Autorun Skill
 
+Supports \`portable\` parent-verified commits and \`ns-bookended\` runner-attested checkpoints.
+Preview and confirm the selected mode before launch.
 Use the selected Objective.
 `;
 
@@ -665,27 +667,16 @@ describe("ns:objective:autorun command", () => {
 				`<skill name="objective-autorun" location="${skillPath}">`,
 			);
 			expect(result.pi.sentUserMessages[0]).toContain(
-				"# Test Objective Autorun Skill\n\nUse the selected Objective.",
+				"Supports `portable` parent-verified commits and `ns-bookended` runner-attested checkpoints.",
+			);
+			expect(result.pi.sentUserMessages[0]).toContain(
+				"Preview and confirm the selected mode before launch.",
 			);
 			expect(result.pi.sentUserMessages[0]).not.toContain("hidden-frontmatter-token");
 			expect(result.pi.sentUserMessages[0]).toContain(ACTION_PROMPTS["ns:objective:autorun"]);
+			expect(result.pi.sentUserMessages[0]).not.toContain("objective_runner_step");
 			expect(result.pi.sentUserMessages[0]).toContain(
-				"Pi session note: use the `objective_runner_step` tool",
-			);
-			expect(result.pi.sentUserMessages[0]).toContain(
-				"may be run by the implementation child or from inside an Objective Runner step",
-			);
-			expect(result.pi.sentUserMessages[0]).toContain(
-				"distinct parent-only action after the Runner Checkpoint",
-			);
-			expect(result.pi.sentUserMessages[0]).toContain(
-				"Omit routing to inherit the parent provider, model, and thinking policy",
-			);
-			expect(result.pi.sentUserMessages[0]).toContain(
-				"resolved within the parent's concrete provider",
-			);
-			expect(result.pi.sentUserMessages[0]).toContain(
-				"never authorizes reactive model or provider rerouting",
+				"Treat this as an explicit user selection. Do not auto-select a different Objective.",
 			);
 			expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
 			expect(result.pi.sentUserMessages[0]?.startsWith("/ns:objective:autorun")).toBe(false);

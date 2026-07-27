@@ -58,14 +58,20 @@ never with steelthread. Deep guidance: `references/standing-objectives.md`. Crea
 ### Autoobjective
 
 An Objective whose roadmap and runner policy are intentionally shaped for repeated
-Objective Runner steps with parent-LM checkpoints between committed slices (ADR 0024).
-Colloquial shorthand for autonomous-pursuit design — do not formalize as schema, type,
-or required wording. The Objective Runner uses the decomposed ADR 0024 flow:
+autorun steps with parent-LM judgment between committed slices. Colloquial shorthand
+for autonomous-pursuit design — do not formalize as schema, type, or required wording.
+The normally invocable, self-contained `objective-autorun` skill supports two trust
+modes. In `ns-bookended`, it performs the decomposed ADR 0024 flow:
 `ns objective exec runner-begin <slug>` checks preconditions and emits the child prompt,
 a fresh subagent implements one slice, and `ns objective exec runner-finish <slug>`
-validates the report and worktree before creating the runner-owned commit. The
-`objective-runner-step` skill is the parent playbook for that flow. Composes with either
-horizon; a steelthread autoobjective is a common combination. Creation: `objective-create`
+validates the report and worktree before creating a runner-attested Runner Checkpoint.
+In `portable`, it uses Git plus harness delegation on one parent-managed non-trunk
+feature branch for the run; the parent verifies each accepted slice and creates one
+ordinary local commit per step. Portable commits are parent-verified, not Runner
+Checkpoints, and ADR 0037 publication is unavailable. The `objective-runner-step` skill
+remains the advanced invoke-only parent playbook for one strict ADR 0024 step; autorun
+does not depend on it. Composes with either horizon; a steelthread autoobjective is a
+common combination. Creation: `objective-create`
 `references/autoobjective-create.md`.
 
 ### Orienting Objective

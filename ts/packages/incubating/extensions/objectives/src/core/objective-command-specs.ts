@@ -102,7 +102,7 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 		skillName: "objective-autorun",
 		cliSubcommand: "autorun",
 		description:
-			"Pick an active Objective, then invoke objective-autorun to drive it through repeated verified runner steps.",
+			"Pick an active Objective, then invoke objective-autorun for portable or ns-bookended parent-judged steps.",
 		selectionTitle: "Select an active Objective to autorun",
 		actionPrompt:
 			"Run objective-autorun with this Objective selection and launch scope (slug/path plus optional scope, step budget, and standing guidance):",

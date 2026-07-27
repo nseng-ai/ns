@@ -21,8 +21,20 @@ A narrower **Objective** created from a parent **Umbrella Objective** to own one
 *Avoid*: Subticket, hidden task, third Objective status
 
 **Autoobjective**:
-A prose-only **Objective** pattern whose roadmap and runner policy are intentionally shaped for repeated **Objective Runner** steps with parent-LM checkpoints between committed slices.
+A prose-only **Objective** pattern whose roadmap and runner policy are intentionally shaped for repeated **Autorun Steps** with parent-LM judgment between committed slices.
 *Avoid*: Machine category, third Objective status, hidden task queue, unattended batch controller
+
+**Autorun Step**:
+One parent-judged iteration of Objective autorun. In `ns-bookended` mode it may use the strict **Objective Runner** protocol and produce a **Runner Checkpoint**; in `portable` mode the parent verifies the slice and creates one ordinary local commit on the run's single non-trunk feature branch.
+*Avoid*: Objective Runner step as a mode-neutral term, Runner Checkpoint for a portable commit, unattended iteration
+
+**Objective Runner**:
+The strict ADR 0024 `runner-begin` / harness dispatch / `runner-finish` protocol used by `ns-bookended` autorun or the advanced invoke-only `objective-runner-step` skill. Its accepted step is runner-attested and runner-finish creates the provenance commit.
+*Avoid*: Portable autorun, generic autorun loop, parent-verified Git workflow
+
+**Runner Checkpoint**:
+The runner-attested result of a strict ADR 0024 **Objective Runner** step. ADR 0037 publication may be separately available only after a real committed Runner Checkpoint; an ordinary portable autorun commit is never one.
+*Avoid*: Portable commit, parent-verified checkpoint, generic step result
 
 **Ideation Objective**:
 A prose-only **Objective** pattern for the formation phase: the **Destination** is settled first, but the roadmap is deliberately a **Frontier** of open **Question Rows** — not yet executable slices — and questions too coarse to state precisely are held as **Fog** rather than pre-sliced. It reaches **Crystallization** as questions resolve; ideation is a phase every Objective passes through, and this pattern names deliberately staying there while the way is found.
