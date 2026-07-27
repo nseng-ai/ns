@@ -59,6 +59,14 @@ extension's curated package API — never its private source. A Pi-native extens
 nothing uses a natural Pi-facing identity instead. Another host would pick its own categories
 under its own root.
 
+For Objectives (ADR 0049), `@nseng-ai/objectives` remains the harness-independent incubating ns
+extension under `incubating/extensions/objectives/`, while the required-`ns` Pi integration is
+`@nseng-ai/pi-ns-objectives` under
+`incubating/hosts/pi/extensions/pi-ns-objectives/`. The host package owns slash-command
+presentation and orchestration and may consume only `@nseng-ai/objectives/api` plus neutral Pi
+runtime interfaces. The Objectives package must not export Pi entrypoints or runtime-depend on
+the Pi host.
+
 ## Identity invariants
 
 - **Leaf equals name.** Every package's leaf directory is exactly the unscoped part of its npm

@@ -58,16 +58,21 @@ the changes yourself.
 ## Add Objectives
 
 Objectives — durable, checked-in planning records for work that outlives a single agent
-session — are the `@nseng-ai/objectives` extension:
+session — have a portable seven-skill foundation that works without `ns`. The
+`@nseng-ai/objectives` extension adds deterministic CLI and automation guarantees over the
+same records:
 
 ```bash
 ns extension install npm:@nseng-ai/objectives
 ```
 
 This records the extension in `ns.toml`, activates it for your configured harness, adds the
-`ns objective` CLI, and provisions the ten Objective skills into your harness's skill root
-(`.claude/skills/` for Claude Code). See
-[`@nseng-ai/objectives`](../../incubating/extensions/objectives/README.md) for the full lifecycle.
+`ns objective` CLI, preserves any portable Objective skills already owned by `npx skills`,
+and provisions missing portable artifacts plus the enhanced `objective-runner-step` and
+`objective-autorun` skills. Pi slash commands and orchestration are a separate required-`ns`
+installation, `@nseng-ai/pi-ns-objectives`. See
+[`@nseng-ai/objectives`](../../incubating/extensions/objectives/README.md) for the full lifecycle
+and ownership contract.
 
 Once installed, drive an Objective through its lifecycle with your agent:
 

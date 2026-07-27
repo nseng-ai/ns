@@ -12,6 +12,8 @@ Skill management in this repo is layered. The channels are additive and have dis
 
 Externally sourced skills overlay onto this management rather than escaping it: upstream owns skill content, while this repository explicitly declares exposure policy at the harness-overlay seam.
 
+When two channels can materialize the same flat identity, ownership is provenance-bound rather than last-writer-wins. An artifact recorded by `npx skills` in `skills-lock.json` remains owned by that channel; npm-module provisioning must neither overwrite nor adopt it into `.ns-harness-artifacts-manifest.json`. The npm module may provision a missing target and then owns only that manifest-recorded artifact. Update and removal mutate only artifacts owned by their channel; ambiguous pre-existing targets fail closed. Removing an extension must preserve `npx skills`-owned artifacts, local/untracked files, and domain records. ADR 0049 applies this contract to the seven portable Objective skills and the `@nseng-ai/objectives` enhancement.
+
 Procedures for channel 2 are documented in `skills/internal/skill-system/skill-management/SKILL.md`; load that known first-party path directly. The canonical install flag is `--agent codex claude-code -y`. Do not maintain a duplicate skill index in `AGENTS.md`.
 
 ### Auditing and Tightening Skills

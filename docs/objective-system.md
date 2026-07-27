@@ -1,7 +1,7 @@
 # Objective System
 
-This document is the canonical operational specification for ns objectives.
-`CONTEXT.md` defines the domain language; this file defines the markdown-only v1 mechanics.
+This document is the canonical operational specification for Objectives.
+`CONTEXT.md` defines the domain language; this file defines the markdown-only v1 mechanics shared by the portable skill foundation, the optional `ns` enhancement, and Pi integration (ADR 0049).
 
 ## Purpose
 
@@ -100,7 +100,7 @@ Rules:
 - **Objective Edges** are undirected, kind-less, mirrored connections between two Objective records. Each endpoint lists the other under `edges:` as `{objective: <slug>, annotation: <sentence>}`, with the required **Edge Annotation** written from that record's perspective — the two sentences are deliberately different texts. Edge identity is the unordered slug pair; at most one edge between two records. Direction, causality, and relationship kind live in the prose, never the schema.
 - **Blocked Sentence**: `blocked:` is prose-valued; its presence means the record is blocked (for any reason — another objective, an external gate) and its value says why. There is no boolean; blocked is a sub-state of open, not a lifecycle state. It is set and cleared only by skill judgment, never by machine auto-flip.
 - **Mutation is skill-owned.** There is no public CLI mutation surface; the `objective-create`, `objective-update`, and `objective-close` step skills own writing edges and judging Blocked Sentences (`objective-refresh` also re-judges Blocked Sentences whose gate is verifiably resolved, including through its inline close). Because edges are mirrored, an edge mutation is a two-file edit touching the counterpart record's frontmatter — the ordinary sanctioned exception to one-Objective mutation boundaries, limited strictly to the counterpart's frontmatter block. Objective Close has a broader bounded exception: any close path — explicit or inline — must inspect every edge-connected Objective's full current tracking, re-judge its Blocked Sentence, and update affected active counterparts when closure changes their durable meaning.
-- **Verification**: after any frontmatter edit, run `ns objective check <slug>` or `ns objective check --all`.
+- **Verification**: after any frontmatter edit, inspect both endpoints and their mirror entries. When the concrete `ns objective check` operation is available, additionally run `ns objective check <slug>` or `ns objective check --all` for deterministic structural verification. Portable inspection is best-effort and must not claim the enhanced guarantee.
 
 ### `roadmap.md`
 
@@ -209,9 +209,23 @@ Non-binding picker grouping exception: when a UI picker has already listed activ
 
 Do not silently auto-select from candidate count or changed/touched files. Never infer objective ownership from branch names, PR titles, package names, roadmap keywords, or other hidden attachment mechanisms. Changed-path, branch, stack, or PR evidence may be used only by operation-specific checks after an objective is selected.
 
+## Product Layers
+
+ADR 0049 defines one progressively disclosed Objective product over this record model:
+
+1. Seven canonical incubating skills — `objective`, create, list, next, update, refresh, and close — provide complete CLI-free workflows and are independently acquirable with `npx skills`.
+2. The optional `@nseng-ai/objectives` ns extension adds deterministic facts and guarantees. Skills probe the concrete operation before use; a missing operation selects the complete portable path rather than a broken or pretend-enhanced path.
+3. The required-`ns` `@nseng-ai/pi-ns-objectives` package adds Pi presentation and orchestration through `@nseng-ai/objectives/api`; it does not own Objective semantics.
+
+All layers preserve the same records and prose meaning. Installation level never appears in Objective state. Automatic orientation loading, Git-aware freshness, structural checking, machine interfaces, and runner automation are enhanced behavior, not portable promises.
+
 ## Operations
 
-V1 keeps Objective meaning in Markdown. Small CLI surfaces (`ns objective list`, `ns objective show`, `ns objective check`, and under `ns objective exec`: `list-candidates`, `read-objective`, `load-orientations`, `tracking-gate`, `runner-begin`, `runner-finish`, and `runner-subagent-usage`) ship deterministic mechanics that the skills delegate to. Narrative mutations remain direct Markdown edits, and the runner's local commit is runner-owned bookkeeping around a verified step (ADR 0024), not a prose mutation surface.
+V1 keeps Objective meaning in Markdown. The seven portable skills own ordinary lifecycle semantics and direct Markdown mutation. Small optional CLI surfaces (`ns objective list`, `ns objective show`, `ns objective check`, and under `ns objective exec`: `list-candidates`, `read-objective`, `load-orientations`, `tracking-gate`, `runner-begin`, `runner-finish`, and `runner-subagent-usage`) add deterministic mechanics after operation-specific look-before-use detection. Narrative mutations remain direct Markdown edits, and the runner's local commit is runner-owned bookkeeping around a verified step (ADR 0024), not a prose mutation surface.
+
+### Portable `objective-list`
+
+The portable skill lists direct record directories under `.ns/objectives/`, excludes records with a direct `closed.md`, and labels each remaining slug `open` or `blocked` according to Record Frontmatter. It does not report titles, summaries, update recency, dirty state, branch attribution, Git-aware freshness, or rich edge detail. Those are enhancement facts from `ns objective list` and `show`.
 
 ### `ns objective list`
 
@@ -328,9 +342,10 @@ User interview:
 - After each question, ask whether to continue or stop and create the Objective with the context gathered so far.
 - Focus on scope, completion criteria, assumptions, risks, sequencing, closure evidence, and durable execution policy only when requested or surfaced as relevant.
 
-Shipped CLI:
+Optional enhanced CLI:
 
-- Active-root duplicate detection: `ns objective exec read-objective <slug>` returns a `not_found` envelope when the slug has no active-root record, and otherwise emits the existing active record. Check git history before reusing a slug that may have belonged to a deleted record.
+- When the concrete operation is available, `ns objective exec read-objective <slug>` provides deterministic active-root duplicate detection: it returns a `not_found` envelope when the slug has no active-root record and otherwise emits the existing active record.
+- Without that operation, inspect the target directory directly and check git history before reusing a slug that may have belonged to a deleted record.
 
 Future CLI pushdown candidates:
 
@@ -347,7 +362,7 @@ Contract:
 - Resolve the objective using the selection rules.
 - Exclude closed objectives by default.
 - Read `objective.md`, `roadmap.md`, and relevant updates.
-- Apply the **Tracking Gate** before recommending next work or offering execution.
+- When `ns objective exec tracking-gate` is available, apply the enhanced **Tracking Gate** before recommending next work or offering execution. Without it, use record-only portable reasoning and explicitly avoid claims about Git freshness.
 - Prefer next work that clarifies active assumptions or de-risks unresolved risks when that is the smallest coherent step.
 - Include a best-effort work-left estimate as remaining semantic steps/slices, not calendar time. If the remaining path is clear, estimate work until Objective completion; otherwise estimate work until the next discovery or decision step where additional work can be identified.
 - If the Tracking Gate indicates clear material current-branch or worktree progress for the same selected objective that is absent from objective tracking, treat the `objective-next` request as update-and-continue preauthorization: run `objective-update`, reread the objective and repo evidence, then continue `objective-next`. Ask first only when evidence, objective fit, or update scope is ambiguous; if confirmation is then pending or declined, stop without a recommendation or execution offer.
@@ -360,10 +375,10 @@ Contract:
 - Do not use hidden ledgers, task files, private queues, Branch Memory run state, alternate Objective stores, or new Objective lifecycle states.
 - In recommendation-only or steer-first paths, do not mutate files except through an explicit `objective-update` handoff. In confirmed execution, mutate only within the confirmed preview scope and write Objective tracking only for meaningful impact.
 
-Shipped CLI:
+Optional enhanced CLI:
 
-- Active candidate filtering: `ns objective list` lists active-root open candidates by default; `ns objective list --status all` reports active-root closed records too.
-- Deterministic Tracking Gate evidence: `ns objective exec tracking-gate <slug> --format json` (the LM still authors the materiality interpretation).
+- `ns objective list` provides active candidate filtering and may report closed records with `--status all`; the portable fallback enumerates direct record directories and direct closure markers.
+- `ns objective exec tracking-gate <slug> --format json` provides deterministic Tracking Gate evidence; the LM still authors the materiality interpretation. The portable workflow does not emulate or claim this evidence.
 
 ### `objective-update`
 
@@ -397,9 +412,9 @@ Contract:
 
 - Resolve the objective using the selection rules.
 - Update `objective.md` with `## Closure` context, including remaining assumptions, risks, caveats, and follow-ups when relevant.
-- Inventory every edge-connected Objective with `ns objective show <slug> --format md --should-include-closed-edges` (the flag keeps edges with closed counterparts in the inventory), read both Edge Annotations and each counterpart's full current tracking, and assign `updated`, `unchanged`, or `already closed`.
+- Inventory every edge-connected Objective by reading both endpoints, both Edge Annotations, direct closure markers, and each counterpart's full current tracking, then assign `updated`, `unchanged`, or `already closed`. When available, `ns objective show <slug> --format md --should-include-closed-edges` provides deterministic inventory assistance.
 - Update every affected active counterpart's durable tracking and write a new counterpart-local Semantic Update when closure is semantically meaningful there; this bounded graph propagation is the exception to ordinary one-Objective update scope.
-- Re-judge Blocked Sentences, preserve mirrored edges, and run `ns objective check --all` after frontmatter edits.
+- Re-judge Blocked Sentences and preserve mirrored edges. Inspect both endpoints after frontmatter edits; when available, additionally run `ns objective check --all` for deterministic verification.
 - Do not recursively close a counterpart; report any counterpart made closure-ready.
 - Write `closed.md` as an existence-only Closure Marker.
 - Leave the objective directory in `.ns/objectives/<slug>/`.

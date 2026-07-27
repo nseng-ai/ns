@@ -142,6 +142,10 @@ The explicit repo-local declaration of how a skill is surfaced across harnesses.
 The per-harness integration files derived from **Skill Exposure Policy**, such as frontmatter flags, Codex sidecars, and Pi settings exclusions. Harness Overlay ownership is limited to cross-harness exposure and the command-backed replacement invariant; acquisition, layout, hashes, mirrors, and install health belong to `npx skills` or `ns skills` / `ns update` as appropriate.
 *Avoid*: registry, managed artifact, install record, skill health check
 
+**Skill artifact owner**:
+The one management channel authorized to update or remove an installed skill identity, established by provenance rather than whichever installer runs last: `npx skills` ownership is recorded in `skills-lock.json`, while ns npm-module provisioning ownership is recorded in `.ns-harness-artifacts-manifest.json`. A missing artifact may be provisioned and thereby acquire ns-manifest ownership; a pre-existing artifact owned by another channel is preserved rather than adopted. Skill Exposure Policy remains orthogonal. ADR 0049 applies this to portable Objective skills.
+*Avoid*: last-writer-wins installer, implicit adoption, shared deletion authority, Harness Overlay owner
+
 **Commit Run**:
 A linear, merge-free commit sequence on one feature branch off trunk — the branch is the run, `trunk..tip`, with no run identity beyond it. Packageable when its tip validates and its commit messages narrate intent well enough for **Packaging** to judge slice boundaries; there are no structured decision markers — narrative prose is the signal.
 *Avoid*: run registry, run manifest, decision trailer, marked commit

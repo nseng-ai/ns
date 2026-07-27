@@ -1,6 +1,6 @@
 # @nseng-ai/objectives
 
-This context captures domain language for the Objectives ns extension package: the CLI surfaces over checked-in Objective records and the in-process extension-package-API boundary that lets sibling extensions reuse Objective behavior without depending on the Pi host. It names only CLI- and extension-specific terms; the Objective *system* vocabulary (Objective, Active Objective Root, Objective Update/Close, Semantic Update, Closure Marker, …) stays canonical in the root [ns](../../../../../CONTEXT.md) context and is cited here, not redefined.
+This context captures domain language for the harness-independent Objectives ns extension package: deterministic mechanics and automation over checked-in Objective records, plus the in-process extension-package-API boundary consumed by sibling extensions and the separately owned Pi host integration. It names only CLI- and extension-specific terms; the Objective *system* vocabulary (Objective, Active Objective Root, Objective Update/Close, Semantic Update, Closure Marker, …) stays canonical in the root [ns](../../../../../CONTEXT.md) context and is cited here, not redefined.
 
 ## Language
 
@@ -53,5 +53,5 @@ The parent-facing Markdown contract an **Objective Runner** step returns for eve
 *Avoid*: public JSON workflow state, child self-report treated as fact, hidden runner state
 
 **Objective Extension Dependency Boundary**:
-The directed-edge rule that Objective runtime/core code never imports the Pi host, while the container package's `pi` subpackage may use `@nseng-ai/pi-runtime` as an optional peer for Pi presentation; in-process consumers reach Objective behavior through `@nseng-ai/objectives/api`. The general acyclic invariant it serves lives in the root **Extension Layering** cluster and ADR 0009 and is not restated here.
-*Avoid*: restating the guard mechanics, non-`pi` Objective → `@nseng-ai/pi-runtime` imports, deep-import consumption, package-root consumer import
+The directed-edge rule that `@nseng-ai/objectives` is harness-independent: Objective runtime/core code never imports the Pi host and the package exports no Pi entrypoint. In-process consumers reach Objective behavior through `@nseng-ai/objectives/api`; the required-`ns` `@nseng-ai/pi-ns-objectives` host package consumes that curated surface plus neutral `@nseng-ai/pi-runtime` interfaces. The general acyclic invariant lives in the root **Extension Layering** cluster and ADR 0009; progressive disclosure and host ownership are recorded in ADR 0049.
+*Avoid*: Objective-owned `pi` subpackage, Objective → `@nseng-ai/pi-runtime` runtime edge, deep-import consumption, package-root consumer import, Pi as Objective domain owner

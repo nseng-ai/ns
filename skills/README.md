@@ -29,6 +29,12 @@ skills/internal/code/code-graphite/
 skills/internal/typescript/typescript-style/
 ```
 
+### Objectives family
+
+The Objectives family is one progressively disclosed product (ADR 0049). Its ordinary portable foundation is exactly seven canonical incubating skills: `objective`, `objective-create`, `objective-list`, `objective-next`, `objective-update`, `objective-refresh`, and `objective-close`. Each has complete CLI-free behavior and may use a concrete optional `ns objective` operation only after look-before-use detection. `objective-runner-step` and `objective-autorun` are separate incubating automation skills provisioned by the `@nseng-ai/objectives` enhancement; they are not portable-family promises. `objective-critique` is retired without an alias.
+
+Independent installation and checkout-free evidence do not promote these skills. A move to `skills/public/objectives/` requires a later explicit support-warrant review; package disposition, acquisition channel, and Pi integration do not decide skill disposition.
+
 ## Identity, canonical source, and Harness Overlays
 
 A skill's **skill identity** is globally flat and unique across all dispositions. The canonical directory leaf and the `name` in `SKILL.md` frontmatter must both exactly equal that identity. Disposition and family never enter invocation names.

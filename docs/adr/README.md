@@ -44,6 +44,7 @@ After this baseline, accepted ADRs are immutable time-in-place records. Do not r
 | 0046 | [Skill Disposition and Owner-Nested Canonical Ontology](0046-skill-disposition-and-owner-nested-ontology.md)           |
 | 0047 | [Propagate Objective Closure Through Connected Records](0047-propagate-objective-closure-through-edges.md)             |
 | 0048 | [Required Skill-Backed Workflows Fail Closed](0048-required-skill-backed-workflows-fail-closed.md)                     |
+| 0049 | [Progressively Disclosed Objective Product](0049-progressively-disclosed-objective-product.md)                         |
 
 ## Proposed
 
