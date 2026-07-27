@@ -1,6 +1,6 @@
 # Standing Objectives & Objective Runners — Design Brief
 
-**Status:** Updated disposition on 2026-06-04. The separate prototype/general Objective implementation runner direction has been superseded by folding confirmed execution into `objective-next` as the user-facing front door.
+**Status:** Updated disposition on 2026-06-04. The separate prototype/general Objective implementation runner direction was superseded by folding confirmed execution into `objective-next` as the user-facing front door. Repeated `objective-autorun` execution now has portable and optional ns-bookended modes; this later addition does not replace `objective-next` as the general advancement front door.
 
 **Context:** Comparison of `aigorahub/elves`, Karpathy's `autoresearch`, Sakana AI Scientist, and Ralph against ns's Objective system surfaced a missing capability: Objectives that can be advanced autonomously or continuously without turning the Objective record into a workflow controller.
 
@@ -29,7 +29,7 @@ The Objective/Runner split is load-bearing:
 - The **Objective** is the durable narrative spec: goal, boundaries, assumptions, progress rubric, and reusable learnings.
 - The **Runner** is the harness that advances the Objective: it chooses moves, manages branches when requested, validates, keeps or rejects work, and stops.
 
-Today's system mostly lives in the bounded/human quadrant, with `objective-autorun` (which absorbed the retired `objective-stack-impl`) occupying a bounded/autonomous-ish specialized stack runner role. General Objective advancement now enters through `objective-next`, which can recommend, steer, offer confirmed execution when durable policy permits it, or execute a concrete current-session recommendation when the user gives a clear affirmative confirmation.
+Today's system mostly lives in the bounded/human quadrant, with `objective-autorun` (which absorbed the retired `objective-stack-impl`) providing repeated parent-judged implementation steps. It can run portably on one feature branch or use stricter optional ns bookends. General Objective advancement still enters through `objective-next`, which can recommend, steer, offer confirmed execution when durable policy permits it, or execute a concrete current-session recommendation when the user gives a clear affirmative confirmation.
 
 |                       | **Bounded**                                             | **Standing**                                            |
 | --------------------- | ------------------------------------------------------- | ------------------------------------------------------- |
@@ -54,7 +54,7 @@ Do not call every execution-friendly Objective autonomous. Human-assisted execut
 
 ### Autoobjective branch policy
 
-Autoobjective runners that create implementation branches should follow the branch-context branch creation policy (`skills/incubating/branch-context/branch-context/references/lifecycle.md`): use branch-context Graphite creation rather than `gt create`.
+Autoobjective runners should follow the selected execution mode and the repository's branch policy. Portable autorun uses one attached non-trunk feature branch for the entire run and does not require Graphite or Branch Context. Where an ns-bookended or separately confirmed repository workflow creates Graphite implementation branches, follow the branch-context branch creation policy (`skills/incubating/branch-context/branch-context/references/lifecycle.md`) rather than calling `gt create` directly.
 
 No-submit autoobjective runs should avoid `gt modify`, `gt restack`, and submit/update Graphite mutations; those belong to explicit submit or reconciliation flows.
 
@@ -241,7 +241,12 @@ There is no fixed default pass count. The runner proposes a bounded scope in the
 
 ### Relationship to `objective-autorun`
 
-`objective-stack-impl`, the pre-runner specialized planned-stack skill, was retired into `objective-autorun` (2026-07-05): each committed runner step stacks on the last, so autorun is the path for implementing one Objective as a small Graphite stack, now with a launch preview and an end-of-run digest graduated from the retired skill. General recommend/steer/confirmed-execution behavior belongs to `objective-next`.
+`objective-stack-impl`, the pre-runner specialized planned-stack skill, was retired into `objective-autorun` (2026-07-05). That historical consolidation remains the origin of autorun's launch preview and end-of-run digest, but autorun is now a self-contained, dual-mode skill rather than a Graphite-only or Pi-tool-backed loop:
+
+- **`ns-bookended`** directly uses the stricter ADR 0024 `runner-begin` / harness dispatch / `runner-finish` protocol. `runner-finish` owns verification and the provenance commit, and an accepted result is a runner-attested Runner Checkpoint.
+- **`portable`** requires no ns CLI once the skill and checkout-local Objective Markdown are present. The parent keeps the whole run on one attached non-trunk feature branch, verifies each child-produced slice from repository evidence, and creates one ordinary local commit per accepted slice. Those commits are parent-verified and are not Runner Checkpoints.
+
+The optional `/ns:objective:autorun` Pi command only selects an Objective and injects the portable skill; it does not own an execution protocol. ADR 0037 publication is available only after a real committed Runner Checkpoint and is therefore unavailable/not applicable in portable mode. General recommend/steer/confirmed-execution behavior remains with `objective-next`.
 
 ---
 

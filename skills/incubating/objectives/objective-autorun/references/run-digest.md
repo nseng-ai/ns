@@ -1,85 +1,107 @@
-# objective-autorun — run digest and telemetry
+# objective-autorun — mode-aware run digest
 
-Reached from `SKILL.md` when the run stops and you are about to write the run report.
-Holds the runner-subagent digest-telemetry procedure and the exact `## Autorun digest`
-structure the final response must emit.
+Read this reference when the run stops. It defines optional dispatch telemetry and the exact final digest shape.
 
-## Runner subagent usage telemetry
+## Dispatch telemetry
 
-Before the final response, collect the non-empty subagent session file paths the harness
-returned for this run's dispatches, when available.
+Collect non-empty implementation-subagent session file paths returned by the harness, when available. Telemetry is accounting only: never use it as evidence of completion, correctness, validation, or Objective closure.
 
-If no subagent session files are available:
-
-- do not run `ns objective exec runner-subagent-usage`;
-- state: `Runner subagent usage telemetry unavailable: no subagent session file paths were returned.`
-
-If one or more subagent session files are available, run:
+The helper is optional. Call:
 
 ```bash
 ns objective exec runner-subagent-usage --format md <session-file>...
 ```
 
-If the command succeeds, include its Markdown output directly when compact enough. Otherwise, compactly transcribe the aggregate totals, model refs, and any non-ok per-file rows.
+only when both conditions hold:
 
-If the command fails, include the attempted command, quote the stdout/stderr failure text, and state that telemetry is unavailable due to command failure.
+1. at least one session file path is available; and
+2. `ns objective exec runner-subagent-usage --help` succeeds.
 
-If the command reports rows such as `missing`, `not_file`, `read_error`, `invalid_json`, or `no_usage`, keep the overall digest. Call out unavailable subagent rows and trust the command aggregate for ok sessions only.
+If the command succeeds, include its compact Markdown output or transcribe aggregate totals, model refs, and non-ok rows. Preserve `missing`, `not_file`, `read_error`, `invalid_json`, and `no_usage` rows honestly.
 
-Use telemetry only for factual usage accounting: per-subagent and aggregate tokens, cost, peak observed token usage, model refs, and unavailable/error statuses. Do not use telemetry to infer subagent completion, code correctness, test sufficiency, or Objective closure. Do not claim a configured context-window capacity unless the subagent session logs expose it. Do not parse freeform subagent final text for usage metrics.
+Otherwise report one precise reason:
+
+- `Dispatch usage telemetry unavailable: no subagent session file paths were returned.`
+- `Dispatch usage telemetry unavailable: runner-subagent-usage helper is not installed.`
+- `Dispatch usage telemetry unavailable: helper failed: <compact stdout/stderr>.`
+
+Telemetry absence never fails the run. Do not parse freeform child prose for usage metrics or infer a configured context-window capacity.
 
 ## Final response requirements
 
-When the run stops, produce a final response with a section titled exactly:
+Finish with a section titled exactly:
 
 ```md
 ## Autorun digest
 ```
 
-Use this structure, adapting details honestly to the run:
+Use this structure and adapt details honestly:
 
 ```md
 ## Autorun digest
 
 ### Objective
 
-- slug: `<objective-slug>`
+- slug/path: `<objective>`
 - state: open/closed/unknown
+- execution mode: `ns-bookended` / `portable`
+- verification authority: `runner-attested` / `parent-verified`
 
-### Steps run
+### Attempts
 
-| step | branch     | checkpoint status | report path             | commit           |
-| ---- | ---------- | ----------------- | ----------------------- | ---------------- |
-| 1    | `<branch>` | `<status>`        | `<path-or-unavailable>` | `<hash-or-none>` |
+| attempt | mode     | authority     | branch     | status     | runner report path           | implementation commit |
+| ------- | -------- | ------------- | ---------- | ---------- | ---------------------------- | --------------------- |
+| 1       | `<mode>` | `<authority>` | `<branch>` | `<status>` | `<path>` or `not applicable` | `<hash-or-none>`      |
+```
 
-Include every attempt, including `--recover` attempts, with its checkpoint status
-(`committed`, `stop`, `blocked`, `verification-failed`, `malfunction`).
+Include every default and recovery attempt.
 
+For `ns-bookended`, use checkpoint statuses: `committed`, `stop`, `blocked`, `verification-failed`, or `malfunction`. The report path is the fresh runner report path.
+
+For `portable`, use parent-judgment statuses: `committed`, `stopped`, `blocked`, `verification-failed`, or `dispatch-malfunction`. The runner report path is always `not applicable`. Never call a portable result a checkpoint or runner-attested.
+
+Continue with:
+
+```md
 ### What changed
 
-- Parent-authored summary of meaningful code, prompt, test, or docs changes across the run.
-- Mention files changed only when they help the reader inspect the run.
+- Parent-authored summary of meaningful changes.
+- Files only when they help inspection.
 
-### Runner subagent usage
+### Validation evidence
 
-- Include `ns objective exec runner-subagent-usage --format md ...` output, a compact transcription, or the explicit unavailable reason.
-- Keep telemetry separate from the checkpoints' verified facts.
+- Bookended: runner-attested gate/validation facts, with child claims separately labeled.
+- Portable: checks the parent directly inspected or ran, with child claims separately labeled and never promoted to proof.
+
+### Dispatch usage
+
+- Helper output or the exact unavailable reason.
 
 ### Objective tracking
 
-- Semantic Updates recorded: yes/no, with file names if known.
+- Semantic Updates recorded: yes/no, with files and commits when known.
+- Tracking commits: `<hashes>` / none.
 - Updates still needed: yes/no, with reason.
 
-### Parent publication
+### Publication
 
-- Publication mode: off / bound / unavailable.
-- Bound target when enabled: Objective slug, branch, existing PR number/URL/head branch, without credentials or authorization payload content.
-- Per committed step: local Runner commit, optional parent tracking commits, branch-push outcome, and managed PR-summary outcome (`updated`, `pushed-pr-update-failed`, or not attempted).
-- Keep runner-attested facts, child-reported validation claims, and parent judgments visibly distinct. Never present a child claim as publication evidence.
-- Authorization scratch cleanup: completed / failed / not applicable. A PR-summary failure does not erase a successful push and must be reported as a successful-partial outcome.
+- Publication state: `off` / `bound` / `unavailable/not applicable`.
+- `bound` is legal only for `ns-bookended` after a real committed Runner Checkpoint and ADR 0037 authorization.
+- Portable mode always says `unavailable/not applicable`; no runner publisher was invoked.
+- For bound bookended publication, report the exact existing-PR binding, local Runner commit, optional tracking commits, push outcome, managed-summary outcome, and authorization scratch cleanup without exposing credentials.
 
 ### Recommended next action
 
-- Continue with another run / inspect the branch stack / run objective-update / close Objective / ask for product decision.
-- State that HEAD is on the last step's branch. If publication was off or unavailable, state that push/submit/PR actions were intentionally not performed. If parent publication ran, state its exact bounded outcome and confirm that no submit, PR creation, force-push, merge/land, deployment, or other external action occurred.
+- Continue another run / inspect the branch / record tracking / close the Objective / ask for a decision.
+- State where HEAD remains.
+- If publication was off or unavailable, state that push, submit, and PR actions were intentionally not performed.
+- If bound publication ran, report its exact bounded outcome and confirm that no PR creation, submit, force-push, merge/land, deployment, or other external action occurred.
 ```
+
+Keep these evidence classes separate throughout:
+
+- runner-attested facts from `runner-finish`;
+- parent-verified portable repository facts;
+- unverified child narrative;
+- parent judgment and Objective tracking;
+- external publication outcomes.

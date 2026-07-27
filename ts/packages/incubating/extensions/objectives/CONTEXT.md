@@ -44,13 +44,25 @@ The `ObjectiveClient` facade returned by `createObjectiveClient`, exposing `list
 The gateway-injected logic that runs over the `ObjectiveCliContext` seam (its Git and Objective-storage **Gateways**) with no dependency on a raw host `ctx` or the Pi runtime; the **Objective extension package API** and the `ns objective` command surface are thin edges over it.
 *Avoid*: presentation-host logic, command-face-coupled logic, raw `ctx`/`NsExtensionApi` dependency, `…Loader` collaborator
 
+**Objective Autorun**:
+The parent-judged, skill-first loop supplied by `objective-autorun`, with two explicitly different execution and trust modes. Direct skill use reads checkout-local Objective Markdown; once the skill and records are present, portable mode has no runtime ns, Graphite, Branch Context, or Pi requirement. Installing this extension instead supplies Objective CLI, provisioning, instructions, and slash-command conveniences. The extension's `/ns:objective:autorun` command remains a thin active-Objective picker and skill injector, not an execution protocol.
+*Avoid*: Pi-only autorun, Objective Runner as a mode-neutral synonym, extension installation as a portable runtime requirement, slash command as workflow owner
+
+**Portable Autorun Mode**:
+The `objective-autorun` mode in which the parent uses ordinary Git on one non-trunk feature branch, verifies each child-produced slice from repository evidence, and creates one ordinary local commit per accepted slice. Its trust label is **parent-verified**; its commits have no Objective Runner provenance, are never **Runner Checkpoints**, and cannot enter the ADR 0037 publication path. A later push, submit, or pull-request workflow requires a separate explicit request.
+*Avoid*: Objective Runner, Runner Checkpoint, runner-attested commit, portable publication, branch per step
+
+**ns-bookended Autorun Mode**:
+The `objective-autorun` mode that uses both `ns objective exec runner-begin` and `ns objective exec runner-finish` for every implementation step, preserving the strict ADR 0024 **Objective Runner** protocol. `runner-finish` verifies and creates the provenance commit; the resulting **Runner Checkpoint** is runner-attested. ADR 0037 publication remains a separate parent-only possibility after a real committed Runner Checkpoint, never part of the step itself.
+*Avoid*: portable autorun, parent-created implementation commit, automatic publication, relaxed runner protocol
+
 **Objective Runner**:
-A portable Objective-owned workflow core for executing one committed Objective implementation step through narrow injected runner **Gateways**, then returning checkpoint facts for a parent LM decision before any next step.
-*Avoid*: Pi-only autopilot, hidden runner state, deterministic batch loop, Objective-as-task-database
+The strict ADR 0024 `runner-begin` / harness dispatch / `runner-finish` protocol used by **ns-bookended Autorun Mode** or the advanced invoke-only `objective-runner-step` skill. Its accepted step is runner-attested, and `runner-finish` creates the provenance commit.
+*Avoid*: portable autorun, generic autorun loop, parent-verified Git workflow, Pi-only autopilot, hidden runner state, deterministic batch loop, Objective-as-task-database
 
 **Runner Checkpoint**:
-The parent-facing Markdown contract an **Objective Runner** step returns for every terminal state, composed of runner-attested verified facts and clearly labeled unverified child-reported narrative.
-*Avoid*: public JSON workflow state, child self-report treated as fact, hidden runner state
+The parent-facing Markdown result of a strict **Objective Runner** step, composed of runner-attested verified facts and clearly labeled unverified child-reported narrative. A real committed Runner Checkpoint may be eligible for the separate ADR 0037 parent-only publication path; a **Portable Autorun Mode** commit is never a Runner Checkpoint.
+*Avoid*: portable commit, parent-verified checkpoint, public JSON workflow state, child self-report treated as fact, hidden runner state
 
 **Objective Host Independence**:
 The rule that `@nseng-ai/objectives` contains no Pi host surface: no Pi registration, Pi subpackage, Pi entrypoint, or Pi-runtime dependency belongs in this package. The separate `@nseng-ai/pi-ns-objectives` host adapter consumes Objective behavior through `@nseng-ai/objectives/api`; Objective domain logic remains here rather than being redefined in the adapter. The general acyclic invariant lives in the root **Extension Layering** cluster and ADR 0009 and is not restated here.

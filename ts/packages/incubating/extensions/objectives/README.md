@@ -8,7 +8,35 @@ maintains the record; you review it in ordinary diffs. Objectives live as Markdo
 `.ns/objectives/` in your repository.
 
 This package is an ns extension: it is installed on top of the bare-core
-[`@nseng-ai/ns`](../../../public/ns/README.md) CLI, not bundled with it.
+[`@nseng-ai/ns`](../../../public/ns/README.md) CLI, not bundled with it. Installing the
+extension provides Objective management and selection conveniences, but is not a runtime
+prerequisite for portable Objective autorun.
+
+## Portable autorun without the extension
+
+You can invoke the `objective-autorun` skill directly in a capable agent harness. Once that
+skill and the checkout-local `.ns/objectives/<slug>/` Markdown records are present, portable
+mode requires Git and harness implementation/delegation capability, but no runtime `ns`,
+Graphite, Branch Context, or Pi installation.
+
+Ask the agent to "autorun this Objective" or invoke the skill through your harness's normal
+skill surface. The skill reads the Objective records directly, manages one non-trunk feature
+branch for the run, verifies each implementation slice as the parent, and creates one ordinary
+local commit per accepted slice. These commits are **parent-verified ordinary commits**; they
+are not **Runner Checkpoints** and carry no Objective Runner provenance. ADR 0037 publication
+is unavailable in portable mode. Any later push, PR, or submit operation is a separate,
+explicitly requested workflow.
+
+The same skill can use **`ns-bookended` mode** when both
+`ns objective exec runner-begin` and `ns objective exec runner-finish` are available. That
+mode uses the strict **Objective Runner** protocol: `runner-finish` verifies and commits the
+slice, producing a **runner-attested Runner Checkpoint**. Only a real committed Runner
+Checkpoint can be eligible for the separate, parent-only ADR 0037 publication path.
+
+Installing this package remains useful when you want the `ns objective` CLI, provisioned
+Objective skills, agent instructions, and Pi slash-command conveniences. In particular,
+`/ns:objective:autorun` is a thin picker/injector: it selects an active Objective and invokes
+the same `objective-autorun` skill; it does not own a separate execution protocol.
 
 The package is harness-independent and has no Pi host surface. The separate incubating
 `@nseng-ai/pi-ns-objectives` adapter preserves the `/ns:objective:*` Pi command family by
@@ -26,7 +54,8 @@ ns init --supported-harness claude-code # once per repository
 ns extension install npm:@nseng-ai/objectives
 ```
 
-A bare-core `ns` install does **not** include `ns objective`. Installing this extension:
+A bare-core `ns` install does **not** include `ns objective`. Installing this extension
+(the convenience-rich path, distinct from direct portable skill use):
 
 1. Records `@nseng-ai/objectives` in `ns.toml` and activates it for the repository's
    supported harnesses.
