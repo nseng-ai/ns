@@ -10,6 +10,14 @@ Create exactly one new Objective record under `.ns/objectives/<slug>/`. Use the 
 
 The Objective pattern set — wayfinding/ideation, steelthread, standing, umbrella, autoobjective, and readme-driven-development — lives in `references/<pattern>-create.md`; each reference owns that pattern's creation procedure on top of this skill's record mechanics. The pattern is chosen in the interview (see the Pattern beat below). When the user names a pattern upfront, read the matching reference immediately and skip the menu. Recognition prose and composition facts stay in the `objective` skill's patterns catalog (`references/objective-patterns.md`).
 
+## Capability adaptation
+
+The workflow below is complete without `ns` or any Objective CLI; the `objective` umbrella skill owns the exact-operation probe rule. This skill's mechanics, each with its portable form and its probed enhancement:
+
+- **Full inventory** (rename check): portable form — list the direct child directories of `.ns/objectives/`, including closed records, and read a candidate's `objective.md` title when a name looks related. A successful `ns objective list --help` probe permits `ns objective list --status all --format md` instead.
+- **Collision read**: portable form — `.ns/objectives/<slug>/` existing at all means the slug is taken; read its `objective.md` directly when context helps. A successful `ns objective exec read-objective --help` probe permits `ns objective exec read-objective <slug> --format md`, whose `not_found` envelope confirms a free slug.
+- **Frontmatter Verification**: the umbrella skill's rule — `ns objective check <slug>` when its probe succeeds, otherwise the portable edge inspection.
+
 ## Required shape
 
 New records live in the active root only, `.ns/objectives/<slug>/`, with `objective.md`, `roadmap.md`, and `updates/` per the umbrella skill's storage model. Creation deltas: `orientation.md` is optional and orienting-only; there is no `closed.md` at creation.
@@ -27,13 +35,13 @@ New records live in the active root only, `.ns/objectives/<slug>/`, with `object
 
 - Require an explicit slug, or propose a normalized slug and get explicit confirmation before writing any file.
 - Write only under `.ns/objectives/<slug>/`; never `docs/objectives/` or anywhere else.
-- Slug identity is the umbrella skill's rule: renames never mint a new slug. Before creating a slug that looks like a rename or replacement of existing work, run `ns objective list --status all --format md`; if a likely existing Objective appears, stop per Stop / ask.
-- Check the active root before writing. `ns objective exec read-objective <slug> --format md` returns a `not_found` envelope when the slug has no active record and otherwise emits it. If `.ns/objectives/<slug>/` exists, stop per Stop / ask — never overwrite. If the slug was previously deleted, source control history is the only historical link; recreate it only when the user wants that identity again.
-- Records are Markdown: write them directly, using `ns objective exec` only for deterministic reads; the only sanctioned YAML is Record Frontmatter below.
+- Slug identity is the umbrella skill's rule: renames never mint a new slug. Before creating a slug that looks like a rename or replacement of existing work, run the full inventory (Capability adaptation above); if a likely existing Objective appears, stop per Stop / ask.
+- Check the active root before writing with the collision read (Capability adaptation above). If `.ns/objectives/<slug>/` exists, stop per Stop / ask — never overwrite. If the slug was previously deleted, source control history is the only historical link; recreate it only when the user wants that identity again.
+- Records are Markdown: write them directly; the only sanctioned YAML is Record Frontmatter below.
 
 ## Record Frontmatter: initial edges and Blocked Sentence
 
-Record Frontmatter mechanics — the exact-two-keys rule, mirrored two-file edits, and `ns objective check` — are owned by the `objective` umbrella skill. Creation deltas:
+Record Frontmatter mechanics — the exact-two-keys rule, mirrored two-file edits, and Frontmatter Verification — are owned by the `objective` umbrella skill. Creation deltas:
 
 - It is usually absent at creation: omit the block entirely unless the interview surfaces a real fact.
 - **Initial edges.** When the new Objective has a durable relationship to an existing record, declare the edge at creation — including the perspective-correct mirror entry in the counterpart's frontmatter, the one sanctioned edit outside the new record.
@@ -57,7 +65,7 @@ Interview the user relentlessly before writing (inspired by [Matt Pocock's `gril
 
 1. Run the interview; confirm the slug and clear the active root per Slug and path, loading any conditional reference — a pattern's `references/<pattern>-create.md` or `references/execution-friendly-create.md` — before its questions.
 2. Create `.ns/objectives/<slug>/` with `updates/`, `objective.md`, and `roadmap.md` per Required shape, in concise human-readable narrative.
-3. If the interview surfaced initial edges or a genuine blocked gate, write Record Frontmatter per its section — including the counterpart mirrors — and run `ns objective check <slug>`; otherwise write no frontmatter.
+3. If the interview surfaced initial edges or a genuine blocked gate, write Record Frontmatter per its section — including the counterpart mirrors — and apply the umbrella skill's Frontmatter Verification; otherwise write no frontmatter.
 4. If the Objective is orienting — an agent doing unrelated work must obey its direction — write `orientation.md` (≈8 content lines, agent-facing) using the umbrella skill's format: `Direction`, `Getting to` (with ADR/CONTEXT pointers), `What you see now`, `Avoid`, and `Active slice: see this objective's roadmap.md`. Otherwise skip it; presence of the file is the opt-in flag. Lifecycle/graduation metadata stays in `roadmap.md`, never in `orientation.md`.
 5. Create no initial file under `updates/` and no `closed.md`.
 
@@ -75,7 +83,7 @@ Interview the user relentlessly before writing (inspired by [Matt Pocock's `gril
 - If orienting, `orientation.md` exists and follows the format; otherwise it is absent. It is optional, never required.
 - If execution-friendly, verify against `references/execution-friendly-create.md`; if planning-only, execution policy sections are absent unless explicitly requested.
 - If a pattern was chosen, verify against that pattern reference's verification items.
-- If Record Frontmatter was written, it carries only `blocked` and/or `edges`, every declared edge has its mirror entry in the counterpart record, and `ns objective check <slug>` passes; if not written, `objective.md` starts with `# <Title>` and no frontmatter fence.
+- If Record Frontmatter was written, it carries only `blocked` and/or `edges`, every declared edge has its mirror entry in the counterpart record, and Frontmatter Verification passed (naming which mechanic ran); if not written, `objective.md` starts with `# <Title>` and no frontmatter fence.
 - No files outside the new Objective's directory changed, except counterpart `objective.md` frontmatter blocks touched by mirrored edge entries.
 - There is no initial file under `updates/` and no `closed.md`.
 - Summarize the created slug, first planned roadmap item, most important assumption or risk captured, and whether the Objective is planning-only or execution-friendly.
