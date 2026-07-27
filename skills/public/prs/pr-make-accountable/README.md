@@ -1,27 +1,39 @@
 # pr-make-accountable
 
 Interview a PR's author until author and agent share an accurate understanding
-of a change, with the goals producing a crisp, clear, authentic PR descritption
-that communicates the rationale and context behind a change. 
+of a change, with the goal of producing a crisp, clear, authentic PR description
+that communicates the rationale and context behind the change.
 
-This is a double entrende: the author is accountable to what the agent has done,
-and the author is accountable to their collaborators to produce nonslop descriptions.
+The name is a double entendre: the author is accountable for what the agent has
+done, and accountable to their collaborators for producing non-slop descriptions.
 
 ## Why this exists: Writing is thinking
 
-Auto-generated PR descriptions are usually a failure mode of agentic engineering. 
-They walls of texts that are slop-filled inventories of a diff, rather than a
+Auto-generated PR descriptions are usually a failure mode of agentic engineering.
+They are walls of text — slop-filled inventories of a diff rather than a
 coherently framed, human PR description.
 
-Intent, constraints, rejected alternatives, and accepted risks live in the author's
-head, and are not legible from the contents of the PR. It is critical to 
-communicate these in a description.
+Intent, constraints, rejected alternatives, and accepted risks live in the
+author's head and are not legible from the contents of the PR. It is critical
+to communicate them in the description.
 
-The problem runs deeper than bad prose. Agents do work your behalf, and themselves
-are have made decisions you are not aware of or fully understand. This interview
-process develops a shared understanding between the agent and the human ultimately
-accountable for the change. More often than not this process yields true underlying
-changes in the PR. There is a reflexive relationship between PR prose and the code.
+The problem runs deeper than bad prose. Agents work on your behalf and make
+decisions you are not aware of or do not fully understand. This interview
+process develops a shared understanding between the agent and the human
+ultimately accountable for the change. More often than not it yields real
+changes to the PR itself: there is a reflexive relationship between PR prose
+and the code.
+
+## How it works
+
+1. The agent inspects the PR and identifies the intent, rationale, and design
+   decisions that the code and commit history cannot explain.
+2. The agent interviews the author about those gaps, politely challenging
+   unclear reasoning, misunderstandings, and decisions that may need changes.
+3. The author can amend the PR before continuing. Once author and agent share
+   an accurate understanding, they co-author a complete PR description.
+4. The author reads and approves every claim before the agent updates the PR.
+   The agent then reports any remaining reviewability concerns and open topics.
 
 ## Provenance
 
