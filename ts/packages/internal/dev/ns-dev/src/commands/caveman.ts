@@ -1,6 +1,6 @@
 import { dirname, join } from "node:path";
 
-import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, ok, resolveCaps, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
 import {
 	formatRawTextModelFailure,
 	generateRawTextWithModel,
@@ -10,6 +10,8 @@ import {
 	resolveModelOperation,
 	type ModelPolicy,
 } from "@nseng-ai/extension-kit/model-policy";
+import { spinnerFrame } from "@nseng-ai/foundation/cli-theme";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { z } from "zod";
 
 import type { NsDevCliContext } from "../context.ts";
@@ -18,6 +20,8 @@ import { formatUnknownError, resolvePath } from "../shared.ts";
 export const CAVEMAN_MODEL_OPERATION_ID = "ns-dev.caveman";
 
 const MAX_INPUT_CHARS = 100_000;
+const SPINNER_FRAME_MS = 90;
+const CLEAR_STATUS_LINE = "\r\x1b[2K";
 
 const CAVEMAN_INTENSITIES = ["lite", "full", "ultra"] as const;
 export type CavemanIntensity = (typeof CAVEMAN_INTENSITIES)[number];
@@ -126,13 +130,13 @@ export async function runCaveman(
 	}
 
 	const inputLabel = input.filePath ?? "input text";
-	context.status?.(`ns-dev caveman: rewriting ${inputLabel} with model…\n`);
+	const stopSpinner = startCavemanSpinner(context, inputLabel, model.value.selection);
 	const generated = await generateRawTextWithModel({
 		cwd: context.cwd,
 		prompt: buildCavemanPrompt(input.text, intensity.value),
 		modelSelection: model.value.selection,
 		exec: (command, args, options) => context.runCommand(command, args, options),
-	});
+	}).finally(stopSpinner);
 	if (!generated.ok) {
 		return failure("model-error", formatRawTextModelFailure(generated.failure));
 	}
@@ -168,6 +172,38 @@ export async function runCaveman(
 
 export function renderCaveman(result: CavemanResult): string {
 	return result.output;
+}
+
+function startCavemanSpinner(
+	context: NsDevCliContext,
+	inputLabel: string,
+	modelSelection: ModelSelection,
+): () => void {
+	if (context.status === undefined) return () => undefined;
+
+	const modelRef = `${modelSelection.provider}/${modelSelection.modelId}`;
+	const message = `ns-dev caveman: rewriting ${inputLabel} with ${modelRef}…`;
+	if (!context.statusIsTty) {
+		context.status(`${message}\n`);
+		return () => undefined;
+	}
+
+	const caps = resolveCaps({
+		isTty: true,
+		columns: undefined,
+		env: context.env,
+	});
+	let tick = 0;
+	const render = (): void => {
+		context.status?.(`${CLEAR_STATUS_LINE}${spinnerFrame(caps, tick)} ${message}`);
+		tick += 1;
+	};
+	render();
+	const timer = context.timers.setInterval(render, SPINNER_FRAME_MS);
+	return () => {
+		timer.cancel();
+		context.status?.(CLEAR_STATUS_LINE);
+	};
 }
 
 interface IntensityResolutionOk {

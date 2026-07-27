@@ -1,3 +1,4 @@
+import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
 import { describe, expect, it } from "vitest";
 
 import { exitedResult, parseJsonOutput, runScenario } from "./run-scenario.ts";
@@ -118,7 +119,33 @@ describe("caveman", () => {
 			commandResults: [exitedResult({ stdout: "Project context.\n" })],
 		});
 		expect(await run.exit).toBe(0);
-		expect(run.stderr.join("")).toBe("ns-dev caveman: rewriting /repo/CONTEXT.md with model…\n");
+		expect(run.stderr.join("")).toBe(
+			"ns-dev caveman: rewriting /repo/CONTEXT.md with vercel-ai-gateway/openai/gpt-5.6-luna…\n",
+		);
+	});
+
+	it("animates progress on a tty and clears the spinner after generation", async () => {
+		const manual = createManualTimerScheduler();
+		let finishGeneration: (() => void) | undefined;
+		const generation = new Promise<ReturnType<typeof exitedResult>>((resolve) => {
+			finishGeneration = () => resolve(exitedResult({ stdout: "Fix it.\n" }));
+		});
+		const run = runScenario(["caveman", "please fix it", "--format", "json"], {
+			files: BASE_FILES,
+			statusIsTty: true,
+			timers: manual.timers,
+			commandResults: [generation],
+		});
+		while (manual.pendingTimerCount() === 0) await Promise.resolve();
+		manual.advanceMs(90);
+		finishGeneration?.();
+		expect(await run.exit).toBe(0);
+		expect(run.stderr).toEqual([
+			"\r\x1b[2K⠋ ns-dev caveman: rewriting input text with vercel-ai-gateway/openai/gpt-5.6-luna…",
+			"\r\x1b[2K⠙ ns-dev caveman: rewriting input text with vercel-ai-gateway/openai/gpt-5.6-luna…",
+			"\r\x1b[2K",
+		]);
+		expect(manual.pendingTimerCount()).toBe(0);
 	});
 
 	it("rewrites --file input in place without model-generated trailing whitespace", async () => {
