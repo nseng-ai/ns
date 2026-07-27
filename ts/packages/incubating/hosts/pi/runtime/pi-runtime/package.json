@@ -1,5 +1,6 @@
 {
 	"name": "@nseng-ai/pi-runtime",
+	"license": "MIT",
 	"private": true,
 	"type": "module",
 	"exports": {

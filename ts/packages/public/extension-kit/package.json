@@ -1,6 +1,7 @@
 {
 	"name": "@nseng-ai/extension-kit",
 	"version": "0.1.4",
+	"license": "MIT",
 	"files": [
 		"src"
 	],

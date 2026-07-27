@@ -1,5 +1,6 @@
 {
 	"name": "@internal/pi-tools",
+	"license": "MIT",
 	"private": true,
 	"type": "module",
 	"exports": {

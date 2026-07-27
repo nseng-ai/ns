@@ -1,6 +1,7 @@
 {
 	"name": "@nseng-ai/branch-context",
 	"version": "0.1.4",
+	"license": "MIT",
 	"type": "module",
 	"exports": {
 		".": "./src/core/index.ts",
