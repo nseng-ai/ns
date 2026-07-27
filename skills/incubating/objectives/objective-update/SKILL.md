@@ -18,9 +18,18 @@ Also run when `objective-next`'s Tracking Gate routes here for the same Objectiv
 
 If the user only asks about the skill or pastes it with no clear update intent, ask: `Do you want me to run objective-update for the current branch now?`
 
+## Capability adaptation
+
+The workflow below is complete without `ns` or any Objective CLI; the `objective` umbrella skill owns the exact-operation probe rule. This skill's mechanics:
+
+- **Candidate inventory**: portable form — enumerate direct active records per the umbrella skill's Selection rules. A successful `ns objective list --help` probe permits `ns objective list --format md`.
+- **Record read**: portable form — read the selected record's files directly and treat a direct `closed.md` as the closed marker. A successful `ns objective exec read-objective --help` probe permits `ns objective exec read-objective <slug> --format md` for a deterministic path/state/inventory envelope.
+- **Frontmatter Verification**: the umbrella skill's rule — `ns objective check` when its probe succeeds, otherwise the portable edge inspection.
+- **Repo evidence tools**: `git`, `gt`, and `gh` are optional evidence sources, each used only when available. A missing tool narrows the evidence basis, never the update semantics: author from the user's request, remaining evidence, and current record content, and name the narrower basis in the report.
+
 ## Mutation boundary
 
-The umbrella skill owns the storage model, required headings, and status semantics — this skill does not restate them. Objective records are Markdown: read/edit them directly, using `ns objective exec` only for deterministic reads such as candidate listing, inventory, and closed-marker detection.
+The umbrella skill owns the storage model, required headings, and status semantics — this skill does not restate them. Objective records are Markdown: read/edit them directly, using enhanced operations only per Capability adaptation above.
 
 - Edit only the selected Objective's `objective.md`, `roadmap.md`, `orientation.md` (optional; only when not closing), `closed.md` when closing, and new files under `updates/`.
 - Two sanctioned exceptions exist: mirrored edge mutations may edit counterpart frontmatter, and an inline close must propagate semantic impact to every edge-connected Objective per `objective-close`. Outside inline closure, the Record Frontmatter section below defines the narrow exception.
@@ -29,7 +38,7 @@ The umbrella skill owns the storage model, required headings, and status semanti
 
 ## Select exactly one Objective
 
-Select per the umbrella skill's Selection rules, including its objective-update one-candidate exception. When that exception applies, ask before evidence or mutation: `Only one active Objective exists: <slug>. Run objective-update for this Objective?` When multiple active Objectives exist, present the `ns objective list --format md` output and ask for one slug/path; do not ask a generic question before showing options.
+Select per the umbrella skill's Selection rules, including its objective-update one-candidate exception. When that exception applies, ask before evidence or mutation: `Only one active Objective exists: <slug>. Run objective-update for this Objective?` When multiple active Objectives exist, present the candidate inventory output (Capability adaptation above) and ask for one slug/path; do not ask a generic question before showing options.
 
 Never write a multi-Objective update. After selection, branch, Graphite, local-diff, and PR facts may be evidence only; they never participate in selection.
 
@@ -45,11 +54,11 @@ Write the selected Objective as if the current git changes or current-branch PR 
 
 ## Read and collect evidence after selection
 
-First run `ns objective exec read-objective <slug> --format md` to confirm path, state, inventory, raw Markdown, and closed-marker presence. If `closed.md` exists, stop unless the user explicitly asked to amend the closed record; reopening a closed Objective happens only on an explicit user request through `objective-close`'s Reopen procedure — there is no separate public reopen command.
+First run the record read (Capability adaptation above) to confirm path, state, inventory, raw Markdown, and closed-marker presence. If `closed.md` exists, stop unless the user explicitly asked to amend the closed record; reopening a closed Objective happens only on an explicit user request through `objective-close`'s Reopen procedure — there is no separate public reopen command.
 
 For large Objectives, use the inventory/closed-state output, then focus on `objective.md`, `roadmap.md`, and recent updates only when needed. Do not spend context on old updates unless they materially affect the current change; old updates are historical evidence, not editable targets.
 
-Collect fail-soft repo evidence:
+Collect fail-soft repo evidence with whichever repo evidence tools are available (Capability adaptation above):
 
 1. Working tree:
 
@@ -101,7 +110,7 @@ This skill owns edge mutation and Blocked Sentence judgment for the selected Obj
 
 - **Edges.** When evidence shows a durable inter-objective relationship appeared, changed meaning, or dissolved, add, reword, or remove the edge as the umbrella skill's mirrored two-file edit with a perspective-correct annotation on each side. Editing the counterpart's frontmatter is the sanctioned exception to the mutation boundary above.
 - **Re-judge the record's own Blocked Sentence on every update.** Compare the current `blocked:` sentence (or its absence) against the evidence: set it when the record is now gated, reword it when stale, and clear it when the gate no longer holds. This is always skill judgment.
-- **Verify.** After any frontmatter edit, run `ns objective check <slug>` or `ns objective check --all`; structural violations are errors and must be fixed before finishing.
+- **Verify.** After any frontmatter edit, apply the umbrella skill's Frontmatter Verification; structural violations are errors and must be fixed before finishing.
 
 ### Immutable Semantic Updates
 
@@ -134,7 +143,7 @@ If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` abse
 ## Workflow
 
 1. Resolve exactly one active Objective.
-2. Run `ns objective exec read-objective <slug> --format md`; stop if closed unless explicit amend-closed-record intent is present.
+2. Run the record read; stop if closed unless explicit amend-closed-record intent is present.
 3. Collect post-selection repo evidence and perform the path-integrity check.
 4. Compare request, evidence, and Objective files to identify durable tracking changes.
 5. Edit `objective.md` if narrative, boundaries, criteria, assumptions, risks, open questions, or closure-adjacent context changed.
@@ -149,7 +158,7 @@ If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` abse
 
 Stop or ask when:
 
-- selection is ambiguous/absent after presenting `ns objective list --format md`, or the selected path is outside `.ns/objectives/<slug>/`;
+- selection is ambiguous/absent after presenting the candidate inventory, or the selected path is outside `.ns/objectives/<slug>/`;
 - update intent is still ambiguous, or only-open confirmation is pending;
 - the request would update multiple Objectives;
 - the selected Objective is closed without amend intent, or closure outcome/rationale is unclear;
@@ -162,10 +171,10 @@ For existing update mutation, explain that updates are immutable and offer to wr
 ## Verify
 
 - Changed Objective files all live under exactly one `.ns/objectives/<slug>/` directory, with no added, deleted, moved, or recreated sibling Objective slug directories. Exceptions: mirrored edge mutations may change counterpart Record Frontmatter; when the selected Objective closes inline, the full close-time connected-Objective propagation contract may also update affected counterparts' durable tracking and add counterpart-local Semantic Updates.
-- If Record Frontmatter was edited (own record or a counterpart), `ns objective check <slug>` or `ns objective check --all` was run and reports no structural errors.
+- If Record Frontmatter was edited (own record or a counterpart), Frontmatter Verification passed, naming which mechanic ran — `ns objective check` or the portable edge inspection.
 - New update file, if any, has a timestamped, human-readable filename under that Objective's `updates/` directory.
 - No existing file under the selected Objective's `updates/` directory was edited, deleted, moved, normalized, or recreated.
 - Required headings remain present in edited durable files, including `## Assumptions and Risks`.
 - If closure was performed, confirm `objective.md` contains `## Closure` and `closed.md` exists; if not, confirm no `closed.md` was created by this invocation.
 - If `orientation.md` was re-derived or newly added, confirm it was done only because the Objective is orienting and not closing, and that it follows the format; `orientation.md` remains optional.
-- Final response includes: selected Objective slug/path; durable files edited; whether a new Semantic Update was created or intentionally not written; confirmation that existing Semantic Updates were not modified; local uncommitted changes considered; local committed branch diff considered with base branch if known; PR evidence considered/unavailable/irrelevant; Graphite parent considered/unavailable/irrelevant; Closure Gate result (`not evaluated`, `not ready`, `auto-closed`, or `skipped-unclear`) and whether `closed.md` was written; when auto-closed, every connected Objective's disposition and files changed; verification run or skipped.
+- Final response includes: selected Objective slug/path; durable files edited; whether a new Semantic Update was created or intentionally not written; confirmation that existing Semantic Updates were not modified; local uncommitted changes considered; local committed branch diff considered with base branch if known; PR evidence considered/unavailable/irrelevant; Graphite parent considered/unavailable/irrelevant; any repo evidence tool that was unavailable and the resulting narrower basis; Closure Gate result (`not evaluated`, `not ready`, `auto-closed`, or `skipped-unclear`) and whether `closed.md` was written; when auto-closed, every connected Objective's disposition and files changed; verification run or skipped.

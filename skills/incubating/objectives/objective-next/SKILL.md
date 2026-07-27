@@ -10,13 +10,22 @@ A prompt factory for an active Objective: judge the next useful semantic step, t
 
 Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, safety boundaries, and family policy.
 
+## Capability adaptation
+
+The workflow below is complete without `ns` or any Objective CLI; the `objective` umbrella skill owns the exact-operation probe rule. Portable `objective-next` is **record-only**: it selects, reads, and recommends from Objective Markdown — candidate directories, `closed.md` markers, and record files read directly — without claiming Git freshness. Optional operations:
+
+- **Candidate inventory**: a successful `ns objective list --help` probe permits `ns objective list --format md` for selection presentation; otherwise enumerate direct active records per the umbrella skill's Selection rules.
+- **Tracking Gate**: a successful `ns objective exec tracking-gate --help` probe permits the gate below, the sole source of Git-freshness claims. Without it, skip the gate and say so in the packet.
+
 ## Resolve the Objective
 
-Resolve exactly one Objective per the umbrella skill's Selection rules; the umbrella also owns the storage model and required file shapes — this skill does not restate them. Read `objective.md`, `roadmap.md`, and `updates/` directly; use `ns objective exec` for deterministic mechanics like candidate listing, closed-marker detection, and tracking-gate git evidence. Changed-path evidence belongs only to the Tracking Gate after an Objective is selected.
+Resolve exactly one Objective per the umbrella skill's Selection rules; the umbrella also owns the storage model and required file shapes — this skill does not restate them. Read `objective.md`, `roadmap.md`, and `updates/` directly. Changed-path evidence belongs only to the Tracking Gate after an Objective is selected.
 
 ## Tracking Gate
 
-Before recommending work or offering execution, run:
+The gate is an `ns` enhancement, reached only through its probe (Capability adaptation above). When the probe fails or the operation is unavailable, proceed record-only: recommend from the record as written, state in the packet that the Tracking Gate did not run and current-branch freshness is unverified, and invite an `objective-update` if the user knows of unrecorded progress — no ad hoc git pipelines stand in for the gate.
+
+When the probe succeeds, before recommending work or offering execution, run:
 
 ```sh
 ns objective exec tracking-gate <slug> --format json
@@ -40,7 +49,7 @@ Then:
 5. If the user declines or confirmation is pending, stop without a next-work recommendation or execution offer.
 6. If evidence is absent or clearly unrelated, proceed with a concise note that names the resolved diff basis (for example `master...HEAD`) and whether material non-Objective paths were present.
 
-The Tracking Gate check itself is read-only. Any file changes during this phase belong only to the explicit `objective-update` workflow that the gate routes into. If the tracking-gate command itself fails because the extension is unavailable or the git evidence cannot be collected, report the failure and ask whether to proceed with a degraded manual read; do not silently fall back to ad hoc shell.
+The Tracking Gate check itself is read-only. Any file changes during this phase belong only to the explicit `objective-update` workflow that the gate routes into. If the probed command then fails at run time — the git evidence cannot be collected — report the failure and ask whether to proceed record-only; do not silently fall back to ad hoc shell.
 
 ## Blocked Objectives
 
@@ -78,7 +87,7 @@ If any condition is missing or ambiguous, do not execute yet: reread the Objecti
 
 1. Exclude closed Objectives by default. If `closed.md` exists, stop and say it is closed.
 2. Read `objective.md`, `roadmap.md`, `orientation.md` (if present), and relevant `updates/` files.
-3. Apply the Tracking Gate (section above).
+3. Apply the Tracking Gate when its probe succeeds; otherwise note the record-only basis (section above).
 4. Load conditional references only when their routing conditions apply.
 5. If Record Frontmatter carries a `blocked:` sentence, apply the Blocked Objectives guidance: traverse the record's edges to find the counterpart Objective that would unblock it, if one exists, and let that shape the recommendation.
 6. Choose the smallest coherent next semantic step grounded in the Objective narrative, roadmap, active assumptions, and risks. The step may be agent-alone or human-steered; when open, unblocked candidates of both kinds exist, prefer the one that requires human intervention (grilling, prototype, live decisions, steering) — resolving human-gated questions de-risks and sharpens the Objective so the remaining work can run autonomously sooner. Deviate only when a specific hazard or dependency makes an agent-alone row clearly more urgent, and say why. On an ideation Objective, recommend from the **Frontier**: one open, unblocked Question Row (rows are unordered beyond blocking; resolve one per session). If the Frontier is empty and only ordinary execution rows remain, say the record has **crystallized** and recommend ordinary execution work instead.
@@ -120,6 +129,7 @@ In every packet:
 ## Verify
 
 - Name the selected slug and identify the roadmap item or narrative basis for the packet, steering question, or execution preview.
+- Confirm Git-freshness or diff-basis claims appear only when the Tracking Gate ran; a record-only packet says so.
 - Confirm the decision packet ends with either a proposed prompt or an explicit Declined element, and that a proposed prompt is self-contained: a cold session could run it without this conversation. Confirm it stayed short, citing durable artifacts rather than replicating them.
 - If the record is blocked, confirm the response named the Blocked Sentence and either the unblocking counterpart Objective or why no edge counterpart applies.
 - If recommendation-only or steer-first, ensure no files changed except through an explicit `objective-update` handoff; report any handoff output separately and confirm it stayed under the selected slug.

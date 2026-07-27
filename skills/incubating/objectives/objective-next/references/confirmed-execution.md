@@ -6,7 +6,7 @@ Read the `objective` skill's execution policy reference first when shared policy
 
 ## Execution basis
 
-After the Tracking Gate passes, execution may proceed from either basis below.
+After the Tracking Gate passes — or, record-only when the gate capability is absent, after the recommendation named that basis — execution may proceed from either basis below.
 
 ### Durable policy basis
 

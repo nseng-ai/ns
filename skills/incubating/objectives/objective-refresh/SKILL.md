@@ -14,6 +14,15 @@ One absolute governs every run:
 
 Closure is the default when done — step 10 owns the inline-close mechanics and the single hold-back condition (`closure-ready`).
 
+## Capability adaptation
+
+The workflow below is complete without `ns` or any Objective CLI; the `objective` umbrella skill owns the exact-operation probe rule. This skill's mechanics:
+
+- **Active inventory**: portable form — enumerate direct child directories of `.ns/objectives/` containing `objective.md` without a direct `closed.md`. A successful `ns objective list --help` probe permits `ns objective list --names`.
+- **Record read**: portable form — read the record's files directly and treat a direct `closed.md` as the closed marker. A successful `ns objective exec read-objective --help` probe permits `ns objective exec read-objective <slug> --format md`.
+- **Frontmatter Verification**: the umbrella skill's rule — `ns objective check` when its probe succeeds, otherwise the portable edge inspection.
+- **Repo evidence tools**: `git` is the evidence backbone for baselines, branch windows, and freshness. Without `git`, refresh degrades honestly: no baseline or branch window exists, so verify claims against the current tree only (file presence, searches, help surfaces), claim no Git freshness, and report the reduced basis. `gt` and `gh` stay optional per their existing uses; a claim whose tool is unavailable follows the Verify-claims conversion rule rather than surviving as fact.
+
 ## Select targets
 
 Selection is mechanical — never ask a scope question:
@@ -27,7 +36,7 @@ Selection is mechanical — never ask a scope question:
   ```
 
   Reduce paths to slugs. Empty union → report that the branch evidences no Objective records and stop without writing.
-- **No slug, trunk** → every active open Objective from `ns objective list --names`.
+- **No slug, trunk** → every active open Objective from the active inventory (Capability adaptation above).
 
 `WT` is the current working directory unless the caller names another worktree. Every git operation uses `git -C "$WT"`; never check out another branch. Stop if `HEAD` is detached (`git -C "$WT" symbolic-ref --quiet --short HEAD` fails). Trunk is `gt trunk` when available, else the repo's configured default branch; if the sources disagree, stop and ask.
 
@@ -47,7 +56,7 @@ Write invariants, in addition to the never-commit absolute:
 
 Per slug:
 
-1. **Read the record.** `ns objective exec read-objective <slug> --format md` for deterministic inventory and closed-marker state; read `objective.md`, `roadmap.md`, and recent `updates/` as source material.
+1. **Read the record.** Run the record read (Capability adaptation above) for inventory and closed-marker state; read `objective.md`, `roadmap.md`, and recent `updates/` as source material.
 2. **Gather evidence** over the window:
 
    ```bash
@@ -66,7 +75,7 @@ Per slug:
 8. **Contract-diff.** Compare the rewrite against the extracted contract line by line: every verified purpose, boundary, progress fact, roadmap item, assumption, open question, and parked item is present or intentionally omitted with a stated reason, and the umbrella's required headings survive. Dropped or softened meaning is a bug — fix it before moving on.
 9. **Re-derive `orientation.md`** when one exists, per the umbrella's re-derivation rule; add one when the verified contract shows the Objective became orienting (its direction now binds unrelated agents). Never drop one.
 10. **Close when finished.** If the verified contract shows the completion criteria met and no material open work, close inline per the full `objective-close` semantics. The closure evidence goes in the selected Objective's Semantic Update below. Report `closure-ready` without closing only when the Objective explicitly requires a final evidence-gathering step this refresh has not run.
-    - **Closing inline carries `objective-close`'s connected-Objective propagation, not just its file mechanics.** Run that skill's per-counterpart disposition procedure against each edge-connected Objective. After any frontmatter edit, run `ns objective check --all` and fix every structural error before continuing.
+    - **Closing inline carries `objective-close`'s connected-Objective propagation, not just its file mechanics.** Run that skill's per-counterpart disposition procedure against each edge-connected Objective. After any frontmatter edit, apply the umbrella skill's Frontmatter Verification and fix every structural error before continuing.
 11. **Append at most one timestamped Semantic Update per changed Objective** when the refresh or close propagation records a meaningful finding, decision, blocker, risk change, completion event, plan change, follow-up, closure, or rebaseline. The selected Objective's update carries the decisive evidence and provenance breadcrumb below; each affected counterpart gets its own update describing only that counterpart's impact. Existing updates remain immutable.
 
     ```text
@@ -96,6 +105,6 @@ A claim that cannot be verified cheaply never stays as fact: convert it to an ex
 
 ## Report
 
-Return a compact report: worktree, branch, trunk, target SHA; per slug — baseline, action (`wrote`, `closed`, `noop`, `skipped-ambiguous`, `skipped-unverified`, `closure-ready`, `not-owned`), key claims verified/corrected/still-assumed, files edited and new Semantic Update filenames; for every edge-connected Objective of a closed slug, its propagation disposition, reason, files changed, and any newly closure-ready state; slugs that were already dirty; confirmation that the never-commit absolute and all write invariants held, and that any `closure-ready` (rather than `closed`) cites the Objective's explicit final evidence-gathering requirement.
+Return a compact report: worktree, branch, trunk, target SHA (or the degraded no-`git` basis); per slug — baseline, action (`wrote`, `closed`, `noop`, `skipped-ambiguous`, `skipped-unverified`, `closure-ready`, `not-owned`), key claims verified/corrected/still-assumed, files edited and new Semantic Update filenames; for every edge-connected Objective of a closed slug, its propagation disposition, reason, files changed, and any newly closure-ready state; slugs that were already dirty; confirmation that the never-commit absolute and all write invariants held, and that any `closure-ready` (rather than `closed`) cites the Objective's explicit final evidence-gathering requirement.
 
 Done when an immediate rerun would modify nothing — every refreshed record already matches its verified contract.

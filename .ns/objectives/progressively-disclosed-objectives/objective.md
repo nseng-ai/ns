@@ -9,7 +9,7 @@ The portable skill family is `objective`, `objective-create`, `objective-list`, 
 ## Scope
 
 - Record the portable-skills → `ns` enhancement → Pi integration architecture in a new ADR and reconcile the Objective, skill, package, and host-integration documentation with it.
-- Establish one canonical, capability-adaptive seven-skill family under `skills/incubating/objectives/`, independently installable through `npx skills` without an npm package dedicated only to skills.
+- Establish one canonical, capability-adaptive seven-skill family under `skills/incubating/objectives/`, independently installable through `npx skills` without an npm package dedicated only to skills. The tutorial acquisition form scopes discovery to the family subpath and installs every skill found there: `npx skills add nseng-ai/ns/skills/incubating/objectives --skill '*' --agent codex claude-code -y`.
 - Add `objective-list` with a deliberately small portable contract: list direct open records by slug and lifecycle only; include blocked-open records labeled `blocked`; omit closed records, titles, summaries, recency, dirty state, and branch attribution.
 - Delete `objective-critique` with a clean breaking cutover and remove its package, Pi, documentation, parity, and overlay references. Keep the name `objective-refresh`.
 - Give each of the seven portable skills a complete CLI-free procedure plus look-before-use capability adaptation. When the relevant `ns objective` capability exists, use it for deterministic acceleration or stronger guarantees; otherwise complete the portable workflow without pretending those guarantees exist.
@@ -48,7 +48,7 @@ The portable skill family is `objective`, `objective-create`, `objective-list`, 
 
 Assumptions:
 
-- `npx skills` can install the repository's canonical nested Objective skill directories without requiring a dedicated npm package, while flat skill identities remain stable in harnesses.
+- `npx skills` supports a repository subpath as its source: `nseng-ai/ns/skills/incubating/objectives` scopes discovery to the canonical Objective family, and `--skill '*'` selects all seven flat skill identities without enumerating them. This behavior is confirmed in the upstream CLI's source parser and scoped discovery implementation; checkout-independent end-to-end acquisition evidence remains open.
 - Capability-adaptive instructions can reliably detect the specific `ns objective` operation before using it and can remain understandable without duplicating excessive shell machinery.
 - The harness-artifact ownership model can distinguish `npx skills`-owned artifacts from extension-provisioned artifacts and can preserve ownership across install, update, and removal.
 - The curated `@nseng-ai/objectives/api` surface can support the extracted Pi integration without private imports; any missing interface can be added without moving Objective domain semantics into the host package.
@@ -69,5 +69,5 @@ Risks:
 - What exact capability probe should the seven portable skills use for each optional `ns objective` operation across supported harnesses?
 - What existing artifact manifest or installation metadata is sufficient to preserve `npx skills` ownership, and what extension installer change is needed when a portable skill is missing?
 - Which additions, if any, are required in `@nseng-ai/objectives/api` before `@nseng-ai/pi-ns-objectives` can consume only curated interfaces?
-- What checkout-independent fixture or smoke harness should prove `npx skills`, `ns`, and Pi installation/removal without coupling the evidence to this repository checkout?
+- What checkout-independent fixture or smoke harness should prove the documented family-subpath `npx skills` command, `ns`, and Pi installation/removal without coupling the evidence to this repository checkout?
 - After portability evidence lands, what separate review should decide whether the seven skills warrant promotion to `skills/public/objectives/`?
