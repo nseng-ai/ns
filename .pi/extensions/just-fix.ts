@@ -10,9 +10,10 @@ const { sendCommandProgressOrNotify, registerCommandWithImmediateAck } =
 const { LiveCommandProgress } = await importTypeScriptWorkspaceModule<
 	typeof import("@nseng-ai/pi-runtime/commands/cli-command-live-progress")
 >("@nseng-ai/pi-runtime/commands/cli-command-live-progress");
-const { requireRepoSkillBlock } = await importTypeScriptWorkspaceModule<
-	typeof import("@nseng-ai/pi-runtime/skills/expansion")
->("@nseng-ai/pi-runtime/skills/expansion");
+const { requireRepoSkillBlockFromPath, requireRepoSkillPath } =
+	await importTypeScriptWorkspaceModule<
+		typeof import("@nseng-ai/pi-runtime/skills/expansion")
+	>("@nseng-ai/pi-runtime/skills/expansion");
 
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
 const JUST_CI_TIMEOUT_MS = 30 * 60 * 1000;
@@ -146,9 +147,9 @@ async function runJustThenInvokeSkill(
 ): Promise<void> {
 	await ctx.waitForIdle();
 
-	let skill: Awaited<ReturnType<typeof requireRepoSkillBlock>>;
+	let skillPath: string;
 	try {
-		skill = await requireRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME });
+		skillPath = await requireRepoSkillPath({ cwd: ctx.cwd, skillName: SKILL_NAME });
 	} catch (error) {
 		if (ctx.hasUI) {
 			ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
@@ -180,6 +181,16 @@ async function runJustThenInvokeSkill(
 	if (result.code === 0 && !result.killed) {
 		if (ctx.hasUI) {
 			ctx.ui.notify(`\`${command.displayCommand}\` passed.`, "info");
+		}
+		return;
+	}
+
+	let skill: Awaited<ReturnType<typeof requireRepoSkillBlockFromPath>>;
+	try {
+		skill = await requireRepoSkillBlockFromPath({ skillName: SKILL_NAME, skillPath });
+	} catch (error) {
+		if (ctx.hasUI) {
+			ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
 		}
 		return;
 	}

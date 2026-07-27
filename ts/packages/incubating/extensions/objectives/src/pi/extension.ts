@@ -46,8 +46,8 @@ import {
 	type FullPiSurfaceParity,
 } from "@nseng-ai/pi-runtime/parity/extension";
 import {
-	requireRepoSkillBlock,
-	type ExpandedSkillBlock,
+	requireRepoSkillBlockFromPath,
+	requireRepoSkillPath,
 } from "@nseng-ai/pi-runtime/skills/expansion";
 import type {
 	AutocompleteItem,
@@ -110,7 +110,7 @@ interface ObjectiveInvocationContext<TSpec = ObjectiveCommandSpec> {
 }
 
 interface PreparedObjectiveInvocation extends ObjectiveInvocationContext {
-	skill: ExpandedSkillBlock;
+	skillPath: string;
 }
 
 interface SkillPreparationInvocation {
@@ -126,18 +126,22 @@ type HandleObjectiveCreateCommandOptions = InvokeObjectiveCreateSkillOptions;
 
 async function prepareObjectiveSkill<TInvocation extends SkillPreparationInvocation>(
 	invocation: TInvocation,
-): Promise<TInvocation & { skill: ExpandedSkillBlock }> {
+): Promise<TInvocation & { skillPath: string }> {
 	const { ctx, spec } = invocation;
 	await ctx.waitForIdle();
-	const skill = await requireRepoSkillBlock({ cwd: ctx.cwd, skillName: spec.skillName });
-	return { ...invocation, skill };
+	const skillPath = await requireRepoSkillPath({ cwd: ctx.cwd, skillName: spec.skillName });
+	return { ...invocation, skillPath };
 }
 
 async function invokeObjectiveSkill(
 	invocation: PreparedObjectiveInvocation,
 	objective: string,
 ): Promise<void> {
-	const { pi, ctx, spec, skill } = invocation;
+	const { pi, ctx, spec, skillPath } = invocation;
+	const skill = await requireRepoSkillBlockFromPath({
+		skillName: spec.skillName,
+		skillPath,
+	});
 	if (ctx.hasUI) {
 		ctx.ui.notify(`Invoking ${skill.name} for ${objective}.`, "info");
 	}
@@ -170,7 +174,11 @@ async function invokeObjectiveCreateSkill(
 ): Promise<void> {
 	const { pi, ctx, spec, rawArgs } = options;
 	const initialRequest = rawArgs.trim();
-	const { skill } = await prepareObjectiveSkill(options);
+	const { skillPath } = await prepareObjectiveSkill(options);
+	const skill = await requireRepoSkillBlockFromPath({
+		skillName: spec.skillName,
+		skillPath,
+	});
 
 	if (ctx.hasUI) {
 		ctx.ui.notify(

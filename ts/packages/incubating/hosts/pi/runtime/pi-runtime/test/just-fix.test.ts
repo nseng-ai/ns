@@ -286,11 +286,11 @@ Repair the failed just run.
 		});
 	});
 
-	test("runs the CI recipe excluding Reviews through just-ci", async () => {
+	test("deterministic just-ci success does not read or parse the required skill", async () => {
 		await withTempRepoSkill(
 			{
 				skillName: "code-just-fix",
-				markdown: "# Code Just Fix\n",
+				markdown: "---\nname: code-just-fix\n# Missing fence\n",
 				prefix: "passing-code-just-fix-skill-",
 			},
 			async ({ repoDir }) => {

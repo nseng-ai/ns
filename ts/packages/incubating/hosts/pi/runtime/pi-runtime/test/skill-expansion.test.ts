@@ -12,6 +12,7 @@ import {
 	invokeRepoSkillPromptTurn,
 	invokeSkillPromptTurn,
 	requireRepoSkillBlock,
+	requireRepoSkillPath,
 	resolveRepoSkillPath,
 	type SkillCommandInfo,
 } from "../src/kit/skills/expansion.ts";
@@ -594,7 +595,36 @@ async function captureError(operation: () => Promise<unknown>): Promise<Error> {
 	throw new Error("Expected operation to throw.");
 }
 
-describe("requireRepoSkillBlock", () => {
+describe("required repo skill loading", () => {
+	test("preflights the canonical path without reading or parsing content", async () => {
+		await withTempRepoSkill(
+			{
+				skillName: "objective-create",
+				markdown: "---\nname: objective-create\n# Missing fence\n",
+				prefix: "required-repo-skill-path-",
+			},
+			async ({ repoDir, skillPath }) => {
+				expect(await requireRepoSkillPath({ cwd: repoDir, skillName: "objective-create" })).toBe(
+					skillPath,
+				);
+			},
+		);
+	});
+
+	test("wraps missing-path preflight with its exact name, lookup detail, and cause", async () => {
+		await withTempGitRepo({ prefix: "missing-required-repo-skill-path-" }, async ({ repoDir }) => {
+			const thrown = await captureError(() =>
+				requireRepoSkillPath({ cwd: repoDir, skillName: "objective-create" }),
+			);
+
+			const detail =
+				`Could not find .agents/skills/objective-create/SKILL.md, ` +
+				`.claude/skills/objective-create/SKILL.md from ${repoDir}.`;
+			expect(thrown.message).toBe(`Could not load required skill "objective-create": ${detail}`);
+			expect(thrown.cause).toEqual(new Error(detail));
+		});
+	});
+
 	test("returns the expanded required repo skill", async () => {
 		await withTempRepoSkill(
 			{

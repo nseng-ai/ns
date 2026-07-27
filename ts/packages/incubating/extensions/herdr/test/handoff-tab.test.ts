@@ -493,6 +493,9 @@ class FakeHerdrNsApi implements NsExtensionApi {
 
 function fakeHandoffCreateSkillLoader(): HandoffCreateSkillLoader {
 	return {
+		async resolveCreateHandoffSkillPath() {
+			return "/repo/skills/handoff-create/SKILL.md";
+		},
 		async loadCreateHandoffSkill() {
 			return {
 				name: "handoff-create",

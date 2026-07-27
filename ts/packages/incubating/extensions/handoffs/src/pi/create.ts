@@ -50,9 +50,9 @@ export async function handleCreateHandoffCommand(
 	ctx: CommandContext,
 ): Promise<void> {
 	await ctx.waitForIdle();
-	let skill;
+	let skillPath: string;
 	try {
-		skill = await realHandoffCreateSkillLoader.loadCreateHandoffSkill(ctx.cwd);
+		skillPath = await realHandoffCreateSkillLoader.resolveCreateHandoffSkillPath(ctx.cwd);
 	} catch (error) {
 		ctx.ui.notify(formatErrorMessage(error), "error");
 		return;
@@ -60,6 +60,14 @@ export async function handleCreateHandoffCommand(
 
 	const focus = await resolveCreateFocus(pi, args, ctx);
 	if (focus === undefined) {
+		return;
+	}
+
+	let skill;
+	try {
+		skill = await realHandoffCreateSkillLoader.loadCreateHandoffSkill(skillPath);
+	} catch (error) {
+		ctx.ui.notify(formatErrorMessage(error), "error");
 		return;
 	}
 

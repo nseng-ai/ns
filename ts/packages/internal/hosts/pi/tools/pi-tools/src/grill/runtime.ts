@@ -5,7 +5,10 @@ import {
 	activateGrillAskTool,
 } from "@nseng-ai/pi-runtime/grill/surfaces";
 import type { NotifyLevel } from "@nseng-ai/pi-runtime/runtime/tool-types";
-import { requireRepoSkillBlock } from "@nseng-ai/pi-runtime/skills/expansion";
+import {
+	requireRepoSkillBlockFromPath,
+	requireRepoSkillPath,
+} from "@nseng-ai/pi-runtime/skills/expansion";
 
 import { buildGrillUiPrompt, buildGrillWithDocsUiPrompt } from "./prompts.ts";
 import type { ExtensionAPI, GrillUiCommandContext } from "./protocol.ts";
@@ -50,10 +53,9 @@ async function handleStructuredGrillCommand(
 	options: StructuredGrillCommandOptions,
 ): Promise<void> {
 	await ctx.waitForIdle();
-	let skillBlock: string;
+	let skillPath: string;
 	try {
-		skillBlock = (await requireRepoSkillBlock({ cwd: ctx.cwd, skillName: options.skillName }))
-			.block;
+		skillPath = await requireRepoSkillPath({ cwd: ctx.cwd, skillName: options.skillName });
 	} catch (error) {
 		notify(ctx, formatErrorMessage(error), "error");
 		return;
@@ -65,8 +67,16 @@ async function handleStructuredGrillCommand(
 		return;
 	}
 
-	// Activate only after both required inputs are ready: failed skill preflight must
-	// not open the editor, expose grill_ask, or send a model turn.
+	let skillBlock: string;
+	try {
+		skillBlock = (await requireRepoSkillBlockFromPath({ skillName: options.skillName, skillPath }))
+			.block;
+	} catch (error) {
+		notify(ctx, formatErrorMessage(error), "error");
+		return;
+	}
+
+	// Activate only after both required inputs are ready and skill content is loaded.
 	activateGrillAskTool(pi);
 	pi.sendUserMessage(options.buildPrompt(skillBlock, target));
 }

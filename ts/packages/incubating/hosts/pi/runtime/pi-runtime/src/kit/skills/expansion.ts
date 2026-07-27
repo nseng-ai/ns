@@ -176,14 +176,37 @@ export async function expandRepoSkillBlock(
 	});
 }
 
-export async function requireRepoSkillBlock(
-	options: RepoSkillExpansionOptions,
-): Promise<ExpandedSkillBlock> {
+export async function requireRepoSkillPath(options: RepoSkillPathResolveOptions): Promise<string> {
 	try {
-		return await expandRepoSkillBlock(options);
+		return await resolveRepoSkillPath(options);
 	} catch (error) {
 		throw requiredSkillError(options.skillName, error);
 	}
+}
+
+export async function requireRepoSkillBlockFromPath(
+	options: SkillPathExpansionOptions,
+): Promise<ExpandedSkillBlock> {
+	try {
+		return await expandSkillBlockFromPath(options);
+	} catch (error) {
+		throw requiredSkillError(options.skillName, error);
+	}
+}
+
+export async function requireRepoSkillBlock(
+	options: RepoSkillExpansionOptions,
+): Promise<ExpandedSkillBlock> {
+	const skillPath = await requireRepoSkillPath({
+		cwd: options.cwd,
+		skillName: options.skillName,
+		...skillLookupIoOptions(options),
+	});
+	return requireRepoSkillBlockFromPath({
+		skillName: options.skillName,
+		skillPath,
+		...optionalEntry("readTextFile", options.readTextFile),
+	});
 }
 
 export async function expandSkillBlockFromPath(

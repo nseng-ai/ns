@@ -194,11 +194,10 @@ export async function prepareHandoffCreateLaunch(
 		skillLoader?: HandoffCreateSkillLoader;
 	},
 ): Promise<PreparedHandoffCreateLaunch | undefined> {
-	let skill: ExpandedSkillBlock;
+	const skillLoader = options.skillLoader ?? realHandoffCreateSkillLoader;
+	let skillPath: string;
 	try {
-		skill = await (options.skillLoader ?? realHandoffCreateSkillLoader).loadCreateHandoffSkill(
-			ctx.cwd,
-		);
+		skillPath = await skillLoader.resolveCreateHandoffSkillPath(ctx.cwd);
 	} catch (error) {
 		ctx.ui.notify(formatErrorMessage(error), "error");
 		return undefined;
@@ -227,6 +226,14 @@ export async function prepareHandoffCreateLaunch(
 	const preflight = await options.preflight?.({ pi, ctx, request });
 	if (preflight?.type === "failed") {
 		ctx.ui.notify(preflight.message, "error");
+		return undefined;
+	}
+
+	let skill: ExpandedSkillBlock;
+	try {
+		skill = await skillLoader.loadCreateHandoffSkill(skillPath);
+	} catch (error) {
+		ctx.ui.notify(formatErrorMessage(error), "error");
 		return undefined;
 	}
 
