@@ -29,6 +29,8 @@ explained from zero.
 
 Anything you'd especially like reviewers to pay attention to.
 
+**PR:** [#<number>](url)
+
 ---
 
 *PR description co-authored with `/pr-make-accountable` using `<model>` in `<harness>`.*
@@ -137,7 +139,10 @@ only when the draft or final report states them honestly.
 
 Draft only from the shared interview record. Include intent, accepted risks, and
 judgment calls that the diff cannot communicate. Keep length proportional to the
-decision surface, not line count.
+decision surface, not line count. End the description with
+`**PR:** [#<number>](<url>)`, replacing the placeholders with the PR number and
+canonical URL from the inventory. Put this link immediately before the horizontal
+rule and provenance footer.
 
 In `## Changes`:
 
