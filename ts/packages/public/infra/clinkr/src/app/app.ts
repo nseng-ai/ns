@@ -17,8 +17,8 @@ import {
 } from "./command-definition.ts";
 import {
 	decodeCommandOutcome,
-	envelopeJsonText,
 	exitCodeFor,
+	stableJsonText,
 	toEnvelope,
 	type CommandOutcome,
 	type UsageErrorOutcome,
@@ -176,7 +176,7 @@ class FilesystemClinkrApp<TContext> {
 			);
 		}
 		if (jsonSchema) {
-			io.stdout(`${envelopeJsonText(buildCommandJsonSchemaDocument(definition))}\n`);
+			io.stdout(`${stableJsonText(buildCommandJsonSchemaDocument(definition))}\n`);
 			return 0;
 		}
 		let request: Record<string, unknown>;
@@ -351,12 +351,15 @@ function parseArgv(
 		: { success: false, message: z.prettifyError(parsed.error) };
 }
 
+/** Usage-error discriminants the framework itself emits (handlers own other values). */
+type FrameworkUsageErrorType = "invalid-request" | "invalid-json-input";
+
 function parseJsonInput(
 	text: string,
 	schema: z.ZodObject,
 ):
 	| { success: true; data: unknown }
-	| { success: false; message: string; errorType: string; data?: unknown } {
+	| { success: false; message: string; errorType: FrameworkUsageErrorType; data?: unknown } {
 	const normalized = text.startsWith("\uFEFF") ? text.slice(1) : text;
 	if (normalized.trim() === "")
 		return { success: false, message: "stdin is empty", errorType: "invalid-json-input" };
@@ -412,7 +415,12 @@ interface GlobalFlags {
 	readonly help: boolean;
 	readonly jsonSchema: boolean;
 	readonly inputJson: boolean;
-	/** argv with every global flag (and `--format` value) removed. */
+	/**
+	 * argv with every global flag (and `--format` value) removed. Everything
+	 * from the first top-level `--` onward is passed through verbatim,
+	 * including the `--` itself, so commander can apply its standard
+	 * end-of-options handling.
+	 */
 	readonly rest: readonly string[];
 }
 
@@ -432,6 +440,11 @@ type GlobalFlagsResult =
  * `--input-json`, `--json-schema`). One pass over argv; the commander
  * registrations for these flags in {@link buildCommandSurface} are
  * help-display-only and never parse them.
+ *
+ * A bare `--` terminates global-flag scanning: it and every following token
+ * flow to `rest` unchanged (commander then treats the tokens after `--` as
+ * positionals), so command arguments that look like global flags can be
+ * escaped.
  */
 function parseGlobalFlags(argv: readonly string[]): GlobalFlagsResult {
 	const formatValues: string[] = [];
@@ -443,6 +456,10 @@ function parseGlobalFlags(argv: readonly string[]): GlobalFlagsResult {
 	for (let index = 0; index < argv.length; index += 1) {
 		const argument = argv[index];
 		if (argument === undefined) continue;
+		if (argument === "--") {
+			rest.push(...argv.slice(index));
+			break;
+		}
 		if (argument === "--help" || argument === "-h") help = true;
 		else if (argument === "--json-schema") jsonSchema = true;
 		else if (argument === "--input-json") inputJsonCount += 1;
@@ -488,7 +505,7 @@ function emitOutcome(
 	format: "human" | "json" | "md",
 ): void {
 	if (format === "json") {
-		io.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
+		io.stdout(`${stableJsonText(toEnvelope(outcome))}\n`);
 		return;
 	}
 	if (outcome.status === "success") {
@@ -499,7 +516,7 @@ function emitOutcome(
 				: definition.renderHuman;
 		const text =
 			renderer === undefined
-				? envelopeJsonText(outcome.data)
+				? stableJsonText(outcome.data)
 				: renderer(outcome.data, { canEmitAnsi: io.canEmitAnsi === true });
 		io.stdout(`${text}\n`);
 		return;
@@ -515,7 +532,7 @@ function emitUsageError(
 	io: ClinkrIo,
 	format: OutputFormat,
 	message: string,
-	errorType: string,
+	errorType: FrameworkUsageErrorType,
 	data?: unknown,
 ): number {
 	const outcome: UsageErrorOutcome = {
@@ -524,7 +541,7 @@ function emitUsageError(
 		message,
 		...(data === undefined ? {} : { data }),
 	};
-	if (format === "json") io.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
+	if (format === "json") io.stdout(`${stableJsonText(toEnvelope(outcome))}\n`);
 	else io.stderr(`${message}\n`);
 	return exitCodeFor(outcome.status);
 }
