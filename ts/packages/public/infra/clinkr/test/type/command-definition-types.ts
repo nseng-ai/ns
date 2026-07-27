@@ -6,11 +6,14 @@ import {
 	ok,
 	usageError,
 } from "@nseng-ai/clinkr/app";
+import { defineRawCommand, type ContextfulRawCommandInvocation } from "@nseng-ai/clinkr/raw";
 import { z } from "zod";
 
 type IsAny<T> = 0 extends 1 & T ? true : false;
 type Assert<T extends true> = T;
 type Not<T extends boolean> = T extends true ? false : true;
+type IsEqual<A, B> =
+	(<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 
 const requestSchema = z.object({ count: z.number() });
 const resultSchema = z.object({ value: z.string() });
@@ -78,3 +81,46 @@ const contextfulApp = createClinkrApp<Context>({
 void contextfulApp.run([], { context: { prefix: "x" } });
 // @ts-expect-error contextful invocation requires context.
 void contextfulApp.run([]);
+
+// Raw definitions: invocation objects, numeric exit status, and the shared
+// requiresContext discriminant.
+const rawContextFree = defineRawCommand({
+	run: ({ argv, io }) => {
+		type ArgvIsReadonly = Assert<IsEqual<typeof argv, readonly string[]>>;
+		const argvIsReadonly: ArgvIsReadonly = true;
+		void argvIsReadonly;
+		io.stdout(argv.join(" "));
+		return argv.length;
+	},
+});
+void rawContextFree;
+
+// Async numeric exit status is accepted.
+defineRawCommand({ run: async () => 0 });
+
+const rawContextful = defineRawCommand<Context>({
+	requiresContext: true,
+	run: ({ context, argv, io }) => {
+		type ContextIsNotAny = Assert<Not<IsAny<typeof context>>>;
+		const contextIsNotAny: ContextIsNotAny = true;
+		void contextIsNotAny;
+		io.stdout(context.prefix + argv.length);
+		return 0;
+	},
+});
+void rawContextful;
+
+// @ts-expect-error raw definitions require run.
+defineRawCommand({});
+// @ts-expect-error raw run must return a numeric exit status.
+defineRawCommand({ run: () => "0" });
+// @ts-expect-error raw run cannot return a structured outcome.
+defineRawCommand({ run: () => ok() });
+// @ts-expect-error raw definitions cannot declare structured-only members (schema).
+defineRawCommand({ run: () => 0, schema: requestSchema });
+// @ts-expect-error raw definitions cannot declare structured-only members (handler).
+defineRawCommand({ run: () => 0, handler: async () => ok() });
+// @ts-expect-error raw definitions cannot declare structured-only members (renderers).
+defineRawCommand({ run: () => 0, renderHuman: () => "" });
+// @ts-expect-error contextful raw run requires the requiresContext discriminant.
+defineRawCommand({ run: (_invocation: ContextfulRawCommandInvocation<Context>) => 0 });

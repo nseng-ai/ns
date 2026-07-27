@@ -8,12 +8,7 @@ export type {
 	CreateContextFreeClinkrAppOptions,
 	CreateContextfulClinkrAppOptions,
 } from "./app.ts";
-export {
-	buildCommandJsonSchemaDocument,
-	cliOption,
-	cliPositional,
-	defineCommand,
-} from "./command-definition.ts";
+export { cliOption, cliPositional, defineCommand } from "./command-definition.ts";
 export type {
 	ClinkrCommandDefinition,
 	ClinkrCommandJsonSchemaDocument,
@@ -28,15 +23,11 @@ export type {
 	RenderCapabilities,
 	ResultOf,
 } from "./command-definition.ts";
-export {
-	buildEnvelopeSchema,
-	exitCodeFor,
-	failure,
-	negative,
-	ok,
-	toEnvelope,
-	usageError,
-} from "./outcome.ts";
+// Internal envelope/schema policy (buildCommandJsonSchemaDocument,
+// buildEnvelopeSchema, exitCodeFor, toEnvelope) is deliberately not exported:
+// Clinkr alone builds envelopes and the --json-schema document; consumers
+// observe them through app output.
+export { failure, negative, ok, usageError } from "./outcome.ts";
 export type {
 	CommandOutcome,
 	FailureOutcome,

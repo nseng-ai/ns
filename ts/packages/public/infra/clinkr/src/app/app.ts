@@ -1,9 +1,9 @@
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
 import { Command, CommanderError, Option } from "commander";
 import { z } from "zod";
 
+import { stripAnsi } from "../ansi.ts";
 import type { ClinkrIo } from "../io.ts";
 import { createProcessIo } from "../io.ts";
 import { buildSurfacePlan, type SurfacePlan } from "../surface.ts";
@@ -12,8 +12,6 @@ import {
 	cliAnnotationFor,
 	type ClinkrCommandDefinition,
 	type ClinkrCommandMetadata,
-	type ContextFreeCommandDefinition,
-	type ContextfulCommandDefinition,
 } from "./command-definition.ts";
 import {
 	decodeCommandOutcome,
@@ -23,6 +21,7 @@ import {
 	type CommandOutcome,
 	type UsageErrorOutcome,
 } from "./outcome.ts";
+import { importSelectedCommand, type LoadedSelectedCommand } from "./selected-command.ts";
 
 export interface ClinkrRunOptions<TContext> {
 	readonly context: TContext;
@@ -62,85 +61,26 @@ export interface CreateContextfulClinkrAppOptions extends CreateClinkrAppBase {
 	readonly requiresContext: true;
 }
 
-interface LoadedCommandModule {
-	command: () => Promise<unknown>;
-}
-
-interface LoadedMetadataModule {
-	metadata: () => unknown;
-}
-
-function isExactCommandModule(value: unknown): value is LoadedCommandModule {
-	return isExactFunctionModule(value, "command");
-}
-
-function isExactMetadataModule(value: unknown): value is LoadedMetadataModule {
-	return isExactFunctionModule(value, "metadata");
-}
-
-function isExactFunctionModule(value: unknown, exportName: "command" | "metadata"): boolean {
-	if (typeof value !== "object" || value === null) return false;
-	const record = value as Record<string, unknown>;
-	return Object.keys(record).length === 1 && typeof record[exportName] === "function";
-}
-
-const commandMetadataSchema = z.strictObject({
-	description: z.string(),
-	summary: z.string().optional(),
-	aliases: z.array(z.string()).readonly().optional(),
-	hidden: z.boolean().optional(),
-	helpGroup: z.string().optional(),
-});
-
-function isCommandMetadata(value: unknown): value is ClinkrCommandMetadata {
-	if (!commandMetadataSchema.safeParse(value).success) return false;
-	// Drift guard (one-directional): every `ClinkrCommandMetadata` must remain
-	// a valid `commandMetadataSchema` output, so the schema cannot silently
-	// narrow below the interface; the annotation collapses to `never` on drift.
-	// The reverse direction is not asserted because zod v4 `.optional()`
-	// inference adds `| undefined`, which `exactOptionalPropertyTypes` rejects
-	// against the interface's plain optional properties.
-	const schemaCoversInterface: ClinkrCommandMetadata extends z.infer<typeof commandMetadataSchema>
-		? true
-		: never = true;
-	return schemaCoversInterface;
-}
-
-const DEFINITION_KEYS = new Set([
-	"schema",
-	"resultSchema",
-	"renderHuman",
-	"renderMarkdown",
-	"handler",
-	"completionProvider",
-	"requiresContext",
-]);
-
-function isCommandDefinition(value: unknown): value is ClinkrCommandDefinition<unknown> {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-	const record = value as Record<string, unknown>;
-	if (Object.keys(record).some((key) => !DEFINITION_KEYS.has(key))) return false;
-	if (!(record.schema instanceof z.ZodObject) || typeof record.handler !== "function") return false;
-	if (record.requiresContext !== undefined && record.requiresContext !== true) return false;
-	if (record.resultSchema !== undefined && !(record.resultSchema instanceof z.ZodType)) {
-		return false;
+/**
+ * Runtime context boundary: contextful execution (structured or raw) requires
+ * a present, defined `context` in run options. TypeScript callers cannot omit
+ * it, but JavaScript and other untyped callers can; this check guarantees no
+ * contextful handler or raw runner ever receives an absent context.
+ */
+function requireRunContext<TContext>(
+	options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions,
+): TContext {
+	if (!("context" in options) || options.context === undefined) {
+		throw new Error("clinkr: contextful command execution requires run options with context");
 	}
-	for (const key of ["renderHuman", "renderMarkdown", "completionProvider"] as const) {
-		if (record[key] !== undefined && typeof record[key] !== "function") return false;
-	}
-	return true;
-}
-
-interface LoadedCommand<TContext> {
-	readonly definition: ClinkrCommandDefinition<TContext>;
-	readonly metadata: ClinkrCommandMetadata;
+	return options.context;
 }
 
 class FilesystemClinkrApp<TContext> {
 	private readonly name: string;
 	private readonly commandDirectory: string;
 	readonly requiresContext: boolean;
-	private loaded: Promise<LoadedCommand<TContext>> | undefined;
+	private loaded: Promise<LoadedSelectedCommand<TContext>> | undefined;
 
 	constructor(options: CreateClinkrAppBase & { requiresContext: boolean }) {
 		if (!path.isAbsolute(options.commandDirectory)) {
@@ -156,10 +96,23 @@ class FilesystemClinkrApp<TContext> {
 		options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions = {},
 	): Promise<number> {
 		const io = options.io ?? createProcessIo();
-		const { definition, metadata } = await this.loadDefinition();
-		if ((definition.requiresContext === true) !== this.requiresContext) {
+		const { selected, metadata } = await this.loadDefinition();
+		if ((selected.definition.requiresContext === true) !== this.requiresContext) {
 			throw new Error("clinkr: selected command context mode does not match the app");
 		}
+		if (selected.kind === "raw") {
+			// Raw dispatch branches before structured global-flag parsing: the raw
+			// command owns its entire argv tail (including `--format`,
+			// `--input-json`, `--json-schema`, `--help`, and `--`), all output
+			// bytes, stdin, and the numeric exit status, which passes through
+			// unchanged.
+			const definition = selected.definition;
+			if (definition.requiresContext === true) {
+				return await definition.run({ context: requireRunContext(options), argv, io });
+			}
+			return await definition.run({ argv, io });
+		}
+		const definition = selected.definition;
 		const parsed = parseGlobalFlags(argv);
 		if (parsed.ok ? parsed.flags.help : parsed.help) {
 			io.stdout(buildCommandSurface(this.name, definition, metadata).command.helpInformation());
@@ -209,44 +162,27 @@ class FilesystemClinkrApp<TContext> {
 				return emitUsageError(io, format, parsedArgv.message, "invalid-request");
 			request = parsedArgv.data as Record<string, unknown>;
 		}
-		const handlerResult: unknown = this.requiresContext
-			? await (definition as ContextfulCommandDefinition<TContext>).handler(
-					(options as ClinkrRunOptions<TContext>).context,
-					request,
-				)
-			: await (definition as ContextFreeCommandDefinition).handler(request);
+		const handlerResult: unknown =
+			definition.requiresContext === true
+				? await definition.handler(requireRunContext(options), request)
+				: await definition.handler(request);
 		const outcome = decodeCommandOutcome(handlerResult, definition.resultSchema);
 		emitOutcome(io, outcome, definition, format);
 		return exitCodeFor(outcome.status);
 	}
 
-	private async loadDefinition(): Promise<LoadedCommand<TContext>> {
+	// Transactional selected loading: concurrent requests share in-flight work,
+	// successful loads cache for the app lifetime, and failed loads clear so a
+	// later request can retry.
+	private async loadDefinition(): Promise<LoadedSelectedCommand<TContext>> {
 		if (this.loaded !== undefined) return this.loaded;
-		this.loaded = this.importDefinition();
+		this.loaded = importSelectedCommand<TContext>(this.commandDirectory);
 		try {
 			return await this.loaded;
 		} catch (error) {
 			this.loaded = undefined;
 			throw error;
 		}
-	}
-
-	private async importDefinition(): Promise<LoadedCommand<TContext>> {
-		const commandPath = path.join(this.commandDirectory, "command.ts");
-		const metadataPath = path.join(this.commandDirectory, "metadata.ts");
-		const metadataModule: unknown = await import(pathToFileURL(metadataPath).href);
-		if (!isExactMetadataModule(metadataModule))
-			throw new Error(`clinkr: malformed metadata module ${metadataPath}`);
-		const metadata = metadataModule.metadata();
-		if (!isCommandMetadata(metadata))
-			throw new Error(`clinkr: malformed command metadata ${metadataPath}`);
-		const module: unknown = await import(pathToFileURL(commandPath).href);
-		if (!isExactCommandModule(module))
-			throw new Error(`clinkr: malformed command module ${commandPath}`);
-		const definition = await module.command();
-		if (!isCommandDefinition(definition))
-			throw new Error(`clinkr: malformed command definition ${commandPath}`);
-		return { definition: definition as ClinkrCommandDefinition<TContext>, metadata };
 	}
 }
 
@@ -518,7 +454,11 @@ function emitOutcome(
 			renderer === undefined
 				? stableJsonText(outcome.data)
 				: renderer(outcome.data, { canEmitAnsi: io.canEmitAnsi === true });
-		io.stdout(`${text}\n`);
+		// Framework-owned safety net: `canEmitAnsi` is advisory to renderers, but
+		// plain sinks must never receive escapes even when a renderer ignores the
+		// capability. Stripping stable JSON fallback text is a no-op because
+		// JSON.stringify escapes control characters.
+		io.stdout(`${io.canEmitAnsi === true ? text : stripAnsi(text)}\n`);
 		return;
 	}
 	if (outcome.status === "negative") {

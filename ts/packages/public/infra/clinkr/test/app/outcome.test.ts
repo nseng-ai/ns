@@ -1,16 +1,15 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
+import { failure, negative, ok, usageError } from "@nseng-ai/clinkr/app";
+// Envelope/schema policy helpers are package-internal (not exported from
+// @nseng-ai/clinkr/app); these narrow unit tests import them package-privately.
 import {
 	buildEnvelopeSchema,
 	exitCodeFor,
-	failure,
-	negative,
-	ok,
+	stableJsonText,
 	toEnvelope,
-	usageError,
-} from "@nseng-ai/clinkr/app";
-import { stableJsonText } from "../../src/app/outcome.ts";
+} from "../../src/app/outcome.ts";
 
 describe("outcome constructors", () => {
 	test("ok() carries an explicit undefined payload", () => {
