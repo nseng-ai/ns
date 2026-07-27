@@ -1,123 +1,56 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { afterEach, expect, test } from "vitest";
-import { z } from "zod";
+import { expect, test } from "vitest";
 
-import { createClinkrApp, failure, negative, ok, usageError } from "@nseng-ai/clinkr/app";
+import { createClinkrApp } from "@nseng-ai/clinkr/app";
 import { runForTest } from "@nseng-ai/clinkr/app/testing";
+import { app } from "./fixtures/readme-greet/app.ts";
 
-const temporaryDirectories: string[] = [];
+// Every app below is built over a committed fixture directory, so the real
+// loader runs once per fixture and the modules stay in the shared Vitest
+// module cache. Loader-contract tests that need freshly written malformed
+// modules live in test/integration/app-module-contract.test.ts.
+const FIXTURES_DIRECTORY = path.join(import.meta.dirname, "fixtures");
 
-afterEach(async () => {
-	await Promise.all(
-		temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true })),
+function fixtureApp(name: string) {
+	return createClinkrApp({
+		name: "fixture",
+		commandDirectory: path.join(FIXTURES_DIRECTORY, name),
+	});
+}
+
+const argvProjectionApp = fixtureApp("argv-projection");
+const countingApp = fixtureApp("counting");
+const echoOutcomeApp = fixtureApp("echo-outcome");
+const typedResultApp = fixtureApp("typed-result");
+const misbehavingApp = fixtureApp("misbehaving");
+const schemaPolicyApp = fixtureApp("schema-policy");
+const refinedApp = fixtureApp("refined");
+
+// Fixture module state is shared across tests (`isolate: false`), so counter
+// reads use the same dynamic-import resolution as the app's own loader and
+// tests assert deltas, never absolutes.
+async function handlerCalls(): Promise<number> {
+	const counterModule: unknown = await import(
+		path.join(FIXTURES_DIRECTORY, "counting", "counter.ts")
 	);
-});
-
-async function createCommandDirectory(input: {
-	readonly metadataSource?: string;
-	readonly commandSource?: string;
-}): Promise<string> {
-	const directory = await mkdtemp(path.join(import.meta.dirname, ".clinkr-public-seam-"));
-	temporaryDirectories.push(directory);
-	await Promise.all([
-		writeFile(path.join(directory, "counter.ts"), "export const counter = { handlerCalls: 0 };\n"),
-		writeFile(
-			path.join(directory, "metadata.ts"),
-			input.metadataSource ??
-				'export function metadata() { return { description: "Fixture command." }; }\n',
-		),
-		writeFile(
-			path.join(directory, "command.ts"),
-			input.commandSource ??
-				'import { defineCommand, ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({}), handler: async () => ok() }); }\n',
-		),
-	]);
-	return directory;
+	if (!isCounterModule(counterModule)) throw new Error("Malformed counting fixture module");
+	return counterModule.counter.handlerCalls;
 }
 
-test("metadata modules require the exact metadata() export", async () => {
-	const commandDirectory = await createCommandDirectory({
-		metadataSource:
-			'export function metadata() { return { description: "Fixture command." }; }\nexport const extra = true;\n',
-	});
-	const app = createClinkrApp({ name: "fixture", commandDirectory });
-	await expect(app.run([])).rejects.toThrow("malformed metadata module");
-});
-
-test.each(["summary", "hidden", "helpGroup", "unexpected"])(
-	"metadata() rejects unused %s values",
-	async (key) => {
-		const commandDirectory = await createCommandDirectory({
-			metadataSource: `export function metadata() { return { description: "Fixture command.", ${key}: true }; }\n`,
-		});
-		const app = createClinkrApp({ name: "fixture", commandDirectory });
-		await expect(app.run([])).rejects.toThrow("malformed command metadata");
-	},
-);
-
-test("command modules require the exact command() export", async () => {
-	const commandDirectory = await createCommandDirectory({
-		commandSource:
-			'import { defineCommand, ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({}), handler: async () => ok() }); }\nexport const extra = true;\n',
-	});
-	const app = createClinkrApp({ name: "fixture", commandDirectory });
-	await expect(app.run([])).rejects.toThrow("malformed command module");
-});
-
-for (const [label, commandSource] of [
-	[
-		"unknown keys",
-		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), handler: async () => ok(), extra: true }; }\n',
-	],
-	[
-		"retired per-status schema keys",
-		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), negativeSchema: z.object({}), handler: async () => ok() }; }\n',
-	],
-	[
-		"invalid schemas",
-		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), resultSchema: {}, handler: async () => ok() }; }\n',
-	],
-	[
-		"invalid renderers",
-		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), renderHuman: "no", handler: async () => ok() }; }\n',
-	],
-	[
-		"invalid context discriminants",
-		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { requiresContext: false, schema: z.object({}), handler: async () => ok() }; }\n',
-	],
-] as const) {
-	test(`selected definitions reject ${label}`, async () => {
-		const commandDirectory = await createCommandDirectory({ commandSource });
-		await expect(createClinkrApp({ name: "fixture", commandDirectory }).run([])).rejects.toThrow(
-			"malformed command definition",
-		);
-	});
-}
-
-test("--help renders the metadata description and aliases", async () => {
-	const commandDirectory = await createCommandDirectory({
-		metadataSource:
-			'export function metadata() { return { description: "Greets the caller.", aliases: ["hello"] }; }\n',
-	});
-	const app = createClinkrApp({ name: "fixture", commandDirectory });
-	const run = await runForTest(app, ["--help"]);
+test("a plain invocation runs the handler exactly once (fixture-cache control)", async () => {
+	const before = await handlerCalls();
+	const run = await runForTest(countingApp, []);
 	expect(run.exitCode).toBe(0);
-	expect(run.stdout).toContain("Greets the caller.");
-	expect(run.stdout).toContain("hello");
+	expect((await handlerCalls()) - before).toBe(1);
 });
 
 test.each([["--help"], ["--json-schema"], ["--unknown"]])(
 	"%s neither reads stdin nor invokes the handler",
 	async (flag) => {
 		let stdinReads = 0;
-		const commandDirectory = await createCommandDirectory({
-			commandSource:
-				'import { defineCommand, ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nimport { counter } from "./counter.ts";\nexport async function command() { return defineCommand({ schema: z.object({}), handler: async () => { counter.handlerCalls += 1; return ok(); } }); }\n',
-		});
-		const app = createClinkrApp({ name: "fixture", commandDirectory });
-		const run = await runForTest(app, [flag], {
+		const before = await handlerCalls();
+		const run = await runForTest(countingApp, [flag], {
 			io: {
 				stdout: () => {},
 				stderr: () => {},
@@ -127,24 +60,16 @@ test.each([["--help"], ["--json-schema"], ["--unknown"]])(
 				},
 			},
 		});
-		const counterModule: unknown = await import(path.join(commandDirectory, "counter.ts"));
-		if (!isCounterModule(counterModule)) throw new Error("Malformed test counter module");
 		expect(run.exitCode).toBe(flag === "--unknown" ? 2 : 0);
-		expect({ stdinReads, handlerCalls: counterModule.counter.handlerCalls }).toEqual({
+		expect({ stdinReads, handlerCallsDelta: (await handlerCalls()) - before }).toEqual({
 			stdinReads: 0,
-			handlerCalls: 0,
+			handlerCallsDelta: 0,
 		});
 	},
 );
 
 test("JSON Schema exposes the unified four-arm envelope union", async () => {
-	const commandDirectory = await createCommandDirectory({
-		commandSource:
-			'import { defineCommand, ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({ name: z.string() }), resultSchema: z.object({ result: z.string() }), handler: async () => ok({ result: "ok" }) }); }\n',
-	});
-	const run = await runForTest(createClinkrApp({ name: "fixture", commandDirectory }), [
-		"--json-schema",
-	]);
+	const run = await runForTest(await app(), ["--json-schema"]);
 	const document = JSON.parse(run.stdout) as {
 		machineEnvelopeJsonSchema: { anyOf: readonly Record<string, unknown>[] };
 	};
@@ -156,82 +81,141 @@ test("JSON Schema exposes the unified four-arm envelope union", async () => {
 });
 
 test("bodyless success omits data from JSON", async () => {
-	const commandDirectory = await createCommandDirectory({});
-	const run = await runForTest(createClinkrApp({ name: "fixture", commandDirectory }), [
-		"--format=json",
-	]);
+	const run = await runForTest(countingApp, ["--format=json"]);
 	expect(JSON.parse(run.stdout)).toEqual({ status: "success", exitCode: 0 });
 });
 
-const emptySchema = z.object({});
-
-function injectLoadedDefinition(app: unknown, definition: unknown): void {
-	Object.defineProperty(app, "loaded", {
-		value: Promise.resolve({
-			definition,
-			metadata: { description: "Fixture command." },
-		}),
+test("runForTest captures while teeing custom I/O exactly once", async () => {
+	const stdoutWrites: string[] = [];
+	const stderrWrites: string[] = [];
+	const run = await runForTest(echoOutcomeApp, ["--input-json"], {
+		stdin: '{"outcome":{"status":"failure","errorType":"failed","message":"boom"}}',
+		io: {
+			stdout: (text) => stdoutWrites.push(text),
+			stderr: (text) => stderrWrites.push(text),
+		},
 	});
-}
+	expect(run).toEqual({ exitCode: 2, stdout: "", stderr: "boom\n" });
+	expect(stdoutWrites).toEqual([]);
+	expect(stderrWrites).toEqual(["boom\n"]);
+});
 
-test("success data is validated against resultSchema", async () => {
-	const commandDirectory = await createCommandDirectory({});
-	const app = createClinkrApp({ name: "fixture", commandDirectory });
-	injectLoadedDefinition(app, {
-		schema: emptySchema,
-		resultSchema: z.object({ value: z.string() }),
-		handler: async () => ok({ value: 1 }),
+test("runForTest preserves custom capabilities and explicit stdin precedence", async () => {
+	let suppliedStdinReads = 0;
+	const caps = {
+		isTty: true,
+		colorDepth: "ansi16" as const,
+		columns: 120,
+		canRenderUnicode: true,
+	};
+	const run = await runForTest(typedResultApp, ["--input-json"], {
+		stdin: '{"name":"explicit"}',
+		io: {
+			stdout: () => {},
+			stderr: () => {},
+			readStdin: async () => {
+				suppliedStdinReads += 1;
+				return '{"name":"supplied"}';
+			},
+			caps,
+			canEmitAnsi: true,
+		},
 	});
-	await expect(app.run([])).rejects.toThrow();
+	expect(run).toEqual({ exitCode: 0, stdout: "ansi:EXPLICIT\n", stderr: "" });
+	expect(suppliedStdinReads).toBe(0);
+});
+
+test("success data is decoded through resultSchema before rendering", async () => {
+	const run = await runForTest(typedResultApp, []);
+	expect(run).toMatchObject({ exitCode: 0, stdout: "plain:ADA\n", stderr: "" });
+});
+
+test("success data that fails resultSchema decoding is a programmer error", async () => {
+	await expect(runForTest(misbehavingApp, ["--mode", "bad-result"])).rejects.toThrow();
 });
 
 test("success without resultSchema rejects a data payload", async () => {
-	const commandDirectory = await createCommandDirectory({});
-	const app = createClinkrApp({ name: "fixture", commandDirectory });
-	injectLoadedDefinition(app, { schema: emptySchema, handler: async () => ok("data") });
-	await expect(app.run([])).rejects.toThrow("success outcome data requires a resultSchema");
+	await expect(
+		runForTest(echoOutcomeApp, ["--input-json"], {
+			stdin: '{"outcome":{"status":"success","data":"data"}}',
+		}),
+	).rejects.toThrow("success outcome data requires a resultSchema");
 });
 
-for (const [label, outcome, exitCode] of [
-	["negative", negative("no", { data: { anything: [1, "x"] } }), 1],
-	["failure", failure("failed", "failed", "freeform"), 2],
-	["usage error", usageError("invalid", [true]), 2],
+for (const [label, outcome, status, expectedData, exitCode] of [
+	[
+		"negative",
+		{ status: "negative", message: "no", data: { anything: [1, "x"] } },
+		"negative",
+		{ anything: [1, "x"] },
+		1,
+	],
+	[
+		"failure",
+		{ status: "failure", errorType: "failed", message: "failed", data: "freeform" },
+		"failure",
+		"freeform",
+		2,
+	],
+	[
+		"usage error",
+		{ status: "usage-error", errorType: "usage-error", message: "invalid", data: [true] },
+		"usage-error",
+		[true],
+		2,
+	],
 ] as const) {
 	test(`${label} data passes through to the envelope unvalidated`, async () => {
-		const commandDirectory = await createCommandDirectory({});
-		const app = createClinkrApp({ name: "fixture", commandDirectory });
-		injectLoadedDefinition(app, { schema: emptySchema, handler: async () => outcome });
-		const run = await runForTest(app, ["--format=json"]);
+		const run = await runForTest(echoOutcomeApp, ["--input-json", "--format=json"], {
+			stdin: JSON.stringify({ outcome }),
+		});
 		expect(run.exitCode).toBe(exitCode);
-		expect(JSON.parse(run.stdout)).toMatchObject({ status: outcome.status, data: outcome.data });
+		expect(JSON.parse(run.stdout)).toMatchObject({ status, data: expectedData });
 	});
 }
 
 for (const [label, outcome, exitCode] of [
-	["success", ok(), 0],
-	["negative", negative("no", { data: undefined }), 1],
-	["failure", failure("failed", "failed", undefined), 2],
-	["usage error", usageError("invalid", undefined), 2],
+	["success", { status: "success" }, 0],
+	["negative", { status: "negative", message: "no" }, 1],
+	["failure", { status: "failure", errorType: "failed", message: "failed" }, 2],
+	["usage error", { status: "usage-error", errorType: "usage-error", message: "invalid" }, 2],
 ] as const) {
 	test(`undefined ${label} data is omitted from the envelope`, async () => {
-		const commandDirectory = await createCommandDirectory({});
-		const app = createClinkrApp({ name: "fixture", commandDirectory });
-		injectLoadedDefinition(app, { schema: emptySchema, handler: async () => outcome });
-		const run = await runForTest(app, ["--format=json"]);
+		const run = await runForTest(echoOutcomeApp, ["--input-json", "--format=json"], {
+			stdin: JSON.stringify({ outcome }),
+		});
 		expect(run.exitCode).toBe(exitCode);
 		expect(run.stdout).not.toContain('"data"');
 	});
 }
 
+test("rendering falls back through Markdown, human, then indented JSON", async () => {
+	const markdownRun = await runForTest(typedResultApp, ["--format=md"]);
+	expect(markdownRun.stdout).toBe("plain:ADA\n");
+
+	const fallbackRun = await runForTest(misbehavingApp, ["--mode", "ok"]);
+	expect(fallbackRun.stdout).toBe('{\n  "value": "Ada"\n}\n');
+});
+
+test.each([
+	["null", null],
+	["an unknown status", { status: "other" }],
+	["a missing required field", { status: "negative" }],
+	["an extra field", { status: "negative", message: "no", extra: true }],
+] as const)("malformed handler outcome (%s) is a programmer error", async (_label, outcome) => {
+	await expect(
+		runForTest(echoOutcomeApp, ["--input-json"], { stdin: JSON.stringify({ outcome }) }),
+	).rejects.toThrow();
+});
+
+test("unexpected handler exceptions propagate", async () => {
+	await expect(runForTest(misbehavingApp, ["--mode", "throw"])).rejects.toThrow("boom");
+});
+
 test.each(["null", "[]", '"Ada"', "1", "true"])(
 	"JSON input rejects non-object transport value %s",
 	async (stdin) => {
-		const commandDirectory = await createCommandDirectory({});
-		const run = await runForTest(
-			createClinkrApp({ name: "fixture", commandDirectory }),
-			["--input-json", "--format=json"],
-			{ stdin },
-		);
+		const run = await runForTest(countingApp, ["--input-json", "--format=json"], { stdin });
 		expect(run.exitCode).toBe(2);
 		expect(JSON.parse(run.stdout)).toMatchObject({
 			status: "usage-error",
@@ -241,43 +225,23 @@ test.each(["null", "[]", '"Ada"', "1", "true"])(
 );
 
 test("JSON input applies defaults and transforms while preserving nested schema policy", async () => {
-	const commandDirectory = await createCommandDirectory({});
-	const app = createClinkrApp({ name: "fixture", commandDirectory });
-	let handledRequest: unknown;
-	injectLoadedDefinition(app, {
-		schema: z
-			.object({
-				name: z
-					.string()
-					.default("Ada")
-					.transform((name) => name.toUpperCase()),
-				nested: z.object({ value: z.number() }).passthrough(),
-			})
-			.passthrough(),
-		handler: async (request: unknown) => {
-			handledRequest = request;
-			return ok();
-		},
-	});
-	const run = await runForTest(app, ["--input-json"], {
+	const run = await runForTest(schemaPolicyApp, ["--input-json"], {
 		stdin: '{"nested":{"value":1,"preserved":true}}',
 	});
+	const supportModule: unknown = await import(
+		path.join(FIXTURES_DIRECTORY, "schema-policy", "support.ts")
+	);
+	if (!isRequestObserverModule(supportModule)) throw new Error("Malformed request observer module");
 	expect(run.exitCode).toBe(0);
-	expect(handledRequest).toEqual({
+	expect(supportModule.requests.at(-1)).toEqual({
 		name: "ADA",
 		nested: { value: 1, preserved: true },
 	});
 });
 
 test("JSON input rejects top-level unknown keys with schema issues", async () => {
-	const commandDirectory = await createCommandDirectory({});
-	const app = createClinkrApp({ name: "fixture", commandDirectory });
-	injectLoadedDefinition(app, {
-		schema: z.object({ name: z.string() }).passthrough(),
-		handler: async () => ok(),
-	});
-	const run = await runForTest(app, ["--input-json", "--format=json"], {
-		stdin: '{"name":"Ada","unknown":true}',
+	const run = await runForTest(schemaPolicyApp, ["--input-json", "--format=json"], {
+		stdin: '{"name":"Ada","nested":{"value":1},"unknown":true}',
 	});
 	const envelope = JSON.parse(run.stdout) as {
 		errorType: string;
@@ -292,17 +256,170 @@ test("JSON input rejects top-level unknown keys with schema issues", async () =>
 	);
 });
 
+test("JSON input enforces object-level refinements like the argv transport", async () => {
+	const argvRun = await runForTest(refinedApp, ["--format=json"]);
+	expect(argvRun.exitCode).toBe(2);
+	expect(JSON.parse(argvRun.stdout)).toMatchObject({
+		status: "usage-error",
+		errorType: "invalid-request",
+	});
+	const jsonRun = await runForTest(refinedApp, ["--input-json", "--format=json"], { stdin: "{}" });
+	expect(jsonRun.exitCode).toBe(2);
+	expect(JSON.parse(jsonRun.stdout)).toMatchObject({
+		status: "usage-error",
+		errorType: "invalid-request",
+	});
+});
+
+test("-- passes command arguments that look like global flags through verbatim", async () => {
+	const run = await runForTest(await app(), ["--", "--format"]);
+	expect(run).toEqual({ exitCode: 0, stdout: "Hello, --format.\n", stderr: "" });
+});
+
+test("--help after -- does not trigger help", async () => {
+	const run = await runForTest(await app(), ["--", "--help"]);
+	expect(run).toEqual({ exitCode: 0, stdout: "Hello, --help.\n", stderr: "" });
+});
+
+test("global flags before -- still apply", async () => {
+	const run = await runForTest(await app(), ["--format", "json", "--", "--weird"]);
+	expect(run.exitCode).toBe(0);
+	expect(JSON.parse(run.stdout)).toEqual({
+		status: "success",
+		exitCode: 0,
+		data: { message: "Hello, --weird." },
+	});
+});
+
+test.each([
+	["long", ["Ada", "src", "test", "--limit", "5"]],
+	["short", ["Ada", "src", "test", "-n", "5"]],
+] as const)(
+	"argv projection coerces %s numeric options and variadic positionals",
+	async (_label, argv) => {
+		const run = await runForTest(argvProjectionApp, argv);
+		expect(run.exitCode).toBe(0);
+		expect(JSON.parse(run.stdout)).toEqual({
+			query: "Ada",
+			paths: ["src", "test"],
+			limit: 5,
+			mode: "exact",
+			tag: [],
+		});
+	},
+);
+
+test("argv projection accumulates repeated options and enforces enum choices", async () => {
+	const run = await runForTest(argvProjectionApp, [
+		"Ada",
+		"src",
+		"--tag",
+		"one",
+		"--tag",
+		"two",
+		"--mode",
+		"fuzzy",
+	]);
+	expect(run.exitCode).toBe(0);
+	expect(JSON.parse(run.stdout)).toMatchObject({ mode: "fuzzy", tag: ["one", "two"] });
+
+	const invalid = await runForTest(argvProjectionApp, ["Ada", "src", "--mode", "broad"]);
+	expect(invalid.exitCode).toBe(2);
+	expect(invalid.stderr).toContain("Allowed choices are exact, fuzzy");
+});
+
+test.each(["five", "1.5", "+5", " 5"])(
+	"invalid integer %j is a usage error and does not invoke the handler",
+	async (value) => {
+		const run = await runForTest(argvProjectionApp, ["Ada", "src", "--limit", value]);
+		expect(run.exitCode).toBe(2);
+		expect(run.stderr).toContain("expected an integer");
+	},
+);
+
+test("--help renders annotation descriptions and default text", async () => {
+	const run = await runForTest(argvProjectionApp, ["--help"]);
+	expect(run.exitCode).toBe(0);
+	expect(run.stdout).toContain("Search query.");
+	expect(run.stdout).toContain("Paths to search.");
+	expect(run.stdout).toContain("Maximum matches. (default: 20)");
+	expect(run.stdout).toContain('Matching mode. (default: "exact")');
+	expect(run.stdout).toContain("Tag filter. (default: [])");
+});
+
+test("--help renders the command metadata description and aliases", async () => {
+	const run = await runForTest(countingApp, ["--help"]);
+	expect(run.exitCode).toBe(0);
+	expect(run.stdout).toContain("Usage: fixture|fx");
+	expect(run.stdout).toContain("Fixture command.");
+});
+
+test("--help wins over an invalid --format value", async () => {
+	const run = await runForTest(countingApp, ["--help", "--format", "bogus"]);
+	expect(run.exitCode).toBe(0);
+	expect(run.stdout).toContain("Usage: fixture");
+	expect(run.stderr).toBe("");
+});
+
+test("-h wins over repeated --input-json", async () => {
+	const run = await runForTest(countingApp, ["-h", "--input-json", "--input-json"]);
+	expect(run.exitCode).toBe(0);
+	expect(run.stdout).toContain("Usage: fixture");
+	expect(run.stderr).toBe("");
+});
+
+test.each([[["--json-schema", "--input-json"]], [["--input-json", "--json-schema"]]])(
+	"--json-schema combined with --input-json is a usage error (%j)",
+	async (argv) => {
+		const run = await runForTest(countingApp, [...argv, "--format=json"], { stdin: "{}" });
+		expect(run.exitCode).toBe(2);
+		expect(JSON.parse(run.stdout)).toMatchObject({
+			status: "usage-error",
+			errorType: "invalid-request",
+		});
+	},
+);
+
+test("repeated --format stays a usage error when help is not requested", async () => {
+	const run = await runForTest(countingApp, ["--format=json", "--format=json"]);
+	expect(run).toMatchObject({ exitCode: 2, stdout: "" });
+	expect(run.stderr).toContain("repeated --format");
+});
+
+test("--format without a value stays a usage error", async () => {
+	const run = await runForTest(countingApp, ["--format"]);
+	expect(run).toMatchObject({ exitCode: 2, stdout: "" });
+	expect(run.stderr).toContain("argument missing");
+});
+
+test("repeated --input-json without help stays a usage error", async () => {
+	const run = await runForTest(countingApp, ["--input-json", "--input-json", "--format=json"], {
+		stdin: "{}",
+	});
+	expect(run.exitCode).toBe(2);
+	expect(JSON.parse(run.stdout)).toMatchObject({
+		status: "usage-error",
+		errorType: "invalid-request",
+	});
+});
+
 test.each(["yaml", "markdown", "JSON"])(
 	"rejects format value %s from the exact domain",
 	async (format) => {
-		const commandDirectory = await createCommandDirectory({});
-		const run = await runForTest(createClinkrApp({ name: "fixture", commandDirectory }), [
-			`--format=${format}`,
-		]);
+		const run = await runForTest(countingApp, [`--format=${format}`]);
 		expect(run).toMatchObject({ exitCode: 2, stdout: "" });
 		expect(run.stderr).toContain("invalid format");
 	},
 );
+
+function isRequestObserverModule(value: unknown): value is { requests: unknown[] } {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"requests" in value &&
+		Array.isArray(value.requests)
+	);
+}
 
 function isCounterModule(value: unknown): value is { counter: { handlerCalls: number } } {
 	if (typeof value !== "object" || value === null || !("counter" in value)) return false;

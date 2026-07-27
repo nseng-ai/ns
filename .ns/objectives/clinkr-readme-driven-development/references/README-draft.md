@@ -112,7 +112,7 @@ if (import.meta.main) {
 
 `import.meta.dirname` is the absolute `src/cli/` directory containing `app.ts` in Node 24.12+. This direct, self-rooted layout is the recommended shape.
 
-This creates a command callable as `greet Ada --enthusiastic` or `greet Ada -e`. Clinkr adds `--format <human|json|md>`, `--input-json`, and `--json-schema` to every structured command.
+This creates a command callable as `greet Ada --enthusiastic` or `greet Ada -e`. Clinkr adds `--format <human|json|md>`, `--input-json`, and `--json-schema` to every structured command. These global options are recognized anywhere in argv before a bare `--`; everything after the first `--` is passed to the command verbatim, so use `--` to escape positionals or values that would otherwise be read as a global option (`greet -- --format` greets `--format`).
 
 ### Supply a request as JSON
 

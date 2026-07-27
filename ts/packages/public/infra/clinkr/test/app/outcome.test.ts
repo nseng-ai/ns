@@ -10,28 +10,23 @@ import {
 	toEnvelope,
 	usageError,
 } from "@nseng-ai/clinkr/app";
+import { stableJsonText } from "../../src/app/outcome.ts";
 
 describe("outcome constructors", () => {
 	test("ok() carries an explicit undefined payload", () => {
 		expect(ok()).toEqual({ status: "success", data: undefined });
 	});
 
-	test("ok(data) carries the payload and render overrides", () => {
-		expect(ok({ name: "Ada" }, { human: "Ada!", markdown: "**Ada**" })).toEqual({
-			status: "success",
-			data: { name: "Ada" },
-			human: "Ada!",
-			markdown: "**Ada**",
-		});
+	test("ok(data) carries only the typed payload", () => {
+		expect(ok({ name: "Ada" })).toEqual({ status: "success", data: { name: "Ada" } });
 	});
 
-	test("negative carries message plus optional freeform data and human override", () => {
+	test("negative carries message plus optional freeform data", () => {
 		expect(negative("no")).toEqual({ status: "negative", message: "no" });
-		expect(negative("no", { data: { reason: "empty" }, human: "Nope" })).toEqual({
+		expect(negative("no", { data: { reason: "empty" } })).toEqual({
 			status: "negative",
 			message: "no",
 			data: { reason: "empty" },
-			human: "Nope",
 		});
 	});
 
@@ -76,8 +71,8 @@ describe("exitCodeFor", () => {
 });
 
 describe("toEnvelope", () => {
-	test("strips render overrides and keeps stable field order", () => {
-		const envelope = toEnvelope(ok({ name: "Ada" }, { human: "Ada!", markdown: "**Ada**" }));
+	test("keeps stable field order", () => {
+		const envelope = toEnvelope(ok({ name: "Ada" }));
 		expect(envelope).toEqual({ status: "success", exitCode: 0, data: { name: "Ada" } });
 		expect(Object.keys(envelope)).toEqual(["status", "exitCode", "data"]);
 	});
@@ -85,7 +80,7 @@ describe("toEnvelope", () => {
 	test("omits the data key entirely when data is undefined", () => {
 		for (const envelope of [
 			toEnvelope(ok()),
-			toEnvelope(negative("no", { human: "Nope" })),
+			toEnvelope(negative("no")),
 			toEnvelope(failure("io-error", "disk gone")),
 			toEnvelope(usageError("bad flags")),
 		]) {
@@ -117,6 +112,18 @@ describe("toEnvelope", () => {
 			errorType: "usage-error",
 			message: "bad flags",
 		});
+	});
+});
+
+describe("stableJsonText", () => {
+	test("renders an object as 2-space-indented JSON", () => {
+		expect(stableJsonText(toEnvelope(ok({ name: "Ada" })))).toBe(
+			'{\n  "status": "success",\n  "exitCode": 0,\n  "data": {\n    "name": "Ada"\n  }\n}',
+		);
+	});
+
+	test("rejects top-level values that JSON.stringify cannot serialize", () => {
+		expect(() => stableJsonText(undefined)).toThrow("value is not JSON-serializable");
 	});
 });
 
