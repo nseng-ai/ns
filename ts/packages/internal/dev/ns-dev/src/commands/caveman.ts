@@ -150,9 +150,18 @@ export function renderCaveman(result: CavemanResult): string {
 	return result.output;
 }
 
-type IntensityResolution =
-	| { type: "ok"; value: CavemanIntensity }
-	| { type: "error"; message: string; arguments: string[] };
+interface IntensityResolutionOk {
+	type: "ok";
+	value: CavemanIntensity;
+}
+
+interface IntensityResolutionError {
+	type: "error";
+	message: string;
+	arguments: string[];
+}
+
+type IntensityResolution = IntensityResolutionOk | IntensityResolutionError;
 
 function resolveIntensity(request: CavemanRequest): IntensityResolution {
 	const selected = CAVEMAN_INTENSITIES.filter((level) => request[level] === true);
@@ -166,9 +175,19 @@ function resolveIntensity(request: CavemanRequest): IntensityResolution {
 	return { type: "ok", value: selected[0] ?? "full" };
 }
 
-type InputResolution =
-	| { type: "ok"; text: string; argument: string }
-	| { type: "error"; message: string; argument: string };
+interface InputResolutionOk {
+	type: "ok";
+	text: string;
+	argument: string;
+}
+
+interface InputResolutionError {
+	type: "error";
+	message: string;
+	argument: string;
+}
+
+type InputResolution = InputResolutionOk | InputResolutionError;
 
 async function resolveInputText(
 	context: NsDevCliContext,
@@ -198,9 +217,17 @@ async function resolveInputText(
 	};
 }
 
-type ModelPolicyResolution =
-	| { type: "ok"; policy: ModelPolicy }
-	| { type: "error"; message: string };
+interface ModelPolicyResolutionOk {
+	type: "ok";
+	policy: ModelPolicy;
+}
+
+interface ModelPolicyResolutionError {
+	type: "error";
+	message: string;
+}
+
+type ModelPolicyResolution = ModelPolicyResolutionOk | ModelPolicyResolutionError;
 
 async function loadCavemanModelPolicy(context: NsDevCliContext): Promise<ModelPolicyResolution> {
 	const nsTomlPath = await findNsTomlPath(context);
