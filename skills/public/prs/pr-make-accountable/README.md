@@ -56,7 +56,7 @@ Accountability stays with the human; the footer makes the assistance visible.
 ## Install
 
 ```bash
-npx skills add nseng-ai/ns --skill pr-make-accountable
+npx skills add nseng-ai/ns --skill pr-make-accountable --full-depth
 ```
 
 ## Usage

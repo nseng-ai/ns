@@ -17,5 +17,5 @@ Interview a PR's author about the context the diff cannot supply — intent, des
 Requires only `git` and an authenticated `gh` session; independent of the rest of ns.
 
 ```bash
-npx skills add nseng-ai/ns --skill pr-make-accountable
+npx skills add nseng-ai/ns --skill pr-make-accountable --full-depth
 ```
