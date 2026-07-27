@@ -1,4 +1,11 @@
-import { defineCommand, failure, negative, ok, usageError } from "@nseng-ai/clinkr/app";
+import {
+	createClinkrApp,
+	defineCommand,
+	failure,
+	negative,
+	ok,
+	usageError,
+} from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 type IsAny<T> = 0 extends 1 & T ? true : false;
@@ -57,3 +64,18 @@ defineCommand({
 defineCommand({ schema: requestSchema, handler: async (_context: Context, _request) => ok() });
 // @ts-expect-error context-free handlers receive only request.
 defineCommand({ schema: requestSchema, handler: async (_context, _request) => ok() });
+
+
+const contextFreeApp = createClinkrApp({ name: "free", commandDirectory: import.meta.dirname });
+void contextFreeApp.run([]);
+// @ts-expect-error context-free invocation does not accept context.
+void contextFreeApp.run([], { context: { prefix: "x" } });
+
+const contextfulApp = createClinkrApp<Context>({
+	name: "contextful",
+	commandDirectory: import.meta.dirname,
+	requiresContext: true,
+});
+void contextfulApp.run([], { context: { prefix: "x" } });
+// @ts-expect-error contextful invocation requires context.
+void contextfulApp.run([]);
