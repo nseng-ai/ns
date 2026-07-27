@@ -50,8 +50,9 @@ natural language; each step maps to a skill:
 
 Because the record is checked in, a fresh agent session starts with the full history of
 intent instead of an empty context window. Progress is evidence-linked prose, not a
-checkbox dashboard; closing records the rationale and marks the record closed without
-deleting anything.
+checkbox dashboard. Closing records the rationale, marks the record closed without
+deleting anything, and reviews every edge-connected Objective so affected records are
+unblocked or otherwise updated to their post-closure state.
 
 ## CLI
 
