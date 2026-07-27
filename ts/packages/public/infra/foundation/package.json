@@ -1,6 +1,7 @@
 {
 	"name": "@nseng-ai/foundation",
 	"version": "0.1.4",
+	"license": "MIT",
 	"type": "module",
 	"exports": {
 		"./branch-slug": "./src/primitives/branch-slug.ts",

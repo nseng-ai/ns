@@ -1,6 +1,7 @@
 {
 	"name": "@nseng-ai/sdk",
 	"version": "0.1.4",
+	"license": "MIT",
 	"description": "Emerging customer-facing ns CLI.",
 	"type": "module",
 	"exports": {

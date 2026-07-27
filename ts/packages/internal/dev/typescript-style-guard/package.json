@@ -1,5 +1,6 @@
 {
 	"name": "@internal/typescript-style-guard",
+	"license": "MIT",
 	"private": true,
 	"type": "module",
 	"exports": {

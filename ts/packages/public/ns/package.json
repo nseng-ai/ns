@@ -1,6 +1,7 @@
 {
 	"name": "@nseng-ai/ns",
 	"version": "0.1.4",
+	"license": "MIT",
 	"description": "Checkout-free ns CLI package.",
 	"files": [
 		"api",

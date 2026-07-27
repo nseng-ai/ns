@@ -1,6 +1,7 @@
 {
 	"name": "@nseng-ai/clinkr",
 	"version": "0.1.4",
+	"license": "MIT",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
