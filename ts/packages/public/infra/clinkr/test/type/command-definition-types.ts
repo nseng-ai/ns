@@ -1,10 +1,4 @@
-import {
-	defineCommand,
-	failure,
-	negative,
-	ok,
-	usageError,
-} from "@nseng-ai/clinkr/app";
+import { defineCommand, failure, negative, ok, usageError } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 type IsAny<T> = 0 extends 1 & T ? true : false;
@@ -63,4 +57,3 @@ defineCommand({
 defineCommand({ schema: requestSchema, handler: async (_context: Context, _request) => ok() });
 // @ts-expect-error context-free handlers receive only request.
 defineCommand({ schema: requestSchema, handler: async (_context, _request) => ok() });
-
