@@ -14,9 +14,10 @@ Bless Clinkr's cold-audience package contract in `references/README-draft.md`, i
 
 - Settle and bless user-facing documentation for `@nseng-ai/clinkr`: purpose, requirements, filesystem command structure, lazy selection, schema-derived CLI surfaces, outcomes and output, nested groups, completion, interaction, raw execution, testing utilities, packaging constraints, and public entrypoints.
 - Preserve the steelthread's contract changes in `references/steelthread-contract-changes.md`, its implementation findings and rebuild constraints in `references/steelthread-implementation-lessons.md`, and implementation-relevant detail intentionally edited out of the cold-audience README in `references/implementation-contract-notes.md`.
-- Rebuild Clinkr around one command model, one recursively lazy topology, one routing traversal, and one validation/rendering owner rather than cleaning compatibility machinery in place.
-- Reconcile Foundation and SDK composition without pre-dispatch, flattened-tree reconstruction, legacy lowering, or permissive descriptor duck typing.
-- Prove the rebuilt interface first through README fixtures, then one standalone filesystem CLI and one real SDK-mounted extension before migrating remaining callers.
+- Rebuild Clinkr as one deep `ClinkrApp` module around one command model, one recursively lazy topology, one routing traversal for execution/help/schema/completion, and one outcome-validation/rendering owner rather than cleaning compatibility machinery in place. Filesystem discovery and the narrow programmatic builder are adapters to that private topology; Commander is a fresh per-invocation materialization detail rather than a second router.
+- Reconcile Foundation and SDK composition without pre-dispatch, flattened-tree reconstruction, legacy lowering, permissive descriptor duck typing, source precedence, or compatible-group merging. Sources own disjoint subtrees; duplicate command paths, command/group collisions, and every group path shared by two sources fail with canonical-path and two-source diagnostics.
+- Prove the rebuilt interface first through README fixtures, then Brmem as the standalone filesystem acceptance consumer and Objectives as the SDK-mounted real-host acceptance consumer before migrating remaining callers. The package shape, command locality, structural guards, fake-driven scenarios, and observable behavior on `colocate-brmem-commands-remove-operations` and `colocate-objectives-cli-remove-operations` are golden acceptance baselines to match or exceed; their shared prototype machinery is not.
+- Deliver the rebuild as a coordinated, dependency-ordered Graphite stack whose early branches establish exact command contracts, canonical topology/source composition, and the single app runtime; whose acceptance branches prove Foundation/Brmem and SDK/Objectives in that order; and whose tail migrates remaining callers, deletes the legacy architecture, qualifies packed behavior, and promotes the README. No compatibility bridge may connect the new runtime to the old one merely to make intermediate branches independently releasable.
 - Verify packaging and observable behavior, promote the blessed draft to the canonical package README, and return reusable README-driven gate lessons to `foundation-readme-driven-pass`.
 
 ## Non-Goals
@@ -35,8 +36,23 @@ Bless Clinkr's cold-audience package contract in `references/README-draft.md`, i
 - The rebuild satisfies the constraints in `steelthread-implementation-lessons.md`: one runtime and traversal, recursive immediate-child laziness, truthful context-free/contextful types, one outcome/rendering owner, exact descriptor decoding, topology-preserving extension composition, and explicit raw/completion ownership.
 - No legacy mutable runtime export, migration import, duplicated SDK pre-dispatch, per-exit rendering override, validation-disable escape hatch, or compatibility descriptor detection remains in the shipped path.
 - A package-level contract suite proves every requirement in `implementation-contract-notes.md`, including malformed topology, absolute-directory validation, transactional loading, bodyless and framework usage outcomes, exception propagation, format aliases, completion fallback, and progressive-output policy; a standalone filesystem CLI and an SDK-mounted extension prove representative help, schema introspection, execution, completion, hidden groups, selected-only imports, and fake-driven context behavior.
+- Brmem and Objectives each match or exceed their golden colocation branch: route-local `metadata.ts`/`command.ts` and `group.ts` structure, command-local schema/handler/outcome/rendering behavior where appropriate, exact route-inventory and eager-import guards, fake-driven scenarios, hidden `exec` behavior, and no surviving consumer-specific compatibility adapter. Brmem additionally proves packed inventory and execution; Objectives additionally proves recursive SDK mounting, context adaptation, malformed-neighbor isolation, and nested import laziness.
 - Packed-package evidence confirms that every runtime-discovered command/group file ships intact, and relevant package, type, test, and repository checks pass.
 - The settled draft is promoted to Clinkr's canonical package README, the Objective draft becomes a provenance pointer, and reusable gate amendments are recorded in `foundation-readme-driven-pass`.
+
+## Prompt Guidance
+
+Every prompt produced by `objective-next` for this Objective must be exactly one planning command beginning with `/ns:plan:grill-and-save`, followed by cold-start-safe guidance for forming, grilling, and saving the implementation plan for the selected semantic slice. The command must cite this Objective's `objective.md`, `roadmap.md`, `references/README-draft.md`, `references/implementation-contract-notes.md`, and `references/steelthread-implementation-lessons.md` rather than restating them, and it must identify the relevant golden consumer branch when the slice touches Brmem or Objectives.
+
+The guidance after `/ns:plan:grill-and-save` must require the plan to:
+
+- preserve one deep `ClinkrApp` module, one private lazy topology, one traversal, exact context-mode call shapes, disjoint source ownership, transactional selected loading, one outcome/rendering owner, an explicit raw variant, and app-owned completion;
+- reject compatibility lowering, parallel routing, flattened topology reconstruction, broad descriptor duck typing, public lifecycle machinery, and prototype-internal abstractions that do not earn their interface;
+- place the slice in the dependency order README fixtures and command contract → topology/source composition → single runtime → Foundation/Brmem → SDK → Objectives → remaining callers → legacy deletion → qualification and README promotion;
+- compare proposed consumer work against `colocate-brmem-commands-remove-operations` or `colocate-objectives-cli-remove-operations` as an acceptance floor, while improving the underlying implementation and process;
+- produce the fewest coherent, reviewable PRs for that slice, explain every PR boundary, identify dependencies and any priority inversion, include a deletion ledger for old owners and temporary seams, and name concrete validation and packed-artifact evidence.
+
+This guidance shapes planning only. It does not authorize implementation or choose the next roadmap row.
 
 ## Assumptions and Risks
 
