@@ -18,7 +18,7 @@ If the current branch has an open PR, callers may omit `--pr-number`:
 ns address exec download-feedback --format json
 ```
 
-The result includes `markdown` for editor/session viewing plus target/count metadata. Authorization semantics — report vs. triage prompt, and what a human "address feedback" request licenses — live in `SKILL.md`, not here.
+The result includes `markdown` for editor/session viewing plus target/count metadata. Download is non-mutating; agent-side analysis and disposition planning do not start an addressing run or authorize edits. The full planning and authorization contract lives in `SKILL.md`.
 
 ### `map-branch-prs`
 

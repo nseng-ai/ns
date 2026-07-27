@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import { buildFeedbackDispositionGuidance } from "../src/core/pr/feedback-disposition-guidance.ts";
 import prExtension, {
 	PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 	PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
@@ -182,6 +183,52 @@ async function runRegisteredCommand(options: RunRegisteredCommandOptions): Promi
 	return ctx;
 }
 
+describe("feedback disposition guidance", () => {
+	test.each(["single-pr", "stack"] as const)(
+		"renders the shared proactive planning contract for %s feedback",
+		(scope) => {
+			const guidance = buildFeedbackDispositionGuidance(scope);
+
+			expect(guidance).toContain("Propose a disposition plan for this feedback now");
+			expect(guidance).toContain("summarize the feedback and likely implementation impact");
+			expect(guidance).toContain("Account for every feedback item under exactly one disposition");
+			expect(guidance).toContain("Primary batch");
+			expect(guidance).toContain("Split-out");
+			expect(guidance).toContain("Decline");
+			expect(guidance).toContain("Defer");
+			expect(guidance).toContain("counts and a concise category line for every non-empty group");
+			expect(guidance).toContain("likely code, test, and documentation impacts");
+			expect(guidance).toContain("confirm, revise the plan, or do something else");
+			expect(guidance).toContain("Wait for explicit approval before editing or mutating GitHub");
+			expect(guidance).toContain("Treat this download as one snapshot");
+			expect(guidance).toContain("Do not wait for or poll CI");
+			expect(guidance).not.toMatch(/\b(?:AUTO|STEER|DEFER)\b/u);
+			expect(guidance).not.toContain("classification-template");
+			expect(guidance).not.toContain("plan-feedback");
+		},
+	);
+
+	test("renders only single-PR landing policy for a single PR", () => {
+		const guidance = buildFeedbackDispositionGuidance("single-pr");
+
+		expect(guidance).toContain("current PR branch");
+		expect(guidance).toContain("separate follow-up commit after approval");
+		expect(guidance).not.toContain("omnibus");
+		expect(guidance).not.toContain("stack tip");
+		expect(guidance).not.toContain("mid-stack");
+	});
+
+	test("renders only stack landing policy for stack feedback", () => {
+		const guidance = buildFeedbackDispositionGuidance("stack");
+
+		expect(guidance).toContain("omnibus follow-up PR");
+		expect(guidance).toContain("stack tip");
+		expect(guidance).toContain("mid-stack placement");
+		expect(guidance).not.toContain("separate follow-up commit");
+		expect(guidance).not.toContain("current PR branch");
+	});
+});
+
 describe("/pr:download-feedback", () => {
 	test("registers the commands", () => {
 		const pi = new FakePi();
@@ -206,19 +253,19 @@ describe("/pr:download-feedback", () => {
 		expect(ctx.editorTexts).toHaveLength(1);
 		expect(ctx.editorTexts[0]).toContain(markdown);
 		expect(ctx.editorTexts[0]).toContain("## Addressing workflow boundary");
+		expect(ctx.editorTexts[0]).toContain("Propose a disposition plan for this feedback now");
+		expect(ctx.editorTexts[0]).toContain("suggest coherent change batches");
+		expect(ctx.editorTexts[0]).toContain("current PR branch");
+		expect(ctx.editorTexts[0]).toContain("separate follow-up commit after approval");
+		expect(ctx.editorTexts[0]).toContain("confirm, revise the plan, or do something else");
 		expect(ctx.editorTexts[0]).toContain(
-			"apply unambiguous, behavior-preserving fixes directly to this branch",
-		);
-		expect(ctx.editorTexts[0]).toContain(
-			"create a separate follow-up commit for the feedback changes without amending or rewriting existing commits",
-		);
-		expect(ctx.editorTexts[0]).toContain(
-			"Amend only when the user explicitly requests it or a documented workflow specifically requires commit replacement",
+			"Wait for explicit approval before editing or mutating GitHub",
 		);
 		expect(ctx.editorTexts[0]).toContain(
 			"Do not wait for or poll CI, Graphite mergeability, automated review jobs, or newly generated feedback",
 		);
-		expect(ctx.editorTexts[0]).not.toContain("disposition plan");
+		expect(ctx.editorTexts[0]).not.toContain("omnibus");
+		expect(ctx.editorTexts[0]).not.toContain("stack tip");
 		expect(ctx.notifications.at(-1)).toEqual({
 			message: "Downloaded PR feedback into the editor. Review/edit, then press Enter.",
 			level: "info",
@@ -271,12 +318,9 @@ describe("/pr:download-feedback", () => {
 		expect(ctx.editorTexts).toHaveLength(1);
 		expect(ctx.editorTexts[0]).toContain(markdown);
 		expect(ctx.editorTexts[0]).toContain("## Addressing workflow boundary");
-		expect(ctx.editorTexts[0]).toContain(
-			"apply unambiguous, behavior-preserving fixes directly to this branch",
-		);
-		expect(ctx.editorTexts[0]).toContain(
-			"create a separate follow-up commit for the feedback changes without amending or rewriting existing commits",
-		);
+		expect(ctx.editorTexts[0]).toContain("Propose a disposition plan for this feedback now");
+		expect(ctx.editorTexts[0]).toContain("current PR branch");
+		expect(ctx.editorTexts[0]).toContain("separate follow-up commit after approval");
 		expect(ctx.notifications.at(-1)?.level).toBe("info");
 		expect(pi.userMessages).toEqual([]);
 	});
@@ -442,12 +486,10 @@ describe("/pr:download-stack-feedback", () => {
 		expect(report).toContain("## Addressing workflow boundary");
 		expect(report).toContain("Propose a disposition plan for this feedback now");
 		expect(report).toContain("even if the user only submitted this report");
-		expect(report).toContain("explicitly offering the option to revise it or do something else");
-		expect(report).toContain("wait for explicit approval before changing anything");
+		expect(report).toContain("confirm, revise the plan, or do something else");
+		expect(report).toContain("Wait for explicit approval before editing or mutating GitHub");
 		expect(report).toContain("omnibus");
-		expect(report).not.toContain(
-			"apply unambiguous, behavior-preserving fixes directly to this branch",
-		);
+		expect(report).not.toContain("current PR branch");
 		expect(report).not.toContain("create a separate follow-up commit");
 		expect(report).toContain(
 			"Re-download feedback only when the user explicitly requests another pass or invokes a stack-repair/checks workflow",

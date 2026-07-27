@@ -15,6 +15,7 @@ import {
 	type ExecResult,
 	type PrFeedbackDownloadCounts,
 } from "./feedback-download.ts";
+import { buildFeedbackDispositionGuidance } from "./feedback-disposition-guidance.ts";
 
 export const PR_DOWNLOAD_FEEDBACK_COMMAND_NAME = "pr:download-feedback";
 export const PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME = "pr:download-stack-feedback";
@@ -22,22 +23,6 @@ const DOWNLOAD_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_FEEDBACK_COMMAND_NAME;
 const DOWNLOAD_STACK_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME;
 const COMMAND_TIMEOUT_MS = 60_000;
 const STACK_DISCOVERY_TIMEOUT_MS = 120_000;
-const NO_POLLING_PARAGRAPH =
-	"Do not wait for or poll CI, Graphite mergeability, automated review jobs, or newly generated feedback. Re-download feedback only when the user explicitly requests another pass or invokes a stack-repair/checks workflow. The `code-fix-gh-stack` workflow owns waiting, re-querying checks, and iterative repair.";
-const SINGLE_PR_ADDRESSING_FOLLOW_UP = [
-	"## Addressing workflow boundary",
-	"",
-	"If asked to address this feedback: apply unambiguous, behavior-preserving fixes directly to this branch, create a separate follow-up commit for the feedback changes without amending or rewriting existing commits, resubmit, and resolve the addressed threads. Amend only when the user explicitly requests it or a documented workflow specifically requires commit replacement. Obvious declines (already fixed, stale) may be replied to and resolved directly; bring judgment calls back to the user at the end of the pass. Treat this download as one snapshot, then stop and report.",
-	"",
-	NO_POLLING_PARAGRAPH,
-].join("\n");
-const STACK_ADDRESSING_FOLLOW_UP = [
-	"## Addressing workflow boundary",
-	"",
-	"Propose a disposition plan for this feedback now, even if the user only submitted this report — default is one omnibus follow-up PR for mechanical fixes, with single-thesis split-outs proposed per item. Ask the user to confirm the plan, explicitly offering the option to revise it or do something else, and wait for explicit approval before changing anything. If not at the stack tip, surface placement options rather than choosing. Treat this download as one snapshot, then stop and report.",
-	"",
-	NO_POLLING_PARAGRAPH,
-].join("\n");
 const stackBranchesDataSchema = z.looseObject({
 	branches: z.array(z.string()),
 });
@@ -208,7 +193,10 @@ async function runPrDownloadFeedbackCommand(
 				: "Downloaded PR feedback report into the editor. Review/edit, then press Enter.";
 		prefillEditor(
 			ctx,
-			appendAddressingFollowUp(downloaded.data.markdown, SINGLE_PR_ADDRESSING_FOLLOW_UP),
+			appendAddressingFollowUp(
+				downloaded.data.markdown,
+				buildFeedbackDispositionGuidance("single-pr"),
+			),
 			message,
 		);
 	} finally {
@@ -272,7 +260,7 @@ async function runPrDownloadStackFeedbackCommand(
 		});
 		prefillEditor(
 			ctx,
-			appendAddressingFollowUp(markdown, STACK_ADDRESSING_FOLLOW_UP),
+			appendAddressingFollowUp(markdown, buildFeedbackDispositionGuidance("stack")),
 			stackDownloadCompleteMessage(downloads.length, mapped.missingBranches),
 		);
 	} finally {
