@@ -20,5 +20,10 @@
 	},
 	"ns": {
 		"tier": "host"
+	},
+	"pi": {
+		"extensions": [
+			"./src/extension.ts"
+		]
 	}
 }

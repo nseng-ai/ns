@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -16,6 +17,17 @@ async function collectObjectivePiSurfaces(): Promise<LivePiSurface[]> {
 }
 
 describe("Objective Pi extension parity metadata", () => {
+	test("package manifest points Pi directly at the extension entrypoint", () => {
+		const packageRoot = new URL("../", import.meta.url);
+		const manifest = JSON.parse(readFileSync(new URL("package.json", packageRoot), "utf8")) as {
+			pi?: { extensions?: string[] };
+		};
+		const extensionPath = manifest.pi?.extensions?.[0];
+		expect(extensionPath).toBe("./src/extension.ts");
+		if (extensionPath === undefined) throw new Error("Missing Pi extension path.");
+		expect(existsSync(new URL(extensionPath, packageRoot))).toBe(true);
+	});
+
 	test("registered command surfaces match package metadata", async () => {
 		const comparison = comparePiSurfaceParity({
 			liveSurfaces: await collectObjectivePiSurfaces(),

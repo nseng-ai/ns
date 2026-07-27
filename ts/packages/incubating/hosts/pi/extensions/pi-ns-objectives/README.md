@@ -16,7 +16,8 @@ extension and the repository's canonical Objective-system context.
 ## Current status
 
 The package is implemented on the current feature branch but has not landed or been
-published. The project-local `.pi/extensions/objective.ts` discovery adapter loads its
-`./extension` export. The separate local `.pi/extensions/objective-autorun.ts` artifact
-continues to own only the `objective_runner_step` tool; it is not part of this package's
-slash-command adapter.
+published. Its `pi.extensions` manifest makes the package itself the Pi entry point; this
+repository loads the local workspace package directly from `.pi/settings.json`, without a
+`.pi/extensions/objective.ts` discovery adapter. The separate local
+`.pi/extensions/objective-autorun.ts` artifact continues to own only the
+`objective_runner_step` tool; it is not part of this package's slash-command adapter.
