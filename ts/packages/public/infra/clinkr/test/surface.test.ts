@@ -132,12 +132,40 @@ describe("buildSurfacePlan descriptions", () => {
 		expect(byKey["inner"]).toBe("described before optional");
 	});
 
-	test("defaults are surfaced in the description", () => {
+	test("explicit option descriptions override schema descriptions", () => {
+		const plan = buildSurfacePlan({
+			commandName: "probe",
+			schema: z.object({ limit: z.number().describe("Schema limit.") }),
+			optionSpecs: { limit: { description: "Maximum matches." } },
+		});
+		expect(plan.options[0]?.description).toBe("Maximum matches.");
+	});
+
+	test("explicit positional descriptions are surfaced", () => {
+		const plan = buildSurfacePlan({
+			commandName: "probe",
+			schema: z.object({ name: z.string() }),
+			positionals: { name: { position: 0, description: "Person to find." } },
+		});
+		expect(plan.positionals[0]?.description).toBe("Person to find.");
+	});
+
+	test("schema descriptions remain the fallback when specs omit them", () => {
+		const plan = buildSurfacePlan({
+			commandName: "probe",
+			schema: z.object({ name: z.string().describe("Schema name.") }),
+			positionals: { name: { position: 0 } },
+		});
+		expect(plan.positionals[0]?.description).toBe("Schema name.");
+	});
+
+	test("defaults are composed with explicit descriptions", () => {
 		const plan = buildSurfacePlan({
 			commandName: "probe",
 			schema: z.object({ limit: z.number().default(10) }),
+			optionSpecs: { limit: { description: "Maximum matches." } },
 		});
-		expect(plan.options[0]?.description).toBe("(default: 10)");
+		expect(plan.options[0]?.description).toBe("Maximum matches. (default: 10)");
 	});
 });
 

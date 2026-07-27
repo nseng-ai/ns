@@ -19,6 +19,7 @@ function fixtureApp(name: string) {
 	});
 }
 
+const argvProjectionApp = fixtureApp("argv-projection");
 const countingApp = fixtureApp("counting");
 const echoOutcomeApp = fixtureApp("echo-outcome");
 const typedResultApp = fixtureApp("typed-result");
@@ -288,6 +289,62 @@ test("global flags before -- still apply", async () => {
 		exitCode: 0,
 		data: { message: "Hello, --weird." },
 	});
+});
+
+test.each([
+	["long", ["Ada", "src", "test", "--limit", "5"]],
+	["short", ["Ada", "src", "test", "-n", "5"]],
+] as const)(
+	"argv projection coerces %s numeric options and variadic positionals",
+	async (_label, argv) => {
+		const run = await runForTest(argvProjectionApp, argv);
+		expect(run.exitCode).toBe(0);
+		expect(JSON.parse(run.stdout)).toEqual({
+			query: "Ada",
+			paths: ["src", "test"],
+			limit: 5,
+			mode: "exact",
+			tag: [],
+		});
+	},
+);
+
+test("argv projection accumulates repeated options and enforces enum choices", async () => {
+	const run = await runForTest(argvProjectionApp, [
+		"Ada",
+		"src",
+		"--tag",
+		"one",
+		"--tag",
+		"two",
+		"--mode",
+		"fuzzy",
+	]);
+	expect(run.exitCode).toBe(0);
+	expect(JSON.parse(run.stdout)).toMatchObject({ mode: "fuzzy", tag: ["one", "two"] });
+
+	const invalid = await runForTest(argvProjectionApp, ["Ada", "src", "--mode", "broad"]);
+	expect(invalid.exitCode).toBe(2);
+	expect(invalid.stderr).toContain("Allowed choices are exact, fuzzy");
+});
+
+test.each(["five", "1.5", "+5", " 5"])(
+	"invalid integer %j is a usage error and does not invoke the handler",
+	async (value) => {
+		const run = await runForTest(argvProjectionApp, ["Ada", "src", "--limit", value]);
+		expect(run.exitCode).toBe(2);
+		expect(run.stderr).toContain("expected an integer");
+	},
+);
+
+test("--help renders annotation descriptions and default text", async () => {
+	const run = await runForTest(argvProjectionApp, ["--help"]);
+	expect(run.exitCode).toBe(0);
+	expect(run.stdout).toContain("Search query.");
+	expect(run.stdout).toContain("Paths to search.");
+	expect(run.stdout).toContain("Maximum matches. (default: 20)");
+	expect(run.stdout).toContain('Matching mode. (default: "exact")');
+	expect(run.stdout).toContain("Tag filter. (default: [])");
 });
 
 test("--help renders the command metadata description, summary handling, and aliases", async () => {

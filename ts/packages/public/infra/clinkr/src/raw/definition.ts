@@ -68,5 +68,5 @@ export function defineRawCommand<TContext>(
 export function defineRawCommand<TContext>(
 	definition: ContextFreeRawCommandOptions | ContextfulRawCommandOptions<TContext>,
 ): ClinkrRawCommandDefinition<TContext> {
-	return { type: "raw", ...definition };
+	return { ...definition, type: "raw" };
 }

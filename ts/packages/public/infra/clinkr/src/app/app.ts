@@ -4,6 +4,7 @@ import { Command, CommanderError, Option } from "commander";
 import { z } from "zod";
 
 import { stripAnsi } from "../ansi.ts";
+import { buildCommanderArgument, buildCommanderOption } from "../commander-surface.ts";
 import type { ClinkrIo } from "../io.ts";
 import { createProcessIo } from "../io.ts";
 import { buildSurfacePlan, type SurfacePlan } from "../surface.ts";
@@ -214,8 +215,8 @@ function buildCommandSurface(
 	definition: ClinkrCommandDefinition,
 	metadata: ClinkrCommandMetadata,
 ): CommandSurface {
-	const positionals: Record<string, { position: number }> = {};
-	const optionSpecs: Record<string, { short?: string }> = {};
+	const positionals: Record<string, { position: number; description?: string }> = {};
+	const optionSpecs: Record<string, { short?: string; description?: string }> = {};
 	for (const [key, field] of Object.entries(definition.schema.shape)) {
 		const annotation = cliAnnotationFor(field as z.ZodType);
 		if (annotation?.type === "positional") positionals[key] = annotation.options;
@@ -240,15 +241,10 @@ function buildCommandSurface(
 	if (metadata.summary !== undefined) command.summary(metadata.summary);
 	if (metadata.aliases !== undefined) command.aliases([...metadata.aliases]);
 	for (const positional of surface.positionals) {
-		command.argument(
-			`${positional.isRequired ? "<" : "["}${positional.name}${positional.isRequired ? ">" : "]"}`,
-			positional.description,
-		);
+		command.addArgument(buildCommanderArgument(positional, { requiredness: "commander" }));
 	}
 	for (const option of surface.options) {
-		const commanderOption = new Option(option.flag, option.description);
-		if (option.hasDefault) commanderOption.default(option.defaultValue);
-		command.addOption(commanderOption);
+		command.addOption(buildCommanderOption(option, { applyDefault: true }));
 	}
 	// Help-display-only: the global flags below are parsed exclusively by
 	// parseGlobalFlags before commander ever sees argv (parseArgv receives a

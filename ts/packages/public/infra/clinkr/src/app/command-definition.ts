@@ -22,13 +22,9 @@ export interface ClinkrCompletionCandidate {
 	readonly type: "positional-value" | "option-value";
 }
 
-export interface CliOptionOptions extends OptionSpec {
-	readonly description?: string;
-}
+export type CliOptionOptions = OptionSpec;
 
-export interface CliPositionalOptions extends PositionalSpec {
-	readonly description?: string;
-}
+export type CliPositionalOptions = PositionalSpec;
 
 type CliFieldAnnotation =
 	| { readonly type: "option"; readonly options: CliOptionOptions }

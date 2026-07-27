@@ -21,7 +21,8 @@ export interface OptionPlan {
 }
 
 export interface OptionSpec {
-	short?: string;
+	readonly short?: string;
+	readonly description?: string;
 }
 
 export interface PositionalPlan {
@@ -39,7 +40,8 @@ export interface SurfacePlan {
 }
 
 export interface PositionalSpec {
-	position: number;
+	readonly position: number;
+	readonly description?: string;
 }
 
 /** Keys that collide with options clinkr itself adds to every command. */
@@ -135,8 +137,8 @@ function buildFlag(options: BuildFlagOptions): string {
 	return `${optionSpec.short}, ${longFlag}${valueSuffix}`;
 }
 
-function describeField(unwrapped: UnwrappedField): string {
-	const base = unwrapped.description ?? "";
+function describeField(unwrapped: UnwrappedField, explicitDescription?: string): string {
+	const base = explicitDescription ?? unwrapped.description ?? "";
 	if (!unwrapped.hasDefault) return base;
 	const suffix = `(default: ${JSON.stringify(unwrapped.defaultValue)})`;
 	return base === "" ? suffix : `${base} ${suffix}`;
@@ -188,8 +190,12 @@ export function buildSurfacePlan(input: BuildSurfacePlanOptions): SurfacePlan {
 		const unwrapped = unwrapField(field as z.ZodType);
 		const kind = fieldKindFor(commandName, key, unwrapped.inner);
 		const isRequired = !unwrapped.isOptional && !unwrapped.hasDefault;
-		const description = describeField(unwrapped);
 		const positionalSpec = positionals[key];
+		const optionSpec = optionSpecs[key];
+		const description = describeField(
+			unwrapped,
+			positionalSpec?.description ?? optionSpec?.description,
+		);
 		if (positionalSpec !== undefined) {
 			if (kind.type === "boolean") {
 				throw new Error(
@@ -209,7 +215,7 @@ export function buildSurfacePlan(input: BuildSurfacePlanOptions): SurfacePlan {
 			});
 			continue;
 		}
-		const flag = buildFlag({ key, kind, unwrapped, optionSpec: optionSpecs[key] });
+		const flag = buildFlag({ key, kind, unwrapped, optionSpec });
 		optionPlans.push({
 			key,
 			flag,

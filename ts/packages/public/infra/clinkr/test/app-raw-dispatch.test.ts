@@ -4,6 +4,7 @@ import { expect, test } from "vitest";
 
 import { createClinkrApp } from "@nseng-ai/clinkr/app";
 import { runForTest } from "@nseng-ai/clinkr/app/testing";
+import { defineRawCommand } from "@nseng-ai/clinkr/raw";
 
 // Raw selected-definition dispatch through the same committed-fixture loader
 // path as the structured behavior matrix in app-public-seam.test.ts.
@@ -36,6 +37,13 @@ async function commandLoads(): Promise<number> {
 	if (!isLoadsModule(loadsModule)) throw new Error("Malformed raw-tail loads module");
 	return loadsModule.loads.commandCalls;
 }
+
+test("defineRawCommand owns the raw discriminant across an untyped boundary", () => {
+	const conflictingDefinition = { type: "structured", run: () => 0 };
+	const definition = defineRawCommand(conflictingDefinition);
+	expect(definition.type).toBe("raw");
+	expect(definition.run({ argv: [], io: { stdout: () => {}, stderr: () => {} } })).toBe(0);
+});
 
 test("raw execution receives the argv tail verbatim and owns bytes, stdin, and exit status", async () => {
 	// Every structured global flag plus `--` flows through uninterpreted: no
