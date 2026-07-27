@@ -24,9 +24,13 @@ Norms for agent-facing CLIs are still evolving. Keeping the mechanics in one pac
 
 ## Fast by default
 
-Clinkr discovers a command structure from a direct filesystem hierarchy, but it does not construct the whole command tree. For command selection, help, and name completion, it imports immediate child modules, calls each command module's cheap `metadata()`, and calls each group module's cheap, complete `group()` definition. A group's children still come from its directory. Command schemas, handlers, gateways, renderers, completion providers, and expensive imports belong inside `command()`, which runs only after that command is selected.
+Agentic development makes programs larger and more experimental. People and agents can add commands cheaply, vibe-code one-off workflows, and keep several approaches around while learning what should become established product surface. Those additions should not increase the startup time or latency of mature commands that do not use them. In Clinkr, an unselected command does not impose the cost of importing its schemas, handlers, gateways, renderers, or dependencies. Applications can grow a broad command surface without making every invocation initialize all of it.
 
-Successful selected-command loads are cached for that app, concurrent loads share their in-flight work, and failed loads remain retryable. Sibling command definitions are not constructed. A heavy command may dynamically import a private implementation from inside `command()`, but normal commands stay in one file. Group module top levels and `group()` itself must remain cheap.
+The filesystem also makes a large CLI legible to coding agents. Agents are effective at listing directories, narrowing searches by path, and opening a small set of relevant files. With Clinkr, the directory tree is the command tree: an agent can discover the application surface without tracing registration calls, reconstructing a central command manifest, or loading unrelated implementations into context. Command paths provide stable navigation landmarks, while each selected `metadata.ts`, `command.ts`, or `group.ts` keeps the relevant contract local.
+
+Clinkr discovers that command structure from a direct filesystem hierarchy, but it does not construct the whole command tree. For top-level or group help and command-name completion, it imports each immediate command's cheap `metadata.ts` and each group's cheap, complete `group.ts`; it does not import command implementation. A group's children still come from its directory. A command is selected for execution, command help, schema introspection, or option-value completion. Those selected paths import the command's `command.ts` and construct its definition, but only execution runs the handler.
+
+Successful selected-command loads are cached for that app, concurrent loads share their in-flight work, and failed loads remain retryable. Sibling command definitions are not constructed. Because `command.ts` itself is selected-only, it may use ordinary top-level imports for schemas, handlers, gateways, renderers, and completion providers. Dynamic imports are optional, not required for laziness. Group module top levels, `group()`, and command `metadata.ts` must remain cheap.
 
 > **Status:** This is a provisional contract under active review. Examples and behavior claims must be verified before this document is promoted to the package README.
 
@@ -48,38 +52,44 @@ Clinkr suits applications that want structured commands and explicit output cont
 
 ## Define and run one command
 
-The common path starts with a `cli/` directory:
+The recommended application seam is a Clinkr-owned `src/cli/` directory:
 
 ```text
-cli/
-  app.ts
-  command.ts
+src/
+  cli/
+    app.ts
+    metadata.ts
+    command.ts
 ```
 
-`cli/command.ts` is the app's optional default command. A command module exports cheap metadata separately from its potentially expensive definition:
+Treat `src/cli/` as owned by Clinkr's filesystem layout. Keep only the CLI entrypoint and Clinkr route files and directories there: `app.ts`, default-command `metadata.ts`/`command.ts`, named command directories, and group directories. Put domain logic, gateways, and other reusable application modules outside `src/cli/`; selected `command.ts` modules import that implementation. This ownership rule keeps framework topology from becoming intermingled with application code and makes the complete CLI surface visible from one directory.
+
+The required `src/cli/metadata.ts` + `src/cli/command.ts` pair is the app's optional default command. Metadata is eager and cheap; the command definition is selected-only:
 
 ```ts
-// cli/command.ts
-import { defineCommand, ok } from "@nseng-ai/clinkr";
+// src/cli/metadata.ts
 import type { ClinkrCommandMetadata } from "@nseng-ai/clinkr";
-import { z } from "zod";
 
 export function metadata(): ClinkrCommandMetadata {
   return { description: "Greet a person." };
 }
 
+// src/cli/command.ts
+import { cliOption, cliPositional, defineCommand, ok } from "@nseng-ai/clinkr";
+import { z } from "zod";
+
 export async function command() {
   return defineCommand({
     schema: z.object({
-      name: z.string(),
-      enthusiastic: z.boolean().default(false),
+      name: cliPositional(z.string(), {
+        position: 0,
+        description: "Person to greet.",
+      }),
+      enthusiastic: cliOption(z.boolean().default(false), {
+        short: "-e",
+        description: "Add emphasis.",
+      }),
     }),
-    positionals: {
-      name: { position: 0, description: "Person to greet." },
-    },
-    options: {
-      enthusiastic: { description: "Add emphasis." },
-    },
     resultSchema: z.object({ message: z.string() }),
     handler: async (request) =>
       ok({
@@ -90,12 +100,12 @@ export async function command() {
 }
 ```
 
-The exact command-definition type and helper spellings are provisional; the examples consistently show the desired authoring shape. Directory structure supplies the command or group name. A command's explicitly typed `metadata()` supplies description or summary, explicit aliases, hidden state, and help grouping, while its selected `command()` returns `defineCommand({...})`. The generic helper lets `schema` and `resultSchema` drive handler and renderer inference. Command module top levels and `metadata()` must stay cheap; heavy static imports belong behind `command()` or a private dynamic import it performs.
+The exact command-definition type and helper spellings are provisional; the examples consistently show the desired authoring shape. Directory structure supplies the command or group name. A command's explicitly typed `metadata.ts` supplies description or summary, explicit aliases, hidden state, and help grouping, while its selected-only `command.ts` returns `defineCommand({...})`. The generic helper lets `schema` and `resultSchema` drive handler and renderer inference. `metadata.ts` must stay cheap. `command.ts` may use ordinary top-level implementation imports because Clinkr does not import it for top-level/group help or command-name completion.
 
-`cli/app.ts` identifies the command directory and runs the app:
+`src/cli/app.ts` identifies its own directory as the command structure and runs the app:
 
 ```ts
-// cli/app.ts
+// src/cli/app.ts
 import { createClinkrApp } from "@nseng-ai/clinkr";
 
 const app = await createClinkrApp({
@@ -105,26 +115,92 @@ const app = await createClinkrApp({
 process.exitCode = await app.run(process.argv.slice(2));
 ```
 
-`import.meta.dirname` is the absolute directory containing `app.ts` in Node 24+. When the command structure lives in a child directory, pass an absolute path such as `path.join(import.meta.dirname, "commands")`. Clinkr never resolves `commandDirectory` relative to the process working directory.
+`import.meta.dirname` is the absolute `src/cli/` directory containing `app.ts` in Node 24+. This direct, self-rooted layout is the recommended shape. Clinkr also supports another absolute command directory when integration constraints require one, but it never resolves `commandDirectory` relative to the process working directory.
 
-This creates a command callable as `greet Ada --enthusiastic`. Clinkr adds `--format <human|json|markdown>` and `--json-schema` to every rendered command; `md` is a supported alias for `markdown`. The request schema drives parsing and validation; camelCase schema keys become kebab-case options. Mark positional fields with `positionals`, use `position` to declare their zero-based ordinal placement, and use `options` for option-specific help and surface metadata.
+This creates a command callable as `greet Ada --enthusiastic` or `greet Ada -e`. Clinkr adds `--format <human|json|markdown>` and `--json-schema` to every rendered command; `md` is a supported alias for `markdown`.
 
-A command that only performs an imperative action needs no `resultSchema`. It may write application-owned stderr chatter and return `ok()` with no data. Omitting all outcome data schemas is bodyless, not untyped: Clinkr emits no human result body and no `data` field in its JSON envelope. Use `z.any()` explicitly for intentionally untyped data.
+Every top-level field in the request's Zod object is part of the CLI input surface. By default, Clinkr projects a plain, unannotated field into a kebab-case long option: `planStoreRoot: z.string()` becomes required `--plan-store-root <value>`, and `verbose: z.boolean().default(false)` becomes optional `--verbose`. This projection is independent of output format: human, Markdown, and JSON invocations all use the same schema-derived argv parser.
 
-`resultSchema` configures successful `ok(data)`. Optional `negativeSchema`, `failureSchema`, and `usageErrorSchema` configure structured data for other statuses. Supplying a schema requires and validates data for that status; omitting it makes that outcome bodyless. These four schemas are one Clinkr-owned command contract: the same model drives handler outcome types, runtime validation, machine-envelope construction, and `--json-schema`.
+Use `cliPositional(...)` to replace that default option projection with a positional argument. It requires an explicit zero-based `position`; Clinkr never infers public argument order from object-field order. Use `cliOption(...)` when the field should remain an option but needs Clinkr-owned human help or a short flag. It decorates the default projection rather than opting the field into the CLI:
+
+```ts
+schema: z.object({
+  repository: cliPositional(z.string(), {
+    position: 0,
+    description: "Repository to inspect.",
+  }),
+  limit: cliOption(z.number().int().positive().default(20), {
+    short: "-n",
+    description: "Maximum results.",
+  }),
+  verbose: z.boolean().default(false), // automatically --verbose
+}),
+```
+
+Clinkr rejects request-schema fields it cannot project rather than silently making them unavailable. `cliPositional(...)` and `cliOption(...)` annotate the final Zod field through Clinkr's private typed metadata registry, so validation and the customized human CLI contract stay together.
+
+### Customize the human CLI surface
+
+Schemas own typed request data, but an application still owns the words people type and the help they read. Route metadata configures command and group aliases, summaries, help sections, and visibility. Clinkr's field helpers colocate descriptions, positional placement, and optional short flags with each Zod field:
+
+```ts
+// src/cli/contacts/find/metadata.ts
+import type { ClinkrCommandMetadata } from "@nseng-ai/clinkr";
+
+export function metadata(): ClinkrCommandMetadata {
+  return {
+    description: "Find a contact by name.",
+    summary: "Find a contact",
+    aliases: ["lookup"],
+    helpGroup: "Contacts",
+  };
+}
+
+// src/cli/contacts/find/command.ts
+import { cliOption, cliPositional, defineCommand } from "@nseng-ai/clinkr";
+import { z } from "zod";
+
+export async function command() {
+  return defineCommand({
+    schema: z.object({
+      name: cliPositional(z.string(), {
+        position: 0,
+        description: "Contact name.",
+      }),
+      includeArchived: cliOption(z.boolean().default(false), {
+        short: "-a",
+        description: "Include archived contacts.",
+      }),
+      limit: cliOption(z.number().int().positive().default(20), {
+        short: "-n",
+        description: "Maximum matches.",
+      }),
+    }),
+    // result schema, handler, and renderers...
+  });
+}
+```
+
+The same typed request is available through `contacts find Ada --include-archived --limit 5`, `contacts find Ada -a -n 5`, or the explicit command alias `contacts lookup Ada`. Aliases are never inferred: adding one is an application decision because it becomes supported public CLI surface. Plain fields and `cliOption(...)` fields both derive long flags predictably from schema keys; the annotation adds human help or a short flag, while `cliPositional(...)` changes that field's projection to an explicitly ordered argument. No parallel keyed map or second parser model is required.
+
+The helper must wrap the final field after Zod modifiers such as `.optional()` or `.default()`. Clinkr stores this annotation in its own typed Zod registry rather than Zod's global `.meta()` registry, so CLI-only presentation metadata does not leak into generated JSON Schema.
+
+A command that only performs an imperative action needs no `resultSchema`. It may write application-owned stderr chatter and return `ok()` with no data. Omitting command outcome data schemas is bodyless, not untyped: handler-returned outcomes have no human result body and no `data` field in their JSON envelope. Use `z.any()` explicitly for intentionally untyped command data.
+
+`resultSchema` configures successful `ok(data)`. Optional `negativeSchema`, `failureSchema`, and `usageErrorSchema` configure structured data for other handler-returned statuses. Supplying a schema requires and validates handler data for that status; omitting it makes that handler outcome bodyless. Clinkr can also produce framework-owned usage errors before the handler: Commander parsing failures carry `commanderCode`, and request-validation failures carry structured `issues`. Clinkr composes those built-in usage-data alternatives with the command's `usageErrorSchema` in the generated machine schema; they are not validated against the command-specific schema. These four command schemas plus Clinkr's built-in usage contracts drive runtime validation, machine-envelope construction, and `--json-schema`.
 
 ## Return explicit outcomes
 
 Rendered command handlers return a `ClinkrExit` rather than writing output or terminating the process:
 
-| Outcome         | Constructor       | Exit code | Human stream | Meaning                                         |
-| --------------- | ----------------- | --------- | ------------ | ----------------------------------------------- |
-| Success         | `ok()`/`ok(data)` | `0`       | stdout       | The operation completed.                        |
-| Negative result | `negative(...)`   | `1`       | stdout       | The operation completed with a negative result. |
-| Failure         | `failure(...)`    | `2`       | stderr       | The operation failed.                           |
-| Usage error     | `usageError(...)` | `2`       | stderr       | The invocation was invalid.                     |
+| Outcome         | Constructor       | Exit code | Human stream | Meaning                                       |
+| --------------- | ----------------- | --------- | ------------ | --------------------------------------------- |
+| Success         | `ok()`/`ok(data)` | `0`       | stdout       | The command completed.                        |
+| Negative result | `negative(...)`   | `1`       | stdout       | The command completed with a negative result. |
+| Failure         | `failure(...)`    | `2`       | stderr       | The command failed.                           |
+| Usage error     | `usageError(...)` | `2`       | stderr       | The invocation was invalid.                   |
 
-A **negative result** means the command worked but the answer was no: a lookup found nothing, a check did not pass, there was nothing to change. A **failure** means the operation could not complete—a dependency was unavailable, or an unexpected operational condition occurred. A handler picks the outcome directly:
+A **negative result** means the command worked but the answer was no: a lookup found nothing, a check did not pass, there was nothing to change. A **failure** means the command could not complete—a dependency was unavailable, or an unexpected condition occurred. A handler picks the outcome directly:
 
 ```ts
 import { failure, negative, ok } from "@nseng-ai/clinkr";
@@ -169,7 +245,7 @@ export async function command() {
 }
 ```
 
-Clinkr composes these command data schemas with its fixed fields into one top-level discriminated JSON Schema. Each `status` branch has predictable standard fields and either requires `data` matching its configured schema or omits `data` when no schema was configured. `--json-schema` publishes this complete input-and-outcome contract. Adapters should pass these schemas through to Clinkr rather than validating or reconstructing a partial outcome contract themselves.
+Clinkr composes these command data schemas with its fixed fields into one top-level discriminated JSON Schema. The `ok`, `negative`, and `failure` branches either require `data` matching their configured command schema or omit `data` when no schema was configured. Usage errors additionally include Clinkr's exact Commander and request-validation data alternatives: without `usageErrorSchema`, handler usage errors are bodyless while framework usage errors remain data-bearing; with it, handler usage errors require matching command data and framework alternatives remain available. `--json-schema` publishes this complete input-and-outcome contract. Adapters should pass command schemas through to Clinkr rather than validating or reconstructing a partial outcome contract themselves.
 
 Clinkr follows the [`grep` exit-status convention](https://www.gnu.org/software/grep/manual/html_node/Exit-Status.html): `0` positive, `1` expected negative, `2` error. This is Clinkr's convention, not a universal CLI rule.
 
@@ -234,26 +310,31 @@ Filesystem paths are command paths. There are no required `groups/`, `commands/`
 ```text
 cli/
   app.ts
-  command.ts              # optional app default
+  metadata.ts             # optional app-default metadata
+  command.ts              # optional app-default definition
   issues/
     group.ts              # `issues` is a named group
-    command.ts            # optional `issues` default
+    metadata.ts           # optional `issues` default metadata
+    command.ts            # optional `issues` default definition
     list/
-      command.ts          # `issues list`
+      metadata.ts         # `issues list` metadata
+      command.ts          # `issues list` definition
     labels/
       group.ts            # `issues labels` group
       add/
-        command.ts        # `issues labels add`
+        metadata.ts       # `issues labels add` metadata
+        command.ts        # `issues labels add` definition
 ```
 
 The conventions are mechanical:
 
 - a directory with `group.ts` is a named group;
-- `command.ts` without a peer `group.ts` is the named command represented by its directory;
-- `command.ts` beside `group.ts` is that group's default command;
-- root `cli/command.ts` is the app default.
+- a required `metadata.ts` + `command.ts` pair without a peer `group.ts` is the named command represented by its directory;
+- that required pair beside `group.ts` is the group's default command;
+- the required pair at root is the app default;
+- either command file without the other is invalid.
 
-A normal command or group uses one public definition file. There is no metadata sidecar, generated manifest, generated runtime module, or production codegen step.
+A group uses one eager `group.ts`; a command uses exactly the two-file metadata/definition seam. There is no optional sidecar, generated manifest, generated runtime module, compatibility shape, or production codegen step.
 
 A group module exports one cheap, complete definition function. There is no separate group `metadata()` or lazy second definition function; child commands and groups come from the directory:
 
@@ -272,17 +353,19 @@ export function group(): ClinkrGroupDefinition {
 }
 ```
 
-A leaf remains concrete and self-contained:
+A leaf remains concrete as one required metadata/definition pair:
 
 ```ts
-// cli/issues/list/command.ts
-import { defineCommand, ok } from "@nseng-ai/clinkr";
+// cli/issues/list/metadata.ts
 import type { ClinkrCommandMetadata } from "@nseng-ai/clinkr";
-import { z } from "zod";
 
 export function metadata(): ClinkrCommandMetadata {
   return { description: "List open issues." };
 }
+
+// cli/issues/list/command.ts
+import { defineCommand, ok } from "@nseng-ai/clinkr";
+import { z } from "zod";
 
 export async function command() {
   return defineCommand({
@@ -296,7 +379,7 @@ export async function command() {
 
 Aliases are explicit public API; Clinkr never infers them. Invoking a scope without a selected child runs its default command when present and otherwise shows help. Hidden commands and groups remain invocable but do not appear in parent help.
 
-Runtime discovery requires these command/group files and directories to ship intact. Bundlers and single-file packaging may need the programmatic builder escape hatch or a future dedicated adapter; Clinkr does not solve this with a generated manifest.
+Runtime discovery requires these command/group files and directories—including both files in every command pair—to ship intact. Bundlers and single-file packaging may need the programmatic builder escape hatch or a future dedicated adapter; Clinkr does not solve this with a generated manifest.
 
 ## Shell completion
 
@@ -420,7 +503,7 @@ A command that requires a prompt must return a usage error when interaction is u
 
 `@nseng-ai/clinkr/raw` provides a narrow, framework-neutral escape hatch for a selected command that must receive its raw argv tail and own its output bytes and exit status. Clinkr still owns application routing and command metadata; it does not parse the selected command's argv tail or wrap its output in the rendered-command contract.
 
-Use this only for genuine passthrough or byte-owning operations, such as adapting an embedded parser or a process-like runner. Prefer an ordinary `ClinkrCommand` whenever Clinkr can model the operation's schema, outcomes, and rendering. Mounting an opaque Commander subtree is not part of this contract; add a framework-specific adapter only when a concrete application requires one.
+Use this only for genuine passthrough or byte-owning commands, such as adapting an embedded parser or a process-like runner. Prefer an ordinary `ClinkrCommand` whenever Clinkr can model the command's schema, outcomes, and rendering. Mounting an opaque Commander subtree is not part of this contract; add a framework-specific adapter only when a concrete application requires one.
 
 ### Streaming output
 
