@@ -2,7 +2,14 @@
 
 import { ClinkrGroup, resolveClinkrInteraction } from "@nseng-ai/clinkr";
 import { defineCli, readStdinLine } from "@nseng-ai/foundation/cli-runtime";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
+import {
+	cavemanRequestSchema,
+	cavemanResultSchema,
+	renderCaveman,
+	runCaveman,
+} from "./commands/caveman.ts";
 import {
 	createLocalNsProjectRequestSchema,
 	createLocalNsProjectResultSchema,
@@ -78,10 +85,24 @@ const entry = defineCli<NsDevCliContext, CliDeps, undefined>({
 			...(deps.release === undefined ? {} : { release: deps.release }),
 			...(deps.releaseReset === undefined ? {} : { releaseReset: deps.releaseReset }),
 			status: deps.stderr ?? stderr,
+			...optionalEntries({
+				statusIsTty: deps.statusIsTty,
+				statusColumns: deps.statusColumns,
+			}),
 		});
 		return { type: "run", context, buildState: undefined };
 	},
 	configureCli: ({ root }) => {
+		root.command({
+			name: "caveman",
+			description: "Compress text or rewrite a file in place into caveman style.",
+			schema: cavemanRequestSchema,
+			positionals: { text: { position: 0 } },
+			options: { file: { short: "-f" } },
+			resultSchema: cavemanResultSchema,
+			handler: runCaveman,
+			renderHuman: renderCaveman,
+		});
 		root.command({
 			name: "create-local-ns-project",
 			description:

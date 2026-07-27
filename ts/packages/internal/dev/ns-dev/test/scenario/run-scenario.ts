@@ -44,12 +44,14 @@ export interface ScenarioRunOptions {
 	readonly mtimes?: Record<string, number>;
 	readonly readFailures?: Record<string, string>;
 	readonly writeFailures?: Record<string, string>;
-	readonly commandResults?: readonly ExecResult[];
+	readonly commandResults?: readonly (ExecResult | Promise<ExecResult>)[];
 	readonly timers?: TimerScheduler;
 	readonly interaction?: ClinkrInteraction;
 	readonly stdin?: () => Promise<string | null>;
 	readonly release?: ReleaseCliContext;
 	readonly releaseReset?: ReleaseResetGateway;
+	readonly statusIsTty?: boolean;
+	readonly statusColumns?: number;
 }
 
 export interface ScenarioRun {
@@ -82,6 +84,8 @@ export function runScenario(
 		...(options.stdin === undefined ? {} : { stdin: options.stdin }),
 		...(options.release === undefined ? {} : { release: options.release }),
 		...(options.releaseReset === undefined ? {} : { releaseReset: options.releaseReset }),
+		...(options.statusIsTty === undefined ? {} : { statusIsTty: options.statusIsTty }),
+		...(options.statusColumns === undefined ? {} : { statusColumns: options.statusColumns }),
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
 		runCommand: async (command, commandArgs, commandOptions) => {
@@ -90,7 +94,7 @@ export function runScenario(
 				args: [...commandArgs],
 				...(commandOptions?.cwd === undefined ? {} : { cwd: commandOptions.cwd }),
 			});
-			return commandResults.shift() ?? exitedResult();
+			return await (commandResults.shift() ?? exitedResult());
 		},
 	};
 	return { exit: runNsDevCli(args, deps), stdout, stderr, calls, fs };
