@@ -16,11 +16,11 @@ import {
 	type ContextfulCommandDefinition,
 } from "./command-definition.ts";
 import {
+	decodeCommandOutcome,
 	envelopeJsonText,
 	exitCodeFor,
 	toEnvelope,
 	type CommandOutcome,
-	type SuccessOutcome,
 	type UsageErrorOutcome,
 } from "./outcome.ts";
 
@@ -209,13 +209,13 @@ class FilesystemClinkrApp<TContext> {
 				return emitUsageError(io, format, parsedArgv.message, "invalid-request");
 			request = parsedArgv.data as Record<string, unknown>;
 		}
-		const outcome = this.requiresContext
+		const handlerResult: unknown = this.requiresContext
 			? await (definition as ContextfulCommandDefinition<TContext>).handler(
 					(options as ClinkrRunOptions<TContext>).context,
 					request,
 				)
 			: await (definition as ContextFreeCommandDefinition).handler(request);
-		validateOutcome(outcome, definition);
+		const outcome = decodeCommandOutcome(handlerResult, definition.resultSchema);
 		emitOutcome(io, outcome, definition, format);
 		return exitCodeFor(outcome.status);
 	}
@@ -481,24 +481,6 @@ function parseGlobalFlags(argv: readonly string[]): GlobalFlagsResult {
 	};
 }
 
-/**
- * Success data is the only validated payload: it must match `resultSchema`
- * when declared and must be absent otherwise. Error-outcome `data` passes
- * through unvalidated; it must be JSON-serializable.
- */
-function validateOutcome(
-	outcome: CommandOutcome<unknown>,
-	definition: ClinkrCommandDefinition,
-): void {
-	if (outcome.status !== "success") return;
-	if (definition.resultSchema === undefined) {
-		if (outcome.data !== undefined)
-			throw new Error("clinkr: success outcome data requires a resultSchema");
-		return;
-	}
-	definition.resultSchema.parse(outcome.data);
-}
-
 function emitOutcome(
 	io: ClinkrIo,
 	outcome: CommandOutcome<unknown>,
@@ -510,34 +492,23 @@ function emitOutcome(
 		return;
 	}
 	if (outcome.status === "success") {
-		emitSuccess(io, outcome, definition, format);
+		if (outcome.data === undefined) return;
+		const renderer =
+			format === "md"
+				? (definition.renderMarkdown ?? definition.renderHuman)
+				: definition.renderHuman;
+		const text =
+			renderer === undefined
+				? envelopeJsonText(outcome.data)
+				: renderer(outcome.data, { canEmitAnsi: io.canEmitAnsi === true });
+		io.stdout(`${text}\n`);
 		return;
 	}
 	if (outcome.status === "negative") {
-		io.stdout(`${outcome.human ?? outcome.message}\n`);
+		io.stdout(`${outcome.message}\n`);
 		return;
 	}
 	io.stderr(`${outcome.message}\n`);
-}
-
-function emitSuccess(
-	io: ClinkrIo,
-	outcome: SuccessOutcome<unknown>,
-	definition: ClinkrCommandDefinition,
-	format: "human" | "json" | "md",
-): void {
-	const override = format === "md" ? (outcome.markdown ?? outcome.human) : outcome.human;
-	if (override !== undefined) {
-		io.stdout(`${override}\n`);
-		return;
-	}
-	const renderer =
-		format === "md"
-			? (definition.renderMarkdown ?? definition.renderHuman)
-			: definition.renderHuman;
-	if (renderer === undefined || outcome.data === undefined) return;
-	const text = renderer(outcome.data, { canEmitAnsi: io.canEmitAnsi === true });
-	io.stdout(`${text}\n`);
 }
 
 function emitUsageError(

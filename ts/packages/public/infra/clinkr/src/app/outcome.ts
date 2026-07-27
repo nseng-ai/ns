@@ -13,10 +13,6 @@ export interface SuccessOutcome<T> {
 	readonly status: "success";
 	/** Typed result payload; `undefined` when the command has no `resultSchema`. */
 	readonly data: T;
-	/** Human-format render override; never serialized. */
-	readonly human?: string;
-	/** Markdown-format render override; never serialized. */
-	readonly markdown?: string;
 }
 
 export interface NegativeOutcome {
@@ -24,8 +20,6 @@ export interface NegativeOutcome {
 	readonly message: string;
 	/** Freeform JSON diagnostics; never validated. */
 	readonly data?: unknown;
-	/** Human-format render override; never serialized. */
-	readonly human?: string;
 }
 
 export interface FailureOutcome {
@@ -54,20 +48,14 @@ export type CommandOutcome<TResult = undefined> =
 export type OutcomeStatus = CommandOutcome<unknown>["status"];
 
 export function ok(): SuccessOutcome<undefined>;
-export function ok<T>(
-	data: T,
-	overrides?: { readonly human?: string; readonly markdown?: string },
-): SuccessOutcome<T>;
-export function ok<T>(
-	data?: T,
-	overrides: { readonly human?: string; readonly markdown?: string } = {},
-): SuccessOutcome<T | undefined> {
-	return { status: "success", data, ...overrides };
+export function ok<T>(data: T): SuccessOutcome<T>;
+export function ok<T>(data?: T): SuccessOutcome<T | undefined> {
+	return { status: "success", data };
 }
 
 export function negative(
 	message: string,
-	options: { readonly data?: unknown; readonly human?: string } = {},
+	options: { readonly data?: unknown } = {},
 ): NegativeOutcome {
 	return { status: "negative", message, ...options };
 }
@@ -97,9 +85,9 @@ export function exitCodeFor(status: OutcomeStatus): 0 | 1 | 2 {
 }
 
 /**
- * The machine envelope is the outcome plus `exitCode`, minus render
- * overrides. The `data` key is omitted entirely when its value is
- * `undefined`. Field order is stable: `status`, `exitCode`, then the rest.
+ * The machine envelope is the outcome plus `exitCode`. The `data` key is
+ * omitted entirely when its value is `undefined`. Field order is stable:
+ * `status`, `exitCode`, then the rest.
  */
 export function toEnvelope(outcome: CommandOutcome<unknown>): Record<string, unknown> {
 	const exitCode = exitCodeFor(outcome.status);
@@ -129,8 +117,65 @@ export function toEnvelope(outcome: CommandOutcome<unknown>): Record<string, unk
 	}
 }
 
-export function envelopeJsonText(value: object): string {
-	return JSON.stringify(value, null, 2);
+export function envelopeJsonText(value: unknown): string {
+	const text = JSON.stringify(value, null, 2);
+	if (text === undefined) throw new Error("clinkr: value is not JSON-serializable");
+	return text;
+}
+
+const negativeOutcomeShape = {
+	status: z.literal("negative"),
+	message: z.string(),
+	data: z.unknown().optional(),
+};
+const failureOutcomeShape = {
+	status: z.literal("failure"),
+	errorType: z.string(),
+	message: z.string(),
+	data: z.unknown().optional(),
+};
+const usageErrorOutcomeShape = {
+	status: z.literal("usage-error"),
+	errorType: z.string(),
+	message: z.string(),
+	data: z.unknown().optional(),
+};
+
+function buildSuccessOutcomeSchema(resultSchema: z.ZodType | undefined) {
+	return z.strictObject({
+		status: z.literal("success"),
+		data: resultSchema ?? z.undefined().optional(),
+	});
+}
+
+/** Decode an untrusted handler return through the command's outcome contract. */
+export function decodeCommandOutcome(
+	value: unknown,
+	resultSchema: z.ZodType | undefined,
+): CommandOutcome<unknown> {
+	if (
+		resultSchema === undefined &&
+		typeof value === "object" &&
+		value !== null &&
+		"status" in value &&
+		value.status === "success" &&
+		"data" in value &&
+		value.data !== undefined
+	) {
+		throw new Error("clinkr: success outcome data requires a resultSchema");
+	}
+	const decoded = z
+		.union([
+			buildSuccessOutcomeSchema(resultSchema),
+			z.strictObject(negativeOutcomeShape),
+			z.strictObject(failureOutcomeShape),
+			z.strictObject(usageErrorOutcomeShape),
+		])
+		.parse(value);
+	if (decoded.status === "success") {
+		return { status: "success", data: "data" in decoded ? decoded.data : undefined };
+	}
+	return decoded;
 }
 
 /**
@@ -145,24 +190,16 @@ export function buildEnvelopeSchema(resultSchema: z.ZodType | undefined) {
 		...(resultSchema === undefined ? {} : { data: resultSchema }),
 	});
 	const negativeEnvelope = z.strictObject({
-		status: z.literal("negative"),
+		...negativeOutcomeShape,
 		exitCode: z.literal(1),
-		message: z.string(),
-		data: z.unknown().optional(),
 	});
 	const failureEnvelope = z.strictObject({
-		status: z.literal("failure"),
+		...failureOutcomeShape,
 		exitCode: z.literal(2),
-		errorType: z.string(),
-		message: z.string(),
-		data: z.unknown().optional(),
 	});
 	const usageErrorEnvelope = z.strictObject({
-		status: z.literal("usage-error"),
+		...usageErrorOutcomeShape,
 		exitCode: z.literal(2),
-		errorType: z.string(),
-		message: z.string(),
-		data: z.unknown().optional(),
 	});
 	return z.union([success, negativeEnvelope, failureEnvelope, usageErrorEnvelope]);
 }

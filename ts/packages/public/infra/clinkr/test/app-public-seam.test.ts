@@ -152,32 +152,31 @@ test("bodyless success omits data from JSON", async () => {
 const emptySchema = z.object({});
 const fixtureMetadata = { description: "Fixture command." };
 
-test("success data is validated against resultSchema", async () => {
-	const commandDirectory = await createCommandDirectory({});
-	const app = createClinkrApp({ name: "fixture", commandDirectory });
-	Object.defineProperty(app, "loaded", {
-		value: Promise.resolve({
-			definition: {
-				schema: emptySchema,
-				resultSchema: z.object({ value: z.string() }),
-				handler: async () => ok({ value: 1 }),
-			},
-			metadata: fixtureMetadata,
-		}),
+test("success data is decoded through resultSchema before rendering", async () => {
+	const commandDirectory = await createCommandDirectory({
+		commandSource:
+			'import { defineCommand, ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({}), resultSchema: z.object({ name: z.string().transform((name) => name.toUpperCase()) }), renderHuman: (result) => result.name, handler: async () => ok({ name: "Ada" }) }); }\n',
 	});
-	await expect(app.run([])).rejects.toThrow();
+	const run = await runForTest(createClinkrApp({ name: "fixture", commandDirectory }), []);
+	expect(run).toMatchObject({ exitCode: 0, stdout: "ADA\n", stderr: "" });
+});
+
+test("success data that fails resultSchema decoding is a programmer error", async () => {
+	const commandDirectory = await createCommandDirectory({
+		commandSource:
+			'import { defineCommand, ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({}), resultSchema: z.object({ value: z.string() }), handler: async () => ok({ value: 1 }) }); }\n',
+	});
+	await expect(createClinkrApp({ name: "fixture", commandDirectory }).run([])).rejects.toThrow();
 });
 
 test("success without resultSchema rejects a data payload", async () => {
-	const commandDirectory = await createCommandDirectory({});
-	const app = createClinkrApp({ name: "fixture", commandDirectory });
-	Object.defineProperty(app, "loaded", {
-		value: Promise.resolve({
-			definition: { schema: emptySchema, handler: async () => ok("data") },
-			metadata: fixtureMetadata,
-		}),
+	const commandDirectory = await createCommandDirectory({
+		commandSource:
+			'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), handler: async () => ok("data") }; }\n',
 	});
-	await expect(app.run([])).rejects.toThrow("success outcome data requires a resultSchema");
+	await expect(createClinkrApp({ name: "fixture", commandDirectory }).run([])).rejects.toThrow(
+		"success outcome data requires a resultSchema",
+	);
 });
 
 for (const [label, outcome, exitCode] of [
@@ -202,7 +201,7 @@ for (const [label, outcome, exitCode] of [
 
 for (const [label, outcome, exitCode] of [
 	["success", ok(), 0],
-	["negative", negative("no", { data: undefined }), 1],
+	["negative", negative("no"), 1],
 	["failure", failure("failed", "failed", undefined), 2],
 	["usage error", usageError("invalid", undefined), 2],
 ] as const) {
@@ -220,6 +219,51 @@ for (const [label, outcome, exitCode] of [
 		expect(run.stdout).not.toContain('"data"');
 	});
 }
+
+test("rendering falls back through Markdown, human, then indented JSON", async () => {
+	const commandDirectory = await createCommandDirectory({
+		commandSource:
+			'import { defineCommand, ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({}), resultSchema: z.object({ name: z.string() }), renderHuman: (result) => `Hello ${result.name}`, handler: async () => ok({ name: "Ada" }) }); }\n',
+	});
+	const app = createClinkrApp({ name: "fixture", commandDirectory });
+	const markdownRun = await runForTest(app, ["--format=md"]);
+	expect(markdownRun.stdout).toBe("Hello Ada\n");
+
+	const jsonFallbackDirectory = await createCommandDirectory({
+		commandSource:
+			'import { defineCommand, ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({}), resultSchema: z.object({ name: z.string() }), handler: async () => ok({ name: "Ada" }) }); }\n',
+	});
+	const fallbackRun = await runForTest(
+		createClinkrApp({ name: "fixture", commandDirectory: jsonFallbackDirectory }),
+		[],
+	);
+	expect(fallbackRun.stdout).toBe('{\n  "name": "Ada"\n}\n');
+});
+
+test.each([
+	["null", "null"],
+	["an unknown status", '{ status: "other" }'],
+	["a missing required field", '{ status: "negative" }'],
+	["an extra field", '{ status: "negative", message: "no", extra: true }'],
+] as const)(
+	"malformed handler outcome (%s) is a programmer error",
+	async (_label, outcomeSource) => {
+		const commandDirectory = await createCommandDirectory({
+			commandSource: `import { defineCommand } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({}), handler: async () => ${outcomeSource} }); }\n`,
+		});
+		await expect(createClinkrApp({ name: "fixture", commandDirectory }).run([])).rejects.toThrow();
+	},
+);
+
+test("unexpected handler exceptions propagate", async () => {
+	const commandDirectory = await createCommandDirectory({
+		commandSource:
+			'import { defineCommand } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({}), handler: async () => { throw new Error("boom"); } }); }\n',
+	});
+	await expect(createClinkrApp({ name: "fixture", commandDirectory }).run([])).rejects.toThrow(
+		"boom",
+	);
+});
 
 test.each(["null", "[]", '"Ada"', "1", "true"])(
 	"JSON input rejects non-object transport value %s",
