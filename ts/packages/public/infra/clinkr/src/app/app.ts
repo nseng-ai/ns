@@ -147,56 +147,54 @@ class FilesystemClinkrApp<TContext> {
 		if ((definition.requiresContext === true) !== this.requiresContext) {
 			throw new Error("clinkr: selected command context mode does not match the app");
 		}
-		const inputJsonCount = argv.filter((argument) => argument === "--input-json").length;
-		if (inputJsonCount > 1)
-			return emitUsageError(io, argv, "repeated --input-json", "invalid-request");
-		const inputJson = inputJsonCount === 1;
-		const withoutInput = argv.filter((argument) => argument !== "--input-json");
-		const formatResult = parseFormat(withoutInput);
-		if (!formatResult.success)
-			return emitUsageError(io, withoutInput, formatResult.message, "invalid-request");
-		const format = formatResult.format;
-		if (argv.includes("--help") || argv.includes("-h")) {
+		const parsed = parseGlobalFlags(argv);
+		if (parsed.ok ? parsed.flags.help : parsed.help) {
 			io.stdout(buildCommandSurface(this.name, definition).command.helpInformation());
 			return 0;
 		}
-		if (argv.includes("--json-schema")) {
+		if (!parsed.ok) return emitUsageError(io, parsed.format, parsed.message, "invalid-request");
+		const { format, jsonSchema, inputJson, rest } = parsed.flags;
+		if (jsonSchema && inputJson) {
+			return emitUsageError(
+				io,
+				format,
+				"--json-schema cannot be combined with --input-json",
+				"invalid-request",
+			);
+		}
+		if (jsonSchema) {
 			io.stdout(`${envelopeJsonText(buildCommandJsonSchemaDocument(definition))}\n`);
 			return 0;
 		}
 		let request: Record<string, unknown>;
 		if (inputJson) {
-			const commandArguments = withoutInput.filter((argument, index) => {
-				if (argument === "--format") return false;
-				if (index > 0 && withoutInput[index - 1] === "--format") return false;
-				return !argument.startsWith("--format=");
-			});
-			if (commandArguments.length > 0) {
+			if (rest.length > 0) {
 				return emitUsageError(
 					io,
-					withoutInput,
+					format,
 					"--input-json cannot be combined with command arguments",
 					"invalid-request",
 				);
 			}
 			const readStdin = options.readStdin ?? io.readStdin;
 			if (readStdin === undefined) {
+				return emitUsageError(io, format, "--input-json requires stdin", "invalid-json-input");
+			}
+			const parsedJson = parseJsonInput(await readStdin(), definition.schema);
+			if (!parsedJson.success)
 				return emitUsageError(
 					io,
-					withoutInput,
-					"--input-json requires stdin",
-					"invalid-json-input",
+					format,
+					parsedJson.message,
+					parsedJson.errorType,
+					parsedJson.data,
 				);
-			}
-			const parsed = parseJsonInput(await readStdin(), definition.schema);
-			if (!parsed.success)
-				return emitUsageError(io, withoutInput, parsed.message, parsed.errorType, parsed.data);
-			request = parsed.data as Record<string, unknown>;
+			request = parsedJson.data as Record<string, unknown>;
 		} else {
-			const parsed = parseArgv(this.name, withoutInput, definition);
-			if (!parsed.success)
-				return emitUsageError(io, withoutInput, parsed.message, "invalid-request");
-			request = parsed.data as Record<string, unknown>;
+			const parsedArgv = parseArgv(this.name, rest, definition);
+			if (!parsedArgv.success)
+				return emitUsageError(io, format, parsedArgv.message, "invalid-request");
+			request = parsedArgv.data as Record<string, unknown>;
 		}
 		const outcome = this.requiresContext
 			? await (definition as ContextfulCommandDefinition<TContext>).handler(
@@ -290,6 +288,10 @@ function buildCommandSurface(name: string, definition: ClinkrCommandDefinition):
 		if (option.hasDefault) commanderOption.default(option.defaultValue);
 		command.addOption(commanderOption);
 	}
+	// Help-display-only: the global flags below are parsed exclusively by
+	// parseGlobalFlags before commander ever sees argv (parseArgv receives a
+	// `rest` that never contains them). These registrations exist solely so
+	// `--help` output lists the standard flags.
 	command.addOption(
 		new Option("--format <format>").choices(["human", "json", "md"]).default("human"),
 	);
@@ -359,32 +361,80 @@ function parseJsonInput(
 			};
 }
 
-type FormatResult =
-	| { readonly success: true; readonly format: "human" | "json" | "md" }
-	| { readonly success: false; readonly message: string };
+type OutputFormat = "human" | "json" | "md";
 
-function parseFormat(argv: readonly string[]): FormatResult {
-	const values: string[] = [];
-	for (let index = 0; index < argv.length; index += 1) {
-		const argument = argv[index];
-		if (argument === "--format") {
-			const value = argv[index + 1];
-			if (value === undefined || value.startsWith("-"))
-				return { success: false, message: "option '--format <format>' argument missing" };
-			values.push(value);
-			index += 1;
-		} else if (argument?.startsWith("--format=")) values.push(argument.slice("--format=".length));
-	}
-	if (values.length > 1) return { success: false, message: "repeated --format" };
-	const value = values[0] ?? "human";
-	return value === "human" || value === "json" || value === "md"
-		? { success: true, format: value }
-		: { success: false, message: `invalid format: ${value}` };
+interface GlobalFlags {
+	readonly format: OutputFormat;
+	readonly help: boolean;
+	readonly jsonSchema: boolean;
+	readonly inputJson: boolean;
+	/** argv with every global flag (and `--format` value) removed. */
+	readonly rest: readonly string[];
 }
 
-function formatFromArgs(argv: readonly string[]): "human" | "json" | "md" {
-	const result = parseFormat(argv);
-	return result.success ? result.format : "human";
+type GlobalFlagsResult =
+	| { readonly ok: true; readonly flags: GlobalFlags }
+	| {
+			readonly ok: false;
+			/** Best-effort help detection so help still wins over a bad parse. */
+			readonly help: boolean;
+			/** Best-effort format so usage-error emission honors a valid `--format`. */
+			readonly format: OutputFormat;
+			readonly message: string;
+	  };
+
+/**
+ * Single owner of the global-flag grammar (`--help`/`-h`, `--format`,
+ * `--input-json`, `--json-schema`). One pass over argv; the commander
+ * registrations for these flags in {@link buildCommandSurface} are
+ * help-display-only and never parse them.
+ */
+function parseGlobalFlags(argv: readonly string[]): GlobalFlagsResult {
+	const formatValues: string[] = [];
+	const rest: string[] = [];
+	let help = false;
+	let jsonSchema = false;
+	let inputJsonCount = 0;
+	let missingFormatValue = false;
+	for (let index = 0; index < argv.length; index += 1) {
+		const argument = argv[index];
+		if (argument === undefined) continue;
+		if (argument === "--help" || argument === "-h") help = true;
+		else if (argument === "--json-schema") jsonSchema = true;
+		else if (argument === "--input-json") inputJsonCount += 1;
+		else if (argument === "--format") {
+			const value = argv[index + 1];
+			if (value === undefined || value.startsWith("-")) missingFormatValue = true;
+			else {
+				formatValues.push(value);
+				index += 1;
+			}
+		} else if (argument.startsWith("--format=")) {
+			formatValues.push(argument.slice("--format=".length));
+		} else rest.push(argument);
+	}
+	const formatValue = formatValues.length === 1 ? formatValues[0] : undefined;
+	const format =
+		formatValue === "human" || formatValue === "json" || formatValue === "md"
+			? formatValue
+			: undefined;
+	let message: string | undefined;
+	if (inputJsonCount > 1) message = "repeated --input-json";
+	else if (missingFormatValue) message = "option '--format <format>' argument missing";
+	else if (formatValues.length > 1) message = "repeated --format";
+	else if (formatValue !== undefined && format === undefined)
+		message = `invalid format: ${formatValue}`;
+	if (message !== undefined) return { ok: false, help, format: format ?? "human", message };
+	return {
+		ok: true,
+		flags: {
+			format: format ?? "human",
+			help,
+			jsonSchema,
+			inputJson: inputJsonCount === 1,
+			rest,
+		},
+	};
 }
 
 /**
@@ -448,7 +498,7 @@ function emitSuccess(
 
 function emitUsageError(
 	io: ClinkrIo,
-	argv: readonly string[],
+	format: OutputFormat,
 	message: string,
 	errorType: string,
 	data?: unknown,
@@ -459,7 +509,6 @@ function emitUsageError(
 		message,
 		...(data === undefined ? {} : { data }),
 	};
-	const format = formatFromArgs(argv);
 	if (format === "json") io.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
 	else io.stderr(`${message}\n`);
 	return exitCodeFor(outcome.status);

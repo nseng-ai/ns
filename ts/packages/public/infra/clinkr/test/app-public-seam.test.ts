@@ -281,6 +281,80 @@ test("JSON input rejects top-level unknown keys with schema issues", async () =>
 	);
 });
 
+test("--help wins over an invalid --format value", async () => {
+	const commandDirectory = await createCommandDirectory({});
+	const run = await runForTest(createClinkrApp({ name: "fixture", commandDirectory }), [
+		"--help",
+		"--format",
+		"bogus",
+	]);
+	expect(run.exitCode).toBe(0);
+	expect(run.stdout).toContain("Usage: fixture");
+	expect(run.stderr).toBe("");
+});
+
+test("-h wins over repeated --input-json", async () => {
+	const commandDirectory = await createCommandDirectory({});
+	const run = await runForTest(createClinkrApp({ name: "fixture", commandDirectory }), [
+		"-h",
+		"--input-json",
+		"--input-json",
+	]);
+	expect(run.exitCode).toBe(0);
+	expect(run.stdout).toContain("Usage: fixture");
+	expect(run.stderr).toBe("");
+});
+
+test.each([[["--json-schema", "--input-json"]], [["--input-json", "--json-schema"]]])(
+	"--json-schema combined with --input-json is a usage error (%j)",
+	async (argv) => {
+		const commandDirectory = await createCommandDirectory({});
+		const run = await runForTest(
+			createClinkrApp({ name: "fixture", commandDirectory }),
+			[...argv, "--format=json"],
+			{ stdin: "{}" },
+		);
+		expect(run.exitCode).toBe(2);
+		expect(JSON.parse(run.stdout)).toMatchObject({
+			status: "usage-error",
+			errorType: "invalid-request",
+		});
+	},
+);
+
+test("repeated --format stays a usage error when help is not requested", async () => {
+	const commandDirectory = await createCommandDirectory({});
+	const run = await runForTest(createClinkrApp({ name: "fixture", commandDirectory }), [
+		"--format=json",
+		"--format=json",
+	]);
+	expect(run).toMatchObject({ exitCode: 2, stdout: "" });
+	expect(run.stderr).toContain("repeated --format");
+});
+
+test("--format without a value stays a usage error", async () => {
+	const commandDirectory = await createCommandDirectory({});
+	const run = await runForTest(createClinkrApp({ name: "fixture", commandDirectory }), [
+		"--format",
+	]);
+	expect(run).toMatchObject({ exitCode: 2, stdout: "" });
+	expect(run.stderr).toContain("argument missing");
+});
+
+test("repeated --input-json without help stays a usage error", async () => {
+	const commandDirectory = await createCommandDirectory({});
+	const run = await runForTest(
+		createClinkrApp({ name: "fixture", commandDirectory }),
+		["--input-json", "--input-json", "--format=json"],
+		{ stdin: "{}" },
+	);
+	expect(run.exitCode).toBe(2);
+	expect(JSON.parse(run.stdout)).toMatchObject({
+		status: "usage-error",
+		errorType: "invalid-request",
+	});
+});
+
 test.each(["yaml", "markdown", "JSON"])(
 	"rejects format value %s from the exact domain",
 	async (format) => {
