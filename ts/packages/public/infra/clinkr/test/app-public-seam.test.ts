@@ -150,15 +150,19 @@ test("bodyless success omits data from JSON", async () => {
 });
 
 const emptySchema = z.object({});
+const fixtureMetadata = { description: "Fixture command." };
 
 test("success data is validated against resultSchema", async () => {
 	const commandDirectory = await createCommandDirectory({});
 	const app = createClinkrApp({ name: "fixture", commandDirectory });
 	Object.defineProperty(app, "loaded", {
 		value: Promise.resolve({
-			schema: emptySchema,
-			resultSchema: z.object({ value: z.string() }),
-			handler: async () => ok({ value: 1 }),
+			definition: {
+				schema: emptySchema,
+				resultSchema: z.object({ value: z.string() }),
+				handler: async () => ok({ value: 1 }),
+			},
+			metadata: fixtureMetadata,
 		}),
 	});
 	await expect(app.run([])).rejects.toThrow();
@@ -168,7 +172,10 @@ test("success without resultSchema rejects a data payload", async () => {
 	const commandDirectory = await createCommandDirectory({});
 	const app = createClinkrApp({ name: "fixture", commandDirectory });
 	Object.defineProperty(app, "loaded", {
-		value: Promise.resolve({ schema: emptySchema, handler: async () => ok("data") }),
+		value: Promise.resolve({
+			definition: { schema: emptySchema, handler: async () => ok("data") },
+			metadata: fixtureMetadata,
+		}),
 	});
 	await expect(app.run([])).rejects.toThrow("success outcome data requires a resultSchema");
 });
@@ -182,7 +189,10 @@ for (const [label, outcome, exitCode] of [
 		const commandDirectory = await createCommandDirectory({});
 		const app = createClinkrApp({ name: "fixture", commandDirectory });
 		Object.defineProperty(app, "loaded", {
-			value: Promise.resolve({ schema: emptySchema, handler: async () => outcome }),
+			value: Promise.resolve({
+				definition: { schema: emptySchema, handler: async () => outcome },
+				metadata: fixtureMetadata,
+			}),
 		});
 		const run = await runForTest(app, ["--format=json"]);
 		expect(run.exitCode).toBe(exitCode);
@@ -200,7 +210,10 @@ for (const [label, outcome, exitCode] of [
 		const commandDirectory = await createCommandDirectory({});
 		const app = createClinkrApp({ name: "fixture", commandDirectory });
 		Object.defineProperty(app, "loaded", {
-			value: Promise.resolve({ schema: emptySchema, handler: async () => outcome }),
+			value: Promise.resolve({
+				definition: { schema: emptySchema, handler: async () => outcome },
+				metadata: fixtureMetadata,
+			}),
 		});
 		const run = await runForTest(app, ["--format=json"]);
 		expect(run.exitCode).toBe(exitCode);
@@ -231,19 +244,22 @@ test("JSON input applies defaults and transforms while preserving nested schema 
 	let handledRequest: unknown;
 	Object.defineProperty(app, "loaded", {
 		value: Promise.resolve({
-			schema: z
-				.object({
-					name: z
-						.string()
-						.default("Ada")
-						.transform((name) => name.toUpperCase()),
-					nested: z.object({ value: z.number() }).passthrough(),
-				})
-				.passthrough(),
-			handler: async (request: unknown) => {
-				handledRequest = request;
-				return ok();
+			definition: {
+				schema: z
+					.object({
+						name: z
+							.string()
+							.default("Ada")
+							.transform((name) => name.toUpperCase()),
+						nested: z.object({ value: z.number() }).passthrough(),
+					})
+					.passthrough(),
+				handler: async (request: unknown) => {
+					handledRequest = request;
+					return ok();
+				},
 			},
+			metadata: fixtureMetadata,
 		}),
 	});
 	const run = await runForTest(app, ["--input-json"], {
@@ -261,8 +277,11 @@ test("JSON input rejects top-level unknown keys with schema issues", async () =>
 	const app = createClinkrApp({ name: "fixture", commandDirectory });
 	Object.defineProperty(app, "loaded", {
 		value: Promise.resolve({
-			schema: z.object({ name: z.string() }).passthrough(),
-			handler: async () => ok(),
+			definition: {
+				schema: z.object({ name: z.string() }).passthrough(),
+				handler: async () => ok(),
+			},
+			metadata: fixtureMetadata,
 		}),
 	});
 	const run = await runForTest(app, ["--input-json", "--format=json"], {
@@ -290,7 +309,10 @@ test("JSON input enforces object-level refinements like the argv transport", asy
 	const commandDirectory = await createCommandDirectory({});
 	const app = createClinkrApp({ name: "fixture", commandDirectory });
 	Object.defineProperty(app, "loaded", {
-		value: Promise.resolve({ schema: refinedSchema, handler: async () => ok() }),
+		value: Promise.resolve({
+			definition: { schema: refinedSchema, handler: async () => ok() },
+			metadata: fixtureMetadata,
+		}),
 	});
 	const argvRun = await runForTest(app, ["--format=json"]);
 	expect(argvRun.exitCode).toBe(2);
@@ -304,6 +326,29 @@ test("JSON input enforces object-level refinements like the argv transport", asy
 		status: "usage-error",
 		errorType: "invalid-request",
 	});
+});
+
+test("--help renders the command metadata description", async () => {
+	const commandDirectory = await createCommandDirectory({});
+	const run = await runForTest(createClinkrApp({ name: "fixture", commandDirectory }), ["--help"]);
+	expect(run.exitCode).toBe(0);
+	expect(run.stdout).toContain("Fixture command.");
+});
+
+test("--help renders the description when summary and aliases are declared", async () => {
+	// Commander v14 renders `.summary()` only in a PARENT command's subcommand
+	// listing, never in a root command's own helpInformation(); `.aliases()`
+	// render in the root usage line. Both are wired onto the Command object;
+	// only what commander actually renders is asserted here.
+	const commandDirectory = await createCommandDirectory({
+		metadataSource:
+			'export function metadata() { return { description: "Fixture command.", summary: "Fixture summary.", aliases: ["fx"] }; }\n',
+	});
+	const run = await runForTest(createClinkrApp({ name: "fixture", commandDirectory }), ["--help"]);
+	expect(run.exitCode).toBe(0);
+	expect(run.stdout).toContain("Usage: fixture|fx");
+	expect(run.stdout).toContain("Fixture command.");
+	expect(run.stdout).not.toContain("Fixture summary.");
 });
 
 test("--help wins over an invalid --format value", async () => {

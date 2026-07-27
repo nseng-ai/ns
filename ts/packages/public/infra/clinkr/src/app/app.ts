@@ -11,6 +11,7 @@ import {
 	buildCommandJsonSchemaDocument,
 	cliAnnotationFor,
 	type ClinkrCommandDefinition,
+	type ClinkrCommandMetadata,
 	type ContextFreeCommandDefinition,
 	type ContextfulCommandDefinition,
 } from "./command-definition.ts";
@@ -83,19 +84,26 @@ function isExactFunctionModule(value: unknown, exportName: "command" | "metadata
 	return Object.keys(record).length === 1 && typeof record[exportName] === "function";
 }
 
-function isCommandMetadata(value: unknown): boolean {
-	if (typeof value !== "object" || value === null) return false;
-	const record = value as Record<string, unknown>;
-	const allowed = new Set(["description", "summary", "aliases", "hidden", "helpGroup"]);
-	if (Object.keys(record).some((key) => !allowed.has(key))) return false;
-	if (typeof record.description !== "string") return false;
-	if (record.summary !== undefined && typeof record.summary !== "string") return false;
-	if (record.hidden !== undefined && typeof record.hidden !== "boolean") return false;
-	if (record.helpGroup !== undefined && typeof record.helpGroup !== "string") return false;
-	return (
-		record.aliases === undefined ||
-		(Array.isArray(record.aliases) && record.aliases.every((alias) => typeof alias === "string"))
-	);
+const commandMetadataSchema = z.strictObject({
+	description: z.string(),
+	summary: z.string().optional(),
+	aliases: z.array(z.string()).readonly().optional(),
+	hidden: z.boolean().optional(),
+	helpGroup: z.string().optional(),
+});
+
+function isCommandMetadata(value: unknown): value is ClinkrCommandMetadata {
+	if (!commandMetadataSchema.safeParse(value).success) return false;
+	// Drift guard (one-directional): every `ClinkrCommandMetadata` must remain
+	// a valid `commandMetadataSchema` output, so the schema cannot silently
+	// narrow below the interface; the annotation collapses to `never` on drift.
+	// The reverse direction is not asserted because zod v4 `.optional()`
+	// inference adds `| undefined`, which `exactOptionalPropertyTypes` rejects
+	// against the interface's plain optional properties.
+	const schemaCoversInterface: ClinkrCommandMetadata extends z.infer<typeof commandMetadataSchema>
+		? true
+		: never = true;
+	return schemaCoversInterface;
 }
 
 const DEFINITION_KEYS = new Set([
@@ -123,11 +131,16 @@ function isCommandDefinition(value: unknown): value is ClinkrCommandDefinition<u
 	return true;
 }
 
+interface LoadedCommand<TContext> {
+	readonly definition: ClinkrCommandDefinition<TContext>;
+	readonly metadata: ClinkrCommandMetadata;
+}
+
 class FilesystemClinkrApp<TContext> {
 	private readonly name: string;
 	private readonly commandDirectory: string;
 	readonly requiresContext: boolean;
-	private loaded: Promise<ClinkrCommandDefinition<TContext>> | undefined;
+	private loaded: Promise<LoadedCommand<TContext>> | undefined;
 
 	constructor(options: CreateClinkrAppBase & { requiresContext: boolean }) {
 		if (!path.isAbsolute(options.commandDirectory)) {
@@ -143,13 +156,13 @@ class FilesystemClinkrApp<TContext> {
 		options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions = {},
 	): Promise<number> {
 		const io = options.io ?? createProcessIo();
-		const definition = await this.loadDefinition();
+		const { definition, metadata } = await this.loadDefinition();
 		if ((definition.requiresContext === true) !== this.requiresContext) {
 			throw new Error("clinkr: selected command context mode does not match the app");
 		}
 		const parsed = parseGlobalFlags(argv);
 		if (parsed.ok ? parsed.flags.help : parsed.help) {
-			io.stdout(buildCommandSurface(this.name, definition).command.helpInformation());
+			io.stdout(buildCommandSurface(this.name, definition, metadata).command.helpInformation());
 			return 0;
 		}
 		if (!parsed.ok) return emitUsageError(io, parsed.format, parsed.message, "invalid-request");
@@ -191,7 +204,7 @@ class FilesystemClinkrApp<TContext> {
 				);
 			request = parsedJson.data as Record<string, unknown>;
 		} else {
-			const parsedArgv = parseArgv(this.name, rest, definition);
+			const parsedArgv = parseArgv(this.name, rest, definition, metadata);
 			if (!parsedArgv.success)
 				return emitUsageError(io, format, parsedArgv.message, "invalid-request");
 			request = parsedArgv.data as Record<string, unknown>;
@@ -207,7 +220,7 @@ class FilesystemClinkrApp<TContext> {
 		return exitCodeFor(outcome.status);
 	}
 
-	private async loadDefinition(): Promise<ClinkrCommandDefinition<TContext>> {
+	private async loadDefinition(): Promise<LoadedCommand<TContext>> {
 		if (this.loaded !== undefined) return this.loaded;
 		this.loaded = this.importDefinition();
 		try {
@@ -218,7 +231,7 @@ class FilesystemClinkrApp<TContext> {
 		}
 	}
 
-	private async importDefinition(): Promise<ClinkrCommandDefinition<TContext>> {
+	private async importDefinition(): Promise<LoadedCommand<TContext>> {
 		const commandPath = path.join(this.commandDirectory, "command.ts");
 		const metadataPath = path.join(this.commandDirectory, "metadata.ts");
 		const metadataModule: unknown = await import(pathToFileURL(metadataPath).href);
@@ -233,7 +246,7 @@ class FilesystemClinkrApp<TContext> {
 		const definition = await module.command();
 		if (!isCommandDefinition(definition))
 			throw new Error(`clinkr: malformed command definition ${commandPath}`);
-		return definition as ClinkrCommandDefinition<TContext>;
+		return { definition: definition as ClinkrCommandDefinition<TContext>, metadata };
 	}
 }
 
@@ -260,7 +273,11 @@ interface CommandSurface {
  * and the commander registration built from that same plan, so the two can
  * never drift.
  */
-function buildCommandSurface(name: string, definition: ClinkrCommandDefinition): CommandSurface {
+function buildCommandSurface(
+	name: string,
+	definition: ClinkrCommandDefinition,
+	metadata: ClinkrCommandMetadata,
+): CommandSurface {
 	const positionals: Record<string, { position: number }> = {};
 	const optionSpecs: Record<string, { short?: string }> = {};
 	for (const [key, field] of Object.entries(definition.schema.shape)) {
@@ -274,9 +291,18 @@ function buildCommandSurface(name: string, definition: ClinkrCommandDefinition):
 		positionals,
 		optionSpecs,
 	});
+	// `hidden` and `helpGroup` are intentionally unconsumed here: the
+	// recursive-topology roadmap rows of the `clinkr-readme-driven-development`
+	// objective own them (they only matter in a parent's subcommand listing).
+	// Commander renders `summary` only in a parent's subcommand listing too, so
+	// wiring it is invisible on this root command today; `aliases` show in the
+	// usage line.
 	const command = new Command(name)
+		.description(metadata.description)
 		.exitOverride()
 		.configureOutput({ writeOut: () => {}, writeErr: () => {} });
+	if (metadata.summary !== undefined) command.summary(metadata.summary);
+	if (metadata.aliases !== undefined) command.aliases([...metadata.aliases]);
 	for (const positional of surface.positionals) {
 		command.argument(
 			`${positional.isRequired ? "<" : "["}${positional.name}${positional.isRequired ? ">" : "]"}`,
@@ -304,8 +330,9 @@ function parseArgv(
 	name: string,
 	argv: readonly string[],
 	definition: ClinkrCommandDefinition,
+	metadata: ClinkrCommandMetadata,
 ): { success: true; data: unknown } | { success: false; message: string } {
-	const { command, surface } = buildCommandSurface(name, definition);
+	const { command, surface } = buildCommandSurface(name, definition, metadata);
 	try {
 		command.parse([...argv], { from: "user" });
 	} catch (error) {
