@@ -14,7 +14,7 @@
 		"./commands/branch-latest-commit": "./src/ns/commands/branch-latest-commit.ts",
 		"./commands/autoslot": "./src/ns/commands/autoslot.ts",
 		"./commands/submit": "./src/ns/commands/submit.ts",
-		"./commands/regenerate-pr": "./src/ns/commands/regenerate-pr.ts",
+		"./commands/generate-pr-inventory": "./src/ns/commands/generate-pr-inventory.ts",
 		"./commands/push": "./src/ns/commands/push.ts",
 		"./commands/land": "./src/ns/commands/land.ts",
 		"./commands/pull-trunk": "./src/ns/commands/pull-trunk.ts",

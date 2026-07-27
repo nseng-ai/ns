@@ -37,6 +37,12 @@ Anything you'd especially like reviewers to pay attention to.
 Finding that the author misunderstands the change or that the PR needs work is
 a useful outcome; surface it rather than forcing agreement.
 
+This skill is intentionally independent of Flow and ns. It is not an automatic,
+mechanically assembled inventory: it interviews the author for rationale the diff
+cannot supply, requires approval of the complete draft, and produces a co-authored
+body. Do not substitute a best-effort inventory from diff and commit headlines for
+that accountability process.
+
 ## Boundaries
 
 - Target one existing PR: an explicit number/URL or the current branch's PR. If
@@ -45,7 +51,7 @@ a useful outcome; surface it rather than forcing agreement.
 - Require Git and an authenticated `gh` session. Use `gh` for PR metadata and
   the body update. Use local `git` to inspect the diff and, when the author
   approves a change during the interview, to edit and validate the checked-out
-  PR branch.
+  PR branch. No Flow or ns installation is required.
 - Do not change code speculatively. Before editing, state the proposed change
   and get the author's explicit approval. Keep unrelated files, labels, and
   reviewers unchanged.

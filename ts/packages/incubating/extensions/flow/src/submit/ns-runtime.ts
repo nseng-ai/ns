@@ -12,7 +12,7 @@ import {
 	RealSubmitGateway,
 	RealSubmitStackInspectionGateway,
 	runSubmitCommand,
-	type FlowPrDescriptionDescriptorSource,
+	type FlowPrInventoryDescriptorSource,
 	type RunSubmitCommandOptions,
 	type SubmitCommandResult,
 	type SubmitFailureTranscript,
@@ -43,7 +43,7 @@ export interface NsSubmitRuntime {
 	) => CheckpointRunContext;
 	submitGateway: RealSubmitGateway;
 	metadataGateway: RealSubmitStackInspectionGateway;
-	prDescription: Omit<RunSubmitCommandOptions["prDescription"], "modelSelection">;
+	prInventory: Omit<RunSubmitCommandOptions["prInventory"], "modelSelection">;
 	git: Pick<GitGateway, "optionalRepoRoot">;
 }
 
@@ -54,7 +54,7 @@ export interface CreateNsSubmitRuntimeOptions {
 /** Temporary internal migration seam; not exported from `@nseng-ai/sdk`. */
 export function createNsSubmitRuntime(
 	ctx: NsExtensionApi,
-	descriptorSource: FlowPrDescriptionDescriptorSource,
+	descriptorSource: FlowPrInventoryDescriptorSource,
 	options: CreateNsSubmitRuntimeOptions = {},
 ): NsSubmitRuntime {
 	const commandRunner = createNsCommandRunner(ctx);
@@ -93,7 +93,7 @@ export function createNsSubmitRuntime(
 		submitGateway: new RealSubmitGateway(commandRunner),
 		metadataGateway: new RealSubmitStackInspectionGateway({ graphite, runner: commandRunner }),
 		git,
-		prDescription: {
+		prInventory: {
 			githubPr: new RealGithubPrGateway(commandRunner),
 			textGenerator: ctx.textGenerator,
 			git,

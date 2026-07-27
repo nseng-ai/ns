@@ -4,7 +4,7 @@ import { listNsCommands } from "@nseng-ai/sdk/cli";
 
 import { runCliWithFakes } from "./ns-cli-fakes.ts";
 
-function runUnavailableRegeneratePrCli(args: readonly string[]) {
+function runUnavailableGeneratePrInventoryCli(args: readonly string[]) {
 	return runCliWithFakes(
 		{ args, state: { exec: [], textGeneration: [] } },
 		{
@@ -14,22 +14,25 @@ function runUnavailableRegeneratePrCli(args: readonly string[]) {
 	);
 }
 
-describe("ns flow regenerate-pr CLI availability", () => {
-	test("regenerate-pr is not registered as a built-in command after the SDK reset", () => {
+describe("ns flow generate-pr-inventory CLI availability", () => {
+	test("focused command is not registered as an SDK built-in", () => {
+		expect(listNsCommands().some((command) => command.name === "generate-pr-inventory")).toBe(
+			false,
+		);
 		expect(listNsCommands().some((command) => command.name === "regenerate-pr")).toBe(false);
 	});
 
-	test("regenerate-pr help and invocation are unavailable without a project extension", async () => {
-		const help = runUnavailableRegeneratePrCli(["flow", "regenerate-pr", "--help"]);
+	test("focused command is unavailable without a project extension", async () => {
+		const help = runUnavailableGeneratePrInventoryCli(["flow", "generate-pr-inventory", "--help"]);
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).toContain("Usage: ns");
-		expect(help.stdout.join("")).not.toContain("Usage: ns flow regenerate-pr");
+		expect(help.stdout.join("")).not.toContain("Usage: ns flow generate-pr-inventory");
 
 		for (const args of [
-			["flow", "regenerate-pr"],
-			["flow", "regenerate-pr", "--force"],
+			["flow", "generate-pr-inventory"],
+			["flow", "generate-pr-inventory", "--force"],
 		] as const) {
-			const run = runUnavailableRegeneratePrCli(args);
+			const run = runUnavailableGeneratePrInventoryCli(args);
 
 			expect(await run.exit).not.toBe(0);
 			expect(run.stdout.join("")).toBe("");

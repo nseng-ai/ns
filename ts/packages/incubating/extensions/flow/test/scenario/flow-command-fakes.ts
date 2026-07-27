@@ -12,7 +12,7 @@ import { flowExecReadGraphiteBranchMetadataCommand } from "../../src/ns/commands
 import { flowCpCommand } from "../../src/ns/commands/cp.ts";
 import { flowPullTrunkCommand } from "../../src/ns/commands/pull-trunk.ts";
 import { flowPushCommand } from "../../src/ns/commands/push.ts";
-import { flowRegeneratePrCommand } from "../../src/ns/commands/regenerate-pr.ts";
+import { flowGeneratePrInventoryCommand } from "../../src/ns/commands/generate-pr-inventory.ts";
 import { createFlowSquashStackCommand } from "../../src/ns/commands/squash-stack.ts";
 import {
 	FakeGraphiteStackGateway,
@@ -501,10 +501,12 @@ export function runFlowChangesCommandWithFakes(options: RunFlowCommandWithFakesO
 	});
 }
 
-export function runFlowRegeneratePrCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
+export function runFlowGeneratePrInventoryCommandWithFakes(
+	options: RunFlowCommandWithFakesOptions = {},
+) {
 	return runFlowCommandWithFakes({
 		requiresModelPolicy: true,
-		command: flowRegeneratePrCommand,
+		command: flowGeneratePrInventoryCommand,
 		request: options.request ?? {},
 		options,
 		defaults: options.defaults ?? {

@@ -168,25 +168,28 @@ describe("checked-in flow ns extension loading", () => {
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
-	test("real loader exposes regenerate-pr help and JSON schema metadata", async () => {
+	test("real loader exposes generate-pr-inventory help and JSON schema metadata", async () => {
 		const cwd = await createFlowProject();
 
-		const help = runWithRealFlowExtension({ args: ["flow", "regenerate-pr", "--help"], cwd });
+		const help = runWithRealFlowExtension({
+			args: ["flow", "generate-pr-inventory", "--help"],
+			cwd,
+		});
 		expect(await help.exit).toBe(0);
 		const output = help.stdout.join("");
-		expect(output).toContain("Usage: ns flow regenerate-pr");
+		expect(output).toContain("Usage: ns flow generate-pr-inventory");
 		expect(output).toContain(
-			"Regenerate and completely replace the current branch PR title and body",
+			"Generate and completely replace the current branch PR title and body",
 		);
 		expect(output).toContain("--yes");
 		expect(output).toContain("-y");
 		expect(output).not.toContain("--force");
 		expect(output).not.toContain("NS_DEV_PR_DESCRIPTION_MODEL");
-		expect(output).toContain("NS_DEV_PR_DESCRIPTION_PROMPT");
+		expect(output).toContain("NS_FLOW_PR_INVENTORY_PROMPT");
 		expect(help.stderr.join("")).toBe("");
 
 		const schema = runWithRealFlowExtension({
-			args: ["flow", "regenerate-pr", "--json-schema"],
+			args: ["flow", "generate-pr-inventory", "--json-schema"],
 			cwd,
 		});
 		expect(await schema.exit).toBe(0);
@@ -206,6 +209,7 @@ describe("checked-in flow ns extension loading", () => {
 		expect(output).not.toContain("--minimal");
 		expect(output).not.toMatch(/(?:^|\s)-m(?:,|\s|$)/mu);
 		expect(output).not.toContain("NS_DEV_PR_DESCRIPTION_MODEL");
+		expect(output).toContain("NS_FLOW_PR_INVENTORY_PROMPT");
 		expect(output).toContain("NS_SUBMIT_FAILURE_LOG_DIR");
 		expect(help.stderr.join("")).toBe("");
 	});
@@ -247,7 +251,7 @@ describe("checked-in flow ns extension loading", () => {
 				(entry) =>
 					entry.stream === "stderr" &&
 					entry.text.includes("ns flow submit") &&
-					entry.text.includes("Descriptions"),
+					entry.text.includes("Inventories"),
 			),
 		).toBe(true);
 		const execCalls = formattedExecCalls(run.context);

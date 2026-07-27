@@ -5,7 +5,7 @@ This context captures Flow language for lifecycle commands, the curated `@nseng-
 ## Language
 
 **Flow**:
-The ns extension that owns public lifecycle workflows such as changes, copy, autoslot, autobranch, submit, pull-trunk, regenerate-pr, push, and land.
+The ns extension that owns public lifecycle workflows such as changes, copy, autoslot, autobranch, submit, pull-trunk, generate-pr-inventory, push, and land.
 *Avoid*: Herdr dispatch helper, Pi workflow package, Graphite wrapper
 
 **Flow Command Face**:
@@ -69,7 +69,7 @@ The internal Flow adapter that maps Flow's land-stack gateways and current stack
 *Avoid*: public API, downstream extension integration point, presentation layer
 
 **Flow Submit Boundary**:
-The Flow ownership boundary for submit, PR description regeneration, Graphite submit orchestration, and related lifecycle policy; reusable Graphite facts and command mechanics remain below Flow in Graphite/gateway packages.
+The Flow ownership boundary for submit, PR inventory generation, Graphite submit orchestration, and related lifecycle policy; reusable Graphite facts and command mechanics remain below Flow in Graphite/gateway packages.
 *Avoid*: neutral Graphite domain, downstream extension submit owner, land-domain behavior
 
 **Submit Plan**:

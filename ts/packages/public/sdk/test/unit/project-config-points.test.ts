@@ -19,7 +19,7 @@ import {
 const pointDefinitions = [
 	{ id: "flow.submit.pre", accepts: "hook", cardinality: "many" },
 	{ id: "flow.submit.pre.recovery", accepts: "prompt", cardinality: "one" },
-	{ id: "flow.submit.pr-description", accepts: "prompt", cardinality: "one" },
+	{ id: "flow.submit.pr-inventory", accepts: "prompt", cardinality: "one" },
 ] as const satisfies readonly PointDefinition[];
 
 describe("project point config", () => {
@@ -27,7 +27,7 @@ describe("project point config", () => {
 		const gateway = new InMemoryProjectConfigGateway({
 			"ns.toml": `[points]
 "flow.submit.pre" = ["just", "pnpm --dir ts run test"]
-"flow.submit.pr-description" = ".ns/prompts/flow.submit.pr-description.md"
+"flow.submit.pr-inventory" = ".ns/prompts/flow.submit.pr-inventory.md"
 `,
 		});
 
@@ -38,9 +38,9 @@ describe("project point config", () => {
 		expect(result.config.points).toEqual([
 			{ pointId: "flow.submit.pre", accepts: "hook", commands: ["just", "pnpm --dir ts run test"] },
 			{
-				pointId: "flow.submit.pr-description",
+				pointId: "flow.submit.pr-inventory",
 				accepts: "prompt",
-				path: ".ns/prompts/flow.submit.pr-description.md",
+				path: ".ns/prompts/flow.submit.pr-inventory.md",
 			},
 		]);
 		expect(gateway.reads).toEqual([{ repoRoot: "/repo", relativePath: "ns.toml" }]);
@@ -132,7 +132,7 @@ describe("project point config", () => {
 		const result = parseProjectConfigToml(
 			`[points]
 "flow.submit.pre" = "just"
-"flow.submit.pr-description" = []
+"flow.submit.pr-inventory" = []
 "other.submit.pre" = ["just"]
 `,
 			{ pointsTable: { mode: "validate", pointDefinitions } },
@@ -146,7 +146,7 @@ describe("project point config", () => {
 		]);
 		expect(result.diagnostics.map((diagnostic) => diagnostic.path)).toEqual([
 			"points.flow.submit.pre",
-			"points.flow.submit.pr-description",
+			"points.flow.submit.pr-inventory",
 			"points.other.submit.pre",
 		]);
 	});
@@ -222,7 +222,7 @@ context_lines = "wide"
 
 	test("computes the point catalog with config and conventional prompt installations", () => {
 		const gateway = new InMemoryProjectConfigGateway({
-			".ns/prompts/flow.submit.pr-description.md": "Prompt",
+			".ns/prompts/flow.submit.pr-inventory.md": "Prompt",
 		});
 		const catalog = buildPointCatalog({
 			repoRoot: "/repo",
@@ -240,8 +240,8 @@ context_lines = "wide"
 				installations: [
 					{
 						source: "conventional-prompt",
-						pointId: "flow.submit.pr-description",
-						path: ".ns/prompts/flow.submit.pr-description.md",
+						pointId: "flow.submit.pr-inventory",
+						path: ".ns/prompts/flow.submit.pr-inventory.md",
 					},
 				],
 			},
@@ -263,7 +263,7 @@ context_lines = "wide"
 			expect.objectContaining({
 				severity: "info",
 				code: "point_installation_in_effect",
-				path: "flow.submit.pr-description",
+				path: "flow.submit.pr-inventory",
 			}),
 			expect.objectContaining({
 				severity: "info",
@@ -314,20 +314,20 @@ context_lines = "wide"
 			catalog.entries
 				.filter((entry) => entry.definition.id !== "flow.submit.pre.recovery")
 				.map((entry) => entry.definition.id),
-		).toEqual(["branch-context.plans-write", "flow.submit.pr-description", "flow.submit.pre"]);
+		).toEqual(["branch-context.plans-write", "flow.submit.pr-inventory", "flow.submit.pre"]);
 	});
 
-	test("uses descriptor-owned PR-description default metadata", () => {
+	test("uses descriptor-owned PR-inventory default metadata", () => {
 		const descriptorPath = "/flow/src/ns/extension.ts";
 		const descriptor = {
 			description: "Flow extension",
 			points: [
 				{
-					id: "flow.submit.pr-description",
+					id: "flow.submit.pr-inventory",
 					accepts: "prompt",
 					cardinality: "one",
-					default: "../submit/prompts/pr-description-default.md",
-					description: "Canonical Flow PR-description guidance.",
+					default: "../submit/prompts/pr-inventory-default.md",
+					description: "Canonical Flow PR-inventory guidance.",
 				},
 			],
 		} as const satisfies ExtensionDescriptor;
@@ -338,56 +338,56 @@ context_lines = "wide"
 		});
 
 		expect(
-			catalog.entries.find((entry) => entry.definition.id === "flow.submit.pr-description")
+			catalog.entries.find((entry) => entry.definition.id === "flow.submit.pr-inventory")
 				?.definition,
 		).toEqual({
-			id: "flow.submit.pr-description",
+			id: "flow.submit.pr-inventory",
 			accepts: "prompt",
 			cardinality: "one",
-			description: "Canonical Flow PR-description guidance.",
-			defaultPath: "../submit/prompts/pr-description-default.md",
+			description: "Canonical Flow PR-inventory guidance.",
+			defaultPath: "../submit/prompts/pr-inventory-default.md",
 			manifestPath: descriptorPath,
 		});
-		expect(resolvePromptPointSource(catalog, "flow.submit.pr-description")).toEqual({
+		expect(resolvePromptPointSource(catalog, "flow.submit.pr-inventory")).toEqual({
 			type: "default",
-			pointId: "flow.submit.pr-description",
-			path: "../submit/prompts/pr-description-default.md",
+			pointId: "flow.submit.pr-inventory",
+			path: "../submit/prompts/pr-inventory-default.md",
 			manifestPath: descriptorPath,
 		});
 		expect(
 			catalog.entries
-				.filter((entry) => entry.definition.id !== "flow.submit.pr-description")
+				.filter((entry) => entry.definition.id !== "flow.submit.pr-inventory")
 				.map((entry) => entry.definition.id),
 		).toEqual(["branch-context.plans-write", "flow.submit.pre", "flow.submit.pre.recovery"]);
 	});
 
-	test("keeps fallback PR-description metadata unresolved without descriptor provenance", () => {
+	test("keeps fallback PR-inventory metadata unresolved without descriptor provenance", () => {
 		const catalog = loadPointCatalog({
 			repoRoot: "/repo",
 			gateway: new InMemoryProjectConfigGateway({}),
 		});
 		const definition = catalog.entries.find(
-			(entry) => entry.definition.id === "flow.submit.pr-description",
+			(entry) => entry.definition.id === "flow.submit.pr-inventory",
 		)?.definition;
 
 		expect(definition).toEqual({
-			id: "flow.submit.pr-description",
+			id: "flow.submit.pr-inventory",
 			accepts: "prompt",
 			cardinality: "one",
-			description: "Prompt for generating pull request descriptions during flow submit.",
+			description: "Prompt for generating pull request inventories during flow submit.",
 		});
 		expect(definition).not.toHaveProperty("defaultPath");
 		expect(definition).not.toHaveProperty("manifestPath");
-		expect(resolvePromptPointSource(catalog, "flow.submit.pr-description")).toEqual({
+		expect(resolvePromptPointSource(catalog, "flow.submit.pr-inventory")).toEqual({
 			type: "missing",
-			pointId: "flow.submit.pr-description",
+			pointId: "flow.submit.pr-inventory",
 		});
 	});
 
 	test("catalog reports prompt env overrides as source info and diagnostics", () => {
 		const gateway = new InMemoryProjectConfigGateway({
 			"ns.toml": `[points]
-"flow.submit.pr-description" = ".ns/prompts/flow.submit.pr-description.md"
+"flow.submit.pr-inventory" = ".ns/prompts/flow.submit.pr-inventory.md"
 `,
 		});
 
@@ -396,44 +396,44 @@ context_lines = "wide"
 			gateway,
 			pointDefinitions,
 			promptEnvOverride: {
-				pointId: "flow.submit.pr-description",
-				envVar: "NS_DEV_PR_DESCRIPTION_PROMPT",
+				pointId: "flow.submit.pr-inventory",
+				envVar: "NS_FLOW_PR_INVENTORY_PROMPT",
 			},
-			env: { NS_DEV_PR_DESCRIPTION_PROMPT: "dev.md" },
+			env: { NS_FLOW_PR_INVENTORY_PROMPT: "dev.md" },
 		});
 
 		expect(catalog.entries[0]?.installations).toEqual([
 			{
 				source: "env-prompt",
-				pointId: "flow.submit.pr-description",
-				envVar: "NS_DEV_PR_DESCRIPTION_PROMPT",
+				pointId: "flow.submit.pr-inventory",
+				envVar: "NS_FLOW_PR_INVENTORY_PROMPT",
 				path: "dev.md",
 			},
 			{
 				source: "ns.toml",
 				installation: {
-					pointId: "flow.submit.pr-description",
+					pointId: "flow.submit.pr-inventory",
 					accepts: "prompt",
-					path: ".ns/prompts/flow.submit.pr-description.md",
+					path: ".ns/prompts/flow.submit.pr-inventory.md",
 				},
 			},
 		]);
-		expect(resolvePromptPointSource(catalog, "flow.submit.pr-description")).toEqual({
+		expect(resolvePromptPointSource(catalog, "flow.submit.pr-inventory")).toEqual({
 			type: "env",
-			pointId: "flow.submit.pr-description",
-			envVar: "NS_DEV_PR_DESCRIPTION_PROMPT",
+			pointId: "flow.submit.pr-inventory",
+			envVar: "NS_FLOW_PR_INVENTORY_PROMPT",
 			path: "dev.md",
 		});
 		expect(catalog.diagnostics).toEqual([
 			expect.objectContaining({
 				severity: "info",
 				code: "point_prompt_env_override_in_effect",
-				path: "flow.submit.pr-description",
+				path: "flow.submit.pr-inventory",
 			}),
 			expect.objectContaining({
 				severity: "info",
 				code: "point_installation_in_effect",
-				path: "flow.submit.pr-description",
+				path: "flow.submit.pr-inventory",
 			}),
 			expect.objectContaining({
 				severity: "info",
@@ -454,13 +454,13 @@ context_lines = "wide"
 			gateway: { pathExists: () => ({ type: "missing" }) },
 			pointDefinitions,
 			config: { points: [], settings: new Map() },
-			promptEnvOverride: { pointId: "other.prompt", envVar: "NS_DEV_PR_DESCRIPTION_PROMPT" },
-			env: { NS_DEV_PR_DESCRIPTION_PROMPT: "dev.md" },
+			promptEnvOverride: { pointId: "other.prompt", envVar: "NS_FLOW_PR_INVENTORY_PROMPT" },
+			env: { NS_FLOW_PR_INVENTORY_PROMPT: "dev.md" },
 		});
 
-		expect(resolvePromptPointSource(catalog, "flow.submit.pr-description")).toEqual({
+		expect(resolvePromptPointSource(catalog, "flow.submit.pr-inventory")).toEqual({
 			type: "missing",
-			pointId: "flow.submit.pr-description",
+			pointId: "flow.submit.pr-inventory",
 		});
 		expect(catalog.diagnostics.map((diagnostic) => diagnostic.code)).not.toContain(
 			"point_prompt_env_override_in_effect",
@@ -477,7 +477,7 @@ context_lines = "wide"
 		const catalog = loadPointCatalog({ repoRoot: "/repo", gateway, pointDefinitions });
 
 		expect(catalog.entries.map((entry) => entry.definition.id)).toEqual([
-			"flow.submit.pr-description",
+			"flow.submit.pr-inventory",
 			"flow.submit.pre",
 			"flow.submit.pre.recovery",
 		]);

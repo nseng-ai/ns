@@ -35,7 +35,7 @@ Example output:
 ```text
 ns points:
 - branch-context.plans-write (prompt, one) — conventional .ns/prompts/branch-context.plans-write.md
-- flow.submit.pr-description (prompt, one) — default ./prompts/pr-description-default.md
+- flow.submit.pr-inventory (prompt, one) — default ./prompts/pr-inventory-default.md
 - flow.submit.pre (hook, many) — repo ns.toml commands: just
 ```
 
@@ -70,14 +70,14 @@ You have two equivalent ways to install prompt content:
    `.ns/prompts/<point-id>.md`:
 
    ```text
-   .ns/prompts/flow.submit.pr-description.md
+   .ns/prompts/flow.submit.pr-inventory.md
    ```
 
 2. **Explicit `ns.toml` entry** — a repo-relative path string:
 
    ```toml
    [points]
-   "flow.submit.pr-description" = "docs/prompts/pr-description.md"
+   "flow.submit.pr-inventory" = "docs/prompts/pr-inventory.md"
    ```
 
 Prompt resolution ladder (first match wins):
@@ -121,11 +121,11 @@ export default defineExtension({
 			description: "Runs before flow submit checkpoints and submits the stack.",
 		},
 		{
-			id: "flow.submit.pr-description",
+			id: "flow.submit.pr-inventory",
 			accepts: "prompt",
 			cardinality: "one",
-			default: "./prompts/pr-description-default.md",
-			description: "System prompt for the PR title and managed body.",
+			default: "./prompts/pr-inventory-default.md",
+			description: "Prompt for assembling a PR inventory from mechanical evidence.",
 		},
 	],
 });
@@ -193,8 +193,10 @@ Consume prompt points:
   readable path plus a human-facing label.
 - The workflow reads the file and performs any LM interaction itself; the
   platform never executes prompt content. Flow's submit-check recovery
-  (`flow.submit.pre.recovery`) and PR description (`flow.submit.pr-description`)
-  are the production examples.
+  (`flow.submit.pre.recovery`) and Assembled PR inventory
+  (`flow.submit.pr-inventory`) are the production examples. Flow also recognizes
+  `NS_FLOW_PR_INVENTORY_PROMPT` as the development environment override for that
+  inventory point.
 
 Diagnostics ride along with the catalog; the workflow decides fatality. Treat
 diagnostics that gate the specific point you are consuming as failures and

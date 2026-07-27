@@ -4,7 +4,7 @@ import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 import { withCommandOperations } from "../phase-stream/matrix-progress-core.ts";
 import type {
-	FlowPrDescriptionDescriptorSource,
+	FlowPrInventoryDescriptorSource,
 	GithubPrGateway,
 	TextGenerator,
 	TimeServices,
@@ -44,11 +44,11 @@ import {
 import type { SubmitStackInspectionGateway } from "./submit-stack-inspection.ts";
 import { buildSubmitPlan, type SubmitPlan } from "./submit-plan.ts";
 import {
-	formatPrDescriptionFailureDiagnostics,
-	formatPrDescriptionFailureText,
-	generateSubmitPrDescriptions,
-	type SubmitPrDescriptionProgressEvent,
-} from "./submit-pr-descriptions.ts";
+	formatPrInventoryFailureDiagnostics,
+	formatPrInventoryFailureText,
+	generateSubmitPrInventories,
+	type SubmitPrInventoryProgressEvent,
+} from "./submit-pr-inventories.ts";
 import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import {
 	formatStackUpdateCommandDisplay,
@@ -97,11 +97,11 @@ export type SubmitRestackConfirmation = (
 	prompt: SubmitRestackConfirmationPrompt,
 ) => Promise<boolean> | boolean;
 
-export interface SubmitPrDescriptionOptions {
+export interface SubmitPrInventoryOptions {
 	githubPr: GithubPrGateway;
 	textGenerator: TextGenerator;
 	git: GitGateway;
-	descriptorSource: FlowPrDescriptionDescriptorSource;
+	descriptorSource: FlowPrInventoryDescriptorSource;
 	env: Record<string, string | undefined>;
 	modelSelection: ModelSelection;
 	time?: TimeServices;
@@ -118,7 +118,7 @@ export interface RunSubmitCommandOptions {
 	/** Typed phase and matrix progress for a presentation driver. Separate channel from raw `onOutput`. */
 	progress: SubmitProgress;
 	confirmRestack?: SubmitRestackConfirmation;
-	prDescription: SubmitPrDescriptionOptions;
+	prInventory: SubmitPrInventoryOptions;
 	/**
 	 * Widen the post-submit metadata batch from newly created PRs to every
 	 * resolved PR link in the submitted scope. The caller owns authorization for
@@ -322,7 +322,7 @@ export async function runSubmitCommand(
 			phaseKey: "verification",
 			detail: `${prLinks.length} ${prLinks.length === 1 ? "branch PR" : "branch PRs"} verified`,
 		});
-		const descriptionTargets =
+		const inventoryTargets =
 			options.shouldReplaceAllPrMetadata === true
 				? reconciliation.prs
 				: reconciliation.metadataTargets;
@@ -330,25 +330,25 @@ export async function runSubmitCommand(
 			options,
 			{
 				type: "phase-started",
-				phaseKey: "descriptions",
-				label: formatDescriptionPhaseStart(descriptionTargets.length),
+				phaseKey: "inventories",
+				label: formatInventoryPhaseStart(inventoryTargets.length),
 			},
 			(matrix) => {
-				if (descriptionTargets.length === 0) {
-					matrix.setAllCells("description", { state: "skipped" });
+				if (inventoryTargets.length === 0) {
+					matrix.setAllCells("inventory", { state: "skipped" });
 				}
 			},
 		);
 		options.progress.matrix?.setActiveOperations([]);
-		const descriptionResult = await generateSubmitPrDescriptions({
+		const inventoryResult = await generateSubmitPrInventories({
 			cwd: options.cwd,
-			prDescription: options.prDescription,
-			targets: descriptionTargets,
-			progress: submitPhaseProgressListeners<SubmitPrDescriptionProgressEvent>(
+			prInventory: options.prInventory,
+			targets: inventoryTargets,
+			progress: submitPhaseProgressListeners<SubmitPrInventoryProgressEvent>(
 				options,
-				"descriptions",
+				"inventories",
 				(event) => {
-					options.progress.matrix?.setCellByPrNumber(event.prNumber, "description", {
+					options.progress.matrix?.setCellByPrNumber(event.prNumber, "inventory", {
 						state: event.state,
 						...optionalEntry("text", event.message),
 					});
@@ -356,29 +356,29 @@ export async function runSubmitCommand(
 			),
 		});
 		options.progress.matrix?.setActiveOperations([]);
-		if (!descriptionResult.ok) {
+		if (!inventoryResult.ok) {
 			emitPhase(options, {
 				type: "phase-failed",
-				phaseKey: "descriptions",
-				detail: "PR description generation failed",
+				phaseKey: "inventories",
+				detail: "PR inventory generation failed",
 			});
-			const stderr = formatPrDescriptionFailureText(prLinks, descriptionResult);
-			const details = formatPrDescriptionFailureDiagnostics(descriptionResult.failures);
+			const stderr = formatPrInventoryFailureText(prLinks, inventoryResult);
+			const details = formatPrInventoryFailureDiagnostics(inventoryResult.failures);
 			return failure(1, stderr, {
 				failurePresentation: "deterministic",
-				rawFailureTranscript: submitTextFailureTranscript("PR description", stderr, details),
+				rawFailureTranscript: submitTextFailureTranscript("PR inventory", stderr, details),
 			});
 		}
 
-		options.progress.matrix?.setPendingCells("description", { state: "skipped" });
+		options.progress.matrix?.setPendingCells("inventory", { state: "skipped" });
 		emitPhase(options, {
 			type: "phase-done",
-			phaseKey: "descriptions",
-			detail: "descriptions ready",
+			phaseKey: "inventories",
+			detail: "inventories ready",
 		});
 		const successText =
 			prLinks.length > 0
-				? formatSubmitSuccessText(prLinks, descriptionResult)
+				? formatSubmitSuccessText(prLinks, inventoryResult)
 				: formatSubmitSuccessFallbackText(
 						combinedSubmitOutcome.output.stdout,
 						combinedSubmitOutcome.output.stderr,
@@ -387,8 +387,8 @@ export async function runSubmitCommand(
 	}
 }
 
-function formatDescriptionPhaseStart(prCount: number): string {
-	if (prCount === 0) return "checking PR descriptions; no PR descriptions selected";
+function formatInventoryPhaseStart(prCount: number): string {
+	if (prCount === 0) return "checking PR inventories; no PR inventories selected";
 	return `preparing complete metadata for ${formatItemCount(prCount, "PR", "PRs")}`;
 }
 

@@ -28,14 +28,14 @@ import {
 } from "@nseng-ai/sdk/project-config/points";
 import type { PrCommitMessage } from "./github-pr-gateway.ts";
 
-export const PR_DESCRIPTION_PROMPT_ENV = "NS_DEV_PR_DESCRIPTION_PROMPT";
-export const FLOW_PR_DESCRIPTION_POINT_ID = "flow.submit.pr-description";
-export const REPO_PR_DESCRIPTION_PROMPT_PATH = `.ns/prompts/${FLOW_PR_DESCRIPTION_POINT_ID}.md`;
+export const PR_INVENTORY_PROMPT_ENV = "NS_FLOW_PR_INVENTORY_PROMPT";
+export const FLOW_PR_INVENTORY_POINT_ID = "flow.submit.pr-inventory";
+export const REPO_PR_INVENTORY_PROMPT_PATH = `.ns/prompts/${FLOW_PR_INVENTORY_POINT_ID}.md`;
 export const MAX_DIFF_CHARS = 120_000;
 
-const prDescriptionPromptEnvOverride = {
-	pointId: FLOW_PR_DESCRIPTION_POINT_ID,
-	envVar: PR_DESCRIPTION_PROMPT_ENV,
+const prInventoryPromptEnvOverride = {
+	pointId: FLOW_PR_INVENTORY_POINT_ID,
+	envVar: PR_INVENTORY_PROMPT_ENV,
 } as const;
 
 const LOCKFILE_BASENAMES = new Set([
@@ -47,7 +47,7 @@ const LOCKFILE_BASENAMES = new Set([
 	"Cargo.lock",
 ]);
 
-export interface FlowPrDescriptionDescriptorSource {
+export interface FlowPrInventoryDescriptorSource {
 	descriptor: PreloadedPointDescriptor["descriptor"];
 	descriptorUrl: string;
 }
@@ -61,15 +61,15 @@ export type PromptResolutionResult =
 	| { ok: true; text: string; source: PromptSource }
 	| { ok: false; error: string; source: PromptSource };
 
-export type PrDescriptionGenerationResolution =
+export type PrInventoryGenerationResolution =
 	| { ok: true; modelSelection: ModelSelection; promptText: string; promptSource: PromptSource }
 	| { ok: false; error: string; exitCode?: number };
 
-export type PrDescriptionPromptContext =
-	| ExistingPrDescriptionPromptContext
-	| LocalPrDescriptionPromptContext;
+export type PrInventoryPromptContext =
+	| ExistingPrInventoryPromptContext
+	| LocalPrInventoryPromptContext;
 
-export interface ExistingPrDescriptionPromptContext {
+export interface ExistingPrInventoryPromptContext {
 	kind: "github";
 	number: number;
 	url: string;
@@ -79,7 +79,7 @@ export interface ExistingPrDescriptionPromptContext {
 	diff: string;
 }
 
-export interface LocalPrDescriptionPromptContext {
+export interface LocalPrInventoryPromptContext {
 	kind: "local";
 	title: string;
 	headRefName: string;
@@ -88,34 +88,34 @@ export interface LocalPrDescriptionPromptContext {
 	diff: string;
 }
 
-export interface ParsedPrDescription {
+export interface ParsedPrInventory {
 	title: string;
 	body: string;
 }
 
-export type PrDescriptionValidationIssue =
+export type PrInventoryValidationIssue =
 	| { type: "empty_title" }
 	| { type: "title_too_long"; length: number; maxLength: number }
 	| { type: "empty_body" }
 	| { type: "attribution_footer"; text: string };
 
-export type PrDescriptionValidationResult =
-	| { ok: true; description: ParsedPrDescription }
-	| { ok: false; issues: PrDescriptionValidationIssue[] };
+export type PrInventoryValidationResult =
+	| { ok: true; inventory: ParsedPrInventory }
+	| { ok: false; issues: PrInventoryValidationIssue[] };
 
-export type PreparedPrDescription =
+export type PreparedPrInventory =
 	| { ok: true; title: string; body: string; source: "model" | "repaired_model"; feedback?: string }
 	| { ok: false; error: string };
 
-export async function resolvePrDescriptionGeneration(input: {
+export async function resolvePrInventoryGeneration(input: {
 	env: Record<string, string | undefined>;
 	cwd: string;
 	git: GitGateway;
-	descriptorSource: FlowPrDescriptionDescriptorSource;
+	descriptorSource: FlowPrInventoryDescriptorSource;
 	modelSelection: ModelSelection;
-}): Promise<PrDescriptionGenerationResolution> {
+}): Promise<PrInventoryGenerationResolution> {
 	const repoRoot = await input.git.repoRoot({ cwd: input.cwd });
-	const prompt = await resolvePrDescriptionPrompt({
+	const prompt = await resolvePrInventoryPrompt({
 		env: input.env,
 		cwd: input.cwd,
 		descriptorSource: input.descriptorSource,
@@ -133,15 +133,15 @@ export async function resolvePrDescriptionGeneration(input: {
 	};
 }
 
-interface PrDescriptionPointContext {
+interface PrInventoryPointContext {
 	env: Record<string, string | undefined>;
-	descriptorSource: FlowPrDescriptionDescriptorSource;
+	descriptorSource: FlowPrInventoryDescriptorSource;
 	repoRoot?: string;
 	cwd?: string;
 }
 
-export async function resolvePrDescriptionPrompt(
-	input: PrDescriptionPointContext,
+export async function resolvePrInventoryPrompt(
+	input: PrInventoryPointContext,
 ): Promise<PromptResolutionResult> {
 	const catalogRoot = input.repoRoot ?? input.cwd ?? process.cwd();
 	const catalog = loadPointCatalog({
@@ -153,14 +153,14 @@ export async function resolvePrDescriptionPrompt(
 				descriptorPath: fileURLToPath(input.descriptorSource.descriptorUrl),
 			},
 		],
-		promptEnvOverride: prDescriptionPromptEnvOverride,
+		promptEnvOverride: prInventoryPromptEnvOverride,
 		env: input.env,
 	});
-	const pointSource = resolvePromptPointSource(catalog, FLOW_PR_DESCRIPTION_POINT_ID);
-	return await readPrDescriptionPointSource({ catalogRoot, pointSource });
+	const pointSource = resolvePromptPointSource(catalog, FLOW_PR_INVENTORY_POINT_ID);
+	return await readPrInventoryPointSource({ catalogRoot, pointSource });
 }
 
-async function readPrDescriptionPointSource(request: {
+async function readPrInventoryPointSource(request: {
 	catalogRoot: string;
 	pointSource: PromptPointSource;
 }): Promise<PromptResolutionResult> {
@@ -179,7 +179,7 @@ async function readPrDescriptionPointSource(request: {
 	if (request.pointSource.type === "missing") {
 		return {
 			ok: false,
-			error: `Could not resolve ${FLOW_PR_DESCRIPTION_POINT_ID}: the point catalog has no installed prompt or descriptor default.`,
+			error: `Could not resolve ${FLOW_PR_INVENTORY_POINT_ID}: the point catalog has no installed prompt or descriptor default.`,
 			source: { type: "builtin" },
 		};
 	}
@@ -195,7 +195,7 @@ async function readPrDescriptionPointSource(request: {
 	if (resolved === undefined) {
 		return {
 			ok: false,
-			error: `Could not resolve selected ${request.pointSource.type} prompt path ${request.pointSource.path} for ${FLOW_PR_DESCRIPTION_POINT_ID} from catalog root ${request.catalogRoot}.`,
+			error: `Could not resolve selected ${request.pointSource.type} prompt path ${request.pointSource.path} for ${FLOW_PR_INVENTORY_POINT_ID} from catalog root ${request.catalogRoot}.`,
 			source,
 		};
 	}
@@ -227,7 +227,7 @@ async function readPrDescriptionPointSource(request: {
 	};
 }
 
-export function buildPrDescriptionUserPrompt(input: PrDescriptionPromptContext): string {
+export function buildPrInventoryUserPrompt(input: PrInventoryPromptContext): string {
 	const context = [
 		"## Context",
 		"",
@@ -243,34 +243,32 @@ export function buildPrDescriptionUserPrompt(input: PrDescriptionPromptContext):
 	}
 	sections.push(
 		`## Diff\n\n${buildFencedTextBlock(diff.trimEnd(), "diff")}`,
-		"Generate a fresh PR title and body from this evidence:",
+		"Generate a fresh PR title and body from the supplied context.",
 	);
 	return `${sections.join("\n\n")}\n`;
 }
 
-export function parsePrDescriptionOutput(text: string): PrDescriptionValidationResult {
+export function parsePrInventoryOutput(text: string): PrInventoryValidationResult {
 	const normalized = normalizeTextOutput(text);
 	const lines = normalized.split("\n");
 	const titleIndex = lines.findIndex((line) => line.trim() !== "");
 	const title = titleIndex === -1 ? "" : (lines[titleIndex]?.trim() ?? "");
 	const body = titleIndex === -1 ? "" : trimOuterBlankLines(lines.slice(titleIndex + 1).join("\n"));
-	return validatePrDescription({ title, body });
+	return validatePrInventory({ title, body });
 }
 
-export function validatePrDescription(
-	description: ParsedPrDescription,
-): PrDescriptionValidationResult {
-	const issues: PrDescriptionValidationIssue[] = [];
-	if (description.title.trim() === "") {
+export function validatePrInventory(inventory: ParsedPrInventory): PrInventoryValidationResult {
+	const issues: PrInventoryValidationIssue[] = [];
+	if (inventory.title.trim() === "") {
 		issues.push({ type: "empty_title" });
 	}
-	if (description.title.length > 120) {
-		issues.push({ type: "title_too_long", length: description.title.length, maxLength: 120 });
+	if (inventory.title.length > 120) {
+		issues.push({ type: "title_too_long", length: inventory.title.length, maxLength: 120 });
 	}
-	if (description.body.trim() === "") {
+	if (inventory.body.trim() === "") {
 		issues.push({ type: "empty_body" });
 	}
-	for (const line of description.body.split("\n")) {
+	for (const line of inventory.body.split("\n")) {
 		if (/Generated with|Co-Authored-By/i.test(line)) {
 			issues.push({ type: "attribution_footer", text: line.trim() });
 		}
@@ -280,44 +278,46 @@ export function validatePrDescription(
 	}
 	return {
 		ok: true,
-		description: { title: description.title.trim(), body: description.body.trim() },
+		inventory: { title: inventory.title.trim(), body: inventory.body.trim() },
 	};
 }
 
-export function formatPrDescriptionValidationFeedback(
-	issues: readonly PrDescriptionValidationIssue[],
+export function formatPrInventoryValidationFeedback(
+	issues: readonly PrInventoryValidationIssue[],
 ): string {
-	return issues.map(formatPrDescriptionValidationIssue).join("\n");
+	return issues.map(formatPrInventoryValidationIssue).join("\n");
 }
 
-export async function preparePrDescription(input: {
+export async function preparePrInventory(input: {
 	textGenerator: TextGenerator;
 	modelSelection: ModelSelection;
 	promptText: string;
-	context: PrDescriptionPromptContext;
+	context: PrInventoryPromptContext;
 	onProgress?: (message: string) => void;
 	time?: TimeServices;
-}): Promise<PreparedPrDescription> {
-	const firstPrompt = buildPrDescriptionUserPrompt(input.context);
+}): Promise<PreparedPrInventory> {
+	const firstPrompt = buildPrInventoryUserPrompt(input.context);
 	const prepared = await prepareRepairedText({
-		noun: "PR description",
+		noun: "PR inventory",
 		initialPrompt: firstPrompt,
 		generate: async (prompt) => {
-			const generated = await generatePrDescriptionText(
+			const generated = await generatePrInventoryText(
 				input.textGenerator,
 				input.modelSelection,
 				input.promptText,
 				prompt,
 			);
 			if (generated.ok) {
-				input.onProgress?.(`PR metadata generated (${formatTextGenerationUsage(generated.usage)})`);
+				input.onProgress?.(
+					`PR inventory generated (${formatTextGenerationUsage(generated.usage)})`,
+				);
 			}
 			return generated;
 		},
 		validate: (text) => {
-			const validation = parsePrDescriptionOutput(text);
-			if (validation.ok) return { ok: true, value: validation.description };
-			return { ok: false, feedback: formatPrDescriptionValidationFeedback(validation.issues) };
+			const validation = parsePrInventoryOutput(text);
+			if (validation.ok) return { ok: true, value: validation.inventory };
+			return { ok: false, feedback: formatPrInventoryValidationFeedback(validation.issues) };
 		},
 		buildRepairPrompt: ({ initialPrompt, previousDraft, feedback }) =>
 			`${initialPrompt}\n## previous invalid draft\n\n${previousDraft.trim()}\n\n## validation feedback\n\n${feedback}\n\nRewrite the PR title and body so it satisfies every validation rule. Return only the corrected PR title and body.\n`,
@@ -325,16 +325,16 @@ export async function preparePrDescription(input: {
 			switch (event.type) {
 				case "attempt_started":
 					input.onProgress?.(
-						`generating PR metadata (attempt ${event.attempt}/${event.maxAttempts})`,
+						`generating PR inventory (attempt ${event.attempt}/${event.maxAttempts})`,
 					);
 					break;
 				case "attempt_waiting":
 					input.onProgress?.(
-						`still generating PR metadata (${formatElapsedMs(event.elapsedMs)} elapsed)`,
+						`still generating PR inventory (${formatElapsedMs(event.elapsedMs)} elapsed)`,
 					);
 					break;
 				case "attempt_invalid":
-					input.onProgress?.("PR metadata draft failed validation; requesting repair");
+					input.onProgress?.("PR inventory draft failed validation; requesting repair");
 					break;
 			}
 		},
@@ -369,7 +369,7 @@ function formatTextGenerationUsage(usage: TextGenerationUsage | undefined): stri
 	return `tokens in ${usage.inputTokens}, out ${usage.outputTokens}`;
 }
 
-function formatPrContextLines(input: PrDescriptionPromptContext): string[] {
+function formatPrContextLines(input: PrInventoryPromptContext): string[] {
 	switch (input.kind) {
 		case "github":
 			return [`- PR: #${input.number} (${input.url})`];
@@ -406,7 +406,7 @@ function isNodeFileNotFound(error: unknown): boolean {
 	);
 }
 
-async function generatePrDescriptionText(
+async function generatePrInventoryText(
 	textGenerator: TextGenerator,
 	modelSelection: ModelSelection,
 	system: string,
@@ -417,11 +417,11 @@ async function generatePrDescriptionText(
 		system,
 		prompt,
 		maxTokens: 2048,
-		operation: "pr-description",
+		operation: "flow.pr-inventory",
 	});
 }
 
-function formatPrDescriptionValidationIssue(issue: PrDescriptionValidationIssue): string {
+function formatPrInventoryValidationIssue(issue: PrInventoryValidationIssue): string {
 	switch (issue.type) {
 		case "empty_title":
 			return "- Title is empty.";

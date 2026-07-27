@@ -36,7 +36,7 @@ type FlowCommandName =
 	| "branch-latest-commit"
 	| "autoslot"
 	| "submit"
-	| "regenerate-pr"
+	| "generate-pr-inventory"
 	| "push"
 	| "land"
 	| "pull-trunk"
@@ -49,7 +49,7 @@ const FLOW_COMMANDS = [
 	"branch-latest-commit",
 	"autoslot",
 	"submit",
-	"regenerate-pr",
+	"generate-pr-inventory",
 	"push",
 	"land",
 	"pull-trunk",
@@ -149,7 +149,7 @@ describe("ns Pi extension", () => {
 			"sdl:cp",
 			"sdl:autobranch",
 			"sdl:submit",
-			"sdl:regenerate-pr",
+			"sdl:generate-pr-inventory",
 			"sdl:push",
 			"sdl:code:changes",
 			"sdl:code:autoslot",

@@ -18,11 +18,11 @@ export const flowExtensionDescriptor = defineExtension({
 			description: "Agent guidance after a flow submit pre-check failure.",
 		},
 		{
-			id: "flow.submit.pr-description",
+			id: "flow.submit.pr-inventory",
 			accepts: "prompt",
 			cardinality: "one",
-			default: "../submit/prompts/pr-description-default.md",
-			description: "Prompt for generating pull request descriptions during flow submit.",
+			default: "../submit/prompts/pr-inventory-default.md",
+			description: "Prompt for generating pull request inventories during flow submit.",
 		},
 	],
 	entries: [
@@ -55,9 +55,10 @@ export const flowExtensionDescriptor = defineExtension({
 			load: async () => ({ default: (await import("./commands/submit.ts")).flowSubmitCommand }),
 		},
 		{
-			name: "regenerate-pr",
+			name: "generate-pr-inventory",
 			load: async () => ({
-				default: (await import("./commands/regenerate-pr.ts")).flowRegeneratePrCommand,
+				default: (await import("./commands/generate-pr-inventory.ts"))
+					.flowGeneratePrInventoryCommand,
 			}),
 		},
 		{

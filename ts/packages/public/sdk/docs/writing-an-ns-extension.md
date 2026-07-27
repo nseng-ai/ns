@@ -250,10 +250,10 @@ points: [
 		description: "Runs before submit.",
 	},
 	{
-		id: "submit.pr-description",
+		id: "submit.pr-inventory",
 		accepts: "prompt",
 		cardinality: "one",
-		default: "./prompts/pr-description.md",
+		default: "./prompts/pr-inventory.md",
 	},
 ]
 ```

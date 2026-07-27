@@ -120,11 +120,11 @@ export const SUBMIT_CORE_PHASES: readonly PhaseSpec[] = [
 		item: { name: "Verification", detail: "PRs verified", label: "checking submitted PRs…" },
 	},
 	{
-		key: "descriptions",
+		key: "inventories",
 		item: {
-			name: "Descriptions",
-			detail: "descriptions ready",
-			label: "checking PR descriptions for skip or regeneration…",
+			name: "Inventories",
+			detail: "inventories ready",
+			label: "checking PR inventories for selection or generation…",
 		},
 	},
 ];

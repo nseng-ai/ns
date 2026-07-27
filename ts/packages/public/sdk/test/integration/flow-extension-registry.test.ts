@@ -42,20 +42,22 @@ describe("checked-in flow ns extension registry loading", () => {
 		const flowCandidates = [...catalog.candidates].filter(
 			([_key, candidate]) => candidate.source.level === "project",
 		);
-		expect(flowCandidates.map(([key]) => key)).toEqual([
+		const flowCommandKeys = flowCandidates.map(([key]) => key);
+		expect(flowCommandKeys).toEqual([
 			"flow/autobranch",
 			"flow/autoslot",
 			"flow/branch-latest-commit",
 			"flow/changes",
 			"flow/cp",
 			"flow/exec/read-graphite-branch-metadata",
+			"flow/generate-pr-inventory",
 			"flow/land",
 			"flow/pull-trunk",
 			"flow/push",
-			"flow/regenerate-pr",
 			"flow/squash-stack",
 			"flow/submit",
 		]);
+		expect(flowCommandKeys).not.toContain("flow/regenerate-pr");
 
 		const failures: string[] = [];
 		for (const [key, candidate] of flowCandidates) {

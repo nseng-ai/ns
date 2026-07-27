@@ -40,8 +40,8 @@ function runWithFakes(options: Parameters<typeof runFlowSubmitCommandWithFakes>[
 		...options,
 		defaults: {
 			execResponses: successfulSubmitResponses,
-			textGenerationResults: () => [{ ok: true, text: defaultPrDescriptionText() }],
-			missingTextGenerationResult: () => ({ ok: true, text: defaultPrDescriptionText() }),
+			textGenerationResults: () => [{ ok: true, text: defaultPrInventoryText() }],
+			missingTextGenerationResult: () => ({ ok: true, text: defaultPrInventoryText() }),
 		},
 	});
 }
@@ -150,7 +150,7 @@ function commitsJson(): string {
 	});
 }
 
-function defaultPrDescriptionText(): string {
+function defaultPrInventoryText(): string {
 	return "Generated PR\n\nGenerated body";
 }
 
@@ -208,7 +208,7 @@ describe("project-local submit extension", () => {
 		expect(declaration).toEqual({
 			type: "matrix-declared",
 			labelHeader: "Branch / PR",
-			columns: [{ key: "description", label: "Description", width: 11 }],
+			columns: [{ key: "inventory", label: "Inventory", width: 11 }],
 		});
 		const phaseDeclaration = events.find((event) => event.type === "phases-declared");
 		if (phaseDeclaration?.type !== "phases-declared") throw new Error("phase declaration missing");
@@ -219,7 +219,7 @@ describe("project-local submit extension", () => {
 			"restack",
 			"submit",
 			"verification",
-			"descriptions",
+			"inventories",
 		]);
 		expect(
 			phaseDeclaration.phases
@@ -246,7 +246,7 @@ describe("project-local submit extension", () => {
 				{
 					type: "matrix-cell",
 					rowKey: "feature/demo",
-					columnKey: "description",
+					columnKey: "inventory",
 					state: "skipped",
 				},
 				{ type: "phase-done", phaseKey: "preflight", detail: "ready to submit" },
@@ -268,8 +268,8 @@ describe("project-local submit extension", () => {
 		);
 		expect(events.at(-1)).toEqual({
 			type: "phase-done",
-			phaseKey: "descriptions",
-			detail: "descriptions ready",
+			phaseKey: "inventories",
+			detail: "inventories ready",
 		});
 		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: "ready\n" });
 		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: `Submitted ${PR_URL}\n` });
@@ -329,20 +329,20 @@ describe("project-local submit extension", () => {
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
-	test("--yes without --regenerate-descriptions is rejected before any command or model call", async () => {
+	test("--yes without --generate-pr-inventory is rejected before any command or model call", async () => {
 		const run = runWithFakes({ request: { yes: true } });
 
 		expect(await run.exit).toBe(2);
 		expect(await run.result).toMatchObject({
 			type: "usageError",
-			data: { invalidOption: "--yes", requiresOption: "--regenerate-descriptions" },
+			data: { invalidOption: "--yes", requiresOption: "--generate-pr-inventory" },
 		});
 		expect(formattedExecCalls(run.context)).toEqual([]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
-	test("non-interactive --regenerate-descriptions without --yes fails fast naming --yes", async () => {
-		const run = runWithFakes({ request: { regenerateDescriptions: true } });
+	test("non-interactive --generate-pr-inventory without --yes fails fast naming --yes", async () => {
+		const run = runWithFakes({ request: { generatePrInventory: true } });
 
 		expect(await run.exit).toBe(2);
 		expect(await run.result).toMatchObject({
@@ -354,9 +354,9 @@ describe("project-local submit extension", () => {
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
-	test("declined --regenerate-descriptions confirmation cancels before any command or model call", async () => {
+	test("declined --generate-pr-inventory confirmation cancels before any command or model call", async () => {
 		const run = runWithFakes({
-			request: { regenerateDescriptions: true },
+			request: { generatePrInventory: true },
 			state: { confirm: () => false },
 		});
 
@@ -366,11 +366,11 @@ describe("project-local submit extension", () => {
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
-	test("approved --regenerate-descriptions confirmation warns about complete replacement, then rewrites the existing PR", async () => {
+	test("approved --generate-pr-inventory confirmation warns about complete replacement, then rewrites the existing PR", async () => {
 		let confirmTitle = "";
 		let confirmMessage = "";
 		const run = runWithFakes({
-			request: { regenerateDescriptions: true },
+			request: { generatePrInventory: true },
 			state: {
 				confirm: (title, message) => {
 					confirmTitle = title;
@@ -388,10 +388,10 @@ describe("project-local submit extension", () => {
 		expect(calls.some((call) => call.startsWith("gh pr edit 123"))).toBe(true);
 	});
 
-	test("--regenerate-descriptions --yes rewrites a pre-existing PR title and body without prompting", async () => {
+	test("--generate-pr-inventory --yes rewrites a pre-existing PR title and body without prompting", async () => {
 		let confirmCalls = 0;
 		const run = runWithFakes({
-			request: { regenerateDescriptions: true, yes: true },
+			request: { generatePrInventory: true, yes: true },
 			state: {
 				confirm: () => {
 					confirmCalls += 1;
@@ -733,8 +733,8 @@ describe("project-local submit extension", () => {
 					{ match: /^gh pr edit 456 --title Generated PR --body-file /, result: {} },
 				],
 				textGeneration: [
-					{ ok: true, text: defaultPrDescriptionText() },
-					{ ok: true, text: defaultPrDescriptionText() },
+					{ ok: true, text: defaultPrInventoryText() },
+					{ ok: true, text: defaultPrInventoryText() },
 				],
 			},
 		});
@@ -809,7 +809,7 @@ describe("project-local submit extension", () => {
 		expect(error).toContain("feature/top: no open PR found");
 		expect(error).toContain("No PR metadata was edited");
 		expect(error).toContain("Repair the GitHub PR/head-branch association");
-		expect(error).toContain("ns flow regenerate-pr");
+		expect(error).toContain("ns flow generate-pr-inventory");
 		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gh pr edit"))).toBe(
 			false,
@@ -1702,7 +1702,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 		);
 	});
 
-	test("description edit failure keeps submitted PR links visible", async () => {
+	test("inventory edit failure keeps submitted PR links visible", async () => {
 		const run = runWithFakes({
 			state: {
 				exec: [

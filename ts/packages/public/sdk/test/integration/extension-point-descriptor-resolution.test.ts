@@ -21,9 +21,9 @@ const flowPackagedPromptDefaults = [
 		promptFileName: "submit-check-recovery-default.md",
 	},
 	{
-		pointId: "flow.submit.pr-description",
-		defaultPath: "../submit/prompts/pr-description-default.md",
-		promptFileName: "pr-description-default.md",
+		pointId: "flow.submit.pr-inventory",
+		defaultPath: "../submit/prompts/pr-inventory-default.md",
+		promptFileName: "pr-inventory-default.md",
 	},
 ] as const;
 

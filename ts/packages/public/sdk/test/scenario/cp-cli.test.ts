@@ -81,7 +81,7 @@ describe("empty ns SDK CLI help and parsing", () => {
 		expect(help).not.toContain("changes");
 		expect(help).not.toContain("cp");
 		expect(help).not.toContain("submit");
-		expect(help).not.toContain("regenerate-pr");
+		expect(help).not.toContain("generate-pr-inventory");
 		expect(help).toContain("--runtime");
 		expect(run.stderr.join("")).toBe("");
 	});
@@ -116,7 +116,7 @@ describe("empty ns SDK CLI help and parsing", () => {
 	});
 
 	test("removed domain built-ins are unavailable rather than stubbed", async () => {
-		for (const commandName of ["flow", "cp", "submit", "regenerate-pr"] as const) {
+		for (const commandName of ["flow", "cp", "submit", "generate-pr-inventory"] as const) {
 			const run = runWithFakes({ args: [commandName], state: { exec: [] } });
 
 			expect(await run.exit).not.toBe(0);
