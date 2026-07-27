@@ -312,22 +312,26 @@ function parseJsonInput(
 			message: "stdin JSON must be an object",
 			errorType: "invalid-json-input",
 		};
-	// Strict pre-check owns top-level unknown-key rejection even when the
-	// declared schema is passthrough; all other validation is deferred to the
-	// authoritative declared-schema parse below.
-	const strictCheck = z.strictObject(schema.shape).safeParse(transported.data);
-	if (!strictCheck.success) {
-		const unknownKeyIssues = strictCheck.error.issues.filter(
-			(issue) => issue.code === "unrecognized_keys",
-		);
-		if (unknownKeyIssues.length > 0) {
-			return {
-				success: false,
-				message: "request did not match its schema",
-				errorType: "invalid-request",
-				data: { issues: unknownKeyIssues },
-			};
-		}
+	// Reject top-level unknown keys even for passthrough schemas, before field
+	// validation, so unknown-key errors retain precedence over field errors.
+	const declaredKeys = new Set(Object.keys(schema.shape));
+	const unknownKeys = Object.keys(transported.data).filter((key) => !declaredKeys.has(key));
+	if (unknownKeys.length > 0) {
+		return {
+			success: false,
+			message: "request did not match its schema",
+			errorType: "invalid-request",
+			data: {
+				issues: [
+					{
+						code: "unrecognized_keys",
+						keys: unknownKeys,
+						path: [],
+						message: `Unrecognized key${unknownKeys.length > 1 ? "s" : ""}: ${unknownKeys.map((key) => JSON.stringify(key)).join(", ")}`,
+					},
+				],
+			},
+		};
 	}
 	const parsed = schema.safeParse(transported.data);
 	return parsed.success
