@@ -13,7 +13,7 @@ The evidence bar for this audit is:
 - operational claims not exercised by ns, such as shell-specific installation instructions, require direct verification before promotion;
 - evidence establishes current behavior and caller reliance, but does not by itself make accidental behavior part of the desired contract.
 
-Representative callers are current relative to the implemented `0.1.4` API. Several necessarily use APIs that the provisional contract supersedes because `ClinkrApp`, `ClinkrCommand`, explicit aliases, status-specific schemas, and opaque raw mounting do not exist yet.
+Representative callers are current relative to the implemented `0.1.4` API. Several necessarily use APIs that the provisional contract supersedes because `ClinkrApp`, `ClinkrCommand`, explicit aliases, status-specific schemas, and the reconciled framework-neutral raw execution seam do not exist yet.
 
 ## Confirmed mismatch dispositions
 
@@ -23,7 +23,7 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 **Impact and complexity:** High, cross-cutting migration. The group currently combines namespace, executable, default operation, completion host, and dispatch lifecycle. Foundation's `defineCli` is the primary executable-construction seam; SDK adapters and testing helpers are the next leverage points. Mounted feature groups such as Slots must remain non-executable tree components.
 
-**Approved disposition:** **Reconcile implementation and callers through the foundational clean break.** Introduce private-constructor async `ClinkrApp.create(...)` plus public app/group/command builders that return immutable nodes from terminal `define()`. The app owns a transparent root scope and is the only executable/completion host; groups remain non-executable organization. Named command/group declarations become recursive lazy routes, while one nameless default command remains eagerly built with its containing scope. Migrate through Foundation and SDK rather than forcing every feature package to become an executable.
+**Approved disposition:** **Reconcile implementation and callers through the foundational clean break.** Introduce the immutable app/group/command builder runtime described in the decision record, then place a runtime filesystem adapter over it as the primary README and common authoring path. The app owns a transparent root scope and is the only executable/completion host; groups remain non-executable organization. Direct route directories, cheap complete group definitions, and cheap command metadata drive recursive selection, while selected command definitions lower into builders. Migrate through Foundation and SDK rather than forcing every feature package to become an executable. Builders remain public as the advanced escape hatch, not the main README tutorial.
 
 ### 2. Executable features live on groups
 
@@ -45,9 +45,9 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 **Current evidence:** `src/raw/index.ts` brands a Zod-backed `RawCommandSpec`; `src/group.ts` still owns parsing, schemas, help, context, completion, exception handling, and selected framework behavior. `test/raw-exit.test.ts` pins this hybrid model. SDK uses it for pass-through routing, while Vibechk uses it for an imperative command.
 
-**Impact and complexity:** High. Existing raw callers are not Commander subtrees and require deliberate reclassification. The SDK pass-through path is the riskiest. The current meaning of “raw” creates special `isRawExit` and `shouldPassThrough` branches while remaining framework-managed.
+**Impact and complexity:** Medium-high. Existing raw callers demonstrate raw argv passthrough or application-owned byte/exit behavior, not Commander subtree reuse. The SDK pass-through path is the riskiest. The current meaning of “raw” creates special `isRawExit` and `shouldPassThrough` branches while remaining partly framework-managed.
 
-**Proposed disposition:** **Reconcile implementation and callers.** Provide an opaque Commander subtree mount. Audit each existing `rawCommand` caller: convert ordinary structured operations to `ClinkrCommand`; adapt true passthrough/existing Commander trees to the opaque mount.
+**Approved disposition:** **Retain a narrow framework-neutral raw execution seam and reconcile callers.** A selected raw command receives its argv tail and owns output bytes and exit status, while Clinkr continues to own application routing and command metadata. Preserve this for SDK passthrough commands and genuine byte-owning operations such as `vibechk run`; convert ordinary structured operations to `ClinkrCommand`. Do not add opaque Commander subtree mounting without a concrete ns caller.
 
 ### 5. Human negative results use stderr
 
@@ -63,7 +63,7 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 **Impact and complexity:** Very high. Every rendered command must decide bodyless versus typed data for each reachable status. SDK command types and envelope helpers currently model only the success schema.
 
-**Proposed disposition:** **Reconcile implementation and callers**, staged around one internal outcome-schema model. Add `resultSchema`, `negativeSchema`, `failureSchema`, and `usageErrorSchema`; omission means bodyless and `z.any()` means deliberately untyped.
+**Approved disposition:** **Reconcile implementation and callers around one Clinkr-owned outcome-schema model.** Add `resultSchema`, `negativeSchema`, `failureSchema`, and `usageErrorSchema`; omission means bodyless and `z.any()` means deliberately untyped. Clinkr owns the composed discriminated machine schema and the runtime meaning of every configured status.
 
 ### 7. Handler output is not validated uniformly
 
@@ -71,7 +71,7 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 **Impact and complexity:** Medium-high. Enforcement currently depends on whether execution passes through SDK adaptation.
 
-**Proposed disposition:** **Reconcile implementation and callers.** Validate every configured status in Clinkr, remove duplicate SDK-only success validation, and let validation errors propagate unchanged as programmer errors.
+**Approved disposition:** **Validate every configured status in Clinkr.** Outcome-schema violations propagate unchanged as programmer errors to app crash policy rather than becoming failure envelopes. Remove SDK-only success validation after the SDK adapter delegates this policy to Clinkr.
 
 ### 8. Outcomes carry render overrides
 
@@ -79,7 +79,7 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 **Impact and complexity:** High. SDK redesign is prerequisite. Branch-dependent presentation must move into typed result data plus command-level renderers rather than being deleted mechanically.
 
-**Proposed disposition:** **Reconcile implementation and callers.** Make rendering command-level only after callers and SDK carry enough structured data for stable renderers.
+**Approved disposition:** **Make rendering command-level only.** First migrate the SDK adapter and direct callers so branch-dependent presentation is represented by typed outcome data and stable command-level renderers; then remove per-exit human/Markdown overrides. The SDK must stop synthesizing render overrides and must not retain a second rendering policy.
 
 ### 9. Completion error policy is per invocation
 
@@ -95,7 +95,7 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 **Impact and complexity:** Low in production, concentrated in exports and tests, subject to a final exhaustive usage check before removal.
 
-**Proposed disposition:** **Reconcile implementation and callers.** Remove special framework conversion and the throwable public API; retain explicit application-owned adapters for expected operational errors.
+**Approved disposition:** **Reconcile implementation and callers.** Remove special framework conversion and the public throwable `ClinkrFailure` API. Expected operational failures remain explicit returned `failure(...)` outcomes; application-owned adapters may deliberately catch known operational errors. Unexpected exceptions propagate unchanged to app crash policy.
 
 ## Additional material findings
 
@@ -115,13 +115,13 @@ Current `ok(data)` requires data, `ClinkrOkExit` always carries it, and JSON alw
 
 The README examples use `{ index: 0 }`; the current public `PositionalSpec` and callers use `{ position: 0 }`.
 
-**Proposed disposition:** **User decision required before reconciliation.** Prefer retaining `position`, which is established current API and accurately names ordinal placement, unless the new command API deliberately chooses `index` as part of a clean break. This mismatch does not justify an implicit rename.
+**Approved disposition:** **Retain `position`.** It is the established public spelling, accurately names ordinal placement, and avoids an unmotivated rename during the clean break. The README now uses `position`; no implementation migration is required for this item.
 
 ### Markdown format also accepts `md`
 
 Current parsing and completion accept `md` in addition to the README's `human|json|markdown` spelling. Focused tests in `test/format-option.test.ts` and `test/completion.test.ts` deliberately pin parsing, rendering, validation text, and completion for the alias.
 
-**Proposed disposition:** **User decision required before reconciliation.** Prefer documenting `md` as an explicit alias because it is an intentional, comprehensively tested current surface; otherwise remove it deliberately. Do not leave an undocumented accepted spelling.
+**Approved disposition:** **Retain and document `md` as an explicit alias for `markdown`.** The alias is intentional and comprehensively covered by parsing, rendering, validation-text, and completion tests. Reconciliation must preserve that behavior and its focused coverage.
 
 ### Node 24 is not declared in package metadata
 
@@ -151,26 +151,31 @@ These remain accepted unless reconciliation evidence exposes a contradiction.
 
 ## Refactoring approval and remaining discussion gates
 
-The user approved the foundational app/builder/lazy-route refactor for later implementation. It is bounded as follows:
+The user approved filesystem-first authoring over the foundational app/builder/lazy-route runtime for later implementation. It is bounded as follows:
 
+- direct filesystem hierarchy with `group.ts` and `command.ts`: each group exports one cheap complete `group()` definition, while each command exports cheap typed `metadata()` plus a selected-only `command()` definition authored through `defineCommand({...})`;
+- runtime discovery only: no generated manifest, generated runtime module, filesystem codegen, or production-codegen requirement;
+- one filesystem adapter owning traversal, dynamic ESM imports, builder callbacks, provenance, and transactional publication while lowering into the same immutable runtime;
 - framework-owned builders, provenance checks, immutable nodes, one-parent identity, and transactional loader publication;
-- cheap route-only identity/help metadata; selected-path loading; shared in-flight loads, per-app success caching, retryable failures, and fresh Commander trees per run;
-- scope-time name/alias/reserved-name validation without child loading;
-- relative terminal builder imports using a named async `build(builder)` export;
-- fresh app creation per Foundation invocation after discovery, with package builders contributing route declarations;
-- coordinated clean-cut migration in this dependency order: Clinkr internals/tests, old API replacement, Foundation, SDK/catalog routing, remaining CLIs/testing, obsolete routing/API deletion, README promotion.
+- cheap immediate-child loading for help/name completion—command `metadata()` and complete group `group()` definitions—with command definitions loaded only after selection; shared in-flight loads, per-app success caching, retryable failures, and fresh Commander trees per run;
+- scope-time name/alias/reserved-name validation without constructing child definitions;
+- builders and relative terminal builder imports retained as the advanced lower-level seam;
+- fresh app creation per Foundation invocation after discovery;
+- the common bootstrap `createClinkrApp({ name, commandDirectory, version?, runtimeInfo?, completion? })`, with an absolute command-directory path such as `import.meta.dirname`, explicit app name, and invocation-owned context;
+- coordinated clean-cut migration: establish the lower builder runtime, add the filesystem adapter and common public path, migrate Foundation, SDK/catalog command selection, remaining CLIs/testing, delete obsolete command-dispatch/API paths, then promote the README.
 
-This approval authorizes the direction, not TypeScript work in this documentation update. It does not authorize a compatibility layer, two public models, manual application argv pre-routing, or a filesystem-routes API. The latter may later compile to builders.
+This approval authorizes direction, not TypeScript work in this documentation update. It does not authorize a compatibility layer, two command-dispatch implementations, manual application argv pre-dispatch, or a manifest fallback. The README leads with filesystem command authoring and mentions builders only as a separately documented advanced escape hatch. Command/group files and directories must ship intact; bundling and single-file packaging remain an explicit risk that may require builders or a later adapter. The `app.ts` bootstrap API is settled in `references/decision-record.md`.
 
-Other proposals remain discussion-gated where their prior disposition is not independently settled:
+Approved reconciliation clusters and remaining discussion gates:
 
-1. Centralize all four status schemas, runtime validation, schema publication, and rendering in one command/outcome model.
-2. Redesign the SDK adapter before removing render overrides; eliminate SDK-owned duplicate validation and rendering policy.
-3. Replace the hybrid raw path with opaque Commander mounting and reclassify every current raw caller.
-4. Move completion failure observation to app policy while preserving static fallback.
-5. Remove `ClinkrFailure` conversion after exhaustive usage confirmation.
-6. Settle `position` versus `index` and the `md` alias explicitly.
+1. **Approved:** centralize all four status schemas, runtime validation, schema publication, and rendering ownership in Clinkr's command/outcome model.
+2. **Approved:** redesign the SDK adapter and direct callers before removing render overrides; eliminate SDK-owned duplicate validation and rendering policy.
+3. **Approved:** expose the common filesystem command structure through `createClinkrApp`, require an absolute `commandDirectory`, keep context invocation-owned, and let Foundation create a fresh app after `prepareRun`.
+4. **Approved:** move completion-provider failure observation to optional `completion.onProviderError` app policy while preserving static fallback even when observation fails.
+5. **Approved:** replace the hybrid raw path with a narrow framework-neutral raw argv/output/exit seam, preserve demonstrated SDK passthrough and byte-owning uses, and keep opaque Commander mounting parked until a concrete caller requires it.
+6. **Approved:** remove the public throwable `ClinkrFailure` API and special exception-to-failure conversion; retain explicit returned failures and application-owned adaptation for known operational errors.
+7. **Settled current behavior:** preserve the `position` spelling and documented `md` alias during reconciliation.
 
 ## Audit conclusion
 
-All ten known mismatches have implementation, test, and representative-caller evidence plus proposed dispositions. The audit added six material findings. Two API choices—`position` versus `index`, and whether `md` remains a public format alias—require user steering. The foundational split and migration sequence are approved, but TypeScript implementation has not begun. Remaining disputed dispositions must still be discussed before their implementation. An exhaustive search found `ClinkrFailure` construction only in Clinkr tests plus a TypeScript style-guard fixture, strengthening the proposed removal disposition but not authorizing it.
+All ten known mismatches have implementation, test, and representative-caller evidence plus proposed dispositions. The audit added six material findings. The positional spelling and Markdown alias decisions are settled: retain `position`, and retain and document `md` as an alias for `markdown`. The outcome-schema, runtime-validation, command-level-rendering, and SDK-policy migration cluster is also approved. The foundational split and migration sequence are approved, but TypeScript implementation has not begun. Raw execution, completion-error policy, and removal of the public throwable `ClinkrFailure` API are settled; no contract-supporting refactoring disposition remains discussion-gated. An exhaustive search found `ClinkrFailure` construction only in Clinkr tests plus a TypeScript style-guard fixture, supporting the approved removal.

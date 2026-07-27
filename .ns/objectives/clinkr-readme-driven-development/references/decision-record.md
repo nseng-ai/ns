@@ -118,6 +118,8 @@ Omitting all outcome schemas permits bodyless outcomes such as `ok()`. Clinkr em
 
 **Current mismatch:** Result validation is optional and success-only, while non-success outcomes can carry arbitrary data. The current JSON Schema does not express the complete configured outcome union.
 
+**Approved reconciliation:** Clinkr owns one internal outcome-schema model spanning all four statuses. The same model drives handler return typing, runtime validation, machine-envelope construction, and `--json-schema`; adapters must not reconstruct or partially enforce it.
+
 ### 9. Invalid handler output is a programmer error
 
 Request-schema failures are usage errors. Outcome data that violates the command's declared schema is invalid handler output and propagates as a programmer error to the application's crash policy.
@@ -125,6 +127,8 @@ Request-schema failures are usage errors. Outcome data that violates the command
 Clinkr does not turn invalid output into an operational failure envelope.
 
 **Rationale:** Schema-invalid output means the implementation violated its own declared contract. Preserving the thrown error retains stack traces, source lines, and attribution needed to fix the bug.
+
+**Approved reconciliation:** Validate the selected outcome's configured data schema in Clinkr before rendering or envelope emission. An omitted schema requires a bodyless outcome; `z.any()` is the explicit untyped escape hatch. Remove SDK-only success parsing once the adapter delegates validation to Clinkr.
 
 ### 10. Applications explicitly return expected failures
 
@@ -135,7 +139,7 @@ Clinkr does not automatically convert arbitrary exceptions into `failure(...)` o
 
 **Rationale:** The framework cannot reliably distinguish expected operational conditions from bugs. Automatic conversion would hide attribution and collapse application policy into framework policy.
 
-**Audit concern:** Current Clinkr dispatch specially catches `ClinkrFailure` and converts it into a failure outcome. The reconciliation audit must decide how that behavior fits the settled explicit-return rule rather than preserving it accidentally.
+**Approved reconciliation:** Remove the public throwable `ClinkrFailure` API and Clinkr's special exception-to-failure conversion. Expected operational failures remain explicit returned `failure(...)` outcomes; application or Foundation adapters may deliberately catch known operational errors and return those outcomes. Unexpected exceptions propagate unchanged to app crash policy.
 
 ### 11. Rendering is command-level only
 
@@ -152,6 +156,8 @@ Fallback order is:
 **Supporting context:** Markdown is an active caller contract, not speculative surface. Handoff list preserves a distinct Markdown table; Objective commands emit Markdown for direct agent consumption; Pi integrations deliberately request Markdown; SDK and extension registration carry Markdown renderers.
 
 **Current mismatch:** `ok(...)` and `negative(...)` currently support per-exit human or Markdown overrides.
+
+**Approved reconciliation:** Migrate the SDK adapter and direct callers first so every presentation branch is represented by typed outcome data and stable command-level renderers. Then remove per-exit render fields and constructors' override parameters. SDK must pass schemas and renderers into Clinkr rather than capturing exits, validating success itself, and synthesizing rendered strings back onto outcomes.
 
 ### 12. Bodyless imperative commands emit no Clinkr result body
 
@@ -177,15 +183,15 @@ If a dynamic provider throws:
 
 **Current mismatch:** Error observation exists only as a lower-level completion-call option, not as the desired app-level policy.
 
-### 14. Preserve a complete opaque escape hatch
+### 14. Preserve a narrow framework-neutral raw escape hatch
 
-The raw escape hatch mounts a Commander `Command` as an opaque subtree. That subtree owns parsing, options, help, schemas if any, context, I/O, completion, output bytes, and exit policy. Clinkr does not inject framework flags or interpret the subtree.
+The raw escape hatch lets a selected command receive its raw argv tail and own its output bytes and exit status. Clinkr still owns application routing and command metadata, but it does not parse the selected command's argv tail or impose the rendered-command output contract.
 
-**Rationale:** Frameworks inevitably have bugs, omissions, and unusual use cases. Applications need a way to work around them without abandoning Clinkr for the rest of the executable. Existing Commander trees should also be mountable without translation.
+**Rationale:** Current ns callers demonstrate two concrete needs: SDK commands that pass an argv tail to an embedded parser, and genuinely byte-owning operations such as `vibechk run`. Neither requires exposing Commander trees as public Clinkr objects. A framework-neutral seam meets those needs without adding a Commander-specific composition API.
 
-**Rejected alternative:** A schema-backed Clinkr command that owns only raw bytes and numeric exit status while Clinkr continues to manage its surface.
+**Rejected alternative:** Mount Commander `Command` subtrees as an opaque public contract without a concrete ns caller. That would add API and composition complexity for a hypothetical use case.
 
-**Current mismatch:** `@nseng-ai/clinkr/raw` currently exposes schema-backed `rawCommand()` specifications managed by Clinkr.
+**Current mismatch:** `@nseng-ai/clinkr/raw` currently exposes schema-backed `rawCommand()` specifications whose parsing and dispatch ownership is split across Clinkr-specific `isRawExit` and `shouldPassThrough` branches. Reconciliation should narrow and clarify that seam, preserve demonstrated passthrough/byte-owning uses, and migrate ordinary structured commands to `ClinkrCommand`.
 
 ### 15. Retain Clinkr's interaction subsystem under application control
 
@@ -207,7 +213,7 @@ Durable answer streaming to stdout is exceptional. The host must expose the sele
 
 ### 17. Teach workflows, not the complete export catalog
 
-The package README teaches the core adopter path directly: applications, commands and groups, outcomes, rendering, context, and end-to-end testing. Optional Clinkr features—completion, interaction, raw Commander subtrees, and streaming—remain in the README with one compact example or usage path each.
+The package README teaches the core adopter path directly: applications, commands and groups, outcomes, rendering, context, and end-to-end testing. Optional Clinkr features—completion, interaction, framework-neutral raw execution, and streaming—remain in the README with one compact example or usage path each.
 
 The README does not attempt to catalog every supported root export. Low-level capability, I/O, envelope, format, emission, completion-planning, and testing utilities remain supported public API and are discoverable through their exported TypeScript types. An individual utility belongs in the narrative only when a core workflow needs it or its behavioral contract is otherwise easy to miss.
 
@@ -249,7 +255,7 @@ This section records the focused design review that approved the foundational re
 
 Builders provide terminal `builder.import("./relative-module.ts")`. Specifiers must be relative and resolve from the module currently being built. The imported module exports standard named async `build(builder)`, and `import()` returns the finalized immutable object. A concise route may use `appBuilder.group(metadata, async (groupBuilder) => groupBuilder.import("./admin-group.ts"))`.
 
-A future higher-level filesystem-routes API is desirable but explicitly outside this reconciliation. It should compile to this builder model; the builder model is the one authoring path now.
+The builder model remains the canonical lower-level runtime model. The later filesystem-first decision below supersedes it as the primary README authoring interface; builders remain public for advanced and programmatic uses.
 
 ### Loading, identity, and validation
 
@@ -267,7 +273,76 @@ This is a hard clean break, not a compatibility layer or two public models. Migr
 
 ### Explicitly unresolved and unchanged
 
-`position` versus `index` and whether `md` remains a public format alias are still unresolved. Outcome, raw mounting, rendering, and completion-error decisions remain as recorded elsewhere in this document; approval of the foundational refactor does not silently settle or reopen them.
+Outcome, raw execution, rendering, and completion-error decisions remain as recorded elsewhere in this document; approval of the foundational refactor did not silently settle or reopen them. Positional metadata and the Markdown format alias were subsequently settled in [Public-surface naming decisions](#public-surface-naming-decisions-2026-07-25).
+
+## Filesystem-first authoring (2026-07-25)
+
+This decision supersedes builders as the primary package-README interface without superseding the approved builder/runtime design above. The common path is a web-framework-like filesystem hierarchy:
+
+```text
+cli/
+  app.ts
+  command.ts
+  issues/
+    group.ts
+    command.ts
+    list/
+      command.ts
+    labels/
+      group.ts
+      add/
+        command.ts
+```
+
+The hierarchy is direct: there are no `groups/`, `commands/`, or per-level `routes/` taxonomy directories. Directory path is CLI path. A directory containing `group.ts` is a named group. A `command.ts` without a peer `group.ts` is the named command represented by that directory. A `command.ts` beside `group.ts` is that group's default command. Root `cli/command.ts` is the app default. Normal routes use one file; there is no `route.ts` metadata sidecar.
+
+Filesystem route modules retain exported functions for future-proofing, but commands and groups deliberately have different shapes. A `group.ts` exports one cheap, complete `group(): ClinkrGroupDefinition`; it includes description/summary, explicit aliases, hidden state, help grouping, and any other cheap group configuration. Children come from the filesystem, and an adjacent `command.ts` remains the default command. There is no separate group `metadata()` and no lazy second group-definition function. This explicitly supersedes the earlier filesystem-first `metadata()` plus lazy `group()` split for groups.
+
+A `command.ts` keeps two functions because its implementation may be expensive: cheap, explicitly typed `metadata(): ClinkrCommandMetadata` for description/summary, explicit aliases, hidden state, and help grouping, plus async `command()` for the selected definition. Command definitions use a generic typed `defineCommand({...})` helper rather than `satisfies ClinkrCommandDefinition`, so `schema` and `resultSchema` drive handler and renderer inference. The exact helper and type spellings remain provisional, but this is the desired README authoring style. Group and metadata functions use direct explicit return types rather than `satisfies`.
+
+Importing a route module evaluates its top level. For parent routing, help, and name completion, the adapter calls a command module's cheap `metadata()` or a group module's cheap, complete `group()`. Only a selected command's `command()` is invoked. Schemas, handlers, gateways, renderers, completion providers, expensive imports, and expensive construction belong inside `command()`; an unusually heavy command may dynamically import a private implementation there. Group top levels and `group()` itself must remain cheap, and the normal path remains one route file.
+
+Runtime filesystem discovery is the approved direction. There is no generated manifest, generated runtime module, filesystem code generation, or production-codegen requirement. The filesystem adapter owns traversal, dynamic imports, builder callbacks, transactional loading, successful per-app caching and retry after failure, ownership/provenance, and ESM resolution. It lowers into the same immutable builder/App model, so routing, execution, help, and completion retain one implementation.
+
+Laziness is recursive and fast by default. Help and name completion may import immediate child modules, call command metadata, and call cheap complete group definitions, but do not construct sibling command definitions. Only a selected command's `command()` runs. The existing lower-seam decisions remain approved: async immutable builders; terminal `define()` and `import()`; app-only execution and completion; transactional selected-command loads; successful per-app caching with retryable failures; a fresh Foundation app per invocation; and no compatibility layer.
+
+Builders remain a public advanced escape hatch for unusual or programmatic topology, extension mounting, custom loading, and framework integration. The package README should mention this briefly and point to a separate future advanced builder guide; its main flow must not teach builder callbacks.
+
+Runtime discovery creates a packaging constraint: command/group files and directories must ship intact. Bundled or single-file environments may need the builder escape hatch or a later dedicated adapter. This decision does not authorize a manifest fallback.
+
+The common bootstrap and completion-error policy were subsequently settled below. Raw execution was subsequently settled as a narrow framework-neutral seam. Positional metadata, the Markdown format alias, and the outcome/rendering reconciliation were also subsequently settled below.
+
+## Filesystem bootstrap API settled (2026-07-26)
+
+The common `cli/app.ts` interface is `createClinkrApp({ name, commandDirectory, version?, runtimeInfo?, completion? })`. Public language describes a filesystem-defined **command structure**, command directory, command path, command module, and group module; it does not describe Clinkr's command model as routes.
+
+`commandDirectory` is a required absolute filesystem path string. The colocated Node 24+ form is `commandDirectory: import.meta.dirname`; a nested structure uses an absolute derived path such as `path.join(import.meta.dirname, "commands")`. Clinkr rejects relative paths and never resolves the command structure against `process.cwd()`. `name` is explicit; Clinkr does not inspect package metadata or infer a bin name. Foundation continues to own package metadata lookup and supplies its derived name, version, and runtime diagnostics.
+
+`createClinkrApp` returns `Promise<ClinkrApp<TContext>>`. Context-free apps use `app.run(args)` and `app.complete(request)`; contextful apps require per-invocation options carrying `context` (and optional I/O). Context is not captured during app creation or stored globally. Only `ClinkrApp` executes commands or computes completion.
+
+The factory is the common-path convenience over the same immutable builder/App runtime. Advanced and Foundation composition may add the filesystem command structure and programmatic commands through the app builder; the filesystem adapter is not a second parser or command-dispatch implementation. Foundation runs `prepareRun` first, creates a fresh app for each unhandled invocation, then runs it with the prepared context and I/O. No app, invocation context, or per-app successful-load cache is shared between Foundation invocations.
+
+Completion remains opt-in app policy. Optional `completion.onProviderError` receives the thrown provider error, command path, completion request, and invocation context. Clinkr then returns static candidates without printing the provider error; observer failure cannot break that fallback. This callback is not a general application-error observer.
+
+The public builder operation's exact spelling may be finalized during implementation, but its semantics are fixed: adapt an absolute command directory into the same command/group model, preserving transactional selected-command loading, concurrent in-flight sharing, per-app success caching, retry after failure, provenance, and fresh Commander trees. There is no manifest, production codegen, compatibility runtime, manual argv pre-dispatch, or second command-dispatch implementation.
+
+## Public-surface naming decisions (2026-07-25)
+
+Clinkr retains `position` as the positional-metadata field name. It is the established public spelling, accurately describes a positional argument's zero-based ordinal placement, and avoids an unmotivated rename during the clean break. The provisional README now uses `position`; reconciliation does not need an `index` migration.
+
+Clinkr also retains and documents `md` as an explicit alias for the canonical `markdown` format value. The alias is intentional and already has focused parsing, rendering, validation-text, and completion coverage. Reconciliation must preserve both the long spelling and alias rather than leaving `md` as undocumented behavior.
+
+These decisions settle only the two naming questions. They do not alter raw execution or exception policy. The outcome/rendering reconciliation, bootstrap/completion-error policy, and removal of the throwable `ClinkrFailure` API were settled separately.
+
+## Outcome and rendering reconciliation approved (2026-07-25)
+
+The outcome and rendering decisions above are approved as one migration cluster. Clinkr owns the four status-specific data schemas, their composed discriminated machine contract, runtime validation, and command-level rendering policy. Invalid configured outcome data is a programmer error and escapes to app crash policy; it is never converted into a failure outcome.
+
+Migration order is part of the approval. First extend the SDK command model and direct callers so each reachable status carries typed data sufficient for stable command-level human and Markdown renderers. Then route all status validation and rendering through Clinkr, remove SDK's `withRenderOverrides`-style success parsing and render synthesis, migrate remaining direct per-exit override callers, and finally delete override fields and constructor options from Clinkr outcomes.
+
+Do not mechanically delete branch-dependent presentation or preserve it as an adapter-side policy. Move the distinguishing facts into typed outcome data. Bodyless means no `data` field and no human result body, while JSON still emits the status envelope. An explicit `z.any()` remains the only intentionally untyped data escape hatch.
+
+This approval does not settle raw execution or exception policy. The filesystem bootstrap, completion-error policy, and removal of the throwable `ClinkrFailure` API were settled separately.
 
 ## Accepted implementation behavior
 
@@ -279,7 +354,9 @@ The following current behavior aligns with the settled contract and should not b
 - Markdown renderer support and its fallback to human rendering, then indented JSON;
 - handlers that do not directly receive output format;
 - application-controlled interaction passed through context;
-- static completion fallback after dynamic-provider failure.
+- static completion fallback after dynamic-provider failure;
+- positional metadata spelled `position`;
+- `md` accepted and documented as an alias for the canonical `markdown` format.
 
 ## Confirmed reconciliation mismatches
 
@@ -288,13 +365,13 @@ The implementation and caller audit begins with these confirmed mismatches:
 1. No `ClinkrApp` or standalone `ClinkrCommand`; executable concerns live on `ClinkrGroup`.
 2. Version, runtime, and completion ownership must move to opt-in app configuration.
 3. Automatic `list`/`ls` alias generation must be removed in favor of explicit aliases.
-4. The schema-backed raw-command model must become an opaque Commander subtree mount.
+4. The hybrid schema-backed raw-command model must become a narrow framework-neutral argv/output/exit seam; opaque Commander mounting remains parked without a concrete caller.
 5. Human-readable negative results must move from stderr to stdout while retaining exit code `1`.
 6. Outcome data schemas must compose into one discriminated command contract with bodyless defaults and runtime validation.
 7. Outcome-schema violations must propagate as programmer errors.
 8. Per-exit human and Markdown rendering overrides must be removed.
 9. Dynamic-completion error observation must become one app-level callback while preserving static fallback.
-10. Special exception-to-failure conversion, including current `ClinkrFailure` handling, must be reconciled with the explicit application-owned failure policy.
+10. The public throwable `ClinkrFailure` API and special exception-to-failure conversion must be removed in favor of explicit returned failures and application-owned error adaptation.
 
 These are starting facts, not authorization for an unreviewed refactor. Each material implementation or caller change still requires an explicit disposition and user discussion under the Objective workflow.
 
