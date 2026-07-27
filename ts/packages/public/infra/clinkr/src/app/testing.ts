@@ -36,13 +36,19 @@ export async function runForTest<TContext>(
 ): Promise<CapturedRun> {
 	const stdoutChunks: string[] = [];
 	const stderrChunks: string[] = [];
-	const io = options.io ?? {
-		stdout: (text: string) => {
+	const suppliedIo = options.io;
+	const io: ClinkrIo = {
+		stdout: (text) => {
 			stdoutChunks.push(text);
+			suppliedIo?.stdout(text);
 		},
-		stderr: (text: string) => {
+		stderr: (text) => {
 			stderrChunks.push(text);
+			suppliedIo?.stderr(text);
 		},
+		...(suppliedIo?.readStdin === undefined ? {} : { readStdin: suppliedIo.readStdin }),
+		...(suppliedIo?.caps === undefined ? {} : { caps: suppliedIo.caps }),
+		...(suppliedIo?.canEmitAnsi === undefined ? {} : { canEmitAnsi: suppliedIo.canEmitAnsi }),
 	};
 	const stdin = options.stdin;
 	const readStdin = stdin === undefined ? undefined : async () => stdin;

@@ -241,13 +241,15 @@ describe("buildSurfacePlan registration errors", () => {
 		).toThrow(/array field 'counts' in command 'probe' must have string elements/);
 	});
 
-	test("rejects reserved framework keys", () => {
+	test.each([
+		["format", z.string()],
+		["jsonSchema", z.boolean()],
+		["inputJson", z.boolean()],
+		["help", z.boolean()],
+	] as const)("rejects reserved framework key %s", (key, field) => {
 		expect(() =>
-			buildSurfacePlan({ commandName: "probe", schema: z.object({ format: z.string() }) }),
-		).toThrow(/collides with a clinkr framework option/);
-		expect(() =>
-			buildSurfacePlan({ commandName: "probe", schema: z.object({ jsonSchema: z.boolean() }) }),
-		).toThrow(/collides with a clinkr framework option/);
+			buildSurfacePlan({ commandName: "probe", schema: z.object({ [key]: field }) }),
+		).toThrow(`field '${key}' in command 'probe' collides with a clinkr framework option`);
 	});
 
 	test("rejects snake_case request keys", () => {
