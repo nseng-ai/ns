@@ -327,7 +327,7 @@ The lower-level `renderClinkrCompletionScript` API in `@nseng-ai/clinkr/completi
 
 Use a command's `completionProvider` for values known only at runtime. The provider receives the invocation context and the token being completed; it never runs the command handler.
 
-For example, a checkout command can complete branch names from Git. This tree declares a context (`YourAppContext`), so the handler and provider take `(context, request)` instead of the one-argument `handler(request)` form used earlier. This rule is covered in [Context and testability](#context-and-testability):
+For example, a checkout command can complete branch names from Git. This tree requires a context (`YourAppContext`), so the definition sets `requiresContext: true` and the handler and provider take `(context, request)` instead of the one-argument `handler(request)` form used earlier. This rule is covered in [Context and testability](#context-and-testability):
 
 ```ts
 import { defineCommand, ok } from "@nseng-ai/clinkr";
@@ -338,7 +338,8 @@ interface YourAppContext {
 }
 
 export async function command() {
-  return defineCommand<YourAppContext>({
+  return defineCommand({
+    requiresContext: true,
 		schema: z.object({ branch: z.string() }),
 		resultSchema: z.object({ branch: z.string() }),
 		completionProvider: async (context: YourAppContext, request) =>
@@ -357,11 +358,21 @@ export async function command() {
 
 Most real commands depend on something external: a filesystem, API client, repository, clock, or configuration. Pass those dependencies as **context** instead of constructing them inside handlers or reading globals. This lets you write full end-to-end tests of CLI commands with injected dependencies. CLIs are only getting more ambitious and complex. Testability must be a first-class concern.
 
-A contextful app explicitly selects a typed context mode for its whole command tree. Context-free is the default when no mode is specified. Commands share the selected context type through the discovered tree. The app receives one context value per run and passes it to the selected handler, including handlers in subgroups. Context construction and narrower adaptation stay above Clinkr.
+A contextful app sets `requiresContext: true` for its whole command tree and supplies the context type to `createClinkrApp`. Every structured command definition in that tree also sets `requiresContext: true`; Clinkr checks the app and selected definition agree when it loads the command. Omitting the property on both the app and its definitions selects the context-free form.
 
 ```ts
+import { createClinkrApp } from "@nseng-ai/clinkr";
+
 interface ContactsContext {
   readonly contacts: Contacts;
+}
+
+export async function app() {
+  return createClinkrApp<ContactsContext>({
+    name: "contacts",
+    commandDirectory: import.meta.dirname,
+    requiresContext: true,
+  });
 }
 
 if (import.meta.main) {
@@ -371,11 +382,13 @@ if (import.meta.main) {
 }
 ```
 
-The context type also applies to every subgroup beneath `contacts`; groups do not create, merge, or override context. There is no global context object—the value belongs to one `clinkr.run(...)` invocation. Use it for explicit runtime dependencies, not miscellaneous mutable state.
+`requiresContext` is a runtime and type-level discriminant. TypeScript generics disappear at runtime, so a generic argument alone cannot tell Clinkr how to invoke a dynamically loaded handler. The boolean preserves schema-derived request and outcome inference while selecting the two-argument handler overload. A uniform `{ context, request }` call with a synthetic null context would avoid two handler shapes, but would make context-free commands receive a dependency with no application meaning. The tradeoff is repeating `requiresContext: true` on contextful definitions in exchange for truthful types, reliable dispatch, and selected-module validation without inspecting function arity.
+
+The context type applies to every subgroup beneath `contacts`; groups do not create, merge, or override context. There is no global context object—the value belongs to one `clinkr.run(...)` invocation. Use it for explicit runtime dependencies, not miscellaneous mutable state.
 
 This homogeneous tree context is the current contract. First-class per-command context derivation may come later; applications that need narrower domain contexts can build the adaptation outside Clinkr today.
 
-Context-free command trees keep the simpler `handler(request)` and `clinkr.run(args)` forms shown above.
+Context-free command trees omit `requiresContext` and keep the simpler `handler(request)` and `clinkr.run(args)` forms shown above.
 
 The run boundary makes behavior easy to test. `runForTest` from `@nseng-ai/clinkr/testing` runs the app in-process and captures the observable CLI result; supply the same command tree with an in-memory fake context:
 

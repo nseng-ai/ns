@@ -18,8 +18,9 @@ This file preserves implementation-relevant details intentionally removed from t
 
 - The conventional `src/cli/app.ts` exports an `app()` factory. Importing the module must not construct or execute the app.
 - `app()` returns a fresh `ClinkrApp`; the direct executable path calls it inside `if (import.meta.main)` and only that block calls `clinkr.run(process.argv.slice(2))` and assigns `process.exitCode`.
-- One app factory supports an explicit context mode. Omitting the mode means context-free; contextful apps explicitly select a typed mode for one homogeneous context type across the tree.
-- Context belongs to an invocation, not app construction or global state. Context-free trees expose `handler(request)` and `clinkr.run(args)`; contextful trees expose `handler(context, request)` and require context for each run. Runtime invocation must follow the selected mode rather than always calling an underlying two-argument handler.
+- One app factory uses `requiresContext: true` as the runtime-visible and type-level discriminant for one homogeneous context type across the tree. Omitting it means context-free. Every structured command definition in a contextful tree also carries `requiresContext: true`; selected loading rejects an app/definition mismatch.
+- Context belongs to an invocation, not app construction or global state. Context-free trees expose `handler(request)` and `clinkr.run(args)`; contextful trees expose `handler(context, request)` and require context for each run. Runtime dispatch follows `requiresContext` rather than inspecting function arity or always calling an underlying two-argument handler.
+- The boolean discriminant preserves request and outcome inference from command schemas while the handler's annotated first parameter supplies its context type. A direct leading context generic cannot preserve inference of omitted trailing schema generics in TypeScript, and a uniform invocation object would require a synthetic null context for context-free commands. Repeating `requiresContext: true` on contextful definitions is the accepted tradeoff for truthful call shapes and runtime validation.
 - `ClinkrApp.run()` resolves to an exit code and never calls `process.exit()`.
 
 ## Programmatic topology and source composition

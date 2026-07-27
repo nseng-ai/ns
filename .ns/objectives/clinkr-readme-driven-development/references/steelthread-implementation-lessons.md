@@ -60,7 +60,7 @@ The prototype retained an underlying `(context, request)` handler and wrapped fi
 
 **Root cause:** `void` was treated as a value in a homogeneous generic rather than as a distinct public call shape.
 
-**Rebuild rule:** design context-free and contextful command definitions as honest overloads or discriminated types, and test runtime argument order as well as inference. Every README example must compile in a fixture and run through the public app interface unchanged before blessing.
+**Rebuild rule:** use `requiresContext: true` as the runtime-visible and type-level discriminant for contextful apps and structured command definitions; omission selects honest context-free overloads. Test app/definition mismatch rejection, runtime argument order, and schema inference. Do not inspect function arity or inject a synthetic null context. Every README example must compile in a fixture and run through the public app interface unchanged before blessing.
 
 ### 5. Descriptor validation was postponed and reconstructed with duck typing
 

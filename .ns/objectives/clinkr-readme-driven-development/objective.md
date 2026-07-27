@@ -70,6 +70,6 @@ Risks:
 
 ## Open Questions
 
-The remaining Clinkr product/API questions were settled in the 2026-07-27 design grill and are recorded in `references/implementation-contract-notes.md`: a narrow scoped callback builder mounts lazy sources; sources own disjoint subtrees and all shared command/group paths fail; one explicit context mode defaults to context-free; raw filesystem modules return `defineRawCommand(...)` from `command()`; and specialized APIs remain subpath-only.
+The remaining Clinkr product/API questions were settled in focused design review and are recorded in `references/implementation-contract-notes.md`: a narrow scoped callback builder mounts lazy sources; sources own disjoint subtrees and all shared command/group paths fail; `requiresContext: true` discriminates contextful apps and structured command definitions while omission means context-free; raw filesystem modules return `defineRawCommand(...)` from `command()`; and specialized APIs remain subpath-only.
 
 - What exact process amendment should the parent Objective adopt when a steelthread validates a README interface but falsifies the implementation architecture?
