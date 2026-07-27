@@ -2,6 +2,7 @@
 
 import { ClinkrGroup, resolveClinkrInteraction } from "@nseng-ai/clinkr";
 import { defineCli, readStdinLine } from "@nseng-ai/foundation/cli-runtime";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
 import {
 	cavemanRequestSchema,
@@ -84,8 +85,10 @@ const entry = defineCli<NsDevCliContext, CliDeps, undefined>({
 			...(deps.release === undefined ? {} : { release: deps.release }),
 			...(deps.releaseReset === undefined ? {} : { releaseReset: deps.releaseReset }),
 			status: deps.stderr ?? stderr,
-			...(deps.statusIsTty === undefined ? {} : { statusIsTty: deps.statusIsTty }),
-			...(deps.statusColumns === undefined ? {} : { statusColumns: deps.statusColumns }),
+			...optionalEntries({
+				statusIsTty: deps.statusIsTty,
+				statusColumns: deps.statusColumns,
+			}),
 		});
 		return { type: "run", context, buildState: undefined };
 	},
