@@ -45,7 +45,7 @@ Write the selected Objective as if the current git changes or current-branch PR 
 
 ## Read and collect evidence after selection
 
-First run `ns objective exec read-objective <slug> --format md` to confirm path, state, inventory, raw Markdown, and closed-marker presence. If `closed.md` exists, stop unless the user explicitly asked to amend the closed record; v1 has no reopen workflow.
+First run `ns objective exec read-objective <slug> --format md` to confirm path, state, inventory, raw Markdown, and closed-marker presence. If `closed.md` exists, stop unless the user explicitly asked to amend the closed record; reopening a closed Objective happens only on an explicit user request through `objective-close`'s Reopen procedure — there is no separate public reopen command.
 
 For large Objectives, use the inventory/closed-state output, then focus on `objective.md`, `roadmap.md`, and recent updates only when needed. Do not spend context on old updates unless they materially affect the current change; old updates are historical evidence, not editable targets.
 
