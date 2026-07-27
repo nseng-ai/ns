@@ -22,6 +22,7 @@ This file preserves implementation-relevant details intentionally removed from t
 - Context belongs to an invocation, not app construction or global state. Context-free trees expose `handler(request)` and `clinkr.run(args)`; contextful trees expose `handler(context, request)` and require context for each run. Runtime dispatch follows `requiresContext` rather than inspecting function arity or always calling an underlying two-argument handler.
 - The boolean discriminant preserves request and outcome inference from command schemas while the handler's annotated first parameter supplies its context type. A direct leading context generic cannot preserve inference of omitted trailing schema generics in TypeScript, and a uniform invocation object would require a synthetic null context for context-free commands. Repeating `requiresContext: true` on contextful definitions is the accepted tradeoff for truthful call shapes and runtime validation.
 - `ClinkrApp.run()` resolves to an exit code and never calls `process.exit()`.
+- The supported Node.js floor is `>=24.12.0`; the package `engines` metadata and qualification matrix must match.
 
 ## Programmatic topology and source composition
 
@@ -38,6 +39,15 @@ This file preserves implementation-relevant details intentionally removed from t
 - Store CLI annotations in Clinkr's private typed Zod registry, not Zod's global `.meta()` registry, so CLI-only presentation metadata does not leak into generated JSON Schema.
 - Aliases are explicit public API and are never inferred.
 
+## JSON request input
+
+- Every structured command exposes the reserved framework flag `--input-json` in help. It is transport metadata, not part of the request JSON Schema. Raw commands do not expose or interpret it and retain complete stdin ownership.
+- `--input-json` may appear before or after the selected route. Routing still comes from argv; after route selection, the complete request comes from exactly one source: either command-specific argv fields or stdin JSON. Repeated `--input-json` and any mixture with command-specific flags or positionals are framework usage errors. Other framework options, including `--format`, remain independent.
+- Consume stdin through invocation I/O at most once, only during selected structured-command execution. Help, `--json-schema`, completion, and parse failures never read it. Executable adapters provide process stdin; tests and embedded hosts may inject bytes. Clinkr imposes no payload-size limit initially.
+- Strip at most one leading UTF-8 BOM, parse the complete stdin payload as exactly one JSON value, and require an object. Empty or whitespace-only input, malformed JSON, trailing non-whitespace content, arrays, and primitives produce framework usage error type `invalid-json-input` with exit code `2`. `{}` is valid when the request schema permits it.
+- Reject unknown top-level object fields even when the Zod object would otherwise strip them; nested strictness remains owned by nested schemas. Validate JSON-native values directly through the selected command's request schema, including defaults and transforms, without Commander-style string coercion. Schema rejection produces framework usage error type `invalid-request` with structured Zod issues and exit code `2`.
+- Every request field remains argv-projectable. JSON input is an alternate transport for the same request contract, not a JSON-only schema escape hatch. Interaction remains application policy; the framework does not classify interactive commands or enforce confirmation-bypass flags.
+
 ## Outcomes, schemas, and rendering
 
 - The four handler-returned statuses are success, negative, failure, and usage error. Their data schemas are `resultSchema`, `negativeSchema`, `failureSchema`, and `usageErrorSchema`.
@@ -47,7 +57,7 @@ This file preserves implementation-relevant details intentionally removed from t
 - Invalid handler output is a programmer error and propagates to application crash policy. Unexpected exceptions likewise propagate; they do not become expected failure envelopes.
 - Exit semantics follow the grep convention: success `0`, expected negative `1`, failure/usage error `2`. Success and negative human output go to stdout; failure and usage-error human output go to stderr. Every JSON outcome envelope goes to stdout.
 - Rendering is command-level only. Do not restore per-exit human/Markdown overrides. Markdown falls back to the human renderer, then structured data falls back to indented JSON when no suitable renderer exists.
-- Preserve `md` as an accepted alias for the canonical `markdown` output format, including parsing, completion, and validation coverage.
+- The external output-format domain is exactly `human | json | md` in parsing, help, completion, validation, generated schemas, and any machine surface exposing the selected format. The CLI token `markdown` is unsupported. The public renderer remains named `renderMarkdown`, and prose continues to call the language Markdown.
 
 ## Raw commands and entrypoint boundaries
 
@@ -58,7 +68,7 @@ This file preserves implementation-relevant details intentionally removed from t
 
 ## Completion and progressive output
 
-- Completion is app opt-in and derives static candidates from the same topology and schemas used for parsing and help.
+- Completion is app opt-in and derives static candidates from the same topology and schemas used for parsing and help. Dynamic providers mirror handler signatures: context-free definitions use `completionProvider(request)`, while definitions with `requiresContext: true` use `completionProvider(context, request)`.
 - Dynamic providers augment static candidates; Clinkr merges and deduplicates them. If a provider throws, call optional app policy `completion.onProviderError` with the error and command/completion context, then retain static candidates. Observer failure must not break fallback, and Clinkr must not print the provider error itself.
 - Normal progress and logs use stderr, preserving stdout for the answer or JSON envelope. More specialized progress/reporting belongs behind invocation context so hosts and tests can supply their own I/O policy.
 - Animation is TTY-gated. Durable mid-command stdout is exceptional and must be disabled in JSON mode; derive that policy before `run()` and carry it through context when needed.

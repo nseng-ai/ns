@@ -40,13 +40,15 @@ Version information, runtime diagnostics, and shell completion belong to `Clinkr
 
 **Rejected alternative:** Automatically expose version, runtime, and completion surfaces on every app.
 
-### 3. Rendered-command framework flags are automatic
+### 3. Structured-command framework flags are automatic
 
-Every rendered Clinkr command receives `--format` and `--json-schema` automatically.
+Every structured Clinkr command receives `--format`, `--input-json`, and `--json-schema` automatically.
 
-**Rationale:** Multi-audience output and machine-readable contract discovery are core Clinkr behavior, unlike optional executable metadata.
+**Rationale:** Multi-audience input/output and machine-readable contract discovery are core Clinkr behavior, unlike optional executable metadata.
 
-**Accepted current behavior:** Automatic `--format` and `--json-schema` on rendered commands are not mismatches.
+`--input-json` explicitly reads the selected command's complete request object from invocation stdin. Route selection remains in argv, request input does not merge with command-specific flags or positionals, and output format remains independent. Raw commands retain stdin ownership and do not support this flag. The exact parsing, validation, error, and I/O contract lives in `implementation-contract-notes.md`.
+
+**Current mismatch:** Automatic `--format` and `--json-schema` are current behavior; `--input-json` is a newly approved reconciliation requirement.
 
 ### 4. The whole command tree shares one context type for now
 
@@ -310,7 +312,7 @@ Runtime filesystem discovery is the approved direction. There is no generated ma
 
 Laziness is recursive and fast by default. Help and name completion may import immediate child modules, call command metadata, and call cheap complete group definitions, but do not construct sibling command definitions. Only a selected command's `command()` runs. The existing lower-seam decisions remain approved: async immutable builders; terminal `define()` and `import()`; app-only execution and completion; transactional selected-command loads; successful per-app caching with retryable failures; a fresh Foundation app per invocation; and no compatibility layer.
 
-Builders remain a public advanced escape hatch for unusual or programmatic topology, extension mounting, custom loading, and framework integration. The package README should mention this briefly and point to a separate future advanced builder guide; its main flow must not teach builder callbacks.
+Builders remain a public advanced escape hatch for unusual or programmatic topology, extension mounting, custom loading, and framework integration. The package README should mention this briefly without promising a future guide; exported TypeScript types are the current detailed reference, and the main flow must not teach builder callbacks.
 
 Runtime discovery creates a packaging constraint: command/group files and directories must ship intact. Bundled or single-file environments may need the builder escape hatch or a later dedicated adapter. This decision does not authorize a manifest fallback.
 
@@ -320,7 +322,7 @@ The common bootstrap and completion-error policy were subsequently settled below
 
 The common `cli/app.ts` interface is `createClinkrApp({ name, commandDirectory, version?, runtimeInfo?, completion? })`. Public language describes a filesystem-defined **command structure**, command directory, command path, command module, and group module; it does not describe Clinkr's command model as routes.
 
-`commandDirectory` is a required absolute filesystem path string. The colocated Node 24+ form is `commandDirectory: import.meta.dirname`; a nested structure uses an absolute derived path such as `path.join(import.meta.dirname, "commands")`. Clinkr rejects relative paths and never resolves the command structure against `process.cwd()`. `name` is explicit; Clinkr does not inspect package metadata or infer a bin name. Foundation continues to own package metadata lookup and supplies its derived name, version, and runtime diagnostics.
+`commandDirectory` is a required absolute filesystem path string. The colocated Node 24.12+ form is `commandDirectory: import.meta.dirname`; a nested structure uses an absolute derived path such as `path.join(import.meta.dirname, "commands")`. Clinkr rejects relative paths and never resolves the command structure against `process.cwd()`. `name` is explicit; Clinkr does not inspect package metadata or infer a bin name. Foundation continues to own package metadata lookup and supplies its derived name, version, and runtime diagnostics. Clinkr's package metadata declares `engines.node >=24.12.0`.
 
 `createClinkrApp` returns `Promise<ClinkrApp<TContext>>`. Context-free apps omit `requiresContext` and use `app.run(args)` and `app.complete(request)`; contextful apps set `requiresContext: true` and require per-invocation options carrying `context` (and optional I/O). Every contextful structured command definition also sets `requiresContext: true`, and selected loading rejects an app/definition mismatch. Context is not captured during app creation or stored globally. Only `ClinkrApp` executes commands or computes completion.
 
@@ -334,9 +336,9 @@ The public builder operation's exact spelling may be finalized during implementa
 
 Clinkr retains `position` as the positional-metadata field name. It is the established public spelling, accurately describes a positional argument's zero-based ordinal placement, and avoids an unmotivated rename during the clean break. The provisional README now uses `position`; reconciliation does not need an `index` migration.
 
-Clinkr also retains and documents `md` as an explicit alias for the canonical `markdown` format value. The alias is intentional and already has focused parsing, rendering, validation-text, and completion coverage. Reconciliation must preserve both the long spelling and alias rather than leaving `md` as undocumented behavior.
+The README blessing review superseded the earlier format-token decision: `md` is now the sole Markdown CLI format value, and the `markdown` CLI token is unsupported. Parsing, help, completion, validation text, generated schemas, and any machine surface exposing the selected format use exactly `human | json | md`. The renderer remains named `renderMarkdown`, and prose still names the language Markdown.
 
-These decisions settle only the two naming questions. They do not alter raw execution or exception policy. The outcome/rendering reconciliation, bootstrap/completion-error policy, and removal of the throwable `ClinkrFailure` API were settled separately.
+These decisions settle only the positional and format-token naming questions. They do not alter raw execution or exception policy. The outcome/rendering reconciliation, bootstrap/completion-error policy, and removal of the throwable `ClinkrFailure` API were settled separately.
 
 ## Outcome and rendering reconciliation approved (2026-07-25)
 
@@ -354,13 +356,13 @@ The following current behavior aligns with the settled contract and should not b
 
 - homogeneous command-tree context;
 - one non-global context value per run;
-- automatic `--format` and `--json-schema` on rendered commands;
+- automatic `--format` and `--json-schema` on structured commands; `--input-json` is an approved addition;
 - Markdown renderer support and its fallback to human rendering, then indented JSON;
 - handlers that do not directly receive output format;
 - application-controlled interaction passed through context;
 - static completion fallback after dynamic-provider failure;
 - positional metadata spelled `position`;
-- `md` accepted and documented as an alias for the canonical `markdown` format.
+- `md` is the sole Markdown CLI format token; `renderMarkdown` remains the renderer name.
 
 ## Confirmed reconciliation mismatches
 

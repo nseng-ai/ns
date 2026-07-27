@@ -93,11 +93,17 @@ The following original decisions survived real consumer use and are now stronger
 - selected command help and schema introspection load definitions but never run handlers;
 - aliases are explicit application surface;
 - `position` remains the positional ordinal field;
-- `markdown` remains canonical and `md` remains its explicit alias;
+- Markdown rendering remains supported through `renderMarkdown`; the later README blessing review superseded the steelthread's format-token behavior by making `md` the sole Markdown CLI token;
 - expected operational failures are returned outcomes; unexpected exceptions propagate;
 - raw execution remains a narrow argv/bytes/status escape hatch rather than an alternate structured command model;
 - context is invocation-owned, and Foundation creates a fresh app after `prepareRun`;
 - dynamic completion failure preserves static candidates and app-level observation cannot break that fallback.
+
+## README blessing refinements
+
+The later cold-audience blessing review added one structured-command transport requirement that the steelthread did not implement: `--input-json` reads the complete selected-command request object from invocation stdin. Routing remains in argv, request fields never merge across JSON and command-specific argv, JSON-native values pass directly through the request schema, unknown top-level fields fail, and input format remains independent of output format. Raw commands retain stdin ownership and do not support the flag. `implementation-contract-notes.md` owns the exact ingestion, error, and invocation-I/O acceptance contract.
+
+The same review fixed the public runtime floor at Node.js `>=24.12.0`, made `md` the sole Markdown CLI format token while retaining `renderMarkdown`, and recorded Zsh completion as well-tested while Bash and Fish support remains untested.
 
 ## Lower-interface questions exposed and settled
 

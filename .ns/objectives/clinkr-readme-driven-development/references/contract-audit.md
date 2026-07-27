@@ -121,13 +121,13 @@ At audit time, the README examples used `{ index: 0 }`; the current public `Posi
 
 At audit time, parsing and completion accepted `md` in addition to the README's `human|json|markdown` spelling. Focused tests in `test/format-option.test.ts` and `test/completion.test.ts` deliberately pinned parsing, rendering, validation text, and completion for the alias.
 
-**Approved disposition:** **Retain and document `md` as an explicit alias for `markdown`.** The alias is intentional and comprehensively covered by parsing, rendering, validation-text, and completion tests. Reconciliation must preserve that behavior and its focused coverage.
+**Superseded disposition:** The later README blessing review made `md` canonical and removed the `markdown` CLI token. Reconciliation must change parsing, help, completion, validation text, and generated schemas to exactly `human|json|md`; the public renderer remains `renderMarkdown`.
 
 ### Node 24 is not declared in package metadata
 
-The README requires Node 24+, but `package.json` has no `engines` field.
+The README originally required Node 24+, but `package.json` had no `engines` field.
 
-**Proposed disposition:** **Reconcile package metadata** if Node 24 remains the intended public compatibility floor.
+**Approved disposition:** **Reconcile package metadata** to `engines.node >=24.12.0`, matching the workspace's qualified floor and the blessed README contract.
 
 ### Completion installation claims remain operationally unverified
 
@@ -178,4 +178,4 @@ Approved reconciliation clusters and remaining discussion gates:
 
 ## Audit conclusion
 
-All ten known mismatches have implementation, test, and representative-caller evidence plus proposed dispositions. The audit added six material findings. The positional spelling and Markdown alias decisions are settled: retain `position`, and retain and document `md` as an alias for `markdown`. The outcome-schema, runtime-validation, command-level-rendering, and SDK-policy migration cluster is also approved. As of this audit, the foundational split and migration sequence were approved, but TypeScript implementation had not begun. Raw execution, completion-error policy, and removal of the public throwable `ClinkrFailure` API are settled; no contract-supporting refactoring disposition remains discussion-gated. An exhaustive search found `ClinkrFailure` construction only in Clinkr tests plus a TypeScript style-guard fixture, supporting the approved removal.
+All ten known mismatches have implementation, test, and representative-caller evidence plus proposed dispositions. The audit added six material findings. The positional spelling remains settled as `position`; the later README blessing review superseded the format alias decision by making `md` the only Markdown CLI token. The outcome-schema, runtime-validation, command-level-rendering, and SDK-policy migration cluster is also approved. As of this audit, the foundational split and migration sequence were approved, but TypeScript implementation had not begun. Raw execution, completion-error policy, and removal of the public throwable `ClinkrFailure` API are settled; no contract-supporting refactoring disposition remains discussion-gated. An exhaustive search found `ClinkrFailure` construction only in Clinkr tests plus a TypeScript style-guard fixture, supporting the approved removal.

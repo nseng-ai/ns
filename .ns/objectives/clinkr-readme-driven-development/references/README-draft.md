@@ -5,7 +5,7 @@
 Clinkr is a TypeScript toolkit for building CLIs that work for people and coding agents. It builds on [Commander](https://github.com/tj/commander.js) and adds several capabilities:
 
 - Commands and groups are laid out declaratively in the filesystem, keeping applications organized for people and agents while remaining lazy and fast by default.
-- Each command accepts a schema-validated request object and returns a schema-validated result. JSON input, output, and schema introspection come out of the box.
+- Each structured command accepts a schema-validated request and returns an explicit outcome whose structured data is schema-validated. JSON input, JSON output, and schema introspection come out of the box.
 - You can declaratively overlay a human-friendly CLI experience customized for your application.
 - Shell autocomplete is derived from the same lazy command tree.
 
@@ -33,7 +33,7 @@ Zod is listed explicitly because your command definitions import it directly.
 
 ## Requirements
 
-- Node.js 24 or newer
+- Node.js 24.12 or newer
 - An ESM TypeScript project
 - Zod schemas for command requests and any structured outcome data
 
@@ -110,9 +110,21 @@ if (import.meta.main) {
 }
 ```
 
-`import.meta.dirname` is the absolute `src/cli/` directory containing `app.ts` in Node 24+. This direct, self-rooted layout is the recommended shape.
+`import.meta.dirname` is the absolute `src/cli/` directory containing `app.ts` in Node 24.12+. This direct, self-rooted layout is the recommended shape.
 
-This creates a command callable as `greet Ada --enthusiastic` or `greet Ada -e`. Clinkr adds `--format <human|json|markdown>` and `--json-schema` to every rendered command; `md` is an alias for `markdown`.
+This creates a command callable as `greet Ada --enthusiastic` or `greet Ada -e`. Clinkr adds `--format <human|json|md>`, `--input-json`, and `--json-schema` to every structured command.
+
+### Supply a request as JSON
+
+Use `--input-json` to supply the selected structured command's complete request as one JSON object on stdin instead of using its flags and positionals:
+
+```sh
+printf '%s' '{"name":"Ada","enthusiastic":true}' | greet --input-json --format json
+```
+
+Command and group names remain in argv. `--input-json` may appear before or after the selected route, but it cannot be repeated or combined with command-specific flags or positionals; framework options such as `--format` remain independent. Clinkr reads stdin only when executing the selected command, parses exactly one object, rejects unknown top-level fields, and validates JSON-native values with the same request schema without argv-style coercion. An empty object is valid when the schema permits it. Empty input, malformed JSON, trailing content, arrays, and primitives produce `invalid-json-input`; request-schema failures produce `invalid-request`. Both are usage errors with exit code `2`.
+
+Raw commands own stdin and do not support Clinkr's `--input-json` option.
 
 Every top-level field in the request's Zod object is part of the CLI input surface. By default, Clinkr projects a plain, unannotated field into a kebab-case long option: `planStoreRoot: z.string()` becomes required `--plan-store-root <value>`, and `verbose: z.boolean().default(false)` becomes optional `--verbose`. This projection is independent of output format: human, Markdown, and JSON invocations all use the same schema-derived argv parser.
 
@@ -202,11 +214,11 @@ export async function command() {
 }
 ```
 
-Clinkr selects the output format from its standard `--format` option. The default is `human`; choose `markdown` or `json` for the other rendering modes.
+Clinkr selects the output format from its standard `--format` option. The default is `human`; choose `md` or `json` for the other rendering modes.
 
 The canonical operation always returns a structured object. Human and Markdown modes pass that same result to `renderHuman` or `renderMarkdown`, keeping every presentation derived from the structured result.
 
-Every structured outcome has a corresponding command schema. Clinkr validates outcome data at runtime and publishes the composed discriminated schema through `--json-schema`.
+Each outcome status may declare a corresponding data schema. When present, Clinkr validates the outcome data at runtime and includes it in the composed schema published through `--json-schema`. Outcomes without structured data are bodyless and need no data schema.
 
 ## One command, two audiences
 
@@ -321,11 +333,13 @@ your_app completion fish | source
 
 For persistent installation, write the same script into the shell's completion directory and restart the shell: `~/.local/share/bash-completion/completions/your_app` (Bash, requires the `bash-completion` framework), `~/.zfunc/_your_app` (Zsh, with `~/.zfunc` in `fpath` before `compinit`), or `~/.config/fish/completions/your_app.fish` (Fish).
 
+Zsh completion is well-tested. Bash and Fish support is untested.
+
 The lower-level `renderClinkrCompletionScript` API in `@nseng-ai/clinkr/completion` lets an application choose its own visible setup command or hidden resolver path.
 
 ### Dynamic completion
 
-Use a command's `completionProvider` for values known only at runtime. The provider receives the invocation context and the token being completed; it never runs the command handler.
+Use a command's `completionProvider` for values known only at runtime. Like a handler, a context-free provider receives only the completion request, while a definition with `requiresContext: true` receives the invocation context and request. A provider never runs the command handler.
 
 For example, a checkout command can complete branch names from Git. This tree requires a context (`YourAppContext`), so the definition sets `requiresContext: true` and the handler and provider take `(context, request)` instead of the one-argument `handler(request)` form used earlier. This rule is covered in [Context and testability](#context-and-testability):
 
@@ -454,7 +468,20 @@ $ echo $?
 1
 ```
 
-Failure and usage-error envelopes have the same shape plus an `errorType` string; success envelopes carry configured result data under `data` (shown in the first example above). Any outcome can carry structured `data` when the command declares its corresponding schema:
+A successful data-bearing command emits the same stable envelope shape:
+
+```console
+$ contacts find Ada --format json
+{
+  "status": "success",
+  "exitCode": 0,
+  "data": {
+    "name": "Ada"
+  }
+}
+```
+
+Failure and usage-error envelopes have the same shape plus an `errorType` string. Any outcome can carry structured `data` when the command declares its corresponding schema:
 
 ```ts
 import { defineCommand } from "@nseng-ai/clinkr";
@@ -500,7 +527,7 @@ Use this only for genuine passthrough or byte-owning commands, such as adapting 
 
 ## Advanced: programmatic builders
 
-Filesystem-defined command structures are the common authoring path. A narrow, scoped callback builder is the advanced escape hatch for programmatic topology, extension mounting, custom loading, framework integration, and packaging environments that cannot preserve command directories. It mounts lazy topology sources that use the same selected-only loading and command-dispatch runtime as filesystem discovery; immutable nodes, provenance, and publication remain private. Mounted sources must own disjoint subtrees: duplicate command paths and shared group paths are errors. A separate advanced guide will document the callback API; this README intentionally does not teach it.
+Filesystem-defined command structures are the common authoring path. A narrow, scoped callback builder is the advanced escape hatch for programmatic topology, extension mounting, custom loading, framework integration, and packaging environments that cannot preserve command directories. It mounts lazy topology sources that use the same selected-only loading and command-dispatch runtime as filesystem discovery; immutable nodes, provenance, and publication remain private. Mounted sources must own disjoint subtrees: duplicate command paths and shared group paths are errors. This README intentionally does not teach the callback API; its exported TypeScript types are the current reference.
 
 ## Public entrypoints
 
@@ -513,7 +540,3 @@ Filesystem-defined command structures are the common authoring path. A narrow, s
 | `@nseng-ai/clinkr/testing`    | Public command-testing utilities                                                                              |
 
 Specialized APIs are available only from their named subpaths; the package root does not re-export raw construction, completion planning, stream sinks, or testing helpers. Every entrypoint ships full TypeScript types; those types are the detailed API reference until a separate docs surface exists. The README teaches adopter workflows rather than cataloging every low-level capability, I/O, envelope, format, emission, completion-planning, or testing utility.
-
-## License
-
-TBD before first public release.
