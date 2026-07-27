@@ -42,15 +42,7 @@ Bless Clinkr's cold-audience package contract in `references/README-draft.md`, i
 
 ## Prompt Guidance
 
-Every prompt produced by `objective-next` for this Objective must be exactly one planning command beginning with `/ns:plan:grill-and-save`, followed by cold-start-safe guidance for forming, grilling, and saving the implementation plan for the selected semantic slice. The command must cite this Objective's `objective.md`, `roadmap.md`, `references/README-draft.md`, `references/implementation-contract-notes.md`, and `references/steelthread-implementation-lessons.md` rather than restating them, and it must identify the relevant golden consumer branch when the slice touches Brmem or Objectives.
-
-The guidance after `/ns:plan:grill-and-save` must require the plan to:
-
-- preserve one deep `ClinkrApp` module, one private lazy topology, one traversal, exact context-mode call shapes, disjoint source ownership, transactional selected loading, one outcome/rendering owner, an explicit raw variant, and app-owned completion;
-- reject compatibility lowering, parallel routing, flattened topology reconstruction, broad descriptor duck typing, public lifecycle machinery, and prototype-internal abstractions that do not earn their interface;
-- place the slice in the dependency order README fixtures and command contract → topology/source composition → single runtime → Foundation/Brmem → SDK → Objectives → remaining callers → legacy deletion → qualification and README promotion;
-- compare proposed consumer work against `colocate-brmem-commands-remove-operations` or `colocate-objectives-cli-remove-operations` as an acceptance floor, while improving the underlying implementation and process;
-- produce the fewest coherent, reviewable PRs for that slice, explain every PR boundary, identify dependencies and any priority inversion, include a deletion ledger for old owners and temporary seams, and name concrete validation and packed-artifact evidence.
+The proposed prompt from `objective-next` must be one short command beginning with `/ns:plan:grill-and-save`. Name the selected semantic slice and direct the fresh planning session to read this Objective as its primary architecture, sequencing, and acceptance source; cite only the roadmap row, reference, or golden consumer branch needed for that slice. Ask for the fewest coherent PRs, with relevant deletion and validation evidence. Do not restate the Objective in the prompt.
 
 This guidance shapes planning only. It does not authorize implementation or choose the next roadmap row.
 
