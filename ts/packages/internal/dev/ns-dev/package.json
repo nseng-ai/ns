@@ -18,6 +18,7 @@
 	},
 	"dependencies": {
 		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/extension-kit": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
 		"smol-toml": "catalog:",
 		"zod": "catalog:"
