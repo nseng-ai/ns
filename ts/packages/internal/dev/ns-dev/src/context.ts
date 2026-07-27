@@ -64,6 +64,7 @@ export interface NsDevCliContext {
 	readonly releaseReset?: ReleaseResetGateway;
 	readonly status?: (text: string) => void;
 	readonly statusIsTty: boolean;
+	readonly statusColumns: number;
 }
 
 export interface NsDevCliDeps extends CliEntrypointDeps {
@@ -77,6 +78,7 @@ export interface NsDevCliDeps extends CliEntrypointDeps {
 	readonly release?: ReleaseCliContext;
 	readonly releaseReset?: ReleaseResetGateway;
 	readonly statusIsTty?: boolean;
+	readonly statusColumns?: number;
 }
 
 export function createRealNsDevContext(options: {
@@ -92,6 +94,7 @@ export function createRealNsDevContext(options: {
 	releaseReset?: ReleaseResetGateway;
 	status?: (text: string) => void;
 	statusIsTty?: boolean;
+	statusColumns?: number;
 }): NsDevCliContext {
 	return {
 		cwd: options.cwd,
@@ -103,6 +106,7 @@ export function createRealNsDevContext(options: {
 		timers: options.timers ?? systemTimerScheduler,
 		interaction: options.interaction,
 		statusIsTty: options.statusIsTty ?? process.stderr.isTTY === true,
+		statusColumns: options.statusColumns ?? process.stderr.columns ?? 80,
 		...(options.release === undefined ? {} : { release: options.release }),
 		...(options.releaseReset === undefined ? {} : { releaseReset: options.releaseReset }),
 		...(options.status === undefined ? {} : { status: options.status }),

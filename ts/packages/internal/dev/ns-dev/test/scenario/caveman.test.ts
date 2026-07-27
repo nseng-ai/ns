@@ -133,6 +133,7 @@ describe("caveman", () => {
 		const run = runScenario(["caveman", "please fix it", "--format", "json"], {
 			files: BASE_FILES,
 			statusIsTty: true,
+			statusColumns: 120,
 			timers: manual.timers,
 			commandResults: [generation],
 		});
@@ -146,6 +147,17 @@ describe("caveman", () => {
 			"\r\x1b[2K",
 		]);
 		expect(manual.pendingTimerCount()).toBe(0);
+	});
+
+	it("truncates tty progress before the terminal can wrap it", async () => {
+		const run = runScenario(["caveman", "please fix it", "--format", "json"], {
+			files: BASE_FILES,
+			statusIsTty: true,
+			statusColumns: 40,
+			commandResults: [exitedResult({ stdout: "Fix it.\n" })],
+		});
+		expect(await run.exit).toBe(0);
+		expect(run.stderr).toEqual(["\r\x1b[2K⠋ ns-dev caveman: rewriting input text…", "\r\x1b[2K"]);
 	});
 
 	it("rewrites --file input in place without model-generated trailing whitespace", async () => {

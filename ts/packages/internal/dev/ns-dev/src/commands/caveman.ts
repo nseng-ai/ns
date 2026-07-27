@@ -10,7 +10,7 @@ import {
 	resolveModelOperation,
 	type ModelPolicy,
 } from "@nseng-ai/extension-kit/model-policy";
-import { spinnerFrame } from "@nseng-ai/foundation/cli-theme";
+import { spinnerFrame, truncatePlain } from "@nseng-ai/foundation/cli-theme";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { z } from "zod";
 
@@ -190,12 +190,14 @@ function startCavemanSpinner(
 
 	const caps = resolveCaps({
 		isTty: true,
-		columns: undefined,
+		columns: context.statusColumns,
 		env: context.env,
 	});
 	let tick = 0;
 	const render = (): void => {
-		context.status?.(`${CLEAR_STATUS_LINE}${spinnerFrame(caps, tick)} ${message}`);
+		const frame = spinnerFrame(caps, tick);
+		const line = truncatePlain(`${frame} ${message}`, Math.max(1, caps.columns - 1));
+		context.status?.(`${CLEAR_STATUS_LINE}${line}`);
 		tick += 1;
 	};
 	render();

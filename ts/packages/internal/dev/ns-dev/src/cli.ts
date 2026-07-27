@@ -85,6 +85,7 @@ const entry = defineCli<NsDevCliContext, CliDeps, undefined>({
 			...(deps.releaseReset === undefined ? {} : { releaseReset: deps.releaseReset }),
 			status: deps.stderr ?? stderr,
 			...(deps.statusIsTty === undefined ? {} : { statusIsTty: deps.statusIsTty }),
+			...(deps.statusColumns === undefined ? {} : { statusColumns: deps.statusColumns }),
 		});
 		return { type: "run", context, buildState: undefined };
 	},

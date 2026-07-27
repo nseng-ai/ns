@@ -51,6 +51,7 @@ export interface ScenarioRunOptions {
 	readonly release?: ReleaseCliContext;
 	readonly releaseReset?: ReleaseResetGateway;
 	readonly statusIsTty?: boolean;
+	readonly statusColumns?: number;
 }
 
 export interface ScenarioRun {
@@ -84,6 +85,7 @@ export function runScenario(
 		...(options.release === undefined ? {} : { release: options.release }),
 		...(options.releaseReset === undefined ? {} : { releaseReset: options.releaseReset }),
 		...(options.statusIsTty === undefined ? {} : { statusIsTty: options.statusIsTty }),
+		...(options.statusColumns === undefined ? {} : { statusColumns: options.statusColumns }),
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
 		runCommand: async (command, commandArgs, commandOptions) => {
