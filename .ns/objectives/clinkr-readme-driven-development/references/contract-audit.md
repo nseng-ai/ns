@@ -39,7 +39,7 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 **Impact and complexity:** Medium. Alias policy is duplicated across Commander construction, completion, traversal, and SDK routing.
 
-**Proposed disposition:** **Reconcile implementation and callers.** Add explicit command/group aliases, remove inference and exported automatic-alias helpers, then explicitly retain `ls` only where an application chooses it.
+**Approved disposition:** **Reconcile implementation and callers.** Add explicit command/group aliases, remove inference and exported automatic-alias helpers, then explicitly retain `ls` only where an application chooses it.
 
 ### 4. The raw entrypoint is Clinkr-managed
 
@@ -55,7 +55,7 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 **Impact and complexity:** Low implementation complexity but observable shell behavior. Focused tests and any caller assumptions about stderr must change.
 
-**Proposed disposition:** **Reconcile implementation and callers.** Emit human negative answers on stdout with exit code `1`.
+**Approved disposition:** **Reconcile implementation and callers.** Emit human negative answers on stdout with exit code `1`.
 
 ### 6. Outcome schemas are success-only and permissive
 
@@ -87,7 +87,7 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 **Impact and complexity:** Low-medium. Policy wiring is repeated and lacks command/completion context.
 
-**Proposed disposition:** **Reconcile implementation and callers.** Move one enriched callback to app configuration and preserve static fallback exactly.
+**Approved disposition:** **Reconcile implementation and callers.** Move one enriched callback to app configuration and preserve static fallback exactly.
 
 ### 10. `ClinkrFailure` receives special framework conversion
 
@@ -101,25 +101,25 @@ Representative callers are current relative to the implemented `0.1.4` API. Seve
 
 ### Context-free signatures are absent
 
-Current handlers always receive `(context, request)`, and group runs require a context option. The README promises `handler(request)` and `app.run(args)` when no context is needed.
+At audit time, handlers always received `(context, request)`, and group runs required a context option. The README promises `handler(request)` and `clinkr.run(args)` when no context is needed.
 
-**Proposed disposition:** **Reconcile implementation** with the app/command split. Preserve homogeneous context for contextful trees while avoiding ceremony for context-free apps.
+**Approved disposition:** **Reconcile implementation** with the app/command split. Preserve homogeneous context for contextful trees while avoiding ceremony for context-free apps.
 
-### Bodyless success is absent and README wording is ambiguous
+### Bodyless success was absent and the earlier README wording was ambiguous
 
-Current `ok(data)` requires data, `ClinkrOkExit` always carries it, and JSON always emits an envelope with `data`. The README promises `ok()` and says Clinkr emits “no result body,” while also promising a JSON envelope for every outcome.
+At audit time, `ok(data)` required data, `ClinkrOkExit` always carried it, and JSON always emitted an envelope with `data`. The earlier README promised `ok()` and said Clinkr emitted “no result body,” while also promising a JSON envelope for every outcome.
 
-**Proposed disposition:** **Reconcile implementation and clarify the contract.** Bodyless means no human result text and no `data` field in the JSON envelope—not no JSON envelope/stdout bytes.
+**Approved disposition:** **Reconcile implementation and clarify the contract.** Bodyless means no human result text and no `data` field in the JSON envelope—not no JSON envelope/stdout bytes. The current detailed contract is preserved in `implementation-contract-notes.md`.
 
 ### Positional metadata uses `position`, not `index`
 
-The README examples use `{ index: 0 }`; the current public `PositionalSpec` and callers use `{ position: 0 }`.
+At audit time, the README examples used `{ index: 0 }`; the current public `PositionalSpec` and callers used `{ position: 0 }`.
 
 **Approved disposition:** **Retain `position`.** It is the established public spelling, accurately names ordinal placement, and avoids an unmotivated rename during the clean break. The README now uses `position`; no implementation migration is required for this item.
 
 ### Markdown format also accepts `md`
 
-Current parsing and completion accept `md` in addition to the README's `human|json|markdown` spelling. Focused tests in `test/format-option.test.ts` and `test/completion.test.ts` deliberately pin parsing, rendering, validation text, and completion for the alias.
+At audit time, parsing and completion accepted `md` in addition to the README's `human|json|markdown` spelling. Focused tests in `test/format-option.test.ts` and `test/completion.test.ts` deliberately pinned parsing, rendering, validation text, and completion for the alias.
 
 **Approved disposition:** **Retain and document `md` as an explicit alias for `markdown`.** The alias is intentional and comprehensively covered by parsing, rendering, validation-text, and completion tests. Reconciliation must preserve that behavior and its focused coverage.
 
@@ -153,7 +153,7 @@ These remain accepted unless reconciliation evidence exposes a contradiction.
 
 The user approved filesystem-first authoring over the foundational app/builder/lazy-route runtime for later implementation. It is bounded as follows:
 
-- direct filesystem hierarchy with `group.ts` and `command.ts`: each group exports one cheap complete `group()` definition, while each command exports cheap typed `metadata()` plus a selected-only `command()` definition authored through `defineCommand({...})`;
+- direct filesystem hierarchy with `group.ts` plus command `metadata.ts`/`command.ts` pairs: each group exports one cheap complete `group()` definition, while each command exports cheap typed `metadata()` from its metadata module plus a selected-only `command()` definition authored through `defineCommand({...})`;
 - runtime discovery only: no generated manifest, generated runtime module, filesystem codegen, or production-codegen requirement;
 - one filesystem adapter owning traversal, dynamic ESM imports, builder callbacks, provenance, and transactional publication while lowering into the same immutable runtime;
 - framework-owned builders, provenance checks, immutable nodes, one-parent identity, and transactional loader publication;
@@ -178,4 +178,4 @@ Approved reconciliation clusters and remaining discussion gates:
 
 ## Audit conclusion
 
-All ten known mismatches have implementation, test, and representative-caller evidence plus proposed dispositions. The audit added six material findings. The positional spelling and Markdown alias decisions are settled: retain `position`, and retain and document `md` as an alias for `markdown`. The outcome-schema, runtime-validation, command-level-rendering, and SDK-policy migration cluster is also approved. The foundational split and migration sequence are approved, but TypeScript implementation has not begun. Raw execution, completion-error policy, and removal of the public throwable `ClinkrFailure` API are settled; no contract-supporting refactoring disposition remains discussion-gated. An exhaustive search found `ClinkrFailure` construction only in Clinkr tests plus a TypeScript style-guard fixture, supporting the approved removal.
+All ten known mismatches have implementation, test, and representative-caller evidence plus proposed dispositions. The audit added six material findings. The positional spelling and Markdown alias decisions are settled: retain `position`, and retain and document `md` as an alias for `markdown`. The outcome-schema, runtime-validation, command-level-rendering, and SDK-policy migration cluster is also approved. As of this audit, the foundational split and migration sequence were approved, but TypeScript implementation had not begun. Raw execution, completion-error policy, and removal of the public throwable `ClinkrFailure` API are settled; no contract-supporting refactoring disposition remains discussion-gated. An exhaustive search found `ClinkrFailure` construction only in Clinkr tests plus a TypeScript style-guard fixture, supporting the approved removal.

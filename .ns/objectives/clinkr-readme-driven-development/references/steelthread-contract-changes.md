@@ -4,7 +4,7 @@
 
 ## Purpose
 
-The original contract made the major product decisions before implementation. The steelthread then exercised those decisions through Clinkr, Foundation, the SDK host, Flow, Objectives, and Brmem. This document records every material refinement to the contract that came from building and using that vertical slice. It is not a branch changelog and does not make the prototype implementation authoritative. The refreshed `README-draft.md` is the blessed user-facing contract; this document explains what changed and why.
+The original contract made the major product decisions before implementation. The steelthread then exercised those decisions through Clinkr, Foundation, the SDK host, Flow, Objectives, and Brmem. This document records every material refinement to the contract that came from building and using that vertical slice. It is not a branch changelog and does not make the prototype implementation authoritative. The refreshed `README-draft.md` is the current cold-audience contract candidate; this document explains what changed and why. Once the README blessing gate closes, it becomes the user-facing source of truth.
 
 ## Changes to the filesystem authoring contract
 
@@ -99,17 +99,17 @@ The following original decisions survived real consumer use and are now stronger
 - context is invocation-owned, and Foundation creates a fresh app after `prepareRun`;
 - dynamic completion failure preserves static candidates and app-level observation cannot break that fallback.
 
-## Contract questions reopened by implementation
+## Lower-interface questions exposed and settled
 
-The steelthread did not invalidate the filesystem result, but it showed that several lower-interface decisions were premature or insufficiently exact. The clean rebuild must settle these in the blessed README and compile its examples before broad migration:
+The steelthread did not invalidate the filesystem result, but it showed that several lower-interface decisions were premature or insufficiently exact. README review and the 2026-07-27 design grill settled them:
 
-1. **Builder exposure.** Builders were useful scaffolding for the prototype, but the rebuild must decide whether they are a supported public advanced interface or an internal composition mechanism. Do not retain them publicly only because the prototype needed them.
-2. **Context-free typing.** `handler(request)` and `app.run(args)` must be real type/runtime contracts, not documentation shorthand over a two-argument contextful implementation.
-3. **Completion ownership.** If enabling completion on an app promises an installation command and hidden resolver, the app must install them. Otherwise the README must assign that responsibility to the host.
-4. **Extension composition.** The SDK needs a topology-preserving composition contract. Flattening filesystem trees into leaf candidates and reconstructing groups is not part of the desired interface.
-5. **Raw filesystem definitions.** If filesystem commands can be raw, there must be one valid, typed authoring constructor. An exported raw definition type with no constructible path is not a contract.
-6. **Programmatic and filesystem topology.** If both are supported, they must lower into one routing and validation model without compatibility imports or global validation exceptions.
+1. **Builder API shape.** Expose one narrow scoped callback builder for programmatic topology, extension mounting, custom loading, framework integration, and packaging environments that cannot preserve command directories. It mounts lazy topology sources; immutable nodes, provenance, publication, and prototype lifecycle machinery remain private.
+2. **Context-free typing.** One explicit app context mode defaults to context-free. `handler(request)` and `clinkr.run(args)` are real type/runtime contracts; contextful mode uses one homogeneous typed context and requires it per invocation.
+3. **Completion ownership.** Enabling completion on an app installs the visible setup command and hidden resolver. The lower-level completion entrypoint remains available when a host owns transport.
+4. **Extension composition.** Filesystem and SDK sources preserve recursive topology and mount through the same lazy source model. Sources own disjoint subtrees: duplicate commands and every shared group path fail with diagnostics naming both sources and the canonical path. There is no precedence or group merge.
+5. **Raw filesystem definitions.** A raw filesystem module exports the standard `command()` function and returns `defineRawCommand(...)` from `@nseng-ai/clinkr/raw`.
+6. **Programmatic and filesystem topology.** Both authoring modes lower into one routing and validation model without compatibility imports or global validation exceptions. Specialized APIs remain exclusive to their named subpaths.
 
 ## Implication for the rebuild
 
-The refreshed README, not the prototype code, is the source of truth. The implementation stack is retained as evidence of real workflows and failure modes. Port contract tests and consumer scenarios selectively; do not preserve transitional interfaces, lowering paths, or branch structure merely because they existed in the steelthread.
+Once blessed, the refreshed README plus `implementation-contract-notes.md`, not the prototype code, are the implementation source of truth. Until then, they are the current contract candidate and detailed acceptance checklist. The implementation stack is retained as evidence of real workflows and failure modes. Port contract tests and consumer scenarios selectively; do not preserve transitional interfaces, lowering paths, or branch structure merely because they existed in the steelthread.

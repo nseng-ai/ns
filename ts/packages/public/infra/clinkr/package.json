@@ -20,11 +20,14 @@
 	},
 	"dependencies": {
 		"commander": "catalog:",
-		"log-update": "catalog:",
-		"zod": "catalog:"
+		"log-update": "catalog:"
 	},
 	"devDependencies": {
-		"@xterm/headless": "catalog:"
+		"@xterm/headless": "catalog:",
+		"zod": "catalog:"
+	},
+	"peerDependencies": {
+		"zod": "catalog:"
 	},
 	"ns": {
 		"tier": "neutral-infra"

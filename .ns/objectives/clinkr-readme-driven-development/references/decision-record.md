@@ -277,30 +277,34 @@ Outcome, raw execution, rendering, and completion-error decisions remain as reco
 
 ## Filesystem-first authoring (2026-07-25)
 
-This decision supersedes builders as the primary package-README interface without superseding the approved builder/runtime design above. The common path is a web-framework-like filesystem hierarchy:
+This decision supersedes builders as the primary package-README interface without superseding the approved builder/runtime direction above. Its original one-file command shape was later superseded by the steelthread's two-file metadata/definition seam recorded in `steelthread-contract-changes.md`. The current common path is a direct filesystem hierarchy:
 
 ```text
 cli/
   app.ts
+  metadata.ts
   command.ts
   issues/
     group.ts
+    metadata.ts
     command.ts
     list/
+      metadata.ts
       command.ts
     labels/
       group.ts
       add/
+        metadata.ts
         command.ts
 ```
 
-The hierarchy is direct: there are no `groups/`, `commands/`, or per-level `routes/` taxonomy directories. Directory path is CLI path. A directory containing `group.ts` is a named group. A `command.ts` without a peer `group.ts` is the named command represented by that directory. A `command.ts` beside `group.ts` is that group's default command. Root `cli/command.ts` is the app default. Normal routes use one file; there is no `route.ts` metadata sidecar.
+There are no `groups/`, `commands/`, or per-level `routes/` taxonomy directories. Directory path is CLI path. A directory containing `group.ts` is a named group. A required `metadata.ts` + `command.ts` pair without a peer `group.ts` is the named command represented by that directory; beside `group.ts`, it is the group's default command; at root, it is the app default.
 
-Filesystem route modules retain exported functions for future-proofing, but commands and groups deliberately have different shapes. A `group.ts` exports one cheap, complete `group(): ClinkrGroupDefinition`; it includes description/summary, explicit aliases, hidden state, help grouping, and any other cheap group configuration. Children come from the filesystem, and an adjacent `command.ts` remains the default command. There is no separate group `metadata()` and no lazy second group-definition function. This explicitly supersedes the earlier filesystem-first `metadata()` plus lazy `group()` split for groups.
+Commands and groups deliberately have different shapes. A `group.ts` exports one cheap, complete `group(): ClinkrGroupDefinition`; it includes description/summary, explicit aliases, hidden state, help grouping, and other cheap group configuration. Children come from the filesystem. There is no separate group `metadata()` and no lazy second group-definition function.
 
-A `command.ts` keeps two functions because its implementation may be expensive: cheap, explicitly typed `metadata(): ClinkrCommandMetadata` for description/summary, explicit aliases, hidden state, and help grouping, plus async `command()` for the selected definition. Command definitions use a generic typed `defineCommand({...})` helper rather than `satisfies ClinkrCommandDefinition`, so `schema` and `resultSchema` drive handler and renderer inference. The exact helper and type spellings remain provisional, but this is the desired README authoring style. Group and metadata functions use direct explicit return types rather than `satisfies`.
+A command's cheap, explicitly typed `metadata.ts` exports `metadata(): ClinkrCommandMetadata`; its selected-only `command.ts` exports async `command()`. Command definitions use a generic typed `defineCommand({...})` helper so `schema` and `resultSchema` drive handler and renderer inference. Group and metadata functions use direct explicit return types rather than `satisfies`.
 
-Importing a route module evaluates its top level. For parent routing, help, and name completion, the adapter calls a command module's cheap `metadata()` or a group module's cheap, complete `group()`. Only a selected command's `command()` is invoked. Schemas, handlers, gateways, renderers, completion providers, expensive imports, and expensive construction belong inside `command()`; an unusually heavy command may dynamically import a private implementation there. Group top levels and `group()` itself must remain cheap, and the normal path remains one route file.
+Importing a module evaluates its top level. For parent routing, help, and name completion, the adapter imports a command's cheap `metadata.ts` or a group's cheap, complete `group.ts`. Only selection imports the command's `command.ts` and invokes `command()`. Schemas, handlers, gateways, renderers, completion providers, and expensive implementation imports may therefore live normally at the top of selected-only `command.ts`; private dynamic imports are optional. Group module top levels, `group()`, and command metadata must remain cheap.
 
 Runtime filesystem discovery is the approved direction. There is no generated manifest, generated runtime module, filesystem code generation, or production-codegen requirement. The filesystem adapter owns traversal, dynamic imports, builder callbacks, transactional loading, successful per-app caching and retry after failure, ownership/provenance, and ESM resolution. It lowers into the same immutable builder/App model, so routing, execution, help, and completion retain one implementation.
 
@@ -373,15 +377,18 @@ The implementation and caller audit begins with these confirmed mismatches:
 9. Dynamic-completion error observation must become one app-level callback while preserving static fallback.
 10. The public throwable `ClinkrFailure` API and special exception-to-failure conversion must be removed in favor of explicit returned failures and application-owned error adaptation.
 
-These are starting facts, not authorization for an unreviewed refactor. Each material implementation or caller change still requires an explicit disposition and user discussion under the Objective workflow.
+These were the starting facts for the contract-to-code audit, not authorization for an unreviewed refactor. `contract-audit.md` and the later approval sections above settled the contract-supporting dispositions; implementation still proceeds through the Objective roadmap.
 
-## Genuinely open topics
+## Remaining API design settled (2026-07-27)
 
-The following topics remain open and should be settled through the remaining README-driven audit:
+A focused design grill settled the lower-interface questions exposed by the steelthread:
 
-- What evidence bar should govern detailed observable-behavior claims, including how current ns usage, API currency, focused tests, and independently verified operational instructions contribute.
-- Which additional observable current behaviors deserve public-contract status after the package, export, test, and representative-caller audit.
-- Which concrete gate-calibration lessons from the Clinkr dry run should become mandatory for later package Subobjectives.
-- Whether any discovered complexity should be reconciled in this Objective or parked as unrelated redesign.
+- **Builder:** expose one narrow scoped callback builder. It mounts lazy topology sources; immutable nodes, provenance, transactional publication, and definition lifecycle remain private implementation details.
+- **Composition:** filesystem and programmatic sources lower into the same lazy topology model. Sources own disjoint subtrees. Duplicate command paths and every group path shared by two sources are errors; there is no source precedence, mount-order override, or compatible-group merge. Diagnostics identify both sources and the canonical path.
+- **Context:** one app factory supports an explicit context mode, defaulting to context-free when omitted. Context-free trees use `handler(request)` and `clinkr.run(args)`; contextful trees explicitly select one homogeneous context type and use `handler(context, request)` with context required per invocation.
+- **Raw:** a raw filesystem module retains the standard `command()` export and returns `defineRawCommand(...)` imported from `@nseng-ai/clinkr/raw`.
+- **Exports:** specialized APIs remain available only on their named subpaths. The root does not re-export raw construction, completion planning, stream sinks, or testing helpers.
+
+The remaining Objective-level question is which concrete gate-calibration lesson should be returned to the parent `foundation-readme-driven-pass`. Newly discovered unrelated complexity remains parked rather than silently widening this Objective.
 
 Everything else in the settled-decision sections above should remain closed unless new implementation or caller evidence demonstrates a material contradiction.

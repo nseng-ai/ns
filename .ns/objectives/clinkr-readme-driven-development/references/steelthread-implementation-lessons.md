@@ -6,7 +6,7 @@
 
 The steelthread proved that the filesystem-oriented authoring result is worth keeping. It also accumulated transitional machinery across Clinkr, Foundation, the SDK, and consumers. This document records implementation lessons for a clean rebuild so that the prototype's accidental architecture is not reproduced.
 
-These are rebuild constraints, not requirements to preserve prototype code. The durable assets are the blessed README, behavior evidence, consumer scenarios, and failure cases. Reuse implementation only when it directly fits the rebuilt module.
+These are rebuild constraints, not requirements to preserve prototype code. The durable assets are the current README contract candidate, the detailed implementation notes, behavior evidence, consumer scenarios, and failure cases. Reuse implementation only when it directly fits the rebuilt module.
 
 ## What the steelthread proved
 
@@ -60,7 +60,7 @@ The prototype retained an underlying `(context, request)` handler and wrapped fi
 
 **Root cause:** `void` was treated as a value in a homogeneous generic rather than as a distinct public call shape.
 
-**Rebuild rule:** design context-free and contextful command definitions as honest overloads or discriminated types, and test runtime argument order as well as inference. Every blessed README example must compile in a fixture and run through the public app interface unchanged.
+**Rebuild rule:** design context-free and contextful command definitions as honest overloads or discriminated types, and test runtime argument order as well as inference. Every README example must compile in a fixture and run through the public app interface unchanged before blessing.
 
 ### 5. Descriptor validation was postponed and reconstructed with duck typing
 
@@ -110,7 +110,7 @@ The stack reached hundreds of files before the foundational seams were closed. L
 
 **Rebuild rule:** use a narrower vertical sequence:
 
-1. compile and run blessed README fixtures;
+1. compile and run fixtures for the README contract candidate;
 2. build the single runtime and recursive filesystem topology;
 3. migrate one standalone consumer such as Brmem;
 4. solve SDK topology and diagnostics without pre-routing;
@@ -119,13 +119,13 @@ The stack reached hundreds of files before the foundational seams were closed. L
 
 Each stage ends with a deletion check: no obsolete owner, adapter, type, or test remains below the next stage.
 
-### 11. Public builders were accepted before their necessity was proven
+### 11. Prototype builder machinery exceeded the proven public need
 
 Builders helped stage the prototype and support Foundation composition, but they substantially enlarged the public interface: builders, immutable nodes, provenance, imports, definition lifecycle, and ownership semantics all became caller-visible concepts despite the README teaching filesystem authoring.
 
-**Root cause:** an implementation seam was promoted into the contract while only one implementation needed it.
+**Root cause:** an implementation seam was promoted wholesale before its caller-facing shape was proven.
 
-**Rebuild rule:** apply the deletion test and the two-adapter test before exposing builders. Prefer a small programmatic topology input or package-private composition seam if Foundation/SDK are the only consumers. A public advanced interface needs at least two concrete caller classes and independent contract tests. Keep node constructors private.
+**Rebuild rule:** the README now commits to a public advanced builder interface for programmatic topology, extension mounting, custom loading, framework integration, and packaging environments that cannot preserve command directories. Apply the deletion test and independent contract tests to its exact shape: expose only what those use cases require, keep node constructors private, and do not preserve prototype lifecycle machinery by default.
 
 ### 12. Metadata semantics need validation at the earliest useful point
 
@@ -169,7 +169,7 @@ Add focused structural guards where behavior tests are insufficient:
 
 ### Test examples as product surface
 
-Every TypeScript example in the blessed README should have a compile fixture. The primary one-command example should execute unchanged. This would have caught the context-free handler mismatch before consumer migration.
+Every TypeScript example in the README contract candidate should have a compile fixture before blessing. The primary one-command example should execute unchanged. This would have caught the context-free handler mismatch before consumer migration.
 
 ## Review checklist for each rebuild slice
 
@@ -182,10 +182,10 @@ Before accepting a slice, ask:
 5. Are external values decoded once into an honest union?
 6. Does the public interface expose implementation lifecycle that callers do not need?
 7. Do tests cross the public interface and include a real consumer?
-8. Can every blessed README example compile and behave as written?
+8. Can every README example compile and behave as written?
 9. Are packaging assumptions verified against packed output rather than only the source tree?
 10. Is the abstraction replacing complexity, or merely layering over it?
 
 ## Final instruction to implementation sessions
 
-Do not clean up the prototype in place by default. Start from the refreshed Objective and blessed README. Consult prototype commits for evidence and tests, then implement the smallest single-runtime design that satisfies the contract. If a prototype abstraction conflicts with these lessons, the prototype loses.
+Do not clean up the prototype in place by default. Start from the refreshed Objective, the README contract candidate, and `implementation-contract-notes.md`. Consult prototype commits for evidence and tests, then implement the smallest single-runtime design that satisfies the contract. If a prototype abstraction conflicts with these lessons, the prototype loses.
