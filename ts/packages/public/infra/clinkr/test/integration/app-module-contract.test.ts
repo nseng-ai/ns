@@ -87,6 +87,34 @@ for (const [label, commandSource] of [
 		"invalid context discriminants",
 		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { requiresContext: false, schema: z.object({}), handler: async () => ok() }; }\n',
 	],
+	[
+		"present-but-undefined context discriminants",
+		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { requiresContext: undefined, schema: z.object({}), handler: async () => ok() }; }\n',
+	],
+	[
+		"unrecognized variant discriminants",
+		'export async function command() { return { type: "rawish", run: () => 0 }; }\n',
+	],
+	[
+		"raw definitions with unknown keys",
+		'export async function command() { return { type: "raw", run: () => 0, extra: true }; }\n',
+	],
+	[
+		"raw definitions with structured-only members",
+		'import { z } from "zod";\nexport async function command() { return { type: "raw", run: () => 0, schema: z.object({}) }; }\n',
+	],
+	[
+		"raw definitions with an explicit false context discriminant",
+		'export async function command() { return { type: "raw", run: () => 0, requiresContext: false }; }\n',
+	],
+	[
+		"raw definitions without a run function",
+		'export async function command() { return { type: "raw" }; }\n',
+	],
+	[
+		"raw definitions with a non-function run",
+		'export async function command() { return { type: "raw", run: 5 }; }\n',
+	],
 ] as const) {
 	test(`selected definitions reject ${label}`, async () => {
 		const commandDirectory = await createCommandDirectory({ commandSource });
