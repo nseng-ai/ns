@@ -21,11 +21,12 @@ Why is this change needed? What problem does it solve?
 
 ## Changes
 
-High-level orientation bullets (what and where), then the design decisions,
-tradeoffs, or limitations necessary to understand the implementation — each
-explained from zero.
+One or two orientation bullets naming the mechanism, where it lives, and which
+consumers change — then one bullet per judgment call, tradeoff, or limitation
+the diff cannot defend on its own, each explained from zero. Defer
+code-visible detail to the diff.
 
-## Reviewer focus (optional)
+## Reviewer focus
 
 Anything you'd especially like reviewers to pay attention to.
 
@@ -146,17 +147,24 @@ rule and provenance footer.
 
 In `## Changes`:
 
-- Start with one orientation bullet per major addition or behavior change,
-  naming what and where. Give a reviewer a map, not a file inventory.
-- Explain each risk or judgment call from zero, including any mechanism needed
-  to understand it. Assume codebase familiarity, not session or workflow
-  familiarity.
+- Open with one or two orientation bullets naming the mechanism, where it
+  lives, and which consumers change. Give a reviewer a map, not a file
+  inventory.
+- Spend the remaining bullets only on judgment calls, risks, tradeoffs, and
+  limitations the diff cannot communicate on its own, each explained from
+  zero, including any mechanism needed to understand it. Assume codebase
+  familiarity, not session or workflow familiarity.
+- Defer lookupable, code-visible facts to the diff — error-code lists,
+  type/state plumbing, dependency removals, test updates. Mention such a fact
+  only when it embodies a deliberate design decision, and then in one short
+  clause.
 
 Read [`caveman.md`](caveman.md) and apply its **lite** rules once to the draft.
 Retain professional full sentences, articles, exact technical terms, paths, and
 code.
 
-Omit `## Reviewer focus (optional)` when empty. End every draft with this
+Omit `## Reviewer focus` when empty; the written heading never carries an
+`(optional)` marker. End every draft with this
 provenance footer, separated from the description by a horizontal rule:
 
 ```markdown
