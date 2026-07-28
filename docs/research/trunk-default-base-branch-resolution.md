@@ -14,6 +14,13 @@ There is no universal Git-local answer to “what is this repository's trunk?”
 
 For a tool that must work both online and offline, the strongest pattern is: **explicit override → remote-scoped local cached metadata → conventional fallback only when clearly labeled → actionable failure**. Store provenance (remote and discovery method), validate that the ref exists, and refresh/compare against host metadata when online. Do not silently treat `origin`, `main`, or the current branch as authoritative in fork/multi-remote repositories.
 
+**Current ns implementation note (2026-07-28):** ns intentionally chooses a stricter offline subset of
+that design. Its canonical Extension Kit repository-trunk module composes repository-root `[git]`
+policy over neutral Git facts, then uses an explicit configured branch or the selected remote's
+locally cached symbolic HEAD. It performs no host query, fetch, conventional fallback, or freshness
+check; success requires both local and selected remote-tracking refs and records whether the branch
+was configured or came from cached remote HEAD. Graphite topology trunk remains a separate concept.
+
 ## Comparison
 
 | Tool                              | Resolution model                                                                                                                                                                                                                                                                                                                                        | Offline behavior                                                                                                                                                                  | Forks, multiple remotes, and drift                                                                                                                                                                                                                                                                                                                                                           |

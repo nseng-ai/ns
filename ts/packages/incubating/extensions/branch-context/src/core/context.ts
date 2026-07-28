@@ -4,6 +4,11 @@ import type { CommandExecApi, StdinCapableCommandExecApi } from "@nseng-ai/found
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
+	nodeRepositoryTrunkConfigLoader,
+	resolveRepositoryTrunk,
+	type RepositoryTrunkResult,
+} from "@nseng-ai/extension-kit/repository-trunk";
+import {
 	RealGraphiteBranchGateway,
 	type GraphiteBranchGateway,
 } from "@nseng-ai/extension-kit/graphite/branch";
@@ -13,6 +18,7 @@ export interface BranchContextContext {
 	git: GitGateway;
 	brmem: BrmemGateway;
 	graphite: GraphiteBranchGateway;
+	resolveRepositoryTrunk?(repoRoot: string, signal?: AbortSignal): Promise<RepositoryTrunkResult>;
 }
 
 export interface BranchContextContextOptions {
@@ -38,6 +44,13 @@ export function createBranchContextContext(
 		git,
 		brmem,
 		graphite: new RealGraphiteBranchGateway(commands),
+		resolveRepositoryTrunk: async (repoRoot, signal) =>
+			await resolveRepositoryTrunk({
+				repoRoot,
+				git,
+				config: nodeRepositoryTrunkConfigLoader,
+				...(signal === undefined ? {} : { signal }),
+			}),
 	};
 }
 

@@ -16,18 +16,26 @@ export {
 	type GatewayResult,
 	type Result,
 } from "./gateway-result.ts";
+export { createNsGitGateway } from "./git-gateway.ts";
 export {
-	configureNsGitGateway,
-	createNsGitGateway,
-	loadNsGitPolicy,
-	parseNsGitPolicyToml,
-	type ConfigureNsGitGatewayOptions,
-	type NsGitGatewayConfigurationResult,
-	type NsGitPolicy,
-	type NsGitPolicyError,
-	type NsGitPolicyErrorCode,
-	type NsGitPolicyResult,
-} from "./git-gateway.ts";
+	createNodeRepositoryTrunkConfigLoader,
+	createRepositoryTrunkConfigLoader,
+	nodeRepositoryTrunkConfigLoader,
+} from "./repository-trunk-config.ts";
+export {
+	resolveRepositoryTrunk,
+	type RepositoryTrunk,
+	type RepositoryTrunkConfig,
+	type RepositoryTrunkConfigError,
+	type RepositoryTrunkConfigErrorCode,
+	type RepositoryTrunkConfigLoader,
+	type RepositoryTrunkError,
+	type RepositoryTrunkErrorCode,
+	type RepositoryTrunkGitGateway,
+	type RepositoryTrunkResult,
+	type RepositoryTrunkSource,
+	type ResolveRepositoryTrunkOptions,
+} from "./repository-trunk.ts";
 export { createNsDomainCommand, type NsDomainCommandOptions } from "./ns-command.ts";
 export {
 	createNsClinkrInteraction,

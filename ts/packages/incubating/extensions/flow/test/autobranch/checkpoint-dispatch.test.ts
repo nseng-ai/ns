@@ -9,6 +9,7 @@ import {
 } from "../../src/autobranch/checkpoint-flow.ts";
 import { createAutobranchGitGateway } from "../../src/autobranch/git-gateway.ts";
 import type { CommandResult, PendingWorktreeSnapshot } from "../../src/autobranch/shared.ts";
+import { resolvedTestTrunk } from "./autobranch-test-helpers.ts";
 
 const cleanSnapshot: PendingWorktreeSnapshot = {
 	root: "/snapshot-root",
@@ -58,7 +59,11 @@ function createEnv(snapshot: PendingWorktreeSnapshot) {
 			modelSelection: { provider: "test", modelId: "model", thinking: "minimal" as const },
 			args: { slug: "---" },
 			exec,
-			git: createAutobranchGitGateway({ cwd: snapshot.root, exec }),
+			git: createAutobranchGitGateway({
+				cwd: snapshot.root,
+				exec,
+				repositoryTrunk: resolvedTestTrunk(),
+			}),
 		};
 	});
 	const env: AutobranchDispatchEnv = {
@@ -130,7 +135,11 @@ describe("dispatchAutobranchCheckpoint", () => {
 			}
 			return commandResult();
 		});
-		const git = createAutobranchGitGateway({ cwd: dirtySnapshot.root, exec });
+		const git = createAutobranchGitGateway({
+			cwd: dirtySnapshot.root,
+			exec,
+			repositoryTrunk: resolvedTestTrunk(),
+		});
 
 		const result = await dispatchAutobranchCheckpoint(
 			{

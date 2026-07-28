@@ -13,8 +13,13 @@ import {
 	RealGitGateway,
 	type GitGateway,
 	type GitOperationInProgressFacts,
-	type GitTrunkBranchResult,
 } from "@nseng-ai/foundation/git";
+import {
+	nodeRepositoryTrunkConfigLoader,
+	resolveRepositoryTrunk,
+	type RepositoryTrunkConfigLoader,
+	type RepositoryTrunkResult,
+} from "@nseng-ai/extension-kit/repository-trunk";
 import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 import {
@@ -132,18 +137,24 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 	private readonly execApi: CommandExecApi;
 	private readonly coreGit: GitGateway;
 	private readonly diagnosticSink: SlotDiagnosticSink | undefined;
+	private readonly repositoryTrunk: RepositoryTrunkResult | undefined;
+	private readonly repositoryTrunkConfig: RepositoryTrunkConfigLoader;
 
 	constructor(options: {
 		cwd: string;
 		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 		execApi?: CommandExecApi;
 		coreGit?: GitGateway;
+		repositoryTrunk?: RepositoryTrunkResult;
+		repositoryTrunkConfig?: RepositoryTrunkConfigLoader;
 		diagnosticSink?: ExplicitUndefined<"di-seam", SlotDiagnosticSink>;
 	}) {
 		this.cwd = options.cwd;
 		this.env = options.env ?? process.env;
 		this.execApi = options.execApi ?? new NodeCommandExecApi();
 		this.coreGit = options.coreGit ?? new RealGitGateway(this.execApi);
+		this.repositoryTrunk = options.repositoryTrunk;
+		this.repositoryTrunkConfig = options.repositoryTrunkConfig ?? nodeRepositoryTrunkConfigLoader;
 		this.diagnosticSink = options.diagnosticSink ?? createSlotDiagnosticSinkFromEnv(this.env);
 	}
 
@@ -214,9 +225,16 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 	}
 
 	async getTrunkBranch(): Promise<string> {
-		const result = await this.coreGit.trunkBranch({ cwd: this.cwd, env: this.env });
-		if (result.type === "resolved") return result.resolution.branch;
-		throw new Error(formatSlotTrunkFailure(result));
+		const result =
+			this.repositoryTrunk ??
+			(await resolveRepositoryTrunk({
+				repoRoot: this.cwd,
+				git: this.coreGit,
+				config: this.repositoryTrunkConfig,
+				env: this.env,
+			}));
+		if (result.ok) return result.value.branch;
+		throw new Error(`Cannot resolve repository trunk for Slot workflow: ${result.error.message}`);
 	}
 
 	async getCurrentBranch(cwd: string): Promise<CurrentBranchResult> {
@@ -369,26 +387,6 @@ export function unwrapIncumbentRepositoryResult(
 }
 
 type ParsedValue<T> = { type: "ok"; value: T } | { type: "failure"; failure: GitCommandFailure };
-
-function formatSlotTrunkFailure(
-	result: Exclude<GitTrunkBranchResult, { type: "resolved" }>,
-): string {
-	switch (result.type) {
-		case "selected-remote-invalid":
-		case "configured-branch-invalid":
-			return `Cannot resolve Slot trunk: ${result.error.message}`;
-		case "cached-remote-head-missing":
-			return `Cannot resolve Slot trunk because ${result.remoteHeadRef} is missing. Fetch ${result.remote}, or configure [git].trunk in ns.toml.`;
-		case "cached-remote-head-malformed":
-			return `Cannot resolve Slot trunk because ${result.remoteHeadRef} has malformed target ${JSON.stringify(result.target)}. Repair it, or configure [git].trunk in ns.toml.`;
-		case "local-branch-missing":
-			return `Cannot resolve Slot trunk because ${result.resolution.localRef} is missing. Create or fetch ${result.resolution.branch}.`;
-		case "remote-tracking-branch-missing":
-			return `Cannot resolve Slot trunk because ${result.resolution.remoteTrackingRef} is missing. Fetch ${result.resolution.remote}.`;
-		case "command-failure":
-			return `Cannot resolve Slot trunk while attempting to ${result.operation.replaceAll("-", " ")} (${result.reason}): ${result.error.message}`;
-	}
-}
 
 function parseBranchComparisonOids(
 	stdout: string,

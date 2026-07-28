@@ -90,7 +90,11 @@ function fixture(options: {
 		declaredExtensions,
 		artifacts,
 		context: {
-			git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", trunkBranch: "main" }),
+			git: new InMemoryGitGateway({
+				optionalRepoRoot: "/repo",
+				symbolicRefs: { "refs/remotes/origin/HEAD": "refs/remotes/origin/main" },
+				existingRefs: ["refs/heads/main", "refs/remotes/origin/main"],
+			}),
 			files: new InMemoryActivationFilesGateway({
 				files: {
 					"ns.toml": `harnesses = ["pi"]\nextensions = ["${options.source}"]\n`,

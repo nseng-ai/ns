@@ -57,8 +57,9 @@ the changes yourself.
 
 ## Configure repository trunk discovery
 
-Workflows that need the repository's trunk identity use Git's locally cached remote refs.
-By default, ns selects remote `origin` and reads its cached symbolic HEAD at
+Workflows that need the repository's trunk identity use the canonical Extension Kit
+repository-trunk module. It composes repository-root `ns.toml` policy over neutral local Git
+facts. By default, ns selects remote `origin` and reads its cached symbolic HEAD at
 `refs/remotes/origin/HEAD`. You can override either part in repository-root `ns.toml`:
 
 ```toml
@@ -68,8 +69,9 @@ trunk = "main"
 ```
 
 `git.remote` defaults to `origin`. `git.trunk` is optional and takes precedence over the
-selected remote's cached HEAD. It must be a plain Git branch name, not a remote-qualified
-name (`origin/main`), full ref, tag, commit SHA, or revision expression.
+selected remote's cached HEAD. It is interpreted literally as a local Git branch name, so
+slash-containing names such as `release/stable` are valid. Full refs, tags, commit SHAs, and
+revision expressions are not branch names and are rejected.
 
 Resolution is local and offline: ns does not contact the server, and a cached remote HEAD
 can be absent or stale. A successful resolution verifies that both the local branch

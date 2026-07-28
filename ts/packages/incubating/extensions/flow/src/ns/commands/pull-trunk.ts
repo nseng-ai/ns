@@ -1,6 +1,9 @@
 import { runTrunkPullDetailed, type TrunkPullResult } from "../../trunk-pull/trunk-pull.ts";
-import { formatRepositoryTrunkResolutionFailure } from "../../checkpoint/trunk-resolution.ts";
-import { configureNsGitGateway } from "@nseng-ai/extension-kit";
+import { createNsGitGateway } from "@nseng-ai/extension-kit";
+import {
+	nodeRepositoryTrunkConfigLoader,
+	resolveRepositoryTrunk,
+} from "@nseng-ai/extension-kit/repository-trunk";
 import { formatCommand } from "@nseng-ai/foundation/command";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
@@ -21,24 +24,32 @@ export const flowPullTrunkCommand: NsCommand<typeof pullTrunkSchema> = defineCom
 	resultSchema: z.string(),
 	handler: async (ctx) => {
 		const caps = resolveFlowStreamCaps(ctx);
-		const configuredGit = await configureNsGitGateway(ctx);
-		if (!configuredGit.ok) {
+		const git = createNsGitGateway(ctx);
+		const repoRoot = await git.repoRoot({ cwd: ctx.cwd, env: ctx.env });
+		if (!repoRoot.ok) {
 			return negative(
 				renderResultBlock(caps, {
 					kind: "failure",
-					headline: "Could not configure repository trunk resolution. Local trunk was not updated.",
-					body: configuredGit.error.message,
+					headline: "Could not resolve repository trunk. Local trunk was not updated.",
+					body: repoRoot.error.message,
 					cwd: ctx.cwd,
 				}),
 			);
 		}
+		const repositoryTrunk = await resolveRepositoryTrunk({
+			repoRoot: repoRoot.value,
+			git,
+			config: nodeRepositoryTrunkConfigLoader,
+			env: ctx.env,
+		});
 		const result = await runFlowCliOperation({
 			ctx,
 			run: async (io) =>
 				await runTrunkPullDetailed({
 					commands: { exec: io.exec },
 					cwd: ctx.cwd,
-					git: configuredGit.value,
+					git,
+					repositoryTrunk,
 				}),
 		});
 		const block = renderTrunkPullBlock(caps, result);
@@ -55,7 +66,7 @@ function renderTrunkPullBlock(caps: Caps, result: TrunkPullResult): string {
 				return renderResultBlock(caps, {
 					kind: "failure",
 					headline: "Could not resolve repository trunk. Local trunk was not updated.",
-					body: formatRepositoryTrunkResolutionFailure(result.outcome.failure),
+					body: result.outcome.error.message,
 					cwd: result.cwd,
 				});
 			case "upstream-missing":

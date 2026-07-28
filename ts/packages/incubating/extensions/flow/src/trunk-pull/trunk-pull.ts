@@ -4,7 +4,11 @@ import {
 	type GitErrorInfo,
 	type GitGateway,
 } from "@nseng-ai/foundation/git";
-import type { RepositoryTrunkResolutionFailure } from "../checkpoint/trunk-resolution.ts";
+import type {
+	RepositoryTrunk,
+	RepositoryTrunkError,
+	RepositoryTrunkResult,
+} from "@nseng-ai/extension-kit/repository-trunk";
 
 const GIT_TIMEOUT_MS = 2 * 60 * 1000;
 
@@ -16,7 +20,7 @@ interface TrunkPullCommands {
 	): Promise<ExecResult>;
 }
 
-export type TrunkPullGitGateway = Pick<GitGateway, "trunkBranch" | "branchUpstream">;
+export type TrunkPullGitGateway = Pick<GitGateway, "branchUpstream">;
 
 type CommandBackedTrunkPullOutcome =
 	| { kind: "success"; trunk: string }
@@ -24,7 +28,7 @@ type CommandBackedTrunkPullOutcome =
 	| { kind: "update-failed"; trunk: string };
 
 type GatewayBackedTrunkPullOutcome =
-	| { kind: "repository-trunk-resolution-failed"; failure: RepositoryTrunkResolutionFailure }
+	| { kind: "repository-trunk-resolution-failed"; error: RepositoryTrunkError }
 	| { kind: "upstream-missing"; trunk: string }
 	| { kind: "upstream-inspection-failed"; trunk: string; error: GitErrorInfo };
 
@@ -49,16 +53,16 @@ export async function runTrunkPullDetailed(options: {
 	commands: TrunkPullCommands;
 	cwd: string;
 	git: TrunkPullGitGateway;
+	repositoryTrunk: RepositoryTrunkResult;
 }): Promise<TrunkPullResult> {
-	const { commands, cwd, git } = options;
-	const trunkResult = await git.trunkBranch({ cwd });
-	if (trunkResult.type !== "resolved") {
+	const { commands, cwd, git, repositoryTrunk } = options;
+	if (!repositoryTrunk.ok) {
 		return {
-			outcome: { kind: "repository-trunk-resolution-failed", failure: trunkResult },
+			outcome: { kind: "repository-trunk-resolution-failed", error: repositoryTrunk.error },
 			cwd,
 		};
 	}
-	const trunk = trunkResult.resolution.branch;
+	const trunk: RepositoryTrunk["branch"] = repositoryTrunk.value.branch;
 
 	const upstream = await git.branchUpstream({ cwd, branch: trunk });
 	if (upstream.type === "missing") {

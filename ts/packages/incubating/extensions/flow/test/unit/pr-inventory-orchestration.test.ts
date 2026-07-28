@@ -24,7 +24,6 @@ const GENERATION = {
 const DEFAULT_PR = prDetails({});
 const UNUSED_GIT = new InMemoryGitGateway({
 	currentBranch: "feature/demo",
-	trunkBranch: "main",
 	headCommit: "HEAD",
 	existingBranches: ["feature/demo"],
 });

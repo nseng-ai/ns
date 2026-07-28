@@ -145,9 +145,7 @@ export function contextWithRunnerFakes(options: RunnerFakesOptions = {}): Runner
 		cwd: "/repo",
 		env: { PATH: "/fake/bin" },
 		repoRoot: "/repo",
-		trunkBranch:
-			options.trunkBranch ??
-			(typeof gitState.trunkBranch === "string" ? gitState.trunkBranch : "main"),
+		trunkBranch: options.trunkBranch ?? "main",
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(options.storage ?? {})),
 		outputFormat: "human",
 		git: new SequencedGitGateway(gitState),

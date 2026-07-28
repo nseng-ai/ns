@@ -11,6 +11,7 @@ import type { AutobranchFlowResult } from "./flow-result.ts";
 import { createAutobranchGitGateway, type AutobranchGitGateway } from "./git-gateway.ts";
 import { createLatestCommitAutobranchFlow } from "./latest-commit.ts";
 import type { CommandResult } from "@nseng-ai/extension-kit/checkpoint-flow";
+import type { RepositoryTrunkResult } from "@nseng-ai/extension-kit/repository-trunk";
 import {
 	loadPendingWorktreeSnapshot,
 	type PendingWorktreeError,
@@ -28,6 +29,7 @@ export interface FlowAutobranchCheckpointInput {
 	modelSelection: ModelSelection;
 	args: FlowAutobranchRequest;
 	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
+	repositoryTrunk: RepositoryTrunkResult;
 	prepareCheckpointMessage: (
 		snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 	) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
@@ -151,7 +153,11 @@ export async function dispatchAutobranchCheckpoint(
 export async function createFlowAutobranchCheckpointFlow(
 	input: FlowAutobranchCheckpointInput,
 ): Promise<FlowAutobranchCheckpointResult> {
-	const git = createAutobranchGitGateway({ cwd: input.cwd, exec: input.exec });
+	const git = createAutobranchGitGateway({
+		cwd: input.cwd,
+		exec: input.exec,
+		repositoryTrunk: input.repositoryTrunk,
+	});
 	const result = await dispatchAutobranchCheckpoint(
 		{
 			mode: "any-state",

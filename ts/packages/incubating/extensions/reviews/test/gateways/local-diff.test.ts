@@ -47,7 +47,10 @@ describe("RealLocalDiffGateway", () => {
 		const execApi = new ScriptedCommandExecApi([exitedResult({ stdout: SAMPLE_DIFF })]);
 		const gateway = new RealLocalDiffGateway({
 			execApi,
-			gitGateway: new InMemoryGitGateway({ repoRoot, trunkBranch: "trunk" }),
+			gitGateway: new InMemoryGitGateway({ repoRoot }),
+			repositoryTrunkResolver: async () => {
+				throw new Error("explicit base refs must bypass trunk resolution");
+			},
 		});
 
 		const result = await gateway.loadDiff({ cwd: repoRoot, baseRef: "main" });
@@ -86,9 +89,10 @@ describe("RealLocalDiffGateway", () => {
 		]);
 		const gateway = new RealLocalDiffGateway({
 			execApi,
-			gitGateway: new InMemoryGitGateway({
-				repoRoot,
-				trunkBranch: {
+			gitGateway: new InMemoryGitGateway({ repoRoot }),
+			repositoryTrunkResolver: async () => ({
+				ok: true,
+				value: {
 					branch: "trunk",
 					remote: "upstream",
 					localRef: "refs/heads/trunk",
@@ -125,22 +129,17 @@ describe("RealLocalDiffGateway", () => {
 
 	test("reports actionable trunk resolution failure when no explicit base is given", async () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "reviews-local-diff-no-trunk-"));
-		const gitGateway = new InMemoryGitGateway({
-			repoRoot,
-			trunkBranch: {
-				type: "remote-tracking-branch-missing",
-				resolution: {
-					branch: "trunk",
-					remote: "upstream",
-					localRef: "refs/heads/trunk",
-					remoteTrackingRef: "refs/remotes/upstream/trunk",
-					source: "configured",
-				},
-			},
-		});
 		const gateway = new RealLocalDiffGateway({
 			execApi: new ScriptedCommandExecApi([]),
-			gitGateway,
+			gitGateway: new InMemoryGitGateway({ repoRoot }),
+			repositoryTrunkResolver: async () => ({
+				ok: false,
+				error: {
+					code: "remote-tracking-branch-missing",
+					message:
+						"Repository trunk tracking ref `refs/remotes/upstream/trunk` is missing. Fetch remote `upstream`.",
+				},
+			}),
 		});
 
 		const result = await gateway.loadDiff({ cwd: repoRoot });
@@ -151,7 +150,7 @@ describe("RealLocalDiffGateway", () => {
 		});
 		if (!result.ok) {
 			expect(result.error.message).toContain("refs/remotes/upstream/trunk");
-			expect(result.error.message).toContain("Fetch upstream");
+			expect(result.error.message).toContain("Fetch remote `upstream`");
 			expect(result.error.message).toContain("--base-ref");
 		}
 	});

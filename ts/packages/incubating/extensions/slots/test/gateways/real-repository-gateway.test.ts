@@ -72,36 +72,34 @@ describe("RealSlotRepositoryGateway", () => {
 		]);
 	});
 
-	it("maps trunk branch results from the core git gateway", async () => {
+	it("consumes an injected canonical repository trunk result", async () => {
 		await expect(
 			new RealSlotRepositoryGateway({
 				cwd: "/repo",
-				coreGit: new InMemoryGitGateway({ trunkBranch: "develop" }),
+				repositoryTrunk: {
+					ok: true,
+					value: {
+						branch: "develop",
+						remote: "origin",
+						localRef: "refs/heads/develop",
+						remoteTrackingRef: "refs/remotes/origin/develop",
+						source: "configured",
+					},
+				},
 			}).getTrunkBranch(),
 		).resolves.toBe("develop");
 		await expect(
 			new RealSlotRepositoryGateway({
 				cwd: "/repo",
-				coreGit: new InMemoryGitGateway({
-					trunkBranch: {
-						type: "cached-remote-head-missing",
-						remote: "upstream",
-						remoteHeadRef: "refs/remotes/upstream/HEAD",
+				repositoryTrunk: {
+					ok: false,
+					error: {
+						code: "cached-remote-head-missing",
+						message: "Fetch upstream or configure [git].trunk.",
 					},
-				}),
+				},
 			}).getTrunkBranch(),
 		).rejects.toThrow("Fetch upstream");
-		await expect(
-			new RealSlotRepositoryGateway({
-				cwd: "/repo",
-				coreGit: new InMemoryGitGateway({
-					trunkBranch: {
-						type: "failure",
-						error: { code: "trunk_failed", message: "trunk failed" },
-					},
-				}),
-			}).getTrunkBranch(),
-		).rejects.toThrow("trunk failed");
 	});
 
 	it("maps uncommitted-change success and failure results from the core git path contract", async () => {

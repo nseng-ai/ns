@@ -8,6 +8,19 @@ function upstreamLookup(branch: string): string {
 	return `git for-each-ref --format=%(refname)%00%(upstream:remotename)%00%(upstream:remoteref) refs/heads/${branch}`;
 }
 
+function repositoryTrunkExecCalls(branch: string): string[] {
+	return [
+		"git check-ref-format refs/remotes/origin/trunk-validation",
+		"git check-ref-format refs/remotes/origin/HEAD",
+		"git symbolic-ref refs/remotes/origin/HEAD",
+		`git check-ref-format --branch ${branch}`,
+		`git check-ref-format refs/heads/${branch}`,
+		`git check-ref-format refs/remotes/origin/${branch}`,
+		`git show-ref --verify --quiet refs/heads/${branch}`,
+		`git show-ref --verify --quiet refs/remotes/origin/${branch}`,
+	];
+}
+
 function upstreamRecord(input: {
 	branch: string;
 	remoteName?: string;
@@ -33,10 +46,7 @@ describe("flow pull-trunk command outcomes", () => {
 		expect(stdout).not.toContain("stderr:");
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
-			"git check-ref-format refs/remotes/origin/trunk-validation",
-			"git symbolic-ref refs/remotes/origin/HEAD",
-			"git show-ref --verify --quiet refs/heads/main",
-			"git show-ref --verify --quiet refs/remotes/origin/main",
+			...repositoryTrunkExecCalls("main"),
 			upstreamLookup("main"),
 			"git worktree list --porcelain",
 			"git fetch company refs/heads/stable:refs/heads/main",
@@ -76,10 +86,7 @@ describe("flow pull-trunk command outcomes", () => {
 		expect(stdout).toContain("Cwd: /work");
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
-			"git check-ref-format refs/remotes/origin/trunk-validation",
-			"git symbolic-ref refs/remotes/origin/HEAD",
-			"git show-ref --verify --quiet refs/heads/release",
-			"git show-ref --verify --quiet refs/remotes/origin/release",
+			...repositoryTrunkExecCalls("release"),
 			upstreamLookup("release"),
 			"git worktree list --porcelain",
 			"git pull --ff-only company refs/heads/stable",
@@ -119,10 +126,7 @@ describe("flow pull-trunk command outcomes", () => {
 		expect(stderr).toContain("git branch --set-upstream-to=<remote>/<remote-branch> main");
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
-			"git check-ref-format refs/remotes/origin/trunk-validation",
-			"git symbolic-ref refs/remotes/origin/HEAD",
-			"git show-ref --verify --quiet refs/heads/main",
-			"git show-ref --verify --quiet refs/remotes/origin/main",
+			...repositoryTrunkExecCalls("main"),
 			upstreamLookup("main"),
 		]);
 	});
@@ -142,10 +146,7 @@ describe("flow pull-trunk command outcomes", () => {
 		expect(stderr).toContain("fatal: cannot inspect refs");
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
-			"git check-ref-format refs/remotes/origin/trunk-validation",
-			"git symbolic-ref refs/remotes/origin/HEAD",
-			"git show-ref --verify --quiet refs/heads/main",
-			"git show-ref --verify --quiet refs/remotes/origin/main",
+			...repositoryTrunkExecCalls("main"),
 			upstreamLookup("main"),
 		]);
 	});

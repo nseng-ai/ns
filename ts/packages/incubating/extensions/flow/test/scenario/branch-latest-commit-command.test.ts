@@ -62,7 +62,7 @@ describe("flow branch-latest-commit command outcomes", () => {
 		expect(calls.some((call) => call === "gt trunk --no-interactive")).toBe(false);
 		expect(
 			calls.filter((call) => call === "git symbolic-ref refs/remotes/origin/HEAD"),
-		).toHaveLength(2);
+		).toHaveLength(1);
 		expect(
 			calls.filter((call) => call === "git rev-list --left-right --count HEAD...origin/feature"),
 		).toHaveLength(2);

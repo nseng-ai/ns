@@ -422,7 +422,6 @@ function gitGateway(repoRoot: string): InMemoryGitGateway {
 		repoRoot,
 		optionalRepoRoot: repoRoot,
 		currentBranch: "feature",
-		trunkBranch: "main",
 		originUrl: "git@example.com:repo.git\n",
 		headCommit: "abc123",
 		existingBranches: ["feature", "main"],

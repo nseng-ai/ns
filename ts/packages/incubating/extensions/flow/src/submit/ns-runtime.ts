@@ -1,4 +1,8 @@
-import { configureNsGitGateway, createNsCommandRunner } from "@nseng-ai/extension-kit";
+import { createNsCommandRunner, createNsGitGateway } from "@nseng-ai/extension-kit";
+import {
+	nodeRepositoryTrunkConfigLoader,
+	resolveRepositoryTrunk,
+} from "@nseng-ai/extension-kit/repository-trunk";
 import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
 import {
 	formatCommand,
@@ -38,7 +42,7 @@ export interface NsSubmitRuntime {
 	commandRunner: CommandRunner;
 	createCheckpointRunContext: (
 		onActiveOperations?: CheckpointRunContext["onActiveOperations"],
-	) => CheckpointRunContext;
+	) => Promise<CheckpointRunContext>;
 	submitGateway: RealSubmitGateway;
 	metadataGateway: RealSubmitStackInspectionGateway;
 	prInventory: Omit<RunSubmitCommandOptions["prInventory"], "modelSelection">;
@@ -56,11 +60,7 @@ export async function createNsSubmitRuntime(
 	options: CreateNsSubmitRuntimeOptions = {},
 ): Promise<NsSubmitRuntime> {
 	const commandRunner = createNsCommandRunner(ctx);
-	const configuredGit = await configureNsGitGateway(ctx);
-	if (!configuredGit.ok) {
-		throw new Error(`Cannot configure submit Git policy: ${configuredGit.error.message}`);
-	}
-	const git = configuredGit.value;
+	const git = createNsGitGateway(ctx);
 	const graphiteExecApi: CommandExecApi = {
 		exec: (command, args, execOptions) => commandRunner(command, args, execOptions),
 	};
@@ -73,7 +73,7 @@ export async function createNsSubmitRuntime(
 		});
 	return {
 		commandRunner,
-		createCheckpointRunContext: (onActiveOperations) => {
+		createCheckpointRunContext: async (onActiveOperations) => {
 			const commands: CommandExecApi = {
 				exec: async (command, args, execOptions) =>
 					await withActiveOperations(
@@ -82,19 +82,22 @@ export async function createNsSubmitRuntime(
 						async () => await commandRunner(command, args, execOptions),
 					),
 			};
-			const checkpointGit = new RealGitGateway(commands, {
-				selectedRemote: configuredGit.policy.remote,
-				...(configuredGit.policy.trunk === undefined
-					? {}
-					: { configuredTrunkBranch: configuredGit.policy.trunk }),
+			const checkpointGit = new RealGitGateway(commands);
+			const repoRoot = await checkpointGit.repoRoot({ cwd: ctx.cwd, env: ctx.env });
+			if (!repoRoot.ok) throw new Error(repoRoot.error.message);
+			const repositoryTrunk = await resolveRepositoryTrunk({
+				repoRoot: repoRoot.value,
+				git: checkpointGit,
+				config: nodeRepositoryTrunkConfigLoader,
+				env: ctx.env,
 			});
 			return {
 				gateway: new RealCheckpointGateway({
 					runner: commandRunner,
-					git,
+					git: checkpointGit,
 					...optionalEntry("onActiveOperations", onActiveOperations),
 				}),
-				git: checkpointGit,
+				repositoryTrunk,
 				...(onActiveOperations === undefined ? {} : { onActiveOperations }),
 			};
 		},

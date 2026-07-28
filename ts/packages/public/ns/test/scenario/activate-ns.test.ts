@@ -40,6 +40,10 @@ function descriptor(
 	};
 }
 
+const resolvedTrunkConfig = {
+	load: () => ({ ok: true as const, value: { remote: "origin", trunk: "main" } }),
+};
+
 function context(
 	options: {
 		files?: InMemoryActivationFilesGateway;
@@ -49,7 +53,12 @@ function context(
 	} = {},
 ): NsActivationContext {
 	return {
-		git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", trunkBranch: "main" }),
+		git: new InMemoryGitGateway({
+			optionalRepoRoot: "/repo",
+			localBranchTips: [{ name: "main", headIso: null }],
+			existingRefs: ["refs/heads/main", "refs/remotes/origin/main"],
+		}),
+		repositoryTrunkConfig: resolvedTrunkConfig,
 		files: options.files ?? new InMemoryActivationFilesGateway(),
 		declaredExtensions:
 			options.declaredExtensions ??
@@ -105,26 +114,15 @@ describe("ns activation planning and apply", () => {
 	});
 
 	it("presents actionable detail when trunk cannot be detected", async () => {
-		const result = await resolveActivationRepository(
-			{
-				...context(),
-				git: new InMemoryGitGateway({
-					optionalRepoRoot: "/repo",
-					trunkBranch: {
-						type: "cached-remote-head-missing",
-						remote: "upstream",
-						remoteHeadRef: "refs/remotes/upstream/HEAD",
-					},
-				}),
-			},
-			"/repo/subdir",
-		);
+		const result = await resolveActivationRepository(context(), "/repo/subdir", {
+			load: () => ({ ok: true, value: { remote: "upstream" } }),
+		});
 
 		expect(result).toEqual({
 			type: "trunk-undetectable",
 			repoRoot: "/repo",
 			message:
-				"Could not resolve trunk because `refs/remotes/upstream/HEAD` is missing. Fetch remote `upstream`, or configure [git].trunk in ns.toml.",
+				"Could not resolve repository trunk for ns activation: Cached remote HEAD `refs/remotes/upstream/HEAD` is missing. Fetch remote `upstream` or configure [git].trunk in ns.toml. Resolution is offline and does not contact the remote.",
 		});
 	});
 
@@ -134,14 +132,11 @@ describe("ns activation planning and apply", () => {
 				...context(),
 				git: new InMemoryGitGateway({
 					optionalRepoRoot: "/repo",
-					trunkBranch: {
-						type: "command-failure",
-						operation: "read-cached-remote-head",
-						reason: "timed-out",
-						error: {
+					exactRefPresenceFailures: {
+						"refs/heads/main": {
 							code: "trunk-branch-command-failed",
-							message: "git symbolic-ref timed out",
-							displayCommand: "git symbolic-ref refs/remotes/origin/HEAD",
+							message: "git show-ref timed out",
+							displayCommand: "git show-ref --verify refs/heads/main",
 						},
 					},
 				}),
@@ -153,8 +148,8 @@ describe("ns activation planning and apply", () => {
 			type: "error",
 			error: {
 				code: "trunk-branch-command-failed",
-				displayCommand: "git symbolic-ref refs/remotes/origin/HEAD",
-				message: expect.stringContaining("timed-out"),
+				displayCommand: "git show-ref --verify refs/heads/main",
+				message: expect.stringContaining("git show-ref timed out"),
 			},
 		});
 	});

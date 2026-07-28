@@ -4,7 +4,11 @@ import {
 	type PendingWorktreeSnapshot,
 	type WorktreeCommandResult,
 } from "@nseng-ai/extension-kit/pending-worktree";
-import { configureNsGitGateway, createNsGitGateway } from "@nseng-ai/extension-kit";
+import { createNsGitGateway } from "@nseng-ai/extension-kit";
+import {
+	nodeRepositoryTrunkConfigLoader,
+	resolveRepositoryTrunk,
+} from "@nseng-ai/extension-kit/repository-trunk";
 import { createNsCliExecAdapter, execNsCommand, execNsGit } from "./exec.ts";
 import {
 	commandSucceeded,
@@ -25,6 +29,7 @@ import type {
 import type { ParsedAutobranchArgs } from "../autobranch/dirty-worktree.ts";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { RepositoryTrunkResult } from "@nseng-ai/extension-kit/repository-trunk";
 
 export type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult };
 
@@ -61,12 +66,12 @@ export function createAutobranchExecContext(
 	providerGit?: Pick<
 		GitGateway,
 		| "optionalRepoRoot"
-		| "trunkBranch"
 		| "currentBranch"
 		| "headCommit"
 		| "validateBranchRef"
 		| "localBranchPresence"
 	>,
+	repositoryTrunk?: RepositoryTrunkResult,
 ): { exec: AutobranchExec; git: AutobranchGitGateway } {
 	const exec: AutobranchExec = (command, commandArgs, timeout) =>
 		execExtensionCommand({ ctx, command, args: commandArgs, cwd, timeoutMs: timeout });
@@ -75,6 +80,13 @@ export function createAutobranchExecContext(
 		git: createAutobranchGitGateway({
 			cwd,
 			exec,
+			repositoryTrunk: repositoryTrunk ?? {
+				ok: false,
+				error: {
+					code: "git-failed",
+					message: "Repository trunk was not resolved by the composition root.",
+				},
+			},
 			...(providerGit === undefined ? {} : { providerGit }),
 		}),
 	};
@@ -85,20 +97,30 @@ export async function createAutobranchDispatchEnv(
 	args: ParsedAutobranchArgs,
 	modelSelection: ModelSelection,
 ): Promise<Pick<AutobranchDispatchEnv, "loadSnapshot" | "createFlowContext">> {
-	const configuredGit = await configureNsGitGateway(ctx);
-	if (!configuredGit.ok) {
-		throw new Error(`Cannot configure autobranch Git policy: ${configuredGit.error.message}`);
-	}
+	const git = createNsGitGateway(ctx);
+	const repoRoot = await git.repoRoot({ cwd: ctx.cwd, env: ctx.env });
+	if (!repoRoot.ok) throw new Error(repoRoot.error.message);
+	const repositoryTrunk = await resolveRepositoryTrunk({
+		repoRoot: repoRoot.value,
+		git,
+		config: nodeRepositoryTrunkConfigLoader,
+		env: ctx.env,
+	});
 	return {
 		loadSnapshot: () => loadFlowPendingWorktreeSnapshot(ctx),
 		createFlowContext: (snapshot): AutobranchFlowContext => {
-			const { exec, git } = createAutobranchExecContext(ctx, snapshot.root, configuredGit.value);
+			const { exec, git: autobranchGit } = createAutobranchExecContext(
+				ctx,
+				snapshot.root,
+				git,
+				repositoryTrunk,
+			);
 			return {
 				cwd: snapshot.root,
 				args,
 				modelSelection,
 				exec,
-				git,
+				git: autobranchGit,
 			};
 		},
 	};

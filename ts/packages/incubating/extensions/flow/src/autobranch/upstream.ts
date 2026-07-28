@@ -1,5 +1,4 @@
 import type { AutobranchGitGateway } from "./git-gateway.ts";
-import { formatRepositoryTrunkResolutionFailure } from "../checkpoint/trunk-resolution.ts";
 
 export type UpstreamHeadState =
 	| { type: "no_upstream" }
@@ -103,10 +102,10 @@ async function inspectSynchronizedTrunkState(input: {
 	branch: string;
 	git: AutobranchGitGateway;
 }): Promise<SynchronizedTrunkState> {
-	const result = await input.git.trunkBranch();
-	if (result.type !== "resolved") {
-		return { type: "failed", error: formatRepositoryTrunkResolutionFailure(result) };
+	const result = input.git.repositoryTrunk();
+	if (!result.ok) {
+		return { type: "failed", error: result.error.message };
 	}
-	const trunk = result.resolution.branch;
+	const trunk = result.value.branch;
 	return input.branch === trunk ? { type: "trunk", trunk } : { type: "non_trunk", trunk };
 }

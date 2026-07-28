@@ -1,4 +1,8 @@
-import type { GitTrunkBranchResult } from "@nseng-ai/foundation/git";
+import {
+	nodeRepositoryTrunkConfigLoader,
+	resolveRepositoryTrunk,
+	type RepositoryTrunkConfigLoader,
+} from "@nseng-ai/extension-kit/repository-trunk";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	parseNsTomlExtensions,
@@ -556,6 +560,8 @@ export function activationRepositoryFailureDiagnostic(
 export async function resolveActivationRepository(
 	context: NsActivationContext,
 	cwd: string,
+	config: RepositoryTrunkConfigLoader = context.repositoryTrunkConfig ??
+		nodeRepositoryTrunkConfigLoader,
 ): Promise<ResolveActivationRepositoryResult> {
 	const repoRootResult = await context.git.optionalRepoRoot({ cwd });
 	if (repoRootResult.type === "error") return { type: "error", error: repoRootResult.error };
@@ -566,49 +572,36 @@ export async function resolveActivationRepository(
 			cwd,
 		};
 	}
-	const trunkResult = await context.git.trunkBranch({ cwd: repoRootResult.value });
-	if (trunkResult.type === "resolved") {
+	const trunkResult = await resolveRepositoryTrunk({
+		repoRoot: repoRootResult.value,
+		git: context.git,
+		config,
+	});
+	if (trunkResult.ok) {
 		return {
 			type: "resolved",
 			repository: {
 				repoRoot: repoRootResult.value,
-				trunkBranch: trunkResult.resolution.branch,
+				trunkBranch: trunkResult.value.branch,
 			},
 		};
 	}
-	if (trunkResult.type === "command-failure") {
+	const message = `Could not resolve repository trunk for ns activation: ${trunkResult.error.message}`;
+	if (trunkResult.error.code === "git-failed") {
 		return {
 			type: "error",
 			error: {
-				...trunkResult.error,
-				message: formatActivationTrunkFailure(trunkResult),
+				code: trunkResult.error.cause?.code ?? trunkResult.error.code,
+				message,
+				...(trunkResult.error.cause?.displayCommand === undefined
+					? {}
+					: { displayCommand: trunkResult.error.cause.displayCommand }),
 			},
 		};
 	}
 	return {
 		type: "trunk-undetectable",
-		message: formatActivationTrunkFailure(trunkResult),
+		message,
 		repoRoot: repoRootResult.value,
 	};
-}
-
-function formatActivationTrunkFailure(
-	result: Exclude<GitTrunkBranchResult, { type: "resolved" }>,
-): string {
-	switch (result.type) {
-		case "selected-remote-invalid":
-			return `Could not resolve trunk: configured remote \`${result.remote}\` is invalid. ${result.error.message}`;
-		case "configured-branch-invalid":
-			return `Could not resolve trunk: configured branch \`${result.branch}\` is invalid. ${result.error.message}`;
-		case "cached-remote-head-missing":
-			return `Could not resolve trunk because \`${result.remoteHeadRef}\` is missing. Fetch remote \`${result.remote}\`, or configure [git].trunk in ns.toml.`;
-		case "cached-remote-head-malformed":
-			return `Could not resolve trunk because \`${result.remoteHeadRef}\` has malformed target ${JSON.stringify(result.target)}. Repair the cached remote HEAD, or configure [git].trunk in ns.toml.`;
-		case "local-branch-missing":
-			return `Could not resolve trunk branch \`${result.resolution.branch}\` because local ref \`${result.resolution.localRef}\` is missing. Create or fetch the local trunk branch.`;
-		case "remote-tracking-branch-missing":
-			return `Could not resolve trunk branch \`${result.resolution.branch}\` because cached ref \`${result.resolution.remoteTrackingRef}\` is missing. Fetch remote \`${result.resolution.remote}\`.`;
-		case "command-failure":
-			return `Could not resolve trunk while attempting to ${result.operation.replaceAll("-", " ")} (${result.reason}). ${result.error.message}`;
-	}
 }

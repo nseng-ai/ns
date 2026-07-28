@@ -10,17 +10,18 @@ import {
 	type GitErrorInfo,
 	type GitGateway,
 	type GitLocalBranchTip,
+	type GitNameValidationResult,
 	type GitOperationResult,
 	type GitOptionalResult,
 	type GitPathParams,
+	type GitRefParams,
+	type GitRefPresenceResult,
 	type GitRefsPathParams,
 	type GitResult,
 	type GitRevisionRangePathParams,
 	type GitStagePathsParams,
 	type GitStatusPathFacts,
 	type GitStatusPathsParams,
-	type GitTrunkBranchResult,
-	type GitTrunkResolution,
 } from "./contract.ts";
 
 interface FailureState {
@@ -31,19 +32,12 @@ type ValueState<T> = T | FailureState;
 type OptionalValueState<T> = T | { type: "missing" } | FailureState;
 type CurrentBranchState = ValueState<string> | { type: "detached" };
 type BranchPresenceFailureState = FailureState;
-type TrunkBranchState =
-	| string
-	| GitTrunkResolution
-	| GitTrunkBranchResult
-	| { type: "missing" }
-	| FailureState;
 
 export interface InMemoryGitGatewayState {
 	repoRoot?: ValueState<string>;
 	optionalRepoRoot?: OptionalValueState<string>;
 	currentBranch?: CurrentBranchState;
 	isInsideWorkTree?: ValueState<boolean>;
-	trunkBranch?: TrunkBranchState;
 	branchUpstream?: OptionalValueState<GitBranchUpstream>;
 	originUrl?: OptionalValueState<string>;
 	headCommit?: ValueState<string>;
@@ -52,6 +46,13 @@ export interface InMemoryGitGatewayState {
 	gitPaths?: Readonly<Record<string, ValueState<string>>>;
 	existingBranches?: readonly string[];
 	invalidBranchRefs?: readonly string[];
+	invalidBranchNames?: readonly string[];
+	branchNameValidationFailures?: Readonly<Record<string, GitErrorInfo>>;
+	invalidRefNames?: readonly string[];
+	refNameValidationFailures?: Readonly<Record<string, GitErrorInfo>>;
+	symbolicRefs?: Readonly<Record<string, OptionalValueState<string>>>;
+	existingRefs?: readonly string[];
+	exactRefPresenceFailures?: Readonly<Record<string, GitErrorInfo>>;
 	localBranchPresenceFailure?: BranchPresenceFailureState;
 	localBranchPresenceFailures?: Readonly<Record<string, BranchPresenceFailureState>>;
 	createBranchFailure?: GitErrorInfo;
@@ -85,6 +86,10 @@ export interface GitBranchCall extends GitCall {
 	branch: string;
 }
 
+export interface GitRefCall extends GitCall {
+	ref: string;
+}
+
 export interface GitBranchAtStartPointCall extends GitBranchCall {
 	startPoint: string;
 }
@@ -114,7 +119,6 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly optionalRepoRootState: OptionalValueState<string>;
 	private currentBranchState: CurrentBranchState;
 	private readonly isInsideWorkTreeState: ValueState<boolean>;
-	private readonly trunkBranchState: GitTrunkBranchResult;
 	private readonly branchUpstreamState: OptionalValueState<GitBranchUpstream>;
 	private readonly originUrlState: OptionalValueState<string>;
 	private readonly headCommitState: ValueState<string>;
@@ -123,6 +127,13 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly gitPathStates: Readonly<Record<string, ValueState<string>>>;
 	private readonly branches: Set<string>;
 	private readonly invalidBranchRefs: Set<string>;
+	private readonly invalidBranchNames: ReadonlySet<string>;
+	private readonly branchNameValidationFailures: Readonly<Record<string, GitErrorInfo>>;
+	private readonly invalidRefNames: ReadonlySet<string>;
+	private readonly refNameValidationFailures: Readonly<Record<string, GitErrorInfo>>;
+	private readonly symbolicRefStates: Readonly<Record<string, OptionalValueState<string>>>;
+	private readonly refs: ReadonlySet<string>;
+	private readonly exactRefPresenceFailures: Readonly<Record<string, GitErrorInfo>>;
 	private readonly localBranchPresenceFailure: BranchPresenceFailureState | undefined;
 	private readonly localBranchPresenceFailures: Readonly<
 		Record<string, BranchPresenceFailureState>
@@ -147,13 +158,16 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly optionalRepoRootLog: GitCall[] = [];
 	private readonly currentBranchLog: GitCall[] = [];
 	private readonly isInsideWorkTreeLog: GitCall[] = [];
-	private readonly trunkBranchLog: GitCall[] = [];
 	private readonly branchUpstreamLog: GitBranchCall[] = [];
 	private readonly originUrlLog: GitCall[] = [];
 	private readonly headCommitLog: GitCall[] = [];
 	private readonly gitCommonDirLog: GitCall[] = [];
 	private readonly previousBranchLog: GitCall[] = [];
 	private readonly gitPathLog: GitPathCall[] = [];
+	private readonly validateBranchNameLog: GitBranchCall[] = [];
+	private readonly validateRefNameLog: GitRefCall[] = [];
+	private readonly symbolicRefLog: GitRefCall[] = [];
+	private readonly exactRefPresenceLog: GitRefCall[] = [];
 	private readonly validateBranchRefLog: GitBranchCall[] = [];
 	private readonly localBranchPresenceLog: GitBranchCall[] = [];
 	private readonly createBranchAtHeadLog: GitBranchCall[] = [];
@@ -175,13 +189,6 @@ export class InMemoryGitGateway implements GitGateway {
 		this.optionalRepoRootState = state.optionalRepoRoot ?? state.repoRoot ?? "/repo";
 		this.currentBranchState = state.currentBranch ?? "feature/source-plan";
 		this.isInsideWorkTreeState = state.isInsideWorkTree ?? true;
-		this.trunkBranchState = cloneTrunkBranchState(
-			state.trunkBranch ?? {
-				type: "cached-remote-head-missing",
-				remote: "origin",
-				remoteHeadRef: "refs/remotes/origin/HEAD",
-			},
-		);
 		this.branchUpstreamState = cloneBranchUpstreamState(
 			state.branchUpstream ?? {
 				remoteName: "origin",
@@ -195,6 +202,13 @@ export class InMemoryGitGateway implements GitGateway {
 		this.gitPathStates = { ...state.gitPaths };
 		this.branches = new Set(state.existingBranches ?? []);
 		this.invalidBranchRefs = new Set(state.invalidBranchRefs ?? []);
+		this.invalidBranchNames = new Set(state.invalidBranchNames ?? []);
+		this.branchNameValidationFailures = { ...state.branchNameValidationFailures };
+		this.invalidRefNames = new Set(state.invalidRefNames ?? []);
+		this.refNameValidationFailures = { ...state.refNameValidationFailures };
+		this.symbolicRefStates = { ...state.symbolicRefs };
+		this.refs = new Set(state.existingRefs ?? []);
+		this.exactRefPresenceFailures = { ...state.exactRefPresenceFailures };
 		this.localBranchPresenceFailure = state.localBranchPresenceFailure;
 		this.localBranchPresenceFailures = { ...state.localBranchPresenceFailures };
 		this.createBranchFailure = state.createBranchFailure;
@@ -246,10 +260,6 @@ export class InMemoryGitGateway implements GitGateway {
 		return copyCalls(this.isInsideWorkTreeLog);
 	}
 
-	get trunkBranchCalls(): readonly GitCall[] {
-		return copyCalls(this.trunkBranchLog);
-	}
-
 	get branchUpstreamCalls(): readonly GitBranchCall[] {
 		return copyBranchCalls(this.branchUpstreamLog);
 	}
@@ -272,6 +282,22 @@ export class InMemoryGitGateway implements GitGateway {
 
 	get gitPathCalls(): readonly GitPathCall[] {
 		return copyPathCalls(this.gitPathLog);
+	}
+
+	get validateBranchNameCalls(): readonly GitBranchCall[] {
+		return copyBranchCalls(this.validateBranchNameLog);
+	}
+
+	get validateRefNameCalls(): readonly GitRefCall[] {
+		return copyRefCalls(this.validateRefNameLog);
+	}
+
+	get symbolicRefCalls(): readonly GitRefCall[] {
+		return copyRefCalls(this.symbolicRefLog);
+	}
+
+	get exactRefPresenceCalls(): readonly GitRefCall[] {
+		return copyRefCalls(this.exactRefPresenceLog);
 	}
 
 	get validateBranchRefCalls(): readonly GitBranchCall[] {
@@ -383,9 +409,49 @@ export class InMemoryGitGateway implements GitGateway {
 		);
 	}
 
-	async trunkBranch(params: GitCwdParams): Promise<GitTrunkBranchResult> {
-		this.trunkBranchLog.push(callFromParams(params));
-		return cloneTrunkBranchResult(this.trunkBranchState);
+	async validateBranchName(params: GitBranchParams): Promise<GitNameValidationResult> {
+		this.validateBranchNameLog.push(branchCallFromParams(params));
+		const failure = this.branchNameValidationFailures[params.branch];
+		if (failure !== undefined) return { type: "error", error: { ...failure } };
+		if (!this.invalidBranchNames.has(params.branch)) return { type: "valid" };
+		return {
+			type: "invalid",
+			error: { code: "git-branch-name-invalid", message: `Invalid branch name: ${params.branch}` },
+		};
+	}
+
+	async validateRefName(params: GitRefParams): Promise<GitNameValidationResult> {
+		this.validateRefNameLog.push(refCallFromParams(params));
+		const failure = this.refNameValidationFailures[params.ref];
+		if (failure !== undefined) return { type: "error", error: { ...failure } };
+		if (!this.invalidRefNames.has(params.ref)) return { type: "valid" };
+		return {
+			type: "invalid",
+			error: { code: "git-ref-name-invalid", message: `Invalid ref name: ${params.ref}` },
+		};
+	}
+
+	async symbolicRef(params: GitRefParams): Promise<GitOptionalResult<string>> {
+		this.symbolicRefLog.push(refCallFromParams(params));
+		return optionalValueResult(
+			this.symbolicRefStates[params.ref] ?? { type: "missing" },
+			"git-symbolic-ref-failed",
+			`Could not read symbolic ref: ${params.ref}`,
+		);
+	}
+
+	async exactRefPresence(params: GitRefParams): Promise<GitRefPresenceResult> {
+		this.exactRefPresenceLog.push(refCallFromParams(params));
+		const failure = this.exactRefPresenceFailures[params.ref];
+		if (failure !== undefined) return { type: "error", error: { ...failure } };
+		if (this.refs.has(params.ref)) {
+			return {
+				type: "present",
+				ref: params.ref,
+				displayCommand: `git show-ref --verify --quiet ${params.ref}`,
+			};
+		}
+		return { type: "missing", ref: params.ref };
 	}
 
 	async branchUpstream(params: GitBranchParams): Promise<GitOptionalResult<GitBranchUpstream>> {
@@ -693,6 +759,10 @@ function branchCallFromParams(params: GitBranchParams): GitBranchCall {
 	return { ...callFromParams(params), branch: params.branch };
 }
 
+function refCallFromParams(params: GitRefParams): GitRefCall {
+	return { ...callFromParams(params), ref: params.ref };
+}
+
 function pathCallFromParams(params: GitPathParams): GitPathCall {
 	return { ...callFromParams(params), relativePath: params.relativePath };
 }
@@ -714,57 +784,6 @@ function normalizeBranchTip(value: string | GitLocalBranchTip): GitLocalBranchTi
 		...(value.headSha === undefined ? {} : { headSha: value.headSha }),
 		headIso: value.headIso,
 	};
-}
-
-function cloneTrunkBranchState(state: TrunkBranchState): GitTrunkBranchResult {
-	if (typeof state === "string") {
-		return {
-			type: "resolved",
-			resolution: {
-				branch: state,
-				remote: "origin",
-				localRef: `refs/heads/${state}`,
-				remoteTrackingRef: `refs/remotes/origin/${state}`,
-				source: "configured",
-			},
-		};
-	}
-	if (!("type" in state)) return { type: "resolved", resolution: { ...state } };
-	if (state.type === "missing") {
-		return {
-			type: "cached-remote-head-missing",
-			remote: "origin",
-			remoteHeadRef: "refs/remotes/origin/HEAD",
-		};
-	}
-	if (state.type === "failure") {
-		return {
-			type: "command-failure",
-			operation: "read-cached-remote-head",
-			reason: "failed",
-			error: state.error ?? {
-				code: "trunk-branch-command-failed",
-				message: "in-memory trunk resolution failed",
-			},
-		};
-	}
-	return cloneTrunkBranchResult(state);
-}
-
-function cloneTrunkBranchResult(state: GitTrunkBranchResult): GitTrunkBranchResult {
-	switch (state.type) {
-		case "resolved":
-		case "local-branch-missing":
-		case "remote-tracking-branch-missing":
-			return { ...state, resolution: { ...state.resolution } };
-		case "selected-remote-invalid":
-		case "configured-branch-invalid":
-		case "command-failure":
-			return { ...state, error: { ...state.error } };
-		case "cached-remote-head-missing":
-		case "cached-remote-head-malformed":
-			return { ...state };
-	}
 }
 
 function cloneBranchUpstreamState(
@@ -836,6 +855,10 @@ function copyCalls(calls: readonly GitCall[]): GitCall[] {
 }
 
 function copyBranchCalls(calls: readonly GitBranchCall[]): GitBranchCall[] {
+	return calls.map((call) => ({ ...call }));
+}
+
+function copyRefCalls(calls: readonly GitRefCall[]): GitRefCall[] {
 	return calls.map((call) => ({ ...call }));
 }
 

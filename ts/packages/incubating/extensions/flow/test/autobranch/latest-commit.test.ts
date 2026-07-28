@@ -124,7 +124,13 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 		args: options.slug === undefined ? {} : { slug: options.slug },
 		snapshot,
 		exec,
-		git: createTestAutobranchGitGateway("/repo", exec),
+		git: createTestAutobranchGitGateway(
+			"/repo",
+			exec,
+			options.shouldTrunkFail
+				? failedRepositoryTrunk()
+				: resolvedRepositoryTrunk(options.trunkBranch ?? "master"),
+		),
 	};
 	return { input, calls };
 }
@@ -268,7 +274,13 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 		plan: basePlan({ sourceBranch }),
 		now: () => 123,
 		exec,
-		git: createTestAutobranchGitGateway("/repo", exec),
+		git: createTestAutobranchGitGateway(
+			"/repo",
+			exec,
+			options.shouldTrunkFail
+				? failedRepositoryTrunk()
+				: resolvedRepositoryTrunk(options.trunkBranch ?? "master"),
+		),
 	};
 	return { input, events };
 }
@@ -375,7 +387,6 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 					command: "git",
 					args: ["rev-list", "--left-right", "--count", "HEAD...origin/feature/base"],
 				},
-				{ command: "git", args: ["symbolic-ref", "refs/remotes/origin/HEAD"] },
 			]),
 		);
 		expect(
@@ -802,3 +813,27 @@ describe("runLatestCommitAutobranchTransaction", () => {
 		);
 	});
 });
+
+function resolvedRepositoryTrunk(branch: string) {
+	return {
+		ok: true as const,
+		value: {
+			branch,
+			remote: "origin",
+			localRef: `refs/heads/${branch}`,
+			remoteTrackingRef: `refs/remotes/origin/${branch}`,
+			source: "configured" as const,
+		},
+	};
+}
+
+function failedRepositoryTrunk() {
+	return {
+		ok: false as const,
+		error: {
+			code: "cached-remote-head-missing" as const,
+			message:
+				"Cached remote HEAD `refs/remotes/origin/HEAD` is missing. Fetch remote `origin`, or configure [git].trunk in ns.toml.",
+		},
+	};
+}

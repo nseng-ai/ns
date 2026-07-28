@@ -55,7 +55,6 @@ function reportObject(overrides: Record<string, unknown> = {}): Record<string, u
 function gateHappyGitState(overrides: SequencedGitGatewayState = {}): SequencedGitGatewayState {
 	return {
 		optionalRepoRoot: "/repo",
-		trunkBranch: "main",
 		currentBranch: "feature/demo-step",
 		statusPaths: { changedPaths: ["src/a.ts"] },
 		headCommit: "head1234",

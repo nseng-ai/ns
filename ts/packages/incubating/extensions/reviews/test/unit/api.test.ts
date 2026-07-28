@@ -92,7 +92,6 @@ function runtimeWithFakes(
 				repoRoot: API_REPO_ROOT,
 				optionalRepoRoot: API_REPO_ROOT,
 				currentBranch: "feature/api",
-				trunkBranch: "main",
 				originUrl: "git@example.com:repo.git\n",
 				headCommit: "abc123",
 				existingBranches: ["feature/api", "main"],

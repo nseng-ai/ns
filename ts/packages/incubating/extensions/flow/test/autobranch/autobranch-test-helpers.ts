@@ -1,4 +1,5 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
+import type { RepositoryTrunkResult } from "@nseng-ai/extension-kit/repository-trunk";
 import {
 	createAutobranchGitGateway,
 	type AutobranchGitGateway,
@@ -96,6 +97,20 @@ function branchParentHeadRefs(branchName: string): string[] {
 export function createTestAutobranchGitGateway(
 	cwd: string,
 	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>,
+	repositoryTrunk: RepositoryTrunkResult = resolvedTestTrunk(),
 ): AutobranchGitGateway {
-	return createAutobranchGitGateway({ cwd, exec });
+	return createAutobranchGitGateway({ cwd, exec, repositoryTrunk });
+}
+
+export function resolvedTestTrunk(branch = "master") {
+	return {
+		ok: true as const,
+		value: {
+			branch,
+			remote: "origin",
+			localRef: `refs/heads/${branch}`,
+			remoteTrackingRef: `refs/remotes/origin/${branch}`,
+			source: "configured" as const,
+		},
+	};
 }

@@ -3,7 +3,12 @@ import { lstat, mkdir, open, readdir, readFile, readlink, rename, rm } from "nod
 import { dirname, relative, resolve } from "node:path";
 
 import type { ClinkrInteraction } from "@nseng-ai/clinkr";
-import { loadNsGitPolicy, type NsGitPolicyResult } from "@nseng-ai/extension-kit";
+import {
+	nodeRepositoryTrunkConfigLoader,
+	resolveRepositoryTrunk,
+	type RepositoryTrunkConfigLoader,
+	type RepositoryTrunkResult,
+} from "@nseng-ai/extension-kit/repository-trunk";
 import {
 	formatCommand,
 	formatCommandResultFailure,
@@ -13,7 +18,7 @@ import {
 	type CommandRunner,
 	type ExecResult,
 } from "@nseng-ai/foundation/exec";
-import { RealGitGateway, type GitTrunkBranchResult } from "@nseng-ai/foundation/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { isNodeErrorCode, isRecord } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk } from "@nseng-ai/foundation/result";
 import { systemTimerScheduler } from "@nseng-ai/foundation/time";
@@ -58,7 +63,8 @@ interface ReleaseCommandOptions {
 
 interface FreshReleaseGatewayOptions extends ReleaseCommandOptions {
 	readonly loadPackageContext?: () => Promise<PublicPackageContext>;
-	readonly loadGitPolicy?: (request: { repoRoot: string }) => NsGitPolicyResult;
+	readonly repositoryTrunkConfig?: RepositoryTrunkConfigLoader;
+	readonly resolveRepositoryTrunk?: () => Promise<RepositoryTrunkResult>;
 }
 
 export interface ReleaseResetFileOperations {
@@ -267,25 +273,21 @@ export function createSystemFreshReleaseGateway(
 ): FreshReleaseGateway {
 	const commandRunner = options.runCommand ?? runCommand;
 	const packageContextLoader = options.loadPackageContext ?? loadPublicPackageContext;
-	const gitPolicyLoader = options.loadGitPolicy ?? loadNsGitPolicy;
+	const git = new RealGitGateway(commandRunnerExecApi(commandRunner));
+	const trunkResolver =
+		options.resolveRepositoryTrunk ??
+		(async () =>
+			await resolveRepositoryTrunk({
+				repoRoot,
+				git,
+				config: options.repositoryTrunkConfig ?? nodeRepositoryTrunkConfigLoader,
+			}));
 	return {
 		async inspectFreshState(releaseBranch) {
-			const policy = gitPolicyLoader({ repoRoot });
-			if (!policy.ok) {
-				return resultErr({
-					code: "release-git-config-failed",
-					message: `Cannot load repository [git] policy for release preflight: ${policy.error.message}`,
-					details: { gitPolicyErrorCode: policy.error.code },
-				});
-			}
-			const git = new RealGitGateway(commandRunnerExecApi(commandRunner), {
-				selectedRemote: policy.value.remote,
-				...(policy.value.trunk === undefined ? {} : { configuredTrunkBranch: policy.value.trunk }),
-			});
 			const [branch, commit, trunk, status, branchRef, tracking] = await Promise.all([
 				execute(commandRunner, "git", ["branch", "--show-current"], repoRoot),
 				execute(commandRunner, "git", ["rev-parse", "HEAD"], repoRoot),
-				git.trunkBranch({ cwd: repoRoot }),
+				trunkResolver(),
 				execute(
 					commandRunner,
 					"git",
@@ -302,7 +304,7 @@ export function createSystemFreshReleaseGateway(
 			]);
 			if (!branch.ok) return branch;
 			if (!commit.ok) return commit;
-			if (trunk.type !== "resolved") return trunkResolutionFailure(trunk);
+			if (!trunk.ok) return trunkResolutionFailure(trunk.error);
 			if (!status.ok) return status;
 			if (
 				branchRef.type !== "exited" ||
@@ -338,7 +340,7 @@ export function createSystemFreshReleaseGateway(
 				value: {
 					currentBranch: branch.value.trim(),
 					headCommit: commit.value.trim(),
-					trunkBranch: trunk.resolution.branch,
+					trunkBranch: trunk.value.branch,
 					isGraphiteTracked: tracking.code === 0,
 					isWorktreeClean: status.value.length === 0,
 					releaseBranchExists: branchRef.code === 0,
@@ -1127,39 +1129,15 @@ function commandRunnerExecApi(commandRunner: CommandRunner): CommandExecApi {
 }
 
 function trunkResolutionFailure(
-	result: Exclude<GitTrunkBranchResult, { type: "resolved" }>,
+	error: Exclude<RepositoryTrunkResult, { ok: true }>["error"],
 ): ValueResult<never> {
-	let message: string;
-	switch (result.type) {
-		case "selected-remote-invalid":
-			message = `Selected Git remote \`${result.remote}\` is invalid. ${result.error.message}`;
-			break;
-		case "configured-branch-invalid":
-			message = `Configured repository trunk \`${result.branch}\` is invalid. ${result.error.message}`;
-			break;
-		case "cached-remote-head-missing":
-			message = `Cached remote HEAD \`${result.remoteHeadRef}\` is missing. Fetch remote \`${result.remote}\`, or configure [git].trunk in ns.toml.`;
-			break;
-		case "cached-remote-head-malformed":
-			message = `Cached remote HEAD \`${result.remoteHeadRef}\` has malformed target ${JSON.stringify(result.target)}. Repair it, or configure [git].trunk in ns.toml.`;
-			break;
-		case "local-branch-missing":
-			message = `Repository trunk local ref \`${result.resolution.localRef}\` is missing. Create or fetch branch \`${result.resolution.branch}\`.`;
-			break;
-		case "remote-tracking-branch-missing":
-			message = `Repository trunk tracking ref \`${result.resolution.remoteTrackingRef}\` is missing. Fetch remote \`${result.resolution.remote}\`.`;
-			break;
-		case "command-failure":
-			message = `Repository trunk resolution failed while attempting to ${result.operation.replaceAll("-", " ")} (${result.reason}). ${result.error.message}`;
-			break;
-	}
 	return resultErr({
 		code: "release-trunk-resolution-failed",
-		message: `Cannot resolve repository trunk for release preflight: ${message}`,
-		...(result.type === "command-failure" && result.error.displayCommand !== undefined
-			? { displayCommand: result.error.displayCommand }
-			: {}),
-		details: { trunkResolutionType: result.type },
+		message: `Cannot resolve repository trunk for release preflight: ${error.message}`,
+		...(error.cause?.displayCommand === undefined
+			? {}
+			: { displayCommand: error.cause.displayCommand }),
+		details: { trunkResolutionType: error.code },
 	});
 }
 

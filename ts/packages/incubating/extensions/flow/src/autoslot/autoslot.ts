@@ -1,6 +1,11 @@
 import type { TextGenerator } from "@nseng-ai/extension-kit/text-generation";
 import type { Caps } from "@nseng-ai/clinkr";
-import type { ExecResult } from "@nseng-ai/foundation/command";
+import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/command";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import {
+	nodeRepositoryTrunkConfigLoader,
+	resolveRepositoryTrunk,
+} from "@nseng-ai/extension-kit/repository-trunk";
 import { createCliCommandIo, runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
 import type { NsCommandIo } from "@nseng-ai/sdk";
 import {
@@ -56,12 +61,29 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 	await runWithNsCommandIo(io, async (io) => {
 		const exec = (command: string, commandArgs: string[], timeout: number) =>
 			input.exec(command, commandArgs, { cwd: input.cwd, timeout });
+		const execApi: CommandExecApi = {
+			exec: (command, args, options) => input.exec(command, args, options),
+		};
+		const git = new RealGitGateway(execApi);
+		const repoRoot = await git.repoRoot({ cwd: input.cwd, env: input.env });
+		const repositoryTrunk = repoRoot.ok
+			? await resolveRepositoryTrunk({
+					repoRoot: repoRoot.value,
+					git,
+					config: nodeRepositoryTrunkConfigLoader,
+					env: input.env,
+				})
+			: {
+					ok: false as const,
+					error: { code: "git-failed" as const, message: repoRoot.error.message },
+				};
 		await createAutoslotFlow({
 			cwd: input.cwd,
 			modelSelection: input.modelSelection,
 			args: input.args,
 			caps: input.caps,
 			exec,
+			repositoryTrunk,
 			prepareCheckpointMessage: (snapshot) =>
 				prepareAutobranchCheckpointMessage(snapshot, input.modelSelection, input.textGenerator),
 			commitPreparedCheckpointMessage: (message) =>

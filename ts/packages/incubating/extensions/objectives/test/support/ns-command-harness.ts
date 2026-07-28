@@ -17,6 +17,7 @@ type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
 
 import type { ObjectiveRunnerOverrides } from "../../src/ns/runner-context.ts";
+import type { RepositoryTrunkResult } from "@nseng-ai/extension-kit/repository-trunk";
 import { nextFromSequence } from "./sequence.ts";
 
 export interface RecordedNsExecCall {
@@ -81,9 +82,20 @@ export class FakeObjectiveNsApi implements NsExtensionApi {
 			message: () => {},
 			clearPhase: () => {},
 		};
+		const repositoryTrunk: RepositoryTrunkResult = options.repositoryTrunk ?? {
+			ok: true,
+			value: {
+				branch: "main",
+				remote: "origin",
+				localRef: "refs/heads/main",
+				remoteTrackingRef: "refs/remotes/origin/main",
+				source: "configured",
+			},
+		};
 		this.extensions = {
 			objectiveRunner: optionalEntries({
 				git: options.git,
+				repositoryTrunk,
 				graphite: options.graphite,
 				commands: options.commands,
 				storage: options.storage,

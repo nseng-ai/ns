@@ -19,12 +19,14 @@ import type {
 	RunnerTextFileReadResult,
 } from "../runner/context.ts";
 import { createNsObjectiveContext } from "./context.ts";
+import type { RepositoryTrunkResult } from "@nseng-ai/extension-kit/repository-trunk";
 
 export interface ObjectiveRunnerOverrides {
 	git?: GitGateway;
 	graphite?: GraphiteBranchGateway;
 	commands?: CommandExecApi;
 	storage?: ObjectiveStorage;
+	repositoryTrunk?: RepositoryTrunkResult;
 	readTextFile?: (path: string) => Promise<RunnerTextFileReadResult>;
 	filePresence?: (path: string) => Promise<RunnerFilePresenceResult>;
 }
@@ -39,7 +41,11 @@ export async function createNsObjectiveRunnerCoreContext(
 ): Promise<ObjectiveRunnerCoreContext> {
 	const base = await createNsObjectiveContext(
 		ctx,
-		optionalEntries({ git: overrides?.git, storage: overrides?.storage }),
+		optionalEntries({
+			git: overrides?.git,
+			storage: overrides?.storage,
+			repositoryTrunk: overrides?.repositoryTrunk,
+		}),
 	);
 	const commands = overrides?.commands ?? new NsCommandExecApi(ctx);
 	return {
@@ -65,6 +71,7 @@ function readObjectiveRunnerOverrides(ctx: NsExtensionApi): ObjectiveRunnerOverr
 		graphite: overrides.graphite,
 		commands: overrides.commands,
 		storage: overrides.storage,
+		repositoryTrunk: overrides.repositoryTrunk,
 		readTextFile: overrides.readTextFile,
 		filePresence: overrides.filePresence,
 	});

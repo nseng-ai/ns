@@ -9,8 +9,13 @@ import {
 } from "@nseng-ai/foundation/command";
 import { formatErrorMessage, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import { resultErr } from "@nseng-ai/foundation/result";
-import type { GitGateway, GitTrunkBranchResult } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
+import {
+	nodeRepositoryTrunkConfigLoader,
+	resolveRepositoryTrunk,
+	type RepositoryTrunkResult,
+} from "@nseng-ai/extension-kit/repository-trunk";
 
 import { parseUnifiedDiff } from "../core/diff-parsing.ts";
 import type { LocalDiffFailure, ReviewResult } from "../core/failures.ts";
@@ -32,18 +37,38 @@ export interface LocalDiffGateway {
 	loadDiff(options: LoadDiffOptions): Promise<ReviewResult<LocalDiff>>;
 }
 
+export interface RepositoryTrunkResolverOptions {
+	readonly repoRoot: string;
+	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
+}
+
+export type RepositoryTrunkResolver = (
+	options: RepositoryTrunkResolverOptions,
+) => Promise<RepositoryTrunkResult>;
+
 export interface RealLocalDiffGatewayOptions {
 	readonly execApi: CommandExecApi;
 	readonly gitGateway?: GitGateway;
+	readonly repositoryTrunkResolver?: RepositoryTrunkResolver;
 }
 
 export class RealLocalDiffGateway implements LocalDiffGateway {
 	private readonly execApi: CommandExecApi;
 	private readonly gitGateway: GitGateway;
+	private readonly repositoryTrunkResolver: RepositoryTrunkResolver;
 
 	constructor(options: RealLocalDiffGatewayOptions) {
 		this.execApi = options.execApi;
 		this.gitGateway = options.gitGateway ?? new RealGitGateway(options.execApi);
+		this.repositoryTrunkResolver =
+			options.repositoryTrunkResolver ??
+			(async (resolverOptions) =>
+				await resolveRepositoryTrunk({
+					...resolverOptions,
+					git: this.gitGateway,
+					config: nodeRepositoryTrunkConfigLoader,
+				}));
 	}
 
 	async loadDiff(options: LoadDiffOptions): Promise<ReviewResult<LocalDiff>> {
@@ -101,11 +126,15 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 		const explicitBaseRef = options.baseRef?.trim() ?? "";
 		if (explicitBaseRef !== "") return { ok: true, value: explicitBaseRef };
 
-		const trunk = await this.gitGateway.trunkBranch({ cwd: repoRoot, signal: options.signal });
-		if (trunk.type === "resolved") return { ok: true, value: trunk.resolution.remoteTrackingRef };
+		const trunk = await this.repositoryTrunkResolver({
+			repoRoot,
+			...(options.env === undefined ? {} : { env: options.env }),
+			...(options.signal === undefined ? {} : { signal: options.signal }),
+		});
+		if (trunk.ok) return { ok: true, value: trunk.value.remoteTrackingRef };
 		return error({
 			code: "base-ref-unavailable",
-			message: formatTrunkBaseRefFailure(trunk),
+			message: `${trunk.error.message} Pass --base-ref explicitly.`,
 		});
 	}
 
@@ -130,26 +159,6 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 		const config = parseReviewsProjectConfigToml(source, path);
 		if (!config.ok) return error({ code: "project-config-invalid", message: config.error.message });
 		return { ok: true, value: config.value.diff.exclude };
-	}
-}
-
-function formatTrunkBaseRefFailure(
-	result: Exclude<GitTrunkBranchResult, { type: "resolved" }>,
-): string {
-	switch (result.type) {
-		case "selected-remote-invalid":
-		case "configured-branch-invalid":
-			return `${result.error.message} Pass --base-ref explicitly.`;
-		case "cached-remote-head-missing":
-			return `Unable to resolve a base ref because ${result.remoteHeadRef} is missing. Fetch ${result.remote}, configure [git].trunk, or pass --base-ref explicitly.`;
-		case "cached-remote-head-malformed":
-			return `Unable to resolve a base ref because ${result.remoteHeadRef} has malformed target ${JSON.stringify(result.target)}. Repair it, configure [git].trunk, or pass --base-ref explicitly.`;
-		case "local-branch-missing":
-			return `Unable to resolve a base ref because ${result.resolution.localRef} is missing. Create or fetch ${result.resolution.branch}, or pass --base-ref explicitly.`;
-		case "remote-tracking-branch-missing":
-			return `Unable to resolve a base ref because ${result.resolution.remoteTrackingRef} is missing. Fetch ${result.resolution.remote}, or pass --base-ref explicitly.`;
-		case "command-failure":
-			return `Unable to resolve a base ref while attempting to ${result.operation.replaceAll("-", " ")} (${result.reason}): ${result.error.message} Pass --base-ref explicitly.`;
 	}
 }
 

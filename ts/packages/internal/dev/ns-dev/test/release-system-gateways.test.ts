@@ -32,6 +32,19 @@ const headCommit = "a".repeat(40);
 const releaseDirectory = resolve(repoRoot, `ts/dist/releases/${releaseVersion}`);
 const reportPath = resolve(releaseDirectory, "report.json");
 
+function resolvedRepositoryTrunk(branch: string = "main") {
+	return {
+		ok: true as const,
+		value: {
+			branch,
+			remote: "origin",
+			localRef: `refs/heads/${branch}`,
+			remoteTrackingRef: `refs/remotes/origin/${branch}`,
+			source: "configured" as const,
+		},
+	};
+}
+
 function packageContextFixture(): PublicPackageContext {
 	const packageManifests = releaseInventoryFixture.map((name, index) => ({
 		path: resolve(repoRoot, `ts/packages/package-${index}/package.json`),
@@ -147,7 +160,6 @@ function freshStateScript(
 	return [
 		step("git", ["branch", "--show-current"], exitedResult({ stdout: "feature/release\n" })),
 		step("git", ["rev-parse", "HEAD"], exitedResult({ stdout: "abc123\n" })),
-		step("git", ["check-ref-format", "refs/remotes/origin/trunk-validation"]),
 		step("git", ["status", "--porcelain=v1", "--untracked-files=all"], exitedResult()),
 		step(
 			"git",
@@ -155,10 +167,6 @@ function freshStateScript(
 			branchRefResult,
 		),
 		step("gt", ["parent", "--no-interactive"], trackingResult),
-		step("git", ["check-ref-format", "--branch", "main"]),
-		step("git", ["remote"], exitedResult({ stdout: "origin\n" })),
-		step("git", ["show-ref", "--verify", "--quiet", "refs/heads/main"]),
-		step("git", ["show-ref", "--verify", "--quiet", "refs/remotes/origin/main"]),
 	];
 }
 
@@ -232,10 +240,7 @@ describe("release system command gateways", () => {
 		const result = await createSystemFreshReleaseGateway({
 			runCommand: commands.runner,
 			loadPackageContext: async () => packageContextFixture(),
-			loadGitPolicy: () => ({
-				ok: true,
-				value: { remote: "origin", trunk: "main" },
-			}),
+			resolveRepositoryTrunk: async () => resolvedRepositoryTrunk(),
 		}).inspectFreshState(releaseBranch);
 
 		expect(result).toMatchObject({
@@ -252,14 +257,14 @@ describe("release system command gateways", () => {
 		commands.assertDone();
 	});
 
-	it("returns an actionable release failure when repository Git policy is invalid", async () => {
-		const commands = new ScriptedCommandRunner([]);
+	it("returns the canonical repository trunk configuration failure envelope", async () => {
+		const commands = new ScriptedCommandRunner(freshStateScript());
 		const result = await createSystemFreshReleaseGateway({
 			runCommand: commands.runner,
-			loadGitPolicy: () => ({
+			resolveRepositoryTrunk: async () => ({
 				ok: false,
 				error: {
-					code: "invalid-git-policy",
+					code: "config-invalid",
 					message: "ns.toml: [git].trunk must be a non-empty string.",
 				},
 			}),
@@ -268,10 +273,10 @@ describe("release system command gateways", () => {
 		expect(result).toEqual({
 			ok: false,
 			error: {
-				code: "release-git-config-failed",
+				code: "release-trunk-resolution-failed",
 				message:
-					"Cannot load repository [git] policy for release preflight: ns.toml: [git].trunk must be a non-empty string.",
-				details: { gitPolicyErrorCode: "invalid-git-policy" },
+					"Cannot resolve repository trunk for release preflight: ns.toml: [git].trunk must be a non-empty string.",
+				details: { trunkResolutionType: "config-invalid" },
 			},
 		});
 		commands.assertDone();
@@ -281,7 +286,6 @@ describe("release system command gateways", () => {
 		const commands = new ScriptedCommandRunner([
 			step("git", ["branch", "--show-current"], exitedResult({ stdout: "feature/release\n" })),
 			step("git", ["rev-parse", "HEAD"], exitedResult({ stdout: "abc123\n" })),
-			step("git", ["check-ref-format", "refs/remotes/upstream/trunk-validation"]),
 			step("git", ["status", "--porcelain=v1", "--untracked-files=all"], exitedResult()),
 			step(
 				"git",
@@ -289,19 +293,16 @@ describe("release system command gateways", () => {
 				exitedResult({ code: 1 }),
 			),
 			step("gt", ["parent", "--no-interactive"], exitedResult()),
-			step("git", ["check-ref-format", "--branch", "stable"]),
-			step("git", ["remote"], exitedResult({ stdout: "origin\nupstream\n" })),
-			step(
-				"git",
-				["show-ref", "--verify", "--quiet", "refs/heads/stable"],
-				exitedResult({ code: 1 }),
-			),
 		]);
 		const result = await createSystemFreshReleaseGateway({
 			runCommand: commands.runner,
-			loadGitPolicy: () => ({
-				ok: true,
-				value: { remote: "upstream", trunk: "stable" },
+			resolveRepositoryTrunk: async () => ({
+				ok: false,
+				error: {
+					code: "local-branch-missing",
+					message:
+						"Repository trunk local ref `refs/heads/stable` is missing. Create a local branch `stable` from `refs/remotes/upstream/stable` after fetching if needed.",
+				},
 			}),
 		}).inspectFreshState(releaseBranch);
 
@@ -310,7 +311,7 @@ describe("release system command gateways", () => {
 			error: {
 				code: "release-trunk-resolution-failed",
 				message:
-					"Cannot resolve repository trunk for release preflight: Repository trunk local ref `refs/heads/stable` is missing. Create or fetch branch `stable`.",
+					"Cannot resolve repository trunk for release preflight: Repository trunk local ref `refs/heads/stable` is missing. Create a local branch `stable` from `refs/remotes/upstream/stable` after fetching if needed.",
 				details: { trunkResolutionType: "local-branch-missing" },
 			},
 		});
@@ -328,10 +329,7 @@ describe("release system command gateways", () => {
 		const result = await createSystemFreshReleaseGateway({
 			runCommand: commands.runner,
 			loadPackageContext: async () => packageContextFixture(),
-			loadGitPolicy: () => ({
-				ok: true,
-				value: { remote: "origin", trunk: "main" },
-			}),
+			resolveRepositoryTrunk: async () => resolvedRepositoryTrunk(),
 		}).inspectFreshState(releaseBranch);
 
 		expect(result).toMatchObject({
@@ -346,10 +344,7 @@ describe("release system command gateways", () => {
 		const result = await createSystemFreshReleaseGateway({
 			runCommand: commands.runner,
 			loadPackageContext: async () => packageContextFixture(),
-			loadGitPolicy: () => ({
-				ok: true,
-				value: { remote: "origin", trunk: "main" },
-			}),
+			resolveRepositoryTrunk: async () => resolvedRepositoryTrunk(),
 		}).inspectFreshState(releaseBranch);
 
 		expect(result).toMatchObject({

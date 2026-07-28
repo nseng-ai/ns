@@ -323,10 +323,14 @@ function objectiveShowGitResponses(cwd: string, slug: string): ScriptedExecRespo
 function objectiveTrunkResponses(): ScriptedExecResponse[] {
 	return [
 		{ match: "git check-ref-format refs/remotes/origin/trunk-validation", result: {} },
+		{ match: "git check-ref-format refs/remotes/origin/HEAD", result: {} },
 		{
 			match: "git symbolic-ref refs/remotes/origin/HEAD",
 			result: { stdout: "refs/remotes/origin/main\n" },
 		},
+		{ match: "git check-ref-format --branch main", result: {} },
+		{ match: "git check-ref-format refs/heads/main", result: {} },
+		{ match: "git check-ref-format refs/remotes/origin/main", result: {} },
 		{ match: "git show-ref --verify --quiet refs/heads/main", result: {} },
 		{ match: "git show-ref --verify --quiet refs/remotes/origin/main", result: {} },
 	];

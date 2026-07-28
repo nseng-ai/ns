@@ -41,7 +41,17 @@ afterEach(async () => {
 function branchContext(overrides: Partial<BranchContextContext> = {}): BranchContextContext {
 	return {
 		commands: NO_COMMANDS,
-		git: new InMemoryGitGateway({ currentBranch: PLAN_BRANCH, trunkBranch: "main" }),
+		git: new InMemoryGitGateway({ currentBranch: PLAN_BRANCH }),
+		resolveRepositoryTrunk: async () => ({
+			ok: true,
+			value: {
+				branch: "main",
+				remote: "origin",
+				localRef: "refs/heads/main",
+				remoteTrackingRef: "refs/remotes/origin/main",
+				source: "configured",
+			},
+		}),
 		brmem: new InMemoryBranchMemoryGateway({
 			entries: [{ branch: PLAN_BRANCH, key: PLAN_KEY, content: PLAN_CONTENT }],
 		}),
@@ -183,7 +193,6 @@ describe("loadAttachedPlan", () => {
 				context: branchContext({
 					git: new InMemoryGitGateway({
 						currentBranch: PLAN_BRANCH,
-						trunkBranch: "main",
 						originUrl: "git@github.com:sdl/sdl-tools.git",
 						headCommit: "1111111111111111111111111111111111111111",
 					}),
@@ -232,7 +241,6 @@ describe("loadAttachedPlan", () => {
 				context: branchContext({
 					git: new InMemoryGitGateway({
 						currentBranch: implementationBranch,
-						trunkBranch: "main",
 						originUrl: "git@github.com:sdl/sdl-tools.git",
 						headCommit: "1111111111111111111111111111111111111111",
 					}),
@@ -301,7 +309,17 @@ describe("loadAttachedPlan", () => {
 					{
 						cwd: ROOT,
 						context: branchContext({
-							git: new InMemoryGitGateway({ currentBranch: branch, trunkBranch: branch }),
+							git: new InMemoryGitGateway({ currentBranch: branch }),
+							resolveRepositoryTrunk: async () => ({
+								ok: true,
+								value: {
+									branch,
+									remote: "origin",
+									localRef: `refs/heads/${branch}`,
+									remoteTrackingRef: `refs/remotes/origin/${branch}`,
+									source: "configured",
+								},
+							}),
 							brmem,
 						}),
 					},
@@ -321,19 +339,20 @@ describe("loadAttachedPlan", () => {
 				{
 					cwd: ROOT,
 					context: branchContext({
-						git: new InMemoryGitGateway({
-							currentBranch: "main",
-							trunkBranch: {
-								type: "cached-remote-head-missing",
-								remote: "upstream",
-								remoteHeadRef: "refs/remotes/upstream/HEAD",
+						git: new InMemoryGitGateway({ currentBranch: "main" }),
+						resolveRepositoryTrunk: async () => ({
+							ok: false,
+							error: {
+								code: "cached-remote-head-missing",
+								message:
+									"Cached remote HEAD `refs/remotes/upstream/HEAD` is missing. Fetch remote `upstream` or configure [git].trunk in ns.toml.",
 							},
 						}),
 						brmem,
 					}),
 				},
 			),
-		).rejects.toThrow("Fetch upstream");
+		).rejects.toThrow("Fetch remote `upstream`");
 		expect(brmem.listAttachedPlansCalls).toEqual([]);
 	});
 
@@ -346,7 +365,17 @@ describe("loadAttachedPlan", () => {
 			{
 				cwd: ROOT,
 				context: branchContext({
-					git: new InMemoryGitGateway({ currentBranch: "main", trunkBranch: "develop" }),
+					git: new InMemoryGitGateway({ currentBranch: "main" }),
+					resolveRepositoryTrunk: async () => ({
+						ok: true,
+						value: {
+							branch: "develop",
+							remote: "origin",
+							localRef: "refs/heads/develop",
+							remoteTrackingRef: "refs/remotes/origin/develop",
+							source: "configured",
+						},
+					}),
 					brmem,
 				}),
 			},

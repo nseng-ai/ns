@@ -26,6 +26,15 @@ describe("flow autobranch command outcomes", () => {
 		expect(stdout).not.toContain("stdout:");
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
+			"git check-ref-format refs/remotes/origin/trunk-validation",
+			"git check-ref-format refs/remotes/origin/HEAD",
+			"git symbolic-ref refs/remotes/origin/HEAD",
+			"git check-ref-format --branch main",
+			"git check-ref-format refs/heads/main",
+			"git check-ref-format refs/remotes/origin/main",
+			"git show-ref --verify --quiet refs/heads/main",
+			"git show-ref --verify --quiet refs/remotes/origin/main",
+			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",

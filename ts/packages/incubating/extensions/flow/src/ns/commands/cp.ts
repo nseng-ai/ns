@@ -14,7 +14,7 @@ import {
 	formatCheckpointTrunkResolutionError,
 	runCheckpointWorkflow,
 	type CheckpointGateway,
-	type CheckpointGitGateway,
+	type CheckpointRunContext,
 	type CheckpointWorkflowResult,
 } from "../../checkpoint/checkpoint.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
@@ -63,7 +63,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 				modelSelection: model.modelSelection,
 				isDryRun: true,
 				checkpointGateway: runtime.checkpointGateway,
-				git: runtime.git,
+				repositoryTrunk: runtime.repositoryTrunk,
 			});
 			return toCommandResult(result);
 		}
@@ -85,7 +85,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 					modelSelection: model.modelSelection,
 					isDryRun: false,
 					checkpointGateway: runtime.checkpointGateway,
-					git: runtime.git,
+					repositoryTrunk: runtime.repositoryTrunk,
 					onPhase: stream.emit,
 				});
 				const command = toCommandResult(result);
@@ -106,7 +106,7 @@ export interface RunCpCoreOptions {
 	modelSelection: ModelSelection;
 	isDryRun: boolean;
 	checkpointGateway: CheckpointGateway;
-	git: CheckpointGitGateway;
+	repositoryTrunk: CheckpointRunContext["repositoryTrunk"];
 	onPhase?: NsProgressPhaseListener;
 	time?: TimeServices;
 }
@@ -116,7 +116,7 @@ export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreRes
 		cwd: options.cwd,
 		env: options.env,
 		gateway: options.checkpointGateway,
-		git: options.git,
+		repositoryTrunk: options.repositoryTrunk,
 		textGenerator: options.textGenerator,
 		modelSelection: options.modelSelection,
 		dryRun: options.isDryRun,
@@ -130,7 +130,7 @@ function toCommandResult(result: RunCpCoreResult) {
 		case "snapshot-failed":
 			return failure(FLOW_COMMAND_FAILED, formatPendingWorktreeError(result.error));
 		case "trunk-resolution-failed":
-			return failure(FLOW_COMMAND_FAILED, formatCheckpointTrunkResolutionError(result.failure));
+			return failure(FLOW_COMMAND_FAILED, formatCheckpointTrunkResolutionError(result.error));
 		case "trunk":
 			return negative(`Refusing to create checkpoint commit on trunk branch: ${result.branch}`);
 		case "clean":

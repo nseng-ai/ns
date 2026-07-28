@@ -32,7 +32,7 @@ describe("checkpoint run context", () => {
 			},
 		);
 		const runtime = await createNsSubmitRuntime(ctx, flowExtensionDescriptorSource);
-		const checkpointRunContext = runtime.createCheckpointRunContext((operations) =>
+		const checkpointRunContext = await runtime.createCheckpointRunContext((operations) =>
 			snapshots.push([...operations]),
 		);
 
@@ -52,11 +52,7 @@ describe("checkpoint run context", () => {
 
 		expect(checkpoint.type).toBe("dry-run");
 		expect(snapshots).toEqual([
-			[{ kind: "command", display: "git symbolic-ref --short HEAD" }],
-			[],
-			[{ kind: "command", display: "git status --porcelain=v1" }],
-			[],
-			[{ kind: "command", display: "git diff HEAD --no-ext-diff" }],
+			[{ kind: "command", display: "git rev-parse --show-toplevel" }],
 			[],
 			[
 				{
@@ -65,7 +61,15 @@ describe("checkpoint run context", () => {
 				},
 			],
 			[],
+			[{ kind: "command", display: "git check-ref-format refs/remotes/origin/HEAD" }],
+			[],
 			[{ kind: "command", display: "git symbolic-ref refs/remotes/origin/HEAD" }],
+			[],
+			[{ kind: "command", display: "git check-ref-format --branch main" }],
+			[],
+			[{ kind: "command", display: "git check-ref-format refs/heads/main" }],
+			[],
+			[{ kind: "command", display: "git check-ref-format refs/remotes/origin/main" }],
 			[],
 			[{ kind: "command", display: "git show-ref --verify --quiet refs/heads/main" }],
 			[],
@@ -75,6 +79,12 @@ describe("checkpoint run context", () => {
 					display: "git show-ref --verify --quiet refs/remotes/origin/main",
 				},
 			],
+			[],
+			[{ kind: "command", display: "git symbolic-ref --short HEAD" }],
+			[],
+			[{ kind: "command", display: "git status --porcelain=v1" }],
+			[],
+			[{ kind: "command", display: "git diff HEAD --no-ext-diff" }],
 			[],
 			[
 				{

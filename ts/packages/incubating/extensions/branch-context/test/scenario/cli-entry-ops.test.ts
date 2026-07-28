@@ -293,7 +293,7 @@ describe("branch-context exec", () => {
 		const content = "# Attached Plan\n\n- Implement from this.\n";
 		const run = runWithFakes(["exec", "load", "--format", "json"], {
 			cwd: repoRoot,
-			git: { currentBranch: branch, trunkBranch: "main" },
+			git: { currentBranch: branch },
 			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
 		});
 
@@ -322,7 +322,7 @@ describe("branch-context exec", () => {
 		const branch = "branch-contexts/branch-scoped-plan";
 		const run = runWithFakes(["exec", "load", "--format", "json"], {
 			cwd: repoRoot,
-			git: { currentBranch: branch, trunkBranch: "main" },
+			git: { currentBranch: branch },
 			brmem: {
 				listFailure: {
 					code: "brmem_list_failed",
@@ -350,7 +350,7 @@ describe("branch-context exec", () => {
 		const branch = "branch-contexts/branch-scoped-plan";
 		const run = runWithFakes(["exec", "load", "--format", "json"], {
 			cwd: repoRoot,
-			git: { currentBranch: branch, trunkBranch: "main" },
+			git: { currentBranch: branch },
 			brmem: {
 				entries: [{ branch, key: PLAN_KEY, content: "# Plan\n" }],
 				getFailure: {
@@ -379,7 +379,7 @@ describe("branch-context exec", () => {
 		const branch = "branch-contexts/branch-scoped-plan";
 		const ambiguous = runWithFakes(["exec", "load", "--format", "json"], {
 			cwd: repoRoot,
-			git: { currentBranch: branch, trunkBranch: "main" },
+			git: { currentBranch: branch },
 			brmem: {
 				entries: [
 					{ branch, key: PLAN_KEY, content: "# Plan\n" },
@@ -400,7 +400,7 @@ describe("branch-context exec", () => {
 
 		const unsupported = runWithFakes(["exec", "load", "notes", "--format", "json"], {
 			cwd: repoRoot,
-			git: { currentBranch: branch, trunkBranch: "main" },
+			git: { currentBranch: branch },
 			brmem: { entries: [{ branch, key: PLAN_KEY, content: "# Plan\n" }] },
 		});
 		expect(await unsupported.exit).toBe(2);
@@ -412,7 +412,7 @@ describe("branch-context exec", () => {
 
 		const legacyOnly = runWithFakes(["exec", "load", "--format", "json"], {
 			cwd: repoRoot,
-			git: { currentBranch: branch, trunkBranch: "main" },
+			git: { currentBranch: branch },
 			brmem: { entries: [{ branch, key: "plan.md", content: "# Legacy\n" }] },
 		});
 		expect(await legacyOnly.exit).toBe(2);
@@ -424,7 +424,7 @@ describe("branch-context exec", () => {
 
 		const noAttached = runWithFakes(["exec", "load", "--format", "json"], {
 			cwd: repoRoot,
-			git: { currentBranch: branch, trunkBranch: "main" },
+			git: { currentBranch: branch },
 		});
 		expect(await noAttached.exit).toBe(2);
 		expect(parseJson(noAttached)).toMatchObject({
@@ -449,7 +449,7 @@ describe("branch-context exec", () => {
 		const run = runWithFakes(["exec", "load", "--format", "json"], {
 			cwd: repoRoot,
 			planStoreRoot,
-			git: { currentBranch: SOURCE_BRANCH, trunkBranch: "main" },
+			git: { currentBranch: SOURCE_BRANCH },
 		});
 
 		expect(await run.exit).toBe(0);
@@ -477,7 +477,7 @@ describe("branch-context exec", () => {
 		const content = "# Attached Plan\n\n- Implement from this.\n";
 		const run = runWithFakes(["exec", "load", "--prompt-file", promptFile, "--format", "json"], {
 			cwd: repoRoot,
-			git: { currentBranch: branch, trunkBranch: "main" },
+			git: { currentBranch: branch },
 			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
 		});
 
@@ -510,7 +510,7 @@ describe("branch-context exec", () => {
 			["exec", "load", "--include-content", "--include-prompt", "--format", "json"],
 			{
 				cwd: repoRoot,
-				git: { currentBranch: branch, trunkBranch: "main" },
+				git: { currentBranch: branch },
 				brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
 			},
 		);
@@ -544,7 +544,7 @@ describe("branch-context exec", () => {
 		const content = "# Attached Plan\n\n- Implement from this.\n";
 		const fakes = {
 			cwd: repoRoot,
-			git: { currentBranch: branch, trunkBranch: "main" },
+			git: { currentBranch: branch },
 			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
 		};
 		const withFlags = runWithFakes(

@@ -16,7 +16,10 @@ import {
 	isSupportedBranchContextPlanKey,
 } from "./constants.ts";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import type { GitGateway, GitTrunkBranchResult } from "@nseng-ai/foundation/git";
+import {
+	nodeRepositoryTrunkConfigLoader,
+	resolveRepositoryTrunk,
+} from "@nseng-ai/extension-kit/repository-trunk";
 import { resolveSelectedSavedPlanFile } from "@nseng-ai/plans";
 import type { BranchContextContext } from "./context.ts";
 import { branchContextImplPromptTemplateUrl } from "./prompt-assets.ts";
@@ -213,7 +216,7 @@ export async function loadAttachedPlan(
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
 	const branch = await resolveSafeImplementationBranch(
-		options.context.git,
+		options.context,
 		options.cwd,
 		options.signal,
 	);
@@ -384,10 +387,11 @@ export function formatLoadedAttachedPlanEvidence(plan: LoadedAttachedPlan): stri
 }
 
 async function resolveSafeImplementationBranch(
-	git: GitGateway,
+	context: BranchContextContext,
 	cwd: string,
 	signal: AbortSignal | undefined,
 ): Promise<string> {
+	const git = context.git;
 	const repoRoot = await git.repoRoot({ cwd, signal });
 	if (!repoRoot.ok) {
 		throw new Error(
@@ -414,37 +418,27 @@ async function resolveSafeImplementationBranch(
 	}
 	const branch = branchResult.branch;
 
-	const trunkBranch = await git.trunkBranch({ cwd, signal });
-	if (trunkBranch.type !== "resolved") {
-		throw new Error(formatAttachedPlanTrunkFailure(trunkBranch));
+	const trunk =
+		context.resolveRepositoryTrunk === undefined
+			? await resolveRepositoryTrunk({
+					repoRoot: repoRoot.value,
+					git,
+					config: nodeRepositoryTrunkConfigLoader,
+					...(signal === undefined ? {} : { signal }),
+				})
+			: await context.resolveRepositoryTrunk(repoRoot.value, signal);
+	if (!trunk.ok) {
+		throw new Error(
+			`Cannot safely load attached plan because repository trunk resolution failed: ${trunk.error.message}`,
+		);
 	}
-	if (branch === trunkBranch.resolution.branch) {
+	if (branch === trunk.value.branch) {
 		throw new Error(
 			`Refusing to implement directly on trunk (\`${branch}\`). Check out a feature branch first.`,
 		);
 	}
 
 	return branch;
-}
-
-function formatAttachedPlanTrunkFailure(
-	result: Exclude<GitTrunkBranchResult, { type: "resolved" }>,
-): string {
-	switch (result.type) {
-		case "selected-remote-invalid":
-		case "configured-branch-invalid":
-			return `Cannot safely load attached plan because trunk resolution failed: ${result.error.message}`;
-		case "cached-remote-head-missing":
-			return `Cannot safely load attached plan because ${result.remoteHeadRef} is missing. Fetch ${result.remote}, or configure [git].trunk in ns.toml.`;
-		case "cached-remote-head-malformed":
-			return `Cannot safely load attached plan because ${result.remoteHeadRef} has malformed target ${JSON.stringify(result.target)}. Repair it, or configure [git].trunk in ns.toml.`;
-		case "local-branch-missing":
-			return `Cannot safely load attached plan because trunk local ref ${result.resolution.localRef} is missing. Create or fetch ${result.resolution.branch}.`;
-		case "remote-tracking-branch-missing":
-			return `Cannot safely load attached plan because trunk tracking ref ${result.resolution.remoteTrackingRef} is missing. Fetch ${result.resolution.remote}.`;
-		case "command-failure":
-			return `Cannot safely load attached plan because trunk resolution failed while attempting to ${result.operation.replaceAll("-", " ")} (${result.reason}): ${result.error.message}`;
-	}
 }
 
 function sortedUniqueKeys(entries: AttachedPlanEntry[]): string[] {

@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
@@ -5,30 +8,30 @@ import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { createRealObjectiveContext } from "../../src/core/context.ts";
 
 describe("Objective context trunk resolution", () => {
-	test("uses the resolved branch without an implicit main fallback", async () => {
+	test("uses the repository trunk configured by the real Node config loader", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "objective-context-"));
+		await writeFile(join(repoRoot, "ns.toml"), '[git]\nremote = "upstream"\ntrunk = "develop"\n');
 		const context = await createRealObjectiveContext({
-			cwd: "/repo",
-			git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", trunkBranch: "develop" }),
+			cwd: repoRoot,
+			git: new InMemoryGitGateway({
+				optionalRepoRoot: repoRoot,
+				existingRefs: ["refs/heads/develop", "refs/remotes/upstream/develop"],
+			}),
 		});
 
 		expect(context.trunkBranch).toBe("develop");
 	});
 
-	test("propagates an actionable trunk resolution failure", async () => {
+	test("wraps the canonical trunk resolution failure", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "objective-context-failure-"));
+		await writeFile(join(repoRoot, "ns.toml"), '[git]\nremote = "upstream"\ntrunk = "develop"\n');
 		await expect(
 			createRealObjectiveContext({
-				cwd: "/repo",
-				git: new InMemoryGitGateway({
-					optionalRepoRoot: "/repo",
-					trunkBranch: {
-						type: "cached-remote-head-missing",
-						remote: "upstream",
-						remoteHeadRef: "refs/remotes/upstream/HEAD",
-					},
-				}),
+				cwd: repoRoot,
+				git: new InMemoryGitGateway({ optionalRepoRoot: repoRoot }),
 			}),
 		).rejects.toThrow(
-			"`refs/remotes/upstream/HEAD` is missing. Fetch remote `upstream`, or configure [git].trunk in ns.toml.",
+			"Cannot create Objective context: Repository trunk local ref `refs/heads/develop` is missing.",
 		);
 	});
 });

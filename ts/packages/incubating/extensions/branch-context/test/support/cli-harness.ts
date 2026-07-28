@@ -113,7 +113,22 @@ export function runWithFakes(args: readonly string[], options: RunWithFakesOptio
 		brmem,
 		graphite,
 		exit: runCli(args, {
-			context: { commands, git, brmem, graphite },
+			context: {
+				commands,
+				git,
+				brmem,
+				graphite,
+				resolveRepositoryTrunk: async () => ({
+					ok: true,
+					value: {
+						branch: "main",
+						remote: "origin",
+						localRef: "refs/heads/main",
+						remoteTrackingRef: "refs/remotes/origin/main",
+						source: "configured",
+					},
+				}),
+			},
 			cwd: options.cwd,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
@@ -142,7 +157,6 @@ export function expectNoGitOrBrmemCalls(run: CliRun): void {
 	expect(run.git.repoRootCalls).toEqual([]);
 	expect(run.git.optionalRepoRootCalls).toEqual([]);
 	expect(run.git.currentBranchCalls).toEqual([]);
-	expect(run.git.trunkBranchCalls).toEqual([]);
 	expect(run.git.originUrlCalls).toEqual([]);
 	expect(run.git.headCommitCalls).toEqual([]);
 	expect(run.git.validateBranchRefCalls).toEqual([]);

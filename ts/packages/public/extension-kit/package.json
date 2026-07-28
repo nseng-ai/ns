@@ -45,7 +45,8 @@
 		"./graphite/status": "./src/graphite/status.ts",
 		"./graphite/branch": "./src/graphite/branch.ts",
 		"./graphite/stack": "./src/graphite/stack.ts",
-		"./graphite/testing": "./src/graphite/testing/index.ts"
+		"./graphite/testing": "./src/graphite/testing/index.ts",
+		"./repository-trunk": "./src/kit/repository-trunk.ts"
 	},
 	"publishConfig": {
 		"access": "public"

@@ -6,8 +6,7 @@ import type {
 	TextGenerationResult,
 	TextGenerator,
 } from "@nseng-ai/extension-kit/text-generation";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import type { RepositoryTrunkResult } from "@nseng-ai/extension-kit/repository-trunk";
 
 import type { ActiveOperation } from "@nseng-ai/sdk";
 
@@ -110,10 +109,10 @@ describe("flow cp core", () => {
 		const gateway = new FakeCheckpointGateway({
 			loaded: { ok: true, snapshot: dirtySnapshot({ branch: "release" }) },
 		});
-		const git = new InMemoryGitGateway({ trunkBranch: "release" });
+		const repositoryTrunk = resolvedTrunk("release");
 
 		const result = await runCpCore(
-			defaultOptions({ checkpointGateway: gateway, git, textGenerator }),
+			defaultOptions({ checkpointGateway: gateway, repositoryTrunk, textGenerator }),
 		);
 
 		expect(result).toEqual({ type: "trunk", branch: "release" });
@@ -128,12 +127,12 @@ describe("flow cp core", () => {
 			const gateway = new FakeCheckpointGateway({
 				loaded: { ok: true, snapshot: dirtySnapshot({ branch }) },
 			});
-			const git = new InMemoryGitGateway({ trunkBranch: "release" });
+			const repositoryTrunk = resolvedTrunk("release");
 
 			const result = await runCpCore(
 				defaultOptions({
 					checkpointGateway: gateway,
-					git,
+					repositoryTrunk,
 					textGenerator,
 					isDryRun: true,
 				}),
@@ -163,20 +162,21 @@ describe("flow cp core", () => {
 				remoteHeadRef: "refs/remotes/origin/HEAD",
 			},
 		},
-	])("fails closed on repository trunk $name before clean/model/commit", async ({ trunk }) => {
+	])("fails closed on repository trunk $name before clean/model/commit", async () => {
 		const textGenerator = new FakeTextGenerator();
 		const gateway = new FakeCheckpointGateway({
 			loaded: { ok: true, snapshot: dirtySnapshot({ clean: true }) },
 		});
-		const git = new InMemoryGitGateway({ trunkBranch: trunk });
+		const repositoryTrunk = failedTrunk("Repository trunk could not be resolved.");
+		if (repositoryTrunk.ok) throw new Error("Expected failed trunk fixture.");
 
 		const result = await runCpCore(
-			defaultOptions({ checkpointGateway: gateway, git, textGenerator }),
+			defaultOptions({ checkpointGateway: gateway, repositoryTrunk, textGenerator }),
 		);
 
 		expect(result).toEqual({
 			type: "trunk-resolution-failed",
-			failure: trunk,
+			error: repositoryTrunk.error,
 		});
 		expect(textGenerator.calls).toEqual([]);
 		expect(gateway.commits).toEqual([]);
@@ -267,7 +267,7 @@ describe("flow cp core", () => {
 			cwd: "/repo",
 			env: {},
 			gateway,
-			git: new InMemoryGitGateway({ trunkBranch: "main" }),
+			repositoryTrunk: resolvedTrunk("main"),
 			textGenerator,
 			modelSelection: {
 				provider: "openai-codex",
@@ -305,7 +305,7 @@ describe("flow cp core", () => {
 			cwd: "/repo",
 			env: {},
 			gateway,
-			git: new InMemoryGitGateway({ trunkBranch: "main" }),
+			repositoryTrunk: resolvedTrunk("main"),
 			textGenerator,
 			modelSelection: {
 				provider: "openai-codex",
@@ -362,18 +362,35 @@ describe("flow cp core", () => {
 function defaultOptions(overrides: {
 	checkpointGateway: CheckpointGateway;
 	textGenerator: TextGenerator;
-	git?: Pick<GitGateway, "trunkBranch">;
+	repositoryTrunk?: RepositoryTrunkResult;
 	isDryRun?: boolean;
 }) {
 	return {
 		cwd: "/repo",
 		env: {},
 		checkpointGateway: overrides.checkpointGateway,
-		git: overrides.git ?? new InMemoryGitGateway({ trunkBranch: "main" }),
+		repositoryTrunk: overrides.repositoryTrunk ?? resolvedTrunk("main"),
 		textGenerator: overrides.textGenerator,
 		modelSelection: { provider: "openai-codex", modelId: "gpt-test", thinking: "minimal" as const },
 		isDryRun: overrides.isDryRun ?? false,
 	};
+}
+
+function resolvedTrunk(branch: string): RepositoryTrunkResult {
+	return {
+		ok: true,
+		value: {
+			branch,
+			remote: "origin",
+			localRef: `refs/heads/${branch}`,
+			remoteTrackingRef: `refs/remotes/origin/${branch}`,
+			source: "configured",
+		},
+	};
+}
+
+function failedTrunk(message: string): RepositoryTrunkResult {
+	return { ok: false, error: { code: "git-failed", message } };
 }
 
 function dirtySnapshot(overrides: Partial<PendingWorktreeSnapshot> = {}): PendingWorktreeSnapshot {

@@ -73,7 +73,12 @@ function fixture(options: {
 		artifacts,
 		context: {
 			git:
-				options.git ?? new InMemoryGitGateway({ optionalRepoRoot: "/repo", trunkBranch: "main" }),
+				options.git ??
+				new InMemoryGitGateway({
+					optionalRepoRoot: "/repo",
+					symbolicRefs: { "refs/remotes/origin/HEAD": "refs/remotes/origin/main" },
+					existingRefs: ["refs/heads/main", "refs/remotes/origin/main"],
+				}),
 			files,
 			declaredExtensions,
 			artifacts,

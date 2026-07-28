@@ -1,6 +1,5 @@
-import { configureNsGitGateway, createNsGitGateway } from "@nseng-ai/extension-kit";
+import { createNsGitGateway } from "@nseng-ai/extension-kit";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import type { GitGateway, GitTrunkBranchResult } from "@nseng-ai/foundation/git";
 import { createRealExtensionAcquisitionGateway } from "@nseng-ai/sdk/extensions/acquisition";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 
@@ -31,7 +30,7 @@ export async function createNsInitContext(
 	const acquisition = createRealExtensionAcquisitionGateway(extensionApiCommandExecApi(ctx));
 	return {
 		cwd: ctx.cwd,
-		git: createDeferredNsGitGateway(ctx),
+		git: createNsGitGateway(ctx),
 		installAcquisition: new RealExtensionInstallAcquisitionGateway(acquisition),
 		uninstallAcquisition: new RealExtensionUninstallAcquisitionGateway(acquisition),
 		updateAcquisition: new RealExtensionUpdateAcquisitionGateway(acquisition),
@@ -43,34 +42,6 @@ export async function createNsInitContext(
 			? { lifecycleTrace: { emit: (line: string) => ctx.commandIo.phase(line) } }
 			: {}),
 	};
-}
-
-function createDeferredNsGitGateway(ctx: NsExtensionApi): GitGateway {
-	const unconfiguredGit = createNsGitGateway(ctx);
-	let configuredGit: Promise<GitGateway | GitTrunkBranchResult> | undefined;
-	return new Proxy(unconfiguredGit, {
-		get(target, property) {
-			if (property === "trunkBranch") {
-				return async (): Promise<GitTrunkBranchResult> => {
-					configuredGit ??= configureNsGitGateway(ctx).then((result) =>
-						result.ok
-							? result.value
-							: {
-									type: "command-failure" as const,
-									operation: "read-cached-remote-head" as const,
-									reason: "failed" as const,
-									error: result.error,
-								},
-					);
-					const configured = await configuredGit;
-					if (!("trunkBranch" in configured)) return configured;
-					return configured.trunkBranch({ cwd: ctx.cwd });
-				};
-			}
-			const value: unknown = Reflect.get(target, property, target);
-			return typeof value === "function" ? value.bind(target) : value;
-		},
-	});
 }
 
 /**

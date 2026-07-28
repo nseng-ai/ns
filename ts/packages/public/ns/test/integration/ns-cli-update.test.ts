@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -90,17 +90,16 @@ afterEach(async () => {
 });
 
 describe("ns CLI host integration", () => {
-	test("updates one declared extension and reconciles artifacts from a git-root subdirectory", async () => {
+	test("updates one declared extension and reconciles artifacts", async () => {
 		const projectRoot = await createEmptyProject();
 		await initializeGitRepo(projectRoot);
-		await mkdir(join(projectRoot, "nested"), { recursive: true });
 		await writeFile(
 			join(projectRoot, "ns.toml"),
 			'harnesses = ["pi"]\nextensions = ["./extensions/acme-module"]\n',
 			"utf8",
 		);
 		await writeModuleExtension(projectRoot);
-		const cwd = join(projectRoot, "nested");
+		const cwd = projectRoot;
 
 		const installed = await runNsCliJson(["extension", "update", "./extensions/acme-module"], cwd);
 		const installedData = dataFromEnvelope(parseJsonOutput(installed));

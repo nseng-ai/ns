@@ -10,6 +10,7 @@ export type {
 	GitBranchCall,
 	GitCall,
 	GitPathCall,
+	GitRefCall,
 	GitRefsPathCall,
 	GitRevisionRangePathCall,
 	InMemoryGitGatewayState,
