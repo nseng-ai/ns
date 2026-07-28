@@ -136,9 +136,7 @@ export function toEnvelope(outcome: CommandOutcome<unknown>): Record<string, unk
 	}
 }
 
-export function envelopeJsonText(value: unknown): string {
-	return JSON.stringify(value, null, 2) ?? String(value);
-}
+export { envelopeJsonText } from "../exit.ts";
 
 /**
  * Single source of truth for the machine-envelope contract exposed through
