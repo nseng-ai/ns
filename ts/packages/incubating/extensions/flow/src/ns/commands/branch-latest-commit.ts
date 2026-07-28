@@ -13,7 +13,7 @@ import { resolveFlowModelSelection } from "../model-policy.ts";
 
 const BRANCH_LATEST_COMMIT_DESCRIPTION = `Move the latest eligible single-parent commit to a new Graphite child branch.
 
-This command requires a clean worktree. The latest commit is eligible when the source has no upstream, is locally ahead of its locally known upstream, or is exactly synchronized on a non-trunk branch. Remote-ahead, diverged, and exactly synchronized configured Graphite trunk states are refused. Upstream checks use only local tracking refs and do not fetch.
+This command requires a clean worktree. The latest commit is eligible when the source has no upstream, is locally ahead of its locally known upstream, or is exactly synchronized on a non-trunk branch. Remote-ahead, diverged, and exactly synchronized Git trunk states are refused. Trunk identity comes from cached origin/HEAD, and upstream checks use only local tracking refs; neither check fetches.
 
 It creates a local-only Graphite branch with \`gt create\`, resets the source branch to the commit parent, hard-resets the new child branch to the original commit SHA, verifies HEAD, and cleans up recovery evidence. The mutation does not fetch, push, publish, submit, or update PRs. After a synchronized success, the upstream remains unchanged; explicitly run \`ns flow submit\` from the new child to publish the reshaped stack.
 

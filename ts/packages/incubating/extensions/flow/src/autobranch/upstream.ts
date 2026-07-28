@@ -1,9 +1,4 @@
-import { commandSucceeded } from "@nseng-ai/foundation/command";
-import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import type { AutobranchGitGateway } from "./git-gateway.ts";
-import { formatAutobranchCommandDetails, type AutobranchExec } from "./shared.ts";
-
-const GT_TIMEOUT_MS = 120_000;
 
 export type UpstreamHeadState =
 	| { type: "no_upstream" }
@@ -16,13 +11,15 @@ export type UpstreamHeadState =
 type SynchronizedTrunkState =
 	| { type: "trunk"; trunk: string }
 	| { type: "non_trunk"; trunk: string }
+	| { type: "trunk_missing" }
 	| { type: "failed"; error: string };
 
 type LatestCommitUpstreamEligibility =
 	| { type: "eligible" }
 	| { type: "synchronized"; upstream: string }
 	| { type: "upstream_check_failed"; error: string }
-	| { type: "graphite_trunk_check_failed"; error: string }
+	| { type: "git_trunk_missing" }
+	| { type: "git_trunk_check_failed"; error: string }
 	| { type: "remote_ahead_refusal"; upstream: string }
 	| { type: "diverged_upstream_refusal"; upstream: string }
 	| {
@@ -37,36 +34,25 @@ export interface UpstreamHeadStateInput {
 	git: AutobranchGitGateway;
 }
 
-interface LatestCommitUpstreamEligibilityInput extends UpstreamHeadStateInput {
-	exec: AutobranchExec;
-}
+type LatestCommitUpstreamEligibilityInput = UpstreamHeadStateInput;
 
 export async function inspectUpstreamHeadState(
 	input: UpstreamHeadStateInput,
 ): Promise<UpstreamHeadState> {
 	const branch = await input.git.currentBranch();
-	if (!branch.ok) {
-		return { type: "failed", error: branch.details };
-	}
+	if (!branch.ok) return { type: "failed", error: branch.details };
 	const branchName = branch.value;
 	if (!branchName) {
 		return { type: "failed", error: "git branch --show-current returned no branch name." };
 	}
 
 	const upstream = await input.git.upstreamOf(branchName);
-	if (!upstream.ok) {
-		return { type: "failed", error: upstream.details };
-	}
-
+	if (!upstream.ok) return { type: "failed", error: upstream.details };
 	const upstreamName = upstream.value;
-	if (!upstreamName) {
-		return { type: "no_upstream" };
-	}
+	if (!upstreamName) return { type: "no_upstream" };
 
 	const relationship = await input.git.headUpstreamRelationship(upstreamName);
-	if (!relationship.ok) {
-		return { type: "failed", error: relationship.details };
-	}
+	if (!relationship.ok) return { type: "failed", error: relationship.details };
 
 	switch (relationship.value) {
 		case "synchronized":
@@ -94,11 +80,13 @@ export async function inspectLatestCommitUpstreamEligibility(
 		case "synchronized": {
 			const trunk = await inspectSynchronizedTrunkState({
 				branch: upstream.branch,
-				exec: input.exec,
+				git: input.git,
 			});
 			switch (trunk.type) {
+				case "trunk_missing":
+					return { type: "git_trunk_missing" };
 				case "failed":
-					return { type: "graphite_trunk_check_failed", error: trunk.error };
+					return { type: "git_trunk_check_failed", error: trunk.error };
 				case "trunk":
 					return {
 						type: "synchronized_trunk_refusal",
@@ -118,15 +106,12 @@ export async function inspectLatestCommitUpstreamEligibility(
 
 async function inspectSynchronizedTrunkState(input: {
 	branch: string;
-	exec: AutobranchExec;
+	git: AutobranchGitGateway;
 }): Promise<SynchronizedTrunkState> {
-	const result = await input.exec("gt", ["trunk", "--no-interactive"], GT_TIMEOUT_MS);
-	if (!commandSucceeded(result)) {
-		return { type: "failed", error: formatAutobranchCommandDetails(result) };
-	}
-	const trunk = firstNonEmptyLine(result.stdout);
-	if (trunk === undefined) {
-		return { type: "failed", error: "gt trunk --no-interactive returned no branch name." };
-	}
-	return input.branch === trunk ? { type: "trunk", trunk } : { type: "non_trunk", trunk };
+	const trunk = await input.git.trunkBranch();
+	if (trunk.type === "missing") return { type: "trunk_missing" };
+	if (trunk.type === "error") return { type: "failed", error: trunk.error.message };
+	return input.branch === trunk.value
+		? { type: "trunk", trunk: trunk.value }
+		: { type: "non_trunk", trunk: trunk.value };
 }

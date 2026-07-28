@@ -82,10 +82,10 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 		if (upstreamProbeResult !== undefined) {
 			return upstreamProbeResult;
 		}
-		if (command === "gt" && args[0] === "trunk") {
+		if (command === "git" && args.join(" ") === "symbolic-ref --short refs/remotes/origin/HEAD") {
 			return options.shouldTrunkFail
-				? fail("gt trunk failed")
-				: ok(`${options.trunkBranch ?? "master"}\n`);
+				? fail("git symbolic-ref failed", 2)
+				: ok(`origin/${options.trunkBranch ?? "master"}\n`);
 		}
 		if (command === "gt" && args[0] === "children") {
 			return options.shouldChildrenFail ? fail("gt children failed") : ok(childBranches.join("\n"));
@@ -189,10 +189,10 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 		if (upstreamProbeResult !== undefined) {
 			return upstreamProbeResult;
 		}
-		if (command === "gt" && args[0] === "trunk") {
+		if (command === "git" && args.join(" ") === "symbolic-ref --short refs/remotes/origin/HEAD") {
 			return options.shouldTrunkFail
-				? fail("gt trunk failed")
-				: ok(`${options.trunkBranch ?? "master"}\n`);
+				? fail("git symbolic-ref failed", 2)
+				: ok(`origin/${options.trunkBranch ?? "master"}\n`);
 		}
 		if (command === "git" && args[0] === "check-ref-format") {
 			return ok();
@@ -369,7 +369,7 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 					command: "git",
 					args: ["rev-list", "--left-right", "--count", "HEAD...origin/feature/base"],
 				},
-				{ command: "gt", args: ["trunk", "--no-interactive"] },
+				{ command: "git", args: ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"] },
 			]),
 		);
 		expect(
@@ -461,8 +461,8 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 		);
 		expect(trunkFailed).toEqual({
 			ok: false,
-			kind: "graphite_trunk_check_failed",
-			error: "exit code 1: gt trunk failed",
+			kind: "git_trunk_check_failed",
+			error: expect.stringContaining("git symbolic-ref for origin HEAD failed"),
 		});
 	});
 
@@ -574,8 +574,8 @@ describe("runLatestCommitAutobranchTransaction", () => {
 		});
 		expect(await runLatestCommitAutobranchTransaction(trunkFailed.input)).toEqual({
 			ok: false,
-			kind: "transaction_graphite_trunk_check_failed",
-			error: "exit code 1: gt trunk failed",
+			kind: "transaction_git_trunk_check_failed",
+			error: expect.stringContaining("git symbolic-ref for origin HEAD failed"),
 		});
 
 		for (const harness of [trunk, upstreamFailed, malformed, trunkFailed]) {
@@ -611,7 +611,9 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			const result = await runLatestCommitAutobranchTransaction(harness.input);
 
 			expect(result.ok).toBe(true);
-			expect(eventIndex(harness.events, "exec:gt trunk --no-interactive")).toBe(-1);
+			expect(
+				eventIndex(harness.events, "exec:git symbolic-ref --short refs/remotes/origin/HEAD"),
+			).toBe(-1);
 		}
 	});
 

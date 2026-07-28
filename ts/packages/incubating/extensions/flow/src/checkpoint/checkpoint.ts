@@ -11,13 +11,7 @@ import type { ActiveOperation, NsProgressPhaseListener } from "@nseng-ai/sdk";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import { createNsCommandRunner } from "@nseng-ai/extension-kit/command-runner";
 import { createNsGitGateway } from "@nseng-ai/extension-kit";
-import {
-	RealGraphiteBranchGateway,
-	type GraphiteBranchGateway,
-	type GraphiteErrorInfo,
-	type GraphiteTrunkBranchFailureReason,
-} from "@nseng-ai/extension-kit/graphite/branch";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { GitErrorInfo, GitGateway } from "@nseng-ai/foundation/git";
 import type { TextRepairProgressEvent } from "@nseng-ai/extension-kit/text-repair";
 import {
 	createCommitWithPreparedMessage,
@@ -64,22 +58,23 @@ export interface CheckpointCommandResult {
 
 export interface NsCheckpointRuntime {
 	checkpointGateway: CheckpointGateway;
-	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	git: Pick<GitGateway, "trunkBranch">;
 }
 
 export function createNsCheckpointRuntime(ctx: NsExtensionApi): NsCheckpointRuntime {
+	const git = createNsGitGateway(ctx);
 	return {
 		checkpointGateway: new RealCheckpointGateway({
 			runner: createNsCommandRunner(ctx),
-			git: createNsGitGateway(ctx),
+			git,
 		}),
-		graphite: new RealGraphiteBranchGateway(ctx),
+		git,
 	};
 }
 
 export interface CheckpointRunContext {
 	gateway: CheckpointGateway;
-	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	git: Pick<GitGateway, "trunkBranch">;
 	onActiveOperations?: (operations: readonly ActiveOperation[]) => void;
 }
 
@@ -100,11 +95,8 @@ export interface RunCheckpointWorkflowOptions extends RunCheckpointCommandOption
 
 export type CheckpointWorkflowResult =
 	| { type: "snapshot-failed"; error: PendingWorktreeError }
-	| {
-			type: "trunk-resolution-failed";
-			reason: GraphiteTrunkBranchFailureReason;
-			error: GraphiteErrorInfo;
-	  }
+	| { type: "trunk-missing" }
+	| { type: "trunk-resolution-failed"; error: GitErrorInfo }
 	| { type: "trunk"; branch: string }
 	| { type: "clean" }
 	| { type: "message-failed"; error: string }
@@ -196,10 +188,16 @@ export async function runCheckpointIfPending(
 	switch (result.type) {
 		case "snapshot-failed":
 			return { kind: "failed", output: failure(2, formatCheckpointSnapshotError(result.error)) };
+		case "trunk-missing":
+			return {
+				kind: "failed",
+				output: failure(2, formatGitTrunkMissingError()),
+				failurePresentation: "deterministic",
+			};
 		case "trunk-resolution-failed":
 			return {
 				kind: "failed",
-				output: failure(2, formatGraphiteTrunkResolutionError(result.error)),
+				output: failure(2, formatGitTrunkResolutionError(result.error)),
 				failurePresentation: "deterministic",
 			};
 		case "clean":
@@ -243,11 +241,10 @@ export async function runCheckpointWorkflow(
 	if (!loaded.ok) return { type: "snapshot-failed", error: loaded.error };
 
 	const snapshot = loaded.snapshot;
-	const trunk = await options.graphite.trunkBranch({ cwd: options.cwd });
-	if (!trunk.ok) {
-		return { type: "trunk-resolution-failed", reason: trunk.reason, error: trunk.error };
-	}
-	if (snapshot.branch === trunk.branch) {
+	const trunk = await options.git.trunkBranch({ cwd: options.cwd });
+	if (trunk.type === "missing") return { type: "trunk-missing" };
+	if (trunk.type === "error") return { type: "trunk-resolution-failed", error: trunk.error };
+	if (snapshot.branch === trunk.value) {
 		return { type: "trunk", branch: snapshot.branch };
 	}
 	if (snapshot.clean) return { type: "clean" };
@@ -310,8 +307,12 @@ function formatCheckpointProgressEvent(event: TextRepairProgressEvent): string {
 	}
 }
 
-export function formatGraphiteTrunkResolutionError(error: GraphiteErrorInfo): string {
-	return `Could not resolve configured Graphite trunk; checkpoint was not created.\n${error.message}`;
+export function formatGitTrunkMissingError(): string {
+	return "Could not resolve the Git trunk branch from cached `refs/remotes/origin/HEAD`; checkpoint was not created.\nRefresh it with `git remote set-head origin --auto`, or set it explicitly with `git remote set-head origin <branch>`, then retry.";
+}
+
+export function formatGitTrunkResolutionError(error: GitErrorInfo): string {
+	return `Could not resolve the Git trunk branch from cached \`refs/remotes/origin/HEAD\`; checkpoint was not created.\n${error.message}\nRefresh it with \`git remote set-head origin --auto\`, or set it explicitly with \`git remote set-head origin <branch>\`, then retry.`;
 }
 
 export function formatCheckpointSnapshotError(error: PendingWorktreeError): string {

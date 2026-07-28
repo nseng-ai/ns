@@ -41,6 +41,20 @@ async function initializeGitRepo(projectRoot: string): Promise<void> {
 	if (!commandSucceeded(committed)) {
 		throw new Error(formatCommandFailure("git commit failed", "git commit", committed));
 	}
+	const cachedRemoteHead = await runCommand(
+		"git",
+		["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"],
+		{ cwd: projectRoot },
+	);
+	if (!commandSucceeded(cachedRemoteHead)) {
+		throw new Error(
+			formatCommandFailure(
+				"git symbolic-ref for cached origin HEAD failed",
+				"git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main",
+				cachedRemoteHead,
+			),
+		);
+	}
 }
 
 async function runNsCliJson(args: readonly string[], cwd: string) {

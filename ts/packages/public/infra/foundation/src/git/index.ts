@@ -192,20 +192,43 @@ export class RealGitGateway implements GitGateway {
 
 	async trunkBranch(params: GitCwdParams): Promise<GitOptionalResult<string>> {
 		const run = await this.runGit(params, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
-		if (run.ok && commandSucceeded(run.value.result)) {
-			const ref = firstNonEmptyLine(run.value.result.stdout);
-			if (ref !== undefined) {
-				const candidate = ref.startsWith("origin/") ? ref.slice("origin/".length) : ref;
-				const presence = await this.localBranchPresence({ ...params, branch: candidate });
-				if (presence.type === "present") return { type: "found", value: candidate };
+		if (!run.ok) return { type: "error", error: run.error };
+		if (!commandSucceeded(run.value.result)) {
+			if (
+				run.value.result.type === "exited" &&
+				run.value.result.signal === null &&
+				run.value.result.code === 1
+			) {
+				return { type: "missing" };
 			}
+			return {
+				type: "error",
+				error: failure("trunk-branch-failed", "git symbolic-ref for origin HEAD failed", run.value),
+			};
 		}
 
-		for (const branch of ["main", "master"]) {
-			const presence = await this.localBranchPresence({ ...params, branch });
-			if (presence.type === "present") return { type: "found", value: branch };
+		const ref = run.value.result.stdout.replace(/\r?\n$/u, "");
+		if (ref.length === 0) {
+			return {
+				type: "error",
+				error: error(
+					"trunk-branch-empty",
+					`git symbolic-ref for origin HEAD returned no ref.\nCommand: ${run.value.displayCommand}`,
+					run.value.displayCommand,
+				).error,
+			};
 		}
-		return { type: "missing" };
+		if (!ref.startsWith("origin/") || ref.length === "origin/".length || /[\r\n]/u.test(ref)) {
+			return {
+				type: "error",
+				error: error(
+					"trunk-branch-malformed",
+					`git symbolic-ref for origin HEAD returned an invalid ref: ${JSON.stringify(ref)}.\nCommand: ${run.value.displayCommand}`,
+					run.value.displayCommand,
+				).error,
+			};
+		}
+		return { type: "found", value: ref.slice("origin/".length) };
 	}
 
 	async branchUpstream(params: GitBranchParams): Promise<GitOptionalResult<GitBranchUpstream>> {

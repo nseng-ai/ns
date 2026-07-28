@@ -17,10 +17,13 @@ repositories customize its behavior through
 - The `ns` CLI with the Flow extension enabled.
 - The `gt` and `gh` CLIs available on `PATH`; commands that read or mutate pull
   requests require an authenticated GitHub session.
-- A configured Graphite trunk that `gt trunk --no-interactive` can resolve.
+- A cached Git remote HEAD that `git symbolic-ref --short refs/remotes/origin/HEAD` can resolve.
   Checkpoint safety fails closed when that lookup fails, including on clean
-  worktrees and checkpoint dry runs.
-- For `pull-trunk`, the local configured-trunk branch must have a Git upstream.
+  worktrees and checkpoint dry runs. The cache may be absent or stale; Flow does
+  not fetch to repair or refresh it. When network access is acceptable, run
+  `git remote set-head origin --auto`; when the correct branch is already known,
+  run `git remote set-head origin <branch>`.
+- For `pull-trunk`, the local Git trunk branch must have a Git upstream.
   Flow uses that upstream's exact remote and remote ref; it does not assume
   `origin` or a same-named remote branch.
 
@@ -31,7 +34,7 @@ Each command depends on a distinct slice of the underlying technology stack:
 | Command                         | What it does                                                                                                 | git | Graphite (`gt`) | GitHub (`gh`) | slots | LLM |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------ | :-: | :-------------: | :-----------: | :---: | :-: |
 | `ns flow changes`               | Summarize outstanding worktree changes without committing.                                                   |  ✓  |                 |               |       |  ✓  |
-| `ns flow cp`                    | Create a checkpoint commit for the current diff.                                                             |  ✓  |        ✓        |               |       |  ✓  |
+| `ns flow cp`                    | Create a checkpoint commit for the current diff.                                                             |  ✓  |                 |               |       |  ✓  |
 | `ns flow autobranch`            | Create a Graphite branch from dirty worktree changes.                                                        |  ✓  |        ✓        |               |       |  ✓  |
 | `ns flow branch-latest-commit`  | Move the latest eligible commit to a new Graphite branch.                                                    |  ✓  |        ✓        |               |       |  ✓  |
 | `ns flow autoslot`              | Create a Graphite branch from current work, then move it into a managed slot worktree.                       |  ✓  |        ✓        |               |   ✓   |  ✓  |
@@ -39,7 +42,7 @@ Each command depends on a distinct slice of the underlying technology stack:
 | `ns flow generate-pr-inventory` | Assemble and completely replace the current PR title and body.                                               |  ✓  |                 |       ✓       |       |  ✓  |
 | `ns flow push`                  | Push committed non-Graphite branch work with `git push`.                                                     |  ✓  |                 |               |       |     |
 | `ns flow land`                  | Land the current PR or Graphite stack into trunk.                                                            |  ✓  |        ✓        |       ✓       |   ✓   |     |
-| `ns flow pull-trunk`            | Refresh the configured Graphite trunk from its configured Git upstream.                                      |  ✓  |        ✓        |               |       |     |
+| `ns flow pull-trunk`            | Refresh the Git trunk identified by cached `refs/remotes/origin/HEAD` from its configured Git upstream.      |  ✓  |                 |               |       |     |
 | `ns flow squash-stack`          | Squash every branch in the current Graphite stack to one commit, then restore the tip branch.                |  ✓  |        ✓        |               |       |     |
 
 Every command is also available in the Pi harness as `/ns:flow:<command>`, delegating
@@ -52,13 +55,13 @@ policy: the worktree must be clean, and `HEAD` must be a latest single-parent
 commit. Relationship checks use only local tracking refs; they never implicitly
 fetch.
 
-| Relationship to the locally known upstream         | Result   |
-| -------------------------------------------------- | -------- |
-| No upstream                                        | Eligible |
-| Locally ahead                                      | Eligible |
-| Exactly synchronized, on a non-trunk source branch | Eligible |
-| Remote-ahead or diverged                           | Refused  |
-| Exactly synchronized, on configured Graphite trunk | Refused  |
+| Relationship to the locally known upstream                                | Result   |
+| ------------------------------------------------------------------------- | -------- |
+| No upstream                                                               | Eligible |
+| Locally ahead                                                             | Eligible |
+| Exactly synchronized, on a non-trunk source branch                        | Eligible |
+| Remote-ahead or diverged                                                  | Refused  |
+| Exactly synchronized, on Git trunk from cached `refs/remotes/origin/HEAD` | Refused  |
 
 Existing Graphite children, root commits, and merge commits are also refused.
 The split mutates local refs only: it never fetches, pushes, submits, or updates
@@ -81,11 +84,12 @@ reshaped stack.
 
 ### Command-scoped integrations
 
-- `cp` and submit's checkpoint step compare the current branch with Graphite's
-  configured trunk. If Graphite cannot resolve that identity, they stop before
-  checkpoint-message generation or Git mutation; branch names such as `main` and
-  `master` receive no special treatment unless one is the configured trunk.
-- `pull-trunk` inspects the configured trunk's Git upstream before worktree
+- `cp` and submit's checkpoint step compare the current branch with Git's
+  trunk from cached `refs/remotes/origin/HEAD`. If Git cannot resolve that
+  identity, they stop before checkpoint-message generation or Git mutation;
+  branch names such as `main` and `master` receive no special treatment unless
+  one is the cached trunk.
+- `pull-trunk` inspects the cached Git trunk's configured upstream before worktree
   inspection and refresh mutation. A missing or unreadable upstream is a
   non-mutating refusal; Flow never creates or rewrites upstream configuration
   automatically.

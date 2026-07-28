@@ -503,81 +503,131 @@ describe("real git gateway", () => {
 		commands.assertDone();
 	});
 
-	test("resolves trunk branch through origin HEAD when candidate exists locally", async () => {
+	test("resolves trunk from the cached origin HEAD without probing local branches", async () => {
+		const args = ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"];
+		const commands = new ScriptedCommands([
+			step("git", args, { stdout: "origin/release/stable\n" }),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({
+			type: "found",
+			value: "release/stable",
+		});
+		commands.assertDone();
+		expect(commands.execCalls).toEqual([
+			{
+				command: "git",
+				args,
+				options: { cwd: ROOT, timeout: 10_000 },
+			},
+		]);
+	});
+
+	test("reports an ordinary missing cached origin HEAD as missing", async () => {
 		const commands = new ScriptedCommands([
 			step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], {
-				stdout: "origin/trunk\n",
-			}),
-			step("git", ["rev-parse", "--verify", "refs/heads/trunk"]),
-		]);
-		const git = new RealGitGateway(commands);
-
-		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({ type: "found", value: "trunk" });
-		commands.assertDone();
-		expect(commands.execCalls.map((call) => call.args)).toEqual([
-			["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
-			["rev-parse", "--verify", "refs/heads/trunk"],
-		]);
-	});
-
-	test("falls back when origin HEAD candidate is absent locally", async () => {
-		const commands = new ScriptedCommands([
-			step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], {
-				stdout: "origin/develop\n",
-			}),
-			step("git", ["rev-parse", "--verify", "refs/heads/develop"], { code: 1 }),
-			step("git", ["rev-parse", "--verify", "refs/heads/main"], { code: 1 }),
-			step("git", ["rev-parse", "--verify", "refs/heads/master"]),
-		]);
-		const git = new RealGitGateway(commands);
-
-		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({ type: "found", value: "master" });
-		commands.assertDone();
-	});
-
-	test("falls back to main probe when origin HEAD lookup fails", async () => {
-		const commands = new ScriptedCommands([
-			step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], { code: 1 }),
-			step("git", ["rev-parse", "--verify", "refs/heads/main"]),
-		]);
-		const git = new RealGitGateway(commands);
-
-		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({ type: "found", value: "main" });
-		commands.assertDone();
-	});
-
-	test("treats branch presence errors as absent while resolving trunk", async () => {
-		const commands = new ScriptedCommands([
-			step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], {
-				stdout: "origin/trunk\n",
-			}),
-			step("git", ["rev-parse", "--verify", "refs/heads/trunk"], {
-				type: "exited",
-				stdout: "",
-				stderr: "boom",
-				code: 2,
-				signal: null,
-			}),
-			step("git", ["rev-parse", "--verify", "refs/heads/main"]),
-		]);
-		const git = new RealGitGateway(commands);
-
-		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({ type: "found", value: "main" });
-		commands.assertDone();
-	});
-
-	test("returns missing trunk when symbolic-ref and local fallbacks fail", async () => {
-		const commands = new ScriptedCommands([
-			step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], { code: 1 }),
-			step("git", ["rev-parse", "--verify", "refs/heads/main"], { code: 1 }),
-			step("git", ["rev-parse", "--verify", "refs/heads/master"], {
-				code: 128,
-				stderr: "fatal: Needed a single revision",
+				code: 1,
+				stderr: "fatal: ref refs/remotes/origin/HEAD is not a symbolic ref",
 			}),
 		]);
 		const git = new RealGitGateway(commands);
 
 		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({ type: "missing" });
+		commands.assertDone();
+	});
+
+	test.each([
+		{ name: "empty output", stdout: "", code: "trunk-branch-empty" },
+		{ name: "missing origin prefix", stdout: "main\n", code: "trunk-branch-malformed" },
+		{ name: "empty branch", stdout: "origin/\n", code: "trunk-branch-malformed" },
+		{
+			name: "multiple lines",
+			stdout: "origin/main\norigin/other\n",
+			code: "trunk-branch-malformed",
+		},
+	] as const)("rejects $name from cached origin HEAD", async ({ stdout, code }) => {
+		const args = ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"];
+		const displayCommand = formatCommand("git", args);
+		const commands = new ScriptedCommands([step("git", args, { stdout })]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.trunkBranch({ cwd: ROOT })).toMatchObject({
+			type: "error",
+			error: {
+				code,
+				displayCommand,
+				message: expect.stringContaining(`Command: ${displayCommand}`),
+			},
+		});
+		commands.assertDone();
+	});
+
+	test.each([
+		{
+			name: "non-missing exit",
+			result: { code: 128, stderr: "fatal: not a git repository" },
+		},
+		{
+			name: "cancellation",
+			result: {
+				type: "cancelled",
+				stdout: "",
+				stderr: "cancelled",
+				code: null,
+				signal: "SIGTERM",
+			},
+		},
+		{
+			name: "timeout",
+			result: {
+				type: "timed-out",
+				stdout: "",
+				stderr: "timed out",
+				code: null,
+				signal: "SIGTERM",
+			},
+		},
+		{
+			name: "spawn failure result",
+			result: {
+				type: "spawn-failed",
+				stdout: "",
+				stderr: "",
+				error: "spawn ENOENT",
+			},
+		},
+	] as const)("preserves command evidence for cached origin HEAD $name", async ({ result }) => {
+		const args = ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"];
+		const displayCommand = formatCommand("git", args);
+		const commands = new ScriptedCommands([step("git", args, result)]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.trunkBranch({ cwd: ROOT })).toMatchObject({
+			type: "error",
+			error: {
+				code: "trunk-branch-failed",
+				displayCommand,
+				message: expect.stringContaining(displayCommand),
+			},
+		});
+		commands.assertDone();
+	});
+
+	test("preserves startup failure evidence for cached origin HEAD", async () => {
+		const args = ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"];
+		const displayCommand = formatCommand("git", args);
+		const commands = new ScriptedCommands([errorStep("git", args, new Error("spawn ENOENT"))]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.trunkBranch({ cwd: ROOT })).toMatchObject({
+			type: "error",
+			error: {
+				code: "git_startup_failed",
+				displayCommand,
+				message: expect.stringContaining(displayCommand),
+			},
+		});
 		commands.assertDone();
 	});
 

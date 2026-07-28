@@ -38,6 +38,9 @@ export type KnownGitErrorCode =
 	| "previous_branch_failed"
 	| "repo_root_empty"
 	| "repo_root_failed"
+	| "trunk-branch-empty"
+	| "trunk-branch-failed"
+	| "trunk-branch-malformed"
 	| "work_tree_probe_failed";
 
 export type GitErrorCode = KnownGitErrorCode | (string & {});

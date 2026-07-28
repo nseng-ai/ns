@@ -63,7 +63,7 @@ const NS_FLOW_COMMANDS = [
 	flowCommand("land", "Land the current PR or Graphite stack into trunk."),
 	flowCommand(
 		"pull-trunk",
-		"Pull the configured Graphite trunk branch without running full gt sync.",
+		"Pull the Git trunk branch from its configured upstream without running full gt sync.",
 	),
 	flowCommand("squash-stack", SQUASH_STACK_COMMAND_SUMMARY),
 ] as const satisfies readonly FlowCommandInfo[];

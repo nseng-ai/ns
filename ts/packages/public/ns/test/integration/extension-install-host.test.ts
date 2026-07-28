@@ -363,4 +363,14 @@ async function initializeGitRepo(projectRoot: string): Promise<void> {
 	if (!commandSucceeded(committed)) {
 		throw new Error(`git commit failed: ${committed.stderr || committed.stdout}`);
 	}
+	const cachedRemoteHead = await runCommand(
+		"git",
+		["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"],
+		{ cwd: projectRoot },
+	);
+	if (!commandSucceeded(cachedRemoteHead)) {
+		throw new Error(
+			`git symbolic-ref for cached origin HEAD failed: ${cachedRemoteHead.stderr || cachedRemoteHead.stdout}`,
+		);
+	}
 }
