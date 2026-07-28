@@ -5,8 +5,8 @@
 // only the common headline + body/guidance/cwd layout grammar.
 
 import { type Caps } from "@nseng-ai/clinkr";
-import { resolveRenderCapabilities, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { glyph } from "./glyphs.ts";
+import { resolveThemeCaps, type ThemeRenderCapabilities } from "./render-capabilities.ts";
 import { bold, dim, paint, type Intent } from "./palette.ts";
 
 export type ResultBlockKind = "success" | "failure" | "refusal";
@@ -55,10 +55,10 @@ export function renderResultBlock(caps: Caps, input: ResultBlockInput): string {
 }
 
 export function renderDestructiveResultBlock(
-	renderCapabilities: RenderCapabilities,
+	renderCapabilities: ThemeRenderCapabilities,
 	input: DestructiveResultBlock,
 ): string {
-	return renderResultBlock(resolveRenderCapabilities(renderCapabilities), input);
+	return renderResultBlock(resolveThemeCaps(renderCapabilities), input);
 }
 
 export function renderResultBlockFromMessage(caps: Caps, input: ResultBlockMessageInput): string {

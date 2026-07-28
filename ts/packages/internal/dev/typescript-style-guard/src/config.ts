@@ -120,6 +120,18 @@ export interface DeferredTopologyCircleCycle {
 	readonly reason: string;
 }
 
-export const deferredTopologyCircleCycles: readonly DeferredTopologyCircleCycle[] = [];
+export const deferredTopologyCircleCycles: readonly DeferredTopologyCircleCycle[] = [
+	{
+		name: "clinkr-legacy-quarantine",
+		packageName: "@nseng-ai/clinkr",
+		circles: new Set([".", "legacy"]),
+		reason:
+			"Transitional legacy quarantine: blocked root owners (group/confirmation/testing) import " +
+			"qualified APIs through @nseng-ai/clinkr/legacy while legacy modules still depend on retained " +
+			"shared root primitives (ansi, caps, io, envelope-json-text). Dissolves when the blocked " +
+			"closure migrates to /app and /legacy is deleted; see " +
+			".ns/objectives/clinkr-readme-driven-development/references/legacy-api-deletion-inventory.md.",
+	},
+];
 
 export type ManifestDependencyField = (typeof manifestDependencyFields)[number];
