@@ -1,9 +1,10 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { afterEach, expect, test } from "vitest";
 
 import { createClinkrApp } from "@nseng-ai/clinkr/app";
+import { createFilesystemSource } from "../../src/app/filesystem-source.ts";
 
 // Loader-contract tests: each case writes a freshly generated (usually
 // malformed) module set and drives it through Node's real loader, so this
@@ -55,6 +56,75 @@ test("metadata() return values are validated exactly", async () => {
 	});
 	const app = createClinkrApp({ name: "fixture", commandDirectory });
 	await expect(app.run([])).rejects.toThrow("malformed command metadata");
+});
+
+test("filesystem scope opening validates exact group() modules without importing child commands", async () => {
+	const directory = await mkdtemp(path.join(import.meta.dirname, ".clinkr-group-contract-"));
+	temporaryDirectories.push(directory);
+	const child = path.join(directory, "nested");
+	await mkdir(child);
+	await Promise.all([
+		writeFile(
+			path.join(child, "group.ts"),
+			'export function group() { return { description: "Nested group." }; }\n',
+		),
+		writeFile(
+			path.join(child, "metadata.ts"),
+			'export function metadata() { return { description: "Nested default." }; }\n',
+		),
+		writeFile(path.join(child, "command.ts"), 'throw new Error("command imported eagerly");\n'),
+	]);
+	const source = createFilesystemSource({ commandDirectory: directory });
+	const opened = await source.open([]);
+	expect(opened.groups.get("nested")?.definition.description).toBe("Nested group.");
+});
+
+test("filesystem scope opening rejects malformed group modules with file diagnostics", async () => {
+	const directory = await mkdtemp(path.join(import.meta.dirname, ".clinkr-group-contract-"));
+	temporaryDirectories.push(directory);
+	const child = path.join(directory, "nested");
+	await mkdir(child);
+	await writeFile(
+		path.join(child, "group.ts"),
+		'export function group() { return { description: "Nested group." }; }\nexport const extra = true;\n',
+	);
+	const source = createFilesystemSource({ commandDirectory: directory });
+	await expect(source.open([])).rejects.toThrow(/malformed group module.*group\.ts/);
+});
+
+test("filesystem scope opening rejects incomplete command pairs with directory diagnostics", async () => {
+	const directory = await mkdtemp(path.join(import.meta.dirname, ".clinkr-pair-contract-"));
+	temporaryDirectories.push(directory);
+	const child = path.join(directory, "incomplete");
+	await mkdir(child);
+	await writeFile(
+		path.join(child, "metadata.ts"),
+		'export function metadata() { return { description: "Incomplete." }; }\n',
+	);
+	const source = createFilesystemSource({ commandDirectory: directory });
+	await expect(source.open([])).rejects.toThrow(/incomplete command pair.*incomplete/);
+});
+
+test.each(["command.js", "metadata.json", "group.mts", "command.ts.bak"])(
+	"filesystem scope opening rejects unsupported topology marker %s",
+	async (file) => {
+		const directory = await mkdtemp(path.join(import.meta.dirname, ".clinkr-shape-contract-"));
+		temporaryDirectories.push(directory);
+		await writeFile(path.join(directory, file), "export {};\n");
+		const source = createFilesystemSource({ commandDirectory: directory });
+		await expect(source.open([])).rejects.toThrow(new RegExp(`unsupported topology file ${file}`));
+	},
+);
+
+test("filesystem scope opening ignores ordinary implementation and support files", async () => {
+	const directory = await mkdtemp(path.join(import.meta.dirname, ".clinkr-shape-contract-"));
+	temporaryDirectories.push(directory);
+	await Promise.all([
+		writeFile(path.join(directory, "helpers.ts"), "export const value = 1;\n"),
+		writeFile(path.join(directory, "README.md"), "support notes\n"),
+	]);
+	const source = createFilesystemSource({ commandDirectory: directory });
+	await expect(source.open([])).resolves.toEqual({ commands: new Map(), groups: new Map() });
 });
 
 test("command modules require the exact command() export", async () => {
