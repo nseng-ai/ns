@@ -134,14 +134,14 @@ test("shared filesystem group paths are rejected with both owners", async () => 
 	}
 });
 
-test("missing directories yield empty scopes uniformly across standalone sources", async () => {
+test("a missing command directory fails while missing child routes yield empty scopes", async () => {
 	const existingDirectory = await mkdtemp(path.join(tmpdir(), "clinkr-auth-"));
 	try {
 		const missingRoot = path.join(existingDirectory, "never-created");
 		const emptyScope = { commands: new Map(), groups: new Map() };
 		await expect(
 			createFilesystemSource({ commandDirectory: missingRoot }).open([]),
-		).resolves.toEqual(emptyScope);
+		).rejects.toThrow(`clinkr: command directory does not exist: ${missingRoot}`);
 		await expect(
 			createFilesystemSource({ commandDirectory: existingDirectory }).open(["absent"]),
 		).resolves.toEqual(emptyScope);

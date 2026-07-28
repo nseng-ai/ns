@@ -45,11 +45,18 @@ async function openFilesystemScope<TContext>(
 	try {
 		entries = await readdir(directory, { withFileTypes: true });
 	} catch (error) {
-		// A missing directory means the filesystem contributes nothing at this
-		// route. Topology integrity (e.g. a mistyped commandDirectory) is a
-		// consumer test-suite concern, not a runtime check. Present-but-broken
-		// trees (ENOTDIR, permissions, malformed topology) remain fatal below.
+		// A missing root directory is a misconfigured commandDirectory and fails
+		// with the offending path. Below the root, a missing directory means the
+		// filesystem contributes nothing at that route (child scopes are only
+		// opened for directories the parent already saw, so this is defensive).
+		// Present-but-broken trees (ENOTDIR, permissions, malformed topology)
+		// remain fatal below.
 		if (isMissingEntryError(error)) {
+			if (routePath.length === 0) {
+				throw new Error(`clinkr: command directory does not exist: ${directory}`, {
+					cause: error,
+				});
+			}
 			return { commands: new Map(), groups: new Map() };
 		}
 		throw new Error(
