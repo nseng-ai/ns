@@ -45,6 +45,7 @@ After this baseline, accepted ADRs are immutable time-in-place records. Do not r
 | 0047 | [Propagate Objective Closure Through Connected Records](0047-propagate-objective-closure-through-edges.md)             |
 | 0048 | [Required Skill-Backed Workflows Fail Closed](0048-required-skill-backed-workflows-fail-closed.md)                     |
 | 0049 | [Rename Foundation to ns-foundation](0049-rename-foundation-to-ns-foundation.md)                                       |
+| 0050 | [Classify ns-foundation in the SDK Tier](0050-classify-ns-foundation-in-sdk-tier.md)                                   |
 
 ## Proposed
 

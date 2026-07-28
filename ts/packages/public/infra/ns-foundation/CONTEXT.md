@@ -2,7 +2,7 @@
 
 `@nseng-ai/ns-foundation` is the container package for cohesive infrastructure and conventions shared across the ns product family below workflow-specific behavior. It exposes precise public subpath doors rather than one façade. Clinkr is the lower, generally applicable CLI layer, and ns-foundation may depend on it.
 
-The package temporarily declares `ns.tier: "neutral-infra"`, but that tier's ns-independent meaning does not describe ns-foundation's role. ADR 0049 records the mismatch as deferred taxonomy and classification work; it is not an admission rule for this package.
+The package currently declares `ns.tier: "sdk"`: that existing tier is the closest fit for shared ns-family substrate above Neutral Infra, even though ns-foundation remains distinct from the author-facing `@nseng-ai/sdk` package. ADR 0050 records this provisional classification.
 
 ## Language
 

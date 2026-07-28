@@ -718,7 +718,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		["@nseng-ai/vibechk", "standalone-tool"],
 		["@nseng-ai/slots", "extension"],
 		["@nseng-ai/extension-kit", "extension-kit"],
-		["@nseng-ai/ns-foundation", "neutral-infra"],
+		["@nseng-ai/ns-foundation", "sdk"],
 		["@nseng-ai/handoffs", "extension"],
 		["@nseng-ai/pi-runtime", "host"],
 		["@nseng-ai/ns", "host"],
@@ -1270,14 +1270,14 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 			id: "@nseng-ai/ns-foundation",
 			packageName: "@nseng-ai/ns-foundation",
 			component: ".",
-			tier: "neutral-infra",
+			tier: "sdk",
 			path: "synthetic/core/src",
 		},
 		{
 			id: "@nseng-ai/ns-foundation/time",
 			packageName: "@nseng-ai/ns-foundation",
 			component: "time",
-			tier: "neutral-infra",
+			tier: "sdk",
 			path: "synthetic/core/src/time",
 		},
 		{
@@ -1319,9 +1319,7 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 		});
 
 		expect(violations.map((violation) => violation.rule)).toEqual([BAN_TOPOLOGY_CIRCLE_LAYERING]);
-		expect(violations[0]?.text).toContain(
-			"@nseng-ai/ns-foundation/time (neutral-infra) -> @nseng-ai/slots",
-		);
+		expect(violations[0]?.text).toContain("@nseng-ai/ns-foundation/time (sdk) -> @nseng-ai/slots");
 	});
 
 	test("discovers every declared subpackage circle at the package tier", () => {

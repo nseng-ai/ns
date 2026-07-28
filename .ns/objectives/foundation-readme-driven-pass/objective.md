@@ -27,7 +27,7 @@ The identity and architecture correction from Foundation to ns-foundation is an 
 ## Non-Goals
 
 - Redistributing ns-foundation modules or redesigning its exports as part of the identity cutover.
-- Designing a replacement package tier or repairing the tier taxonomy in this slice; ns-foundation temporarily retains `ns.tier: "neutral-infra"` as explicit debt.
+- Designing a replacement package tier in this slice; ns-foundation uses the existing `sdk` tier as its provisional classification.
 - Moving these packages into or out of incubation.
 - Incubating-package work.
 - Unrelated feature work or redesign. Contract-supporting refactoring requires prior user discussion and approval.
@@ -54,10 +54,10 @@ Risks:
 - **Gate drift.** Record process amendments once in this umbrella and apply them forward rather than allowing each child to invent a different gate.
 - **Existing-doc false confidence.** Brmem and SDK already have READMEs, but no package child or draft exists; do not mark work complete from file presence alone.
 - **Hidden dependency drift.** Recheck manifests as each child starts so the public-infrastructure dependency assumption does not become stale.
-- **Tier mismatch.** ns-foundation's temporary `neutral-infra` declaration is mechanically valid but conceptually stale; do not treat the rename as taxonomy repair or broaden Neutral Infra to hide the debt.
+- **Tier-name ambiguity.** ns-foundation and the author-facing `@nseng-ai/sdk` package now share the `sdk` tier while retaining distinct roles; do not collapse package identity or API ownership into tier membership. Brmem's lower-tier dependency is explicit debt until its planned package pass revisits classification.
 
 ## Open Questions
 
 - What process amendments, if any, does the Clinkr dry run establish for later package children?
 - After ns-foundation, should Brmem and SDK remain deliberately serial for learning transfer, or may their package children proceed in parallel?
-- Which tier taxonomy and classification should eventually replace ns-foundation's temporary `neutral-infra` declaration?
+- Does the provisional `sdk` classification remain sufficient after the README-driven package pass, or does later evidence justify a distinct tier?

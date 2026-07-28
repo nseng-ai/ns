@@ -105,6 +105,12 @@ function downwardTierTargets(tier: PackageTierId): readonly PackageTierId[] {
 
 export const packageTierDebtEdgeDefinitions = [
 	{
+		from: "@nseng-ai/brmem",
+		to: "@nseng-ai/ns-foundation",
+		reason:
+			"Brmem remains neutral-infra while ns-foundation is provisionally classified as sdk; revisit Brmem's classification during its README-driven package pass.",
+	},
+	{
 		from: "@nseng-ai/sdk",
 		to: "@nseng-ai/extension-kit",
 		reason:

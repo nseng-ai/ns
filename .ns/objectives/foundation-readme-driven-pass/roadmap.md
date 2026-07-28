@@ -3,7 +3,7 @@
 ## Work
 
 - [x] Spawn the Clinkr Readme-Driven-Development Subobjective as the gate dry run. `clinkr-readme-driven-development` owns the contract draft, audit, reconciliation, promotion, and gate-calibration work.
-- [x] Hard-cut Foundation to `@nseng-ai/ns-foundation` as the immediate prerequisite slice. The package path/name, workspace consumers, lockfile, release/tool fixtures, current guidance, and superseding ADR now use the ns-foundation identity; exports, version, behavior, and the Clinkr dependency remain unchanged, with tier-taxonomy repair deferred explicitly.
+- [x] Hard-cut Foundation to `@nseng-ai/ns-foundation` as the immediate prerequisite slice. The package path/name, workspace consumers, lockfile, release/tool fixtures, current guidance, and superseding ADR now use the ns-foundation identity; exports, version, behavior, and the Clinkr dependency remain unchanged. Follow-up ADR 0050 provisionally classifies ns-foundation in the existing `sdk` tier.
 - [ ] Receive and synthesize the Clinkr dry run's lessons and process amendments here before starting the ns-foundation README package pass.
 - [ ] Run the ns-foundation package Subobjective after Clinkr synthesis. ns-foundation depends on Clinkr and still has no package README or draft.
 - [ ] Run the Brmem package Subobjective after ns-foundation. Brmem already has a README, but file presence is not completion evidence for this process.
@@ -14,5 +14,5 @@
 ## Parked
 
 - ns-foundation module redistribution or export redesign; split focused ownership work from the identity cutover and discuss it before implementation.
-- Package-tier taxonomy repair and ns-foundation reclassification; ADR 0049 records the temporary `neutral-infra` mismatch.
+- A distinct package-tier taxonomy for ns-foundation; ADR 0050 uses the existing `sdk` tier for now, pending contrary evidence from later package work.
 - ns-foundation refactoring proposals that exceed later README contract reconciliation; split them into separate records after discussion with the user.

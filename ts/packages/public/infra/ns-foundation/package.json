@@ -51,7 +51,7 @@
 		"zod": "catalog:"
 	},
 	"ns": {
-		"tier": "neutral-infra",
+		"tier": "sdk",
 		"subpackages": [
 			"time",
 			"exec",
