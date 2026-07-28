@@ -111,7 +111,7 @@ function createProgrammaticSource<TContext>(
 	const lifetime = { active: true };
 	scopes.set(canonicalPath([]), root);
 	try {
-		configure(createScopeBuilder([], root, scopes, label, lifetime));
+		configure(createScopeBuilder({ path: [], declared: root, scopes, label, lifetime }));
 	} finally {
 		lifetime.active = false;
 	}
@@ -135,13 +135,18 @@ function createDeclaredScope<TContext>(): DeclaredScope<TContext> {
 	return { commands: new Map(), groups: new Map() };
 }
 
+interface CreateScopeBuilderOptions<TContext> {
+	readonly path: readonly string[];
+	readonly declared: DeclaredScope<TContext>;
+	readonly scopes: Map<string, DeclaredScope<TContext>>;
+	readonly label: string;
+	readonly lifetime: { active: boolean };
+}
+
 function createScopeBuilder<TContext>(
-	path: readonly string[],
-	declared: DeclaredScope<TContext>,
-	scopes: Map<string, DeclaredScope<TContext>>,
-	label: string,
-	lifetime: { active: boolean },
+	options: CreateScopeBuilderOptions<TContext>,
 ): ClinkrScope<TContext> {
+	const { path, declared, scopes, label, lifetime } = options;
 	function requireActive(): void {
 		if (!lifetime.active)
 			throw new Error("clinkr: scope builder cannot be used after construction");
@@ -164,7 +169,7 @@ function createScopeBuilder<TContext>(
 			declared.groups.set(name, snapshotGroupDefinition(definition));
 			const child = createDeclaredScope<TContext>();
 			scopes.set(canonicalPath(groupPath), child);
-			configure(createScopeBuilder(groupPath, child, scopes, label, lifetime));
+			configure(createScopeBuilder({ path: groupPath, declared: child, scopes, label, lifetime }));
 		},
 		defaultCommand: (metadata, loadDefinition) => {
 			requireActive();
