@@ -5,6 +5,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
+		"./app": "./src/app/index.ts",
 		"./completion": "./src/completion.ts",
 		"./raw": "./src/raw/index.ts",
 		"./stream": "./src/stream/index.ts",
@@ -21,11 +22,17 @@
 	},
 	"dependencies": {
 		"commander": "catalog:",
-		"log-update": "catalog:",
-		"zod": "catalog:"
+		"log-update": "catalog:"
 	},
 	"devDependencies": {
-		"@xterm/headless": "catalog:"
+		"@xterm/headless": "catalog:",
+		"zod": "catalog:"
+	},
+	"peerDependencies": {
+		"zod": "catalog:"
+	},
+	"engines": {
+		"node": ">=24.12.0"
 	},
 	"ns": {
 		"tier": "neutral-infra"
