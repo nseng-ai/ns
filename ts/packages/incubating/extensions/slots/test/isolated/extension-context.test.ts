@@ -1,4 +1,5 @@
-import { type Caps, type RenderCapabilities } from "@nseng-ai/clinkr";
+import { type Caps } from "@nseng-ai/clinkr";
+import { type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { NsCommand, NsCommandSchema, NsExtensionApi } from "@nseng-ai/sdk";

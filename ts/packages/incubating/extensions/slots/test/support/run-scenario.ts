@@ -1,9 +1,5 @@
-import {
-	isClinkrHumanOutputInvocation,
-	resolveClinkrInteraction,
-	type ConfirmationResult,
-	type RenderCapabilities,
-} from "@nseng-ai/clinkr";
+import { resolveClinkrInteraction, type ConfirmationResult } from "@nseng-ai/clinkr";
+import { isClinkrHumanOutputInvocation, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@nseng-ai/clinkr/testing";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";

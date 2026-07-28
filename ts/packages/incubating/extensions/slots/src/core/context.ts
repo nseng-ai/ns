@@ -2,12 +2,11 @@ import { requireXdgPath, resolveNsXdgPath } from "@nseng-ai/extension-kit/xdg";
 
 import {
 	resolveClinkrInteraction,
-	resolveRenderCapabilities,
 	type Caps,
 	type ClinkrInteraction,
 	type ConfirmationPromptFormatter,
-	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
+import { resolveRenderCapabilities, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { paint } from "@nseng-ai/foundation/cli-theme";
 import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
 import type { Clock } from "@nseng-ai/foundation/clock";

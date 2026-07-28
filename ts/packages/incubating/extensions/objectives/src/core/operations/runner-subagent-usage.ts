@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 
-import { ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import {
 	addRuntimeRunnerSubagentUsageCostTotals,
 	addRuntimeRunnerSubagentUsageTotals,

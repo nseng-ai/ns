@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import type { GithubPrFeedbackFailure } from "./api.ts";
 import type { Result } from "@nseng-ai/foundation/result";

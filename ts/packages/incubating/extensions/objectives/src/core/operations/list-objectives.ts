@@ -1,12 +1,11 @@
+import { resolveSettledNonInteractiveCaps, type Caps } from "@nseng-ai/clinkr";
 import {
 	failure,
 	ok,
 	resolveRenderCapabilities,
-	resolveSettledNonInteractiveCaps,
-	type Caps,
 	type ClinkrExit,
 	type RenderCapabilities,
-} from "@nseng-ai/clinkr";
+} from "@nseng-ai/clinkr/legacy";
 import { z } from "zod";
 
 import type { GitGateway } from "@nseng-ai/foundation/git";

@@ -1,4 +1,4 @@
-import { negative, ok } from "@nseng-ai/clinkr";
+import { negative, ok } from "@nseng-ai/clinkr/legacy";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 

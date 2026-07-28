@@ -1,7 +1,7 @@
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 

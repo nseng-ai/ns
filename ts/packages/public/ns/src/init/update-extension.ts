@@ -1,5 +1,5 @@
-import type { ClinkrExit } from "@nseng-ai/clinkr";
-import { failure, ok } from "@nseng-ai/clinkr";
+import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
+import { failure, ok } from "@nseng-ai/clinkr/legacy";
 import { ALL_HARNESS_IDS } from "../harness-artifacts/api.ts";
 import type { ExtensionAcquisitionDiagnostic } from "@nseng-ai/sdk/extensions/acquisition";
 import { planDeclaredExtensionTarget } from "@nseng-ai/sdk/project-config";

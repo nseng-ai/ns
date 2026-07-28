@@ -6,7 +6,7 @@
  */
 import { resolve } from "node:path";
 
-import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 

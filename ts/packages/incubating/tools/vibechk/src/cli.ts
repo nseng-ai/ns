@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
+import { ClinkrGroup } from "@nseng-ai/clinkr";
 import {
-	ClinkrGroup,
 	failure,
 	negative,
 	ok,
@@ -11,7 +11,7 @@ import {
 	type ClinkrNegativeExit,
 	type ClinkrUsageErrorExit,
 	type RenderCapabilities,
-} from "@nseng-ai/clinkr";
+} from "@nseng-ai/clinkr/legacy";
 import { rawCommand } from "@nseng-ai/clinkr/raw";
 import { defineCli, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
 import { z } from "zod";

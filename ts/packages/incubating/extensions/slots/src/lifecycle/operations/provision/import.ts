@@ -4,7 +4,7 @@ import {
 	ok,
 	resolveRenderCapabilities,
 	type RenderCapabilities,
-} from "@nseng-ai/clinkr";
+} from "@nseng-ai/clinkr/legacy";
 import { cell, renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { z } from "zod";
 

@@ -1,4 +1,4 @@
-import { usageError, type ClinkrExit, type RenderCapabilities } from "@nseng-ai/clinkr";
+import { usageError, type ClinkrExit, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { z } from "zod";
 
 import { objectiveNsCommand } from "../command.ts";

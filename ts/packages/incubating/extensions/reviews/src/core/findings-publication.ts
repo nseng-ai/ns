@@ -3,7 +3,7 @@ import {
 	buildSuccessMachineEnvelopeSchema,
 	machineEnvelopeSchema,
 	negativeMachineEnvelopeSchema,
-} from "@nseng-ai/clinkr";
+} from "@nseng-ai/clinkr/legacy";
 import { parseJsonInputText } from "@nseng-ai/extension-kit/json-input";
 import { formatZodError } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";

@@ -1,4 +1,9 @@
-import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from "@nseng-ai/clinkr";
+import {
+	failure,
+	ok,
+	resolveRenderCapabilities,
+	type RenderCapabilities,
+} from "@nseng-ai/clinkr/legacy";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { z } from "zod";
 

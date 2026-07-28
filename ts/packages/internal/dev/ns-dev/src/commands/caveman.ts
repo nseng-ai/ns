@@ -1,6 +1,7 @@
 import { dirname, join } from "node:path";
 
-import { failure, ok, resolveCaps, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { resolveCaps } from "@nseng-ai/clinkr";
+import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import {
 	formatRawTextModelFailure,
 	generateRawTextWithModel,

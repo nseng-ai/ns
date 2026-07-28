@@ -1,6 +1,6 @@
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 
-import { failure, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import {
 	commandSucceeded,
 	formatCommand,

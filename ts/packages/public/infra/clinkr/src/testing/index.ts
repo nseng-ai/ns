@@ -5,7 +5,7 @@ import type {
 	ConfirmationRequest,
 	ConfirmationResult,
 } from "../confirmation.ts";
-import { machineEnvelopeSchema, type MachineEnvelope } from "../exit.ts";
+import { machineEnvelopeSchema, type MachineEnvelope } from "@nseng-ai/clinkr/legacy";
 import type { ClinkrGroup } from "../group.ts";
 import type { ClinkrIo } from "../io.ts";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
@@ -139,7 +139,7 @@ export async function runForTest<TContext>(
 	return { exitCode, stdout: capture.stdout(), stderr: capture.stderr() };
 }
 
-export { machineEnvelopeSchema } from "../exit.ts";
+export { machineEnvelopeSchema } from "@nseng-ai/clinkr/legacy";
 export {
 	fileForReport,
 	literalSpecifierUsesOf,

@@ -1,4 +1,4 @@
-import type { RenderCapabilities } from "@nseng-ai/clinkr";
+import type { RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { renderDestructiveResultBlock, type ResultBlockKind } from "@nseng-ai/foundation/cli-theme";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 

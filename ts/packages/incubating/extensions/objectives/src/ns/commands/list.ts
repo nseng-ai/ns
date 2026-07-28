@@ -1,4 +1,4 @@
-import { resolveRenderCapabilities } from "@nseng-ai/clinkr";
+import { resolveRenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { objectiveNsCommand } from "../command.ts";
 import {
 	listObjectivesRequestSchema,

@@ -1,4 +1,4 @@
-import { failure, type ClinkrFailureExit } from "@nseng-ai/clinkr";
+import { failure, type ClinkrFailureExit } from "@nseng-ai/clinkr/legacy";
 
 import type { RepoSlotContext, SlotCliContext } from "../../../core/context.ts";
 

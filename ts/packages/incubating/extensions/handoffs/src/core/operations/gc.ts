@@ -1,5 +1,5 @@
 import { renderDestructiveResultBlock } from "@nseng-ai/foundation/cli-theme";
-import { failure, ok, type RenderCapabilities } from "@nseng-ai/clinkr";
+import { failure, ok, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";

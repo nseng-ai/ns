@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { failure, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { parseNsTomlHarnesses } from "../harness-artifacts/api.ts";
 import {
 	classifyExtensionSourceLifecycle,

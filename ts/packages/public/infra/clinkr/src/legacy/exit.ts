@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export { envelopeJsonText } from "../envelope-json-text.ts";
+
 export interface ClinkrOkRenderOverrides {
 	readonly human?: string;
 	readonly markdown?: string;
@@ -231,8 +233,4 @@ export function usageErrorMachineEnvelope(
 		message,
 		...(data === undefined ? {} : { data }),
 	};
-}
-
-export function envelopeJsonText(value: unknown): string {
-	return JSON.stringify(value, null, 2) ?? String(value);
 }

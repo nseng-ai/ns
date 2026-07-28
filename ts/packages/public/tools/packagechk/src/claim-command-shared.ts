@@ -2,15 +2,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-	confirmInteractiveOrUsageError,
-	failure,
-	negative,
-	ok,
-	usageError,
-	type ClinkrExit,
-	type ClinkrInteraction,
-} from "@nseng-ai/clinkr";
+import { confirmInteractiveOrUsageError, type ClinkrInteraction } from "@nseng-ai/clinkr";
+import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 
 import { writeClaimFiles } from "./claim.ts";
 import type { PackagechkIo } from "./io.ts";

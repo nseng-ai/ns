@@ -14,7 +14,7 @@ import {
 	toMachineEnvelope,
 	usageError,
 	type ClinkrExit,
-} from "../src/exit.ts";
+} from "@nseng-ai/clinkr/legacy";
 
 describe("usageError", () => {
 	test("builds a handler-reachable usage error exit", () => {

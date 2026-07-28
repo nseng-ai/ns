@@ -1,5 +1,5 @@
-import type { ClinkrExit } from "@nseng-ai/clinkr";
-import { failure, ok, usageError } from "@nseng-ai/clinkr";
+import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
+import { failure, ok, usageError } from "@nseng-ai/clinkr/legacy";
 import {
 	ALL_HARNESS_IDS,
 	normalizeHarnessSelection,

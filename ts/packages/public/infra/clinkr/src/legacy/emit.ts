@@ -6,9 +6,9 @@ import {
 	type ClinkrNegativeExit,
 	type ClinkrOkExit,
 } from "./exit.ts";
-import { stripAnsi } from "./ansi.ts";
-import { resolveSettledNonInteractiveCaps, type Caps } from "./caps.ts";
-import type { ClinkrIo } from "./io.ts";
+import { stripAnsi } from "../ansi.ts";
+import { resolveSettledNonInteractiveCaps, type Caps } from "../caps.ts";
+import type { ClinkrIo } from "../io.ts";
 
 export type ClinkrFormat = "human" | "json" | "markdown";
 

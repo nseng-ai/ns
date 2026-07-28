@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import { z } from "zod";
 

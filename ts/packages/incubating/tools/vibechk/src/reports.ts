@@ -1,4 +1,4 @@
-import type { RenderCapabilities } from "@nseng-ai/clinkr";
+import type { RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { renderTextTable, type TextTableColumn } from "@nseng-ai/foundation/text-table";
 
 import type { ArtifactOutputBounds, LoadedBundle } from "./models.ts";

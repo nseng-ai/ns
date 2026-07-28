@@ -14,7 +14,8 @@
 //
 // Flow resolves streaming `Caps` from its command host context's explicit render capabilities.
 
-import { resolveRenderCapabilities, type Caps } from "@nseng-ai/clinkr";
+import { type Caps } from "@nseng-ai/clinkr";
+import { resolveRenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import {
 	createStdoutStreamWriter,
 	createStreamSink,

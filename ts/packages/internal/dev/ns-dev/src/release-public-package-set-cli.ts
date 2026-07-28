@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 
-import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import type { CommandRunner } from "@nseng-ai/foundation/exec";
 import { z } from "zod";
 

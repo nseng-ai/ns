@@ -1,4 +1,4 @@
-import { failure, negative, ok } from "@nseng-ai/clinkr";
+import { failure, negative, ok } from "@nseng-ai/clinkr/legacy";
 import type { GraphiteTopology } from "@nseng-ai/extension-kit/graphite/metadata";
 import { z } from "zod";
 
