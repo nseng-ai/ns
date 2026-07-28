@@ -57,6 +57,26 @@ class FakeSessionContinuation implements HerdrSessionContinuationGateway {
 		destinationCwd: string;
 		continuationMessage: string;
 	}> = [];
+	private readonly preflightResult: ReturnType<HerdrSessionContinuationGateway["preflightSource"]>;
+	private readonly buildContext: HerdrSessionContinuationGateway["buildContextText"];
+
+	constructor(
+		options: {
+			preflightResult?: ReturnType<HerdrSessionContinuationGateway["preflightSource"]>;
+			buildContext?: HerdrSessionContinuationGateway["buildContextText"];
+		} = {},
+	) {
+		this.preflightResult = options.preflightResult ?? { ok: true };
+		this.buildContext = options.buildContext ?? (() => ({ ok: true, text: "active context" }));
+	}
+
+	preflightSource() {
+		return this.preflightResult;
+	}
+
+	buildContextText(request: Parameters<HerdrSessionContinuationGateway["buildContextText"]>[0]) {
+		return this.buildContext(request);
+	}
 
 	async cloneActiveSessionForImplementation(request: (typeof this.calls)[number]) {
 		this.calls.push({ ...request });
@@ -88,8 +108,6 @@ function baseOptions() {
 	return {
 		args: FOCUS,
 		notifyProgress: () => {},
-		preflightActiveSessionSource: () => ({ ok: true as const }),
-		buildActiveContextText: () => ({ ok: true as const, text: "active context" }),
 		deriveFocus: async () => ({ ok: true as const, focus: "derived focus" }),
 		slotClient: slotClient(),
 	};
@@ -150,13 +168,19 @@ describe("Herdr active-session implementation", () => {
 		async (_case, message) => {
 			const pi = new FakePi();
 			const herdr = new FakeHerdrGateway();
-			const sessionContinuation = new FakeSessionContinuation();
+			let builtContext = false;
+			const sessionContinuation = new FakeSessionContinuation({
+				preflightResult: { ok: false, message },
+				buildContext: () => {
+					builtContext = true;
+					return { ok: true, text: "unused" };
+				},
+			});
 			const ctx = new FakeCommandContext({
 				sessionFile: "/sessions/source.jsonl",
 				leafId: "leaf",
 				branchEntries: [{ type: "message", id: "leaf" }],
 			});
-			let builtContext = false;
 			let derived = false;
 			let checkedOut = false;
 
@@ -171,11 +195,6 @@ describe("Herdr active-session implementation", () => {
 				},
 				{
 					...baseOptions(),
-					preflightActiveSessionSource: () => ({ ok: false, message }),
-					buildActiveContextText: () => {
-						builtContext = true;
-						return { ok: true, text: "unused" };
-					},
 					deriveFocus: async () => {
 						derived = true;
 						return { ok: true, focus: "unused" };
@@ -208,7 +227,13 @@ describe("Herdr active-session implementation", () => {
 	test("uses trimmed explicit focus without invoking focus derivation", async () => {
 		const pi = successfulPi();
 		const herdr = new FakeHerdrGateway();
-		const sessionContinuation = new FakeSessionContinuation();
+		let builtContext = false;
+		const sessionContinuation = new FakeSessionContinuation({
+			buildContext: () => {
+				builtContext = true;
+				return { ok: true, text: "unused" };
+			},
+		});
 		const ctx = new FakeCommandContext({
 			cwd: ROOT,
 			sessionFile: "/sessions/source.jsonl",
@@ -217,7 +242,6 @@ describe("Herdr active-session implementation", () => {
 			model: { provider: "openai-codex", id: "gpt-5.6-luna" },
 		});
 		let derived = false;
-		let builtContext = false;
 
 		await handleHerdrImplSession(
 			{
@@ -235,10 +259,6 @@ describe("Herdr active-session implementation", () => {
 			{
 				...baseOptions(),
 				args: `  ${FOCUS}  `,
-				buildActiveContextText: () => {
-					builtContext = true;
-					return { ok: true, text: "unused" };
-				},
 				deriveFocus: async () => {
 					derived = true;
 					return { ok: true, focus: "wrong" };
@@ -275,6 +295,8 @@ describe("Herdr active-session implementation", () => {
 			branchEntries: [{ type: "message", id: "leaf" }],
 		});
 		const continuation: HerdrSessionContinuationGateway = {
+			preflightSource: () => ({ ok: true }),
+			buildContextText: () => ({ ok: true, text: "active context" }),
 			async cloneActiveSessionForImplementation() {
 				return {
 					ok: false,
@@ -321,6 +343,12 @@ describe("Herdr active-session implementation", () => {
 			shouldCancelSelect: true,
 		});
 		const events: string[] = [];
+		const sessionContinuation = new FakeSessionContinuation({
+			buildContext: () => {
+				events.push("context");
+				return { ok: true, text: "compacted active context" };
+			},
+		});
 		await handleHerdrImplSession(
 			{
 				commands: createHerdrPiCommandApi(new FakePi()),
@@ -328,15 +356,11 @@ describe("Herdr active-session implementation", () => {
 				trunkBranch: "master",
 				git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
 				herdr: new FakeHerdrGateway(),
-				sessionContinuation: new FakeSessionContinuation(),
+				sessionContinuation,
 			},
 			{
 				...baseOptions(),
 				args: "   ",
-				buildActiveContextText: () => {
-					events.push("context");
-					return { ok: true, text: "compacted active context" };
-				},
 				deriveFocus: async ({ activeContextText }) => {
 					events.push(`derive:${activeContextText}`);
 					return { ok: true, focus: FOCUS };
@@ -369,7 +393,9 @@ describe("Herdr active-session implementation", () => {
 	] as const)("stops before selection or mutation on %s", async (_case, fixture) => {
 		const pi = new FakePi();
 		const herdr = new FakeHerdrGateway();
-		const continuation = new FakeSessionContinuation();
+		const continuation = new FakeSessionContinuation({
+			buildContext: () => fixture.context,
+		});
 		const ctx = new FakeCommandContext({
 			sessionFile: "/sessions/source.jsonl",
 			leafId: "leaf",
@@ -388,7 +414,6 @@ describe("Herdr active-session implementation", () => {
 			{
 				...baseOptions(),
 				args: "",
-				buildActiveContextText: () => fixture.context,
 				deriveFocus: async () =>
 					"derive" in fixture ? fixture.derive : { ok: true as const, focus: "should not be used" },
 			},

@@ -1,15 +1,11 @@
-import {
-	createTrackedBranchForPrompt,
-	createTrackedBranchFromLocalTrunkForPrompt,
-	type TrackedBranchEvidence,
-} from "@nseng-ai/extension-kit/tracked-branch-payload";
+import { IMPL_COMPLETION_INSTRUCTIONS_LINES } from "@nseng-ai/extension-kit/tracked-branch-payload";
 import { buildPiSessionLaunchCommand, getPiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
 import type { HerdrGateway } from "./herdr-gateway.ts";
-import { resolveImplBranchBasis } from "./impl-branch-basis.ts";
+import { createTrackedBranchForBasis, resolveImplBranchBasis } from "./impl-branch-basis.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { launchPreparedBranch } from "./prepared-launch.ts";
 import { createHerdrSlotClient } from "./slot-checkout.ts";
@@ -30,6 +26,16 @@ export type SessionContinuationResult =
 	  };
 
 export interface HerdrSessionContinuationGateway {
+	preflightSource(request: {
+		readonly sourceSessionFile: string;
+		readonly sourceLeafId: string;
+	}): { readonly ok: true } | { readonly ok: false; readonly message: string };
+	buildContextText(request: {
+		readonly sourceSessionFile: string;
+		readonly sourceLeafId: string;
+	}):
+		| { readonly ok: true; readonly text: string }
+		| { readonly ok: false; readonly message: string };
 	cloneActiveSessionForImplementation(request: {
 		readonly sourceSessionFile: string;
 		readonly sourceLeafId: string;
@@ -52,16 +58,6 @@ export interface HerdrImplSessionContext {
 
 export interface HandleHerdrImplSessionOptions {
 	readonly args: string;
-	readonly preflightActiveSessionSource: (request: {
-		readonly sourceSessionFile: string;
-		readonly sourceLeafId: string;
-	}) => { readonly ok: true } | { readonly ok: false; readonly message: string };
-	readonly buildActiveContextText: (request: {
-		readonly sourceSessionFile: string;
-		readonly sourceLeafId: string;
-	}) =>
-		| { readonly ok: true; readonly text: string }
-		| { readonly ok: false; readonly message: string };
 	readonly deriveFocus: (request: {
 		readonly cwd: string;
 		readonly activeContextText: string;
@@ -86,9 +82,8 @@ export async function handleHerdrImplSession(
 		);
 		return;
 	}
-	const activeBranch = context.pi.sessionManager.getBranch();
-	const sourceLeafId = resolveSourceLeafId(context.pi, activeBranch);
-	if (activeBranch.length === 0 || sourceLeafId === undefined) {
+	const sourceLeafId = context.pi.sessionManager.getLeafId();
+	if (sourceLeafId === null || sourceLeafId.trim().length === 0) {
 		context.pi.ui.notify(
 			"Session implementation requires a non-empty active conversation path with an authoritative leaf id. No mutation was performed.",
 			"error",
@@ -96,7 +91,7 @@ export async function handleHerdrImplSession(
 		return;
 	}
 
-	const sourcePreflight = options.preflightActiveSessionSource({
+	const sourcePreflight = context.sessionContinuation.preflightSource({
 		sourceSessionFile,
 		sourceLeafId,
 	});
@@ -111,7 +106,10 @@ export async function handleHerdrImplSession(
 	const suppliedFocus = options.args.trim();
 	let focus = suppliedFocus;
 	if (focus.length === 0) {
-		const contextText = options.buildActiveContextText({ sourceSessionFile, sourceLeafId });
+		const contextText = context.sessionContinuation.buildContextText({
+			sourceSessionFile,
+			sourceLeafId,
+		});
 		if (!contextText.ok || contextText.text.trim().length === 0) {
 			context.pi.ui.notify(
 				contextText.ok
@@ -151,10 +149,15 @@ export async function handleHerdrImplSession(
 		return;
 	}
 
-	const branch =
-		selection.basis === "current"
-			? await createCurrentSessionBranch(context, options, focus, selection.currentBranch)
-			: await createTrunkSessionBranch(context, options, focus);
+	const branch = await createTrackedBranchForBasis(
+		{ pi: context.commands, trunkBranch: context.trunkBranch, git: context.git },
+		{
+			cwd: context.pi.cwd,
+			prompt: focus,
+			selection,
+			notifyProgress: options.notifyProgress,
+		},
+	);
 	if ("error" in branch) {
 		context.pi.ui.notify(branch.error, "error");
 		return;
@@ -228,15 +231,7 @@ export async function handleHerdrImplSession(
 }
 
 export function buildSessionContinuationTurn(focus: string): string {
-	return [
-		"## Continuation focus",
-		focus,
-		"",
-		"## Completion instructions",
-		"After you finish the implementation:",
-		"1. Create or update the branch commit using the repo's normal workflow.",
-		"2. Then run `!ns flow submit`.",
-	].join("\n");
+	return ["## Continuation focus", focus, "", ...IMPL_COMPLETION_INSTRUCTIONS_LINES].join("\n");
 }
 
 export function buildSessionContinuationFocusPrompt(activeContextText: string): string {
@@ -249,44 +244,4 @@ export function buildSessionContinuationFocusPrompt(activeContextText: string): 
 		activeContextText,
 		"</active-session-context>",
 	].join("\n");
-}
-
-function resolveSourceLeafId(
-	pi: CommandContext,
-	activeBranch: readonly { readonly [field: string]: unknown }[],
-): string | undefined {
-	const explicit = pi.sessionManager.getLeafId?.();
-	if (explicit !== undefined && explicit !== null && explicit.trim().length > 0) return explicit;
-	const id = activeBranch.at(-1)?.id;
-	return typeof id === "string" && id.trim().length > 0 ? id : undefined;
-}
-
-async function createCurrentSessionBranch(
-	context: HerdrImplSessionContext,
-	options: HandleHerdrImplSessionOptions,
-	focus: string,
-	selectedBranch: string,
-): Promise<TrackedBranchEvidence | { error: string }> {
-	const revalidated = await context.git.currentBranch({ cwd: context.pi.cwd });
-	if (revalidated.type !== "branch" || revalidated.branch !== selectedBranch) {
-		return {
-			error: `Current branch changed after selection; expected ${selectedBranch}. No branch was created.`,
-		};
-	}
-	options.notifyProgress("Generating implementation branch name…");
-	return createTrackedBranchForPrompt(
-		{ pi: context.commands, git: context.git },
-		{ cwd: context.pi.cwd, prompt: focus },
-	);
-}
-
-async function createTrunkSessionBranch(
-	context: HerdrImplSessionContext,
-	options: HandleHerdrImplSessionOptions,
-	focus: string,
-): Promise<TrackedBranchEvidence | { error: string }> {
-	return createTrackedBranchFromLocalTrunkForPrompt(
-		{ pi: context.commands, trunkBranch: context.trunkBranch, git: context.git },
-		{ cwd: context.pi.cwd, prompt: focus, notify: options.notifyProgress },
-	);
 }

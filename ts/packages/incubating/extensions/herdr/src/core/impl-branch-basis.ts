@@ -1,3 +1,9 @@
+import {
+	createTrackedBranchForPrompt,
+	createTrackedBranchFromLocalTrunkForPrompt,
+	type TrackedBranchEvidence,
+} from "@nseng-ai/extension-kit/tracked-branch-payload";
+import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
@@ -19,6 +25,43 @@ export interface ResolveImplBranchBasisOptions {
 	cwd: string;
 	git: Pick<GitGateway, "currentBranch">;
 	interaction: Pick<CommandContext, "hasUI" | "ui">;
+}
+
+type SelectedImplBranchBasis = Extract<ImplBranchBasisResult, { type: "selected" }>;
+
+export async function createTrackedBranchForBasis(
+	deps: {
+		readonly pi: CommandExecApi;
+		readonly trunkBranch: string;
+		readonly git: Pick<
+			GitGateway,
+			"createBranchAtStartPoint" | "currentBranch" | "headCommit" | "repoRoot"
+		>;
+	},
+	options: {
+		readonly cwd: string;
+		readonly prompt: string;
+		readonly selection: SelectedImplBranchBasis;
+		readonly notifyProgress: (message: string) => void;
+	},
+): Promise<TrackedBranchEvidence | { error: string }> {
+	if (options.selection.basis === "current") {
+		const revalidated = await deps.git.currentBranch({ cwd: options.cwd });
+		if (revalidated.type !== "branch" || revalidated.branch !== options.selection.currentBranch) {
+			return {
+				error: `Current branch changed after selection; expected ${options.selection.currentBranch}. No branch was created.`,
+			};
+		}
+		options.notifyProgress("Generating branch name…");
+		return createTrackedBranchForPrompt(
+			{ pi: deps.pi, git: deps.git },
+			{ cwd: options.cwd, prompt: options.prompt },
+		);
+	}
+	return createTrackedBranchFromLocalTrunkForPrompt(
+		{ pi: deps.pi, trunkBranch: deps.trunkBranch, git: deps.git },
+		{ cwd: options.cwd, prompt: options.prompt, notify: options.notifyProgress },
+	);
 }
 
 export async function resolveImplBranchBasis(

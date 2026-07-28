@@ -5,13 +5,16 @@ import type { HerdrGateway } from "./herdr-gateway.ts";
 import { checkoutSlot, formatSlotCheckoutFailureCause } from "./slot-checkout.ts";
 import { formatHerdrResourceLabel, slotLabelInput } from "./resource-label.ts";
 
-export interface PreparedLaunchPayload<PreparationEvidence = never> {
+export type PreparedLaunchPayload<PreparationEvidence = never> = {
 	readonly branchName: string;
-	readonly launchCommand?: string;
-	readonly prepareAfterCheckout?: (
-		target: SlotCheckoutTarget,
-	) => Promise<PreparedLaunchPreparationResult<PreparationEvidence>>;
-}
+} & (
+	| { readonly launchCommand: string }
+	| {
+			readonly prepareAfterCheckout: (
+				target: SlotCheckoutTarget,
+			) => Promise<PreparedLaunchPreparationResult<PreparationEvidence>>;
+	  }
+);
 
 export type PreparedLaunchPreparationResult<PreparationEvidence> =
 	| {
@@ -95,9 +98,9 @@ export async function launchPreparedBranch<PreparationEvidence = never>(
 		return { type: "failed", stage: "slot-checkout", message };
 	}
 	const target = checkout.target;
-	let launchCommand = payload.launchCommand;
+	let launchCommand: string;
 	let preparationEvidence: PreparationEvidence | undefined;
-	if (payload.prepareAfterCheckout !== undefined) {
+	if ("prepareAfterCheckout" in payload) {
 		context.onStatus?.("preparing launch in checked-out worktree…");
 		const preparation = await payload.prepareAfterCheckout(target);
 		if (preparation.type === "failed") {
@@ -121,11 +124,8 @@ export async function launchPreparedBranch<PreparationEvidence = never>(
 		}
 		launchCommand = preparation.launchCommand;
 		preparationEvidence = preparation.evidence;
-	}
-	if (launchCommand === undefined) {
-		const message = "Prepared launch requires a launch command or post-checkout preparer.";
-		context.notify(message, "error");
-		return { type: "failed", stage: "launch-prepare", message, target };
+	} else {
+		launchCommand = payload.launchCommand;
 	}
 
 	const created = await createPreparedLaunchDestination({

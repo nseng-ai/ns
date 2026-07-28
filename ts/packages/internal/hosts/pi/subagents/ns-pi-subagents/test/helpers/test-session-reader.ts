@@ -5,6 +5,7 @@ export function createTestSessionReader(): PiSessionReader {
 		getBranch: () => [],
 		getEntries: () => [],
 		getSessionId: () => "test-session",
+		getLeafId: () => null,
 		getSessionFile: () => undefined,
 	};
 }

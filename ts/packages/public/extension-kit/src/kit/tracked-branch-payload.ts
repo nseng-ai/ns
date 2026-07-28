@@ -306,19 +306,23 @@ export function buildTrackedBranchPayloadLaunchCommand(
 	return `payload="$(${getCommand})" && exec ${launchCommand}`;
 }
 
+export const IMPL_COMPLETION_INSTRUCTIONS_LINES = [
+	"## Completion instructions",
+	"After you finish the implementation:",
+	"1. Create or update the branch commit using the repo's normal workflow.",
+	"2. Then run `!ns flow submit`.",
+] as const;
+
 /**
  * Builds the agent instruction paired with the tracked-branch payload transport.
  *
- * Single-consumer justification: keeping the completion envelope beside the payload contract prevents
- * storage and execution instructions from drifting. Demote this builder to Herdr if its content becomes
+ * The completion envelope is shared with active-session continuation so both implementation launch
+ * paths retain one source of truth. Demote this builder to Herdr if its remaining content becomes
  * Herdr-specific or no longer travels through the tracked-branch payload contract.
  */
 export function buildTrackedBranchImplPrompt(prompt: string, contextNote?: string): string {
 	return [
-		"## Completion instructions",
-		"After you finish the implementation:",
-		"1. Create or update the branch commit using the repo's normal workflow.",
-		"2. Then run `!ns flow submit`.",
+		...IMPL_COMPLETION_INSTRUCTIONS_LINES,
 		"",
 		...(contextNote === undefined ? [] : ["## Launch context", contextNote, ""]),
 		prompt,

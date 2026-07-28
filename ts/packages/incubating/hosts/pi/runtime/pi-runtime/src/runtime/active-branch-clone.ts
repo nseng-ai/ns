@@ -2,6 +2,12 @@ import { rmSync } from "node:fs";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { systemClock } from "@nseng-ai/foundation/time";
 
+import {
+	formatError,
+	openAuthoritativeSelectedPath,
+	validateActiveSessionSourceRequest,
+} from "./active-session-source.ts";
+
 export interface ActiveBranchCloneRequest {
 	readonly sourceSessionFile: string;
 	readonly sourceLeafId: string;
@@ -37,38 +43,15 @@ export function cloneActiveBranchSession(
 	if (validationMessage !== undefined) {
 		return { ok: false, error: { code: "invalid-request", message: validationMessage } };
 	}
+	const opened = openAuthoritativeSelectedPath(request);
+	if (!opened.ok) {
+		return { ok: false, error: { code: "invalid-request", message: opened.message } };
+	}
 
 	let intermediateSessionFile: string | undefined;
 	let recoverableDestination: ActiveBranchCloneEvidence | undefined;
 	try {
-		const source = SessionManager.open(request.sourceSessionFile);
-		if (source.getEntry(request.sourceLeafId) === undefined) {
-			return {
-				ok: false,
-				error: {
-					code: "invalid-request",
-					message: `Source session leaf ${JSON.stringify(request.sourceLeafId)} does not exist.`,
-				},
-			};
-		}
-		const selectedPath = source.getBranch(request.sourceLeafId);
-		if (selectedPath.length === 0) {
-			return {
-				ok: false,
-				error: { code: "invalid-request", message: "Source session branch is empty." },
-			};
-		}
-		if (selectedPath.at(-1)?.id !== request.sourceLeafId) {
-			return {
-				ok: false,
-				error: {
-					code: "invalid-request",
-					message: `Source session selected path does not end at authoritative leaf ${JSON.stringify(request.sourceLeafId)}.`,
-				},
-			};
-		}
-
-		intermediateSessionFile = source.createBranchedSession(request.sourceLeafId);
+		intermediateSessionFile = opened.source.createBranchedSession(request.sourceLeafId);
 		if (intermediateSessionFile === undefined) {
 			return {
 				ok: false,
@@ -118,13 +101,9 @@ export function cloneActiveBranchSession(
 }
 
 function validateRequest(request: ActiveBranchCloneRequest): string | undefined {
-	if (request.sourceSessionFile.trim().length === 0) return "Source session file is required.";
-	if (request.sourceLeafId.trim().length === 0) return "Source session leaf id is required.";
+	const sourceValidationMessage = validateActiveSessionSourceRequest(request);
+	if (sourceValidationMessage !== undefined) return sourceValidationMessage;
 	if (request.destinationCwd.trim().length === 0) return "Destination cwd is required.";
 	if (request.appendedUserTurn.trim().length === 0) return "Appended user turn is required.";
 	return undefined;
-}
-
-function formatError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

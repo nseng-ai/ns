@@ -52,8 +52,6 @@ export function registerHerdrSessionSpaceImplCommand(
 					{
 						args,
 						notifyProgress,
-						preflightActiveSessionSource,
-						buildActiveContextText: buildActiveSessionContextText,
 						...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
 						deriveFocus: async ({ cwd, activeContextText }) => {
 							const repository = await context.git.optionalRepoRoot({ cwd });
@@ -95,23 +93,15 @@ export function registerHerdrSessionSpaceImplCommand(
 
 function createRealSessionContinuationGateway(): HerdrSessionContinuationGateway {
 	return {
+		preflightSource: preflightActiveSessionSource,
+		buildContextText: buildActiveSessionContextText,
 		async cloneActiveSessionForImplementation(request) {
-			const result = cloneActiveBranchSession({
+			return cloneActiveBranchSession({
 				sourceSessionFile: request.sourceSessionFile,
 				sourceLeafId: request.sourceLeafId,
 				destinationCwd: request.destinationCwd,
 				appendedUserTurn: request.continuationMessage,
 			});
-			if (result.ok) return result;
-			return {
-				ok: false,
-				error: {
-					message: result.error.message,
-					...(result.error.recoverableDestination === undefined
-						? {}
-						: { recoverableDestination: result.error.recoverableDestination }),
-				},
-			};
 		},
 	};
 }

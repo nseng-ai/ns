@@ -380,6 +380,7 @@ export function createContext(
 			getEntries: () => [],
 			getSessionFile: () => sessionFile,
 			getSessionId: () => sessionId ?? "",
+			getLeafId: () => null,
 		},
 		ui,
 		async waitForIdle(): Promise<void> {
@@ -402,6 +403,7 @@ export function createContext(
 					getEntries: () => [],
 					getSessionFile: () => undefined,
 					getSessionId: () => "replacement-test-session-id",
+					getLeafId: () => null,
 				},
 				ui: {
 					notify(message: string, level?: "info" | "warning" | "error"): void {

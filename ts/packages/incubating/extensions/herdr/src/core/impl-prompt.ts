@@ -1,8 +1,6 @@
 import {
 	buildTrackedBranchImplPrompt,
 	buildTrackedBranchPayloadLaunchCommand,
-	createTrackedBranchForPrompt,
-	createTrackedBranchFromLocalTrunkForPrompt,
 	formatTrackedBranchPayloadStorageFailure,
 	resolveTrackedBranchPayloadOptions,
 	storeTrackedBranchPayload,
@@ -20,7 +18,7 @@ import type { SlotClient } from "@nseng-ai/slots/api";
 
 import { HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME } from "./command-surfaces.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
-import { resolveImplBranchBasis } from "./impl-branch-basis.ts";
+import { createTrackedBranchForBasis, resolveImplBranchBasis } from "./impl-branch-basis.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { launchPreparedBranch } from "./prepared-launch.ts";
 import { createHerdrSlotClient } from "./slot-checkout.ts";
@@ -72,10 +70,15 @@ export async function handleHerdrSlotImplPrompt(
 		return;
 	}
 
-	const branch =
-		selection.basis === "current"
-			? await createCurrentPromptBranch(context, options, prompt, selection.currentBranch)
-			: await createTrunkPromptBranch(context, options, prompt);
+	const branch = await createTrackedBranchForBasis(
+		{ pi: context.commands, trunkBranch: context.trunkBranch, git: context.git },
+		{
+			cwd: context.pi.cwd,
+			prompt,
+			selection,
+			notifyProgress: options.notifyProgress,
+		},
+	);
 	if ("error" in branch) {
 		context.pi.ui.notify(branch.error, "error");
 		return;
@@ -94,40 +97,6 @@ export async function handleHerdrSlotImplPrompt(
 		...optionalEntry("slotClient", options.slotClient),
 		notifyProgress: options.notifyProgress,
 	});
-}
-
-async function createCurrentPromptBranch(
-	context: HerdrImplPromptContext,
-	options: HandleHerdrSlotImplPromptOptions,
-	prompt: string,
-	selectedBranch: string,
-): Promise<TrackedBranchEvidence | { error: string }> {
-	const revalidated = await context.git.currentBranch({ cwd: context.pi.cwd });
-	if (revalidated.type !== "branch" || revalidated.branch !== selectedBranch) {
-		return {
-			error: `Current branch changed after selection; expected ${selectedBranch}. No branch was created.`,
-		};
-	}
-	options.notifyProgress("Generating branch name…");
-	return createTrackedBranchForPrompt(
-		{ pi: context.commands, git: context.git },
-		{ cwd: context.pi.cwd, prompt },
-	);
-}
-
-async function createTrunkPromptBranch(
-	context: HerdrImplPromptContext,
-	options: HandleHerdrSlotImplPromptOptions,
-	prompt: string,
-): Promise<TrackedBranchEvidence | { error: string }> {
-	return createTrackedBranchFromLocalTrunkForPrompt(
-		{ pi: context.commands, trunkBranch: context.trunkBranch, git: context.git },
-		{
-			cwd: context.pi.cwd,
-			prompt,
-			notify: options.notifyProgress,
-		},
-	);
 }
 
 /** Per-flow wording differences in the Herdr implementation success message. */

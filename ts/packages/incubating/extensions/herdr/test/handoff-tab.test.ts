@@ -519,6 +519,7 @@ function commandContext(withModel = false): CommandContext {
 			getEntries: () => [],
 			getSessionFile: () => undefined,
 			getSessionId: () => "test-session-id",
+			getLeafId: () => null,
 		},
 		ui: { notify(): void {}, setStatus(): void {} },
 		...(withModel ? { model: { provider: "anthropic", id: "claude-test" } } : {}),
