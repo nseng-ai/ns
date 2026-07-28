@@ -12,6 +12,7 @@ import {
 	buildActiveSessionContextText,
 	preflightActiveSessionSource,
 } from "@nseng-ai/pi-runtime/sessions/active-context-text";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import {
 	makeCommandProgressNotifier,
 	registerCommandWithImmediateAck,
@@ -52,7 +53,7 @@ export function registerHerdrSessionSpaceImplCommand(
 					{
 						args,
 						notifyProgress,
-						...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
+						...optionalEntries({ slotClient: options.slotClient }),
 						deriveFocus: async ({ cwd, activeContextText }) => {
 							const repository = await context.git.optionalRepoRoot({ cwd });
 							if (repository.type !== "found") {

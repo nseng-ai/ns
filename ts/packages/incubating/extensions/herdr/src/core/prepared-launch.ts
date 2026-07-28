@@ -1,4 +1,5 @@
 import type { NotifyLevel } from "@nseng-ai/extension-kit/pi-types";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slots/api";
 
 import type { HerdrGateway } from "./herdr-gateway.ts";
@@ -125,7 +126,7 @@ export async function launchPreparedBranch(
 		target,
 		herdr: context.herdr,
 		notify: context.notify,
-		...(context.onStatus === undefined ? {} : { onStatus: context.onStatus }),
+		...optionalEntries({ onStatus: context.onStatus }),
 	});
 	if (created.type === "failed") return created;
 

@@ -1,6 +1,6 @@
 import { rmSync } from "node:fs";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntries } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
 
 import {
@@ -86,7 +86,7 @@ export function cloneActiveBranchSession(
 			error: {
 				code: "session-clone-failed",
 				message: `Failed to clone active Pi session branch: ${formatErrorMessage(error)}`,
-				...(recoverableDestination === undefined ? {} : { recoverableDestination }),
+				...optionalEntries({ recoverableDestination }),
 			},
 		};
 	} finally {
