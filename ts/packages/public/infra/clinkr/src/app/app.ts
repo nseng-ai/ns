@@ -69,6 +69,14 @@ interface LoadedMetadataModule {
 	metadata: () => unknown;
 }
 
+interface EmitUsageErrorOptions {
+	readonly io: ClinkrIo;
+	readonly argv: readonly string[];
+	readonly message: string;
+	readonly errorType: string;
+	readonly data?: unknown;
+}
+
 function isExactCommandModule(value: unknown): value is LoadedCommandModule {
 	return isExactFunctionModule(value, "command");
 }
@@ -148,13 +156,25 @@ class FilesystemClinkrApp<TContext> {
 			throw new Error("clinkr: selected command context mode does not match the app");
 		}
 		const inputJsonCount = argv.filter((argument) => argument === "--input-json").length;
-		if (inputJsonCount > 1)
-			return emitUsageError(io, argv, "repeated --input-json", "invalid-request");
+		if (inputJsonCount > 1) {
+			return emitUsageError({
+				io,
+				argv,
+				message: "repeated --input-json",
+				errorType: "invalid-request",
+			});
+		}
 		const inputJson = inputJsonCount === 1;
 		const withoutInput = argv.filter((argument) => argument !== "--input-json");
 		const formatResult = parseFormat(withoutInput);
-		if (!formatResult.success)
-			return emitUsageError(io, withoutInput, formatResult.message, "invalid-request");
+		if (!formatResult.success) {
+			return emitUsageError({
+				io,
+				argv: withoutInput,
+				message: formatResult.message,
+				errorType: "invalid-request",
+			});
+		}
 		const format = formatResult.format;
 		if (argv.includes("--help") || argv.includes("-h")) {
 			io.stdout(buildCommander(this.name, definition).helpInformation());
@@ -172,30 +192,43 @@ class FilesystemClinkrApp<TContext> {
 				return !argument.startsWith("--format=");
 			});
 			if (commandArguments.length > 0) {
-				return emitUsageError(
+				return emitUsageError({
 					io,
-					withoutInput,
-					"--input-json cannot be combined with command arguments",
-					"invalid-request",
-				);
+					argv: withoutInput,
+					message: "--input-json cannot be combined with command arguments",
+					errorType: "invalid-request",
+				});
 			}
 			const readStdin = options.readStdin ?? io.readStdin;
 			if (readStdin === undefined) {
-				return emitUsageError(
+				return emitUsageError({
 					io,
-					withoutInput,
-					"--input-json requires stdin",
-					"invalid-json-input",
-				);
+					argv: withoutInput,
+					message: "--input-json requires stdin",
+					errorType: "invalid-json-input",
+				});
 			}
 			const parsed = parseJsonInput(await readStdin(), definition.schema);
-			if (!parsed.success)
-				return emitUsageError(io, withoutInput, parsed.message, parsed.errorType, parsed.data);
+			if (!parsed.success) {
+				return emitUsageError({
+					io,
+					argv: withoutInput,
+					message: parsed.message,
+					errorType: parsed.errorType,
+					data: parsed.data,
+				});
+			}
 			request = parsed.data as Record<string, unknown>;
 		} else {
 			const parsed = parseArgv(this.name, withoutInput, definition);
-			if (!parsed.success)
-				return emitUsageError(io, withoutInput, parsed.message, "invalid-request");
+			if (!parsed.success) {
+				return emitUsageError({
+					io,
+					argv: withoutInput,
+					message: parsed.message,
+					errorType: "invalid-request",
+				});
+			}
 			request = parsed.data as Record<string, unknown>;
 		}
 		const outcome = this.requiresContext
@@ -452,21 +485,15 @@ function emitSuccess(
 	io.stdout(`${text}\n`);
 }
 
-function emitUsageError(
-	io: ClinkrIo,
-	argv: readonly string[],
-	message: string,
-	errorType: string,
-	data?: unknown,
-): number {
+function emitUsageError(options: EmitUsageErrorOptions): number {
 	const outcome: UsageErrorOutcome = {
 		status: "usage-error",
-		errorType,
-		message,
-		...(data === undefined ? {} : { data }),
+		errorType: options.errorType,
+		message: options.message,
+		...(options.data === undefined ? {} : { data: options.data }),
 	};
-	const format = formatFromArgs(argv);
-	if (format === "json") io.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
-	else io.stderr(`${message}\n`);
+	const format = formatFromArgs(options.argv);
+	if (format === "json") options.io.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
+	else options.io.stderr(`${options.message}\n`);
 	return exitCodeFor(outcome.status);
 }

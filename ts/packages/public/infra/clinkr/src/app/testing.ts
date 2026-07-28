@@ -1,4 +1,5 @@
 import type { ClinkrIo } from "../io.ts";
+import { createCaptureIo } from "../testing/index.ts";
 import type { ClinkrContextFreeApp, ClinkrContextfulApp } from "./app.ts";
 
 export interface CapturedRun {
@@ -34,16 +35,8 @@ export async function runForTest<TContext>(
 	argv: readonly string[],
 	options: ContextFreeRunForTestOptions | RunForTestOptions<TContext> = {},
 ): Promise<CapturedRun> {
-	const stdoutChunks: string[] = [];
-	const stderrChunks: string[] = [];
-	const io = options.io ?? {
-		stdout: (text: string) => {
-			stdoutChunks.push(text);
-		},
-		stderr: (text: string) => {
-			stderrChunks.push(text);
-		},
-	};
+	const capture = createCaptureIo();
+	const io = options.io ?? capture.io;
 	const stdin = options.stdin;
 	const readStdin = stdin === undefined ? undefined : async () => stdin;
 	let exitCode: number;
@@ -60,5 +53,5 @@ export async function runForTest<TContext>(
 			...(readStdin === undefined ? {} : { readStdin }),
 		});
 	}
-	return { exitCode, stdout: stdoutChunks.join(""), stderr: stderrChunks.join("") };
+	return { exitCode, stdout: capture.stdout(), stderr: capture.stderr() };
 }
