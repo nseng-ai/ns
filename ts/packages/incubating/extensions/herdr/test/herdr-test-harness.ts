@@ -87,6 +87,9 @@ export interface FakeCommandContextOptions {
 	selectIndices?: number[];
 	shouldCancelSelect?: boolean;
 	branchEntries?: PiSessionEntry[];
+	sessionFile?: string;
+	leafId?: string | null;
+	model?: ModelInfo;
 }
 
 export const ROOT = mkdtempSync(join(tmpdir(), "herdr-model-root-"));
@@ -240,6 +243,7 @@ export class FakePi implements ExtensionAPI {
 export class FakeCommandContext implements CommandContext {
 	readonly cwd: string;
 	readonly hasUI: boolean;
+	readonly model?: ModelInfo;
 	readonly notifications: Notification[] = [];
 	readonly statuses: Array<{ key: string; value: string | undefined }> = [];
 	readonly selections: Selection[] = [];
@@ -261,6 +265,7 @@ export class FakeCommandContext implements CommandContext {
 	constructor(options: FakeCommandContextOptions = {}) {
 		this.cwd = options.cwd ?? ROOT;
 		this.hasUI = options.hasUI ?? true;
+		if (options.model !== undefined) this.model = options.model;
 		this.confirmValues = [...(options.confirmValues ?? [true])];
 		this.inputValues = [...(options.inputValues ?? [])];
 		this.onWaitForIdle = options.onWaitForIdle;
@@ -271,8 +276,9 @@ export class FakeCommandContext implements CommandContext {
 		this.sessionManager = {
 			getBranch: () => branchEntries,
 			getEntries: () => branchEntries,
-			getSessionFile: () => undefined,
+			getSessionFile: () => options.sessionFile,
 			getSessionId: () => "test-session-id",
+			getLeafId: () => options.leafId ?? null,
 		};
 		this.ui = {
 			notify: (message, level) => {

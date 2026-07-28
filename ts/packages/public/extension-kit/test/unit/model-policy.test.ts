@@ -14,6 +14,47 @@ describe("model policy", () => {
 		expect(MODEL_OPERATION_IDS).not.toHaveProperty("flowPrDescription");
 	});
 
+	test("publishes and resolves the Herdr continuation-focus operation identifier", () => {
+		expect(MODEL_OPERATION_IDS.herdrSessionContinuationFocus).toBe(
+			"herdr.session-continuation-focus",
+		);
+		const fallbackPolicy = parseModelPolicyToml(
+			'[models.profiles.fast]\nmodel = "acme/fast"\nthinking = "minimal"',
+		);
+		expect(fallbackPolicy.ok).toBe(true);
+		if (fallbackPolicy.ok) {
+			expect(
+				resolveModelOperation(
+					fallbackPolicy.value,
+					MODEL_OPERATION_IDS.herdrSessionContinuationFocus,
+				),
+			).toMatchObject({
+				ok: true,
+				value: { profile: "fast", source: "project-profile" },
+			});
+		}
+
+		const overridePolicy = parseModelPolicyToml(
+			'[models.profiles.fast]\nmodel = "acme/fast"\nthinking = "minimal"\n[models.profiles.focus]\nmodel = "acme/focus"\nthinking = "high"\n[models.operations]\n"herdr.session-continuation-focus" = "focus"',
+		);
+		expect(overridePolicy.ok).toBe(true);
+		if (overridePolicy.ok) {
+			expect(
+				resolveModelOperation(
+					overridePolicy.value,
+					MODEL_OPERATION_IDS.herdrSessionContinuationFocus,
+				),
+			).toMatchObject({
+				ok: true,
+				value: {
+					profile: "focus",
+					selection: { provider: "acme", modelId: "focus", thinking: "high" },
+					source: "project-operation",
+				},
+			});
+		}
+	});
+
 	test("requires the fast profile with zero config", () => {
 		expect(parseModelPolicyToml("")).toMatchObject({
 			ok: false,

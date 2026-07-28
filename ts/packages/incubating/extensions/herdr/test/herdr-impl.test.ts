@@ -1,6 +1,7 @@
 /**
  * Scenario tests for the Herdr implementation commands:
  *  - ns:herdr:impl:prompt:space
+ *  - ns:herdr:impl:session:space
  *  - ns:herdr:impl:plan:space
  *  - ns:herdr:impl:plan:tab
  */
@@ -31,6 +32,7 @@ import {
 	resolveImplPromptPayloadOptions,
 } from "../src/core/impl-prompt.ts";
 import { registerHerdrPromptSpaceImplCommand } from "../src/pi/impl-prompt.ts";
+import { registerHerdrSessionSpaceImplCommand } from "../src/pi/impl-session.ts";
 import { buildPlanContentSlugPrompt } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import { createBranchContextContext } from "@nseng-ai/branch-context/api";
@@ -164,6 +166,12 @@ describe("herdr Pi extension — full suite", () => {
 			commandName: "ns:herdr:impl:prompt:space",
 			register: registerHerdrPromptSpaceImplCommand,
 			args: "Do not implement this prompt",
+			shouldSetCallerWorkspace: false,
+		},
+		{
+			commandName: "ns:herdr:impl:session:space",
+			register: registerHerdrSessionSpaceImplCommand,
+			args: "Continue the current implementation",
 			shouldSetCallerWorkspace: false,
 		},
 		{

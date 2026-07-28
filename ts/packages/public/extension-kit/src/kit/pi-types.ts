@@ -76,6 +76,8 @@ export interface PiSessionReader {
 	getEntries(): readonly PiSessionEntry[];
 	/** Stable id of the current Pi session, including in-memory sessions. */
 	getSessionId(): string;
+	/** Authoritative current leaf id, or null when the session has no active entry. */
+	getLeafId?(): string | null;
 	/**
 	 * Path to the current Pi session's persisted JSONL log. In-memory Pi sessions
 	 * have an identity and entries but no backing file, so they return undefined.

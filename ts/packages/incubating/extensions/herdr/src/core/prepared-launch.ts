@@ -5,10 +5,25 @@ import type { HerdrGateway } from "./herdr-gateway.ts";
 import { checkoutSlot, formatSlotCheckoutFailureCause } from "./slot-checkout.ts";
 import { formatHerdrResourceLabel, slotLabelInput } from "./resource-label.ts";
 
-export interface PreparedLaunchPayload {
+export interface PreparedLaunchPayload<PreparationEvidence = never> {
 	readonly branchName: string;
-	readonly launchCommand: string;
+	readonly launchCommand?: string;
+	readonly prepareAfterCheckout?: (
+		target: SlotCheckoutTarget,
+	) => Promise<PreparedLaunchPreparationResult<PreparationEvidence>>;
 }
+
+export type PreparedLaunchPreparationResult<PreparationEvidence> =
+	| {
+			readonly type: "prepared";
+			readonly launchCommand: string;
+			readonly evidence: PreparationEvidence;
+	  }
+	| {
+			readonly type: "failed";
+			readonly message: string;
+			readonly evidence?: PreparationEvidence;
+	  };
 
 export type PreparedLaunchDestination =
 	| { readonly type: "workspace" }
@@ -22,20 +37,22 @@ export interface OpenedPreparedLaunchTarget {
 	readonly paneId: string;
 }
 
-export type PreparedLaunchResult =
+export type PreparedLaunchResult<PreparationEvidence = never> =
 	| {
 			type: "opened";
 			destination: "workspace" | "tab";
 			target: OpenedPreparedLaunchTarget;
+			preparationEvidence?: PreparationEvidence;
 	  }
 	| {
 			type: "failed";
-			stage: "slot-checkout" | "destination-create" | "pane-launch";
+			stage: "slot-checkout" | "launch-prepare" | "destination-create" | "pane-launch";
 			message: string;
 			target?: SlotCheckoutTarget;
 			workspaceId?: string;
 			tabId?: string;
 			paneId?: string;
+			preparationEvidence?: PreparationEvidence;
 	  };
 
 type FailedPreparedLaunchResult = Extract<PreparedLaunchResult, { type: "failed" }>;
@@ -56,13 +73,13 @@ export interface PreparedLaunchContext {
 	readonly onStatus?: (message: string | undefined) => void;
 }
 
-export async function launchPreparedBranch(
+export async function launchPreparedBranch<PreparationEvidence = never>(
 	context: PreparedLaunchContext,
 	options: {
-		payload: PreparedLaunchPayload;
+		payload: PreparedLaunchPayload<PreparationEvidence>;
 		destination: PreparedLaunchDestination;
 	},
-): Promise<PreparedLaunchResult> {
+): Promise<PreparedLaunchResult<PreparationEvidence>> {
 	const { payload } = options;
 	context.onStatus?.("checking out branch slot…");
 	const checkout = await checkoutSlot(context.slotClient, {
@@ -78,6 +95,39 @@ export async function launchPreparedBranch(
 		return { type: "failed", stage: "slot-checkout", message };
 	}
 	const target = checkout.target;
+	let launchCommand = payload.launchCommand;
+	let preparationEvidence: PreparationEvidence | undefined;
+	if (payload.prepareAfterCheckout !== undefined) {
+		context.onStatus?.("preparing launch in checked-out worktree…");
+		const preparation = await payload.prepareAfterCheckout(target);
+		if (preparation.type === "failed") {
+			preparationEvidence = preparation.evidence;
+			context.notify(
+				[
+					"Checked out the branch slot, but failed to prepare the launch.",
+					`Branch: ${target.branchName}`,
+					`Worktree: ${target.worktreePath}`,
+					preparation.message,
+				].join("\n"),
+				"error",
+			);
+			return {
+				type: "failed",
+				stage: "launch-prepare",
+				message: preparation.message,
+				target,
+				...(preparationEvidence === undefined ? {} : { preparationEvidence }),
+			};
+		}
+		launchCommand = preparation.launchCommand;
+		preparationEvidence = preparation.evidence;
+	}
+	if (launchCommand === undefined) {
+		const message = "Prepared launch requires a launch command or post-checkout preparer.";
+		context.notify(message, "error");
+		return { type: "failed", stage: "launch-prepare", message, target };
+	}
+
 	const created = await createPreparedLaunchDestination({
 		destination: options.destination,
 		target,
@@ -86,11 +136,14 @@ export async function launchPreparedBranch(
 		...(context.onStatus === undefined ? {} : { onStatus: context.onStatus }),
 	});
 	if (created.type === "failed") {
-		return created;
+		return {
+			...created,
+			...(preparationEvidence === undefined ? {} : { preparationEvidence }),
+		};
 	}
 
 	context.onStatus?.(`launching command in Herdr ${created.destination}…`);
-	const ran = await context.herdr.runInPane(created.paneId, payload.launchCommand);
+	const ran = await context.herdr.runInPane(created.paneId, launchCommand);
 	if (ran.type === "failed") {
 		const failureLead =
 			created.destination === "workspace"
@@ -115,6 +168,7 @@ export async function launchPreparedBranch(
 			workspaceId: created.workspaceId,
 			tabId: created.tabId,
 			paneId: created.paneId,
+			...(preparationEvidence === undefined ? {} : { preparationEvidence }),
 		};
 	}
 
@@ -129,6 +183,7 @@ export async function launchPreparedBranch(
 			tabId: created.tabId,
 			paneId: created.paneId,
 		},
+		...(preparationEvidence === undefined ? {} : { preparationEvidence }),
 	};
 }
 

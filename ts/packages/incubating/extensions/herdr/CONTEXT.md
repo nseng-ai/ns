@@ -76,8 +76,12 @@ The invocation-time policy shared by prompt-to-space, plan-to-space, and plan-to
 A Herdr `impl` workflow that implements a prompt or Saved Plan using the existing agent instructions and workflow behavior. `impl` is shorter, avoids collision with dispatch terminology for remote systems, and describes the outcome more accurately than `launch`; destination and process launch remain supporting mechanics.
 *Avoid*: remote dispatch, new agent-behavior contract, process startup as the workflow outcome
 
+**Herdr session implementation**:
+The `/ns:herdr:impl:session:space [continuation-focus]` workflow continues only the caller Pi session's active conversation path in an independently persisted destination-worktree session. It requires a persisted caller session, preserves the caller unchanged, uses explicit trimmed focus verbatim or derives omitted focus from compaction-aware active context, and launches the clone with `pi --session`. It transfers Pi session state directly, not a fresh prompt payload, Saved Plan, Branch Memory entry, or Handoff Artifact.
+*Avoid*: full session-tree clone, caller-session replacement, Handoff transfer, in-memory fallback, prompt implementation alias
+
 **Herdr command catalog**:
-The nine-command Pi surface has six direct resource operations (`space:{new,goal,objective-summary}` and `tab:{new,goal,handoff}`) plus `/ns:herdr:impl:prompt:space`, `/ns:herdr:impl:plan:space`, and `/ns:herdr:impl:plan:tab`. The eight non-Handoff commands are base registrations; `tab:handoff` is the only optional registration. The former `launch` implementation names and the earlier five `br`/`tr` launch names have no visible or hidden compatibility aliases.
+The ten-command Pi surface has six direct resource operations (`space:{new,goal,objective-summary}` and `tab:{new,goal,handoff}`) plus `/ns:herdr:impl:prompt:space`, `/ns:herdr:impl:session:space`, `/ns:herdr:impl:plan:space`, and `/ns:herdr:impl:plan:tab`. The nine non-Handoff commands are base registrations; `tab:handoff` is the only optional registration. The former `launch` implementation names and the earlier five `br`/`tr` launch names have no visible or hidden compatibility aliases.
 *Avoid*: workflow-family catalog, compound dispatch action names, branch-basis command segment, `/ns:herdr:handoff:*`, `/ns:herdr:objective:*`, `tab:plan-dispatch`, implementation commands under `/ns:herdr:launch:*`
 
 **Launch mechanics boundary**:

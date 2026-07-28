@@ -4,17 +4,18 @@ This document is the exact current inventory of the Herdr Pi surface. It also re
 
 ## Current Herdr Pi catalog
 
-The catalog contains exactly nine commands. The first eight are base registrations; `/ns:herdr:tab:handoff` is registered only when the curated Handoffs Pi integration is available.
+The catalog contains exactly ten commands. The first nine are base registrations; `/ns:herdr:tab:handoff` is registered only when the curated Handoffs Pi integration is available.
 
 ### Space resources and implementation workflows
 
-| Command                                         | Behavior                                                                                                              |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `/ns:herdr:space:new [description]`             | Create and focus a space at the current cwd, optionally with a model-derived semantic label.                          |
-| `/ns:herdr:space:goal <goal>`                   | Derive a goal label and rename the explicit caller space.                                                             |
-| `/ns:herdr:space:objective-summary [objective]` | Resolve an Objective and apply its label to the explicit caller space.                                                |
-| `/ns:herdr:impl:prompt:space <prompt>`          | Select current branch or local trunk contextually, then implement the prompt in a new space.                          |
-| `/ns:herdr:impl:plan:space [--dry-run]`         | Select current branch or local trunk contextually, then start implementation of the latest Saved Plan in a new space. |
+| Command                                             | Behavior                                                                                                                  |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `/ns:herdr:space:new [description]`                 | Create and focus a space at the current cwd, optionally with a model-derived semantic label.                              |
+| `/ns:herdr:space:goal <goal>`                       | Derive a goal label and rename the explicit caller space.                                                                 |
+| `/ns:herdr:space:objective-summary [objective]`     | Resolve an Objective and apply its label to the explicit caller space.                                                    |
+| `/ns:herdr:impl:prompt:space <prompt>`              | Select current branch or local trunk contextually, then implement the prompt in a new space.                              |
+| `/ns:herdr:impl:session:space [continuation-focus]` | Clone only the persisted caller session's active path into a destination-worktree session and continue it in a new space. |
+| `/ns:herdr:impl:plan:space [--dry-run]`             | Select current branch or local trunk contextually, then start implementation of the latest Saved Plan in a new space.     |
 
 ### Tab resources and implementation workflows
 
@@ -25,9 +26,9 @@ The catalog contains exactly nine commands. The first eight are base registratio
 | `/ns:herdr:impl:plan:tab [--dry-run]` | Select current branch or local trunk contextually, then start implementation of the latest Saved Plan in a new tab.                         |
 | `/ns:herdr:tab:handoff`               | Create a durable Handoff Artifact, then create a focused tab in the explicit caller space and launch pickup. Optional Handoffs integration. |
 
-An **implementation workflow** implements a prompt or Saved Plan. `impl` is shorter, avoids collision with dispatch terminology for remote systems, and describes the outcome more accurately than `launch`. The rename does not change the existing agent instructions or workflow behavior.
+An **implementation workflow** implements a prompt or Saved Plan, or continues an active Pi session. Session implementation requires a persisted caller session and never falls back to an in-memory summary. A non-empty trimmed continuation focus is authoritative; when omitted, Herdr derives a concise focus from the active compaction-aware context before branch selection or mutation. The destination clone contains only the active root-to-leaf path (not abandoned `/tree` alternatives), receives one completion/focus user turn, and resumes via `pi --session` while the caller remains open and unchanged. `impl` is shorter, avoids collision with dispatch terminology for remote systems, and describes the outcome more accurately than `launch`. The rename does not change the existing agent instructions or workflow behavior.
 
-The implementation branch-basis policy is uniform: named `main` or `master` automatically uses the existing local Graphite trunk; another named branch offers **Current branch (`<name>`)** or **Local trunk**; detached HEAD and current-branch lookup failure offer confirmed local-trunk fallback. Herdr never fetches or refreshes trunk; users update local trunk separately when desired. Cancellation, declined fallback, missing interaction UI, and local-trunk resolution failure all stop before downstream mutation. Plan-to-tab captures `HERDR_WORKSPACE_ID` before Git inspection or interaction. Plan dry runs perform contextual selection and read the existing local trunk SHA without mutation.
+The implementation branch-basis policy is uniform, including session implementation: named `main` or `master` automatically uses the existing local Graphite trunk; another named branch offers **Current branch (`<name>`)** or **Local trunk**; detached HEAD and current-branch lookup failure offer confirmed local-trunk fallback. Herdr never fetches or refreshes trunk; users update local trunk separately when desired. Cancellation, declined fallback, missing interaction UI, and local-trunk resolution failure all stop before downstream mutation. Plan-to-tab captures `HERDR_WORKSPACE_ID` before Git inspection or interaction. Plan dry runs perform contextual selection and read the existing local trunk SHA without mutation.
 
 This semantic shift was a clean breaking cutover. The former `/ns:herdr:launch:prompt:space`, `/ns:herdr:launch:plan:space`, and `/ns:herdr:launch:plan:tab` names have no visible or hidden aliases. The earlier five branch-basis-specific `br`/`tr` launch names also remain removed without aliases.
 
