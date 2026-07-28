@@ -5,7 +5,7 @@
  *  - ns:herdr:impl:plan:space
  *  - ns:herdr:impl:plan:tab
  */
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, test, vi } from "vitest";
@@ -159,6 +159,41 @@ describe("herdr Pi extension — full suite", () => {
 		const pi = new FakePi();
 		await registerHerdrPiExtension(pi);
 		expect([...pi.commands.keys()].sort()).toEqual([...HERDR_COMMAND_NAMES].sort());
+	});
+
+	test("prefixes session continuation model-policy load failures consistently", async () => {
+		const repoRoot = await makeTempDir();
+		await writeFile(join(repoRoot, "ns.toml"), "[models.profiles.fast\n", "utf8");
+		const pi = new FakePi();
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			sessionFile: "/sessions/source.jsonl",
+			leafId: "leaf",
+			branchEntries: [{ type: "message", id: "leaf" }],
+		});
+		registerHerdrSessionSpaceImplCommand(
+			{
+				commands: createHerdrPiCommandApi(pi),
+				git: new InMemoryGitGateway({ repoRoot }),
+				trunkBranch: TRUNK_BRANCH,
+				herdr: new FakeHerdrGateway(),
+			},
+			{
+				sessionContinuation: {
+					preflightSource: () => ({ ok: true }),
+					buildContextText: () => ({ ok: true, text: "active context" }),
+					async cloneActiveSessionForImplementation() {
+						throw new Error("Clone must not run after model-policy failure.");
+					},
+				},
+			},
+		);
+
+		await pi.commands.get("ns:herdr:impl:session:space")?.handler("", ctx);
+
+		expect(ctx.notifications.at(-1)?.message).toContain("Invalid model policy in ns.toml:");
+		expect(ctx.selections).toEqual([]);
+		expect(pi.execCalls).toEqual([]);
 	});
 
 	test.each([

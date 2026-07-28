@@ -65,12 +65,22 @@ export function registerHerdrSessionSpaceImplCommand(
 								repoRoot: repository.value,
 								gateway: nodeProjectConfigGateway,
 							});
-							if (!policy.ok) return { ok: false, message: policy.error.message };
+							if (!policy.ok) {
+								return {
+									ok: false,
+									message: `Invalid model policy in ns.toml: ${policy.error.message}`,
+								};
+							}
 							const operation = resolveModelOperation(
 								policy.value,
 								MODEL_OPERATION_IDS.herdrSessionContinuationFocus,
 							);
-							if (!operation.ok) return { ok: false, message: operation.error.message };
+							if (!operation.ok) {
+								return {
+									ok: false,
+									message: `Invalid model policy in ns.toml: ${operation.error.message}`,
+								};
+							}
 							const generated = await generateRawTextWithModel({
 								cwd: repository.value,
 								prompt: buildSessionContinuationFocusPrompt(activeContextText),

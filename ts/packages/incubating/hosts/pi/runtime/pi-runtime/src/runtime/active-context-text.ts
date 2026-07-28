@@ -3,9 +3,9 @@ import {
 	convertToLlm,
 	serializeConversation,
 } from "@earendil-works/pi-coding-agent";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
 import {
-	formatError,
 	openAuthoritativeSelectedPath,
 	validateActiveSessionSourceRequest,
 	type ActiveSessionSourceRequest,
@@ -45,7 +45,7 @@ export function buildActiveSessionContextText(
 	} catch (error: unknown) {
 		return {
 			ok: false,
-			message: `Failed to build active Pi session context: ${formatError(error)}`,
+			message: `Failed to build active Pi session context: ${formatErrorMessage(error)}`,
 		};
 	}
 }

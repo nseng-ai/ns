@@ -5,6 +5,7 @@ import { buildTrackedBranchSlugPrompt } from "@nseng-ai/extension-kit/tracked-br
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 
 import {
+	buildSessionContinuationFocusPrompt,
 	buildSessionContinuationTurn,
 	handleHerdrImplSession,
 	type HerdrSessionContinuationGateway,
@@ -329,9 +330,58 @@ describe("Herdr active-session implementation", () => {
 
 		expect(herdr.createWorkspaceCalls).toEqual([]);
 		expect(herdr.paneRunCalls).toEqual([]);
-		expect(ctx.notifications.at(-1)?.message).toContain(
-			"Resume it with: /sessions/recoverable.jsonl",
+		const recovery = ctx.notifications.at(-1)?.message;
+		expect(recovery).toContain("destination Pi session was persisted");
+		expect(recovery).toContain("before a Herdr workspace was created");
+		expect(recovery).not.toContain("Herdr destination failed");
+		expect(recovery).toContain("Resume it with: /sessions/recoverable.jsonl");
+		pi.assertDone();
+	});
+
+	test.each([
+		{
+			name: "destination creation",
+			herdrOptions: {
+				createWorkspaceResult: { type: "failed" as const, message: "workspace unavailable" },
+			},
+			expected: "Herdr destination creation failed",
+		},
+		{
+			name: "pane launch",
+			herdrOptions: {
+				paneRunResult: { type: "failed" as const, message: "pane unavailable" },
+			},
+			expected: "Herdr destination exists, but command launch failed",
+		},
+	])("describes recoverable session evidence after $name accurately", async (scenario) => {
+		const pi = successfulPi();
+		const herdr = new FakeHerdrGateway(scenario.herdrOptions);
+		const ctx = new FakeCommandContext({
+			cwd: ROOT,
+			sessionFile: "/sessions/source.jsonl",
+			leafId: "leaf",
+			branchEntries: [{ type: "message", id: "leaf" }],
+		});
+
+		await handleHerdrImplSession(
+			{
+				commands: createHerdrPiCommandApi(pi),
+				pi: ctx,
+				trunkBranch: "master",
+				git: new InMemoryGitGateway({
+					currentBranch: SOURCE_BRANCH,
+					headCommit: START_POINT,
+					repoRoot: ROOT,
+				}),
+				herdr,
+				sessionContinuation: new FakeSessionContinuation(),
+			},
+			baseOptions(),
 		);
+
+		const recovery = ctx.notifications.at(-1)?.message;
+		expect(recovery).toContain(scenario.expected);
+		expect(recovery).toContain("Resume it with: /sessions/destination.jsonl");
 		pi.assertDone();
 	});
 
@@ -423,5 +473,35 @@ describe("Herdr active-session implementation", () => {
 		expect(pi.execCalls).toEqual([]);
 		expect(continuation.calls).toEqual([]);
 		expect(herdr.createWorkspaceCalls).toEqual([]);
+	});
+});
+
+describe("session continuation-focus prompt", () => {
+	function embeddedContext(prompt: string): string {
+		const match = prompt.match(/<active-session-context>\n([\s\S]*)\n<\/active-session-context>/);
+		if (match?.[1] === undefined) throw new Error("Expected active-session context tags.");
+		return match[1];
+	}
+
+	test("preserves context below the limit byte-for-byte", () => {
+		const activeContext = "first line\nsecond line\n";
+		const prompt = buildSessionContinuationFocusPrompt(activeContext);
+
+		expect(embeddedContext(prompt)).toBe(activeContext);
+		expect(prompt).not.toContain("context truncated");
+	});
+
+	test("caps oversized context at 8,000 characters with a visible head marker", () => {
+		const activeContext = `${"head".repeat(2_050)}TAIL_SHOULD_BE_OMITTED`;
+		const prompt = buildSessionContinuationFocusPrompt(activeContext);
+		const context = embeddedContext(prompt);
+
+		expect(context.length).toBeLessThanOrEqual(8_000);
+		expect(context.startsWith("headheadhead")).toBe(true);
+		expect(context).toContain(
+			"[Active session context truncated for continuation-focus derivation]",
+		);
+		expect(context).not.toContain("TAIL_SHOULD_BE_OMITTED");
+		expect(prompt).toContain("</active-session-context>");
 	});
 });

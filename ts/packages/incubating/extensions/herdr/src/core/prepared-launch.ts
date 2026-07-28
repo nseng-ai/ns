@@ -5,27 +5,25 @@ import type { HerdrGateway } from "./herdr-gateway.ts";
 import { checkoutSlot, formatSlotCheckoutFailureCause } from "./slot-checkout.ts";
 import { formatHerdrResourceLabel, slotLabelInput } from "./resource-label.ts";
 
-export type PreparedLaunchPayload<PreparationEvidence = never> = {
+export type PreparedLaunchPayload = {
 	readonly branchName: string;
 } & (
 	| { readonly launchCommand: string }
 	| {
 			readonly prepareAfterCheckout: (
 				target: SlotCheckoutTarget,
-			) => Promise<PreparedLaunchPreparationResult<PreparationEvidence>>;
+			) => Promise<PreparedLaunchPreparationResult>;
 	  }
 );
 
-export type PreparedLaunchPreparationResult<PreparationEvidence> =
+export type PreparedLaunchPreparationResult =
 	| {
 			readonly type: "prepared";
 			readonly launchCommand: string;
-			readonly evidence: PreparationEvidence;
 	  }
 	| {
 			readonly type: "failed";
 			readonly message: string;
-			readonly evidence?: PreparationEvidence;
 	  };
 
 export type PreparedLaunchDestination =
@@ -40,12 +38,11 @@ export interface OpenedPreparedLaunchTarget {
 	readonly paneId: string;
 }
 
-export type PreparedLaunchResult<PreparationEvidence = never> =
+export type PreparedLaunchResult =
 	| {
 			type: "opened";
 			destination: "workspace" | "tab";
 			target: OpenedPreparedLaunchTarget;
-			preparationEvidence?: PreparationEvidence;
 	  }
 	| {
 			type: "failed";
@@ -55,7 +52,6 @@ export type PreparedLaunchResult<PreparationEvidence = never> =
 			workspaceId?: string;
 			tabId?: string;
 			paneId?: string;
-			preparationEvidence?: PreparationEvidence;
 	  };
 
 type FailedPreparedLaunchResult = Extract<PreparedLaunchResult, { type: "failed" }>;
@@ -76,13 +72,13 @@ export interface PreparedLaunchContext {
 	readonly onStatus?: (message: string | undefined) => void;
 }
 
-export async function launchPreparedBranch<PreparationEvidence = never>(
+export async function launchPreparedBranch(
 	context: PreparedLaunchContext,
 	options: {
-		payload: PreparedLaunchPayload<PreparationEvidence>;
+		payload: PreparedLaunchPayload;
 		destination: PreparedLaunchDestination;
 	},
-): Promise<PreparedLaunchResult<PreparationEvidence>> {
+): Promise<PreparedLaunchResult> {
 	const { payload } = options;
 	context.onStatus?.("checking out branch slot…");
 	const checkout = await checkoutSlot(context.slotClient, {
@@ -99,12 +95,10 @@ export async function launchPreparedBranch<PreparationEvidence = never>(
 	}
 	const target = checkout.target;
 	let launchCommand: string;
-	let preparationEvidence: PreparationEvidence | undefined;
 	if ("prepareAfterCheckout" in payload) {
 		context.onStatus?.("preparing launch in checked-out worktree…");
 		const preparation = await payload.prepareAfterCheckout(target);
 		if (preparation.type === "failed") {
-			preparationEvidence = preparation.evidence;
 			context.notify(
 				[
 					"Checked out the branch slot, but failed to prepare the launch.",
@@ -119,11 +113,9 @@ export async function launchPreparedBranch<PreparationEvidence = never>(
 				stage: "launch-prepare",
 				message: preparation.message,
 				target,
-				...(preparationEvidence === undefined ? {} : { preparationEvidence }),
 			};
 		}
 		launchCommand = preparation.launchCommand;
-		preparationEvidence = preparation.evidence;
 	} else {
 		launchCommand = payload.launchCommand;
 	}
@@ -135,12 +127,7 @@ export async function launchPreparedBranch<PreparationEvidence = never>(
 		notify: context.notify,
 		...(context.onStatus === undefined ? {} : { onStatus: context.onStatus }),
 	});
-	if (created.type === "failed") {
-		return {
-			...created,
-			...(preparationEvidence === undefined ? {} : { preparationEvidence }),
-		};
-	}
+	if (created.type === "failed") return created;
 
 	context.onStatus?.(`launching command in Herdr ${created.destination}…`);
 	const ran = await context.herdr.runInPane(created.paneId, launchCommand);
@@ -168,7 +155,6 @@ export async function launchPreparedBranch<PreparationEvidence = never>(
 			workspaceId: created.workspaceId,
 			tabId: created.tabId,
 			paneId: created.paneId,
-			...(preparationEvidence === undefined ? {} : { preparationEvidence }),
 		};
 	}
 
@@ -183,7 +169,6 @@ export async function launchPreparedBranch<PreparationEvidence = never>(
 			tabId: created.tabId,
 			paneId: created.paneId,
 		},
-		...(preparationEvidence === undefined ? {} : { preparationEvidence }),
 	};
 }
 

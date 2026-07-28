@@ -2,6 +2,7 @@ import { IMPL_COMPLETION_INSTRUCTIONS_LINES } from "@nseng-ai/extension-kit/trac
 import { buildPiSessionLaunchCommand, getPiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
 import type { GitGateway } from "@nseng-ai/foundation/git";
+import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
 import type { HerdrGateway } from "./herdr-gateway.ts";
@@ -164,7 +165,8 @@ export async function handleHerdrImplSession(
 	}
 
 	const continuationMessage = buildSessionContinuationTurn(focus);
-	const result = await launchPreparedBranch<DestinationSessionEvidence>(
+	let destinationSession: DestinationSessionEvidence | undefined;
+	const result = await launchPreparedBranch(
 		{
 			herdr: context.herdr,
 			slotClient: options.slotClient ?? createHerdrSlotClient({ cwd: context.pi.cwd }),
@@ -184,17 +186,12 @@ export async function handleHerdrImplSession(
 						continuationMessage,
 					});
 					if (!cloned.ok) {
-						return {
-							type: "failed",
-							message: cloned.error.message,
-							...(cloned.error.recoverableDestination === undefined
-								? {}
-								: { evidence: cloned.error.recoverableDestination }),
-						};
+						destinationSession = cloned.error.recoverableDestination;
+						return { type: "failed", message: cloned.error.message };
 					}
+					destinationSession = cloned.value;
 					return {
 						type: "prepared",
-						evidence: cloned.value,
 						launchCommand: buildPiSessionLaunchCommand(
 							cloned.value.sessionFile,
 							getPiLaunchOptions(context.commands, context.pi),
@@ -205,7 +202,12 @@ export async function handleHerdrImplSession(
 			destination: { type: "workspace" },
 		},
 	);
-	if (result.type === "opened" && result.preparationEvidence !== undefined) {
+	if (result.type === "opened") {
+		if (destinationSession === undefined) {
+			throw new Error(
+				"Herdr session implementation opened without captured destination-session evidence.",
+			);
+		}
 		context.pi.ui.notify(
 			[
 				"Opened active-session implementation in a new Herdr space.",
@@ -213,7 +215,7 @@ export async function handleHerdrImplSession(
 				`Parent: ${branch.parentBranch}`,
 				`Start point: ${branch.startPoint}`,
 				`Worktree: ${result.target.checkout.worktreePath}`,
-				`Destination session: ${result.preparationEvidence.sessionFile}`,
+				`Destination session: ${destinationSession.sessionFile}`,
 				`Workspace: ${result.target.workspaceId}`,
 				`Tab: ${result.target.tabId}`,
 				`Pane: ${result.target.paneId}`,
@@ -222,9 +224,12 @@ export async function handleHerdrImplSession(
 		);
 		return;
 	}
-	if (result.type === "failed" && result.preparationEvidence !== undefined) {
+	if (destinationSession === undefined) return;
+
+	const recoveryLead = recoveryNotificationLead(result.stage);
+	if (recoveryLead !== undefined) {
 		context.pi.ui.notify(
-			`The Herdr destination failed after the destination session was persisted. Resume it with: ${result.preparationEvidence.sessionFile}`,
+			`${recoveryLead} Resume it with: ${destinationSession.sessionFile}`,
 			"error",
 		);
 	}
@@ -234,14 +239,39 @@ export function buildSessionContinuationTurn(focus: string): string {
 	return ["## Continuation focus", focus, "", ...IMPL_COMPLETION_INSTRUCTIONS_LINES].join("\n");
 }
 
+const MAX_SESSION_CONTINUATION_CONTEXT_CHARS = 8_000;
+const SESSION_CONTINUATION_TRUNCATION_MARKER =
+	"\n\n[Active session context truncated for continuation-focus derivation]";
+
 export function buildSessionContinuationFocusPrompt(activeContextText: string): string {
+	const boundedContext = truncateTextHead({
+		value: activeContextText,
+		maxChars: MAX_SESSION_CONTINUATION_CONTEXT_CHARS,
+		buildMarker: () => SESSION_CONTINUATION_TRUNCATION_MARKER,
+		shouldTrimHead: false,
+	});
 	return [
 		"Derive one concise, actionable task for continuing the active coding session below.",
 		"Return plain text only: no preamble, summary heading, slug, Markdown plan, or Handoff Artifact.",
 		"Preserve the concrete implementation intent and immediate next work.",
 		"",
 		"<active-session-context>",
-		activeContextText,
+		boundedContext,
 		"</active-session-context>",
 	].join("\n");
+}
+
+function recoveryNotificationLead(
+	stage: "slot-checkout" | "launch-prepare" | "destination-create" | "pane-launch",
+): string | undefined {
+	switch (stage) {
+		case "slot-checkout":
+			return undefined;
+		case "launch-prepare":
+			return "The destination Pi session was persisted, but launch preparation failed before a Herdr workspace was created.";
+		case "destination-create":
+			return "Herdr destination creation failed after the destination Pi session was persisted.";
+		case "pane-launch":
+			return "The Herdr destination exists, but command launch failed after the destination Pi session was persisted.";
+	}
 }

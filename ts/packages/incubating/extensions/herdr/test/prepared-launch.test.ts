@@ -152,7 +152,6 @@ describe("prepared Herdr launch", () => {
 						return {
 							type: "prepared",
 							launchCommand: "pi --session /tmp/destination.jsonl",
-							evidence: { sessionFile: "/tmp/destination.jsonl" },
 						};
 					},
 				},
@@ -161,10 +160,7 @@ describe("prepared Herdr launch", () => {
 		);
 
 		expect(events).toEqual(["prepare:/ordinary/worktree", "destination-create"]);
-		expect(result).toMatchObject({
-			type: "opened",
-			preparationEvidence: { sessionFile: "/tmp/destination.jsonl" },
-		});
+		expect(result).toMatchObject({ type: "opened" });
 		expect(herdr.paneRunCalls[0]?.command).toBe("pi --session /tmp/destination.jsonl");
 	});
 
@@ -184,34 +180,6 @@ describe("prepared Herdr launch", () => {
 		expect(result).toMatchObject({ type: "failed", stage: "launch-prepare" });
 		expect(herdr.createWorkspaceCalls).toEqual([]);
 		expect(herdr.paneRunCalls).toEqual([]);
-	});
-
-	test("preserves recoverable preparation evidence when preparation fails", async () => {
-		const herdr = new FakeHerdrGateway();
-		const result = await launchPreparedBranch(
-			{ herdr, slotClient: slotClient("/ordinary/worktree"), notify: () => {} },
-			{
-				payload: {
-					branchName: "implement-feature-2",
-					prepareAfterCheckout: async () => ({
-						type: "failed",
-						message: "append failed",
-						evidence: { sessionFile: "/tmp/recoverable.jsonl", sessionId: "recoverable" },
-					}),
-				},
-				destination: { type: "workspace" },
-			},
-		);
-
-		expect(result).toMatchObject({
-			type: "failed",
-			stage: "launch-prepare",
-			preparationEvidence: {
-				sessionFile: "/tmp/recoverable.jsonl",
-				sessionId: "recoverable",
-			},
-		});
-		expect(herdr.createWorkspaceCalls).toEqual([]);
 	});
 
 	test("stops before destination creation when slot checkout fails", async () => {
@@ -266,7 +234,6 @@ describe("prepared Herdr launch", () => {
 						prepareAfterCheckout: async () => ({
 							type: "prepared",
 							launchCommand: "pi --session /tmp/destination.jsonl",
-							evidence: { sessionFile: "/tmp/destination.jsonl" },
 						}),
 					},
 					destination,
@@ -276,7 +243,7 @@ describe("prepared Herdr launch", () => {
 			expect(result).toMatchObject({
 				type: "failed",
 				stage: "destination-create",
-				preparationEvidence: { sessionFile: "/tmp/destination.jsonl" },
+				target: { branchName: "implement-feature-2" },
 			});
 			expect(herdr.paneRunCalls).toEqual([]);
 			expect(notifications.join("\n")).toContain("unavailable");

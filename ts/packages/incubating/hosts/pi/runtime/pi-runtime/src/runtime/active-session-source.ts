@@ -1,4 +1,5 @@
 import { SessionManager } from "@earendil-works/pi-coding-agent";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
 export interface ActiveSessionSourceRequest {
 	readonly sourceSessionFile: string;
@@ -42,11 +43,7 @@ export function openAuthoritativeSelectedPath(
 	} catch (error: unknown) {
 		return {
 			ok: false,
-			message: `Failed to read active Pi session source: ${formatError(error)}`,
+			message: `Failed to read active Pi session source: ${formatErrorMessage(error)}`,
 		};
 	}
-}
-
-export function formatError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }
