@@ -1,3 +1,13 @@
+export { createClinkrApp } from "./app.ts";
+export type {
+	ClinkrApp,
+	ClinkrContextFreeApp,
+	ClinkrContextFreeRunOptions,
+	ClinkrContextfulApp,
+	ClinkrRunOptions,
+	CreateContextFreeClinkrAppOptions,
+	CreateContextfulClinkrAppOptions,
+} from "./app.ts";
 export {
 	buildCommandJsonSchemaDocument,
 	cliOption,
