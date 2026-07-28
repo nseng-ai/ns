@@ -113,7 +113,7 @@ test("renderMarkdown falls back to renderHuman and then indented JSON", async ()
 
 test("bodyless success renders nothing", async () => {
 	const result = await countingApp.execute({});
-	expect(result.outcome).toEqual({ status: "success", data: undefined });
+	expect(result.outcome).toEqual({ status: "success" });
 	expect(result.renderHuman(PLAIN)).toBeUndefined();
 	expect(result.renderMarkdown(PLAIN)).toBeUndefined();
 });
