@@ -176,6 +176,9 @@ type Issue {
     itemTypes: [IssueTimelineItemsItemType!]
   ): IssueTimelineItemsConnection!
 
+  # Body edit history (see UserContentEdit under PullRequest)
+  userContentEdits(first: Int, after: String): UserContentEditConnection
+
   # Reactions
   reactions(first: Int, content: ReactionContent): ReactionConnection!
 
@@ -342,6 +345,9 @@ type PullRequest {
 
   files(first: Int, after: String): PullRequestChangedFileConnection!
 
+  # Body edit history (the web UI "edited" dropdown)
+  userContentEdits(first: Int, after: String): UserContentEditConnection
+
   projectItems(
     first: Int
     after: String
@@ -383,6 +389,28 @@ type PullRequestChangedFile {
   changeType: PatchStatus! # ADDED, DELETED, MODIFIED, RENAMED, COPIED, CHANGED
 }
 ```
+
+**Nested Type: UserContentEdit**
+
+Body/comment edit history. `userContentEdits` is available on every type
+implementing the `Comment` interface (`PullRequest`, `Issue`, `IssueComment`,
+`PullRequestReview`, `PullRequestReviewComment`, `Discussion`,
+`DiscussionComment`, …). GraphQL-only — no REST endpoint or porcelain command.
+
+```graphql
+type UserContentEdit {
+  id: ID!
+  createdAt: DateTime!
+  editedAt: DateTime!
+  updatedAt: DateTime!
+  editor: Actor
+  deletedAt: DateTime
+  deletedBy: Actor
+  diff: String # Full body text of this revision, NOT a patch; may be null/empty (e.g., redacted)
+}
+```
+
+Nodes in the connection are ordered newest revision first.
 
 **Common Queries:**
 

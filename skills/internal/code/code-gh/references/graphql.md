@@ -28,23 +28,25 @@ Can the task be done with gh porcelain commands?
     ├─ Need complex nested data? → GraphQL (single request)
     ├─ Need Discussion API access? → GraphQL (no porcelain commands)
     ├─ Need advanced issue search? → GraphQL (complex filters)
+    ├─ Need body/comment edit history (recover a previous revision)? → GraphQL (no REST or porcelain path)
     └─ Need custom field queries? → GraphQL (flexible schema)
 ```
 
 ### Quick Reference: CLI vs GraphQL
 
-| Capability                  | gh CLI Command    | GraphQL Required?                    |
-| --------------------------- | ----------------- | ------------------------------------ |
-| Create PR                   | `gh pr create`    | ❌ No (but uses GraphQL internally!) |
-| List PRs with basic filters | `gh pr list`      | ❌ No                                |
-| View PR with reviews        | `gh pr view`      | ❌ No                                |
-| Create issue                | `gh issue create` | ❌ No (but uses GraphQL internally!) |
-| Manage Projects V2          | N/A               | ✅ Yes                               |
-| Query Discussions           | N/A               | ✅ Yes                               |
-| Batch query repos           | N/A               | ✅ Yes                               |
-| Advanced issue search       | N/A               | ✅ Yes                               |
-| Complex nested queries      | Limited           | ✅ Yes (more efficient)              |
-| Custom field queries        | Limited           | ✅ Yes (more flexible)               |
+| Capability                      | gh CLI Command    | GraphQL Required?                    |
+| ------------------------------- | ----------------- | ------------------------------------ |
+| Create PR                       | `gh pr create`    | ❌ No (but uses GraphQL internally!) |
+| List PRs with basic filters     | `gh pr list`      | ❌ No                                |
+| View PR with reviews            | `gh pr view`      | ❌ No                                |
+| Create issue                    | `gh issue create` | ❌ No (but uses GraphQL internally!) |
+| Manage Projects V2              | N/A               | ✅ Yes                               |
+| Query Discussions               | N/A               | ✅ Yes                               |
+| Batch query repos               | N/A               | ✅ Yes                               |
+| Advanced issue search           | N/A               | ✅ Yes                               |
+| Query body/comment edit history | N/A               | ✅ Yes                               |
+| Complex nested queries          | Limited           | ✅ Yes (more efficient)              |
+| Custom field queries            | Limited           | ✅ Yes (more flexible)               |
 
 > **Warning for automation**: Many `gh` porcelain commands (`gh issue create`, `gh pr create`) use **GraphQL internally**, which means they consume GraphQL rate limit quota. For programmatic use, prefer `gh api` with explicit REST endpoints when possible to avoid the hidden GraphQL cost of porcelain commands.
 
@@ -355,6 +357,44 @@ gh api graphql -f query='
   }
 ' -f owner=myorg -f repo=myrepo
 ```
+
+### 7. Content Edit History (`userContentEdits`)
+
+**Why GraphQL?** The edit history behind the web UI's "edited" dropdown on PR/issue
+bodies and comments has **no REST endpoint and no porcelain command**. It is exposed
+only as the `userContentEdits` connection on anything implementing the `Comment`
+interface (`PullRequest`, `Issue`, `IssueComment`, `PullRequestReview`,
+`PullRequestReviewComment`, `Discussion`, `DiscussionComment`, …).
+
+**Common Operations:**
+
+- List revisions of a PR/issue body with editor and timestamp
+- Recover a previous body after a bad edit
+- Audit who changed a description and when
+
+**Gotchas (observed API behavior):**
+
+- `diff` returns the **full body text of that revision**, not a patch — the field name is misleading.
+- Nodes are ordered **newest revision first** (`nodes[0]` is the most recent edit).
+- Revisions may come back with a null/empty `diff` (e.g., redacted entries); tolerate them.
+
+**Example Scenario:** A PR description was mangled by a bad edit; list its revisions.
+
+```bash
+gh api graphql -f query='
+  query($owner: String!, $repo: String!, $number: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $number) {
+        userContentEdits(first: 20) {
+          nodes { createdAt editor { login } diff }
+        }
+      }
+    }
+  }
+' -f owner=myorg -f repo=myrepo -F number=123
+```
+
+See [Example 6](#example-6-recover-a-previous-pr-body-revision) for the full recovery workflow.
 
 ---
 
@@ -1134,6 +1174,57 @@ gh api graphql -f query='
 - `label:bug` - Label filter (can specify multiple)
 - `created:>2025-01-01` - Date range
 - `comments:>5` - Comment count filter
+
+### Example 6: Recover a Previous PR Body Revision
+
+**Scenario:** A bad edit mangled a PR description. Use `userContentEdits` to find
+the last good revision, see what the bad edit destroyed, and restore the body.
+
+**Step 1: Fetch the revision history**
+
+Each node's `diff` is the **full body text of that revision** (not a patch);
+nodes are ordered newest first, and redacted revisions may have a null/empty `diff`.
+
+```bash
+gh api graphql -f query='
+  query($owner: String!, $repo: String!, $number: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $number) {
+        userContentEdits(first: 20) {
+          nodes { createdAt editor { login } diff }
+        }
+      }
+    }
+  }
+' -f owner=myorg -f repo=myrepo -F number=123 > edits.json
+```
+
+**Step 2: Save each revision to a file**
+
+```bash
+# Character counts + timestamps usually identify the pre-damage revision
+jq -r '.data.repository.pullRequest.userContentEdits.nodes[] |
+  "\(.createdAt)  \(.editor.login)  \(.diff // "" | length) chars"' edits.json
+
+# Split revisions into files: revision-0.md is the newest
+n=$(jq '.data.repository.pullRequest.userContentEdits.nodes | length' edits.json)
+for i in $(seq 0 $((n - 1))); do
+  jq -r ".data.repository.pullRequest.userContentEdits.nodes[$i].diff // \"\"" edits.json > "revision-$i.md"
+done
+```
+
+**Step 3: Diff the pre-damage and damaged revisions**
+
+```bash
+diff revision-2.md revision-1.md   # shows exactly what the bad edit destroyed
+```
+
+**Step 4: Repair and restore the body**
+
+```bash
+# Edit the recovered file as needed, then push it back as the PR body
+gh pr edit 123 --repo myorg/myrepo --body-file revision-2.md
+```
 
 ---
 
