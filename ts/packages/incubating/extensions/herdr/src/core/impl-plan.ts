@@ -49,6 +49,7 @@ import { getCallerWorkspaceId } from "./sidebar.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import { resolveImplBranchBasis } from "./impl-branch-basis.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
+import { resolveRepoTrunkBranch } from "./trunk-branch.ts";
 
 export type ImplDestination = "workspace" | "tab";
 
@@ -62,11 +63,6 @@ export interface HerdrSlotImplPlanOptions {
 	planStoreRoot?: string;
 	createBranchContextContext?: BranchContextContextFactory<[pi: HerdrPiCommandApi, cwd: string]>;
 	slotClient?: SlotClient;
-	git?: Pick<GitGateway, "currentBranch">;
-}
-
-export interface ResolvedHerdrSlotImplPlanOptions extends HerdrSlotImplPlanOptions {
-	git: Pick<GitGateway, "currentBranch">;
 }
 
 interface CommandArgs {
@@ -76,15 +72,14 @@ interface CommandArgs {
 
 export interface HerdrImplPlanContext {
 	commands: HerdrPiCommandApi;
-	git: Pick<GitGateway, "currentBranch">;
-	trunkBranch: string;
+	git: Pick<GitGateway, "cachedOriginHeadBranch" | "currentBranch">;
 	herdr: HerdrGateway;
 	pi: CommandContext;
 }
 
 export interface HandleHerdrSlotImplPlanOptions {
 	rawArgs: string;
-	dependencies: ResolvedHerdrSlotImplPlanOptions;
+	dependencies: HerdrSlotImplPlanOptions;
 	config: ImplPlanConfig;
 	notifyProgress: (message: string) => void;
 }
@@ -93,7 +88,7 @@ export async function handleHerdrSlotImplPlan(
 	context: HerdrImplPlanContext,
 	options: HandleHerdrSlotImplPlanOptions,
 ): Promise<void> {
-	const { commands: pi, trunkBranch, herdr, pi: ctx } = context;
+	const { commands: pi, herdr, pi: ctx } = context;
 	const { rawArgs, config } = options;
 
 	const parsed = parseCommandArgs(rawArgs);
@@ -118,7 +113,7 @@ export async function handleHerdrSlotImplPlan(
 	try {
 		const selection = await resolveImplBranchBasis({
 			cwd: ctx.cwd,
-			git: options.dependencies.git,
+			git: context.git,
 			interaction: ctx,
 		});
 		if (selection.type === "cancelled") {
@@ -148,9 +143,8 @@ export async function handleHerdrSlotImplPlan(
 			selection.basis === "trunk"
 				? await prepareImplTrunkBasis({
 						pi,
-						trunkBranch,
+						git: context.git,
 						cwd: checkout.repoRoot,
-						options: options.dependencies,
 						notify: options.notifyProgress,
 					})
 				: ({ type: "current-head" } as const);
@@ -159,7 +153,7 @@ export async function handleHerdrSlotImplPlan(
 			return;
 		}
 		if (selection.basis === "current") {
-			const revalidated = await options.dependencies.git.currentBranch({ cwd: checkout.repoRoot });
+			const revalidated = await context.git.currentBranch({ cwd: checkout.repoRoot });
 			if (revalidated.type !== "branch" || revalidated.branch !== selection.currentBranch) {
 				present(
 					ctx,
@@ -234,7 +228,7 @@ export async function handleHerdrSlotImplPlan(
 function implBranchContextContext(
 	pi: HerdrPiCommandApi,
 	cwd: string,
-	options: ResolvedHerdrSlotImplPlanOptions,
+	options: HerdrSlotImplPlanOptions,
 ): BranchContextContext {
 	return options.createBranchContextContext?.(pi, cwd) ?? createRealBranchContextContext({ cwd });
 }
@@ -245,13 +239,14 @@ type PreparedImplBasis =
 
 async function prepareImplTrunkBasis(options: {
 	pi: HerdrPiCommandApi;
-	trunkBranch: string;
+	git: HerdrImplPlanContext["git"];
 	cwd: string;
-	options: ResolvedHerdrSlotImplPlanOptions;
 	notify: (message: string) => void;
 }): Promise<PreparedImplBasis | { error: string }> {
+	const resolution = await resolveRepoTrunkBranch(options.git, { cwd: options.cwd });
+	if (resolution.type === "failed") return { error: resolution.message };
 	const preparation = await prepareLocalGraphiteTrunk(
-		{ pi: options.pi, trunkBranch: options.trunkBranch },
+		{ pi: options.pi, trunkBranch: resolution.branch },
 		{
 			cwd: options.cwd,
 			notify: options.notify,
@@ -306,7 +301,7 @@ async function createAttachAndImplement(options: {
 	ctx: CommandContext;
 	prepared: ReadyPreparedPlanBranchContext;
 	config: ImplPlanConfig;
-	planImplOptions: ResolvedHerdrSlotImplPlanOptions;
+	planImplOptions: HerdrSlotImplPlanOptions;
 	destination: PreparedLaunchDestination;
 }): Promise<void> {
 	const { pi, herdr, ctx, prepared, config, planImplOptions, destination } = options;

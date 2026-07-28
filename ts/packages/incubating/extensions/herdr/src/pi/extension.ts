@@ -1,4 +1,3 @@
-import { RealGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/branch";
 import type {
 	AgentEndContext,
 	CommandDefinition,
@@ -44,18 +43,11 @@ export async function registerHerdrPiExtension(
 	const herdrPi = adaptHerdrExtensionApi(pi);
 	const commands = createHerdrPiCommandApi(herdrPi);
 	const git = new RealGitGateway(commands);
-	const graphite = new RealGraphiteBranchGateway(commands);
-	// Graphite trunk changes are heavyweight process-wide reconfiguration. Resolve it once at
-	// startup and treat the result as immutable for this extension lifetime; gateway injection
-	// remains the test seam for trunk resolution.
-	const trunk = await graphite.trunkBranch({ cwd: process.cwd() });
-	if (!trunk.ok) {
-		throw new Error(
-			`Could not initialize Herdr: failed to resolve Graphite trunk. ${trunk.error.message}`,
-		);
-	}
+	// Registration performs no Graphite or trunk work. Implementation workflows derive
+	// the trunk branch from the repository's cached origin/HEAD git fact only after the
+	// local-trunk basis is selected (see core/trunk-branch.ts).
 	const herdr = createCliHerdrGateway(commands);
-	const context: HerdrPiContext = { commands, git, trunkBranch: trunk.branch, herdr };
+	const context: HerdrPiContext = { commands, git, herdr };
 	const sidebarController = createHerdrSidebarControllerWithPiWiring(herdrPi);
 	registerHerdrSidebarCommands(herdrPi, sidebarController);
 	registerHerdrSpaceGoalCommand(herdrPi);
