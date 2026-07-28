@@ -12,10 +12,10 @@ interface Context {
 	readonly records: { delete(name: string): Promise<void> };
 }
 
-const schema = z.object({ name: z.string() });
-const definition: ContextfulCommandDefinition<Context, typeof schema> = {
+const confirmationSchema = z.object({ name: z.string() });
+const definition: ContextfulCommandDefinition<Context, typeof confirmationSchema> = {
 	requiresContext: true,
-	schema,
+	schema: confirmationSchema,
 // README-FENCE-14-START
 handler: async (context, request) => {
 	const confirmation = await confirmOrUsageError(context.interaction, {

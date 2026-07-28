@@ -10,7 +10,7 @@ The fixture spine exercises truthful context-free/contextful definitions, schema
 
 This supplies the initial executable evidence required by the README gate without claiming the broader recursive topology, completion, or full runtime is complete. PR #3953 carries this slice and remains open; the evidence is not yet trunk state.
 
-The package-contract and runtime rows still own complete topology validation, recursive selection, completion behavior, transactional loading, raw execution, and broad qualification. An accountability review of PR #3953 also found that the primary greet example is the only example currently exercised end to end. Examples 3–14 are synchronized and compiled, but several are fragments or describe target runtime behavior that the current root-only filesystem app cannot yet execute.
+The package-contract and runtime rows still own complete topology validation, recursive selection, completion behavior, transactional loading, raw execution, and broad qualification. An accountability review of PR #3953 also found that the primary greet example is the only example currently exercised end to end. Examples 3–14 are synchronized and compiled, but several are fragments or describe target runtime behavior that the current root-only filesystem app cannot yet execute. Future command metadata remains an explicit expected type error in the compile fixture rather than a declaration augmentation: production types and runtime decoding must implement it before the final testing pass removes that scaffold.
 
 ## README Testing Assessment
 

@@ -102,7 +102,10 @@ function extractRegion(source: string, region: string): string {
 	const start = normalized.indexOf(startMarker);
 	const end = normalized.indexOf(endMarker);
 	if (start < 0 || end < 0 || end <= start) throw new Error(`Malformed fixture region ${region}`);
-	return normalized.slice(start + startMarker.length + 1, end).replace(/\n$/, "");
+	return normalized
+		.slice(start + startMarker.length + 1, end)
+		.replace(/^\s*\/\/ @ts-expect-error README-COMPILE-SCAFFOLD:.*\n/gm, "")
+		.replace(/\n$/, "");
 }
 
 async function synchronizedText(references: readonly RegionReference[]): Promise<string> {
