@@ -45,6 +45,10 @@ Prefer small, complete changes that leave no dead scaffolding.
 - Cross-package imports use curated workspace package exports, for example
   `@nseng-ai/foundation/primitives`, `@nseng-ai/foundation/exec`, and `@nseng-ai/clinkr/raw`.
 - Do not deep-import another package's `src/` tree.
+- Bring project-owned types used in type signatures into scope with a top-level `import type`. Do not
+  embed import type expressions such as `function load(): import("./module.ts").LoadResult` or
+  `type Item = import("./module.ts").Item` in signatures. This does not prohibit runtime dynamic
+  imports such as `await import("./module.ts")` when lazy or optional loading is intentional.
 - Do not add root-only barrels that hide ownership. Prefer explicit subpath exports for public package
   surfaces.
 
