@@ -452,6 +452,17 @@ function parseGlobalFlags(argv: readonly string[]): GlobalFlagsResult {
 	};
 }
 
+/**
+ * Framework-owned ANSI output boundary: a sink that does not advertise ANSI
+ * support never receives escape sequences, regardless of where the text came
+ * from (renderer output or handler-supplied outcome messages). `canEmitAnsi`
+ * stays advisory to renderers; this is the enforcement point. JSON envelopes
+ * bypass this because JSON.stringify escapes control characters.
+ */
+function boundaryText(io: ClinkrIo, text: string): string {
+	return io.canEmitAnsi === true ? text : stripAnsi(text);
+}
+
 function emitOutcome(
 	io: ClinkrIo,
 	outcome: CommandOutcome<unknown>,
@@ -472,18 +483,14 @@ function emitOutcome(
 			renderer === undefined
 				? envelopeJsonText(outcome.data)
 				: renderer(outcome.data, { canEmitAnsi: io.canEmitAnsi === true });
-		// Framework-owned safety net: `canEmitAnsi` is advisory to renderers, but
-		// plain sinks must never receive escapes even when a renderer ignores the
-		// capability. Stripping stable JSON fallback text is a no-op because
-		// JSON.stringify escapes control characters.
-		io.stdout(`${io.canEmitAnsi === true ? text : stripAnsi(text)}\n`);
+		io.stdout(`${boundaryText(io, text)}\n`);
 		return;
 	}
 	if (outcome.status === "negative") {
-		io.stdout(`${outcome.message}\n`);
+		io.stdout(`${boundaryText(io, outcome.message)}\n`);
 		return;
 	}
-	io.stderr(`${outcome.message}\n`);
+	io.stderr(`${boundaryText(io, outcome.message)}\n`);
 }
 
 function emitUsageError(options: EmitUsageErrorOptions): number {
@@ -496,7 +503,7 @@ function emitUsageError(options: EmitUsageErrorOptions): number {
 	if (options.format === "json") {
 		options.io.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
 	} else {
-		options.io.stderr(`${options.message}\n`);
+		options.io.stderr(`${boundaryText(options.io, options.message)}\n`);
 	}
 	return exitCodeFor(outcome.status);
 }
