@@ -9,9 +9,19 @@ export type {
 	ClinkrExecuteOptions,
 	ClinkrExecuteResult,
 	ClinkrRunOptions,
+	CreateComposedContextFreeClinkrAppOptions,
+	CreateComposedContextfulClinkrAppOptions,
 	CreateContextFreeClinkrAppOptions,
 	CreateContextfulClinkrAppOptions,
 } from "./app.ts";
+export type {
+	ClinkrComposition,
+	ClinkrDefinitionLoader,
+	ClinkrFilesystemMountOptions,
+	ClinkrFilesystemSourceOptions,
+	ClinkrScope,
+	ClinkrSourceOptions,
+} from "./programmatic-source.ts";
 export { cliOption, cliPositional, defineCommand } from "./command-definition.ts";
 export type {
 	ClinkrCommandDefinition,

@@ -22,6 +22,7 @@ import {
 	type UsageErrorOutcome,
 } from "./outcome.ts";
 import { createFilesystemSource } from "./filesystem-source.ts";
+import { composeSources, type ClinkrComposition } from "./programmatic-source.ts";
 import { ClinkrTopology } from "./topology.ts";
 
 export interface ClinkrRunOptions<TContext> {
@@ -114,6 +115,16 @@ export interface CreateContextFreeClinkrAppOptions extends CreateClinkrAppBase {
 
 export interface CreateContextfulClinkrAppOptions extends CreateClinkrAppBase {
 	readonly commandDirectory: string;
+	readonly requiresContext: true;
+}
+
+export interface CreateComposedContextFreeClinkrAppOptions extends CreateClinkrAppBase {
+	readonly commandDirectory?: string;
+	readonly requiresContext?: false;
+}
+
+export interface CreateComposedContextfulClinkrAppOptions extends CreateClinkrAppBase {
+	readonly commandDirectory?: string;
 	readonly requiresContext: true;
 }
 
@@ -287,15 +298,33 @@ export function createClinkrApp(options: CreateContextFreeClinkrAppOptions): Cli
 export function createClinkrApp<TContext>(
 	options: CreateContextfulClinkrAppOptions,
 ): ClinkrContextfulApp<TContext>;
+export function createClinkrApp(
+	options: CreateComposedContextFreeClinkrAppOptions,
+	configure: (composition: ClinkrComposition<never>) => void,
+): ClinkrContextFreeApp;
 export function createClinkrApp<TContext>(
-	options: CreateContextFreeClinkrAppOptions | CreateContextfulClinkrAppOptions,
+	options: CreateComposedContextfulClinkrAppOptions,
+	configure: (composition: ClinkrComposition<TContext>) => void,
+): ClinkrContextfulApp<TContext>;
+export function createClinkrApp<TContext>(
+	options:
+		| CreateContextFreeClinkrAppOptions
+		| CreateContextfulClinkrAppOptions
+		| CreateComposedContextFreeClinkrAppOptions
+		| CreateComposedContextfulClinkrAppOptions,
+	configure?: (composition: ClinkrComposition<TContext>) => void,
 ): ClinkrContextFreeApp | ClinkrContextfulApp<TContext> {
+	const sources = configure === undefined ? [] : [...composeSources(configure)];
+	if (options.commandDirectory !== undefined) {
+		sources.unshift(
+			createFilesystemSource<TContext>({ commandDirectory: options.commandDirectory }),
+		);
+	}
+	if (sources.length === 0) throw new Error("clinkr: app requires at least one mounted source");
 	return new TopologyClinkrApp<TContext>({
 		name: options.name,
 		requiresContext: options.requiresContext === true,
-		topology: new ClinkrTopology({
-			sources: [createFilesystemSource<TContext>({ commandDirectory: options.commandDirectory })],
-		}),
+		topology: new ClinkrTopology({ sources }),
 	});
 }
 

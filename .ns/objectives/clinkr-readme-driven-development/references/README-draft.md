@@ -526,10 +526,6 @@ Use this only for genuine passthrough or byte-owning commands, such as adapting 
 
 Filesystem-defined command structures are the common authoring path. A narrow, scoped callback builder is the advanced escape hatch for programmatic topology, extension mounting, custom loading, framework integration, and packaging environments that cannot preserve command directories. It mounts lazy topology sources that use the same selected-only loading and command-dispatch runtime as filesystem discovery; immutable nodes, provenance, and publication remain private. Mounted sources must own disjoint subtrees: duplicate command paths and shared group paths are errors. This README intentionally does not teach the callback API; its exported TypeScript types are the current reference.
 
-## Advanced: programmatic builders
-
-Filesystem-defined command structures are the common authoring path. Public async immutable builders remain the lower-level escape hatch for unusual or programmatic topology, extension mounting, custom loading, framework integration, and packaging environments that cannot preserve command directories. They lower to the same app and command-dispatch runtime as filesystem discovery. A separate advanced builder guide will document callbacks, terminal `define()`/`import()`, provenance, and loading semantics; this README intentionally does not teach that callback interface.
-
 ## Public entrypoints
 
 | Entrypoint                     | Purpose                                                                                                       |

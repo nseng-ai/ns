@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { expect, test } from "vitest";
 
 import { createFilesystemSource } from "../../src/app/filesystem-source.ts";
+import { composeSources } from "../../src/app/programmatic-source.ts";
 import { ClinkrTopology } from "../../src/app/topology.ts";
 
 const FIXTURE = path.join(import.meta.dirname, "../fixtures/recursive-topology");
@@ -107,6 +108,38 @@ test("filesystem/filesystem command collisions report class, path, and labels", 
 	}
 });
 
+test("programmatic/filesystem collisions use the same classification", async () => {
+	const directory = await mkdtemp(path.join(tmpdir(), "clinkr-filesystem-"));
+	try {
+		const sharedDirectory = path.join(directory, "shared");
+		await mkdir(sharedDirectory);
+		await writeFile(
+			path.join(sharedDirectory, "group.ts"),
+			'export function group() { return { description: "Filesystem group." }; }\n',
+		);
+		const programmatic = composeSources<never>((composition) => {
+			composition.source({ label: "programmatic" }, (scope) => {
+				scope.command("shared", { description: "Programmatic command." }, async () => {
+					throw new Error("collision must not load definitions");
+				});
+			});
+		});
+		for (const reverse of [false, true]) {
+			const filesystem = createFilesystemSource<never>({
+				commandDirectory: directory,
+				label: "filesystem",
+			});
+			const sources = reverse ? [filesystem, ...programmatic] : [...programmatic, filesystem];
+			const topology = new ClinkrTopology({ sources });
+			await expect(topology.open([])).rejects.toThrow(
+				/command\/group collision at shared.*filesystem.*programmatic/,
+			);
+		}
+	} finally {
+		await rm(directory, { recursive: true });
+	}
+});
+
 test("shared filesystem group paths are rejected with both owners", async () => {
 	const firstDirectory = await mkdtemp(path.join(tmpdir(), "clinkr-first-"));
 	const secondDirectory = await mkdtemp(path.join(tmpdir(), "clinkr-second-"));
@@ -131,6 +164,113 @@ test("shared filesystem group paths are rejected with both owners", async () => 
 			rm(firstDirectory, { recursive: true }),
 			rm(secondDirectory, { recursive: true }),
 		]);
+	}
+});
+
+test("declared siblings beside a scope.filesystem mount own missing descendant subtrees", async () => {
+	const mountDirectory = await mkdtemp(path.join(tmpdir(), "clinkr-mount-"));
+	try {
+		const realDirectory = path.join(mountDirectory, "real");
+		await mkdir(realDirectory);
+		await writeFile(
+			path.join(realDirectory, "group.ts"),
+			'export function group() { return { description: "Real." }; }\n',
+		);
+		const sources = composeSources<never>((composition) => {
+			composition.source({ label: "mixed" }, (scope) => {
+				scope.filesystem({ commandDirectory: mountDirectory });
+				scope.group("api", { description: "Declared api." }, (api) => {
+					api.command("list", { description: "List things." }, async () => {
+						throw new Error("lazy command must not load during topology open");
+					});
+					api.group("nested", { description: "Declared nested." }, (nested) => {
+						nested.command("show", { description: "Show things." }, async () => {
+							throw new Error("lazy command must not load during topology open");
+						});
+					});
+				});
+			});
+		});
+		const topology = new ClinkrTopology({ sources });
+		const root = await topology.open([]);
+		expect([...root.groups.keys()].sort()).toEqual(["api", "real"]);
+		const api = await topology.open(["api"]);
+		expect([...api.commands.keys()]).toEqual(["list"]);
+		expect([...api.groups.keys()]).toEqual(["nested"]);
+		const nested = await topology.open(["api", "nested"]);
+		expect([...nested.commands.keys()]).toEqual(["show"]);
+	} finally {
+		await rm(mountDirectory, { recursive: true });
+	}
+});
+
+test("a present filesystem subtree still collides with a same-source declaration", async () => {
+	const mountDirectory = await mkdtemp(path.join(tmpdir(), "clinkr-mount-"));
+	try {
+		const apiDirectory = path.join(mountDirectory, "api");
+		await mkdir(apiDirectory);
+		await writeFile(
+			path.join(apiDirectory, "group.ts"),
+			'export function group() { return { description: "Filesystem api." }; }\n',
+		);
+		const sources = composeSources<never>((composition) => {
+			composition.source({ label: "mixed" }, (scope) => {
+				scope.filesystem({ commandDirectory: mountDirectory });
+				scope.group("api", { description: "Declared api." }, () => {});
+			});
+		});
+		const topology = new ClinkrTopology({ sources });
+		await expect(topology.open([])).rejects.toThrow(/route collision at api within one source/);
+	} finally {
+		await rm(mountDirectory, { recursive: true });
+	}
+});
+
+test("a missing mount root fails like a missing command directory", async () => {
+	const parentDirectory = await mkdtemp(path.join(tmpdir(), "clinkr-missing-"));
+	try {
+		const missingDirectory = path.join(parentDirectory, "absent-mount");
+		const sources = composeSources<never>((composition) => {
+			composition.source({ label: "mixed" }, (scope) => {
+				scope.filesystem({ commandDirectory: missingDirectory });
+				scope.group("api", { description: "Declared api." }, () => {});
+			});
+		});
+		const topology = new ClinkrTopology({ sources });
+		// A mistyped mount directory is the same misconfiguration as a mistyped
+		// app commandDirectory and fails with the offending path.
+		await expect(topology.open([])).rejects.toThrow(
+			`clinkr: command directory does not exist: ${missingDirectory}`,
+		);
+	} finally {
+		await rm(parentDirectory, { recursive: true });
+	}
+});
+
+test("a mount never claims non-directory entries, so declared routes stand alone", async () => {
+	const mountDirectory = await mkdtemp(path.join(tmpdir(), "clinkr-mount-"));
+	try {
+		await writeFile(path.join(mountDirectory, "api"), "not a directory\n");
+		const sources = composeSources<never>((composition) => {
+			composition.source({ label: "mixed" }, (scope) => {
+				scope.filesystem({ commandDirectory: mountDirectory });
+				scope.group("api", { description: "Declared api." }, (api) => {
+					api.command("list", { description: "List things." }, async () => {
+						throw new Error("lazy command must not load during topology open");
+					});
+				});
+			});
+		});
+		const topology = new ClinkrTopology({ sources });
+		// The stray `api` file is not a mounted group, so the mount owns nothing
+		// at `api`; the declared group is the sole owner of that route.
+		const root = await topology.open([]);
+		expect([...root.groups.keys()]).toEqual(["api"]);
+		const api = await topology.open(["api"]);
+		expect([...api.commands.keys()]).toEqual(["list"]);
+		expect(api.groups.size).toBe(0);
+	} finally {
+		await rm(mountDirectory, { recursive: true });
 	}
 });
 
