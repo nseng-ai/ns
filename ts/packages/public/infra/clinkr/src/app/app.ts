@@ -11,6 +11,7 @@ import {
 	buildCommandJsonSchemaDocument,
 	cliAnnotationFor,
 	type ClinkrCommandDefinition,
+	type ClinkrCommandMetadata,
 	type ContextFreeCommandDefinition,
 	type ContextfulCommandDefinition,
 } from "./command-definition.ts";
@@ -91,15 +92,12 @@ function isExactFunctionModule(value: unknown, exportName: "command" | "metadata
 	return Object.keys(record).length === 1 && typeof record[exportName] === "function";
 }
 
-function isCommandMetadata(value: unknown): boolean {
+function isCommandMetadata(value: unknown): value is ClinkrCommandMetadata {
 	if (typeof value !== "object" || value === null) return false;
 	const record = value as Record<string, unknown>;
-	const allowed = new Set(["description", "summary", "aliases", "hidden", "helpGroup"]);
+	const allowed = new Set(["description", "aliases"]);
 	if (Object.keys(record).some((key) => !allowed.has(key))) return false;
 	if (typeof record.description !== "string") return false;
-	if (record.summary !== undefined && typeof record.summary !== "string") return false;
-	if (record.hidden !== undefined && typeof record.hidden !== "boolean") return false;
-	if (record.helpGroup !== undefined && typeof record.helpGroup !== "string") return false;
 	return (
 		record.aliases === undefined ||
 		(Array.isArray(record.aliases) && record.aliases.every((alias) => typeof alias === "string"))
@@ -135,7 +133,7 @@ class FilesystemClinkrApp<TContext> {
 	private readonly name: string;
 	private readonly commandDirectory: string;
 	readonly requiresContext: boolean;
-	private loaded: Promise<ClinkrCommandDefinition<TContext>> | undefined;
+	private loaded: Promise<LoadedCommand<TContext>> | undefined;
 
 	constructor(options: CreateClinkrAppBase & { requiresContext: boolean }) {
 		if (!path.isAbsolute(options.commandDirectory)) {
@@ -151,7 +149,7 @@ class FilesystemClinkrApp<TContext> {
 		options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions = {},
 	): Promise<number> {
 		const io = options.io ?? createProcessIo();
-		const definition = await this.loadDefinition();
+		const { definition, metadata } = await this.loadDefinition();
 		if ((definition.requiresContext === true) !== this.requiresContext) {
 			throw new Error("clinkr: selected command context mode does not match the app");
 		}
@@ -177,7 +175,7 @@ class FilesystemClinkrApp<TContext> {
 		}
 		const format = formatResult.format;
 		if (argv.includes("--help") || argv.includes("-h")) {
-			io.stdout(buildCommander(this.name, definition).helpInformation());
+			io.stdout(buildCommander(this.name, definition, metadata).helpInformation());
 			return 0;
 		}
 		if (argv.includes("--json-schema")) {
@@ -242,7 +240,7 @@ class FilesystemClinkrApp<TContext> {
 		return exitCodeFor(outcome.status);
 	}
 
-	private async loadDefinition(): Promise<ClinkrCommandDefinition<TContext>> {
+	private async loadDefinition(): Promise<LoadedCommand<TContext>> {
 		if (this.loaded !== undefined) return this.loaded;
 		this.loaded = this.importDefinition();
 		try {
@@ -253,7 +251,7 @@ class FilesystemClinkrApp<TContext> {
 		}
 	}
 
-	private async importDefinition(): Promise<ClinkrCommandDefinition<TContext>> {
+	private async importDefinition(): Promise<LoadedCommand<TContext>> {
 		const commandPath = path.join(this.commandDirectory, "command.ts");
 		const metadataPath = path.join(this.commandDirectory, "metadata.ts");
 		const metadataModule: unknown = await import(pathToFileURL(metadataPath).href);
@@ -268,7 +266,7 @@ class FilesystemClinkrApp<TContext> {
 		const definition = await module.command();
 		if (!isCommandDefinition(definition))
 			throw new Error(`clinkr: malformed command definition ${commandPath}`);
-		return definition as ClinkrCommandDefinition<TContext>;
+		return { definition: definition as ClinkrCommandDefinition<TContext>, metadata };
 	}
 }
 
@@ -285,7 +283,16 @@ export function createClinkrApp<TContext>(
 	});
 }
 
-function buildCommander(name: string, definition: ClinkrCommandDefinition): Command {
+interface LoadedCommand<TContext> {
+	readonly definition: ClinkrCommandDefinition<TContext>;
+	readonly metadata: ClinkrCommandMetadata;
+}
+
+function buildCommander(
+	name: string,
+	definition: ClinkrCommandDefinition,
+	metadata?: ClinkrCommandMetadata,
+): Command {
 	const positionals: Record<string, { position: number }> = {};
 	const optionSpecs: Record<string, { short?: string }> = {};
 	for (const [key, field] of Object.entries(definition.schema.shape)) {
@@ -302,6 +309,10 @@ function buildCommander(name: string, definition: ClinkrCommandDefinition): Comm
 	const command = new Command(name)
 		.exitOverride()
 		.configureOutput({ writeOut: () => {}, writeErr: () => {} });
+	if (metadata !== undefined) {
+		command.description(metadata.description);
+		if (metadata.aliases !== undefined) command.aliases([...metadata.aliases]);
+	}
 	for (const positional of surface.positionals) {
 		command.argument(
 			`${positional.isRequired ? "<" : "["}${positional.name}${positional.isRequired ? ">" : "]"}`,
