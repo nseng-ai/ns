@@ -102,6 +102,15 @@ function claimLabel(label: string, labels: Set<string>): void {
 	labels.add(label);
 }
 
+/**
+ * Explicit ownership record for one route inside a mounted filesystem
+ * subtree: the owning mount and the route's path relative to the mount root.
+ */
+interface MountDelegation<TContext> {
+	readonly mount: TopologySource<TContext>;
+	readonly relativePath: readonly string[];
+}
+
 function createProgrammaticSource<TContext>(
 	label: string,
 	configure: (scope: ClinkrScope<TContext>) => void,
@@ -115,18 +124,32 @@ function createProgrammaticSource<TContext>(
 	} finally {
 		lifetime.active = false;
 	}
+	// Mounted-subtree ownership is an explicit registry, not a scan: when a
+	// scope's mount opens, each mounted child group registers its owner here.
+	// The topology is parent-gated — a child route is only opened after its
+	// parent's open proved the group exists — so the delegation entry for any
+	// mounted descendant is always registered before that descendant opens.
+	const delegations = new Map<string, MountDelegation<TContext>>();
 	return {
 		label,
 		open: async (path) => {
-			const scope = scopes.get(canonicalPath(path)) ?? createDeclaredScope<TContext>();
+			const key = canonicalPath(path);
+			const declared = scopes.get(key) ?? createDeclaredScope<TContext>();
+			const delegation =
+				declared.filesystem === undefined
+					? delegations.get(key)
+					: { mount: declared.filesystem, relativePath: [] };
 			let mounted = emptyScope<TContext>();
-			for (let depth = path.length; depth >= 0; depth -= 1) {
-				const ancestor = scopes.get(canonicalPath(path.slice(0, depth)));
-				if (ancestor?.filesystem === undefined) continue;
-				mounted = await ancestor.filesystem.open(path.slice(depth));
-				break;
+			if (delegation !== undefined) {
+				mounted = await delegation.mount.open(delegation.relativePath);
+				for (const name of mounted.groups.keys()) {
+					delegations.set(canonicalPath([...path, name]), {
+						mount: delegation.mount,
+						relativePath: [...delegation.relativePath, name],
+					});
+				}
 			}
-			return mergeOwnedScope(path, scope, mounted);
+			return mergeOwnedScope(path, declared, mounted);
 		},
 	};
 }

@@ -247,18 +247,28 @@ test("a missing mount root fails like a missing command directory", async () => 
 	}
 });
 
-test("a non-directory child under a scope.filesystem mount is not treated as empty", async () => {
+test("a mount never claims non-directory entries, so declared routes stand alone", async () => {
 	const mountDirectory = await mkdtemp(path.join(tmpdir(), "clinkr-mount-"));
 	try {
 		await writeFile(path.join(mountDirectory, "api"), "not a directory\n");
 		const sources = composeSources<never>((composition) => {
 			composition.source({ label: "mixed" }, (scope) => {
 				scope.filesystem({ commandDirectory: mountDirectory });
-				scope.group("api", { description: "Declared api." }, () => {});
+				scope.group("api", { description: "Declared api." }, (api) => {
+					api.command("list", { description: "List things." }, async () => {
+						throw new Error("lazy command must not load during topology open");
+					});
+				});
 			});
 		});
 		const topology = new ClinkrTopology({ sources });
-		await expect(topology.open(["api"])).rejects.toThrow(/unable to open filesystem scope api at /);
+		// The stray `api` file is not a mounted group, so the mount owns nothing
+		// at `api`; the declared group is the sole owner of that route.
+		const root = await topology.open([]);
+		expect([...root.groups.keys()]).toEqual(["api"]);
+		const api = await topology.open(["api"]);
+		expect([...api.commands.keys()]).toEqual(["list"]);
+		expect(api.groups.size).toBe(0);
 	} finally {
 		await rm(mountDirectory, { recursive: true });
 	}
