@@ -1,15 +1,17 @@
 // Exact selected-command loading and definition decoding for the quarantined
-// app runtime: one loader and one exhaustive decoded union for both selected
-// definition variants (structured and raw). The runtime in `app.ts` owns the
-// transactional cache and dispatch; this module owns "what is a well-formed
-// selected command module".
+// app runtime. The private topology owns transactional caching; this module
+// owns "what is a well-formed selected command module".
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { z } from "zod";
 
 import type { ClinkrRawCommandDefinition } from "../raw/definition.ts";
-import type { ClinkrCommandDefinition, ClinkrCommandMetadata } from "./command-definition.ts";
+import type {
+	ClinkrCommandDefinition,
+	ClinkrCommandMetadata,
+	ClinkrGroupDefinition,
+} from "./command-definition.ts";
 
 interface LoadedCommandModule {
 	command: () => Promise<unknown>;
@@ -17,6 +19,10 @@ interface LoadedCommandModule {
 
 interface LoadedMetadataModule {
 	metadata: () => unknown;
+}
+
+interface LoadedGroupModule {
+	group: () => unknown;
 }
 
 function isExactCommandModule(value: unknown): value is LoadedCommandModule {
@@ -27,7 +33,14 @@ function isExactMetadataModule(value: unknown): value is LoadedMetadataModule {
 	return isExactFunctionModule(value, "metadata");
 }
 
-function isExactFunctionModule(value: unknown, exportName: "command" | "metadata"): boolean {
+function isExactGroupModule(value: unknown): value is LoadedGroupModule {
+	return isExactFunctionModule(value, "group");
+}
+
+function isExactFunctionModule(
+	value: unknown,
+	exportName: "command" | "metadata" | "group",
+): boolean {
 	if (typeof value !== "object" || value === null) return false;
 	const record = value as Record<string, unknown>;
 	return Object.keys(record).length === 1 && typeof record[exportName] === "function";
@@ -36,6 +49,12 @@ function isExactFunctionModule(value: unknown, exportName: "command" | "metadata
 const commandMetadataSchema = z.strictObject({
 	description: z.string(),
 	aliases: z.array(z.string()).readonly().optional(),
+});
+
+const groupDefinitionSchema = commandMetadataSchema.extend({
+	summary: z.string().optional(),
+	hidden: z.boolean().optional(),
+	helpGroup: z.string().optional(),
 });
 
 function isCommandMetadata(value: unknown): value is ClinkrCommandMetadata {
@@ -116,8 +135,22 @@ function isRawDefinition(value: object): value is ClinkrRawCommandDefinition<unk
  * constructor-owned `type: "raw"` discriminant; each arm then rejects unknown
  * keys, so structured-only members on a raw definition (and vice versa) are
  * malformed.
+ *
+ * This is the single generic-to-concrete recovery point for selected
+ * definitions, shared by the filesystem and programmatic loaders: the app
+ * factory's `TContext` is erased at runtime, so the decoded `unknown` context
+ * is re-labelled exactly once here, behind the exact runtime assertions in
+ * `decodeUnknownSelectedCommandDefinition`.
  */
-export function decodeSelectedCommandDefinition(
+export function decodeSelectedCommandDefinition<TContext>(
+	value: unknown,
+): SelectedCommandDefinition<TContext> | undefined {
+	const decoded = decodeUnknownSelectedCommandDefinition(value);
+	if (decoded === undefined) return undefined;
+	return decoded as SelectedCommandDefinition<TContext>;
+}
+
+function decodeUnknownSelectedCommandDefinition(
 	value: unknown,
 ): SelectedCommandDefinition<unknown> | undefined {
 	if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
@@ -133,26 +166,44 @@ export function decodeSelectedCommandDefinition(
  * plus `command.ts`). Throws actionable programmer errors on any malformed
  * module, metadata, or definition.
  */
-export async function importSelectedCommand<TContext>(
-	commandDirectory: string,
-): Promise<LoadedSelectedCommand<TContext>> {
-	const commandPath = path.join(commandDirectory, "command.ts");
-	const metadataPath = path.join(commandDirectory, "metadata.ts");
+export async function importCommandMetadata(metadataPath: string): Promise<ClinkrCommandMetadata> {
 	const metadataModule: unknown = await import(pathToFileURL(metadataPath).href);
 	if (!isExactMetadataModule(metadataModule))
 		throw new Error(`clinkr: malformed metadata module ${metadataPath}`);
 	const metadata = metadataModule.metadata();
 	if (!isCommandMetadata(metadata))
 		throw new Error(`clinkr: malformed command metadata ${metadataPath}`);
+	return metadata;
+}
+
+export async function importGroupDefinition(groupPath: string): Promise<ClinkrGroupDefinition> {
+	const groupModule: unknown = await import(pathToFileURL(groupPath).href);
+	if (!isExactGroupModule(groupModule))
+		throw new Error(`clinkr: malformed group module ${groupPath}`);
+	const parsed = groupDefinitionSchema.safeParse(groupModule.group());
+	if (!parsed.success) throw new Error(`clinkr: malformed group definition ${groupPath}`);
+	return {
+		description: parsed.data.description,
+		...(parsed.data.aliases === undefined ? {} : { aliases: parsed.data.aliases }),
+		...(parsed.data.summary === undefined ? {} : { summary: parsed.data.summary }),
+		...(parsed.data.hidden === undefined ? {} : { hidden: parsed.data.hidden }),
+		...(parsed.data.helpGroup === undefined ? {} : { helpGroup: parsed.data.helpGroup }),
+	};
+}
+
+export async function importSelectedCommand<TContext>(
+	commandDirectory: string,
+	metadata?: ClinkrCommandMetadata,
+): Promise<LoadedSelectedCommand<TContext>> {
+	const commandPath = path.join(commandDirectory, "command.ts");
+	const selectedMetadata =
+		metadata ?? (await importCommandMetadata(path.join(commandDirectory, "metadata.ts")));
 	const module: unknown = await import(pathToFileURL(commandPath).href);
 	if (!isExactCommandModule(module))
 		throw new Error(`clinkr: malformed command module ${commandPath}`);
 	const definition = await module.command();
-	const selected = decodeSelectedCommandDefinition(definition);
+	const selected = decodeSelectedCommandDefinition<TContext>(definition);
 	if (selected === undefined)
 		throw new Error(`clinkr: malformed command definition ${commandPath}`);
-	// Single generic-to-concrete recovery point: the app factory's `TContext`
-	// is erased at runtime, so the decoded `unknown` context is re-labelled
-	// here, behind the decoder's runtime assertions.
-	return { selected: selected as SelectedCommandDefinition<TContext>, metadata };
+	return { selected, metadata: selectedMetadata };
 }

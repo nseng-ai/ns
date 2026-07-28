@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import { Command, CommanderError, Option } from "commander";
 import { z } from "zod";
 
@@ -23,7 +21,8 @@ import {
 	type CommandOutcome,
 	type UsageErrorOutcome,
 } from "./outcome.ts";
-import { importSelectedCommand, type LoadedSelectedCommand } from "./selected-command.ts";
+import { createFilesystemSource } from "./filesystem-source.ts";
+import { ClinkrTopology } from "./topology.ts";
 
 export interface ClinkrRunOptions<TContext> {
 	readonly context: TContext;
@@ -106,14 +105,15 @@ export type ClinkrApp<TContext = never> = [TContext] extends [never]
 
 interface CreateClinkrAppBase {
 	readonly name: string;
-	readonly commandDirectory: string;
 }
 
 export interface CreateContextFreeClinkrAppOptions extends CreateClinkrAppBase {
+	readonly commandDirectory: string;
 	readonly requiresContext?: false;
 }
 
 export interface CreateContextfulClinkrAppOptions extends CreateClinkrAppBase {
+	readonly commandDirectory: string;
 	readonly requiresContext: true;
 }
 
@@ -136,18 +136,18 @@ function requireRunContext<TContext>(
 	return options.context;
 }
 
-class FilesystemClinkrApp<TContext> {
+class TopologyClinkrApp<TContext> {
 	private readonly name: string;
-	private readonly commandDirectory: string;
+	private readonly topology: ClinkrTopology<TContext>;
 	readonly requiresContext: boolean;
-	private loaded: Promise<LoadedSelectedCommand<TContext>> | undefined;
 
-	constructor(options: CreateClinkrAppBase & { requiresContext: boolean }) {
-		if (!path.isAbsolute(options.commandDirectory)) {
-			throw new Error("clinkr: commandDirectory must be absolute");
-		}
+	constructor(options: {
+		readonly name: string;
+		readonly requiresContext: boolean;
+		readonly topology: ClinkrTopology<TContext>;
+	}) {
 		this.name = options.name;
-		this.commandDirectory = options.commandDirectory;
+		this.topology = options.topology;
 		this.requiresContext = options.requiresContext;
 	}
 
@@ -270,21 +270,12 @@ class FilesystemClinkrApp<TContext> {
 		return decodeCommandOutcome(handlerResult, definition.resultSchema);
 	}
 
-	// Transactional selected loading: concurrent requests share in-flight work,
-	// successful loads cache for the app lifetime, and failed loads clear so a
-	// later request can retry. The context-mode guard runs on every load so
-	// both run() and execute() reject mismatched apps.
-	private async loadDefinition(): Promise<LoadedSelectedCommand<TContext>> {
-		if (this.loaded === undefined) {
-			this.loaded = importSelectedCommand<TContext>(this.commandDirectory);
+	private async loadDefinition() {
+		const root = await this.topology.open([]);
+		if (root.defaultCommand === undefined) {
+			throw new Error("clinkr: root scope has no default command");
 		}
-		let loaded: LoadedSelectedCommand<TContext>;
-		try {
-			loaded = await this.loaded;
-		} catch (error) {
-			this.loaded = undefined;
-			throw error;
-		}
+		const loaded = await this.topology.load(root.defaultCommand);
 		if ((loaded.selected.definition.requiresContext === true) !== this.requiresContext) {
 			throw new Error("clinkr: selected command context mode does not match the app");
 		}
@@ -299,9 +290,12 @@ export function createClinkrApp<TContext>(
 export function createClinkrApp<TContext>(
 	options: CreateContextFreeClinkrAppOptions | CreateContextfulClinkrAppOptions,
 ): ClinkrContextFreeApp | ClinkrContextfulApp<TContext> {
-	return new FilesystemClinkrApp<TContext>({
-		...options,
+	return new TopologyClinkrApp<TContext>({
+		name: options.name,
 		requiresContext: options.requiresContext === true,
+		topology: new ClinkrTopology({
+			sources: [createFilesystemSource<TContext>({ commandDirectory: options.commandDirectory })],
+		}),
 	});
 }
 

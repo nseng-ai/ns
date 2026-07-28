@@ -17,7 +17,12 @@ test("internal envelope/schema policy helpers are not exported from /app", async
 	for (const name of [
 		"buildCommandJsonSchemaDocument",
 		"buildEnvelopeSchema",
+		"ClinkrTopology",
+		"createFilesystemSource",
 		"exitCodeFor",
+		"importSelectedCommand",
+		"publish",
+		"invalidate",
 		"toEnvelope",
 	]) {
 		expect(name in appExports, `${name} must stay package-internal`).toBe(false);
