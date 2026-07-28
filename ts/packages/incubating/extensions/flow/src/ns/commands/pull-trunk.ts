@@ -1,4 +1,6 @@
 import { runTrunkPullDetailed, type TrunkPullResult } from "../../trunk-pull/trunk-pull.ts";
+import { formatRepositoryTrunkResolutionFailure } from "../../checkpoint/trunk-resolution.ts";
+import { configureNsGitGateway } from "@nseng-ai/extension-kit";
 import { formatCommand } from "@nseng-ai/foundation/command";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
@@ -12,16 +14,32 @@ const pullTrunkSchema = z.object({});
 
 export const flowPullTrunkCommand: NsCommand<typeof pullTrunkSchema> = defineCommand({
 	name: "pull-trunk",
-	summary: "Pull the configured Graphite trunk branch without running full gt sync.",
+	summary: "Pull the repository trunk branch without running full gt sync.",
 	description:
-		"Pull the configured Graphite trunk branch from its configured Git upstream without running full gt sync.",
+		"Pull the repository trunk branch from its configured Git upstream without running full gt sync.",
 	schema: pullTrunkSchema,
 	resultSchema: z.string(),
 	handler: async (ctx) => {
 		const caps = resolveFlowStreamCaps(ctx);
+		const configuredGit = await configureNsGitGateway(ctx);
+		if (!configuredGit.ok) {
+			return negative(
+				renderResultBlock(caps, {
+					kind: "failure",
+					headline: "Could not configure repository trunk resolution. Local trunk was not updated.",
+					body: configuredGit.error.message,
+					cwd: ctx.cwd,
+				}),
+			);
+		}
 		const result = await runFlowCliOperation({
 			ctx,
-			run: async (io) => await runTrunkPullDetailed({ exec: io.exec }, ctx.cwd),
+			run: async (io) =>
+				await runTrunkPullDetailed({
+					commands: { exec: io.exec },
+					cwd: ctx.cwd,
+					git: configuredGit.value,
+				}),
 		});
 		const block = renderTrunkPullBlock(caps, result);
 		return result.outcome.kind === "success" ? ok(block) : negative(block);
@@ -33,31 +51,24 @@ export default flowPullTrunkCommand;
 function renderTrunkPullBlock(caps: Caps, result: TrunkPullResult): string {
 	if (!isCommandBackedResult(result)) {
 		switch (result.outcome.kind) {
-			case "trunk-command-failed":
+			case "repository-trunk-resolution-failed":
 				return renderResultBlock(caps, {
 					kind: "failure",
-					headline: "Could not resolve Graphite trunk. Local trunk was not updated.",
-					body: result.outcome.error.message,
-					cwd: result.cwd,
-				});
-			case "trunk-empty":
-				return renderResultBlock(caps, {
-					kind: "failure",
-					headline: "gt trunk --no-interactive returned no branch. Local trunk was not updated.",
-					body: result.outcome.error.message,
+					headline: "Could not resolve repository trunk. Local trunk was not updated.",
+					body: formatRepositoryTrunkResolutionFailure(result.outcome.failure),
 					cwd: result.cwd,
 				});
 			case "upstream-missing":
 				return renderResultBlock(caps, {
 					kind: "refusal",
-					headline: `Graphite trunk \`${result.outcome.trunk}\` has no configured Git upstream. Local trunk was not updated.`,
+					headline: `Repository trunk \`${result.outcome.trunk}\` has no configured Git upstream. Local trunk was not updated.`,
 					guidance: `Configure one with \`git branch --set-upstream-to=<remote>/<remote-branch> ${result.outcome.trunk}\`, then retry.`,
 					cwd: result.cwd,
 				});
 			case "upstream-inspection-failed":
 				return renderResultBlock(caps, {
 					kind: "failure",
-					headline: `Could not inspect the configured Git upstream for Graphite trunk \`${result.outcome.trunk}\`. Local trunk was not updated.`,
+					headline: `Could not inspect the configured Git upstream for repository trunk \`${result.outcome.trunk}\`. Local trunk was not updated.`,
 					body: result.outcome.error.message,
 					cwd: result.cwd,
 				});
@@ -69,7 +80,7 @@ function renderTrunkPullBlock(caps: Caps, result: TrunkPullResult): string {
 		case "success":
 			return renderGitResultBlock(caps, {
 				kind: "success",
-				headline: `Pulled local Graphite trunk branch \`${result.outcome.trunk}\` only.`,
+				headline: `Pulled local repository trunk branch \`${result.outcome.trunk}\` only.`,
 				command,
 				cwd: result.cwd,
 				result: result.execResult,

@@ -292,7 +292,7 @@ describe("loadAttachedPlan", () => {
 		expect(brmem.listAttachedPlansCalls).toEqual([]);
 	});
 
-	test("refuses trunk branches before Branch Memory reads", async () => {
+	test("refuses the resolved trunk branch before Branch Memory reads", async () => {
 		for (const branch of ["main", "master", "develop"]) {
 			const brmem = new InMemoryBranchMemoryGateway();
 			await expect(
@@ -311,6 +311,47 @@ describe("loadAttachedPlan", () => {
 			);
 			expect(brmem.listAttachedPlansCalls).toEqual([]);
 		}
+	});
+
+	test("fails closed before Branch Memory reads when trunk cannot be resolved", async () => {
+		const brmem = new InMemoryBranchMemoryGateway();
+		await expect(
+			loadAttachedPlan(
+				{},
+				{
+					cwd: ROOT,
+					context: branchContext({
+						git: new InMemoryGitGateway({
+							currentBranch: "main",
+							trunkBranch: {
+								type: "cached-remote-head-missing",
+								remote: "upstream",
+								remoteHeadRef: "refs/remotes/upstream/HEAD",
+							},
+						}),
+						brmem,
+					}),
+				},
+			),
+		).rejects.toThrow("Fetch upstream");
+		expect(brmem.listAttachedPlansCalls).toEqual([]);
+	});
+
+	test("does not treat conventional branch names as trunk authority", async () => {
+		const brmem = new InMemoryBranchMemoryGateway({
+			entries: [{ branch: "main", key: PLAN_KEY, content: PLAN_CONTENT }],
+		});
+		const plan = await loadAttachedPlan(
+			{},
+			{
+				cwd: ROOT,
+				context: branchContext({
+					git: new InMemoryGitGateway({ currentBranch: "main", trunkBranch: "develop" }),
+					brmem,
+				}),
+			},
+		);
+		expect(plan.branch).toBe("main");
 	});
 });
 

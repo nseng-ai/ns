@@ -101,7 +101,7 @@ export function buildGitDiffArgs(options: GitDiffArgsOptions): readonly string[]
 		"diff.dstPrefix=b/",
 		"diff",
 		"--no-ext-diff",
-		`origin/${options.baseRef}...HEAD`,
+		`${options.baseRef.startsWith("refs/") ? options.baseRef : `origin/${options.baseRef}`}...HEAD`,
 	];
 	const excludeGlobs = options.excludeGlobs ?? [];
 	if (excludeGlobs.length === 0) return args;

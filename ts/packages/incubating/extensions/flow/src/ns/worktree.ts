@@ -4,7 +4,7 @@ import {
 	type PendingWorktreeSnapshot,
 	type WorktreeCommandResult,
 } from "@nseng-ai/extension-kit/pending-worktree";
-import { createNsGitGateway } from "@nseng-ai/extension-kit";
+import { configureNsGitGateway, createNsGitGateway } from "@nseng-ai/extension-kit";
 import { createNsCliExecAdapter, execNsCommand, execNsGit } from "./exec.ts";
 import {
 	commandSucceeded,
@@ -24,6 +24,7 @@ import type {
 } from "../autobranch/checkpoint-flow.ts";
 import type { ParsedAutobranchArgs } from "../autobranch/dirty-worktree.ts";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 
 export type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult };
 
@@ -57,21 +58,41 @@ export const execExtensionCommand = execNsCommand;
 export function createAutobranchExecContext(
 	ctx: NsExtensionApi,
 	cwd: string,
+	providerGit?: Pick<
+		GitGateway,
+		| "optionalRepoRoot"
+		| "trunkBranch"
+		| "currentBranch"
+		| "headCommit"
+		| "validateBranchRef"
+		| "localBranchPresence"
+	>,
 ): { exec: AutobranchExec; git: AutobranchGitGateway } {
 	const exec: AutobranchExec = (command, commandArgs, timeout) =>
 		execExtensionCommand({ ctx, command, args: commandArgs, cwd, timeoutMs: timeout });
-	return { exec, git: createAutobranchGitGateway({ cwd, exec }) };
+	return {
+		exec,
+		git: createAutobranchGitGateway({
+			cwd,
+			exec,
+			...(providerGit === undefined ? {} : { providerGit }),
+		}),
+	};
 }
 
-export function createAutobranchDispatchEnv(
+export async function createAutobranchDispatchEnv(
 	ctx: NsExtensionApi,
 	args: ParsedAutobranchArgs,
 	modelSelection: ModelSelection,
-): Pick<AutobranchDispatchEnv, "loadSnapshot" | "createFlowContext"> {
+): Promise<Pick<AutobranchDispatchEnv, "loadSnapshot" | "createFlowContext">> {
+	const configuredGit = await configureNsGitGateway(ctx);
+	if (!configuredGit.ok) {
+		throw new Error(`Cannot configure autobranch Git policy: ${configuredGit.error.message}`);
+	}
 	return {
 		loadSnapshot: () => loadFlowPendingWorktreeSnapshot(ctx),
 		createFlowContext: (snapshot): AutobranchFlowContext => {
-			const { exec, git } = createAutobranchExecContext(ctx, snapshot.root);
+			const { exec, git } = createAutobranchExecContext(ctx, snapshot.root, configuredGit.value);
 			return {
 				cwd: snapshot.root,
 				args,

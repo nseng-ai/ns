@@ -305,8 +305,7 @@ function runShowWithRealObjectiveExtension(options: {
 function objectiveGitResponses(cwd: string): ScriptedExecResponse[] {
 	return [
 		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
-		{ match: "git symbolic-ref --short refs/remotes/origin/HEAD", result: { code: 1 } },
-		{ match: "git rev-parse --verify refs/heads/main", result: { stdout: "abc123\n" } },
+		...objectiveTrunkResponses(),
 		{ match: "git status --porcelain -- .ns/objectives/demo-objective", result: { stdout: "" } },
 		{ match: /git for-each-ref/, result: { stdout: "" }, isRepeatable: true },
 	];
@@ -315,10 +314,21 @@ function objectiveGitResponses(cwd: string): ScriptedExecResponse[] {
 function objectiveShowGitResponses(cwd: string, slug: string): ScriptedExecResponse[] {
 	return [
 		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
-		{ match: "git symbolic-ref --short refs/remotes/origin/HEAD", result: { code: 1 } },
-		{ match: "git rev-parse --verify refs/heads/main", result: { stdout: "abc123\n" } },
+		...objectiveTrunkResponses(),
 		{ match: `git status --porcelain -- .ns/objectives/${slug}`, result: { stdout: "" } },
 		{ match: /git for-each-ref/, result: { stdout: "" }, isRepeatable: true },
+	];
+}
+
+function objectiveTrunkResponses(): ScriptedExecResponse[] {
+	return [
+		{ match: "git check-ref-format refs/remotes/origin/trunk-validation", result: {} },
+		{
+			match: "git symbolic-ref refs/remotes/origin/HEAD",
+			result: { stdout: "refs/remotes/origin/main\n" },
+		},
+		{ match: "git show-ref --verify --quiet refs/heads/main", result: {} },
+		{ match: "git show-ref --verify --quiet refs/remotes/origin/main", result: {} },
 	];
 }
 

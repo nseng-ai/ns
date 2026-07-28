@@ -6,8 +6,8 @@ import type {
 	TextGenerationResult,
 	TextGenerator,
 } from "@nseng-ai/extension-kit/text-generation";
-import type { GraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/branch";
-import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
+import type { GitGateway } from "@nseng-ai/foundation/git";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 
 import type { ActiveOperation } from "@nseng-ai/sdk";
 
@@ -110,10 +110,10 @@ describe("flow cp core", () => {
 		const gateway = new FakeCheckpointGateway({
 			loaded: { ok: true, snapshot: dirtySnapshot({ branch: "release" }) },
 		});
-		const graphite = new InMemoryGraphiteBranchGateway({ trunk: "release" });
+		const git = new InMemoryGitGateway({ trunkBranch: "release" });
 
 		const result = await runCpCore(
-			defaultOptions({ checkpointGateway: gateway, graphite, textGenerator }),
+			defaultOptions({ checkpointGateway: gateway, git, textGenerator }),
 		);
 
 		expect(result).toEqual({ type: "trunk", branch: "release" });
@@ -128,12 +128,12 @@ describe("flow cp core", () => {
 			const gateway = new FakeCheckpointGateway({
 				loaded: { ok: true, snapshot: dirtySnapshot({ branch }) },
 			});
-			const graphite = new InMemoryGraphiteBranchGateway({ trunk: "release" });
+			const git = new InMemoryGitGateway({ trunkBranch: "release" });
 
 			const result = await runCpCore(
 				defaultOptions({
 					checkpointGateway: gateway,
-					graphite,
+					git,
 					textGenerator,
 					isDryRun: true,
 				}),
@@ -149,34 +149,34 @@ describe("flow cp core", () => {
 		{
 			name: "command failure",
 			trunk: {
-				ok: false as const,
-				reason: "command-failed" as const,
-				error: { code: "graphite-trunk-failed", message: "gt trunk failed" },
+				type: "command-failure" as const,
+				operation: "read-cached-remote-head" as const,
+				reason: "failed" as const,
+				error: { code: "trunk-branch-command-failed", message: "git symbolic-ref failed" },
 			},
 		},
 		{
-			name: "empty output",
+			name: "missing cached remote HEAD",
 			trunk: {
-				ok: false as const,
-				reason: "empty" as const,
-				error: { code: "graphite-trunk-empty", message: "gt trunk returned no branch" },
+				type: "cached-remote-head-missing" as const,
+				remote: "origin",
+				remoteHeadRef: "refs/remotes/origin/HEAD",
 			},
 		},
-	])("fails closed on Graphite trunk $name before clean/model/commit", async ({ trunk }) => {
+	])("fails closed on repository trunk $name before clean/model/commit", async ({ trunk }) => {
 		const textGenerator = new FakeTextGenerator();
 		const gateway = new FakeCheckpointGateway({
 			loaded: { ok: true, snapshot: dirtySnapshot({ clean: true }) },
 		});
-		const graphite = new InMemoryGraphiteBranchGateway({ trunk });
+		const git = new InMemoryGitGateway({ trunkBranch: trunk });
 
 		const result = await runCpCore(
-			defaultOptions({ checkpointGateway: gateway, graphite, textGenerator }),
+			defaultOptions({ checkpointGateway: gateway, git, textGenerator }),
 		);
 
 		expect(result).toEqual({
 			type: "trunk-resolution-failed",
-			reason: trunk.reason,
-			error: trunk.error,
+			failure: trunk,
 		});
 		expect(textGenerator.calls).toEqual([]);
 		expect(gateway.commits).toEqual([]);
@@ -267,7 +267,7 @@ describe("flow cp core", () => {
 			cwd: "/repo",
 			env: {},
 			gateway,
-			graphite: new InMemoryGraphiteBranchGateway(),
+			git: new InMemoryGitGateway({ trunkBranch: "main" }),
 			textGenerator,
 			modelSelection: {
 				provider: "openai-codex",
@@ -305,7 +305,7 @@ describe("flow cp core", () => {
 			cwd: "/repo",
 			env: {},
 			gateway,
-			graphite: new InMemoryGraphiteBranchGateway(),
+			git: new InMemoryGitGateway({ trunkBranch: "main" }),
 			textGenerator,
 			modelSelection: {
 				provider: "openai-codex",
@@ -362,14 +362,14 @@ describe("flow cp core", () => {
 function defaultOptions(overrides: {
 	checkpointGateway: CheckpointGateway;
 	textGenerator: TextGenerator;
-	graphite?: Pick<GraphiteBranchGateway, "trunkBranch">;
+	git?: Pick<GitGateway, "trunkBranch">;
 	isDryRun?: boolean;
 }) {
 	return {
 		cwd: "/repo",
 		env: {},
 		checkpointGateway: overrides.checkpointGateway,
-		graphite: overrides.graphite ?? new InMemoryGraphiteBranchGateway(),
+		git: overrides.git ?? new InMemoryGitGateway({ trunkBranch: "main" }),
 		textGenerator: overrides.textGenerator,
 		modelSelection: { provider: "openai-codex", modelId: "gpt-test", thinking: "minimal" as const },
 		isDryRun: overrides.isDryRun ?? false,

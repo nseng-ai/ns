@@ -56,7 +56,8 @@ describe("checked-in flow ns extension loading", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("abc123 [cp] Update checkpoint");
-		expect(formattedExecCalls(run.context)).toContain("gt trunk --no-interactive");
+		expect(formattedExecCalls(run.context)).not.toContain("gt trunk --no-interactive");
+		expect(formattedExecCalls(run.context)).toContain("git symbolic-ref refs/remotes/origin/HEAD");
 		expect(formattedExecCalls(run.context)).toContain("git add -A");
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
 	});
@@ -113,7 +114,7 @@ describe("checked-in flow ns extension loading", () => {
 		expect(output).toContain("locally ahead of its locally known upstream");
 		expect(output).toContain("exactly synchronized on a non-trunk branch");
 		expect(output).toContain(
-			"Remote-ahead, diverged, and exactly synchronized configured Graphite trunk states are refused",
+			"Remote-ahead, diverged, and exactly synchronized configured repository trunk states are refused",
 		);
 		expect(output).toContain("only local tracking refs and do not fetch");
 		expect(output).toContain("local-only Graphite branch");
@@ -255,7 +256,7 @@ describe("checked-in flow ns extension loading", () => {
 			),
 		).toBe(true);
 		const execCalls = formattedExecCalls(run.context);
-		expect(execCalls.filter((call) => call === "gt trunk --no-interactive")).toHaveLength(1);
+		expect(execCalls).not.toContain("gt trunk --no-interactive");
 		expect(execCalls).not.toContain("gt log --stack --reverse --no-interactive");
 		expect(execCalls).not.toContain("gt branch info --no-interactive");
 		expect(execCalls).toContain(
@@ -310,15 +311,18 @@ function runWithRealFlowExtension(options: {
 
 function dirtyCpExecResponses(cwd: string): ScriptedExecResponse[] {
 	return [
-		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
-		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
+		{
+			match: "git rev-parse --show-toplevel",
+			result: { stdout: `${cwd}\n` },
+			isRepeatable: true,
+		},
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
 		{
 			match: "git diff HEAD --no-ext-diff",
 			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 		},
-		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+		...repositoryTrunkResponses(),
 		{ match: "git add -A", result: {} },
 		{ match: /^git commit -F /, result: {} },
 		{ match: "git log -1 --oneline", result: { stdout: "abc123 [cp] Update checkpoint\n" } },
@@ -373,12 +377,27 @@ function successfulSubmitResponses(cwd: string): ScriptedExecResponse[] {
 
 function cleanCheckpointResponses(cwd: string): ScriptedExecResponse[] {
 	return [
-		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
-		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
+		{
+			match: "git rev-parse --show-toplevel",
+			result: { stdout: `${cwd}\n` },
+			isRepeatable: true,
+		},
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: "" } },
 		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
-		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+		...repositoryTrunkResponses(),
+	];
+}
+
+function repositoryTrunkResponses(): ScriptedExecResponse[] {
+	return [
+		{ match: "git check-ref-format refs/remotes/origin/trunk-validation", result: {} },
+		{
+			match: "git symbolic-ref refs/remotes/origin/HEAD",
+			result: { stdout: "refs/remotes/origin/main\n" },
+		},
+		{ match: "git show-ref --verify --quiet refs/heads/main", result: {} },
+		{ match: "git show-ref --verify --quiet refs/remotes/origin/main", result: {} },
 	];
 }
 

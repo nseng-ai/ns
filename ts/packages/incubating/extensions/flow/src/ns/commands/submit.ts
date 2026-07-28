@@ -105,7 +105,7 @@ The command owns its output and exit code. It does not support --format.`;
 type SubmitRequest = z.output<typeof submitSchema>;
 
 export interface FlowSubmitCommandDependencies {
-	createRuntime(ctx: NsExtensionApi): NsSubmitRuntime;
+	createRuntime(ctx: NsExtensionApi): Promise<NsSubmitRuntime>;
 }
 
 export function createFlowSubmitCommand(
@@ -134,7 +134,12 @@ export function createFlowSubmitCommand(
 				const confirmation = await confirmGenerateAllPrMetadata(ctx);
 				if (confirmation !== undefined) return confirmation;
 			}
-			const runtime = dependencies.createRuntime(ctx);
+			let runtime: NsSubmitRuntime;
+			try {
+				runtime = await dependencies.createRuntime(ctx);
+			} catch (error) {
+				return failure(FLOW_COMMAND_FAILED, error instanceof Error ? error.message : String(error));
+			}
 			const repoRoot = request.checks
 				? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
 				: undefined;

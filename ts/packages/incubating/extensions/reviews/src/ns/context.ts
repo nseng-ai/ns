@@ -1,4 +1,5 @@
 import { NsCommandExecApi } from "@nseng-ai/extension-kit/command-runner";
+import { configureNsGitGateway } from "@nseng-ai/extension-kit";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 import {
@@ -7,8 +8,11 @@ import {
 	type ReviewsRuntime,
 } from "../core/context.ts";
 
-export function createNsReviewsRuntime(ctx: NsExtensionApi): ReviewsRuntime {
+export async function createNsReviewsRuntime(ctx: NsExtensionApi): Promise<ReviewsRuntime> {
 	const execApi = new NsCommandExecApi(ctx);
+	const configuredGit = await configureNsGitGateway(ctx);
+	if (!configuredGit.ok)
+		throw new Error(`Cannot configure Reviews Git policy: ${configuredGit.error.message}`);
 	return createReviewsRuntime(
 		createRealReviewsContext({
 			cwd: ctx.cwd,
@@ -17,6 +21,7 @@ export function createNsReviewsRuntime(ctx: NsExtensionApi): ReviewsRuntime {
 			stdout: ctx.stdout ?? (() => undefined),
 			stderr: ctx.stderr ?? (() => undefined),
 			execApi,
+			gitGateway: configuredGit.value,
 		}),
 	);
 }

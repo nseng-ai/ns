@@ -43,6 +43,9 @@ function createSeededRepo(): TempGitRepo {
 	);
 	seeded.runGit(["add", "."]);
 	seeded.runGit(["commit", "-m", "Seed objective record"]);
+	seeded.runGit(["remote", "add", "origin", seeded.path]);
+	seeded.runGit(["update-ref", "refs/remotes/origin/main", "refs/heads/main"]);
+	seeded.runGit(["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
 	return seeded;
 }
 

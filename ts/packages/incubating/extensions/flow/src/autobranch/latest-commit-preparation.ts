@@ -45,7 +45,7 @@ export interface LatestCommitAutobranchPlan extends LatestCommitFacts {
 export type LatestCommitPreparationResult =
 	| { ok: true; plan: LatestCommitAutobranchPlan }
 	| { ok: false; kind: "upstream_check_failed"; error: string }
-	| { ok: false; kind: "graphite_trunk_check_failed"; error: string }
+	| { ok: false; kind: "repository_trunk_resolution_failed"; error: string }
 	| { ok: false; kind: "remote_ahead_refusal"; upstream: string }
 	| { ok: false; kind: "diverged_upstream_refusal"; upstream: string }
 	| {
@@ -70,7 +70,7 @@ type LatestCommitFactsFailure = Extract<
 	{
 		kind:
 			| "upstream_check_failed"
-			| "graphite_trunk_check_failed"
+			| "repository_trunk_resolution_failed"
 			| "remote_ahead_refusal"
 			| "diverged_upstream_refusal"
 			| "synchronized_trunk_refusal"
@@ -138,7 +138,7 @@ export async function loadLatestCommitFacts(
 	switch (upstream.type) {
 		case "upstream_check_failed":
 			return { ok: false, kind: upstream.type, error: upstream.error };
-		case "graphite_trunk_check_failed":
+		case "repository_trunk_resolution_failed":
 			return { ok: false, kind: upstream.type, error: upstream.error };
 		case "remote_ahead_refusal":
 			return { ok: false, kind: upstream.type, upstream: upstream.upstream };
@@ -290,7 +290,7 @@ export function classifyLatestCommitPreparationFailure(
 		case "merge_commit_refusal":
 			return "refusal";
 		case "upstream_check_failed":
-		case "graphite_trunk_check_failed":
+		case "repository_trunk_resolution_failed":
 		case "child_branch_check_failed":
 		case "commit_parent_lookup_failed":
 		case "commit_evidence_failed":
@@ -307,14 +307,14 @@ export function formatLatestCommitPreparationFailure(
 	switch (result.kind) {
 		case "upstream_check_failed":
 			return `Could not determine the local relationship between HEAD and the current branch upstream.\n${result.error}`;
-		case "graphite_trunk_check_failed":
-			return `Could not determine the configured Graphite trunk for the synchronized source branch.\n${result.error}`;
+		case "repository_trunk_resolution_failed":
+			return `Could not determine the configured repository trunk for the synchronized source branch.\n${result.error}`;
 		case "remote_ahead_refusal":
 			return `Refusing to move latest commit because locally known upstream ${result.upstream} is ahead of HEAD.`;
 		case "diverged_upstream_refusal":
 			return `Refusing to move latest commit because HEAD and locally known upstream ${result.upstream} have diverged.`;
 		case "synchronized_trunk_refusal":
-			return `Refusing to move latest commit because source branch ${result.branch} is synchronized with configured Graphite trunk ${result.trunk} (upstream ${result.upstream}).`;
+			return `Refusing to move latest commit because source branch ${result.branch} is synchronized with configured repository trunk ${result.trunk} (upstream ${result.upstream}).`;
 		case "child_branch_check_failed":
 			return `Could not inspect Graphite child branches before moving the latest commit.\n${result.error}`;
 		case "child_branch_refusal":

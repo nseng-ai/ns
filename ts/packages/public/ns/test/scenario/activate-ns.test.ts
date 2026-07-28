@@ -8,6 +8,7 @@ import {
 	activationRepositoryFailureType,
 	applyNsActivation,
 	prepareNsActivation,
+	resolveActivationRepository,
 } from "../../src/init/activate-ns.ts";
 import type { NsActivationContext } from "../../src/init/activation-context.ts";
 import { createLifecycleRecorder } from "../../src/init/lifecycle-observability.ts";
@@ -101,6 +102,61 @@ describe("ns activation planning and apply", () => {
 				error: "ns-init-activation-failed",
 			}),
 		).toBe(expected);
+	});
+
+	it("presents actionable detail when trunk cannot be detected", async () => {
+		const result = await resolveActivationRepository(
+			{
+				...context(),
+				git: new InMemoryGitGateway({
+					optionalRepoRoot: "/repo",
+					trunkBranch: {
+						type: "cached-remote-head-missing",
+						remote: "upstream",
+						remoteHeadRef: "refs/remotes/upstream/HEAD",
+					},
+				}),
+			},
+			"/repo/subdir",
+		);
+
+		expect(result).toEqual({
+			type: "trunk-undetectable",
+			repoRoot: "/repo",
+			message:
+				"Could not resolve trunk because `refs/remotes/upstream/HEAD` is missing. Fetch remote `upstream`, or configure [git].trunk in ns.toml.",
+		});
+	});
+
+	it("preserves resolver command failure detail as an activation error", async () => {
+		const result = await resolveActivationRepository(
+			{
+				...context(),
+				git: new InMemoryGitGateway({
+					optionalRepoRoot: "/repo",
+					trunkBranch: {
+						type: "command-failure",
+						operation: "read-cached-remote-head",
+						reason: "timed-out",
+						error: {
+							code: "trunk-branch-command-failed",
+							message: "git symbolic-ref timed out",
+							displayCommand: "git symbolic-ref refs/remotes/origin/HEAD",
+						},
+					},
+				}),
+			},
+			"/repo",
+		);
+
+		expect(result).toMatchObject({
+			type: "error",
+			error: {
+				code: "trunk-branch-command-failed",
+				displayCommand: "git symbolic-ref refs/remotes/origin/HEAD",
+				message: expect.stringContaining("timed-out"),
+			},
+		});
 	});
 
 	it("preflights generic files, declaration-ordered instructions, and stable-deduplicated consumer dirs before applying in exact order", async () => {

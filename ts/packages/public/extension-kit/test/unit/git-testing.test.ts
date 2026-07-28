@@ -20,7 +20,13 @@ describe("in-memory git gateway", () => {
 			repoRoot: ROOT,
 			optionalRepoRoot: "/optional-repo",
 			currentBranch: "feature/source-plan",
-			trunkBranch: "trunk",
+			trunkBranch: {
+				branch: "trunk",
+				remote: "origin",
+				localRef: "refs/heads/trunk",
+				remoteTrackingRef: "refs/remotes/origin/trunk",
+				source: "cached-remote-head",
+			},
 			branchUpstream: { remoteName: "company", remoteRef: "refs/heads/stable" },
 			originUrl: "git@github.com:Owner/Repo.git\n",
 			headCommit: START_POINT,
@@ -38,7 +44,16 @@ describe("in-memory git gateway", () => {
 			type: "branch",
 			branch: "feature/source-plan",
 		});
-		expect(await git.trunkBranch({ cwd: "/work" })).toEqual({ type: "found", value: "trunk" });
+		expect(await git.trunkBranch({ cwd: "/work" })).toEqual({
+			type: "resolved",
+			resolution: {
+				branch: "trunk",
+				remote: "origin",
+				localRef: "refs/heads/trunk",
+				remoteTrackingRef: "refs/remotes/origin/trunk",
+				source: "cached-remote-head",
+			},
+		});
 		expect(await git.branchUpstream({ cwd: "/work", branch: "trunk" })).toEqual({
 			type: "found",
 			value: { remoteName: "company", remoteRef: "refs/heads/stable" },
@@ -159,7 +174,12 @@ describe("in-memory git gateway", () => {
 			repoRoot: { type: "failure" },
 			optionalRepoRoot: { type: "missing" },
 			currentBranch: { type: "failure", error: explicitError },
-			trunkBranch: { type: "failure" },
+			trunkBranch: {
+				type: "command-failure",
+				operation: "read-cached-remote-head",
+				reason: "failed",
+				error: { code: "trunk-branch-command-failed", message: "Could not resolve trunk branch." },
+			},
 			branchUpstream: { type: "failure" },
 			originUrl: { type: "missing" },
 			headCommit: { type: "failure" },
@@ -179,8 +199,10 @@ describe("in-memory git gateway", () => {
 			error: explicitError,
 		});
 		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({
-			type: "error",
-			error: { code: "trunk_branch_failed", message: "Could not resolve trunk branch." },
+			type: "command-failure",
+			operation: "read-cached-remote-head",
+			reason: "failed",
+			error: { code: "trunk-branch-command-failed", message: "Could not resolve trunk branch." },
 		});
 		expect(await git.branchUpstream({ cwd: ROOT, branch: "main" })).toEqual({
 			type: "error",
@@ -250,16 +272,34 @@ describe("in-memory git gateway", () => {
 		expect(defaultGit.isInsideWorkTreeCalls).toEqual([{ cwd: ROOT }]);
 	});
 
-	test("keeps trunk branch as pure configured tri-state", async () => {
+	test("keeps trunk resolution as pure configured structured state", async () => {
 		const missing = new InMemoryGitGateway({
-			trunkBranch: { type: "missing" },
+			trunkBranch: {
+				type: "cached-remote-head-missing",
+				remote: "origin",
+				remoteHeadRef: "refs/remotes/origin/HEAD",
+			},
 			existingBranches: ["main"],
 		});
-		const found = new InMemoryGitGateway({ trunkBranch: "develop", existingBranches: [] });
+		const found = new InMemoryGitGateway({
+			trunkBranch: {
+				branch: "develop",
+				remote: "company",
+				localRef: "refs/heads/develop",
+				remoteTrackingRef: "refs/remotes/company/develop",
+				source: "configured",
+			},
+			existingBranches: [],
+		});
 
-		expect(await missing.trunkBranch({ cwd: ROOT })).toEqual({ type: "missing" });
+		expect(await missing.trunkBranch({ cwd: ROOT })).toMatchObject({
+			type: "cached-remote-head-missing",
+		});
 		expect(missing.localBranchPresenceCalls).toEqual([]);
-		expect(await found.trunkBranch({ cwd: ROOT })).toEqual({ type: "found", value: "develop" });
+		expect(await found.trunkBranch({ cwd: ROOT })).toMatchObject({
+			type: "resolved",
+			resolution: { branch: "develop", remote: "company", source: "configured" },
+		});
 		expect(found.localBranchPresenceCalls).toEqual([]);
 	});
 

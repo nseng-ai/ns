@@ -141,20 +141,24 @@ function reportStore(result: OptionalResult<ReleaseTransactionReport>, paths: st
 }
 
 function freshStateScript(
-	gtTrunkResult: ExecResult = exitedResult({ stdout: "main\n" }),
+	trackingResult: ExecResult = exitedResult({ code: 1 }),
 	branchRefResult: ExecResult = exitedResult({ code: 1 }),
 ) {
 	return [
 		step("git", ["branch", "--show-current"], exitedResult({ stdout: "feature/release\n" })),
 		step("git", ["rev-parse", "HEAD"], exitedResult({ stdout: "abc123\n" })),
-		step("gt", ["trunk", "--no-interactive"], gtTrunkResult),
+		step("git", ["check-ref-format", "refs/remotes/origin/trunk-validation"]),
 		step("git", ["status", "--porcelain=v1", "--untracked-files=all"], exitedResult()),
 		step(
 			"git",
 			["show-ref", "--verify", "--quiet", `refs/heads/${releaseBranch}`],
 			branchRefResult,
 		),
-		step("gt", ["parent", "--no-interactive"], exitedResult({ code: 1 })),
+		step("gt", ["parent", "--no-interactive"], trackingResult),
+		step("git", ["check-ref-format", "--branch", "main"]),
+		step("git", ["remote"], exitedResult({ stdout: "origin\n" })),
+		step("git", ["show-ref", "--verify", "--quiet", "refs/heads/main"]),
+		step("git", ["show-ref", "--verify", "--quiet", "refs/remotes/origin/main"]),
 	];
 }
 
@@ -221,36 +225,113 @@ describe("release system command gateways", () => {
 		commands.assertDone();
 	});
 
-	it("reports a missing gt executable as a spawn failure", async () => {
+	it("reports a missing gt executable from the independent Graphite tracking probe", async () => {
 		const commands = new ScriptedCommandRunner(
 			freshStateScript(spawnFailedResult(new Error("spawn gt ENOENT"))),
 		);
 		const result = await createSystemFreshReleaseGateway({
 			runCommand: commands.runner,
 			loadPackageContext: async () => packageContextFixture(),
+			loadGitPolicy: () => ({
+				ok: true,
+				value: { remote: "origin", trunk: "main" },
+			}),
 		}).inspectFreshState(releaseBranch);
 
 		expect(result).toMatchObject({
 			ok: false,
 			error: {
 				code: "release-command-failed",
-				displayCommand: "gt trunk --no-interactive",
+				displayCommand: "gt parent --no-interactive",
 				details: { resultType: "spawn-failed", spawnError: "spawn gt ENOENT" },
+			},
+		});
+		expect(commands.calls.some((call) => call.command === "gt" && call.args[0] === "trunk")).toBe(
+			false,
+		);
+		commands.assertDone();
+	});
+
+	it("returns an actionable release failure when repository Git policy is invalid", async () => {
+		const commands = new ScriptedCommandRunner([]);
+		const result = await createSystemFreshReleaseGateway({
+			runCommand: commands.runner,
+			loadGitPolicy: () => ({
+				ok: false,
+				error: {
+					code: "invalid-git-policy",
+					message: "ns.toml: [git].trunk must be a non-empty string.",
+				},
+			}),
+		}).inspectFreshState(releaseBranch);
+
+		expect(result).toEqual({
+			ok: false,
+			error: {
+				code: "release-git-config-failed",
+				message:
+					"Cannot load repository [git] policy for release preflight: ns.toml: [git].trunk must be a non-empty string.",
+				details: { gitPolicyErrorCode: "invalid-git-policy" },
 			},
 		});
 		commands.assertDone();
 	});
 
+	it("returns actionable Git trunk evidence while retaining the Graphite tracking probe", async () => {
+		const commands = new ScriptedCommandRunner([
+			step("git", ["branch", "--show-current"], exitedResult({ stdout: "feature/release\n" })),
+			step("git", ["rev-parse", "HEAD"], exitedResult({ stdout: "abc123\n" })),
+			step("git", ["check-ref-format", "refs/remotes/upstream/trunk-validation"]),
+			step("git", ["status", "--porcelain=v1", "--untracked-files=all"], exitedResult()),
+			step(
+				"git",
+				["show-ref", "--verify", "--quiet", `refs/heads/${releaseBranch}`],
+				exitedResult({ code: 1 }),
+			),
+			step("gt", ["parent", "--no-interactive"], exitedResult()),
+			step("git", ["check-ref-format", "--branch", "stable"]),
+			step("git", ["remote"], exitedResult({ stdout: "origin\nupstream\n" })),
+			step(
+				"git",
+				["show-ref", "--verify", "--quiet", "refs/heads/stable"],
+				exitedResult({ code: 1 }),
+			),
+		]);
+		const result = await createSystemFreshReleaseGateway({
+			runCommand: commands.runner,
+			loadGitPolicy: () => ({
+				ok: true,
+				value: { remote: "upstream", trunk: "stable" },
+			}),
+		}).inspectFreshState(releaseBranch);
+
+		expect(result).toEqual({
+			ok: false,
+			error: {
+				code: "release-trunk-resolution-failed",
+				message:
+					"Cannot resolve repository trunk for release preflight: Repository trunk local ref `refs/heads/stable` is missing. Create or fetch branch `stable`.",
+				details: { trunkResolutionType: "local-branch-missing" },
+			},
+		});
+		expect(commands.calls.every((call) => call.cwd === repoRoot)).toBe(true);
+		expect(commands.calls.filter((call) => call.command === "gt")).toEqual([
+			{ command: "gt", args: ["parent", "--no-interactive"], cwd: repoRoot },
+		]);
+		commands.assertDone();
+	});
+
 	it("does not mistake a show-ref spawn failure for an absent branch", async () => {
 		const commands = new ScriptedCommandRunner(
-			freshStateScript(
-				exitedResult({ stdout: "main\n" }),
-				spawnFailedResult(new Error("spawn git ENOENT")),
-			),
+			freshStateScript(exitedResult({ code: 1 }), spawnFailedResult(new Error("spawn git ENOENT"))),
 		);
 		const result = await createSystemFreshReleaseGateway({
 			runCommand: commands.runner,
 			loadPackageContext: async () => packageContextFixture(),
+			loadGitPolicy: () => ({
+				ok: true,
+				value: { remote: "origin", trunk: "main" },
+			}),
 		}).inspectFreshState(releaseBranch);
 
 		expect(result).toMatchObject({
@@ -265,12 +346,24 @@ describe("release system command gateways", () => {
 		const result = await createSystemFreshReleaseGateway({
 			runCommand: commands.runner,
 			loadPackageContext: async () => packageContextFixture(),
+			loadGitPolicy: () => ({
+				ok: true,
+				value: { remote: "origin", trunk: "main" },
+			}),
 		}).inspectFreshState(releaseBranch);
 
 		expect(result).toMatchObject({
 			ok: true,
-			value: { releaseBranchExists: false, isGraphiteTracked: false },
+			value: {
+				trunkBranch: "main",
+				releaseBranchExists: false,
+				isGraphiteTracked: false,
+			},
 		});
+		expect(commands.calls.every((call) => call.cwd === repoRoot)).toBe(true);
+		expect(commands.calls.filter((call) => call.command === "gt")).toEqual([
+			{ command: "gt", args: ["parent", "--no-interactive"], cwd: repoRoot },
+		]);
 		commands.assertDone();
 	});
 

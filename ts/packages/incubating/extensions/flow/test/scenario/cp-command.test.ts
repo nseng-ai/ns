@@ -37,7 +37,6 @@ function dirtyCpExecResponses(): ScriptedExecResponse[] {
 			match: "git diff HEAD --no-ext-diff",
 			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 		},
-		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 		{ match: "git add -A", result: {} },
 		{ match: /^git commit -F /, result: {} },
 		{ match: "git log -1 --oneline", result: { stdout: "abc123 [cp] Update checkpoint\n" } },
@@ -50,7 +49,6 @@ function cleanCpExecResponses(): ScriptedExecResponse[] {
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: "" } },
 		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
-		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 	];
 }
 
@@ -70,7 +68,6 @@ describe("project-local cp extension behavior", () => {
 						match: "git diff HEAD --no-ext-diff",
 						result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 					},
-					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 					{ match: "git add -A", result: {} },
 					{ match: /^git commit -F /, result: {} },
 					{
@@ -89,7 +86,10 @@ describe("project-local cp extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
-			"gt trunk --no-interactive",
+			"git check-ref-format refs/remotes/origin/trunk-validation",
+			"git symbolic-ref refs/remotes/origin/HEAD",
+			"git show-ref --verify --quiet refs/heads/main",
+			"git show-ref --verify --quiet refs/remotes/origin/main",
 			"git add -A",
 			expect.stringMatching(/^git commit -F /),
 			"git log -1 --oneline",
@@ -148,7 +148,10 @@ describe("project-local cp extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
-			"gt trunk --no-interactive",
+			"git check-ref-format refs/remotes/origin/trunk-validation",
+			"git symbolic-ref refs/remotes/origin/HEAD",
+			"git show-ref --verify --quiet refs/heads/main",
+			"git show-ref --verify --quiet refs/remotes/origin/main",
 		]);
 		expect(formattedExecCalls(run.context)).not.toContain("git add -A");
 		expect(formattedExecCalls(run.context)).not.toContain("git log -1 --oneline");
@@ -179,7 +182,10 @@ describe("project-local cp extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
-			"gt trunk --no-interactive",
+			"git check-ref-format refs/remotes/origin/trunk-validation",
+			"git symbolic-ref refs/remotes/origin/HEAD",
+			"git show-ref --verify --quiet refs/heads/main",
+			"git show-ref --verify --quiet refs/remotes/origin/main",
 		]);
 	});
 
@@ -208,7 +214,10 @@ describe("project-local cp extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
-			"gt trunk --no-interactive",
+			"git check-ref-format refs/remotes/origin/trunk-validation",
+			"git symbolic-ref refs/remotes/origin/HEAD",
+			"git show-ref --verify --quiet refs/heads/main",
+			"git show-ref --verify --quiet refs/remotes/origin/main",
 			"git add -A",
 			expect.stringMatching(/^git commit -F /),
 			"git log -1 --oneline",
@@ -237,7 +246,10 @@ describe("project-local cp extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
-			"gt trunk --no-interactive",
+			"git check-ref-format refs/remotes/origin/trunk-validation",
+			"git symbolic-ref refs/remotes/origin/HEAD",
+			"git show-ref --verify --quiet refs/heads/main",
+			"git show-ref --verify --quiet refs/remotes/origin/main",
 		]);
 	});
 
@@ -255,7 +267,10 @@ describe("project-local cp extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
-			"gt trunk --no-interactive",
+			"git check-ref-format refs/remotes/origin/trunk-validation",
+			"git symbolic-ref refs/remotes/origin/HEAD",
+			"git show-ref --verify --quiet refs/heads/main",
+			"git show-ref --verify --quiet refs/remotes/origin/main",
 		]);
 	});
 
@@ -267,7 +282,10 @@ describe("project-local cp extension behavior", () => {
 					{ match: "git symbolic-ref --short HEAD", result: { stdout: "release\n" } },
 					{ match: "git status --porcelain=v1", result: { stdout: "" } },
 					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
-					{ match: "gt trunk --no-interactive", result: { stdout: "release\n" } },
+					{
+						match: "git symbolic-ref refs/remotes/origin/HEAD",
+						result: { stdout: "refs/remotes/origin/release\n" },
+					},
 				],
 			},
 		});
@@ -282,11 +300,14 @@ describe("project-local cp extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
-			"gt trunk --no-interactive",
+			"git check-ref-format refs/remotes/origin/trunk-validation",
+			"git symbolic-ref refs/remotes/origin/HEAD",
+			"git show-ref --verify --quiet refs/heads/release",
+			"git show-ref --verify --quiet refs/remotes/origin/release",
 		]);
 	});
 
-	test("Graphite trunk resolution failure stops before clean refusal or model generation", async () => {
+	test("repository trunk resolution failure stops before clean refusal or model generation", async () => {
 		const run = runCpWithFakes({
 			state: {
 				exec: [
@@ -295,8 +316,8 @@ describe("project-local cp extension behavior", () => {
 					{ match: "git status --porcelain=v1", result: { stdout: "" } },
 					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
 					{
-						match: "gt trunk --no-interactive",
-						result: { code: 1, stderr: "Graphite configuration unavailable" },
+						match: "git symbolic-ref refs/remotes/origin/HEAD",
+						result: { code: 1, stderr: "repository trunk unavailable" },
 					},
 				],
 			},
@@ -304,16 +325,19 @@ describe("project-local cp extension behavior", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain(
-			"Could not resolve configured Graphite trunk; checkpoint was not created.",
+			"Could not resolve repository trunk; checkpoint was not created.",
 		);
-		expect(run.stderr.join("")).toContain("Graphite configuration unavailable");
+		expect(run.stderr.join("")).toContain(
+			"Cached remote HEAD `refs/remotes/origin/HEAD` is missing",
+		);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
-			"gt trunk --no-interactive",
+			"git check-ref-format refs/remotes/origin/trunk-validation",
+			"git symbolic-ref refs/remotes/origin/HEAD",
 		]);
 	});
 
@@ -330,8 +354,8 @@ describe("project-local cp extension behavior", () => {
 		});
 
 		expect(await notGit.exit).toBe(2);
-		expect(notGit.stderr.join("")).toBe(
-			"error: Could not determine the repository root for ns.toml.\n",
+		expect(notGit.stderr.join("")).toContain(
+			"Cannot configure checkpoint Git policy: git rev-parse --show-toplevel failed",
 		);
 		expect(notGit.context.textGeneratorCalls).toEqual([]);
 
@@ -392,7 +416,6 @@ describe("project-local cp extension behavior", () => {
 						match: "git diff HEAD --no-ext-diff",
 						result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 					},
-					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 					{ match: "git add -A", result: { code: 1, stderr: "index locked" } },
 				],
 			},
@@ -407,7 +430,13 @@ describe("project-local cp extension behavior", () => {
 		const commitFailed = runCpWithFakes({
 			state: {
 				exec: [
-					...dirtyCpExecResponses().slice(0, 6),
+					...dirtyCpExecResponses().filter(
+						(response) =>
+							response.match !== "git add -A" &&
+							response.match !== "git log -1 --oneline" &&
+							!(response.match instanceof RegExp),
+					),
+					{ match: "git add -A", result: {} },
 					{ match: /^git commit -F /, result: { code: 1, stderr: "nothing to commit" } },
 				],
 			},
@@ -420,7 +449,7 @@ describe("project-local cp extension behavior", () => {
 		const logFailed = runCpWithFakes({
 			state: {
 				exec: [
-					...dirtyCpExecResponses().slice(0, 7),
+					...dirtyCpExecResponses().filter((response) => response.match !== "git log -1 --oneline"),
 					{ match: "git log -1 --oneline", result: { code: 1, stderr: "log failed" } },
 				],
 			},

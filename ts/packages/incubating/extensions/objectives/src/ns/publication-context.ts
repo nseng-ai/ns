@@ -3,7 +3,6 @@ import { readFile } from "node:fs/promises";
 import { NsCommandExecApi } from "@nseng-ai/extension-kit/command-runner";
 import { createFlowBranchPublicationClient } from "@nseng-ai/flow/api";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 
@@ -35,7 +34,7 @@ export async function createNsObjectiveRunnerPublicationContext(
 	ctx: NsExtensionApi,
 ): Promise<ObjectiveRunnerPublicationCommandContext> {
 	const commands = new NsCommandExecApi(ctx);
-	const base = await createNsObjectiveContext(ctx, { git: new RealGitGateway(commands) });
+	const base = await createNsObjectiveContext(ctx);
 	const flow = createFlowBranchPublicationClient({ cwd: ctx.cwd, commands });
 	return {
 		cwd: ctx.cwd,

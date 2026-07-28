@@ -70,7 +70,7 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 					},
 				},
 				{
-					...createAutobranchDispatchEnv(ctx, args, slugModel.modelSelection),
+					...(await createAutobranchDispatchEnv(ctx, args, slugModel.modelSelection)),
 					onPhase: (message) => io.phase(message),
 				},
 			);

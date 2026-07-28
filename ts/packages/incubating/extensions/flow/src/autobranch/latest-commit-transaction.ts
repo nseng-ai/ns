@@ -66,7 +66,7 @@ export type LatestCommitTransactionResult =
 			createError: string;
 	  } & CreatedBranchRecovery)
 	| { ok: false; kind: "transaction_upstream_check_failed"; error: string }
-	| { ok: false; kind: "transaction_graphite_trunk_check_failed"; error: string }
+	| { ok: false; kind: "transaction_repository_trunk_resolution_failed"; error: string }
 	| { ok: false; kind: "remote_ahead_refusal"; upstream: string }
 	| { ok: false; kind: "diverged_upstream_refusal"; upstream: string }
 	| {
@@ -113,10 +113,10 @@ export async function runLatestCommitAutobranchTransaction(
 				kind: "transaction_upstream_check_failed",
 				error: upstream.error,
 			};
-		case "graphite_trunk_check_failed":
+		case "repository_trunk_resolution_failed":
 			return {
 				ok: false,
-				kind: "transaction_graphite_trunk_check_failed",
+				kind: "transaction_repository_trunk_resolution_failed",
 				error: upstream.error,
 			};
 		case "remote_ahead_refusal":
@@ -430,10 +430,10 @@ const latestCommitTransactionFailureCatalog = defineFailureCatalog<
 		message: (failure) =>
 			`Could not re-check the local relationship between HEAD and the current branch upstream before moving the latest commit.\n${failure.error}`,
 	},
-	transaction_graphite_trunk_check_failed: {
+	transaction_repository_trunk_resolution_failed: {
 		verdict: "failure",
 		message: (failure) =>
-			`Could not re-check the configured Graphite trunk for the synchronized source branch before moving the latest commit.\n${failure.error}`,
+			`Could not re-check the configured repository trunk for the synchronized source branch before moving the latest commit.\n${failure.error}`,
 	},
 	remote_ahead_refusal: {
 		verdict: "refusal",
@@ -448,7 +448,7 @@ const latestCommitTransactionFailureCatalog = defineFailureCatalog<
 	synchronized_trunk_refusal: {
 		verdict: "refusal",
 		message: (failure) =>
-			`Refusing to move latest commit because source branch ${failure.branch} is synchronized with configured Graphite trunk ${failure.trunk} (upstream ${failure.upstream}).`,
+			`Refusing to move latest commit because source branch ${failure.branch} is synchronized with configured repository trunk ${failure.trunk} (upstream ${failure.upstream}).`,
 	},
 	branch_reset_failed: {
 		verdict: "failure",

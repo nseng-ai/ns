@@ -1,3 +1,4 @@
+import type { GitTrunkBranchResult } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	parseNsTomlExtensions,
@@ -565,18 +566,49 @@ export async function resolveActivationRepository(
 			cwd,
 		};
 	}
-	const trunkResult = await context.git.trunkBranch({ cwd });
-	if (trunkResult.type === "error") return { type: "error", error: trunkResult.error };
-	if (trunkResult.type === "missing") {
+	const trunkResult = await context.git.trunkBranch({ cwd: repoRootResult.value });
+	if (trunkResult.type === "resolved") {
 		return {
-			type: "trunk-undetectable",
-			message:
-				"Could not detect a trunk branch for this repository; ns requires a stable git trunk.",
-			repoRoot: repoRootResult.value,
+			type: "resolved",
+			repository: {
+				repoRoot: repoRootResult.value,
+				trunkBranch: trunkResult.resolution.branch,
+			},
+		};
+	}
+	if (trunkResult.type === "command-failure") {
+		return {
+			type: "error",
+			error: {
+				...trunkResult.error,
+				message: formatActivationTrunkFailure(trunkResult),
+			},
 		};
 	}
 	return {
-		type: "resolved",
-		repository: { repoRoot: repoRootResult.value, trunkBranch: trunkResult.value },
+		type: "trunk-undetectable",
+		message: formatActivationTrunkFailure(trunkResult),
+		repoRoot: repoRootResult.value,
 	};
+}
+
+function formatActivationTrunkFailure(
+	result: Exclude<GitTrunkBranchResult, { type: "resolved" }>,
+): string {
+	switch (result.type) {
+		case "selected-remote-invalid":
+			return `Could not resolve trunk: configured remote \`${result.remote}\` is invalid. ${result.error.message}`;
+		case "configured-branch-invalid":
+			return `Could not resolve trunk: configured branch \`${result.branch}\` is invalid. ${result.error.message}`;
+		case "cached-remote-head-missing":
+			return `Could not resolve trunk because \`${result.remoteHeadRef}\` is missing. Fetch remote \`${result.remote}\`, or configure [git].trunk in ns.toml.`;
+		case "cached-remote-head-malformed":
+			return `Could not resolve trunk because \`${result.remoteHeadRef}\` has malformed target ${JSON.stringify(result.target)}. Repair the cached remote HEAD, or configure [git].trunk in ns.toml.`;
+		case "local-branch-missing":
+			return `Could not resolve trunk branch \`${result.resolution.branch}\` because local ref \`${result.resolution.localRef}\` is missing. Create or fetch the local trunk branch.`;
+		case "remote-tracking-branch-missing":
+			return `Could not resolve trunk branch \`${result.resolution.branch}\` because cached ref \`${result.resolution.remoteTrackingRef}\` is missing. Fetch remote \`${result.resolution.remote}\`.`;
+		case "command-failure":
+			return `Could not resolve trunk while attempting to ${result.operation.replaceAll("-", " ")} (${result.reason}). ${result.error.message}`;
+	}
 }

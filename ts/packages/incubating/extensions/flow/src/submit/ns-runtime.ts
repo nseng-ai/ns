@@ -1,6 +1,5 @@
-import { createNsCommandRunner } from "@nseng-ai/extension-kit";
-import { createNsGitGateway } from "@nseng-ai/extension-kit";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import { configureNsGitGateway, createNsCommandRunner } from "@nseng-ai/extension-kit";
+import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
 import {
 	formatCommand,
 	type CommandExecApi,
@@ -18,7 +17,6 @@ import {
 	type SubmitFailureTranscript,
 } from "./index.ts";
 import { RealCheckpointGateway, type CheckpointRunContext } from "../checkpoint/checkpoint.ts";
-import { RealGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/branch";
 import {
 	RealGraphiteStackGateway,
 	type GraphiteStackGateway,
@@ -52,13 +50,17 @@ export interface CreateNsSubmitRuntimeOptions {
 }
 
 /** Temporary internal migration seam; not exported from `@nseng-ai/sdk`. */
-export function createNsSubmitRuntime(
+export async function createNsSubmitRuntime(
 	ctx: NsExtensionApi,
 	descriptorSource: FlowPrInventoryDescriptorSource,
 	options: CreateNsSubmitRuntimeOptions = {},
-): NsSubmitRuntime {
+): Promise<NsSubmitRuntime> {
 	const commandRunner = createNsCommandRunner(ctx);
-	const git = createNsGitGateway(ctx);
+	const configuredGit = await configureNsGitGateway(ctx);
+	if (!configuredGit.ok) {
+		throw new Error(`Cannot configure submit Git policy: ${configuredGit.error.message}`);
+	}
+	const git = configuredGit.value;
 	const graphiteExecApi: CommandExecApi = {
 		exec: (command, args, execOptions) => commandRunner(command, args, execOptions),
 	};
@@ -73,20 +75,26 @@ export function createNsSubmitRuntime(
 		commandRunner,
 		createCheckpointRunContext: (onActiveOperations) => {
 			const commands: CommandExecApi = {
-				exec: async (command, args, options) =>
+				exec: async (command, args, execOptions) =>
 					await withActiveOperations(
 						onActiveOperations,
 						commandOperations([formatCommand(command, args)]),
-						async () => await commandRunner(command, args, options),
+						async () => await commandRunner(command, args, execOptions),
 					),
 			};
+			const checkpointGit = new RealGitGateway(commands, {
+				selectedRemote: configuredGit.policy.remote,
+				...(configuredGit.policy.trunk === undefined
+					? {}
+					: { configuredTrunkBranch: configuredGit.policy.trunk }),
+			});
 			return {
 				gateway: new RealCheckpointGateway({
 					runner: commandRunner,
 					git,
 					...optionalEntry("onActiveOperations", onActiveOperations),
 				}),
-				graphite: new RealGraphiteBranchGateway(commands),
+				git: checkpointGit,
 				...(onActiveOperations === undefined ? {} : { onActiveOperations }),
 			};
 		},

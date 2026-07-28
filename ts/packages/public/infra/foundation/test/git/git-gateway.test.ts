@@ -503,81 +503,198 @@ describe("real git gateway", () => {
 		commands.assertDone();
 	});
 
-	test("resolves trunk branch through origin HEAD when candidate exists locally", async () => {
+	test("resolves configured trunk first and verifies both selected-remote refs", async () => {
 		const commands = new ScriptedCommands([
-			step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], {
-				stdout: "origin/trunk\n",
-			}),
-			step("git", ["rev-parse", "--verify", "refs/heads/trunk"]),
+			step("git", ["check-ref-format", "refs/remotes/company/trunk-validation"]),
+			step("git", ["check-ref-format", "--branch", "release/stable"]),
+			step("git", ["remote"], { stdout: "origin\ncompany\n" }),
+			step("git", ["show-ref", "--verify", "--quiet", "refs/heads/release/stable"]),
+			step("git", ["show-ref", "--verify", "--quiet", "refs/remotes/company/release/stable"]),
 		]);
-		const git = new RealGitGateway(commands);
+		const git = new RealGitGateway(commands, {
+			selectedRemote: "company",
+			configuredTrunkBranch: "release/stable",
+		});
 
-		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({ type: "found", value: "trunk" });
+		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({
+			type: "resolved",
+			resolution: {
+				branch: "release/stable",
+				remote: "company",
+				localRef: "refs/heads/release/stable",
+				remoteTrackingRef: "refs/remotes/company/release/stable",
+				source: "configured",
+			},
+		});
 		commands.assertDone();
-		expect(commands.execCalls.map((call) => call.args)).toEqual([
-			["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
-			["rev-parse", "--verify", "refs/heads/trunk"],
-		]);
+		expect(commands.execCalls.some((call) => call.args.includes("symbolic-ref"))).toBe(false);
 	});
 
-	test("falls back when origin HEAD candidate is absent locally", async () => {
+	test("defaults to origin and resolves its exact cached remote HEAD namespace", async () => {
 		const commands = new ScriptedCommands([
-			step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], {
-				stdout: "origin/develop\n",
+			step("git", ["check-ref-format", "refs/remotes/origin/trunk-validation"]),
+			step("git", ["symbolic-ref", "refs/remotes/origin/HEAD"], {
+				stdout: "refs/remotes/origin/trunk\n",
 			}),
-			step("git", ["rev-parse", "--verify", "refs/heads/develop"], { code: 1 }),
-			step("git", ["rev-parse", "--verify", "refs/heads/main"], { code: 1 }),
-			step("git", ["rev-parse", "--verify", "refs/heads/master"]),
+			step("git", ["show-ref", "--verify", "--quiet", "refs/heads/trunk"]),
+			step("git", ["show-ref", "--verify", "--quiet", "refs/remotes/origin/trunk"]),
 		]);
 		const git = new RealGitGateway(commands);
 
-		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({ type: "found", value: "master" });
-		commands.assertDone();
-	});
-
-	test("falls back to main probe when origin HEAD lookup fails", async () => {
-		const commands = new ScriptedCommands([
-			step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], { code: 1 }),
-			step("git", ["rev-parse", "--verify", "refs/heads/main"]),
-		]);
-		const git = new RealGitGateway(commands);
-
-		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({ type: "found", value: "main" });
-		commands.assertDone();
-	});
-
-	test("treats branch presence errors as absent while resolving trunk", async () => {
-		const commands = new ScriptedCommands([
-			step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], {
-				stdout: "origin/trunk\n",
-			}),
-			step("git", ["rev-parse", "--verify", "refs/heads/trunk"], {
-				type: "exited",
-				stdout: "",
-				stderr: "boom",
-				code: 2,
-				signal: null,
-			}),
-			step("git", ["rev-parse", "--verify", "refs/heads/main"]),
-		]);
-		const git = new RealGitGateway(commands);
-
-		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({ type: "found", value: "main" });
+		expect(await git.trunkBranch({ cwd: ROOT })).toMatchObject({
+			type: "resolved",
+			resolution: { branch: "trunk", remote: "origin", source: "cached-remote-head" },
+		});
 		commands.assertDone();
 	});
 
-	test("returns missing trunk when symbolic-ref and local fallbacks fail", async () => {
+	test.each([
+		{ target: "refs/remotes/backup/main", name: "wrong remote namespace" },
+		{ target: "origin/main", name: "short malformed target" },
+		{ target: "refs/remotes/company/HEAD", name: "self-referencing target" },
+	] as const)("rejects cached HEAD with $name", async ({ target }) => {
 		const commands = new ScriptedCommands([
-			step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], { code: 1 }),
-			step("git", ["rev-parse", "--verify", "refs/heads/main"], { code: 1 }),
-			step("git", ["rev-parse", "--verify", "refs/heads/master"], {
-				code: 128,
-				stderr: "fatal: Needed a single revision",
-			}),
+			step("git", ["check-ref-format", "refs/remotes/company/trunk-validation"]),
+			step("git", ["symbolic-ref", "refs/remotes/company/HEAD"], { stdout: `${target}\n` }),
+		]);
+		const git = new RealGitGateway(commands, { selectedRemote: "company" });
+
+		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({
+			type: "cached-remote-head-malformed",
+			remote: "company",
+			remoteHeadRef: "refs/remotes/company/HEAD",
+			target,
+		});
+		commands.assertDone();
+	});
+
+	test("reports a missing cached HEAD without probing main or master", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["check-ref-format", "refs/remotes/origin/trunk-validation"]),
+			step("git", ["symbolic-ref", "refs/remotes/origin/HEAD"], { code: 1 }),
 		]);
 		const git = new RealGitGateway(commands);
 
-		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({ type: "missing" });
+		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({
+			type: "cached-remote-head-missing",
+			remote: "origin",
+			remoteHeadRef: "refs/remotes/origin/HEAD",
+		});
+		commands.assertDone();
+		expect(
+			commands.execCalls.some((call) => call.args.includes("main") || call.args.includes("master")),
+		).toBe(false);
+	});
+
+	test.each([
+		{
+			name: "local branch",
+			steps: [step("git", ["show-ref", "--verify", "--quiet", "refs/heads/trunk"], { code: 1 })],
+			expectedType: "local-branch-missing",
+		},
+		{
+			name: "remote-tracking branch",
+			steps: [
+				step("git", ["show-ref", "--verify", "--quiet", "refs/heads/trunk"]),
+				step("git", ["show-ref", "--verify", "--quiet", "refs/remotes/origin/trunk"], {
+					code: 1,
+				}),
+			],
+			expectedType: "remote-tracking-branch-missing",
+		},
+	] as const)("reports missing $name", async ({ steps, expectedType }) => {
+		const commands = new ScriptedCommands([
+			step("git", ["check-ref-format", "refs/remotes/origin/trunk-validation"]),
+			step("git", ["symbolic-ref", "refs/remotes/origin/HEAD"], {
+				stdout: "refs/remotes/origin/trunk\n",
+			}),
+			...steps,
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.trunkBranch({ cwd: ROOT })).toMatchObject({ type: expectedType });
+		commands.assertDone();
+	});
+
+	test("rejects a selected remote that cannot safely construct refs", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["check-ref-format", "refs/remotes/bad remote/trunk-validation"], { code: 1 }),
+		]);
+		const git = new RealGitGateway(commands, { selectedRemote: "bad remote" });
+
+		expect(await git.trunkBranch({ cwd: ROOT })).toMatchObject({
+			type: "selected-remote-invalid",
+			remote: "bad remote",
+		});
+		commands.assertDone();
+	});
+
+	test.each([
+		{ selectedRemote: "origin", branch: "origin/main" },
+		{ selectedRemote: "company", branch: "origin/main" },
+	] as const)(
+		"rejects configured remote-qualified branch $branch with selected remote $selectedRemote",
+		async ({ selectedRemote, branch }) => {
+			const commands = new ScriptedCommands([
+				step("git", ["check-ref-format", `refs/remotes/${selectedRemote}/trunk-validation`]),
+				step("git", ["check-ref-format", "--branch", branch]),
+				step("git", ["remote"], { stdout: "origin\ncompany\n" }),
+			]);
+			const git = new RealGitGateway(commands, {
+				selectedRemote,
+				configuredTrunkBranch: branch,
+			});
+
+			expect(await git.trunkBranch({ cwd: ROOT })).toMatchObject({
+				type: "configured-branch-invalid",
+				branch,
+			});
+			commands.assertDone();
+		},
+	);
+
+	test("reports configured branch check-ref-format rejection", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["check-ref-format", "refs/remotes/origin/trunk-validation"]),
+			step("git", ["check-ref-format", "--branch", "main~1"], { code: 1 }),
+		]);
+		const git = new RealGitGateway(commands, { configuredTrunkBranch: "main~1" });
+
+		expect(await git.trunkBranch({ cwd: ROOT })).toMatchObject({
+			type: "configured-branch-invalid",
+			branch: "main~1",
+		});
+		commands.assertDone();
+	});
+
+	test.each([
+		{
+			name: "failed",
+			result: { code: 2, stderr: "permission denied" },
+			reason: "failed",
+		},
+		{
+			name: "timed out",
+			result: { type: "timed-out", stdout: "", stderr: "", code: null, signal: "SIGTERM" },
+			reason: "timed-out",
+		},
+		{
+			name: "killed",
+			result: { type: "cancelled", stdout: "", stderr: "", code: null, signal: "SIGTERM" },
+			reason: "killed",
+		},
+	] as const)("preserves $name trunk command failures", async ({ result, reason }) => {
+		const commands = new ScriptedCommands([
+			step("git", ["check-ref-format", "refs/remotes/origin/trunk-validation"]),
+			step("git", ["symbolic-ref", "refs/remotes/origin/HEAD"], result),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.trunkBranch({ cwd: ROOT })).toMatchObject({
+			type: "command-failure",
+			operation: "read-cached-remote-head",
+			reason,
+		});
 		commands.assertDone();
 	});
 

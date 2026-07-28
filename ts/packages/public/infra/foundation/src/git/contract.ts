@@ -38,6 +38,9 @@ export type KnownGitErrorCode =
 	| "previous_branch_failed"
 	| "repo_root_empty"
 	| "repo_root_failed"
+	| "trunk-branch-command-failed"
+	| "trunk-configured-branch-invalid"
+	| "trunk-remote-invalid"
 	| "work_tree_probe_failed";
 
 export type GitErrorCode = KnownGitErrorCode | (string & {});
@@ -57,6 +60,44 @@ export type GitOptionalResult<T> =
 	| { type: "found"; value: T }
 	| { type: "missing" }
 	| { type: "error"; error: GitErrorInfo };
+
+export interface GitTrunkResolution {
+	branch: string;
+	remote: string;
+	localRef: string;
+	remoteTrackingRef: string;
+	source: "configured" | "cached-remote-head";
+}
+
+/**
+ * Resolves trunk only from caller policy and locally cached refs. It performs no fetch, so a
+ * successful result may be stale relative to the selected remote.
+ */
+export type GitTrunkBranchResult =
+	| { type: "resolved"; resolution: GitTrunkResolution }
+	| { type: "selected-remote-invalid"; remote: string; error: GitErrorInfo }
+	| { type: "configured-branch-invalid"; branch: string; error: GitErrorInfo }
+	| { type: "cached-remote-head-missing"; remote: string; remoteHeadRef: string }
+	| {
+			type: "cached-remote-head-malformed";
+			remote: string;
+			remoteHeadRef: string;
+			target: string | null;
+	  }
+	| { type: "local-branch-missing"; resolution: GitTrunkResolution }
+	| { type: "remote-tracking-branch-missing"; resolution: GitTrunkResolution }
+	| {
+			type: "command-failure";
+			operation:
+				| "validate-selected-remote"
+				| "validate-configured-branch"
+				| "list-remotes"
+				| "read-cached-remote-head"
+				| "verify-local-branch"
+				| "verify-remote-tracking-branch";
+			reason: "failed" | "timed-out" | "killed";
+			error: GitErrorInfo;
+	  };
 
 export interface GitBranchParams extends GitCwdParams {
 	branch: string;
@@ -127,7 +168,7 @@ export interface GitGateway {
 	optionalRepoRoot(params: GitCwdParams): Promise<GitOptionalResult<string>>;
 	currentBranch(params: GitCwdParams): Promise<GitCurrentBranchResult>;
 	isInsideWorkTree(params: GitCwdParams): Promise<GitResult<boolean>>;
-	trunkBranch(params: GitCwdParams): Promise<GitOptionalResult<string>>;
+	trunkBranch(params: GitCwdParams): Promise<GitTrunkBranchResult>;
 	branchUpstream(params: GitBranchParams): Promise<GitOptionalResult<GitBranchUpstream>>;
 	originUrl(params: GitCwdParams): Promise<GitOptionalResult<string>>;
 	headCommit(params: GitCwdParams): Promise<GitResult<string>>;

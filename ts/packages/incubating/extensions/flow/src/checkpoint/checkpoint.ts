@@ -10,14 +10,8 @@ import type { TimeServices } from "@nseng-ai/foundation/time";
 import type { ActiveOperation, NsProgressPhaseListener } from "@nseng-ai/sdk";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import { createNsCommandRunner } from "@nseng-ai/extension-kit/command-runner";
-import { createNsGitGateway } from "@nseng-ai/extension-kit";
-import {
-	RealGraphiteBranchGateway,
-	type GraphiteBranchGateway,
-	type GraphiteErrorInfo,
-	type GraphiteTrunkBranchFailureReason,
-} from "@nseng-ai/extension-kit/graphite/branch";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import { configureNsGitGateway } from "@nseng-ai/extension-kit";
+import type { GitGateway, GitTrunkBranchResult } from "@nseng-ai/foundation/git";
 import type { TextRepairProgressEvent } from "@nseng-ai/extension-kit/text-repair";
 import {
 	createCommitWithPreparedMessage,
@@ -38,6 +32,10 @@ import {
 } from "../phase-stream/matrix-progress-core.ts";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { formatModelRef } from "@nseng-ai/foundation/model-slug";
+import {
+	formatRepositoryTrunkResolutionFailure,
+	type RepositoryTrunkResolutionFailure,
+} from "./trunk-resolution.ts";
 
 export interface CheckpointGateway {
 	loadPendingWorktreeSnapshot(params: { cwd: string; repoRoot?: string }): Promise<
@@ -62,24 +60,30 @@ export interface CheckpointCommandResult {
 	stderr: string;
 }
 
+export type CheckpointGitGateway = Pick<GitGateway, "trunkBranch">;
+
 export interface NsCheckpointRuntime {
 	checkpointGateway: CheckpointGateway;
-	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	git: CheckpointGitGateway;
 }
 
-export function createNsCheckpointRuntime(ctx: NsExtensionApi): NsCheckpointRuntime {
+export async function createNsCheckpointRuntime(ctx: NsExtensionApi): Promise<NsCheckpointRuntime> {
+	const configuredGit = await configureNsGitGateway(ctx);
+	if (!configuredGit.ok) {
+		throw new Error(`Cannot configure checkpoint Git policy: ${configuredGit.error.message}`);
+	}
 	return {
 		checkpointGateway: new RealCheckpointGateway({
 			runner: createNsCommandRunner(ctx),
-			git: createNsGitGateway(ctx),
+			git: configuredGit.value,
 		}),
-		graphite: new RealGraphiteBranchGateway(ctx),
+		git: configuredGit.value,
 	};
 }
 
 export interface CheckpointRunContext {
 	gateway: CheckpointGateway;
-	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	git: CheckpointGitGateway;
 	onActiveOperations?: (operations: readonly ActiveOperation[]) => void;
 }
 
@@ -100,11 +104,7 @@ export interface RunCheckpointWorkflowOptions extends RunCheckpointCommandOption
 
 export type CheckpointWorkflowResult =
 	| { type: "snapshot-failed"; error: PendingWorktreeError }
-	| {
-			type: "trunk-resolution-failed";
-			reason: GraphiteTrunkBranchFailureReason;
-			error: GraphiteErrorInfo;
-	  }
+	| { type: "trunk-resolution-failed"; failure: RepositoryTrunkResolutionFailure }
 	| { type: "trunk"; branch: string }
 	| { type: "clean" }
 	| { type: "message-failed"; error: string }
@@ -199,7 +199,7 @@ export async function runCheckpointIfPending(
 		case "trunk-resolution-failed":
 			return {
 				kind: "failed",
-				output: failure(2, formatGraphiteTrunkResolutionError(result.error)),
+				output: failure(2, formatCheckpointTrunkResolutionError(result.failure)),
 				failurePresentation: "deterministic",
 			};
 		case "clean":
@@ -243,11 +243,11 @@ export async function runCheckpointWorkflow(
 	if (!loaded.ok) return { type: "snapshot-failed", error: loaded.error };
 
 	const snapshot = loaded.snapshot;
-	const trunk = await options.graphite.trunkBranch({ cwd: options.cwd });
-	if (!trunk.ok) {
-		return { type: "trunk-resolution-failed", reason: trunk.reason, error: trunk.error };
+	const trunk = await options.git.trunkBranch({ cwd: options.cwd });
+	if (trunk.type !== "resolved") {
+		return { type: "trunk-resolution-failed", failure: trunk };
 	}
-	if (snapshot.branch === trunk.branch) {
+	if (snapshot.branch === trunk.resolution.branch) {
 		return { type: "trunk", branch: snapshot.branch };
 	}
 	if (snapshot.clean) return { type: "clean" };
@@ -310,8 +310,10 @@ function formatCheckpointProgressEvent(event: TextRepairProgressEvent): string {
 	}
 }
 
-export function formatGraphiteTrunkResolutionError(error: GraphiteErrorInfo): string {
-	return `Could not resolve configured Graphite trunk; checkpoint was not created.\n${error.message}`;
+export function formatCheckpointTrunkResolutionError(
+	failure: Exclude<GitTrunkBranchResult, { type: "resolved" }>,
+): string {
+	return `Could not resolve repository trunk; checkpoint was not created.\n${formatRepositoryTrunkResolutionFailure(failure)}`;
 }
 
 export function formatCheckpointSnapshotError(error: PendingWorktreeError): string {

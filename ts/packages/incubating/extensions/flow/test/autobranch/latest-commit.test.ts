@@ -82,10 +82,10 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 		if (upstreamProbeResult !== undefined) {
 			return upstreamProbeResult;
 		}
-		if (command === "gt" && args[0] === "trunk") {
+		if (command === "git" && args[0] === "symbolic-ref") {
 			return options.shouldTrunkFail
-				? fail("gt trunk failed")
-				: ok(`${options.trunkBranch ?? "master"}\n`);
+				? fail("git symbolic-ref failed")
+				: ok(`refs/remotes/origin/${options.trunkBranch ?? "master"}\n`);
 		}
 		if (command === "gt" && args[0] === "children") {
 			return options.shouldChildrenFail ? fail("gt children failed") : ok(childBranches.join("\n"));
@@ -106,7 +106,10 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 			return ok();
 		}
 		if (command === "git" && args[0] === "show-ref") {
-			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
+			const ref = args.at(-1) ?? "";
+			if (ref.startsWith("refs/remotes/origin/")) return ok();
+			const branch = ref.replace(/^refs\/heads\//, "");
+			if (branch === (options.trunkBranch ?? "master")) return ok();
 			return existingBranches.has(branch) ? ok() : fail("");
 		}
 		if (command === "git" && args[0] === "rev-parse" && args[1] === "--verify") {
@@ -189,16 +192,19 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 		if (upstreamProbeResult !== undefined) {
 			return upstreamProbeResult;
 		}
-		if (command === "gt" && args[0] === "trunk") {
+		if (command === "git" && args[0] === "symbolic-ref") {
 			return options.shouldTrunkFail
-				? fail("gt trunk failed")
-				: ok(`${options.trunkBranch ?? "master"}\n`);
+				? fail("git symbolic-ref failed")
+				: ok(`refs/remotes/origin/${options.trunkBranch ?? "master"}\n`);
 		}
 		if (command === "git" && args[0] === "check-ref-format") {
 			return ok();
 		}
 		if (command === "git" && args[0] === "show-ref") {
-			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
+			const ref = args.at(-1) ?? "";
+			if (ref.startsWith("refs/remotes/origin/")) return ok();
+			const branch = ref.replace(/^refs\/heads\//, "");
+			if (branch === (options.trunkBranch ?? "master")) return ok();
 			return existingBranches.has(branch) ? ok() : fail("");
 		}
 		if (command === "git" && args[0] === "rev-parse" && args[1] === "--verify") {
@@ -369,7 +375,7 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 					command: "git",
 					args: ["rev-list", "--left-right", "--count", "HEAD...origin/feature/base"],
 				},
-				{ command: "gt", args: ["trunk", "--no-interactive"] },
+				{ command: "git", args: ["symbolic-ref", "refs/remotes/origin/HEAD"] },
 			]),
 		);
 		expect(
@@ -461,8 +467,9 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 		);
 		expect(trunkFailed).toEqual({
 			ok: false,
-			kind: "graphite_trunk_check_failed",
-			error: "exit code 1: gt trunk failed",
+			kind: "repository_trunk_resolution_failed",
+			error:
+				"Cached remote HEAD `refs/remotes/origin/HEAD` is missing. Fetch remote `origin`, or configure [git].trunk in ns.toml.",
 		});
 	});
 
@@ -574,8 +581,9 @@ describe("runLatestCommitAutobranchTransaction", () => {
 		});
 		expect(await runLatestCommitAutobranchTransaction(trunkFailed.input)).toEqual({
 			ok: false,
-			kind: "transaction_graphite_trunk_check_failed",
-			error: "exit code 1: gt trunk failed",
+			kind: "transaction_repository_trunk_resolution_failed",
+			error:
+				"Cached remote HEAD `refs/remotes/origin/HEAD` is missing. Fetch remote `origin`, or configure [git].trunk in ns.toml.",
 		});
 
 		for (const harness of [trunk, upstreamFailed, malformed, trunkFailed]) {

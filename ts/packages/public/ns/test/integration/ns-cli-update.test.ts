@@ -41,6 +41,18 @@ async function initializeGitRepo(projectRoot: string): Promise<void> {
 	if (!commandSucceeded(committed)) {
 		throw new Error(formatCommandFailure("git commit failed", "git commit", committed));
 	}
+	for (const args of [
+		["remote", "add", "origin", projectRoot],
+		["update-ref", "refs/remotes/origin/main", "refs/heads/main"],
+		["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"],
+	]) {
+		const result = await runCommand("git", args, { cwd: projectRoot });
+		if (!commandSucceeded(result)) {
+			throw new Error(
+				formatCommandFailure("git fixture setup failed", `git ${args.join(" ")}`, result),
+			);
+		}
+	}
 }
 
 async function runNsCliJson(args: readonly string[], cwd: string) {

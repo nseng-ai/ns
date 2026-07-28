@@ -13,6 +13,7 @@ import {
 	RealGitGateway,
 	type GitGateway,
 	type GitOperationInProgressFacts,
+	type GitTrunkBranchResult,
 } from "@nseng-ai/foundation/git";
 import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
@@ -214,9 +215,8 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 
 	async getTrunkBranch(): Promise<string> {
 		const result = await this.coreGit.trunkBranch({ cwd: this.cwd, env: this.env });
-		if (result.type === "found") return result.value;
-		if (result.type === "missing") return "master";
-		throw new Error(result.error.message);
+		if (result.type === "resolved") return result.resolution.branch;
+		throw new Error(formatSlotTrunkFailure(result));
 	}
 
 	async getCurrentBranch(cwd: string): Promise<CurrentBranchResult> {
@@ -369,6 +369,26 @@ export function unwrapIncumbentRepositoryResult(
 }
 
 type ParsedValue<T> = { type: "ok"; value: T } | { type: "failure"; failure: GitCommandFailure };
+
+function formatSlotTrunkFailure(
+	result: Exclude<GitTrunkBranchResult, { type: "resolved" }>,
+): string {
+	switch (result.type) {
+		case "selected-remote-invalid":
+		case "configured-branch-invalid":
+			return `Cannot resolve Slot trunk: ${result.error.message}`;
+		case "cached-remote-head-missing":
+			return `Cannot resolve Slot trunk because ${result.remoteHeadRef} is missing. Fetch ${result.remote}, or configure [git].trunk in ns.toml.`;
+		case "cached-remote-head-malformed":
+			return `Cannot resolve Slot trunk because ${result.remoteHeadRef} has malformed target ${JSON.stringify(result.target)}. Repair it, or configure [git].trunk in ns.toml.`;
+		case "local-branch-missing":
+			return `Cannot resolve Slot trunk because ${result.resolution.localRef} is missing. Create or fetch ${result.resolution.branch}.`;
+		case "remote-tracking-branch-missing":
+			return `Cannot resolve Slot trunk because ${result.resolution.remoteTrackingRef} is missing. Fetch ${result.resolution.remote}.`;
+		case "command-failure":
+			return `Cannot resolve Slot trunk while attempting to ${result.operation.replaceAll("-", " ")} (${result.reason}): ${result.error.message}`;
+	}
+}
 
 function parseBranchComparisonOids(
 	stdout: string,

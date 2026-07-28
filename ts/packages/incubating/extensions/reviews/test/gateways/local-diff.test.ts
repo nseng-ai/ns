@@ -86,7 +86,16 @@ describe("RealLocalDiffGateway", () => {
 		]);
 		const gateway = new RealLocalDiffGateway({
 			execApi,
-			gitGateway: new InMemoryGitGateway({ repoRoot, trunkBranch: "trunk" }),
+			gitGateway: new InMemoryGitGateway({
+				repoRoot,
+				trunkBranch: {
+					branch: "trunk",
+					remote: "upstream",
+					localRef: "refs/heads/trunk",
+					remoteTrackingRef: "refs/remotes/upstream/trunk",
+					source: "cached-remote-head",
+				},
+			}),
 		});
 
 		const result = await gateway.loadDiff({ cwd: repoRoot });
@@ -95,7 +104,7 @@ describe("RealLocalDiffGateway", () => {
 		if (!result.ok) {
 			expect(result.error.code).toBe("git-diff-failed");
 			expect(result.error.message).toContain("git -c diff.noprefix=false");
-			expect(result.error.message).toContain("origin/trunk...HEAD");
+			expect(result.error.message).toContain("refs/remotes/upstream/trunk...HEAD");
 			expect(result.error.message).toContain(repoRoot);
 			expect(result.error.message).toContain("fatal");
 		}
@@ -110,8 +119,41 @@ describe("RealLocalDiffGateway", () => {
 			"diff.dstPrefix=b/",
 			"diff",
 			"--no-ext-diff",
-			"origin/trunk...HEAD",
+			"refs/remotes/upstream/trunk...HEAD",
 		]);
+	});
+
+	test("reports actionable trunk resolution failure when no explicit base is given", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "reviews-local-diff-no-trunk-"));
+		const gitGateway = new InMemoryGitGateway({
+			repoRoot,
+			trunkBranch: {
+				type: "remote-tracking-branch-missing",
+				resolution: {
+					branch: "trunk",
+					remote: "upstream",
+					localRef: "refs/heads/trunk",
+					remoteTrackingRef: "refs/remotes/upstream/trunk",
+					source: "configured",
+				},
+			},
+		});
+		const gateway = new RealLocalDiffGateway({
+			execApi: new ScriptedCommandExecApi([]),
+			gitGateway,
+		});
+
+		const result = await gateway.loadDiff({ cwd: repoRoot });
+
+		expect(result).toMatchObject({
+			ok: false,
+			error: { code: "base-ref-unavailable" },
+		});
+		if (!result.ok) {
+			expect(result.error.message).toContain("refs/remotes/upstream/trunk");
+			expect(result.error.message).toContain("Fetch upstream");
+			expect(result.error.message).toContain("--base-ref");
+		}
 	});
 
 	test("formats display commands for diagnostics", () => {

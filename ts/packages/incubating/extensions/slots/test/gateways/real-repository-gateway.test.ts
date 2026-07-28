@@ -82,9 +82,15 @@ describe("RealSlotRepositoryGateway", () => {
 		await expect(
 			new RealSlotRepositoryGateway({
 				cwd: "/repo",
-				coreGit: new InMemoryGitGateway({ trunkBranch: { type: "missing" } }),
+				coreGit: new InMemoryGitGateway({
+					trunkBranch: {
+						type: "cached-remote-head-missing",
+						remote: "upstream",
+						remoteHeadRef: "refs/remotes/upstream/HEAD",
+					},
+				}),
 			}).getTrunkBranch(),
-		).resolves.toBe("master");
+		).rejects.toThrow("Fetch upstream");
 		await expect(
 			new RealSlotRepositoryGateway({
 				cwd: "/repo",

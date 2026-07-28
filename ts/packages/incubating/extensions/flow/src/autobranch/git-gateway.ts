@@ -4,6 +4,7 @@ import {
 	type GitGateway,
 	type GitOptionalResult,
 	type GitResult,
+	type GitTrunkBranchResult,
 } from "@nseng-ai/foundation/git";
 import { commandSucceeded, type CommandExecApi } from "@nseng-ai/foundation/command";
 
@@ -33,6 +34,7 @@ export interface StashEntry {
 
 export interface AutobranchGitGateway {
 	optionalRepoRoot(params: { cwd: string }): Promise<GitOptionalResult<string>>;
+	trunkBranch(): Promise<GitTrunkBranchResult>;
 	currentBranch(): Promise<AutobranchGitResult<string>>;
 	headSha(): Promise<AutobranchGitResult<string>>;
 	headParents(): Promise<AutobranchGitResult<HeadParents>>;
@@ -54,12 +56,18 @@ export interface AutobranchGitGateway {
 
 type AutobranchProviderGitGateway = Pick<
 	GitGateway,
-	"optionalRepoRoot" | "currentBranch" | "headCommit" | "validateBranchRef" | "localBranchPresence"
+	| "optionalRepoRoot"
+	| "trunkBranch"
+	| "currentBranch"
+	| "headCommit"
+	| "validateBranchRef"
+	| "localBranchPresence"
 >;
 
 export interface AutobranchGitGatewayInput {
 	cwd: string;
 	exec: AutobranchExec;
+	providerGit?: AutobranchProviderGitGateway;
 }
 
 function createAutobranchProviderGitGateway(exec: AutobranchExec): AutobranchProviderGitGateway {
@@ -75,11 +83,14 @@ function createAutobranchCommandExecApi(exec: AutobranchExec): CommandExecApi {
 }
 
 export function createAutobranchGitGateway(input: AutobranchGitGatewayInput): AutobranchGitGateway {
-	const providerGit = createAutobranchProviderGitGateway(input.exec);
+	const providerGit = input.providerGit ?? createAutobranchProviderGitGateway(input.exec);
 	const raw = (args: string[], timeout: number) => runGit(input.exec, args, timeout);
 	return {
 		async optionalRepoRoot(params) {
 			return providerGit.optionalRepoRoot(params);
+		},
+		async trunkBranch() {
+			return providerGit.trunkBranch({ cwd: input.cwd });
 		},
 		async currentBranch() {
 			const branch = await providerGit.currentBranch({ cwd: input.cwd });

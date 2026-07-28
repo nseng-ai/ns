@@ -19,7 +19,6 @@ describe("checkpoint run context", () => {
 						match: "git diff HEAD --no-ext-diff",
 						result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 					},
-					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 				],
 				textGeneration: [
 					{ ok: true, text: "[cp] Add checkpoint context\n\n- Share active operation feedback" },
@@ -32,7 +31,7 @@ describe("checkpoint run context", () => {
 				textGenerationResults: () => [],
 			},
 		);
-		const runtime = createNsSubmitRuntime(ctx, flowExtensionDescriptorSource);
+		const runtime = await createNsSubmitRuntime(ctx, flowExtensionDescriptorSource);
 		const checkpointRunContext = runtime.createCheckpointRunContext((operations) =>
 			snapshots.push([...operations]),
 		);
@@ -59,7 +58,23 @@ describe("checkpoint run context", () => {
 			[],
 			[{ kind: "command", display: "git diff HEAD --no-ext-diff" }],
 			[],
-			[{ kind: "command", display: "gt trunk --no-interactive" }],
+			[
+				{
+					kind: "command",
+					display: "git check-ref-format refs/remotes/origin/trunk-validation",
+				},
+			],
+			[],
+			[{ kind: "command", display: "git symbolic-ref refs/remotes/origin/HEAD" }],
+			[],
+			[{ kind: "command", display: "git show-ref --verify --quiet refs/heads/main" }],
+			[],
+			[
+				{
+					kind: "command",
+					display: "git show-ref --verify --quiet refs/remotes/origin/main",
+				},
+			],
 			[],
 			[
 				{

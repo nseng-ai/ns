@@ -17,7 +17,7 @@ repositories customize its behavior through
 - The `ns` CLI with the Flow extension enabled.
 - The `gt` and `gh` CLIs available on `PATH`; commands that read or mutate pull
   requests require an authenticated GitHub session.
-- A configured Graphite trunk that `gt trunk --no-interactive` can resolve.
+- Locally cached Git refs for the repository trunk, optionally selected by `[git]` policy in `ns.toml`.
   Checkpoint safety fails closed when that lookup fails, including on clean
   worktrees and checkpoint dry runs.
 - For `pull-trunk`, the local configured-trunk branch must have a Git upstream.
@@ -39,7 +39,7 @@ Each command depends on a distinct slice of the underlying technology stack:
 | `ns flow generate-pr-inventory` | Assemble and completely replace the current PR title and body.                                               |  ✓  |                 |       ✓       |       |  ✓  |
 | `ns flow push`                  | Push committed non-Graphite branch work with `git push`.                                                     |  ✓  |                 |               |       |     |
 | `ns flow land`                  | Land the current PR or Graphite stack into trunk.                                                            |  ✓  |        ✓        |       ✓       |   ✓   |     |
-| `ns flow pull-trunk`            | Refresh the configured Graphite trunk from its configured Git upstream.                                      |  ✓  |        ✓        |               |       |     |
+| `ns flow pull-trunk`            | Refresh the configured repository trunk from its configured Git upstream.                                    |  ✓  |        ✓        |               |       |     |
 | `ns flow squash-stack`          | Squash every branch in the current Graphite stack to one commit, then restore the tip branch.                |  ✓  |        ✓        |               |       |     |
 
 Every command is also available in the Pi harness as `/ns:flow:<command>`, delegating
@@ -52,13 +52,13 @@ policy: the worktree must be clean, and `HEAD` must be a latest single-parent
 commit. Relationship checks use only local tracking refs; they never implicitly
 fetch.
 
-| Relationship to the locally known upstream         | Result   |
-| -------------------------------------------------- | -------- |
-| No upstream                                        | Eligible |
-| Locally ahead                                      | Eligible |
-| Exactly synchronized, on a non-trunk source branch | Eligible |
-| Remote-ahead or diverged                           | Refused  |
-| Exactly synchronized, on configured Graphite trunk | Refused  |
+| Relationship to the locally known upstream           | Result   |
+| ---------------------------------------------------- | -------- |
+| No upstream                                          | Eligible |
+| Locally ahead                                        | Eligible |
+| Exactly synchronized, on a non-trunk source branch   | Eligible |
+| Remote-ahead or diverged                             | Refused  |
+| Exactly synchronized, on configured repository trunk | Refused  |
 
 Existing Graphite children, root commits, and merge commits are also refused.
 The split mutates local refs only: it never fetches, pushes, submits, or updates

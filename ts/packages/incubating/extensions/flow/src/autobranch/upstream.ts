@@ -1,9 +1,5 @@
-import { commandSucceeded } from "@nseng-ai/foundation/command";
-import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import type { AutobranchGitGateway } from "./git-gateway.ts";
-import { formatAutobranchCommandDetails, type AutobranchExec } from "./shared.ts";
-
-const GT_TIMEOUT_MS = 120_000;
+import { formatRepositoryTrunkResolutionFailure } from "../checkpoint/trunk-resolution.ts";
 
 export type UpstreamHeadState =
 	| { type: "no_upstream" }
@@ -22,7 +18,7 @@ type LatestCommitUpstreamEligibility =
 	| { type: "eligible" }
 	| { type: "synchronized"; upstream: string }
 	| { type: "upstream_check_failed"; error: string }
-	| { type: "graphite_trunk_check_failed"; error: string }
+	| { type: "repository_trunk_resolution_failed"; error: string }
 	| { type: "remote_ahead_refusal"; upstream: string }
 	| { type: "diverged_upstream_refusal"; upstream: string }
 	| {
@@ -37,36 +33,23 @@ export interface UpstreamHeadStateInput {
 	git: AutobranchGitGateway;
 }
 
-interface LatestCommitUpstreamEligibilityInput extends UpstreamHeadStateInput {
-	exec: AutobranchExec;
-}
-
 export async function inspectUpstreamHeadState(
 	input: UpstreamHeadStateInput,
 ): Promise<UpstreamHeadState> {
 	const branch = await input.git.currentBranch();
-	if (!branch.ok) {
-		return { type: "failed", error: branch.details };
-	}
+	if (!branch.ok) return { type: "failed", error: branch.details };
 	const branchName = branch.value;
 	if (!branchName) {
 		return { type: "failed", error: "git branch --show-current returned no branch name." };
 	}
 
 	const upstream = await input.git.upstreamOf(branchName);
-	if (!upstream.ok) {
-		return { type: "failed", error: upstream.details };
-	}
-
+	if (!upstream.ok) return { type: "failed", error: upstream.details };
 	const upstreamName = upstream.value;
-	if (!upstreamName) {
-		return { type: "no_upstream" };
-	}
+	if (!upstreamName) return { type: "no_upstream" };
 
 	const relationship = await input.git.headUpstreamRelationship(upstreamName);
-	if (!relationship.ok) {
-		return { type: "failed", error: relationship.details };
-	}
+	if (!relationship.ok) return { type: "failed", error: relationship.details };
 
 	switch (relationship.value) {
 		case "synchronized":
@@ -81,7 +64,7 @@ export async function inspectUpstreamHeadState(
 }
 
 export async function inspectLatestCommitUpstreamEligibility(
-	input: LatestCommitUpstreamEligibilityInput,
+	input: UpstreamHeadStateInput,
 ): Promise<LatestCommitUpstreamEligibility> {
 	const upstream = await inspectUpstreamHeadState(input);
 	switch (upstream.type) {
@@ -94,11 +77,11 @@ export async function inspectLatestCommitUpstreamEligibility(
 		case "synchronized": {
 			const trunk = await inspectSynchronizedTrunkState({
 				branch: upstream.branch,
-				exec: input.exec,
+				git: input.git,
 			});
 			switch (trunk.type) {
 				case "failed":
-					return { type: "graphite_trunk_check_failed", error: trunk.error };
+					return { type: "repository_trunk_resolution_failed", error: trunk.error };
 				case "trunk":
 					return {
 						type: "synchronized_trunk_refusal",
@@ -118,15 +101,12 @@ export async function inspectLatestCommitUpstreamEligibility(
 
 async function inspectSynchronizedTrunkState(input: {
 	branch: string;
-	exec: AutobranchExec;
+	git: AutobranchGitGateway;
 }): Promise<SynchronizedTrunkState> {
-	const result = await input.exec("gt", ["trunk", "--no-interactive"], GT_TIMEOUT_MS);
-	if (!commandSucceeded(result)) {
-		return { type: "failed", error: formatAutobranchCommandDetails(result) };
+	const result = await input.git.trunkBranch();
+	if (result.type !== "resolved") {
+		return { type: "failed", error: formatRepositoryTrunkResolutionFailure(result) };
 	}
-	const trunk = firstNonEmptyLine(result.stdout);
-	if (trunk === undefined) {
-		return { type: "failed", error: "gt trunk --no-interactive returned no branch name." };
-	}
+	const trunk = result.resolution.branch;
 	return input.branch === trunk ? { type: "trunk", trunk } : { type: "non_trunk", trunk };
 }

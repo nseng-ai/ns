@@ -945,7 +945,10 @@ describe("project-local submit extension", () => {
 					{ match: "git symbolic-ref --short HEAD", result: { stdout: "release\n" } },
 					{ match: "git status --porcelain=v1", result: { stdout: "" } },
 					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
-					{ match: "gt trunk --no-interactive", result: { stdout: "release\n" } },
+					{
+						match: "git symbolic-ref refs/remotes/origin/HEAD",
+						result: { stdout: "refs/remotes/origin/release\n" },
+					},
 				],
 				textGeneration: [],
 			},
@@ -972,8 +975,8 @@ describe("project-local submit extension", () => {
 					{ match: "git status --porcelain=v1", result: { stdout: "" } },
 					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
 					{
-						match: "gt trunk --no-interactive",
-						result: { code: 1, stderr: "Graphite configuration unavailable\n" },
+						match: "git symbolic-ref refs/remotes/origin/HEAD",
+						result: { code: 1, stderr: "cached remote HEAD unavailable\n" },
 					},
 				],
 				textGeneration: [],
@@ -982,7 +985,7 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain(
-			"Could not resolve configured Graphite trunk; checkpoint was not created.",
+			"Could not resolve repository trunk; checkpoint was not created.",
 		);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gt submit"))).toBe(

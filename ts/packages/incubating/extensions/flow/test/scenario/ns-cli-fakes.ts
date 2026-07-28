@@ -129,12 +129,27 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 		}
 		const index = this.execResponses.findIndex((response) => responseMatches(response.match, call));
 		if (index === -1) {
-			// Repository-root discovery is a shared boundary concern. Most flow
-			// scenarios should not have to script this incidental probe, while an
-			// explicitly scripted response (including a failure) still wins above.
-			if (formatExecCall(call) === "git rev-parse --show-toplevel") {
+			// Repository identity probes are shared boundary concerns. Most Flow scenarios should not
+			// have to script these incidental local-only commands; explicit scripted responses still win.
+			const formatted = formatExecCall(call);
+			if (formatted === "git rev-parse --show-toplevel") {
 				this.execCalls.push(call);
 				return execResult({ stdout: `${this.repoRoot}\n` });
+			}
+			if (
+				formatted.startsWith("git check-ref-format ") ||
+				formatted.startsWith("git show-ref --verify --quiet ")
+			) {
+				this.execCalls.push(call);
+				return execResult({});
+			}
+			if (formatted === "git remote") {
+				this.execCalls.push(call);
+				return execResult({ stdout: "origin\n" });
+			}
+			if (formatted === "git symbolic-ref refs/remotes/origin/HEAD") {
+				this.execCalls.push(call);
+				return execResult({ stdout: "refs/remotes/origin/main\n" });
 			}
 			this.execCalls.push(call);
 			return execResult({ code: 99, stderr: `unexpected command: ${formatExecCall(call)}` });

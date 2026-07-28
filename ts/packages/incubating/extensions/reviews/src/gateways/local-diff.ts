@@ -9,7 +9,7 @@ import {
 } from "@nseng-ai/foundation/command";
 import { formatErrorMessage, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import { resultErr } from "@nseng-ai/foundation/result";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway, GitTrunkBranchResult } from "@nseng-ai/foundation/git";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 
 import { parseUnifiedDiff } from "../core/diff-parsing.ts";
@@ -102,13 +102,10 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 		if (explicitBaseRef !== "") return { ok: true, value: explicitBaseRef };
 
 		const trunk = await this.gitGateway.trunkBranch({ cwd: repoRoot, signal: options.signal });
-		if (trunk.type === "found" && trunk.value.trim() !== "")
-			return { ok: true, value: trunk.value.trim() };
-		if (trunk.type === "error")
-			return error({ code: "base-ref-unavailable", message: trunk.error.message });
+		if (trunk.type === "resolved") return { ok: true, value: trunk.resolution.remoteTrackingRef };
 		return error({
 			code: "base-ref-unavailable",
-			message: "Unable to resolve a base branch. Pass --base-ref explicitly.",
+			message: formatTrunkBaseRefFailure(trunk),
 		});
 	}
 
@@ -133,6 +130,26 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 		const config = parseReviewsProjectConfigToml(source, path);
 		if (!config.ok) return error({ code: "project-config-invalid", message: config.error.message });
 		return { ok: true, value: config.value.diff.exclude };
+	}
+}
+
+function formatTrunkBaseRefFailure(
+	result: Exclude<GitTrunkBranchResult, { type: "resolved" }>,
+): string {
+	switch (result.type) {
+		case "selected-remote-invalid":
+		case "configured-branch-invalid":
+			return `${result.error.message} Pass --base-ref explicitly.`;
+		case "cached-remote-head-missing":
+			return `Unable to resolve a base ref because ${result.remoteHeadRef} is missing. Fetch ${result.remote}, configure [git].trunk, or pass --base-ref explicitly.`;
+		case "cached-remote-head-malformed":
+			return `Unable to resolve a base ref because ${result.remoteHeadRef} has malformed target ${JSON.stringify(result.target)}. Repair it, configure [git].trunk, or pass --base-ref explicitly.`;
+		case "local-branch-missing":
+			return `Unable to resolve a base ref because ${result.resolution.localRef} is missing. Create or fetch ${result.resolution.branch}, or pass --base-ref explicitly.`;
+		case "remote-tracking-branch-missing":
+			return `Unable to resolve a base ref because ${result.resolution.remoteTrackingRef} is missing. Fetch ${result.resolution.remote}, or pass --base-ref explicitly.`;
+		case "command-failure":
+			return `Unable to resolve a base ref while attempting to ${result.operation.replaceAll("-", " ")} (${result.reason}): ${result.error.message} Pass --base-ref explicitly.`;
 	}
 }
 

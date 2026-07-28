@@ -24,6 +24,8 @@ import type {
 	GitStagePathsParams,
 	GitStatusPathFacts,
 	GitStatusPathsParams,
+	GitTrunkBranchResult,
+	GitTrunkResolution,
 	KnownGitErrorCode,
 } from "./contract.ts";
 import { rejectEmptyStagePaths } from "./contract.ts";
@@ -50,6 +52,8 @@ export type {
 	GitStagePathsParams,
 	GitStatusPathFacts,
 	GitStatusPathsParams,
+	GitTrunkBranchResult,
+	GitTrunkResolution,
 	KnownGitErrorCode,
 } from "./contract.ts";
 export {
@@ -99,15 +103,23 @@ interface GitExpectSuccessFailure {
 
 export interface RealGitGatewayOptions {
 	timeoutMs?: number;
+	/** Remote whose locally cached tracking refs define trunk. Defaults to `origin`. */
+	selectedRemote?: string;
+	/** Optional plain branch name. Configuration-file parsing belongs to the caller. */
+	configuredTrunkBranch?: string;
 }
 
 export class RealGitGateway implements GitGateway {
 	private readonly execApi: CommandExecApi;
 	private readonly timeoutMs: number;
+	private readonly selectedRemote: string;
+	private readonly configuredTrunkBranch: string | undefined;
 
 	constructor(execApi: CommandExecApi, options: RealGitGatewayOptions = {}) {
 		this.execApi = execApi;
 		this.timeoutMs = options.timeoutMs ?? GIT_TIMEOUT_MS;
+		this.selectedRemote = options.selectedRemote ?? "origin";
+		this.configuredTrunkBranch = options.configuredTrunkBranch;
 	}
 
 	async repoRoot(params: GitCwdParams): Promise<GitResult<string>> {
@@ -190,22 +202,123 @@ export class RealGitGateway implements GitGateway {
 		);
 	}
 
-	async trunkBranch(params: GitCwdParams): Promise<GitOptionalResult<string>> {
-		const run = await this.runGit(params, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
-		if (run.ok && commandSucceeded(run.value.result)) {
-			const ref = firstNonEmptyLine(run.value.result.stdout);
-			if (ref !== undefined) {
-				const candidate = ref.startsWith("origin/") ? ref.slice("origin/".length) : ref;
-				const presence = await this.localBranchPresence({ ...params, branch: candidate });
-				if (presence.type === "present") return { type: "found", value: candidate };
+	async trunkBranch(params: GitCwdParams): Promise<GitTrunkBranchResult> {
+		const remoteValidation = await this.runGit(params, [
+			"check-ref-format",
+			`refs/remotes/${this.selectedRemote}/trunk-validation`,
+		]);
+		if (!remoteValidation.ok) {
+			return trunkCommandFailure("validate-selected-remote", remoteValidation.error);
+		}
+		if (!commandSucceeded(remoteValidation.value.result)) {
+			if (isOrdinaryValidationFailure(remoteValidation.value.result)) {
+				return {
+					type: "selected-remote-invalid",
+					remote: this.selectedRemote,
+					error: failure(
+						"trunk-remote-invalid",
+						`Selected remote is not safe for constructing Git refs: ${this.selectedRemote}`,
+						remoteValidation.value,
+					),
+				};
 			}
+			return trunkCommandRunFailure("validate-selected-remote", remoteValidation.value);
 		}
 
-		for (const branch of ["main", "master"]) {
-			const presence = await this.localBranchPresence({ ...params, branch });
-			if (presence.type === "present") return { type: "found", value: branch };
+		let branch: string;
+		let source: GitTrunkResolution["source"];
+		if (this.configuredTrunkBranch !== undefined) {
+			const configuredValidation = await this.runGit(params, [
+				"check-ref-format",
+				"--branch",
+				this.configuredTrunkBranch,
+			]);
+			if (!configuredValidation.ok) {
+				return trunkCommandFailure("validate-configured-branch", configuredValidation.error);
+			}
+			if (!commandSucceeded(configuredValidation.value.result)) {
+				if (isOrdinaryValidationFailure(configuredValidation.value.result)) {
+					return {
+						type: "configured-branch-invalid",
+						branch: this.configuredTrunkBranch,
+						error: failure(
+							"trunk-configured-branch-invalid",
+							`Configured trunk must be a plain branch name: ${this.configuredTrunkBranch}`,
+							configuredValidation.value,
+						),
+					};
+				}
+				return trunkCommandRunFailure("validate-configured-branch", configuredValidation.value);
+			}
+			const remotes = await this.runGit(params, ["remote"]);
+			if (!remotes.ok) return trunkCommandFailure("list-remotes", remotes.error);
+			if (!commandSucceeded(remotes.value.result)) {
+				return trunkCommandRunFailure("list-remotes", remotes.value);
+			}
+			const remoteQualified = firstRemoteQualifiedBranch(
+				this.configuredTrunkBranch,
+				remotes.value.result.stdout,
+			);
+			if (remoteQualified !== undefined) {
+				return {
+					type: "configured-branch-invalid",
+					branch: this.configuredTrunkBranch,
+					error: error(
+						"trunk-configured-branch-invalid",
+						`Configured trunk must be a plain branch name, not a remote-qualified branch for ${remoteQualified}: ${this.configuredTrunkBranch}`,
+					).error,
+				};
+			}
+			branch = this.configuredTrunkBranch;
+			source = "configured";
+		} else {
+			const remoteHeadRef = `refs/remotes/${this.selectedRemote}/HEAD`;
+			const head = await this.runGit(params, ["symbolic-ref", remoteHeadRef]);
+			if (!head.ok) return trunkCommandFailure("read-cached-remote-head", head.error);
+			if (!commandSucceeded(head.value.result)) {
+				if (isMissingRefResult(head.value.result)) {
+					return { type: "cached-remote-head-missing", remote: this.selectedRemote, remoteHeadRef };
+				}
+				return trunkCommandRunFailure("read-cached-remote-head", head.value);
+			}
+			const target = firstNonEmptyLine(head.value.result.stdout) ?? null;
+			const namespace = `refs/remotes/${this.selectedRemote}/`;
+			if (target === null || !target.startsWith(namespace) || target === remoteHeadRef) {
+				return {
+					type: "cached-remote-head-malformed",
+					remote: this.selectedRemote,
+					remoteHeadRef,
+					target,
+				};
+			}
+			branch = target.slice(namespace.length);
+			source = "cached-remote-head";
 		}
-		return { type: "missing" };
+
+		const resolution: GitTrunkResolution = {
+			branch,
+			remote: this.selectedRemote,
+			localRef: `refs/heads/${branch}`,
+			remoteTrackingRef: `refs/remotes/${this.selectedRemote}/${branch}`,
+			source,
+		};
+		const local = await this.verifyTrunkRef(params, resolution.localRef, "verify-local-branch");
+		if (local !== undefined) {
+			if (local.type === "missing") return { type: "local-branch-missing", resolution };
+			return local.result;
+		}
+		const tracking = await this.verifyTrunkRef(
+			params,
+			resolution.remoteTrackingRef,
+			"verify-remote-tracking-branch",
+		);
+		if (tracking !== undefined) {
+			if (tracking.type === "missing") {
+				return { type: "remote-tracking-branch-missing", resolution };
+			}
+			return tracking.result;
+		}
+		return { type: "resolved", resolution };
 	}
 
 	async branchUpstream(params: GitBranchParams): Promise<GitOptionalResult<GitBranchUpstream>> {
@@ -512,6 +625,18 @@ export class RealGitGateway implements GitGateway {
 		return { ok: true };
 	}
 
+	private async verifyTrunkRef(
+		params: GitCwdParams,
+		ref: string,
+		operation: Extract<GitTrunkBranchResult, { type: "command-failure" }>["operation"],
+	): Promise<{ type: "missing" } | { type: "failure"; result: GitTrunkBranchResult } | undefined> {
+		const run = await this.runGit(params, ["show-ref", "--verify", "--quiet", ref]);
+		if (!run.ok) return { type: "failure", result: trunkCommandFailure(operation, run.error) };
+		if (commandSucceeded(run.value.result)) return undefined;
+		if (isMissingRefResult(run.value.result)) return { type: "missing" };
+		return { type: "failure", result: trunkCommandRunFailure(operation, run.value) };
+	}
+
 	private async runChangedPathsDiff(
 		params: GitRevisionRangePathParams,
 		nameArgs: readonly string[],
@@ -555,6 +680,54 @@ export class RealGitGateway implements GitGateway {
 			);
 		}
 	}
+}
+
+function trunkCommandRunFailure(
+	operation: Extract<GitTrunkBranchResult, { type: "command-failure" }>["operation"],
+	run: CommandRun,
+): Extract<GitTrunkBranchResult, { type: "command-failure" }> {
+	return trunkCommandFailure(
+		operation,
+		failure("trunk-branch-command-failed", "Git trunk resolution command failed", run),
+		run.result,
+	);
+}
+
+function trunkCommandFailure(
+	operation: Extract<GitTrunkBranchResult, { type: "command-failure" }>["operation"],
+	errorInfo: GitErrorInfo,
+	result?: ExecResult,
+): Extract<GitTrunkBranchResult, { type: "command-failure" }> {
+	return {
+		type: "command-failure",
+		operation,
+		reason: classifyTrunkCommandFailure(result),
+		error: errorInfo,
+	};
+}
+
+function classifyTrunkCommandFailure(
+	result: ExecResult | undefined,
+): Extract<GitTrunkBranchResult, { type: "command-failure" }>["reason"] {
+	if (result?.type === "timed-out") return "timed-out";
+	if (result?.type === "cancelled" || (result?.type === "exited" && result.signal !== null))
+		return "killed";
+	return "failed";
+}
+
+function firstRemoteQualifiedBranch(branch: string, remoteOutput: string): string | undefined {
+	return remoteOutput
+		.split(/\r?\n/u)
+		.map((remote) => remote.trim())
+		.find((remote) => remote.length > 0 && branch.startsWith(`${remote}/`));
+}
+
+function isOrdinaryValidationFailure(result: ExecResult): boolean {
+	return result.type === "exited" && result.signal === null && result.code === 1;
+}
+
+function isMissingRefResult(result: ExecResult): boolean {
+	return result.type === "exited" && result.signal === null && result.code === 1;
 }
 
 function failure(code: KnownGitErrorCode, title: string, run: CommandRun): GitErrorInfo {

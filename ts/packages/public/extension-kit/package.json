@@ -75,6 +75,12 @@
 					"models"
 				],
 				"description": "Shared model profiles and operation overrides."
+			},
+			{
+				"path": [
+					"git"
+				],
+				"description": "Git remote and trunk selection policy."
 			}
 		]
 	}

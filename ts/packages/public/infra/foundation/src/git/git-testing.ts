@@ -19,6 +19,8 @@ import {
 	type GitStagePathsParams,
 	type GitStatusPathFacts,
 	type GitStatusPathsParams,
+	type GitTrunkBranchResult,
+	type GitTrunkResolution,
 } from "./contract.ts";
 
 interface FailureState {
@@ -29,13 +31,19 @@ type ValueState<T> = T | FailureState;
 type OptionalValueState<T> = T | { type: "missing" } | FailureState;
 type CurrentBranchState = ValueState<string> | { type: "detached" };
 type BranchPresenceFailureState = FailureState;
+type TrunkBranchState =
+	| string
+	| GitTrunkResolution
+	| GitTrunkBranchResult
+	| { type: "missing" }
+	| FailureState;
 
 export interface InMemoryGitGatewayState {
 	repoRoot?: ValueState<string>;
 	optionalRepoRoot?: OptionalValueState<string>;
 	currentBranch?: CurrentBranchState;
 	isInsideWorkTree?: ValueState<boolean>;
-	trunkBranch?: OptionalValueState<string>;
+	trunkBranch?: TrunkBranchState;
 	branchUpstream?: OptionalValueState<GitBranchUpstream>;
 	originUrl?: OptionalValueState<string>;
 	headCommit?: ValueState<string>;
@@ -106,7 +114,7 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly optionalRepoRootState: OptionalValueState<string>;
 	private currentBranchState: CurrentBranchState;
 	private readonly isInsideWorkTreeState: ValueState<boolean>;
-	private readonly trunkBranchState: OptionalValueState<string>;
+	private readonly trunkBranchState: GitTrunkBranchResult;
 	private readonly branchUpstreamState: OptionalValueState<GitBranchUpstream>;
 	private readonly originUrlState: OptionalValueState<string>;
 	private readonly headCommitState: ValueState<string>;
@@ -167,7 +175,13 @@ export class InMemoryGitGateway implements GitGateway {
 		this.optionalRepoRootState = state.optionalRepoRoot ?? state.repoRoot ?? "/repo";
 		this.currentBranchState = state.currentBranch ?? "feature/source-plan";
 		this.isInsideWorkTreeState = state.isInsideWorkTree ?? true;
-		this.trunkBranchState = state.trunkBranch ?? "main";
+		this.trunkBranchState = cloneTrunkBranchState(
+			state.trunkBranch ?? {
+				type: "cached-remote-head-missing",
+				remote: "origin",
+				remoteHeadRef: "refs/remotes/origin/HEAD",
+			},
+		);
 		this.branchUpstreamState = cloneBranchUpstreamState(
 			state.branchUpstream ?? {
 				remoteName: "origin",
@@ -369,13 +383,9 @@ export class InMemoryGitGateway implements GitGateway {
 		);
 	}
 
-	async trunkBranch(params: GitCwdParams): Promise<GitOptionalResult<string>> {
+	async trunkBranch(params: GitCwdParams): Promise<GitTrunkBranchResult> {
 		this.trunkBranchLog.push(callFromParams(params));
-		return optionalValueResult(
-			this.trunkBranchState,
-			"trunk_branch_failed",
-			"Could not resolve trunk branch.",
-		);
+		return cloneTrunkBranchResult(this.trunkBranchState);
 	}
 
 	async branchUpstream(params: GitBranchParams): Promise<GitOptionalResult<GitBranchUpstream>> {
@@ -704,6 +714,57 @@ function normalizeBranchTip(value: string | GitLocalBranchTip): GitLocalBranchTi
 		...(value.headSha === undefined ? {} : { headSha: value.headSha }),
 		headIso: value.headIso,
 	};
+}
+
+function cloneTrunkBranchState(state: TrunkBranchState): GitTrunkBranchResult {
+	if (typeof state === "string") {
+		return {
+			type: "resolved",
+			resolution: {
+				branch: state,
+				remote: "origin",
+				localRef: `refs/heads/${state}`,
+				remoteTrackingRef: `refs/remotes/origin/${state}`,
+				source: "configured",
+			},
+		};
+	}
+	if (!("type" in state)) return { type: "resolved", resolution: { ...state } };
+	if (state.type === "missing") {
+		return {
+			type: "cached-remote-head-missing",
+			remote: "origin",
+			remoteHeadRef: "refs/remotes/origin/HEAD",
+		};
+	}
+	if (state.type === "failure") {
+		return {
+			type: "command-failure",
+			operation: "read-cached-remote-head",
+			reason: "failed",
+			error: state.error ?? {
+				code: "trunk-branch-command-failed",
+				message: "in-memory trunk resolution failed",
+			},
+		};
+	}
+	return cloneTrunkBranchResult(state);
+}
+
+function cloneTrunkBranchResult(state: GitTrunkBranchResult): GitTrunkBranchResult {
+	switch (state.type) {
+		case "resolved":
+		case "local-branch-missing":
+		case "remote-tracking-branch-missing":
+			return { ...state, resolution: { ...state.resolution } };
+		case "selected-remote-invalid":
+		case "configured-branch-invalid":
+		case "command-failure":
+			return { ...state, error: { ...state.error } };
+		case "cached-remote-head-missing":
+		case "cached-remote-head-malformed":
+			return { ...state };
+	}
 }
 
 function cloneBranchUpstreamState(

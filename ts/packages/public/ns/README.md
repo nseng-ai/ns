@@ -55,6 +55,40 @@ is explicit on the first run and persisted to `ns.toml`; pass `--harness` more t
 support multiple harnesses. `ns init` writes files but never commits — review and commit
 the changes yourself.
 
+## Configure repository trunk discovery
+
+Workflows that need the repository's trunk identity use Git's locally cached remote refs.
+By default, ns selects remote `origin` and reads its cached symbolic HEAD at
+`refs/remotes/origin/HEAD`. You can override either part in repository-root `ns.toml`:
+
+```toml
+[git]
+remote = "upstream"
+trunk = "main"
+```
+
+`git.remote` defaults to `origin`. `git.trunk` is optional and takes precedence over the
+selected remote's cached HEAD. It must be a plain Git branch name, not a remote-qualified
+name (`origin/main`), full ref, tag, commit SHA, or revision expression.
+
+Resolution is local and offline: ns does not contact the server, and a cached remote HEAD
+can be absent or stale. A successful resolution verifies that both the local branch
+`refs/heads/<branch>` and selected remote-tracking branch
+`refs/remotes/<remote>/<branch>` exist, but it does not prove that either ref is current on
+the server. ns never guesses `main` or `master`.
+
+If discovery fails:
+
+- fetch or create the missing local and remote-tracking trunk refs;
+- set `git.trunk` explicitly when the remote's default branch is not represented locally;
+- refresh a missing, stale, or dangling cached remote HEAD with
+  `git remote set-head <remote> --auto`; an ordinary `git fetch` does not necessarily
+  refresh this symbolic ref; or
+- correct invalid `[git]` values or unreadable/invalid `ns.toml`.
+
+This policy controls repository trunk identity only. Workflows whose trunk value is part
+of Graphite stack topology or configuration continue to use Graphite's trunk.
+
 ## Add Objectives
 
 Objectives — durable, checked-in planning records for work that outlives a single agent
