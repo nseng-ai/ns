@@ -177,32 +177,32 @@ export class ClinkrTopology<TContext> {
 				defaultCommand = { source, command: scope.defaultCommand, path: [...path] };
 			}
 			for (const [name, command] of scope.commands) {
-				validateSiblingName(
-					"command",
+				validateSiblingName({
+					routeKind: "command",
 					name,
-					command.metadata.aliases,
+					newAliases: command.metadata.aliases,
 					source,
-					path,
+					parentPath: path,
 					commands,
 					groups,
 					aliases,
-					this.reservedNames,
-				);
+					reservedNames: this.reservedNames,
+				});
 				commands.set(name, { source, command, path: [...path, name] });
 				registerAliases(name, command.metadata.aliases, source, aliases);
 			}
 			for (const [name, group] of scope.groups) {
-				validateSiblingName(
-					"group",
+				validateSiblingName({
+					routeKind: "group",
 					name,
-					group.definition.aliases,
+					newAliases: group.definition.aliases,
 					source,
-					path,
+					parentPath: path,
 					commands,
 					groups,
 					aliases,
-					this.reservedNames,
-				);
+					reservedNames: this.reservedNames,
+				});
 				groups.set(name, { source, definition: group.definition });
 				registerAliases(name, group.definition.aliases, source, aliases);
 			}
@@ -255,17 +255,30 @@ function getOrCreateSourceCache<TContext, V>(
 	return created;
 }
 
-function validateSiblingName<TContext>(
-	routeKind: "command" | "group",
-	name: string,
-	newAliases: readonly string[] | undefined,
-	source: TopologySource<TContext>,
-	parentPath: readonly string[],
-	commands: ReadonlyMap<string, OpenedRoute<TContext>>,
-	groups: ReadonlyMap<string, { readonly source: TopologySource<TContext> }>,
-	aliases: ReadonlyMap<string, AliasOwner<TContext>>,
-	reservedNames: ReadonlySet<string>,
-): void {
+interface ValidateSiblingNameOptions<TContext> {
+	readonly routeKind: "command" | "group";
+	readonly name: string;
+	readonly newAliases: readonly string[] | undefined;
+	readonly source: TopologySource<TContext>;
+	readonly parentPath: readonly string[];
+	readonly commands: ReadonlyMap<string, OpenedRoute<TContext>>;
+	readonly groups: ReadonlyMap<string, { readonly source: TopologySource<TContext> }>;
+	readonly aliases: ReadonlyMap<string, AliasOwner<TContext>>;
+	readonly reservedNames: ReadonlySet<string>;
+}
+
+function validateSiblingName<TContext>(options: ValidateSiblingNameOptions<TContext>): void {
+	const {
+		routeKind,
+		name,
+		newAliases,
+		source,
+		parentPath,
+		commands,
+		groups,
+		aliases,
+		reservedNames,
+	} = options;
 	const path = [...parentPath, name];
 	validateRouteName(name, path);
 	if (reservedNames.has(name))

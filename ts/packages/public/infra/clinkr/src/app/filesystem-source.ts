@@ -87,40 +87,58 @@ async function openFilesystemScope<TContext>(
 	>();
 	for (const entry of entries) {
 		if (!entry.isDirectory()) continue;
-		const name = entry.name;
-		const childPath = [...routePath, name];
-		const childDirectory = path.join(directory, name);
-		const childEntries = await readdir(childDirectory, { withFileTypes: true });
-		const childFiles = new Set(
-			childEntries.filter((child) => child.isFile()).map((child) => child.name),
-		);
-		validateTopologyFiles(childFiles, childDirectory, childPath);
-		const childHasMetadata = childFiles.has("metadata.ts");
-		const childHasCommand = childFiles.has("command.ts");
-		const childHasGroup = childFiles.has("group.ts");
-		if (childHasMetadata !== childHasCommand) {
-			throw new Error(
-				`clinkr: incomplete command pair at ${canonicalPath(childPath)} in ${childDirectory}`,
-			);
-		}
-		if (!childHasGroup && !childHasMetadata) continue;
-		validateRouteName(name, childPath);
-		if (childHasGroup) {
-			const groupPath = path.join(childDirectory, "group.ts");
-			const definition = await importGroupDefinition(groupPath);
-			validateGroupDefinition(definition, name, childPath);
-			groups.set(name, { definition });
+		const child = await loadFilesystemChild<TContext>(entry.name, directory, routePath);
+		if (child.kind === "empty") continue;
+		if (child.kind === "group") {
+			groups.set(entry.name, { definition: child.definition });
 			continue;
 		}
-		const metadataPath = path.join(childDirectory, "metadata.ts");
-		const metadata = await importCommandMetadata(metadataPath);
-		validateCommandMetadata(metadata, name, childPath);
-		commands.set(name, {
-			metadata,
-			load: async () => importSelectedCommand<TContext>(childDirectory, metadata),
-		});
+		commands.set(entry.name, child.command);
 	}
 	return { ...(defaultCommand === undefined ? {} : { defaultCommand }), commands, groups };
+}
+
+type LoadedFilesystemChild<TContext> =
+	| { readonly kind: "empty" }
+	| {
+			readonly kind: "group";
+			readonly definition: Awaited<ReturnType<typeof importGroupDefinition>>;
+	  }
+	| { readonly kind: "command"; readonly command: SourceCommand<TContext> };
+
+async function loadFilesystemChild<TContext>(
+	name: string,
+	parentDirectory: string,
+	parentPath: readonly string[],
+): Promise<LoadedFilesystemChild<TContext>> {
+	const routePath = [...parentPath, name];
+	const directory = path.join(parentDirectory, name);
+	const entries = await readdir(directory, { withFileTypes: true });
+	const files = new Set(entries.filter((entry) => entry.isFile()).map((entry) => entry.name));
+	validateTopologyFiles(files, directory, routePath);
+	const hasMetadata = files.has("metadata.ts");
+	if (hasMetadata !== files.has("command.ts")) {
+		throw new Error(
+			`clinkr: incomplete command pair at ${canonicalPath(routePath)} in ${directory}`,
+		);
+	}
+	const hasGroup = files.has("group.ts");
+	if (!hasGroup && !hasMetadata) return { kind: "empty" };
+	validateRouteName(name, routePath);
+	if (hasGroup) {
+		const definition = await importGroupDefinition(path.join(directory, "group.ts"));
+		validateGroupDefinition(definition, name, routePath);
+		return { kind: "group", definition };
+	}
+	const metadata = await importCommandMetadata(path.join(directory, "metadata.ts"));
+	validateCommandMetadata(metadata, name, routePath);
+	return {
+		kind: "command",
+		command: {
+			metadata,
+			load: async () => importSelectedCommand<TContext>(directory, metadata),
+		},
+	};
 }
 
 function isMissingEntryError(error: unknown): boolean {
