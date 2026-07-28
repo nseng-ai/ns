@@ -65,7 +65,6 @@ defineCommand({ schema: requestSchema, handler: async (_context: Context, _reque
 // @ts-expect-error context-free handlers receive only request.
 defineCommand({ schema: requestSchema, handler: async (_context, _request) => ok() });
 
-
 const contextFreeApp = createClinkrApp({ name: "free", commandDirectory: import.meta.dirname });
 void contextFreeApp.run([]);
 // @ts-expect-error context-free invocation does not accept context.
