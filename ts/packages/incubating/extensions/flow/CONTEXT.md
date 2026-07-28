@@ -44,9 +44,25 @@ The curated `@nseng-ai/flow/land/api` surface: `executeLanding`, planning entry 
 The `@nseng-ai/flow/land/testing` surface that provides in-memory fakes and fixture builders for land-domain tests.
 *Avoid*: production gateway backend, CLI scenario harness, Flow test helper
 
+**Branch Workflow Target**:
+An explicit Flow target for one ordinary Git branch and its GitHub pull request, selected without constructing or consulting a **Stack Provider**.
+*Avoid*: one-element stack, implicit current stack, Graphite fallback
+
+**Stack Workflow Target**:
+An explicit Flow target for an ordered set of related branches, carrying the selected **Stack Provider** identity rather than relying on metadata autodetection.
+*Avoid*: ambient stack, autodetected mutation, provider topology handle
+
+**Stack Provider**:
+An explicitly selected source of one or more independently injectable stacking capabilities—topology, preparation, reconciliation, or publication. It is not a monolithic gateway, and no selected provider means no stack behavior.
+*Avoid*: universal Graphite gateway, ambient provider, monolithic stack provider
+
+**Stack Topology**:
+The provider-neutral description of an ordered branch stack: trunk, parent edges, optional current branch, and typed missing, untracked, cycle, or fork diagnostics.
+*Avoid*: Graphite topology, provider metadata, checked-out-branch requirement
+
 **Stack Landing Target**:
-The supported land-domain target shape: a Graphite stack path whose preflight can be planned without rendering or mutating merges.
-*Avoid*: single-branch PR land execution, arbitrary branch merge, fully general land target
+The stack arm of Flow landing: an explicit **Stack Workflow Target** whose preflight can be planned without rendering or mutating merges. The current implementation remains Graphite-backed during migration.
+*Avoid*: single-branch PR land execution, one-element stack, ambient current stack
 
 **Stack Landing Plan**:
 The renderer-independent plan produced for a **Stack Landing Target**, including branch plans, PR submit requirements, managed-slot conflicts, and descendant maintenance needs.
@@ -69,8 +85,8 @@ The internal Flow adapter that maps Flow's land-stack gateways and current stack
 *Avoid*: public API, downstream extension integration point, presentation layer
 
 **Flow Submit Boundary**:
-The Flow ownership boundary for submit, PR inventory generation, Graphite submit orchestration, and related lifecycle policy; reusable Graphite facts and command mechanics remain below Flow in Graphite/gateway packages.
-*Avoid*: neutral Graphite domain, downstream extension submit owner, land-domain behavior
+The Flow ownership boundary for branch or stack submission, PR inventory generation, publication policy, and related lifecycle policy; reusable provider facts and command mechanics remain below Flow in capability-specific adapters.
+*Avoid*: stack-provider implementation, downstream extension submit owner, land-domain behavior
 
 **Submit Plan**:
 The typed, renderer-independent result of inspecting the Graphite submit scope after readiness and any required restack, containing stack branches, existing PR links, upstack status, and the partition of branches eligible or ineligible for metadata prewrite.

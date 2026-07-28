@@ -1,0 +1,51 @@
+# Stack Provider Capability Matrix
+
+This matrix supports [ADR 0049](../adr/0049-opt-in-provider-neutral-stacking.md). It records the semantics that ns neutral stacking contracts must preserve across Graphite, the observed `github/gh-stack` extension, and a hypothetical colocated-Jujutsu provider. It is a design input and conformance-test checklist, not a promise that ns ships gh-stack or Jujutsu adapters.
+
+## Evidence baseline
+
+- **Graphite:** current `@nseng-ai/extension-kit/graphite` adapters, Flow submit/land behavior, and the repository's `gt` workflow as of this document.
+- **gh-stack:** locally installed official `github/gh-stack` extension v0.0.8, observed through `gh stack --help` and command help on 2026-07-28. It is pre-1.0 and may drift before an adapter is built.
+- **Jujutsu:** colocated-mode findings in [`docs/research/vcs-evaluation-jujutsu.md`](../research/vcs-evaluation-jujutsu.md), explored 2026-06-14. Jujutsu is a contract-shape constraint only.
+
+## Capability matrix
+
+| Semantic question                                              | Graphite                                                                                                        | `gh stack` v0.0.8                                                                                                                                             | Jujutsu as a constraint                                                                                          | Neutral contract consequence                                                                                                                     |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| How is topology represented?                                   | Graphite metadata records parent/child relationships and a trunk marker; ns reconciles them with live Git refs. | Local stack tracking can be inspected with machine-readable `gh stack view --json`.                                                                           | Revisions form a graph; exported bookmarks need not correspond to the currently edited change.                   | Expose ordered branch parent edges, trunk, and typed diagnostics—not a provider metadata object.                                                 |
+| Is a current branch guaranteed?                                | Normal `gt` workflows expect a checked-out tracked branch.                                                      | Local tracked-stack commands operate around a checked-out stack branch.                                                                                       | No. A colocated workspace commonly edits an anonymous change while Git `HEAD` is detached.                       | Current branch is optional in neutral topology and workflow requests must name targets when checkout state is insufficient.                      |
+| How are missing or invalid topology facts reported?            | Untracked branches, missing metadata rows, bad trunk markers, cycles, and forks are observable today.           | Local tracking may be absent; `link` deliberately works without it.                                                                                           | Bookmarks may be absent or not form a publishable linear stack.                                                  | Use typed missing/untracked/cycle/fork diagnostics. Do not collapse them into provider command failures.                                         |
+| How are stacked branches prepared?                             | Tracking, branch creation, and restacking are distinct `gt` operations.                                         | `init`/`add` create local stack state; `rebase` cascade-rebases branches and supports downstack/upstack scopes.                                               | A provider could move bookmarks or rewrite revisions without a Git index or a checked-out branch.                | Preparation is a separate capability with explicit inputs and postconditions; it cannot require staging/index semantics or an ambient checkout.  |
+| How is local/remote state reconciled?                          | `gt sync`/restack-oriented workflows reconcile Graphite state according to Graphite semantics.                  | `sync` fetches, reconciles local and GitHub stack state, fast-forwards trunk, cascade-rebases, atomically pushes, and links existing PRs; it never opens PRs. | Reconciliation may be automatic or unnecessary because operation-log and Git-export semantics differ.            | Reconciliation is separate from preparation and publication, and its outcomes include `not-needed` and `automatic`.                              |
+| How are branches published as PRs?                             | `gt submit` couples Graphite stack knowledge with push and PR creation/update.                                  | `submit` pushes tracked branches, creates/updates PRs and remote stack state; `link` takes bottom-to-top branches/PRs and does not require local tracking.    | A third-party adapter could export bookmarks and use GitHub tooling without exposing a provider topology handle. | Publication receives an ordered branch list plus policy, never provider-private topology state.                                                  |
+| Can publication work without provider-local topology tracking? | Not for normal `gt submit`; Graphite tracking is expected.                                                      | Yes. `gh stack link` is explicitly designed for external branch managers and accepts bottom-to-top branch names, PR numbers, or URLs.                         | It must: jj owns revision topology, while publication may be delegated to another tool.                          | Topology and publication are independently selectable capabilities; a provider may implement only one.                                           |
+| Is branch creation the same as stack publication?              | `gt create` both creates a branch and records Graphite parentage, but publication remains a later operation.    | `add` extends local stack state; `submit` publishes later.                                                                                                    | Bookmark creation and PR publication are naturally separate.                                                     | `BranchCreationProvider` is its own seam with `plain-git` and `graphite` adapters; additive ceremony remains Point hooks.                        |
+| What verifies success?                                         | Provider output and metadata are useful but can be stale relative to rewritten commits or refs.                 | Commands report their own result, while branch and PR effects remain externally observable.                                                                   | Colocated jj exports bookmarks to ordinary Git refs, subject to the research snapshot's staleness caveat.        | Verify branch/ref/commit postconditions through `GitGateway`, and PR postconditions through GitHub facts; provider claims are not authoritative. |
+
+## Capability split
+
+A **Stack Provider** is an explicitly selected source of one or more independently injectable capabilities. It is not a monolithic interface and need not implement every capability:
+
+1. **Stack Topology Provider** — returns provider-neutral ordered parent edges, trunk, optional current branch, and typed diagnostics.
+2. **Stack Preparation Provider** — prepares named branches for a requested ordered relationship.
+3. **Stack Reconciliation Provider** — reconciles already-described local, remote, and provider state and reports an outcome including `not-needed` or `automatic`.
+4. **Stack Publication Provider** — publishes an explicitly ordered branch list according to workflow-owned policy.
+5. **Branch Creation Provider** — creates one named branch from an explicit start point. It is adjacent to stacking but not intrinsically a stack capability; `plain-git` is the default adapter and `graphite` is opt-in.
+
+Provider identity is an open string at registration seams. Composition roots validate configured identities and construct only the capabilities selected by the discriminated workflow target. No configured provider means no stack behavior.
+
+## Cross-provider conformance scenarios
+
+Neutral conformance suites should exercise semantics rather than command parity:
+
+- bottom-to-top ordering and parent-edge preservation;
+- no-current-branch topology;
+- missing/untracked branches and malformed parent references;
+- cycle and fork diagnostics;
+- preparation from explicit branch names and start points;
+- reconciliation outcomes for changed, `not-needed`, and `automatic` cases;
+- publication from an ordered branch list without a topology handle;
+- partial providers that implement only topology or publication;
+- Git- and GitHub-observed postcondition verification.
+
+Graphite is the sole real adapter required by ADR 0049. A future gh-stack adapter must revalidate v0.0.x behavior before implementation. No Jujutsu adapter or conformance run is implied.
