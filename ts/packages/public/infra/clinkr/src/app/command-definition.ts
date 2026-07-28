@@ -5,13 +5,14 @@ import { buildEnvelopeSchema, type CommandOutcome } from "./outcome.ts";
 
 export interface ClinkrCommandMetadata {
 	readonly description: string;
-	readonly summary?: string;
 	readonly aliases?: readonly string[];
+}
+
+export interface ClinkrGroupDefinition extends ClinkrCommandMetadata {
+	readonly summary?: string;
 	readonly hidden?: boolean;
 	readonly helpGroup?: string;
 }
-
-export type ClinkrGroupDefinition = ClinkrCommandMetadata;
 
 export interface ClinkrCompletionRequest {
 	readonly current: string;
@@ -142,6 +143,7 @@ export type ClinkrCommandDefinition<TContext = never> =
 
 export function defineCommand<
 	TSchema extends z.ZodObject,
+	// Omitted resultSchema means the command has a bodyless success outcome.
 	TResultSchema extends ResultSchema = undefined,
 >(
 	definition: ContextFreeCommandDefinition<TSchema, TResultSchema>,
@@ -149,6 +151,7 @@ export function defineCommand<
 export function defineCommand<
 	TContext,
 	TSchema extends z.ZodObject,
+	// Omitted resultSchema means the command has a bodyless success outcome.
 	TResultSchema extends ResultSchema = undefined,
 >(
 	definition: ContextfulCommandDefinition<TContext, TSchema, TResultSchema>,
