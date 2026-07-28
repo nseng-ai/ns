@@ -1,19 +1,20 @@
 // Legacy-independent raw command definition for the quarantined `src/app/`
 // runtime. This module must not import legacy runtime modules (`group.ts`,
-// `exit.ts`, `emit.ts`, `completion.ts`); the app runtime imports it directly
-// so raw definitions share the structured loader without touching the legacy
-// surface that `src/raw/index.ts` still re-exports.
-import type { ClinkrIo } from "../io.ts";
+// `exit.ts`, `emit.ts`, `completion.ts`) and has no I/O seam at all; the app
+// runtime imports it directly so raw definitions share the structured loader
+// without touching the legacy surface that `src/raw/index.ts` still
+// re-exports.
 
 /**
  * Invocation payload for a context-free raw command. `argv` is the selected
  * command's argv tail, passed through verbatim (including framework-looking
  * flags such as `--format` and `--`); the raw command owns all tail
- * interpretation, output bytes, and exit status.
+ * interpretation and its exit status. Raw commands are terminal-only by
+ * construction: they write their output bytes directly to `process.stdout`
+ * and `process.stderr` and read `process.stdin` themselves when needed.
  */
 export interface RawCommandInvocation {
 	readonly argv: readonly string[];
-	readonly io: ClinkrIo;
 }
 
 /** Invocation payload for a contextful raw command. */

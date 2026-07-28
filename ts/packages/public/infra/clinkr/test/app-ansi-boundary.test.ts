@@ -3,7 +3,7 @@ import path from "node:path";
 import { expect, test } from "vitest";
 
 import { createClinkrApp } from "@nseng-ai/clinkr/app";
-import { runForTest } from "@nseng-ai/clinkr/app/testing";
+import { runForCliTest } from "@nseng-ai/clinkr/app/testing";
 
 // Framework-owned ANSI output boundary: `canEmitAnsi` is advisory to
 // renderers, but Clinkr strips escapes before writing to a sink that cannot
@@ -22,24 +22,22 @@ const echoOutcomeApp = createClinkrApp({
 const STYLED_OUTPUT = "\x1b[31mstyled\x1b[0m \x1b]8;;https://example.invalid\x07link\x1b]8;;\x07";
 
 test("a renderer that ignores capabilities cannot leak ANSI to a plain sink", async () => {
-	const run = await runForTest(ansiAlwaysApp, []);
+	const run = await runForCliTest(ansiAlwaysApp, []);
 	expect(run).toEqual({ exitCode: 0, stdout: "styled link\n", stderr: "" });
 });
 
 test("the Markdown fallback path is stripped for plain sinks too", async () => {
-	const run = await runForTest(ansiAlwaysApp, ["--format=md"]);
+	const run = await runForCliTest(ansiAlwaysApp, ["--format=md"]);
 	expect(run.stdout).toBe("styled link\n");
 });
 
 test("ANSI-enabled sinks preserve renderer output byte-for-byte apart from the newline", async () => {
-	const run = await runForTest(ansiAlwaysApp, [], {
-		io: { stdout: () => {}, stderr: () => {}, canEmitAnsi: true },
-	});
+	const run = await runForCliTest(ansiAlwaysApp, [], { canEmitAnsi: true });
 	expect(run.stdout).toBe(`${STYLED_OUTPUT}\n`);
 });
 
 test("JSON envelopes are untouched by the output-boundary strip", async () => {
-	const run = await runForTest(ansiAlwaysApp, ["--format=json"]);
+	const run = await runForCliTest(ansiAlwaysApp, ["--format=json"]);
 	expect(JSON.parse(run.stdout)).toEqual({
 		status: "success",
 		exitCode: 0,
@@ -49,7 +47,7 @@ test("JSON envelopes are untouched by the output-boundary strip", async () => {
 
 test("handler-supplied outcome messages are stripped for plain sinks", async () => {
 	const message = "\x1b[31mno\x1b[0m";
-	const run = await runForTest(echoOutcomeApp, ["--input-json"], {
+	const run = await runForCliTest(echoOutcomeApp, ["--input-json"], {
 		stdin: JSON.stringify({ outcome: { status: "negative", message } }),
 	});
 	expect(run).toEqual({ exitCode: 1, stdout: "no\n", stderr: "" });
@@ -57,9 +55,9 @@ test("handler-supplied outcome messages are stripped for plain sinks", async () 
 
 test("handler-supplied outcome messages are preserved for ANSI-enabled sinks", async () => {
 	const message = "\x1b[31mno\x1b[0m";
-	const run = await runForTest(echoOutcomeApp, ["--input-json"], {
+	const run = await runForCliTest(echoOutcomeApp, ["--input-json"], {
 		stdin: JSON.stringify({ outcome: { status: "negative", message } }),
-		io: { stdout: () => {}, stderr: () => {}, canEmitAnsi: true },
+		canEmitAnsi: true,
 	});
 	expect(run).toEqual({ exitCode: 1, stdout: `${message}\n`, stderr: "" });
 });

@@ -4,6 +4,10 @@ export type {
 	ClinkrContextFreeApp,
 	ClinkrContextFreeRunOptions,
 	ClinkrContextfulApp,
+	// Provisional host surface for `execute()`: exported ahead of README
+	// promotion, which waits on the first in-process host migration.
+	ClinkrExecuteOptions,
+	ClinkrExecuteResult,
 	ClinkrRunOptions,
 	CreateContextFreeClinkrAppOptions,
 	CreateContextfulClinkrAppOptions,
@@ -29,6 +33,7 @@ export type {
 // observe them through app output.
 export { failure, negative, ok, usageError } from "./outcome.ts";
 export type {
+	CommandExitCode,
 	CommandOutcome,
 	FailureOutcome,
 	NegativeOutcome,

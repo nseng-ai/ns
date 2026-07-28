@@ -7,8 +7,8 @@ export interface RawFixtureContext {
 export async function command() {
 	return defineRawCommand<RawFixtureContext>({
 		requiresContext: true,
-		run: ({ context, argv, io }) => {
-			io.stdout(`${context.prefix}:${argv.join(",")}`);
+		run: ({ context, argv }) => {
+			process.stdout.write(`${context.prefix}:${argv.join(",")}`);
 			return 0;
 		},
 	});

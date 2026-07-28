@@ -85,9 +85,12 @@ const EXIT_CODES = {
 	negative: 1,
 	failure: 2,
 	"usage-error": 2,
-} as const satisfies Record<OutcomeStatus, 0 | 1 | 2>;
+} as const satisfies Record<OutcomeStatus, number>;
 
-export function exitCodeFor(status: OutcomeStatus): 0 | 1 | 2 {
+/** Process exit code mapped from an outcome status: one named place owns the literals. */
+export type CommandExitCode = (typeof EXIT_CODES)[OutcomeStatus];
+
+export function exitCodeFor(status: OutcomeStatus): CommandExitCode {
 	return EXIT_CODES[status];
 }
 
@@ -124,7 +127,10 @@ export function toEnvelope(outcome: CommandOutcome<unknown>): Record<string, unk
 	}
 }
 
-export { envelopeJsonText } from "../exit.ts";
+/** Pretty-printed JSON for envelopes and rendered fallbacks. */
+export function envelopeJsonText(value: unknown): string {
+	return JSON.stringify(value, null, 2) ?? String(value);
+}
 
 const negativeOutcomeShape = {
 	status: z.literal("negative"),
