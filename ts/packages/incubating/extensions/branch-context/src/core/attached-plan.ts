@@ -424,7 +424,7 @@ async function resolveSafeImplementationBranch(
 					repoRoot: repoRoot.value,
 					git,
 					config: nodeRepositoryTrunkConfigLoader,
-					...(signal === undefined ? {} : { signal }),
+					...optionalEntries({ signal }),
 				})
 			: await context.resolveRepositoryTrunk(repoRoot.value, signal);
 	if (!trunk.ok) {

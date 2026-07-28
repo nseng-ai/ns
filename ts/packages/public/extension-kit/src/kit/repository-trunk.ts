@@ -6,7 +6,7 @@ import type {
 	GitRefParams,
 	GitRefPresenceResult,
 } from "@nseng-ai/foundation/git";
-import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import { optionalEntries, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import type { Result } from "@nseng-ai/foundation/result";
 
 export {
@@ -286,8 +286,7 @@ function refParams(options: RepositoryTrunkRefOptions, ref: string): GitRefParam
 	return {
 		cwd: options.repoRoot,
 		ref,
-		...(options.env === undefined ? {} : { env: options.env }),
-		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...optionalEntries({ env: options.env, signal: options.signal }),
 	};
 }
 
@@ -295,7 +294,6 @@ function branchParams(options: ResolveRepositoryTrunkOptions, branch: string): G
 	return {
 		cwd: options.repoRoot,
 		branch,
-		...(options.env === undefined ? {} : { env: options.env }),
-		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...optionalEntries({ env: options.env, signal: options.signal }),
 	};
 }

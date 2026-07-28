@@ -7,7 +7,11 @@ import {
 	commandSucceeded,
 	formatCommand,
 } from "@nseng-ai/foundation/command";
-import { formatErrorMessage, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import {
+	formatErrorMessage,
+	optionalEntries,
+	type ExplicitUndefined,
+} from "@nseng-ai/foundation/primitives";
 import { resultErr } from "@nseng-ai/foundation/result";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
@@ -129,8 +133,7 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 
 		const trunk = await this.repositoryTrunkResolver({
 			repoRoot,
-			...(options.env === undefined ? {} : { env: options.env }),
-			...(options.signal === undefined ? {} : { signal: options.signal }),
+			...optionalEntries({ env: options.env, signal: options.signal }),
 		});
 		if (!trunk.ok) {
 			return error({
@@ -143,8 +146,7 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			git: this.gitGateway,
 			trunk: trunk.value,
 			requiredRefs: ["remote-tracking"],
-			...(options.env === undefined ? {} : { env: options.env }),
-			...(options.signal === undefined ? {} : { signal: options.signal }),
+			...optionalEntries({ env: options.env, signal: options.signal }),
 		});
 		if (!readiness.ok) {
 			return error({

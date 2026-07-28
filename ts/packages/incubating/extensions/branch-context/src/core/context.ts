@@ -3,6 +3,7 @@ import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi, StdinCapableCommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	nodeRepositoryTrunkConfigLoader,
 	resolveRepositoryTrunk,
@@ -49,7 +50,7 @@ export function createBranchContextContext(
 				repoRoot,
 				git,
 				config: nodeRepositoryTrunkConfigLoader,
-				...(signal === undefined ? {} : { signal }),
+				...optionalEntry("signal", signal),
 			}),
 	};
 }
