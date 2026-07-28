@@ -8,63 +8,64 @@ edges:
 
 ## Thesis
 
-Develop Clinkr's cold-audience package contract in `references/README-draft.md`, then reconcile the package and its callers to that settled contract before promoting it to `ts/packages/infra/clinkr/README.md`. Clinkr is the first package dry-run under `foundation-readme-driven-pass`, so this Objective also identifies concrete amendments needed to make the README-driven graduation gate repeatable for later foundation packages.
+Establish Clinkr's cold-audience package contract in `references/README-draft.md`, then rebuild `@nseng-ai/clinkr` and representative callers cleanly against it before promoting the draft to the canonical package README. The completed filesystem-oriented steelthread is evidence for the authoring contract and acceptance behavior, not production architecture to preserve.
 
 ## Scope
 
-- Draft and human-steer user-facing documentation for `@nseng-ai/clinkr`: its purpose, requirements, rendered command model, schema-derived CLI surface, outcome and output semantics, nested groups, completion, interaction, raw and streaming escape hatches, testing utilities, and public entrypoints.
-- Audit Clinkr's implementation, tests, package exports, and representative callers against the emerging contract.
-- Record each meaningful mismatch with an explicit disposition: reconcile implementation or caller, change the draft contract, or park it with rationale.
-- Surface accidental complexity and contract-supporting refactoring proposals, but discuss every refactoring with the user before implementation.
-- Reconcile approved mismatches, verify observable behavior, promote the settled draft to `ts/packages/infra/clinkr/README.md`, and replace the Objective draft with a provenance pointer.
-- Return gate-calibration lessons and any process amendments to `foundation-readme-driven-pass` before that umbrella advances to Foundation.
+- Maintain the approved filesystem-first product contract for command layout, selected-only loading, schema-derived argv and stdin-JSON requests, outcomes, rendering, completion, interaction, raw execution, testing, packaging, and public entrypoints.
+- Preserve implementation detail intentionally omitted from the cold-audience narrative in `references/implementation-contract-notes.md`, steelthread contract provenance in `references/steelthread-contract-changes.md`, and rebuild constraints in `references/steelthread-implementation-lessons.md`.
+- Rebuild one deep `ClinkrApp` module around one command model, one recursively lazy private topology, one traversal for execution/help/schema/completion, and one owner for outcome validation and rendering. Filesystem discovery and the narrow programmatic builder adapt into that topology; Commander is fresh per-invocation materialization, not a second router.
+- Compose Foundation and SDK sources without pre-dispatch, flattened-tree reconstruction, legacy lowering, permissive descriptor detection, source precedence, or compatible-group merging. Each source owns a disjoint subtree; duplicate commands, command/group collisions, and every cross-source shared group path fail with canonical-path and two-source diagnostics.
+- Prove the public contract through synchronized README fixtures, then use Brmem as the standalone filesystem acceptance consumer and Objectives as the SDK-mounted real-host acceptance consumer before broad caller migration. The observable outcomes on `colocate-brmem-commands-remove-operations` and `colocate-objectives-cli-remove-operations` are golden evidence; their shared prototype machinery is not.
+- Deliver the rebuild as a dependency-ordered Graphite stack: command contracts, topology and runtime, Foundation/Brmem acceptance, SDK composition/Objectives acceptance, remaining callers, legacy deletion, package qualification, and README promotion. Do not add a compatibility bridge merely to make intermediate branches independently releasable.
+- Return the steelthread/rebuild process lesson to `foundation-readme-driven-pass` before this Subobjective closes.
 
 ## Non-Goals
 
-- Redesigning Clinkr beyond what an honest, coherent package contract requires.
-- Changing Clinkr's neutral-infrastructure tier, package name, or repository placement.
-- Refactoring implementation or callers without prior user discussion and approval.
-- Auditing or documenting downstream packages except where representative callers provide evidence about Clinkr's contract.
-- Starting the Foundation package pass or other sibling package Subobjectives.
+- Preserving the steelthread's implementation abstractions, commits, branch shape, or compatibility interfaces because they produced a working vertical slice.
+- Reintroducing generated manifests, production filesystem codegen, duplicate dispatch/completion paths, or public prototype lifecycle machinery.
+- Broad caller migration before the single-runtime and SDK-composition seams are established.
+- Redesigning unrelated CLI behavior or downstream domain logic.
+- Changing Clinkr's package identity, release disposition, tier, or repository ownership.
+- Starting the Foundation package pass or another sibling package Subobjective.
 
 ## Completion Criteria
 
-- `references/README-draft.md` has been settled through the README-driven-development loop as coherent cold-audience product documentation with no silently invented commitments.
-- The implementation, tests, package exports, and representative callers have been audited against the contract; every material mismatch is resolved or explicitly parked with rationale.
-- Any implemented refactoring was discussed with and approved by the user before code changes.
-- The reconciled contract is verified and promoted to `ts/packages/infra/clinkr/README.md`; this Objective is not complete while the canonical contract exists only under `references/`.
-- The draft is replaced with a provenance pointer, and reusable gate lessons or process amendments are recorded in `foundation-readme-driven-pass`.
+- `references/README-draft.md` is the coherent approved cold-audience contract; all TypeScript examples compile, and its primary examples execute unchanged through the public interface for argv and stdin JSON.
+- Every material steelthread refinement is represented in the README or a named supporting reference with a clear role; the README remains the user contract, implementation notes remain the acceptance checklist, and steelthread records remain provenance.
+- The rebuilt package has one runtime/traversal, recursively lazy immediate-child discovery, truthful context-free/contextful types, exact descriptor decoding, topology-preserving source composition, and explicit raw/completion ownership.
+- No legacy mutable runtime export, migration import, SDK pre-dispatch, per-exit rendering override, validation escape hatch, compatibility descriptor detection, or other transitional owner remains in the shipped path.
+- Package contract tests cover the requirements in `implementation-contract-notes.md`, including malformed topology, absolute-directory validation, transactional loading, bodyless and framework usage outcomes, exception propagation, `--input-json`, the exact `human | json | md` format domain, completion fallback, and progressive-output policy.
+- Brmem and Objectives match or exceed their golden branch structure and behavior without consumer-specific compatibility adapters. Brmem additionally proves packed inventory/execution; Objectives additionally proves recursive SDK mounting, context adaptation, malformed-neighbor isolation, and nested import laziness.
+- Packed-package evidence confirms runtime-discovered command/group files ship intact, and relevant package, type, test, and repository checks pass.
+- The draft is promoted to Clinkr's canonical package README, the Objective draft becomes a provenance pointer, and reusable gate amendments are recorded in `foundation-readme-driven-pass`.
+
+## Prompt Guidance
+
+Use `/ns:plan:grill-and-save` only when the selected next semantic step is bounded landing work whose material decisions are settled and whose expected result is one or more PRs. The prompt should name the slice, direct a fresh session to this Objective as the architecture and acceptance source, cite only the necessary roadmap/reference/golden branch, and ask for the fewest coherent PRs with deletion and validation evidence.
+
+For discussion, contract review, design, blessing gates, or other human-steered work, produce a short interactive prompt instead. When a roadmap row mixes a decision with later implementation, select the decision first and plan implementation only after the decision is recorded. This guidance shapes prompt serialization; it grants no execution authority and does not select the next row.
 
 ## Assumptions and Risks
 
 Assumptions:
 
-- Clinkr's current package exports and tested behavior are a strong starting point for the draft, but neither automatically defines the desired public contract.
-- Representative callers can reveal whether the proposed contract explains real use without requiring an exhaustive repository-wide redesign.
-- Clinkr has no internal workspace dependency that must complete another README-driven pass first.
+- Filesystem-first authoring is the steelthread's durable product result unless implementation evidence reveals a direct contradiction.
+- The steelthread is reliable workflow and failure-mode evidence but not a source architecture to copy.
+- Brmem and Objectives remain suitable standalone and real-host acceptance consumers.
+- A clean rebuild above the contract branch is safer than preserving intertwined migration machinery.
 
 Risks:
 
-- **Contract-by-implementation.** Existing code may look authoritative even where behavior is accidental. Treat discrepancies as decisions and settle public claims through the draft.
-- **Perfectionism stall.** Clinkr has a broad surface. Optimize for a coherent adopter path and explicit mismatch dispositions rather than exhaustive API narration or unrelated cleanup.
-- **Refactoring before agreement.** Discovery may expose attractive simplifications. Record and discuss them before implementation instead of silently changing the package while documenting it.
-- **Gate overfitting.** A Clinkr-specific process could become the default for later packages. Return only reusable, evidenced amendments to the umbrella.
-- **README drift during reconciliation.** Keep the draft canonical until promotion and verify final claims against the reconciled package.
-- **Runtime filesystem discovery.** The common authoring path depends on runtime traversal and dynamic ESM imports. Keep command/group module top levels, command `metadata()`, and complete group `group()` definitions cheap; centralize resolution in the filesystem adapter; and verify recursive lazy command behavior without introducing generated manifests or production codegen.
-- **Packaging constraints.** Command and group files and directories must ship intact. Bundlers and single-file environments may not preserve the runtime-discoverable command structure; document that limitation and use the public builder escape hatch or a later dedicated adapter rather than inventing a manifest fallback.
-- **Command-structure drift.** Directory structure owns command and group names. A group's single cheap `group()` owns all group metadata/configuration, while a command splits cheap command metadata from its selected definition. The adapter must validate and lower both shapes into one immutable builder/App model without a second command-dispatch implementation.
-- **Coordinated migration breadth.** The approved clean break adds a filesystem adapter over Clinkr's lower builder seam and reaches Clinkr internals and tests, Foundation, SDK/catalog routing, remaining CLIs, and testing utilities. Preserve dependency order and avoid a compatibility layer or two simultaneous runtimes.
+- **Prototype gravity.** Passing prototype code may be copied despite violating the rebuild constraints. Port behavior evidence selectively and keep the final ownership model explicit.
+- **README drift.** The draft can become aspirational or internally contradictory. Keep examples synchronized and verify them as the implementation stack advances.
+- **Recursive eager loading.** Opening a scope must inspect only immediate children; exhaustive inspection is a separate operation.
+- **Parallel routing.** SDK diagnostics, completion, and selection must attach to the one topology and traversal rather than introducing a pre-router.
+- **Compatibility creep.** Temporary imports, dual outcome policies, and broad descriptors can survive migration. Track and delete every temporary seam before advancing.
+- **Public-interface inflation.** Keep advanced composition focused on programmatic topology, extension mounting, custom loading, framework integration, and packaging environments that cannot preserve command directories.
+- **Packaging constraints.** Runtime discovery requires intact files and directories. Verify packed artifacts rather than inventing a manifest fallback.
+- **Migration breadth.** Stop after the standalone and real-host acceptance consumers for review before broad migration freezes transitional decisions.
 
 ## Open Questions
 
-- The README uses a cold external TypeScript adopter as its design and explanation lens, while improving ns's CLI infrastructure—not winning external adoption—remains the product goal.
-- The primary README and common authoring path are filesystem-first: direct directories define the command path, `group.ts` marks named groups, and `command.ts` defines named or default commands according to its directory peers. A group module exports one cheap, complete `group(): ClinkrGroupDefinition`; it has no separate `metadata()` or lazy second group-definition function, and its children come from the filesystem. A command module exports cheap, explicitly typed `metadata(): ClinkrCommandMetadata` plus async `command()` for the selected definition, authored with a generic `defineCommand({...})` helper so schemas drive handler and renderer inference. Top levels, command metadata, and group definitions stay cheap; heavy command imports remain behind `command()`. Runtime discovery lowers through a filesystem adapter into the same immutable `ClinkrApp` and builder model—there is no code generation, manifest, or second command-dispatch implementation. The settled bootstrap is `createClinkrApp({ name, commandDirectory, version?, runtimeInfo?, completion? })`, where `commandDirectory` is an absolute filesystem path and the colocated Node 24+ form is `import.meta.dirname`. Context remains invocation-owned through context-free or contextful `app.run(...)`/`app.complete(...)`; Foundation creates a fresh app after `prepareRun` and may combine filesystem and programmatic commands through the builder seam. Public async immutable builders, terminal define/import, provenance checks, transactional loading, per-app success caching with retry, app-only execution/completion, and fresh Foundation apps remain the canonical lower seam and an advanced escape hatch for programmatic topology, extension mounting, custom loading, and framework integration. The exact command/group helper type spellings remain provisional, and the current constructor/group-execution model is still a clean-break migration mismatch.
-- How much of the remaining root API should the README teach directly versus route to focused entrypoint sections and API examples?
-- Aliases are application-defined public surface, never inferred automatically by Clinkr. The current automatic `list`/`ls` behavior is an implementation mismatch to remove during reconciliation.
-- The raw escape hatch remains framework-neutral and narrow: a selected command may receive its raw argv tail and own its output bytes and exit status. This supports ns SDK passthrough commands and genuinely byte-owning operations such as `vibechk run` without making Commander subtree mounting part of Clinkr's public contract. Clinkr still owns application routing and command metadata; structured operations should use ordinary `ClinkrCommand` definitions. Existing-Commander-tree mounting is parked until a concrete ns caller requires it.
-- Rendered commands always receive Clinkr's `--format` and `--json-schema` framework flags. The canonical Markdown format spelling is `markdown`, with `md` retained and documented as an explicit alias. Negative results are valid answers: human output goes to stdout with exit code `1`; the current stderr rendering is an implementation mismatch to fix during reconciliation.
-- The outcome-and-rendering reconciliation cluster is approved. Clinkr owns one command/outcome model spanning `resultSchema`, `negativeSchema`, `failureSchema`, and `usageErrorSchema`; it drives handler outcome types, runtime validation, machine-envelope construction, and the top-level discriminated JSON Schema. Each omitted schema requires that status to be bodyless, each supplied schema requires and validates data, and `z.any()` is the explicit untyped escape hatch. Bodyless `ok()` emits no human result body or JSON `data` field, while JSON still emits its status envelope. Request validation errors are usage errors; outcome-schema violations are programmer errors that propagate to app crash policy. The public throwable `ClinkrFailure` API and Clinkr's special exception-to-failure conversion are approved for removal: expected operational failures are explicit returned outcomes, deliberate adaptation belongs in applications or Foundation, and unexpected exceptions propagate unchanged.
-- Rendering belongs to stable command-level `renderHuman` and `renderMarkdown` functions. Migrate the SDK adapter and direct callers first so branch-dependent presentation moves into typed outcome data; then remove SDK-only success validation/render synthesis and current per-exit human/Markdown overrides. Markdown falls back to human rendering, then indented JSON.
-- Positional metadata retains the established `position` field, interpreted as zero-based ordinal placement; the draft-only `index` spelling is rejected.
-- Dynamic completion provider failures fall back to static candidates. Optional `completion.onProviderError` app policy receives the thrown error, command path, completion request, and invocation context so applications can observe or log failures without Clinkr writing them directly; observer failure does not break static fallback.
-- What gate amendments from this dry-run should become mandatory for later package Subobjectives?
+- What exact process amendment should `foundation-readme-driven-pass` adopt when a steelthread validates a README interface but falsifies the implementation architecture?

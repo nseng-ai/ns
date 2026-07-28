@@ -40,13 +40,15 @@ Version information, runtime diagnostics, and shell completion belong to `Clinkr
 
 **Rejected alternative:** Automatically expose version, runtime, and completion surfaces on every app.
 
-### 3. Rendered-command framework flags are automatic
+### 3. Structured-command framework flags are automatic
 
-Every rendered Clinkr command receives `--format` and `--json-schema` automatically.
+Every structured Clinkr command receives `--format`, `--input-json`, and `--json-schema` automatically.
 
-**Rationale:** Multi-audience output and machine-readable contract discovery are core Clinkr behavior, unlike optional executable metadata.
+**Rationale:** Multi-audience input/output and machine-readable contract discovery are core Clinkr behavior, unlike optional executable metadata.
 
-**Accepted current behavior:** Automatic `--format` and `--json-schema` on rendered commands are not mismatches.
+`--input-json` explicitly reads the selected command's complete request object from invocation stdin. Route selection remains in argv, request input does not merge with command-specific flags or positionals, and output format remains independent. Raw commands retain stdin ownership and do not support this flag. The exact parsing, validation, error, and I/O contract lives in `implementation-contract-notes.md`.
+
+**Current mismatch:** Automatic `--format` and `--json-schema` are current behavior; `--input-json` is a newly approved reconciliation requirement.
 
 ### 4. The whole command tree shares one context type for now
 
@@ -271,68 +273,72 @@ Here, Foundation means `@nseng-ai/foundation`'s `defineCli`. After `prepareRun`/
 
 This is a hard clean break, not a compatibility layer or two public models. Migration order is: Clinkr internals/tests; replace the old API; Foundation; SDK/catalog lazy routing; remaining CLIs/testing; delete obsolete group execution, automatic aliases, and duplicated SDK pre-routing; then update and promote the README. Reviewable internal commits or a stack are acceptable, but cutover is coordinated.
 
-### Explicitly unresolved and unchanged
+### Historically unresolved at this point
 
-Outcome, raw execution, rendering, and completion-error decisions remain as recorded elsewhere in this document; approval of the foundational refactor did not silently settle or reopen them. Positional metadata and the Markdown format alias were subsequently settled in [Public-surface naming decisions](#public-surface-naming-decisions-2026-07-25).
+At this point in the decision sequence, outcome, raw execution, rendering, and completion-error decisions remained as recorded elsewhere in this document; approval of the foundational refactor did not silently settle or reopen them. Positional metadata and the Markdown format alias were subsequently settled in [Public-surface naming decisions](#public-surface-naming-decisions-2026-07-25), and the remaining contract-supporting dispositions were settled in the later sections below.
 
 ## Filesystem-first authoring (2026-07-25)
 
-This decision supersedes builders as the primary package-README interface without superseding the approved builder/runtime design above. The common path is a web-framework-like filesystem hierarchy:
+This decision superseded builders as the primary package-README interface. Its original one-file command shape was later superseded by the steelthread's two-file metadata/definition seam recorded in `steelthread-contract-changes.md`; its public immutable-builder details were later superseded by the narrow scoped callback builder recorded under [Remaining API design settled](#remaining-api-design-settled-2026-07-27). The current common path is a direct filesystem hierarchy:
 
 ```text
 cli/
   app.ts
+  metadata.ts
   command.ts
   issues/
     group.ts
+    metadata.ts
     command.ts
     list/
+      metadata.ts
       command.ts
     labels/
       group.ts
       add/
+        metadata.ts
         command.ts
 ```
 
-The hierarchy is direct: there are no `groups/`, `commands/`, or per-level `routes/` taxonomy directories. Directory path is CLI path. A directory containing `group.ts` is a named group. A `command.ts` without a peer `group.ts` is the named command represented by that directory. A `command.ts` beside `group.ts` is that group's default command. Root `cli/command.ts` is the app default. Normal routes use one file; there is no `route.ts` metadata sidecar.
+There are no `groups/`, `commands/`, or per-level `routes/` taxonomy directories. Directory path is CLI path. A directory containing `group.ts` is a named group. A required `metadata.ts` + `command.ts` pair without a peer `group.ts` is the named command represented by that directory; beside `group.ts`, it is the group's default command; at root, it is the app default.
 
-Filesystem route modules retain exported functions for future-proofing, but commands and groups deliberately have different shapes. A `group.ts` exports one cheap, complete `group(): ClinkrGroupDefinition`; it includes description/summary, explicit aliases, hidden state, help grouping, and any other cheap group configuration. Children come from the filesystem, and an adjacent `command.ts` remains the default command. There is no separate group `metadata()` and no lazy second group-definition function. This explicitly supersedes the earlier filesystem-first `metadata()` plus lazy `group()` split for groups.
+Commands and groups deliberately have different shapes. A `group.ts` exports one cheap, complete `group(): ClinkrGroupDefinition`; it includes description/summary, explicit aliases, hidden state, help grouping, and other cheap group configuration. Children come from the filesystem. There is no separate group `metadata()` and no lazy second group-definition function.
 
-A `command.ts` keeps two functions because its implementation may be expensive: cheap, explicitly typed `metadata(): ClinkrCommandMetadata` for description/summary, explicit aliases, hidden state, and help grouping, plus async `command()` for the selected definition. Command definitions use a generic typed `defineCommand({...})` helper rather than `satisfies ClinkrCommandDefinition`, so `schema` and `resultSchema` drive handler and renderer inference. The exact helper and type spellings remain provisional, but this is the desired README authoring style. Group and metadata functions use direct explicit return types rather than `satisfies`.
+A command's cheap, explicitly typed `metadata.ts` exports `metadata(): ClinkrCommandMetadata`; its selected-only `command.ts` exports async `command()`. Command definitions use a generic typed `defineCommand({...})` helper so `schema` and `resultSchema` drive handler and renderer inference. Group and metadata functions use direct explicit return types rather than `satisfies`.
 
-Importing a route module evaluates its top level. For parent routing, help, and name completion, the adapter calls a command module's cheap `metadata()` or a group module's cheap, complete `group()`. Only a selected command's `command()` is invoked. Schemas, handlers, gateways, renderers, completion providers, expensive imports, and expensive construction belong inside `command()`; an unusually heavy command may dynamically import a private implementation there. Group top levels and `group()` itself must remain cheap, and the normal path remains one route file.
+Importing a module evaluates its top level. For parent routing, help, and name completion, the adapter imports a command's cheap `metadata.ts` or a group's cheap, complete `group.ts`. Only selection imports the command's `command.ts` and invokes `command()`. Schemas, handlers, gateways, renderers, completion providers, and expensive implementation imports may therefore live normally at the top of selected-only `command.ts`; private dynamic imports are optional. Group module top levels, `group()`, and command metadata must remain cheap.
 
-Runtime filesystem discovery is the approved direction. There is no generated manifest, generated runtime module, filesystem code generation, or production-codegen requirement. The filesystem adapter owns traversal, dynamic imports, builder callbacks, transactional loading, successful per-app caching and retry after failure, ownership/provenance, and ESM resolution. It lowers into the same immutable builder/App model, so routing, execution, help, and completion retain one implementation.
+Runtime filesystem discovery is the approved direction. There is no generated manifest, generated runtime module, filesystem code generation, or production-codegen requirement. The filesystem adapter owns traversal, dynamic imports, transactional loading, successful per-app caching and retry after failure, source ownership, and ESM resolution. Filesystem and programmatic sources lower into the same lazy topology model, routing traversal, validation owner, and command-dispatch runtime.
 
-Laziness is recursive and fast by default. Help and name completion may import immediate child modules, call command metadata, and call cheap complete group definitions, but do not construct sibling command definitions. Only a selected command's `command()` runs. The existing lower-seam decisions remain approved: async immutable builders; terminal `define()` and `import()`; app-only execution and completion; transactional selected-command loads; successful per-app caching with retryable failures; a fresh Foundation app per invocation; and no compatibility layer.
+Laziness is recursive and fast by default. Help and name completion may import immediate child modules, call command metadata, and call cheap complete group definitions, but do not construct sibling command definitions. Only a selected command's `command()` runs. The durable lower-seam decisions remain approved: app-only execution and completion; transactional selected-command loads; successful per-app caching with retryable failures; a fresh Foundation app per invocation; and no compatibility layer. Immutable nodes, provenance, publication, and definition lifecycle are private implementation details rather than the public authoring contract.
 
-Builders remain a public advanced escape hatch for unusual or programmatic topology, extension mounting, custom loading, and framework integration. The package README should mention this briefly and point to a separate future advanced builder guide; its main flow must not teach builder callbacks.
+A programmatic composition seam remains the advanced escape hatch for unusual topology, extension mounting, custom loading, and framework integration. The package README mentions it briefly without promising a future guide or teaching builder callbacks in the main flow; exported TypeScript types are the current detailed reference. Its settled public shape is the narrow scoped callback builder recorded under [Remaining API design settled](#remaining-api-design-settled-2026-07-27).
 
 Runtime discovery creates a packaging constraint: command/group files and directories must ship intact. Bundled or single-file environments may need the builder escape hatch or a later dedicated adapter. This decision does not authorize a manifest fallback.
 
 The common bootstrap and completion-error policy were subsequently settled below. Raw execution was subsequently settled as a narrow framework-neutral seam. Positional metadata, the Markdown format alias, and the outcome/rendering reconciliation were also subsequently settled below.
 
-## Filesystem bootstrap API settled (2026-07-26)
+## Filesystem bootstrap API decision (2026-07-26)
 
-The common `cli/app.ts` interface is `createClinkrApp({ name, commandDirectory, version?, runtimeInfo?, completion? })`. Public language describes a filesystem-defined **command structure**, command directory, command path, command module, and group module; it does not describe Clinkr's command model as routes.
+This decision established `createClinkrApp({ name, commandDirectory, version?, runtimeInfo?, completion? })` as the filesystem constructor used by the conventional `cli/app.ts` factory. The current authoring contract requires `app.ts` to export an import-side-effect-free `app()` factory that returns a fresh app. Public language describes a filesystem-defined **command structure**, command directory, command path, command module, and group module; it does not describe Clinkr's command model as routes.
 
-`commandDirectory` is a required absolute filesystem path string. The colocated Node 24+ form is `commandDirectory: import.meta.dirname`; a nested structure uses an absolute derived path such as `path.join(import.meta.dirname, "commands")`. Clinkr rejects relative paths and never resolves the command structure against `process.cwd()`. `name` is explicit; Clinkr does not inspect package metadata or infer a bin name. Foundation continues to own package metadata lookup and supplies its derived name, version, and runtime diagnostics.
+`commandDirectory` is a required absolute filesystem path string. The colocated Node 24.12+ form is `commandDirectory: import.meta.dirname`; a nested structure uses an absolute derived path such as `path.join(import.meta.dirname, "commands")`. Clinkr rejects relative paths and never resolves the command structure against `process.cwd()`. `name` is explicit; Clinkr does not inspect package metadata or infer a bin name. Foundation continues to own package metadata lookup and supplies its derived name, version, and runtime diagnostics. Clinkr's package metadata declares `engines.node >=24.12.0`.
 
-`createClinkrApp` returns `Promise<ClinkrApp<TContext>>`. Context-free apps use `app.run(args)` and `app.complete(request)`; contextful apps require per-invocation options carrying `context` (and optional I/O). Context is not captured during app creation or stored globally. Only `ClinkrApp` executes commands or computes completion.
+`createClinkrApp` returns `Promise<ClinkrApp<TContext>>`. Context-free apps omit `requiresContext` and use `app.run(args)` and `app.complete(request)`; contextful apps set `requiresContext: true` and require per-invocation options carrying `context` (and optional I/O). Every contextful structured command definition also sets `requiresContext: true`, and selected loading rejects an app/definition mismatch. Context is not captured during app creation or stored globally. Only `ClinkrApp` executes commands or computes completion.
 
-The factory is the common-path convenience over the same immutable builder/App runtime. Advanced and Foundation composition may add the filesystem command structure and programmatic commands through the app builder; the filesystem adapter is not a second parser or command-dispatch implementation. Foundation runs `prepareRun` first, creates a fresh app for each unhandled invocation, then runs it with the prepared context and I/O. No app, invocation context, or per-app successful-load cache is shared between Foundation invocations.
+The factory is the common-path convenience over the same lazy topology model and command-dispatch runtime. Advanced and Foundation composition may add filesystem and programmatic sources through the narrow scoped callback builder; the filesystem adapter is not a second parser or command-dispatch implementation. Foundation runs `prepareRun` first, creates a fresh app for each unhandled invocation, then runs it with the prepared context and I/O. No app, invocation context, or per-app successful-load cache is shared between Foundation invocations.
 
 Completion remains opt-in app policy. Optional `completion.onProviderError` receives the thrown provider error, command path, completion request, and invocation context. Clinkr then returns static candidates without printing the provider error; observer failure cannot break that fallback. This callback is not a general application-error observer.
 
-The public builder operation's exact spelling may be finalized during implementation, but its semantics are fixed: adapt an absolute command directory into the same command/group model, preserving transactional selected-command loading, concurrent in-flight sharing, per-app success caching, retry after failure, provenance, and fresh Commander trees. There is no manifest, production codegen, compatibility runtime, manual argv pre-dispatch, or second command-dispatch implementation.
+At this point, the programmatic composition operation's exact spelling remained open while its semantics were fixed: adapt an absolute command directory into the same command/group model, preserving transactional selected-command loading, concurrent in-flight sharing, per-app success caching, retry after failure, source ownership diagnostics, and fresh Commander trees. The later design grill settled the spelling-level shape as one narrow scoped callback builder. There is no manifest, production codegen, compatibility runtime, manual argv pre-dispatch, or second command-dispatch implementation.
 
 ## Public-surface naming decisions (2026-07-25)
 
 Clinkr retains `position` as the positional-metadata field name. It is the established public spelling, accurately describes a positional argument's zero-based ordinal placement, and avoids an unmotivated rename during the clean break. The provisional README now uses `position`; reconciliation does not need an `index` migration.
 
-Clinkr also retains and documents `md` as an explicit alias for the canonical `markdown` format value. The alias is intentional and already has focused parsing, rendering, validation-text, and completion coverage. Reconciliation must preserve both the long spelling and alias rather than leaving `md` as undocumented behavior.
+The README blessing review superseded the earlier format-token decision: `md` is now the sole Markdown CLI format value, and the `markdown` CLI token is unsupported. Parsing, help, completion, validation text, generated schemas, and any machine surface exposing the selected format use exactly `human | json | md`. The renderer remains named `renderMarkdown`, and prose still names the language Markdown.
 
-These decisions settle only the two naming questions. They do not alter raw execution or exception policy. The outcome/rendering reconciliation, bootstrap/completion-error policy, and removal of the throwable `ClinkrFailure` API were settled separately.
+These decisions settle only the positional and format-token naming questions. They do not alter raw execution or exception policy. The outcome/rendering reconciliation, bootstrap/completion-error policy, and removal of the throwable `ClinkrFailure` API were settled separately.
 
 ## Outcome and rendering reconciliation approved (2026-07-25)
 
@@ -350,13 +356,13 @@ The following current behavior aligns with the settled contract and should not b
 
 - homogeneous command-tree context;
 - one non-global context value per run;
-- automatic `--format` and `--json-schema` on rendered commands;
+- automatic `--format` and `--json-schema` on structured commands; `--input-json` is an approved addition;
 - Markdown renderer support and its fallback to human rendering, then indented JSON;
 - handlers that do not directly receive output format;
 - application-controlled interaction passed through context;
 - static completion fallback after dynamic-provider failure;
 - positional metadata spelled `position`;
-- `md` accepted and documented as an alias for the canonical `markdown` format.
+- `md` is the sole Markdown CLI format token; `renderMarkdown` remains the renderer name.
 
 ## Confirmed reconciliation mismatches
 
@@ -373,15 +379,18 @@ The implementation and caller audit begins with these confirmed mismatches:
 9. Dynamic-completion error observation must become one app-level callback while preserving static fallback.
 10. The public throwable `ClinkrFailure` API and special exception-to-failure conversion must be removed in favor of explicit returned failures and application-owned error adaptation.
 
-These are starting facts, not authorization for an unreviewed refactor. Each material implementation or caller change still requires an explicit disposition and user discussion under the Objective workflow.
+These were the starting facts for the contract-to-code audit, not authorization for an unreviewed refactor. `contract-audit.md` and the later approval sections above settled the contract-supporting dispositions; implementation still proceeds through the Objective roadmap.
 
-## Genuinely open topics
+## Remaining API design settled (2026-07-27)
 
-The following topics remain open and should be settled through the remaining README-driven audit:
+A focused design grill settled the lower-interface questions exposed by the steelthread:
 
-- What evidence bar should govern detailed observable-behavior claims, including how current ns usage, API currency, focused tests, and independently verified operational instructions contribute.
-- Which additional observable current behaviors deserve public-contract status after the package, export, test, and representative-caller audit.
-- Which concrete gate-calibration lessons from the Clinkr dry run should become mandatory for later package Subobjectives.
-- Whether any discovered complexity should be reconciled in this Objective or parked as unrelated redesign.
+- **Builder:** expose one narrow scoped callback builder. It mounts lazy topology sources; immutable nodes, provenance, transactional publication, and definition lifecycle remain private implementation details.
+- **Composition:** filesystem and programmatic sources lower into the same lazy topology model. Sources own disjoint subtrees. Duplicate command paths and every group path shared by two sources are errors; there is no source precedence, mount-order override, or compatible-group merge. Diagnostics identify both sources and the canonical path.
+- **Context:** one app factory and one command helper use the boolean discriminant `requiresContext: true`; omission means context-free. Context-free trees use `handler(request)` and `clinkr.run(args)`; contextful trees select one homogeneous context type and use `handler(context, request)` with context required per invocation. The discriminant survives generic erasure, preserves schema inference, and allows selected-module validation without function-arity inspection. The accepted cost is repeating it on contextful definitions; a uniform invocation object was rejected because it would inject a synthetic null context into context-free commands.
+- **Raw:** a raw filesystem module retains the standard `command()` export and returns `defineRawCommand(...)` imported from `@nseng-ai/clinkr/raw`.
+- **Exports:** specialized APIs remain available only on their named subpaths. The root does not re-export raw construction, completion planning, stream sinks, or testing helpers.
+
+The remaining Objective-level question is which concrete gate-calibration lesson should be returned to the parent `foundation-readme-driven-pass`. Newly discovered unrelated complexity remains parked rather than silently widening this Objective.
 
 Everything else in the settled-decision sections above should remain closed unless new implementation or caller evidence demonstrates a material contradiction.
