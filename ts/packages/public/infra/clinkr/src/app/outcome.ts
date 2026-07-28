@@ -85,6 +85,13 @@ export function usageError(message: string, data?: unknown): UsageErrorOutcome {
 	};
 }
 
+/**
+ * Exit-code convention: 0 success, 1 negative ("the command ran, the answer
+ * is no"), 2 failure or usage error. Prior art: `grep` (1 = no match,
+ * 2 = error), `tsc` (1 = check failed), and Astral's `uv`/`ty check`
+ * (1 = findings, 2 = tool error). The distinct `negative` status lets
+ * check-style commands report a truthful "no" without overloading failure.
+ */
 const EXIT_CODES = {
 	success: 0,
 	negative: 1,
