@@ -139,30 +139,35 @@ export function envelopeJsonText(value: unknown): string {
  * `data` is freeform.
  */
 export function buildEnvelopeSchema(resultSchema: z.ZodType | undefined) {
-	const success = z.strictObject({
+	const successSchema = z.strictObject({
 		status: z.literal("success"),
 		exitCode: z.literal(0),
 		...(resultSchema === undefined ? {} : { data: resultSchema }),
 	});
-	const negativeEnvelope = z.strictObject({
+	const negativeEnvelopeSchema = z.strictObject({
 		status: z.literal("negative"),
 		exitCode: z.literal(1),
 		message: z.string(),
 		data: z.unknown().optional(),
 	});
-	const failureEnvelope = z.strictObject({
+	const failureEnvelopeSchema = z.strictObject({
 		status: z.literal("failure"),
 		exitCode: z.literal(2),
 		errorType: z.string(),
 		message: z.string(),
 		data: z.unknown().optional(),
 	});
-	const usageErrorEnvelope = z.strictObject({
+	const usageErrorEnvelopeSchema = z.strictObject({
 		status: z.literal("usage-error"),
 		exitCode: z.literal(2),
 		errorType: z.string(),
 		message: z.string(),
 		data: z.unknown().optional(),
 	});
-	return z.union([success, negativeEnvelope, failureEnvelope, usageErrorEnvelope]);
+	return z.union([
+		successSchema,
+		negativeEnvelopeSchema,
+		failureEnvelopeSchema,
+		usageErrorEnvelopeSchema,
+	]);
 }
