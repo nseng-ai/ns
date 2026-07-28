@@ -82,6 +82,62 @@ void contextfulApp.run([], { context: { prefix: "x" } });
 // @ts-expect-error contextful invocation requires context.
 void contextfulApp.run([]);
 
+const callbackOnlyApp = createClinkrApp({ name: "callback-only" }, (composition) => {
+	composition.filesystem({ commandDirectory: import.meta.dirname, label: "mounted-root" });
+	composition.source({ label: "programmatic" }, (scope) => {
+		scope.defaultCommand({ description: "Default." }, async () =>
+			defineCommand({ schema: requestSchema, handler: async () => ok() }),
+		);
+		scope.group("nested", { description: "Nested." }, (nested) => {
+			nested.filesystem({ commandDirectory: import.meta.dirname });
+			nested.command("run", { description: "Run." }, async () =>
+				defineCommand({ schema: requestSchema, handler: async () => ok() }),
+			);
+		});
+	});
+});
+void callbackOnlyApp.run([]);
+
+const callbackContextfulApp = createClinkrApp<Context>(
+	{ name: "callback-contextful", requiresContext: true },
+	(composition) => {
+		composition.source({ label: "contextful" }, (scope) => {
+			scope.defaultCommand({ description: "Default." }, async () =>
+				defineCommand({
+					requiresContext: true,
+					schema: requestSchema,
+					handler: async (_context: Context) => ok(),
+				}),
+			);
+		});
+	},
+);
+void callbackContextfulApp.run([], { context: { prefix: "x" } });
+// @ts-expect-error callback contextful invocation requires context.
+void callbackContextfulApp.run([]);
+
+// @ts-expect-error callback-only construction requires the callback argument.
+createClinkrApp({ name: "missing-source" });
+
+createClinkrApp({ name: "loader-contract" }, (composition) => {
+	composition.source({ label: "loader" }, (scope) => {
+		// @ts-expect-error definition loaders must return a structured or raw definition.
+		scope.defaultCommand({ description: "Bad." }, async () => ({ bad: true }));
+		// @ts-expect-error filesystem mounts require a commandDirectory.
+		scope.filesystem({});
+	});
+	// @ts-expect-error composition filesystem mounts require a commandDirectory.
+	composition.filesystem({ label: "bad" });
+});
+
+// Public apps expose execution only, not topology nodes or lifecycle controls.
+// @ts-expect-error topology nodes are private.
+void callbackOnlyApp.root;
+// @ts-expect-error publication is unsupported.
+callbackOnlyApp.publish();
+// @ts-expect-error cache invalidation is unsupported.
+callbackOnlyApp.invalidate();
+
 // Raw definitions: invocation objects, numeric exit status, and the shared
 // requiresContext discriminant.
 const rawContextFree = defineRawCommand({
