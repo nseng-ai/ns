@@ -7,6 +7,20 @@ import type { OptionSpec, PositionalSpec } from "../surface.ts";
 export type { RawCommandSpec } from "../group.ts";
 export type { OptionSpec, PositionalSpec } from "../surface.ts";
 
+// New quarantined-runtime raw definition surface. The definition module is
+// legacy-independent so `src/app/` can import it without pulling in the
+// legacy `group.ts`/`completion.ts` types re-exported above.
+export { defineRawCommand } from "./definition.ts";
+export type {
+	ClinkrRawCommandDefinition,
+	ContextFreeRawCommandDefinition,
+	ContextFreeRawCommandOptions,
+	ContextfulRawCommandDefinition,
+	ContextfulRawCommandInvocation,
+	ContextfulRawCommandOptions,
+	RawCommandInvocation,
+} from "./definition.ts";
+
 export interface RawCommandOptions<TContext, S extends z.ZodObject> {
 	name: string;
 	description?: string;
