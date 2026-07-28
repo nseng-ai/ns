@@ -18,8 +18,8 @@ import {
 } from "./command-definition.ts";
 import {
 	decodeCommandOutcome,
+	envelopeJsonText,
 	exitCodeFor,
-	stableJsonText,
 	toEnvelope,
 	type CommandOutcome,
 	type UsageErrorOutcome,
@@ -163,48 +163,65 @@ class FilesystemClinkrApp<TContext> {
 			io.stdout(buildCommandSurface(this.name, definition, metadata).command.helpInformation());
 			return 0;
 		}
-		if (!parsed.ok) return emitUsageError(io, parsed.format, parsed.message, "invalid-request");
+		if (!parsed.ok) {
+			return emitUsageError({
+				io,
+				format: parsed.format,
+				message: parsed.message,
+				errorType: "invalid-request",
+			});
+		}
 		const { format, jsonSchema, inputJson, rest } = parsed.flags;
 		if (jsonSchema && inputJson) {
-			return emitUsageError(
+			return emitUsageError({
 				io,
 				format,
-				"--json-schema cannot be combined with --input-json",
-				"invalid-request",
-			);
+				message: "--json-schema cannot be combined with --input-json",
+				errorType: "invalid-request",
+			});
 		}
 		if (jsonSchema) {
-			io.stdout(`${stableJsonText(buildCommandJsonSchemaDocument(definition))}\n`);
+			io.stdout(`${envelopeJsonText(buildCommandJsonSchemaDocument(definition))}\n`);
 			return 0;
 		}
 		let request: Record<string, unknown>;
 		if (inputJson) {
 			if (rest.length > 0) {
-				return emitUsageError(
+				return emitUsageError({
 					io,
 					format,
-					"--input-json cannot be combined with command arguments",
-					"invalid-request",
-				);
+					message: "--input-json cannot be combined with command arguments",
+					errorType: "invalid-request",
+				});
 			}
 			const readStdin = options.readStdin ?? io.readStdin;
 			if (readStdin === undefined) {
-				return emitUsageError(io, format, "--input-json requires stdin", "invalid-json-input");
+				return emitUsageError({
+					io,
+					format,
+					message: "--input-json requires stdin",
+					errorType: "invalid-json-input",
+				});
 			}
 			const parsedJson = parseJsonInput(await readStdin(), definition.schema);
 			if (!parsedJson.success)
-				return emitUsageError(
+				return emitUsageError({
 					io,
 					format,
-					parsedJson.message,
-					parsedJson.errorType,
-					parsedJson.data,
-				);
+					message: parsedJson.message,
+					errorType: parsedJson.errorType,
+					...(parsedJson.data === undefined ? {} : { data: parsedJson.data }),
+				});
 			request = parsedJson.data as Record<string, unknown>;
 		} else {
 			const parsedArgv = parseArgv(this.name, rest, definition, metadata);
 			if (!parsedArgv.success)
-				return emitUsageError(io, format, parsedArgv.message, "invalid-request");
+				return emitUsageError({
+					io,
+					format,
+					message: parsedArgv.message,
+					errorType: "invalid-request",
+				});
 			request = parsedArgv.data as Record<string, unknown>;
 		}
 		const handlerResult: unknown = this.requiresContext
@@ -400,6 +417,14 @@ function parseJsonInput(
 
 type OutputFormat = "human" | "json" | "md";
 
+interface EmitUsageErrorOptions {
+	readonly io: ClinkrIo;
+	readonly format: OutputFormat;
+	readonly message: string;
+	readonly errorType: FrameworkUsageErrorType;
+	readonly data?: unknown;
+}
+
 interface GlobalFlags {
 	readonly format: OutputFormat;
 	readonly help: boolean;
@@ -495,7 +520,7 @@ function emitOutcome(
 	format: "human" | "json" | "md",
 ): void {
 	if (format === "json") {
-		io.stdout(`${stableJsonText(toEnvelope(outcome))}\n`);
+		io.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
 		return;
 	}
 	if (outcome.status === "success") {
@@ -506,7 +531,7 @@ function emitOutcome(
 				: definition.renderHuman;
 		const text =
 			renderer === undefined
-				? stableJsonText(outcome.data)
+				? envelopeJsonText(outcome.data)
 				: renderer(outcome.data, { canEmitAnsi: io.canEmitAnsi === true });
 		io.stdout(`${text}\n`);
 		return;
@@ -518,20 +543,17 @@ function emitOutcome(
 	io.stderr(`${outcome.message}\n`);
 }
 
-function emitUsageError(
-	io: ClinkrIo,
-	format: OutputFormat,
-	message: string,
-	errorType: FrameworkUsageErrorType,
-	data?: unknown,
-): number {
+function emitUsageError(options: EmitUsageErrorOptions): number {
 	const outcome: UsageErrorOutcome = {
 		status: "usage-error",
-		errorType,
-		message,
-		...(data === undefined ? {} : { data }),
+		errorType: options.errorType,
+		message: options.message,
+		...(options.data === undefined ? {} : { data: options.data }),
 	};
-	if (format === "json") io.stdout(`${stableJsonText(toEnvelope(outcome))}\n`);
-	else io.stderr(`${message}\n`);
+	if (options.format === "json") {
+		options.io.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
+	} else {
+		options.io.stderr(`${options.message}\n`);
+	}
 	return exitCodeFor(outcome.status);
 }

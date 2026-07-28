@@ -10,7 +10,6 @@ import {
 	toEnvelope,
 	usageError,
 } from "@nseng-ai/clinkr/app";
-import { stableJsonText } from "../../src/app/outcome.ts";
 
 describe("outcome constructors", () => {
 	test("ok() carries an explicit undefined payload", () => {
@@ -112,18 +111,6 @@ describe("toEnvelope", () => {
 			errorType: "usage-error",
 			message: "bad flags",
 		});
-	});
-});
-
-describe("stableJsonText", () => {
-	test("renders an object as 2-space-indented JSON", () => {
-		expect(stableJsonText(toEnvelope(ok({ name: "Ada" })))).toBe(
-			'{\n  "status": "success",\n  "exitCode": 0,\n  "data": {\n    "name": "Ada"\n  }\n}',
-		);
-	});
-
-	test("rejects top-level values that JSON.stringify cannot serialize", () => {
-		expect(() => stableJsonText(undefined)).toThrow("value is not JSON-serializable");
 	});
 });
 

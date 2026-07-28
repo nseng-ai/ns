@@ -126,16 +126,6 @@ export function toEnvelope(outcome: CommandOutcome<unknown>): Record<string, unk
 
 export { envelopeJsonText } from "../exit.ts";
 
-/**
- * Stable 2-space-indented JSON text. Used for the machine envelope, the
- * `--json-schema` document, and the raw success-data rendering fallback.
- */
-export function stableJsonText(value: unknown): string {
-	const text = JSON.stringify(value, null, 2);
-	if (text === undefined) throw new Error("clinkr: value is not JSON-serializable");
-	return text;
-}
-
 const negativeOutcomeShape = {
 	status: z.literal("negative"),
 	message: z.string(),
