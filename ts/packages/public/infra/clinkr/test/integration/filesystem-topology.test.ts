@@ -226,7 +226,7 @@ test("a present filesystem subtree still collides with a same-source declaration
 	}
 });
 
-test("a missing mount root contributes nothing; integrity belongs to consumer tests", async () => {
+test("a missing mount root fails like a missing command directory", async () => {
 	const parentDirectory = await mkdtemp(path.join(tmpdir(), "clinkr-missing-"));
 	try {
 		const missingDirectory = path.join(parentDirectory, "absent-mount");
@@ -237,11 +237,11 @@ test("a missing mount root contributes nothing; integrity belongs to consumer te
 			});
 		});
 		const topology = new ClinkrTopology({ sources });
-		// This root-scope assertion is the enforcement pattern: a consumer smoke
-		// test asserting expected routes fails in CI when a mount is mistyped.
-		const root = await topology.open([]);
-		expect([...root.groups.keys()]).toEqual(["api"]);
-		expect(root.commands.size).toBe(0);
+		// A mistyped mount directory is the same misconfiguration as a mistyped
+		// app commandDirectory and fails with the offending path.
+		await expect(topology.open([])).rejects.toThrow(
+			`clinkr: command directory does not exist: ${missingDirectory}`,
+		);
 	} finally {
 		await rm(parentDirectory, { recursive: true });
 	}
