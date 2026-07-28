@@ -2,7 +2,8 @@
 
 import { resolve } from "node:path";
 
-import { ClinkrGroup, failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { ClinkrGroup } from "@nseng-ai/clinkr";
+import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import {
 	defineCli,
 	readStdin,

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { z } from "zod";
 
 import type { NsDevCliContext } from "../context.ts";

@@ -9,7 +9,7 @@
  * building) are deliberately duplicated, not shared: step.ts is deleted with
  * the legacy blocking command once the decomposed flow has dogfooding mileage.
  */
-import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 

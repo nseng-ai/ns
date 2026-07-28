@@ -4,15 +4,12 @@ import { z } from "zod";
 
 import {
 	ClinkrGroup,
-	clinkrFormatFromArgs,
 	clinkrNameMatchesAutomaticAlias,
-	emitExit,
-	failure,
-	ok,
 	type ClinkrCommandSpec,
 	type ClinkrDynamicCompletionRequest,
 	type ClinkrIo,
 } from "@nseng-ai/clinkr";
+import { clinkrFormatFromArgs, emitExit, failure, ok } from "@nseng-ai/clinkr/legacy";
 import { renderCompletionCandidatesNewline } from "@nseng-ai/clinkr/completion";
 import { rawCommand } from "@nseng-ai/clinkr/raw";
 import {

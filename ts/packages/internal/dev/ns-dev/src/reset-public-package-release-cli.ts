@@ -1,4 +1,4 @@
-import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import type { CommandRunner } from "@nseng-ai/foundation/exec";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";

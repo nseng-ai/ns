@@ -1,4 +1,4 @@
-import { failure, negative, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, negative, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 

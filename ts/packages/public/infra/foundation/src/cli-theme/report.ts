@@ -1,5 +1,6 @@
-import { resolveRenderCapabilities, type RenderCapabilities } from "@nseng-ai/clinkr";
 import { stripTerminalEscapes } from "../primitives/terminal-escapes.ts";
+
+import { resolveThemeCaps, type ThemeRenderCapabilities } from "./render-capabilities.ts";
 
 import { paint } from "./palette.ts";
 
@@ -9,18 +10,18 @@ export interface BufferedReportSection {
 }
 
 export interface RenderBufferedReportOptions {
-	readonly caps: RenderCapabilities;
+	readonly caps: ThemeRenderCapabilities;
 	readonly title: string;
 	readonly titleStyle?: "accent" | "plain";
 	readonly sections: readonly BufferedReportSection[];
 }
 
-export function stripAnsiWhenDisabled(output: string, caps: RenderCapabilities): string {
+export function stripAnsiWhenDisabled(output: string, caps: ThemeRenderCapabilities): string {
 	return caps.canEmitAnsi ? output : stripTerminalEscapes(output);
 }
 
 export function renderBufferedReport(options: RenderBufferedReportOptions): string {
-	const resolvedCaps = resolveRenderCapabilities(options.caps);
+	const resolvedCaps = resolveThemeCaps(options.caps);
 	const title =
 		options.titleStyle === "plain" ? options.title : paint(resolvedCaps, "accent", options.title);
 	const lines = [title];

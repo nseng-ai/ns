@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { ClinkrGroup, failure, ok, type Caps } from "@nseng-ai/clinkr";
+import { ClinkrGroup, type Caps } from "@nseng-ai/clinkr";
+import { failure, ok } from "@nseng-ai/clinkr/legacy";
 import { rawCommand } from "@nseng-ai/clinkr/raw";
 import {
 	defineCli,

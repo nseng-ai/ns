@@ -15,12 +15,18 @@ import {
 	type ClinkrCompletionResult,
 	type ClinkrDynamicCompletionProvider,
 } from "./completion.ts";
-import { emitExit, type RenderCapabilities } from "./emit.ts";
-import { envelopeJsonText, type ClinkrExit, usageErrorMachineEnvelope } from "./exit.ts";
-import { clinkrFormatFromArgs, clinkrFormatFromOption } from "./format.ts";
-import { ClinkrFailure } from "./failure.ts";
+import {
+	ClinkrFailure,
+	clinkrFormatFromArgs,
+	clinkrFormatFromOption,
+	emitExit,
+	envelopeJsonText,
+	usageErrorMachineEnvelope,
+	type ClinkrExit,
+	type RenderCapabilities,
+} from "@nseng-ai/clinkr/legacy";
 import { createProcessIo, type ClinkrIo } from "./io.ts";
-import { buildJsonSchemaDocument, type JsonSchemaDocument } from "./json-schema.ts";
+import { buildJsonSchemaDocument, type JsonSchemaDocument } from "@nseng-ai/clinkr/legacy";
 import {
 	buildSurfacePlan,
 	type OptionPlan,

@@ -1,12 +1,8 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import {
-	ClinkrGroup,
-	clinkrFormatFromArgs,
-	isClinkrHumanOutputInvocation,
-	ok,
-} from "../src/index.ts";
+import { ClinkrGroup } from "@nseng-ai/clinkr";
+import { clinkrFormatFromArgs, isClinkrHumanOutputInvocation, ok } from "@nseng-ai/clinkr/legacy";
 import { parseEnvelope, runForTest } from "../src/testing/index.ts";
 
 function buildGroup(): ClinkrGroup<null> {

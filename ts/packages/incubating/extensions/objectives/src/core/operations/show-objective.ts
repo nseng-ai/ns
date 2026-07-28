@@ -1,4 +1,5 @@
-import { failure, negative, ok, type Caps, type ClinkrExit } from "@nseng-ai/clinkr";
+import { type Caps } from "@nseng-ai/clinkr";
+import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import {
 	bold,
 	dim,

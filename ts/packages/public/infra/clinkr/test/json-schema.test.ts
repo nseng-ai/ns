@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrGroup, ok } from "../src/index.ts";
-import { buildJsonSchemaDocument } from "../src/json-schema.ts";
+import { ClinkrGroup } from "@nseng-ai/clinkr";
+import { buildJsonSchemaDocument, ok } from "@nseng-ai/clinkr/legacy";
 import { runForTest } from "../src/testing/index.ts";
 
 describe("buildJsonSchemaDocument", () => {

@@ -1,4 +1,4 @@
-import { negative, type ClinkrExit } from "@nseng-ai/clinkr";
+import { negative, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 
 import { pythonStringRepr } from "./format.ts";
 

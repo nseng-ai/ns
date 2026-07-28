@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export { envelopeJsonText } from "../envelope-json-text.ts";
+
 /**
  * Design A command outcomes: typed success, untyped diagnostics.
  *
@@ -125,11 +127,6 @@ export function toEnvelope(outcome: CommandOutcome<unknown>): Record<string, unk
 				...(outcome.data === undefined ? {} : { data: outcome.data }),
 			};
 	}
-}
-
-/** Pretty-printed JSON for envelopes and rendered fallbacks. */
-export function envelopeJsonText(value: unknown): string {
-	return JSON.stringify(value, null, 2) ?? String(value);
 }
 
 const negativeOutcomeShape = {

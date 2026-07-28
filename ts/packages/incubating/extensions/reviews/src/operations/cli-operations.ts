@@ -1,4 +1,4 @@
-import { failure, ok, negative, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, ok, negative, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { parseJsonInputText, type JsonInputError } from "@nseng-ai/extension-kit/json-input";
 import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { loadJsonInput } from "@nseng-ai/extension-kit/json-input";
 
 import { branchPrChecksInputSchema } from "./branch-pr-checks.ts";

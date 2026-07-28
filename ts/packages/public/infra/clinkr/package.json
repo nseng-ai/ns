@@ -2,19 +2,23 @@
 	"name": "@nseng-ai/clinkr",
 	"version": "0.1.4",
 	"license": "MIT",
+	"files": [
+		"src"
+	],
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
 		"./app": "./src/app/index.ts",
 		"./app/testing": "./src/app/testing.ts",
 		"./completion": "./src/completion.ts",
+		"./legacy": "./src/legacy/index.ts",
 		"./raw": "./src/raw/index.ts",
 		"./stream": "./src/stream/index.ts",
 		"./testing": "./src/testing/index.ts"
 	},
-	"files": [
-		"src"
-	],
+	"publishConfig": {
+		"access": "public"
+	},
 	"scripts": {
 		"check": "tsc -p tsconfig.json",
 		"test": "cd ../../../.. && vitest run --config vitest.config.ts packages/public/infra/clinkr/test",
@@ -36,9 +40,10 @@
 		"node": ">=24.12.0"
 	},
 	"ns": {
-		"tier": "neutral-infra"
-	},
-	"publishConfig": {
-		"access": "public"
+		"tier": "neutral-infra",
+		"subpackages": [
+			"legacy"
+		],
+		"remainder": true
 	}
 }

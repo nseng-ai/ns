@@ -3,10 +3,10 @@ import { describe, expect, test } from "vitest";
 
 import {
 	ClinkrGroup,
-	ok,
 	renderClinkrCompletionScript,
 	renderCompletionCandidatesNewline,
-} from "../src/index.ts";
+} from "@nseng-ai/clinkr";
+import { ok } from "@nseng-ai/clinkr/legacy";
 import { rawCommand } from "../src/raw/index.ts";
 
 interface ProbeContext {

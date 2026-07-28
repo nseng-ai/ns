@@ -14,6 +14,8 @@ export type {
 	ResultBlockKind,
 	ResultBlockMessageInput,
 } from "./result-block.ts";
+export { resolveThemeCaps } from "./render-capabilities.ts";
+export type { ThemeRenderCapabilities } from "./render-capabilities.ts";
 export { renderBufferedReport, stripAnsiWhenDisabled } from "./report.ts";
 export type { BufferedReportSection, RenderBufferedReportOptions } from "./report.ts";
 export { PHASE_NAME_WIDTH, statusLine } from "./status-line.ts";

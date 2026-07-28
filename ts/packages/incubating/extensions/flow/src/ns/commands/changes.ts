@@ -1,6 +1,7 @@
 import { dim, glyph, renderBufferedReport } from "@nseng-ai/foundation/cli-theme";
 import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
-import { renderCapabilitiesForTerminal, type Caps } from "@nseng-ai/clinkr";
+import { type Caps } from "@nseng-ai/clinkr";
+import { renderCapabilitiesForTerminal } from "@nseng-ai/clinkr/legacy";
 import { defineCommand, failure, ok, z, type NsCommand } from "@nseng-ai/sdk";
 import { prepareFlowChangesSummary } from "../model-generation.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";

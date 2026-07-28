@@ -1,12 +1,7 @@
 import type { z } from "zod";
 
-import {
-	failure,
-	type ClinkrCommandSpec,
-	type ClinkrExit,
-	type ClinkrGroup,
-	type ClinkrHandler,
-} from "@nseng-ai/clinkr";
+import { type ClinkrCommandSpec, type ClinkrGroup, type ClinkrHandler } from "@nseng-ai/clinkr";
+import { failure, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { createNsDomainCommand } from "@nseng-ai/extension-kit/ns-command";
 import type { NsCommand, NsExtensionApi } from "@nseng-ai/sdk";
 import type { GitResult } from "@nseng-ai/foundation/git";

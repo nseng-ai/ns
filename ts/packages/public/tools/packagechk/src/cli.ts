@@ -1,15 +1,7 @@
 #!/usr/bin/env node
 
-import {
-	ClinkrGroup,
-	failure,
-	negative,
-	ok,
-	resolveClinkrInteraction,
-	usageError,
-	type ClinkrExit,
-	type ClinkrInteraction,
-} from "@nseng-ai/clinkr";
+import { ClinkrGroup, resolveClinkrInteraction, type ClinkrInteraction } from "@nseng-ai/clinkr";
+import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 
 import { defineCli, readStdinLine, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
 import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";

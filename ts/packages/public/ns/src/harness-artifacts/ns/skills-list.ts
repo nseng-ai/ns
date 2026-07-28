@@ -1,4 +1,4 @@
-import { ok, type ClinkrExit } from "@nseng-ai/clinkr";
+import { ok, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { z } from "zod";
 
 import { listFirstPartySkillArtifacts } from "../api.ts";

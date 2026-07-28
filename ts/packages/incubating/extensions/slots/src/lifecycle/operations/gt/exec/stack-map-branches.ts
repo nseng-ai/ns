@@ -1,4 +1,4 @@
-import { failure, ok } from "@nseng-ai/clinkr";
+import { failure, ok } from "@nseng-ai/clinkr/legacy";
 import type {
 	GraphiteBranchTopology,
 	GraphiteTopology,

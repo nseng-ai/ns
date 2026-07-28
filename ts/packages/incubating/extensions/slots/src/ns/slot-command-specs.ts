@@ -1,4 +1,5 @@
-import type { ClinkrCommandSpec, ClinkrExit, RenderCapabilities } from "@nseng-ai/clinkr";
+import type { ClinkrCommandSpec } from "@nseng-ai/clinkr";
+import type { ClinkrExit, RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 

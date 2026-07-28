@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrFailure, ClinkrGroup, ok } from "../src/index.ts";
+import { ClinkrGroup } from "@nseng-ai/clinkr";
+import { ClinkrFailure, ok } from "@nseng-ai/clinkr/legacy";
 import { createCaptureIo, runForTest } from "../src/testing/index.ts";
 
 function buildGroup(error: () => Error): ClinkrGroup<null> {

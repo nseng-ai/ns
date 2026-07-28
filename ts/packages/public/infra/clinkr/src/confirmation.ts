@@ -1,5 +1,4 @@
-import type { ClinkrUsageErrorExit } from "./exit.ts";
-import { usageError } from "./exit.ts";
+import { usageError, type ClinkrUsageErrorExit } from "@nseng-ai/clinkr/legacy";
 
 export type ConfirmationDefault = "yes" | "no";
 

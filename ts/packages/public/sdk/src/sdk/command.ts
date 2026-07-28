@@ -1,14 +1,16 @@
 import {
 	ClinkrGroup,
-	envelopeJsonText,
-	isJsonSchemaFlag,
 	type ClinkrCompletionCandidate,
 	type ClinkrCompletionResult,
 	type ClinkrDynamicCompletionRequest,
 	type ClinkrIo,
 	type OptionSpec,
-	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
+import {
+	envelopeJsonText,
+	isJsonSchemaFlag,
+	type RenderCapabilities,
+} from "@nseng-ai/clinkr/legacy";
 import type { PositionalSpec } from "@nseng-ai/clinkr/raw";
 import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
@@ -21,11 +23,10 @@ export type {
 	ClinkrCompletionCandidate,
 	ClinkrCompletionResult,
 	ClinkrDynamicCompletionRequest,
-	ClinkrFormat,
 	OptionSpec,
 	PositionalSpec,
-	RenderCapabilities,
 } from "@nseng-ai/clinkr";
+export type { ClinkrFormat, RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 
 export type NsCommandSchema = z.ZodObject;
 export type NsCommandRequest<S extends NsCommandSchema> = z.output<S>;

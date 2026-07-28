@@ -1,4 +1,4 @@
-import { failure, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { z } from "zod";
 
 import type { SkillsCommandContext } from "./skills-shared.ts";

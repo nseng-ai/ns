@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrGroup, ClinkrFailure, ok, type ClinkrCommandSpec } from "../src/index.ts";
+import { ClinkrGroup, type ClinkrCommandSpec } from "@nseng-ai/clinkr";
+import { ClinkrFailure, ok } from "@nseng-ai/clinkr/legacy";
 import { rawCommand } from "../src/raw/index.ts";
 import { parseEnvelope, runForTest } from "../src/testing/index.ts";
 

@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 
-import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { z } from "zod";
 
 import { bindObjectiveRunnerPublication } from "../publication/authorization.ts";

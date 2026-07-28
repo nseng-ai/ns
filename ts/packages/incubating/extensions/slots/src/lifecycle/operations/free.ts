@@ -1,11 +1,11 @@
+import { confirmInteractiveOrUsageError } from "@nseng-ai/clinkr";
 import {
-	confirmInteractiveOrUsageError,
 	failure,
 	negative,
 	ok,
 	resolveRenderCapabilities,
 	type RenderCapabilities,
-} from "@nseng-ai/clinkr";
+} from "@nseng-ai/clinkr/legacy";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 

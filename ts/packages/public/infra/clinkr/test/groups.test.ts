@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrGroup, ok } from "../src/index.ts";
+import { ClinkrGroup } from "@nseng-ai/clinkr";
+import { ok } from "@nseng-ai/clinkr/legacy";
 import { parseEnvelope, runForTest } from "../src/testing/index.ts";
 
 interface ProbeContext {

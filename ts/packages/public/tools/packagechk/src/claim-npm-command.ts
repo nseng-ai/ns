@@ -1,4 +1,5 @@
-import type { ClinkrExit, ClinkrInteraction } from "@nseng-ai/clinkr";
+import type { ClinkrInteraction } from "@nseng-ai/clinkr";
+import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
 
 import { buildNpmClaimProjectFiles, type NpmClaimProjectSpec } from "./claim.ts";
 import type {

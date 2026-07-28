@@ -1,5 +1,5 @@
 // Formal clinkr display import boundary: production core and non-display subpaths must stay display-free.
-// The root export (`@nseng-ai/clinkr`) plus `raw`, `completion`, and `testing` are non-display surfaces.
+// The root export (`@nseng-ai/clinkr`) plus `legacy`, `raw`, `completion`, and `testing` are non-display surfaces.
 // ns house-style display now lives outside Clinkr in `@nseng-ai/foundation/cli-theme`; Clinkr's only display-adjacent
 // production subpath is `@nseng-ai/clinkr/stream`, the owner of `log-update`. This guard scans production
 // source import/export literals directly so future re-exports, side-effect imports, and lazy imports
@@ -49,6 +49,12 @@ const NON_DISPLAY_ENTRYPOINTS: readonly NonDisplayEntrypoint[] = [
 		exportPath: "./completion",
 		packageTarget: "./src/completion.ts",
 		file: resolve(SRC_DIR, "completion.ts"),
+	},
+	{
+		label: "@nseng-ai/clinkr/legacy",
+		exportPath: "./legacy",
+		packageTarget: "./src/legacy/index.ts",
+		file: resolve(SRC_DIR, "legacy/index.ts"),
 	},
 	{
 		label: "@nseng-ai/clinkr/raw",

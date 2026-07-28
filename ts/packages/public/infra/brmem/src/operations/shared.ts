@@ -1,4 +1,4 @@
-import { failure, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
 import type { BrmemCliContext } from "../context.ts";

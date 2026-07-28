@@ -1,4 +1,5 @@
-import { failure, ok, requireInteractiveOrUsageError } from "@nseng-ai/clinkr";
+import { requireInteractiveOrUsageError } from "@nseng-ai/clinkr";
+import { failure, ok } from "@nseng-ai/clinkr/legacy";
 import {
 	installMarkerBlock,
 	markerSurfaceInstallRequestSchema,

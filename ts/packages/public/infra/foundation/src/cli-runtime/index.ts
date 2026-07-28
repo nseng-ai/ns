@@ -3,14 +3,8 @@ import process from "node:process";
 import { basename, dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-	ClinkrGroup,
-	failure,
-	resolveIo,
-	type ClinkrExit,
-	type ClinkrIo,
-	type RenderCapabilities,
-} from "@nseng-ai/clinkr";
+import { ClinkrGroup, resolveIo, type ClinkrIo } from "@nseng-ai/clinkr";
+import { failure, type ClinkrExit, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { z } from "zod";
 
 import {

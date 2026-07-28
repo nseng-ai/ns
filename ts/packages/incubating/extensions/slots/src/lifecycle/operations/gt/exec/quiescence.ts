@@ -1,6 +1,6 @@
 import type { StackInfo } from "@nseng-ai/extension-kit/graphite/stack";
 import { parseJsonUnknown } from "@nseng-ai/extension-kit/github/graphql-json";
-import { failure, negative, ok, usageError } from "@nseng-ai/clinkr";
+import { failure, negative, ok, usageError } from "@nseng-ai/clinkr/legacy";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 

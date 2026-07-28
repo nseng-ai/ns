@@ -1,15 +1,15 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
+import { ClinkrGroup } from "@nseng-ai/clinkr";
 import {
 	ClinkrFailure,
-	ClinkrGroup,
 	negative,
 	ok,
 	renderCapabilitiesForTerminal,
 	resolveRenderCapabilities,
 	type ClinkrExit,
-} from "../src/index.ts";
+} from "@nseng-ai/clinkr/legacy";
 import type { Caps } from "../src/caps.ts";
 import { runForTest } from "../src/testing/index.ts";
 

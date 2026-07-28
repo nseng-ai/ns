@@ -1,4 +1,4 @@
-import { failure, ok, type RenderCapabilities } from "@nseng-ai/clinkr";
+import { failure, ok, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { renderTextTable } from "@nseng-ai/foundation/text-table";
 import { z } from "zod";

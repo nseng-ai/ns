@@ -2,10 +2,10 @@ import process from "node:process";
 
 import {
 	createClinkrInteraction,
-	renderCapabilitiesForTerminal,
 	resolveProcessCaps,
 	type ClinkrInteraction,
 } from "@nseng-ai/clinkr";
+import { renderCapabilitiesForTerminal } from "@nseng-ai/clinkr/legacy";
 import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
 import { runCommand } from "@nseng-ai/foundation/exec";
 import { optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";

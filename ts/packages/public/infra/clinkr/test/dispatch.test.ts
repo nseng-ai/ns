@@ -1,14 +1,8 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import {
-	ClinkrFailure,
-	ClinkrGroup,
-	negative,
-	ok,
-	usageError,
-	type ClinkrExit,
-} from "../src/index.ts";
+import { ClinkrGroup } from "@nseng-ai/clinkr";
+import { ClinkrFailure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { parseEnvelope, runForTest } from "../src/testing/index.ts";
 
 function buildGroup(): ClinkrGroup<null> {

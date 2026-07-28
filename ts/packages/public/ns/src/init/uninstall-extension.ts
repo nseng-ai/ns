@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
-import type { ClinkrExit } from "@nseng-ai/clinkr";
-import { failure, ok } from "@nseng-ai/clinkr";
+import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
+import { failure, ok } from "@nseng-ai/clinkr/legacy";
 import { ALL_HARNESS_IDS } from "../harness-artifacts/api.ts";
 import { planDeclaredExtensionUninstallToml } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";

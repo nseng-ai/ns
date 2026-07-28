@@ -1,12 +1,11 @@
+import { requireInteractiveOrUsageError, type Caps } from "@nseng-ai/clinkr";
 import {
 	failure,
 	negative,
 	ok,
-	requireInteractiveOrUsageError,
 	resolveRenderCapabilities,
-	type Caps,
 	type RenderCapabilities,
-} from "@nseng-ai/clinkr";
+} from "@nseng-ai/clinkr/legacy";
 import {
 	cell,
 	paint,

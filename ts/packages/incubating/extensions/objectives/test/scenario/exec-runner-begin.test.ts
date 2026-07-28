@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { envelopeJsonText, toMachineEnvelope, type ClinkrExit } from "@nseng-ai/clinkr";
+import { envelopeJsonText, toMachineEnvelope, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
