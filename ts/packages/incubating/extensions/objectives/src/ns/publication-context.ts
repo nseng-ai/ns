@@ -39,11 +39,11 @@ export async function createNsObjectiveRunnerPublicationContext(
 	return {
 		cwd: ctx.cwd,
 		repoRoot: base.repoRoot,
-		trunkBranch: base.trunkBranch,
+		trunkBranch: base.repositoryTrunk.branch,
 		commands,
 		facts: createRealObjectiveRunnerPublicationFactsGateway({
 			cwd: ctx.cwd,
-			trunkBranch: base.trunkBranch,
+			trunkBranch: base.repositoryTrunk.branch,
 			commands,
 			flow,
 		}),

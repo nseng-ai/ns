@@ -17,7 +17,7 @@ describe("Objective context trunk resolution", () => {
 		});
 		const context = await createRealObjectiveContext({ cwd: repoRoot, git });
 
-		expect(context.trunkBranch).toBe("develop");
+		expect(context.repositoryTrunk.branch).toBe("develop");
 		expect(git.exactRefPresenceCalls).toEqual([]);
 	});
 
@@ -27,7 +27,7 @@ describe("Objective context trunk resolution", () => {
 		const git = new InMemoryGitGateway({ optionalRepoRoot: repoRoot });
 		const context = await createRealObjectiveContext({ cwd: repoRoot, git });
 
-		expect(context.trunkBranch).toBe("develop");
+		expect(context.repositoryTrunk.branch).toBe("develop");
 		expect(git.exactRefPresenceCalls).toEqual([]);
 	});
 });

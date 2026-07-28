@@ -106,6 +106,28 @@ describe("objective tracking-gate operation", () => {
 		expect(ctx.git.changedPathsUnderCalls).toEqual([]);
 	});
 
+	test("preserves the canonical Git failure when local trunk readiness cannot be checked", async () => {
+		const ctx = contextWithFakeStorage(
+			{ records: [{ slug: "flow-cleanup" }] },
+			{
+				currentBranch: "feature/flow-cleanup",
+				exactRefPresenceFailures: {
+					"refs/heads/master": { code: "git-failed", message: "rev-parse failed" },
+				},
+			},
+		);
+
+		const exit = await runTrackingGate(ctx, { slug: "flow-cleanup" });
+
+		expect(exit).toMatchObject({
+			type: "failure",
+			errorType: "git-failed",
+			message:
+				"Git failed while attempting to check required ref `refs/heads/master`. rev-parse failed",
+		});
+		expect(ctx.git.changedPathsUnderCalls).toEqual([]);
+	});
+
 	test("returns negative data when the Objective is missing without requiring trunk readiness", async () => {
 		const ctx = contextWithFakeStorage({ records: [] });
 
@@ -132,7 +154,13 @@ function contextWithFakeStorage(
 		cwd: "/repo",
 		env: { PATH: "/fake/bin" },
 		repoRoot: "/repo",
-		trunkBranch,
+		repositoryTrunk: {
+			branch: trunkBranch,
+			remote: "origin",
+			localRef: `refs/heads/${trunkBranch}`,
+			remoteTrackingRef: `refs/remotes/origin/${trunkBranch}`,
+			source: "configured",
+		},
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(fake)),
 		git: new InMemoryGitGateway(gitState),
 	};

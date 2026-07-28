@@ -40,7 +40,7 @@ export async function createNsObjectiveContext(
 		cwd: ctx.cwd,
 		env: ctx.env,
 		repoRoot,
-		trunkBranch: repositoryTrunk.value.branch,
+		repositoryTrunk: repositoryTrunk.value,
 		storage: options.storage ?? new ObjectiveStorage(new RealObjectiveStorageGateway(repoRoot)),
 		git,
 	};

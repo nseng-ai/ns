@@ -226,7 +226,13 @@ describe("objective list helpers", () => {
 				cwd: "/repo",
 				env: { PATH: "/fake/bin" },
 				repoRoot: "/repo",
-				trunkBranch: "master",
+				repositoryTrunk: {
+					branch: "master",
+					remote: "origin",
+					localRef: "refs/heads/master",
+					remoteTrackingRef: "refs/remotes/origin/master",
+					source: "configured",
+				},
 				storage: new ObjectiveStorage(
 					new FakeObjectiveStorageGateway({
 						records: [
@@ -299,7 +305,13 @@ describe("objective list helpers", () => {
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			repoRoot: "/repo",
-			trunkBranch: "master",
+			repositoryTrunk: {
+				branch: "master",
+				remote: "origin",
+				localRef: "refs/heads/master",
+				remoteTrackingRef: "refs/remotes/origin/master",
+				source: "configured",
+			},
 			storage: new ObjectiveStorage(
 				new FakeObjectiveStorageGateway({
 					records: [
@@ -373,7 +385,13 @@ describe("objective list helpers", () => {
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			repoRoot: "/repo",
-			trunkBranch: "master",
+			repositoryTrunk: {
+				branch: "master",
+				remote: "origin",
+				localRef: "refs/heads/master",
+				remoteTrackingRef: "refs/remotes/origin/master",
+				source: "configured",
+			},
 			storage: new ObjectiveStorage(
 				new FakeObjectiveStorageGateway({ records: [{ slug: "alpha" }] }),
 			),

@@ -79,8 +79,8 @@ export async function verifyRunnerStep(
 
 	checks.push(
 		branchCheck("branch-not-trunk", branch, branchUnavailableDetail, (live) =>
-			live === ctx.trunkBranch
-				? `Current branch is trunk (${ctx.trunkBranch}); refusing to commit on trunk.`
+			live === ctx.repositoryTrunk.branch
+				? `Current branch is trunk (${ctx.repositoryTrunk.branch}); refusing to commit on trunk.`
 				: null,
 		),
 	);

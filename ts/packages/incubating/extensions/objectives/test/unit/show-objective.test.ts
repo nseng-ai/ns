@@ -385,7 +385,13 @@ function contextWith(options: {
 		cwd: "/repo",
 		env: { PATH: "/fake/bin" },
 		repoRoot: "/repo",
-		trunkBranch: options.trunkBranch ?? "main",
+		repositoryTrunk: {
+			branch: options.trunkBranch ?? "main",
+			remote: "origin",
+			localRef: `refs/heads/${options.trunkBranch ?? "main"}`,
+			remoteTrackingRef: `refs/remotes/origin/${options.trunkBranch ?? "main"}`,
+			source: "configured",
+		},
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(options.fake)),
 		git: new InMemoryGitGateway({
 			existingRefs: [`refs/heads/${options.trunkBranch ?? "main"}`],

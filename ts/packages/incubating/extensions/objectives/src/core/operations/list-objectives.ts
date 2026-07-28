@@ -124,7 +124,7 @@ export async function buildObjectiveListResult(
 	return {
 		type: "ok",
 		value: {
-			trunkBranch: ctx.trunkBranch,
+			trunkBranch: ctx.repositoryTrunk.branch,
 			rootPath: activeRootRelativePath(),
 			statusFilter: request.status,
 			namesOnly: request.names,

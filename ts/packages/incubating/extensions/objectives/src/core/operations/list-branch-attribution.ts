@@ -29,7 +29,7 @@ export async function buildObjectiveBranchAttributionForContext(
 	if (localTrunk.type === "git-error") return localTrunk;
 	return await buildObjectiveBranchAttribution(ctx.git, {
 		repoRoot: ctx.repoRoot,
-		trunkBranch: localTrunk.branch,
+		trunkBranch: localTrunk.trunk.branch,
 		slugs,
 	});
 }

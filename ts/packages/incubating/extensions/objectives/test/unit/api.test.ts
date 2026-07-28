@@ -32,7 +32,13 @@ function buildContext(): ObjectiveCliContext {
 		cwd: "/repo",
 		env: {},
 		repoRoot: "/repo",
-		trunkBranch: "master",
+		repositoryTrunk: {
+			branch: "master",
+			remote: "origin",
+			localRef: "refs/heads/master",
+			remoteTrackingRef: "refs/remotes/origin/master",
+			source: "configured",
+		},
 		storage,
 		git: new InMemoryGitGateway({
 			existingRefs: ["refs/heads/master"],
@@ -138,7 +144,13 @@ describe("objectives API", () => {
 				cwd: "/repo",
 				env: {},
 				repoRoot: "/repo",
-				trunkBranch: "master",
+				repositoryTrunk: {
+					branch: "master",
+					remote: "origin",
+					localRef: "refs/heads/master",
+					remoteTrackingRef: "refs/remotes/origin/master",
+					source: "configured",
+				},
 				storage,
 				git: new InMemoryGitGateway({
 					localBranchTips: [{ name: "master", headIso: "2026-05-01T00:00:00Z" }],

@@ -105,7 +105,7 @@ export async function runTrackingGate(
 	if (localTrunk.type === "git-error") {
 		return failure(localTrunk.error.code, localTrunk.error.message);
 	}
-	const trunkBranch = localTrunk.branch;
+	const trunkBranch = localTrunk.trunk.branch;
 	const revisionRange = `${trunkBranch}...HEAD`;
 	const changedPathsResult = await ctx.git.changedPathsUnder({
 		cwd: ctx.repoRoot,
@@ -237,8 +237,8 @@ function buildMissingResult(ctx: ObjectiveCliContext, slug: string): TrackingGat
 		git: {
 			repoRoot: ctx.repoRoot,
 			currentBranch: { type: "detached" },
-			trunkBranch: ctx.trunkBranch,
-			revisionRange: `${ctx.trunkBranch}...HEAD`,
+			trunkBranch: ctx.repositoryTrunk.branch,
+			revisionRange: `${ctx.repositoryTrunk.branch}...HEAD`,
 		},
 	});
 }

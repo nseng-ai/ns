@@ -4,6 +4,7 @@ import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
 	nodeRepositoryTrunkConfigLoader,
 	resolveRepositoryTrunk,
+	type RepositoryTrunk,
 } from "@nseng-ai/extension-kit/repository-trunk";
 
 import { RealObjectiveStorageGateway } from "./real-storage.ts";
@@ -14,7 +15,7 @@ export interface ObjectiveCliContext {
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 	repoRoot: string;
-	trunkBranch: string;
+	repositoryTrunk: RepositoryTrunk;
 	storage: ObjectiveStorage;
 	git: GitGateway;
 }
@@ -45,7 +46,7 @@ export async function createRealObjectiveContext(
 		cwd,
 		env,
 		repoRoot,
-		trunkBranch: repositoryTrunk.value.branch,
+		repositoryTrunk: repositoryTrunk.value,
 		storage: new ObjectiveStorage(new RealObjectiveStorageGateway(repoRoot)),
 		git,
 	};

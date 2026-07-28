@@ -113,10 +113,10 @@ export async function checkRunnerPreconditions(
 				message: "Worktree is clean; --recover requires the dirty tree a failed step left behind.",
 			};
 		}
-		if (baseBranch === ctx.trunkBranch) {
+		if (baseBranch === ctx.repositoryTrunk.branch) {
 			return {
 				type: "refused",
-				message: `Refusing to recover on trunk branch ${JSON.stringify(ctx.trunkBranch)}; --recover expects the failed attempt's non-trunk branch.`,
+				message: `Refusing to recover on trunk branch ${JSON.stringify(ctx.repositoryTrunk.branch)}; --recover expects the failed attempt's non-trunk branch.`,
 			};
 		}
 	}
