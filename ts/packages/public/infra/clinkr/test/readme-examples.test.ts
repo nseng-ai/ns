@@ -4,7 +4,7 @@ import path from "node:path";
 import { expect, test } from "vitest";
 
 import { app } from "./fixtures/readme-greet/app.ts";
-import { runForTest } from "@nseng-ai/clinkr/app/testing";
+import { runForCliTest } from "@nseng-ai/clinkr/app/testing";
 
 const README_PATH = path.resolve(
 	import.meta.dirname,
@@ -143,13 +143,13 @@ for (const [label, argv, stdout] of [
 	["default", ["Ada"], "Hello, Ada.\n"],
 ] as const) {
 	test(`README greet executes with ${label}`, async () => {
-		const run = await runForTest(await app(), argv);
+		const run = await runForCliTest(await app(), argv);
 		expect(run).toEqual({ exitCode: 0, stdout, stderr: "" });
 	});
 }
 
 test("README greet accepts its complete request as JSON before the root route", async () => {
-	const run = await runForTest(await app(), ["--input-json", "--format", "json"], {
+	const run = await runForCliTest(await app(), ["--input-json", "--format", "json"], {
 		stdin: '{"name":"Ada","enthusiastic":true}',
 	});
 	expect(run).toEqual({
@@ -170,7 +170,7 @@ for (const [label, stdin, errorType] of [
 	["schema rejection", '{"name":12}', "invalid-request"],
 ] as const) {
 	test(`README JSON input rejects ${label} input`, async () => {
-		const run = await runForTest(await app(), ["--format", "json", "--input-json"], { stdin });
+		const run = await runForCliTest(await app(), ["--format", "json", "--input-json"], { stdin });
 		expect(run.exitCode).toBe(2);
 		expect(run.stderr).toBe("");
 		expect(JSON.parse(run.stdout)).toMatchObject({ status: "usage-error", exitCode: 2, errorType });
@@ -178,7 +178,7 @@ for (const [label, stdin, errorType] of [
 }
 
 test("README JSON input cannot mix with argv request fields", async () => {
-	const run = await runForTest(await app(), ["Ada", "--input-json", "--format", "json"], {
+	const run = await runForCliTest(await app(), ["Ada", "--input-json", "--format", "json"], {
 		stdin: '{"name":"Grace"}',
 	});
 	expect(JSON.parse(run.stdout)).toMatchObject({
@@ -189,7 +189,7 @@ test("README JSON input cannot mix with argv request fields", async () => {
 });
 
 test("README JSON input cannot be repeated or mixed across source forms", async () => {
-	const run = await runForTest(await app(), ["--input-json", "--format=json", "--input-json"], {
+	const run = await runForCliTest(await app(), ["--input-json", "--format=json", "--input-json"], {
 		stdin: '{"name":"Ada"}',
 	});
 	expect(JSON.parse(run.stdout)).toMatchObject({

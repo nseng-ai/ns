@@ -4,15 +4,15 @@ import { Command, CommanderError, Option } from "commander";
 import { z } from "zod";
 
 import { stripAnsi } from "../ansi.ts";
+import { resolveProcessCaps } from "../caps.ts";
 import { buildCommanderArgument, buildCommanderOption } from "../commander-surface.ts";
-import type { ClinkrIo } from "../io.ts";
-import { createProcessIo } from "../io.ts";
 import { buildSurfacePlan, type SurfacePlan } from "../surface.ts";
 import {
 	buildCommandJsonSchemaDocument,
 	cliAnnotationFor,
 	type ClinkrCommandDefinition,
 	type ClinkrCommandMetadata,
+	type RenderCapabilities,
 } from "./command-definition.ts";
 import {
 	decodeCommandOutcome,
@@ -26,23 +26,77 @@ import { importSelectedCommand, type LoadedSelectedCommand } from "./selected-co
 
 export interface ClinkrRunOptions<TContext> {
 	readonly context: TContext;
-	readonly io?: ClinkrIo;
+	/** Stdin source for `--input-json`; defaults to draining `process.stdin`. */
 	readonly readStdin?: () => Promise<string>;
+	/** ANSI capability override; defaults to the resolved process stdout caps. */
+	readonly canEmitAnsi?: boolean;
 }
 
 export interface ClinkrContextFreeRunOptions {
-	readonly io?: ClinkrIo;
+	/** Stdin source for `--input-json`; defaults to draining `process.stdin`. */
 	readonly readStdin?: () => Promise<string>;
+	/** ANSI capability override; defaults to the resolved process stdout caps. */
+	readonly canEmitAnsi?: boolean;
+}
+
+/** Options for a contextful {@link ClinkrContextfulApp.execute} invocation. */
+export interface ClinkrExecuteOptions<TContext> {
+	readonly context: TContext;
+}
+
+/**
+ * Result of a typed host invocation through `execute()`: the decoded command
+ * outcome, its exit-code mapping, and lazy rendered views bound to the
+ * command definition.
+ *
+ * @remarks Provisional host surface: exported for host integrations ahead of
+ * README promotion, which is deliberately deferred until the first in-process
+ * host migration proves the contract.
+ */
+export interface ClinkrExecuteResult {
+	readonly outcome: CommandOutcome<unknown>;
+	readonly exitCode: 0 | 1 | 2;
+	/**
+	 * Rendered human view mirroring what `run()` prints to stdout for
+	 * success (rendered data, or pretty-JSON when no renderer) and negative
+	 * (message). Returns `undefined` when `run()` would print nothing to
+	 * stdout (bodyless success, failure, usage-error — hosts use
+	 * `outcome.message`).
+	 */
+	renderHuman(capabilities: RenderCapabilities): string | undefined;
+	/**
+	 * Same contract as {@link ClinkrExecuteResult.renderHuman}; falls back to
+	 * `renderHuman` when the definition declares no `renderMarkdown`,
+	 * mirroring `run()`'s `md` format.
+	 */
+	renderMarkdown(capabilities: RenderCapabilities): string | undefined;
 }
 
 export interface ClinkrContextFreeApp {
 	readonly requiresContext: false;
 	run(argv: readonly string[], options?: ClinkrContextFreeRunOptions): Promise<number>;
+	/**
+	 * Typed host invocation: always schema-validates `request`, runs the
+	 * handler, and returns the decoded outcome with lazy rendered views. Raw
+	 * commands are terminal-only and are rejected with a programmer error.
+	 *
+	 * @remarks Provisional host surface; see {@link ClinkrExecuteResult}.
+	 */
+	execute(request: unknown): Promise<ClinkrExecuteResult>;
 }
 
 export interface ClinkrContextfulApp<TContext> {
 	readonly requiresContext: true;
 	run(argv: readonly string[], options: ClinkrRunOptions<TContext>): Promise<number>;
+	/**
+	 * Typed host invocation: always schema-validates `request`, runs the
+	 * handler with the supplied context, and returns the decoded outcome with
+	 * lazy rendered views. Raw commands are terminal-only and are rejected
+	 * with a programmer error.
+	 *
+	 * @remarks Provisional host surface; see {@link ClinkrExecuteResult}.
+	 */
+	execute(request: unknown, options: ClinkrExecuteOptions<TContext>): Promise<ClinkrExecuteResult>;
 }
 
 export type ClinkrApp<TContext = never> = [TContext] extends [never]
@@ -69,7 +123,11 @@ export interface CreateContextfulClinkrAppOptions extends CreateClinkrAppBase {
  * contextful handler or raw runner ever receives an absent context.
  */
 function requireRunContext<TContext>(
-	options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions,
+	options:
+		| ClinkrRunOptions<TContext>
+		| ClinkrContextFreeRunOptions
+		| ClinkrExecuteOptions<TContext>
+		| Record<string, never>,
 ): TContext {
 	if (!("context" in options) || options.context === undefined) {
 		throw new Error("clinkr: contextful command execution requires run options with context");
@@ -96,111 +154,140 @@ class FilesystemClinkrApp<TContext> {
 		argv: readonly string[],
 		options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions = {},
 	): Promise<number> {
-		const io = options.io ?? createProcessIo();
 		const { selected, metadata } = await this.loadDefinition();
-		if ((selected.definition.requiresContext === true) !== this.requiresContext) {
-			throw new Error("clinkr: selected command context mode does not match the app");
-		}
 		if (selected.kind === "raw") {
 			// Raw dispatch branches before structured global-flag parsing: the raw
 			// command owns its entire argv tail (including `--format`,
 			// `--input-json`, `--json-schema`, `--help`, and `--`), all output
 			// bytes, stdin, and the numeric exit status, which passes through
-			// unchanged.
+			// unchanged. Raw commands write to the process streams directly.
 			const definition = selected.definition;
 			if (definition.requiresContext === true) {
-				return await definition.run({ context: requireRunContext(options), argv, io });
+				return await definition.run({ context: requireRunContext(options), argv });
 			}
-			return await definition.run({ argv, io });
+			return await definition.run({ argv });
 		}
 		const definition = selected.definition;
+		const canEmitAnsi = options.canEmitAnsi ?? resolveProcessCaps().colorDepth !== "none";
 		const parsed = parseGlobalFlags(argv);
 		if (parsed.ok ? parsed.flags.help : parsed.help) {
-			io.stdout(buildCommandSurface(this.name, definition, metadata).command.helpInformation());
+			process.stdout.write(
+				buildCommandSurface(this.name, definition, metadata).command.helpInformation(),
+			);
 			return 0;
 		}
 		if (!parsed.ok) {
-			return emitUsageError({
-				io,
-				format: parsed.format,
-				message: parsed.message,
-				errorType: "invalid-request",
-			});
+			return emitTerminalOutcome(
+				frameworkUsageError(parsed.message, "invalid-request"),
+				definition,
+				parsed.format,
+				canEmitAnsi,
+			);
 		}
 		const { format, jsonSchema, inputJson, rest } = parsed.flags;
-		if (jsonSchema && inputJson) {
-			return emitUsageError({
-				io,
+		const emitUsageError = (
+			message: string,
+			errorType: FrameworkUsageErrorType,
+			data?: unknown,
+		): number =>
+			emitTerminalOutcome(
+				frameworkUsageError(message, errorType, data),
+				definition,
 				format,
-				message: "--json-schema cannot be combined with --input-json",
-				errorType: "invalid-request",
-			});
+				canEmitAnsi,
+			);
+		if (jsonSchema && inputJson) {
+			return emitUsageError(
+				"--json-schema cannot be combined with --input-json",
+				"invalid-request",
+			);
 		}
 		if (jsonSchema) {
-			io.stdout(`${envelopeJsonText(buildCommandJsonSchemaDocument(definition))}\n`);
+			process.stdout.write(`${envelopeJsonText(buildCommandJsonSchemaDocument(definition))}\n`);
 			return 0;
 		}
 		let request: Record<string, unknown>;
 		if (inputJson) {
 			if (rest.length > 0) {
-				return emitUsageError({
-					io,
-					format,
-					message: "--input-json cannot be combined with command arguments",
-					errorType: "invalid-request",
-				});
+				return emitUsageError(
+					"--input-json cannot be combined with command arguments",
+					"invalid-request",
+				);
 			}
-			const readStdin = options.readStdin ?? io.readStdin;
-			if (readStdin === undefined) {
-				return emitUsageError({
-					io,
-					format,
-					message: "--input-json requires stdin",
-					errorType: "invalid-json-input",
-				});
-			}
+			const readStdin = options.readStdin ?? drainProcessStdin;
 			const parsedJson = parseJsonInput(await readStdin(), definition.schema);
-			if (!parsedJson.success)
-				return emitUsageError({
-					io,
-					format,
-					message: parsedJson.message,
-					errorType: parsedJson.errorType,
-					...(parsedJson.data === undefined ? {} : { data: parsedJson.data }),
-				});
+			if (!parsedJson.success) {
+				return emitUsageError(parsedJson.message, parsedJson.errorType, parsedJson.data);
+			}
 			request = parsedJson.data as Record<string, unknown>;
 		} else {
 			const parsedArgv = parseArgv(this.name, rest, definition, metadata);
-			if (!parsedArgv.success)
-				return emitUsageError({
-					io,
-					format,
-					message: parsedArgv.message,
-					errorType: "invalid-request",
-				});
+			if (!parsedArgv.success) {
+				return emitUsageError(parsedArgv.message, "invalid-request");
+			}
 			request = parsedArgv.data as Record<string, unknown>;
 		}
+		const outcome = await this.invokeHandler(definition, request, options);
+		return emitTerminalOutcome(outcome, definition, format, canEmitAnsi);
+	}
+
+	async execute(
+		request: unknown,
+		options?: ClinkrExecuteOptions<TContext>,
+	): Promise<ClinkrExecuteResult> {
+		const { selected } = await this.loadDefinition();
+		if (selected.kind === "raw") {
+			throw new Error("clinkr: raw commands execute only through the terminal adapter");
+		}
+		const definition = selected.definition;
+		const decoded = decodeJsonRequest(request, definition.schema);
+		const outcome: CommandOutcome<unknown> = decoded.success
+			? await this.invokeHandler(definition, decoded.data as Record<string, unknown>, options ?? {})
+			: frameworkUsageError(decoded.message, decoded.errorType, decoded.data);
+		return {
+			outcome,
+			exitCode: exitCodeFor(outcome.status),
+			renderHuman: (capabilities) => renderOutcomeView(definition, outcome, "human", capabilities),
+			renderMarkdown: (capabilities) => renderOutcomeView(definition, outcome, "md", capabilities),
+		};
+	}
+
+	/** Shared invocation core: handler call plus outcome decode, identical for every transport. */
+	private async invokeHandler(
+		definition: ClinkrCommandDefinition<TContext>,
+		request: Record<string, unknown>,
+		options:
+			| ClinkrRunOptions<TContext>
+			| ClinkrContextFreeRunOptions
+			| ClinkrExecuteOptions<TContext>
+			| Record<string, never>,
+	): Promise<CommandOutcome<unknown>> {
 		const handlerResult: unknown =
 			definition.requiresContext === true
 				? await definition.handler(requireRunContext(options), request)
 				: await definition.handler(request);
-		const outcome = decodeCommandOutcome(handlerResult, definition.resultSchema);
-		emitOutcome(io, outcome, definition, format);
-		return exitCodeFor(outcome.status);
+		return decodeCommandOutcome(handlerResult, definition.resultSchema);
 	}
 
 	// Transactional selected loading: concurrent requests share in-flight work,
 	// successful loads cache for the app lifetime, and failed loads clear so a
-	// later request can retry.
+	// later request can retry. The context-mode guard runs on every load so
+	// both run() and execute() reject mismatched apps.
 	private async loadDefinition(): Promise<LoadedSelectedCommand<TContext>> {
-		if (this.loaded !== undefined) return this.loaded;
-		this.loaded = importSelectedCommand<TContext>(this.commandDirectory);
+		if (this.loaded === undefined) {
+			this.loaded = importSelectedCommand<TContext>(this.commandDirectory);
+		}
+		let loaded: LoadedSelectedCommand<TContext>;
 		try {
-			return await this.loaded;
+			loaded = await this.loaded;
 		} catch (error) {
 			this.loaded = undefined;
 			throw error;
 		}
+		if ((loaded.selected.definition.requiresContext === true) !== this.requiresContext) {
+			throw new Error("clinkr: selected command context mode does not match the app");
+		}
+		return loaded;
 	}
 }
 
@@ -296,32 +383,38 @@ function parseArgv(
 /** Usage-error discriminants the framework itself emits (handlers own other values). */
 type FrameworkUsageErrorType = "invalid-request" | "invalid-json-input";
 
-function parseJsonInput(
-	text: string,
-	schema: z.ZodObject,
-):
+function frameworkUsageError(
+	message: string,
+	errorType: FrameworkUsageErrorType,
+	data?: unknown,
+): UsageErrorOutcome {
+	return {
+		status: "usage-error",
+		errorType,
+		message,
+		...(data === undefined ? {} : { data }),
+	};
+}
+
+type DecodeRequestResult =
 	| { success: true; data: unknown }
-	| { success: false; message: string; errorType: FrameworkUsageErrorType; data?: unknown } {
-	const normalized = text.startsWith("\uFEFF") ? text.slice(1) : text;
-	if (normalized.trim() === "")
-		return { success: false, message: "stdin is empty", errorType: "invalid-json-input" };
-	let value: unknown;
-	try {
-		value = JSON.parse(normalized);
-	} catch {
+	| { success: false; message: string; errorType: FrameworkUsageErrorType; data?: unknown };
+
+/**
+ * Shared request decode for every non-argv transport: object-shape check,
+ * top-level unknown-key rejection before field validation (so unknown-key
+ * errors retain precedence over field errors), then the full schema decode
+ * (defaults, transforms, refinements).
+ */
+function decodeJsonRequest(value: unknown, schema: z.ZodObject): DecodeRequestResult {
+	const transported = z.object({}).loose().safeParse(value);
+	if (!transported.success) {
 		return {
 			success: false,
-			message: "stdin is not exactly one JSON value",
-			errorType: "invalid-json-input",
+			message: "request must be a JSON object",
+			errorType: "invalid-request",
 		};
 	}
-	const transported = z.object({}).loose().safeParse(value);
-	if (!transported.success)
-		return {
-			success: false,
-			message: "stdin JSON must be an object",
-			errorType: "invalid-json-input",
-		};
 	// Reject top-level unknown keys even for passthrough schemas, before field
 	// validation, so unknown-key errors retain precedence over field errors.
 	const declaredKeys = new Set(Object.keys(schema.shape));
@@ -354,15 +447,43 @@ function parseJsonInput(
 			};
 }
 
-type OutputFormat = "human" | "json" | "md";
-
-interface EmitUsageErrorOptions {
-	readonly io: ClinkrIo;
-	readonly format: OutputFormat;
-	readonly message: string;
-	readonly errorType: FrameworkUsageErrorType;
-	readonly data?: unknown;
+/**
+ * Terminal stdin-JSON transport decode: BOM strip and the
+ * exactly-one-JSON-object transport contract (`invalid-json-input`), then the
+ * shared {@link decodeJsonRequest} schema decode (`invalid-request`).
+ */
+function parseJsonInput(text: string, schema: z.ZodObject): DecodeRequestResult {
+	const normalized = text.startsWith("\uFEFF") ? text.slice(1) : text;
+	if (normalized.trim() === "")
+		return { success: false, message: "stdin is empty", errorType: "invalid-json-input" };
+	let value: unknown;
+	try {
+		value = JSON.parse(normalized);
+	} catch {
+		return {
+			success: false,
+			message: "stdin is not exactly one JSON value",
+			errorType: "invalid-json-input",
+		};
+	}
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return {
+			success: false,
+			message: "stdin JSON must be an object",
+			errorType: "invalid-json-input",
+		};
+	}
+	return decodeJsonRequest(value, schema);
 }
+
+/** Default stdin source for the terminal adapter's `--input-json` transport. */
+async function drainProcessStdin(): Promise<string> {
+	const chunks: Buffer[] = [];
+	for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
+	return Buffer.concat(chunks).toString("utf8");
+}
+
+type OutputFormat = "human" | "json" | "md";
 
 interface GlobalFlags {
 	readonly format: OutputFormat;
@@ -459,22 +580,25 @@ function parseGlobalFlags(argv: readonly string[]): GlobalFlagsResult {
  * stays advisory to renderers; this is the enforcement point. JSON envelopes
  * bypass this because JSON.stringify escapes control characters.
  */
-function boundaryText(io: ClinkrIo, text: string): string {
-	return io.canEmitAnsi === true ? text : stripAnsi(text);
+function boundaryText(canEmitAnsi: boolean, text: string): string {
+	return canEmitAnsi ? text : stripAnsi(text);
 }
 
-function emitOutcome(
-	io: ClinkrIo,
-	outcome: CommandOutcome<unknown>,
+/**
+ * Stdout view of an outcome shared by run()'s human/md formats and
+ * execute()'s render accessors: rendered success data (pretty-JSON fallback
+ * when no renderer), negative message, and `undefined` when nothing goes to
+ * stdout (bodyless success, failure, usage-error). The ANSI output boundary
+ * is enforced here so both surfaces mirror each other exactly.
+ */
+function renderOutcomeView(
 	definition: ClinkrCommandDefinition,
-	format: "human" | "json" | "md",
-): void {
-	if (format === "json") {
-		io.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
-		return;
-	}
+	outcome: CommandOutcome<unknown>,
+	format: "human" | "md",
+	capabilities: RenderCapabilities,
+): string | undefined {
 	if (outcome.status === "success") {
-		if (outcome.data === undefined) return;
+		if (outcome.data === undefined) return undefined;
 		const renderer =
 			format === "md"
 				? (definition.renderMarkdown ?? definition.renderHuman)
@@ -482,28 +606,36 @@ function emitOutcome(
 		const text =
 			renderer === undefined
 				? envelopeJsonText(outcome.data)
-				: renderer(outcome.data, { canEmitAnsi: io.canEmitAnsi === true });
-		io.stdout(`${boundaryText(io, text)}\n`);
-		return;
+				: renderer(outcome.data, capabilities);
+		return boundaryText(capabilities.canEmitAnsi, text);
 	}
 	if (outcome.status === "negative") {
-		io.stdout(`${boundaryText(io, outcome.message)}\n`);
-		return;
+		return boundaryText(capabilities.canEmitAnsi, outcome.message);
 	}
-	io.stderr(`${boundaryText(io, outcome.message)}\n`);
+	return undefined;
 }
 
-function emitUsageError(options: EmitUsageErrorOptions): number {
-	const outcome: UsageErrorOutcome = {
-		status: "usage-error",
-		errorType: options.errorType,
-		message: options.message,
-		...(options.data === undefined ? {} : { data: options.data }),
-	};
-	if (options.format === "json") {
-		options.io.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
-	} else {
-		options.io.stderr(`${boundaryText(options.io, options.message)}\n`);
+/**
+ * Single terminal emission tail: every structured outcome — handler-produced
+ * or framework usage error — flows through here exactly once. JSON format
+ * writes the machine envelope to stdout; human/md write the rendered view to
+ * stdout and failure/usage-error messages to stderr.
+ */
+function emitTerminalOutcome(
+	outcome: CommandOutcome<unknown>,
+	definition: ClinkrCommandDefinition,
+	format: OutputFormat,
+	canEmitAnsi: boolean,
+): number {
+	if (format === "json") {
+		process.stdout.write(`${envelopeJsonText(toEnvelope(outcome))}\n`);
+		return exitCodeFor(outcome.status);
+	}
+	const view = renderOutcomeView(definition, outcome, format, { canEmitAnsi });
+	if (view !== undefined) {
+		process.stdout.write(`${view}\n`);
+	} else if (outcome.status === "failure" || outcome.status === "usage-error") {
+		process.stderr.write(`${boundaryText(canEmitAnsi, outcome.message)}\n`);
 	}
 	return exitCodeFor(outcome.status);
 }

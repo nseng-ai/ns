@@ -404,14 +404,14 @@ This homogeneous tree context is the current contract. First-class per-command c
 
 Context-free command trees omit `requiresContext` and keep the simpler `handler(request)` and `clinkr.run(args)` forms shown above.
 
-The run boundary makes behavior easy to test. `runForTest` from `@nseng-ai/clinkr/app/testing` runs the app in-process and captures the observable CLI result; supply the same command tree with an in-memory fake context:
+The run boundary makes behavior easy to test. `runForCliTest` from `@nseng-ai/clinkr/app/testing` runs the app in-process and captures the observable CLI result; supply the same command tree with an in-memory fake context:
 
 ```ts
-import { runForTest } from "@nseng-ai/clinkr/app/testing";
+import { runForCliTest } from "@nseng-ai/clinkr/app/testing";
 
 // Same as running "contacts list" from the CLI, but with injected dependencies.
 const clinkr = await app();
-const run = await runForTest(clinkr, ["list"], {
+const run = await runForCliTest(clinkr, ["list"], {
 	context: {
 		contacts: {
 			list: async () => ["Ada", "Grace"],

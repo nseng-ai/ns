@@ -124,7 +124,10 @@ export function toEnvelope(outcome: CommandOutcome<unknown>): Record<string, unk
 	}
 }
 
-export { envelopeJsonText } from "../exit.ts";
+/** Pretty-printed JSON for envelopes and rendered fallbacks. */
+export function envelopeJsonText(value: unknown): string {
+	return JSON.stringify(value, null, 2) ?? String(value);
+}
 
 const negativeOutcomeShape = {
 	status: z.literal("negative"),

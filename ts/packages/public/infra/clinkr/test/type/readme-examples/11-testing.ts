@@ -11,11 +11,11 @@ interface ContactsContext {
 declare function app(): Promise<ClinkrContextfulApp<ContactsContext>>;
 
 // README-FENCE-11-START
-import { runForTest } from "@nseng-ai/clinkr/app/testing";
+import { runForCliTest } from "@nseng-ai/clinkr/app/testing";
 
 // Same as running "contacts list" from the CLI, but with injected dependencies.
 const clinkr = await app();
-const run = await runForTest(clinkr, ["list"], {
+const run = await runForCliTest(clinkr, ["list"], {
 	context: {
 		contacts: {
 			list: async () => ["Ada", "Grace"],

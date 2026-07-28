@@ -4,6 +4,10 @@ export type {
 	ClinkrContextFreeApp,
 	ClinkrContextFreeRunOptions,
 	ClinkrContextfulApp,
+	// Provisional host surface for `execute()`: exported ahead of README
+	// promotion, which waits on the first in-process host migration.
+	ClinkrExecuteOptions,
+	ClinkrExecuteResult,
 	ClinkrRunOptions,
 	CreateContextFreeClinkrAppOptions,
 	CreateContextfulClinkrAppOptions,

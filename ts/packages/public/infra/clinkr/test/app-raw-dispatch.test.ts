@@ -3,7 +3,7 @@ import path from "node:path";
 import { expect, test } from "vitest";
 
 import { createClinkrApp } from "@nseng-ai/clinkr/app";
-import { runForTest } from "@nseng-ai/clinkr/app/testing";
+import { runForCliTest } from "@nseng-ai/clinkr/app/testing";
 import { defineRawCommand } from "@nseng-ai/clinkr/raw";
 
 // Raw selected-definition dispatch through the same committed-fixture loader
@@ -42,26 +42,15 @@ test("defineRawCommand owns the raw discriminant across an untyped boundary", ()
 	const conflictingDefinition = { type: "structured", run: () => 0 };
 	const definition = defineRawCommand(conflictingDefinition);
 	expect(definition.type).toBe("raw");
-	expect(definition.run({ argv: [], io: { stdout: () => {}, stderr: () => {} } })).toBe(0);
+	expect(definition.run({ argv: [] })).toBe(0);
 });
 
-test("raw execution receives the argv tail verbatim and owns bytes, stdin, and exit status", async () => {
+test("raw execution receives the argv tail verbatim and owns bytes and exit status", async () => {
 	// Every structured global flag plus `--` flows through uninterpreted: no
-	// help output, no schema document, no stdin read, no framework newline.
+	// help output, no schema document, no framework newline.
 	const argv = ["a", "--format", "json", "--input-json", "--json-schema", "--help", "--", "-x"];
-	let stdinReads = 0;
-	const run = await runForTest(rawTailApp, argv, {
-		io: {
-			stdout: () => {},
-			stderr: () => {},
-			readStdin: async () => {
-				stdinReads += 1;
-				return "{}";
-			},
-		},
-	});
+	const run = await runForCliTest(rawTailApp, argv);
 	expect(run).toEqual({ exitCode: argv.length, stdout: JSON.stringify(argv), stderr: "" });
-	expect(stdinReads).toBe(0);
 });
 
 test("raw commands share the transactional loader cache with structured commands", async () => {
@@ -70,15 +59,15 @@ test("raw commands share the transactional loader cache with structured commands
 		commandDirectory: path.join(FIXTURES_DIRECTORY, "raw-tail"),
 	});
 	const before = await commandLoads();
-	const first = await runForTest(freshApp, []);
-	const second = await runForTest(freshApp, ["x"]);
+	const first = await runForCliTest(freshApp, []);
+	const second = await runForCliTest(freshApp, ["x"]);
 	expect(first.exitCode).toBe(0);
 	expect(second.exitCode).toBe(1);
 	expect((await commandLoads()) - before).toBe(1);
 });
 
 test("contextful raw execution receives the run context in its invocation object", async () => {
-	const run = await runForTest(rawContextfulApp, ["a", "b"], { context: { prefix: "p" } });
+	const run = await runForCliTest(rawContextfulApp, ["a", "b"], { context: { prefix: "p" } });
 	expect(run).toEqual({ exitCode: 0, stdout: "p:a,b", stderr: "" });
 });
 
@@ -109,7 +98,7 @@ test("a contextful structured handler never receives an absent context", async (
 });
 
 test("contextful structured execution passes the run context to the handler", async () => {
-	const run = await runForTest(contextfulGreetApp, [], { context: { prefix: "Hi " } });
+	const run = await runForCliTest(contextfulGreetApp, [], { context: { prefix: "Hi " } });
 	expect(run).toEqual({ exitCode: 0, stdout: '{\n  "message": "Hi Ada"\n}\n', stderr: "" });
 });
 
@@ -118,7 +107,7 @@ test("a context-free app rejects a contextful raw definition", async () => {
 		name: "mismatched",
 		commandDirectory: path.join(FIXTURES_DIRECTORY, "raw-contextful"),
 	});
-	await expect(runForTest(mismatchedApp, [])).rejects.toThrow(
+	await expect(runForCliTest(mismatchedApp, [])).rejects.toThrow(
 		"selected command context mode does not match the app",
 	);
 });
@@ -129,7 +118,7 @@ test("a contextful app rejects a context-free raw definition", async () => {
 		commandDirectory: path.join(FIXTURES_DIRECTORY, "raw-tail"),
 		requiresContext: true,
 	});
-	await expect(runForTest(mismatchedApp, [], { context: { prefix: "p" } })).rejects.toThrow(
+	await expect(runForCliTest(mismatchedApp, [], { context: { prefix: "p" } })).rejects.toThrow(
 		"selected command context mode does not match the app",
 	);
 });

@@ -85,11 +85,11 @@ void contextfulApp.run([]);
 // Raw definitions: invocation objects, numeric exit status, and the shared
 // requiresContext discriminant.
 const rawContextFree = defineRawCommand({
-	run: ({ argv, io }) => {
+	run: ({ argv }) => {
 		type ArgvIsReadonly = Assert<IsEqual<typeof argv, readonly string[]>>;
 		const argvIsReadonly: ArgvIsReadonly = true;
 		void argvIsReadonly;
-		io.stdout(argv.join(" "));
+		process.stdout.write(argv.join(" "));
 		return argv.length;
 	},
 });
@@ -100,11 +100,11 @@ defineRawCommand({ run: async () => 0 });
 
 const rawContextful = defineRawCommand<Context>({
 	requiresContext: true,
-	run: ({ context, argv, io }) => {
+	run: ({ context, argv }) => {
 		type ContextIsNotAny = Assert<Not<IsAny<typeof context>>>;
 		const contextIsNotAny: ContextIsNotAny = true;
 		void contextIsNotAny;
-		io.stdout(context.prefix + argv.length);
+		process.stdout.write(context.prefix + argv.length);
 		return 0;
 	},
 });
