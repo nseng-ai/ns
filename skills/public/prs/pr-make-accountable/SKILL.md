@@ -21,8 +21,9 @@ Why is this change needed? What problem does it solve?
 
 ## Changes
 
-One or two orientation bullets naming the mechanism, where it lives, and which
-consumers change — then one bullet per judgment call, tradeoff, or limitation
+Opening orientation bullets — scaled to the scope of the change — naming the
+mechanism, where it lives, and which consumers change; then one bullet per
+judgment call, tradeoff, or limitation
 the diff cannot defend on its own, each explained from zero. Defer
 code-visible detail to the diff.
 
@@ -147,9 +148,9 @@ rule and provenance footer.
 
 In `## Changes`:
 
-- Open with one or two orientation bullets naming the mechanism, where it
-  lives, and which consumers change. Give a reviewer a map, not a file
-  inventory.
+- Open with orientation bullets scaled to the scope of the change, naming the
+  mechanism, where it lives, and which consumers change. Give a reviewer a
+  map, not a file inventory.
 - Spend the remaining bullets only on judgment calls, risks, tradeoffs, and
   limitations the diff cannot communicate on its own, each explained from
   zero, including any mechanism needed to understand it. Assume codebase
