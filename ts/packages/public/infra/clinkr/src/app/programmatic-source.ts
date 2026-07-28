@@ -1,3 +1,5 @@
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
+
 import type {
 	ClinkrCommandDefinition,
 	ClinkrCommandMetadata,
@@ -250,16 +252,20 @@ function createCommand<TContext>(
 function snapshotCommandMetadata(metadata: ClinkrCommandMetadata): ClinkrCommandMetadata {
 	return Object.freeze({
 		description: metadata.description,
-		...(metadata.aliases === undefined ? {} : { aliases: Object.freeze([...metadata.aliases]) }),
+		...optionalEntries({
+			aliases: metadata.aliases === undefined ? undefined : Object.freeze([...metadata.aliases]),
+		}),
 	});
 }
 
 function snapshotGroupDefinition(definition: ClinkrGroupDefinition): ClinkrGroupDefinition {
 	return Object.freeze({
 		...snapshotCommandMetadata(definition),
-		...(definition.summary === undefined ? {} : { summary: definition.summary }),
-		...(definition.hidden === undefined ? {} : { hidden: definition.hidden }),
-		...(definition.helpGroup === undefined ? {} : { helpGroup: definition.helpGroup }),
+		...optionalEntries({
+			summary: definition.summary,
+			hidden: definition.hidden,
+			helpGroup: definition.helpGroup,
+		}),
 	});
 }
 
