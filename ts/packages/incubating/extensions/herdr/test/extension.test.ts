@@ -5,6 +5,7 @@ import type { HandoffExtensionAPI, ToolDefinition } from "@nseng-ai/handoffs/pi/
 import { HERDR_BASE_COMMAND_NAMES, HERDR_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
 
 import registerHerdrPiExtension from "../src/pi/extension.ts";
+import { FakeCommandContext, FakePi, notificationMessages, step } from "./herdr-test-harness.ts";
 
 function makeFakeExtensionApi(commands: Map<string, unknown>): ExtensionAPI {
 	return {
@@ -12,13 +13,8 @@ function makeFakeExtensionApi(commands: Map<string, unknown>): ExtensionAPI {
 			commands.set(name, definition);
 		},
 		on() {},
-		async exec(command, args) {
-			return {
-				code: 0,
-				stdout: command === "gt" && args.join(" ") === "trunk --no-interactive" ? "main\n" : "",
-				stderr: "",
-				killed: false,
-			};
+		async exec() {
+			return { code: 0, stdout: "", stderr: "", killed: false };
 		},
 		getCommands() {
 			return [];
@@ -49,13 +45,8 @@ function makeToolExtensionApi(
 		registerTool(definition) {
 			tools.set(definition.name, definition);
 		},
-		async exec(command, args) {
-			return {
-				code: 0,
-				stdout: command === "gt" && args.join(" ") === "trunk --no-interactive" ? "main\n" : "",
-				stderr: "",
-				killed: false,
-			};
+		async exec() {
+			return { code: 0, stdout: "", stderr: "", killed: false };
 		},
 		getCommands() {
 			return [];
@@ -74,37 +65,21 @@ function makeToolExtensionApi(
 }
 
 describe("herdr Pi extension", () => {
-	test("fails before registration when Graphite trunk resolution fails", async () => {
+	test("registers the base command surface without any Graphite work, even when gt is unusable", async () => {
 		const commands = new Map<string, unknown>();
 		const pi = makeFakeExtensionApi(commands);
-		let trunkCalls = 0;
+		const gtCalls: string[][] = [];
 		pi.exec = async (command, args) => {
-			if (command === "gt" && args.join(" ") === "trunk --no-interactive") trunkCalls += 1;
-			return { code: 1, stdout: "", stderr: "not a Graphite repository", killed: false };
-		};
-
-		await expect(registerHerdrPiExtension(pi)).rejects.toThrow("not a Graphite repository");
-		expect(trunkCalls).toBe(1);
-		expect(commands.size).toBe(0);
-	});
-
-	test("resolves Graphite trunk once at startup and registers the base command surface", async () => {
-		const commands = new Map<string, unknown>();
-		const pi = makeFakeExtensionApi(commands);
-		const trunkCalls: Array<{ command: string; args: string[]; cwd: string | undefined }> = [];
-		pi.exec = async (command, args, options) => {
-			if (command === "gt" && args.join(" ") === "trunk --no-interactive") {
-				trunkCalls.push({ command, args: [...args], cwd: options?.cwd });
-				return { code: 0, stdout: "main\n", stderr: "", killed: false };
+			if (command === "gt") {
+				gtCalls.push([...args]);
+				return { code: 1, stdout: "", stderr: "not a Graphite repository", killed: false };
 			}
 			return { code: 0, stdout: "", stderr: "", killed: false };
 		};
 
 		await registerHerdrPiExtension(pi);
 
-		expect(trunkCalls).toEqual([
-			{ command: "gt", args: ["trunk", "--no-interactive"], cwd: process.cwd() },
-		]);
+		expect(gtCalls).toEqual([]);
 		expect(HERDR_COMMAND_NAMES).toEqual([
 			"ns:herdr:impl:plan:space",
 			"ns:herdr:impl:plan:tab",
@@ -136,6 +111,32 @@ describe("herdr Pi extension", () => {
 		]) {
 			expect(registered).not.toContain(oldName);
 		}
+	});
+
+	test("an unaffected registered command executes without any Graphite call", async () => {
+		// The scripted FakePi treats any unscripted exec — including any `gt`
+		// invocation — as an immediate test failure via assertDone().
+		const pi = new FakePi({
+			script: [
+				step("herdr", ["workspace", "create", "--cwd", "/repo/package"], {
+					stdout: JSON.stringify({
+						result: {
+							workspace: { workspace_id: "w1" },
+							root_pane: { pane_id: "p1" },
+							tab: { tab_id: "t1" },
+						},
+					}),
+				}),
+			],
+		});
+		await registerHerdrPiExtension(pi);
+		const ctx = new FakeCommandContext({ cwd: "/repo/package" });
+
+		await pi.commands.get("ns:herdr:space:new")?.handler("", ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls.filter((call) => call.command === "gt")).toEqual([]);
+		expect(notificationMessages(ctx)).toContain("Opened Herdr space at /repo/package.");
 	});
 
 	test("registers the optional Handoffs command and shared slug tool when installed", async () => {

@@ -1,5 +1,4 @@
 import { optionalEntries, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
-import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import {
 	type CommandExecApi,
 	type CommandRunner,
@@ -28,11 +27,6 @@ export interface GraphiteCheckBranchTrackedParams {
 	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
-export interface GraphiteTrunkBranchParams {
-	cwd: string;
-	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-}
-
 export interface GraphiteErrorInfo {
 	code: string;
 	message: string;
@@ -46,22 +40,11 @@ export type GraphiteBranchTrackedResult =
 	| { ok: true; tracked: false; detail: string }
 	| { ok: false; error: GraphiteErrorInfo };
 
-export type GraphiteTrunkBranchFailureReason = "detached-head" | "command-failed" | "empty";
-
-export type GraphiteTrunkBranchResult =
-	| { ok: true; branch: string }
-	| {
-			ok: false;
-			reason: GraphiteTrunkBranchFailureReason;
-			error: GraphiteErrorInfo;
-	  };
-
 export interface GraphiteBranchGateway {
 	checkBranchTracked(
 		params: GraphiteCheckBranchTrackedParams,
 	): Promise<GraphiteBranchTrackedResult>;
 	trackBranch(params: GraphiteTrackBranchParams): Promise<GraphiteOperationResult>;
-	trunkBranch(params: GraphiteTrunkBranchParams): Promise<GraphiteTrunkBranchResult>;
 }
 
 export interface GraphiteCommandRunParams {
@@ -138,52 +121,6 @@ export class RealGraphiteBranchGateway implements GraphiteBranchGateway {
 		}
 		return { ok: true };
 	}
-
-	async trunkBranch(params: GraphiteTrunkBranchParams): Promise<GraphiteTrunkBranchResult> {
-		const args = ["trunk", "--no-interactive"];
-		const displayCommand = formatCommand(GRAPHITE_COMMAND_NAME, args);
-		let result: ExecResult;
-		try {
-			result = await runGraphiteCommand(this.runner, {
-				cwd: params.cwd,
-				args,
-				signal: params.signal,
-			});
-		} catch (caught) {
-			return {
-				ok: false,
-				reason: "command-failed",
-				error: startupFailure(displayCommand, caught),
-			};
-		}
-
-		if (!commandSucceeded(result)) {
-			const reason = isDetachedHeadTrunkFailure(result) ? "detached-head" : "command-failed";
-			return {
-				ok: false,
-				reason,
-				error: failure(
-					reason === "detached-head" ? "graphite-trunk-detached-head" : "graphite-trunk-failed",
-					"gt trunk failed",
-					{ result, displayCommand },
-				),
-			};
-		}
-
-		const branch = firstNonEmptyLine(result.stdout);
-		if (branch === undefined) {
-			return {
-				ok: false,
-				reason: "empty",
-				error: {
-					code: "graphite-trunk-empty",
-					message: `gt trunk --no-interactive returned no branch.\nCommand: ${displayCommand}`,
-					displayCommand,
-				},
-			};
-		}
-		return { ok: true, branch };
-	}
 }
 
 export function runGraphiteCommand(
@@ -201,10 +138,6 @@ export function runGraphiteCommand(
 			...optionalEntries({ onStdout: params.onStdout, onStderr: params.onStderr }),
 		}),
 	);
-}
-
-function isDetachedHeadTrunkFailure(result: ExecResult): boolean {
-	return `${result.stdout}\n${result.stderr}`.toLowerCase().includes("no current branch");
 }
 
 function startupFailure(displayCommand: string, caught: unknown): GraphiteErrorInfo {

@@ -114,7 +114,6 @@ describe("Herdr new space", () => {
 		const dependencies = {
 			commands: createHerdrPiCommandApi(renderedPi),
 			git: new InMemoryGitGateway({ optionalRepoRoot: ROOT }),
-			trunkBranch: "main",
 			herdr,
 		};
 		registerHerdrNewSpaceCommand(dependencies);

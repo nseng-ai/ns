@@ -2,7 +2,6 @@ export {
 	InMemoryGraphiteBranchGateway,
 	type GraphiteCheckBranchTrackedCall,
 	type GraphiteTrackBranchCall,
-	type GraphiteTrunkBranchCall,
 	type InMemoryGraphiteGatewayState,
 } from "./branch.ts";
 export {

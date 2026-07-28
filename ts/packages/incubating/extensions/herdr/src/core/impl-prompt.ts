@@ -24,20 +24,29 @@ import { resolveImplBranchBasis } from "./impl-branch-basis.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { launchPreparedBranch } from "./prepared-launch.ts";
 import { createHerdrSlotClient } from "./slot-checkout.ts";
+import { resolveRepoTrunkBranch } from "./trunk-branch.ts";
 
 type ImplPromptRuntime = CommandExecApi & Pick<HerdrPiCommandApi, "getThinkingLevel">;
 const COMMAND_NAME = HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME;
 
+type ImplPromptGitGateway = Pick<
+	GitGateway,
+	| "cachedOriginHeadBranch"
+	| "createBranchAtStartPoint"
+	| "currentBranch"
+	| "headCommit"
+	| "repoRoot"
+>;
+
 export interface ImplPromptPayloadOptions extends TrackedBranchPayloadOptions {
 	slotClient?: SlotClient;
-	git?: Pick<GitGateway, "createBranchAtStartPoint" | "currentBranch" | "headCommit" | "repoRoot">;
+	git?: ImplPromptGitGateway;
 }
 
 export interface HerdrImplPromptContext {
 	commands: ImplPromptRuntime;
 	pi: CommandContext;
-	trunkBranch: string;
-	git: Pick<GitGateway, "createBranchAtStartPoint" | "currentBranch" | "headCommit" | "repoRoot">;
+	git: ImplPromptGitGateway;
 	herdr: HerdrGateway;
 }
 
@@ -120,8 +129,10 @@ async function createTrunkPromptBranch(
 	options: HandleHerdrSlotImplPromptOptions,
 	prompt: string,
 ): Promise<TrackedBranchEvidence | { error: string }> {
+	const resolution = await resolveRepoTrunkBranch(context.git, { cwd: context.pi.cwd });
+	if (resolution.type === "failed") return { error: resolution.message };
 	return createTrackedBranchFromLocalTrunkForPrompt(
-		{ pi: context.commands, trunkBranch: context.trunkBranch, git: context.git },
+		{ pi: context.commands, trunkBranch: resolution.branch, git: context.git },
 		{
 			cwd: context.pi.cwd,
 			prompt,

@@ -23,7 +23,7 @@ import {
 	registerHerdrPlanSpaceImplCommand,
 	registerHerdrPlanTabImplCommand,
 } from "../src/pi/impl-plan.ts";
-import { handleHerdrSlotImplPlan } from "../src/core/impl-plan.ts";
+import { handleHerdrSlotImplPlan, type HerdrSlotImplPlanOptions } from "../src/core/impl-plan.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import { createCliHerdrGateway } from "../src/core/cli-gateway.ts";
 import {
@@ -69,21 +69,20 @@ const IMPL_PROMPT_NAMESPACE = "ns-impl";
 const IMPL_PROMPT_KEY = "prompt.md";
 const TRUNK_BRANCH = "master";
 function dispatchPlanDependencies() {
-	return {
-		git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
-		trunkBranch: TRUNK_BRANCH,
-	};
+	return {};
 }
 
 function herdrPiTestContext(
 	pi: FakePi,
 	herdr: FakeHerdrGateway,
-	git: InMemoryGitGateway = new InMemoryGitGateway(),
+	git: InMemoryGitGateway = new InMemoryGitGateway({
+		currentBranch: SOURCE_BRANCH,
+		cachedOriginHeadBranch: TRUNK_BRANCH,
+	}),
 ) {
 	return {
 		commands: createHerdrPiCommandApi(pi),
 		git,
-		trunkBranch: TRUNK_BRANCH,
 		herdr,
 	};
 }
@@ -200,7 +199,6 @@ describe("herdr Pi extension — full suite", () => {
 		scenario.register({
 			commands,
 			git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
-			trunkBranch: TRUNK_BRANCH,
 			herdr: new FakeHerdrGateway(),
 		});
 
@@ -277,7 +275,6 @@ describe("Herdr prompt implementation", () => {
 				commands: createHerdrPiCommandApi(pi),
 				pi: ctx,
 				herdr,
-				trunkBranch: TRUNK_BRANCH,
 				git,
 			},
 			{
@@ -293,6 +290,7 @@ describe("Herdr prompt implementation", () => {
 		);
 
 		pi.assertDone();
+		expect(git.cachedOriginHeadBranchCalls).toEqual([]);
 		expect(git.currentBranchCalls).toEqual([{ cwd: ROOT }, { cwd: ROOT }, { cwd: ROOT }]);
 		expect(git.createBranchAtStartPointCalls).toEqual([
 			{ cwd: ROOT, branch: BRANCH, startPoint: START_POINT },
@@ -362,7 +360,11 @@ describe("Herdr prompt implementation", () => {
 				),
 			],
 		});
-		const git = new InMemoryGitGateway({ currentBranch: TRUNK_BRANCH, repoRoot: ROOT });
+		const git = new InMemoryGitGateway({
+			currentBranch: TRUNK_BRANCH,
+			cachedOriginHeadBranch: TRUNK_BRANCH,
+			repoRoot: ROOT,
+		});
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
@@ -371,7 +373,6 @@ describe("Herdr prompt implementation", () => {
 				commands: createHerdrPiCommandApi(pi),
 				pi: ctx,
 				herdr,
-				trunkBranch: TRUNK_BRANCH,
 				git,
 			},
 			{
@@ -387,6 +388,7 @@ describe("Herdr prompt implementation", () => {
 		);
 
 		pi.assertDone();
+		expect(git.cachedOriginHeadBranchCalls).toEqual([{ cwd: ROOT }]);
 		expect(ctx.selections).toEqual([]);
 		expect(git.createBranchAtStartPointCalls).toEqual([
 			{ cwd: ROOT, branch: BRANCH, startPoint: START_POINT },
@@ -402,6 +404,41 @@ describe("Herdr prompt implementation", () => {
 		expect(slugCalls[0]?.args.at(-1)).toContain("Generate a concise git branch slug");
 		expect(slugCalls[0]?.args.at(-1)).toContain(prompt);
 		expect(herdr.paneRunCalls[0]?.command).toContain(`--namespace ${IMPL_PROMPT_NAMESPACE}`);
+	});
+
+	test("trunk resolution failure stops the prompt implementation before any mutation", async () => {
+		const stagingDir = await makeTempDir();
+		const pi = new FakePi({ script: [] });
+		const git = new InMemoryGitGateway({
+			currentBranch: TRUNK_BRANCH,
+			cachedOriginHeadBranch: { type: "missing" },
+			repoRoot: ROOT,
+		});
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({ cwd: ROOT });
+
+		await handleHerdrSlotImplPrompt(
+			{ commands: createHerdrPiCommandApi(pi), pi: ctx, herdr, git },
+			{
+				payloadOptions: resolveImplPromptPayloadOptions({ stagingDir }),
+				slotClient: testSlotClient,
+				args: "Implement the Herdr trunk flow",
+				notifyProgress: () => {},
+			},
+		);
+
+		pi.assertDone();
+		expect(git.cachedOriginHeadBranchCalls).toEqual([{ cwd: ROOT }]);
+		expect(pi.execCalls).toEqual([]);
+		expect(git.createBranchAtStartPointCalls).toEqual([]);
+		expect(herdr.createWorkspaceCalls).toEqual([]);
+		expect(herdr.paneRunCalls).toEqual([]);
+		expect(
+			ctx.notifications.some(
+				(n) =>
+					n.level === "error" && n.message.includes("refs/remotes/origin/HEAD is not set locally"),
+			),
+		).toBe(true);
 	});
 
 	test("does not open a Herdr workspace when payload storage fails", async () => {
@@ -465,7 +502,6 @@ describe("Herdr prompt implementation", () => {
 				commands: createHerdrPiCommandApi(pi),
 				pi: ctx,
 				herdr,
-				trunkBranch: TRUNK_BRANCH,
 				git,
 			},
 			{
@@ -496,7 +532,6 @@ describe("Herdr prompt implementation", () => {
 				commands: createHerdrPiCommandApi(pi),
 				pi: ctx,
 				herdr,
-				trunkBranch: TRUNK_BRANCH,
 				git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
 			},
 			{
@@ -563,11 +598,7 @@ describe("ns:herdr:impl:plan:space", () => {
 
 	test("registers space and tab plan implementation and impl:plan:tab via Pi adapter", () => {
 		const pi = new FakePi();
-		const dependencies = {
-			commands: createHerdrPiCommandApi(pi),
-			...dispatchPlanDependencies(),
-			herdr: new FakeHerdrGateway(),
-		};
+		const dependencies = herdrPiTestContext(pi, new FakeHerdrGateway());
 		registerHerdrPlanSpaceImplCommand(dependencies);
 		registerHerdrPlanTabImplCommand(dependencies);
 		expect(pi.commands.has("ns:herdr:impl:plan:space")).toBe(true);
@@ -799,13 +830,10 @@ describe("herdr Pi extension — gateway wiring", () => {
 // plan implementation dry-run — no Herdr mutations
 // ---------------------------------------------------------------------------
 
-function herdrPlanImplTestOptions(
-	planStoreRoot: string,
-): import("../src/core/impl-plan.ts").ResolvedHerdrSlotImplPlanOptions {
+function herdrPlanImplTestOptions(planStoreRoot: string): HerdrSlotImplPlanOptions {
 	return {
 		planStoreRoot,
 		slotClient: testSlotClient,
-		git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
 		createBranchContextContext(pi, cwd) {
 			const stdinCapablePi: StdinCapableCommandExecApi = {
 				supportsStdin: true,
@@ -855,9 +883,6 @@ describe("ns:herdr:impl:plan:space", () => {
 		});
 		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		const graphite = new InMemoryGraphiteBranchGateway();
-		options.git = {
-			currentBranch: async () => ({ type: "branch", branch: SOURCE_BRANCH }),
-		};
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
@@ -943,9 +968,6 @@ describe("ns:herdr:impl:plan:space", () => {
 		const git = new InMemoryGitGateway({ branchUpstream: { type: "missing" } });
 		const brmem = new InMemoryBranchMemoryGateway();
 		const options = herdrPlanImplTestOptions(planStoreRoot);
-		options.git = {
-			currentBranch: async () => ({ type: "branch", branch: SOURCE_BRANCH }),
-		};
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
@@ -970,6 +992,50 @@ describe("ns:herdr:impl:plan:space", () => {
 		expect(herdr.createWorkspaceCalls).toEqual([]);
 		expect(notificationMessages(ctx).join("\n")).toContain(
 			`Could not resolve local Graphite trunk ${TRUNK_BRANCH}`,
+		);
+	});
+
+	test("trunk resolution failure stops before trunk preparation, branch, attachment, slot, or Herdr mutation", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		const pi = new FakePi({ script: implValidationScript(repoRoot) });
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			selectIndices: [1],
+			branchEntries: [savedPlanEntry(repoRoot, planFile)],
+		});
+		const git = new InMemoryGitGateway({ branchUpstream: { type: "missing" } });
+		const brmem = new InMemoryBranchMemoryGateway();
+		const options = herdrPlanImplTestOptions(planStoreRoot);
+		options.createBranchContextContext = () => ({
+			commands: createHerdrPiCommandApi(pi),
+			git,
+			brmem,
+			graphite: new InMemoryGraphiteBranchGateway(),
+		});
+		const contextGit = new InMemoryGitGateway({ cachedOriginHeadBranch: { type: "missing" } });
+
+		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr, git: contextGit }), {
+			rawArgs: "",
+			dependencies: options,
+			config: {
+				commandName: "ns:herdr:impl:plan:space",
+				statusKey: "ns:herdr:impl:plan:space",
+				destination: "workspace",
+			},
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		expect(contextGit.cachedOriginHeadBranchCalls).toEqual([{ cwd: repoRoot }]);
+		expect(git.createBranchAtStartPointCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
+		expect(herdr.createWorkspaceCalls).toEqual([]);
+		expect(herdr.createTabCalls).toEqual([]);
+		expect(notificationMessages(ctx).join("\n")).toContain(
+			"refs/remotes/origin/HEAD is not set locally",
 		);
 	});
 
@@ -1000,9 +1066,6 @@ describe("ns:herdr:impl:plan:space", () => {
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
 		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
-		options.git = {
-			currentBranch: async () => ({ type: "branch", branch: SOURCE_BRANCH }),
-		};
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
@@ -1167,9 +1230,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		const graphite = new InMemoryGraphiteBranchGateway();
 		const options = herdrPlanImplTestOptions(planStoreRoot);
-		options.git = {
-			currentBranch: async () => ({ type: "branch", branch: SOURCE_BRANCH }),
-		};
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
@@ -1239,9 +1299,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		const graphite = new InMemoryGraphiteBranchGateway();
 		const options = herdrPlanImplTestOptions(planStoreRoot);
-		options.git = {
-			currentBranch: async () => ({ type: "branch", branch: SOURCE_BRANCH }),
-		};
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
