@@ -10,7 +10,7 @@ import {
 	type ClinkrComposition,
 	type ClinkrScope,
 } from "@nseng-ai/clinkr/app";
-import { runForTest } from "@nseng-ai/clinkr/app/testing";
+import { runForCliTest } from "@nseng-ai/clinkr/app/testing";
 import { composeSources } from "../src/app/programmatic-source.ts";
 import { ClinkrTopology } from "../src/app/topology.ts";
 
@@ -35,8 +35,8 @@ test("callback-only apps lazily load and cache a root default command", async ()
 		});
 	});
 	expect(loads).toBe(0);
-	const [first, second] = await Promise.all([runForTest(app, []), runForTest(app, [])]);
-	expect(first.stdout).toContain('"value": "ready"');
+	const [first, second] = await Promise.all([app.execute({}), app.execute({})]);
+	expect(first.outcome).toEqual({ status: "success", data: { value: "ready" } });
 	expect(second.exitCode).toBe(0);
 	expect(loads).toBe(1);
 });
@@ -53,7 +53,7 @@ test("failed programmatic selected loads retry without publication", async () =>
 		});
 	});
 	await expect(app.run([])).rejects.toThrow("temporary definition failure");
-	expect((await runForTest(app, [])).exitCode).toBe(0);
+	expect((await runForCliTest(app, [])).exitCode).toBe(0);
 	expect(loads).toBe(2);
 });
 
@@ -64,7 +64,7 @@ test("composition.filesystem mounts a labeled lazy filesystem source", async () 
 			commandDirectory: path.join(FIXTURES_DIRECTORY, "counting"),
 		});
 	});
-	expect((await runForTest(app, [])).exitCode).toBe(0);
+	expect((await runForCliTest(app, [])).exitCode).toBe(0);
 });
 
 test("nested scope.filesystem retains programmatic ownership and loads only when opened", async () => {
@@ -98,7 +98,7 @@ test("mixed construction preserves the implicit filesystem root default", async 
 			});
 		},
 	);
-	expect((await runForTest(app, [])).exitCode).toBe(0);
+	expect((await runForCliTest(app, [])).exitCode).toBe(0);
 });
 
 test("zero-source callback construction is rejected", () => {
@@ -205,7 +205,7 @@ test("programmatic declarations snapshot mutable metadata inputs", async () => {
 		});
 	});
 	metadata.description = "Mutated.";
-	const result = await runForTest(app, ["--help"]);
+	const result = await runForCliTest(app, ["--help"]);
 	expect(result.stdout).toContain("Original.");
 	expect(result.stdout).not.toContain("Mutated.");
 });
