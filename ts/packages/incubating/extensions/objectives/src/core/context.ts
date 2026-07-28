@@ -28,7 +28,7 @@ export async function createRealObjectiveContext(
 	const git = options.git ?? new RealGitGateway(execApi);
 	const repoRootResult = await git.optionalRepoRoot({ cwd });
 	const repoRoot = repoRootResult.type === "found" ? repoRootResult.value : cwd;
-	const trunkBranchResult = await git.trunkBranch({ cwd: repoRoot });
+	const trunkBranchResult = await git.cachedOriginHeadBranch({ cwd: repoRoot });
 	const trunkBranch = trunkBranchResult.type === "found" ? trunkBranchResult.value : "main";
 	return {
 		cwd,

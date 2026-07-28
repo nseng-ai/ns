@@ -11,7 +11,10 @@ import {
 	prepareRequestedBranchSlug,
 } from "./slug.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
-import { inspectLatestCommitUpstreamEligibility } from "./upstream.ts";
+import {
+	inspectLatestCommitUpstreamEligibility,
+	type GitTrunkResolutionFailure,
+} from "./upstream.ts";
 import type { ParsedAutobranchArgs } from "./dirty-worktree.ts";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
@@ -45,8 +48,7 @@ export interface LatestCommitAutobranchPlan extends LatestCommitFacts {
 export type LatestCommitPreparationResult =
 	| { ok: true; plan: LatestCommitAutobranchPlan }
 	| { ok: false; kind: "upstream_check_failed"; error: string }
-	| { ok: false; kind: "git_trunk_missing" }
-	| { ok: false; kind: "git_trunk_check_failed"; error: string }
+	| { ok: false; kind: "git_trunk_unavailable"; failure: GitTrunkResolutionFailure }
 	| { ok: false; kind: "remote_ahead_refusal"; upstream: string }
 	| { ok: false; kind: "diverged_upstream_refusal"; upstream: string }
 	| {
@@ -71,8 +73,7 @@ type LatestCommitFactsFailure = Extract<
 	{
 		kind:
 			| "upstream_check_failed"
-			| "git_trunk_missing"
-			| "git_trunk_check_failed"
+			| "git_trunk_unavailable"
 			| "remote_ahead_refusal"
 			| "diverged_upstream_refusal"
 			| "synchronized_trunk_refusal"
@@ -140,10 +141,8 @@ export async function loadLatestCommitFacts(
 	switch (upstream.type) {
 		case "upstream_check_failed":
 			return { ok: false, kind: upstream.type, error: upstream.error };
-		case "git_trunk_missing":
-			return { ok: false, kind: upstream.type };
-		case "git_trunk_check_failed":
-			return { ok: false, kind: upstream.type, error: upstream.error };
+		case "git_trunk_unavailable":
+			return { ok: false, kind: upstream.type, failure: upstream.failure };
 		case "remote_ahead_refusal":
 			return { ok: false, kind: upstream.type, upstream: upstream.upstream };
 		case "diverged_upstream_refusal":
@@ -294,8 +293,7 @@ export function classifyLatestCommitPreparationFailure(
 		case "merge_commit_refusal":
 			return "refusal";
 		case "upstream_check_failed":
-		case "git_trunk_missing":
-		case "git_trunk_check_failed":
+		case "git_trunk_unavailable":
 		case "child_branch_check_failed":
 		case "commit_parent_lookup_failed":
 		case "commit_evidence_failed":
@@ -312,10 +310,13 @@ export function formatLatestCommitPreparationFailure(
 	switch (result.kind) {
 		case "upstream_check_failed":
 			return `Could not determine the local relationship between HEAD and the current branch upstream.\n${result.error}`;
-		case "git_trunk_missing":
-			return "Could not determine the Git trunk from cached `refs/remotes/origin/HEAD` for the synchronized source branch. Refresh it with `git remote set-head origin --auto`, or set it explicitly with `git remote set-head origin <branch>`, then retry.";
-		case "git_trunk_check_failed":
-			return `Could not determine the Git trunk from cached \`refs/remotes/origin/HEAD\` for the synchronized source branch.\n${result.error}\nRefresh it with \`git remote set-head origin --auto\`, or set it explicitly with \`git remote set-head origin <branch>\`, then retry.`;
+		case "git_trunk_unavailable":
+			switch (result.failure.type) {
+				case "missing":
+					return "Could not determine the Git trunk from cached `refs/remotes/origin/HEAD` for the synchronized source branch. Refresh it with `git remote set-head origin --auto`, or set it explicitly with `git remote set-head origin <branch>`, then retry.";
+				case "error":
+					return `Could not determine the Git trunk from cached \`refs/remotes/origin/HEAD\` for the synchronized source branch.\n${result.failure.error}\nRefresh it with \`git remote set-head origin --auto\`, or set it explicitly with \`git remote set-head origin <branch>\`, then retry.`;
+			}
 		case "remote_ahead_refusal":
 			return `Refusing to move latest commit because locally known upstream ${result.upstream} is ahead of HEAD.`;
 		case "diverged_upstream_refusal":

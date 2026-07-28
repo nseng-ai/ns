@@ -25,7 +25,7 @@ function openObjectiveStorage(): ObjectiveStorage {
 function cleanGitState(overrides: SequencedGitGatewayState = {}): SequencedGitGatewayState {
 	return {
 		optionalRepoRoot: "/repo",
-		trunkBranch: "main",
+		cachedOriginHeadBranch: "main",
 		currentBranch: "main",
 		statusPaths: { changedPaths: [] },
 		headCommit: "head1234",

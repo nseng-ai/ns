@@ -49,7 +49,7 @@ interface GatewayBackedTrunkPullResult {
 export type TrunkPullResult = CommandBackedTrunkPullResult | GatewayBackedTrunkPullResult;
 
 interface TrunkPullGateways {
-	git: Pick<GitGateway, "trunkBranch" | "branchUpstream">;
+	git: Pick<GitGateway, "cachedOriginHeadBranch" | "branchUpstream">;
 }
 
 export async function runTrunkPullDetailed(
@@ -70,7 +70,7 @@ async function runTrunkPullWithGateways(
 	options: TrunkPullGateways & { commands: TrunkPullCommands; cwd: string },
 ): Promise<TrunkPullResult> {
 	const { commands, cwd, git } = options;
-	const trunkResult = await git.trunkBranch({ cwd });
+	const trunkResult = await git.cachedOriginHeadBranch({ cwd });
 	if (trunkResult.type === "missing") return { outcome: { kind: "trunk-missing" }, cwd };
 	if (trunkResult.type === "error") {
 		return { outcome: { kind: "trunk-resolution-failed", error: trunkResult.error }, cwd };

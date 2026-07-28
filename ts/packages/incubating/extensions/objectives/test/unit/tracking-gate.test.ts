@@ -15,7 +15,7 @@ describe("objective tracking-gate operation", () => {
 			{ records: [{ slug: "flow-cleanup" }] },
 			{
 				currentBranch: "feature/flow-cleanup",
-				trunkBranch: "master",
+				cachedOriginHeadBranch: "master",
 				dirtyPaths: ["."],
 				changedPaths: {
 					"master...HEAD|.": [
@@ -77,7 +77,7 @@ describe("objective tracking-gate operation", () => {
 			{ records: [{ slug: "flow-cleanup" }] },
 			{
 				currentBranch: "feature/flow-cleanup",
-				trunkBranch: "master",
+				cachedOriginHeadBranch: "master",
 				changedPaths: { "master...HEAD|.": [".ns/objectives/flow-cleanup/roadmap.md"] },
 			},
 		);
@@ -89,7 +89,7 @@ describe("objective tracking-gate operation", () => {
 	});
 
 	test("returns negative data when the Objective is missing", async () => {
-		const ctx = contextWithFakeStorage({ records: [] }, { trunkBranch: "master" });
+		const ctx = contextWithFakeStorage({ records: [] }, { cachedOriginHeadBranch: "master" });
 
 		const exit = await runTrackingGate(ctx, { slug: "missing-objective" });
 
@@ -113,7 +113,10 @@ function contextWithFakeStorage(
 		cwd: "/repo",
 		env: { PATH: "/fake/bin" },
 		repoRoot: "/repo",
-		trunkBranch: typeof gitState.trunkBranch === "string" ? gitState.trunkBranch : "main",
+		trunkBranch:
+			typeof gitState.cachedOriginHeadBranch === "string"
+				? gitState.cachedOriginHeadBranch
+				: "main",
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(fake)),
 		git: new InMemoryGitGateway(gitState),
 	};

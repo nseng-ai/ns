@@ -8,18 +8,18 @@ export type UpstreamHeadState =
 	| { type: "diverged"; upstream: string }
 	| { type: "failed"; error: string };
 
+export type GitTrunkResolutionFailure = { type: "missing" } | { type: "error"; error: string };
+
 type SynchronizedTrunkState =
 	| { type: "trunk"; trunk: string }
 	| { type: "non_trunk"; trunk: string }
-	| { type: "trunk_missing" }
-	| { type: "failed"; error: string };
+	| { type: "unavailable"; failure: GitTrunkResolutionFailure };
 
 type LatestCommitUpstreamEligibility =
 	| { type: "eligible" }
 	| { type: "synchronized"; upstream: string }
 	| { type: "upstream_check_failed"; error: string }
-	| { type: "git_trunk_missing" }
-	| { type: "git_trunk_check_failed"; error: string }
+	| { type: "git_trunk_unavailable"; failure: GitTrunkResolutionFailure }
 	| { type: "remote_ahead_refusal"; upstream: string }
 	| { type: "diverged_upstream_refusal"; upstream: string }
 	| {
@@ -83,10 +83,8 @@ export async function inspectLatestCommitUpstreamEligibility(
 				git: input.git,
 			});
 			switch (trunk.type) {
-				case "trunk_missing":
-					return { type: "git_trunk_missing" };
-				case "failed":
-					return { type: "git_trunk_check_failed", error: trunk.error };
+				case "unavailable":
+					return { type: "git_trunk_unavailable", failure: trunk.failure };
 				case "trunk":
 					return {
 						type: "synchronized_trunk_refusal",
@@ -108,9 +106,16 @@ async function inspectSynchronizedTrunkState(input: {
 	branch: string;
 	git: AutobranchGitGateway;
 }): Promise<SynchronizedTrunkState> {
-	const trunk = await input.git.trunkBranch();
-	if (trunk.type === "missing") return { type: "trunk_missing" };
-	if (trunk.type === "error") return { type: "failed", error: trunk.error.message };
+	const trunk = await input.git.cachedOriginHeadBranch();
+	if (trunk.type === "missing") {
+		return { type: "unavailable", failure: { type: "missing" } };
+	}
+	if (trunk.type === "error") {
+		return {
+			type: "unavailable",
+			failure: { type: "error", error: trunk.error.message },
+		};
+	}
 	return input.branch === trunk.value
 		? { type: "trunk", trunk: trunk.value }
 		: { type: "non_trunk", trunk: trunk.value };

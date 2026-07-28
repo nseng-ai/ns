@@ -510,7 +510,7 @@ describe("real git gateway", () => {
 		]);
 		const git = new RealGitGateway(commands);
 
-		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({
+		expect(await git.cachedOriginHeadBranch({ cwd: ROOT })).toEqual({
 			type: "found",
 			value: "release/stable",
 		});
@@ -533,7 +533,7 @@ describe("real git gateway", () => {
 		]);
 		const git = new RealGitGateway(commands);
 
-		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({ type: "missing" });
+		expect(await git.cachedOriginHeadBranch({ cwd: ROOT })).toEqual({ type: "missing" });
 		commands.assertDone();
 	});
 
@@ -552,7 +552,7 @@ describe("real git gateway", () => {
 		const commands = new ScriptedCommands([step("git", args, { stdout })]);
 		const git = new RealGitGateway(commands);
 
-		expect(await git.trunkBranch({ cwd: ROOT })).toMatchObject({
+		expect(await git.cachedOriginHeadBranch({ cwd: ROOT })).toMatchObject({
 			type: "error",
 			error: {
 				code,
@@ -603,7 +603,7 @@ describe("real git gateway", () => {
 		const commands = new ScriptedCommands([step("git", args, result)]);
 		const git = new RealGitGateway(commands);
 
-		expect(await git.trunkBranch({ cwd: ROOT })).toMatchObject({
+		expect(await git.cachedOriginHeadBranch({ cwd: ROOT })).toMatchObject({
 			type: "error",
 			error: {
 				code: "trunk-branch-failed",
@@ -620,7 +620,7 @@ describe("real git gateway", () => {
 		const commands = new ScriptedCommands([errorStep("git", args, new Error("spawn ENOENT"))]);
 		const git = new RealGitGateway(commands);
 
-		expect(await git.trunkBranch({ cwd: ROOT })).toMatchObject({
+		expect(await git.cachedOriginHeadBranch({ cwd: ROOT })).toMatchObject({
 			type: "error",
 			error: {
 				code: "git_startup_failed",

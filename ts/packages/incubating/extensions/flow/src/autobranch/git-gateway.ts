@@ -33,7 +33,7 @@ export interface StashEntry {
 
 export interface AutobranchGitGateway {
 	optionalRepoRoot(params: { cwd: string }): Promise<GitOptionalResult<string>>;
-	trunkBranch(): Promise<GitOptionalResult<string>>;
+	cachedOriginHeadBranch(): Promise<GitOptionalResult<string>>;
 	currentBranch(): Promise<AutobranchGitResult<string>>;
 	headSha(): Promise<AutobranchGitResult<string>>;
 	headParents(): Promise<AutobranchGitResult<HeadParents>>;
@@ -56,7 +56,7 @@ export interface AutobranchGitGateway {
 type AutobranchProviderGitGateway = Pick<
 	GitGateway,
 	| "optionalRepoRoot"
-	| "trunkBranch"
+	| "cachedOriginHeadBranch"
 	| "currentBranch"
 	| "headCommit"
 	| "validateBranchRef"
@@ -87,8 +87,8 @@ export function createAutobranchGitGateway(input: AutobranchGitGatewayInput): Au
 		async optionalRepoRoot(params) {
 			return providerGit.optionalRepoRoot(params);
 		},
-		async trunkBranch() {
-			return providerGit.trunkBranch({ cwd: input.cwd });
+		async cachedOriginHeadBranch() {
+			return providerGit.cachedOriginHeadBranch({ cwd: input.cwd });
 		},
 		async currentBranch() {
 			const branch = await providerGit.currentBranch({ cwd: input.cwd });

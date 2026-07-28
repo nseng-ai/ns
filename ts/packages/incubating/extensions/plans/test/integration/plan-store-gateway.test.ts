@@ -28,7 +28,7 @@ describe("RealPlanStoreGateway", () => {
 				repoRoot,
 				originUrl: "git@github.com:owner/repo.git",
 				currentBranch: sourceBranch,
-				trunkBranch: { type: "missing" },
+				cachedOriginHeadBranch: { type: "missing" },
 			});
 			const planStoreGateway = createRealPlanStoreGateway();
 
@@ -78,7 +78,7 @@ describe("RealPlanStoreGateway", () => {
 			const insidePlan = join(repoRoot, "inside.md");
 			await writeFile(outsidePlan, "# Outside\n", "utf8");
 			await writeFile(insidePlan, "# Inside\n", "utf8");
-			const git = new InMemoryGitGateway({ repoRoot, trunkBranch: { type: "missing" } });
+			const git = new InMemoryGitGateway({ repoRoot, cachedOriginHeadBranch: { type: "missing" } });
 			const planStoreGateway = createRealPlanStoreGateway();
 
 			await expect(

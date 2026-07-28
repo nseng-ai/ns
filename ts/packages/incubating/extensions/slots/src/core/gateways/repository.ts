@@ -213,7 +213,7 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 	}
 
 	async getTrunkBranch(): Promise<string> {
-		const result = await this.coreGit.trunkBranch({ cwd: this.cwd, env: this.env });
+		const result = await this.coreGit.cachedOriginHeadBranch({ cwd: this.cwd, env: this.env });
 		if (result.type === "found") return result.value;
 		if (result.type === "missing") return "master";
 		throw new Error(result.error.message);

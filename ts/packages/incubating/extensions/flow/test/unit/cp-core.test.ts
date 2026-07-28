@@ -110,7 +110,7 @@ describe("flow cp core", () => {
 		const gateway = new FakeCheckpointGateway({
 			loaded: { ok: true, snapshot: dirtySnapshot({ branch: "release" }) },
 		});
-		const git = new InMemoryGitGateway({ trunkBranch: "release" });
+		const git = new InMemoryGitGateway({ cachedOriginHeadBranch: "release" });
 
 		const result = await runCpCore(
 			defaultOptions({ checkpointGateway: gateway, git, textGenerator }),
@@ -128,7 +128,7 @@ describe("flow cp core", () => {
 			const gateway = new FakeCheckpointGateway({
 				loaded: { ok: true, snapshot: dirtySnapshot({ branch }) },
 			});
-			const git = new InMemoryGitGateway({ trunkBranch: "release" });
+			const git = new InMemoryGitGateway({ cachedOriginHeadBranch: "release" });
 
 			const result = await runCpCore(
 				defaultOptions({
@@ -169,7 +169,7 @@ describe("flow cp core", () => {
 			const gateway = new FakeCheckpointGateway({
 				loaded: { ok: true, snapshot: dirtySnapshot({ clean: true }) },
 			});
-			const git = new InMemoryGitGateway({ trunkBranch });
+			const git = new InMemoryGitGateway({ cachedOriginHeadBranch: trunkBranch });
 
 			const result = await runCpCore(
 				defaultOptions({ checkpointGateway: gateway, git, textGenerator }),
@@ -361,7 +361,7 @@ describe("flow cp core", () => {
 function defaultOptions(overrides: {
 	checkpointGateway: CheckpointGateway;
 	textGenerator: TextGenerator;
-	git?: Pick<GitGateway, "trunkBranch">;
+	git?: Pick<GitGateway, "cachedOriginHeadBranch">;
 	isDryRun?: boolean;
 }) {
 	return {

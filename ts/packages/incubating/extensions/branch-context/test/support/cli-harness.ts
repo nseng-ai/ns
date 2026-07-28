@@ -142,7 +142,7 @@ export function expectNoGitOrBrmemCalls(run: CliRun): void {
 	expect(run.git.repoRootCalls).toEqual([]);
 	expect(run.git.optionalRepoRootCalls).toEqual([]);
 	expect(run.git.currentBranchCalls).toEqual([]);
-	expect(run.git.trunkBranchCalls).toEqual([]);
+	expect(run.git.cachedOriginHeadBranchCalls).toEqual([]);
 	expect(run.git.originUrlCalls).toEqual([]);
 	expect(run.git.headCommitCalls).toEqual([]);
 	expect(run.git.validateBranchRefCalls).toEqual([]);

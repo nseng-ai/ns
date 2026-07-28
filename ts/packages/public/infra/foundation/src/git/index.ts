@@ -190,7 +190,7 @@ export class RealGitGateway implements GitGateway {
 		);
 	}
 
-	async trunkBranch(params: GitCwdParams): Promise<GitOptionalResult<string>> {
+	async cachedOriginHeadBranch(params: GitCwdParams): Promise<GitOptionalResult<string>> {
 		const run = await this.runGit(params, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
 		if (!run.ok) return { type: "error", error: run.error };
 		if (!commandSucceeded(run.value.result)) {

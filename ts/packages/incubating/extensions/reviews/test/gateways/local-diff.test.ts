@@ -47,7 +47,7 @@ describe("RealLocalDiffGateway", () => {
 		const execApi = new ScriptedCommandExecApi([exitedResult({ stdout: SAMPLE_DIFF })]);
 		const gateway = new RealLocalDiffGateway({
 			execApi,
-			gitGateway: new InMemoryGitGateway({ repoRoot, trunkBranch: "trunk" }),
+			gitGateway: new InMemoryGitGateway({ repoRoot, cachedOriginHeadBranch: "trunk" }),
 		});
 
 		const result = await gateway.loadDiff({ cwd: repoRoot, baseRef: "main" });
@@ -86,7 +86,7 @@ describe("RealLocalDiffGateway", () => {
 		]);
 		const gateway = new RealLocalDiffGateway({
 			execApi,
-			gitGateway: new InMemoryGitGateway({ repoRoot, trunkBranch: "trunk" }),
+			gitGateway: new InMemoryGitGateway({ repoRoot, cachedOriginHeadBranch: "trunk" }),
 		});
 
 		const result = await gateway.loadDiff({ cwd: repoRoot });

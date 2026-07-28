@@ -130,7 +130,12 @@ export interface GitGateway {
 	optionalRepoRoot(params: GitCwdParams): Promise<GitOptionalResult<string>>;
 	currentBranch(params: GitCwdParams): Promise<GitCurrentBranchResult>;
 	isInsideWorkTree(params: GitCwdParams): Promise<GitResult<boolean>>;
-	trunkBranch(params: GitCwdParams): Promise<GitOptionalResult<string>>;
+	/**
+	 * Reads the cached `refs/remotes/origin/HEAD` symbolic ref without a network refresh or fallback.
+	 * A found value has the `origin/` prefix stripped; missing refs and lookup errors are returned as
+	 * the corresponding `GitOptionalResult` semantics.
+	 */
+	cachedOriginHeadBranch(params: GitCwdParams): Promise<GitOptionalResult<string>>;
 	branchUpstream(params: GitBranchParams): Promise<GitOptionalResult<GitBranchUpstream>>;
 	originUrl(params: GitCwdParams): Promise<GitOptionalResult<string>>;
 	headCommit(params: GitCwdParams): Promise<GitResult<string>>;

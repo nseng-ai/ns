@@ -66,7 +66,7 @@ function fixture(options: {
 		files,
 		acquisition,
 		context: {
-			git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", trunkBranch: "main" }),
+			git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", cachedOriginHeadBranch: "main" }),
 			files,
 			installAcquisition: acquisition,
 			declaredExtensions: new InMemoryDeclaredExtensionsGateway({

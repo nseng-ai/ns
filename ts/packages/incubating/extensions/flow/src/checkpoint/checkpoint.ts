@@ -58,7 +58,7 @@ export interface CheckpointCommandResult {
 
 export interface NsCheckpointRuntime {
 	checkpointGateway: CheckpointGateway;
-	git: Pick<GitGateway, "trunkBranch">;
+	git: Pick<GitGateway, "cachedOriginHeadBranch">;
 }
 
 export function createNsCheckpointRuntime(ctx: NsExtensionApi): NsCheckpointRuntime {
@@ -74,7 +74,7 @@ export function createNsCheckpointRuntime(ctx: NsExtensionApi): NsCheckpointRunt
 
 export interface CheckpointRunContext {
 	gateway: CheckpointGateway;
-	git: Pick<GitGateway, "trunkBranch">;
+	git: Pick<GitGateway, "cachedOriginHeadBranch">;
 	onActiveOperations?: (operations: readonly ActiveOperation[]) => void;
 }
 
@@ -241,7 +241,7 @@ export async function runCheckpointWorkflow(
 	if (!loaded.ok) return { type: "snapshot-failed", error: loaded.error };
 
 	const snapshot = loaded.snapshot;
-	const trunk = await options.git.trunkBranch({ cwd: options.cwd });
+	const trunk = await options.git.cachedOriginHeadBranch({ cwd: options.cwd });
 	if (trunk.type === "missing") return { type: "trunk-missing" };
 	if (trunk.type === "error") return { type: "trunk-resolution-failed", error: trunk.error };
 	if (snapshot.branch === trunk.value) {

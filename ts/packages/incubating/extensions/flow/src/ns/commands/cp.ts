@@ -102,7 +102,7 @@ export interface RunCpCoreOptions {
 	modelSelection: ModelSelection;
 	isDryRun: boolean;
 	checkpointGateway: CheckpointGateway;
-	git: Pick<GitGateway, "trunkBranch">;
+	git: Pick<GitGateway, "cachedOriginHeadBranch">;
 	onPhase?: NsProgressPhaseListener;
 	time?: TimeServices;
 }

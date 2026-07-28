@@ -10,6 +10,8 @@ import {
 	upstreamRelationshipResult,
 } from "./autobranch-test-helpers.ts";
 import {
+	formatLatestCommitPreparationFailure,
+	formatLatestCommitTransactionFailure,
 	prepareLatestCommitAutobranchPlan,
 	runLatestCommitAutobranchTransaction,
 	type LatestCommitAutobranchPlan,
@@ -28,6 +30,7 @@ interface PreparationHarnessOptions {
 	shouldChildrenFail?: boolean;
 	trunkBranch?: string;
 	shouldTrunkFail?: boolean;
+	shouldTrunkBeMissing?: boolean;
 }
 
 function createSnapshot(branch = "feature/base"): PendingWorktreeSnapshot {
@@ -83,6 +86,7 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 			return upstreamProbeResult;
 		}
 		if (command === "git" && args.join(" ") === "symbolic-ref --short refs/remotes/origin/HEAD") {
+			if (options.shouldTrunkBeMissing) return fail("not a symbolic ref", 1);
 			return options.shouldTrunkFail
 				? fail("git symbolic-ref failed", 2)
 				: ok(`origin/${options.trunkBranch ?? "master"}\n`);
@@ -162,6 +166,7 @@ interface TransactionHarnessOptions {
 	sourceBranch?: string;
 	trunkBranch?: string;
 	shouldTrunkFail?: boolean;
+	shouldTrunkBeMissing?: boolean;
 }
 
 function createTransactionHarness(options: TransactionHarnessOptions = {}) {
@@ -190,6 +195,7 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 			return upstreamProbeResult;
 		}
 		if (command === "git" && args.join(" ") === "symbolic-ref --short refs/remotes/origin/HEAD") {
+			if (options.shouldTrunkBeMissing) return fail("not a symbolic ref", 1);
 			return options.shouldTrunkFail
 				? fail("git symbolic-ref failed", 2)
 				: ok(`origin/${options.trunkBranch ?? "master"}\n`);
@@ -453,6 +459,18 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 				"git rev-list --left-right --count HEAD...origin/feature/base returned malformed output; expected exactly two non-negative safe-integer counts.",
 		});
 
+		const trunkMissing = await prepareLatestCommitAutobranchPlan(
+			createPreparationHarness({
+				upstreamMode: "synchronized",
+				shouldTrunkBeMissing: true,
+			}).input,
+		);
+		expect(trunkMissing).toEqual({
+			ok: false,
+			kind: "git_trunk_unavailable",
+			failure: { type: "missing" },
+		});
+
 		const trunkFailed = await prepareLatestCommitAutobranchPlan(
 			createPreparationHarness({
 				upstreamMode: "synchronized",
@@ -461,9 +479,30 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 		);
 		expect(trunkFailed).toEqual({
 			ok: false,
-			kind: "git_trunk_check_failed",
-			error: expect.stringContaining("git symbolic-ref for origin HEAD failed"),
+			kind: "git_trunk_unavailable",
+			failure: {
+				type: "error",
+				error: expect.stringContaining("git symbolic-ref for origin HEAD failed"),
+			},
 		});
+	});
+
+	test("formats missing and error trunk failures with preparation-specific detail", () => {
+		const missing = formatLatestCommitPreparationFailure({
+			ok: false,
+			kind: "git_trunk_unavailable",
+			failure: { type: "missing" },
+		});
+		const failed = formatLatestCommitPreparationFailure({
+			ok: false,
+			kind: "git_trunk_unavailable",
+			failure: { type: "error", error: "symbolic-ref failed" },
+		});
+
+		expect(missing).toContain("Could not determine the Git trunk");
+		expect(missing).not.toContain("symbolic-ref failed");
+		expect(failed).toContain("Could not determine the Git trunk");
+		expect(failed).toContain("symbolic-ref failed");
 	});
 
 	test("refuses root and merge commits before branch-name checks", async () => {
@@ -568,21 +607,52 @@ describe("runLatestCommitAutobranchTransaction", () => {
 				"git rev-list --left-right --count HEAD...origin/feature/base returned malformed output; expected exactly two non-negative safe-integer counts.",
 		});
 
+		const trunkMissing = createTransactionHarness({
+			upstreamMode: "synchronized",
+			shouldTrunkBeMissing: true,
+		});
+		expect(await runLatestCommitAutobranchTransaction(trunkMissing.input)).toEqual({
+			ok: false,
+			kind: "transaction_git_trunk_unavailable",
+			failure: { type: "missing" },
+		});
+
 		const trunkFailed = createTransactionHarness({
 			upstreamMode: "synchronized",
 			shouldTrunkFail: true,
 		});
 		expect(await runLatestCommitAutobranchTransaction(trunkFailed.input)).toEqual({
 			ok: false,
-			kind: "transaction_git_trunk_check_failed",
-			error: expect.stringContaining("git symbolic-ref for origin HEAD failed"),
+			kind: "transaction_git_trunk_unavailable",
+			failure: {
+				type: "error",
+				error: expect.stringContaining("git symbolic-ref for origin HEAD failed"),
+			},
 		});
 
-		for (const harness of [trunk, upstreamFailed, malformed, trunkFailed]) {
+		for (const harness of [trunk, upstreamFailed, malformed, trunkMissing, trunkFailed]) {
 			expect(eventIndex(harness.events, "exec:git branch autobranch-backup/")).toBe(-1);
 			expect(eventIndex(harness.events, "exec:git reset --hard")).toBe(-1);
 			expect(eventIndex(harness.events, "exec:gt create")).toBe(-1);
 		}
+	});
+
+	test("formats missing and error trunk failures with transaction-specific detail", () => {
+		const missing = formatLatestCommitTransactionFailure({
+			ok: false,
+			kind: "transaction_git_trunk_unavailable",
+			failure: { type: "missing" },
+		});
+		const failed = formatLatestCommitTransactionFailure({
+			ok: false,
+			kind: "transaction_git_trunk_unavailable",
+			failure: { type: "error", error: "symbolic-ref failed" },
+		});
+
+		expect(missing).toContain("Could not re-check the Git trunk");
+		expect(missing).not.toContain("symbolic-ref failed");
+		expect(failed).toContain("Could not re-check the Git trunk");
+		expect(failed).toContain("symbolic-ref failed");
 	});
 
 	test("records synchronized upstream context after a successful non-trunk transaction", async () => {
