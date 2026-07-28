@@ -1,6 +1,6 @@
 import { join, resolve } from "node:path";
 
-import { resultOk, type Result } from "@nseng-ai/foundation/result";
+import { resultOk, type Result } from "@nseng-ai/ns-foundation/result";
 
 import type { HarnessArtifactFileSystemGateway } from "./filesystem.ts";
 import {

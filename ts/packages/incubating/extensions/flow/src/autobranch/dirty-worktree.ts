@@ -1,8 +1,8 @@
-import { commandSucceeded } from "@nseng-ai/foundation/command";
+import { commandSucceeded } from "@nseng-ai/ns-foundation/command";
 import { Buffer } from "node:buffer";
 import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 import { truncateText, type AutobranchExec, type PendingWorktreeSnapshot } from "./shared.ts";
 import type { AutobranchGitGateway } from "./git-gateway.ts";
 import type { AutobranchFlowResult } from "./flow-result.ts";
@@ -13,7 +13,7 @@ import {
 	MAX_DIFF_CHARS,
 	prepareRequestedBranchSlug,
 } from "./slug.ts";
-import { sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
+import { sanitizeBranchName } from "@nseng-ai/ns-foundation/branch-slug";
 import {
 	AUTOBRANCH_GIT_TIMEOUT_MS,
 	DIRTY_AUTOBRANCH_WORKTREE_WARNING,
@@ -23,7 +23,7 @@ import {
 	formatAutobranchTransactionFailure,
 	runAutobranchTransaction,
 } from "./dirty-transaction.ts";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 export type { AutobranchFlowOutcome, AutobranchFlowResult } from "./flow-result.ts";
 export type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";

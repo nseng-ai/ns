@@ -3,7 +3,7 @@
 // so root CLI metadata such as `--version` and `--runtime` stays owned by
 // `@nseng-ai/sdk` instead of this extension package.
 import { ClinkrGroup, type ClinkrCommandSpec } from "@nseng-ai/clinkr";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import type { z } from "zod";
 
 import type { SlotCliContext } from "../core/context.ts";

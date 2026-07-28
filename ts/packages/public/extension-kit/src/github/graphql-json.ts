@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { isRecord } from "@nseng-ai/foundation/primitives";
+import { isRecord } from "@nseng-ai/ns-foundation/primitives";
 
 export type JsonParseResult =
 	| { readonly type: "ok"; readonly value: unknown }

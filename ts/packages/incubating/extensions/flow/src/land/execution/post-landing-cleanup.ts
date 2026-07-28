@@ -1,5 +1,5 @@
-import { formatCommand } from "@nseng-ai/foundation/command";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatCommand } from "@nseng-ai/ns-foundation/command";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 
 import { postLandingCleanupCommands } from "../confirmation-commands.ts";
 import { deleteLocalBranchOperation, formatGraphiteOperation } from "../graphite-operations.ts";

@@ -1,8 +1,8 @@
 import type { CommandResult } from "@nseng-ai/extension-kit/checkpoint-flow";
 
 export type { CommandResult };
-import { formatCommandDetails } from "@nseng-ai/foundation/command";
-import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
+import { formatCommandDetails } from "@nseng-ai/ns-foundation/command";
+import { truncateTextHead } from "@nseng-ai/ns-foundation/text-truncation";
 
 // Autobranch command execution is cwd-bound at the command/API boundary. Callers construct this
 // function for exactly one worktree root and do not pass cwd separately through autobranch internals.

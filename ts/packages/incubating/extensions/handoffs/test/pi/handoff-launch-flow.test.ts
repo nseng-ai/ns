@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import { createPiHandoffGitGateway } from "../../src/pi/api-context.ts";
 import { createHandoffLaunchIntegration } from "../../src/pi/handoff-launch.ts";
 import handoffExtension from "../../src/pi/registration.ts";

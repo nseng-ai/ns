@@ -1,8 +1,12 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { commandSucceeded, type CommandExecApi, type ExecResult } from "@nseng-ai/foundation/exec";
-import { formatModelRef, type ModelSelection } from "@nseng-ai/foundation/model-slug";
+import {
+	commandSucceeded,
+	type CommandExecApi,
+	type ExecResult,
+} from "@nseng-ai/ns-foundation/exec";
+import { formatModelRef, type ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 import { callPiModelText, type PiModelRegistryLike } from "../models/call.ts";
 import type {
 	NotifyLevel,

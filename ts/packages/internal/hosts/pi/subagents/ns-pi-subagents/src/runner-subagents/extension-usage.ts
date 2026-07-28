@@ -5,9 +5,9 @@ import {
 	type RunnerSubagentUsageRecord,
 	type RuntimeRunnerSubagentUsageCostTotals,
 	type RuntimeRunnerSubagentUsageTotals,
-} from "@nseng-ai/foundation/runner-usage";
+} from "@nseng-ai/ns-foundation/runner-usage";
 
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import type {
 	RunnerSubagentUsageMetadata,
 	RunnerSubagentUsageUnavailableReason,

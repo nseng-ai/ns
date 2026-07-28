@@ -1,6 +1,6 @@
 import { ClinkrGroup } from "@nseng-ai/clinkr";
-import { defineCli } from "@nseng-ai/foundation/cli-runtime";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { defineCli } from "@nseng-ai/ns-foundation/cli-runtime";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 
 import {
 	attachRequestSchema,

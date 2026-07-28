@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 
 import type {
 	RunnerSubagentTerminalStatus,

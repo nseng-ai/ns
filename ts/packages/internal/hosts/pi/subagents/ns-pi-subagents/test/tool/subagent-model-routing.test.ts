@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@nseng-ai/foundation/exec";
+import type { ExecResult } from "@nseng-ai/ns-foundation/exec";
 import {
 	PI_AGENT_DEFINITION_SCHEMA,
 	type PiAgentDefinition,

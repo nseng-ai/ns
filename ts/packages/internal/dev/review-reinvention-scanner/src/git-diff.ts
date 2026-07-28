@@ -6,8 +6,8 @@ import {
 	formatCommandFailure,
 	type CommandExecApi,
 	type ExecResult,
-} from "@nseng-ai/foundation/command";
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
+} from "@nseng-ai/ns-foundation/command";
+import { NodeCommandExecApi } from "@nseng-ai/ns-foundation/exec";
 
 export const DEFAULT_DIFF_HEAD = "HEAD";
 

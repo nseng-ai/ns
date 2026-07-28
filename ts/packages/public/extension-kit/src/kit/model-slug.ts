@@ -4,8 +4,8 @@ import {
 	formatCommand,
 	formatOutputSection,
 	type ExecResult,
-} from "@nseng-ai/foundation/command";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+} from "@nseng-ai/ns-foundation/command";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 export const RAW_TEXT_MODEL_TIMEOUT_MS = 60_000;
 

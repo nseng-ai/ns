@@ -1,5 +1,5 @@
-import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
-import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
+import { formatCommand, type ExecResult } from "@nseng-ai/ns-foundation/command";
+import { stripTerminalEscapes } from "@nseng-ai/ns-foundation/terminal-escapes";
 
 import type { LandingPlan } from "./types.ts";
 

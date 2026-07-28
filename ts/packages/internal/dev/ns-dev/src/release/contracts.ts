@@ -1,4 +1,4 @@
-import type { ErrorInfo, Result } from "@nseng-ai/foundation/result";
+import type { ErrorInfo, Result } from "@nseng-ai/ns-foundation/result";
 import { z } from "zod";
 
 import { isConcreteNpmVersion } from "../public-packages/package-set.ts";

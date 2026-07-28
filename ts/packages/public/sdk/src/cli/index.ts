@@ -20,8 +20,8 @@ import {
 	readStdin,
 	type CliEntrypointDeps,
 	type DefineCliOptions,
-} from "@nseng-ai/foundation/cli-runtime";
-import { optionalEntries, optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/cli-runtime";
+import { optionalEntries, optionalEntry, resolveHomeDir } from "@nseng-ai/ns-foundation/primitives";
 
 import {
 	buildNsCompletionScript,

@@ -9,7 +9,7 @@ import {
 	type SqliteJsonOutcome,
 } from "@nseng-ai/extension-kit/graphite/metadata";
 import { RealGraphiteStackGateway } from "@nseng-ai/extension-kit/graphite/stack";
-import { resultErr, resultOk } from "@nseng-ai/foundation/result";
+import { resultErr, resultOk } from "@nseng-ai/ns-foundation/result";
 import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";
 
 interface MetadataRow {

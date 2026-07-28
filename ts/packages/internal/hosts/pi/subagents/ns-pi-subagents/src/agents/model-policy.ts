@@ -2,8 +2,8 @@ import {
 	type ModelProviderFamily,
 	type ModelSelection,
 	providerMatchesModelProviderFamily,
-} from "@nseng-ai/foundation/model-slug";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/model-slug";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 
 import type { SubagentAgentDescriptor } from "./registry.ts";
 

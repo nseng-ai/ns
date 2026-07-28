@@ -1,6 +1,6 @@
-import type { GitWorktreeStateFs } from "@nseng-ai/foundation/git";
+import type { GitWorktreeStateFs } from "@nseng-ai/ns-foundation/git";
 import type { NsCommandIo } from "@nseng-ai/sdk";
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import {
 	LandStackCommandStream,
 	createLandUiCommandIo,

@@ -14,7 +14,7 @@ import {
 import {
 	moduleSpecifierText,
 	sourceLocationFields,
-} from "@nseng-ai/foundation/typescript-analysis";
+} from "@nseng-ai/ns-foundation/typescript-analysis";
 
 import {
 	manifestRefForKind,
@@ -44,7 +44,7 @@ export const detectorMetadata: ReadonlyArray<DetectorMetadata> = [
 	{
 		kind: "subprocess",
 		canonical: "runCommand / NodeCommandExecApi / CommandExecApi",
-		import: "@nseng-ai/foundation/exec / @nseng-ai/foundation/command",
+		import: "@nseng-ai/ns-foundation/exec / @nseng-ai/ns-foundation/command",
 		precision: "high",
 	},
 	{
@@ -56,62 +56,62 @@ export const detectorMetadata: ReadonlyArray<DetectorMetadata> = [
 	{
 		kind: "exact-optional-spread",
 		canonical: "optionalEntry / optionalEntries",
-		import: "@nseng-ai/foundation/primitives",
+		import: "@nseng-ai/ns-foundation/primitives",
 		precision: "medium",
 	},
 	{
 		kind: "xdg-path",
 		canonical: "requireNsStatePath / resolveNsXdgPath / resolveXdgHome",
-		import: "@nseng-ai/foundation/xdg-path; @nseng-ai/extension-kit/xdg",
+		import: "@nseng-ai/ns-foundation/xdg-path; @nseng-ai/extension-kit/xdg",
 		precision: "medium",
 	},
 	{
 		kind: "hand-rolled-table",
 		canonical: "renderTextTable / displayWidth",
-		import: "@nseng-ai/foundation/text-table or package renderer helpers",
+		import: "@nseng-ai/ns-foundation/text-table or package renderer helpers",
 		precision: "low",
 	},
 	{
 		kind: "raw-git",
 		canonical: "GitGateway",
-		import: "@nseng-ai/foundation/git or capability-owned GitGateway",
+		import: "@nseng-ai/ns-foundation/git or capability-owned GitGateway",
 		precision: "low",
 	},
 	{
 		kind: "machine-envelope-literal",
 		canonical:
 			"toMachineEnvelope / usageErrorMachineEnvelope / envelopeJsonText; parseMachineEnvelopeData",
-		import: "@nseng-ai/clinkr for builders; @nseng-ai/foundation/machine-envelope for parser",
+		import: "@nseng-ai/clinkr for builders; @nseng-ai/ns-foundation/machine-envelope for parser",
 		precision: "medium",
 	},
 	{
 		kind: "command-failure-format",
 		canonical: "formatCommandFailure / formatCommandResultFailure",
-		import: "@nseng-ai/foundation/exec / @nseng-ai/foundation/command",
+		import: "@nseng-ai/ns-foundation/exec / @nseng-ai/ns-foundation/command",
 		precision: "high",
 	},
 	{
 		kind: "escape-regex",
 		canonical: "stripTerminalEscapes",
-		import: "@nseng-ai/foundation/terminal-escapes or @nseng-ai/foundation/command re-export",
+		import: "@nseng-ai/ns-foundation/terminal-escapes or @nseng-ai/ns-foundation/command re-export",
 		precision: "medium",
 	},
 	{
 		kind: "osc8-hyperlink",
 		canonical: "safeTerminalHyperlink / terminalHyperlink / sanitizeTerminalHyperlinkUrl",
-		import: "@nseng-ai/foundation/terminal-presentation",
+		import: "@nseng-ai/ns-foundation/terminal-presentation",
 		precision: "high",
 	},
 	{
 		kind: "manual-truncation",
 		canonical: "truncateTextHeadTail / truncateTextHead / tailText",
-		import: "@nseng-ai/foundation/text-truncation; @nseng-ai/foundation/command",
+		import: "@nseng-ai/ns-foundation/text-truncation; @nseng-ai/ns-foundation/command",
 		precision: "low",
 	},
 	{
 		kind: "frontmatter-split",
 		canonical: "splitMarkdownFrontmatter",
-		import: "@nseng-ai/foundation/markdown-frontmatter",
+		import: "@nseng-ai/ns-foundation/markdown-frontmatter",
 		precision: "low",
 	},
 ] as const;

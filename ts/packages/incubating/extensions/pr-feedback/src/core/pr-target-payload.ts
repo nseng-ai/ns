@@ -1,4 +1,4 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import type { GithubPrSummary } from "../api.ts";

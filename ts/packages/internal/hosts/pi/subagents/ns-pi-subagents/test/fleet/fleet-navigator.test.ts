@@ -1,6 +1,9 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { createManualClock, createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+import {
+	createManualClock,
+	createManualTimerScheduler,
+} from "@nseng-ai/ns-foundation/time/testing";
 import type { RunnerSubagentUpdate } from "@internal/ns-pi-subagents/runner-subagents";
 import { SubagentFleetRegistry } from "../../src/fleet/registry.ts";
 import type { CommandContext } from "@nseng-ai/pi-runtime/runtime/extension-types";

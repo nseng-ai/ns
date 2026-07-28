@@ -1,7 +1,7 @@
-import { commandSucceeded, formatCommandDetails } from "@nseng-ai/foundation/exec";
-import { truncateTextHead, truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
-import type { TimeServices } from "@nseng-ai/foundation/time";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import { commandSucceeded, formatCommandDetails } from "@nseng-ai/ns-foundation/exec";
+import { truncateTextHead, truncateTextHeadTail } from "@nseng-ai/ns-foundation/text-truncation";
+import type { TimeServices } from "@nseng-ai/ns-foundation/time";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 import type { CommandResult } from "./command-result.ts";
 

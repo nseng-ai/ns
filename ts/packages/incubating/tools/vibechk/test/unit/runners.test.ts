@@ -1,9 +1,9 @@
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/exec";
 import {
 	exitedResult,
 	ScriptedCommandExecApi,
 	spawnFailedResult,
-} from "@nseng-ai/foundation/exec/testing";
+} from "@nseng-ai/ns-foundation/exec/testing";
 import { describe, expect, it } from "vitest";
 
 import { ClaudeRunner, type RunnerRequest } from "../../src/runners.ts";

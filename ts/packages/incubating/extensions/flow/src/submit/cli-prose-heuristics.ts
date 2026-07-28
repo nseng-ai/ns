@@ -1,8 +1,8 @@
 // This module is the only permitted home for matching human-facing git, Graphite, and GitHub CLI prose.
 
-import type { ExecResult } from "@nseng-ai/foundation/command";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
+import type { ExecResult } from "@nseng-ai/ns-foundation/command";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import { stripTerminalEscapes } from "@nseng-ai/ns-foundation/terminal-escapes";
 
 export function isRestackNeededProse(output: string): boolean {
 	const strippedOutput = stripAndNormalizeNewlines(output);

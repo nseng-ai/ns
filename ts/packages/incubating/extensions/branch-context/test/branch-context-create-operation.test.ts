@@ -3,7 +3,7 @@ import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { formatCommand } from "@nseng-ai/foundation/exec";
+import { formatCommand } from "@nseng-ai/ns-foundation/exec";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextCreateOperation,
@@ -15,10 +15,10 @@ import {
 	resolveBranchContextCreatePreviewContext,
 	selectBranchContextCreateOperationTarget,
 } from "../src/core/branch-context-creation.ts";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import type { BranchContextContext } from "../src/core/context.ts";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 
 const PLAN_SLUG = "branch-scoped-plan";

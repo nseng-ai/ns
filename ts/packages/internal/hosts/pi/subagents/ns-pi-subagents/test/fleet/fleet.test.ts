@@ -5,7 +5,7 @@ import type {
 	SessionShutdownEvent,
 	SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
-import { createManualClock } from "@nseng-ai/foundation/time/testing";
+import { createManualClock } from "@nseng-ai/ns-foundation/time/testing";
 import type { ToolContext } from "@nseng-ai/pi-runtime/runtime/tool-types";
 
 import { getOrCreateSubagentFleetRegistry } from "../../src/fleet/provider.ts";

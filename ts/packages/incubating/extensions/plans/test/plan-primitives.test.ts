@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import {
 	NoSavedPlanAvailableError,
 	buildRepoPlanStoreKey,

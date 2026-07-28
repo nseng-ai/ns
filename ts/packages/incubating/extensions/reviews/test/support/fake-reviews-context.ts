@@ -2,10 +2,10 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/command";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
+import { ScriptedCommandExecApi } from "@nseng-ai/ns-foundation/exec/testing";
 import type { ReviewsContext } from "../../src/core/context.ts";
 import {
 	FakeReviewRunnerGateway,

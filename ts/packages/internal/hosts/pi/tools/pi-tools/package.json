@@ -28,7 +28,7 @@
 		"@earendil-works/pi-tui": "catalog:",
 		"@nseng-ai/skill-exposure": "workspace:*",
 		"@nseng-ai/extension-kit": "workspace:*",
-		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/ns-foundation": "workspace:*",
 		"@internal/ns-pi-subagents": "workspace:*",
 		"@nseng-ai/pi-runtime": "workspace:*",
 		"zod": "catalog:"

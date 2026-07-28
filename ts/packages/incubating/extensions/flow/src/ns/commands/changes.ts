@@ -1,4 +1,4 @@
-import { dim, glyph, renderBufferedReport } from "@nseng-ai/foundation/cli-theme";
+import { dim, glyph, renderBufferedReport } from "@nseng-ai/ns-foundation/cli-theme";
 import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
 import { renderCapabilitiesForTerminal, type Caps } from "@nseng-ai/clinkr";
 import { defineCommand, failure, ok, z, type NsCommand } from "@nseng-ai/sdk";

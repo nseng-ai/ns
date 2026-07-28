@@ -6,8 +6,8 @@ import {
 	type ContentSlugEvidence,
 	type KitContentSlugDerivationVariant,
 } from "@nseng-ai/extension-kit/content-slug";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import { RealGitGateway } from "@nseng-ai/ns-foundation/git";
 import {
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,

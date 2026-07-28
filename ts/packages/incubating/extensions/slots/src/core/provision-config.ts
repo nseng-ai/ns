@@ -5,7 +5,7 @@ import {
 	type ProjectConfigDiagnostic,
 	type SettingsSchema,
 } from "@nseng-ai/sdk/project-config/points";
-import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
+import { resultErrOf, type Result } from "@nseng-ai/ns-foundation/result";
 import { z } from "zod";
 
 export interface SlotsProvisionConfig {

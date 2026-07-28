@@ -1,4 +1,4 @@
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { optionalEntries } from "@nseng-ai/ns-foundation/primitives";
 
 import type { NsCliDeps } from "../cli/index.ts";
 import { commandKey, toCommandCliInfo } from "../extensions/command-registry.ts";

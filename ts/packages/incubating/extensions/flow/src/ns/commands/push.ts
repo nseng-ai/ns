@@ -1,7 +1,7 @@
-import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/command";
+import { commandSucceeded, type ExecResult } from "@nseng-ai/ns-foundation/command";
 import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
-import { type GitErrorInfo, type GitGateway } from "@nseng-ai/foundation/git";
+import { type GitErrorInfo, type GitGateway } from "@nseng-ai/ns-foundation/git";
 
 import { execNsGit, readNsGitPorcelainStatus } from "../exec.ts";
 

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 
-import { createDeferred } from "@nseng-ai/foundation/test-kit";
-import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
-import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+import { createDeferred } from "@nseng-ai/ns-foundation/test-kit";
+import { createManualTimerScheduler } from "@nseng-ai/ns-foundation/time/testing";
+import type { TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 
 import { createPiHandoffContext } from "../../src/pi/api-context.ts";
 import { buildHandoffSelfPrompt, formatHandoffSelfKickoffPrompt } from "../../src/pi/extension.ts";

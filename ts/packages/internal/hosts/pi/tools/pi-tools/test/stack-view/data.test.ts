@@ -22,8 +22,8 @@
  */
 import { describe, expect, test } from "vitest";
 
-import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
-import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/exec";
+import { ScriptedQueue } from "@nseng-ai/ns-foundation/test-kit";
+import type { CommandExecApi, ExecResult } from "@nseng-ai/ns-foundation/exec";
 import type {
 	ChildrenOfResult,
 	GraphiteStackGateway,

@@ -1,4 +1,4 @@
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 

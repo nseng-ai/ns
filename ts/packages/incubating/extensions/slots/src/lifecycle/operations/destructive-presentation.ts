@@ -1,6 +1,9 @@
 import type { RenderCapabilities } from "@nseng-ai/clinkr";
-import { renderDestructiveResultBlock, type ResultBlockKind } from "@nseng-ai/foundation/cli-theme";
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import {
+	renderDestructiveResultBlock,
+	type ResultBlockKind,
+} from "@nseng-ai/ns-foundation/cli-theme";
+import { optionalEntries } from "@nseng-ai/ns-foundation/primitives";
 
 export type SlotDestructiveResultKind = ResultBlockKind;
 

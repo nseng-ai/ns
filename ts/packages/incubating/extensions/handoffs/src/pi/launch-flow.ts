@@ -2,7 +2,7 @@ import {
 	buildFencedTextBlock,
 	formatErrorMessage,
 	optionalEntries,
-} from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/primitives";
 import { HANDOFF_NAMESPACE, handoffSlugToKey, parseFlatHandoffSlug } from "../api/index.ts";
 
 import { isRecord, stringField } from "@nseng-ai/pi-runtime/runtime/primitives";
@@ -19,8 +19,8 @@ import {
 } from "./investigation-sources.ts";
 import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
 import type { ExpandedSkillBlock } from "@nseng-ai/pi-runtime/skills/expansion";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/command";
 import type {
 	CommandContext,
 	ExtensionAPI,

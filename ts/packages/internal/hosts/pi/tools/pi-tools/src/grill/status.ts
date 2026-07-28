@@ -1,4 +1,4 @@
-import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
+import { truncateTextHead } from "@nseng-ai/ns-foundation/text-truncation";
 
 import { formatRemainingEstimate } from "./progress.ts";
 import type {

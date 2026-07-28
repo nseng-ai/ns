@@ -1,5 +1,5 @@
-import type { ExecResult } from "@nseng-ai/foundation/command";
-import { exitedResult } from "@nseng-ai/foundation/exec/testing";
+import type { ExecResult } from "@nseng-ai/ns-foundation/command";
+import { exitedResult } from "@nseng-ai/ns-foundation/exec/testing";
 import { describe, expect, it } from "vitest";
 
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";

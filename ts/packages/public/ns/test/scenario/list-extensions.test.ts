@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
 
 import type { ArtifactProvisioningStatusSummary } from "../../src/init/artifact-provisioning-status.ts";

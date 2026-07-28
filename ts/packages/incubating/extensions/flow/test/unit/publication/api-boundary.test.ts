@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { ScriptedCommandExecApi, exitedResult } from "@nseng-ai/foundation/exec/testing";
+import { ScriptedCommandExecApi, exitedResult } from "@nseng-ai/ns-foundation/exec/testing";
 import {
 	createFlowBranchPublicationClient,
 	type FlowBranchPublicationClient,

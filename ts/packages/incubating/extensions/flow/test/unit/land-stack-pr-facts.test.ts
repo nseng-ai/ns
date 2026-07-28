@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
-import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import { formatCommand, type ExecResult } from "@nseng-ai/ns-foundation/command";
+import { ScriptedQueue } from "@nseng-ai/ns-foundation/test-kit";
 import { type LandResult } from "../../src/land/results.ts";
 import { PR_FIELDS } from "../../src/land/stack/constants.ts";
 import {

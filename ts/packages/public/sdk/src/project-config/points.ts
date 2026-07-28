@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { parse } from "smol-toml";
 import { z, type ZodType } from "zod";
 

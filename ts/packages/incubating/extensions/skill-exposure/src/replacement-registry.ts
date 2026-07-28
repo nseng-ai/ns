@@ -9,12 +9,12 @@ import {
 import type {
 	CommandBackedSkillRegistration,
 	CommandBackedSkillRegistrationKind,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 
 export type {
 	CommandBackedSkillRegistration,
 	CommandBackedSkillRegistrationKind,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 
 /**
  * Single source of truth for repo-local skills that Pi surfaces as slash

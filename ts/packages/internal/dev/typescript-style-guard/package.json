@@ -19,7 +19,7 @@
 		"./topology-circles": "./src/topology-circles.ts"
 	},
 	"dependencies": {
-		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/ns-foundation": "workspace:*",
 		"@nseng-ai/sdk": "workspace:*",
 		"jsonc-parser": "catalog:",
 		"typescript": "catalog:"

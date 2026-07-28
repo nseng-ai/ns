@@ -1,5 +1,5 @@
 import { resolveRenderCapabilities, type Caps, type RenderCapabilities } from "@nseng-ai/clinkr";
-import { dim, paint, renderResultBlock } from "@nseng-ai/foundation/cli-theme";
+import { dim, paint, renderResultBlock } from "@nseng-ai/ns-foundation/cli-theme";
 
 import type { NavigationResultFields } from "./navigation-result.ts";
 

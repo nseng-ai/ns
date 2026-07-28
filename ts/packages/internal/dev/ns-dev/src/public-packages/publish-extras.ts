@@ -1,6 +1,6 @@
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-import { isNodeErrorCode, isRecord } from "@nseng-ai/foundation/primitives";
+import { isNodeErrorCode, isRecord } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import { realFileSystemGateway, type FileSystemGateway } from "../context.ts";

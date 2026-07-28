@@ -1,8 +1,8 @@
 import { relative, resolve } from "node:path";
 
 import { createFakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
-import type { ExecResult } from "@nseng-ai/foundation/exec";
-import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+import type { ExecResult } from "@nseng-ai/ns-foundation/exec";
+import { createManualTimerScheduler } from "@nseng-ai/ns-foundation/time/testing";
 import {
 	cancelledResult,
 	exitedResult,
@@ -10,7 +10,7 @@ import {
 	spawnFailedResult,
 	step,
 	timedOutResult,
-} from "@nseng-ai/foundation/exec/testing";
+} from "@nseng-ai/ns-foundation/exec/testing";
 import { describe, expect, it } from "vitest";
 
 import { releaseInventoryFixture } from "./release-transaction-builders.ts";

@@ -1,4 +1,4 @@
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 import { notifyCommandUi } from "@nseng-ai/pi-runtime/commands/helpers";
 import {

@@ -1,4 +1,4 @@
-import { exitedResult } from "@nseng-ai/foundation/exec/testing";
+import { exitedResult } from "@nseng-ai/ns-foundation/exec/testing";
 import { describe, expect, test } from "vitest";
 
 import type {

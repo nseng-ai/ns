@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { createManualClock, type ManualClock } from "@nseng-ai/foundation/time/testing";
-import { TimerScheduler, type ScheduledTimer } from "@nseng-ai/foundation/timers";
+import { createManualClock, type ManualClock } from "@nseng-ai/ns-foundation/time/testing";
+import { TimerScheduler, type ScheduledTimer } from "@nseng-ai/ns-foundation/timers";
 
 import type { GithubStatusChecks } from "../../src/api.ts";
 import {

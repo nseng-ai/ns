@@ -2,12 +2,12 @@ import { access } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import { NodeCommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import { RealGitGateway } from "@nseng-ai/ns-foundation/git";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
 
-import { resolveXdgHome } from "@nseng-ai/foundation/xdg-path";
+import { resolveXdgHome } from "@nseng-ai/ns-foundation/xdg-path";
 
 import { brmemError, brmemOk, type BrmemResult } from "./contracts.ts";
 import type { BrmemEnvOption } from "./env.ts";

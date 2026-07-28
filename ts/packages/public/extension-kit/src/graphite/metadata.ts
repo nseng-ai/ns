@@ -2,8 +2,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { errorCodeFromUnknown, isRecord } from "@nseng-ai/foundation/primitives";
-import { resultErr, type Result } from "@nseng-ai/foundation/result";
+import { errorCodeFromUnknown, isRecord } from "@nseng-ai/ns-foundation/primitives";
+import { resultErr, type Result } from "@nseng-ai/ns-foundation/result";
 
 export const GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS = 1_000;
 

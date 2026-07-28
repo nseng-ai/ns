@@ -5,12 +5,12 @@ import {
 	formatCommand,
 	formatCommandFailure,
 	tailText,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 import {
 	parseMachineEnvelopeData,
 	type MachineEnvelopeDataParseValid,
-} from "@nseng-ai/foundation/machine-envelope";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/machine-envelope";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 
 const DEFAULT_MAX_ERROR_CHARS = 4_000;
 const DEFAULT_MAX_ERROR_LINES = 20;

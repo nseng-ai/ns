@@ -1,4 +1,4 @@
-import { formatShellArg } from "@nseng-ai/foundation/exec";
+import { formatShellArg } from "@nseng-ai/ns-foundation/exec";
 import type { ModelInfo, ThinkingLevel } from "./pi-types.ts";
 
 export interface PiLaunchOptions {

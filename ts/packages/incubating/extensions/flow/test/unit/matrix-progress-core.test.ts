@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
-import { createManualClock } from "@nseng-ai/foundation/time/testing";
+import { createManualClock } from "@nseng-ai/ns-foundation/time/testing";
 import type { ActiveOperation, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import {
 	bindMatrixWorkflowActions,

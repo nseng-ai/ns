@@ -1,7 +1,7 @@
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import { execApiToCommandRunner, type CommandExecApi } from "@nseng-ai/foundation/command";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import { NodeCommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import { execApiToCommandRunner, type CommandExecApi } from "@nseng-ai/ns-foundation/command";
+import { RealGitGateway } from "@nseng-ai/ns-foundation/git";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
 import { RealGithubPrFeedbackGateway } from "@nseng-ai/extension-kit/github/pr-feedback";
 import type { GithubPrFeedbackGateway } from "@nseng-ai/extension-kit/github/pr-feedback";
 
@@ -15,7 +15,7 @@ import { PiProcessReviewRunner } from "../gateways/pi-review-runner.ts";
 import { RealLocalDiffGateway, type LocalDiffGateway } from "../gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "../gateways/review-catalog.ts";
 import { RealReviewLogGateway, type ReviewLogGateway } from "../gateways/review-log.ts";
-import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 
 export { REVIEWS_BOT_LOGIN } from "./reviews-bot.ts";
 

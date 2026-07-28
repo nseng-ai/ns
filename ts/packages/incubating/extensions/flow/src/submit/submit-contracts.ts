@@ -2,7 +2,7 @@ import type {
 	ExecOutputListener,
 	ExecOutputStream,
 	ExecResult,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 
 import type { SubmitPrLink } from "./gt-output.ts";
 export type CurrentPrVerificationFailureCause =

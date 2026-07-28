@@ -1,7 +1,7 @@
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { isRecord, optionalEntries } from "@nseng-ai/foundation/primitives";
+import { isRecord, optionalEntries } from "@nseng-ai/ns-foundation/primitives";
 
 import {
 	MAX_PACKAGE_TREE_WALK_DEPTH,

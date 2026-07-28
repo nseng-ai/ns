@@ -1,4 +1,4 @@
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type { ObjectiveCliContext } from "../../src/core/context.ts";

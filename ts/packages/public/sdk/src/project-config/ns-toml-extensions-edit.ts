@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 
-import { firstLineEnding } from "@nseng-ai/foundation/markdown-frontmatter";
+import { firstLineEnding } from "@nseng-ai/ns-foundation/markdown-frontmatter";
 
 import { parseDeclaredExtensionSpecsToml } from "./descriptor-package.ts";
 import {

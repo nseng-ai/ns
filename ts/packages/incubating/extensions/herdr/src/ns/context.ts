@@ -4,7 +4,7 @@ import {
 	NsCommandExecApi,
 	NsStdinCapableCommandExecApi,
 } from "@nseng-ai/extension-kit";
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { optionalEntries } from "@nseng-ai/ns-foundation/primitives";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 import { createCliHerdrGateway } from "../core/cli-gateway.ts";

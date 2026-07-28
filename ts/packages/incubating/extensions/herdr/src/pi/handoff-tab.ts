@@ -1,5 +1,5 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
-import { formatShellArg } from "@nseng-ai/foundation/exec";
+import { formatShellArg } from "@nseng-ai/ns-foundation/exec";
 import type {
 	HandoffExtensionAPI,
 	HandoffPromptCreateIntegration,

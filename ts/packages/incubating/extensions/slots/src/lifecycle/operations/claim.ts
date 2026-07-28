@@ -1,5 +1,5 @@
 import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from "@nseng-ai/clinkr";
-import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
+import { renderResultBlock } from "@nseng-ai/ns-foundation/cli-theme";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../core/context.ts";

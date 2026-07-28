@@ -1,5 +1,5 @@
 import { createFakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
-import { createManualClock } from "@nseng-ai/foundation/time/testing";
+import { createManualClock } from "@nseng-ai/ns-foundation/time/testing";
 import { FakeGraphiteStackGateway } from "@nseng-ai/extension-kit/graphite/testing";
 import { describe, expect, it } from "vitest";
 

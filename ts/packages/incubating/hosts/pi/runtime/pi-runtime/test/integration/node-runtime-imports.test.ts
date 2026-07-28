@@ -22,7 +22,7 @@ const EXTENSION_LOAD_FAILURE_MARKER = "Failed to load extension";
 
 const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@nseng-ai/extension-kit/graphite/status",
-	"@nseng-ai/foundation/exec",
+	"@nseng-ai/ns-foundation/exec",
 	"@nseng-ai/branch-context",
 	"@nseng-ai/plans",
 	"@nseng-ai/sdk/cli",
@@ -39,7 +39,7 @@ const PI_RUNTIME_ADAPTER_EXPORT_IMPORTS = [
 const SDK_EXPORT_IMPORTS = [
 	"@nseng-ai/extension-kit/checkpoint-flow",
 	"@nseng-ai/extension-kit/checkpoint-message",
-	"@nseng-ai/foundation/exec",
+	"@nseng-ai/ns-foundation/exec",
 	"@nseng-ai/sdk/cli",
 	"@nseng-ai/sdk/context",
 	"@nseng-ai/extension-kit/pending-worktree",

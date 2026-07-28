@@ -1,18 +1,18 @@
-import { type CommandResolver } from "@nseng-ai/foundation/command";
-import { defaultCommandResolver } from "@nseng-ai/foundation/exec";
+import { type CommandResolver } from "@nseng-ai/ns-foundation/command";
+import { defaultCommandResolver } from "@nseng-ai/ns-foundation/exec";
 import {
 	commandSucceeded,
 	type CommandExecApi,
 	type ExecOptions,
 	type ExecResult,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 import {
 	formatErrorMessage,
 	mapFromRecordOrMap,
 	type ExplicitUndefined,
-} from "@nseng-ai/foundation/primitives";
-import { resultErr } from "@nseng-ai/foundation/result";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+} from "@nseng-ai/ns-foundation/primitives";
+import { resultErr } from "@nseng-ai/ns-foundation/result";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 import type { ReviewResult } from "../core/failures.ts";
 import {

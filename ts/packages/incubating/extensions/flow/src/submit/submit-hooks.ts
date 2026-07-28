@@ -18,7 +18,7 @@ import {
 	type CommandRunner,
 	type ExecOutputListener,
 	type ExecResult,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 import {
 	hookCommandsForPoint,
 	loadPointCatalog,

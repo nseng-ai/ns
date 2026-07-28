@@ -108,39 +108,39 @@ describe("release inventory derivation", () => {
 				dependencies: {
 					"@nseng-ai/clinkr": "workspace:*",
 					"@nseng-ai/extension-kit": "workspace:*",
-					"@nseng-ai/foundation": "workspace:*",
+					"@nseng-ai/ns-foundation": "workspace:*",
 				},
 			}),
 			entry("public/extension-kit", {
 				name: "@nseng-ai/extension-kit",
-				dependencies: { "@nseng-ai/foundation": "workspace:*" },
+				dependencies: { "@nseng-ai/ns-foundation": "workspace:*" },
 				peerDependencies: { "@nseng-ai/sdk": "workspace:*" },
 			}),
 			entry("public/sdk", {
 				name: "@nseng-ai/sdk",
-				dependencies: { "@nseng-ai/foundation": "workspace:*", zod: "catalog:" },
+				dependencies: { "@nseng-ai/ns-foundation": "workspace:*", zod: "catalog:" },
 			}),
-			entry("public/infra/foundation", {
-				name: "@nseng-ai/foundation",
+			entry("public/infra/ns-foundation", {
+				name: "@nseng-ai/ns-foundation",
 				dependencies: { "@nseng-ai/clinkr": "workspace:*" },
 			}),
 			entry("public/infra/clinkr", { name: "@nseng-ai/clinkr" }),
 			entry("public/infra/brmem", {
 				name: "@nseng-ai/brmem",
-				dependencies: { "@nseng-ai/foundation": "workspace:*" },
+				dependencies: { "@nseng-ai/ns-foundation": "workspace:*" },
 			}),
 		]);
 
 		expect(inventory).toEqual([
 			"@nseng-ai/clinkr",
-			"@nseng-ai/foundation",
+			"@nseng-ai/ns-foundation",
 			"@nseng-ai/brmem",
 			"@nseng-ai/sdk",
 			"@nseng-ai/extension-kit",
 			"@nseng-ai/ns",
 		]);
 		for (const [name, dependency] of [
-			["@nseng-ai/foundation", "@nseng-ai/clinkr"],
+			["@nseng-ai/ns-foundation", "@nseng-ai/clinkr"],
 			["@nseng-ai/extension-kit", "@nseng-ai/sdk"],
 			["@nseng-ai/ns", "@nseng-ai/extension-kit"],
 		] as const) {

@@ -1,4 +1,4 @@
-import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+import type { TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 
 import type { NotifyLevel } from "../runtime/tool-types.ts";
 import { withSafePiUi, withSafePiUiValue } from "../kit/shared/safe-ui.ts";

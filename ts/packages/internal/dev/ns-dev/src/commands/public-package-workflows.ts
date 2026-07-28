@@ -2,7 +2,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
-import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, isRecord } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import type { FileSystemGateway, NsDevCliContext } from "../context.ts";

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 import type { RunnerSubagentTerminalToolDefinition } from "@internal/ns-pi-subagents/api";
 
 export const THERMO_COUNCIL_COMMAND_NAME = "thermo-council";

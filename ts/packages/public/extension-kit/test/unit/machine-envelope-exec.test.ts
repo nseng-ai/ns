@@ -1,5 +1,5 @@
 import { runJsonExecCommand } from "@nseng-ai/extension-kit/machine-envelope-exec";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/command";
 import { describe, expect, test } from "vitest";
 
 class FakeCommands implements CommandExecApi {

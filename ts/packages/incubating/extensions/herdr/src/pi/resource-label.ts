@@ -7,7 +7,7 @@ import {
 	loadModelPolicy,
 	resolveModelOperation,
 } from "@nseng-ai/extension-kit/model-policy";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import type { HerdrResourceLabelDeriver } from "../core/new-space.ts";

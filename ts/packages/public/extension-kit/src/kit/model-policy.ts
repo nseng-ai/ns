@@ -2,8 +2,8 @@ import {
 	parseModelRef,
 	modelThinkingSchema,
 	type ModelSelection,
-} from "@nseng-ai/foundation/model-slug";
-import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
+} from "@nseng-ai/ns-foundation/model-slug";
+import { resultErrOf, type Result } from "@nseng-ai/ns-foundation/result";
 import {
 	getProjectConfigSetting,
 	parseProjectConfigToml,

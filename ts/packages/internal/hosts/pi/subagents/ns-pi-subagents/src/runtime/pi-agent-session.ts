@@ -6,7 +6,7 @@ import {
 	getAgentDir,
 	type AgentSessionEvent,
 } from "@earendil-works/pi-coding-agent";
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 
 import type {
 	InProcessSubagentSession,

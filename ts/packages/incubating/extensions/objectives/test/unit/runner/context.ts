@@ -3,13 +3,16 @@ import type {
 	GitCwdParams,
 	GitResult,
 	GitStatusPathFacts,
-} from "@nseng-ai/foundation/git";
-import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@nseng-ai/foundation/git/testing";
+} from "@nseng-ai/ns-foundation/git";
+import {
+	InMemoryGitGateway,
+	type InMemoryGitGatewayState,
+} from "@nseng-ai/ns-foundation/git/testing";
 import {
 	InMemoryGraphiteBranchGateway,
 	type InMemoryGraphiteGatewayState,
 } from "@nseng-ai/extension-kit/graphite/testing";
-import type { ExecResult } from "@nseng-ai/foundation/exec";
+import type { ExecResult } from "@nseng-ai/ns-foundation/exec";
 
 type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;

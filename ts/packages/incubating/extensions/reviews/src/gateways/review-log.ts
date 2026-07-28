@@ -3,8 +3,8 @@ import {
 	putBrmemEntryFromFile,
 	type BrmemCommandErrorInfo,
 } from "@nseng-ai/extension-kit/brmem-cli";
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import { resultErr } from "@nseng-ai/foundation/result";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/command";
+import { resultErr } from "@nseng-ai/ns-foundation/result";
 import { withTemporaryFile } from "@nseng-ai/extension-kit/temp-files";
 
 import type { ReviewsEnvironmentOptions } from "../core/context.ts";

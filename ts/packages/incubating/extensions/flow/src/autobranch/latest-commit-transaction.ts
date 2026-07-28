@@ -1,4 +1,4 @@
-import { commandSucceeded } from "@nseng-ai/foundation/command";
+import { commandSucceeded } from "@nseng-ai/ns-foundation/command";
 import type { AutobranchExec } from "./shared.ts";
 import type { AutobranchGitGateway } from "./git-gateway.ts";
 import type { AutobranchFlowOutcome } from "./flow-result.ts";
@@ -9,7 +9,7 @@ import {
 import { branchNameCandidates, findAvailableBranchName } from "./branch-name.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
 import { inspectLatestCommitUpstreamEligibility } from "./upstream.ts";
-import { normalizeBranchSlugText } from "@nseng-ai/foundation/branch-slug";
+import { normalizeBranchSlugText } from "@nseng-ai/ns-foundation/branch-slug";
 import type { LatestCommitAutobranchPlan } from "./latest-commit-preparation.ts";
 
 const GT_TIMEOUT_MS = 120_000;

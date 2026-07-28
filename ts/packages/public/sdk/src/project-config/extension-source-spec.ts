@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 
-import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+import { resultErr, resultOk, type Result } from "@nseng-ai/ns-foundation/result";
 
 export type ExtensionSourceSpec =
 	| { kind: "local"; raw: string; path: string }

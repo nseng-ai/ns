@@ -1,5 +1,5 @@
 import type { GraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/branch";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
 import type { ClinkrFormat } from "@nseng-ai/sdk";
 
 import type { ObjectiveCliContext } from "../core/context.ts";

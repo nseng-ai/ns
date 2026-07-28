@@ -1,5 +1,5 @@
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 import type { PersistedBundle } from "./bundle.ts";
 import {
 	buildInterrogationSystemPrompt,

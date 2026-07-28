@@ -1,15 +1,15 @@
 import { readFile, stat } from "node:fs/promises";
 
 import { NsCommandExecApi } from "@nseng-ai/extension-kit/command-runner";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
 import { RealGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/branch";
 import type { GraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/branch";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
 import {
 	errorCodeFromUnknown,
 	formatErrorMessage,
 	optionalEntries,
-} from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/primitives";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 import type { ObjectiveStorage } from "../core/storage.ts";

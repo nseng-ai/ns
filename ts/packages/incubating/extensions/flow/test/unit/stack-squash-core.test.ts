@@ -1,6 +1,6 @@
 import { FakeGraphiteStackGateway, fakeStackInfo } from "@nseng-ai/extension-kit/graphite/testing";
 import type { StackInfo } from "@nseng-ai/extension-kit/graphite/stack";
-import type { ExecResult } from "@nseng-ai/foundation/command";
+import type { ExecResult } from "@nseng-ai/ns-foundation/command";
 import { describe, expect, test } from "vitest";
 
 import {

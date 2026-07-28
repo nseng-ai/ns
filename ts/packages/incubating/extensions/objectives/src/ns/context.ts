@@ -1,5 +1,5 @@
 import { createNsGitGateway } from "@nseng-ai/extension-kit";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 import { RealObjectiveStorageGateway } from "../core/real-storage.ts";

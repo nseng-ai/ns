@@ -1,4 +1,4 @@
-import { commandSucceeded } from "@nseng-ai/foundation/command";
+import { commandSucceeded } from "@nseng-ai/ns-foundation/command";
 import { shortSha } from "../commit-display/index.ts";
 import type { AutobranchExec, PendingWorktreeSnapshot } from "./shared.ts";
 import type { AutobranchGitGateway } from "./git-gateway.ts";
@@ -13,7 +13,7 @@ import {
 import { formatAutobranchCommandDetails } from "./shared.ts";
 import { inspectLatestCommitUpstreamEligibility } from "./upstream.ts";
 import type { ParsedAutobranchArgs } from "./dirty-worktree.ts";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 const GT_TIMEOUT_MS = 120_000;
 

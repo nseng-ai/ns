@@ -5,10 +5,10 @@ import {
 	type BrmemSourceReader,
 } from "@nseng-ai/brmem";
 import { resolveClinkrInteraction, type ClinkrInteraction } from "@nseng-ai/clinkr";
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
+import { NodeCommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import { RealGitGateway } from "@nseng-ai/ns-foundation/git";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import { readStdinLine } from "@nseng-ai/ns-foundation/cli-runtime";
 
 export interface HandoffCliContext {
 	cwd: string;

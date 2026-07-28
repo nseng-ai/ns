@@ -1,5 +1,5 @@
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import type { Result } from "@nseng-ai/foundation/result";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
+import type { Result } from "@nseng-ai/ns-foundation/result";
 import type {
 	GithubPrFeedbackFailure,
 	GithubPrInlineCommentInput,

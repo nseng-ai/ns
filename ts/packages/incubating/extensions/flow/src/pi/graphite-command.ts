@@ -1,4 +1,4 @@
-import { execApiToCommandRunner, type ExecResult } from "@nseng-ai/foundation/command";
+import { execApiToCommandRunner, type ExecResult } from "@nseng-ai/ns-foundation/command";
 import {
 	createPiCommandExecApi,
 	type RawPiExecApi,

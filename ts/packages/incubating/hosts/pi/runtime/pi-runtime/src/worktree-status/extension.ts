@@ -1,15 +1,15 @@
 import { basename, resolve } from "node:path";
 
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
-import { isRecord, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { isRecord, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import {
 	PI_EXTENSION_COMMAND_FINISHED_EVENT,
 	type PiExtensionCommandEventBus,
 } from "@nseng-ai/pi-runtime/commands/events";
 import { unrefTimerScheduler } from "@nseng-ai/pi-runtime/shared/timers";
-import type { Clock } from "@nseng-ai/foundation/clock";
-import { systemClock } from "@nseng-ai/foundation/time";
-import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import { systemClock } from "@nseng-ai/ns-foundation/time";
+import type { TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 import { shutdownGraphiteMetadataWorker } from "@nseng-ai/extension-kit/graphite/status";
 import {
 	createPiCommandExecApi,

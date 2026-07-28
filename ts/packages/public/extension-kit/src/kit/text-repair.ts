@@ -1,6 +1,6 @@
-import type { Clock } from "@nseng-ai/foundation/clock";
-import { systemClock, systemTimerScheduler } from "@nseng-ai/foundation/time";
-import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import { systemClock, systemTimerScheduler } from "@nseng-ai/ns-foundation/time";
+import type { TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 
 import type { TextGenerationResult } from "./text-generation.ts";
 export type { TextGenerationResult, TextGenerationUsage } from "./text-generation.ts";

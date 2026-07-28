@@ -12,7 +12,7 @@
  */
 import type { StackViewExecContext } from "./exec.ts";
 import type { StackBranchLineage } from "./types.ts";
-import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
+import { commandFailureReason, commandSucceeded } from "@nseng-ai/ns-foundation/exec";
 
 const OBJECTIVES_ROOT = ".ns/objectives";
 

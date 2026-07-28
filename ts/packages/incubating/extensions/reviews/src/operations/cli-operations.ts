@@ -1,6 +1,6 @@
 import { failure, ok, negative, type ClinkrExit } from "@nseng-ai/clinkr";
 import { parseJsonInputText, type JsonInputError } from "@nseng-ai/extension-kit/json-input";
-import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntries, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import { catalogOptions, environmentOptions, type ReviewsRuntime } from "../core/context.ts";

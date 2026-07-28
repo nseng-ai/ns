@@ -10,11 +10,11 @@ import {
 	tailText,
 	type CommandRunner,
 	type ExecResult,
-} from "@nseng-ai/foundation/exec";
-import { isNodeErrorCode, isRecord } from "@nseng-ai/foundation/primitives";
-import { resultErr, resultOk } from "@nseng-ai/foundation/result";
-import { systemTimerScheduler } from "@nseng-ai/foundation/time";
-import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+} from "@nseng-ai/ns-foundation/exec";
+import { isNodeErrorCode, isRecord } from "@nseng-ai/ns-foundation/primitives";
+import { resultErr, resultOk } from "@nseng-ai/ns-foundation/result";
+import { systemTimerScheduler } from "@nseng-ai/ns-foundation/time";
+import type { TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 
 import { isMissingPackageResult } from "../public-packages/helpers.ts";
 import {

@@ -1,5 +1,5 @@
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import { truncateTextHead } from "@nseng-ai/ns-foundation/text-truncation";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
 
 export const LOCAL_TRUNK_CHOICE_LABEL = "Local trunk";

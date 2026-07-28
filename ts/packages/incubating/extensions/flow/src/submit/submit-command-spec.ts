@@ -1,4 +1,4 @@
-import { formatCommand } from "@nseng-ai/foundation/command";
+import { formatCommand } from "@nseng-ai/ns-foundation/command";
 
 const GT_SUBMIT_PREFIX_ARGS = ["submit", "--no-edit", "--publish"] as const;
 const GT_SUBMIT_SUFFIX_ARGS = ["--no-ai", "--no-interactive", "--no-view", "--no-web"] as const;

@@ -1,4 +1,4 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { validateStrictMergeGate } from "../preflight.ts";
 import { landFailure, landingExecutionFailure, landSuccess } from "../results.ts";
 import {

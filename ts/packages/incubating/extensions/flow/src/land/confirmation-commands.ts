@@ -3,7 +3,7 @@
 // Confirmation details, non-interactive refusal text, and suggested actions must all derive from
 // these lists instead of re-assembling commands per call site or reverse-parsing rendered prose.
 
-import { formatCommand } from "@nseng-ai/foundation/command";
+import { formatCommand } from "@nseng-ai/ns-foundation/command";
 
 import {
 	deleteLocalBranchOperation,

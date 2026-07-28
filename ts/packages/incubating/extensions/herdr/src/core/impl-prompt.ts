@@ -13,9 +13,9 @@ import {
 } from "@nseng-ai/extension-kit/tracked-branch-payload";
 import { getPiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/command";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
 import { HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME } from "./command-surfaces.ts";

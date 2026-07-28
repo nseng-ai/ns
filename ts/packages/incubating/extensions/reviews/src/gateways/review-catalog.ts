@@ -1,11 +1,11 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { isAbsolute, join, relative, sep } from "node:path";
 
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
-import { mapFromRecordOrMap, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
-import { resultErr } from "@nseng-ai/foundation/result";
+import { NodeCommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import { RealGitGateway } from "@nseng-ai/ns-foundation/git";
+import { mapFromRecordOrMap, type ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
+import { resultErr } from "@nseng-ai/ns-foundation/result";
 
 import type { ReviewCatalogFailure, ReviewResult } from "../core/failures.ts";
 import { isMissingFileError } from "./filesystem-errors.ts";

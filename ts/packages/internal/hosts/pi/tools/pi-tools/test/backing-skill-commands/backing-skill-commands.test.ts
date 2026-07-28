@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
+import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/ns-foundation/test-kit";
 const BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME = "ns:branch-context:from-plan";
 const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "ns:branch-context:impl-attached-plan";
 

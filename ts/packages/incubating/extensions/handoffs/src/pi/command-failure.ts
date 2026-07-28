@@ -2,7 +2,7 @@ import {
 	type ExecResult,
 	formatCommandFailure,
 	formatCommandSpawnFailure,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 
 export function formatExecFailure(commandDisplay: string, result: ExecResult): string {
 	return formatCommandFailure("command failed", commandDisplay, result);

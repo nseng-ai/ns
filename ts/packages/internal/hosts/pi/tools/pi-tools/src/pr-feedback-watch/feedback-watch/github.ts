@@ -1,5 +1,5 @@
-import { execApiToCommandRunner } from "@nseng-ai/foundation/exec";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { execApiToCommandRunner } from "@nseng-ai/ns-foundation/exec";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { githubPrIdentityFromUrl } from "@nseng-ai/extension-kit/github/identity";
 import { RealGithubPrFeedbackGateway } from "@nseng-ai/extension-kit/github/pr-feedback";
 import { isRecord, stringField } from "@nseng-ai/pi-runtime/runtime/primitives";

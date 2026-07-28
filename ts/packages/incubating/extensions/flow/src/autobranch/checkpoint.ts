@@ -6,7 +6,7 @@ import {
 } from "@nseng-ai/extension-kit/checkpoint-flow";
 import type { PendingWorktreeSnapshot } from "@nseng-ai/extension-kit/pending-worktree";
 import type { TextGenerator } from "@nseng-ai/extension-kit/text-generation";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 export type { CommandResult, PreparedCheckpointMessage };
 

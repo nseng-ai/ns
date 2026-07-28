@@ -1,6 +1,6 @@
 import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
-import type { CommandRunner } from "@nseng-ai/foundation/exec";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import type { CommandRunner } from "@nseng-ai/ns-foundation/exec";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import type { NsDevCliContext } from "./context.ts";

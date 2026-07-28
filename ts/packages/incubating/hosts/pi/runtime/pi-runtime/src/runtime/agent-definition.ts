@@ -4,8 +4,8 @@ import { join } from "node:path";
 import {
 	splitMarkdownFrontmatter,
 	stripLineEnding,
-} from "@nseng-ai/foundation/markdown-frontmatter";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/markdown-frontmatter";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 import { findWorkspaceRootByMarkers } from "@nseng-ai/extension-kit/workspace-root";
 
 export const PI_AGENT_DEFINITION_SCHEMA = "ns.pi-agent.v1";

@@ -1,7 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 
-import { formatErrorMessage, isNodeErrorCode } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, isNodeErrorCode } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import {

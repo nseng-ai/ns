@@ -4,7 +4,7 @@ import {
 	repositoryNameFromGitCommonDir,
 	repositoryNameFromPath,
 } from "@nseng-ai/extension-kit/worktree-description";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/command";
 import { describe, expect, test } from "vitest";
 
 interface Step {

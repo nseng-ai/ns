@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
+import type { CommandRunner, ExecResult } from "@nseng-ai/ns-foundation/command";
 import {
 	FLOW_SUBMIT_CHECK_FAILURE_MARKER,
 	flowSubmitHookFailureExitCode,

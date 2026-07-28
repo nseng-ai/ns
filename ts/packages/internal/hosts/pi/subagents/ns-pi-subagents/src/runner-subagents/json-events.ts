@@ -1,7 +1,7 @@
-import type { Clock } from "@nseng-ai/foundation/clock";
-import { systemClock } from "@nseng-ai/foundation/time";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import { isRecord } from "@nseng-ai/foundation/primitives";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import { systemClock } from "@nseng-ai/ns-foundation/time";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
+import { isRecord } from "@nseng-ai/ns-foundation/primitives";
 import { isThinkingLevel } from "@nseng-ai/pi-runtime/runtime/types";
 import type { RunnerSubagentLaunchMetadata, RunnerSubagentProgress } from "./extension-api.ts";
 import type { RunnerSubagentActivity } from "./activity.ts";
@@ -632,7 +632,7 @@ function sanitizeLaunchMetadataText(value: string): string | undefined {
 		: sanitized.slice(0, MAX_LAUNCH_METADATA_TEXT_CHARS);
 }
 
-export { isRecord } from "@nseng-ai/foundation/primitives";
+export { isRecord } from "@nseng-ai/ns-foundation/primitives";
 
 function hasToolInputValue(event: JsonRecord): boolean {
 	return ["args", "arguments", "input"].some((key) =>

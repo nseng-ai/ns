@@ -1,4 +1,4 @@
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { optionalEntries } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import type { RawArgvCommand } from "./command.ts";

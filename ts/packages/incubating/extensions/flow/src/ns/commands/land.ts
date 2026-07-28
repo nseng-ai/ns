@@ -35,7 +35,7 @@ import {
 	type NsProgressPhaseEvent,
 } from "@nseng-ai/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
-import { systemClock } from "@nseng-ai/foundation/time";
+import { systemClock } from "@nseng-ai/ns-foundation/time";
 
 import { runFlowCli } from "../flow-cli-runner.ts";
 import { createMatrixProgressForwarder } from "../../phase-stream/matrix-progress-forwarder.ts";

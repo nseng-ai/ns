@@ -2,7 +2,7 @@ import { constants, open, lstat, rename, stat, unlink } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { randomUUID } from "node:crypto";
 
-import { errorCodeFromUnknown, formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { errorCodeFromUnknown, formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 
 export interface PublicationAuthorizationStoreError {
 	code: string;

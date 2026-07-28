@@ -8,7 +8,7 @@ import {
 	type FakeGithubPrFeedbackGatewayOptions,
 	type FakeGithubPrReviewThreadCall,
 } from "@nseng-ai/extension-kit/github/testing";
-import type { Result } from "@nseng-ai/foundation/result";
+import type { Result } from "@nseng-ai/ns-foundation/result";
 import { describe, expect, test } from "vitest";
 
 import {

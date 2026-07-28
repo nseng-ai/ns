@@ -1,4 +1,4 @@
-import { parseManagedRegion } from "@nseng-ai/foundation/managed-region";
+import { parseManagedRegion } from "@nseng-ai/ns-foundation/managed-region";
 
 export const OBJECTIVE_RUNNER_REGION_BEGIN = "<!-- ns-objective-runner:begin";
 export const OBJECTIVE_RUNNER_REGION_END = "<!-- ns-objective-runner:end -->";

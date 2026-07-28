@@ -2,7 +2,7 @@ import type { ReviewFailure, ReviewResult } from "./failures.ts";
 import type { ReviewCatalogGateway, ReviewSource } from "../gateways/review-catalog.ts";
 import type { ReviewDefinition } from "./models.ts";
 import { parseReviewDefinition } from "./review-definition.ts";
-import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 
 export interface LoadParsedReviewDefinitionOptions {
 	readonly reviewCatalog: ReviewCatalogGateway;

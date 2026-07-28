@@ -1,6 +1,6 @@
 import type { TextGenerator } from "@nseng-ai/extension-kit/text-generation";
 import type { Caps } from "@nseng-ai/clinkr";
-import type { ExecResult } from "@nseng-ai/foundation/command";
+import type { ExecResult } from "@nseng-ai/ns-foundation/command";
 import { createCliCommandIo, runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
 import type { NsCommandIo } from "@nseng-ai/sdk";
 import {
@@ -19,7 +19,7 @@ import {
 	createFlowSlotClient,
 	formatSlotCheckoutFailureCause,
 } from "./slot-checkout.ts";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 export interface AutoslotFlowInput extends FlowAutobranchCheckpointInput {
 	slotClient: SlotClient;

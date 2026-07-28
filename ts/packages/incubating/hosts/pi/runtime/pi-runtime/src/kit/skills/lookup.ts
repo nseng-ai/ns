@@ -9,8 +9,8 @@ import {
 	type SkillLookupRoot,
 	type SkillLookupSearchedRoot,
 	type SkillLookupSourceType,
-} from "@nseng-ai/foundation/skill-lookup";
-import { isPathInside } from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/skill-lookup";
+import { isPathInside } from "@nseng-ai/ns-foundation/primitives";
 
 export {
 	buildSkillLookupSearchedRoots,
@@ -26,7 +26,7 @@ export {
 	type SkillLookupRootDescriptor,
 	type SkillLookupSearchedRoot,
 	type SkillLookupSourceType,
-} from "@nseng-ai/foundation/skill-lookup";
+} from "@nseng-ai/ns-foundation/skill-lookup";
 
 export interface SkillLookupPathStat {
 	isFile(): boolean;

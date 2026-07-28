@@ -4,8 +4,8 @@ import {
 	formatCommand,
 	formatCommandFailure,
 	tailText,
-} from "@nseng-ai/foundation/command";
-import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/command";
+import { formatErrorMessage, isRecord } from "@nseng-ai/ns-foundation/primitives";
 
 import type {
 	HerdrCreateTabOptions,

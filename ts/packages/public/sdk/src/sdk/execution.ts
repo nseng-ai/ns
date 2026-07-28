@@ -1,7 +1,7 @@
-import type { ExecResult } from "@nseng-ai/foundation/exec";
-import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { ExecResult } from "@nseng-ai/ns-foundation/exec";
+import type { ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 
-export type { ExecResult } from "@nseng-ai/foundation/exec";
+export type { ExecResult } from "@nseng-ai/ns-foundation/exec";
 
 import type { ClinkrFormat, RenderCapabilities } from "./command.ts";
 import type { NsCommandIo, NsProgress } from "./services.ts";

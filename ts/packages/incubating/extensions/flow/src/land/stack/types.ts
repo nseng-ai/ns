@@ -1,4 +1,4 @@
-import type { ExecResult } from "@nseng-ai/foundation/command";
+import type { ExecResult } from "@nseng-ai/ns-foundation/command";
 import type { NsConfirmOptions } from "@nseng-ai/sdk";
 import type { NotifyLevel } from "../types.ts";
 

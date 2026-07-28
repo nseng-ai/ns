@@ -1,4 +1,4 @@
-import { formatZodIssue } from "@nseng-ai/foundation/primitives";
+import { formatZodIssue } from "@nseng-ai/ns-foundation/primitives";
 
 import {
 	listCandidatesResultSchema,

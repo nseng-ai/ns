@@ -1,4 +1,4 @@
-import { formatErrorMessage, formatZodIssue } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, formatZodIssue } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import type { SkillHarnessArtifactEntry } from "./artifact-catalog.ts";

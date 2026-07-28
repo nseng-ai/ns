@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { createDeferred } from "@nseng-ai/foundation/test-kit";
-import { createManualClock, createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+import { createDeferred } from "@nseng-ai/ns-foundation/test-kit";
+import {
+	createManualClock,
+	createManualTimerScheduler,
+} from "@nseng-ai/ns-foundation/time/testing";
 import {
 	prepareRepairedText,
 	type TextGenerationResult,

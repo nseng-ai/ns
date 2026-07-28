@@ -1,7 +1,7 @@
 import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { isPathInside } from "@nseng-ai/foundation/primitives";
+import { isPathInside } from "@nseng-ai/ns-foundation/primitives";
 import { parse } from "smol-toml";
 import { z } from "zod";
 

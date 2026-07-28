@@ -1,4 +1,4 @@
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
 import { createNsCommandRunner } from "@nseng-ai/extension-kit";
 import { createNsGitGateway } from "@nseng-ai/extension-kit";
 import type { NsExtensionApi } from "@nseng-ai/sdk";

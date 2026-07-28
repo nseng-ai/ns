@@ -3,14 +3,18 @@ import type { z } from "zod";
 import type { GithubPrFeedbackGateway } from "./contract.ts";
 import { normalizeGithubStatusChecks, type GithubStatusChecks } from "../pr-status.ts";
 import { withTemporaryJsonFile } from "../../kit/temp-files.ts";
-import { commandSucceeded, type CommandRunner, type ExecResult } from "@nseng-ai/foundation/exec";
+import {
+	commandSucceeded,
+	type CommandRunner,
+	type ExecResult,
+} from "@nseng-ai/ns-foundation/exec";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli, type RunGitHubCliResult } from "../cli.ts";
 import {
 	optionalEntry,
 	type MaybePromise,
 	type ExplicitUndefined,
-} from "@nseng-ai/foundation/primitives";
-import type { Result } from "@nseng-ai/foundation/result";
+} from "@nseng-ai/ns-foundation/primitives";
+import type { Result } from "@nseng-ai/ns-foundation/result";
 
 import {
 	addPrDiscussionCommentRestArgs,

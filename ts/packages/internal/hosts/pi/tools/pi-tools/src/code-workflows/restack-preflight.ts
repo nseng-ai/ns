@@ -1,5 +1,5 @@
-import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/exec";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import type { CommandExecApi, ExecResult } from "@nseng-ai/ns-foundation/exec";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 import { formatCommandOutput } from "@nseng-ai/pi-runtime/commands/helpers";
 import { z } from "zod";
 

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-import { createTempDirTracker } from "@nseng-ai/foundation/test-kit";
+import { createTempDirTracker } from "@nseng-ai/ns-foundation/test-kit";
 import { afterEach, describe, expect, test } from "vitest";
 
 const tempDirs = createTempDirTracker();

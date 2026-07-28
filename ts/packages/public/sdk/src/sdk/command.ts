@@ -10,7 +10,7 @@ import {
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
 import type { PositionalSpec } from "@nseng-ai/clinkr/raw";
-import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import type { ExtensionDescriptor } from "./descriptor.ts";

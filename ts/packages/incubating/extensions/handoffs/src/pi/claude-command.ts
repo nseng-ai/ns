@@ -19,8 +19,8 @@ import type {
 	ToolDefinition,
 } from "./runtime-types.ts";
 import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/command";
 import type { InteractiveClaudeRunResult, RunInteractiveClaude } from "./interactive-claude.ts";
 import {
 	deriveHandoffInvestigationSources,

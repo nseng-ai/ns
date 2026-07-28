@@ -10,8 +10,8 @@ import {
 	resolveModelOperation,
 	type ModelPolicy,
 } from "@nseng-ai/extension-kit/model-policy";
-import { spinnerFrame, truncatePlain } from "@nseng-ai/foundation/cli-theme";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import { spinnerFrame, truncatePlain } from "@nseng-ai/ns-foundation/cli-theme";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 import { z } from "zod";
 
 import type { NsDevCliContext } from "../context.ts";

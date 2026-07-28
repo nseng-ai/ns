@@ -1,4 +1,4 @@
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { optionalEntries } from "@nseng-ai/ns-foundation/primitives";
 import { describe, expect, test } from "vitest";
 
 import {

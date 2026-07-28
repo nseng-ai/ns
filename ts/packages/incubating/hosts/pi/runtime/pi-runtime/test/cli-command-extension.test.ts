@@ -5,8 +5,8 @@ import process from "node:process";
 
 import { describe, expect, test, vi } from "vitest";
 
-import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
-import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+import { createManualTimerScheduler } from "@nseng-ai/ns-foundation/time/testing";
+import type { TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 
 import {
 	CLI_COMMAND_OUTPUT_MESSAGE_TYPE,

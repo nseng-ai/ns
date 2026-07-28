@@ -4,7 +4,7 @@ import { DEFAULT_COLUMNS } from "@nseng-ai/clinkr";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
 import type { Caps, ColorDepth } from "@nseng-ai/clinkr";
 import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
-import { spinnerFrame } from "@nseng-ai/foundation/cli-theme";
+import { spinnerFrame } from "@nseng-ai/ns-foundation/cli-theme";
 
 import type { NsExtensionApi, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 

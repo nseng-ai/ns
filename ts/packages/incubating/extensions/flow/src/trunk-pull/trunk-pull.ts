@@ -2,13 +2,13 @@ import {
 	commandSucceeded,
 	type CommandExecApi,
 	type ExecResult,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 import {
 	planLocalBranchRefreshFromWorktrees,
 	RealGitGateway,
 	type GitErrorInfo,
 	type GitGateway,
-} from "@nseng-ai/foundation/git";
+} from "@nseng-ai/ns-foundation/git";
 import {
 	RealGraphiteBranchGateway,
 	type GraphiteBranchGateway,

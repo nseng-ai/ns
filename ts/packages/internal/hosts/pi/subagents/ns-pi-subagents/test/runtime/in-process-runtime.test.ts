@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 
 import { AuthStorage, ModelRegistry } from "@earendil-works/pi-coding-agent";
-import { createManualClock } from "@nseng-ai/foundation/time/testing";
+import { createManualClock } from "@nseng-ai/ns-foundation/time/testing";
 import { READ_ONLY_SUBAGENT_TOOLS } from "@internal/ns-pi-subagents/runner-subagents";
 import {
 	createInProcessSubagentRuntime,

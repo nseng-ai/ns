@@ -1,5 +1,5 @@
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import { resultErr } from "@nseng-ai/foundation/result";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
+import { resultErr } from "@nseng-ai/ns-foundation/result";
 import { z } from "zod";
 
 import type { ReviewResult } from "../core/failures.ts";

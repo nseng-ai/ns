@@ -1,8 +1,8 @@
-import type { Clock } from "@nseng-ai/foundation/clock";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { systemClock } from "@nseng-ai/foundation/time";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import { RealGitGateway, type GitGateway } from "@nseng-ai/ns-foundation/git";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import { systemClock } from "@nseng-ai/ns-foundation/time";
 
 import type { ObjectiveListRecord, ObjectiveListResult } from "./operations/list-objectives.ts";
 import {

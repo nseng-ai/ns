@@ -1,5 +1,5 @@
-import type { Clock } from "@nseng-ai/foundation/clock";
-import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import type { TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 
 import type { GithubPrFeedbackFailure, PrAddressGithubGateway } from "../api.ts";
 

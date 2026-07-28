@@ -1,4 +1,4 @@
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 import type { ThinkingLevel } from "@nseng-ai/pi-runtime/runtime/types";
 import type { RunnerSubagentUpdate } from "./activity.ts";
 import {

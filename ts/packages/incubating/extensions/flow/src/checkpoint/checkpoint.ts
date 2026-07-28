@@ -1,14 +1,14 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { runCommand } from "@nseng-ai/foundation/exec";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import { runCommand } from "@nseng-ai/ns-foundation/exec";
 import {
 	formatCommand,
 	formatCommandDetails,
 	type CommandRunner,
 	type ExecResult,
-} from "@nseng-ai/foundation/command";
-import type { TimeServices } from "@nseng-ai/foundation/time";
+} from "@nseng-ai/ns-foundation/command";
+import type { TimeServices } from "@nseng-ai/ns-foundation/time";
 import type { ActiveOperation, NsProgressPhaseListener } from "@nseng-ai/sdk";
-import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
+import { formatElapsedMs } from "@nseng-ai/ns-foundation/time-format";
 import { createNsCommandRunner } from "@nseng-ai/extension-kit/command-runner";
 import { createNsGitGateway } from "@nseng-ai/extension-kit";
 import {
@@ -17,7 +17,7 @@ import {
 	type GraphiteErrorInfo,
 	type GraphiteTrunkBranchFailureReason,
 } from "@nseng-ai/extension-kit/graphite/branch";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
 import type { TextRepairProgressEvent } from "@nseng-ai/extension-kit/text-repair";
 import {
 	createCommitWithPreparedMessage,
@@ -36,8 +36,8 @@ import {
 	modelOperation,
 	withActiveOperations,
 } from "../phase-stream/matrix-progress-core.ts";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
-import { formatModelRef } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
+import { formatModelRef } from "@nseng-ai/ns-foundation/model-slug";
 
 export interface CheckpointGateway {
 	loadPendingWorktreeSnapshot(params: { cwd: string; repoRoot?: string }): Promise<

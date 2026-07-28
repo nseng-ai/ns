@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { FlowBranchPublicationClient } from "@nseng-ai/flow/api";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/exec";
 
 import { createRealObjectiveRunnerPublicationFactsGateway } from "../../../src/publication/real-facts-gateway.ts";
 

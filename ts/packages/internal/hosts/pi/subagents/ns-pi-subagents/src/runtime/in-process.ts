@@ -1,8 +1,8 @@
 import type { Api, Model, ModelThinkingLevel } from "@earendil-works/pi-ai";
 import { resolveCliModel, type ModelRegistry } from "@earendil-works/pi-coding-agent";
-import type { Clock } from "@nseng-ai/foundation/clock";
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
-import { systemClock } from "@nseng-ai/foundation/time";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import { systemClock } from "@nseng-ai/ns-foundation/time";
 
 import { errorResult } from "../runner-subagents/results.ts";
 import {

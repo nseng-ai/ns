@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
+import { withTempRepoSkill } from "@nseng-ai/ns-foundation/test-kit";
 
 import { buildGrillAskRows } from "../../src/grill/view.ts";
 import {

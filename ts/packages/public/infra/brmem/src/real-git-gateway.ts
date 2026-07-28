@@ -1,15 +1,15 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import {
 	commandSucceeded,
 	type CommandExecApi,
 	type ExecResult,
 	formatCommand,
 	type StdinCapableCommandExecApi,
-} from "@nseng-ai/foundation/exec";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+} from "@nseng-ai/ns-foundation/exec";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
 
 import {
 	brmemError,

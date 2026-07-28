@@ -5,9 +5,9 @@ import {
 	commandSucceeded,
 	NodeCommandExecApi,
 	type CommandExecApi,
-} from "@nseng-ai/foundation/exec";
-import { errorCodeFromUnknown, formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+} from "@nseng-ai/ns-foundation/exec";
+import { errorCodeFromUnknown, formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
+import { resultErr, resultOk, type Result } from "@nseng-ai/ns-foundation/result";
 import { z } from "zod";
 
 import {

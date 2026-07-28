@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import { createManualClock, createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+import {
+	createManualClock,
+	createManualTimerScheduler,
+} from "@nseng-ai/ns-foundation/time/testing";
 import type {
 	TextGenerationRequest,
 	TextGenerationResult,

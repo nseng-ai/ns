@@ -1,5 +1,9 @@
-import { formatErrorMessage, formatZodIssue, optionalEntry } from "@nseng-ai/foundation/primitives";
-import { resultErr, type Result } from "@nseng-ai/foundation/result";
+import {
+	formatErrorMessage,
+	formatZodIssue,
+	optionalEntry,
+} from "@nseng-ai/ns-foundation/primitives";
+import { resultErr, type Result } from "@nseng-ai/ns-foundation/result";
 import { z } from "zod";
 
 import type { TextFileState } from "./fs-state.ts";

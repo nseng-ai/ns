@@ -1,3 +1,3 @@
-import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 
 export type BrmemEnvOption = ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;

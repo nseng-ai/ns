@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/ns-foundation/exec/testing";
 import {
 	createSlotDiagnosticSinkFromEnv,
 	runDiagnosticCommand,

@@ -4,7 +4,7 @@ import { importTypeScriptWorkspaceModule } from "../lib/workspace-packages.ts";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI as PiExtensionAPI } from "@earendil-works/pi-coding-agent";
-import type { ExecResult } from "@nseng-ai/foundation/exec";
+import type { ExecResult } from "@nseng-ai/ns-foundation/exec";
 import type { z as ZodNamespace } from "zod";
 
 // Provisional consumer artifact (docs/platform-and-consumer.md): a vibecoded Pi tool for the
@@ -48,12 +48,12 @@ const { parseMachineEnvelopeData } = await importTypeScriptWorkspaceModule<
 	typeof import("@nseng-ai/pi-runtime/runtime/machine-envelope")
 >("@nseng-ai/pi-runtime/runtime/machine-envelope");
 const { formatZodError, isRecord, optionalEntries, optionalEntry } =
-	await importTypeScriptWorkspaceModule<typeof import("@nseng-ai/foundation/primitives")>(
-		"@nseng-ai/foundation/primitives",
+	await importTypeScriptWorkspaceModule<typeof import("@nseng-ai/ns-foundation/primitives")>(
+		"@nseng-ai/ns-foundation/primitives",
 	);
 const { tailText } = await importTypeScriptWorkspaceModule<
-	typeof import("@nseng-ai/foundation/exec")
->("@nseng-ai/foundation/exec");
+	typeof import("@nseng-ai/ns-foundation/exec")
+>("@nseng-ai/ns-foundation/exec");
 const {
 	dispatchRunnerSubagent,
 	formatRunnerSubagentActivityWidgetLines,

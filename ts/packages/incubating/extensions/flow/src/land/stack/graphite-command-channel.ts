@@ -3,7 +3,7 @@ import {
 	execApiToCommandRunner,
 	formatCommand,
 	type ExecResult,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@nseng-ai/extension-kit/graphite/branch";
 import {
 	buildGraphiteOperationArgs,

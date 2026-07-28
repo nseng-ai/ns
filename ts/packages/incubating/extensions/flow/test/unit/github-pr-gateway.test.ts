@@ -2,10 +2,10 @@ import { readFile } from "node:fs/promises";
 
 import { describe, expect, test } from "vitest";
 
-import type { CommandRunner } from "@nseng-ai/foundation/command";
+import type { CommandRunner } from "@nseng-ai/ns-foundation/command";
 import { RealGithubPrGateway } from "../../src/submit/index.ts";
-import { ScriptedCommandRunner, exitedResult } from "@nseng-ai/foundation/exec/testing";
-import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+import { ScriptedCommandRunner, exitedResult } from "@nseng-ai/ns-foundation/exec/testing";
+import { createManualTimerScheduler } from "@nseng-ai/ns-foundation/time/testing";
 
 interface ExitedResultFields {
 	stdout?: string;

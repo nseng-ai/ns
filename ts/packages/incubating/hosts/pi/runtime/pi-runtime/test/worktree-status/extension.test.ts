@@ -6,8 +6,8 @@ import { describe, expect, test } from "vitest";
 
 import { visibleWidth } from "@earendil-works/pi-tui";
 
-import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
-import { createManualTimerHarness } from "@nseng-ai/foundation/time/testing";
+import { stripTerminalEscapes } from "@nseng-ai/ns-foundation/terminal-escapes";
+import { createManualTimerHarness } from "@nseng-ai/ns-foundation/time/testing";
 import type { WorktreeGhStatus } from "@nseng-ai/pi-runtime/worktree-status";
 import {
 	deferred,

@@ -1,11 +1,11 @@
 import { runGraphiteCommand } from "@nseng-ai/extension-kit/graphite/branch";
-import { formatCommandTermination } from "@nseng-ai/foundation/command";
+import { formatCommandTermination } from "@nseng-ai/ns-foundation/command";
 import {
 	commandSucceeded,
 	execApiToCommandRunner,
 	type ExecResult,
-} from "@nseng-ai/foundation/exec";
-import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/exec";
+import { buildFencedTextBlock } from "@nseng-ai/ns-foundation/primitives";
 import {
 	registerCommandWithImmediateAck,
 	sendCommandProgressOrNotify,

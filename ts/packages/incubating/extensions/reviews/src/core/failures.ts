@@ -1,4 +1,4 @@
-import type { ErrorInfo, Result } from "@nseng-ai/foundation/result";
+import type { ErrorInfo, Result } from "@nseng-ai/ns-foundation/result";
 
 export type ReviewDefinitionFailureCode = "review-definition-invalid";
 

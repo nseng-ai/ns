@@ -7,7 +7,7 @@ import {
 	formatCommand,
 	type CommandExecApi,
 	type ExecResult,
-} from "@nseng-ai/foundation/exec";
+} from "@nseng-ai/ns-foundation/exec";
 import { z } from "zod";
 
 import {

@@ -1,6 +1,6 @@
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
-import { systemTimerScheduler } from "@nseng-ai/foundation/time";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/ns-foundation/timers";
+import { systemTimerScheduler } from "@nseng-ai/ns-foundation/time";
 import { isRecord, stringField } from "@nseng-ai/pi-runtime/runtime/primitives";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import {
@@ -24,8 +24,8 @@ import {
 	HANDOFF_SELF_STATUS_KEY,
 	HANDOFF_SELF_WORKFLOW_TIMEOUT_MS,
 } from "./command-constants.ts";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/command";
 import type { HandoffCreateSkillLoader } from "./create-skill.ts";
 import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
 import type {

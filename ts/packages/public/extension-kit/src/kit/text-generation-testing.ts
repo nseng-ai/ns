@@ -1,5 +1,5 @@
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
-import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import { optionalEntries } from "@nseng-ai/ns-foundation/primitives";
+import { ScriptedQueue } from "@nseng-ai/ns-foundation/test-kit";
 
 import type {
 	TextGenerationRequest,

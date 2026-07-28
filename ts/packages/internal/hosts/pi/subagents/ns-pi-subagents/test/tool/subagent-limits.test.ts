@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@nseng-ai/foundation/exec";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
-import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+import type { ExecResult } from "@nseng-ai/ns-foundation/exec";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import { createManualTimerScheduler } from "@nseng-ai/ns-foundation/time/testing";
+import type { TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 import {
 	PI_AGENT_DEFINITION_SCHEMA,
 	type PiAgentDefinition,

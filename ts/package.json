@@ -37,7 +37,7 @@
 		"@nseng-ai/brmem": "workspace:*",
 		"@nseng-ai/extension-kit": "workspace:*",
 		"@nseng-ai/ns": "workspace:*",
-		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/ns-foundation": "workspace:*",
 		"@nseng-ai/flow": "workspace:*",
 		"@nseng-ai/handoffs": "workspace:*",
 		"@nseng-ai/herdr": "workspace:*",

@@ -1,5 +1,5 @@
-import { optionalEntries, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
-import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
+import { optionalEntries, type ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
+import { firstNonEmptyLine } from "@nseng-ai/ns-foundation/text-normalization";
 import {
 	type CommandExecApi,
 	type CommandRunner,
@@ -9,7 +9,7 @@ import {
 	type ExecResult,
 	formatCommand,
 	formatCommandFailure,
-} from "@nseng-ai/foundation/exec";
+} from "@nseng-ai/ns-foundation/exec";
 
 export const GRAPHITE_COMMAND_NAME = "gt";
 

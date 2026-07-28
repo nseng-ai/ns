@@ -1,5 +1,5 @@
-import { commandFailureReason } from "@nseng-ai/foundation/exec";
-import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import { commandFailureReason } from "@nseng-ai/ns-foundation/exec";
+import type { ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 
 import type { CommandExecApi } from "./command-exec.ts";
 

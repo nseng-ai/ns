@@ -26,8 +26,8 @@ import {
 	NodeCommandExecApi,
 	type CommandExecApi,
 	type ExecResult,
-} from "@nseng-ai/foundation/exec";
-import { isRecord, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/exec";
+import { isRecord, type ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 
 const GRAPHITE_STACK_COMMAND_TIMEOUT_MS = 10_000;
 

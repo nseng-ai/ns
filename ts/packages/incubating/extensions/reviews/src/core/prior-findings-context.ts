@@ -3,7 +3,7 @@ import type {
 	GithubPrFeedbackOptions,
 	GithubPrReviewThread,
 } from "@nseng-ai/extension-kit/github/pr-feedback";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 
 import {
 	capTrailingRecords,

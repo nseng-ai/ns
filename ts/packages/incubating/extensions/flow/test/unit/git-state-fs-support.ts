@@ -1,4 +1,4 @@
-import type { GitWorktreeStateFs } from "@nseng-ai/foundation/git";
+import type { GitWorktreeStateFs } from "@nseng-ai/ns-foundation/git";
 
 export function fakeGitStateFs(paths: readonly string[]): GitWorktreeStateFs {
 	const existing = new Set(paths);

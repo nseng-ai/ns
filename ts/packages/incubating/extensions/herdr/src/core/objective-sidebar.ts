@@ -1,8 +1,8 @@
 import { isAbsolute, posix, relative, resolve, sep } from "node:path";
 
 import { runJsonExecCommand } from "@nseng-ai/extension-kit/machine-envelope-exec";
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/command";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 
 import { formatHerdrResourceLabel } from "./resource-label.ts";
 

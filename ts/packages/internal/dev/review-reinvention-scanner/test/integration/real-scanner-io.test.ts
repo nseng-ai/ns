@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { createTempGitRepo, type TempGitRepo } from "@nseng-ai/foundation/git/testing";
+import { createTempGitRepo, type TempGitRepo } from "@nseng-ai/ns-foundation/git/testing";
 
 import { RealScannerIo, type DiffRange } from "../../src/git-diff.ts";
 

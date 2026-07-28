@@ -1,7 +1,7 @@
 import { RealGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/branch";
 import type { CommandDefinition, ExtensionAPI } from "@nseng-ai/extension-kit/pi-types";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { RealGitGateway } from "@nseng-ai/ns-foundation/git";
+import { optionalEntries } from "@nseng-ai/ns-foundation/primitives";
 import type {
 	HandoffExtensionAPI,
 	HandoffPromptCreateIntegration,

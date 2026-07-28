@@ -1,5 +1,5 @@
 import { failure, negative, ok } from "@nseng-ai/clinkr";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../../core/context.ts";

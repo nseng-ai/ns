@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { CustomMessage } from "@nseng-ai/extension-kit/pi-types";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import { handleHerdrNewSpace, type HerdrResourceLabelDeriver } from "../src/core/new-space.ts";
 import { registerHerdrNewSpaceCommand } from "../src/pi/new-space.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";

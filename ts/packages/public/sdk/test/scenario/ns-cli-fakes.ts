@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach } from "vitest";
 
-import { resolveHomeDir } from "@nseng-ai/foundation/primitives";
+import { resolveHomeDir } from "@nseng-ai/ns-foundation/primitives";
 import { runCli, type NsCliBaseContext, type NsCliDeps } from "@nseng-ai/sdk/cli";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
 import type {

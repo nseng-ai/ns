@@ -5,8 +5,8 @@ import {
 	errorCodeFromUnknown,
 	formatErrorMessage,
 	isPathInside,
-} from "@nseng-ai/foundation/primitives";
-import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+} from "@nseng-ai/ns-foundation/primitives";
+import { resultErr, resultOk, type Result } from "@nseng-ai/ns-foundation/result";
 
 import { sortStrings } from "./sort.ts";
 

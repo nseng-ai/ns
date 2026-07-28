@@ -6,8 +6,8 @@ import {
 	resolveDeclaredExtensionModules,
 	type ExtensionAcquisitionGateway,
 } from "@nseng-ai/sdk/extensions/acquisition";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import { resultErr, resultOk, type Result } from "@nseng-ai/ns-foundation/result";
 import {
 	declaredExtensionDescriptorDiagnosticSchema,
 	loadDeclaredExtensionDescriptors,

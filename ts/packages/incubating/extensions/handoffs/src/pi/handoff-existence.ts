@@ -1,6 +1,6 @@
 import { checkHandoffArtifact, handoffKeyToSlug } from "../api/index.ts";
 import { createPiHandoffStorageDeps } from "./api-context.ts";
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/command";
 
 export type HandoffExistsResult =
 	| { type: "exists" }

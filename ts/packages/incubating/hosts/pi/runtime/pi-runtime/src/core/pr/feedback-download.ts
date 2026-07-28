@@ -1,5 +1,5 @@
-import { commandFailureReason } from "@nseng-ai/foundation/exec";
-import { formatZodError, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import { commandFailureReason } from "@nseng-ai/ns-foundation/exec";
+import { formatZodError, type ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 import type { ExecResult } from "../../kit/shared/command-exec.ts";
 import type { CommandExecApi } from "../../kit/shared/command-exec.ts";
 import { z } from "zod";

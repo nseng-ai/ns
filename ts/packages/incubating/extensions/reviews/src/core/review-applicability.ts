@@ -1,4 +1,4 @@
-import { mapFromRecordOrMap } from "@nseng-ai/foundation/primitives";
+import { mapFromRecordOrMap } from "@nseng-ai/ns-foundation/primitives";
 
 import { filterLocalDiffFiles, type LocalDiff, type ReviewApplicability } from "./models.ts";
 

@@ -1,8 +1,8 @@
 import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { formatZodError, optionalEntry } from "@nseng-ai/foundation/primitives";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import { formatZodError, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import { parseCliCommandArgs } from "../../commands/cli-extension.ts";

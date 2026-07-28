@@ -26,9 +26,9 @@ test("repo-local extensions can import package subpaths without source aliases",
 	>("@nseng-ai/extension-kit/text-generation");
 	expect(Object.keys(textGenerationModule)).toEqual([]);
 
-	const coreModelSlugModule = await jiti.import<typeof import("@nseng-ai/foundation/model-slug")>(
-		"@nseng-ai/foundation/model-slug",
-	);
+	const coreModelSlugModule = await jiti.import<
+		typeof import("@nseng-ai/ns-foundation/model-slug")
+	>("@nseng-ai/ns-foundation/model-slug");
 	expect(typeof coreModelSlugModule.parseModelRef).toBe("function");
 
 	const modelSlugModule = await jiti.import<{ deriveSlugWithModel: unknown }>(

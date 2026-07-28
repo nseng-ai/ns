@@ -1,5 +1,5 @@
 import { describeBranchContextGraphiteCreationSteps } from "@nseng-ai/branch-context/api";
-import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
+import { buildFencedTextBlock } from "@nseng-ai/ns-foundation/primitives";
 
 import { OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE } from "../core/objective-runner-rules.ts";
 import type { RunnerStepMode } from "./context.ts";

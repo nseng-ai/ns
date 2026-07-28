@@ -1,4 +1,4 @@
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/command";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import type { ExtensionAPI } from "./host-types.ts";
 

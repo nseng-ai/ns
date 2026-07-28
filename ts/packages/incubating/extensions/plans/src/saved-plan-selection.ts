@@ -1,5 +1,5 @@
 import { basename, isAbsolute } from "node:path";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import {
@@ -14,7 +14,7 @@ import {
 	type PlanStoreOptions,
 } from "./saved-plan-file.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
 import { isPathInside, normalizePlanFilePath, validatePlanSlug } from "./plan-persistence.ts";
 
 export const WRITE_SAVED_PLAN_FILE_TOOL_NAME = "write_saved_plan_file";

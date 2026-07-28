@@ -16,8 +16,8 @@ import {
 	TRACKED_BRANCH_PAYLOAD_NAMESPACE,
 } from "@nseng-ai/extension-kit/tracked-branch-payload";
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/command";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import { afterEach, describe, expect, test } from "vitest";
 
 const REPO_ROOT = mkdtempSync(join(tmpdir(), "tracked-branch-payload-root-"));

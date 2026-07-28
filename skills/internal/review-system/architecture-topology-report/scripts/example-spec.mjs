@@ -76,13 +76,13 @@ export default {
     `The two heaviest nodes are the <span class="font-mono">@nseng-ai/pi</span> presentation host (11.7k LOC) and <span class="font-mono">cmux</span> (8.1k) —
      the host carries more code than any capability, which is itself the pressure behind the endgame (domain stranded above and around the SDK).
      The deliberately-thin seam — <span class="font-mono">capability-kit</span> (180 LOC) —
-     is the smallest node on purpose. The fan-in spine is <span class="font-mono">@nseng-ai/foundation</span> (28) and <span class="font-mono">@nseng-ai/clinkr</span> (19):
+     is the smallest node on purpose. The fan-in spine is <span class="font-mono">@nseng-ai/ns-foundation</span> (28) and <span class="font-mono">@nseng-ai/clinkr</span> (19):
      load-bearing neutral infra, exactly where weight belongs.`,
 
   scorecard: [
     { invariant: `Extension Dependency Graph is acyclic and enforced by the <span class="font-mono text-xs">ts-guard</span> topological check`,
       status: "holds", statusKind: "holds",
-      evidence: `<span class="font-mono text-xs">cycles = []</span> — fully acyclic. The headline <span class="font-mono text-xs">pi ↔ cmux</span> and the last deferred <span class="font-mono text-xs">autobranch → pi → sdk</span> SCCs are both broken (branch-slug relocated to <span class="font-mono text-xs">@nseng-ai/foundation/branch-slug</span>); the acyclicity guard can now hard-fail.` },
+      evidence: `<span class="font-mono text-xs">cycles = []</span> — fully acyclic. The headline <span class="font-mono text-xs">pi ↔ cmux</span> and the last deferred <span class="font-mono text-xs">autobranch → pi → sdk</span> SCCs are both broken (branch-slug relocated to <span class="font-mono text-xs">@nseng-ai/ns-foundation/branch-slug</span>); the acyclicity guard can now hard-fail.` },
     { invariant: `Capability Kit owns the <span class="font-mono text-xs">ctx</span>→gateway adapter + result/error shapes; flow domain tested against <span class="font-mono text-xs">InMemoryGitGateway</span>`,
       status: "holds", statusKind: "holds",
       evidence: `<span class="font-mono text-xs">@nseng-ai/capability-kit</span> exists (180 LOC); consumed by <span class="font-mono text-xs">flow, handoff, objective</span>. <span class="font-mono text-xs">runPushCore</span>/<span class="font-mono text-xs">runCpCore</span> are gateway-injected with fake-gateway unit coverage.` },

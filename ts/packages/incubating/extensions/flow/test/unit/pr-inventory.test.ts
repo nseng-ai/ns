@@ -4,7 +4,10 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { createManualClock, createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+import {
+	createManualClock,
+	createManualTimerScheduler,
+} from "@nseng-ai/ns-foundation/time/testing";
 import type { TextGenerationResult } from "@nseng-ai/extension-kit/text-generation";
 import { ScriptedTextGenerator } from "@nseng-ai/extension-kit/text-generation/testing";
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";

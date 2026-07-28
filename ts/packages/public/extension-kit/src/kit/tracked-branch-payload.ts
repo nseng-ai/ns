@@ -16,14 +16,14 @@ import {
 	formatCommandDetails,
 	formatCommandFailure,
 	formatShellArg,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 import {
 	MAX_BRANCH_SLUG_LENGTH,
 	sanitizeBranchName,
 	trimBranchSlugToLength,
-} from "@nseng-ai/foundation/branch-slug";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import { formatErrorMessage, type TextResult } from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/branch-slug";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import { formatErrorMessage, type TextResult } from "@nseng-ai/ns-foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { runGraphiteCommand } from "../graphite/branch.ts";
 import { formatRawTextModelFailure, generateRawTextWithModel } from "./model-slug.ts";

@@ -1,4 +1,4 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 
 import { PR_FEEDBACK_WATCH_STATE_TYPE } from "./constants.ts";
 import { parseWatchEventEntry } from "./events.ts";

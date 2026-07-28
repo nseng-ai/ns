@@ -1,9 +1,9 @@
 import { resolve } from "node:path";
 
 import { createFakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
-import type { ExecResult } from "@nseng-ai/foundation/exec";
-import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
-import { TimerScheduler } from "@nseng-ai/foundation/timers";
+import type { ExecResult } from "@nseng-ai/ns-foundation/exec";
+import type { ScheduledTimer } from "@nseng-ai/ns-foundation/timers";
+import { TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 import { describe, expect, it } from "vitest";
 
 import { resolveVerifyDelaysMs } from "../../src/commands/public-package-workflows.ts";
@@ -247,7 +247,7 @@ describe("typed public-package workflows", () => {
 			bin: { branch: "./src/cli.ts" },
 			dependencies: {
 				"@nseng-ai/sdk": "workspace:*",
-				"@nseng-ai/foundation": "workspace:^",
+				"@nseng-ai/ns-foundation": "workspace:^",
 				zod: "catalog:",
 			},
 			ns: {
@@ -306,7 +306,7 @@ describe("typed public-package workflows", () => {
 			bin: { branch: "src/cli.ts" },
 			dependencies: {
 				"@nseng-ai/ns": "1.0.0",
-				"@nseng-ai/foundation": "1.0.0",
+				"@nseng-ai/ns-foundation": "1.0.0",
 				zod: "4.3.6",
 			},
 			ns: {

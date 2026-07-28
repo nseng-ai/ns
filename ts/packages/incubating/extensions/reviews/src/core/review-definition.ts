@@ -1,6 +1,6 @@
-import { splitMarkdownFrontmatter } from "@nseng-ai/foundation/markdown-frontmatter";
-import { formatErrorMessage, formatZodError, isRecord } from "@nseng-ai/foundation/primitives";
-import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
+import { splitMarkdownFrontmatter } from "@nseng-ai/ns-foundation/markdown-frontmatter";
+import { formatErrorMessage, formatZodError, isRecord } from "@nseng-ai/ns-foundation/primitives";
+import { resultErrOf, type Result } from "@nseng-ai/ns-foundation/result";
 import { parse } from "yaml";
 
 import {

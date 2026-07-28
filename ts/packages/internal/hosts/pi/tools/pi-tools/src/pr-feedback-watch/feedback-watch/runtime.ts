@@ -1,6 +1,6 @@
 import { accessSync, constants } from "node:fs";
 
-import { commandSucceeded, type ExecOptions } from "@nseng-ai/foundation/exec";
+import { commandSucceeded, type ExecOptions } from "@nseng-ai/ns-foundation/exec";
 
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import type { CommandExecApi, ExtensionContext } from "./types.ts";

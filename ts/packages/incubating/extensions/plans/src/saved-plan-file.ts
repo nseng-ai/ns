@@ -1,9 +1,9 @@
 import process from "node:process";
 import { basename, join, resolve } from "node:path";
 
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import { RealGitGateway } from "@nseng-ai/ns-foundation/git";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
 import {
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	normalizeGitRemoteUrl,
@@ -16,7 +16,7 @@ import {
 	optionalEntries,
 	optionalEntry,
 	type ExplicitUndefined,
-} from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/primitives";
 
 const MAX_SEGMENT_LENGTH = 120;
 const PLAN_FILE_SUFFIX = ".md";

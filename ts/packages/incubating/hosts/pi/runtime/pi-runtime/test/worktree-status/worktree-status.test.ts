@@ -2,10 +2,10 @@ import { describe, expect, test } from "vitest";
 
 import { githubWorktreePrStatusQuery } from "@nseng-ai/extension-kit/github/pr-status";
 import { githubCheckRun } from "@nseng-ai/extension-kit/github/testing";
-import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import { ScriptedQueue } from "@nseng-ai/ns-foundation/test-kit";
 import type { CommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
-import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
-import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { stripTerminalEscapes } from "@nseng-ai/ns-foundation/terminal-escapes";
+import { optionalEntries, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import type { GraphiteMetadataWorkerDiagnostic } from "@nseng-ai/extension-kit/graphite/status";
 import {
 	formatGhStatus,

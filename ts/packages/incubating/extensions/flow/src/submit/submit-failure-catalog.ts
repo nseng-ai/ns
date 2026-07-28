@@ -1,6 +1,6 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
-import { nonEmptyLines } from "@nseng-ai/foundation/text-normalization";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import { stripTerminalEscapes } from "@nseng-ai/ns-foundation/terminal-escapes";
+import { nonEmptyLines } from "@nseng-ai/ns-foundation/text-normalization";
 
 import {
 	defineFailureCatalog,

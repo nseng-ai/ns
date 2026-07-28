@@ -1,4 +1,4 @@
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import type { ToolContext } from "@nseng-ai/pi-runtime/runtime/tool-types";
 
 import type { ReadGitHead } from "../fleet/git-head.ts";

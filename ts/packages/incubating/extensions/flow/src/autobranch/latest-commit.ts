@@ -17,7 +17,7 @@ import {
 	formatLatestCommitTransactionFailure,
 	runLatestCommitAutobranchTransaction,
 } from "./latest-commit-transaction.ts";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 export type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
 

@@ -7,7 +7,7 @@ import {
 	ScriptedQueue,
 	withTempRepoSkill,
 	type TempRepoSkill,
-} from "@nseng-ai/foundation/test-kit";
+} from "@nseng-ai/ns-foundation/test-kit";
 import handoffExtension, {
 	type CommandContext,
 	type RawPiExecResult,

@@ -13,8 +13,8 @@ import {
 } from "../src/index.ts";
 import { prepareLatestSessionSavedPlan } from "../src/api.ts";
 import { InMemoryPlanStoreGateway } from "../src/testing.ts";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
 
 const SOURCE_BRANCH = "feature/source-plan";
 const PLAN_SLUG = "canonical-saved-plan";

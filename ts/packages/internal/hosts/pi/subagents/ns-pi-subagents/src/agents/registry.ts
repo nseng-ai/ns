@@ -1,4 +1,4 @@
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import type { PiAgentDefinition } from "@nseng-ai/pi-runtime/runtime/agent-definition";
 
 import type { SubagentRuntimeKind } from "../runtime/seam.ts";

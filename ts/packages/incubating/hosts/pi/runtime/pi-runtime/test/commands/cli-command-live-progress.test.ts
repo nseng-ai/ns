@@ -2,7 +2,7 @@ import { describe, expect, expectTypeOf, test } from "vitest";
 
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+import { createManualTimerScheduler } from "@nseng-ai/ns-foundation/time/testing";
 import type { NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 import {

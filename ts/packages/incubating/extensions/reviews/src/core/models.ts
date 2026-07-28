@@ -1,4 +1,4 @@
-import { modelSelectionSchema } from "@nseng-ai/foundation/model-slug";
+import { modelSelectionSchema } from "@nseng-ai/ns-foundation/model-slug";
 import { z } from "zod";
 
 export const severityValues = ["info", "warning", "error"] as const;

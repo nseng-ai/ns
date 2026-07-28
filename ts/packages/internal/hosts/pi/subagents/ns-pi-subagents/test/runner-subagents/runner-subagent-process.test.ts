@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
-import { createManualClock, createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
+import {
+	createManualClock,
+	createManualTimerScheduler,
+} from "@nseng-ai/ns-foundation/time/testing";
 
 import {
 	normalizeChildToolAllowlist,

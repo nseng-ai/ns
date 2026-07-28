@@ -1,4 +1,7 @@
-import { MAX_BRANCH_SLUG_LENGTH, trimBranchSlugToLength } from "@nseng-ai/foundation/branch-slug";
+import {
+	MAX_BRANCH_SLUG_LENGTH,
+	trimBranchSlugToLength,
+} from "@nseng-ai/ns-foundation/branch-slug";
 
 import type { AutobranchGitGateway } from "./git-gateway.ts";
 

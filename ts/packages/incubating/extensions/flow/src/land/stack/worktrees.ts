@@ -1,8 +1,8 @@
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { commandSucceeded, formatCommand } from "@nseng-ai/foundation/command";
-import { parseGitWorktreePorcelain } from "@nseng-ai/foundation/git";
+import { commandSucceeded, formatCommand } from "@nseng-ai/ns-foundation/command";
+import { parseGitWorktreePorcelain } from "@nseng-ai/ns-foundation/git";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import type { WorktreeEntry } from "../types.ts";

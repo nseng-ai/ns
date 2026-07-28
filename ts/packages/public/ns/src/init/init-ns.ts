@@ -8,7 +8,7 @@ import {
 	type HarnessId,
 	type NsTomlChange,
 } from "../harness-artifacts/api.ts";
-import { renderTextTable } from "@nseng-ai/foundation/text-table";
+import { renderTextTable } from "@nseng-ai/ns-foundation/text-table";
 import { z } from "zod";
 
 import {

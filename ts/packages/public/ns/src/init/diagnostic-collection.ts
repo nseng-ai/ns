@@ -1,4 +1,4 @@
-import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 
 interface DiagnosticIdentity {
 	readonly code: string;

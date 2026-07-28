@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { ClinkrGroup } from "@nseng-ai/clinkr";
-import { defineCli, readStdin, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
+import { defineCli, readStdin, type CliEntrypointDeps } from "@nseng-ai/ns-foundation/cli-runtime";
 
 import { createRealPrAddressContext, type PrAddressContext } from "./context.ts";
 import { EXEC_OPERATIONS } from "./exec-commands.ts";

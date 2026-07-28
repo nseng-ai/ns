@@ -1,6 +1,6 @@
 import { lstat, mkdir, readFile, realpath, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { parseSkillFrontmatterBlock, transformSkillFrontmatter } from "@nseng-ai/ns/api";
 import { commandBackedSkillSurface } from "./replacement-registry.ts";
 import { diagnosticsFor, implicationsFor, inferPolicy } from "./policy.ts";

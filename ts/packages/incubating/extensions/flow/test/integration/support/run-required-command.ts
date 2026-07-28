@@ -2,8 +2,8 @@ import {
 	commandSucceeded,
 	type ExecResult,
 	formatCommandResultFailure,
-} from "@nseng-ai/foundation/command";
-import { runCommand } from "@nseng-ai/foundation/exec";
+} from "@nseng-ai/ns-foundation/command";
+import { runCommand } from "@nseng-ai/ns-foundation/exec";
 
 const DEFAULT_REQUIRED_COMMAND_TIMEOUT_MS = 60_000;
 

@@ -1,6 +1,6 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 import { withCommandOperations } from "../phase-stream/matrix-progress-core.ts";
 import type {

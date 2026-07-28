@@ -1,5 +1,5 @@
-import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
-import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+import type { ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/exec";
+import { createManualTimerScheduler } from "@nseng-ai/ns-foundation/time/testing";
 import { describe, expect, test } from "vitest";
 
 import {

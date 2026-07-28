@@ -1,4 +1,4 @@
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 import {
 	matchNsCommandModuleReference,
 	moduleReferenceDisplay,

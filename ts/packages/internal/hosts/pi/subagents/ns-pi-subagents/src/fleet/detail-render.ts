@@ -1,5 +1,5 @@
-import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
-import { isRecord } from "@nseng-ai/foundation/primitives";
+import { truncatePlain } from "@nseng-ai/ns-foundation/cli-theme";
+import { isRecord } from "@nseng-ai/ns-foundation/primitives";
 
 import { formatRunnerSubagentElapsed } from "../runner-subagents/presentation.ts";
 import type {

@@ -5,17 +5,17 @@ import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import type { Clock } from "@nseng-ai/foundation/clock";
-import { systemClock } from "@nseng-ai/foundation/time";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import { systemClock } from "@nseng-ai/ns-foundation/time";
 import {
 	formatErrorMessage,
 	optionalEntries,
 	optionalEntry,
-} from "@nseng-ai/foundation/primitives";
-import { BoundedTextTailBuffer } from "@nseng-ai/foundation/text-tail-buffer";
-import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
-import { systemTimerScheduler } from "@nseng-ai/foundation/time";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+} from "@nseng-ai/ns-foundation/primitives";
+import { BoundedTextTailBuffer } from "@nseng-ai/ns-foundation/text-tail-buffer";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/ns-foundation/timers";
+import { systemTimerScheduler } from "@nseng-ai/ns-foundation/time";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 import type {
 	RunnerSubagentBlockedResult,
 	RunnerSubagentCancelledResult,

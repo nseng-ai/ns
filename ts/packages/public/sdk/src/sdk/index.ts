@@ -33,12 +33,12 @@ export {
 	normalizeTextOutput,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
-} from "@nseng-ai/foundation/text-normalization";
-export { truncateTextHead, truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
+} from "@nseng-ai/ns-foundation/text-normalization";
+export { truncateTextHead, truncateTextHeadTail } from "@nseng-ai/ns-foundation/text-truncation";
 export type {
 	HeadTailTextTruncationOptions,
 	HeadTextTruncationOptions,
-} from "@nseng-ai/foundation/text-truncation";
+} from "@nseng-ai/ns-foundation/text-truncation";
 export {
 	buildFailureMachineEnvelopeSchema,
 	buildMachineEnvelopeSchema,

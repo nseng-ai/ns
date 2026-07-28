@@ -1,5 +1,5 @@
-import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/command";
-import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import type { CommandExecApi, ExecOptions } from "@nseng-ai/ns-foundation/command";
+import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/ns-foundation/exec/testing";
 import { describe, expect, test } from "vitest";
 
 import { RealReviewLogGateway } from "../../src/gateways/review-log.ts";

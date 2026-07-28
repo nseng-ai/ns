@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { ExecResult } from "@nseng-ai/foundation/command";
+import type { ExecResult } from "@nseng-ai/ns-foundation/command";
 
 import {
 	LAND_BACKUP_RECOVERY_HINT,

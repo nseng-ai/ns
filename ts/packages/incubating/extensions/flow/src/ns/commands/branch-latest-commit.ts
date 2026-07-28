@@ -1,6 +1,6 @@
 import type { LatestCommitAutobranchInput } from "../../autobranch/latest-commit.ts";
 import { dispatchAutobranchCheckpoint } from "../../autobranch/checkpoint-flow.ts";
-import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
+import { renderResultBlock } from "@nseng-ai/ns-foundation/cli-theme";
 import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";

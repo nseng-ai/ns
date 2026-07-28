@@ -25,7 +25,7 @@ import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec
 import type { RawPiExecOptions, RawPiExecResult } from "../../src/pi/host-types.ts";
 
 type ExecResultFixture = Partial<RawPiExecResult>;
-import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import { ScriptedQueue } from "@nseng-ai/ns-foundation/test-kit";
 import {
 	buildRepoPlanStoreKey,
 	buildSavedPlanContentSlugPrompt,

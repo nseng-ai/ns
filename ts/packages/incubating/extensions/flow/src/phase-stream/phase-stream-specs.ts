@@ -1,4 +1,4 @@
-import type { StatusLineItem } from "@nseng-ai/foundation/cli-theme";
+import type { StatusLineItem } from "@nseng-ai/ns-foundation/cli-theme";
 import type { NsProgressPhaseInfo } from "@nseng-ai/sdk";
 
 /**

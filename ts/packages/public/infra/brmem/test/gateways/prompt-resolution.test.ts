@@ -3,8 +3,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { GitErrorInfo } from "@nseng-ai/foundation/git";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import type { GitErrorInfo } from "@nseng-ai/ns-foundation/git";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import { describe, expect, it } from "vitest";
 
 import { RealBrmemPromptResolver } from "../../src/prompt-resolution.ts";

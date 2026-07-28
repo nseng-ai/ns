@@ -1,4 +1,4 @@
-import type { ExecResult } from "@nseng-ai/foundation/command";
+import type { ExecResult } from "@nseng-ai/ns-foundation/command";
 
 import type { SlotCommandGateway, SlotCommandRunOptions } from "../command.ts";
 

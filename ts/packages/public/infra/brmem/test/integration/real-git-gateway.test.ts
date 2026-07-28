@@ -4,12 +4,12 @@ import { join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import type { StdinCapableCommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
-import { DroppingOptionsCommandExecApi } from "@nseng-ai/foundation/exec/testing";
-import { createTempGitRepo } from "@nseng-ai/foundation/git/testing";
-import type { TempGitRepo } from "@nseng-ai/foundation/git/testing";
+import { NodeCommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import type { StdinCapableCommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import { RealGitGateway } from "@nseng-ai/ns-foundation/git";
+import { DroppingOptionsCommandExecApi } from "@nseng-ai/ns-foundation/exec/testing";
+import { createTempGitRepo } from "@nseng-ai/ns-foundation/git/testing";
+import type { TempGitRepo } from "@nseng-ai/ns-foundation/git/testing";
 import type { BrmemResult } from "../../src/contracts.ts";
 import type {
 	CopyEntriesResult,

@@ -1,4 +1,4 @@
-import { formatShellArg } from "@nseng-ai/foundation/exec";
+import { formatShellArg } from "@nseng-ai/ns-foundation/exec";
 import { checkHandoffArtifact, parseFlatHandoffSlug } from "@nseng-ai/handoffs/api";
 import { failure, negative, ok } from "@nseng-ai/sdk";
 import { z } from "zod";

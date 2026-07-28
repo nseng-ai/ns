@@ -1,4 +1,4 @@
-import type { Clock } from "@nseng-ai/foundation/clock";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
 import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,

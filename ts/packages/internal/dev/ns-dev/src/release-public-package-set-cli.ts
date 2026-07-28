@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 
 import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
-import type { CommandRunner } from "@nseng-ai/foundation/exec";
+import type { CommandRunner } from "@nseng-ai/ns-foundation/exec";
 import { z } from "zod";
 
 import type { NsDevCliContext } from "./context.ts";

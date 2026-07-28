@@ -1,4 +1,4 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 
 import {
 	BRANCH_CONTEXT_NAMESPACE,
@@ -19,8 +19,8 @@ import {
 } from "./branch-memory.ts";
 import type { BranchContextContext } from "./context.ts";
 import type { BrmemGateway } from "@nseng-ai/brmem";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
 import {
 	buildPlanStoreOptions,
 	listSavedPlans,

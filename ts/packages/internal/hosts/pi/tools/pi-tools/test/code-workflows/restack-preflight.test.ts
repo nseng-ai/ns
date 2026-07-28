@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/exec";
+import type { CommandExecApi, ExecResult } from "@nseng-ai/ns-foundation/exec";
 
 import { createCommandRestackPreflight } from "../../src/code-workflows/restack-preflight.ts";
 

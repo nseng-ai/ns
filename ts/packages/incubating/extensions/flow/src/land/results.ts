@@ -1,5 +1,5 @@
-import type { ExecResult } from "@nseng-ai/foundation/command";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import type { ExecResult } from "@nseng-ai/ns-foundation/command";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import type {
 	LandingExecutionFailure,
 	LandingFailure,

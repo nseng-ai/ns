@@ -1,5 +1,5 @@
-import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
-import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import { formatCommand, type ExecResult } from "@nseng-ai/ns-foundation/command";
+import { ScriptedQueue } from "@nseng-ai/ns-foundation/test-kit";
 import { expect } from "vitest";
 import {
 	executeStackLanding,

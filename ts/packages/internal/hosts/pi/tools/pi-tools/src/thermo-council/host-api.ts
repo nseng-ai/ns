@@ -4,7 +4,7 @@ import type {
 	RunnerSubagentPi,
 	SubagentFleetDisplayContext,
 } from "@internal/ns-pi-subagents/api";
-import type { ModelThinking } from "@nseng-ai/foundation/model-slug";
+import type { ModelThinking } from "@nseng-ai/ns-foundation/model-slug";
 import type { ModelInfo } from "@nseng-ai/pi-runtime/runtime/types";
 import type {
 	RawPiExecApi,

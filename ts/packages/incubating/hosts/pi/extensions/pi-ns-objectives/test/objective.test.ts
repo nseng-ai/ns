@@ -6,8 +6,8 @@ import {
 	withTempGitRepo,
 	withTempRepoSkill,
 	type TempRepoSkill,
-} from "@nseng-ai/foundation/test-kit";
-import { createManualClock } from "@nseng-ai/foundation/time/testing";
+} from "@nseng-ai/ns-foundation/test-kit";
+import { createManualClock } from "@nseng-ai/ns-foundation/time/testing";
 import type {
 	ObjectiveClient,
 	ObjectiveListResult,

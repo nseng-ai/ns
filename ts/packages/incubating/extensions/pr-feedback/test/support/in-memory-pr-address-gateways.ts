@@ -15,10 +15,10 @@ import type {
 	GithubReviewThreadState,
 	GithubStatusChecks,
 } from "@nseng-ai/pr-feedback/api";
-import type { Result } from "@nseng-ai/foundation/result";
+import type { Result } from "@nseng-ai/ns-foundation/result";
 
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import { createManualTimerHarness } from "@nseng-ai/foundation/time/testing";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
+import { createManualTimerHarness } from "@nseng-ai/ns-foundation/time/testing";
 
 import type { PrAddressContext } from "../../src/context.ts";
 

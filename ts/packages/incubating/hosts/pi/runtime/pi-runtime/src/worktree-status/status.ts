@@ -8,9 +8,9 @@ import {
 	type ExecResult,
 	formatCommand,
 	tailText,
-} from "@nseng-ai/foundation/command";
-import { RealGitGateway, resolveWorktreeGitDirs } from "@nseng-ai/foundation/git";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+} from "@nseng-ai/ns-foundation/command";
+import { RealGitGateway, resolveWorktreeGitDirs } from "@nseng-ai/ns-foundation/git";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
 import { runGitHubCli } from "@nseng-ai/extension-kit/github/cli";
 import { resolveGithubRepositoryIdentityFromOrigin } from "@nseng-ai/extension-kit/github/identity";
 import {
@@ -24,8 +24,8 @@ import {
 	formatErrorMessage,
 	optionalEntries,
 	optionalEntry,
-} from "@nseng-ai/foundation/primitives";
-import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
+} from "@nseng-ai/ns-foundation/primitives";
+import { formatElapsedMs } from "@nseng-ai/ns-foundation/time-format";
 import { parseMachineEnvelopeData } from "@nseng-ai/pi-runtime/runtime/machine-envelope";
 import {
 	customMessageText,
@@ -49,7 +49,7 @@ import type { CustomMessage, RenderComponent, RenderTheme } from "./types.ts";
 export const WORKTREE_STATUS_UI_KEY = "worktree-status";
 const COMMAND_TIMEOUT_MS = 5_000;
 
-export type { ExecResult } from "@nseng-ai/foundation/command";
+export type { ExecResult } from "@nseng-ai/ns-foundation/command";
 
 interface BrmemEntry {
 	namespace: string;

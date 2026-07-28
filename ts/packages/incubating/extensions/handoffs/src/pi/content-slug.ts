@@ -7,8 +7,8 @@ import {
 	type ContentSlugEvidence,
 } from "@nseng-ai/extension-kit/content-slug";
 import { parseFlatHandoffSlug } from "../api/index.ts";
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/command";
+import { RealGitGateway } from "@nseng-ai/ns-foundation/git";
 import {
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,

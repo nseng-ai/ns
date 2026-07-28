@@ -1,4 +1,4 @@
-import type { ErrorInfo } from "@nseng-ai/foundation/result";
+import type { ErrorInfo } from "@nseng-ai/ns-foundation/result";
 
 import type { PathState } from "./fs-state.ts";
 import { findFirstPartySkillArtifact } from "./first-party-catalog.ts";

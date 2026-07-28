@@ -6,7 +6,7 @@
  * every missing/empty field and section becomes its own problem so a
  * report-integrity malfunction checkpoint can list them all.
  */
-import { formatZodIssue } from "@nseng-ai/foundation/primitives";
+import { formatZodIssue } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import {

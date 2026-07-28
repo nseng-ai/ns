@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 
 import { githubPrFeedbackFailureCodes, githubPrFeedbackOperations } from "./types.ts";
 

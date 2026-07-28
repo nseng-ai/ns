@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
-import { createManualTimerHarness } from "@nseng-ai/foundation/time/testing";
+import { ScriptedQueue } from "@nseng-ai/ns-foundation/test-kit";
+import { createManualTimerHarness } from "@nseng-ai/ns-foundation/time/testing";
 import type { RawPiExecResult } from "@nseng-ai/pi-runtime/shared/command-exec";
 import {
 	parseDownloadFeedbackData,

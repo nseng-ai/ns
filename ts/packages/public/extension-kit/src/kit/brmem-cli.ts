@@ -9,14 +9,14 @@ import {
 	formatCommandSpawnFailure,
 	tailText,
 	type ExecResult,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 import {
 	formatErrorMessage,
 	isRecord,
 	optionalEntries,
 	optionalEntry,
 	type ExplicitUndefined,
-} from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/primitives";
 
 export const DEFAULT_BRMEM_TIMEOUT_MS = 30_000;
 

@@ -4,8 +4,8 @@ import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
 } from "@nseng-ai/objectives/api";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import { createManualClock } from "@nseng-ai/foundation/time/testing";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
+import { createManualClock } from "@nseng-ai/ns-foundation/time/testing";
 import type { CommandContext } from "@nseng-ai/pi-runtime/runtime/types";
 import { createTestSessionReader } from "./test-session-reader.ts";
 

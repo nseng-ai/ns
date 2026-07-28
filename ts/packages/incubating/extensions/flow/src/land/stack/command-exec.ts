@@ -3,7 +3,7 @@ import {
 	formatCommandTermination,
 	formatOutputSection,
 	tailText,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 import {
 	MAX_COMMAND_STREAM_OUTPUT_LINES,
 	MAX_OUTPUT_TAIL_CHARS,

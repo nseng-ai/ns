@@ -1,4 +1,4 @@
-import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 
 import {
 	isStaleExtensionContextError,

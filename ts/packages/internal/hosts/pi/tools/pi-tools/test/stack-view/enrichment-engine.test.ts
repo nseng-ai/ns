@@ -3,7 +3,7 @@ const TEST_MODEL_SELECTION = {
 	modelId: "gpt-5.6-luna",
 	thinking: "minimal" as const,
 };
-import { createDeferred, type Deferred } from "@nseng-ai/foundation/test-kit";
+import { createDeferred, type Deferred } from "@nseng-ai/ns-foundation/test-kit";
 import type {
 	CallPiModelTextOptions,
 	PiModelRegistryLike,

@@ -1,9 +1,9 @@
 import { downloadPrFeedback, type PrAddressRunner } from "../feedback-download.ts";
-import type { Clock } from "@nseng-ai/foundation/clock";
-import { commandSucceeded } from "@nseng-ai/foundation/exec";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { systemClock } from "@nseng-ai/foundation/time";
-import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import { commandSucceeded } from "@nseng-ai/ns-foundation/exec";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import { systemClock } from "@nseng-ai/ns-foundation/time";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 import { unrefTimerScheduler } from "@nseng-ai/pi-runtime/shared/timers";
 
 import {

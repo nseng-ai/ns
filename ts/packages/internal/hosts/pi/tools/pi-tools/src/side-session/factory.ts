@@ -10,7 +10,7 @@
  * Failures are errors-as-values with a flat, discriminated shape:
  * `{ ok: false; code: "spawn-failed" | "prompt-failed"; message }`.
  */
-import { formatModelRef, type ModelSelection } from "@nseng-ai/foundation/model-slug";
+import { formatModelRef, type ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 import {
 	DefaultResourceLoader,
 	SessionManager,

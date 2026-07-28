@@ -1,6 +1,9 @@
-import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@nseng-ai/foundation/git/testing";
+import {
+	InMemoryGitGateway,
+	type InMemoryGitGatewayState,
+} from "@nseng-ai/ns-foundation/git/testing";
 import type { Caps } from "@nseng-ai/clinkr";
-import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
+import { stripTerminalEscapes } from "@nseng-ai/ns-foundation/terminal-escapes";
 import { describe, expect, test } from "vitest";
 
 import type { ObjectiveCliContext } from "../../src/core/context.ts";

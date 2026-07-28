@@ -14,12 +14,12 @@ import {
 } from "../../src/submit/index.ts";
 import { RealSubmitGateway } from "../../src/submit/index.ts";
 import { formatBatchPosition, formatSubmitSuccessText } from "../../src/submit/submit-format.ts";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import {
 	ScriptedCommandRunner,
 	exitedResult,
 	spawnFailedResult,
-} from "@nseng-ai/foundation/exec/testing";
+} from "@nseng-ai/ns-foundation/exec/testing";
 import { ScriptedTextGenerator } from "@nseng-ai/extension-kit/text-generation/testing";
 
 interface ExitedResultFields {

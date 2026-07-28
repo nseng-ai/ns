@@ -1,4 +1,4 @@
-import { isRecord } from "@nseng-ai/foundation/primitives";
+import { isRecord } from "@nseng-ai/ns-foundation/primitives";
 
 import { normalizeBinPaths } from "../public-packages/helpers.ts";
 import { nsPublishBin } from "../public-packages/ns-publish-bin.ts";

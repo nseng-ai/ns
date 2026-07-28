@@ -1,6 +1,6 @@
 import type { ParsedAutobranchArgs } from "../../autobranch/dirty-worktree.ts";
 import { dispatchAutobranchCheckpoint } from "../../autobranch/checkpoint-flow.ts";
-import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
+import { renderResultBlock } from "@nseng-ai/ns-foundation/cli-theme";
 import { runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
 import { commandIoFromNsExtensionApi } from "@nseng-ai/sdk/command-io";
 import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";

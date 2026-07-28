@@ -1,7 +1,7 @@
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
 import { createNsClinkrInteraction } from "@nseng-ai/extension-kit";
 import { confirmInteractiveOrUsageError } from "@nseng-ai/clinkr";
-import { renderResultBlock, renderResultBlockFromMessage } from "@nseng-ai/foundation/cli-theme";
+import { renderResultBlock, renderResultBlockFromMessage } from "@nseng-ai/ns-foundation/cli-theme";
 import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
 import {
 	defineCommand,

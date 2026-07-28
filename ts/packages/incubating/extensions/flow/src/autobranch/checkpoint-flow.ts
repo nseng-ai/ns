@@ -1,5 +1,5 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 import {
 	runDirtyAutobranchFlow,

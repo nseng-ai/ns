@@ -18,7 +18,7 @@
 	},
 	"dependencies": {
 		"@nseng-ai/clinkr": "workspace:*",
-		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/ns-foundation": "workspace:*",
 		"zod": "catalog:"
 	},
 	"ns": {

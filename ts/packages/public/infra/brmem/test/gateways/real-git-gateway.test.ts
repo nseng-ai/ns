@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/exec";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 
 import { RealGitBrmemGateway, RealGitBrmemReadGateway } from "../../src/real-git-gateway.ts";
 

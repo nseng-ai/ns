@@ -8,12 +8,12 @@ import {
 	readStdin,
 	runOperationCommand,
 	type CliEntrypointDeps,
-} from "@nseng-ai/foundation/cli-runtime";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+} from "@nseng-ai/ns-foundation/cli-runtime";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
+import { NodeCommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import { RealGitGateway } from "@nseng-ai/ns-foundation/git";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
 import { z } from "zod";
 
 import {

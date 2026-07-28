@@ -1,4 +1,4 @@
-import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
+import { buildFencedTextBlock } from "@nseng-ai/ns-foundation/primitives";
 import type { PiSessionReader } from "./runtime-types.ts";
 
 const UNAVAILABLE_SESSION_ID = "unavailable (no Pi session id was exposed)";

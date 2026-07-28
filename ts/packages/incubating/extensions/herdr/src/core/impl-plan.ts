@@ -30,9 +30,9 @@ import {
 	type LocalGraphiteTrunkPreparation,
 } from "@nseng-ai/extension-kit/tracked-branch-payload";
 import type { PiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
-import { formatCommand } from "@nseng-ai/foundation/command";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatCommand } from "@nseng-ai/ns-foundation/command";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import type { CommandContext, NotifyLevel } from "@nseng-ai/extension-kit/pi-types";
 import type { SlotClient } from "@nseng-ai/slots/api";
 import { formatImplBranchContextCommand } from "@nseng-ai/branch-context/pi";

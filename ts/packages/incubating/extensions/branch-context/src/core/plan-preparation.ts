@@ -1,5 +1,5 @@
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import { optionalEntries } from "@nseng-ai/ns-foundation/primitives";
 import type { PlanStoreDirectoryEvidence, ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
 import { resolvePlanSourceFile } from "@nseng-ai/plans";
 

@@ -1,5 +1,5 @@
-import { truncatedSha256Digest } from "@nseng-ai/foundation/primitives";
-import type { Result } from "@nseng-ai/foundation/result";
+import { truncatedSha256Digest } from "@nseng-ai/ns-foundation/primitives";
+import type { Result } from "@nseng-ai/ns-foundation/result";
 import { z } from "zod";
 
 import { formatOmittedReviewInputFile } from "./input-coverage-formatting.ts";

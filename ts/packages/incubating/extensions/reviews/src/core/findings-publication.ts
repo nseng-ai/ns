@@ -5,8 +5,8 @@ import {
 	negativeMachineEnvelopeSchema,
 } from "@nseng-ai/clinkr";
 import { parseJsonInputText } from "@nseng-ai/extension-kit/json-input";
-import { formatZodError } from "@nseng-ai/foundation/primitives";
-import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+import { formatZodError } from "@nseng-ai/ns-foundation/primitives";
+import { resultErr, resultOk, type Result } from "@nseng-ai/ns-foundation/result";
 import { z } from "zod";
 
 import {

@@ -1,5 +1,5 @@
 import { negative, ok } from "@nseng-ai/clinkr";
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { optionalEntries } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import {

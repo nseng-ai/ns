@@ -1,4 +1,4 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 
 import { brmemError, brmemOk, type BrmemResult } from "./contracts.ts";
 import { FLAT_SEPARATOR } from "./ref-constants.ts";

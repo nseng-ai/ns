@@ -1,4 +1,4 @@
-import { formatCommand } from "@nseng-ai/foundation/command";
+import { formatCommand } from "@nseng-ai/ns-foundation/command";
 import { describe, expect, test } from "vitest";
 import { executeStackLanding, parseArgs } from "../../../src/land/land-stack.ts";
 import { PR_FIELDS } from "../../../src/land/stack/constants.ts";

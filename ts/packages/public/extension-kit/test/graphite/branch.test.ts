@@ -11,7 +11,7 @@ import type {
 	CommandRunner,
 	ExecOptions,
 	ExecResult,
-} from "@nseng-ai/foundation/exec";
+} from "@nseng-ai/ns-foundation/exec";
 
 const SUCCESS_RESULT = {
 	stdout: "ok\n",

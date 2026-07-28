@@ -3,7 +3,7 @@ import {
 	formatCommand,
 	tailText,
 	type ExecResult,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 import {
 	failure,
 	negative,
@@ -11,7 +11,7 @@ import {
 	resolveRenderCapabilities,
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
-import { cell, paint, renderTable } from "@nseng-ai/foundation/cli-theme";
+import { cell, paint, renderTable } from "@nseng-ai/ns-foundation/cli-theme";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../../core/context.ts";

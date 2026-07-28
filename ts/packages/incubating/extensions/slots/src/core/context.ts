@@ -8,11 +8,11 @@ import {
 	type ConfirmationPromptFormatter,
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
-import { paint } from "@nseng-ai/foundation/cli-theme";
-import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
-import type { Clock } from "@nseng-ai/foundation/clock";
-import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
-import { systemClock } from "@nseng-ai/foundation/time";
+import { paint } from "@nseng-ai/ns-foundation/cli-theme";
+import { readStdinLine } from "@nseng-ai/ns-foundation/cli-runtime";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import type { ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
+import { systemClock } from "@nseng-ai/ns-foundation/time";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
 import { RealSlotCommandGateway, type SlotCommandGateway } from "./gateways/command.ts";

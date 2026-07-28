@@ -1,4 +1,4 @@
-import { parseModelRef, type ModelSelection } from "@nseng-ai/foundation/model-slug";
+import { parseModelRef, type ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 import type { ThermoCouncilSeatConfig, ThermoCouncilSeatId } from "./contract.ts";
 
 export interface EnvReader {

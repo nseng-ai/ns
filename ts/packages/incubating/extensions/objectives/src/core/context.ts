@@ -1,10 +1,10 @@
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import { NodeCommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import { RealGitGateway } from "@nseng-ai/ns-foundation/git";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
 
 import { RealObjectiveStorageGateway } from "./real-storage.ts";
 import { ObjectiveStorage } from "./storage.ts";
-import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 
 export interface ObjectiveCliContext {
 	cwd: string;

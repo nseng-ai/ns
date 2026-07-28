@@ -1,4 +1,4 @@
-import { buildFencedTextBlock, formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { buildFencedTextBlock, formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 
 import { resolveCreateFocus } from "./create-focus.ts";
 import { realHandoffCreateSkillLoader } from "./create-skill.ts";

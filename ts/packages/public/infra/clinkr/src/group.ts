@@ -1,4 +1,4 @@
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { optionalEntries } from "@nseng-ai/ns-foundation/primitives";
 import { Argument, Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { z } from "zod";
 

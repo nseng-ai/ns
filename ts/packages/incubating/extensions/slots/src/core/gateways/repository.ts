@@ -1,20 +1,20 @@
 import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
+import { NodeCommandExecApi } from "@nseng-ai/ns-foundation/exec";
 import {
 	commandSucceeded,
 	type CommandExecApi,
 	type ExecResult,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 import {
 	detectGitOperationInProgressAt,
 	parseGitWorktreePorcelain,
 	RealGitGateway,
 	type GitGateway,
 	type GitOperationInProgressFacts,
-} from "@nseng-ai/foundation/git";
-import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/git";
+import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 
 import {
 	createSlotDiagnosticSinkFromEnv,

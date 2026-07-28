@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/foundation/git";
-import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
-import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/ns-foundation/git";
+import { formatCommand, type ExecResult } from "@nseng-ai/ns-foundation/command";
+import { ScriptedQueue } from "@nseng-ai/ns-foundation/test-kit";
 import { shortSha } from "../../src/commit-display/index.ts";
 import { BACKUP_REF_NAMESPACE, PR_FIELDS } from "../../src/land/stack/constants.ts";
 import {

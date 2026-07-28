@@ -1,12 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import {
 	formatModelRef,
 	parseModelRef,
 	type ModelSelection,
-} from "@nseng-ai/foundation/model-slug";
+} from "@nseng-ai/ns-foundation/model-slug";
 
 import { catalogOptions, environmentOptions, type ReviewsRuntime } from "../core/context.ts";
 import {

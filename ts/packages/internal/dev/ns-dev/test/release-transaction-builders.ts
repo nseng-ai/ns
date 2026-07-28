@@ -14,8 +14,8 @@ export const releaseInventoryFixture: readonly string[] = [
 	"@nseng-ai/brmem",
 	"@nseng-ai/clinkr",
 	"@nseng-ai/extension-kit",
-	"@nseng-ai/foundation",
 	"@nseng-ai/ns",
+	"@nseng-ai/ns-foundation",
 	"@nseng-ai/packagechk",
 	"@nseng-ai/sdk",
 ];

@@ -4,7 +4,7 @@ import {
 	ScriptedCommandExecApi,
 	spawnFailedResult,
 	timedOutResult,
-} from "@nseng-ai/foundation/exec/testing";
+} from "@nseng-ai/ns-foundation/exec/testing";
 import { describe, expect, test } from "vitest";
 
 import type { PreparedReviewHarnessRequest } from "../../src/gateways/review-runner.ts";

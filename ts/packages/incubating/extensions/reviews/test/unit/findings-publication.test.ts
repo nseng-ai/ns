@@ -3,7 +3,7 @@ import type {
 	GithubPrInlineCommentInput,
 } from "@nseng-ai/extension-kit/github/pr-feedback";
 import { FakeGithubPrFeedbackGateway } from "@nseng-ai/extension-kit/github/testing";
-import type { Result } from "@nseng-ai/foundation/result";
+import type { Result } from "@nseng-ai/ns-foundation/result";
 import { describe, expect, test } from "vitest";
 
 import { createReviewsRuntime } from "../../src/core/context.ts";

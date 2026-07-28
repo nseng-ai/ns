@@ -4,14 +4,14 @@ import type {
 	RawPiExecResult,
 } from "@nseng-ai/pi-runtime/shared/command-exec";
 
-import type { TimeServices } from "@nseng-ai/foundation/time";
+import type { TimeServices } from "@nseng-ai/ns-foundation/time";
 import type {
 	SendMessageOptions,
 	SendUserMessageOptions,
 } from "@nseng-ai/pi-runtime/shared/message-delivery";
 import type { PrAddressRunner } from "../feedback-download.ts";
 
-export type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
+export type { ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/exec";
 
 interface CustomMessage {
 	customType: string;

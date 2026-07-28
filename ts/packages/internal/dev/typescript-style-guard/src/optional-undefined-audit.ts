@@ -4,7 +4,7 @@ import { ADVISORY_OPTIONAL_UNDEFINED_PROPERTY } from "./config.ts";
 import {
 	parseTypeScriptSource,
 	sourceLocationFields,
-} from "@nseng-ai/foundation/typescript-analysis";
+} from "@nseng-ai/ns-foundation/typescript-analysis";
 
 export interface OptionalUndefinedPropertyCandidate {
 	readonly rule: typeof ADVISORY_OPTIONAL_UNDEFINED_PROPERTY;

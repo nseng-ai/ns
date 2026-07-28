@@ -1,4 +1,4 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 
 import { shortSha } from "../commit-display/index.ts";
 import { landCompleted, landFailure, landSuccess, landOutcomeFailure } from "./results.ts";

@@ -1,6 +1,6 @@
 import { isAbsolute, relative } from "node:path";
 
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 import {
 	prepareDeclaredArtifactActivation,
 	type PreparedDeclaredArtifactActivation,

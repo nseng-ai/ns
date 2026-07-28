@@ -2,7 +2,7 @@ import {
 	commandSucceeded,
 	formatCommand,
 	formatCommandDetails,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 import {
 	GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS,
 	graphiteBranchMetadataReadonlyJsonArgs,

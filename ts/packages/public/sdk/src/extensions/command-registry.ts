@@ -1,4 +1,4 @@
-import { formatErrorMessage, optionalEntries } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntries } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import { defineInternalParsedCommand } from "../sdk/command.ts";

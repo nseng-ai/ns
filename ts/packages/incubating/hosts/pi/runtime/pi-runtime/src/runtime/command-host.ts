@@ -1,5 +1,5 @@
 import type { ModelInfo } from "../runtime/types.ts";
-import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 import type { NotifyLevel, SetWidgetFunction } from "./tool-types.ts";
 
 export interface PiCommandContext {

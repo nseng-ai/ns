@@ -1,4 +1,4 @@
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { SubagentFleetRegistry, type SubagentFleetTaskInput } from "./registry.ts";
 import type { GitHeadSnapshot, ReadGitHead } from "./git-head.ts";
 import type {

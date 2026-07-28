@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
-import { formatZodError, optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
+import type { ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/exec";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
+import { formatZodError, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 import {
 	composePiAgentPrompt,
 	type PiAgentDefinition,

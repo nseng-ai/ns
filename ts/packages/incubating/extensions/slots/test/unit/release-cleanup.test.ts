@@ -1,5 +1,5 @@
 import { createFakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
-import { createManualClock } from "@nseng-ai/foundation/time/testing";
+import { createManualClock } from "@nseng-ai/ns-foundation/time/testing";
 import { describe, expect, it } from "vitest";
 
 import { executeReleaseCleanup, planReleaseCleanup } from "../../src/lifecycle/release-cleanup.ts";

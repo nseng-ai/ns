@@ -14,7 +14,7 @@
 		"test:integration": "cd ../../../.. && vitest run --config vitest.integration.config.ts packages/internal/dev/review-reinvention-scanner/test/integration"
 	},
 	"dependencies": {
-		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/ns-foundation": "workspace:*",
 		"typescript": "catalog:"
 	},
 	"devDependencies": {

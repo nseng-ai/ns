@@ -5,18 +5,18 @@ import {
 	type ExecResult,
 	formatCommand,
 	formatCommandTermination,
-} from "@nseng-ai/foundation/command";
-import type { Clock } from "@nseng-ai/foundation/clock";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { systemClock } from "@nseng-ai/foundation/time";
-import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
+} from "@nseng-ai/ns-foundation/command";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import { systemClock } from "@nseng-ai/ns-foundation/time";
+import { formatElapsedMs } from "@nseng-ai/ns-foundation/time-format";
 import {
 	customMessageText,
 	linkifyPrReferences,
 	prLinksDetailsFor,
 	prLinksFromDetails,
 	truncateDisplayLine,
-} from "@nseng-ai/foundation/terminal-presentation";
+} from "@nseng-ai/ns-foundation/terminal-presentation";
 import { commandStreamOutputLines } from "./command-exec.ts";
 import { normalizeLandCommandFinish } from "./graphite-command-channel.ts";
 import { COMMAND_STREAM_MESSAGE_TYPE, STATUS_KEY } from "./constants.ts";

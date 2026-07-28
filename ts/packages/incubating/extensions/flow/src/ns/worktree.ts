@@ -10,7 +10,7 @@ import {
 	commandSucceeded,
 	formatCommandDetails,
 	type ExecResult,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 import { withTemporaryFile } from "@nseng-ai/extension-kit/temp-files";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 import {
@@ -23,7 +23,7 @@ import type {
 	AutobranchFlowContext,
 } from "../autobranch/checkpoint-flow.ts";
 import type { ParsedAutobranchArgs } from "../autobranch/dirty-worktree.ts";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 export type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult };
 

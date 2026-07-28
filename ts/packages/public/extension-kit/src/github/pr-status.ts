@@ -5,7 +5,7 @@ import {
 	parseGraphqlErrors,
 	parseJsonUnknown,
 } from "./graphql-json.ts";
-import { isRecord } from "@nseng-ai/foundation/primitives";
+import { isRecord } from "@nseng-ai/ns-foundation/primitives";
 
 export interface GithubReviewThreadCounts {
 	unresolved: number;

@@ -2,7 +2,7 @@
 
 Read this before creating a workspace package, declaring or renaming entries in `ns.subpackages`, adding `exports` entries to a container package, or restructuring a container package's `src/` layout.
 
-Decision record: ADR 0023 (manifest-declared subpackages, subpackage kinds, edge-significance rank, and multiple API-kind subpackages) and ADR 0032 (Neutral Infra admission). Canonical vocabulary: the package-topology cluster in the root `CONTEXT.md`.
+Decision records: ADR 0023 (manifest-declared subpackages, subpackage kinds, edge-significance rank, and multiple API-kind subpackages), ADR 0032 (historical Foundation admission), and ADR 0049 (ns-foundation supersession and hard rename). Canonical vocabulary: the package-topology cluster in the root `CONTEXT.md`.
 
 ## The rank test
 
@@ -17,7 +17,7 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 | Host surface | `ns`, `pi`                                                               | the named host only                     |
 | Feature      | open, domain-meaningful (`land-stack`, `submit`, `cmux`, `lifecycle`, …) | sibling subpackages in the same package |
 
-- **API-kind** subpackages are the package's deliberate cross-package programmatic doors: any declared subpackage with supported cross-package runtime exports is API-kind, regardless of name, and a container may have several (`@nseng-ai/foundation/exec` and `@nseng-ai/foundation/time` are both API-kind). An extension's package API must still be the literally named `api` subpackage (`@nseng-ai/<ext>/api`), a thin contract/facade; logic lives in features, not here. Do not consolidate precise API-kind doors into one façade barrel.
+- **API-kind** subpackages are the package's deliberate cross-package programmatic doors: any declared subpackage with supported cross-package runtime exports is API-kind, regardless of name, and a container may have several (`@nseng-ai/ns-foundation/exec` and `@nseng-ai/ns-foundation/time` are both API-kind). An extension's package API must still be the literally named `api` subpackage (`@nseng-ai/<ext>/api`), a thin contract/facade; logic lives in features, not here. Do not consolidate precise API-kind doors into one façade barrel.
 - **Testing** exports fakes and test kits for other packages' tests. Never imported by runtime code.
 - **Host surfaces** are thin adapters consumed by exactly one host: `ns` by the ns CLI SDK wiring and `pi` by the Pi host stack. Per-feature entry points live inside the surface (`pi/land-stack.ts`), so surfaces stay thin and features stay host-free.
 - **Features** are the package's real domain verticals — the entries that make the topology report say something package-specific. They never import host surfaces, and their edges stay intra-package. Private implementation layers of an API-kind subpackage are folders inside it, not sibling feature subpackages.
@@ -31,7 +31,7 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 
 ## Import rules in practice
 
-- Cross-package runtime imports target exported API-kind subpackages only. For an ns extension package API that means `<pkg>/api`; for a package with several API-kind doors it means the precise exported subpath (`@nseng-ai/foundation/exec`). Cross-package test imports may also target `<pkg>/testing`.
+- Cross-package runtime imports target exported API-kind subpackages only. For an ns extension package API that means `<pkg>/api`; for a package with several API-kind doors it means the precise exported subpath (`@nseng-ai/ns-foundation/exec`). Cross-package test imports may also target `<pkg>/testing`.
 - Host-surface subpaths are imported only by their host packages.
 - A feature-level `api`/`testing` module (for example `@nseng-ai/flow/land/api`) serves sibling subpackages in the same package only. If another package wants it, route the need through an existing API-kind subpackage — or read the demand as a promotion signal: either deliberately declare the feature's surface API-kind, or extract the feature into its own package (see `docs/conventions/platform-and-consumer.md` for the promotion-path discipline).
 

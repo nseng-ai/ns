@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 
 import { parseArgs } from "../../src/land/land-stack.ts";
 import { approvedLandConfirmationKinds } from "../../src/land/landing-confirmation-policy.ts";

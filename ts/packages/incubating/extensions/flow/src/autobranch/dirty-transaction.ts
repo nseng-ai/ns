@@ -1,4 +1,4 @@
-import { commandSucceeded } from "@nseng-ai/foundation/command";
+import { commandSucceeded } from "@nseng-ai/ns-foundation/command";
 import type { AutobranchExec } from "./shared.ts";
 import type { AutobranchGitGateway } from "./git-gateway.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";

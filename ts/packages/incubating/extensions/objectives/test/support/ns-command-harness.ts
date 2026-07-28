@@ -1,6 +1,6 @@
 import type { ClinkrExit, ClinkrFormat } from "@nseng-ai/clinkr";
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
-import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
+import { optionalEntries } from "@nseng-ai/ns-foundation/primitives";
+import { requestObjectToArgv } from "@nseng-ai/ns-foundation/test-kit";
 import { noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	ExecResult,

@@ -1,5 +1,5 @@
-import { formatModelRef } from "@nseng-ai/foundation/model-slug";
-import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
+import { formatModelRef } from "@nseng-ai/ns-foundation/model-slug";
+import { buildFencedTextBlock } from "@nseng-ai/ns-foundation/primitives";
 
 import {
 	SAFETY_NOTE,

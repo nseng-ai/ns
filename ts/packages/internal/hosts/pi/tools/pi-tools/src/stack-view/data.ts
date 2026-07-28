@@ -39,7 +39,7 @@ import {
 	type GraphiteStackGitGateway,
 	type StackInfo,
 } from "@nseng-ai/extension-kit/graphite/stack";
-import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
+import { RealGitGateway, type GitGateway } from "@nseng-ai/ns-foundation/git";
 
 export interface LoadStackViewParams extends StackViewExecContext {
 	/**

@@ -10,11 +10,11 @@ const TEST_MODEL_SELECTION = {
 };
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import { buildSavedPlanContentSlugPrompt, deriveSavedPlanContentSlug } from "../src/index.ts";
-import type { ExecResult } from "@nseng-ai/foundation/exec";
+import type { ExecResult } from "@nseng-ai/ns-foundation/exec";
 
 type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
-import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
+import type { CommandExecApi, ExecOptions } from "@nseng-ai/ns-foundation/exec";
 
 const CWD = mkdtempSync(join(tmpdir(), "saved-plan-slug-root-"));
 writeFileSync(

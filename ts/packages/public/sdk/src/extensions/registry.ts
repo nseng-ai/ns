@@ -35,7 +35,7 @@ import {
 	isPathInside,
 	optionalEntry,
 	type ExplicitUndefined,
-} from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/primitives";
 import {
 	type ExtensionCommandEntry,
 	type ExtensionDescriptor,

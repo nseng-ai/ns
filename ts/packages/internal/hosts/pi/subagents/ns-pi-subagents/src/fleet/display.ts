@@ -1,4 +1,4 @@
-import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
+import { truncatePlain } from "@nseng-ai/ns-foundation/cli-theme";
 import {
 	compareFleetTasksForDisplay,
 	type SubagentFleetRunSnapshot,

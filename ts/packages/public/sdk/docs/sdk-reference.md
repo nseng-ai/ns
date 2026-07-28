@@ -12,7 +12,7 @@ import type { CommandExit, NsExtensionApi } from "@nseng-ai/sdk";
 
 Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export so extension modules use the same schema identity as the ns host.
 
-Do not import ns implementation modules (`@nseng-ai/sdk/*`, `@nseng-ai/foundation/*`, `@nseng-ai/clinkr/*`) from ns extension authoring modules. The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
+Do not import ns implementation modules (`@nseng-ai/sdk/*`, `@nseng-ai/ns-foundation/*`, `@nseng-ai/clinkr/*`) from ns extension authoring modules. The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
 
 Extension APIs such as `@nseng-ai/<cap>/api` are consumer/provider extension surfaces above the SDK, not part of `@nseng-ai/sdk` and not general ns extension-author API. They are for first-party extension packages that deliberately depend on each other in-process; command authors still import only this SDK unless an extension's package documentation explicitly tells them otherwise.
 For this repository's checked-in grouped flow extension, repeated command-author helper code should stay under the owning implementation package's helper layer, currently `ts/packages/incubating/extensions/flow/src/shared/` in `@nseng-ai/flow`, until a later explicit decision promotes a stable helper into this SDK. `internalWorkspaceExports` in `ts/packages/public/sdk/package.json` and extension-building primitive subpaths under `@nseng-ai/extension-kit/*` exist for package/internal workspace sharing, not as extension-author API; importing or documenting those subpaths is not SDK promotion.
@@ -306,7 +306,7 @@ interface PositionalSpec {
 
 ### `normalizeTextOutput()`
 
-*Re-exported from `@nseng-ai/foundation/text-normalization`.* Normalizes model text before validation.
+*Re-exported from `@nseng-ai/ns-foundation/text-normalization`.* Normalizes model text before validation.
 
 ```ts
 function normalizeTextOutput(output: string): string;
@@ -316,7 +316,7 @@ Converts CRLF/CR line endings to `\n`, removes outer blank lines, and strips one
 
 ### `trimOuterBlankLines()`
 
-*Re-exported from `@nseng-ai/foundation/text-normalization`.* Removes leading and trailing blank lines while preserving interior text.
+*Re-exported from `@nseng-ai/ns-foundation/text-normalization`.* Removes leading and trailing blank lines while preserving interior text.
 
 ```ts
 function trimOuterBlankLines(text: string): string;
@@ -324,7 +324,7 @@ function trimOuterBlankLines(text: string): string;
 
 ### `stripOuterCodeFence()`
 
-*Re-exported from `@nseng-ai/foundation/text-normalization`.* Removes one outer Markdown code fence from a whole response.
+*Re-exported from `@nseng-ai/ns-foundation/text-normalization`.* Removes one outer Markdown code fence from a whole response.
 
 ```ts
 function stripOuterCodeFence(text: string): string;
@@ -332,7 +332,7 @@ function stripOuterCodeFence(text: string): string;
 
 ### `truncateTextHead()`
 
-*Re-exported from `@nseng-ai/foundation/text-truncation`.* Keeps the head of a string inside a fixed character budget and appends a caller-defined marker.
+*Re-exported from `@nseng-ai/ns-foundation/text-truncation`.* Keeps the head of a string inside a fixed character budget and appends a caller-defined marker.
 
 ```ts
 function truncateTextHead(options: HeadTextTruncationOptions): string;
@@ -340,7 +340,7 @@ function truncateTextHead(options: HeadTextTruncationOptions): string;
 
 ### `truncateTextHeadTail()`
 
-*Re-exported from `@nseng-ai/foundation/text-truncation`.* Keeps head and tail excerpts inside a fixed character budget and inserts a caller-defined marker.
+*Re-exported from `@nseng-ai/ns-foundation/text-truncation`.* Keeps head and tail excerpts inside a fixed character budget and inserts a caller-defined marker.
 
 ```ts
 function truncateTextHeadTail(options: HeadTailTextTruncationOptions): string;
@@ -348,7 +348,7 @@ function truncateTextHeadTail(options: HeadTailTextTruncationOptions): string;
 
 ### `HeadTextTruncationOptions` / `HeadTailTextTruncationOptions`
 
-*Re-exported from `@nseng-ai/foundation/text-truncation`.* Options for the truncation helpers.
+*Re-exported from `@nseng-ai/ns-foundation/text-truncation`.* Options for the truncation helpers.
 
 **Example.**
 

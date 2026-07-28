@@ -2,7 +2,7 @@ import {
 	createNsDomainCommand,
 	type NsDomainCommandOptions,
 } from "@nseng-ai/extension-kit/ns-command";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import type { NsCommand, NsCommandSchema, NsExtensionApi } from "@nseng-ai/sdk";
 
 import {

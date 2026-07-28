@@ -7,7 +7,7 @@
  * `addAutocompleteProvider` is absent, so the extension is a no-op there.
  */
 
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import type { AutocompleteProvider, SessionStartContext } from "@nseng-ai/pi-runtime/runtime/types";
 
 import { rerankSlashCommandItems, slashCommandRerankQuery } from "./rerank.ts";

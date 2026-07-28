@@ -1,4 +1,4 @@
-import { displayWidth } from "@nseng-ai/foundation/text-table";
+import { displayWidth } from "@nseng-ai/ns-foundation/text-table";
 
 export type NsNotifyLevel = "info" | "warning" | "error";
 

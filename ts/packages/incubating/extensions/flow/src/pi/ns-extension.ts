@@ -1,6 +1,6 @@
-import { nsCommandSurface } from "@nseng-ai/foundation/command";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
+import { nsCommandSurface } from "@nseng-ai/ns-foundation/command";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import { RealGitGateway } from "@nseng-ai/ns-foundation/git";
 import {
 	buildFlowSubmitCheckRecoveryMessage,
 	hasFlowSubmitCheckFailureMarker,

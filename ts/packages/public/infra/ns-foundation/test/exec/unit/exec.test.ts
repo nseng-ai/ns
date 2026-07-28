@@ -1,0 +1,79 @@
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, test, vi } from "vitest";
+
+import { defaultCommandResolver, NodeCommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import {
+	cancelledResult,
+	exitedResult,
+	spawnFailedResult,
+	timedOutResult,
+} from "@nseng-ai/ns-foundation/exec/testing";
+
+const tempDirs: string[] = [];
+
+function createTempDir(): string {
+	const directory = mkdtempSync(join(tmpdir(), "ns-exec-unit-"));
+	tempDirs.push(directory);
+	return directory;
+}
+
+afterEach(() => {
+	for (const directory of tempDirs.splice(0)) {
+		rmSync(directory, { recursive: true, force: true });
+	}
+});
+
+describe("NodeCommandExecApi", () => {
+	test("advertises stdin support for callers that require a real Node adapter", () => {
+		expect(new NodeCommandExecApi().supportsStdin).toBe(true);
+	});
+});
+
+describe("exec testing results", () => {
+	test("constructs every termination arm", () => {
+		expect(exitedResult({ code: 7 })).toEqual({
+			type: "exited",
+			stdout: "",
+			stderr: "",
+			code: 7,
+			signal: null,
+		});
+		expect(cancelledResult({ signal: "backend-specific-stop" })).toMatchObject({
+			type: "cancelled",
+			signal: "backend-specific-stop",
+		});
+		expect(timedOutResult({ signal: "SIGKILL" })).toMatchObject({
+			type: "timed-out",
+			signal: "SIGKILL",
+		});
+		expect(spawnFailedResult(new Error("missing"))).toEqual({
+			type: "spawn-failed",
+			stdout: "",
+			stderr: "missing",
+			error: "missing",
+		});
+	});
+});
+
+describe("defaultCommandResolver", () => {
+	test("finds executables on PATH", () => {
+		const directory = createTempDir();
+		const executable = join(directory, "ns-exec-test-tool");
+		writeFileSync(executable, "#!/bin/sh\nexit 0\n");
+		chmodSync(executable, 0o755);
+		vi.stubEnv("PATH", directory);
+
+		expect(defaultCommandResolver("ns-exec-test-tool")).toBe(executable);
+	});
+
+	test("returns undefined for non-executable commands", () => {
+		const directory = createTempDir();
+		writeFileSync(join(directory, "ns-exec-test-tool"), "#!/bin/sh\nexit 0\n");
+		vi.stubEnv("PATH", directory);
+
+		expect(defaultCommandResolver("ns-exec-test-tool")).toBeUndefined();
+		expect(defaultCommandResolver("missing-tool")).toBeUndefined();
+	});
+});

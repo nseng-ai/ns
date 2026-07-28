@@ -1,4 +1,4 @@
-import { optionalEntry, stringField } from "@nseng-ai/foundation/primitives";
+import { optionalEntry, stringField } from "@nseng-ai/ns-foundation/primitives";
 
 import type { RunnerSubagentProgress } from "./extension-api.ts";
 

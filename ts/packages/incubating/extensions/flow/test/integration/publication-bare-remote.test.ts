@@ -10,7 +10,7 @@ import {
 	type CommandExecApi,
 	type ExecOptions,
 	type ExecResult,
-} from "@nseng-ai/foundation/exec";
+} from "@nseng-ai/ns-foundation/exec";
 import { createFlowBranchPublicationClient } from "@nseng-ai/flow/api";
 
 const TEST_TIMEOUT_MS = 60_000;

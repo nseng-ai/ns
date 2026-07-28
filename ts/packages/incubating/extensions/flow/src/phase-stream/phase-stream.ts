@@ -21,7 +21,7 @@ import {
 	systemStreamClock,
 	type StreamSinkDeps,
 } from "@nseng-ai/clinkr/stream";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import type { NsExtensionApi, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 import { createFlowLiveOutput } from "./live-output.ts";

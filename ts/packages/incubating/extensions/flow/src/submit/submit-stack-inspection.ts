@@ -1,5 +1,5 @@
-import { runCommand } from "@nseng-ai/foundation/exec";
-import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
+import { runCommand } from "@nseng-ai/ns-foundation/exec";
+import type { CommandRunner, ExecResult } from "@nseng-ai/ns-foundation/command";
 import {
 	deriveValidatedGraphiteStackPath,
 	type GraphiteStackGateway,

@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import {
 	unwrapIncumbentRepositoryResult,
 	type SlotRepositoryGateway,

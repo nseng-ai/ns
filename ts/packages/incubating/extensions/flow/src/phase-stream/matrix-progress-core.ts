@@ -1,7 +1,7 @@
 import type { Caps } from "@nseng-ai/clinkr";
 import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
-import type { Clock } from "@nseng-ai/foundation/clock";
-import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import { optionalEntries, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import type { ActiveOperation, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 import {

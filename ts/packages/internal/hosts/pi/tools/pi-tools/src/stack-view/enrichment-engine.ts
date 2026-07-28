@@ -20,7 +20,7 @@
  * worker loop; failures are recorded as `{ state: "failed" }`, and `ensureAll`
  * resolves (never rejects) once its tasks settle.
  */
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 import { callPiModelText } from "@nseng-ai/pi-runtime/models/call";
 import type {

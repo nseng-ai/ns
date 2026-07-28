@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 
-import { errorCodeFromUnknown, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import { errorCodeFromUnknown, type ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 
 export type ClipboardCopyResult =
 	| { type: "copied" }

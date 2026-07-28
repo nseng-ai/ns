@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { ScriptedTextGenerator } from "@nseng-ai/extension-kit/text-generation/testing";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import type { ActiveOperation } from "@nseng-ai/sdk";
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import {

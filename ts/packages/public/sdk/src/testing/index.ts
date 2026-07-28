@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+import { resultErr, resultOk, type Result } from "@nseng-ai/ns-foundation/result";
 
 export { createTestNsCliExtensionRegistry } from "./ns-cli-extension-registry.ts";
 export type {

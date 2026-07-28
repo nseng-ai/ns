@@ -1,6 +1,6 @@
-import { commandSucceeded, formatCommand } from "@nseng-ai/foundation/command";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { GitWorktreeStateFs } from "@nseng-ai/foundation/git";
+import { commandSucceeded, formatCommand } from "@nseng-ai/ns-foundation/command";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import type { GitWorktreeStateFs } from "@nseng-ai/ns-foundation/git";
 import { isLikelyInProgressGitOperationFailure } from "../../submit/cli-prose-heuristics.ts";
 import { snapshotBackupRefs } from "./backup-refs.ts";
 import { formatCommandForDisplay } from "./command-stream.ts";

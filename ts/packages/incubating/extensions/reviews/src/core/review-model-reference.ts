@@ -1,5 +1,5 @@
-import { formatModelRef, type ModelSelection } from "@nseng-ai/foundation/model-slug";
-import { resultErr } from "@nseng-ai/foundation/result";
+import { formatModelRef, type ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
+import { resultErr } from "@nseng-ai/ns-foundation/result";
 
 import type { ReviewResult } from "./failures.ts";
 

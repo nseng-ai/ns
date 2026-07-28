@@ -2,7 +2,7 @@ import { mkdir, open, readFile, stat } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { formatErrorMessage, isNodeErrorCode } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, isNodeErrorCode } from "@nseng-ai/ns-foundation/primitives";
 
 import {
 	ACTIVATION_FILE_PATHS,

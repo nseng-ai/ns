@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { commandSucceeded, formatCommandFailure, runCommand } from "@nseng-ai/foundation/exec";
+import { commandSucceeded, formatCommandFailure, runCommand } from "@nseng-ai/ns-foundation/exec";
 
 import { runNsCli } from "../../src/cli/index.ts";
 import { writeModuleExtension } from "../support/cli-harness.ts";

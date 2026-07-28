@@ -1,8 +1,8 @@
 import { importTypeScriptWorkspaceModule } from "../lib/workspace-packages.ts";
 
 const { runCommand } = await importTypeScriptWorkspaceModule<
-	typeof import("@nseng-ai/foundation/exec")
->("@nseng-ai/foundation/exec");
+	typeof import("@nseng-ai/ns-foundation/exec")
+>("@nseng-ai/ns-foundation/exec");
 const { sendCommandProgressOrNotify, registerCommandWithImmediateAck } =
 	await importTypeScriptWorkspaceModule<typeof import("@nseng-ai/pi-runtime/commands/ack")>(
 		"@nseng-ai/pi-runtime/commands/ack",

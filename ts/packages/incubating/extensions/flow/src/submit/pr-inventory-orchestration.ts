@@ -1,9 +1,9 @@
 import type { TextGenerator } from "@nseng-ai/extension-kit/text-generation";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
-import { formatModelRef } from "@nseng-ai/foundation/model-slug";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { ErrorInfo } from "@nseng-ai/foundation/result";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
+import { formatModelRef } from "@nseng-ai/ns-foundation/model-slug";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import type { ErrorInfo } from "@nseng-ai/ns-foundation/result";
 
 import { modelOperation, withActiveOperations } from "../phase-stream/matrix-progress-core.ts";
 import type { GithubPrDetails, GithubPrGateway } from "./github-pr-gateway.ts";

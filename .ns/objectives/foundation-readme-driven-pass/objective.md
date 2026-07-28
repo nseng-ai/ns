@@ -1,39 +1,43 @@
 ---
-blocked: The umbrella is gated on completion of the Clinkr dry-run and return of its gate-calibration lessons before the Foundation package pass begins.
+blocked: The ns-foundation README-driven pass awaits completion of the Clinkr dry run and return of its gate-calibration lessons.
 edges:
   - objective: professional-repo-curation
-    annotation: Parent umbrella; this pass is its sanctioned parallel Subobjective, calibrating the README-driven graduation gate on foundation packages that remain outside incubation.
+    annotation: Parent umbrella; this pass is its sanctioned parallel Subobjective, calibrating the README-driven graduation gate on public infrastructure packages that remain outside incubation.
   - objective: clinkr-readme-driven-development
     annotation: Clinkr package Subobjective; it owns the first contract draft, implementation and caller audit, mismatch dispositions, reconciliation, and gate-calibration lessons returned to this umbrella.
 ---
 
-# Foundation README-Driven Pass
+# ns-foundation README-Driven Pass
 
 ## Thesis
 
-Give the foundation packages a bottoms-up README-driven development pass in dependency-respecting order: `infra/clinkr` → `infra/foundation` → `infra/brmem` and `sdk` → `extension-kit`. This umbrella creates one Readme-Driven-Development Subobjective per package and owns sequencing, gate calibration, and synthesis; package-level contract decisions and mismatch backlogs belong to those children.
+Give the public infrastructure packages a bottoms-up README-driven development pass in dependency-respecting order: `infra/clinkr` → `infra/ns-foundation` → `infra/brmem` and `sdk` → `extension-kit`. This umbrella creates one Readme-Driven-Development Subobjective per package and owns sequencing, gate calibration, and synthesis; package-level contract decisions and mismatch backlogs belong to those children.
 
-The extension vocabulary verdict and machine-readable rename have landed. The former `capability-kit` tail is now `extension-kit`, so vocabulary no longer blocks the SDK or Extension Kit passes. The Clinkr Subobjective now owns the active gate dry-run; this umbrella remains gated until that child completes and returns its process amendments before the Foundation package pass begins.
+The identity and architecture correction from Foundation to ns-foundation is an immediate prerequisite slice and may land before Clinkr closes. The actual ns-foundation README contract draft, implementation and caller audit, reconciliation, and promotion remain gated until the Clinkr Subobjective completes its dry run and returns process amendments.
 
 ## Scope
 
+- Complete the hard identity cutover to `@nseng-ai/ns-foundation` as an immediate prerequisite: package path/name, consumers, tooling, current guidance, and architecture record move atomically without compatibility residue.
 - Spawn one package-level Readme-Driven-Development Subobjective at a time, beginning with Clinkr. Each child develops `references/README-draft.md` as a provisional cold-audience contract, audits implementation and callers against it, explicitly dispositions mismatches, discusses refactoring with the user before implementation, reconciles the package to the settled contract, promotes the draft to the package README, verifies it, and returns lessons here.
-- Process packages in a dependency-respecting sequence. Clinkr has no internal workspace dependency; Foundation depends on Clinkr; Brmem and SDK can follow Foundation independently; Extension Kit depends on SDK, Foundation, and Clinkr.
-- Let public-interface and observable-behavior decisions settle through the draft rather than silently through implementation.
-- Use the Clinkr dry-run to calibrate the graduation gate, recording process amendments here before applying them to later children.
-- Keep these packages outside the incubator. The pass proves an honest-and-explainable contract gate on stable foundation packages before incubating extensions graduate through it.
+- Process packages in dependency-respecting sequence. Clinkr is the lower generally applicable CLI layer; ns-foundation depends on Clinkr; Brmem and SDK can follow ns-foundation independently; Extension Kit depends on SDK, ns-foundation, and Clinkr.
+- Let public-interface and observable-behavior decisions settle through the README draft rather than silently through implementation.
+- Use the Clinkr dry run to calibrate the graduation gate, recording process amendments here before applying them to later children.
+- Keep these packages outside incubation. The pass proves an honest-and-explainable contract gate on public infrastructure packages before incubating extensions graduate through it.
 
 ## Non-Goals
 
-- Moving these packages into or out of the incubator, changing their tiers, or renaming them.
-- Incubator-package work.
+- Redistributing ns-foundation modules or redesigning its exports as part of the identity cutover.
+- Designing a replacement package tier or repairing the tier taxonomy in this slice; ns-foundation temporarily retains `ns.tier: "neutral-infra"` as explicit debt.
+- Moving these packages into or out of incubation.
+- Incubating-package work.
 - Unrelated feature work or redesign. Contract-supporting refactoring requires prior user discussion and approval.
 - Performing package audits in this umbrella record; package audits belong to child Objectives.
 - Treating existing package READMEs as evidence that this process completed without the required child record, draft, mismatch dispositions, and closure evidence.
 
 ## Completion Criteria
 
-- Clinkr, Foundation, Brmem, SDK, and Extension Kit each carry a promoted, verified cold-audience README contract delivered by a closed Readme-Driven-Development Subobjective.
+- The Foundation identity is hard-cut to `@nseng-ai/ns-foundation` with architecture and current guidance aligned, no compatibility package or alias, unchanged exports and behavior, and deferred tier-taxonomy work recorded explicitly.
+- Clinkr, ns-foundation, Brmem, SDK, and Extension Kit each carry a promoted, verified cold-audience README contract delivered by a closed Readme-Driven-Development Subobjective.
 - Every child's mismatches are resolved or explicitly parked in that child record.
 - Cross-package lessons and gate-calibration outcomes are synthesized here and handed back to `professional-repo-curation` for future incubator graduations.
 
@@ -41,17 +45,19 @@ The extension vocabulary verdict and machine-readable rename have landed. The fo
 
 Assumptions:
 
-- Foundation packages do not depend on incubator residents. Their manifests currently support this assumption.
-- Serializing the package passes is acceptable even though Brmem and SDK are independent after Foundation; the umbrella favors learning transfer over maximum parallelism.
+- Public infrastructure packages do not depend on incubating residents. Their manifests currently support this assumption.
+- Serializing the package passes is acceptable even though Brmem and SDK are independent after ns-foundation; the umbrella favors learning transfer over maximum parallelism.
 
 Risks:
 
 - **Perfectionism stall.** README-driven audits can invite redesign. Keep each child bounded to contract reconciliation, require explicit mismatch dispositions, and split unrelated work.
 - **Gate drift.** Record process amendments once in this umbrella and apply them forward rather than allowing each child to invent a different gate.
 - **Existing-doc false confidence.** Brmem and SDK already have READMEs, but no package child or draft exists; do not mark work complete from file presence alone.
-- **Hidden dependency drift.** Recheck manifests as each child starts so the clean-foundation assumption does not become stale.
+- **Hidden dependency drift.** Recheck manifests as each child starts so the public-infrastructure dependency assumption does not become stale.
+- **Tier mismatch.** ns-foundation's temporary `neutral-infra` declaration is mechanically valid but conceptually stale; do not treat the rename as taxonomy repair or broaden Neutral Infra to hide the debt.
 
 ## Open Questions
 
-- What process amendments, if any, does the Clinkr dry-run establish for later package children?
-- After Foundation, should Brmem and SDK remain deliberately serial for learning transfer, or may their package children proceed in parallel?
+- What process amendments, if any, does the Clinkr dry run establish for later package children?
+- After ns-foundation, should Brmem and SDK remain deliberately serial for learning transfer, or may their package children proceed in parallel?
+- Which tier taxonomy and classification should eventually replace ns-foundation's temporary `neutral-infra` declaration?

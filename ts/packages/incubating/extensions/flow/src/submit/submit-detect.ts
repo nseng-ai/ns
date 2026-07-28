@@ -1,6 +1,6 @@
-import type { ExecResult } from "@nseng-ai/foundation/command";
-import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
-import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
+import type { ExecResult } from "@nseng-ai/ns-foundation/command";
+import { stripTerminalEscapes } from "@nseng-ai/ns-foundation/terminal-escapes";
+import { firstNonEmptyLine } from "@nseng-ai/ns-foundation/text-normalization";
 
 import {
 	isGitPorcelainUnmergedStatus,

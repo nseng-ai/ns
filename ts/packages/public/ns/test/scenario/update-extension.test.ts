@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
 import { npmPackageRoot } from "@nseng-ai/sdk/extensions/acquisition";
 import { FakeExtensionAcquisitionGateway } from "@nseng-ai/sdk/testing";

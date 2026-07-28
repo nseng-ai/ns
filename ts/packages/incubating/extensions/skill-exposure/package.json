@@ -15,7 +15,7 @@
 	"dependencies": {
 		"@nseng-ai/branch-context": "workspace:*",
 		"@nseng-ai/flow": "workspace:*",
-		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/ns-foundation": "workspace:*",
 		"@nseng-ai/handoffs": "workspace:*",
 		"@nseng-ai/ns": "workspace:*",
 		"@nseng-ai/objectives": "workspace:*",

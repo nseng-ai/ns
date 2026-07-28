@@ -1,4 +1,4 @@
-import { parseManagedRegion, replaceManagedRegion } from "@nseng-ai/foundation/managed-region";
+import { parseManagedRegion, replaceManagedRegion } from "@nseng-ai/ns-foundation/managed-region";
 
 import { GENERATED_INSTRUCTIONS_PATH } from "./activation-files.ts";
 

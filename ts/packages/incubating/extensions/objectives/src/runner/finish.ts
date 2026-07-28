@@ -10,7 +10,7 @@
  * the legacy blocking command once the decomposed flow has dogfooding mileage.
  */
 import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
-import { isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { isPathInside, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import { runnerBeginResultSchema } from "./begin.ts";

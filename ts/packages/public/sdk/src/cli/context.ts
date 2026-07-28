@@ -6,9 +6,9 @@ import {
 	resolveProcessCaps,
 	type ClinkrInteraction,
 } from "@nseng-ai/clinkr";
-import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
-import { runCommand } from "@nseng-ai/foundation/exec";
-import { optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
+import { readStdinLine } from "@nseng-ai/ns-foundation/cli-runtime";
+import { runCommand } from "@nseng-ai/ns-foundation/exec";
+import { optionalEntry, resolveHomeDir } from "@nseng-ai/ns-foundation/primitives";
 
 import { createCliCommandIo, noopNsProgress } from "../runtime/command-io.ts";
 import type { NsConfirmPrompt, NsExtensionApi, TextGenerator } from "../sdk/index.ts";

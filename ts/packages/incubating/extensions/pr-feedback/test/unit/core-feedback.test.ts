@@ -13,8 +13,8 @@ import type {
 	GithubReviewThreadState,
 	GithubStatusChecks,
 } from "@nseng-ai/pr-feedback/api";
-import type { Result } from "@nseng-ai/foundation/result";
-import { createDeferred } from "@nseng-ai/foundation/test-kit";
+import type { Result } from "@nseng-ai/ns-foundation/result";
+import { createDeferred } from "@nseng-ai/ns-foundation/test-kit";
 
 import { fetchFeedbackSnapshot, reviewsForRequest } from "../../src/core/feedback-snapshot.ts";
 import { isAutomationLikeDiscussionComment } from "../../src/core/feedback-summary.ts";

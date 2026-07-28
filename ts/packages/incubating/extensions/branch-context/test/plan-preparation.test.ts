@@ -12,8 +12,8 @@ import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import { buildPlanContentSlugPrompt } from "@nseng-ai/branch-context/api";
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/exec";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import type { PlanStoreDirectoryEvidence, ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
 import { afterEach, describe, expect, test } from "vitest";
 

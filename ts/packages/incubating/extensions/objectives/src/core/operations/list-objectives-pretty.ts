@@ -1,4 +1,4 @@
-// House-style human renderer for `objective list`, built on the @nseng-ai/foundation/cli-theme display
+// House-style human renderer for `objective list`, built on the @nseng-ai/ns-foundation/cli-theme display
 // primitives (palette / glyphs / width helpers). This is the buffered "north-star" surface from the
 // CLI UX design harness, ported onto the real Objective list result.
 //
@@ -16,7 +16,7 @@ import {
 	padCell,
 	padPlain,
 	truncatePlain,
-} from "@nseng-ai/foundation/cli-theme";
+} from "@nseng-ai/ns-foundation/cli-theme";
 
 import { relativeTime } from "../relative-time.ts";
 import {

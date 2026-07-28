@@ -1,4 +1,4 @@
-import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/foundation/git";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/ns-foundation/git";
 import { describe, expect, test } from "vitest";
 import { BACKUP_REF_NAMESPACE } from "../../../src/land/stack/constants.ts";
 import {

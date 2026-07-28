@@ -1,4 +1,4 @@
-import { nsCommandSurface } from "@nseng-ai/foundation/command";
+import { nsCommandSurface } from "@nseng-ai/ns-foundation/command";
 
 const HANDOFF_EXTENSION_ID = "handoff";
 type HandoffCommandAction = "create" | "pickup" | "list" | "self";

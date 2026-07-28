@@ -1,5 +1,5 @@
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 
 import { HERDR_SPACE_NEW_COMMAND_NAME } from "./command-surfaces.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";

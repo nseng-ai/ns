@@ -1,7 +1,11 @@
 import { runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
 import type { NsCommandIo, NsConfirmOptions } from "@nseng-ai/sdk";
-import type { CommandExecApi, ExecOutputListener, ExecResult } from "@nseng-ai/foundation/command";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import type {
+	CommandExecApi,
+	ExecOutputListener,
+	ExecResult,
+} from "@nseng-ai/ns-foundation/command";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
 import { createCliCommandIo } from "@nseng-ai/sdk/command-io";
 import {
@@ -36,7 +40,7 @@ import type {
 	PrintAwareLandStackCommandContext,
 } from "./stack/types.ts";
 
-export type { ExecResult } from "@nseng-ai/foundation/command";
+export type { ExecResult } from "@nseng-ai/ns-foundation/command";
 export type { ExtensionMode, NotifyLevel, PrintOutput } from "./stack/types.ts";
 export type {
 	FlowLandExternalCallTelemetryEvent,

@@ -4,8 +4,8 @@ import { uuidv7 } from "@earendil-works/pi-agent-core";
 // Canonical migration plan (Phase 9): https://github.com/earendil-works/pi/blob/main/packages/agent/docs/models.md
 import type { completeSimple } from "@earendil-works/pi-ai/compat";
 
-import { formatModelRef } from "@nseng-ai/foundation/model-slug";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatModelRef } from "@nseng-ai/ns-foundation/model-slug";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 import type {
 	TextGenerationRequest,
 	TextGenerationResult,

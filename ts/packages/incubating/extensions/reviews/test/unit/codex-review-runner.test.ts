@@ -1,4 +1,4 @@
-import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/ns-foundation/exec/testing";
 import { describe, expect, test } from "vitest";
 
 import type { PreparedReviewHarnessRequest } from "../../src/gateways/review-runner.ts";

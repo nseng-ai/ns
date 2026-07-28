@@ -2,9 +2,9 @@ import { readFile } from "node:fs/promises";
 
 import { NsCommandExecApi } from "@nseng-ai/extension-kit/command-runner";
 import { createFlowBranchPublicationClient } from "@nseng-ai/flow/api";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import { RealGitGateway } from "@nseng-ai/ns-foundation/git";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 import type { ObjectiveRunnerPublicationFactsGateway } from "../publication/facts-gateway.ts";

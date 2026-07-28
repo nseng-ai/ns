@@ -2,12 +2,12 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
-import { runOperationCommand, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
+import { runOperationCommand, type CliEntrypointDeps } from "@nseng-ai/ns-foundation/cli-runtime";
 import {
 	formatErrorMessage,
 	optionalEntries,
 	optionalEntry,
-} from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/primitives";
 import { normalizePlanFilePath, validatePlanSlug } from "@nseng-ai/plans";
 import { z } from "zod";
 

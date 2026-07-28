@@ -5,9 +5,9 @@ import {
 	RAW_TEXT_MODEL_TIMEOUT_MS,
 	type RawTextModelFailure,
 } from "@nseng-ai/extension-kit/model-slug";
-import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
+import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/ns-foundation/branch-slug";
 import { truncateText } from "./shared.ts";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 export const MAX_DIFF_CHARS = 24_000;
 

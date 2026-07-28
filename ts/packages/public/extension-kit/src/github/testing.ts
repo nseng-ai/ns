@@ -1,5 +1,5 @@
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
-import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+import { optionalEntries } from "@nseng-ai/ns-foundation/primitives";
+import { resultErr, resultOk, type Result } from "@nseng-ai/ns-foundation/result";
 
 import {
 	findPrDiscussionCommentByMarkerInComments,

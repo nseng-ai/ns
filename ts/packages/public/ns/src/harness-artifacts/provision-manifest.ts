@@ -1,7 +1,11 @@
 import { isAbsolute, join, normalize, resolve } from "node:path";
 
-import { formatErrorMessage, formatZodIssue, isPathInside } from "@nseng-ai/foundation/primitives";
-import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+import {
+	formatErrorMessage,
+	formatZodIssue,
+	isPathInside,
+} from "@nseng-ai/ns-foundation/primitives";
+import { resultErr, resultOk, type Result } from "@nseng-ai/ns-foundation/result";
 import { z } from "zod";
 
 import {

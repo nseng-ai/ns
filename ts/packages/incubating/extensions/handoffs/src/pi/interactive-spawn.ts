@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 
 import type {
 	InteractiveClaudeInvocation,

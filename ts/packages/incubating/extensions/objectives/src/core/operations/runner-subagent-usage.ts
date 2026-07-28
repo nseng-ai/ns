@@ -8,7 +8,7 @@ import {
 	type RuntimeRunnerSubagentUsageCostTotals,
 	type RunnerSubagentUsageRecord,
 	type RuntimeRunnerSubagentUsageTotals,
-} from "@nseng-ai/foundation/runner-usage";
+} from "@nseng-ai/ns-foundation/runner-usage";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";

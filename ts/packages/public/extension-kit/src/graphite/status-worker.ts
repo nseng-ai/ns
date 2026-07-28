@@ -1,8 +1,8 @@
 import { Worker, parentPort } from "node:worker_threads";
 
-import { isRecord } from "@nseng-ai/foundation/primitives";
-import { systemTimerScheduler } from "@nseng-ai/foundation/time";
-import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
+import { isRecord } from "@nseng-ai/ns-foundation/primitives";
+import { systemTimerScheduler } from "@nseng-ai/ns-foundation/time";
+import type { ScheduledTimer } from "@nseng-ai/ns-foundation/timers";
 
 import { loadGraphiteMetadataStatus } from "./status-loader.ts";
 import {

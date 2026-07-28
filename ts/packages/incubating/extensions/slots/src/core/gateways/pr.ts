@@ -4,13 +4,13 @@ import {
 	commandSucceeded,
 	type CommandExecApi,
 	type ExecResult,
-} from "@nseng-ai/foundation/command";
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
+} from "@nseng-ai/ns-foundation/command";
+import { NodeCommandExecApi } from "@nseng-ai/ns-foundation/exec";
 import {
 	formatErrorMessage,
 	optionalEntry,
 	type ExplicitUndefined,
-} from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import {

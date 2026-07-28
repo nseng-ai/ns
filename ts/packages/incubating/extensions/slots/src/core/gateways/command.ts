@@ -1,6 +1,6 @@
-import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/command";
+import type { ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
+import { NodeCommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import type { CommandExecApi, ExecResult } from "@nseng-ai/ns-foundation/command";
 
 export interface SlotCommandRunOptions {
 	cwd: string;

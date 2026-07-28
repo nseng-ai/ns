@@ -1,6 +1,6 @@
 import { prepareCheckpointMessage } from "@nseng-ai/extension-kit/checkpoint-flow";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 import { draftChangesSummary } from "../changes/changes-model-summary.ts";
 

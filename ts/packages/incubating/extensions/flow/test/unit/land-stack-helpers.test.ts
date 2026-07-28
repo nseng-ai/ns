@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
-import { createManualClock } from "@nseng-ai/foundation/time/testing";
-import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import { formatCommand, type ExecResult } from "@nseng-ai/ns-foundation/command";
+import { createManualClock } from "@nseng-ai/ns-foundation/time/testing";
+import { ScriptedQueue } from "@nseng-ai/ns-foundation/test-kit";
 import { shortSha } from "../../src/commit-display/index.ts";
 import { outputTail } from "../../src/land/stack/command-exec.ts";
 import {

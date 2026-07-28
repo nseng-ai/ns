@@ -1,4 +1,4 @@
-import { commandSucceeded } from "@nseng-ai/foundation/command";
+import { commandSucceeded } from "@nseng-ai/ns-foundation/command";
 import type { AutobranchExec } from "./shared.ts";
 
 export const AUTOBRANCH_GIT_TIMEOUT_MS = 30_000;

@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@nseng-ai/foundation/exec";
+import type { ExecResult } from "@nseng-ai/ns-foundation/exec";
 
 type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
-import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import { ScriptedQueue } from "@nseng-ai/ns-foundation/test-kit";
 import { RealGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/branch";
-import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
+import type { CommandExecApi, ExecOptions } from "@nseng-ai/ns-foundation/exec";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 
 const ROOT = "/repo";

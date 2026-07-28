@@ -4,7 +4,7 @@
  * Error model matches the rest of stack-view: failures are returned as typed
  * discriminated-union values, never thrown.
  */
-import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
+import { commandFailureReason, commandSucceeded } from "@nseng-ai/ns-foundation/exec";
 import { GITHUB_CLI_TIMEOUT_MS } from "@nseng-ai/extension-kit/github";
 
 import { CHECK_LOG_TAIL_MAX_CHARS } from "./enrichment-prompts.ts";

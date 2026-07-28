@@ -54,7 +54,7 @@
 		"@earendil-works/pi-tui": "catalog:",
 		"@nseng-ai/pr-feedback": "workspace:*",
 		"@nseng-ai/extension-kit": "workspace:*",
-		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/ns-foundation": "workspace:*",
 		"@nseng-ai/sdk": "workspace:*",
 		"zod": "catalog:"
 	},

@@ -1,4 +1,4 @@
-import { commandSucceeded, type CommandExecApi } from "@nseng-ai/foundation/command";
+import { commandSucceeded, type CommandExecApi } from "@nseng-ai/ns-foundation/command";
 
 const GIT_TIMEOUT_MS = 5_000;
 

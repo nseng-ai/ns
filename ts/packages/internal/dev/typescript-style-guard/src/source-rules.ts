@@ -24,7 +24,7 @@ import {
 	moduleSpecifierText,
 	parseTypeScriptSource,
 	sourceLocationFields,
-} from "@nseng-ai/foundation/typescript-analysis";
+} from "@nseng-ai/ns-foundation/typescript-analysis";
 import {
 	packageNameForPath,
 	packageNameForSpecifier,
@@ -229,7 +229,7 @@ const GRAPHITE_METADATA_SINGLETON_METHODS = new Set([
 const DESCRIPTOR_ALLOWED_VALUE_IMPORT = "@nseng-ai/sdk";
 const LOWER_LAYER_SURFACE_TIERS = new Set<PackageTierId>(["neutral-infra", "sdk", "extension-kit"]);
 const RAW_TIMER_ADAPTER_PATHS = new Set([
-	"ts/packages/public/infra/foundation/src/time/index.ts",
+	"ts/packages/public/infra/ns-foundation/src/time/index.ts",
 	"ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/kit/shared/timers.ts",
 ]);
 

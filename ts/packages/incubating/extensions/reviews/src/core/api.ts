@@ -30,7 +30,7 @@ import {
 	type ReviewLogRequest,
 	type ReviewLogResult,
 } from "../operations/cli-operations.ts";
-import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 import {
 	runReview,
 	type RunReviewOutcome,

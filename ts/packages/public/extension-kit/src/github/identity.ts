@@ -1,4 +1,4 @@
-import type { GitCwdParams, GitGateway, GitOptionalResult } from "@nseng-ai/foundation/git";
+import type { GitCwdParams, GitGateway, GitOptionalResult } from "@nseng-ai/ns-foundation/git";
 
 export interface GithubPrIdentity {
 	owner: string;

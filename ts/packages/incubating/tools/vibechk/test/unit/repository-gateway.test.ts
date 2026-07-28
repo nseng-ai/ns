@@ -1,9 +1,9 @@
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import {
 	exitedResult,
 	ScriptedCommandExecApi,
 	spawnFailedResult,
-} from "@nseng-ai/foundation/exec/testing";
+} from "@nseng-ai/ns-foundation/exec/testing";
 import { describe, expect, it } from "vitest";
 
 import { RealVibechkWorkdirGateway } from "../../src/repository.ts";

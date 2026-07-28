@@ -14,11 +14,11 @@ import {
 	spinnerFrame,
 	statusLine,
 	truncatePlain,
-} from "@nseng-ai/foundation/cli-theme";
-import type { Clock } from "@nseng-ai/foundation/clock";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { systemClock } from "@nseng-ai/foundation/time";
-import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
+} from "@nseng-ai/ns-foundation/cli-theme";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import { systemClock } from "@nseng-ai/ns-foundation/time";
+import { formatElapsedMs } from "@nseng-ai/ns-foundation/time-format";
 import {
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,

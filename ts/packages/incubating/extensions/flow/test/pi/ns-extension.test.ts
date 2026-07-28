@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
-import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import type { ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/exec";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import { describe, expect, test } from "vitest";
 
 import {

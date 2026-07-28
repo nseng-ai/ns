@@ -1,4 +1,4 @@
-import { renderDestructiveResultBlock } from "@nseng-ai/foundation/cli-theme";
+import { renderDestructiveResultBlock } from "@nseng-ai/ns-foundation/cli-theme";
 import { failure, ok, type RenderCapabilities } from "@nseng-ai/clinkr";
 import { z } from "zod";
 

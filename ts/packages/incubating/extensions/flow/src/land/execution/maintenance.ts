@@ -1,4 +1,4 @@
-import type { ExecResult } from "@nseng-ai/foundation/command";
+import type { ExecResult } from "@nseng-ai/ns-foundation/command";
 import { shortSha } from "../../commit-display/index.ts";
 import { LAND_BACKUP_RECOVERY_HINT, parseGitCheckedOutElsewhere } from "../graphite-operations.ts";
 import { validateOpenPrBasics } from "../preflight.ts";

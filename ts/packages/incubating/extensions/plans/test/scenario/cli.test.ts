@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { homedir } from "node:os";
 import { join, relative } from "node:path";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 
-import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import type { CommandExecApi, ExecOptions } from "@nseng-ai/ns-foundation/exec";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import { VERSION } from "../../src/cli.ts";
 import { buildRepoPlanStoreKey, encodeBranchForPlanPath, runCli } from "../../src/index.ts";
 import { InMemoryPlanStoreGateway } from "../../src/testing.ts";

@@ -35,8 +35,8 @@ import {
 	graphqlErrorMessages,
 	parseJsonUnknown,
 } from "@nseng-ai/extension-kit/github/graphql-json";
-import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { commandFailureReason, commandSucceeded } from "@nseng-ai/ns-foundation/exec";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 
 /** Per-branch PR data produced by the GraphQL layer; branch/parent/status/objectives are added downstream in `data.ts`. */
 export interface StackPrData {

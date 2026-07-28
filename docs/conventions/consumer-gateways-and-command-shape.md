@@ -70,12 +70,12 @@ A single-consumer kit export needs an explicit justification and a demotion trig
 
 ## Relationship to ADR 0019
 
-ADR 0019 gates **where** a Real gateway implementation lives (which package owns `RealGitGateway`). This convention gates **the shape** of what consumers type against and what the kit may export as standalone command-shape. They are complementary: consult ADR 0019 for placement of a real adapter, and this doc for consumer-gateway narrowing and kit-export promotion. ADR 0019 cross-references this doc as the home of consumer-facing shape rules. Per ADR 0032, foundation is a possible placement outcome for a gateway whose contract is ns-independent with a credible external-consumer scenario (`@nseng-ai/foundation/exec` is the live example); performing I/O does not by itself rule foundation out, and moving an existing Kit Gateway there still requires the ADR 0019 gate plus this doc's channel analysis.
+ADR 0019 gates **where** a Real gateway implementation lives (which package owns `RealGitGateway`). This convention gates **the shape** of what consumers type against and what the kit may export as standalone command-shape. They are complementary: consult ADR 0019 for placement of a real adapter, and this doc for consumer-gateway narrowing and kit-export promotion. ADR 0019 cross-references this doc as the home of consumer-facing shape rules. ADR 0049 supersedes ADR 0032's Foundation admission rule for ns-foundation: `@nseng-ai/ns-foundation/exec` is a current shared ns-family infrastructure door, while Clinkr is the lower generally applicable CLI layer. Moving an existing Kit Gateway still requires the ADR 0019 gate plus this doc's channel analysis; the rename itself authorizes no redistribution.
 
 ## Avoid
 
 - "consumer port", "domain port", "partial gateway" — say **Consumer Gateway** (root `CONTEXT.md` bans "port" as a noun for these interfaces).
-- `ExecGateway` — retired name. Foundation's exec seam keeps its incumbent generic name `CommandExecApi`; incumbent generic names win absent confusion.
+- `ExecGateway` — retired name. ns-foundation's exec seam keeps its incumbent generic name `CommandExecApi`; incumbent generic names win absent confusion.
 - widening a consumer to the full `GitGateway` "for convenience" when it uses a handful of methods.
 - adding a kit barrel export with one consumer and no explicit justification + demotion trigger.
 - bypassing an established exec/telemetry channel to reuse a gateway object.

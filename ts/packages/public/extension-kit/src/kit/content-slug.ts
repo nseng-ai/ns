@@ -1,12 +1,12 @@
-import { formatOutputSection } from "@nseng-ai/foundation/command";
-import { normalizeBranchSlugText } from "@nseng-ai/foundation/branch-slug";
+import { formatOutputSection } from "@nseng-ai/ns-foundation/command";
+import { normalizeBranchSlugText } from "@nseng-ai/ns-foundation/branch-slug";
 import {
 	deriveSlugWithModel,
 	type RawTextModelCommandResult,
 	type RawTextModelExecOptions,
 	type SlugModelEvidence,
 } from "./model-slug.ts";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 const MAX_ERROR_CHARS = 4_000;
 

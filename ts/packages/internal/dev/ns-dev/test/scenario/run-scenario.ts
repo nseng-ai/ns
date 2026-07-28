@@ -1,8 +1,8 @@
 import { dirname, isAbsolute, resolve } from "node:path";
 
 import type { ClinkrInteraction } from "@nseng-ai/clinkr";
-import type { ExecResult } from "@nseng-ai/foundation/exec";
-import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+import type { ExecResult } from "@nseng-ai/ns-foundation/exec";
+import type { TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 
 import { runNsDevCli, type CliDeps } from "../../src/cli.ts";
 import type { FileEntry, FileSystemGateway } from "../../src/context.ts";

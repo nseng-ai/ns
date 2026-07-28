@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { ClinkrGroup, resolveClinkrInteraction } from "@nseng-ai/clinkr";
-import { defineCli, readStdinLine } from "@nseng-ai/foundation/cli-runtime";
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { defineCli, readStdinLine } from "@nseng-ai/ns-foundation/cli-runtime";
+import { optionalEntries } from "@nseng-ai/ns-foundation/primitives";
 
 import {
 	cavemanRequestSchema,

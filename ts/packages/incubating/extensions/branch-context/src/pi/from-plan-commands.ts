@@ -51,7 +51,7 @@ import {
 	formatErrorMessage,
 	optionalEntries,
 	optionalEntry,
-} from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/primitives";
 import {
 	resolveBranchContextDefaultCreation,
 	resolveBranchContextOperations,

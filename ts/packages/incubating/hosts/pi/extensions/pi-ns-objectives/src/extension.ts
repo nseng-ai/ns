@@ -1,5 +1,5 @@
-import type { Clock } from "@nseng-ai/foundation/clock";
-import { commandSucceeded, nsCommandSurface } from "@nseng-ai/foundation/command";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import { commandSucceeded, nsCommandSurface } from "@nseng-ai/ns-foundation/command";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 import {
 	registerCliCommandExtension,
@@ -9,12 +9,12 @@ import {
 	type ParsedCliCommandArgs,
 } from "@nseng-ai/pi-runtime/commands/cli-extension";
 import { parseMachineEnvelopeData } from "@nseng-ai/pi-runtime/runtime/machine-envelope";
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/command";
 import {
 	buildFencedTextBlock,
 	formatErrorMessage,
 	optionalEntry,
-} from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/primitives";
 import { notifyCommandUi } from "@nseng-ai/pi-runtime/commands/helpers";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import {

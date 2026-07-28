@@ -12,8 +12,8 @@ import {
 } from "../src/core/attached-plan.ts";
 import type { AttachedPlanEntry } from "../src/core/branch-memory.ts";
 import { BRANCH_CONTEXT_NAMESPACE, type BranchContextContext } from "@nseng-ai/branch-context";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import { InMemoryGitGateway } from "@nseng-ai/ns-foundation/git/testing";
 import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@nseng-ai/plans";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";

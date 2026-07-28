@@ -1,4 +1,4 @@
-import { specializedCommandBackedSkillsFromSpecs } from "@nseng-ai/foundation/command";
+import { specializedCommandBackedSkillsFromSpecs } from "@nseng-ai/ns-foundation/command";
 
 import { nsFlowCommandSurface } from "./ns-extension.ts";
 

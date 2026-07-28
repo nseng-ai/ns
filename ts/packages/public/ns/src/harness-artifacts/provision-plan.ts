@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
-import { optionalEntry, sha256Digest } from "@nseng-ai/foundation/primitives";
-import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+import { optionalEntry, sha256Digest } from "@nseng-ai/ns-foundation/primitives";
+import { resultErr, resultOk, type Result } from "@nseng-ai/ns-foundation/result";
 import { z } from "zod";
 
 import {

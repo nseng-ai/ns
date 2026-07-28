@@ -1,9 +1,9 @@
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import { systemTimerScheduler } from "@nseng-ai/foundation/time";
-import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/exec";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
+import { systemTimerScheduler } from "@nseng-ai/ns-foundation/time";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 
-export type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
+export type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/exec";
 
 /** The structural result returned by Pi's upstream exec extension. */
 export interface RawPiExecResult {

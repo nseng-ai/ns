@@ -5,8 +5,8 @@ import {
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
 import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@nseng-ai/clinkr/testing";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { createManualClock } from "@nseng-ai/foundation/time/testing";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import { createManualClock } from "@nseng-ai/ns-foundation/time/testing";
 
 import { buildSlotCommandGroup } from "../../src/ns/command-face.ts";
 import type { SlotCliContext } from "../../src/core/context.ts";

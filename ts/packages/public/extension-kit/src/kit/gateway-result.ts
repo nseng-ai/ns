@@ -1,9 +1,9 @@
-import { commandSucceeded, type ExecResult, tailText } from "@nseng-ai/foundation/exec";
-import { isRecord } from "@nseng-ai/foundation/primitives";
-export { err, ok, resultErr, resultOk } from "@nseng-ai/foundation/result";
-export type { ErrorInfo, Result, Result as GatewayResult } from "@nseng-ai/foundation/result";
-import type { ErrorInfo } from "@nseng-ai/foundation/result";
-import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
+import { commandSucceeded, type ExecResult, tailText } from "@nseng-ai/ns-foundation/exec";
+import { isRecord } from "@nseng-ai/ns-foundation/primitives";
+export { err, ok, resultErr, resultOk } from "@nseng-ai/ns-foundation/result";
+export type { ErrorInfo, Result, Result as GatewayResult } from "@nseng-ai/ns-foundation/result";
+import type { ErrorInfo } from "@nseng-ai/ns-foundation/result";
+import { stripTerminalEscapes } from "@nseng-ai/ns-foundation/terminal-escapes";
 
 const STDERR_DETAIL_LIMIT_CHARS = 1_200;
 const CONCISE_COMMAND_FAILURE_DETAIL_LIMIT_CHARS = 300;

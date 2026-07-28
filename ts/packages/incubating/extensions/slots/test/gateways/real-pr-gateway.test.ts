@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/ns-foundation/exec/testing";
 import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/core/diagnostics.ts";
 import { RealSlotPrGateway } from "../../src/core/gateways/pr.ts";
 

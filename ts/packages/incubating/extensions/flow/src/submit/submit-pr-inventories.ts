@@ -1,6 +1,6 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { ErrorInfo } from "@nseng-ai/foundation/result";
-import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import type { ErrorInfo } from "@nseng-ai/ns-foundation/result";
+import { firstNonEmptyLine } from "@nseng-ai/ns-foundation/text-normalization";
 import {
 	formatCommandFailureConciseCause,
 	formatErrorInfoDiagnosticLines,

@@ -21,9 +21,9 @@ import type {
 	RawPiExecResult,
 	ThinkingLevel,
 } from "@nseng-ai/extension-kit/pi-types";
-import { parseMachineEnvelopeData } from "@nseng-ai/foundation/machine-envelope";
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
-import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import { parseMachineEnvelopeData } from "@nseng-ai/ns-foundation/machine-envelope";
+import { optionalEntries } from "@nseng-ai/ns-foundation/primitives";
+import { ScriptedQueue } from "@nseng-ai/ns-foundation/test-kit";
 import {
 	parseObjectiveListData,
 	type ObjectiveListParseResult,

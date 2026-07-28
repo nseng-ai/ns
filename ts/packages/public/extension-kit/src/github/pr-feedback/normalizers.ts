@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/ns-foundation/primitives";
 
 import type {
 	GithubPrChangedFile,

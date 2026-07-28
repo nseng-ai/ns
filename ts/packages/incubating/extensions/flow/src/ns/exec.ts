@@ -1,4 +1,4 @@
-import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/command";
+import { commandSucceeded, type ExecResult } from "@nseng-ai/ns-foundation/command";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 export type NsGitPorcelainStatusResult =

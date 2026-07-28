@@ -1,4 +1,4 @@
-import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
+import { formatElapsedMs } from "@nseng-ai/ns-foundation/time-format";
 
 import {
 	DEFAULT_INTERVAL_MS,

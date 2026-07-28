@@ -1,6 +1,6 @@
-import type { ModelThinking } from "@nseng-ai/foundation/model-slug";
-import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
-import { resultErr } from "@nseng-ai/foundation/result";
+import type { ModelThinking } from "@nseng-ai/ns-foundation/model-slug";
+import { formatErrorMessage, isRecord } from "@nseng-ai/ns-foundation/primitives";
+import { resultErr } from "@nseng-ai/ns-foundation/result";
 import { z } from "zod";
 
 import type { ReviewResult } from "../core/failures.ts";

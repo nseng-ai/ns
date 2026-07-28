@@ -5,19 +5,19 @@
 // `land-matrix-progress.ts`.
 //
 // `land` reports typed settled outcomes at the Flow CLI edge. The generic finite block layout
-// lives in `@nseng-ai/foundation/cli-theme` because the repeated shape was proven across Flow and
+// lives in `@nseng-ai/ns-foundation/cli-theme` because the repeated shape was proven across Flow and
 // Sibling extensions consume this; land keeps this local facade because the Pi command-stream path must remain ANSI-free and
 // domain-specific land facts stay in Flow/Land-owned code.
 
 import type { Caps } from "@nseng-ai/clinkr";
-import { formatCommand } from "@nseng-ai/foundation/command";
-import { renderResultBlock, renderResultBlockFromMessage } from "@nseng-ai/foundation/cli-theme";
+import { formatCommand } from "@nseng-ai/ns-foundation/command";
+import { renderResultBlock, renderResultBlockFromMessage } from "@nseng-ai/ns-foundation/cli-theme";
 import {
 	linkifyPrReferences,
 	prLinksFromDetails,
 	truncateDisplayLine,
-} from "@nseng-ai/foundation/terminal-presentation";
-import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
+} from "@nseng-ai/ns-foundation/terminal-presentation";
+import { firstNonEmptyLine } from "@nseng-ai/ns-foundation/text-normalization";
 import { shortSha } from "../commit-display/index.ts";
 import { formatCommandDetails } from "./stack/command-exec.ts";
 import {

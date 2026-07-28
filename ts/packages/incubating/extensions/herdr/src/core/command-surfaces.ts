@@ -1,4 +1,4 @@
-import { nsCommandSurface } from "@nseng-ai/foundation/command";
+import { nsCommandSurface } from "@nseng-ai/ns-foundation/command";
 
 // Canonical resource-first catalog of ns:herdr:* command surfaces.
 

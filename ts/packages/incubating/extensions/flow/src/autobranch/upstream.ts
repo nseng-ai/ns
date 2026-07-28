@@ -1,5 +1,5 @@
-import { commandSucceeded } from "@nseng-ai/foundation/command";
-import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
+import { commandSucceeded } from "@nseng-ai/ns-foundation/command";
+import { firstNonEmptyLine } from "@nseng-ai/ns-foundation/text-normalization";
 import type { AutobranchGitGateway } from "./git-gateway.ts";
 import { formatAutobranchCommandDetails, type AutobranchExec } from "./shared.ts";
 

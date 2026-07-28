@@ -2,8 +2,8 @@ import {
 	formatCommandFailure,
 	formatOutputSection,
 	type ExecResult,
-} from "@nseng-ai/foundation/command";
-import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
+} from "@nseng-ai/ns-foundation/command";
+import { stripTerminalEscapes } from "@nseng-ai/ns-foundation/terminal-escapes";
 
 import type { SubmitPrLink } from "./gt-output.ts";
 import type { SubmitPrInventorySummary } from "./submit-pr-inventory-summary.ts";

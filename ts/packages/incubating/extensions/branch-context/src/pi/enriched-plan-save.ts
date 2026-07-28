@@ -2,21 +2,21 @@ import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/a
 import { readFileSync, type Stats } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
 import { Text } from "@earendil-works/pi-tui";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import { RealGitGateway } from "@nseng-ai/ns-foundation/git";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
 import {
 	formatErrorMessage,
 	optionalEntries,
 	optionalEntry,
-} from "@nseng-ai/foundation/primitives";
-import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
+} from "@nseng-ai/ns-foundation/primitives";
+import type { ScheduledTimer } from "@nseng-ai/ns-foundation/timers";
 import {
 	loadPointCatalog,
 	nodeProjectConfigGateway,
 	resolvePromptPointPath,
 	resolvePromptPointSource,
 } from "@nseng-ai/sdk/project-config/points";
-import { systemTimerScheduler } from "@nseng-ai/foundation/time";
+import { systemTimerScheduler } from "@nseng-ai/ns-foundation/time";
 import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "./surfaces.ts";
 import { sendCommandProgressOrNotify } from "@nseng-ai/pi-runtime/commands/ack";
 import {

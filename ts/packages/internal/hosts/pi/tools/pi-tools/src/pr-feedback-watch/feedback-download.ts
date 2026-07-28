@@ -1,5 +1,5 @@
-import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
-import { formatZodError } from "@nseng-ai/foundation/primitives";
+import { commandFailureReason, commandSucceeded } from "@nseng-ai/ns-foundation/exec";
+import { formatZodError } from "@nseng-ai/ns-foundation/primitives";
 import type { ExecResult } from "@nseng-ai/pi-runtime/shared/command-exec";
 import type { CommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import { z } from "zod";

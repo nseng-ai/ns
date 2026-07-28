@@ -1,4 +1,4 @@
-import { resultOk, type Result } from "@nseng-ai/foundation/result";
+import { resultOk, type Result } from "@nseng-ai/ns-foundation/result";
 
 import type {
 	GithubPrDiscussionComment,

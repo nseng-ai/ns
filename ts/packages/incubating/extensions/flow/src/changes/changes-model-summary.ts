@@ -1,5 +1,5 @@
-import { normalizeTextOutput } from "@nseng-ai/foundation/text-normalization";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import { normalizeTextOutput } from "@nseng-ai/ns-foundation/text-normalization";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 import type { PendingWorktreeSnapshot } from "@nseng-ai/extension-kit/pending-worktree";
 import type { TextGenerator } from "@nseng-ai/extension-kit/text-generation";

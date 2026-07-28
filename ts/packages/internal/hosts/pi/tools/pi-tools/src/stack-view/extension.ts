@@ -19,7 +19,7 @@ import { errorMessage } from "@nseng-ai/pi-runtime/shared/errors";
 import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
 import { truncateDisplayLine } from "@nseng-ai/pi-runtime/terminal/presentation";
 import type { PiModelRegistryLike } from "@nseng-ai/pi-runtime/models/call";
-import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
+import { commandFailureReason, commandSucceeded } from "@nseng-ai/ns-foundation/exec";
 import {
 	nodeProjectConfigGateway,
 	type ProjectConfigGateway,

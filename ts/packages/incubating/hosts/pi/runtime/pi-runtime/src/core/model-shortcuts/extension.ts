@@ -2,7 +2,7 @@ import {
 	formatModelRef,
 	type ModelSelection,
 	type ModelThinking,
-} from "@nseng-ai/foundation/model-slug";
+} from "@nseng-ai/ns-foundation/model-slug";
 import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
 import { notifyCommandUi, type NotifiableCommandContext } from "../../commands/helpers.ts";
 

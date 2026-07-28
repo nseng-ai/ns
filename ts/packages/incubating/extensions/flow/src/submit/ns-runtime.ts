@@ -1,12 +1,12 @@
 import { createNsCommandRunner } from "@nseng-ai/extension-kit";
 import { createNsGitGateway } from "@nseng-ai/extension-kit";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
 import {
 	formatCommand,
 	type CommandExecApi,
 	type CommandRunner,
-} from "@nseng-ai/foundation/command";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/command";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import {
 	RealGithubPrGateway,
 	RealSubmitGateway,

@@ -19,7 +19,7 @@ import {
 	fakeStackInfo,
 	type FakeGraphiteStackGatewayOptions,
 } from "@nseng-ai/extension-kit/graphite/testing";
-import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
+import { requestObjectToArgv } from "@nseng-ai/ns-foundation/test-kit";
 import type { CommandExit, NsCommand, NsExtensionApi, NsProgress } from "@nseng-ai/sdk";
 import { createFlowSubmitCommand } from "../../src/ns/commands/submit.ts";
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";

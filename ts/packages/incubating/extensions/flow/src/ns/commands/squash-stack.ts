@@ -1,6 +1,6 @@
 import { NsCommandExecApi } from "@nseng-ai/extension-kit/command-runner";
-import { formatCommand } from "@nseng-ai/foundation/command";
-import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
+import { formatCommand } from "@nseng-ai/ns-foundation/command";
+import { renderResultBlock } from "@nseng-ai/ns-foundation/cli-theme";
 import { defineCommand, negative, ok, z, type NsCommand, type NsExtensionApi } from "@nseng-ai/sdk";
 
 import {

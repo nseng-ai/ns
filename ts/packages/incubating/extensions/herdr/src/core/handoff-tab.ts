@@ -1,5 +1,5 @@
 import { buildPiLaunchCommand, type PiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
-import { formatShellArg } from "@nseng-ai/foundation/exec";
+import { formatShellArg } from "@nseng-ai/ns-foundation/exec";
 
 import type { HerdrGateway } from "./herdr-gateway.ts";
 

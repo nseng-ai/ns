@@ -1,4 +1,4 @@
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 import {
 	GRILL_UI_SKILL_NAME,
 	GRILL_WITH_DOCS_UI_SKILL_NAME,

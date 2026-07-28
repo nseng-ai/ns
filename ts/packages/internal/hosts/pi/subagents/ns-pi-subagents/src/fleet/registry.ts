@@ -1,5 +1,5 @@
-import type { Clock } from "@nseng-ai/foundation/clock";
-import { systemClock } from "@nseng-ai/foundation/time";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import { systemClock } from "@nseng-ai/ns-foundation/time";
 
 import type {
 	RunnerSubagentResult,

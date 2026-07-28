@@ -3,8 +3,8 @@ import {
 	type GraphiteStackGateway,
 	type GraphiteStackGitGateway,
 } from "@nseng-ai/extension-kit/graphite/stack";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/exec";
+import { RealGitGateway, type GitGateway } from "@nseng-ai/ns-foundation/git";
 
 export type FlowGraphiteStackGitGateway = Pick<GitGateway, "currentBranch" | "gitCommonDir">;
 

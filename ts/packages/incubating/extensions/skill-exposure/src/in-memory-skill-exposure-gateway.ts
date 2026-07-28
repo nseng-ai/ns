@@ -1,4 +1,4 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { transformSkillFrontmatter } from "@nseng-ai/ns/api";
 import { diagnosticsFor, implicationsFor, inferPolicy } from "./policy.ts";
 import { commandBackedSkillSurface } from "./replacement-registry.ts";

@@ -1,6 +1,6 @@
 import { join, resolve } from "node:path";
 
-import { isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { isPathInside, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { type ExtensionDescriptor } from "@nseng-ai/sdk";
 import { z } from "zod";
 

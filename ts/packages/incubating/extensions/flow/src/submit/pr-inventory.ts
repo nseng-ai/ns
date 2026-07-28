@@ -2,22 +2,25 @@ import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
 import {
 	type TextGenerationResult,
 	type TextGenerationUsage,
 	type TextGenerator,
 } from "@nseng-ai/extension-kit/text-generation";
-import { buildFencedTextBlock, formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import { normalizeTextOutput, trimOuterBlankLines } from "@nseng-ai/foundation/text-normalization";
-import { truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
+import { buildFencedTextBlock, formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
+import {
+	normalizeTextOutput,
+	trimOuterBlankLines,
+} from "@nseng-ai/ns-foundation/text-normalization";
+import { truncateTextHeadTail } from "@nseng-ai/ns-foundation/text-truncation";
 import { prepareRepairedText } from "@nseng-ai/extension-kit/text-repair";
-import type { TimeServices } from "@nseng-ai/foundation/time";
+import type { TimeServices } from "@nseng-ai/ns-foundation/time";
 
-export type { TimeServices } from "@nseng-ai/foundation/time";
-import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
+export type { TimeServices } from "@nseng-ai/ns-foundation/time";
+import { formatElapsedMs } from "@nseng-ai/ns-foundation/time-format";
 import {
 	loadPointCatalog,
 	nodeProjectConfigGateway,

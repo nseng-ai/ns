@@ -1,5 +1,5 @@
-import type { GitWorktreeStateFs } from "@nseng-ai/foundation/git";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import type { GitWorktreeStateFs } from "@nseng-ai/ns-foundation/git";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import type { LandContext } from "../api.ts";
 import { LandStackCommandStream, withCommandStreaming } from "./command-stream.ts";
 import {

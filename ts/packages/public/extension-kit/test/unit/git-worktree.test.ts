@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	parseGitWorktreePorcelain,
 	planLocalBranchRefreshFromWorktrees,
-} from "@nseng-ai/foundation/git";
+} from "@nseng-ai/ns-foundation/git";
 
 describe("parseGitWorktreePorcelain", () => {
 	test("parses git worktree porcelain records", () => {

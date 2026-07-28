@@ -1,6 +1,6 @@
-import { commandSucceeded, formatCommandDetails } from "@nseng-ai/foundation/exec";
+import { commandSucceeded, formatCommandDetails } from "@nseng-ai/ns-foundation/exec";
 
-import type { GitCwdParams, GitOptionalResult } from "@nseng-ai/foundation/git";
+import type { GitCwdParams, GitOptionalResult } from "@nseng-ai/ns-foundation/git";
 import type { CommandResult } from "./command-result.ts";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;

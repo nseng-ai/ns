@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { collectDownloadFeedback, type DownloadFeedbackPayload } from "./core/download-feedback.ts";
 import {
 	defineExecOperation,

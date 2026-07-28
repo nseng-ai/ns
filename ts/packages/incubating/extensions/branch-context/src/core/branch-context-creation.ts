@@ -4,9 +4,9 @@ import { checkBranchContextEntryPresence, throwBranchContextBrmemError } from ".
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
 import type { BrmemGateway } from "@nseng-ai/brmem";
 import type { GraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/branch";
-import { type CommandExecApi, formatCommand } from "@nseng-ai/foundation/exec";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { type CommandExecApi, formatCommand } from "@nseng-ai/ns-foundation/exec";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { normalizeSummary, resolvePlanSourceFile } from "@nseng-ai/plans";
 import type { BranchContextContext } from "./context.ts";
 

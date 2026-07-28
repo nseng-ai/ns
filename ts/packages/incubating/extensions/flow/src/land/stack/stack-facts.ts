@@ -1,6 +1,6 @@
-import { commandSucceeded, formatCommand } from "@nseng-ai/foundation/command";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
+import { commandSucceeded, formatCommand } from "@nseng-ai/ns-foundation/command";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import { firstNonEmptyLine } from "@nseng-ai/ns-foundation/text-normalization";
 import {
 	detectGitOperationInProgressAt,
 	RealGitGateway,
@@ -8,7 +8,7 @@ import {
 	type GitOperationInProgress,
 	type GitWorktreeStateFs,
 	type GitWorktreeStateOptions,
-} from "@nseng-ai/foundation/git";
+} from "@nseng-ai/ns-foundation/git";
 import { reconcileTopologyToLiveBranches } from "@nseng-ai/extension-kit/graphite/metadata";
 import { GIT_TIMEOUT_MS, GT_TIMEOUT_MS } from "./constants.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";

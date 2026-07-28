@@ -1,12 +1,12 @@
-import { runCommand } from "@nseng-ai/foundation/exec";
+import { runCommand } from "@nseng-ai/ns-foundation/exec";
 import {
 	type CommandRunner,
 	outputListenerToExecCallbacks,
 	type ExecResult,
-} from "@nseng-ai/foundation/command";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
-import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
+} from "@nseng-ai/ns-foundation/command";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import { stripTerminalEscapes } from "@nseng-ai/ns-foundation/terminal-escapes";
+import { firstNonEmptyLine } from "@nseng-ai/ns-foundation/text-normalization";
 import { runGraphiteCommand } from "@nseng-ai/extension-kit/graphite/branch";
 import { runGitHubCliAsExecResult } from "@nseng-ai/extension-kit/github/cli";
 import { z } from "zod";

@@ -6,7 +6,7 @@ import {
 	type Cell,
 	type Column,
 	type Intent,
-} from "@nseng-ai/foundation/cli-theme";
+} from "@nseng-ai/ns-foundation/cli-theme";
 import type { z } from "zod";
 
 import type { placementProvisionSchema } from "./result-schemas.ts";

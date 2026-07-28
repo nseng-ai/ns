@@ -2,8 +2,8 @@ import { join } from "node:path";
 
 import type { ClinkrExit } from "@nseng-ai/clinkr";
 import { failure, ok } from "@nseng-ai/clinkr";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import { renderTextTable } from "@nseng-ai/foundation/text-table";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import { renderTextTable } from "@nseng-ai/ns-foundation/text-table";
 import { parseNsTomlExtensions, parseNsTomlHarnesses } from "../harness-artifacts/api.ts";
 import type {
 	DeclaredExtensionDescriptor,

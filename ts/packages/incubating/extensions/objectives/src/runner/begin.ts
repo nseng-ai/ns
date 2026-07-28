@@ -7,7 +7,7 @@
 import { resolve } from "node:path";
 
 import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
-import { isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { isPathInside, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import type { ObjectiveRunnerCoreContext } from "./context.ts";

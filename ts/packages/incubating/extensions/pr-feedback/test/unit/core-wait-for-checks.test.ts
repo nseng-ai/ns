@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	createManualTimerHarness,
 	type ManualTimerHarness,
-} from "@nseng-ai/foundation/time/testing";
+} from "@nseng-ai/ns-foundation/time/testing";
 
 import type { GithubStatusChecks, PrAddressGithubGateway } from "../../src/api.ts";
 import { waitForBranchPrChecks, type WaitForChecksResult } from "../../src/core/wait-for-checks.ts";

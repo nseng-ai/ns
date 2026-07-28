@@ -13,12 +13,12 @@ import {
 import os from "node:os";
 
 import type { ClinkrInteraction } from "@nseng-ai/clinkr";
-import type { CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
-import type { Clock } from "@nseng-ai/foundation/clock";
-import { runCommand, type CommandRunner } from "@nseng-ai/foundation/exec";
-import { isNodeErrorCode } from "@nseng-ai/foundation/primitives";
-import { systemClock, systemTimerScheduler } from "@nseng-ai/foundation/time";
-import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+import type { CliEntrypointDeps } from "@nseng-ai/ns-foundation/cli-runtime";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import { runCommand, type CommandRunner } from "@nseng-ai/ns-foundation/exec";
+import { isNodeErrorCode } from "@nseng-ai/ns-foundation/primitives";
+import { systemClock, systemTimerScheduler } from "@nseng-ai/ns-foundation/time";
+import type { TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 
 import type { ReleaseCliContext } from "./release-public-package-set-cli.ts";
 import type { ReleaseResetGateway } from "./release/contracts.ts";

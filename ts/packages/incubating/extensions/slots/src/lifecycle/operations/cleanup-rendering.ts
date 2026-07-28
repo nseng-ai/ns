@@ -1,5 +1,5 @@
 import type { Caps } from "@nseng-ai/clinkr";
-import { glyph, paint } from "@nseng-ai/foundation/cli-theme";
+import { glyph, paint } from "@nseng-ai/ns-foundation/cli-theme";
 
 import type { SlotFreeCleanupResult } from "../release-cleanup.ts";
 

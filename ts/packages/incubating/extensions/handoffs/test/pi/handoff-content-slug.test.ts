@@ -13,7 +13,7 @@ import {
 	deriveHandoffContentSlug,
 	normalizeHandoffContentSlugOutput,
 } from "../../src/pi/content-slug.ts";
-import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/command";
+import type { CommandExecApi, ExecResult } from "@nseng-ai/ns-foundation/command";
 
 type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;

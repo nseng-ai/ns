@@ -1,4 +1,4 @@
-import type { TimeServices } from "@nseng-ai/foundation/time";
+import type { TimeServices } from "@nseng-ai/ns-foundation/time";
 import type { NsProgressPhaseListener } from "@nseng-ai/sdk";
 import type { GraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/branch";
 import type { TextGenerator } from "@nseng-ai/extension-kit/text-generation";
@@ -20,7 +20,7 @@ import {
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
 import { resolveFlowModelSelection } from "../model-policy.ts";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/ns-foundation/model-slug";
 
 const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
 

@@ -9,9 +9,9 @@ import {
 } from "@nseng-ai/clinkr";
 import { createNsDomainCommand } from "@nseng-ai/extension-kit/ns-command";
 import type { NsCommand, NsExtensionApi } from "@nseng-ai/sdk";
-import type { GitResult } from "@nseng-ai/foundation/git";
+import type { GitResult } from "@nseng-ai/ns-foundation/git";
 import type { GithubPrFeedbackFailure } from "./api.ts";
-import { errorDetailText } from "@nseng-ai/foundation/result";
+import { errorDetailText } from "@nseng-ai/ns-foundation/result";
 
 import type { PrAddressContext } from "./context.ts";
 import type { GatewayFailure, GatewayOptions, RepoContextResult } from "./core/gateways.ts";

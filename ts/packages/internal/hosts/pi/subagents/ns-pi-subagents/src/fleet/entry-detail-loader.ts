@@ -1,4 +1,4 @@
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 
 import {
 	assumeThinkingWhileRunning,

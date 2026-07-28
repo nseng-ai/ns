@@ -1,5 +1,5 @@
 import { appendFile } from "node:fs/promises";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 
 import {
 	type CommandExecApi,
@@ -7,7 +7,7 @@ import {
 	type ExecOptions,
 	type ExecResult,
 	formatCommand,
-} from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/command";
 
 export const SLOT_DIAGNOSTIC_LOG_ENV = "NS_SLOT_DIAGNOSTIC_LOG";
 

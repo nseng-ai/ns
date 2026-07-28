@@ -1,4 +1,4 @@
-import { formatCommand } from "@nseng-ai/foundation/command";
+import { formatCommand } from "@nseng-ai/ns-foundation/command";
 
 import {
 	formatGraphiteOperation,

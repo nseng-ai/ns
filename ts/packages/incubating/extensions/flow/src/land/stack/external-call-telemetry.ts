@@ -1,6 +1,6 @@
 import { GRAPHITE_COMMAND_NAME } from "@nseng-ai/extension-kit/graphite/branch";
-import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/command";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { commandSucceeded, type ExecResult } from "@nseng-ai/ns-foundation/command";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { isReadGraphiteBranchMetadataArgs } from "./graphite-command-channel.ts";
 
 export type FlowLandExternalCallTransport = "command" | "github-api";

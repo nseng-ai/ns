@@ -1,4 +1,4 @@
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import { isRecord, stringField } from "@nseng-ai/pi-runtime/runtime/primitives";
 
@@ -16,7 +16,7 @@ import {
 } from "./launch-flow.ts";
 import { setStatus } from "./ui-status.ts";
 import type { HandoffCreateSkillLoader } from "./create-skill.ts";
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import type { CommandExecApi } from "@nseng-ai/ns-foundation/command";
 import type { ExtensionAPI, ToolDefinition } from "./runtime-types.ts";
 
 const slugToolRegistrations = new WeakSet<ExtensionAPI>();

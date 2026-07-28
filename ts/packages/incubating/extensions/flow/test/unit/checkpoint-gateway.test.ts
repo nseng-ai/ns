@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
+import type { CommandRunner, ExecResult } from "@nseng-ai/ns-foundation/command";
 import type { ActiveOperation } from "@nseng-ai/sdk";
 
 import { RealCheckpointGateway } from "../../src/checkpoint/checkpoint.ts";

@@ -2,11 +2,11 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 
 import { Key, matchesKey, type KeyId } from "@earendil-works/pi-tui";
-import type { Clock } from "@nseng-ai/foundation/clock";
-import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
-import { systemClock } from "@nseng-ai/foundation/time";
-import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
+import type { Clock } from "@nseng-ai/ns-foundation/clock";
+import { truncatePlain } from "@nseng-ai/ns-foundation/cli-theme";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/ns-foundation/primitives";
+import { systemClock } from "@nseng-ai/ns-foundation/time";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/ns-foundation/timers";
 import { unrefTimerScheduler } from "@nseng-ai/pi-runtime/shared/timers";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 import type {

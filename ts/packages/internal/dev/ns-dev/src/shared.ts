@@ -7,8 +7,8 @@ import {
 	formatCommandDetails,
 	tailText,
 	type ExecResult,
-} from "@nseng-ai/foundation/exec";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/exec";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import {

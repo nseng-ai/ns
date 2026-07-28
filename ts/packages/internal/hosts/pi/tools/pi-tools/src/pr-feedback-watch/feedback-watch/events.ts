@@ -1,4 +1,4 @@
-import { finiteNumberField, stringArrayField } from "@nseng-ai/foundation/primitives";
+import { finiteNumberField, stringArrayField } from "@nseng-ai/ns-foundation/primitives";
 import { isRecord, stringField } from "@nseng-ai/pi-runtime/runtime/primitives";
 
 import type { WatchEventEntry } from "./model.ts";

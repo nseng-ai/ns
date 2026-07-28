@@ -1,11 +1,11 @@
-import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
+import { firstNonEmptyLine } from "@nseng-ai/ns-foundation/text-normalization";
 import {
 	RealGitGateway,
 	type GitGateway,
 	type GitOptionalResult,
 	type GitResult,
-} from "@nseng-ai/foundation/git";
-import { commandSucceeded, type CommandExecApi } from "@nseng-ai/foundation/command";
+} from "@nseng-ai/ns-foundation/git";
+import { commandSucceeded, type CommandExecApi } from "@nseng-ai/ns-foundation/command";
 
 import type { AutobranchExec, CommandResult } from "./shared.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";

@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { formatCommand, tailText } from "@nseng-ai/foundation/command";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatCommand, tailText } from "@nseng-ai/ns-foundation/command";
+import type { GitGateway } from "@nseng-ai/ns-foundation/git";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 import {
 	loadPointCatalog,
 	nodeProjectConfigGateway,

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/ns-foundation/exec/testing";
 
 import {
 	FakeReviewRunnerGateway,

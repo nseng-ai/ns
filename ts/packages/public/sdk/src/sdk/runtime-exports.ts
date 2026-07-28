@@ -1,9 +1,9 @@
-import { truncateTextHead, truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
+import { truncateTextHead, truncateTextHeadTail } from "@nseng-ai/ns-foundation/text-truncation";
 import {
 	normalizeTextOutput,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
-} from "@nseng-ai/foundation/text-normalization";
+} from "@nseng-ai/ns-foundation/text-normalization";
 
 import { defineCommand, defineExtension, defineRawCommand } from "./command.ts";
 import {

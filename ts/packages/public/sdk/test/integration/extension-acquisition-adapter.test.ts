@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { commandSucceeded, runCommand, type CommandExecApi } from "@nseng-ai/foundation/exec";
+import { commandSucceeded, runCommand, type CommandExecApi } from "@nseng-ai/ns-foundation/exec";
 
 import {
 	createRealExtensionAcquisitionGateway,

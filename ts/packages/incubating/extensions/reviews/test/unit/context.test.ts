@@ -7,7 +7,7 @@ import type {
 	GithubPrReviewCommentSummary,
 	GithubPrReviewThread,
 } from "@nseng-ai/extension-kit/github/pr-feedback";
-import type { Result } from "@nseng-ai/foundation/result";
+import type { Result } from "@nseng-ai/ns-foundation/result";
 import { describe, expect, test } from "vitest";
 
 import {

@@ -5,9 +5,9 @@ import {
 	resolveModelOperation,
 } from "@nseng-ai/extension-kit/model-policy";
 import type { CommandContext, NotifyLevel } from "@nseng-ai/extension-kit/pi-types";
-import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
-import type { TextResult } from "@nseng-ai/foundation/primitives";
+import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/ns-foundation/branch-slug";
+import { RealGitGateway } from "@nseng-ai/ns-foundation/git";
+import type { TextResult } from "@nseng-ai/ns-foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import { HERDR_SPACE_GOAL_COMMAND_NAME } from "./command-surfaces.ts";

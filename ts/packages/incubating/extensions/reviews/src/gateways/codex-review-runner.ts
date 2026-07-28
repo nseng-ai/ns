@@ -1,8 +1,8 @@
-import { commandSucceeded, type CommandResolver } from "@nseng-ai/foundation/command";
-import { defaultCommandResolver } from "@nseng-ai/foundation/exec";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import { resultErr } from "@nseng-ai/foundation/result";
+import { commandSucceeded, type CommandResolver } from "@nseng-ai/ns-foundation/command";
+import { defaultCommandResolver } from "@nseng-ai/ns-foundation/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/command";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
+import { resultErr } from "@nseng-ai/ns-foundation/result";
 
 import type { ReviewResult } from "../core/failures.ts";
 import type { ReviewExecutionResponse } from "../core/models.ts";

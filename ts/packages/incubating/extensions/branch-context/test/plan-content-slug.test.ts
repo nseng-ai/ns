@@ -15,7 +15,7 @@ import {
 	derivePlanContentSlug,
 	type PlanContentSlugEvidence,
 } from "../src/core/index.ts";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/exec";
 
 type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;

@@ -8,7 +8,7 @@ import {
 	treeMarkers,
 	wrapPlain,
 	type Intent,
-} from "@nseng-ai/foundation/cli-theme";
+} from "@nseng-ai/ns-foundation/cli-theme";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandRunner, ExecOptions } from "@nseng-ai/foundation/exec";
+import type { CommandRunner, ExecOptions } from "@nseng-ai/ns-foundation/exec";
 import { RealGithubPrFeedbackGateway } from "@nseng-ai/extension-kit/github/pr-feedback";
 import { FakeGithubPrFeedbackGateway } from "@nseng-ai/extension-kit/github/testing";
-import { exitedResult, ScriptedCommandRunner } from "@nseng-ai/foundation/exec/testing";
+import { exitedResult, ScriptedCommandRunner } from "@nseng-ai/ns-foundation/exec/testing";
 
 import {
 	branchPrCheckContextsPageArgs,

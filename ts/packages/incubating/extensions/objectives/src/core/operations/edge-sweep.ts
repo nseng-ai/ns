@@ -6,7 +6,7 @@ import {
 	type ClinkrExit,
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
-import { cell, kv, renderTable } from "@nseng-ai/foundation/cli-theme";
+import { cell, kv, renderTable } from "@nseng-ai/ns-foundation/cli-theme";
 import { z } from "zod";
 
 import { activeRootRelativePath, type ObjectiveStorage } from "../storage.ts";

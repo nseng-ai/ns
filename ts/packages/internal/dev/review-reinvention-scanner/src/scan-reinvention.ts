@@ -1,4 +1,4 @@
-import { parseTypeScriptSource } from "@nseng-ai/foundation/typescript-analysis";
+import { parseTypeScriptSource } from "@nseng-ai/ns-foundation/typescript-analysis";
 
 import { isReinventionKind, runDetectors } from "./detector-registry.ts";
 import { DEFAULT_DIFF_HEAD, RealScannerIo, type DiffRange, type ScannerIo } from "./git-diff.ts";
@@ -115,7 +115,7 @@ function isProductionTypeScriptFile(path: string): boolean {
 function isStructurallyExempt(candidate: ReinventionCandidate): boolean {
 	if (
 		candidate.kind === "subprocess" &&
-		candidate.file.includes("ts/packages/public/infra/foundation/src/exec/")
+		candidate.file.includes("ts/packages/public/infra/ns-foundation/src/exec/")
 	)
 		return true;
 	if (candidate.kind === "xdg-path" && /xdg|path-policy/u.test(candidate.file)) return true;

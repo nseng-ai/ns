@@ -5,7 +5,7 @@ import {
 	resolveRenderCapabilities,
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
-import { cell, paint, renderResultBlock } from "@nseng-ai/foundation/cli-theme";
+import { cell, paint, renderResultBlock } from "@nseng-ai/ns-foundation/cli-theme";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../../../core/context.ts";

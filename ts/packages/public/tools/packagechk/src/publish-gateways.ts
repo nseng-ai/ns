@@ -9,8 +9,8 @@ import {
 	formatCommandResultFailure,
 	formatCommandSpawnFailure,
 	runCommand,
-} from "@nseng-ai/foundation/exec";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/exec";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 
 export interface PypiPublishGateway {
 	ensurePublishToolsAvailable(): string | null;

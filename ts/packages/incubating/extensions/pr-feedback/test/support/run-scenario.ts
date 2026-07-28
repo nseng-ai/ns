@@ -1,4 +1,4 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { PrAddressContext } from "../../src/context.ts";
 import { fakePrAddressContext } from "./in-memory-pr-address-gateways.ts";

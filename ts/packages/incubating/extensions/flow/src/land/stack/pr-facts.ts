@@ -1,5 +1,5 @@
-import { commandSucceeded, formatCommand } from "@nseng-ai/foundation/command";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { commandSucceeded, formatCommand } from "@nseng-ai/ns-foundation/command";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GH_TIMEOUT_MS, PR_FIELD_NAMES, PR_FIELDS } from "./constants.ts";

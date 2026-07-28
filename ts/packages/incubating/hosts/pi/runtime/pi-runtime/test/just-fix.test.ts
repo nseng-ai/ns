@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
+import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/ns-foundation/test-kit";
 
 import type { SkillCommandInfo } from "../src/kit/skills/expansion.ts";
 import type { RawPiExecResult } from "../src/kit/shared/command-exec.ts";

@@ -1,6 +1,6 @@
 import type { Caps } from "@nseng-ai/clinkr";
-import { paint } from "@nseng-ai/foundation/cli-theme";
-import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
+import { paint } from "@nseng-ai/ns-foundation/cli-theme";
+import { stripTerminalEscapes } from "@nseng-ai/ns-foundation/terminal-escapes";
 import { describe, expect, it } from "vitest";
 
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";

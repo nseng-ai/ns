@@ -13,8 +13,8 @@ import {
 	renderTable,
 	stripAnsiWhenDisabled,
 	type Intent,
-} from "@nseng-ai/foundation/cli-theme";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+} from "@nseng-ai/ns-foundation/cli-theme";
+import { optionalEntry } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../../core/context.ts";

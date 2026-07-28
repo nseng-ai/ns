@@ -1,7 +1,7 @@
 import type { StackInfo } from "@nseng-ai/extension-kit/graphite/stack";
 import { parseJsonUnknown } from "@nseng-ai/extension-kit/github/graphql-json";
 import { failure, negative, ok, usageError } from "@nseng-ai/clinkr";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage } from "@nseng-ai/ns-foundation/primitives";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../../core/context.ts";

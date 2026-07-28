@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/ns-foundation/exec";
 import {
 	deriveValidatedGraphiteStackPath,
 	execGitCommonDir,

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
-import { createManualTimerHarness } from "@nseng-ai/foundation/time/testing";
+import { stripTerminalEscapes } from "@nseng-ai/ns-foundation/terminal-escapes";
+import { createManualTimerHarness } from "@nseng-ai/ns-foundation/time/testing";
 import type { LocalWorktreeStatus } from "@nseng-ai/pi-runtime/worktree-status";
 import {
 	PI_EXTENSION_COMMAND_FINISHED_EVENT,
