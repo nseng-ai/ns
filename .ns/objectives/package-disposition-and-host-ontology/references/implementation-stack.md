@@ -216,7 +216,7 @@ an old role directory while the boundary is in flight.
 Every item below blocks a deferred order; none blocks an executing one.
 
 - Flow curated API shapes (blocks 7, 23).
-- Handoffs launch-integration split — which slice is genuinely harness-independent (blocks 5, 21, 24).
+- ~~Handoffs launch-integration split — which slice is genuinely harness-independent (blocks 5, 21, 24).~~ Resolved by `references/handoffs-launch-boundary.md`: Handoff identity/storage/lifecycle and command-backed skill metadata belong on `@nseng-ai/handoffs/api`; the create-then-launch prompt/tool/session flow is Pi host behavior and moves to `@nseng-ai/pi-ns-handoffs`. Herdr composes it through a declared `@nseng-ai/pi-ns-handoffs/handoff-launch` adapter subpath while continuing to verify durable references through `@nseng-ai/handoffs/api`. This is the concrete adapter-to-adapter edge covered by settled decision 4.
 - The `pi-runtime` export map — 36 current subpaths, several unnamed in the map's runtime inventory
   (blocks 16's *contract*, not its rename/move).
 - Parity `sourcePackage` identity model replacing the closed union (blocks 2, 17, 18).
