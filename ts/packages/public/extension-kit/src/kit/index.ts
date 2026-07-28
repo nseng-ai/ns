@@ -24,6 +24,7 @@ export {
 } from "./repository-trunk-config.ts";
 export {
 	resolveRepositoryTrunk,
+	validateRepositoryTrunkReadiness,
 	type RepositoryTrunk,
 	type RepositoryTrunkConfig,
 	type RepositoryTrunkConfigError,
@@ -32,9 +33,15 @@ export {
 	type RepositoryTrunkError,
 	type RepositoryTrunkErrorCode,
 	type RepositoryTrunkGitGateway,
+	type RepositoryTrunkReadinessError,
+	type RepositoryTrunkReadinessErrorCode,
+	type RepositoryTrunkReadinessGitGateway,
+	type RepositoryTrunkReadinessResult,
+	type RepositoryTrunkRequiredRef,
 	type RepositoryTrunkResult,
 	type RepositoryTrunkSource,
 	type ResolveRepositoryTrunkOptions,
+	type ValidateRepositoryTrunkReadinessOptions,
 } from "./repository-trunk.ts";
 export { createNsDomainCommand, type NsDomainCommandOptions } from "./ns-command.ts";
 export {

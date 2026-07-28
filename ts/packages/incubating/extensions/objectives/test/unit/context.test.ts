@@ -11,27 +11,23 @@ describe("Objective context trunk resolution", () => {
 	test("uses the repository trunk configured by the real Node config loader", async () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "objective-context-"));
 		await writeFile(join(repoRoot, "ns.toml"), '[git]\nremote = "upstream"\ntrunk = "develop"\n');
-		const context = await createRealObjectiveContext({
-			cwd: repoRoot,
-			git: new InMemoryGitGateway({
-				optionalRepoRoot: repoRoot,
-				existingRefs: ["refs/heads/develop", "refs/remotes/upstream/develop"],
-			}),
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: repoRoot,
+			existingRefs: ["refs/heads/develop", "refs/remotes/upstream/develop"],
 		});
+		const context = await createRealObjectiveContext({ cwd: repoRoot, git });
 
 		expect(context.trunkBranch).toBe("develop");
+		expect(git.exactRefPresenceCalls).toEqual([]);
 	});
 
-	test("wraps the canonical trunk resolution failure", async () => {
+	test("creates identity-only context when the resolved local trunk ref is absent", async () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "objective-context-failure-"));
 		await writeFile(join(repoRoot, "ns.toml"), '[git]\nremote = "upstream"\ntrunk = "develop"\n');
-		await expect(
-			createRealObjectiveContext({
-				cwd: repoRoot,
-				git: new InMemoryGitGateway({ optionalRepoRoot: repoRoot }),
-			}),
-		).rejects.toThrow(
-			"Cannot create Objective context: Repository trunk local ref `refs/heads/develop` is missing.",
-		);
+		const git = new InMemoryGitGateway({ optionalRepoRoot: repoRoot });
+		const context = await createRealObjectiveContext({ cwd: repoRoot, git });
+
+		expect(context.trunkBranch).toBe("develop");
+		expect(git.exactRefPresenceCalls).toEqual([]);
 	});
 });

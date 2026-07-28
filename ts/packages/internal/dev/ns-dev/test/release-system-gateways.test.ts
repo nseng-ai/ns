@@ -282,7 +282,7 @@ describe("release system command gateways", () => {
 		commands.assertDone();
 	});
 
-	it("returns actionable Git trunk evidence while retaining the Graphite tracking probe", async () => {
+	it("returns actionable Git identity evidence while retaining the Graphite tracking probe", async () => {
 		const commands = new ScriptedCommandRunner([
 			step("git", ["branch", "--show-current"], exitedResult({ stdout: "feature/release\n" })),
 			step("git", ["rev-parse", "HEAD"], exitedResult({ stdout: "abc123\n" })),
@@ -299,9 +299,9 @@ describe("release system command gateways", () => {
 			resolveRepositoryTrunk: async () => ({
 				ok: false,
 				error: {
-					code: "local-branch-missing",
+					code: "git-failed",
 					message:
-						"Repository trunk local ref `refs/heads/stable` is missing. Create a local branch `stable` from `refs/remotes/upstream/stable` after fetching if needed.",
+						"Git failed while attempting to read the cached remote HEAD. git was interrupted",
 				},
 			}),
 		}).inspectFreshState(releaseBranch);
@@ -311,8 +311,8 @@ describe("release system command gateways", () => {
 			error: {
 				code: "release-trunk-resolution-failed",
 				message:
-					"Cannot resolve repository trunk for release preflight: Repository trunk local ref `refs/heads/stable` is missing. Create a local branch `stable` from `refs/remotes/upstream/stable` after fetching if needed.",
-				details: { trunkResolutionType: "local-branch-missing" },
+					"Cannot resolve repository trunk for release preflight: Git failed while attempting to read the cached remote HEAD. git was interrupted",
+				details: { trunkResolutionType: "git-failed" },
 			},
 		});
 		expect(commands.calls.every((call) => call.cwd === repoRoot)).toBe(true);

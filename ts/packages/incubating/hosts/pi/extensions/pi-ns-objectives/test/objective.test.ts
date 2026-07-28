@@ -120,7 +120,7 @@ class FakePi implements ObjectiveExtensionAPI {
 		script: ScriptedExec[] = [],
 		commandInfos: ReturnType<ObjectiveExtensionAPI["getCommands"]> = [],
 	) {
-		this.script = new ScriptedQueue(script, (step) => step);
+		this.script = new ScriptedQueue(withObjectiveTrunkReadiness(script), (step) => step);
 		this.commandInfos = [...commandInfos];
 	}
 
@@ -209,6 +209,24 @@ class FakePi implements ObjectiveExtensionAPI {
 	assertDone(): void {
 		this.script.assertDone();
 	}
+}
+
+function withObjectiveTrunkReadiness(script: ScriptedExec[]): ScriptedExec[] {
+	const prepared: ScriptedExec[] = [];
+	for (let index = 0; index < script.length; index += 1) {
+		const entry = script[index];
+		if (entry?.command === "git" && entry.args[0] === "diff") {
+			prepared.push(step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${TRUNK}`]));
+			const status = script[index + 1];
+			if (status?.command === "git" && status.args[0] === "status") {
+				prepared.push(status, entry);
+				index += 1;
+				continue;
+			}
+		}
+		if (entry !== undefined) prepared.push(entry);
+	}
+	return prepared;
 }
 
 function sameArgs(left: string[], right: string[]): boolean {
@@ -723,18 +741,23 @@ describe("ns:objective:autorun command", () => {
 			expectNoObjectiveListExec(result);
 			expect(result.pi.execCalls[0]).toMatchObject({
 				command: "git",
-				args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".ns/objectives"],
+				args: ["show-ref", "--verify", "--quiet", "refs/heads/master"],
 				options: { cwd: dirname(dirname(dirname(skillPath))) },
 			});
-			expect(result.pi.execCalls[0]?.options?.signal).toBeInstanceOf(AbortSignal);
-			expect(result.pi.execCalls[0]?.options?.timeout).toBeUndefined();
 			expect(result.pi.execCalls[1]).toMatchObject({
 				command: "git",
 				args: ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"],
 				options: { cwd: dirname(dirname(dirname(skillPath))) },
 			});
-			expect(result.pi.execCalls[1]?.options?.signal).toBeInstanceOf(AbortSignal);
-			expect(result.pi.execCalls[1]?.options?.timeout).toBeUndefined();
+			expect(result.pi.execCalls[2]).toMatchObject({
+				command: "git",
+				args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".ns/objectives"],
+				options: { cwd: dirname(dirname(dirname(skillPath))) },
+			});
+			for (const call of result.pi.execCalls.slice(0, 3)) {
+				expect(call.options?.signal).toBeInstanceOf(AbortSignal);
+				expect(call.options?.timeout).toBeUndefined();
+			}
 			expect(result.waitForIdleCalls()).toBe(2);
 			expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
 		});

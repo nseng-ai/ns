@@ -14,6 +14,7 @@ describe("objective tracking-gate operation", () => {
 		const ctx = contextWithFakeStorage(
 			{ records: [{ slug: "flow-cleanup" }] },
 			{
+				existingRefs: ["refs/heads/master"],
 				currentBranch: "feature/flow-cleanup",
 				dirtyPaths: ["."],
 				changedPaths: {
@@ -66,6 +67,7 @@ describe("objective tracking-gate operation", () => {
 				},
 			},
 		});
+		expect(ctx.git.exactRefPresenceCalls).toEqual([{ cwd: "/repo", ref: "refs/heads/master" }]);
 		expect(ctx.git.changedPathsUnderCalls).toEqual([
 			{ cwd: "/repo", revisionRange: "master...HEAD", relativePath: "." },
 		]);
@@ -75,6 +77,7 @@ describe("objective tracking-gate operation", () => {
 		const ctx = contextWithFakeStorage(
 			{ records: [{ slug: "flow-cleanup" }] },
 			{
+				existingRefs: ["refs/heads/master"],
 				currentBranch: "feature/flow-cleanup",
 				changedPaths: { "master...HEAD|.": [".ns/objectives/flow-cleanup/roadmap.md"] },
 			},
@@ -86,7 +89,24 @@ describe("objective tracking-gate operation", () => {
 		expect(renderTrackingGate(exit.data)).toContain("Objective files changed in branch diff: 1");
 	});
 
-	test("returns negative data when the Objective is missing", async () => {
+	test("fails actionably before diffing when the local trunk ref is missing", async () => {
+		const ctx = contextWithFakeStorage(
+			{ records: [{ slug: "flow-cleanup" }] },
+			{ currentBranch: "feature/flow-cleanup" },
+		);
+
+		const exit = await runTrackingGate(ctx, { slug: "flow-cleanup" });
+
+		expect(exit).toMatchObject({
+			type: "failure",
+			message: expect.stringContaining(
+				"Repository trunk local ref `refs/heads/master` is missing.",
+			),
+		});
+		expect(ctx.git.changedPathsUnderCalls).toEqual([]);
+	});
+
+	test("returns negative data when the Objective is missing without requiring trunk readiness", async () => {
 		const ctx = contextWithFakeStorage({ records: [] });
 
 		const exit = await runTrackingGate(ctx, { slug: "missing-objective" });

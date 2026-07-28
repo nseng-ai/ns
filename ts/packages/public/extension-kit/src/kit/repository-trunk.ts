@@ -47,8 +47,6 @@ export type RepositoryTrunkErrorCode =
 	| "branch-invalid"
 	| "cached-remote-head-missing"
 	| "cached-remote-head-malformed"
-	| "local-branch-missing"
-	| "remote-tracking-branch-missing"
 	| "git-failed";
 
 export interface RepositoryTrunkError {
@@ -61,7 +59,7 @@ export type RepositoryTrunkResult = Result<RepositoryTrunk, RepositoryTrunkError
 
 export type RepositoryTrunkGitGateway = Pick<
 	GitGateway,
-	"validateBranchName" | "validateRefName" | "symbolicRef" | "exactRefPresence"
+	"validateBranchName" | "validateRefName" | "symbolicRef"
 >;
 
 export interface ResolveRepositoryTrunkOptions {
@@ -146,16 +144,10 @@ export async function resolveRepositoryTrunk(
 		}
 	}
 
-	const resolution = { branch, remote, localRef, remoteTrackingRef, source };
-	const localPresence = await options.git.exactRefPresence(refParams(options, localRef));
-	const localFailure = presenceFailure(localPresence, resolution, "local");
-	if (localFailure !== undefined) return localFailure;
-
-	const remotePresence = await options.git.exactRefPresence(refParams(options, remoteTrackingRef));
-	const remoteFailure = presenceFailure(remotePresence, resolution, "remote");
-	if (remoteFailure !== undefined) return remoteFailure;
-
-	return { ok: true, value: resolution };
+	return {
+		ok: true,
+		value: { branch, remote, localRef, remoteTrackingRef, source },
+	};
 }
 
 function branchFromRemoteHead(
@@ -204,22 +196,74 @@ function gitFailure(operation: string, cause: GitErrorInfo): RepositoryTrunkResu
 	};
 }
 
-function presenceFailure(
+export type RepositoryTrunkRequiredRef = "local" | "remote-tracking";
+
+export type RepositoryTrunkReadinessErrorCode =
+	| "local-branch-missing"
+	| "remote-tracking-branch-missing"
+	| "git-failed";
+
+export interface RepositoryTrunkReadinessError {
+	readonly code: RepositoryTrunkReadinessErrorCode;
+	readonly message: string;
+	readonly cause?: GitErrorInfo;
+}
+
+export type RepositoryTrunkReadinessResult = Result<RepositoryTrunk, RepositoryTrunkReadinessError>;
+
+export type RepositoryTrunkReadinessGitGateway = Pick<GitGateway, "exactRefPresence">;
+
+export interface ValidateRepositoryTrunkReadinessOptions {
+	readonly repoRoot: string;
+	readonly git: RepositoryTrunkReadinessGitGateway;
+	readonly trunk: RepositoryTrunk;
+	readonly requiredRefs: readonly RepositoryTrunkRequiredRef[];
+	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
+}
+
+export async function validateRepositoryTrunkReadiness(
+	options: ValidateRepositoryTrunkReadinessOptions,
+): Promise<RepositoryTrunkReadinessResult> {
+	if (options.requiredRefs.length === 0) {
+		throw new Error("Repository trunk readiness requires at least one ref kind.");
+	}
+
+	const requiredRefs = new Set(options.requiredRefs);
+	for (const kind of ["local", "remote-tracking"] as const) {
+		if (!requiredRefs.has(kind)) continue;
+		const ref = kind === "local" ? options.trunk.localRef : options.trunk.remoteTrackingRef;
+		const presence = await options.git.exactRefPresence(refParams(options, ref));
+		const failure = readinessPresenceFailure(presence, options.trunk, kind);
+		if (failure !== undefined) return failure;
+	}
+
+	return { ok: true, value: options.trunk };
+}
+
+function readinessPresenceFailure(
 	result: GitRefPresenceResult,
-	resolution: RepositoryTrunk,
-	kind: "local" | "remote",
-): RepositoryTrunkResult | undefined {
+	trunk: RepositoryTrunk,
+	kind: RepositoryTrunkRequiredRef,
+): RepositoryTrunkReadinessResult | undefined {
 	if (result.type === "present") return undefined;
+	const ref = kind === "local" ? trunk.localRef : trunk.remoteTrackingRef;
 	if (result.type === "error") {
-		const ref = kind === "local" ? resolution.localRef : resolution.remoteTrackingRef;
-		return gitFailure(`check required ref \`${ref}\``, result.error);
+		return {
+			ok: false,
+			error: {
+				code: "git-failed",
+				message: `Git failed while attempting to check required ref \`${ref}\`. ${result.error.message}`,
+				cause: result.error,
+			},
+		};
 	}
 	if (kind === "local") {
 		return {
 			ok: false,
 			error: {
 				code: "local-branch-missing",
-				message: `Repository trunk local ref \`${resolution.localRef}\` is missing. Create a local branch \`${resolution.branch}\` from \`${resolution.remoteTrackingRef}\` after fetching if needed.`,
+				message: `Repository trunk local ref \`${trunk.localRef}\` is missing. Create a local branch \`${trunk.branch}\` from \`${trunk.remoteTrackingRef}\` after fetching if needed.`,
 			},
 		};
 	}
@@ -227,12 +271,18 @@ function presenceFailure(
 		ok: false,
 		error: {
 			code: "remote-tracking-branch-missing",
-			message: `Repository trunk tracking ref \`${resolution.remoteTrackingRef}\` is missing. Fetch remote \`${resolution.remote}\`; cached remote HEAD data may be stale.`,
+			message: `Repository trunk tracking ref \`${trunk.remoteTrackingRef}\` is missing. Fetch remote \`${trunk.remote}\`; cached remote HEAD data may be stale.`,
 		},
 	};
 }
 
-function refParams(options: ResolveRepositoryTrunkOptions, ref: string): GitRefParams {
+interface RepositoryTrunkRefOptions {
+	readonly repoRoot: string;
+	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
+}
+
+function refParams(options: RepositoryTrunkRefOptions, ref: string): GitRefParams {
 	return {
 		cwd: options.repoRoot,
 		ref,

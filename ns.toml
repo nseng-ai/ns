@@ -1,5 +1,8 @@
 extensions = ["./ts/packages/incubating/extensions/skill-exposure"]
 
+[git]
+trunk = "master"
+
 [slots]
 provision = [".env.local"]
 

@@ -14,12 +14,16 @@ There is no universal Git-local answer to “what is this repository's trunk?”
 
 For a tool that must work both online and offline, the strongest pattern is: **explicit override → remote-scoped local cached metadata → conventional fallback only when clearly labeled → actionable failure**. Store provenance (remote and discovery method), validate that the ref exists, and refresh/compare against host metadata when online. Do not silently treat `origin`, `main`, or the current branch as authoritative in fork/multi-remote repositories.
 
-**Current ns implementation note (2026-07-28):** ns intentionally chooses a stricter offline subset of
-that design. Its canonical Extension Kit repository-trunk module composes repository-root `[git]`
+**Current ns implementation note (updated 2026-07-28):** ns intentionally chooses an offline subset
+of that design. Its canonical Extension Kit repository-trunk module composes repository-root `[git]`
 policy over neutral Git facts, then uses an explicit configured branch or the selected remote's
 locally cached symbolic HEAD. It performs no host query, fetch, conventional fallback, or freshness
-check; success requires both local and selected remote-tracking refs and records whether the branch
-was configured or came from cached remote HEAD. Graphite topology trunk remains a separate concept.
+check. Identity resolution validates names, derives the local and selected remote-tracking ref names,
+and records whether the branch was configured or came from cached remote HEAD; it does not require
+those refs to exist. Each consuming workflow separately validates the exact local and/or
+remote-tracking refs needed for its operation and reports workflow-specific recovery. Graphite
+topology trunk remains a separate concept. This implementation note postdates the primary-source
+survey below and does not change that research's provenance or conclusions.
 
 ## Comparison
 

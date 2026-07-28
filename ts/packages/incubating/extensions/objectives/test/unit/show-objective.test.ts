@@ -387,7 +387,10 @@ function contextWith(options: {
 		repoRoot: "/repo",
 		trunkBranch: options.trunkBranch ?? "main",
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(options.fake)),
-		git: new InMemoryGitGateway(options.git ?? {}),
+		git: new InMemoryGitGateway({
+			existingRefs: [`refs/heads/${options.trunkBranch ?? "main"}`],
+			...(options.git ?? {}),
+		}),
 	};
 }
 

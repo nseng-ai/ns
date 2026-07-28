@@ -4,10 +4,12 @@ import {
 	type GitErrorInfo,
 	type GitGateway,
 } from "@nseng-ai/foundation/git";
-import type {
-	RepositoryTrunk,
-	RepositoryTrunkError,
-	RepositoryTrunkResult,
+import {
+	validateRepositoryTrunkReadiness,
+	type RepositoryTrunk,
+	type RepositoryTrunkError,
+	type RepositoryTrunkReadinessError,
+	type RepositoryTrunkResult,
 } from "@nseng-ai/extension-kit/repository-trunk";
 
 const GIT_TIMEOUT_MS = 2 * 60 * 1000;
@@ -20,7 +22,7 @@ interface TrunkPullCommands {
 	): Promise<ExecResult>;
 }
 
-export type TrunkPullGitGateway = Pick<GitGateway, "branchUpstream">;
+export type TrunkPullGitGateway = Pick<GitGateway, "branchUpstream" | "exactRefPresence">;
 
 type CommandBackedTrunkPullOutcome =
 	| { kind: "success"; trunk: string }
@@ -29,6 +31,7 @@ type CommandBackedTrunkPullOutcome =
 
 type GatewayBackedTrunkPullOutcome =
 	| { kind: "repository-trunk-resolution-failed"; error: RepositoryTrunkError }
+	| { kind: "repository-trunk-readiness-failed"; error: RepositoryTrunkReadinessError }
 	| { kind: "upstream-missing"; trunk: string }
 	| { kind: "upstream-inspection-failed"; trunk: string; error: GitErrorInfo };
 
@@ -52,17 +55,30 @@ export type TrunkPullResult = CommandBackedTrunkPullResult | GatewayBackedTrunkP
 export async function runTrunkPullDetailed(options: {
 	commands: TrunkPullCommands;
 	cwd: string;
+	repoRoot: string;
 	git: TrunkPullGitGateway;
 	repositoryTrunk: RepositoryTrunkResult;
 }): Promise<TrunkPullResult> {
-	const { commands, cwd, git, repositoryTrunk } = options;
+	const { commands, cwd, repoRoot, git, repositoryTrunk } = options;
 	if (!repositoryTrunk.ok) {
 		return {
 			outcome: { kind: "repository-trunk-resolution-failed", error: repositoryTrunk.error },
 			cwd,
 		};
 	}
-	const trunk: RepositoryTrunk["branch"] = repositoryTrunk.value.branch;
+	const readiness = await validateRepositoryTrunkReadiness({
+		repoRoot,
+		git,
+		trunk: repositoryTrunk.value,
+		requiredRefs: ["local"],
+	});
+	if (!readiness.ok) {
+		return {
+			outcome: { kind: "repository-trunk-readiness-failed", error: readiness.error },
+			cwd,
+		};
+	}
+	const trunk: RepositoryTrunk["branch"] = readiness.value.branch;
 
 	const upstream = await git.branchUpstream({ cwd, branch: trunk });
 	if (upstream.type === "missing") {

@@ -17,7 +17,6 @@ function repositoryTrunkExecCalls(branch: string): string[] {
 		`git check-ref-format refs/heads/${branch}`,
 		`git check-ref-format refs/remotes/origin/${branch}`,
 		`git show-ref --verify --quiet refs/heads/${branch}`,
-		`git show-ref --verify --quiet refs/remotes/origin/${branch}`,
 	];
 }
 
@@ -108,6 +107,43 @@ describe("flow pull-trunk command outcomes", () => {
 		expect(stderr).toContain("Could not resolve repository trunk. Local trunk was not updated.");
 		expect(stderr).toContain("Cached remote HEAD `refs/remotes/origin/HEAD` is missing");
 		expect(formattedExecCalls(run.context)).not.toContain("gt trunk --no-interactive");
+	});
+
+	test("missing local trunk stops before upstream inspection", async () => {
+		const exec: ScriptedExecResponse[] = [
+			{
+				match: "git show-ref --verify --quiet refs/heads/main",
+				result: { code: 1 },
+			},
+		];
+		const run = runFlowPullTrunkCommandWithFakes({ state: { exec } });
+
+		expect(await run.exit).toBe(1);
+		expect(run.stdout.join("")).toBe("");
+		const stderr = stripAnsi(run.stderr.join(""));
+		expect(stderr).toContain("Repository trunk is not ready to pull");
+		expect(stderr).toContain("Repository trunk local ref `refs/heads/main` is missing");
+		expect(formattedExecCalls(run.context)).toEqual([
+			"git rev-parse --show-toplevel",
+			...repositoryTrunkExecCalls("main"),
+		]);
+		expect(formattedExecCalls(run.context)).not.toContain(upstreamLookup("main"));
+	});
+
+	test("local trunk readiness inspection failure stops before upstream inspection", async () => {
+		const exec: ScriptedExecResponse[] = [
+			{
+				match: "git show-ref --verify --quiet refs/heads/main",
+				result: { code: 128, stderr: "fatal: cannot inspect local trunk\n" },
+			},
+		];
+		const run = runFlowPullTrunkCommandWithFakes({ state: { exec } });
+
+		expect(await run.exit).toBe(1);
+		const stderr = stripAnsi(run.stderr.join(""));
+		expect(stderr).toContain("Repository trunk is not ready to pull");
+		expect(stderr).toContain("fatal: cannot inspect local trunk");
+		expect(formattedExecCalls(run.context)).not.toContain(upstreamLookup("main"));
 	});
 
 	test("missing configured upstream stops before worktree inspection", async () => {

@@ -124,7 +124,7 @@ export class FakePi implements ExtensionAPI {
 			shouldRequireExpectedArgs?: boolean;
 		} = {},
 	) {
-		this.script = new ScriptedQueue(options.script ?? [], (s) => s);
+		this.script = new ScriptedQueue(withObjectiveTrunkReadiness(options.script ?? []), (s) => s);
 		this.shouldRequireExpectedArgs = options.shouldRequireExpectedArgs ?? true;
 	}
 
@@ -537,6 +537,24 @@ export function objectiveReadStep(slug: string): ScriptedExec {
 			data: { status: "ok", slug },
 		}),
 	});
+}
+
+function withObjectiveTrunkReadiness(script: ScriptedExec[]): ScriptedExec[] {
+	const prepared: ScriptedExec[] = [];
+	for (let index = 0; index < script.length; index += 1) {
+		const entry = script[index];
+		if (entry?.command === "git" && entry.args?.[0] === "diff") {
+			prepared.push(step("git", ["show-ref", "--verify", "--quiet", "refs/heads/master"]));
+			const status = script[index + 1];
+			if (status?.command === "git" && status.args?.[0] === "status") {
+				prepared.push(status, entry);
+				index += 1;
+				continue;
+			}
+		}
+		if (entry !== undefined) prepared.push(entry);
+	}
+	return prepared;
 }
 
 export function objectiveDiffStep(

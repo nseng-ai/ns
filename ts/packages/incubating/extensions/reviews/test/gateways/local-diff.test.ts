@@ -45,9 +45,10 @@ describe("RealLocalDiffGateway", () => {
 			"utf8",
 		);
 		const execApi = new ScriptedCommandExecApi([exitedResult({ stdout: SAMPLE_DIFF })]);
+		const gitGateway = new InMemoryGitGateway({ repoRoot });
 		const gateway = new RealLocalDiffGateway({
 			execApi,
-			gitGateway: new InMemoryGitGateway({ repoRoot }),
+			gitGateway,
 			repositoryTrunkResolver: async () => {
 				throw new Error("explicit base refs must bypass trunk resolution");
 			},
@@ -60,6 +61,7 @@ describe("RealLocalDiffGateway", () => {
 			expect(result.value.baseRef).toBe("main");
 			expect(result.value.changedPaths).toEqual(["src/app.ts"]);
 		}
+		expect(gitGateway.exactRefPresenceCalls).toEqual([]);
 		expect(execApi.calls()[0]).toMatchObject({
 			command: "git",
 			args: [
@@ -87,9 +89,13 @@ describe("RealLocalDiffGateway", () => {
 		const execApi = new ScriptedCommandExecApi([
 			exitedResult({ stderr: "fatal: bad revision", code: 128 }),
 		]);
+		const gitGateway = new InMemoryGitGateway({
+			repoRoot,
+			existingRefs: ["refs/remotes/upstream/trunk"],
+		});
 		const gateway = new RealLocalDiffGateway({
 			execApi,
-			gitGateway: new InMemoryGitGateway({ repoRoot }),
+			gitGateway,
 			repositoryTrunkResolver: async () => ({
 				ok: true,
 				value: {
@@ -112,6 +118,9 @@ describe("RealLocalDiffGateway", () => {
 			expect(result.error.message).toContain(repoRoot);
 			expect(result.error.message).toContain("fatal");
 		}
+		expect(gitGateway.exactRefPresenceCalls).toEqual([
+			{ cwd: repoRoot, ref: "refs/remotes/upstream/trunk" },
+		]);
 		expect(execApi.calls()[0]?.args).toEqual([
 			"-c",
 			"diff.noprefix=false",
@@ -135,9 +144,39 @@ describe("RealLocalDiffGateway", () => {
 			repositoryTrunkResolver: async () => ({
 				ok: false,
 				error: {
-					code: "remote-tracking-branch-missing",
-					message:
-						"Repository trunk tracking ref `refs/remotes/upstream/trunk` is missing. Fetch remote `upstream`.",
+					code: "cached-remote-head-missing",
+					message: "Cached remote HEAD is missing. Fetch remote `upstream`.",
+				},
+			}),
+		});
+
+		const result = await gateway.loadDiff({ cwd: repoRoot });
+
+		expect(result).toMatchObject({
+			ok: false,
+			error: { code: "base-ref-unavailable" },
+		});
+		if (!result.ok) {
+			expect(result.error.message).toContain("Cached remote HEAD is missing");
+			expect(result.error.message).toContain("Fetch remote `upstream`");
+			expect(result.error.message).toContain("--base-ref");
+		}
+	});
+
+	test("maps missing implicit remote-tracking readiness to base-ref guidance", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "reviews-local-diff-no-tracking-"));
+		const gitGateway = new InMemoryGitGateway({ repoRoot });
+		const gateway = new RealLocalDiffGateway({
+			execApi: new ScriptedCommandExecApi([]),
+			gitGateway,
+			repositoryTrunkResolver: async () => ({
+				ok: true,
+				value: {
+					branch: "trunk",
+					remote: "upstream",
+					localRef: "refs/heads/trunk",
+					remoteTrackingRef: "refs/remotes/upstream/trunk",
+					source: "configured",
 				},
 			}),
 		});
@@ -153,6 +192,9 @@ describe("RealLocalDiffGateway", () => {
 			expect(result.error.message).toContain("Fetch remote `upstream`");
 			expect(result.error.message).toContain("--base-ref");
 		}
+		expect(gitGateway.exactRefPresenceCalls).toEqual([
+			{ cwd: repoRoot, ref: "refs/remotes/upstream/trunk" },
+		]);
 	});
 
 	test("formats display commands for diagnostics", () => {

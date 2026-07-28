@@ -73,15 +73,19 @@ selected remote's cached HEAD. It is interpreted literally as a local Git branch
 slash-containing names such as `release/stable` are valid. Full refs, tags, commit SHAs, and
 revision expressions are not branch names and are rejected.
 
-Resolution is local and offline: ns does not contact the server, and a cached remote HEAD
-can be absent or stale. A successful resolution verifies that both the local branch
-`refs/heads/<branch>` and selected remote-tracking branch
-`refs/remotes/<remote>/<branch>` exist, but it does not prove that either ref is current on
-the server. ns never guesses `main` or `master`.
+Identity resolution is local and offline: ns does not contact the server, and a cached remote
+HEAD can be absent or stale. Resolution validates the configured names and derives the exact
+local and remote-tracking ref names, but it does not require either ref to exist or prove that
+cached refs are current on the server. ns never guesses `main` or `master`.
 
-If discovery fails:
+Each workflow separately checks the refs it needs before doing graph or mutation work. A
+workflow may require the local branch, the selected remote-tracking branch, or both; its error
+reports the missing exact ref and the appropriate recovery. Fetch the selected remote to create
+or refresh a required remote-tracking ref, and create a required local branch from that ref when
+needed.
 
-- fetch or create the missing local and remote-tracking trunk refs;
+If identity discovery itself fails:
+
 - set `git.trunk` explicitly when the remote's default branch is not represented locally;
 - refresh a missing, stale, or dangling cached remote HEAD with
   `git remote set-head <remote> --auto`; an ordinary `git fetch` does not necessarily

@@ -48,6 +48,7 @@ export const flowPullTrunkCommand: NsCommand<typeof pullTrunkSchema> = defineCom
 				await runTrunkPullDetailed({
 					commands: { exec: io.exec },
 					cwd: ctx.cwd,
+					repoRoot: repoRoot.value,
 					git,
 					repositoryTrunk,
 				}),
@@ -66,6 +67,13 @@ function renderTrunkPullBlock(caps: Caps, result: TrunkPullResult): string {
 				return renderResultBlock(caps, {
 					kind: "failure",
 					headline: "Could not resolve repository trunk. Local trunk was not updated.",
+					body: result.outcome.error.message,
+					cwd: result.cwd,
+				});
+			case "repository-trunk-readiness-failed":
+				return renderResultBlock(caps, {
+					kind: "failure",
+					headline: "Repository trunk is not ready to pull. Local trunk was not updated.",
 					body: result.outcome.error.message,
 					cwd: result.cwd,
 				});

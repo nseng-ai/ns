@@ -183,6 +183,7 @@ describe("objective list helpers", () => {
 
 	test("fake-backed branch attribution prefilters branches and attributes active objective slugs", async () => {
 		const git = new InMemoryGitGateway({
+			existingRefs: ["refs/heads/master"],
 			localBranchTips: [
 				{ name: "master", headIso: "2026-05-01T00:00:00Z" },
 				{ name: "feat/older", headIso: "2026-05-02T00:00:00Z" },
@@ -237,7 +238,7 @@ describe("objective list helpers", () => {
 						],
 					}),
 				),
-				git: new InMemoryGitGateway(),
+				git: new InMemoryGitGateway({ existingRefs: ["refs/heads/master"] }),
 			};
 			return await runListObjectives(ctx, { names: false, status: "active" });
 		};
@@ -311,6 +312,7 @@ describe("objective list helpers", () => {
 				}),
 			),
 			git: new InMemoryGitGateway({
+				existingRefs: ["refs/heads/master"],
 				localBranchTips: [
 					{ name: "master", headIso: "2026-05-01T00:00:00Z" },
 					{ name: "feat/newer", headIso: "2026-05-03T00:00:00Z" },
@@ -337,6 +339,7 @@ describe("objective list helpers", () => {
 
 	test("attributes branch-authored objective changes instead of trunk-only drift", async () => {
 		const git = new InMemoryGitGateway({
+			existingRefs: ["refs/heads/master"],
 			localBranchTips: [
 				{ name: "master", headIso: "2026-05-01T00:00:00Z" },
 				{ name: "feat/stale", headIso: "2026-05-02T00:00:00Z" },
@@ -362,5 +365,29 @@ describe("objective list helpers", () => {
 		expect(git.changedPathsUnderCalls.map((call) => call.revisionRange)).toEqual([
 			"master...feat/stale",
 		]);
+	});
+
+	test("list fails actionably before branch attribution dereferences a missing local trunk", async () => {
+		const git = new InMemoryGitGateway();
+		const ctx: ObjectiveCliContext = {
+			cwd: "/repo",
+			env: { PATH: "/fake/bin" },
+			repoRoot: "/repo",
+			trunkBranch: "master",
+			storage: new ObjectiveStorage(
+				new FakeObjectiveStorageGateway({ records: [{ slug: "alpha" }] }),
+			),
+			git,
+		};
+
+		const exit = await runListObjectives(ctx, { names: false, status: "active" });
+
+		expect(exit).toMatchObject({
+			type: "failure",
+			message: expect.stringContaining(
+				"Repository trunk local ref `refs/heads/master` is missing.",
+			),
+		});
+		expect(git.listLocalBranchTipsCalls).toEqual([]);
 	});
 });

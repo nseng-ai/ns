@@ -14,6 +14,7 @@ import { RealGitGateway } from "@nseng-ai/foundation/git";
 import {
 	nodeRepositoryTrunkConfigLoader,
 	resolveRepositoryTrunk,
+	validateRepositoryTrunkReadiness,
 	type RepositoryTrunkResult,
 } from "@nseng-ai/extension-kit/repository-trunk";
 
@@ -131,11 +132,27 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			...(options.env === undefined ? {} : { env: options.env }),
 			...(options.signal === undefined ? {} : { signal: options.signal }),
 		});
-		if (trunk.ok) return { ok: true, value: trunk.value.remoteTrackingRef };
-		return error({
-			code: "base-ref-unavailable",
-			message: `${trunk.error.message} Pass --base-ref explicitly.`,
+		if (!trunk.ok) {
+			return error({
+				code: "base-ref-unavailable",
+				message: `${trunk.error.message} Pass --base-ref explicitly.`,
+			});
+		}
+		const readiness = await validateRepositoryTrunkReadiness({
+			repoRoot,
+			git: this.gitGateway,
+			trunk: trunk.value,
+			requiredRefs: ["remote-tracking"],
+			...(options.env === undefined ? {} : { env: options.env }),
+			...(options.signal === undefined ? {} : { signal: options.signal }),
 		});
+		if (!readiness.ok) {
+			return error({
+				code: "base-ref-unavailable",
+				message: `${readiness.error.message} Pass --base-ref explicitly.`,
+			});
+		}
+		return { ok: true, value: readiness.value.remoteTrackingRef };
 	}
 
 	private async resolveExcludeGlobs(

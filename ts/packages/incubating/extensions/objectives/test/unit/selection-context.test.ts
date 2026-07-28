@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import { createManualClock } from "@nseng-ai/foundation/time/testing";
+
 import {
+	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
 	type ObjectiveSelectionCommandUi,
 } from "../../src/api/index.ts";
@@ -59,6 +63,54 @@ describe("objectiveSelectionContextFromCommandContext", () => {
 		expect(ui.statuses).toEqual(["source-ui:objective:loading"]);
 		expect(ui.selections).toEqual(["source-ui:choose:one,two,synthetic"]);
 		expect(idleWaits).toBe(1);
+	});
+
+	test("skips committed Objective diff when the listed local trunk is not ready", async () => {
+		const git = new InMemoryGitGateway({
+			statusPaths: { changedPaths: [".ns/objectives/alpha/roadmap.md"] },
+		});
+		const selections: string[][] = [];
+		const slug = await chooseActiveObjectiveSlug(
+			{
+				clock: createManualClock(0).clock,
+				git,
+				loadObjectiveList: async () => ({
+					type: "loaded",
+					list: {
+						trunkBranch: "master",
+						rootPath: ".ns/objectives",
+						statusFilter: "active",
+						namesOnly: false,
+						records: [
+							{
+								slug: "alpha",
+								status: "open",
+								latestUpdateIso: null,
+								hasOutstandingChanges: true,
+							},
+						],
+					},
+				}),
+			},
+			{
+				cwd: "/repo",
+				hasUI: true,
+				ui: {
+					notify() {},
+					select: async (_title, options) => {
+						selections.push([...options]);
+						return options[0];
+					},
+				},
+				async waitForIdle() {},
+			},
+			{ statusKey: "objective", selectionTitle: "Select an Objective" },
+		);
+
+		expect(slug).toBe("alpha");
+		expect(git.exactRefPresenceCalls).toEqual([{ cwd: "/repo", ref: "refs/heads/master" }]);
+		expect(git.changedPathsUnderCalls).toEqual([]);
+		expect(selections[0]?.[0]).toContain("changed in checkout");
 	});
 
 	test("omits optional UI capabilities and normalizes absent hasUI", () => {

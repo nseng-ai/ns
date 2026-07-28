@@ -2,6 +2,7 @@ import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/cl
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
+import { requireObjectiveContextLocalTrunk } from "../objective-trunk.ts";
 import {
 	activeRecordRelativePath,
 	activeRootRelativePath,
@@ -100,7 +101,12 @@ export async function runTrackingGate(
 		return failure(currentBranch.error.code, currentBranch.error.message);
 	}
 
-	const revisionRange = `${ctx.trunkBranch}...HEAD`;
+	const localTrunk = await requireObjectiveContextLocalTrunk(ctx);
+	if (localTrunk.type === "git-error") {
+		return failure(localTrunk.error.code, localTrunk.error.message);
+	}
+	const trunkBranch = localTrunk.branch;
+	const revisionRange = `${trunkBranch}...HEAD`;
 	const changedPathsResult = await ctx.git.changedPathsUnder({
 		cwd: ctx.repoRoot,
 		revisionRange,
@@ -137,7 +143,7 @@ export async function runTrackingGate(
 			git: {
 				repoRoot: ctx.repoRoot,
 				currentBranch,
-				trunkBranch: ctx.trunkBranch,
+				trunkBranch,
 				revisionRange,
 			},
 			uncommitted: {

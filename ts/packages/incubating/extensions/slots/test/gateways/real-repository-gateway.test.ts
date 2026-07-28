@@ -72,10 +72,12 @@ describe("RealSlotRepositoryGateway", () => {
 		]);
 	});
 
-	it("consumes an injected canonical repository trunk result", async () => {
+	it("validates the local ref of an injected canonical repository trunk result", async () => {
+		const coreGit = new InMemoryGitGateway({ existingRefs: ["refs/heads/develop"] });
 		await expect(
 			new RealSlotRepositoryGateway({
 				cwd: "/repo",
+				coreGit,
 				repositoryTrunk: {
 					ok: true,
 					value: {
@@ -88,6 +90,10 @@ describe("RealSlotRepositoryGateway", () => {
 				},
 			}).getTrunkBranch(),
 		).resolves.toBe("develop");
+		expect(coreGit.exactRefPresenceCalls).toEqual([{ cwd: "/repo", ref: "refs/heads/develop" }]);
+	});
+
+	it("reports resolution and missing-local-ref failures clearly", async () => {
 		await expect(
 			new RealSlotRepositoryGateway({
 				cwd: "/repo",
@@ -99,7 +105,26 @@ describe("RealSlotRepositoryGateway", () => {
 					},
 				},
 			}).getTrunkBranch(),
-		).rejects.toThrow("Fetch upstream");
+		).rejects.toThrow("Cannot resolve repository trunk for Slot workflow: Fetch upstream");
+
+		await expect(
+			new RealSlotRepositoryGateway({
+				cwd: "/repo",
+				coreGit: new InMemoryGitGateway(),
+				repositoryTrunk: {
+					ok: true,
+					value: {
+						branch: "develop",
+						remote: "origin",
+						localRef: "refs/heads/develop",
+						remoteTrackingRef: "refs/remotes/origin/develop",
+						source: "configured",
+					},
+				},
+			}).getTrunkBranch(),
+		).rejects.toThrow(
+			"Repository trunk is not ready for Slot workflow: Repository trunk local ref `refs/heads/develop` is missing.",
+		);
 	});
 
 	it("maps uncommitted-change success and failure results from the core git path contract", async () => {

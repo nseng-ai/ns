@@ -17,6 +17,7 @@ import {
 import {
 	nodeRepositoryTrunkConfigLoader,
 	resolveRepositoryTrunk,
+	validateRepositoryTrunkReadiness,
 	type RepositoryTrunkConfigLoader,
 	type RepositoryTrunkResult,
 } from "@nseng-ai/extension-kit/repository-trunk";
@@ -233,8 +234,22 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 				config: this.repositoryTrunkConfig,
 				env: this.env,
 			}));
-		if (result.ok) return result.value.branch;
-		throw new Error(`Cannot resolve repository trunk for Slot workflow: ${result.error.message}`);
+		if (!result.ok) {
+			throw new Error(`Cannot resolve repository trunk for Slot workflow: ${result.error.message}`);
+		}
+		const readiness = await validateRepositoryTrunkReadiness({
+			repoRoot: this.cwd,
+			git: this.coreGit,
+			trunk: result.value,
+			requiredRefs: ["local"],
+			env: this.env,
+		});
+		if (!readiness.ok) {
+			throw new Error(
+				`Repository trunk is not ready for Slot workflow: ${readiness.error.message}`,
+			);
+		}
+		return readiness.value.branch;
 	}
 
 	async getCurrentBranch(cwd: string): Promise<CurrentBranchResult> {

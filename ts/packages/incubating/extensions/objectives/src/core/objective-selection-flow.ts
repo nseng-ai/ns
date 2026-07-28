@@ -19,6 +19,7 @@ import {
 	type ObjectiveSelectionSpec,
 } from "./objective-selection.ts";
 import { createObjectiveClient } from "./objective-api-client.ts";
+import { requireObjectiveLocalTrunk } from "./objective-trunk.ts";
 
 const OBJECTIVE_COMMAND_TIMEOUT_MS = 30_000;
 
@@ -235,9 +236,15 @@ async function objectiveDiffChangedSlugs(
 ): Promise<string[]> {
 	const { host, ctx, trunkBranch } = options;
 	try {
+		const localTrunk = await requireObjectiveLocalTrunk({
+			repoRoot: ctx.cwd,
+			git: host.git,
+			branch: trunkBranch,
+		});
+		if (localTrunk.type === "git-error") return [];
 		const result = await host.git.changedPathsUnderWithRenames({
 			cwd: ctx.cwd,
-			revisionRange: `${trunkBranch}...HEAD`,
+			revisionRange: `${localTrunk.branch}...HEAD`,
 			relativePath: ".ns/objectives",
 		});
 		if (!result.ok) return [];

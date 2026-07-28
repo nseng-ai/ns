@@ -17,14 +17,15 @@ repositories customize its behavior through
 - The `ns` CLI with the Flow extension enabled.
 - The `gt` and `gh` CLIs available on `PATH`; commands that read or mutate pull
   requests require an authenticated GitHub session.
-- Locally cached Git refs for the repository trunk, resolved by the canonical Extension Kit
-  module from repository-root `[git]` policy in `ns.toml` and neutral Git facts. Resolution is
-  offline, requires both local and selected remote-tracking refs, and may observe stale cached
-  remote HEAD data. Checkpoint safety fails closed when that lookup fails, including on clean
-  worktrees and checkpoint dry runs.
-- For `pull-trunk`, the local configured-trunk branch must have a Git upstream.
-  Flow uses that upstream's exact remote and remote ref; it does not assume
-  `origin` or a same-named remote branch.
+- Repository-trunk identity resolved by the canonical Extension Kit module from repository-root
+  `[git]` policy in `ns.toml` and neutral Git facts. Identity resolution is offline and may
+  observe stale cached remote HEAD data; it validates names and derives refs without requiring
+  every workflow to have both refs. Each Flow workflow fails closed if its own required ref is
+  missing, including checkpoint safety on clean worktrees and checkpoint dry runs.
+- For `pull-trunk`, the resolved trunk must exist as a local branch and that branch must have a
+  Git upstream. Flow uses that upstream's exact remote and remote ref; it does not require the
+  repository-trunk policy's selected remote-tracking ref and does not assume `origin` or a
+  same-named remote branch.
 
 ## Commands
 
@@ -87,10 +88,11 @@ reshaped stack.
   policy. This is distinct from Graphite's topology trunk. If repository-trunk resolution
   fails, they stop before checkpoint-message generation or Git mutation; branch names such
   as `main` and `master` receive no special treatment unless one is the resolved trunk.
-- `pull-trunk` inspects the configured trunk's Git upstream before worktree
-  inspection and refresh mutation. A missing or unreadable upstream is a
-  non-mutating refusal; Flow never creates or rewrites upstream configuration
-  automatically.
+- `pull-trunk` first requires the resolved trunk's local branch, then inspects that branch's Git
+  upstream before worktree inspection and refresh mutation. A missing local branch or a missing
+  or unreadable upstream is a non-mutating refusal; Flow never creates the local branch or creates
+  or rewrites upstream configuration automatically. Create the local branch from an appropriate
+  fetched ref and configure its upstream, then retry.
 - `autoslot` composes the ns Slots extension to move the new branch into a managed
   slot. Other branch and submit commands do not require using managed slots. When
   `land` runs from or encounters a managed-slot worktree, it can perform targeted

@@ -132,11 +132,11 @@ describe("ns activation planning and apply", () => {
 				...context(),
 				git: new InMemoryGitGateway({
 					optionalRepoRoot: "/repo",
-					exactRefPresenceFailures: {
-						"refs/heads/main": {
-							code: "trunk-branch-command-failed",
-							message: "git show-ref timed out",
-							displayCommand: "git show-ref --verify refs/heads/main",
+					branchNameValidationFailures: {
+						main: {
+							code: "trunk-name-validation-failed",
+							message: "git check-ref-format timed out",
+							displayCommand: "git check-ref-format --branch main",
 						},
 					},
 				}),
@@ -147,9 +147,9 @@ describe("ns activation planning and apply", () => {
 		expect(result).toMatchObject({
 			type: "error",
 			error: {
-				code: "trunk-branch-command-failed",
-				displayCommand: "git show-ref --verify refs/heads/main",
-				message: expect.stringContaining("git show-ref timed out"),
+				code: "trunk-name-validation-failed",
+				displayCommand: "git check-ref-format --branch main",
+				message: expect.stringContaining("git check-ref-format timed out"),
 			},
 		});
 	});

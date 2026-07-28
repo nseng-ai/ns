@@ -35,6 +35,7 @@ function buildContext(): ObjectiveCliContext {
 		trunkBranch: "master",
 		storage,
 		git: new InMemoryGitGateway({
+			existingRefs: ["refs/heads/master"],
 			localBranchTips: [{ name: "master", headIso: "2026-05-01T00:00:00Z" }],
 		}),
 	};
