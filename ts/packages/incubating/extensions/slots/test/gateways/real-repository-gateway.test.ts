@@ -76,20 +76,20 @@ describe("RealSlotRepositoryGateway", () => {
 		await expect(
 			new RealSlotRepositoryGateway({
 				cwd: "/repo",
-				coreGit: new InMemoryGitGateway({ trunkBranch: "develop" }),
+				coreGit: new InMemoryGitGateway({ cachedOriginHeadBranch: "develop" }),
 			}).getTrunkBranch(),
 		).resolves.toBe("develop");
 		await expect(
 			new RealSlotRepositoryGateway({
 				cwd: "/repo",
-				coreGit: new InMemoryGitGateway({ trunkBranch: { type: "missing" } }),
+				coreGit: new InMemoryGitGateway({ cachedOriginHeadBranch: { type: "missing" } }),
 			}).getTrunkBranch(),
 		).resolves.toBe("master");
 		await expect(
 			new RealSlotRepositoryGateway({
 				cwd: "/repo",
 				coreGit: new InMemoryGitGateway({
-					trunkBranch: {
+					cachedOriginHeadBranch: {
 						type: "failure",
 						error: { code: "trunk_failed", message: "trunk failed" },
 					},

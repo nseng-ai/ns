@@ -101,7 +101,10 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 		const explicitBaseRef = options.baseRef?.trim() ?? "";
 		if (explicitBaseRef !== "") return { ok: true, value: explicitBaseRef };
 
-		const trunk = await this.gitGateway.trunkBranch({ cwd: repoRoot, signal: options.signal });
+		const trunk = await this.gitGateway.cachedOriginHeadBranch({
+			cwd: repoRoot,
+			signal: options.signal,
+		});
 		if (trunk.type === "found" && trunk.value.trim() !== "")
 			return { ok: true, value: trunk.value.trim() };
 		if (trunk.type === "error")

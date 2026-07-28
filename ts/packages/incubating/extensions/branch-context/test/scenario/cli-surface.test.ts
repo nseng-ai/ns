@@ -432,7 +432,7 @@ describe("branch-context CLI surface pinning", () => {
 		const content = "# Attached Plan\n";
 		const run = runWithFakes(["exec", "load", "--format", "human"], {
 			cwd: repoRoot,
-			git: { currentBranch: branch, trunkBranch: "main" },
+			git: { currentBranch: branch, cachedOriginHeadBranch: "main" },
 			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
 		});
 
@@ -508,7 +508,7 @@ describe("branch-context CLI surface pinning", () => {
 		const content = "# Attached Plan\n";
 		const placedAfterFlag = runWithFakes(["exec", "load", "--format", "json", PLAN_KEY], {
 			cwd: repoRoot,
-			git: { currentBranch: branch, trunkBranch: "main" },
+			git: { currentBranch: branch, cachedOriginHeadBranch: "main" },
 			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
 		});
 		expect(await placedAfterFlag.exit).toBe(0);

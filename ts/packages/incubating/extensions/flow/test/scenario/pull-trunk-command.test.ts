@@ -23,7 +23,7 @@ describe("flow pull-trunk command outcomes", () => {
 		expect(await run.exit).toBe(0);
 		expect(run.stderr.join("")).toBe("");
 		const stdout = stripAnsi(run.stdout.join(""));
-		expect(stdout).toContain("Pulled local Graphite trunk branch `main` only.");
+		expect(stdout).toContain("Pulled local Git trunk branch `main` only.");
 		expect(stdout).toContain("No full `gt sync` was run.");
 		expect(stdout).toContain("Command: git fetch company refs/heads/stable:refs/heads/main");
 		expect(stdout).toContain("Cwd: /work");
@@ -32,7 +32,7 @@ describe("flow pull-trunk command outcomes", () => {
 		expect(stdout).not.toContain("stdout:");
 		expect(stdout).not.toContain("stderr:");
 		expect(formattedExecCalls(run.context)).toEqual([
-			"gt trunk --no-interactive",
+			"git symbolic-ref --short refs/remotes/origin/HEAD",
 			upstreamLookup("main"),
 			"git worktree list --porcelain",
 			"git fetch company refs/heads/stable:refs/heads/main",
@@ -41,7 +41,10 @@ describe("flow pull-trunk command outcomes", () => {
 
 	test("successful pull uses the exact configured upstream in the trunk worktree", async () => {
 		const exec: ScriptedExecResponse[] = [
-			{ match: "gt trunk --no-interactive", result: { stdout: "release\n" } },
+			{
+				match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+				result: { stdout: "origin/release\n" },
+			},
 			{
 				match: upstreamLookup("release"),
 				result: {
@@ -68,18 +71,18 @@ describe("flow pull-trunk command outcomes", () => {
 		expect(stdout).toContain("Command: git pull --ff-only company refs/heads/stable");
 		expect(stdout).toContain("Cwd: /work");
 		expect(formattedExecCalls(run.context)).toEqual([
-			"gt trunk --no-interactive",
+			"git symbolic-ref --short refs/remotes/origin/HEAD",
 			upstreamLookup("release"),
 			"git worktree list --porcelain",
 			"git pull --ff-only company refs/heads/stable",
 		]);
 	});
 
-	test("Graphite trunk failure exits 1 on stderr and surfaces stderr", async () => {
+	test("Git trunk failure exits 1 on stderr and surfaces stderr", async () => {
 		const exec: ScriptedExecResponse[] = [
 			{
-				match: "gt trunk --no-interactive",
-				result: { code: 1, stderr: "fatal: no configured trunk\n" },
+				match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+				result: { code: 2, stderr: "fatal: cannot inspect cached remote HEAD\n" },
 			},
 		];
 		const run = runFlowPullTrunkCommandWithFakes({ state: { exec } });
@@ -87,14 +90,47 @@ describe("flow pull-trunk command outcomes", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		const stderr = stripAnsi(run.stderr.join(""));
-		expect(stderr).toContain("Could not resolve Graphite trunk. Local trunk was not updated.");
-		expect(stderr).toContain("fatal: no configured trunk");
-		expect(formattedExecCalls(run.context)).toEqual(["gt trunk --no-interactive"]);
+		expect(stderr).toContain(
+			"Could not resolve the Git trunk branch from cached `refs/remotes/origin/HEAD`. Local trunk was not updated.",
+		);
+		expect(stderr).toContain("fatal: cannot inspect cached remote HEAD");
+		expect(formattedExecCalls(run.context)).toEqual([
+			"git symbolic-ref --short refs/remotes/origin/HEAD",
+		]);
+	});
+
+	test("missing cached remote HEAD stops before upstream or network inspection", async () => {
+		const run = runFlowPullTrunkCommandWithFakes({
+			state: {
+				exec: [
+					{
+						match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+						result: { code: 1, stderr: "fatal: ref is not a symbolic ref\n" },
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stdout.join("")).toBe("");
+		const stderr = stripAnsi(run.stderr.join(""));
+		expect(stderr).toContain(
+			"Cached `refs/remotes/origin/HEAD` does not identify a Git trunk branch. Local trunk was not updated.",
+		);
+		expect(formattedExecCalls(run.context)).toEqual([
+			"git symbolic-ref --short refs/remotes/origin/HEAD",
+		]);
+		expect(
+			formattedExecCalls(run.context).some((call) => /^(git fetch|git pull)/u.test(call)),
+		).toBe(false);
 	});
 
 	test("missing configured upstream stops before worktree inspection", async () => {
 		const exec: ScriptedExecResponse[] = [
-			{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+			{
+				match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+				result: { stdout: "origin/main\n" },
+			},
 			{
 				match: upstreamLookup("main"),
 				result: { stdout: upstreamRecord({ branch: "main" }) },
@@ -105,17 +141,20 @@ describe("flow pull-trunk command outcomes", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		const stderr = stripAnsi(run.stderr.join(""));
-		expect(stderr).toContain("Graphite trunk `main` has no configured Git upstream");
+		expect(stderr).toContain("Git trunk `main` has no configured upstream");
 		expect(stderr).toContain("git branch --set-upstream-to=<remote>/<remote-branch> main");
 		expect(formattedExecCalls(run.context)).toEqual([
-			"gt trunk --no-interactive",
+			"git symbolic-ref --short refs/remotes/origin/HEAD",
 			upstreamLookup("main"),
 		]);
 	});
 
 	test("upstream inspection failure stops before worktree inspection", async () => {
 		const exec: ScriptedExecResponse[] = [
-			{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+			{
+				match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+				result: { stdout: "origin/main\n" },
+			},
 			{
 				match: upstreamLookup("main"),
 				result: { code: 128, stderr: "fatal: cannot inspect refs\n" },
@@ -125,17 +164,20 @@ describe("flow pull-trunk command outcomes", () => {
 
 		expect(await run.exit).toBe(1);
 		const stderr = stripAnsi(run.stderr.join(""));
-		expect(stderr).toContain("Could not inspect the configured Git upstream");
+		expect(stderr).toContain("Could not inspect the configured upstream");
 		expect(stderr).toContain("fatal: cannot inspect refs");
 		expect(formattedExecCalls(run.context)).toEqual([
-			"gt trunk --no-interactive",
+			"git symbolic-ref --short refs/remotes/origin/HEAD",
 			upstreamLookup("main"),
 		]);
 	});
 
 	test("worktree-list failure exits 1 on stderr with the failed command", async () => {
 		const exec: ScriptedExecResponse[] = [
-			{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+			{
+				match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+				result: { stdout: "origin/main\n" },
+			},
 			{
 				match: upstreamLookup("main"),
 				result: {
@@ -163,7 +205,10 @@ describe("flow pull-trunk command outcomes", () => {
 
 	test("update failure exits 1 on stderr with command, cwd, and promoted cause", async () => {
 		const exec: ScriptedExecResponse[] = [
-			{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+			{
+				match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+				result: { stdout: "origin/main\n" },
+			},
 			{
 				match: upstreamLookup("main"),
 				result: {

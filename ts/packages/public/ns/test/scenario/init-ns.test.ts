@@ -32,7 +32,7 @@ function fixture(
 	});
 	return {
 		context: {
-			git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", trunkBranch: "main" }),
+			git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", cachedOriginHeadBranch: "main" }),
 			files,
 			declaredExtensions: new InMemoryDeclaredExtensionsGateway(),
 			artifacts,

@@ -126,7 +126,7 @@ describe("source branch plan path helpers", () => {
 		const git = new InMemoryGitGateway({
 			currentBranch: sourceBranch,
 			originUrl: "git@github.com:owner/repo.git",
-			trunkBranch: { type: "missing" },
+			cachedOriginHeadBranch: { type: "missing" },
 		});
 
 		const evidence = await findLatestSavedPlanFile(unusedPi, {
@@ -162,7 +162,7 @@ describe("source branch plan path helpers", () => {
 		const git = new InMemoryGitGateway({
 			currentBranch: sourceBranch,
 			originUrl: "git@github.com:owner/repo.git",
-			trunkBranch: { type: "missing" },
+			cachedOriginHeadBranch: { type: "missing" },
 		});
 
 		const promise = findLatestSavedPlanFile(unusedPi, {
@@ -182,7 +182,7 @@ describe("source branch plan path helpers", () => {
 		const git = new InMemoryGitGateway({
 			currentBranch: "main",
 			originUrl: "git@github.com:owner/repo.git",
-			trunkBranch: { type: "missing" },
+			cachedOriginHeadBranch: { type: "missing" },
 		});
 
 		const promise = findLatestSavedPlanFile(unusedPi, {
@@ -207,7 +207,7 @@ describe("source branch plan path helpers", () => {
 		const git = new InMemoryGitGateway({
 			currentBranch: sourceBranch,
 			originUrl: "git@github.com:owner/repo.git",
-			trunkBranch: { type: "missing" },
+			cachedOriginHeadBranch: { type: "missing" },
 		});
 
 		const promise = findLatestSavedPlanFile(unusedPi, {
@@ -243,7 +243,7 @@ describe("source branch plan path helpers", () => {
 		const git = new InMemoryGitGateway({
 			currentBranch: sourceBranch,
 			originUrl: "git@github.com:owner/repo.git",
-			trunkBranch: { type: "missing" },
+			cachedOriginHeadBranch: { type: "missing" },
 		});
 
 		const evidence = await findLatestSavedPlanFile(unusedPi, {
@@ -277,7 +277,7 @@ describe("source branch plan path helpers", () => {
 		const git = new InMemoryGitGateway({
 			currentBranch: sourceBranch,
 			originUrl: "git@github.com:owner/repo.git",
-			trunkBranch: { type: "missing" },
+			cachedOriginHeadBranch: { type: "missing" },
 		});
 
 		const evidence = await findLatestSavedPlanFile(unusedPi, {

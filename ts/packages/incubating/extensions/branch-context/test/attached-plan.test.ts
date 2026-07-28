@@ -41,7 +41,7 @@ afterEach(async () => {
 function branchContext(overrides: Partial<BranchContextContext> = {}): BranchContextContext {
 	return {
 		commands: NO_COMMANDS,
-		git: new InMemoryGitGateway({ currentBranch: PLAN_BRANCH, trunkBranch: "main" }),
+		git: new InMemoryGitGateway({ currentBranch: PLAN_BRANCH, cachedOriginHeadBranch: "main" }),
 		brmem: new InMemoryBranchMemoryGateway({
 			entries: [{ branch: PLAN_BRANCH, key: PLAN_KEY, content: PLAN_CONTENT }],
 		}),
@@ -183,7 +183,7 @@ describe("loadAttachedPlan", () => {
 				context: branchContext({
 					git: new InMemoryGitGateway({
 						currentBranch: PLAN_BRANCH,
-						trunkBranch: "main",
+						cachedOriginHeadBranch: "main",
 						originUrl: "git@github.com:sdl/sdl-tools.git",
 						headCommit: "1111111111111111111111111111111111111111",
 					}),
@@ -232,7 +232,7 @@ describe("loadAttachedPlan", () => {
 				context: branchContext({
 					git: new InMemoryGitGateway({
 						currentBranch: implementationBranch,
-						trunkBranch: "main",
+						cachedOriginHeadBranch: "main",
 						originUrl: "git@github.com:sdl/sdl-tools.git",
 						headCommit: "1111111111111111111111111111111111111111",
 					}),
@@ -301,7 +301,10 @@ describe("loadAttachedPlan", () => {
 					{
 						cwd: ROOT,
 						context: branchContext({
-							git: new InMemoryGitGateway({ currentBranch: branch, trunkBranch: branch }),
+							git: new InMemoryGitGateway({
+								currentBranch: branch,
+								cachedOriginHeadBranch: branch,
+							}),
 							brmem,
 						}),
 					},

@@ -40,7 +40,7 @@ describe("flow branch-latest-commit command outcomes", () => {
 				expect.stringMatching(/^git branch -D autobranch-backup\/feature\/\d+$/),
 			]),
 		);
-		expect(calls).not.toContain("gt trunk --no-interactive");
+		expect(calls).not.toContain("git symbolic-ref --short refs/remotes/origin/HEAD");
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
@@ -59,7 +59,9 @@ describe("flow branch-latest-commit command outcomes", () => {
 		);
 
 		const calls = formattedExecCalls(run.context);
-		expect(calls.filter((call) => call === "gt trunk --no-interactive")).toHaveLength(2);
+		expect(
+			calls.filter((call) => call === "git symbolic-ref --short refs/remotes/origin/HEAD"),
+		).toHaveLength(2);
 		expect(
 			calls.filter((call) => call === "git rev-list --left-right --count HEAD...origin/feature"),
 		).toHaveLength(2);

@@ -48,7 +48,7 @@ function context(
 	} = {},
 ): NsActivationContext {
 	return {
-		git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", trunkBranch: "main" }),
+		git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", cachedOriginHeadBranch: "main" }),
 		files: options.files ?? new InMemoryActivationFilesGateway(),
 		declaredExtensions:
 			options.declaredExtensions ??

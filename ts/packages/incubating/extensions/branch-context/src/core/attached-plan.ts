@@ -414,7 +414,7 @@ async function resolveSafeImplementationBranch(
 	}
 	const branch = branchResult.branch;
 
-	const trunkBranch = await git.trunkBranch({ cwd, signal });
+	const trunkBranch = await git.cachedOriginHeadBranch({ cwd, signal });
 	const trunkBranchValue = trunkBranch.type === "found" ? trunkBranch.value : undefined;
 	if (branch === "main" || branch === "master" || branch === trunkBranchValue) {
 		throw new Error(

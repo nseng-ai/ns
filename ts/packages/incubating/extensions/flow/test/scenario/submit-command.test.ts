@@ -52,7 +52,10 @@ function cleanCheckpointResponses(branch = "feature/demo"): ScriptedExecResponse
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: `${branch}\n` } },
 		{ match: "git status --porcelain=v1", result: { stdout: "" } },
 		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
-		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+		{
+			match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+			result: { stdout: "origin/main\n" },
+		},
 	];
 }
 
@@ -65,7 +68,10 @@ function dirtyCheckpointResponses(): ScriptedExecResponse[] {
 			match: "git diff HEAD --no-ext-diff",
 			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 		},
-		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+		{
+			match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+			result: { stdout: "origin/main\n" },
+		},
 		{ match: "git add -A", result: {} },
 		{ match: /^git commit -F /, result: {} },
 		{ match: "git log -1 --oneline", result: { stdout: "abc123 [cp] Submit checkpoint\n" } },
@@ -945,7 +951,10 @@ describe("project-local submit extension", () => {
 					{ match: "git symbolic-ref --short HEAD", result: { stdout: "release\n" } },
 					{ match: "git status --porcelain=v1", result: { stdout: "" } },
 					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
-					{ match: "gt trunk --no-interactive", result: { stdout: "release\n" } },
+					{
+						match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+						result: { stdout: "origin/release\n" },
+					},
 				],
 				textGeneration: [],
 			},
@@ -972,8 +981,8 @@ describe("project-local submit extension", () => {
 					{ match: "git status --porcelain=v1", result: { stdout: "" } },
 					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
 					{
-						match: "gt trunk --no-interactive",
-						result: { code: 1, stderr: "Graphite configuration unavailable\n" },
+						match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+						result: { code: 2, stderr: "git symbolic-ref unavailable\n" },
 					},
 				],
 				textGeneration: [],
@@ -982,7 +991,7 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain(
-			"Could not resolve configured Graphite trunk; checkpoint was not created.",
+			"Could not resolve the Git trunk branch from cached `refs/remotes/origin/HEAD`; checkpoint was not created.",
 		);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gt submit"))).toBe(
@@ -1005,7 +1014,10 @@ describe("project-local submit extension", () => {
 						match: "git diff HEAD --no-ext-diff",
 						result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 					},
-					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+					{
+						match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+						result: { stdout: "origin/main\n" },
+					},
 				],
 				textGeneration: [
 					{ ok: false, error: "model unavailable" },

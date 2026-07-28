@@ -9,12 +9,6 @@ import {
 	type GitErrorInfo,
 	type GitGateway,
 } from "@nseng-ai/foundation/git";
-import {
-	RealGraphiteBranchGateway,
-	type GraphiteBranchGateway,
-	type GraphiteErrorInfo,
-	type GraphiteTrunkBranchFailureReason,
-} from "@nseng-ai/extension-kit/graphite/branch";
 
 const GIT_TIMEOUT_MS = 2 * 60 * 1000;
 
@@ -32,12 +26,8 @@ type CommandBackedTrunkPullOutcome =
 	| { kind: "update-failed"; trunk: string };
 
 type GatewayBackedTrunkPullOutcome =
-	| {
-			kind: "trunk-command-failed";
-			reason: Exclude<GraphiteTrunkBranchFailureReason, "empty">;
-			error: GraphiteErrorInfo;
-	  }
-	| { kind: "trunk-empty"; error: GraphiteErrorInfo }
+	| { kind: "trunk-resolution-failed"; error: GitErrorInfo }
+	| { kind: "trunk-missing" }
 	| { kind: "upstream-missing"; trunk: string }
 	| { kind: "upstream-inspection-failed"; trunk: string; error: GitErrorInfo };
 
@@ -59,8 +49,7 @@ interface GatewayBackedTrunkPullResult {
 export type TrunkPullResult = CommandBackedTrunkPullResult | GatewayBackedTrunkPullResult;
 
 interface TrunkPullGateways {
-	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
-	git: Pick<GitGateway, "branchUpstream">;
+	git: Pick<GitGateway, "cachedOriginHeadBranch" | "branchUpstream">;
 }
 
 export async function runTrunkPullDetailed(
@@ -73,7 +62,6 @@ export async function runTrunkPullDetailed(
 	return await runTrunkPullWithGateways({
 		commands,
 		cwd,
-		graphite: new RealGraphiteBranchGateway(execApi),
 		git: new RealGitGateway(execApi),
 	});
 }
@@ -81,22 +69,13 @@ export async function runTrunkPullDetailed(
 async function runTrunkPullWithGateways(
 	options: TrunkPullGateways & { commands: TrunkPullCommands; cwd: string },
 ): Promise<TrunkPullResult> {
-	const { commands, cwd, graphite, git } = options;
-	const trunkResult = await graphite.trunkBranch({ cwd });
-	if (!trunkResult.ok) {
-		if (trunkResult.reason === "empty") {
-			return { outcome: { kind: "trunk-empty", error: trunkResult.error }, cwd };
-		}
-		return {
-			outcome: {
-				kind: "trunk-command-failed",
-				reason: trunkResult.reason,
-				error: trunkResult.error,
-			},
-			cwd,
-		};
+	const { commands, cwd, git } = options;
+	const trunkResult = await git.cachedOriginHeadBranch({ cwd });
+	if (trunkResult.type === "missing") return { outcome: { kind: "trunk-missing" }, cwd };
+	if (trunkResult.type === "error") {
+		return { outcome: { kind: "trunk-resolution-failed", error: trunkResult.error }, cwd };
 	}
-	const trunk = trunkResult.branch;
+	const trunk = trunkResult.value;
 
 	const upstream = await git.branchUpstream({ cwd, branch: trunk });
 	if (upstream.type === "missing") {

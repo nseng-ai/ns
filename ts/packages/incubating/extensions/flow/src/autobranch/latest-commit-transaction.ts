@@ -8,7 +8,10 @@ import {
 } from "../phase-stream/failure-catalog.ts";
 import { branchNameCandidates, findAvailableBranchName } from "./branch-name.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
-import { inspectLatestCommitUpstreamEligibility } from "./upstream.ts";
+import {
+	inspectLatestCommitUpstreamEligibility,
+	type GitTrunkResolutionFailure,
+} from "./upstream.ts";
 import { normalizeBranchSlugText } from "@nseng-ai/foundation/branch-slug";
 import type { LatestCommitAutobranchPlan } from "./latest-commit-preparation.ts";
 
@@ -66,7 +69,11 @@ export type LatestCommitTransactionResult =
 			createError: string;
 	  } & CreatedBranchRecovery)
 	| { ok: false; kind: "transaction_upstream_check_failed"; error: string }
-	| { ok: false; kind: "transaction_graphite_trunk_check_failed"; error: string }
+	| {
+			ok: false;
+			kind: "transaction_git_trunk_unavailable";
+			failure: GitTrunkResolutionFailure;
+	  }
 	| { ok: false; kind: "remote_ahead_refusal"; upstream: string }
 	| { ok: false; kind: "diverged_upstream_refusal"; upstream: string }
 	| {
@@ -113,11 +120,11 @@ export async function runLatestCommitAutobranchTransaction(
 				kind: "transaction_upstream_check_failed",
 				error: upstream.error,
 			};
-		case "graphite_trunk_check_failed":
+		case "git_trunk_unavailable":
 			return {
 				ok: false,
-				kind: "transaction_graphite_trunk_check_failed",
-				error: upstream.error,
+				kind: "transaction_git_trunk_unavailable",
+				failure: upstream.failure,
 			};
 		case "remote_ahead_refusal":
 			return { ok: false, kind: upstream.type, upstream: upstream.upstream };
@@ -430,10 +437,16 @@ const latestCommitTransactionFailureCatalog = defineFailureCatalog<
 		message: (failure) =>
 			`Could not re-check the local relationship between HEAD and the current branch upstream before moving the latest commit.\n${failure.error}`,
 	},
-	transaction_graphite_trunk_check_failed: {
+	transaction_git_trunk_unavailable: {
 		verdict: "failure",
-		message: (failure) =>
-			`Could not re-check the configured Graphite trunk for the synchronized source branch before moving the latest commit.\n${failure.error}`,
+		message: (failure) => {
+			switch (failure.failure.type) {
+				case "missing":
+					return "Could not re-check the Git trunk from cached `refs/remotes/origin/HEAD` for the synchronized source branch before moving the latest commit. Refresh it with `git remote set-head origin --auto`, or set it explicitly with `git remote set-head origin <branch>`, then retry.";
+				case "error":
+					return `Could not re-check the Git trunk from cached \`refs/remotes/origin/HEAD\` for the synchronized source branch before moving the latest commit.\n${failure.failure.error}\nRefresh it with \`git remote set-head origin --auto\`, or set it explicitly with \`git remote set-head origin <branch>\`, then retry.`;
+			}
+		},
 	},
 	remote_ahead_refusal: {
 		verdict: "refusal",
@@ -448,7 +461,7 @@ const latestCommitTransactionFailureCatalog = defineFailureCatalog<
 	synchronized_trunk_refusal: {
 		verdict: "refusal",
 		message: (failure) =>
-			`Refusing to move latest commit because source branch ${failure.branch} is synchronized with configured Graphite trunk ${failure.trunk} (upstream ${failure.upstream}).`,
+			`Refusing to move latest commit because source branch ${failure.branch} is synchronized with Git trunk from cached \`refs/remotes/origin/HEAD\` ${failure.trunk} (upstream ${failure.upstream}).`,
 	},
 	branch_reset_failed: {
 		verdict: "failure",

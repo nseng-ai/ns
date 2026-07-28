@@ -50,7 +50,7 @@ export function fakeReviewsContext(options: FakeReviewsContextOptions = {}): Rev
 			repoRoot: DEFAULT_REPO_ROOT,
 			optionalRepoRoot: DEFAULT_REPO_ROOT,
 			currentBranch: "feature",
-			trunkBranch: "main",
+			cachedOriginHeadBranch: "main",
 			originUrl: "git@example.com:repo.git\n",
 			headCommit: "abc123",
 			existingBranches: ["feature", "main"],

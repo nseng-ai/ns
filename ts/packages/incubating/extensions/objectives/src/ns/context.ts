@@ -19,7 +19,7 @@ export async function createNsObjectiveContext(
 	const git = options.git ?? createNsGitGateway(ctx);
 	const repoRootResult = await git.optionalRepoRoot({ cwd: ctx.cwd });
 	const repoRoot = repoRootResult.type === "found" ? repoRootResult.value : ctx.cwd;
-	const trunkBranchResult = await git.trunkBranch({ cwd: repoRoot });
+	const trunkBranchResult = await git.cachedOriginHeadBranch({ cwd: repoRoot });
 	const trunkBranch = trunkBranchResult.type === "found" ? trunkBranchResult.value : "main";
 	return {
 		cwd: ctx.cwd,

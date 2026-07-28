@@ -125,7 +125,7 @@ describe("RealArtifactActivationGateway", () => {
 		recorder.beginPhase("activation-preflight");
 		const result = await prepareNsActivation(
 			{
-				git: new InMemoryGitGateway({ optionalRepoRoot: repoRoot, trunkBranch: "main" }),
+				git: new InMemoryGitGateway({ optionalRepoRoot: repoRoot, cachedOriginHeadBranch: "main" }),
 				files,
 				declaredExtensions: new InMemoryDeclaredExtensionsGateway(),
 				artifacts,

@@ -99,7 +99,10 @@ export function runFlowPullTrunkCommandWithFakes(options: RunFlowCommandWithFake
 		options,
 		defaults: options.defaults ?? {
 			execResponses: () => [
-				{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+				{
+					match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+					result: { stdout: "origin/main\n" },
+				},
 				{
 					match:
 						"git for-each-ref --format=%(refname)%00%(upstream:remotename)%00%(upstream:remoteref) refs/heads/main",
@@ -229,7 +232,10 @@ function branchLatestCommitUpstreamResponses(
 			match: "git rev-list --left-right --count HEAD...origin/feature",
 			result: { stdout: "0\t0\n" },
 		},
-		{ match: "gt trunk --no-interactive", result: { stdout: "master\n" } },
+		{
+			match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+			result: { stdout: "origin/master\n" },
+		},
 	];
 }
 
@@ -663,7 +669,10 @@ function dirtyCpExecResponses(): ScriptedExecResponse[] {
 			match: "git diff HEAD --no-ext-diff",
 			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 		},
-		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+		{
+			match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+			result: { stdout: "origin/main\n" },
+		},
 		{ match: "git add -A", result: {} },
 		{ match: /^git commit -F /, result: {} },
 		{ match: "git log -1 --oneline", result: { stdout: "abc123 [cp] Update checkpoint\n" } },

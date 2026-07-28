@@ -35,7 +35,7 @@ export interface InMemoryGitGatewayState {
 	optionalRepoRoot?: OptionalValueState<string>;
 	currentBranch?: CurrentBranchState;
 	isInsideWorkTree?: ValueState<boolean>;
-	trunkBranch?: OptionalValueState<string>;
+	cachedOriginHeadBranch?: OptionalValueState<string>;
 	branchUpstream?: OptionalValueState<GitBranchUpstream>;
 	originUrl?: OptionalValueState<string>;
 	headCommit?: ValueState<string>;
@@ -106,7 +106,7 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly optionalRepoRootState: OptionalValueState<string>;
 	private currentBranchState: CurrentBranchState;
 	private readonly isInsideWorkTreeState: ValueState<boolean>;
-	private readonly trunkBranchState: OptionalValueState<string>;
+	private readonly cachedOriginHeadBranchState: OptionalValueState<string>;
 	private readonly branchUpstreamState: OptionalValueState<GitBranchUpstream>;
 	private readonly originUrlState: OptionalValueState<string>;
 	private readonly headCommitState: ValueState<string>;
@@ -139,7 +139,7 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly optionalRepoRootLog: GitCall[] = [];
 	private readonly currentBranchLog: GitCall[] = [];
 	private readonly isInsideWorkTreeLog: GitCall[] = [];
-	private readonly trunkBranchLog: GitCall[] = [];
+	private readonly cachedOriginHeadBranchLog: GitCall[] = [];
 	private readonly branchUpstreamLog: GitBranchCall[] = [];
 	private readonly originUrlLog: GitCall[] = [];
 	private readonly headCommitLog: GitCall[] = [];
@@ -167,7 +167,7 @@ export class InMemoryGitGateway implements GitGateway {
 		this.optionalRepoRootState = state.optionalRepoRoot ?? state.repoRoot ?? "/repo";
 		this.currentBranchState = state.currentBranch ?? "feature/source-plan";
 		this.isInsideWorkTreeState = state.isInsideWorkTree ?? true;
-		this.trunkBranchState = state.trunkBranch ?? "main";
+		this.cachedOriginHeadBranchState = state.cachedOriginHeadBranch ?? "main";
 		this.branchUpstreamState = cloneBranchUpstreamState(
 			state.branchUpstream ?? {
 				remoteName: "origin",
@@ -232,8 +232,8 @@ export class InMemoryGitGateway implements GitGateway {
 		return copyCalls(this.isInsideWorkTreeLog);
 	}
 
-	get trunkBranchCalls(): readonly GitCall[] {
-		return copyCalls(this.trunkBranchLog);
+	get cachedOriginHeadBranchCalls(): readonly GitCall[] {
+		return copyCalls(this.cachedOriginHeadBranchLog);
 	}
 
 	get branchUpstreamCalls(): readonly GitBranchCall[] {
@@ -369,10 +369,10 @@ export class InMemoryGitGateway implements GitGateway {
 		);
 	}
 
-	async trunkBranch(params: GitCwdParams): Promise<GitOptionalResult<string>> {
-		this.trunkBranchLog.push(callFromParams(params));
+	async cachedOriginHeadBranch(params: GitCwdParams): Promise<GitOptionalResult<string>> {
+		this.cachedOriginHeadBranchLog.push(callFromParams(params));
 		return optionalValueResult(
-			this.trunkBranchState,
+			this.cachedOriginHeadBranchState,
 			"trunk_branch_failed",
 			"Could not resolve trunk branch.",
 		);

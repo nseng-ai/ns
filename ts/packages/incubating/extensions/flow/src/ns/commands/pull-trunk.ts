@@ -12,9 +12,9 @@ const pullTrunkSchema = z.object({});
 
 export const flowPullTrunkCommand: NsCommand<typeof pullTrunkSchema> = defineCommand({
 	name: "pull-trunk",
-	summary: "Pull the configured Graphite trunk branch without running full gt sync.",
+	summary: "Pull the Git trunk branch from its configured upstream without running full gt sync.",
 	description:
-		"Pull the configured Graphite trunk branch from its configured Git upstream without running full gt sync.",
+		"Pull the Git trunk branch identified by cached refs/remotes/origin/HEAD from its configured upstream without running full gt sync.",
 	schema: pullTrunkSchema,
 	resultSchema: z.string(),
 	handler: async (ctx) => {
@@ -33,31 +33,36 @@ export default flowPullTrunkCommand;
 function renderTrunkPullBlock(caps: Caps, result: TrunkPullResult): string {
 	if (!isCommandBackedResult(result)) {
 		switch (result.outcome.kind) {
-			case "trunk-command-failed":
+			case "trunk-resolution-failed":
 				return renderResultBlock(caps, {
 					kind: "failure",
-					headline: "Could not resolve Graphite trunk. Local trunk was not updated.",
+					headline:
+						"Could not resolve the Git trunk branch from cached `refs/remotes/origin/HEAD`. Local trunk was not updated.",
 					body: result.outcome.error.message,
+					guidance:
+						"Refresh it with `git remote set-head origin --auto`, or set it explicitly with `git remote set-head origin <branch>`, then retry.",
 					cwd: result.cwd,
 				});
-			case "trunk-empty":
+			case "trunk-missing":
 				return renderResultBlock(caps, {
 					kind: "failure",
-					headline: "gt trunk --no-interactive returned no branch. Local trunk was not updated.",
-					body: result.outcome.error.message,
+					headline:
+						"Cached `refs/remotes/origin/HEAD` does not identify a Git trunk branch. Local trunk was not updated.",
+					guidance:
+						"Refresh it with `git remote set-head origin --auto`, or set it explicitly with `git remote set-head origin <branch>`, then retry.",
 					cwd: result.cwd,
 				});
 			case "upstream-missing":
 				return renderResultBlock(caps, {
 					kind: "refusal",
-					headline: `Graphite trunk \`${result.outcome.trunk}\` has no configured Git upstream. Local trunk was not updated.`,
+					headline: `Git trunk \`${result.outcome.trunk}\` has no configured upstream. Local trunk was not updated.`,
 					guidance: `Configure one with \`git branch --set-upstream-to=<remote>/<remote-branch> ${result.outcome.trunk}\`, then retry.`,
 					cwd: result.cwd,
 				});
 			case "upstream-inspection-failed":
 				return renderResultBlock(caps, {
 					kind: "failure",
-					headline: `Could not inspect the configured Git upstream for Graphite trunk \`${result.outcome.trunk}\`. Local trunk was not updated.`,
+					headline: `Could not inspect the configured upstream for Git trunk \`${result.outcome.trunk}\`. Local trunk was not updated.`,
 					body: result.outcome.error.message,
 					cwd: result.cwd,
 				});
@@ -69,7 +74,7 @@ function renderTrunkPullBlock(caps: Caps, result: TrunkPullResult): string {
 		case "success":
 			return renderGitResultBlock(caps, {
 				kind: "success",
-				headline: `Pulled local Graphite trunk branch \`${result.outcome.trunk}\` only.`,
+				headline: `Pulled local Git trunk branch \`${result.outcome.trunk}\` only.`,
 				command,
 				cwd: result.cwd,
 				result: result.execResult,
