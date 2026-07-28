@@ -4,9 +4,10 @@ import { pathToFileURL } from "node:url";
 import { Command, CommanderError, Option } from "commander";
 import { z } from "zod";
 
+import { buildCommanderArgument, buildCommanderOption } from "../commander-surface.ts";
 import type { ClinkrIo } from "../io.ts";
 import { createProcessIo } from "../io.ts";
-import { buildSurfacePlan } from "../surface.ts";
+import { buildSurfacePlan, type SurfacePlan } from "../surface.ts";
 import {
 	buildCommandJsonSchemaDocument,
 	cliAnnotationFor,
@@ -16,11 +17,11 @@ import {
 	type ContextfulCommandDefinition,
 } from "./command-definition.ts";
 import {
+	decodeCommandOutcome,
 	envelopeJsonText,
 	exitCodeFor,
 	toEnvelope,
 	type CommandOutcome,
-	type SuccessOutcome,
 	type UsageErrorOutcome,
 } from "./outcome.ts";
 
@@ -70,14 +71,6 @@ interface LoadedMetadataModule {
 	metadata: () => unknown;
 }
 
-interface EmitUsageErrorOptions {
-	readonly io: ClinkrIo;
-	readonly argv: readonly string[];
-	readonly message: string;
-	readonly errorType: string;
-	readonly data?: unknown;
-}
-
 function isExactCommandModule(value: unknown): value is LoadedCommandModule {
 	return isExactFunctionModule(value, "command");
 }
@@ -92,16 +85,23 @@ function isExactFunctionModule(value: unknown, exportName: "command" | "metadata
 	return Object.keys(record).length === 1 && typeof record[exportName] === "function";
 }
 
+const commandMetadataSchema = z.strictObject({
+	description: z.string(),
+	aliases: z.array(z.string()).readonly().optional(),
+});
+
 function isCommandMetadata(value: unknown): value is ClinkrCommandMetadata {
-	if (typeof value !== "object" || value === null) return false;
-	const record = value as Record<string, unknown>;
-	const allowed = new Set(["description", "aliases"]);
-	if (Object.keys(record).some((key) => !allowed.has(key))) return false;
-	if (typeof record.description !== "string") return false;
-	return (
-		record.aliases === undefined ||
-		(Array.isArray(record.aliases) && record.aliases.every((alias) => typeof alias === "string"))
-	);
+	if (!commandMetadataSchema.safeParse(value).success) return false;
+	// Drift guard (one-directional): every `ClinkrCommandMetadata` must remain
+	// a valid `commandMetadataSchema` output, so the schema cannot silently
+	// narrow below the interface; the annotation collapses to `never` on drift.
+	// The reverse direction is not asserted because zod v4 `.optional()`
+	// inference adds `| undefined`, which `exactOptionalPropertyTypes` rejects
+	// against the interface's plain optional properties.
+	const schemaCoversInterface: ClinkrCommandMetadata extends z.infer<typeof commandMetadataSchema>
+		? true
+		: never = true;
+	return schemaCoversInterface;
 }
 
 const DEFINITION_KEYS = new Set([
@@ -129,6 +129,11 @@ function isCommandDefinition(value: unknown): value is ClinkrCommandDefinition<u
 	return true;
 }
 
+interface LoadedCommand<TContext> {
+	readonly definition: ClinkrCommandDefinition<TContext>;
+	readonly metadata: ClinkrCommandMetadata;
+}
+
 class FilesystemClinkrApp<TContext> {
 	private readonly name: string;
 	private readonly commandDirectory: string;
@@ -153,46 +158,38 @@ class FilesystemClinkrApp<TContext> {
 		if ((definition.requiresContext === true) !== this.requiresContext) {
 			throw new Error("clinkr: selected command context mode does not match the app");
 		}
-		const inputJsonCount = argv.filter((argument) => argument === "--input-json").length;
-		if (inputJsonCount > 1) {
-			return emitUsageError({
-				io,
-				argv,
-				message: "repeated --input-json",
-				errorType: "invalid-request",
-			});
-		}
-		const inputJson = inputJsonCount === 1;
-		const withoutInput = argv.filter((argument) => argument !== "--input-json");
-		const formatResult = parseFormat(withoutInput);
-		if (!formatResult.success) {
-			return emitUsageError({
-				io,
-				argv: withoutInput,
-				message: formatResult.message,
-				errorType: "invalid-request",
-			});
-		}
-		const format = formatResult.format;
-		if (argv.includes("--help") || argv.includes("-h")) {
-			io.stdout(buildCommander(this.name, definition, metadata).helpInformation());
+		const parsed = parseGlobalFlags(argv);
+		if (parsed.ok ? parsed.flags.help : parsed.help) {
+			io.stdout(buildCommandSurface(this.name, definition, metadata).command.helpInformation());
 			return 0;
 		}
-		if (argv.includes("--json-schema")) {
+		if (!parsed.ok) {
+			return emitUsageError({
+				io,
+				format: parsed.format,
+				message: parsed.message,
+				errorType: "invalid-request",
+			});
+		}
+		const { format, jsonSchema, inputJson, rest } = parsed.flags;
+		if (jsonSchema && inputJson) {
+			return emitUsageError({
+				io,
+				format,
+				message: "--json-schema cannot be combined with --input-json",
+				errorType: "invalid-request",
+			});
+		}
+		if (jsonSchema) {
 			io.stdout(`${envelopeJsonText(buildCommandJsonSchemaDocument(definition))}\n`);
 			return 0;
 		}
 		let request: Record<string, unknown>;
 		if (inputJson) {
-			const commandArguments = withoutInput.filter((argument, index) => {
-				if (argument === "--format") return false;
-				if (index > 0 && withoutInput[index - 1] === "--format") return false;
-				return !argument.startsWith("--format=");
-			});
-			if (commandArguments.length > 0) {
+			if (rest.length > 0) {
 				return emitUsageError({
 					io,
-					argv: withoutInput,
+					format,
 					message: "--input-json cannot be combined with command arguments",
 					errorType: "invalid-request",
 				});
@@ -201,41 +198,39 @@ class FilesystemClinkrApp<TContext> {
 			if (readStdin === undefined) {
 				return emitUsageError({
 					io,
-					argv: withoutInput,
+					format,
 					message: "--input-json requires stdin",
 					errorType: "invalid-json-input",
 				});
 			}
-			const parsed = parseJsonInput(await readStdin(), definition.schema);
-			if (!parsed.success) {
+			const parsedJson = parseJsonInput(await readStdin(), definition.schema);
+			if (!parsedJson.success)
 				return emitUsageError({
 					io,
-					argv: withoutInput,
-					message: parsed.message,
-					errorType: parsed.errorType,
-					data: parsed.data,
+					format,
+					message: parsedJson.message,
+					errorType: parsedJson.errorType,
+					...(parsedJson.data === undefined ? {} : { data: parsedJson.data }),
 				});
-			}
-			request = parsed.data as Record<string, unknown>;
+			request = parsedJson.data as Record<string, unknown>;
 		} else {
-			const parsed = parseArgv(this.name, withoutInput, definition);
-			if (!parsed.success) {
+			const parsedArgv = parseArgv(this.name, rest, definition, metadata);
+			if (!parsedArgv.success)
 				return emitUsageError({
 					io,
-					argv: withoutInput,
-					message: parsed.message,
+					format,
+					message: parsedArgv.message,
 					errorType: "invalid-request",
 				});
-			}
-			request = parsed.data as Record<string, unknown>;
+			request = parsedArgv.data as Record<string, unknown>;
 		}
-		const outcome = this.requiresContext
+		const handlerResult: unknown = this.requiresContext
 			? await (definition as ContextfulCommandDefinition<TContext>).handler(
 					(options as ClinkrRunOptions<TContext>).context,
 					request,
 				)
 			: await (definition as ContextFreeCommandDefinition).handler(request);
-		validateOutcome(outcome, definition);
+		const outcome = decodeCommandOutcome(handlerResult, definition.resultSchema);
 		emitOutcome(io, outcome, definition, format);
 		return exitCodeFor(outcome.status);
 	}
@@ -283,18 +278,23 @@ export function createClinkrApp<TContext>(
 	});
 }
 
-interface LoadedCommand<TContext> {
-	readonly definition: ClinkrCommandDefinition<TContext>;
-	readonly metadata: ClinkrCommandMetadata;
+interface CommandSurface {
+	readonly command: Command;
+	readonly surface: SurfacePlan;
 }
 
-function buildCommander(
+/**
+ * Single extraction pass from the declared schema to both the surface plan
+ * and the commander registration built from that same plan, so the two can
+ * never drift.
+ */
+function buildCommandSurface(
 	name: string,
 	definition: ClinkrCommandDefinition,
-	metadata?: ClinkrCommandMetadata,
-): Command {
-	const positionals: Record<string, { position: number }> = {};
-	const optionSpecs: Record<string, { short?: string }> = {};
+	metadata: ClinkrCommandMetadata,
+): CommandSurface {
+	const positionals: Record<string, { position: number; description?: string }> = {};
+	const optionSpecs: Record<string, { short?: string; description?: string }> = {};
 	for (const [key, field] of Object.entries(definition.schema.shape)) {
 		const annotation = cliAnnotationFor(field as z.ZodType);
 		if (annotation?.type === "positional") positionals[key] = annotation.options;
@@ -307,53 +307,35 @@ function buildCommander(
 		optionSpecs,
 	});
 	const command = new Command(name)
+		.description(metadata.description)
 		.exitOverride()
 		.configureOutput({ writeOut: () => {}, writeErr: () => {} });
-	if (metadata !== undefined) {
-		command.description(metadata.description);
-		if (metadata.aliases !== undefined) command.aliases([...metadata.aliases]);
-	}
+	if (metadata.aliases !== undefined) command.aliases([...metadata.aliases]);
 	for (const positional of surface.positionals) {
-		command.argument(
-			`${positional.isRequired ? "<" : "["}${positional.name}${positional.isRequired ? ">" : "]"}`,
-			positional.description,
-		);
+		command.addArgument(buildCommanderArgument(positional, { requiredness: "commander" }));
 	}
 	for (const option of surface.options) {
-		const commanderOption = new Option(option.flag, option.description);
-		if (option.hasDefault) commanderOption.default(option.defaultValue);
-		command.addOption(commanderOption);
+		command.addOption(buildCommanderOption(option, { applyDefault: true }));
 	}
+	// Help-display-only: the global flags below are parsed exclusively by
+	// parseGlobalFlags before commander ever sees argv (parseArgv receives a
+	// `rest` that never contains them). These registrations exist solely so
+	// `--help` output lists the standard flags.
 	command.addOption(
 		new Option("--format <format>").choices(["human", "json", "md"]).default("human"),
 	);
 	command.addOption(new Option("--input-json"));
 	command.addOption(new Option("--json-schema"));
-	return command;
+	return { command, surface };
 }
 
 function parseArgv(
 	name: string,
 	argv: readonly string[],
 	definition: ClinkrCommandDefinition,
+	metadata: ClinkrCommandMetadata,
 ): { success: true; data: unknown } | { success: false; message: string } {
-	const command = buildCommander(name, definition);
-	const surface = buildSurfacePlan({
-		commandName: name,
-		schema: definition.schema,
-		positionals: Object.fromEntries(
-			Object.entries(definition.schema.shape).flatMap(([key, field]) => {
-				const annotation = cliAnnotationFor(field as z.ZodType);
-				return annotation?.type === "positional" ? [[key, annotation.options]] : [];
-			}),
-		),
-		optionSpecs: Object.fromEntries(
-			Object.entries(definition.schema.shape).flatMap(([key, field]) => {
-				const annotation = cliAnnotationFor(field as z.ZodType);
-				return annotation?.type === "option" ? [[key, annotation.options]] : [];
-			}),
-		),
-	});
+	const { command, surface } = buildCommandSurface(name, definition, metadata);
 	try {
 		command.parse([...argv], { from: "user" });
 	} catch (error) {
@@ -372,12 +354,15 @@ function parseArgv(
 		: { success: false, message: z.prettifyError(parsed.error) };
 }
 
+/** Usage-error discriminants the framework itself emits (handlers own other values). */
+type FrameworkUsageErrorType = "invalid-request" | "invalid-json-input";
+
 function parseJsonInput(
 	text: string,
 	schema: z.ZodObject,
 ):
 	| { success: true; data: unknown }
-	| { success: false; message: string; errorType: string; data?: unknown } {
+	| { success: false; message: string; errorType: FrameworkUsageErrorType; data?: unknown } {
 	const normalized = text.startsWith("\uFEFF") ? text.slice(1) : text;
 	if (normalized.trim() === "")
 		return { success: false, message: "stdin is empty", errorType: "invalid-json-input" };
@@ -398,7 +383,28 @@ function parseJsonInput(
 			message: "stdin JSON must be an object",
 			errorType: "invalid-json-input",
 		};
-	const parsed = z.strictObject(schema.shape).safeParse(transported.data);
+	// Reject top-level unknown keys even for passthrough schemas, before field
+	// validation, so unknown-key errors retain precedence over field errors.
+	const declaredKeys = new Set(Object.keys(schema.shape));
+	const unknownKeys = Object.keys(transported.data).filter((key) => !declaredKeys.has(key));
+	if (unknownKeys.length > 0) {
+		return {
+			success: false,
+			message: "request did not match its schema",
+			errorType: "invalid-request",
+			data: {
+				issues: [
+					{
+						code: "unrecognized_keys",
+						keys: unknownKeys,
+						path: [],
+						message: `Unrecognized key${unknownKeys.length > 1 ? "s" : ""}: ${unknownKeys.map((key) => JSON.stringify(key)).join(", ")}`,
+					},
+				],
+			},
+		};
+	}
+	const parsed = schema.safeParse(transported.data);
 	return parsed.success
 		? { success: true, data: parsed.data }
 		: {
@@ -409,50 +415,102 @@ function parseJsonInput(
 			};
 }
 
-type FormatResult =
-	| { readonly success: true; readonly format: "human" | "json" | "md" }
-	| { readonly success: false; readonly message: string };
+type OutputFormat = "human" | "json" | "md";
 
-function parseFormat(argv: readonly string[]): FormatResult {
-	const values: string[] = [];
-	for (let index = 0; index < argv.length; index += 1) {
-		const argument = argv[index];
-		if (argument === "--format") {
-			const value = argv[index + 1];
-			if (value === undefined || value.startsWith("-"))
-				return { success: false, message: "option '--format <format>' argument missing" };
-			values.push(value);
-			index += 1;
-		} else if (argument?.startsWith("--format=")) values.push(argument.slice("--format=".length));
-	}
-	if (values.length > 1) return { success: false, message: "repeated --format" };
-	const value = values[0] ?? "human";
-	return value === "human" || value === "json" || value === "md"
-		? { success: true, format: value }
-		: { success: false, message: `invalid format: ${value}` };
+interface EmitUsageErrorOptions {
+	readonly io: ClinkrIo;
+	readonly format: OutputFormat;
+	readonly message: string;
+	readonly errorType: FrameworkUsageErrorType;
+	readonly data?: unknown;
 }
 
-function formatFromArgs(argv: readonly string[]): "human" | "json" | "md" {
-	const result = parseFormat(argv);
-	return result.success ? result.format : "human";
+interface GlobalFlags {
+	readonly format: OutputFormat;
+	readonly help: boolean;
+	readonly jsonSchema: boolean;
+	readonly inputJson: boolean;
+	/**
+	 * argv with every global flag (and `--format` value) removed. Everything
+	 * from the first top-level `--` onward is passed through verbatim,
+	 * including the `--` itself, so commander can apply its standard
+	 * end-of-options handling.
+	 */
+	readonly rest: readonly string[];
 }
+
+type GlobalFlagsResult =
+	| { readonly ok: true; readonly flags: GlobalFlags }
+	| {
+			readonly ok: false;
+			/** Best-effort help detection so help still wins over a bad parse. */
+			readonly help: boolean;
+			/** Best-effort format so usage-error emission honors a valid `--format`. */
+			readonly format: OutputFormat;
+			readonly message: string;
+	  };
 
 /**
- * Success data is the only validated payload: it must match `resultSchema`
- * when declared and must be absent otherwise. Error-outcome `data` passes
- * through unvalidated; it must be JSON-serializable.
+ * Single owner of the global-flag grammar (`--help`/`-h`, `--format`,
+ * `--input-json`, `--json-schema`). One pass over argv; the commander
+ * registrations for these flags in {@link buildCommandSurface} are
+ * help-display-only and never parse them.
+ *
+ * A bare `--` terminates global-flag scanning: it and every following token
+ * flow to `rest` unchanged (commander then treats the tokens after `--` as
+ * positionals), so command arguments that look like global flags can be
+ * escaped.
  */
-function validateOutcome(
-	outcome: CommandOutcome<unknown>,
-	definition: ClinkrCommandDefinition,
-): void {
-	if (outcome.status !== "success") return;
-	if (definition.resultSchema === undefined) {
-		if (outcome.data !== undefined)
-			throw new Error("clinkr: success outcome data requires a resultSchema");
-		return;
+function parseGlobalFlags(argv: readonly string[]): GlobalFlagsResult {
+	const formatValues: string[] = [];
+	const rest: string[] = [];
+	let help = false;
+	let jsonSchema = false;
+	let inputJsonCount = 0;
+	let missingFormatValue = false;
+	for (let index = 0; index < argv.length; index += 1) {
+		const argument = argv[index];
+		if (argument === undefined) continue;
+		if (argument === "--") {
+			rest.push(...argv.slice(index));
+			break;
+		}
+		if (argument === "--help" || argument === "-h") help = true;
+		else if (argument === "--json-schema") jsonSchema = true;
+		else if (argument === "--input-json") inputJsonCount += 1;
+		else if (argument === "--format") {
+			const value = argv[index + 1];
+			if (value === undefined || value.startsWith("-")) missingFormatValue = true;
+			else {
+				formatValues.push(value);
+				index += 1;
+			}
+		} else if (argument.startsWith("--format=")) {
+			formatValues.push(argument.slice("--format=".length));
+		} else rest.push(argument);
 	}
-	definition.resultSchema.parse(outcome.data);
+	const formatValue = formatValues.length === 1 ? formatValues[0] : undefined;
+	const format =
+		formatValue === "human" || formatValue === "json" || formatValue === "md"
+			? formatValue
+			: undefined;
+	let message: string | undefined;
+	if (inputJsonCount > 1) message = "repeated --input-json";
+	else if (missingFormatValue) message = "option '--format <format>' argument missing";
+	else if (formatValues.length > 1) message = "repeated --format";
+	else if (formatValue !== undefined && format === undefined)
+		message = `invalid format: ${formatValue}`;
+	if (message !== undefined) return { ok: false, help, format: format ?? "human", message };
+	return {
+		ok: true,
+		flags: {
+			format: format ?? "human",
+			help,
+			jsonSchema,
+			inputJson: inputJsonCount === 1,
+			rest,
+		},
+	};
 }
 
 function emitOutcome(
@@ -466,34 +524,23 @@ function emitOutcome(
 		return;
 	}
 	if (outcome.status === "success") {
-		emitSuccess(io, outcome, definition, format);
+		if (outcome.data === undefined) return;
+		const renderer =
+			format === "md"
+				? (definition.renderMarkdown ?? definition.renderHuman)
+				: definition.renderHuman;
+		const text =
+			renderer === undefined
+				? envelopeJsonText(outcome.data)
+				: renderer(outcome.data, { canEmitAnsi: io.canEmitAnsi === true });
+		io.stdout(`${text}\n`);
 		return;
 	}
 	if (outcome.status === "negative") {
-		io.stdout(`${outcome.human ?? outcome.message}\n`);
+		io.stdout(`${outcome.message}\n`);
 		return;
 	}
 	io.stderr(`${outcome.message}\n`);
-}
-
-function emitSuccess(
-	io: ClinkrIo,
-	outcome: SuccessOutcome<unknown>,
-	definition: ClinkrCommandDefinition,
-	format: "human" | "json" | "md",
-): void {
-	const override = format === "md" ? (outcome.markdown ?? outcome.human) : outcome.human;
-	if (override !== undefined) {
-		io.stdout(`${override}\n`);
-		return;
-	}
-	const renderer =
-		format === "md"
-			? (definition.renderMarkdown ?? definition.renderHuman)
-			: definition.renderHuman;
-	if (renderer === undefined || outcome.data === undefined) return;
-	const text = renderer(outcome.data, { canEmitAnsi: io.canEmitAnsi === true });
-	io.stdout(`${text}\n`);
 }
 
 function emitUsageError(options: EmitUsageErrorOptions): number {
@@ -503,8 +550,10 @@ function emitUsageError(options: EmitUsageErrorOptions): number {
 		message: options.message,
 		...(options.data === undefined ? {} : { data: options.data }),
 	};
-	const format = formatFromArgs(options.argv);
-	if (format === "json") options.io.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
-	else options.io.stderr(`${options.message}\n`);
+	if (options.format === "json") {
+		options.io.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
+	} else {
+		options.io.stderr(`${options.message}\n`);
+	}
 	return exitCodeFor(outcome.status);
 }

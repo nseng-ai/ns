@@ -1,7 +1,8 @@
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
-import { Argument, Command, CommanderError, InvalidArgumentError, Option } from "commander";
+import { Command, CommanderError, Option } from "commander";
 import { z } from "zod";
 
+import { buildCommanderArgument, buildCommanderOption } from "./commander-surface.ts";
 import {
 	CLINKR_JSON_SCHEMA_OPTION,
 	CLINKR_RENDERED_COMMAND_OPTIONS,
@@ -24,7 +25,6 @@ import {
 	buildSurfacePlan,
 	type OptionPlan,
 	type OptionSpec,
-	type PositionalPlan,
 	type PositionalSpec,
 	type SurfacePlan,
 } from "./surface.ts";
@@ -569,7 +569,7 @@ function configureCommandExecution<TContext>(
 		command.allowUnknownOption(true);
 	}
 	for (const positional of registered.plan.positionals) {
-		command.addArgument(buildCommanderArgument(positional));
+		command.addArgument(buildCommanderArgument(positional, { requiredness: "schema" }));
 	}
 	if (registered.plan.positionals.length > 0) {
 		const parts = registered.plan.positionals.map((positional) => {
@@ -579,7 +579,7 @@ function configureCommandExecution<TContext>(
 		command.usage(`[options] ${parts.join(" ")}`);
 	}
 	for (const optionPlan of registered.plan.options) {
-		command.addOption(buildCommanderOption(optionPlan));
+		command.addOption(buildCommanderOption(optionPlan, { applyDefault: false }));
 	}
 	if (!registered.shouldPassThrough && registered.execution.type === "rendered") {
 		command.addOption(
@@ -682,67 +682,6 @@ function configureCommandExecution<TContext>(
 				assertNever(registered.execution);
 		}
 	});
-}
-
-function buildCommanderArgument(plan: PositionalPlan): Argument {
-	// Declared bracket-optional so commander never enforces requiredness: zod
-	// owns it, keeping the usage-error channel uniform and --json-schema eager.
-	const name = plan.isVariadic ? `[${plan.name}...]` : `[${plan.name}]`;
-	const argument = new Argument(name, plan.description);
-	if (plan.kind.type === "number") argument.argParser(parseNumberValue);
-	if (plan.kind.type === "integer") argument.argParser(parseIntegerValue);
-	if (plan.kind.type === "enum") argument.choices([...plan.kind.values]);
-	return argument;
-}
-
-function buildCommanderOption(plan: OptionPlan): Option {
-	const option = new Option(plan.flag, plan.description === "" ? undefined : plan.description);
-	switch (plan.kind.type) {
-		case "number":
-			option.argParser(parseNumberValue);
-			break;
-		case "integer":
-			option.argParser(parseIntegerValue);
-			break;
-		case "enum":
-			option.choices([...plan.kind.values]);
-			break;
-		case "string-array":
-			option.argParser(accumulateValue);
-			break;
-		case "string":
-		case "boolean":
-			break;
-	}
-	return option;
-}
-
-function parseNumberValue(value: string): number {
-	const parsed = Number(value);
-	if (value.trim() === "" || Number.isNaN(parsed)) {
-		throw new InvalidArgumentError("expected a number");
-	}
-	return parsed;
-}
-
-function parseIntegerValue(value: string): number {
-	const parsed = parseStrictInteger(value);
-	if (parsed === null) {
-		throw new InvalidArgumentError("expected an integer");
-	}
-	return parsed;
-}
-
-function parseStrictInteger(value: string): number | null {
-	// This parser is intentionally stricter than click-style coercion: decimal digits only,
-	// no leading +, no whitespace, no underscores. Callers that need parity with a prior
-	// command face should arbitrate that compatibility in the owning package.
-	if (!/^-?\d+$/.test(value)) return null;
-	return Number(value);
-}
-
-function accumulateValue(value: string, previous: string[] | undefined): string[] {
-	return [...(previous ?? []), value];
 }
 
 function formatUsageError(error: z.ZodError, plan: SurfacePlan): string {

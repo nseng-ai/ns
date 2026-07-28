@@ -1,5 +1,4 @@
 import type { ClinkrIo } from "../io.ts";
-import { createCaptureIo } from "../testing/index.ts";
 import type { ClinkrContextFreeApp, ClinkrContextfulApp } from "./app.ts";
 
 export interface CapturedRun {
@@ -35,8 +34,22 @@ export async function runForTest<TContext>(
 	argv: readonly string[],
 	options: ContextFreeRunForTestOptions | RunForTestOptions<TContext> = {},
 ): Promise<CapturedRun> {
-	const capture = createCaptureIo();
-	const io = options.io ?? capture.io;
+	const stdoutChunks: string[] = [];
+	const stderrChunks: string[] = [];
+	const suppliedIo = options.io;
+	const io: ClinkrIo = {
+		stdout: (text) => {
+			stdoutChunks.push(text);
+			suppliedIo?.stdout(text);
+		},
+		stderr: (text) => {
+			stderrChunks.push(text);
+			suppliedIo?.stderr(text);
+		},
+		...(suppliedIo?.readStdin === undefined ? {} : { readStdin: suppliedIo.readStdin }),
+		...(suppliedIo?.caps === undefined ? {} : { caps: suppliedIo.caps }),
+		...(suppliedIo?.canEmitAnsi === undefined ? {} : { canEmitAnsi: suppliedIo.canEmitAnsi }),
+	};
 	const stdin = options.stdin;
 	const readStdin = stdin === undefined ? undefined : async () => stdin;
 	let exitCode: number;
@@ -53,5 +66,5 @@ export async function runForTest<TContext>(
 			...(readStdin === undefined ? {} : { readStdin }),
 		});
 	}
-	return { exitCode, stdout: capture.stdout(), stderr: capture.stderr() };
+	return { exitCode, stdout: stdoutChunks.join(""), stderr: stderrChunks.join("") };
 }
