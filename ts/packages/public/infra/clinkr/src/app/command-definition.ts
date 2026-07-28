@@ -34,13 +34,17 @@ type CliFieldAnnotation =
 	| { readonly type: "option"; readonly options: CliOptionOptions }
 	| { readonly type: "positional"; readonly options: CliPositionalOptions };
 
-const annotations = new WeakMap<z.ZodType, CliFieldAnnotation>();
+const cliAnnotations = z.registry<CliFieldAnnotation>();
+
+function annotate(field: z.ZodType, annotation: CliFieldAnnotation): void {
+	cliAnnotations.add(field, annotation);
+}
 
 export function cliOption<TField extends z.ZodType>(
 	field: TField,
 	options: CliOptionOptions,
 ): TField {
-	annotations.set(field, { type: "option", options });
+	annotate(field, { type: "option", options });
 	return field;
 }
 
@@ -48,12 +52,12 @@ export function cliPositional<TField extends z.ZodType>(
 	field: TField,
 	options: CliPositionalOptions,
 ): TField {
-	annotations.set(field, { type: "positional", options });
+	annotate(field, { type: "positional", options });
 	return field;
 }
 
 export function cliAnnotationFor(field: z.ZodType): CliFieldAnnotation | undefined {
-	return annotations.get(field);
+	return cliAnnotations.get(field);
 }
 
 export interface ClinkrCommandJsonSchemaDocument {
