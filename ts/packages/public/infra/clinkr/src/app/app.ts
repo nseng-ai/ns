@@ -19,6 +19,7 @@ import {
 	envelopeJsonText,
 	exitCodeFor,
 	toEnvelope,
+	type CommandExitCode,
 	type CommandOutcome,
 	type UsageErrorOutcome,
 } from "./outcome.ts";
@@ -55,7 +56,7 @@ export interface ClinkrExecuteOptions<TContext> {
  */
 export interface ClinkrExecuteResult {
 	readonly outcome: CommandOutcome<unknown>;
-	readonly exitCode: 0 | 1 | 2;
+	readonly exitCode: CommandExitCode;
 	/**
 	 * Rendered human view mirroring what `run()` prints to stdout for
 	 * success (rendered data, or pretty-JSON when no renderer) and negative

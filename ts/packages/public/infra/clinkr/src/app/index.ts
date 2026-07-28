@@ -33,6 +33,7 @@ export type {
 // observe them through app output.
 export { failure, negative, ok, usageError } from "./outcome.ts";
 export type {
+	CommandExitCode,
 	CommandOutcome,
 	FailureOutcome,
 	NegativeOutcome,
