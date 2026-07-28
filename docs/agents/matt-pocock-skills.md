@@ -51,6 +51,12 @@ Vendored dirs are byte-identical to upstream except repo-owned Harness Overlays 
   `docs/agents/issue-tracker.md` ("Wayfinding operations" section, local-markdown
   fallback) instead of upstream's `/setup-matt-pocock-skills` bootstrap, which is not
   imported. Re-apply after every refresh.
+- `domain-modeling/SKILL.md` and `CONTEXT-FORMAT.md`: ns defers new glossary terms until
+  the corresponding code or other authoritative ground truth changes, then requires the
+  `CONTEXT.md` update in the same change; documentation-only edits repair existing drift.
+- `improve-codebase-architecture/SKILL.md`: its domain-modeling handoff follows the same
+  code-first glossary synchronization rule instead of updating `CONTEXT.md` during the
+  design conversation.
 
 ## Rejected upstream skills
 
@@ -120,6 +126,13 @@ skill-audit family.
   structured-grill command activates it for the session.
 - **Validation-scope policy is ns-owned.** It lives in repo/project instructions and
   first-party Pi prompts; do not rely on upstream Matt wrappers to carry it.
+- **Code-first glossary synchronization is an ns-owned fork.** Upstream domain-modeling
+  updates `CONTEXT.md` as terms resolve. In ns, proposed vocabulary remains in the plan
+  or discussion until code or other authoritative ground truth changes; update
+  `CONTEXT.md` in that same change, with documentation-only edits reserved for repairing
+  drift from already-existing ground truth. Preserve this behavior when refreshing the
+  vendored `domain-modeling` and `improve-codebase-architecture` skills and when
+  semantically merging the docs-aware Pi backend.
 - **Writing-great-skills and skill-audit.** The vendored `writing-great-skills` is the
   single source of the skill-authoring vocabulary; ns's operational audit checklists
   live in `skills/internal/skill-system/skill-audit/`, which loads that vocabulary at run time by context

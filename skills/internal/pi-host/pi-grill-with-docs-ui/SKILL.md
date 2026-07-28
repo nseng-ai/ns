@@ -29,7 +29,7 @@ Before the first user-facing question, do a bounded exploration pass:
 3. Check relevant ADRs under `docs/adr/`, including nested context ADR directories when the map or plan points to them.
 4. Inspect code only when the plan names a concrete area, or when a user claim or documented claim needs verification.
 
-If a *fact* can be found by exploring the codebase, look it up instead of asking. Decisions belong to the user — put each one through `grill_ask` and wait for the answer. Create documentation lazily only when there is something specific to write.
+If a *fact* can be found by exploring the codebase, look it up instead of asking. Decisions belong to the user — put each one through `grill_ask` and wait for the answer. During planning, record proposed vocabulary in the plan or discussion; do not update `CONTEXT.md` until the corresponding code or other authoritative ground truth changes.
 
 Do not ask routine validation-scope or test-coverage questions such as which package checks should be mandatory before keeping implementation changes. That is an implementation-agent responsibility governed by project policy and changed-file judgment. Only ask about validation when it is itself a product/design requirement, an externally imposed release gate, or a user-visible compatibility promise. Otherwise, record validation guidance as: run relevant targeted validation, broaden when shared wrappers/workspace config are touched, and document commands run plus unrelated blockers.
 
@@ -37,9 +37,9 @@ Do not ask routine validation-scope or test-coverage questions such as which pac
 
 Challenge terminology against the glossary immediately. If the glossary defines a term one way and the plan appears to use it another way, surface the conflict and ask which meaning should win.
 
-Sharpen fuzzy or overloaded language into canonical project terms. When a term resolves, update the relevant `CONTEXT.md` inline instead of batching the change.
+Sharpen fuzzy or overloaded language into canonical project terms. Do not write newly resolved terms to `CONTEXT.md` ahead of implementation. Once the corresponding code or other authoritative ground truth changes, update the relevant `CONTEXT.md` in the same change so they stay synchronized. Documentation-only corrections may repair drift from already-existing ground truth.
 
-Keep `CONTEXT.md` a glossary only: one or two sentence definitions of project-specific concepts, with `_Avoid_:` lines for rejected synonyms. Do not add implementation details, specs, scratch notes, or decision records to `CONTEXT.md`.
+Keep `CONTEXT.md` a glossary only: one or two sentence definitions of project-specific concepts, with `_Avoid_:` lines for rejected synonyms. Do not add implementation details, specs, scratch notes, decision records, or declarations of future behavior to `CONTEXT.md`.
 
 Stress-test domain relationships with concrete scenarios and edge cases. When claims about current behavior are checkable, cross-reference the code and surface contradictions.
 
@@ -49,6 +49,6 @@ Offer ADR creation sparingly and explicitly. Only offer an ADR when all three ar
 
 When `grill_ask` returns `status_request`, include a compact status report with the normal grill status fields — answered-question count, estimated questions remaining, resolved decisions, unresolved branches, current pending question, and current recommendation — plus:
 
-`Documentation updates:` summarize `CONTEXT.md` edits made, ADRs created or offered, or say `none yet`.
+`Documentation updates:` summarize proposed vocabulary retained in the plan or discussion, synchronized `CONTEXT.md` corrections (if any), ADRs created or offered, or say `none yet`.
 
 After the status report, re-ask the exact same pending question with `grill_ask`; do not advance and do not count the status request as an answer.
