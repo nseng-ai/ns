@@ -53,7 +53,7 @@ objective; if it does, read that objective's `objective.md` and `roadmap.md`.
 
 - For planning, design, or naming in a domain area, start at `CONTEXT-MAP.md`, then read the relevant `CONTEXT.md`.
 - Use canonical terms and honor each term's *Avoid* list; treat map ambiguities as live distinctions.
-- Edit `CONTEXT.md` files when explicitly asked, when doing domain-language work, or when fixing obvious drift: a small, source-backed correction to stale vocabulary, paths, counts, package names, or `Avoid` aliases that needs no new terminology/product decision and does not broaden the implementation slice. If the drift is broad, ambiguous, or decision-bearing, record/report it instead of silently widening the work.
+- Keep code or other authoritative ground truth and `CONTEXT.md` synchronized. Do not update `CONTEXT.md` ahead of implementation; during planning or design, retain proposed vocabulary in the plan or discussion. When ground truth changes, update the relevant `CONTEXT.md` in the same change. A documentation-only edit is appropriate only to bring stale glossary language back into sync with already-existing ground truth (for example paths, counts, package names, vocabulary, or `Avoid` aliases). If the drift is broad, ambiguous, or decision-bearing, record/report it instead of silently widening the work.
 
 ## Hard gates
 

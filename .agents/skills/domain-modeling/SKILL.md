@@ -37,7 +37,7 @@ If a `CONTEXT-MAP.md` exists at the root, the repo has multiple contexts. The ma
 │       └── docs/adr/
 ```
 
-Create files lazily — only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved. If no `docs/adr/` exists, create it when the first ADR is needed.
+Create files lazily — only when there is implemented ground truth to document. If no `CONTEXT.md` exists, create one alongside the first code change that establishes a resolved term. If no `docs/adr/` exists, create it when the first ADR is needed.
 
 ## During the session
 
@@ -57,11 +57,11 @@ When domain relationships are being discussed, stress-test them with specific sc
 
 When the user states how something works, check whether the code agrees. If you find a contradiction, surface it: "Your code cancels entire Orders, but you just said partial cancellation is possible — which is right?"
 
-### Update CONTEXT.md inline
+### Keep CONTEXT.md synchronized with ground truth
 
-When a term is resolved, update `CONTEXT.md` right there. Don't batch these up — capture them as they happen. Use the format in [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md).
+Do not update `CONTEXT.md` ahead of implementation. During planning or design, record proposed vocabulary in the plan or discussion instead. Once the corresponding code or other authoritative ground truth changes, update `CONTEXT.md` in the same change so the glossary and ground truth always agree. A documentation-only correction is appropriate only when it brings a stale `CONTEXT.md` back into sync with already-existing ground truth. Use the format in [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md).
 
-`CONTEXT.md` should be totally devoid of implementation details. Do not treat `CONTEXT.md` as a spec, a scratch pad, or a repository for implementation decisions. It is a glossary and nothing else.
+`CONTEXT.md` should be totally devoid of implementation details. Do not treat `CONTEXT.md` as a spec, a scratch pad, a repository for implementation decisions, or a declaration of future behavior. It is a glossary and nothing else.
 
 ### Offer ADRs sparingly
 

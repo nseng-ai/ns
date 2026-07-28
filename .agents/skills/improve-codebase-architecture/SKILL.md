@@ -58,9 +58,10 @@ Do NOT propose interfaces yet. After the file is written, ask the user: "Which o
 
 Once the user picks a candidate, run the `/grilling` skill to walk the design tree with them — constraints, dependencies, the shape of the deepened module, what sits behind the seam, what tests survive.
 
-Side effects happen inline as decisions crystallize — run the `/domain-modeling` skill to keep the domain model current as you go:
+Run the `/domain-modeling` skill as decisions crystallize, but keep proposed vocabulary in the plan or discussion until implementation establishes it:
 
-- **Naming a deepened module after a concept not in `CONTEXT.md`?** Add the term to `CONTEXT.md`. Create the file lazily if it doesn't exist.
-- **Sharpening a fuzzy term during the conversation?** Update `CONTEXT.md` right there.
+- **Naming a deepened module after a concept not in `CONTEXT.md`?** Record the proposed term in the plan. Add it to `CONTEXT.md` only alongside the code change that establishes the concept, creating the file lazily if needed.
+- **Sharpening a fuzzy term during the conversation?** Record the resolution for implementation; do not change `CONTEXT.md` ahead of ground truth.
+- **Finding stale glossary language for behavior the code already establishes?** A documentation-only correction may bring `CONTEXT.md` back into sync.
 - **User rejects the candidate with a load-bearing reason?** Offer an ADR, framed as: _"Want me to record this as an ADR so future architecture reviews don't re-suggest it?"_ Only offer when the reason would actually be needed by a future explorer to avoid re-suggesting the same thing — skip ephemeral reasons ("not worth it right now") and self-evident ones.
 - **Want to explore alternative interfaces for the deepened module?** Run the `/codebase-design` skill and use its design-it-twice parallel sub-agent pattern.
