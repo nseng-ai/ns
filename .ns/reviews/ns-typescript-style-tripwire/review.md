@@ -229,6 +229,20 @@ to each rule's exceptions.
     flag one collaborator, a group appearing together only at one composition
     site, tests constructing the adapter they exercise, or a speculative broad
     context redesign not proved by the diff.
+23. **Import type expressions embedded in type signatures.** Flag TypeScript
+    import type expressions such as
+    `function load(): import("./module.ts").LoadResult`,
+    `type Item = import("./module.ts").Item`, or
+    `interface Options { item: import("./module.ts").Item }`. Severity:
+    `warning`. Project-owned types used in signatures should be brought into
+    scope with a top-level `import type { ... } from "..."` declaration so the
+    dependency is explicit, greppable, and consistent with the ns import
+    convention. Do not flag runtime dynamic imports such as
+    `const module = await import("./module.ts")`; lazy or optional runtime
+    loading is a separate, sometimes intentional mechanism. Also do not flag
+    `typeof import("...")` when the diff clearly requires the module namespace
+    type at a genuine loader boundary and no named exported type exists; if that
+    justification is ambiguous, skip the finding.
 
 ## Severity
 
