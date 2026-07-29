@@ -5,9 +5,22 @@
 	"semi": true,
 	"singleQuote": false,
 	"trailingComma": "all",
+	"sortPackageJson": false,
 	"ignorePatterns": [
 		"node_modules/**",
 		"packages/public/infra/clinkr/test/type/readme-examples/**",
-		"packages/public/infra/clinkr/test/fixtures/readme-greet/*.ts"
+		"packages/public/infra/clinkr/test/fixtures/readme-greet/*.ts",
+		"packages/**/dist/**/package.json",
+		"packages/**/dist/**/tsconfig.json",
+		"packages/**/test/**/package.json",
+		"packages/**/test/**/tsconfig.json",
+		"packages/**/tests/**/package.json",
+		"packages/**/tests/**/tsconfig.json",
+		"packages/**/fixture/**/package.json",
+		"packages/**/fixture/**/tsconfig.json",
+		"packages/**/fixtures/**/package.json",
+		"packages/**/fixtures/**/tsconfig.json",
+		"packages/**/__fixtures__/**/package.json",
+		"packages/**/__fixtures__/**/tsconfig.json"
 	]
 }
