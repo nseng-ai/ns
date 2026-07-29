@@ -225,7 +225,7 @@ export function renderLifecycleStepHuman(step: LifecycleStep): string {
 		case "repository-resolved":
 			return `Repository: ${step.repoRoot} (trunk ${step.trunkBranch})`;
 		case "harnesses-resolved":
-			return `Harnesses (${step.source}): ${step.harnesses.join(", ")}`;
+			return `Supported harnesses (${step.source}): ${step.harnesses.join(", ")}`;
 		case "declaration-decided":
 			return `Declaration: ${step.action} ${step.nsTomlPath} (${step.sourceSpec})`;
 		case "acquisition-decided":

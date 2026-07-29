@@ -90,6 +90,9 @@ describe("ns-init CLI contracts", () => {
 		expect(result.exit).toBe(0);
 		expect(result.stdout).toContain("Usage: ns init");
 		expect(result.stdout).toContain("Activate ns in this repository by writing ns.toml");
+		expect(result.stdout).toContain("--supported-harness");
+		expect(result.stdout).toContain("-H");
+		expect(result.stdout).not.toMatch(/(^|\s)--harness(?:\s|$)/u);
 		expect(result.stderr).toBe("");
 	});
 

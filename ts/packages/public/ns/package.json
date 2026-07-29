@@ -55,9 +55,9 @@
 		"settings": [
 			{
 				"path": [
-					"harnesses"
+					"supported_harnesses"
 				],
-				"description": "Harness IDs ns init should activate when --harness is not supplied."
+				"description": "Agent harnesses this repository supports and for which ns should provision and reconcile agent-facing artifacts."
 			}
 		],
 		"subpackages": [

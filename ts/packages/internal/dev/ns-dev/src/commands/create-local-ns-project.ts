@@ -182,7 +182,7 @@ async function runCreateLocalNsProjectInner(
 		nsPackageVersion: sourcePackageJson.value.version,
 		publishPath,
 		verification,
-		nextCommands: [`cd ${projectPath}`, "npx ns init --harness claude-code"],
+		nextCommands: [`cd ${projectPath}`, "npx ns init --supported-harness claude-code"],
 		commands,
 	});
 }

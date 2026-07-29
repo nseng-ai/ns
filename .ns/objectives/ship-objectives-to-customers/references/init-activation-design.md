@@ -20,23 +20,24 @@ directories) comes from the installed extensions' descriptors; `init` only orche
 1. **Verifies git posture.** The working directory must be inside a git repository with a
    detectable trunk branch — ns is git-native and anchors durable state to the repo.
    Verify-and-write only: `init` never stages or commits.
-2. **Selects and persists harnesses.** Explicit repeatable `--harness` (one of
-   `claude-code`, `codex`, `pi`) on first run, persisted to top-level `harnesses = [...]`
-   in `ns.toml`; later runs may omit the flag and reuse the persisted selection.
+2. **Declares and persists supported harnesses.** Explicit repeatable
+   `--supported-harness` (one of `claude-code`, `codex`, `pi`) on first run, persisted to
+   top-level `supported_harnesses = [...]` in `ns.toml`; later runs may omit the flag and
+   reuse the persisted declaration.
 3. **Wires agent instructions.** Writes one small managed stanza into `AGENTS.md`
    pointing at `.ns/instructions.md` (plus the `CLAUDE.md → @AGENTS.md` import), and
    regenerates `.ns/instructions.md` from the installed extensions (below).
 4. **Scaffolds `.ns/`.** Ensures the `.ns/` directory, the `.ns/managed-extensions/`
    gitignore rule, and each installed extension's declared consumer directories.
 5. **Provisions harness artifacts.** Installs every installed extension's
-   `bundledArtifacts` (skills) into the selected harnesses' roots.
+   `bundledArtifacts` (skills) into the supported harnesses' project roots.
 6. **Reports.** A structured per-duty change report (`created` / `replaced` /
    `unchanged` / …) in both human and `--format json` output.
 
 Re-running `ns init` is always safe and idempotent: an already-activated repository
 reports `unchanged` everywhere. Initialization must come before extension installation:
-`ns init` owns harness selection, while `ns extension install` consumes the persisted
-harnesses and runs activation reconciliation itself.
+`ns init` owns the supported-harness declaration, while `ns extension install` consumes
+the persisted supported harnesses and runs activation reconciliation itself.
 
 ## The two instruction files
 
@@ -74,7 +75,7 @@ top to bottom, whenever `ns init`, `ns extension install`, `ns extension uninsta
 
 # ns instructions
 
-This repository uses ns. `ns.toml` declares its harnesses and extensions; run
+This repository uses ns. `ns.toml` declares its supported harnesses and extensions; run
 `ns --help` for the available command surface.
 
 ## Objectives
@@ -133,12 +134,12 @@ in the design notes below.)
 
 ## Lifecycle semantics
 
-| Event                    | Effect on activation state                                                                                                                                                                                                                                                                       |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ns init`                | Full pass: posture, harnesses, `AGENTS.md` stanza + `CLAUDE.md` import, `.ns/` scaffolding + ignore rules, regenerate `.ns/instructions.md`, create all `consumerDirs`, provision all `bundledArtifacts`.                                                                                        |
-| `ns extension install`   | Requires harnesses already persisted by `ns init`; missing/invalid harness config fails before acquisition or writes. After full descriptor preflight, record `ns.toml`, regenerate `.ns/instructions.md`, create declared `consumerDirs`, and reconcile artifacts for all configured harnesses. |
-| `ns extension uninstall` | Regenerate `.ns/instructions.md` without the extension's section; deprovision its manifest-tracked artifacts; leave `consumerDirs` and their contents untouched. `AGENTS.md` untouched.                                                                                                          |
-| `ns extension update`    | Re-acquire, then regenerate `.ns/instructions.md` and re-reconcile artifacts (the new version may ship different instructions).                                                                                                                                                                  |
+| Event                    | Effect on activation state                                                                                                                                                                                                                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ns init`                | Full pass: posture, supported harnesses, `AGENTS.md` stanza + `CLAUDE.md` import, `.ns/` scaffolding + ignore rules, regenerate `.ns/instructions.md`, create all `consumerDirs`, provision all `bundledArtifacts`.                                                                                      |
+| `ns extension install`   | Requires supported harnesses already persisted by `ns init`; missing/invalid configuration fails before acquisition or writes. After full descriptor preflight, record `ns.toml`, regenerate `.ns/instructions.md`, create declared `consumerDirs`, and reconcile artifacts for all supported harnesses. |
+| `ns extension uninstall` | Regenerate `.ns/instructions.md` without the extension's section; deprovision its manifest-tracked artifacts; leave `consumerDirs` and their contents untouched. `AGENTS.md` untouched.                                                                                                                  |
+| `ns extension update`    | Re-acquire, then regenerate `.ns/instructions.md` and re-reconcile artifacts (the new version may ship different instructions).                                                                                                                                                                          |
 
 Regeneration is wholesale and derived only from `ns.toml` plus installed descriptors —
 there is no incremental section patching and no state beyond the declared extension list.

@@ -134,7 +134,7 @@ describe("RealArtifactActivationGateway", () => {
 				repository: { repoRoot, trunkBranch: "main" },
 				harnesses: ["pi"],
 				harnessSource: "explicit",
-				nsTomlContent: 'harnesses = ["pi"]\n',
+				nsTomlContent: 'supported_harnesses = ["pi"]\n',
 				nsTomlChange: "created",
 				nsTomlExpected: { type: "missing" },
 			},

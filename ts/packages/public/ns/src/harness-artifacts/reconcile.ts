@@ -33,7 +33,11 @@ import {
 	moduleArtifactDiscoveryDiagnosticSchema,
 	type HarnessArtifactModuleDiscoveryGateway,
 } from "./module-artifact-discovery.ts";
-import { parseNsTomlExtensions, parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
+import {
+	parseNsTomlExtensions,
+	parseNsTomlSupportedHarnesses,
+	type NsTomlErrorInfo,
+} from "./ns-toml.ts";
 import {
 	nodeHarnessArtifactFileSystemGateway,
 	type HarnessArtifactFileSystemErrorInfo,
@@ -625,7 +629,7 @@ function parseHarnessSelection(
 	if (state.type === "missing") {
 		return resultOk({ state: { type: "missing" }, harnessSelection: undefined });
 	}
-	const parsed = parseNsTomlHarnesses(state.text, nsTomlPath);
+	const parsed = parseNsTomlSupportedHarnesses(state.text, nsTomlPath);
 	if (parsed.type === "error") return invalidNsTomlResult(parsed.error, nsTomlPath);
 	if (parsed.type === "missing") {
 		return resultOk({ state: { type: "missing" }, harnessSelection: undefined });

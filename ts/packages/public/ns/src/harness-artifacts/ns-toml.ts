@@ -10,7 +10,7 @@ import { z } from "zod";
 
 import { ALL_HARNESS_IDS, type HarnessId } from "./harness-paths.ts";
 
-export type NsTomlHarnessesParseResult =
+export type NsTomlSupportedHarnessesParseResult =
 	| { type: "ok"; harnesses: readonly HarnessId[] }
 	| { type: "missing" }
 	| { type: "error"; error: NsTomlErrorInfo };
@@ -33,31 +33,31 @@ export interface NsTomlErrorInfo {
 
 export type NsTomlErrorCode =
 	| "invalid-toml"
-	| "invalid-harnesses"
+	| "invalid-supported-harnesses"
 	| "invalid-extensions"
-	| "ambiguous-harnesses-assignment";
+	| "ambiguous-supported-harnesses-assignment";
 
-const nsInitHarnessesSettingsSchema = {
-	path: ["harnesses"] as const,
+const nsInitSupportedHarnessesSettingsSchema = {
+	path: ["supported_harnesses"] as const,
 	schema: z.array(z.string()).nonempty(),
 	invalidMessage: ({ pathLabel }) =>
-		`${pathLabel} top-level harnesses must be a non-empty string array.`,
+		`${pathLabel} top-level supported_harnesses must be a non-empty string array.`,
 } satisfies SettingsSchema<readonly string[]>;
 
-const nsInitHarnessesSettingsKey = nsInitHarnessesSettingsSchema.path.join(".");
+const nsInitSupportedHarnessesSettingsKey = nsInitSupportedHarnessesSettingsSchema.path.join(".");
 const nsInitExtensionsSettingsKey = nsTomlExtensionsSettingsSchema.path.join(".");
 
-export function parseNsTomlHarnesses(
+export function parseNsTomlSupportedHarnesses(
 	content: string,
 	pathLabel = "ns.toml",
-): NsTomlHarnessesParseResult {
+): NsTomlSupportedHarnessesParseResult {
 	const result = parseProjectConfigToml(content, {
 		pathLabel,
 		pointsTable: { mode: "skip" },
-		settingsSchemas: [nsInitHarnessesSettingsSchema],
+		settingsSchemas: [nsInitSupportedHarnessesSettingsSchema],
 	});
 	if (!result.ok) return nsTomlErrorFromDiagnostics(result.diagnostics, pathLabel);
-	const harnesses = getProjectConfigSetting(result.config, nsInitHarnessesSettingsSchema);
+	const harnesses = getProjectConfigSetting(result.config, nsInitSupportedHarnessesSettingsSchema);
 	if (harnesses === undefined) return { type: "missing" };
 	return normalizeHarnessSelection(harnesses);
 }
@@ -77,18 +77,18 @@ export function parseNsTomlExtensions(
 	return { type: "ok", extensions: [...extensions] };
 }
 
-export function renderNsTomlHarnesses(harnesses: readonly HarnessId[]): string {
-	return `harnesses = ${JSON.stringify([...harnesses])}\n`;
+export function renderNsTomlSupportedHarnesses(harnesses: readonly HarnessId[]): string {
+	return `supported_harnesses = ${JSON.stringify([...harnesses])}\n`;
 }
 
-export function planNsTomlHarnessesWrite(options: {
+export function planNsTomlSupportedHarnessesWrite(options: {
 	content: string | undefined;
 	harnesses: readonly HarnessId[];
 }): NsTomlWritePlanResult {
-	const rendered = renderNsTomlHarnesses(options.harnesses);
+	const rendered = renderNsTomlSupportedHarnesses(options.harnesses);
 	if (options.content === undefined) return { type: "ok", content: rendered, change: "created" };
 
-	const existing = parseNsTomlHarnesses(options.content);
+	const existing = parseNsTomlSupportedHarnesses(options.content);
 	if (existing.type === "error") return existing;
 	if (existing.type === "ok" && sameHarnesses(existing.harnesses, options.harnesses)) {
 		return { type: "ok", content: options.content, change: "unchanged" };
@@ -112,7 +112,7 @@ export function normalizeHarnessSelection(
 			return {
 				type: "error",
 				error: {
-					code: "invalid-harnesses",
+					code: "invalid-supported-harnesses",
 					message: `Unknown harness ${JSON.stringify(value)}. Expected one of ${ALL_HARNESS_IDS.join(", ")}.`,
 				},
 			};
@@ -122,7 +122,10 @@ export function normalizeHarnessSelection(
 	if (selected.length === 0) {
 		return {
 			type: "error",
-			error: { code: "invalid-harnesses", message: "At least one harness must be selected." },
+			error: {
+				code: "invalid-supported-harnesses",
+				message: "At least one supported harness must be selected.",
+			},
 		};
 	}
 	return { type: "ok", harnesses: selected };
@@ -135,7 +138,7 @@ function nsTomlErrorFromDiagnostics(
 	const error = projectConfigErrorFromDiagnostics(diagnostics, {
 		invalidToml: "invalid-toml",
 		invalidSettingsByPath: {
-			[nsInitHarnessesSettingsKey]: "invalid-harnesses",
+			[nsInitSupportedHarnessesSettingsKey]: "invalid-supported-harnesses",
 			[nsInitExtensionsSettingsKey]: "invalid-extensions",
 		},
 		defaultCode: "invalid-toml",
@@ -155,14 +158,14 @@ function replaceTopLevelHarnessesAssignment(
 
 	for (let index = 0; index < tableStart; index += 1) {
 		const line = lines[index] ?? "";
-		if (!/^\s*harnesses\s*=/u.test(line)) continue;
+		if (!/^\s*supported_harnesses\s*=/u.test(line)) continue;
 		if (!line.includes("]")) {
 			return {
 				type: "error",
 				error: {
-					code: "ambiguous-harnesses-assignment",
+					code: "ambiguous-supported-harnesses-assignment",
 					message:
-						"Top-level ns.toml harnesses assignment must be a single-line array before it can be replaced.",
+						"Top-level ns.toml supported_harnesses assignment must be a single-line array before it can be replaced.",
 				},
 			};
 		}

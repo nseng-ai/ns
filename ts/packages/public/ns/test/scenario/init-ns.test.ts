@@ -42,13 +42,13 @@ function fixture(
 }
 
 describe("initNs", () => {
-	it("requires --harness on first activation and traces the usage failure", async () => {
+	it("requires --supported-harness on first activation and traces the usage failure", async () => {
 		const { context } = fixture();
-		const result = await initNs(context, { cwd: "/repo", harness: [] });
+		const result = await initNs(context, { cwd: "/repo", supportedHarness: [] });
 		expect(result).toMatchObject({
 			type: "usageError",
 			data: {
-				argument: "harness",
+				argument: "supportedHarness",
 				steps: [
 					{ type: "phase", phase: "repository-preflight", status: "started" },
 					expect.objectContaining({ type: "repository-resolved" }),
@@ -58,7 +58,7 @@ describe("initNs", () => {
 					expect.objectContaining({
 						type: "failure",
 						phase: "configuration-preflight",
-						code: "harness-required",
+						code: "supported-harness-required",
 					}),
 				],
 			},
@@ -67,7 +67,10 @@ describe("initNs", () => {
 
 	it("computes config before writing and activates with generic structured outcomes", async () => {
 		const { context, files } = fixture();
-		const result = await initNs(context, { cwd: "/repo", harness: ["codex", "claude-code"] });
+		const result = await initNs(context, {
+			cwd: "/repo",
+			supportedHarness: ["codex", "claude-code"],
+		});
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
 		expect(result.data).toMatchObject({
@@ -86,7 +89,7 @@ describe("initNs", () => {
 				artifacts: [],
 			},
 		});
-		expect(files.fileContent("ns.toml")).toBe('harnesses = ["codex","claude-code"]\n');
+		expect(files.fileContent("ns.toml")).toBe('supported_harnesses = ["codex","claude-code"]\n');
 	});
 
 	it("records and streams one deterministic ordered lifecycle history", async () => {
@@ -94,7 +97,7 @@ describe("initNs", () => {
 		const trace = new CollectingLifecycleTraceSink();
 		const result = await initNs(
 			{ ...context, lifecycleTrace: trace },
-			{ cwd: "/repo", harness: ["pi"] },
+			{ cwd: "/repo", supportedHarness: ["pi"] },
 		);
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
@@ -121,11 +124,11 @@ describe("initNs", () => {
 	});
 
 	it("ends configuration failures with the correct accumulated phase", async () => {
-		const { context, files } = fixture('harnesses = ["unknown"]\n');
+		const { context, files } = fixture('supported_harnesses = ["unknown"]\n');
 		const trace = new CollectingLifecycleTraceSink();
 		const result = await initNs(
 			{ ...context, lifecycleTrace: trace },
-			{ cwd: "/repo", harness: [] },
+			{ cwd: "/repo", supportedHarness: [] },
 		);
 		expect(result).toMatchObject({
 			type: "failure",
@@ -156,7 +159,7 @@ describe("initNs", () => {
 		const trace = new CollectingLifecycleTraceSink();
 		const result = await initNs(
 			{ ...context, files, lifecycleTrace: trace },
-			{ cwd: "/repo", harness: ["pi"] },
+			{ cwd: "/repo", supportedHarness: ["pi"] },
 		);
 
 		expect(result).toMatchObject({
@@ -191,13 +194,13 @@ describe("initNs", () => {
 		expect(trace.collectedLines()).toEqual(data.steps.map(renderLifecycleStepHuman));
 	});
 
-	it("uses persisted harnesses and reports an idempotent rerun", async () => {
-		const nsToml = 'harnesses = ["pi"]\n';
+	it("uses persisted supported harnesses and reports an idempotent rerun", async () => {
+		const nsToml = 'supported_harnesses = ["pi"]\n';
 		const { context, files } = fixture(nsToml);
-		const first = await initNs(context, { cwd: "/repo", harness: [] });
+		const first = await initNs(context, { cwd: "/repo", supportedHarness: [] });
 		expect(first.type).toBe("ok");
 		files.operations();
-		const second = await initNs(context, { cwd: "/repo", harness: [] });
+		const second = await initNs(context, { cwd: "/repo", supportedHarness: [] });
 		expect(second).toMatchObject({
 			type: "ok",
 			data: {
@@ -216,13 +219,16 @@ describe("initNs", () => {
 
 	it("renders a per-duty human report and omits empty sections", async () => {
 		const { context } = fixture();
-		const result = await initNs(context, { cwd: "/repo", harness: ["codex", "claude-code"] });
+		const result = await initNs(context, {
+			cwd: "/repo",
+			supportedHarness: ["codex", "claude-code"],
+		});
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
 		expect(renderInitNsHuman(result.data)).toBe(
 			[
 				"Activated ns in /repo.",
-				"Harnesses (explicit): codex, claude-code.",
+				"Supported harnesses (explicit): codex, claude-code.",
 				"Files:",
 				"  ns.toml              created",
 				"  .gitignore           created",
@@ -264,7 +270,7 @@ describe("initNs", () => {
 		expect(rendered).toBe(
 			[
 				"Activated ns in /repo.",
-				"Harnesses (ns-toml): pi.",
+				"Supported harnesses (ns-toml): pi.",
 				"Files:",
 				"  ns.toml  unchanged",
 				"Consumer directories:",
@@ -330,7 +336,7 @@ describe("initNs", () => {
 			},
 		});
 		const { context } = fixture(undefined, artifacts);
-		const result = await initNs(context, { cwd: "/repo", harness: ["pi"] });
+		const result = await initNs(context, { cwd: "/repo", supportedHarness: ["pi"] });
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
 		const structured = initNsResultSchema.parse(result.data);
@@ -348,8 +354,8 @@ describe("initNs", () => {
 	});
 
 	it("returns aggregated preflight failure data with an empty completion map", async () => {
-		const { context, files } = fixture('harnesses = ["pi"]\nextensions = [42]\n');
-		const result = await initNs(context, { cwd: "/repo", harness: [] });
+		const { context, files } = fixture('supported_harnesses = ["pi"]\nextensions = [42]\n');
+		const result = await initNs(context, { cwd: "/repo", supportedHarness: [] });
 		expect(result).toMatchObject({
 			type: "failure",
 			errorType: "ns-init-preflight-failed",

@@ -22,19 +22,19 @@ Requires `@nseng-ai/ns` installed and a repository already activated with `ns in
 
 ```bash
 npm install -g @nseng-ai/ns
-ns init --harness claude-code                  # once per repository
+ns init --supported-harness claude-code # once per repository
 ns extension install npm:@nseng-ai/objectives
 ```
 
 A bare-core `ns` install does **not** include `ns objective`. Installing this extension:
 
-1. Records `@nseng-ai/objectives` in `ns.toml` and activates it for your configured
-   harness.
+1. Records `@nseng-ai/objectives` in `ns.toml` and activates it for the repository's
+   supported harnesses.
 2. Adds the `ns objective` command surface.
 3. Adds an Objectives instruction block to `AGENTS.md`, teaching agents to check
    `ns objective list` before non-trivial work and to use the Objective skills.
-4. Provisions the **nine Objective skills** into your harness's skill root —
-   `.claude/skills/` for Claude Code: `objective`, `objective-autorun`, `objective-close`,
+4. Provisions the **nine Objective skills** into each supported harness's skill root —
+   for example, `.claude/skills/` for Claude Code: `objective`, `objective-autorun`, `objective-close`,
    `objective-create`, `objective-critique`, `objective-next`, `objective-refresh`,
    `objective-runner-step`, `objective-update`.
 

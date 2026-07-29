@@ -86,7 +86,7 @@ Initialize a project, install the extension from its local directory, and run it
 
 ```bash
 cd /path/to/your/project
-npx ns init --harness pi
+npx ns init --supported-harness pi
 npx ns extension install /path/to/my-extension
 npx ns hello world ns              # → hello ns
 npx ns hello world ns --shout      # → HELLO NS
@@ -94,8 +94,8 @@ npx ns hello world ns --format json
 ```
 
 `ns init` must run first because extension installation reconciles activation against the
-project's persisted harness selection. Use repeatable `--harness` flags to select the harnesses
-for your project.
+repository's persisted supported harnesses. Repeat `--supported-harness` to declare more
+than one supported harness.
 
 ## The descriptor module
 
@@ -309,10 +309,11 @@ deleted automatically when an extension is uninstalled.
 
 ## Installing an extension into a project
 
-First initialize the repository with at least one harness, then install a **source spec**:
+First initialize the repository with at least one supported harness, then install a
+**source spec**:
 
 ```bash
-npx ns init --harness pi
+npx ns init --supported-harness pi
 npx ns extension install ./local/path
 npx ns extension install npm:@acme/my-extension
 npx ns extension install npm:@acme/my-extension@1.2.3
@@ -341,7 +342,7 @@ or equivalent local spelling.
 Re-running the **same exact spec** is idempotent. It restores a missing managed npm package, but it
 does not refresh an already-present floating npm package; floating refresh belongs to the future
 `ns extension update` command. After successful preflight, install records the spec and runs full
-descriptor-driven activation for the harnesses persisted by `ns init`.
+descriptor-driven activation for the supported harnesses persisted by `ns init`.
 
 Activation writes use forward recovery rather than rollback. If a write fails after earlier duties
 completed, the failure reports the phase and completed duties, preserves those writes, and a rerun
@@ -386,8 +387,8 @@ cleanup, and preservation of local sources and consumer data.
   project's `ns.toml` lists the package; run `ns --help` and read stderr for per-extension
   diagnostics.
 - **`ns extension install` fails** — the error envelope names the failing phase and structured
-  diagnostics. If harnesses are missing or invalid, run
-  `ns init --harness <claude-code|codex|pi>` first.
+  diagnostics. If supported harnesses are missing or invalid, run
+  `ns init --supported-harness <claude-code|codex|pi>` first.
 - **Descriptor rejected** — the diagnostic names the field; descriptors are Zod-validated with
   the same rules as this document.
 - **Name mismatch** — a loaded command whose `name` differs from its descriptor entry is a

@@ -4,7 +4,7 @@ import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { failure, ok } from "@nseng-ai/clinkr/legacy";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { renderTextTable } from "@nseng-ai/foundation/text-table";
-import { parseNsTomlExtensions, parseNsTomlHarnesses } from "../harness-artifacts/api.ts";
+import { parseNsTomlExtensions, parseNsTomlSupportedHarnesses } from "../harness-artifacts/api.ts";
 import type {
 	DeclaredExtensionDescriptor,
 	DeclaredExtensionDescriptorDiagnostic,
@@ -216,7 +216,7 @@ export async function listExtensions(
 	if (parsedExtensions.type === "error") {
 		return extensionListConfigFailure({ ...parsedExtensions.error, path: configPath });
 	}
-	const parsedHarnesses = parseNsTomlHarnesses(config.content, configPath);
+	const parsedHarnesses = parseNsTomlSupportedHarnesses(config.content, configPath);
 	if (parsedHarnesses.type === "error") {
 		return extensionListConfigFailure({ ...parsedHarnesses.error, path: configPath });
 	}
@@ -236,8 +236,9 @@ export async function listExtensions(
 		for (const row of rows) {
 			if (row.acquisitionStatus !== "installed") continue;
 			row.markArtifactUnavailable({
-				code: "harnesses-missing",
-				message: "ns.toml does not configure project harnesses, so artifact status is unavailable.",
+				code: "supported-harnesses-missing",
+				message:
+					"ns.toml does not configure repository supported harnesses, so artifact status is unavailable.",
 				path: configPath,
 			});
 		}

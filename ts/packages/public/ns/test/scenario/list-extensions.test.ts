@@ -117,8 +117,8 @@ describe("listExtensions", () => {
 
 	it.each([
 		["missing ns.toml", undefined],
-		["no extensions setting", 'harnesses = ["pi"]\n'],
-		["an empty extension list", 'harnesses = ["pi"]\nextensions = []\n'],
+		["no extensions setting", 'supported_harnesses = ["pi"]\n'],
+		["an empty extension list", 'supported_harnesses = ["pi"]\nextensions = []\n'],
 	])("returns an empty successful inventory for %s", async (_label, nsToml) => {
 		const { context, declaredExtensions, artifacts } = fixture(
 			nsToml === undefined ? {} : { nsToml },
@@ -150,7 +150,7 @@ describe("listExtensions", () => {
 		[
 			"invalid harnesses",
 			new InMemoryActivationFilesGateway({
-				files: { "ns.toml": 'extensions = ["./ext"]\nharnesses = ["cursor"]\n' },
+				files: { "ns.toml": 'extensions = ["./ext"]\nsupported_harnesses = ["cursor"]\n' },
 			}),
 		],
 	])("fails rather than returning partial inventory for %s config", async (_label, files) => {
@@ -175,7 +175,8 @@ describe("listExtensions", () => {
 			version: "3.0.0",
 		});
 		const { context, files, artifacts } = fixture({
-			nsToml: 'harnesses = ["pi"]\nextensions = ["npm:@test/tools", "./extensions/local"]\n',
+			nsToml:
+				'supported_harnesses = ["pi"]\nextensions = ["npm:@test/tools", "./extensions/local"]\n',
 			descriptors: [npm, local],
 			artifactSummaries: [
 				{
@@ -253,7 +254,7 @@ describe("listExtensions", () => {
 			equivalentDuplicateLocalSpec,
 		] = specs;
 		const { context, artifacts } = fixture({
-			nsToml: `harnesses = ["pi"]\nextensions = ${JSON.stringify(specs)}\n`,
+			nsToml: `supported_harnesses = ["pi"]\nextensions = ${JSON.stringify(specs)}\n`,
 			diagnostics: [
 				{
 					severity: "error",
@@ -345,7 +346,7 @@ describe("listExtensions", () => {
 		async (artifactStatus, artifactCount, affectedArtifactCount) => {
 			const record = descriptor({ spec: "./extension" });
 			const { context } = fixture({
-				nsToml: 'harnesses = ["pi"]\nextensions = ["./extension"]\n',
+				nsToml: 'supported_harnesses = ["pi"]\nextensions = ["./extension"]\n',
 				descriptors: [record],
 				artifactSummaries: [
 					{
@@ -391,7 +392,7 @@ describe("listExtensions", () => {
 						acquisitionStatus: "installed",
 						packageName: "@test/extension",
 						artifactStatus: "unavailable",
-						diagnostics: [{ code: "harnesses-missing", path: "/repo/ns.toml" }],
+						diagnostics: [{ code: "supported-harnesses-missing", path: "/repo/ns.toml" }],
 					},
 				],
 			},
@@ -422,6 +423,6 @@ describe("listExtensions", () => {
 		expect(rendered).toContain("ARTIFACTS (AFFECTED/OBSERVED)");
 		expect(rendered).toContain("unavailable 0/0 (observed may be partial)");
 		expect(rendered).toContain("Diagnostics:");
-		expect(rendered).toContain("[harnesses-missing]");
+		expect(rendered).toContain("[supported-harnesses-missing]");
 	});
 });

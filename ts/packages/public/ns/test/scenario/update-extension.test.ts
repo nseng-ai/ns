@@ -93,7 +93,7 @@ function fixture(options: {
 			git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", cachedOriginHeadBranch: "main" }),
 			files: new InMemoryActivationFilesGateway({
 				files: {
-					"ns.toml": `harnesses = ["pi"]\nextensions = ["${options.source}"]\n`,
+					"ns.toml": `supported_harnesses = ["pi"]\nextensions = ["${options.source}"]\n`,
 				},
 			}),
 			declaredExtensions,
