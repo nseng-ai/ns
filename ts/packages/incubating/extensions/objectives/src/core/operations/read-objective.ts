@@ -281,7 +281,7 @@ function emptyResult(options: {
 		owner: options.owner,
 		slug: options.slug,
 		locator: options.locator,
-		...(options.message === undefined ? {} : { message: options.message }),
+		...optionalEntry("message", options.message),
 		path: options.path,
 		exists: false,
 		closed: false,

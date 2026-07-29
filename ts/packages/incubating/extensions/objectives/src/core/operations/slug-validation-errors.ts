@@ -4,7 +4,6 @@ import { pythonStringRepr } from "./format.ts";
 
 interface ObjectiveSelectorValidationResult {
 	status: string;
-	message?: string | undefined;
 }
 
 /**
@@ -14,6 +13,8 @@ interface ObjectiveSelectorValidationResult {
 export function handleObjectiveSlugValidationErrors<
 	Result extends ObjectiveSelectorValidationResult,
 >(result: Result, selector: string | undefined): ClinkrExit<Result> | null {
+	const message =
+		"message" in result && typeof result.message === "string" ? result.message : undefined;
 	if (result.status === "missing-slug") {
 		return negative("Missing Objective locator. Pass <owner>/<slug> or an owner-local slug.", {
 			data: result,
@@ -21,14 +22,14 @@ export function handleObjectiveSlugValidationErrors<
 	}
 	if (result.status === "invalid-slug") {
 		return negative(
-			result.message ??
+			message ??
 				`Invalid Objective locator ${pythonStringRepr(selector ?? "")}. Pass <owner>/<slug> or an owner-local slug.`,
 			{ data: result },
 		);
 	}
 	if (result.status === "owner-unavailable") {
 		return negative(
-			result.message ??
+			message ??
 				`Cannot resolve bare Objective slug ${pythonStringRepr(selector ?? "")}: no authenticated owner. Pass a full <owner>/<slug> locator.`,
 			{ data: result },
 		);

@@ -1,3 +1,5 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import {
 	parseObjectiveSelector,
 	renderObjectiveLocator,
@@ -73,7 +75,7 @@ export function targetToEmptyResultFields(
 		slug: target.slug,
 		locator: target.locator,
 		path: target.path,
-		...(target.message === undefined ? {} : { message: target.message }),
+		...optionalEntry("message", target.message),
 	};
 }
 

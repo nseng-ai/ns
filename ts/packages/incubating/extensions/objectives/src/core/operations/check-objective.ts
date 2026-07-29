@@ -7,6 +7,7 @@ import {
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr/legacy";
 import { cell, kv, paint, renderTable } from "@nseng-ai/foundation/cli-theme";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
@@ -320,7 +321,7 @@ function emptyResult(options: {
 		owner: options.owner,
 		slug: options.slug,
 		locator: options.locator,
-		...(options.message === undefined ? {} : { message: options.message }),
+		...optionalEntry("message", options.message),
 		path: options.path,
 		hasRecord: false,
 		isClosed: false,
