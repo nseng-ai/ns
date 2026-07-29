@@ -122,18 +122,22 @@ function kebabCase(value: string): string {
 	return value.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 }
 
+async function createRealTempDir(baseDir: string, prefix: string): Promise<string> {
+	return await realpath(await mkdtemp(join(baseDir, prefix)));
+}
+
 export function createTempDirTracker(): TempDirTracker {
 	const tempDirs: string[] = [];
 	const homeTempDirs: string[] = [];
 
 	return {
 		async makeTempDir(prefix = "ns-test-"): Promise<string> {
-			const dir = await realpath(await mkdtemp(join(tmpdir(), prefix)));
+			const dir = await createRealTempDir(tmpdir(), prefix);
 			tempDirs.push(dir);
 			return dir;
 		},
 		async makeHomeTempDir(prefix = ".ns-test-"): Promise<string> {
-			const dir = await realpath(await mkdtemp(join(homedir(), prefix)));
+			const dir = await createRealTempDir(homedir(), prefix);
 			homeTempDirs.push(dir);
 			return dir;
 		},
@@ -155,7 +159,7 @@ export async function withTempGitRepo<T>(
 	options: TempGitRepoOptions,
 	callback: (repo: TempGitRepo) => Promise<T>,
 ): Promise<T> {
-	const tempDir = await realpath(await mkdtemp(join(tmpdir(), options.prefix ?? "ns-git-repo-")));
+	const tempDir = await createRealTempDir(tmpdir(), options.prefix ?? "ns-git-repo-");
 	const repoDir = options.repoName === undefined ? tempDir : join(tempDir, options.repoName);
 	await markGitRepo(repoDir);
 	const realRepoDir = await realpath(repoDir);
