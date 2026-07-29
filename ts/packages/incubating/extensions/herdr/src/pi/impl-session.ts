@@ -1,42 +1,40 @@
-import type { ModelRegistry } from "@nseng-ai/extension-kit/pi-types";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
-import { truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
-import {
-	callPiModelText,
-	formatPiModelCallFailure,
-	type PiModelRegistryLike,
-} from "@nseng-ai/pi-runtime/models/call";
+import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 
 import {
 	HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME,
 	HERDR_SESSION_SPACE_IMPL_COMMAND_NAME,
 } from "../core/command-surfaces.ts";
 import type { HerdrPiContext } from "./context.ts";
-import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 
-const MAX_SESSION_CONTEXT_CHARS = 160_000;
-const MAX_SUMMARY_TOKENS = 4_000;
-const SYSTEM_PROMPT = `Create a directed, self-contained implementation summary for another coding-agent session.
+const SYSTEM_PROMPT = `Draft a directed, self-contained implementation prompt for another coding-agent session.
 
-The summary must let a fresh agent implement the requested continuation without access to this conversation. Incorporate the optional focus as the direction of the summary, not as a separate aside. Capture the goal, relevant repository and branch state, decisions and constraints, work already completed, concrete file/symbol anchors, remaining steps, validation expectations, and material risks or unknowns. Distinguish verified facts from assumptions. Omit conversational filler. Return only the summary text; do not wrap it in a slash command or a code fence.`;
-
-interface GenerateImplementationSummaryOptions {
-	readonly callModelText: typeof callPiModelText;
-	readonly modelSelection: ModelSelection;
-	readonly modelRegistry: PiModelRegistryLike;
-	readonly sessionContext: string;
-	readonly focus: string;
-}
-
-export interface HerdrSessionSpaceImplRegistrationOptions {
-	/** Test seam matching callPiModelText; faked at the true external boundary. */
-	readonly callModelText?: typeof callPiModelText;
-}
+Use the current session context and the continuation focus below. The prompt must let a fresh agent implement the requested continuation without access to this conversation. Capture the goal, relevant repository and branch state, decisions and constraints, work already completed, concrete file or symbol anchors, remaining steps, validation expectations, and material risks or unknowns. Distinguish verified facts from assumptions. Omit conversational filler. Do not use tools or perform implementation work. Return only the implementation prompt; do not wrap it in a slash command or a code fence.`;
 
 export function registerHerdrSessionSpaceImplCommand(
 	context: Pick<HerdrPiContext, "commands">,
-	options: HerdrSessionSpaceImplRegistrationOptions = {},
 ): void {
+	let summaryPending = false;
+
+	context.commands.on("agent_end", (event, ctx) => {
+		if (!summaryPending) return;
+		summaryPending = false;
+		ctx.ui.setStatus?.(HERDR_SESSION_SPACE_IMPL_COMMAND_NAME, undefined);
+		const summary = extractLatestAssistantText(readAgentEndMessages(event));
+		if (summary === undefined) {
+			ctx.ui.notify("The session summary turn returned no implementation prompt.", "error");
+			return;
+		}
+		if (ctx.ui.setEditorText === undefined) {
+			ctx.ui.notify("This Pi runtime cannot prefill editor text.", "error");
+			return;
+		}
+		ctx.ui.setEditorText(`/${HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME} ${summary}`);
+		ctx.ui.notify(
+			"Drafted the session implementation prompt in the editor. Review or edit it, then press Enter.",
+			"info",
+		);
+	});
+
 	registerCommandWithImmediateAck({
 		host: context.commands,
 		commandName: HERDR_SESSION_SPACE_IMPL_COMMAND_NAME,
@@ -49,106 +47,57 @@ export function registerHerdrSessionSpaceImplCommand(
 					ctx.ui.notify("This Pi runtime cannot prefill editor text.", "error");
 					return;
 				}
-				if (ctx.model === undefined) {
-					ctx.ui.notify("An active Pi model is required to summarize this session.", "error");
-					return;
-				}
-				const modelRegistry = resolveModelRegistry(ctx.modelRegistry);
-				if (modelRegistry === undefined) {
-					ctx.ui.notify("This Pi runtime cannot authenticate the active model.", "error");
-					return;
-				}
-
+				summaryPending = true;
 				ctx.ui.setStatus?.(HERDR_SESSION_SPACE_IMPL_COMMAND_NAME, "summarizing session…");
-				try {
-					const generated = await generateImplementationSummary({
-						callModelText: options.callModelText ?? callPiModelText,
-						modelSelection: {
-							provider: ctx.model.provider,
-							modelId: ctx.model.id,
-							thinking: normalizeThinking(context.commands.getThinkingLevel()),
-						},
-						modelRegistry,
-						sessionContext: serializeActiveSessionContext(
-							ctx.sessionManager.buildContextEntries?.() ?? ctx.sessionManager.getBranch(),
-						),
-						focus: args.trim(),
-					});
-					if (!generated.ok) {
-						ctx.ui.notify(generated.message, "error");
-						return;
-					}
-					const summary = generated.text.trim();
-					if (summary === "") {
-						ctx.ui.notify("The model returned an empty implementation summary.", "error");
-						return;
-					}
-					ctx.ui.setEditorText(`/${HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME} ${summary}`);
-					ctx.ui.notify(
-						"Drafted the session implementation prompt in the editor. Review or edit it, then press Enter.",
-						"info",
-					);
-				} finally {
-					ctx.ui.setStatus?.(HERDR_SESSION_SPACE_IMPL_COMMAND_NAME, undefined);
-				}
+				context.commands.sendUserMessage(buildSummaryRequest(args.trim()));
 			},
 		},
 		options: { delivery: "message" },
 	});
 }
 
-async function generateImplementationSummary(
-	options: GenerateImplementationSummaryOptions,
-): Promise<{ ok: true; text: string } | { ok: false; message: string }> {
-	const result = await options.callModelText({
-		registry: options.modelRegistry,
-		modelSelection: options.modelSelection,
-		systemPrompt: SYSTEM_PROMPT,
-		userText: buildSummaryRequest(options.sessionContext, options.focus),
-		maxTokens: MAX_SUMMARY_TOKENS,
-	});
-	if (result.ok) return result;
-	return {
-		ok: false,
-		message: formatPiModelCallFailure(result, {
-			modelSelection: options.modelSelection,
-			taskAction: "summarize the session",
-		}),
-	};
-}
-
-function buildSummaryRequest(sessionContext: string, focus: string): string {
+function buildSummaryRequest(focus: string): string {
 	return [
-		"## Continuation focus",
-		focus === "" ? "(No additional focus was supplied.)" : focus,
+		SYSTEM_PROMPT,
 		"",
-		"## Current active Pi session context",
-		sessionContext,
+		"## Continuation focus",
+		focus === "" ? "Choose the most natural implementation continuation from the session." : focus,
 	].join("\n");
 }
 
-function serializeActiveSessionContext(
-	entries: readonly { readonly type: string; readonly [key: string]: unknown }[],
-): string {
-	return truncateTextHeadTail({
-		value: JSON.stringify(entries, null, 2),
-		maxChars: MAX_SESSION_CONTEXT_CHARS,
-		headRatio: 0,
-		buildMarker: () => "[Earlier active-session context truncated to fit the summary request.]\n",
-	});
+interface AgentMessageLike {
+	readonly role?: string;
+	readonly content?: unknown;
 }
 
-function resolveModelRegistry(registry: ModelRegistry): PiModelRegistryLike | undefined {
-	if (registry.getApiKeyAndHeaders === undefined) return undefined;
-	return {
-		find: (provider, modelId) => registry.find(provider, modelId),
-		getApiKeyAndHeaders: registry.getApiKeyAndHeaders.bind(registry),
-	};
+function readAgentEndMessages(event: unknown): readonly AgentMessageLike[] {
+	if (typeof event !== "object" || event === null || !("messages" in event)) return [];
+	if (!Array.isArray(event.messages)) return [];
+	return event.messages.filter(isAgentMessageLike);
 }
 
-/** callPiModelText rejects "off"; summarize at "minimal" instead of failing off-thinking users. */
-function normalizeThinking(
-	thinking: ReturnType<HerdrPiContext["commands"]["getThinkingLevel"]>,
-): ModelSelection["thinking"] {
-	return thinking === "off" ? "minimal" : thinking;
+function isAgentMessageLike(value: unknown): value is AgentMessageLike {
+	return typeof value === "object" && value !== null;
+}
+
+function extractLatestAssistantText(messages: readonly AgentMessageLike[]): string | undefined {
+	for (let index = messages.length - 1; index >= 0; index -= 1) {
+		const message = messages[index];
+		if (message?.role !== "assistant" || !Array.isArray(message.content)) continue;
+		const text = message.content
+			.filter(
+				(part): part is { type: "text"; text: string } =>
+					typeof part === "object" &&
+					part !== null &&
+					"type" in part &&
+					part.type === "text" &&
+					"text" in part &&
+					typeof part.text === "string",
+			)
+			.map((part) => part.text)
+			.join("\n")
+			.trim();
+		if (text !== "") return text;
+	}
+	return undefined;
 }
