@@ -1,7 +1,6 @@
-import { buildPiLaunchCommand } from "@nseng-ai/extension-kit/pi-launch";
+import { formatShellArg } from "@nseng-ai/foundation/exec";
 import { getCallerWorkspaceId, HERDR_TAB_HANDOFF_COMMAND_NAME } from "@nseng-ai/herdr/api";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
-import { formatShellArg } from "@nseng-ai/foundation/exec";
 import type {
 	HandoffExtensionAPI,
 	HandoffPromptCreateIntegration,
@@ -62,19 +61,18 @@ export function registerHerdrHandoffTab(
 							};
 						}
 						const thinking = pi.getThinkingLevel?.() ?? "medium";
-						const pickupCommand = `/ns:handoff:pickup --branch ${request.branch} <returned-slug>`;
-						const piLaunchCommand = buildPiLaunchCommand(pickupCommand, {
-							model: { provider: ctx.model.provider, id: ctx.model.id },
-							thinkingLevel: thinking,
+						const launchRequestJson = JSON.stringify({
+							branch: request.branch,
+							slug: "<returned-slug>",
+							workspaceId,
+							provider: ctx.model.provider,
+							model: ctx.model.id,
+							thinking,
 						});
 						const launchCommand = [
-							HERDR_TAB_HANDOFF_LAUNCH_COMMAND,
-							`--branch ${formatShellArg(request.branch)}`,
-							"--slug <returned-slug>",
-							`--workspace-id ${formatShellArg(workspaceId)}`,
-							`--launch-command ${formatShellArg(piLaunchCommand)}`,
-							"--format json",
-						].join(" ");
+							`printf '%s\\n' ${formatShellArg(launchRequestJson)}`,
+							`${HERDR_TAB_HANDOFF_LAUNCH_COMMAND} --input-json --format json`,
+						].join(" | ");
 						return {
 							type: "ok",
 							promptOptions: {
@@ -86,7 +84,7 @@ export function registerHerdrHandoffTab(
 								toolCallInstruction: `After \`ns handoff create\` succeeds, run \`${launchCommand}\`. Replace only \`<returned-slug>\` with the exact slug returned by derive_handoff_slug_from_content.`,
 								extraRequirements: [
 									"The Herdr launch command reads and verifies the stored Handoff Artifact by branch and slug; do not pipe, quote, or otherwise send the Markdown artifact to it.",
-									"Run the Herdr launch command from the captured caller working directory; do not change the branch, workspace ID, or already composed launch command.",
+									"Run the Herdr launch command from the captured caller working directory; do not change the branch, workspace ID, provider, model, or thinking values.",
 								],
 							},
 						};

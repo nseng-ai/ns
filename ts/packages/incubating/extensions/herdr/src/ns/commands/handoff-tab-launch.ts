@@ -1,3 +1,4 @@
+import { buildPiLaunchCommand } from "@nseng-ai/extension-kit/pi-launch";
 import { formatShellArg } from "@nseng-ai/foundation/exec";
 import { checkHandoffArtifact, parseFlatHandoffSlug } from "@nseng-ai/handoffs/api";
 import { failure, negative, ok } from "@nseng-ai/sdk";
@@ -14,12 +15,13 @@ const nonblankSchema = z.string().trim().min(1);
 const flatSlugSchema = z.string().refine((value) => parseFlatHandoffSlug(value).type === "valid", {
 	message: "slug must be flat and use lowercase letters, numbers, and single interior dashes only",
 });
-
 export const herdrHandoffTabLaunchRequestSchema = z.strictObject({
 	branch: nonblankSchema,
 	slug: flatSlugSchema,
 	workspaceId: nonblankSchema,
-	launchCommand: nonblankSchema,
+	provider: nonblankSchema,
+	model: nonblankSchema,
+	thinking: z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]),
 });
 
 export const herdrHandoffTabLaunchResultSchema = z.strictObject({
@@ -66,10 +68,14 @@ export const herdrHandoffTabLaunchNsCommand = herdrNsCommand({
 			);
 		}
 
+		const pickupCommand = `/ns:handoff:pickup --branch ${request.branch} ${request.slug}`;
 		const launched = await launchHerdrHandoffTab({
 			herdr: ctx.herdr,
 			cwd: ctx.cwd,
-			launchCommand: request.launchCommand,
+			launchCommand: buildPiLaunchCommand(pickupCommand, {
+				model: { provider: request.provider, id: request.model },
+				thinkingLevel: request.thinking,
+			}),
 			workspaceId: request.workspaceId,
 			slug: request.slug,
 		});

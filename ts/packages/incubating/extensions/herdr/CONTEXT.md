@@ -45,8 +45,8 @@ The `/ns:herdr:tab:goal` operation that interprets a goal and renames the explic
 *Avoid*: space goal, UI-focus targeting, workspace rename
 
 **Herdr Handoff tab**:
-The optional `/ns:herdr:tab:handoff` integration with `@nseng-ai/handoffs`. The Handoff Pi create flow owns Handoff Artifact composition, content-derived slugging, and persistence; the hidden reference-based `ns herdr exec handoff-tab launch` command verifies the stored artifact by branch and slug before Herdr creates a focused tab labeled `handoff:<handoff-slug>` and launches pickup in its root pane. Registration is conditional on the curated Handoffs Pi integration being available.
-*Avoid*: generic Herdr handoff workflow family, model-facing launch tool, Markdown transport through Herdr, Handoffs-owned destination, compatibility alias
+The optional `/ns:herdr:tab:handoff` integration with `@nseng-ai/handoffs`. The Handoff Pi create flow owns Handoff Artifact composition, content-derived slugging, and persistence; `@nseng-ai/pi-ns-herdr` transports the caller's launch profile (provider, model, thinking). The hidden reference-based `ns herdr exec handoff-tab launch` command verifies the stored artifact by branch and slug, constructs the canonical Pi launch through the shared extension-kit `pi-launch` helper with the durable pickup reference, and only then creates a focused tab labeled `handoff:<handoff-slug>` and launches pickup in its root pane. Registration is conditional on the curated Handoffs Pi integration being available.
+*Avoid*: generic Herdr handoff workflow family, model-facing launch tool, arbitrary command transport, Markdown transport through Herdr, Handoffs-owned destination, compatibility alias
 
 **Caller space targeting**:
 Identifying the explicit caller Herdr space through `HERDR_WORKSPACE_ID`, injected by Herdr into a managed pane. Space rename and tab-creation/launch flows validate and capture this ID before dependent work or destination mutation.
@@ -89,5 +89,5 @@ Launch remains correct vocabulary for supporting mechanics: **Prepared Herdr Lau
 *Avoid*: banning launch vocabulary globally, `ns-impl` as command name, Handoff launch for ordinary prompt or plan implementation
 
 **Herdr extension boundary**:
-The thin `api` subpackage exposes command metadata and focused Herdr domain operations to host adapters. The `ns` subpackage composes hidden reference-based commands and real same-channel gateways; core stays host-independent. Pi registration, interaction, presentation, launch-command construction, and optional Handoffs host composition live in `@nseng-ai/pi-ns-herdr`.
-*Avoid*: Pi imports in Herdr, host-owned Herdr domain, package cycle, compatibility Pi export
+The thin `api` subpackage exposes command metadata and focused Herdr domain operations to host adapters. The `ns` subpackage composes hidden reference-based commands, canonical Pi launch construction through the shared extension-kit helper, and real same-channel gateways; core stays host-independent. Pi registration, interaction, presentation, launch-profile resolution, and optional Handoffs host composition live in `@nseng-ai/pi-ns-herdr`.
+*Avoid*: Pi imports in Herdr core, host-owned Herdr domain, package cycle, compatibility Pi export
