@@ -1,6 +1,9 @@
-import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/exec";
+import {
+	formatCommandOutput,
+	type CommandExecApi,
+	type ExecResult,
+} from "@nseng-ai/foundation/exec";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import { formatCommandOutput } from "@nseng-ai/pi-runtime/commands/helpers";
 import { z } from "zod";
 
 const RESTACK_PREFLIGHT_TIMEOUT_MS = 60_000;

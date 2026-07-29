@@ -88,6 +88,11 @@ export interface TailTextOptions {
 	maxLines?: number;
 }
 
+export interface CommandOutputFormatOptions {
+	maxChars?: number;
+	maxLines?: number;
+}
+
 export type CommandResolver = (name: string) => string | undefined;
 
 const NS_COMMAND_SEGMENT_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
@@ -247,6 +252,27 @@ export function formatOutputSection(
 	const normalizedOutput = stripTerminalEscapes(output).replace(/\r/g, "\n").trimEnd();
 	const tail = normalizedOutput.length > 0 ? tailText(normalizedOutput, options) : "";
 	return [`----- ${name} tail -----`, tail.length > 0 ? tail : "(empty)"].join("\n");
+}
+
+export function formatCommandOutput(
+	result: ExecResult,
+	options: CommandOutputFormatOptions = {},
+): string {
+	const tailOptions = {
+		maxChars: options.maxChars ?? MAX_ERROR_CHARS,
+		maxLines: options.maxLines ?? 30,
+	};
+	const parts: string[] = [];
+	if (result.stdout.trim().length > 0) {
+		parts.push(formatOutputSection("stdout", result.stdout, tailOptions));
+	}
+	if (result.stderr.trim().length > 0) {
+		parts.push(formatOutputSection("stderr", result.stderr, tailOptions));
+	}
+	if (result.type === "spawn-failed" && result.error.length > 0) {
+		parts.push(`startup error:\n${tailText(result.error.trimEnd(), tailOptions)}`);
+	}
+	return parts.join("\n\n");
 }
 
 function formatCommandEvidenceOutput(output: string): string {

@@ -8,6 +8,7 @@ import {
 	formatCommandDetails,
 	formatCommandError,
 	formatCommandEvidence,
+	formatCommandOutput,
 	formatCommandResultFailure,
 	formatCommandSpawnFailure,
 	formatCommandTermination,
@@ -189,6 +190,24 @@ describe("command presentation helpers", () => {
 		expect(formatOutputSection("stderr", "\n", { maxLines: 10, maxChars: 100 })).toBe(
 			"----- stderr tail -----\n(empty)",
 		);
+	});
+
+	test("formats bounded command output and spawn errors", () => {
+		const result: ExecResult = {
+			type: "spawn-failed",
+			stdout: "old stdout\ncurrent stdout\n",
+			stderr: "diagnostic output\n",
+			error: "old startup error\ncurrent startup error",
+		};
+
+		expect(formatCommandOutput(result, { maxChars: 100, maxLines: 1 })).toBe(
+			[
+				"----- stdout tail -----\n… 1 earlier line(s) omitted\ncurrent stdout",
+				"----- stderr tail -----\ndiagnostic output",
+				"startup error:\n… 1 earlier line(s) omitted\ncurrent startup error",
+			].join("\n\n"),
+		);
+		expect(formatCommandOutput(exited())).toBe("");
 	});
 
 	test("formats spawn failures separately from close-based failures", () => {

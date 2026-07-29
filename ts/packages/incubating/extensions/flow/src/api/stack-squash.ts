@@ -1,13 +1,5 @@
-import {
-	formatOutputSection,
-	tailText,
-	type CommandExecApi,
-	type ExecResult,
-} from "@nseng-ai/foundation/exec";
+import { formatCommandOutput, type CommandExecApi } from "@nseng-ai/foundation/exec";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
-
-const COMMAND_OUTPUT_MAX_CHARS = 4_000;
-const COMMAND_OUTPUT_MAX_LINES = 30;
 
 import { createFlowGraphiteStackGateway } from "../stack-squash/graphite-stack-gateway.ts";
 import {
@@ -87,22 +79,4 @@ function formatFailureMessage(message: string, failure: StackSquashCommandFailur
 	return [message, formatCommandOutput(failure.execResult)]
 		.filter((part) => part.length > 0)
 		.join("\n\n");
-}
-
-function formatCommandOutput(result: ExecResult): string {
-	const tailOptions = {
-		maxChars: COMMAND_OUTPUT_MAX_CHARS,
-		maxLines: COMMAND_OUTPUT_MAX_LINES,
-	};
-	const parts: string[] = [];
-	if (result.stdout.trim().length > 0) {
-		parts.push(formatOutputSection("stdout", result.stdout, tailOptions));
-	}
-	if (result.stderr.trim().length > 0) {
-		parts.push(formatOutputSection("stderr", result.stderr, tailOptions));
-	}
-	if (result.type === "spawn-failed" && result.error.length > 0) {
-		parts.push(`startup error:\n${tailText(result.error.trimEnd(), tailOptions)}`);
-	}
-	return parts.join("\n\n");
 }

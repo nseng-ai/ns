@@ -3,6 +3,7 @@ import { formatCommandTermination } from "@nseng-ai/foundation/command";
 import {
 	commandSucceeded,
 	execApiToCommandRunner,
+	formatCommandOutput,
 	type ExecResult,
 } from "@nseng-ai/foundation/exec";
 import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
@@ -10,7 +11,7 @@ import {
 	registerCommandWithImmediateAck,
 	sendCommandProgressOrNotify,
 } from "@nseng-ai/pi-runtime/commands/ack";
-import { formatCommandOutput, notifyCommandUi } from "@nseng-ai/pi-runtime/commands/helpers";
+import { notifyCommandUi } from "@nseng-ai/pi-runtime/commands/helpers";
 import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
 import type {
 	CommandContext,
