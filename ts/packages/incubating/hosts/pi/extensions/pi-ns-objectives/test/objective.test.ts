@@ -32,6 +32,7 @@ import type {
 	AgentSettledContext,
 	RawPiExecOptions,
 	SessionStartContext,
+	SessionStartEventLike,
 } from "@nseng-ai/pi-runtime/runtime/types";
 
 const ROOT = process.cwd();
@@ -108,7 +109,10 @@ type InputHandler = (event: {
 	text: string;
 	source: "interactive" | "rpc" | "extension";
 }) => Promise<void> | void;
-type SessionStartHandler = (_event: unknown, ctx: SessionStartContext) => Promise<void> | void;
+type SessionStartHandler = (
+	_event: SessionStartEventLike,
+	ctx: SessionStartContext,
+) => Promise<void> | void;
 
 class FakePi implements ObjectiveExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
@@ -247,7 +251,7 @@ class FakePi implements ObjectiveExtensionAPI {
 
 	async emitSessionStart(ctx: SessionStartContext): Promise<void> {
 		for (const handler of this.eventHandlers.session_start) {
-			await (handler as SessionStartHandler)({}, ctx);
+			await (handler as SessionStartHandler)({ reason: "startup" }, ctx);
 		}
 	}
 

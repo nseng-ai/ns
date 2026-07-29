@@ -14,6 +14,7 @@ import type {
 	AutocompleteProvider,
 	CommandContext,
 	CommandDefinition,
+	EntryRenderer,
 	ExtensionAPI,
 	ModelInfo,
 	NotifyLevel,
@@ -21,7 +22,9 @@ import type {
 	RawPiExecOptions,
 	RawPiExecResult,
 	SessionStartContext,
+	SessionStartEventLike,
 	ThinkingLevel,
+	WidgetContentFactoryLike,
 } from "@nseng-ai/extension-kit/pi-types";
 import { parseMachineEnvelopeData } from "@nseng-ai/foundation/machine-envelope";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
@@ -83,13 +86,15 @@ export interface Confirmation {
 export interface FakeCommandContextOptions {
 	cwd?: string;
 	hasUI?: boolean;
+	hasSelect?: boolean;
 	confirmValues?: boolean[];
 	inputValues?: Array<string | undefined>;
-	onWaitForIdle?: () => void;
+	onWaitForIdle?: () => unknown;
 	selectIndices?: number[];
 	shouldCancelSelect?: boolean;
 	shouldHaveEditor?: boolean;
 	branchEntries?: PiSessionEntry[];
+	sessionFile?: string;
 }
 
 export const ROOT = mkdtempSync(join(tmpdir(), "herdr-model-root-"));
@@ -115,12 +120,17 @@ export class FakePi implements ExtensionAPI {
 	readonly tools = new Map<string, { name: string }>();
 	readonly execCalls: ExecCall[] = [];
 	readonly sentUserMessages: string[] = [];
+	readonly appendedEntries: Array<{ customType: string; data: unknown }> = [];
+	readonly entryRenderers = new Map<string, EntryRenderer>();
 	readonly setModels: ModelInfo[] = [];
 	readonly thinkingLevels: string[] = [];
 	private readonly script: ScriptedQueue<ScriptedExec>;
 	private readonly shouldRequireExpectedArgs: boolean;
 	private readonly agentEndHandlers: Array<
 		(event: unknown, ctx: AgentEndContext) => Promise<void> | void
+	> = [];
+	private readonly sessionStartHandlers: Array<
+		(event: SessionStartEventLike, ctx: SessionStartContext) => Promise<void> | void
 	> = [];
 	private thinkingLevel: ThinkingLevel = "medium";
 
@@ -140,18 +150,26 @@ export class FakePi implements ExtensionAPI {
 	): void;
 	on(
 		event: "session_start",
-		handler: (event: unknown, ctx: SessionStartContext) => Promise<void> | void,
+		handler: (event: SessionStartEventLike, ctx: SessionStartContext) => Promise<void> | void,
 	): void;
 	on(event: "agent_end" | "session_start", handler: (...args: never[]) => unknown): void {
 		if (event === "agent_end") {
 			this.agentEndHandlers.push(
 				handler as (event: unknown, ctx: AgentEndContext) => Promise<void> | void,
 			);
+			return;
 		}
+		this.sessionStartHandlers.push(
+			handler as (event: SessionStartEventLike, ctx: SessionStartContext) => Promise<void> | void,
+		);
 	}
 
 	async emitAgentEnd(event: unknown, ctx: AgentEndContext): Promise<void> {
 		for (const handler of this.agentEndHandlers) await handler(event, ctx);
+	}
+
+	async emitSessionStart(event: SessionStartEventLike, ctx: SessionStartContext): Promise<void> {
+		for (const handler of this.sessionStartHandlers) await handler(event, ctx);
 	}
 
 	registerCommand(name: string, options: CommandDefinition): void {
@@ -160,6 +178,14 @@ export class FakePi implements ExtensionAPI {
 
 	registerTool(definition: { name: string }): void {
 		this.tools.set(definition.name, definition);
+	}
+
+	appendEntry(customType: string, data?: unknown): void {
+		this.appendedEntries.push({ customType, data });
+	}
+
+	registerEntryRenderer(customType: string, renderer: EntryRenderer): void {
+		this.entryRenderers.set(customType, renderer);
 	}
 
 	getAllTools(): Array<{ name: string }> {
@@ -259,6 +285,10 @@ export class FakeCommandContext implements CommandContext {
 	readonly hasUI: boolean;
 	readonly notifications: Notification[] = [];
 	readonly statuses: Array<{ key: string; value: string | undefined }> = [];
+	readonly widgets: Array<{
+		key: string;
+		lines: string[] | WidgetContentFactoryLike | undefined;
+	}> = [];
 	readonly selections: Selection[] = [];
 	readonly confirmations: Confirmation[] = [];
 	readonly inputPrompts: InputPrompt[] = [];
@@ -274,7 +304,7 @@ export class FakeCommandContext implements CommandContext {
 	private readonly confirmValues: boolean[];
 	private readonly inputValues: Array<string | undefined>;
 	private readonly selectIndices: number[];
-	private readonly onWaitForIdle: (() => void) | undefined;
+	private readonly onWaitForIdle: (() => unknown) | undefined;
 
 	constructor(options: FakeCommandContextOptions = {}) {
 		this.cwd = options.cwd ?? ROOT;
@@ -289,7 +319,7 @@ export class FakeCommandContext implements CommandContext {
 		this.sessionManager = {
 			getBranch: () => branchEntries,
 			getEntries: () => branchEntries,
-			getSessionFile: () => undefined,
+			getSessionFile: () => options.sessionFile,
 			getSessionId: () => "test-session-id",
 		};
 		this.ui = {
@@ -300,6 +330,9 @@ export class FakeCommandContext implements CommandContext {
 			setStatus: (key, value) => {
 				this.statuses.push({ key, value });
 			},
+			setWidget: (key, lines) => {
+				this.widgets.push({ key, lines });
+			},
 			confirm: async (title, message) => {
 				this.confirmations.push({ title, message });
 				return this.confirmValues.shift() ?? true;
@@ -308,14 +341,18 @@ export class FakeCommandContext implements CommandContext {
 				this.inputPrompts.push({ title, placeholder });
 				return this.inputValues.shift();
 			},
-			select: async (title, items) => {
-				this.selections.push({ title, items: [...items] });
-				if (this.shouldCancelSelect) {
-					return undefined;
-				}
-				const index = this.selectIndices.shift() ?? 0;
-				return items[index];
-			},
+			...(options.hasSelect === false
+				? {}
+				: {
+						select: async (title: string, items: string[]) => {
+							this.selections.push({ title, items: [...items] });
+							if (this.shouldCancelSelect) {
+								return undefined;
+							}
+							const index = this.selectIndices.shift() ?? 0;
+							return items[index];
+						},
+					}),
 			addAutocompleteProvider: (factory) => {
 				this.autocompleteProviders.push(factory);
 			},
@@ -331,7 +368,7 @@ export class FakeCommandContext implements CommandContext {
 
 	async waitForIdle(): Promise<void> {
 		this.events.push("wait-for-idle");
-		this.onWaitForIdle?.();
+		await this.onWaitForIdle?.();
 		this.waitCount += 1;
 	}
 }

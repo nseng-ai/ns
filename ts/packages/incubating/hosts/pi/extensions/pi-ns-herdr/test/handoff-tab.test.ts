@@ -442,6 +442,10 @@ class HandoffTabFakePi implements HandoffExtensionAPI {
 		this.tools.set(tool.name, tool);
 	}
 
+	appendEntry(): void {}
+
+	registerEntryRenderer(): void {}
+
 	async exec(command: string, args: string[]) {
 		const fixture = this.script.shift();
 		if (

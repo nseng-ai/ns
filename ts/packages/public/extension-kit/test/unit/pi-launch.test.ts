@@ -1,9 +1,9 @@
 import {
 	buildPiLaunchArgs,
 	buildPiLaunchCommand,
+	buildPiModelThinkingArgs,
 	getPiLaunchOptions,
 } from "@nseng-ai/extension-kit/pi-launch";
-import { buildTrackedBranchPayloadLaunchCommand } from "@nseng-ai/extension-kit/tracked-branch-payload";
 import { describe, expect, test } from "vitest";
 
 describe("buildPiLaunchArgs", () => {
@@ -27,6 +27,34 @@ describe("buildPiLaunchArgs", () => {
 			"high",
 			"prompt.md",
 		]);
+	});
+
+	test("builds a prompt-free launch without manufacturing an empty argument", () => {
+		expect(
+			buildPiLaunchArgs(undefined, {
+				model: { provider: "anthropic", id: "claude-sonnet" },
+				thinkingLevel: "high",
+			}),
+		).toEqual(["pi", "--provider", "anthropic", "--model", "claude-sonnet", "--thinking", "high"]);
+		expect(buildPiLaunchArgs(undefined, { thinkingLevel: "off" })).toEqual(["pi"]);
+	});
+});
+
+describe("buildPiModelThinkingArgs", () => {
+	test("builds the shared model and thinking flags", () => {
+		expect(
+			buildPiModelThinkingArgs({
+				model: { provider: "anthropic", id: "claude-sonnet" },
+				thinkingLevel: "high",
+			}),
+		).toEqual(["--provider", "anthropic", "--model", "claude-sonnet", "--thinking", "high"]);
+		expect(buildPiModelThinkingArgs({ thinkingLevel: "medium" })).toEqual(["--thinking", "medium"]);
+		expect(
+			buildPiModelThinkingArgs({
+				model: { provider: "openai", id: "gpt-5" },
+				thinkingLevel: "off",
+			}),
+		).toEqual(["--provider", "openai", "--model", "gpt-5"]);
 	});
 });
 
@@ -59,24 +87,5 @@ describe("getPiLaunchOptions", () => {
 				{ model: { provider: "openai", id: "gpt-5" } },
 			),
 		).toEqual({ model: { provider: "openai", id: "gpt-5" }, thinkingLevel: "off" });
-	});
-});
-
-describe("buildTrackedBranchPayloadLaunchCommand", () => {
-	test("uses the shared argv builder with the payload expansion last", () => {
-		expect(
-			buildTrackedBranchPayloadLaunchCommand("feature/demo", {
-				model: { provider: "anthropic", id: "claude-sonnet" },
-				thinkingLevel: "high",
-			}),
-		).toBe(
-			'payload="$(brmem get prompt.md --namespace ns-impl --branch feature/demo)" && exec pi --provider anthropic --model claude-sonnet --thinking high "$payload"',
-		);
-	});
-
-	test("omits model and thinking flags when unset", () => {
-		expect(buildTrackedBranchPayloadLaunchCommand("feature/demo", { thinkingLevel: "off" })).toBe(
-			'payload="$(brmem get prompt.md --namespace ns-impl --branch feature/demo)" && exec pi "$payload"',
-		);
 	});
 });

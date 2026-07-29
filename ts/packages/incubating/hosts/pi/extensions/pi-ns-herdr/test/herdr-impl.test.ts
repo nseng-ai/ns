@@ -25,6 +25,7 @@ import {
 	registerHerdrPlanTabImplCommand,
 } from "../src/pi/impl-plan.ts";
 import { handleHerdrSlotImplPlan, type HerdrSlotImplPlanOptions } from "../src/core/impl-plan.ts";
+import { HERDR_IMPL_PROMPT_BRANCH_ENV } from "../src/core/impl-prompt-launch.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import { createCliHerdrGateway } from "@nseng-ai/herdr/api";
 import {
@@ -323,13 +324,17 @@ describe("Herdr prompt implementation", () => {
 		]);
 		expect(await readFile(stagedPromptFile, "utf8")).toContain(prompt);
 		expect(await readFile(stagedPromptFile, "utf8")).toContain("literal --from trunk text");
-		expect(herdr.createWorkspaceCalls).toEqual([
+		expect(herdr.createWorkspaceCalls, notificationMessages(ctx).join("\n")).toEqual([
 			{ options: { cwd: WORKTREE, label: `s1:${BRANCH}` } },
 		]);
 		expect(herdr.paneRunCalls).toHaveLength(1);
-		expect(herdr.paneRunCalls[0]?.command).toContain(
-			`brmem get ${IMPL_PROMPT_KEY} --namespace ${IMPL_PROMPT_NAMESPACE} --branch ${BRANCH}`,
-		);
+		const paneCommand = herdr.paneRunCalls[0]?.command ?? "";
+		expect(paneCommand).toBe(`${HERDR_IMPL_PROMPT_BRANCH_ENV}=${BRANCH} exec pi --thinking medium`);
+		expect(paneCommand).not.toContain(prompt);
+		expect(paneCommand).not.toContain("brmem");
+		expect(paneCommand).not.toContain("mktemp");
+		expect(paneCommand).not.toContain("payload_dir");
+		expect(paneCommand).not.toContain("@");
 		expect(notificationMessages(ctx).join("\n")).toContain(
 			`${IMPL_PROMPT_NAMESPACE}/${IMPL_PROMPT_KEY}`,
 		);
@@ -422,9 +427,9 @@ describe("Herdr prompt implementation", () => {
 			},
 		]);
 		expect(herdr.paneRunCalls).toHaveLength(1);
-		expect(herdr.paneRunCalls[0]?.command).toContain(
-			`brmem get ${IMPL_PROMPT_KEY} --namespace ${IMPL_PROMPT_NAMESPACE} --branch ${BRANCH}`,
-		);
+		const paneCommand = herdr.paneRunCalls[0]?.command ?? "";
+		expect(paneCommand).toBe(`${HERDR_IMPL_PROMPT_BRANCH_ENV}=${BRANCH} exec pi --thinking medium`);
+		expect(paneCommand).not.toContain("brmem");
 		expect(notificationMessages(ctx).join("\n")).toContain(`Opened Herdr tab: ${BRANCH}`);
 	});
 
@@ -567,7 +572,10 @@ describe("Herdr prompt implementation", () => {
 		expect(slugCalls[0]?.options?.cwd).toBe(ROOT);
 		expect(slugCalls[0]?.args.at(-1)).toContain("Generate a concise git branch slug");
 		expect(slugCalls[0]?.args.at(-1)).toContain(prompt);
-		expect(herdr.paneRunCalls[0]?.command).toContain(`--namespace ${IMPL_PROMPT_NAMESPACE}`);
+		expect(herdr.paneRunCalls[0]?.command).toContain(
+			`${HERDR_IMPL_PROMPT_BRANCH_ENV}=${BRANCH} exec pi`,
+		);
+		expect(herdr.paneRunCalls[0]?.command).not.toContain("brmem");
 	});
 
 	test("trunk resolution failure stops the prompt implementation before any mutation", async () => {

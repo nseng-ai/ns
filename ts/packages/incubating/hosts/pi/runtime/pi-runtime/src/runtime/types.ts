@@ -18,6 +18,7 @@ export type {
 	ModelRegistry,
 	NotifyLevel,
 	SessionStartContext,
+	SessionStartEventLike,
 	ThinkingLevel,
 	UiLike,
 } from "@nseng-ai/extension-kit/pi-types";

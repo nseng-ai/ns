@@ -1,4 +1,18 @@
-import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
+import { buildPiModelThinkingArgs, getPiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
+import type {
+	CommandContext,
+	CustomEntryLike,
+	EntryRenderComponent,
+	EntryRenderTheme,
+} from "@nseng-ai/extension-kit/pi-types";
+import { createFoldableTextEntryComponent } from "@nseng-ai/pi-runtime/terminal/foldable-text-entry";
+import { commandSucceeded, formatCommandDetails } from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import {
+	makeCommandProgressNotifier,
+	registerCommandWithImmediateAck,
+} from "@nseng-ai/pi-runtime/commands/ack";
+import type { SlotClient } from "@nseng-ai/slots/api";
 
 import {
 	HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME,
@@ -6,96 +20,129 @@ import {
 	HERDR_SESSION_SPACE_IMPL_COMMAND_NAME,
 	HERDR_SESSION_TAB_IMPL_COMMAND_NAME,
 } from "@nseng-ai/herdr/api";
-import type { HerdrPiContext } from "./context.ts";
+import {
+	handleHerdrSlotImplPrompt,
+	resolveImplPromptPayloadOptions,
+	type ImplPromptPayloadOptions,
+} from "../core/impl-prompt.ts";
+import {
+	formatImplDestinationNoun,
+	prepareImplDestination,
+	type ImplDestination,
+} from "../core/impl-destination.ts";
+import { createHerdrPiCommandContext, type HerdrPiContext } from "./context.ts";
 
-const SUMMARY_REQUEST_SENTINEL =
-	"Draft a directed, self-contained implementation prompt for another coding-agent session.";
+export const SESSION_IMPL_PROMPT_ENTRY_TYPE = "herdr-session-impl-prompt";
 
-const SYSTEM_PROMPT = `${SUMMARY_REQUEST_SENTINEL}
+export const SESSION_PROMPT_ACTIONS = {
+	implement: "Implement this prompt now",
+	loadEditor: "Load into editor for review/edit",
+	cancel: "Cancel",
+} as const;
 
-Use the current session context and the continuation focus below. The prompt must let a fresh agent implement the requested continuation without access to this conversation. Capture the goal, relevant repository and branch state, decisions and constraints, work already completed, concrete file or symbol anchors, remaining steps, validation expectations, and material risks or unknowns. Distinguish verified facts from assumptions. Omit conversational filler. Do not use tools or perform implementation work. Return only the implementation prompt; do not wrap it in a slash command or a code fence.`;
+const SYSTEM_PROMPT = `Draft a directed, self-contained implementation prompt for another coding-agent session.
+
+Use the source session context and the continuation focus below. The prompt must let a fresh agent implement the requested continuation without access to the source conversation. Capture the goal, relevant repository and branch state, decisions and constraints, work already completed, concrete file or symbol anchors, remaining steps, validation expectations, and material risks or unknowns. Distinguish verified facts from assumptions. Omit conversational filler. Do not use tools or perform implementation work. Return only the implementation prompt; do not wrap it in a slash command or a code fence.`;
+
+export interface HerdrSessionImplRegistrationOptions extends ImplPromptPayloadOptions {
+	slotClient?: SlotClient;
+	generatePrompt?: typeof generateSessionImplementationPrompt;
+	implementPrompt?: typeof handleHerdrSlotImplPrompt;
+}
 
 interface SessionImplConfig {
 	readonly sessionCommandName: string;
 	readonly promptCommandName: string;
-	readonly destinationNoun: "space" | "tab";
-}
-
-interface PendingSummary {
-	readonly sessionCommandName: string;
-	readonly promptCommandName: string;
+	readonly destination: ImplDestination;
 }
 
 const SESSION_CONFIGS: readonly SessionImplConfig[] = [
 	{
 		sessionCommandName: HERDR_SESSION_SPACE_IMPL_COMMAND_NAME,
 		promptCommandName: HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME,
-		destinationNoun: "space",
+		destination: "workspace",
 	},
 	{
 		sessionCommandName: HERDR_SESSION_TAB_IMPL_COMMAND_NAME,
 		promptCommandName: HERDR_PROMPT_TAB_IMPL_COMMAND_NAME,
-		destinationNoun: "tab",
+		destination: "tab",
 	},
 ];
 
-export function registerHerdrSessionImplCommands(context: Pick<HerdrPiContext, "commands">): void {
-	let pending: PendingSummary | undefined;
+export function registerHerdrSessionImplCommands(
+	context: HerdrPiContext,
+	options: HerdrSessionImplRegistrationOptions = {},
+): void {
+	const payloadOptions = resolveImplPromptPayloadOptions(options);
+	const generatePrompt = options.generatePrompt ?? generateSessionImplementationPrompt;
+	const implementPrompt = options.implementPrompt ?? handleHerdrSlotImplPrompt;
+	let generationPending = false;
 
-	context.commands.on("agent_end", (event, ctx) => {
-		if (pending === undefined) return;
-		const messages = readAgentEndMessages(event);
-		if (!isSummaryRequestTurn(messages)) return;
-		const completed = pending;
-		pending = undefined;
-		ctx.ui.setStatus?.(completed.sessionCommandName, undefined);
-		const summary = extractLatestAssistantText(messages);
-		if (summary === undefined) {
-			ctx.ui.notify("The session summary turn returned no implementation prompt.", "error");
-			return;
-		}
-		if (ctx.ui.setEditorText === undefined) {
-			ctx.ui.notify("This Pi runtime cannot prefill editor text.", "error");
-			return;
-		}
-		ctx.ui.setEditorText(`/${completed.promptCommandName} ${summary}`);
-		ctx.ui.notify(
-			"Drafted the session implementation prompt in the editor. Review or edit it, then press Enter.",
-			"info",
-		);
-	});
+	context.commands.registerEntryRenderer(
+		SESSION_IMPL_PROMPT_ENTRY_TYPE,
+		renderSessionImplPromptEntry,
+	);
 
 	for (const config of SESSION_CONFIGS) {
 		registerCommandWithImmediateAck({
 			host: context.commands,
 			commandName: config.sessionCommandName,
 			commandDefinition: {
-				description: `Draft the current session as a prompt for implementation in a new ${config.destinationNoun}.`,
+				description: `Implement the current session in a new ${formatImplDestinationNoun(config.destination)} without copying its prompt through this session.`,
 				argumentHint: "[focus]",
-				handler: async (args, ctx) => {
-					if (pending !== undefined) {
-						ctx.ui.notify("A session summary is already pending.", "warning");
+				handler: async (args, pi) => {
+					if (generationPending) {
+						pi.ui.notify("A session implementation prompt is already being prepared.", "warning");
 						return;
 					}
-					if (ctx.ui.setEditorText === undefined) {
-						ctx.ui.notify("This Pi runtime cannot prefill editor text.", "error");
+					const preparedDestination = prepareImplDestination(
+						config.destination,
+						config.sessionCommandName,
+					);
+					if (preparedDestination.type === "failed") {
+						pi.ui.notify(preparedDestination.message, "error");
 						return;
 					}
-					const request: PendingSummary = {
-						sessionCommandName: config.sessionCommandName,
-						promptCommandName: config.promptCommandName,
-					};
-					pending = request;
-					let didPublishStatus = false;
+					generationPending = true;
 					try {
-						await ctx.waitForIdle();
-						ctx.ui.setStatus?.(config.sessionCommandName, "summarizing session…");
-						didPublishStatus = ctx.ui.setStatus !== undefined;
-						context.commands.sendUserMessage(buildSummaryRequest(args.trim()));
-					} catch (error) {
-						if (pending === request) pending = undefined;
-						if (didPublishStatus) ctx.ui.setStatus?.(config.sessionCommandName, undefined);
-						throw error;
+						await pi.waitForIdle();
+						setPromptCreationMessage(pi, config.sessionCommandName, "preparing prompt…");
+						const generated = await generatePrompt(context.commands, pi, args.trim());
+						if (!generated.ok) {
+							pi.ui.notify(generated.message, "error");
+							return;
+						}
+						context.commands.appendEntry(SESSION_IMPL_PROMPT_ENTRY_TYPE, {
+							prompt: generated.prompt,
+						});
+						const action = await selectSessionPromptAction(pi);
+						if (action === "unavailable") return;
+						if (action === "cancelled") {
+							pi.ui.notify("Session implementation cancelled.", "info");
+							return;
+						}
+						if (action === "loadEditor") {
+							if (pi.ui.setEditorText === undefined) {
+								pi.ui.notify("This Pi runtime cannot load the prompt into the editor.", "error");
+								return;
+							}
+							pi.ui.setEditorText(`/${config.promptCommandName} ${generated.prompt}`);
+							pi.ui.notify("Loaded the implementation prompt into the editor for review.", "info");
+							return;
+						}
+
+						const notifyProgress = makeCommandProgressNotifier({ host: context.commands, ctx: pi });
+						await implementPrompt(createHerdrPiCommandContext(context, pi), {
+							payloadOptions,
+							...optionalEntry("slotClient", options.slotClient),
+							args: generated.prompt,
+							commandName: config.sessionCommandName,
+							destination: preparedDestination.destination,
+							notifyProgress,
+						});
+					} finally {
+						generationPending = false;
+						setPromptCreationMessage(pi, config.sessionCommandName, undefined);
 					}
 				},
 			},
@@ -104,76 +151,105 @@ export function registerHerdrSessionImplCommands(context: Pick<HerdrPiContext, "
 	}
 }
 
-function buildSummaryRequest(focus: string): string {
+function setPromptCreationMessage(
+	pi: CommandContext,
+	commandName: string,
+	message: string | undefined,
+): void {
+	if (pi.ui.setWidget !== undefined) {
+		pi.ui.setWidget(commandName, message === undefined ? undefined : [message]);
+		return;
+	}
+	pi.ui.setStatus?.(commandName, message);
+}
+
+const COLLAPSED_PROMPT_PREVIEW_LINES = 6;
+
+export function renderSessionImplPromptEntry(
+	entry: CustomEntryLike,
+	{ expanded }: { expanded: boolean },
+	theme: EntryRenderTheme,
+): EntryRenderComponent {
+	const data = entry.data as { prompt?: unknown } | undefined;
+	const prompt = typeof data?.prompt === "string" ? data.prompt : "";
+	const lines = prompt.split("\n");
+	return createFoldableTextEntryComponent({
+		title: `session implementation prompt (${lines.length} lines)`,
+		lines,
+		expanded,
+		previewLineLimit: COLLAPSED_PROMPT_PREVIEW_LINES,
+		gutter: "▌ ",
+		theme,
+	});
+}
+
+async function selectSessionPromptAction(
+	pi: CommandContext,
+): Promise<"implement" | "loadEditor" | "cancelled" | "unavailable"> {
+	if (pi.ui.select === undefined) {
+		pi.ui.notify("This Pi runtime cannot present the session implementation menu.", "error");
+		return "unavailable";
+	}
+	const selection = await pi.ui.select("Session implementation prompt ready", [
+		SESSION_PROMPT_ACTIONS.implement,
+		SESSION_PROMPT_ACTIONS.loadEditor,
+		SESSION_PROMPT_ACTIONS.cancel,
+	]);
+	if (selection === SESSION_PROMPT_ACTIONS.implement) return "implement";
+	if (selection === SESSION_PROMPT_ACTIONS.loadEditor) return "loadEditor";
+	return "cancelled";
+}
+
+export type SessionImplementationPromptResult =
+	| { ok: true; prompt: string }
+	| { ok: false; message: string };
+
+export async function generateSessionImplementationPrompt(
+	commands: HerdrPiContext["commands"],
+	pi: CommandContext,
+	focus: string,
+): Promise<SessionImplementationPromptResult> {
+	const sessionFile = pi.sessionManager.getSessionFile();
+	if (sessionFile === undefined) {
+		return {
+			ok: false,
+			message:
+				"The current Pi session is not persisted, so an implementation prompt cannot be generated from it.",
+		};
+	}
+	const request = buildSummaryRequest(focus);
+	const launchOptions = getPiLaunchOptions(commands, pi);
+	const args = [
+		"--fork",
+		sessionFile,
+		...buildPiModelThinkingArgs(launchOptions),
+		"--no-tools",
+		"--print",
+		request,
+	];
+
+	const result = await commands.exec("pi", args, { cwd: pi.cwd, timeout: 120_000 });
+	if (!commandSucceeded(result)) {
+		return {
+			ok: false,
+			message: `Could not prepare the session implementation prompt (${formatCommandDetails(result)}).`,
+		};
+	}
+	const prompt = result.stdout.replace(/\r?\n$/, "");
+	if (prompt.trim() === "") {
+		return { ok: false, message: "The session prompt generator returned no content." };
+	}
+	return { ok: true, prompt };
+}
+
+export function buildSummaryRequest(focus: string): string {
+	const normalizedFocus = focus.trim();
 	return [
 		SYSTEM_PROMPT,
 		"",
 		"## Continuation focus",
-		focus === "" ? "Choose the most natural implementation continuation from the session." : focus,
+		normalizedFocus === ""
+			? "Choose the most natural implementation continuation from the session."
+			: normalizedFocus,
 	].join("\n");
-}
-
-interface AgentMessageLike {
-	readonly role?: string;
-	readonly content?: unknown;
-}
-
-// A pending shared space/tab request can outlive unrelated agent turns; require the sentinel so
-// their assistant output is never captured as the requested implementation prompt.
-function isSummaryRequestTurn(messages: readonly AgentMessageLike[]): boolean {
-	for (let index = messages.length - 1; index >= 0; index -= 1) {
-		const message = messages[index];
-		if (message?.role !== "user") continue;
-		return extractUserText(message).startsWith(SUMMARY_REQUEST_SENTINEL);
-	}
-	return false;
-}
-
-function extractUserText(message: AgentMessageLike): string {
-	if (typeof message.content === "string") return message.content;
-	if (!Array.isArray(message.content)) return "";
-	return message.content
-		.filter(
-			(part): part is { type: "text"; text: string } =>
-				typeof part === "object" &&
-				part !== null &&
-				"type" in part &&
-				part.type === "text" &&
-				"text" in part &&
-				typeof part.text === "string",
-		)
-		.map((part) => part.text)
-		.join("\n");
-}
-
-function readAgentEndMessages(event: unknown): readonly AgentMessageLike[] {
-	if (typeof event !== "object" || event === null || !("messages" in event)) return [];
-	if (!Array.isArray(event.messages)) return [];
-	return event.messages.filter(isAgentMessageLike);
-}
-
-function isAgentMessageLike(value: unknown): value is AgentMessageLike {
-	return typeof value === "object" && value !== null;
-}
-
-function extractLatestAssistantText(messages: readonly AgentMessageLike[]): string | undefined {
-	for (let index = messages.length - 1; index >= 0; index -= 1) {
-		const message = messages[index];
-		if (message?.role !== "assistant" || !Array.isArray(message.content)) continue;
-		const text = message.content
-			.filter(
-				(part): part is { type: "text"; text: string } =>
-					typeof part === "object" &&
-					part !== null &&
-					"type" in part &&
-					part.type === "text" &&
-					"text" in part &&
-					typeof part.text === "string",
-			)
-			.map((part) => part.text)
-			.join("\n")
-			.trim();
-		if (text !== "") return text;
-	}
-	return undefined;
 }
