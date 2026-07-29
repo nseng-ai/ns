@@ -33,6 +33,53 @@ export type BranchContextCreationPolicy =
 			parentBranch: string;
 	  };
 
+export type BranchContextCreationPolicyDescriptor =
+	| {
+			method: "plain-git";
+			start: BranchContextCreationStartDescriptor;
+			parent: { type: "none" };
+	  }
+	| {
+			method: "graphite";
+			start: BranchContextCreationStartDescriptor;
+			parent: { type: "current-branch" } | { type: "explicit"; branch: string };
+	  };
+
+type BranchContextCreationStartDescriptor =
+	| { type: "current-head"; ref: "HEAD" }
+	| { type: "explicit"; point: string; ref: string };
+
+export function describeBranchContextCreationPolicy(
+	creation: BranchContextCreationPolicy,
+): BranchContextCreationPolicyDescriptor {
+	switch (creation.type) {
+		case "plain-git-current-head":
+			return {
+				method: "plain-git",
+				start: { type: "current-head", ref: "HEAD" },
+				parent: { type: "none" },
+			};
+		case "plain-git-explicit":
+			return {
+				method: "plain-git",
+				start: { type: "explicit", point: creation.startPoint, ref: creation.startRef },
+				parent: { type: "none" },
+			};
+		case "graphite-current-parent-current-head":
+			return {
+				method: "graphite",
+				start: { type: "current-head", ref: "HEAD" },
+				parent: { type: "current-branch" },
+			};
+		case "graphite-explicit":
+			return {
+				method: "graphite",
+				start: { type: "explicit", point: creation.startPoint, ref: creation.startRef },
+				parent: { type: "explicit", branch: creation.parentBranch },
+			};
+	}
+}
+
 export function branchContextCreationPolicyFromMethod(
 	method: BranchCreationMethod,
 ): BranchContextCreationPolicy {
@@ -251,34 +298,29 @@ export async function resolveBranchContextCreatePreviewContext(
 		signal?: AbortSignal;
 	},
 ): Promise<BranchContextCreatePreviewContext> {
-	switch (options.creation.type) {
-		case "plain-git-current-head":
-			return {
-				type: "plain-git",
-				startPoint: await resolveStartPoint(options.context.git, options.cwd, options.signal),
-			};
-		case "plain-git-explicit":
-			return { type: "plain-git", startPoint: options.creation.startPoint };
-		case "graphite-current-parent-current-head":
-			return {
-				type: "graphite",
-				startPoint: await resolveStartPoint(options.context.git, options.cwd, options.signal),
-				parent: { type: "current-parent-unresolved" },
-			};
-		case "graphite-explicit":
-			return {
-				type: "graphite",
-				startPoint: options.creation.startPoint,
-				parent: { type: "resolved", branch: options.creation.parentBranch },
-			};
+	const descriptor = describeBranchContextCreationPolicy(options.creation);
+	const startPoint =
+		descriptor.start.type === "current-head"
+			? await resolveStartPoint(options.context.git, options.cwd, options.signal)
+			: descriptor.start.point;
+	if (descriptor.method === "plain-git") {
+		return { type: "plain-git", startPoint };
 	}
+	return {
+		type: "graphite",
+		startPoint,
+		parent:
+			descriptor.parent.type === "explicit"
+				? { type: "resolved", branch: descriptor.parent.branch }
+				: { type: "current-parent-unresolved" },
+	};
 }
 
 export function formatBranchContextCreatePreview(
 	operation: BranchContextCreateOperation,
 	context: BranchContextCreatePreviewContext,
 ): string {
-	const method = branchCreationMethodFromPolicy(operation.creation);
+	const method = describeBranchContextCreationPolicy(operation.creation).method;
 	const graphiteParent =
 		context.type === "graphite"
 			? context.parent.type === "resolved"
@@ -361,7 +403,7 @@ export function formatBranchContextCreateFailure(
 		"Failed to create branch context and attach plan.",
 		`Branch: ${operation.branch}`,
 		...formatBranchSelectionLines(operation.branchSelection),
-		`Branch creation: ${branchCreationMethodFromPolicy(operation.creation)}`,
+		`Branch creation: ${describeBranchContextCreationPolicy(operation.creation).method}`,
 		...formatCreationPolicyDetails(operation.creation),
 		`Namespace: ${operation.namespace}`,
 		`Key: ${operation.key}`,
@@ -372,36 +414,27 @@ export function formatBranchContextCreateFailure(
 	].join("\n");
 }
 
-function branchCreationMethodFromPolicy(
-	creation: BranchContextCreationPolicy,
-): BranchCreationMethod {
-	return creation.type.startsWith("graphite-") ? "graphite" : "plain-git";
-}
-
 function evidenceCreationMethod(creation: BranchContextEvidenceCreation): BranchCreationMethod {
 	return creation.type === "plain-git" ? "plain-git" : "graphite";
 }
 
 function creationStartPoint(creation: BranchContextCreationPolicy): string {
-	return creation.type === "plain-git-explicit" || creation.type === "graphite-explicit"
-		? creation.startPoint
-		: "HEAD";
+	const start = describeBranchContextCreationPolicy(creation).start;
+	return start.type === "explicit" ? start.point : start.ref;
 }
 
 function formatCreationPolicyDetails(creation: BranchContextCreationPolicy): string[] {
-	switch (creation.type) {
-		case "plain-git-current-head":
-		case "graphite-current-parent-current-head":
-			return [];
-		case "plain-git-explicit":
-			return [`Start point: ${creation.startPoint}`, `Start ref: ${creation.startRef}`];
-		case "graphite-explicit":
-			return [
-				`Start point: ${creation.startPoint}`,
-				`Start ref: ${creation.startRef}`,
-				`Graphite parent: ${creation.parentBranch}`,
-			];
+	const descriptor = describeBranchContextCreationPolicy(creation);
+	if (descriptor.start.type === "current-head") {
+		return [];
 	}
+	return [
+		`Start point: ${descriptor.start.point}`,
+		`Start ref: ${descriptor.start.ref}`,
+		...(descriptor.method === "graphite" && descriptor.parent.type === "explicit"
+			? [`Graphite parent: ${descriptor.parent.branch}`]
+			: []),
+	];
 }
 
 export function deriveTargetBranch(branchName: string | undefined, slug: string): string {
@@ -506,39 +539,22 @@ interface ResolveBranchContextBasisOptions {
 async function resolveBranchContextBasis(
 	options: ResolveBranchContextBasisOptions,
 ): Promise<ResolvedBranchContextBasis> {
-	const { git, cwd, creation, signal } = options;
-	switch (creation.type) {
-		case "plain-git-current-head":
-			return {
-				type: "plain-git",
-				startPoint: await resolveStartPoint(git, cwd, signal),
-				startRef: "HEAD",
-				useHead: true,
-			};
-		case "plain-git-explicit":
-			return {
-				type: "plain-git",
-				startPoint: creation.startPoint,
-				startRef: creation.startRef,
-				useHead: false,
-			};
-		case "graphite-current-parent-current-head":
-			return {
-				type: "graphite",
-				startPoint: await resolveStartPoint(git, cwd, signal),
-				startRef: "HEAD",
-				useHead: true,
-				parentBranch: await resolveCurrentBranch(git, cwd, signal),
-			};
-		case "graphite-explicit":
-			return {
-				type: "graphite",
-				startPoint: creation.startPoint,
-				startRef: creation.startRef,
-				parentBranch: creation.parentBranch,
-				useHead: false,
-			};
+	const { git, cwd, signal } = options;
+	const descriptor = describeBranchContextCreationPolicy(options.creation);
+	const startPoint =
+		descriptor.start.type === "current-head"
+			? await resolveStartPoint(git, cwd, signal)
+			: descriptor.start.point;
+	const startRef = descriptor.start.ref;
+	const useHead = descriptor.start.type === "current-head";
+	if (descriptor.method === "plain-git") {
+		return { type: "plain-git", startPoint, startRef, useHead };
 	}
+	const parentBranch =
+		descriptor.parent.type === "current-branch"
+			? await resolveCurrentBranch(git, cwd, signal)
+			: descriptor.parent.branch;
+	return { type: "graphite", startPoint, startRef, useHead, parentBranch };
 }
 
 interface SelectedBranchAvailabilityOptions extends BranchContextRepoAccess {

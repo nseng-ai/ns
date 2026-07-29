@@ -7,6 +7,7 @@ import {
 	buildBranchContextCreateOperation,
 	createBranchContextFromFile,
 	createBranchContextFromResolvedSource,
+	describeBranchContextCreationPolicy,
 	formatBranchContextCreatePreview,
 	resolveBranchContextCreatePreviewContext,
 	selectBranchContextCreateOperationTarget,
@@ -57,8 +58,9 @@ export async function preparePlanBranchContext(
 		creation: options.creation,
 		...optionalEntries({ summary: options.plan.summary }),
 	});
+	const creationDescriptor = describeBranchContextCreationPolicy(options.creation);
 	const operation =
-		options.creation.type === "graphite-current-parent-current-head"
+		creationDescriptor.method === "graphite" && creationDescriptor.parent.type === "current-branch"
 			? initialOperation
 			: await selectBranchContextCreateOperationTarget({
 					cwd: options.checkout.repoRoot,
@@ -77,22 +79,27 @@ export async function preparePlanBranchContext(
 		return { type: "ready", ...details };
 	}
 	const previewContext =
-		options.creation.type === "graphite-current-parent-current-head"
+		creationDescriptor.method === "graphite" && creationDescriptor.parent.type === "current-branch"
 			? await resolveBranchContextCreatePreviewContext(pi, {
 					cwd: options.checkout.repoRoot,
 					context: options.context,
 					creation: options.creation,
 				})
-			: options.creation.type === "graphite-explicit"
+			: creationDescriptor.method === "graphite" && creationDescriptor.parent.type === "explicit"
 				? {
 						type: "graphite" as const,
-						startPoint: options.creation.startPoint,
-						parent: { type: "resolved" as const, branch: options.creation.parentBranch },
+						startPoint:
+							creationDescriptor.start.type === "explicit"
+								? creationDescriptor.start.point
+								: creationDescriptor.start.ref,
+						parent: { type: "resolved" as const, branch: creationDescriptor.parent.branch },
 					}
 				: {
 						type: "plain-git" as const,
 						startPoint:
-							options.creation.type === "plain-git-explicit" ? options.creation.startPoint : "HEAD",
+							creationDescriptor.start.type === "explicit"
+								? creationDescriptor.start.point
+								: creationDescriptor.start.ref,
 					};
 	return {
 		type: "preview",
@@ -106,8 +113,7 @@ export async function createPreparedPlanBranchContext(
 	prepared: PreparedPlanBranchContext,
 ): Promise<BranchContextEvidence> {
 	if (
-		prepared.operation.creation.type === "plain-git-current-head" ||
-		prepared.operation.creation.type === "graphite-current-parent-current-head"
+		describeBranchContextCreationPolicy(prepared.operation.creation).start.type === "current-head"
 	) {
 		return createBranchContextFromFile(pi, prepared.operation.params, {
 			cwd: prepared.checkout.repoRoot,

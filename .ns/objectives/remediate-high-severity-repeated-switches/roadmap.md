@@ -14,7 +14,7 @@
 - [ ] Centralize context-profiler `MessagePart` semantics.
   - Policy: direct execution after preview; preserve normalized rendering, character accounting, excerpt generation, and tool-name behavior exactly.
   - Evidence: one exhaustive facts projection owns each message-part variant's semantic contributions; all verified consumers use it; focused pi-tools tests and relevant checks pass.
-- [ ] Centralize Branch Context creation-policy interpretation.
+- [x] Centralize Branch Context creation-policy interpretation.
   - Policy: direct execution only while a package-local descriptor can preserve preview, failure, and execution behavior exactly. Skip and stop if policy normalization becomes design-bearing.
   - Evidence: one Branch Context-owned descriptor or basis owns Git/Graphite mode, start-point source, HEAD behavior, and parent behavior; verified consumers use it; focused Branch Context tests and relevant checks pass.
 - [ ] Centralize release-reset action semantics.

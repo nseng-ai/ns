@@ -9,6 +9,7 @@ import {
 	buildBranchContextCreateOperation,
 	createBranchContextFromFile,
 	createBranchContextFromResolvedSource,
+	describeBranchContextCreationPolicy,
 	formatBranchContextCreateFailure,
 	formatBranchContextCreatePreview,
 	formatBranchContextEvidence,
@@ -121,6 +122,48 @@ describe("buildBranchContextCreateOperation", () => {
 			filePath: PLAN_FILE,
 			creation: { type: "plain-git-current-head" },
 			branchName: TARGET_BRANCH,
+		});
+	});
+});
+
+describe("branch-context creation policy", () => {
+	test("describes method, start source, HEAD behavior, and Graphite parent source", () => {
+		expect(describeBranchContextCreationPolicy({ type: "plain-git-current-head" })).toEqual({
+			method: "plain-git",
+			start: { type: "current-head", ref: "HEAD" },
+			parent: { type: "none" },
+		});
+		expect(
+			describeBranchContextCreationPolicy({
+				type: "plain-git-explicit",
+				startPoint: START_POINT,
+				startRef: SOURCE_BRANCH,
+			}),
+		).toEqual({
+			method: "plain-git",
+			start: { type: "explicit", point: START_POINT, ref: SOURCE_BRANCH },
+			parent: { type: "none" },
+		});
+		expect(
+			describeBranchContextCreationPolicy({
+				type: "graphite-current-parent-current-head",
+			}),
+		).toEqual({
+			method: "graphite",
+			start: { type: "current-head", ref: "HEAD" },
+			parent: { type: "current-branch" },
+		});
+		expect(
+			describeBranchContextCreationPolicy({
+				type: "graphite-explicit",
+				startPoint: START_POINT,
+				startRef: SOURCE_BRANCH,
+				parentBranch: SOURCE_BRANCH,
+			}),
+		).toEqual({
+			method: "graphite",
+			start: { type: "explicit", point: START_POINT, ref: SOURCE_BRANCH },
+			parent: { type: "explicit", branch: SOURCE_BRANCH },
 		});
 	});
 });
