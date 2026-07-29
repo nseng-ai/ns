@@ -73,11 +73,11 @@ The invocation-time policy shared by prompt-to-space, plan-to-space, and plan-to
 *Avoid*: command-name branch basis, `--from` override, refreshed trunk, implicit fetch, silent noninteractive default, duplicated prompt/plan selection policy
 
 **Herdr implementation workflow**:
-A Herdr `impl` workflow that implements a prompt or Saved Plan using the existing agent instructions and workflow behavior. `impl` is shorter, avoids collision with dispatch terminology for remote systems, and describes the outcome more accurately than `launch`; destination and process launch remain supporting mechanics.
-*Avoid*: remote dispatch, new agent-behavior contract, process startup as the workflow outcome
+A Herdr `impl` workflow that implements a prompt or Saved Plan using the existing agent instructions and workflow behavior. `impl` is shorter, avoids collision with dispatch terminology for remote systems, and describes the outcome more accurately than `launch`; destination and process launch remain supporting mechanics. `/ns:herdr:impl:session:space [focus]` is a Pi-native preparation step: it summarizes the active session into a directed, self-contained prompt, prefills `/ns:herdr:impl:prompt:space <summary>` in the editor, and stops without submitting or mutating Herdr, Git, Handoff, or Branch Memory state.
+*Avoid*: remote dispatch, new agent-behavior contract, process startup as the workflow outcome, session cloning, automatic prompt submission, Handoff Artifact transport for session-to-space preparation
 
 **Herdr command catalog**:
-The nine-command Pi surface has six direct resource operations (`space:{new,goal,objective-summary}` and `tab:{new,goal,handoff}`) plus `/ns:herdr:impl:prompt:space`, `/ns:herdr:impl:plan:space`, and `/ns:herdr:impl:plan:tab`. The eight non-Handoff commands are base registrations; `tab:handoff` is the only optional registration. The former `launch` implementation names and the earlier five `br`/`tr` launch names have no visible or hidden compatibility aliases.
+The ten-command Pi surface has six direct resource operations (`space:{new,goal,objective-summary}` and `tab:{new,goal,handoff}`) plus `/ns:herdr:impl:prompt:space`, `/ns:herdr:impl:session:space`, `/ns:herdr:impl:plan:space`, and `/ns:herdr:impl:plan:tab`. The nine non-Handoff commands are base registrations; `tab:handoff` is the only optional registration. The former `launch` implementation names and the earlier five `br`/`tr` launch names have no visible or hidden compatibility aliases.
 *Avoid*: workflow-family catalog, compound dispatch action names, branch-basis command segment, `/ns:herdr:handoff:*`, `/ns:herdr:objective:*`, `tab:plan-dispatch`, implementation commands under `/ns:herdr:launch:*`
 
 **Launch mechanics boundary**:

@@ -87,6 +87,7 @@ export interface FakeCommandContextOptions {
 	selectIndices?: number[];
 	shouldCancelSelect?: boolean;
 	branchEntries?: PiSessionEntry[];
+	model?: ModelInfo;
 }
 
 export const ROOT = mkdtempSync(join(tmpdir(), "herdr-model-root-"));
@@ -245,10 +246,12 @@ export class FakeCommandContext implements CommandContext {
 	readonly selections: Selection[] = [];
 	readonly confirmations: Confirmation[] = [];
 	readonly inputPrompts: InputPrompt[] = [];
+	readonly editorTexts: string[] = [];
 	readonly autocompleteProviders: Array<(current: AutocompleteProvider) => AutocompleteProvider> =
 		[];
 	readonly events: string[] = [];
 	readonly ui: CommandContext["ui"];
+	readonly model?: ModelInfo;
 	readonly modelRegistry: CommandContext["modelRegistry"];
 	readonly sessionManager: NonNullable<CommandContext["sessionManager"]>;
 	waitCount = 0;
@@ -266,7 +269,11 @@ export class FakeCommandContext implements CommandContext {
 		this.onWaitForIdle = options.onWaitForIdle;
 		this.selectIndices = [...(options.selectIndices ?? [0])];
 		this.shouldCancelSelect = options.shouldCancelSelect ?? false;
-		this.modelRegistry = { find: () => undefined };
+		if (options.model !== undefined) this.model = options.model;
+		this.modelRegistry = {
+			find: (provider, modelId) => ({ provider, id: modelId }),
+			getApiKeyAndHeaders: async () => ({ ok: true, apiKey: "test-api-key" }),
+		};
 		const branchEntries = options.branchEntries ?? [];
 		this.sessionManager = {
 			getBranch: () => branchEntries,
@@ -300,6 +307,9 @@ export class FakeCommandContext implements CommandContext {
 			},
 			addAutocompleteProvider: (factory) => {
 				this.autocompleteProviders.push(factory);
+			},
+			setEditorText: (value) => {
+				this.editorTexts.push(value);
 			},
 		};
 	}
