@@ -518,18 +518,7 @@ export function renderNormalizedMessageText(message: NormalizedMessage): string 
 }
 
 function renderMessagePartSection(part: MessagePart): string {
-	switch (part.kind) {
-		case "text":
-			return part.text;
-		case "thinking":
-			return `[thinking]\n${part.text}`;
-		case "toolCall":
-			return `⏺ ${part.name}\n${part.argsJson}`;
-		case "image":
-			return "[image]";
-		case "opaque":
-			return part.json;
-	}
+	return messagePartFacts(part).sectionText;
 }
 
 /**
@@ -590,55 +579,75 @@ function opaqueParts(value: unknown): MessagePart[] {
 	return json === null ? [] : [{ kind: "opaque", json }];
 }
 
+interface MessagePartFacts {
+	sectionText: string;
+	characterCount: number;
+	excerptText: string;
+	toolNames: string[];
+}
+
+function messagePartFacts(part: MessagePart): MessagePartFacts {
+	switch (part.kind) {
+		case "text":
+			return {
+				sectionText: part.text,
+				characterCount: part.text.length,
+				excerptText: part.text,
+				toolNames: [],
+			};
+		case "thinking":
+			return {
+				sectionText: `[thinking]\n${part.text}`,
+				characterCount: part.text.length,
+				excerptText: part.text,
+				toolNames: [],
+			};
+		case "toolCall":
+			return {
+				sectionText: `⏺ ${part.name}\n${part.argsJson}`,
+				characterCount: part.name.length + part.argsJson.length,
+				excerptText: `tool:${part.name}`,
+				toolNames: [part.name],
+			};
+		case "image":
+			return {
+				sectionText: "[image]",
+				characterCount: 0,
+				excerptText: "[image]",
+				toolNames: [],
+			};
+		case "opaque":
+			return {
+				sectionText: part.json,
+				characterCount: part.json.length,
+				excerptText: part.json,
+				toolNames: [],
+			};
+	}
+}
+
 function turnToolNames(message: NormalizedMessage): string[] {
 	const direct = message.toolName === null ? [] : [message.toolName];
-	const fromParts = message.parts.flatMap((part): string[] =>
-		part.kind === "toolCall" ? [part.name] : [],
-	);
+	const fromParts = message.parts.flatMap((part) => messagePartFacts(part).toolNames);
 	return [...new Set([...direct, ...fromParts])];
 }
 
 function messageChars(message: NormalizedMessage): number {
-	const contentChars = message.parts.reduce((total, part) => total + partChars(part), 0);
+	const contentChars = message.parts.reduce(
+		(total, part) => total + messagePartFacts(part).characterCount,
+		0,
+	);
 	return (message.toolName?.length ?? 0) + (message.detailsJson?.length ?? 0) + contentChars;
-}
-
-function partChars(part: MessagePart): number {
-	switch (part.kind) {
-		case "text":
-		case "thinking":
-			return part.text.length;
-		case "toolCall":
-			return part.name.length + part.argsJson.length;
-		case "image":
-			return 0;
-		case "opaque":
-			return part.json.length;
-	}
 }
 
 function excerptOf(message: NormalizedMessage): string {
 	const joined = message.parts
-		.map(partExcerpt)
+		.map((part) => messagePartFacts(part).excerptText)
 		.filter((text) => text.length > 0)
 		.join(" ");
 	if (joined.length > 0) return collapseToExcerpt(joined);
 	if (message.toolName !== null) return collapseToExcerpt(message.toolName);
 	return "";
-}
-
-function partExcerpt(part: MessagePart): string {
-	switch (part.kind) {
-		case "text":
-		case "thinking":
-			return part.text;
-		case "toolCall":
-			return `tool:${part.name}`;
-		case "image":
-			return "[image]";
-		case "opaque":
-			return part.json;
-	}
 }
 
 function collapseToExcerpt(text: string): string {
