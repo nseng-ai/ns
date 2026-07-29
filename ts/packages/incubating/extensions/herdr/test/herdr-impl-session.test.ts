@@ -73,6 +73,37 @@ describe(COMMAND_NAME, () => {
 		expect(ctx.editorTexts).toEqual(["/ns:herdr:impl:prompt:space Continue the work."]);
 	});
 
+	test("bounds large session context with the shared truncation policy and retains the newest tail", async () => {
+		const pi = new FakePi();
+		let sessionContext = "";
+		const generateSummary = vi.fn(async (request: { readonly sessionContext: string }) => {
+			sessionContext = request.sessionContext;
+			return { ok: true as const, text: "Continue the work." };
+		});
+		registerHerdrSessionSpaceImplCommand(
+			{ commands: createHerdrPiCommandApi(pi) },
+			{ generateSummary },
+		);
+		const newestContext = "newest-session-context";
+		const ctx = new FakeCommandContext({
+			model: { provider: "openai", id: "gpt-test" },
+			branchEntries: [
+				{ type: "message", message: { role: "user", content: "x".repeat(170_000) } },
+				{ type: "message", message: { role: "assistant", content: newestContext } },
+			],
+		});
+
+		await pi.commands.get(COMMAND_NAME)?.handler("", ctx);
+
+		expect(sessionContext.length).toBeLessThanOrEqual(160_000);
+		expect(
+			sessionContext.startsWith(
+				"[Earlier active-session context truncated to fit the summary request.]\n",
+			),
+		).toBe(true);
+		expect(sessionContext).toContain(newestContext);
+	});
+
 	test("stops without mutations when summary generation fails", async () => {
 		const pi = new FakePi();
 		registerHerdrSessionSpaceImplCommand(

@@ -1,4 +1,5 @@
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import { truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
 import { callPiModelText, type PiModelRegistryLike } from "@nseng-ai/pi-runtime/models/call";
 
 import {
@@ -123,9 +124,12 @@ function buildSummaryRequest(sessionContext: string, focus: string): string {
 function serializeActiveSessionContext(
 	entries: readonly { readonly type: string; readonly [key: string]: unknown }[],
 ): string {
-	const serialized = JSON.stringify(entries, null, 2);
-	if (serialized.length <= MAX_SESSION_CONTEXT_CHARS) return serialized;
-	return `[Earlier active-session context truncated to fit the summary request.]\n${serialized.slice(-MAX_SESSION_CONTEXT_CHARS)}`;
+	return truncateTextHeadTail({
+		value: JSON.stringify(entries, null, 2),
+		maxChars: MAX_SESSION_CONTEXT_CHARS,
+		headRatio: 0,
+		buildMarker: () => "[Earlier active-session context truncated to fit the summary request.]\n",
+	});
 }
 
 function resolveModelRegistry(registry: {
