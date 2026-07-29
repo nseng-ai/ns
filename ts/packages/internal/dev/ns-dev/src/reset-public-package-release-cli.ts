@@ -7,6 +7,7 @@ import type { NsDevCliContext } from "./context.ts";
 import type { ReleaseResetGateway } from "./release/contracts.ts";
 import {
 	applyReleaseReset,
+	copyReleaseResetEvidence,
 	planReleaseReset,
 	releaseResetResultSchema,
 	type ReleaseResetAction,
@@ -178,35 +179,8 @@ function unexpectedFailure(
 function declinedResult(plan: ReleaseResetPlan): ReleaseResetResult {
 	return {
 		outcome: "declined",
-		...copyEvidence(plan),
+		...copyReleaseResetEvidence(plan),
 	};
-}
-
-function copyEvidence(evidence: ReleaseResetEvidence): ReleaseResetEvidence {
-	return {
-		version: evidence.version,
-		currentSourceBranch: evidence.currentSourceBranch,
-		headCommit: evidence.headCommit,
-		report:
-			evidence.report.type === "error"
-				? { ...evidence.report, error: { ...evidence.report.error } }
-				: { ...evidence.report },
-		releaseBranch: evidence.releaseBranch,
-		releaseBranchExists: evidence.releaseBranchExists,
-		inspectionFingerprint: evidence.inspectionFingerprint,
-		trackedChanges: evidence.trackedChanges.map((change) => ({ ...change })),
-		trackedPathsToRestore: [...evidence.trackedPathsToRestore],
-		releaseDirectory: evidence.releaseDirectory,
-		releaseDirectoryFingerprint: evidence.releaseDirectoryFingerprint,
-		plannedActions: evidence.plannedActions.map(copyAction),
-		completedActions: evidence.completedActions.map(copyAction),
-	};
-}
-
-function copyAction(action: ReleaseResetAction): ReleaseResetAction {
-	return action.type === "restore-tracked-paths"
-		? { type: action.type, paths: [...action.paths] }
-		: { ...action };
 }
 
 function renderReport(report: ReleaseResetReportEvidence): string {

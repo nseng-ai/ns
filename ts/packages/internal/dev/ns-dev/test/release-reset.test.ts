@@ -14,6 +14,8 @@ import type {
 import {
 	applyReleaseReset,
 	classifyReleaseReset,
+	copyReleaseResetAction,
+	copyReleaseResetEvidence,
 	planReleaseReset,
 	type ReleaseResetPlan,
 } from "../src/release/reset.ts";
@@ -347,6 +349,39 @@ describe("release reset planning", () => {
 			completedActions: [],
 		});
 		expect(gateway.operations).toHaveLength(1);
+	});
+});
+
+describe("release reset defensive copying", () => {
+	it("copies action payloads and evidence through the core-owned policy", () => {
+		const source = requirePlan(classifyReleaseReset(version, inspection()));
+		const sourcePaths = source.plannedActions[0];
+		if (sourcePaths?.type !== "restore-tracked-paths") {
+			throw new Error("Expected restore-tracked-paths to be the first planned action");
+		}
+
+		const actionCopy = copyReleaseResetAction(sourcePaths);
+		const evidenceCopy = copyReleaseResetEvidence(source);
+		const copiedPlannedAction = evidenceCopy.plannedActions[0];
+		if (actionCopy.type !== "restore-tracked-paths") {
+			throw new Error("Expected copied restore-tracked-paths action");
+		}
+		if (copiedPlannedAction?.type !== "restore-tracked-paths") {
+			throw new Error("Expected copied evidence to retain restore-tracked-paths");
+		}
+
+		expect(actionCopy).toEqual({
+			type: "restore-tracked-paths",
+			paths: [manifestPath(0)],
+		});
+		expect(actionCopy.paths).not.toBe(sourcePaths.paths);
+		expect(copiedPlannedAction).toEqual({
+			type: "restore-tracked-paths",
+			paths: [manifestPath(0)],
+		});
+		expect(copiedPlannedAction.paths).not.toBe(sourcePaths.paths);
+		expect(evidenceCopy).not.toBe(source);
+		expect(evidenceCopy.report).not.toBe(source.report);
 	});
 });
 

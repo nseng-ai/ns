@@ -314,25 +314,17 @@ export async function applyReleaseReset(
 
 	const completedActions: ReleaseResetAction[] = [];
 	for (const action of approvedPlan.plannedActions) {
-		const effect =
-			action.type === "restore-tracked-paths"
-				? await gateway.restoreTrackedReleasePaths([...action.paths])
-				: await gateway.removeReleaseDirectory({
-						version: approvedPlan.version,
-						plannedPath: action.path,
-					});
-		if (!effect.ok) {
+		const execution = await executeReleaseResetAction(gateway, approvedPlan.version, action);
+		if (!execution.effect.ok) {
 			return await failureAfterEffect(
 				gateway,
 				approvedPlan,
 				completedActions,
-				action.type === "restore-tracked-paths"
-					? "tracked-restore-failed"
-					: "release-directory-remove-failed",
-				effect.error,
+				execution.failureCode,
+				execution.effect.error,
 			);
 		}
-		completedActions.push(copyAction(action));
+		completedActions.push(copyReleaseResetAction(action));
 	}
 
 	const residual = await planReleaseReset(gateway, approvedPlan.version);
@@ -537,8 +529,8 @@ function buildEvidence(
 		trackedPathsToRestore,
 		releaseDirectory: inspection.releaseDirectory,
 		releaseDirectoryFingerprint: inspection.releaseDirectoryFingerprint,
-		plannedActions: plannedActions.map(copyAction),
-		completedActions: completedActions.map(copyAction),
+		plannedActions: plannedActions.map(copyReleaseResetAction),
+		completedActions: completedActions.map(copyReleaseResetAction),
 	};
 }
 
@@ -587,6 +579,10 @@ function withCompletedActions(
 	return buildEvidenceFromEvidence(evidence, evidence.plannedActions, completedActions);
 }
 
+export function copyReleaseResetEvidence(evidence: ReleaseResetEvidence): ReleaseResetEvidence {
+	return buildEvidenceFromEvidence(evidence, evidence.plannedActions, evidence.completedActions);
+}
+
 function buildEvidenceFromEvidence(
 	evidence: ReleaseResetEvidence,
 	plannedActions: readonly ReleaseResetAction[],
@@ -604,8 +600,8 @@ function buildEvidenceFromEvidence(
 		trackedPathsToRestore: [...evidence.trackedPathsToRestore],
 		releaseDirectory: evidence.releaseDirectory,
 		releaseDirectoryFingerprint: evidence.releaseDirectoryFingerprint,
-		plannedActions: plannedActions.map(copyAction),
-		completedActions: completedActions.map(copyAction),
+		plannedActions: plannedActions.map(copyReleaseResetAction),
+		completedActions: completedActions.map(copyReleaseResetAction),
 	};
 }
 
@@ -614,10 +610,35 @@ function copyReportEvidence(evidence: ReleaseResetReportEvidence): ReleaseResetR
 	return { ...evidence };
 }
 
-function copyAction(action: ReleaseResetAction): ReleaseResetAction {
+export function copyReleaseResetAction(action: ReleaseResetAction): ReleaseResetAction {
 	return action.type === "restore-tracked-paths"
 		? { type: action.type, paths: [...action.paths] }
 		: { ...action };
+}
+
+async function executeReleaseResetAction(
+	gateway: ReleaseResetGateway,
+	version: string,
+	action: ReleaseResetAction,
+): Promise<{
+	readonly effect: Awaited<ReturnType<ReleaseResetGateway["restoreTrackedReleasePaths"]>>;
+	readonly failureCode: "tracked-restore-failed" | "release-directory-remove-failed";
+}> {
+	switch (action.type) {
+		case "restore-tracked-paths":
+			return {
+				effect: await gateway.restoreTrackedReleasePaths([...action.paths]),
+				failureCode: "tracked-restore-failed",
+			};
+		case "remove-release-directory":
+			return {
+				effect: await gateway.removeReleaseDirectory({
+					version,
+					plannedPath: action.path,
+				}),
+				failureCode: "release-directory-remove-failed",
+			};
+	}
 }
 
 function refuse(
