@@ -89,7 +89,6 @@ export interface FakeCommandContextOptions {
 	selectIndices?: number[];
 	shouldCancelSelect?: boolean;
 	branchEntries?: PiSessionEntry[];
-	model?: ModelInfo;
 }
 
 export const ROOT = mkdtempSync(join(tmpdir(), "herdr-model-root-"));
@@ -274,7 +273,6 @@ export class FakeCommandContext implements CommandContext {
 		[];
 	readonly events: string[] = [];
 	readonly ui: CommandContext["ui"];
-	readonly model?: ModelInfo;
 	readonly modelRegistry: CommandContext["modelRegistry"];
 	readonly sessionManager: NonNullable<CommandContext["sessionManager"]>;
 	waitCount = 0;
@@ -292,11 +290,7 @@ export class FakeCommandContext implements CommandContext {
 		this.onWaitForIdle = options.onWaitForIdle;
 		this.selectIndices = [...(options.selectIndices ?? [0])];
 		this.shouldCancelSelect = options.shouldCancelSelect ?? false;
-		if (options.model !== undefined) this.model = options.model;
-		this.modelRegistry = {
-			find: (provider, modelId) => ({ provider, id: modelId }),
-			getApiKeyAndHeaders: async () => ({ ok: true, apiKey: "test-api-key" }),
-		};
+		this.modelRegistry = { find: () => undefined };
 		const branchEntries = options.branchEntries ?? [];
 		this.sessionManager = {
 			getBranch: () => branchEntries,

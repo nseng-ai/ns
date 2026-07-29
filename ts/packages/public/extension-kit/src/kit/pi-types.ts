@@ -19,13 +19,8 @@ export interface ModelInfo {
 	id: string;
 }
 
-export type ModelAuth =
-	| { ok: true; apiKey?: string; headers?: Record<string, string> }
-	| { ok: false; error: string };
-
 export interface ModelRegistry {
 	find(provider: string, modelId: string): ModelInfo | undefined;
-	getApiKeyAndHeaders?(model: unknown): Promise<ModelAuth>;
 }
 
 export interface AutocompleteItem {
@@ -80,8 +75,6 @@ export interface PiSessionReader {
 	getBranch(): readonly PiSessionEntry[];
 	/** All entries in the current Pi session. */
 	getEntries(): readonly PiSessionEntry[];
-	/** Active context entries with compaction applied when supported by the host. */
-	buildContextEntries?(): readonly PiSessionEntry[];
 	/** Stable id of the current Pi session, including in-memory sessions. */
 	getSessionId(): string;
 	/**

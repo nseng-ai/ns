@@ -3,11 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { commandSucceeded, type CommandExecApi, type ExecResult } from "@nseng-ai/foundation/exec";
 import { formatModelRef, type ModelSelection } from "@nseng-ai/foundation/model-slug";
-import {
-	callPiModelText,
-	formatPiModelCallFailure,
-	type PiModelRegistryLike,
-} from "../models/call.ts";
+import { callPiModelText, type PiModelRegistryLike } from "../models/call.ts";
 import type {
 	NotifyLevel,
 	SetWidgetFunction,
@@ -122,19 +118,33 @@ async function draftWithPiModel(
 		}),
 	);
 	if (!result.ok) {
-		return {
-			error: formatPiModelCallFailure(result, {
-				modelSelection: config.modelSelection,
-				modelLabel: config.label,
-				authLabel: config.authLabel,
-				taskAction: `draft a ${input.taskNoun}`,
-			}),
-		};
+		return { error: piModelDraftError(result, config, input.taskNoun) };
 	}
 	if (result.text.trim().length === 0) {
 		return { error: `${config.label} returned an empty ${input.taskNoun}.` };
 	}
 	return { output: result.text };
+}
+
+function piModelDraftError(
+	result: Exclude<Awaited<ReturnType<typeof callPiModelText>>, { ok: true }>,
+	config: PiModelConfig,
+	taskNoun: string,
+): string {
+	switch (result.reason) {
+		case "unsupported-thinking":
+			return `${config.label} cannot draft a ${taskNoun}: ${result.message ?? "unsupported thinking level"}`;
+		case "model-unavailable":
+			return `Could not find Pi model ${formatModelRef(config.modelSelection)}.`;
+		case "auth":
+			return `${config.authLabel} auth failed: ${result.message ?? "unknown auth error"}`;
+		case "empty-auth":
+			return `No ${config.authLabel} auth found for ${config.modelSelection.provider}. Run /login or configure Pi auth.`;
+		case "aborted":
+			return `${config.label} failed to draft a ${taskNoun}: ${result.message ?? "aborted"}`;
+		case "request-failed":
+			return `${config.label} failed to draft a ${taskNoun}: ${result.message ?? "error"}`;
+	}
 }
 
 async function draftWithClaudeCli(

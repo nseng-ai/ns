@@ -1,12 +1,13 @@
 import { cleanupSessionResources, type Api, type Model } from "@earendil-works/pi-ai";
 import { uuidv7 } from "@earendil-works/pi-agent-core";
-import type { ModelAuth } from "@nseng-ai/extension-kit/pi-types";
-import { formatModelRef, type ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 // Temporary while Pi Coding Agent's ModelRegistry uses global dispatch.
 // Canonical migration plan (Phase 9): https://github.com/earendil-works/pi/blob/main/packages/agent/docs/models.md
 import type { completeSimple } from "@earendil-works/pi-ai/compat";
 
-export type PiModelAuth = ModelAuth;
+export type PiModelAuth =
+	| { ok: true; apiKey?: string; headers?: Record<string, string> }
+	| { ok: false; error: string };
 
 export interface PiModelRegistryLike {
 	find(provider: string, modelId: string): unknown | undefined;
@@ -27,16 +28,6 @@ export type PiModelTextResult =
 	| { ok: true; text: string }
 	| { ok: false; reason: PiModelCallFailureReason; message: string | null };
 
-export interface PiModelCallFailureContext {
-	readonly modelSelection: ModelSelection;
-	/** Display label for the model; defaults to formatModelRef(modelSelection). */
-	readonly modelLabel?: string;
-	/** Display label for the auth provider; defaults to modelSelection.provider. */
-	readonly authLabel?: string;
-	/** Verb phrase for the failed task, such as "summarize the session". */
-	readonly taskAction: string;
-}
-
 export interface CallPiModelTextOptions {
 	registry: PiModelRegistryLike;
 	modelSelection: ModelSelection;
@@ -46,28 +37,6 @@ export interface CallPiModelTextOptions {
 	signal?: AbortSignal;
 	timeoutMs?: number;
 	completeFn?: CompleteSimpleFunction;
-}
-
-export function formatPiModelCallFailure(
-	result: Extract<PiModelTextResult, { ok: false }>,
-	context: PiModelCallFailureContext,
-): string {
-	const modelLabel = context.modelLabel ?? formatModelRef(context.modelSelection);
-	const authLabel = context.authLabel ?? context.modelSelection.provider;
-	switch (result.reason) {
-		case "unsupported-thinking":
-			return `${modelLabel} cannot ${context.taskAction}: ${result.message ?? "unsupported thinking level"}`;
-		case "model-unavailable":
-			return `Could not find Pi model ${formatModelRef(context.modelSelection)}.`;
-		case "auth":
-			return `${authLabel} auth failed: ${result.message ?? "unknown auth error"}`;
-		case "empty-auth":
-			return `No ${authLabel} auth found for ${context.modelSelection.provider}. Run /login or configure Pi auth.`;
-		case "aborted":
-			return `${modelLabel} failed to ${context.taskAction}: ${result.message ?? "aborted"}`;
-		case "request-failed":
-			return `${modelLabel} failed to ${context.taskAction}: ${result.message ?? "error"}`;
-	}
 }
 
 export async function callPiModelText(options: CallPiModelTextOptions): Promise<PiModelTextResult> {
