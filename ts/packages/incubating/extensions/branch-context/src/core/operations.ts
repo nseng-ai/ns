@@ -41,14 +41,15 @@ import {
 	type LoadedAttachedPlan,
 } from "./attached-plan.ts";
 import {
-	BRANCH_CREATION_METHODS,
 	createBranchContextFromFile,
-	DEFAULT_BRANCH_CREATION_METHOD,
-	branchContextCreationPolicyFromMethod,
 	formatBranchContextEvidence,
 	type BranchContextEvidence,
 } from "./branch-context-creation.ts";
-import { createRealBranchContextContext, type BranchContextContext } from "./context.ts";
+import {
+	createRealBranchContextContext,
+	selectBranchCreationForContext,
+	type BranchContextContext,
+} from "./context.ts";
 
 type BranchContextOperation = "create" | "load" | "attach" | "list" | "check" | "delete";
 
@@ -56,10 +57,6 @@ export const createRequestSchema = z.object({
 	slug: z.string().describe("Branch context slug."),
 	planFile: z.string().describe("Plan file path (must live outside the repository)."),
 	branch: z.string().optional().describe("Branch name (defaults to the slug)."),
-	branchCreation: z
-		.enum(BRANCH_CREATION_METHODS)
-		.default(DEFAULT_BRANCH_CREATION_METHOD)
-		.describe("Branch creation method."),
 	summary: z.string().optional().describe("Optional plan summary."),
 });
 
@@ -234,16 +231,20 @@ export async function handleCreate(
 					reason: slugError,
 				});
 			}
+			const creationContext = await selectBranchCreationForContext(ctx.context, ctx.cwd);
 			const evidence = await createBranchContextFromFile(
-				ctx.context.commands,
+				creationContext.commands,
 				{
 					slug: request.slug,
 					filePath: request.planFile,
 					...(request.branch === undefined ? {} : { branchName: request.branch }),
-					creation: branchContextCreationPolicyFromMethod(request.branchCreation),
+					creation:
+						creationContext.branchCreation.mode === "graphite"
+							? { type: "graphite-current-parent-current-head" }
+							: { type: "plain-git-current-head" },
 					...(request.summary === undefined ? {} : { summary: request.summary }),
 				},
-				operationOptions(ctx),
+				{ ...operationOptions(ctx), context: creationContext },
 			);
 			return ok(branchContextJson(evidence), { human: formatBranchContextEvidence(evidence) });
 		},

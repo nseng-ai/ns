@@ -29,21 +29,12 @@ import {
 } from "./branch-context-extension-support.ts";
 
 function expectBranchCreationPolicyPrecedence(text: string): void {
-	const normalizedText = text.toLowerCase();
-	const explicitUserIndex = normalizedText.indexOf("explicit user");
-	const wrapperIndex = normalizedText.indexOf("wrapper");
-	const repoPolicyIndex = normalizedText.indexOf("repo policy");
-	const portableDefaultIndex = normalizedText.indexOf("portable cli default");
-
-	expect(text).toMatch(/policy precedence|branch creation policy/i);
-	expect(text).toContain("--branch-creation graphite");
-	expect(explicitUserIndex).toBeGreaterThanOrEqual(0);
-	expect(wrapperIndex).toBeGreaterThanOrEqual(0);
-	expect(repoPolicyIndex).toBeGreaterThanOrEqual(0);
-	expect(portableDefaultIndex).toBeGreaterThanOrEqual(0);
-	expect(explicitUserIndex).toBeLessThan(wrapperIndex);
-	expect(wrapperIndex).toBeLessThan(repoPolicyIndex);
-	expect(repoPolicyIndex).toBeLessThan(portableDefaultIndex);
+	expect(text).toContain("Repository configuration is the only branch-creation authority.");
+	expect(text).toContain("absence selects `plain-git`");
+	expect(text).toContain("do not accept provider overrides");
+	expect(text).toContain(
+		"The Graphite-branded upstack command requires the repository setting to select `graphite`.",
+	);
 }
 
 describe("FakePi exec recording", () => {
@@ -102,8 +93,11 @@ describe("branch-context from-plan policy docs", () => {
 		expect(agentsText).toContain(
 			"This repo uses Graphite (`gt`) as the default tool for branch and PR workflow",
 		);
-		expect(projectExtensionText).toContain('branchContextDefaultCreation: "graphite"');
-		expect(skillText).toContain("For precedence and Graphite method details");
+		expect(projectExtensionText).not.toContain("branchContextDefaultCreation");
+		expect(await readFile(join(REPO_ROOT, "ns.toml"), "utf8")).toContain(
+			'branch-creation = "graphite"',
+		);
+		expect(skillText).toContain("repository `[workflow].branch-creation`");
 		expect(skillText).toContain("references/lifecycle.md");
 		expectBranchCreationPolicyPrecedence(lifecycleText);
 		expect(lifecycleText).toContain(describeBranchContextGraphiteCreationSteps("<current-branch>"));
@@ -122,25 +116,23 @@ describe("ns:branch-context:from-plan argument parsing", () => {
 		expect(parseCreateBranchContextArgs("")).toEqual({ help: false, dryRun: false, yes: false });
 		expect(
 			parseCreateBranchContextArgs(
-				"--dry-run --yes --graphite --branch branch-contexts/add-widget /tmp/my-source-plan.md",
+				"--dry-run --yes --branch branch-contexts/add-widget /tmp/my-source-plan.md",
 			),
 		).toEqual({
 			help: false,
 			dryRun: true,
 			yes: true,
-			branchCreation: "graphite",
 			branchName: "branch-contexts/add-widget",
 			filePath: "/tmp/my-source-plan.md",
 		});
 		expect(
 			parseCreateBranchContextArgs(
-				"-y --plain-git --branch=branch-contexts/add-widget @/tmp/my-source-plan.md",
+				"-y --branch=branch-contexts/add-widget @/tmp/my-source-plan.md",
 			),
 		).toEqual({
 			help: false,
 			dryRun: false,
 			yes: true,
-			branchCreation: "plain-git",
 			branchName: "branch-contexts/add-widget",
 			filePath: "@/tmp/my-source-plan.md",
 		});
@@ -149,9 +141,8 @@ describe("ns:branch-context:from-plan argument parsing", () => {
 	});
 
 	test("rejects parse errors before mutation", () => {
-		expect(() => parseCreateBranchContextArgs("--graphite --plain-git")).toThrow(
-			"Cannot pass both",
-		);
+		expect(() => parseCreateBranchContextArgs("--graphite")).toThrow("Unknown flag: --graphite");
+		expect(() => parseCreateBranchContextArgs("--plain-git")).toThrow("Unknown flag: --plain-git");
 		expect(() => parseCreateBranchContextArgs("--unknown")).toThrow("Unknown flag");
 		expect(() => parseCreateBranchContextArgs("--branch")).toThrow("Missing value");
 		expect(() => parseCreateBranchContextArgs("/tmp/one.md /tmp/two.md")).toThrow("at most one");

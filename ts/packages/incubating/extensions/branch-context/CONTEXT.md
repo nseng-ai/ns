@@ -17,7 +17,7 @@ The workflow that derives a target operation, delegates branch creation to the s
 *Avoid*: plan saving, handoff creation, provider-specific branch ceremony
 
 **Branch Creation Provider**:
-The explicitly selected seam that creates one named branch from an explicit start point for **Branch Context Creation**. `plain-git` is the default adapter, `graphite` is opt-in, and additive pre/post ceremony remains separate hook Points.
+The repository-selected seam that creates one named branch from an explicit start point for **Branch Context Creation**. `[workflow].branch-creation` selects the closed built-in set `plain-git` or `graphite`; absence means `plain-git`, invalid configuration fails closed, and ordinary invocations cannot override it. User-defined provider registration remains deferred. Additive pre/post ceremony remains separate hook Points.
 *Avoid*: operation Point, ambient Graphite gateway, stack provider
 
 **Branch Context Attach**:

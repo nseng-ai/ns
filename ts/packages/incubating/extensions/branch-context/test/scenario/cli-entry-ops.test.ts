@@ -12,6 +12,7 @@ import {
 	makeTempDir,
 	parseJson,
 	runWithFakes,
+	selectGraphiteBranchCreation,
 	writeSavedPlan,
 } from "../support/cli-harness.ts";
 
@@ -71,6 +72,7 @@ describe("branch-context exec", () => {
 
 	test("create tracks Graphite branches through the semantic gateway", async () => {
 		const repoRoot = await makeTempDir();
+		await selectGraphiteBranchCreation(repoRoot);
 		const outsideDir = await makeTempDir();
 		const planFile = join(outsideDir, "plan.md");
 		await writeFile(planFile, "# Plan\n", "utf8");
@@ -85,8 +87,6 @@ describe("branch-context exec", () => {
 				planFile,
 				"--branch",
 				branch,
-				"--branch-creation",
-				"graphite",
 				"--format",
 				"json",
 			],
@@ -119,6 +119,7 @@ describe("branch-context exec", () => {
 
 	test("untracked Graphite parents fail before creating a branch or attaching Branch Memory", async () => {
 		const repoRoot = await makeTempDir();
+		await selectGraphiteBranchCreation(repoRoot);
 		const outsideDir = await makeTempDir();
 		const planFile = join(outsideDir, "plan.md");
 		await writeFile(planFile, "# Plan\n", "utf8");
@@ -133,8 +134,6 @@ describe("branch-context exec", () => {
 				planFile,
 				"--branch",
 				branch,
-				"--branch-creation",
-				"graphite",
 				"--format",
 				"json",
 			],
@@ -175,6 +174,7 @@ describe("branch-context exec", () => {
 
 	test("Graphite tracking failures keep the local branch and skip Branch Memory attach", async () => {
 		const repoRoot = await makeTempDir();
+		await selectGraphiteBranchCreation(repoRoot);
 		const outsideDir = await makeTempDir();
 		const planFile = join(outsideDir, "plan.md");
 		await writeFile(planFile, "# Plan\n", "utf8");
@@ -189,8 +189,6 @@ describe("branch-context exec", () => {
 				planFile,
 				"--branch",
 				branch,
-				"--branch-creation",
-				"graphite",
 				"--format",
 				"json",
 			],

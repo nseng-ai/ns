@@ -509,7 +509,7 @@ describe("branch-context-from-plan", () => {
 		expect(params).toMatchObject({
 			slug: PLAN_SLUG,
 			filePath,
-			creation: { type: "plain-git-current-head" },
+			creation: { type: "graphite-current-parent-current-head" },
 		});
 		expect(params).not.toHaveProperty("branchName");
 		expect(params).not.toHaveProperty("branchSelection");
@@ -541,31 +541,28 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
 	});
 
-	test("ns:branch-context:from-plan --graphite uses Graphite branch creation", async () => {
-		const filePath = await makeNamedPlanFile();
-		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
-		const fakes = createBranchContextOperationFakes();
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("ns:branch-context:from-plan");
-		const context = createContext();
+	test.each(["--graphite", "--plain-git"])(
+		"ns:branch-context:from-plan rejects removed provider flag %s",
+		async (flag) => {
+			const filePath = await makeNamedPlanFile();
+			const pi = new FakePi();
+			const fakes = createBranchContextOperationFakes();
+			registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+			const command = pi.commands.get("ns:branch-context:from-plan");
 
-		await command?.handler(`${filePath} --yes --graphite`, context.ctx);
+			await command?.handler(`${filePath} --yes ${flag}`, createContext().ctx);
 
-		pi.assertDone();
-		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
-			slug: PLAN_SLUG,
-			filePath,
-			creation: { type: "graphite-current-parent-current-head" },
-		});
-		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
-	});
+			pi.assertDone();
+			expect(fakes.createBranchCalls).toEqual([]);
+			expect(pi.sentMessages[0]?.content).toContain(`Unknown flag: ${flag}`);
+		},
+	);
 
-	test("ns:branch-context:from-plan extension options default to Graphite without a branch prefix", async () => {
+	test("ns:branch-context:from-plan defaults to plain Git without repository configuration", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
 		const fakes = createBranchContextOperationFakes();
 		registerBranchContextExtension(pi, {
-			branchContextDefaultCreation: "graphite",
 			branchContextOperations: fakes.operations,
 		});
 		const command = pi.commands.get("ns:branch-context:from-plan");
@@ -574,30 +571,10 @@ describe("branch-context-from-plan", () => {
 
 		pi.assertDone();
 		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
-			creation: { type: "graphite-current-parent-current-head" },
-		});
-		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
-		expect(pi.sentMessages[0]?.content).toContain(`Key: ${PLAN_KEY}`);
-		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
-	});
-
-	test("ns:branch-context:from-plan --plain-git override keeps the slug branch under the Graphite default", async () => {
-		const filePath = await makeNamedPlanFile();
-		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
-		const fakes = createBranchContextOperationFakes();
-		registerBranchContextExtension(pi, {
-			branchContextDefaultCreation: "graphite",
-			branchContextOperations: fakes.operations,
-		});
-		const command = pi.commands.get("ns:branch-context:from-plan");
-
-		await command?.handler(`${filePath} --yes --plain-git`, createContext().ctx);
-
-		pi.assertDone();
-		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
 			creation: { type: "plain-git-current-head" },
 		});
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Key: ${PLAN_KEY}`);
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
 	});
 
@@ -607,7 +584,6 @@ describe("branch-context-from-plan", () => {
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
 		const fakes = createBranchContextOperationFakes();
 		registerBranchContextExtension(pi, {
-			branchContextDefaultCreation: "graphite",
 			branchContextPrefix: "branch-contexts/",
 			branchContextOperations: fakes.operations,
 		});
@@ -618,11 +594,11 @@ describe("branch-context-from-plan", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
 			branchName: prefixedBranch,
-			creation: { type: "graphite-current-parent-current-head" },
+			creation: { type: "plain-git-current-head" },
 		});
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${prefixedBranch}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Key: ${PLAN_KEY}`);
-		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
+		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
 	});
 
 	test("ns:branch-context:from-plan passes explicit target branch while keeping key from slug", async () => {

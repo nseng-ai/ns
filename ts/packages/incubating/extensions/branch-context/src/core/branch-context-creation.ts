@@ -3,6 +3,12 @@ import { attachBranchContext, AttachBranchContextError } from "./attach.ts";
 import { checkBranchContextEntryPresence, throwBranchContextBrmemError } from "./branch-memory.ts";
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
 import type { BrmemGateway } from "@nseng-ai/brmem";
+import {
+	GraphiteBranchCreationProvider,
+	PlainGitBranchCreationProvider,
+	type BranchCreationBasis,
+	type BranchCreationProvider,
+} from "@nseng-ai/extension-kit/branch-creation";
 import type { GraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/branch";
 import { type CommandExecApi, formatCommand } from "@nseng-ai/foundation/exec";
 import type { GitGateway } from "@nseng-ai/foundation/git";
@@ -170,7 +176,8 @@ interface BranchContextRepoAccess {
 export interface CreateBranchContextFromResolvedSourceOptions extends BranchContextRepoAccess {
 	operation: BranchContextCreateOperation;
 	sourceFile: string;
-	graphite: GraphiteBranchGateway;
+	branchCreation?: BranchCreationProvider;
+	graphite?: GraphiteBranchGateway;
 }
 
 export async function createBranchContextFromFile(
@@ -179,7 +186,8 @@ export async function createBranchContextFromFile(
 	options: CreateBranchContextFromFileOptions,
 ): Promise<BranchContextEvidence> {
 	const operation = buildBranchContextCreateOperation(params);
-	const { git, brmem, graphite } = options.context;
+	const { git, brmem } = options.context;
+	const branchCreation = resolveCreationProvider(options.context, params.creation);
 	await checkBranchRefFormat(git, options.cwd, operation.branch, options.signal);
 	const selectedOperation = await selectBranchContextCreateOperationTarget({
 		cwd: options.cwd,
@@ -201,9 +209,20 @@ export async function createBranchContextFromFile(
 		sourceFile,
 		git,
 		brmem,
-		graphite,
+		branchCreation,
 		...optionalEntry("signal", options.signal),
 	});
+}
+
+function resolveCreationProvider(
+	context: BranchContextContext,
+	creation: BranchContextCreationPolicy,
+): BranchCreationProvider {
+	if (context.branchCreation !== undefined) return context.branchCreation;
+	if (creation.type.startsWith("graphite-") && context.graphite !== undefined) {
+		return new GraphiteBranchCreationProvider({ git: context.git, graphite: context.graphite });
+	}
+	return new PlainGitBranchCreationProvider(context.git);
 }
 
 export async function createBranchContextFromResolvedSource(
@@ -216,12 +235,18 @@ export async function createBranchContextFromResolvedSource(
 		...optionalEntry("signal", options.signal),
 	});
 	await assertSelectedTargetBranchStillAvailable(options);
-	await createBranchContext(options.git, options.graphite, {
+	const provider =
+		options.branchCreation ??
+		(options.operation.creation.type.startsWith("graphite-") && options.graphite !== undefined
+			? new GraphiteBranchCreationProvider({ git: options.git, graphite: options.graphite })
+			: new PlainGitBranchCreationProvider(options.git));
+	const creation = await provider.createBranch({
 		cwd: options.cwd,
 		branch: options.operation.branch,
-		basis,
+		basis: providerBasis(basis),
 		signal: options.signal,
 	});
+	if (!creation.ok) throw new Error(creation.error.message);
 
 	let attach: BranchContextAttachData;
 	try {
@@ -701,112 +726,16 @@ function formatStaleTargetBranchMemoryMessage(context: {
 	].join("\n");
 }
 
-interface CreateBranchContextOptions {
-	cwd: string;
-	branch: string;
-	basis: ResolvedBranchContextBasis;
-	signal: AbortSignal | undefined;
-}
-
-interface CreatePlainGitBranchOptions {
-	cwd: string;
-	branch: string;
-	startPoint: string;
-	useHead: boolean;
-	signal: AbortSignal | undefined;
-}
-
-interface CreateGraphiteBranchOptions extends CreatePlainGitBranchOptions {
-	parentBranch: string;
-}
-
-async function createBranchContext(
-	git: GitGateway,
-	graphite: GraphiteBranchGateway,
-	options: CreateBranchContextOptions,
-): Promise<void> {
-	const branchOptions = {
-		cwd: options.cwd,
-		branch: options.branch,
-		startPoint: options.basis.startPoint,
-		useHead: options.basis.useHead,
-		signal: options.signal,
+function providerBasis(basis: ResolvedBranchContextBasis): BranchCreationBasis {
+	if (basis.useHead) {
+		return { type: "current-head", startPoint: basis.startPoint, startRef: basis.startRef };
+	}
+	return {
+		type: "explicit",
+		startPoint: basis.startPoint,
+		startRef: basis.startRef,
+		parentBranch: basis.type === "graphite" ? basis.parentBranch : basis.startRef,
 	};
-	if (options.basis.type === "graphite") {
-		await createGraphiteBranch(git, graphite, {
-			...branchOptions,
-			parentBranch: options.basis.parentBranch,
-		});
-		return;
-	}
-	await createPlainGitBranch(git, branchOptions);
-}
-
-async function createPlainGitBranch(
-	git: GitGateway,
-	options: CreatePlainGitBranchOptions,
-): Promise<void> {
-	const create = options.useHead
-		? await git.createBranchAtHead({
-				cwd: options.cwd,
-				branch: options.branch,
-				signal: options.signal,
-			})
-		: await git.createBranchAtStartPoint({
-				cwd: options.cwd,
-				branch: options.branch,
-				startPoint: options.startPoint,
-				signal: options.signal,
-			});
-	if (!create.ok) {
-		throw new Error(create.error.message);
-	}
-}
-
-async function createGraphiteBranch(
-	git: GitGateway,
-	graphite: GraphiteBranchGateway,
-	options: CreateGraphiteBranchOptions,
-): Promise<void> {
-	const parentTracked = await graphite.checkBranchTracked({
-		cwd: options.cwd,
-		branch: options.parentBranch,
-		signal: options.signal,
-	});
-	if (!parentTracked.ok) {
-		throw new Error(parentTracked.error.message);
-	}
-	if (!parentTracked.tracked) {
-		throw new Error(
-			[
-				"Current branch is not tracked by Graphite; refusing to stack a branch context on it.",
-				`Parent branch: ${options.parentBranch}`,
-				"No branch was created and no plan was attached.",
-				`Track the parent first (gt track ${options.parentBranch} --parent <its-parent>) or pass --plain-git.`,
-				"",
-				parentTracked.detail,
-			].join("\n"),
-		);
-	}
-	await createPlainGitBranch(git, options);
-	const track = await graphite.trackBranch({
-		cwd: options.cwd,
-		branch: options.branch,
-		parentBranch: options.parentBranch,
-		signal: options.signal,
-	});
-	if (!track.ok) {
-		throw new Error(
-			[
-				"Created local Git branch but failed to track it with Graphite.",
-				`Branch: ${options.branch}`,
-				"No attached plan was stored.",
-				"No cleanup was attempted; inspect the created branch manually.",
-				"",
-				track.error.message,
-			].join("\n"),
-		);
-	}
 }
 
 async function resolveCurrentBranch(

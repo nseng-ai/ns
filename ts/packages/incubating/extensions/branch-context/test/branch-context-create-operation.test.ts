@@ -295,7 +295,10 @@ describe("branch-context create execution", () => {
 		});
 		expect(git.validateBranchRefCalls).toEqual([]);
 		expect(git.headCommitCalls).toEqual([{ cwd: ROOT }]);
-		expect(git.localBranchPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(git.localBranchPresenceCalls).toEqual([
+			{ cwd: ROOT, branch: TARGET_BRANCH },
+			{ cwd: ROOT, branch: TARGET_BRANCH },
+		]);
 		expect(git.createBranchAtHeadCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
 		expect(graphite.checkBranchTrackedCalls).toEqual([]);
 		expect(graphite.trackBranchCalls).toEqual([]);

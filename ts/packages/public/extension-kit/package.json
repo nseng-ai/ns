@@ -8,6 +8,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/kit/index.ts",
+		"./branch-creation": "./src/branch-creation/index.ts",
 		"./brmem-cli": "./src/kit/brmem-cli.ts",
 		"./brmem-cli/testing": "./src/kit/brmem-cli-testing.ts",
 		"./checkpoint-flow": "./src/kit/checkpoint-flow.ts",
@@ -66,6 +67,7 @@
 		"tier": "extension-kit",
 		"subpackages": [
 			"kit",
+			"branch-creation",
 			"github",
 			"graphite"
 		],
@@ -75,6 +77,12 @@
 					"models"
 				],
 				"description": "Shared model profiles and operation overrides."
+			},
+			{
+				"path": [
+					"workflow"
+				],
+				"description": "Repository-wide workflow provider selection."
 			}
 		]
 	}

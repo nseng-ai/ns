@@ -73,14 +73,7 @@ CLI surfaces:
 
 ## Branch creation policy
 
-Choose the branch creation method before invoking `ns branch-context exec from-plan`. Policy precedence is:
-
-1. Explicit user request. Users or harnesses may say `--graphite`, `--plain-git`, or plain-language equivalents; direct CLI invocations translate these to `--branch-creation graphite` or `--branch-creation plain-git`.
-2. Wrapper/harness default, such as a Pi adapter-provided branch creation method.
-3. Repo policy from loaded project instructions/docs.
-4. Portable CLI default (`plain-git`) only when no higher-priority policy exists.
-
-The portable CLI default is still `plain-git` when `--branch-creation` is omitted. In this repo, direct skill/CLI execution should include `--branch-creation graphite`; omitting `--branch-creation` is correct only for portable/default contexts without a repo policy.
+Repository configuration is the only branch-creation authority. Set `[workflow].branch-creation` in `ns.toml` to `plain-git` or `graphite`; absence selects `plain-git`. Invalid TOML, an invalid `[workflow]` table, or an unsupported value fails before branch mutation. Ordinary CLI and Pi invocations do not accept provider overrides. The Graphite-branded upstack command requires the repository setting to select `graphite`.
 
 Branch-context Graphite branch creation is `git branch <target> HEAD` plus `gt track <target> --parent <current-branch> --no-interactive`, not `gt create`.
 

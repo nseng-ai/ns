@@ -18,7 +18,7 @@ Branch Memory is the lower storage adapter for attached branch context entries. 
 3. Attach the plan to Branch Memory namespace `branch-context` under the named Markdown key for that workflow, on the implementation branch.
 4. Load and implement with `/ns:branch-context:impl-attached-plan` or `ns branch-context exec load`.
 
-For Pi users, `/ns:branch-context:upstack-impl-from-plan` creates or reuses a branch with attached branch context, checks out the target branch, starts a fresh Pi session, and sends `/ns:branch-context:impl-attached-plan <key>` in that session. It uses Graphite by default, with `--plain-git` as an escape hatch.
+For Pi users, `/ns:branch-context:upstack-impl-from-plan` creates or reuses a branch with attached branch context, checks out the target branch, starts a fresh Pi session, and sends `/ns:branch-context:impl-attached-plan <key>` in that session. This Graphite-branded command requires `[workflow].branch-creation = "graphite"`.
 
 ## Save a source-branch plan
 
@@ -69,12 +69,12 @@ enriched-plan list [--format json] [--plan-store-root <path>]
 Pi users run `/ns:branch-context:from-plan`. CLI/agent workflows use:
 
 ```text
-ns branch-context exec from-plan --slug <branch-context-slug> --plan-file <path> [--branch <branch>] [--branch-creation plain-git|graphite] [--summary <text>] [--format json]
+ns branch-context exec from-plan --slug <branch-context-slug> --plan-file <path> [--branch <branch>] [--summary <text>] [--format json]
 ```
 
 The branch-context slug is derived from saved plan content by the workflow surface. It drives the default target branch name and the new from-plan attached key `<branch-context-slug>.md`. Passing `--branch <branch>` changes only the target branch, not the attached key.
 
-The CLI default branch creation mode is `plain-git` when `--branch-creation` is omitted. The project-local Pi adapter requests Graphite creation by default.
+The repository `[workflow].branch-creation` setting selects the built-in provider; absence means `plain-git`. This repository selects Graphite in root `ns.toml`.
 
 Attached plan contract:
 
@@ -107,8 +107,7 @@ Useful options:
 
 - `--dry-run`: preview without creating a branch, attaching a plan, checking out, or starting a new session.
 - `--branch <name>`: use or verify an explicit target branch.
-- `--graphite`: default; stack the target branch on the current branch by creating the local Git branch, then running `gt track`.
-- `--plain-git`: create with plain Git only, without Graphite tracking.
+  Branch creation is selected repository-wide by `[workflow].branch-creation`; ordinary invocations do not accept provider overrides.
 - `--yes`, `-y`: compatibility no-op.
 
 ## Load and implement an attached plan
@@ -145,7 +144,7 @@ Use `attach --plan` to attach a saved plan as `<saved-plan-slug>.md`. Use `attac
 
 ### Graphite branch creation
 
-Branch creation policy is selected by the workflow surface. The portable CLI uses `plain-git` when `--branch-creation` is omitted. A wrapper may choose a project-local default; in this repo, the Pi adapter configures `/ns:branch-context:from-plan` and `/ns:branch-context:upstack-impl-from-plan` to request Graphite branch creation unless the user passes `--plain-git`. Direct skill/CLI agent invocations in this repo bypass that Pi adapter option, so they must pass `--branch-creation graphite` unless the user explicitly requests plain Git.
+Branch creation policy is selected only by repository configuration: `[workflow].branch-creation` accepts `plain-git` or `graphite`, absence means `plain-git`, and malformed or unsupported configuration fails before mutation. This repository selects `graphite` in root `ns.toml`; ordinary CLI and Pi invocations have no provider override.
 
 This workflow uses the branch-context Graphite creation method defined in `skills/incubating/branch-context/branch-context/references/lifecycle.md`; it does not call `gt create`, and it is the expected branch setup primitive for autoobjective runners.
 

@@ -1,5 +1,8 @@
 supported_harnesses = ["pi", "codex", "claude-code"]
 
+[workflow]
+branch-creation = "graphite"
+
 [slots]
 provision = [".env.local"]
 

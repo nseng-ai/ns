@@ -37,8 +37,12 @@ export {
 } from "../core/attached-plan.ts";
 export {
 	createBranchContextContext,
+	createBranchContextCreationContext,
 	createRealBranchContextContext,
+	createRealBranchContextCreationContext,
+	selectBranchCreationForContext,
 	type BranchContextContext,
+	type BranchContextCreationContext,
 	type BranchContextContextFactory,
 	type BranchContextContextOptions,
 } from "../core/context.ts";

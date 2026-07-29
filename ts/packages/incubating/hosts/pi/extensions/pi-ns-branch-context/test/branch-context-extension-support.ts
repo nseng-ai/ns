@@ -3,6 +3,8 @@ const TEST_MODEL_SELECTION = {
 	modelId: "gpt-5.6-luna",
 	thinking: "minimal" as const,
 };
+import { GraphiteBranchCreationProvider } from "@nseng-ai/extension-kit/branch-creation";
+import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import { brmemCheckJson } from "@nseng-ai/extension-kit/brmem-cli/testing";
 import { afterEach, expect } from "vitest";
@@ -200,9 +202,12 @@ export function branchContextExtensionTestOptions(
 		branchContextOperations: operations,
 		shouldResolveTargetBranchInPreview: true,
 		createBranchContextContext(pi, cwd) {
+			const context = createBranchContextContext(createPiCommandExecApi(pi), { cwd });
 			return {
-				...createBranchContextContext(createPiCommandExecApi(pi), {
-					cwd,
+				...context,
+				branchCreation: new GraphiteBranchCreationProvider({
+					git: context.git,
+					graphite: new InMemoryGraphiteBranchGateway(),
 				}),
 				brmem: new FakeBrmemGateway({
 					currentBranch: SOURCE_BRANCH,

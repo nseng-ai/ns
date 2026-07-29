@@ -52,17 +52,15 @@ const CREATE_HELP = [
 	"Create a branch context from a saved plan.",
 	"",
 	"Options:",
-	"  --slug <value>             Branch context slug.",
-	"  --plan-file <value>        Plan file path (must live outside the repository).",
-	"  --branch <value>           Branch name (defaults to the slug).",
-	'  --branch-creation <value>  Branch creation method. (default: "plain-git")',
-	'                             (choices: "plain-git", "graphite")',
-	"  --summary <value>          Optional plan summary.",
-	'  --format <format>          Output format. (choices: "human", "json",',
-	'                             "markdown", "md", default: "human")',
-	"  --json-schema              Print the JSON Schema for this command's",
-	"                             input/output and exit.",
-	"  -h, --help                 display help for command",
+	"  --slug <value>       Branch context slug.",
+	"  --plan-file <value>  Plan file path (must live outside the repository).",
+	"  --branch <value>     Branch name (defaults to the slug).",
+	"  --summary <value>    Optional plan summary.",
+	'  --format <format>    Output format. (choices: "human", "json", "markdown",',
+	'                       "md", default: "human")',
+	"  --json-schema        Print the JSON Schema for this command's input/output and",
+	"                       exit.",
+	"  -h, --help           display help for command",
 	"",
 ].join("\n");
 
@@ -377,10 +375,9 @@ describe("branch-context CLI surface pinning", () => {
 		});
 	});
 
-	test("pins invalid branch-creation as a raw commander choices error in human and JSON modes", async () => {
+	test("rejects removed branch-creation as an unknown option in human and JSON modes", async () => {
 		const repoRoot = await makeTempDir();
-		const message =
-			"error: option '--branch-creation <value>' argument 'bogus' is invalid. Allowed choices are plain-git, graphite.\n";
+		const message = "error: unknown option '--branch-creation'\n";
 		const human = runWithFakes(
 			[
 				"exec",
@@ -423,7 +420,7 @@ describe("branch-context CLI surface pinning", () => {
 			message: message.trimEnd(),
 		});
 		expect(json.stderr.join("")).toBe(message);
-		// PINNED CLINKR SEMANTICS: enum choice errors honor --format json on stdout.
+		// PINNED CLINKR SEMANTICS: unknown options honor --format json on stdout.
 	});
 
 	test("accepts --format human explicitly", async () => {
@@ -454,8 +451,6 @@ describe("branch-context CLI surface pinning", () => {
 				"from-plan",
 				"--format",
 				"json",
-				"--branch-creation",
-				"plain-git",
 				"--plan-file",
 				planFile,
 				"--summary",

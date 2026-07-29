@@ -525,11 +525,10 @@ describe("branch-context-upstack-impl-session", () => {
 		expect(context.replacementUserMessages).toEqual([]);
 	});
 
-	test("ns:branch-context:upstack-impl-from-plan dry-run defaults to Graphite even when the extension option says plain Git", async () => {
+	test("ns:branch-context:upstack-impl-from-plan rejects repositories without Graphite configuration", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
 		registerBranchContextExtension(pi, {
-			branchContextDefaultCreation: "plain-git",
 			shouldResolveTargetBranchInPreview: false,
 		});
 		const command = pi.commands.get("ns:branch-context:upstack-impl-from-plan");
@@ -544,12 +543,12 @@ describe("branch-context-upstack-impl-session", () => {
 				args: call.args,
 			})),
 		).toEqual([planSlugExecCall(DEFAULT_PLAN_CONTENT)]);
-		expect(pi.sentMessages[0]?.content).toContain("Dry run: no branch would be created");
-		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
-		expect(pi.sentMessages[0]?.content).toContain(`git checkout ${PLAN_SLUG}`);
-		expect(pi.sentMessages[0]?.content).not.toContain("gt up");
-		expect(pi.sentMessages[0]?.content).toContain("/new");
-		expect(pi.sentMessages[0]?.content).toContain(DEFAULT_IMPL_COMMAND);
+		expect(pi.sentMessages[0]?.content).toContain(
+			"Graphite upstack implementation requires repository Graphite configuration.",
+		);
+		expect(pi.sentMessages[0]?.content).toContain(
+			'Configure [workflow].branch-creation = "graphite" in ns.toml.',
+		);
 	});
 
 	test("ns:branch-context:upstack-impl-from-plan surfaces create failures before checkout", async () => {
@@ -590,31 +589,17 @@ describe("branch-context-upstack-impl-session", () => {
 		expect(context.newSessionParentSessions).toEqual([]);
 	});
 
-	test("ns:branch-context:upstack-impl-from-plan supports plain Git creation before checkout", async () => {
+	test("ns:branch-context:upstack-impl-from-plan rejects removed plain-git flag", async () => {
 		const filePath = await makeNamedPlanFile();
-		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT), gitCheckoutStep(PLAN_SLUG)]);
+		const pi = new FakePi();
 		const fakes = createBranchContextOperationFakes();
-		registerBranchContextExtension(pi, {
-			branchContextDefaultCreation: "graphite",
-			branchContextOperations: fakes.operations,
-		});
+		registerBranchContextExtension(pi, branchContextExtensionTestOptions(fakes.operations));
 		const command = pi.commands.get("ns:branch-context:upstack-impl-from-plan");
-		const context = createContext();
 
-		await command?.handler(`${filePath} --yes --plain-git`, context.ctx);
+		await command?.handler(`${filePath} --yes --plain-git`, createContext().ctx);
 
 		pi.assertDone();
-		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
-			creation: { type: "plain-git-current-head" },
-		});
-		expect(
-			pi.execCalls.map((call) => ({
-				command: call.command,
-				args: call.args,
-			})),
-		).toContainEqual({ command: "git", args: ["checkout", PLAN_SLUG] });
-		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
-		expect(pi.sentUserMessages).toEqual([]);
-		expect(context.replacementUserMessages).toEqual([DEFAULT_IMPL_COMMAND]);
+		expect(fakes.createBranchCalls).toEqual([]);
+		expect(pi.sentMessages[0]?.content).toContain("Unknown flag: --plain-git");
 	});
 });

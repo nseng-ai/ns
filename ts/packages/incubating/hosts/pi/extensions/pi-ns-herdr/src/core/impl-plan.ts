@@ -22,6 +22,7 @@ import {
 	buildBranchContextOutputMessage,
 	createPreparedPlanBranchContext,
 	createRealBranchContextContext,
+	selectBranchCreationForContext,
 	preparePlanBranchContext,
 	formatBranchContextEvidence,
 	formatBranchContextCreateFailure,
@@ -171,10 +172,22 @@ export async function handleHerdrSlotImplPlan(
 			}
 		}
 		setStatus(ctx, config, "deriving branch-context slug…");
+		const branchContext = await selectBranchCreationForContext(
+			implBranchContextContext(pi, checkout.repoRoot, options.dependencies),
+			checkout.repoRoot,
+		);
+		if (branchContext.branchCreation.mode !== "graphite") {
+			present(
+				ctx,
+				'Herdr implementation requires [workflow].branch-creation = "graphite". No branch was created.',
+				"error",
+			);
+			return;
+		}
 		const prepared = await preparePlanBranchContext(pi, {
 			plan: selectedPlan,
 			checkout,
-			context: implBranchContextContext(pi, checkout.repoRoot, options.dependencies),
+			context: branchContext,
 			shouldBuildPreview: parsed.isDryRun,
 			creation:
 				basis.type === "current-head"

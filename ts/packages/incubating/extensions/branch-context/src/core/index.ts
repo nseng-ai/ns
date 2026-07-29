@@ -1,7 +1,11 @@
 export {
 	createBranchContextContext,
+	createBranchContextCreationContext,
 	createRealBranchContextContext,
+	createRealBranchContextCreationContext,
+	selectBranchCreationForContext,
 	type BranchContextContext,
+	type BranchContextCreationContext,
 	type BranchContextContextFactory,
 	type BranchContextContextOptions,
 } from "./context.ts";

@@ -1,8 +1,4 @@
-import {
-	createBranchContextFromFile,
-	loadBranchContextPlan,
-	type BranchCreationMethod,
-} from "@nseng-ai/branch-context/api";
+import { createBranchContextFromFile, loadBranchContextPlan } from "@nseng-ai/branch-context/api";
 import { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@nseng-ai/plans/api";
 import type { BranchContextExtensionOptions, BranchContextOperations } from "./host-types.ts";
 
@@ -17,12 +13,6 @@ export function resolveBranchContextOperations(
 	options: BranchContextExtensionOptions,
 ): BranchContextOperations {
 	return options.branchContextOperations ?? realBranchContextOperations;
-}
-
-export function resolveBranchContextDefaultCreation(
-	options: BranchContextExtensionOptions,
-): BranchCreationMethod {
-	return options.branchContextDefaultCreation ?? "plain-git";
 }
 
 export function resolvePlanStoreRootOption(

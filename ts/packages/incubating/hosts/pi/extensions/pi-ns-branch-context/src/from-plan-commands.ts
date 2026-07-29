@@ -25,6 +25,7 @@ import {
 	buildImplBranchContextPrompt,
 	createBranchContextContext,
 	createRealBranchContextContext,
+	selectBranchCreationForContext,
 	derivePlanContentSlug,
 	deriveTargetBranch,
 	formatBranchContextEvidence,
@@ -52,11 +53,7 @@ import {
 	optionalEntries,
 	optionalEntry,
 } from "@nseng-ai/foundation/primitives";
-import {
-	resolveBranchContextDefaultCreation,
-	resolveBranchContextOperations,
-	resolvePlanStoreRootOption,
-} from "./options.ts";
+import { resolveBranchContextOperations, resolvePlanStoreRootOption } from "./options.ts";
 import type {
 	BranchContextExtensionOptions,
 	BranchContextOperations,
@@ -83,8 +80,6 @@ Create a branch context from a saved plan. The branch slug is derived from the p
 Options:
   --dry-run          Show the selected plan and target branch without mutating.
   --yes, -y          Compatibility no-op; resolved branch contexts create without confirmation.
-  --graphite         Create with the branch-context Graphite method.
-  --plain-git        Create with plain Git only; no Graphite tracking.
   --branch <name>    Use an explicit target branch name; explicit branches do not auto-suffix.
   --help, -h         Show this help.
 
@@ -101,8 +96,6 @@ Stack a branch context on the current branch with the branch-context Graphite me
 Options:
   --dry-run          Show the selected plan and follow-up flow without mutating.
   --yes, -y          Compatibility no-op; resolved branch contexts create without confirmation.
-  --graphite         Default: create with the branch-context Graphite method.
-  --plain-git        Escape hatch: create with plain Git only; no Graphite tracking, so the branch will not be part of a stack.
   --branch <name>    Use an explicit target branch name; explicit branches do not auto-suffix.
   --help, -h         Show this help.
 
@@ -112,7 +105,7 @@ The current branch must be trunk or a Graphite-tracked branch; otherwise this co
 With no file path, the command prefers the most recent saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 
-This command intentionally models the manual flow: /${CREATE_BRANCH_CONTEXT_COMMAND_NAME} --graphite, git checkout <branch>, /new, then /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> in the new Pi session.`;
+This command requires [workflow].branch-creation = "graphite" and models the manual create, checkout, /new, and attached-plan implementation flow.`;
 
 export const IMPL_SAVED_PLAN_USAGE = `Usage: /${IMPL_SAVED_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
@@ -131,7 +124,6 @@ export interface CreateBranchContextArgs {
 	dryRun: boolean;
 	yes: boolean;
 	branchName?: string;
-	branchCreation?: BranchCreationMethod;
 	filePath?: string;
 }
 
@@ -292,14 +284,6 @@ export function parseCreateBranchContextArgs(rawArgs: string): CreateBranchConte
 			parsed.yes = true;
 			continue;
 		}
-		if (token === "--graphite") {
-			setBranchCreation(parsed, "graphite");
-			continue;
-		}
-		if (token === "--plain-git") {
-			setBranchCreation(parsed, "plain-git");
-			continue;
-		}
 		if (token === "--branch") {
 			const value = tokens[index + 1];
 			if (value === undefined || value.startsWith("-")) {
@@ -383,16 +367,6 @@ function tokenizeCommandArgs(rawArgs: string): string[] {
 		.filter((token) => token.length > 0);
 }
 
-function setBranchCreation(
-	args: CreateBranchContextArgs,
-	branchCreation: BranchCreationMethod,
-): void {
-	if (args.branchCreation !== undefined && args.branchCreation !== branchCreation) {
-		throw new CreateBranchContextUsageError("Cannot pass both --graphite and --plain-git.");
-	}
-	args.branchCreation = branchCreation;
-}
-
 export async function resolveCreateBranchContextPlanFile(
 	pi: BranchContextPiCommandApi,
 	args: CreateBranchContextArgs,
@@ -414,7 +388,11 @@ export async function deriveCreateBranchContextPreview(
 		filePath: selectedFile.filePath,
 		cwd: ctx.cwd,
 	});
-	const branchCreation = args.branchCreation ?? resolveBranchContextDefaultCreation(options);
+	const creationContext = await selectBranchCreationForContext(
+		resolveBranchContextContext(pi, ctx.cwd, options),
+		ctx.cwd,
+	);
+	const branchCreation: BranchCreationMethod = creationContext.branchCreation.mode;
 	const target = deriveBranchContextTargetBranch(args, slugEvidence.slug, options);
 	const planKey = buildBranchContextPlanKey(slugEvidence.slug);
 	const requestedOperation = buildBranchContextCreateOperation({
@@ -746,10 +724,7 @@ export async function handleGtUpstackImplCommand(
 		usage: GT_UPSTACK_IMPL_USAGE,
 		statusKey: GT_UPSTACK_IMPL_STATUS_KEY,
 		progressMessage: "Finding saved plan for upstack branch-context implementation…",
-		derivePreviewOptions: (extensionOptions) => ({
-			...extensionOptions,
-			branchContextDefaultCreation: "graphite",
-		}),
+		derivePreviewOptions: (extensionOptions) => extensionOptions,
 		formatDryRunMessage: (preview) =>
 			formatGtUpstackImplDryRunMessage(
 				formatCreateBranchContextPreview(preview),
@@ -850,6 +825,19 @@ async function runCreateBranchContextCommand(
 		return;
 	} finally {
 		setRuntimeStatus(ctx, commandOptions.statusKey, undefined);
+	}
+
+	if (
+		commandOptions.statusKey === GT_UPSTACK_IMPL_STATUS_KEY &&
+		preview.branchCreation !== "graphite"
+	) {
+		presentBranchContextFailure(
+			pi,
+			ctx,
+			"Graphite upstack implementation requires repository Graphite configuration.",
+			'Configure [workflow].branch-creation = "graphite" in ns.toml.',
+		);
+		return;
 	}
 
 	if (args.dryRun) {
@@ -982,9 +970,13 @@ async function createBranchContextFromPreview({
 		params.summary = preview.summary;
 	}
 
+	const creationContext = await selectBranchCreationForContext(
+		resolveBranchContextContext(pi, ctx.cwd, extensionOptions),
+		ctx.cwd,
+	);
 	return operations.createBranchContextFromFile(pi, params, {
 		cwd: ctx.cwd,
-		context: resolveBranchContextContext(pi, ctx.cwd, extensionOptions),
+		context: creationContext,
 	});
 }
 

@@ -131,6 +131,9 @@ export async function createPreparedPlanBranchContext(
 		sourceFile,
 		git: prepared.context.git,
 		brmem: prepared.context.brmem,
-		graphite: prepared.context.graphite,
+		...optionalEntries({
+			branchCreation: prepared.context.branchCreation,
+			graphite: prepared.context.graphite,
+		}),
 	});
 }

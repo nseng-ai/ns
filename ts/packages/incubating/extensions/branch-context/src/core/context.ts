@@ -1,23 +1,48 @@
 import { RealGitBrmemGateway, type BrmemGateway } from "@nseng-ai/brmem";
+import {
+	GraphiteBranchCreationProvider,
+	PlainGitBranchCreationProvider,
+	loadWorkflowBranchCreationConfig,
+	type BranchCreationProvider,
+	type BuiltInBranchCreationMode,
+} from "@nseng-ai/extension-kit/branch-creation";
+import {
+	RealGraphiteBranchGateway,
+	type GraphiteBranchGateway,
+} from "@nseng-ai/extension-kit/graphite/branch";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi, StdinCapableCommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
-	RealGraphiteBranchGateway,
-	type GraphiteBranchGateway,
-} from "@nseng-ai/extension-kit/graphite/branch";
+	nodeProjectConfigGateway,
+	type ProjectConfigGateway,
+} from "@nseng-ai/sdk/project-config/points";
 
 export interface BranchContextContext {
 	commands: CommandExecApi;
 	git: GitGateway;
 	brmem: BrmemGateway;
-	graphite: GraphiteBranchGateway;
+	branchCreation?: BranchCreationProvider;
+	/** Compatibility-only test/consumer input while callers migrate to branchCreation. */
+	graphite?: GraphiteBranchGateway;
+}
+
+export interface BranchContextCreationContext extends BranchContextContext {
+	branchCreation: BranchCreationProvider;
 }
 
 export interface BranchContextContextOptions {
 	cwd?: string;
 	brmemCommands?: StdinCapableCommandExecApi;
+}
+
+export interface BranchContextCreationContextOptions extends BranchContextContextOptions {
+	projectConfigGateway?: ProjectConfigGateway;
+	createGraphiteProvider?: (options: {
+		commands: CommandExecApi;
+		git: GitGateway;
+	}) => BranchCreationProvider;
 }
 
 export type BranchContextContextFactory<Args extends unknown[]> = (
@@ -33,16 +58,75 @@ export function createBranchContextContext(
 	const brmemCommands = options.brmemCommands ?? new NodeCommandExecApi();
 	const brmemGit = brmemCommands === commands ? git : new RealGitGateway(brmemCommands);
 	const brmem = new RealGitBrmemGateway({ cwd, commands: brmemCommands, git: brmemGit });
+	return { commands, git, brmem };
+}
+
+export async function createBranchContextCreationContext(
+	commands: CommandExecApi,
+	options: BranchContextCreationContextOptions = {},
+): Promise<BranchContextCreationContext> {
+	const context = createBranchContextContext(commands, options);
+	return selectBranchCreationForContext(context, options.cwd ?? process.cwd(), options);
+}
+
+export async function selectBranchCreationForContext(
+	context: BranchContextContext,
+	cwd: string,
+	options: Pick<
+		BranchContextCreationContextOptions,
+		"projectConfigGateway" | "createGraphiteProvider"
+	> = {},
+): Promise<BranchContextCreationContext> {
+	if (context.branchCreation !== undefined) {
+		return { ...context, branchCreation: context.branchCreation };
+	}
+	const repoRoot = await context.git.repoRoot({ cwd });
+	if (!repoRoot.ok) throw new Error(repoRoot.error.message);
+	const config = loadWorkflowBranchCreationConfig({
+		repoRoot: repoRoot.value,
+		gateway: options.projectConfigGateway ?? nodeProjectConfigGateway,
+	});
+	if (!config.ok) throw new Error(config.error.message);
 	return {
-		commands,
-		git,
-		brmem,
-		graphite: new RealGraphiteBranchGateway(commands),
+		...context,
+		branchCreation: createSelectedBranchCreationProvider(config.value.branchCreation, {
+			commands: context.commands,
+			git: context.git,
+			createGraphiteProvider:
+				options.createGraphiteProvider ??
+				(context.graphite === undefined
+					? undefined
+					: ({ git }) => new GraphiteBranchCreationProvider({ git, graphite: context.graphite! })),
+		}),
 	};
+}
+
+export function createSelectedBranchCreationProvider(
+	mode: BuiltInBranchCreationMode,
+	options: {
+		commands: CommandExecApi;
+		git: GitGateway;
+		createGraphiteProvider?: BranchContextCreationContextOptions["createGraphiteProvider"];
+	},
+): BranchCreationProvider {
+	if (mode === "plain-git") return new PlainGitBranchCreationProvider(options.git);
+	return (
+		options.createGraphiteProvider?.({ commands: options.commands, git: options.git }) ??
+		new GraphiteBranchCreationProvider({
+			git: options.git,
+			graphite: new RealGraphiteBranchGateway(options.commands),
+		})
+	);
 }
 
 export function createRealBranchContextContext(
 	options: BranchContextContextOptions = {},
 ): BranchContextContext {
 	return createBranchContextContext(new NodeCommandExecApi(), options);
+}
+
+export function createRealBranchContextCreationContext(
+	options: BranchContextCreationContextOptions = {},
+): Promise<BranchContextCreationContext> {
+	return createBranchContextCreationContext(new NodeCommandExecApi(), options);
 }

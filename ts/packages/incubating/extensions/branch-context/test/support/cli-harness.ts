@@ -76,6 +76,10 @@ export function makeTempDir(prefix = "branch-context-cli-"): Promise<string> {
 	return tempDirs.makeTempDir(prefix);
 }
 
+export function selectGraphiteBranchCreation(repoRoot: string): Promise<void> {
+	return writeFile(join(repoRoot, "ns.toml"), '[workflow]\nbranch-creation = "graphite"\n', "utf8");
+}
+
 export async function writeSavedPlan(
 	planStoreRoot: string,
 	params: {
