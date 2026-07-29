@@ -6,13 +6,17 @@ import type { HerdrPiCommandApi } from "../core/pi-command-api.ts";
 
 export type HerdrGitGateway = Pick<
 	GitGateway,
-	"createBranchAtStartPoint" | "currentBranch" | "headCommit" | "optionalRepoRoot" | "repoRoot"
+	| "cachedOriginHeadBranch"
+	| "createBranchAtStartPoint"
+	| "currentBranch"
+	| "headCommit"
+	| "optionalRepoRoot"
+	| "repoRoot"
 >;
 
 export interface HerdrPiContext {
 	readonly commands: HerdrPiCommandApi;
 	readonly git: HerdrGitGateway;
-	readonly trunkBranch: string;
 	readonly herdr: HerdrGateway;
 }
 

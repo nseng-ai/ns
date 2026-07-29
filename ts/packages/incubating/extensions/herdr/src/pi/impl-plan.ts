@@ -12,7 +12,6 @@ import {
 	handleHerdrSlotImplPlan,
 	type ImplPlanConfig,
 	type HerdrSlotImplPlanOptions,
-	type ResolvedHerdrSlotImplPlanOptions,
 } from "../core/impl-plan.ts";
 import { createHerdrPiCommandContext, type HerdrPiContext } from "./context.ts";
 
@@ -31,7 +30,7 @@ const TAB_CONFIG: ImplPlanConfig = {
 	destination: "tab",
 };
 
-export interface HerdrPlanImplRegistrationOptions extends Omit<HerdrSlotImplPlanOptions, "git"> {
+export interface HerdrPlanImplRegistrationOptions extends HerdrSlotImplPlanOptions {
 	planStoreRoot?: string;
 	slotClient?: SlotClient;
 }
@@ -55,10 +54,6 @@ function registerPlanImplCommand(
 	config: ImplPlanConfig,
 	options: HerdrPlanImplRegistrationOptions,
 ): void {
-	const dependencies: ResolvedHerdrSlotImplPlanOptions = {
-		...options,
-		git: context.git,
-	};
 	const destination = config.destination === "workspace" ? "space" : "tab";
 	registerCommandWithImmediateAck({
 		host: context.commands,
@@ -70,7 +65,7 @@ function registerPlanImplCommand(
 				const notifyProgress = makeCommandProgressNotifier({ host: context.commands, ctx: pi });
 				await handleHerdrSlotImplPlan(createHerdrPiCommandContext(context, pi), {
 					rawArgs,
-					dependencies,
+					dependencies: options,
 					config,
 					notifyProgress,
 				});
