@@ -106,10 +106,7 @@ describe("startSegmentationBatch", () => {
 			analysis: ["ready"],
 		});
 		expect(cell.read()).toMatchObject({
-			fingerprint: computeSegmentationFingerprint(profile, {
-				segmentationSelection: gateway.segmentationSelection,
-				episodeAnalysisSelection: gateway.episodeAnalysisSelection,
-			}),
+			fingerprint: computeSegmentationFingerprint(profile),
 			summary: "A short session.",
 			delegations: [{ turn: 3, label: "delegate investigation", confidence: "high" }],
 		});
@@ -172,10 +169,7 @@ describe("startSegmentationBatch", () => {
 			},
 		});
 		cell.write({
-			fingerprint: computeSegmentationFingerprint(profile, {
-				segmentationSelection: gateway.segmentationSelection,
-				episodeAnalysisSelection: gateway.episodeAnalysisSelection,
-			}),
+			fingerprint: computeSegmentationFingerprint(profile),
 			summary: "A short session.",
 			delegations: [{ turn: 6, label: "delegate fix", confidence: "low" }],
 			episodes: [
@@ -308,7 +302,7 @@ describe("startSegmentationBatch", () => {
 		expect(cell.read()?.episodes[0]).not.toHaveProperty("efficiency");
 	});
 
-	test("a thinking-only model policy change misses the cache", async () => {
+	test("a model policy change reuses the cached result", async () => {
 		const cell = createSegmentationCacheCell();
 		const firstGateway = new FakeSegmentationGateway({ result: SUCCESS });
 		const profile = makeProfile(sequentialTurns(5));
@@ -324,7 +318,13 @@ describe("startSegmentationBatch", () => {
 		const changedGateway = new FakeSegmentationGateway({
 			result: SUCCESS,
 			segmentationSelection: {
-				...firstGateway.segmentationSelection,
+				provider: "anthropic",
+				modelId: "claude-haiku-4-5",
+				thinking: "high",
+			},
+			episodeAnalysisSelection: {
+				provider: "anthropic",
+				modelId: "claude-sonnet-4-6",
 				thinking: "high",
 			},
 		});
@@ -335,9 +335,9 @@ describe("startSegmentationBatch", () => {
 			force: false,
 			onUpdate: () => {},
 		});
-		expect(initial).toEqual({ type: "loading" });
-		await settled();
-		expect(changedGateway.calls).toHaveLength(1);
+		expect(initial).toMatchObject({ type: "ready" });
+		expect(changedGateway.calls).toEqual([]);
+		expect(changedGateway.analysisCalls).toEqual([]);
 	});
 
 	test("a changed snapshot misses the cache", async () => {

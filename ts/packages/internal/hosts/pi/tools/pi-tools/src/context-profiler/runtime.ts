@@ -248,10 +248,7 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 			completion: Promise.resolve({ type: "skipped", reason: "too-few-turns" }),
 		};
 	}
-	const fingerprint = computeSegmentationFingerprint(profile, {
-		segmentationSelection: gateway.segmentationSelection,
-		episodeAnalysisSelection: gateway.episodeAnalysisSelection,
-	});
+	const fingerprint = computeSegmentationFingerprint(profile);
 	// Detach-only model: keep LM calls running for episodes.json; gateways still require a signal.
 	const signal = new AbortController().signal;
 	const sink: SegmentationSink = {
@@ -428,16 +425,6 @@ export function startProfilerWork(options: StartProfilerWorkOptions): {
 		onUpdate: options.onPersistenceUpdate,
 	});
 	if (options.analysis.type === "unavailable") {
-		void persist.whenPersisted
-			.then((bundle) => {
-				if (bundle !== null) return options.store.removeEpisodesFile({ bundleDir: bundle.dir });
-			})
-			.catch((error: unknown) => {
-				options.onEpisodesWriteResult?.({
-					ok: false,
-					error: { code: "io-error", message: errorMessage(error) },
-				});
-			});
 		return {
 			initialSegmentation: { type: "error", message: options.analysis.message },
 			initialPersistence: persist.initial,

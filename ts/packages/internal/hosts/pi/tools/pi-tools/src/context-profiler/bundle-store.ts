@@ -23,7 +23,6 @@ export type WriteEpisodesFileResult =
 export interface BundleStore {
 	persistBundle(snapshot: BundleSnapshot): Promise<PersistBundleResult>;
 	writeEpisodesFile(options: { bundleDir: string; json: string }): Promise<WriteEpisodesFileResult>;
-	removeEpisodesFile(options: { bundleDir: string }): Promise<void>;
 }
 
 export function createFsBundleStore(options: {
@@ -51,10 +50,6 @@ class FsBundleStore implements BundleStore {
 
 	async persistBundle(snapshot: BundleSnapshot): Promise<PersistBundleResult> {
 		return this.enqueue(() => this.persistBundleNow(snapshot));
-	}
-
-	async removeEpisodesFile(options: { bundleDir: string }): Promise<void> {
-		await rm(path.join(options.bundleDir, EPISODES_FILE_NAME), { force: true });
 	}
 
 	async writeEpisodesFile(options: {

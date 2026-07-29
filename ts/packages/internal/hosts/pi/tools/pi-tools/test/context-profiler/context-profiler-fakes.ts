@@ -75,7 +75,6 @@ export class FakeBundleStore implements BundleStore {
 	private readonly writeResult: WriteEpisodesFileResult;
 	private readonly persistLog: BundleSnapshot[] = [];
 	private readonly episodesLog: Array<{ bundleDir: string; json: string }> = [];
-	private readonly removedEpisodesLog: string[] = [];
 
 	constructor(options: {
 		persistResult: PersistBundleResult;
@@ -93,17 +92,9 @@ export class FakeBundleStore implements BundleStore {
 		return this.episodesLog.map((entry) => ({ ...entry }));
 	}
 
-	get removedEpisodesFiles(): readonly string[] {
-		return [...this.removedEpisodesLog];
-	}
-
 	async persistBundle(snapshot: BundleSnapshot): Promise<PersistBundleResult> {
 		this.persistLog.push(snapshot);
 		return this.persistResult;
-	}
-
-	async removeEpisodesFile(options: { bundleDir: string }): Promise<void> {
-		this.removedEpisodesLog.push(options.bundleDir);
 	}
 
 	async writeEpisodesFile(options: {

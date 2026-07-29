@@ -7,6 +7,7 @@
  */
 
 import { formatModelRef, type ModelSelection } from "@nseng-ai/foundation/model-slug";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import {
 	callPiModelText,
 	type CompleteSimpleFunction,
@@ -94,7 +95,7 @@ export function createAnalysisModelGateway(
 			return callAnalysisModel({
 				registry: options.registry,
 				modelSelection: options.segmentationSelection,
-				...(options.completeFn === undefined ? {} : { completeFn: options.completeFn }),
+				...optionalEntries({ completeFn: options.completeFn }),
 				signal: callOptions.signal,
 				systemPrompt: SEGMENTATION_SYSTEM_PROMPT,
 				json: request.json,
@@ -107,7 +108,7 @@ export function createAnalysisModelGateway(
 			return callAnalysisModel({
 				registry: options.registry,
 				modelSelection: options.episodeAnalysisSelection,
-				...(options.completeFn === undefined ? {} : { completeFn: options.completeFn }),
+				...optionalEntries({ completeFn: options.completeFn }),
 				signal: callOptions.signal,
 				systemPrompt: EPISODE_ANALYSIS_SYSTEM_PROMPT,
 				json: request.json,
@@ -141,7 +142,7 @@ async function callAnalysisModel<T>(
 		userText: options.json,
 		maxTokens: options.maxTokens,
 		signal: options.signal,
-		...(options.completeFn === undefined ? {} : { completeFn: options.completeFn }),
+		...optionalEntries({ completeFn: options.completeFn }),
 	});
 	if (!response.ok) {
 		return mapModelFailure(response, options.modelSelection, options.abortedMessage);

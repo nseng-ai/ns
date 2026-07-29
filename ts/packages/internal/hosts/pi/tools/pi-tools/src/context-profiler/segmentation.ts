@@ -12,7 +12,6 @@
  *    this layer does not silently elide turns.
  */
 
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { z } from "zod";
 import {
 	EPISODE_KIND_VALUES,
@@ -277,33 +276,25 @@ function dedupeAndCapBySnappedTurn<TInput, TValue>(
 }
 
 /**
- * Cache key for a segmentation result: live source, full turn count, the
- * identity of the last turn, and (when supplied) both producer models.
- * Reopening over an unchanged conversation and policy reuses the cached
- * result; any new turn, different live source, or model-policy change misses.
+ * Cache key for a segmentation result: live source, full turn count, and the
+ * identity of the last turn. Reopening over an unchanged conversation reuses
+ * the cached result; any new turn or different live source misses.
  *
- * Deliberately NOT part of the key: middle-turn content. A conversation with
- * the same turn count and same last turn but altered middle content would
- * serve the cached episodes as "ready" even though buildSegmentationPayload
- * serializes every complete turn. This is a cheap heuristic, accepted on
- * purpose: in this harness realistic drift always changes the turn count or
- * the last turn, and the `r` force-refresh keybinding is the escape hatch
- * when it does not.
+ * Deliberately NOT part of the key: producer models and middle-turn content.
+ * Model-policy changes take effect on the next cache miss or force refresh. A
+ * conversation with the same turn count and same last turn but altered middle
+ * content would serve the cached episodes as "ready" even though
+ * buildSegmentationPayload serializes every complete turn. These are cheap
+ * heuristics, accepted on purpose; the `r` force-refresh keybinding is the
+ * escape hatch when immediate recomputation is needed.
  */
-export function computeSegmentationFingerprint(
-	profile: ProfileSnapshot,
-	models?: {
-		segmentationSelection: ModelSelection;
-		episodeAnalysisSelection: ModelSelection;
-	},
-): string {
+export function computeSegmentationFingerprint(profile: ProfileSnapshot): string {
 	const last = profile.liveTurns[profile.liveTurns.length - 1];
 	return JSON.stringify({
 		liveSource: profile.liveSource,
 		turnCount: profile.liveTurns.length,
 		lastTurn:
 			last === undefined ? null : { index: last.index, role: last.role, excerpt: last.excerpt },
-		...(models === undefined ? {} : { models }),
 	});
 }
 

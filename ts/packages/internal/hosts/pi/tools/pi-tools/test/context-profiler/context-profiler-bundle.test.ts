@@ -279,7 +279,7 @@ describe("context-profiler bundle", () => {
 		});
 	});
 
-	test("startProfilerWork persists the bundle but omits episodes when analysis is unavailable", async () => {
+	test("startProfilerWork persists the bundle but omits episodes when analysis is unavailable", () => {
 		const store = new FakeBundleStore({ persistResult: { ok: true, value: PERSISTED_BUNDLE } });
 
 		const work = startProfilerWork({
@@ -293,7 +293,6 @@ describe("context-profiler bundle", () => {
 			onSegmentationUpdate: () => {},
 			onPersistenceUpdate: () => {},
 		});
-		await settled();
 
 		expect(work.initialSegmentation).toEqual({
 			type: "error",
@@ -301,7 +300,6 @@ describe("context-profiler bundle", () => {
 		});
 		expect(store.persistedSnapshots).toHaveLength(1);
 		expect(store.episodesWrites).toEqual([]);
-		expect(store.removedEpisodesFiles).toEqual([PERSISTED_BUNDLE.dir]);
 	});
 
 	test("startProfilerWork skips episodes write when persistence is skipped", async () => {
