@@ -8,7 +8,7 @@
 - [x] Centralize Flow pending-worktree failure semantics across autobranch, checkpoint, and house-style presentation.
   - Policy: direct execution after preview; preserve exact plain messages, Git commands, command-aware headlines, and transcript details.
   - Evidence: one Flow-owned kind projection owns shared message/command/headline facts; all four verified cascades consume it; focused Flow tests and relevant checks pass.
-- [ ] Centralize Foundation `ExecResult` termination policy.
+- [x] Centralize Foundation `ExecResult` termination policy.
   - Policy: direct execution after preview; retain current public helper signatures and exact output text.
   - Evidence: one private exhaustive classifier owns success, startup-versus-termination, and canonical termination facts; the three public helpers consume it; focused Foundation tests and relevant checks pass.
 - [ ] Centralize context-profiler `MessagePart` semantics.
