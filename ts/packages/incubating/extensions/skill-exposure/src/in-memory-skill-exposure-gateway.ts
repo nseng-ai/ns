@@ -1,7 +1,7 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { transformSkillFrontmatter } from "@nseng-ai/ns/api";
 import { diagnosticsFor, implicationsFor, inferPolicy } from "./policy.ts";
-import { commandBackedSkillSurface } from "./replacement-registry.ts";
+import { skillBackedCommandSurface } from "./replacement-registry.ts";
 import type {
 	OperationResult,
 	PiSettings,
@@ -121,7 +121,7 @@ export class InMemorySkillExposureGateway implements SkillExposureGateway {
 				frontmatter.error.message,
 				{ path: skillMdDisplay },
 			);
-		const replacementSurface = commandBackedSkillSurface(name);
+		const replacementSurface = skillBackedCommandSurface(name);
 		const sidecarState = skill.sidecarState ?? "missing";
 		if (sidecarState === "symlink" || sidecarState === "unexpected")
 			throw new SkillExposureRepositoryError(

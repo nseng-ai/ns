@@ -75,7 +75,7 @@ describe("Node runtime import smoke", () => {
 		}
 		expect(PROJECT_EXTENSION_ADAPTERS).toEqual(
 			expect.arrayContaining([
-				".pi/extensions/backing-skill-commands.ts",
+				".pi/extensions/skill-backed-commands.ts",
 				".pi/extensions/context-profiler.ts",
 				".pi/extensions/agents.ts",
 				".pi/extensions/grill-ui.ts",

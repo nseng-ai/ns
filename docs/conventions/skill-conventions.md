@@ -8,7 +8,7 @@ Skill management in this repo is layered. The channels are additive and have dis
 
 1. **First-party npm-module-bundled provisioning (`ns skills` / `ns update`).** `@nseng-ai/ns` (harness-artifacts feature, `src/harness-artifacts/`, exposed to other packages through `@nseng-ai/ns/api`) models harness artifacts statically declared by npm modules and reconciles them into harness roots. Record: `.ns-harness-artifacts-manifest.json`.
 2. **Repo-local and third-party acquisition (`npx skills`).** Repo-local first-party skills have disposition- and family-nested canonical sources defined by `skills/README.md`, with flat Harness Overlays at `.agents/skills/<name>` and `.claude/skills/<name>`. GitHub-sourced skills are vendored as real directories under `.agents/skills/<name>/`. `npx skills` owns install/layout/list/update/remove operations and `skills-lock.json` checks for these skills.
-3. **Cross-harness overlays (`ns skill-exposure`).** This surface owns only repo-declared Skill Exposure Policy and Harness Overlay reconciliation, including the command-backed replacement invariant. It does not discover skills, inspect whole repositories, validate content hashes, verify mirrors, or diagnose install health.
+3. **Cross-harness overlays (`ns skill-exposure`).** This surface owns only repo-declared Skill Exposure Policy and Harness Overlay reconciliation, including the skill-backed command invariant. It does not discover skills, inspect whole repositories, validate content hashes, verify mirrors, or diagnose install health.
 
 Externally sourced skills overlay onto this management rather than escaping it: upstream owns skill content, while this repository explicitly declares exposure policy at the harness-overlay seam.
 
@@ -20,27 +20,28 @@ To audit or tighten a `SKILL.md` — for predictability, token cost, trigger qua
 
 ### Skill Exposure Policy and Harness Overlays
 
-Every managed skill has an explicit **Skill Exposure Policy**. The retained policies are exactly `normal`, `invoke-only`, and `command-backed`. Manage them only through explicit skill-directory or direct `SKILL.md` paths:
+Every managed skill has an explicit **Skill Exposure Policy**. The retained policies are exactly `normal`, `invoke-only`, and `skill-backed-command`. Manage them only through explicit skill-directory or direct `SKILL.md` paths:
 
 ```bash
-ns skill-exposure apply <normal|invoke-only|command-backed> <path...>
+ns skill-exposure apply <normal|invoke-only|skill-backed-command> <path...>
 ns skill-exposure show <path...>
 ns skill-exposure check <path...>
 ```
 
-`<path...>` must identify a skill directory or its `SKILL.md` directly, such as `skills/internal/code/code-gh` or `.agents/skills/writing-great-skills/SKILL.md`. There is no discovery, list, find, doctor, or whole-repository scan surface. `check` verifies only the declared paths' exposure overlays and command-backed replacement invariant; it does not validate `skills-lock.json` hashes, mirrors, acquisition, or install health.
+`<path...>` must identify a skill directory or its `SKILL.md` directly, such as `skills/internal/code/code-gh` or `.agents/skills/writing-great-skills/SKILL.md`. There is no discovery, list, find, doctor, or whole-repository scan surface. `check` verifies only the declared paths' exposure overlays and skill-backed command invariant; it does not validate `skills-lock.json` hashes, mirrors, acquisition, or install health.
 
-| Policy           | Model auto-routes (ambient)?                  | Human invocation                   | Harness overlays                                                                           |
-| ---------------- | --------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------ |
-| `normal`         | yes — **requires a real trigger description** | native skill invocation            | no explicit-only overlay                                                                   |
-| `invoke-only`    | no on Claude Code + Pi                        | native skill invocation            | `disable-model-invocation: true` + `agents/openai.yaml`                                    |
-| `command-backed` | no                                            | verified namespaced Pi replacement | invoke-only overlays + `.pi/settings.json` `-skills/<name>` + verified replacement command |
+| Policy                 | Model auto-routes (ambient)?                  | Human invocation                       | Harness overlays                                                                                         |
+| ---------------------- | --------------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `normal`               | yes — **requires a real trigger description** | native skill invocation                | no explicit-only overlay                                                                                 |
+| `invoke-only`          | no on Claude Code + Pi                        | native skill invocation                | `disable-model-invocation: true` + `agents/openai.yaml`                                                  |
+| `skill-backed-command` | no                                            | verified namespaced Pi command surface | invoke-only overlays + `.pi/settings.json` `-skills/<name>` + verified skill-backed command registration |
 
 For first-party skills, policy-owned source overlays live with the explicit nested canonical skill directory; for vendored GitHub-sourced skills, local overlay files may live under `.agents/skills/<name>/` plus `.pi/settings.json`. Do not hand-edit these files. Apply the policy to each explicit path so an upstream refresh can replace content and the overlay can be re-derived.
 
 - **Generic authoring guidance does not own overlays.** Do not hand-author invocation flags even when upstream guidance describes them.
 - **Descriptions stay human-readable.** `normal` requires a real trigger; explicit policies can retain one.
-- **`invoke-only` vs `command-backed`.** Use `invoke-only` by default for explicit workflows. Use `command-backed` only when the verified namespaced Pi replacement is the preferred surface.
+- **Mechanism vs policy.** A Skill-Backed Command is the Pi command mechanism: it directly requires a skill as workflow authority. `skill-backed-command` is the exposure policy that hides native skill invocation and requires a verified Skill-Backed Command Registration. A command can use the mechanism before or without adopting that policy.
+- **`invoke-only` vs `skill-backed-command`.** Use `invoke-only` by default for explicit workflows. Use `skill-backed-command` only when the verified namespaced Pi command is the preferred surface.
 - **Exposure is orthogonal to support disposition.** Skill Exposure Policy does not determine `public`, `incubating`, or `internal`; `metadata.internal: true` is separate visibility evidence, not an exposure policy.
 - **Codex cannot go zero-ambient.** Claude Code and Pi remove invoke-only descriptions from model context; Codex blocks implicit invocation but keeps the description ambient. See [Harness skill/command/prompt invocation mechanics](../research/harness-skill-invocation.md).
 
@@ -48,7 +49,7 @@ For first-party skills, policy-owned source overlays live with the explicit nest
 
 ADR 0016 (`docs/adr/0016-skill-invocation-context-budget.md`) records the durable decision behind this policy.
 
-Ambient skill frontmatter is a shared context budget. Default by domain, not by habit: make a skill `normal` only when the model must discover it from ordinary user language and an eligibility category below applies. Otherwise apply `invoke-only` to its explicit path, or `command-backed` when a verified namespaced Pi replacement is preferred.
+Ambient skill frontmatter is a shared context budget. Default by domain, not by habit: make a skill `normal` only when the model must discover it from ordinary user language and an eligibility category below applies. Otherwise apply `invoke-only` to its explicit path, or `skill-backed-command` when a verified namespaced Pi command is preferred.
 
 Use these buckets:
 
@@ -57,7 +58,7 @@ Use these buckets:
    - common coding or repo standards that should fire during ordinary implementation, such as TypeScript style overlays;
    - safety-sensitive workflows where missing the skill is worse than paying the frontmatter cost, such as merge-conflict resolution;
    - broad external-boundary guidance where the agent must choose the right API/tooling before acting, such as GitHub or PR-feedback workflows.
-2. **Command-backed workflows (`command-backed`)** — use for explicit workflows whose preferred user surface is a verified namespaced Pi command. Skill Exposure writes the explicit-only sidecars and Pi exclusion together.
+2. **Skill-backed command workflows (`skill-backed-command`)** — use for explicit workflows whose preferred user surface is a verified namespaced Pi command. Skill Exposure writes the explicit-only sidecars and Pi exclusion together and verifies its Skill-Backed Command Registration.
 3. **Invoke-only workflows (`invoke-only`)** — use for specialized, rare, setup, migration, language-specific, or admin skills that remain useful by name but should not consume ambient context.
 4. **Internal backend skills** — keep implementation-support skills explicit-only unless an extension wrapper requires model discovery. Internal visibility is separate from exposure policy.
 5. **Vendored/upstream skills** — treat real directories under `.agents/skills/` as a separate review class. Apply local exposure overlays by explicit path when ambient token cost is material and the decision is recorded; prefer a wrapper or documented fork when changes exceed invocation metadata.

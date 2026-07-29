@@ -58,7 +58,7 @@ export interface BasePiSurfaceParity {
 	readonly sourcePackage:
 		| "@nseng-ai/pi-runtime"
 		| `@nseng-ai/pi-ns-${string}`
-		| "@internal/pi-tools/backing-skill-commands"
+		| "@internal/pi-tools/skill-backed-commands"
 		| "@internal/pi-tools/code-workflows"
 		| "@internal/pi-tools/context-profiler"
 		| "@internal/pi-tools/grill"

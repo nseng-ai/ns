@@ -1,4 +1,4 @@
-export const EXPOSURE_POLICIES = ["normal", "invoke-only", "command-backed"] as const;
+export const EXPOSURE_POLICIES = ["normal", "invoke-only", "skill-backed-command"] as const;
 export type ExposurePolicy = (typeof EXPOSURE_POLICIES)[number];
 
 export const MANAGED_OPENAI_POLICY = "policy:\n  allow_implicit_invocation: false\n";

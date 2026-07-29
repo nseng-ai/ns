@@ -7,6 +7,7 @@ import {
 } from "@nseng-ai/pi-runtime/parity/check";
 import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi-runtime/parity/testing";
 import claudeExtension, { claudeHandoffParity } from "../../src/pi/claude-extension.ts";
+import { handoffSkillBackedCommandRegistrations } from "../../src/pi/index.ts";
 import handoffExtension, { handoffParity } from "../../src/pi/extension.ts";
 
 async function collectHandoffPiSurfaces(): Promise<LivePiSurface[]> {
@@ -17,6 +18,21 @@ async function collectHandoffPiSurfaces(): Promise<LivePiSurface[]> {
 }
 
 describe("Handoff Pi extension parity metadata", () => {
+	test("exports skill-backed command registrations", () => {
+		expect(handoffSkillBackedCommandRegistrations).toEqual([
+			{
+				kind: "specialized-command",
+				skillName: "handoff-create",
+				surface: "ns:handoff:create",
+			},
+			{
+				kind: "specialized-command",
+				skillName: "handoff-pickup",
+				surface: "ns:handoff:pickup",
+			},
+		]);
+	});
+
 	test("registered command surfaces match package metadata", async () => {
 		const comparison = comparePiSurfaceParity({
 			liveSurfaces: await collectHandoffPiSurfaces(),

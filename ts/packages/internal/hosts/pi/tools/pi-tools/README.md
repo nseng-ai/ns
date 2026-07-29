@@ -5,7 +5,7 @@ published and is not a platform surface.
 
 ## Current tools
 
-- `backing-skill-commands` — generated command-backed skill surfaces.
+- `skill-backed-commands` — generated skill-backed command surfaces.
 - `code-workflows` — repo-specific workflow selection, CI debugging, and smart-restack UI.
 - `context-profiler` — Pi context inspection and analysis.
 - `grill` — structured grilling UI and tool behavior.

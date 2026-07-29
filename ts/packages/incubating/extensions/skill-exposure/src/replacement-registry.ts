@@ -1,19 +1,19 @@
-import { flowCommandBackedSkillRegistrations } from "@nseng-ai/flow/pi";
-import { handoffCommandBackedSkillRegistrations } from "@nseng-ai/handoffs/pi";
-import { objectiveCommandBackedSkillRegistrations } from "@nseng-ai/objectives/api";
+import { flowSkillBackedCommandRegistrations } from "@nseng-ai/flow/pi";
+import { handoffSkillBackedCommandRegistrations } from "@nseng-ai/handoffs/pi";
+import { objectiveSkillBackedCommandRegistrations } from "@nseng-ai/objectives/api";
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
 } from "@nseng-ai/branch-context/pi";
 import type {
-	CommandBackedSkillRegistration,
-	CommandBackedSkillRegistrationKind,
+	SkillBackedCommandRegistration,
+	SkillBackedCommandRegistrationKind,
 } from "@nseng-ai/foundation/command";
 
 export type {
-	CommandBackedSkillRegistration,
-	CommandBackedSkillRegistrationKind,
+	SkillBackedCommandRegistration,
+	SkillBackedCommandRegistrationKind,
 } from "@nseng-ai/foundation/command";
 
 /**
@@ -24,7 +24,7 @@ export type {
  * mechanical split of the skill name, and provider-owned command packages
  * contribute their own specialized rows through this registry.
  */
-const COMMAND_BACKED_SKILL_REGISTRY = [
+const SKILL_BACKED_COMMAND_REGISTRY = [
 	{
 		skillName: "branch-context-from-plan",
 		surface: BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
@@ -74,13 +74,13 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		surface: "fdt:refactor-mock-to-fake",
 		kind: "generic-backing-skill",
 	},
-	...handoffCommandBackedSkillRegistrations,
+	...handoffSkillBackedCommandRegistrations,
 	{
 		skillName: "improve-codebase-architecture",
 		surface: "improve:codebase-architecture",
 		kind: "generic-backing-skill",
 	},
-	...objectiveCommandBackedSkillRegistrations,
+	...objectiveSkillBackedCommandRegistrations,
 	{
 		skillName: "objective-refresh",
 		surface: "ns:objective:refresh",
@@ -114,7 +114,7 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		kind: "generic-backing-skill",
 	},
 	{ skillName: "ns-cli-design", surface: "ns:cli:design", kind: "generic-backing-skill" },
-	...flowCommandBackedSkillRegistrations,
+	...flowSkillBackedCommandRegistrations,
 	{
 		skillName: "ns-typescript-style-tripwire",
 		surface: "ns:typescript:style-tripwire",
@@ -132,31 +132,31 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		surface: "writing:great-skills",
 		kind: "generic-backing-skill",
 	},
-] as const satisfies readonly CommandBackedSkillRegistration[];
+] as const satisfies readonly SkillBackedCommandRegistration[];
 
-export function commandBackedSkillRegistrations(): readonly CommandBackedSkillRegistration[] {
-	return COMMAND_BACKED_SKILL_REGISTRY;
+export function skillBackedCommandRegistrations(): readonly SkillBackedCommandRegistration[] {
+	return SKILL_BACKED_COMMAND_REGISTRY;
 }
 
-export function commandBackedSkillSurface(skillName: string): string | undefined {
-	return COMMAND_BACKED_SKILL_REGISTRY.find((registration) => registration.skillName === skillName)
+export function skillBackedCommandSurface(skillName: string): string | undefined {
+	return SKILL_BACKED_COMMAND_REGISTRY.find((registration) => registration.skillName === skillName)
 		?.surface;
 }
 
 function registrationsOfKind(
-	kind: CommandBackedSkillRegistrationKind,
-): readonly CommandBackedSkillRegistration[] {
-	return COMMAND_BACKED_SKILL_REGISTRY.filter((registration) => registration.kind === kind);
+	kind: SkillBackedCommandRegistrationKind,
+): readonly SkillBackedCommandRegistration[] {
+	return SKILL_BACKED_COMMAND_REGISTRY.filter((registration) => registration.kind === kind);
 }
 
-export function genericBackingSkillRegistrations(): readonly CommandBackedSkillRegistration[] {
+export function genericBackingSkillRegistrations(): readonly SkillBackedCommandRegistration[] {
 	return registrationsOfKind("generic-backing-skill");
 }
 
-export function specializedCommandBackedSkillRegistrations(): readonly CommandBackedSkillRegistration[] {
+export function specializedSkillBackedCommandRegistrations(): readonly SkillBackedCommandRegistration[] {
 	return registrationsOfKind("specialized-command");
 }
 
-export function visibleCommandBackedReplacementSurfaces(): string[] {
-	return COMMAND_BACKED_SKILL_REGISTRY.map((registration) => registration.surface);
+export function visibleSkillBackedCommandSurfaces(): string[] {
+	return SKILL_BACKED_COMMAND_REGISTRY.map((registration) => registration.surface);
 }

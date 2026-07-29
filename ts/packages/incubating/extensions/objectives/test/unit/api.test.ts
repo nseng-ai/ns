@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import {
 	createObjectiveClient,
-	objectiveCommandBackedSkillRegistrations,
+	objectiveSkillBackedCommandRegistrations,
 	OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE,
 	type ObjectiveClientOptions,
 } from "../../src/api/index.ts";
@@ -50,8 +50,8 @@ describe("objectives API", () => {
 		expect(OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE).toContain("Do not push");
 	});
 
-	test("exports host-neutral command-backed skill registrations", () => {
-		expect(objectiveCommandBackedSkillRegistrations).toEqual([
+	test("exports host-neutral skill-backed command registrations", () => {
+		expect(objectiveSkillBackedCommandRegistrations).toEqual([
 			{
 				kind: "specialized-command",
 				skillName: "objective-create",

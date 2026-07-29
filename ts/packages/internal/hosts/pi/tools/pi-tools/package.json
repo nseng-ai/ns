@@ -4,8 +4,6 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		"./backing-skill-commands": "./src/backing-skill-commands/index.ts",
-		"./backing-skill-commands/extension": "./src/backing-skill-commands/extension.ts",
 		"./code-workflows": "./src/code-workflows/index.ts",
 		"./code-workflows/extension": "./src/code-workflows/extension.ts",
 		"./code-workflows/smart-restack": "./src/code-workflows/smart-restack.ts",
@@ -15,6 +13,8 @@
 		"./grill/extension": "./src/grill/extension.ts",
 		"./pr-feedback-watch": "./src/pr-feedback-watch/index.ts",
 		"./pr-feedback-watch/extension": "./src/pr-feedback-watch/extension.ts",
+		"./skill-backed-commands": "./src/skill-backed-commands/index.ts",
+		"./skill-backed-commands/extension": "./src/skill-backed-commands/extension.ts",
 		"./slash-command-rerank": "./src/slash-command-rerank/index.ts",
 		"./slash-command-rerank/extension": "./src/slash-command-rerank/extension.ts",
 		"./stack-view": "./src/stack-view/index.ts",
@@ -40,12 +40,12 @@
 	"ns": {
 		"tier": "internal-tool",
 		"subpackages": [
-			"backing-skill-commands",
 			"code-workflows",
 			"context-profiler",
 			"grill",
 			"pr-feedback-watch",
 			"side-session",
+			"skill-backed-commands",
 			"slash-command-rerank",
 			"stack-view",
 			"thermo-council"

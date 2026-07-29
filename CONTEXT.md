@@ -135,11 +135,19 @@ The user-facing CLI noun for `ns skills ...`, the current steelthread surface ov
 *Avoid*: artifacts as the user-facing noun
 
 **Skill Exposure Policy**:
-The explicit repo-local declaration of how a skill is surfaced across harnesses. The retained policies are exactly `normal`, `invoke-only`, and `command-backed`; declarations target an explicit skill directory or direct `SKILL.md` path and are reconciled by `ns skill-exposure`.
-*Avoid*: invocation kind, ambient-only, unlisted, inferred exposure
+The explicit repo-local declaration of how a skill is surfaced across harnesses. The retained policies are exactly `normal`, `invoke-only`, and `skill-backed-command`; declarations target an explicit skill directory or direct `SKILL.md` path and are reconciled by `ns skill-exposure`.
+*Avoid*: invocation kind, ambient-only, unlisted, inferred exposure, command-backed
+
+**Skill-Backed Command**:
+A namespaced Pi command whose workflow instructions come from a required skill loaded directly from its managed source. The command owns invocation and any specialized interaction; the skill remains the workflow authority and fails closed when it cannot be loaded.
+*Avoid*: command-backed skill, command-backed, copied skill prompt, optional backing skill
+
+**Skill-Backed Command Registration**:
+The explicit association of a **Skill-Backed Command** surface with its required skill identity, used to verify replacement coverage and load the skill independently of ambient Pi skill discovery.
+*Avoid*: command-backed skill registration, command-backed registration, inferred replacement, ambient skill lookup
 
 **Harness Overlay**:
-The per-harness integration files derived from **Skill Exposure Policy**, such as frontmatter flags, Codex sidecars, and Pi settings exclusions. Harness Overlay ownership is limited to cross-harness exposure and the command-backed replacement invariant; acquisition, layout, hashes, mirrors, and install health belong to `npx skills` or `ns skills` / `ns update` as appropriate.
+The per-harness integration files derived from **Skill Exposure Policy**, such as frontmatter flags, Codex sidecars, and Pi settings exclusions. Harness Overlay ownership is limited to cross-harness exposure and the skill-backed command invariant; acquisition, layout, hashes, mirrors, and install health belong to `npx skills` or `ns skills` / `ns update` as appropriate.
 *Avoid*: registry, managed artifact, install record, skill health check
 
 **Commit Run**:

@@ -11,8 +11,8 @@ description: "Audit and tighten agent skills. Summon by name to review a SKILL.m
   from the vendored writing-great-skills skill (.agents/skills/writing-great-skills/,
   upstream mattpocock/skills; pin and de-meld history: docs/agents/matt-pocock-skills.md),
   so upstream refreshes need no re-sync of this file.
-  Declared command-backed through Skill Exposure Policy. Keep Harness Overlay
-  artifacts managed with `ns skill-exposure apply command-backed skills/internal/skill-system/skill-audit`.
+  Declared skill-backed-command through Skill Exposure Policy. Keep Harness Overlay
+  artifacts managed with `ns skill-exposure apply skill-backed-command skills/internal/skill-system/skill-audit`.
 -->
 
 Audit and tighten `SKILL.md` files for **predictability** (see Vocabulary): high signal, low token cost, clear routing. Default goal: preserve behavior while deleting prompt burden.

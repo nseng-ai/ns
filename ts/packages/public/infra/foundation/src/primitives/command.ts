@@ -108,22 +108,22 @@ function assertValidNsCommandPart(value: string, label: string): void {
 	}
 }
 
-export type CommandBackedSkillRegistrationKind = "generic-backing-skill" | "specialized-command";
+export type SkillBackedCommandRegistrationKind = "generic-backing-skill" | "specialized-command";
 
-export interface CommandBackedSkillRegistration {
+export interface SkillBackedCommandRegistration {
 	skillName: string;
 	surface: string;
-	kind: CommandBackedSkillRegistrationKind;
+	kind: SkillBackedCommandRegistrationKind;
 }
 
-export interface SpecializedCommandBackedSkillSpec {
+export interface SpecializedSkillBackedCommandSpec {
 	skillName: string;
 	surface: string;
 }
 
-export function specializedCommandBackedSkillsFromSpecs(
-	specs: readonly SpecializedCommandBackedSkillSpec[],
-): readonly CommandBackedSkillRegistration[] {
+export function specializedSkillBackedCommandsFromSpecs(
+	specs: readonly SpecializedSkillBackedCommandSpec[],
+): readonly SkillBackedCommandRegistration[] {
 	return specs.map((spec) => ({
 		skillName: spec.skillName,
 		surface: spec.surface,
