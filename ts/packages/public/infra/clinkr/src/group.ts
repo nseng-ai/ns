@@ -3,18 +3,25 @@ import { Command, CommanderError, Option } from "commander";
 import { z } from "zod";
 
 import { buildCommanderArgument, buildCommanderOption } from "./commander-surface.ts";
+import type {
+	ClinkrCompletionCandidate,
+	ClinkrCompletionRequest,
+	ClinkrCompletionResult,
+	ClinkrDynamicCompletionProvider,
+} from "./completion.ts";
 import {
+	CLINKR_HELP_OPTIONS,
 	CLINKR_JSON_SCHEMA_OPTION,
 	CLINKR_RENDERED_COMMAND_OPTIONS,
-	completeClinkrWords,
-	completeClinkrWordsAsync,
+	CLINKR_RUNTIME_OPTION,
+	CLINKR_VERSION_OPTION,
+	completeOptionNames,
+	completeStructuredCommand,
 	completionOptionFromSurface,
-	type ClinkrCompletionCommandPlan,
-	type ClinkrCompletionGroupPlan,
-	type ClinkrCompletionRequest,
-	type ClinkrCompletionResult,
-	type ClinkrDynamicCompletionProvider,
-} from "./completion.ts";
+	dedupeCompletionCandidates,
+	normalizeCompletionCandidates,
+	type ClinkrCompletionOptionPlan,
+} from "./completion-support.ts";
 import {
 	ClinkrFailure,
 	clinkrFormatFromArgs,
@@ -165,6 +172,16 @@ interface RunState {
 	exitCode: number;
 }
 
+interface LegacyCompletionResolution<TContext> {
+	readonly command: RegisteredCommand<TContext> | undefined;
+	readonly args: readonly string[];
+	readonly current: string;
+	readonly previous: readonly string[];
+	readonly candidates: readonly ClinkrCompletionCandidate[];
+	readonly positionalIndex: number;
+	readonly providerEligible: boolean;
+}
+
 interface BuildLeafCommandOptions<TContext> {
 	registered: RegisteredCommand<TContext>;
 	aliases: readonly string[];
@@ -287,14 +304,37 @@ export class ClinkrGroup<TContext> {
 	 */
 	/** Build static completion candidates without invoking command handlers. */
 	complete(request: ClinkrCompletionRequest): ClinkrCompletionResult {
-		return completeClinkrWords(this.buildCompletionPlan(true), request);
+		const resolution = this.resolveCompletion(request);
+		return { candidates: dedupeCompletionCandidates(resolution.candidates) };
 	}
 
 	async completeAsync(
 		request: ClinkrCompletionRequest,
 		options: ClinkrCompleteAsyncOptions<TContext>,
 	): Promise<ClinkrCompletionResult> {
-		return await completeClinkrWordsAsync(this.buildCompletionPlan(true), request, options);
+		const resolution = this.resolveCompletion(request);
+		const provider = resolution.command?.completionProvider;
+		if (provider === undefined || !resolution.providerEligible) {
+			return { candidates: dedupeCompletionCandidates(resolution.candidates) };
+		}
+		try {
+			const dynamic = await provider(options.context, {
+				...request,
+				current: resolution.current,
+				previous: resolution.previous,
+				args: resolution.args,
+				positionalIndex: resolution.positionalIndex,
+			});
+			return {
+				candidates: dedupeCompletionCandidates([
+					...resolution.candidates,
+					...normalizeCompletionCandidates(dynamic),
+				]),
+			};
+		} catch (error) {
+			options.onDynamicCompletionError?.(error);
+			return { candidates: dedupeCompletionCandidates(resolution.candidates) };
+		}
 	}
 
 	async run(argv: readonly string[], options: ClinkrRunOptions<TContext>): Promise<number> {
@@ -327,26 +367,114 @@ export class ClinkrGroup<TContext> {
 		}
 	}
 
-	private buildCompletionPlan(
+	private resolveCompletion(
+		request: ClinkrCompletionRequest,
+	): LegacyCompletionResolution<TContext> {
+		const current = request.words.at(-1) ?? "";
+		const previous = request.words.length === 0 ? [] : request.words.slice(0, -1);
+		return this.resolveCompletionAt(previous, current, previous, true);
+	}
+
+	private resolveCompletionAt(
+		words: readonly string[],
+		current: string,
+		previous: readonly string[],
 		isRoot: boolean,
-		parentSiblingNames: ReadonlySet<string> = new Set(),
-	): ClinkrCompletionGroupPlan<TContext> {
+	): LegacyCompletionResolution<TContext> {
+		const word = words[0];
+		if (word === undefined || word === "") {
+			return this.completeGroup(words, current, isRoot, previous);
+		}
 		const siblingNames = this.siblingNames();
-		return {
-			name: this.name,
-			...optionalEntries({ aliases: clinkrAutomaticAliasesForName(this.name, parentSiblingNames) }),
-			...(this.description === undefined ? {} : { description: this.description }),
-			isRoot,
-			isHidden: this.isHidden,
-			hasVersionOption: this.version !== undefined,
-			hasRuntimeOption: this.runtimeInfo !== undefined,
-			commands: this.registeredCommands.map((registered) =>
-				completionNamedCommandPlan(registered, siblingNames),
+		const child = this.subgroups.find((candidate) =>
+			clinkrNameMatchesAutomaticAlias(candidate.name, siblingNames, word),
+		);
+		if (child !== undefined) {
+			return child.resolveCompletionAt(words.slice(1), current, previous, false);
+		}
+		const command = this.registeredCommands.find((candidate) =>
+			clinkrNameMatchesAutomaticAlias(candidate.name, siblingNames, word),
+		);
+		if (command !== undefined) {
+			return completeRegisteredCommand(command, words.slice(1), current, previous);
+		}
+		if (this.defaultRegisteredCommand !== undefined) {
+			return completeRegisteredCommand(this.defaultRegisteredCommand, words, current, previous);
+		}
+		return this.completeGroup(words, current, isRoot, previous);
+	}
+
+	private completeGroup(
+		args: readonly string[],
+		current: string,
+		isRoot: boolean,
+		previous: readonly string[],
+	): LegacyCompletionResolution<TContext> {
+		const defaultCommand = this.defaultRegisteredCommand;
+		const defaultOptions = defaultCommand === undefined ? [] : completionOptions(defaultCommand);
+		const options = [
+			...CLINKR_HELP_OPTIONS,
+			...(isRoot && this.version !== undefined ? [CLINKR_VERSION_OPTION] : []),
+			...(isRoot && this.runtimeInfo !== undefined ? [CLINKR_RUNTIME_OPTION] : []),
+			...defaultOptions,
+		];
+		if (current.startsWith("-")) {
+			return {
+				command: undefined,
+				args,
+				current,
+				previous,
+				candidates: completeOptionNames(options, current),
+				positionalIndex: 0,
+				providerEligible: false,
+			};
+		}
+		const siblingNames = this.siblingNames();
+		const commandCandidates = [
+			...this.registeredCommands.flatMap((command) =>
+				completionNameCandidates(
+					command.name,
+					clinkrAutomaticAliasesForName(command.name, siblingNames),
+					command.summary ?? command.description,
+				),
 			),
-			groups: this.subgroups.map((child) => child.buildCompletionPlan(false, siblingNames)),
-			...(this.defaultRegisteredCommand === undefined
-				? {}
-				: { defaultCommand: completionCommandPlan(this.defaultRegisteredCommand) }),
+			...this.subgroups
+				.filter((child) => !child.isHidden)
+				.flatMap((child) =>
+					completionNameCandidates(
+						child.name,
+						clinkrAutomaticAliasesForName(child.name, siblingNames),
+						child.description,
+					),
+				),
+		].filter((candidate) => candidate.value.startsWith(current));
+		if (defaultCommand === undefined) {
+			return {
+				command: undefined,
+				args,
+				current,
+				previous,
+				candidates: commandCandidates,
+				positionalIndex: 0,
+				providerEligible: false,
+			};
+		}
+		const structured = completeStructuredCommand({
+			options: defaultOptions,
+			positionals: defaultCommand.plan.positionals,
+			previous: [],
+			current,
+			providerCompletesOptionValues: false,
+			providerPassesThroughOptions: defaultCommand.shouldPassThrough,
+		});
+		return {
+			command: undefined,
+			args,
+			current,
+			previous,
+			candidates: [...commandCandidates, ...structured.candidates],
+			positionalIndex: structured.positionalIndex,
+			providerEligible: false,
 		};
 	}
 
@@ -449,38 +577,55 @@ function shouldPassThroughOf<TContext, S extends z.ZodObject, T>(
 	return spec.isRawExit === true && spec.shouldPassThrough === true;
 }
 
-function completionNamedCommandPlan<TContext>(
-	registered: RegisteredCommand<TContext>,
-	siblingNames: ReadonlySet<string>,
-): ClinkrCompletionCommandPlan<TContext> {
+function completeRegisteredCommand<TContext>(
+	command: RegisteredCommand<TContext>,
+	args: readonly string[],
+	current: string,
+	previous: readonly string[],
+): LegacyCompletionResolution<TContext> {
+	const structured = completeStructuredCommand({
+		options: completionOptions(command),
+		positionals: command.plan.positionals,
+		previous: args,
+		current,
+		providerCompletesOptionValues: false,
+		providerPassesThroughOptions: command.shouldPassThrough,
+	});
 	return {
-		...completionCommandPlan(registered),
-		...optionalEntries({ aliases: clinkrAutomaticAliasesForName(registered.name, siblingNames) }),
+		command,
+		args,
+		current,
+		previous,
+		candidates: structured.candidates,
+		positionalIndex: structured.positionalIndex,
+		providerEligible: structured.providerEligible,
 	};
 }
 
-function completionCommandPlan<TContext>(
+function completionOptions<TContext>(
 	registered: RegisteredCommand<TContext>,
-): ClinkrCompletionCommandPlan<TContext> {
+): readonly ClinkrCompletionOptionPlan[] {
 	const frameworkOptions =
 		registered.execution.type === "rendered"
 			? [...CLINKR_RENDERED_COMMAND_OPTIONS, CLINKR_JSON_SCHEMA_OPTION]
 			: [CLINKR_JSON_SCHEMA_OPTION];
-	return {
-		name: registered.name,
-		...(registered.summary === undefined && registered.description === undefined
-			? {}
-			: { description: registered.summary ?? registered.description }),
-		options: [
-			...registered.plan.options.map((option) => completionOptionFromSurface(option)),
-			...frameworkOptions,
-		],
-		positionals: registered.plan.positionals,
-		...(registered.completionProvider === undefined
-			? {}
-			: { completionProvider: registered.completionProvider }),
-		...(registered.shouldPassThrough ? { shouldPassThrough: true } : {}),
-	};
+	return [
+		...CLINKR_HELP_OPTIONS,
+		...registered.plan.options.map((option) => completionOptionFromSurface(option)),
+		...frameworkOptions,
+	];
+}
+
+function completionNameCandidates(
+	name: string,
+	aliases: readonly string[] | undefined,
+	description: string | undefined,
+): readonly ClinkrCompletionCandidate[] {
+	return [name, ...(aliases ?? [])].map((value) => ({
+		value,
+		type: "command",
+		...(description === undefined || description === "" ? {} : { description }),
+	}));
 }
 
 function rawExecutionOf<TContext, S extends z.ZodObject>(

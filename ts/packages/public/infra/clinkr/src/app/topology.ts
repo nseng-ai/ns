@@ -61,6 +61,8 @@ export function validateCommandMetadata(
 ): void {
 	validateText(metadata.description, "description", path);
 	validateAliases(metadata.aliases, name, path);
+	if (metadata.summary !== undefined) validateText(metadata.summary, "summary", path);
+	if (metadata.helpGroup !== undefined) validateText(metadata.helpGroup, "helpGroup", path);
 }
 
 export function validateGroupDefinition(
@@ -69,8 +71,6 @@ export function validateGroupDefinition(
 	path: readonly string[],
 ): void {
 	validateCommandMetadata(definition, name, path);
-	if (definition.summary !== undefined) validateText(definition.summary, "summary", path);
-	if (definition.helpGroup !== undefined) validateText(definition.helpGroup, "helpGroup", path);
 }
 
 function validateText(value: string, field: string, path: readonly string[]): void {
@@ -101,12 +101,11 @@ function validateAliases(
 interface TopologyOptions<TContext> {
 	readonly sources: readonly TopologySource<TContext>[];
 	/**
-	 * Route names owned by app features that the composing app runtime has
+	 * Root route names owned by app features that the composing app runtime has
 	 * actually enabled. The caller constructing the topology — never a
 	 * topology source — decides this set, and a disabled optional feature must
-	 * not reserve its route name. The upcoming completion runtime is the known
-	 * producer: it is expected to pass `"completion"` only when completion is
-	 * enabled for the app. Nothing is reserved by default.
+	 * not reserve its root route name. Completion passes `"completion"` only
+	 * when enabled for the app. Nothing is reserved by default.
 	 */
 	readonly reservedNames?: ReadonlySet<string>;
 }
@@ -281,7 +280,8 @@ function validateSiblingName<TContext>(options: ValidateSiblingNameOptions<TCont
 	} = options;
 	const path = [...parentPath, name];
 	validateRouteName(name, path);
-	if (reservedNames.has(name))
+	const isRoot = parentPath.length === 0;
+	if (isRoot && reservedNames.has(name))
 		throw new Error(
 			`clinkr: route ${canonicalPath(path)} conflicts with configured reserved name ${JSON.stringify(name)}`,
 		);
@@ -310,7 +310,7 @@ function validateSiblingName<TContext>(options: ValidateSiblingNameOptions<TCont
 			"alias/name",
 		);
 	for (const candidate of newAliases ?? []) {
-		if (reservedNames.has(candidate))
+		if (isRoot && reservedNames.has(candidate))
 			throw new Error(
 				`clinkr: alias ${JSON.stringify(candidate)} at ${canonicalPath(path)} conflicts with configured reserved name`,
 			);

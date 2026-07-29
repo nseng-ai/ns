@@ -1,26 +1,51 @@
 import { z } from "zod";
 
-import type { OptionSpec, PositionalSpec } from "../surface.ts";
+import {
+	buildSurfacePlan,
+	type OptionSpec,
+	type PositionalSpec,
+	type SurfacePlan,
+} from "../surface.ts";
 import { buildEnvelopeSchema, type CommandOutcome } from "./outcome.ts";
 
 export interface ClinkrCommandMetadata {
 	readonly description: string;
 	readonly aliases?: readonly string[];
-}
-
-export interface ClinkrGroupDefinition extends ClinkrCommandMetadata {
 	readonly summary?: string;
 	readonly hidden?: boolean;
 	readonly helpGroup?: string;
 }
 
+export type ClinkrGroupDefinition = ClinkrCommandMetadata;
+
 export interface ClinkrCompletionRequest {
-	readonly current: string;
+	/** Tokens after the executable name, including a trailing empty token after whitespace. */
+	readonly words: readonly string[];
 }
+
+export interface ClinkrCompletionProviderRequest extends ClinkrCompletionRequest {
+	readonly current: string;
+	readonly previous: readonly string[];
+	readonly args: readonly string[];
+	readonly positionalIndex: number;
+	/** Canonical command route, never an alias spelling. */
+	readonly commandPath: readonly string[];
+}
+
+export type ClinkrCompletionCandidateType =
+	| "command"
+	| "option"
+	| "option-value"
+	| "positional-value";
 
 export interface ClinkrCompletionCandidate {
 	readonly value: string;
-	readonly type: "positional-value" | "option-value";
+	readonly type: ClinkrCompletionCandidateType;
+	readonly description?: string;
+}
+
+export interface ClinkrCompletionResult {
+	readonly candidates: readonly ClinkrCompletionCandidate[];
 }
 
 export type CliOptionOptions = OptionSpec;
@@ -55,6 +80,25 @@ export function cliPositional<TField extends z.ZodType>(
 
 export function cliAnnotationFor(field: z.ZodType): CliFieldAnnotation | undefined {
 	return cliAnnotations.get(field);
+}
+
+export function buildCommandSurfacePlan(
+	commandName: string,
+	definition: ClinkrCommandDefinition,
+): SurfacePlan {
+	const positionals: Record<string, PositionalSpec> = {};
+	const optionSpecs: Record<string, OptionSpec> = {};
+	for (const [key, field] of Object.entries(definition.schema.shape)) {
+		const annotation = cliAnnotationFor(field as z.ZodType);
+		if (annotation?.type === "positional") positionals[key] = annotation.options;
+		if (annotation?.type === "option") optionSpecs[key] = annotation.options;
+	}
+	return buildSurfacePlan({
+		commandName,
+		schema: definition.schema,
+		positionals,
+		optionSpecs,
+	});
 }
 
 export interface ClinkrCommandJsonSchemaDocument {
@@ -113,7 +157,7 @@ export interface ContextFreeCommandDefinition<
 		request: z.output<TSchema>,
 	) => HandlerResult<CommandOutcome<ResultOf<TResultSchema>>>;
 	readonly completionProvider?: (
-		request: ClinkrCompletionRequest,
+		request: ClinkrCompletionProviderRequest,
 	) => readonly ClinkrCompletionCandidate[] | Promise<readonly ClinkrCompletionCandidate[]>;
 }
 
@@ -129,7 +173,7 @@ export interface ContextfulCommandDefinition<
 	) => HandlerResult<CommandOutcome<ResultOf<TResultSchema>>>;
 	readonly completionProvider?: (
 		context: TContext,
-		request: ClinkrCompletionRequest,
+		request: ClinkrCompletionProviderRequest,
 	) => readonly ClinkrCompletionCandidate[] | Promise<readonly ClinkrCompletionCandidate[]>;
 }
 
