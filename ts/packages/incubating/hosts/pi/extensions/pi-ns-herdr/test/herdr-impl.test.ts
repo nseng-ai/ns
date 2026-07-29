@@ -17,7 +17,7 @@ const TEST_MODEL_SELECTION = {
 	thinking: "minimal" as const,
 };
 
-import { HERDR_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
+import { HERDR_COMMAND_NAMES } from "@nseng-ai/herdr/api";
 import registerHerdrPiExtension from "../src/pi/extension.ts";
 import {
 	registerHerdrPlanSpaceImplCommand,
@@ -25,7 +25,7 @@ import {
 } from "../src/pi/impl-plan.ts";
 import { handleHerdrSlotImplPlan, type HerdrSlotImplPlanOptions } from "../src/core/impl-plan.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
-import { createCliHerdrGateway } from "../src/core/cli-gateway.ts";
+import { createCliHerdrGateway } from "@nseng-ai/herdr/api";
 import {
 	handleHerdrSlotImplPrompt,
 	resolveImplPromptPayloadOptions,

@@ -4,15 +4,17 @@ import type {
 	ExtensionAPI,
 	SessionStartContext,
 } from "@nseng-ai/extension-kit/pi-types";
+import { createCliHerdrGateway } from "@nseng-ai/herdr/api";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { HERDR_COMMAND_NAMES } from "@nseng-ai/herdr/api";
 import type {
 	HandoffExtensionAPI,
 	HandoffPromptCreateIntegration,
 } from "@nseng-ai/pi-ns-handoffs/handoff-launch";
+import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
 import type { CommandContext } from "@nseng-ai/pi-runtime/runtime/extension-types";
 
-import { createCliHerdrGateway } from "../core/cli-gateway.ts";
 import {
 	createHerdrSidebarControllerWithPiWiring,
 	registerHerdrSidebarCommands,
@@ -26,6 +28,23 @@ import { registerHerdrSpaceGoalCommand } from "./space-goal.ts";
 import { registerHerdrNewTabCommand, registerHerdrTabGoalCommand } from "./tab.ts";
 import type { HerdrPiContext } from "./context.ts";
 import { createHerdrPiCommandApi } from "./pi-command-api.ts";
+
+export const herdrParity = definePiSurfaceParity(
+	HERDR_COMMAND_NAMES.map((surface) => ({
+		kind: "command" as const,
+		surface,
+		workflow: `Run the ${surface} Herdr workflow`,
+		parity: "FULL" as const,
+		cli: surface === "ns:herdr:tab:handoff" ? "ns herdr exec handoff-tab launch" : "ns herdr",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@nseng-ai/pi-ns-herdr",
+		sourceModule: "herdr",
+		notes:
+			surface === "ns:herdr:tab:handoff"
+				? "Optional registration composes the Handoffs host launch interface and the hidden durable-reference Herdr command."
+				: "Pi owns interaction and presentation while @nseng-ai/herdr/api owns Herdr resource mechanics.",
+	})),
+);
 
 export type HandoffIntegrationLoader = () => Promise<{
 	createHandoffLaunchIntegration(pi: HandoffExtensionAPI): HandoffPromptCreateIntegration;

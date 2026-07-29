@@ -4,11 +4,8 @@ import {
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi-runtime/commands/ack";
 
-import { createCliHerdrGateway } from "../core/cli-gateway.ts";
-import {
-	HERDR_TAB_GOAL_COMMAND_NAME,
-	HERDR_TAB_NEW_COMMAND_NAME,
-} from "../core/command-surfaces.ts";
+import { createCliHerdrGateway } from "@nseng-ai/herdr/api";
+import { HERDR_TAB_GOAL_COMMAND_NAME, HERDR_TAB_NEW_COMMAND_NAME } from "@nseng-ai/herdr/api";
 import { handleHerdrNewTab, handleHerdrTabGoal } from "../core/tab.ts";
 import type { HerdrPiContext } from "./context.ts";
 import { createHerdrResourceLabelDeriver } from "./resource-label.ts";

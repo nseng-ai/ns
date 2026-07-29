@@ -1,7 +1,70 @@
 import { describe, expect, test } from "vitest";
 
-import { launchPreparedBranch } from "../src/core/prepared-launch.ts";
-import { FakeHerdrGateway } from "./herdr-test-harness.ts";
+import {
+	launchPreparedBranch,
+	type HerdrCreateTabOptions,
+	type HerdrCreateTabResult,
+	type HerdrCreateWorkspaceOptions,
+	type HerdrCreateWorkspaceResult,
+	type HerdrGateway,
+	type HerdrPaneRunResult,
+	type HerdrTabRenameResult,
+	type HerdrWorkspaceRenameResult,
+} from "@nseng-ai/herdr/api";
+
+interface FakeHerdrGatewayOptions {
+	createWorkspaceResult?: HerdrCreateWorkspaceResult;
+	createTabResult?: HerdrCreateTabResult;
+	paneRunResult?: HerdrPaneRunResult;
+}
+
+class FakeHerdrGateway implements HerdrGateway {
+	readonly createWorkspaceCalls: Array<{ options: HerdrCreateWorkspaceOptions }> = [];
+	readonly createTabCalls: Array<{ options: HerdrCreateTabOptions }> = [];
+	readonly paneRunCalls: Array<{ paneId: string; command: string }> = [];
+	private readonly options: FakeHerdrGatewayOptions;
+
+	constructor(options: FakeHerdrGatewayOptions = {}) {
+		this.options = options;
+	}
+
+	async renameWorkspace(): Promise<HerdrWorkspaceRenameResult> {
+		return { type: "applied" };
+	}
+
+	async renameTab(): Promise<HerdrTabRenameResult> {
+		return { type: "applied" };
+	}
+
+	async createWorkspace(options: HerdrCreateWorkspaceOptions): Promise<HerdrCreateWorkspaceResult> {
+		this.createWorkspaceCalls.push({ options });
+		return (
+			this.options.createWorkspaceResult ?? {
+				type: "created",
+				workspaceId: "fake-ws-1",
+				rootPaneId: "fake-ws-1:p1",
+				tabId: "fake-ws-1:t1",
+			}
+		);
+	}
+
+	async createTab(options: HerdrCreateTabOptions): Promise<HerdrCreateTabResult> {
+		this.createTabCalls.push({ options });
+		return (
+			this.options.createTabResult ?? {
+				type: "created",
+				tabId: "fake-ws-1:t2",
+				rootPaneId: "fake-ws-1:p2",
+				workspaceId: "fake-ws-1",
+			}
+		);
+	}
+
+	async runInPane(paneId: string, command: string): Promise<HerdrPaneRunResult> {
+		this.paneRunCalls.push({ paneId, command });
+		return this.options.paneRunResult ?? { type: "ok" };
+	}
+}
 
 function slotClient(worktreePath: string) {
 	return {

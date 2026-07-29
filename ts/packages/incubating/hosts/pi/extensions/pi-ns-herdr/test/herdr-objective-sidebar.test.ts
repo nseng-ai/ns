@@ -4,8 +4,9 @@ import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import {
 	createHerdrSidebarControllerWithPiWiring,
 	registerHerdrSidebarCommands,
-} from "@nseng-ai/herdr/pi";
-import { createHerdrSidebarController, getCallerWorkspaceId } from "../src/core/sidebar.ts";
+} from "../src/pi/sidebar.ts";
+import { getCallerWorkspaceId } from "@nseng-ai/herdr/api";
+import { createHerdrSidebarController } from "../src/core/sidebar.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import {
 	formatObjectiveSidebarLabel,

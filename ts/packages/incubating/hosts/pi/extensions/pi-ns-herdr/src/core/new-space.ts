@@ -1,9 +1,11 @@
+import {
+	formatHerdrResourceLabel,
+	HERDR_SPACE_NEW_COMMAND_NAME,
+	slotLabelInput,
+	type HerdrGateway,
+} from "@nseng-ai/herdr/api";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-
-import { HERDR_SPACE_NEW_COMMAND_NAME } from "./command-surfaces.ts";
-import type { HerdrGateway } from "./herdr-gateway.ts";
-import { formatHerdrResourceLabel, slotLabelInput } from "./resource-label.ts";
 
 export interface HerdrResourceLabelDeriver {
 	deriveLabel(input: { description: string; cwd: string; signal?: AbortSignal }): Promise<string>;

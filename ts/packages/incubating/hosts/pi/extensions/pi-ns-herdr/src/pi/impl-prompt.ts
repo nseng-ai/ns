@@ -5,7 +5,7 @@ import {
 } from "@nseng-ai/pi-runtime/commands/ack";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
-import { HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME } from "../core/command-surfaces.ts";
+import { HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME } from "@nseng-ai/herdr/api";
 import {
 	handleHerdrSlotImplPrompt,
 	resolveImplPromptPayloadOptions,

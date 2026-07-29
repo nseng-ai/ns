@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { ExtensionAPI } from "@nseng-ai/extension-kit/pi-types";
 import type { HandoffExtensionAPI, ToolDefinition } from "@nseng-ai/pi-ns-handoffs/handoff-launch";
-import { HERDR_BASE_COMMAND_NAMES, HERDR_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
+import { HERDR_BASE_COMMAND_NAMES, HERDR_COMMAND_NAMES } from "@nseng-ai/herdr/api";
 
 import registerHerdrPiExtension from "../src/pi/extension.ts";
 import { FakeCommandContext, FakePi, notificationMessages, step } from "./herdr-test-harness.ts";

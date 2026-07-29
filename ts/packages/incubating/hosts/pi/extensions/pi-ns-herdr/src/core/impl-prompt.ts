@@ -1,4 +1,9 @@
 import {
+	createHerdrSlotClient,
+	launchPreparedBranch,
+	type HerdrGateway,
+} from "@nseng-ai/herdr/api";
+import {
 	buildTrackedBranchImplPrompt,
 	buildTrackedBranchPayloadLaunchCommand,
 	createTrackedBranchForPrompt,
@@ -18,12 +23,9 @@ import type { GitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
-import { HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME } from "./command-surfaces.ts";
-import type { HerdrGateway } from "./herdr-gateway.ts";
+import { HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME } from "@nseng-ai/herdr/api";
 import { resolveImplBranchBasis } from "./impl-branch-basis.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
-import { launchPreparedBranch } from "./prepared-launch.ts";
-import { createHerdrSlotClient } from "./slot-checkout.ts";
 import { resolveRepoTrunkBranch } from "./trunk-branch.ts";
 
 type ImplPromptRuntime = CommandExecApi & Pick<HerdrPiCommandApi, "getThinkingLevel">;

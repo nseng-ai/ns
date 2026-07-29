@@ -1,3 +1,10 @@
+import {
+	formatHerdrResourceLabel,
+	getCallerWorkspaceId,
+	HERDR_SPACE_GOAL_COMMAND_NAME,
+	slotLabelInput,
+	type HerdrGateway,
+} from "@nseng-ai/herdr/api";
 import { deriveSlugWithModel, formatRawTextModelFailure } from "@nseng-ai/extension-kit/model-slug";
 import {
 	MODEL_OPERATION_IDS,
@@ -10,11 +17,7 @@ import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { TextResult } from "@nseng-ai/foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
-import { HERDR_SPACE_GOAL_COMMAND_NAME } from "./command-surfaces.ts";
-import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
-import { getCallerWorkspaceId } from "./sidebar.ts";
-import { formatHerdrResourceLabel, slotLabelInput } from "./resource-label.ts";
 
 const COMMAND_NAME = HERDR_SPACE_GOAL_COMMAND_NAME;
 

@@ -9,6 +9,16 @@
  * Herdr owns: workspace/tab creation, explicit pane targeting, process launch.
  */
 import {
+	buildHerdrCreateTabArgs,
+	buildHerdrCreateWorkspaceArgs,
+	buildHerdrPaneRunArgs,
+	createHerdrSlotClient,
+	getCallerWorkspaceId,
+	launchPreparedBranch,
+	type HerdrGateway,
+	type PreparedLaunchDestination,
+} from "@nseng-ai/herdr/api";
+import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextOutputMessage,
 	createPreparedPlanBranchContext,
@@ -38,15 +48,6 @@ import type { SlotClient } from "@nseng-ai/slots/api";
 import { formatImplBranchContextCommand } from "@nseng-ai/branch-context/api";
 
 // Command names are used in the Pi layer (pi/impl-plan.ts) via ImplPlanConfig.
-import {
-	buildHerdrCreateTabArgs,
-	buildHerdrCreateWorkspaceArgs,
-	buildHerdrPaneRunArgs,
-} from "./cli-gateway.ts";
-import { launchPreparedBranch, type PreparedLaunchDestination } from "./prepared-launch.ts";
-import { createHerdrSlotClient } from "./slot-checkout.ts";
-import { getCallerWorkspaceId } from "./sidebar.ts";
-import type { HerdrGateway } from "./herdr-gateway.ts";
 import { resolveImplBranchBasis } from "./impl-branch-basis.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { resolveRepoTrunkBranch } from "./trunk-branch.ts";

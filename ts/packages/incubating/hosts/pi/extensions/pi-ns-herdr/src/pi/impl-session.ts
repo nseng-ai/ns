@@ -3,7 +3,7 @@ import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/a
 import {
 	HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME,
 	HERDR_SESSION_SPACE_IMPL_COMMAND_NAME,
-} from "../core/command-surfaces.ts";
+} from "@nseng-ai/herdr/api";
 import type { HerdrPiContext } from "./context.ts";
 
 const SUMMARY_REQUEST_SENTINEL =

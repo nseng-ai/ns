@@ -43,7 +43,7 @@ import type {
 	HerdrPaneRunResult,
 	HerdrTabRenameResult,
 	HerdrWorkspaceRenameResult,
-} from "../src/core/herdr-gateway.ts";
+} from "@nseng-ai/herdr/api";
 
 type RawPiExecResultFixture = Partial<RawPiExecResult>;
 

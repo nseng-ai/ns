@@ -23,6 +23,7 @@ export const herdrHandoffTabLaunchRequestSchema = z.strictObject({
 	provider: nonblankSchema,
 	model: nonblankSchema,
 	thinking: thinkingLevelSchema,
+	launchCommand: nonblankSchema,
 });
 
 export const herdrHandoffTabLaunchResultSchema = z.strictObject({
@@ -71,13 +72,11 @@ export const herdrHandoffTabLaunchNsCommand = herdrNsCommand({
 		}
 
 		const pickupCommand = `/ns:handoff:pickup --branch ${request.branch} ${request.slug}`;
+		const launchCommand = request.launchCommand;
 		const launched = await launchHerdrHandoffTab({
 			herdr: ctx.herdr,
 			cwd: ctx.cwd,
-			launchOptions: {
-				model: { provider: request.provider, id: request.model },
-				thinkingLevel: request.thinking,
-			},
+			launchCommand,
 			workspaceId: request.workspaceId,
 			slug: request.slug,
 			pickupCommand,

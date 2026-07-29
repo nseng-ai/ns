@@ -1,15 +1,62 @@
 /**
  * Real-adapter tests for createCliHerdrGateway.
  *
- * These tests pin exact argv sequences and verify JSON response parsing using a
- * scripted FakePi (low-level exec). They do NOT exercise any Pi command logic —
- * only the CLI gateway layer.
+ * These tests pin exact argv sequences and verify JSON response parsing through
+ * the gateway's narrow command execution seam.
  */
 import { describe, expect, test } from "vitest";
 
-import { createCliHerdrGateway } from "../src/core/cli-gateway.ts";
-import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
-import { FakePi, execResult, step } from "./herdr-test-harness.ts";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
+import { createCliHerdrGateway } from "@nseng-ai/herdr/api";
+
+interface ScriptedExec {
+	readonly command: string;
+	readonly args: string[];
+	readonly result?: Partial<Extract<ExecResult, { type: "exited" }>>;
+	readonly error?: Error;
+}
+
+class ScriptedCommandExec implements CommandExecApi {
+	readonly calls: Array<{ command: string; args: string[]; options: ExecOptions | undefined }> = [];
+	private readonly script: ScriptedExec[];
+
+	constructor(options: { script: ScriptedExec[] }) {
+		this.script = [...options.script];
+	}
+
+	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+		this.calls.push({ command, args: [...args], options });
+		const expected = this.script.shift();
+		if (expected === undefined) throw new Error(`Unexpected command: ${command} ${args.join(" ")}`);
+		expect({ command, args }).toEqual({ command: expected.command, args: expected.args });
+		if (expected.error !== undefined) throw expected.error;
+		return execResult(expected.result);
+	}
+
+	assertDone(): void {
+		expect(this.script).toEqual([]);
+	}
+}
+
+function execResult(
+	overrides: Partial<Extract<ExecResult, { type: "exited" }>> = {},
+): Extract<ExecResult, { type: "exited" }> {
+	return {
+		type: "exited",
+		stdout: overrides.stdout ?? "",
+		stderr: overrides.stderr ?? "",
+		code: overrides.code ?? 0,
+		signal: overrides.signal ?? null,
+	};
+}
+
+function step(
+	command: string,
+	args: string[],
+	result: Partial<Extract<ExecResult, { type: "exited" }>> = {},
+): ScriptedExec {
+	return { command, args, result };
+}
 
 // ---------------------------------------------------------------------------
 // Shared JSON response fixtures
@@ -36,7 +83,7 @@ const TAB_CREATE_RESPONSE = JSON.stringify({
 
 describe("createCliHerdrGateway.createWorkspace", () => {
 	test("happy path: emits --no-focus --cwd --label and parses workspace_id, pane_id, tab_id", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step(
 					"herdr",
@@ -45,11 +92,11 @@ describe("createCliHerdrGateway.createWorkspace", () => {
 				),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.createWorkspace({ cwd: "/repo", label: "my-label" });
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result).toEqual({
 			type: "created",
 			workspaceId: "ws-abc123",
@@ -59,50 +106,50 @@ describe("createCliHerdrGateway.createWorkspace", () => {
 	});
 
 	test("shouldFocus:true omits --no-focus", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step("herdr", ["workspace", "create", "--cwd", "/repo"], {
 					stdout: WORKSPACE_CREATE_RESPONSE,
 				}),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.createWorkspace({ cwd: "/repo", shouldFocus: true });
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result.type).toBe("created");
 	});
 
 	test("happy path: omits --label when not provided", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step("herdr", ["workspace", "create", "--no-focus", "--cwd", "/repo"], {
 					stdout: WORKSPACE_CREATE_RESPONSE,
 				}),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.createWorkspace({ cwd: "/repo" });
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result.type).toBe("created");
 	});
 
 	test("malformed JSON stdout returns failed", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step("herdr", ["workspace", "create", "--no-focus", "--cwd", "/repo"], {
 					stdout: "not-json{{",
 				}),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.createWorkspace({ cwd: "/repo" });
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result.type).toBe("failed");
 		if (result.type === "failed") {
 			expect(result.message).toContain("unparseable JSON");
@@ -110,7 +157,7 @@ describe("createCliHerdrGateway.createWorkspace", () => {
 	});
 
 	test("missing workspace_id returns failed with shape message", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step("herdr", ["workspace", "create", "--no-focus", "--cwd", "/repo"], {
 					stdout: JSON.stringify({
@@ -119,11 +166,11 @@ describe("createCliHerdrGateway.createWorkspace", () => {
 				}),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.createWorkspace({ cwd: "/repo" });
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result.type).toBe("failed");
 		if (result.type === "failed") {
 			expect(result.message).toContain("workspace_id");
@@ -131,7 +178,7 @@ describe("createCliHerdrGateway.createWorkspace", () => {
 	});
 
 	test("non-zero exit returns failed with command display", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step("herdr", ["workspace", "create", "--no-focus", "--cwd", "/repo"], {
 					code: 1,
@@ -139,11 +186,11 @@ describe("createCliHerdrGateway.createWorkspace", () => {
 				}),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.createWorkspace({ cwd: "/repo" });
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result.type).toBe("failed");
 		if (result.type === "failed") {
 			expect(result.message).toContain("daemon not running");
@@ -151,18 +198,18 @@ describe("createCliHerdrGateway.createWorkspace", () => {
 	});
 
 	test("response missing result field returns failed", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step("herdr", ["workspace", "create", "--no-focus", "--cwd", "/repo"], {
 					stdout: JSON.stringify({ status: "ok" }),
 				}),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.createWorkspace({ cwd: "/repo" });
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result.type).toBe("failed");
 		if (result.type === "failed") {
 			expect(result.message).toContain('"result" field');
@@ -176,7 +223,7 @@ describe("createCliHerdrGateway.createWorkspace", () => {
 
 describe("createCliHerdrGateway.createTab", () => {
 	test("shouldFocus:true emits --focus; parses tab_id, pane_id, workspace_id", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step(
 					"herdr",
@@ -195,7 +242,7 @@ describe("createCliHerdrGateway.createTab", () => {
 				),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.createTab({
 			workspaceId: "ws-abc123",
@@ -204,7 +251,7 @@ describe("createCliHerdrGateway.createTab", () => {
 			shouldFocus: true,
 		});
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result).toEqual({
 			type: "created",
 			tabId: "t-tab456",
@@ -214,50 +261,50 @@ describe("createCliHerdrGateway.createTab", () => {
 	});
 
 	test("shouldFocus:false (default) emits --no-focus", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step("herdr", ["tab", "create", "--workspace", "ws-abc123", "--no-focus", "--cwd", "/wt"], {
 					stdout: TAB_CREATE_RESPONSE,
 				}),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.createTab({ workspaceId: "ws-abc123", cwd: "/wt" });
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result.type).toBe("created");
 	});
 
 	test("omits --cwd and --label when not provided", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step("herdr", ["tab", "create", "--workspace", "ws-abc123", "--no-focus"], {
 					stdout: TAB_CREATE_RESPONSE,
 				}),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.createTab({ workspaceId: "ws-abc123" });
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result.type).toBe("created");
 	});
 
 	test("malformed JSON returns failed with unparseable message", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step("herdr", ["tab", "create", "--workspace", "ws-abc123", "--focus"], {
 					stdout: "{bad json",
 				}),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.createTab({ workspaceId: "ws-abc123", shouldFocus: true });
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result.type).toBe("failed");
 		if (result.type === "failed") {
 			expect(result.message).toContain("unparseable JSON");
@@ -265,7 +312,7 @@ describe("createCliHerdrGateway.createTab", () => {
 	});
 
 	test("missing tab_id returns failed with shape message", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step("herdr", ["tab", "create", "--workspace", "ws-abc123", "--no-focus"], {
 					stdout: JSON.stringify({
@@ -277,11 +324,11 @@ describe("createCliHerdrGateway.createTab", () => {
 				}),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.createTab({ workspaceId: "ws-abc123" });
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result.type).toBe("failed");
 		if (result.type === "failed") {
 			expect(result.message).toContain("tab_id");
@@ -289,7 +336,7 @@ describe("createCliHerdrGateway.createTab", () => {
 	});
 
 	test("non-zero exit returns failed", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step("herdr", ["tab", "create", "--workspace", "ws-abc123", "--focus"], {
 					code: 1,
@@ -297,11 +344,11 @@ describe("createCliHerdrGateway.createTab", () => {
 				}),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.createTab({ workspaceId: "ws-abc123", shouldFocus: true });
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result.type).toBe("failed");
 		if (result.type === "failed") {
 			expect(result.message).toContain("workspace not found");
@@ -315,7 +362,7 @@ describe("createCliHerdrGateway.createTab", () => {
 
 describe("createCliHerdrGateway.renameWorkspace", () => {
 	test("uses generic workspace rename diagnostics on non-zero exit", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step("herdr", ["workspace", "rename", "w-1", "goal"], {
 					code: 3,
@@ -323,7 +370,7 @@ describe("createCliHerdrGateway.renameWorkspace", () => {
 				}),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.renameWorkspace("w-1", "goal");
 		expect(result.type).toBe("failed");
@@ -331,21 +378,23 @@ describe("createCliHerdrGateway.renameWorkspace", () => {
 			expect(result.message).toContain("Could not rename Herdr workspace.");
 			expect(result.message).not.toContain("Objective");
 		}
-		pi.assertDone();
+		commands.assertDone();
 	});
 });
 
 describe("createCliHerdrGateway.renameTab", () => {
 	test("emits herdr tab rename <id> <label>", async () => {
-		const pi = new FakePi({ script: [step("herdr", ["tab", "rename", "t-1", "s3:add-auth"], {})] });
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const commands = new ScriptedCommandExec({
+			script: [step("herdr", ["tab", "rename", "t-1", "s3:add-auth"], {})],
+		});
+		const herdr = createCliHerdrGateway(commands);
 
 		expect(await herdr.renameTab("t-1", "s3:add-auth")).toEqual({ type: "applied" });
-		pi.assertDone();
+		commands.assertDone();
 	});
 
 	test("returns bounded diagnostics with non-zero stderr", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step("herdr", ["tab", "rename", "t-1", "label"], {
 					code: 7,
@@ -353,7 +402,7 @@ describe("createCliHerdrGateway.renameTab", () => {
 				}),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.renameTab("t-1", "label");
 		expect(result.type).toBe("failed");
@@ -361,11 +410,11 @@ describe("createCliHerdrGateway.renameTab", () => {
 			expect(result.message.length).toBeLessThanOrEqual(4_000);
 			expect(result.message).toContain("rename failed");
 		}
-		pi.assertDone();
+		commands.assertDone();
 	});
 
 	test("bounds thrown-command diagnostics", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				{
 					command: "herdr",
@@ -374,12 +423,12 @@ describe("createCliHerdrGateway.renameTab", () => {
 				},
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.renameTab("t-1", "label");
 		expect(result.type).toBe("failed");
 		if (result.type === "failed") expect(result.message.length).toBeLessThanOrEqual(4_000);
-		pi.assertDone();
+		commands.assertDone();
 	});
 });
 
@@ -389,19 +438,19 @@ describe("createCliHerdrGateway.renameTab", () => {
 
 describe("createCliHerdrGateway.runInPane", () => {
 	test("happy path: emits herdr pane run <paneId> <command>", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [step("herdr", ["pane", "run", "p-abc123", "echo hello"], {})],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.runInPane("p-abc123", "echo hello");
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result).toEqual({ type: "ok" });
 	});
 
 	test("non-zero exit returns failed with stderr", async () => {
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [
 				step("herdr", ["pane", "run", "p-abc123", "bad-cmd"], {
 					code: 1,
@@ -409,11 +458,11 @@ describe("createCliHerdrGateway.runInPane", () => {
 				}),
 			],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.runInPane("p-abc123", "bad-cmd");
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result.type).toBe("failed");
 		if (result.type === "failed") {
 			expect(result.message).toContain("pane not found");
@@ -422,14 +471,14 @@ describe("createCliHerdrGateway.runInPane", () => {
 
 	test("command with special characters is passed as a single argv item", async () => {
 		const complexCmd = 'payload="$(brmem get prompt.md)" && pi exec pi "$payload"';
-		const pi = new FakePi({
+		const commands = new ScriptedCommandExec({
 			script: [step("herdr", ["pane", "run", "p-1", complexCmd], {})],
 		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+		const herdr = createCliHerdrGateway(commands);
 
 		const result = await herdr.runInPane("p-1", complexCmd);
 
-		pi.assertDone();
+		commands.assertDone();
 		expect(result.type).toBe("ok");
 	});
 });

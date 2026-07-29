@@ -1,12 +1,16 @@
+import {
+	getCallerTabId,
+	getCallerWorkspaceId,
+	HERDR_TAB_GOAL_COMMAND_NAME,
+	HERDR_TAB_NEW_COMMAND_NAME,
+	type HerdrGateway,
+} from "@nseng-ai/herdr/api";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
-import { HERDR_TAB_GOAL_COMMAND_NAME, HERDR_TAB_NEW_COMMAND_NAME } from "./command-surfaces.ts";
-import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrResourceLabelDeriver } from "./new-space.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { generateWorkspaceGoalSlug, resolveHerdrGoal } from "./space-goal.ts";
-import { getCallerTabId, getCallerWorkspaceId } from "./sidebar.ts";
 
 export interface HandleHerdrNewTabOptions {
 	herdr: Pick<HerdrGateway, "createTab">;

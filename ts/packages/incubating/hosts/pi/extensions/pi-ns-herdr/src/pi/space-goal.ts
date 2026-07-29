@@ -4,8 +4,8 @@ import {
 } from "@nseng-ai/pi-runtime/commands/ack";
 import type { ExtensionAPI } from "@nseng-ai/extension-kit/pi-types";
 
-import { createCliHerdrGateway } from "../core/cli-gateway.ts";
-import { HERDR_SPACE_GOAL_COMMAND_NAME } from "../core/command-surfaces.ts";
+import { createCliHerdrGateway } from "@nseng-ai/herdr/api";
+import { HERDR_SPACE_GOAL_COMMAND_NAME } from "@nseng-ai/herdr/api";
 import { handleHerdrSpaceGoal } from "../core/space-goal.ts";
 import { createHerdrPiCommandApi } from "./pi-command-api.ts";
 

@@ -1,3 +1,5 @@
+import { buildPiLaunchCommand } from "@nseng-ai/extension-kit/pi-launch";
+import { getCallerWorkspaceId, HERDR_TAB_HANDOFF_COMMAND_NAME } from "@nseng-ai/herdr/api";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 import { formatShellArg } from "@nseng-ai/foundation/exec";
 import type {
@@ -6,9 +8,6 @@ import type {
 	HandoffLaunchPromptCopy,
 	HandoffStartMessages,
 } from "@nseng-ai/pi-ns-handoffs/handoff-launch";
-
-import { HERDR_TAB_HANDOFF_COMMAND_NAME } from "../core/command-surfaces.ts";
-import { getCallerWorkspaceId } from "../core/sidebar.ts";
 
 const HERDR_TAB_HANDOFF_STATUS_KEY = HERDR_TAB_HANDOFF_COMMAND_NAME;
 const HERDR_TAB_HANDOFF_LAUNCH_COMMAND = "ns herdr exec handoff-tab launch";
@@ -63,6 +62,11 @@ export function registerHerdrHandoffTab(
 							};
 						}
 						const thinking = pi.getThinkingLevel?.() ?? "medium";
+						const pickupCommand = `/ns:handoff:pickup --branch ${request.branch} <returned-slug>`;
+						const piLaunchCommand = buildPiLaunchCommand(pickupCommand, {
+							model: { provider: ctx.model.provider, id: ctx.model.id },
+							thinkingLevel: thinking,
+						});
 						const launchCommand = [
 							HERDR_TAB_HANDOFF_LAUNCH_COMMAND,
 							`--branch ${formatShellArg(request.branch)}`,
@@ -71,6 +75,7 @@ export function registerHerdrHandoffTab(
 							`--provider ${formatShellArg(ctx.model.provider)}`,
 							`--model ${formatShellArg(ctx.model.id)}`,
 							`--thinking ${formatShellArg(thinking)}`,
+							`--launch-command ${formatShellArg(piLaunchCommand)}`,
 							"--format json",
 						].join(" ");
 						return {
