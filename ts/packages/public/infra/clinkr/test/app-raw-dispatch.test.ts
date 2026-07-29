@@ -45,12 +45,11 @@ test("defineRawCommand owns the raw discriminant across an untyped boundary", ()
 	expect(definition.run({ argv: [] })).toBe(0);
 });
 
-test("raw execution receives the argv tail verbatim and owns bytes and exit status", async () => {
-	// Every structured global flag plus `--` flows through uninterpreted: no
-	// help output, no schema document, no framework newline.
+test("raw test capture is rejected because raw output is executable-edge owned", async () => {
 	const argv = ["a", "--format", "json", "--input-json", "--json-schema", "--help", "--", "-x"];
-	const run = await runForCliTest(rawTailApp, argv);
-	expect(run).toEqual({ exitCode: argv.length, stdout: JSON.stringify(argv), stderr: "" });
+	await expect(runForCliTest(rawTailApp, argv)).rejects.toThrow(
+		"raw command output must be tested through an executable boundary",
+	);
 });
 
 test("raw commands share the transactional loader cache with structured commands", async () => {
@@ -59,16 +58,15 @@ test("raw commands share the transactional loader cache with structured commands
 		commandDirectory: path.join(FIXTURES_DIRECTORY, "raw-tail"),
 	});
 	const before = await commandLoads();
-	const first = await runForCliTest(freshApp, []);
-	const second = await runForCliTest(freshApp, ["x"]);
-	expect(first.exitCode).toBe(0);
-	expect(second.exitCode).toBe(1);
+	await expect(runForCliTest(freshApp, [])).rejects.toThrow("executable boundary");
+	await expect(runForCliTest(freshApp, ["x"])).rejects.toThrow("executable boundary");
 	expect((await commandLoads()) - before).toBe(1);
 });
 
-test("contextful raw execution receives the run context in its invocation object", async () => {
-	const run = await runForCliTest(rawContextfulApp, ["a", "b"], { context: { prefix: "p" } });
-	expect(run).toEqual({ exitCode: 0, stdout: "p:a,b", stderr: "" });
+test("contextful raw test capture is rejected at the same executable edge", async () => {
+	await expect(
+		runForCliTest(rawContextfulApp, ["a", "b"], { context: { prefix: "p" } }),
+	).rejects.toThrow("raw command output must be tested through an executable boundary");
 });
 
 // Deliberate TypeScript bypass: method-position bivariance lets the typed

@@ -265,41 +265,6 @@ function expectSingleCliOutputMessage(
 	return message;
 }
 
-interface CapturedProcessWrites {
-	stdout: string;
-	stderr: string;
-}
-
-async function captureProcessWrites(callback: () => Promise<void>): Promise<CapturedProcessWrites> {
-	const stdoutChunks: string[] = [];
-	const stderrChunks: string[] = [];
-	const originalStdoutWrite = process.stdout.write;
-	const originalStderrWrite = process.stderr.write;
-	process.stdout.write = createCapturingWrite(stdoutChunks);
-	process.stderr.write = createCapturingWrite(stderrChunks);
-	try {
-		await callback();
-	} finally {
-		process.stdout.write = originalStdoutWrite;
-		process.stderr.write = originalStderrWrite;
-	}
-	return { stdout: stdoutChunks.join(""), stderr: stderrChunks.join("") };
-}
-
-function createCapturingWrite(chunks: string[]): typeof process.stdout.write {
-	// Node's write method is overloaded; the test capture only needs the string/Uint8Array path.
-	return ((
-		chunk: string | Uint8Array,
-		encodingOrCallback?: BufferEncoding | ((error?: Error | null) => void),
-		callback?: (error?: Error | null) => void,
-	): boolean => {
-		chunks.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString());
-		const writeCallback = typeof encodingOrCallback === "function" ? encodingOrCallback : callback;
-		writeCallback?.();
-		return true;
-	}) as typeof process.stdout.write;
-}
-
 function taggedTheme(): { fg(color: string, text: string): string; bold(text: string): string } {
 	return {
 		fg(color, text) {
@@ -923,89 +888,6 @@ describe("cli command extension helper", () => {
 
 		expect(notifications).toEqual([]);
 		expectSingleCliOutputMessage(pi, "ok\n");
-	});
-
-	test("falls back to stdout for successful headless command output", async () => {
-		const pi = new FakePi();
-		registerFakeCli(pi, {
-			runCli: (_args, deps) => {
-				deps.stdout("ok\n");
-				return 0;
-			},
-		});
-		const { ctx, notifications, editorTexts, statuses, widgets } = createContext([], {
-			hasUI: false,
-		});
-
-		const writes = await captureProcessWrites(async () => {
-			await commandFor(pi, "dev:preview-status").handler("", ctx);
-		});
-
-		expect(writes).toEqual({ stdout: "ok\n", stderr: "" });
-		expect(pi.sentMessages).toEqual([]);
-		expect(notifications).toEqual([]);
-		expect(editorTexts).toEqual([]);
-		expect(statuses).toEqual([]);
-		expect(widgets).toEqual([]);
-	});
-
-	test("falls back to stderr for error-level headless command output", async () => {
-		const pi = new FakePi();
-		registerFakeCli(pi, {
-			runCli: (_args, deps) => {
-				deps.stderr("not found\n");
-				return 17;
-			},
-		});
-		const { ctx, notifications, editorTexts, statuses, widgets } = createContext([], {
-			hasUI: false,
-		});
-
-		const writes = await captureProcessWrites(async () => {
-			await commandFor(pi, "dev:preview-status").handler("--json", ctx);
-		});
-
-		expect(writes).toEqual({
-			stdout: "",
-			stderr: "fake-cli preview-status exited with code 17.\n\nstderr:\nnot found\n",
-		});
-		expect(pi.sentMessages).toEqual([]);
-		expect(notifications).toEqual([]);
-		expect(editorTexts).toEqual([]);
-		expect(statuses).toEqual([]);
-		expect(widgets).toEqual([]);
-	});
-
-	test("emits headless positional-argument rejections instead of restoring editor text", async () => {
-		const pi = new FakePi();
-		const order: string[] = [];
-		let runnerCalled = false;
-		registerFakeCli(pi, {
-			runCli: () => {
-				runnerCalled = true;
-				return 0;
-			},
-		});
-		const { ctx, notifications, editorTexts, statuses, widgets } = createContext(order, {
-			hasUI: false,
-		});
-
-		const writes = await captureProcessWrites(async () => {
-			await commandFor(pi, "dev:preview-status").handler("broke in this pr", ctx);
-		});
-
-		expect(runnerCalled).toBe(false);
-		expect(order).toEqual([]);
-		expect(writes).toEqual({
-			stdout: "",
-			stderr:
-				"fake-cli preview-status exited with code 2.\n\nstderr:\nError: /dev:preview-status only accepts option-style arguments here. Use --help for usage.\n",
-		});
-		expect(pi.sentMessages).toEqual([]);
-		expect(notifications).toEqual([]);
-		expect(editorTexts).toEqual([]);
-		expect(statuses).toEqual([]);
-		expect(widgets).toEqual([]);
 	});
 
 	test("emits UI positional-argument rejections when editor restoration is unavailable", async () => {

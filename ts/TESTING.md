@@ -119,6 +119,10 @@ Use those supported APIs instead of handwritten restoration where they fit. Auto
 not make direct `process.env` writes, cwd changes, module-cache mutation, fake-timer installation, or
 process-listener mutation safe in a shared-cache lane.
 
+No test lane may intercept or replace `process.stdout.write` or `process.stderr.write`. Process streams
+are executable-edge adapters, not injectable global state. Inject invocation-owned output sinks for
+ordinary tests; use a subprocess integration test only when the real executable adapter is the subject.
+
 Use this remediation hierarchy when a guard fires:
 
 1. Remove ambient state by injecting the existing typed dependency, gateway, `Clock`, or

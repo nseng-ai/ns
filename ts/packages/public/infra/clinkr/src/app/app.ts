@@ -24,6 +24,11 @@ import {
 import { createFilesystemSource } from "./filesystem-source.ts";
 import { composeSources, type ClinkrComposition } from "./programmatic-source.ts";
 import { ClinkrTopology } from "./topology.ts";
+import {
+	captureTerminalRun,
+	type CapturedTerminalRun,
+	type ClinkrTerminalTestAdapter,
+} from "./testing-runtime.ts";
 
 export interface ClinkrRunOptions<TContext> {
 	readonly context: TContext;
@@ -147,7 +152,7 @@ function requireRunContext<TContext>(
 	return options.context;
 }
 
-class TopologyClinkrApp<TContext> {
+class TopologyClinkrApp<TContext> implements ClinkrTerminalTestAdapter<TContext> {
 	private readonly name: string;
 	private readonly topology: ClinkrTopology<TContext>;
 	readonly requiresContext: boolean;
@@ -166,30 +171,51 @@ class TopologyClinkrApp<TContext> {
 		argv: readonly string[],
 		options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions = {},
 	): Promise<number> {
-		const { selected, metadata } = await this.loadDefinition();
-		if (selected.kind === "raw") {
+		const loaded = await this.loadDefinition();
+		if (loaded.selected.kind === "raw") {
 			// Raw dispatch branches before structured global-flag parsing: the raw
-			// command owns its entire argv tail (including `--format`,
-			// `--input-json`, `--json-schema`, `--help`, and `--`), all output
-			// bytes, stdin, and the numeric exit status, which passes through
-			// unchanged. Raw commands write to the process streams directly.
-			const definition = selected.definition;
+			// command owns its entire argv tail, process streams, stdin, and numeric
+			// exit status. It is terminal-only by construction.
+			const definition = loaded.selected.definition;
 			if (definition.requiresContext === true) {
 				return await definition.run({ context: requireRunContext(options), argv });
 			}
 			return await definition.run({ argv });
 		}
-		const definition = selected.definition;
+		const result = await this.runStructured(argv, options, loaded);
+		process.stdout.write(result.stdout);
+		process.stderr.write(result.stderr);
+		return result.exitCode;
+	}
+
+	async [captureTerminalRun](
+		argv: readonly string[],
+		options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions,
+	): Promise<CapturedTerminalRun> {
+		const loaded = await this.loadDefinition();
+		if (loaded.selected.kind === "raw") {
+			throw new Error("clinkr: raw command output must be tested through an executable boundary");
+		}
+		return await this.runStructured(argv, options, loaded);
+	}
+
+	private async runStructured(
+		argv: readonly string[],
+		options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions,
+		loaded: Awaited<ReturnType<TopologyClinkrApp<TContext>["loadDefinition"]>>,
+	): Promise<CapturedTerminalRun> {
+		if (loaded.selected.kind === "raw") throw new Error("clinkr: expected structured command");
+		const definition = loaded.selected.definition;
 		const canEmitAnsi = options.canEmitAnsi ?? resolveProcessCaps().colorDepth !== "none";
 		const parsed = parseGlobalFlags(argv);
 		if (parsed.ok ? parsed.flags.help : parsed.help) {
-			process.stdout.write(
-				buildCommandSurface(this.name, definition, metadata).command.helpInformation(),
+			return terminalResult(
+				0,
+				buildCommandSurface(this.name, definition, loaded.metadata).command.helpInformation(),
 			);
-			return 0;
 		}
 		if (!parsed.ok) {
-			return emitTerminalOutcome(
+			return renderTerminalOutcome(
 				frameworkUsageError(parsed.message, "invalid-request"),
 				definition,
 				parsed.format,
@@ -197,31 +223,30 @@ class TopologyClinkrApp<TContext> {
 			);
 		}
 		const { format, jsonSchema, inputJson, rest } = parsed.flags;
-		const emitUsageError = (
+		const renderUsageError = (
 			message: string,
 			errorType: FrameworkUsageErrorType,
 			data?: unknown,
-		): number =>
-			emitTerminalOutcome(
+		): CapturedTerminalRun =>
+			renderTerminalOutcome(
 				frameworkUsageError(message, errorType, data),
 				definition,
 				format,
 				canEmitAnsi,
 			);
 		if (jsonSchema && inputJson) {
-			return emitUsageError(
+			return renderUsageError(
 				"--json-schema cannot be combined with --input-json",
 				"invalid-request",
 			);
 		}
 		if (jsonSchema) {
-			process.stdout.write(`${envelopeJsonText(buildCommandJsonSchemaDocument(definition))}\n`);
-			return 0;
+			return terminalResult(0, `${envelopeJsonText(buildCommandJsonSchemaDocument(definition))}\n`);
 		}
 		let request: Record<string, unknown>;
 		if (inputJson) {
 			if (rest.length > 0) {
-				return emitUsageError(
+				return renderUsageError(
 					"--input-json cannot be combined with command arguments",
 					"invalid-request",
 				);
@@ -229,18 +254,16 @@ class TopologyClinkrApp<TContext> {
 			const readStdin = options.readStdin ?? drainProcessStdin;
 			const parsedJson = parseJsonInput(await readStdin(), definition.schema);
 			if (!parsedJson.success) {
-				return emitUsageError(parsedJson.message, parsedJson.errorType, parsedJson.data);
+				return renderUsageError(parsedJson.message, parsedJson.errorType, parsedJson.data);
 			}
 			request = parsedJson.data as Record<string, unknown>;
 		} else {
-			const parsedArgv = parseArgv(this.name, rest, definition, metadata);
-			if (!parsedArgv.success) {
-				return emitUsageError(parsedArgv.message, "invalid-request");
-			}
+			const parsedArgv = parseArgv(this.name, rest, definition, loaded.metadata);
+			if (!parsedArgv.success) return renderUsageError(parsedArgv.message, "invalid-request");
 			request = parsedArgv.data as Record<string, unknown>;
 		}
 		const outcome = await this.invokeHandler(definition, request, options);
-		return emitTerminalOutcome(outcome, definition, format, canEmitAnsi);
+		return renderTerminalOutcome(outcome, definition, format, canEmitAnsi);
 	}
 
 	async execute(
@@ -640,26 +663,28 @@ function renderOutcomeView(
 }
 
 /**
- * Single terminal emission tail: every structured outcome — handler-produced
- * or framework usage error — flows through here exactly once. JSON format
- * writes the machine envelope to stdout; human/md write the rendered view to
- * stdout and failure/usage-error messages to stderr.
+ * Single terminal rendering tail: every structured outcome — handler-produced
+ * or framework usage error — flows through here exactly once. `run()` owns the
+ * subsequent process-stream writes at the executable edge.
  */
-function emitTerminalOutcome(
+function terminalResult(exitCode: number, stdout = "", stderr = ""): CapturedTerminalRun {
+	return { exitCode, stdout, stderr };
+}
+
+function renderTerminalOutcome(
 	outcome: CommandOutcome<unknown>,
 	definition: ClinkrCommandDefinition,
 	format: OutputFormat,
 	canEmitAnsi: boolean,
-): number {
+): CapturedTerminalRun {
+	const exitCode = exitCodeFor(outcome.status);
 	if (format === "json") {
-		process.stdout.write(`${envelopeJsonText(toEnvelope(outcome))}\n`);
-		return exitCodeFor(outcome.status);
+		return terminalResult(exitCode, `${envelopeJsonText(toEnvelope(outcome))}\n`);
 	}
 	const view = renderOutcomeView(definition, outcome, format, { canEmitAnsi });
-	if (view !== undefined) {
-		process.stdout.write(`${view}\n`);
-	} else if (outcome.status === "failure" || outcome.status === "usage-error") {
-		process.stderr.write(`${boundaryText(canEmitAnsi, outcome.message)}\n`);
+	if (view !== undefined) return terminalResult(exitCode, `${view}\n`);
+	if (outcome.status === "failure" || outcome.status === "usage-error") {
+		return terminalResult(exitCode, "", `${boundaryText(canEmitAnsi, outcome.message)}\n`);
 	}
-	return exitCodeFor(outcome.status);
+	return terminalResult(exitCode);
 }

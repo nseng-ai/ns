@@ -27,7 +27,11 @@ The default, integration, and TypeScript style guard lanes share the Vitest modu
 
 Shared Vitest configuration automatically restores mock functions/spies and values stubbed with
 `vi.stubEnv()` / `vi.stubGlobal()`; that does not make direct process, module-cache, fake-timer,
-listener, or singleton mutation safe. Put only tests whose subject genuinely requires ambient
+listener, or singleton mutation safe.
+
+Do not intercept or replace `process.stdout.write` or `process.stderr.write` in any lane. Treat
+process streams as executable-edge adapters, not injectable global state; application and test code
+must receive invocation-owned output sinks. Put only tests whose subject genuinely requires ambient
 module/process behavior under `test/isolated/`; this is distinct from `test/integration/`, which is
 for real adapter/runtime boundaries. Run isolated tests with `just ts-test-isolated`. The default
 `just` entrypoint deliberately omits isolated tests; CI runs them in a separate job. See `ts/TESTING.md`
@@ -49,7 +53,8 @@ Do not add raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInt
 semantics and preferred fixes live in `.agents/skills/typescript-style/` (`core-rules.md`,
 `checklist.md`). Mechanically enforced ids: `NS_TS_BAN_AS_UNKNOWN_AS`,
 `NS_TS_BAN_IMPORT_ALIAS_FOR_FIRST_PARTY`, `NS_TS_BAN_EMPTY_INTERFACE_EXTENDS`,
-`NS_TS_BAN_RAW_PRODUCTION_TIMERS`, plus the five shared-test bans above.
+`NS_TS_BAN_RAW_PRODUCTION_TIMERS`, `NS_TS_BAN_PROCESS_STREAM_WRITE_INTERCEPTION`, plus the five
+shared-test bans above.
 `NS_TS_BAN_IMPORTED_BINDING_LOCAL_ALIAS` is review-only — legitimate constants share the same AST
 shape, so do not work around alias bans with `const LocalName = ImportedName`.
 
