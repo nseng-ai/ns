@@ -32,13 +32,14 @@ export interface LandingPreflightMode {
 /**
  * Closed post-landing cleanup policy for the current managed-slot worktree.
  *
- * - `preserve`: keep the current slot and local branch; never prompt or mutate.
- * - `free-slot`: free the current managed slot after a successful landing after confirmation.
- * - `force-cleanup`: authorized cleanup without a new cleanup prompt.
+ * - `preserve` (default): keep the current slot and local branch; never prompt or mutate.
+ * - `free`: explicit opt-in (`--free`) that frees the current managed slot and deletes the landed
+ *   local branch after a successful landing. The flag itself is the consent; no separate cleanup
+ *   confirmation is prompted.
  *
  * `mode: "dry-run"` always dominates cleanup policy and performs no cleanup mutation.
  */
-export type LandingCleanupPolicy = "preserve" | "free-slot" | "force-cleanup";
+export type LandingCleanupPolicy = "preserve" | "free";
 
 export interface LandContext {
 	readonly git: LandGitGateway;
@@ -206,10 +207,9 @@ export interface MergeMaintenanceCleanupReport {
 /** Observed outcome of post-landing managed-slot cleanup. */
 export type PostLandingSlotCleanupReport =
 	| { readonly type: "not-applicable" }
-	| { readonly type: "preserved" }
+	| { readonly type: "preserved"; readonly slotName: string; readonly branch: string }
 	| { readonly type: "dry-run" }
 	| { readonly type: "not-run"; readonly reason: string }
-	| { readonly type: "declined"; readonly slotName: string; readonly branch: string }
 	| {
 			readonly type: "completed";
 			readonly freedSlot: ManagedSlotWorktree;

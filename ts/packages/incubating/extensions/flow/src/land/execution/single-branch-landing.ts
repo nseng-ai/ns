@@ -11,7 +11,6 @@ import { isVerifiedMergedPullRequest } from "./merged-pull-request-verification.
 import {
 	planManagedSlotPostLandingCleanup,
 	type PostLandingCleanupRequest,
-	type PostLandingSlotCleanupDecision,
 } from "./post-landing-cleanup.ts";
 
 const SQUASH_MERGE_PROGRESS = "Running gh pr merge --squash with PR title/body as commit message…";
@@ -34,20 +33,17 @@ export type SingleBranchLandingOutcome =
 			readonly type: "completed";
 			readonly result: "dry-run";
 			readonly pullRequest: PullRequestFacts;
-			readonly cleanupDecision: { readonly type: "not-needed" };
 	  }
 	| {
 			readonly type: "completed";
 			readonly result: "merged";
 			readonly pullRequest: PullRequestFacts;
 			readonly commandOutput: string;
-			readonly cleanupDecision: PostLandingSlotCleanupDecision;
 	  }
 	| {
 			readonly type: "failure";
 			readonly stage: "load" | "base-check" | "confirmation" | "merge" | "verification";
 			readonly failure: LandingFailure;
-			readonly cleanupDecision: PostLandingSlotCleanupDecision;
 	  };
 
 export function isSingleBranchFastPath(stack: StackSnapshot): boolean {
@@ -62,18 +58,12 @@ export function isSingleBranchFastPath(stack: StackSnapshot): boolean {
 export async function executeSingleBranchLanding(
 	options: ExecuteSingleBranchLandingOptions,
 ): Promise<SingleBranchLandingOutcome> {
-	const noCleanup: PostLandingSlotCleanupDecision = { type: "not-needed" };
 	const prResult = await options.context.github.pullRequestFacts({
 		repoRoot: options.target.repoRoot,
 		branchOrNumber: options.target.stack.actualCurrentBranch,
 	});
 	if (prResult.type === "failure") {
-		return {
-			type: "failure",
-			stage: "load",
-			failure: prResult.failure,
-			cleanupDecision: noCleanup,
-		};
+		return { type: "failure", stage: "load", failure: prResult.failure };
 	}
 	const pullRequest = prResult.value;
 
@@ -85,17 +75,11 @@ export async function executeSingleBranchLanding(
 				`Refusing to land PR #${pullRequest.number}: base branch is '${pullRequest.baseRefName}', not Graphite trunk '${options.target.trunk}'. Merge not attempted.`,
 				{ outcome: "refusal" },
 			),
-			cleanupDecision: noCleanup,
 		};
 	}
 
 	if (options.isDryRun) {
-		return {
-			type: "completed",
-			result: "dry-run",
-			pullRequest,
-			cleanupDecision: noCleanup,
-		};
+		return { type: "completed", result: "dry-run", pullRequest };
 	}
 
 	const cleanupPreview = planManagedSlotPostLandingCleanup({
@@ -116,12 +100,8 @@ export async function executeSingleBranchLanding(
 				confirmation.type === "declined"
 					? landingCancelledBeforeMergeFailure()
 					: confirmation.failure,
-			cleanupDecision: noCleanup,
 		};
 	}
-
-	const cleanupDecision: PostLandingSlotCleanupDecision =
-		cleanupPreview === undefined ? noCleanup : { type: "approved" };
 
 	options.host.progress.setStatus(SQUASH_MERGE_PROGRESS);
 	options.host.progress.note(SQUASH_MERGE_PROGRESS);
@@ -130,12 +110,7 @@ export async function executeSingleBranchLanding(
 		pullRequest,
 	});
 	if (mergeResult.type === "failure") {
-		return {
-			type: "failure",
-			stage: "merge",
-			failure: mergeResult.failure,
-			cleanupDecision,
-		};
+		return { type: "failure", stage: "merge", failure: mergeResult.failure };
 	}
 
 	const verified = await options.context.github.pullRequestFacts({
@@ -149,7 +124,6 @@ export async function executeSingleBranchLanding(
 			failure: landingExecutionFailure(
 				`gh pr merge exited 0, but verification could not load PR #${pullRequest.number}; post-landing cleanup skipped.\n${verified.failure.message}`,
 			),
-			cleanupDecision,
 		};
 	}
 
@@ -164,7 +138,6 @@ export async function executeSingleBranchLanding(
 			failure: landingExecutionFailure(
 				"gh pr merge exited 0 but PR did not verify as MERGED; post-landing cleanup skipped.",
 			),
-			cleanupDecision,
 		};
 	}
 
@@ -173,7 +146,6 @@ export async function executeSingleBranchLanding(
 		result: "merged",
 		pullRequest,
 		commandOutput: successfulCommandOutput(mergeResult.value),
-		cleanupDecision,
 	};
 }
 

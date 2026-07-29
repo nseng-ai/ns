@@ -20,7 +20,7 @@ export const landFlagDescriptors = [
 		commandRequestField: "yes",
 		commandShort: "-y",
 		usageDescription:
-			"Skip stack/global landing and post-landing cleanup confirmation. Landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation.",
+			"Skip the stack/global landing confirmation. Landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation.",
 		commandDescription: "Confirm stack landing without an interactive prompt.",
 	},
 	{
@@ -33,13 +33,13 @@ export const landFlagDescriptors = [
 		commandDescription: "Show what would land without merging PRs.",
 	},
 	{
-		long: "--preserve",
-		aliases: ["--preserve", "-p"],
-		parsedArg: "shouldPreserveSlot",
-		commandRequestField: "preserve",
-		commandShort: "-p",
+		long: "--free",
+		aliases: ["--free", "-F"],
+		parsedArg: "shouldFreeSlot",
+		commandRequestField: "free",
+		commandShort: "-F",
 		usageDescription:
-			"Keep the current managed slot and landed local branch after successful landing.",
+			"After a successful landing, free the current managed slot and delete the landed local branch.",
 	},
 	{
 		long: "--up",
@@ -47,15 +47,7 @@ export const landFlagDescriptors = [
 		parsedArg: "shouldContinueUpstack",
 		commandRequestField: "up",
 		usageDescription:
-			"After landing, continue onto the sole immediate upstack child in this worktree; always keep the managed slot. Use --preserve as well to keep the landed local branch.",
-	},
-	{
-		long: "--force",
-		aliases: ["--force", "-f"],
-		parsedArg: "shouldForceCleanup",
-		commandRequestField: "force",
-		commandShort: "-f",
-		usageDescription: "Skip the post-landing cleanup confirmation.",
+			"After landing, continue onto the sole immediate upstack child in this worktree; always keep the managed slot. By default the landed local branch is retained; pass --free to delete it after successful continuation.",
 	},
 	{
 		long: "--verbose",

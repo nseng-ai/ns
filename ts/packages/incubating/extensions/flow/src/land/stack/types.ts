@@ -60,9 +60,8 @@ export interface LandExecutionApi {
 export interface ParsedArgs {
 	shouldSkipConfirmation: boolean;
 	isDryRun: boolean;
-	shouldPreserveSlot: boolean;
+	shouldFreeSlot: boolean;
 	shouldContinueUpstack: boolean;
-	shouldForceCleanup: boolean;
 	shouldShowHelp: boolean;
 	shouldStreamVerboseOutput: boolean;
 }

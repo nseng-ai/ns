@@ -4,6 +4,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { postLandingCleanupCommands } from "../confirmation-commands.ts";
 import { deleteLocalBranchOperation, formatGraphiteOperation } from "../graphite-operations.ts";
 import { landingExecutionFailure } from "../results.ts";
+import type { LandExecutionStatusProgress } from "./host-seams.ts";
 import {
 	boundaryFailureDiagnostics,
 	type LandContext,
@@ -15,7 +16,6 @@ import {
 	type PostLandingSlotCleanupReport,
 } from "../types.ts";
 import { isManagedSlotPath, slotNameFromPath } from "../worktree-paths.ts";
-import type { LandConfirmationGateway, LandExecutionStatusProgress } from "./host-seams.ts";
 
 export interface PostLandingSlotCleanupPreview {
 	readonly branch: string;
@@ -23,11 +23,6 @@ export interface PostLandingSlotCleanupPreview {
 	readonly slotName: string;
 	readonly localBranchDisposition: "delete" | "keep-trunk";
 }
-
-export type PostLandingSlotCleanupDecision =
-	| { readonly type: "not-needed" }
-	| { readonly type: "approved" }
-	| { readonly type: "declined" };
 
 /** Post-landing cleanup inputs derived from the public landing request. */
 export interface PostLandingCleanupRequest {
@@ -71,38 +66,13 @@ export function postLandingCleanupSkipReport(
 	cleanup: PostLandingCleanupRequest,
 	shape: LandingShape,
 ): PostLandingSlotCleanupReport {
-	if (!isManagedSlotPath(shape.repoRoot) || slotNameFromPath(shape.repoRoot) === undefined) {
-		return { type: "not-applicable" };
-	}
+	const slotName = isManagedSlotPath(shape.repoRoot) ? slotNameFromPath(shape.repoRoot) : undefined;
+	if (slotName === undefined) return { type: "not-applicable" };
 	if (cleanup.mode === "dry-run") return { type: "dry-run" };
-	if (cleanup.policy === "preserve") return { type: "preserved" };
-	return { type: "not-applicable" };
-}
-
-export async function resolveManagedSlotPostLandingCleanupDecision(options: {
-	readonly confirmation: LandConfirmationGateway;
-	readonly cleanup: PostLandingCleanupRequest;
-	readonly shape: LandingShape;
-}): Promise<
-	| { readonly type: "success"; readonly value: PostLandingSlotCleanupDecision }
-	| { readonly type: "failure"; readonly failure: LandingFailure }
-> {
-	const target = postLandingCleanupTarget(options.cleanup, options.shape);
-	if (target === undefined) return { type: "success", value: { type: "not-needed" } };
-	if (options.cleanup.policy === "force-cleanup") {
-		return { type: "success", value: { type: "approved" } };
+	if (cleanup.policy === "preserve") {
+		return { type: "preserved", slotName, branch: shape.stack.actualCurrentBranch };
 	}
-
-	const decision = await options.confirmation.confirm({
-		kind: "post-landing-cleanup",
-		branch: target.branch,
-		repoRoot: target.repoRoot,
-		slotName: target.slotName,
-		localBranchDisposition: target.localBranchDisposition,
-	});
-	if (decision.type === "approved") return { type: "success", value: { type: "approved" } };
-	if (decision.type === "declined") return { type: "success", value: { type: "declined" } };
-	return { type: "failure", failure: decision.failure };
+	return { type: "not-applicable" };
 }
 
 export async function runManagedSlotPostLandingCleanup(options: {
@@ -110,28 +80,14 @@ export async function runManagedSlotPostLandingCleanup(options: {
 	readonly progress: LandExecutionStatusProgress;
 	readonly cleanup: PostLandingCleanupRequest;
 	readonly shape: LandingShape;
-	readonly cleanupDecision: PostLandingSlotCleanupDecision;
 }): Promise<PostLandingCleanupResult> {
+	// Deterministic cleanup authorization: the explicit `free` policy (`--free`) is itself the
+	// consent, so a resolved cleanup target is the sole decision point for mutation.
 	const target = postLandingCleanupTarget(options.cleanup, options.shape);
-	if (options.cleanupDecision.type === "not-needed" || target === undefined) {
+	if (target === undefined) {
 		return {
 			type: "completed",
 			outcome: postLandingCleanupSkipReport(options.cleanup, options.shape),
-		};
-	}
-
-	if (options.cleanupDecision.type === "declined") {
-		return {
-			type: "failure",
-			outcome: { type: "declined", slotName: target.slotName, branch: target.branch },
-			failure: landingExecutionFailure(
-				`Skipped post-landing cleanup by upfront choice; PRs were landed but ${target.slotName} and local branch ${target.branch} were kept.`,
-				{
-					level: "warning",
-					outcome: "refusal",
-					suggestedAction: target.suggestedAction,
-				},
-			),
 		};
 	}
 

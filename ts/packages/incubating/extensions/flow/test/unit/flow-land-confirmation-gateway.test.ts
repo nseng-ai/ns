@@ -168,19 +168,6 @@ const requestTable: ReadonlyArray<ConfirmationRequestEntry> = [
 		title: "Run gt submit/update?",
 		detailIncludes: ["feature-a", "#7"],
 	},
-	{
-		name: "post-landing-cleanup",
-		request: {
-			kind: "post-landing-cleanup",
-			branch: "feature-a",
-			repoRoot: SLOT_ROOT,
-			slotName: "slot-02",
-			localBranchDisposition: "delete",
-		},
-		title: "Free current slot and delete local branch?",
-		detailIncludes: ["feature-a", "slot-02"],
-		defaultAnswer: "yes",
-	},
 ];
 
 describe("flow land confirmation gateway", () => {

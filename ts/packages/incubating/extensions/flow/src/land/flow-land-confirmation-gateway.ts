@@ -4,7 +4,6 @@
 // exhaustive switch; command lists in details, refusals, and suggested actions come from the
 // structural builders in confirmation-commands.ts.
 
-import { postLandingCleanupCommands } from "./confirmation-commands.ts";
 import type {
 	LandConfirmationDecision,
 	LandConfirmationGateway,
@@ -15,14 +14,11 @@ import {
 	formatFreeManagedSlotsConfirmationDetails,
 	formatSingleBranchMainLandingConfirmationDetails,
 	formatPlan,
-	formatPostLandingCleanupConfirmationDetails,
 	formatSubmitRequiredUpdatesConfirmationDetails,
 	freeManagedSlotsConfirmationTitle,
 	freeManagedSlotsNonInteractiveRefusalMessage,
 	singleBranchMainLandingConfirmationTitle,
 	singleBranchMainLandingNonInteractiveRefusalMessage,
-	postLandingCleanupConfirmationTitle,
-	postLandingCleanupNonInteractiveRefusalMessage,
 	submitRequiredUpdatesConfirmationTitle,
 	submitRequiredUpdatesNonInteractiveRefusalMessage,
 	submitRequiredUpdatesSuggestedAction,
@@ -54,7 +50,6 @@ export function createUpfrontApprovedLandConfirmationGateway(
 				case "single-branch-main-landing":
 				case "free-managed-slots":
 				case "submit-required-updates":
-				case "post-landing-cleanup":
 					return approvedKinds.has(request.kind)
 						? { type: "approved", approvalSource: "approved-upfront" }
 						: await base.confirm(request);
@@ -90,8 +85,6 @@ function confirmationOptions(
 			return freeManagedSlotsOptions(ctx, request);
 		case "submit-required-updates":
 			return submitRequiredUpdatesOptions(ctx, request);
-		case "post-landing-cleanup":
-			return postLandingCleanupOptions(ctx, request);
 		default:
 			assertNever(request);
 	}
@@ -152,30 +145,6 @@ function submitRequiredUpdatesOptions(
 		nonInteractiveFailureOptions: {
 			suggestedAction: submitRequiredUpdatesSuggestedAction(request),
 		},
-	};
-}
-
-function postLandingCleanupOptions(
-	ctx: PrintAwareLandStackCommandContext,
-	request: Extract<LandConfirmationRequest, { readonly kind: "post-landing-cleanup" }>,
-): ConfirmLandStackActionOptions {
-	return {
-		ctx,
-		shouldPrompt: true,
-		title: postLandingCleanupConfirmationTitle(),
-		details: formatPostLandingCleanupConfirmationDetails(request),
-		nonInteractiveMessage: postLandingCleanupNonInteractiveRefusalMessage(request),
-		nonInteractiveFailureOptions: {
-			suggestedAction:
-				"Pass --yes or --force to approve cleanup, or --preserve to keep the current slot and local branch.",
-		},
-		cancellationMessage: "Skipped post-landing cleanup by upfront choice.",
-		cancellationFailureOptions: {
-			level: "warning",
-			outcome: "refusal",
-			suggestedAction: `Run ${postLandingCleanupCommands(request).join(", then ")} when safe.`,
-		},
-		defaultAnswer: "yes",
 	};
 }
 

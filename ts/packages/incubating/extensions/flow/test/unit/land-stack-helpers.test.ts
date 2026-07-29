@@ -301,39 +301,35 @@ describe("land-stack pure helpers", () => {
 		expect(landArgumentCompletions("")).toEqual([
 			{ value: "--yes", label: "--yes" },
 			{ value: "--dry-run", label: "--dry-run" },
-			{ value: "--preserve", label: "--preserve" },
+			{ value: "--free", label: "--free" },
 			{ value: "--up", label: "--up" },
-			{ value: "--force", label: "--force" },
 			{ value: "--verbose", label: "--verbose" },
 			{ value: "--help", label: "--help" },
 		]);
-		expect(landArgumentCompletions("--pr")).toEqual([{ value: "--preserve", label: "--preserve" }]);
+		expect(landArgumentCompletions("--fr")).toEqual([{ value: "--free", label: "--free" }]);
 		expect(landArgumentCompletions("--missing")).toBeNull();
 	});
 
 	test("parses supported command arguments", () => {
-		expect(
-			expectSuccess(parseArgs("--yes --dry-run --preserve --up --force --verbose --help")),
-		).toEqual({
+		expect(expectSuccess(parseArgs("--yes --dry-run --free --up --verbose --help"))).toEqual({
 			shouldSkipConfirmation: true,
 			isDryRun: true,
-			shouldPreserveSlot: true,
+			shouldFreeSlot: true,
 			shouldContinueUpstack: true,
-			shouldForceCleanup: true,
 			shouldShowHelp: true,
 			shouldStreamVerboseOutput: true,
 		});
-		expect(expectSuccess(parseArgs("-y -p -f -h"))).toEqual({
+		expect(expectSuccess(parseArgs("-y -F -h"))).toEqual({
 			shouldSkipConfirmation: true,
 			isDryRun: false,
-			shouldPreserveSlot: true,
+			shouldFreeSlot: true,
 			shouldContinueUpstack: false,
-			shouldForceCleanup: true,
 			shouldShowHelp: true,
 			shouldStreamVerboseOutput: false,
 		});
 		expect(expectSuccess(parseArgs(""))).toMatchObject({
-			shouldPreserveSlot: false,
+			shouldFreeSlot: false,
+			shouldContinueUpstack: false,
 		});
 		expect(expectFailure(parseArgs("--wat")).message).toContain(
 			"Unknown /ns:flow:land argument: --wat",
@@ -344,29 +340,27 @@ describe("land-stack pure helpers", () => {
 
 	test("derives usage and Clinkr wrapper flag surfaces from the descriptors", () => {
 		expect(usage()).toContain(
-			"/ns:flow:land [--yes] [--dry-run] [--preserve] [--up] [--force] [--verbose] [--help]",
+			"/ns:flow:land [--yes] [--dry-run] [--free] [--up] [--verbose] [--help]",
 		);
 		expect(usage()).toContain(
-			"  --preserve, -p  Keep the current managed slot and landed local branch after successful landing.",
+			"  --free, -F      After a successful landing, free the current managed slot and delete the landed local branch.",
 		);
 		expect(usage()).toContain("  --help, -h      Show this help.");
 		expect(landCommandOptionSpecs()).toEqual({
 			yes: { short: "-y" },
 			dryRun: { short: "-n" },
-			preserve: { short: "-p" },
-			force: { short: "-f" },
+			free: { short: "-F" },
 			verbose: { short: "-v" },
 		});
 		expect(
 			landRawArgsFromCommandRequest({
 				yes: true,
 				dryRun: true,
-				preserve: true,
+				free: true,
 				up: true,
-				force: true,
 				verbose: true,
 			}),
-		).toEqual(["--yes", "--dry-run", "--preserve", "--up", "--force", "--verbose"]);
+		).toEqual(["--yes", "--dry-run", "--free", "--up", "--verbose"]);
 	});
 
 	test("derives the landing path from Graphite metadata", () => {

@@ -28,13 +28,6 @@ export type LandConfirmationRequest =
 			readonly restackTarget?: string;
 			readonly requirements: readonly PrSubmitRequirement[];
 			readonly restackRequirements: readonly RestackRequirement[];
-	  }
-	| {
-			readonly kind: "post-landing-cleanup";
-			readonly branch: string;
-			readonly repoRoot: string;
-			readonly slotName: string;
-			readonly localBranchDisposition: "delete" | "keep-trunk";
 	  };
 
 export type LandConfirmationDecision =

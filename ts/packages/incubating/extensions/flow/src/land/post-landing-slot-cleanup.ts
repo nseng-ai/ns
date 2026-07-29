@@ -1,39 +1,41 @@
 // Flow-side glue for post-landing managed-slot cleanup.
 //
 // Canonical stack execution owns cleanup end to end; this module keeps the deterministic
-// ParsedArgs -> cleanup policy mapping, the upfront-confirmation preview, and the single-branch
-// fast-path glue that still runs cleanup outside canonical stack execution.
+// ParsedArgs -> cleanup policy mapping and the single-branch fast-path glue that still runs
+// cleanup outside canonical stack execution.
 
 import type { LandExecutionStatusProgress } from "./execution/host-seams.ts";
 import {
 	planManagedSlotPostLandingCleanup,
 	runManagedSlotPostLandingCleanup,
 	type PostLandingCleanupRequest,
-	type PostLandingSlotCleanupDecision,
 	type PostLandingSlotCleanupPreview,
 } from "./execution/post-landing-cleanup.ts";
-import { notifyPrintAware, presentFailureAndReturn, setStatus } from "./land-presentation.ts";
+import {
+	formatPreservedSlotHint,
+	notifyPrintAware,
+	presentFailureAndReturn,
+	setStatus,
+} from "./land-presentation.ts";
 import { landCompleted, landOutcomeFailure, type LandOutcome } from "./results.ts";
 import type { PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/types.ts";
 import type { LandContext, LandingCleanupPolicy, LandingShape } from "./types.ts";
 
-export type { PostLandingSlotCleanupDecision, PostLandingSlotCleanupPreview };
+export type { PostLandingSlotCleanupPreview };
 
 /**
- * Deterministic flag-to-policy mapping: `--preserve` wins over `--force`, and ordinary execution
- * in a managed slot lands as `free-slot`. `--up` preservation is continuation policy rather than
- * cleanup policy; `--yes` stays approval state, not a cleanup policy.
+ * Deterministic flag-to-policy mapping: `preserve` is the default and `--free` opts into freeing
+ * the current managed slot. `--up` slot preservation is continuation policy rather than cleanup
+ * policy; `--yes` stays approval state, not a cleanup policy.
  */
 export function landingCleanupPolicyFromArgs(
-	args: Pick<ParsedArgs, "shouldPreserveSlot" | "shouldForceCleanup">,
+	args: Pick<ParsedArgs, "shouldFreeSlot">,
 ): LandingCleanupPolicy {
-	if (args.shouldPreserveSlot) return "preserve";
-	if (args.shouldForceCleanup) return "force-cleanup";
-	return "free-slot";
+	return args.shouldFreeSlot ? "free" : "preserve";
 }
 
 export function postLandingCleanupRequestFromArgs(
-	args: Pick<ParsedArgs, "isDryRun" | "shouldPreserveSlot" | "shouldForceCleanup">,
+	args: Pick<ParsedArgs, "isDryRun" | "shouldFreeSlot">,
 ): PostLandingCleanupRequest {
 	return {
 		mode: args.isDryRun ? "dry-run" : "execute",
@@ -57,7 +59,6 @@ interface RunPostLandingSlotCleanupOptions {
 	readonly ctx: PrintAwareLandStackCommandContext;
 	readonly args: ParsedArgs;
 	readonly shape: LandingShape;
-	readonly cleanupDecision: PostLandingSlotCleanupDecision;
 }
 
 /** Single-branch fast-path glue: run cleanup after landing outside canonical stack execution. */
@@ -69,7 +70,6 @@ export async function runPostLandingSlotCleanup(
 		progress: createCleanupProgress(options.ctx),
 		cleanup: postLandingCleanupRequestFromArgs(options.args),
 		shape: options.shape,
-		cleanupDecision: options.cleanupDecision,
 	});
 	if (result.type === "failure") {
 		presentFailureAndReturn(options.ctx, result.failure);
@@ -81,6 +81,13 @@ export async function runPostLandingSlotCleanup(
 			message: result.successMessage,
 			level: "success",
 			kind: "success",
+		});
+	}
+	if (result.outcome.type === "preserved") {
+		notifyPrintAware({
+			ctx: options.ctx,
+			message: formatPreservedSlotHint(result.outcome),
+			level: "info",
 		});
 	}
 	return landCompleted();
