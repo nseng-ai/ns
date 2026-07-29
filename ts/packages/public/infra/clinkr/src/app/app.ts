@@ -6,10 +6,10 @@ import { stripAnsi } from "../ansi.ts";
 import { resolveProcessCaps } from "../caps.ts";
 import { buildCommanderArgument, buildCommanderOption } from "../commander-surface.ts";
 import { renderCompletionCandidatesNewline } from "../completion-support.ts";
-import { buildSurfacePlan, type SurfacePlan } from "../surface.ts";
+import type { SurfacePlan } from "../surface.ts";
 import {
 	buildCommandJsonSchemaDocument,
-	cliAnnotationFor,
+	buildCommandSurfacePlan,
 	type ClinkrCommandDefinition,
 	type ClinkrCommandMetadata,
 	type ClinkrCompletionCandidate,
@@ -643,28 +643,15 @@ function createContainedCommand(name: string): Command {
 }
 
 /**
- * Single extraction pass from the declared schema to both the surface plan
- * and the commander registration built from that same plan, so the two can
- * never drift.
+ * Materialize Commander registration from the canonical app surface plan
+ * shared with completion, so parsing, help, and completion cannot drift.
  */
 function buildCommandSurface(
 	name: string,
 	definition: ClinkrCommandDefinition,
 	metadata: ClinkrCommandMetadata,
 ): CommandSurface {
-	const positionals: Record<string, { position: number; description?: string }> = {};
-	const optionSpecs: Record<string, { short?: string; description?: string }> = {};
-	for (const [key, field] of Object.entries(definition.schema.shape)) {
-		const annotation = cliAnnotationFor(field as z.ZodType);
-		if (annotation?.type === "positional") positionals[key] = annotation.options;
-		if (annotation?.type === "option") optionSpecs[key] = annotation.options;
-	}
-	const surface = buildSurfacePlan({
-		commandName: name,
-		schema: definition.schema,
-		positionals,
-		optionSpecs,
-	});
+	const surface = buildCommandSurfacePlan(name, definition);
 	const command = createContainedCommand(name).description(metadata.description);
 	if (metadata.aliases !== undefined) command.aliases([...metadata.aliases]);
 	for (const positional of surface.positionals) {

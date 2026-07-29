@@ -1,4 +1,10 @@
-import type { ClinkrCompletionOptionPlan, ClinkrCompletionShell } from "./completion-support.ts";
+import {
+	CLINKR_HELP_OPTIONS,
+	CLINKR_RUNTIME_OPTION,
+	CLINKR_VERSION_OPTION,
+	type ClinkrCompletionOptionPlan,
+	type ClinkrCompletionShell,
+} from "./completion-support.ts";
 import type { FieldKind, PositionalPlan } from "./surface.ts";
 
 export type ClinkrCompletionCandidateType =
@@ -80,22 +86,6 @@ interface CompletionContext<TContext> {
 	command?: ClinkrCompletionCommandPlan<TContext>;
 	args: readonly string[];
 }
-
-const HELP_OPTIONS: readonly ClinkrCompletionOptionPlan[] = [
-	{ flags: ["-h", "--help"], kind: { type: "boolean" }, description: "Display help for command." },
-];
-
-const VERSION_OPTION: ClinkrCompletionOptionPlan = {
-	flags: ["-V", "--version"],
-	kind: { type: "boolean" },
-	description: "Show the package version.",
-};
-
-const RUNTIME_OPTION: ClinkrCompletionOptionPlan = {
-	flags: ["--runtime"],
-	kind: { type: "boolean" },
-	description: "Show CLI runtime diagnostics and exit.",
-};
 
 export {
 	CLINKR_JSON_SCHEMA_OPTION,
@@ -239,9 +229,9 @@ function groupOptions<TContext>(
 	group: ClinkrCompletionGroupPlan<TContext>,
 ): readonly ClinkrCompletionOptionPlan[] {
 	return [
-		...HELP_OPTIONS,
-		...(group.isRoot && group.hasVersionOption ? [VERSION_OPTION] : []),
-		...(group.isRoot && group.hasRuntimeOption ? [RUNTIME_OPTION] : []),
+		...CLINKR_HELP_OPTIONS,
+		...(group.isRoot && group.hasVersionOption ? [CLINKR_VERSION_OPTION] : []),
+		...(group.isRoot && group.hasRuntimeOption ? [CLINKR_RUNTIME_OPTION] : []),
 		...(group.defaultCommand === undefined ? [] : commandOptions(group.defaultCommand)),
 	];
 }
@@ -249,7 +239,7 @@ function groupOptions<TContext>(
 function commandOptions<TContext>(
 	command: ClinkrCompletionCommandPlan<TContext>,
 ): readonly ClinkrCompletionOptionPlan[] {
-	return [...HELP_OPTIONS, ...command.options];
+	return [...CLINKR_HELP_OPTIONS, ...command.options];
 }
 
 function optionCandidates(

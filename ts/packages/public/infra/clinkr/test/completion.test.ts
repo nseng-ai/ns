@@ -154,7 +154,11 @@ describe("clinkr static completion", () => {
 
 		expect(candidateValues(group, ["echo", "--mode", "s"])).toEqual(["slow"]);
 		expect(candidateValues(group, ["echo", "--mode=f"])).toEqual(["--mode=fast"]);
-		expect(candidateValues(group, ["echo", "--format", "m"])).toEqual(["md"]);
+		expect(candidateValues(group, ["echo", "--format", "m"])).toEqual(["markdown", "md"]);
+		expect(candidateValues(group, ["echo", "--format=m"])).toEqual([
+			"--format=markdown",
+			"--format=md",
+		]);
 	});
 
 	test("suggests positional enum values", () => {

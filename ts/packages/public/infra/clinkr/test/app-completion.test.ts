@@ -373,6 +373,9 @@ test("structured flags and exact formats are completed, while raw tails have no 
 		expect.arrayContaining(["--mode", "--format", "--json-schema", "--input-json", "--help"]),
 	);
 	expect(
+		(await app.complete({ words: ["choose", "-"] })).candidates.map((entry) => entry.value),
+	).toContain("-m");
+	expect(
 		(await app.complete({ words: ["choose", "--format", ""] })).candidates.map(
 			(entry) => entry.value,
 		),

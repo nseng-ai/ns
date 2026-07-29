@@ -8,7 +8,31 @@ export interface ClinkrCompletionOptionPlan {
 	readonly description: string;
 }
 
+export const CLINKR_HELP_OPTIONS: readonly ClinkrCompletionOptionPlan[] = [
+	{ flags: ["-h", "--help"], kind: { type: "boolean" }, description: "Display help for command." },
+];
+
+export const CLINKR_VERSION_OPTION: ClinkrCompletionOptionPlan = {
+	flags: ["-V", "--version"],
+	kind: { type: "boolean" },
+	description: "Show the package version.",
+};
+
+export const CLINKR_RUNTIME_OPTION: ClinkrCompletionOptionPlan = {
+	flags: ["--runtime"],
+	kind: { type: "boolean" },
+	description: "Show CLI runtime diagnostics and exit.",
+};
+
 export const CLINKR_RENDERED_COMMAND_OPTIONS: readonly ClinkrCompletionOptionPlan[] = [
+	{
+		flags: ["--format"],
+		kind: { type: "enum", values: ["human", "json", "markdown", "md"] },
+		description: "Output format.",
+	},
+];
+
+export const CLINKR_APP_RENDERED_COMMAND_OPTIONS: readonly ClinkrCompletionOptionPlan[] = [
 	{
 		flags: ["--format"],
 		kind: { type: "enum", values: ["human", "json", "md"] },

@@ -1,12 +1,15 @@
 import {
+	CLINKR_APP_RENDERED_COMMAND_OPTIONS,
+	CLINKR_HELP_OPTIONS,
 	CLINKR_JSON_SCHEMA_OPTION,
-	CLINKR_RENDERED_COMMAND_OPTIONS,
+	CLINKR_RUNTIME_OPTION,
+	CLINKR_VERSION_OPTION,
 	completionOptionFromSurface,
 	type ClinkrCompletionOptionPlan,
 } from "../completion-support.ts";
-import { buildSurfacePlan, type FieldKind, type PositionalPlan } from "../surface.ts";
+import type { FieldKind, PositionalPlan } from "../surface.ts";
 import {
-	cliAnnotationFor,
+	buildCommandSurfacePlan,
 	type ClinkrCommandDefinition,
 	type ClinkrCompletionCandidate,
 	type ClinkrCompletionProviderRequest,
@@ -15,22 +18,6 @@ import {
 } from "./command-definition.ts";
 import type { ClinkrNavigator } from "./navigator.ts";
 import type { OpenedScope } from "./topology.ts";
-import type { z } from "zod";
-
-const HELP_OPTIONS: readonly ClinkrCompletionOptionPlan[] = [
-	{ flags: ["-h", "--help"], kind: { type: "boolean" }, description: "Display help for command." },
-];
-const VERSION_OPTION: ClinkrCompletionOptionPlan = {
-	flags: ["-V", "--version"],
-	kind: { type: "boolean" },
-	description: "Show the package version.",
-};
-const RUNTIME_OPTION: ClinkrCompletionOptionPlan = {
-	flags: ["--runtime"],
-	kind: { type: "boolean" },
-	description: "Show CLI runtime diagnostics and exit.",
-};
-
 export interface CompletionRuntimeOptions<TContext, TInvocationOptions> {
 	readonly navigator: ClinkrNavigator<TContext>;
 	readonly commandName: string;
@@ -118,9 +105,9 @@ function completeScope<TContext, TInvocationOptions>(
 	if (current.startsWith("-")) {
 		return optionCandidates(
 			[
-				...HELP_OPTIONS,
-				...(isRoot && options.hasVersion ? [VERSION_OPTION] : []),
-				...(isRoot && options.hasRuntime ? [RUNTIME_OPTION] : []),
+				...CLINKR_HELP_OPTIONS,
+				...(isRoot && options.hasVersion ? [CLINKR_VERSION_OPTION] : []),
+				...(isRoot && options.hasRuntime ? [CLINKR_RUNTIME_OPTION] : []),
 			],
 			current,
 		);
@@ -156,25 +143,13 @@ function completeScope<TContext, TInvocationOptions>(
 }
 
 function buildDefinitionSurface(name: string, definition: ClinkrCommandDefinition) {
-	const positionals: Record<string, { position: number; description?: string }> = {};
-	const optionSpecs: Record<string, { short?: string; description?: string }> = {};
-	for (const [key, field] of Object.entries(definition.schema.shape)) {
-		const annotation = cliAnnotationFor(field as z.ZodType);
-		if (annotation?.type === "positional") positionals[key] = annotation.options;
-		if (annotation?.type === "option") optionSpecs[key] = annotation.options;
-	}
-	const surface = buildSurfacePlan({
-		commandName: name,
-		schema: definition.schema,
-		positionals,
-		optionSpecs,
-	});
+	const surface = buildCommandSurfacePlan(name, definition);
 	return {
 		positionals: surface.positionals,
 		options: [
-			...HELP_OPTIONS,
+			...CLINKR_HELP_OPTIONS,
 			...surface.options.map(completionOptionFromSurface),
-			...CLINKR_RENDERED_COMMAND_OPTIONS,
+			...CLINKR_APP_RENDERED_COMMAND_OPTIONS,
 			{ ...CLINKR_JSON_SCHEMA_OPTION },
 			{
 				flags: ["--input-json"],
@@ -204,8 +179,8 @@ function completeStructured<TContext, TInvocationOptions>({
 }: CompleteStructuredOptions<TContext, TInvocationOptions>): readonly ClinkrCompletionCandidate[] {
 	const allOptions = [
 		...options,
-		...(isRootDefault && runtime.hasVersion ? [VERSION_OPTION] : []),
-		...(isRootDefault && runtime.hasRuntime ? [RUNTIME_OPTION] : []),
+		...(isRootDefault && runtime.hasVersion ? [CLINKR_VERSION_OPTION] : []),
+		...(isRootDefault && runtime.hasRuntime ? [CLINKR_RUNTIME_OPTION] : []),
 	];
 	const equals = current.indexOf("=");
 	if (equals >= 0) {
