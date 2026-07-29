@@ -367,6 +367,48 @@ describe("Graphite maintenance over LandContext", () => {
 		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
 	});
 
+	test("defers the invoking branch deletion while retaining required maintenance", async () => {
+		const fakes = createInMemoryLandContext({
+			git: {
+				localBranches: [
+					{ name: "feature-a", sha: FEATURE_A_SHA },
+					{ name: "feature-b", sha: FEATURE_B_SHA },
+				],
+			},
+			github: {
+				pullRequests: [
+					pullRequestFacts({
+						number: 2,
+						headRefName: "feature-b",
+						baseRefName: "feature-a",
+						headRefOid: FEATURE_B_SHA,
+					}),
+				],
+			},
+		});
+		const outcome = await performGraphiteMaintenance({
+			landContext: fakes.context,
+			progress: createProgressRecorder().progress,
+			plan: createLandingPlan({ landingBranches: ["feature-a", "feature-b"] }),
+			step: {
+				index: 0,
+				branch: "feature-a",
+				prNumber: 1,
+				state: createMergeLoopState([
+					["feature-a", FEATURE_A_SHA],
+					["feature-b", FEATURE_B_SHA],
+				]),
+			},
+			deferredDeletionBranch: "feature-a",
+		});
+
+		expect(outcome).toEqual({ kind: "proceed" });
+		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
+		expect(fakes.graphite.refreshBranchFromRemoteCalls).toHaveLength(1);
+		expect(fakes.graphite.restackCalls).toHaveLength(1);
+		expect(fakes.graphite.submitUpdateCalls).toHaveLength(1);
+	});
+
 	test("retains a checked-out local branch and records cleanup", async () => {
 		const fakes = createInMemoryLandContext({
 			git: { localBranches: [{ name: "feature-a", sha: FEATURE_A_SHA }] },

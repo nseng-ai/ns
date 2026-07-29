@@ -102,6 +102,7 @@ interface PerformGraphiteMaintenanceOptions {
 	readonly progress: GraphiteMaintenanceProgress;
 	readonly plan: LandingPlan;
 	readonly step: GraphiteMaintenanceStep;
+	readonly deferredDeletionBranch?: string;
 }
 
 interface MaintenanceOperationInput {
@@ -308,6 +309,7 @@ export async function performGraphiteMaintenance(
 	const { repoRoot } = plan;
 	const { index, branch, prNumber, state } = step;
 	const maintenance = planGraphiteMaintenanceTargets(plan, index);
+	const shouldDeferLandedBranchDeletion = branch === maintenanceOptions.deferredDeletionBranch;
 
 	if (maintenance.mode === "skip-descendant") {
 		return { kind: "skip", warning: skippedDescendantMaintenanceWarning(plan, branch) };
@@ -354,11 +356,13 @@ export async function performGraphiteMaintenance(
 		};
 	}
 
-	const deleteCheck = await checkGraphiteBranchBeforeDelete(operationInput);
-	if (deleteCheck !== undefined) return deleteCheck;
+	if (!shouldDeferLandedBranchDeletion) {
+		const deleteCheck = await checkGraphiteBranchBeforeDelete(operationInput);
+		if (deleteCheck !== undefined) return deleteCheck;
 
-	const deletion = await deleteLocalGraphiteBranchAfterLanding(operationInput);
-	if (deletion.kind !== "proceed") return deletion;
+		const deletion = await deleteLocalGraphiteBranchAfterLanding(operationInput);
+		if (deletion.kind !== "proceed") return deletion;
+	}
 
 	const postDeleteRecorder = createMaintenanceStepRecorder();
 	for (const maintenanceBranch of maintenance.branches) {

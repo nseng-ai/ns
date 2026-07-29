@@ -57,6 +57,7 @@ const REFRESH_ARGS = [
 	"--no-interactive",
 ];
 const DELETE_ARGS = ["delete", "feature-a", "-f", "-q"];
+const CHECKOUT_ARGS = ["switch", "--no-progress", "feature-b"];
 const RESTACK_ARGS = ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"];
 const RESTACK_ONLY_ARGS = ["restack", "--branch", "feature-b", "--only", "--no-interactive"];
 const SUBMIT_FORCE_ARGS = [
@@ -344,6 +345,36 @@ describe("land context adapter facts", () => {
 				args: backupSnapshotFetchArgs,
 				options: { cwd: ROOT, timeout: 30000 },
 			},
+		]);
+		pi.assertDone();
+	});
+
+	test("checks out a continuation branch with non-interactive git in the repository root", async () => {
+		const pi = new FakeLandExecutionApi([
+			step("git", CHECKOUT_ARGS),
+			step("git", CHECKOUT_ARGS, { code: 1, stderr: "checkout rejected\n" }),
+		]);
+		const context = createTestLandContext(pi);
+
+		await expect(
+			context.git.checkoutBranch({ repoRoot: ROOT, branch: "feature-b" }),
+		).resolves.toEqual({ type: "completed" });
+		await expect(
+			context.git.checkoutBranch({ repoRoot: ROOT, branch: "feature-b" }),
+		).resolves.toMatchObject({
+			type: "failure",
+			failure: {
+				type: "boundary",
+				phase: "upstack-continuation",
+				source: "git",
+				code: "checkout_branch_failed",
+				displayCommand: "git switch --no-progress feature-b",
+				execResult: { code: 1, stderr: "checkout rejected\n" },
+			},
+		});
+		expect(pi.execCalls).toEqual([
+			{ command: "git", args: CHECKOUT_ARGS, options: { cwd: ROOT, timeout: 30_000 } },
+			{ command: "git", args: CHECKOUT_ARGS, options: { cwd: ROOT, timeout: 30_000 } },
 		]);
 		pi.assertDone();
 	});

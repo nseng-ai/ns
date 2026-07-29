@@ -21,7 +21,8 @@ export type { PostLandingSlotCleanupDecision, PostLandingSlotCleanupPreview };
 
 /**
  * Deterministic flag-to-policy mapping: `--preserve` wins over `--force`, and ordinary execution
- * in a managed slot lands as `free-slot`. `--yes` stays approval state, not a cleanup policy.
+ * in a managed slot lands as `free-slot`. `--up` preservation is continuation policy rather than
+ * cleanup policy; `--yes` stays approval state, not a cleanup policy.
  */
 export function landingCleanupPolicyFromArgs(
 	args: Pick<ParsedArgs, "shouldPreserveSlot" | "shouldForceCleanup">,
@@ -44,6 +45,7 @@ export function planPostLandingSlotCleanup(options: {
 	readonly args: ParsedArgs;
 	readonly shape: LandingShape;
 }): PostLandingSlotCleanupPreview | undefined {
+	if (options.args.shouldContinueUpstack) return undefined;
 	return planManagedSlotPostLandingCleanup({
 		cleanup: postLandingCleanupRequestFromArgs(options.args),
 		shape: options.shape,

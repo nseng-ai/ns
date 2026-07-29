@@ -18,7 +18,10 @@ export interface LandingRequest {
 	readonly mode: LandingMode;
 	readonly preflight: LandingPreflightMode;
 	readonly cleanup: LandingCleanupPolicy;
+	readonly continuation: LandingContinuationRequest;
 }
+
+export type LandingContinuationRequest = { readonly type: "none" } | { readonly type: "upstack" };
 
 export type LandingMode = "execute" | "dry-run";
 
@@ -63,6 +66,7 @@ export type LandingPhase =
 	| "merge"
 	| "descendant-maintenance"
 	| "merge-maintenance-cleanup"
+	| "upstack-continuation"
 	| "post-landing-cleanup";
 
 export type LandingFailure =
@@ -149,7 +153,22 @@ export interface LandingExecutionReport {
 	readonly landedChunks: readonly LandedChunk[];
 	readonly warnings: readonly LandingWarning[];
 	readonly cleanup: LandingCleanupReport;
+	readonly continuation: LandingContinuationReport;
 }
+
+/** Provider-neutral observed outcome of the requested post-landing continuation. */
+export type LandingContinuationReport =
+	| { readonly type: "not-requested" }
+	| { readonly type: "candidate"; readonly branch: string }
+	| { readonly type: "continued"; readonly branch: string; readonly originalBranchDeleted: boolean }
+	| {
+			readonly type: "unavailable";
+			readonly reason: "no-child" | "multiple-children" | "lookup-failed";
+			readonly candidates: readonly string[];
+	  }
+	| { readonly type: "checkout-failed"; readonly branch: string }
+	| { readonly type: "verification-failed"; readonly branch: string; readonly actualBranch: string }
+	| { readonly type: "cleanup-failed"; readonly branch: string };
 
 /** Canonical result of {@link LandingRequest} execution. Both variants carry the same report. */
 export type LandingExecutionResult =
@@ -374,6 +393,10 @@ export interface LandGitGateway {
 		readonly repoRoot: string;
 		readonly branches: readonly string[];
 	}): Promise<LandResult<ReadonlyMap<string, string>>>;
+	checkoutBranch(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+	}): Promise<LandOutcome>;
 }
 
 export interface WorkingTreeStatus {

@@ -133,9 +133,12 @@ describe("parsed-args to cleanup policy mapping", () => {
 	test.each([
 		{ rawArgs: "", policy: "free-slot", mode: "execute" },
 		{ rawArgs: "--preserve", policy: "preserve", mode: "execute" },
+		{ rawArgs: "--up", policy: "free-slot", mode: "execute" },
+		{ rawArgs: "--up --force", policy: "force-cleanup", mode: "execute" },
 		{ rawArgs: "--force", policy: "force-cleanup", mode: "execute" },
 		// Contradictory flags resolve deterministically: --preserve dominates --force.
 		{ rawArgs: "--preserve --force", policy: "preserve", mode: "execute" },
+		// --up preservation is continuation policy, not a cleanup policy.
 		// --yes is approval state, not a cleanup policy.
 		{ rawArgs: "--yes", policy: "free-slot", mode: "execute" },
 		{ rawArgs: "--dry-run", policy: "free-slot", mode: "dry-run" },
@@ -222,6 +225,9 @@ describe("post-landing slot cleanup defaults", () => {
 		});
 		expect(
 			planPostLandingSlotCleanup({ args: expectParsed("--preserve"), shape: managedShape() }),
+		).toBeUndefined();
+		expect(
+			planPostLandingSlotCleanup({ args: expectParsed("--up --force"), shape: managedShape() }),
 		).toBeUndefined();
 	});
 

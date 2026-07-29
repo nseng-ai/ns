@@ -26,7 +26,7 @@ const SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const OLD_SHA = "1111111111111111111111111111111111111111";
 
 function executeRequest(
-	overrides: Partial<Pick<LandingRequest, "cwd" | "mode" | "cleanup">> = {},
+	overrides: Partial<Pick<LandingRequest, "cwd" | "mode" | "cleanup" | "continuation">> = {},
 ): LandingRequest {
 	return {
 		cwd: overrides.cwd ?? ROOT,
@@ -34,6 +34,7 @@ function executeRequest(
 		mode: overrides.mode ?? "execute",
 		preflight: { shouldAllowSubmitRequiredState: true },
 		cleanup: overrides.cleanup ?? "free-slot",
+		continuation: overrides.continuation ?? { type: "none" },
 	};
 }
 
@@ -577,6 +578,112 @@ describe("land execute mode over in-memory gateways", () => {
 		});
 		expect(outcome.report.phases.at(-1)).toMatchObject({ type: "failed", phase: "merge" });
 		expect(outcome.report.cleanup.postLandingSlotCleanup).toMatchObject({ type: "not-run" });
+	});
+});
+
+describe("upstack continuation under canonical execution", () => {
+	test("snapshots the sole child before mutation, continues in the invoking worktree, and deletes the original branch", async () => {
+		const child = "feature-child";
+		const memory = createInMemoryLandContext(
+			linearState({
+				git: {
+					localBranches: [
+						{ name: BRANCH, sha: SHA },
+						{ name: child, sha: OLD_SHA },
+					],
+				},
+				graphite: { branchChildren: { [BRANCH]: [child] } },
+			}),
+		);
+
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: executeRequest({
+				continuation: { type: "upstack" },
+				cleanup: "force-cleanup",
+			}),
+			host: approvedHost(),
+		});
+
+		expect(outcome).toMatchObject({
+			type: "completed",
+			report: {
+				continuation: { type: "continued", branch: child, originalBranchDeleted: true },
+				cleanup: { postLandingSlotCleanup: { type: "preserved" } },
+			},
+		});
+		expect(memory.git.checkoutBranchCalls).toEqual([{ repoRoot: ROOT, branch: child }]);
+		expect(memory.git.currentBranchCalls.at(-1)).toEqual({ repoRoot: ROOT });
+		expect(memory.graphite.branchChildrenCalls[0]).toEqual({
+			repoRoot: ROOT,
+			metadataDbPath: `${ROOT}/.git/graphite.db`,
+			branch: BRANCH,
+		});
+		const operationOrder = memory.callEvents.map((event) => event.operation);
+		expect(operationOrder.indexOf("graphite.branchChildren")).toBeLessThan(
+			operationOrder.indexOf("github.squashMergePullRequest"),
+		);
+		expect(operationOrder.indexOf("github.squashMergePullRequest")).toBeLessThan(
+			operationOrder.indexOf("git.checkoutBranch"),
+		);
+		expect(operationOrder.indexOf("git.checkoutBranch")).toBeLessThan(
+			operationOrder.lastIndexOf("graphite.deleteLocalBranch"),
+		);
+		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
+	});
+
+	test("dry run previews the sole child without merge, checkout, deletion, or slot cleanup", async () => {
+		const child = "feature-child";
+		const memory = createInMemoryLandContext(
+			linearState({ graphite: { branchChildren: { [BRANCH]: [child] } } }),
+		);
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: executeRequest({ mode: "dry-run", continuation: { type: "upstack" } }),
+			host: approvedHost(),
+		});
+
+		expect(outcome).toMatchObject({
+			type: "completed",
+			report: {
+				continuation: { type: "candidate", branch: child },
+				cleanup: { postLandingSlotCleanup: { type: "preserved" } },
+			},
+		});
+		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
+		expect(memory.git.checkoutBranchCalls).toEqual([]);
+		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
+		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
+	});
+
+	test("unavailable continuation completes landing while preserving the slot and original branch", async () => {
+		const memory = createInMemoryLandContext(
+			linearState({ graphite: { branchChildren: { [BRANCH]: ["child-a", "child-b"] } } }),
+		);
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: executeRequest({ continuation: { type: "upstack" } }),
+			host: approvedHost(),
+		});
+
+		expect(outcome).toMatchObject({
+			type: "completed",
+			report: {
+				continuation: {
+					type: "unavailable",
+					reason: "multiple-children",
+					candidates: ["child-a", "child-b"],
+				},
+				warnings: [{ level: "warning" }],
+				cleanup: { postLandingSlotCleanup: { type: "preserved" } },
+			},
+		});
+		expect(memory.git.checkoutBranchCalls).toEqual([]);
+		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
+		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
 	});
 });
 

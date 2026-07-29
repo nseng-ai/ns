@@ -29,8 +29,12 @@ The Flow-owned adapter layer around canonical land execution: command presentati
 *Avoid*: direct `executeStackLandingPlan` call, Flow-side post-landing cleanup for stack landings, pure preflight plan, standalone land CLI behavior
 
 **Canonical Landing Execution**:
-The `executeLanding` entry point on the **Land subpackage API** that owns the full `LandingRequest` lifecycle — discovery, preflight planning, confirmation, pre-merge preparation, merge, per-merge maintenance, and post-landing managed-slot cleanup under the closed cleanup policy (`preserve` / `free-slot` / `force-cleanup`) — and returns a `LandingExecutionResult` whose completed and failed variants carry the same observed-fact `LandingExecutionReport`.
+The `executeLanding` entry point on the **Land subpackage API** that owns the full `LandingRequest` lifecycle — discovery, preflight planning, confirmation, pre-merge preparation, merge, per-merge maintenance, optional **Upstack Continuation**, and post-landing managed-slot cleanup under the closed cleanup policy (`preserve` / `free-slot` / `force-cleanup`) — and returns a `LandingExecutionResult` whose completed and failed variants carry the same observed-fact `LandingExecutionReport`.
 *Avoid*: phase synthesis from plan shape, gateway-level `LandResult` widening, second execution report model, Flow-owned cleanup ordering
+
+**Upstack Continuation**:
+The explicit `land --up` continuation policy that snapshots the invoking branch's immediate Graphite children before mutation, always preserves the invoking managed slot, and after successful merge attempts to check out the sole child in the same worktree. No child, multiple children, lookup failure, checkout/verification failure, or original-branch cleanup failure is a warning outcome rather than a merge failure; `--preserve` additionally keeps the landed local branch, while `--force` never overrides slot preservation. Dry runs report availability without checkout or cleanup.
+*Avoid*: descendant merge, inferred first child, cross-worktree navigation, cleanup despite `--up`, failed merge after continuation fallback
 
 **Land Domain Core**:
 The deterministic land logic in the `@nseng-ai/flow/land` subpackage that consumes injected Git, Graphite, GitHub PR, and worktree-slot gateways to produce land-domain results.
