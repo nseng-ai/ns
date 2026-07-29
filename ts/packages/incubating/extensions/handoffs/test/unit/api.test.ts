@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	CREATE_HANDOFF_COMMAND_NAME,
 	HANDOFF_KEY_SUFFIX,
 	HANDOFF_NAMESPACE,
 	branchStateSchema,
@@ -12,10 +13,12 @@ import {
 	handoffKeyToSlug,
 	handoffSlugFromKey,
 	handoffSlugToKey,
+	handoffCommandBackedSkillRegistrations,
 	handoffSummarySchema,
 	isHandoffKey,
 	listHandoffSummaries,
 	parseFlatHandoffSlug,
+	PICKUP_HANDOFF_COMMAND_NAME,
 	planDeletedBranchGarbageCollection,
 	prepareHandoffCreation,
 	prepareHandoffDeletion,
@@ -61,5 +64,22 @@ describe("@nseng-ai/handoffs/api", () => {
 		expect(typeof deleteHandoffArtifact).toBe("function");
 		expect(typeof planDeletedBranchGarbageCollection).toBe("function");
 		expect(typeof executeDeletedBranchGarbageCollection).toBe("function");
+	});
+
+	test("exports stable command names and command-backed skill metadata", () => {
+		expect(CREATE_HANDOFF_COMMAND_NAME).toBe("ns:handoff:create");
+		expect(PICKUP_HANDOFF_COMMAND_NAME).toBe("ns:handoff:pickup");
+		expect(handoffCommandBackedSkillRegistrations).toEqual([
+			{
+				skillName: "handoff-create",
+				surface: CREATE_HANDOFF_COMMAND_NAME,
+				kind: "specialized-command",
+			},
+			{
+				skillName: "handoff-pickup",
+				surface: PICKUP_HANDOFF_COMMAND_NAME,
+				kind: "specialized-command",
+			},
+		]);
 	});
 });
