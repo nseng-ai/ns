@@ -32,6 +32,7 @@ import {
 } from "../phase-stream/matrix-progress-core.ts";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { formatModelRef } from "@nseng-ai/foundation/model-slug";
+import { pendingWorktreeFailureFacts } from "./pending-worktree-failure.ts";
 
 export interface CheckpointGateway {
 	loadPendingWorktreeSnapshot(params: { cwd: string; repoRoot?: string }): Promise<
@@ -316,17 +317,9 @@ export function formatGitTrunkResolutionError(error: GitErrorInfo): string {
 }
 
 export function formatCheckpointSnapshotError(error: PendingWorktreeError): string {
+	const facts = pendingWorktreeFailureFacts(error.kind);
 	const details = formatCommandDetails(error.result);
-	if (error.kind === "not_git_repo") {
-		return `Not inside a git repository.\n${details}`;
-	}
-	if (error.kind === "detached_head") {
-		return `Could not determine current branch.\n${details}`;
-	}
-	if (error.kind === "status_failed") {
-		return `Could not inspect git status.\n${details}`;
-	}
-	return `Could not capture git diff.\n${details}`;
+	return `${facts.plainMessage}\n${details}`;
 }
 
 function toCheckpointCommandResult(result: ExecResult): CommandResult {

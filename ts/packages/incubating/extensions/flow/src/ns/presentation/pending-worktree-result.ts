@@ -10,6 +10,7 @@
 import type { Caps } from "@nseng-ai/clinkr";
 
 import { renderGitResultBlock } from "./git-result-block.ts";
+import { pendingWorktreeFailureFacts } from "../../checkpoint/pending-worktree-failure.ts";
 import type { PendingWorktreeError } from "../worktree.ts";
 
 interface PendingWorktreeFailureInput {
@@ -24,38 +25,12 @@ export function renderPendingWorktreeFailure(
 	caps: Caps,
 	input: PendingWorktreeFailureInput,
 ): string {
+	const facts = pendingWorktreeFailureFacts(input.error.kind);
 	return renderGitResultBlock(caps, {
 		kind: "failure",
-		headline: pendingWorktreeHeadline(input.error, input.commandLabel),
-		command: pendingWorktreeCommand(input.error),
+		headline: `${facts.headline} ${input.commandLabel} did not run.`,
+		command: facts.gitCommand,
 		cwd: input.cwd,
 		result: input.error.result,
 	});
-}
-
-// Map each failed probe to the git command that ran so the failure block names the real step.
-function pendingWorktreeCommand(error: PendingWorktreeError): string {
-	switch (error.kind) {
-		case "not_git_repo":
-			return "git rev-parse --show-toplevel";
-		case "detached_head":
-			return "git symbolic-ref --short HEAD";
-		case "status_failed":
-			return "git status --porcelain=v1";
-		case "diff_failed":
-			return "git diff HEAD --no-ext-diff";
-	}
-}
-
-function pendingWorktreeHeadline(error: PendingWorktreeError, commandLabel: string): string {
-	switch (error.kind) {
-		case "not_git_repo":
-			return `Not inside a git repository. ${commandLabel} did not run.`;
-		case "detached_head":
-			return `Could not determine the current branch. ${commandLabel} did not run.`;
-		case "status_failed":
-			return `Could not inspect the worktree status. ${commandLabel} did not run.`;
-		case "diff_failed":
-			return `Could not capture the worktree diff. ${commandLabel} did not run.`;
-	}
 }
