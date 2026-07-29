@@ -9,9 +9,17 @@ consumes Objective behavior only through the curated `@nseng-ai/objectives/api` 
 package API and uses neutral `@nseng-ai/pi-runtime/...` host helpers for Pi integration.
 
 The adapter owns Pi command registration, completion, selection presentation, skill
-expansion, and Pi parity metadata. It does not redefine Objective records, lifecycle,
-storage, selection policy, or runner semantics; those remain owned by the Objectives
-extension and the repository's canonical Objective-system context.
+expansion, and Pi parity metadata. For a completed `/ns:objective:next` decision packet
+with exactly one proposed prompt, it also presents a Pi-only chooser: execute the exact
+prompt as a same-session follow-up, replace the full input area with it, or dismiss the
+chooser. Co-equal prompt sets and `Declined` packets remain ordinary decision text. If
+interactive UI or the selected editor capability is unavailable, the adapter takes no
+action and leaves the packet usable as recommendation output.
+
+This chooser is presentation over the portable proposed-prompt contract, not a new
+Objective lifecycle or execution permission. The adapter does not redefine Objective
+records, lifecycle, storage, selection policy, or runner semantics; those remain owned by
+the Objectives extension and the repository's canonical Objective-system context.
 
 ## Current status
 

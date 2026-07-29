@@ -56,6 +56,11 @@ import type {
 	RawPiExecOptions,
 	ExtensionAPI,
 } from "@nseng-ai/pi-runtime/runtime/types";
+import type {
+	ToolContext,
+	ToolDefinition,
+	ToolResult,
+} from "@nseng-ai/pi-runtime/runtime/tool-types";
 
 export type {
 	CommandContext,
@@ -74,10 +79,16 @@ export type {
 } from "@nseng-ai/objectives/api";
 export type ObjectiveExtensionAPI = Pick<
 	ExtensionAPI,
-	"on" | "registerCommand" | "exec" | "getCommands" | "sendMessage" | "sendUserMessage"
+	"on" | "registerCommand" | "exec" | "getCommands" | "sendMessage"
 > &
 	Pick<CliCommandExtensionAPI, "events" | "registerMessageRenderer"> &
-	Pick<Partial<ObjectiveSelectionHost>, "loadObjectiveList">;
+	Pick<Partial<ObjectiveSelectionHost>, "loadObjectiveList"> & {
+		registerTool(definition: ToolDefinition): void;
+		sendUserMessage(
+			content: string,
+			options?: { deliverAs?: "steer" | "followUp" },
+		): Promise<void> | void;
+	};
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_EXTENSION_ID = "objective";
@@ -89,6 +100,143 @@ const OBJECTIVE_COMPLETION_CACHE_TTL_MS = 10_000;
 const OBJECTIVE_AUTORUN_PI_TOOL_REMINDER = `
 
 Pi session note: use the \`objective_runner_step\` tool for each runner step instead of hand-running \`ns objective exec runner-begin\`, dispatching a subagent yourself, and \`ns objective exec runner-finish\`. The tool owns the mechanical step, live progress widget, and fresh report/facts scratch paths for every call, including recovery attempts. Omit routing to inherit the parent provider, model, and thinking policy; the only deliberate implementation down-route is the named \`cheap\` intent, selected before dispatch and resolved within the parent's concrete provider. If no approved mapping exists, inherit. Launch failure or malfunction never authorizes reactive model or provider rerouting. The parent session still owns every judgment checkpoint: derive thin guidance, read each returned Runner Checkpoint, decide continue/recover/stop, route Semantic Updates through objective-update between steps, and honor this canonical forbidden-action rule: "${OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE}". To recover a failed step, call the tool again with \`recover: true\` and sharpened guidance, not a different model. Never mutate the worktree while a tool call is running.`;
+const OBJECTIVE_NEXT_PROMPT_ACTION_TOOL_NAME = "objective_next_prompt_action";
+const OBJECTIVE_NEXT_PROMPT_ACTION_TITLE = "What would you like to do with the proposed prompt?";
+const OBJECTIVE_NEXT_EXECUTE_LABEL = "Execute it now";
+const OBJECTIVE_NEXT_EDITOR_LABEL = "Put it in input area";
+const OBJECTIVE_NEXT_DISMISS_LABEL = "I’ll do it myself, thank you";
+const OBJECTIVE_NEXT_PROMPT_ACTIONS = [
+	OBJECTIVE_NEXT_EXECUTE_LABEL,
+	OBJECTIVE_NEXT_EDITOR_LABEL,
+	OBJECTIVE_NEXT_DISMISS_LABEL,
+] as const;
+const OBJECTIVE_NEXT_PI_TOOL_REMINDER = `
+
+Pi prompt-action note: emit the normal complete objective-next decision packet first. Then call the \`${OBJECTIVE_NEXT_PROMPT_ACTION_TOOL_NAME}\` tool exactly once only when decision-packet element 5 contains exactly one Proposed prompt. Pass the byte-for-byte proposed prompt content as \`prompt\`, excluding the surrounding Markdown label and fence. Never call the tool for a co-equal prompt set or a Declined packet. If the tool reports an unavailable or no-action outcome, leave the visible decision packet as the final usable output.`;
+const OBJECTIVE_NEXT_PROMPT_ACTION_PARAMETERS = {
+	type: "object",
+	properties: {
+		prompt: {
+			type: "string",
+			minLength: 1,
+			description:
+				"Exact content of the single proposed prompt, without its Markdown label or fence.",
+		},
+	},
+	required: ["prompt"],
+	additionalProperties: false,
+} as const satisfies Record<string, unknown>;
+
+type ObjectiveNextPromptActionOutcome =
+	| "executed"
+	| "editor-replaced"
+	| "dismissed"
+	| "cancelled"
+	| "ui-unavailable"
+	| "invalid-input";
+
+interface ObjectiveNextPromptActionDetails {
+	outcome: ObjectiveNextPromptActionOutcome;
+}
+
+type ObjectiveNextPromptActionInput = { type: "valid"; prompt: string } | { type: "invalid" };
+
+function parseObjectiveNextPromptActionInput(params: unknown): ObjectiveNextPromptActionInput {
+	if (typeof params !== "object" || params === null || Array.isArray(params)) {
+		return { type: "invalid" };
+	}
+	if (Object.keys(params).some((key) => key !== "prompt")) return { type: "invalid" };
+	const prompt = (params as { prompt?: unknown }).prompt;
+	if (typeof prompt !== "string" || prompt.trim() === "") return { type: "invalid" };
+	return { type: "valid", prompt };
+}
+
+function objectiveNextPromptActionResult(
+	outcome: ObjectiveNextPromptActionOutcome,
+	text: string,
+): ToolResult<ObjectiveNextPromptActionDetails> {
+	return {
+		content: [{ type: "text", text }],
+		details: { outcome },
+		terminate: true,
+	};
+}
+
+async function executeObjectiveNextPromptAction(
+	pi: ObjectiveExtensionAPI,
+	params: unknown,
+	signal: AbortSignal | undefined,
+	ctx: ToolContext,
+): Promise<ToolResult<ObjectiveNextPromptActionDetails>> {
+	if (signal?.aborted === true) {
+		return objectiveNextPromptActionResult(
+			"cancelled",
+			"Prompt action cancelled; leave the decision packet as-is.",
+		);
+	}
+	const input = parseObjectiveNextPromptActionInput(params);
+	if (input.type === "invalid") {
+		return objectiveNextPromptActionResult(
+			"invalid-input",
+			"Invalid proposed prompt; leave the decision packet as-is.",
+		);
+	}
+	if (!ctx.hasUI || ctx.ui.select === undefined) {
+		return objectiveNextPromptActionResult(
+			"ui-unavailable",
+			"Interactive UI unavailable; leave the decision packet as-is.",
+		);
+	}
+
+	const selected = await ctx.ui.select(OBJECTIVE_NEXT_PROMPT_ACTION_TITLE, [
+		...OBJECTIVE_NEXT_PROMPT_ACTIONS,
+	]);
+	if (selected === undefined) {
+		return objectiveNextPromptActionResult(
+			"cancelled",
+			"Prompt action cancelled; leave the decision packet as-is.",
+		);
+	}
+	if (selected === OBJECTIVE_NEXT_DISMISS_LABEL) {
+		return objectiveNextPromptActionResult("dismissed", "Prompt action dismissed.");
+	}
+	if (selected === OBJECTIVE_NEXT_EDITOR_LABEL) {
+		if (ctx.ui.setEditorText === undefined) {
+			return objectiveNextPromptActionResult(
+				"ui-unavailable",
+				"Editor input is unavailable; leave the decision packet as-is.",
+			);
+		}
+		ctx.ui.setEditorText(input.prompt);
+		return objectiveNextPromptActionResult(
+			"editor-replaced",
+			"Proposed prompt placed in the input area.",
+		);
+	}
+	if (selected === OBJECTIVE_NEXT_EXECUTE_LABEL) {
+		await pi.sendUserMessage(input.prompt, { deliverAs: "followUp" });
+		return objectiveNextPromptActionResult(
+			"executed",
+			"Proposed prompt queued as the next user turn.",
+		);
+	}
+	return objectiveNextPromptActionResult(
+		"cancelled",
+		"Unknown prompt action; leave the decision packet as-is.",
+	);
+}
+
+function objectiveNextPromptActionTool(pi: ObjectiveExtensionAPI): ToolDefinition {
+	return {
+		name: OBJECTIVE_NEXT_PROMPT_ACTION_TOOL_NAME,
+		label: "Objective Next prompt action",
+		description:
+			"Present the Pi-only action chooser for exactly one proposed prompt from a completed objective-next decision packet.",
+		parameters: OBJECTIVE_NEXT_PROMPT_ACTION_PARAMETERS,
+		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
+			await executeObjectiveNextPromptAction(pi, params, signal, ctx),
+	};
+}
 const ACTIVE_OBJECTIVE_CANDIDATES_ARGS = [
 	"objective",
 	"exec",
@@ -470,7 +618,9 @@ export const objectiveParity = definePiSurfaceParity([
 		objectiveParityEntry(spec, {
 			cli: `ns objective ${spec.cliSubcommand}`,
 			notes:
-				"Pi command selects an explicit Objective and then expands the matching portable Objective skill.",
+				spec.cliSubcommand === "next"
+					? "Pi command selects an explicit Objective and expands the portable Objective skill; Pi then offers a host-native action chooser only for exactly one proposed prompt, with recommendation-only fallback when interactive capabilities are unavailable."
+					: "Pi command selects an explicit Objective and then expands the matching portable Objective skill.",
 		}),
 	),
 ] as const);
@@ -479,6 +629,7 @@ export default function objectiveExtension(
 	pi: ObjectiveExtensionAPI,
 	options: ObjectiveExtensionOptions = {},
 ): void {
+	pi.registerTool(objectiveNextPromptActionTool(pi));
 	const commands = createPiCommandExecApi(pi);
 	const selectionHost = objectiveSelectionHostFromExec(
 		{
@@ -521,7 +672,12 @@ export default function objectiveExtension(
 		const spec =
 			objectiveSpec.cliSubcommand === "autorun"
 				? { ...objectiveSpec, postSelectionReminder: OBJECTIVE_AUTORUN_PI_TOOL_REMINDER }
-				: objectiveSpec;
+				: objectiveSpec.cliSubcommand === "next"
+					? {
+							...objectiveSpec,
+							postSelectionReminder: `${objectiveSpec.postSelectionReminder ?? ""}${OBJECTIVE_NEXT_PI_TOOL_REMINDER}`,
+						}
+					: objectiveSpec;
 		registerCommandWithImmediateAck({
 			host: pi,
 			commandName: spec.commandName,
