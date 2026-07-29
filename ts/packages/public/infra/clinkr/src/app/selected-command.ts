@@ -200,7 +200,10 @@ export async function importSelectedCommand<TContext>(
 	const module: unknown = await import(pathToFileURL(commandPath).href);
 	if (!isExactCommandModule(module))
 		throw new Error(`clinkr: malformed command module ${commandPath}`);
-	const definition = await module.command();
+	const pendingDefinition = module.command();
+	if (!(pendingDefinition instanceof Promise))
+		throw new Error(`clinkr: malformed command definition ${commandPath}`);
+	const definition = await pendingDefinition;
 	const selected = decodeSelectedCommandDefinition<TContext>(definition);
 	if (selected === undefined)
 		throw new Error(`clinkr: malformed command definition ${commandPath}`);

@@ -210,12 +210,188 @@ test("programmatic declarations snapshot mutable metadata inputs", async () => {
 	expect(result.stdout).not.toContain("Mutated.");
 });
 
-test("programmatic metadata rejects invalid semantics at declaration time", () => {
+const invalidProgrammaticDeclarations = [
+	[
+		"blank command description",
+		(scope: ClinkrScope<never>) =>
+			scope.command("valid", { description: " \t" }, async () => definition("x")),
+		/description must be non-empty at valid/,
+	],
+	[
+		"blank group summary",
+		(scope: ClinkrScope<never>) =>
+			scope.group("valid", { description: "Valid.", summary: "\n" }, () => {}),
+		/summary must be non-empty at valid/,
+	],
+	[
+		"blank default helpGroup",
+		(scope: ClinkrScope<never>) =>
+			scope.defaultCommand({ description: "Valid.", helpGroup: " " }, async () => definition("x")),
+		/helpGroup must be non-empty at <root>/,
+	],
+	[
+		"invalid command name",
+		(scope: ClinkrScope<never>) =>
+			scope.command("bad_name", { description: "Valid." }, async () => definition("x")),
+		/invalid canonical route name "bad_name" at bad_name/,
+	],
+	[
+		"invalid group name",
+		(scope: ClinkrScope<never>) => scope.group("Bad", { description: "Valid." }, () => {}),
+		/invalid canonical route name "Bad" at Bad/,
+	],
+	[
+		"invalid command alias",
+		(scope: ClinkrScope<never>) =>
+			scope.command("valid", { description: "Valid.", aliases: ["bad_name"] }, async () =>
+				definition("x"),
+			),
+		/invalid canonical route name "bad_name" at valid/,
+	],
+	[
+		"invalid group alias",
+		(scope: ClinkrScope<never>) =>
+			scope.group("valid", { description: "Valid.", aliases: ["Bad"] }, () => {}),
+		/invalid canonical route name "Bad" at valid/,
+	],
+	[
+		"self alias",
+		(scope: ClinkrScope<never>) =>
+			scope.command("valid", { description: "Valid.", aliases: ["valid"] }, async () =>
+				definition("x"),
+			),
+		/alias "valid" equals its route name at valid/,
+	],
+	[
+		"duplicate aliases",
+		(scope: ClinkrScope<never>) =>
+			scope.group("valid", { description: "Valid.", aliases: ["v", "v"] }, () => {}),
+		/duplicate alias "v" at valid/,
+	],
+] as const;
+
+test.each(invalidProgrammaticDeclarations)(
+	"programmatic declarations reject %s synchronously",
+	(_label, declare, expected) => {
+		expect(() =>
+			createClinkrApp({ name: "invalid" }, (composition) => {
+				composition.source({ label: "invalid-source" }, declare);
+			}),
+		).toThrow(expected);
+	},
+);
+
+test.each([
+	[
+		"blank",
+		(composition: ClinkrComposition<never>) => composition.source({ label: " " }, () => {}),
+	],
+	[
+		"duplicate",
+		(composition: ClinkrComposition<never>) => {
+			composition.source({ label: "same" }, () => {});
+			composition.source({ label: "same" }, () => {});
+		},
+	],
+] as const)("composition rejects %s source labels", (_label, configure) => {
+	expect(() => composeSources(configure)).toThrow(
+		/source label must be non-empty|duplicate source label/,
+	);
+});
+
+test.each([
+	["direct app option", () => createClinkrApp({ name: "relative", commandDirectory: "commands" })],
+	[
+		"composition.filesystem",
+		() =>
+			createClinkrApp({ name: "relative" }, (composition) => {
+				composition.filesystem({ commandDirectory: "commands" });
+			}),
+	],
+	[
+		"nested scope.filesystem",
+		() =>
+			createClinkrApp({ name: "relative" }, (composition) => {
+				composition.source({ label: "source" }, (scope) => {
+					scope.filesystem({ commandDirectory: "commands" });
+				});
+			}),
+	],
+] as const)("%s rejects relative commandDirectory", (_label, construct) => {
+	expect(construct).toThrow("clinkr: commandDirectory must be absolute");
+});
+
+test.each([
+	[
+		"duplicate commands",
+		(scope: ClinkrScope<never>) => {
+			scope.command("same", { description: "First." }, async () => definition("first"));
+			scope.command("same", { description: "Second." }, async () => definition("second"));
+		},
+		/route collision at same in source "source"/,
+	],
+	[
+		"duplicate groups",
+		(scope: ClinkrScope<never>) => {
+			scope.group("same", { description: "First." }, () => {});
+			scope.group("same", { description: "Second." }, () => {});
+		},
+		/route collision at same in source "source"/,
+	],
+	[
+		"command then group",
+		(scope: ClinkrScope<never>) => {
+			scope.command("same", { description: "Command." }, async () => definition("command"));
+			scope.group("same", { description: "Group." }, () => {});
+		},
+		/route collision at same in source "source"/,
+	],
+	[
+		"group then command",
+		(scope: ClinkrScope<never>) => {
+			scope.group("same", { description: "Group." }, () => {});
+			scope.command("same", { description: "Command." }, async () => definition("command"));
+		},
+		/route collision at same in source "source"/,
+	],
+	[
+		"default commands",
+		(scope: ClinkrScope<never>) => {
+			scope.defaultCommand({ description: "First." }, async () => definition("first"));
+			scope.defaultCommand({ description: "Second." }, async () => definition("second"));
+		},
+		/duplicate command at <root> in source "source"/,
+	],
+	[
+		"filesystem mounts",
+		(scope: ClinkrScope<never>) => {
+			scope.filesystem({ commandDirectory: FIXTURES_DIRECTORY });
+			scope.filesystem({ commandDirectory: FIXTURES_DIRECTORY });
+		},
+		/duplicate filesystem mount at <root> in source "source"/,
+	],
+] as const)("one programmatic source rejects %s", (_label, declare, expected) => {
 	expect(() =>
-		createClinkrApp({ name: "invalid" }, (composition) => {
-			composition.source({ label: "invalid-source" }, (scope) => {
-				scope.command("bad_name", { description: " " }, async () => definition("x"));
-			});
+		composeSources((composition) => {
+			composition.source({ label: "source" }, declare);
 		}),
-	).toThrow(/invalid canonical route name|description must be non-empty/);
+	).toThrow(expected);
+});
+
+test("cross-source root default collisions are stable across declaration order", async () => {
+	for (const labels of [
+		["source-b", "source-a"],
+		["source-a", "source-b"],
+	] as const) {
+		const sources = composeSources<never>((composition) => {
+			for (const label of labels) {
+				composition.source({ label }, (scope) => {
+					scope.defaultCommand({ description: `${label}.` }, async () => definition(label));
+				});
+			}
+		});
+		await expect(new ClinkrTopology({ sources }).open([])).rejects.toThrow(
+			'command/command collision at <root> between sources "source-a" and "source-b"',
+		);
+	}
 });

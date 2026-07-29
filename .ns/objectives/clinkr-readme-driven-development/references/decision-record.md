@@ -350,6 +350,18 @@ Do not mechanically delete branch-dependent presentation or preserve it as an ad
 
 This approval does not settle raw execution or exception policy. The filesystem bootstrap, completion-error policy, and removal of the throwable `ClinkrFailure` API were settled separately.
 
+## Interaction and confirmation ownership settled (2026-07-29)
+
+`ClinkrInteraction` is the retained modern semantic seam for application-controlled confirmation. The interface and terminal line-reader implementation remain shared Clinkr ownership in `src/interaction.ts`; they are not legacy runtime ownership. The package root is their final public entrypoint after the clean cut. Do not create an `interaction` subpath: runtime consumers already form the package-root importer class, and another public door would not pass the rank test.
+
+Applications continue to place `ClinkrInteraction` in invocation context. Hosts may provide the Clinkr terminal adapter or their own adapter over an existing confirmation facility. Clinkr dispatch never constructs an interaction, prompts automatically, or infers consent. The semantic seam retains `confirm(...)` and `isInteractive()`; do not widen it with command outcomes, process I/O, host callback shapes, or destructive-command policy.
+
+Confirmation outcome policy belongs with the command model that returns it. The modern `confirmOrUsageError(...)` helper remains in the app command/outcome surface during quarantine and moves to the package root with that surface at the final clean cut. It maps unavailable interaction and abort to modern usage-error outcomes, decline to a modern negative outcome, and explicit confirmation to its narrow confirmed result. The legacy `requireInteractiveOrUsageError(...)` and `confirmInteractiveOrUsageError(...)` helpers remain transitional because they construct or return legacy exits; migrate callers to application-owned bypass/gating plus modern command outcomes, then delete these helpers rather than teaching both policies.
+
+Strict interaction fakes remain in `@nseng-ai/clinkr/testing`, while `@nseng-ai/clinkr/app/testing` remains the app invocation harness. The general fake does not move under `/app/testing`: it serves domain and host tests that use the interaction seam without constructing a `ClinkrApp`. Tests must prove unexpected prompts and unused scripted answers fail, and modern confirmation must gain direct evidence for non-interactive, confirmed, declined, and aborted behavior before legacy gates are removed.
+
+This placement keeps a deep reusable terminal-confirmation module behind a two-method interface, gives outcome translation one owner, preserves current external consumers, and adds no public entrypoint. `src/app/**` may depend on the retained `src/interaction.ts` seam but must not import `src/confirmation.ts`, `/legacy`, or any legacy exit/rendering owner.
+
 ## Accepted implementation behavior
 
 The following current behavior aligns with the settled contract and should not be treated as a mismatch during audit:
