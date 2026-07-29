@@ -18,6 +18,9 @@ extension and the repository's canonical Objective-system context.
 The package is implemented on the current feature branch but has not landed or been
 published. Its `pi.extensions` manifest makes the package itself the Pi entry point; this
 repository loads the local workspace package directly from `.pi/settings.json`, without a
-`.pi/extensions/objective.ts` discovery adapter. The separate local
-`.pi/extensions/objective-autorun.ts` artifact continues to own only the
-`objective_runner_step` tool; it is not part of this package's slash-command adapter.
+`.pi/extensions/objective.ts` discovery adapter.
+
+`/ns:objective:autorun` is a thin Objective picker and skill injector. The injected
+`objective-autorun` skill owns both portable and ns-bookended orchestration; the former
+project-local `.pi/extensions/objective-autorun.ts` artifact and its
+`objective_runner_step` tool have been removed.

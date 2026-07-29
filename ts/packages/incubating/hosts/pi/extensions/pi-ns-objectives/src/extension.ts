@@ -27,7 +27,6 @@ import {
 	type ObjectiveClient,
 	type ObjectiveClientOptions,
 	objectiveCommandSpecs,
-	OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE,
 	objectiveCompletionItem,
 	objectiveCreateCommandSpec,
 	objectiveSelectionContextFromCommandContext,
@@ -86,9 +85,6 @@ const OBJECTIVE_LIST_ARGUMENT_HINT = "[--names] [--status all|active|open|closed
 const OBJECTIVE_SELECTOR_ARGUMENT_HINT = "[objective-slug-or-path]";
 const OBJECTIVE_CREATE_ARGUMENT_HINT = "[objective-slug-title-or-context]";
 const OBJECTIVE_COMPLETION_CACHE_TTL_MS = 10_000;
-const OBJECTIVE_AUTORUN_PI_TOOL_REMINDER = `
-
-Pi session note: use the \`objective_runner_step\` tool for each runner step instead of hand-running \`ns objective exec runner-begin\`, dispatching a subagent yourself, and \`ns objective exec runner-finish\`. The tool owns the mechanical step, live progress widget, and fresh report/facts scratch paths for every call, including recovery attempts. Omit routing to inherit the parent provider, model, and thinking policy; the only deliberate implementation down-route is the named \`cheap\` intent, selected before dispatch and resolved within the parent's concrete provider. If no approved mapping exists, inherit. Launch failure or malfunction never authorizes reactive model or provider rerouting. The parent session still owns every judgment checkpoint: derive thin guidance, read each returned Runner Checkpoint, decide continue/recover/stop, route Semantic Updates through objective-update between steps, and honor this canonical forbidden-action rule: "${OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE}". To recover a failed step, call the tool again with \`recover: true\` and sharpened guidance, not a different model. Never mutate the worktree while a tool call is running.`;
 const ACTIVE_OBJECTIVE_CANDIDATES_ARGS = [
 	"objective",
 	"exec",
@@ -517,11 +513,7 @@ export default function objectiveExtension(
 		});
 	}
 
-	for (const objectiveSpec of objectiveCommandSpecs) {
-		const spec =
-			objectiveSpec.cliSubcommand === "autorun"
-				? { ...objectiveSpec, postSelectionReminder: OBJECTIVE_AUTORUN_PI_TOOL_REMINDER }
-				: objectiveSpec;
+	for (const spec of objectiveCommandSpecs) {
 		registerCommandWithImmediateAck({
 			host: pi,
 			commandName: spec.commandName,

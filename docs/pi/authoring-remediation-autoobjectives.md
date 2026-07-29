@@ -1,6 +1,6 @@
 # Authoring a Remediation Autoobjective
 
-**Status:** Written 2026-06-30 from the `code-smell-roaster-remediation` build-out.
+**Status:** Written 2026-06-30 from the `code-smell-roaster-remediation` build-out; execution guidance updated for dual-mode autorun.
 
 **What this is:** a procedural playbook for turning a large review/audit
 backlog into a single execution-friendly ("auto") Objective that a runner can
@@ -169,48 +169,62 @@ into a bad refactor.
 Pick where the parent-led run stops on the human↔autonomous axis and write it
 as prose, not a permission bit. The seed Objective chose **local runner stack,
 parent-mediated PR submission, never landing**: runner steps may pick a cluster,
-fix it, validate, and produce local commits, but the runner itself never pushes,
-submits, opens PRs, or performs GitHub writes. A parent or human may submit a PR
-per slice later through the normal workflow, and a human reviews and merges.
-State the keep/leave rule (local commits on a feature branch via the `gt`
-workflow, never on `main`/`master`) and the hard "what will not happen" list (no
-runner push/submit/PR, no land/merge, no deploy, no external mutation).
+fix it, validate, and produce local commits, but the run itself never pushes,
+submits, opens PRs, or performs GitHub writes. A parent or human may submit the
+result later through a separate normal workflow, and a human reviews and merges.
+State the keep/leave rule (local commits on a non-trunk feature branch, never on
+`main`/`master`) and the hard "what will not happen" list (no child or autorun
+push/submit/PR, no land/merge, no deploy, no external mutation). Do not require
+Graphite in the policy merely to support portable autorun; an ns-bookended or
+later submission workflow may apply stricter repository-specific topology.
 
 For a structural/quality backlog, also state **no observable behavior change**
 as a non-goal and require existing-or-focused tests to confirm parity per slice.
 
-## Step 6 — Execute the backlog with Objective Runner steps
+## Step 6 — Execute the backlog with autorun steps
 
-Authoring stops at a runnable record; execution is a separate surface. The
-supported runner for a remediation autoobjective is the Objective Runner
-begin/finish workflow (ADR 0024), normally launched through
-`/ns:objective:autorun [<slug>] [scope / step budget / standing guidance]`. The
-`objective-autorun` skill is the entry point for running the backlog as repeated
-steps, and `objective-runner-step` is the per-step parent playbook. (The earlier
-`/objective:autopilot` Pi command has been retired in favor of
-`/ns:objective:autorun`.)
+Authoring stops at a runnable record; execution is a separate surface. Use the
+self-contained `objective-autorun` skill for repeated, parent-judged steps.
+`/ns:objective:autorun [<slug>] [scope / step budget / standing guidance]` is an
+optional Pi picker and prompt injector over that same skill, not a required
+runtime or execution protocol. The earlier `/objective:autopilot` Pi command
+remains retired. For general recommendation, steering, or one confirmed advance,
+`objective-next` remains the front door.
 
-Each step dispatches a **fresh child session** that does exactly one coherent
-slice for *this* Objective and leaves the work uncommitted; the runner then
-deterministically verifies the tree the child left behind, **creates the commit
-itself** with provenance trailers, and prints a Runner Checkpoint. The parent
-reads the checkpoint and makes every between-step decision — continue, recover
-with `--recover`, record a Semantic Update via `objective-update`, or stop.
+Autorun selects one of two modes with deliberately different trust contracts:
 
-This is where the Step 5 Runner Policy is consumed. The autonomy ceiling you
-wrote maps onto parent behavior, not flags: a step budget given to
-`objective-autorun` bounds a launch the way `--iterations` once did, and PR
-submission is never runner behavior — the seed Objective's "full pipeline up to
-PR submission, never landing" now means the parent (or human) submits the
-resulting stack through the normal `gt`/flow workflow after the run.
+- **`ns-bookended`** uses the stricter ADR 0024 `runner-begin` / fresh harness
+  child / `runner-finish` sequence. The child leaves work uncommitted;
+  `runner-finish` verifies it, creates the provenance commit, and returns a
+  runner-attested Runner Checkpoint. These bookends are optional and require the
+  ns runner commands.
+- **`portable`** needs no ns CLI once the skill and Objective Markdown are
+  present. It keeps the entire run on one attached non-trunk feature branch.
+  Each fresh child leaves one coherent slice uncommitted; the parent inspects
+  repository evidence, runs appropriate validation, and creates one ordinary
+  local commit for an accepted slice. This result is parent-verified, not a
+  Runner Checkpoint.
 
-Guards that make it safe to point at a ~160-finding backlog: the runner refuses
-a dirty starting worktree (default mode), a detached HEAD, or a closed
-Objective; it never commits on `main`/`master`, never pushes or submits, and
-fails verification for a child that committed on its own. A verification
-failure leaves the tree as the child left it and returns control to the parent,
-whose biased default is one `--recover` re-dispatch with sharpened guidance;
-anything that cannot be cleanly recovered stops for manual review.
+In both modes the parent makes every between-step decision—continue, recover,
+record a Semantic Update, ask, or stop. This is where the Step 5 Runner Policy
+is consumed. The autonomy ceiling maps onto parent behavior, not flags: a step
+budget is a ceiling, and PR submission is never autorun behavior. The seed
+Objective's "full pipeline up to PR submission, never landing" means a parent
+or human may submit the resulting work only through a separate, explicitly
+requested normal workflow after autorun ends.
+
+Guards that make it safe to point at a ~160-finding backlog include a clean
+starting worktree, attached HEAD, an open Objective, no commits on trunk, no
+child commits, and no push or submit. Verification failure leaves the child's
+work visible for parent judgment or a fresh recovery attempt; anything that
+cannot be cleanly recovered stops for manual review. In portable mode every
+accepted slice stays on the run's single feature branch and receives one
+parent-created ordinary commit.
+
+ADR 0037 publication is a separate, narrowly authorized operation available
+only after a real committed Runner Checkpoint in `ns-bookended` mode. It is
+unavailable/not applicable in portable mode; a portable commit must never be
+passed to the runner publisher.
 
 Because each child re-derives its slice from `references/` plus current repo
 state, the "re-verify at pickup" rule from Step 3 is enforced per iteration: a
