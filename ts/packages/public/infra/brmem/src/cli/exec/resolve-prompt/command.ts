@@ -1,23 +1,23 @@
-import { join } from "node:path";
+import { cliPositional, defineCommand, failure, ok } from "@nseng-ai/clinkr/app";
 
-import { failure, ok } from "@nseng-ai/clinkr/legacy";
+import { join } from "node:path";
 import { z } from "zod";
 
-import type { BrmemCliContext } from "../context.ts";
+import type { BrmemCliContext } from "../../../context.ts";
 
-export const resolvePromptRequestSchema = z.object({
-	name: z.string().describe("Prompt name to resolve."),
+const resolvePromptRequestSchema = z.object({
+	name: cliPositional(z.string().describe("Prompt name to resolve."), { position: 0 }),
 });
 
-export const resolvePromptResultSchema = z.object({
+const resolvePromptResultSchema = z.object({
 	path: z.string(),
 	tier: z.enum(["project", "global"]),
 });
 
-export type ResolvePromptRequest = z.infer<typeof resolvePromptRequestSchema>;
-export type ResolvePromptResult = z.infer<typeof resolvePromptResultSchema>;
+type ResolvePromptRequest = z.infer<typeof resolvePromptRequestSchema>;
+type ResolvePromptResult = z.infer<typeof resolvePromptResultSchema>;
 
-export async function runResolvePrompt(ctx: BrmemCliContext, request: ResolvePromptRequest) {
+async function runResolvePrompt(ctx: BrmemCliContext, request: ResolvePromptRequest) {
 	const repoRoot = await ctx.promptResolver.repositoryRoot({ cwd: ctx.cwd });
 	if (repoRoot.type === "error") return failure(repoRoot.error.code, repoRoot.error.message);
 
@@ -46,6 +46,15 @@ export async function runResolvePrompt(ctx: BrmemCliContext, request: ResolvePro
 	);
 }
 
-export function renderResolvePrompt(result: ResolvePromptResult): string {
+function renderResolvePrompt(result: ResolvePromptResult): string {
 	return result.path;
+}
+export async function command() {
+	return defineCommand({
+		requiresContext: true,
+		schema: resolvePromptRequestSchema,
+		resultSchema: resolvePromptResultSchema,
+		handler: runResolvePrompt,
+		renderHuman: renderResolvePrompt,
+	});
 }

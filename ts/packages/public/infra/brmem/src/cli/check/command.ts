@@ -1,20 +1,25 @@
-import { negative, ok } from "@nseng-ai/clinkr/legacy";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { cliOption, cliPositional, defineCommand, negative, ok } from "@nseng-ai/clinkr/app";
+import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import type { BrmemCliContext } from "../context.ts";
-import { mustEntryLocator, namespaceValueLabel } from "../ref-layout.ts";
-import { gatewayFailure, resolveOperationEntryRequest } from "./shared.ts";
+import type { BrmemCliContext } from "../../context.ts";
+import { mustEntryLocator, namespaceValueLabel } from "../../ref-layout.ts";
+import { gatewayFailure, resolveOperationEntryRequest } from "../../entry-request.ts";
 
-export const checkRequestSchema = z.object({
-	key: z.string().describe("Entry Key to check."),
-	namespace: z.string().optional().describe("Namespace. Omit for ad-hoc base Entries."),
-	branch: z.string().optional().describe("Branch. Defaults to current branch."),
-	at: z.string().optional().describe("Snapshot ref or commit to inspect."),
-	require: z.boolean().default(false).describe("Require the named Entry to exist."),
+const checkRequestSchema = z.object({
+	key: cliPositional(z.string().describe("Entry Key to check."), { position: 0 }),
+	namespace: cliOption(
+		z.string().optional().describe("Namespace. Omit for ad-hoc base Entries."),
+		{},
+	),
+	branch: cliOption(z.string().optional().describe("Branch. Defaults to current branch."), {}),
+	at: cliOption(z.string().optional().describe("Snapshot ref or commit to inspect."), {}),
+	require: cliOption(z.boolean().default(false).describe("Require the named Entry to exist."), {
+		short: "-r",
+	}),
 });
 
-export const checkResultSchema = z.object({
+const checkResultSchema = z.object({
 	namespace: z.string(),
 	key: z.string(),
 	branch: z.string(),
@@ -28,12 +33,15 @@ export const checkResultSchema = z.object({
 	sizeBytes: z.number().int().nullable(),
 });
 
-export type CheckRequest = z.infer<typeof checkRequestSchema>;
-export type CheckResult = z.infer<typeof checkResultSchema>;
+type CheckRequest = z.infer<typeof checkRequestSchema>;
+type CheckResult = z.infer<typeof checkResultSchema>;
 
-export async function runCheck(ctx: BrmemCliContext, request: CheckRequest) {
-	const resolved = await resolveOperationEntryRequest(ctx, request);
-	if (resolved.type !== "resolved") return resolved;
+async function runCheck(ctx: BrmemCliContext, request: CheckRequest) {
+	const resolved = await resolveOperationEntryRequest(ctx, {
+		key: request.key,
+		...optionalEntries({ namespace: request.namespace, branch: request.branch }),
+	});
+	if (resolved.type === "failure") return resolved.outcome;
 	const { namespace, key, branch } = resolved.value;
 	const locator = mustEntryLocator(namespace, key, branch);
 	const target = request.at ?? locator;
@@ -43,7 +51,7 @@ export async function runCheck(ctx: BrmemCliContext, request: CheckRequest) {
 		branch,
 		...optionalEntry("at", request.at),
 	});
-	if (result.type === "error") return gatewayFailure<CheckResult>(result.error);
+	if (result.type === "error") return gatewayFailure(result.error);
 	if (result.type === "missing") {
 		const data = emptyResult({
 			namespace,
@@ -72,7 +80,7 @@ export async function runCheck(ctx: BrmemCliContext, request: CheckRequest) {
 	});
 }
 
-export function renderCheck(result: CheckResult): string {
+function renderCheck(result: CheckResult): string {
 	const lines = [
 		`Namespace: ${namespaceValueLabel(result.namespace)}`,
 		`Entry Key: ${result.key}`,
@@ -108,4 +116,13 @@ function emptyResult(options: {
 		blobSha: null,
 		sizeBytes: null,
 	};
+}
+export async function command() {
+	return defineCommand({
+		requiresContext: true,
+		schema: checkRequestSchema,
+		resultSchema: checkResultSchema,
+		handler: runCheck,
+		renderHuman: renderCheck,
+	});
 }

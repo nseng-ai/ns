@@ -1,34 +1,46 @@
-import { failure, ok, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
+import {
+	cliOption,
+	defineCommand,
+	failure,
+	ok,
+	type RenderCapabilities,
+} from "@nseng-ai/clinkr/app";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { renderTextTable } from "@nseng-ai/foundation/text-table";
 import { z } from "zod";
 
-import type { BrmemCliContext } from "../context.ts";
+import type { BrmemCliContext } from "../../context.ts";
 import {
 	namespaceDisplayLabel,
 	namespaceScopeLabel,
 	namespaceScopeRequest,
 	resolveOptionalNamespaceScope,
 	type EntryRef,
-} from "../ref-layout.ts";
+} from "../../ref-layout.ts";
 import {
 	firstFailure,
 	validateBranchName,
 	validateEntryKey,
 	validateNamespaceName,
 	validationMessage,
-} from "../validation.ts";
-import { gatewayFailure, resolveCurrentBranch } from "./shared.ts";
+} from "../../validation.ts";
+import { gatewayFailure, resolveCurrentBranch } from "../../entry-request.ts";
 
-export const listRequestSchema = z.object({
-	namespace: z.string().optional().describe("Namespace filter. Omit for all Namespaces."),
-	key: z.string().optional().describe("Exact Entry Key filter."),
-	branch: z.string().optional().describe("Branch. Defaults to current branch."),
-	base: z.boolean().default(false).describe("Restrict to Base Namespace."),
-	allBranches: z.boolean().default(false).describe("List Entries from all branches."),
+const listRequestSchema = z.object({
+	namespace: cliOption(
+		z.string().optional().describe("Namespace filter. Omit for all Namespaces."),
+		{},
+	),
+	key: cliOption(z.string().optional().describe("Exact Entry Key filter."), {}),
+	branch: cliOption(z.string().optional().describe("Branch. Defaults to current branch."), {}),
+	base: cliOption(z.boolean().default(false).describe("Restrict to Base Namespace."), {}),
+	allBranches: cliOption(
+		z.boolean().default(false).describe("List Entries from all branches."),
+		{},
+	),
 });
 
-export const listResultSchema = z.object({
+const listResultSchema = z.object({
 	namespaceScope: z.string(),
 	key: z.string().nullable(),
 	branch: z.string().nullable(),
@@ -44,10 +56,10 @@ export const listResultSchema = z.object({
 	),
 });
 
-export type ListRequest = z.infer<typeof listRequestSchema>;
-export type ListResult = z.infer<typeof listResultSchema>;
+type ListRequest = z.infer<typeof listRequestSchema>;
+type ListResult = z.infer<typeof listResultSchema>;
 
-export async function runList(ctx: BrmemCliContext, request: ListRequest) {
+async function runList(ctx: BrmemCliContext, request: ListRequest) {
 	const namespaceScope = resolveOptionalNamespaceScope(namespaceScopeRequest(request));
 	if (namespaceScope.type === "conflict")
 		return failure(namespaceScope.code, namespaceScope.message);
@@ -94,7 +106,7 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 	const entriesResult = scope.allNamespaces
 		? await ctx.gateway.listAllEntries(entryFilters)
 		: await ctx.gateway.listEntries({ namespace: scope.namespace, ...entryFilters });
-	if (entriesResult.type === "error") return gatewayFailure<ListResult>(entriesResult.error);
+	if (entriesResult.type === "error") return gatewayFailure(entriesResult.error);
 	return ok({
 		namespaceScope: namespaceScopeLabel(scope),
 		key: request.key ?? null,
@@ -105,10 +117,7 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 	});
 }
 
-export function renderList(
-	result: ListResult,
-	caps: RenderCapabilities = { canEmitAnsi: false },
-): string {
+function renderList(result: ListResult, caps: RenderCapabilities = { canEmitAnsi: false }): string {
 	if (result.entries.length === 0) return "";
 	return renderTextTable({
 		columns: [
@@ -139,4 +148,13 @@ function entryJson(entry: EntryRef): {
 		branch: entry.branch,
 		refName: entry.entryLocator,
 	};
+}
+export async function command() {
+	return defineCommand({
+		requiresContext: true,
+		schema: listRequestSchema,
+		resultSchema: listResultSchema,
+		handler: runList,
+		renderHuman: renderList,
+	});
 }

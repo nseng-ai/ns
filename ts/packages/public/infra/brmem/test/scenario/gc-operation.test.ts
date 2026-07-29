@@ -20,7 +20,7 @@ describe("brmem gc", () => {
 		expect(run.stderr.join("")).toContain("Scanning Branch Memory Snapshot refs…");
 		expect(run.stderr.join("")).toContain("Found 2 stale Branch Memory Snapshot refs.");
 		expect(parseJsonOutput(run)).toMatchObject({
-			status: "ok",
+			status: "success",
 			data: {
 				namespaceScope: "all",
 				deleted: false,
@@ -91,7 +91,7 @@ describe("brmem gc", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			status: "ok",
+			status: "success",
 			data: {
 				deleted: true,
 				staleSnapshots: [

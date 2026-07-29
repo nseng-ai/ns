@@ -1,12 +1,17 @@
-import { failure, ok } from "@nseng-ai/clinkr/legacy";
+import { cliOption, defineCommand, failure, ok } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
-import type { BrmemCliContext } from "../context.ts";
-import { gatewayFailure } from "./shared.ts";
+import type { BrmemCliContext } from "../../context.ts";
+import {
+	BRMEM_REFSPEC,
+	buildGitSetupPlan,
+	fetchConfigKey,
+	pushConfigKey,
+	type GitSetupPlan,
+} from "../../git-setup.ts";
+import { gatewayFailure } from "../../entry-request.ts";
 
 const DEFAULT_REMOTE = "origin";
-const BRMEM_REFSPEC = "refs/brmem/*:refs/brmem/*";
-const HEAD_PUSH_REFSPEC = "HEAD";
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F]/u;
 
 const gitSetupAdditionReasonSchema = z.enum([
@@ -21,15 +26,18 @@ const gitSetupAdditionSchema = z.object({
 	reason: gitSetupAdditionReasonSchema,
 });
 
-export const setupGitRequestSchema = z.object({
-	remote: z.string().default(DEFAULT_REMOTE).describe("Git remote to configure."),
-	dryRun: z
-		.boolean()
-		.default(false)
-		.describe("Show planned Git config changes without mutating local Git config."),
+const setupGitRequestSchema = z.object({
+	remote: cliOption(z.string().default(DEFAULT_REMOTE).describe("Git remote to configure."), {}),
+	dryRun: cliOption(
+		z
+			.boolean()
+			.default(false)
+			.describe("Show planned Git config changes without mutating local Git config."),
+		{},
+	),
 });
 
-export const setupGitResultSchema = z.object({
+const setupGitResultSchema = z.object({
 	remote: z.string(),
 	dryRun: z.boolean(),
 	pushRefspec: z.string(),
@@ -39,24 +47,10 @@ export const setupGitResultSchema = z.object({
 	additions: z.array(gitSetupAdditionSchema),
 });
 
-export type SetupGitRequest = z.infer<typeof setupGitRequestSchema>;
-export type SetupGitResult = z.infer<typeof setupGitResultSchema>;
-export type GitSetupAddition = z.infer<typeof gitSetupAdditionSchema>;
-export type GitSetupAdditionReason = z.infer<typeof gitSetupAdditionReasonSchema>;
+type SetupGitRequest = z.infer<typeof setupGitRequestSchema>;
+type SetupGitResult = z.infer<typeof setupGitResultSchema>;
 
-export interface ExistingGitSetupConfig {
-	push: readonly string[];
-	fetch: readonly string[];
-}
-
-export interface GitSetupPlan {
-	remote: string;
-	existingPush: readonly string[];
-	existingFetch: readonly string[];
-	additions: readonly GitSetupAddition[];
-}
-
-export async function runSetupGit(ctx: BrmemCliContext, request: SetupGitRequest) {
+async function runSetupGit(ctx: BrmemCliContext, request: SetupGitRequest) {
 	const remote = normalizeRemoteName(request.remote);
 	if (remote === undefined)
 		return failure(
@@ -65,7 +59,7 @@ export async function runSetupGit(ctx: BrmemCliContext, request: SetupGitRequest
 		);
 
 	const configOpt = await ctx.gateway.getRemoteConfig(remote);
-	if (configOpt.type === "error") return gatewayFailure<SetupGitResult>(configOpt.error);
+	if (configOpt.type === "error") return gatewayFailure(configOpt.error);
 	if (configOpt.type === "missing")
 		return failure("remote-not-found", `Git remote ${JSON.stringify(remote)} was not found.`);
 
@@ -85,42 +79,12 @@ export async function runSetupGit(ctx: BrmemCliContext, request: SetupGitRequest
 
 	if (pushAdditions.length > 0 || fetchAdditions.length > 0) {
 		const added = await ctx.gateway.addRemoteRefspecs(remote, pushAdditions, fetchAdditions);
-		if (added.type === "error") return gatewayFailure<SetupGitResult>(added.error);
+		if (added.type === "error") return gatewayFailure(added.error);
 	}
 	return ok(result);
 }
 
-export function buildGitSetupPlan(options: {
-	remote: string;
-	existing: ExistingGitSetupConfig;
-}): GitSetupPlan {
-	const pushKey = pushConfigKey(options.remote);
-	const fetchKey = fetchConfigKey(options.remote);
-	const additions: GitSetupAddition[] = [];
-	if (options.existing.push.length === 0) {
-		additions.push({ key: pushKey, value: HEAD_PUSH_REFSPEC, reason: "preserve-default-push" });
-	}
-	const plannedPushValues = additions
-		.filter((addition) => addition.key === pushKey)
-		.map((addition) => addition.value);
-	if (
-		!options.existing.push.includes(BRMEM_REFSPEC) &&
-		!plannedPushValues.includes(BRMEM_REFSPEC)
-	) {
-		additions.push({ key: pushKey, value: BRMEM_REFSPEC, reason: "branch-memory-push" });
-	}
-	if (!options.existing.fetch.includes(BRMEM_REFSPEC)) {
-		additions.push({ key: fetchKey, value: BRMEM_REFSPEC, reason: "branch-memory-fetch" });
-	}
-	return {
-		remote: options.remote,
-		existingPush: [...options.existing.push],
-		existingFetch: [...options.existing.fetch],
-		additions,
-	};
-}
-
-export function renderSetupGit(result: SetupGitResult): string {
+function renderSetupGit(result: SetupGitResult): string {
 	if (result.additions.length === 0) {
 		return `Git remote ${result.remote} is already configured for Branch Memory Snapshot Refs.`;
 	}
@@ -141,19 +105,21 @@ export function renderSetupGit(result: SetupGitResult): string {
 	return lines.join("\n");
 }
 
+export async function command() {
+	return defineCommand({
+		requiresContext: true,
+		schema: setupGitRequestSchema,
+		resultSchema: setupGitResultSchema,
+		handler: runSetupGit,
+		renderHuman: renderSetupGit,
+	});
+}
+
 function normalizeRemoteName(remote: string): string | undefined {
 	const normalized = remote.trim();
 	if (normalized.length === 0) return undefined;
 	if (CONTROL_CHARACTER_PATTERN.test(normalized)) return undefined;
 	return normalized;
-}
-
-function pushConfigKey(remote: string): string {
-	return `remote.${remote}.push`;
-}
-
-function fetchConfigKey(remote: string): string {
-	return `remote.${remote}.fetch`;
 }
 
 function setupGitResultFromPlan(plan: GitSetupPlan, dryRun: boolean): SetupGitResult {

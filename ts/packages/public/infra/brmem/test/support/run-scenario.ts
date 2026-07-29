@@ -1,11 +1,11 @@
 import { isAbsolute, resolve } from "node:path";
-import { TextDecoder, TextEncoder } from "node:util";
+import { TextEncoder } from "node:util";
 
 import type { ConfirmationResult } from "@nseng-ai/clinkr";
 import { createFakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
-import { runCli, type CliDeps } from "../../src/cli.ts";
+import { runCli, type CliDeps } from "../../src/cli/app.ts";
 import { type BrmemCliContext } from "../../src/context.ts";
 import { brmemError, brmemOk, type BrmemResult } from "../../src/contracts.ts";
 import { FakeBrmemGateway, type FakeBrmemGatewayOptions } from "../../src/fake-gateway.ts";
@@ -24,11 +24,13 @@ export interface ScenarioRunOptions {
 	env?: NodeJS.ProcessEnv;
 	cwd?: string;
 	stdin?: string | Uint8Array | (() => Promise<string | Uint8Array>);
+	requestStdin?: string;
 	files?: Record<string, string | Uint8Array>;
 	unreadableFiles?: Record<string, string>;
 	sourceReader?: BrmemSourceReader;
 	confirmations?: readonly ConfirmationResult[];
 	isInteractive?: boolean;
+	canEmitAnsi?: boolean;
 }
 
 export interface ScenarioRun {
@@ -65,8 +67,6 @@ export function runScenario(
 				}),
 			}),
 		cwd,
-		env: options.env ?? { PATH: "/fake/bin" },
-		stdin: async () => stringFromStdin(stdin),
 		stderr: (text) => stderr.push(text),
 		sourceReader:
 			options.sourceReader ??
@@ -80,11 +80,12 @@ export function runScenario(
 	const deps: CliDeps = {
 		context,
 		cwd,
-		env: context.env,
-		stdin: context.stdin,
+		env: options.env ?? { PATH: "/fake/bin" },
+		readStdin: async () => options.requestStdin ?? "",
 		sourceReader: context.sourceReader,
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
+		...optionalEntries({ canEmitAnsi: options.canEmitAnsi }),
 	};
 	return {
 		exit: runCli(args, deps).then((code) => {
@@ -171,11 +172,6 @@ class ScenarioSourceReader implements BrmemSourceReader {
 	async readStdinBytes(): Promise<Uint8Array> {
 		return bytesFromValue(await valueFromStdin(this.stdin));
 	}
-}
-
-async function stringFromStdin(stdin: ScenarioRunOptions["stdin"]): Promise<string> {
-	const value = await valueFromStdin(stdin);
-	return typeof value === "string" ? value : new TextDecoder().decode(value);
 }
 
 async function valueFromStdin(stdin: ScenarioRunOptions["stdin"]): Promise<string | Uint8Array> {

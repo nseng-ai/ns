@@ -151,7 +151,7 @@ install-ns: (_install-ts-shim "ns" "ts/packages/public/ns/src/cli.ts" "just inst
 # inside an ns checkout, this checkout's sources everywhere else.
 # Remove the pnpm workspace link because ts/node_modules/.bin commonly
 # precedes ~/.local/bin on PATH and can retain an obsolete CLI entrypoint.
-install-brmem: (_install-ts-shim "brmem" "ts/packages/public/infra/brmem/src/cli.ts" "just install-brmem or just install-tools")
+install-brmem: (_install-ts-shim "brmem" "ts/packages/public/infra/brmem/src/cli/app.ts" "just install-brmem or just install-tools")
     rm -f "{{justfile_directory()}}/ts/node_modules/.bin/brmem"
     @echo "removed stale workspace brmem shim if present"
 

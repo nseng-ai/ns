@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { VERSION } from "../../src/cli.ts";
+import { VERSION } from "../../src/cli/app.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
 describe("brmem CLI shape", () => {
@@ -12,11 +12,11 @@ describe("brmem CLI shape", () => {
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
 		expect(runtime.stdout.join("")).toContain("runtime: typescript");
-		expect(runtime.stdout.join("")).toContain("ts/packages/public/infra/brmem/src/cli.ts");
+		expect(runtime.stdout.join("")).toContain("ts/packages/public/infra/brmem/src/cli/app.ts");
 	});
 
 	it("shows visible commands while hiding exec from top-level help", async () => {
-		const run = runScenario(["--help"]);
+		const run = runScenario(["-h"]);
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		for (const command of [

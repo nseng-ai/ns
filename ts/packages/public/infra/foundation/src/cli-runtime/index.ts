@@ -1,29 +1,36 @@
-import { existsSync, readFileSync, realpathSync } from "node:fs";
 import process from "node:process";
-import { basename, dirname, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { ClinkrGroup, resolveIo, type ClinkrIo } from "@nseng-ai/clinkr";
 import { failure, type ClinkrExit, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
-import { z } from "zod";
-
 import {
 	formatErrorMessage,
 	optionalEntries,
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
 
+import { isDirectCliInvocation } from "./direct-invocation.ts";
+import {
+	createCliRuntimeInfo,
+	readCliPackageMetadata,
+	type CliPackageMetadata,
+	type CliRuntime,
+} from "./package-metadata.ts";
+
+export { defineClinkrAppCli } from "./clinkr-app-cli.ts";
+export type {
+	ClinkrAppCliBuildInput,
+	ClinkrAppCliEntrypointDeps,
+	ClinkrAppCliPrepareRunInput,
+	ClinkrAppCliPrepareRunResult,
+	ClinkrAppCliRunDeps,
+	ClinkrAppCliRunErrorInput,
+	ClinkrAppCliRunIfMainInput,
+	DefinedClinkrAppCli,
+	DefineClinkrAppCliOptions,
+} from "./clinkr-app-cli.ts";
+export { isDirectCliInvocation } from "./direct-invocation.ts";
+export type { CliPackageMetadata, CliRuntime } from "./package-metadata.ts";
 export { readStdin, readStdinLine } from "./stdin.ts";
-
-export type CliRuntime = "typescript" | "bun";
-
-export interface CliPackageMetadata {
-	readonly packageName: string;
-	readonly packagePath: string;
-	readonly binName: string;
-	readonly binPath: string;
-	readonly version: string;
-}
 
 export interface CliEntrypointDeps {
 	readonly cwd?: string;
@@ -133,29 +140,6 @@ export interface DefinedCli<TContext, TDeps extends CliEntrypointDeps, TBuildSta
 	readonly runIfMain: (input: CliRunIfMainInput) => Promise<void>;
 }
 
-const packageJsonSchema = z.object({
-	name: z.string(),
-	version: z.string(),
-	bin: z.record(z.string(), z.string()).optional(),
-});
-
-/**
- * Whether this module is the process entrypoint, for runtimes where
- * `import.meta.main` is unavailable. Entrypoint footers pair the two:
- * `if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1]))`.
- */
-export function isDirectCliInvocation(metaUrl: string, argvPath: string | undefined): boolean {
-	if (argvPath === undefined) return false;
-
-	try {
-		const modulePath = realpathSync(fileURLToPath(metaUrl));
-		const entryPath = realpathSync(resolve(argvPath));
-		return modulePath === entryPath;
-	} catch {
-		return false;
-	}
-}
-
 export async function runClinkrCommand<T>(
 	errorType: string,
 	operation: () => Promise<ClinkrExit<T>>,
@@ -191,8 +175,7 @@ export function defineCli<
 	options: DefineCliOptions<TContext, TDeps, TBuildState>,
 ): DefinedCli<TContext, TDeps, TBuildState> {
 	const metadata = readCliPackageMetadata(options.metaUrl);
-	const runtimeInfo = (): string =>
-		`runtime: ${options.runtime}\nentry_point: ${metadata.packageName} bin ${metadata.binName} -> ts/${metadata.packagePath}/${metadata.binPath}\n`;
+	const runtimeInfo = createCliRuntimeInfo(options.runtime, metadata);
 	const buildCli = (buildState: TBuildState): ClinkrGroup<TContext> => {
 		const buildInput = {
 			name: metadata.binName,
@@ -268,75 +251,4 @@ export function defineCli<
 		run,
 		runIfMain,
 	};
-}
-
-function readCliPackageMetadata(metaUrl: string): CliPackageMetadata {
-	const packageJsonPath = findNearestPackageJson(dirname(fileURLToPath(metaUrl)));
-	let rawPackageJson: unknown;
-	try {
-		rawPackageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-	} catch (error) {
-		throw new Error(`Unable to read CLI package metadata from ${packageJsonPath}`, {
-			cause: error,
-		});
-	}
-	const parsed = packageJsonSchema.safeParse(rawPackageJson);
-	if (!parsed.success) {
-		throw new Error(
-			`Invalid CLI package metadata in ${packageJsonPath}: ${parsed.error.issues.map(formatZodIssue).join("; ")}`,
-		);
-	}
-	const binEntries = Object.entries(parsed.data.bin ?? {});
-	if (binEntries.length > 1) {
-		throw new Error(
-			`Invalid CLI package metadata in ${packageJsonPath}: expected at most one bin entry, found ${binEntries.length}`,
-		);
-	}
-	const [binEntry] = binEntries;
-	const [binName, binPath] =
-		binEntry === undefined
-			? [cliNameFromPackageName(parsed.data.name), "(no package bin)"]
-			: [binEntry[0], normalizeBinPathForDisplay(binEntry[1])];
-	return {
-		packageName: parsed.data.name,
-		packagePath: packagePathForDisplay(packageJsonPath),
-		binName,
-		binPath,
-		version: parsed.data.version,
-	};
-}
-
-function findNearestPackageJson(startDir: string): string {
-	let candidate = startDir;
-	while (true) {
-		const packageJsonPath = resolve(candidate, "package.json");
-		if (existsSync(packageJsonPath)) return packageJsonPath;
-		const parent = dirname(candidate);
-		if (parent === candidate) return resolve(startDir, "..", "package.json");
-		candidate = parent;
-	}
-}
-
-function packagePathForDisplay(packageJsonPath: string): string {
-	const packageDir = dirname(packageJsonPath);
-	let candidate = packageDir;
-	while (basename(candidate) !== "packages") {
-		const parent = dirname(candidate);
-		if (parent === candidate) return `packages/${basename(packageDir)}`;
-		candidate = parent;
-	}
-	return relative(dirname(candidate), packageDir);
-}
-
-function normalizeBinPathForDisplay(binPath: string): string {
-	return binPath.startsWith("./") ? binPath.slice(2) : binPath;
-}
-
-function cliNameFromPackageName(packageName: string): string {
-	return packageName.split("/").at(-1) ?? packageName;
-}
-
-function formatZodIssue(issue: z.core.$ZodIssue): string {
-	const path = issue.path.length === 0 ? "(root)" : issue.path.join(".");
-	return `${path}: ${issue.message}`;
 }
