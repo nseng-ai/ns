@@ -27,7 +27,10 @@ export type ObjectiveRead =
 	| { ok: false; failure: ObjectiveApiFailure };
 
 export interface ObjectiveCandidate {
+	owner: string;
 	slug: string;
+	/** Durable candidate value: full Objective Locator `<owner>/<slug>`. */
+	locator: string;
 	status: ObjectiveRecordStatus;
 }
 
@@ -50,15 +53,16 @@ export interface ObjectiveClientOptions {
 export interface ObjectiveClient {
 	/** List checkout-local Objective records (defaults to active status). */
 	listObjectives(request?: Partial<ListObjectivesRequest>): Promise<ObjectiveListing>;
-	/** Read one Objective record by slug, optionally including full update contents. */
-	readObjective(slug: string, options?: ReadObjectiveOptions): Promise<ObjectiveRead>;
-	/** List active (open) Objective slugs for selection menus. */
+	/** Read one Objective record by locator or owner-local slug. */
+	readObjective(selector: string, options?: ReadObjectiveOptions): Promise<ObjectiveRead>;
+	/** List active (open) Objective locators for selection menus. */
 	listActiveCandidates(): Promise<ObjectiveCandidates>;
 }
 
 const DEFAULT_LIST_REQUEST: ListObjectivesRequest = {
 	names: false,
 	status: "active",
+	allOwners: false,
 };
 
 export function createObjectiveClient(options: ObjectiveClientOptions): ObjectiveClient {
@@ -70,11 +74,14 @@ export function createObjectiveClient(options: ObjectiveClientOptions): Objectiv
 				...request,
 			});
 			if (result.type === "ok") return { ok: true, result: result.value };
+			if (result.type === "owner-unavailable") {
+				return { ok: false, failure: { errorType: "owner-unavailable", message: result.message } };
+			}
 			return { ok: false, failure: toFailure(result.error) };
 		},
-		async readObjective(slug, readOptions) {
+		async readObjective(selector, readOptions) {
 			const ctx = await resolveContext(options);
-			const result = await readObjectiveRecord(ctx.storage, slug, readOptions);
+			const result = await readObjectiveRecord(ctx, selector, readOptions);
 			if (result.type === "ok") return { ok: true, result: result.value };
 			return { ok: false, failure: toFailure(result.error) };
 		},
@@ -86,7 +93,12 @@ export function createObjectiveClient(options: ObjectiveClientOptions): Objectiv
 				ok: true,
 				candidates: inventory.value.records
 					.filter((record) => matchesStatusFilter(record.status, "active"))
-					.map((record) => ({ slug: record.slug, status: record.status })),
+					.map((record) => ({
+						owner: record.owner,
+						slug: record.slug,
+						locator: record.locator,
+						status: record.status,
+					})),
 			};
 		},
 	};

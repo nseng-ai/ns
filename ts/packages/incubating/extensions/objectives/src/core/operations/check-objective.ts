@@ -20,7 +20,6 @@ import {
 	type ObjectiveFiles,
 	type ObjectiveMarkdownReadResult,
 	type ObjectiveRecordDocumentReadResult,
-	type ObjectiveStorage,
 	type ObjectiveUpdateFile,
 } from "../storage.ts";
 import {
@@ -46,14 +45,20 @@ const requiredRoadmapHeadings = ["# Roadmap", "## Work", "## Parked"] as const;
 const requiredUpdateHeadings = ["## Summary", "## Objective Impact", "## Follow-Ups"] as const;
 
 export const checkObjectiveRequestSchema = z.object({
-	slug: z.string().optional().describe("Objective slug to check."),
+	slug: z
+		.string()
+		.optional()
+		.describe("Objective locator (<owner>/<slug>) or owner-local slug to check."),
 });
 
 export const checkObjectiveBaseResultSchema = z.object({
 	error: z.string().nullable(),
 	rootPath: z.string(),
 	hasRoot: z.boolean(),
+	owner: z.string().nullable(),
 	slug: z.string().nullable(),
+	locator: z.string().nullable(),
+	message: z.string().optional(),
 	path: z.string().nullable(),
 	hasRecord: z.boolean(),
 	isClosed: z.boolean(),
@@ -74,15 +79,21 @@ export const checkObjectiveInvalidSlugResultSchema = checkObjectiveBaseResultSch
 export const checkObjectiveNotFoundResultSchema = checkObjectiveBaseResultSchema.extend({
 	status: z.literal("not-found"),
 });
+export const checkObjectiveOwnerUnavailableResultSchema = checkObjectiveBaseResultSchema.extend({
+	status: z.literal("owner-unavailable"),
+});
 
 export const checkObjectiveNonSelectedResultSchema = z.discriminatedUnion("status", [
 	checkObjectiveMissingSlugResultSchema,
 	checkObjectiveInvalidSlugResultSchema,
+	checkObjectiveOwnerUnavailableResultSchema,
 	checkObjectiveNotFoundResultSchema,
 ]);
 
 export const checkObjectiveEvaluatedBaseResultSchema = checkObjectiveBaseResultSchema.extend({
+	owner: z.string(),
 	slug: z.string(),
+	locator: z.string(),
 	path: z.string(),
 	hasRecord: z.literal(true),
 });
@@ -102,6 +113,7 @@ export const checkObjectiveResultSchema = z.discriminatedUnion("status", [
 	checkObjectiveFailedResultSchema,
 	checkObjectiveMissingSlugResultSchema,
 	checkObjectiveInvalidSlugResultSchema,
+	checkObjectiveOwnerUnavailableResultSchema,
 	checkObjectiveNotFoundResultSchema,
 ]);
 
@@ -113,19 +125,19 @@ export async function runCheckObjective(
 	ctx: ObjectiveCliContext,
 	request: CheckObjectiveRequest,
 ): Promise<ClinkrExit<CheckObjectiveResult>> {
-	const result = await checkObjective(ctx.storage, request.slug);
+	const result = await checkObjective(ctx, request.slug);
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
 	const slugValidationError = handleObjectiveSlugValidationErrors(result.value, request.slug);
 	if (slugValidationError !== null) return slugValidationError;
 	if (result.value.status === "not-found") {
 		return negative(
-			`No Objective record found for slug ${pythonStringRepr(result.value.slug ?? "")}.`,
+			`No Objective record found for locator ${pythonStringRepr(result.value.locator ?? "")}.`,
 			{ data: result.value },
 		);
 	}
 	if (result.value.status === "failed") {
 		return negative(
-			`Objective check failed for slug ${pythonStringRepr(result.value.slug ?? "")}: ${result.value.errorCount} error(s), ${result.value.warningCount} warning(s).`,
+			`Objective check failed for ${pythonStringRepr(result.value.locator ?? "")}: ${result.value.errorCount} error(s), ${result.value.warningCount} warning(s).`,
 			{ data: result.value },
 		);
 	}
@@ -140,11 +152,12 @@ export function renderCheckObjective(
 	if (
 		result.status === "missing-slug" ||
 		result.status === "invalid-slug" ||
+		result.status === "owner-unavailable" ||
 		result.status === "not-found"
 	) {
 		const label =
-			result.status === "not-found" && result.slug !== null
-				? `No Objective record found for ${result.slug}.`
+			result.status === "not-found" && result.locator !== null
+				? `No Objective record found for ${result.locator}.`
 				: "No Objective record selected.";
 		return [label, kv(renderCaps, "Root", rootPresence(result))].join("\n");
 	}
@@ -167,7 +180,7 @@ export function renderCheckObjective(
 	});
 	return removeOneTrailingNewline(
 		[
-			`Objective check ${result.slug}`,
+			`Objective check ${result.locator}`,
 			"",
 			kv(renderCaps, "Root", rootPresence(result)),
 			kv(renderCaps, "Path", result.path),
@@ -186,13 +199,18 @@ export function renderCheckObjective(
 }
 
 async function checkObjective(
-	storage: ObjectiveStorage,
-	slug: string | undefined,
+	ctx: ObjectiveCliContext,
+	selector: string | undefined,
 ): Promise<
 	| { type: "ok"; value: CheckObjectiveResult }
 	| { type: "storage-error"; error: { code: string; message: string } }
 > {
-	const targetResult = await resolveObjectiveRecordTarget(storage, slug);
+	const storage = ctx.storage;
+	const inventory = await storage.checkoutInventory();
+	if (!inventory.ok) return { type: "storage-error", error: inventory.error };
+	const targetResult = await resolveObjectiveRecordTarget(storage, ctx.owner, selector, {
+		inventory: inventory.value,
+	});
 	if (targetResult.type === "storage-error") return targetResult;
 	const target = targetResult.value;
 	if (target.status !== "found") {
@@ -217,8 +235,8 @@ async function checkObjective(
 		objectiveMd.type === "ok"
 			? await objectiveEdgeLintChecks({
 					storage,
-					slug: target.slug,
-					recordRelativePath: relativePath,
+					records: inventory.value.records,
+					location: target.location,
 					document: objectiveMd.document,
 				})
 			: null;
@@ -251,7 +269,9 @@ async function checkObjective(
 	const evaluatedFacts = {
 		rootPath: target.rootPath,
 		hasRoot: target.hasRoot,
+		owner: target.owner,
 		slug: target.slug,
+		locator: target.locator,
 		path: relativePath,
 		hasRecord: true as const,
 		isClosed: files.value.closedMd,
@@ -285,7 +305,10 @@ function emptyResult(options: {
 	status: Exclude<CheckObjectiveStatus, "ok" | "failed">;
 	error: string;
 	rootPath: string;
+	owner: string | null;
 	slug: string | null;
+	locator: string | null;
+	message?: string;
 	path: string | null;
 	hasRoot: boolean;
 }): CheckObjectiveResult {
@@ -294,7 +317,10 @@ function emptyResult(options: {
 		error: options.error,
 		rootPath: options.rootPath,
 		hasRoot: options.hasRoot,
+		owner: options.owner,
 		slug: options.slug,
+		locator: options.locator,
+		...(options.message === undefined ? {} : { message: options.message }),
 		path: options.path,
 		hasRecord: false,
 		isClosed: false,

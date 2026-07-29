@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: flow-fold-stack-skills-into-workflow-tier
+  - objective: schrockn/flow-fold-stack-skills-into-workflow-tier
     annotation: Sibling README effort; that record lands the agent-workflows tier inside the canonical Flow README while this record owns the surrounding value-led restructure and must integrate that tier at promotion rather than clobber it.
 ---
 

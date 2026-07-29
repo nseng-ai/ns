@@ -30,5 +30,5 @@ export function parseObjectiveCandidatesData(data: unknown): ObjectiveCandidates
 export function objectiveCompletionItem(
 	record: ObjectiveCandidateRecord,
 ): ObjectiveCliCompletionItem {
-	return { value: record.slug, label: record.slug, description: record.status };
+	return { value: record.locator, label: record.locator, description: record.status };
 }

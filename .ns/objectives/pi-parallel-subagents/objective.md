@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Pi Parallel Subagents
 
 ## Thesis

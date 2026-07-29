@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Clinkr User Interaction
 
 ## Thesis

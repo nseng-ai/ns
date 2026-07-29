@@ -1,3 +1,4 @@
+import { isValidObjectiveOwner, isValidObjectiveSlug } from "./identity.ts";
 import type { ObjectiveListRecord, ObjectiveListResult } from "./operations/list-objectives.ts";
 import { relativeTime } from "./relative-time.ts";
 
@@ -5,6 +6,7 @@ export type ObjectiveList = ObjectiveListResult;
 
 export const VIEW_OTHER_OBJECTIVES_CHOICE = "View other active Objectives…";
 
+/** Changed-Objective picker facts; all values are full Objective Locators. */
 export interface ObjectiveDiffSelection {
 	trunkBranch: string;
 	changeBasisLabel: string;
@@ -19,16 +21,22 @@ export interface ChangedActiveObjectiveSelectionOptions {
 	changeBasisLabel?: string;
 }
 
+/**
+ * Owner-nested locator candidates from changed paths. Path shape alone cannot
+ * attribute a legacy flat record's owner, so flat paths yield no candidate;
+ * callers intersect these locators with the active list, whose open records
+ * are always owner-nested.
+ */
 export function objectiveChangedSlugsFromPaths(paths: readonly string[]): string[] {
-	const slugs = new Set<string>();
+	const locators = new Set<string>();
 	for (const path of paths) {
-		const slug = objectiveSlugFromPath(path);
-		if (slug) {
-			slugs.add(slug);
+		const locator = objectiveLocatorFromPath(path);
+		if (locator) {
+			locators.add(locator);
 		}
 	}
 
-	return [...slugs].sort((left, right) => left.localeCompare(right));
+	return [...locators].sort((left, right) => left.localeCompare(right));
 }
 
 export function changedActiveObjectiveSelection(
@@ -50,8 +58,8 @@ export function changedActiveObjectiveSelection(
 
 	const allChangedSlugSet = new Set(uniqueChangedSlugs);
 	const changedActiveSlugs = objectiveList.records
-		.filter((record) => allChangedSlugSet.has(record.slug))
-		.map((record) => record.slug);
+		.filter((record) => allChangedSlugSet.has(record.locator))
+		.map((record) => record.locator);
 	if (changedActiveSlugs.length === 0) {
 		return undefined;
 	}
@@ -78,7 +86,7 @@ export function formatObjectiveChoice(
 
 	const latestUpdate =
 		record.latestUpdateIso === null ? "—" : relativeTime(record.latestUpdateIso, nowMs);
-	return `${record.slug} — ${diffLabel}${record.status} — latest update ${latestUpdate}`;
+	return `${record.locator} — ${diffLabel}${record.status} — latest update ${latestUpdate}`;
 }
 
 export function objectiveRecordsWithChangedFirst(
@@ -90,8 +98,8 @@ export function objectiveRecordsWithChangedFirst(
 	}
 
 	const changedSet = new Set(selection.changedActiveSlugs);
-	const changedRecords = records.filter((record) => changedSet.has(record.slug));
-	const otherRecords = records.filter((record) => !changedSet.has(record.slug));
+	const changedRecords = records.filter((record) => changedSet.has(record.locator));
+	const otherRecords = records.filter((record) => !changedSet.has(record.locator));
 	return [...changedRecords, ...otherRecords];
 }
 
@@ -102,7 +110,7 @@ export function objectiveChoiceMap(
 ): Map<string, string> {
 	const choices = new Map<string, string>();
 	for (const record of records) {
-		choices.set(formatObjectiveChoice(record, nowMs, selection), record.slug);
+		choices.set(formatObjectiveChoice(record, nowMs, selection), record.locator);
 	}
 	return choices;
 }
@@ -115,14 +123,18 @@ export function objectiveDiffPickerTitle(title: string, selection: ObjectiveDiff
 	return `${title} (${suffix})`;
 }
 
-function objectiveSlugFromPath(path: string): string | undefined {
+function objectiveLocatorFromPath(path: string): string | undefined {
 	const parts = path.split("/");
-	if (parts.length < 4 || parts[0] !== ".ns" || parts[1] !== "objectives") {
+	if (parts.length < 5 || parts[0] !== ".ns" || parts[1] !== "objectives") {
 		return undefined;
 	}
 
-	const slug = parts[2];
-	return slug ? slug : undefined;
+	const owner = parts[2];
+	const slug = parts[3];
+	if (!owner || !slug || !isValidObjectiveOwner(owner) || !isValidObjectiveSlug(slug)) {
+		return undefined;
+	}
+	return `${owner}/${slug}`;
 }
 
 function defaultChangeBasisLabel(trunkBranch: string): string {
@@ -140,7 +152,7 @@ function isChangedActiveObjective(
 	record: ObjectiveListRecord,
 	selection: ObjectiveDiffSelection | undefined,
 ): boolean {
-	return selection?.changedActiveSlugs.includes(record.slug) ?? false;
+	return selection?.changedActiveSlugs.includes(record.locator) ?? false;
 }
 
 function isOnlyChangedActiveObjective(
@@ -151,6 +163,6 @@ function isOnlyChangedActiveObjective(
 		selection &&
 		selection.allChangedSlugs.length === 1 &&
 		selection.changedActiveSlugs.length === 1 &&
-		selection.changedActiveSlugs[0] === record.slug,
+		selection.changedActiveSlugs[0] === record.locator,
 	);
 }

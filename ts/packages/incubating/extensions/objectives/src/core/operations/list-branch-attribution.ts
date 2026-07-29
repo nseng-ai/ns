@@ -1,32 +1,37 @@
 import type { GitErrorInfo, GitGateway, GitLocalBranchTip } from "@nseng-ai/foundation/git";
 
 import type { ObjectiveCliContext } from "../context.ts";
-import { activeRootRelativePath, objectiveSlugFromActivePath } from "../storage.ts";
+import {
+	activeRootRelativePath,
+	objectiveLocatorsFromChangedPaths,
+	type ObjectiveRecordLocation,
+} from "../storage.ts";
 
 export const MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS = 50;
 
 export interface ObjectiveBranchAttribution {
-	updatedBranchesBySlug: ReadonlyMap<string, readonly string[]>;
+	updatedBranchesByLocator: ReadonlyMap<string, readonly string[]>;
 	isTruncated: boolean;
 }
 
 export interface BuildObjectiveBranchAttributionParams {
 	repoRoot: string;
 	trunkBranch: string;
-	slugs: ReadonlySet<string>;
+	/** Discovered record locations whose locators attribution is requested for. */
+	locations: readonly ObjectiveRecordLocation[];
 	maxBranchWalks?: number;
 }
 
 export async function buildObjectiveBranchAttributionForContext(
 	ctx: ObjectiveCliContext,
-	slugs: ReadonlySet<string>,
+	locations: readonly ObjectiveRecordLocation[],
 ): Promise<
 	{ type: "ok"; value: ObjectiveBranchAttribution } | { type: "git-error"; error: GitErrorInfo }
 > {
 	return await buildObjectiveBranchAttribution(ctx.git, {
 		repoRoot: ctx.repoRoot,
 		trunkBranch: ctx.trunkBranch,
-		slugs,
+		locations,
 	});
 }
 
@@ -36,7 +41,8 @@ export async function buildObjectiveBranchAttribution(
 ): Promise<
 	{ type: "ok"; value: ObjectiveBranchAttribution } | { type: "git-error"; error: GitErrorInfo }
 > {
-	if (params.slugs.size === 0) return { type: "ok", value: emptyAttribution(params.slugs) };
+	const locators = params.locations.map((location) => location.locator);
+	if (locators.length === 0) return { type: "ok", value: emptyAttribution(locators) };
 
 	const tips = await git.listLocalBranchTips({ cwd: params.repoRoot });
 	if (!tips.ok) return { type: "git-error", error: tips.error };
@@ -45,7 +51,7 @@ export async function buildObjectiveBranchAttribution(
 		.filter((tip) => tip.name !== params.trunkBranch)
 		.sort(compareBranchTips)
 		.map((tip) => tip.name);
-	if (branches.length === 0) return { type: "ok", value: emptyAttribution(params.slugs) };
+	if (branches.length === 0) return { type: "ok", value: emptyAttribution(locators) };
 
 	const objectiveRoot = activeRootRelativePath();
 	const treeOids = await git.treeOidsAtRefs({
@@ -61,7 +67,8 @@ export async function buildObjectiveBranchAttribution(
 	);
 	const maxBranchWalks = params.maxBranchWalks ?? MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS;
 	const walkedBranches = changedBranches.slice(0, maxBranchWalks);
-	const bySlug = new Map<string, string[]>([...params.slugs].map((slug) => [slug, []]));
+	const requested = new Set(locators);
+	const byLocator = new Map<string, string[]>(locators.map((locator) => [locator, []]));
 
 	for (const branch of walkedBranches) {
 		const changedPaths = await git.changedPathsUnder({
@@ -71,34 +78,25 @@ export async function buildObjectiveBranchAttribution(
 		});
 		if (!changedPaths.ok) return { type: "git-error", error: changedPaths.error };
 
-		for (const slug of objectiveSlugsFromPaths(changedPaths.value, params.slugs)) {
-			bySlug.get(slug)?.push(branch);
+		for (const locator of objectiveLocatorsFromChangedPaths(changedPaths.value, params.locations)) {
+			if (requested.has(locator)) byLocator.get(locator)?.push(branch);
 		}
 	}
 
 	return {
 		type: "ok",
 		value: {
-			updatedBranchesBySlug: freezeAttributionMap(bySlug),
+			updatedBranchesByLocator: freezeAttributionMap(byLocator),
 			isTruncated: changedBranches.length > maxBranchWalks,
 		},
 	};
 }
 
-function emptyAttribution(slugs: ReadonlySet<string>): ObjectiveBranchAttribution {
+function emptyAttribution(locators: readonly string[]): ObjectiveBranchAttribution {
 	return {
-		updatedBranchesBySlug: new Map([...slugs].map((slug) => [slug, []])),
+		updatedBranchesByLocator: new Map(locators.map((locator) => [locator, []])),
 		isTruncated: false,
 	};
-}
-
-function objectiveSlugsFromPaths(paths: readonly string[], slugs: ReadonlySet<string>): string[] {
-	const touchedSlugs = new Set<string>();
-	for (const path of paths) {
-		const slug = objectiveSlugFromActivePath(path);
-		if (slug !== null && slugs.has(slug)) touchedSlugs.add(slug);
-	}
-	return [...touchedSlugs].sort((left, right) => left.localeCompare(right));
 }
 
 function compareBranchTips(left: GitLocalBranchTip, right: GitLocalBranchTip): number {
@@ -118,7 +116,7 @@ function parsedTime(iso: string | null): number | null {
 }
 
 function freezeAttributionMap(
-	bySlug: ReadonlyMap<string, readonly string[]>,
+	byLocator: ReadonlyMap<string, readonly string[]>,
 ): ReadonlyMap<string, readonly string[]> {
-	return new Map([...bySlug.entries()].map(([slug, branches]) => [slug, [...branches]]));
+	return new Map([...byLocator.entries()].map(([locator, branches]) => [locator, [...branches]]));
 }

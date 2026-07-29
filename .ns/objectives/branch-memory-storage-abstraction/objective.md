@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Branch Memory Storage Abstraction
 
 ## Thesis

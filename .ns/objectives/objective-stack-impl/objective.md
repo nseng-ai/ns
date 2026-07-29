@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Objective Stack Prompt Orchestration MVP
 
 ## Thesis

@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: professional-repo-curation
+  - objective: schrockn/professional-repo-curation
     annotation: Completed Parallel Subobjective whose skill-tree outcome is synthesized by the parent while ADR 0046 and skills/README.md preserve the durable support-disposition and ownership contract.
 ---
 

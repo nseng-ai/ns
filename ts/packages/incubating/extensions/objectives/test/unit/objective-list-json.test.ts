@@ -47,8 +47,11 @@ describe("parseObjectiveListData", () => {
 });
 
 interface ObjectiveRecordPayload {
+	owner: string;
 	slug: string;
+	locator: string;
 	status: "open" | "closed";
+	layout: "owner-nested" | "legacy-flat-closed";
 	latestUpdateIso: string | null;
 	hasOutstandingChanges: boolean;
 }
@@ -57,6 +60,7 @@ interface ObjectiveListPayload {
 	trunkBranch: string;
 	rootPath: string;
 	statusFilter: "active";
+	ownerScope: { type: "current"; owner: string };
 	namesOnly: boolean;
 	records: ObjectiveRecordPayload[];
 }
@@ -67,6 +71,7 @@ function objectiveListPayload(overrides: Partial<ObjectiveListPayload> = {}): Ob
 		trunkBranch: "main",
 		rootPath: ".ns/objectives",
 		statusFilter: "active",
+		ownerScope: { type: "current", owner: "tester" },
 		namesOnly: false,
 		records: [record()],
 	};
@@ -79,8 +84,11 @@ function objectiveListPayload(overrides: Partial<ObjectiveListPayload> = {}): Ob
 
 function record(overrides: Partial<ObjectiveRecordPayload> = {}): ObjectiveRecordPayload {
 	return {
+		owner: "tester",
 		slug: "alpha",
+		locator: "tester/alpha",
 		status: "open",
+		layout: "owner-nested",
 		latestUpdateIso: "2026-05-20T10:00:00Z",
 		hasOutstandingChanges: false,
 		...overrides,

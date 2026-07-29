@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: skill-audit-remediation
+  - objective: schrockn/skill-audit-remediation
     annotation: Graduated 2026-07-12 from that audit's Tranche 4 CLI push-down dispositions (frontload item 7); the audit findings on objective-refresh, objective-update, and objective-retro are the evidence base for this extension.
 ---
 

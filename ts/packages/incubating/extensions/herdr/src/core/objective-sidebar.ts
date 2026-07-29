@@ -40,12 +40,14 @@ export function resolveObjectiveSelector(
 ): ObjectiveSelectorParseResult {
 	const trimmed = selector.trim();
 	if (trimmed.length === 0) {
-		return invalidSelector("Pass an Objective slug or .ns/objectives/<slug> path.");
+		return invalidSelector(
+			"Pass an Objective locator, slug, or .ns/objectives/<owner>/<slug> path.",
+		);
 	}
 
 	if (trimmed.includes("\\")) {
 		return invalidSelector(
-			"Objective selector must be a slug or a .ns/objectives/<slug> path using forward slashes.",
+			"Objective selector must be a locator, slug, or .ns/objectives/<owner>/<slug> path using forward slashes.",
 		);
 	}
 
@@ -55,6 +57,13 @@ export function resolveObjectiveSelector(
 
 	if (!trimmed.includes("/")) {
 		return validSlugSelector(trimmed);
+	}
+
+	if (!trimmed.startsWith(".") && !trimmed.startsWith("/")) {
+		const segments = trimmed.split("/");
+		if (segments.length === 2) {
+			return validLocatorSelector(segments[0] ?? "", segments[1] ?? "");
+		}
 	}
 
 	return resolveRepoRelativeObjectiveSelector(trimmed);
@@ -102,7 +111,9 @@ function resolveAbsoluteObjectiveSelector(
 	const activeRoot = resolve(cwd, ACTIVE_OBJECTIVE_ROOT);
 	const relativePath = relative(activeRoot, normalizedSelector);
 	if (relativePath.length === 0) {
-		return invalidSelector("Pass an Objective slug or path below .ns/objectives/<slug>.");
+		return invalidSelector(
+			"Pass an Objective locator, slug, or path below .ns/objectives/<owner>/<slug>.",
+		);
 	}
 	if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
 		return invalidSelector(
@@ -110,31 +121,74 @@ function resolveAbsoluteObjectiveSelector(
 		);
 	}
 
-	const slug = relativePath.split(sep)[0];
-	return validSlugSelector(slug ?? "");
+	const segments = relativePath.split(sep);
+	return objectiveSelectorFromPathSegments(segments);
 }
 
 function resolveRepoRelativeObjectiveSelector(selector: string): ObjectiveSelectorParseResult {
 	const normalized = posix.normalize(selector);
 	if (normalized === ACTIVE_OBJECTIVE_ROOT) {
-		return invalidSelector("Pass an Objective slug or path below .ns/objectives/<slug>.");
+		return invalidSelector(
+			"Pass an Objective locator, slug, or path below .ns/objectives/<owner>/<slug>.",
+		);
 	}
 	if (!normalized.startsWith(ACTIVE_OBJECTIVE_PREFIX)) {
-		return invalidSelector("Pass an Objective slug or .ns/objectives/<slug> path.");
+		return invalidSelector(
+			"Pass an Objective locator, slug, or .ns/objectives/<owner>/<slug> path.",
+		);
 	}
 
 	const relativePath = normalized.slice(ACTIVE_OBJECTIVE_PREFIX.length);
-	const slug = relativePath.split("/")[0] ?? "";
-	return validSlugSelector(slug);
+	return objectiveSelectorFromPathSegments(relativePath.split("/"));
+}
+
+const RECORD_ENTRY_NAMES = new Set([
+	"objective.md",
+	"roadmap.md",
+	"closed.md",
+	"orientation.md",
+	"updates",
+	"references",
+]);
+
+/**
+ * Selector from path segments below the Active Objective Root: canonical
+ * owner-nested paths (`<owner>/<slug>/...`) normalize to a full locator. A
+ * single-segment path, or a legacy flat record path whose second segment is a
+ * record entry (for example `objective.md` or `updates`), stays an owner-local
+ * slug selector resolved downstream.
+ */
+function objectiveSelectorFromPathSegments(
+	segments: readonly string[],
+): ObjectiveSelectorParseResult {
+	const [first, second] = segments;
+	if (
+		first !== undefined &&
+		second !== undefined &&
+		!RECORD_ENTRY_NAMES.has(second) &&
+		!second.endsWith(".md")
+	) {
+		return validLocatorSelector(first, second);
+	}
+	return validSlugSelector(first ?? "");
 }
 
 function validSlugSelector(slug: string): ObjectiveSelectorParseResult {
 	if (!isValidObjectiveSlug(slug)) {
 		return invalidSelector(
-			"Objective selector must be a single slug, not '.', '..', or a nested path.",
+			"Objective selector must be a slug, an <owner>/<slug> locator, or a .ns/objectives path.",
 		);
 	}
 	return { type: "valid", slug };
+}
+
+function validLocatorSelector(owner: string, slug: string): ObjectiveSelectorParseResult {
+	if (!isValidObjectiveSlug(owner) || !isValidObjectiveSlug(slug)) {
+		return invalidSelector(
+			"Objective selector must be a slug, an <owner>/<slug> locator, or a .ns/objectives path.",
+		);
+	}
+	return { type: "valid", slug: `${owner}/${slug}` };
 }
 
 function invalidSelector(message: string): ObjectiveSelectorParseResult {
@@ -151,7 +205,8 @@ function parseObjectiveSidebarValidation(
 	data: Record<string, unknown>,
 	expectedSlug: string,
 ): ObjectiveSidebarValidationResult {
-	if (data.status !== "ok" || data.slug !== expectedSlug) {
+	const resolvedIdentity = expectedSlug.includes("/") ? data.locator : data.slug;
+	if (data.status !== "ok" || resolvedIdentity !== expectedSlug) {
 		return {
 			type: "failed",
 			message: "Invalid objective read JSON: expected status ok and matching slug.",

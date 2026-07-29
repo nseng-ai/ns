@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Handoff Capability Extension
 
 ## Thesis

@@ -12,13 +12,17 @@ import type {
 } from "../../src/runner/context.ts";
 import { objectiveExecRunnerBeginNsCommand } from "../../src/ns/commands/exec-runner-begin.ts";
 import { SequencedGitGateway, type SequencedGitGatewayState } from "../unit/runner/context.ts";
+import { FakeObjectiveOwnerGateway } from "../../src/core/owner-gateway.ts";
 import { FakeObjectiveNsApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
 
 const SLUG = "demo-objective";
+const LOCATOR = "tester/demo-objective";
 const REPORT_PATH = "/scratch/step-1-report.json";
 
 function openObjectiveStorage(): ObjectiveStorage {
-	return new ObjectiveStorage(new FakeObjectiveStorageGateway({ records: [{ slug: SLUG }] }));
+	return new ObjectiveStorage(
+		new FakeObjectiveStorageGateway({ records: [{ owner: "tester", slug: SLUG }] }),
+	);
 }
 
 /** Clean tree on main; begin never advances past the first git states. */
@@ -56,6 +60,7 @@ function makeApi(options: ScenarioOptions = {}): FakeObjectiveNsApi {
 		git: new SequencedGitGateway(options.git ?? cleanGitState()),
 		graphite: new InMemoryGraphiteBranchGateway({}),
 		storage: openObjectiveStorage(),
+		owner: new FakeObjectiveOwnerGateway({ owner: "tester" }),
 		readTextFile: options.readTextFile ?? missingReportFileReader(),
 		filePresence: options.filePresence ?? (async () => ({ type: "missing" })),
 		...optionalEntries({ outputFormat: options.outputFormat }),
@@ -81,7 +86,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 		expect(exit.type).toBe("ok");
 		if (exit.type !== "ok") throw new Error("expected ok exit");
 		expect(exit.data).toMatchObject({
-			slug: SLUG,
+			slug: LOCATOR,
 			mode: "default",
 			baseBranch: "main",
 			headAtDispatch: "head1234",
@@ -305,8 +310,11 @@ describe("ns objective exec runner-begin scenarios", () => {
 			git: new SequencedGitGateway(cleanGitState()),
 			graphite: new InMemoryGraphiteBranchGateway({}),
 			storage: new ObjectiveStorage(
-				new FakeObjectiveStorageGateway({ records: [{ slug: SLUG, isClosed: true }] }),
+				new FakeObjectiveStorageGateway({
+					records: [{ owner: "tester", slug: SLUG, isClosed: true }],
+				}),
 			),
+			owner: new FakeObjectiveOwnerGateway({ owner: "tester" }),
 			readTextFile: missingReportFileReader(),
 		});
 		const closedExit = await runObjectiveCommand(

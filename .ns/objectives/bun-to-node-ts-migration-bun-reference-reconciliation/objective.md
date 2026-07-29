@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Bun-to-Node TypeScript Migration: Bun-Reference Reconciliation
 
 ## Thesis

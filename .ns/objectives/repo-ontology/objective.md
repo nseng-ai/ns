@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: ontology-reshape
+  - objective: schrockn/ontology-reshape
     annotation: Superseded by this bounded wayfinding record at close; it absorbed the interim wayfinder map and carries the remaining reconciliation scope and standing non-goals.
 ---
 

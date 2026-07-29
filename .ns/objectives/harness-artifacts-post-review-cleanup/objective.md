@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: skill-management-subsystem
+  - objective: schrockn/skill-management-subsystem
     annotation: Subobjective of that umbrella; tracks the remaining post-review harness-artifacts cleanup after the API re-export / force-required naming slice, covering home-dir ownership, provision/reconcile design, schema/source cleanup, and review-thread disposition before the subsystem breadth continues.
 ---
 

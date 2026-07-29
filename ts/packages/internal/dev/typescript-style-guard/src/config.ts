@@ -130,7 +130,7 @@ export const deferredTopologyCircleCycles: readonly DeferredTopologyCircleCycle[
 			"qualified APIs through @nseng-ai/clinkr/legacy while legacy modules still depend on retained " +
 			"shared root primitives (ansi, caps, io, envelope-json-text). Dissolves when the blocked " +
 			"closure migrates to /app and /legacy is deleted; see " +
-			".ns/objectives/clinkr-readme-driven-development/references/legacy-api-deletion-inventory.md.",
+			".ns/objectives/schrockn/clinkr-readme-driven-development/references/legacy-api-deletion-inventory.md.",
 	},
 ];
 

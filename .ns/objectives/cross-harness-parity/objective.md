@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: ship-objectives-to-customers
+  - objective: schrockn/ship-objectives-to-customers
     annotation: Customer Objective shipping is a concrete consumer of the parity doctrine, requiring Claude Code, Codex, and Pi reachability for objective workflows.
 ---
 

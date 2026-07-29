@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: foundation-readme-driven-pass
+  - objective: schrockn/foundation-readme-driven-pass
     annotation: Parent umbrella; this Subobjective owns its Clinkr gate dry-run and returns process amendments before the Foundation package pass begins.
 ---
 

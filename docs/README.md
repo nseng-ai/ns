@@ -8,7 +8,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 - `docs/`: cross-package design docs, system behavior, and contributor-facing documentation topology.
 - `ts/packages/<pkg>/README.md`: package-specific usage, public CLI notes, and package-local entrypoints.
 - `skills/<disposition>/<family>/<name>/SKILL.md`: canonical first-party agent procedure (with `skills/incubating/<name>/` for approved top-level product exceptions). Public skills should describe CLI operations and avoid implementation internals; harnesses discover them through the flat `.agents/skills/<name>` overlay.
-- `.ns/objectives/<slug>/`: durable Objective narrative, roadmap, updates, and closure.
+- `.ns/objectives/<owner>/<slug>/`: durable Objective narrative, roadmap, updates, and closure.
 - `.ns/prompts/`: checked-in reusable prompt assets consumed by repo tooling or skills; this is distinct from Pi `.pi/prompts` slash prompt templates.
 - `docs/adr/`: durable architecture decision records. Accepted ADRs are historical records; update mutable guidance for tooling drift, or add a superseding/refining ADR for a new architectural decision.
 - `docs/follow-ups/`: point-in-time opportunity notes that preserve promising reasoning before the work is coherent enough to become an Objective; these are not commitments or a parallel roadmap.

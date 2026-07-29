@@ -1,14 +1,15 @@
 ---
+owner: schrockn
 edges:
-  - objective: capability-infrastructure-reorg
+  - objective: schrockn/capability-infrastructure-reorg
     annotation: Receives the implemented capability-infrastructure ownership model, deviations, and evidence from that focused Objective, then incorporates them into this record's broader ontology and documentation closeout.
-  - objective: repo-ontology
+  - objective: schrockn/repo-ontology
     annotation: Supersedes this closed standing record; its remaining reconciliation scope and standing non-goals carry over here, and its mined facts live in the effort folder's ideas.md.
-  - objective: skill-management-subsystem
+  - objective: schrockn/skill-management-subsystem
     annotation: The layering reshape (ADR 0033, layering-reshape-spec.md item 7) folds the command-backed-skill-registry into areg — recorded input that Objective must consume before reshaping skill surfaces further; the fold landed on trunk (commit 16ea42059).
-  - objective: execute-cmux-reshape-spec
+  - objective: schrockn/execute-cmux-reshape-spec
     annotation: Execution of the cmux reshape spec (ADR 0034, slices 2–6 plus closeout) was extracted 2026-07-12 to that autoobjective via the handoff vehicle's New-Objective hatch; it closed 2026-07-12, the "Execute the cmux reshape spec" task row is resolved, and the full stack has since merged to trunk.
-  - objective: execute-kernel-sdk-rename-spec
+  - objective: schrockn/execute-kernel-sdk-rename-spec
     annotation: Owns executing the kernel → sdk rename (ADR 0035, kernel-sdk-rename-spec.md) whose mechanics this record's "Spec the kernel → sdk rename" grilling row ratified 2026-07-12; that row resolves when it closes.
 ---
 

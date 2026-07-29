@@ -538,9 +538,13 @@ export function objectiveListStep(slugs: string[]): ScriptedExec {
 				trunkBranch: "master",
 				rootPath: ".ns/objectives",
 				statusFilter: "active",
+				ownerScope: { type: "current", owner: "tester" },
 				namesOnly: false,
 				records: slugs.map((slug, index) => ({
+					owner: "tester",
 					slug,
+					locator: `tester/${slug}`,
+					layout: "owner-nested",
 					status: "open",
 					latestUpdateIso: `2026-01-${String(index + 1).padStart(2, "0")}T00:00:00Z`,
 					hasOutstandingChanges: false,
@@ -550,11 +554,13 @@ export function objectiveListStep(slugs: string[]): ScriptedExec {
 	});
 }
 
-export function objectiveReadStep(slug: string): ScriptedExec {
-	return step("ns", ["objective", "exec", "read-objective", slug, "--format", "json"], {
+export function objectiveReadStep(selector: string): ScriptedExec {
+	const slug = selector.includes("/") ? (selector.split("/")[1] ?? selector) : selector;
+	const locator = selector.includes("/") ? selector : `tester/${selector}`;
+	return step("ns", ["objective", "exec", "read-objective", selector, "--format", "json"], {
 		stdout: JSON.stringify({
 			exitCode: 0,
-			data: { status: "ok", slug },
+			data: { status: "ok", slug, locator },
 		}),
 	});
 }

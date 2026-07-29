@@ -19,6 +19,7 @@ import {
 	FakeObjectiveStorageGateway,
 	type FakeObjectiveStorageGatewayOptions,
 } from "../../../src/core/fake-storage.ts";
+import { FakeObjectiveOwnerGateway } from "../../../src/core/owner-gateway.ts";
 import { ObjectiveStorage } from "../../../src/core/storage.ts";
 import type {
 	ObjectiveRunnerCoreContext,
@@ -151,6 +152,7 @@ export function contextWithRunnerFakes(options: RunnerFakesOptions = {}): Runner
 				? gitState.cachedOriginHeadBranch
 				: "main"),
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(options.storage ?? {})),
+		owner: new FakeObjectiveOwnerGateway({ owner: "tester" }),
 		outputFormat: "human",
 		git: new SequencedGitGateway(gitState),
 		graphite: new InMemoryGraphiteBranchGateway(options.graphite ?? {}),

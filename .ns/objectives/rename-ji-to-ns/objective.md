@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: checkout-free-sdl-distribution
+  - objective: schrockn/checkout-free-sdl-distribution
     annotation: Supplies and gates that Objective's publish name — the external package target moves to @nseng-ai/ns, superseding the @nseng-ai/ji target it previously recorded as resolved.
 ---
 

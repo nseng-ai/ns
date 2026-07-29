@@ -8,7 +8,7 @@ import { runForCliTest } from "@nseng-ai/clinkr/app/testing";
 
 const README_PATH = path.resolve(
 	import.meta.dirname,
-	"../../../../../../.ns/objectives/clinkr-readme-driven-development/references/README-draft.md",
+	"../../../../../../.ns/objectives/schrockn/clinkr-readme-driven-development/references/README-draft.md",
 );
 const EXAMPLES_DIRECTORY = path.join(import.meta.dirname, "type/readme-examples");
 

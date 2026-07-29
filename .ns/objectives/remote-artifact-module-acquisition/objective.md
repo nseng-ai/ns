@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: skill-management-subsystem
+  - objective: schrockn/skill-management-subsystem
     annotation: Subobjective of that umbrella; graduated 2026-07-07 from the parked "remote acquisition sources for artifact-bearing modules" row (a user decision, against the keep-parked recommendation). Owns the first-party fetch path for artifact-bearing npm modules and version-resolution-for-fetched-modules; the umbrella coordinates the reusable-subsystem ambition and remaining deferred breadth.
 ---
 

@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # pr-address Core Hardening — Durable Security & Correctness Fixes in the Salvaged Zone
 
 ## Thesis

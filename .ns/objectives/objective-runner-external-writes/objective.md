@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: cloud-dispatch-thermo-followups
+  - objective: schrockn/cloud-dispatch-thermo-followups
     annotation: Proves the narrowly authorized publish-capable Objective Runner path needed before that Objective can autorun local commits directly onto its existing PR while keeping the implementation child credential-blind.
 ---
 

@@ -1,8 +1,9 @@
 ---
+owner: schrockn
 edges:
-  - objective: flow-fold-stack-skills-into-workflow-tier
+  - objective: schrockn/flow-fold-stack-skills-into-workflow-tier
     annotation: Downstream consumer; it folds the repair loop into Flow's ns-flow-* workflow tier once this record's final skill rewrite and address exec triage push-down land.
-  - objective: flow-pi-tier-stack-view-promotion
+  - objective: schrockn/flow-pi-tier-stack-view-promotion
     annotation: Downstream consumer; it promotes stack:view into Flow's Pi tier consuming this record's enriched branch-pr-checks as backend, resolving the stack-view single-source-of-truth open question.
 ---
 

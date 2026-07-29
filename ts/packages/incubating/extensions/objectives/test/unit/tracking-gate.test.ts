@@ -7,19 +7,20 @@ import {
 	type FakeObjectiveStorageGatewayOptions,
 } from "../../src/core/fake-storage.ts";
 import { renderTrackingGate, runTrackingGate } from "../../src/core/operations/tracking-gate.ts";
+import { FakeObjectiveOwnerGateway } from "../../src/core/owner-gateway.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 
 describe("objective tracking-gate operation", () => {
 	test("collects trunk-resolved branch diff and dirty evidence for one Objective", async () => {
 		const ctx = contextWithFakeStorage(
-			{ records: [{ slug: "flow-cleanup" }] },
+			{ records: [{ owner: "tester", slug: "flow-cleanup" }] },
 			{
 				currentBranch: "feature/flow-cleanup",
 				cachedOriginHeadBranch: "master",
 				dirtyPaths: ["."],
 				changedPaths: {
 					"master...HEAD|.": [
-						".ns/objectives/flow-cleanup/roadmap.md",
+						".ns/objectives/tester/flow-cleanup/roadmap.md",
 						"ts/packages/incubating/extensions/objectives/src/core/operations/tracking-gate.ts",
 					],
 				},
@@ -31,8 +32,10 @@ describe("objective tracking-gate operation", () => {
 		expect(exit).toEqual({
 			type: "ok",
 			data: {
+				owner: "tester",
 				slug: "flow-cleanup",
-				objectivePath: ".ns/objectives/flow-cleanup",
+				locator: "tester/flow-cleanup",
+				objectivePath: ".ns/objectives/tester/flow-cleanup",
 				rootPath: ".ns/objectives",
 				objective: { exists: true, closed: false },
 				git: {
@@ -48,11 +51,11 @@ describe("objective tracking-gate operation", () => {
 				branchDiff: {
 					status: "ok",
 					changedPaths: [
-						".ns/objectives/flow-cleanup/roadmap.md",
+						".ns/objectives/tester/flow-cleanup/roadmap.md",
 						"ts/packages/incubating/extensions/objectives/src/core/operations/tracking-gate.ts",
 					],
 					changedPathCount: 2,
-					objectiveChangedPaths: [".ns/objectives/flow-cleanup/roadmap.md"],
+					objectiveChangedPaths: [".ns/objectives/tester/flow-cleanup/roadmap.md"],
 					objectiveChangedPathCount: 1,
 					materialNonObjectivePaths: [
 						"ts/packages/incubating/extensions/objectives/src/core/operations/tracking-gate.ts",
@@ -74,11 +77,11 @@ describe("objective tracking-gate operation", () => {
 
 	test("renders compact markdown evidence", async () => {
 		const ctx = contextWithFakeStorage(
-			{ records: [{ slug: "flow-cleanup" }] },
+			{ records: [{ owner: "tester", slug: "flow-cleanup" }] },
 			{
 				currentBranch: "feature/flow-cleanup",
 				cachedOriginHeadBranch: "master",
-				changedPaths: { "master...HEAD|.": [".ns/objectives/flow-cleanup/roadmap.md"] },
+				changedPaths: { "master...HEAD|.": [".ns/objectives/tester/flow-cleanup/roadmap.md"] },
 			},
 		);
 		const exit = await runTrackingGate(ctx, { slug: "flow-cleanup" });
@@ -95,7 +98,7 @@ describe("objective tracking-gate operation", () => {
 
 		expect(exit).toMatchObject({
 			type: "negative",
-			message: "No Objective record found for slug 'missing-objective'.",
+			message: "No Objective record found for locator 'tester/missing-objective'.",
 			data: { slug: "missing-objective", objective: { exists: false } },
 		});
 	});
@@ -119,5 +122,6 @@ function contextWithFakeStorage(
 				: "main",
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(fake)),
 		git: new InMemoryGitGateway(gitState),
+		owner: new FakeObjectiveOwnerGateway({ owner: "tester" }),
 	};
 }

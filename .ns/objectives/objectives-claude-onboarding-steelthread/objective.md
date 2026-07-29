@@ -1,10 +1,11 @@
 ---
+owner: schrockn
 edges:
-  - objective: ship-objectives-to-customers
+  - objective: schrockn/ship-objectives-to-customers
     annotation: Subobjective of the customer-Objectives umbrella; owns the first real customer onboarding thread through Claude Code.
-  - objective: objectives-extension-customer-surface
+  - objective: schrockn/objectives-extension-customer-surface
     annotation: Consumes its completed v1 extension inspection surface so the documented onboarding path is coherent and supportable.
-  - objective: objectives-bare-core-release
+  - objective: schrockn/objectives-bare-core-release
     annotation: Consumes its published bare-core and standalone Objectives artifacts as the exact registry inputs to onboarding.
 ---
 

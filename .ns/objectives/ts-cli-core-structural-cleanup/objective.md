@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # TS CLI + @nseng-ai/foundation Structural Cleanup
 
 ## Thesis

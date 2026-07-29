@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: cloud-execution
+  - objective: schrockn/cloud-execution
     annotation: Focused delivery slice — this Objective owns the user contract and implementation evidence for `ns dispatch plan` carrying a Saved Plan into the cloud through Branch Memory; cloud-execution owns the surrounding Vercel dispatch spine and broader cloud program.
 ---
 

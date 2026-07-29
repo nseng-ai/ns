@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: ontology-reshape
+  - objective: schrockn/ontology-reshape
     annotation: Owns the focused capability-infrastructure ownership decisions and implementation first, then writes the resulting architecture and evidence back into ontology-reshape for its broader documentation and ontology closeout.
 ---
 

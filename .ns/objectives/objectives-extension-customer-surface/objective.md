@@ -1,8 +1,9 @@
 ---
+owner: schrockn
 edges:
-  - objective: ship-objectives-to-customers
+  - objective: schrockn/ship-objectives-to-customers
     annotation: Subobjective of the customer-Objectives umbrella; owns completion of the v1 Objectives extension command surface before release.
-  - objective: objectives-claude-onboarding-steelthread
+  - objective: schrockn/objectives-claude-onboarding-steelthread
     annotation: Provides the completed v1 extension inspection surface consumed by the Claude Code customer onboarding thread.
 ---
 

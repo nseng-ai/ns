@@ -1,8 +1,9 @@
 ---
+owner: schrockn
 edges:
-  - objective: flow-fold-stack-skills-into-workflow-tier
+  - objective: schrockn/flow-fold-stack-skills-into-workflow-tier
     annotation: Sibling Flow-surface effort; that record folds the agent-driven workflow tier (including moving the restack Pi wrapper alongside its first slice) while this record owns Flow's Pi tier — stack:view promotion and namespace normalization.
-  - objective: stack-repair-loop-hardening
+  - objective: schrockn/stack-repair-loop-hardening
     annotation: Coordination dependency; this record answers that record's stack-view-backend open question by promoting stack:view into Flow consuming the enriched branch-pr-checks surface built there, instead of keeping a duplicate GraphQL layer.
 ---
 

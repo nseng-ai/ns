@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Eliminate Redundant Optional Undefined
 
 ## Thesis

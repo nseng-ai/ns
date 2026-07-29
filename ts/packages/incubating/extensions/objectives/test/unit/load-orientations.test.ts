@@ -10,16 +10,17 @@ import {
 	renderLoadOrientationsMarkdown,
 	runLoadOrientations,
 } from "../../src/core/operations/load-orientations.ts";
+import { FakeObjectiveOwnerGateway } from "../../src/core/owner-gateway.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 
 describe("objective load-orientations operation", () => {
 	test("selects active open records with direct orientation files", async () => {
 		const ctx = contextWithFakeStorage({
 			records: [
-				{ slug: "alpha", orientationMd: "alpha direction\n" },
-				{ slug: "bravo", orientationMd: "bravo direction\n", isClosed: true },
-				{ slug: "charlie" },
-				{ slug: "delta", orientationMd: "delta direction" },
+				{ owner: "tester", slug: "alpha", orientationMd: "alpha direction\n" },
+				{ owner: "tester", slug: "bravo", orientationMd: "bravo direction\n", isClosed: true },
+				{ owner: "tester", slug: "charlie" },
+				{ owner: "tester", slug: "delta", orientationMd: "delta direction" },
 			],
 			directories: [".ns/not-objectives/ignored"],
 			files: {
@@ -35,13 +36,17 @@ describe("objective load-orientations operation", () => {
 				rootPath: ".ns/objectives",
 				records: [
 					{
+						owner: "tester",
 						slug: "alpha",
-						path: ".ns/objectives/alpha/orientation.md",
+						locator: "tester/alpha",
+						path: ".ns/objectives/tester/alpha/orientation.md",
 						content: "alpha direction\n",
 					},
 					{
+						owner: "tester",
 						slug: "delta",
-						path: ".ns/objectives/delta/orientation.md",
+						locator: "tester/delta",
+						path: ".ns/objectives/tester/delta/orientation.md",
 						content: "delta direction",
 					},
 				],
@@ -54,8 +59,8 @@ describe("objective load-orientations operation", () => {
 	test("orders records deterministically by checkout slug", async () => {
 		const ctx = contextWithFakeStorage({
 			records: [
-				{ slug: "charlie", orientationMd: "charlie\n" },
-				{ slug: "alpha", orientationMd: "alpha\n" },
+				{ owner: "tester", slug: "charlie", orientationMd: "charlie\n" },
+				{ owner: "tester", slug: "alpha", orientationMd: "alpha\n" },
 			],
 		});
 
@@ -68,8 +73,8 @@ describe("objective load-orientations operation", () => {
 	test("renders headers plus raw content with normalized trailing newlines", async () => {
 		const ctx = contextWithFakeStorage({
 			records: [
-				{ slug: "alpha", orientationMd: "alpha content\n\n" },
-				{ slug: "charlie", orientationMd: "charlie content" },
+				{ owner: "tester", slug: "alpha", orientationMd: "alpha content\n\n" },
+				{ owner: "tester", slug: "charlie", orientationMd: "charlie content" },
 			],
 		});
 		const exit = await runLoadOrientations(ctx, {});
@@ -77,10 +82,10 @@ describe("objective load-orientations operation", () => {
 
 		expect(renderLoadOrientationsMarkdown(exit.data)).toBe(
 			[
-				"### .ns/objectives/alpha/orientation.md",
+				"### .ns/objectives/tester/alpha/orientation.md",
 				"alpha content",
 				"",
-				"### .ns/objectives/charlie/orientation.md",
+				"### .ns/objectives/tester/charlie/orientation.md",
 				"charlie content",
 			].join("\n"),
 		);
@@ -93,20 +98,24 @@ describe("objective load-orientations operation", () => {
 		const orientationMd = "---\nnot frontmatter, orientation prose\n---\nalpha direction\n";
 		const loadWithObjectiveMd = async (objectiveMd: string) =>
 			await runLoadOrientations(
-				contextWithFakeStorage({ records: [{ slug: "alpha", objectiveMd, orientationMd }] }),
+				contextWithFakeStorage({
+					records: [{ owner: "tester", slug: "alpha", objectiveMd, orientationMd }],
+				}),
 				{},
 			);
 
 		const withoutFrontmatter = await loadWithObjectiveMd("# alpha\n");
 		const withFrontmatter = await loadWithObjectiveMd(
-			"---\nblocked: Gated on an upstream landing.\nedges: []\n---\n# alpha\n",
+			"---\nowner: tester\nblocked: Gated on an upstream landing.\nedges: []\n---\n# alpha\n",
 		);
 
 		if (withoutFrontmatter.type !== "ok") throw new Error("expected ok exit");
 		expect(withoutFrontmatter.data.records).toEqual([
 			{
+				owner: "tester",
 				slug: "alpha",
-				path: ".ns/objectives/alpha/orientation.md",
+				locator: "tester/alpha",
+				path: ".ns/objectives/tester/alpha/orientation.md",
 				content: orientationMd,
 			},
 		]);
@@ -115,8 +124,8 @@ describe("objective load-orientations operation", () => {
 
 	test("fails when a detected orientation file is unreadable", async () => {
 		const ctx = contextWithFakeStorage({
-			records: [{ slug: "alpha", orientationMd: "alpha\n" }],
-			unreadableFiles: { ".ns/objectives/alpha/orientation.md": "permission denied" },
+			records: [{ owner: "tester", slug: "alpha", orientationMd: "alpha\n" }],
+			unreadableFiles: { ".ns/objectives/tester/alpha/orientation.md": "permission denied" },
 		});
 
 		const exit = await runLoadOrientations(ctx, {});
@@ -124,7 +133,7 @@ describe("objective load-orientations operation", () => {
 		expect(exit).toEqual({
 			type: "failure",
 			errorType: "orientation-unreadable",
-			message: "Unable to read .ns/objectives/alpha/orientation.md: permission denied",
+			message: "Unable to read .ns/objectives/tester/alpha/orientation.md: permission denied",
 		});
 	});
 });
@@ -141,5 +150,6 @@ function contextWithFakeStorage(fake: FakeObjectiveStorageGatewayOptions): FakeO
 		trunkBranch: "master",
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(fake)),
 		git: new InMemoryGitGateway(),
+		owner: new FakeObjectiveOwnerGateway({ owner: "tester" }),
 	};
 }

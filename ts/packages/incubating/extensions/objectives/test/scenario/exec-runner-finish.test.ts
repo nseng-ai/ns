@@ -11,6 +11,7 @@ import type { RunnerTextFileReadResult } from "../../src/runner/context.ts";
 import { objectiveExecRunnerFinishNsCommand } from "../../src/ns/commands/exec-runner-finish.ts";
 import { SequencedGitGateway, type SequencedGitGatewayState } from "../unit/runner/context.ts";
 import { stagedWhitespaceFailure } from "../support/git-fixtures.ts";
+import { FakeObjectiveOwnerGateway } from "../../src/core/owner-gateway.ts";
 import { FakeObjectiveNsApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
 
 const SLUG = "demo-objective";
@@ -86,7 +87,10 @@ function makeApi(options: ScenarioOptions = {}): ScenarioApi {
 	const api = new FakeObjectiveNsApi({
 		git: runnerGit,
 		graphite: new InMemoryGraphiteBranchGateway({}),
-		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway({ records: [{ slug: SLUG }] })),
+		storage: new ObjectiveStorage(
+			new FakeObjectiveStorageGateway({ records: [{ owner: "tester", slug: SLUG }] }),
+		),
+		owner: new FakeObjectiveOwnerGateway({ owner: "tester" }),
 		readTextFile,
 		...(options.execResults === undefined ? {} : { execResults: options.execResults }),
 		...optionalEntries({ outputFormat: options.outputFormat }),

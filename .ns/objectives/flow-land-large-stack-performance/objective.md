@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: flow-land-incremental-perf-rollout
+  - objective: schrockn/flow-land-incremental-perf-rollout
     annotation: Subsumed by this successor at closure; it carries this Objective's remaining reconcile row, wall-time baseline question, and parked follow-ups forward as incremental dogfooded slices.
 ---
 

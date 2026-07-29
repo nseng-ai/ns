@@ -35,7 +35,10 @@ import { parseRunnerReportJson } from "./report-file.ts";
 import { renderRunnerReportNarrative, type RunnerReport } from "./report.ts";
 
 export const runnerFinishRequestSchema = z.object({
-	slug: z.string().optional().describe("Objective slug the step was begun for."),
+	slug: z
+		.string()
+		.optional()
+		.describe("Objective locator (<owner>/<slug>) or owner-local slug the step was begun for."),
 	facts: z
 		.string()
 		.optional()
@@ -115,9 +118,9 @@ export async function runRunnerFinish(
 	request: RunnerFinishRequest,
 ): Promise<ClinkrExit<RunnerFinishResult>> {
 	if (request.slug === undefined) {
-		return usageError("Objective slug is required.", { argument: "slug" });
+		return usageError("Objective locator is required.", { argument: "slug" });
 	}
-	const slug = request.slug;
+	const requestedSelector = request.slug;
 	if (request.facts === undefined) {
 		return usageError("--facts is required (the saved runner-begin output).", {
 			argument: "facts",
@@ -151,12 +154,16 @@ export async function runRunnerFinish(
 	}
 	const facts: RunnerStepFacts =
 		"data" in factsParsed.data ? factsParsed.data.data : factsParsed.data;
-	if (facts.slug !== slug) {
+	// Facts record the canonical locator; the invocation may repeat the same
+	// bare owner-local slug, which matches on the slug segment without
+	// re-resolving authentication at finish time.
+	if (!selectorMatchesLocator(requestedSelector, facts.slug)) {
 		return usageError(
-			`Facts record slug ${JSON.stringify(facts.slug)} but the command was invoked for ${JSON.stringify(slug)}.`,
+			`Facts record locator ${JSON.stringify(facts.slug)} but the command was invoked for ${JSON.stringify(requestedSelector)}.`,
 			{ argument: "slug" },
 		);
 	}
+	const slug = facts.slug;
 	const { mode, baseBranch, headAtDispatch } = facts;
 
 	const buildCheckpointResult = (
@@ -293,6 +300,12 @@ export async function runRunnerFinish(
 			narrative,
 		),
 	);
+}
+
+function selectorMatchesLocator(selector: string, locator: string): boolean {
+	if (selector === locator) return true;
+	if (!selector.includes("/")) return locator.endsWith(`/${selector}`);
+	return false;
 }
 
 function buildResult(facts: CheckpointFacts, checkpointMarkdown: string): RunnerFinishResult {

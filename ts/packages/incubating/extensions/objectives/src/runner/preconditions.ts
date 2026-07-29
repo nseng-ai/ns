@@ -1,9 +1,11 @@
 import { failure, negative, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 
-import { activeRecordRelativePath, isValidObjectiveSlug } from "../core/storage.ts";
+import { resolveObjectiveRecordTarget } from "../core/operations/objective-target.ts";
 import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";
 
 export interface RunnerPreconditionFacts {
+	/** Canonical resolved locator for the step; commit trailers and facts carry this. */
+	locator: string;
 	objectivePath: string;
 	/** Branch the step dispatches from; the recover branch in recover mode. */
 	baseBranch: string;
@@ -39,7 +41,7 @@ export function resolveRunnerStepIdentity(
 	options: ResolveRunnerStepIdentityOptions,
 ): ResolveRunnerStepIdentityResult {
 	if (options.slug === undefined) {
-		return { type: "usage-error", message: "Objective slug is required.", argument: "slug" };
+		return { type: "usage-error", message: "Objective locator is required.", argument: "slug" };
 	}
 	return { type: "ok", slug: options.slug, mode: options.recover ? "recover" : "default" };
 }
@@ -62,24 +64,30 @@ export async function checkRunnerPreconditions(
 	options: CheckRunnerPreconditionsOptions,
 ): Promise<RunnerPreconditionsResult> {
 	const { slug, mode } = options;
-	if (!isValidObjectiveSlug(slug)) {
-		return { type: "usage-error", message: `Invalid Objective slug: ${JSON.stringify(slug)}.` };
-	}
-	const objectivePath = activeRecordRelativePath(slug);
-
-	const exists = await ctx.storage.activeRecordExists(slug);
-	if (!exists.ok)
-		return { type: "failure", code: exists.error.code, message: exists.error.message };
-	if (!exists.value) {
+	const targetResult = await resolveObjectiveRecordTarget(ctx.storage, ctx.owner, slug);
+	if (targetResult.type === "storage-error") {
 		return {
-			type: "usage-error",
-			message: `No Objective record found for slug ${JSON.stringify(slug)}.`,
+			type: "failure",
+			code: targetResult.error.code,
+			message: targetResult.error.message,
 		};
 	}
-	const files = await ctx.storage.activeRecordFilePresence(slug);
-	if (!files.ok) return { type: "failure", code: files.error.code, message: files.error.message };
-	if (files.value.closedMd) {
-		return { type: "refused", message: `Objective ${JSON.stringify(slug)} is closed.` };
+	const target = targetResult.value;
+	if (target.status === "invalid-slug" || target.status === "owner-unavailable") {
+		return {
+			type: "usage-error",
+			message: target.message ?? `Invalid Objective locator: ${JSON.stringify(slug)}.`,
+		};
+	}
+	if (target.status !== "found") {
+		return {
+			type: "usage-error",
+			message: `No Objective record found for locator ${JSON.stringify(slug)}.`,
+		};
+	}
+	const objectivePath = target.path;
+	if (target.location.status === "closed") {
+		return { type: "refused", message: `Objective ${JSON.stringify(target.locator)} is closed.` };
 	}
 
 	const currentBranch = await ctx.git.currentBranch({ cwd: ctx.repoRoot });
@@ -126,6 +134,12 @@ export async function checkRunnerPreconditions(
 
 	return {
 		type: "ok",
-		facts: { objectivePath, baseBranch, headAtDispatch: head.value, changedPaths },
+		facts: {
+			locator: target.locator,
+			objectivePath,
+			baseBranch,
+			headAtDispatch: head.value,
+			changedPaths,
+		},
 	};
 }

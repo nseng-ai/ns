@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: ontology-reshape
+  - objective: schrockn/ontology-reshape
     annotation: Extracted 2026-07-12 from that record's "Execute the cmux reshape spec" task row via the reshaping handoff vehicle's New-Objective hatch; its row resolves when this record closes.
 ---
 

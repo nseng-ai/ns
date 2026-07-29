@@ -1,8 +1,10 @@
 import { resolveSettledNonInteractiveCaps, type Caps } from "@nseng-ai/clinkr";
 import {
 	failure,
+	negative,
 	ok,
 	resolveRenderCapabilities,
+	usageError,
 	type ClinkrExit,
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr/legacy";
@@ -13,9 +15,10 @@ import { glyph, type GlyphName, type Intent } from "@nseng-ai/foundation/cli-the
 import { renderTextTable } from "@nseng-ai/foundation/text-table";
 
 import type { ObjectiveCliContext } from "../context.ts";
+import { isValidObjectiveOwner } from "../identity.ts";
 import {
-	activeRecordRelativePath,
 	activeRootRelativePath,
+	type ObjectiveRecordLocation,
 	type ObjectiveRecordStatus,
 	type ObjectiveStorage,
 } from "../storage.ts";
@@ -27,15 +30,34 @@ import { readParsedObjectiveFrontmatter } from "./record-frontmatter-read.ts";
 export const objectiveStatusFilterSchema = z.enum(["all", "active", "open", "closed"]);
 
 export const listObjectivesRequestSchema = z.object({
-	names: z.boolean().default(false).describe("Output Objective slugs only, one per line."),
+	names: z.boolean().default(false).describe("Output Objective locators only, one per line."),
 	status: objectiveStatusFilterSchema
 		.default("active")
 		.describe("Filter Objective records by checkout-local status."),
+	owner: z
+		.string()
+		.optional()
+		.describe("List only this owner's records (works without authentication)."),
+	allOwners: z
+		.boolean()
+		.default(false)
+		.describe("List records for every discovered owner (works without authentication)."),
 });
 
+/** Which owner namespace the listing covers. */
+export const objectiveListOwnerScopeSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("current"), owner: z.string() }),
+	z.object({ type: z.literal("explicit"), owner: z.string() }),
+	z.object({ type: z.literal("all") }),
+]);
+
 export const objectiveListRecordSchema = z.object({
+	owner: z.string(),
 	slug: z.string(),
+	/** Durable Objective Locator `<owner>/<slug>`. */
+	locator: z.string(),
 	status: z.enum(["open", "closed"]),
+	layout: z.enum(["owner-nested", "legacy-flat-closed"]),
 	/**
 	 * Present (true) only when Record Frontmatter carries a `blocked:` sentence. Blocked renders as
 	 * human-facing state text, while `status` stays "open" for lifecycle/filtering semantics.
@@ -53,12 +75,14 @@ export const objectiveListResultSchema = z.object({
 	trunkBranch: z.string(),
 	rootPath: z.string(),
 	statusFilter: objectiveStatusFilterSchema,
+	ownerScope: objectiveListOwnerScopeSchema,
 	namesOnly: z.boolean(),
 	records: z.array(objectiveListRecordSchema),
 });
 
 export type ObjectiveStatusFilter = z.infer<typeof objectiveStatusFilterSchema>;
 export type ListObjectivesRequest = z.infer<typeof listObjectivesRequestSchema>;
+export type ObjectiveListOwnerScope = z.infer<typeof objectiveListOwnerScopeSchema>;
 export type ObjectiveListRecord = z.infer<typeof objectiveListRecordSchema>;
 export type ObjectiveListResult = z.infer<typeof objectiveListResultSchema>;
 
@@ -66,9 +90,18 @@ export async function runListObjectives(
 	ctx: ObjectiveCliContext,
 	request: ListObjectivesRequest,
 ): Promise<ClinkrExit<ObjectiveListResult>> {
+	if (request.owner !== undefined && request.allOwners) {
+		return usageError("Pass --owner or --all-owners, not both.", { argument: "owner" });
+	}
+	if (request.owner !== undefined && !isValidObjectiveOwner(request.owner)) {
+		return usageError(`Invalid Objective owner handle: ${JSON.stringify(request.owner)}.`, {
+			argument: "owner",
+		});
+	}
 	const result = await buildObjectiveListResult(ctx, request);
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
 	if (result.type === "git-error") return failure(result.error.code, result.error.message);
+	if (result.type === "owner-unavailable") return negative(result.message);
 	return ok(result.value);
 }
 
@@ -79,22 +112,40 @@ export async function buildObjectiveListResult(
 	| { type: "ok"; value: ObjectiveListResult }
 	| { type: "storage-error"; error: { code: string; message: string } }
 	| { type: "git-error"; error: { code: string; message: string } }
+	| { type: "owner-unavailable"; message: string }
 > {
+	let ownerScope: ObjectiveListOwnerScope;
+	if (request.allOwners) {
+		ownerScope = { type: "all" };
+	} else if (request.owner !== undefined) {
+		ownerScope = { type: "explicit", owner: request.owner };
+	} else {
+		const currentOwner = await ctx.owner.resolveAuthenticatedOwner();
+		if (currentOwner.type === "unavailable") {
+			return {
+				type: "owner-unavailable",
+				message: `${currentOwner.message} Pass --owner <handle> or --all-owners to list without authentication.`,
+			};
+		}
+		ownerScope = { type: "current", owner: currentOwner.owner };
+	}
+
 	const inventory = await ctx.storage.checkoutInventory();
 	if (!inventory.ok) return { type: "storage-error", error: inventory.error };
 
-	const filtered = inventory.value.records.filter((record) =>
-		matchesStatusFilter(record.status, request.status),
+	const filtered = inventory.value.records.filter(
+		(record) =>
+			matchesStatusFilter(record.status, request.status) &&
+			(ownerScope.type === "all" || record.owner === ownerScope.owner),
 	);
 
 	const builtRecords = await Promise.all(
-		filtered.map((record) =>
+		filtered.map((location) =>
 			buildObjectiveListRecord({
 				storage: ctx.storage,
 				git: ctx.git,
 				repoRoot: ctx.repoRoot,
-				slug: record.slug,
-				status: record.status,
+				location,
 			}),
 		),
 	);
@@ -105,15 +156,12 @@ export async function buildObjectiveListResult(
 		baseRecords.push(built.value);
 	}
 
-	const attribution = await buildObjectiveBranchAttributionForContext(
-		ctx,
-		new Set(baseRecords.map((record) => record.slug)),
-	);
+	const attribution = await buildObjectiveBranchAttributionForContext(ctx, filtered);
 	if (attribution.type === "git-error") return attribution;
 
 	const records = baseRecords.map((record) => {
 		const updatedBranchCount =
-			attribution.value.updatedBranchesBySlug.get(record.slug)?.length ?? 0;
+			attribution.value.updatedBranchesByLocator.get(record.locator)?.length ?? 0;
 		return {
 			...record,
 			...(updatedBranchCount > 0 ? { updatedBranchCount } : {}),
@@ -126,21 +174,41 @@ export async function buildObjectiveListResult(
 			trunkBranch: ctx.trunkBranch,
 			rootPath: activeRootRelativePath(),
 			statusFilter: request.status,
+			ownerScope,
 			namesOnly: request.names,
 			records,
 		},
 	};
 }
 
+export function ownerScopeLabel(scope: ObjectiveListOwnerScope): string {
+	if (scope.type === "all") return "all owners";
+	if (scope.type === "explicit") return `owner @${scope.owner}`;
+	return `current owner @${scope.owner}`;
+}
+
+export function groupRecordsByOwner(
+	records: readonly ObjectiveListRecord[],
+): Map<string, ObjectiveListRecord[]> {
+	const groups = new Map<string, ObjectiveListRecord[]>();
+	for (const record of records) {
+		const group = groups.get(record.owner) ?? [];
+		group.push(record);
+		groups.set(record.owner, group);
+	}
+	return groups;
+}
+
 export function renderObjectiveListHuman(
 	result: ObjectiveListResult,
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
-	if (result.namesOnly) return renderSlugs(result.records);
+	if (result.namesOnly) return renderLocators(result.records);
 
 	const parts = [
 		"Objective records in this checkout\n",
 		`Root: ${result.rootPath}\n`,
+		`Owner scope: ${ownerScopeLabel(result.ownerScope)}\n`,
 		`Status filter: ${result.statusFilter}\n`,
 		"\n",
 	];
@@ -149,45 +217,53 @@ export function renderObjectiveListHuman(
 		return removeOneTrailingNewline(parts.join(""));
 	}
 	const renderCaps = resolveRenderCapabilities(caps);
-	parts.push(
-		`${renderTextTable({
-			columns: [
-				{ header: "OBJECTIVE", style: "bold-cyan" },
-				{ header: "STATUS" },
-				{ header: "LATEST UPDATE", style: "dim" },
-				{ header: "BRANCHES" },
-				{ header: "EDGES" },
-			],
-			rows: result.records.map((record) => baseRecordCells(record, renderCaps)),
-			canEmitAnsi: caps.canEmitAnsi,
-			shouldDrawRule: true,
-			headerStyle: "bold-cyan",
-		})}\n`,
-	);
+	for (const [owner, records] of groupRecordsByOwner(result.records)) {
+		parts.push(`@${owner}\n`);
+		parts.push(
+			`${renderTextTable({
+				columns: [
+					{ header: "OBJECTIVE", style: "bold-cyan" },
+					{ header: "STATUS" },
+					{ header: "LATEST UPDATE", style: "dim" },
+					{ header: "BRANCHES" },
+					{ header: "EDGES" },
+				],
+				rows: records.map((record) => baseRecordCells(record, renderCaps)),
+				canEmitAnsi: caps.canEmitAnsi,
+				shouldDrawRule: true,
+				headerStyle: "bold-cyan",
+			})}\n`,
+		);
+	}
 	return removeOneTrailingNewline(parts.join(""));
 }
 
 export function renderObjectiveListMarkdown(result: ObjectiveListResult): string {
-	if (result.namesOnly) return renderSlugs(result.records);
+	if (result.namesOnly) return renderLocators(result.records);
 
 	const parts = [
 		"# Objective records in this checkout\n",
 		"\n",
 		`Root: \`${result.rootPath}\`\n`,
+		`Owner scope: \`${ownerScopeLabel(result.ownerScope)}\`\n`,
 		`Status filter: \`${result.statusFilter}\`\n`,
 	];
 	if (result.records.length === 0) {
 		parts.push("\n", `${emptyMessage(result.statusFilter)}\n`);
 		return removeOneTrailingNewline(parts.join(""));
 	}
-	parts.push(
-		"\n",
-		"| objective | status | latest update | branches | edges |\n",
-		"| --- | --- | --- | --- | --- |\n",
-	);
 	const markdownCaps = resolveSettledNonInteractiveCaps();
-	for (const record of result.records) {
-		parts.push(markdownRecordRow(record, markdownCaps));
+	for (const [owner, records] of groupRecordsByOwner(result.records)) {
+		parts.push(
+			"\n",
+			`## @${owner}\n`,
+			"\n",
+			"| objective | status | latest update | branches | edges |\n",
+			"| --- | --- | --- | --- | --- |\n",
+		);
+		for (const record of records) {
+			parts.push(markdownRecordRow(record, markdownCaps));
+		}
 	}
 	return removeOneTrailingNewline(parts.join(""));
 }
@@ -220,8 +296,7 @@ interface BuildObjectiveListRecordOptions {
 	storage: ObjectiveStorage;
 	git: GitGateway;
 	repoRoot: string;
-	slug: string;
-	status: ObjectiveRecordStatus;
+	location: ObjectiveRecordLocation;
 }
 
 async function buildObjectiveListRecord(
@@ -231,7 +306,7 @@ async function buildObjectiveListRecord(
 	| { type: "storage-error"; error: { code: string; message: string } }
 	| { type: "git-error"; error: { code: string; message: string } }
 > {
-	const relativePath = activeRecordRelativePath(options.slug);
+	const relativePath = options.location.recordRelativePath;
 	const updates = await options.storage.listUpdateFiles(relativePath);
 	if (!updates.ok) return { type: "storage-error", error: updates.error };
 	const dirty = await options.git.hasUncommittedChangesUnder({
@@ -243,8 +318,11 @@ async function buildObjectiveListRecord(
 	return {
 		type: "ok",
 		value: {
-			slug: options.slug,
-			status: options.status,
+			owner: options.location.owner,
+			slug: options.location.slug,
+			locator: options.location.locator,
+			status: options.location.status,
+			layout: options.location.layout,
 			...(facts.isBlocked ? { isBlocked: true } : {}),
 			latestUpdateIso: latestUpdateIsoFromUpdateNames(updates.value.map((update) => update.name)),
 			...(facts.edgeCount > 0 ? { edgeCount: facts.edgeCount } : {}),
@@ -259,7 +337,7 @@ interface ObjectiveListFrontmatterFacts {
 }
 
 /**
- * Record Frontmatter facts for the list surface, via the shared reader (ADR 0025); the body is
+ * Record Frontmatter facts for the list surface, via the shared reader; the body is
  * never interpreted. Safe minimal rendering: a record whose `objective.md` is missing,
  * unreadable, or carries malformed frontmatter lists exactly like one with no frontmatter
  * (blank EDGES cell, no blocked indicator) — reporting malformed frontmatter is the
@@ -318,8 +396,9 @@ function timestampPartsIso(date: string, hour: string, minute: string, second: s
 	return `${date}T${hour}:${minute}:${second}Z`;
 }
 
-export function renderSlugs(records: readonly ObjectiveListRecord[]): string {
-	return records.map((record) => record.slug).join("\n");
+/** `--names` output: one full Objective Locator per line. */
+export function renderLocators(records: readonly ObjectiveListRecord[]): string {
+	return records.map((record) => record.locator).join("\n");
 }
 
 export type ObjectiveStatusPresentationInput = Pick<ObjectiveListRecord, "status" | "isBlocked">;

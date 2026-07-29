@@ -172,7 +172,7 @@ Rules:
 1. Confirm explicit user invocation and identify the run branch (default: current
    branch) and trunk.
 2. Resolve exactly one owning Objective before classification or proposal work:
-   - Use a slug or `.ns/objectives/<slug>/` path only when the invocation or
+   - Use a locator (or owner-local slug) or `.ns/objectives/<owner>/<slug>/` path only when the invocation or
      current live exchange explicitly selects it as this run's owner — a merely
      mentioned Objective is not a selection. Ownership is never inferred from
      branch, stack, PR, changed-path, or package names, nor from hidden

@@ -13,7 +13,13 @@ import {
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
-import type { ObjectiveRecordDocumentReadResult, ObjectiveStorage } from "../storage.ts";
+import { parseObjectiveLocatorString } from "../identity.ts";
+import {
+	findRecordLocation,
+	type ObjectiveRecordDocumentReadResult,
+	type ObjectiveRecordLocation,
+	type ObjectiveStorage,
+} from "../storage.ts";
 import { pythonStringRepr, removeOneTrailingNewline } from "./format.ts";
 import { handleObjectiveSlugValidationErrors } from "./slug-validation-errors.ts";
 import { findObjectiveEdgeAnnotation } from "./edge-lint.ts";
@@ -28,7 +34,10 @@ import { resolveObjectiveRecordTarget, targetToEmptyResultFields } from "./objec
 import { readParsedObjectiveFrontmatter } from "./record-frontmatter-read.ts";
 
 export const showObjectiveRequestSchema = z.object({
-	slug: z.string().optional().describe("Objective slug to show."),
+	slug: z
+		.string()
+		.optional()
+		.describe("Objective locator (<owner>/<slug>) or owner-local slug to show."),
 	shouldIncludeClosedEdges: z
 		.boolean()
 		.default(false)
@@ -53,7 +62,9 @@ const showObjectiveEdgeSchema = z.object({
 
 export const showObjectiveOkResultSchema = z.object({
 	status: z.literal("ok"),
+	owner: z.string(),
 	slug: z.string(),
+	locator: z.string(),
 	path: z.string(),
 	rootPath: z.string(),
 	isClosed: z.boolean(),
@@ -73,7 +84,10 @@ export const showObjectiveOkResultSchema = z.object({
 const showObjectiveNonOkBaseSchema = z.object({
 	rootPath: z.string(),
 	hasRoot: z.boolean(),
+	owner: z.string().nullable(),
 	slug: z.string().nullable(),
+	locator: z.string().nullable(),
+	message: z.string().optional(),
 	path: z.string().nullable(),
 });
 
@@ -81,6 +95,7 @@ export const showObjectiveResultSchema = z.discriminatedUnion("status", [
 	showObjectiveOkResultSchema,
 	showObjectiveNonOkBaseSchema.extend({ status: z.literal("missing-slug") }),
 	showObjectiveNonOkBaseSchema.extend({ status: z.literal("invalid-slug") }),
+	showObjectiveNonOkBaseSchema.extend({ status: z.literal("owner-unavailable") }),
 	showObjectiveNonOkBaseSchema.extend({ status: z.literal("not-found") }),
 ]);
 
@@ -101,9 +116,10 @@ export async function runShowObjective(
 	const slugValidationError = handleObjectiveSlugValidationErrors(value, request.slug);
 	if (slugValidationError !== null) return slugValidationError;
 	if (value.status === "not-found") {
-		return negative(`No Objective record found for slug ${pythonStringRepr(value.slug ?? "")}.`, {
-			data: value,
-		});
+		return negative(
+			`No Objective record found for locator ${pythonStringRepr(value.locator ?? "")}.`,
+			{ data: value },
+		);
 	}
 	return ok(value);
 }
@@ -116,7 +132,11 @@ async function buildShowObjectiveResult(
 	| { type: "storage-error"; error: { code: string; message: string } }
 	| { type: "git-error"; error: { code: string; message: string } }
 > {
-	const targetResult = await resolveObjectiveRecordTarget(ctx.storage, request.slug);
+	const inventory = await ctx.storage.checkoutInventory();
+	if (!inventory.ok) return { type: "storage-error", error: inventory.error };
+	const targetResult = await resolveObjectiveRecordTarget(ctx.storage, ctx.owner, request.slug, {
+		inventory: inventory.value,
+	});
 	if (targetResult.type === "storage-error") return targetResult;
 	const target = targetResult.value;
 	if (target.status !== "found") {
@@ -136,14 +156,19 @@ async function buildShowObjectiveResult(
 	if (!updates.ok) return { type: "storage-error", error: updates.error };
 	const dirty = await ctx.git.hasUncommittedChangesUnder({ cwd: ctx.repoRoot, relativePath });
 	if (!dirty.ok) return { type: "git-error", error: dirty.error };
-	const attribution = await buildObjectiveBranchAttributionForContext(ctx, new Set([target.slug]));
+	const attribution = await buildObjectiveBranchAttributionForContext(ctx, [target.location]);
 	if (attribution.type === "git-error") return attribution;
 
 	const document = await ctx.storage.readObjectiveRecordDocument(relativePath);
 	const facts = frontmatterFacts(document);
 	const edges: ShowObjectiveEdge[] = [];
 	for (const edge of facts.edges) {
-		const counterpart = await resolveEdgeCounterpart(ctx.storage, target.slug, edge.objective);
+		const counterpart = await resolveEdgeCounterpart({
+			storage: ctx.storage,
+			records: inventory.value.records,
+			ownLocator: target.locator,
+			endpoint: edge.objective,
+		});
 		if (counterpart.type === "storage-error") return counterpart;
 		if (!request.shouldIncludeClosedEdges && counterpart.value.isClosed === true) continue;
 		edges.push({
@@ -157,7 +182,9 @@ async function buildShowObjectiveResult(
 		type: "ok",
 		value: {
 			status: "ok",
+			owner: target.owner,
 			slug: target.slug,
+			locator: target.locator,
 			path: relativePath,
 			rootPath: target.rootPath,
 			isClosed: files.value.closedMd,
@@ -166,7 +193,7 @@ async function buildShowObjectiveResult(
 			latestUpdateIso: latestUpdateIsoFromUpdateNames(updates.value.map((update) => update.name)),
 			updateCount: updates.value.length,
 			hasOutstandingChanges: dirty.value,
-			updatedBranches: [...(attribution.value.updatedBranchesBySlug.get(target.slug) ?? [])],
+			updatedBranches: [...(attribution.value.updatedBranchesByLocator.get(target.locator) ?? [])],
 			isUpdatedBranchesTruncated: attribution.value.isTruncated,
 			edges,
 		},
@@ -197,39 +224,39 @@ function frontmatterFacts(read: ObjectiveRecordDocumentReadResult): ShowObjectiv
 	return { blockedSentence: parsed.frontmatter.blocked, edges: parsed.frontmatter.edges };
 }
 
-async function resolveEdgeCounterpart(
-	storage: ObjectiveStorage,
-	ownSlug: string,
-	endpoint: string,
-): Promise<
+async function resolveEdgeCounterpart(options: {
+	storage: ObjectiveStorage;
+	records: readonly ObjectiveRecordLocation[];
+	ownLocator: string;
+	endpoint: string;
+}): Promise<
 	| { type: "ok"; value: ShowObjectiveEdgeCounterpart }
 	| { type: "storage-error"; error: { code: string; message: string } }
 > {
-	const resolved = await storage.resolveRecordRelativePath(endpoint);
-	if (!resolved.ok) return { type: "storage-error", error: resolved.error };
-	if (resolved.value === null) {
+	const endpointLocator = parseObjectiveLocatorString(options.endpoint);
+	const location =
+		endpointLocator === null ? null : findRecordLocation(options.records, endpointLocator);
+	if (location === null) {
 		return { type: "ok", value: { exists: false, isClosed: null, annotation: null } };
 	}
-	const files = await storage.filePresence(resolved.value);
-	if (!files.ok) return { type: "storage-error", error: files.error };
-	const read = await storage.readObjectiveRecordDocument(resolved.value);
+	const read = await options.storage.readObjectiveRecordDocument(location.recordRelativePath);
 	return {
 		type: "ok",
 		value: {
 			exists: true,
-			isClosed: files.value.closedMd,
-			annotation: backEdgeAnnotation(read, ownSlug),
+			isClosed: location.status === "closed",
+			annotation: backEdgeAnnotation(read, options.ownLocator),
 		},
 	};
 }
 
 function backEdgeAnnotation(
 	read: ObjectiveRecordDocumentReadResult,
-	ownSlug: string,
+	ownLocator: string,
 ): string | null {
 	const parsed = readParsedObjectiveFrontmatter(read);
 	if (parsed.frontmatter === null) return null;
-	return findObjectiveEdgeAnnotation(parsed.frontmatter, ownSlug);
+	return findObjectiveEdgeAnnotation(parsed.frontmatter, ownLocator);
 }
 
 export function renderShowObjectiveHuman(
@@ -247,7 +274,7 @@ export function renderShowObjectiveHuman(
 	)}`;
 	return renderBufferedReport({
 		caps: { canEmitAnsi: caps.colorDepth !== "none", caps },
-		title: `${bold("Objective")} ${bold(paint(caps, "accent", result.slug))}  ${statusStyled}`,
+		title: `${bold("Objective")} ${bold(paint(caps, "accent", result.locator))}  ${statusStyled}`,
 		titleStyle: "plain",
 		sections: [
 			{ title: "", lines: summaryLines(result, caps, nowMs) },
@@ -379,7 +406,7 @@ export function renderShowObjectiveMarkdown(result: ShowObjectiveResult): string
 
 	const presentation = objectiveStatusPresentation(statusPresentationInput(result));
 	const stamp = result.latestUpdateIso ?? "—";
-	const parts = [`# Objective \`${result.slug}\`\n\n`, `Status: ${presentation.word}\n`];
+	const parts = [`# Objective \`${result.locator}\`\n\n`, `Status: ${presentation.word}\n`];
 	if (result.blockedSentence !== null) parts.push(`Blocked: ${result.blockedSentence}\n`);
 	if (result.frontmatterMalformed !== undefined) {
 		parts.push(`Frontmatter malformed: ${result.frontmatterMalformed}\n`);

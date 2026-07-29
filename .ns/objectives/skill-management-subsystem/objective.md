@@ -1,20 +1,21 @@
 ---
+owner: schrockn
 edges:
-  - objective: ns-skills-steelthread
+  - objective: schrockn/ns-skills-steelthread
     annotation: Subobjective carrying the thread — one real ns-owned skill through `ns skills list/path/install` into the pi/claude-code/codex harness roots with a hashed install manifest; this umbrella coordinates the surrounding ambition and deferred breadth.
-  - objective: npm-bundled-artifact-provisioning
+  - objective: schrockn/npm-bundled-artifact-provisioning
     annotation: Subobjective — the first follow-on graduated from parked breadth after the steelthread closure. Generalizes first-party provisioning to any npm-module-bundled harness artifact (extensions are one case) and folds in removing AREG's `npx skills` wrapping, keeping AREG as a standalone whole-project inspector. Merges the former extension-carried-provisioning and AREG-re-platform parked rows.
-  - objective: harness-artifacts-thermo-remediation
+  - objective: schrockn/harness-artifacts-thermo-remediation
     annotation: Subobjective — closed and synthesized quality remediation of the delivered harness-artifacts stack. It fixed the 5 HIGH and 10 MEDIUM thermo-nuclear review findings before further breadth graduation; remaining LOW-tail items are explicitly opportunistic, not blockers.
-  - objective: harness-artifact-vocabulary-reconciliation
+  - objective: schrockn/harness-artifact-vocabulary-reconciliation
     annotation: Subobjective — graduated 2026-07-07 from the parked reconciliation-sweep row. Owns the skill-workflow/docs/vocabulary reconciliation sweep and the bare-"artifact" collision cleanup (AREG "managed artifacts" → kind-overlays rename); no provisioning behavior changes.
-  - objective: remote-artifact-module-acquisition
+  - objective: schrockn/remote-artifact-module-acquisition
     annotation: Subobjective — graduated 2026-07-07 from the parked remote-acquisition row (user decision). Owns the first-party fetch path for artifact-bearing npm modules (`ns.toml` `extensions = [...]` declaration list — the `artifact-packages` working name was superseded — with pi-derived spec grammar) plus version-resolution-for-fetched-modules, and carries the retired-trust-gating risk acceptance for re-judgment.
-  - objective: harness-artifacts-post-review-cleanup
+  - objective: schrockn/harness-artifacts-post-review-cleanup
     annotation: Subobjective — finishes the remaining post-review harness-artifacts cleanup after the API re-export / force-required naming slice, resolving home-dir ownership, provision/reconcile design, schema/source cleanup, and review-thread disposition before parked breadth graduates further.
-  - objective: ship-objectives-to-customers
+  - objective: schrockn/ship-objectives-to-customers
     annotation: Upstream provider for that downstream customer-shipping Objective; this umbrella owns the reusable `ns skills`/harness-artifact provisioning surface that Objective consumes for cross-harness skill delivery.
-  - objective: ontology-reshape
+  - objective: schrockn/ontology-reshape
     annotation: That Objective's layering reshape (ADR 0033) folded the command-backed-skill-registry into areg as a module — landed on trunk (`ts/packages/tools/areg/src/command-backed-skill-registry.ts`); consume the ADR 0033 spec before reshaping registration or replacement-command machinery.
 ---
 

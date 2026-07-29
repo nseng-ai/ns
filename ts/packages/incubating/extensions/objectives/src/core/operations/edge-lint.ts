@@ -1,10 +1,16 @@
+import {
+	isValidObjectiveOwner,
+	parseObjectiveLocatorString,
+	renderObjectiveLocator,
+} from "../identity.ts";
 import type { ObjectiveRecordDocument, ObjectiveRecordFrontmatter } from "../record-frontmatter.ts";
 import {
-	activeRecordRelativePath,
-	isValidObjectiveSlug,
+	findRecordLocation,
 	type ObjectiveRecordDocumentReadResult,
+	type ObjectiveRecordLocation,
 	type ObjectiveStorage,
 	type ObjectiveStorageResult,
+	type ObjectiveStructuralFinding,
 } from "../storage.ts";
 import {
 	objectiveMdExistsCheck,
@@ -13,21 +19,21 @@ import {
 } from "./check-items.ts";
 
 /**
- * Edge and Blocked Sentence structural linter (ADR 0025). Every violation is an
- * error: malformed frontmatter, empty blocked sentence, empty annotation,
- * invalid/dangling/self/duplicate edge slugs, and a missing mirror side. The
- * lint is frontmatter-cheap — record bodies are never interpreted — and only
- * violations are reported, so a record whose frontmatter is structurally valid
- * checks identically to one with no frontmatter at all.
- *
- * Mirror lookups resolve counterpart slugs in the active root only. Deleted
- * counterpart records are reported as missing edge endpoints.
+ * Record Frontmatter structural linter (ADR 0050): owner, Blocked Sentence,
+ * and Objective Edge lint. Every violation is an error: missing/malformed
+ * frontmatter, missing or invalid owner, owner/path disagreement for
+ * owner-nested records, empty blocked sentence, empty annotation, non-locator
+ * edge endpoints, dangling/self/duplicate edges, and a missing mirror side.
+ * Edge endpoints and their identity are full `<owner>/<slug>` Objective
+ * Locators; mirror lookups resolve counterparts through discovered inventory
+ * across every owner (including legacy flat closed records).
  */
 
 export interface ObjectiveEdgeLintOptions {
 	storage: ObjectiveStorage;
-	slug: string;
-	recordRelativePath: string;
+	/** Discovered inventory records used for edge endpoint and mirror resolution. */
+	records: readonly ObjectiveRecordLocation[];
+	location: ObjectiveRecordLocation;
 	document: ObjectiveRecordDocument;
 }
 
@@ -36,50 +42,69 @@ export async function objectiveEdgeLintChecks(
 ): Promise<ObjectiveStorageResult<readonly ObjectiveCheckItem[]>> {
 	return await lintObjectiveRecordFrontmatterState({
 		storage: options.storage,
-		slug: options.slug,
+		records: options.records,
+		location: options.location,
 		state: recordFrontmatterStateFromDocument({
-			recordRelativePath: options.recordRelativePath,
+			recordRelativePath: options.location.recordRelativePath,
 			document: options.document,
 		}),
 	});
 }
 
-export interface ObjectiveEdgeSweepReport {
+export interface ObjectiveStructuralSweepReport {
 	recordCount: number;
 	violations: readonly ObjectiveCheckItem[];
 }
 
 /**
- * Repo-wide edge/blocked sweep: lints every active record's Record Frontmatter,
- * reporting only violations.
+ * Repo-wide structural sweep: storage hygiene findings from discovery, deep
+ * structure findings, and every record's Record Frontmatter lint (owner,
+ * blocked, full-locator edges), reporting only violations.
  */
-export async function sweepObjectiveEdgeLint(
+export async function sweepObjectiveStructure(
 	storage: ObjectiveStorage,
-): Promise<ObjectiveStorageResult<ObjectiveEdgeSweepReport>> {
+): Promise<ObjectiveStorageResult<ObjectiveStructuralSweepReport>> {
 	const inventory = await storage.checkoutInventory();
 	if (!inventory.ok) return inventory;
 
-	const targets = inventory.value.records.map((record) => ({
-		slug: record.slug,
-		recordRelativePath: activeRecordRelativePath(record.slug),
-	}));
+	const violations: ObjectiveCheckItem[] = [
+		...structuralFindingsToCheckItems(inventory.value.findings),
+	];
+	const deepFindings = await storage.deepStructureFindings(inventory.value);
+	if (!deepFindings.ok) return deepFindings;
+	violations.push(...structuralFindingsToCheckItems(deepFindings.value));
 
-	const violations: ObjectiveCheckItem[] = [];
-	for (const target of targets) {
+	for (const location of inventory.value.records) {
 		const state = await readObjectiveRecordFrontmatterState({
 			storage,
-			recordRelativePath: target.recordRelativePath,
+			recordRelativePath: location.recordRelativePath,
 		});
 		if (!state.ok) return state;
 		const lint = await lintObjectiveRecordFrontmatterState({
 			storage,
-			slug: target.slug,
+			records: inventory.value.records,
+			location,
 			state: state.value,
 		});
 		if (!lint.ok) return lint;
 		violations.push(...lint.value);
 	}
-	return { ok: true, value: { recordCount: targets.length, violations } };
+	return {
+		ok: true,
+		value: { recordCount: inventory.value.records.length, violations },
+	};
+}
+
+export function structuralFindingsToCheckItems(
+	findings: readonly ObjectiveStructuralFinding[],
+): ObjectiveCheckItem[] {
+	return findings.map((finding) => ({
+		path: finding.path,
+		label: "Active Objective Root structure is well-formed",
+		isPassed: false,
+		severity: "error" as const,
+		detail: finding.message,
+	}));
 }
 
 type ObjectiveRecordFrontmatterState =
@@ -183,7 +208,8 @@ function recordFrontmatterStateFromDocument(
 
 interface LintObjectiveRecordFrontmatterStateOptions {
 	storage: ObjectiveStorage;
-	slug: string;
+	records: readonly ObjectiveRecordLocation[];
+	location: ObjectiveRecordLocation;
 	state: ObjectiveRecordFrontmatterState;
 }
 
@@ -212,7 +238,18 @@ async function lintObjectiveRecordFrontmatterState(
 			],
 		};
 	}
-	if (options.state.type === "absent") return { ok: true, value: [] };
+	if (options.state.type === "absent") {
+		return {
+			ok: true,
+			value: [
+				violation(
+					options.state.path,
+					"objective.md declares required owner frontmatter",
+					"record has no Record Frontmatter; every record requires owner",
+				),
+			],
+		};
+	}
 	if (options.state.type === "malformed") {
 		return {
 			ok: true,
@@ -228,6 +265,26 @@ async function lintObjectiveRecordFrontmatterState(
 
 	const violations: ObjectiveCheckItem[] = [];
 	const frontmatter = options.state.frontmatter;
+	const location = options.location;
+
+	if (!isValidObjectiveOwner(frontmatter.owner)) {
+		violations.push(
+			violation(
+				options.state.path,
+				"objective.md owner is a valid handle",
+				`owner ${JSON.stringify(frontmatter.owner)} is not a valid owner handle`,
+			),
+		);
+	} else if (location.layout === "owner-nested" && frontmatter.owner !== location.owner) {
+		violations.push(
+			violation(
+				options.state.path,
+				"objective.md owner matches the owner path segment",
+				`frontmatter owner ${JSON.stringify(frontmatter.owner)} disagrees with directory owner ${JSON.stringify(location.owner)}`,
+			),
+		);
+	}
+
 	const blockedSentence = frontmatter.blocked?.trim() ?? null;
 	if (blockedSentence === "") {
 		violations.push(
@@ -239,6 +296,7 @@ async function lintObjectiveRecordFrontmatterState(
 		);
 	}
 
+	const ownLocator = location.locator;
 	const seenEndpoints = new Set<string>();
 	for (const edge of frontmatter.edges) {
 		const endpoint = edge.objective;
@@ -251,17 +309,19 @@ async function lintObjectiveRecordFrontmatterState(
 				),
 			);
 		}
-		if (!isValidObjectiveSlug(endpoint)) {
+		const endpointLocator = parseObjectiveLocatorString(endpoint);
+		if (endpointLocator === null) {
 			violations.push(
 				violation(
 					options.state.path,
-					`objective.md edge ${endpoint} has a valid slug`,
-					"objective: is not a single record slug",
+					`objective.md edge ${endpoint} has a valid locator`,
+					"objective: is not a full <owner>/<slug> Objective Locator",
 				),
 			);
 			continue;
 		}
-		if (endpoint === options.slug) {
+		const endpointRendered = renderObjectiveLocator(endpointLocator);
+		if (endpointRendered === ownLocator) {
 			violations.push(
 				violation(
 					options.state.path,
@@ -271,7 +331,7 @@ async function lintObjectiveRecordFrontmatterState(
 			);
 			continue;
 		}
-		if (seenEndpoints.has(endpoint)) {
+		if (seenEndpoints.has(endpointRendered)) {
 			violations.push(
 				violation(
 					options.state.path,
@@ -281,84 +341,80 @@ async function lintObjectiveRecordFrontmatterState(
 			);
 			continue;
 		}
-		seenEndpoints.add(endpoint);
+		seenEndpoints.add(endpointRendered);
 
-		const mirror = await mirrorFacts({
+		const counterpart = findRecordLocation(options.records, endpointLocator);
+		if (counterpart === null) {
+			violations.push(
+				violation(
+					options.state.path,
+					`objective.md edge ${endpoint} endpoint exists`,
+					"no record in the active root",
+				),
+			);
+			continue;
+		}
+		const mirror = await mirrorViolation({
 			storage: options.storage,
-			slug: options.slug,
+			ownLocator,
 			path: options.state.path,
-			endpoint,
+			endpoint: endpointRendered,
+			counterpart,
 		});
 		if (!mirror.ok) return mirror;
-		if (mirror.value.violation !== null) violations.push(mirror.value.violation);
+		if (mirror.value !== null) violations.push(mirror.value);
 	}
 	return { ok: true, value: violations };
 }
 
-interface MirrorFactsOptions {
+interface MirrorViolationOptions {
 	storage: ObjectiveStorage;
-	slug: string;
+	ownLocator: string;
 	path: string;
 	endpoint: string;
+	counterpart: ObjectiveRecordLocation;
 }
 
-interface MirrorFacts {
-	violation: ObjectiveCheckItem | null;
-}
-
-async function mirrorFacts(
-	options: MirrorFactsOptions,
-): Promise<ObjectiveStorageResult<MirrorFacts>> {
-	const { storage, slug, path, endpoint } = options;
-	const counterpartPath = await storage.resolveRecordRelativePath(endpoint);
-	if (!counterpartPath.ok) return counterpartPath;
-	if (counterpartPath.value === null) {
+async function mirrorViolation(
+	options: MirrorViolationOptions,
+): Promise<ObjectiveStorageResult<ObjectiveCheckItem | null>> {
+	const { storage, ownLocator, path, endpoint, counterpart } = options;
+	const label = `objective.md edge ${endpoint} is mirrored`;
+	const state = await readObjectiveRecordFrontmatterState({
+		storage,
+		recordRelativePath: counterpart.recordRelativePath,
+	});
+	if (!state.ok) return state;
+	if (state.value.type === "missing") {
+		return { ok: true, value: violation(path, label, "counterpart objective.md is missing") };
+	}
+	if (state.value.type === "unreadable") {
 		return {
 			ok: true,
-			value: {
-				violation: violation(
-					path,
-					`objective.md edge ${endpoint} endpoint exists`,
-					"no record in the active root",
-				),
-			},
-		};
-	}
-
-	const asFacts = (violation: ObjectiveCheckItem | null): ObjectiveStorageResult<MirrorFacts> => ({
-		ok: true,
-		value: { violation },
-	});
-
-	const label = `objective.md edge ${endpoint} is mirrored`;
-	const counterpart = await readObjectiveRecordFrontmatterState({
-		storage,
-		recordRelativePath: counterpartPath.value,
-	});
-	if (!counterpart.ok) return counterpart;
-	if (counterpart.value.type === "missing") {
-		return asFacts(violation(path, label, "counterpart objective.md is missing"));
-	}
-	if (counterpart.value.type === "unreadable") {
-		return asFacts(
-			violation(
+			value: violation(
 				path,
 				label,
-				`counterpart objective.md is unreadable: ${counterpart.value.message}`,
+				`counterpart objective.md is unreadable: ${state.value.message}`,
 			),
-		);
+		};
 	}
-	if (counterpart.value.type === "absent") {
-		return asFacts(violation(path, label, "counterpart has no Record Frontmatter"));
+	if (state.value.type === "absent") {
+		return { ok: true, value: violation(path, label, "counterpart has no Record Frontmatter") };
 	}
-	if (counterpart.value.type === "malformed") {
-		return asFacts(violation(path, label, "counterpart Record Frontmatter is malformed"));
+	if (state.value.type === "malformed") {
+		return {
+			ok: true,
+			value: violation(path, label, "counterpart Record Frontmatter is malformed"),
+		};
 	}
-	const hasMirror = findObjectiveEdgeAnnotation(counterpart.value.frontmatter, slug) !== null;
+	const hasMirror = findObjectiveEdgeAnnotation(state.value.frontmatter, ownLocator) !== null;
 	if (!hasMirror) {
-		return asFacts(violation(path, label, "counterpart does not declare the mirror edge"));
+		return {
+			ok: true,
+			value: violation(path, label, "counterpart does not declare the mirror edge"),
+		};
 	}
-	return asFacts(null);
+	return { ok: true, value: null };
 }
 
 type RecordFrontmatterClassification =
@@ -366,11 +422,12 @@ type RecordFrontmatterClassification =
 	| { type: "malformed"; message: string }
 	| { type: "parsed"; frontmatter: ObjectiveRecordFrontmatter };
 
+/** Look up the annotation an edge list declares for a full locator endpoint. */
 export function findObjectiveEdgeAnnotation(
 	frontmatter: ObjectiveRecordFrontmatter,
-	slug: string,
+	locator: string,
 ): string | null {
-	return frontmatter.edges.find((edge) => edge.objective === slug)?.annotation ?? null;
+	return frontmatter.edges.find((edge) => edge.objective === locator)?.annotation ?? null;
 }
 
 function classifyRecordFrontmatter(

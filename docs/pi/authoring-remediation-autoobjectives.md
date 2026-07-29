@@ -97,7 +97,7 @@ Write the confirmed findings into the Objective record as durable source
 material, one file per cluster, with an index:
 
 ```text
-.ns/objectives/<slug>/
+.ns/objectives/<owner>/<slug>/
   references/
     README.md          # index: how the sweep ran, severity legend, cluster table
     <cluster>.md        # one per package/area; findings grouped by sub-package

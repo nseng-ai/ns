@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Rename SDL to ji
 
 ## Thesis

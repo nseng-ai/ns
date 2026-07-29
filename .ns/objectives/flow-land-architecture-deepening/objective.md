@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: flow-land-execution-migration
+  - objective: schrockn/flow-land-execution-migration
     annotation: Closed predecessor whose temporary decision to keep executable orchestration under stack is deliberately reversed by the successor in response to idle fakes, transcript-only mutation coverage, and standing test-performance direction.
 ---
 

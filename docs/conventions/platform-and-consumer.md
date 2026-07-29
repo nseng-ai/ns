@@ -9,7 +9,7 @@ ns is **self-hosting**: the same `ns` repo that **develops** the platform is als
 Ask which of these you are doing:
 
 - **Platform (developer hat):** changing an *extension* — the engine, loader, CLI, or storage contract that many instances depend on. Lives in `ts/packages/*` (for example `ts/packages/incubating/extensions/reviews`, `ts/packages/incubating/extensions/objectives`), is tested, and ships to every consumer of that extension.
-- **Consumer (consumer hat):** changing an *instance* — one concrete artifact that an extension loads and runs. Lives in `.ns/*` (for example a single `.ns/reviews/<slug>/review.md` review or a `.ns/objectives/<slug>/` objective). It is configuration and content, not extension.
+- **Consumer (consumer hat):** changing an *instance* — one concrete artifact that an extension loads and runs. Lives in `.ns/*` (for example a single `.ns/reviews/<slug>/review.md` review or a `.ns/objectives/<owner>/<slug>/` objective). It is configuration and content, not extension.
 
 Rule of thumb: if your change alters what the tool *can do*, it is platform; if it alters one thing the tool *is currently doing to this repo*, it is consumer.
 

@@ -9,13 +9,13 @@
   edges and blocked, skills) are marked in the draft; later passes run the
   readme-driven-development loop against this draft with `objective-update` recording
   progress.
-- [ ] Author the new ADR superseding the relevant parts of ADR 0025: the `owner` Record
+- [x] Author the new ADR superseding the relevant parts of ADR 0025: the `owner` Record
       Frontmatter key, `<owner>/<slug>` locator identity, owner-nested canonical storage,
       owner-local slug uniqueness, full-locator edges, and close-and-replace semantics for
       owner/slug changes.
-  - Evidence: ADR accepted; ADR 0025 remains immutable with the supersession recorded in
-    the new ADR.
-- [ ] Implement the owner model in `@nseng-ai/objectives`: storage discovery of
+  - Evidence: ADR 0050 (`docs/adr/0050-owner-scoped-objective-locators.md`) accepted;
+    ADR 0025 remains immutable with the supersession recorded in the new ADR.
+- [x] Implement the owner model in `@nseng-ai/objectives`: storage discovery of
       `.ns/objectives/<owner>/<slug>/`, `owner` frontmatter parsing, `check` validation
       (owner/path agreement, handle syntax, depth/hygiene rules, full-locator edge lint,
       interim tolerance for flat closed records), locator-based `list`/`show`/`check`/`exec`,
@@ -23,11 +23,14 @@
       creation-time owner resolution (explicit `--owner`, GitHub login as confirmed default,
       offline validation).
   - Evidence: package tests cover both layouts during the interim; `just` passes.
-- [ ] Update the Objective skill family, `docs/objective-system.md`, and root
+    Creation-time resolution shipped as hidden `ns objective exec resolve-owner`; per
+    the grilled decisions, a missing login stops with explicit `--owner` guidance
+    instead of prompting.
+- [x] Update the Objective skill family, `docs/objective-system.md`, and root
       `CONTEXT.md` (Objective Owner, Owner Root, Objective Locator, Objective Replacement) in
       the same change as the implemented behavior, so no standing rule contradicts the live
       model.
-- [ ] Hard-cutover migration of this repository's open records to
+- [x] Hard-cutover migration of this repository's open records to
       `.ns/objectives/schrockn/<slug>/` with `owner: schrockn` frontmatter and edge
       references rewritten to full locators; closed records deliberately stay flat.
   - Evidence: `ns objective check --all` and `ns objective list` pass on the migrated

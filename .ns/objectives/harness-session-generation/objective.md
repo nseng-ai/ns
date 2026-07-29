@@ -1,8 +1,9 @@
 ---
+owner: schrockn
 edges:
-  - objective: cloud-execution
+  - objective: schrockn/cloud-execution
     annotation: Boundary agreement — this record owns the local harness-session/text-generation contract and stays free of remote-sandbox and vendor coupling; cloud-execution consumes harnesses in sandboxes only behind its own cloud backend seam (AI SDK harness adapters), never through this session contract.
-  - objective: reviews-via-pi-gateway
+  - objective: schrockn/reviews-via-pi-gateway
     annotation: "Canonical Reviews outcome after this architecture exploration closed: Pi/Vercel AI Gateway is the configured path, while the direct Claude Code and Codex compatibility runners remain supported."
 ---
 

@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: generic-flow-extension
+  - objective: schrockn/generic-flow-extension
     annotation: "Follow-up decoupling slice: the repo-specificity audit's flagged slots assumption becomes dedicated work making flow's slots dependency opt-in, while that objective keeps the README contract and point mechanics."
 ---
 

@@ -9,9 +9,10 @@ import {
 } from "../../src/api/index.ts";
 import type { ObjectiveCliContext } from "../../src/core/context.ts";
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
+import { FakeObjectiveOwnerGateway } from "../../src/core/owner-gateway.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 
-const OBJECTIVE_MD = "# Title\n\n## Thesis\n\nDo the thing.\n";
+const OBJECTIVE_MD = "---\nowner: tester\n---\n# Title\n\n## Thesis\n\nDo the thing.\n";
 const ROADMAP_MD = "# Roadmap\n\n## Work\n\n- [ ] Step\n\n## Parked\n";
 
 function buildContext(): ObjectiveCliContext {
@@ -19,12 +20,19 @@ function buildContext(): ObjectiveCliContext {
 		new FakeObjectiveStorageGateway({
 			records: [
 				{
+					owner: "tester",
 					slug: "alpha",
 					objectiveMd: OBJECTIVE_MD,
 					roadmapMd: ROADMAP_MD,
 					updates: { "20260712T120000Z-update.md": "# Update\n" },
 				},
-				{ slug: "bravo", objectiveMd: OBJECTIVE_MD, roadmapMd: ROADMAP_MD, isClosed: true },
+				{
+					owner: "tester",
+					slug: "bravo",
+					objectiveMd: OBJECTIVE_MD,
+					roadmapMd: ROADMAP_MD,
+					isClosed: true,
+				},
 			],
 		}),
 	);
@@ -37,6 +45,7 @@ function buildContext(): ObjectiveCliContext {
 		git: new InMemoryGitGateway({
 			localBranchTips: [{ name: "master", headIso: "2026-05-01T00:00:00Z" }],
 		}),
+		owner: new FakeObjectiveOwnerGateway({ owner: "tester" }),
 	};
 }
 
@@ -84,7 +93,9 @@ describe("objectives API", () => {
 		const result = await buildClient().listActiveCandidates();
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
-		expect(result.candidates).toEqual([{ slug: "alpha", status: "open" }]);
+		expect(result.candidates).toEqual([
+			{ owner: "tester", slug: "alpha", locator: "tester/alpha", status: "open" },
+		]);
 	});
 
 	test("listObjectives defaults to active status and surfaces open records", async () => {
@@ -142,6 +153,7 @@ describe("objectives API", () => {
 				git: new InMemoryGitGateway({
 					localBranchTips: [{ name: "master", headIso: "2026-05-01T00:00:00Z" }],
 				}),
+				owner: new FakeObjectiveOwnerGateway({ owner: "tester" }),
 			},
 		});
 		const result = await client.listActiveCandidates();

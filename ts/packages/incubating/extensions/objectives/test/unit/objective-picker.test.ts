@@ -15,11 +15,11 @@ describe("objectiveChangedSlugsFromPaths", () => {
 	test("Objective paths produce deduplicated sorted slugs", () => {
 		expect(
 			objectiveChangedSlugsFromPaths([
-				".ns/objectives/zeta/objective.md",
-				".ns/objectives/alpha/roadmap.md",
-				".ns/objectives/zeta/roadmap.md",
+				".ns/objectives/tester/zeta/objective.md",
+				".ns/objectives/tester/alpha/roadmap.md",
+				".ns/objectives/tester/zeta/roadmap.md",
 			]),
-		).toEqual(["alpha", "zeta"]);
+		).toEqual(["tester/alpha", "tester/zeta"]);
 	});
 
 	test("non-active, unrelated, and Objective root paths are ignored", () => {
@@ -28,6 +28,7 @@ describe("objectiveChangedSlugsFromPaths", () => {
 				".ns/not-objectives/alpha/objective.md",
 				"docs/readme.md",
 				".ns/objectives",
+				".ns/objectives/flat-record/objective.md",
 			]),
 		).toEqual([]);
 	});
@@ -41,7 +42,7 @@ describe("Objective picker policy", () => {
 			changedActiveObjectiveSelection({
 				objectiveList: objectiveList(["alpha"]),
 				trunkBranch: "master",
-				allChangedSlugs: ["bravo"],
+				allChangedSlugs: ["tester/bravo"],
 			}),
 		).toBeUndefined();
 	});
@@ -51,13 +52,13 @@ describe("Objective picker policy", () => {
 			changedActiveObjectiveSelection({
 				objectiveList: objectiveList(["alpha", "bravo"]),
 				trunkBranch: "master",
-				allChangedSlugs: ["bravo"],
+				allChangedSlugs: ["tester/bravo"],
 			}),
 		).toEqual({
 			trunkBranch: "master",
 			changeBasisLabel: "changed vs master",
-			allChangedSlugs: ["bravo"],
-			changedActiveSlugs: ["bravo"],
+			allChangedSlugs: ["tester/bravo"],
+			changedActiveSlugs: ["tester/bravo"],
 		});
 	});
 
@@ -65,17 +66,17 @@ describe("Objective picker policy", () => {
 		const selection = changedActiveObjectiveSelection({
 			objectiveList: objectiveList(["charlie", "alpha", "bravo"]),
 			trunkBranch: "master",
-			allChangedSlugs: ["bravo", "charlie"],
+			allChangedSlugs: ["tester/bravo", "tester/charlie"],
 		});
 
-		expect(selection?.changedActiveSlugs).toEqual(["charlie", "bravo"]);
+		expect(selection?.changedActiveSlugs).toEqual(["tester/charlie", "tester/bravo"]);
 	});
 
 	test("changed slugs not present in active records do not produce suggestions", () => {
 		const selection = changedActiveObjectiveSelection({
 			objectiveList: objectiveList(["alpha", "bravo"]),
 			trunkBranch: "master",
-			allChangedSlugs: ["closed"],
+			allChangedSlugs: ["tester/closed"],
 		});
 
 		expect(selection).toBeUndefined();
@@ -84,31 +85,37 @@ describe("Objective picker policy", () => {
 	test("ordinary label uses checkout-local status and latest update", () => {
 		expect(
 			formatObjectiveChoice(record("alpha", { latestUpdateIso: "2026-06-03T08:00:00Z" }), NOW),
-		).toBe("alpha — open — latest update 2 hours ago");
+		).toBe("tester/alpha — open — latest update 2 hours ago");
 	});
 
 	test("ordinary label renders missing latest update as an em dash", () => {
 		expect(formatObjectiveChoice(record("alpha", { latestUpdateIso: null }), NOW)).toBe(
-			"alpha — open — latest update —",
+			"tester/alpha — open — latest update —",
 		);
 	});
 
 	test("suggested-only label", () => {
-		expect(formatObjectiveChoice(record("alpha"), NOW, selection(["alpha"], ["alpha"]))).toBe(
-			"alpha — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
+		expect(
+			formatObjectiveChoice(record("alpha"), NOW, selection(["tester/alpha"], ["tester/alpha"])),
+		).toBe(
+			"tester/alpha — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
 		);
 	});
 
 	test("changed label", () => {
 		expect(
-			formatObjectiveChoice(record("alpha"), NOW, selection(["alpha", "closed"], ["alpha"])),
-		).toBe("alpha — changed vs master — open — latest update 2 weeks ago");
+			formatObjectiveChoice(
+				record("alpha"),
+				NOW,
+				selection(["tester/alpha", "tester/closed"], ["tester/alpha"]),
+			),
+		).toBe("tester/alpha — changed vs master — open — latest update 2 weeks ago");
 	});
 
 	test("unchanged record has no diff label", () => {
-		expect(formatObjectiveChoice(record("bravo"), NOW, selection(["alpha"], ["alpha"]))).toBe(
-			"bravo — open — latest update 2 weeks ago",
-		);
+		expect(
+			formatObjectiveChoice(record("bravo"), NOW, selection(["tester/alpha"], ["tester/alpha"])),
+		).toBe("tester/bravo — open — latest update 2 weeks ago");
 	});
 
 	test("changed-first ordering preserves relative order within partitions", () => {
@@ -117,7 +124,7 @@ describe("Objective picker policy", () => {
 		expect(
 			objectiveRecordsWithChangedFirst(
 				records,
-				selection(["charlie", "alpha"], ["charlie", "alpha"]),
+				selection(["tester/charlie", "tester/alpha"], ["tester/charlie", "tester/alpha"]),
 			).map((item) => item.slug),
 		).toEqual(["alpha", "charlie", "bravo", "delta"]);
 	});
@@ -125,17 +132,20 @@ describe("Objective picker policy", () => {
 	test("choice map maps labels to slugs", () => {
 		const choices = objectiveChoiceMap([record("alpha"), record("bravo")], NOW);
 
-		expect(choices.get("alpha — open — latest update 2 weeks ago")).toBe("alpha");
-		expect(choices.get("bravo — open — latest update 2 weeks ago")).toBe("bravo");
+		expect(choices.get("tester/alpha — open — latest update 2 weeks ago")).toBe("tester/alpha");
+		expect(choices.get("tester/bravo — open — latest update 2 weeks ago")).toBe("tester/bravo");
 	});
 
 	test("picker title variants", () => {
-		expect(objectiveDiffPickerTitle("Pick", selection(["alpha"], ["alpha"]))).toBe(
+		expect(objectiveDiffPickerTitle("Pick", selection(["tester/alpha"], ["tester/alpha"]))).toBe(
 			"Pick (only Objective changed vs master)",
 		);
-		expect(objectiveDiffPickerTitle("Pick", selection(["alpha", "closed"], ["alpha"]))).toBe(
-			"Pick (changed Objectives vs master)",
-		);
+		expect(
+			objectiveDiffPickerTitle(
+				"Pick",
+				selection(["tester/alpha", "tester/closed"], ["tester/alpha"]),
+			),
+		).toBe("Pick (changed Objectives vs master)");
 	});
 });
 
@@ -144,6 +154,7 @@ function objectiveList(slugs: string[]): ObjectiveList {
 		trunkBranch: "master",
 		rootPath: ".ns/objectives",
 		statusFilter: "active",
+		ownerScope: { type: "current", owner: "tester" },
 		namesOnly: false,
 		records: slugs.map((slug) => record(slug)),
 	};
@@ -154,7 +165,10 @@ function record(
 	options: { status?: "open" | "closed"; latestUpdateIso?: string | null } = {},
 ): ObjectiveListRecord {
 	return {
+		owner: "tester",
 		slug,
+		locator: `tester/${slug}`,
+		layout: "owner-nested",
 		status: options.status ?? "open",
 		latestUpdateIso:
 			"latestUpdateIso" in options ? (options.latestUpdateIso ?? null) : "2026-05-20T10:00:00Z",

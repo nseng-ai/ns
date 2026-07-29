@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Point System
 
 ## Thesis

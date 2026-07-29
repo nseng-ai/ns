@@ -102,13 +102,13 @@ unit of engineering work has a natural lifetime — a repo, a goal, a branch, a 
 and that lifetime *is* a context scope. The core's building blocks are not an arbitrary
 toolbox; they are the work's context scopes, each with a git-native lifetime:
 
-| Scope                 | Lifetime              | Core mechanism                                | Storage (derived from lifetime)                    |
-| --------------------- | --------------------- | --------------------------------------------- | -------------------------------------------------- |
-| **Repo**              | permanent             | `AGENTS.md` / `CONTEXT.md` / `CONTEXT-MAP.md` | committed files                                    |
-| **Goal**              | life of the objective | objective orientation + roadmap               | `.ns/objectives/<slug>`, auto-drops on `closed.md` |
-| **Branch**            | life of the branch    | branch memory, branch-context                 | `refs/brmem/*`                                     |
-| **Session → session** | the handoff baton     | handoff                                       | `refs/brmem/ns/handoff/*`                          |
-| **Working / draft**   | the session           | enriched plan                                 | local scratch (XDG)                                |
+| Scope                 | Lifetime              | Core mechanism                                | Storage (derived from lifetime)                            |
+| --------------------- | --------------------- | --------------------------------------------- | ---------------------------------------------------------- |
+| **Repo**              | permanent             | `AGENTS.md` / `CONTEXT.md` / `CONTEXT-MAP.md` | committed files                                            |
+| **Goal**              | life of the objective | objective orientation + roadmap               | `.ns/objectives/<owner>/<slug>`, auto-drops on `closed.md` |
+| **Branch**            | life of the branch    | branch memory, branch-context                 | `refs/brmem/*`                                             |
+| **Session → session** | the handoff baton     | handoff                                       | `refs/brmem/ns/handoff/*`                                  |
+| **Working / draft**   | the session           | enriched plan                                 | local scratch (XDG)                                        |
 
 The storage substrate is **derived from the context's lifetime**: permanent context is
 committed, branch-lived context is a ref, session-draft context is local scratch. That is

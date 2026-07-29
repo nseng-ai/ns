@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # CLI UX North Star
 
 ## Thesis

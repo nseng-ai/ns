@@ -1,7 +1,8 @@
 import { dirname } from "node:path";
 
 import {
-	activeRecordRelativePath,
+	legacyFlatRecordRelativePath,
+	ownerNestedRecordRelativePath,
 	type ObjectiveDirectoryEntry,
 	type ObjectiveMarkdownReadResult,
 	type ObjectivePathKind,
@@ -11,7 +12,13 @@ import {
 } from "./storage.ts";
 
 export interface FakeObjectiveRecordOptions {
+	owner: string;
 	slug: string;
+	/**
+	 * Storage layout; defaults to canonical `owner-nested`. `legacy-flat-closed`
+	 * writes the record directly under the root (valid only when closed).
+	 */
+	layout?: "owner-nested" | "legacy-flat-closed";
 	objectiveMd?: string | null;
 	roadmapMd?: string | null;
 	orientationMd?: string | null;
@@ -103,10 +110,16 @@ export class FakeObjectiveStorageGateway implements ObjectiveStorageGateway {
 	}
 
 	addObjectiveRecord(record: FakeObjectiveRecordOptions): void {
-		const root = activeRecordRelativePath(record.slug);
+		const root =
+			record.layout === "legacy-flat-closed"
+				? legacyFlatRecordRelativePath(record.slug)
+				: ownerNestedRecordRelativePath({ owner: record.owner, slug: record.slug });
 		this.addDirectory(root);
 		if (record.objectiveMd !== null)
-			this.addFile(`${root}/objective.md`, record.objectiveMd ?? `# ${record.slug}\n`);
+			this.addFile(
+				`${root}/objective.md`,
+				record.objectiveMd ?? `---\nowner: ${record.owner}\n---\n# ${record.slug}\n`,
+			);
 		if (record.roadmapMd !== null)
 			this.addFile(`${root}/roadmap.md`, record.roadmapMd ?? "# Roadmap\n");
 		if (record.orientationMd !== undefined && record.orientationMd !== null) {
@@ -116,7 +129,9 @@ export class FakeObjectiveStorageGateway implements ObjectiveStorageGateway {
 		for (const [name, content] of Object.entries(record.updates ?? {})) {
 			this.addFile(`${root}/updates/${name}`, content);
 		}
-		if (record.isClosed === true) this.addFile(`${root}/closed.md`, "closed\n");
+		if (record.isClosed === true || record.layout === "legacy-flat-closed") {
+			this.addFile(`${root}/closed.md`, "closed\n");
+		}
 	}
 
 	addDirectory(path: string): void {

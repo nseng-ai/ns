@@ -124,7 +124,11 @@ async function resolveObjectiveSidebarSlug(
 	}
 
 	if (ctx.hasUI !== true || ctx.ui.select === undefined) {
-		notify(ctx, "Pass an Objective slug or .ns/objectives/<slug> path.", "warning");
+		notify(
+			ctx,
+			"Pass an Objective locator, slug, or .ns/objectives/<owner>/<slug> path.",
+			"warning",
+		);
 		return undefined;
 	}
 

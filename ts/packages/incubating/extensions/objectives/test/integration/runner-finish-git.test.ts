@@ -7,6 +7,7 @@ import process from "node:process";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { createTempGitRepo, type TempGitRepo } from "@nseng-ai/foundation/git/testing";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
+import { FakeObjectiveOwnerGateway } from "../../src/core/owner-gateway.ts";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import { errorCodeFromUnknown } from "@nseng-ai/foundation/primitives";
 import { afterEach, expect, test } from "vitest";
@@ -18,6 +19,8 @@ import type { ObjectiveRunnerCoreContext } from "../../src/runner/context.ts";
 import { runRunnerFinish, type RunnerFinishResult } from "../../src/runner/finish.ts";
 
 const SLUG = "demo-objective";
+const OWNER = "tester";
+const LOCATOR = "tester/demo-objective";
 const CHILD_BRANCH = "feature/demo-step";
 const TEST_TIMEOUT_MS = 30_000;
 
@@ -34,11 +37,11 @@ afterEach(() => {
 /** Temp repo with a committed Objective record, so the tree starts clean. */
 function createSeededRepo(): TempGitRepo {
 	const seeded = createTempGitRepo({ prefix: "ns-objective-runner-finish-git-" });
-	const recordDir = join(seeded.path, ".ns", "objectives", SLUG);
+	const recordDir = join(seeded.path, ".ns", "objectives", OWNER, SLUG);
 	mkdirSync(recordDir, { recursive: true });
 	writeFileSync(
 		join(recordDir, "objective.md"),
-		`# Objective: ${SLUG}\n\nIntegration-test objective record.\n`,
+		`---\nowner: ${OWNER}\n---\n# Objective: ${SLUG}\n\nIntegration-test objective record.\n`,
 		"utf8",
 	);
 	seeded.runGit(["add", "."]);
@@ -60,6 +63,7 @@ function createIntegrationCoreContext(seededRepo: TempGitRepo): IntegrationCoreC
 		repoRoot: seededRepo.path,
 		trunkBranch: "main",
 		storage: new ObjectiveStorage(new RealObjectiveStorageGateway(seededRepo.path)),
+		owner: new FakeObjectiveOwnerGateway({ owner: OWNER }),
 		git: new RealGitGateway(execApi),
 		graphite: new InMemoryGraphiteBranchGateway(),
 		commands: execApi,
@@ -136,7 +140,7 @@ test(
 		writeFileSync(reportPath, readyReportJson(), "utf8");
 
 		const exit = await runRunnerFinish(ctx, {
-			slug: SLUG,
+			slug: LOCATOR,
 			facts: JSON.stringify(facts),
 		});
 		expect(exit.type).toBe("ok");
@@ -150,7 +154,7 @@ test(
 		expect(commitMessage).toBe(
 			"Implement demo slice\n\n" +
 				"Body line one\nBody line two\n\n" +
-				`Objective-Runner-Step: ${SLUG}\n\n`,
+				`Objective-Runner-Step: ${LOCATOR}\n\n`,
 		);
 		expect(result.commitSha).toBe(workRepo.runGit(["rev-parse", "HEAD"]).trim());
 		expect(workRepo.runGit(["status", "--porcelain"])).toBe("");
@@ -159,7 +163,7 @@ test(
 		// (HEAD moved by the runner's own commit, worktree now clean) and never
 		// double-commits.
 		const secondExit = await runRunnerFinish(ctx, {
-			slug: SLUG,
+			slug: LOCATOR,
 			facts: JSON.stringify(facts),
 		});
 		expect(secondExit.type).toBe("negative");
@@ -273,7 +277,7 @@ test(
 		const headCheck = exit.data?.gateChecks.find((check) => check.id === "head-unchanged");
 		expect(headCheck?.status).toBe("failed");
 		expect(ctx.stdoutChunks.join("")).toContain(
-			`# Runner Checkpoint: ${SLUG} (verification-failed)`,
+			`# Runner Checkpoint: ${LOCATOR} (verification-failed)`,
 		);
 		// No runner commit was created.
 		const headMessage = workRepo.runGit(["log", "-1", "--format=%B"]);
@@ -291,7 +295,7 @@ test(
 		const ctx = createIntegrationCoreContext(workRepo);
 
 		const insideExit = await runRunnerBegin(ctx, {
-			slug: SLUG,
+			slug: LOCATOR,
 			recover: false,
 			reportPath: join(workRepo.path, "report.json"),
 		});

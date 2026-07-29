@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Agent Skill and Command Surface Consolidation
 
 ## Thesis

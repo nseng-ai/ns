@@ -12,7 +12,7 @@ import { z } from "zod";
 import { activeRootRelativePath, type ObjectiveStorage } from "../storage.ts";
 import { countIssues, objectiveCheckItemSchema } from "./check-items.ts";
 import { removeOneTrailingNewline } from "./format.ts";
-import { sweepObjectiveEdgeLint } from "./edge-lint.ts";
+import { sweepObjectiveStructure } from "./edge-lint.ts";
 
 const objectiveEdgeSweepBaseResultSchema = z.object({
 	error: z.string().nullable(),
@@ -46,7 +46,7 @@ export async function runEdgeSweep(
 ): Promise<ClinkrExit<ObjectiveEdgeSweepResult>> {
 	const rootPresence = await storage.activeRootExists();
 	if (!rootPresence.ok) return failure(rootPresence.error.code, rootPresence.error.message);
-	const sweep = await sweepObjectiveEdgeLint(storage);
+	const sweep = await sweepObjectiveStructure(storage);
 	if (!sweep.ok) return failure(sweep.error.code, sweep.error.message);
 	const base = {
 		rootPath: activeRootRelativePath(),
@@ -61,7 +61,7 @@ export async function runEdgeSweep(
 	if (base.errorCount > 0) {
 		const data = { ...base, status: "sweep-failed" as const, error: "sweep-failed" as const };
 		return negative(
-			`Objective edge sweep failed: ${base.errorCount} error(s), ${base.warningCount} warning(s) across ${base.recordCount} record(s).`,
+			`Objective structural sweep failed: ${base.errorCount} error(s), ${base.warningCount} warning(s) across ${base.recordCount} record(s).`,
 			{
 				data,
 				human: renderEdgeSweep(data, { canEmitAnsi: true }),
@@ -77,7 +77,7 @@ export function renderEdgeSweep(
 ): string {
 	const renderCaps = resolveRenderCapabilities(caps);
 	const lines = [
-		"Objective edge sweep",
+		"Objective structural sweep",
 		"",
 		kv(renderCaps, "Root", `${result.rootPath} (${result.hasRoot ? "present" : "missing"})`),
 		kv(renderCaps, "Records", String(result.recordCount)),

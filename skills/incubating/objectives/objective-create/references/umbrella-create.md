@@ -21,5 +21,5 @@ Composition facts live in the patterns catalog (`objective` skill, `references/o
 In addition to objective-create's own Verify:
 
 - completion criteria name the synthesis duty;
-- every declared edge has its counterpart mirror and `ns objective check <slug>` passes;
+- every declared edge has its counterpart mirror and `ns objective check <owner>/<slug>` passes;
 - each known Subobjective has a parent roadmap row.

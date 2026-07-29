@@ -1,8 +1,9 @@
 ---
+owner: schrockn
 edges:
-  - objective: skill-management-subsystem
+  - objective: schrockn/skill-management-subsystem
     annotation: Subobjective of that umbrella; this record owns the thread slice while the umbrella coordinates the reusable-subsystem ambition and its deferred breadth.
-  - objective: ship-objectives-to-customers
+  - objective: schrockn/ship-objectives-to-customers
     annotation: Customer Objective shipping is the first external consumer of this thread's `ns skills` provisioning surface, pulling objective skills into customer harness roots.
 ---
 

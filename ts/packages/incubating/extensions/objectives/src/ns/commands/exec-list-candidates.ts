@@ -8,8 +8,8 @@ import {
 
 export const objectiveExecListCandidatesNsCommand = objectiveNsCommand({
 	name: "list-candidates",
-	summary: "List active Objective slug candidates for shell and agent autocomplete.",
-	description: "List active Objective slug candidates for shell and agent autocomplete.",
+	summary: "List active Objective locator candidates for shell and agent autocomplete.",
+	description: "List active Objective locator candidates for shell and agent autocomplete.",
 	schema: listCandidatesRequestSchema,
 	resultSchema: listCandidatesResultSchema,
 	handler: runListCandidates,

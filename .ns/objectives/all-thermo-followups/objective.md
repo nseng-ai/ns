@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # All Thermo Followups
 
 ## Thesis

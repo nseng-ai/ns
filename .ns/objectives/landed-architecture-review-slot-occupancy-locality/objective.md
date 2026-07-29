@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Landed Architecture Review: Slot Occupancy Locality
 
 ## Thesis

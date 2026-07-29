@@ -1,8 +1,9 @@
 ---
+owner: schrockn
 edges:
-  - objective: flow-land-architecture-deepening
+  - objective: schrockn/flow-land-architecture-deepening
     annotation: "Successor that reverses the closed predecessor's deliberate orchestration deferral now that idle in-memory fakes, transcript-only mutation coverage, and the standing test-performance direction justify finishing the domain-core migration."
-  - objective: flow-land-incremental-perf-rollout
+  - objective: schrockn/flow-land-incremental-perf-rollout
     annotation: "Preserves the historical relationship to the CLOSED rollout: its unchanged transcript scenarios remain the performance measurement set, with corrected baselines linear-11 = 140 and linear-25 = 308, while execution migrates beneath them."
 ---
 

@@ -87,6 +87,7 @@ export class FakeObjectiveNsApi implements NsExtensionApi {
 				graphite: options.graphite,
 				commands: options.commands,
 				storage: options.storage,
+				owner: options.owner,
 				readTextFile: options.readTextFile,
 				filePresence: options.filePresence,
 			}),

@@ -18,42 +18,42 @@ Closure is the default when done — step 10 owns the inline-close mechanics and
 
 Selection is mechanical — never ask a scope question:
 
-- **Explicit slug(s) or path(s)** → refresh exactly those. Paths must resolve under `.ns/objectives/<slug>/`. On a feature branch, a named slug with no branch evidence is reported `not-owned` rather than silently rebaselined against trunk state — unless the user clearly asked for a trunk-style rebaseline of that slug.
-- **No slug, feature branch** → the union of slugs with committed or uncommitted Objective evidence:
+- **Explicit locator(s) (`<owner>/<slug>`), owner-local slug(s), or path(s)** → refresh exactly those. Paths must resolve under `.ns/objectives/<owner>/<slug>/` and normalize to locators. On a feature branch, a named record with no branch evidence is reported `not-owned` rather than silently rebaselined against trunk state — unless the user clearly asked for a trunk-style rebaseline of that record.
+- **No selection, feature branch** → the union of records with committed or uncommitted Objective evidence:
 
   ```bash
   git -C "$WT" diff --name-only <trunk>...HEAD -- .ns/objectives/
   git -C "$WT" status --porcelain -- .ns/objectives/
   ```
 
-  Reduce paths to slugs. Empty union → report that the branch evidences no Objective records and stop without writing.
-- **No slug, trunk** → every active open Objective from `ns objective list --names`.
+  Reduce paths to locators. Empty union → report that the branch evidences no Objective records and stop without writing.
+- **No selection, trunk** → every active open Objective from `ns objective list --names` (full locators, one per line; scope with `--owner`/`--all-owners` when the user asks beyond the current owner).
 
 `WT` is the current working directory unless the caller names another worktree. Every git operation uses `git -C "$WT"`; never check out another branch. Stop if `HEAD` is detached (`git -C "$WT" symbolic-ref --quiet --short HEAD` fails). Trunk is `gt trunk` when available, else the repo's configured default branch; if the sources disagree, stop and ask.
 
-**Baseline.** On a feature branch the baseline is `git -C "$WT" merge-base <trunk> HEAD` and the evidence window is `<baseline>..HEAD` plus uncommitted worktree state; a slug is also in scope when the user points at branch changes that contradict its claims. On trunk there is no baseline — verify against `HEAD`. There are no refresh commits and no commit-message markers anywhere: due-ness is content-level, so a record that already matches its verified contract yields no write.
+**Baseline.** On a feature branch the baseline is `git -C "$WT" merge-base <trunk> HEAD` and the evidence window is `<baseline>..HEAD` plus uncommitted worktree state; a record is also in scope when the user points at branch changes that contradict its claims. On trunk there is no baseline — verify against `HEAD`. There are no refresh commits and no commit-message markers anywhere: due-ness is content-level, so a record that already matches its verified contract yields no write.
 
 ## Refresh loop
 
-Process one slug at a time. The authoring move is a from-scratch rewrite driven by a **contract** — extract, verify, rewrite, diff — never paragraph patching. Frame each slug as: on a feature branch, "if this branch landed now, what should this record say on trunk?"; on trunk, "what should this record say about landed ground truth?". Use `objective-update`'s landed-state writing semantics as the content model.
+Process one record at a time. The authoring move is a from-scratch rewrite driven by a **contract** — extract, verify, rewrite, diff — never paragraph patching. Frame each record as: on a feature branch, "if this branch landed now, what should this record say on trunk?"; on trunk, "what should this record say about landed ground truth?". Use `objective-update`'s landed-state writing semantics as the content model.
 
-Uncommitted Objective edits are input, not a stop: worktree content, committed plus uncommitted, is the current record. Note which slugs were already dirty, for the report.
+Uncommitted Objective edits are input, not a stop: worktree content, committed plus uncommitted, is the current record. Note which records were already dirty, for the report.
 
 Write invariants, in addition to the never-commit absolute:
 
-- Edit only the selected Objective directories, except for the shared Objective exceptions: mirrored edge mutations may edit counterpart frontmatter, and closing a slug inline (step 10) must propagate semantic impact to every affected edge-connected Objective per `objective-close`, including counterpart durable tracking and new counterpart-local Semantic Updates when warranted.
+- Edit only the selected Objective directories, except for the shared Objective exceptions: mirrored edge mutations may edit counterpart frontmatter, and closing a record inline (step 10) must propagate semantic impact to every affected edge-connected Objective per `objective-close`, including counterpart durable tracking and new counterpart-local Semantic Updates when warranted.
 - For `updates/`, follow the `objective` umbrella skill's immutable Semantic Update rule: refreshes may add new update files, not change old ones.
-- Never move, delete, rename, or recreate an Objective slug directory.
+- Never move, delete, rename, or recreate an Objective record directory.
 
-Per slug:
+Per record:
 
-1. **Read the record.** `ns objective exec read-objective <slug> --format md` for deterministic inventory and closed-marker state; read `objective.md`, `roadmap.md`, and recent `updates/` as source material.
+1. **Read the record.** `ns objective exec read-objective <owner>/<slug> --format md` for deterministic inventory and closed-marker state; read `objective.md`, `roadmap.md`, and recent `updates/` as source material.
 2. **Gather evidence** over the window:
 
    ```bash
-   git -C "$WT" log --oneline <baseline>..HEAD -- .ns/objectives/<slug>/
-   git -C "$WT" diff <baseline>..HEAD -- .ns/objectives/<slug>/
-   git -C "$WT" diff -- .ns/objectives/<slug>/
+   git -C "$WT" log --oneline <baseline>..HEAD -- .ns/objectives/<owner>/<slug>/
+   git -C "$WT" diff <baseline>..HEAD -- .ns/objectives/<owner>/<slug>/
+   git -C "$WT" diff -- .ns/objectives/<owner>/<slug>/
    ```
 
    On trunk, skip the range probes and verify against `HEAD` plus worktree state.
@@ -73,13 +73,13 @@ Per slug:
     Provenance: objective-refresh basis target=<target-sha-or-ref> from=<merge-base-or-trunk-HEAD>
     ```
 
-    No meaningful durable change, or a contract you cannot trust? No filler: leave the slug unchanged and report `skipped-ambiguous` / `skipped-unverified`.
+    No meaningful durable change, or a contract you cannot trust? No filler: leave the record unchanged and report `skipped-ambiguous` / `skipped-unverified`.
 
 ## Verify claims
 
 Verification is forensic: presume every material claim false until evidence proves it.
 
-Material claims: source paths, symbols, commands, packages, workflows, PRs, branches, tests, docs, ADRs, Objective slugs, status words, scope boundaries, non-goals, dependencies, risks, assumptions, completion evidence, roadmap rationale. Status words include "exists", "gone", "current", "already", "now", "still", "remaining", "implemented", "deleted", "covered", "tested", "passing", "legacy", "core", "salvaged", "owned", and "deferred".
+Material claims: source paths, symbols, commands, packages, workflows, PRs, branches, tests, docs, ADRs, Objective Locators, status words, scope boundaries, non-goals, dependencies, risks, assumptions, completion evidence, roadmap rationale. Status words include "exists", "gone", "current", "already", "now", "still", "remaining", "implemented", "deleted", "covered", "tested", "passing", "legacy", "core", "salvaged", "owned", and "deferred".
 
 Match each claim to a probe:
 
@@ -92,10 +92,10 @@ Match each claim to a probe:
 
 PR evidence is a material claim: verify numbers, review/CI status, and merge state before carrying it forward, wording status per the umbrella skill's Objective PR evidence convention. Keep PR bullets to material Objective PRs; do not normalize unrelated historical PR mentions just to satisfy it.
 
-A claim that cannot be verified cheaply never stays as fact: convert it to an explicit assumption/open question with the missing-evidence scope, park or narrow the roadmap item, or classify the slug `skipped-unverified`. When evidence contradicts the record, correct the contract before rewriting and say so in the Semantic Update. Never let a Semantic Update vouch for unverified prose.
+A claim that cannot be verified cheaply never stays as fact: convert it to an explicit assumption/open question with the missing-evidence scope, park or narrow the roadmap item, or classify the record `skipped-unverified`. When evidence contradicts the record, correct the contract before rewriting and say so in the Semantic Update. Never let a Semantic Update vouch for unverified prose.
 
 ## Report
 
-Return a compact report: worktree, branch, trunk, target SHA; per slug — baseline, action (`wrote`, `closed`, `noop`, `skipped-ambiguous`, `skipped-unverified`, `closure-ready`, `not-owned`), key claims verified/corrected/still-assumed, files edited and new Semantic Update filenames; for every edge-connected Objective of a closed slug, its propagation disposition, reason, files changed, and any newly closure-ready state; slugs that were already dirty; confirmation that the never-commit absolute and all write invariants held, and that any `closure-ready` (rather than `closed`) cites the Objective's explicit final evidence-gathering requirement.
+Return a compact report: worktree, branch, trunk, target SHA; per record — baseline, action (`wrote`, `closed`, `noop`, `skipped-ambiguous`, `skipped-unverified`, `closure-ready`, `not-owned`), key claims verified/corrected/still-assumed, files edited and new Semantic Update filenames; for every edge-connected Objective of a closed record, its propagation disposition, reason, files changed, and any newly closure-ready state; records that were already dirty; confirmation that the never-commit absolute and all write invariants held, and that any `closure-ready` (rather than `closed`) cites the Objective's explicit final evidence-gathering requirement.
 
 Done when an immediate rerun would modify nothing — every refreshed record already matches its verified contract.

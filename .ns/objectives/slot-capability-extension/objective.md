@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Slot Capability Extension
 
 ## Thesis

@@ -1,7 +1,7 @@
 ---
 name: objective-autorun
 disable-model-invocation: true
-description: "Parent orchestration loop for driving one ns Objective through repeated decomposed runner steps (`runner-begin` → subagent → `runner-finish`) with a judgment checkpoint between steps. Use for \"run this objective\", \"run N runner steps\", or \"implement this Objective as a stack\" (each committed step stacks on the last), including when the Pi /ns:objective:autorun picker injects an explicit slug. For a single step use objective-runner-step; for tracking edits use objective-update; for advice on what to do next use objective-next."
+description: "Parent orchestration loop for driving one ns Objective through repeated decomposed runner steps (`runner-begin` → subagent → `runner-finish`) with a judgment checkpoint between steps. Use for \"run this objective\", \"run N runner steps\", or \"implement this Objective as a stack\" (each committed step stacks on the last), including when the Pi /ns:objective:autorun picker injects an explicit locator. For a single step use objective-runner-step; for tracking edits use objective-update; for advice on what to do next use objective-next."
 ---
 
 # objective-autorun
@@ -14,10 +14,10 @@ This is parent-judgment iteration per ADR 0024, not batch mode. The runner delib
 
 ## Before the run
 
-1. **Select the Objective** by explicit slug/path per the umbrella skill's selection rules. Read its `objective.md`, `roadmap.md`, `orientation.md` (if present), and any `## Runner Policy` / `## Definition of Progress` sections (see the `objective` skill's `references/execution-policy.md`). Stop/ask boundaries live in that prose — consume them; do not invent your own.
+1. **Select the Objective** by explicit locator (`<owner>/<slug>`), owner-local slug, or path per the umbrella skill's selection rules. Read its `objective.md`, `roadmap.md`, `orientation.md` (if present), and any `## Runner Policy` / `## Definition of Progress` sections (see the `objective` skill's `references/execution-policy.md`). Stop/ask boundaries live in that prose — consume them; do not invent your own.
 2. **Capture the launch scope** from the user: which roadmap slice(s) to pursue, an optional step budget ("run 3 steps" is a hard cap on begin→finish cycles, never a quota to fill), and any standing guidance to carry into every step.
-3. **Preview and confirm.** Before the first begin, present a compact launch preview — the selected slug, the roadmap slice(s) in scope with one-line theses, the step budget if any, expected validation posture, exact stop conditions, and publication posture — and wait for an explicit affirmative (`yes`, `proceed`, or a clear equivalent). Publication defaults to off: say that push/submit/PR actions will not happen. If the scope changes materially mid-run, stop and re-preview.
-4. **Bind publication only when explicitly requested and available.** The conditional ADR 0037 path requires durable Runner Policy permission plus a second exact human confirmation naming the selected slug, current non-trunk branch, already-existing PR number/URL/head branch, local launch HEAD, and remote PR head. The trusted parent supplies the policy attestation; no command parses the prose. Store the validated authorization only in a fresh outside-repo scratch directory for this invocation. If the parent bind/publish capability is not implemented or any fact is missing or drifts, keep the run local-only; never substitute raw write commands.
+3. **Preview and confirm.** Before the first begin, present a compact launch preview — the selected locator, the roadmap slice(s) in scope with one-line theses, the step budget if any, expected validation posture, exact stop conditions, and publication posture — and wait for an explicit affirmative (`yes`, `proceed`, or a clear equivalent). Publication defaults to off: say that push/submit/PR actions will not happen. If the scope changes materially mid-run, stop and re-preview.
+4. **Bind publication only when explicitly requested and available.** The conditional ADR 0037 path requires durable Runner Policy permission plus a second exact human confirmation naming the selected locator, current non-trunk branch, already-existing PR number/URL/head branch, local launch HEAD, and remote PR head. The trusted parent supplies the policy attestation; no command parses the prose. Store the validated authorization only in a fresh outside-repo scratch directory for this invocation. If the parent bind/publish capability is not implemented or any fact is missing or drifts, keep the run local-only; never substitute raw write commands.
 5. **Check preconditions**: Objective open, worktree clean, HEAD on the named branch the first step should build on. `runner-begin` enforces these too (LBYL), but a refusal you could have predicted is a wasted invocation.
 6. **Pick a step-artifact home**: the harness scratchpad (outside the repo worktree), with numbered per-step pairs — `step-<n>-facts.json` and `step-<n>-report.json`. Every attempt, including every `--recover` attempt, gets a fresh report path; begin refuses a used one. Publication authorization and cumulative-summary artifacts, when enabled, stay parent-held in that outside-repo scratch directory and never enter tool parameters, child prompts, or child session context.
 
@@ -29,14 +29,14 @@ Each iteration:
 2. **Run one step** from the branch the previous step produced (stacking is emergent; the runner holds no cross-step state). The parent owns the base branch and next-step decision; the child owns only the one implementation branch during its dispatch; the runner owns verification, staging, and the local commit handoff. Run the step per the `objective-runner-step` contract:
 
    ```bash
-   ns objective exec runner-begin <slug> [--guidance <text|@file>] \
+   ns objective exec runner-begin <owner>/<slug> [--guidance <text|@file>] \
      --report-path <scratch>/step-<n>-report.json --format json > <scratch>/step-<n>-facts.json
    ```
 
    Dispatch a subagent in this worktree with the facts' `prompt` verbatim — the harness shows its progress live, so the human watches the step as it happens. While it runs, touch nothing in the worktree. When it returns:
 
    ```bash
-   ns objective exec runner-finish <slug> --facts @<scratch>/step-<n>-facts.json
+   ns objective exec runner-finish <owner>/<slug> --facts @<scratch>/step-<n>-facts.json
    ```
 
 3. **Read the checkpoint and decide**, using the `objective-runner-step` post-checkpoint playbook verbatim. Parent-loop deltas: every recovery attempt gets sharpened guidance and a fresh report path; two consecutive failed recoveries on the same step end the run (Stop conditions). Recovery may change guidance, never model authorization: implementation children inherit by default, an approved provider-local `cheap` route may be selected only before dispatch, and a malfunction or launch failure does not authorize reactive model or provider switching.

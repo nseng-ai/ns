@@ -2,14 +2,16 @@ import { failure, ok, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
-import { activeRecordRelativePath, activeRootRelativePath } from "../storage.ts";
+import { activeRootRelativePath } from "../storage.ts";
 import { removeOneTrailingNewline } from "./format.ts";
 import { matchesStatusFilter } from "./list-objectives.ts";
 
 export const loadOrientationsRequestSchema = z.object({});
 
 export const objectiveOrientationRecordSchema = z.object({
+	owner: z.string(),
 	slug: z.string(),
+	locator: z.string(),
 	path: z.string(),
 	content: z.string(),
 });
@@ -34,9 +36,12 @@ export async function runLoadOrientations(
 
 	const records: ObjectiveOrientationRecord[] = [];
 	for (const record of inventory.value.records) {
+		// Only canonical owner-nested open records carry standing orientations;
+		// retained flat closed records are never loaded.
 		if (!matchesStatusFilter(record.status, "active")) continue;
+		if (record.layout !== "owner-nested") continue;
 
-		const path = `${activeRecordRelativePath(record.slug)}/orientation.md`;
+		const path = `${record.recordRelativePath}/orientation.md`;
 		const kind = await ctx.storage.pathKind(path);
 		if (!kind.ok) return failure(kind.error.code, kind.error.message);
 		if (kind.value !== "file") continue;
@@ -46,7 +51,13 @@ export async function runLoadOrientations(
 		if (read.type === "unreadable") {
 			return failure("orientation-unreadable", `Unable to read ${path}: ${read.message}`);
 		}
-		records.push({ slug: record.slug, path, content: read.content });
+		records.push({
+			owner: record.owner,
+			slug: record.slug,
+			locator: record.locator,
+			path,
+			content: read.content,
+		});
 	}
 
 	return ok({ rootPath: activeRootRelativePath(), records, recordCount: records.length });

@@ -2,7 +2,14 @@ import type { ObjectiveStatusFilter } from "./operations/list-objectives.ts";
 
 import type { ObjectiveCliCompletionItem } from "./objective-candidates.ts";
 
-const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--names", "--status", "--help", "-h"] as const;
+const OBJECTIVE_LIST_ARG_COMPLETIONS = [
+	"--names",
+	"--status",
+	"--owner",
+	"--all-owners",
+	"--help",
+	"-h",
+] as const;
 export const OBJECTIVE_LIST_STATUS_VALUES = [
 	"all",
 	"active",
@@ -55,6 +62,33 @@ export function parseObjectiveListArgTokens(
 			args.push(token);
 			continue;
 		}
+		if (token === "--all-owners") {
+			args.push(token);
+			continue;
+		}
+		if (token === "--owner") {
+			const value = tokens[index + 1];
+			if (!value || value.startsWith("--")) {
+				return {
+					type: "invalid",
+					message: "--owner requires an owner handle.",
+				};
+			}
+			args.push("--owner", value);
+			index += 1;
+			continue;
+		}
+		if (token.startsWith("--owner=")) {
+			const value = token.slice("--owner=".length);
+			if (!value) {
+				return {
+					type: "invalid",
+					message: "--owner requires an owner handle.",
+				};
+			}
+			args.push("--owner", value);
+			continue;
+		}
 		if (token === "--status") {
 			const value = tokens[index + 1];
 			if (!value || value.startsWith("--")) {
@@ -96,6 +130,10 @@ export function parseObjectiveListArgTokens(
 			type: "invalid",
 			message: `Unsupported /ns:objective:list argument: ${token}.`,
 		};
+	}
+
+	if (args.includes("--owner") && args.includes("--all-owners")) {
+		return { type: "invalid", message: "Pass --owner or --all-owners, not both." };
 	}
 
 	return { type: "valid", args: { args, isHelpRequested } };

@@ -75,7 +75,7 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 		description:
 			"Pick an active Objective, then invoke objective-next to recommend, steer planning, or offer confirmed execution when Objective policy allows it.",
 		selectionTitle: "Select an active Objective for next work or execution preview",
-		actionPrompt: "Run objective-next for this explicitly selected Objective slug or path:",
+		actionPrompt: "Run objective-next for this explicitly selected Objective locator or path:",
 		postSelectionReminder:
 			"\nThis explicit objective-next invocation preauthorizes update-and-continue when the Tracking Gate finds clear material current-branch or worktree progress for this same Objective that is absent from Objective tracking: run objective-update for this selected Objective, reread the Objective and repo evidence, reapply the gate, then continue. Ask before updating only when evidence, Objective fit, or update scope is ambiguous.",
 		selectionMode: "advancement",
@@ -85,7 +85,7 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 		cliSubcommand: "update",
 		description: "Pick an active Objective, then invoke objective-update for the selected slug.",
 		selectionTitle: "Select an active Objective to update",
-		actionPrompt: "Run objective-update for this explicitly selected Objective slug or path:",
+		actionPrompt: "Run objective-update for this explicitly selected Objective locator or path:",
 		postSelectionReminder:
 			"\nAfter this explicit selection, follow objective-update's normal post-selection evidence workflow.",
 	}),
@@ -94,7 +94,7 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 		cliSubcommand: "close",
 		description: "Pick an active Objective, then invoke objective-close for the selected slug.",
 		selectionTitle: "Select an active Objective to close",
-		actionPrompt: "Run objective-close for this explicitly selected Objective slug or path:",
+		actionPrompt: "Run objective-close for this explicitly selected Objective locator or path:",
 		postSelectionReminder:
 			"\nAfter this explicit selection, follow objective-close's normal closure confirmation and connected-Objective propagation workflow before mutating Objective files.",
 	}),
@@ -105,7 +105,7 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 			"Pick an active Objective, then invoke objective-autorun to drive it through repeated verified runner steps.",
 		selectionTitle: "Select an active Objective to autorun",
 		actionPrompt:
-			"Run objective-autorun with this Objective selection and launch scope (slug/path plus optional scope, step budget, and standing guidance):",
+			"Run objective-autorun with this Objective selection and launch scope (locator/path plus optional scope, step budget, and standing guidance):",
 		selectionMode: "advancement",
 	}),
 ];

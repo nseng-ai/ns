@@ -2,16 +2,16 @@ import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/cl
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
-import {
-	activeRecordRelativePath,
-	activeRootRelativePath,
-	isValidObjectiveSlug,
-} from "../storage.ts";
+import { parseObjectiveSelector } from "../identity.ts";
+import { activeRootRelativePath } from "../storage.ts";
 import { pythonStringRepr, removeOneTrailingNewline } from "./format.ts";
 import { readObjectiveRecord } from "./read-objective.ts";
 
 export const trackingGateRequestSchema = z.object({
-	slug: z.string().optional().describe("Objective slug to inspect."),
+	slug: z
+		.string()
+		.optional()
+		.describe("Objective locator (<owner>/<slug>) or owner-local slug to inspect."),
 });
 
 const gitFailureSchema = z.object({
@@ -26,7 +26,9 @@ const trackingGateGitProbeSchema = z.discriminatedUnion("status", [
 ]);
 
 export const trackingGateResultSchema = z.object({
+	owner: z.string().nullable(),
 	slug: z.string(),
+	locator: z.string(),
 	objectivePath: z.string(),
 	rootPath: z.string(),
 	objective: z.object({
@@ -71,27 +73,30 @@ export async function runTrackingGate(
 	request: TrackingGateRequest,
 ): Promise<ClinkrExit<TrackingGateResult>> {
 	if (request.slug === undefined) {
-		return usageError("Objective slug is required.", { argument: "slug" });
+		return usageError("Objective locator is required.", { argument: "slug" });
 	}
-	if (!isValidObjectiveSlug(request.slug)) {
-		return usageError(`Invalid Objective slug: ${pythonStringRepr(request.slug)}.`, {
+	if (parseObjectiveSelector(request.slug).type === "invalid") {
+		return usageError(`Invalid Objective locator: ${pythonStringRepr(request.slug)}.`, {
 			argument: "slug",
 		});
 	}
 
-	const recordResult = await readObjectiveRecord(ctx.storage, request.slug);
+	const recordResult = await readObjectiveRecord(ctx, request.slug);
 	if (recordResult.type === "storage-error") {
 		return failure(recordResult.error.code, recordResult.error.message);
 	}
 	if (recordResult.value.status === "not-found") {
-		return negative(`No Objective record found for slug ${pythonStringRepr(request.slug)}.`, {
-			data: buildMissingResult(ctx, request.slug),
-		});
+		return negative(
+			`No Objective record found for locator ${pythonStringRepr(recordResult.value.locator ?? request.slug)}.`,
+			{
+				data: buildMissingResult(ctx, recordResult.value),
+			},
+		);
 	}
 	if (recordResult.value.status !== "ok") {
 		return failure(
 			recordResult.value.status,
-			recordResult.value.error ?? "Unable to read Objective.",
+			recordResult.value.message ?? recordResult.value.error ?? "Unable to read Objective.",
 		);
 	}
 
@@ -110,7 +115,7 @@ export async function runTrackingGate(
 		return failure(changedPathsResult.error.code, changedPathsResult.error.message);
 	}
 
-	const objectivePath = activeRecordRelativePath(request.slug);
+	const objectivePath = recordResult.value.path;
 	const objectiveChangedPaths = changedPathsResult.value.filter((path) =>
 		isUnderPath(path, objectivePath),
 	);
@@ -130,7 +135,9 @@ export async function runTrackingGate(
 
 	return ok(
 		buildTrackingGateResult({
-			slug: request.slug,
+			owner: recordResult.value.owner,
+			slug: recordResult.value.slug,
+			locator: recordResult.value.locator,
 			objectivePath,
 			rootPath: activeRootRelativePath(),
 			objective: { exists: true, closed: recordResult.value.closed },
@@ -157,7 +164,7 @@ export function renderTrackingGate(result: TrackingGateResult): string {
 	const currentBranch =
 		result.git.currentBranch.type === "branch" ? result.git.currentBranch.branch : "detached HEAD";
 	const parts = [
-		`# Objective Tracking Gate \`${result.slug}\``,
+		`# Objective Tracking Gate \`${result.locator}\``,
 		"",
 		`Objective: \`${result.objectivePath}\` (${result.objective.closed ? "closed" : "open"})`,
 		`Branch: \`${currentBranch}\``,
@@ -177,7 +184,9 @@ export function renderTrackingGate(result: TrackingGateResult): string {
 }
 
 interface TrackingGateResultParts {
+	owner: string | null;
 	slug: string;
+	locator: string;
 	objectivePath: string;
 	rootPath: string;
 	objective: TrackingGateResult["objective"];
@@ -196,7 +205,9 @@ function buildTrackingGateResult(options: TrackingGateResultParts): TrackingGate
 	const objectiveChangedPaths = options.branchDiff?.objectiveChangedPaths ?? [];
 	const materialNonObjectivePaths = options.branchDiff?.materialNonObjectivePaths ?? [];
 	return {
+		owner: options.owner,
 		slug: options.slug,
+		locator: options.locator,
 		objectivePath: options.objectivePath,
 		rootPath: options.rootPath,
 		objective: options.objective,
@@ -222,10 +233,20 @@ function buildTrackingGateResult(options: TrackingGateResultParts): TrackingGate
 	};
 }
 
-function buildMissingResult(ctx: ObjectiveCliContext, slug: string): TrackingGateResult {
+function buildMissingResult(
+	ctx: ObjectiveCliContext,
+	record: {
+		owner: string | null;
+		slug: string | null;
+		locator: string | null;
+		path: string | null;
+	},
+): TrackingGateResult {
 	return buildTrackingGateResult({
-		slug,
-		objectivePath: activeRecordRelativePath(slug),
+		owner: record.owner,
+		slug: record.slug ?? "",
+		locator: record.locator ?? "",
+		objectivePath: record.path ?? activeRootRelativePath(),
 		rootPath: activeRootRelativePath(),
 		objective: { exists: false, closed: false },
 		git: {

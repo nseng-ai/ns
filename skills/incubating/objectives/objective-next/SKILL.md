@@ -19,7 +19,7 @@ Resolve exactly one Objective per the umbrella skill's Selection rules; the umbr
 Before recommending work or offering execution, run:
 
 ```sh
-ns objective exec tracking-gate <slug> --format json
+ns objective exec tracking-gate <owner>/<slug> --format json
 ```
 
 Use the JSON payload as deterministic evidence; do not hand-roll branch-base detection or shell pipelines for this gate. In particular:
@@ -27,7 +27,7 @@ Use the JSON payload as deterministic evidence; do not hand-roll branch-base det
 - `git.trunkBranch` and `git.revisionRange` are the resolved branch-diff basis.
 - `uncommitted.repository` reports whether the worktree has uncommitted changes.
 - `uncommitted.objective` reports whether the selected Objective record has uncommitted changes.
-- `branchDiff.objectiveChangedPaths` reports committed branch-diff changes under `.ns/objectives/<slug>/`.
+- `branchDiff.objectiveChangedPaths` reports committed branch-diff changes under `.ns/objectives/<owner>/<slug>/`.
 - `branchDiff.materialNonObjectivePaths` reports committed branch-diff changes outside that Objective record.
 - `summary.*` gives booleans/nulls for quick gate decisions.
 
@@ -35,8 +35,8 @@ Then:
 
 1. Inspect `materialNonObjectivePaths` plus uncommitted evidence for current-branch or worktree progress that plausibly advances the selected Objective.
 2. Compare with `objectiveChangedPaths` and `uncommitted.objective` to decide whether corresponding Objective tracking appears present.
-3. If meaningful current-branch or worktree progress for the selected Objective appears clearly unrecorded, treat the `objective-next` request as update-and-continue preauthorization: run `objective-update` for the same selected slug/path, then reread Objective and rerun `ns objective exec tracking-gate <slug> --format json` before recommending work or offering execution.
-4. If meaningful progress appears likely but evidence, Objective fit, or update scope is ambiguous, ask: `Run objective-update for <slug> now, then rerun objective-next?`
+3. If meaningful current-branch or worktree progress for the selected Objective appears clearly unrecorded, treat the `objective-next` request as update-and-continue preauthorization: run `objective-update` for the same selected locator/path, then reread Objective and rerun `ns objective exec tracking-gate <owner>/<slug> --format json` before recommending work or offering execution.
+4. If meaningful progress appears likely but evidence, Objective fit, or update scope is ambiguous, ask: `Run objective-update for <locator> now, then rerun objective-next?`
 5. If the user declines or confirmation is pending, stop without a next-work recommendation or execution offer.
 6. If evidence is absent or clearly unrelated, proceed with a concise note that names the resolved diff basis (for example `master...HEAD`) and whether material non-Objective paths were present.
 
@@ -49,10 +49,10 @@ A `blocked:` sentence in Record Frontmatter means the record is blocked, not clo
 1. Read the Blocked Sentence and the record's `edges:` entries. Edges are mirrored and kind-less; direction and causality live only in the Edge Annotation prose.
 2. Judge which edge counterpart, if any, the Blocked Sentence points at. If one plausibly does, read that counterpart's `objective.md` and `roadmap.md` enough to name the concrete work that would unblock the selected Objective.
 3. Shape the recommendation with judgment rather than a fixed rule:
-   - If a counterpart Objective would unblock this one, recommend advancing it — name the counterpart slug and the specific unblocking step — alongside any work within the selected Objective the blocker does not gate.
+   - If a counterpart Objective would unblock this one, recommend advancing it — name the counterpart locator and the specific unblocking step — alongside any work within the selected Objective the blocker does not gate.
    - If the blocker is external and no counterpart applies, say so, and recommend only non-gated work or state that no useful work remains until the gate clears.
    - If evidence shows the Blocked Sentence is stale (the blocker already satisfied), route through the `objective-update` workflow for the selected Objective to clear it, then continue.
-4. Execution paths stay scoped to the selected slug. To execute unblocking work under a counterpart Objective, restart Objective resolution with that counterpart as the explicit selection; do not silently switch Objectives mid-flow.
+4. Execution paths stay scoped to the selected locator. To execute unblocking work under a counterpart Objective, restart Objective resolution with that counterpart as the explicit selection; do not silently switch Objectives mid-flow.
 
 ## Conditional references
 
@@ -66,7 +66,7 @@ A durable `## Runner Policy` is not required when the user explicitly asks to ex
 
 Use this path only when all are true:
 
-- the prior `objective-next` response selected the same Objective slug;
+- the prior `objective-next` response selected the same Objective (same locator);
 - it recommended one coherent next semantic step rather than a grab bag;
 - it named enough scope, likely areas, and completion evidence to bound execution;
 - the current user turn is a clear affirmative confirmation to execute that recommendation;
@@ -95,11 +95,11 @@ The factory's terminal artifact. Use this path for ordinary `objective-next` run
 2. **Work-left estimate** — the step-7 estimate.
 3. **Alternatives** — other open, unblocked candidates and why they lost to the proposed step.
 4. **Off-ramps** — what confirming, steering, deferring, or picking an alternative each means.
-5. **Proposed prompt** — a few sentences, self-contained and cold-start safe: it names the scope, a starting location, and the completion evidence, so it can run unmodified in a fresh session, a dispatched subagent, or an interactive session with the human in the loop (a grilling or live-decision prompt is still a prompt). Remember that agents can discover things on their own. For example, prefer listing a single folder to a list of files within that folder. Keep it minimal. Cite durable artifacts — the Objective slug, the roadmap row, paths, references — rather than replicating their content. Self-contained means free of *conversation* context, not a briefing that restates the record. Incorporate the record's `## Prompt Guidance` and the selected row's `Prompt:` prose when present (the `objective` skill's `references/prompt-guidance.md` owns their semantics); they shape serialization only, never step selection or execution permission.
+5. **Proposed prompt** — a few sentences, self-contained and cold-start safe: it names the scope, a starting location, and the completion evidence, so it can run unmodified in a fresh session, a dispatched subagent, or an interactive session with the human in the loop (a grilling or live-decision prompt is still a prompt). Remember that agents can discover things on their own. For example, prefer listing a single folder to a list of files within that folder. Keep it minimal. Cite durable artifacts — the Objective Locator, the roadmap row, paths, references — rather than replicating their content. Self-contained means free of *conversation* context, not a briefing that restates the record. Incorporate the record's `## Prompt Guidance` and the selected row's `Prompt:` prose when present (the `objective` skill's `references/prompt-guidance.md` owns their semantics); they shape serialization only, never step selection or execution permission.
 
 Default to exactly one proposed prompt. When two or more open candidates are genuinely co-equal — defensibly different directions rather than a ranked list where one clearly won — element 5 may instead present a small labeled set, each prompt self-contained under the same rules, with element 3 saying what picking each one commits to. Confirmation selects exactly one; a set is never authorization to run more than one.
 
-When the correct next move is not promptable work, the factory declines instead of prompting: element 5 becomes **Declined** with the reason and routing — run `objective-update` first, advance counterpart `<slug>`, the external gate must clear, or the Objective looks ready for `objective-close`. A decline is a valid packet, not a failure.
+When the correct next move is not promptable work, the factory declines instead of prompting: element 5 becomes **Declined** with the reason and routing — run `objective-update` first, advance counterpart `<owner>/<slug>`, the external gate must clear, or the Objective looks ready for `objective-close`. A decline is a valid packet, not a failure.
 
 In every packet:
 
@@ -109,7 +109,7 @@ In every packet:
 ## Stop / ask
 
 - Objective selection is ambiguous or absent.
-- The selected path is outside `.ns/objectives/<slug>/`; ask for an active Objective slug or path before recommending next work.
+- The selected path is outside `.ns/objectives/<owner>/<slug>/`; ask for an active Objective locator or path before recommending next work.
 - The selected Objective is closed.
 - The Tracking Gate finds likely unrecorded material progress but evidence, Objective fit, or update scope is ambiguous and confirmation to run `objective-update` is pending or declined.
 - The roadmap and narrative are too stale or incomplete to recommend work safely; ask for `objective-update`.
@@ -119,9 +119,9 @@ In every packet:
 
 ## Verify
 
-- Name the selected slug and identify the roadmap item or narrative basis for the packet, steering question, or execution preview.
+- Name the selected locator and identify the roadmap item or narrative basis for the packet, steering question, or execution preview.
 - Confirm the decision packet ends with either a proposed prompt or an explicit Declined element, and that a proposed prompt is self-contained: a cold session could run it without this conversation. Confirm it stayed short, citing durable artifacts rather than replicating them.
 - If the record is blocked, confirm the response named the Blocked Sentence and either the unblocking counterpart Objective or why no edge counterpart applies.
-- If recommendation-only or steer-first, ensure no files changed except through an explicit `objective-update` handoff; report any handoff output separately and confirm it stayed under the selected slug.
+- If recommendation-only or steer-first, ensure no files changed except through an explicit `objective-update` handoff; report any handoff output separately and confirm it stayed under the selected record.
 - If confirmed execution ran, verify and report according to `references/confirmed-execution.md`, including whether the basis was durable policy or recommendation-continuation confirmation.
-- If Objective tracking changed, confirm it was meaningful and stayed under the selected slug.
+- If Objective tracking changed, confirm it was meaningful and stayed under the selected record.

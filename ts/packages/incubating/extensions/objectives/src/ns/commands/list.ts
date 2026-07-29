@@ -13,7 +13,7 @@ export const objectiveListNsCommand = objectiveNsCommand({
 	summary: "List Objective records in the current checkout.",
 	description: "List Objective records in the current checkout.",
 	schema: listObjectivesRequestSchema,
-	options: { names: { short: "-n" }, status: { short: "-s" } },
+	options: { names: { short: "-n" }, status: { short: "-s" }, owner: {}, allOwners: {} },
 	resultSchema: objectiveListResultSchema,
 	handler: runListObjectives,
 	renderHuman: (data, caps) =>

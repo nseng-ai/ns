@@ -68,13 +68,25 @@ The checked-in repository directory `.ns/objectives/` that contains Objective re
 An **Objective** record removed from `.ns/objectives/` through ordinary source control. It is absent from Objective discovery; git history is the recovery mechanism.
 *Avoid*: parked objective, closed objective, stale update, hidden tombstone
 
-**Objective Slug**:
-The directory name under the **Active Objective Root** that is the stable identity for one **Objective** while the record exists in the checkout.
-*Avoid*: title, branch name, PR name, package name
+**Objective Owner**:
+The required singular handle in **Record Frontmatter** naming who stewards an **Objective**'s direction — currently the authenticated GitHub login — validated offline (lowercase alphanumerics with single internal hyphens, ≤39 characters) and never verified against GitHub during structural checks. Ownership is stewardship, not access control; it grants no permissions.
+*Avoid*: access-control role, assignee, team, org, mutable owner field, harness owner
 
-**Objective Slug Migration**:
-An explicit move of an **Objective** from one slug directory to another after the user chooses a new canonical identity.
-*Avoid*: rename cleanup, path normalization, hidden remap
+**Owner Root**:
+An **Objective Owner**'s directory `.ns/objectives/<owner>/` under the **Active Objective Root**, containing that owner's records one directory per slug. Canonical records are owner-nested; a flat directory directly under the root is tolerated only while closed (the legacy-flat-closed exception in ADR 0050).
+*Avoid*: flat record directory, team folder, per-owner repository
+
+**Objective Locator**:
+The durable Objective identity `<owner>/<slug>`: an **Objective Owner** plus an owner-local **Objective Slug** with exactly one `/`. Durable records, edges, machine output, and scripts always use full locators; a bare slug in command input is shorthand for exactly `<current-owner>/<slug>` and never falls back to another owner's namespace.
+*Avoid*: bare slug as durable identity, path-shaped identity, cross-owner unique-match fallback
+
+**Objective Slug**:
+The owner-local directory name under an **Owner Root** that, combined with the **Objective Owner**, forms the **Objective Locator**. Slug uniqueness is required only within one owner's namespace.
+*Avoid*: title, branch name, PR name, package name, globally unique identity
+
+**Objective Replacement**:
+The close-and-replace workflow for identity changes: owner and slug are immutable, so renames and ownership transfer close the existing record and create a successor under the new locator.
+*Avoid*: in-place rename, slug migration, hidden remap, ownership transfer flag
 
 **Semantic Update**:
 An update file that records meaningful objective information such as a finding, decision, blocker, completion evidence, changed plan, or follow-up.
@@ -97,12 +109,12 @@ A lightweight `closed.md` file whose existence lets tools identify closed object
 *Avoid*: Hidden status, parking state, deletion
 
 **Record Frontmatter**:
-An optional YAML block at the top of an **Objective**'s `objective.md` carrying exactly two keys — `blocked` (the **Blocked Sentence**) and `edges` (**Objective Edges**) — and nothing else (ADR 0025). Most records have none; every `objective.md` reader strips or parses the block and behaves identically for records with and without it.
+The YAML block at the top of an **Objective**'s `objective.md` carrying a closed key set — required `owner` (the **Objective Owner**) plus optional `blocked` (the **Blocked Sentence**) and `edges` (**Objective Edges**) — and nothing else (ADR 0050, superseding ADR 0025's schema). Every `objective.md` reader strips or parses the block identically; a record without valid owner frontmatter is a check error.
 *Avoid*: general metadata block, execution-policy store, extra frontmatter keys, hidden attachment metadata, registry
 
 **Objective Edge**:
-An undirected, kind-less, mirrored connection between two **Objective** records, listed in both endpoints' **Record Frontmatter** as `{objective: <slug>, annotation: <sentence>}`. Edge identity is the unordered slug pair, with at most one edge between two records; direction, causality, and relationship kind live in the **Edge Annotation** prose, never the schema. Mutation is skill-owned, and deleting an endpoint makes the counterpart missing until the edge is updated or the record is recovered from git history.
-*Avoid*: typed edge kind, `to:`/`from:` directionality, single-sided edge, machine-readable dependency link
+An undirected, kind-less, mirrored connection between two **Objective** records, listed in both endpoints' **Record Frontmatter** as `{objective: <owner>/<slug>, annotation: <sentence>}`. Edge identity is the unordered pair of **Objective Locators**, with at most one edge between two records; direction, causality, and relationship kind live in the **Edge Annotation** prose, never the schema. Mutation is skill-owned, and deleting an endpoint makes the counterpart missing until the edge is updated or the record is recovered from git history.
+*Avoid*: typed edge kind, bare-slug endpoint, `to:`/`from:` directionality, single-sided edge, machine-readable dependency link
 
 **Edge Annotation**:
 The required prose sentence each endpoint of an **Objective Edge** carries in its own **Record Frontmatter**, written from that record's perspective. The two sides are deliberately different texts — perspective is the payload, so a shared string would lose exactly the information the edge exists to carry.

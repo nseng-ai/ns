@@ -50,9 +50,10 @@ export async function objectiveSlugsForBranch(
 
 /**
  * Map the NUL-separated output of `git diff --name-only -z` to sorted, unique
- * objective slugs. Robust to odd/adversarial paths: `-z` avoids git's path
- * quoting, and anything not shaped like `.ns/objectives/<slug>/<child>` is
- * ignored (paths outside the root, the bare root, empty/degenerate segments).
+ * objective locators. Robust to odd/adversarial paths: `-z` avoids git's path
+ * quoting, and anything not shaped like `.ns/objectives/<owner>/<slug>/<child>`
+ * (or the legacy flat `.ns/objectives/<slug>/<child>`) is ignored (paths
+ * outside the root, the bare root, empty/degenerate segments).
  */
 export function objectiveSlugsFromDiffOutput(stdout: string): string[] {
 	const slugs = new Set<string>();
@@ -67,15 +68,17 @@ function objectiveSlugFromPath(path: string): string | null {
 	const prefix = `${OBJECTIVES_ROOT}/`;
 	if (!path.startsWith(prefix)) return null;
 
-	const rest = path.slice(prefix.length);
-	const separatorIndex = rest.indexOf("/");
-	if (separatorIndex < 0) return null;
-
-	const slug = rest.slice(0, separatorIndex);
-	const childPath = rest.slice(separatorIndex + 1);
-	if (childPath.length === 0) return null;
-	if (!isValidObjectiveSlug(slug)) return null;
-	return slug;
+	const segments = path.slice(prefix.length).split("/");
+	const [first, second, third] = segments;
+	if (first === undefined || second === undefined) return null;
+	if (!isValidObjectiveSlug(first)) return null;
+	// Canonical owner-nested record: `.ns/objectives/<owner>/<slug>/<child>`
+	// displays as the full locator; a two-segment path is a legacy flat record.
+	if (third !== undefined && third.length > 0 && isValidObjectiveSlug(second)) {
+		return `${first}/${second}`;
+	}
+	if (second.length === 0) return null;
+	return first;
 }
 
 function isValidObjectiveSlug(slug: string): boolean {

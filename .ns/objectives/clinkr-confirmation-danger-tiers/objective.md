@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Clinkr Confirmation Danger Tiers
 
 ## Thesis

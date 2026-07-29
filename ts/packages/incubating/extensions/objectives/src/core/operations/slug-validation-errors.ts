@@ -2,20 +2,34 @@ import { negative, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 
 import { pythonStringRepr } from "./format.ts";
 
-interface ObjectiveSlugValidationResult {
+interface ObjectiveSelectorValidationResult {
 	status: string;
+	message?: string | undefined;
 }
 
-export function handleObjectiveSlugValidationErrors<Result extends ObjectiveSlugValidationResult>(
-	result: Result,
-	slug: string | undefined,
-): ClinkrExit<Result> | null {
+/**
+ * Shared negative exits for the non-resolvable Objective Locator selector
+ * statuses (missing/invalid selector, unavailable current owner).
+ */
+export function handleObjectiveSlugValidationErrors<
+	Result extends ObjectiveSelectorValidationResult,
+>(result: Result, selector: string | undefined): ClinkrExit<Result> | null {
 	if (result.status === "missing-slug") {
-		return negative("Missing Objective slug. Pass an explicit slug.", { data: result });
+		return negative("Missing Objective locator. Pass <owner>/<slug> or an owner-local slug.", {
+			data: result,
+		});
 	}
 	if (result.status === "invalid-slug") {
 		return negative(
-			`Invalid Objective slug ${pythonStringRepr(slug ?? "")}. Pass a single slug, not a path.`,
+			result.message ??
+				`Invalid Objective locator ${pythonStringRepr(selector ?? "")}. Pass <owner>/<slug> or an owner-local slug.`,
+			{ data: result },
+		);
+	}
+	if (result.status === "owner-unavailable") {
+		return negative(
+			result.message ??
+				`Cannot resolve bare Objective slug ${pythonStringRepr(selector ?? "")}: no authenticated owner. Pass a full <owner>/<slug> locator.`,
 			{ data: result },
 		);
 	}

@@ -58,12 +58,13 @@ const OBJECTIVE_SKILLS_BY_COMMAND: Record<ObjectiveCommandName, ObjectiveSkillNa
 const LEGACY_OBJECTIVE_LIST_COMMAND_NAME = ["objective", ":", "list"].join("");
 
 const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
-	"ns:objective:next": "Run objective-next for this explicitly selected Objective slug or path:",
+	"ns:objective:next": "Run objective-next for this explicitly selected Objective locator or path:",
 	"ns:objective:update":
-		"Run objective-update for this explicitly selected Objective slug or path:",
-	"ns:objective:close": "Run objective-close for this explicitly selected Objective slug or path:",
+		"Run objective-update for this explicitly selected Objective locator or path:",
+	"ns:objective:close":
+		"Run objective-close for this explicitly selected Objective locator or path:",
 	"ns:objective:autorun":
-		"Run objective-autorun with this Objective selection and launch scope (slug/path plus optional scope, step budget, and standing guidance):",
+		"Run objective-autorun with this Objective selection and launch scope (locator/path plus optional scope, step budget, and standing guidance):",
 };
 
 type RegisteredCommand = Parameters<ObjectiveExtensionAPI["registerCommand"]>[1];
@@ -470,9 +471,13 @@ function objectiveListFromRecords(
 			trunkBranch: trunkBranch,
 			rootPath: ".ns/objectives",
 			statusFilter: "active",
+			ownerScope: { type: "current", owner: "tester" },
 			namesOnly: false,
 			records: records.map((record) => ({
+				owner: "tester",
 				slug: record.slug,
+				locator: `tester/${record.slug}`,
+				layout: "owner-nested",
 				status: record.status,
 				latestUpdateIso: record.latestUpdateIso,
 				...(record.isBlocked === true ? { isBlocked: true } : {}),
@@ -488,7 +493,9 @@ function listStep(slugs: string[], trunkBranch: string = TRUNK): ScriptedExec {
 	});
 }
 
-function objectiveCandidatesFromRecords(records: Array<{ slug: string; status: string }>): string {
+function objectiveCandidatesFromRecords(
+	records: Array<{ owner: string; slug: string; locator: string; status: string }>,
+): string {
 	return JSON.stringify({
 		status: "ok",
 		exitCode: 0,
@@ -500,7 +507,9 @@ function objectiveCandidatesFromRecords(records: Array<{ slug: string; status: s
 
 function candidateStep(slugs: string[]): ScriptedExec {
 	return step("ns", ["objective", "exec", "list-candidates", "--format", "json"], {
-		stdout: objectiveCandidatesFromRecords(slugs.map((slug) => ({ slug, status: "open" }))),
+		stdout: objectiveCandidatesFromRecords(
+			slugs.map((slug) => ({ owner: "tester", slug, locator: `tester/${slug}`, status: "open" })),
+		),
 	});
 }
 
@@ -563,10 +572,14 @@ describe("ns:objective:list command", () => {
 					trunkBranch: "main",
 					rootPath: ".ns/objectives",
 					statusFilter: "all",
+					ownerScope: { type: "current", owner: "tester" },
 					namesOnly: true,
 					records: [
 						{
+							owner: "tester",
 							slug: "alpha",
+							locator: "tester/alpha",
+							layout: "owner-nested",
 							status: "open",
 							latestUpdateIso: "2026-05-20T10:00:00Z",
 							hasOutstandingChanges: false,
@@ -583,7 +596,7 @@ describe("ns:objective:list command", () => {
 		expect(result.pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 		expect(result.pi.sentMessages[0]).toMatchObject({
 			customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
-			content: "alpha\n",
+			content: "tester/alpha\n",
 			details: {
 				argv: ["list", "--names", "--status", "all"],
 			},
@@ -736,7 +749,7 @@ describe("ns:objective:autorun command", () => {
 			expect(result.pi.execCalls[1]?.options?.signal).toBeInstanceOf(AbortSignal);
 			expect(result.pi.execCalls[1]?.options?.timeout).toBeUndefined();
 			expect(result.waitForIdleCalls()).toBe(2);
-			expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
+			expect(result.pi.sentUserMessages[0]).toContain("```text\ntester/alpha\n```");
 		});
 	});
 
@@ -746,7 +759,7 @@ describe("ns:objective:autorun command", () => {
 				"",
 				[
 					listStep(["alpha", "bravo", "charlie"]),
-					diffStep("M\t.ns/objectives/bravo/objective.md\n"),
+					diffStep("M\t.ns/objectives/tester/bravo/objective.md\n"),
 					statusStep(""),
 				],
 				{},
@@ -757,11 +770,11 @@ describe("ns:objective:autorun command", () => {
 			expect(result.selections[0]).toEqual({
 				title: "Select an active Objective to autorun (only Objective changed vs master)",
 				items: [
-					"bravo — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
+					"tester/bravo — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
 					"View other active Objectives…",
 				],
 			});
-			expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
+			expect(result.pi.sentUserMessages[0]).toContain("```text\ntester/bravo\n```");
 		});
 	});
 
@@ -789,8 +802,10 @@ describe("ns:objective:autorun command", () => {
 			);
 
 			result.pi.assertDone();
-			expect(result.selections[0]?.items).toEqual(["alpha — open — latest update 2 weeks ago"]);
-			expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
+			expect(result.selections[0]?.items).toEqual([
+				"tester/alpha — open — latest update 2 weeks ago",
+			]);
+			expect(result.pi.sentUserMessages[0]).toContain("```text\ntester/alpha\n```");
 		});
 	});
 
@@ -800,7 +815,7 @@ describe("ns:objective:autorun command", () => {
 				"",
 				[
 					listStep(["alpha", "bravo", "charlie"]),
-					diffStep("M\t.ns/objectives/bravo/objective.md\n"),
+					diffStep("M\t.ns/objectives/tester/bravo/objective.md\n"),
 					statusStep(""),
 				],
 				{ selectIndices: [1, 1] },
@@ -811,11 +826,11 @@ describe("ns:objective:autorun command", () => {
 			expect(result.selections[1]).toEqual({
 				title: "Select an active Objective to autorun (other active Objectives)",
 				items: [
-					"alpha — open — latest update 2 weeks ago",
-					"charlie — open — latest update 2 weeks ago",
+					"tester/alpha — open — latest update 2 weeks ago",
+					"tester/charlie — open — latest update 2 weeks ago",
 				],
 			});
-			expect(result.pi.sentUserMessages[0]).toContain("```text\ncharlie\n```");
+			expect(result.pi.sentUserMessages[0]).toContain("```text\ntester/charlie\n```");
 		});
 	});
 
@@ -849,7 +864,7 @@ describe("objective picker suggestion", () => {
 	test("shows only the one changed active Objective before offering the rest", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie"]),
-			diffStep("M\t.ns/objectives/bravo/objective.md\n"),
+			diffStep("M\t.ns/objectives/tester/bravo/objective.md\n"),
 			statusStep(""),
 		]);
 
@@ -858,7 +873,7 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (only Objective changed vs master)",
 			items: [
-				"bravo — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
+				"tester/bravo — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -875,7 +890,7 @@ describe("objective picker suggestion", () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie"]),
 			diffStep(""),
-			statusStep(" M .ns/objectives/bravo/objective.md\0"),
+			statusStep(" M .ns/objectives/tester/bravo/objective.md\0"),
 		]);
 
 		result.pi.assertDone();
@@ -883,7 +898,7 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (only Objective changed in checkout or vs master)",
 			items: [
-				"bravo — suggested: only Objective changed in checkout or vs master — open — latest update 2 weeks ago",
+				"tester/bravo — suggested: only Objective changed in checkout or vs master — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -893,7 +908,7 @@ describe("objective picker suggestion", () => {
 	test("dirty-only suggestion uses checkout wording when trunk is unavailable", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"], ""),
-			statusStep(" M .ns/objectives/bravo/objective.md\0"),
+			statusStep(" M .ns/objectives/tester/bravo/objective.md\0"),
 		]);
 
 		result.pi.assertDone();
@@ -902,7 +917,7 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (only Objective changed in checkout)",
 			items: [
-				"bravo — suggested: only Objective changed in checkout — open — latest update 2 weeks ago",
+				"tester/bravo — suggested: only Objective changed in checkout — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -911,8 +926,8 @@ describe("objective picker suggestion", () => {
 	test("dirty and committed diff slugs are unioned changed-first", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie", "delta"]),
-			diffStep("M\t.ns/objectives/alpha/objective.md\n"),
-			statusStep(" M .ns/objectives/charlie/objective.md\0"),
+			diffStep("M\t.ns/objectives/tester/alpha/objective.md\n"),
+			statusStep(" M .ns/objectives/tester/charlie/objective.md\0"),
 		]);
 
 		result.pi.assertDone();
@@ -920,8 +935,8 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (changed Objectives in checkout or vs master)",
 			items: [
-				"alpha — changed in checkout or vs master — open — latest update 2 weeks ago",
-				"charlie — changed in checkout or vs master — open — latest update 2 weeks ago",
+				"tester/alpha — changed in checkout or vs master — open — latest update 2 weeks ago",
+				"tester/charlie — changed in checkout or vs master — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -933,13 +948,13 @@ describe("objective picker suggestion", () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
 			diffStep(""),
-			statusStep(" M .ns/objectives/closed-objective/objective.md\0"),
+			statusStep(" M .ns/objectives/tester/closed-objective/objective.md\0"),
 		]);
 
 		result.pi.assertDone();
 		expect(result.selections[0]?.items).toEqual([
-			"alpha — open — latest update 2 weeks ago",
-			"bravo — open — latest update 2 weeks ago",
+			"tester/alpha — open — latest update 2 weeks ago",
+			"tester/bravo — open — latest update 2 weeks ago",
 		]);
 	});
 
@@ -957,16 +972,16 @@ describe("objective picker suggestion", () => {
 					{ slug: "charlie", status: "open", latestUpdateIso: "2026-01-03T00:00:00Z" },
 				]),
 			}),
-			diffStep("M\t.ns/objectives/bravo/objective.md\n"),
+			diffStep("M\t.ns/objectives/tester/bravo/objective.md\n"),
 			statusStep(""),
 		]);
 
 		result.pi.assertDone();
 		expect(result.selections[0]?.items).toEqual([
-			"alpha — open — latest update 2 weeks ago",
-			"charlie — open — latest update 2 weeks ago",
+			"tester/alpha — open — latest update 2 weeks ago",
+			"tester/charlie — open — latest update 2 weeks ago",
 		]);
-		expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
+		expect(result.pi.sentUserMessages[0]).toContain("```text\ntester/alpha\n```");
 	});
 
 	test("opens a second picker for the other Objectives when requested", async () => {
@@ -974,7 +989,7 @@ describe("objective picker suggestion", () => {
 			"",
 			[
 				listStep(["alpha", "bravo", "charlie"]),
-				diffStep("M\t.ns/objectives/bravo/objective.md\n"),
+				diffStep("M\t.ns/objectives/tester/bravo/objective.md\n"),
 				statusStep(""),
 			],
 			{ selectIndices: [1, 1] },
@@ -985,8 +1000,8 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (other active Objectives)",
 			items: [
-				"alpha — open — latest update 2 weeks ago",
-				"charlie — open — latest update 2 weeks ago",
+				"tester/alpha — open — latest update 2 weeks ago",
+				"tester/charlie — open — latest update 2 weeks ago",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("charlie");
@@ -996,7 +1011,10 @@ describe("objective picker suggestion", () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie", "delta"]),
 			diffStep(
-				["M\t.ns/objectives/alpha/objective.md", "M\t.ns/objectives/charlie/roadmap.md"].join("\n"),
+				[
+					"M\t.ns/objectives/tester/alpha/objective.md",
+					"M\t.ns/objectives/tester/charlie/roadmap.md",
+				].join("\n"),
 			),
 			statusStep(""),
 		]);
@@ -1006,8 +1024,8 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (changed Objectives vs master)",
 			items: [
-				"alpha — changed vs master — open — latest update 2 weeks ago",
-				"charlie — changed vs master — open — latest update 2 weeks ago",
+				"tester/alpha — changed vs master — open — latest update 2 weeks ago",
+				"tester/charlie — changed vs master — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -1021,9 +1039,10 @@ describe("objective picker suggestion", () => {
 			[
 				listStep(["alpha", "bravo", "charlie", "delta"]),
 				diffStep(
-					["M\t.ns/objectives/alpha/objective.md", "M\t.ns/objectives/charlie/roadmap.md"].join(
-						"\n",
-					),
+					[
+						"M\t.ns/objectives/tester/alpha/objective.md",
+						"M\t.ns/objectives/tester/charlie/roadmap.md",
+					].join("\n"),
 				),
 				statusStep(""),
 			],
@@ -1035,8 +1054,8 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (other active Objectives)",
 			items: [
-				"bravo — open — latest update 2 weeks ago",
-				"delta — open — latest update 2 weeks ago",
+				"tester/bravo — open — latest update 2 weeks ago",
+				"tester/delta — open — latest update 2 weeks ago",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("delta");
@@ -1046,7 +1065,10 @@ describe("objective picker suggestion", () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
 			diffStep(
-				["M\t.ns/objectives/alpha/objective.md", "M\t.ns/objectives/bravo/objective.md"].join("\n"),
+				[
+					"M\t.ns/objectives/tester/alpha/objective.md",
+					"M\t.ns/objectives/tester/bravo/objective.md",
+				].join("\n"),
 			),
 			statusStep(""),
 		]);
@@ -1056,8 +1078,8 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (changed Objectives vs master)",
 			items: [
-				"alpha — changed vs master — open — latest update 2 weeks ago",
-				"bravo — changed vs master — open — latest update 2 weeks ago",
+				"tester/alpha — changed vs master — open — latest update 2 weeks ago",
+				"tester/bravo — changed vs master — open — latest update 2 weeks ago",
 			],
 		});
 		expect(result.pi.sentUserMessages[0]).toContain("alpha");
@@ -1066,15 +1088,15 @@ describe("objective picker suggestion", () => {
 	test("does not suggest when the changed Objective slug is not active", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
-			diffStep("M\t.ns/objectives/closed-objective/objective.md\n"),
+			diffStep("M\t.ns/objectives/tester/closed-objective/objective.md\n"),
 			statusStep(""),
 		]);
 
 		result.pi.assertDone();
 		const items = result.selections[0]?.items ?? [];
 		expect(items).toEqual([
-			"alpha — open — latest update 2 weeks ago",
-			"bravo — open — latest update 2 weeks ago",
+			"tester/alpha — open — latest update 2 weeks ago",
+			"tester/bravo — open — latest update 2 weeks ago",
 		]);
 		expect(items.some((item) => item.includes("suggested"))).toBe(false);
 	});
@@ -1084,8 +1106,8 @@ describe("objective picker suggestion", () => {
 			listStep(["pi-extension-deepening"]),
 			diffStep(
 				[
-					"A\t.ns/objectives/pi-extension-architecture-deepening/closed.md",
-					"M\t.ns/objectives/pi-extension-deepening/objective.md",
+					"A\t.ns/objectives/tester/pi-extension-architecture-deepening/closed.md",
+					"M\t.ns/objectives/tester/pi-extension-deepening/objective.md",
 				].join("\n"),
 			),
 			statusStep(""),
@@ -1094,7 +1116,7 @@ describe("objective picker suggestion", () => {
 		result.pi.assertDone();
 		const items = result.selections[0]?.items ?? [];
 		expect(items).toEqual([
-			"pi-extension-deepening — changed vs master — open — latest update 2 weeks ago",
+			"tester/pi-extension-deepening — changed vs master — open — latest update 2 weeks ago",
 		]);
 		expect(items.some((item) => item.includes("pi-extension-architecture-deepening"))).toBe(false);
 		expect(result.pi.sentUserMessages[0]).toContain("pi-extension-deepening");
@@ -1106,8 +1128,8 @@ describe("objective picker suggestion", () => {
 			listStep(["alpha", "bravo", "charlie"]),
 			diffStep(
 				[
-					"M\t.ns/objectives/bravo/objective.md",
-					"M\t.ns/objectives/closed-objective/objective.md",
+					"M\t.ns/objectives/tester/bravo/objective.md",
+					"M\t.ns/objectives/tester/closed-objective/objective.md",
 				].join("\n"),
 			),
 			statusStep(""),
@@ -1118,7 +1140,7 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (changed Objectives vs master)",
 			items: [
-				"bravo — changed vs master — open — latest update 2 weeks ago",
+				"tester/bravo — changed vs master — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -1137,7 +1159,7 @@ describe("objective picker suggestion", () => {
 	test("git status failure preserves committed diff suggestions", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
-			diffStep("M\t.ns/objectives/bravo/objective.md\n"),
+			diffStep("M\t.ns/objectives/tester/bravo/objective.md\n"),
 			statusStep("", { code: 1, stderr: "status failed" }),
 		]);
 
@@ -1146,7 +1168,7 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (only Objective changed vs master)",
 			items: [
-				"bravo — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
+				"tester/bravo — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -1156,7 +1178,7 @@ describe("objective picker suggestion", () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
 			diffStep("", { code: 1, stderr: "fatal: bad revision" }),
-			statusStep(" M .ns/objectives/bravo/objective.md\0"),
+			statusStep(" M .ns/objectives/tester/bravo/objective.md\0"),
 		]);
 
 		result.pi.assertDone();
@@ -1164,7 +1186,7 @@ describe("objective picker suggestion", () => {
 			title:
 				"Select an active Objective for next work or execution preview (only Objective changed in checkout or vs master)",
 			items: [
-				"bravo — suggested: only Objective changed in checkout or vs master — open — latest update 2 weeks ago",
+				"tester/bravo — suggested: only Objective changed in checkout or vs master — open — latest update 2 weeks ago",
 				"View other active Objectives…",
 			],
 		});
@@ -1184,8 +1206,8 @@ describe("objective picker suggestion", () => {
 		result.pi.assertDone();
 		const items = result.selections[0]?.items ?? [];
 		expect(items).toEqual([
-			"alpha — open — latest update 2 weeks ago",
-			"bravo — open — latest update 2 weeks ago",
+			"tester/alpha — open — latest update 2 weeks ago",
+			"tester/bravo — open — latest update 2 weeks ago",
 		]);
 		expect(result.notifications).toEqual([
 			{ message: "Objective selection cancelled.", level: "info" },
@@ -1196,26 +1218,26 @@ describe("objective picker suggestion", () => {
 	test("ns:objective:close uses normal changed-first selection, not compact suggestion UX", async () => {
 		const result = await runObjectiveCommand("ns:objective:close", "", [
 			listStep(["alpha", "bravo", "charlie"]),
-			diffStep("M\t.ns/objectives/bravo/objective.md\n"),
+			diffStep("M\t.ns/objectives/tester/bravo/objective.md\n"),
 			statusStep(""),
 		]);
 
 		result.pi.assertDone();
 		expect(result.notifications).toContainEqual({
-			message: "Found changed Objective bravo from objective diff vs master.",
+			message: "Found changed Objective tester/bravo from objective diff vs master.",
 			level: "info",
 		});
 		expect(result.selections).toEqual([
 			{
 				title: "Select an active Objective to close",
 				items: [
-					"bravo — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
-					"alpha — open — latest update 2 weeks ago",
-					"charlie — open — latest update 2 weeks ago",
+					"tester/bravo — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
+					"tester/alpha — open — latest update 2 weeks ago",
+					"tester/charlie — open — latest update 2 weeks ago",
 				],
 			},
 		]);
-		expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
+		expect(result.pi.sentUserMessages[0]).toContain("```text\ntester/bravo\n```");
 	});
 });
 
@@ -1236,8 +1258,8 @@ describe("objective command shared selection policy", () => {
 		const { pi, items } = await objectiveCommandCompletions("ns:objective:next", "", [
 			step("ns", ["objective", "exec", "list-candidates", "--format", "json"], {
 				stdout: objectiveCandidatesFromRecords([
-					{ slug: "alpha", status: "open" },
-					{ slug: "bravo", status: "open" },
+					{ owner: "tester", slug: "alpha", locator: "tester/alpha", status: "open" },
+					{ owner: "tester", slug: "bravo", locator: "tester/bravo", status: "open" },
 				]),
 			}),
 		]);
@@ -1251,8 +1273,8 @@ describe("objective command shared selection policy", () => {
 		expect(pi.execCalls[0]?.options?.signal).toBeInstanceOf(AbortSignal);
 		expect(pi.execCalls[0]?.options?.timeout).toBeUndefined();
 		expect(items).toEqual([
-			{ value: "alpha", label: "alpha", description: "open" },
-			{ value: "bravo", label: "bravo", description: "open" },
+			{ value: "tester/alpha", label: "tester/alpha", description: "open" },
+			{ value: "tester/bravo", label: "tester/bravo", description: "open" },
 		]);
 	});
 
@@ -1266,8 +1288,8 @@ describe("objective command shared selection policy", () => {
 		const filteredItems = await command?.getArgumentCompletions?.("br");
 
 		pi.assertDone();
-		expect(allItems?.map((item) => item.value)).toEqual(["alpha", "bravo"]);
-		expect(filteredItems?.map((item) => item.value)).toEqual(["bravo"]);
+		expect(allItems?.map((item) => item.value)).toEqual(["tester/alpha", "tester/bravo"]);
+		expect(filteredItems?.map((item) => item.value)).toEqual(["tester/bravo"]);
 		expect(pi.execCalls).toHaveLength(1);
 	});
 
@@ -1321,7 +1343,7 @@ describe("objective command shared selection policy", () => {
 	for (const commandName of OBJECTIVE_COMMAND_NAMES) {
 		describe(commandName, () => {
 			test("explicit slug or path bypasses objective list and git evidence", async () => {
-				const explicitObjective = ".ns/objectives/bravo/objective.md";
+				const explicitObjective = ".ns/objectives/tester/bravo/objective.md";
 				const result = await runObjectiveCommand(commandName, `  ${explicitObjective}  `);
 
 				result.pi.assertDone();
@@ -1384,7 +1406,7 @@ describe("objective command shared selection policy", () => {
 					"",
 					[
 						listStep(["alpha", "bravo"]),
-						diffStep("M\t.ns/objectives/bravo/objective.md\n"),
+						diffStep("M\t.ns/objectives/tester/bravo/objective.md\n"),
 						statusStep(""),
 					],
 					{ cancelSelect: true },
@@ -1407,7 +1429,7 @@ describe("objective command shared selection policy", () => {
 				);
 
 				result.pi.assertDone();
-				expectPromptSelectsObjective(commandName, result.pi.sentUserMessages[0], "alpha");
+				expectPromptSelectsObjective(commandName, result.pi.sentUserMessages[0], "tester/alpha");
 			});
 		});
 	}
@@ -1445,7 +1467,7 @@ Use the selected Objective.
 				expect(prompt).toContain("# Objective Next Skill\n\nUse the selected Objective.");
 				expect(prompt).not.toContain("hidden-frontmatter-token");
 				expect(prompt).toContain(
-					"Run objective-next for this explicitly selected Objective slug or path:",
+					"Run objective-next for this explicitly selected Objective locator or path:",
 				);
 				expect(prompt).toContain("```text\nbravo\n```");
 				expect(result.notifications).toContainEqual({
@@ -1504,7 +1526,7 @@ Use the selected Objective.
 			"Propagate the closure through every Objective Edge",
 		);
 		expect(result.pi.sentUserMessages[0]).toContain(
-			"Run objective-close for this explicitly selected Objective slug or path:",
+			"Run objective-close for this explicitly selected Objective locator or path:",
 		);
 		expect(result.pi.sentUserMessages[0]).toContain(
 			"After this explicit selection, follow objective-close's normal closure confirmation and connected-Objective propagation workflow before mutating Objective files.",

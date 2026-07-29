@@ -1,12 +1,13 @@
 ---
+owner: schrockn
 edges:
-  - objective: rename-capability-to-extension
+  - objective: schrockn/rename-capability-to-extension
     annotation: Primary Subobjective that settled and implemented extension vocabulary, package/tier naming, and the extension-package move into the incubation zone; its remaining prose sweep must close before final presentation.
-  - objective: foundation-readme-driven-pass
+  - objective: schrockn/foundation-readme-driven-pass
     annotation: Parallel Subobjective umbrella owning the per-package README-driven pass over Clinkr, Foundation, Brmem, SDK, and Extension Kit.
-  - objective: package-disposition-and-host-ontology
+  - objective: schrockn/package-disposition-and-host-ontology
     annotation: Subobjective replacing the interim flat-incubator direction with the approved public/incubating/internal disposition model, host-owned package ontologies, and atomic repository reorganization.
-  - objective: skill-disposition-and-owner-ontology
+  - objective: schrockn/skill-disposition-and-owner-ontology
     annotation: Completed Parallel Subobjective that established explicit public/incubating/internal support verdicts and domain/family ownership for first-party skills through a nested canonical tree and flat harness overlays; retained as historical synthesis context.
 ---
 

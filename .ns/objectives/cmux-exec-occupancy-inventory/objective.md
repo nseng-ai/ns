@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: skill-audit-remediation
+  - objective: schrockn/skill-audit-remediation
     annotation: Graduated 2026-07-12 from that audit's Tranche 4 CLI push-down dispositions (frontload item 6); its findings are the evidence that the cmux occupancy pipeline is written out near-verbatim in three skills.
 ---
 

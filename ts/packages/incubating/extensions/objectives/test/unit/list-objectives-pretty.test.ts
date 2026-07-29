@@ -24,6 +24,7 @@ function result(parts: Partial<ObjectiveListResult>): ObjectiveListResult {
 		trunkBranch: "master",
 		rootPath: ".ns/objectives",
 		statusFilter: "all",
+		ownerScope: { type: "current", owner: "tester" },
 		namesOnly: false,
 		records: [],
 		...parts,
@@ -34,12 +35,18 @@ const TWO_RECORDS = result({
 	records: [
 		{
 			slug: "alpha",
+			owner: "tester",
+			locator: "tester/alpha",
+			layout: "owner-nested",
 			status: "open",
 			latestUpdateIso: "2026-06-27T16:00:00Z",
 			hasOutstandingChanges: true,
 		},
 		{
 			slug: "bravo",
+			owner: "tester",
+			locator: "tester/bravo",
+			layout: "owner-nested",
 			status: "closed",
 			latestUpdateIso: null,
 			hasOutstandingChanges: false,
@@ -105,6 +112,9 @@ describe("renderObjectiveListPretty layout", () => {
 			records: [
 				{
 					slug: "a-very-long-objective-slug-that-overflows-a-narrow-terminal",
+					owner: "tester",
+					locator: "tester/a-very-long-objective-slug-that-overflows-a-narrow-terminal",
+					layout: "owner-nested",
 					status: "open",
 					latestUpdateIso: null,
 					hasOutstandingChanges: false,
@@ -127,6 +137,9 @@ describe("renderObjectiveListPretty layout", () => {
 					records: [
 						{
 							slug: "slug-that-fits-default-width",
+							owner: "tester",
+							locator: "tester/slug-that-fits-default-width",
+							layout: "owner-nested",
 							status: "open",
 							latestUpdateIso: null,
 							hasOutstandingChanges: false,
@@ -153,12 +166,23 @@ describe("renderObjectiveListPretty layout", () => {
 			records: [
 				{
 					slug: "alpha",
+					owner: "tester",
+					locator: "tester/alpha",
+					layout: "owner-nested",
 					status: "open",
 					latestUpdateIso: null,
 					edgeCount: 2,
 					hasOutstandingChanges: false,
 				},
-				{ slug: "bravo", status: "open", latestUpdateIso: null, hasOutstandingChanges: false },
+				{
+					owner: "tester",
+					slug: "bravo",
+					locator: "tester/bravo",
+					layout: "owner-nested",
+					status: "open",
+					latestUpdateIso: null,
+					hasOutstandingChanges: false,
+				},
 			],
 		});
 		const out = renderObjectiveListPretty(withEdges, caps({ colorDepth: "none" }), NOW);
@@ -178,6 +202,9 @@ describe("renderObjectiveListPretty layout", () => {
 			records: [
 				{
 					slug: "alpha",
+					owner: "tester",
+					locator: "tester/alpha",
+					layout: "owner-nested",
 					status: "open",
 					isBlocked: true,
 					latestUpdateIso: null,
@@ -207,7 +234,15 @@ describe("renderObjectiveListPretty layout", () => {
 	test("legend appears only when a record has outstanding changes", () => {
 		const clean = result({
 			records: [
-				{ slug: "alpha", status: "open", latestUpdateIso: null, hasOutstandingChanges: false },
+				{
+					owner: "tester",
+					slug: "alpha",
+					locator: "tester/alpha",
+					layout: "owner-nested",
+					status: "open",
+					latestUpdateIso: null,
+					hasOutstandingChanges: false,
+				},
 			],
 		});
 		expect(renderObjectiveListPretty(clean, caps({ colorDepth: "none" }), NOW)).not.toContain(
@@ -219,11 +254,27 @@ describe("renderObjectiveListPretty layout", () => {
 		const names = result({
 			namesOnly: true,
 			records: [
-				{ slug: "alpha", status: "open", latestUpdateIso: null, hasOutstandingChanges: false },
-				{ slug: "bravo", status: "closed", latestUpdateIso: null, hasOutstandingChanges: false },
+				{
+					owner: "tester",
+					slug: "alpha",
+					locator: "tester/alpha",
+					layout: "owner-nested",
+					status: "open",
+					latestUpdateIso: null,
+					hasOutstandingChanges: false,
+				},
+				{
+					owner: "tester",
+					slug: "bravo",
+					locator: "tester/bravo",
+					layout: "owner-nested",
+					status: "closed",
+					latestUpdateIso: null,
+					hasOutstandingChanges: false,
+				},
 			],
 		});
-		expect(renderObjectiveListPretty(names, caps(), NOW)).toBe("alpha\nbravo");
+		expect(renderObjectiveListPretty(names, caps(), NOW)).toBe("tester/alpha\ntester/bravo");
 	});
 
 	test("empty result shows the filter-aware empty message", () => {

@@ -40,7 +40,7 @@ export async function runObjectiveCheckCommand(
 ): Promise<ClinkrExit<ObjectiveCheckCommandResult>> {
 	if (request.all === true) {
 		if (request.slug !== undefined) {
-			return usageError("Pass an Objective slug or --all, not both.", { slug: request.slug });
+			return usageError("Pass an Objective locator or --all, not both.", { slug: request.slug });
 		}
 		return await runEdgeSweep(ctx.storage);
 	}

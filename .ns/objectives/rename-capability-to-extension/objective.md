@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: professional-repo-curation
+  - objective: schrockn/professional-repo-curation
     annotation: Parent umbrella; this Subobjective settled and implemented the capability-to-extension cutover that the umbrella uses for its incubation-zone reorganization.
 ---
 

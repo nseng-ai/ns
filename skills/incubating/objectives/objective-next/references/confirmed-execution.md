@@ -12,7 +12,7 @@ After the Tracking Gate passes, execution may proceed from either basis below.
 
 - Read optional top-level `## Definition of Progress` and `## Runner Policy` sections, or equivalent explicit prose that says when `objective-next` may execute after preview.
 - Inspect the selected roadmap row and immediate indented notes for row-level `Policy:` and `Evidence:` guidance.
-- Treat policy as prose, not schema. Do not add YAML/frontmatter (execution policy never lives in Record Frontmatter, whose only sanctioned keys are `blocked` and `edges`), UUIDs, hidden state, queues, ledgers, task databases, automation registries, or lifecycle states.
+- Treat policy as prose, not schema. Do not add YAML/frontmatter (execution policy never lives in Record Frontmatter, whose only sanctioned keys are required `owner` plus optional `blocked` and `edges`), UUIDs, hidden state, queues, ledgers, task databases, automation registries, or lifecycle states.
 - Row-level policy may override Objective-level defaults for the selected slice.
 - Do not infer durable execution permission from a concrete roadmap row, obvious implementation step, or the mere existence of a `## Runner Policy` heading alone.
 - Do not describe every execution-friendly Objective as autonomous.
@@ -23,7 +23,7 @@ Durable policy is not required when the user explicitly asks to execute a concre
 
 Use this basis only when all are true:
 
-- the previous `objective-next` response selected the same Objective slug;
+- the previous `objective-next` response selected the same Objective (same locator);
 - it proposed one coherent next semantic step, or a small labeled set of co-equal candidates from which the user's confirmation selected exactly one — not a grab bag;
 - it named enough scope, likely areas, and completion evidence to bound execution;
 - the current user turn is a clear affirmative confirmation to execute that recommendation;
@@ -55,11 +55,11 @@ Use when Objective policy or row-level notes say human judgment, planning, termi
 
 Use when explicit Objective or row-level prose policy allows direct execution for the selected slice, or when the recommendation-continuation basis is satisfied.
 
-For durable-policy execution, present an inline execution preview and wait for explicit affirmative confirmation before any material action. For recommendation-continuation execution, the user's clear affirmative confirmation may serve as that confirmation when the prior recommendation already bounded the selected slug, coherent slice, likely scope, and completion evidence; if not, present a fresh preview and ask. Material actions include editing files, creating/moving branches, launching runner subagents, running write-capable external commands, committing, or submitting PRs.
+For durable-policy execution, present an inline execution preview and wait for explicit affirmative confirmation before any material action. For recommendation-continuation execution, the user's clear affirmative confirmation may serve as that confirmation when the prior recommendation already bounded the selected locator, coherent slice, likely scope, and completion evidence; if not, present a fresh preview and ask. Material actions include editing files, creating/moving branches, launching runner subagents, running write-capable external commands, committing, or submitting PRs.
 
 The preview must include:
 
-- selected Objective slug;
+- selected Objective Locator;
 - execution basis: quote or summarize the Runner Policy / row-level `Policy:` that permits execution, or summarize the prior recommendation plus the user's direct confirmation;
 - bounded scope/slice;
 - inline plan and likely files or areas;
@@ -80,7 +80,7 @@ If the user changes scope, revise the preview and ask again. Proceed only after 
 - If branch creation, commit amendment, restacking, or submission is in scope, follow the repository's documented Git/Graphite workflow. An internal repository may optionally route those mechanics through its own source-control skill; Objective execution does not require one.
 - Keep work only when it is evidenced against `## Definition of Progress`, the prior recommendation's completion evidence, or equivalent progress criteria and passes appropriate validation.
 - Discard ambiguous, speculative, or out-of-scope changes instead of preserving them as run artifacts.
-- Write Objective tracking only for meaningful progress, changed assumptions, invalidated assumptions, reusable findings, changed roadmap/policy guidance, or other durable Objective impact under the selected slug.
+- Write Objective tracking only for meaningful progress, changed assumptions, invalidated assumptions, reusable findings, changed roadmap/policy guidance, or other durable Objective impact under the selected record.
 - Do not write ceremonial run logs, hidden ledgers, task files, private queues, Branch Memory run state, or alternate Objective stores.
 - Do not submit PRs unless PR submission is explicitly included in the confirmed preview.
 

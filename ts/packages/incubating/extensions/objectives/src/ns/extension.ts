@@ -62,6 +62,13 @@ export default defineExtension({
 				}),
 			},
 			{
+				name: "resolve-owner",
+				load: async () => ({
+					default: (await import("./commands/exec-resolve-owner.ts"))
+						.objectiveExecResolveOwnerNsCommand,
+				}),
+			},
+			{
 				name: "publication-bind",
 				load: async () => ({
 					default: (await import("./commands/exec-publication-bind.ts"))

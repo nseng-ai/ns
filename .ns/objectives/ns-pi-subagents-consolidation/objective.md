@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # ns-pi-subagents Consolidation
 
 ## Thesis

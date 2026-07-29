@@ -211,7 +211,7 @@ async function changedObjectiveSelection(
 	const allChangedSlugs = [...committedChangedSlugs, ...dirtyChangedSlugs];
 	const dirtyChangedSlugSet = new Set(dirtyChangedSlugs);
 	const dirtyActiveSlugs = objectiveList.records.filter((record) =>
-		dirtyChangedSlugSet.has(record.slug),
+		dirtyChangedSlugSet.has(record.locator),
 	);
 	const changeBasisLabel =
 		dirtyActiveSlugs.length > 0
@@ -327,8 +327,8 @@ async function selectChangedObjectivesOrOther(
 ): Promise<string | undefined> {
 	const { ctx, nowMs, spec, objectiveList, selection } = options;
 	const changedSet = new Set(selection.changedActiveSlugs);
-	const changedRecords = objectiveList.records.filter((record) => changedSet.has(record.slug));
-	const otherRecords = objectiveList.records.filter((record) => !changedSet.has(record.slug));
+	const changedRecords = objectiveList.records.filter((record) => changedSet.has(record.locator));
+	const otherRecords = objectiveList.records.filter((record) => !changedSet.has(record.locator));
 	if (changedRecords.length === 0) {
 		return selectObjectiveSlug({
 			ctx,

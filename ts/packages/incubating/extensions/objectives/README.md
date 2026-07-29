@@ -66,8 +66,12 @@ The extension adds a deterministic, read-only `ns objective` surface for listing
 inspecting records:
 
 ```bash
-ns objective list           # open Objectives (auto-detects trunk; reads .ns/objectives/)
-ns objective show <slug>    # inspect one record
+ns objective list                  # your open Objectives (current owner)
+ns objective list --all-owners     # every owner's records
+ns objective show <owner>/<slug>   # inspect one record by Objective Locator
+ns objective check --all           # repo-wide structural sweep
 ```
 
-`ns objective list` is zero-config; closed records drop out of the default listing.
+Records are owner-nested at `.ns/objectives/<owner>/<slug>/` and addressed by the
+Objective Locator `<owner>/<slug>`; a bare slug is shorthand for the authenticated
+owner's namespace. Closed records drop out of the default listing.

@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Subagent Delegation Policy
 
 ## Thesis

@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Herdr Capability Parity
 
 ## Thesis

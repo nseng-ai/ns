@@ -9,7 +9,7 @@ import {
 
 describe("objective list argument policy", () => {
 	test("completions advertise checkout-local options and status values", () => {
-		expect(values("")).toEqual(["--names", "--status", "--help", "-h"]);
+		expect(values("")).toEqual(["--names", "--status", "--owner", "--all-owners", "--help", "-h"]);
 		expect(values("--status ")).toEqual(["all", "active", "open", "closed"]);
 		expect(values("--status=o")).toEqual(["--status=open"]);
 		expect(values("--view")).toEqual([]);

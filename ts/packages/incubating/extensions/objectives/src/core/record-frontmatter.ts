@@ -4,11 +4,13 @@ import { parse } from "yaml";
 import { z } from "zod";
 
 /**
- * Record Frontmatter: the optional YAML block at the top of an Objective record's
- * `objective.md` (ADR 0025). The schema is closed — exactly `blocked` and `edges` —
- * and this reader only distinguishes well-formed frontmatter from none. Structural
- * violations (dangling slugs, missing mirrors, empty annotations, duplicate pairs)
- * are the edge/blocked linter's job, not this reader's.
+ * Record Frontmatter: the YAML block at the top of an Objective record's
+ * `objective.md` (ADR 0050, superseding ADR 0025's schema). The schema is
+ * closed — required `owner` plus optional `blocked` and `edges` — and this
+ * reader only distinguishes well-formed frontmatter from none. Structural
+ * violations (dangling locators, missing mirrors, empty annotations, duplicate
+ * pairs, owner/path disagreement) are the check linter's job, not this
+ * reader's. Edge endpoints are full `<owner>/<slug>` Objective Locators.
  */
 
 export const objectiveRecordEdgeSchema = z.strictObject({
@@ -17,8 +19,10 @@ export const objectiveRecordEdgeSchema = z.strictObject({
 });
 
 // This schema deliberately serves both raw frontmatter YAML and normalized read output:
-// missing `blocked` and `edges` keys default to `null` and `[]`, while unknown keys stay rejected.
+// missing `blocked` and `edges` keys default to `null` and `[]`, while unknown keys stay
+// rejected. `owner` is required on every record.
 export const objectiveRecordFrontmatterSchema = z.strictObject({
+	owner: z.string(),
 	blocked: z.string().nullable().default(null),
 	edges: z.array(objectiveRecordEdgeSchema).default([]),
 });
@@ -57,7 +61,7 @@ export interface ObjectiveRecordDocument {
  * - An opening fence with no closing fence is malformed and strips nothing, so
  *   readers still see every real line of content.
  * - A well-delimited block that is not valid YAML or not the closed
- *   `blocked`/`edges` schema is malformed; the block is still stripped from the
+ *   `owner`/`blocked`/`edges` schema is malformed; the block is still stripped from the
  *   body so fence and YAML lines are never treated as record content.
  */
 export function splitObjectiveRecordDocument(content: string): ObjectiveRecordDocument {
@@ -81,7 +85,7 @@ export function splitObjectiveRecordDocument(content: string): ObjectiveRecordDo
 	const validated = objectiveRecordFrontmatterSchema.safeParse(parsed ?? {});
 	if (!validated.success) {
 		return malformedFrontmatterDocument(
-			`frontmatter does not match the blocked/edges schema: ${formatZodError(validated.error)}`,
+			`frontmatter does not match the owner/blocked/edges schema: ${formatZodError(validated.error)}`,
 			body,
 		);
 	}

@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: skill-management-subsystem
+  - objective: schrockn/skill-management-subsystem
     annotation: Subobjective of that umbrella; the first follow-on graduated from parked breadth after the ns-skills-steelthread closure. Generalizes first-party provisioning to any npm-module-bundled harness artifact and removes AREG's npx-wrapping features; the umbrella coordinates the reusable-subsystem ambition and remaining deferred breadth.
 ---
 

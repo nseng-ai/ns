@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Landed Architecture Review: Failure-as-Data and Gateway Conventions
 
 ## Thesis

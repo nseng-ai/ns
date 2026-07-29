@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Landed Architecture Review: Handoff over Branch Memory
 
 ## Thesis

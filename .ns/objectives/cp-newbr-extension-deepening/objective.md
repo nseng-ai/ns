@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # CP/Newbr Extension Deepening
 
 ## Thesis

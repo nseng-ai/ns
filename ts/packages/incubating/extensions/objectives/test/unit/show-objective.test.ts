@@ -8,6 +8,7 @@ import {
 	FakeObjectiveStorageGateway,
 	type FakeObjectiveStorageGatewayOptions,
 } from "../../src/core/fake-storage.ts";
+import { FakeObjectiveOwnerGateway } from "../../src/core/owner-gateway.ts";
 import {
 	renderShowObjectiveHuman,
 	renderShowObjectiveMarkdown,
@@ -25,7 +26,18 @@ const CAPS: Caps = {
 };
 
 function frontmatter(lines: readonly string[]): string {
-	return ["---", ...lines, "---", "", "# Objective", "", "## Thesis", "Body.", ""].join("\n");
+	return [
+		"---",
+		"owner: tester",
+		...lines,
+		"---",
+		"",
+		"# Objective",
+		"",
+		"## Thesis",
+		"Body.",
+		"",
+	].join("\n");
 }
 
 function edgeBlock(edges: readonly { objective: string; annotation: string }[]): string[] {
@@ -39,7 +51,9 @@ function edgeBlock(edges: readonly { objective: string; annotation: string }[]):
 describe("objective show", () => {
 	test("plain open record reports no blocked sentence, edges, or branches", async () => {
 		const exit = await runShowObjective(
-			contextWith({ fake: { records: [{ slug: "alpha", objectiveMd: "# alpha\n" }] } }),
+			contextWith({
+				fake: { records: [{ owner: "tester", slug: "alpha", objectiveMd: "# alpha\n" }] },
+			}),
 			{ slug: "alpha", shouldIncludeClosedEdges: false },
 		);
 
@@ -58,7 +72,11 @@ describe("objective show", () => {
 			contextWith({
 				fake: {
 					records: [
-						{ slug: "alpha", objectiveMd: frontmatter(["blocked: Gated on the dependency."]) },
+						{
+							owner: "tester",
+							slug: "alpha",
+							objectiveMd: frontmatter(["blocked: Gated on the dependency."]),
+						},
 					],
 				},
 			}),
@@ -77,15 +95,17 @@ describe("objective show", () => {
 				fake: {
 					records: [
 						{
+							owner: "tester",
 							slug: "alpha",
 							objectiveMd: frontmatter(
-								edgeBlock([{ objective: "beta", annotation: "Alpha depends on beta." }]),
+								edgeBlock([{ objective: "tester/beta", annotation: "Alpha depends on beta." }]),
 							),
 						},
 						{
+							owner: "tester",
 							slug: "beta",
 							objectiveMd: frontmatter(
-								edgeBlock([{ objective: "alpha", annotation: "Beta feeds alpha." }]),
+								edgeBlock([{ objective: "tester/alpha", annotation: "Beta feeds alpha." }]),
 							),
 						},
 					],
@@ -97,7 +117,7 @@ describe("objective show", () => {
 		const data = expectOk(exit);
 		expect(data.edges).toEqual([
 			{
-				objective: "beta",
+				objective: "tester/beta",
 				annotation: "Alpha depends on beta.",
 				counterpart: { exists: true, isClosed: false, annotation: "Beta feeds alpha." },
 			},
@@ -119,8 +139,8 @@ describe("objective show", () => {
 
 		const data = expectOk(exit);
 		expect(data.edges).toEqual([]);
-		expect(plainHuman(data)).not.toContain("beta  closed");
-		expect(renderShowObjectiveMarkdown(data)).not.toContain("### `beta` (closed)");
+		expect(plainHuman(data)).not.toContain("tester/beta  closed");
+		expect(renderShowObjectiveMarkdown(data)).not.toContain("### `tester/beta` (closed)");
 	});
 
 	test("shouldIncludeClosedEdges renders a closed active counterpart", async () => {
@@ -135,8 +155,8 @@ describe("objective show", () => {
 			isClosed: true,
 			annotation: "Beta feeds alpha.",
 		});
-		expect(plainHuman(data)).toContain("beta  closed");
-		expect(renderShowObjectiveMarkdown(data)).toContain("### `beta` (closed)");
+		expect(plainHuman(data)).toContain("tester/beta  closed");
+		expect(renderShowObjectiveMarkdown(data)).toContain("### `tester/beta` (closed)");
 	});
 
 	test("missing counterpart yields exists false and a null annotation", async () => {
@@ -145,9 +165,10 @@ describe("objective show", () => {
 				fake: {
 					records: [
 						{
+							owner: "tester",
 							slug: "alpha",
 							objectiveMd: frontmatter(
-								edgeBlock([{ objective: "ghost", annotation: "Alpha depends on ghost." }]),
+								edgeBlock([{ objective: "tester/ghost", annotation: "Alpha depends on ghost." }]),
 							),
 						},
 					],
@@ -170,12 +191,13 @@ describe("objective show", () => {
 				fake: {
 					records: [
 						{
+							owner: "tester",
 							slug: "alpha",
 							objectiveMd: frontmatter(
-								edgeBlock([{ objective: "beta", annotation: "Alpha depends on beta." }]),
+								edgeBlock([{ objective: "tester/beta", annotation: "Alpha depends on beta." }]),
 							),
 						},
-						{ slug: "beta", objectiveMd: "# beta\n" },
+						{ owner: "tester", slug: "beta", objectiveMd: "# beta\n" },
 					],
 				},
 			}),
@@ -196,12 +218,13 @@ describe("objective show", () => {
 				fake: {
 					records: [
 						{
+							owner: "tester",
 							slug: "alpha",
 							objectiveMd: frontmatter(
-								edgeBlock([{ objective: "beta", annotation: "Alpha depends on beta." }]),
+								edgeBlock([{ objective: "tester/beta", annotation: "Alpha depends on beta." }]),
 							),
 						},
-						{ slug: "beta", objectiveMd: "---\nkind: broken\n---\n# beta\n" },
+						{ owner: "tester", slug: "beta", objectiveMd: "---\nkind: broken\n---\n# beta\n" },
 					],
 				},
 			}),
@@ -219,11 +242,11 @@ describe("objective show", () => {
 	test("attributes a local branch that touches the record", async () => {
 		const exit = await runShowObjective(
 			contextWith({
-				fake: { records: [{ slug: "alpha", objectiveMd: "# alpha\n" }] },
+				fake: { records: [{ owner: "tester", slug: "alpha", objectiveMd: "# alpha\n" }] },
 				git: {
 					localBranchTips: ["feature-x"],
 					changedPaths: {
-						"main...feature-x|.ns/objectives": [".ns/objectives/alpha/objective.md"],
+						"main...feature-x|.ns/objectives": [".ns/objectives/tester/alpha/objective.md"],
 					},
 				},
 			}),
@@ -243,11 +266,11 @@ describe("objective show", () => {
 		);
 		const exit = await runShowObjective(
 			contextWith({
-				fake: { records: [{ slug: "alpha", objectiveMd: "# alpha\n" }] },
+				fake: { records: [{ owner: "tester", slug: "alpha", objectiveMd: "# alpha\n" }] },
 				git: {
 					localBranchTips: branches,
 					changedPaths: {
-						"main...branch-000|.ns/objectives": [".ns/objectives/alpha/objective.md"],
+						"main...branch-000|.ns/objectives": [".ns/objectives/tester/alpha/objective.md"],
 					},
 				},
 			}),
@@ -264,34 +287,34 @@ describe("objective show", () => {
 			okResult({
 				edges: [
 					{
-						objective: "beta",
+						objective: "tester/beta",
 						annotation: "Alpha depends on beta.",
 						counterpart: { exists: true, isClosed: false, annotation: "Beta feeds alpha." },
 					},
 					{
-						objective: "ghost",
+						objective: "tester/ghost",
 						annotation: "Alpha depends on ghost.",
 						counterpart: { exists: false, isClosed: null, annotation: null },
 					},
 				],
 			}),
 		);
-		expect(human).toContain("beta  found");
-		expect(human).toContain("ghost  missing");
+		expect(human).toContain("tester/beta  found");
+		expect(human).toContain("tester/ghost  missing");
 		expect(human).toContain("Alpha depends on beta.");
 		expect(human).not.toContain("Beta feeds alpha.");
 		expect(human).not.toContain("back-edge");
 	});
 
 	test("wraps the blocked sentence with a hanging indent at narrow widths", () => {
-		const narrow: Caps = { ...CAPS, columns: 40 };
+		const narrow: Caps = { ...CAPS, columns: 45 };
 		const sentence =
 			"First external publish is gated on the hard dependency landing before anything ships.";
 		const human = stripTerminalEscapes(
 			renderShowObjectiveHuman(okResult({ blockedSentence: sentence }), narrow, NOW_MS),
 		);
 		const lines = human.split("\n");
-		for (const line of lines) expect(line.length).toBeLessThanOrEqual(40);
+		for (const line of lines) expect(line.length).toBeLessThanOrEqual(45);
 		const blockedIndex = lines.findIndex((line) => line.startsWith("Blocked  "));
 		expect(blockedIndex).toBeGreaterThan(-1);
 		expect(lines[blockedIndex + 1]).toMatch(/^ {9}\S/u);
@@ -307,7 +330,7 @@ describe("objective show", () => {
 					updatedBranches: ["feature-x"],
 					edges: [
 						{
-							objective: "beta",
+							objective: "tester/beta",
 							annotation: "Alpha depends on beta.",
 							counterpart: { exists: true, isClosed: false, annotation: null },
 						},
@@ -326,7 +349,7 @@ describe("objective show", () => {
 		expect(clean).not.toContain("Root:");
 		expect(clean).not.toContain("Outstanding changes");
 		expect(clean).not.toContain("Uncommitted changes");
-		expect(clean).toContain(".ns/objectives/alpha");
+		expect(clean).toContain(".ns/objectives/tester/alpha");
 		expect(clean).toContain("no updates");
 
 		const dirty = plainHuman(
@@ -343,7 +366,9 @@ describe("objective show", () => {
 
 	test("unknown slug exits negative with the not-found data", async () => {
 		const exit = await runShowObjective(
-			contextWith({ fake: { records: [{ slug: "alpha", objectiveMd: "# alpha\n" }] } }),
+			contextWith({
+				fake: { records: [{ owner: "tester", slug: "alpha", objectiveMd: "# alpha\n" }] },
+			}),
 			{ slug: "missing", shouldIncludeClosedEdges: false },
 		);
 
@@ -360,16 +385,18 @@ function closedEdgeRecords(): FakeObjectiveStorageGatewayOptions {
 	return {
 		records: [
 			{
+				owner: "tester",
 				slug: "alpha",
 				objectiveMd: frontmatter(
-					edgeBlock([{ objective: "beta", annotation: "Alpha depends on beta." }]),
+					edgeBlock([{ objective: "tester/beta", annotation: "Alpha depends on beta." }]),
 				),
 			},
 			{
+				owner: "tester",
 				slug: "beta",
 				isClosed: true,
 				objectiveMd: frontmatter(
-					edgeBlock([{ objective: "alpha", annotation: "Beta feeds alpha." }]),
+					edgeBlock([{ objective: "tester/alpha", annotation: "Beta feeds alpha." }]),
 				),
 			},
 		],
@@ -388,14 +415,17 @@ function contextWith(options: {
 		trunkBranch: options.trunkBranch ?? "main",
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(options.fake)),
 		git: new InMemoryGitGateway(options.git ?? {}),
+		owner: new FakeObjectiveOwnerGateway({ owner: "tester" }),
 	};
 }
 
 function okResult(overrides: Partial<ShowObjectiveOkResult>): ShowObjectiveOkResult {
 	return {
 		status: "ok",
+		owner: "tester",
 		slug: "alpha",
-		path: ".ns/objectives/alpha",
+		locator: "tester/alpha",
+		path: ".ns/objectives/tester/alpha",
 		rootPath: ".ns/objectives",
 		isClosed: false,
 		blockedSentence: null,

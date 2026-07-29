@@ -1,9 +1,15 @@
 import { z } from "zod";
 
 const gitShaSchema = z.string().regex(/^[0-9a-f]{40}$/, "Expected a full 40-character Git SHA.");
+// Canonical form is the full Objective Locator `<owner>/<slug>`; the bare
+// kebab slug remains accepted for legacy commit trailers written before the
+// owner-aware migration.
 const objectiveSlugSchema = z
 	.string()
-	.regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Expected an Objective slug.");
+	.regex(
+		/^[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)?$/,
+		"Expected an Objective locator or legacy slug.",
+	);
 const nonEmptyStringSchema = z.string().trim().min(1);
 
 export const objectiveRunnerPublicationTargetSchema = z

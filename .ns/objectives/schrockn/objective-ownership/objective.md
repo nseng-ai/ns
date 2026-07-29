@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Objective Ownership
 
 ## Thesis

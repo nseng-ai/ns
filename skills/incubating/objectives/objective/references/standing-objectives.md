@@ -18,7 +18,7 @@ The Horizon (bounded ↔ standing) and Drive (human ↔ autonomous) axes — and
 Standing Objectives use the normal record shape:
 
 ```text
-.ns/objectives/<slug>/
+.ns/objectives/<owner>/<slug>/
   objective.md
   roadmap.md
   updates/

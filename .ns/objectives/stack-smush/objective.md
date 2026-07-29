@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Stack Smush
 
 ## Thesis

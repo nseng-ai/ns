@@ -9,7 +9,7 @@ Timestamped, human-readable, collision-checked; an existing event is immutable,
 so a collision means a new filename, never an overwrite or amend:
 
 ```text
-.ns/objectives/<slug>/updates/YYYY-MM-DDTHHMMSSZ-packaging-event-<safe-run>.md
+.ns/objectives/<owner>/<slug>/updates/YYYY-MM-DDTHHMMSSZ-packaging-event-<safe-run>.md
 ```
 
 ## Template

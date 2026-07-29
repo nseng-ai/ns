@@ -6,16 +6,16 @@ describe("parseObjectiveCandidatesData", () => {
 	test("parses candidate payloads", () => {
 		const parsed = parseObjectiveCandidatesData({
 			records: [
-				{ slug: "alpha", status: "open" },
-				{ slug: "bravo", status: "closed" },
+				{ owner: "tester", slug: "alpha", locator: "tester/alpha", status: "open" },
+				{ owner: "tester", slug: "bravo", locator: "tester/bravo", status: "closed" },
 			],
 		});
 
 		expect(parsed).toEqual({
 			type: "valid",
 			records: [
-				{ slug: "alpha", status: "open" },
-				{ slug: "bravo", status: "closed" },
+				{ owner: "tester", slug: "alpha", locator: "tester/alpha", status: "open" },
+				{ owner: "tester", slug: "bravo", locator: "tester/bravo", status: "closed" },
 			],
 		});
 	});
@@ -32,14 +32,28 @@ describe("parseObjectiveCandidatesData", () => {
 
 describe("objectiveCompletionItem", () => {
 	test("includes descriptions for each candidate", () => {
-		expect(objectiveCompletionItem({ slug: "alpha", status: "open" })).toEqual({
-			value: "alpha",
-			label: "alpha",
+		expect(
+			objectiveCompletionItem({
+				owner: "tester",
+				slug: "alpha",
+				locator: "tester/alpha",
+				status: "open",
+			}),
+		).toEqual({
+			value: "tester/alpha",
+			label: "tester/alpha",
 			description: "open",
 		});
-		expect(objectiveCompletionItem({ slug: "bravo", status: "closed" })).toEqual({
-			value: "bravo",
-			label: "bravo",
+		expect(
+			objectiveCompletionItem({
+				owner: "tester",
+				slug: "bravo",
+				locator: "tester/bravo",
+				status: "closed",
+			}),
+		).toEqual({
+			value: "tester/bravo",
+			label: "tester/bravo",
 			description: "closed",
 		});
 	});

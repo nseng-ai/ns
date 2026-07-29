@@ -2,6 +2,7 @@ import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 
+import { RealObjectiveOwnerGateway, type ObjectiveOwnerGateway } from "./owner-gateway.ts";
 import { RealObjectiveStorageGateway } from "./real-storage.ts";
 import { ObjectiveStorage } from "./storage.ts";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
@@ -13,6 +14,7 @@ export interface ObjectiveCliContext {
 	trunkBranch: string;
 	storage: ObjectiveStorage;
 	git: GitGateway;
+	owner: ObjectiveOwnerGateway;
 }
 
 export async function createRealObjectiveContext(
@@ -20,6 +22,7 @@ export async function createRealObjectiveContext(
 		cwd?: string;
 		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 		git?: GitGateway;
+		owner?: ObjectiveOwnerGateway;
 	} = {},
 ): Promise<ObjectiveCliContext> {
 	const cwd = options.cwd ?? process.cwd();
@@ -37,5 +40,6 @@ export async function createRealObjectiveContext(
 		trunkBranch,
 		storage: new ObjectiveStorage(new RealObjectiveStorageGateway(repoRoot)),
 		git,
+		owner: options.owner ?? new RealObjectiveOwnerGateway(execApi, { cwd: repoRoot }),
 	};
 }

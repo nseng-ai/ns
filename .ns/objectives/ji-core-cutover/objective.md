@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # ji core cutover
 
 ## Thesis

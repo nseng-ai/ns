@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: ontology-reshape
+  - objective: schrockn/ontology-reshape
     annotation: Extracted 2026-07-12 from that record's "Spec the kernel → sdk rename" grilling row, whose mechanics were grilled and ratified in the creation session (ADR 0035 + kernel-sdk-rename-spec.md); execution proceeds here via the reshaping handoff vehicle's New-Objective hatch, and its row resolves when this record closes.
 ---
 

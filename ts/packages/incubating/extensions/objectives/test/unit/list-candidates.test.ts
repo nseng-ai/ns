@@ -10,23 +10,28 @@ import {
 	renderListCandidates,
 	runListCandidates,
 } from "../../src/core/operations/list-candidates.ts";
+import { FakeObjectiveOwnerGateway } from "../../src/core/owner-gateway.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 
 describe("objective list-candidates operation", () => {
 	test("selects active open checkout records without non-active records or git facts", async () => {
 		const ctx = contextWithFakeStorage({
-			records: [{ slug: "alpha" }, { slug: "bravo", isClosed: true }, { slug: "charlie" }],
+			records: [
+				{ owner: "tester", slug: "alpha" },
+				{ owner: "tester", slug: "bravo", isClosed: true },
+				{ owner: "tester", slug: "charlie" },
+			],
 			directories: [".ns/not-objectives/ignored"],
 		});
 
-		const exit = await runListCandidates(ctx, {});
+		const exit = await runListCandidates(ctx, { allOwners: false });
 
 		expect(exit).toEqual({
 			type: "ok",
 			data: {
 				records: [
-					{ slug: "alpha", status: "open" },
-					{ slug: "charlie", status: "open" },
+					{ owner: "tester", slug: "alpha", locator: "tester/alpha", status: "open" },
+					{ owner: "tester", slug: "charlie", locator: "tester/charlie", status: "open" },
 				],
 			},
 		});
@@ -34,11 +39,16 @@ describe("objective list-candidates operation", () => {
 	});
 
 	test("renders TSV rows used by Pi autocomplete consumers", async () => {
-		const ctx = contextWithFakeStorage({ records: [{ slug: "alpha" }, { slug: "charlie" }] });
-		const exit = await runListCandidates(ctx, {});
+		const ctx = contextWithFakeStorage({
+			records: [
+				{ owner: "tester", slug: "alpha" },
+				{ owner: "tester", slug: "charlie" },
+			],
+		});
+		const exit = await runListCandidates(ctx, { allOwners: false });
 		if (exit.type !== "ok") throw new Error("expected ok exit");
 
-		expect(renderListCandidates(exit.data)).toBe("alpha\topen\ncharlie\topen");
+		expect(renderListCandidates(exit.data)).toBe("tester/alpha\topen\ntester/charlie\topen");
 	});
 });
 
@@ -54,5 +64,6 @@ function contextWithFakeStorage(fake: FakeObjectiveStorageGatewayOptions): FakeO
 		trunkBranch: "master",
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(fake)),
 		git: new InMemoryGitGateway(),
+		owner: new FakeObjectiveOwnerGateway({ owner: "tester" }),
 	};
 }

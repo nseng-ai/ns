@@ -9,23 +9,23 @@ The public ns-grouped Objective CLI surface — `ns objective ...` — whose com
 *Avoid*: Objective extension package API, hidden `exec` group, top-level `objective` binary, Objective record database, Pi command adapter
 
 **Checkout-local `ns objective list`**:
-The `ns objective list` behavior that inventories Objective records under the root-defined **Active Objective Root** in the current checkout, reporting per-record status, latest update, related local-branch count, and Objective Edge count. Local branch names and edge-attribution detail are no longer a `list` concern; they move to `ns objective show`.
-*Avoid*: Graphite stack projection, deleted-record discovery, Objective selection authority, cross-worktree inventory, per-record branch-name attribution
+The `ns objective list` behavior that inventories Objective records under the root-defined **Active Objective Root** in the current checkout, reporting per-record owner, locator, status, latest update, related local-branch count, and Objective Edge count. The default scope is the authenticated current owner's namespace; `--owner <handle>` selects a specific owner and `--all-owners` opts into every owner, both working without authentication. Human output groups records under `@owner` headings; `--names` and machine output use full Objective Locators. Local branch names and edge-attribution detail are no longer a `list` concern; they move to `ns objective show`.
+*Avoid*: Graphite stack projection, deleted-record discovery, Objective selection authority, cross-worktree inventory, per-record branch-name attribution, cross-owner default listing
 
 **`ns objective show`**:
-The `ns objective show <slug>` visible read-only command (Tier 0) that renders one Objective Edge in detail: status and Blocked Sentence, latest update and outstanding-changes state, the local branches whose changes touch the record (the branch attribution formerly on `list`, via Git path-touch facts), and non-closed Objective Edges by default with both perspectives — this record's Edge Annotation and the counterpart's back-edge annotation plus whether the counterpart record exists and whether the resolved counterpart has a closure marker. Closed counterpart edges are intentionally hidden from the default human focus and can be included explicitly.
+The `ns objective show <locator>` visible read-only command (Tier 0) that renders one Objective Edge in detail: status and Blocked Sentence, latest update and outstanding-changes state, the local branches whose changes touch the record (the branch attribution formerly on `list`, via Git path-touch facts), and non-closed Objective Edges by default with both perspectives — this record's Edge Annotation and the counterpart's back-edge annotation plus whether the counterpart record exists and whether the resolved counterpart has a closure marker. Closed counterpart edges are intentionally hidden from the default human focus and can be included explicitly.
 *Avoid*: Graphite stack projection, Objective selection authority, edge mutation surface, prose interpretation, hidden `exec` placement
 
 **EDGES list column**:
 The `ns objective list` column to the right of BRANCHES showing a record's **Objective Edge** count (blank when zero) on the pretty, table, and markdown surfaces, paired with blocked STATUS rendering that uses the blocked glyph `⊘` (ascii fallback `!`, warn intent) and the text `blocked` while the machine lifecycle status remains `open`, per the root **Blocked Sentence** term.
 *Avoid*: edge detail rendering (that is `ns objective show`), annotation display (that is `ns objective show`), blocked lifecycle status in machine output, deriving blocked state from body prose
 
-**Edge linting in `ns objective check`**:
-The structural **Record Frontmatter** lint in `ns objective check`: the per-slug check validates that record's edges including mirror lookups, and the `ns objective check --all` (short `-a`) sweep covers every active-root record with frontmatter-only parsing, scoped to edge/blocked structural lint rather than the full heading checks. Violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors; one warning-severity advisory (a Blocked Sentence alongside a closed edge counterpart, from marker state only) is reported without failing the check or sweep; the linter never interprets **Edge Annotation** prose or derives blocked state.
-*Avoid*: full-check sweep, prose-quality lint, blocked-state derivation, full-body record reads, edge mutation surface
+**Structural sweep in `ns objective check`**:
+The structural **Record Frontmatter** and storage-hygiene lint in `ns objective check`: the per-locator check validates that record's owner (present, syntactically valid, agreeing with the owner path segment for nested records) and its edges including cross-owner mirror lookups, and the `ns objective check --all` (short `-a`) sweep covers every discovered record plus Active Objective Root hygiene — flat open records, invalid owner/slug directory names, empty owner directories, unexpected root files, duplicate locators, record-like directories deeper than `<owner>/<slug>` — with frontmatter-only parsing rather than the full heading checks. Violations — missing/invalid owner, dangling locator, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence, structural findings — are errors; warning-severity advisories are reported without failing the check or sweep; the linter never interprets **Edge Annotation** prose or derives blocked state.
+*Avoid*: edge-only sweep, prose-quality lint, blocked-state derivation, full-body record reads, edge mutation surface, live GitHub handle verification
 
 **Hidden `ns objective exec`**:
-The hidden `ns objective exec ...` command group of deterministic skill- and agent-facing fact helpers (`list-candidates`, `load-orientations`, `read-objective`, `runner-begin`, `runner-finish`, `runner-subagent-usage`, `tracking-gate`), kept out of the public human command surface and out of the extension package API. The visible `ns objective show` is the human-facing single-record detail sibling of the hidden `exec read-objective` filesystem reader, not a member of this group.
+The hidden `ns objective exec ...` command group of deterministic skill- and agent-facing fact helpers (`list-candidates`, `load-orientations`, `read-objective`, `resolve-owner`, `runner-begin`, `runner-finish`, `runner-subagent-usage`, `tracking-gate`), kept out of the public human command surface and out of the extension package API. The visible `ns objective show` is the human-facing single-record detail sibling of the hidden `exec read-objective` filesystem reader, not a member of this group.
 *Avoid*: public human command, Objective extension package API, Markdown-meaning interpreter, stable scripting contract
 
 **Checked-in Objective record storage**:
@@ -39,6 +39,10 @@ The curated `@nseng-ai/objectives/api` surface for in-process sibling consumers,
 **Objective Client**:
 The `ObjectiveClient` facade returned by `createObjectiveClient`, exposing `listObjectives` / `readObjective` / `listActiveCandidates` as clean ok/failure results.
 *Avoid*: command-face `ClinkrExit` types, raw storage gateway, parsed CLI JSON, host `ctx` object
+
+**Objective Owner Gateway**:
+The Objective-owned Consumer Gateway (`ObjectiveOwnerGateway`) that resolves the current **Objective Owner** — today the authenticated GitHub login via the smallest non-mutating `gh` operation — returning domain-shaped ok/unavailable results and never raw subprocess vocabulary. Full locators, explicit `--owner`, and `--all-owners` paths never invoke it; a future per-user configuration source replaces the adapter behind this seam without changing storage or command semantics.
+*Avoid*: ambient gh dependency, GitHub handle verification, auth requirement for explicit locators, config store
 
 **Objective Domain Core**:
 The gateway-injected logic that runs over the `ObjectiveCliContext` seam (its Git and Objective-storage **Gateways**) with no dependency on a raw host `ctx` or the Pi runtime; the **Objective extension package API** and the `ns objective` command surface are thin edges over it.

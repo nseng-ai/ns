@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: skill-management-subsystem
+  - objective: schrockn/skill-management-subsystem
     annotation: Subobjective of this umbrella — remediates the confirmed findings from the 2026-07-06 thermo-nuclear review of the harness-artifacts stack (provisioning subsystem, AREG inspector slim-down, ns/ns-init wiring) before the stack's breadth work continues.
 ---
 

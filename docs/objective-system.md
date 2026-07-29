@@ -17,11 +17,11 @@ Objective records live under the checked-in active root:
 .ns/objectives/
 ```
 
-Each objective is keyed by its directory slug. Records use this shape:
+Each objective is keyed by its **Objective Locator** `<owner>/<slug>`: a required singular owner (steward, not access control) plus an owner-local slug. Canonical records are owner-nested:
 
 ```text
-.ns/objectives/<slug>/
-  objective.md
+.ns/objectives/<owner>/<slug>/
+  objective.md     # starts with Record Frontmatter carrying required owner
   roadmap.md
   orientation.md   # optional; orienting active Objectives only
   updates/
@@ -31,13 +31,14 @@ Each objective is keyed by its directory slug. Records use this shape:
 Rules:
 
 - `.ns/objectives/` is first-class repository content and should be committed.
-- The `<slug>` directory name is the stable objective identity while the record exists in the checkout.
+- The locator `<owner>/<slug>` is the stable objective identity while the record exists in the checkout. Slugs are owner-local: uniqueness is required only within one owner's namespace.
 - The markdown title may change without changing objective identity.
-- Command, product, branch, package, and prose renames do not imply Objective slug renames.
-- Moving `.ns/objectives/<old>/` to `.ns/objectives/<new>/` is an explicit Objective slug migration and should stop normal Objective workflows until a user chooses the canonical identity.
+- Command, product, branch, package, and prose renames do not imply Objective locator renames.
+- Owner and slug are immutable. Renames and ownership transfer use close-and-replace (**Objective Replacement**), never in-place moves; a moved directory should stop normal Objective workflows until a user chooses the canonical identity.
+- Flat records directly under `.ns/objectives/` are legacy: a flat *open* record is invalid and reported by `ns objective check --all`; a flat directory is tolerated only while it contains `closed.md`, with its owner read from frontmatter (ADR 0050).
 - `closed.md` records closure state. Closed records remain in `.ns/objectives/` until a human deletes them.
-- If a record should disappear from active checkout state, delete `.ns/objectives/<slug>/` through ordinary source control; recover it from git history if needed.
-- Do not add UUIDs, registries, tombstones, slug reservations, or hidden attachment metadata. The only sanctioned YAML is optional Record Frontmatter at the top of `objective.md`, carrying exactly `blocked` and `edges` (ADR 0025; see Record Frontmatter below).
+- If a record should disappear from active checkout state, delete `.ns/objectives/<owner>/<slug>/` through ordinary source control; recover it from git history if needed.
+- Do not add UUIDs, registries, tombstones, slug reservations, or hidden attachment metadata. The only sanctioned YAML is Record Frontmatter at the top of `objective.md`, a closed schema of required `owner` plus optional `blocked` and `edges` (ADR 0050; see Record Frontmatter below).
 - V1 starts fresh from `.ns/objectives/`; `docs/objectives/` is not a canonical root and has no compatibility behavior.
 
 ## Documentation Surfaces
@@ -84,23 +85,25 @@ Agent-facing progressive-disclosure details live in skill references: `skills/in
 
 ### Record Frontmatter
 
-`objective.md` may begin with optional **Record Frontmatter**: a YAML block carrying exactly two keys, `blocked` and `edges`, and nothing else (ADR 0025). Most records have no frontmatter; readers behave identically either way.
+`objective.md` begins with **Record Frontmatter**: a YAML block whose closed schema is required `owner` plus optional `blocked` and `edges`, and nothing else (ADR 0050). Every record carries `owner`; readers behave identically whether the optional keys are present or not.
 
 ```yaml
 ---
+owner: schrockn
 blocked: First external publish is gated on checkout-free distribution landing.
 edges:
-  - objective: checkout-free-sdl-distribution
+  - objective: schrockn/checkout-free-sdl-distribution
     annotation: Consumed as a hard dependency; must land before this ships externally.
 ---
 ```
 
 Rules:
 
-- **Objective Edges** are undirected, kind-less, mirrored connections between two Objective records. Each endpoint lists the other under `edges:` as `{objective: <slug>, annotation: <sentence>}`, with the required **Edge Annotation** written from that record's perspective — the two sentences are deliberately different texts. Edge identity is the unordered slug pair; at most one edge between two records. Direction, causality, and relationship kind live in the prose, never the schema.
+- **`owner`** is the required steward handle. It must match the record's owner path segment for nested records; validation is offline and syntactic only, never verified against GitHub.
+- **Objective Edges** are undirected, kind-less, mirrored connections between two Objective records (ADR 0025). Each endpoint lists the other under `edges:` as `{objective: <owner>/<slug>, annotation: <sentence>}` — endpoints are full locators — with the required **Edge Annotation** written from that record's perspective — the two sentences are deliberately different texts. Edge identity is the unordered pair of locators; at most one edge between two records. Direction, causality, and relationship kind live in the prose, never the schema.
 - **Blocked Sentence**: `blocked:` is prose-valued; its presence means the record is blocked (for any reason — another objective, an external gate) and its value says why. There is no boolean; blocked is a sub-state of open, not a lifecycle state. It is set and cleared only by skill judgment, never by machine auto-flip.
 - **Mutation is skill-owned.** There is no public CLI mutation surface; the `objective-create`, `objective-update`, and `objective-close` step skills own writing edges and judging Blocked Sentences (`objective-refresh` also re-judges Blocked Sentences whose gate is verifiably resolved, including through its inline close). Because edges are mirrored, an edge mutation is a two-file edit touching the counterpart record's frontmatter — the ordinary sanctioned exception to one-Objective mutation boundaries, limited strictly to the counterpart's frontmatter block. Objective Close has a broader bounded exception: any close path — explicit or inline — must inspect every edge-connected Objective's full current tracking, re-judge its Blocked Sentence, and update affected active counterparts when closure changes their durable meaning.
-- **Verification**: after any frontmatter edit, run `ns objective check <slug>` or `ns objective check --all`.
+- **Verification**: after any frontmatter edit, run `ns objective check <owner>/<slug>` or `ns objective check --all`.
 
 ### `roadmap.md`
 
@@ -141,7 +144,7 @@ Do not add task IDs, owners, priority fields, due dates, lifecycle metadata, or 
 
 ### `orientation.md`
 
-`orientation.md` is an optional agent-facing standing rule for orienting active Objectives whose direction unrelated agents must respect. Presence of a direct `.ns/objectives/<slug>/orientation.md` file is the opt-in flag; there is no separate registry. Direct `.ns/objectives/<slug>/closed.md` removes the orientation from the always-load set automatically. The file should keep durable `Direction` / `Getting to` guidance separate from temporary `What you see now` / `Avoid` guidance and leave lifecycle/graduation metadata in `roadmap.md`.
+`orientation.md` is an optional agent-facing standing rule for orienting active Objectives whose direction unrelated agents must respect. Presence of a direct `.ns/objectives/<owner>/<slug>/orientation.md` file is the opt-in flag; there is no separate registry. Direct `.ns/objectives/<owner>/<slug>/closed.md` removes the orientation from the always-load set automatically. The file should keep durable `Direction` / `Getting to` guidance separate from temporary `What you see now` / `Avoid` guidance and leave lifecycle/graduation metadata in `roadmap.md`.
 
 ### `updates/`
 
@@ -197,15 +200,15 @@ Edges remain in place at closure unless the relationship itself is disproven; cl
 
 When an operation needs an existing active objective, resolve it in this order:
 
-1. Use an explicit user-provided slug or path under `.ns/objectives/<slug>/`.
-2. If no slug or path is explicit, list candidate objective directories under `.ns/objectives/` and ask the user to choose. Use the operation's state filter when it has one, such as active objectives for active-objective workflows.
+1. Use an explicit user-provided locator (`<owner>/<slug>`), owner-local bare slug (shorthand for `<current-owner>/<slug>`), or path under `.ns/objectives/<owner>/<slug>/`. Path-shaped selections normalize to locators; a bare slug never falls back to another owner's namespace.
+2. If no locator or path is explicit, list candidate objective records under `.ns/objectives/` and ask the user to choose. Use the operation's state filter when it has one, such as active objectives for active-objective workflows.
 3. If no candidates exist, report that no objectives exist and suggest `objective-create` when appropriate.
 
-A previously deleted slug may be recreated when the user explicitly wants that identity again; source control history is the only historical link.
+A previously deleted locator may be recreated when the user explicitly wants that identity again; source control history is the only historical link.
 
-Operation-specific exception: when no slug or path is explicit, the user explicitly requested an Objective update, and the active-objective listing returns exactly one candidate, `objective-update` may present that objective as the only candidate. It must ask a short confirmation question before continuing to repo evidence or mutation. If update intent is ambiguous, ask a one-line invocation confirmation first. If multiple active objectives exist, still present the options and ask the user to choose.
+Operation-specific exception: when no locator or path is explicit, the user explicitly requested an Objective update, and the active-objective listing returns exactly one candidate, `objective-update` may present that objective as the only candidate. It must ask a short confirmation question before continuing to repo evidence or mutation. If update intent is ambiguous, ask a one-line invocation confirmation first. If multiple active objectives exist, still present the options and ask the user to choose.
 
-Non-binding picker grouping exception: when a UI picker has already listed active objectives, it may use deterministic git facts to group changed active objectives first when direct changes under `.ns/objectives/<slug>/` are present compared with the repository trunk. If exactly one active objective is the only objective slug changed, the picker may label it as suggested. If multiple active objectives changed, the picker may show those changed active objectives in the first menu and offer a separate option to view the remaining active objectives. The user must still confirm a changed objective or choose another objective. If the diff is unavailable, empty, or contains no changed slugs that are active objectives, the picker should show the normal ordering with no suggestion.
+Non-binding picker grouping exception: when a UI picker has already listed active objectives, it may use deterministic git facts to group changed active objectives first when direct changes under `.ns/objectives/<owner>/<slug>/` are present compared with the repository trunk. Picker candidate values and labels are full locators. If exactly one active objective is the only objective changed, the picker may label it as suggested. If multiple active objectives changed, the picker may show those changed active objectives in the first menu and offer a separate option to view the remaining active objectives. The user must still confirm a changed objective or choose another objective. If the diff is unavailable, empty, or contains no changed records that are active objectives, the picker should show the normal ordering with no suggestion.
 
 Do not silently auto-select from candidate count or changed/touched files. Never infer objective ownership from branch names, PR titles, package names, roadmap keywords, or other hidden attachment mechanisms. Changed-path, branch, stack, or PR evidence may be used only by operation-specific checks after an objective is selected.
 
@@ -220,29 +223,31 @@ Lists compact Objective records in the current checkout.
 Contract:
 
 - Read Objective records only from `.ns/objectives/` in the current working tree; deleted records are absent even when `--status all` is passed.
-- Report checkout-local status from the active record: direct `.ns/objectives/<slug>/closed.md` means `closed`; an Objective record without direct `closed.md` means `open`.
-- Do not treat nested files such as `.ns/objectives/<slug>/updates/closed.md` as closure markers.
+- Default to the current owner's namespace (the authenticated GitHub login). `--owner <handle>` selects one owner and `--all-owners` selects all; both work without authentication. Human output groups records under `@owner` headings.
+- Report checkout-local status from the active record: direct `.ns/objectives/<owner>/<slug>/closed.md` means `closed`; an Objective record without direct `closed.md` means `open`.
+- Do not treat nested files such as `.ns/objectives/<owner>/<slug>/updates/closed.md` as closure markers.
 - Default to active/open Objective records. Closed records are included only with `--status closed` or `--status all`.
 - Provide a `--status {all,active,open,closed}` filter. The default is `active`.
-- Provide a `--names` flag that emits Objective slugs only, one per line after the status filter is applied.
-- Compute `latest_update_iso` from the newest committed update touching `.ns/objectives/<slug>/` when available; otherwise report `null`.
-- Prefix the human and Markdown latest-update cell with `(x)` when the checkout has staged, unstaged, or untracked changes under `.ns/objectives/<slug>/`. A dirty record with no committed update renders `(x) —`.
+- Provide a `--names` flag that emits full Objective Locators only, one per line after the status and owner filters are applied.
+- Compute `latest_update_iso` from the newest committed update touching `.ns/objectives/<owner>/<slug>/` when available; otherwise report `null`.
+- Prefix the human and Markdown latest-update cell with `(x)` when the checkout has staged, unstaged, or untracked changes under `.ns/objectives/<owner>/<slug>/`. A dirty record with no committed update renders `(x) —`.
 - Render Record Frontmatter facts compactly: a `blocked:` sentence displays as blocked state text while lifecycle status remains `open`, and declared Objective Edges contribute an edge count. Missing, unreadable, or malformed frontmatter lists like a record with no frontmatter; `ns objective check` reports malformed frontmatter.
-- Include a compact related-branch count for each record: the number of local non-trunk branches that `ns objective show <slug>` would list under Branches, subject to the same branch-walk ceiling. `list` shows counts only; `show` is the drill-down surface for branch names.
-- Emit machine JSON as a Clinkr envelope whose `data` contains `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records`. Each record contains `slug`, `status`, `latest_update_iso`, `has_outstanding_changes`, optional `is_blocked` / `edge_count`, and optional `updated_branch_count` when at least one local non-trunk branch touches the record.
+- Include a compact related-branch count for each record: the number of local non-trunk branches that `ns objective show <locator>` would list under Branches, subject to the same branch-walk ceiling. `list` shows counts only; `show` is the drill-down surface for branch names.
+- Emit machine JSON as a Clinkr envelope whose `data` contains `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records`. Each record carries its full locator plus owner and slug, `status`, `latest_update_iso`, `has_outstanding_changes`, optional `is_blocked` / `edge_count`, and optional `updated_branch_count` when at least one local non-trunk branch touches the record.
 - Do not parse Markdown prose, summarize Objective bodies, list related branch names, choose a canonical branch, or depend on Graphite.
-- The shipped command has no Graphite branch projection, third active status, current-branch mode, branch-attribution name view, or detail view. Use `ns objective show <slug>` for single-record details and related-branch attribution.
+- The shipped command has no Graphite branch projection, third active status, current-branch mode, branch-attribution name view, or detail view. Use `ns objective show <locator>` for single-record details and related-branch attribution.
 
 Shipped CLI:
 
-- Run `ns objective list` for the default compact active/open Objective inventory.
+- Run `ns objective list` for the default compact active/open Objective inventory in the current owner's namespace.
+- Run `ns objective list --owner <handle>` for one owner's records, or `ns objective list --all-owners` for every owner.
 - Run `ns objective list --format md` for markdown output.
 - Run `ns objective list --format json` for the machine envelope.
 - Run `ns objective list --status all` to include open and closed active-root Objective records.
 - Run `ns objective list --status closed` for closed active-root Objective records.
 - Run `ns objective list --status all --format md` for a Markdown table.
 - Run `ns objective list --status closed --format json` for machine-readable closed records.
-- Run `ns objective list --names` to print active slugs, one per line.
+- Run `ns objective list --names` to print active full locators, one per line.
 
 ### `ns objective show`
 
@@ -250,20 +255,20 @@ Shows one Objective record in detail.
 
 Contract:
 
-- Resolve an explicit slug (or slug-like path) to one Objective record without mutating files. Missing or invalid slugs return structured non-ok result data rather than guessing a record.
+- Resolve an explicit locator, owner-local bare slug, or record path to one Objective record without mutating files. Missing or invalid selections return structured non-ok result data rather than guessing a record.
 - Report status and Blocked Sentence, latest update and update count, outstanding changes under the record path, root/path facts, and malformed-frontmatter messages when present.
-- Attribute related local branches for this single record: local non-trunk branches whose `.ns/objectives` changes touch the shown slug are listed under Branches. If the branch walk ceiling is hit, human/Markdown output notes that branch attribution is truncated and JSON sets `updated_branches_truncated`.
-- Render every Objective Edge declared by this record with this record's annotation plus the counterpart's back-edge annotation when available. Counterparts are resolved in the active root only; a deleted counterpart is `missing`, and malformed or unreadable counterpart frontmatter produces no back-edge annotation.
-- Emit machine JSON as a Clinkr envelope whose ok `data` includes `slug`, `path`, `root_path`, `closed`, `blocked_sentence`, optional `frontmatter_malformed`, `latest_update_iso`, `update_count`, `has_outstanding_changes`, `updated_branches`, `updated_branches_truncated`, and `edges`.
+- Attribute related local branches for this single record: local non-trunk branches whose `.ns/objectives` changes touch the shown record are listed under Branches. If the branch walk ceiling is hit, human/Markdown output notes that branch attribution is truncated and JSON sets `updated_branches_truncated`.
+- Render every Objective Edge declared by this record with this record's annotation plus the counterpart's back-edge annotation when available. Counterparts are resolved by full locator across discovered inventory in every owner's namespace (including legacy flat closed records); a deleted counterpart is `missing`, and malformed or unreadable counterpart frontmatter produces no back-edge annotation.
+- Emit machine JSON as a Clinkr envelope whose ok `data` includes the full locator, `path`, `root_path`, `closed`, `blocked_sentence`, optional `frontmatter_malformed`, `latest_update_iso`, `update_count`, `has_outstanding_changes`, `updated_branches`, `updated_branches_truncated`, and `edges`.
 - Support `--format md` and `--format json` like other Objective commands.
 - Do not summarize Objective prose, choose a canonical implementation branch, or depend on Graphite.
 
 Shipped CLI:
 
-- Run `ns objective show <slug>` for the default human detail view.
-- Run `ns objective show <slug> --format md` for Markdown detail output.
-- Run `ns objective show <slug> --format json` for the machine envelope including branch attribution and edge details.
-- Run `ns objective show <slug> --should-include-closed-edges` to include edges whose counterpart record is closed (hidden by default).
+- Run `ns objective show <locator>` for the default human detail view (a bare slug means `<current-owner>/<slug>`).
+- Run `ns objective show <locator> --format md` for Markdown detail output.
+- Run `ns objective show <locator> --format json` for the machine envelope including branch attribution and edge details.
+- Run `ns objective show <locator> --should-include-closed-edges` to include edges whose counterpart record is closed (hidden by default).
 
 ### `ns objective check`
 
@@ -271,9 +276,9 @@ Checks Objective record structure without interpreting prose meaning.
 
 Contract:
 
-- `ns objective check <slug>` checks one record: required files, required Markdown heading presence, and Record Frontmatter structure — edge shape, mirror lookups in counterpart records, non-empty Edge Annotations, non-empty Blocked Sentence, at most one edge per unordered slug pair, and no keys beyond `blocked` and `edges`.
-- `ns objective check --all` sweeps every active-root record's Record Frontmatter and reports structural edge/blocked violations.
-- Structural violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors.
+- `ns objective check <owner>/<slug>` checks one record: required files, required Markdown heading presence, and Record Frontmatter structure — owner present, syntactically valid, and matching the owner path segment for nested records; edge shape with full-locator endpoints; mirror lookups in counterpart records; non-empty Edge Annotations; non-empty Blocked Sentence; at most one edge per unordered locator pair; and no keys beyond `owner`, `blocked`, and `edges`.
+- `ns objective check --all` is a repo-wide structural sweep: storage hygiene (flat open records, invalid owner/slug directory names, duplicate locators, unexpected root files) plus every discovered record's frontmatter lint.
+- Structural violations — dangling locator, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, missing or invalid owner, empty blocked sentence — are errors.
 - Heading checks are presence-only structure; the command does not interpret prose meaning, roadmap state, or execution policy.
 - Supports `--format md` / `--format json` like the other Objective commands.
 - Run it after any Record Frontmatter edit; the mutating step skills require this.
@@ -287,10 +292,10 @@ Contract:
 - Read active Objective records only from `.ns/objectives/` in the current working tree.
 - Include only open records with a direct `orientation.md` file.
 - Exclude records with direct `closed.md`; closure automatically removes them from the load set.
-- Sort deterministically by slug.
+- Sort deterministically by locator.
 - Do not parse Objective prose or orientation Markdown; emit headers and raw file contents.
-- Markdown/default output is suitable for AGENTS.md onboarding: each record renders as `### .ns/objectives/<slug>/orientation.md` followed by the raw file content with trailing newlines normalized.
-- JSON emits a Clinkr envelope whose `data` contains `rootPath`, `records`, and `recordCount`. Each record contains `slug`, `path`, and `content`.
+- Markdown/default output is suitable for AGENTS.md onboarding: each record renders as `### .ns/objectives/<owner>/<slug>/orientation.md` followed by the raw file content with trailing newlines normalized.
+- JSON emits a Clinkr envelope whose `data` contains `rootPath`, `records`, and `recordCount`. Each record carries its locator, `path`, and `content`.
 - A missing active orientation set is `ok` with an empty `records` array.
 - An unreadable detected orientation file fails the command rather than silently skipping a rule file.
 
@@ -306,8 +311,8 @@ Creates a new objective.
 
 Contract:
 
-- Require an explicit slug or explicit user confirmation of an LM-proposed slug.
-- Create `.ns/objectives/<slug>/` with `objective.md`, `roadmap.md`, and `updates/`.
+- Require an explicit slug or explicit user confirmation of an LM-proposed slug, and resolve the required owner (explicit `--owner` or the authenticated GitHub login) before writing.
+- Create `.ns/objectives/<owner>/<slug>/` with `objective.md` (starting with Record Frontmatter carrying `owner`), `roadmap.md`, and `updates/`.
 - Write LM-authored initial content using the standardized required headings, including a concrete `## Assumptions and Risks` section.
 - Default to planning-only unless the user explicitly asks for execution-friendly/runner/autonomous behavior or the interview exposes execution policy as a real branch point.
 - For planning-only Objectives, omit `## Definition of Progress` and `## Runner Policy` unless the user explicitly asks for them.
@@ -330,7 +335,7 @@ User interview:
 
 Shipped CLI:
 
-- Active-root duplicate detection: `ns objective exec read-objective <slug>` returns a `not_found` envelope when the slug has no active-root record, and otherwise emits the existing active record. Check git history before reusing a slug that may have belonged to a deleted record.
+- Active-root duplicate detection: `ns objective exec read-objective <owner>/<slug>` returns a `not_found` envelope when the locator has no active-root record, and otherwise emits the existing active record. Check git history before reusing a locator that may have belonged to a deleted record.
 
 Future CLI pushdown candidates:
 
@@ -356,14 +361,14 @@ Contract:
 - Do not infer durable execution permission from roadmap concreteness alone. Missing durable policy means future sessions should recommend by default; it does not block a user-confirmed continuation of the current concrete recommendation.
 - When policy says to steer first, ask one concrete question or recommend a planning/grilling/readback step instead of executing.
 - When durable policy allows direct execution, present an inline execution preview and wait for explicit affirmative confirmation before material action. When the recommendation-continuation conditions are met, the user's affirmative response may be that confirmation.
-- The preview should state selected slug, execution basis, bounded scope, likely files/areas, the best-effort work-left estimate, how the work will be left, validation, external systems or write-capable actions, stop/ask conditions, Objective tracking expectations, and PR submission status. PR submission, publishing, deployment, write APIs, and other external writes require explicit Runner Policy, explicit user request, or confirmed preview scope.
+- The preview should state the selected locator, execution basis, bounded scope, likely files/areas, the best-effort work-left estimate, how the work will be left, validation, external systems or write-capable actions, stop/ask conditions, Objective tracking expectations, and PR submission status. PR submission, publishing, deployment, write APIs, and other external writes require explicit Runner Policy, explicit user request, or confirmed preview scope.
 - Do not use hidden ledgers, task files, private queues, Branch Memory run state, alternate Objective stores, or new Objective lifecycle states.
 - In recommendation-only or steer-first paths, do not mutate files except through an explicit `objective-update` handoff. In confirmed execution, mutate only within the confirmed preview scope and write Objective tracking only for meaningful impact.
 
 Shipped CLI:
 
 - Active candidate filtering: `ns objective list` lists active-root open candidates by default; `ns objective list --status all` reports active-root closed records too.
-- Deterministic Tracking Gate evidence: `ns objective exec tracking-gate <slug> --format json` (the LM still authors the materiality interpretation).
+- Deterministic Tracking Gate evidence: `ns objective exec tracking-gate <owner>/<slug> --format json` (the LM still authors the materiality interpretation).
 
 ### `objective-update`
 
@@ -373,7 +378,7 @@ Contract:
 
 - Update exactly one objective per invocation.
 - Do not span multiple objectives in one update.
-- For explicit update requests with exactly one open objective and no explicit slug/path, the operation may present that objective as the only candidate but must get confirmation before continuing.
+- For explicit update requests with exactly one open objective and no explicit locator/path, the operation may present that objective as the only candidate but must get confirmation before continuing.
 - After selection, local working-tree changes, committed branch diffs, Graphite stack parent context, and optional PR metadata may be used as evidence for the selected objective. PR evidence is not required when local committed branch evidence is sufficient.
 - Edit `objective.md` and/or `roadmap.md` when durable narrative or ordered guidance has changed.
 - Edit `## Assumptions and Risks` when an assumption is found incorrect or revised, a risk is de-risked or not de-risked, a risk materializes or is accepted, or new assumptions/risks emerge.
@@ -397,12 +402,12 @@ Contract:
 
 - Resolve the objective using the selection rules.
 - Update `objective.md` with `## Closure` context, including remaining assumptions, risks, caveats, and follow-ups when relevant.
-- Inventory every edge-connected Objective with `ns objective show <slug> --format md --should-include-closed-edges` (the flag keeps edges with closed counterparts in the inventory), read both Edge Annotations and each counterpart's full current tracking, and assign `updated`, `unchanged`, or `already closed`.
+- Inventory every edge-connected Objective with `ns objective show <locator> --format md --should-include-closed-edges` (the flag keeps edges with closed counterparts in the inventory), read both Edge Annotations and each counterpart's full current tracking, and assign `updated`, `unchanged`, or `already closed`.
 - Update every affected active counterpart's durable tracking and write a new counterpart-local Semantic Update when closure is semantically meaningful there; this bounded graph propagation is the exception to ordinary one-Objective update scope.
 - Re-judge Blocked Sentences, preserve mirrored edges, and run `ns objective check --all` after frontmatter edits.
 - Do not recursively close a counterpart; report any counterpart made closure-ready.
 - Write `closed.md` as an existence-only Closure Marker.
-- Leave the objective directory in `.ns/objectives/<slug>/`.
+- Leave the objective directory in `.ns/objectives/<owner>/<slug>/`.
 - Do not delete the objective implicitly. If the user wants the record outside active checkout state, delete it separately through source control.
 - Do not reopen as part of a close. Reopening is its own explicit-user-request workflow inside `objective-close` (delete `closed.md`, amend `## Closure` into dated history, reverse the connected-Objective impact review); there is no separate public reopen command.
 
@@ -414,16 +419,16 @@ Future CLI pushdown candidates:
 
 ### Source-control deletion
 
-If a record should leave active checkout state, delete `.ns/objectives/<slug>/` through ordinary source control. Git history is the recovery mechanism.
+If a record should leave active checkout state, delete `.ns/objectives/<owner>/<slug>/` through ordinary source control. Git history is the recovery mechanism.
 
 ### `ns objective exec tracking-gate`
 
-Collects deterministic Tracking Gate evidence for one explicitly selected slug.
+Collects deterministic Tracking Gate evidence for one explicitly selected Objective (locator or owner-local slug).
 
 Contract:
 
 - Resolve the trunk branch and branch-diff basis (`git.trunkBranch`, `git.revisionRange`) from checkout-local git facts.
-- Report uncommitted worktree evidence (`uncommitted.repository`, `uncommitted.objective`) and committed branch-diff evidence split into `branchDiff.objectiveChangedPaths` (under `.ns/objectives/<slug>/`) and `branchDiff.materialNonObjectivePaths` (outside it), plus `summary.*` booleans/nulls for quick gate decisions.
+- Report uncommitted worktree evidence (`uncommitted.repository`, `uncommitted.objective`) and committed branch-diff evidence split into `branchDiff.objectiveChangedPaths` (under `.ns/objectives/<owner>/<slug>/`) and `branchDiff.materialNonObjectivePaths` (outside it), plus `summary.*` booleans/nulls for quick gate decisions.
 - Read-only: collect facts only; the LM authors the materiality interpretation and any update-and-continue routing.
 - Supports `--format md` / `--format json` like the other Objective commands.
 
@@ -433,7 +438,7 @@ Contract:
 
 ADR 0037 permits a separate conditional action by trusted parent orchestration only after a committed checkpoint: the parent reads runner-attested facts, records and commits any material Objective tracking, and supplies a typed cumulative summary before invoking publication. Eligibility requires both durable Runner Policy permission and exact human-confirmed launch attestation, bound for one invocation to the selected Objective, current non-trunk branch, existing PR, and launch/last-published heads. The CLI must not parse Runner Policy or persist authorization. Binding drift refuses before mutation; a branch-push failure is fatal to publication, while push success followed by PR-description failure is a reported successful-partial outcome that a later full cumulative update can heal without rollback.
 
-The parent-owned managed section contains the Objective slug, ordered Runner commits and validation outcomes, material tracking commits when present, and parent-judged escalatable decisions. It replaces one slug-bound region while preserving all other PR prose. No permission or publication artifact reaches the implementation child, and this exception does not include PR creation, stack submission/restacking, force-push, merge/land, deployment, or arbitrary external writes.
+The parent-owned managed section contains the Objective Locator, ordered Runner commits and validation outcomes, material tracking commits when present, and parent-judged escalatable decisions. It replaces one locator-bound region while preserving all other PR prose. No permission or publication artifact reaches the implementation child, and this exception does not include PR creation, stack submission/restacking, force-push, merge/land, deployment, or arbitrary external writes.
 
 Core step design lives in ADR 0024; the conditional parent publication contract lives in ADR 0037. The parent-facing step contract lives in `skills/incubating/objectives/objective-runner-step/SKILL.md`, and the loop around repeated steps in `skills/incubating/objectives/objective-autorun/SKILL.md`. The former blocking `ns objective exec runner-step` surface has been replaced by these decomposed bookends.
 
@@ -453,9 +458,9 @@ The **Tracking Gate** is a read-only check phase used by `objective-next`. Its p
 
 Behavior:
 
-- Collect deterministic evidence with `ns objective exec tracking-gate <slug> --format json`; do not hand-roll branch-base detection or shell pipelines for this gate.
+- Collect deterministic evidence with `ns objective exec tracking-gate <owner>/<slug> --format json`; do not hand-roll branch-base detection or shell pipelines for this gate.
 - Look for material non-objective changes (`branchDiff.materialNonObjectivePaths`, uncommitted evidence) that plausibly advance the selected objective.
-- Look for corresponding changes under `.ns/objectives/<slug>/` (`branchDiff.objectiveChangedPaths`, `uncommitted.objective`).
+- Look for corresponding changes under `.ns/objectives/<owner>/<slug>/` (`branchDiff.objectiveChangedPaths`, `uncommitted.objective`).
 - If material objective progress appears clearly unrecorded for the same selected objective, block next-work recommendation, perform the explicit `objective-update` workflow, reread the objective and repo evidence, and then continue `objective-next`.
 - If material progress appears likely but evidence, objective fit, or update scope is ambiguous, ask whether to run `objective-update` for the same selected objective.
 - If ambiguous-case confirmation is pending or declined, stop without a next-work recommendation.
@@ -477,7 +482,7 @@ Future CLI tooling should own deterministic mechanics and facts, not objective m
 
 Good CLI responsibilities:
 
-- Validate slugs and paths. *(partially shipped: `ns objective exec read-objective` rejects empty, `.`, `..`, and slash-bearing slugs.)*
+- Validate locators, slugs, and paths. *(partially shipped: `ns objective exec read-objective` validates locator and owner-local slug syntax.)*
 - List candidate objectives from checkout-local active-root records. *(shipped: `ns objective list`.)*
 - Detect closed markers. *(shipped for active-root records: `ns objective list`, `ns objective exec read-objective`, and `ns objective exec load-orientations` use direct `closed.md` presence.)*
 - Load active Objective orientation files for agent onboarding. *(shipped: `ns objective exec load-orientations`.)*

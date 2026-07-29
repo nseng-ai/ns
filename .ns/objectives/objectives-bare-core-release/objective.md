@@ -1,8 +1,9 @@
 ---
+owner: schrockn
 edges:
-  - objective: ship-objectives-to-customers
+  - objective: schrockn/ship-objectives-to-customers
     annotation: Subobjective of the customer-Objectives umbrella; owns publication and checkout-free verification of the bare-core Objectives acquisition path.
-  - objective: objectives-claude-onboarding-steelthread
+  - objective: schrockn/objectives-claude-onboarding-steelthread
     annotation: Provides the published bare-core and standalone Objectives artifacts consumed by the Claude Code onboarding thread.
 ---
 

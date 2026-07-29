@@ -16,7 +16,7 @@ by `objective-create`'s own workflow.
 
 - A pattern is a **prose-only recognizable shape** for an Objective record — never a
   machine category, type field, lifecycle state, registry, or frontmatter key (Record
-  Frontmatter stays exactly `blocked` + `edges`, ADR 0025).
+  Frontmatter stays exactly required `owner` plus optional `blocked` + `edges`, ADR 0050).
 - **Patterns compose.** One Objective can be standing + orienting + autoobjective at
   once. Patterns are not mutually exclusive types; pattern names are attributive
   adjectives ("a standing, orienting objective"), not exclusive kinds.
@@ -61,8 +61,8 @@ An Objective whose roadmap and runner policy are intentionally shaped for repeat
 Objective Runner steps with parent-LM checkpoints between committed slices (ADR 0024).
 Colloquial shorthand for autonomous-pursuit design — do not formalize as schema, type,
 or required wording. The Objective Runner uses the decomposed ADR 0024 flow:
-`ns objective exec runner-begin <slug>` checks preconditions and emits the child prompt,
-a fresh subagent implements one slice, and `ns objective exec runner-finish <slug>`
+`ns objective exec runner-begin <owner>/<slug>` checks preconditions and emits the child prompt,
+a fresh subagent implements one slice, and `ns objective exec runner-finish <owner>/<slug>`
 validates the report and worktree before creating the runner-owned commit. The
 `objective-runner-step` skill is the parent playbook for that flow. Composes with either
 horizon; a steelthread autoobjective is a common combination. Creation: `objective-create`

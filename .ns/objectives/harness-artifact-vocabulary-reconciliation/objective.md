@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: skill-management-subsystem
+  - objective: schrockn/skill-management-subsystem
     annotation: Subobjective of that umbrella; graduated 2026-07-07 from the parked "reconcile with existing skill workflows, docs, and vocabulary" row. Owns the docs/vocabulary reconciliation sweep and the bare-"artifact" collision cleanup; the umbrella coordinates the reusable-subsystem ambition and remaining deferred breadth.
 ---
 

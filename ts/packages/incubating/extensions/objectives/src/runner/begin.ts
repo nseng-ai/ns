@@ -20,7 +20,12 @@ import {
 import { buildRunnerChildPrompt } from "./prompt.ts";
 
 export const runnerBeginRequestSchema = z.object({
-	slug: z.string().optional().describe("Objective slug to begin one implementation step for."),
+	slug: z
+		.string()
+		.optional()
+		.describe(
+			"Objective locator (<owner>/<slug>) or owner-local slug to begin one implementation step for.",
+		),
 	recover: z
 		.boolean()
 		.default(false)
@@ -40,6 +45,7 @@ export const runnerBeginRequestSchema = z.object({
 });
 
 export const runnerBeginResultSchema = z.object({
+	/** Canonical Objective Locator `<owner>/<slug>` for the step. */
 	slug: z.string(),
 	mode: z.enum(["default", "recover"]),
 	baseBranch: z.string(),
@@ -111,10 +117,10 @@ export async function runRunnerBegin(
 	ctx.phase("checking-preconditions");
 	const preconditions = await checkRunnerPreconditions(ctx, { slug, mode });
 	if (preconditions.type !== "ok") return runnerPreconditionProblemExit(preconditions);
-	const { objectivePath, baseBranch, headAtDispatch, changedPaths } = preconditions.facts;
+	const { locator, objectivePath, baseBranch, headAtDispatch, changedPaths } = preconditions.facts;
 
 	const prompt = buildRunnerChildPrompt({
-		slug,
+		slug: locator,
 		objectivePath,
 		mode,
 		baseBranch,
@@ -124,7 +130,7 @@ export async function runRunnerBegin(
 	});
 
 	return ok({
-		slug,
+		slug: locator,
 		mode,
 		baseBranch,
 		headAtDispatch,

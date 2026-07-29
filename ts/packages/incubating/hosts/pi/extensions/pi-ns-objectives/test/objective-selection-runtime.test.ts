@@ -63,10 +63,14 @@ describe("objective selection runtime behavior", () => {
 					trunkBranch: "master",
 					rootPath: "/repo",
 					statusFilter: "active" as const,
+					ownerScope: { type: "current" as const, owner: "tester" },
 					namesOnly: false,
 					records: [
 						{
+							owner: "tester",
 							slug: "alpha",
+							locator: "tester/alpha",
+							layout: "owner-nested" as const,
 							status: "open" as const,
 							latestUpdateIso: "2026-01-01T00:00:00Z",
 							hasOutstandingChanges: false,
@@ -85,9 +89,9 @@ describe("objective selection runtime behavior", () => {
 			},
 		);
 
-		expect(slug).toBe("alpha");
+		expect(slug).toBe("tester/alpha");
 		expect(clockReads).toBe(1);
-		expect(selections).toEqual([["alpha — open — latest update 2 weeks ago"]]);
+		expect(selections).toEqual([["tester/alpha — open — latest update 2 weeks ago"]]);
 	});
 
 	test("objective selection with notifications but no picker skips picker-only work", async () => {
@@ -118,10 +122,14 @@ describe("objective selection runtime behavior", () => {
 					trunkBranch: "master",
 					rootPath: "/repo",
 					statusFilter: "active" as const,
+					ownerScope: { type: "current" as const, owner: "tester" },
 					namesOnly: false,
 					records: [
 						{
+							owner: "tester",
 							slug: "alpha",
+							locator: "tester/alpha",
+							layout: "owner-nested" as const,
 							status: "open" as const,
 							latestUpdateIso: null,
 							hasOutstandingChanges: false,
@@ -167,6 +175,7 @@ describe("objective selection runtime behavior", () => {
 					trunkBranch: "master",
 					rootPath: "/repo",
 					statusFilter: "active" as const,
+					ownerScope: { type: "current" as const, owner: "tester" },
 					namesOnly: false,
 					records: [],
 				},

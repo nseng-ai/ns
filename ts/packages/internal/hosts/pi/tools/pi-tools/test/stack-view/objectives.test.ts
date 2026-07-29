@@ -57,13 +57,14 @@ describe("objectiveSlugsFromDiffOutput", () => {
 		expect(objectiveSlugsFromDiffOutput(stdout)).toEqual(["alpha", "beta"]);
 	});
 
-	test("dedupes multiple files under the same slug", () => {
+	test("dedupes multiple files under the same record", () => {
 		const stdout = nulJoin([
 			".ns/objectives/alpha/a.md",
 			".ns/objectives/alpha/b.md",
-			".ns/objectives/alpha/nested/c.md",
+			".ns/objectives/tester/alpha/c.md",
+			".ns/objectives/tester/alpha/nested/d.md",
 		]);
-		expect(objectiveSlugsFromDiffOutput(stdout)).toEqual(["alpha"]);
+		expect(objectiveSlugsFromDiffOutput(stdout)).toEqual(["alpha", "tester/alpha"]);
 	});
 
 	test("sorts multiple slugs by locale order regardless of input order", () => {
@@ -75,8 +76,10 @@ describe("objectiveSlugsFromDiffOutput", () => {
 		expect(objectiveSlugsFromDiffOutput(stdout)).toEqual(["alpha", "mid", "zeta"]);
 	});
 
-	test("accepts arbitrarily deep child paths, attributing to the top slug", () => {
-		expect(objectiveSlugsFromDiffOutput(".ns/objectives/slug/a/b/c.md")).toEqual(["slug"]);
+	test("attributes owner-nested deep child paths to the full locator", () => {
+		expect(objectiveSlugsFromDiffOutput(".ns/objectives/owner/slug/a/b/c.md")).toEqual([
+			"owner/slug",
+		]);
 	});
 
 	test("returns an empty list for empty output", () => {
@@ -129,10 +132,10 @@ describe("objectiveSlugsFromDiffOutput", () => {
 			".ns/objectives//file.md",
 			".ns/objectives/../escape.md",
 			".ns/objectives/sl\\ug/f.md",
-			".ns/objectives/alpha/deep/child.md",
+			".ns/objectives/tester/alpha/deep/child.md",
 			"",
 		]);
-		expect(objectiveSlugsFromDiffOutput(stdout)).toEqual(["alpha", "beta"]);
+		expect(objectiveSlugsFromDiffOutput(stdout)).toEqual(["beta", "tester/alpha"]);
 	});
 });
 

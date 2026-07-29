@@ -6,6 +6,7 @@ import {
 	FakeObjectiveStorageGateway,
 	type FakeObjectiveStorageGatewayOptions,
 } from "../../src/core/fake-storage.ts";
+import { FakeObjectiveOwnerGateway } from "../../src/core/owner-gateway.ts";
 import {
 	readObjectiveRequestSchema,
 	renderReadObjective,
@@ -17,9 +18,10 @@ const OBJECTIVE_BODY = "# Objective alpha\n\n## Thesis\n\nBody text.\n";
 
 const FRONTMATTER = [
 	"---",
+	"owner: tester",
 	"blocked: Gated on checkout-free distribution landing.",
 	"edges:",
-	"  - objective: checkout-free-sdl-distribution",
+	"  - objective: tester/checkout-free-sdl-distribution",
 	"    annotation: Hard dependency consumed by this record.",
 	"---",
 	"",
@@ -30,6 +32,7 @@ describe("objective update reads", () => {
 		const gateway = new RecordingObjectiveStorageGateway({
 			records: [
 				{
+					owner: "tester",
 					slug: "alpha",
 					objectiveMd: OBJECTIVE_BODY,
 					updates: {
@@ -52,10 +55,10 @@ describe("objective update reads", () => {
 		expect(exit.data.updateCount).toBe(2);
 		expect(Object.hasOwn(exit.data.markdownFiles, "updates")).toBe(false);
 		expect(gateway.readTextFileCalls).not.toContain(
-			".ns/objectives/alpha/updates/20260711T120000Z-first.md",
+			".ns/objectives/tester/alpha/updates/20260711T120000Z-first.md",
 		);
 		expect(gateway.readTextFileCalls).not.toContain(
-			".ns/objectives/alpha/updates/20260712T120000Z-second.md",
+			".ns/objectives/tester/alpha/updates/20260712T120000Z-second.md",
 		);
 
 		const rendered = renderReadObjective(exit.data);
@@ -71,6 +74,7 @@ describe("objective update reads", () => {
 		const gateway = new RecordingObjectiveStorageGateway({
 			records: [
 				{
+					owner: "tester",
 					slug: "alpha",
 					objectiveMd: OBJECTIVE_BODY,
 					updates: { "20260712T120000Z-update.md": "# Included update\n" },
@@ -88,13 +92,13 @@ describe("objective update reads", () => {
 			{
 				update: {
 					name: "20260712T120000Z-update.md",
-					path: ".ns/objectives/alpha/updates/20260712T120000Z-update.md",
+					path: ".ns/objectives/tester/alpha/updates/20260712T120000Z-update.md",
 				},
 				content: { type: "ok", content: "# Included update\n" },
 			},
 		]);
 		expect(gateway.readTextFileCalls).toContain(
-			".ns/objectives/alpha/updates/20260712T120000Z-update.md",
+			".ns/objectives/tester/alpha/updates/20260712T120000Z-update.md",
 		);
 
 		const rendered = renderReadObjective(exit.data);
@@ -110,8 +114,8 @@ describe("objective update reads", () => {
 				contextWithFakeStorage({
 					directories: [".ns/objectives/alpha"],
 					files: {
-						".ns/objectives/alpha/objective.md": OBJECTIVE_BODY,
-						".ns/objectives/alpha/roadmap.md": "# Roadmap\n",
+						".ns/objectives/tester/alpha/objective.md": OBJECTIVE_BODY,
+						".ns/objectives/tester/alpha/roadmap.md": "# Roadmap\n",
 					},
 				}),
 				{ slug: "alpha", includeUpdates },
@@ -128,7 +132,9 @@ describe("objective update reads", () => {
 		"preserves the empty updates directory message when includeUpdates is $includeUpdates",
 		async (includeUpdates) => {
 			const exit = await runParsedReadObjective(
-				contextWithFakeStorage({ records: [{ slug: "alpha", objectiveMd: OBJECTIVE_BODY }] }),
+				contextWithFakeStorage({
+					records: [{ owner: "tester", slug: "alpha", objectiveMd: OBJECTIVE_BODY }],
+				}),
 				{ slug: "alpha", includeUpdates },
 			);
 
@@ -143,7 +149,9 @@ describe("objective update reads", () => {
 describe("objective read with Record Frontmatter", () => {
 	test("record without frontmatter omits the recordFrontmatter key entirely", async () => {
 		const exit = await runParsedReadObjective(
-			contextWithFakeStorage({ records: [{ slug: "alpha", objectiveMd: OBJECTIVE_BODY }] }),
+			contextWithFakeStorage({
+				records: [{ owner: "tester", slug: "alpha", objectiveMd: OBJECTIVE_BODY }],
+			}),
 			{ slug: "alpha" },
 		);
 
@@ -155,7 +163,9 @@ describe("objective read with Record Frontmatter", () => {
 	test("record with frontmatter exposes the parse and keeps content verbatim", async () => {
 		const content = `${FRONTMATTER}${OBJECTIVE_BODY}`;
 		const exit = await runParsedReadObjective(
-			contextWithFakeStorage({ records: [{ slug: "alpha", objectiveMd: content }] }),
+			contextWithFakeStorage({
+				records: [{ owner: "tester", slug: "alpha", objectiveMd: content }],
+			}),
 			{ slug: "alpha" },
 		);
 
@@ -163,10 +173,11 @@ describe("objective read with Record Frontmatter", () => {
 		expect(exit.data.recordFrontmatter).toEqual({
 			type: "frontmatter",
 			frontmatter: {
+				owner: "tester",
 				blocked: "Gated on checkout-free distribution landing.",
 				edges: [
 					{
-						objective: "checkout-free-sdl-distribution",
+						objective: "tester/checkout-free-sdl-distribution",
 						annotation: "Hard dependency consumed by this record.",
 					},
 				],
@@ -177,12 +188,16 @@ describe("objective read with Record Frontmatter", () => {
 
 	test("renders identically for the shared body with and without frontmatter, plus the verbatim block", async () => {
 		const withoutFrontmatter = await runParsedReadObjective(
-			contextWithFakeStorage({ records: [{ slug: "alpha", objectiveMd: OBJECTIVE_BODY }] }),
+			contextWithFakeStorage({
+				records: [{ owner: "tester", slug: "alpha", objectiveMd: OBJECTIVE_BODY }],
+			}),
 			{ slug: "alpha" },
 		);
 		const withFrontmatter = await runParsedReadObjective(
 			contextWithFakeStorage({
-				records: [{ slug: "alpha", objectiveMd: `${FRONTMATTER}${OBJECTIVE_BODY}` }],
+				records: [
+					{ owner: "tester", slug: "alpha", objectiveMd: `${FRONTMATTER}${OBJECTIVE_BODY}` },
+				],
 			}),
 			{ slug: "alpha" },
 		);
@@ -203,7 +218,9 @@ describe("objective read with Record Frontmatter", () => {
 	test("malformed frontmatter is reported as malformed without disturbing content", async () => {
 		const content = `---\nkind: blocking\n---\n${OBJECTIVE_BODY}`;
 		const exit = await runParsedReadObjective(
-			contextWithFakeStorage({ records: [{ slug: "alpha", objectiveMd: content }] }),
+			contextWithFakeStorage({
+				records: [{ owner: "tester", slug: "alpha", objectiveMd: content }],
+			}),
 			{ slug: "alpha" },
 		);
 
@@ -214,7 +231,7 @@ describe("objective read with Record Frontmatter", () => {
 
 	test("missing objective.md still reads without a recordFrontmatter key", async () => {
 		const exit = await runParsedReadObjective(
-			contextWithFakeStorage({ records: [{ slug: "alpha", objectiveMd: null }] }),
+			contextWithFakeStorage({ records: [{ owner: "tester", slug: "alpha", objectiveMd: null }] }),
 			{ slug: "alpha" },
 		);
 
@@ -243,6 +260,7 @@ function contextWithStorageGateway(gateway: FakeObjectiveStorageGateway): Object
 		trunkBranch: "master",
 		storage: new ObjectiveStorage(gateway),
 		git: new InMemoryGitGateway(),
+		owner: new FakeObjectiveOwnerGateway({ owner: "tester" }),
 	};
 }
 

@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: harness-session-generation
+  - objective: schrockn/harness-session-generation
     annotation: "Survives the closed architecture exploration as the canonical Reviews outcome: Pi/Vercel AI Gateway is the configured path, while the direct Claude Code and Codex compatibility runners remain supported."
 ---
 

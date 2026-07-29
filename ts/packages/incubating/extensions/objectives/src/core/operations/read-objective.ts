@@ -17,13 +17,15 @@ import {
 	renderFilePresence,
 	type ObjectiveFiles,
 	type ObjectiveMarkdownReadResult,
-	type ObjectiveStorage,
 	type ObjectiveUpdateFile,
 } from "../storage.ts";
 import { resolveObjectiveRecordTarget, targetToEmptyResultFields } from "./objective-target.ts";
 
 export const readObjectiveRequestSchema = z.object({
-	slug: z.string().optional().describe("Objective slug to read."),
+	slug: z
+		.string()
+		.optional()
+		.describe("Objective locator (<owner>/<slug>) or owner-local slug to read."),
 	includeUpdates: z
 		.boolean()
 		.default(false)
@@ -34,7 +36,10 @@ export const readObjectiveBaseResultSchema = z.object({
 	error: z.string().nullable(),
 	rootPath: z.string(),
 	rootExists: z.boolean(),
+	owner: z.string().nullable(),
 	slug: z.string().nullable(),
+	locator: z.string().nullable(),
+	message: z.string().optional(),
 	path: z.string().nullable(),
 	exists: z.boolean(),
 	closed: z.boolean(),
@@ -46,11 +51,16 @@ export const readObjectiveBaseResultSchema = z.object({
 export const readObjectiveNonOkResultSchema = z.discriminatedUnion("status", [
 	readObjectiveBaseResultSchema.extend({ status: z.literal("missing-slug") }),
 	readObjectiveBaseResultSchema.extend({ status: z.literal("invalid-slug") }),
+	readObjectiveBaseResultSchema.extend({ status: z.literal("owner-unavailable") }),
 	readObjectiveBaseResultSchema.extend({ status: z.literal("not-found") }),
 ]);
 
 export const readObjectiveOkResultSchema = readObjectiveBaseResultSchema.extend({
 	status: z.literal("ok"),
+	owner: z.string(),
+	slug: z.string(),
+	locator: z.string(),
+	path: z.string(),
 	// Record Frontmatter parse of objective.md via the shared reader (ADR 0025).
 	// Omitted when the record has no frontmatter (or objective.md is unreadable/missing),
 	// so records without frontmatter keep today's output exactly.
@@ -73,11 +83,17 @@ export const readObjectiveResultSchema = z.discriminatedUnion("status", [
 	readObjectiveOkResultSchema,
 	readObjectiveBaseResultSchema.extend({ status: z.literal("missing-slug") }),
 	readObjectiveBaseResultSchema.extend({ status: z.literal("invalid-slug") }),
+	readObjectiveBaseResultSchema.extend({ status: z.literal("owner-unavailable") }),
 	readObjectiveBaseResultSchema.extend({ status: z.literal("not-found") }),
 ]);
 
 export type ReadObjectiveRequest = z.infer<typeof readObjectiveRequestSchema>;
-export type ReadObjectiveStatus = "ok" | "missing-slug" | "invalid-slug" | "not-found";
+export type ReadObjectiveStatus =
+	| "ok"
+	| "missing-slug"
+	| "invalid-slug"
+	| "owner-unavailable"
+	| "not-found";
 export type ReadObjectiveResult = z.infer<typeof readObjectiveResultSchema>;
 
 export interface ReadObjectiveOptions {
@@ -93,7 +109,9 @@ interface ReadObjectiveMarkdownFiles {
 export interface ReadObjectiveOkResult extends ReadObjectiveBaseResult {
 	status: "ok";
 	error: null;
+	owner: string;
 	slug: string;
+	locator: string;
 	path: string;
 	exists: true;
 	/** Omitted when objective.md carries no Record Frontmatter or cannot be read. */
@@ -106,7 +124,10 @@ interface ReadObjectiveBaseResult {
 	error: string | null;
 	rootPath: string;
 	rootExists: boolean;
+	owner: string | null;
 	slug: string | null;
+	locator: string | null;
+	message?: string;
 	path: string | null;
 	exists: boolean;
 	closed: boolean;
@@ -119,7 +140,7 @@ export async function runReadObjective(
 	ctx: ObjectiveCliContext,
 	request: ReadObjectiveRequest,
 ): Promise<ClinkrExit<ReadObjectiveResult>> {
-	const result = await readObjectiveRecord(ctx.storage, request.slug, {
+	const result = await readObjectiveRecord(ctx, request.slug, {
 		includeUpdates: request.includeUpdates,
 	});
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
@@ -127,7 +148,7 @@ export async function runReadObjective(
 	if (slugValidationError !== null) return slugValidationError;
 	if (result.value.status === "not-found") {
 		return negative(
-			`No Objective record found for slug ${pythonStringRepr(result.value.slug ?? "")}.`,
+			`No Objective record found for locator ${pythonStringRepr(result.value.locator ?? "")}.`,
 			{ data: result.value },
 		);
 	}
@@ -140,7 +161,7 @@ export function renderReadObjective(result: ReadObjectiveResult): string {
 	const rootState = result.rootExists ? "present" : "missing";
 	const state = result.closed ? "closed" : "open";
 	const parts = [
-		`# Objective \`${result.slug}\`\n\n`,
+		`# Objective \`${result.locator}\`\n\n`,
 		`Root: \`${result.rootPath}\` (${rootState})\n`,
 		`Path: \`${result.path}\`\n`,
 		`State: ${state}\n`,
@@ -165,14 +186,15 @@ export function renderReadObjective(result: ReadObjectiveResult): string {
 }
 
 export async function readObjectiveRecord(
-	storage: ObjectiveStorage,
-	slug: string | undefined,
+	ctx: Pick<ObjectiveCliContext, "storage" | "owner">,
+	selector: string | undefined,
 	options: ReadObjectiveOptions = {},
 ): Promise<
 	| { type: "ok"; value: ReadObjectiveResult }
 	| { type: "storage-error"; error: { code: string; message: string } }
 > {
-	const targetResult = await resolveObjectiveRecordTarget(storage, slug);
+	const storage = ctx.storage;
+	const targetResult = await resolveObjectiveRecordTarget(storage, ctx.owner, selector);
 	if (targetResult.type === "storage-error") return targetResult;
 	const target = targetResult.value;
 	if (target.status !== "found") {
@@ -196,7 +218,9 @@ export async function readObjectiveRecord(
 		error: null,
 		rootPath: target.rootPath,
 		rootExists: target.hasRoot,
+		owner: target.owner,
 		slug: target.slug,
+		locator: target.locator,
 		path: relativePath,
 		exists: true,
 		closed: files.value.closedMd,
@@ -242,7 +266,10 @@ function emptyResult(options: {
 	status: Exclude<ReadObjectiveStatus, "ok">;
 	error: string;
 	rootPath: string;
+	owner: string | null;
 	slug: string | null;
+	locator: string | null;
+	message?: string;
 	path: string | null;
 	hasRoot: boolean;
 }): ReadObjectiveResult {
@@ -251,7 +278,10 @@ function emptyResult(options: {
 		error: options.error,
 		rootPath: options.rootPath,
 		rootExists: options.hasRoot,
+		owner: options.owner,
 		slug: options.slug,
+		locator: options.locator,
+		...(options.message === undefined ? {} : { message: options.message }),
 		path: options.path,
 		exists: false,
 		closed: false,

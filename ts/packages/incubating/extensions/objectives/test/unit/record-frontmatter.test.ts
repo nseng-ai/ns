@@ -6,9 +6,10 @@ const RECORD_BODY = "# Objective\n\n## Thesis\n\nBody text.\n";
 
 const WELL_FORMED_FRONTMATTER = [
 	"---",
+	"owner: tester",
 	"blocked: First external publish is gated on checkout-free distribution landing.",
 	"edges:",
-	"  - objective: checkout-free-sdl-distribution",
+	"  - objective: tester/checkout-free-sdl-distribution",
 	"    annotation: Consumed as a hard dependency; must land before this ships externally.",
 	"---",
 	"",
@@ -31,10 +32,11 @@ describe("splitObjectiveRecordDocument", () => {
 			frontmatter: {
 				type: "frontmatter",
 				frontmatter: {
+					owner: "tester",
 					blocked: "First external publish is gated on checkout-free distribution landing.",
 					edges: [
 						{
-							objective: "checkout-free-sdl-distribution",
+							objective: "tester/checkout-free-sdl-distribution",
 							annotation: "Consumed as a hard dependency; must land before this ships externally.",
 						},
 					],
@@ -45,29 +47,42 @@ describe("splitObjectiveRecordDocument", () => {
 	});
 
 	test("normalizes omitted keys: edges-only frontmatter has null blocked", () => {
-		const content = `---\nedges: []\n---\n${RECORD_BODY}`;
-		expect(splitObjectiveRecordDocument(content)).toEqual({
-			frontmatter: { type: "frontmatter", frontmatter: { blocked: null, edges: [] } },
-			body: RECORD_BODY,
-		});
-	});
-
-	test("normalizes omitted keys: blocked-only frontmatter has empty edges", () => {
-		const content = `---\nblocked: Waiting on an external gate.\n---\n${RECORD_BODY}`;
+		const content = `---\nowner: tester\nedges: []\n---\n${RECORD_BODY}`;
 		expect(splitObjectiveRecordDocument(content)).toEqual({
 			frontmatter: {
 				type: "frontmatter",
-				frontmatter: { blocked: "Waiting on an external gate.", edges: [] },
+				frontmatter: { owner: "tester", blocked: null, edges: [] },
 			},
 			body: RECORD_BODY,
 		});
 	});
 
-	test("treats an empty frontmatter block as well-formed with no keys", () => {
-		const content = `---\n---\n${RECORD_BODY}`;
+	test("normalizes omitted keys: blocked-only frontmatter has empty edges", () => {
+		const content = `---\nowner: tester\nblocked: Waiting on an external gate.\n---\n${RECORD_BODY}`;
 		expect(splitObjectiveRecordDocument(content)).toEqual({
-			frontmatter: { type: "frontmatter", frontmatter: { blocked: null, edges: [] } },
+			frontmatter: {
+				type: "frontmatter",
+				frontmatter: { owner: "tester", blocked: "Waiting on an external gate.", edges: [] },
+			},
 			body: RECORD_BODY,
+		});
+	});
+
+	test("treats an owner-only frontmatter block as well-formed with defaulted keys", () => {
+		const content = `---\nowner: tester\n---\n${RECORD_BODY}`;
+		expect(splitObjectiveRecordDocument(content)).toEqual({
+			frontmatter: {
+				type: "frontmatter",
+				frontmatter: { owner: "tester", blocked: null, edges: [] },
+			},
+			body: RECORD_BODY,
+		});
+	});
+
+	test("frontmatter without owner is malformed", () => {
+		const content = `---\nedges: []\n---\n${RECORD_BODY}`;
+		expect(splitObjectiveRecordDocument(content).frontmatter).toMatchObject({
+			type: "malformed",
 		});
 	});
 
@@ -96,11 +111,11 @@ describe("splitObjectiveRecordDocument", () => {
 		expect(document.body).toBe(RECORD_BODY);
 		expect(document.frontmatter).toMatchObject({ type: "malformed" });
 		if (document.frontmatter?.type !== "malformed") throw new Error("expected malformed");
-		expect(document.frontmatter.message).toContain("blocked/edges schema");
+		expect(document.frontmatter.message).toContain("owner/blocked/edges schema");
 	});
 
 	test("marks wrongly-typed edge entries malformed", () => {
-		const content = `---\nedges:\n  - checkout-free-ns-distribution\n---\n${RECORD_BODY}`;
+		const content = `---\nowner: tester\nedges:\n  - checkout-free-ns-distribution\n---\n${RECORD_BODY}`;
 		expect(splitObjectiveRecordDocument(content).frontmatter).toMatchObject({
 			type: "malformed",
 		});
@@ -114,9 +129,12 @@ describe("splitObjectiveRecordDocument", () => {
 	});
 
 	test("handles CRLF fences and bodies", () => {
-		const content = "---\r\nblocked: Gated.\r\n---\r\nBody line.\r\n";
+		const content = "---\r\nowner: tester\r\nblocked: Gated.\r\n---\r\nBody line.\r\n";
 		expect(splitObjectiveRecordDocument(content)).toEqual({
-			frontmatter: { type: "frontmatter", frontmatter: { blocked: "Gated.", edges: [] } },
+			frontmatter: {
+				type: "frontmatter",
+				frontmatter: { owner: "tester", blocked: "Gated.", edges: [] },
+			},
 			body: "Body line.\r\n",
 		});
 	});

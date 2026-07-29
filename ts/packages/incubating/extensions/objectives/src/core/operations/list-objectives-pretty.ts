@@ -23,8 +23,10 @@ import {
 	edgeCountCell,
 	emptyMessage,
 	formatStatusPlain,
+	groupRecordsByOwner,
 	objectiveStatusPresentation,
-	renderSlugs,
+	ownerScopeLabel,
+	renderLocators,
 	updatedBranchCountCell,
 	type ObjectiveListResult,
 } from "./list-objectives.ts";
@@ -37,7 +39,9 @@ function clip(caps: Caps, text: string, width: number): string {
 function subtitle(result: ObjectiveListResult): string {
 	const count = result.records.length;
 	const noun = count === 1 ? "record" : "records";
-	return dim(`${count} ${noun}  ·  filter ${result.statusFilter}  ·  root ${result.rootPath}`);
+	return dim(
+		`${count} ${noun}  ·  ${ownerScopeLabel(result.ownerScope)}  ·  filter ${result.statusFilter}  ·  root ${result.rootPath}`,
+	);
 }
 
 /**
@@ -52,7 +56,7 @@ export function renderObjectiveListPretty(
 	caps: Caps,
 	nowMs: number,
 ): string {
-	if (result.namesOnly) return renderSlugs(result.records);
+	if (result.namesOnly) return renderLocators(result.records);
 
 	const lines: string[] = [bold("Objective records in this checkout"), subtitle(result)];
 	if (result.records.length === 0) {
@@ -71,34 +75,38 @@ export function renderObjectiveListPretty(
 	);
 	const dateW = "LATEST UPDATE".length;
 
-	lines.push("");
-	// "LATEST UPDATE" sits above the dates; the flag gutter header stays blank.
-	lines.push(
-		dim(
-			`${padPlain("OBJECTIVE", slugW)}  ${padPlain("STATUS", statusW)}  ${" ".repeat(flagW)}  ${padPlain("LATEST UPDATE", dateW)}  ${padPlain("BRANCHES", branchesW)}  EDGES`,
-		),
-	);
-
-	for (const record of result.records) {
-		const slugCell = padPlain(clip(caps, record.slug, slugW), slugW);
-
-		const status = objectiveStatusPresentation(record);
-		const statusGlyph = glyph(caps, status.glyphName);
-		const statusColored = `${paint(caps, status.intent, statusGlyph)} ${status.word}`;
-		const statusPlain = formatStatusPlain(caps, status);
-		const statusCell = padCell(statusColored, statusPlain, statusW);
-
-		const stamp =
-			record.latestUpdateIso === null ? "—" : relativeTime(record.latestUpdateIso, nowMs);
-		// A bare `x` warn marker in its own fixed-width column, explained once by the footer legend.
-		const flagCell = record.hasOutstandingChanges ? paint(caps, "warn", "x") : " ".repeat(flagW);
-		const dateCell = dim(padPlain(clip(caps, stamp, dateW), dateW));
-		const branchesCell = padPlain(updatedBranchCountCell(record), branchesW);
-		const edgesCell = edgeCountCell(record);
-
+	// Records group under one `@owner` heading per owner (including the single
+	// default/specific-owner group); rows show short slugs inside a group.
+	for (const [owner, records] of groupRecordsByOwner(result.records)) {
+		lines.push("", bold(paint(caps, "accent", `@${owner}`)));
+		// "LATEST UPDATE" sits above the dates; the flag gutter header stays blank.
 		lines.push(
-			`${slugCell}  ${statusCell}  ${flagCell}  ${dateCell}  ${branchesCell}  ${edgesCell}`.trimEnd(),
+			dim(
+				`${padPlain("OBJECTIVE", slugW)}  ${padPlain("STATUS", statusW)}  ${" ".repeat(flagW)}  ${padPlain("LATEST UPDATE", dateW)}  ${padPlain("BRANCHES", branchesW)}  EDGES`,
+			),
 		);
+
+		for (const record of records) {
+			const slugCell = padPlain(clip(caps, record.slug, slugW), slugW);
+
+			const status = objectiveStatusPresentation(record);
+			const statusGlyph = glyph(caps, status.glyphName);
+			const statusColored = `${paint(caps, status.intent, statusGlyph)} ${status.word}`;
+			const statusPlain = formatStatusPlain(caps, status);
+			const statusCell = padCell(statusColored, statusPlain, statusW);
+
+			const stamp =
+				record.latestUpdateIso === null ? "—" : relativeTime(record.latestUpdateIso, nowMs);
+			// A bare `x` warn marker in its own fixed-width column, explained once by the footer legend.
+			const flagCell = record.hasOutstandingChanges ? paint(caps, "warn", "x") : " ".repeat(flagW);
+			const dateCell = dim(padPlain(clip(caps, stamp, dateW), dateW));
+			const branchesCell = padPlain(updatedBranchCountCell(record), branchesW);
+			const edgesCell = edgeCountCell(record);
+
+			lines.push(
+				`${slugCell}  ${statusCell}  ${flagCell}  ${dateCell}  ${branchesCell}  ${edgesCell}`.trimEnd(),
+			);
+		}
 	}
 
 	const legends: string[] = [];

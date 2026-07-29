@@ -24,12 +24,12 @@ The umbrella skill owns the storage model, required headings, and status semanti
 
 - Edit only the selected Objective's `objective.md`, `roadmap.md`, `orientation.md` (optional; only when not closing), `closed.md` when closing, and new files under `updates/`.
 - Two sanctioned exceptions exist: mirrored edge mutations may edit counterpart frontmatter, and an inline close must propagate semantic impact to every edge-connected Objective per `objective-close`. Outside inline closure, the Record Frontmatter section below defines the narrow exception.
-- Never move, delete, recreate, or normalize Objective slug directories during an update. The slug directory is durable identity; explicit slug migration is separate.
+- Never move, delete, recreate, or normalize Objective record directories during an update. The `<owner>/<slug>` directory is durable identity; owner and slug are immutable, and renames route through close-and-replace (Objective Replacement), never in-place moves.
 - Treat existing Semantic Updates as immutable historical records per the `objective` umbrella skill; create new update files instead of changing old ones.
 
 ## Select exactly one Objective
 
-Select per the umbrella skill's Selection rules, including its objective-update one-candidate exception. When that exception applies, ask before evidence or mutation: `Only one active Objective exists: <slug>. Run objective-update for this Objective?` When multiple active Objectives exist, present the `ns objective list --format md` output and ask for one slug/path; do not ask a generic question before showing options.
+Select per the umbrella skill's Selection rules, including its objective-update one-candidate exception. When that exception applies, ask before evidence or mutation: `Only one active Objective exists: <locator>. Run objective-update for this Objective?` When multiple active Objectives exist, present the `ns objective list --format md` output and ask for one locator/path; do not ask a generic question before showing options.
 
 Never write a multi-Objective update. After selection, branch, Graphite, local-diff, and PR facts may be evidence only; they never participate in selection.
 
@@ -45,7 +45,7 @@ Write the selected Objective as if the current git changes or current-branch PR 
 
 ## Read and collect evidence after selection
 
-First run `ns objective exec read-objective <slug> --format md` to confirm path, state, inventory, raw Markdown, and closed-marker presence. If `closed.md` exists, stop unless the user explicitly asked to amend the closed record; reopening a closed Objective happens only on an explicit user request through `objective-close`'s Reopen procedure — there is no separate public reopen command.
+First run `ns objective exec read-objective <owner>/<slug> --format md` to confirm path, state, inventory, raw Markdown, and closed-marker presence. If `closed.md` exists, stop unless the user explicitly asked to amend the closed record; reopening a closed Objective happens only on an explicit user request through `objective-close`'s Reopen procedure — there is no separate public reopen command.
 
 For large Objectives, use the inventory/closed-state output, then focus on `objective.md`, `roadmap.md`, and recent updates only when needed. Do not spend context on old updates unless they materially affect the current change; old updates are historical evidence, not editable targets.
 
@@ -82,7 +82,7 @@ Collect fail-soft repo evidence:
 
 Do not require PR evidence when local committed branch evidence is sufficient. For stacked Graphite branches, prefer the Graphite parent as base so lower-stack changes are excluded. If base discovery fails, inspect recent commits and uncommitted status; ask only if evidence remains insufficient.
 
-Use working-tree and branch `name-status` evidence as a path-integrity check. Stop before editing if the update would add, delete, move, or recreate a sibling `.ns/objectives/<other-slug>/` directory, or existing local changes already do so without an explicit slug-migration request.
+Use working-tree and branch `name-status` evidence as a path-integrity check. Stop before editing if the update would add, delete, move, or recreate a sibling `.ns/objectives/<owner>/<other-slug>/` directory, or existing local changes already do so without an explicit Objective Replacement request.
 
 Update only when selected Objective content clearly matches the request and evidence. If evidence is ambiguous, unrelated, or maps to multiple roadmap rows, ask instead of writing. In durable Objective files, avoid temporal absence statements unless material; prefer stable evidence wording such as local branch diff, PR corroboration, or PR evidence not required.
 
@@ -101,7 +101,7 @@ This skill owns edge mutation and Blocked Sentence judgment for the selected Obj
 
 - **Edges.** When evidence shows a durable inter-objective relationship appeared, changed meaning, or dissolved, add, reword, or remove the edge as the umbrella skill's mirrored two-file edit with a perspective-correct annotation on each side. Editing the counterpart's frontmatter is the sanctioned exception to the mutation boundary above.
 - **Re-judge the record's own Blocked Sentence on every update.** Compare the current `blocked:` sentence (or its absence) against the evidence: set it when the record is now gated, reword it when stale, and clear it when the gate no longer holds. This is always skill judgment.
-- **Verify.** After any frontmatter edit, run `ns objective check <slug>` or `ns objective check --all`; structural violations are errors and must be fixed before finishing.
+- **Verify.** After any frontmatter edit, run `ns objective check <owner>/<slug>` or `ns objective check --all`; structural violations are errors and must be fixed before finishing.
 
 ### Immutable Semantic Updates
 
@@ -134,7 +134,7 @@ If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` abse
 ## Workflow
 
 1. Resolve exactly one active Objective.
-2. Run `ns objective exec read-objective <slug> --format md`; stop if closed unless explicit amend-closed-record intent is present.
+2. Run `ns objective exec read-objective <owner>/<slug> --format md`; stop if closed unless explicit amend-closed-record intent is present.
 3. Collect post-selection repo evidence and perform the path-integrity check.
 4. Compare request, evidence, and Objective files to identify durable tracking changes.
 5. Edit `objective.md` if narrative, boundaries, criteria, assumptions, risks, open questions, or closure-adjacent context changed.
@@ -149,11 +149,11 @@ If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` abse
 
 Stop or ask when:
 
-- selection is ambiguous/absent after presenting `ns objective list --format md`, or the selected path is outside `.ns/objectives/<slug>/`;
+- selection is ambiguous/absent after presenting `ns objective list --format md`, or the selected path is outside `.ns/objectives/<owner>/<slug>/`;
 - update intent is still ambiguous, or only-open confirmation is pending;
 - the request would update multiple Objectives;
 - the selected Objective is closed without amend intent, or closure outcome/rationale is unclear;
-- slug-directory mutation would occur, or an existing Semantic Update would be modified;
+- record-directory mutation would occur, or an existing Semantic Update would be modified;
 - the request asks for anything the umbrella skill's Non-goals ban;
 - information is insufficient for accurate durable narrative, assumptions/risks, or Semantic Update content.
 
@@ -161,11 +161,11 @@ For existing update mutation, explain that updates are immutable and offer to wr
 
 ## Verify
 
-- Changed Objective files all live under exactly one `.ns/objectives/<slug>/` directory, with no added, deleted, moved, or recreated sibling Objective slug directories. Exceptions: mirrored edge mutations may change counterpart Record Frontmatter; when the selected Objective closes inline, the full close-time connected-Objective propagation contract may also update affected counterparts' durable tracking and add counterpart-local Semantic Updates.
-- If Record Frontmatter was edited (own record or a counterpart), `ns objective check <slug>` or `ns objective check --all` was run and reports no structural errors.
+- Changed Objective files all live under exactly one `.ns/objectives/<owner>/<slug>/` directory, with no added, deleted, moved, or recreated sibling Objective record directories. Exceptions: mirrored edge mutations may change counterpart Record Frontmatter; when the selected Objective closes inline, the full close-time connected-Objective propagation contract may also update affected counterparts' durable tracking and add counterpart-local Semantic Updates.
+- If Record Frontmatter was edited (own record or a counterpart), `ns objective check <owner>/<slug>` or `ns objective check --all` was run and reports no structural errors.
 - New update file, if any, has a timestamped, human-readable filename under that Objective's `updates/` directory.
 - No existing file under the selected Objective's `updates/` directory was edited, deleted, moved, normalized, or recreated.
 - Required headings remain present in edited durable files, including `## Assumptions and Risks`.
 - If closure was performed, confirm `objective.md` contains `## Closure` and `closed.md` exists; if not, confirm no `closed.md` was created by this invocation.
 - If `orientation.md` was re-derived or newly added, confirm it was done only because the Objective is orienting and not closing, and that it follows the format; `orientation.md` remains optional.
-- Final response includes: selected Objective slug/path; durable files edited; whether a new Semantic Update was created or intentionally not written; confirmation that existing Semantic Updates were not modified; local uncommitted changes considered; local committed branch diff considered with base branch if known; PR evidence considered/unavailable/irrelevant; Graphite parent considered/unavailable/irrelevant; Closure Gate result (`not evaluated`, `not ready`, `auto-closed`, or `skipped-unclear`) and whether `closed.md` was written; when auto-closed, every connected Objective's disposition and files changed; verification run or skipped.
+- Final response includes: selected Objective locator/path; durable files edited; whether a new Semantic Update was created or intentionally not written; confirmation that existing Semantic Updates were not modified; local uncommitted changes considered; local committed branch diff considered with base branch if known; PR evidence considered/unavailable/irrelevant; Graphite parent considered/unavailable/irrelevant; Closure Gate result (`not evaluated`, `not ready`, `auto-closed`, or `skipped-unclear`) and whether `closed.md` was written; when auto-closed, every connected Objective's disposition and files changed; verification run or skipped.

@@ -116,13 +116,13 @@ describe("herdr Objective sidebar", () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const repoRoot = await makeTempDir();
 		const slug = "bravo-objective";
-		const expectedLabel = `obj:${slug}`;
+		const expectedLabel = `obj:tester/${slug}`;
 		const pi = new FakePi({
 			script: [
 				objectiveListStep(["alpha-objective", slug]),
 				objectiveDiffStep(""),
 				objectiveStatusStep(""),
-				objectiveReadStep(slug),
+				objectiveReadStep(`tester/${slug}`),
 			],
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
@@ -141,8 +141,8 @@ describe("herdr Objective sidebar", () => {
 			{
 				title: "Select an active Objective for Herdr sidebar",
 				items: [
-					"alpha-objective — open — latest update 2 weeks ago",
-					"bravo-objective — open — latest update 2 weeks ago",
+					"tester/alpha-objective — open — latest update 2 weeks ago",
+					"tester/bravo-objective — open — latest update 2 weeks ago",
 				],
 			},
 		]);
@@ -160,9 +160,9 @@ describe("herdr Objective sidebar", () => {
 		const pi = new FakePi({
 			script: [
 				objectiveListStep(["alpha-objective", slug, "charlie-objective"]),
-				objectiveDiffStep(`M\t.ns/objectives/${slug}/objective.md\n`),
+				objectiveDiffStep(`M\t.ns/objectives/tester/${slug}/objective.md\n`),
 				objectiveStatusStep(""),
-				objectiveReadStep(slug),
+				objectiveReadStep(`tester/${slug}`),
 			],
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
@@ -180,13 +180,15 @@ describe("herdr Objective sidebar", () => {
 			{
 				title: "Select an active Objective for Herdr sidebar (only Objective changed vs master)",
 				items: [
-					"bravo-objective — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
+					"tester/bravo-objective — suggested: only Objective changed vs master — open — latest update 2 weeks ago",
 					"View other active Objectives…",
 				],
 			},
 		]);
-		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: `obj:${slug}` }]);
-		expect(notificationMessages(ctx)).toContain(`Applied Herdr Objective sidebar: obj:${slug}`);
+		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: `obj:tester/${slug}` }]);
+		expect(notificationMessages(ctx)).toContain(
+			`Applied Herdr Objective sidebar: obj:tester/${slug}`,
+		);
 	});
 
 	test("ns:herdr:space:objective-summary picker cancellation stops without rename", async () => {
@@ -387,10 +389,22 @@ describe("herdr Objective sidebar — resolveObjectiveSelector", () => {
 		).toEqual({ type: "valid", slug: "herdr-capability-parity" });
 	});
 
+	test("accepts <owner>/<slug> locator selectors", () => {
+		expect(resolveObjectiveSelector("someone/herdr-capability-parity", "/repo")).toEqual({
+			type: "valid",
+			slug: "someone/herdr-capability-parity",
+		});
+		expect(
+			resolveObjectiveSelector(".ns/objectives/someone/herdr-capability-parity", "/repo"),
+		).toEqual({
+			type: "valid",
+			slug: "someone/herdr-capability-parity",
+		});
+	});
+
 	test("rejects ambiguous or out-of-tree selectors", () => {
 		const cwd = "/repo";
 		for (const selector of [
-			"foo/bar",
 			".",
 			"..",
 			".ns/not-objectives/old/objective.md",

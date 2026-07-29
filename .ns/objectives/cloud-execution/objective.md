@@ -1,10 +1,11 @@
 ---
+owner: schrockn
 edges:
-  - objective: harness-session-generation
+  - objective: schrockn/harness-session-generation
     annotation: "Historical boundary remains valid after that Objective closed as superseded: cloud-execution owns remote-sandbox harness execution, and its vendor coupling does not imply a shared local harness-session foundation."
-  - objective: cloud-dispatch-thermo-followups
+  - objective: schrockn/cloud-dispatch-thermo-followups
     annotation: Code-quality follow-ups from the thermo-nuclear review of this objective's dispatch stack are tracked there, not on this roadmap; its probe-retirement slice waits on this objective's steel-thread controlled Pi rerun, and hello-probe's retirement is decided together with this roadmap's setup-skill row.
-  - objective: dispatch-plan-brmem-delivery
+  - objective: schrockn/dispatch-plan-brmem-delivery
     annotation: Broader-program dependency — the focused Objective owns the `ns dispatch plan` user contract and Branch Memory input-delivery implementation; this Objective consumes its proven end-to-end result as the plan-command slice of the Vercel cloud roadmap.
 ---
 

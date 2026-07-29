@@ -118,10 +118,12 @@ disagree.
 Creation resolves the owner in this order:
 
 1. An explicit `--owner <handle>` argument.
-2. Your authenticated GitHub login, proposed as the default.
-3. Otherwise, you are asked.
+2. Your authenticated GitHub login.
+3. Otherwise creation stops and requires an explicit `--owner`; you are never prompted
+   for an owner guess and one is never derived from Git identity.
 
-The resolved owner is always shown for confirmation before the record is written.
+The resolved owner and full locator are always shown for confirmation before the record
+is written.
 Validation is purely syntactic and offline: the extension never requires a live GitHub
 lookup to create, list, or check Objectives, so repositories may use handles that are not
 GitHub accounts.
@@ -157,12 +159,18 @@ The extension adds a deterministic, read-only `ns objective` surface. Commands a
 records by full locator:
 
 ```bash
-ns objective list                                # open Objectives, grouped by owner
-ns objective list --owner schrockn               # one owner's records
+ns objective list                                # your open Objectives (current owner)
+ns objective list --owner schrockn               # one owner's records, no auth needed
+ns objective list --all-owners                   # every owner's records, no auth needed
 ns objective show schrockn/objective-ownership   # inspect one record
 ns objective check schrockn/objective-ownership  # validate one record
 ns objective check --all                         # repo-wide structural sweep
 ```
+
+`ns objective list` defaults to the authenticated current owner's namespace.
+`--owner <handle>` and `--all-owners` are mutually exclusive with each other and work
+without authentication; the default requires the login and fails with guidance
+otherwise.
 
 `ns objective list` groups records under owner headings:
 
@@ -184,9 +192,10 @@ schrockn/objective-ownership
 alice/repo-cleanup
 ```
 
-A bare slug may be accepted as convenience input when it resolves to exactly one record;
-any ambiguity fails with the matching full locators. Durable references — edges, records,
-scripts — always use full locators.
+A bare slug is convenience input meaning exactly `<current-owner>/<slug>`: it resolves
+only inside the authenticated owner's namespace and never falls back to another owner's
+record, unique or not. Address another owner's record with its full locator. Durable
+references — edges, records, scripts — always use full locators.
 
 ### What `check` enforces
 
@@ -206,7 +215,7 @@ triggers in a later pass. -->
 
 ## Open questions
 
-- How much bare-slug convenience input should commands accept before ambiguity makes it
-  more confusing than helpful?
-- How should repositories with records predating ownership present them during
-  migration (labeled legacy layout vs. silent tolerance)?
+- None material. Bare-slug input is settled as current-owner-only shorthand, and records
+  predating ownership are handled by the narrow legacy-flat-closed exception (flat
+  directories are tolerated only while closed, with owner frontmatter required) until
+  the parked closed-record migration retires it.

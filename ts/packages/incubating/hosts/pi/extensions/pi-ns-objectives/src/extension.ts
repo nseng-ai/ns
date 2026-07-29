@@ -82,7 +82,8 @@ export type ObjectiveExtensionAPI = Pick<
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_EXTENSION_ID = "objective";
 const OBJECTIVE_LIST_COMMAND_NAME = nsCommandSurface(OBJECTIVE_EXTENSION_ID, "list");
-const OBJECTIVE_LIST_ARGUMENT_HINT = "[--names] [--status all|active|open|closed] [--help]";
+const OBJECTIVE_LIST_ARGUMENT_HINT =
+	"[--names] [--status all|active|open|closed] [--owner <handle>] [--all-owners] [--help]";
 const OBJECTIVE_SELECTOR_ARGUMENT_HINT = "[objective-slug-or-path]";
 const OBJECTIVE_CREATE_ARGUMENT_HINT = "[objective-slug-title-or-context]";
 const OBJECTIVE_COMPLETION_CACHE_TTL_MS = 10_000;
@@ -297,7 +298,12 @@ function createObjectiveCommandCompleter(
 			return null;
 		}
 
-		const filtered = items.filter((item) => item.value.startsWith(query));
+		// Candidate values are full `<owner>/<slug>` locators; match a typed prefix
+		// against the locator or the owner-local slug segment.
+		const filtered = items.filter(
+			(item) =>
+				item.value.startsWith(query) || item.value.split("/")[1]?.startsWith(query) === true,
+		);
 		return filtered.length > 0 ? filtered : null;
 	};
 }
@@ -349,6 +355,8 @@ function parseObjectiveCandidates(stdout: string): ObjectiveCandidatesParseResul
 interface ObjectiveListRequestShape {
 	names: boolean;
 	status: ObjectiveStatusFilter;
+	owner?: string;
+	allOwners?: boolean;
 }
 
 function mapObjectiveListParsedArgs(args: readonly string[]): ParsedCliCommandArgs {
@@ -420,13 +428,25 @@ function objectiveListRequestFromParsedArgs(
 				request.status = value;
 				index += 1;
 			}
+			continue;
+		}
+		if (arg === "--all-owners") {
+			request.allOwners = true;
+			continue;
+		}
+		if (arg === "--owner") {
+			const value = parsed.args[index + 1];
+			if (value !== undefined) {
+				request.owner = value;
+				index += 1;
+			}
 		}
 	}
 	return request;
 }
 
 function renderObjectiveListHelp(): string {
-	return `Usage: /${OBJECTIVE_LIST_COMMAND_NAME} ${OBJECTIVE_LIST_ARGUMENT_HINT}\n\nList checkout-local Objective records without shelling out through the objective CLI.\n\nOptions:\n  --names                         Output Objective slugs only, one per line.\n  --status all|active|open|closed Filter Objective records by checkout-local status.\n  --help, -h                      Show this help.\n`;
+	return `Usage: /${OBJECTIVE_LIST_COMMAND_NAME} ${OBJECTIVE_LIST_ARGUMENT_HINT}\n\nList checkout-local Objective records without shelling out through the objective CLI.\n\nOptions:\n  --names                         Output Objective locators only, one per line.\n  --status all|active|open|closed Filter Objective records by checkout-local status.\n  --owner <handle>                List only this owner's records (works offline).\n  --all-owners                    List records for every discovered owner.\n  --help, -h                      Show this help.\n`;
 }
 
 function objectiveParityEntry(

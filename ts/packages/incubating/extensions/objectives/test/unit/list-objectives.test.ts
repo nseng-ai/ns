@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import type { ObjectiveCliContext } from "../../src/core/context.ts";
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
+import { FakeObjectiveOwnerGateway } from "../../src/core/owner-gateway.ts";
 import { buildObjectiveBranchAttribution } from "../../src/core/operations/list-branch-attribution.ts";
 import {
 	latestUpdateIsoFromUpdateNames,
@@ -12,17 +13,34 @@ import {
 	renderObjectiveListMarkdown,
 	runListObjectives,
 } from "../../src/core/operations/list-objectives.ts";
-import { ObjectiveStorage } from "../../src/core/storage.ts";
+import { ObjectiveStorage, type ObjectiveRecordLocation } from "../../src/core/storage.ts";
+
+const OWNER = "tester";
+
+function nestedLocation(slug: string): ObjectiveRecordLocation {
+	return {
+		owner: OWNER,
+		slug,
+		locator: `${OWNER}/${slug}`,
+		recordRelativePath: `.ns/objectives/${OWNER}/${slug}`,
+		layout: "owner-nested",
+		status: "open",
+	};
+}
 
 const SAMPLE_RESULT: ObjectiveListResult = {
 	trunkBranch: "master",
 	rootPath: ".ns/objectives",
 	statusFilter: "active",
+	ownerScope: { type: "current", owner: OWNER },
 	namesOnly: false,
 	records: [
 		{
+			owner: OWNER,
 			slug: "alpha",
+			locator: "tester/alpha",
 			status: "open",
+			layout: "owner-nested",
 			latestUpdateIso: "2026-06-13T09:10:00Z",
 			hasOutstandingChanges: false,
 		},
@@ -32,24 +50,31 @@ const SAMPLE_RESULT: ObjectiveListResult = {
 describe("renderObjectiveListHuman", () => {
 	const esc = String.fromCharCode(0x1b);
 
-	test("renders the compact human table with edges and blocked state text", () => {
+	test("renders owner-grouped human tables with edges and blocked state text", () => {
 		const result: ObjectiveListResult = {
 			trunkBranch: "master",
 			rootPath: ".ns/objectives",
 			statusFilter: "all",
+			ownerScope: { type: "all" },
 			namesOnly: false,
 			records: [
 				{
+					owner: OWNER,
 					slug: "alpha",
+					locator: "tester/alpha",
 					status: "open",
+					layout: "owner-nested",
 					isBlocked: true,
 					latestUpdateIso: "2026-06-13T09:10:00Z",
 					edgeCount: 2,
 					hasOutstandingChanges: false,
 				},
 				{
+					owner: OWNER,
 					slug: "bravo-objective",
+					locator: "tester/bravo-objective",
 					status: "closed",
+					layout: "legacy-flat-closed",
 					latestUpdateIso: null,
 					hasOutstandingChanges: true,
 				},
@@ -59,8 +84,10 @@ describe("renderObjectiveListHuman", () => {
 		expect(renderObjectiveListHuman(result, { canEmitAnsi: false }).split("\n")).toEqual([
 			"Objective records in this checkout",
 			"Root: .ns/objectives",
+			"Owner scope: all owners",
 			"Status filter: all",
 			"",
+			"@tester",
 			"OBJECTIVE        STATUS     LATEST UPDATE         BRANCHES  EDGES",
 			"───────────────  ─────────  ────────────────────  ────────  ─────",
 			"alpha            ⊘ blocked  2026-06-13T09:10:00Z  0         2",
@@ -68,29 +95,63 @@ describe("renderObjectiveListHuman", () => {
 		]);
 	});
 
-	test("markdown table carries the edges column blank-when-zero and blocked state text", () => {
+	test("markdown output groups records under owner headings", () => {
 		const result: ObjectiveListResult = {
 			trunkBranch: "master",
 			rootPath: ".ns/objectives",
 			statusFilter: "all",
+			ownerScope: { type: "all" },
 			namesOnly: false,
 			records: [
 				{
+					owner: OWNER,
 					slug: "alpha",
+					locator: "tester/alpha",
 					status: "open",
+					layout: "owner-nested",
 					isBlocked: true,
 					latestUpdateIso: null,
 					edgeCount: 2,
 					hasOutstandingChanges: false,
 				},
-				{ slug: "bravo", status: "open", latestUpdateIso: null, hasOutstandingChanges: false },
+				{
+					owner: "other",
+					slug: "bravo",
+					locator: "other/bravo",
+					status: "open",
+					layout: "owner-nested",
+					latestUpdateIso: null,
+					hasOutstandingChanges: false,
+				},
 			],
 		};
 
 		const lines = renderObjectiveListMarkdown(result).split("\n");
-		expect(lines).toContain("| objective | status | latest update | branches | edges |");
+		expect(lines).toContain("## @tester");
+		expect(lines).toContain("## @other");
 		expect(lines).toContain("| alpha | ⊘ blocked | — | 0 | 2 |");
 		expect(lines).toContain("| bravo | ● open | — | 0 |  |");
+	});
+
+	test("names output emits one full locator per line", () => {
+		const result: ObjectiveListResult = {
+			...SAMPLE_RESULT,
+			namesOnly: true,
+			records: [
+				...SAMPLE_RESULT.records,
+				{
+					owner: "other",
+					slug: "bravo",
+					locator: "other/bravo",
+					status: "open",
+					layout: "owner-nested",
+					latestUpdateIso: null,
+					hasOutstandingChanges: false,
+				},
+			],
+		};
+		expect(renderObjectiveListHuman(result)).toBe("tester/alpha\nother/bravo");
+		expect(renderObjectiveListMarkdown(result)).toBe("tester/alpha\nother/bravo");
 	});
 
 	test("human status cells use canonical ASCII glyph fallbacks", () => {
@@ -98,17 +159,37 @@ describe("renderObjectiveListHuman", () => {
 			trunkBranch: "master",
 			rootPath: ".ns/objectives",
 			statusFilter: "all",
+			ownerScope: { type: "current", owner: OWNER },
 			namesOnly: false,
 			records: [
-				{ slug: "alpha", status: "open", latestUpdateIso: null, hasOutstandingChanges: false },
 				{
-					slug: "blocked",
+					owner: OWNER,
+					slug: "alpha",
+					locator: "tester/alpha",
 					status: "open",
+					layout: "owner-nested",
+					latestUpdateIso: null,
+					hasOutstandingChanges: false,
+				},
+				{
+					owner: OWNER,
+					slug: "blocked",
+					locator: "tester/blocked",
+					status: "open",
+					layout: "owner-nested",
 					isBlocked: true,
 					latestUpdateIso: null,
 					hasOutstandingChanges: false,
 				},
-				{ slug: "closed", status: "closed", latestUpdateIso: null, hasOutstandingChanges: false },
+				{
+					owner: OWNER,
+					slug: "closed",
+					locator: "tester/closed",
+					status: "closed",
+					layout: "owner-nested",
+					latestUpdateIso: null,
+					hasOutstandingChanges: false,
+				},
 			],
 		};
 
@@ -139,6 +220,132 @@ describe("renderObjectiveListHuman", () => {
 		expect(output).toContain(`${esc}[1;36mOBJECTIVE${esc}[0m`);
 		expect(output).toContain(`${esc}[1;36malpha${esc}[0m`);
 		expect(output).toContain(`${esc}[2m2026-06-13T09:10:00Z${esc}[0m`);
+	});
+});
+
+describe("objective list owner scope", () => {
+	function ctxWithRecords(
+		owner: FakeObjectiveOwnerGateway = new FakeObjectiveOwnerGateway({ owner: OWNER }),
+	): ObjectiveCliContext {
+		return {
+			cwd: "/repo",
+			env: { PATH: "/fake/bin" },
+			repoRoot: "/repo",
+			trunkBranch: "master",
+			storage: new ObjectiveStorage(
+				new FakeObjectiveStorageGateway({
+					records: [
+						{ owner: OWNER, slug: "alpha" },
+						{ owner: "other", slug: "bravo" },
+					],
+				}),
+			),
+			git: new InMemoryGitGateway(),
+			owner,
+		};
+	}
+
+	test("defaults to the authenticated current owner", async () => {
+		const exit = await runListObjectives(ctxWithRecords(), {
+			names: false,
+			status: "active",
+			allOwners: false,
+		});
+		if (exit.type !== "ok") throw new Error("expected ok exit");
+		expect(exit.data.ownerScope).toEqual({ type: "current", owner: OWNER });
+		expect(exit.data.records.map((record) => record.locator)).toEqual(["tester/alpha"]);
+	});
+
+	test("--owner selects a namespace without authentication", async () => {
+		const ownerGateway = new FakeObjectiveOwnerGateway({});
+		const exit = await runListObjectives(ctxWithRecords(ownerGateway), {
+			names: false,
+			status: "active",
+			owner: "other",
+			allOwners: false,
+		});
+		if (exit.type !== "ok") throw new Error("expected ok exit");
+		expect(exit.data.ownerScope).toEqual({ type: "explicit", owner: "other" });
+		expect(exit.data.records.map((record) => record.locator)).toEqual(["other/bravo"]);
+		expect(ownerGateway.callCount).toBe(0);
+	});
+
+	test("--all-owners lists every discovered owner without authentication", async () => {
+		const ownerGateway = new FakeObjectiveOwnerGateway({});
+		const exit = await runListObjectives(ctxWithRecords(ownerGateway), {
+			names: false,
+			status: "active",
+			allOwners: true,
+		});
+		if (exit.type !== "ok") throw new Error("expected ok exit");
+		expect(exit.data.ownerScope).toEqual({ type: "all" });
+		expect(exit.data.records.map((record) => record.locator)).toEqual([
+			"other/bravo",
+			"tester/alpha",
+		]);
+		expect(ownerGateway.callCount).toBe(0);
+	});
+
+	test("--owner with --all-owners is a usage error", async () => {
+		const exit = await runListObjectives(ctxWithRecords(), {
+			names: false,
+			status: "active",
+			owner: OWNER,
+			allOwners: true,
+		});
+		expect(exit.type).toBe("usageError");
+	});
+
+	test("invalid explicit owner is a usage error validated offline", async () => {
+		const exit = await runListObjectives(ctxWithRecords(), {
+			names: false,
+			status: "active",
+			owner: "Bad_Handle",
+			allOwners: false,
+		});
+		expect(exit.type).toBe("usageError");
+	});
+
+	test("default listing without an authenticated owner fails with guidance", async () => {
+		const exit = await runListObjectives(ctxWithRecords(new FakeObjectiveOwnerGateway({})), {
+			names: false,
+			status: "active",
+			allOwners: false,
+		});
+		expect(exit.type).toBe("negative");
+		if (exit.type !== "negative") throw new Error("expected negative exit");
+		expect(exit.message).toContain("--all-owners");
+	});
+
+	test("--status filtering stays orthogonal to owner scope", async () => {
+		const ctx: ObjectiveCliContext = {
+			cwd: "/repo",
+			env: { PATH: "/fake/bin" },
+			repoRoot: "/repo",
+			trunkBranch: "master",
+			storage: new ObjectiveStorage(
+				new FakeObjectiveStorageGateway({
+					records: [
+						{ owner: OWNER, slug: "open-record" },
+						{ owner: OWNER, slug: "closed-record", isClosed: true },
+						{ owner: OWNER, slug: "legacy-record", layout: "legacy-flat-closed" },
+					],
+				}),
+			),
+			git: new InMemoryGitGateway(),
+			owner: new FakeObjectiveOwnerGateway({ owner: OWNER }),
+		};
+
+		const closedOnly = await runListObjectives(ctx, {
+			names: true,
+			status: "closed",
+			allOwners: false,
+		});
+		if (closedOnly.type !== "ok") throw new Error("expected ok exit");
+		expect(closedOnly.data.records.map((record) => record.locator)).toEqual([
+			"tester/closed-record",
+			"tester/legacy-record",
+		]);
 	});
 });
 
@@ -181,7 +388,7 @@ describe("objective list helpers", () => {
 		).toBe("2026-07-01T18:52:44Z");
 	});
 
-	test("fake-backed branch attribution prefilters branches and attributes active objective slugs", async () => {
+	test("fake-backed branch attribution prefilters branches and attributes locators", async () => {
 		const git = new InMemoryGitGateway({
 			localBranchTips: [
 				{ name: "master", headIso: "2026-05-01T00:00:00Z" },
@@ -196,10 +403,10 @@ describe("objective list helpers", () => {
 				"feat/same-tree|.ns/objectives": "trunk-tree",
 			},
 			changedPaths: {
-				"master...feat/newer|.ns/objectives": [".ns/objectives/alpha/objective.md"],
+				"master...feat/newer|.ns/objectives": [".ns/objectives/tester/alpha/objective.md"],
 				"master...feat/older|.ns/objectives": [
-					".ns/objectives/alpha/roadmap.md",
-					".ns/objectives/branch-only/objective.md",
+					".ns/objectives/tester/alpha/roadmap.md",
+					".ns/objectives/tester/branch-only/objective.md",
 				],
 			},
 		});
@@ -207,12 +414,15 @@ describe("objective list helpers", () => {
 		const result = await buildObjectiveBranchAttribution(git, {
 			repoRoot: "/repo",
 			trunkBranch: "master",
-			slugs: new Set(["alpha"]),
+			locations: [nestedLocation("alpha")],
 		});
 
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
-		expect(result.value.updatedBranchesBySlug.get("alpha")).toEqual(["feat/newer", "feat/older"]);
+		expect(result.value.updatedBranchesByLocator.get("tester/alpha")).toEqual([
+			"feat/newer",
+			"feat/older",
+		]);
 		expect(git.changedPathsUnderCalls.map((call) => call.revisionRange)).toEqual([
 			"master...feat/newer",
 			"master...feat/older",
@@ -230,6 +440,7 @@ describe("objective list helpers", () => {
 					new FakeObjectiveStorageGateway({
 						records: [
 							{
+								owner: OWNER,
 								slug: "alpha",
 								objectiveMd,
 								updates: { "2026-06-15T223520Z-progress.md": "# Progress\n" },
@@ -238,8 +449,9 @@ describe("objective list helpers", () => {
 					}),
 				),
 				git: new InMemoryGitGateway(),
+				owner: new FakeObjectiveOwnerGateway({ owner: OWNER }),
 			};
-			return await runListObjectives(ctx, { names: false, status: "active" });
+			return await runListObjectives(ctx, { names: false, status: "active", allOwners: false });
 		};
 
 		// A record without frontmatter lists exactly as before: no edge/blocked keys at all.
@@ -247,8 +459,11 @@ describe("objective list helpers", () => {
 		if (withoutFrontmatter.type !== "ok") throw new Error("expected ok exit");
 		expect(withoutFrontmatter.data.records).toEqual([
 			{
+				owner: OWNER,
 				slug: "alpha",
+				locator: "tester/alpha",
 				status: "open",
+				layout: "owner-nested",
 				latestUpdateIso: "2026-06-15T22:35:20Z",
 				hasOutstandingChanges: false,
 			},
@@ -256,7 +471,7 @@ describe("objective list helpers", () => {
 
 		// Frontmatter carrying no blocked sentence and no edges lists identically to none.
 		const emptyFrontmatter = await listWithObjectiveMd(
-			"---\nedges: []\n---\n# alpha\n\n## Thesis\n",
+			`---\nowner: ${OWNER}\nedges: []\n---\n# alpha\n\n## Thesis\n`,
 		);
 		expect(emptyFrontmatter).toEqual(withoutFrontmatter);
 
@@ -269,9 +484,10 @@ describe("objective list helpers", () => {
 		const blockedWithEdges = await listWithObjectiveMd(
 			[
 				"---",
+				`owner: ${OWNER}`,
 				"blocked: Gated on an upstream landing.",
 				"edges:",
-				"  - objective: bravo",
+				"  - objective: tester/bravo",
 				"    annotation: Consumed as a hard dependency.",
 				"---",
 				"# alpha",
@@ -283,8 +499,11 @@ describe("objective list helpers", () => {
 		if (blockedWithEdges.type !== "ok") throw new Error("expected ok exit");
 		expect(blockedWithEdges.data.records).toEqual([
 			{
+				owner: OWNER,
 				slug: "alpha",
+				locator: "tester/alpha",
 				status: "open",
+				layout: "owner-nested",
 				isBlocked: true,
 				latestUpdateIso: "2026-06-15T22:35:20Z",
 				edgeCount: 1,
@@ -303,8 +522,9 @@ describe("objective list helpers", () => {
 				new FakeObjectiveStorageGateway({
 					records: [
 						{
+							owner: OWNER,
 							slug: "alpha",
-							objectiveMd: "# alpha\n\n## Thesis\n",
+							objectiveMd: `---\nowner: ${OWNER}\n---\n# alpha\n\n## Thesis\n`,
 							updates: { "2026-06-15T223520Z-progress.md": "# Progress\n" },
 						},
 					],
@@ -322,13 +542,14 @@ describe("objective list helpers", () => {
 					"feat/older|.ns/objectives": "older-tree",
 				},
 				changedPaths: {
-					"master...feat/newer|.ns/objectives": [".ns/objectives/alpha/objective.md"],
-					"master...feat/older|.ns/objectives": [".ns/objectives/alpha/roadmap.md"],
+					"master...feat/newer|.ns/objectives": [".ns/objectives/tester/alpha/objective.md"],
+					"master...feat/older|.ns/objectives": [".ns/objectives/tester/alpha/roadmap.md"],
 				},
 			}),
+			owner: new FakeObjectiveOwnerGateway({ owner: OWNER }),
 		};
 
-		const exit = await runListObjectives(ctx, { names: false, status: "active" });
+		const exit = await runListObjectives(ctx, { names: false, status: "active", allOwners: false });
 		if (exit.type !== "ok") throw new Error("expected ok exit");
 
 		expect(exit.data.records[0]).toMatchObject({ slug: "alpha", updatedBranchCount: 2 });
@@ -353,12 +574,12 @@ describe("objective list helpers", () => {
 		const result = await buildObjectiveBranchAttribution(git, {
 			repoRoot: "/repo",
 			trunkBranch: "master",
-			slugs: new Set(["alpha"]),
+			locations: [nestedLocation("alpha")],
 		});
 
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
-		expect(result.value.updatedBranchesBySlug.get("alpha")).toEqual([]);
+		expect(result.value.updatedBranchesByLocator.get("tester/alpha")).toEqual([]);
 		expect(git.changedPathsUnderCalls.map((call) => call.revisionRange)).toEqual([
 			"master...feat/stale",
 		]);

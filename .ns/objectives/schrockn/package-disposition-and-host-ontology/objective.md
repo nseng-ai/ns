@@ -1,6 +1,7 @@
 ---
+owner: schrockn
 edges:
-  - objective: professional-repo-curation
+  - objective: schrockn/professional-repo-curation
     annotation: Parent umbrella whose package-curation direction this Subobjective replaces with a three-disposition package ontology and an atomic repository reorganization.
 ---
 

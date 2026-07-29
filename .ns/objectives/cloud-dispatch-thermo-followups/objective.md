@@ -1,8 +1,9 @@
 ---
+owner: schrockn
 edges:
-  - objective: cloud-execution
+  - objective: schrockn/cloud-execution
     annotation: Remediates the surviving findings from the thermo-nuclear review of cloud-execution's dispatch stack (PRs #3587–#3620); the probe-retirement slice is gated on that objective's steel-thread controlled Pi rerun, and hello-probe's fate is settled with its setup-skill roadmap row.
-  - objective: objective-runner-external-writes
+  - objective: schrockn/objective-runner-external-writes
     annotation: Consumes that Objective's publish-capable Runner steel thread before this record can use the desired autorun model that pushes verified local commits and maintains an existing PR summary without parent interludes.
 ---
 

@@ -1,3 +1,7 @@
+---
+owner: schrockn
+---
+
 # Landed Architecture Review: Pi CLI Lifecycle
 
 ## Thesis

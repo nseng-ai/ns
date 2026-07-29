@@ -11,22 +11,22 @@ Read-only grounding for Objective skills: shared vocabulary, storage model, sele
 
 An Objective is a checked-in durable narrative roadmap for multi-session, multi-branch, or multi-PR work.
 
-Active root:
+Active root (canonical records are owner-nested):
 
 ```text
-.ns/objectives/<slug>/
-  objective.md
+.ns/objectives/<owner>/<slug>/
+  objective.md    # starts with Record Frontmatter carrying required owner
   roadmap.md
   orientation.md  # optional; open Objectives only
   updates/
   closed.md  # optional marker
 ```
 
-Do not use `docs/objectives/`.
+Do not use `docs/objectives/`. Legacy flat closed records (`.ns/objectives/<slug>/` containing `closed.md`) are tolerated during the interim per ADR 0050; a flat *open* record is invalid and `ns objective check --all` reports it.
 
-**Slug identity.** The `<slug>` directory name is the durable Objective identity while the record exists in the checkout. Titles, command names, product names, prose, branches, and implementation packages may be renamed without changing the Objective slug. Do not move, delete, or recreate an Objective under a new slug unless the user explicitly asks for an Objective slug migration.
+**Locator identity.** The durable Objective identity is the **Objective Locator** `<owner>/<slug>`: a required singular **Objective Owner** (steward, not access control; currently the authenticated GitHub login) plus an owner-local slug. Titles, command names, product names, prose, branches, and implementation packages may be renamed without changing the locator. Owner and slug are immutable: renames and ownership transfer use close-and-replace (**Objective Replacement**), never in-place moves. A bare slug in command input means exactly `<current-owner>/<slug>` and never falls back to another owner's namespace; address other owners with a full locator.
 
-**Deletion is source-controlled.** Closing an Objective does not delete it. If a record should leave active checkout state, delete `.ns/objectives/<slug>/` through ordinary source control and recover it from git history if needed. Do not add tombstones, registries, or a separate parking location.
+**Deletion is source-controlled.** Closing an Objective does not delete it. If a record should leave active checkout state, delete `.ns/objectives/<owner>/<slug>/` through ordinary source control and recover it from git history if needed. Do not add tombstones, registries, or a separate parking location.
 
 ## Objective skill family
 
@@ -63,21 +63,22 @@ Separately, any Objective — regardless of pattern or execution policy — may 
 
 ### Record Frontmatter
 
-`objective.md` may begin with optional **Record Frontmatter**: a YAML block carrying exactly two keys, `blocked` and `edges`, and nothing else (ADR 0025). Most records have no frontmatter; readers behave identically either way.
+`objective.md` begins with **Record Frontmatter**: a YAML block carrying a closed key set — required `owner`, optional `blocked` and `edges` — and nothing else (ADR 0050). Every record carries the owner; a nested record's `owner` must equal its owner path segment.
 
 ```yaml
 ---
+owner: schrockn
 blocked: First external publish is gated on checkout-free distribution landing.
 edges:
-  - objective: checkout-free-sdl-distribution
+  - objective: schrockn/checkout-free-sdl-distribution
     annotation: Consumed as a hard dependency; must land before this ships externally.
 ---
 ```
 
-- **Objective Edges** are undirected, kind-less, mirrored connections between two Objective records. Each endpoint lists the other under `edges:` as `{objective: <slug>, annotation: <sentence>}`. The **Edge Annotation** is required on both sides and written from that record's perspective — the two sentences are deliberately different texts. Edge identity is the unordered slug pair; at most one edge between two records. Direction, causality, and relationship kind live in the prose, never the schema.
+- **Objective Edges** are undirected, kind-less, mirrored connections between two Objective records. Each endpoint lists the other under `edges:` as `{objective: <owner>/<slug>, annotation: <sentence>}` — endpoints are always full locators. The **Edge Annotation** is required on both sides and written from that record's perspective — the two sentences are deliberately different texts. Edge identity is the unordered pair of locators; at most one edge between two records. Direction, causality, and relationship kind live in the prose, never the schema.
 - **Blocked Sentence**: `blocked:` is prose-valued; its presence means the record is blocked (for any reason — another objective, an external gate) and its value says why. There is no boolean, and blocked is a sub-state of open, not a lifecycle state. It is set and cleared only by skill judgment, never by machine auto-flip.
 - **Mutation is skill-owned.** There is no public CLI mutation surface; the `objective-create`, `objective-update`, and `objective-close` step skills own writing edges and judging Blocked Sentences. Because edges are mirrored, an edge mutation is a two-file edit: it edits the counterpart record's frontmatter too — the ordinary sanctioned exception to one-Objective mutation boundaries, limited strictly to the counterpart's frontmatter. Objective Close has one broader exception: closing an Objective requires a semantic impact review of every edge-connected Objective and may update each affected active counterpart's durable tracking. The `objective-close` skill owns that bounded close-time propagation.
-- **Verification**: after any frontmatter edit, run `ns objective check <slug>` (per-slug check validates that record's edges including mirror lookups) or `ns objective check --all` (repo-wide structural sweep). Structural violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors. `check` also emits one non-failing **warning** when a record carries a Blocked Sentence while an edge counterpart is closed; the warning is deterministic marker state (blocked-present plus counterpart `closed.md`), and disposing of it — clear, reword, or deliberately keep — is skill judgment for the close/update/refresh workflows, never a machine auto-flip.
+- **Verification**: after any frontmatter edit, run `ns objective check <owner>/<slug>` (per-record check validates owner and edges including cross-owner mirror lookups) or `ns objective check --all` (repo-wide structural sweep, including storage hygiene: flat open records, invalid owner directories, duplicate locators). Structural violations — missing/invalid owner, owner/path disagreement, bare-slug or dangling edge endpoint, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors. `check` also emits one non-failing **warning** when a record carries a Blocked Sentence while an edge counterpart is closed; the warning is deterministic marker state (blocked-present plus counterpart `closed.md`), and disposing of it — clear, reword, or deliberately keep — is skill judgment for the close/update/refresh workflows, never a machine auto-flip.
 
 ### roadmap.md
 
@@ -117,11 +118,11 @@ Objective Close is a graph-aware tracking transaction, not only a marker write: 
 
 ## Selection
 
-1. Use an explicit user-provided slug or path under `.ns/objectives/<slug>/`.
-2. If no slug or path is explicit, run `ns objective list --format md` to enumerate active checkout-local Objectives (`open` records in `.ns/objectives/`) and ask the user to choose.
+1. Use an explicit user-provided locator (`<owner>/<slug>`), owner-local slug, or path under `.ns/objectives/<owner>/<slug>/`; path-shaped selections normalize to locators before durable use.
+2. If no locator or path is explicit, run `ns objective list --format md` to enumerate active checkout-local Objectives (default scope: the current owner; pass `--owner <handle>` or `--all-owners` to widen) and ask the user to choose.
 3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
-Objective selection must come from an explicit slug/path or checkout-local `ns objective list` inventory. Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata — this includes branch names shown by `ns objective list`. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
+Objective selection must come from an explicit locator/path or checkout-local `ns objective list` inventory. Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata — this includes branch names shown by `ns objective list`. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
 
 Two narrow sanctioned exceptions exist: `objective-update` (single active candidate, confirmed before proceeding) and `objective-critique` (single branch-changed record); each exception's terms live in its skill.
 
@@ -129,16 +130,17 @@ A picker UI may group changed active Objectives first and label a single changed
 
 ## Repository status
 
-`ns objective list` is the default checkout-local Objective status inventory: active open records in `.ns/objectives/`, showing per-record status, latest update, related local-branch count, and Objective Edge count. It does not parse Objective prose or infer status from branches; for related-branch names and edge-annotation detail, use `ns objective show <slug>` for a single record.
+`ns objective list` is the default checkout-local Objective status inventory: active open records for the current owner, showing per-record status, latest update, related local-branch count, and Objective Edge count grouped under `@owner` headings. It does not parse Objective prose or infer status from branches; for related-branch names and edge-annotation detail, use `ns objective show <locator>` for a single record.
 
+- Default scope is the authenticated current owner; `--owner <handle>` selects one owner and `--all-owners` selects every owner — both work without authentication, while the default requires the login.
 - `--status all` means all statuses in the active root only. Closed Objectives display as `✓ closed` only when included with `--status closed` or `--status all`.
-- `--names`: emits filtered active-root slugs, one per line; use it only for machine-readable active-slug extraction.
+- `--names`: emits filtered full locators, one per line; use it only for machine-readable extraction.
 
-`ns objective show <slug>` is the single-record detail view: status and Blocked Sentence, latest update and outstanding-changes state, the local branches whose changes touch the record, and every Objective Edge with both this record's annotation and the counterpart's back-edge annotation plus its active/missing state. It is read-only and takes `--format md` / `--format json` like the other Objective commands.
+`ns objective show <locator>` is the single-record detail view: status and Blocked Sentence, latest update and outstanding-changes state, the local branches whose changes touch the record, and every Objective Edge with both this record's annotation and the counterpart's back-edge annotation plus its active/missing state. It is read-only and takes `--format md` / `--format json` like the other Objective commands.
 
 ## Tracking Gate
 
-Before `objective-next` recommends work or offers confirmed execution, it checks whether material progress is present in repo changes but unrecorded in the selected Objective. Mechanics live in `objective-next`'s Tracking Gate: evidence comes from `ns objective exec tracking-gate <slug> --format json` (never hand-rolled pipelines); materiality judgment stays with the agent. Clear unrecorded progress for the selected Objective is update-and-continue preauthorization (run the Objective Update workflow, reread, continue); ask first when evidence, fit, or update scope is ambiguous.
+Before `objective-next` recommends work or offers confirmed execution, it checks whether material progress is present in repo changes but unrecorded in the selected Objective. Mechanics live in `objective-next`'s Tracking Gate: evidence comes from `ns objective exec tracking-gate <owner>/<slug> --format json` (never hand-rolled pipelines); materiality judgment stays with the agent. Clear unrecorded progress for the selected Objective is update-and-continue preauthorization (run the Objective Update workflow, reread, continue); ask first when evidence, fit, or update scope is ambiguous.
 
 ## Objective consolidation
 
@@ -147,7 +149,7 @@ When the user explicitly asks to combine, merge, subsume, or consolidate Objecti
 Safe consolidation rules:
 
 - Choose one surviving canonical Objective. If survivor/subsumed roles are unclear, ask.
-- Slug identity holds: keep every Objective slug directory in place, and do not move, delete, recreate, or merge slug directories unless the user separately asks for a slug migration.
+- Locator identity holds: keep every Objective record directory in place, and do not move, delete, recreate, or merge record directories unless the user separately asks for an explicit Objective Replacement.
 - Historical `updates/` files remain immutable provenance; do not merge, rewrite, move, or delete them.
 - Edit the surviving Objective's `objective.md` and `roadmap.md` to absorb the active scope, roadmap rows, risks, and open questions that should remain live.
 - Close each subsumed Objective with `objective-close` semantics: add `## Closure` to its `objective.md`, write minimal `closed.md`, and put the subsumption rationale in closure prose.
@@ -157,5 +159,5 @@ Safe consolidation rules:
 ## Non-goals
 
 - Not a task database, workflow controller, or branch attachment system.
-- No YAML/frontmatter beyond Record Frontmatter carrying exactly `blocked` and `edges` (the sanctioned exception; see Record Frontmatter above), and no UUIDs, registries, hidden state, or state machine.
+- No YAML/frontmatter beyond Record Frontmatter carrying exactly `owner`, `blocked`, and `edges` (the sanctioned exception; see Record Frontmatter above), and no UUIDs, registries, hidden state, or state machine.
 - V1 keeps Objective *meaning* in Markdown; CLI tooling (`ns objective list`, `ns objective exec read-objective`) owns only deterministic facts such as record inventory, file presence, and closed-marker presence. Do not parse Markdown headings, roadmap checkboxes, execution policy, or prose meaning in CLI code.
