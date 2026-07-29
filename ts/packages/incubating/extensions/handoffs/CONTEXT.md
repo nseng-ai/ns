@@ -69,9 +69,13 @@ The portable ns command surface `ns handoff list|pickup|create|delete|gc` for de
 *Avoid*: standalone `handoff` binary as durable public surface, Pi-only lifecycle, raw Branch Memory as default UX.
 
 **Handoff extension package API**:
-The curated in-process `@nseng-ai/handoffs/api` surface consumed by ns command leaves and Pi adapters for Handoff lifecycle behavior.
-*Avoid*: package-root imports for domain composition, Pi presentation/session launch behavior, raw storage recipes in consumers.
+The curated in-process `@nseng-ai/handoffs/api` surface consumed by ns command leaves, Pi adapters, and cross-package runtime consumers for Handoff lifecycle behavior and stable Skill-Backed Command metadata.
+*Avoid*: package-root imports for domain composition, Pi presentation/session launch behavior, Pi-only command metadata, raw storage recipes in consumers.
 
 **Handoff Domain Core**:
 Gateway-injected Handoff behavior for storage-compatible list, read/pickup, create, delete, and garbage-collection operations.
 *Avoid*: subprocess-only behavior, Pi UI/session continuation, hidden registries, alternate storage layout.
+
+**Handoff Pi Adapter**:
+The separate `@nseng-ai/pi-ns-handoffs` host package that owns Pi registration, presentation, tools, and launch/session orchestration while consuming Handoff behavior through the extension package API.
+*Avoid*: a Handoffs `pi` subpackage, Pi registration in this package, Pi runtime dependency in this package.

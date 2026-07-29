@@ -26,7 +26,8 @@
 		"@nseng-ai/plans": "workspace:*",
 		"@nseng-ai/sdk": "workspace:*",
 		"@nseng-ai/slots": "workspace:*",
-		"zod": "catalog:"
+		"zod": "catalog:",
+		"@nseng-ai/pi-ns-handoffs": "workspace:*"
 	},
 	"devDependencies": {
 		"@nseng-ai/pi-runtime": "workspace:*"

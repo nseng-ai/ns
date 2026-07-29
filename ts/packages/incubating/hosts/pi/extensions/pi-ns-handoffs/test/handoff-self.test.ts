@@ -5,10 +5,10 @@ import { createDeferred } from "@nseng-ai/foundation/test-kit";
 import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 
-import { createPiHandoffContext } from "../../src/pi/api-context.ts";
-import { buildHandoffSelfPrompt, formatHandoffSelfKickoffPrompt } from "../../src/pi/extension.ts";
-import { createHandoffSelfWorkflow } from "../../src/pi/self.ts";
-import type { HandoffCreateSkillLoader } from "../../src/pi/create-skill.ts";
+import { createPiHandoffContext } from "../src/api-context.ts";
+import { buildHandoffSelfPrompt, formatHandoffSelfKickoffPrompt } from "../src/extension.ts";
+import { createHandoffSelfWorkflow } from "../src/self.ts";
+import type { HandoffCreateSkillLoader } from "../src/create-skill.ts";
 import {
 	BRANCH,
 	FakePi,

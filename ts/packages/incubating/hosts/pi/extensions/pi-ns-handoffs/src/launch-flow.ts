@@ -3,7 +3,7 @@ import {
 	formatErrorMessage,
 	optionalEntries,
 } from "@nseng-ai/foundation/primitives";
-import { HANDOFF_NAMESPACE, handoffSlugToKey, parseFlatHandoffSlug } from "../api/index.ts";
+import { HANDOFF_NAMESPACE, handoffSlugToKey, parseFlatHandoffSlug } from "@nseng-ai/handoffs/api";
 
 import { isRecord, stringField } from "@nseng-ai/pi-runtime/runtime/primitives";
 import { formatPickupHandoffCommand } from "./identity.ts";

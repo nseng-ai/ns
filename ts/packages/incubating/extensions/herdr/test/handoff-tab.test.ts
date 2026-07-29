@@ -1,11 +1,11 @@
 import { FakeBrmemGateway } from "@nseng-ai/brmem";
-import { createHandoffLaunchIntegration } from "@nseng-ai/handoffs/pi/handoff-launch";
+import { createHandoffLaunchIntegration } from "@nseng-ai/pi-ns-handoffs/handoff-launch";
 import type {
 	CommandContext,
 	HandoffCreateSkillLoader,
 	HandoffExtensionAPI,
 	ToolDefinition,
-} from "@nseng-ai/handoffs/pi/handoff-launch";
+} from "@nseng-ai/pi-ns-handoffs/handoff-launch";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	ExecResult,
@@ -324,13 +324,13 @@ describe("optional Handoffs integration absence classifier", () => {
 	test("suppresses only a realistic exact curated-module miss", () => {
 		const absent = Object.assign(
 			new Error(
-				"Cannot find package '@nseng-ai/handoffs/pi/handoff-launch' imported from /repo/herdr/extension.js",
+				"Cannot find package '@nseng-ai/pi-ns-handoffs/handoff-launch' imported from /repo/herdr/extension.js",
 			),
 			{ code: "ERR_MODULE_NOT_FOUND" },
 		);
 		const transitive = Object.assign(
 			new Error(
-				"Cannot find package 'broken-transitive' imported from /repo/node_modules/@nseng-ai/handoffs/pi/handoff-launch.js",
+				"Cannot find package 'broken-transitive' imported from /repo/node_modules/@nseng-ai/pi-ns-handoffs/handoff-launch.js",
 			),
 			{ code: "ERR_MODULE_NOT_FOUND" },
 		);

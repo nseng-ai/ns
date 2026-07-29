@@ -12,7 +12,7 @@ import handoffExtension, {
 	type CommandContext,
 	type RawPiExecResult,
 	type ExtensionAPI,
-} from "../../src/pi/extension.ts";
+} from "../src/extension.ts";
 
 type RawPiExecResultFixture = Partial<RawPiExecResult>;
 import type {
@@ -21,7 +21,7 @@ import type {
 	SendUserMessageOptions,
 	ThinkingLevel,
 	TuiHandle,
-} from "../../src/pi/runtime-types.ts";
+} from "../src/runtime-types.ts";
 
 export const ROOT = "/repo";
 const MODEL_ROOT = mkdtempSync(join(tmpdir(), "handoff-root-"));

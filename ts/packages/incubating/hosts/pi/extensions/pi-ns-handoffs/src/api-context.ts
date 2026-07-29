@@ -1,7 +1,7 @@
 import { RealGitBrmemReadGateway } from "@nseng-ai/brmem";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
-import type { HandoffReadStorageDeps } from "../api/index.ts";
+import type { HandoffReadStorageDeps } from "@nseng-ai/handoffs/api";
 
 import type { CommandContext, ExtensionAPI } from "./runtime-types.ts";
 

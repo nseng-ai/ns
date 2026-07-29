@@ -1,0 +1,31 @@
+{
+	"name": "@nseng-ai/pi-ns-handoffs",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./handoff-launch": "./src/handoff-launch.ts",
+		"./claude-extension": "./src/claude-extension.ts"
+	},
+	"scripts": {
+		"check": "tsc -p tsconfig.json",
+		"test": "cd ../../../../../.. && vitest run --config vitest.config.ts packages/incubating/hosts/pi/extensions/pi-ns-handoffs/test"
+	},
+	"dependencies": {
+		"@nseng-ai/brmem": "workspace:*",
+		"@nseng-ai/extension-kit": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/handoffs": "workspace:*",
+		"@nseng-ai/pi-runtime": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*"
+	},
+	"ns": {
+		"tier": "host"
+	},
+	"pi": {
+		"extensions": [
+			"./src/extension.ts",
+			"./src/claude-extension.ts"
+		]
+	}
+}

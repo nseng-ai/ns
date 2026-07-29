@@ -116,6 +116,12 @@ export const packageTierDebtEdgeDefinitions = [
 		reason:
 			"Skill Exposure reads the skill-frontmatter transform from @nseng-ai/ns/api, where the harness-artifacts fold placed it. The edge predates the disposition cutover; it only became guard-visible when the package moved out of .ns/extensions/ into incubating/extensions/ and came under tier governance. Retire by moving the transform to a neutral surface below the host.",
 	},
+	{
+		from: "@nseng-ai/herdr",
+		to: "@nseng-ai/pi-ns-handoffs",
+		reason:
+			"The approved Handoff launch boundary moves the Pi composition contract to @nseng-ai/pi-ns-handoffs/handoff-launch before Herdr's own Pi adapter extraction. Retire this temporary extension-to-host edge when @nseng-ai/pi-ns-herdr is extracted.",
+	},
 ] as const satisfies readonly AllowedPackageTierDebtEdge[];
 
 export function packageEdgeKey(from: string, to: string): string {

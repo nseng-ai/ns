@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { ExtensionAPI } from "@nseng-ai/extension-kit/pi-types";
-import type { HandoffExtensionAPI, ToolDefinition } from "@nseng-ai/handoffs/pi/handoff-launch";
+import type { HandoffExtensionAPI, ToolDefinition } from "@nseng-ai/pi-ns-handoffs/handoff-launch";
 import { HERDR_BASE_COMMAND_NAMES, HERDR_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
 
 import registerHerdrPiExtension from "../src/pi/extension.ts";
@@ -159,7 +159,7 @@ describe("herdr Pi extension", () => {
 		const tools = new Map<string, ToolDefinition>();
 		const pi = makeToolExtensionApi(commands, tools);
 		const absence = Object.assign(
-			new Error("Cannot find package '@nseng-ai/handoffs/pi/handoff-launch'"),
+			new Error("Cannot find package '@nseng-ai/pi-ns-handoffs/handoff-launch'"),
 			{ code: "ERR_MODULE_NOT_FOUND" },
 		);
 

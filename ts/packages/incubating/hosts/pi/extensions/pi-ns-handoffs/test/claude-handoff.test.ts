@@ -10,11 +10,8 @@ import {
 	scrubClaudeEnv,
 	type InteractiveClaudeInvocation,
 	type InteractiveClaudeRunResult,
-} from "../../src/pi/claude-command.ts";
-import {
-	deriveSourcePiSessionId,
-	resolveSourcePiSessionId,
-} from "../../src/pi/investigation-sources.ts";
+} from "../src/claude-command.ts";
+import { deriveSourcePiSessionId, resolveSourcePiSessionId } from "../src/investigation-sources.ts";
 import {
 	BRANCH,
 	FakePi,

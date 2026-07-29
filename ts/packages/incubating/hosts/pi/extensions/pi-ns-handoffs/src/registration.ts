@@ -24,7 +24,7 @@ export const handoffParity = definePiSurfaceParity([
 		cli: "ns handoff create",
 		skill: "handoff-create",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@nseng-ai/handoffs/pi",
+		sourcePackage: "@nseng-ai/pi-ns-handoffs",
 		sourceModule: "handoff",
 		notes:
 			"Pi command expands the portable handoff-create skill; the final artifact is stored through `ns handoff create` after model confirmation.",
@@ -37,7 +37,7 @@ export const handoffParity = definePiSurfaceParity([
 		cli: "ns handoff pickup",
 		skill: "handoff-pickup",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@nseng-ai/handoffs/pi",
+		sourcePackage: "@nseng-ai/pi-ns-handoffs",
 		sourceModule: "handoff",
 		notes:
 			"Pi command reads Handoff artifacts through the Handoff Extension API and expands the same portable pickup workflow.",
@@ -50,7 +50,7 @@ export const handoffParity = definePiSurfaceParity([
 		cli: "ns handoff list",
 		skill: "handoff-pickup",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@nseng-ai/handoffs/pi",
+		sourcePackage: "@nseng-ai/pi-ns-handoffs",
 		sourceModule: "handoff",
 		notes: "List support is part of the portable handoff pickup/list workflow.",
 	},
@@ -63,7 +63,7 @@ export const handoffParity = definePiSurfaceParity([
 		fallback:
 			"Create the handoff with handoff-create, start a new Pi session manually, then run handoff-pickup for the saved artifact.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@nseng-ai/handoffs/pi",
+		sourcePackage: "@nseng-ai/pi-ns-handoffs",
 		sourceModule: "handoff",
 		notes:
 			"Self handoff stores through the portable handoff workflow, waits for the verified handoff_self_queue_pickup tool result, then uses Pi command-context session replacement to send a natural-language pickup prompt.",

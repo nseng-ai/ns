@@ -7,6 +7,9 @@ import { describe, expect, test } from "vitest";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../../../../../../../", import.meta.url));
 const PI_EXTENSIONS_PACKAGE_ROOT = fileURLToPath(new URL("../../", import.meta.url));
+const PI_HANDOFFS_PACKAGE_ROOT = fileURLToPath(
+	new URL("../../../../extensions/pi-ns-handoffs/", import.meta.url),
+);
 const PI_BIN = fileURLToPath(new URL("../../node_modules/.bin/pi", import.meta.url));
 const SDK_PACKAGE_ROOT = fileURLToPath(
 	new URL("../../../../../../../public/sdk/", import.meta.url),
@@ -28,8 +31,13 @@ const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@nseng-ai/sdk/cli",
 ] as const;
 
+const PI_HANDOFFS_EXPORT_IMPORTS = [
+	"@nseng-ai/pi-ns-handoffs",
+	"@nseng-ai/pi-ns-handoffs/claude-extension",
+	"@nseng-ai/pi-ns-handoffs/handoff-launch",
+] as const;
+
 const PI_RUNTIME_ADAPTER_EXPORT_IMPORTS = [
-	"@nseng-ai/handoffs/pi/claude-extension",
 	"@nseng-ai/pi-runtime/commands/cli-command-live-progress",
 	"@nseng-ai/pi-runtime/core/model-shortcuts/extension",
 	"@nseng-ai/pi-runtime/core/pr/extension",
@@ -125,7 +133,7 @@ describe("Node runtime import smoke", () => {
 		expect(result.stdout).toContain("imported 5 package specifiers");
 	});
 
-	test("Pi adapter package exports import in a cold Node process", () => {
+	test("Pi runtime adapter exports import in a cold Node process", () => {
 		const result = runNodeEval({
 			cwd: PI_EXTENSIONS_PACKAGE_ROOT,
 			source: buildPackageImportScript(PI_RUNTIME_ADAPTER_EXPORT_IMPORTS),
@@ -133,9 +141,26 @@ describe("Node runtime import smoke", () => {
 
 		expectSuccessfulNodeRun(result, {
 			cwd: PI_EXTENSIONS_PACKAGE_ROOT,
-			label: "Pi adapter package exports",
+			label: "Pi runtime adapter exports",
 		});
-		expect(result.stdout).toContain("imported 5 package specifiers");
+		expect(result.stdout).toContain(
+			`imported ${PI_RUNTIME_ADAPTER_EXPORT_IMPORTS.length} package specifiers`,
+		);
+	});
+
+	test("Handoffs Pi adapter exports import in a cold Node process", () => {
+		const result = runNodeEval({
+			cwd: PI_HANDOFFS_PACKAGE_ROOT,
+			source: buildPackageImportScript(PI_HANDOFFS_EXPORT_IMPORTS),
+		});
+
+		expectSuccessfulNodeRun(result, {
+			cwd: PI_HANDOFFS_PACKAGE_ROOT,
+			label: "Handoffs Pi adapter exports",
+		});
+		expect(result.stdout).toContain(
+			`imported ${PI_HANDOFFS_EXPORT_IMPORTS.length} package specifiers`,
+		);
 	});
 
 	test("SDK package imports every declared export subpath under Node", () => {

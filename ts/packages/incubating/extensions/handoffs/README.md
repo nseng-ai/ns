@@ -12,4 +12,4 @@ ns handoff delete [--branch <branch>] [--yes] <slug>
 ns handoff gc [--dry-run|--force]
 ```
 
-Pi commands and skills remain presentation/authoring adapters over this extension; Branch Memory details are technical storage evidence, not the default user model.
+Pi registration and presentation live in the separate `@nseng-ai/pi-ns-handoffs` host adapter, which consumes this package through `@nseng-ai/handoffs/api`. Branch Memory details are technical storage evidence, not the default user model.

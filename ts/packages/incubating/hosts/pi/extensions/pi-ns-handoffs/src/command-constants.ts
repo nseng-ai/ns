@@ -1,14 +1,14 @@
 import { nsCommandSurface } from "@nseng-ai/foundation/command";
 
-const HANDOFF_EXTENSION_ID = "handoff";
-type HandoffCommandAction = "create" | "pickup" | "list" | "self";
+export { CREATE_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "@nseng-ai/handoffs/api";
 
-function handoffCommandSurface(action: HandoffCommandAction): string {
+const HANDOFF_EXTENSION_ID = "handoff";
+type PiHandoffCommandAction = "list" | "self";
+
+function handoffCommandSurface(action: PiHandoffCommandAction): string {
 	return nsCommandSurface(HANDOFF_EXTENSION_ID, action);
 }
 
-export const CREATE_HANDOFF_COMMAND_NAME = handoffCommandSurface("create");
-export const PICKUP_HANDOFF_COMMAND_NAME = handoffCommandSurface("pickup");
 export const LIST_HANDOFF_COMMAND_NAME = handoffCommandSurface("list");
 export const HANDOFF_SELF_COMMAND_NAME = handoffCommandSurface("self");
 

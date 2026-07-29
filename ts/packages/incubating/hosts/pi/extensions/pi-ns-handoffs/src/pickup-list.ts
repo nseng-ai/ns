@@ -6,7 +6,7 @@ import {
 	readHandoffArtifact,
 	resolveHandoffSelection,
 	type HandoffSummary,
-} from "../api/index.ts";
+} from "@nseng-ai/handoffs/api";
 import { currentBranch } from "./branch-resolution.ts";
 import { LIST_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "./command-constants.ts";
 import { setStatus } from "./ui-status.ts";
