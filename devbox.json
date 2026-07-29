@@ -1,0 +1,20 @@
+{
+  "$schema": "https://devboxd.s3.us-west-1.amazonaws.com/devbox.schema.json",
+  "run": {
+    "cwd": "~/ns",
+    "sandbox": {
+      "runtime": "node24"
+    }
+  },
+  "build": {
+    "name": "ns-dev",
+    "repos": ["nseng-ai/ns"],
+    "command": [
+      "set -euxo pipefail",
+      "curl -fsSL https://herdr.dev/install.sh | sh",
+      "grep -q 'devbox: local bin' \"$HOME/.bashrc\" 2>/dev/null || printf '%s\\n%s\\n' '# devbox: local bin' 'export PATH=\"$HOME/.local/bin:$PATH\"' >> \"$HOME/.bashrc\"",
+      "export PATH=\"$HOME/.local/bin:$PATH\"",
+      "herdr --version"
+    ]
+  }
+}
