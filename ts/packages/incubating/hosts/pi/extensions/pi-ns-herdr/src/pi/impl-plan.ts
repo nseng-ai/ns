@@ -7,7 +7,7 @@ import type { SlotClient } from "@nseng-ai/slots/api";
 import {
 	HERDR_PLAN_TAB_IMPL_COMMAND_NAME,
 	HERDR_PLAN_SPACE_IMPL_COMMAND_NAME,
-} from "../core/command-surfaces.ts";
+} from "@nseng-ai/herdr/api";
 import {
 	handleHerdrSlotImplPlan,
 	type ImplPlanConfig,

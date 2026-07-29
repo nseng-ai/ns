@@ -3,7 +3,7 @@ import {
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi-runtime/commands/ack";
 
-import { HERDR_SPACE_NEW_COMMAND_NAME } from "../core/command-surfaces.ts";
+import { HERDR_SPACE_NEW_COMMAND_NAME } from "@nseng-ai/herdr/api";
 import { handleHerdrNewSpace } from "../core/new-space.ts";
 import type { HerdrPiContext } from "./context.ts";
 import { createHerdrResourceLabelDeriver } from "./resource-label.ts";

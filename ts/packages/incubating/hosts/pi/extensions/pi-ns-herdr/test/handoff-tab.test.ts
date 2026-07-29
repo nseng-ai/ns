@@ -18,18 +18,16 @@ import type {
 } from "@nseng-ai/sdk";
 import { describe, expect, test } from "vitest";
 
-import { formatHerdrHandoffTabRunFailure, launchHerdrHandoffTab } from "../src/core/handoff-tab.ts";
-import { herdrHandoffTabLaunchNsCommand } from "../src/ns/commands/handoff-tab-launch.ts";
+import { formatHerdrHandoffTabRunFailure, launchHerdrHandoffTab } from "@nseng-ai/herdr/api";
+import { herdrHandoffTabLaunchNsCommand } from "@nseng-ai/herdr/ns/commands/handoff-tab-launch";
 import { registerHerdrHandoffTab } from "../src/pi/handoff-tab.ts";
 import { isExactOptionalIntegrationAbsence } from "../src/pi/extension.ts";
 import { FakeHerdrGateway } from "./herdr-test-harness.ts";
 
 const launchOptions = {
 	cwd: "/state/slots/repos/ns/worktrees/slot-6",
-	launchOptions: {
-		model: { provider: "anthropic", id: "claude-test" },
-		thinkingLevel: "high" as const,
-	},
+	launchCommand:
+		"pi --provider anthropic --model claude-test --thinking high '/ns:handoff:pickup --branch feature continue-feature'",
 	workspaceId: "workspace-1",
 	slug: "continue-feature",
 	pickupCommand: "/ns:handoff:pickup --branch feature continue-feature",
@@ -48,6 +46,8 @@ const commandArgv = [
 	"claude-test",
 	"--thinking",
 	"high",
+	"--launch-command",
+	"pi --provider anthropic --model claude-test --thinking high '/ns:handoff:pickup --branch feature/test continue-work'",
 ];
 
 describe("Herdr Handoff tab destination", () => {

@@ -3,7 +3,8 @@
 		"../ts/packages/internal/hosts/pi/tools/pi-editor-mods",
 		"../ts/packages/incubating/hosts/pi/extensions/pi-ns-objectives",
 		"../ts/packages/incubating/hosts/pi/extensions/pi-ns-handoffs",
-		"../ts/packages/incubating/hosts/pi/extensions/pi-ns-branch-context"
+		"../ts/packages/incubating/hosts/pi/extensions/pi-ns-branch-context",
+		"../ts/packages/incubating/hosts/pi/extensions/pi-ns-herdr"
 	],
 	"extensions": [],
 	"skills": [

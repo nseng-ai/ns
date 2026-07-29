@@ -1,3 +1,4 @@
+import { getCallerWorkspaceId, slotLabelInput, type HerdrGateway } from "@nseng-ai/herdr/api";
 import type { Clock } from "@nseng-ai/foundation/clock";
 import {
 	chooseActiveObjectiveSlug,
@@ -12,9 +13,7 @@ import {
 	validateObjectiveSidebarSlug,
 } from "./objective-sidebar.ts";
 import type { CommandContext, NotifyLevel } from "@nseng-ai/extension-kit/pi-types";
-import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
-import { slotLabelInput } from "./resource-label.ts";
 
 const PI_SIDEBAR_STATUS_KEY = "pi:herdr-sidebar";
 const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
@@ -41,27 +40,6 @@ export function createHerdrSidebarController(
 			await handleDeterministicObjectiveSidebar(pi, herdr, args, ctx, options);
 		},
 	};
-}
-
-/**
- * Read the Herdr workspace ID from the caller environment.
- *
- * The `HERDR_WORKSPACE_ID` environment variable is injected by Herdr into
- * every managed pane. This is the stable caller-targeting mechanism; do not
- * fall back to UI focus.
- */
-export function getCallerWorkspaceId(env: NodeJS.ProcessEnv = process.env): string | undefined {
-	return trimmedEnvValue(env.HERDR_WORKSPACE_ID);
-}
-
-/** Read the exact caller tab injected by Herdr; whitespace-only values are absent. */
-export function getCallerTabId(env: NodeJS.ProcessEnv = process.env): string | undefined {
-	return trimmedEnvValue(env.HERDR_TAB_ID);
-}
-
-function trimmedEnvValue(value: string | undefined): string | undefined {
-	const trimmed = value?.trim();
-	return trimmed !== undefined && trimmed.length > 0 ? trimmed : undefined;
 }
 
 async function handleDeterministicObjectiveSidebar(

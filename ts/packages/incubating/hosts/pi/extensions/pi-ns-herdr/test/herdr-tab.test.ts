@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { getCallerTabId } from "../src/core/sidebar.ts";
+import { getCallerTabId } from "@nseng-ai/herdr/api";
 import { handleHerdrNewTab, handleHerdrTabGoal } from "../src/core/tab.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import {

@@ -1,10 +1,9 @@
 import { isAbsolute, posix, relative, resolve, sep } from "node:path";
 
 import { runJsonExecCommand } from "@nseng-ai/extension-kit/machine-envelope-exec";
+import { formatHerdrResourceLabel } from "@nseng-ai/herdr/api";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-
-import { formatHerdrResourceLabel } from "./resource-label.ts";
 
 const OBJECTIVE_READ_TIMEOUT_MS = 30_000;
 const ACTIVE_OBJECTIVE_PREFIX = ".ns/objectives/";

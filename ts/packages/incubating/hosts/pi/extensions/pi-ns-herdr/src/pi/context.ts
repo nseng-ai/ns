@@ -1,7 +1,7 @@
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 
-import type { HerdrGateway } from "../core/herdr-gateway.ts";
+import type { HerdrGateway } from "@nseng-ai/herdr/api";
 import type { HerdrPiCommandApi } from "../core/pi-command-api.ts";
 
 export type HerdrGitGateway = Pick<

@@ -1,4 +1,4 @@
-export { default, registerHerdrPiExtension } from "./extension.ts";
+export { default, herdrParity, registerHerdrPiExtension } from "./extension.ts";
 export {
 	HERDR_BASE_COMMAND_NAMES,
 	HERDR_COMMAND_NAMES,
@@ -12,7 +12,7 @@ export {
 	HERDR_TAB_GOAL_COMMAND_NAME,
 	HERDR_TAB_HANDOFF_COMMAND_NAME,
 	HERDR_TAB_NEW_COMMAND_NAME,
-} from "../core/command-surfaces.ts";
+} from "@nseng-ai/herdr/api";
 export { registerHerdrNewSpaceCommand } from "./new-space.ts";
 export {
 	registerHerdrSidebarCommands,
