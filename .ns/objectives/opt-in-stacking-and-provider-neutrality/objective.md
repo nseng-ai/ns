@@ -13,7 +13,6 @@ Pluggability follows the adapter-collapse decision: user customization of operat
 - Record the direction durably: an ADR for the opt-in/neutrality decision (naming jj as the motivating extensibility stress case) and a capability/semantic matrix for Graphite vs `gh stack` vs jj (jj as constraint column, not target).
 - Remove accidental ambient Graphite couplings:
   - Herdr resolving Graphite trunk at extension startup and blocking unrelated command registration.
-  - Objective Runner unconditionally gating step completion on Graphite tracking.
   - Flow trunk-pull/checkpoint paths using Graphite solely for trunk discovery.
   - Branch Context eagerly constructing a Graphite gateway even in plain-git mode.
 - Introduce discriminated branch-vs-stack targets for submit, land, and branch creation, so ordinary branches never masquerade as one-element stacks and stack gateways exist only inside the stack arm of a workflow.
@@ -32,12 +31,13 @@ Pluggability follows the adapter-collapse decision: user customization of operat
 - **Making slots jj-compatible.** Slots are git-worktree-native; jj uses its own workspace model. Documented boundary, not a defect.
 - **A new point-system kind** ("operation points"). Operation replacement routes through provider seams; the point system stays additive hooks plus replaceable prompts.
 - **Cutting this repo over to another provider.** This repo remains Graphite-configured throughout.
+- **Changing the Objective Runner/autorunner mechanism.** Its unconditional Graphite tracking gate is known ambient coupling, but implementation is parked because the mechanism is expected to be reconsidered as a whole rather than hardened through an interim provider contract.
 
 ## Completion Criteria
 
 - The ADR recording opt-in stacking, capability-split provider neutrality, the adapter-collapse pluggability decision, and the jj guardrails is accepted, and the capability/semantic matrix (Graphite / gh-stack / jj-as-constraint) exists.
-- ns works fully with no stack provider configured: Branch Context, Objective Runner, Herdr, checkpointing, trunk operations, and single-branch submit/land/push operate on plain git + GitHub gateways with no Graphite gateway constructed.
-- The four named ambient couplings (Herdr startup, Objective Runner gate, generic trunk discovery, eager Branch Context wiring) are gone, each verified by tests that exercise the workflow without Graphite available.
+- ns works fully with no stack provider configured across the in-scope workflows: Branch Context, Herdr, checkpointing, trunk operations, and single-branch submit/land/push operate on plain git + GitHub gateways with no Graphite gateway constructed.
+- The three in-scope named ambient couplings (Herdr startup, generic trunk discovery, eager Branch Context wiring) are gone, each verified by tests that exercise the workflow without Graphite available. The Objective Runner coupling remains explicitly parked pending redesign of that mechanism.
 - Submit, land, and branch creation take discriminated branch-vs-stack targets; stack behavior activates only on explicit selection.
 - The neutral stack model and split capability seams exist with Graphite as their sole adapter; Flow land/submit planning consumes them behavior-preservingly (existing Flow tests still pass); conformance suites run against the Graphite adapter.
 - The `BranchCreationProvider` seam exists with `plain-git` (default) and `graphite` adapters, provider identity is an open set at seams intended for registration, and every new contract passes the jj guardrail review ("could a colocated-jj provider fill this in without a stub or a lie?").
@@ -65,6 +65,5 @@ Pluggability follows the adapter-collapse decision: user customization of operat
 
 - The neutral stacking contracts belong in a precise Extension Kit subpackage beside, not inside, the Graphite adapter; the exact subpath name remains an implementation-level naming choice, and relocation must not create duplicate import doors (ADR 0049).
 - Exact configuration surface for provider selection (typed settings table name, flag spellings) and how Branch Context's existing `--graphite`/`--plain-git` flags map onto it.
-- Whether Objective Runner's replacement gate is "non-trunk branch with verified commit" alone, or repository-policy-selectable (stack membership checked only under explicit stack intent) — leaning the latter.
 - How the Flow submit compatibility phase is expressed (repo config selecting current-stack behavior vs a deprecation window) and what its removal trigger is.
 - Whether `deriveSubmitStackTopologyFacts` and land topology derivation share one neutral graph module or stay two consumers of the neutral model.
