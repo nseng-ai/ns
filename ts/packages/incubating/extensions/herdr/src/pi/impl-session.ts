@@ -47,6 +47,10 @@ export function registerHerdrSessionSpaceImplCommand(
 			description: "Draft the current session as a prompt for implementation in a new space.",
 			argumentHint: "[focus]",
 			handler: async (args, ctx) => {
+				if (summaryPending) {
+					ctx.ui.notify("A session summary is already pending.", "warning");
+					return;
+				}
 				await ctx.waitForIdle();
 				if (ctx.ui.setEditorText === undefined) {
 					ctx.ui.notify("This Pi runtime cannot prefill editor text.", "error");

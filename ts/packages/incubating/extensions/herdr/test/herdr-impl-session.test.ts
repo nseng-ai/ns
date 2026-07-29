@@ -66,6 +66,23 @@ describe(COMMAND_NAME, () => {
 		});
 	});
 
+	test("rejects a second request while a summary is pending", async () => {
+		const pi = new FakePi();
+		registerHerdrSessionSpaceImplCommand({ commands: createHerdrPiCommandApi(pi) });
+		const ctx = new FakeCommandContext();
+
+		await pi.commands.get(COMMAND_NAME)?.handler("first focus", ctx);
+		await pi.commands.get(COMMAND_NAME)?.handler("second focus", ctx);
+
+		expect(ctx.waitCount).toBe(1);
+		expect(pi.sentUserMessages).toHaveLength(1);
+		expect(pi.sentUserMessages[0]).toContain("## Continuation focus\nfirst focus");
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: "A session summary is already pending.",
+			level: "warning",
+		});
+	});
+
 	test("supplies a useful default when focus is omitted", async () => {
 		const pi = new FakePi();
 		registerHerdrSessionSpaceImplCommand({ commands: createHerdrPiCommandApi(pi) });
