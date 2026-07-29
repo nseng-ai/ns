@@ -2,7 +2,7 @@
 
 ## Work
 
-- [ ] Centralize review-harness execution diagnostics across Claude Code, Codex, and Pi gateways.
+- [x] Centralize review-harness execution diagnostics across Claude Code, Codex, and Pi gateways.
   - Policy: direct execution after preview; preserve exact stderr/stdout fallback and diagnostic text per harness. Stop if consolidation requires changing provider gateway contracts.
   - Evidence: one Reviews-owned diagnostic helper owns shared `ExecResult` interpretation; all three gateways use it; focused Reviews tests and relevant checks pass.
 - [ ] Centralize Flow pending-worktree failure semantics across autobranch, checkpoint, and house-style presentation.

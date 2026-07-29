@@ -25,6 +25,7 @@ import {
 } from "../core/models.ts";
 import { resolveReviewsModelSelection } from "../core/review-model-reference.ts";
 import { buildClaudeCodeArgs, parseClaudeCodeReviewOutput } from "./claude-code-review-runner.ts";
+import { reviewHarnessExecutionMessage } from "./review-harness-execution-message.ts";
 import { assembleReviewPrompt, systemPromptFindings } from "./review-runner-prompt.ts";
 
 export const CLAUDE_BINARY = "claude";
@@ -213,13 +214,19 @@ export class ClaudeCodeProcessReviewRunner implements ReviewHarnessRunner {
 		if (result.type === "cancelled") {
 			return resultErr({
 				code: "review-execution-cancelled",
-				message: runnerExecutionMessage(result),
+				message: reviewHarnessExecutionMessage(result, {
+					harnessLabel: "Claude Code",
+					useStdoutFallback: true,
+				}),
 			});
 		}
 		if (!commandSucceeded(result)) {
 			return resultErr({
 				code: "harness-execution-failed",
-				message: runnerExecutionMessage(result),
+				message: reviewHarnessExecutionMessage(result, {
+					harnessLabel: "Claude Code",
+					useStdoutFallback: true,
+				}),
 			});
 		}
 
@@ -227,28 +234,6 @@ export class ClaudeCodeProcessReviewRunner implements ReviewHarnessRunner {
 			stdout: result.stdout,
 			inputCoverage: request.inputCoverage,
 		});
-	}
-}
-
-function runnerExecutionMessage(result: ExecResult): string {
-	const stderr = result.stderr.trim();
-	if (stderr !== "") return stderr;
-	const stdout = result.stdout.trimEnd();
-	if (stdout !== "") {
-		const lines = stdout.split("\n");
-		return lines[lines.length - 1] ?? stdout;
-	}
-	switch (result.type) {
-		case "spawn-failed":
-			return result.error;
-		case "cancelled":
-			return "Claude Code execution was cancelled.";
-		case "timed-out":
-			return "Claude Code execution timed out.";
-		case "exited":
-			return result.signal === null
-				? `Claude Code exited with status ${result.code}.`
-				: `Claude Code exited after signal ${result.signal} (status ${result.code ?? "unknown"}).`;
 	}
 }
 
