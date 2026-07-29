@@ -84,3 +84,20 @@ Risks:
 ## Open Questions
 
 None at creation. Design-bearing discoveries stop the current run and leave the affected row open for later parent judgment.
+
+## Closure
+
+Completed. Four of the six captured high-severity Repeated Switches findings received fixed dispositions, each with one canonical package-appropriate policy owner and separate Semantic Update evidence. Two findings were disposed post-implementation by parent review: the slices were implemented and validated, then judged not worth landing and dropped from the stack (PRs #4007 and #4008 closed unmerged). The accepted implementation stack preserves the audited observable behavior, diagnostics, public signatures, exit and error semantics, and adapter-specific presentation boundaries.
+
+Evidence:
+
+- Reviews execution diagnostics: Runner Checkpoint `461daa9199948299d8ac28294e0fb5301823d91f`.
+- Flow pending-worktree failure facts: Runner Checkpoint `33c67a995eb75665a5a04e4780b928cc0242ff01`.
+- Foundation `ExecResult` termination policy: disposed post-implementation — parent review judged the private classifier a shallow mirror of the union with modest gain (consumers use disjoint fields; termination text is built eagerly for success checks). PR #4007 closed unmerged.
+- Context-profiler `MessagePart` semantics: disposed post-implementation — parent review judged the eager facts projection a performance-profile regression risk (full-text copies of thinking parts allocated during character counting over large sessions). PR #4008 closed unmerged.
+- Branch Context creation policy: Runner Checkpoint `0c3040aeb595bcc4f1d57c8a1b4cebaec69dbd90`.
+- Release-reset action semantics: Runner Checkpoint `43f305901e387fc0264c3a7dd222b606742ce553`.
+- Every Runner Checkpoint attested branch, unchanged pre-finish HEAD, clean index, non-empty candidate diff, Graphite tracking, and `git diff --check` before creating its implementation commit.
+- Each child reported focused package validation and a successful default `just` run; detailed command evidence is retained in the corresponding Semantic Update and remains child-reported rather than runner-attested.
+
+Two findings are disposed with parent-approved rationale recorded above; no routed findings remain. The medium- and low-severity audit findings remain explicitly parked and outside this Objective.
