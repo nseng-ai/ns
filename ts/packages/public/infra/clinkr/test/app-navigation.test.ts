@@ -346,8 +346,3 @@ test("depth counters prove immediate-child laziness through help, schema, and ex
 	await runForCliTest(app, ["level-1", "level-2", "leaf"]);
 	expect(loaded).toEqual(["level-2"]);
 });
-
-test("execute remains root-default-only while sharing context validation", async () => {
-	const result = await recursiveApp().execute({ value: "host" }, { context });
-	expect(result.outcome).toEqual({ status: "success", data: { value: "ctx:host" } });
-});

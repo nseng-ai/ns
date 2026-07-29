@@ -24,7 +24,6 @@ import {
 	envelopeJsonText,
 	exitCodeFor,
 	toEnvelope,
-	type CommandExitCode,
 	type CommandOutcome,
 	type UsageErrorOutcome,
 } from "./outcome.ts";
@@ -50,11 +49,6 @@ export interface ClinkrContextFreeRunOptions {
 	readonly canEmitAnsi?: boolean;
 }
 
-/** Options for a contextful {@link ClinkrContextfulApp.execute} invocation. */
-export interface ClinkrExecuteOptions<TContext> {
-	readonly context: TContext;
-}
-
 export interface ClinkrCompleteOptions<TContext> {
 	readonly context: TContext;
 }
@@ -78,60 +72,15 @@ export interface ContextfulClinkrCompletionConfig<TContext> {
 	) => void | Promise<void>;
 }
 
-/**
- * Result of a typed host invocation through `execute()`: the decoded command
- * outcome, its exit-code mapping, and lazy rendered views bound to the
- * command definition.
- *
- * @remarks Provisional host surface: exported for host integrations ahead of
- * README promotion, which is deliberately deferred until the first in-process
- * host migration proves the contract.
- */
-export interface ClinkrExecuteResult {
-	readonly outcome: CommandOutcome<unknown>;
-	readonly exitCode: CommandExitCode;
-	/**
-	 * Rendered human view mirroring what `run()` prints to stdout for
-	 * success (rendered data, or pretty-JSON when no renderer) and negative
-	 * (message). Returns `undefined` when `run()` would print nothing to
-	 * stdout (bodyless success, failure, usage-error — hosts use
-	 * `outcome.message`).
-	 */
-	renderHuman(capabilities: RenderCapabilities): string | undefined;
-	/**
-	 * Same contract as {@link ClinkrExecuteResult.renderHuman}; falls back to
-	 * `renderHuman` when the definition declares no `renderMarkdown`,
-	 * mirroring `run()`'s `md` format.
-	 */
-	renderMarkdown(capabilities: RenderCapabilities): string | undefined;
-}
-
 export interface ClinkrContextFreeApp {
 	readonly requiresContext: false;
 	run(argv: readonly string[], options?: ClinkrContextFreeRunOptions): Promise<number>;
-	/**
-	 * Typed host invocation: always schema-validates `request`, runs the
-	 * handler, and returns the decoded outcome with lazy rendered views. Raw
-	 * commands are terminal-only and are rejected with a programmer error.
-	 *
-	 * @remarks Provisional host surface; see {@link ClinkrExecuteResult}.
-	 */
-	execute(request: unknown): Promise<ClinkrExecuteResult>;
 	complete(request: ClinkrCompletionRequest): Promise<ClinkrCompletionResult>;
 }
 
 export interface ClinkrContextfulApp<TContext> {
 	readonly requiresContext: true;
 	run(argv: readonly string[], options: ClinkrRunOptions<TContext>): Promise<number>;
-	/**
-	 * Typed host invocation: always schema-validates `request`, runs the
-	 * handler with the supplied context, and returns the decoded outcome with
-	 * lazy rendered views. Raw commands are terminal-only and are rejected
-	 * with a programmer error.
-	 *
-	 * @remarks Provisional host surface; see {@link ClinkrExecuteResult}.
-	 */
-	execute(request: unknown, options: ClinkrExecuteOptions<TContext>): Promise<ClinkrExecuteResult>;
 	complete(
 		request: ClinkrCompletionRequest,
 		options: ClinkrCompleteOptions<TContext>,
@@ -186,7 +135,6 @@ function requireRunContext<TContext>(
 	options:
 		| ClinkrRunOptions<TContext>
 		| ClinkrContextFreeRunOptions
-		| ClinkrExecuteOptions<TContext>
 		| ClinkrCompleteOptions<TContext>
 		| Record<string, never>,
 ): TContext {
@@ -207,7 +155,6 @@ const USAGE_ERROR_EXIT_CODE = exitCodeFor("usage-error");
 type ClinkrInvocationOptions<TContext> =
 	| ClinkrRunOptions<TContext>
 	| ClinkrContextFreeRunOptions
-	| ClinkrExecuteOptions<TContext>
 	| ClinkrCompleteOptions<TContext>
 	| Record<string, never>;
 
@@ -415,27 +362,6 @@ class TopologyClinkrApp<TContext> {
 		return this.requireCompletion().complete(request, invocationOptions);
 	}
 
-	async execute(
-		request: unknown,
-		options?: ClinkrExecuteOptions<TContext>,
-	): Promise<ClinkrExecuteResult> {
-		const { selected } = await this.navigator.loadRootDefault();
-		if (selected.kind === "raw") {
-			throw new Error("clinkr: raw commands execute only through the terminal adapter");
-		}
-		const definition = selected.definition;
-		const decoded = decodeJsonRequest(request, definition.schema);
-		const outcome: CommandOutcome<unknown> = decoded.success
-			? await this.invokeHandler(definition, decoded.data as Record<string, unknown>, options ?? {})
-			: frameworkUsageError(decoded.message, decoded.errorType, decoded.data);
-		return {
-			outcome,
-			exitCode: exitCodeFor(outcome.status),
-			renderHuman: (capabilities) => renderOutcomeView(definition, outcome, "human", capabilities),
-			renderMarkdown: (capabilities) => renderOutcomeView(definition, outcome, "md", capabilities),
-		};
-	}
-
 	private buildCompletionHelp(path: "completion" | "resolve"): string {
 		if (path === "resolve") {
 			return createContainedCommand("resolve")
@@ -519,7 +445,6 @@ class TopologyClinkrApp<TContext> {
 		options:
 			| ClinkrRunOptions<TContext>
 			| ClinkrContextFreeRunOptions
-			| ClinkrExecuteOptions<TContext>
 			| ClinkrCompleteOptions<TContext>
 			| Record<string, never>,
 	): Promise<CommandOutcome<unknown>> {
@@ -820,11 +745,10 @@ function boundaryText(canEmitAnsi: boolean, text: string): string {
 }
 
 /**
- * Stdout view of an outcome shared by run()'s human/md formats and
- * execute()'s render accessors: rendered success data (pretty-JSON fallback
- * when no renderer), negative message, and `undefined` when nothing goes to
- * stdout (bodyless success, failure, usage-error). The ANSI output boundary
- * is enforced here so both surfaces mirror each other exactly.
+ * Stdout view of an outcome for run()'s human/md formats: rendered success
+ * data (pretty-JSON fallback when no renderer), negative message, and
+ * `undefined` when nothing goes to stdout (bodyless success, failure,
+ * usage-error). The ANSI output boundary is enforced here.
  */
 function renderOutcomeView(
 	definition: ClinkrCommandDefinition,
