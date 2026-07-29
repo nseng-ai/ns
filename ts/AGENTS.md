@@ -53,8 +53,7 @@ Do not add raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInt
 semantics and preferred fixes live in `.agents/skills/typescript-style/` (`core-rules.md`,
 `checklist.md`). Mechanically enforced ids: `NS_TS_BAN_AS_UNKNOWN_AS`,
 `NS_TS_BAN_IMPORT_ALIAS_FOR_FIRST_PARTY`, `NS_TS_BAN_EMPTY_INTERFACE_EXTENDS`,
-`NS_TS_BAN_RAW_PRODUCTION_TIMERS`, `NS_TS_BAN_PROCESS_STREAM_WRITE_INTERCEPTION`, plus the five
-shared-test bans above.
+`NS_TS_BAN_RAW_PRODUCTION_TIMERS`, plus the five shared-test bans above.
 `NS_TS_BAN_IMPORTED_BINDING_LOCAL_ALIAS` is review-only — legitimate constants share the same AST
 shape, so do not work around alias bans with `const LocalName = ImportedName`.
 

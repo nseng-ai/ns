@@ -24,11 +24,6 @@ import {
 import { createFilesystemSource } from "./filesystem-source.ts";
 import { composeSources, type ClinkrComposition } from "./programmatic-source.ts";
 import { ClinkrTopology } from "./topology.ts";
-import {
-	captureTerminalRun,
-	type CapturedTerminalRun,
-	type ClinkrTerminalTestAdapter,
-} from "./testing-runtime.ts";
 
 export interface ClinkrRunOptions<TContext> {
 	readonly context: TContext;
@@ -152,7 +147,22 @@ function requireRunContext<TContext>(
 	return options.context;
 }
 
-class TopologyClinkrApp<TContext> implements ClinkrTerminalTestAdapter<TContext> {
+interface StructuredCommandExecutionResult {
+	readonly exitCode: number;
+	readonly stdout: string;
+	readonly stderr: string;
+}
+
+type StructuredCliExecutor = (
+	argv: readonly string[],
+	options: ClinkrRunOptions<unknown> | ClinkrContextFreeRunOptions,
+) => Promise<StructuredCommandExecutionResult>;
+
+// Package-private bridge used by runForCliTest(). The app owns the complete
+// structured-command pipeline; the helper receives only its rendered result.
+const structuredCliExecutors = new WeakMap<object, StructuredCliExecutor>();
+
+class TopologyClinkrApp<TContext> {
 	private readonly name: string;
 	private readonly topology: ClinkrTopology<TContext>;
 	readonly requiresContext: boolean;
@@ -165,6 +175,17 @@ class TopologyClinkrApp<TContext> implements ClinkrTerminalTestAdapter<TContext>
 		this.name = options.name;
 		this.topology = options.topology;
 		this.requiresContext = options.requiresContext;
+		structuredCliExecutors.set(this, async (argv, runOptions) => {
+			const loaded = await this.loadDefinition();
+			if (loaded.selected.kind === "raw") {
+				throw new Error("clinkr: raw command output must be tested through an executable boundary");
+			}
+			return await this.runStructured(
+				argv,
+				runOptions as ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions,
+				loaded,
+			);
+		});
 	}
 
 	async run(
@@ -188,22 +209,11 @@ class TopologyClinkrApp<TContext> implements ClinkrTerminalTestAdapter<TContext>
 		return result.exitCode;
 	}
 
-	async [captureTerminalRun](
-		argv: readonly string[],
-		options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions,
-	): Promise<CapturedTerminalRun> {
-		const loaded = await this.loadDefinition();
-		if (loaded.selected.kind === "raw") {
-			throw new Error("clinkr: raw command output must be tested through an executable boundary");
-		}
-		return await this.runStructured(argv, options, loaded);
-	}
-
 	private async runStructured(
 		argv: readonly string[],
 		options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions,
 		loaded: Awaited<ReturnType<TopologyClinkrApp<TContext>["loadDefinition"]>>,
-	): Promise<CapturedTerminalRun> {
+	): Promise<StructuredCommandExecutionResult> {
 		if (loaded.selected.kind === "raw") throw new Error("clinkr: expected structured command");
 		const definition = loaded.selected.definition;
 		const canEmitAnsi = options.canEmitAnsi ?? resolveProcessCaps().colorDepth !== "none";
@@ -227,7 +237,7 @@ class TopologyClinkrApp<TContext> implements ClinkrTerminalTestAdapter<TContext>
 			message: string,
 			errorType: FrameworkUsageErrorType,
 			data?: unknown,
-		): CapturedTerminalRun =>
+		): StructuredCommandExecutionResult =>
 			renderTerminalOutcome(
 				frameworkUsageError(message, errorType, data),
 				definition,
@@ -315,6 +325,19 @@ class TopologyClinkrApp<TContext> implements ClinkrTerminalTestAdapter<TContext>
 		}
 		return loaded;
 	}
+}
+
+/** Internal entry for the public runForCliTest() helper. */
+export async function runStructuredCommandForCliTest(
+	app: ClinkrContextFreeApp | ClinkrContextfulApp<unknown>,
+	argv: readonly string[],
+	options: ClinkrRunOptions<unknown> | ClinkrContextFreeRunOptions,
+): Promise<StructuredCommandExecutionResult> {
+	const execute = structuredCliExecutors.get(app);
+	if (execute === undefined) {
+		throw new Error("clinkr: runForCliTest requires an app created by createClinkrApp");
+	}
+	return await execute(argv, options);
 }
 
 export function createClinkrApp(options: CreateContextFreeClinkrAppOptions): ClinkrContextFreeApp;
@@ -667,7 +690,11 @@ function renderOutcomeView(
  * or framework usage error — flows through here exactly once. `run()` owns the
  * subsequent process-stream writes at the executable edge.
  */
-function terminalResult(exitCode: number, stdout = "", stderr = ""): CapturedTerminalRun {
+function terminalResult(
+	exitCode: number,
+	stdout = "",
+	stderr = "",
+): StructuredCommandExecutionResult {
 	return { exitCode, stdout, stderr };
 }
 
@@ -676,7 +703,7 @@ function renderTerminalOutcome(
 	definition: ClinkrCommandDefinition,
 	format: OutputFormat,
 	canEmitAnsi: boolean,
-): CapturedTerminalRun {
+): StructuredCommandExecutionResult {
 	const exitCode = exitCodeFor(outcome.status);
 	if (format === "json") {
 		return terminalResult(exitCode, `${envelopeJsonText(toEnvelope(outcome))}\n`);

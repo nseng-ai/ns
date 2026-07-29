@@ -1,5 +1,8 @@
-import type { ClinkrContextFreeApp, ClinkrContextfulApp } from "./app.ts";
-import { captureTerminalRun, type ClinkrTerminalTestAdapter } from "./testing-runtime.ts";
+import {
+	runStructuredCommandForCliTest,
+	type ClinkrContextFreeApp,
+	type ClinkrContextfulApp,
+} from "./app.ts";
 
 /** Observable CLI result of an in-process structured-command run. */
 export interface CapturedCliRun {
@@ -24,9 +27,9 @@ export interface ContextFreeRunForCliTestOptions {
 }
 
 /**
- * Runs a structured command through the app's rendering core without writing
- * process streams. Raw commands are terminal-only and must be tested through
- * an executable boundary.
+ * Runs the complete structured CLI pipeline in-process and returns its
+ * rendered stdout, stderr, and exit code without writing process streams.
+ * Raw commands own process I/O and remain executable-boundary only.
  */
 export async function runForCliTest(
 	app: ClinkrContextFreeApp,
@@ -43,14 +46,16 @@ export async function runForCliTest<TContext>(
 	argv: readonly string[],
 	options: ContextFreeRunForCliTestOptions | RunForCliTestOptions<TContext> = {},
 ): Promise<CapturedCliRun> {
-	const testAdapter = app as typeof app & ClinkrTerminalTestAdapter<TContext>;
 	const runOptions = {
 		readStdin: async () => options.stdin ?? "",
 		canEmitAnsi: options.canEmitAnsi ?? false,
 	};
 	if (app.requiresContext) {
 		if (!("context" in options)) throw new Error("Contextful app test runs require context");
-		return await testAdapter[captureTerminalRun](argv, { context: options.context, ...runOptions });
+		return await runStructuredCommandForCliTest(app as ClinkrContextfulApp<unknown>, argv, {
+			context: options.context,
+			...runOptions,
+		});
 	}
-	return await testAdapter[captureTerminalRun](argv, runOptions);
+	return await runStructuredCommandForCliTest(app, argv, runOptions);
 }

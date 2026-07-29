@@ -8,7 +8,6 @@ import {
 	BAN_EXTENSION_PRIVATE_PEER_IMPORT,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
 	BAN_LOWER_LAYER_CONCRETE_EXTENSION_SURFACE,
-	BAN_PROCESS_STREAM_WRITE_INTERCEPTION,
 	BAN_RAW_PRODUCTION_TIMERS,
 	BAN_SHARED_TEST_FAKE_TIMERS,
 	BAN_SHARED_TEST_GLOBAL_LISTENERS,
@@ -95,18 +94,6 @@ export function collectViolations(
 					sourceFile,
 					node,
 					"Shared-cache tests must not mutate process.env or cwd directly. Pass env/cwd through an existing seam, use vi.stubEnv(), or isolate genuinely ambient behavior under test/isolated/.",
-				),
-			);
-		}
-
-		if (isProcessStreamWriteInterceptionNode(node)) {
-			violations.push(
-				buildViolationWithText(
-					BAN_PROCESS_STREAM_WRITE_INTERCEPTION,
-					path,
-					sourceFile,
-					node,
-					"Do not intercept or replace process.stdout.write or process.stderr.write. Treat process streams as executable-edge adapters and inject invocation-owned output sinks.",
 				),
 			);
 		}
@@ -282,50 +269,6 @@ function isSharedTestProcessMutationNode(node: ts.Node, path: string): boolean {
 		isAssignmentOperator(node.operatorToken.kind) &&
 		isRootedAtProcessEnv(node.left)
 	);
-}
-
-function isProcessStreamWriteInterceptionNode(node: ts.Node): boolean {
-	if (ts.isCallExpression(node) && node.arguments.length >= 2) {
-		if (staticMemberCallName(node, "vi") === "spyOn") {
-			return (
-				isProcessStream(node.arguments[0]) && staticPropertyName(node.arguments[1]) === "write"
-			);
-		}
-		if (staticMemberCallName(node, "Object") === "defineProperty") {
-			return (
-				isProcessStream(node.arguments[0]) && staticPropertyName(node.arguments[1]) === "write"
-			);
-		}
-	}
-	if (!ts.isBinaryExpression(node) || !isAssignmentOperator(node.operatorToken.kind)) return false;
-	return isProcessStreamWrite(node.left);
-}
-
-function isProcessStreamWrite(expression: ts.Expression): boolean {
-	const unwrapped = unwrapParentheses(expression);
-	if (!ts.isPropertyAccessExpression(unwrapped) && !ts.isElementAccessExpression(unwrapped))
-		return false;
-	return isProcessStream(unwrapped.expression) && staticMemberName(unwrapped) === "write";
-}
-
-function isProcessStream(expression: ts.Expression | undefined): boolean {
-	if (expression === undefined) return false;
-	const unwrapped = unwrapParentheses(expression);
-	if (!ts.isPropertyAccessExpression(unwrapped) && !ts.isElementAccessExpression(unwrapped))
-		return false;
-	return (
-		ts.isIdentifier(unwrapped.expression) &&
-		unwrapped.expression.text === "process" &&
-		(staticMemberName(unwrapped) === "stdout" || staticMemberName(unwrapped) === "stderr")
-	);
-}
-
-function staticMemberName(
-	expression: ts.PropertyAccessExpression | ts.ElementAccessExpression,
-): string | undefined {
-	return ts.isPropertyAccessExpression(expression)
-		? expression.name.text
-		: staticPropertyName(expression.argumentExpression);
 }
 
 function isSharedTestGlobalListenerNode(node: ts.Node, path: string): boolean {

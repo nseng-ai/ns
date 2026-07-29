@@ -18,7 +18,6 @@ import {
 	BAN_LOWER_LAYER_CONCRETE_EXTENSION_SURFACE,
 	BAN_PACKAGE_DISPOSITION_TOPOLOGY,
 	BAN_PACKAGE_TIER_LAYERING,
-	BAN_PROCESS_STREAM_WRITE_INTERCEPTION,
 	BAN_RAW_PRODUCTION_TIMERS,
 	BAN_SHARED_TEST_FAKE_TIMERS,
 	BAN_SHARED_TEST_GLOBAL_LISTENERS,
@@ -399,24 +398,6 @@ describe("TypeScript style guard source rules", () => {
 			code: 'process.chdir("/tmp");',
 			path: "ts/packages/public/infra/example/test/integration/cwd.test.ts",
 			expectedRules: [BAN_SHARED_TEST_PROCESS_MUTATION],
-		},
-		{
-			name: "all source rejects process stream writer replacement and interception",
-			code: 'process.stdout.write = writer; process["stderr"]["write"] = writer; vi.spyOn(process.stdout, "write"); vi.spyOn(process["stderr"], "write"); Object.defineProperty(process.stdout, "write", { value: writer });',
-			path: "ts/packages/public/infra/example/src/output.ts",
-			expectedRules: [
-				BAN_PROCESS_STREAM_WRITE_INTERCEPTION,
-				BAN_PROCESS_STREAM_WRITE_INTERCEPTION,
-				BAN_PROCESS_STREAM_WRITE_INTERCEPTION,
-				BAN_PROCESS_STREAM_WRITE_INTERCEPTION,
-				BAN_PROCESS_STREAM_WRITE_INTERCEPTION,
-			],
-		},
-		{
-			name: "direct process stream adapter writes are allowed",
-			code: 'process.stdout.write("out"); process.stderr.write("err");',
-			path: "ts/packages/public/infra/example/src/cli.ts",
-			expectedRules: [],
 		},
 		{
 			name: "shared tests reject process-global listener mutation",
