@@ -48,7 +48,7 @@ Before any implementation dispatch, show a compact launch preview containing:
 
 - Objective slug/path and selected roadmap slice(s);
 - execution mode and why it was selected;
-- branch topology: runner-managed step topology in `ns-bookended`, or one parent-managed feature branch for the portable run;
+- branch topology: runner-managed step topology in `ns-bookended`; in `portable`, the exact base branch and HEAD plus the exact run branch, whether it will be created or reused, and its parent relationship;
 - verification authority: `runner-attested` or `parent-verified`;
 - commit behavior: `runner-finish` provenance commit or one ordinary parent commit per accepted slice;
 - validation posture and exact stop/ask boundaries;
@@ -112,17 +112,30 @@ ADR 0037 publication remains a separate parent-only operation after a real commi
 
 Portable mode is prompt-driven orchestration with honest parent verification. It does not imitate runner artifacts or provenance.
 
-### Prepare one branch
+### Prepare one dedicated run branch
 
-Before the first dispatch:
+Before the launch preview:
 
 - require a clean worktree and attached HEAD;
 - determine repository-declared trunk when available, otherwise protect `main` and `master`;
-- never commit on trunk;
-- reuse an explicitly selected existing non-trunk branch or create one feature branch according to repository instructions, using ordinary Git when no stronger repository workflow is prescribed;
-- keep every accepted implementation step for this run on that single branch.
+- record the current branch and HEAD as the proposed **base branch**, not as implicit authorization to implement there;
+- derive or propose a dedicated **run branch** name from the Objective slug, following repository naming rules;
+- check for local and remote collisions for that exact run-branch name;
+- when the run branch does not exist, preview that it will be created from the recorded base branch and HEAD according to repository instructions, using ordinary Git when no stronger repository workflow is prescribed;
+- when it already exists, stop and ask whether to reuse that exact branch, choose another name, or abort; do not silently reuse it;
+- reuse any existing branch—including the currently checked-out branch—only when the user explicitly identified its exact name as the implementation destination before the preview, or explicitly confirms a preview that labels its exact name as an existing run branch to reuse. Being current, clean, non-trunk, Objective-related, or the branch that introduced the Objective record is not explicit selection;
+- never use or commit on trunk as the run branch;
+- keep every accepted implementation and tracking commit for this run on the single run branch.
 
-Do not require Graphite, Branch Context, or a branch per step.
+After confirmation and before the first dispatch:
+
+1. Revalidate the clean worktree, attached HEAD, base branch, and base HEAD captured by the preview. A mismatch requires a new preview and confirmation.
+2. Create and check out the dedicated run branch, or check out the exact existing branch whose reuse was explicitly authorized.
+3. Establish repository-required parent tracking. In a Graphite repository, create/track the run branch as a child of the previewed base branch; do not flatten it onto trunk.
+4. Verify that either the run branch was created during this confirmed launch or reuse of its exact name was explicitly authorized. Otherwise stop.
+5. Record the first portable dispatch baseline only after branch preparation succeeds.
+
+Do not require Graphite, Branch Context, or a branch per step. The dedicated run branch is one branch for the entire portable run, not one branch per accepted slice.
 
 ### Record the baseline
 
