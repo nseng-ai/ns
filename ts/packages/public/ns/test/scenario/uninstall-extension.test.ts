@@ -83,7 +83,7 @@ function fixture(options: {
 	};
 }
 
-const initializedToml = 'harnesses = ["pi"]\n';
+const initializedToml = 'supported_harnesses = ["pi"]\n';
 const tracedFailureSchema = z.object({
 	type: z.literal("failure"),
 	data: z.object({ steps: z.array(lifecycleStepSchema).readonly() }),
@@ -452,8 +452,8 @@ describe("uninstallExtension", () => {
 	});
 
 	it.each([
-		[undefined, "ns-extension-uninstall-harnesses-missing"],
-		['harnesses = ["unknown"]\n', "ns-extension-uninstall-harnesses-invalid"],
+		[undefined, "ns-extension-uninstall-supported-harnesses-missing"],
+		['supported_harnesses = ["unknown"]\n', "ns-extension-uninstall-supported-harnesses-invalid"],
 		[`${initializedToml}extensions = [42]\n`, "ns-extension-uninstall-config-invalid"],
 	])("returns stable config failure for %s", async (nsToml, errorType) => {
 		const { context, files, cleanup } = fixture(nsToml === undefined ? {} : { nsToml });

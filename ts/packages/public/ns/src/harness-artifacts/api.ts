@@ -80,14 +80,14 @@ export {
 export {
 	normalizeHarnessSelection,
 	parseNsTomlExtensions,
-	parseNsTomlHarnesses,
-	planNsTomlHarnessesWrite,
-	renderNsTomlHarnesses,
+	parseNsTomlSupportedHarnesses,
+	planNsTomlSupportedHarnessesWrite,
+	renderNsTomlSupportedHarnesses,
 	type NsTomlChange,
 	type NsTomlErrorCode,
 	type NsTomlErrorInfo,
 	type NsTomlExtensionsParseResult,
-	type NsTomlHarnessesParseResult,
+	type NsTomlSupportedHarnessesParseResult,
 	type NsTomlWritePlanResult,
 } from "./ns-toml.ts";
 export {

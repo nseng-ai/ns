@@ -150,7 +150,7 @@ describe("create-local-ns-project", () => {
 		]);
 		const stdout = run.stdout.join("");
 		expect(stdout).toContain("Ready: /tmp/projects/demo");
-		expect(stdout).toContain("npx ns init --harness claude-code");
+		expect(stdout).toContain("npx ns init --supported-harness claude-code");
 	});
 
 	it("reports the failed verification command", async () => {

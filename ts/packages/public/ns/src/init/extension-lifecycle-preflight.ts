@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
 import { failure, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
-import { parseNsTomlHarnesses } from "../harness-artifacts/api.ts";
+import { parseNsTomlSupportedHarnesses } from "../harness-artifacts/api.ts";
 import {
 	classifyExtensionSourceLifecycle,
 	extensionSourceIdentityFromParsed,
@@ -48,8 +48,8 @@ export type ExtensionLifecyclePreflightFailure =
 			>;
 			readonly repoRoot: string;
 	  }
-	| { readonly type: "harnesses-missing"; readonly diagnostic: ActivationDiagnostic }
-	| { readonly type: "harnesses-invalid"; readonly diagnostic: ActivationDiagnostic }
+	| { readonly type: "supported-harnesses-missing"; readonly diagnostic: ActivationDiagnostic }
+	| { readonly type: "supported-harnesses-invalid"; readonly diagnostic: ActivationDiagnostic }
 	| { readonly type: "source-invalid"; readonly diagnostic: ActivationDiagnostic }
 	| { readonly type: "source-unsupported"; readonly sourceSpec: string; readonly message: string };
 
@@ -77,18 +77,21 @@ export async function prepareExtensionLifecycle(
 		recorder.fail(preflightFailureDiagnostic(failure));
 		return { type: "failed", failure };
 	}
-	const harnesses = parseNsTomlHarnesses(config.content);
+	const harnesses = parseNsTomlSupportedHarnesses(config.content);
 	if (harnesses.type !== "ok") {
 		const diagnostic =
 			harnesses.type === "missing"
 				? {
-						code: "harnesses-missing",
-						message: "ns.toml does not configure project harnesses.",
+						code: "supported-harnesses-missing",
+						message: "ns.toml does not configure repository supported harnesses.",
 						path: "ns.toml",
 					}
 				: { ...harnesses.error, path: "ns.toml" };
 		const failure = {
-			type: harnesses.type === "missing" ? "harnesses-missing" : "harnesses-invalid",
+			type:
+				harnesses.type === "missing"
+					? "supported-harnesses-missing"
+					: "supported-harnesses-invalid",
 			diagnostic,
 		} as const;
 		recorder.fail(diagnostic);
@@ -180,24 +183,24 @@ export function extensionLifecycleFailure<TResult>(
 			result.type === "missing"
 				? `ns.toml is missing; initialize ns before ${extensionLifecycleGerund(verb)} extensions.`
 				: "ns.toml exists but is not a file.";
-		return failure(`${prefix}-harnesses-missing`, message, {
+		return failure(`${prefix}-supported-harnesses-missing`, message, {
 			phase: "preflight",
 			diagnostics: [{ code: `ns-toml-${result.type}`, message, path: join(repoRoot, "ns.toml") }],
-			nextCommand: "ns init --harness <claude-code|codex|pi>",
+			nextCommand: "ns init --supported-harness <claude-code|codex|pi>",
 			completed: {},
 			steps: recorder.steps(),
 		});
 	}
 	if (
-		preflightFailure.type === "harnesses-missing" ||
-		preflightFailure.type === "harnesses-invalid"
+		preflightFailure.type === "supported-harnesses-missing" ||
+		preflightFailure.type === "supported-harnesses-invalid"
 	) {
 		return failure(
 			`${prefix}-${preflightFailure.type}`,
-			`${preflightFailure.diagnostic.message} Run ns init with an explicit harness before ${extensionLifecycleGerund(verb)} extensions.`,
+			`${preflightFailure.diagnostic.message} Run ns init with an explicit supported harness before ${extensionLifecycleGerund(verb)} extensions.`,
 			{
 				...extensionLifecyclePreflightEnvelope([preflightFailure.diagnostic], recorder),
-				nextCommand: "ns init --harness <claude-code|codex|pi>",
+				nextCommand: "ns init --supported-harness <claude-code|codex|pi>",
 			},
 		);
 	}
@@ -243,8 +246,8 @@ function preflightFailureDiagnostic(failure: ExtensionLifecyclePreflightFailure)
 		};
 	}
 	if (
-		failure.type === "harnesses-missing" ||
-		failure.type === "harnesses-invalid" ||
+		failure.type === "supported-harnesses-missing" ||
+		failure.type === "supported-harnesses-invalid" ||
 		failure.type === "source-invalid"
 	)
 		return failure.diagnostic;

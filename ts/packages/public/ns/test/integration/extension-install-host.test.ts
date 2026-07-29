@@ -35,7 +35,7 @@ describe("extension install host integration", () => {
 		await initializeGitRepo(cwd);
 		const stdout: string[] = [];
 		const stderr: string[] = [];
-		const exit = await runNsCli(["init", "--harness", "pi"], {
+		const exit = await runNsCli(["init", "--supported-harness", "pi"], {
 			cwd,
 			homeDir: join(cwd, ".home"),
 			env: { HOME: join(cwd, ".home") },
@@ -74,7 +74,7 @@ describe("extension install host integration", () => {
 		expect(nsExtensionInstallCommand.name).toBe("install");
 		const cwd = await createEmptyProject();
 		await initializeGitRepo(cwd);
-		await writeFile(join(cwd, "ns.toml"), 'harnesses = ["pi"]\n', "utf8");
+		await writeFile(join(cwd, "ns.toml"), 'supported_harnesses = ["pi"]\n', "utf8");
 		await writeModuleExtension(cwd);
 
 		const installed = await runNsCliJson(["extension", "install", "./extensions/acme-module"], cwd);
@@ -155,7 +155,7 @@ describe("extension install host integration", () => {
 	test("lists installed, conflicted, and missing extension state without changing bytes", async () => {
 		const cwd = await createEmptyProject();
 		await initializeGitRepo(cwd);
-		await writeFile(join(cwd, "ns.toml"), 'harnesses = ["pi"]\n', "utf8");
+		await writeFile(join(cwd, "ns.toml"), 'supported_harnesses = ["pi"]\n', "utf8");
 		await writeModuleExtension(cwd);
 		const source = "./extensions/acme-module";
 		expect((await runNsCliJson(["extension", "install", source], cwd)).exit).toBe(0);
@@ -245,7 +245,7 @@ describe("extension install host integration", () => {
 		expect(nsExtensionUninstallCommand.name).toBe("uninstall");
 		const cwd = await createEmptyProject();
 		await initializeGitRepo(cwd);
-		await writeFile(join(cwd, "ns.toml"), 'harnesses = ["pi"]\n', "utf8");
+		await writeFile(join(cwd, "ns.toml"), 'supported_harnesses = ["pi"]\n', "utf8");
 		await writeModuleExtension(cwd);
 		const source = "./extensions/acme-module";
 		const installed = await runNsCliJson(["extension", "install", source], cwd);
@@ -319,7 +319,7 @@ describe("extension install host integration", () => {
 	test("refuses uninstall when a manifest-owned artifact was locally modified", async () => {
 		const cwd = await createEmptyProject();
 		await initializeGitRepo(cwd);
-		await writeFile(join(cwd, "ns.toml"), 'harnesses = ["pi"]\n', "utf8");
+		await writeFile(join(cwd, "ns.toml"), 'supported_harnesses = ["pi"]\n', "utf8");
 		await writeModuleExtension(cwd);
 		const source = "./extensions/acme-module";
 		expect((await runNsCliJson(["extension", "install", source], cwd)).exit).toBe(0);

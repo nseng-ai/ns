@@ -3,8 +3,8 @@ import { failure, ok, usageError } from "@nseng-ai/clinkr/legacy";
 import {
 	ALL_HARNESS_IDS,
 	normalizeHarnessSelection,
-	parseNsTomlHarnesses,
-	planNsTomlHarnessesWrite,
+	parseNsTomlSupportedHarnesses,
+	planNsTomlSupportedHarnessesWrite,
 	type HarnessId,
 	type NsTomlChange,
 } from "../harness-artifacts/api.ts";
@@ -32,10 +32,10 @@ import {
 } from "./lifecycle-observability.ts";
 
 export const initNsRequestSchema = z.object({
-	harness: z
+	supportedHarness: z
 		.array(z.string())
 		.default([])
-		.describe("Harness to activate; repeatable. One of claude-code, codex, pi."),
+		.describe("Supported harness to activate; repeatable. One of claude-code, codex, pi."),
 });
 
 export const initNsResultSchema = z.object({
@@ -77,12 +77,12 @@ export async function initNs(
 		);
 	}
 	const existingContent = configRead.type === "found" ? configRead.content : undefined;
-	const harnessResolution = resolveHarnesses(existingContent, request.harness);
+	const harnessResolution = resolveHarnesses(existingContent, request.supportedHarness);
 	if (harnessResolution.type === "usage-error") {
 		return tracedFailure.usage({
 			diagnostics: [
 				{
-					code: "harness-required",
+					code: "supported-harness-required",
 					message: harnessResolution.message,
 					path: "ns.toml",
 				},
@@ -174,10 +174,10 @@ function resolveHarnesses(
 			return {
 				type: "usage-error",
 				message: explicit.error.message,
-				data: { argument: "harness", code: explicit.error.code },
+				data: { argument: "supportedHarness", code: explicit.error.code },
 			};
 		}
-		const plan = planNsTomlHarnessesWrite({
+		const plan = planNsTomlSupportedHarnessesWrite({
 			content: existingContent,
 			harnesses: explicit.harnesses,
 		});
@@ -196,7 +196,7 @@ function resolveHarnesses(
 		};
 	}
 	if (existingContent === undefined) return harnessUsageError();
-	const parsed = parseNsTomlHarnesses(existingContent);
+	const parsed = parseNsTomlSupportedHarnesses(existingContent);
 	if (parsed.type === "missing") return harnessUsageError();
 	if (parsed.type === "error") {
 		return {
@@ -217,8 +217,8 @@ function harnessUsageError(): HarnessResolution {
 	return {
 		type: "usage-error",
 		message:
-			"Pass at least one --harness on first ns init run, or add top-level harnesses to ns.toml.",
-		data: { argument: "harness", configFile: "ns.toml" },
+			"Pass at least one --supported-harness on first ns init run, or add top-level supported_harnesses to ns.toml.",
+		data: { argument: "supportedHarness", configFile: "ns.toml" },
 	};
 }
 
@@ -331,7 +331,7 @@ export function renderInitNsHuman(data: InitNsResult): string {
 	);
 	return [
 		`Activated ns in ${data.repoRoot}.`,
-		`Harnesses (${data.harnessSource}): ${data.harnesses.join(", ")}.`,
+		`Supported harnesses (${data.harnessSource}): ${data.harnesses.join(", ")}.`,
 		...buildReportSection("Files:", fileRows),
 		...buildReportSection("Consumer directories:", directoryRows),
 		...buildReportSection("Artifacts:", artifactRows),

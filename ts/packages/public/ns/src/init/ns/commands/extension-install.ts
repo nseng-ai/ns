@@ -11,7 +11,7 @@ export const nsExtensionInstallCommand = nsInitCommand({
 	name: "install",
 	summary: "Install and activate an ns extension.",
 	description:
-		"Install an npm or local ns extension, record it in ns.toml, and activate its declared artifacts for the project's configured harnesses.",
+		"Install an npm or local ns extension, record it in ns.toml, and activate its declared artifacts for the repository's supported harnesses.",
 	schema: installExtensionRequestSchema,
 	positionals: { source: { position: 0 } },
 	resultSchema: installExtensionResultSchema,

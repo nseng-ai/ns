@@ -25,7 +25,7 @@ describe("preinstalled command loading host integration", () => {
 			"instructions, creating declared consumer directories, and provisioning declared",
 		);
 		expect(run.stdout).toContain("extension artifacts.");
-		expect(run.stdout).toContain("--harness");
+		expect(run.stdout).toContain("--supported-harness");
 		expect(run.stderr).toBe("");
 		expect(run.execCalls).toEqual([]);
 	});

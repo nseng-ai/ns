@@ -32,8 +32,12 @@ A repository-declared extension package listed in repo-root `ns.toml` and exposi
 Generic mechanics for parsing an explicit source spec, resolving an unprefixed local package in place or ensuring an `npm:` package in managed storage, and making the resulting package available for descriptor inspection. The SDK owns these reusable mechanics; it does not decide when project config or activation files are written.
 *Avoid*: lifecycle transaction, harness selection, activation reconciliation, implicit bare-name npm lookup, copying local packages into managed storage.
 
+**Supported harnesses**:
+The repository-declared set of agent Harness targets in top-level `ns.toml` `supported_harnesses`. ns provisions and reconciles extension-provided skills and other agent-facing artifacts in each target's project directory. The set does not describe every tool contributors personally use, restrict repository access, or assign Objective ownership.
+*Avoid*: project harnesses, configured harnesses, contributor harnesses, Objective owners, access allowlist.
+
 **Extension lifecycle orchestration**:
-The workflow behind `ns extension install`, owned by the `init` feature of `@nseng-ai/ns` (formerly the separate `@nseng-ai/ns-init` package, folded in). It requires persisted project harnesses, checks declaration identity, composes SDK acquisition with full prospective descriptor validation, records the exact source spec, and applies descriptor-driven repository activation with forward recovery.
+The workflow behind `ns extension install`, owned by the `init` feature of `@nseng-ai/ns` (formerly the separate `@nseng-ai/ns-init` package, folded in). It requires persisted **Supported harnesses**, checks declaration identity, composes SDK acquisition with full prospective descriptor validation, records the exact source spec, and applies descriptor-driven repository activation with forward recovery.
 *Avoid*: SDK built-in command, point introspection, descriptor loader, implicit floating-package refresh, rollback of completed activation duties.
 
 **Extension descriptor**:

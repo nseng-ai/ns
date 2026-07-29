@@ -80,7 +80,7 @@ function fixture(options: {
 	};
 }
 
-const initializedToml = 'harnesses = ["pi"]\n';
+const initializedToml = 'supported_harnesses = ["pi"]\n';
 
 describe("extension lifecycle source classification", () => {
 	it.each([
@@ -206,7 +206,7 @@ describe("installExtension", () => {
 			},
 		});
 		expect(files.fileContent("ns.toml")).toBe(
-			'harnesses = ["pi"]\nextensions = ["./extensions/tools"]\n',
+			'supported_harnesses = ["pi"]\nextensions = ["./extensions/tools"]\n',
 		);
 		if (result.type !== "ok") throw new Error("Expected install success.");
 		expect(result.data.steps).toEqual([
@@ -320,9 +320,9 @@ describe("installExtension", () => {
 	});
 
 	it.each([
-		[undefined, "ns-extension-install-harnesses-missing"],
-		['extensions = ["./old"]\n', "ns-extension-install-harnesses-missing"],
-		['harnesses = ["unknown"]\n', "ns-extension-install-harnesses-invalid"],
+		[undefined, "ns-extension-install-supported-harnesses-missing"],
+		['extensions = ["./old"]\n', "ns-extension-install-supported-harnesses-missing"],
+		['supported_harnesses = ["unknown"]\n', "ns-extension-install-supported-harnesses-invalid"],
 	])(
 		"rejects missing or invalid persisted harness config before acquisition",
 		async (nsToml, errorType) => {

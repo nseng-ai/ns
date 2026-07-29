@@ -30,7 +30,7 @@ ns extension points                    List extension points (inspection)
 ```bash
 npm install -g @nseng-ai/ns
 cd your-repo
-ns init --harness claude-code
+ns init --supported-harness claude-code
 ns extension install npm:@nseng-ai/objectives
 ```
 
@@ -69,9 +69,9 @@ recorded install spec to restore a missing managed npm package.
 
 ### `ns extension install <source>`
 
-The repository must already have valid top-level `harnesses = [...]` configuration from
+The repository must already have valid top-level `supported_harnesses = [...]` configuration from
 `ns init`. Missing or invalid harness configuration fails before acquisition or writes and
-directs the customer to `ns init --harness <claude-code|codex|pi>`.
+directs the customer to `ns init --supported-harness <claude-code|codex|pi>`.
 
 1. Parses the explicit source grammar and checks the prospective `ns.toml` edit. An exact
    spec is idempotent; the same canonical npm package or normalized local path under a
@@ -84,7 +84,7 @@ directs the customer to `ns init --harness <claude-code|codex|pi>`.
    durable declaration or activation file is written.
 4. Records the exact requested spec in `ns.toml` `extensions = [...]` (appended
    idempotently, with no unrelated reformatting) and runs full descriptor-driven
-   activation using the persisted harnesses.
+   activation using the persisted supported harnesses.
 
 Re-running the exact spec reports `isRecorded: false`, restores a missing managed npm
 package, and reconciles activation drift. It does **not** refresh an already-present
@@ -148,12 +148,12 @@ Unchanged inspection commands over descriptor-declared extension points.
 
 - **`ns init`** stays the repo-activation orchestrator (core built-in — it must work on a
   bare install). Its duties are extension-agnostic: verify git posture, select and
-  persist harnesses to `ns.toml`, write the managed `AGENTS.md` block (with the
+  persist supported harnesses to `ns.toml`, write the managed `AGENTS.md` block (with the
   `CLAUDE.md → @AGENTS.md` import) and ensure `.ns/` ignore rules, and provision the
   artifacts of whatever extensions are installed. Extension-specific content —
   instruction-block sections, consumer dirs like `.ns/objectives/` — comes from the
   extensions themselves, not from `init`. Initialization comes first: extension install
-  consumes the harnesses already persisted by `ns init` and fails without them.
+  consumes the supported harnesses already persisted by `ns init` and fails without them.
 - **`ns skills …`** remains the harness-artifact machinery (`list`/`path`/`install`);
   `ns extension install/update/uninstall` drive it internally rather than duplicating it.
 - **`ns update`** (top-level) narrows to ns **self-update** (reserved; owned by the
@@ -177,8 +177,8 @@ stable camelCase envelopes with kebab-case `errorType` values, exit codes `0/1/2
    breaking this grammar.
 2. **Top-level `ns install` is retired** in favor of `ns extension install`. Breaking
    change, allowed pre-release. `ns update --extensions` migrates likewise.
-3. **`ns init` owns harness selection and must run before `install`.** Install consumes
-   persisted harnesses and fails before acquisition or writes when they are absent or
+3. **`ns init` owns supported harness selection and must run before `install`.** Install consumes
+   persisted supported harnesses and fails before acquisition or writes when they are absent or
    invalid; it never accepts or infers a harness.
 4. **The removal verb is `uninstall`, mirroring `install`** (owner call, 2026-07-09).
    Pi's canonical verb is `remove` (with an `uninstall` alias); ns makes the mirror name
@@ -191,7 +191,7 @@ stable camelCase envelopes with kebab-case `errorType` values, exit codes `0/1/2
 
 - **Generic `ns init` (settled direction, needs its own design slice).** `ns init`
   itself is justified and stays a core built-in — its generic duties (git posture,
-  harness selection/persistence, managed `AGENTS.md` block mechanics, `.ns/` scaffolding
+  supported harness selection/persistence, managed `AGENTS.md` block mechanics, `.ns/` scaffolding
   and ignore rules, provisioning installed extensions' artifacts) exist regardless of
   which extensions are present. The mistake (owner, 2026-07-09) was baking
   extension-specific behavior into it: the objectives instruction-block content and

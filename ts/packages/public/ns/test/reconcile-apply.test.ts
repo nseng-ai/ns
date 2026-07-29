@@ -21,7 +21,7 @@ import { InMemoryHarnessFs } from "./support/in-memory-harness-fs.ts";
 
 describe("harness artifact reconcile driver", () => {
 	test("fresh install writes target files and a manifest with per-file hashes", async () => {
-		const fixture = createFixture({ nsToml: 'harnesses = ["pi"]\n' });
+		const fixture = createFixture({ nsToml: 'supported_harnesses = ["pi"]\n' });
 
 		const result = await runHarnessArtifactReconcile(fixture.request());
 
@@ -44,7 +44,7 @@ describe("harness artifact reconcile driver", () => {
 	});
 
 	test("idempotent re-run reports unchanged and no written artifact files", async () => {
-		const fixture = createFixture({ nsToml: 'harnesses = ["pi"]\n' });
+		const fixture = createFixture({ nsToml: 'supported_harnesses = ["pi"]\n' });
 		await runHarnessArtifactReconcile(fixture.request());
 		fixture.fs.clearWrittenFiles();
 
@@ -60,7 +60,7 @@ describe("harness artifact reconcile driver", () => {
 	});
 
 	test("source changes refresh target files and manifest hashes", async () => {
-		const fixture = createFixture({ nsToml: 'harnesses = ["pi"]\n' });
+		const fixture = createFixture({ nsToml: 'supported_harnesses = ["pi"]\n' });
 		await runHarnessArtifactReconcile(fixture.request());
 		fixture.fs.setFile(
 			"/first-party/skills/incubating/objectives/objective/SKILL.md",
@@ -83,7 +83,7 @@ describe("harness artifact reconcile driver", () => {
 	});
 
 	test("local target edits conflict in dry-run and apply without force and are overwritten with force", async () => {
-		const fixture = createFixture({ nsToml: 'harnesses = ["pi"]\n' });
+		const fixture = createFixture({ nsToml: 'supported_harnesses = ["pi"]\n' });
 		await runHarnessArtifactReconcile(fixture.request());
 		fixture.fs.setFile("/repo/.pi/skills/objective/SKILL.md", "local edit\n");
 
@@ -127,7 +127,7 @@ describe("harness artifact reconcile driver", () => {
 
 	test("declared local extension paths provision artifacts and can be targeted", async () => {
 		const fixture = createFixture({
-			nsToml: 'harnesses = ["pi"]\nextensions = ["./local-ext", "./other-ext"]\n',
+			nsToml: 'supported_harnesses = ["pi"]\nextensions = ["./local-ext", "./other-ext"]\n',
 			includeModule: false,
 		});
 		fixture.fs.setFile("/repo/local-ext/package.json", packageJson("@acme/local"));
@@ -164,7 +164,7 @@ describe("harness artifact reconcile driver", () => {
 
 	test("declared npm extensions acquire managed package roots and provision static artifacts", async () => {
 		const fixture = createFixture({
-			nsToml: 'harnesses = ["pi"]\nextensions = ["npm:@acme/module@1.0.0"]\n',
+			nsToml: 'supported_harnesses = ["pi"]\nextensions = ["npm:@acme/module@1.0.0"]\n',
 			includeModule: false,
 		});
 		fixture.fs.setFile(
@@ -199,7 +199,7 @@ describe("harness artifact reconcile driver", () => {
 	test("reconcile refreshes installed floating npm extensions but keeps pinned installs stable", async () => {
 		for (const source of ["npm:@acme/module", "npm:@acme/module@1.0.0"] as const) {
 			const fixture = createFixture({
-				nsToml: `harnesses = ["pi"]\nextensions = ["${source}"]\n`,
+				nsToml: `supported_harnesses = ["pi"]\nextensions = ["${source}"]\n`,
 				includeModule: false,
 			});
 			const packageRoot = "/repo/.ns/managed-extensions/npm/@acme/module/node_modules/@acme/module";
@@ -225,7 +225,7 @@ describe("harness artifact reconcile driver", () => {
 
 	test("declared-only npm targeting rejects undeclared specs", async () => {
 		const fixture = createFixture({
-			nsToml: 'harnesses = ["pi"]\nextensions = ["npm:@acme/module@1.0.0"]\n',
+			nsToml: 'supported_harnesses = ["pi"]\nextensions = ["npm:@acme/module@1.0.0"]\n',
 			includeModule: false,
 		});
 
@@ -238,7 +238,7 @@ describe("harness artifact reconcile driver", () => {
 
 	test("npm acquisition diagnostics do not block local extension provisioning", async () => {
 		const fixture = createFixture({
-			nsToml: 'harnesses = ["pi"]\nextensions = ["npm:@acme/bad", "./local-ext"]\n',
+			nsToml: 'supported_harnesses = ["pi"]\nextensions = ["npm:@acme/bad", "./local-ext"]\n',
 			includeModule: false,
 		});
 		fixture.fs.setFile("/repo/local-ext/package.json", packageJson("@acme/local"));
@@ -278,10 +278,10 @@ describe("harness artifact reconcile driver", () => {
 	});
 
 	test("skips colliding artifacts while provisioning non-colliding artifacts", async () => {
-		const fixture = createFixture({ nsToml: 'harnesses = ["pi"]\n' });
+		const fixture = createFixture({ nsToml: 'supported_harnesses = ["pi"]\n' });
 		fixture.fs.setFile(
 			"/repo/ns.toml",
-			'harnesses = ["pi"]\nextensions = ["./extensions/acme", "./extensions/collision"]\n',
+			'supported_harnesses = ["pi"]\nextensions = ["./extensions/acme", "./extensions/collision"]\n',
 		);
 		fixture.fs.setFile("/repo/extensions/collision/package.json", packageJson("@acme/collision"));
 		fixture.fs.setFile(
@@ -325,7 +325,7 @@ describe("harness artifact reconcile driver", () => {
 		expect(orphanResult.value.orphans).toMatchObject([{ artifactId: "@gone/ext:old-skill" }]);
 		expect(orphanFixture.fs.readText("/repo/.pi/skills/old/SKILL.md")).toBe("local orphan\n");
 
-		const invalidFixture = createFixture({ nsToml: "harnesses = [123]\n" });
+		const invalidFixture = createFixture({ nsToml: "supported_harnesses = [123]\n" });
 		const invalidResult = await runHarnessArtifactReconcile(invalidFixture.request());
 		expect(invalidResult).toMatchObject({ ok: false, error: { code: "invalid_ns_toml" } });
 	});
@@ -334,7 +334,7 @@ describe("harness artifact reconcile driver", () => {
 	// root, because the published @nseng-ai/ns tarball ships no first-party skill sources.
 	// That used to abort the whole reconcile with first_party_source_root_unavailable.
 	test("unresolvable first-party catalog source still reconciles module artifacts", async () => {
-		const fixture = createFixture({ nsToml: 'harnesses = ["pi"]\n' });
+		const fixture = createFixture({ nsToml: 'supported_harnesses = ["pi"]\n' });
 		await runHarnessArtifactReconcile(fixture.request());
 		fixture.fs.setFile("/repo/extensions/acme/skills/module/SKILL.md", "module v2\n");
 
@@ -353,7 +353,7 @@ describe("harness artifact reconcile driver", () => {
 	// Regression: skipping the first-party catalog must not make already provisioned
 	// first-party entries look like removed sources under full deletion authority.
 	test("unresolvable first-party catalog preserves already provisioned first-party artifacts", async () => {
-		const fixture = createFixture({ nsToml: 'harnesses = ["pi"]\n' });
+		const fixture = createFixture({ nsToml: 'supported_harnesses = ["pi"]\n' });
 		await runHarnessArtifactReconcile(fixture.request());
 		expect(fixture.fs.readText("/repo/.pi/skills/objective/SKILL.md")).toBe("objective v1\n");
 

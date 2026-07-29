@@ -46,14 +46,22 @@ arrives when you install the Objectives extension (below).
 From your repository root:
 
 ```bash
-ns init --harness claude-code   # or: codex, pi
+ns init --supported-harness claude-code   # or: codex, pi
 ```
 
-`ns init` writes `ns.toml`, generates a harness-neutral agent-instruction block, creates
-the declared consumer directories, and provisions the core harness artifacts. The harness
-is explicit on the first run and persisted to `ns.toml`; pass `--harness` more than once to
-support multiple harnesses. `ns init` writes files but never commits — review and commit
-the changes yourself.
+`ns init` writes the repository's supported harnesses to `ns.toml`, generates a
+harness-neutral agent-instruction block, creates declared consumer directories, and
+provisions core harness artifacts. The selection is explicit on the first run; repeat
+`--supported-harness` to declare more than one:
+
+```toml
+supported_harnesses = ["claude-code", "codex"]
+```
+
+`supported_harnesses` declares the agent harnesses this repository supports. ns uses the
+list to provision and reconcile extension-provided skills and other agent-facing artifacts
+in each harness's project directory. It does not restrict which tools contributors may use.
+`ns init` writes files but never commits — review and commit the changes yourself.
 
 ## Add Objectives
 
@@ -64,9 +72,9 @@ session — are the `@nseng-ai/objectives` extension:
 ns extension install npm:@nseng-ai/objectives
 ```
 
-This records the extension in `ns.toml`, activates it for your configured harness, adds the
-`ns objective` CLI, and provisions the ten Objective skills into your harness's skill root
-(`.claude/skills/` for Claude Code). See
+This records the extension in `ns.toml`, activates it for the repository's supported
+harnesses, adds the `ns objective` CLI, and provisions the ten Objective skills into each
+supported harness's skill root (for example, `.claude/skills/` for Claude Code). See
 [`@nseng-ai/objectives`](../../incubating/extensions/objectives/README.md) for the full lifecycle.
 
 Once installed, drive an Objective through its lifecycle with your agent:

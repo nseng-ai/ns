@@ -98,7 +98,7 @@ describe("ns CLI host integration", () => {
 		await mkdir(join(projectRoot, "nested"), { recursive: true });
 		await writeFile(
 			join(projectRoot, "ns.toml"),
-			'harnesses = ["pi"]\nextensions = ["./extensions/acme-module"]\n',
+			'supported_harnesses = ["pi"]\nextensions = ["./extensions/acme-module"]\n',
 			"utf8",
 		);
 		await writeModuleExtension(projectRoot);

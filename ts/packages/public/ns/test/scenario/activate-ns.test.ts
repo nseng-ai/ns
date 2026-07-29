@@ -119,7 +119,7 @@ describe("ns activation planning and apply", () => {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
-			nsTomlContent: 'harnesses = ["pi"]\nextensions = ["one","two"]\n',
+			nsTomlContent: 'supported_harnesses = ["pi"]\nextensions = ["one","two"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -162,7 +162,7 @@ describe("ns activation planning and apply", () => {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
-			nsTomlContent: 'harnesses = ["pi"]\n',
+			nsTomlContent: 'supported_harnesses = ["pi"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -175,9 +175,9 @@ describe("ns activation planning and apply", () => {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "ns-toml",
-			nsTomlContent: 'harnesses = ["pi"]\n',
+			nsTomlContent: 'supported_harnesses = ["pi"]\n',
 			nsTomlChange: "unchanged",
-			nsTomlExpected: { type: "file", content: 'harnesses = ["pi"]\n' },
+			nsTomlExpected: { type: "file", content: 'supported_harnesses = ["pi"]\n' },
 		});
 		if (rerun.type !== "prepared") throw new Error("expected prepared rerun");
 		expect(rerun.activation.files["managed-extensions-ignore"].change).toBe("unchanged");
@@ -191,7 +191,7 @@ describe("ns activation planning and apply", () => {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
-			nsTomlContent: 'harnesses = ["pi"]\n',
+			nsTomlContent: 'supported_harnesses = ["pi"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -207,7 +207,7 @@ describe("ns activation planning and apply", () => {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
-			nsTomlContent: 'harnesses = ["pi"]\n',
+			nsTomlContent: 'supported_harnesses = ["pi"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -226,7 +226,7 @@ describe("ns activation planning and apply", () => {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
-			nsTomlContent: 'harnesses = ["pi"]\n',
+			nsTomlContent: 'supported_harnesses = ["pi"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -247,7 +247,7 @@ describe("ns activation planning and apply", () => {
 			repository,
 			harnesses: ["codex"],
 			harnessSource: "explicit",
-			nsTomlContent: 'harnesses = ["codex"]\n',
+			nsTomlContent: 'supported_harnesses = ["codex"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -295,7 +295,7 @@ describe("ns activation planning and apply", () => {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
-			nsTomlContent: 'harnesses = ["pi"]\nextensions = ["bad"]\n',
+			nsTomlContent: 'supported_harnesses = ["pi"]\nextensions = ["bad"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -319,7 +319,7 @@ describe("ns activation planning and apply", () => {
 		["claude-instructions", "CLAUDE.md"],
 		["generated-instructions", ".ns/instructions.md"],
 	] as const)("preserves an externally mutated %s activation file", async (file, path) => {
-		const originalNsToml = 'harnesses = ["pi"]\n';
+		const originalNsToml = 'supported_harnesses = ["pi"]\n';
 		const files = new InMemoryActivationFilesGateway({
 			files: {
 				"ns.toml": originalNsToml,
@@ -333,7 +333,7 @@ describe("ns activation planning and apply", () => {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
-			nsTomlContent: 'harnesses = ["pi"]\n# activation update\n',
+			nsTomlContent: 'supported_harnesses = ["pi"]\n# activation update\n',
 			nsTomlChange: "appended",
 			nsTomlExpected: { type: "file", content: originalNsToml },
 		});
@@ -358,7 +358,7 @@ describe("ns activation planning and apply", () => {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
-			nsTomlContent: 'harnesses = ["pi"]\n',
+			nsTomlContent: 'supported_harnesses = ["pi"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -384,7 +384,7 @@ describe("ns activation planning and apply", () => {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
-			nsTomlContent: 'harnesses = ["pi"]\n',
+			nsTomlContent: 'supported_harnesses = ["pi"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -432,7 +432,7 @@ describe("ns activation planning and apply", () => {
 				repository,
 				harnesses: ["pi"],
 				harnessSource: "explicit",
-				nsTomlContent: 'harnesses = ["pi"]\n',
+				nsTomlContent: 'supported_harnesses = ["pi"]\n',
 				nsTomlChange: "created",
 				nsTomlExpected: { type: "missing" },
 			},
@@ -463,7 +463,7 @@ describe("ns activation planning and apply", () => {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
-			nsTomlContent: 'harnesses = ["pi"]\n',
+			nsTomlContent: 'supported_harnesses = ["pi"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
