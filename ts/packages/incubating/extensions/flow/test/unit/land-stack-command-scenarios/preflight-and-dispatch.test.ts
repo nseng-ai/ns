@@ -29,7 +29,7 @@ import {
 } from "./repo-fixtures.ts";
 import {
 	commandMessagesText,
-	FakePi,
+	FakeLandExecutionApi,
 	ROOT,
 	runLandStack,
 	type ScriptedExec,
@@ -159,7 +159,7 @@ describe("land-stack command scenarios", () => {
 			base: TRUNK,
 			sha: SHA_A,
 		});
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			...repoIntro({ current: "feature-a", dbRows: DB_SINGLE_BRANCH }),
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(pullRequest),
@@ -198,7 +198,7 @@ describe("land-stack command scenarios", () => {
 		).toBe(false);
 	});
 	test("dispatch prompts once with the canonical plan after healthy preflight", async () => {
-		const pi = new FakePi(linearStackLandingScript(3));
+		const pi = new FakeLandExecutionApi(linearStackLandingScript(3));
 		const confirmations: Confirmation[] = [];
 
 		const exitCode = await runLandCli({

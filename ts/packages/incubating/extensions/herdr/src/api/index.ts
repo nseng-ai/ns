@@ -56,6 +56,7 @@ export {
 	formatSlotCheckoutFailureCause,
 } from "../core/slot-checkout.ts";
 export type { SlotCheckoutRef } from "../core/slot-checkout.ts";
+export { herdrHandoffTabLaunchNsCommand } from "../ns/commands/handoff-tab-launch.ts";
 
 /** Resolve the explicit caller workspace injected by Herdr. */
 export function getCallerWorkspaceId(env: NodeJS.ProcessEnv = process.env): string | undefined {

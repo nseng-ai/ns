@@ -35,7 +35,7 @@ const EXEC_ADAPTER_MODULES = new Set([
 	"stack/worktrees.ts",
 ]);
 const FORBIDDEN_MIGRATED_MODULE_REFERENCES = [
-	"LandStackExtensionAPI",
+	"LandExecutionApi",
 	"./stack/command-exec.ts",
 	"./stack/stack-facts.ts",
 	"./stack/worktrees.ts",

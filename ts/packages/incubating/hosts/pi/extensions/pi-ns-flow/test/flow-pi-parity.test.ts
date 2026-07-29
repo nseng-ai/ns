@@ -7,15 +7,18 @@ import {
 	type LivePiSurface,
 } from "@nseng-ai/pi-runtime/parity/check";
 import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi-runtime/parity/testing";
-import { flowSkillBackedCommandRegistrations } from "../../src/pi/index.ts";
-import nsExtension, { nsExtensionParity, type NsExtensionAPI } from "../../src/pi/ns-extension.ts";
-import stackSquashExtension, { stackSquashParity } from "../../src/pi/stack-squash.ts";
+import { flowSkillBackedCommandRegistrations } from "@nseng-ai/flow/api";
+import registerFlowExtension, {
+	flowExtensionParity,
+	type FlowExtensionAPI,
+} from "../src/extension.ts";
+import stackSquashExtension, { stackSquashParity } from "../src/stack-squash.ts";
 
 async function collectFlowPiSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
 	await registerWithFakeHost(pi, stackSquashExtension);
-	await registerWithFakeHost(pi, (host: NsExtensionAPI) =>
-		nsExtension(host, {
+	await registerWithFakeHost(pi, (host: FlowExtensionAPI) =>
+		registerFlowExtension(host, {
 			recoveryGit: new InMemoryGitGateway({ optionalRepoRoot: "/repo" }),
 			runCli: async () => 0,
 		}),
@@ -23,7 +26,7 @@ async function collectFlowPiSurfaces(): Promise<LivePiSurface[]> {
 	return pi.surfaces();
 }
 
-const flowPiParity = [...stackSquashParity, ...nsExtensionParity] as const;
+const flowPiParity = [...stackSquashParity, ...flowExtensionParity] as const;
 
 describe("Flow Pi extension parity metadata", () => {
 	test("exports skill-backed command registrations", () => {

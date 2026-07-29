@@ -16,36 +16,6 @@ export interface LandProgressReporter {
  */
 export type LandResultKind = "success" | "refusal" | "failure";
 
-export interface AutocompleteItem {
-	value: string;
-	label?: string;
-	description?: string;
-}
-
-export type CustomMessageContent = string | Array<{ type: string; text?: string }>;
-
-export interface CustomMessage {
-	customType: string;
-	content: CustomMessageContent;
-	display: boolean;
-	details?: unknown;
-}
-
-export interface RenderTheme {
-	fg(color: string, text: string): string;
-}
-
-export interface RenderComponent {
-	render(width: number): string[];
-	invalidate(): void;
-}
-
-export type MessageRenderer = (
-	message: CustomMessage,
-	options: { expanded: boolean },
-	theme: RenderTheme,
-) => RenderComponent;
-
 export type ExtensionMode = "tui" | "rpc" | "json" | "print";
 
 export interface PrintOutput {
@@ -67,11 +37,8 @@ export interface LandStackCommandContext {
 	};
 	waitForIdle(): Promise<void>;
 	/**
-	 * CLI-only house-style result-block renderer (house-style §4). Set only by the ns CLI edge
-	 * (`runLandCli`); absent in the Pi command-stream path, which keeps plain notify text colored by
-	 * `renderCommandStreamMessage`. Wraps a settled result message's first line as a bold +
-	 * intent-painted + glyph headline with the remainder at normal weight. Because it is wired only on
-	 * the CLI context, house-style ANSI never leaks into the shared Pi surface.
+	 * CLI-only house-style result-block renderer. Wraps a settled result message's first line as a
+	 * bold, intent-painted headline while preserving the remaining detail as normal-weight body text.
 	 */
 	renderResultBlock?: (kind: LandResultKind, message: string) => string;
 }
@@ -81,12 +48,8 @@ export interface PrintAwareLandStackCommandContext extends LandStackCommandConte
 	printOutput?: PrintOutput;
 }
 
-export interface LandStackExtensionAPI {
-	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
-	sendMessage?(
-		message: CustomMessage,
-		options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" },
-	): void;
+export interface LandExecutionApi {
+	message?(text: string, options?: { details?: unknown }): void;
 	exec(
 		command: string,
 		args: string[],

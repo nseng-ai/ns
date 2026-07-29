@@ -5,7 +5,7 @@ import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import type { StackSnapshot } from "../../src/land/api.ts";
 import { type LandResult } from "../../src/land/results.ts";
 import { loadStackSnapshot } from "../../src/land/stack/stack-facts.ts";
-import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
+import type { LandExecutionApi } from "../../src/land/stack/types.ts";
 import {
 	formatLiveBranchTips,
 	metadataDbJson,
@@ -25,11 +25,10 @@ const DB_PATH = `${GIT_COMMON_DIR}/.graphite_metadata.db`;
 
 const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
 
-type MessageRenderer = Parameters<NonNullable<LandStackExtensionAPI["registerMessageRenderer"]>>[1];
-
-type SentMessage = Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[0] & {
-	options?: Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[1];
-};
+interface SentMessage {
+	content: string;
+	details?: unknown;
+}
 
 interface ExecCall {
 	command: string;
@@ -43,9 +42,8 @@ interface ScriptedExec {
 	result: ExitedResultFields | undefined;
 }
 
-class FakePi implements LandStackExtensionAPI {
+class FakeLandExecutionApi implements LandExecutionApi {
 	readonly execCalls: ExecCall[] = [];
-	readonly messageRenderers = new Map<string, MessageRenderer>();
 	readonly messages: SentMessage[] = [];
 	private readonly script: ScriptedQueue<ScriptedExec>;
 
@@ -53,15 +51,11 @@ class FakePi implements LandStackExtensionAPI {
 		this.script = new ScriptedQueue(script, (step) => step);
 	}
 
-	registerMessageRenderer(customType: string, renderer: MessageRenderer): void {
-		this.messageRenderers.set(customType, renderer);
-	}
-
-	sendMessage(
-		message: Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[0],
-		options?: SentMessage["options"],
-	): void {
-		this.messages.push({ ...message, options });
+	message(content: string, options?: { details?: unknown }): void {
+		this.messages.push({
+			content,
+			...(options?.details === undefined ? {} : { details: options.details }),
+		});
 	}
 
 	async exec(
@@ -139,7 +133,7 @@ describe("loadStackSnapshot reconciles Graphite metadata against live local refs
 		liveBranches: string[],
 		current = CURRENT,
 	): Promise<LandResult<StackSnapshot>> {
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 			step("git", FOR_EACH_REF_ARGS, {
 				stdout: formatLiveBranchTips(liveBranches),
@@ -220,7 +214,7 @@ describe("loadStackSnapshot reconciles Graphite metadata against live local refs
 			{ branch: TRUNK, children: ["feature-b"], trunk: true },
 			{ branch: "feature-b", parent: TRUNK, children: [] },
 		]);
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 			step("git", FOR_EACH_REF_ARGS, { code: 128, stderr: "boom" }),
 		]);

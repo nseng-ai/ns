@@ -11,10 +11,10 @@ import {
 } from "./constants.ts";
 import { stripAnsi } from "../graphite-operations.ts";
 import { normalizeLandCommandFinish } from "./graphite-command-channel.ts";
-import type { LandStackExtensionAPI } from "./types.ts";
+import type { LandExecutionApi } from "./types.ts";
 
 export interface ExecOptions {
-	pi: LandStackExtensionAPI;
+	pi: LandExecutionApi;
 	command: string;
 	args: string[];
 	cwd: string;

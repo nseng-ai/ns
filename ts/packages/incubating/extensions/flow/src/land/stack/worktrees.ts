@@ -7,10 +7,10 @@ import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import type { WorktreeEntry } from "../types.ts";
 import { landFailure, landingExecutionFailure, landSuccess, type LandResult } from "../results.ts";
-import type { LandStackExtensionAPI } from "./types.ts";
+import type { LandExecutionApi } from "./types.ts";
 
 export async function loadWorktrees(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 ): Promise<LandResult<WorktreeEntry[]>> {
 	const result = await exec({

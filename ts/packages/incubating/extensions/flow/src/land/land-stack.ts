@@ -3,14 +3,13 @@ import type { NsCommandIo } from "@nseng-ai/sdk";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	LandStackCommandStream,
-	createLandUiCommandIo,
+	createLandCommandIo,
 	landCommandStreamObservabilityOptions,
-	renderCommandStreamMessage,
 	type FlowLandObservabilityChannels,
 	type LandLiveProgressSink,
 } from "./stack/command-stream.ts";
 import type { FlowLandExternalCallTelemetrySink } from "./stack/external-call-telemetry.ts";
-import { COMMAND_NAME, COMMAND_STREAM_MESSAGE_TYPE } from "./stack/constants.ts";
+import { COMMAND_NAME } from "./stack/constants.ts";
 import type { LandGraphiteCommandChannel } from "./stack/graphite-command-channel.ts";
 import {
 	createStackLandingRuntime,
@@ -38,11 +37,11 @@ import {
 import type {
 	LandProgressReporter,
 	LandStackCommandContext,
-	LandStackExtensionAPI,
+	LandExecutionApi,
 	ParsedArgs,
 } from "./stack/types.ts";
 
-export type { LandStackExtensionAPI } from "./stack/types.ts";
+export type { LandExecutionApi } from "./stack/types.ts";
 
 export interface ExecuteStackLandingOptions {
 	io?: NsCommandIo;
@@ -54,12 +53,6 @@ export interface ExecuteStackLandingOptions {
 	gitStateFs?: GitWorktreeStateFs;
 }
 
-export function registerLandStackRenderer(
-	pi: Pick<LandStackExtensionAPI, "registerMessageRenderer">,
-): void {
-	pi.registerMessageRenderer?.(COMMAND_STREAM_MESSAGE_TYPE, renderCommandStreamMessage);
-}
-
 export function landArgumentCompletions(
 	prefix: string,
 ): Array<{ value: string; label: string }> | null {
@@ -69,13 +62,13 @@ export function landArgumentCompletions(
 }
 
 export async function executeStackLanding(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	ctx: LandStackCommandContext,
 	parsedArgs: ParsedArgs,
 	options: ExecuteStackLandingOptions = {},
 ): Promise<LandOutcome> {
 	const observabilityChannels = executeStackLandingObservabilityChannels(options);
-	const io = observabilityChannels.progressIo ?? createLandUiCommandIo(pi, ctx);
+	const io = observabilityChannels.progressIo ?? createLandCommandIo(pi, ctx);
 	const commandStream = new LandStackCommandStream(io, {
 		shouldShowRunningCommandStatus: ctx.hasUI,
 		...landCommandStreamObservabilityOptions(observabilityChannels),

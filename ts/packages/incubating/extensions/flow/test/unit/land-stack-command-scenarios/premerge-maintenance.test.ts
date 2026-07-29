@@ -20,7 +20,7 @@ import {
 	submitRestackRecheckStep,
 } from "./repo-fixtures.ts";
 import {
-	FakePi,
+	FakeLandExecutionApi,
 	ROOT,
 	TRUNK,
 	commandMessagesText,
@@ -184,7 +184,7 @@ describe("land-stack command scenarios", () => {
 			childrenRecheckStep("feature-a", []),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 		];
-		const pi = new FakePi(script);
+		const pi = new FakeLandExecutionApi(script);
 		const context = createContext({ confirms: [true] });
 
 		await executeStackLanding(pi, context.ctx, expectSuccess(parseArgs("--yes")));

@@ -1,15 +1,11 @@
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { expect } from "vitest";
-import {
-	executeStackLanding,
-	parseArgs,
-	registerLandStackRenderer,
-} from "../../../src/land/land-stack.ts";
+import { executeStackLanding, parseArgs } from "../../../src/land/land-stack.ts";
 import { type LandResult } from "../../../src/land/results.ts";
 import type {
 	LandStackCommandContext,
-	LandStackExtensionAPI,
+	LandExecutionApi,
 	NotifyLevel,
 } from "../../../src/land/stack/types.ts";
 
@@ -19,13 +15,10 @@ export const CURRENT_SLOT_ROOT = "/Users/me/.local/state/ns/slots/repos/repo/wor
 
 export const TRUNK = "main";
 
-export type MessageRenderer = Parameters<
-	NonNullable<LandStackExtensionAPI["registerMessageRenderer"]>
->[1];
-
-export type SentMessage = Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[0] & {
-	options?: Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[1];
-};
+export interface SentMessage {
+	content: string;
+	details?: unknown;
+}
 
 export interface ExecCall {
 	command: string;
@@ -60,9 +53,8 @@ export interface WidgetUpdate {
 	options?: { placement?: "aboveEditor" | "belowEditor" };
 }
 
-export class FakePi implements LandStackExtensionAPI {
+export class FakeLandExecutionApi implements LandExecutionApi {
 	readonly execCalls: ExecCall[] = [];
-	readonly messageRenderers = new Map<string, MessageRenderer>();
 	readonly messages: SentMessage[] = [];
 	private readonly script: ScriptedQueue<ScriptedExec>;
 
@@ -70,15 +62,11 @@ export class FakePi implements LandStackExtensionAPI {
 		this.script = new ScriptedQueue(script, (step) => step);
 	}
 
-	registerMessageRenderer(customType: string, renderer: MessageRenderer): void {
-		this.messageRenderers.set(customType, renderer);
-	}
-
-	sendMessage(
-		message: Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[0],
-		options?: SentMessage["options"],
-	): void {
-		this.messages.push({ ...message, ...(options === undefined ? {} : { options }) });
+	message(content: string, options?: { details?: unknown }): void {
+		this.messages.push({
+			content,
+			...(options?.details === undefined ? {} : { details: options.details }),
+		});
 	}
 
 	async exec(
@@ -201,7 +189,7 @@ export async function runLandStack(
 		executeOptions?: Parameters<typeof executeStackLanding>[3];
 	} = {},
 ): Promise<{
-	pi: FakePi;
+	pi: FakeLandExecutionApi;
 	notifications: Notification[];
 	confirmations: Confirmation[];
 	statuses: StatusUpdate[];
@@ -209,8 +197,7 @@ export async function runLandStack(
 	waitForIdleCalls: () => number;
 	messages: SentMessage[];
 }> {
-	const pi = new FakePi(script);
-	registerLandStackRenderer(pi);
+	const pi = new FakeLandExecutionApi(script);
 	const context = createContext(contextOptions);
 	const parsedArgs = expectSuccess(parseArgs(args));
 	await executeStackLanding(pi, context.ctx, parsedArgs, contextOptions.executeOptions);
@@ -222,11 +209,7 @@ export function commandMessagesText(messages: SentMessage[]): string {
 }
 
 export function messageContentText(content: SentMessage["content"]): string {
-	if (typeof content === "string") return content;
-	return content
-		.filter((part) => part.type === "text")
-		.map((part) => part.text ?? "")
-		.join("\n");
+	return content;
 }
 
 export function worktreeOutput(entries: Array<{ path: string; branch?: string }>): string {

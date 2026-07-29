@@ -72,9 +72,6 @@ export function registerHerdrHandoffTab(
 							`--branch ${formatShellArg(request.branch)}`,
 							"--slug <returned-slug>",
 							`--workspace-id ${formatShellArg(workspaceId)}`,
-							`--provider ${formatShellArg(ctx.model.provider)}`,
-							`--model ${formatShellArg(ctx.model.id)}`,
-							`--thinking ${formatShellArg(thinking)}`,
 							`--launch-command ${formatShellArg(piLaunchCommand)}`,
 							"--format json",
 						].join(" ");
@@ -89,7 +86,7 @@ export function registerHerdrHandoffTab(
 								toolCallInstruction: `After \`ns handoff create\` succeeds, run \`${launchCommand}\`. Replace only \`<returned-slug>\` with the exact slug returned by derive_handoff_slug_from_content.`,
 								extraRequirements: [
 									"The Herdr launch command reads and verifies the stored Handoff Artifact by branch and slug; do not pipe, quote, or otherwise send the Markdown artifact to it.",
-									"Run the Herdr launch command from the captured caller working directory; do not change the branch, workspace ID, provider, model, or thinking values.",
+									"Run the Herdr launch command from the captured caller working directory; do not change the branch, workspace ID, or already composed launch command.",
 								],
 							},
 						};
