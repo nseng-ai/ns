@@ -17,12 +17,12 @@ Graphite's local sqlite metadata database and the schema/query/parsing helpers f
 *Avoid*: Git refs, Branch Memory, authoritative remote state, command-local raw sqlite query.
 
 **Graphite topology**:
-The metadata-derived parent/child graph used for stack walking, fork detection, subtree traversal, and live-ref reconciliation.
-*Avoid*: Graphite command output, Graphite UI stack display.
+The provider-private metadata-derived parent/child graph used by the Graphite adapter for stack walking, fork detection, subtree traversal, and live-ref reconciliation. Workflow owners consume **Stack Topology**, not this representation.
+*Avoid*: Stack Topology, Graphite command output, Graphite UI stack display.
 
 **Graphite stack facts**:
-Reusable facts about stack ancestry, descendants, trunk markers, and Graphite branch relationships returned by stack adapters for workflow consumers.
-*Avoid*: landing policy, command rendering, PR merge orchestration.
+Graphite-specific facts about stack ancestry, descendants, trunk markers, and Graphite branch relationships returned within the Graphite adapter boundary. Provider-neutral workflows consume **Stack Topology** and capability-specific outcomes instead.
+*Avoid*: Stack Topology, landing policy, command rendering, PR merge orchestration.
 
 **Passive Graphite status**:
 A read-only status lookup derived from Graphite metadata and local refs for worktree-status presentation, including worker lifecycle and diagnostics.
