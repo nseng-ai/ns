@@ -1,6 +1,11 @@
+import type { ModelRegistry } from "@nseng-ai/extension-kit/pi-types";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
-import { callPiModelText, type PiModelRegistryLike } from "@nseng-ai/pi-runtime/models/call";
+import {
+	callPiModelText,
+	formatPiModelCallFailure,
+	type PiModelRegistryLike,
+} from "@nseng-ai/pi-runtime/models/call";
 
 import {
 	HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME,
@@ -16,18 +21,16 @@ const SYSTEM_PROMPT = `Create a directed, self-contained implementation summary 
 The summary must let a fresh agent implement the requested continuation without access to this conversation. Incorporate the optional focus as the direction of the summary, not as a separate aside. Capture the goal, relevant repository and branch state, decisions and constraints, work already completed, concrete file/symbol anchors, remaining steps, validation expectations, and material risks or unknowns. Distinguish verified facts from assumptions. Omit conversational filler. Return only the summary text; do not wrap it in a slash command or a code fence.`;
 
 interface GenerateImplementationSummaryOptions {
+	readonly callModelText: typeof callPiModelText;
 	readonly modelSelection: ModelSelection;
 	readonly modelRegistry: PiModelRegistryLike;
 	readonly sessionContext: string;
 	readonly focus: string;
 }
 
-type GenerateImplementationSummary = (
-	options: GenerateImplementationSummaryOptions,
-) => Promise<{ ok: true; text: string } | { ok: false; message: string }>;
-
 export interface HerdrSessionSpaceImplRegistrationOptions {
-	readonly generateSummary?: GenerateImplementationSummary;
+	/** Test seam matching callPiModelText; faked at the true external boundary. */
+	readonly callModelText?: typeof callPiModelText;
 }
 
 export function registerHerdrSessionSpaceImplCommand(
@@ -58,8 +61,8 @@ export function registerHerdrSessionSpaceImplCommand(
 
 				ctx.ui.setStatus?.(HERDR_SESSION_SPACE_IMPL_COMMAND_NAME, "summarizing session…");
 				try {
-					const generateSummary = options.generateSummary ?? generateImplementationSummary;
-					const generated = await generateSummary({
+					const generated = await generateImplementationSummary({
+						callModelText: options.callModelText ?? callPiModelText,
 						modelSelection: {
 							provider: ctx.model.provider,
 							modelId: ctx.model.id,
@@ -97,7 +100,7 @@ export function registerHerdrSessionSpaceImplCommand(
 async function generateImplementationSummary(
 	options: GenerateImplementationSummaryOptions,
 ): Promise<{ ok: true; text: string } | { ok: false; message: string }> {
-	const result = await callPiModelText({
+	const result = await options.callModelText({
 		registry: options.modelRegistry,
 		modelSelection: options.modelSelection,
 		systemPrompt: SYSTEM_PROMPT,
@@ -107,7 +110,10 @@ async function generateImplementationSummary(
 	if (result.ok) return result;
 	return {
 		ok: false,
-		message: result.message ?? `Could not summarize the session (${result.reason}).`,
+		message: formatPiModelCallFailure(result, {
+			modelSelection: options.modelSelection,
+			taskAction: "summarize the session",
+		}),
 	};
 }
 
@@ -132,19 +138,15 @@ function serializeActiveSessionContext(
 	});
 }
 
-function resolveModelRegistry(registry: {
-	find(provider: string, modelId: string): unknown | undefined;
-	getApiKeyAndHeaders?: PiModelRegistryLike["getApiKeyAndHeaders"];
-}): PiModelRegistryLike | undefined {
+function resolveModelRegistry(registry: ModelRegistry): PiModelRegistryLike | undefined {
 	if (registry.getApiKeyAndHeaders === undefined) return undefined;
 	return {
 		find: (provider, modelId) => registry.find(provider, modelId),
-		getApiKeyAndHeaders: (model) =>
-			registry.getApiKeyAndHeaders?.(model) ??
-			Promise.resolve({ ok: false, error: "Model authentication is unavailable." }),
+		getApiKeyAndHeaders: registry.getApiKeyAndHeaders.bind(registry),
 	};
 }
 
+/** callPiModelText rejects "off"; summarize at "minimal" instead of failing off-thinking users. */
 function normalizeThinking(
 	thinking: ReturnType<HerdrPiContext["commands"]["getThinkingLevel"]>,
 ): ModelSelection["thinking"] {

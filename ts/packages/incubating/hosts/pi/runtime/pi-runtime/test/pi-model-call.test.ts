@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import type { AssistantMessage, Context, SimpleStreamOptions, Usage } from "@earendil-works/pi-ai";
 import {
 	callPiModelText,
+	formatPiModelCallFailure,
 	type CompleteSimpleFunction,
 	type PiModelRegistryLike,
 } from "../src/kit/models/call.ts";
@@ -72,6 +73,44 @@ function baseOptions(
 		...overrides,
 	};
 }
+
+describe("formatPiModelCallFailure", () => {
+	const modelSelection = { provider: "openai", modelId: "gpt-test", thinking: "minimal" } as const;
+
+	test("adds actionable auth and model-unavailable guidance", () => {
+		expect(
+			formatPiModelCallFailure(
+				{ ok: false, reason: "empty-auth", message: null },
+				{ modelSelection, authLabel: "Codex", taskAction: "summarize the session" },
+			),
+		).toBe("No Codex auth found for openai. Run /login or configure Pi auth.");
+		expect(
+			formatPiModelCallFailure(
+				{ ok: false, reason: "model-unavailable", message: null },
+				{ modelSelection, taskAction: "summarize the session" },
+			),
+		).toBe("Could not find Pi model openai/gpt-test.");
+	});
+
+	test("uses default or explicit labels and preserves failure messages", () => {
+		expect(
+			formatPiModelCallFailure(
+				{ ok: false, reason: "request-failed", message: "rate limited" },
+				{ modelSelection, taskAction: "summarize the session" },
+			),
+		).toBe("openai/gpt-test failed to summarize the session: rate limited");
+		expect(
+			formatPiModelCallFailure(
+				{ ok: false, reason: "unsupported-thinking", message: "thinking is disabled" },
+				{
+					modelSelection,
+					modelLabel: "Test model",
+					taskAction: "draft a commit message",
+				},
+			),
+		).toBe("Test model cannot draft a commit message: thinking is disabled");
+	});
+});
 
 describe("callPiModelText", () => {
 	test("rejects thinking off before resolving the model", async () => {
