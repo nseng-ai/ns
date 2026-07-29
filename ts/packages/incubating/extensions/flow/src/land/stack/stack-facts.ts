@@ -40,12 +40,9 @@ import {
 } from "./graphite-topology.ts";
 import { landingWarning, type LandingWarning, type StackSnapshot } from "../types.ts";
 import { operationInProgressLabel } from "../working-tree-operations.ts";
-import type { LandStackExtensionAPI } from "./types.ts";
+import type { LandExecutionApi } from "./types.ts";
 
-export async function loadRepoRoot(
-	pi: LandStackExtensionAPI,
-	cwd: string,
-): Promise<LandResult<string>> {
+export async function loadRepoRoot(pi: LandExecutionApi, cwd: string): Promise<LandResult<string>> {
 	const result = await exec({
 		pi,
 		command: "git",
@@ -70,7 +67,7 @@ export async function loadRepoRoot(
 }
 
 export async function loadCurrentBranch(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 ): Promise<LandResult<string>> {
 	const result = await exec({
@@ -97,7 +94,7 @@ export async function loadCurrentBranch(
 }
 
 export async function loadTrunk(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 	graphite: LandGraphiteCommandChannel = createLandGraphiteCommandChannel({ pi }),
 ): Promise<LandResult<string>> {
@@ -122,7 +119,7 @@ export async function loadTrunk(
 }
 
 export interface LoadStackSnapshotOptions {
-	pi: LandStackExtensionAPI;
+	pi: LandExecutionApi;
 	repoRoot: string;
 	metadataDbPath: string;
 	current: string;
@@ -187,7 +184,7 @@ export async function loadStackSnapshot(
 }
 
 export async function loadLiveLocalBranchTips(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 ): Promise<LandResult<readonly GitLocalBranchTip[]>> {
 	const git = new RealGitGateway(pi);
@@ -203,7 +200,7 @@ export async function loadLiveLocalBranchTips(
 }
 
 export async function loadLiveLocalBranches(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 ): Promise<LandResult<ReadonlySet<string>>> {
 	const tips = await loadLiveLocalBranchTips(pi, repoRoot);
@@ -212,7 +209,7 @@ export async function loadLiveLocalBranches(
 }
 
 function loadLiveLocalBranchNames(options: {
-	readonly pi: LandStackExtensionAPI;
+	readonly pi: LandExecutionApi;
 	readonly repoRoot: string;
 	readonly liveLocalBranches?: readonly string[];
 }): Promise<LandResult<ReadonlySet<string>>> {
@@ -262,7 +259,7 @@ function trunkMarkerWarnings(topology: GraphiteTopology, trunk: string): Landing
 export type InProgressGitOperation = GitOperationInProgress;
 
 export async function assertCleanRepo(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 	options: { gitStateFs?: GitWorktreeStateFs } = {},
 ): Promise<LandOutcome> {
@@ -307,7 +304,7 @@ export function detectInProgressOperation(
 }
 
 export async function assertLocalBranchExists(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 	branch: string,
 ): Promise<LandOutcome> {
@@ -329,7 +326,7 @@ export async function assertLocalBranchExists(
 }
 
 export async function loadLocalSha(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 	branch: string,
 ): Promise<LandResult<string>> {

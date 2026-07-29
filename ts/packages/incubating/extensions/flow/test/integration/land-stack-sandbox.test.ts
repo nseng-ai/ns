@@ -38,7 +38,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { executeStackLanding, parseArgs } from "../../src/land/land-stack.ts";
 import type {
 	LandStackCommandContext,
-	LandStackExtensionAPI,
+	LandExecutionApi,
 	NotifyLevel,
 } from "../../src/land/stack/types.ts";
 import { createRequiredCommandRunner } from "./support/run-required-command.ts";
@@ -383,7 +383,7 @@ async function executeSandboxLanding(sandbox: Sandbox): Promise<{
 		},
 		async waitForIdle() {},
 	};
-	const pi: LandStackExtensionAPI = {
+	const pi: LandExecutionApi = {
 		async exec(command, args, execOptions = {}) {
 			return await runCommand(command, args, {
 				cwd: execOptions.cwd ?? sandbox.git.repoRoot,

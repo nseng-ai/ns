@@ -12,7 +12,7 @@ import {
 	type CheckedOutElsewhere,
 	type LandGraphiteOperation,
 } from "../graphite-operations.ts";
-import type { CommandInvocation, CommandStreamFinish, LandStackExtensionAPI } from "./types.ts";
+import type { CommandInvocation, CommandStreamFinish, LandExecutionApi } from "./types.ts";
 
 // Kept for the established stack command-stream surface; operation vocabulary lives in land core.
 export { stripAnsi } from "../graphite-operations.ts";
@@ -68,7 +68,7 @@ const NOOP_GRAPHITE_COMMAND_STREAM: GraphiteCommandStream = {
 };
 
 interface GraphiteCommandStreamRequest {
-	pi: LandStackExtensionAPI;
+	pi: LandExecutionApi;
 	commandStream: GraphiteCommandStream;
 	commandOptions: ResolvedGraphiteCommandOptions;
 }
@@ -109,8 +109,8 @@ export interface LandGraphiteCommandChannel {
 }
 
 type CreateLandGraphiteCommandChannelOptions =
-	| { pi: LandStackExtensionAPI }
-	| { pi: LandStackExtensionAPI; commandStream: GraphiteCommandStream };
+	| { pi: LandExecutionApi }
+	| { pi: LandExecutionApi; commandStream: GraphiteCommandStream };
 
 export function createLandGraphiteCommandChannel(
 	options: CreateLandGraphiteCommandChannelOptions,
@@ -167,7 +167,7 @@ export function isGtDeleteMissingBranch(result: ExecResult, branch: string): boo
 }
 
 function createLandGraphiteChannelRun(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	commandStream: GraphiteCommandStream,
 ): LandGraphiteCommandChannel["run"] {
 	async function run(
@@ -188,7 +188,7 @@ function createLandGraphiteChannelRun(
 }
 
 async function runLandGraphiteOperation(input: {
-	pi: LandStackExtensionAPI;
+	pi: LandExecutionApi;
 	commandStream: GraphiteCommandStream;
 	commandOptions: GraphiteCommandOptions;
 }): Promise<LandGraphiteOperationRunResult> {
@@ -229,14 +229,14 @@ function resolveGraphiteCommandOptions<TOperation extends LandGraphiteOperation>
 }
 
 async function executeGraphiteCommand(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	options: ResolvedGraphiteCommandOptions,
 ): Promise<ExecResult> {
 	return await runGraphiteCommand(execApiToCommandRunner(pi), options);
 }
 
 async function runStandardGraphiteOperation(input: {
-	pi: LandStackExtensionAPI;
+	pi: LandExecutionApi;
 	commandStream: GraphiteCommandStream;
 	commandOptions: ResolvedGraphiteCommandOptions;
 }): Promise<ExecResult> {
@@ -262,7 +262,7 @@ async function withGraphiteCommandStream<T>(
 }
 
 async function runStreamedGraphiteCommand(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	commandStream: GraphiteCommandStream,
 	options: ResolvedGraphiteCommandOptions,
 ): Promise<CommandStreamFinish> {
@@ -278,7 +278,7 @@ async function runStreamedGraphiteCommand(
 }
 
 async function runGetDownstackNoCheckoutStreamedGraphiteCommand(input: {
-	pi: LandStackExtensionAPI;
+	pi: LandExecutionApi;
 	commandStream: GraphiteCommandStream;
 	commandOptions: ResolvedGraphiteCommandOptions;
 	shouldDeferCheckoutConflict: boolean;

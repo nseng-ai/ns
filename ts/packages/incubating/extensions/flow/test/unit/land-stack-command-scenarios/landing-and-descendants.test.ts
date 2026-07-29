@@ -47,7 +47,7 @@ import {
 	captureConsole,
 	commandMessagesText,
 	CURRENT_SLOT_ROOT,
-	FakePi,
+	FakeLandExecutionApi,
 	ROOT,
 	runLandStack,
 	sameArgs,
@@ -724,7 +724,7 @@ describe("land-stack command scenarios", () => {
 				title: `PR ${200 + index}`,
 			});
 		});
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			...repoIntro({ current: numberedBranch(3), dbRows: numberedDb(1, 3) }),
 			...cleanRepoChecks(),
 			step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {

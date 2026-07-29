@@ -16,6 +16,12 @@ export type {
 } from "../core/identity.ts";
 
 export {
+	CREATE_HANDOFF_COMMAND_NAME,
+	PICKUP_HANDOFF_COMMAND_NAME,
+	handoffSkillBackedCommandRegistrations,
+} from "../core/skill-backed-commands.ts";
+
+export {
 	normalizeHandoffSelectorToKey,
 	resolveHandoffSelection,
 	splitHandoffSelectorTerms,

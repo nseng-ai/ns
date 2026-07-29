@@ -1,11 +1,11 @@
 # @nseng-ai/herdr
 
-`@nseng-ai/herdr` is the private Herdr extension. It owns Herdr-native space and tab operations and composes ns-owned Git, Graphite, Slots, Saved Plan, Branch Context, and optional Handoff behavior into those resource destinations.
+`@nseng-ai/herdr` is the private, harness-independent Herdr extension. It owns Herdr-native space and tab operations, explicit targeting, labels, prepared destinations, and pane process launch. Pi command orchestration is owned by `@nseng-ai/pi-ns-herdr`.
 
 ## Language
 
 **Herdr extension**:
-The **first-party extension** that drives Herdr spaces and tabs by composing branch, slot, plan, and Pi-session inputs into Herdr operations.
+The **first-party extension** that owns Herdr spaces, tabs, labels, explicit caller targeting, prepared destinations, and pane process launch.
 *Avoid*: Herdr capability (retired name), generic terminal multiplexer wrapper, cmux adapter, Herdr plugin
 
 **Herdr Consumer Gateway**:
@@ -85,5 +85,5 @@ Launch remains correct vocabulary for supporting mechanics: **Prepared Herdr Lau
 *Avoid*: banning launch vocabulary globally, `ns-impl` as command name, Handoff launch for ordinary prompt or plan implementation
 
 **Herdr extension boundary**:
-The `pi` subpackage is the only Herdr subpackage that imports neutral `@nseng-ai/pi-runtime/...` host helpers; `ns` composes hidden reference-based commands and real same-channel gateways; core stays host-independent.
-*Avoid*: host-owned Herdr domain, Pi imports from core, package cycle
+The thin `api` subpackage exposes command metadata and focused Herdr domain operations to host adapters. The `ns` subpackage composes hidden reference-based commands and real same-channel gateways; core stays host-independent. Pi registration, interaction, presentation, launch-command construction, and optional Handoffs host composition live in `@nseng-ai/pi-ns-herdr`.
+*Avoid*: Pi imports in Herdr, host-owned Herdr domain, package cycle, compatibility Pi export

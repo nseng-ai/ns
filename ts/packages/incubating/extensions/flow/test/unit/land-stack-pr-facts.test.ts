@@ -9,7 +9,7 @@ import {
 	loadPr,
 	loadPrsByBranch,
 } from "../../src/land/stack/pr-facts.ts";
-import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
+import type { LandExecutionApi } from "../../src/land/stack/types.ts";
 
 const ROOT = "/repo";
 
@@ -21,11 +21,10 @@ const SHA_C = "cccccccccccccccccccccccccccccccccccccccc";
 
 const BRANCHES = ["feature-a", "feature-b", "feature-c"] as const;
 
-type MessageRenderer = Parameters<NonNullable<LandStackExtensionAPI["registerMessageRenderer"]>>[1];
-
-type SentMessage = Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[0] & {
-	options?: Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[1];
-};
+interface SentMessage {
+	content: string;
+	details?: unknown;
+}
 
 interface ExecCall {
 	command: string;
@@ -39,9 +38,8 @@ interface ScriptedExec {
 	result: ExitedResultFields | undefined;
 }
 
-class FakePi implements LandStackExtensionAPI {
+class FakeLandExecutionApi implements LandExecutionApi {
 	readonly execCalls: ExecCall[] = [];
-	readonly messageRenderers = new Map<string, MessageRenderer>();
 	readonly messages: SentMessage[] = [];
 	private readonly script: ScriptedQueue<ScriptedExec>;
 
@@ -49,15 +47,11 @@ class FakePi implements LandStackExtensionAPI {
 		this.script = new ScriptedQueue(script, (step) => step);
 	}
 
-	registerMessageRenderer(customType: string, renderer: MessageRenderer): void {
-		this.messageRenderers.set(customType, renderer);
-	}
-
-	sendMessage(
-		message: Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[0],
-		options?: SentMessage["options"],
-	): void {
-		this.messages.push({ ...message, options });
+	message(content: string, options?: { details?: unknown }): void {
+		this.messages.push({
+			content,
+			...(options?.details === undefined ? {} : { details: options.details }),
+		});
 	}
 
 	async exec(
@@ -174,7 +168,7 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 
 	test.each(["MERGED", "CLOSED"] as const)("loads a valid %s PR candidate", async (state) => {
 		const first = prFacts({ branch: BRANCHES[0], number: 101, state, sha: SHA_A });
-		const pi = new FakePi(
+		const pi = new FakeLandExecutionApi(
 			batchedSteps({
 				open0: { nodes: [] },
 				history0: { nodes: [first] },
@@ -196,7 +190,7 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 	});
 
 	test("prefers the unique open PR over newer historical candidates", async () => {
-		const pi = new FakePi(
+		const pi = new FakeLandExecutionApi(
 			batchedSteps({
 				open0: {
 					nodes: [prFacts({ branch: BRANCHES[0], number: 101, state: "OPEN", sha: SHA_A })],
@@ -232,7 +226,7 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 					[`history${index}`, { nodes: [] }],
 				]),
 			);
-			const pi = new FakePi([
+			const pi = new FakeLandExecutionApi([
 				step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
 					stdout: JSON.stringify({ nameWithOwner: "owner/repo" }),
 				}),
@@ -247,7 +241,7 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 	);
 
 	test("reports an absent PR", async () => {
-		const pi = new FakePi(
+		const pi = new FakeLandExecutionApi(
 			batchedSteps({
 				open0: { nodes: [] },
 				history0: { nodes: [] },
@@ -264,7 +258,7 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 	});
 
 	test("reports a malformed top-level envelope", async () => {
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
 				stdout: JSON.stringify({ nameWithOwner: "owner/repo" }),
 			}),
@@ -279,7 +273,7 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 	});
 
 	test("reports the branch with a malformed PR connection", async () => {
-		const pi = new FakePi(
+		const pi = new FakeLandExecutionApi(
 			batchedSteps({
 				open0: {
 					nodes: [prFacts({ branch: BRANCHES[0], number: 101, state: "OPEN", sha: SHA_A })],
@@ -298,7 +292,7 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 	});
 
 	test("reports the branch with malformed PR candidate data", async () => {
-		const pi = new FakePi(
+		const pi = new FakeLandExecutionApi(
 			batchedSteps({
 				open0: {
 					nodes: [prFacts({ branch: BRANCHES[0], number: 101, state: "OPEN", sha: SHA_A })],
@@ -318,7 +312,7 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 
 	test("rejects multiple open candidates as ambiguous", async () => {
 		const open = prFacts({ branch: BRANCHES[0], number: 101, state: "OPEN", sha: SHA_A });
-		const pi = new FakePi(
+		const pi = new FakeLandExecutionApi(
 			batchedSteps({
 				open0: { nodes: [open, { ...open, id: "PR_node_111", number: 111 }] },
 				history0: { nodes: [] },
@@ -348,7 +342,7 @@ describe("loadPr boundary parsing", () => {
 	}
 
 	test("returns a normalized snapshot for valid PR JSON", async () => {
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			prViewStep({
 				stdout: JSON.stringify({
 					id: "PR_node_101",
@@ -388,7 +382,7 @@ describe("loadPr boundary parsing", () => {
 	});
 
 	test("drops malformed optional fields instead of trusting them", async () => {
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			prViewStep({
 				stdout: JSON.stringify({
 					id: "PR_node_101",
@@ -417,7 +411,7 @@ describe("loadPr boundary parsing", () => {
 	});
 
 	test("rejects a non-object top-level PR JSON", async () => {
-		const pi = new FakePi([prViewStep({ stdout: "[]" })]);
+		const pi = new FakeLandExecutionApi([prViewStep({ stdout: "[]" })]);
 
 		const failure = expectFailure(await loadPr(pi, ROOT, "feature-a"));
 
@@ -426,7 +420,7 @@ describe("loadPr boundary parsing", () => {
 	});
 
 	test("rejects a non-boolean isDraft rather than coercing it", async () => {
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			prViewStep({
 				stdout: JSON.stringify({
 					id: "PR_node_101",
@@ -448,7 +442,7 @@ describe("loadPr boundary parsing", () => {
 	});
 
 	test("rejects a snapshot missing the PR node id", async () => {
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			prViewStep({
 				stdout: JSON.stringify({
 					number: 101,
@@ -469,7 +463,7 @@ describe("loadPr boundary parsing", () => {
 	});
 
 	test("fails clearly on invalid PR JSON", async () => {
-		const pi = new FakePi([prViewStep({ stdout: "not json" })]);
+		const pi = new FakeLandExecutionApi([prViewStep({ stdout: "not json" })]);
 
 		expect(expectFailure(await loadPr(pi, ROOT, "feature-a")).message).toContain(
 			"Failed to parse gh pr view output for feature-a",

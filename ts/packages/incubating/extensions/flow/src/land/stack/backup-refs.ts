@@ -7,10 +7,10 @@ import { exec, formatCommandDetails } from "./command-exec.ts";
 import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../graphite-operations.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import { loadLiveLocalBranchTips } from "./stack-facts.ts";
-import type { LandStackExtensionAPI } from "./types.ts";
+import type { LandExecutionApi } from "./types.ts";
 
 interface SnapshotBackupRefsOptions {
-	readonly pi: LandStackExtensionAPI;
+	readonly pi: LandExecutionApi;
 	readonly repoRoot: string;
 	readonly branches: readonly string[];
 }

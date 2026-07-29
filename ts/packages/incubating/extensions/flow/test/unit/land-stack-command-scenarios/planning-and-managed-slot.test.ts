@@ -18,7 +18,7 @@ import {
 import {
 	captureConsole,
 	CURRENT_SLOT_ROOT,
-	FakePi,
+	FakeLandExecutionApi,
 	ROOT,
 	runLandStack,
 	sameArgs,
@@ -51,7 +51,7 @@ describe("land-stack command scenarios", () => {
 			step("ns", ["slot", "free", "--wt", "slot-03"]),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 		]);
-		const pi = new FakePi(script);
+		const pi = new FakeLandExecutionApi(script);
 		const confirmations: Confirmation[] = [];
 		const exitCode = await runLandCli({
 			cwd: CURRENT_SLOT_ROOT,
@@ -124,7 +124,7 @@ describe("land-stack command scenarios", () => {
 		expect(notifications.at(-1)?.level).toBe("success");
 	});
 	test("managed current slot single-PR decline performs no mutation", async () => {
-		const pi = new FakePi(
+		const pi = new FakeLandExecutionApi(
 			fromManagedCurrentSlot(repoIntro({ current: "feature-a", dbRows: DB_SINGLE_BRANCH })).concat(
 				step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 					stdout: prStdout(
@@ -161,7 +161,7 @@ describe("land-stack command scenarios", () => {
 		).toBe(false);
 	});
 	test("managed current slot single-PR noninteractive refusal performs no mutation", async () => {
-		const pi = new FakePi(
+		const pi = new FakeLandExecutionApi(
 			fromManagedCurrentSlot(repoIntro({ current: "feature-a", dbRows: DB_SINGLE_BRANCH })).concat(
 				step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 					stdout: prStdout(

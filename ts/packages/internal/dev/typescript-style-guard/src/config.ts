@@ -74,12 +74,17 @@ export interface ConcreteExtensionCommandSurface {
 export const concreteExtensionCommandSurfaces = [
 	{ packageName: "@nseng-ai/pr-feedback", cliPrefixes: ["address"], slashPrefixes: ["address"] },
 	{
-		packageName: "@nseng-ai/branch-context",
+		packageName: "@nseng-ai/pi-ns-branch-context",
 		cliPrefixes: ["branch-context"],
-		slashPrefixes: ["branch-context"],
+		slashPrefixes: ["branch-context", "plan"],
 	},
-	{ packageName: "@nseng-ai/flow", cliPrefixes: ["flow"], slashPrefixes: ["flow"] },
-	{ packageName: "@nseng-ai/handoffs", cliPrefixes: ["handoff"], slashPrefixes: ["handoff"] },
+	{ packageName: "@nseng-ai/pi-ns-flow", cliPrefixes: ["flow"], slashPrefixes: ["flow"] },
+	{ packageName: "@nseng-ai/pi-ns-herdr", cliPrefixes: ["herdr"], slashPrefixes: ["herdr"] },
+	{
+		packageName: "@nseng-ai/pi-ns-handoffs",
+		cliPrefixes: ["handoff"],
+		slashPrefixes: ["handoff"],
+	},
 	{ packageName: "@nseng-ai/objectives", cliPrefixes: ["objective"], slashPrefixes: ["objective"] },
 	{ packageName: "@nseng-ai/plans", cliPrefixes: ["plans"], slashPrefixes: ["plans", "plan"] },
 	{ packageName: "@nseng-ai/slots", cliPrefixes: ["slot"], slashPrefixes: ["slot"] },

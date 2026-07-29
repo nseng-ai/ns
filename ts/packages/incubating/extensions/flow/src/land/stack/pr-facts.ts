@@ -5,7 +5,7 @@ import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GH_TIMEOUT_MS, PR_FIELD_NAMES, PR_FIELDS } from "./constants.ts";
 import { landFailure, landingExecutionFailure, landSuccess, type LandResult } from "../results.ts";
 import type { PullRequestFacts } from "../types.ts";
-import type { LandStackExtensionAPI } from "./types.ts";
+import type { LandExecutionApi } from "./types.ts";
 
 interface GitHubRepositoryName {
 	readonly owner: string;
@@ -25,7 +25,7 @@ type BatchedPullRequestParseResult =
 	  };
 
 interface GhJsonRequest<T> {
-	readonly pi: LandStackExtensionAPI;
+	readonly pi: LandExecutionApi;
 	readonly repoRoot: string;
 	readonly args: readonly string[];
 	readonly execFailureMessage: string;
@@ -55,7 +55,7 @@ export function batchedPullRequestFactsGraphqlArgs(
 }
 
 export async function loadPr(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 	branchOrNumber: string,
 ): Promise<LandResult<PullRequestFacts>> {
@@ -73,7 +73,7 @@ export async function loadPr(
 }
 
 export async function loadPrsByBranch(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 	branches: readonly string[],
 ): Promise<LandResult<ReadonlyMap<string, PullRequestFacts>>> {
@@ -134,7 +134,7 @@ export async function loadPrsByBranch(
 }
 
 async function loadGitHubRepositoryName(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 ): Promise<LandResult<GitHubRepositoryName>> {
 	return await execAndParseJson({

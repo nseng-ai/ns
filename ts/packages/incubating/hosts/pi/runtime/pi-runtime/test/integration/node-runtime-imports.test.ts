@@ -7,13 +7,18 @@ import { describe, expect, test } from "vitest";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../../../../../../../", import.meta.url));
 const PI_EXTENSIONS_PACKAGE_ROOT = fileURLToPath(new URL("../../", import.meta.url));
+const PI_HANDOFFS_PACKAGE_ROOT = fileURLToPath(
+	new URL("../../../../extensions/pi-ns-handoffs/", import.meta.url),
+);
+const PI_FLOW_PACKAGE_ROOT = fileURLToPath(
+	new URL("../../../../extensions/pi-ns-flow/", import.meta.url),
+);
 const PI_BIN = fileURLToPath(new URL("../../node_modules/.bin/pi", import.meta.url));
 const SDK_PACKAGE_ROOT = fileURLToPath(
 	new URL("../../../../../../../public/sdk/", import.meta.url),
 );
 
 const PROJECT_EXTENSION_ADAPTERS = discoverProjectExtensionAdapters();
-const NS_PROJECT_EXTENSION_ADAPTER = ".pi/extensions/ns.ts";
 
 // Pi logs this line to stderr and continues when a project extension fails to load,
 // so it can leave the process exit status at 0. Assert on the marker directly rather
@@ -23,13 +28,26 @@ const EXTENSION_LOAD_FAILURE_MARKER = "Failed to load extension";
 const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@nseng-ai/extension-kit/graphite/status",
 	"@nseng-ai/foundation/exec",
-	"@nseng-ai/branch-context",
-	"@nseng-ai/plans",
+	"@nseng-ai/branch-context/api",
+	"@nseng-ai/plans/api",
 	"@nseng-ai/sdk/cli",
 ] as const;
 
+const PI_HANDOFFS_EXPORT_IMPORTS = [
+	"@nseng-ai/pi-ns-handoffs",
+	"@nseng-ai/pi-ns-handoffs/claude-extension",
+	"@nseng-ai/pi-ns-handoffs/handoff-launch",
+] as const;
+
+const PI_FLOW_EXPORT_IMPORTS = [
+	"@nseng-ai/pi-ns-flow",
+	"@nseng-ai/pi-ns-flow/extension",
+	"@nseng-ai/pi-ns-flow/stack-squash",
+] as const;
+
 const PI_RUNTIME_ADAPTER_EXPORT_IMPORTS = [
-	"@nseng-ai/handoffs/pi/claude-extension",
+	"@nseng-ai/pi-ns-branch-context",
+	"@nseng-ai/pi-ns-branch-context/extension",
 	"@nseng-ai/pi-runtime/commands/cli-command-live-progress",
 	"@nseng-ai/pi-runtime/core/model-shortcuts/extension",
 	"@nseng-ai/pi-runtime/core/pr/extension",
@@ -85,20 +103,12 @@ describe("Node runtime import smoke", () => {
 		);
 	}, 30_000);
 
-	test("pi loads the ns project extension adapter in isolation", () => {
-		// Loading every project extension together can mask jiti evaluation-order failures
-		// when another extension initializes a shared workspace barrel first.
-		const result = runPiExtensionLoad([
-			"--no-extensions",
-			"--extension",
-			NS_PROJECT_EXTENSION_ADAPTER,
-		]);
-		const context = {
+	test("pi loads the directly discovered Flow lifecycle extension", () => {
+		const result = runPiExtensionLoad([]);
+		expectSuccessfulPiExtensionLoad(result, {
 			cwd: REPO_ROOT,
-			label: `isolated ${NS_PROJECT_EXTENSION_ADAPTER} startup`,
-		};
-
-		expectSuccessfulPiExtensionLoad(result, context);
+			label: "directly discovered @nseng-ai/pi-ns-flow startup",
+		});
 	}, 30_000);
 
 	test("pi loads every project-local extension without failures", () => {
@@ -109,7 +119,7 @@ describe("Node runtime import smoke", () => {
 		};
 
 		expectSuccessfulPiExtensionLoad(result, context);
-		expect(PROJECT_EXTENSION_ADAPTERS).toContain(NS_PROJECT_EXTENSION_ADAPTER);
+		expect(PROJECT_EXTENSION_ADAPTERS).not.toContain(".pi/extensions/ns.ts");
 	}, 30_000);
 
 	test("pi package imports workspace exports through package links under Node", () => {
@@ -125,7 +135,7 @@ describe("Node runtime import smoke", () => {
 		expect(result.stdout).toContain("imported 5 package specifiers");
 	});
 
-	test("Pi adapter package exports import in a cold Node process", () => {
+	test("Pi runtime adapter exports import in a cold Node process", () => {
 		const result = runNodeEval({
 			cwd: PI_EXTENSIONS_PACKAGE_ROOT,
 			source: buildPackageImportScript(PI_RUNTIME_ADAPTER_EXPORT_IMPORTS),
@@ -133,9 +143,39 @@ describe("Node runtime import smoke", () => {
 
 		expectSuccessfulNodeRun(result, {
 			cwd: PI_EXTENSIONS_PACKAGE_ROOT,
-			label: "Pi adapter package exports",
+			label: "Pi runtime adapter exports",
 		});
-		expect(result.stdout).toContain("imported 5 package specifiers");
+		expect(result.stdout).toContain(
+			`imported ${PI_RUNTIME_ADAPTER_EXPORT_IMPORTS.length} package specifiers`,
+		);
+	});
+
+	test("Flow Pi adapter exports import in a cold Node process", () => {
+		const result = runNodeEval({
+			cwd: PI_FLOW_PACKAGE_ROOT,
+			source: buildPackageImportScript(PI_FLOW_EXPORT_IMPORTS),
+		});
+
+		expectSuccessfulNodeRun(result, {
+			cwd: PI_FLOW_PACKAGE_ROOT,
+			label: "Flow Pi adapter exports",
+		});
+		expect(result.stdout).toContain(`imported ${PI_FLOW_EXPORT_IMPORTS.length} package specifiers`);
+	});
+
+	test("Handoffs Pi adapter exports import in a cold Node process", () => {
+		const result = runNodeEval({
+			cwd: PI_HANDOFFS_PACKAGE_ROOT,
+			source: buildPackageImportScript(PI_HANDOFFS_EXPORT_IMPORTS),
+		});
+
+		expectSuccessfulNodeRun(result, {
+			cwd: PI_HANDOFFS_PACKAGE_ROOT,
+			label: "Handoffs Pi adapter exports",
+		});
+		expect(result.stdout).toContain(
+			`imported ${PI_HANDOFFS_EXPORT_IMPORTS.length} package specifiers`,
+		);
 	});
 
 	test("SDK package imports every declared export subpath under Node", () => {

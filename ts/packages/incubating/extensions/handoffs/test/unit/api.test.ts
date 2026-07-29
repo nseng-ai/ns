@@ -1,8 +1,10 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	CREATE_HANDOFF_COMMAND_NAME,
 	HANDOFF_KEY_SUFFIX,
 	HANDOFF_NAMESPACE,
+	PICKUP_HANDOFF_COMMAND_NAME,
 	branchStateSchema,
 	createHandoffArtifact,
 	deleteHandoffArtifact,
@@ -10,6 +12,7 @@ import {
 	executeDeletedBranchGarbageCollection,
 	handoffKeyFromSlug,
 	handoffKeyToSlug,
+	handoffSkillBackedCommandRegistrations,
 	handoffSlugFromKey,
 	handoffSlugToKey,
 	handoffSummarySchema,
@@ -23,6 +26,23 @@ import {
 } from "../../src/api/index.ts";
 
 describe("@nseng-ai/handoffs/api", () => {
+	test("exports host-neutral Skill-Backed Command metadata", () => {
+		expect(CREATE_HANDOFF_COMMAND_NAME).toBe("ns:handoff:create");
+		expect(PICKUP_HANDOFF_COMMAND_NAME).toBe("ns:handoff:pickup");
+		expect(handoffSkillBackedCommandRegistrations).toEqual([
+			{
+				kind: "specialized-command",
+				skillName: "handoff-create",
+				surface: "ns:handoff:create",
+			},
+			{
+				kind: "specialized-command",
+				skillName: "handoff-pickup",
+				surface: "ns:handoff:pickup",
+			},
+		]);
+	});
+
 	test("exports identity helpers and schemas", () => {
 		expect(HANDOFF_NAMESPACE).toBe("handoff");
 		expect(HANDOFF_KEY_SUFFIX).toBe(".md");

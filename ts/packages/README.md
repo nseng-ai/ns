@@ -53,14 +53,16 @@ Pi's category vocabulary is `runtime/` (reusable Pi integration substrate), `ext
 runtime extensions), `tools/` (Pi tools), and `subagents/` (Pi subagent infrastructure); a
 category appears under whichever disposition its packages belong to. Live on the current
 feature branch: `incubating/hosts/pi/runtime/pi-runtime/`,
-`incubating/hosts/pi/extensions/pi-ns-objectives/`, and
-`internal/hosts/pi/{tools,subagents}/`. The Objective adapter is implemented but has not landed
-or been published.
+`incubating/hosts/pi/extensions/{pi-ns-branch-context,pi-ns-flow,pi-ns-handoffs,pi-ns-herdr,pi-ns-objectives}/`,
+and `internal/hosts/pi/{tools,subagents}/`. These incubating adapters are implemented in the
+current tree but have not been published.
 
-A Pi integration written over an ns extension is named `pi-ns-<domain>` and consumes only that
-extension's curated package API — never its private source. A Pi-native extension that adapts
-nothing uses a natural Pi-facing identity instead. Another host would pick its own categories
-under its own root.
+A Pi integration written over an ns extension is named `pi-ns-<domain>` and consumes its
+matching `@nseng-ai/<domain>` extension specifically through `@nseng-ai/<domain>/api` — never
+through the package root, another export, or private source. Imports from other ns extensions use
+only declared, non-private exports; adapter-to-adapter composition may likewise use declared
+curated exports. A Pi-native extension that adapts nothing uses a natural Pi-facing identity
+instead. Another host would pick its own categories under its own root.
 
 ## Identity invariants
 

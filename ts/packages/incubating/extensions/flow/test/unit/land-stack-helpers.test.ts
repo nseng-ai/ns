@@ -15,7 +15,7 @@ import {
 } from "../../src/land/stack/graphite-command-channel.ts";
 import { landingExecutionFailure, type LandResult } from "../../src/land/results.ts";
 import {
-	createLandUiCommandIo,
+	createLandCommandIo,
 	LandStackCommandStream,
 	withCommandStreaming,
 } from "../../src/land/stack/command-stream.ts";
@@ -41,7 +41,7 @@ import {
 } from "../../src/land/land-presentation.ts";
 import { detectInProgressOperation } from "../../src/land/stack/stack-facts.ts";
 import type {
-	LandStackExtensionAPI,
+	LandExecutionApi,
 	LandStackCommandContext,
 	NotifyLevel,
 } from "../../src/land/stack/types.ts";
@@ -69,11 +69,10 @@ const DB_PATH = `${GIT_COMMON_DIR}/.graphite_metadata.db`;
 
 const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
 
-type MessageRenderer = Parameters<NonNullable<LandStackExtensionAPI["registerMessageRenderer"]>>[1];
-
-type SentMessage = Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[0] & {
-	options?: Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[1];
-};
+interface SentMessage {
+	content: string;
+	details?: unknown;
+}
 
 interface ExecCall {
 	command: string;
@@ -108,9 +107,8 @@ interface WidgetUpdate {
 	options: { placement?: "aboveEditor" | "belowEditor" } | undefined;
 }
 
-class FakePi implements LandStackExtensionAPI {
+class FakeLandExecutionApi implements LandExecutionApi {
 	readonly execCalls: ExecCall[] = [];
-	readonly messageRenderers = new Map<string, MessageRenderer>();
 	readonly messages: SentMessage[] = [];
 	private readonly script: ScriptedQueue<ScriptedExec>;
 
@@ -118,15 +116,11 @@ class FakePi implements LandStackExtensionAPI {
 		this.script = new ScriptedQueue(script, (step) => step);
 	}
 
-	registerMessageRenderer(customType: string, renderer: MessageRenderer): void {
-		this.messageRenderers.set(customType, renderer);
-	}
-
-	sendMessage(
-		message: Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[0],
-		options?: SentMessage["options"],
-	): void {
-		this.messages.push({ ...message, options });
+	message(content: string, options?: { details?: unknown }): void {
+		this.messages.push({
+			content,
+			...(options?.details === undefined ? {} : { details: options.details }),
+		});
 	}
 
 	async exec(
@@ -254,11 +248,7 @@ function commandMessagesText(messages: SentMessage[]): string {
 }
 
 function messageContentText(content: SentMessage["content"]): string {
-	if (typeof content === "string") return content;
-	return content
-		.filter((part) => part.type === "text")
-		.map((part) => part.text ?? "")
-		.join("\n");
+	return content;
 }
 
 function prSnapshot(overrides: {
@@ -586,7 +576,7 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("runs a new Graphite mutation through an operation spec", async () => {
-		const pi = new FakePi([step("gt", ["untrack", "stale-branch"])]);
+		const pi = new FakeLandExecutionApi([step("gt", ["untrack", "stale-branch"])]);
 		const graphite = createLandGraphiteCommandChannel({ pi });
 		const operation = { kind: "untrack-local-branch", branch: "stale-branch" } as const;
 
@@ -681,7 +671,7 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("command streaming preserves explicit spawn failure data", async () => {
-		class SpawnFailingExec extends FakePi {
+		class SpawnFailingExec extends FakeLandExecutionApi {
 			override async exec(
 				command: string,
 				args: string[],
@@ -699,7 +689,7 @@ describe("land-stack pure helpers", () => {
 
 		const pi = new SpawnFailingExec();
 		const context = createContext();
-		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx));
+		const commandStream = new LandStackCommandStream(createLandCommandIo(pi, context.ctx));
 		const streamed = withCommandStreaming(pi, commandStream);
 
 		const result = await streamed.exec("git", ["status"], { cwd: ROOT });
@@ -718,7 +708,7 @@ describe("land-stack pure helpers", () => {
 
 	test("emits structured external-call telemetry with static gh quota estimates", async () => {
 		const manualClock = createManualClock(1_000);
-		class DelayedPi extends FakePi {
+		class DelayedLandExecutionApi extends FakeLandExecutionApi {
 			override async exec(
 				command: string,
 				args: string[],
@@ -730,10 +720,12 @@ describe("land-stack pure helpers", () => {
 			}
 		}
 
-		const pi = new DelayedPi([step("gh", ["pr", "view", "101", "--json", "number,title"])]);
+		const pi = new DelayedLandExecutionApi([
+			step("gh", ["pr", "view", "101", "--json", "number,title"]),
+		]);
 		const telemetry: FlowLandExternalCallTelemetryEvent[] = [];
 		const context = createContext();
-		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx), {
+		const commandStream = new LandStackCommandStream(createLandCommandIo(pi, context.ctx), {
 			clock: manualClock.clock,
 			externalCallTelemetry: (event) => telemetry.push(event),
 		});
@@ -767,7 +759,7 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("emits Graphite telemetry and redacts gh merge bodies in telemetry display", async () => {
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step("gt", ["restack", "--upstack"]),
 			step("gh", [
 				"pr",
@@ -784,7 +776,7 @@ describe("land-stack pure helpers", () => {
 		]);
 		const telemetry: FlowLandExternalCallTelemetryEvent[] = [];
 		const context = createContext();
-		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx), {
+		const commandStream = new LandStackCommandStream(createLandCommandIo(pi, context.ctx), {
 			externalCallTelemetry: (event) => telemetry.push(event),
 		});
 		const streamed = withCommandStreaming(pi, commandStream);
@@ -831,9 +823,9 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("labels successful flow exec topology reads in the command stream", async () => {
-		const pi = new FakePi([step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS)]);
+		const pi = new FakeLandExecutionApi([step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS)]);
 		const context = createContext();
-		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx));
+		const commandStream = new LandStackCommandStream(createLandCommandIo(pi, context.ctx));
 		const streamed = withCommandStreaming(pi, commandStream);
 
 		await streamed.exec(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { cwd: ROOT });
@@ -845,9 +837,9 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("does not label unrelated ns commands as Graphite topology reads", async () => {
-		const pi = new FakePi([step("ns", ["flow", "changes"])]);
+		const pi = new FakeLandExecutionApi([step("ns", ["flow", "changes"])]);
 		const context = createContext();
-		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx));
+		const commandStream = new LandStackCommandStream(createLandCommandIo(pi, context.ctx));
 		const streamed = withCommandStreaming(pi, commandStream);
 
 		await streamed.exec("ns", ["flow", "changes"], { cwd: ROOT });
@@ -858,10 +850,10 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("does not duplicate rendered UI command stream messages through progress IO", () => {
-		const pi = new FakePi();
+		const pi = new FakeLandExecutionApi();
 		const context = createContext({ hasUI: true });
 		const phases: string[] = [];
-		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx));
+		const commandStream = new LandStackCommandStream(createLandCommandIo(pi, context.ctx));
 
 		commandStream.note("Preparing to land 1 PR through feature-a...");
 
@@ -889,7 +881,7 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("mirrors command finishes and notes to non-UI notifications", async () => {
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step("git", ["status"]),
 			step("git", ["fail"], { code: 2, stdout: "stdout line", stderr: "stderr line" }),
 		]);
@@ -926,7 +918,7 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("does not mirror final success or failure blocks to non-UI notifications", () => {
-		const pi = new FakePi();
+		const pi = new FakeLandExecutionApi();
 		const context = createContext({ hasUI: false });
 		const commandStream = new LandStackCommandStream({
 			phase: (message) => context.notifications.push({ message, level: "info" }),

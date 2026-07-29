@@ -10,7 +10,6 @@ import {
 } from "../../core/handoff-tab.ts";
 import { herdrNsCommand } from "../command.ts";
 
-const thinkingLevelSchema = z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]);
 const nonblankSchema = z.string().trim().min(1);
 const flatSlugSchema = z.string().refine((value) => parseFlatHandoffSlug(value).type === "valid", {
 	message: "slug must be flat and use lowercase letters, numbers, and single interior dashes only",
@@ -20,9 +19,7 @@ export const herdrHandoffTabLaunchRequestSchema = z.strictObject({
 	branch: nonblankSchema,
 	slug: flatSlugSchema,
 	workspaceId: nonblankSchema,
-	provider: nonblankSchema,
-	model: nonblankSchema,
-	thinking: thinkingLevelSchema,
+	launchCommand: nonblankSchema,
 });
 
 export const herdrHandoffTabLaunchResultSchema = z.strictObject({
@@ -34,7 +31,6 @@ export const herdrHandoffTabLaunchResultSchema = z.strictObject({
 	tabId: z.string(),
 	rootPaneId: z.string(),
 	label: z.string(),
-	pickupCommand: z.string(),
 	command: z.string(),
 });
 
@@ -70,17 +66,12 @@ export const herdrHandoffTabLaunchNsCommand = herdrNsCommand({
 			);
 		}
 
-		const pickupCommand = `/ns:handoff:pickup --branch ${request.branch} ${request.slug}`;
 		const launched = await launchHerdrHandoffTab({
 			herdr: ctx.herdr,
 			cwd: ctx.cwd,
-			launchOptions: {
-				model: { provider: request.provider, id: request.model },
-				thinkingLevel: request.thinking,
-			},
+			launchCommand: request.launchCommand,
 			workspaceId: request.workspaceId,
 			slug: request.slug,
-			pickupCommand,
 		});
 		if (launched.type === "failed") {
 			const data = {
@@ -118,7 +109,6 @@ export const herdrHandoffTabLaunchNsCommand = herdrNsCommand({
 				tabId: launched.tabId,
 				rootPaneId: launched.rootPaneId,
 				label: launched.label,
-				pickupCommand,
 				command: launched.command,
 			},
 			{ human: formatHerdrHandoffTabLaunchSuccess(launched) },

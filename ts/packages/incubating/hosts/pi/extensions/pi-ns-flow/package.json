@@ -1,0 +1,33 @@
+{
+	"name": "@nseng-ai/pi-ns-flow",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./extension": "./src/extension.ts",
+		"./stack-squash": "./src/stack-squash.ts"
+	},
+	"scripts": {
+		"check": "tsc -p tsconfig.json",
+		"test": "cd ../../../../../.. && vitest run --config vitest.config.ts packages/incubating/hosts/pi/extensions/pi-ns-flow/test"
+	},
+	"dependencies": {
+		"@nseng-ai/flow": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/ns": "workspace:*",
+		"@nseng-ai/pi-runtime": "workspace:*",
+		"jiti": "catalog:"
+	},
+	"devDependencies": {
+		"@nseng-ai/sdk": "workspace:*",
+		"vitest": "catalog:"
+	},
+	"ns": {
+		"tier": "host"
+	},
+	"pi": {
+		"extensions": [
+			"./src/project-extension.ts"
+		]
+	}
+}

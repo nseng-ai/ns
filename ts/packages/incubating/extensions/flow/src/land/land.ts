@@ -1,11 +1,11 @@
 import { runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
 import type { NsCommandIo, NsConfirmOptions } from "@nseng-ai/sdk";
-import type { CommandExecApi, ExecOutputListener, ExecResult } from "@nseng-ai/foundation/command";
+import type { ExecOutputListener, ExecResult } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
+import { parseArgs } from "./land-stack.ts";
 import { createCliCommandIo } from "@nseng-ai/sdk/command-io";
 import {
-	createLandUiCommandIo,
+	createLandCommandIo,
 	landCommandStreamObservabilityOptions,
 	LandStackCommandStream,
 	type FlowLandObservabilityChannels,
@@ -28,11 +28,8 @@ import type { LandMatrixProgressSink } from "./land-matrix-progress.ts";
 import { runLandingDispatch } from "../land/landing-dispatch.ts";
 import type { Caps } from "@nseng-ai/clinkr";
 import type {
-	AutocompleteItem,
-	CustomMessage,
 	LandResultKind,
-	LandStackExtensionAPI,
-	MessageRenderer,
+	LandExecutionApi,
 	PrintAwareLandStackCommandContext,
 } from "./stack/types.ts";
 
@@ -48,35 +45,6 @@ export { isSingleBranchFastPath, parsePullRequestView } from "../land/single-bra
 
 export type LandCommandContext = PrintAwareLandStackCommandContext;
 
-export interface LandExtensionAPI {
-	registerCommand(
-		name: string,
-		options: {
-			description: string;
-			getArgumentCompletions?: (prefix: string) => AutocompleteItem[] | null;
-			handler(args: string, ctx: LandCommandContext): Promise<void> | void;
-		},
-	): void;
-	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
-	sendMessage?(
-		message: CustomMessage,
-		options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" },
-	): void;
-}
-
-const COMMAND_NAME = "ns:flow:land";
-export function registerLandCommand(pi: LandExtensionAPI, commands: CommandExecApi): void {
-	registerLandStackRenderer(pi);
-
-	pi.registerCommand(COMMAND_NAME, {
-		description: "Land the current PR or Graphite stack into trunk",
-		getArgumentCompletions: landArgumentCompletions,
-		handler: async (rawArgs, ctx) => {
-			await runLandCommand(commands, rawArgs, ctx);
-		},
-	});
-}
-
 export type LandCliConfirmPrompt = (
 	title: string,
 	message: string,
@@ -86,7 +54,7 @@ export type LandCliConfirmPrompt = (
 type RunLandCommandOptions = FlowLandObservabilityChannels;
 
 async function runLandCommand(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	rawArgs: string,
 	ctx: LandCommandContext,
 	options: RunLandCommandOptions = {},
@@ -104,7 +72,7 @@ async function runLandCommand(
 
 	await ctx.waitForIdle();
 
-	const commandStream = new LandStackCommandStream(progressIo ?? createLandUiCommandIo(pi, ctx), {
+	const commandStream = new LandStackCommandStream(progressIo ?? createLandCommandIo(pi, ctx), {
 		shouldShowRunningCommandStatus: progressIo !== undefined && ctx.hasUI,
 		shouldMirrorFinishedCommandsToNonUi: false,
 		...landCommandStreamObservabilityOptions(options),
@@ -121,10 +89,10 @@ async function runLandCommand(
 /**
  * Lower-level adapter used by the ns CLI extension.
  *
- * This intentionally does not use `registerCliCommandExtension`: that helper lives
- * above Flow in `@nseng-ai/pi-runtime` and owns Pi slash-command registration and
- * rendering. This adapter must stay below that package so ns CLI execution can
- * reuse Flow land orchestration through the intentional private Flow/Pi package cycle.
+ * This intentionally does not use `registerCliCommandExtension`: that helper belongs
+ * to the separate Pi host adapter and owns slash-command registration and rendering.
+ * This adapter stays host-independent so ns CLI execution can reuse Flow land
+ * orchestration without a dependency on Pi presentation.
  */
 export interface LandCliInput {
 	cwd: string;
@@ -155,7 +123,7 @@ export interface LandCliInput {
 }
 
 export async function runLandCli(input: LandCliInput): Promise<number> {
-	const api: LandStackExtensionAPI = { exec: input.exec };
+	const api: LandExecutionApi = { exec: input.exec };
 	const confirm = input.confirm;
 	const caps = input.caps;
 	const progressIo = input.progressIo ?? createCliCommandIo(input);
@@ -185,9 +153,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 						},
 					},
 					waitForIdle: async () => {},
-					// CLI-only house-style renderers. Wired only here, so the shared orchestration's
-					// `presentBrief`/`notify` stay plain in the Pi command-stream path — ANSI never leaks into
-					// `renderCommandStreamMessage` or non-interactive refusal text.
+					// CLI-only house-style renderer. Shared orchestration stays plain and portable.
 					...optionalEntry(
 						"renderResultBlock",
 						caps === undefined ? undefined : createCliResultBlockRenderer(caps),

@@ -9,7 +9,8 @@ export default defineExtension({
 			accepts: "prompt",
 			cardinality: "one",
 			description: "Custom prompt body for saved-plan authoring.",
-			default: "../pi/prompts/plans-write-default.md",
+			default:
+				"../../../hosts/pi/extensions/pi-ns-branch-context/src/prompts/plans-write-default.md",
 		},
 	],
 	entries: [
