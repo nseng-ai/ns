@@ -4,10 +4,12 @@ import {
 	CLINKR_JSON_SCHEMA_OPTION,
 	CLINKR_RUNTIME_OPTION,
 	CLINKR_VERSION_OPTION,
+	completeOptionNames,
+	completeStructuredCommand,
 	completionOptionFromSurface,
-	type ClinkrCompletionOptionPlan,
+	dedupeCompletionCandidates,
 } from "../completion-support.ts";
-import type { FieldKind, PositionalPlan } from "../surface.ts";
+import type { FieldKind } from "../surface.ts";
 import {
 	buildCommandSurfacePlan,
 	type ClinkrCommandDefinition,
@@ -56,7 +58,7 @@ export class ClinkrCompletionRuntime<TContext, TInvocationOptions> {
 		}
 		if (resolution.type === "scope") {
 			return {
-				candidates: dedupe(
+				candidates: dedupeCompletionCandidates(
 					completeScope(resolution.scope, current, resolution.path.length === 0, this.options),
 				),
 			};
@@ -66,33 +68,44 @@ export class ClinkrCompletionRuntime<TContext, TInvocationOptions> {
 				? []
 				: completeScope(resolution.scope, current, resolution.path.length === 0, this.options);
 		if (resolution.loaded.selected.kind === "raw") {
-			return { candidates: dedupe(scopeCandidates) };
+			return { candidates: dedupeCompletionCandidates(scopeCandidates) };
 		}
 		const definition = resolution.loaded.selected.definition;
 		const surface = buildDefinitionSurface(
 			resolution.path.at(-1) ?? this.options.commandName,
 			definition,
 		);
-		const staticCandidates = completeStructured({
-			options: surface.options,
+		const options = [
+			...surface.options,
+			...(resolution.isRootDefault && this.options.hasVersion ? [CLINKR_VERSION_OPTION] : []),
+			...(resolution.isRootDefault && this.options.hasRuntime ? [CLINKR_RUNTIME_OPTION] : []),
+		];
+		const structured = completeStructuredCommand({
+			options,
 			positionals: surface.positionals,
 			previous: resolution.args,
 			current,
-			isRootDefault: resolution.isRootDefault,
-			runtime: this.options,
+			providerCompletesOptionValues: true,
+			providerPassesThroughOptions: false,
 		});
 		const providerRequest: ClinkrCompletionProviderRequest = {
 			words: [...request.words],
 			current,
 			previous,
 			args: resolution.args,
-			positionalIndex: positionalIndex(surface.options, resolution.args),
+			positionalIndex: structured.positionalIndex,
 			commandPath: [...resolution.path],
 		};
-		const dynamic = shouldInvokeProvider(surface.options, resolution.args, current)
+		const dynamic = structured.providerEligible
 			? await this.options.invokeProvider(definition, providerRequest, invocationOptions)
 			: [];
-		return { candidates: dedupe([...scopeCandidates, ...staticCandidates, ...dynamic]) };
+		return {
+			candidates: dedupeCompletionCandidates([
+				...scopeCandidates,
+				...structured.candidates,
+				...dynamic,
+			]),
+		};
 	}
 }
 
@@ -103,7 +116,7 @@ function completeScope<TContext, TInvocationOptions>(
 	options: CompletionRuntimeOptions<TContext, TInvocationOptions>,
 ): readonly ClinkrCompletionCandidate[] {
 	if (current.startsWith("-")) {
-		return optionCandidates(
+		return completeOptionNames(
 			[
 				...CLINKR_HELP_OPTIONS,
 				...(isRoot && options.hasVersion ? [CLINKR_VERSION_OPTION] : []),
@@ -160,115 +173,6 @@ function buildDefinitionSurface(name: string, definition: ClinkrCommandDefinitio
 	};
 }
 
-interface CompleteStructuredOptions<TContext, TInvocationOptions> {
-	options: readonly ClinkrCompletionOptionPlan[];
-	positionals: readonly PositionalPlan[];
-	previous: readonly string[];
-	current: string;
-	isRootDefault: boolean;
-	runtime: CompletionRuntimeOptions<TContext, TInvocationOptions>;
-}
-
-function completeStructured<TContext, TInvocationOptions>({
-	options,
-	positionals,
-	previous,
-	current,
-	isRootDefault,
-	runtime,
-}: CompleteStructuredOptions<TContext, TInvocationOptions>): readonly ClinkrCompletionCandidate[] {
-	const allOptions = [
-		...options,
-		...(isRootDefault && runtime.hasVersion ? [CLINKR_VERSION_OPTION] : []),
-		...(isRootDefault && runtime.hasRuntime ? [CLINKR_RUNTIME_OPTION] : []),
-	];
-	const equals = current.indexOf("=");
-	if (equals >= 0) {
-		const flag = current.slice(0, equals);
-		return enumCandidates(
-			findOption(allOptions, flag)?.kind,
-			current.slice(equals + 1),
-			"option-value",
-			(value) => `${flag}=${value}`,
-		);
-	}
-	const pending = previous.at(-1);
-	if (pending !== undefined) {
-		const option = findOption(allOptions, pending);
-		if (option !== undefined && option.kind.type !== "boolean")
-			return enumCandidates(option.kind, current, "option-value");
-	}
-	if (current.startsWith("-")) return optionCandidates(allOptions, current);
-	return enumCandidates(
-		positionals[positionalIndex(allOptions, previous)]?.kind,
-		current,
-		"positional-value",
-	);
-}
-
-function shouldInvokeProvider(
-	options: readonly ClinkrCompletionOptionPlan[],
-	args: readonly string[],
-	current: string,
-): boolean {
-	if (current.startsWith("-")) return false;
-	const pending = args.at(-1);
-	if (pending === undefined) return true;
-	const option = findOption(options, pending);
-	// Providers own runtime-known values for schema-derived options as well as
-	// positionals. Static enum candidates and provider candidates are merged.
-	return option === undefined || option.kind.type !== "boolean";
-}
-
-function positionalIndex(
-	options: readonly ClinkrCompletionOptionPlan[],
-	args: readonly string[],
-): number {
-	let result = 0;
-	for (let index = 0; index < args.length; index += 1) {
-		const word = args[index];
-		if (word === undefined) continue;
-		if (word.startsWith("-")) {
-			const option = findOption(options, word.split("=", 1)[0] ?? word);
-			if (option !== undefined && option.kind.type !== "boolean" && !word.includes("=")) index += 1;
-			continue;
-		}
-		result += 1;
-	}
-	return result;
-}
-
-function optionCandidates(
-	options: readonly ClinkrCompletionOptionPlan[],
-	prefix: string,
-): readonly ClinkrCompletionCandidate[] {
-	return options
-		.flatMap((option) =>
-			option.flags.map((value) => ({
-				value,
-				type: "option" as const,
-				...(option.description === "" ? {} : { description: option.description }),
-			})),
-		)
-		.filter((candidate) => candidate.value.startsWith(prefix));
-}
-function enumCandidates(
-	kind: FieldKind | undefined,
-	prefix: string,
-	type: "option-value" | "positional-value",
-	render: (value: string) => string = (value) => value,
-): readonly ClinkrCompletionCandidate[] {
-	if (kind?.type !== "enum") return [];
-	return kind.values
-		.filter((value) => value.startsWith(prefix))
-		.map((value) => ({ value: render(value), type }));
-}
-function findOption(
-	options: readonly ClinkrCompletionOptionPlan[],
-	flag: string,
-): ClinkrCompletionOptionPlan | undefined {
-	return options.find((option) => option.flags.includes(flag));
-}
 function nameCandidates(
 	name: string,
 	aliases: readonly string[] | undefined,
@@ -279,15 +183,4 @@ function nameCandidates(
 		type: "command",
 		...(description === "" ? {} : { description }),
 	}));
-}
-function dedupe(
-	candidates: readonly ClinkrCompletionCandidate[],
-): readonly ClinkrCompletionCandidate[] {
-	const seen = new Set<string>();
-	return candidates.filter((candidate) => {
-		const key = `${candidate.type}\u0000${candidate.value}`;
-		if (seen.has(key)) return false;
-		seen.add(key);
-		return true;
-	});
 }

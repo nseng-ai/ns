@@ -256,6 +256,26 @@ describe("clinkr dynamic completion", () => {
 		expect(context.calls).toEqual(["provider"]);
 	});
 
+	test("invokes pass-through providers for framework-looking raw tokens", async () => {
+		const requests: unknown[] = [];
+		const group = new ClinkrGroup<ProbeContext>({ name: "probe" });
+		group.command(
+			rawCommand({
+				name: "raw",
+				schema: z.object({}),
+				shouldPassThrough: true,
+				completionProvider: (_ctx, request) => {
+					requests.push(request);
+					return [{ value: "--dynamic", type: "option" }];
+				},
+				run: async () => 0,
+			}),
+		);
+
+		expect(await asyncCandidateValues(group, ["raw", "--d"])).toEqual(["--dynamic"]);
+		expect(requests).toMatchObject([{ current: "--d", args: [] }]);
+	});
+
 	test("provider failure returns static candidates and reports the error", async () => {
 		const errors: unknown[] = [];
 		const group = new ClinkrGroup<ProbeContext>({ name: "probe" });

@@ -1,4 +1,4 @@
-import type { FieldKind, OptionPlan } from "./surface.ts";
+import type { FieldKind, OptionPlan, PositionalPlan } from "./surface.ts";
 
 export type ClinkrCompletionShell = "bash" | "zsh" | "fish";
 
@@ -6,6 +6,27 @@ export interface ClinkrCompletionOptionPlan {
 	readonly flags: readonly string[];
 	readonly kind: FieldKind;
 	readonly description: string;
+}
+
+export interface InternalCompletionCandidate {
+	readonly value: string;
+	readonly type: "command" | "option" | "option-value" | "positional-value";
+	readonly description?: string;
+}
+
+export interface StructuredCompletionInput {
+	readonly options: readonly ClinkrCompletionOptionPlan[];
+	readonly positionals: readonly PositionalPlan[];
+	readonly previous: readonly string[];
+	readonly current: string;
+	readonly providerCompletesOptionValues: boolean;
+	readonly providerPassesThroughOptions: boolean;
+}
+
+export interface StructuredCompletion {
+	readonly candidates: readonly InternalCompletionCandidate[];
+	readonly positionalIndex: number;
+	readonly providerEligible: boolean;
 }
 
 export const CLINKR_HELP_OPTIONS: readonly ClinkrCompletionOptionPlan[] = [
@@ -52,6 +73,128 @@ export function completionOptionFromSurface(option: OptionPlan): ClinkrCompletio
 		kind: option.kind,
 		description: option.description,
 	};
+}
+
+export function completeStructuredCommand(input: StructuredCompletionInput): StructuredCompletion {
+	const positionalIndex = completionPositionalIndex(input.options, input.previous);
+	return {
+		candidates: structuredCandidates(input, positionalIndex),
+		positionalIndex,
+		providerEligible: isCompletionProviderEligible(input),
+	};
+}
+
+export function completeOptionNames(
+	options: readonly ClinkrCompletionOptionPlan[],
+	prefix: string,
+): readonly InternalCompletionCandidate[] {
+	return options
+		.flatMap((option) =>
+			option.flags.map((value) => ({
+				value,
+				type: "option" as const,
+				...(option.description === "" ? {} : { description: option.description }),
+			})),
+		)
+		.filter((candidate) => candidate.value.startsWith(prefix));
+}
+
+export function dedupeCompletionCandidates<TCandidate extends InternalCompletionCandidate>(
+	candidates: readonly TCandidate[],
+): readonly TCandidate[] {
+	const seen = new Set<string>();
+	return candidates.filter((candidate) => {
+		const key = `${candidate.type}\u0000${candidate.value}`;
+		if (seen.has(key)) return false;
+		seen.add(key);
+		return true;
+	});
+}
+
+export function normalizeCompletionCandidates<TCandidate extends InternalCompletionCandidate>(
+	result: { readonly candidates: readonly TCandidate[] } | readonly TCandidate[],
+): readonly TCandidate[] {
+	return "candidates" in result ? result.candidates : result;
+}
+
+function structuredCandidates(
+	input: StructuredCompletionInput,
+	positionalIndex: number,
+): readonly InternalCompletionCandidate[] {
+	const equals = input.current.indexOf("=");
+	if (equals >= 0) {
+		const flag = input.current.slice(0, equals);
+		return enumCandidates(
+			findCompletionOption(input.options, flag)?.kind,
+			input.current.slice(equals + 1),
+			"option-value",
+			(value) => `${flag}=${value}`,
+		);
+	}
+	const pending = input.previous.at(-1);
+	if (pending !== undefined) {
+		const option = findCompletionOption(input.options, pending);
+		if (option !== undefined && option.kind.type !== "boolean") {
+			return enumCandidates(option.kind, input.current, "option-value");
+		}
+	}
+	if (input.current.startsWith("-")) return completeOptionNames(input.options, input.current);
+	return enumCandidates(
+		input.positionals[positionalIndex]?.kind,
+		input.current,
+		"positional-value",
+	);
+}
+
+function isCompletionProviderEligible(input: StructuredCompletionInput): boolean {
+	if (input.current.startsWith("-")) return input.providerPassesThroughOptions;
+	const pending = input.previous.at(-1);
+	if (pending === undefined) return true;
+	const option = findCompletionOption(input.options, pending);
+	if (option === undefined || option.kind.type === "boolean") return true;
+	return input.providerCompletesOptionValues;
+}
+
+function completionPositionalIndex(
+	options: readonly ClinkrCompletionOptionPlan[],
+	args: readonly string[],
+): number {
+	let result = 0;
+	for (let index = 0; index < args.length; index += 1) {
+		const word = args[index];
+		if (word === undefined) continue;
+		if (word.startsWith("-")) {
+			const option = findCompletionOption(options, flagNameFromToken(word));
+			if (option !== undefined && option.kind.type !== "boolean" && !word.includes("=")) index += 1;
+			continue;
+		}
+		result += 1;
+	}
+	return result;
+}
+
+function enumCandidates(
+	kind: FieldKind | undefined,
+	prefix: string,
+	type: "option-value" | "positional-value",
+	render: (value: string) => string = (value) => value,
+): readonly InternalCompletionCandidate[] {
+	if (kind?.type !== "enum") return [];
+	return kind.values
+		.filter((value) => value.startsWith(prefix))
+		.map((value) => ({ value: render(value), type }));
+}
+
+function findCompletionOption(
+	options: readonly ClinkrCompletionOptionPlan[],
+	flag: string,
+): ClinkrCompletionOptionPlan | undefined {
+	return options.find((option) => option.flags.includes(flag));
+}
+
+function flagNameFromToken(word: string): string {
+	const equalsIndex = word.indexOf("=");
+	return equalsIndex < 0 ? word : word.slice(0, equalsIndex);
 }
 
 export function renderCompletionCandidatesNewline<TCandidate extends { readonly value: string }>(
