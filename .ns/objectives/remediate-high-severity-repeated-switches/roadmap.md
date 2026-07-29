@@ -11,7 +11,7 @@
 - [x] Centralize Foundation `ExecResult` termination policy.
   - Policy: direct execution after preview; retain current public helper signatures and exact output text.
   - Evidence: one private exhaustive classifier owns success, startup-versus-termination, and canonical termination facts; the three public helpers consume it; focused Foundation tests and relevant checks pass.
-- [ ] Centralize context-profiler `MessagePart` semantics.
+- [x] Centralize context-profiler `MessagePart` semantics.
   - Policy: direct execution after preview; preserve normalized rendering, character accounting, excerpt generation, and tool-name behavior exactly.
   - Evidence: one exhaustive facts projection owns each message-part variant's semantic contributions; all verified consumers use it; focused pi-tools tests and relevant checks pass.
 - [ ] Centralize Branch Context creation-policy interpretation.
