@@ -189,11 +189,11 @@ export async function handleHerdrSlotImplPlan(
 			checkout,
 			context: branchContext,
 			shouldBuildPreview: parsed.isDryRun,
-			creation:
+			basis:
 				basis.type === "current-head"
-					? { type: "graphite-current-parent-current-head" }
+					? { type: "current-head" }
 					: {
-							type: "graphite-explicit",
+							type: "explicit",
 							startPoint: basis.preparation.startPoint,
 							startRef: basis.preparation.startRef,
 							parentBranch: basis.preparation.trunkBranch,
@@ -318,6 +318,7 @@ async function createAttachAndImplement(options: {
 		present(
 			ctx,
 			formatBranchContextCreateFailure(operation, error, {
+				branchCreation: prepared.context.branchCreation.mode,
 				consequence: `No Herdr ${formatImplDestinationNoun(destination.type)} was opened.`,
 			}),
 			"error",

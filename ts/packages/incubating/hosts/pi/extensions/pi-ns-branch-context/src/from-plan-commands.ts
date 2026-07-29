@@ -19,7 +19,6 @@ import {
 } from "@nseng-ai/branch-context/api";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
-	branchContextCreationPolicyFromMethod,
 	buildBranchContextOutputMessage,
 	buildBranchContextPlanKey,
 	buildImplBranchContextPrompt,
@@ -37,12 +36,16 @@ import {
 	formatLoadedAttachedPlanEvidence,
 	resolveExistingBranchContextReuse,
 	type BranchContextBranchSelection,
+	type BranchContextCreationContext,
 	type BranchContextEvidence,
 	type BranchContextOutputDetails,
-	type BranchCreationMethod,
 	type ExistingBranchContextReuse,
 	type PlanContentSlugEvidence,
 } from "@nseng-ai/branch-context/api";
+import type {
+	BranchCreationBasis,
+	BuiltInBranchCreationMode,
+} from "@nseng-ai/extension-kit/branch-creation";
 import {
 	NoSavedPlanAvailableError,
 	type RepoIdentitySource,
@@ -170,7 +173,7 @@ interface CreateBranchContextPreviewBase {
 	/** Display-only preview evidence; creation re-runs core target selection authoritatively. */
 	branchSelection?: BranchContextBranchSelection;
 	slugEvidence: PlanContentSlugEvidence;
-	branchCreation: BranchCreationMethod;
+	branchCreation: BuiltInBranchCreationMode;
 	summary?: string;
 }
 
@@ -223,9 +226,7 @@ interface RunCreateBranchContextCommandOptions {
 	usage: string;
 	statusKey: string;
 	progressMessage: string;
-	derivePreviewOptions(
-		extensionOptions: BranchContextExtensionOptions,
-	): BranchContextExtensionOptions;
+	requiredBranchCreationMode?: BuiltInBranchCreationMode;
 	formatDryRunMessage(preview: CreateBranchContextPreview): string;
 	onCreated(evidence: BranchContextEvidence): Promise<void> | void;
 	handleSelectedPlanError?(args: CreateBranchContextArgs, error: unknown): Promise<boolean>;
@@ -259,6 +260,14 @@ function resolveBranchContextContext(
 		);
 	}
 	return createRealBranchContextContext({ cwd });
+}
+
+async function resolveBranchContextCreationContext(
+	pi: BranchContextPiCommandApi,
+	cwd: string,
+	options: BranchContextExtensionOptions,
+): Promise<BranchContextCreationContext> {
+	return selectBranchCreationForContext(resolveBranchContextContext(pi, cwd, options), cwd);
 }
 
 export function parseCreateBranchContextArgs(rawArgs: string): CreateBranchContextArgs {
@@ -383,32 +392,47 @@ export async function deriveCreateBranchContextPreview(
 	selected: SelectedSavedPlanFile,
 	options: BranchContextExtensionOptions = {},
 ): Promise<CreateBranchContextPreview> {
+	const creationContext = await resolveBranchContextCreationContext(pi, ctx.cwd, options);
+	return deriveCreateBranchContextPreviewWithContext(
+		pi,
+		args,
+		ctx,
+		selected,
+		creationContext,
+		options,
+	);
+}
+
+async function deriveCreateBranchContextPreviewWithContext(
+	pi: BranchContextPiCommandApi,
+	args: CreateBranchContextArgs,
+	ctx: CommandContext,
+	selected: SelectedSavedPlanFile,
+	creationContext: BranchContextCreationContext,
+	options: BranchContextExtensionOptions,
+): Promise<CreateBranchContextPreview> {
 	const selectedFile = selectedSavedPlanFileInfo(selected);
 	const slugEvidence = await derivePlanContentSlug(pi, {
 		filePath: selectedFile.filePath,
 		cwd: ctx.cwd,
 	});
-	const creationContext = await selectBranchCreationForContext(
-		resolveBranchContextContext(pi, ctx.cwd, options),
-		ctx.cwd,
-	);
-	const branchCreation: BranchCreationMethod = creationContext.branchCreation.mode;
+	const branchCreation = creationContext.branchCreation.mode;
 	const target = deriveBranchContextTargetBranch(args, slugEvidence.slug, options);
 	const planKey = buildBranchContextPlanKey(slugEvidence.slug);
+	const basis: BranchCreationBasis = { type: "current-head" };
 	const requestedOperation = buildBranchContextCreateOperation({
 		slug: slugEvidence.slug,
 		filePath: selectedFile.filePath,
-		creation: branchContextCreationPolicyFromMethod(branchCreation),
+		basis,
 		...optionalEntry("branchName", target.branchNameForCreation),
 	});
 	let selectedOperation = requestedOperation;
 	if (shouldResolveTargetBranchInPreview(options)) {
-		const context = resolveBranchContextContext(pi, ctx.cwd, options);
 		selectedOperation = await selectBranchContextCreateOperationTarget({
 			cwd: ctx.cwd,
 			operation: requestedOperation,
-			git: context.git,
-			brmem: context.brmem,
+			git: creationContext.git,
+			brmem: creationContext.brmem,
 			isExplicitTargetBranch: target.isExplicitTargetBranch,
 		});
 	}
@@ -695,7 +719,6 @@ export async function handleCreateBranchContextCommand(
 		usage: CREATE_BRANCH_CONTEXT_USAGE,
 		statusKey: BRANCH_CONTEXT_STATUS_KEY,
 		progressMessage: "Finding saved plan for branch context…",
-		derivePreviewOptions: (extensionOptions) => extensionOptions,
 		formatDryRunMessage: (preview) =>
 			`Dry run: no branch was created and no plan was attached.\n\n${formatCreateBranchContextPreview(preview)}`,
 		onCreated: (evidence) => {
@@ -724,7 +747,7 @@ export async function handleGtUpstackImplCommand(
 		usage: GT_UPSTACK_IMPL_USAGE,
 		statusKey: GT_UPSTACK_IMPL_STATUS_KEY,
 		progressMessage: "Finding saved plan for upstack branch-context implementation…",
-		derivePreviewOptions: (extensionOptions) => extensionOptions,
+		requiredBranchCreationMode: "graphite",
 		formatDryRunMessage: (preview) =>
 			formatGtUpstackImplDryRunMessage(
 				formatCreateBranchContextPreview(preview),
@@ -791,11 +814,10 @@ async function runCreateBranchContextCommand(
 	});
 	await ctx.waitForIdle();
 
-	const previewOptions = commandOptions.derivePreviewOptions(extensionOptions);
 	let selected: SelectedSavedPlanFile;
 	setRuntimeStatus(ctx, commandOptions.statusKey, "finding saved plan…");
 	try {
-		selected = await resolveCreateBranchContextPlanFile(pi, args, ctx, previewOptions);
+		selected = await resolveCreateBranchContextPlanFile(pi, args, ctx, extensionOptions);
 	} catch (error) {
 		setRuntimeStatus(ctx, commandOptions.statusKey, undefined);
 		if ((await commandOptions.handleSelectedPlanError?.(args, error)) === true) {
@@ -811,9 +833,18 @@ async function runCreateBranchContextCommand(
 	}
 
 	let preview: CreateBranchContextPreview;
+	let creationContext: BranchContextCreationContext;
 	setRuntimeStatus(ctx, commandOptions.statusKey, "deriving branch slug from plan content…");
 	try {
-		preview = await deriveCreateBranchContextPreview(pi, args, ctx, selected, previewOptions);
+		creationContext = await resolveBranchContextCreationContext(pi, ctx.cwd, extensionOptions);
+		preview = await deriveCreateBranchContextPreviewWithContext(
+			pi,
+			args,
+			ctx,
+			selected,
+			creationContext,
+			extensionOptions,
+		);
 	} catch (error) {
 		setRuntimeStatus(ctx, commandOptions.statusKey, undefined);
 		presentBranchContextFailure(
@@ -828,8 +859,8 @@ async function runCreateBranchContextCommand(
 	}
 
 	if (
-		commandOptions.statusKey === GT_UPSTACK_IMPL_STATUS_KEY &&
-		preview.branchCreation !== "graphite"
+		commandOptions.requiredBranchCreationMode !== undefined &&
+		preview.branchCreation !== commandOptions.requiredBranchCreationMode
 	) {
 		presentBranchContextFailure(
 			pi,
@@ -859,7 +890,7 @@ async function runCreateBranchContextCommand(
 			preview,
 			ctx,
 			operations: resolveBranchContextOperations(extensionOptions),
-			extensionOptions,
+			creationContext,
 		});
 	} catch (error) {
 		setRuntimeStatus(ctx, commandOptions.statusKey, undefined);
@@ -881,7 +912,7 @@ interface CreateBranchContextFromPreviewOptions {
 	preview: CreateBranchContextPreview;
 	ctx: CommandContext;
 	operations: BranchContextOperations;
-	extensionOptions: BranchContextExtensionOptions;
+	creationContext: BranchContextCreationContext;
 }
 
 interface HandleGtUpstackImplExistingReuseOptions {
@@ -950,18 +981,18 @@ async function createBranchContextFromPreview({
 	preview,
 	ctx,
 	operations,
-	extensionOptions,
+	creationContext,
 }: CreateBranchContextFromPreviewOptions): Promise<BranchContextEvidence> {
 	const params: {
 		slug: string;
 		filePath: string;
-		creation: ReturnType<typeof branchContextCreationPolicyFromMethod>;
+		basis: BranchCreationBasis;
 		branchName?: string;
 		summary?: string;
 	} = {
 		slug: preview.slug,
 		filePath: preview.filePath,
-		creation: branchContextCreationPolicyFromMethod(preview.branchCreation),
+		basis: { type: "current-head" },
 	};
 	if (preview.branchNameForCreation !== undefined) {
 		params.branchName = preview.branchNameForCreation;
@@ -970,10 +1001,6 @@ async function createBranchContextFromPreview({
 		params.summary = preview.summary;
 	}
 
-	const creationContext = await selectBranchCreationForContext(
-		resolveBranchContextContext(pi, ctx.cwd, extensionOptions),
-		ctx.cwd,
-	);
 	return operations.createBranchContextFromFile(pi, params, {
 		cwd: ctx.cwd,
 		context: creationContext,

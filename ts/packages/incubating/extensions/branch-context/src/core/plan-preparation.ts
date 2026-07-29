@@ -1,28 +1,27 @@
+import type { BranchCreationBasis } from "@nseng-ai/extension-kit/branch-creation";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
-import type { PlanStoreDirectoryEvidence, ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
 import { resolvePlanSourceFile } from "@nseng-ai/plans";
+import type { PlanStoreDirectoryEvidence, ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
 
 import {
 	buildBranchContextCreateOperation,
 	createBranchContextFromFile,
 	createBranchContextFromResolvedSource,
-	describeBranchContextCreationPolicy,
 	formatBranchContextCreatePreview,
 	resolveBranchContextCreatePreviewContext,
 	selectBranchContextCreateOperationTarget,
 	type BranchContextCreateOperation,
-	type BranchContextCreationPolicy,
 	type BranchContextEvidence,
 } from "./branch-context-creation.ts";
-import type { BranchContextContext } from "./context.ts";
+import type { BranchContextCreationContext } from "./context.ts";
 import { derivePlanContentSlug } from "./plan-content-slug.ts";
 
 interface PreparedPlanBranchContextDetails {
 	plan: ValidatedSessionSavedPlan;
 	checkout: PlanStoreDirectoryEvidence;
 	operation: BranchContextCreateOperation;
-	context: BranchContextContext;
+	context: BranchContextCreationContext;
 }
 
 export interface ReadyPreparedPlanBranchContext extends PreparedPlanBranchContextDetails {
@@ -43,9 +42,9 @@ export async function preparePlanBranchContext(
 	options: {
 		plan: ValidatedSessionSavedPlan;
 		checkout: PlanStoreDirectoryEvidence;
-		context: BranchContextContext;
+		context: BranchContextCreationContext;
 		shouldBuildPreview?: boolean;
-		creation: BranchContextCreationPolicy;
+		basis: BranchCreationBasis;
 	},
 ): Promise<PreparedPlanBranchContext> {
 	const slugEvidence = await derivePlanContentSlug(pi, {
@@ -55,52 +54,28 @@ export async function preparePlanBranchContext(
 	const initialOperation = buildBranchContextCreateOperation({
 		slug: slugEvidence.slug,
 		filePath: options.plan.filePath,
-		creation: options.creation,
+		basis: options.basis,
 		...optionalEntries({ summary: options.plan.summary }),
 	});
-	const creationDescriptor = describeBranchContextCreationPolicy(options.creation);
-	const operation =
-		creationDescriptor.method === "graphite" && creationDescriptor.parent.type === "current-branch"
-			? initialOperation
-			: await selectBranchContextCreateOperationTarget({
-					cwd: options.checkout.repoRoot,
-					operation: initialOperation,
-					git: options.context.git,
-					brmem: options.context.brmem,
-					isExplicitTargetBranch: false,
-				});
+	const operation = await selectBranchContextCreateOperationTarget({
+		cwd: options.checkout.repoRoot,
+		operation: initialOperation,
+		git: options.context.git,
+		brmem: options.context.brmem,
+		isExplicitTargetBranch: false,
+	});
 	const details: PreparedPlanBranchContextDetails = {
 		plan: options.plan,
 		checkout: options.checkout,
 		operation,
 		context: options.context,
 	};
-	if (!(options.shouldBuildPreview ?? false)) {
-		return { type: "ready", ...details };
-	}
-	const previewContext =
-		creationDescriptor.method === "graphite" && creationDescriptor.parent.type === "current-branch"
-			? await resolveBranchContextCreatePreviewContext(pi, {
-					cwd: options.checkout.repoRoot,
-					context: options.context,
-					creation: options.creation,
-				})
-			: creationDescriptor.method === "graphite" && creationDescriptor.parent.type === "explicit"
-				? {
-						type: "graphite" as const,
-						startPoint:
-							creationDescriptor.start.type === "explicit"
-								? creationDescriptor.start.point
-								: creationDescriptor.start.ref,
-						parent: { type: "resolved" as const, branch: creationDescriptor.parent.branch },
-					}
-				: {
-						type: "plain-git" as const,
-						startPoint:
-							creationDescriptor.start.type === "explicit"
-								? creationDescriptor.start.point
-								: creationDescriptor.start.ref,
-					};
+	if (!(options.shouldBuildPreview ?? false)) return { type: "ready", ...details };
+	const previewContext = await resolveBranchContextCreatePreviewContext(pi, {
+		cwd: options.checkout.repoRoot,
+		context: options.context,
+		basis: options.basis,
+	});
 	return {
 		type: "preview",
 		...details,
@@ -112,9 +87,7 @@ export async function createPreparedPlanBranchContext(
 	pi: CommandExecApi,
 	prepared: PreparedPlanBranchContext,
 ): Promise<BranchContextEvidence> {
-	if (
-		describeBranchContextCreationPolicy(prepared.operation.creation).start.type === "current-head"
-	) {
+	if (prepared.operation.basis.type === "current-head") {
 		return createBranchContextFromFile(pi, prepared.operation.params, {
 			cwd: prepared.checkout.repoRoot,
 			context: prepared.context,
@@ -131,9 +104,6 @@ export async function createPreparedPlanBranchContext(
 		sourceFile,
 		git: prepared.context.git,
 		brmem: prepared.context.brmem,
-		...optionalEntries({
-			branchCreation: prepared.context.branchCreation,
-			graphite: prepared.context.graphite,
-		}),
+		branchCreation: prepared.context.branchCreation,
 	});
 }

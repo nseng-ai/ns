@@ -9,7 +9,6 @@ export {
 } from "./command-surfaces.ts";
 export {
 	BRANCH_CONTEXT_NAMESPACE,
-	branchContextCreationPolicyFromMethod,
 	buildBranchContextCreateOperation,
 	buildBranchContextPlanKey,
 	createBranchContextFromFile,
@@ -24,10 +23,8 @@ export {
 	type BranchContextBranchSelection,
 	type BranchContextBranchSelectionCollision,
 	type BranchContextCreateOperation,
-	type BranchContextCreationPolicy,
 	type BranchContextEvidence,
 	type BranchContextEvidenceCreation,
-	type BranchCreationMethod,
 } from "../core/branch-context-creation.ts";
 export {
 	buildImplBranchContextPrompt,
@@ -41,6 +38,8 @@ export {
 	createRealBranchContextContext,
 	createRealBranchContextCreationContext,
 	selectBranchCreationForContext,
+	BranchContextCreationSelectionError,
+	type BranchContextCreationSelectionErrorCode,
 	type BranchContextContext,
 	type BranchContextCreationContext,
 	type BranchContextContextFactory,

@@ -6,10 +6,14 @@ import { join } from "node:path";
 import {
 	createPreparedPlanBranchContext,
 	preparePlanBranchContext,
-	type BranchContextContext,
+	type BranchContextCreationContext,
 } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import { buildPlanContentSlugPrompt } from "@nseng-ai/branch-context/api";
+import {
+	GraphiteBranchCreationProvider,
+	PlainGitBranchCreationProvider,
+} from "@nseng-ai/extension-kit/branch-creation";
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
@@ -93,16 +97,20 @@ function context(
 		brmem?: InMemoryBranchMemoryGateway;
 		graphite?: InMemoryGraphiteBranchGateway;
 	} = {},
-): BranchContextContext {
+): BranchContextCreationContext {
+	const git = options.git ?? new InMemoryGitGateway();
 	return {
 		commands: {
 			async exec() {
 				throw new Error("unexpected context command");
 			},
 		},
-		git: options.git ?? new InMemoryGitGateway(),
+		git,
 		brmem: options.brmem ?? new InMemoryBranchMemoryGateway(),
-		graphite: options.graphite ?? new InMemoryGraphiteBranchGateway(),
+		branchCreation:
+			options.graphite === undefined
+				? new PlainGitBranchCreationProvider(git)
+				: new GraphiteBranchCreationProvider({ git, graphite: options.graphite }),
 	};
 }
 
@@ -124,7 +132,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: context({ git, brmem, graphite }),
-			creation: { type: "graphite-current-parent-current-head" },
+			basis: { type: "current-head" },
 			shouldBuildPreview: true,
 		});
 
@@ -149,7 +157,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: context(),
-			creation: { type: "graphite-current-parent-current-head" },
+			basis: { type: "current-head" },
 		});
 
 		expect(prepared.type).toBe("ready");
@@ -170,7 +178,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: ownerContext,
-			creation: { type: "graphite-current-parent-current-head" },
+			basis: { type: "current-head" },
 		});
 
 		const evidence = await createPreparedPlanBranchContext(
@@ -213,7 +221,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: ownerContext,
-			creation: { type: "graphite-current-parent-current-head" },
+			basis: { type: "current-head" },
 		});
 
 		await expect(

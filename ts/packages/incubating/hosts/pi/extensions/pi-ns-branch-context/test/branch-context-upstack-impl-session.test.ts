@@ -70,7 +70,7 @@ describe("branch-context-upstack-impl-session", () => {
 		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
 			slug: PLAN_SLUG,
 			filePath,
-			creation: { type: "graphite-current-parent-current-head" },
+			basis: { type: "current-head" },
 		});
 		expect(
 			pi.execCalls.map((call) => ({

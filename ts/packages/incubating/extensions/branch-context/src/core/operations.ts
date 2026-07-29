@@ -41,14 +41,17 @@ import {
 	type LoadedAttachedPlan,
 } from "./attached-plan.ts";
 import {
+	BranchContextCreationError,
 	createBranchContextFromFile,
 	formatBranchContextEvidence,
 	type BranchContextEvidence,
 } from "./branch-context-creation.ts";
 import {
+	BranchContextCreationSelectionError,
 	createRealBranchContextContext,
 	selectBranchCreationForContext,
 	type BranchContextContext,
+	type BranchContextCreationContext,
 } from "./context.ts";
 
 type BranchContextOperation = "create" | "load" | "attach" | "list" | "check" | "delete";
@@ -206,7 +209,7 @@ export function createRealBranchContextCliContext(options: {
 }
 
 export interface CliDeps extends Pick<CliEntrypointDeps, "cwd" | "stdout" | "stderr"> {
-	context?: BranchContextContext;
+	context?: BranchContextContext | BranchContextCreationContext;
 	planStoreRoot?: string;
 }
 
@@ -238,10 +241,7 @@ export async function handleCreate(
 					slug: request.slug,
 					filePath: request.planFile,
 					...(request.branch === undefined ? {} : { branchName: request.branch }),
-					creation:
-						creationContext.branchCreation.mode === "graphite"
-							? { type: "graphite-current-parent-current-head" }
-							: { type: "plain-git-current-head" },
+					basis: { type: "current-head" },
 					...(request.summary === undefined ? {} : { summary: request.summary }),
 				},
 				{ ...operationOptions(ctx), context: creationContext },
@@ -402,6 +402,12 @@ interface BranchContextErrorClassification {
 }
 
 function classifyBranchContextError(error: unknown): BranchContextErrorClassification {
+	if (error instanceof BranchContextCreationSelectionError) {
+		return { code: error.code, data: {} };
+	}
+	if (error instanceof BranchContextCreationError) {
+		return { code: error.code, data: { branchCreated: error.branchCreated } };
+	}
 	if (error instanceof NoAttachedBranchContextEntriesError) {
 		return { code: "no-attached-entries", data: { branch: error.branch } };
 	}

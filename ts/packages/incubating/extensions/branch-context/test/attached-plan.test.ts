@@ -16,7 +16,6 @@ import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@nseng-ai/plans";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
-import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
@@ -45,7 +44,6 @@ function branchContext(overrides: Partial<BranchContextContext> = {}): BranchCon
 		brmem: new InMemoryBranchMemoryGateway({
 			entries: [{ branch: PLAN_BRANCH, key: PLAN_KEY, content: PLAN_CONTENT }],
 		}),
-		graphite: new InMemoryGraphiteBranchGateway(),
 		...overrides,
 	};
 }

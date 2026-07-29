@@ -19,9 +19,11 @@ export class GraphiteBranchCreationProvider implements BranchCreationProvider {
 
 	async createBranch(request: BranchCreationRequest): Promise<BranchCreationResult> {
 		const parent =
-			request.basis.type === "explicit"
-				? request.basis.parentBranch
-				: await resolveCurrentParent(this.git, request);
+			request.basis.type === "current-head"
+				? await resolveCurrentParent(this.git, request)
+				: request.basis.parentBranch === undefined
+					? missingExplicitParent()
+					: request.basis.parentBranch;
 		if (typeof parent !== "string") return parent;
 		const tracked = await this.graphite.checkBranchTracked({
 			cwd: request.cwd,
@@ -74,8 +76,26 @@ export class GraphiteBranchCreationProvider implements BranchCreationProvider {
 				},
 			};
 		}
-		return { ok: true };
+		return {
+			ok: true,
+			value: {
+				startPoint: created.value.startPoint,
+				startRef: created.value.startRef,
+				relationship: { type: "tracked-parent", parentBranch: parent },
+			},
+		};
 	}
+}
+
+function missingExplicitParent(): BranchCreationResult {
+	return {
+		ok: false,
+		error: {
+			code: "graphite-parent-required",
+			branchCreated: false,
+			message: "Graphite branch creation requires an explicit parent branch for an explicit basis.",
+		},
+	};
 }
 
 async function resolveCurrentParent(

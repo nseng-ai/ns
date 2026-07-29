@@ -10,7 +10,6 @@ import {
 } from "@nseng-ai/branch-context";
 import type { BranchContextContext } from "../src/core/context.ts";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
-import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 
 const CWD = "/repo";
 const SESSION_BRANCH = "branch-contexts/session-target";
@@ -32,7 +31,6 @@ function branchContext(
 		commands: pi,
 		git: overrides.git,
 		brmem: overrides.brmem,
-		graphite: new InMemoryGraphiteBranchGateway(),
 	};
 }
 

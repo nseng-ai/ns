@@ -444,6 +444,30 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).not.toContain(`Path: ${stalePath}`);
 	});
 
+	test("ns:branch-context:from-plan pins one branch-creation selection across preview and execution", async () => {
+		const filePath = await makeNamedPlanFile();
+		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
+		const fakes = createBranchContextOperationFakes();
+		const options = branchContextExtensionTestOptions(fakes.operations);
+		const createContextFactory = options.createBranchContextContext;
+		if (createContextFactory === undefined) throw new Error("missing test context factory");
+		let contextSelections = 0;
+		registerBranchContextExtension(pi, {
+			...options,
+			createBranchContextContext(rawPi, cwd) {
+				contextSelections += 1;
+				return createContextFactory(rawPi, cwd);
+			},
+		});
+		const command = pi.commands.get("ns:branch-context:from-plan");
+
+		await command?.handler(`${filePath} --yes`, createContext().ctx);
+
+		pi.assertDone();
+		expect(contextSelections).toBe(1);
+		expect(fakes.createBranchCalls[0]?.[2].context.branchCreation.mode).toBe("graphite");
+	});
+
 	test("ns:branch-context:from-plan creates without interactive confirmation", async () => {
 		const filePath = await makeNamedPlanFile();
 		const events: string[] = [];
@@ -460,7 +484,7 @@ describe("branch-context-from-plan", () => {
 		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
 			slug: PLAN_SLUG,
 			filePath,
-			creation: { type: "plain-git-current-head" },
+			basis: { type: "current-head" },
 		});
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(pi.sentMessages[0]?.content).toContain("Created branch context and attached plan.");
@@ -509,7 +533,7 @@ describe("branch-context-from-plan", () => {
 		expect(params).toMatchObject({
 			slug: PLAN_SLUG,
 			filePath,
-			creation: { type: "graphite-current-parent-current-head" },
+			basis: { type: "current-head" },
 		});
 		expect(params).not.toHaveProperty("branchName");
 		expect(params).not.toHaveProperty("branchSelection");
@@ -530,7 +554,7 @@ describe("branch-context-from-plan", () => {
 		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
 			slug: PLAN_SLUG,
 			filePath,
-			creation: { type: "plain-git-current-head" },
+			basis: { type: "current-head" },
 		});
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(pi.sentMessages[0]?.content).toContain("Created branch context and attached plan.");
@@ -571,7 +595,7 @@ describe("branch-context-from-plan", () => {
 
 		pi.assertDone();
 		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
-			creation: { type: "plain-git-current-head" },
+			basis: { type: "current-head" },
 		});
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Key: ${PLAN_KEY}`);
@@ -594,7 +618,7 @@ describe("branch-context-from-plan", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({
 			branchName: prefixedBranch,
-			creation: { type: "plain-git-current-head" },
+			basis: { type: "current-head" },
 		});
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${prefixedBranch}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Key: ${PLAN_KEY}`);

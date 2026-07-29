@@ -15,22 +15,32 @@ export class PlainGitBranchCreationProvider implements BranchCreationProvider {
 	}
 
 	async createBranch(request: BranchCreationRequest): Promise<BranchCreationResult> {
-		const created =
-			request.basis.type === "current-head"
-				? await this.git.createBranchAtHead({
-						cwd: request.cwd,
-						branch: request.branch,
-						signal: request.signal,
-					})
-				: await this.git.createBranchAtStartPoint({
-						cwd: request.cwd,
-						branch: request.branch,
-						startPoint: request.basis.startPoint,
-						signal: request.signal,
-					});
+		let startPoint: string;
+		let startRef: string;
+		if (request.basis.type === "current-head") {
+			const head = await this.git.headCommit({ cwd: request.cwd, signal: request.signal });
+			if (!head.ok) {
+				return { ok: false, error: { ...head.error, branchCreated: false } };
+			}
+			startPoint = head.value;
+			startRef = "HEAD";
+		} else {
+			startPoint = request.basis.startPoint;
+			startRef = request.basis.startRef;
+		}
+		const created = await this.git.createBranchAtStartPoint({
+			cwd: request.cwd,
+			branch: request.branch,
+			startPoint,
+			signal: request.signal,
+		});
 		if (!created.ok) {
 			return { ok: false, error: { ...created.error, branchCreated: false } };
 		}
-		return await verifyCreatedBranch(this.git, request);
+		return await verifyCreatedBranch(this.git, request, {
+			startPoint,
+			startRef,
+			relationship: { type: "none" },
+		});
 	}
 }

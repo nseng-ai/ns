@@ -154,7 +154,7 @@ describe("branch-context exec", () => {
 			status: "failure",
 			exitCode: 2,
 			errorType: "branch-context-create-failed",
-			data: { code: "unexpected-error" },
+			data: { code: "graphite-parent-untracked" },
 		});
 		const message = String(payload.message);
 		expect(message).toContain(
@@ -211,7 +211,7 @@ describe("branch-context exec", () => {
 			status: "failure",
 			exitCode: 2,
 			errorType: "branch-context-create-failed",
-			data: { code: "unexpected-error" },
+			data: { code: "graphite_track_failed" },
 		});
 		expect(String(payload.message)).toContain(
 			"Created local Git branch but failed to track it with Graphite.",

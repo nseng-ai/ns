@@ -5,8 +5,18 @@ export const BUILT_IN_BRANCH_CREATION_MODES = ["plain-git", "graphite"] as const
 export type BuiltInBranchCreationMode = (typeof BUILT_IN_BRANCH_CREATION_MODES)[number];
 
 export type BranchCreationBasis =
-	| { type: "current-head"; startPoint: string; startRef: string }
-	| { type: "explicit"; startPoint: string; startRef: string; parentBranch: string };
+	| { type: "current-head" }
+	| { type: "explicit"; startPoint: string; startRef: string; parentBranch?: string };
+
+export type BranchCreationRelationship =
+	| { type: "none" }
+	| { type: "tracked-parent"; parentBranch: string };
+
+export interface BranchCreationEvidence {
+	startPoint: string;
+	startRef: string;
+	relationship: BranchCreationRelationship;
+}
 
 export interface BranchCreationRequest {
 	cwd: string;
@@ -21,7 +31,9 @@ export interface BranchCreationError {
 	branchCreated: boolean;
 }
 
-export type BranchCreationResult = { ok: true } | { ok: false; error: BranchCreationError };
+export type BranchCreationResult =
+	| { ok: true; value: BranchCreationEvidence }
+	| { ok: false; error: BranchCreationError };
 
 export interface BranchCreationProvider {
 	readonly mode: BuiltInBranchCreationMode;
@@ -30,5 +42,5 @@ export interface BranchCreationProvider {
 
 export type BranchCreationGitGateway = Pick<
 	GitGateway,
-	"createBranchAtHead" | "createBranchAtStartPoint" | "localBranchPresence" | "currentBranch"
+	"createBranchAtStartPoint" | "localBranchPresence" | "currentBranch" | "headCommit"
 >;

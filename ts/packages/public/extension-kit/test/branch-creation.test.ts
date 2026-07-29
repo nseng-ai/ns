@@ -48,33 +48,145 @@ describe("workflow branch creation configuration", () => {
 });
 
 describe("built-in branch creation providers", () => {
-	test("plain Git creates from HEAD and verifies the local ref", async () => {
+	test("plain Git resolves HEAD, creates from its commit, and returns verified facts", async () => {
+		const git = new InMemoryGitGateway({ headCommit: "abc123" });
+		const provider = new PlainGitBranchCreationProvider(git);
+		const result = await provider.createBranch({
+			cwd: "/repo",
+			branch: "feature/new",
+			basis: { type: "current-head" },
+		});
+		expect(result).toEqual({
+			ok: true,
+			value: {
+				startPoint: "abc123",
+				startRef: "HEAD",
+				relationship: { type: "none" },
+			},
+		});
+		expect(git.headCommitCalls).toEqual([{ cwd: "/repo" }]);
+		expect(git.createBranchAtStartPointCalls).toEqual([
+			{ cwd: "/repo", branch: "feature/new", startPoint: "abc123" },
+		]);
+		expect(git.localBranchPresenceCalls).toEqual([{ cwd: "/repo", branch: "feature/new" }]);
+	});
+
+	test("plain Git fails HEAD resolution before creating a branch", async () => {
+		const git = new InMemoryGitGateway({
+			headCommit: { type: "failure", error: { code: "head-failed", message: "no HEAD" } },
+		});
+		const provider = new PlainGitBranchCreationProvider(git);
+		const result = await provider.createBranch({
+			cwd: "/repo",
+			branch: "feature/new",
+			basis: { type: "current-head" },
+		});
+		expect(result).toEqual({
+			ok: false,
+			error: { code: "head-failed", message: "no HEAD", branchCreated: false },
+		});
+		expect(git.createBranchAtStartPointCalls).toEqual([]);
+		expect(git.localBranchPresenceCalls).toEqual([]);
+	});
+
+	test("plain Git preserves explicit start facts", async () => {
 		const git = new InMemoryGitGateway();
 		const provider = new PlainGitBranchCreationProvider(git);
 		const result = await provider.createBranch({
 			cwd: "/repo",
 			branch: "feature/new",
-			basis: { type: "current-head", startPoint: "abc", startRef: "HEAD" },
+			basis: { type: "explicit", startPoint: "abc123", startRef: "refs/heads/main" },
 		});
-		expect(result).toEqual({ ok: true });
-		expect(git.createBranchAtHeadCalls).toEqual([{ cwd: "/repo", branch: "feature/new" }]);
-		expect(git.localBranchPresenceCalls).toEqual([{ cwd: "/repo", branch: "feature/new" }]);
+		expect(result).toEqual({
+			ok: true,
+			value: {
+				startPoint: "abc123",
+				startRef: "refs/heads/main",
+				relationship: { type: "none" },
+			},
+		});
+		expect(git.headCommitCalls).toEqual([]);
 	});
 
-	test("Graphite validates the parent, creates the Git branch, and tracks it", async () => {
-		const git = new InMemoryGitGateway({ currentBranch: "feature/parent" });
+	test("Graphite resolves the current parent once, delegates Git creation, and returns tracking facts", async () => {
+		const git = new InMemoryGitGateway({
+			currentBranch: "feature/parent",
+			headCommit: "abc123",
+		});
 		const graphite = new InMemoryGraphiteBranchGateway();
 		const provider = new GraphiteBranchCreationProvider({ git, graphite });
 		const result = await provider.createBranch({
 			cwd: "/repo",
 			branch: "feature/new",
-			basis: { type: "current-head", startPoint: "abc", startRef: "HEAD" },
+			basis: { type: "current-head" },
 		});
-		expect(result).toEqual({ ok: true });
+		expect(result).toEqual({
+			ok: true,
+			value: {
+				startPoint: "abc123",
+				startRef: "HEAD",
+				relationship: { type: "tracked-parent", parentBranch: "feature/parent" },
+			},
+		});
+		expect(git.currentBranchCalls).toEqual([{ cwd: "/repo" }]);
 		expect(graphite.checkBranchTrackedCalls).toEqual([{ cwd: "/repo", branch: "feature/parent" }]);
 		expect(graphite.trackBranchCalls).toEqual([
 			{ cwd: "/repo", branch: "feature/new", parentBranch: "feature/parent" },
 		]);
+	});
+
+	test("Graphite preserves explicit start facts and uses only the explicit parent", async () => {
+		const git = new InMemoryGitGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const provider = new GraphiteBranchCreationProvider({ git, graphite });
+		const result = await provider.createBranch({
+			cwd: "/repo",
+			branch: "feature/new",
+			basis: {
+				type: "explicit",
+				startPoint: "abc123",
+				startRef: "refs/heads/main",
+				parentBranch: "feature/parent",
+			},
+		});
+		expect(result).toEqual({
+			ok: true,
+			value: {
+				startPoint: "abc123",
+				startRef: "refs/heads/main",
+				relationship: { type: "tracked-parent", parentBranch: "feature/parent" },
+			},
+		});
+		expect(git.currentBranchCalls).toEqual([]);
+		expect(git.headCommitCalls).toEqual([]);
+		expect(git.createBranchAtStartPointCalls).toEqual([
+			{ cwd: "/repo", branch: "feature/new", startPoint: "abc123" },
+		]);
+	});
+
+	test("Graphite rejects an explicit basis without a parent before mutation", async () => {
+		const git = new InMemoryGitGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const provider = new GraphiteBranchCreationProvider({ git, graphite });
+		const result = await provider.createBranch({
+			cwd: "/repo",
+			branch: "feature/new",
+			basis: { type: "explicit", startPoint: "abc123", startRef: "refs/heads/main" },
+		});
+		expect(result).toEqual({
+			ok: false,
+			error: {
+				code: "graphite-parent-required",
+				branchCreated: false,
+				message:
+					"Graphite branch creation requires an explicit parent branch for an explicit basis.",
+			},
+		});
+		expect(git.currentBranchCalls).toEqual([]);
+		expect(git.headCommitCalls).toEqual([]);
+		expect(git.createBranchAtStartPointCalls).toEqual([]);
+		expect(graphite.checkBranchTrackedCalls).toEqual([]);
+		expect(graphite.trackBranchCalls).toEqual([]);
 	});
 
 	test("Graphite reports partial failure after creating the local branch", async () => {
@@ -86,7 +198,7 @@ describe("built-in branch creation providers", () => {
 		const result = await provider.createBranch({
 			cwd: "/repo",
 			branch: "feature/new",
-			basis: { type: "current-head", startPoint: "abc", startRef: "HEAD" },
+			basis: { type: "current-head" },
 		});
 		expect(result.ok).toBe(false);
 		if (!result.ok) {

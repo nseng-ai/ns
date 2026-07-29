@@ -1,4 +1,5 @@
 import { afterEach, expect } from "vitest";
+import { readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -11,6 +12,10 @@ import {
 	InMemoryBranchMemoryGateway,
 	type InMemoryBrmemGatewayState,
 } from "@nseng-ai/branch-context/testing";
+import {
+	GraphiteBranchCreationProvider,
+	PlainGitBranchCreationProvider,
+} from "@nseng-ai/extension-kit/branch-creation";
 import {
 	InMemoryGraphiteBranchGateway,
 	type InMemoryGraphiteGatewayState,
@@ -109,6 +114,18 @@ export function runWithFakes(args: readonly string[], options: RunWithFakesOptio
 	});
 	const brmem = new InMemoryBranchMemoryGateway(options.brmem);
 	const graphite = new InMemoryGraphiteBranchGateway(options.graphite);
+	const selectedGraphite = (() => {
+		try {
+			return readFileSync(join(options.cwd, "ns.toml"), "utf8").includes(
+				'branch-creation = "graphite"',
+			);
+		} catch {
+			return false;
+		}
+	})();
+	const branchCreation = selectedGraphite
+		? new GraphiteBranchCreationProvider({ git, graphite })
+		: new PlainGitBranchCreationProvider(git);
 	return {
 		stdout,
 		stderr,
@@ -117,7 +134,7 @@ export function runWithFakes(args: readonly string[], options: RunWithFakesOptio
 		brmem,
 		graphite,
 		exit: runCli(args, {
-			context: { commands, git, brmem, graphite },
+			context: { commands, git, brmem, branchCreation },
 			cwd: options.cwd,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),

@@ -1350,6 +1350,7 @@ describe("ns:herdr:impl:plan:space — dry-run (no Herdr mutations)", () => {
 						stdout: `${PLAN_SLUG}\n`,
 					},
 				),
+				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], { code: 1 }),
 				headStep(),
 			],
 		});
@@ -1621,7 +1622,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		expect(herdr.createTabCalls).toHaveLength(1);
 		expect(herdr.createTabCalls[0]?.options).toMatchObject({
 			workspaceId: "caller-workspace-exact",
-			label: PLAN_SLUG,
+			label: `${PLAN_SLUG}-2`,
 			shouldFocus: true,
 		});
 		expect(notificationMessages(ctx).join("\n")).toContain(`Branch: ${PLAN_SLUG}-2`);
@@ -1767,6 +1768,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 						stdout: `${PLAN_SLUG}\n`,
 					},
 				),
+				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], { code: 1 }),
 				headStep(),
 			],
 		});

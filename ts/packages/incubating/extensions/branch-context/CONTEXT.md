@@ -13,12 +13,12 @@ A named Markdown Branch Memory entry, usually `<slug>.md`, attached to a **Branc
 *Avoid*: source branch plan file, handoff, arbitrary Branch Memory note
 
 **Branch Context Creation**:
-The workflow that derives a target operation, delegates branch creation to the selected **Branch Creation Provider**, and stores an **Attached Plan** from a selected saved-plan source.
+The workflow that derives a target operation with a provider-neutral creation basis, delegates branch creation to the selected **Branch Creation Provider**, consumes the provider-returned start facts and branch relationship as creation evidence, and stores an **Attached Plan** from a selected saved-plan source.
 *Avoid*: plan saving, handoff creation, provider-specific branch ceremony
 
 **Branch Creation Provider**:
-The repository-selected seam that creates one named branch from an explicit start point for **Branch Context Creation**. `[workflow].branch-creation` selects the closed built-in set `plain-git` or `graphite`; absence means `plain-git`, invalid configuration fails closed, and ordinary invocations cannot override it. User-defined provider registration remains deferred. Additive pre/post ceremony remains separate hook Points.
-*Avoid*: operation Point, ambient Graphite gateway, stack provider
+The repository-selected seam that creates one named branch from a neutral current-HEAD or explicit-start basis for **Branch Context Creation**. A successful provider reports the start point and ref it used after verifying the created Git branch, plus either no relationship or the tracked-parent relationship it established; Branch Context does not reconstruct those facts from provider identity. `[workflow].branch-creation` selects the closed built-in set `plain-git` or `graphite`; absence means `plain-git`, invalid configuration fails closed, and ordinary invocations cannot override it. User-defined provider registration remains deferred. Additive pre/post ceremony remains separate hook Points.
+*Avoid*: operation Point, provider-encoded creation policy, ambient Graphite gateway, stack provider
 
 **Branch Context Attach**:
 The workflow that attaches an existing plan source to a branch-context key while preserving Branch Memory namespace and key invariants.

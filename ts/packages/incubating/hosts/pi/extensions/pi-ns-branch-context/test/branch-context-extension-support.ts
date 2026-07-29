@@ -260,7 +260,7 @@ export function createBranchContextOperationFakes(
 				if (overrides.createBranchContextFromFile !== undefined) {
 					return overrides.createBranchContextFromFile(...args);
 				}
-				return branchContextEvidenceFromParams(args[1]);
+				return branchContextEvidenceFromParams(args[1], args[2].context.branchCreation.mode);
 			},
 			async writeSavedPlanFile(...args) {
 				writePlanCalls.push(args);
@@ -326,11 +326,14 @@ export function branchContextEvidence(
 	};
 }
 
-export function branchContextEvidenceFromParams(rawParams: unknown): BranchContextEvidence {
+export function branchContextEvidenceFromParams(
+	rawParams: unknown,
+	branchCreationMode: "plain-git" | "graphite",
+): BranchContextEvidence {
 	const params = rawParams as {
 		slug: string;
 		filePath: string;
-		creation: { type: "plain-git-current-head" } | { type: "graphite-current-parent-current-head" };
+		basis: { type: "current-head" };
 		branchName?: string;
 		summary?: string;
 	};
@@ -338,7 +341,7 @@ export function branchContextEvidenceFromParams(rawParams: unknown): BranchConte
 		slug: params.slug,
 		branch: params.branchName ?? params.slug,
 		creation:
-			params.creation.type === "graphite-current-parent-current-head"
+			branchCreationMode === "graphite"
 				? {
 						type: "graphite",
 						startRef: "HEAD",
