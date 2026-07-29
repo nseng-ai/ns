@@ -10,6 +10,7 @@ import {
 	cliAnnotationFor,
 	type ClinkrCommandDefinition,
 	type ClinkrCommandMetadata,
+	type ClinkrGroupDefinition,
 	type RenderCapabilities,
 } from "./command-definition.ts";
 import {
@@ -22,8 +23,10 @@ import {
 	type UsageErrorOutcome,
 } from "./outcome.ts";
 import { createFilesystemSource } from "./filesystem-source.ts";
+import { hasUnescapedHelp, parseGlobalFlags, type OutputFormat } from "./framework-arguments.ts";
+import { ClinkrNavigator } from "./navigator.ts";
 import { composeSources, type ClinkrComposition } from "./programmatic-source.ts";
-import { ClinkrTopology } from "./topology.ts";
+import { ClinkrTopology, type OpenedScope } from "./topology.ts";
 
 export interface ClinkrRunOptions<TContext> {
 	readonly context: TContext;
@@ -106,6 +109,10 @@ export type ClinkrApp<TContext = never> = [TContext] extends [never]
 
 interface CreateClinkrAppBase {
 	readonly name: string;
+	/** Root-only package version exposed as `-V` / `--version` when configured. */
+	readonly version?: string;
+	/** Root-only runtime diagnostic text exposed as `--runtime` when configured. */
+	readonly runtimeInfo?: () => string;
 }
 
 export interface CreateContextFreeClinkrAppOptions extends CreateClinkrAppBase {
@@ -134,59 +141,123 @@ export interface CreateComposedContextfulClinkrAppOptions extends CreateClinkrAp
  * it, but JavaScript and other untyped callers can; this check guarantees no
  * contextful handler or raw runner ever receives an absent context.
  */
-function requireRunContext<TContext>(
-	options:
-		| ClinkrRunOptions<TContext>
-		| ClinkrContextFreeRunOptions
-		| ClinkrExecuteOptions<TContext>
-		| Record<string, never>,
-): TContext {
-	if (!("context" in options) || options.context === undefined) {
+function requireRunContext<TContext>(options: unknown): TContext {
+	if (
+		typeof options !== "object" ||
+		options === null ||
+		!("context" in options) ||
+		options.context === undefined
+	) {
 		throw new Error("clinkr: contextful command execution requires run options with context");
 	}
-	return options.context;
+	return options.context as TContext;
 }
+
+const SUCCESS_EXIT_CODE = exitCodeFor("success");
+const USAGE_ERROR_EXIT_CODE = exitCodeFor("usage-error");
+
+interface TopologyClinkrAppBaseOptions<TContext> {
+	readonly name: string;
+	readonly topology: ClinkrTopology<TContext>;
+	readonly version?: string;
+	readonly runtimeInfo?: () => string;
+}
+
+type TopologyClinkrAppOptions<TContext> = TopologyClinkrAppBaseOptions<TContext> & {
+	readonly requiresContext: boolean;
+};
 
 class TopologyClinkrApp<TContext> {
 	private readonly name: string;
-	private readonly topology: ClinkrTopology<TContext>;
+	private readonly navigator: ClinkrNavigator<TContext>;
+	private readonly version: string | undefined;
+	private readonly runtimeInfo: (() => string) | undefined;
 	readonly requiresContext: boolean;
 
-	constructor(options: {
-		readonly name: string;
-		readonly requiresContext: boolean;
-		readonly topology: ClinkrTopology<TContext>;
-	}) {
+	constructor(options: TopologyClinkrAppOptions<TContext>) {
 		this.name = options.name;
-		this.topology = options.topology;
 		this.requiresContext = options.requiresContext;
+		this.version = options.version;
+		this.runtimeInfo = options.runtimeInfo;
+		this.navigator = new ClinkrNavigator({
+			topology: options.topology,
+			requiresContext: options.requiresContext,
+			hasVersion: options.version !== undefined,
+			hasRuntime: options.runtimeInfo !== undefined,
+		});
 	}
 
 	async run(
 		argv: readonly string[],
 		options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions = {},
 	): Promise<number> {
-		const { selected, metadata } = await this.loadDefinition();
+		const navigation = await this.navigator.navigate(argv);
+		if (navigation.type === "version") {
+			process.stdout.write(`${this.version}\n`);
+			return SUCCESS_EXIT_CODE;
+		}
+		if (navigation.type === "runtime") {
+			process.stdout.write(this.runtimeInfo?.() ?? "");
+			return SUCCESS_EXIT_CODE;
+		}
+		let loaded;
+		let selectedArgv: readonly string[];
+		let selectedName: string;
+		if (navigation.type === "scope") {
+			if (navigation.scope.defaultCommand === undefined) {
+				if (navigation.tail.length > 0 && !hasUnescapedHelp(navigation.tail)) {
+					process.stderr.write(
+						`clinkr: unknown route at ${[...navigation.path, ...navigation.tail].join(" ")}\n`,
+					);
+					return USAGE_ERROR_EXIT_CODE;
+				}
+				process.stdout.write(
+					await this.buildScopeHelp(
+						navigation.path,
+						navigation.scope,
+						navigation.path.length === 0,
+						navigation.definition,
+					),
+				);
+				return SUCCESS_EXIT_CODE;
+			}
+			loaded = await this.navigator.load(navigation.scope.defaultCommand);
+			selectedArgv = navigation.tail;
+			selectedName = navigation.path.at(-1) ?? this.name;
+			if (loaded.selected.kind === "structured" && hasUnescapedHelp(selectedArgv)) {
+				process.stdout.write(
+					await this.buildScopeHelp(
+						navigation.path,
+						navigation.scope,
+						navigation.path.length === 0,
+						navigation.definition,
+					),
+				);
+				return SUCCESS_EXIT_CODE;
+			}
+		} else {
+			loaded = navigation.loaded;
+			selectedArgv = navigation.tail;
+			selectedName = navigation.path.at(-1) ?? this.name;
+		}
+		const { selected, metadata } = loaded;
 		if (selected.kind === "raw") {
-			// Raw dispatch branches before structured global-flag parsing: the raw
-			// command owns its entire argv tail (including `--format`,
-			// `--input-json`, `--json-schema`, `--help`, and `--`), all output
-			// bytes, stdin, and the numeric exit status, which passes through
-			// unchanged. Raw commands write to the process streams directly.
+			// Raw dispatch branches before structured global-flag parsing and owns
+			// its selected argv tail, bytes, stdin, and numeric exit status.
 			const definition = selected.definition;
 			if (definition.requiresContext === true) {
-				return await definition.run({ context: requireRunContext(options), argv });
+				return await definition.run({ context: requireRunContext(options), argv: selectedArgv });
 			}
-			return await definition.run({ argv });
+			return await definition.run({ argv: selectedArgv });
 		}
 		const definition = selected.definition;
 		const canEmitAnsi = options.canEmitAnsi ?? resolveProcessCaps().colorDepth !== "none";
-		const parsed = parseGlobalFlags(argv);
-		if (parsed.ok ? parsed.flags.help : parsed.help) {
+		const parsed = parseGlobalFlags(selectedArgv);
+		if ((parsed.ok ? parsed.flags.help : parsed.help) && hasUnescapedHelp(selectedArgv)) {
 			process.stdout.write(
-				buildCommandSurface(this.name, definition, metadata).command.helpInformation(),
+				buildCommandSurface(selectedName, definition, metadata).command.helpInformation(),
 			);
-			return 0;
+			return SUCCESS_EXIT_CODE;
 		}
 		if (!parsed.ok) {
 			return emitTerminalOutcome(
@@ -216,7 +287,7 @@ class TopologyClinkrApp<TContext> {
 		}
 		if (jsonSchema) {
 			process.stdout.write(`${envelopeJsonText(buildCommandJsonSchemaDocument(definition))}\n`);
-			return 0;
+			return SUCCESS_EXIT_CODE;
 		}
 		let request: Record<string, unknown>;
 		if (inputJson) {
@@ -233,7 +304,7 @@ class TopologyClinkrApp<TContext> {
 			}
 			request = parsedJson.data as Record<string, unknown>;
 		} else {
-			const parsedArgv = parseArgv(this.name, rest, definition, metadata);
+			const parsedArgv = parseArgv(selectedName, rest, definition, metadata);
 			if (!parsedArgv.success) {
 				return emitUsageError(parsedArgv.message, "invalid-request");
 			}
@@ -247,7 +318,7 @@ class TopologyClinkrApp<TContext> {
 		request: unknown,
 		options?: ClinkrExecuteOptions<TContext>,
 	): Promise<ClinkrExecuteResult> {
-		const { selected } = await this.loadDefinition();
+		const { selected } = await this.navigator.loadRootDefault();
 		if (selected.kind === "raw") {
 			throw new Error("clinkr: raw commands execute only through the terminal adapter");
 		}
@@ -281,16 +352,48 @@ class TopologyClinkrApp<TContext> {
 		return decodeCommandOutcome(handlerResult, definition.resultSchema);
 	}
 
-	private async loadDefinition() {
-		const root = await this.topology.open([]);
-		if (root.defaultCommand === undefined) {
-			throw new Error("clinkr: root scope has no default command");
+	private async buildScopeHelp(
+		path: readonly string[],
+		scope: OpenedScope<TContext>,
+		isRoot: boolean,
+		groupDefinition?: ClinkrGroupDefinition,
+	): Promise<string> {
+		const name = path.length === 0 ? this.name : (path.at(-1) ?? this.name);
+		let command: Command;
+		if (scope.defaultCommand === undefined) {
+			command = createContainedCommand(name);
+		} else {
+			const loaded = await this.navigator.load(scope.defaultCommand);
+			command =
+				loaded.selected.kind === "structured"
+					? buildCommandSurface(name, loaded.selected.definition, loaded.metadata).command
+					: createContainedCommand(name).description(loaded.metadata.description);
 		}
-		const loaded = await this.topology.load(root.defaultCommand);
-		if ((loaded.selected.definition.requiresContext === true) !== this.requiresContext) {
-			throw new Error("clinkr: selected command context mode does not match the app");
+		if (groupDefinition !== undefined) {
+			command.description(groupDefinition.summary ?? groupDefinition.description);
 		}
-		return loaded;
+		if (isRoot && this.version !== undefined) {
+			command.version(this.version, "-V, --version", "Show the package version.");
+		}
+		if (isRoot && this.runtimeInfo !== undefined) {
+			command.addOption(new Option("--runtime", "Show CLI runtime diagnostics and exit."));
+		}
+		for (const [childName, route] of scope.commands) {
+			const metadata = route.command.metadata;
+			const child = new Command(childName).description(metadata.summary ?? metadata.description);
+			if (metadata.aliases !== undefined) child.aliases([...metadata.aliases]);
+			if (metadata.helpGroup !== undefined) child.helpGroup(metadata.helpGroup);
+			command.addCommand(child, { hidden: metadata.hidden === true });
+		}
+		for (const [childName, group] of scope.groups) {
+			const child = new Command(childName).description(
+				group.definition.summary ?? group.definition.description,
+			);
+			if (group.definition.aliases !== undefined) child.aliases([...group.definition.aliases]);
+			if (group.definition.helpGroup !== undefined) child.helpGroup(group.definition.helpGroup);
+			command.addCommand(child, { hidden: group.definition.hidden === true });
+		}
+		return command.helpInformation();
 	}
 }
 
@@ -321,16 +424,36 @@ export function createClinkrApp<TContext>(
 		);
 	}
 	if (sources.length === 0) throw new Error("clinkr: app requires at least one mounted source");
-	return new TopologyClinkrApp<TContext>({
+	const topology = new ClinkrTopology({
+		sources,
+	});
+	const baseOptions = {
 		name: options.name,
-		requiresContext: options.requiresContext === true,
-		topology: new ClinkrTopology({ sources }),
+		topology,
+		...(options.version === undefined ? {} : { version: options.version }),
+		...(options.runtimeInfo === undefined ? {} : { runtimeInfo: options.runtimeInfo }),
+	};
+	if (options.requiresContext === true) {
+		return new TopologyClinkrApp<TContext>({
+			...baseOptions,
+			requiresContext: true,
+		});
+	}
+	return new TopologyClinkrApp<TContext>({
+		...baseOptions,
+		requiresContext: false,
 	});
 }
 
 interface CommandSurface {
 	readonly command: Command;
 	readonly surface: SurfacePlan;
+}
+
+function createContainedCommand(name: string): Command {
+	return new Command(name)
+		.exitOverride()
+		.configureOutput({ writeOut: () => {}, writeErr: () => {} });
 }
 
 /**
@@ -356,10 +479,7 @@ function buildCommandSurface(
 		positionals,
 		optionSpecs,
 	});
-	const command = new Command(name)
-		.description(metadata.description)
-		.exitOverride()
-		.configureOutput({ writeOut: () => {}, writeErr: () => {} });
+	const command = createContainedCommand(name).description(metadata.description);
 	if (metadata.aliases !== undefined) command.aliases([...metadata.aliases]);
 	for (const positional of surface.positionals) {
 		command.addArgument(buildCommanderArgument(positional, { requiredness: "commander" }));
@@ -505,96 +625,6 @@ async function drainProcessStdin(): Promise<string> {
 	const chunks: Buffer[] = [];
 	for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
 	return Buffer.concat(chunks).toString("utf8");
-}
-
-type OutputFormat = "human" | "json" | "md";
-
-interface GlobalFlags {
-	readonly format: OutputFormat;
-	readonly help: boolean;
-	readonly jsonSchema: boolean;
-	readonly inputJson: boolean;
-	/**
-	 * argv with every global flag (and `--format` value) removed. Everything
-	 * from the first top-level `--` onward is passed through verbatim,
-	 * including the `--` itself, so commander can apply its standard
-	 * end-of-options handling.
-	 */
-	readonly rest: readonly string[];
-}
-
-type GlobalFlagsResult =
-	| { readonly ok: true; readonly flags: GlobalFlags }
-	| {
-			readonly ok: false;
-			/** Best-effort help detection so help still wins over a bad parse. */
-			readonly help: boolean;
-			/** Best-effort format so usage-error emission honors a valid `--format`. */
-			readonly format: OutputFormat;
-			readonly message: string;
-	  };
-
-/**
- * Single owner of the global-flag grammar (`--help`/`-h`, `--format`,
- * `--input-json`, `--json-schema`). One pass over argv; the commander
- * registrations for these flags in {@link buildCommandSurface} are
- * help-display-only and never parse them.
- *
- * A bare `--` terminates global-flag scanning: it and every following token
- * flow to `rest` unchanged (commander then treats the tokens after `--` as
- * positionals), so command arguments that look like global flags can be
- * escaped.
- */
-function parseGlobalFlags(argv: readonly string[]): GlobalFlagsResult {
-	const formatValues: string[] = [];
-	const rest: string[] = [];
-	let help = false;
-	let jsonSchema = false;
-	let inputJsonCount = 0;
-	let missingFormatValue = false;
-	for (let index = 0; index < argv.length; index += 1) {
-		const argument = argv[index];
-		if (argument === undefined) continue;
-		if (argument === "--") {
-			rest.push(...argv.slice(index));
-			break;
-		}
-		if (argument === "--help" || argument === "-h") help = true;
-		else if (argument === "--json-schema") jsonSchema = true;
-		else if (argument === "--input-json") inputJsonCount += 1;
-		else if (argument === "--format") {
-			const value = argv[index + 1];
-			if (value === undefined || value.startsWith("-")) missingFormatValue = true;
-			else {
-				formatValues.push(value);
-				index += 1;
-			}
-		} else if (argument.startsWith("--format=")) {
-			formatValues.push(argument.slice("--format=".length));
-		} else rest.push(argument);
-	}
-	const formatValue = formatValues.length === 1 ? formatValues[0] : undefined;
-	const format =
-		formatValue === "human" || formatValue === "json" || formatValue === "md"
-			? formatValue
-			: undefined;
-	let message: string | undefined;
-	if (inputJsonCount > 1) message = "repeated --input-json";
-	else if (missingFormatValue) message = "option '--format <format>' argument missing";
-	else if (formatValues.length > 1) message = "repeated --format";
-	else if (formatValue !== undefined && format === undefined)
-		message = `invalid format: ${formatValue}`;
-	if (message !== undefined) return { ok: false, help, format: format ?? "human", message };
-	return {
-		ok: true,
-		flags: {
-			format: format ?? "human",
-			help,
-			jsonSchema,
-			inputJson: inputJsonCount === 1,
-			rest,
-		},
-	};
 }
 
 /**

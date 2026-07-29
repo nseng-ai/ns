@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+
 import { expect, test } from "vitest";
 
 // Package-surface evidence for the quarantined runtime's temporary subpaths:
@@ -57,6 +60,27 @@ test("legacy APIs have one aggregate entrypoint and are absent from root and /ap
 		"machineEnvelopeSchema",
 	]) {
 		expect(name in appExports, `${name} must not leak through /app`).toBe(false);
+	}
+});
+
+test("modern app source does not import legacy runtime ownership", () => {
+	const appDirectory = path.join(import.meta.dirname, "../src/app");
+	const pending = [appDirectory];
+	while (pending.length > 0) {
+		const directory = pending.pop();
+		if (directory === undefined) continue;
+		for (const entry of readdirSync(directory, { withFileTypes: true })) {
+			const entryPath = path.join(directory, entry.name);
+			if (entry.isDirectory()) {
+				pending.push(entryPath);
+				continue;
+			}
+			if (!entry.name.endsWith(".ts")) continue;
+			const source = readFileSync(entryPath, "utf8");
+			expect(source, entryPath).not.toMatch(
+				/from\s+["']\.\.\/(?:completion|confirmation|exit|emission|group|legacy)(?:[/.][^"']*)?["']/,
+			);
+		}
 	}
 });
 
