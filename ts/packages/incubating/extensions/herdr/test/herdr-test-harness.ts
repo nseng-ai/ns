@@ -10,6 +10,7 @@ import {
 } from "@nseng-ai/plans/api";
 
 import type {
+	AgentEndContext,
 	AutocompleteProvider,
 	CommandContext,
 	CommandDefinition,
@@ -19,6 +20,7 @@ import type {
 	PiSessionEntry,
 	RawPiExecOptions,
 	RawPiExecResult,
+	SessionStartContext,
 	ThinkingLevel,
 } from "@nseng-ai/extension-kit/pi-types";
 import { parseMachineEnvelopeData } from "@nseng-ai/foundation/machine-envelope";
@@ -116,6 +118,9 @@ export class FakePi implements ExtensionAPI {
 	readonly thinkingLevels: string[] = [];
 	private readonly script: ScriptedQueue<ScriptedExec>;
 	private readonly shouldRequireExpectedArgs: boolean;
+	private readonly agentEndHandlers: Array<
+		(event: unknown, ctx: AgentEndContext) => Promise<void> | void
+	> = [];
 	private thinkingLevel: ThinkingLevel = "medium";
 
 	constructor(
@@ -128,7 +133,25 @@ export class FakePi implements ExtensionAPI {
 		this.shouldRequireExpectedArgs = options.shouldRequireExpectedArgs ?? true;
 	}
 
-	on(): void {}
+	on(
+		event: "agent_end",
+		handler: (event: unknown, ctx: AgentEndContext) => Promise<void> | void,
+	): void;
+	on(
+		event: "session_start",
+		handler: (event: unknown, ctx: SessionStartContext) => Promise<void> | void,
+	): void;
+	on(event: "agent_end" | "session_start", handler: (...args: never[]) => unknown): void {
+		if (event === "agent_end") {
+			this.agentEndHandlers.push(
+				handler as (event: unknown, ctx: AgentEndContext) => Promise<void> | void,
+			);
+		}
+	}
+
+	async emitAgentEnd(event: unknown, ctx: AgentEndContext): Promise<void> {
+		for (const handler of this.agentEndHandlers) await handler(event, ctx);
+	}
 
 	registerCommand(name: string, options: CommandDefinition): void {
 		this.commands.set(name, options);
@@ -245,6 +268,7 @@ export class FakeCommandContext implements CommandContext {
 	readonly selections: Selection[] = [];
 	readonly confirmations: Confirmation[] = [];
 	readonly inputPrompts: InputPrompt[] = [];
+	readonly editorTexts: string[] = [];
 	readonly autocompleteProviders: Array<(current: AutocompleteProvider) => AutocompleteProvider> =
 		[];
 	readonly events: string[] = [];
@@ -300,6 +324,9 @@ export class FakeCommandContext implements CommandContext {
 			},
 			addAutocompleteProvider: (factory) => {
 				this.autocompleteProviders.push(factory);
+			},
+			setEditorText: (value) => {
+				this.editorTexts.push(value);
 			},
 		};
 	}

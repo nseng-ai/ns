@@ -1,5 +1,10 @@
 import { RealGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/branch";
-import type { CommandDefinition, ExtensionAPI } from "@nseng-ai/extension-kit/pi-types";
+import type {
+	AgentEndContext,
+	CommandDefinition,
+	ExtensionAPI,
+	SessionStartContext,
+} from "@nseng-ai/extension-kit/pi-types";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import type {
@@ -14,6 +19,7 @@ import {
 	registerHerdrSidebarCommands,
 } from "./sidebar.ts";
 import { registerHerdrPromptSpaceImplCommand } from "./impl-prompt.ts";
+import { registerHerdrSessionSpaceImplCommand } from "./impl-session.ts";
 import { registerHerdrPlanSpaceImplCommand, registerHerdrPlanTabImplCommand } from "./impl-plan.ts";
 import { registerHerdrHandoffTab } from "./handoff-tab.ts";
 import { registerHerdrNewSpaceCommand } from "./new-space.ts";
@@ -54,6 +60,7 @@ export async function registerHerdrPiExtension(
 	registerHerdrSidebarCommands(herdrPi, sidebarController);
 	registerHerdrSpaceGoalCommand(herdrPi);
 	registerHerdrPromptSpaceImplCommand(context);
+	registerHerdrSessionSpaceImplCommand(context);
 	registerHerdrPlanSpaceImplCommand(context);
 	registerHerdrPlanTabImplCommand(context);
 	registerHerdrNewSpaceCommand(context);
@@ -89,8 +96,20 @@ export function isExactOptionalIntegrationAbsence(error: unknown): boolean {
 function adaptHerdrExtensionApi(pi: ExtensionAPI | HandoffExtensionAPI): ExtensionAPI {
 	return {
 		on(event, handler): void {
-			if (event !== "session_start") return;
-			pi.on?.("session_start", handler);
+			const herdrPi = pi as ExtensionAPI;
+			if (event === "agent_end") {
+				const agentEndHandler = handler as (
+					event: unknown,
+					ctx: AgentEndContext,
+				) => Promise<void> | void;
+				herdrPi.on("agent_end", agentEndHandler);
+				return;
+			}
+			const sessionStartHandler = handler as (
+				event: unknown,
+				ctx: SessionStartContext,
+			) => Promise<void> | void;
+			herdrPi.on("session_start", sessionStartHandler);
 		},
 		registerCommand(name: string, definition: CommandDefinition): void {
 			const metadata = optionalEntries({

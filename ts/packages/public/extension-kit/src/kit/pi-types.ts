@@ -62,6 +62,7 @@ export interface UiLike {
 	input?(title: string, placeholder?: string): Promise<string | undefined>;
 	select?(title: string, items: string[]): Promise<string | undefined>;
 	addAutocompleteProvider?(factory: (current: AutocompleteProvider) => AutocompleteProvider): void;
+	setEditorText?(value: string): void;
 }
 
 export interface PiSessionEntry {
