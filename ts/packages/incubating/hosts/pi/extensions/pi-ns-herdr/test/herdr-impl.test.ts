@@ -32,7 +32,21 @@ import {
 } from "../src/core/impl-prompt.ts";
 import { registerHerdrPromptSpaceImplCommand } from "../src/pi/impl-prompt.ts";
 import { buildPlanContentSlugPrompt } from "@nseng-ai/branch-context/api";
-import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
+import { FakeBrmemGateway } from "@nseng-ai/brmem";
+
+class TrackingBranchMemoryGateway extends FakeBrmemGateway {
+	readonly attachPlanCalls: Array<Parameters<FakeBrmemGateway["putEntry"]>[0]> = [];
+
+	override async putEntry(options: Parameters<FakeBrmemGateway["putEntry"]>[0]) {
+		this.attachPlanCalls.push({ ...options });
+		return await super.putEntry(options);
+	}
+
+	override async createEntry(options: Parameters<FakeBrmemGateway["createEntry"]>[0]) {
+		this.attachPlanCalls.push({ ...options });
+		return await super.createEntry(options);
+	}
+}
 import { createBranchContextContext } from "@nseng-ai/branch-context/api";
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import { buildTrackedBranchSlugPrompt } from "@nseng-ai/extension-kit/tracked-branch-payload";
@@ -685,7 +699,7 @@ describe("ns:herdr:impl:plan:tab", () => {
 			currentBranch: SOURCE_BRANCH,
 			headCommit: START_POINT,
 		});
-		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
+		const brmem = new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
@@ -841,7 +855,7 @@ function herdrPlanImplTestOptions(planStoreRoot: string): HerdrSlotImplPlanOptio
 			};
 			return {
 				...createBranchContextContext(stdinCapablePi, { cwd }),
-				brmem: new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
+				brmem: new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
 			};
 		},
 	};
@@ -881,7 +895,7 @@ describe("ns:herdr:impl:plan:space", () => {
 				remoteRef: `refs/heads/${TRUNK_BRANCH}`,
 			},
 		});
-		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
+		const brmem = new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		const graphite = new InMemoryGraphiteBranchGateway();
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
@@ -966,7 +980,7 @@ describe("ns:herdr:impl:plan:space", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 		const git = new InMemoryGitGateway({ branchUpstream: { type: "missing" } });
-		const brmem = new InMemoryBranchMemoryGateway();
+		const brmem = new TrackingBranchMemoryGateway();
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
@@ -1007,7 +1021,7 @@ describe("ns:herdr:impl:plan:space", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 		const git = new InMemoryGitGateway({ branchUpstream: { type: "missing" } });
-		const brmem = new InMemoryBranchMemoryGateway();
+		const brmem = new TrackingBranchMemoryGateway();
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
@@ -1065,7 +1079,7 @@ describe("ns:herdr:impl:plan:space", () => {
 		});
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
-		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
+		const brmem = new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
@@ -1227,7 +1241,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			onWaitForIdle: () => vi.stubEnv("HERDR_WORKSPACE_ID", "caller-workspace-after-interaction"),
 		});
 		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
-		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
+		const brmem = new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		const graphite = new InMemoryGraphiteBranchGateway();
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		options.createBranchContextContext = () => ({
@@ -1296,7 +1310,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
-		const brmem = new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
+		const brmem = new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		const graphite = new InMemoryGraphiteBranchGateway();
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		options.createBranchContextContext = () => ({
@@ -1398,7 +1412,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 					headCommit: START_POINT,
 					existingBranches: [PLAN_SLUG],
 				}),
-				brmem: new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
+				brmem: new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
 				graphite: new InMemoryGraphiteBranchGateway(),
 			};
 		};
@@ -1455,7 +1469,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 				currentBranch: SOURCE_BRANCH,
 				headCommit: START_POINT,
 			}),
-			brmem: new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
+			brmem: new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
 			graphite: new InMemoryGraphiteBranchGateway({
 				trackFailure: { code: "track_failed", message: "Graphite refused tracking." },
 			}),
@@ -1512,7 +1526,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 				currentBranch: SOURCE_BRANCH,
 				headCommit: START_POINT,
 			}),
-			brmem: new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
+			brmem: new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
 			graphite: new InMemoryGraphiteBranchGateway({
 				trackFailure: { code: "track_failed", message: "Graphite refused tracking." },
 			}),

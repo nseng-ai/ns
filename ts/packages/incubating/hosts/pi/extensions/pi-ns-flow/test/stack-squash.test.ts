@@ -1,4 +1,3 @@
-import { FakeGraphiteStackGateway, fakeStackInfo } from "@nseng-ai/extension-kit/graphite/testing";
 import { describe, expect, test } from "vitest";
 
 import { IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE } from "@nseng-ai/pi-runtime/commands/ack";
@@ -8,7 +7,7 @@ import stackSquashExtension, {
 	STACK_SQUASH_COMMAND_NAME,
 	runStackSquash,
 	type StackSquashExtensionAPI,
-} from "../../src/pi/stack-squash.ts";
+} from "../src/stack-squash.ts";
 
 type RegisteredCommand = Parameters<StackSquashExtensionAPI["registerCommand"]>[1];
 
@@ -81,15 +80,6 @@ function fakeCtx(events: string[] = []): FakeCommandContext {
 	};
 }
 
-function trackedStack(): FakeGraphiteStackGateway {
-	return new FakeGraphiteStackGateway({
-		stack: {
-			type: "stack",
-			stack: fakeStackInfo({ trunk: "main", current: "feature/top", ancestors: ["main"] }),
-		},
-	});
-}
-
 describe("stack squash Pi bridge", () => {
 	test("registers gt:squash-stack", () => {
 		const pi = new FakePi();
@@ -125,7 +115,11 @@ describe("stack squash Pi bridge", () => {
 		const pi = new FakePi([{}, { stdout: "3\n" }, {}, {}, {}]);
 		const ctx = fakeCtx();
 
-		await runStackSquash(pi, ctx, trackedStack());
+		await runStackSquash(pi, ctx, async () => ({
+			type: "info",
+			message:
+				"Processed 1 Graphite stack branch; 3 commits became 1 (2 removed).\n\n- feature/top: 3 → 1 commit",
+		}));
 
 		expect(ctx.ui.notifications.at(-1)).toEqual({
 			level: "info",
@@ -138,7 +132,10 @@ describe("stack squash Pi bridge", () => {
 		const pi = new FakePi([{ stdout: " M file.ts\n" }]);
 		const ctx = fakeCtx();
 
-		await runStackSquash(pi, ctx, trackedStack());
+		await runStackSquash(pi, ctx, async () => ({
+			type: "error",
+			message: "Worktree has uncommitted changes; stack squash did not run.\n\nM file.ts",
+		}));
 
 		expect(ctx.ui.notifications.at(-1)).toEqual({
 			level: "error",
@@ -149,14 +146,11 @@ describe("stack squash Pi bridge", () => {
 	test("renders a structured discovery failure without command output", async () => {
 		const pi = new FakePi([{}]);
 		const ctx = fakeCtx();
-		const graphite = new FakeGraphiteStackGateway({
-			stack: {
-				type: "failure",
-				failure: { message: "stack unavailable", returnCode: null },
-			},
-		});
-
-		await runStackSquash(pi, ctx, graphite);
+		await runStackSquash(pi, ctx, async () => ({
+			type: "error",
+			message:
+				"Could not read Graphite stack metadata: stack unavailable. Stack squash did not run.",
+		}));
 
 		expect(ctx.ui.notifications.at(-1)).toEqual({
 			level: "error",

@@ -10,16 +10,10 @@ import type { Clock } from "@nseng-ai/foundation/clock";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
-import {
-	customMessageText,
-	linkifyPrReferences,
-	prLinksDetailsFor,
-	prLinksFromDetails,
-	truncateDisplayLine,
-} from "@nseng-ai/foundation/terminal-presentation";
+import { prLinksDetailsFor } from "@nseng-ai/foundation/terminal-presentation";
 import { commandStreamOutputLines } from "./command-exec.ts";
 import { normalizeLandCommandFinish } from "./graphite-command-channel.ts";
-import { COMMAND_STREAM_MESSAGE_TYPE, STATUS_KEY } from "./constants.ts";
+import { STATUS_KEY } from "./constants.ts";
 import {
 	commandExternalCallTelemetryEvent,
 	type FlowLandExternalCallTelemetrySink,
@@ -29,11 +23,8 @@ import type { LandedPullRequest } from "../types.ts";
 import type {
 	CommandInvocation,
 	CommandStreamMessageDetails,
-	CustomMessage,
-	LandStackExtensionAPI,
+	LandExecutionApi,
 	LandStackCommandContext,
-	RenderComponent,
-	RenderTheme,
 } from "./types.ts";
 
 export interface LandLiveProgressEvent {
@@ -75,32 +66,15 @@ export function landCommandStreamObservabilityOptions(
 	};
 }
 
-/**
- * Builds the Pi-slash-command NsCommandIo for land orchestration. Transient
- * running-command status maps to the Pi status footer; durable command-stream
- * entries become `COMMAND_STREAM_MESSAGE_TYPE` custom scrollback messages (with
- * optional PR-link details) rendered by `registerLandStackRenderer`. CLI surfaces
- * build a text-only NsCommandIo in the Flow command runner, so the same `LandStackCommandStream`
- * emission path serves both without per-call branching.
- */
-export function createLandUiCommandIo(
-	pi: Pick<LandStackExtensionAPI, "sendMessage">,
+/** Build portable land-command I/O from role-based message and UI capabilities. */
+export function createLandCommandIo(
+	api: Pick<LandExecutionApi, "message">,
 	ctx: Pick<LandStackCommandContext, "ui">,
 ): NsCommandIo {
 	return createCommandIo({
 		phaseSticky: (value) => ctx.ui.setStatus(STATUS_KEY, value),
 		notifyUi: (message, level) => ctx.ui.notify(message, level),
-		richMessage: (text, { details }) => {
-			const customMessage: CustomMessage = {
-				customType: COMMAND_STREAM_MESSAGE_TYPE,
-				content: text,
-				display: true,
-			};
-			if (details !== undefined) {
-				customMessage.details = details;
-			}
-			pi.sendMessage?.(customMessage);
-		},
+		richMessage: (text, { details }) => api.message?.(text, { details }),
 	});
 }
 
@@ -234,10 +208,10 @@ function formatCommandFinishSuffix(
 }
 
 export function withCommandStreaming(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	commandStream: LandStackCommandStream,
-): LandStackExtensionAPI {
-	const wrapped: LandStackExtensionAPI = {
+): LandExecutionApi {
+	const wrapped: LandExecutionApi = {
 		async exec(command, args, options) {
 			const invocation = commandInvocationForDisplay(command, args);
 			commandStream.start(invocation);
@@ -247,14 +221,9 @@ export function withCommandStreaming(
 			return finish.result;
 		},
 	};
-	if (pi.registerMessageRenderer !== undefined) {
-		wrapped.registerMessageRenderer = (customType, renderer) => {
-			pi.registerMessageRenderer?.(customType, renderer);
-		};
-	}
-	if (pi.sendMessage !== undefined) {
-		wrapped.sendMessage = (message, options) => {
-			pi.sendMessage?.(message, options);
+	if (pi.message !== undefined) {
+		wrapped.message = (text, options) => {
+			pi.message?.(text, options);
 		};
 	}
 	return wrapped;
@@ -285,46 +254,10 @@ function displayArgsForCommand(command: string, args: readonly string[]): string
 	return displayArgs;
 }
 
-export function renderCommandStreamMessage(
-	message: CustomMessage,
-	_options: { expanded: boolean },
-	theme: RenderTheme,
-): RenderComponent {
-	const content = customMessageText(message.content);
-	const prLinks = prLinksFromDetails(message.details);
-	return {
-		render(width: number): string[] {
-			return content
-				.split("\n")
-				.map((line) =>
-					theme.fg(commandStreamLineColor(line), renderCommandStreamLine(line, prLinks, width)),
-				);
-		},
-		invalidate(): void {},
-	};
-}
-
-export function renderCommandStreamLine(
-	line: string,
-	prLinks: ReadonlyMap<number, string>,
-	width: number,
-): string {
-	const truncated = truncateDisplayLine(line, width);
-	if (prLinks.size === 0) return truncated;
-	return linkifyPrReferences(truncated, prLinks);
-}
-
 export function commandStreamDetailsForLanded(
 	landed: LandedPullRequest[],
 ): CommandStreamMessageDetails | undefined {
 	return prLinksDetailsFor(landed);
-}
-
-export function commandStreamLineColor(line: string): string {
-	if (line.startsWith("✓")) return "success";
-	if (line.startsWith("✗")) return "error";
-	if (line.startsWith("→")) return "accent";
-	return "dim";
 }
 
 export function formatCommandStreamBlock(icon: string, message: string): string {

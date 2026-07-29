@@ -28,7 +28,6 @@ export async function launchHerdrHandoffTab(options: {
 	launchCommand: string;
 	workspaceId: string;
 	slug: string;
-	pickupCommand: string;
 }): Promise<HerdrHandoffTabLaunchResult> {
 	const command = options.launchCommand;
 	const label = `handoff:${options.slug}`;

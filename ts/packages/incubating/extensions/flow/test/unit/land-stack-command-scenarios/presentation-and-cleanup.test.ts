@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest";
-import { registerLandStackRenderer } from "../../../src/land/land-stack.ts";
 import { PR_FIELDS } from "../../../src/land/stack/constants.ts";
 import { stripAnsi } from "../../../src/land/stack/graphite-command-channel.ts";
 import { backupRefSteps } from "../land-stack-backup-ref-fixtures.ts";
@@ -19,14 +18,7 @@ import {
 	singleBranchPreflightWithRefs,
 } from "./feature-stack-fixtures.ts";
 import { childrenRecheckStep, DB_TO_CURRENT, SHA_A, SHA_B } from "./repo-fixtures.ts";
-import {
-	commandMessagesText,
-	FakePi,
-	messageContentText,
-	runLandStack,
-	step,
-	TRUNK,
-} from "./support.ts";
+import { commandMessagesText, messageContentText, runLandStack, step, TRUNK } from "./support.ts";
 
 describe("land-stack command scenarios", () => {
 	test("streams command execution as normal scrollback messages", async () => {
@@ -41,9 +33,6 @@ describe("land-stack command scenarios", () => {
 		expect(notifications.at(-1)?.level).toBe("success");
 		expect(widgets).toEqual([]);
 		expect(messages.length).toBeGreaterThan(0);
-		expect(
-			messages.every((message) => message.customType === "land-command-stream" && message.display),
-		).toBe(true);
 		const streamText = commandMessagesText(messages);
 		expect(streamText).not.toContain("land-stack command stream");
 		expect(streamText).toContain("→ Preparing to land 1 PR through feature-a...");
@@ -121,40 +110,6 @@ describe("land-stack command scenarios", () => {
 		expect(finalMessage?.details).toEqual({
 			prLinks: [{ number: 101, url: "https://github.example/pull/101" }],
 		});
-		const renderer = pi.messageRenderers.get("land-command-stream");
-		expect(renderer).toBeDefined();
-		const rendered = renderer?.(
-			finalMessage!,
-			{ expanded: false },
-			{ fg: (_color: string, text: string) => text },
-		)
-			.render(200)
-			.join("\n");
-		expect(rendered).toContain(
-			"\x1B]8;;https://github.example/pull/101\x07#101\x1B]8;;\x07 feature-a",
-		);
-	});
-	test("command stream renderer ignores unsafe PR link URLs in details", () => {
-		const pi = new FakePi();
-		registerLandStackRenderer(pi);
-		const renderer = pi.messageRenderers.get("land-command-stream");
-		expect(renderer).toBeDefined();
-
-		const rendered = renderer?.(
-			{
-				customType: "land-command-stream",
-				content: "✓ Landed 1 PR: #101 feature-a.",
-				display: true,
-				details: { prLinks: [{ number: 101, url: "javascript:alert(1)" }] },
-			},
-			{ expanded: false },
-			{ fg: (_color: string, text: string) => text },
-		)
-			.render(200)
-			.join("\n");
-
-		expect(rendered).toBe("✓ Landed 1 PR: #101 feature-a.");
-		expect(rendered).not.toContain("\x1B]8;;");
 	});
 	test("retains final local Graphite branch when it is checked out in this worktree", async () => {
 		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });

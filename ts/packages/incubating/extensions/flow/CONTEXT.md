@@ -1,6 +1,6 @@
 # @nseng-ai/flow
 
-This context captures Flow language for lifecycle commands, the curated `@nseng-ai/flow/api` extension package API consumed by downstream publication composition, and the current boundary between Flow-owned presentation/orchestration and the `@nseng-ai/flow/land` domain core subpackage.
+This context captures Flow language for lifecycle commands, the curated `@nseng-ai/flow/api` extension package API consumed by downstream publication and host-adapter composition, and the current boundary between Flow-owned presentation/orchestration and the `@nseng-ai/flow/land` domain core subpackage.
 
 ## Language
 
@@ -13,12 +13,12 @@ The user- and agent-facing `ns flow ...` command surface and its Pi mirrors, inc
 *Avoid*: land domain core, Herdr extension adapter, standalone land command surface
 
 **Flow Pi Presentation Boundary**:
-The `@nseng-ai/flow/pi` host surface owns generic `/ns:flow:*` mirrors and `/gt:squash-stack`. Repository-specific `/code-workflows`, `/gh-ci-debug`, and `/code:gt-restack-resolve` presentation belongs to `@internal/pi-tools/code-workflows`; `.pi/extensions/code.ts` is the discovery-layer composition seam for internal smart restack plus Flow stack squash.
-*Avoid*: Flow-owned code-workflow skill policy, Internal Pi-tool import from Flow, cross-owner aggregate inside a package
+The separate `@nseng-ai/pi-ns-flow` host adapter owns Pi registration, interaction, notifications, parity metadata, and direct discovery for the generic `/ns:flow:*` mirrors. It also exports `/gt:squash-stack` presentation for deliberate project-local composition. Repository-specific `/code-workflows`, `/gh-ci-debug`, and `/code:gt-restack-resolve` presentation belongs to `@internal/pi-tools/code-workflows`; `.pi/extensions/code.ts` is the sole cross-owner composition seam for Internal smart restack plus the Flow stack-squash adapter.
+*Avoid*: `@nseng-ai/flow/pi`, Flow-owned Pi registration, Flow-owned code-workflow skill policy, Internal Pi-tool import from Flow, cross-owner aggregate inside a package
 
 **Flow extension package API**:
-The curated `@nseng-ai/flow/api` in-process surface consumed by downstream packages so they do not import Flow private source modules. Its surviving cross-extension consumer is Objectives publication, which composes **Flow Branch Publication** for trusted parent-owned external writes after Objective Runner checkpoint judgment.
-*Avoid*: package-root import, private `@nseng-ai/flow/src/...` import, narrowed land-only API, consumer-owned Flow seam, exposing private submit machinery as a compatibility contract
+The curated `@nseng-ai/flow/api` in-process surface consumed by downstream packages so they do not import Flow private source modules. It exposes cohesive host-independent command metadata, submit-check recovery, and stack-squash operations for `@nseng-ai/pi-ns-flow`, plus **Flow Branch Publication** for trusted Objectives publication after Objective Runner checkpoint judgment.
+*Avoid*: package-root import, private `@nseng-ai/flow/src/...` import, Pi registration or parity type, narrowed land-only API, consumer-owned Flow seam, exposing private submit machinery as a compatibility contract
 
 **Flow Land Compatibility Boundary**:
 The compatibility rule that land consumers continue to enter through the **Flow extension package API** while Flow keeps renderer-independent planning in the `@nseng-ai/flow/land` subpackage.

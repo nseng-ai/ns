@@ -54,14 +54,14 @@ import {
 	loadStackSnapshot,
 	loadTrunk,
 } from "./stack-facts.ts";
-import type { LandStackExtensionAPI } from "./types.ts";
+import type { LandExecutionApi } from "./types.ts";
 import { loadWorktrees, normalizeExistingPath } from "./worktrees.ts";
 import { isManagedSlotPath, slotFreeArgs, slotNameFromPath } from "../worktree-paths.ts";
 
 type LandingFailureSource = Extract<LandingFailure, { readonly type: "boundary" }>["source"];
 
 export function createLandContext(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	options: { graphite: LandGraphiteCommandChannel; gitStateFs?: GitWorktreeStateFs },
 ): LandContext {
 	const { graphite } = options;
@@ -191,7 +191,7 @@ interface PrepareGraphiteMutationOptions {
 }
 
 interface FreeSlotsOptions {
-	readonly pi: LandStackExtensionAPI;
+	readonly pi: LandExecutionApi;
 	readonly repoRoot: string;
 	readonly slots: readonly ManagedSlotWorktree[];
 }
@@ -277,7 +277,7 @@ async function runGraphiteMutation(options: {
 }
 
 async function loadBranchChildren(options: {
-	readonly pi: LandStackExtensionAPI;
+	readonly pi: LandExecutionApi;
 	readonly repoRoot: string;
 	readonly metadataDbPath: string;
 	readonly branch: string;
@@ -372,7 +372,7 @@ function copyManagedSlotWorktree(slot: ManagedSlotWorktree): ManagedSlotWorktree
 }
 
 async function loadWorkingTreeStatus(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 	options: { gitStateFs?: GitWorktreeStateFs } = {},
 ): Promise<LandResult<WorkingTreeStatus>> {
@@ -396,7 +396,7 @@ async function loadWorkingTreeStatus(
 }
 
 async function loadLocalBranchExists(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 	branch: string,
 ): Promise<LandOutcome> {
@@ -406,7 +406,7 @@ async function loadLocalBranchExists(
 }
 
 async function loadLocalBranches(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 ): Promise<LandResult<readonly { readonly name: string; readonly sha: string }[]>> {
 	const branches = await loadLiveLocalBranchTips(pi, repoRoot);
@@ -428,7 +428,7 @@ async function loadLocalBranches(
 }
 
 interface LoadBranchContainsParentOptions {
-	readonly pi: LandStackExtensionAPI;
+	readonly pi: LandExecutionApi;
 	readonly repoRoot: string;
 	readonly branch: string;
 	readonly parent: string;

@@ -78,7 +78,7 @@ export const concreteExtensionCommandSurfaces = [
 		cliPrefixes: ["branch-context"],
 		slashPrefixes: ["branch-context", "plan"],
 	},
-	{ packageName: "@nseng-ai/flow", cliPrefixes: ["flow"], slashPrefixes: ["flow"] },
+	{ packageName: "@nseng-ai/pi-ns-flow", cliPrefixes: ["flow"], slashPrefixes: ["flow"] },
 	{ packageName: "@nseng-ai/pi-ns-herdr", cliPrefixes: ["herdr"], slashPrefixes: ["herdr"] },
 	{
 		packageName: "@nseng-ai/pi-ns-handoffs",

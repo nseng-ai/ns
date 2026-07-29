@@ -20,14 +20,14 @@ import {
 	type LandingFailure,
 	type LandResult,
 } from "../results.ts";
-import type { LandStackExtensionAPI } from "./types.ts";
+import type { LandExecutionApi } from "./types.ts";
 
 export type { GraphiteTopology } from "@nseng-ai/extension-kit/graphite/metadata";
 
 export type ForkViolation = GraphiteForkViolation & { readonly expectedChild: string };
 
 export async function resolveMetadataDbPath(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 ): Promise<LandResult<string>> {
 	const args = ["rev-parse", "--path-format=absolute", "--git-common-dir"];
@@ -47,7 +47,7 @@ export async function resolveMetadataDbPath(
 }
 
 export async function loadGraphiteTopology(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	repoRoot: string,
 	dbPath: string,
 ): Promise<LandResult<GraphiteTopology>> {

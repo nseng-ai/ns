@@ -7,13 +7,13 @@ import {
 	type LandGraphiteCommandChannel,
 } from "./graphite-command-channel.ts";
 import { createLandContext } from "./land-context-adapter.ts";
-import type { LandStackExtensionAPI } from "./types.ts";
+import type { LandExecutionApi } from "./types.ts";
 
 export interface StackLandingRuntime {
 	/** Original host API for non-streamed adapters and host-only capabilities. */
-	source: LandStackExtensionAPI;
+	source: LandExecutionApi;
 	/** Generic non-Graphite command execution with command-stream presentation. */
-	commands: LandStackExtensionAPI;
+	commands: LandExecutionApi;
 	/** Flow-owned Graphite command channel. */
 	graphite: LandGraphiteCommandChannel;
 	/** Gateway set constructed once for the selected runtime adapters. */
@@ -23,7 +23,7 @@ export interface StackLandingRuntime {
 }
 
 export function createStackLandingRuntime(
-	pi: LandStackExtensionAPI,
+	pi: LandExecutionApi,
 	commandStream: LandStackCommandStream,
 	options: { gitStateFs?: GitWorktreeStateFs; graphite?: LandGraphiteCommandChannel } = {},
 ): StackLandingRuntime {

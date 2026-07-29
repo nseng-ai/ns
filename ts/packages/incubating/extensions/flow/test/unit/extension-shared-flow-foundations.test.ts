@@ -99,7 +99,9 @@ describe("project extension shared flow foundations", () => {
 		for (const source of [autoslotSource, landSource, pullTrunkSource, flowPackage]) {
 			expect(source).not.toContain(removedCccPackageSpecifier);
 		}
-		expect(flowPackage).toContain('"./api": "./src/api/index.ts"');
+		expect(JSON.parse(flowPackage)).toMatchObject({
+			exports: { "./api": "./src/api/index.ts" },
+		});
 		expect(autoslotSource).toContain("../../autoslot/autoslot.ts");
 		expect(landSource).toContain("../../land/land.ts");
 		expect(pullTrunkSource).toContain("../../trunk-pull/trunk-pull.ts");

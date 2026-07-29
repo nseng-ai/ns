@@ -19,15 +19,32 @@ export type {
 	LandCliConfirmPrompt,
 	LandCliInput,
 	LandCommandContext,
-	LandExtensionAPI,
 	NotifyLevel,
 	PrintOutput,
 	ValidPullRequestView,
 } from "../land/land.ts";
-export { parsePullRequestView, registerLandCommand, runLandCli } from "../land/land.ts";
+export { parsePullRequestView, runLandCli } from "../land/land.ts";
 export { PR_FIELDS as FLOW_LAND_PR_FIELDS } from "../land/stack/constants.ts";
 
 export { FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "../submit/submit-hooks.ts";
+
+export type { FlowCommandSpec } from "./command-surfaces.ts";
+export {
+	FLOW_COMMAND_SPECS,
+	flowSkillBackedCommandRegistrations,
+	nsFlowCommandSurface,
+} from "./command-surfaces.ts";
+
+export type {
+	FlowSubmitCheckRecoveryResult,
+	FlowSubmitRecoveryGitGateway,
+	ResolveFlowSubmitCheckRecoveryOptions,
+	SubmitCheckRecoveryPromptGateway,
+} from "./submit-check-recovery.ts";
+export { resolveFlowSubmitCheckRecovery } from "./submit-check-recovery.ts";
+
+export type { FlowStackSquashPresentation, RunFlowStackSquashOptions } from "./stack-squash.ts";
+export { runFlowStackSquash } from "./stack-squash.ts";
 
 export type { TrunkPullOutcome, TrunkPullResult } from "../trunk-pull/trunk-pull.ts";
 export { runTrunkPullDetailed } from "../trunk-pull/trunk-pull.ts";

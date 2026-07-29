@@ -12,19 +12,15 @@ import type {
 	ProjectConfigPathExistsResult,
 	ProjectConfigReadResult,
 } from "@nseng-ai/sdk/project-config/points";
-import nsExtension, {
-	type NsExtensionAPI,
-	type NsExtensionOptions,
-} from "../../src/pi/ns-extension.ts";
-import { FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "../../src/submit/submit-hooks.ts";
-import {
-	FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID,
-	type SubmitCheckRecoveryPromptGateway,
-} from "../../src/submit/submit-check-recovery.ts";
-import { resolveFlowSubmitRecoveryDefault } from "../support/submit-check-recovery.ts";
+import registerFlowExtension, {
+	type FlowExtensionAPI,
+	type FlowExtensionOptions,
+} from "../src/extension.ts";
+import { FLOW_COMMAND_SPECS, FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "@nseng-ai/flow/api";
+import type { SubmitCheckRecoveryPromptGateway } from "@nseng-ai/flow/api";
 
-type RegisteredCommand = Parameters<NsExtensionAPI["registerCommand"]>[1];
-type CustomMessage = Parameters<NonNullable<NsExtensionAPI["sendMessage"]>>[0];
+type RegisteredCommand = Parameters<FlowExtensionAPI["registerCommand"]>[1];
+type CustomMessage = Parameters<NonNullable<FlowExtensionAPI["sendMessage"]>>[0];
 interface Notification {
 	message: string;
 	level: "info" | "warning" | "error" | undefined;
@@ -56,9 +52,8 @@ const FLOW_COMMANDS = [
 	"squash-stack",
 ] as const satisfies readonly FlowCommandName[];
 const PACKAGED_RECOVERY_PROMPT = "Packaged recovery prompt\n";
-const DEFAULT_PROMPT_PATH = resolveFlowSubmitRecoveryDefault().absolutePath;
 
-class FakePi implements NsExtensionAPI {
+class FakePi implements FlowExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly messageRenderers = new Map<string, unknown>();
 	readonly sentMessages: CustomMessage[] = [];
@@ -100,8 +95,8 @@ class FakePi implements NsExtensionAPI {
 	}
 }
 
-function registerNsExtension(pi: FakePi, options: NsExtensionOptions): void {
-	nsExtension(pi, {
+function registerNsExtension(pi: FakePi, options: FlowExtensionOptions): void {
+	registerFlowExtension(pi, {
 		recoveryGit: new InMemoryGitGateway({ optionalRepoRoot: "/repo" }),
 		...options,
 	});
@@ -158,16 +153,11 @@ describe("ns Pi extension", () => {
 		]) {
 			expect(pi.commands.has(legacyAlias)).toBe(false);
 		}
-		expect(pi.commands.get("ns:flow:cp")?.description).toBe(
-			"ns flow cp: Create a checkpoint commit for the current diff.",
-		);
-		expect(pi.commands.get("ns:flow:branch-latest-commit")?.description).toBe(
-			"ns flow branch-latest-commit: Move the latest eligible commit to a new Graphite child branch.",
-		);
-		expect(pi.commands.get("ns:flow:autoslot")?.description).toContain("managed slot worktree");
-		expect(pi.commands.get("ns:flow:land")?.description).toBe(
-			"ns flow land: Land the current PR or Graphite stack into trunk.",
-		);
+		for (const command of FLOW_COMMAND_SPECS) {
+			expect(pi.commands.get(`ns:flow:${command.name}`)?.description).toBe(
+				`ns flow ${command.name}: ${command.description}`,
+			);
+		}
 		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 	});
 
@@ -391,11 +381,8 @@ interface RecoveryPromptGatewayState {
 function createRecoveryPromptGateway(
 	state: RecoveryPromptGatewayState = {},
 ): SubmitCheckRecoveryPromptGateway {
-	const conventionalPromptPath = join(
-		"/repo",
-		`.ns/prompts/${FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID}.md`,
-	);
-	const files = new Map<string, string>([[DEFAULT_PROMPT_PATH, PACKAGED_RECOVERY_PROMPT]]);
+	const conventionalPromptPath = join("/repo", ".ns/prompts/flow.submit.pre.recovery.md");
+	const files = new Map<string, string>();
 	if (state.prompt !== undefined) files.set(conventionalPromptPath, state.prompt);
 	const promptReadErrors = new Map<string, string>();
 	if (state.promptReadError !== undefined) {
@@ -432,7 +419,12 @@ class InMemoryRecoveryPromptGateway implements SubmitCheckRecoveryPromptGateway 
 	}): ReturnType<SubmitCheckRecoveryPromptGateway["readRecoveryPrompt"]> {
 		const error = this.#promptReadErrors.get(request.path);
 		if (error !== undefined) return { type: "error", message: error };
-		return this.readPath(request.path);
+		const configured = this.readPath(request.path);
+		if (configured.type !== "missing") return configured;
+		if (request.path.endsWith("submit-check-recovery-default.md")) {
+			return { type: "found", text: PACKAGED_RECOVERY_PROMPT };
+		}
+		return configured;
 	}
 
 	private readPath(path: string): ProjectConfigReadResult {

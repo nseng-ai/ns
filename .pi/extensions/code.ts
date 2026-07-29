@@ -1,16 +1,13 @@
+import { composeCodeExtensions } from "../lib/code-extension-composition.mts";
 import { importTypeScriptWorkspaceModule } from "../lib/workspace-packages.ts";
 
 const [{ default: smartRestackExtension }, { stackSquashExtension }] = await Promise.all([
-	importTypeScriptWorkspaceModule<
-		typeof import("@internal/pi-tools/code-workflows/smart-restack")
-	>("@internal/pi-tools/code-workflows/smart-restack"),
-	importTypeScriptWorkspaceModule<typeof import("@nseng-ai/flow/pi")>("@nseng-ai/flow/pi"),
+  importTypeScriptWorkspaceModule<typeof import("@internal/pi-tools/code-workflows/smart-restack")>(
+    "@internal/pi-tools/code-workflows/smart-restack",
+  ),
+  importTypeScriptWorkspaceModule<typeof import("@nseng-ai/pi-ns-flow/stack-squash")>(
+    "@nseng-ai/pi-ns-flow/stack-squash",
+  ),
 ]);
 
-type CodeExtensionAPI = Parameters<typeof smartRestackExtension>[0] &
-	Parameters<typeof stackSquashExtension>[0];
-
-export default function codeExtension(pi: CodeExtensionAPI): void {
-	smartRestackExtension(pi);
-	stackSquashExtension(pi);
-}
+export default composeCodeExtensions(smartRestackExtension, stackSquashExtension);

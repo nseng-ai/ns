@@ -1,13 +1,26 @@
 import { describe, expect, test } from "vitest";
 
-import { FLOW_SUBMIT_CHECK_FAILURE_MARKER, runTrunkPullDetailed } from "../../src/api/index.ts";
+import {
+	FLOW_COMMAND_SPECS,
+	FLOW_SUBMIT_CHECK_FAILURE_MARKER,
+	flowSkillBackedCommandRegistrations,
+	nsFlowCommandSurface,
+	resolveFlowSubmitCheckRecovery,
+	runFlowStackSquash,
+	runTrunkPullDetailed,
+} from "../../src/api/index.ts";
 
 describe("flow extension API", () => {
 	test("exports the exact submit-check failure marker", () => {
 		expect(FLOW_SUBMIT_CHECK_FAILURE_MARKER).toBe("NS_FLOW_SUBMIT_CHECK_FAILURE");
 	});
 
-	test("retains the trunk-pull extension function export", () => {
+	test("exports cohesive host-independent Flow interfaces", () => {
+		expect(FLOW_COMMAND_SPECS).toHaveLength(11);
+		expect(nsFlowCommandSurface("submit")).toBe("ns:flow:submit");
+		expect(flowSkillBackedCommandRegistrations).toHaveLength(4);
+		expect(resolveFlowSubmitCheckRecovery).toBeTypeOf("function");
+		expect(runFlowStackSquash).toBeTypeOf("function");
 		expect(runTrunkPullDetailed).toBeTypeOf("function");
 	});
 });

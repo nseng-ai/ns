@@ -7,7 +7,7 @@ import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { createLandContext } from "../../src/land/stack/land-context-adapter.ts";
 import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land/stack/constants.ts";
 import { createLandGraphiteCommandChannel } from "../../src/land/stack/graphite-command-channel.ts";
-import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
+import type { LandExecutionApi } from "../../src/land/stack/types.ts";
 import {
 	formatLiveBranchTips,
 	metadataDbJson,
@@ -83,7 +83,7 @@ interface ScriptedExec {
 	result: ExitedResultFields | undefined;
 }
 
-class FakePi implements LandStackExtensionAPI {
+class FakeLandExecutionApi implements LandExecutionApi {
 	readonly execCalls: ExecCall[] = [];
 	private readonly script: ScriptedQueue<ScriptedExec>;
 
@@ -138,13 +138,13 @@ function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function createTestLandContext(pi: LandStackExtensionAPI) {
+function createTestLandContext(pi: LandExecutionApi) {
 	return createLandContext(pi, { graphite: createLandGraphiteCommandChannel({ pi }) });
 }
 
 describe("land context adapter facts", () => {
 	test("normalizes equivalent current-worktree paths at the adapter boundary", async () => {
-		const pi = new FakePi([]);
+		const pi = new FakeLandExecutionApi([]);
 		const context = createLandContext(pi, {
 			graphite: createLandGraphiteCommandChannel({ pi }),
 		});
@@ -156,7 +156,7 @@ describe("land context adapter facts", () => {
 	});
 
 	test("lists local branches with real tip SHAs", async () => {
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step("git", FOR_EACH_REF_ARGS, {
 				stdout:
 					"main\t1111111111111111111111111111111111111111\t2026-06-15T12:00:00+00:00\nfeature\t2222222222222222222222222222222222222222\t\n",
@@ -175,7 +175,7 @@ describe("land context adapter facts", () => {
 	});
 
 	test("squash merges pull requests with the existing gh argv", async () => {
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step("gh", SQUASH_MERGE_ARGS, { stdout: "merged\n", stderr: "notice\n" }),
 		]);
 		const context = createTestLandContext(pi);
@@ -217,7 +217,7 @@ describe("land context adapter facts", () => {
 			url: "https://github.example/pr/42",
 			mergedAt: "2026-07-11T00:00:00Z",
 		};
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step("gh", POST_MERGE_FACTS_ARGS, { stdout: `${JSON.stringify(mergedFacts)}\n` }),
 			step("gh", POST_MERGE_FACTS_ARGS, { code: 1, stderr: "GitHub unavailable\n" }),
 		]);
@@ -246,7 +246,7 @@ describe("land context adapter facts", () => {
 
 	test("redacts squash merge body from failure diagnostics", async () => {
 		const secretBody = "secret PR body";
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step("gh", [...SQUASH_MERGE_ARGS.slice(0, -1), secretBody], {
 				code: 1,
 				stderr: `rejected body: ${secretBody}\n`,
@@ -292,7 +292,7 @@ describe("land context adapter facts", () => {
 			`+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:${BACKUP_REF_NAMESPACE}/feature-a`,
 			`+bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:${BACKUP_REF_NAMESPACE}/feature-b`,
 		];
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step("git", BACKUP_ROTATION_ARGS),
 			step("git", ["for-each-ref", "--format=%(refname)", BACKUP_REF_NAMESPACE], {
 				stdout: `${oldRef}\n`,
@@ -349,7 +349,7 @@ describe("land context adapter facts", () => {
 	});
 
 	test("runs post-merge Graphite maintenance methods with the existing argv", async () => {
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step("gt", REFRESH_ARGS),
 			step("gt", ["delete", "feature-a", "-f", "-q"], {
 				code: 1,
@@ -427,7 +427,7 @@ describe("land context adapter facts", () => {
 	});
 
 	test("maps refresh failure and checkout-conflict protocol results", async () => {
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step("gt", REFRESH_ARGS, {
 				code: 7,
 				stdout: "partial refresh\n",
@@ -471,7 +471,7 @@ describe("land context adapter facts", () => {
 	});
 
 	test("maps Graphite mutation failures to typed command displays and results", async () => {
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step("gt", RESTACK_ARGS, {
 				code: 8,
 				stdout: "partial restack\n",
@@ -512,7 +512,7 @@ describe("land context adapter facts", () => {
 	});
 
 	test("classifies failed local-branch deletion protocol results for in-progress Git operations", async () => {
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step("gt", DELETE_ARGS, {
 				code: 1,
 				stdout: "CONFLICT (content): merge conflict in file.ts\n",
@@ -564,7 +564,7 @@ describe("land context adapter facts", () => {
 	test("maps slot-free success and failure protocol results", async () => {
 		const slotPath = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-02";
 		const args = ["slot", "free", "--wt", "slot-02"];
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step("ns", args, { stdout: "freed slot-02\n", code: 0 }),
 			step("ns", args, { stderr: "slot remains checked out\n", code: 3 }),
 		]);
@@ -603,7 +603,7 @@ describe("land context adapter facts", () => {
 	});
 
 	test("loads stack shape from supplied facts without recursively loading a landing shape", async () => {
-		const pi = new FakePi([
+		const pi = new FakeLandExecutionApi([
 			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
 				stdout: `${metadataDbJson([
 					{ branch: "main", children: ["feature"], trunk: true },

@@ -20,7 +20,7 @@ import {
 	type BranchContextEvidence,
 	type LoadedAttachedPlan,
 } from "@nseng-ai/branch-context/api";
-import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
+import { FakeBrmemGateway } from "@nseng-ai/brmem";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import type { RawPiExecOptions, RawPiExecResult } from "../src/host-types.ts";
 
@@ -204,9 +204,10 @@ export function branchContextExtensionTestOptions(
 				...createBranchContextContext(createPiCommandExecApi(pi), {
 					cwd,
 				}),
-				brmem: new InMemoryBranchMemoryGateway({
+				brmem: new FakeBrmemGateway({
 					currentBranch: SOURCE_BRANCH,
 					entries: entries.map((entry) => ({
+						namespace: BRANCH_CONTEXT_NAMESPACE,
 						branch: entry.branch,
 						key: entry.key,
 						content: entry.content ?? IMPL_PLAN_CONTENT,

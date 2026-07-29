@@ -18,8 +18,11 @@ import type {
 } from "@nseng-ai/sdk";
 import { describe, expect, test } from "vitest";
 
-import { formatHerdrHandoffTabRunFailure, launchHerdrHandoffTab } from "@nseng-ai/herdr/api";
-import { herdrHandoffTabLaunchNsCommand } from "@nseng-ai/herdr/ns/commands/handoff-tab-launch";
+import {
+	formatHerdrHandoffTabRunFailure,
+	herdrHandoffTabLaunchNsCommand,
+	launchHerdrHandoffTab,
+} from "@nseng-ai/herdr/api";
 import { registerHerdrHandoffTab } from "../src/pi/handoff-tab.ts";
 import { isExactOptionalIntegrationAbsence } from "../src/pi/extension.ts";
 import { FakeHerdrGateway } from "./herdr-test-harness.ts";
@@ -30,7 +33,6 @@ const launchOptions = {
 		"pi --provider anthropic --model claude-test --thinking high '/ns:handoff:pickup --branch feature continue-feature'",
 	workspaceId: "workspace-1",
 	slug: "continue-feature",
-	pickupCommand: "/ns:handoff:pickup --branch feature continue-feature",
 };
 
 const commandArgv = [
@@ -40,12 +42,6 @@ const commandArgv = [
 	"continue-work",
 	"--workspace-id",
 	"workspace-from-prompt",
-	"--provider",
-	"anthropic",
-	"--model",
-	"claude-test",
-	"--thinking",
-	"high",
 	"--launch-command",
 	"pi --provider anthropic --model claude-test --thinking high '/ns:handoff:pickup --branch feature/test continue-work'",
 ];
@@ -107,6 +103,7 @@ describe("Herdr Handoff tab destination", () => {
 		if (result.type !== "failed" || result.stage !== "run-in-pane") {
 			throw new Error("Expected run-in-pane failure");
 		}
+		expect(result.command).toBe(launchOptions.launchCommand);
 		expect(formatHerdrHandoffTabRunFailure(result)).toContain(
 			"Manual recovery: herdr pane run pane-2",
 		);
@@ -137,7 +134,6 @@ describe("ns herdr exec handoff-tab launch", () => {
 				tabId: "tab-1",
 				rootPaneId: "pane-1",
 				label: "handoff:continue-work",
-				pickupCommand: "/ns:handoff:pickup --branch feature/test continue-work",
 				command:
 					"pi --provider anthropic --model claude-test --thinking high '/ns:handoff:pickup --branch feature/test continue-work'",
 			},
@@ -180,9 +176,7 @@ describe("ns herdr exec handoff-tab launch", () => {
 		["blank branch", ["--branch", " "]],
 		["nested slug", ["--slug", "nested/slug"]],
 		["blank workspace", ["--workspace-id", " "]],
-		["blank provider", ["--provider", " "]],
-		["blank model", ["--model", " "]],
-		["invalid thinking", ["--thinking", "extreme"]],
+		["blank launch command", ["--launch-command", " "]],
 	])("rejects %s before verification or effects", async (_name, replacement) => {
 		const brmem = new EventBrmemGateway([]);
 		const herdr = new FakeHerdrGateway();
@@ -192,6 +186,18 @@ describe("ns herdr exec handoff-tab launch", () => {
 		expect(brmem.checkCalls).toBe(0);
 		expect(herdr.createTabCalls).toEqual([]);
 	});
+
+	test.each(["--provider", "--model", "--thinking"])(
+		"rejects removed profile option %s",
+		async (option) => {
+			const exit = await runNsCommand(new FakeHerdrNsApi(), [
+				...commandArgv,
+				option,
+				"legacy-value",
+			]);
+			expect(exit.type).toBe("usageError");
+		},
+	);
 
 	test("returns structured durable-reference recovery for Herdr failures", async () => {
 		const brmem = new FakeBrmemGateway();
@@ -238,6 +244,8 @@ describe("ns herdr exec handoff-tab launch", () => {
 				stage: "run-in-pane",
 				tabId: "tab-recovery",
 				rootPaneId: "pane-recovery",
+				command:
+					"pi --provider anthropic --model claude-test --thinking high '/ns:handoff:pickup --branch feature/test continue-work'",
 				manualRecoveryCommand: expect.stringContaining("herdr pane run pane-recovery"),
 			},
 		});
@@ -247,14 +255,25 @@ describe("ns herdr exec handoff-tab launch", () => {
 		const api = new FakeHerdrNsApi();
 		const help = await runNsCommandMeta(api, ["-h"]);
 		expect(help).toMatchObject({ type: "ok" });
-		if (help.type === "ok") expect(String(help.data)).toContain("--workspace-id");
+		if (help.type !== "ok") throw new Error("Expected help output");
+		const publishedHelp = String(help.data);
+		expect(publishedHelp).toContain("--workspace-id");
+		expect(publishedHelp).toContain("--launch-command");
+		expect(publishedHelp).not.toContain("--provider");
+		expect(publishedHelp).not.toContain("--model");
+		expect(publishedHelp).not.toContain("--thinking");
 		const schema = await runNsCommandMeta(api, ["--json-schema"]);
 		expect(schema).toMatchObject({ type: "ok" });
 		if (schema.type !== "ok") throw new Error("Expected JSON Schema output");
 		const publishedSchema = JSON.stringify(schema.data);
 		expect(publishedSchema).toContain("inputJsonSchema");
 		expect(publishedSchema).toContain("outputJsonSchema");
-		expect(publishedSchema).toContain("pickupCommand");
+		expect(publishedSchema).toContain("launchCommand");
+		expect(publishedSchema).toContain("command");
+		expect(publishedSchema).not.toContain("pickupCommand");
+		expect(publishedSchema).not.toContain('"provider"');
+		expect(publishedSchema).not.toContain('"model"');
+		expect(publishedSchema).not.toContain('"thinking"');
 		expect(publishedSchema).not.toContain("verify-handoff");
 		expect(publishedSchema).toContain('"status":{"type":"string","const":"ok"}');
 		expect(publishedSchema).toContain('"status":{"type":"string","const":"negative"}');
@@ -296,7 +315,12 @@ describe("Herdr Handoff Pi prompt", () => {
 		expect(prompt).toContain("ns herdr exec handoff-tab launch");
 		expect(prompt).toContain("--branch feature/test");
 		expect(prompt).toContain("--workspace-id 'workspace-'\\''quoted'");
-		expect(prompt).toContain("--provider anthropic --model claude-test --thinking high");
+		expect(prompt).not.toContain("--workspace-id 'workspace-'\\''quoted' --provider");
+		expect(prompt).not.toContain("--workspace-id 'workspace-'\\''quoted' --model");
+		expect(prompt).not.toContain("--workspace-id 'workspace-'\\''quoted' --thinking");
+		expect(prompt).toContain(
+			"--launch-command 'pi --provider anthropic --model claude-test --thinking high",
+		);
 		expect(prompt).toContain("--format json");
 		expect(prompt).toContain("reads and verifies the stored Handoff Artifact by branch and slug");
 		expect(prompt).toContain("do not pipe, quote, or otherwise send the Markdown artifact to it");

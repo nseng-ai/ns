@@ -7,7 +7,7 @@ import { describe, expect, test } from "vitest";
 import { runCommand } from "@nseng-ai/foundation/exec";
 import { graphiteBranchMetadataReadonlyJsonArgs } from "@nseng-ai/extension-kit/graphite/metadata";
 import { loadStackSnapshot } from "../../src/land/stack/stack-facts.ts";
-import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
+import type { LandExecutionApi } from "../../src/land/stack/types.ts";
 import { createRequiredCommandRunner } from "./support/run-required-command.ts";
 
 const REAL_GT_TEST_TIMEOUT_MS = 5 * 60_000;
@@ -185,7 +185,7 @@ async function sqliteJson(options: SqliteJsonOptions): Promise<unknown> {
 	return JSON.parse(output === "" ? "[]" : output) as unknown;
 }
 
-function makeLandStackPi(env: NodeJS.ProcessEnv): LandStackExtensionAPI {
+function makeLandStackPi(env: NodeJS.ProcessEnv): LandExecutionApi {
 	return {
 		async exec(command, args, options = {}) {
 			if (
