@@ -7,6 +7,9 @@ import { describe, expect, test } from "vitest";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../../../../../../../", import.meta.url));
 const PI_EXTENSIONS_PACKAGE_ROOT = fileURLToPath(new URL("../../", import.meta.url));
+const PI_HANDOFFS_PACKAGE_ROOT = fileURLToPath(
+	new URL("../../../../extensions/pi-ns-handoffs/", import.meta.url),
+);
 const PI_BIN = fileURLToPath(new URL("../../node_modules/.bin/pi", import.meta.url));
 const SDK_PACKAGE_ROOT = fileURLToPath(
 	new URL("../../../../../../../public/sdk/", import.meta.url),
@@ -28,8 +31,9 @@ const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@nseng-ai/sdk/cli",
 ] as const;
 
+const PI_HANDOFFS_EXPORT_IMPORTS = ["@nseng-ai/pi-ns-handoffs/claude-extension"] as const;
+
 const PI_RUNTIME_ADAPTER_EXPORT_IMPORTS = [
-	"@nseng-ai/pi-ns-handoffs/claude-extension",
 	"@nseng-ai/pi-runtime/commands/cli-command-live-progress",
 	"@nseng-ai/pi-runtime/core/model-shortcuts/extension",
 	"@nseng-ai/pi-runtime/core/pr/extension",
@@ -125,17 +129,34 @@ describe("Node runtime import smoke", () => {
 		expect(result.stdout).toContain("imported 5 package specifiers");
 	});
 
-	test("Pi adapter package exports import in a cold Node process", () => {
-		const result = runNodeEval({
-			cwd: PI_EXTENSIONS_PACKAGE_ROOT,
-			source: buildPackageImportScript(PI_RUNTIME_ADAPTER_EXPORT_IMPORTS),
-		});
+	test("Pi adapter package exports import in cold Node processes", () => {
+		const packageImports = [
+			{
+				cwd: PI_HANDOFFS_PACKAGE_ROOT,
+				label: "Pi Handoffs adapter package exports",
+				specifiers: PI_HANDOFFS_EXPORT_IMPORTS,
+			},
+			{
+				cwd: PI_EXTENSIONS_PACKAGE_ROOT,
+				label: "Pi Runtime adapter exports",
+				specifiers: PI_RUNTIME_ADAPTER_EXPORT_IMPORTS,
+			},
+		] as const;
 
-		expectSuccessfulNodeRun(result, {
-			cwd: PI_EXTENSIONS_PACKAGE_ROOT,
-			label: "Pi adapter package exports",
-		});
-		expect(result.stdout).toContain("imported 5 package specifiers");
+		for (const packageImport of packageImports) {
+			const result = runNodeEval({
+				cwd: packageImport.cwd,
+				source: buildPackageImportScript(packageImport.specifiers),
+			});
+
+			expectSuccessfulNodeRun(result, {
+				cwd: packageImport.cwd,
+				label: packageImport.label,
+			});
+			expect(result.stdout).toContain(
+				`imported ${packageImport.specifiers.length} package specifiers`,
+			);
+		}
 	});
 
 	test("SDK package imports every declared export subpath under Node", () => {

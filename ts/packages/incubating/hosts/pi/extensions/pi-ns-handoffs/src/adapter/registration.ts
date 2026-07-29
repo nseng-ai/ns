@@ -2,7 +2,7 @@ import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/a
 import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import { createPiHandoffContext } from "./api-context.ts";
-import { createHandoffLaunchIntegration } from "../create-flow/index.ts";
+import { createHandoffLaunchIntegration } from "./handoff-launch.ts";
 import { createHandoffSelfWorkflow } from "./self.ts";
 import { handleCreateHandoffCommand } from "./create.ts";
 import { handleListHandoffCommand, handlePickupHandoffCommand } from "./pickup-list.ts";

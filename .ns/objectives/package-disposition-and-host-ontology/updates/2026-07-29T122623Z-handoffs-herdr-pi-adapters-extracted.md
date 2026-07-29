@@ -10,7 +10,7 @@ ADR 0047 records the curated adapter-composition rule. The optional `@nseng-ai/p
 
 ## Evidence
 
-The old `@nseng-ai/handoffs/pi*` and `@nseng-ai/herdr/pi*` exports and project-local forwarding adapters were removed. `.pi/settings.json` now discovers both package manifests directly. Package typechecks and focused tests passed for Handoffs, the Handoffs Pi adapter, Herdr, and the Herdr Pi adapter, including the base/full optional Herdr catalogs and durable-reference launch scenarios.
+The old `@nseng-ai/handoffs/pi*` and `@nseng-ai/herdr/pi*` exports and project-local forwarding adapters were removed. `.pi/settings.json` now discovers both package manifests directly. Package typechecks and focused tests passed for Handoffs, the Handoffs Pi adapter, Herdr, and the Herdr Pi adapter, including the base/full optional Herdr catalogs and durable-reference launch scenarios. The topology-circle guard, default suite, integration lane, isolated lane, and full `just` validation passed after making the curated `create-flow` subpackage a one-way export over adapter-owned implementation.
 
 ## Remaining Objective work
 
