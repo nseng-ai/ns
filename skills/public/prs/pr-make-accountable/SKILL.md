@@ -23,9 +23,10 @@ Why is this change needed? What problem does it solve?
 
 Opening orientation bullets — scaled to the scope of the change — naming the
 mechanism, where it lives, and which consumers change; then one bullet per
-judgment call, tradeoff, or limitation
-the diff cannot defend on its own, each explained from zero. Defer
-code-visible detail to the diff.
+judgment call, tradeoff, or limitation the diff cannot defend on its own,
+each stated in one sentence. A rationale thread that spans several changes
+may instead be carried once by a short prose paragraph. Defer code-visible
+detail to the diff.
 
 ## Reviewer focus
 
@@ -152,9 +153,21 @@ In `## Changes`:
   mechanism, where it lives, and which consumers change. Give a reviewer a
   map, not a file inventory.
 - Spend the remaining bullets only on judgment calls, risks, tradeoffs, and
-  limitations the diff cannot communicate on its own, each explained from
-  zero, including any mechanism needed to understand it. Assume codebase
+  limitations the diff cannot communicate on its own. State each in one
+  sentence; add a second only when the judgment call genuinely needs it. Name
+  the mechanism and where it lives; do not teach it from zero. Assume codebase
   familiarity, not session or workflow familiarity.
+- Budget the section: typically three to six bullets total, including
+  orientation. Before exceeding that, merge related decisions into one bullet
+  or route the content elsewhere per the rules below.
+- When one rationale thread genuinely spans several changes, write it once as
+  a short prose paragraph (two to four sentences) between the orientation and
+  decision bullets, and keep the affected bullets to one-line pointers into
+  it. Use this instead of repeating or splitting the rationale across bullets.
+- Route content at the wrong altitude out of the section: motivation belongs
+  in `## Why`; hotspots the reviewer must scrutinize belong in
+  `## Reviewer focus`; rationale already recorded in the diff (for example in
+  an ADR) gets a one-clause pointer, not a restatement.
 - Defer lookupable, code-visible facts to the diff — error-code lists,
   type/state plumbing, dependency removals, test updates. Mention such a fact
   only when it embodies a deliberate design decision, and then in one short
