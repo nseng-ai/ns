@@ -30,6 +30,7 @@ import type {
 	RawPiExecOptions,
 	SessionStartContext,
 } from "@nseng-ai/pi-runtime/runtime/types";
+import type { ToolContext, ToolDefinition } from "@nseng-ai/pi-runtime/runtime/tool-types";
 
 const ROOT = process.cwd();
 const TRUNK = "master";
@@ -93,6 +94,11 @@ interface Selection {
 	items: string[];
 }
 
+interface SentUserMessage {
+	content: string;
+	options: { deliverAs?: "steer" | "followUp" } | undefined;
+}
+
 type EventName = "agent_end" | "session_start";
 type AgentEndHandler = (_event: unknown, ctx: AgentEndContext) => Promise<void> | void;
 type SessionStartHandler = (_event: unknown, ctx: SessionStartContext) => Promise<void> | void;
@@ -101,8 +107,10 @@ class FakePi implements ObjectiveExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
 	readonly messageRenderers = new Map<string, MessageRenderer>();
+	readonly tools = new Map<string, ToolDefinition>();
 	readonly sentMessages: Parameters<NonNullable<ObjectiveExtensionAPI["sendMessage"]>>[0][] = [];
 	readonly sentUserMessages: string[] = [];
+	readonly sentUserMessageCalls: SentUserMessage[] = [];
 	readonly sendMessage = (
 		message: Parameters<NonNullable<ObjectiveExtensionAPI["sendMessage"]>>[0],
 	): void => {
@@ -136,6 +144,10 @@ class FakePi implements ObjectiveExtensionAPI {
 
 	registerMessageRenderer(customType: string, renderer: MessageRenderer): void {
 		this.messageRenderers.set(customType, renderer);
+	}
+
+	registerTool(definition: ToolDefinition): void {
+		this.tools.set(definition.name, definition);
 	}
 
 	async exec(
@@ -196,8 +208,9 @@ class FakePi implements ObjectiveExtensionAPI {
 		return this.commandInfos;
 	}
 
-	sendUserMessage(content: string): void {
+	sendUserMessage(content: string, options?: { deliverAs?: "steer" | "followUp" }): void {
 		this.sentUserMessages.push(content);
+		this.sentUserMessageCalls.push({ content, options });
 	}
 
 	async emitSessionStart(ctx: SessionStartContext): Promise<void> {
@@ -209,6 +222,33 @@ class FakePi implements ObjectiveExtensionAPI {
 	assertDone(): void {
 		this.script.assertDone();
 	}
+}
+
+function createToolContext(
+	options: {
+		hasUI?: boolean;
+		select?: (title: string, items: string[]) => Promise<string | undefined>;
+		setEditorText?: (value: string) => void;
+	} = {},
+): ToolContext {
+	return {
+		cwd: ROOT,
+		hasUI: options.hasUI ?? true,
+		mode: "tui",
+		sessionManager: createTestSessionReader(),
+		ui: {
+			notify(): void {},
+			...(options.select === undefined ? {} : { select: options.select }),
+			...(options.setEditorText === undefined ? {} : { setEditorText: options.setEditorText }),
+		},
+	};
+}
+
+function registeredPromptActionTool(pi: FakePi): ToolDefinition {
+	const tool = pi.tools.get("objective_next_prompt_action");
+	expect(tool).toBeDefined();
+	if (tool === undefined) throw new Error("objective_next_prompt_action was not registered");
+	return tool;
 }
 
 function sameArgs(left: string[], right: string[]): boolean {
@@ -553,6 +593,130 @@ async function objectiveCommandCompletions(
 	const items = await command.getArgumentCompletions(prefix);
 	return { pi, items };
 }
+
+describe("objective-next prompt action tool", () => {
+	test("registers a strict, narrowly described prompt tool", () => {
+		const pi = new FakePi();
+		objectiveExtension(pi);
+
+		const tool = registeredPromptActionTool(pi);
+		expect(tool.parameters).toEqual({
+			type: "object",
+			properties: {
+				prompt: {
+					type: "string",
+					minLength: 1,
+					description:
+						"Exact content of the single proposed prompt, without its Markdown label or fence.",
+				},
+			},
+			required: ["prompt"],
+			additionalProperties: false,
+		});
+		expect(tool.promptSnippet).toBeUndefined();
+		expect(tool.promptGuidelines).toBeUndefined();
+	});
+
+	test.each([
+		["Execute it now", "executed"],
+		["Put it in input area", "editor-replaced"],
+		["I’ll do it myself, thank you", "dismissed"],
+	] as const)("handles %s without rewriting the prompt", async (selection, outcome) => {
+		const pi = new FakePi();
+		objectiveExtension(pi);
+		const editorValues: string[] = [];
+		const selections: Selection[] = [];
+		const prompt = "  Exact prompt\nwith trailing space  ";
+		const result = await registeredPromptActionTool(pi).execute(
+			"call-1",
+			{ prompt },
+			undefined,
+			undefined,
+			createToolContext({
+				select: async (title, items) => {
+					selections.push({ title, items: [...items] });
+					return selection;
+				},
+				setEditorText: (value) => editorValues.push(value),
+			}),
+		);
+
+		expect(result).toMatchObject({ details: { outcome }, terminate: true });
+		expect(selections[0]?.items).toEqual([
+			"Execute it now",
+			"Put it in input area",
+			"I’ll do it myself, thank you",
+		]);
+		expect(pi.sentUserMessageCalls).toEqual(
+			selection === "Execute it now"
+				? [{ content: prompt, options: { deliverAs: "followUp" } }]
+				: [],
+		);
+		expect(editorValues).toEqual(selection === "Put it in input area" ? [prompt] : []);
+	});
+
+	test.each([
+		[
+			"cancelled selection",
+			{ prompt: "do work" },
+			createToolContext({ select: async () => undefined }),
+			"cancelled",
+		],
+		["missing UI", { prompt: "do work" }, createToolContext({ hasUI: false }), "ui-unavailable"],
+		["missing select", { prompt: "do work" }, createToolContext(), "ui-unavailable"],
+		[
+			"blank prompt",
+			{ prompt: "   " },
+			createToolContext({ select: async () => "Execute it now" }),
+			"invalid-input",
+		],
+	] as const)("takes no action for %s", async (_name, params, ctx, outcome) => {
+		const pi = new FakePi();
+		objectiveExtension(pi);
+		const result = await registeredPromptActionTool(pi).execute(
+			"call-1",
+			params,
+			undefined,
+			undefined,
+			ctx,
+		);
+
+		expect(result).toMatchObject({ details: { outcome }, terminate: true });
+		expect(pi.sentUserMessageCalls).toEqual([]);
+	});
+
+	test("does not execute when editor placement is selected without an editor setter", async () => {
+		const pi = new FakePi();
+		objectiveExtension(pi);
+		const result = await registeredPromptActionTool(pi).execute(
+			"call-1",
+			{ prompt: "do work" },
+			undefined,
+			undefined,
+			createToolContext({ select: async () => "Put it in input area" }),
+		);
+
+		expect(result).toMatchObject({ details: { outcome: "ui-unavailable" }, terminate: true });
+		expect(pi.sentUserMessageCalls).toEqual([]);
+	});
+
+	test("takes no action when already aborted", async () => {
+		const pi = new FakePi();
+		objectiveExtension(pi);
+		const controller = new AbortController();
+		controller.abort();
+		const result = await registeredPromptActionTool(pi).execute(
+			"call-1",
+			{ prompt: "do work" },
+			controller.signal,
+			undefined,
+			createToolContext({ select: async () => "Execute it now" }),
+		);
+
+		expect(result).toMatchObject({ details: { outcome: "cancelled" }, terminate: true });
+		expect(pi.sentUserMessageCalls).toEqual([]);
+	});
+});
 
 describe("ns:objective:list command", () => {
 	test("renders accepted status arguments through the Objective Extension API", async () => {
@@ -1507,5 +1671,23 @@ Use the selected Objective.
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).not.toContain("normal post-selection evidence workflow");
+	});
+
+	test("only objective-next receives the single-prompt chooser contract", async () => {
+		for (const commandName of OBJECTIVE_COMMAND_NAMES) {
+			const result = await runObjectiveCommand(commandName, "bravo");
+			const prompt = result.pi.sentUserMessages[0] ?? "";
+			if (commandName === "ns:objective:next") {
+				expect(prompt).toContain("emit the normal complete objective-next decision packet first");
+				expect(prompt).toContain("exactly one Proposed prompt");
+				expect(prompt).toContain("byte-for-byte proposed prompt content");
+				expect(prompt).toContain(
+					"Never call the tool for a co-equal prompt set or a Declined packet",
+				);
+				expect(prompt).toContain("unavailable or no-action outcome");
+			} else {
+				expect(prompt).not.toContain("objective_next_prompt_action");
+			}
+		}
 	});
 });
