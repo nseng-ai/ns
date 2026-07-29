@@ -12,12 +12,14 @@ import {
 	BAN_EXPORTS_SUBPACKAGE_CONFORMANCE,
 	BAN_EXTENSION_DEPENDENCY_CYCLE,
 	BAN_EXTENSION_DESCRIPTOR_STATIC_IMPORT,
+	BAN_EXTENSION_PI_SURFACE,
 	BAN_EXTENSION_PRIVATE_PEER_IMPORT,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
 	BAN_INTERNAL_SPACE_ADMISSION,
 	BAN_LOWER_LAYER_CONCRETE_EXTENSION_SURFACE,
 	BAN_PACKAGE_DISPOSITION_TOPOLOGY,
 	BAN_PACKAGE_TIER_LAYERING,
+	BAN_PI_ADAPTER_EXTENSION_IMPORT,
 	BAN_RAW_PRODUCTION_TIMERS,
 	BAN_SHARED_TEST_FAKE_TIMERS,
 	BAN_SHARED_TEST_GLOBAL_LISTENERS,
@@ -42,7 +44,9 @@ import { collectExportsSubpackageConformanceViolations } from "@internal/typescr
 import { findTypeScriptSourceFiles } from "@internal/typescript-style-guard/file-discovery";
 import { collectInternalSpaceAdmissionViolations } from "@internal/typescript-style-guard/internal-space";
 import {
+	collectExtensionPiSurfaceViolations,
 	collectPackageDispositionViolations,
+	collectPiAdapterExtensionImportViolations,
 	type PackageDispositionId,
 } from "@internal/typescript-style-guard/package-disposition";
 import {
@@ -904,7 +908,7 @@ describe("TypeScript style guard package disposition topology rules", () => {
 			expectedViolation: false,
 		},
 		{
-			name: "a deeply owner-nested internal package is allowed",
+			name: "a Pi extension owner package must use adapter naming and disposition",
 			packages: [
 				dispositionPackage({
 					name: "@internal/harness-session",
@@ -912,7 +916,8 @@ describe("TypeScript style guard package disposition topology rules", () => {
 					privateValue: true,
 				}),
 			],
-			expectedViolation: false,
+			expectedTextIncludes: "must have public or incubating disposition",
+			expectedViolationCount: 3,
 		},
 		{
 			name: "a legacy role directory is rejected rather than skipped",
@@ -1257,8 +1262,627 @@ describe("TypeScript style guard package disposition topology rules", () => {
 		expect(violations[0]?.line).toBe(3);
 	});
 
-	test("real repo package manifests satisfy the disposition ontology", () => {
-		const violations = collectPackageDispositionViolations(loadPackageMetadata(REPO_ROOT));
+	test("real repo package manifests and sources satisfy the disposition ontology", () => {
+		const sourceFiles = collectTypeScriptSourcePaths(REPO_ROOT).map((path) => ({
+			path,
+			content: readFileSync(join(REPO_ROOT, path), "utf8"),
+		}));
+		const violations = collectPackageDispositionViolations(
+			loadPackageMetadata(REPO_ROOT),
+			sourceFiles,
+		);
+
+		expect(formatViolations(violations)).toBe("");
+	});
+});
+
+describe("TypeScript style guard Pi ownership topology rules", () => {
+	const extension = dispositionPackage({
+		name: "@nseng-ai/widgets",
+		packageDir: "ts/packages/incubating/extensions/widgets",
+		tier: "extension",
+		exports: ["./api", "."],
+	});
+	const adapter = dispositionPackage({
+		name: "@nseng-ai/pi-ns-widgets",
+		packageDir: "ts/packages/incubating/hosts/pi/extensions/pi-ns-widgets",
+		tier: "host",
+		exports: [".", "./extension", "./bridge"],
+		dependencies: ["@nseng-ai/widgets"],
+	});
+
+	test.each([
+		{
+			name: "rejects a pi-ns identity outside the exact adapter owner",
+			packages: [
+				extension,
+				dispositionPackage({
+					...adapter,
+					packageDir: "ts/packages/incubating/hosts/pi/tools/pi-ns-widgets",
+				}),
+			],
+			expected: "must live directly under a hosts/pi/extensions owner path",
+		},
+		{
+			name: "rejects an adapter owner package with the wrong identity",
+			packages: [
+				extension,
+				dispositionPackage({
+					name: "@nseng-ai/widgets-pi",
+					packageDir: "ts/packages/incubating/hosts/pi/extensions/widgets-pi",
+					tier: "host",
+				}),
+			],
+			expected: "must be named @nseng-ai/pi-ns-<nonempty-domain>",
+		},
+		{
+			name: "rejects an empty adapter domain",
+			packages: [
+				dispositionPackage({
+					name: "@nseng-ai/pi-ns-",
+					packageDir: "ts/packages/incubating/hosts/pi/extensions/pi-ns-",
+					tier: "host",
+				}),
+			],
+			expected: "must be named @nseng-ai/pi-ns-<nonempty-domain>",
+		},
+		{
+			name: "rejects a wrong-scope pi-ns identity",
+			packages: [
+				dispositionPackage({
+					name: "@internal/pi-ns-widgets",
+					packageDir: "ts/packages/internal/hosts/pi/extensions/pi-ns-widgets",
+					privateValue: true,
+					tier: "host",
+				}),
+			],
+			expected: "must have public or incubating disposition",
+		},
+		{
+			name: "rejects an extension owner with the wrong tier",
+			packages: [dispositionPackage({ ...extension, tier: "host" })],
+			expected: "is owned by extensions/ and must declare ns.tier extension",
+		},
+		{
+			name: "rejects an adapter with the wrong tier",
+			packages: [extension, dispositionPackage({ ...adapter, tier: "extension" })],
+			expected: "must declare ns.tier host",
+		},
+		{
+			name: "rejects an adapter without a Pi extension entrypoint",
+			packages: [extension, dispositionPackage({ ...adapter, piExtensions: [] })],
+			expected: "must declare at least one package-level pi.extensions entrypoint",
+		},
+		{
+			name: "rejects an adapter without its derived matching extension",
+			packages: [adapter],
+			expected: "expects matching ns extension @nseng-ai/widgets",
+		},
+		{
+			name: "rejects a dev-only edge to the matching extension",
+			packages: [
+				extension,
+				dispositionPackage({
+					...adapter,
+					dependencies: [],
+					devDependencies: ["@nseng-ai/widgets"],
+				}),
+			],
+			expected: "devDependencies do not satisfy adapter composition",
+		},
+	])("$name", ({ packages, expected }) => {
+		const violations = collectPackageDispositionViolations(
+			buildDispositionSyntheticMetadata(packages),
+		);
+
+		expect(
+			violations.every((violation) => violation.rule === BAN_PACKAGE_DISPOSITION_TOPOLOGY),
+		).toBe(true);
+		expect(formatViolations(violations)).toContain(expected);
+	});
+
+	test("allows the derived adapter shape with an optional runtime workspace edge", () => {
+		const optionalAdapter = dispositionPackage({
+			...adapter,
+			dependencies: [],
+			optionalDependencies: ["@nseng-ai/widgets"],
+		});
+
+		expect(
+			formatViolations(
+				collectPackageDispositionViolations(
+					buildDispositionSyntheticMetadata([extension, optionalAdapter]),
+				),
+			),
+		).toBe("");
+	});
+
+	test.each([
+		{
+			name: "pi subpackage",
+			mutated: dispositionPackage({ ...extension, subpackages: ["api", "pi/runtime"] }),
+			expected: "Pi-owned ns.subpackages entry pi/runtime",
+		},
+		{
+			name: "pi export",
+			mutated: dispositionPackage({ ...extension, exports: ["./api", "./pi/extension"] }),
+			expected: "Pi-owned export ./pi/extension",
+		},
+		{
+			name: "Pi runtime dependency",
+			mutated: dispositionPackage({
+				...extension,
+				dependencies: ["@nseng-ai/pi-runtime"],
+			}),
+			expected: "runtime-depend on Pi host package @nseng-ai/pi-runtime",
+		},
+		{
+			name: "direct Pi SDK peer",
+			mutated: dispositionPackage({
+				...extension,
+				peerDependencies: ["@earendil-works/pi-coding-agent"],
+			}),
+			expected: "runtime-depend on Pi host package @earendil-works/pi-coding-agent",
+		},
+	])("rejects an ns extension $name", ({ mutated, expected }) => {
+		const violations = collectPackageDispositionViolations(
+			buildDispositionSyntheticMetadata([mutated]),
+		);
+
+		expect(formatViolations(violations)).toContain(expected);
+		expect(violations[0]?.path).toContain("package.json");
+		expect(violations[0]?.line).toBeGreaterThan(0);
+	});
+
+	test("reports one deterministic src/pi path-boundary diagnostic", () => {
+		const metadata = buildDispositionSyntheticMetadata([extension]);
+		const violations = collectPackageDispositionViolations(metadata, [
+			{
+				path: "ts/packages/incubating/extensions/widgets/src/pi/a.ts",
+				content: "export {};",
+			},
+			{
+				path: "ts/packages/incubating/extensions/widgets/src/pi/z.ts",
+				content: "export {};",
+			},
+		]);
+
+		expect(violations).toHaveLength(1);
+		expect(violations[0]).toMatchObject({
+			rule: BAN_PACKAGE_DISPOSITION_TOPOLOGY,
+			path: "ts/packages/incubating/extensions/widgets/src/pi/a.ts",
+			line: 1,
+			column: 1,
+		});
+	});
+
+	test.each([
+		{
+			name: "static import",
+			code: 'import { x } from "@nseng-ai/pi-runtime/runtime/types";',
+			expectedColumn: 19,
+		},
+		{
+			name: "type import",
+			code: 'import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";',
+			expectedColumn: 35,
+		},
+		{
+			name: "re-export",
+			code: 'export { x } from "@earendil-works/pi-tui";',
+			expectedColumn: 19,
+		},
+		{
+			name: "literal dynamic import",
+			code: 'const runtime = import("@nseng-ai/pi-runtime/runtime/types");',
+			expectedColumn: 24,
+		},
+	])("rejects ns extension production $name of Pi host code", ({ code, expectedColumn }) => {
+		const path = "ts/packages/incubating/extensions/widgets/src/example.ts";
+		const violations = collectPackageDispositionViolations(
+			buildDispositionSyntheticMetadata([extension]),
+			[{ path, content: `const before = true;\n${code}` }],
+		);
+
+		expect(violations).toHaveLength(1);
+		expect(violations[0]).toMatchObject({
+			rule: BAN_PACKAGE_DISPOSITION_TOPOLOGY,
+			path,
+			line: 2,
+			column: expectedColumn,
+		});
+	});
+
+	test("rejects high-confidence receiver registration calls but allows ordinary domain register functions", () => {
+		const path = "ts/packages/incubating/extensions/widgets/src/register.ts";
+		const violations = collectPackageDispositionViolations(
+			buildDispositionSyntheticMetadata([extension]),
+			[
+				{
+					path,
+					content:
+						'registerCommand(definition);\nregistry.registerWidget(definition);\nworkflowRegistry.registerCommand(definition);\npi.registerCommand("ns:widgets:x", definition);\nextensionApi["registerTool"](tool);',
+				},
+			],
+		);
+
+		expect(violations).toHaveLength(2);
+		expect(violations.map((violation) => violation.line)).toEqual([4, 5]);
+		expect(violations.every((violation) => violation.column > 0)).toBe(true);
+	});
+
+	test.each([
+		{
+			name: "matching root import",
+			code: 'import { x } from "@nseng-ai/widgets";',
+			expected: "exactly through @nseng-ai/widgets/api",
+		},
+		{
+			name: "matching declared non-api import",
+			code: 'import type { X } from "@nseng-ai/widgets/testing";',
+			expected: "exactly through @nseng-ai/widgets/api",
+		},
+		{
+			name: "matching private re-export",
+			code: 'export { x } from "@nseng-ai/widgets/src/private.ts";',
+			expected: "exactly through @nseng-ai/widgets/api",
+		},
+		{
+			name: "matching dynamic deep import",
+			code: 'const x = import("@nseng-ai/widgets/internal/helper");',
+			expected: "exactly through @nseng-ai/widgets/api",
+		},
+		{
+			name: "other extension private import",
+			code: 'import { x } from "@nseng-ai/other/src/private.ts";',
+			expected: "private or undeclared subpath ./src/private.ts",
+		},
+		{
+			name: "other extension undeclared import",
+			code: 'import { x } from "@nseng-ai/other/private";',
+			expected: "private or undeclared subpath ./private",
+		},
+		{
+			name: "adapter private import",
+			code: 'export { x } from "@nseng-ai/pi-ns-other/src/private.ts";',
+			expected: "adapter composition requires a declared curated export",
+		},
+	])("rejects adapter $name", ({ code, expected }) => {
+		const otherExtension = dispositionPackage({
+			name: "@nseng-ai/other",
+			packageDir: "ts/packages/incubating/extensions/other",
+			tier: "extension",
+			exports: [".", "./api"],
+		});
+		const otherAdapter = dispositionPackage({
+			name: "@nseng-ai/pi-ns-other",
+			packageDir: "ts/packages/incubating/hosts/pi/extensions/pi-ns-other",
+			tier: "host",
+			exports: [".", "./bridge"],
+			dependencies: ["@nseng-ai/other"],
+		});
+		const path = "ts/packages/incubating/hosts/pi/extensions/pi-ns-widgets/test/imports.test.ts";
+		const violations = collectPackageDispositionViolations(
+			buildDispositionSyntheticMetadata([extension, adapter, otherExtension, otherAdapter]),
+			[{ path, content: `const before = 1;\n${code}` }],
+		);
+
+		expect(formatViolations(violations)).toContain(expected);
+		expect(violations.some((violation) => violation.path === path && violation.line === 2)).toBe(
+			true,
+		);
+	});
+
+	test("allows matching /api, declared non-private imports from other extensions, and curated adapter exports", () => {
+		const otherExtension = dispositionPackage({
+			name: "@nseng-ai/other",
+			packageDir: "ts/packages/incubating/extensions/other",
+			tier: "extension",
+			exports: [".", "./api", "./testing"],
+		});
+		const otherAdapter = dispositionPackage({
+			name: "@nseng-ai/pi-ns-other",
+			packageDir: "ts/packages/incubating/hosts/pi/extensions/pi-ns-other",
+			tier: "host",
+			exports: [".", "./bridge"],
+			dependencies: ["@nseng-ai/other"],
+		});
+		const path = "ts/packages/incubating/hosts/pi/extensions/pi-ns-widgets/src/imports.ts";
+		const content = [
+			'import { widget } from "@nseng-ai/widgets/api";',
+			'import type { Other } from "@nseng-ai/other";',
+			'export { other } from "@nseng-ai/other/api";',
+			'import { helper } from "@nseng-ai/other/testing";',
+			'const bridge = import("@nseng-ai/pi-ns-other/bridge");',
+		].join("\n");
+
+		expect(
+			formatViolations(
+				collectPackageDispositionViolations(
+					buildDispositionSyntheticMetadata([extension, adapter, otherExtension, otherAdapter]),
+					[{ path, content }],
+				),
+			),
+		).toBe("");
+	});
+
+	test("derives and checks every real adapter and matching extension without a production allowlist", () => {
+		const metadata = loadPackageMetadata(REPO_ROOT);
+		const adapterNames = [...metadata.values()]
+			.filter((entry) => entry.packageDir.includes("/hosts/pi/extensions/pi-ns-"))
+			.map((entry) => entry.name)
+			.sort();
+
+		expect(adapterNames.length).toBeGreaterThan(0);
+		for (const adapterName of adapterNames) {
+			const domain = adapterName.slice("@nseng-ai/pi-ns-".length);
+			const extension = metadata.get(`@nseng-ai/${domain}`);
+			expect(extension?.packageDir).toMatch(/\/extensions\/[^/]+$/);
+			expect(extension?.nsTier).toBe("extension");
+		}
+	});
+});
+
+describe("TypeScript style guard extension Pi surface rules", () => {
+	const cases: readonly ExtensionPiSurfaceCase[] = [
+		{
+			name: "an extension declaring a pi subpackage is rejected",
+			packages: [piSurfacePackage({ subpackages: ["api", "core", "pi"] })],
+			expectedTextIncludes: 'declares "pi" in ns.subpackages',
+			expectedViolationCount: 1,
+		},
+		{
+			name: "an extension declaring a ./pi export is rejected",
+			packages: [piSurfacePackage({ exportKeys: [".", "./api", "./pi"] })],
+			expectedTextIncludes: "declares the ./pi export subpath",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "an extension declaring a nested ./pi/ export is rejected",
+			packages: [piSurfacePackage({ exportKeys: [".", "./api", "./pi/extension"] })],
+			expectedTextIncludes: "declares the ./pi/extension export subpath",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "a ./pi-prefixed name that is not the ./pi subtree is allowed",
+			packages: [piSurfacePackage({ exportKeys: [".", "./api", "./pi-launch", "./pi-types"] })],
+			expectedViolation: false,
+		},
+		{
+			name: "an extension with pi-runtime in dependencies is rejected",
+			packages: [piSurfacePackage({ dependencies: ["@nseng-ai/pi-runtime"] })],
+			expectedTextIncludes: "declares @nseng-ai/pi-runtime in dependencies",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "an extension with pi-runtime in optionalDependencies is rejected",
+			packages: [piSurfacePackage({ optionalDependencies: ["@nseng-ai/pi-runtime"] })],
+			expectedTextIncludes: "declares @nseng-ai/pi-runtime in optionalDependencies",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "an extension with pi-runtime in peerDependencies is rejected",
+			packages: [piSurfacePackage({ peerDependencies: ["@nseng-ai/pi-runtime"] })],
+			expectedTextIncludes: "declares @nseng-ai/pi-runtime in peerDependencies",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "a pi-runtime devDependency cannot affect a produced extension and is allowed",
+			packages: [piSurfacePackage({ devDependencies: ["@nseng-ai/pi-runtime"] })],
+			expectedViolation: false,
+		},
+		{
+			name: "a non-extension package may declare ./pi exports and a pi-runtime dependency",
+			packages: [
+				piSurfacePackage({
+					name: "@nseng-ai/pi-ns-widgets",
+					packageDir: "ts/packages/incubating/hosts/pi/extensions/pi-ns-widgets",
+					tier: "host",
+					exportKeys: [".", "./pi", "./pi/extension"],
+					dependencies: ["@nseng-ai/pi-runtime"],
+				}),
+			],
+			expectedViolation: false,
+		},
+		{
+			name: "every Pi surface defect on one extension is reported individually",
+			packages: [
+				piSurfacePackage({
+					subpackages: ["api", "pi"],
+					exportKeys: [".", "./api", "./pi"],
+					peerDependencies: ["@nseng-ai/pi-runtime"],
+				}),
+			],
+			expectedViolationCount: 3,
+		},
+	];
+
+	test.each(cases)("$name", (testCase) => {
+		const violations = collectExtensionPiSurfaceViolations(
+			buildPiSurfaceSyntheticMetadata(testCase.packages),
+		);
+
+		expect(violations.every((violation) => violation.rule === BAN_EXTENSION_PI_SURFACE)).toBe(true);
+		expect(violations.length > 0).toBe(testCase.expectedViolation ?? true);
+		const expectedTextIncludes = testCase.expectedTextIncludes;
+		if (expectedTextIncludes !== undefined) {
+			expect(violations.some((violation) => violation.text.includes(expectedTextIncludes))).toBe(
+				true,
+			);
+		}
+		const expectedViolationCount = testCase.expectedViolationCount;
+		if (expectedViolationCount !== undefined) {
+			expect(formatViolations(violations).split("\n").filter(Boolean)).toHaveLength(
+				expectedViolationCount,
+			);
+		}
+	});
+
+	test("a violation points at the offending manifest key", () => {
+		const violations = collectExtensionPiSurfaceViolations(
+			buildPiSurfaceSyntheticMetadata([
+				piSurfacePackage({ peerDependencies: ["@nseng-ai/pi-runtime"] }),
+			]),
+		);
+
+		expect(violations).toHaveLength(1);
+		expect(violations[0]?.path).toBe("ts/packages/incubating/extensions/widgets/package.json");
+		expect(violations[0]?.line).toBeGreaterThan(1);
+	});
+
+	test("real repo ns extensions carry no Pi surface", () => {
+		const violations = collectExtensionPiSurfaceViolations(loadPackageMetadata(REPO_ROOT));
+
+		expect(formatViolations(violations)).toBe("");
+	});
+});
+
+describe("TypeScript style guard pi-ns-* adapter extension import rules", () => {
+	const adapterDir = "ts/packages/incubating/hosts/pi/extensions/pi-ns-widgets";
+	const cases: readonly PiAdapterImportCase[] = [
+		{
+			name: "a production import of the extension's curated /api is allowed",
+			code: 'import { listWidgets } from "@nseng-ai/widgets/api";',
+			expectedViolation: false,
+		},
+		{
+			name: "a production import of a declared /api/ subpath is allowed",
+			code: 'import { promptAssets } from "@nseng-ai/widgets/api/prompt-assets";',
+			expectedViolation: false,
+		},
+		{
+			name: "an undeclared /api/ subpath is rejected",
+			code: 'import { hidden } from "@nseng-ai/widgets/api/undeclared";',
+			expectedTextIncludes: "not a declared export subpath of @nseng-ai/widgets",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "a production import of the extension package root is rejected",
+			code: 'import { core } from "@nseng-ai/widgets";',
+			expectedTextIncludes: "curated API subpath (@nseng-ai/widgets/api)",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "a production deep src import is rejected",
+			code: 'import { create } from "@nseng-ai/widgets/src/core/create.ts";',
+			expectedTextIncludes: "curated API subpath (@nseng-ai/widgets/api)",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "a production import of a declared non-api subpath is rejected",
+			code: 'import descriptor from "@nseng-ai/widgets/ns-extension";',
+			expectedTextIncludes: "curated API subpath (@nseng-ai/widgets/api)",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "a test import of the extension's declared /testing surface is allowed",
+			path: `${adapterDir}/test/widgets-extension.test.ts`,
+			code: 'import { InMemoryWidgetGateway } from "@nseng-ai/widgets/testing";',
+			expectedViolation: false,
+		},
+		{
+			name: "a test import of deep extension src is rejected",
+			path: `${adapterDir}/test/widgets-extension.test.ts`,
+			code: 'import { create } from "@nseng-ai/widgets/src/core/create.ts";',
+			expectedTextIncludes: "banned even in adapter tests",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "a test import of an undeclared extension subpath is rejected",
+			path: `${adapterDir}/test/widgets-extension.test.ts`,
+			code: 'import { helper } from "@nseng-ai/widgets/private-helper";',
+			expectedTextIncludes: "banned even in adapter tests",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "a test import of a declared non-api extension subpath is allowed",
+			path: `${adapterDir}/test/widgets-extension.test.ts`,
+			code: 'import descriptor from "@nseng-ai/widgets/ns-extension";',
+			expectedViolation: false,
+		},
+		{
+			name: "non-extension package imports are governed by other rules, not this one",
+			code: 'import { RealGitGateway } from "@nseng-ai/foundation/git";',
+			expectedViolation: false,
+		},
+		{
+			name: "an adapter-to-adapter import on a declared curated subpath is blessed",
+			code: 'import { launchHandoff } from "@nseng-ai/pi-ns-gadgets/handoff-launch";',
+			expectedViolation: false,
+		},
+		{
+			name: "a relative import inside the adapter package is allowed",
+			code: 'import { helper } from "./helpers.ts";',
+			expectedViolation: false,
+		},
+		{
+			name: "a relative import escaping into another package's source is rejected",
+			path: `${adapterDir}/src/deep/module.ts`,
+			code: 'import { create } from "../../../../../../extensions/widgets/src/core/index.ts";',
+			expectedTextIncludes: "escapes the adapter package directory into @nseng-ai/widgets",
+			expectedViolationCount: 1,
+		},
+		{
+			name: "a relative import escaping to a non-package location is not this rule's concern",
+			path: `${adapterDir}/test/composition.test.ts`,
+			code: 'import { compose } from "../../../../../../../../.pi/lib/code-extension-composition.mts";',
+			expectedViolation: false,
+		},
+		{
+			name: "files outside a pi-ns-* adapter package are out of scope",
+			path: "ts/packages/incubating/extensions/widgets/src/core/peer.ts",
+			code: 'import { create } from "@nseng-ai/widgets/src/core/create.ts";',
+			expectedViolation: false,
+		},
+	];
+
+	test.each(cases)("$name", (testCase) => {
+		const violations = collectPiAdapterExtensionImportViolations({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName: buildPiAdapterSyntheticMetadata(),
+			files: [{ path: testCase.path ?? `${adapterDir}/src/module.ts`, content: testCase.code }],
+		});
+
+		expect(
+			violations.every((violation) => violation.rule === BAN_PI_ADAPTER_EXTENSION_IMPORT),
+		).toBe(true);
+		expect(violations.length > 0).toBe(testCase.expectedViolation ?? true);
+		const expectedTextIncludes = testCase.expectedTextIncludes;
+		if (expectedTextIncludes !== undefined) {
+			expect(violations.some((violation) => violation.text.includes(expectedTextIncludes))).toBe(
+				true,
+			);
+		}
+		const expectedViolationCount = testCase.expectedViolationCount;
+		if (expectedViolationCount !== undefined) {
+			expect(formatViolations(violations).split("\n").filter(Boolean)).toHaveLength(
+				expectedViolationCount,
+			);
+		}
+	});
+
+	test("a violation points at the offending import specifier", () => {
+		const violations = collectPiAdapterExtensionImportViolations({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName: buildPiAdapterSyntheticMetadata(),
+			files: [
+				{
+					path: `${adapterDir}/src/module.ts`,
+					content: 'import { a } from "./local.ts";\nimport { core } from "@nseng-ai/widgets";',
+				},
+			],
+		});
+
+		expect(violations).toHaveLength(1);
+		expect(violations[0]?.path).toBe(`${adapterDir}/src/module.ts`);
+		expect(violations[0]?.line).toBe(2);
+	});
+
+	test("real repo pi-ns-* adapters consume ns extensions only through curated subpaths", () => {
+		const violations = collectPiAdapterExtensionImportViolations({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName: loadPackageMetadata(REPO_ROOT),
+		});
 
 		expect(formatViolations(violations)).toBe("");
 	});
@@ -1981,6 +2605,10 @@ interface DispositionSyntheticPackage {
 	readonly packageDir: string;
 	/** Omitted means the manifest has no `private` key at all. */
 	readonly privateValue?: boolean;
+	readonly tier?: PackageTier;
+	readonly exports?: readonly string[];
+	readonly subpackages?: readonly string[];
+	readonly piExtensions?: readonly string[];
 	readonly dependencies?: readonly string[];
 	readonly devDependencies?: readonly string[];
 	readonly optionalDependencies?: readonly string[];
@@ -1992,6 +2620,36 @@ interface InternalSpaceSyntheticPackage {
 	readonly packageDir: string;
 	readonly privateValue: boolean;
 	readonly dependencies?: Record<string, string>;
+}
+
+interface ExtensionPiSurfaceCase {
+	readonly name: string;
+	readonly packages: readonly PiSurfaceSyntheticPackage[];
+	readonly expectedViolation?: boolean;
+	readonly expectedTextIncludes?: string;
+	readonly expectedViolationCount?: number;
+}
+
+interface PiSurfaceSyntheticPackage {
+	readonly name: string;
+	readonly packageDir: string;
+	readonly tier: PackageTier;
+	readonly subpackages?: readonly string[];
+	readonly exportKeys?: readonly string[];
+	readonly dependencies?: readonly string[];
+	readonly optionalDependencies?: readonly string[];
+	readonly peerDependencies?: readonly string[];
+	readonly devDependencies?: readonly string[];
+}
+
+interface PiAdapterImportCase {
+	readonly name: string;
+	/** Defaults to a production module inside the synthetic adapter. */
+	readonly path?: string;
+	readonly code: string;
+	readonly expectedViolation?: boolean;
+	readonly expectedTextIncludes?: string;
+	readonly expectedViolationCount?: number;
 }
 
 interface DependencyGraphCase {
@@ -2163,16 +2821,29 @@ function buildDispositionSyntheticMetadata(
 ): Map<string, PackageMetadata> {
 	return new Map(
 		packages.map((syntheticPackage) => {
+			const tier = syntheticPackage.tier ?? "extension";
+			const exportSubpaths = syntheticPackage.exports ?? ["."];
+			const piExtensions =
+				syntheticPackage.piExtensions ??
+				(syntheticPackage.name.startsWith("@nseng-ai/pi-ns-") ? ["./src/extension.ts"] : undefined);
+			const exports = Object.fromEntries(
+				exportSubpaths.map((subpath) => [
+					subpath,
+					`./src/${subpath === "." ? "index" : subpath.slice(2)}.ts`,
+				]),
+			);
 			const manifest: PackageManifest = {
 				name: syntheticPackage.name,
 				...(syntheticPackage.privateValue === undefined
 					? {}
 					: { private: syntheticPackage.privateValue }),
+				exports,
+				...(piExtensions === undefined ? {} : { pi: { extensions: piExtensions } }),
 				...workspaceDependencyField("dependencies", syntheticPackage.dependencies),
 				...workspaceDependencyField("devDependencies", syntheticPackage.devDependencies),
 				...workspaceDependencyField("optionalDependencies", syntheticPackage.optionalDependencies),
 				...workspaceDependencyField("peerDependencies", syntheticPackage.peerDependencies),
-				ns: { tier: "extension" },
+				ns: { tier, subpackages: syntheticPackage.subpackages ?? [] },
 			};
 			return [
 				syntheticPackage.name,
@@ -2182,15 +2853,94 @@ function buildDispositionSyntheticMetadata(
 					packageJsonPath: `${syntheticPackage.packageDir}/package.json`,
 					manifest,
 					manifestContent: JSON.stringify(manifest, null, 2),
-					nsTier: "extension",
-					rawNsTier: "extension",
-					nsSubpackages: [],
+					nsTier: tier,
+					rawNsTier: tier,
+					nsSubpackages: syntheticPackage.subpackages ?? [],
 					nsRemainder: false,
-					exportSubpaths: new Set(["."]),
+					exportSubpaths: new Set(exportSubpaths),
 				},
 			];
 		}),
 	);
+}
+
+function piSurfacePackage(options: Partial<PiSurfaceSyntheticPackage>): PiSurfaceSyntheticPackage {
+	return {
+		name: "@nseng-ai/widgets",
+		packageDir: "ts/packages/incubating/extensions/widgets",
+		tier: "extension",
+		...options,
+	};
+}
+
+function buildPiSurfaceSyntheticMetadata(
+	packages: readonly PiSurfaceSyntheticPackage[],
+): Map<string, PackageMetadata> {
+	return new Map(
+		packages.map((syntheticPackage) => {
+			const manifest: PackageManifest = {
+				name: syntheticPackage.name,
+				...(syntheticPackage.exportKeys === undefined
+					? {}
+					: {
+							exports: Object.fromEntries(
+								syntheticPackage.exportKeys.map((key) => [key, "./src/index.ts"]),
+							),
+						}),
+				...workspaceDependencyField("dependencies", syntheticPackage.dependencies),
+				...workspaceDependencyField("devDependencies", syntheticPackage.devDependencies),
+				...workspaceDependencyField("optionalDependencies", syntheticPackage.optionalDependencies),
+				...workspaceDependencyField("peerDependencies", syntheticPackage.peerDependencies),
+				ns: {
+					tier: syntheticPackage.tier,
+					...(syntheticPackage.subpackages === undefined
+						? {}
+						: { subpackages: syntheticPackage.subpackages }),
+				},
+			};
+			return [
+				syntheticPackage.name,
+				{
+					name: syntheticPackage.name,
+					packageDir: syntheticPackage.packageDir,
+					packageJsonPath: `${syntheticPackage.packageDir}/package.json`,
+					manifest,
+					manifestContent: JSON.stringify(manifest, null, 2),
+					nsTier: syntheticPackage.tier,
+					rawNsTier: syntheticPackage.tier,
+					nsSubpackages: syntheticPackage.subpackages ?? [],
+					nsRemainder: false,
+					exportSubpaths: collectExportSubpaths(manifest.exports),
+				},
+			];
+		}),
+	);
+}
+
+function buildPiAdapterSyntheticMetadata(): Map<string, PackageMetadata> {
+	return buildPiSurfaceSyntheticMetadata([
+		piSurfacePackage({
+			name: "@nseng-ai/pi-ns-widgets",
+			packageDir: "ts/packages/incubating/hosts/pi/extensions/pi-ns-widgets",
+			tier: "host",
+			exportKeys: [".", "./extension"],
+		}),
+		piSurfacePackage({
+			name: "@nseng-ai/pi-ns-gadgets",
+			packageDir: "ts/packages/incubating/hosts/pi/extensions/pi-ns-gadgets",
+			tier: "host",
+			exportKeys: [".", "./handoff-launch"],
+		}),
+		piSurfacePackage({
+			exportKeys: [".", "./api", "./api/prompt-assets", "./testing", "./ns-extension"],
+		}),
+		piSurfacePackage({
+			name: "@nseng-ai/foundation",
+			packageDir: "ts/packages/public/infra/foundation",
+			tier: "neutral-infra",
+			exportKeys: [".", "./git"],
+		}),
+	]);
 }
 
 function workspaceDependencyField(

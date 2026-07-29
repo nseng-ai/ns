@@ -447,17 +447,5 @@ function directoryExists(path: string): boolean {
 function isAllowedCircleEdge(from: TopologyCircleFact, to: TopologyCircleFact): boolean {
 	if (from.packageName === to.packageName) return true;
 	if (packageTierAllowedTargets[from.tier].has(to.tier)) return true;
-	if (isAllowedPiSubpackageCircleEdge(from, to)) return true;
 	return allowedPackageTierDebtEdges.has(packageEdgeKey(from.packageName, to.packageName));
-}
-
-function isAllowedPiSubpackageCircleEdge(
-	from: TopologyCircleFact,
-	to: TopologyCircleFact,
-): boolean {
-	return (
-		from.tier === "extension" &&
-		from.component === "pi" &&
-		to.packageName === "@nseng-ai/pi-runtime"
-	);
 }
