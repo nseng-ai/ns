@@ -25,10 +25,10 @@ expansion, and parity metadata; Objective behavior and policy come from
 `@nseng-ai/objectives/api` and the portable Objective skills.
 *Avoid*: new Objective lifecycle, Pi-owned Objective semantics, CLI replacement, package-path namespace
 
-**Objective runner-step distinction**:
-The boundary between the packaged `/ns:objective:autorun` command and the project-local
-`objective_runner_step` tool. The command belongs to the **Objective Pi host adapter**; the
-tool remains the provisional consumer artifact in `.pi/extensions/objective-autorun.ts`
-that mechanically performs one runner step and returns a Runner Checkpoint for parent
-judgment.
-*Avoid*: packaging the local tool by implication, autonomous adapter-owned loop, command/tool conflation
+**Objective autorun injection boundary**:
+The boundary between the packaged `/ns:objective:autorun` command and the injected
+`objective-autorun` skill. The command belongs to the **Objective Pi host adapter** and owns
+only Objective selection plus skill injection; the skill owns portable and ns-bookended
+orchestration. The former project-local `objective_runner_step` tool is removed and is not
+part of this boundary.
+*Avoid*: adapter-owned autorun protocol, command/skill conflation, reviving the removed project-local tool
