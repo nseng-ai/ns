@@ -14,12 +14,33 @@ export interface ClinkrCommandMetadata {
 export type ClinkrGroupDefinition = ClinkrCommandMetadata;
 
 export interface ClinkrCompletionRequest {
-	readonly current: string;
+	/** Tokens after the executable name, including a trailing empty token after whitespace. */
+	readonly words: readonly string[];
 }
+
+export interface ClinkrCompletionProviderRequest extends ClinkrCompletionRequest {
+	readonly current: string;
+	readonly previous: readonly string[];
+	readonly args: readonly string[];
+	readonly positionalIndex: number;
+	/** Canonical command route, never an alias spelling. */
+	readonly commandPath: readonly string[];
+}
+
+export type ClinkrCompletionCandidateType =
+	| "command"
+	| "option"
+	| "option-value"
+	| "positional-value";
 
 export interface ClinkrCompletionCandidate {
 	readonly value: string;
-	readonly type: "positional-value" | "option-value";
+	readonly type: ClinkrCompletionCandidateType;
+	readonly description?: string;
+}
+
+export interface ClinkrCompletionResult {
+	readonly candidates: readonly ClinkrCompletionCandidate[];
 }
 
 export type CliOptionOptions = OptionSpec;
@@ -112,7 +133,7 @@ export interface ContextFreeCommandDefinition<
 		request: z.output<TSchema>,
 	) => HandlerResult<CommandOutcome<ResultOf<TResultSchema>>>;
 	readonly completionProvider?: (
-		request: ClinkrCompletionRequest,
+		request: ClinkrCompletionProviderRequest,
 	) => readonly ClinkrCompletionCandidate[] | Promise<readonly ClinkrCompletionCandidate[]>;
 }
 
@@ -128,7 +149,7 @@ export interface ContextfulCommandDefinition<
 	) => HandlerResult<CommandOutcome<ResultOf<TResultSchema>>>;
 	readonly completionProvider?: (
 		context: TContext,
-		request: ClinkrCompletionRequest,
+		request: ClinkrCompletionProviderRequest,
 	) => readonly ClinkrCompletionCandidate[] | Promise<readonly ClinkrCompletionCandidate[]>;
 }
 

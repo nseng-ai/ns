@@ -255,6 +255,41 @@ test("README group.ts is discovered and its nested issues list executes", async 
 	});
 });
 
+test("README app completion merges app and provider candidates without running the handler", async () => {
+	let checkouts = 0;
+	const app = createClinkrApp<{
+		readonly git: {
+			listBranches(): Promise<readonly string[]>;
+			checkout(branch: string): Promise<void>;
+		};
+	}>({
+		name: "repo",
+		commandDirectory: path.join(import.meta.dirname, "fixtures/readme-completion"),
+		requiresContext: true,
+		completion: {},
+	});
+	const context = {
+		git: {
+			listBranches: async () => ["main", "maint", "topic"],
+			checkout: async () => {
+				checkouts += 1;
+			},
+		},
+	};
+	const root = await app.complete({ words: [""] }, { context });
+	expect(root.candidates.map(({ value }) => value)).toEqual(["checkout", "completion"]);
+	const branches = await app.complete({ words: ["checkout", "--branch", "mai"] }, { context });
+	expect(branches.candidates).toEqual([
+		{ value: "main", type: "positional-value" },
+		{ value: "maint", type: "positional-value" },
+	]);
+	const staticCandidates = await app.complete({ words: ["checkout", "--"] }, { context });
+	expect(staticCandidates.candidates.map(({ value }) => value)).toEqual(
+		expect.arrayContaining(["--format", "--json-schema", "--input-json", "--help"]),
+	);
+	expect(checkouts).toBe(0);
+});
+
 test("README contextful contacts app executes its nested command through runForCliTest", async () => {
 	let additions = 0;
 	const run = await runForCliTest(
