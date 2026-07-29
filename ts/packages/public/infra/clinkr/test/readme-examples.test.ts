@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { expect, test } from "vitest";
 
-import { app } from "./fixtures/readme-greet/app.ts";
+import { createClinkrApp } from "@nseng-ai/clinkr/app";
 import { runForCliTest } from "@nseng-ai/clinkr/app/testing";
 
 const README_PATH = path.resolve(
@@ -143,15 +143,22 @@ for (const [label, argv, stdout] of [
 	["default", ["Ada"], "Hello, Ada.\n"],
 ] as const) {
 	test(`README greet executes with ${label}`, async () => {
-		const run = await runForCliTest(await app(), argv);
+		const run = await runForCliTest(
+			await (await import("./fixtures/readme-greet/app.ts")).app(),
+			argv,
+		);
 		expect(run).toEqual({ exitCode: 0, stdout, stderr: "" });
 	});
 }
 
 test("README greet accepts its complete request as JSON before the root route", async () => {
-	const run = await runForCliTest(await app(), ["--input-json", "--format", "json"], {
-		stdin: '{"name":"Ada","enthusiastic":true}',
-	});
+	const run = await runForCliTest(
+		await (await import("./fixtures/readme-greet/app.ts")).app(),
+		["--input-json", "--format", "json"],
+		{
+			stdin: '{"name":"Ada","enthusiastic":true}',
+		},
+	);
 	expect(run).toEqual({
 		exitCode: 0,
 		stdout:
@@ -170,7 +177,13 @@ for (const [label, stdin, errorType] of [
 	["schema rejection", '{"name":12}', "invalid-request"],
 ] as const) {
 	test(`README JSON input rejects ${label} input`, async () => {
-		const run = await runForCliTest(await app(), ["--format", "json", "--input-json"], { stdin });
+		const run = await runForCliTest(
+			await (await import("./fixtures/readme-greet/app.ts")).app(),
+			["--format", "json", "--input-json"],
+			{
+				stdin,
+			},
+		);
 		expect(run.exitCode).toBe(2);
 		expect(run.stderr).toBe("");
 		expect(JSON.parse(run.stdout)).toMatchObject({ status: "usage-error", exitCode: 2, errorType });
@@ -178,9 +191,13 @@ for (const [label, stdin, errorType] of [
 }
 
 test("README JSON input cannot mix with argv request fields", async () => {
-	const run = await runForCliTest(await app(), ["Ada", "--input-json", "--format", "json"], {
-		stdin: '{"name":"Grace"}',
-	});
+	const run = await runForCliTest(
+		await (await import("./fixtures/readme-greet/app.ts")).app(),
+		["Ada", "--input-json", "--format", "json"],
+		{
+			stdin: '{"name":"Grace"}',
+		},
+	);
 	expect(JSON.parse(run.stdout)).toMatchObject({
 		status: "usage-error",
 		exitCode: 2,
@@ -189,12 +206,71 @@ test("README JSON input cannot mix with argv request fields", async () => {
 });
 
 test("README JSON input cannot be repeated or mixed across source forms", async () => {
-	const run = await runForCliTest(await app(), ["--input-json", "--format=json", "--input-json"], {
-		stdin: '{"name":"Ada"}',
-	});
+	const run = await runForCliTest(
+		await (await import("./fixtures/readme-greet/app.ts")).app(),
+		["--input-json", "--format=json", "--input-json"],
+		{
+			stdin: '{"name":"Ada"}',
+		},
+	);
 	expect(JSON.parse(run.stdout)).toMatchObject({
 		status: "usage-error",
 		exitCode: 2,
 		errorType: "invalid-request",
 	});
+});
+
+test("README nested contacts find executes by canonical name and alias with documented metadata", async () => {
+	const app = createClinkrApp({
+		name: "directory",
+		commandDirectory: path.join(import.meta.dirname, "fixtures/readme-recursive"),
+	});
+	const canonical = await runForCliTest(app, ["contacts", "find", "Ada", "--include-archived"]);
+	expect(canonical).toEqual({
+		exitCode: 0,
+		stdout: "Ada (archived)\nAda\n",
+		stderr: "",
+	});
+	const alias = await runForCliTest(app, ["contacts", "lookup", "Grace", "--limit", "1"]);
+	expect(alias).toEqual({ exitCode: 0, stdout: "Grace\n", stderr: "" });
+	const help = await runForCliTest(app, ["contacts", "--help"]);
+	expect(help.stdout).toContain("Contacts\n  find|lookup");
+	expect(help.stdout).toContain("Find a contact");
+});
+
+test("README group.ts is discovered and its nested issues list executes", async () => {
+	const app = createClinkrApp({
+		name: "directory",
+		commandDirectory: path.join(import.meta.dirname, "fixtures/readme-recursive"),
+	});
+	const rootHelp = await runForCliTest(app, ["--help"]);
+	expect(rootHelp.stdout).toContain("issues|issue");
+	expect(rootHelp.stdout).toContain("Issue workflows");
+	const issuesHelp = await runForCliTest(app, ["issues", "--help"]);
+	expect(issuesHelp.stdout).toContain("list");
+	expect(await runForCliTest(app, ["issue", "list"])).toEqual({
+		exitCode: 0,
+		stdout: "Fix login\n",
+		stderr: "",
+	});
+});
+
+test("README contextful contacts app executes its nested command through runForCliTest", async () => {
+	let additions = 0;
+	const run = await runForCliTest(
+		await (await import("./fixtures/readme-contacts/app.ts")).app(),
+		["list"],
+		{
+			context: {
+				contacts: {
+					list: async () => ["Ada", "Grace"],
+					add: async () => {
+						additions += 1;
+					},
+				},
+			},
+		},
+	);
+	expect(run).toEqual({ exitCode: 0, stdout: "Ada\nGrace\n", stderr: "" });
+	expect(additions).toBe(0);
 });

@@ -61,6 +61,8 @@ export function validateCommandMetadata(
 ): void {
 	validateText(metadata.description, "description", path);
 	validateAliases(metadata.aliases, name, path);
+	if (metadata.summary !== undefined) validateText(metadata.summary, "summary", path);
+	if (metadata.helpGroup !== undefined) validateText(metadata.helpGroup, "helpGroup", path);
 }
 
 export function validateGroupDefinition(
@@ -69,8 +71,6 @@ export function validateGroupDefinition(
 	path: readonly string[],
 ): void {
 	validateCommandMetadata(definition, name, path);
-	if (definition.summary !== undefined) validateText(definition.summary, "summary", path);
-	if (definition.helpGroup !== undefined) validateText(definition.helpGroup, "helpGroup", path);
 }
 
 function validateText(value: string, field: string, path: readonly string[]): void {

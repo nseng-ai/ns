@@ -1,4 +1,4 @@
-import type { ClinkrInteraction } from "../confirmation.ts";
+import type { ClinkrInteraction } from "../interaction.ts";
 import { negative, usageError, type NegativeOutcome, type UsageErrorOutcome } from "./outcome.ts";
 
 export type ConfirmationOutcome =
