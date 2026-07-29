@@ -248,7 +248,10 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 			completion: Promise.resolve({ type: "skipped", reason: "too-few-turns" }),
 		};
 	}
-	const fingerprint = computeSegmentationFingerprint(profile);
+	const fingerprint = computeSegmentationFingerprint(profile, {
+		segmentationSelection: gateway.segmentationSelection,
+		episodeAnalysisSelection: gateway.episodeAnalysisSelection,
+	});
 	// Detach-only model: keep LM calls running for episodes.json; gateways still require a signal.
 	const signal = new AbortController().signal;
 	const sink: SegmentationSink = {
@@ -395,9 +398,13 @@ async function runMissingEpisodeAnalysis(
 	return { type: "ready", episodes, summary, delegations: [...delegations], analysis };
 }
 
+export type AnalysisStartup =
+	| { type: "available"; gateway: AnalysisModelGateway }
+	| { type: "unavailable"; message: string };
+
 export interface StartProfilerWorkOptions {
 	store: BundleStore;
-	gateway: AnalysisModelGateway;
+	analysis: AnalysisStartup;
 	state: ProfilerState;
 	profile: ProfileSnapshot;
 	sessionId: string;
@@ -420,8 +427,25 @@ export function startProfilerWork(options: StartProfilerWorkOptions): {
 		sessionId: options.sessionId,
 		onUpdate: options.onPersistenceUpdate,
 	});
+	if (options.analysis.type === "unavailable") {
+		void persist.whenPersisted
+			.then((bundle) => {
+				if (bundle !== null) return options.store.removeEpisodesFile({ bundleDir: bundle.dir });
+			})
+			.catch((error: unknown) => {
+				options.onEpisodesWriteResult?.({
+					ok: false,
+					error: { code: "io-error", message: errorMessage(error) },
+				});
+			});
+		return {
+			initialSegmentation: { type: "error", message: options.analysis.message },
+			initialPersistence: persist.initial,
+			detach: () => {},
+		};
+	}
 	const segmentation = startSegmentationBatch({
-		gateway: options.gateway,
+		gateway: options.analysis.gateway,
 		profile: options.profile,
 		cache: options.cache,
 		force: options.force,
@@ -431,7 +455,8 @@ export function startProfilerWork(options: StartProfilerWorkOptions): {
 		whenPersisted: persist.whenPersisted,
 		completion: segmentation.completion,
 		store: options.store,
-		analysisModel: options.gateway.analysisModel,
+		segmentationModel: options.analysis.gateway.segmentationModel,
+		episodeAnalysisModel: options.analysis.gateway.episodeAnalysisModel,
 		onResult: options.onEpisodesWriteResult,
 	});
 	return {
@@ -445,7 +470,8 @@ interface ScheduleEpisodesWriteOptions {
 	whenPersisted: Promise<PersistedBundle | null>;
 	completion: Promise<SegmentationBatchOutcome>;
 	store: BundleStore;
-	analysisModel: string;
+	segmentationModel: string;
+	episodeAnalysisModel: string;
 	onResult: ((result: WriteEpisodesFileResult) => void) | undefined;
 }
 
@@ -456,7 +482,8 @@ function scheduleEpisodesWrite(options: ScheduleEpisodesWriteOptions): void {
 			const json = buildEpisodesFileJson({
 				outcome,
 				contentHash: bundle.manifest.contentHash,
-				analysisModel: options.analysisModel,
+				segmentationModel: options.segmentationModel,
+				episodeAnalysisModel: options.episodeAnalysisModel,
 			});
 			const result = await options.store.writeEpisodesFile({ bundleDir: bundle.dir, json });
 			options.onResult?.(result);

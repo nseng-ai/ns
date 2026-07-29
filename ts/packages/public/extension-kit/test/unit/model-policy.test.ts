@@ -9,8 +9,12 @@ import {
 import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 describe("model policy", () => {
-	test("publishes the focused Flow PR inventory operation identifier", () => {
+	test("publishes stable operation identifiers", () => {
 		expect(MODEL_OPERATION_IDS.flowPrInventory).toBe("flow.pr-inventory");
+		expect(MODEL_OPERATION_IDS.contextProfilerSegmentation).toBe("context-profiler.segmentation");
+		expect(MODEL_OPERATION_IDS.contextProfilerEpisodeAnalysis).toBe(
+			"context-profiler.episode-analysis",
+		);
 		expect(MODEL_OPERATION_IDS).not.toHaveProperty("flowPrDescription");
 	});
 
@@ -42,6 +46,29 @@ thinking = "high"
 				},
 			},
 		});
+	});
+
+	test("defaults both context profiler operations independently to fast", () => {
+		const policy = parseModelPolicyToml(
+			'[models.profiles.fast]\nmodel = "acme/quick"\nthinking = "medium"',
+		);
+		expect(policy.ok).toBe(true);
+		if (!policy.ok) return;
+
+		for (const operationId of [
+			MODEL_OPERATION_IDS.contextProfilerSegmentation,
+			MODEL_OPERATION_IDS.contextProfilerEpisodeAnalysis,
+		]) {
+			expect(resolveModelOperation(policy.value, operationId)).toEqual({
+				ok: true,
+				value: {
+					operationId,
+					profile: "fast",
+					selection: { provider: "acme", modelId: "quick", thinking: "medium" },
+					source: "project-profile",
+				},
+			});
+		}
 	});
 
 	test("resolves operation overrides and accepts unknown operation keys", () => {

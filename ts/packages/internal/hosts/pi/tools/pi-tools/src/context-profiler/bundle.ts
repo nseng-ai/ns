@@ -140,9 +140,10 @@ export type EpisodesFileSegmentation =
 	| { type: "skipped"; reason: "too-few-turns" };
 
 export interface EpisodesFile {
-	version: 1;
+	version: 2;
 	contentHash: string;
-	analysisModel: string;
+	segmentationModel: string;
+	episodeAnalysisModel: string;
 	generatedAt: string;
 	segmentation: EpisodesFileSegmentation;
 	episodes: EpisodesFileEpisode[];
@@ -151,14 +152,16 @@ export interface EpisodesFile {
 export function buildEpisodesFileJson(options: {
 	outcome: SegmentationBatchOutcome;
 	contentHash: string;
-	analysisModel: string;
+	segmentationModel: string;
+	episodeAnalysisModel: string;
 	generatedAt?: Date;
 }): string {
 	const generatedAt = (options.generatedAt ?? new Date()).toISOString();
 	const file: EpisodesFile = {
-		version: 1,
+		version: 2,
 		contentHash: options.contentHash,
-		analysisModel: options.analysisModel,
+		segmentationModel: options.segmentationModel,
+		episodeAnalysisModel: options.episodeAnalysisModel,
 		generatedAt,
 		segmentation: segmentationForOutcome(options.outcome),
 		episodes: episodesForOutcome(options.outcome),

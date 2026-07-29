@@ -1,11 +1,12 @@
 /**
  * Analysis-model gateway: the external-call boundary for context-profiler LM
- * work. The real adapter talks to the fixed cheap analysis model through Pi's
- * model registry; failures are values (never throws to callers) so the
- * profiler can degrade gracefully. Pure parse/repair/payload logic lives in
- * segmentation.ts and analysis.ts.
+ * work. The real adapter routes each operation through its resolved shared
+ * model-policy selection; failures are values so the profiler can degrade
+ * gracefully. Pure parse/repair/payload logic lives in segmentation.ts and
+ * analysis.ts.
  */
 
+import { formatModelRef, type ModelSelection } from "@nseng-ai/foundation/model-slug";
 import {
 	callPiModelText,
 	type CompleteSimpleFunction,
@@ -18,17 +19,11 @@ import {
 } from "./analysis.ts";
 import {
 	parseSegmentationResponseText,
-	SEGMENTATION_MODEL,
-	SEGMENTATION_PROVIDER,
 	SEGMENTATION_SYSTEM_PROMPT,
 	type LmSegmentation,
 } from "./segmentation.ts";
 
 export type { PiModelRegistryLike as AnalysisModelRegistry } from "@nseng-ai/pi-runtime/models/call";
-
-/** Fixed analysis model — never the session's main model. */
-export const ANALYSIS_MODEL_PROVIDER = SEGMENTATION_PROVIDER;
-export const ANALYSIS_MODEL_ID = SEGMENTATION_MODEL;
 
 /** Bounded output: ≤12 episode starts, ≤24 delegations, plus one sentence fits comfortably. */
 const SEGMENTATION_MAX_TOKENS = 2_048;
@@ -66,7 +61,10 @@ export interface EpisodeAnalysisRequest {
 }
 
 export interface AnalysisModelGateway {
-	readonly analysisModel: string;
+	readonly segmentationSelection: ModelSelection;
+	readonly episodeAnalysisSelection: ModelSelection;
+	readonly segmentationModel: string;
+	readonly episodeAnalysisModel: string;
 	segmentTurns(
 		request: SegmentationRequest,
 		options: { signal: AbortSignal },
@@ -77,17 +75,27 @@ export interface AnalysisModelGateway {
 	): Promise<EpisodeAnalysisCallResult>;
 }
 
-export function createCodexAnalysisModelGateway(
-	registry: PiModelRegistryLike,
-	overrides: { completeFn?: CompleteSimpleFunction } = {},
+export interface CreateAnalysisModelGatewayOptions {
+	registry: PiModelRegistryLike;
+	segmentationSelection: ModelSelection;
+	episodeAnalysisSelection: ModelSelection;
+	completeFn?: CompleteSimpleFunction;
+}
+
+export function createAnalysisModelGateway(
+	options: CreateAnalysisModelGatewayOptions,
 ): AnalysisModelGateway {
 	return {
-		analysisModel: `${ANALYSIS_MODEL_PROVIDER}/${ANALYSIS_MODEL_ID}`,
-		async segmentTurns(request, options) {
+		segmentationSelection: options.segmentationSelection,
+		episodeAnalysisSelection: options.episodeAnalysisSelection,
+		segmentationModel: formatModelRef(options.segmentationSelection),
+		episodeAnalysisModel: formatModelRef(options.episodeAnalysisSelection),
+		async segmentTurns(request, callOptions) {
 			return callAnalysisModel({
-				registry,
-				overrides,
-				signal: options.signal,
+				registry: options.registry,
+				modelSelection: options.segmentationSelection,
+				...(options.completeFn === undefined ? {} : { completeFn: options.completeFn }),
+				signal: callOptions.signal,
 				systemPrompt: SEGMENTATION_SYSTEM_PROMPT,
 				json: request.json,
 				maxTokens: SEGMENTATION_MAX_TOKENS,
@@ -95,11 +103,12 @@ export function createCodexAnalysisModelGateway(
 				parse: parseSegmentationResponseText,
 			});
 		},
-		async analyzeEpisode(request, options) {
+		async analyzeEpisode(request, callOptions) {
 			return callAnalysisModel({
-				registry,
-				overrides,
-				signal: options.signal,
+				registry: options.registry,
+				modelSelection: options.episodeAnalysisSelection,
+				...(options.completeFn === undefined ? {} : { completeFn: options.completeFn }),
+				signal: callOptions.signal,
 				systemPrompt: EPISODE_ANALYSIS_SYSTEM_PROMPT,
 				json: request.json,
 				maxTokens: EPISODE_ANALYSIS_MAX_TOKENS,
@@ -112,7 +121,8 @@ export function createCodexAnalysisModelGateway(
 
 interface CallAnalysisModelOptions<T> {
 	registry: PiModelRegistryLike;
-	overrides: { completeFn?: CompleteSimpleFunction };
+	modelSelection: ModelSelection;
+	completeFn?: CompleteSimpleFunction;
 	signal: AbortSignal;
 	systemPrompt: string;
 	json: string;
@@ -126,20 +136,16 @@ async function callAnalysisModel<T>(
 ): Promise<{ ok: true; value: T } | { ok: false; error: AnalysisModelError }> {
 	const response = await callPiModelText({
 		registry: options.registry,
-		modelSelection: {
-			provider: ANALYSIS_MODEL_PROVIDER,
-			modelId: ANALYSIS_MODEL_ID,
-			thinking: "minimal",
-		},
+		modelSelection: options.modelSelection,
 		systemPrompt: options.systemPrompt,
 		userText: options.json,
 		maxTokens: options.maxTokens,
 		signal: options.signal,
-		...(options.overrides.completeFn === undefined
-			? {}
-			: { completeFn: options.overrides.completeFn }),
+		...(options.completeFn === undefined ? {} : { completeFn: options.completeFn }),
 	});
-	if (!response.ok) return mapModelFailure(response, options.abortedMessage);
+	if (!response.ok) {
+		return mapModelFailure(response, options.modelSelection, options.abortedMessage);
+	}
 	const parsed = options.parse(response.text);
 	if (!parsed.ok) return failure("invalid-response", parsed.error);
 	return { ok: true, value: parsed.value };
@@ -147,22 +153,20 @@ async function callAnalysisModel<T>(
 
 function mapModelFailure(
 	response: Exclude<Awaited<ReturnType<typeof callPiModelText>>, { ok: true }>,
+	selection: ModelSelection,
 	abortedMessage: string,
 ): { ok: false; error: AnalysisModelError } {
 	switch (response.reason) {
 		case "unsupported-thinking":
 			return failure("request-failed", response.message ?? "unsupported thinking level");
 		case "model-unavailable":
-			return failure(
-				"model-unavailable",
-				`${ANALYSIS_MODEL_PROVIDER}/${ANALYSIS_MODEL_ID} is not available`,
-			);
+			return failure("model-unavailable", `${formatModelRef(selection)} is not available`);
 		case "auth":
 			return failure("auth", response.message ?? "analysis model auth failed");
 		case "empty-auth":
 			return failure(
 				"auth",
-				`no ${ANALYSIS_MODEL_PROVIDER} auth found; run /login or configure Pi auth`,
+				`no ${selection.provider} auth found; run /login or configure Pi auth`,
 			);
 		case "aborted":
 			return failure("aborted", abortedMessage);

@@ -228,14 +228,16 @@ describe("context-profiler bundle", () => {
 		const json = buildEpisodesFileJson({
 			outcome: { type: "skipped", reason: "too-few-turns" },
 			contentHash: "abc",
-			analysisModel: "openai-codex/gpt-5.6-luna",
+			segmentationModel: "vercel-ai-gateway/openai/gpt-5.6-luna",
+			episodeAnalysisModel: "vercel-ai-gateway/openai/gpt-5.6-terra",
 			generatedAt: new Date("2026-01-02T03:04:05.000Z"),
 		});
 
 		expect(JSON.parse(json)).toEqual({
-			version: 1,
+			version: 2,
 			contentHash: "abc",
-			analysisModel: "openai-codex/gpt-5.6-luna",
+			segmentationModel: "vercel-ai-gateway/openai/gpt-5.6-luna",
+			episodeAnalysisModel: "vercel-ai-gateway/openai/gpt-5.6-terra",
 			generatedAt: "2026-01-02T03:04:05.000Z",
 			segmentation: { type: "skipped", reason: "too-few-turns" },
 			episodes: [],
@@ -257,7 +259,7 @@ describe("context-profiler bundle", () => {
 
 		const work = startProfilerWork({
 			store,
-			gateway,
+			analysis: { type: "available", gateway },
 			state: stateWithConversation(),
 			profile: makeProfile(sequentialTurns(5)),
 			sessionId: "sid",
@@ -270,9 +272,36 @@ describe("context-profiler bundle", () => {
 
 		expect(work.initialPersistence).toEqual({ type: "pending" });
 		expect(store.episodesWrites).toHaveLength(1);
-		expect(JSON.parse(store.episodesWrites[0]?.json ?? "{}").analysisModel).toBe(
-			gateway.analysisModel,
-		);
+		expect(JSON.parse(store.episodesWrites[0]?.json ?? "{}")).toMatchObject({
+			version: 2,
+			segmentationModel: gateway.segmentationModel,
+			episodeAnalysisModel: gateway.episodeAnalysisModel,
+		});
+	});
+
+	test("startProfilerWork persists the bundle but omits episodes when analysis is unavailable", async () => {
+		const store = new FakeBundleStore({ persistResult: { ok: true, value: PERSISTED_BUNDLE } });
+
+		const work = startProfilerWork({
+			store,
+			analysis: { type: "unavailable", message: "ns.toml: invalid [models] configuration" },
+			state: stateWithConversation(),
+			profile: makeProfile(sequentialTurns(5)),
+			sessionId: "sid",
+			cache: createSegmentationCacheCell(),
+			force: false,
+			onSegmentationUpdate: () => {},
+			onPersistenceUpdate: () => {},
+		});
+		await settled();
+
+		expect(work.initialSegmentation).toEqual({
+			type: "error",
+			message: "ns.toml: invalid [models] configuration",
+		});
+		expect(store.persistedSnapshots).toHaveLength(1);
+		expect(store.episodesWrites).toEqual([]);
+		expect(store.removedEpisodesFiles).toEqual([PERSISTED_BUNDLE.dir]);
 	});
 
 	test("startProfilerWork skips episodes write when persistence is skipped", async () => {
@@ -285,7 +314,7 @@ describe("context-profiler bundle", () => {
 
 		const work = startProfilerWork({
 			store,
-			gateway,
+			analysis: { type: "available", gateway },
 			state: createProfilerState(),
 			profile: makeProfile(sequentialTurns(5)),
 			sessionId: "sid",
@@ -313,7 +342,7 @@ describe("context-profiler bundle", () => {
 
 		startProfilerWork({
 			store,
-			gateway,
+			analysis: { type: "available", gateway },
 			state: stateWithConversation(),
 			profile: makeProfile(sequentialTurns(5)),
 			sessionId: "sid",
@@ -349,7 +378,7 @@ describe("context-profiler bundle", () => {
 
 		const work = startProfilerWork({
 			store,
-			gateway,
+			analysis: { type: "available", gateway },
 			state: stateWithConversation(),
 			profile: makeProfile(sequentialTurns(5)),
 			sessionId: "sid",

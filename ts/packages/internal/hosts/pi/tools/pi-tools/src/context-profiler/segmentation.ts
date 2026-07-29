@@ -12,6 +12,7 @@
  *    this layer does not silently elide turns.
  */
 
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { z } from "zod";
 import {
 	EPISODE_KIND_VALUES,
@@ -24,9 +25,6 @@ import {
 } from "./model.ts";
 import { parseLmJson } from "@nseng-ai/pi-runtime/models/lm-json";
 
-/** Fixed analysis model — never the session's main model. */
-export const SEGMENTATION_PROVIDER = "openai-codex";
-export const SEGMENTATION_MODEL = "gpt-5.6-luna";
 export const MAX_EPISODES = 12;
 export const MIN_TURNS_FOR_SEGMENTATION = 3;
 
@@ -279,9 +277,10 @@ function dedupeAndCapBySnappedTurn<TInput, TValue>(
 }
 
 /**
- * Cache key for a segmentation result: live source, full turn count, and the
- * identity of the last turn. Reopening over an unchanged conversation reuses
- * the cached result; any new turn (or a different live source) misses.
+ * Cache key for a segmentation result: live source, full turn count, the
+ * identity of the last turn, and (when supplied) both producer models.
+ * Reopening over an unchanged conversation and policy reuses the cached
+ * result; any new turn, different live source, or model-policy change misses.
  *
  * Deliberately NOT part of the key: middle-turn content. A conversation with
  * the same turn count and same last turn but altered middle content would
@@ -291,13 +290,20 @@ function dedupeAndCapBySnappedTurn<TInput, TValue>(
  * the last turn, and the `r` force-refresh keybinding is the escape hatch
  * when it does not.
  */
-export function computeSegmentationFingerprint(profile: ProfileSnapshot): string {
+export function computeSegmentationFingerprint(
+	profile: ProfileSnapshot,
+	models?: {
+		segmentationSelection: ModelSelection;
+		episodeAnalysisSelection: ModelSelection;
+	},
+): string {
 	const last = profile.liveTurns[profile.liveTurns.length - 1];
 	return JSON.stringify({
 		liveSource: profile.liveSource,
 		turnCount: profile.liveTurns.length,
 		lastTurn:
 			last === undefined ? null : { index: last.index, role: last.role, excerpt: last.excerpt },
+		...(models === undefined ? {} : { models }),
 	});
 }
 

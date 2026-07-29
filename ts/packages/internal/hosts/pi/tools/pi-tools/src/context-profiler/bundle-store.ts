@@ -1,4 +1,4 @@
-import { link, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
 	EPISODES_FILE_NAME,
@@ -23,6 +23,7 @@ export type WriteEpisodesFileResult =
 export interface BundleStore {
 	persistBundle(snapshot: BundleSnapshot): Promise<PersistBundleResult>;
 	writeEpisodesFile(options: { bundleDir: string; json: string }): Promise<WriteEpisodesFileResult>;
+	removeEpisodesFile(options: { bundleDir: string }): Promise<void>;
 }
 
 export function createFsBundleStore(options: {
@@ -52,6 +53,10 @@ class FsBundleStore implements BundleStore {
 		return this.enqueue(() => this.persistBundleNow(snapshot));
 	}
 
+	async removeEpisodesFile(options: { bundleDir: string }): Promise<void> {
+		await rm(path.join(options.bundleDir, EPISODES_FILE_NAME), { force: true });
+	}
+
 	async writeEpisodesFile(options: {
 		bundleDir: string;
 		json: string;
@@ -76,17 +81,14 @@ class FsBundleStore implements BundleStore {
 		);
 		try {
 			await writeFile(tempPath, options.json, "utf8");
-			try {
-				await link(tempPath, finalPath);
-			} catch (error) {
-				if (isAlreadyExists(error)) {
-					await rm(tempPath, { force: true });
-					return { ok: true, isAlreadyPresent: true };
-				}
-				throw error;
-			}
-			await rm(tempPath, { force: true });
-			return { ok: true, isAlreadyPresent: false };
+			const isAlreadyPresent = await stat(finalPath)
+				.then(() => true)
+				.catch((error: unknown) => {
+					if (isNotFound(error)) return false;
+					throw error;
+				});
+			await rename(tempPath, finalPath);
+			return { ok: true, isAlreadyPresent };
 		} catch (error) {
 			await rm(tempPath, { force: true }).catch(() => undefined);
 			return { ok: false, error: { code: "io-error", message: errorMessage(error) } };
@@ -219,8 +221,4 @@ async function committedBundleByteSize(dir: string): Promise<number> {
 
 function isNotFound(error: unknown): boolean {
 	return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
-}
-
-function isAlreadyExists(error: unknown): boolean {
-	return typeof error === "object" && error !== null && "code" in error && error.code === "EEXIST";
 }

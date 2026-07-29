@@ -16,7 +16,18 @@ import { FakeSegmentationGateway, makeProfile, sequentialTurns } from "./context
 
 /** Models a buggy gateway that violates the errors-as-values contract by rejecting. */
 class RejectingSegmentationGateway implements AnalysisModelGateway {
-	readonly analysisModel = "openai-codex/gpt-5.6-luna";
+	readonly segmentationSelection = {
+		provider: "vercel-ai-gateway",
+		modelId: "openai/gpt-5.6-luna",
+		thinking: "medium" as const,
+	};
+	readonly episodeAnalysisSelection = {
+		provider: "vercel-ai-gateway",
+		modelId: "openai/gpt-5.6-terra",
+		thinking: "high" as const,
+	};
+	readonly segmentationModel = "vercel-ai-gateway/openai/gpt-5.6-luna";
+	readonly episodeAnalysisModel = "vercel-ai-gateway/openai/gpt-5.6-terra";
 
 	async segmentTurns(): Promise<SegmentationCallResult> {
 		throw new Error("gateway contract violation");
@@ -95,7 +106,10 @@ describe("startSegmentationBatch", () => {
 			analysis: ["ready"],
 		});
 		expect(cell.read()).toMatchObject({
-			fingerprint: computeSegmentationFingerprint(profile),
+			fingerprint: computeSegmentationFingerprint(profile, {
+				segmentationSelection: gateway.segmentationSelection,
+				episodeAnalysisSelection: gateway.episodeAnalysisSelection,
+			}),
 			summary: "A short session.",
 			delegations: [{ turn: 3, label: "delegate investigation", confidence: "high" }],
 		});
@@ -150,8 +164,18 @@ describe("startSegmentationBatch", () => {
 	test("cache hit with missing verdicts analyzes only the gaps", async () => {
 		const cell = createSegmentationCacheCell();
 		const profile = makeProfile(sequentialTurns(8));
+		const gateway = new FakeSegmentationGateway({
+			result: SUCCESS,
+			analysisResult: {
+				ok: true,
+				value: { efficiency: "mixed", relevance: "still-useful", summary: null },
+			},
+		});
 		cell.write({
-			fingerprint: computeSegmentationFingerprint(profile),
+			fingerprint: computeSegmentationFingerprint(profile, {
+				segmentationSelection: gateway.segmentationSelection,
+				episodeAnalysisSelection: gateway.episodeAnalysisSelection,
+			}),
 			summary: "A short session.",
 			delegations: [{ turn: 6, label: "delegate fix", confidence: "low" }],
 			episodes: [
@@ -165,13 +189,6 @@ describe("startSegmentationBatch", () => {
 				},
 				{ label: "fix", kind: "edit", outcome: "active", turnRange: { start: 5, end: 8 } },
 			],
-		});
-		const gateway = new FakeSegmentationGateway({
-			result: SUCCESS,
-			analysisResult: {
-				ok: true,
-				value: { efficiency: "mixed", relevance: "still-useful", summary: null },
-			},
 		});
 		const { updates, onUpdate } = collectUpdates();
 
@@ -289,6 +306,38 @@ describe("startSegmentationBatch", () => {
 			analysis: [{ type: "error", message: "response JSON has no valid verdict pair" }],
 		});
 		expect(cell.read()?.episodes[0]).not.toHaveProperty("efficiency");
+	});
+
+	test("a thinking-only model policy change misses the cache", async () => {
+		const cell = createSegmentationCacheCell();
+		const firstGateway = new FakeSegmentationGateway({ result: SUCCESS });
+		const profile = makeProfile(sequentialTurns(5));
+		startSegmentationBatch({
+			gateway: firstGateway,
+			profile,
+			cache: cell,
+			force: false,
+			onUpdate: () => {},
+		});
+		await settled();
+
+		const changedGateway = new FakeSegmentationGateway({
+			result: SUCCESS,
+			segmentationSelection: {
+				...firstGateway.segmentationSelection,
+				thinking: "high",
+			},
+		});
+		const { initial } = startSegmentationBatch({
+			gateway: changedGateway,
+			profile,
+			cache: cell,
+			force: false,
+			onUpdate: () => {},
+		});
+		expect(initial).toEqual({ type: "loading" });
+		await settled();
+		expect(changedGateway.calls).toHaveLength(1);
 	});
 
 	test("a changed snapshot misses the cache", async () => {

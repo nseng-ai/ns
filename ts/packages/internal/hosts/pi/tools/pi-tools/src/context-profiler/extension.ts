@@ -4,12 +4,21 @@
  * context files, skills, tools) plus a flat per-turn accounting with verbatim
  * drill-down. The deterministic layer spends zero LM tokens and never mutates
  * the session it profiles; on top of it, opening or refreshing the overlay
- * fires on-demand, clearly-labeled LM segmentation/analysis calls (fixed
- * cheap model) whose episodes render as an additive annotation layer — LM
+ * fires on-demand, clearly-labeled LM segmentation/analysis calls routed by
+ * shared model policy. Episodes render as an additive annotation layer — LM
  * failure never blocks the deterministic view.
  */
 
+import {
+	loadModelPolicy,
+	MODEL_OPERATION_IDS,
+	resolveModelOperation,
+} from "@nseng-ai/extension-kit/model-policy";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
+import {
+	nodeProjectConfigGateway,
+	type ProjectConfigGateway,
+} from "@nseng-ai/sdk/project-config/points";
 import type {
 	BeforeAgentStartEvent,
 	ContextEvent,
@@ -19,7 +28,10 @@ import type {
 	Theme,
 } from "@earendil-works/pi-coding-agent";
 import type { OverlayHandle, TUI } from "@earendil-works/pi-tui";
-import { createCodexAnalysisModelGateway } from "./analysis-model-gateway.ts";
+import {
+	createAnalysisModelGateway,
+	type AnalysisModelRegistry,
+} from "./analysis-model-gateway.ts";
 import type { BundlePersistenceState } from "./bundle.ts";
 import { createFsBundleStore } from "./bundle-store.ts";
 import { errorMessage } from "@nseng-ai/pi-runtime/shared/errors";
@@ -37,6 +49,7 @@ import {
 	handleBeforeAgentStart,
 	handleContext,
 	startProfilerWork,
+	type AnalysisStartup,
 	type ProfilerState,
 	type SegmentationCacheAccess,
 } from "./runtime.ts";
@@ -74,8 +87,16 @@ interface OverlaySession {
 	interrogation: InterrogationController | null;
 }
 
-export function registerContextProfilerExtension(pi: ExtensionAPI): void {
+export interface RegisterContextProfilerExtensionOptions {
+	projectConfigGateway?: ProjectConfigGateway;
+}
+
+export function registerContextProfilerExtension(
+	pi: ExtensionAPI,
+	options: RegisterContextProfilerExtensionOptions = {},
+): void {
 	const runtime = new ProfilerRuntimeStore();
+	const projectConfigGateway = options.projectConfigGateway ?? nodeProjectConfigGateway;
 	const segmentationCache = createSegmentationCacheCell();
 	const sessions = new OverlaySessionController();
 
@@ -92,6 +113,7 @@ export function registerContextProfilerExtension(pi: ExtensionAPI): void {
 					segmentationCache,
 					sessions,
 					thinking: pi.getThinkingLevel(),
+					projectConfigGateway,
 				}),
 		},
 	});
@@ -109,6 +131,7 @@ interface OpenProfilerOptions {
 	segmentationCache: SegmentationCacheAccess;
 	sessions: OverlaySessionController;
 	thinking: ReturnType<ExtensionAPI["getThinkingLevel"]>;
+	projectConfigGateway: ProjectConfigGateway;
 }
 
 class ProfilerRuntimeStore {
@@ -161,7 +184,7 @@ class OverlaySessionController {
 }
 
 function openProfiler(options: OpenProfilerOptions): void {
-	const { ctx, runtime, segmentationCache, sessions, thinking } = options;
+	const { ctx, runtime, segmentationCache, sessions, thinking, projectConfigGateway } = options;
 	if (!ctx.hasUI) {
 		ctx.ui.notify("context profiler only renders in interactive TUI mode", "warning");
 		return;
@@ -171,7 +194,6 @@ function openProfiler(options: OpenProfilerOptions): void {
 	// current prompt and session-context state directly so the profiler works
 	// immediately after an extension reload.
 	const state = runtime.captureCurrentState(ctx);
-	const gateway = createCodexAnalysisModelGateway(ctx.modelRegistry);
 	const profile = buildProfile(ctx, state);
 	const bundleStore = createFsBundleStore({
 		sessionDir: ctx.sessionManager.getSessionDir(),
@@ -195,15 +217,25 @@ function openProfiler(options: OpenProfilerOptions): void {
 		session.view?.setPersistence(persistence);
 		ctx.ui.setStatus(STATUS_KEY, bundleStatusBarText(persistence));
 	};
+	const warnedPolicyErrors = new Set<string>();
 	const startWork = (
 		workState: ProfilerState,
 		workProfile: ProfileSnapshot,
 		force: boolean,
 	): SegmentationState => {
 		session.detachSegmentation?.();
+		const analysis = resolveContextProfilerAnalysisStartup({
+			repoRoot: ctx.cwd,
+			registry: ctx.modelRegistry,
+			projectConfigGateway,
+		});
+		if (analysis.type === "unavailable" && !warnedPolicyErrors.has(analysis.message)) {
+			warnedPolicyErrors.add(analysis.message);
+			ctx.ui.notify(`Context profiler analysis unavailable: ${analysis.message}`, "warning");
+		}
 		const work = startProfilerWork({
 			store: bundleStore,
-			gateway,
+			analysis,
 			state: workState,
 			profile: workProfile,
 			sessionId: ctx.sessionManager.getSessionId(),
@@ -283,6 +315,36 @@ function openProfiler(options: OpenProfilerOptions): void {
 			}
 		});
 	ctx.ui.setStatus(STATUS_KEY, bundleStatusBarText(session.persistence));
+}
+
+export function resolveContextProfilerAnalysisStartup(options: {
+	repoRoot: string;
+	registry: AnalysisModelRegistry;
+	projectConfigGateway: ProjectConfigGateway;
+}): AnalysisStartup {
+	const policy = loadModelPolicy({
+		repoRoot: options.repoRoot,
+		gateway: options.projectConfigGateway,
+	});
+	if (!policy.ok) return { type: "unavailable", message: policy.error.message };
+	const segmentation = resolveModelOperation(
+		policy.value,
+		MODEL_OPERATION_IDS.contextProfilerSegmentation,
+	);
+	if (!segmentation.ok) return { type: "unavailable", message: segmentation.error.message };
+	const episodeAnalysis = resolveModelOperation(
+		policy.value,
+		MODEL_OPERATION_IDS.contextProfilerEpisodeAnalysis,
+	);
+	if (!episodeAnalysis.ok) return { type: "unavailable", message: episodeAnalysis.error.message };
+	return {
+		type: "available",
+		gateway: createAnalysisModelGateway({
+			registry: options.registry,
+			segmentationSelection: segmentation.value.selection,
+			episodeAnalysisSelection: episodeAnalysis.value.selection,
+		}),
+	};
 }
 
 function openInterrogation(options: {
