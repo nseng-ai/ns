@@ -13,6 +13,22 @@ function assistantMessage(text: string) {
 	};
 }
 
+function userMessage(text: string) {
+	return {
+		role: "user",
+		content: text,
+	};
+}
+
+function summaryTurn(pi: FakePi, ...assistantTexts: string[]) {
+	return {
+		messages: [
+			userMessage(pi.sentUserMessages.at(-1) ?? ""),
+			...assistantTexts.map(assistantMessage),
+		],
+	};
+}
+
 describe(COMMAND_NAME, () => {
 	test("asks the active session for a focused summary and prefills the resulting prompt", async () => {
 		const pi = new FakePi();
@@ -32,11 +48,7 @@ describe(COMMAND_NAME, () => {
 		expect(ctx.statuses).toEqual([{ key: COMMAND_NAME, value: "summarizing session…" }]);
 
 		await pi.emitAgentEnd(
-			{
-				messages: [
-					assistantMessage("Implement the cache invalidation fix with the existing gateway seam."),
-				],
-			},
+			summaryTurn(pi, "Implement the cache invalidation fix with the existing gateway seam."),
 			ctx,
 		);
 
@@ -77,14 +89,39 @@ describe(COMMAND_NAME, () => {
 		expect(ctx.notifications).toEqual([]);
 	});
 
+	test("skips interleaved unrelated turns and captures the actual summary turn", async () => {
+		const pi = new FakePi();
+		registerHerdrSessionSpaceImplCommand({ commands: createHerdrPiCommandApi(pi) });
+		const ctx = new FakeCommandContext();
+
+		await pi.commands.get(COMMAND_NAME)?.handler("focus", ctx);
+		await pi.emitAgentEnd(
+			{
+				messages: [userMessage("unrelated question"), assistantMessage("Unrelated answer.")],
+			},
+			ctx,
+		);
+
+		expect(ctx.editorTexts).toEqual([]);
+		expect(ctx.statuses.at(-1)).toEqual({ key: COMMAND_NAME, value: "summarizing session…" });
+
+		await pi.emitAgentEnd(summaryTurn(pi, "Implement the follow-up."), ctx);
+
+		expect(ctx.editorTexts).toEqual(["/ns:herdr:impl:prompt:space Implement the follow-up."]);
+		expect(ctx.statuses.at(-1)).toEqual({ key: COMMAND_NAME, value: undefined });
+	});
+
 	test("reports an empty summary and clears pending state", async () => {
 		const pi = new FakePi();
 		registerHerdrSessionSpaceImplCommand({ commands: createHerdrPiCommandApi(pi) });
 		const ctx = new FakeCommandContext();
 
 		await pi.commands.get(COMMAND_NAME)?.handler("focus", ctx);
-		await pi.emitAgentEnd({ messages: [assistantMessage("   ")] }, ctx);
-		await pi.emitAgentEnd({ messages: [assistantMessage("Later unrelated response.")] }, ctx);
+		await pi.emitAgentEnd(summaryTurn(pi, "   "), ctx);
+		await pi.emitAgentEnd(
+			{ messages: [userMessage("later"), assistantMessage("Later unrelated response.")] },
+			ctx,
+		);
 
 		expect(ctx.editorTexts).toEqual([]);
 		expect(ctx.statuses.at(-1)).toEqual({ key: COMMAND_NAME, value: undefined });
