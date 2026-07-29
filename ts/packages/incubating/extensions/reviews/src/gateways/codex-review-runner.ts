@@ -1,6 +1,6 @@
 import { commandSucceeded, type CommandResolver } from "@nseng-ai/foundation/command";
 import { defaultCommandResolver } from "@nseng-ai/foundation/exec";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
+import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/command";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { resultErr } from "@nseng-ai/foundation/result";
 
@@ -20,6 +20,7 @@ import type {
 	ReviewHarnessRunner,
 	RunReviewOptions,
 } from "./review-runner.ts";
+import { reviewHarnessExecutionMessage } from "./review-harness-execution-message.ts";
 import { systemPromptFindings } from "./review-runner-prompt.ts";
 
 export const CODEX_BINARY = "codex";
@@ -119,13 +120,19 @@ export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 		if (result.type === "cancelled") {
 			return resultErr({
 				code: "review-execution-cancelled",
-				message: codexExecutionMessage(result),
+				message: reviewHarnessExecutionMessage(result, {
+					harnessLabel: "Codex",
+					useStdoutFallback: false,
+				}),
 			});
 		}
 		if (!commandSucceeded(result)) {
 			return resultErr({
 				code: "harness-execution-failed",
-				message: codexExecutionMessage(result),
+				message: reviewHarnessExecutionMessage(result, {
+					harnessLabel: "Codex",
+					useStdoutFallback: false,
+				}),
 			});
 		}
 
@@ -220,21 +227,4 @@ function resolveCodexBinary(binaryResolver: CommandResolver): ReviewResult<strin
 		code: "harness-binary-missing",
 		message: "Codex binary 'codex' was not found on PATH.",
 	});
-}
-
-function codexExecutionMessage(result: ExecResult): string {
-	const stderr = result.stderr.trim();
-	if (stderr !== "") return stderr;
-	switch (result.type) {
-		case "spawn-failed":
-			return result.error;
-		case "cancelled":
-			return "Codex execution was cancelled.";
-		case "timed-out":
-			return "Codex execution timed out.";
-		case "exited":
-			return result.signal === null
-				? `Codex exited with status ${result.code}.`
-				: `Codex exited after signal ${result.signal} (status ${result.code ?? "unknown"}).`;
-	}
 }
