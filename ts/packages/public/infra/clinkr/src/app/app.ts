@@ -1,3 +1,4 @@
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { Command, CommanderError, Option } from "commander";
 import { z } from "zod";
 
@@ -430,8 +431,10 @@ export function createClinkrApp<TContext>(
 	const baseOptions = {
 		name: options.name,
 		topology,
-		...(options.version === undefined ? {} : { version: options.version }),
-		...(options.runtimeInfo === undefined ? {} : { runtimeInfo: options.runtimeInfo }),
+		...optionalEntries({
+			version: options.version,
+			runtimeInfo: options.runtimeInfo,
+		}),
 	};
 	if (options.requiresContext === true) {
 		return new TopologyClinkrApp<TContext>({
