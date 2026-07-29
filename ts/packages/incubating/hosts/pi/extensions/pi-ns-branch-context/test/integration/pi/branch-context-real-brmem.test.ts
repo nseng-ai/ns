@@ -4,11 +4,11 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import type { RawPiExecOptions, RawPiExecResult } from "../../../src/pi/host-types.ts";
+import type { RawPiExecOptions, RawPiExecResult } from "../../../src/host-types.ts";
 import { copyExecOptionsWithout } from "@nseng-ai/foundation/exec/testing";
 import { createTempGitRepo } from "@nseng-ai/foundation/git/testing";
 import { createTempDirTracker } from "@nseng-ai/foundation/test-kit";
-import registerBranchContextExtension from "../../../src/pi/extension.ts";
+import registerBranchContextExtension from "../../../src/extension.ts";
 import {
 	DEFAULT_PLAN_CONTENT,
 	PLAN_KEY,
@@ -16,8 +16,8 @@ import {
 	createContext,
 	execResult,
 	type RegisteredCommand,
-} from "../../pi/branch-context-extension-support.ts";
-import type { CustomMessage, ExtensionAPI, ToolDefinition } from "../../../src/pi/host-types.ts";
+} from "../../branch-context-extension-support.ts";
+import type { CustomMessage, ExtensionAPI, ToolDefinition } from "../../../src/host-types.ts";
 
 const tempDirs = createTempDirTracker();
 

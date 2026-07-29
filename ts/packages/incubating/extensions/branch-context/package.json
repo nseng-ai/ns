@@ -14,9 +14,7 @@
 		"./ns/commands/from-plan": "./src/ns/commands/from-plan.ts",
 		"./ns/commands/list": "./src/ns/commands/list.ts",
 		"./ns/commands/load": "./src/ns/commands/load.ts",
-		"./testing": "./src/testing/index.ts",
-		"./pi": "./src/pi/index.ts",
-		"./pi/extension": "./src/pi/extension.ts"
+		"./testing": "./src/testing/index.ts"
 	},
 	"files": [
 		"src"
@@ -28,25 +26,13 @@
 		"publish:dry-run": "pnpm --workspace-root exec ns-dev prepare-source-publish-package \"$PWD\" && npm publish --dry-run ./dist/publish"
 	},
 	"dependencies": {
-		"@earendil-works/pi-tui": "catalog:",
 		"@nseng-ai/brmem": "workspace:*",
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/extension-kit": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
-		"@nseng-ai/sdk": "workspace:*",
 		"@nseng-ai/plans": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
 		"zod": "catalog:"
-	},
-	"peerDependencies": {
-		"@nseng-ai/pi-runtime": "workspace:*"
-	},
-	"peerDependenciesMeta": {
-		"@nseng-ai/pi-runtime": {
-			"optional": true
-		}
-	},
-	"devDependencies": {
-		"@nseng-ai/pi-runtime": "workspace:*"
 	},
 	"ns": {
 		"tier": "extension",
@@ -54,8 +40,7 @@
 			"api",
 			"core",
 			"testing",
-			"ns",
-			"pi"
+			"ns"
 		]
 	},
 	"publishConfig": {

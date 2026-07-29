@@ -1,0 +1,30 @@
+{
+	"name": "@nseng-ai/pi-ns-branch-context",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./extension": "./src/extension.ts"
+	},
+	"scripts": {
+		"check": "tsc -p tsconfig.json",
+		"test": "cd ../../../../../.. && vitest run --config vitest.config.ts packages/incubating/hosts/pi/extensions/pi-ns-branch-context/test"
+	},
+	"dependencies": {
+		"@earendil-works/pi-tui": "catalog:",
+		"@nseng-ai/branch-context": "workspace:*",
+		"@nseng-ai/extension-kit": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/pi-runtime": "workspace:*",
+		"@nseng-ai/plans": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*"
+	},
+	"ns": {
+		"tier": "host"
+	},
+	"pi": {
+		"extensions": [
+			"./src/project-extension.ts"
+		]
+	}
+}

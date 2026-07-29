@@ -1,9 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { join } from "node:path";
 
-import registerBranchContextExtension, {
-	CREATE_BRANCH_CONTEXT_USAGE,
-} from "../../src/pi/extension.ts";
+import registerBranchContextExtension, { CREATE_BRANCH_CONTEXT_USAGE } from "../src/extension.ts";
 
 import {
 	DEFAULT_PLAN_CONTENT,

@@ -22,7 +22,7 @@ import {
 } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
-import type { RawPiExecOptions, RawPiExecResult } from "../../src/pi/host-types.ts";
+import type { RawPiExecOptions, RawPiExecResult } from "../src/host-types.ts";
 
 type ExecResultFixture = Partial<RawPiExecResult>;
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
@@ -42,12 +42,12 @@ import {
 	type ExtensionAPI,
 	type ToolContext,
 	type ToolDefinition,
-} from "../../src/pi/extension.ts";
+} from "../src/extension.ts";
 
 export { brmemCheckJson as brmemCheckEnvelope } from "@nseng-ai/extension-kit/brmem-cli/testing";
 
 export const TEST_DIR = dirname(fileURLToPath(import.meta.url));
-export const REPO_ROOT = resolve(TEST_DIR, "../../../../../../..");
+export const REPO_ROOT = resolve(TEST_DIR, "../../../../../../../..");
 export const ROOT = "/repo";
 const MODEL_ROOT = mkdtempSync(join(tmpdir(), "branch-context-root-"));
 writeFileSync(

@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import registerBranchContextExtension, {
 	buildImplSavedPlanPrompt,
 	parseImplSavedPlanArgs,
-} from "../../src/pi/extension.ts";
+} from "../src/extension.ts";
 import {
 	DEFAULT_PLAN_CONTENT,
 	FakePi,

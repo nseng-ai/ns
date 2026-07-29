@@ -17,7 +17,10 @@ import {
 	resolvePromptPointSource,
 } from "@nseng-ai/sdk/project-config/points";
 import { systemTimerScheduler } from "@nseng-ai/foundation/time";
-import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "./surfaces.ts";
+import {
+	WRITE_GRILLED_PLAN_COMMAND_NAME,
+	WRITE_PLAN_COMMAND_NAME,
+} from "@nseng-ai/branch-context/api";
 import { sendCommandProgressOrNotify } from "@nseng-ai/pi-runtime/commands/ack";
 import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
@@ -39,7 +42,10 @@ import type {
 } from "./host-types.ts";
 import type { BranchContextPiCommandApi } from "./pi-command-api.ts";
 
-export { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "./surfaces.ts";
+export {
+	WRITE_GRILLED_PLAN_COMMAND_NAME,
+	WRITE_PLAN_COMMAND_NAME,
+} from "@nseng-ai/branch-context/api";
 const WRITE_PLAN_TOOL_STATUS_KEY = WRITE_PLAN_COMMAND_NAME;
 
 interface WriteSavedPlanFileToolParams {

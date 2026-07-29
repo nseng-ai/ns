@@ -26,8 +26,8 @@ const EXTENSION_LOAD_FAILURE_MARKER = "Failed to load extension";
 const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@nseng-ai/extension-kit/graphite/status",
 	"@nseng-ai/foundation/exec",
-	"@nseng-ai/branch-context",
-	"@nseng-ai/plans",
+	"@nseng-ai/branch-context/api",
+	"@nseng-ai/plans/api",
 	"@nseng-ai/sdk/cli",
 ] as const;
 
@@ -38,6 +38,8 @@ const PI_HANDOFFS_EXPORT_IMPORTS = [
 ] as const;
 
 const PI_RUNTIME_ADAPTER_EXPORT_IMPORTS = [
+	"@nseng-ai/pi-ns-branch-context",
+	"@nseng-ai/pi-ns-branch-context/extension",
 	"@nseng-ai/pi-runtime/commands/cli-command-live-progress",
 	"@nseng-ai/pi-runtime/core/model-shortcuts/extension",
 	"@nseng-ai/pi-runtime/core/pr/extension",

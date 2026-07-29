@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import { formatImplBranchContextCommand } from "@nseng-ai/branch-context/pi";
+import { formatImplBranchContextCommand } from "@nseng-ai/branch-context/api";
 import { NoSavedPlanAvailableError } from "@nseng-ai/plans/api";
-import registerBranchContextExtension from "../../src/pi/extension.ts";
+import registerBranchContextExtension from "../src/extension.ts";
 
 import {
 	DEFAULT_PLAN_CONTENT,
