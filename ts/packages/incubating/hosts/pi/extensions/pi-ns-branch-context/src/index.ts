@@ -12,5 +12,5 @@ export {
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	IMPL_SAVED_PLAN_COMMAND_NAME,
 	formatImplBranchContextCommand,
-} from "./surfaces.ts";
+} from "@nseng-ai/branch-context/api";
 export type { BranchContextExtensionOptions, ExtensionAPI } from "./extension.ts";

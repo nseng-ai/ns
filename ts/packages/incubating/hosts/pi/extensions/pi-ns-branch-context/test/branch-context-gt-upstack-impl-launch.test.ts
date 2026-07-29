@@ -4,14 +4,14 @@ import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec
 import {
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	formatImplBranchContextCommand,
-} from "@nseng-ai/branch-context/pi";
+} from "@nseng-ai/branch-context/api";
 import {
 	formatBranchContextGtUpstackImplFollowUpFlow,
 	runBranchContextGtUpstackImplLaunch,
 	type BranchContextGtUpstackImplContext,
 	type BranchContextGtUpstackImplNewSessionOptions,
-} from "../../src/pi/gt/upstack-impl-launch.ts";
-import { createGtUpstackImplGitGateway } from "../../src/pi/gt/git-gateway.ts";
+} from "../src/gt/upstack-impl-launch.ts";
+import { createGtUpstackImplGitGateway } from "../src/gt/git-gateway.ts";
 import { FakePi, ROOT, step } from "./branch-context-extension-support.ts";
 
 const BRANCH = "branch-contexts/widget-flow";

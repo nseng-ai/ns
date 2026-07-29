@@ -16,7 +16,7 @@ import {
 	buildWritePlanPrompt,
 	formatCreateBranchContextPreview,
 	parseCreateBranchContextArgs,
-} from "../../src/pi/extension.ts";
+} from "../src/extension.ts";
 
 import {
 	PLAN_KEY,
@@ -84,7 +84,18 @@ describe("branch-context from-plan policy docs", () => {
 		);
 		const agentsText = await readFile(join(REPO_ROOT, "AGENTS.md"), "utf8");
 		const projectExtensionText = await readFile(
-			join(REPO_ROOT, ".pi", "extensions", "branch-context.ts"),
+			join(
+				REPO_ROOT,
+				"ts",
+				"packages",
+				"incubating",
+				"hosts",
+				"pi",
+				"extensions",
+				"pi-ns-branch-context",
+				"src",
+				"project-extension.ts",
+			),
 			"utf8",
 		);
 

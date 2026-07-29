@@ -1,5 +1,5 @@
 import { type BranchContextEvidence } from "@nseng-ai/branch-context/api";
-import { formatImplBranchContextCommand } from "../surfaces.ts";
+import { formatImplBranchContextCommand } from "@nseng-ai/branch-context/api";
 import { setRuntimeStatus } from "@nseng-ai/pi-runtime/runtime/status";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { NewSessionOptions, NewSessionResult } from "../host-types.ts";

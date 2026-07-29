@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { BRANCH_CONTEXT_NAMESPACE } from "@nseng-ai/branch-context/api";
-import registerBranchContextExtension from "../../src/pi/extension.ts";
+import registerBranchContextExtension from "../src/extension.ts";
 
 import {
 	FakePi,

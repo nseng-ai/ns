@@ -5,7 +5,7 @@ const TEST_MODEL_SELECTION = {
 	modelId: "gpt-5.6-luna",
 	thinking: "minimal" as const,
 };
-import registerBranchContextExtension from "../../src/pi/extension.ts";
+import registerBranchContextExtension from "../src/extension.ts";
 
 import {
 	DEFAULT_PLAN_CONTENT,

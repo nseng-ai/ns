@@ -21,7 +21,7 @@ PLAN-VERIFICATION-WORKSTREAM:END <feature-slug>
 ### `refactor-execution-strategy-guidance`
 
 - Status: current branch experiment.
-- Marker evidence: marked additions in `.ns/prompts/branch-context.plans-write.md`, `skills/incubating/branch-context/enriched-plan-save/SKILL.md`, `ts/packages/incubating/extensions/branch-context/src/pi/enriched-plan-save.ts`, and associated TypeScript prompt tests.
+- Marker evidence: marked additions in `.ns/prompts/branch-context.plans-write.md`, `skills/incubating/branch-context/enriched-plan-save/SKILL.md`, `ts/packages/incubating/hosts/pi/extensions/pi-ns-branch-context/src/enriched-plan-save.ts`, and associated TypeScript prompt tests.
 - Why unsure: it may over-prescribe implementation mechanics in durable plans, may bias agents toward named skills when local judgment is enough, and overlaps with normal implementation-agent responsibility.
 - Pull-out approach: remove every block/comment group carrying this slug, then remove or relax any tests whose only purpose is asserting the refactor-execution wording.
 

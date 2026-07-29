@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import registerBranchContextExtension, {
 	buildWriteGrilledPlanPrompt,
 	buildWritePlanPrompt,
-} from "../../src/pi/extension.ts";
+} from "../src/extension.ts";
 
 import {
 	FakePi,

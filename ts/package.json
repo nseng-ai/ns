@@ -55,7 +55,8 @@
 		"oxlint": "catalog:",
 		"syncpack": "catalog:",
 		"typescript": "catalog:",
-		"vitest": "catalog:"
+		"vitest": "catalog:",
+		"@nseng-ai/pi-ns-branch-context": "workspace:*"
 	},
 	"workspaces": [
 		"packages/public/**",

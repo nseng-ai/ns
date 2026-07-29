@@ -35,7 +35,7 @@ import type { GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { CommandContext, NotifyLevel } from "@nseng-ai/extension-kit/pi-types";
 import type { SlotClient } from "@nseng-ai/slots/api";
-import { formatImplBranchContextCommand } from "@nseng-ai/branch-context/pi";
+import { formatImplBranchContextCommand } from "@nseng-ai/branch-context/api";
 
 // Command names are used in the Pi layer (pi/impl-plan.ts) via ImplPlanConfig.
 import {
