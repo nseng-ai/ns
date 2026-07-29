@@ -24,7 +24,7 @@ import {
 	type UsageErrorOutcome,
 } from "./outcome.ts";
 import { createFilesystemSource } from "./filesystem-source.ts";
-import { hasUnescapedHelp, parseGlobalFlags, type OutputFormat } from "./framework-arguments.ts";
+import { parseGlobalFlags, type OutputFormat } from "./framework-arguments.ts";
 import { ClinkrNavigator } from "./navigator.ts";
 import { composeSources, type ClinkrComposition } from "./programmatic-source.ts";
 import { ClinkrTopology, type OpenedScope } from "./topology.ts";
@@ -142,7 +142,13 @@ export interface CreateComposedContextfulClinkrAppOptions extends CreateClinkrAp
  * it, but JavaScript and other untyped callers can; this check guarantees no
  * contextful handler or raw runner ever receives an absent context.
  */
-function requireRunContext<TContext>(options: unknown): TContext {
+function requireRunContext<TContext>(
+	options:
+		| ClinkrRunOptions<TContext>
+		| ClinkrContextFreeRunOptions
+		| ClinkrExecuteOptions<TContext>
+		| Record<string, never>,
+): TContext {
 	if (
 		typeof options !== "object" ||
 		options === null ||
@@ -151,7 +157,7 @@ function requireRunContext<TContext>(options: unknown): TContext {
 	) {
 		throw new Error("clinkr: contextful command execution requires run options with context");
 	}
-	return options.context as TContext;
+	return options.context;
 }
 
 const SUCCESS_EXIT_CODE = exitCodeFor("success");
@@ -201,46 +207,20 @@ class TopologyClinkrApp<TContext> {
 			process.stdout.write(this.runtimeInfo?.() ?? "");
 			return SUCCESS_EXIT_CODE;
 		}
-		let loaded;
-		let selectedArgv: readonly string[];
-		let selectedName: string;
-		if (navigation.type === "scope") {
-			if (navigation.scope.defaultCommand === undefined) {
-				if (navigation.tail.length > 0 && !hasUnescapedHelp(navigation.tail)) {
-					process.stderr.write(
-						`clinkr: unknown route at ${[...navigation.path, ...navigation.tail].join(" ")}\n`,
-					);
-					return USAGE_ERROR_EXIT_CODE;
-				}
-				process.stdout.write(
-					await this.buildScopeHelp(
-						navigation.path,
-						navigation.scope,
-						navigation.path.length === 0,
-						navigation.definition,
-					),
-				);
-				return SUCCESS_EXIT_CODE;
-			}
-			loaded = await this.navigator.load(navigation.scope.defaultCommand);
-			selectedArgv = navigation.tail;
-			selectedName = navigation.path.at(-1) ?? this.name;
-			if (loaded.selected.kind === "structured" && hasUnescapedHelp(selectedArgv)) {
-				process.stdout.write(
-					await this.buildScopeHelp(
-						navigation.path,
-						navigation.scope,
-						navigation.path.length === 0,
-						navigation.definition,
-					),
-				);
-				return SUCCESS_EXIT_CODE;
-			}
-		} else {
-			loaded = navigation.loaded;
-			selectedArgv = navigation.tail;
-			selectedName = navigation.path.at(-1) ?? this.name;
+		if (navigation.type === "unknown-route") {
+			process.stderr.write(
+				`clinkr: unknown route at ${[...navigation.path, ...navigation.tail].join(" ")}\n`,
+			);
+			return USAGE_ERROR_EXIT_CODE;
 		}
+		if (navigation.type === "scope-help") {
+			process.stdout.write(
+				await this.buildScopeHelp(navigation.path, navigation.scope, navigation.definition),
+			);
+			return SUCCESS_EXIT_CODE;
+		}
+		const { loaded, tail: selectedArgv } = navigation;
+		const selectedName = navigation.path.at(-1) ?? this.name;
 		const { selected, metadata } = loaded;
 		if (selected.kind === "raw") {
 			// Raw dispatch branches before structured global-flag parsing and owns
@@ -254,7 +234,7 @@ class TopologyClinkrApp<TContext> {
 		const definition = selected.definition;
 		const canEmitAnsi = options.canEmitAnsi ?? resolveProcessCaps().colorDepth !== "none";
 		const parsed = parseGlobalFlags(selectedArgv);
-		if ((parsed.ok ? parsed.flags.help : parsed.help) && hasUnescapedHelp(selectedArgv)) {
+		if (parsed.ok ? parsed.flags.help : parsed.help) {
 			process.stdout.write(
 				buildCommandSurface(selectedName, definition, metadata).command.helpInformation(),
 			);
@@ -356,10 +336,10 @@ class TopologyClinkrApp<TContext> {
 	private async buildScopeHelp(
 		path: readonly string[],
 		scope: OpenedScope<TContext>,
-		isRoot: boolean,
 		groupDefinition?: ClinkrGroupDefinition,
 	): Promise<string> {
-		const name = path.length === 0 ? this.name : (path.at(-1) ?? this.name);
+		const isRoot = path.length === 0;
+		const name = isRoot ? this.name : (path.at(-1) ?? this.name);
 		let command: Command;
 		if (scope.defaultCommand === undefined) {
 			command = createContainedCommand(name);
@@ -436,15 +416,9 @@ export function createClinkrApp<TContext>(
 			runtimeInfo: options.runtimeInfo,
 		}),
 	};
-	if (options.requiresContext === true) {
-		return new TopologyClinkrApp<TContext>({
-			...baseOptions,
-			requiresContext: true,
-		});
-	}
 	return new TopologyClinkrApp<TContext>({
 		...baseOptions,
-		requiresContext: false,
+		requiresContext: options.requiresContext === true,
 	});
 }
 

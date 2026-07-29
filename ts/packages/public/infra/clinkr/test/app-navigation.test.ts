@@ -139,11 +139,17 @@ test("bare scopes show help without a default and execute defaults when present"
 			root.group("empty", { description: "Empty group." }, () => {});
 		});
 	});
-	for (const argv of [[], ["empty"]]) {
+	for (const argv of [[], ["empty"], ["empty", "--help"]]) {
 		const run = await runForCliTest(noDefault, argv);
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toContain("Usage:");
 	}
+	const unknown = await runForCliTest(noDefault, ["empty", "missing"]);
+	expect(unknown).toEqual({
+		exitCode: 2,
+		stdout: "",
+		stderr: "clinkr: unknown route at empty missing\n",
+	});
 	const rootDefault = await runForCliTest(recursiveApp(), [], { context });
 	const groupDefault = await runForCliTest(recursiveApp(), ["people"], { context });
 	expect(JSON.parse(rootDefault.stdout)).toEqual({ value: "ctx:root" });
@@ -153,6 +159,11 @@ test("bare scopes show help without a default and execute defaults when present"
 test("selected help and schema follow canonical and alias routes", async () => {
 	const selected = await runForCliTest(recursiveApp(), ["people", "find", "--help"], { context });
 	expect(selected.stdout).toContain("--name");
+	const escaped = await runForCliTest(recursiveApp(), ["people", "find", "--", "--help"], {
+		context,
+	});
+	expect(escaped.exitCode).toBe(2);
+	expect(escaped.stdout).not.toContain("Usage:");
 	const schema = await runForCliTest(recursiveApp(), ["p", "f", "--json-schema"], { context });
 	expect(schema.exitCode).toBe(0);
 	expect(schema.stdout).toContain('"name"');
