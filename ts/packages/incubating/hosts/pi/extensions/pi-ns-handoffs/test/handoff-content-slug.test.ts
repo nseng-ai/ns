@@ -12,7 +12,7 @@ import {
 	buildHandoffContentSlugPrompt,
 	deriveHandoffContentSlug,
 	normalizeHandoffContentSlugOutput,
-} from "../../src/pi/content-slug.ts";
+} from "../src/content-slug.ts";
 import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/command";
 
 type ExitedResult = Extract<ExecResult, { type: "exited" }>;

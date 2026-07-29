@@ -9,7 +9,7 @@ import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import type {
 	HandoffExtensionAPI,
 	HandoffPromptCreateIntegration,
-} from "@nseng-ai/handoffs/pi/handoff-launch";
+} from "@nseng-ai/pi-ns-handoffs/handoff-launch";
 import type { CommandContext } from "@nseng-ai/pi-runtime/runtime/extension-types";
 
 import { createCliHerdrGateway } from "../core/cli-gateway.ts";
@@ -72,7 +72,7 @@ export async function registerHerdrPiExtension(
 }
 
 async function loadOptionalHandoffIntegration(): ReturnType<HandoffIntegrationLoader> {
-	return import("@nseng-ai/handoffs/pi/handoff-launch");
+	return import("@nseng-ai/pi-ns-handoffs/handoff-launch");
 }
 
 export function isExactOptionalIntegrationAbsence(error: unknown): boolean {
@@ -82,7 +82,7 @@ export function isExactOptionalIntegrationAbsence(error: unknown): boolean {
 	const missingSpecifier =
 		/^Cannot find package ['"]([^'"]+)['"]/.exec(error.message)?.[1] ??
 		/^Cannot find module ['"]([^'"]+)['"]/.exec(error.message)?.[1];
-	return missingSpecifier === "@nseng-ai/handoffs/pi/handoff-launch";
+	return missingSpecifier === "@nseng-ai/pi-ns-handoffs/handoff-launch";
 }
 
 function adaptHerdrExtensionApi(pi: ExtensionAPI | HandoffExtensionAPI): ExtensionAPI {

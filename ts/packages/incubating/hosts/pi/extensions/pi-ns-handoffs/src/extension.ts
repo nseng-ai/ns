@@ -1,6 +1,6 @@
 export { default, handoffParity } from "./registration.ts";
 export type { CommandContext, ExtensionAPI, RawPiExecResult } from "./runtime-types.ts";
-export { deriveSemanticHandoffSlug } from "../api/index.ts";
+export { deriveSemanticHandoffSlug } from "@nseng-ai/handoffs/api";
 export { buildCreateHandoffPrompt } from "./create.ts";
 export {
 	buildPickupHandoffPrompt,

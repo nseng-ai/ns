@@ -235,10 +235,6 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
-    devDependencies:
-      '@nseng-ai/pi-runtime':
-        specifier: workspace:*
-        version: link:../../hosts/pi/runtime/pi-runtime
 
   packages/incubating/extensions/herdr:
     dependencies:
@@ -260,6 +256,9 @@ importers:
       '@nseng-ai/objectives':
         specifier: workspace:*
         version: link:../objectives
+      '@nseng-ai/pi-ns-handoffs':
+        specifier: workspace:*
+        version: link:../../hosts/pi/extensions/pi-ns-handoffs
       '@nseng-ai/plans':
         specifier: workspace:*
         version: link:../plans
@@ -415,6 +414,27 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
+
+  packages/incubating/hosts/pi/extensions/pi-ns-handoffs:
+    dependencies:
+      '@nseng-ai/brmem':
+        specifier: workspace:*
+        version: link:../../../../../public/infra/brmem
+      '@nseng-ai/extension-kit':
+        specifier: workspace:*
+        version: link:../../../../../public/extension-kit
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../../../../public/infra/foundation
+      '@nseng-ai/handoffs':
+        specifier: workspace:*
+        version: link:../../../../extensions/handoffs
+      '@nseng-ai/pi-runtime':
+        specifier: workspace:*
+        version: link:../../runtime/pi-runtime
+      '@nseng-ai/sdk':
+        specifier: workspace:*
+        version: link:../../../../../public/sdk
 
   packages/incubating/hosts/pi/extensions/pi-ns-objectives:
     dependencies:

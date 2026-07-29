@@ -5,7 +5,7 @@ import type {
 	HandoffPromptCreateIntegration,
 	HandoffLaunchPromptCopy,
 	HandoffStartMessages,
-} from "@nseng-ai/handoffs/pi/handoff-launch";
+} from "@nseng-ai/pi-ns-handoffs/handoff-launch";
 
 import { HERDR_TAB_HANDOFF_COMMAND_NAME } from "../core/command-surfaces.ts";
 import { getCallerWorkspaceId } from "../core/sidebar.ts";

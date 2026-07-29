@@ -1,5 +1,5 @@
 import { flowSkillBackedCommandRegistrations } from "@nseng-ai/flow/pi";
-import { handoffSkillBackedCommandRegistrations } from "@nseng-ai/handoffs/pi";
+import { handoffSkillBackedCommandRegistrations } from "@nseng-ai/handoffs/api";
 import { objectiveSkillBackedCommandRegistrations } from "@nseng-ai/objectives/api";
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,

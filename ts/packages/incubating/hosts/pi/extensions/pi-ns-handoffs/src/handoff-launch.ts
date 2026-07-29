@@ -2,7 +2,7 @@ import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitiv
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import { isRecord, stringField } from "@nseng-ai/pi-runtime/runtime/primitives";
 
-import { handoffSlugToKey } from "../api/index.ts";
+import { handoffSlugToKey } from "@nseng-ai/handoffs/api";
 import { createPiHandoffContext } from "./api-context.ts";
 import { DERIVE_HANDOFF_SLUG_TOOL_NAME } from "./command-constants.ts";
 import { deriveHandoffContentSlug } from "./content-slug.ts";

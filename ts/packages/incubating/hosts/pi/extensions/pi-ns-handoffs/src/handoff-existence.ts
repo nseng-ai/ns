@@ -1,4 +1,4 @@
-import { checkHandoffArtifact, handoffKeyToSlug } from "../api/index.ts";
+import { checkHandoffArtifact, handoffKeyToSlug } from "@nseng-ai/handoffs/api";
 import { createPiHandoffStorageDeps } from "./api-context.ts";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 

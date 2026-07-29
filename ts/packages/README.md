@@ -53,9 +53,9 @@ Pi's category vocabulary is `runtime/` (reusable Pi integration substrate), `ext
 runtime extensions), `tools/` (Pi tools), and `subagents/` (Pi subagent infrastructure); a
 category appears under whichever disposition its packages belong to. Live on the current
 feature branch: `incubating/hosts/pi/runtime/pi-runtime/`,
-`incubating/hosts/pi/extensions/pi-ns-objectives/`, and
-`internal/hosts/pi/{tools,subagents}/`. The Objective adapter is implemented but has not landed
-or been published.
+`incubating/hosts/pi/extensions/{pi-ns-handoffs,pi-ns-objectives}/`, and
+`internal/hosts/pi/{tools,subagents}/`. The Handoffs and Objective adapters are implemented but
+have not landed or been published.
 
 A Pi integration written over an ns extension is named `pi-ns-<domain>` and consumes only that
 extension's curated package API — never its private source. A Pi-native extension that adapts

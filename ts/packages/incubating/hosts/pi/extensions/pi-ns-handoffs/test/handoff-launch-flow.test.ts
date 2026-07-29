@@ -1,16 +1,16 @@
 import { describe, expect, test } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import { createPiHandoffGitGateway } from "../../src/pi/api-context.ts";
-import { createHandoffLaunchIntegration } from "../../src/pi/handoff-launch.ts";
-import handoffExtension from "../../src/pi/registration.ts";
+import { createPiHandoffGitGateway } from "../src/api-context.ts";
+import { createHandoffLaunchIntegration } from "../src/handoff-launch.ts";
+import handoffExtension from "../src/registration.ts";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import {
 	buildHandoffLaunchRequest,
 	runHandoffCreateCommand,
 	type HandoffLaunchPromptCopy,
-} from "../../src/pi/launch-flow.ts";
-import { type HandoffStartMessages, createHandoffStartMessage } from "../../src/pi/ui-status.ts";
+} from "../src/launch-flow.ts";
+import { type HandoffStartMessages, createHandoffStartMessage } from "../src/ui-status.ts";
 import {
 	BRANCH,
 	FakePi,

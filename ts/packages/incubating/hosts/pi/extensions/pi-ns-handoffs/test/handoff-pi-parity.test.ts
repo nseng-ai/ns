@@ -6,9 +6,9 @@ import {
 	type LivePiSurface,
 } from "@nseng-ai/pi-runtime/parity/check";
 import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi-runtime/parity/testing";
-import claudeExtension, { claudeHandoffParity } from "../../src/pi/claude-extension.ts";
-import { handoffSkillBackedCommandRegistrations } from "../../src/pi/index.ts";
-import handoffExtension, { handoffParity } from "../../src/pi/extension.ts";
+import { handoffSkillBackedCommandRegistrations } from "@nseng-ai/handoffs/api";
+import claudeExtension, { claudeHandoffParity } from "../src/claude-extension.ts";
+import handoffExtension, { handoffParity } from "../src/extension.ts";
 
 async function collectHandoffPiSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
@@ -18,7 +18,7 @@ async function collectHandoffPiSurfaces(): Promise<LivePiSurface[]> {
 }
 
 describe("Handoff Pi extension parity metadata", () => {
-	test("exports skill-backed command registrations", () => {
+	test("imports Skill-Backed Command Registrations from the Handoffs API", () => {
 		expect(handoffSkillBackedCommandRegistrations).toEqual([
 			{
 				kind: "specialized-command",

@@ -6,7 +6,7 @@ import {
 	type ContentSlugDerivationVariant,
 	type ContentSlugEvidence,
 } from "@nseng-ai/extension-kit/content-slug";
-import { parseFlatHandoffSlug } from "../api/index.ts";
+import { parseFlatHandoffSlug } from "@nseng-ai/handoffs/api";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import {
