@@ -136,15 +136,51 @@ export interface CommandPrefix {
 	args: string[];
 }
 
-export function commandSucceeded(result: ExecResult): boolean {
+type ExecResultFacts =
+	| {
+			readonly succeeded: boolean;
+			readonly failurePhase: "termination";
+			readonly termination: string;
+	  }
+	| {
+			readonly succeeded: false;
+			readonly failurePhase: "startup";
+			readonly termination: string;
+			readonly startupError: string;
+	  };
+
+function classifyExecResult(result: ExecResult): ExecResultFacts {
 	switch (result.type) {
 		case "exited":
-			return result.code === 0 && result.signal === null;
+			return {
+				succeeded: result.code === 0 && result.signal === null,
+				failurePhase: "termination",
+				termination: closeEvidence(`exit code ${result.code ?? "unknown"}`, result.signal),
+			};
 		case "spawn-failed":
+			return {
+				succeeded: false,
+				failurePhase: "startup",
+				termination: `spawn failed: ${result.error}`,
+				startupError: result.error,
+			};
 		case "cancelled":
+			return {
+				succeeded: false,
+				failurePhase: "termination",
+				termination: closeEvidence("cancelled", result.signal),
+			};
 		case "timed-out":
-			return false;
+			return {
+				succeeded: false,
+				failurePhase: "termination",
+				termination: closeEvidence("timed out", result.signal),
+			};
 	}
+}
+
+export function commandSucceeded(result: ExecResult): boolean {
+	return classifyExecResult(result).succeeded;
 }
 
 export interface FormatCommandEvidenceOptions {
@@ -201,14 +237,11 @@ export function formatCommandResultFailure(
 	result: ExecResult,
 ): string {
 	const displayCommand = formatCommand(command, args);
-	switch (result.type) {
-		case "spawn-failed":
-			return formatCommandSpawnFailure(title, displayCommand, result.error);
-		case "exited":
-		case "cancelled":
-		case "timed-out":
-			return formatCommandFailure(title, displayCommand, result);
+	const facts = classifyExecResult(result);
+	if (facts.failurePhase === "startup") {
+		return formatCommandSpawnFailure(title, displayCommand, facts.startupError);
 	}
+	return formatCommandFailure(title, displayCommand, result);
 }
 
 export function formatShellArg(value: string): string {
@@ -294,16 +327,7 @@ export function formatCommandSpawnFailure(
 }
 
 export function formatCommandTermination(result: ExecResult): string {
-	switch (result.type) {
-		case "exited":
-			return closeEvidence(`exit code ${result.code ?? "unknown"}`, result.signal);
-		case "spawn-failed":
-			return `spawn failed: ${result.error}`;
-		case "cancelled":
-			return closeEvidence("cancelled", result.signal);
-		case "timed-out":
-			return closeEvidence("timed out", result.signal);
-	}
+	return classifyExecResult(result).termination;
 }
 
 function closeEvidence(summary: string, signal: string | null): string {
