@@ -39,6 +39,22 @@ surface, adds an Objectives instruction block to `AGENTS.md`, and provisions the
 Objective skills into your harness's skill root. `ns extension install` writes files but
 never commits — review and commit them yourself.
 
+## Lifecycle
+
+<!-- STUB: carried from the current package README; add owner resolution to the Create
+row's story in a later pass. -->
+
+Drive an Objective through **create → next → update → close** by asking your agent in
+natural language; each step maps to a skill (`objective-create`, `objective-next`,
+`objective-update`, `objective-close`). Because the record is checked in, a fresh agent
+session starts with the full history of intent instead of an empty context window.
+
+## Record anatomy
+
+<!-- STUB: outline placeholder. Describe objective.md required headings, roadmap.md,
+updates/ immutability, orientation.md, closed.md, and Record Frontmatter (owner, blocked,
+edges) in a later pass. -->
+
 ## Owners
 
 Every Objective has exactly one **owner**: the individual contributor responsible for the
@@ -52,7 +68,7 @@ record's narrative integrity, roadmap decisions, coordination, and closure.
   Objective's lifetime.
 - Ownership is stewardship, not access control: anyone may contribute to, implement, or
   edit an Objective. Owning a record grants no merge, review, or publication authority.
-- Owners are individuals. Teams and organizations are not owners.
+- Owners are currently individuals. Teams and organizations are not owners.
 
 Ownership is part of Objective **identity**. The durable identity of an Objective is its
 **Objective Locator**:
@@ -134,22 +150,6 @@ edges:
     annotation: Consumes its published package surface.
 ---
 ```
-
-## Lifecycle
-
-<!-- STUB: carried from the current package README; add owner resolution to the Create
-row's story in a later pass. -->
-
-Drive an Objective through **create → next → update → close** by asking your agent in
-natural language; each step maps to a skill (`objective-create`, `objective-next`,
-`objective-update`, `objective-close`). Because the record is checked in, a fresh agent
-session starts with the full history of intent instead of an empty context window.
-
-## Record anatomy
-
-<!-- STUB: outline placeholder. Describe objective.md required headings, roadmap.md,
-updates/ immutability, orientation.md, closed.md, and Record Frontmatter (owner, blocked,
-edges) in a later pass. -->
 
 ## CLI
 
