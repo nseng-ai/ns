@@ -1,6 +1,6 @@
 # Stack Provider Capability Matrix
 
-This matrix supports [ADR 0049](../adr/0049-opt-in-provider-neutral-stacking.md). It records the semantics that ns neutral stacking contracts must preserve across Graphite, the observed `github/gh-stack` extension, and a hypothetical colocated-Jujutsu provider. It is a design input and conformance-test checklist, not a promise that ns ships gh-stack or Jujutsu adapters.
+This matrix supports [ADR 0049](../adr/0049-opt-in-provider-neutral-stacking.md). It records the semantics that ns neutral stacking contracts must preserve across Graphite, the observed `github/gh-stack` extension, and a hypothetical colocated-Jujutsu provider. It is a design input and conformance-test checklist, not a promise that ns ships gh-stack or Jujutsu adapters. The companion [No-Stack-Provider Behavior](./no-stack-provider-behavior.md) convention audits the user-facing default when none of these capabilities is selected.
 
 ## Evidence baseline
 
