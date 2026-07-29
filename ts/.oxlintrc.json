@@ -1,8 +1,8 @@
 {
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "ignorePatterns": ["node_modules/**"],
-  "rules": {
-    "eslint/no-control-regex": "off",
-    "unicorn/no-useless-fallback-in-spread": "off"
-  }
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"ignorePatterns": ["node_modules/**"],
+	"rules": {
+		"eslint/no-control-regex": "off",
+		"unicorn/no-useless-fallback-in-spread": "off"
+	}
 }

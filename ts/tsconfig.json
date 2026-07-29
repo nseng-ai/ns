@@ -1,38 +1,27 @@
 {
-  "compilerOptions": {
-    "target": "ES2024",
-    "lib": [
-      "ES2024"
-    ],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "isolatedModules": true,
-    "erasableSyntaxOnly": true,
-    "moduleDetection": "force",
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitOverride": true,
-    "noUncheckedSideEffectImports": true,
-    "noEmit": true,
-    "skipLibCheck": true,
-    "types": [
-      "node"
-    ],
-    "forceConsistentCasingInFileNames": true
-  },
-  "include": [
-    "scripts/**/*.ts",
-    "packages/**/src/**/*.ts",
-    "packages/**/test/**/*.ts"
-  ],
-  "exclude": [
-    "**/node_modules/**",
-    "**/dist/**"
-  ]
+	"compilerOptions": {
+		"target": "ES2024",
+		"lib": ["ES2024"],
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true,
+		"allowImportingTsExtensions": true,
+		"verbatimModuleSyntax": true,
+		"isolatedModules": true,
+		"erasableSyntaxOnly": true,
+		"moduleDetection": "force",
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"noUncheckedSideEffectImports": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"types": ["node"],
+		"forceConsistentCasingInFileNames": true
+	},
+	"include": ["scripts/**/*.ts", "packages/**/src/**/*.ts", "packages/**/test/**/*.ts"],
+	"exclude": ["**/node_modules/**", "**/dist/**"]
 }
