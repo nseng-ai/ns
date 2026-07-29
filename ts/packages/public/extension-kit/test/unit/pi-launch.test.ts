@@ -70,13 +70,25 @@ describe("buildTrackedBranchPayloadLaunchCommand", () => {
 				thinkingLevel: "high",
 			}),
 		).toBe(
-			'payload="$(brmem get prompt.md --namespace ns-impl --branch feature/demo)" && exec pi --provider anthropic --model claude-sonnet --thinking high "$payload"',
+			'payload_file="$(mktemp)" && trap \'rm -f "$payload_file"\' EXIT && brmem get prompt.md --namespace ns-impl --branch feature/demo >"$payload_file" && NS_IMPL_PROMPT_INPUT_FILE="$payload_file" pi --provider anthropic --model claude-sonnet --thinking high',
 		);
 	});
 
 	test("omits model and thinking flags when unset", () => {
 		expect(buildTrackedBranchPayloadLaunchCommand("feature/demo", { thinkingLevel: "off" })).toBe(
-			'payload="$(brmem get prompt.md --namespace ns-impl --branch feature/demo)" && exec pi "$payload"',
+			'payload_file="$(mktemp)" && trap \'rm -f "$payload_file"\' EXIT && brmem get prompt.md --namespace ns-impl --branch feature/demo >"$payload_file" && NS_IMPL_PROMPT_INPUT_FILE="$payload_file" pi',
 		);
+	});
+
+	test("gates Pi launch on the Branch Memory read without prompt-sized argv", () => {
+		const command = buildTrackedBranchPayloadLaunchCommand("feature/demo", {
+			thinkingLevel: "off",
+		});
+
+		expect(command).toContain(
+			'brmem get prompt.md --namespace ns-impl --branch feature/demo >"$payload_file" &&',
+		);
+		expect(command).toContain('NS_IMPL_PROMPT_INPUT_FILE="$payload_file" pi');
+		expect(command).not.toContain('pi "$payload"');
 	});
 });

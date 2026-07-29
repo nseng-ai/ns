@@ -4,17 +4,18 @@ This document is the exact current inventory of the Herdr Pi surface. It also re
 
 ## Current Herdr Pi catalog
 
-The catalog contains exactly nine commands. The first eight are base registrations; `/ns:herdr:tab:handoff` is registered only when the curated Handoffs Pi integration is available.
+The catalog contains exactly ten commands. The first nine are base registrations; `/ns:herdr:tab:handoff` is registered only when the curated Handoffs Pi integration is available.
 
 ### Space resources and implementation workflows
 
-| Command                                         | Behavior                                                                                                              |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `/ns:herdr:space:new [description]`             | Create and focus a space at the current cwd, optionally with a model-derived semantic label.                          |
-| `/ns:herdr:space:goal <goal>`                   | Derive a goal label and rename the explicit caller space.                                                             |
-| `/ns:herdr:space:objective-summary [objective]` | Resolve an Objective and apply its label to the explicit caller space.                                                |
-| `/ns:herdr:impl:prompt:space <prompt>`          | Select current branch or local trunk contextually, then implement the prompt in a new space.                          |
-| `/ns:herdr:impl:plan:space [--dry-run]`         | Select current branch or local trunk contextually, then start implementation of the latest Saved Plan in a new space. |
+| Command                                         | Behavior                                                                                                                 |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `/ns:herdr:space:new [description]`             | Create and focus a space at the current cwd, optionally with a model-derived semantic label.                             |
+| `/ns:herdr:space:goal <goal>`                   | Derive a goal label and rename the explicit caller space.                                                                |
+| `/ns:herdr:space:objective-summary [objective]` | Resolve an Objective and apply its label to the explicit caller space.                                                   |
+| `/ns:herdr:impl:prompt:space <prompt>`          | Select current branch or local trunk contextually, then implement the prompt in a new space.                             |
+| `/ns:herdr:impl:session:space [focus]`          | Privately derive a prompt from the active session branch, then route it directly through prompt-to-space implementation. |
+| `/ns:herdr:impl:plan:space [--dry-run]`         | Select current branch or local trunk contextually, then start implementation of the latest Saved Plan in a new space.    |
 
 ### Tab resources and implementation workflows
 
@@ -27,6 +28,8 @@ The catalog contains exactly nine commands. The first eight are base registratio
 
 An **implementation workflow** implements a prompt or Saved Plan. `impl` is shorter, avoids collision with dispatch terminology for remote systems, and describes the outcome more accurately than `launch`. The rename does not change the existing agent instructions or workflow behavior.
 
+Session-to-space generation is private: it serializes the active Pi session branch entries and optional focus into a temporary UTF-8 prompt file, invokes a no-session/no-tools Pi print operation, captures stdout without adding a parent turn or prefilling the editor, and routes the result directly through the prompt workflow. Parent-visible progress reports only concise state and prompt size, never prompt content. Generation failure stops before branch, Branch Memory, or Herdr mutation.
+
 The implementation branch-basis policy is uniform: named `main` or `master` automatically uses the existing local Graphite trunk; another named branch offers **Current branch (`<name>`)** or **Local trunk**; detached HEAD and current-branch lookup failure offer confirmed local-trunk fallback. Herdr never fetches or refreshes trunk; users update local trunk separately when desired. Cancellation, declined fallback, missing interaction UI, and local-trunk resolution failure all stop before downstream mutation. Plan-to-tab captures `HERDR_WORKSPACE_ID` before Git inspection or interaction. Plan dry runs perform contextual selection and read the existing local trunk SHA without mutation.
 
 This semantic shift was a clean breaking cutover. The former `/ns:herdr:launch:prompt:space`, `/ns:herdr:launch:plan:space`, and `/ns:herdr:launch:plan:tab` names have no visible or hidden aliases. The earlier five branch-basis-specific `br`/`tr` launch names also remain removed without aliases.
@@ -37,7 +40,7 @@ The command cutover does not remove launch as a process or destination concept:
 
 - **Prepared Herdr Launch** remains the internal destination-startup operation after a branch and implementation command have been prepared.
 - Herdr still owns workspace/tab creation and process startup in the selected pane; Pi launch mechanics still construct and start the Pi process.
-- The `ns-impl` Branch Memory namespace identifies prompt payloads for implementation workflows. It is a technical transport/storage locator, not a command name.
+- The `ns-impl` Branch Memory namespace identifies prompt payloads for implementation workflows. It is a technical transport/storage locator, not a command name. Payload storage refuses an existing `ns-impl/prompt.md`; destination startup first reads that retained Entry into a temporary UTF-8 file, then an inherited launch marker makes the destination Herdr adapter load and inject the exact text as Pi's initial input. A read failure prevents destination Pi startup, and the prompt avoids parent-session exposure, shell quoting, and prompt-sized argv.
 - **Handoff launch** remains correct for `/ns:herdr:tab:handoff`, which creates and verifies a durable Handoff Artifact before launching pickup.
 
 ## Targeting and boundaries

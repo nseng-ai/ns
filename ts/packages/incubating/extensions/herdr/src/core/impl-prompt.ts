@@ -52,8 +52,8 @@ export async function handleHerdrSlotImplPrompt(
 	context: HerdrImplPromptContext,
 	options: HandleHerdrSlotImplPromptOptions,
 ): Promise<void> {
-	const prompt = options.args.trim();
-	if (prompt.length === 0) {
+	const prompt = options.args;
+	if (prompt.trim().length === 0) {
 		context.pi.ui.notify(`Usage: /${COMMAND_NAME} <prompt>`, "error");
 		return;
 	}
@@ -194,6 +194,9 @@ export async function implTrackedBranchPrompt(
 		context.pi.ui.notify(
 			[
 				`Opened Herdr workspace: ${result.target.checkout.branchName}`,
+				`Workspace: ${result.target.workspaceId}`,
+				`Tab: ${result.target.tabId}`,
+				`Pane: ${result.target.paneId}`,
 				`${options.successDetails.parentLabel}: ${options.branch.parentBranch}`,
 				`Start point: ${options.branch.startPoint}`,
 				`Implementation payload: ${stored.value.namespace}/${stored.value.key}`,

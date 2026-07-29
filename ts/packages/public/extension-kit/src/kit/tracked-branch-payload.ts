@@ -32,6 +32,7 @@ import { buildPiLaunchArgs, type PiLaunchOptions } from "./pi-launch.ts";
 
 export const TRACKED_BRANCH_PAYLOAD_NAMESPACE = "ns-impl";
 export const TRACKED_BRANCH_PAYLOAD_KEY = "prompt.md";
+export const TRACKED_BRANCH_PAYLOAD_INPUT_FILE_ENV = "NS_IMPL_PROMPT_INPUT_FILE";
 /** Launch-context note stored with prompts launched from the existing local trunk. */
 export const LOCAL_TRUNK_DISPATCH_CONTEXT_NOTE =
 	"This branch was created from the existing local Graphite trunk and is intentionally unrelated to the caller's current stack.";
@@ -297,13 +298,10 @@ export function buildTrackedBranchPayloadLaunchCommand(
 		"--branch",
 		branchName,
 	]);
-	// The prompt payload travels through a shell variable, so the final pi argument
-	// must stay the double-quoted expansion `"$payload"` rather than a quoted literal.
-	const piArgs = buildPiLaunchArgs("$payload", launchOptions);
-	const launchCommand = piArgs
-		.map((arg, index) => (index === piArgs.length - 1 ? `"${arg}"` : formatShellArg(arg)))
-		.join(" ");
-	return `payload="$(${getCommand})" && exec ${launchCommand}`;
+	// Read before process startup so failure cannot create a destination Pi session. The Herdr Pi
+	// adapter consumes the inherited file and injects its exact UTF-8 text as the initial user input.
+	const piCommand = buildPiLaunchArgs(undefined, launchOptions).map(formatShellArg).join(" ");
+	return `payload_file="$(mktemp)" && trap 'rm -f "$payload_file"' EXIT && ${getCommand} >"$payload_file" && ${TRACKED_BRANCH_PAYLOAD_INPUT_FILE_ENV}="$payload_file" ${piCommand}`;
 }
 
 /**

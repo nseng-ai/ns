@@ -35,7 +35,10 @@ import { buildPlanContentSlugPrompt } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import { createBranchContextContext } from "@nseng-ai/branch-context/api";
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
-import { buildTrackedBranchSlugPrompt } from "@nseng-ai/extension-kit/tracked-branch-payload";
+import {
+	buildTrackedBranchImplPrompt,
+	buildTrackedBranchSlugPrompt,
+} from "@nseng-ai/extension-kit/tracked-branch-payload";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { StdinCapableCommandExecApi } from "@nseng-ai/foundation/command";
@@ -219,7 +222,7 @@ describe("Herdr prompt implementation", () => {
 	test("stores a neutral free-form payload and launches it in the created workspace", async () => {
 		const stagingDir = await makeTempDir();
 		const stagedPromptFile = join(stagingDir, `123-${BRANCH}.md`);
-		const prompt = "Implement the Herdr implementation flow with literal --from trunk text";
+		const prompt = `  Implement the Herdr implementation flow with literal --from trunk text, quotes ' " and $shell.\n${"large line\n".repeat(2_000)}\n  `;
 		const pi = new FakePi({
 			script: [
 				step(
@@ -297,8 +300,7 @@ describe("Herdr prompt implementation", () => {
 		expect(git.createBranchAtStartPointCalls).toEqual([
 			{ cwd: ROOT, branch: BRANCH, startPoint: START_POINT },
 		]);
-		expect(await readFile(stagedPromptFile, "utf8")).toContain(prompt);
-		expect(await readFile(stagedPromptFile, "utf8")).toContain("literal --from trunk text");
+		expect(await readFile(stagedPromptFile, "utf8")).toBe(buildTrackedBranchImplPrompt(prompt));
 		expect(herdr.createWorkspaceCalls).toEqual([
 			{ options: { cwd: WORKTREE, label: `s1:${BRANCH}` } },
 		]);

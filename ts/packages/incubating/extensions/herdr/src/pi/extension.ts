@@ -1,4 +1,7 @@
+import { readFile } from "node:fs/promises";
+
 import { RealGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/branch";
+import { TRACKED_BRANCH_PAYLOAD_INPUT_FILE_ENV } from "@nseng-ai/extension-kit/tracked-branch-payload";
 import type {
 	AgentEndContext,
 	CommandDefinition,
@@ -66,6 +69,7 @@ export async function registerHerdrPiExtension(
 	registerHerdrNewSpaceCommand(context);
 	registerHerdrNewTabCommand(context);
 	registerHerdrTabGoalCommand(herdrPi);
+	registerTrackedBranchPayloadInput(pi);
 
 	if (!("registerTool" in pi) || pi.registerTool === undefined) return;
 	const load = options.loadHandoffIntegration ?? loadOptionalHandoffIntegration;
@@ -77,6 +81,41 @@ export async function registerHerdrPiExtension(
 		throw error;
 	}
 	registerHerdrHandoffTab(pi, module.createHandoffLaunchIntegration(pi));
+}
+
+export async function injectTrackedBranchPayloadInput(options: {
+	inputFile: string;
+	readPrompt?: (path: string) => Promise<string>;
+	sendUserMessage(content: string): Promise<void> | void;
+}): Promise<{ ok: true } | { ok: false; message: string }> {
+	try {
+		const prompt = await (options.readPrompt ?? ((path) => readFile(path, "utf8")))(
+			options.inputFile,
+		);
+		if (prompt.trim() === "") {
+			return { ok: false, message: "The Branch Memory implementation prompt was empty." };
+		}
+		await options.sendUserMessage(prompt);
+		return { ok: true };
+	} catch (error) {
+		return {
+			ok: false,
+			message: `Could not load the Branch Memory implementation prompt: ${error instanceof Error ? error.message : String(error)}`,
+		};
+	}
+}
+
+function registerTrackedBranchPayloadInput(pi: ExtensionAPI | HandoffExtensionAPI): void {
+	if (pi.on === undefined) return;
+	pi.on("session_start", async (_event, ctx) => {
+		const inputFile = process.env[TRACKED_BRANCH_PAYLOAD_INPUT_FILE_ENV];
+		if (inputFile === undefined || inputFile === "") return;
+		const injected = await injectTrackedBranchPayloadInput({
+			inputFile,
+			sendUserMessage: (content) => pi.sendUserMessage(content),
+		});
+		if (!injected.ok) ctx.ui.notify(injected.message, "error");
+	});
 }
 
 async function loadOptionalHandoffIntegration(): ReturnType<HandoffIntegrationLoader> {

@@ -23,7 +23,7 @@ export function getPiLaunchOptions(
 }
 
 export function buildPiLaunchArgs(
-	initialArgument: string,
+	initialArgument: string | undefined,
 	launchOptions: PiLaunchOptions,
 ): string[] {
 	const args = ["pi"];
@@ -31,7 +31,7 @@ export function buildPiLaunchArgs(
 		args.push("--provider", launchOptions.model.provider, "--model", launchOptions.model.id);
 	}
 	if (launchOptions.thinkingLevel !== "off") args.push("--thinking", launchOptions.thinkingLevel);
-	args.push(initialArgument);
+	if (initialArgument !== undefined) args.push(initialArgument);
 	return args;
 }
 

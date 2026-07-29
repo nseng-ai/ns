@@ -1,152 +1,152 @@
 import { describe, expect, test } from "vitest";
 
-import { registerHerdrSessionSpaceImplCommand } from "../src/pi/impl-session.ts";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+
+import {
+	createPrivateSessionPromptGenerator,
+	registerHerdrSessionSpaceImplCommand,
+	type PrivatePromptFileGateway,
+	type PrivateSessionPromptGenerator,
+} from "../src/pi/impl-session.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
-import { FakeCommandContext, FakePi } from "./herdr-test-harness.ts";
+import {
+	FakeCommandContext,
+	FakeHerdrGateway,
+	FakePi,
+	ROOT,
+	SOURCE_BRANCH,
+	step,
+} from "./herdr-test-harness.ts";
 
 const COMMAND_NAME = "ns:herdr:impl:session:space";
+const PRIVATE_PROMPT =
+	"private secret prompt with $shell, `markdown`, quotes ' \" and\nlarge context";
 
-function assistantMessage(text: string) {
+function registrationContext(pi: FakePi) {
 	return {
-		role: "assistant",
-		content: [{ type: "text", text }],
+		commands: createHerdrPiCommandApi(pi),
+		git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
+		trunkBranch: "master",
+		herdr: new FakeHerdrGateway(),
 	};
 }
 
-function userMessage(text: string) {
-	return {
-		role: "user",
-		content: text,
-	};
-}
+class CapturingPromptFiles implements PrivatePromptFileGateway {
+	readonly path = "/private/request.md";
+	contents: string[] = [];
 
-function summaryTurn(pi: FakePi, ...assistantTexts: string[]) {
-	return {
-		messages: [
-			userMessage(pi.sentUserMessages.at(-1) ?? ""),
-			...assistantTexts.map(assistantMessage),
-		],
-	};
+	async withUtf8Prompt<T>(content: string, useFile: (filePath: string) => Promise<T>): Promise<T> {
+		this.contents.push(content);
+		return useFile(this.path);
+	}
 }
 
 describe(COMMAND_NAME, () => {
-	test("asks the active session for a focused summary and prefills the resulting prompt", async () => {
+	test("generates privately from active branch entries through a prompt file, not argv", async () => {
+		const files = new CapturingPromptFiles();
+		const pi = new FakePi({
+			script: [
+				step(
+					"pi",
+					[
+						"--print",
+						"--no-session",
+						"--no-tools",
+						"--provider",
+						"anthropic",
+						"--model",
+						"claude-sonnet",
+						"--thinking",
+						"high",
+						"@/private/request.md",
+					],
+					{ stdout: PRIVATE_PROMPT },
+				),
+			],
+		});
+		const generator = createPrivateSessionPromptGenerator(createHerdrPiCommandApi(pi), files);
+		const branchEntries = [
+			{ type: "message", message: { role: "user", content: "sensitive session context" } },
+		];
+
+		const result = await generator.generate({
+			cwd: ROOT,
+			focus: "focus with --flag and $shell",
+			branchEntries,
+			model: { provider: "anthropic", id: "claude-sonnet" },
+			thinking: "high",
+		});
+
+		pi.assertDone();
+		expect(result).toEqual({ ok: true, prompt: PRIVATE_PROMPT });
+		expect(files.contents).toHaveLength(1);
+		expect(files.contents[0]).toContain(JSON.stringify(branchEntries, null, 2));
+		expect(files.contents[0]).toContain("focus with --flag and $shell");
+		expect(pi.execCalls[0]?.args.join(" ")).not.toContain("sensitive session context");
+		expect(pi.execCalls[0]?.args.join(" ")).not.toContain("focus with --flag");
+	});
+
+	test("does not send a parent turn or prefill the editor and passes generated text directly onward", async () => {
 		const pi = new FakePi();
-		registerHerdrSessionSpaceImplCommand({ commands: createHerdrPiCommandApi(pi) });
-		const ctx = new FakeCommandContext();
+		const calls: Parameters<PrivateSessionPromptGenerator["generate"]>[0][] = [];
+		const generator: PrivateSessionPromptGenerator = {
+			async generate(options) {
+				calls.push(options);
+				return { ok: true, prompt: PRIVATE_PROMPT };
+			},
+		};
+		registerHerdrSessionSpaceImplCommand(registrationContext(pi), { generator });
+		const branchEntries = [{ type: "message", message: { role: "user", content: "context" } }];
+		const ctx = new FakeCommandContext({
+			cwd: ROOT,
+			branchEntries,
+			shouldCancelSelect: true,
+		});
 
-		await pi.commands.get(COMMAND_NAME)?.handler("focus on regression coverage", ctx);
+		await pi.commands.get(COMMAND_NAME)?.handler("continue privately", ctx);
 
-		expect(ctx.waitCount).toBe(1);
-		expect(pi.sentUserMessages).toHaveLength(1);
-		expect(pi.sentUserMessages[0]).toContain(
-			"Draft a directed, self-contained implementation prompt",
-		);
-		expect(pi.sentUserMessages[0]).toContain("## Continuation focus\nfocus on regression coverage");
-		expect(pi.sentUserMessages[0]).toContain("Do not use tools or perform implementation work.");
+		expect(calls).toEqual([
+			expect.objectContaining({
+				cwd: ROOT,
+				focus: "continue privately",
+				branchEntries,
+			}),
+		]);
+		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.editorTexts).toEqual([]);
-		expect(ctx.statuses).toEqual([{ key: COMMAND_NAME, value: "summarizing session…" }]);
-
-		await pi.emitAgentEnd(
-			summaryTurn(pi, "Implement the cache invalidation fix with the existing gateway seam."),
-			ctx,
+		expect(ctx.waitCount).toBe(2);
+		expect(ctx.notifications.map((notification) => notification.message).join("\n")).not.toContain(
+			PRIVATE_PROMPT,
 		);
-
-		expect(ctx.editorTexts).toEqual([
-			"/ns:herdr:impl:prompt:space Implement the cache invalidation fix with the existing gateway seam.",
-		]);
-		expect(ctx.statuses).toEqual([
-			{ key: COMMAND_NAME, value: "summarizing session…" },
-			{ key: COMMAND_NAME, value: undefined },
-		]);
 		expect(ctx.notifications.at(-1)).toEqual({
-			message:
-				"Drafted the session implementation prompt in the editor. Review or edit it, then press Enter.",
+			message: "Herdr implementation cancelled.",
 			level: "info",
 		});
 	});
 
-	test("rejects a second request while a summary is pending", async () => {
+	test("generation failure is concise, does not leak output, and prevents launch", async () => {
+		const leaked = "secret partial model output";
 		const pi = new FakePi();
-		registerHerdrSessionSpaceImplCommand({ commands: createHerdrPiCommandApi(pi) });
+		const herdr = new FakeHerdrGateway();
+		const generator: PrivateSessionPromptGenerator = {
+			async generate() {
+				return { ok: false, message: "The private model operation failed." };
+			},
+		};
+		registerHerdrSessionSpaceImplCommand({ ...registrationContext(pi), herdr }, { generator });
 		const ctx = new FakeCommandContext();
 
-		await pi.commands.get(COMMAND_NAME)?.handler("first focus", ctx);
-		await pi.commands.get(COMMAND_NAME)?.handler("second focus", ctx);
+		await pi.commands.get(COMMAND_NAME)?.handler("do not expose this", ctx);
 
-		expect(ctx.waitCount).toBe(1);
-		expect(pi.sentUserMessages).toHaveLength(1);
-		expect(pi.sentUserMessages[0]).toContain("## Continuation focus\nfirst focus");
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(ctx.editorTexts).toEqual([]);
+		expect(herdr.createWorkspaceCalls).toEqual([]);
+		expect(herdr.paneRunCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)).toEqual({
-			message: "A session summary is already pending.",
-			level: "warning",
+			message:
+				"Could not prepare the private implementation prompt. The private model operation failed.",
+			level: "error",
 		});
-	});
-
-	test("supplies a useful default when focus is omitted", async () => {
-		const pi = new FakePi();
-		registerHerdrSessionSpaceImplCommand({ commands: createHerdrPiCommandApi(pi) });
-		const ctx = new FakeCommandContext();
-
-		await pi.commands.get(COMMAND_NAME)?.handler("   ", ctx);
-
-		expect(pi.sentUserMessages[0]).toContain(
-			"## Continuation focus\nChoose the most natural implementation continuation from the session.",
-		);
-	});
-
-	test("ignores unrelated agent completions until a summary is requested", async () => {
-		const pi = new FakePi();
-		registerHerdrSessionSpaceImplCommand({ commands: createHerdrPiCommandApi(pi) });
-		const ctx = new FakeCommandContext();
-
-		await pi.emitAgentEnd({ messages: [assistantMessage("Unrelated response.")] }, ctx);
-
-		expect(ctx.editorTexts).toEqual([]);
-		expect(ctx.notifications).toEqual([]);
-	});
-
-	test("skips interleaved unrelated turns and captures the actual summary turn", async () => {
-		const pi = new FakePi();
-		registerHerdrSessionSpaceImplCommand({ commands: createHerdrPiCommandApi(pi) });
-		const ctx = new FakeCommandContext();
-
-		await pi.commands.get(COMMAND_NAME)?.handler("focus", ctx);
-		await pi.emitAgentEnd(
-			{
-				messages: [userMessage("unrelated question"), assistantMessage("Unrelated answer.")],
-			},
-			ctx,
-		);
-
-		expect(ctx.editorTexts).toEqual([]);
-		expect(ctx.statuses.at(-1)).toEqual({ key: COMMAND_NAME, value: "summarizing session…" });
-
-		await pi.emitAgentEnd(summaryTurn(pi, "Implement the follow-up."), ctx);
-
-		expect(ctx.editorTexts).toEqual(["/ns:herdr:impl:prompt:space Implement the follow-up."]);
-		expect(ctx.statuses.at(-1)).toEqual({ key: COMMAND_NAME, value: undefined });
-	});
-
-	test("reports an empty summary and clears pending state", async () => {
-		const pi = new FakePi();
-		registerHerdrSessionSpaceImplCommand({ commands: createHerdrPiCommandApi(pi) });
-		const ctx = new FakeCommandContext();
-
-		await pi.commands.get(COMMAND_NAME)?.handler("focus", ctx);
-		await pi.emitAgentEnd(summaryTurn(pi, "   "), ctx);
-		await pi.emitAgentEnd(
-			{ messages: [userMessage("later"), assistantMessage("Later unrelated response.")] },
-			ctx,
-		);
-
-		expect(ctx.editorTexts).toEqual([]);
-		expect(ctx.statuses.at(-1)).toEqual({ key: COMMAND_NAME, value: undefined });
-		expect(ctx.notifications).toEqual([
-			{
-				message: "The session summary turn returned no implementation prompt.",
-				level: "error",
-			},
-		]);
+		expect(JSON.stringify(ctx.notifications)).not.toContain(leaked);
 	});
 });

@@ -4,7 +4,7 @@ import type { ExtensionAPI } from "@nseng-ai/extension-kit/pi-types";
 import type { HandoffExtensionAPI, ToolDefinition } from "@nseng-ai/handoffs/pi/handoff-launch";
 import { HERDR_BASE_COMMAND_NAMES, HERDR_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
 
-import registerHerdrPiExtension from "../src/pi/extension.ts";
+import registerHerdrPiExtension, { injectTrackedBranchPayloadInput } from "../src/pi/extension.ts";
 
 function makeFakeExtensionApi(commands: Map<string, unknown>): ExtensionAPI {
 	return {
@@ -72,6 +72,44 @@ function makeToolExtensionApi(
 		},
 	};
 }
+
+describe("herdr tracked-branch payload input", () => {
+	test("injects the exact UTF-8 Branch Memory payload as destination input", async () => {
+		const prompt = "  Markdown `code`, quotes ' \", Unicode 🐑, $shell\n\n";
+		const inputs: string[] = [];
+
+		const result = await injectTrackedBranchPayloadInput({
+			inputFile: "/private/prompt.md",
+			readPrompt: async (path) => {
+				expect(path).toBe("/private/prompt.md");
+				return prompt;
+			},
+			sendUserMessage: (content) => {
+				inputs.push(content);
+			},
+		});
+
+		expect(result).toEqual({ ok: true });
+		expect(inputs).toEqual([prompt]);
+	});
+
+	test("does not inject when the retained payload cannot be read", async () => {
+		const inputs: string[] = [];
+		const result = await injectTrackedBranchPayloadInput({
+			inputFile: "/missing/prompt.md",
+			readPrompt: async () => Promise.reject(new Error("missing")),
+			sendUserMessage: (content) => {
+				inputs.push(content);
+			},
+		});
+
+		expect(result).toEqual({
+			ok: false,
+			message: "Could not load the Branch Memory implementation prompt: missing",
+		});
+		expect(inputs).toEqual([]);
+	});
+});
 
 describe("herdr Pi extension", () => {
 	test("fails before registration when Graphite trunk resolution fails", async () => {
