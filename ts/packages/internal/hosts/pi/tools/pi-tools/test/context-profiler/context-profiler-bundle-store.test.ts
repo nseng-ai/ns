@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, test } from "vitest";
@@ -67,7 +67,7 @@ describe("fs bundle store", () => {
 		expect(result.ok && result.value.ordinal).toBe(2);
 	});
 
-	test("episodes writes are exactly once", async () => {
+	test("episodes writes atomically replace stale analysis for a reused bundle", async () => {
 		const root = await tempRoot();
 		const store = createFsBundleStore({ sessionDir: root, sessionId: "sid" });
 		const persisted = await store.persistBundle(snapshot("one"));
@@ -81,5 +81,8 @@ describe("fs bundle store", () => {
 
 		expect(first).toEqual({ ok: true, isAlreadyPresent: false });
 		expect(second).toEqual({ ok: true, isAlreadyPresent: true });
+		expect(await readFile(join(persisted.value.dir, "episodes.json"), "utf8")).toBe(
+			'{"different":true}\n',
+		);
 	});
 });

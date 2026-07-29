@@ -22,6 +22,8 @@ export const MODEL_OPERATION_IDS = {
 	thermoCouncilSynthesis: "thermo-council.synthesis",
 	piFastDraft: "pi.fast-draft",
 	stackViewEnrichment: "stack-view.enrichment",
+	contextProfilerSegmentation: "context-profiler.segmentation",
+	contextProfilerEpisodeAnalysis: "context-profiler.episode-analysis",
 } as const;
 
 export type ModelOperationId = string;

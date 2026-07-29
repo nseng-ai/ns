@@ -4,6 +4,7 @@
  * already has answers (or a deferred gate), rather than scripting ordered calls.
  */
 
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import type { BundleSnapshot } from "../../src/context-profiler/bundle.ts";
 import type {
 	BundleStore,
@@ -63,6 +64,8 @@ export function makeProfile(
 export interface FakeSegmentationGatewayOptions {
 	result: SegmentationCallResult;
 	analysisResult?: EpisodeAnalysisCallResult;
+	segmentationSelection?: ModelSelection;
+	episodeAnalysisSelection?: ModelSelection;
 	/** When set, segmentTurns and analyzeEpisode resolve only after this promise settles. */
 	gate?: Promise<void>;
 }
@@ -190,7 +193,10 @@ export class FakeInterrogationSessionFactory implements InterrogationSessionFact
 }
 
 export class FakeSegmentationGateway implements AnalysisModelGateway {
-	readonly analysisModel = "openai-codex/gpt-5.6-luna";
+	readonly segmentationSelection: ModelSelection;
+	readonly episodeAnalysisSelection: ModelSelection;
+	readonly segmentationModel: string;
+	readonly episodeAnalysisModel: string;
 	private readonly result: SegmentationCallResult;
 	private readonly analysisResult: EpisodeAnalysisCallResult;
 	private readonly gate: Promise<void> | null;
@@ -198,6 +204,18 @@ export class FakeSegmentationGateway implements AnalysisModelGateway {
 	private readonly analysisLog: EpisodeAnalysisRequest[] = [];
 
 	constructor(options: FakeSegmentationGatewayOptions) {
+		this.segmentationSelection = options.segmentationSelection ?? {
+			provider: "vercel-ai-gateway",
+			modelId: "openai/gpt-5.6-luna",
+			thinking: "medium",
+		};
+		this.episodeAnalysisSelection = options.episodeAnalysisSelection ?? {
+			provider: "vercel-ai-gateway",
+			modelId: "openai/gpt-5.6-terra",
+			thinking: "high",
+		};
+		this.segmentationModel = `${this.segmentationSelection.provider}/${this.segmentationSelection.modelId}`;
+		this.episodeAnalysisModel = `${this.episodeAnalysisSelection.provider}/${this.episodeAnalysisSelection.modelId}`;
 		this.result = options.result;
 		this.analysisResult = options.analysisResult ?? {
 			ok: true,

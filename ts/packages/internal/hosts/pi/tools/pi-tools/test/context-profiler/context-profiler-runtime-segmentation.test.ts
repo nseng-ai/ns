@@ -16,7 +16,18 @@ import { FakeSegmentationGateway, makeProfile, sequentialTurns } from "./context
 
 /** Models a buggy gateway that violates the errors-as-values contract by rejecting. */
 class RejectingSegmentationGateway implements AnalysisModelGateway {
-	readonly analysisModel = "openai-codex/gpt-5.6-luna";
+	readonly segmentationSelection = {
+		provider: "vercel-ai-gateway",
+		modelId: "openai/gpt-5.6-luna",
+		thinking: "medium" as const,
+	};
+	readonly episodeAnalysisSelection = {
+		provider: "vercel-ai-gateway",
+		modelId: "openai/gpt-5.6-terra",
+		thinking: "high" as const,
+	};
+	readonly segmentationModel = "vercel-ai-gateway/openai/gpt-5.6-luna";
+	readonly episodeAnalysisModel = "vercel-ai-gateway/openai/gpt-5.6-terra";
 
 	async segmentTurns(): Promise<SegmentationCallResult> {
 		throw new Error("gateway contract violation");
@@ -150,6 +161,13 @@ describe("startSegmentationBatch", () => {
 	test("cache hit with missing verdicts analyzes only the gaps", async () => {
 		const cell = createSegmentationCacheCell();
 		const profile = makeProfile(sequentialTurns(8));
+		const gateway = new FakeSegmentationGateway({
+			result: SUCCESS,
+			analysisResult: {
+				ok: true,
+				value: { efficiency: "mixed", relevance: "still-useful", summary: null },
+			},
+		});
 		cell.write({
 			fingerprint: computeSegmentationFingerprint(profile),
 			summary: "A short session.",
@@ -165,13 +183,6 @@ describe("startSegmentationBatch", () => {
 				},
 				{ label: "fix", kind: "edit", outcome: "active", turnRange: { start: 5, end: 8 } },
 			],
-		});
-		const gateway = new FakeSegmentationGateway({
-			result: SUCCESS,
-			analysisResult: {
-				ok: true,
-				value: { efficiency: "mixed", relevance: "still-useful", summary: null },
-			},
 		});
 		const { updates, onUpdate } = collectUpdates();
 
@@ -289,6 +300,44 @@ describe("startSegmentationBatch", () => {
 			analysis: [{ type: "error", message: "response JSON has no valid verdict pair" }],
 		});
 		expect(cell.read()?.episodes[0]).not.toHaveProperty("efficiency");
+	});
+
+	test("a model policy change reuses the cached result", async () => {
+		const cell = createSegmentationCacheCell();
+		const firstGateway = new FakeSegmentationGateway({ result: SUCCESS });
+		const profile = makeProfile(sequentialTurns(5));
+		startSegmentationBatch({
+			gateway: firstGateway,
+			profile,
+			cache: cell,
+			force: false,
+			onUpdate: () => {},
+		});
+		await settled();
+
+		const changedGateway = new FakeSegmentationGateway({
+			result: SUCCESS,
+			segmentationSelection: {
+				provider: "anthropic",
+				modelId: "claude-haiku-4-5",
+				thinking: "high",
+			},
+			episodeAnalysisSelection: {
+				provider: "anthropic",
+				modelId: "claude-sonnet-4-6",
+				thinking: "high",
+			},
+		});
+		const { initial } = startSegmentationBatch({
+			gateway: changedGateway,
+			profile,
+			cache: cell,
+			force: false,
+			onUpdate: () => {},
+		});
+		expect(initial).toMatchObject({ type: "ready" });
+		expect(changedGateway.calls).toEqual([]);
+		expect(changedGateway.analysisCalls).toEqual([]);
 	});
 
 	test("a changed snapshot misses the cache", async () => {

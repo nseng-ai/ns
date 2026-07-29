@@ -24,9 +24,6 @@ import {
 } from "./model.ts";
 import { parseLmJson } from "@nseng-ai/pi-runtime/models/lm-json";
 
-/** Fixed analysis model — never the session's main model. */
-export const SEGMENTATION_PROVIDER = "openai-codex";
-export const SEGMENTATION_MODEL = "gpt-5.6-luna";
 export const MAX_EPISODES = 12;
 export const MIN_TURNS_FOR_SEGMENTATION = 3;
 
@@ -281,15 +278,15 @@ function dedupeAndCapBySnappedTurn<TInput, TValue>(
 /**
  * Cache key for a segmentation result: live source, full turn count, and the
  * identity of the last turn. Reopening over an unchanged conversation reuses
- * the cached result; any new turn (or a different live source) misses.
+ * the cached result; any new turn or different live source misses.
  *
- * Deliberately NOT part of the key: middle-turn content. A conversation with
- * the same turn count and same last turn but altered middle content would
- * serve the cached episodes as "ready" even though buildSegmentationPayload
- * serializes every complete turn. This is a cheap heuristic, accepted on
- * purpose: in this harness realistic drift always changes the turn count or
- * the last turn, and the `r` force-refresh keybinding is the escape hatch
- * when it does not.
+ * Deliberately NOT part of the key: producer models and middle-turn content.
+ * Model-policy changes take effect on the next cache miss or force refresh. A
+ * conversation with the same turn count and same last turn but altered middle
+ * content would serve the cached episodes as "ready" even though
+ * buildSegmentationPayload serializes every complete turn. These are cheap
+ * heuristics, accepted on purpose; the `r` force-refresh keybinding is the
+ * escape hatch when immediate recomputation is needed.
  */
 export function computeSegmentationFingerprint(profile: ProfileSnapshot): string {
 	const last = profile.liveTurns[profile.liveTurns.length - 1];

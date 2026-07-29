@@ -4,23 +4,33 @@ import type { AssistantMessage, Context, SimpleStreamOptions, Usage } from "@ear
 // Temporary while Pi Coding Agent's ModelRegistry uses global dispatch.
 // Canonical migration plan (Phase 9): https://github.com/earendil-works/pi/blob/main/packages/agent/docs/models.md
 import type { completeSimple } from "@earendil-works/pi-ai/compat";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { EPISODE_ANALYSIS_SYSTEM_PROMPT } from "../../src/context-profiler/analysis.ts";
 import {
-	createCodexAnalysisModelGateway,
+	createAnalysisModelGateway,
 	type AnalysisModelRegistry,
 } from "../../src/context-profiler/analysis-model-gateway.ts";
-import {
-	SEGMENTATION_MODEL,
-	SEGMENTATION_PROVIDER,
-	SEGMENTATION_SYSTEM_PROMPT,
-} from "../../src/context-profiler/segmentation.ts";
+import { SEGMENTATION_SYSTEM_PROMPT } from "../../src/context-profiler/segmentation.ts";
 
 type CompleteSimpleFunction = typeof completeSimple;
 
-const MODEL_TOKEN = { id: "fake-model" };
+const SEGMENTATION_SELECTION: ModelSelection = {
+	provider: "segmentation-provider",
+	modelId: "segmentation-model",
+	thinking: "medium",
+};
+const EPISODE_ANALYSIS_SELECTION: ModelSelection = {
+	provider: "analysis-provider",
+	modelId: "analysis-model",
+	thinking: "high",
+};
+const MODEL_TOKENS = new Map([
+	["segmentation-provider/segmentation-model", { id: "segmentation-token" }],
+	["analysis-provider/analysis-model", { id: "analysis-token" }],
+]);
 
 interface FakeRegistryState {
-	hasModel?: boolean;
+	missingRef?: string;
 	auth?:
 		| { ok: true; apiKey?: string; headers?: Record<string, string> }
 		| { ok: false; error: string };
@@ -29,13 +39,12 @@ interface FakeRegistryState {
 function makeRegistry(state: FakeRegistryState = {}): AnalysisModelRegistry {
 	return {
 		find(provider, modelId) {
-			if (state.hasModel === false) return undefined;
-			expect(provider).toBe(SEGMENTATION_PROVIDER);
-			expect(modelId).toBe(SEGMENTATION_MODEL);
-			return MODEL_TOKEN;
+			const ref = `${provider}/${modelId}`;
+			if (state.missingRef === ref) return undefined;
+			return MODEL_TOKENS.get(ref);
 		},
 		getApiKeyAndHeaders(model) {
-			expect(model).toBe(MODEL_TOKEN);
+			expect([...MODEL_TOKENS.values()]).toContain(model);
 			return Promise.resolve(state.auth ?? { ok: true, apiKey: "key" });
 		},
 	};
@@ -70,9 +79,26 @@ function completeWith(response: AssistantMessage): CompleteSimpleFunction {
 	return (() => Promise.resolve(response)) as CompleteSimpleFunction;
 }
 
-const VALID_TEXT = JSON.stringify({
+function createGateway(
+	registry: AnalysisModelRegistry = makeRegistry(),
+	overrides: { completeFn?: CompleteSimpleFunction } = {},
+) {
+	return createAnalysisModelGateway({
+		registry,
+		segmentationSelection: SEGMENTATION_SELECTION,
+		episodeAnalysisSelection: EPISODE_ANALYSIS_SELECTION,
+		...overrides,
+	});
+}
+
+const VALID_SEGMENTATION = JSON.stringify({
 	episodes: [{ startTurn: 1, label: "a", kind: "chat", outcome: "active" }],
 	summary: "One sentence.",
+});
+const VALID_ANALYSIS = JSON.stringify({
+	efficiency: "mixed",
+	relevance: "stale",
+	summary: "t1 re-reads superseded docs.",
 });
 const REQUEST = { json: '{"turns":[]}' };
 
@@ -80,155 +106,104 @@ function signal(): AbortSignal {
 	return new AbortController().signal;
 }
 
-describe("createCodexAnalysisModelGateway", () => {
-	test("exposes the fixed analysis model identifier", () => {
-		const gateway = createCodexAnalysisModelGateway(makeRegistry());
-		expect(gateway.analysisModel).toBe("openai-codex/gpt-5.6-luna");
+describe("createAnalysisModelGateway", () => {
+	test("exposes separate qualified producer references", () => {
+		const gateway = createGateway();
+		expect(gateway.segmentationModel).toBe("segmentation-provider/segmentation-model");
+		expect(gateway.episodeAnalysisModel).toBe("analysis-provider/analysis-model");
 	});
 
-	test("maps a registry miss to model-unavailable", async () => {
-		const gateway = createCodexAnalysisModelGateway(makeRegistry({ hasModel: false }));
-		const result = await gateway.segmentTurns(REQUEST, { signal: signal() });
-		expect(result).toEqual({
+	test("routes each operation with its own provider, model, and thinking", async () => {
+		const seen: Array<{
+			model: unknown;
+			context: Context;
+			options: SimpleStreamOptions | undefined;
+		}> = [];
+		const completeFn = ((model: unknown, context: Context, options?: SimpleStreamOptions) => {
+			seen.push({ model, context, options });
+			const text =
+				context.systemPrompt === SEGMENTATION_SYSTEM_PROMPT ? VALID_SEGMENTATION : VALID_ANALYSIS;
+			return Promise.resolve(makeResponse({ content: [{ type: "text", text }] }));
+		}) as CompleteSimpleFunction;
+		const gateway = createGateway(makeRegistry(), { completeFn });
+
+		expect(await gateway.segmentTurns(REQUEST, { signal: signal() })).toMatchObject({ ok: true });
+		expect(
+			await gateway.analyzeEpisode({ json: '{"targetEpisode":1}' }, { signal: signal() }),
+		).toMatchObject({ ok: true });
+		expect(seen).toHaveLength(2);
+		expect(seen[0]).toMatchObject({
+			model: { id: "segmentation-token" },
+			context: { systemPrompt: SEGMENTATION_SYSTEM_PROMPT },
+			options: { reasoning: "medium" },
+		});
+		expect(seen[1]).toMatchObject({
+			model: { id: "analysis-token" },
+			context: { systemPrompt: EPISODE_ANALYSIS_SYSTEM_PROMPT },
+			options: { reasoning: "high" },
+		});
+	});
+
+	test("labels model and auth failures with the attempted selection", async () => {
+		const missing = createGateway(makeRegistry({ missingRef: "analysis-provider/analysis-model" }));
+		expect(await missing.analyzeEpisode({ json: "{}" }, { signal: signal() })).toEqual({
 			ok: false,
 			error: {
 				code: "model-unavailable",
-				message: `${SEGMENTATION_PROVIDER}/${SEGMENTATION_MODEL} is not available`,
+				message: "analysis-provider/analysis-model is not available",
+			},
+		});
+
+		const noAuth = createGateway(makeRegistry({ auth: { ok: true } }));
+		expect(await noAuth.segmentTurns(REQUEST, { signal: signal() })).toEqual({
+			ok: false,
+			error: {
+				code: "auth",
+				message: "no segmentation-provider auth found; run /login or configure Pi auth",
 			},
 		});
 	});
 
-	test("maps failed or missing auth to auth errors", async () => {
-		const failed = createCodexAnalysisModelGateway(
-			makeRegistry({ auth: { ok: false, error: "login expired" } }),
-		);
-		const failedResult = await failed.segmentTurns(REQUEST, { signal: signal() });
-		expect(failedResult).toEqual({ ok: false, error: { code: "auth", message: "login expired" } });
-
-		const missingKey = createCodexAnalysisModelGateway(makeRegistry({ auth: { ok: true } }));
-		const missingResult = await missingKey.segmentTurns(REQUEST, { signal: signal() });
-		expect(missingResult.ok).toBe(false);
-		if (!missingResult.ok) expect(missingResult.error.code).toBe("auth");
-	});
-
-	test("maps an error stop reason to request-failed with the provider message", async () => {
-		const gateway = createCodexAnalysisModelGateway(makeRegistry(), {
+	test("preserves request, abort, and invalid-response errors as values", async () => {
+		const failed = createGateway(makeRegistry(), {
 			completeFn: completeWith(makeResponse({ stopReason: "error", errorMessage: "rate limited" })),
 		});
-		const result = await gateway.segmentTurns(REQUEST, { signal: signal() });
-		expect(result).toEqual({
+		expect(await failed.segmentTurns(REQUEST, { signal: signal() })).toEqual({
 			ok: false,
 			error: { code: "request-failed", message: "rate limited" },
 		});
-	});
 
-	test("maps an aborted stop reason to aborted", async () => {
-		const gateway = createCodexAnalysisModelGateway(makeRegistry(), {
+		const aborted = createGateway(makeRegistry(), {
 			completeFn: completeWith(makeResponse({ stopReason: "aborted" })),
 		});
-		const result = await gateway.segmentTurns(REQUEST, { signal: signal() });
-		expect(result).toEqual({
+		expect(await aborted.segmentTurns(REQUEST, { signal: signal() })).toEqual({
 			ok: false,
 			error: { code: "aborted", message: "segmentation request aborted" },
 		});
+
+		const invalid = createGateway(makeRegistry(), {
+			completeFn: completeWith(
+				makeResponse({ content: [{ type: "text", text: "sorry, no JSON today" }] }),
+			),
+		});
+		const invalidResult = await invalid.segmentTurns(REQUEST, { signal: signal() });
+		expect(invalidResult.ok).toBe(false);
+		if (!invalidResult.ok) expect(invalidResult.error.code).toBe("invalid-response");
 	});
 
-	test("maps a thrown completion error to request-failed, or aborted when the signal fired", async () => {
+	test("maps thrown completion errors and signal cancellation", async () => {
 		const throwing = (() => Promise.reject(new Error("socket hang up"))) as CompleteSimpleFunction;
-		const gateway = createCodexAnalysisModelGateway(makeRegistry(), { completeFn: throwing });
-		const result = await gateway.segmentTurns(REQUEST, { signal: signal() });
-		expect(result).toEqual({
+		const gateway = createGateway(makeRegistry(), { completeFn: throwing });
+		expect(await gateway.segmentTurns(REQUEST, { signal: signal() })).toEqual({
 			ok: false,
 			error: { code: "request-failed", message: "socket hang up" },
 		});
 
 		const controller = new AbortController();
 		controller.abort();
-		const abortedResult = await gateway.segmentTurns(REQUEST, { signal: controller.signal });
-		expect(abortedResult).toEqual({
+		expect(await gateway.segmentTurns(REQUEST, { signal: controller.signal })).toEqual({
 			ok: false,
 			error: { code: "aborted", message: "segmentation request aborted" },
-		});
-	});
-
-	test("maps unparseable response text to invalid-response", async () => {
-		const gateway = createCodexAnalysisModelGateway(makeRegistry(), {
-			completeFn: completeWith(
-				makeResponse({ content: [{ type: "text", text: "sorry, no JSON today" }] }),
-			),
-		});
-		const result = await gateway.segmentTurns(REQUEST, { signal: signal() });
-		expect(result.ok).toBe(false);
-		if (!result.ok) expect(result.error.code).toBe("invalid-response");
-	});
-
-	test("returns validated-but-unrepaired segmentation and sends the payload verbatim", async () => {
-		const seen: { context?: Context; options?: SimpleStreamOptions } = {};
-		const completeFn = ((_model: unknown, context: Context, options?: SimpleStreamOptions) => {
-			seen.context = context;
-			if (options !== undefined) seen.options = options;
-			return Promise.resolve(makeResponse({ content: [{ type: "text", text: VALID_TEXT }] }));
-		}) as CompleteSimpleFunction;
-		const gateway = createCodexAnalysisModelGateway(
-			makeRegistry({ auth: { ok: true, apiKey: "key", headers: { "x-h": "1" } } }),
-			{ completeFn },
-		);
-
-		const result = await gateway.segmentTurns(REQUEST, { signal: signal() });
-		expect(result).toEqual({
-			ok: true,
-			value: {
-				episodes: [{ startTurn: 1, label: "a", kind: "chat", outcome: "active" }],
-				summary: "One sentence.",
-				delegations: [],
-			},
-		});
-		expect(seen.context?.systemPrompt).toBe(SEGMENTATION_SYSTEM_PROMPT);
-		const userMessage = seen.context?.messages[0];
-		expect(userMessage).toMatchObject({
-			role: "user",
-			content: [{ type: "text", text: REQUEST.json }],
-		});
-		expect(seen.options).toMatchObject({
-			apiKey: "key",
-			headers: { "x-h": "1" },
-			reasoning: "minimal",
-		});
-	});
-
-	test("returns validated episode analysis and sends the payload verbatim", async () => {
-		const seen: { context?: Context } = {};
-		const completeFn = ((_model: unknown, context: Context) => {
-			seen.context = context;
-			return Promise.resolve(
-				makeResponse({
-					content: [
-						{
-							type: "text",
-							text: JSON.stringify({
-								efficiency: "mixed",
-								relevance: "stale",
-								summary: "t1 re-reads superseded docs.",
-							}),
-						},
-					],
-				}),
-			);
-		}) as CompleteSimpleFunction;
-		const gateway = createCodexAnalysisModelGateway(makeRegistry(), { completeFn });
-
-		const result = await gateway.analyzeEpisode(
-			{ json: '{"targetEpisode":1}' },
-			{ signal: signal() },
-		);
-		expect(result).toEqual({
-			ok: true,
-			value: { efficiency: "mixed", relevance: "stale", summary: "t1 re-reads superseded docs." },
-		});
-		expect(seen.context?.systemPrompt).toBe(EPISODE_ANALYSIS_SYSTEM_PROMPT);
-		expect(seen.context?.messages[0]).toMatchObject({
-			role: "user",
-			content: [{ type: "text", text: '{"targetEpisode":1}' }],
 		});
 	});
 });
