@@ -29,7 +29,7 @@ const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 ] as const;
 
 const PI_RUNTIME_ADAPTER_EXPORT_IMPORTS = [
-	"@nseng-ai/handoffs/pi/claude-extension",
+	"@nseng-ai/pi-ns-handoffs/claude-extension",
 	"@nseng-ai/pi-runtime/commands/cli-command-live-progress",
 	"@nseng-ai/pi-runtime/core/model-shortcuts/extension",
 	"@nseng-ai/pi-runtime/core/pr/extension",

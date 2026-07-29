@@ -1,4 +1,4 @@
-import type { NotifyLevel } from "@nseng-ai/extension-kit/pi-types";
+import type { HerdrNotifyLevel } from "./host-types.ts";
 import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slots/api";
 
 import type { HerdrGateway } from "./herdr-gateway.ts";
@@ -52,7 +52,7 @@ interface CreatedPreparedLaunchDestination {
 export interface PreparedLaunchContext {
 	readonly herdr: HerdrGateway;
 	readonly slotClient: SlotClient;
-	readonly notify: (message: string, level: NotifyLevel) => void;
+	readonly notify: (message: string, level: HerdrNotifyLevel) => void;
 	readonly onStatus?: (message: string | undefined) => void;
 }
 
@@ -136,7 +136,7 @@ async function createPreparedLaunchDestination(options: {
 	destination: PreparedLaunchDestination;
 	target: SlotCheckoutTarget;
 	herdr: HerdrGateway;
-	notify: (message: string, level: NotifyLevel) => void;
+	notify: (message: string, level: HerdrNotifyLevel) => void;
 	onStatus?: (message: string | undefined) => void;
 }): Promise<CreatedPreparedLaunchDestination | FailedPreparedLaunchResult> {
 	if (options.destination.type === "workspace") {

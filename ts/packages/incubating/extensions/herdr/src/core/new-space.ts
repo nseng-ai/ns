@@ -1,4 +1,4 @@
-import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
+import type { HerdrCommandContext } from "./host-types.ts";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { HERDR_SPACE_NEW_COMMAND_NAME } from "./command-surfaces.ts";
@@ -13,7 +13,7 @@ export interface HandleHerdrNewSpaceOptions {
 	herdr: Pick<HerdrGateway, "createWorkspace">;
 	labelDeriver: HerdrResourceLabelDeriver;
 	args: string;
-	ctx: CommandContext;
+	ctx: HerdrCommandContext;
 	notifyProgress: (message: string) => void;
 }
 

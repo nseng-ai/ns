@@ -1,6 +1,6 @@
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
-import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
+import type { HerdrCommandContext } from "./host-types.ts";
 
 export const LOCAL_TRUNK_CHOICE_LABEL = "Local trunk";
 export const CURRENT_BRANCH_CHOICE_PREFIX = "Current branch";
@@ -18,7 +18,7 @@ export type ImplBranchBasisResult =
 export interface ResolveImplBranchBasisOptions {
 	cwd: string;
 	git: Pick<GitGateway, "currentBranch">;
-	interaction: Pick<CommandContext, "hasUI" | "ui">;
+	interaction: Pick<HerdrCommandContext, "hasUI" | "ui">;
 }
 
 export async function resolveImplBranchBasis(

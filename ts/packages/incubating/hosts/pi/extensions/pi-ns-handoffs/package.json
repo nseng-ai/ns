@@ -1,0 +1,37 @@
+{
+	"name": "@nseng-ai/pi-ns-handoffs",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/adapter/index.ts",
+		"./extension": "./src/adapter/extension.ts",
+		"./claude-extension": "./src/adapter/claude-extension.ts",
+		"./create-flow": "./src/create-flow/index.ts"
+	},
+	"scripts": {
+		"check": "tsc -p tsconfig.json",
+		"test": "cd ../../../../../.. && vitest run --config vitest.config.ts packages/incubating/hosts/pi/extensions/pi-ns-handoffs/test"
+	},
+	"dependencies": {
+		"@nseng-ai/brmem": "workspace:*",
+		"@nseng-ai/extension-kit": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/handoffs": "workspace:*",
+		"@nseng-ai/pi-runtime": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
+		"zod": "catalog:"
+	},
+	"ns": {
+		"tier": "host",
+		"subpackages": [
+			"create-flow"
+		],
+		"remainder": true
+	},
+	"pi": {
+		"extensions": [
+			"./src/adapter/extension.ts",
+			"./src/adapter/claude-extension.ts"
+		]
+	}
+}

@@ -11,7 +11,7 @@ import {
 	resolveObjectiveSelector,
 	validateObjectiveSidebarSlug,
 } from "./objective-sidebar.ts";
-import type { CommandContext, NotifyLevel } from "@nseng-ai/extension-kit/pi-types";
+import type { HerdrCommandContext, HerdrNotifyLevel } from "./host-types.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { slotLabelInput } from "./resource-label.ts";
@@ -24,7 +24,7 @@ const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
 } satisfies ObjectiveSelectionSpec;
 
 export interface HerdrSidebarController {
-	handleObjectiveCommand(args: string, ctx: CommandContext): Promise<void>;
+	handleObjectiveCommand(args: string, ctx: HerdrCommandContext): Promise<void>;
 }
 
 export interface HerdrSidebarControllerOptions {
@@ -68,7 +68,7 @@ async function handleDeterministicObjectiveSidebar(
 	pi: HerdrPiCommandApi,
 	herdr: HerdrGateway,
 	args: string,
-	ctx: CommandContext,
+	ctx: HerdrCommandContext,
 	options: HerdrSidebarControllerOptions,
 ): Promise<void> {
 	await ctx.waitForIdle();
@@ -111,7 +111,7 @@ async function handleDeterministicObjectiveSidebar(
 async function resolveObjectiveSidebarSlug(
 	pi: HerdrPiCommandApi,
 	args: string,
-	ctx: CommandContext,
+	ctx: HerdrCommandContext,
 	options: HerdrSidebarControllerOptions,
 ): Promise<string | undefined> {
 	if (args.trim().length > 0) {
@@ -136,16 +136,16 @@ async function resolveObjectiveSidebarSlug(
 }
 
 function notify(
-	ctx: { hasUI?: boolean; ui: { notify(message: string, level?: NotifyLevel): void } },
+	ctx: { hasUI?: boolean; ui: { notify(message: string, level?: HerdrNotifyLevel): void } },
 	message: string,
-	level: NotifyLevel = "info",
+	level: HerdrNotifyLevel = "info",
 ): void {
 	if (ctx.hasUI !== false) {
 		ctx.ui.notify(message, level);
 	}
 }
 
-function setStatus(ctx: CommandContext, value: string | undefined): void {
+function setStatus(ctx: HerdrCommandContext, value: string | undefined): void {
 	if (ctx.hasUI !== false) {
 		ctx.ui.setStatus?.(PI_SIDEBAR_STATUS_KEY, value);
 	}

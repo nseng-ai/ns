@@ -67,3 +67,6 @@ export type {
 	DeletedBranchGarbageCollectionEntry,
 	DeletedBranchGarbageCollectionReport,
 } from "../core/gc-core.ts";
+
+export { handoffSkillBackedCommandRegistrations } from "../core/skill-backed-commands.ts";
+export * from "../core/command-constants.ts";

@@ -75,3 +75,7 @@ The curated in-process `@nseng-ai/handoffs/api` surface consumed by ns command l
 **Handoff Domain Core**:
 Gateway-injected Handoff behavior for storage-compatible list, read/pickup, create, delete, and garbage-collection operations.
 *Avoid*: subprocess-only behavior, Pi UI/session continuation, hidden registries, alternate storage layout.
+
+**Handoffs host independence**:
+The extension package contains no Pi registration or presentation. Portable command metadata is exported by `@nseng-ai/handoffs/api`; `@nseng-ai/pi-ns-handoffs` owns Pi behavior.
+*Avoid*: `@nseng-ai/handoffs/pi`, extension-owned Pi lifecycle, compatibility surface.

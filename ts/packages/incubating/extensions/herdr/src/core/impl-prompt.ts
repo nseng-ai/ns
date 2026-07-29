@@ -1,6 +1,5 @@
 import {
 	buildTrackedBranchImplPrompt,
-	buildTrackedBranchPayloadLaunchCommand,
 	createTrackedBranchForPrompt,
 	createTrackedBranchFromLocalTrunkForPrompt,
 	formatTrackedBranchPayloadStorageFailure,
@@ -11,8 +10,11 @@ import {
 	type TrackedBranchEvidence,
 	type TrackedBranchPayloadOptions,
 } from "@nseng-ai/extension-kit/tracked-branch-payload";
-import { getPiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
-import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
+import type {
+	HerdrCommandContext,
+	HerdrLaunchProfile,
+	HerdrLaunchProfileResolver,
+} from "./host-types.ts";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
@@ -35,10 +37,12 @@ export interface ImplPromptPayloadOptions extends TrackedBranchPayloadOptions {
 
 export interface HerdrImplPromptContext {
 	commands: ImplPromptRuntime;
-	pi: CommandContext;
+	pi: HerdrCommandContext;
 	trunkBranch: string;
 	git: Pick<GitGateway, "createBranchAtStartPoint" | "currentBranch" | "headCommit" | "repoRoot">;
 	herdr: HerdrGateway;
+	resolveLaunchProfile: HerdrLaunchProfileResolver;
+	buildTrackedBranchLaunchCommand: (branchName: string, profile: HerdrLaunchProfile) => string;
 }
 
 export interface HandleHerdrSlotImplPromptOptions {
@@ -182,9 +186,9 @@ export async function implTrackedBranchPrompt(
 		{
 			payload: {
 				branchName: options.branch.branchName,
-				launchCommand: buildTrackedBranchPayloadLaunchCommand(
+				launchCommand: context.buildTrackedBranchLaunchCommand(
 					options.branch.branchName,
-					getPiLaunchOptions(context.commands, context.pi),
+					context.resolveLaunchProfile(context.commands as HerdrPiCommandApi, context.pi),
 				),
 			},
 			destination: { type: "workspace" },

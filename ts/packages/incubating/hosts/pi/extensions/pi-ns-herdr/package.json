@@ -1,0 +1,44 @@
+{
+	"name": "@nseng-ai/pi-ns-herdr",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/adapter/index.ts",
+		"./extension": "./src/adapter/extension.ts",
+		"./pi-command-api": "./src/adapter/pi-command-api.ts",
+		"./testing": "./src/testing/index.ts"
+	},
+	"scripts": {
+		"check": "tsc -p tsconfig.json",
+		"test": "cd ../../../../../.. && vitest run --config vitest.config.ts packages/incubating/hosts/pi/extensions/pi-ns-herdr/test"
+	},
+	"dependencies": {
+		"@nseng-ai/branch-context": "workspace:*",
+		"@nseng-ai/brmem": "workspace:*",
+		"@nseng-ai/extension-kit": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/handoffs": "workspace:*",
+		"@nseng-ai/herdr": "workspace:*",
+		"@nseng-ai/objectives": "workspace:*",
+		"@nseng-ai/pi-runtime": "workspace:*",
+		"@nseng-ai/plans": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
+		"@nseng-ai/slots": "workspace:*",
+		"zod": "catalog:"
+	},
+	"optionalDependencies": {
+		"@nseng-ai/pi-ns-handoffs": "workspace:*"
+	},
+	"ns": {
+		"tier": "host",
+		"subpackages": [
+			"adapter",
+			"testing"
+		]
+	},
+	"pi": {
+		"extensions": [
+			"./src/adapter/extension.ts"
+		]
+	}
+}

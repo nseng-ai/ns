@@ -1,4 +1,4 @@
-import { buildPiLaunchCommand, type PiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
+import type { HerdrLaunchCommandBuilder, HerdrLaunchProfile } from "./host-types.ts";
 import { formatShellArg } from "@nseng-ai/foundation/exec";
 
 import type { HerdrGateway } from "./herdr-gateway.ts";
@@ -26,12 +26,13 @@ export type HerdrHandoffTabLaunchResult =
 export async function launchHerdrHandoffTab(options: {
 	herdr: HerdrGateway;
 	cwd: string;
-	launchOptions: PiLaunchOptions;
+	launchProfile: HerdrLaunchProfile;
+	buildLaunchCommand: HerdrLaunchCommandBuilder;
 	workspaceId: string;
 	slug: string;
 	pickupCommand: string;
 }): Promise<HerdrHandoffTabLaunchResult> {
-	const command = buildPiLaunchCommand(options.pickupCommand, options.launchOptions);
+	const command = options.buildLaunchCommand(options.pickupCommand, options.launchProfile);
 	const label = `handoff:${options.slug}`;
 	const created = await options.herdr.createTab({
 		workspaceId: options.workspaceId,

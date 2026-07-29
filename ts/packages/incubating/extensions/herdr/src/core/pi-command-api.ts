@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@nseng-ai/extension-kit/pi-types";
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import type { HerdrCommandApi } from "./host-types.ts";
 
-export type HerdrPiCommandApi = Omit<ExtensionAPI, "exec"> & CommandExecApi;
+/** Harness-neutral command capability used by Herdr workflows. */
+export type HerdrPiCommandApi = HerdrCommandApi;

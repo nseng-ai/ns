@@ -9,8 +9,7 @@
 	"exports": {
 		"./ns-extension": "./src/ns/extension.ts",
 		"./ns/commands/handoff-tab-launch": "./src/ns/commands/handoff-tab-launch.ts",
-		"./pi": "./src/pi/index.ts",
-		"./pi/extension": "./src/pi/extension.ts"
+		"./api": "./src/api/index.ts"
 	},
 	"scripts": {
 		"check": "tsc -p tsconfig.json",
@@ -28,23 +27,12 @@
 		"@nseng-ai/slots": "workspace:*",
 		"zod": "catalog:"
 	},
-	"devDependencies": {
-		"@nseng-ai/pi-runtime": "workspace:*"
-	},
-	"peerDependencies": {
-		"@nseng-ai/pi-runtime": "workspace:*"
-	},
-	"peerDependenciesMeta": {
-		"@nseng-ai/pi-runtime": {
-			"optional": true
-		}
-	},
 	"ns": {
 		"tier": "extension",
 		"subpackages": [
 			"core",
 			"ns",
-			"pi"
+			"api"
 		]
 	}
 }

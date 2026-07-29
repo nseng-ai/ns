@@ -1,4 +1,4 @@
-import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
+import type { HerdrCommandContext } from "./host-types.ts";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { HERDR_TAB_GOAL_COMMAND_NAME, HERDR_TAB_NEW_COMMAND_NAME } from "./command-surfaces.ts";
@@ -12,7 +12,7 @@ export interface HandleHerdrNewTabOptions {
 	herdr: Pick<HerdrGateway, "createTab">;
 	labelDeriver: HerdrResourceLabelDeriver;
 	args: string;
-	ctx: CommandContext;
+	ctx: HerdrCommandContext;
 	notifyProgress: (message: string) => void;
 	env?: NodeJS.ProcessEnv;
 }
@@ -70,7 +70,7 @@ export interface HandleHerdrTabGoalOptions {
 	pi: HerdrPiCommandApi;
 	herdr: Pick<HerdrGateway, "renameTab">;
 	args: string;
-	ctx: CommandContext;
+	ctx: HerdrCommandContext;
 	notifyProgress: (message: string) => void;
 	env?: NodeJS.ProcessEnv;
 }

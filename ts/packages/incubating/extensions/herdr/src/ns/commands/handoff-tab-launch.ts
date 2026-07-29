@@ -74,10 +74,22 @@ export const herdrHandoffTabLaunchNsCommand = herdrNsCommand({
 		const launched = await launchHerdrHandoffTab({
 			herdr: ctx.herdr,
 			cwd: ctx.cwd,
-			launchOptions: {
+			launchProfile: {
 				model: { provider: request.provider, id: request.model },
 				thinkingLevel: request.thinking,
 			},
+			buildLaunchCommand: (prompt, profile) =>
+				[
+					"pi",
+					...(profile.model === undefined
+						? []
+						: ["--provider", profile.model.provider, "--model", profile.model.id]),
+					"--thinking",
+					profile.thinkingLevel,
+					prompt,
+				]
+					.map(formatShellArg)
+					.join(" "),
 			workspaceId: request.workspaceId,
 			slug: request.slug,
 			pickupCommand,

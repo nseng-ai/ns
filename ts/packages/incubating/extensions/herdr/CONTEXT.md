@@ -85,5 +85,5 @@ Launch remains correct vocabulary for supporting mechanics: **Prepared Herdr Lau
 *Avoid*: banning launch vocabulary globally, `ns-impl` as command name, Handoff launch for ordinary prompt or plan implementation
 
 **Herdr extension boundary**:
-The `pi` subpackage is the only Herdr subpackage that imports neutral `@nseng-ai/pi-runtime/...` host helpers; `ns` composes hidden reference-based commands and real same-channel gateways; core stays host-independent.
+The package contains no Pi subpackage or Pi Runtime dependency. `-ai/pi-ns-herdr` binds Herdr-owned host-neutral collaborators for interaction, launch-profile resolution, command construction, and registration; `ns` retains hidden durable-reference commands and real same-channel gateways.
 *Avoid*: host-owned Herdr domain, Pi imports from core, package cycle

@@ -4,7 +4,7 @@ import {
 	loadModelPolicy,
 	resolveModelOperation,
 } from "@nseng-ai/extension-kit/model-policy";
-import type { CommandContext, NotifyLevel } from "@nseng-ai/extension-kit/pi-types";
+import type { HerdrCommandContext, HerdrNotifyLevel } from "./host-types.ts";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { TextResult } from "@nseng-ai/foundation/primitives";
@@ -22,7 +22,7 @@ export interface HandleHerdrSpaceGoalOptions {
 	pi: HerdrPiCommandApi;
 	herdr: HerdrGateway;
 	args: string;
-	ctx: CommandContext;
+	ctx: HerdrCommandContext;
 	notifyProgress: (message: string) => void;
 }
 
@@ -121,7 +121,7 @@ export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions)
 
 export async function resolveHerdrGoal(options: {
 	args: string;
-	ctx: CommandContext;
+	ctx: HerdrCommandContext;
 	resourceName: string;
 	placeholder: string;
 }): Promise<string | undefined> {
@@ -134,6 +134,6 @@ export async function resolveHerdrGoal(options: {
 	return inputGoal !== undefined && inputGoal.length > 0 ? inputGoal : undefined;
 }
 
-function notify(ctx: CommandContext, message: string, level: NotifyLevel): void {
+function notify(ctx: HerdrCommandContext, message: string, level: HerdrNotifyLevel): void {
 	if (ctx.hasUI !== false) ctx.ui.notify(message, level);
 }

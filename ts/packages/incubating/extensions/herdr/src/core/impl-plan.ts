@@ -24,18 +24,21 @@ import {
 	type ReadyPreparedPlanBranchContext,
 } from "@nseng-ai/branch-context/api";
 import { prepareLatestSessionSavedPlan, type ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
-import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
 import {
 	prepareLocalGraphiteTrunk,
 	type LocalGraphiteTrunkPreparation,
 } from "@nseng-ai/extension-kit/tracked-branch-payload";
-import type { PiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
 import { formatCommand } from "@nseng-ai/foundation/command";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { CommandContext, NotifyLevel } from "@nseng-ai/extension-kit/pi-types";
+import type {
+	HerdrCommandContext,
+	HerdrLaunchCommandBuilder,
+	HerdrLaunchProfile,
+	HerdrLaunchProfileResolver,
+	HerdrNotifyLevel,
+} from "./host-types.ts";
 import type { SlotClient } from "@nseng-ai/slots/api";
-import { formatImplBranchContextCommand } from "@nseng-ai/branch-context/pi";
 
 // Command names are used in the Pi layer (pi/impl-plan.ts) via ImplPlanConfig.
 import {
@@ -79,7 +82,10 @@ export interface HerdrImplPlanContext {
 	git: Pick<GitGateway, "currentBranch">;
 	trunkBranch: string;
 	herdr: HerdrGateway;
-	pi: CommandContext;
+	pi: HerdrCommandContext;
+	buildLaunchCommand: HerdrLaunchCommandBuilder;
+	resolveLaunchProfile: HerdrLaunchProfileResolver;
+	formatBranchContextCommand: (key: string) => string;
 }
 
 export interface HandleHerdrSlotImplPlanOptions {
@@ -188,7 +194,7 @@ export async function handleHerdrSlotImplPlan(
 		const operation = prepared.operation;
 
 		if (prepared.type === "preview") {
-			const launchOptions = getPiLaunchOptions(pi, ctx);
+			const launchProfile = context.resolveLaunchProfile(pi, ctx);
 			presentBranchContextMessage(
 				pi,
 				ctx,
@@ -196,7 +202,9 @@ export async function handleHerdrSlotImplPlan(
 					plan: selectedPlan,
 					operation,
 					branchContextPreview: prepared.preview,
-					launchOptions,
+					launchProfile,
+					buildLaunchCommand: context.buildLaunchCommand,
+					formatBranchContextCommand: context.formatBranchContextCommand,
 					destination,
 					config,
 					basis,
@@ -208,6 +216,9 @@ export async function handleHerdrSlotImplPlan(
 		}
 
 		await createAttachAndImplement({
+			buildLaunchCommand: context.buildLaunchCommand,
+			resolveLaunchProfile: context.resolveLaunchProfile,
+			formatBranchContextCommand: context.formatBranchContextCommand,
 			pi,
 			herdr,
 			ctx,
@@ -301,9 +312,12 @@ function parseCommandArgs(rawArgs: string): CommandArgs | { error: string } {
 }
 
 async function createAttachAndImplement(options: {
+	buildLaunchCommand: HerdrLaunchCommandBuilder;
+	resolveLaunchProfile: HerdrLaunchProfileResolver;
+	formatBranchContextCommand: (key: string) => string;
 	pi: HerdrPiCommandApi;
 	herdr: HerdrGateway;
-	ctx: CommandContext;
+	ctx: HerdrCommandContext;
 	prepared: ReadyPreparedPlanBranchContext;
 	config: ImplPlanConfig;
 	planImplOptions: ResolvedHerdrSlotImplPlanOptions;
@@ -337,10 +351,10 @@ async function createAttachAndImplement(options: {
 		"info",
 	);
 
-	const launchOptions = getPiLaunchOptions(pi, ctx);
-	const launchCommand = buildPiLaunchCommand(
-		formatImplBranchContextCommand(operation.key),
-		launchOptions,
+	const launchProfile = options.resolveLaunchProfile(pi, ctx);
+	const launchCommand = options.buildLaunchCommand(
+		options.formatBranchContextCommand(operation.key),
+		launchProfile,
 	);
 	const slotClient =
 		planImplOptions.slotClient ?? createHerdrSlotClient({ cwd: checkout.repoRoot });
@@ -384,15 +398,17 @@ function formatDryRun(options: {
 	plan: ValidatedSessionSavedPlan;
 	operation: BranchContextCreateOperation;
 	branchContextPreview: string;
-	launchOptions: PiLaunchOptions;
+	launchProfile: HerdrLaunchProfile;
+	buildLaunchCommand: HerdrLaunchCommandBuilder;
+	formatBranchContextCommand: (key: string) => string;
 	destination: PreparedLaunchDestination;
 	config: ImplPlanConfig;
 	basis: PreparedImplBasis;
 }): string {
-	const { plan, operation, branchContextPreview, launchOptions, destination } = options;
-	const launchCommand = buildPiLaunchCommand(
-		formatImplBranchContextCommand(operation.key),
-		launchOptions,
+	const { plan, operation, branchContextPreview, launchProfile, destination } = options;
+	const launchCommand = options.buildLaunchCommand(
+		options.formatBranchContextCommand(operation.key),
+		launchProfile,
 	);
 	return [
 		`Dry run: no branch was created, no plan was attached, and no Herdr ${destination.type} was opened.`,
@@ -497,11 +513,11 @@ Options:
 Run /ns:plan:save first, then rerun /${config.commandName}.`;
 }
 
-type PresentLevel = Exclude<NotifyLevel, "success">;
+type PresentLevel = Exclude<HerdrNotifyLevel, "success">;
 
 function presentBranchContextMessage(
 	pi: HerdrPiCommandApi,
-	ctx: CommandContext,
+	ctx: HerdrCommandContext,
 	content: string,
 	details: BranchContextOutputDetails,
 	level: PresentLevel,
@@ -513,10 +529,14 @@ function presentBranchContextMessage(
 	present(ctx, content, level);
 }
 
-function present(ctx: CommandContext, message: string, level: PresentLevel): void {
+function present(ctx: HerdrCommandContext, message: string, level: PresentLevel): void {
 	ctx.ui.notify(message, level);
 }
 
-function setStatus(ctx: CommandContext, config: ImplPlanConfig, value: string | undefined): void {
+function setStatus(
+	ctx: HerdrCommandContext,
+	config: ImplPlanConfig,
+	value: string | undefined,
+): void {
 	ctx.ui.setStatus?.(config.statusKey, value);
 }
