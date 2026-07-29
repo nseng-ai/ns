@@ -1,8 +1,8 @@
-import { specializedCommandBackedSkillsFromSpecs } from "@nseng-ai/foundation/command";
+import { specializedSkillBackedCommandsFromSpecs } from "@nseng-ai/foundation/command";
 
 import { nsFlowCommandSurface } from "./ns-extension.ts";
 
-export const flowCommandBackedSkillRegistrations = specializedCommandBackedSkillsFromSpecs([
+export const flowSkillBackedCommandRegistrations = specializedSkillBackedCommandsFromSpecs([
 	{ skillName: "ns-flow-autobranch", surface: nsFlowCommandSurface("autobranch") },
 	{
 		skillName: "ns-flow-branch-latest-commit",

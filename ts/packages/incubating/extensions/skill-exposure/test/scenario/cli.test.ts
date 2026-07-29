@@ -122,6 +122,54 @@ describe("skill-exposure CLI scenarios", () => {
 		expect(skills[1]?.facts.replacementSurface).toBe("skill:management");
 	});
 
+	test("show and check report the skill-backed-command policy", async () => {
+		const state: InMemorySkillExposureState = {
+			skills: [
+				inMemorySkill("skills/internal/skill-system/skill-management", {
+					sidecarState: "managed",
+					skillMdText: "---\nname: skill-management\ndisable-model-invocation: true\n---\n\nBody\n",
+				}),
+			],
+			settings: {
+				path: "/repo/.pi/settings.json",
+				exists: true,
+				data: { skills: ["-skills/skill-management"] },
+				exclusions: ["-skills/skill-management"],
+			},
+		};
+		for (const command of ["show", "check"] as const) {
+			const { run } = createRunner(state);
+			const result = await run([
+				"skill-exposure",
+				command,
+				"skills/internal/skill-system/skill-management",
+				"--format",
+				"json",
+			]);
+			expect(result.exit).toBe(0);
+			expect(json(result)).toMatchObject({
+				status: "ok",
+				data: { skills: [{ policy: "skill-backed-command" }] },
+			});
+		}
+	});
+
+	test("rejects the former command-backed policy spelling", async () => {
+		const { run } = createRunner({
+			skills: [inMemorySkill("skills/internal/skill-system/skill-management")],
+		});
+		const result = await run([
+			"skill-exposure",
+			"apply",
+			"command-backed",
+			"skills/internal/skill-system/skill-management",
+			"--format",
+			"json",
+		]);
+		expect(result.exit).toBe(2);
+		expect(json(result)).toMatchObject({ status: "usageError" });
+	});
+
 	test("returns representative ok, negative, and usage JSON envelopes", async () => {
 		const { run } = createRunner({
 			skills: [
@@ -206,7 +254,7 @@ describe("skill-exposure CLI scenarios", () => {
 		const result = await run([
 			"skill-exposure",
 			"apply",
-			"command-backed",
+			"skill-backed-command",
 			"skills/internal/code/code-gh",
 			"skills/internal/test/other",
 			"--format",
@@ -310,7 +358,7 @@ describe("skill-exposure CLI scenarios", () => {
 		const applied = await changed.run([
 			"skill-exposure",
 			"apply",
-			"command-backed",
+			"skill-backed-command",
 			"skills/internal/skill-system/skill-management",
 			"--format",
 			"json",
@@ -318,6 +366,7 @@ describe("skill-exposure CLI scenarios", () => {
 		expect(json(applied)).toMatchObject({
 			status: "ok",
 			data: {
+				policy: "skill-backed-command",
 				sharedOperations: [
 					{ type: "write-settings", outcome: "applied", evidence: "consolidated Pi settings" },
 				],
@@ -329,7 +378,7 @@ describe("skill-exposure CLI scenarios", () => {
 		const planned = await dry.run([
 			"skill-exposure",
 			"apply",
-			"command-backed",
+			"skill-backed-command",
 			"skills/internal/skill-system/skill-management",
 			"--dry-run",
 			"--format",

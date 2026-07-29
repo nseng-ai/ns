@@ -12,25 +12,25 @@ const OBJECTIVE_COMMAND_SURFACES = [
 ] as const;
 
 import {
-	commandBackedSkillRegistrations,
-	commandBackedSkillSurface,
 	derivePiReplacementCommand,
-	genericBackingSkillCommandSpecs,
+	genericSkillBackedCommandSpecs,
 	genericBackingSkillRegistrations,
-	registerBackingSkillCommands,
-	specializedCommandBackedSkillRegistrations,
-	visibleCommandBackedReplacementSurfaces,
-	type BackingSkillCommandContext,
-} from "../../src/backing-skill-commands/extension.ts";
+	registerSkillBackedCommands,
+	skillBackedCommandRegistrations,
+	skillBackedCommandSurface,
+	specializedSkillBackedCommandRegistrations,
+	visibleSkillBackedCommandSurfaces,
+	type SkillBackedCommandContext,
+} from "../../src/skill-backed-commands/extension.ts";
 
 type RegisteredCommand = Parameters<typeof registerCommand>[1];
 
 function registerCommand(
 	_name: string,
-	_command: { handler(args: string, ctx: BackingSkillCommandContext): Promise<void> | void },
+	_command: { handler(args: string, ctx: SkillBackedCommandContext): Promise<void> | void },
 ): void {}
 
-class FakeBackingSkillHost {
+class FakeSkillBackedCommandHost {
 	readonly ackMessages: Array<{ customType: string; content: unknown; display: boolean }> = [];
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly sentMessages: string[] = [];
@@ -48,7 +48,7 @@ class FakeBackingSkillHost {
 	}
 }
 
-function commandContext(cwd: string): BackingSkillCommandContext & {
+function commandContext(cwd: string): SkillBackedCommandContext & {
 	notifications: Array<{ message: string; level: string | undefined }>;
 } {
 	const notifications: Array<{ message: string; level: string | undefined }> = [];
@@ -65,37 +65,37 @@ function commandContext(cwd: string): BackingSkillCommandContext & {
 	};
 }
 
-describe("command-backed skill registry", () => {
+describe("skill-backed command registry", () => {
 	test("uses one local composed registry with provider-owned Handoff and Objective rows", () => {
-		expect(commandBackedSkillSurface("branch-context-from-plan")).toBe(
+		expect(skillBackedCommandSurface("branch-context-from-plan")).toBe(
 			BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 		);
-		expect(commandBackedSkillSurface("branch-context-impl")).toBe(IMPL_BRANCH_CONTEXT_COMMAND_NAME);
-		expect(commandBackedSkillSurface("objective-refresh")).toBe("ns:objective:refresh");
-		expect(commandBackedSkillSurface("ns-flow-branch-latest-commit")).toBe(
+		expect(skillBackedCommandSurface("branch-context-impl")).toBe(IMPL_BRANCH_CONTEXT_COMMAND_NAME);
+		expect(skillBackedCommandSurface("objective-refresh")).toBe("ns:objective:refresh");
+		expect(skillBackedCommandSurface("ns-flow-branch-latest-commit")).toBe(
 			"ns:flow:branch-latest-commit",
 		);
-		expect(commandBackedSkillSurface("ns-flow-cp")).toBe("ns:flow:cp");
-		expect(commandBackedSkillSurface("ns-flow-submit")).toBe("ns:flow:submit");
-		expect(commandBackedSkillSurface("ns-cli-design")).toBe("ns:cli:design");
-		expect(commandBackedSkillSurface("ns-typescript-style-tripwire")).toBe(
+		expect(skillBackedCommandSurface("ns-flow-cp")).toBe("ns:flow:cp");
+		expect(skillBackedCommandSurface("ns-flow-submit")).toBe("ns:flow:submit");
+		expect(skillBackedCommandSurface("ns-cli-design")).toBe("ns:cli:design");
+		expect(skillBackedCommandSurface("ns-typescript-style-tripwire")).toBe(
 			"ns:typescript:style-tripwire",
 		);
-		expect(commandBackedSkillSurface("unregistered-skill-name")).toBeUndefined();
-		expect(commandBackedSkillSurface("foo-bar-baz")).toBeUndefined();
-		expect(commandBackedSkillSurface("plain")).toBeUndefined();
+		expect(skillBackedCommandSurface("unregistered-skill-name")).toBeUndefined();
+		expect(skillBackedCommandSurface("foo-bar-baz")).toBeUndefined();
+		expect(skillBackedCommandSurface("plain")).toBeUndefined();
 
-		expect(commandBackedSkillSurface("handoff-create")).toBe("ns:handoff:create");
-		expect(commandBackedSkillSurface("handoff-pickup")).toBe("ns:handoff:pickup");
-		expect(commandBackedSkillSurface("objective-create")).toBe("ns:objective:create");
-		expect(commandBackedSkillSurface("objective-next")).toBe("ns:objective:next");
-		expect(commandBackedSkillSurface("objective-update")).toBe("ns:objective:update");
-		expect(commandBackedSkillSurface("objective-close")).toBe("ns:objective:close");
-		expect(commandBackedSkillSurface("objective-autorun")).toBe("ns:objective:autorun");
+		expect(skillBackedCommandSurface("handoff-create")).toBe("ns:handoff:create");
+		expect(skillBackedCommandSurface("handoff-pickup")).toBe("ns:handoff:pickup");
+		expect(skillBackedCommandSurface("objective-create")).toBe("ns:objective:create");
+		expect(skillBackedCommandSurface("objective-next")).toBe("ns:objective:next");
+		expect(skillBackedCommandSurface("objective-update")).toBe("ns:objective:update");
+		expect(skillBackedCommandSurface("objective-close")).toBe("ns:objective:close");
+		expect(skillBackedCommandSurface("objective-autorun")).toBe("ns:objective:autorun");
 	});
 
 	test("registry has unique skill names and surfaces", () => {
-		const registrations = commandBackedSkillRegistrations();
+		const registrations = skillBackedCommandRegistrations();
 		const skillNames = registrations.map((registration) => registration.skillName);
 		const surfaces = registrations.map((registration) => registration.surface);
 
@@ -104,7 +104,7 @@ describe("command-backed skill registry", () => {
 	});
 
 	test("registry surfaces are valid Pi slash-command surfaces", () => {
-		for (const registration of commandBackedSkillRegistrations()) {
+		for (const registration of skillBackedCommandRegistrations()) {
 			expect(registration.surface).toMatch(/^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+$/u);
 			expect(registration.surface).not.toContain("/");
 		}
@@ -128,8 +128,8 @@ describe("command-backed skill registry", () => {
 		expect(skillNames).not.toContain("typescript-style");
 	});
 
-	test("tracks specialized command-backed replacements separately from generic backing skills", () => {
-		const specialized = specializedCommandBackedSkillRegistrations();
+	test("tracks specialized skill-backed commands separately from generic backing skills", () => {
+		const specialized = specializedSkillBackedCommandRegistrations();
 		const specializedSkillNames = specialized.map((registration) => registration.skillName);
 		const specializedSurfaces = specialized.map((registration) => registration.surface);
 
@@ -156,8 +156,8 @@ describe("command-backed skill registry", () => {
 		expect(specializedSurfaces).not.toContain("code:workflows");
 	});
 
-	test("collects visible backing skill replacement surfaces from the registry", () => {
-		const surfaces = visibleCommandBackedReplacementSurfaces();
+	test("collects visible skill-backed command surfaces from the registry", () => {
+		const surfaces = visibleSkillBackedCommandSurfaces();
 
 		expect(new Set(surfaces).size).toBe(surfaces.length);
 		expect(surfaces).toContain("code:workflows");
@@ -212,12 +212,12 @@ describe("derivePiReplacementCommand", () => {
 	});
 });
 
-describe("genericBackingSkillCommandSpecs", () => {
+describe("genericSkillBackedCommandSpecs", () => {
 	test("keeps generic backing skill rows and skips specialized command rows", () => {
-		const specs = genericBackingSkillCommandSpecs();
+		const specs = genericSkillBackedCommandSpecs();
 		const surfaces = specs.map((spec) => spec.surface);
 		const specializedSurfaces = new Set(
-			specializedCommandBackedSkillRegistrations().map((registration) => registration.surface),
+			specializedSkillBackedCommandRegistrations().map((registration) => registration.surface),
 		);
 
 		expect(surfaces).toContain("code:workflows");
@@ -243,17 +243,17 @@ describe("genericBackingSkillCommandSpecs", () => {
 	});
 });
 
-describe("registerBackingSkillCommands", () => {
+describe("registerSkillBackedCommands", () => {
 	test("registers generic commands that read repo-local backing skills", async () => {
 		await withTempRepoSkill(
 			{
 				skillName: "code-workflows",
 				markdown: "---\nname: code-workflows\n---\n\n# Code Workflows\n",
-				prefix: "backing-skill-command-",
+				prefix: "skill-backed-command-",
 			},
 			async ({ repoDir, skillPath }) => {
-				const host = new FakeBackingSkillHost();
-				registerBackingSkillCommands(host);
+				const host = new FakeSkillBackedCommandHost();
+				registerSkillBackedCommands(host);
 				const command = host.commands.get("code:workflows");
 				expect(command).toBeDefined();
 
@@ -277,9 +277,9 @@ describe("registerBackingSkillCommands", () => {
 	});
 
 	test("missing required skill reports an error and sends no prompt", async () => {
-		await withTempGitRepo({ prefix: "missing-backing-skill-command-" }, async ({ repoDir }) => {
-			const host = new FakeBackingSkillHost();
-			registerBackingSkillCommands(host);
+		await withTempGitRepo({ prefix: "missing-skill-backed-command-" }, async ({ repoDir }) => {
+			const host = new FakeSkillBackedCommandHost();
+			registerSkillBackedCommands(host);
 			const command = host.commands.get("code:workflows");
 			if (command === undefined) throw new Error("missing command");
 			const ctx = commandContext(repoDir);
@@ -301,11 +301,11 @@ describe("registerBackingSkillCommands", () => {
 				skillName: "improve-codebase-architecture",
 				markdown:
 					"---\nname: improve-codebase-architecture\n---\n\n# Improve Codebase Architecture\n",
-				prefix: "vendored-backing-skill-command-",
+				prefix: "vendored-skill-backed-command-",
 			},
 			async ({ repoDir, skillPath }) => {
-				const host = new FakeBackingSkillHost();
-				registerBackingSkillCommands(host);
+				const host = new FakeSkillBackedCommandHost();
+				registerSkillBackedCommands(host);
 				const command = host.commands.get("improve:codebase-architecture");
 				expect(command).toBeDefined();
 

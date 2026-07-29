@@ -7,6 +7,7 @@ import {
 	type LivePiSurface,
 } from "@nseng-ai/pi-runtime/parity/check";
 import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi-runtime/parity/testing";
+import { flowSkillBackedCommandRegistrations } from "../../src/pi/index.ts";
 import nsExtension, { nsExtensionParity, type NsExtensionAPI } from "../../src/pi/ns-extension.ts";
 import stackSquashExtension, { stackSquashParity } from "../../src/pi/stack-squash.ts";
 
@@ -25,6 +26,31 @@ async function collectFlowPiSurfaces(): Promise<LivePiSurface[]> {
 const flowPiParity = [...stackSquashParity, ...nsExtensionParity] as const;
 
 describe("Flow Pi extension parity metadata", () => {
+	test("exports skill-backed command registrations", () => {
+		expect(flowSkillBackedCommandRegistrations).toEqual([
+			{
+				kind: "specialized-command",
+				skillName: "ns-flow-autobranch",
+				surface: "ns:flow:autobranch",
+			},
+			{
+				kind: "specialized-command",
+				skillName: "ns-flow-branch-latest-commit",
+				surface: "ns:flow:branch-latest-commit",
+			},
+			{
+				kind: "specialized-command",
+				skillName: "ns-flow-cp",
+				surface: "ns:flow:cp",
+			},
+			{
+				kind: "specialized-command",
+				skillName: "ns-flow-submit",
+				surface: "ns:flow:submit",
+			},
+		]);
+	});
+
 	test("registered command surfaces match package metadata", async () => {
 		const comparison = comparePiSurfaceParity({
 			liveSurfaces: await collectFlowPiSurfaces(),

@@ -14,45 +14,45 @@ import {
 	invokeRepoSkillPromptTurn,
 } from "@nseng-ai/pi-runtime/skills/expansion";
 
-import { genericBackingSkillCommandSpecs, type DerivedPiCommand } from "./specs.ts";
+import { genericSkillBackedCommandSpecs, type DerivedPiCommand } from "./specs.ts";
 
-export type BackingSkillCommandContext = Pick<
+export type SkillBackedCommandContext = Pick<
 	PiCommandContext,
 	"cwd" | "hasUI" | "ui" | "waitForIdle"
 >;
 
-export type BackingSkillCommand = Omit<PiCommandRegistration, "handler"> & {
-	handler(args: string, ctx: BackingSkillCommandContext): Promise<void> | void;
+export type SkillBackedCommand = Omit<PiCommandRegistration, "handler"> & {
+	handler(args: string, ctx: SkillBackedCommandContext): Promise<void> | void;
 };
 
-export type BackingSkillCommandHost = ImmediateCommandAckCommandRegistrar<BackingSkillCommand> &
+export type SkillBackedCommandHost = ImmediateCommandAckCommandRegistrar<SkillBackedCommand> &
 	Pick<PiCommandHost, "sendUserMessage">;
 
-interface HandleBackingSkillCommandOptions {
-	host: BackingSkillCommandHost;
+interface HandleSkillBackedCommandOptions {
+	host: SkillBackedCommandHost;
 	spec: DerivedPiCommand;
 	args: string;
-	ctx: BackingSkillCommandContext;
+	ctx: SkillBackedCommandContext;
 }
 
-export function registerBackingSkillCommands(host: BackingSkillCommandHost): void {
-	for (const spec of genericBackingSkillCommandSpecs()) {
+export function registerSkillBackedCommands(host: SkillBackedCommandHost): void {
+	for (const spec of genericSkillBackedCommandSpecs()) {
 		registerCommandWithImmediateAck({
 			host: host,
 			commandName: spec.surface,
 			commandDefinition: {
-				description: `Invoke ${spec.skillName} as a command-converted backing skill.`,
+				description: `Invoke ${spec.skillName} as a skill-backed command.`,
 				argumentHint: "[initial request]",
-				handler: async (args, ctx) => handleBackingSkillCommand({ host, spec, args, ctx }),
+				handler: async (args, ctx) => handleSkillBackedCommand({ host, spec, args, ctx }),
 			},
 			options: { delivery: "message" },
 		});
 	}
 }
 
-export default registerBackingSkillCommands;
+export default registerSkillBackedCommands;
 
-async function handleBackingSkillCommand(options: HandleBackingSkillCommandOptions): Promise<void> {
+async function handleSkillBackedCommand(options: HandleSkillBackedCommandOptions): Promise<void> {
 	const { host, spec, args, ctx } = options;
 	try {
 		await invokeRepoSkillPromptTurn({
@@ -60,14 +60,14 @@ async function handleBackingSkillCommand(options: HandleBackingSkillCommandOptio
 			ctx,
 			skillName: spec.skillName,
 			successMessage: `Invoking ${spec.skillName}${args.trim().length > 0 ? " with initial context" : ""}.`,
-			buildPrompt: (skillBlock) => buildBackingSkillPrompt(spec, skillBlock, args),
+			buildPrompt: (skillBlock) => buildSkillBackedPrompt(spec, skillBlock, args),
 		});
 	} catch (error) {
 		notifyCommandUi(ctx, formatErrorMessage(error), "error");
 	}
 }
 
-function buildBackingSkillPrompt(spec: DerivedPiCommand, skillBlock: string, args: string): string {
+function buildSkillBackedPrompt(spec: DerivedPiCommand, skillBlock: string, args: string): string {
 	return buildSkillInvocationPrompt({
 		skillName: spec.skillName,
 		initialRequest: args,

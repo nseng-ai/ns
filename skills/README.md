@@ -52,7 +52,7 @@ Do not conflate these independent concerns:
 - **support disposition**: the repository's external support warrant or intent;
 - **family ownership**: the stable navigation and maintenance owner;
 - **skill identity**: the globally flat harness-visible name;
-- **Skill Exposure Policy**: invocation behavior (`normal`, `invoke-only`, or `command-backed`); and
+- **Skill Exposure Policy**: invocation behavior (`normal`, `invoke-only`, or `skill-backed-command`); and
 - **`metadata.internal`**: repository-private visibility evidence.
 
 A public skill can have any Skill Exposure Policy. An internal skill can be ambient. `metadata.internal: true` strongly informs an internal disposition but substitutes for neither disposition nor exposure policy.

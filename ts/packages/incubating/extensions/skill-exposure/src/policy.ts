@@ -25,7 +25,7 @@ export function inferPolicy(facts: SkillFacts): ExposurePolicy | "inconsistent" 
 		facts.piExcluded &&
 		facts.replacementVerified
 	)
-		return "command-backed";
+		return "skill-backed-command";
 	return "inconsistent";
 }
 
@@ -37,7 +37,9 @@ export function diagnosticsFor(facts: SkillFacts): string[] {
 	if (facts.modelInvocationDisabled !== facts.managedSidecar)
 		diagnostics.push("model invocation frontmatter and managed sidecar disagree");
 	if (facts.piExcluded && !facts.replacementVerified)
-		diagnostics.push("Pi exclusion is missing a verified replacement registry row");
+		diagnostics.push(
+			"Pi exclusion requires a verified skill-backed command registration; add the registration or remove the exclusion",
+		);
 	return diagnostics;
 }
 
@@ -45,7 +47,7 @@ export function implicationsFor(policy: ExposurePolicy | "inconsistent"): readon
 	if (policy === "normal") return ["model invocation allowed", "native Pi skill visible"];
 	if (policy === "invoke-only")
 		return ["implicit model invocation disabled", "native Pi skill visible"];
-	if (policy === "command-backed")
+	if (policy === "skill-backed-command")
 		return ["implicit model invocation disabled", "native Pi skill replaced by command surface"];
 	return ["overlay facts do not form a retained policy"];
 }
@@ -61,9 +63,9 @@ export function planSkillExposure(
 			`Refusing unexpected sidecar at ${inspection.relativePath}/agents/openai.yaml.`,
 			{ path: `${inspection.relativePath}/agents/openai.yaml` },
 		);
-	if (policy === "command-backed" && !inspection.facts.replacementVerified)
+	if (policy === "skill-backed-command" && !inspection.facts.replacementVerified)
 		throw new SkillExposureInputError(
-			`Skill '${inspection.skill}' has no verified command-backed registry row.`,
+			`Skill '${inspection.skill}' cannot use skill-backed-command until it has a verified skill-backed command registration.`,
 		);
 
 	const skillMdPath = `${inspection.relativePath}/SKILL.md`;
@@ -150,7 +152,7 @@ export function settingsForPolicy(
 ): PiSettings {
 	const exclusion = `-skills/${skill}`;
 	const exclusions =
-		policy === "command-backed"
+		policy === "skill-backed-command"
 			? settings.exclusions.includes(exclusion)
 				? [...settings.exclusions]
 				: [...settings.exclusions, exclusion]

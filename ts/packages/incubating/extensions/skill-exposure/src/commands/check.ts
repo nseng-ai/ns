@@ -13,7 +13,7 @@ export function createSkillExposureCheckCommand(
 		name: "check",
 		summary: "Check exposure overlays for explicit skill paths.",
 		description:
-			"Exit negatively when any selected skill is inconsistent or lacks required replacement evidence.",
+			"Exit negatively when any selected skill is inconsistent. Missing registry evidence identifies the registration needed for a Pi-excluded skill.",
 		schema: z.object({ paths: z.array(z.string()).min(1) }),
 		positionals: { paths: { position: 0 } },
 		resultSchema: checkResultSchema,

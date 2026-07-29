@@ -25,7 +25,7 @@ A tested host-resident implementation area under `ts/packages/incubating/hosts/p
 *Avoid*: old package boundary, leaf package, one root barrel, Objectives Pi subpackage.
 
 **Internal Pi-tool package**:
-A private workspace package for a Pi-native standalone tool extracted from the host, usually under `ts/packages/internal/hosts/pi/tools/pi-tools/src/<tool>/` (for example `@internal/pi-tools/code-workflows`, `@internal/pi-tools/context-profiler`, `@internal/pi-tools/grill`, `@internal/pi-tools/thermo-council`, and `@internal/pi-tools/backing-skill-commands`) or, for the subagent tools, under `@internal/ns-pi-subagents/runner-subagents`. It owns its source, tests, and tool-specific parity metadata; may depend on neutral `@nseng-ai/pi-runtime/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@nseng-ai/pi-runtime` import of the tool package.
+A private workspace package for a Pi-native standalone tool extracted from the host, usually under `ts/packages/internal/hosts/pi/tools/pi-tools/src/<tool>/` (for example `@internal/pi-tools/code-workflows`, `@internal/pi-tools/context-profiler`, `@internal/pi-tools/grill`, `@internal/pi-tools/thermo-council`, and `@internal/pi-tools/skill-backed-commands`) or, for the subagent tools, under `@internal/ns-pi-subagents/runner-subagents`. It owns its source, tests, and tool-specific parity metadata; may depend on neutral `@nseng-ai/pi-runtime/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@nseng-ai/pi-runtime` import of the tool package.
 *Avoid*: Local Pi-tool package, ns extension package, host subdirectory, neutral helper subpath, host dependency.
 
 **Neutral Pi helper subpath**:

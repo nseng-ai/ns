@@ -1,4 +1,4 @@
-import { specializedCommandBackedSkillsFromSpecs } from "@nseng-ai/foundation/command";
+import { specializedSkillBackedCommandsFromSpecs } from "@nseng-ai/foundation/command";
 
 import type { ObjectiveSelectionSpec } from "./objective-selection.ts";
 
@@ -110,7 +110,7 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 	}),
 ];
 
-export const objectiveCommandBackedSkillRegistrations = specializedCommandBackedSkillsFromSpecs(
+export const objectiveSkillBackedCommandRegistrations = specializedSkillBackedCommandsFromSpecs(
 	[...allObjectiveCreateCommandSpecs, ...objectiveCommandSpecs].map((spec) => ({
 		skillName: spec.skillName,
 		surface: spec.commandName,

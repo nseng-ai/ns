@@ -2,7 +2,7 @@ import { lstat, mkdir, readFile, realpath, rm, rmdir, writeFile } from "node:fs/
 import path from "node:path";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { parseSkillFrontmatterBlock, transformSkillFrontmatter } from "@nseng-ai/ns/api";
-import { commandBackedSkillSurface } from "./replacement-registry.ts";
+import { skillBackedCommandSurface } from "./replacement-registry.ts";
 import { diagnosticsFor, implicationsFor, inferPolicy } from "./policy.ts";
 import type {
 	OperationResult,
@@ -122,7 +122,7 @@ export class NodeSkillExposureGateway implements SkillExposureGateway {
 				`Refusing unexpected sidecar at ${sidecarDisplay}.`,
 				sidecarDisplay,
 			);
-		const replacementSurface = commandBackedSkillSurface(resolved.skill);
+		const replacementSurface = skillBackedCommandSurface(resolved.skill);
 		const facts: SkillFacts = {
 			modelInvocationDisabled: parsedFrontmatter.value.fields[DISABLE_KEY] === "true",
 			managedSidecar: sidecar === "managed",

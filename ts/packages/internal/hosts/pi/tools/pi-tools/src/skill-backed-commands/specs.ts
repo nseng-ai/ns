@@ -31,7 +31,7 @@ function buildDerivedPiCommand(options: {
 	};
 }
 
-export function genericBackingSkillCommandSpecs(): DerivedPiCommand[] {
+export function genericSkillBackedCommandSpecs(): DerivedPiCommand[] {
 	const specs: DerivedPiCommand[] = [];
 	for (const registration of genericBackingSkillRegistrations()) {
 		const derived = buildDerivedPiCommand({

@@ -66,15 +66,17 @@ describe("skill exposure policy", () => {
 	});
 
 	test("requires replacement evidence and evolves one settings document", () => {
-		expect(settingsForPolicy(settings, "demo", "command-backed").exclusions).toEqual([
+		expect(settingsForPolicy(settings, "demo", "skill-backed-command").exclusions).toEqual([
 			"-skills/demo",
 		]);
 		expect(() =>
 			planSkillExposure(
 				inspection({ facts: { ...inspection().facts, replacementVerified: false } }),
-				"command-backed",
+				"skill-backed-command",
 			),
-		).toThrow(/verified command-backed registry row/);
+		).toThrow(
+			/cannot use skill-backed-command until it has a verified skill-backed command registration/,
+		);
 	});
 
 	test("normal plans deletion only for the exact managed sidecar", () => {
