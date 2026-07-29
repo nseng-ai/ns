@@ -13,6 +13,7 @@ import type {
 	ReviewHarnessRunner,
 	RunReviewOptions,
 } from "./review-runner.ts";
+import { reviewHarnessExecutionMessage } from "./review-harness-execution-message.ts";
 import { systemPromptFindingsJsonText } from "./review-runner-prompt.ts";
 
 export const PI_BINARY = "pi";
@@ -64,13 +65,19 @@ export class PiProcessReviewRunner implements ReviewHarnessRunner {
 		if (result.type === "cancelled") {
 			return resultErr({
 				code: "review-execution-cancelled",
-				message: piExecutionMessage(result),
+				message: reviewHarnessExecutionMessage(result, {
+					harnessLabel: "Pi",
+					useStdoutFallback: true,
+				}),
 			});
 		}
 		if (!commandSucceeded(result)) {
 			return resultErr({
 				code: "harness-execution-failed",
-				message: piExecutionMessage(result),
+				message: reviewHarnessExecutionMessage(result, {
+					harnessLabel: "Pi",
+					useStdoutFallback: true,
+				}),
 			});
 		}
 
@@ -228,26 +235,4 @@ function isMatchingJsonDelimiter(opener: string, closer: string): boolean {
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function piExecutionMessage(result: ExecResult): string {
-	const stderr = result.stderr.trim();
-	if (stderr !== "") return stderr;
-	const stdout = result.stdout.trimEnd();
-	if (stdout !== "") {
-		const lines = stdout.split("\n");
-		return lines[lines.length - 1] ?? stdout;
-	}
-	switch (result.type) {
-		case "spawn-failed":
-			return result.error;
-		case "cancelled":
-			return "Pi execution was cancelled.";
-		case "timed-out":
-			return "Pi execution timed out.";
-		case "exited":
-			return result.signal === null
-				? `Pi exited with status ${result.code}.`
-				: `Pi exited after signal ${result.signal} (status ${result.code ?? "unknown"}).`;
-	}
 }
