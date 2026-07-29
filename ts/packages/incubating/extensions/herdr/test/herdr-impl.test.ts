@@ -182,9 +182,6 @@ describe("herdr Pi extension — full suite", () => {
 				sessionContinuation: {
 					preflightSource: () => ({ ok: true }),
 					buildContextText: () => ({ ok: true, text: "active context" }),
-					async cloneActiveSessionForImplementation() {
-						throw new Error("Clone must not run after model-policy failure.");
-					},
 				},
 			},
 		);
@@ -192,7 +189,7 @@ describe("herdr Pi extension — full suite", () => {
 		await pi.commands.get("ns:herdr:impl:session:space")?.handler("", ctx);
 
 		expect(ctx.notifications.at(-1)?.message).toContain("Invalid model policy in ns.toml:");
-		expect(ctx.selections).toEqual([]);
+		expect(ctx.editorTexts).toEqual([]);
 		expect(pi.execCalls).toEqual([]);
 	});
 

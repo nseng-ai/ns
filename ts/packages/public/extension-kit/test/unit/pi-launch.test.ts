@@ -1,8 +1,6 @@
 import {
 	buildPiLaunchArgs,
 	buildPiLaunchCommand,
-	buildPiSessionLaunchArgs,
-	buildPiSessionLaunchCommand,
 	getPiLaunchOptions,
 } from "@nseng-ai/extension-kit/pi-launch";
 import { buildTrackedBranchPayloadLaunchCommand } from "@nseng-ai/extension-kit/tracked-branch-payload";
@@ -44,48 +42,6 @@ describe("buildPiLaunchCommand", () => {
 
 	test("keeps plain arguments unquoted with thinking off", () => {
 		expect(buildPiLaunchCommand("prompt.md", { thinkingLevel: "off" })).toBe("pi prompt.md");
-	});
-});
-
-describe("buildPiSessionLaunchArgs", () => {
-	test("uses the session flag without a positional prompt", () => {
-		expect(buildPiSessionLaunchArgs("/tmp/session.jsonl", { thinkingLevel: "off" })).toEqual([
-			"pi",
-			"--session",
-			"/tmp/session.jsonl",
-		]);
-	});
-
-	test("preserves model and thinking options before the session flag", () => {
-		expect(
-			buildPiSessionLaunchArgs("/tmp/session.jsonl", {
-				model: { provider: "anthropic", id: "claude-sonnet" },
-				thinkingLevel: "high",
-			}),
-		).toEqual([
-			"pi",
-			"--provider",
-			"anthropic",
-			"--model",
-			"claude-sonnet",
-			"--thinking",
-			"high",
-			"--session",
-			"/tmp/session.jsonl",
-		]);
-	});
-});
-
-describe("buildPiSessionLaunchCommand", () => {
-	test("shell-quotes a session path without adding a positional prompt", () => {
-		expect(
-			buildPiSessionLaunchCommand("/tmp/session files/active.jsonl", {
-				model: { provider: "openai", id: "gpt-5" },
-				thinkingLevel: "medium",
-			}),
-		).toBe(
-			"pi --provider openai --model gpt-5 --thinking medium --session '/tmp/session files/active.jsonl'",
-		);
 	});
 });
 

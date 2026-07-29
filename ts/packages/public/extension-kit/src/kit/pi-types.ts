@@ -61,6 +61,8 @@ export interface UiLike {
 	confirm?(title: string, message: string): Promise<boolean>;
 	input?(title: string, placeholder?: string): Promise<string | undefined>;
 	select?(title: string, items: string[]): Promise<string | undefined>;
+	/** Fills the interactive input box with text for the user to review, edit, and send. */
+	setEditorText?(text: string): void;
 	addAutocompleteProvider?(factory: (current: AutocompleteProvider) => AutocompleteProvider): void;
 }
 

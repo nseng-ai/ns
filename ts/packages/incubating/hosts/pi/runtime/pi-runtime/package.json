@@ -21,7 +21,6 @@
 		"./runtime/command-host": "./src/runtime/command-host.ts",
 		"./runtime/machine-envelope": "./src/runtime/machine-envelope.ts",
 		"./runtime/tool-types": "./src/runtime/tool-types.ts",
-		"./sessions/active-branch-clone": "./src/runtime/active-branch-clone.ts",
 		"./sessions/active-context-text": "./src/runtime/active-context-text.ts",
 		"./sessions/replacement": "./src/runtime/sessions-replacement.ts",
 		"./skills/expansion": "./src/kit/skills/expansion.ts",

@@ -26,7 +26,13 @@ export function buildPiLaunchArgs(
 	initialArgument: string,
 	launchOptions: PiLaunchOptions,
 ): string[] {
-	return [...buildPiLaunchOptionArgs(launchOptions), initialArgument];
+	const args = ["pi"];
+	if (launchOptions.model !== undefined) {
+		args.push("--provider", launchOptions.model.provider, "--model", launchOptions.model.id);
+	}
+	if (launchOptions.thinkingLevel !== "off") args.push("--thinking", launchOptions.thinkingLevel);
+	args.push(initialArgument);
+	return args;
 }
 
 export function buildPiLaunchCommand(
@@ -34,27 +40,4 @@ export function buildPiLaunchCommand(
 	launchOptions: PiLaunchOptions,
 ): string {
 	return buildPiLaunchArgs(initialArgument, launchOptions).map(formatShellArg).join(" ");
-}
-
-export function buildPiSessionLaunchArgs(
-	sessionPath: string,
-	launchOptions: PiLaunchOptions,
-): string[] {
-	return [...buildPiLaunchOptionArgs(launchOptions), "--session", sessionPath];
-}
-
-export function buildPiSessionLaunchCommand(
-	sessionPath: string,
-	launchOptions: PiLaunchOptions,
-): string {
-	return buildPiSessionLaunchArgs(sessionPath, launchOptions).map(formatShellArg).join(" ");
-}
-
-function buildPiLaunchOptionArgs(launchOptions: PiLaunchOptions): string[] {
-	const args = ["pi"];
-	if (launchOptions.model !== undefined) {
-		args.push("--provider", launchOptions.model.provider, "--model", launchOptions.model.id);
-	}
-	if (launchOptions.thinkingLevel !== "off") args.push("--thinking", launchOptions.thinkingLevel);
-	return args;
 }

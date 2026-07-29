@@ -1,507 +1,293 @@
 import { describe, expect, test } from "vitest";
 
-import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
-import { buildTrackedBranchSlugPrompt } from "@nseng-ai/extension-kit/tracked-branch-payload";
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-
 import {
-	buildSessionContinuationFocusPrompt,
-	buildSessionContinuationTurn,
+	buildSessionContinuationPrompt,
 	handleHerdrImplSession,
 	type HerdrSessionContinuationGateway,
 } from "../src/core/impl-session.ts";
-import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
-import {
-	BRANCH,
-	FakeCommandContext,
-	FakeHerdrGateway,
-	FakePi,
-	ROOT,
-	SOURCE_BRANCH,
-	START_POINT,
-	step,
-	WORKTREE,
-} from "./herdr-test-harness.ts";
+import { FakeCommandContext } from "./herdr-test-harness.ts";
 
-const MODEL_SELECTION = {
-	provider: "openai-codex",
-	modelId: "gpt-5.6-luna",
-	thinking: "minimal" as const,
-};
 const FOCUS = "Finish the active-session implementation workflow";
 
-function slotClient() {
-	return {
-		async checkoutCurrent() {
-			return { ok: false as const, failure: { errorType: "unexpected", message: "unexpected" } };
-		},
-		async checkoutBranch(options: { branchName: string }) {
-			return {
-				ok: true as const,
-				target: {
-					slotName: "slot-01",
-					branchName: options.branchName,
-					worktreePath: WORKTREE,
-					isAlreadyAssigned: false,
-					hasCreatedBranch: false,
-					currentWorktreeNote: null,
-				},
-			};
-		},
-	};
-}
-
 class FakeSessionContinuation implements HerdrSessionContinuationGateway {
-	readonly calls: Array<{
-		sourceSessionFile: string;
-		sourceLeafId: string;
-		destinationCwd: string;
-		continuationMessage: string;
-	}> = [];
+	readonly contextRequests: Array<{ sourceSessionFile: string; sourceLeafId: string }> = [];
 	private readonly preflightResult: ReturnType<HerdrSessionContinuationGateway["preflightSource"]>;
-	private readonly buildContext: HerdrSessionContinuationGateway["buildContextText"];
+	private readonly contextResult: ReturnType<HerdrSessionContinuationGateway["buildContextText"]>;
 
 	constructor(
 		options: {
 			preflightResult?: ReturnType<HerdrSessionContinuationGateway["preflightSource"]>;
-			buildContext?: HerdrSessionContinuationGateway["buildContextText"];
+			contextResult?: ReturnType<HerdrSessionContinuationGateway["buildContextText"]>;
 		} = {},
 	) {
 		this.preflightResult = options.preflightResult ?? { ok: true };
-		this.buildContext = options.buildContext ?? (() => ({ ok: true, text: "active context" }));
+		this.contextResult = options.contextResult ?? { ok: true, text: "active context" };
 	}
 
 	preflightSource() {
 		return this.preflightResult;
 	}
 
-	buildContextText(request: Parameters<HerdrSessionContinuationGateway["buildContextText"]>[0]) {
-		return this.buildContext(request);
-	}
-
-	async cloneActiveSessionForImplementation(request: (typeof this.calls)[number]) {
-		this.calls.push({ ...request });
-		return {
-			ok: true as const,
-			value: { sessionFile: "/sessions/destination.jsonl", sessionId: "destination-id" },
-		};
+	buildContextText(request: { sourceSessionFile: string; sourceLeafId: string }) {
+		this.contextRequests.push({ ...request });
+		return this.contextResult;
 	}
 }
 
-function successfulPi(): FakePi {
-	return new FakePi({
-		script: [
-			step(
-				"pi",
-				buildRawTextModelArgs(
-					buildTrackedBranchSlugPrompt({ kind: "task", content: FOCUS }),
-					MODEL_SELECTION,
-				),
-				{ stdout: `${BRANCH}\n` },
-			),
-			step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
-			step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"]),
-		],
+function persistedSessionContext(options: { hasEditor?: boolean } = {}): FakeCommandContext {
+	return new FakeCommandContext({
+		sessionFile: "/sessions/source.jsonl",
+		leafId: "leaf",
+		branchEntries: [{ type: "message", id: "leaf" }],
+		...(options.hasEditor === undefined ? {} : { hasEditor: options.hasEditor }),
 	});
 }
 
-function baseOptions() {
+function composePromptRecorder(prompt = "Implement the composed continuation work") {
+	const requests: Array<{ cwd: string; activeContextText: string; steeringFocus?: string }> = [];
 	return {
-		args: FOCUS,
-		notifyProgress: () => {},
-		deriveFocus: async () => ({ ok: true as const, focus: "derived focus" }),
-		slotClient: slotClient(),
+		requests,
+		composePrompt: async (request: {
+			cwd: string;
+			activeContextText: string;
+			steeringFocus?: string;
+		}) => {
+			requests.push({ ...request });
+			return { ok: true as const, prompt };
+		},
 	};
 }
 
 describe("Herdr active-session implementation", () => {
-	test("fails an in-memory source before model, Git, Slot, session, or Herdr mutation", async () => {
-		const pi = new FakePi();
-		const herdr = new FakeHerdrGateway();
+	test("fails an in-memory source before context extraction or prompt composition", async () => {
 		const sessionContinuation = new FakeSessionContinuation();
 		const ctx = new FakeCommandContext({ branchEntries: [{ type: "message", id: "leaf" }] });
-		let derived = false;
-		let checkedOut = false;
+		const recorder = composePromptRecorder();
 
 		await handleHerdrImplSession(
-			{
-				commands: createHerdrPiCommandApi(pi),
-				pi: ctx,
-				trunkBranch: "master",
-				git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
-				herdr,
-				sessionContinuation,
-			},
-			{
-				...baseOptions(),
-				deriveFocus: async () => {
-					derived = true;
-					return { ok: true, focus: "unused" };
-				},
-				slotClient: {
-					async checkoutCurrent() {
-						checkedOut = true;
-						return { ok: false as const, failure: { errorType: "unused", message: "unused" } };
-					},
-					async checkoutBranch() {
-						checkedOut = true;
-						return { ok: false as const, failure: { errorType: "unused", message: "unused" } };
-					},
-				},
-			},
+			{ pi: ctx, sessionContinuation },
+			{ args: FOCUS, notifyProgress: () => {}, composePrompt: recorder.composePrompt },
 		);
 
 		expect(ctx.events[0]).toBe("wait-for-idle");
 		expect(ctx.notifications[0]?.message).toContain("persisted caller Pi session");
-		expect(derived).toBe(false);
-		expect(checkedOut).toBe(false);
-		expect(pi.execCalls).toEqual([]);
-		expect(sessionContinuation.calls).toEqual([]);
-		expect(herdr.createWorkspaceCalls).toEqual([]);
+		expect(ctx.notifications[0]?.message).toContain("No prompt was composed.");
+		expect(sessionContinuation.contextRequests).toEqual([]);
+		expect(recorder.requests).toEqual([]);
+		expect(ctx.editorTexts).toEqual([]);
+	});
+
+	test("fails a missing authoritative leaf before context extraction", async () => {
+		const sessionContinuation = new FakeSessionContinuation();
+		const ctx = new FakeCommandContext({
+			sessionFile: "/sessions/source.jsonl",
+			leafId: null,
+			branchEntries: [{ type: "message", id: "leaf" }],
+		});
+		const recorder = composePromptRecorder();
+
+		await handleHerdrImplSession(
+			{ pi: ctx, sessionContinuation },
+			{ args: FOCUS, notifyProgress: () => {}, composePrompt: recorder.composePrompt },
+		);
+
+		expect(ctx.notifications[0]?.message).toContain("authoritative leaf id");
+		expect(sessionContinuation.contextRequests).toEqual([]);
+		expect(recorder.requests).toEqual([]);
+		expect(ctx.editorTexts).toEqual([]);
 	});
 
 	test.each([
 		["malformed", "Failed to read active Pi session source: malformed JSONL"],
 		["empty", "Source session branch is empty."],
 		["leaf mismatch", "selected path does not end at authoritative leaf"],
-	] as const)(
-		"fails a %s persisted source before selection or mutation",
-		async (_case, message) => {
-			const pi = new FakePi();
-			const herdr = new FakeHerdrGateway();
-			let builtContext = false;
-			const sessionContinuation = new FakeSessionContinuation({
-				preflightResult: { ok: false, message },
-				buildContext: () => {
-					builtContext = true;
-					return { ok: true, text: "unused" };
-				},
-			});
-			const ctx = new FakeCommandContext({
-				sessionFile: "/sessions/source.jsonl",
-				leafId: "leaf",
-				branchEntries: [{ type: "message", id: "leaf" }],
-			});
-			let derived = false;
-			let checkedOut = false;
-
-			await handleHerdrImplSession(
-				{
-					commands: createHerdrPiCommandApi(pi),
-					pi: ctx,
-					trunkBranch: "master",
-					git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
-					herdr,
-					sessionContinuation,
-				},
-				{
-					...baseOptions(),
-					deriveFocus: async () => {
-						derived = true;
-						return { ok: true, focus: "unused" };
-					},
-					slotClient: {
-						async checkoutCurrent() {
-							checkedOut = true;
-							return { ok: false as const, failure: { errorType: "unused", message: "unused" } };
-						},
-						async checkoutBranch() {
-							checkedOut = true;
-							return { ok: false as const, failure: { errorType: "unused", message: "unused" } };
-						},
-					},
-				},
-			);
-
-			expect(ctx.selections).toEqual([]);
-			expect(ctx.notifications.at(-1)?.message).toContain(message);
-			expect(ctx.notifications.at(-1)?.message).toContain("No branch, Slot");
-			expect(builtContext).toBe(false);
-			expect(derived).toBe(false);
-			expect(checkedOut).toBe(false);
-			expect(pi.execCalls).toEqual([]);
-			expect(sessionContinuation.calls).toEqual([]);
-			expect(herdr.createWorkspaceCalls).toEqual([]);
-		},
-	);
-
-	test("uses trimmed explicit focus without invoking focus derivation", async () => {
-		const pi = successfulPi();
-		const herdr = new FakeHerdrGateway();
-		let builtContext = false;
+	] as const)("fails a %s persisted source before composition", async (_case, message) => {
 		const sessionContinuation = new FakeSessionContinuation({
-			buildContext: () => {
-				builtContext = true;
-				return { ok: true, text: "unused" };
-			},
+			preflightResult: { ok: false, message },
 		});
-		const ctx = new FakeCommandContext({
-			cwd: ROOT,
-			sessionFile: "/sessions/source.jsonl",
-			leafId: "leaf",
-			branchEntries: [{ type: "message", id: "leaf" }],
-			model: { provider: "openai-codex", id: "gpt-5.6-luna" },
-		});
-		let derived = false;
+		const ctx = persistedSessionContext();
+		const recorder = composePromptRecorder();
 
 		await handleHerdrImplSession(
-			{
-				commands: createHerdrPiCommandApi(pi),
-				pi: ctx,
-				trunkBranch: "master",
-				git: new InMemoryGitGateway({
-					currentBranch: SOURCE_BRANCH,
-					headCommit: START_POINT,
-					repoRoot: ROOT,
-				}),
-				herdr,
-				sessionContinuation,
-			},
-			{
-				...baseOptions(),
-				args: `  ${FOCUS}  `,
-				deriveFocus: async () => {
-					derived = true;
-					return { ok: true, focus: "wrong" };
-				},
-			},
+			{ pi: ctx, sessionContinuation },
+			{ args: FOCUS, notifyProgress: () => {}, composePrompt: recorder.composePrompt },
 		);
 
-		expect(derived).toBe(false);
-		expect(builtContext).toBe(false);
-		expect(sessionContinuation.calls).toEqual([
-			{
-				sourceSessionFile: "/sessions/source.jsonl",
-				sourceLeafId: "leaf",
-				destinationCwd: WORKTREE,
-				continuationMessage: buildSessionContinuationTurn(FOCUS),
-			},
-		]);
-		expect(herdr.paneRunCalls[0]?.command).toBe(
-			"pi --provider openai-codex --model gpt-5.6-luna --thinking medium --session /sessions/destination.jsonl",
+		expect(ctx.notifications.at(-1)?.message).toContain(message);
+		expect(ctx.notifications.at(-1)?.message).toContain("No prompt was composed.");
+		expect(sessionContinuation.contextRequests).toEqual([]);
+		expect(recorder.requests).toEqual([]);
+		expect(ctx.editorTexts).toEqual([]);
+	});
+
+	test.each([
+		["empty context", { ok: true as const, text: "  " }],
+		["context failure", { ok: false as const, message: "context unavailable" }],
+	] as const)("stops before composition on %s", async (_case, contextResult) => {
+		const sessionContinuation = new FakeSessionContinuation({ contextResult });
+		const ctx = persistedSessionContext();
+		const recorder = composePromptRecorder();
+
+		await handleHerdrImplSession(
+			{ pi: ctx, sessionContinuation },
+			{ args: "", notifyProgress: () => {}, composePrompt: recorder.composePrompt },
 		);
+
+		expect(recorder.requests).toEqual([]);
+		expect(ctx.editorTexts).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain(
-			"Destination session: /sessions/destination.jsonl",
+			contextResult.ok ? "conversation context is empty" : "context unavailable",
 		);
-		pi.assertDone();
 	});
 
-	test("reports recoverable destination evidence when session preparation fails", async () => {
-		const pi = successfulPi();
-		const herdr = new FakeHerdrGateway();
-		const ctx = new FakeCommandContext({
-			cwd: ROOT,
-			sessionFile: "/sessions/source.jsonl",
-			leafId: "leaf",
-			branchEntries: [{ type: "message", id: "leaf" }],
-		});
-		const continuation: HerdrSessionContinuationGateway = {
-			preflightSource: () => ({ ok: true }),
-			buildContextText: () => ({ ok: true, text: "active context" }),
-			async cloneActiveSessionForImplementation() {
-				return {
-					ok: false,
-					error: {
-						message: "Could not append continuation turn.",
-						recoverableDestination: {
-							sessionFile: "/sessions/recoverable.jsonl",
-							sessionId: "recoverable-id",
-						},
-					},
-				};
-			},
-		};
-
-		await handleHerdrImplSession(
-			{
-				commands: createHerdrPiCommandApi(pi),
-				pi: ctx,
-				trunkBranch: "master",
-				git: new InMemoryGitGateway({
-					currentBranch: SOURCE_BRANCH,
-					headCommit: START_POINT,
-					repoRoot: ROOT,
-				}),
-				herdr,
-				sessionContinuation: continuation,
-			},
-			baseOptions(),
-		);
-
-		expect(herdr.createWorkspaceCalls).toEqual([]);
-		expect(herdr.paneRunCalls).toEqual([]);
-		const recovery = ctx.notifications.at(-1)?.message;
-		expect(recovery).toContain("destination Pi session was persisted");
-		expect(recovery).toContain("before a Herdr workspace was created");
-		expect(recovery).not.toContain("Herdr destination failed");
-		expect(recovery).toContain("Resume it with: /sessions/recoverable.jsonl");
-		pi.assertDone();
-	});
-
-	test.each([
-		{
-			name: "destination creation",
-			herdrOptions: {
-				createWorkspaceResult: { type: "failed" as const, message: "workspace unavailable" },
-			},
-			expected: "Herdr destination creation failed",
-		},
-		{
-			name: "pane launch",
-			herdrOptions: {
-				paneRunResult: { type: "failed" as const, message: "pane unavailable" },
-			},
-			expected: "Herdr destination exists, but command launch failed",
-		},
-	])("describes recoverable session evidence after $name accurately", async (scenario) => {
-		const pi = successfulPi();
-		const herdr = new FakeHerdrGateway(scenario.herdrOptions);
-		const ctx = new FakeCommandContext({
-			cwd: ROOT,
-			sessionFile: "/sessions/source.jsonl",
-			leafId: "leaf",
-			branchEntries: [{ type: "message", id: "leaf" }],
-		});
-
-		await handleHerdrImplSession(
-			{
-				commands: createHerdrPiCommandApi(pi),
-				pi: ctx,
-				trunkBranch: "master",
-				git: new InMemoryGitGateway({
-					currentBranch: SOURCE_BRANCH,
-					headCommit: START_POINT,
-					repoRoot: ROOT,
-				}),
-				herdr,
-				sessionContinuation: new FakeSessionContinuation(),
-			},
-			baseOptions(),
-		);
-
-		const recovery = ctx.notifications.at(-1)?.message;
-		expect(recovery).toContain(scenario.expected);
-		expect(recovery).toContain("Resume it with: /sessions/destination.jsonl");
-		pi.assertDone();
-	});
-
-	test("derives omitted focus from active context before branch-basis interaction", async () => {
-		const ctx = new FakeCommandContext({
-			sessionFile: "/sessions/source.jsonl",
-			leafId: "leaf",
-			branchEntries: [{ type: "message", id: "leaf" }],
-			shouldCancelSelect: true,
-		});
-		const events: string[] = [];
+	test("fills the input box with the composed prompt command without submitting", async () => {
 		const sessionContinuation = new FakeSessionContinuation({
-			buildContext: () => {
-				events.push("context");
-				return { ok: true, text: "compacted active context" };
-			},
+			contextResult: { ok: true, text: "compacted active context" },
 		});
+		const ctx = persistedSessionContext();
+		const recorder = composePromptRecorder("Ship the composed follow-up work");
+		const progress: string[] = [];
+
 		await handleHerdrImplSession(
+			{ pi: ctx, sessionContinuation },
 			{
-				commands: createHerdrPiCommandApi(new FakePi()),
-				pi: ctx,
-				trunkBranch: "master",
-				git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
-				herdr: new FakeHerdrGateway(),
-				sessionContinuation,
-			},
-			{
-				...baseOptions(),
 				args: "   ",
-				deriveFocus: async ({ activeContextText }) => {
-					events.push(`derive:${activeContextText}`);
-					return { ok: true, focus: FOCUS };
-				},
+				notifyProgress: (message) => progress.push(message),
+				composePrompt: recorder.composePrompt,
 			},
 		);
 
-		expect(events).toEqual(["context", "derive:compacted active context"]);
-		expect(ctx.selections).toHaveLength(1);
-		expect(ctx.notifications.at(-1)?.message).toBe("Herdr session implementation cancelled.");
+		expect(sessionContinuation.contextRequests).toEqual([
+			{ sourceSessionFile: "/sessions/source.jsonl", sourceLeafId: "leaf" },
+		]);
+		expect(recorder.requests).toEqual([
+			{ cwd: ctx.cwd, activeContextText: "compacted active context" },
+		]);
+		expect(ctx.editorTexts).toEqual([
+			"/ns:herdr:impl:prompt:space Ship the composed follow-up work",
+		]);
+		expect(progress.some((message) => message.includes("Summarizing the active session"))).toBe(
+			true,
+		);
+		expect(ctx.notifications.at(-1)?.message).toContain("Review or edit it, then send it");
+		expect(ctx.notifications.at(-1)?.level).toBe("info");
 	});
 
-	test.each([
-		["empty context", { context: { ok: true as const, text: "  " } }],
-		["context failure", { context: { ok: false as const, message: "context unavailable" } }],
-		[
-			"model failure",
-			{
-				context: { ok: true as const, text: "active context" },
-				derive: { ok: false as const, message: "model unavailable" },
-			},
-		],
-		[
-			"empty model output",
-			{
-				context: { ok: true as const, text: "active context" },
-				derive: { ok: true as const, focus: "\n" },
-			},
-		],
-	] as const)("stops before selection or mutation on %s", async (_case, fixture) => {
-		const pi = new FakePi();
-		const herdr = new FakeHerdrGateway();
-		const continuation = new FakeSessionContinuation({
-			buildContext: () => fixture.context,
-		});
-		const ctx = new FakeCommandContext({
-			sessionFile: "/sessions/source.jsonl",
-			leafId: "leaf",
-			branchEntries: [{ type: "message", id: "leaf" }],
-		});
+	test("passes trimmed explicit focus as steering for the composed prompt", async () => {
+		const sessionContinuation = new FakeSessionContinuation();
+		const ctx = persistedSessionContext();
+		const recorder = composePromptRecorder();
 
 		await handleHerdrImplSession(
+			{ pi: ctx, sessionContinuation },
 			{
-				commands: createHerdrPiCommandApi(pi),
-				pi: ctx,
-				trunkBranch: "master",
-				git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
-				herdr,
-				sessionContinuation: continuation,
-			},
-			{
-				...baseOptions(),
-				args: "",
-				deriveFocus: async () =>
-					"derive" in fixture ? fixture.derive : { ok: true as const, focus: "should not be used" },
+				args: `  ${FOCUS}  `,
+				notifyProgress: () => {},
+				composePrompt: recorder.composePrompt,
 			},
 		);
 
-		expect(ctx.selections).toEqual([]);
-		expect(pi.execCalls).toEqual([]);
-		expect(continuation.calls).toEqual([]);
-		expect(herdr.createWorkspaceCalls).toEqual([]);
+		expect(recorder.requests).toEqual([
+			{ cwd: ctx.cwd, activeContextText: "active context", steeringFocus: FOCUS },
+		]);
+		expect(ctx.editorTexts).toHaveLength(1);
+	});
+
+	test("normalizes a multiline composed prompt into one editor line", async () => {
+		const sessionContinuation = new FakeSessionContinuation();
+		const ctx = persistedSessionContext();
+
+		await handleHerdrImplSession(
+			{ pi: ctx, sessionContinuation },
+			{
+				args: "",
+				notifyProgress: () => {},
+				composePrompt: async () => ({
+					ok: true,
+					prompt: "First step.\nSecond step.\n\n  Third   step.  ",
+				}),
+			},
+		);
+
+		expect(ctx.editorTexts).toEqual([
+			"/ns:herdr:impl:prompt:space First step. Second step. Third step.",
+		]);
+	});
+
+	test("reports model failure without filling the input box", async () => {
+		const sessionContinuation = new FakeSessionContinuation();
+		const ctx = persistedSessionContext();
+
+		await handleHerdrImplSession(
+			{ pi: ctx, sessionContinuation },
+			{
+				args: "",
+				notifyProgress: () => {},
+				composePrompt: async () => ({ ok: false, message: "model unavailable" }),
+			},
+		);
+
+		expect(ctx.editorTexts).toEqual([]);
+		expect(ctx.notifications.at(-1)?.message).toBe("model unavailable");
+	});
+
+	test("reports empty model output without filling the input box", async () => {
+		const sessionContinuation = new FakeSessionContinuation();
+		const ctx = persistedSessionContext();
+
+		await handleHerdrImplSession(
+			{ pi: ctx, sessionContinuation },
+			{
+				args: "",
+				notifyProgress: () => {},
+				composePrompt: async () => ({ ok: true, prompt: " \n " }),
+			},
+		);
+
+		expect(ctx.editorTexts).toEqual([]);
+		expect(ctx.notifications.at(-1)?.message).toContain("returned empty output");
+	});
+
+	test("falls back to a copyable notification when no input box exists", async () => {
+		const sessionContinuation = new FakeSessionContinuation();
+		const ctx = persistedSessionContext({ hasEditor: false });
+		const recorder = composePromptRecorder("Ship the composed follow-up work");
+
+		await handleHerdrImplSession(
+			{ pi: ctx, sessionContinuation },
+			{ args: "", notifyProgress: () => {}, composePrompt: recorder.composePrompt },
+		);
+
+		expect(ctx.editorTexts).toEqual([]);
+		const fallback = ctx.notifications.at(-1);
+		expect(fallback?.level).toBe("info");
+		expect(fallback?.message).toContain("no editable input box");
+		expect(fallback?.message).toContain(
+			"/ns:herdr:impl:prompt:space Ship the composed follow-up work",
+		);
 	});
 });
 
-describe("session continuation-focus prompt", () => {
-	function embeddedContext(prompt: string): string {
-		const match = prompt.match(/<active-session-context>\n([\s\S]*)\n<\/active-session-context>/);
-		if (match?.[1] === undefined) throw new Error("Expected active-session context tags.");
-		return match[1];
-	}
+describe("session continuation prompt composition", () => {
+	test("embeds the full context without truncation and demands one self-contained paragraph", () => {
+		const activeContextText = `long context ${"x".repeat(20_000)}`;
+		const prompt = buildSessionContinuationPrompt({ activeContextText });
 
-	test("preserves context below the limit byte-for-byte", () => {
-		const activeContext = "first line\nsecond line\n";
-		const prompt = buildSessionContinuationFocusPrompt(activeContext);
-
-		expect(embeddedContext(prompt)).toBe(activeContext);
-		expect(prompt).not.toContain("context truncated");
+		expect(prompt).toContain(
+			`<active-session-context>\n${activeContextText}\n</active-session-context>`,
+		);
+		expect(prompt).toContain("one single paragraph");
+		expect(prompt).toContain("self-contained");
+		expect(prompt).not.toContain("Steer the prompt toward");
 	});
 
-	test("caps oversized context at 8,000 characters with a visible head marker", () => {
-		const activeContext = `${"head".repeat(2_050)}TAIL_SHOULD_BE_OMITTED`;
-		const prompt = buildSessionContinuationFocusPrompt(activeContext);
-		const context = embeddedContext(prompt);
+	test("includes explicit steering focus when supplied", () => {
+		const prompt = buildSessionContinuationPrompt({
+			activeContextText: "active context",
+			steeringFocus: FOCUS,
+		});
 
-		expect(context.length).toBeLessThanOrEqual(8_000);
-		expect(context.startsWith("headheadhead")).toBe(true);
-		expect(context).toContain(
-			"[Active session context truncated for continuation-focus derivation]",
-		);
-		expect(context).not.toContain("TAIL_SHOULD_BE_OMITTED");
-		expect(prompt).toContain("</active-session-context>");
+		expect(prompt).toContain("Steer the prompt toward this focus:");
+		expect(prompt).toContain(FOCUS);
 	});
 });

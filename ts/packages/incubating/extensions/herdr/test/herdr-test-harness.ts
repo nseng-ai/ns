@@ -90,6 +90,7 @@ export interface FakeCommandContextOptions {
 	sessionFile?: string;
 	leafId?: string | null;
 	model?: ModelInfo;
+	hasEditor?: boolean;
 }
 
 export const ROOT = mkdtempSync(join(tmpdir(), "herdr-model-root-"));
@@ -252,6 +253,7 @@ export class FakeCommandContext implements CommandContext {
 	readonly autocompleteProviders: Array<(current: AutocompleteProvider) => AutocompleteProvider> =
 		[];
 	readonly events: string[] = [];
+	readonly editorTexts: string[] = [];
 	readonly ui: CommandContext["ui"];
 	readonly modelRegistry: CommandContext["modelRegistry"];
 	readonly sessionManager: NonNullable<CommandContext["sessionManager"]>;
@@ -307,6 +309,13 @@ export class FakeCommandContext implements CommandContext {
 			addAutocompleteProvider: (factory) => {
 				this.autocompleteProviders.push(factory);
 			},
+			...(options.hasEditor === false
+				? {}
+				: {
+						setEditorText: (text: string) => {
+							this.editorTexts.push(text);
+						},
+					}),
 		};
 	}
 

@@ -129,59 +129,6 @@ describe("prepared Herdr launch", () => {
 		]);
 	});
 
-	test("prepares asynchronously after checkout and before destination creation", async () => {
-		const events: string[] = [];
-		const herdr = new FakeHerdrGateway();
-		const originalCreateWorkspace = herdr.createWorkspace.bind(herdr);
-		herdr.createWorkspace = async (options) => {
-			events.push("destination-create");
-			return originalCreateWorkspace(options);
-		};
-
-		const result = await launchPreparedBranch(
-			{
-				herdr,
-				slotClient: slotClient("/ordinary/worktree"),
-				notify: () => {},
-			},
-			{
-				payload: {
-					branchName: "implement-feature-2",
-					prepareAfterCheckout: async (target) => {
-						events.push(`prepare:${target.worktreePath}`);
-						return {
-							type: "prepared",
-							launchCommand: "pi --session /tmp/destination.jsonl",
-						};
-					},
-				},
-				destination: { type: "workspace" },
-			},
-		);
-
-		expect(events).toEqual(["prepare:/ordinary/worktree", "destination-create"]);
-		expect(result).toMatchObject({ type: "opened" });
-		expect(herdr.paneRunCalls[0]?.command).toBe("pi --session /tmp/destination.jsonl");
-	});
-
-	test("stops before destination creation when post-checkout preparation fails", async () => {
-		const herdr = new FakeHerdrGateway();
-		const result = await launchPreparedBranch(
-			{ herdr, slotClient: slotClient("/ordinary/worktree"), notify: () => {} },
-			{
-				payload: {
-					branchName: "implement-feature-2",
-					prepareAfterCheckout: async () => ({ type: "failed", message: "clone failed" }),
-				},
-				destination: { type: "workspace" },
-			},
-		);
-
-		expect(result).toMatchObject({ type: "failed", stage: "launch-prepare" });
-		expect(herdr.createWorkspaceCalls).toEqual([]);
-		expect(herdr.paneRunCalls).toEqual([]);
-	});
-
 	test("stops before destination creation when slot checkout fails", async () => {
 		const herdr = new FakeHerdrGateway();
 		const notifications: string[] = [];
@@ -228,23 +175,10 @@ describe("prepared Herdr launch", () => {
 					slotClient: slotClient("/ordinary/worktree"),
 					notify: (message) => notifications.push(message),
 				},
-				{
-					payload: {
-						branchName: "implement-feature-2",
-						prepareAfterCheckout: async () => ({
-							type: "prepared",
-							launchCommand: "pi --session /tmp/destination.jsonl",
-						}),
-					},
-					destination,
-				},
+				{ payload: launchPayload, destination },
 			);
 
-			expect(result).toMatchObject({
-				type: "failed",
-				stage: "destination-create",
-				target: { branchName: "implement-feature-2" },
-			});
+			expect(result).toMatchObject({ type: "failed", stage: "destination-create" });
 			expect(herdr.paneRunCalls).toEqual([]);
 			expect(notifications.join("\n")).toContain("unavailable");
 		},

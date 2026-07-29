@@ -1,30 +1,6 @@
-import { IMPL_COMPLETION_INSTRUCTIONS_LINES } from "@nseng-ai/extension-kit/tracked-branch-payload";
-import { buildPiSessionLaunchCommand, getPiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
-import type { SlotClient } from "@nseng-ai/slots/api";
 
-import type { HerdrGateway } from "./herdr-gateway.ts";
-import { createTrackedBranchForBasis, resolveImplBranchBasis } from "./impl-branch-basis.ts";
-import type { HerdrPiCommandApi } from "./pi-command-api.ts";
-import { launchPreparedBranch } from "./prepared-launch.ts";
-import { createHerdrSlotClient } from "./slot-checkout.ts";
-
-export interface DestinationSessionEvidence {
-	readonly sessionFile: string;
-	readonly sessionId: string;
-}
-
-export type SessionContinuationResult =
-	| { readonly ok: true; readonly value: DestinationSessionEvidence }
-	| {
-			readonly ok: false;
-			readonly error: {
-				readonly message: string;
-				readonly recoverableDestination?: DestinationSessionEvidence;
-			};
-	  };
+import { HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME } from "./command-surfaces.ts";
 
 export interface HerdrSessionContinuationGateway {
 	preflightSource(request: {
@@ -37,38 +13,32 @@ export interface HerdrSessionContinuationGateway {
 	}):
 		| { readonly ok: true; readonly text: string }
 		| { readonly ok: false; readonly message: string };
-	cloneActiveSessionForImplementation(request: {
-		readonly sourceSessionFile: string;
-		readonly sourceLeafId: string;
-		readonly destinationCwd: string;
-		readonly continuationMessage: string;
-	}): Promise<SessionContinuationResult>;
 }
 
 export interface HerdrImplSessionContext {
-	readonly commands: HerdrPiCommandApi;
 	readonly pi: CommandContext;
-	readonly trunkBranch: string;
-	readonly git: Pick<
-		GitGateway,
-		"createBranchAtStartPoint" | "currentBranch" | "headCommit" | "repoRoot"
-	>;
-	readonly herdr: HerdrGateway;
 	readonly sessionContinuation: HerdrSessionContinuationGateway;
 }
 
 export interface HandleHerdrImplSessionOptions {
 	readonly args: string;
-	readonly deriveFocus: (request: {
+	readonly composePrompt: (request: {
 		readonly cwd: string;
 		readonly activeContextText: string;
+		readonly steeringFocus?: string;
 	}) => Promise<
-		{ readonly ok: true; readonly focus: string } | { readonly ok: false; readonly message: string }
+		| { readonly ok: true; readonly prompt: string }
+		| { readonly ok: false; readonly message: string }
 	>;
 	readonly notifyProgress: (message: string) => void;
-	readonly slotClient?: SlotClient;
 }
 
+/**
+ * Composes a directed implementation prompt from the caller's active session and fills the
+ * input box with a ready-to-review `/ns:herdr:impl:prompt:space <prompt>` command. Nothing is
+ * submitted or mutated: the user reviews, edits, and sends the composed command, and the prompt
+ * implementation workflow owns branch, Slot, payload, and Herdr space creation from there.
+ */
 export async function handleHerdrImplSession(
 	context: HerdrImplSessionContext,
 	options: HandleHerdrImplSessionOptions,
@@ -78,7 +48,7 @@ export async function handleHerdrImplSession(
 	const sourceSessionFile = context.pi.sessionManager.getSessionFile();
 	if (sourceSessionFile === undefined || sourceSessionFile.trim().length === 0) {
 		context.pi.ui.notify(
-			"Session implementation requires a persisted caller Pi session. No branch, Slot, destination session, or Herdr space was created.",
+			"Session implementation requires a persisted caller Pi session. No prompt was composed.",
 			"error",
 		);
 		return;
@@ -86,7 +56,7 @@ export async function handleHerdrImplSession(
 	const sourceLeafId = context.pi.sessionManager.getLeafId();
 	if (sourceLeafId === null || sourceLeafId.trim().length === 0) {
 		context.pi.ui.notify(
-			"Session implementation requires a non-empty active conversation path with an authoritative leaf id. No mutation was performed.",
+			"Session implementation requires a non-empty active conversation path with an authoritative leaf id. No prompt was composed.",
 			"error",
 		);
 		return;
@@ -97,181 +67,73 @@ export async function handleHerdrImplSession(
 		sourceLeafId,
 	});
 	if (!sourcePreflight.ok) {
+		context.pi.ui.notify(`${sourcePreflight.message} No prompt was composed.`, "error");
+		return;
+	}
+
+	const contextText = context.sessionContinuation.buildContextText({
+		sourceSessionFile,
+		sourceLeafId,
+	});
+	if (!contextText.ok || contextText.text.trim().length === 0) {
 		context.pi.ui.notify(
-			`${sourcePreflight.message} No branch, Slot, destination session, or Herdr space was created.`,
+			contextText.ok
+				? "Could not compose an implementation prompt because the active compaction-aware conversation context is empty."
+				: contextText.message,
 			"error",
 		);
 		return;
 	}
 
-	const suppliedFocus = options.args.trim();
-	let focus = suppliedFocus;
-	if (focus.length === 0) {
-		const contextText = context.sessionContinuation.buildContextText({
-			sourceSessionFile,
-			sourceLeafId,
-		});
-		if (!contextText.ok || contextText.text.trim().length === 0) {
-			context.pi.ui.notify(
-				contextText.ok
-					? "Could not derive continuation focus because the active compaction-aware conversation context is empty."
-					: contextText.message,
-				"error",
-			);
-			return;
-		}
-		options.notifyProgress("Deriving continuation focus from the active session…");
-		const derived = await options.deriveFocus({
-			cwd: context.pi.cwd,
-			activeContextText: contextText.text,
-		});
-		if (!derived.ok) {
-			context.pi.ui.notify(derived.message, "error");
-			return;
-		}
-		focus = derived.focus.trim();
-		if (focus.length === 0) {
-			context.pi.ui.notify("The continuation-focus model returned empty output.", "error");
-			return;
-		}
-	}
-
-	const selection = await resolveImplBranchBasis({
+	const steeringFocus = options.args.trim();
+	options.notifyProgress("Summarizing the active session into an implementation prompt…");
+	const composed = await options.composePrompt({
 		cwd: context.pi.cwd,
-		git: context.git,
-		interaction: context.pi,
+		activeContextText: contextText.text,
+		...(steeringFocus.length === 0 ? {} : { steeringFocus }),
 	});
-	if (selection.type === "cancelled") {
-		context.pi.ui.notify("Herdr session implementation cancelled.", "info");
+	if (!composed.ok) {
+		context.pi.ui.notify(composed.message, "error");
 		return;
 	}
-	if (selection.type === "failed") {
-		context.pi.ui.notify(selection.message, "error");
-		return;
-	}
-
-	const branch = await createTrackedBranchForBasis(
-		{ pi: context.commands, trunkBranch: context.trunkBranch, git: context.git },
-		{
-			cwd: context.pi.cwd,
-			prompt: focus,
-			selection,
-			notifyProgress: options.notifyProgress,
-		},
-	);
-	if ("error" in branch) {
-		context.pi.ui.notify(branch.error, "error");
+	// The composed command must stay a single editor line so command dispatch receives the
+	// whole prompt as arguments; the model is instructed to emit one paragraph, and this
+	// normalization enforces it against drift.
+	const prompt = composed.prompt.replace(/\s+/g, " ").trim();
+	if (prompt.length === 0) {
+		context.pi.ui.notify("The session summarization model returned empty output.", "error");
 		return;
 	}
 
-	const continuationMessage = buildSessionContinuationTurn(focus);
-	let destinationSession: DestinationSessionEvidence | undefined;
-	const result = await launchPreparedBranch(
-		{
-			herdr: context.herdr,
-			slotClient: options.slotClient ?? createHerdrSlotClient({ cwd: context.pi.cwd }),
-			notify: (message, level) => context.pi.ui.notify(message, level),
-			onStatus: (message) => {
-				if (message !== undefined) options.notifyProgress(message);
-			},
-		},
-		{
-			payload: {
-				branchName: branch.branchName,
-				prepareAfterCheckout: async (target) => {
-					const cloned = await context.sessionContinuation.cloneActiveSessionForImplementation({
-						sourceSessionFile,
-						sourceLeafId,
-						destinationCwd: target.worktreePath,
-						continuationMessage,
-					});
-					if (!cloned.ok) {
-						destinationSession = cloned.error.recoverableDestination;
-						return { type: "failed", message: cloned.error.message };
-					}
-					destinationSession = cloned.value;
-					return {
-						type: "prepared",
-						launchCommand: buildPiSessionLaunchCommand(
-							cloned.value.sessionFile,
-							getPiLaunchOptions(context.commands, context.pi),
-						),
-					};
-				},
-			},
-			destination: { type: "workspace" },
-		},
-	);
-	if (result.type === "opened") {
-		if (destinationSession === undefined) {
-			throw new Error(
-				"Herdr session implementation opened without captured destination-session evidence.",
-			);
-		}
+	const composedCommand = `/${HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME} ${prompt}`;
+	if (context.pi.ui.setEditorText === undefined) {
 		context.pi.ui.notify(
-			[
-				"Opened active-session implementation in a new Herdr space.",
-				`Branch: ${branch.branchName}`,
-				`Parent: ${branch.parentBranch}`,
-				`Start point: ${branch.startPoint}`,
-				`Worktree: ${result.target.checkout.worktreePath}`,
-				`Destination session: ${destinationSession.sessionFile}`,
-				`Workspace: ${result.target.workspaceId}`,
-				`Tab: ${result.target.tabId}`,
-				`Pane: ${result.target.paneId}`,
-			].join("\n"),
+			`Composed the implementation command, but this session has no editable input box. Run it manually:\n${composedCommand}`,
 			"info",
 		);
 		return;
 	}
-	if (destinationSession === undefined) return;
-
-	const recoveryLead = recoveryNotificationLead(result.stage);
-	if (recoveryLead !== undefined) {
-		context.pi.ui.notify(
-			`${recoveryLead} Resume it with: ${destinationSession.sessionFile}`,
-			"error",
-		);
-	}
+	context.pi.ui.setEditorText(composedCommand);
+	context.pi.ui.notify(
+		"Filled the input box with a composed /ns:herdr:impl:prompt:space command. Review or edit it, then send it to launch the implementation space.",
+		"info",
+	);
 }
 
-export function buildSessionContinuationTurn(focus: string): string {
-	return ["## Continuation focus", focus, "", ...IMPL_COMPLETION_INSTRUCTIONS_LINES].join("\n");
-}
-
-const MAX_SESSION_CONTINUATION_CONTEXT_CHARS = 8_000;
-const SESSION_CONTINUATION_TRUNCATION_MARKER =
-	"\n\n[Active session context truncated for continuation-focus derivation]";
-
-export function buildSessionContinuationFocusPrompt(activeContextText: string): string {
-	const boundedContext = truncateTextHead({
-		value: activeContextText,
-		maxChars: MAX_SESSION_CONTINUATION_CONTEXT_CHARS,
-		buildMarker: () => SESSION_CONTINUATION_TRUNCATION_MARKER,
-		shouldTrimHead: false,
-	});
+export function buildSessionContinuationPrompt(request: {
+	readonly activeContextText: string;
+	readonly steeringFocus?: string;
+}): string {
 	return [
-		"Derive one concise, actionable task for continuing the active coding session below.",
-		"Return plain text only: no preamble, summary heading, slug, Markdown plan, or Handoff Artifact.",
-		"Preserve the concrete implementation intent and immediate next work.",
+		"Compose one directed implementation prompt for continuing the active coding session below in a fresh implementation session.",
+		"The implementing agent will see only your prompt, never this conversation: make it self-contained, naming the concrete goal, the relevant files or systems, decisions already made, and the immediate next steps.",
+		"Return plain text only, as one single paragraph with no line breaks: no preamble, heading, list, slug, Markdown plan, or Handoff Artifact.",
+		...(request.steeringFocus === undefined
+			? []
+			: ["", "Steer the prompt toward this focus:", request.steeringFocus]),
 		"",
 		"<active-session-context>",
-		boundedContext,
+		request.activeContextText,
 		"</active-session-context>",
 	].join("\n");
-}
-
-function recoveryNotificationLead(
-	stage: "slot-checkout" | "launch-prepare" | "destination-create" | "pane-launch",
-): string | undefined {
-	switch (stage) {
-		case "slot-checkout":
-			return undefined;
-		case "launch-prepare":
-			return "The destination Pi session was persisted, but launch preparation failed before a Herdr workspace was created.";
-		case "destination-create":
-			return "Herdr destination creation failed after the destination Pi session was persisted.";
-		case "pane-launch":
-			return "The Herdr destination exists, but command launch failed after the destination Pi session was persisted.";
-	}
 }
