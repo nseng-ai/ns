@@ -21,6 +21,9 @@ export type NsCommandSourceLevel = "built-in" | "preinstalled" | "project";
 /** How a project extension was declared: a repo-local path or an installed npm package. */
 export type NsCommandSourceKind = "local" | "npm";
 
+/** Effective runtime acquisition origin presented in top-level extension help. */
+export type NsCommandOriginKind = "global" | "project" | "local";
+
 export interface NsCommandPath {
 	group?: string;
 	name: string;
@@ -44,6 +47,7 @@ export interface NsCommandCliInfo extends NsCommandInfo {
 	groupDescription?: string;
 	helpGroup?: string;
 	sourceKind?: NsCommandSourceKind;
+	extensionOrigin?: NsCommandOriginKind;
 }
 
 export interface NsCommandCandidate extends NsCommandCliInfo {
@@ -152,7 +156,9 @@ export function listStaticNsCommandInfos(): NsCommandCliInfo[] {
 
 export function toCommandCliInfo(
 	candidate: NsCommandPath &
-		Pick<NsCommandCliInfo, "description" | "fullDescription" | "helpGroup" | "sourceKind">,
+		Pick<NsCommandCliInfo, "description" | "fullDescription" | "helpGroup" | "sourceKind"> & {
+			readonly source?: Pick<NsCommandSourceInfo, "level">;
+		},
 ): NsCommandCliInfo {
 	return {
 		...optionalEntries({
@@ -162,6 +168,10 @@ export function toCommandCliInfo(
 			hiddenAncestorKeys: candidate.hiddenAncestorKeys,
 			helpGroup: candidate.helpGroup,
 			sourceKind: candidate.sourceKind,
+			extensionOrigin:
+				candidate.source === undefined
+					? undefined
+					: extensionOriginKind(candidate.source.level, candidate.sourceKind),
 		}),
 		name: candidate.name,
 		description: candidate.description,
@@ -188,7 +198,19 @@ export function commandInfoForLoadedCommand(
 		name: command.name,
 		description: command.summary,
 		fullDescription: command.description,
+		source: { level: sourceLevel },
 	});
+}
+
+function extensionOriginKind(
+	sourceLevel: NsCommandSourceLevel,
+	sourceKind: NsCommandSourceKind | undefined,
+): NsCommandOriginKind | undefined {
+	if (sourceLevel === "built-in") return undefined;
+	if (sourceLevel === "preinstalled") return "global";
+	if (sourceKind === "npm") return "project";
+	if (sourceKind === "local") return "local";
+	throw new Error("Project ns command candidate is missing its declaration source kind.");
 }
 
 export function validateDescriptorCommandContribution(

@@ -3,7 +3,10 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { defineRawCommand, noopNsCommandIo, noopNsProgress, ok } from "@nseng-ai/sdk";
-import { commandInfoForLoadedCommand } from "../../src/extensions/command-registry.ts";
+import {
+	commandInfoForLoadedCommand,
+	toCommandCliInfo,
+} from "../../src/extensions/command-registry.ts";
 import {
 	NS_BUILT_IN_HELP_GROUP,
 	NS_EXTENSION_HELP_GROUP,
@@ -95,6 +98,25 @@ function writeDescriptorPackage(options: {
 }
 
 describe("extension registry", () => {
+	test.each([
+		["preinstalled", undefined, "global"],
+		["project", "npm", "project"],
+		["project", "local", "local"],
+	] as const)(
+		"derives %s/%s candidates as %s extension origins",
+		(sourceLevel, sourceKind, extensionOrigin) => {
+			const info = toCommandCliInfo({
+				name: "probe",
+				description: "Probe.",
+				fullDescription: "Probe.",
+				...(sourceKind === undefined ? {} : { sourceKind }),
+				source: { level: sourceLevel },
+			});
+
+			expect(info.extensionOrigin).toBe(extensionOrigin);
+		},
+	);
+
 	test("preinstalled descriptor flattening presents commands as extensions", () => {
 		const entries = extensionDescriptorToPreinstalledCatalog(
 			{
@@ -781,7 +803,7 @@ export default defineExtension({ group: "extension", description: "Extension com
 				run: () => ok("hello"),
 			},
 			"project",
-			{ name: "hello", helpGroup: "Examples:" },
+			{ name: "hello", helpGroup: "Examples:", sourceKind: "local" },
 		);
 
 		expect(info).toEqual({
@@ -789,6 +811,8 @@ export default defineExtension({ group: "extension", description: "Extension com
 			description: "Say hello.",
 			fullDescription: "Say hello.\n\nWith details.",
 			helpGroup: "Examples:",
+			sourceKind: "local",
+			extensionOrigin: "local",
 		});
 	});
 

@@ -53,6 +53,7 @@ export interface RunWithFakesOptions {
 	renderCapabilities?: RenderCapabilities;
 	onProgress?: NsCliDeps["onProgress"];
 	extensionRegistry?: NsCliDeps["extensionRegistry"];
+	preinstalledCommandCatalog?: NsCliDeps["preinstalledCommandCatalog"];
 }
 
 export interface RunWithFakesDefaults {
@@ -177,6 +178,9 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 			...(options.extensionRegistry === undefined
 				? {}
 				: { extensionRegistry: options.extensionRegistry }),
+			...(options.preinstalledCommandCatalog === undefined
+				? {}
+				: { preinstalledCommandCatalog: options.preinstalledCommandCatalog }),
 		}),
 	};
 }

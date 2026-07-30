@@ -346,13 +346,19 @@ function fakeCompletionRegistry(
 	};
 }
 
-function commandPathFields(path: { group?: string; segments?: readonly string[] }): {
+function commandPathFields(path: {
 	group?: string;
 	segments?: readonly string[];
+	sourceKind?: "local" | "npm";
+}): {
+	group?: string;
+	segments?: readonly string[];
+	sourceKind?: "local" | "npm";
 } {
 	return {
 		...(path.group === undefined ? {} : { group: path.group }),
 		...(path.segments === undefined ? {} : { segments: path.segments }),
+		...(path.sourceKind === undefined ? {} : { sourceKind: path.sourceKind }),
 	};
 }
 
@@ -366,6 +372,7 @@ function commandCandidate(
 		...candidatePath,
 		description: command.summary,
 		fullDescription: command.description,
+		sourceKind: "local",
 		source: { level: path.sourceLevel ?? "project", label: `fake ${key}` },
 		moduleReference: { type: "file", path: `fake://${key}` },
 		entryPath: `fake://${key}`,
