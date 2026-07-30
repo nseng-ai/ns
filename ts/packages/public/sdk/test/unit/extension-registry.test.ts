@@ -4,7 +4,10 @@ import { describe, expect, test } from "vitest";
 
 import { defineRawCommand, noopNsCommandIo, noopNsProgress, ok } from "@nseng-ai/sdk";
 import { commandInfoForLoadedCommand } from "../../src/extensions/command-registry.ts";
-import { NS_BUILT_IN_HELP_GROUP } from "../../src/extensions/help-presentation.ts";
+import {
+	NS_BUILT_IN_HELP_GROUP,
+	NS_EXTENSION_HELP_GROUP,
+} from "../../src/extensions/help-presentation.ts";
 import {
 	extensionDescriptorToPreinstalledCatalog,
 	preinstalledNsCommandCatalogFromRegistrations,
@@ -92,7 +95,7 @@ function writeDescriptorPackage(options: {
 }
 
 describe("extension registry", () => {
-	test("preinstalled descriptor flattening preserves command requirements", () => {
+	test("preinstalled descriptor flattening presents commands as extensions", () => {
 		const entries = extensionDescriptorToPreinstalledCatalog(
 			{
 				description: "Optional commands.",
@@ -118,7 +121,7 @@ describe("extension registry", () => {
 			expect.objectContaining({
 				name: "optional",
 				requiresExtension: "@example/provider",
-				helpGroup: NS_BUILT_IN_HELP_GROUP,
+				helpGroup: NS_EXTENSION_HELP_GROUP,
 			}),
 		]);
 	});
@@ -391,12 +394,12 @@ export default defineExtension({
 				expect.objectContaining({
 					name: "one",
 					description: "one summary",
-					helpGroup: NS_BUILT_IN_HELP_GROUP,
+					helpGroup: NS_EXTENSION_HELP_GROUP,
 				}),
 				expect.objectContaining({
 					name: "two",
 					description: "two summary",
-					helpGroup: NS_BUILT_IN_HELP_GROUP,
+					helpGroup: NS_EXTENSION_HELP_GROUP,
 				}),
 			]),
 		);
@@ -538,7 +541,7 @@ export default defineExtension({ group: "extension", description: "Extension com
 
 		expect(loaded.candidates.get("hello")).toMatchObject({
 			source: { level: "project" },
-			helpGroup: NS_BUILT_IN_HELP_GROUP,
+			helpGroup: NS_EXTENSION_HELP_GROUP,
 		});
 		expect(loaded.candidates.get("extension/point")).toMatchObject({
 			source: { level: "project" },

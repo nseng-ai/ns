@@ -617,7 +617,10 @@ function commandPathArgs(args: readonly string[]): readonly string[] {
 }
 
 const NS_EXEC_GROUP_NAME = "exec";
-export { NS_BUILT_IN_HELP_GROUP } from "../extensions/help-presentation.ts";
+export {
+	NS_BUILT_IN_HELP_GROUP,
+	NS_EXTENSION_HELP_GROUP,
+} from "../extensions/help-presentation.ts";
 
 function buildNsCompletionGroup(): ClinkrGroup<NsCliContext> {
 	const completion = new ClinkrGroup<NsCliContext>({
