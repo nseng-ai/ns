@@ -562,7 +562,10 @@ function descriptorCommandInfoPath(options: {
 		// The descriptor description labels the root group even when every command
 		// nests deeper (for example a hidden exec group); help falls back to a
 		// generated "NS <group> commands." string without it.
-		...(rootGroup === undefined ? {} : { groupDescription: options.rootGroupDescription }),
+		...optionalEntry(
+			"groupDescription",
+			rootGroup === undefined ? undefined : options.rootGroupDescription,
+		),
 		...optionalEntry("hiddenAncestorKeys", options.hiddenAncestorKeys),
 	};
 }
