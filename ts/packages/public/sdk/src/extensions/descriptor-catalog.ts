@@ -62,15 +62,21 @@ function descriptorEntryToPreinstalledCatalog(options: {
 	if ("load" in options.entry) {
 		const commandEntry = options.entry;
 		const segments = [...options.segments, commandEntry.name];
+		const rootGroup = options.segments[0];
 		return [
 			{
 				name: commandEntry.name,
 				...optionalEntry("requiresExtension", commandEntry.requiresExtension),
 				description: `Load ns descriptor command ${segments.join(" ")}.`,
 				fullDescription: `Load ns descriptor command ${segments.join(" ")}.`,
-				...(options.segments.length === 1
-					? { group: options.segments[0], groupDescription: options.descriptor.description }
-					: {}),
+				// The descriptor description labels the root group even when every command
+				// nests deeper (for example a hidden exec group); help falls back to a
+				// generated "NS <group> commands." string without it.
+				...(rootGroup === undefined
+					? {}
+					: options.segments.length === 1
+						? { group: rootGroup, groupDescription: options.descriptor.description }
+						: { groupDescription: options.descriptor.description }),
 				...optionalEntry("path", segments),
 				...optionalEntry("hiddenAncestorKeys", options.hiddenAncestorKeys),
 				...optionalEntry(

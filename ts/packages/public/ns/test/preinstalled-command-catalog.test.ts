@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { NS_EXTENSION_HELP_GROUP } from "@nseng-ai/sdk/cli";
+import { NS_BUILT_IN_HELP_GROUP, NS_EXTENSION_HELP_GROUP } from "@nseng-ai/sdk/cli";
 
 import {
 	loadPreinstalledNsCommandCatalog,
@@ -55,7 +55,7 @@ describe("preinstalled ns command catalog", () => {
 		).toBe(true);
 	});
 
-	test("presents preinstalled descriptors as extensions and excludes Objective commands", () => {
+	test("presents installation-wide commands as built-ins, groups as extensions, and excludes Objective commands", () => {
 		const entries = loadPreinstalledNsCommandCatalog().entries;
 
 		expect(
@@ -71,7 +71,7 @@ describe("preinstalled ns command catalog", () => {
 				path: "init",
 				group: undefined,
 				groupDescription: undefined,
-				helpGroup: NS_EXTENSION_HELP_GROUP,
+				helpGroup: NS_BUILT_IN_HELP_GROUP,
 				hiddenAncestorKeys: [],
 			},
 			...expectedPaths.slice(1, 5).map((path) => ({
@@ -85,14 +85,14 @@ describe("preinstalled ns command catalog", () => {
 				path,
 				group: "skills",
 				groupDescription: "List and provision ns-owned skills into assistant harnesses.",
-				helpGroup: NS_EXTENSION_HELP_GROUP,
+				helpGroup: NS_BUILT_IN_HELP_GROUP,
 				hiddenAncestorKeys: [],
 			})),
 			{
 				path: "update",
 				group: undefined,
 				groupDescription: undefined,
-				helpGroup: NS_EXTENSION_HELP_GROUP,
+				helpGroup: NS_BUILT_IN_HELP_GROUP,
 				hiddenAncestorKeys: [],
 			},
 		]);
