@@ -269,7 +269,13 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 		});
 		const groups = new Map<string, ClinkrGroup<NsCliContext>>();
 		const topLevelHelpGroups = resolveTopLevelHelpGroups(buildState.commandInfos);
-		for (const commandInfo of buildState.commandInfos) {
+		// Registration order drives help output: commander renders section headings in
+		// first-occurrence order and rows in registration order within each heading.
+		const orderedCommandInfos = orderCommandInfosForHelp(
+			buildState.commandInfos,
+			topLevelHelpGroups,
+		);
+		for (const commandInfo of orderedCommandInfos) {
 			const parent = groupForCommand(root, groups, commandInfo, topLevelHelpGroups);
 			const topLevelSegment = commandSegments(commandInfo)[0];
 			const helpGroup =
@@ -776,6 +782,67 @@ function groupForCommand(
 		parent = group;
 	}
 	return parent;
+}
+
+/**
+ * Curated help order for Built-ins: lifecycle commands lead, plumbing follows.
+ * `shell` and `completion` are registered directly after the catalog loop, so they
+ * always trail the catalog-sourced Built-ins listed here.
+ */
+const BUILT_IN_HELP_COMMAND_ORDER: readonly string[] = ["init", "update", "extension"];
+
+interface HelpOrderKey {
+	readonly sectionRank: number;
+	readonly helpGroup: string;
+	readonly bucketRank: number;
+	readonly curatedRank: number;
+}
+
+function orderCommandInfosForHelp(
+	commandInfos: readonly NsCommandCliInfo[],
+	topLevelHelpGroups: ReadonlyMap<string, string>,
+): readonly NsCommandCliInfo[] {
+	return [...commandInfos].sort((left, right) => {
+		const leftKey = helpOrderKey(left, topLevelHelpGroups);
+		const rightKey = helpOrderKey(right, topLevelHelpGroups);
+		if (leftKey.sectionRank !== rightKey.sectionRank) {
+			return leftKey.sectionRank - rightKey.sectionRank;
+		}
+		if (leftKey.helpGroup !== rightKey.helpGroup) {
+			return leftKey.helpGroup.localeCompare(rightKey.helpGroup);
+		}
+		if (leftKey.bucketRank !== rightKey.bucketRank) {
+			return leftKey.bucketRank - rightKey.bucketRank;
+		}
+		if (leftKey.curatedRank !== rightKey.curatedRank) {
+			return leftKey.curatedRank - rightKey.curatedRank;
+		}
+		return commandKey(left).localeCompare(commandKey(right));
+	});
+}
+
+function helpOrderKey(
+	commandInfo: NsCommandCliInfo,
+	topLevelHelpGroups: ReadonlyMap<string, string>,
+): HelpOrderKey {
+	const topSegment = commandSegments(commandInfo)[0];
+	const helpGroup =
+		topSegment === undefined
+			? NS_EXTENSION_HELP_GROUP
+			: (topLevelHelpGroups.get(topSegment) ?? NS_EXTENSION_HELP_GROUP);
+	// Extensions lead the help output, Built-ins close it, custom headings sit between.
+	const sectionRank =
+		helpGroup === NS_EXTENSION_HELP_GROUP ? 0 : helpGroup === NS_BUILT_IN_HELP_GROUP ? 2 : 1;
+	// Within Extensions, package-sourced extensions lead and repo-local ns.toml
+	// path extensions trail, each alphabetized.
+	const bucketRank =
+		helpGroup === NS_EXTENSION_HELP_GROUP && commandInfo.sourceKind === "local" ? 1 : 0;
+	const curatedIndex =
+		helpGroup === NS_BUILT_IN_HELP_GROUP && topSegment !== undefined
+			? BUILT_IN_HELP_COMMAND_ORDER.indexOf(topSegment)
+			: -1;
+	const curatedRank = curatedIndex === -1 ? BUILT_IN_HELP_COMMAND_ORDER.length : curatedIndex;
+	return { sectionRank, helpGroup, bucketRank, curatedRank };
 }
 
 function resolveTopLevelHelpGroups(

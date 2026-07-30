@@ -18,6 +18,9 @@ import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts
 
 export type NsCommandSourceLevel = "built-in" | "preinstalled" | "project";
 
+/** How a project extension was declared: a repo-local path or an installed npm package. */
+export type NsCommandSourceKind = "local" | "npm";
+
 export interface NsCommandPath {
 	group?: string;
 	name: string;
@@ -40,6 +43,7 @@ export interface NsCommandCliInfo extends NsCommandInfo {
 	fullDescription: string;
 	groupDescription?: string;
 	helpGroup?: string;
+	sourceKind?: NsCommandSourceKind;
 }
 
 export interface NsCommandCandidate extends NsCommandCliInfo {
@@ -148,7 +152,7 @@ export function listStaticNsCommandInfos(): NsCommandCliInfo[] {
 
 export function toCommandCliInfo(
 	candidate: NsCommandPath &
-		Pick<NsCommandCliInfo, "description" | "fullDescription" | "helpGroup">,
+		Pick<NsCommandCliInfo, "description" | "fullDescription" | "helpGroup" | "sourceKind">,
 ): NsCommandCliInfo {
 	return {
 		...optionalEntries({
@@ -157,6 +161,7 @@ export function toCommandCliInfo(
 			groupDescription: candidate.groupDescription,
 			hiddenAncestorKeys: candidate.hiddenAncestorKeys,
 			helpGroup: candidate.helpGroup,
+			sourceKind: candidate.sourceKind,
 		}),
 		name: candidate.name,
 		description: candidate.description,
@@ -167,7 +172,7 @@ export function toCommandCliInfo(
 export function commandInfoForLoadedCommand(
 	command: DescriptorCommand,
 	sourceLevel: NsCommandSourceLevel,
-	path: NsCommandPath & Pick<NsCommandCliInfo, "helpGroup">,
+	path: NsCommandPath & Pick<NsCommandCliInfo, "helpGroup" | "sourceKind">,
 ): NsCommandCliInfo {
 	const definition = path.group === undefined ? builtInCommandDefinitions[command.name] : undefined;
 	if (sourceLevel === "built-in" && definition !== undefined) {

@@ -206,8 +206,10 @@ export class ClinkrGroup<TContext> {
 	readonly isHidden: boolean;
 	private readonly version: string | undefined;
 	private readonly runtimeInfo: (() => string) | undefined;
-	private registeredCommands: RegisteredCommand<TContext>[];
-	private subgroups: ClinkrGroup<TContext>[];
+	// Commands and subgroups share one insertion-ordered list so help output
+	// (commander renders rows and section headings in registration order)
+	// follows the order callers register children.
+	private children: ClinkrGroupChild<TContext>[];
 	private defaultRegisteredCommand: RegisteredCommand<TContext> | undefined;
 
 	constructor(options: ClinkrGroupOptions) {
@@ -217,8 +219,7 @@ export class ClinkrGroup<TContext> {
 		this.isHidden = options.isHidden ?? false;
 		this.version = options.version;
 		this.runtimeInfo = options.runtimeInfo;
-		this.registeredCommands = [];
-		this.subgroups = [];
+		this.children = [];
 		this.defaultRegisteredCommand = undefined;
 	}
 
@@ -233,19 +234,22 @@ export class ClinkrGroup<TContext> {
 			positionals: spec.positionals ?? {},
 			optionSpecs: spec.options ?? {},
 		});
-		this.registeredCommands.push({
-			name: spec.name,
-			...optionalEntries({
-				description: spec.description,
-				summary: spec.summary,
-				helpGroup: spec.helpGroup,
-			}),
-			schema: spec.schema,
-			...(spec.schemaDocument === undefined ? {} : { schemaDocument: spec.schemaDocument }),
-			execution: executionOf(spec),
-			plan,
-			completionProvider: spec.completionProvider,
-			shouldPassThrough: shouldPassThroughOf(spec),
+		this.children.push({
+			type: "command",
+			registered: {
+				name: spec.name,
+				...optionalEntries({
+					description: spec.description,
+					summary: spec.summary,
+					helpGroup: spec.helpGroup,
+				}),
+				schema: spec.schema,
+				...(spec.schemaDocument === undefined ? {} : { schemaDocument: spec.schemaDocument }),
+				execution: executionOf(spec),
+				plan,
+				completionProvider: spec.completionProvider,
+				shouldPassThrough: shouldPassThroughOf(spec),
+			},
 		});
 		return this;
 	}
@@ -276,8 +280,16 @@ export class ClinkrGroup<TContext> {
 	}
 
 	group(child: ClinkrGroup<TContext>): this {
-		this.subgroups.push(child);
+		this.children.push({ type: "group", group: child });
 		return this;
+	}
+
+	private registeredCommands(): readonly RegisteredCommand<TContext>[] {
+		return this.children.flatMap((child) => (child.type === "command" ? [child.registered] : []));
+	}
+
+	private subgroups(): readonly ClinkrGroup<TContext>[] {
+		return this.children.flatMap((child) => (child.type === "group" ? [child.group] : []));
 	}
 
 	/**
@@ -340,10 +352,10 @@ export class ClinkrGroup<TContext> {
 			isHidden: this.isHidden,
 			hasVersionOption: this.version !== undefined,
 			hasRuntimeOption: this.runtimeInfo !== undefined,
-			commands: this.registeredCommands.map((registered) =>
+			commands: this.registeredCommands().map((registered) =>
 				completionNamedCommandPlan(registered, siblingNames),
 			),
-			groups: this.subgroups.map((child) => child.buildCompletionPlan(false, siblingNames)),
+			groups: this.subgroups().map((child) => child.buildCompletionPlan(false, siblingNames)),
 			...(this.defaultRegisteredCommand === undefined
 				? {}
 				: { defaultCommand: completionCommandPlan(this.defaultRegisteredCommand) }),
@@ -371,24 +383,25 @@ export class ClinkrGroup<TContext> {
 			});
 		}
 		const siblingNames = this.siblingNames();
-		for (const registered of this.registeredCommands) {
-			command.addCommand(
-				buildLeafCommand({
-					registered,
-					aliases: clinkrAutomaticAliasesForName(registered.name, siblingNames) ?? [],
-					context,
-					io,
-					state,
-				}),
-			);
-		}
-		for (const child of this.subgroups) {
-			const childCommand = child.buildCommand({ context, io, state, isRoot: false });
-			for (const alias of clinkrAutomaticAliasesForName(child.name, siblingNames) ?? []) {
+		for (const child of this.children) {
+			if (child.type === "command") {
+				command.addCommand(
+					buildLeafCommand({
+						registered: child.registered,
+						aliases: clinkrAutomaticAliasesForName(child.registered.name, siblingNames) ?? [],
+						context,
+						io,
+						state,
+					}),
+				);
+				continue;
+			}
+			const childCommand = child.group.buildCommand({ context, io, state, isRoot: false });
+			for (const alias of clinkrAutomaticAliasesForName(child.group.name, siblingNames) ?? []) {
 				childCommand.alias(alias);
 			}
 			command.addCommand(childCommand, {
-				hidden: child.isHidden,
+				hidden: child.group.isHidden,
 			});
 		}
 		return command;
@@ -399,7 +412,7 @@ export class ClinkrGroup<TContext> {
 		const [head, ...tail] = argv;
 		if (head === undefined) return [];
 		const siblingNames = this.siblingNames();
-		const child = this.subgroups.find((candidate) =>
+		const child = this.subgroups().find((candidate) =>
 			clinkrNameMatchesAutomaticAlias(candidate.name, siblingNames, head),
 		);
 		if (child === undefined) return undefined;
@@ -409,12 +422,17 @@ export class ClinkrGroup<TContext> {
 	}
 
 	private siblingNames(): ReadonlySet<string> {
-		return new Set([
-			...this.registeredCommands.map((registered) => registered.name),
-			...this.subgroups.map((child) => child.name),
-		]);
+		return new Set(
+			this.children.map((child) =>
+				child.type === "command" ? child.registered.name : child.group.name,
+			),
+		);
 	}
 }
+
+type ClinkrGroupChild<TContext> =
+	| { readonly type: "command"; readonly registered: RegisteredCommand<TContext> }
+	| { readonly type: "group"; readonly group: ClinkrGroup<TContext> };
 
 function executionOf<TContext, S extends z.ZodObject, T>(
 	spec:
