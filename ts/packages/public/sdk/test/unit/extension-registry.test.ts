@@ -126,6 +126,45 @@ describe("extension registry", () => {
 		]);
 	});
 
+	test("preinstalled exec-only descriptors carry the root group description for help", () => {
+		const entries = extensionDescriptorToPreinstalledCatalog(
+			{
+				group: "probe",
+				description: "Probe things.",
+				entries: [
+					{
+						group: "exec",
+						hidden: true,
+						description: "Agent-only probe commands.",
+						entries: [
+							{
+								name: "run",
+								load: () => ({
+									default: defineRawCommand({
+										name: "run",
+										summary: "Run.",
+										description: "Run.",
+										run: () => ok({}),
+									}),
+								}),
+							},
+						],
+					},
+				],
+			},
+			{ displayPath: "@example/probe/ns-extension" },
+		);
+
+		expect(entries).toEqual([
+			expect.objectContaining({
+				name: "run",
+				path: ["probe", "exec", "run"],
+				groupDescription: "Probe things.",
+				hiddenAncestorKeys: ["probe/exec"],
+			}),
+		]);
+	});
+
 	test("preinstalled registrations derive package identities and presented entries together", () => {
 		const catalog = preinstalledNsCommandCatalogFromRegistrations([
 			{
@@ -229,12 +268,15 @@ export default defineExtension({
 			name: "scan",
 			group: "tools",
 			groupDescription: "Tool commands.",
+			sourceKind: "local",
 			moduleReference: { type: "loaded" },
 			source: { level: "project" },
 		});
 		expect(loaded.candidates.get("tools/exec/doctor")).toMatchObject({
 			name: "doctor",
 			segments: ["tools", "exec", "doctor"],
+			groupDescription: "Tool commands.",
+			sourceKind: "local",
 			hiddenAncestorKeys: ["tools/exec"],
 		});
 		const listing = await loadListingCommandInfos(loaded);
@@ -498,7 +540,7 @@ export default defineExtension({
 		);
 	});
 
-	test("project overrides preserve distribution help presentation and project provenance", async () => {
+	test("project overrides preserve extension presentation but cannot replace built-in namespace commands", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		writeWorkspaceFile(
 			join(workspace.cwd, "ns.toml"),
@@ -544,14 +586,14 @@ export default defineExtension({ group: "extension", description: "Extension com
 			helpGroup: NS_EXTENSION_HELP_GROUP,
 		});
 		expect(loaded.candidates.get("extension/point")).toMatchObject({
-			source: { level: "project" },
+			source: { level: "built-in" },
 			helpGroup: NS_BUILT_IN_HELP_GROUP,
 		});
 		expect(loaded.diagnostics).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ code: "extension_command_override", commandName: "hello" }),
 				expect.objectContaining({
-					code: "extension_command_override",
+					code: "extension_command_built_in_namespace_conflict",
 					commandName: "extension/point",
 				}),
 			]),
