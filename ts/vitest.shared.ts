@@ -1,7 +1,11 @@
-export function testGlobsFor(subdir?: string): readonly [string] {
+const PACKAGE_DISPOSITIONS = ["public", "incubating", "internal"] as const;
+
+export function testGlobsFor(subdir?: string): ReadonlyArray<string> {
 	const testPath = subdir === undefined ? "" : `${subdir}/`;
 
-	return [`packages/**/test/${testPath}**/*.test.ts`] as const;
+	return PACKAGE_DISPOSITIONS.map(
+		(disposition) => `packages/${disposition}/**/test/${testPath}**/*.test.ts`,
+	);
 }
 
 export const SPECIALIZED_TEST_GLOBS_BY_CATEGORY = {

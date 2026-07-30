@@ -68,23 +68,24 @@ Placement in `test/isolated/` is not permission to add unrelated real-backend co
 Put TypeScript isolated tests at:
 
 ```text
-ts/packages/<package>/test/isolated/**/*.test.ts
+ts/packages/<disposition>/**/<package>/test/isolated/**/*.test.ts
 ```
 
 Put TypeScript integration tests at:
 
 ```text
-ts/packages/<package>/test/integration/**/*.test.ts
+ts/packages/<disposition>/**/<package>/test/integration/**/*.test.ts
 ```
 
 Put repository-wide TypeScript style guard tests at:
 
 ```text
-ts/packages/<package>/test/typescript-style-guard/**/*.test.ts
+ts/packages/<disposition>/**/<package>/test/typescript-style-guard/**/*.test.ts
 ```
 
-The shared globs are depth-agnostic (`packages/**/test/...`), so they find packages at any nesting
-depth below the `public/`, `incubating/`, and `internal/` disposition roots. Keep the
+The shared globs are rooted at `packages/{public,incubating,internal}/**/test/...`, so they find
+packages at any nesting depth within the three disposition roots without discovering stale generated
+or legacy package trees outside that topology. Keep the
 lane directory directly under the package's `test/` root so discovery includes it in exactly one
 specialized command.
 
