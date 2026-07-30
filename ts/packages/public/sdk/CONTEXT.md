@@ -13,15 +13,15 @@ The user-facing CLI path contributed by a built-in host command or an extension 
 *Avoid*: proof of SDK ownership, compatibility alias, Pi runtime command, package-private API.
 
 **Built-in host command**:
-A command implemented by the SDK because it is host infrastructure, such as runtime diagnostics, completion, or managed shell integration. Built-ins are the lowest-precedence catalog source and can be overridden by higher-precedence extension entries only through the normal catalog rules. This architectural source category is narrower than the user-facing `Built-ins:` help section.
-*Avoid*: default extension command, bundled workflow, project policy, synonym for every command shown under `Built-ins:`.
+A command implemented by the SDK because it is host infrastructure, such as runtime diagnostics, completion, or managed shell integration. Built-ins are the lowest-precedence catalog source, but their top-level namespaces remain distribution-owned: preinstalled distribution entries may contribute through catalog precedence, while Project descriptor extensions cannot contribute to or override them. This architectural source category is narrower than the user-facing `Built-ins:` help section.
+*Avoid*: default extension command, bundled workflow, project policy, project-extensible namespace, synonym for every command shown under `Built-ins:`.
 
 **Built-in help category**:
-The user-facing acquisition category rendered as `Built-ins:` in top-level help. It includes both Built-in host commands and commands from the Preinstalled descriptor catalog because both ship with the installed CLI distribution. A Project descriptor extension that contributes to or overrides an established distribution namespace does not move that top-level namespace out of this category.
-*Avoid*: catalog source level, reason to relabel preinstalled descriptors as built-in commands, source-provenance override.
+The user-facing architectural category rendered as `Built-ins:` in top-level help. It contains Built-in host commands plus preinstalled entries whose registration explicitly pins them there (in ns: `init`, `skills`, and `update`, which ship in every installation and read as part of the tool); all other extension commands remain in `Extensions:` whether they come from the Preinstalled descriptor catalog or a Project descriptor extension. Within `Extensions:`, package-sourced extensions list alphabetically before repo-local `ns.toml` path extensions. A Project descriptor extension cannot contribute to or override a namespace in the Built-in help category; discovery rejects the contribution with an actionable configuration error.
+*Avoid*: acquisition category, synonym for every command shipped with the distribution, extensible namespace, reason to relabel preinstalled descriptors as built-in commands beyond explicit per-entry pins.
 
 **Preinstalled descriptor catalog**:
-Injected metadata for first-party extension commands shipped with an installed CLI distribution. It is a distribution convenience for the descriptor model: metadata is available for discovery/help/completion, while selected commands are imported lazily from their owning command modules. Its commands appear in the Built-in help category without becoming Built-in host commands.
+Injected metadata for first-party extension commands shipped with an installed CLI distribution. It is a distribution convenience for the descriptor model: metadata is available for discovery/help/completion, while selected commands are imported lazily from their owning command modules. Its commands appear in the Extension help category by default — a registration may pin individual entries into the Built-in help category — and remain extension-owned either way.
 *Avoid*: privileged built-in, SDK-owned command, reason to bypass the SDK boundary, automatic destination for repo-specific policy.
 
 **Project descriptor extension**:

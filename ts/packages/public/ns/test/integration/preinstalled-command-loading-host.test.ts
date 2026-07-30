@@ -9,8 +9,23 @@ describe("preinstalled command loading host integration", () => {
 		expect(run.exit).toBe(0);
 		expect(run.stdout).toContain("Activate ns in this repository.");
 		expect(run.stdout).toContain("Update ns itself.");
-		expect(run.stdout).toMatch(/^  extension(?:\s|$)/m);
-		expect(run.stdout).toMatch(/^  skills(?:\s|$)/m);
+		const builtIns = helpSection(run.stdout, "Built-ins:");
+		const extensions = helpSection(run.stdout, "Extensions:");
+		// Extensions lead the help output; Built-ins close it.
+		expect(run.stdout.indexOf("Extensions:")).toBeLessThan(run.stdout.indexOf("Built-ins:"));
+		// Built-ins render in curated lifecycle order: init, update, extension.
+		expect(builtIns).toMatch(/^  init(?:\s|$)/m);
+		expect(builtIns).toMatch(/^  skills(?:\s|$)/m);
+		expect(builtIns).toMatch(/^  update(?:\s|$)/m);
+		expect(builtIns).toMatch(/^  extension(?:\s|$)/m);
+		expect(builtIns.search(/^  init(?:\s|$)/m)).toBeLessThan(builtIns.search(/^  update(?:\s|$)/m));
+		expect(builtIns.search(/^  update(?:\s|$)/m)).toBeLessThan(
+			builtIns.search(/^  extension(?:\s|$)/m),
+		);
+		expect(extensions).not.toMatch(/^  init(?:\s|$)/m);
+		expect(extensions).not.toMatch(/^  skills(?:\s|$)/m);
+		expect(extensions).not.toMatch(/^  update(?:\s|$)/m);
+		expect(extensions).not.toMatch(/^  extension(?:\s|$)/m);
 		expect(run.stdout).not.toContain("Load ns descriptor command");
 		expect(run.stderr).toBe("");
 		expect(run.execCalls).toEqual([]);
@@ -42,3 +57,13 @@ describe("preinstalled command loading host integration", () => {
 		expect(run.execCalls).toEqual([]);
 	});
 });
+
+function helpSection(help: string, heading: string): string {
+	const start = help.indexOf(`${heading}\n`);
+	if (start === -1) return "";
+	const sectionStart = start + heading.length + 1;
+	const nextHeading = help.slice(sectionStart).search(/^\S[^\n]*:\n/m);
+	return nextHeading === -1
+		? help.slice(sectionStart)
+		: help.slice(sectionStart, sectionStart + nextHeading);
+}
