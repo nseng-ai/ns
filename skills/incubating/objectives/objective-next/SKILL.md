@@ -95,7 +95,29 @@ The factory's terminal artifact. Use this path for ordinary `objective-next` run
 2. **Work-left estimate** — the step-7 estimate.
 3. **Alternatives** — other open, unblocked candidates and why they lost to the proposed step.
 4. **Off-ramps** — what confirming, steering, deferring, or picking an alternative each means.
-5. **Proposed prompt** — a few sentences, self-contained and cold-start safe: it names the scope, a starting location, and the completion evidence, so it can run unmodified in a fresh session, a dispatched subagent, or an interactive session with the human in the loop (a grilling or live-decision prompt is still a prompt). Remember that agents can discover things on their own. For example, prefer listing a single folder to a list of files within that folder. Keep it minimal. Cite durable artifacts — the Objective slug, the roadmap row, paths, references — rather than replicating their content. Self-contained means free of *conversation* context, not a briefing that restates the record. Incorporate the record's `## Prompt Guidance` and the selected row's `Prompt:` prose when present (the `objective` skill's `references/prompt-guidance.md` owns their semantics); they shape serialization only, never step selection or execution permission.
+5. **Proposed prompt** — self-contained and cold-start safe: it names the scope, a starting location, and the completion evidence, so it can run unmodified in a fresh session, a dispatched subagent, or an interactive session with the human in the loop (a grilling or live-decision prompt is still a prompt). Make this final element visually distinct from the decision context: precede it with a horizontal rule, use the heading `## ▶ Proposed prompt — ready to run`, render the entire prompt as one Markdown blockquote, and end with another horizontal rule. Every prompt line, including blank separator lines, must carry the `>` blockquote marker so the rendered left rail remains continuous. The blockquote markers and surrounding rules are presentation wrappers, not prompt content; when another instruction or tool requests the exact proposed prompt, pass the unquoted inner Markdown byte-for-byte. By default, serialize that inner prompt as short structured Markdown: a one-sentence headline naming the work; an **Objective** line citing the slug, roadmap row, and key reference paths; **Scope** bullets; and **Completion evidence** bullets — plus optional labeled lines such as **Precedent** or **Constraints** when they carry real weight. Do not use code fences for the prompt. Collapse to plain sentences when the step is a single question or decision and structure would outweigh content. Remember that agents can discover things on their own. For example, prefer listing a single folder to a list of files within that folder. Keep it minimal; structure is layout, not license for padding. Cite durable artifacts — the Objective slug, the roadmap row, paths, references — rather than replicating their content. Self-contained means free of *conversation* context, not a briefing that restates the record. The record's `## Prompt Guidance` and the selected row's `Prompt:` prose, when present, may augment or entirely replace the inner prompt's default shape (the `objective` skill's `references/prompt-guidance.md` owns their semantics); they shape serialization only, never step selection or execution permission.
+
+   Default presentation shape:
+
+   ```markdown
+   ---
+
+   ## ▶ Proposed prompt — ready to run
+
+   > One-sentence headline.
+   >
+   > **Objective:** `<slug>`; roadmap row and starting references.
+   >
+   > **Scope:**
+   >
+   > - Bounded work.
+   >
+   > **Completion evidence:**
+   >
+   > - Required evidence.
+
+   ---
+   ```
 
 Default to exactly one proposed prompt. When two or more open candidates are genuinely co-equal — defensibly different directions rather than a ranked list where one clearly won — element 5 may instead present a small labeled set, each prompt self-contained under the same rules, with element 3 saying what picking each one commits to. Confirmation selects exactly one; a set is never authorization to run more than one.
 
@@ -120,7 +142,7 @@ In every packet:
 ## Verify
 
 - Name the selected slug and identify the roadmap item or narrative basis for the packet, steering question, or execution preview.
-- Confirm the decision packet ends with either a proposed prompt or an explicit Declined element, and that a proposed prompt is self-contained: a cold session could run it without this conversation. Confirm it stayed short, citing durable artifacts rather than replicating them.
+- Confirm the decision packet ends with either a proposed prompt or an explicit Declined element, and that a proposed prompt is self-contained: a cold session could run it without this conversation. Confirm it stayed short, citing durable artifacts rather than replicating them, and that it used the default structured shape or a sanctioned deviation (record/row prompt guidance, or a degenerate single-question step).
 - If the record is blocked, confirm the response named the Blocked Sentence and either the unblocking counterpart Objective or why no edge counterpart applies.
 - If recommendation-only or steer-first, ensure no files changed except through an explicit `objective-update` handoff; report any handoff output separately and confirm it stayed under the selected slug.
 - If confirmed execution ran, verify and report according to `references/confirmed-execution.md`, including whether the basis was durable policy or recommendation-continuation confirmation.

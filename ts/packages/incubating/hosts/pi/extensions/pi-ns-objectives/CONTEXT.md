@@ -21,8 +21,11 @@ published.
 The preserved `/ns:objective:*` Pi slash-command family registered by the **Objective Pi
 host adapter**, including list, create, next, update, close, and autorun workflows. The
 adapter owns Pi registration, completion, picker and notification presentation, skill
-expansion, and parity metadata; Objective behavior and policy come from
-`@nseng-ai/objectives/api` and the portable Objective skills.
+expansion, and parity metadata. Its presentation includes the single-proposed-prompt
+chooser after `/ns:objective:next`: execute the exact prompt as a same-session follow-up,
+replace the input area, or dismiss. Co-equal prompts, `Declined` packets, and runs without
+the required interactive capability remain recommendation-only. Objective behavior and
+policy come from `@nseng-ai/objectives/api` and the portable Objective skills.
 *Avoid*: new Objective lifecycle, Pi-owned Objective semantics, CLI replacement, package-path namespace
 
 **Objective autorun injection boundary**:
