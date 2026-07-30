@@ -93,7 +93,6 @@ export interface ToolContext extends WidgetRuntimeContext {
 	sessionManager: PiSessionReader;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
-		select?(title: string, items: string[]): Promise<string | undefined>;
 		setEditorText?(value: string): void;
 		setStatus?(key: string, value: string | undefined): void;
 		setWidget?: SetWidgetFunction;

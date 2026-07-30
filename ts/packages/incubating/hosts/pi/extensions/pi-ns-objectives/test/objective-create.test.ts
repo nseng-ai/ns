@@ -1,7 +1,6 @@
 import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 import { describe, expect, test } from "vitest";
 
-import type { ToolDefinition } from "@nseng-ai/pi-runtime/runtime/tool-types";
 import objectiveExtension, {
 	type CommandContext,
 	type RawPiExecResult,
@@ -48,8 +47,6 @@ class FakePi implements ObjectiveExtensionAPI {
 	registerCommand(name: string, options: RegisteredCommand): void {
 		this.commands.set(name, options);
 	}
-
-	registerTool(_definition: ToolDefinition): void {}
 
 	async exec(command: string, args: string[], options?: unknown): Promise<RawPiExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
