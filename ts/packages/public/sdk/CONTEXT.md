@@ -24,6 +24,10 @@ The user-facing architectural category rendered as `Built-ins:` in top-level hel
 Injected metadata for first-party extension commands shipped with an installed CLI distribution. It is a distribution convenience for the descriptor model: metadata is available for discovery/help/completion, while selected commands are imported lazily from their owning command modules. Its commands appear in the Extension help category by default — a registration may pin individual entries into the Built-in help category — and remain extension-owned either way.
 *Avoid*: privileged built-in, SDK-owned command, reason to bypass the SDK boundary, automatic destination for repo-specific policy.
 
+**Extension origin marker**:
+The lowercase bare letter right-aligned on each top-level `Extensions:` help row: `g` for a distribution-supplied Preinstalled descriptor catalog contribution (including source-development discovery standing in for the installed distribution), `p` for a Project descriptor extension declared with an `npm:` source, and `l` for one declared by a repo-local path. The marker reports effective runtime acquisition origin after Catalog precedence; a namespace with winning contributions from several origins displays the highest-precedence origin present (`l` over `p` over `g`). It is distinct from internal catalog source levels, declaration source kind, and package Release disposition.
+*Avoid*: package disposition marker, complete provenance inventory, overridden-origin marker, built-in marker, help legend.
+
 **Project descriptor extension**:
 A repository-declared extension package listed in repo-root `ns.toml` and exposing `exports["./ns-extension"]`. Project descriptor entries can group commands and override lower-precedence sources without making those commands universal built-ins.
 *Avoid*: default SDK command, compatibility alias, bundled first-party extension, package implementation module, extension-root scan.

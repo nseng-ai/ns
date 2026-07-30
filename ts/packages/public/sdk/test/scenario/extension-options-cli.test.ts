@@ -235,6 +235,7 @@ function commandRegistry(
 		name: command.name,
 		description: command.summary,
 		fullDescription: command.description,
+		sourceKind: "local",
 		source: { level: "project", label: `fake ${command.name} extension` },
 		moduleReference: { type: "file", path: `fake://${command.name}.ts` },
 		entryPath: `fake://${command.name}.ts`,

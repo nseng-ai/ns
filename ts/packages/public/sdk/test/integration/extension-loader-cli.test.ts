@@ -42,6 +42,12 @@ function helpSection(help: string, heading: string): string {
 		: help.slice(sectionStart, sectionStart + nextHeading);
 }
 
+function helpRow(help: string, heading: string, commandName: string): string | undefined {
+	return helpSection(help, heading)
+		.split("\n")
+		.find((line) => line.startsWith(`  ${commandName}`));
+}
+
 async function createDescriptorProject(
 	commandName: string,
 	commandSource: string,
@@ -99,6 +105,109 @@ export default {
 		expect(helpSection(help, "Built-ins:")).not.toContain("hello");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
+	});
+
+	test("marks global, project-package, and local-path extension rows by effective origin", async () => {
+		const cwd = await createEmptyProject();
+		writeFileSyncWithParents(
+			join(cwd, "ns.toml"),
+			'extensions = ["npm:package-tool", "./extensions/local-tool"]\n',
+		);
+		writeExtensionPackageAt(
+			join(cwd, ".ns", "managed-extensions", "npm", "package-tool", "node_modules", "package-tool"),
+			{ packageName: "package-tool", group: "package-tool", commandName: "ping" },
+		);
+		writeExtensionPackageAt(join(cwd, "extensions", "local-tool"), {
+			packageName: "local-tool",
+			group: "local-tool",
+			commandName: "ping",
+		});
+		const run = runWithFakes({
+			args: ["--help"],
+			state: { exec: [] },
+			cwd,
+			preinstalledCommandCatalog: async () => ({
+				entries: [
+					{
+						group: "global-tool",
+						groupDescription: "Global tool commands.",
+						name: "ping",
+						description: "Ping globally.",
+						fullDescription: "Ping globally.",
+						moduleSpecifier: "@example/global-tool/ping",
+					},
+				],
+				extensionPackageNames: [],
+			}),
+		});
+
+		expect(await run.exit).toBe(0);
+		const help = run.stdout.join("");
+		expect(helpRow(help, "Extensions:", "global-tool")).toMatch(/g$/);
+		expect(helpRow(help, "Extensions:", "package-tool")).toMatch(/p$/);
+		expect(helpRow(help, "Extensions:", "local-tool")).toMatch(/l$/);
+		expect(helpRow(help, "Built-ins:", "extension")).not.toMatch(/[gpl]$/);
+	});
+
+	test("an override displays only the effective winner origin", async () => {
+		const cwd = await createDescriptorProject(
+			"hello",
+			'import { ok } from "@nseng-ai/sdk"; export default { name: "hello", summary: "Local hello.", description: "Local hello.", run() { return ok({}); } };',
+		);
+		const run = runWithFakes({
+			args: ["--help"],
+			state: { exec: [] },
+			cwd,
+			preinstalledCommandCatalog: async () => ({
+				entries: [
+					{
+						name: "hello",
+						description: "Global hello.",
+						fullDescription: "Global hello.",
+						moduleSpecifier: "@example/hello",
+					},
+				],
+				extensionPackageNames: [],
+			}),
+		});
+
+		expect(await run.exit).toBe(0);
+		const row = helpRow(run.stdout.join(""), "Extensions:", "hello");
+		expect(row).toContain("Local hello.");
+		expect(row).toMatch(/l$/);
+		expect(row).not.toMatch(/g$/);
+	});
+
+	test("mixed effective namespaces display the highest-precedence winning origin", async () => {
+		const cwd = await createEmptyProject();
+		writeFileSyncWithParents(join(cwd, "ns.toml"), 'extensions = ["./extensions/mixed"]\n');
+		writeDescriptorPackage(cwd, ["local"], { group: "mixed" });
+		writeDescriptorCommand(
+			cwd,
+			"local",
+			'import { ok } from "@nseng-ai/sdk"; export default { name: "local", summary: "Local.", description: "Local.", run() { return ok({}); } };',
+		);
+		const run = runWithFakes({
+			args: ["--help"],
+			state: { exec: [] },
+			cwd,
+			preinstalledCommandCatalog: async () => ({
+				entries: [
+					{
+						group: "mixed",
+						groupDescription: "Mixed commands.",
+						name: "global",
+						description: "Global.",
+						fullDescription: "Global.",
+						moduleSpecifier: "@example/mixed/global",
+					},
+				],
+				extensionPackageNames: [],
+			}),
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(helpRow(run.stdout.join(""), "Extensions:", "mixed")).toMatch(/l$/);
 	});
 
 	test("package-sourced extensions list before repo-local extensions in help", async () => {

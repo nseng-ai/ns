@@ -1,5 +1,5 @@
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
-import { Command, CommanderError, Option } from "commander";
+import { Command, CommanderError, Help, Option } from "commander";
 import { z } from "zod";
 
 import { buildCommanderArgument, buildCommanderOption } from "./commander-surface.ts";
@@ -45,6 +45,8 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	description?: string;
 	/** Short summary for parent help lists; omitted from leaf command help body. */
 	summary?: string;
+	/** Optional text right-aligned after this command's parent-help summary. */
+	helpLabel?: string;
 	/** Parent help section heading for this command. */
 	helpGroup?: string;
 	schema: S;
@@ -77,6 +79,8 @@ export interface RawCommandSpec<TContext, S extends z.ZodObject> {
 	description?: string;
 	/** Short summary for parent help lists; omitted from leaf command help body. */
 	summary?: string;
+	/** Optional text right-aligned after this command's parent-help summary. */
+	helpLabel?: string;
 	/** Parent help section heading for this command. */
 	helpGroup?: string;
 	schema: S;
@@ -115,6 +119,8 @@ export interface DefaultCommandSpec<TContext, S extends z.ZodObject, T> extends 
 export interface ClinkrGroupOptions {
 	name: string;
 	description?: string;
+	/** Optional text right-aligned after this group's parent-help description. */
+	helpLabel?: string;
 	/** Parent help section heading for this group. */
 	helpGroup?: string;
 	/** Suppresses this group from its parent's help; it stays invocable. */
@@ -139,6 +145,7 @@ interface RegisteredCommand<TContext> {
 	name: string;
 	description?: string;
 	summary?: string;
+	helpLabel?: string;
 	helpGroup?: string;
 	schema: z.ZodObject;
 	schemaDocument?: () => JsonSchemaDocument;
@@ -202,6 +209,7 @@ const LIST_COMMAND_ALIAS = "ls";
 export class ClinkrGroup<TContext> {
 	readonly name: string;
 	readonly description: string | undefined;
+	readonly helpLabel: string | undefined;
 	readonly helpGroup: string | undefined;
 	readonly isHidden: boolean;
 	private readonly version: string | undefined;
@@ -215,6 +223,7 @@ export class ClinkrGroup<TContext> {
 	constructor(options: ClinkrGroupOptions) {
 		this.name = options.name;
 		this.description = options.description;
+		this.helpLabel = options.helpLabel;
 		this.helpGroup = options.helpGroup;
 		this.isHidden = options.isHidden ?? false;
 		this.version = options.version;
@@ -241,6 +250,7 @@ export class ClinkrGroup<TContext> {
 				...optionalEntries({
 					description: spec.description,
 					summary: spec.summary,
+					helpLabel: spec.helpLabel,
 					helpGroup: spec.helpGroup,
 					schemaDocument: spec.schemaDocument,
 				}),
@@ -383,17 +393,20 @@ export class ClinkrGroup<TContext> {
 			});
 		}
 		const siblingNames = this.siblingNames();
+		const helpLabels = new Map<Command, string>();
 		for (const child of this.children) {
 			if (child.type === "command") {
-				command.addCommand(
-					buildLeafCommand({
-						registered: child.registered,
-						aliases: clinkrAutomaticAliasesForName(child.registered.name, siblingNames) ?? [],
-						context,
-						io,
-						state,
-					}),
-				);
+				const childCommand = buildLeafCommand({
+					registered: child.registered,
+					aliases: clinkrAutomaticAliasesForName(child.registered.name, siblingNames) ?? [],
+					context,
+					io,
+					state,
+				});
+				command.addCommand(childCommand);
+				if (child.registered.helpLabel !== undefined) {
+					helpLabels.set(childCommand, child.registered.helpLabel);
+				}
 				continue;
 			}
 			const childCommand = child.group.buildCommand({ context, io, state, isRoot: false });
@@ -403,7 +416,11 @@ export class ClinkrGroup<TContext> {
 			command.addCommand(childCommand, {
 				hidden: child.group.isHidden,
 			});
+			if (child.group.helpLabel !== undefined) {
+				helpLabels.set(childCommand, child.group.helpLabel);
+			}
 		}
+		configureTrailingHelpLabels(command, helpLabels);
 		return command;
 	}
 
@@ -556,8 +573,57 @@ function createContainedCommand(name: string, io: ClinkrIo): Command {
 		writeErr: (text) => {
 			io.stderr(text);
 		},
+		...(io.caps === undefined ? {} : { getOutHelpWidth: () => io.caps?.columns ?? 80 }),
+		getOutHasColors: () => io.canEmitAnsi === true,
 	});
 	return command;
+}
+
+const HELP_LABEL_SEPARATOR = "\0clinkr-help-label:";
+
+function configureTrailingHelpLabels(command: Command, labels: ReadonlyMap<Command, string>): void {
+	if (labels.size === 0) return;
+	const defaultHelp = new Help();
+	command.configureHelp({
+		subcommandDescription: (subcommand) => {
+			const description = defaultHelp.subcommandDescription(subcommand);
+			const label = labels.get(subcommand);
+			return label === undefined ? description : `${description}${HELP_LABEL_SEPARATOR}${label}`;
+		},
+		formatItem: (term, termWidth, description, helper) => {
+			const separatorIndex = description.lastIndexOf(HELP_LABEL_SEPARATOR);
+			if (separatorIndex === -1) {
+				return defaultHelp.formatItem(term, termWidth, description, helper);
+			}
+			const body = description.slice(0, separatorIndex);
+			const label = description.slice(separatorIndex + HELP_LABEL_SEPARATOR.length);
+			return formatLabeledHelpItem(term, termWidth, body, label, helper, defaultHelp);
+		},
+	});
+}
+
+function formatLabeledHelpItem(
+	term: string,
+	termWidth: number,
+	description: string,
+	label: string,
+	helper: Help,
+	defaultHelp: Help,
+): string {
+	const helpWidth = helper.helpWidth ?? 80;
+	const labelWidth = helper.displayWidth(label);
+	const bodyHelp = Object.assign(Object.create(helper) as Help, {
+		helpWidth: Math.max(0, helpWidth - labelWidth - 1),
+	});
+	const formatted = defaultHelp.formatItem(term, termWidth, description, bodyHelp);
+	const lines = formatted.split("\n");
+	const lastLine = lines.at(-1) ?? "";
+	const padding = helpWidth - helper.displayWidth(lastLine) - labelWidth;
+	if (padding > 0) {
+		lines[lines.length - 1] = `${lastLine}${" ".repeat(padding)}${label}`;
+		return lines.join("\n");
+	}
+	return `${formatted}\n${" ".repeat(Math.max(0, helpWidth - labelWidth))}${label}`;
 }
 
 function exitCodeForCommanderError(error: CommanderError): number {
