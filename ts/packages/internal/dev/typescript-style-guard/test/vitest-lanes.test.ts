@@ -9,6 +9,14 @@ import {
 const isolatedGlobs = testGlobsFor("isolated");
 
 describe("Vitest test lanes", () => {
+	test("discovery is rooted in the package disposition topology", () => {
+		expect(testGlobsFor()).toEqual([
+			"packages/public/**/test/**/*.test.ts",
+			"packages/incubating/**/test/**/*.test.ts",
+			"packages/internal/**/test/**/*.test.ts",
+		]);
+	});
+
 	test("default discovery excludes isolated tests through the specialized glob set", () => {
 		for (const glob of isolatedGlobs) {
 			expect(allSpecializedTestGlobs()).toContain(glob);
