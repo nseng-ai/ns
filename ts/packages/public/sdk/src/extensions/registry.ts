@@ -21,7 +21,7 @@ import {
 import { NS_COMMAND_NAME_PATTERN, NS_COMMAND_NAME_RULE } from "../sdk/command-name.ts";
 import { nextDescriptorTraversalState } from "./descriptor-traversal.ts";
 import { loadDeclaredExtensionDescriptors } from "./declared-descriptors.ts";
-import { NS_BUILT_IN_HELP_GROUP } from "./help-presentation.ts";
+import { NS_EXTENSION_HELP_GROUP } from "./help-presentation.ts";
 import { loadExtensionDescriptorFromPackageRoot } from "../project-config/extension-package-descriptor.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
 import {
@@ -743,7 +743,7 @@ function withDefaultPreinstalledHelpGroup(
 	candidate: ExtensionCommandCandidate,
 ): ExtensionCommandCandidate {
 	if (candidate.helpGroup !== undefined) return candidate;
-	return { ...candidate, helpGroup: NS_BUILT_IN_HELP_GROUP };
+	return { ...candidate, helpGroup: NS_EXTENSION_HELP_GROUP };
 }
 
 function inheritHelpGroup(
