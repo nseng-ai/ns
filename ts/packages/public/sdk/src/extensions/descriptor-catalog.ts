@@ -2,7 +2,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import type { ExtensionDescriptor, ExtensionEntry } from "../sdk/descriptor.ts";
 import { nextDescriptorTraversalState } from "./descriptor-traversal.ts";
-import { NS_BUILT_IN_HELP_GROUP } from "./help-presentation.ts";
+import { NS_EXTENSION_HELP_GROUP } from "./help-presentation.ts";
 import type {
 	PreinstalledNsCommandCatalog,
 	PreinstalledNsCommandCatalogEntry,
@@ -44,7 +44,7 @@ export function extensionDescriptorToPreinstalledCatalog(
 			segments: descriptor.group === undefined ? [] : [descriptor.group],
 			hiddenAncestorKeys: [],
 			displayPath: options.displayPath,
-			helpGroup: options.helpGroup ?? NS_BUILT_IN_HELP_GROUP,
+			helpGroup: options.helpGroup ?? NS_EXTENSION_HELP_GROUP,
 			...optionalEntry("entryHelpGroup", options.entryHelpGroup),
 		}),
 	);

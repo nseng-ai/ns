@@ -4,6 +4,7 @@ export {
 	listNsCommands,
 	preinstalledNsCommandCatalogFromRegistrations,
 	NS_BUILT_IN_HELP_GROUP,
+	NS_EXTENSION_HELP_GROUP,
 	runCli,
 	VERSION,
 } from "@nseng-ai/sdk/cli";

@@ -17,11 +17,11 @@ A command implemented by the SDK because it is host infrastructure, such as runt
 *Avoid*: default extension command, bundled workflow, project policy, synonym for every command shown under `Built-ins:`.
 
 **Built-in help category**:
-The user-facing acquisition category rendered as `Built-ins:` in top-level help. It includes both Built-in host commands and commands from the Preinstalled descriptor catalog because both ship with the installed CLI distribution. A Project descriptor extension that contributes to or overrides an established distribution namespace does not move that top-level namespace out of this category.
-*Avoid*: catalog source level, reason to relabel preinstalled descriptors as built-in commands, source-provenance override.
+The user-facing architectural category rendered as `Built-ins:` in top-level help. It contains Built-in host commands; extension commands remain in `Extensions:` whether they come from the Preinstalled descriptor catalog or a Project descriptor extension. A Project descriptor extension that overrides a built-in namespace inherits that namespace's help category so one top-level command is not split across categories.
+*Avoid*: acquisition category, synonym for every command shipped with the distribution, reason to relabel preinstalled descriptors as built-in commands.
 
 **Preinstalled descriptor catalog**:
-Injected metadata for first-party extension commands shipped with an installed CLI distribution. It is a distribution convenience for the descriptor model: metadata is available for discovery/help/completion, while selected commands are imported lazily from their owning command modules. Its commands appear in the Built-in help category without becoming Built-in host commands.
+Injected metadata for first-party extension commands shipped with an installed CLI distribution. It is a distribution convenience for the descriptor model: metadata is available for discovery/help/completion, while selected commands are imported lazily from their owning command modules. Its commands appear in the Extension help category and remain extension-owned.
 *Avoid*: privileged built-in, SDK-owned command, reason to bypass the SDK boundary, automatic destination for repo-specific policy.
 
 **Project descriptor extension**:
