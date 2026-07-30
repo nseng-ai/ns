@@ -12,31 +12,43 @@ site and public shell (`nseng.ai`). Always lowercase. The shipping CLI is `ns`; 
 document uses that current product name, and concrete paths and commands are quoted as
 they exist today.
 
-## The enemy: the software factory
+## The frame: the ADLC, and the factory's place in it
 
-The prevailing industry story casts the engineer as a manager of AI workers — fleets,
-throughput, supervision dashboards. Software becomes a factory floor: spin up more
-workers, watch the burndown, ship whatever comes off the line.
+The industry is filling up with **factories**: agentic automations that produce software
+engineering artifacts — code, commits, PRs, review feedback — at volume. Factories are
+real, useful, and here to stay. But a factory is not a development process; it is one
+stage of one. The broader shape is the **agentic development lifecycle (ADLC)**: intent
+is formed, context is scoped, work is executed, output is integrated, and what crosses
+into the repository is governed. The factory is the ADLC's execution stage — a
+subcomponent, not the whole.
 
-What factories optimize is volume, and what volume without boundaries produces is
-**slop**: agent output with no durable intent behind it, no memory of why, and no gate
-between "generated" and "real." Slop is not a model problem — models improve monthly. It
-is a **boundary problem**: nothing scopes what the agent knows, nothing owns what the work
-is for, and nothing stands between the output and your repository.
+The prevailing industry story skips that distinction. It casts the engineer as a manager
+of AI workers — fleets, throughput, supervision dashboards — and treats the execution
+stage as if it were the lifecycle: spin up more workers, watch the burndown, ship
+whatever comes off the line.
+
+What execution-only tooling optimizes is volume, and what volume without a lifecycle
+around it produces is **slop**: agent output with no durable intent behind it, no memory
+of why, and no gate between "generated" and "real." Slop is not a model problem — models
+improve monthly. It is not a factory problem either. It is a **boundary problem**:
+nothing scopes what the agent knows, nothing owns what the work is for, and nothing
+stands between the output and your repository. Those boundaries are the lifecycle's job,
+and a factory alone does not carry them.
 
 **Engineers are not factory managers; they are sorcerers.** The power is in knowing what
 to invoke and how to phrase it — a principal engineer casting well-bounded work, not a
 shift supervisor watching a dashboard.
 
-ns is the counter-position, and the name is the thesis: **nonslop engineering** — slop
-removed by construction, not by review-after-the-fact.
+ns is the substrate for the rest of the lifecycle — the stages around execution — and
+the name is the thesis: **nonslop engineering** — slop removed by construction, not by
+review-after-the-fact.
 
 ### Exhibit A: the meta-harness
 
-The factory's flagship tooling is the meta-harness (Databricks' Omnigent and its kind): a
-wrapper that sits **above** the harnesses developers already use, behind a uniform API —
-the supervision dashboard over the worker fleet. That altitude has a fixed, structural
-cost:
+The common attempt to build the ADLC is the meta-harness (Databricks' Omnigent and its
+kind): a wrapper that sits **above** the harnesses developers already use, behind a
+uniform API — the supervision dashboard over the worker fleet. That altitude has a
+fixed, structural cost:
 
 - It can only export the **intersection** of what the wrapped harnesses share.
 - It can enforce policy only over sessions that opted into the wrapper.
@@ -56,7 +68,7 @@ wrapper — it becomes part of the harness. Because injection adds rather than a
 ns expresses the **union** of the harnesses, not their intersection: the best of each, in
 its own native idiom.
 
-> The factory unifies the surface. ns bounds the work.
+> The meta-harness unifies the surface. ns bounds the work.
 
 ### Injection composes; wrapping doesn't
 
@@ -68,12 +80,13 @@ harness-shaped, **including a wrapper**.
 > ns + Claude Code works. ns + Codex works. ns + (a meta-harness wrapping Claude Code)
 > works. Two meta-harnesses are a turf war.
 
-So ns is not, fundamentally, *anti* meta-harness. From ns's vantage a meta-harness is
-just one more embedding target — another harness. The honest relationship is **orthogonal
-and subsuming**: ns is *substrate*, a meta-harness is *orchestration*, the real harness
-sits in the middle. They stack. Even a team that fully bought the factory thesis is still
-a ns customer, because ns adds the context-and-intent layer beneath the agents the
-factory orchestrates.
+So ns is not, fundamentally, *anti* meta-harness — and it is not anti-factory at all.
+From ns's vantage a meta-harness is just one more embedding target — another harness.
+The honest relationship is **orthogonal and subsuming**: ns is *substrate*, a
+meta-harness is *orchestration*, the real harness sits in the middle. They stack. A team
+running factories at full tilt is a ns customer precisely because of that: their
+factories consume the context ns scopes and emit the artifacts ns integrates and
+governs. ns is the rest of the ADLC around their execution stage.
 
 One precision: ns embeds into a meta-harness at whatever fidelity that meta-harness
 exposes — which, by the intersection argument, is lower than the underlying harness
@@ -120,13 +133,14 @@ goals' context, and a file **leaves the active set automatically when its object
 That is scope-bounded context management in production — goal-lifetime context that evicts
 itself on goal completion.
 
-### Why the factory cannot make this cut
+### Why the execution stage cannot make this cut alone
 
-The factory's tooling sees one context lifetime: the session. ns has a whole spectrum of
+Execution tooling sees one context lifetime: the session. ns has a whole spectrum of
 lifetimes precisely because it is built on the git-native shape of the work. And the
-dependency runs in ns's favor: the more agents a factory orchestrates, the more it needs
-a shared, scoped context substrate underneath, not less. Sharing a live session by URL is
-shallow without a durable, scoped memory beneath it. ns is that memory.
+dependency runs in ns's favor: the more agents a factory runs, the more it needs a
+shared, scoped context substrate underneath, not less. Sharing a live session by URL is
+shallow without a durable, scoped memory beneath it. ns is that memory — the lifecycle
+layer the factory draws from and lands into.
 
 > A meta-harness manages context per session. ns scopes context per unit of work —
 > because only the work knows when context is born and when it dies.
@@ -182,7 +196,8 @@ principle; the former is just as strong and stays true at the destination.
 Policy is enforced at the **durable-state boundary** — git — not at a wrapper above the
 harness. Everything that matters has to cross git to become real, so a gate there cannot
 be routed around regardless of which harness ran. This is the structural advantage over
-the factory, which governs only its own sessions. The two planes stack cleanly: a
+session-level governance, which covers only sessions that opted in. The two planes stack
+cleanly: a
 meta-harness gates the *session* (cost, permissions, tool calls); ns gates *durable
 state* (what lands in git). The git gate covers exactly the hole the wrapper leaves — any
 session that did not go through the wrapper still has to cross git. This is where
@@ -191,8 +206,8 @@ session that did not go through the wrapper still has to cross git. This is wher
 **4. Bring your own harness; keep the whole substrate.**
 Because intent, memory, and history live in git, switching harnesses is free — start the
 next session anywhere and the objective, branch, memory, and handoff are already there.
-ns delivers the factory's headline feature (harness portability) as a *side effect* of
-git-native state, without paying the abstraction tax to get it.
+ns delivers the meta-harness's headline feature (harness portability) as a *side effect*
+of git-native state, without paying the abstraction tax to get it.
 
 ## The hard center: from storage to assembly
 
@@ -218,7 +233,9 @@ three sub-problems to name and build:
   Scope is the input to prioritization: this phase's branch context outranks a sibling
   branch's.
 
-The factory cannot even attempt the verb, because it has no scopes to assemble from.
+The execution stage cannot attempt the verb on its own — it has no scopes to assemble
+from. The lifecycle supplies them; that is what makes the ADLC more than a factory with
+a dashboard.
 
 ## Messaging
 
@@ -227,10 +244,12 @@ The factory cannot even attempt the verb, because it has no scopes to assemble f
   memory, and a gate at git, so agents ship engineering instead of slop.
 - **The name:** Slop is unbounded agent output. nonslop engineering removes it by
   construction, not by review-after-the-fact.
-- **Against the enemy:** The software factory optimizes throughput and ships slop. Its
-  dashboards manage the session; ns governs what becomes real.
-- **The judo:** The more agents the factory runs, the more it needs ns underneath. We
-  make the factory better from beneath it — and make it unnecessary.
+- **The frame:** The factory is the ADLC's execution stage, not the lifecycle. ns is the
+  substrate for the rest of it — intent, scoped context, integration, and the gate at
+  git.
+- **The complement:** The more agents a factory runs, the more it needs ns underneath.
+  Factories consume the context ns scopes and emit the artifacts ns governs — we make
+  every factory better from beneath it.
 - **The wedge:** A substrate you embed — not a harness you adopt.
 - **The verb:** Storage is solved. ns is building the resolver — the right working set,
   assembled per scope, evicted on exit.
@@ -250,5 +269,6 @@ the embed/compose story. Two need a precision guardrail even in aspiration:
   exists; the gate is roadmap. Claim *boundaries* today; claim *enforcement* as
   destination.
 
-Stated this way, the framing kills the factory on the boundary and context arguments
-without writing a check the repo cannot yet cash.
+Stated this way, the framing wins the boundary and context arguments — the lifecycle
+layers no execution stage can supply for itself — without writing a check the repo
+cannot yet cash.
