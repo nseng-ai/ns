@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { failure, ok } from "@nseng-ai/clinkr/legacy";
 import type { GitGateway } from "@nseng-ai/foundation/git";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { renderTextTable } from "@nseng-ai/foundation/text-table";
 import { parseNsTomlExtensions, parseNsTomlSupportedHarnesses } from "../harness-artifacts/api.ts";
 import type {
@@ -290,12 +291,8 @@ function createInstalledPackageRow(
 		sourceSpec: installedPackage.packageName,
 		sourceKind: "package",
 		packageName: installedPackage.packageName,
-		...(installedPackage.packageVersion === undefined
-			? {}
-			: { packageVersion: installedPackage.packageVersion }),
-		...(installedPackage.moduleRoot === undefined
-			? {}
-			: { moduleRoot: installedPackage.moduleRoot }),
+		...optionalEntry("packageVersion", installedPackage.packageVersion),
+		...optionalEntry("moduleRoot", installedPackage.moduleRoot),
 		acquisitionStatus: "installed",
 		artifactStatus: "none",
 		artifactCount: 0,
