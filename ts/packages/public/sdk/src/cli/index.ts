@@ -292,11 +292,13 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 				topLevelHelpGroups,
 				topLevelOriginLabels,
 			);
-			const topLevelSegment = commandSegments(commandInfo)[0];
-			const helpGroup =
+			const commandPath = commandSegments(commandInfo);
+			const topLevelSegment = commandPath[0];
+			const topLevelHelpGroup =
 				topLevelSegment === undefined
 					? NS_EXTENSION_HELP_GROUP
 					: (topLevelHelpGroups.get(topLevelSegment) ?? NS_EXTENSION_HELP_GROUP);
+			const parentHelpGroup = commandPath.length === 1 ? topLevelHelpGroup : undefined;
 			const selectedCommand =
 				buildState.selectedCommandPath !== undefined &&
 				commandPathMatches(buildState.selectedCommandPath, commandInfo)
@@ -310,7 +312,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 					: selectedCommand;
 			const parsedCommandSpec = command === undefined ? undefined : parsedSpecForCommand(command);
 			const topLevelHelpLabel =
-				commandSegments(commandInfo).length === 1 && helpGroup === NS_EXTENSION_HELP_GROUP
+				commandPath.length === 1 && topLevelHelpGroup === NS_EXTENSION_HELP_GROUP
 					? topLevelOriginLabels.get(commandLeafName(commandInfo))
 					: undefined;
 			if (command !== undefined && parsedCommandSpec !== undefined) {
@@ -341,7 +343,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 								completionProvider: (ctx: NsCliContext, request: ClinkrDynamicCompletionRequest) =>
 									parsedCommandSpec.completionProvider?.(ctx.context, request) ?? [],
 							}),
-					helpGroup,
+					...optionalEntry("helpGroup", parentHelpGroup),
 					handler: async (ctx, request) => {
 						try {
 							return validateCommandExit(
@@ -368,7 +370,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 								positionals: { argv: { position: 0 } },
 								shouldPassThrough: true,
 							}),
-					...optionalEntries({ helpGroup }),
+					...optionalEntry("helpGroup", parentHelpGroup),
 					...(command?.complete === undefined
 						? {}
 						: {
