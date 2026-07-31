@@ -1,4 +1,4 @@
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { Command, CommanderError, Help, Option } from "commander";
 import { z } from "zod";
 
@@ -573,7 +573,10 @@ function createContainedCommand(name: string, io: ClinkrIo): Command {
 		writeErr: (text) => {
 			io.stderr(text);
 		},
-		...(io.caps === undefined ? {} : { getOutHelpWidth: () => io.caps?.columns ?? 80 }),
+		...optionalEntry(
+			"getOutHelpWidth",
+			io.caps === undefined ? undefined : () => io.caps?.columns ?? 80,
+		),
 		getOutHasColors: () => io.canEmitAnsi === true,
 	});
 	return command;
