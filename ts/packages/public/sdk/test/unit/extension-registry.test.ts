@@ -99,8 +99,9 @@ function writeDescriptorPackage(options: {
 
 describe("extension registry", () => {
 	test.each([
-		["preinstalled", undefined, "global"],
-		["project", "npm", "project"],
+		["preinstalled", undefined, undefined],
+		["preinstalled", "package", "package"],
+		["project", "npm", "package"],
 		["project", "local", "local"],
 	] as const)(
 		"derives %s/%s candidates as %s extension origins",

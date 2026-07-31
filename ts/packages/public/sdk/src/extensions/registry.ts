@@ -657,6 +657,7 @@ async function loadSourceDevDescriptorCandidates(options: {
 			descriptor: loaded.value.descriptor,
 			sourceLevel: "preinstalled",
 			sourceLabel: `source-dev descriptor ${spec}`,
+			sourceKind: "package",
 		}),
 	};
 }

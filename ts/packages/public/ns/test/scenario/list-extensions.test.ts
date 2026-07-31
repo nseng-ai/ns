@@ -55,6 +55,11 @@ function fixture(
 			path?: string;
 		}[];
 		artifactSummaries?: readonly ArtifactProvisioningStatusSummary[];
+		installedPackages?: readonly {
+			packageName: string;
+			packageVersion?: string;
+			moduleRoot?: string;
+		}[];
 	} = {},
 ): {
 	context: ExtensionListContext;
@@ -85,6 +90,9 @@ function fixture(
 			files,
 			declaredExtensions,
 			artifactProvisioningStatus: artifacts,
+			installedExtensionPackages: {
+				list: () => options.installedPackages ?? [],
+			},
 		},
 	};
 }
@@ -113,6 +121,94 @@ describe("listExtensions", () => {
 			errorType: "ns-extension-list-repository-failed",
 			data: { diagnostics: [{ code: "repo-root-failed", message: "git failed" }] },
 		});
+	});
+
+	it("includes installed package extensions that are not declared in ns.toml", async () => {
+		const { context, declaredExtensions, artifacts } = fixture({
+			nsToml: 'supported_harnesses = ["pi"]\nextensions = []\n',
+			installedPackages: [
+				{
+					packageName: "@nseng-ai/flow",
+					packageVersion: "0.1.4",
+					moduleRoot: "/workspace/ts/packages/incubating/extensions/flow",
+				},
+				{ packageName: "@nseng-ai/slots", packageVersion: "0.1.4" },
+			],
+		});
+
+		await expect(listExtensions(context, { cwd: "/repo" })).resolves.toEqual({
+			type: "ok",
+			data: {
+				repoRoot: "/repo",
+				configPath: "/repo/ns.toml",
+				extensions: [
+					{
+						sourceSpec: "@nseng-ai/flow",
+						sourceKind: "package",
+						packageName: "@nseng-ai/flow",
+						packageVersion: "0.1.4",
+						moduleRoot: "/workspace/ts/packages/incubating/extensions/flow",
+						acquisitionStatus: "installed",
+						artifactStatus: "none",
+						artifactCount: 0,
+						affectedArtifactCount: 0,
+						diagnostics: [],
+					},
+					{
+						sourceSpec: "@nseng-ai/slots",
+						sourceKind: "package",
+						packageName: "@nseng-ai/slots",
+						packageVersion: "0.1.4",
+						acquisitionStatus: "installed",
+						artifactStatus: "none",
+						artifactCount: 0,
+						affectedArtifactCount: 0,
+						diagnostics: [],
+					},
+				],
+			},
+		});
+		expect(declaredExtensions.calls()).toEqual([]);
+		expect(artifacts.inspectCalls()).toEqual([]);
+	});
+
+	it("shows a declared extension once with its declaration-specific status", async () => {
+		const record = descriptor({
+			spec: "./extensions/flow",
+			packageName: "@nseng-ai/flow",
+			version: "2.0.0",
+		});
+		const { context } = fixture({
+			nsToml: 'supported_harnesses = ["pi"]\nextensions = ["./extensions/flow"]\n',
+			installedPackages: [{ packageName: "@nseng-ai/flow" }],
+			descriptors: [record],
+			artifactSummaries: [
+				{
+					moduleRoot: record.moduleRoot,
+					artifactStatus: "provisioned",
+					artifactCount: 1,
+					affectedArtifactCount: 0,
+					diagnostics: [],
+				},
+			],
+		});
+
+		const result = await listExtensions(context, { cwd: "/repo" });
+		if (result.type !== "ok") throw new Error("expected successful inventory");
+		expect(result.data.extensions).toEqual([
+			{
+				sourceSpec: "./extensions/flow",
+				sourceKind: "local",
+				packageName: "@nseng-ai/flow",
+				packageVersion: "2.0.0",
+				moduleRoot: record.moduleRoot,
+				acquisitionStatus: "installed",
+				artifactStatus: "provisioned",
+				artifactCount: 1,
+				affectedArtifactCount: 0,
+				diagnostics: [],
+			},
+		]);
 	});
 
 	it.each([
@@ -407,7 +503,7 @@ describe("listExtensions", () => {
 				configPath: "/repo/ns.toml",
 				extensions: [],
 			}),
-		).toBe("No extensions declared in ns.toml.");
+		).toBe("No extensions installed or declared in ns.toml.");
 		const record = descriptor({ spec: "./extension" });
 		const result = await listExtensions(
 			fixture({
