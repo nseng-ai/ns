@@ -307,6 +307,7 @@ function fakeCompletionRegistry(
 				})),
 				diagnostics: [],
 				extensionPackageNames: options.extensionPackageNames ?? new Set(),
+				builtInPackageNames: new Set(),
 			};
 		},
 		async loadSelectedCommand(candidate) {

@@ -39,7 +39,7 @@ export interface NsExtensionApi {
 	homeDir?: string;
 	/** Whether an extension package is present in the effective ns extension registry. */
 	hasExtension(packageName: string): boolean;
-	/** Package identities present in the effective ns extension registry, when provided by the host. */
+	/** User-manageable extension package identities present in the effective registry, when provided. */
 	readonly installedExtensionPackageNames?: readonly string[];
 	/** Low-level argv execution hook. Project commands own the exact commands they run. */
 	exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult>;

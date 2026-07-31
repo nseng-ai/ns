@@ -19,6 +19,7 @@ export interface ExtensionDescriptorToPreinstalledCatalogOptions {
 
 export interface PreinstalledNsExtensionRegistration extends ExtensionDescriptorToPreinstalledCatalogOptions {
 	readonly packageName: string;
+	readonly userFacingKind: "built-in" | "extension";
 	readonly descriptor: ExtensionDescriptor;
 }
 
@@ -30,6 +31,9 @@ export function preinstalledNsCommandCatalogFromRegistrations(
 			extensionDescriptorToPreinstalledCatalog(registration.descriptor, registration),
 		),
 		extensionPackageNames: registrations.map((registration) => registration.packageName),
+		builtInPackageNames: registrations
+			.filter((registration) => registration.userFacingKind === "built-in")
+			.map((registration) => registration.packageName),
 	};
 }
 

@@ -75,8 +75,9 @@ function preinstalledEntry(group: string, name: string, moduleSpecifier: string)
 function preinstalledCatalog<T>(
 	entries: readonly T[],
 	extensionPackageNames: readonly string[] = [],
+	builtInPackageNames: readonly string[] = [],
 ) {
-	return { entries, extensionPackageNames };
+	return { entries, extensionPackageNames, builtInPackageNames };
 }
 
 function writeDescriptorPackage(options: {
@@ -192,6 +193,7 @@ describe("extension registry", () => {
 		const catalog = preinstalledNsCommandCatalogFromRegistrations([
 			{
 				packageName: "@example/commands",
+				userFacingKind: "extension",
 				descriptor: {
 					description: "Example commands.",
 					entries: [
@@ -213,6 +215,7 @@ describe("extension registry", () => {
 			},
 			{
 				packageName: "@example/commandless-provider",
+				userFacingKind: "built-in",
 				descriptor: { description: "Commandless provider." },
 				displayPath: "@example/commandless-provider/ns-extension",
 			},
@@ -222,6 +225,7 @@ describe("extension registry", () => {
 			"@example/commands",
 			"@example/commandless-provider",
 		]);
+		expect(catalog.builtInPackageNames).toEqual(["@example/commandless-provider"]);
 		expect(catalog.entries).toEqual([
 			expect.objectContaining({
 				name: "scan",
@@ -229,6 +233,24 @@ describe("extension registry", () => {
 				displayPath: "@example/commands/ns-extension#scan",
 			}),
 		]);
+	});
+
+	test("built-in registration packages remain present without becoming installed extensions", async () => {
+		const catalog = preinstalledNsCommandCatalogFromRegistrations([
+			{
+				packageName: "@example/internal-architecture",
+				userFacingKind: "built-in",
+				descriptor: { description: "Distribution functionality." },
+				displayPath: "@example/internal-architecture/ns-extension",
+			},
+		]);
+		const loaded = await loadNsCommandCatalog({
+			cwd: "/outside/source-checkout",
+			preinstalledCommandCatalog: () => catalog,
+		});
+
+		expect(loaded.extensionPackageNames.has("@example/internal-architecture")).toBe(true);
+		expect(loaded.builtInPackageNames.has("@example/internal-architecture")).toBe(true);
 	});
 
 	test("catalog contains only built-ins without external extensions", async () => {

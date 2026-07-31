@@ -31,6 +31,26 @@ describe("preinstalled command loading host integration", () => {
 		expect(run.execCalls).toEqual([]);
 	});
 
+	test.each([
+		["extension", "install", "list"],
+		["skills", "install", "list"],
+	])(
+		"renders %s namespace commands without root category headings",
+		async (namespace, ...commands) => {
+			const run = await runNsCliWithFakeContext([namespace, "--help"]);
+
+			expect(run.exit).toBe(0);
+			expect(run.stdout).toContain("Commands:");
+			expect(run.stdout).not.toContain("Built-ins:");
+			expect(run.stdout).not.toContain("Extensions:");
+			for (const command of commands) {
+				expect(run.stdout).toMatch(new RegExp(`^  ${command}(?:\\||\\s|$)`, "m"));
+			}
+			expect(run.stderr).toBe("");
+			expect(run.execCalls).toEqual([]);
+		},
+	);
+
 	test("loads init help metadata from ns-init", async () => {
 		const run = await runNsCliWithFakeContext(["init", "--help"]);
 

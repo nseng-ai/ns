@@ -15,6 +15,7 @@ export interface TestNsCliCommandRegistration {
 export interface TestNsCliExtensionRegistryOptions {
 	readonly commands: readonly TestNsCliCommandRegistration[];
 	readonly extensionPackageNames?: readonly string[];
+	readonly builtInPackageNames?: readonly string[];
 	readonly sourceLabel?: string;
 }
 
@@ -49,6 +50,7 @@ export function createTestNsCliExtensionRegistry(
 			commandInfos: [...candidates.values()].map(toCommandCliInfo),
 			diagnostics: [],
 			extensionPackageNames: new Set(options.extensionPackageNames ?? []),
+			builtInPackageNames: new Set(options.builtInPackageNames ?? []),
 		}),
 		loadSelectedCommand: async (candidate) => {
 			const key = commandKey(candidate);

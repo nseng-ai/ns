@@ -32,9 +32,12 @@ describe("checked-in Objective ns extension loading", () => {
 			expect(await help.exit).toBe(0);
 			const output = help.stdout.join("");
 			expect(output).toContain("Usage: ns objective");
-			expect(output).toContain("list");
-			expect(output).toContain("show");
-			expect(output).toContain("check");
+			expect(output).toContain("Commands:");
+			expect(output).not.toContain("Built-ins:");
+			expect(output).not.toContain("Extensions:");
+			expect(output).toMatch(/^  list(?:\||\s|$)/m);
+			expect(output).toMatch(/^  show(?:\s|$)/m);
+			expect(output).toMatch(/^  check(?:\s|$)/m);
 			expect(output).not.toContain("read-objective");
 			expect(output).not.toContain("tracking-gate");
 			expect(help.stderr.join("")).toBe("");

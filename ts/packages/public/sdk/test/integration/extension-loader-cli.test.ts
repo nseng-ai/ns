@@ -138,6 +138,7 @@ export default {
 					},
 				],
 				extensionPackageNames: [],
+				builtInPackageNames: [],
 			}),
 		});
 
@@ -171,6 +172,7 @@ export default {
 					},
 				],
 				extensionPackageNames: [],
+				builtInPackageNames: [],
 			}),
 		});
 
@@ -205,6 +207,7 @@ export default {
 					},
 				],
 				extensionPackageNames: [],
+				builtInPackageNames: [],
 			}),
 		});
 

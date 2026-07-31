@@ -37,7 +37,7 @@ The SDK accepts an injected preinstalled command catalog derived from descriptor
 - selected-command help, JSON schema, and execution import only the selected command module;
 - the owning package remains responsible for domain behavior, prompts, gateways, and presentation policy.
 
-This keeps the SDK generic while allowing an installed CLI to bundle a reusable catalog.
+This keeps the SDK generic while allowing an installed CLI to bundle a reusable catalog. Registrations also classify their package as a user-facing built-in or extension. Built-ins may use the extension architecture internally, but the host excludes them from the user-manageable installed-extension inventory.
 
 ## Loading behavior
 

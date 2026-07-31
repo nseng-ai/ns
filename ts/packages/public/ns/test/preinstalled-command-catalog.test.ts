@@ -25,6 +25,10 @@ describe("preinstalled ns command catalog", () => {
 			"@nseng-ai/ns",
 			"@nseng-ai/ns",
 		]);
+		expect(preinstalledExtensionRegistrations.map(({ userFacingKind }) => userFacingKind)).toEqual([
+			"built-in",
+			"built-in",
+		]);
 		expect(preinstalledExtensionRegistrations.map(({ displayPath }) => displayPath)).toEqual([
 			"@nseng-ai/ns/init/ns-extension",
 			"@nseng-ai/ns/harness-artifacts/ns-extension",
@@ -35,6 +39,7 @@ describe("preinstalled ns command catalog", () => {
 		const catalog = loadPreinstalledNsCommandCatalog();
 
 		expect(catalog.extensionPackageNames).toEqual(["@nseng-ai/ns", "@nseng-ai/ns"]);
+		expect(catalog.builtInPackageNames).toEqual(["@nseng-ai/ns", "@nseng-ai/ns"]);
 		expect(catalog.entries.map(({ path }) => path?.join("/"))).toEqual(expectedPaths);
 		expect(
 			catalog.entries.map((entry) => ("displayPath" in entry ? entry.displayPath : undefined)),

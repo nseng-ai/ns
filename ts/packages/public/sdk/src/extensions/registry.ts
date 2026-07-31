@@ -56,12 +56,14 @@ export interface NsCommandCatalog {
 	commandInfos: readonly NsCommandCliInfo[];
 	diagnostics: readonly ExtensionDiagnostic[];
 	extensionPackageNames: ReadonlySet<string>;
+	builtInPackageNames: ReadonlySet<string>;
 }
 
 interface LoadedCatalogFragment {
 	readonly diagnostics: readonly ExtensionDiagnostic[];
 	readonly candidates: readonly ExtensionCommandCandidate[];
 	readonly extensionPackageNames: readonly string[];
+	readonly builtInPackageNames: readonly string[];
 }
 
 export type ExtensionCommandCandidate = BuiltInNsCommandCandidate | ExternalNsCommandCandidate;
@@ -138,6 +140,7 @@ export interface PreinstalledNsCommandLoadedCatalogEntry extends PreinstalledNsC
 export interface PreinstalledNsCommandCatalog {
 	readonly entries: readonly PreinstalledNsCommandCatalogEntry[];
 	readonly extensionPackageNames: readonly string[];
+	readonly builtInPackageNames: readonly string[];
 }
 
 export type PreinstalledNsCommandCatalogLoader = () =>
@@ -193,6 +196,7 @@ export async function loadNsCommandCatalog(
 		...preinstalledCandidates.extensionPackageNames,
 		...descriptorProjectCandidates.extensionPackageNames,
 	]);
+	const builtInPackageNames = new Set(preinstalledCandidates.builtInPackageNames);
 
 	const merged = new Map<string, ExtensionCommandCandidate>();
 	for (const source of orderedSources) {
@@ -230,6 +234,7 @@ export async function loadNsCommandCatalog(
 		commandInfos: finalCandidates.map(toCommandCliInfo),
 		diagnostics,
 		extensionPackageNames,
+		builtInPackageNames,
 	};
 }
 
@@ -423,6 +428,7 @@ async function loadProjectDescriptorCandidates(cwd: string): Promise<LoadedCatal
 			),
 		),
 		extensionPackageNames: loaded.descriptors.map((record) => record.packageName),
+		builtInPackageNames: [],
 		candidates: loaded.descriptors.flatMap((record) =>
 			descriptorCommandCandidates({
 				cwd,
@@ -578,7 +584,7 @@ async function loadPreinstalledCandidates(
 ): Promise<LoadedCatalogFragment> {
 	const catalog =
 		catalogLoader === undefined
-			? { entries: [], extensionPackageNames: [] }
+			? { entries: [], extensionPackageNames: [], builtInPackageNames: [] }
 			: await catalogLoader();
 	const catalogCandidates = catalog.entries.map(preinstalledCandidateForCatalogEntry);
 	const sourceDevCandidates = await loadSourceDevPreinstalledCandidates(
@@ -594,6 +600,7 @@ async function loadPreinstalledCandidates(
 			...catalog.extensionPackageNames,
 			...sourceDevCandidates.extensionPackageNames,
 		],
+		builtInPackageNames: catalog.builtInPackageNames,
 	};
 }
 
@@ -615,7 +622,7 @@ async function loadSourceDevPreinstalledCandidates(
 			...descriptor.candidates.filter((candidate) => !catalogKeys.has(commandKey(candidate))),
 		);
 	}
-	return { diagnostics, candidates, extensionPackageNames };
+	return { diagnostics, candidates, extensionPackageNames, builtInPackageNames: [] };
 }
 
 async function loadSourceDevDescriptorCandidates(options: {
@@ -651,6 +658,7 @@ async function loadSourceDevDescriptorCandidates(options: {
 	return {
 		diagnostics: [],
 		extensionPackageNames: [loaded.value.packageName],
+		builtInPackageNames: [],
 		candidates: descriptorCommandCandidates({
 			cwd: options.cwd,
 			spec,
@@ -762,7 +770,7 @@ function preinstalledCatalogEntryCommandInfo(
 function emptyLoadedCatalogFragment(
 	diagnostics: readonly ExtensionDiagnostic[] = [],
 ): LoadedCatalogFragment {
-	return { diagnostics, candidates: [], extensionPackageNames: [] };
+	return { diagnostics, candidates: [], extensionPackageNames: [], builtInPackageNames: [] };
 }
 
 function withDefaultPreinstalledHelpGroup(

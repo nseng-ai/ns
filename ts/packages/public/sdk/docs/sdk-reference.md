@@ -436,7 +436,7 @@ interface NsExtensionApi {
 - `env` — environment visible to the command and to shell execution.
 - `homeDir?` — compatibility ingress for a host-resolved user home. Command packages should convert it into their own domain contexts; it is not the owner of harness path semantics or XDG discovery policy.
 - `hasExtension(packageName)` — reports whether the exact extension package name is present in the effective registry. It reads the same registry package-name fact used by `requiresExtension`.
-- `installedExtensionPackageNames?` — sorted package identities present in the effective registry when the host exposes enumeration. Host-owned commands use this to inventory package-backed extensions without reimplementing registry discovery.
+- `installedExtensionPackageNames?` — sorted user-manageable extension package identities present in the effective registry when the host exposes enumeration. Distribution-owned built-ins are excluded even when they use the extension architecture internally.
 - `exec(command, args, options?)` — low-level argv execution. The command owns exactly which programs it runs. Returns an `ExecResult`.
 - `textGenerator` — the text-generation capability; see [Text generation](#text-generation). The command owns its prompts, validation, and repair policy.
 - `commandIo` — required higher-level human command-output service. Command authors can call `ctx.commandIo.phase(...)`, `ctx.commandIo.notify(...)`, `ctx.commandIo.message(...)`, and `ctx.commandIo.clearPhase()` for host-adapted progress and notifications.

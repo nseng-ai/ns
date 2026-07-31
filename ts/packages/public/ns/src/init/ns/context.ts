@@ -38,9 +38,7 @@ export function createNsInitContext(
 		artifactProvisioningStatus: new RealArtifactProvisioningStatusGateway(),
 		installedExtensionPackages: {
 			list: () =>
-				(ctx.installedExtensionPackageNames ?? [])
-					.filter((packageName) => packageName !== "@nseng-ai/ns")
-					.map((packageName) => ({ packageName })),
+				(ctx.installedExtensionPackageNames ?? []).map((packageName) => ({ packageName })),
 		},
 		...(ctx.outputFormat === "human"
 			? { lifecycleTrace: { emit: (line: string) => ctx.commandIo.phase(line) } }

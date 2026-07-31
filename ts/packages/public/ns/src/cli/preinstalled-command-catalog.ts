@@ -29,12 +29,14 @@ function builtInTopLevelHelpGroup(segments: readonly string[]): string | undefin
 export const preinstalledExtensionRegistrations = [
 	{
 		packageName: "@nseng-ai/ns",
+		userFacingKind: "built-in",
 		descriptor: nsInitExtension,
 		displayPath: "@nseng-ai/ns/init/ns-extension",
 		entryHelpGroup: (_entry, segments) => builtInTopLevelHelpGroup(segments),
 	},
 	{
 		packageName: "@nseng-ai/ns",
+		userFacingKind: "built-in",
 		descriptor: harnessArtifactsExtension,
 		displayPath: "@nseng-ai/ns/harness-artifacts/ns-extension",
 		entryHelpGroup: (_entry, segments) => builtInTopLevelHelpGroup(segments),
