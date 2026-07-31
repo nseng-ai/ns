@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { describe, expect, test } from "vitest";
 
-import { commandKey } from "../../src/extensions/command-registry.ts";
+import { commandKey, type NsCommandSourceKind } from "../../src/extensions/command-registry.ts";
 import type { NsCliDeps } from "../../src/cli/index.ts";
 import type {
 	ExtensionCommandCandidate,
@@ -349,11 +349,11 @@ function fakeCompletionRegistry(
 function commandPathFields(path: {
 	group?: string;
 	segments?: readonly string[];
-	sourceKind?: "local" | "npm";
+	sourceKind?: NsCommandSourceKind;
 }): {
 	group?: string;
 	segments?: readonly string[];
-	sourceKind?: "local" | "npm";
+	sourceKind?: NsCommandSourceKind;
 } {
 	return {
 		...(path.group === undefined ? {} : { group: path.group }),

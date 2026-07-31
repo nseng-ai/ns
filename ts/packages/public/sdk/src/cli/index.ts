@@ -19,7 +19,7 @@ import {
 	type DefineCliOptions,
 } from "@nseng-ai/foundation/cli-runtime";
 import { optionalEntries, optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
-import { dim, paint } from "@nseng-ai/foundation/cli-theme";
+import { paint } from "@nseng-ai/foundation/cli-theme";
 
 import {
 	buildNsCompletionScript,
@@ -563,6 +563,9 @@ async function buildNsCliContext(options: {
 		outputFormat: clinkrFormatFromArgs(options.args),
 		exec: baseContext.exec.bind(baseContext),
 		hasExtension: (packageName) => options.extensionPackageNames.has(packageName),
+		installedExtensionPackageNames: [...options.extensionPackageNames].sort((left, right) =>
+			left.localeCompare(right),
+		),
 		stdout: options.stdout,
 		stderr: options.stderr,
 		stdin,
@@ -872,9 +875,8 @@ function helpOrderKey(
 }
 
 const ORIGIN_PRECEDENCE: Readonly<Record<NsCommandOriginKind, number>> = {
-	global: 0,
-	project: 1,
-	local: 2,
+	package: 0,
+	local: 1,
 };
 
 function resolveTopLevelOriginLabels(
@@ -912,12 +914,11 @@ function styleOriginLabel(
 	origin: NsCommandOriginKind,
 	renderCapabilities: RenderCapabilities | undefined,
 ): string {
-	const letter = origin === "global" ? "g" : origin === "project" ? "p" : "l";
+	const letter = origin === "package" ? "p" : "l";
 	if (renderCapabilities?.canEmitAnsi !== true) return letter;
 	const caps = renderCapabilities.caps;
-	if (origin === "global") return dim(letter);
 	if (caps === undefined) return letter;
-	return paint(caps, origin === "project" ? "accent" : "warn", letter);
+	return paint(caps, origin === "package" ? "accent" : "warn", letter);
 }
 
 function resolveTopLevelHelpGroups(

@@ -25,7 +25,7 @@ Injected metadata for first-party extension commands shipped with an installed C
 *Avoid*: privileged built-in, SDK-owned command, reason to bypass the SDK boundary, automatic destination for repo-specific policy.
 
 **Extension origin marker**:
-The lowercase bare letter right-aligned on each top-level `Extensions:` help row: `g` for a distribution-supplied Preinstalled descriptor catalog contribution (including source-development discovery standing in for the installed distribution), `p` for a Project descriptor extension declared with an `npm:` source, and `l` for one declared by a repo-local path. The marker reports effective runtime acquisition origin after Catalog precedence; a namespace with winning contributions from several origins displays the highest-precedence origin present (`l` over `p` over `g`). It is distinct from internal catalog source levels, declaration source kind, and package Release disposition.
+The optional lowercase bare letter right-aligned on a top-level `Extensions:` help row: `p` for an installed package contribution (including source-development workspace packages and Project descriptor extensions declared with an `npm:` source), and `l` for one declared by a repo-local path. Distribution-supplied Preinstalled descriptor catalog contributions have no marker. A marked namespace reports effective runtime acquisition origin after Catalog precedence; a namespace with winning package and local contributions displays `l`. It is distinct from internal catalog source levels, declaration source kind, and package Release disposition.
 *Avoid*: package disposition marker, complete provenance inventory, overridden-origin marker, built-in marker, help legend.
 
 **Project descriptor extension**:

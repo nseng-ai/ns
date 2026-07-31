@@ -18,11 +18,11 @@ import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts
 
 export type NsCommandSourceLevel = "built-in" | "preinstalled" | "project";
 
-/** How a project extension was declared: a repo-local path or an installed npm package. */
-export type NsCommandSourceKind = "local" | "npm";
+/** How an extension entered the runtime: a local path, npm declaration, or local package environment. */
+export type NsCommandSourceKind = "local" | "npm" | "package";
 
 /** Effective runtime acquisition origin presented in top-level extension help. */
-export type NsCommandOriginKind = "global" | "project" | "local";
+export type NsCommandOriginKind = "package" | "local";
 
 export interface NsCommandPath {
 	group?: string;
@@ -207,9 +207,9 @@ function extensionOriginKind(
 	sourceKind: NsCommandSourceKind | undefined,
 ): NsCommandOriginKind | undefined {
 	if (sourceLevel === "built-in") return undefined;
-	if (sourceLevel === "preinstalled") return "global";
-	if (sourceKind === "npm") return "project";
+	if (sourceKind === "npm" || sourceKind === "package") return "package";
 	if (sourceKind === "local") return "local";
+	if (sourceLevel === "preinstalled") return undefined;
 	throw new Error("Project ns command candidate is missing its declaration source kind.");
 }
 

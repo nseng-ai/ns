@@ -107,7 +107,7 @@ export default {
 		expect(run.context.execCalls).toEqual([]);
 	});
 
-	test("marks global, project-package, and local-path extension rows by effective origin", async () => {
+	test("marks package and local-path extension rows but not catalog rows", async () => {
 		const cwd = await createEmptyProject();
 		writeFileSyncWithParents(
 			join(cwd, "ns.toml"),
@@ -143,10 +143,10 @@ export default {
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(helpRow(help, "Extensions:", "global-tool")).toMatch(/g$/);
+		expect(helpRow(help, "Extensions:", "global-tool")).not.toMatch(/[pl]$/);
 		expect(helpRow(help, "Extensions:", "package-tool")).toMatch(/p$/);
 		expect(helpRow(help, "Extensions:", "local-tool")).toMatch(/l$/);
-		expect(helpRow(help, "Built-ins:", "extension")).not.toMatch(/[gpl]$/);
+		expect(helpRow(help, "Built-ins:", "extension")).not.toMatch(/[pl]$/);
 	});
 
 	test("an override displays only the effective winner origin", async () => {
@@ -175,7 +175,6 @@ export default {
 		const row = helpRow(run.stdout.join(""), "Extensions:", "hello");
 		expect(row).toContain("Local hello.");
 		expect(row).toMatch(/l$/);
-		expect(row).not.toMatch(/g$/);
 	});
 
 	test("mixed effective namespaces display the highest-precedence winning origin", async () => {

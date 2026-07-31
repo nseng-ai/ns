@@ -414,6 +414,7 @@ interface NsExtensionApi {
   /** Compatibility ingress; adapt into domain-specific contexts before use. */
   homeDir?: string;
   hasExtension(packageName: string): boolean;
+  readonly installedExtensionPackageNames?: readonly string[];
   exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult>;
   textGenerator: TextGenerator;
   commandIo: NsCommandIo;
@@ -434,7 +435,8 @@ interface NsExtensionApi {
 - `cwd` — repository working directory for the command's execution.
 - `env` — environment visible to the command and to shell execution.
 - `homeDir?` — compatibility ingress for a host-resolved user home. Command packages should convert it into their own domain contexts; it is not the owner of harness path semantics or XDG discovery policy.
-- `hasExtension(packageName)` — reports whether the exact extension package name is present in the effective registry. It reads the same registry package-name fact used by `requiresExtension`; the ns extension API deliberately provides no way to enumerate installed extensions.
+- `hasExtension(packageName)` — reports whether the exact extension package name is present in the effective registry. It reads the same registry package-name fact used by `requiresExtension`.
+- `installedExtensionPackageNames?` — sorted package identities present in the effective registry when the host exposes enumeration. Host-owned commands use this to inventory package-backed extensions without reimplementing registry discovery.
 - `exec(command, args, options?)` — low-level argv execution. The command owns exactly which programs it runs. Returns an `ExecResult`.
 - `textGenerator` — the text-generation capability; see [Text generation](#text-generation). The command owns its prompts, validation, and repair policy.
 - `commandIo` — required higher-level human command-output service. Command authors can call `ctx.commandIo.phase(...)`, `ctx.commandIo.notify(...)`, `ctx.commandIo.message(...)`, and `ctx.commandIo.clearPhase()` for host-adapted progress and notifications.

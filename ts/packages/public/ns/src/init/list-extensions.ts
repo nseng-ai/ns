@@ -23,7 +23,7 @@ import {
 	normalizeExtensionDiagnostic,
 } from "./diagnostic-collection.ts";
 
-const extensionSourceKindSchema = z.enum(["npm", "local", "git", "unsupported"]);
+const extensionSourceKindSchema = z.enum(["package", "npm", "local", "git", "unsupported"]);
 const extensionAcquisitionStatusSchema = z.enum(["installed", "missing", "invalid"]);
 const extensionArtifactStatusSchema = z.enum([
 	"none",
@@ -43,7 +43,7 @@ export const extensionListDiagnosticSchema = z.object({
 });
 
 export const extensionListRowSchema = z.object({
-	sourceSpec: z.string().describe("Exact source spec from ns.toml, in declaration order."),
+	sourceSpec: z.string().describe("Installed package identity or exact source spec from ns.toml."),
 	sourceKind: extensionSourceKindSchema,
 	packageName: z.string().optional(),
 	packageVersion: z.string().optional(),
@@ -78,11 +78,22 @@ export interface ListExtensionsRequest {
 }
 export type ListExtensionsResult = z.infer<typeof listExtensionsResultSchema>;
 
+export interface InstalledExtensionPackage {
+	readonly packageName: string;
+	readonly packageVersion?: string;
+	readonly moduleRoot?: string;
+}
+
+export interface InstalledExtensionPackagesGateway {
+	list(): readonly InstalledExtensionPackage[];
+}
+
 export interface ExtensionListContext {
 	readonly git: Pick<GitGateway, "optionalRepoRoot">;
 	readonly files: Pick<ActivationFilesGateway, "readActivationFile">;
 	readonly declaredExtensions: DeclaredExtensionsGateway;
 	readonly artifactProvisioningStatus: ArtifactProvisioningStatusGateway;
+	readonly installedExtensionPackages: InstalledExtensionPackagesGateway;
 }
 
 class ExtensionListRowAccumulator {
@@ -199,8 +210,11 @@ export async function listExtensions(
 
 	const repoRoot = repository.value;
 	const configPath = join(repoRoot, "ns.toml");
+	const installedRows = context.installedExtensionPackages.list().map(createInstalledPackageRow);
 	const config = await context.files.readActivationFile({ repoRoot, file: "ns-toml" });
-	if (config.type === "missing") return ok({ repoRoot, configPath, extensions: [] });
+	if (config.type === "missing") {
+		return ok({ repoRoot, configPath, extensions: installedRows.map((row) => row.finalize()) });
+	}
 	if (config.type === "not-file") {
 		return extensionListConfigFailure({
 			code: "ns-toml-not-file",
@@ -221,20 +235,31 @@ export async function listExtensions(
 		return extensionListConfigFailure({ ...parsedHarnesses.error, path: configPath });
 	}
 	const sourceSpecs = parsedExtensions.type === "missing" ? [] : parsedExtensions.extensions;
-	if (sourceSpecs.length === 0) return ok({ repoRoot, configPath, extensions: [] });
+	if (sourceSpecs.length === 0) {
+		return ok({ repoRoot, configPath, extensions: installedRows.map((row) => row.finalize()) });
+	}
 
-	const rows = sourceSpecs.map((sourceSpec) => createRowSkeleton(repoRoot, sourceSpec));
+	const rows = [
+		...installedRows,
+		...sourceSpecs.map((sourceSpec) => createRowSkeleton(repoRoot, sourceSpec)),
+	];
 	const loaded = await context.declaredExtensions.load({ repoRoot, specs: sourceSpecs });
 	attachDescriptorDiagnostics(rows, loaded.diagnostics);
 	attachLoadedDescriptors(rows, loaded.descriptors);
 	markRowsWithoutDescriptorEvidence(rows);
 
+	const declaredPackageNames = new Set(
+		loaded.descriptors.map((descriptor) => descriptor.packageName),
+	);
+	const visibleRows = rows.filter(
+		(row) => row.sourceKind !== "package" || !declaredPackageNames.has(row.sourceSpec),
+	);
 	const installedDescriptors = loaded.descriptors.filter((descriptor) =>
 		rows.some((row) => row.sourceSpec === descriptor.spec && row.acquisitionStatus === "installed"),
 	);
 	if (parsedHarnesses.type === "missing") {
-		for (const row of rows) {
-			if (row.acquisitionStatus !== "installed") continue;
+		for (const row of visibleRows) {
+			if (row.sourceKind === "package" || row.acquisitionStatus !== "installed") continue;
 			row.markArtifactUnavailable({
 				code: "supported-harnesses-missing",
 				message:
@@ -254,7 +279,28 @@ export async function listExtensions(
 	return ok({
 		repoRoot,
 		configPath,
-		extensions: rows.map((row) => row.finalize()),
+		extensions: visibleRows.map((row) => row.finalize()),
+	});
+}
+
+function createInstalledPackageRow(
+	installedPackage: InstalledExtensionPackage,
+): ExtensionListRowAccumulator {
+	return new ExtensionListRowAccumulator({
+		sourceSpec: installedPackage.packageName,
+		sourceKind: "package",
+		packageName: installedPackage.packageName,
+		...(installedPackage.packageVersion === undefined
+			? {}
+			: { packageVersion: installedPackage.packageVersion }),
+		...(installedPackage.moduleRoot === undefined
+			? {}
+			: { moduleRoot: installedPackage.moduleRoot }),
+		acquisitionStatus: "installed",
+		artifactStatus: "none",
+		artifactCount: 0,
+		affectedArtifactCount: 0,
+		diagnostics: [],
 	});
 }
 
@@ -405,7 +451,7 @@ function extensionListConfigFailure(diagnostic: {
 }
 
 export function renderListExtensionsHuman(result: ListExtensionsResult): string {
-	if (result.extensions.length === 0) return "No extensions declared in ns.toml.";
+	if (result.extensions.length === 0) return "No extensions installed or declared in ns.toml.";
 	const table = renderTextTable({
 		columns: [
 			{ header: "SOURCE" },
