@@ -37,7 +37,7 @@ An implementation module under `ts/packages/incubating/hosts/pi/runtime/pi-runti
 *Avoid*: neutral helper, package facade, public npm API.
 
 **Herdr Pi host adapter**:
-The `@nseng-ai/pi-ns-herdr` package presents Herdr's resource-first space and tab operations plus `/ns:herdr:impl:prompt:space`, `/ns:herdr:impl:session:space`, `/ns:herdr:impl:plan:space`, and `/ns:herdr:impl:plan:tab`. It owns Pi registration, interaction, presentation, and launch-command construction while consuming resource mechanics through `@nseng-ai/herdr/api`; the session command asks the active session for a directed summary turn, loads the result as an editable prompt command, and does not submit it. Prepared Herdr Launch remains extension-owned destination/process startup mechanics; Handoff launch composes the narrow Handoffs host interface.
+The `@nseng-ai/pi-ns-herdr` package presents the twelve-entry Herdr catalog: eleven base space/tab operations plus optional `/ns:herdr:tab:handoff`. Prompt, session, and Saved Plan implementation are symmetric across space and tab destinations; the two session commands share one pending coordinator, ask the active session for a visible directed-summary turn, and prefill the matching prompt command without submitting or mutating state. It owns Pi registration, interaction, presentation, and launch-command construction while consuming resource mechanics through `@nseng-ai/herdr/api`; Prepared Herdr Launch remains extension-owned destination/process startup mechanics, and Handoff launch composes the narrow Handoffs host interface.
 *Avoid*: Pi code in `@nseng-ai/herdr`, generic Internal Pi-tool package, implementation commands under `/ns:herdr:launch:*`.
 
 **Pi command namespace**:

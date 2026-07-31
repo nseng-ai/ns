@@ -88,6 +88,7 @@ export interface FakeCommandContextOptions {
 	onWaitForIdle?: () => void;
 	selectIndices?: number[];
 	shouldCancelSelect?: boolean;
+	shouldHaveEditor?: boolean;
 	branchEntries?: PiSessionEntry[];
 }
 
@@ -318,9 +319,13 @@ export class FakeCommandContext implements CommandContext {
 			addAutocompleteProvider: (factory) => {
 				this.autocompleteProviders.push(factory);
 			},
-			setEditorText: (value) => {
-				this.editorTexts.push(value);
-			},
+			...(options.shouldHaveEditor === false
+				? {}
+				: {
+						setEditorText: (value: string) => {
+							this.editorTexts.push(value);
+						},
+					}),
 		};
 	}
 
