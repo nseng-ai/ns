@@ -44,6 +44,7 @@ export function extensionDescriptorToPreinstalledCatalog(
 			segments: descriptor.group === undefined ? [] : [descriptor.group],
 			hiddenAncestorKeys: [],
 			displayPath: options.displayPath,
+			rootGroupDescription: descriptor.description,
 			helpGroup: options.helpGroup ?? NS_EXTENSION_HELP_GROUP,
 			...optionalEntry("entryHelpGroup", options.entryHelpGroup),
 		}),
@@ -56,6 +57,7 @@ function descriptorEntryToPreinstalledCatalog(options: {
 	segments: readonly string[];
 	hiddenAncestorKeys: readonly string[];
 	displayPath: string;
+	rootGroupDescription: string;
 	helpGroup?: string;
 	entryHelpGroup?: (entry: ExtensionEntry, segments: readonly string[]) => string | undefined;
 }): readonly PreinstalledNsCommandCatalogEntry[] {
@@ -75,8 +77,8 @@ function descriptorEntryToPreinstalledCatalog(options: {
 				...(rootGroup === undefined
 					? {}
 					: options.segments.length === 1
-						? { group: rootGroup, groupDescription: options.descriptor.description }
-						: { groupDescription: options.descriptor.description }),
+						? { group: rootGroup, groupDescription: options.rootGroupDescription }
+						: { groupDescription: options.rootGroupDescription }),
 				...optionalEntry("path", segments),
 				...optionalEntry("hiddenAncestorKeys", options.hiddenAncestorKeys),
 				...optionalEntry(
@@ -89,12 +91,14 @@ function descriptorEntryToPreinstalledCatalog(options: {
 			},
 		];
 	}
-	const nextState = nextDescriptorTraversalState(options.entry, options);
-	return options.entry.entries.flatMap((entry) =>
+	const groupEntry = options.entry;
+	const nextState = nextDescriptorTraversalState(groupEntry, options);
+	return groupEntry.entries.flatMap((entry) =>
 		descriptorEntryToPreinstalledCatalog({
 			...options,
 			entry,
 			...nextState,
+			...(options.segments.length === 0 ? { rootGroupDescription: groupEntry.description } : {}),
 		}),
 	);
 }

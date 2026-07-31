@@ -597,19 +597,29 @@ function configureTrailingHelpLabels(command: Command, labels: ReadonlyMap<Comma
 			}
 			const body = description.slice(0, separatorIndex);
 			const label = description.slice(separatorIndex + HELP_LABEL_SEPARATOR.length);
-			return formatLabeledHelpItem(term, termWidth, body, label, helper, defaultHelp);
+			return formatLabeledHelpItem({
+				term,
+				termWidth,
+				description: body,
+				label,
+				helper,
+				defaultHelp,
+			});
 		},
 	});
 }
 
-function formatLabeledHelpItem(
-	term: string,
-	termWidth: number,
-	description: string,
-	label: string,
-	helper: Help,
-	defaultHelp: Help,
-): string {
+interface FormatLabeledHelpItemOptions {
+	term: string;
+	termWidth: number;
+	description: string;
+	label: string;
+	helper: Help;
+	defaultHelp: Help;
+}
+
+function formatLabeledHelpItem(options: FormatLabeledHelpItemOptions): string {
+	const { term, termWidth, description, label, helper, defaultHelp } = options;
 	const helpWidth = helper.helpWidth ?? 80;
 	const labelWidth = helper.displayWidth(label);
 	const bodyHelp = Object.assign(Object.create(helper) as Help, {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { NS_BUILT_IN_HELP_GROUP, NS_EXTENSION_HELP_GROUP } from "@nseng-ai/sdk/cli";
+import { NS_BUILT_IN_HELP_GROUP } from "@nseng-ai/sdk/cli";
 
 import {
 	loadPreinstalledNsCommandCatalog,
@@ -55,7 +55,7 @@ describe("preinstalled ns command catalog", () => {
 		).toBe(true);
 	});
 
-	test("presents installation-wide commands as built-ins, groups as extensions, and excludes Objective commands", () => {
+	test("presents distribution-owned namespaces as built-ins and excludes Objective commands", () => {
 		const entries = loadPreinstalledNsCommandCatalog().entries;
 
 		expect(
@@ -77,8 +77,8 @@ describe("preinstalled ns command catalog", () => {
 			...expectedPaths.slice(1, 5).map((path) => ({
 				path,
 				group: "extension",
-				groupDescription: "Activate ns in a repository.",
-				helpGroup: NS_EXTENSION_HELP_GROUP,
+				groupDescription: "Inspect and manage ns extensions.",
+				helpGroup: NS_BUILT_IN_HELP_GROUP,
 				hiddenAncestorKeys: [],
 			})),
 			...expectedPaths.slice(5, 8).map((path) => ({
