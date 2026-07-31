@@ -11,7 +11,12 @@ import nsInitExtension from "../init/ns/extension.ts";
  * Top-level commands that ship inside the ns binary and read as part of the tool
  * itself, so help lists them under Built-ins rather than Extensions.
  */
-const BUILT_IN_TOP_LEVEL_COMMAND_NAMES: ReadonlySet<string> = new Set(["init", "skills", "update"]);
+const BUILT_IN_TOP_LEVEL_COMMAND_NAMES: ReadonlySet<string> = new Set([
+	"extension",
+	"init",
+	"skills",
+	"update",
+]);
 
 function builtInTopLevelHelpGroup(segments: readonly string[]): string | undefined {
 	const topLevelName = segments[0];

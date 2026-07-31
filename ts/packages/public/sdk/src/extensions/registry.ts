@@ -528,12 +528,14 @@ function descriptorEntryCommandCandidates(options: {
 			},
 		];
 	}
-	const nextState = nextDescriptorTraversalState(options.entry, options);
-	return options.entry.entries.flatMap((entry) =>
+	const groupEntry = options.entry;
+	const nextState = nextDescriptorTraversalState(groupEntry, options);
+	return groupEntry.entries.flatMap((entry) =>
 		descriptorEntryCommandCandidates({
 			...options,
 			entry,
 			...nextState,
+			...(options.segments.length === 0 ? { rootGroupDescription: groupEntry.description } : {}),
 		}),
 	);
 }

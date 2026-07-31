@@ -143,10 +143,13 @@ export default {
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(helpRow(help, "Extensions:", "global-tool")).not.toMatch(/[pl]$/);
+		expect(helpRow(help, "Extensions:", "global-tool")).not.toMatch(/[plg]$/);
 		expect(helpRow(help, "Extensions:", "package-tool")).toMatch(/p$/);
 		expect(helpRow(help, "Extensions:", "local-tool")).toMatch(/l$/);
-		expect(helpRow(help, "Built-ins:", "extension")).not.toMatch(/[pl]$/);
+		const extensionRow = helpRow(help, "Built-ins:", "extension");
+		expect(extensionRow).toContain("Inspect ns extension metadata.");
+		expect(extensionRow).not.toMatch(/[plg]$/);
+		expect(helpRow(help, "Extensions:", "extension")).toBeUndefined();
 	});
 
 	test("an override displays only the effective winner origin", async () => {
