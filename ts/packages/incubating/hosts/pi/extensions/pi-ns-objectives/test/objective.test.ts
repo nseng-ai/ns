@@ -1620,7 +1620,7 @@ Use the selected Objective.
 			"semantic steps remaining until Objective completion",
 		);
 		expect(result.pi.sentUserMessages[0]).toContain("next discovery/decision step");
-		expect(result.pi.sentUserMessages[0]).toContain("not elapsed time");
+		expect(result.pi.sentUserMessages[0]).toContain("never elapsed time");
 	});
 
 	test("ns:objective:next prompt preauthorizes clear tracking-gate updates", async () => {
