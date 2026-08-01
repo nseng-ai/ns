@@ -9,6 +9,7 @@ import {
 	ok,
 	type ClinkrCompletionProviderRequest,
 } from "@nseng-ai/clinkr/app";
+import { runForCliTest } from "@nseng-ai/clinkr/app/testing";
 import { defineRawCommand } from "@nseng-ai/clinkr/raw";
 
 function command(options: {
@@ -70,6 +71,74 @@ function completionApp(
 	);
 }
 
+test("completion is optional and reserves its route only when enabled", async () => {
+	const disabled = createClinkrApp({ name: "probe" }, (composition) => {
+		composition.source({ label: "test" }, (scope) => {
+			scope.command("completion", { description: "User command." }, async () => command({}));
+		});
+	});
+	expect((await runForCliTest(disabled, ["completion"])).exitCode).toBe(0);
+
+	const enabled = createClinkrApp({ name: "probe", completion: {} }, (composition) => {
+		composition.source({ label: "test" }, (scope) => {
+			scope.command("completion", { description: "Conflict." }, async () => command({}));
+		});
+	});
+	await expect(enabled.complete({ words: [""] })).rejects.toThrow("reserved name");
+
+	const enabledAlias = createClinkrApp({ name: "probe", completion: {} }, (composition) => {
+		composition.source({ label: "test" }, (scope) => {
+			scope.command("helper", { description: "Conflict.", aliases: ["completion"] }, async () =>
+				command({}),
+			);
+		});
+	});
+	await expect(enabledAlias.complete({ words: [""] })).rejects.toThrow("reserved name");
+});
+
+test("completion routes past leading framework arguments through canonical and aliased nested routes", async () => {
+	const loads = { selected: 0, unrelated: 0 };
+	const requests: ClinkrCompletionProviderRequest[] = [];
+	const app = createClinkrApp({ name: "probe", completion: {} }, (composition) => {
+		composition.source({ label: "routing" }, (root) => {
+			root.group("nested", { description: "Nested.", aliases: ["n"] }, (nested) => {
+				nested.command("inside", { description: "Inside.", aliases: ["i"] }, () => {
+					loads.selected += 1;
+					return command({
+						provider: (request) => {
+							requests.push(request);
+							return [{ value: "three", type: "positional-value" }];
+						},
+					});
+				});
+				nested.command("unrelated", { description: "Unrelated." }, () => {
+					loads.unrelated += 1;
+					return command({});
+				});
+			});
+		});
+	});
+
+	for (const words of [
+		["--format", "json", "nested", "inside", ""],
+		["--format=json", "n", "i", ""],
+		["--input-json", "nested", "inside", ""],
+	]) {
+		expect((await app.complete({ words })).candidates.map(({ value }) => value)).toEqual([
+			"one",
+			"two",
+			"three",
+		]);
+	}
+	expect(requests).toHaveLength(3);
+	for (const request of requests) {
+		expect(request.commandPath).toEqual(["nested", "inside"]);
+		expect(request.args).toEqual([]);
+		expect(request.positionalIndex).toBe(0);
+	}
+	expect(loads).toEqual({ selected: 1, unrelated: 0 });
+});
+
 test("app completion incrementally traverses aliases and uses only selected definitions", async () => {
 	let handlers = 0;
 	const requests: ClinkrCompletionProviderRequest[] = [];
@@ -87,6 +156,11 @@ test("app completion incrementally traverses aliases and uses only selected defi
 			{ value: "pick", type: "command", description: "Choose." },
 			{ value: "raw", type: "command", description: "Raw." },
 			{ value: "nested", type: "command", description: "Nested." },
+			{
+				value: "completion",
+				type: "command",
+				description: "Generate shell completion setup.",
+			},
 		],
 	});
 	expect(
@@ -128,6 +202,7 @@ test("name completion stays definition-lazy while selected option, value, and pr
 	expect((await app.complete({ words: [""] })).candidates.map(({ value }) => value)).toEqual([
 		"alpha",
 		"beta",
+		"completion",
 	]);
 	expect(loads).toEqual({ alpha: 0, beta: 0 });
 	expect((await app.complete({ words: ["alpha", "--"] })).candidates).toContainEqual({
@@ -225,6 +300,11 @@ test("scope defaults augment children with schema and framework candidates", asy
 
 	expect((await app.complete({ words: [""] })).candidates).toEqual([
 		{ value: "one", type: "command", description: "Child one." },
+		{
+			value: "completion",
+			type: "command",
+			description: "Generate shell completion setup.",
+		},
 		{ value: "one", type: "positional-value" },
 		{ value: "two", type: "positional-value" },
 	]);
@@ -345,6 +425,9 @@ test("structured flags and exact formats are completed, while raw tails have no 
 		expect.arrayContaining(["--mode", "--format", "--json-schema", "--input-json", "--help"]),
 	);
 	expect(
+		(await app.complete({ words: ["choose", "-"] })).candidates.map((entry) => entry.value),
+	).toContain("-m");
+	expect(
 		(await app.complete({ words: ["choose", "--format", ""] })).candidates.map(
 			(entry) => entry.value,
 		),
@@ -367,4 +450,73 @@ test("provider failures preserve static candidates, notify once, and swallow obs
 	expect(result.candidates.map((entry) => entry.value)).toEqual(["one", "two"]);
 	expect(failures).toHaveLength(1);
 	expect(failures[0]).toMatchObject({ commandPath: ["choose"], request: { current: "" } });
+});
+
+test("provider failures without an observer silently preserve static candidates", async () => {
+	const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+	const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+	const app = completionApp({
+		provider: () => {
+			throw new Error("provider boom");
+		},
+	});
+	const result = await app.complete({ words: ["choose", ""] });
+	expect(result.candidates.map((entry) => entry.value)).toEqual(["one", "two"]);
+	expect(stdout).not.toHaveBeenCalled();
+	expect(stderr).not.toHaveBeenCalled();
+
+	const resolved = await runForCliTest(app, ["completion", "exec", "resolve", "--", "choose", ""]);
+	expect(resolved).toEqual({ exitCode: 0, stdout: "one\ntwo\n", stderr: "" });
+});
+
+test("completion reserves its built-in only at root and routes nested canonical names and aliases", async () => {
+	const app = createClinkrApp({ name: "probe", completion: {} }, (composition) => {
+		composition.source({ label: "nested-completion" }, (root) => {
+			root.group("nested", { description: "Nested.", aliases: ["n"] }, (nested) => {
+				nested.command("completion", { description: "Nested completion." }, () => command({}));
+				nested.command("helper", { description: "Nested helper.", aliases: ["complete"] }, () =>
+					command({}),
+				);
+			});
+		});
+	});
+
+	expect(
+		(await app.complete({ words: ["nested", ""] })).candidates.map(({ value }) => value),
+	).toEqual(["completion", "helper", "complete"]);
+	expect(
+		(await app.complete({ words: ["n", "complete", ""] })).candidates.map(({ value }) => value),
+	).toEqual(["one", "two"]);
+	expect(await runForCliTest(app, ["nested", "completion"])).toMatchObject({ exitCode: 0 });
+	expect(await runForCliTest(app, ["n", "complete"])).toMatchObject({ exitCode: 0 });
+});
+
+test("completion built-ins share navigation, render setup for every shell, and validate resolver arguments", async () => {
+	const app = completionApp();
+	const help = await runForCliTest(app, ["--help"]);
+	expect(help.stdout).toContain("completion");
+	expect(help.stdout).not.toContain("exec");
+	const completionHelp = await runForCliTest(app, ["completion", "--help"]);
+	expect(completionHelp.stdout).toContain("bash");
+	expect(completionHelp.stdout).toContain("zsh");
+	expect(completionHelp.stdout).toContain("fish");
+	for (const shell of ["bash", "zsh", "fish"] as const) {
+		const script = await runForCliTest(app, ["--format", "human", "completion", shell]);
+		expect(script.stdout).toContain("'probe' 'completion' 'exec' 'resolve' --");
+	}
+	expect(await runForCliTest(app, ["completion"])).toMatchObject({ exitCode: 2 });
+	expect(await runForCliTest(app, ["completion", "powershell"])).toMatchObject({ exitCode: 2 });
+	expect(await runForCliTest(app, ["completion", "bash", "extra"])).toMatchObject({ exitCode: 2 });
+	expect(await runForCliTest(app, ["completion", "exec", "resolve"])).toMatchObject({
+		exitCode: 2,
+	});
+	expect(await runForCliTest(app, ["completion", "exec", "resolve", "--help"])).toMatchObject({
+		exitCode: 0,
+		stdout: expect.stringContaining("Resolve completion candidates."),
+	});
+	expect(
+		await runForCliTest(app, ["completion", "exec", "resolve", "ignored", "--", "choose", ""]),
+	).toMatchObject({ exitCode: 2 });
+	const resolved = await runForCliTest(app, ["completion", "exec", "resolve", "--", "choose", ""]);
+	expect(resolved).toEqual({ exitCode: 0, stdout: "one\ntwo\n", stderr: "" });
 });

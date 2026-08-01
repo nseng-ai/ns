@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import type { OptionSpec, PositionalSpec } from "../surface.ts";
+import {
+	buildSurfacePlan,
+	type OptionSpec,
+	type PositionalSpec,
+	type SurfacePlan,
+} from "../surface.ts";
 import { buildEnvelopeSchema, type CommandOutcome } from "./outcome.ts";
 
 export interface ClinkrCommandMetadata {
@@ -75,6 +80,25 @@ export function cliPositional<TField extends z.ZodType>(
 
 export function cliAnnotationFor(field: z.ZodType): CliFieldAnnotation | undefined {
 	return cliAnnotations.get(field);
+}
+
+export function buildCommandSurfacePlan(
+	commandName: string,
+	definition: ClinkrCommandDefinition,
+): SurfacePlan {
+	const positionals: Record<string, PositionalSpec> = {};
+	const optionSpecs: Record<string, OptionSpec> = {};
+	for (const [key, field] of Object.entries(definition.schema.shape)) {
+		const annotation = cliAnnotationFor(field as z.ZodType);
+		if (annotation?.type === "positional") positionals[key] = annotation.options;
+		if (annotation?.type === "option") optionSpecs[key] = annotation.options;
+	}
+	return buildSurfacePlan({
+		commandName,
+		schema: definition.schema,
+		positionals,
+		optionSpecs,
+	});
 }
 
 export interface ClinkrCommandJsonSchemaDocument {

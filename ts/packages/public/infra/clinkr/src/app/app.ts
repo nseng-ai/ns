@@ -1,13 +1,15 @@
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { Command, CommanderError, Option } from "commander";
 import { z } from "zod";
 
 import { stripAnsi } from "../ansi.ts";
 import { resolveProcessCaps } from "../caps.ts";
 import { buildCommanderArgument, buildCommanderOption } from "../commander-surface.ts";
-import { buildSurfacePlan, type SurfacePlan } from "../surface.ts";
+import { renderCompletionCandidatesNewline } from "../completion.ts";
+import type { SurfacePlan } from "../surface.ts";
 import {
 	buildCommandJsonSchemaDocument,
-	cliAnnotationFor,
+	buildCommandSurfacePlan,
 	type ClinkrCommandDefinition,
 	type ClinkrCommandMetadata,
 	type ClinkrCompletionCandidate,
@@ -28,7 +30,7 @@ import {
 } from "./outcome.ts";
 import { ClinkrCompletionRuntime } from "./completion.ts";
 import { createFilesystemSource } from "./filesystem-source.ts";
-import { hasUnescapedHelp, parseGlobalFlags, type OutputFormat } from "./framework-arguments.ts";
+import { parseGlobalFlags, type OutputFormat } from "./framework-arguments.ts";
 import { ClinkrNavigator } from "./navigator.ts";
 import { composeSources, type ClinkrComposition } from "./programmatic-source.ts";
 import { ClinkrTopology, type OpenedScope } from "./topology.ts";
@@ -64,10 +66,12 @@ export interface ClinkrCompletionFailure {
 }
 
 export interface ContextFreeClinkrCompletionConfig {
+	/** Optional provider-failure observer; fallback to static candidates is otherwise silent. */
 	readonly onProviderError?: (failure: ClinkrCompletionFailure) => void | Promise<void>;
 }
 
 export interface ContextfulClinkrCompletionConfig<TContext> {
+	/** Optional provider-failure observer; fallback to static candidates is otherwise silent. */
 	readonly onProviderError?: (
 		context: TContext,
 		failure: ClinkrCompletionFailure,
@@ -178,7 +182,14 @@ export interface CreateComposedContextfulClinkrAppOptions<
  * it, but JavaScript and other untyped callers can; this check guarantees no
  * contextful handler or raw runner ever receives an absent context.
  */
-function requireRunContext<TContext>(options: unknown): TContext {
+function requireRunContext<TContext>(
+	options:
+		| ClinkrRunOptions<TContext>
+		| ClinkrContextFreeRunOptions
+		| ClinkrExecuteOptions<TContext>
+		| ClinkrCompleteOptions<TContext>
+		| Record<string, never>,
+): TContext {
 	if (
 		typeof options !== "object" ||
 		options === null ||
@@ -187,11 +198,18 @@ function requireRunContext<TContext>(options: unknown): TContext {
 	) {
 		throw new Error("clinkr: contextful command execution requires run options with context");
 	}
-	return options.context as TContext;
+	return options.context;
 }
 
 const SUCCESS_EXIT_CODE = exitCodeFor("success");
 const USAGE_ERROR_EXIT_CODE = exitCodeFor("usage-error");
+
+type ClinkrInvocationOptions<TContext> =
+	| ClinkrRunOptions<TContext>
+	| ClinkrContextFreeRunOptions
+	| ClinkrExecuteOptions<TContext>
+	| ClinkrCompleteOptions<TContext>
+	| Record<string, never>;
 
 type CompletionPolicy<TContext> =
 	| {
@@ -233,7 +251,9 @@ class TopologyClinkrApp<TContext> {
 	private readonly navigator: ClinkrNavigator<TContext>;
 	private readonly version: string | undefined;
 	private readonly runtimeInfo: (() => string) | undefined;
-	private readonly completion: ClinkrCompletionRuntime<TContext> | undefined;
+	private readonly completion:
+		| ClinkrCompletionRuntime<TContext, ClinkrInvocationOptions<TContext>>
+		| undefined;
 	readonly requiresContext: boolean;
 
 	constructor(options: TopologyClinkrAppOptions<TContext>) {
@@ -243,9 +263,11 @@ class TopologyClinkrApp<TContext> {
 		this.runtimeInfo = options.runtimeInfo;
 		this.navigator = new ClinkrNavigator({
 			topology: options.topology,
+			commandName: options.name,
 			requiresContext: options.requiresContext,
 			hasVersion: options.version !== undefined,
 			hasRuntime: options.runtimeInfo !== undefined,
+			hasCompletion: options.completion !== undefined,
 		});
 		const completionConfig = options.completion;
 		this.completion =
@@ -279,46 +301,37 @@ class TopologyClinkrApp<TContext> {
 			process.stdout.write(this.runtimeInfo?.() ?? "");
 			return SUCCESS_EXIT_CODE;
 		}
-		let loaded;
-		let selectedArgv: readonly string[];
-		let selectedName: string;
-		if (navigation.type === "scope") {
-			if (navigation.scope.defaultCommand === undefined) {
-				if (navigation.tail.length > 0 && !hasUnescapedHelp(navigation.tail)) {
-					process.stderr.write(
-						`clinkr: unknown route at ${[...navigation.path, ...navigation.tail].join(" ")}\n`,
-					);
-					return USAGE_ERROR_EXIT_CODE;
-				}
-				process.stdout.write(
-					await this.buildScopeHelp(
-						navigation.path,
-						navigation.scope,
-						navigation.path.length === 0,
-						navigation.definition,
-					),
-				);
-				return SUCCESS_EXIT_CODE;
-			}
-			loaded = await this.navigator.load(navigation.scope.defaultCommand);
-			selectedArgv = navigation.tail;
-			selectedName = navigation.path.at(-1) ?? this.name;
-			if (loaded.selected.kind === "structured" && hasUnescapedHelp(selectedArgv)) {
-				process.stdout.write(
-					await this.buildScopeHelp(
-						navigation.path,
-						navigation.scope,
-						navigation.path.length === 0,
-						navigation.definition,
-					),
-				);
-				return SUCCESS_EXIT_CODE;
-			}
-		} else {
-			loaded = navigation.loaded;
-			selectedArgv = navigation.tail;
-			selectedName = navigation.path.at(-1) ?? this.name;
+		if (navigation.type === "completion-script") {
+			process.stdout.write(this.navigator.renderCompletionScript(navigation.shell));
+			return SUCCESS_EXIT_CODE;
 		}
+		if (navigation.type === "completion-resolve") {
+			const result = await this.requireCompletion().complete({ words: navigation.words }, options);
+			process.stdout.write(renderCompletionCandidatesNewline(result));
+			return SUCCESS_EXIT_CODE;
+		}
+		if (navigation.type === "completion-help") {
+			process.stdout.write(this.buildCompletionHelp(navigation.path));
+			return SUCCESS_EXIT_CODE;
+		}
+		if (navigation.type === "completion-invalid") {
+			process.stderr.write(`clinkr: ${navigation.message}\n`);
+			return USAGE_ERROR_EXIT_CODE;
+		}
+		if (navigation.type === "unknown-route") {
+			process.stderr.write(
+				`clinkr: unknown route at ${[...navigation.path, ...navigation.tail].join(" ")}\n`,
+			);
+			return USAGE_ERROR_EXIT_CODE;
+		}
+		if (navigation.type === "scope-help") {
+			process.stdout.write(
+				await this.buildScopeHelp(navigation.path, navigation.scope, navigation.definition),
+			);
+			return SUCCESS_EXIT_CODE;
+		}
+		const { loaded, tail: selectedArgv } = navigation;
+		const selectedName = navigation.path.at(-1) ?? this.name;
 		const { selected, metadata } = loaded;
 		if (selected.kind === "raw") {
 			// Raw dispatch branches before structured global-flag parsing and owns
@@ -332,7 +345,7 @@ class TopologyClinkrApp<TContext> {
 		const definition = selected.definition;
 		const canEmitAnsi = options.canEmitAnsi ?? resolveProcessCaps().colorDepth !== "none";
 		const parsed = parseGlobalFlags(selectedArgv);
-		if ((parsed.ok ? parsed.flags.help : parsed.help) && hasUnescapedHelp(selectedArgv)) {
+		if (parsed.ok ? parsed.flags.help : parsed.help) {
 			process.stdout.write(
 				buildCommandSurface(selectedName, definition, metadata).command.helpInformation(),
 			);
@@ -423,7 +436,23 @@ class TopologyClinkrApp<TContext> {
 		};
 	}
 
-	private requireCompletion(): ClinkrCompletionRuntime<TContext> {
+	private buildCompletionHelp(path: "completion" | "resolve"): string {
+		if (path === "resolve") {
+			return createContainedCommand("resolve")
+				.description("Resolve completion candidates.")
+				.argument("[words...]", "Completion words after --.")
+				.helpInformation();
+		}
+		return createContainedCommand("completion")
+			.description("Generate shell completion setup. Shells: bash, zsh, fish.")
+			.argument("<shell>", "Shell name: bash, zsh, or fish.")
+			.helpInformation();
+	}
+
+	private requireCompletion(): ClinkrCompletionRuntime<
+		TContext,
+		ClinkrInvocationOptions<TContext>
+	> {
 		if (this.completion === undefined) throw new Error("clinkr: completion is not enabled");
 		return this.completion;
 	}
@@ -431,7 +460,7 @@ class TopologyClinkrApp<TContext> {
 	private async invokeCompletionProvider(
 		definition: ClinkrCommandDefinition<TContext>,
 		request: ClinkrCompletionProviderRequest,
-		options: unknown,
+		options: ClinkrInvocationOptions<TContext>,
 		policy: CompletionPolicy<TContext>,
 	): Promise<readonly ClinkrCompletionCandidate[]> {
 		if (definition.requiresContext === true) {
@@ -444,14 +473,17 @@ class TopologyClinkrApp<TContext> {
 			try {
 				return await provider(context, request);
 			} catch (error) {
-				try {
-					await policy.config.onProviderError?.(context, {
-						error,
-						commandPath: request.commandPath,
-						request,
-					});
-				} catch {
-					// Completion diagnostics must never disrupt completion itself.
+				const onProviderError = policy.config.onProviderError;
+				if (onProviderError !== undefined) {
+					try {
+						await onProviderError(context, {
+							error,
+							commandPath: request.commandPath,
+							request,
+						});
+					} catch {
+						// Completion diagnostics must never disrupt completion itself.
+					}
 				}
 				return [];
 			}
@@ -464,14 +496,17 @@ class TopologyClinkrApp<TContext> {
 		try {
 			return await provider(request);
 		} catch (error) {
-			try {
-				await policy.config.onProviderError?.({
-					error,
-					commandPath: request.commandPath,
-					request,
-				});
-			} catch {
-				// Completion diagnostics must never disrupt completion itself.
+			const onProviderError = policy.config.onProviderError;
+			if (onProviderError !== undefined) {
+				try {
+					await onProviderError({
+						error,
+						commandPath: request.commandPath,
+						request,
+					});
+				} catch {
+					// Completion diagnostics must never disrupt completion itself.
+				}
 			}
 			return [];
 		}
@@ -498,10 +533,10 @@ class TopologyClinkrApp<TContext> {
 	private async buildScopeHelp(
 		path: readonly string[],
 		scope: OpenedScope<TContext>,
-		isRoot: boolean,
 		groupDefinition?: ClinkrGroupDefinition,
 	): Promise<string> {
-		const name = path.length === 0 ? this.name : (path.at(-1) ?? this.name);
+		const isRoot = path.length === 0;
+		const name = isRoot ? this.name : (path.at(-1) ?? this.name);
 		let command: Command;
 		if (scope.defaultCommand === undefined) {
 			command = createContainedCommand(name);
@@ -536,6 +571,13 @@ class TopologyClinkrApp<TContext> {
 			if (group.definition.helpGroup !== undefined) child.helpGroup(group.definition.helpGroup);
 			command.addCommand(child, { hidden: group.definition.hidden === true });
 		}
+		if (isRoot && this.completion !== undefined) {
+			command.addCommand(
+				new Command("completion")
+					.description("Generate shell completion setup.")
+					.argument("<shell>", "Shell name: bash, zsh, or fish."),
+			);
+		}
 		return command.helpInformation();
 	}
 }
@@ -567,12 +609,17 @@ export function createClinkrApp<TContext>(
 		);
 	}
 	if (sources.length === 0) throw new Error("clinkr: app requires at least one mounted source");
-	const topology = new ClinkrTopology({ sources });
+	const topology = new ClinkrTopology({
+		sources,
+		...(options.completion === undefined ? {} : { reservedNames: new Set(["completion"]) }),
+	});
 	const baseOptions = {
 		name: options.name,
 		topology,
-		...(options.version === undefined ? {} : { version: options.version }),
-		...(options.runtimeInfo === undefined ? {} : { runtimeInfo: options.runtimeInfo }),
+		...optionalEntries({
+			version: options.version,
+			runtimeInfo: options.runtimeInfo,
+		}),
 	};
 	if (options.requiresContext === true) {
 		return new TopologyClinkrApp<TContext>({
@@ -604,28 +651,15 @@ function createContainedCommand(name: string): Command {
 }
 
 /**
- * Single extraction pass from the declared schema to both the surface plan
- * and the commander registration built from that same plan, so the two can
- * never drift.
+ * Materialize Commander registration from the canonical app surface plan
+ * shared with completion, so parsing, help, and completion cannot drift.
  */
 function buildCommandSurface(
 	name: string,
 	definition: ClinkrCommandDefinition,
 	metadata: ClinkrCommandMetadata,
 ): CommandSurface {
-	const positionals: Record<string, { position: number; description?: string }> = {};
-	const optionSpecs: Record<string, { short?: string; description?: string }> = {};
-	for (const [key, field] of Object.entries(definition.schema.shape)) {
-		const annotation = cliAnnotationFor(field as z.ZodType);
-		if (annotation?.type === "positional") positionals[key] = annotation.options;
-		if (annotation?.type === "option") optionSpecs[key] = annotation.options;
-	}
-	const surface = buildSurfacePlan({
-		commandName: name,
-		schema: definition.schema,
-		positionals,
-		optionSpecs,
-	});
+	const surface = buildCommandSurfacePlan(name, definition);
 	const command = createContainedCommand(name).description(metadata.description);
 	if (metadata.aliases !== undefined) command.aliases([...metadata.aliases]);
 	for (const positional of surface.positionals) {
