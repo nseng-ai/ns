@@ -34,7 +34,11 @@ const progressProbeSchema = z.object({});
 const progressProbeResultSchema = z.object({ isLive: z.boolean() });
 const homeDirProbeSchema = z.object({});
 const homeDirProbeResultSchema = z.object({ homeDir: z.string().optional() });
-const extensionPresenceProbeResultSchema = z.object({ present: z.boolean(), absent: z.boolean() });
+const extensionPresenceProbeResultSchema = z.object({
+	present: z.boolean(),
+	absent: z.boolean(),
+	installedPackageNames: z.array(z.string()),
+});
 
 const colorCaps: Caps = {
 	isTty: true,
@@ -88,6 +92,7 @@ const extensionPresenceProbeCommand = defineCommand({
 		ok({
 			present: ctx.hasExtension("@example/present"),
 			absent: ctx.hasExtension("@example/absent"),
+			installedPackageNames: ctx.installedExtensionPackageNames ?? [],
 		}),
 });
 
@@ -126,7 +131,8 @@ describe("extension command option specs", () => {
 				args: ["extension-presence-probe", "--format", "json"],
 				extensionRegistry: commandRegistry(
 					extensionPresenceProbeCommand,
-					new Set(["@example/present"]),
+					new Set(["@example/present", "@example/built-in"]),
+					new Set(["@example/built-in"]),
 				),
 			},
 			{ execResponses: () => [], textGenerationResults: () => [] },
@@ -135,7 +141,11 @@ describe("extension command option specs", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			status: "ok",
-			data: { present: true, absent: false },
+			data: {
+				present: true,
+				absent: false,
+				installedPackageNames: ["@example/present"],
+			},
 		});
 	});
 
@@ -230,11 +240,13 @@ function runProgressProbeCli(options: { onProgress?: NsCliDeps["onProgress"] } =
 function commandRegistry(
 	command: NsCommand,
 	extensionPackageNames: ReadonlySet<string> = new Set(),
+	builtInPackageNames: ReadonlySet<string> = new Set(),
 ): NonNullable<NsCliDeps["extensionRegistry"]> {
 	const candidate: ExtensionCommandCandidate = {
 		name: command.name,
 		description: command.summary,
 		fullDescription: command.description,
+		sourceKind: "local",
 		source: { level: "project", label: `fake ${command.name} extension` },
 		moduleReference: { type: "file", path: `fake://${command.name}.ts` },
 		entryPath: `fake://${command.name}.ts`,
@@ -253,6 +265,7 @@ function commandRegistry(
 				],
 				diagnostics: [],
 				extensionPackageNames,
+				builtInPackageNames,
 			};
 		},
 		async loadSelectedCommand(_candidate): Promise<SelectedNsCommandLoadResult> {

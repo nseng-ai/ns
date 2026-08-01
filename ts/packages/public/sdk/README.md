@@ -37,13 +37,13 @@ The SDK accepts an injected preinstalled command catalog derived from descriptor
 - selected-command help, JSON schema, and execution import only the selected command module;
 - the owning package remains responsible for domain behavior, prompts, gateways, and presentation policy.
 
-This keeps the SDK generic while allowing an installed CLI to bundle a reusable catalog.
+This keeps the SDK generic while allowing an installed CLI to bundle a reusable catalog. Registrations also classify their package as a user-facing built-in or extension. Built-ins may use the extension architecture internally, but the host excludes them from the user-manageable installed-extension inventory.
 
 ## Loading behavior
 
 Discovery is side-effect-light. `ns --version`, `ns --runtime`, unselected command lookup, and completion use built-in definitions, injected preinstalled metadata, and declared descriptor metadata without importing unrelated command implementation modules.
 
-Top-level help (`ns`, `ns --help`, and `ns -h`) lists descriptor and preinstalled commands from metadata. Malformed discovery entries and help-time import failures that do not affect the selected command are printed as stderr warnings while the invocation continues and stdout remains reserved for primary output.
+Top-level help (`ns`, `ns --help`, and `ns -h`) lists descriptor and preinstalled commands from metadata. Project extension rows in `Extensions:` end with a compact origin marker: `p` for installed packages (including source-development workspace packages and project-declared `npm:` packages), and `l` for project-declared local paths. Distribution-supplied catalog extensions have no marker. A mixed package/local namespace shows the nearest effective winning origin (`l` over `p`); these markers describe runtime acquisition, not the package's `public`/`incubating`/`internal` release disposition. Malformed discovery entries and help-time import failures that do not affect the selected command are printed as stderr warnings while the invocation continues and stdout remains reserved for primary output.
 
 When a command is selected, the SDK imports and validates exactly that command contribution, including selected-command help and `--json-schema`. Diagnostics that affect the selected command are fatal, including higher-precedence broken overrides that would otherwise fall back to a lower-precedence command.
 

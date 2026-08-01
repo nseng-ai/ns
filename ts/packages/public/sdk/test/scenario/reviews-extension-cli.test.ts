@@ -267,6 +267,7 @@ function fakeReviewsRegistry(): FakeReviewsRegistry {
 				),
 				diagnostics: [],
 				extensionPackageNames: new Set(),
+				builtInPackageNames: new Set(),
 			};
 		},
 		async loadSelectedCommand(candidate) {
@@ -303,6 +304,7 @@ function reviewsCandidate(spec: FakeReviewsCommandSpec): ExtensionCommandCandida
 		description: spec.description,
 		fullDescription: spec.description,
 		groupDescription: "Run configured code reviews.",
+		sourceKind: "local",
 		source: { level: "project", label: "fake checked-in Reviews extension" },
 		moduleReference: { type: "file", path: spec.entryPath },
 		entryPath: spec.entryPath,

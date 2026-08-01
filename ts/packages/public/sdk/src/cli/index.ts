@@ -19,6 +19,7 @@ import {
 	type DefineCliOptions,
 } from "@nseng-ai/foundation/cli-runtime";
 import { optionalEntries, optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
+import { paint } from "@nseng-ai/foundation/cli-theme";
 
 import {
 	buildNsCompletionScript,
@@ -71,6 +72,7 @@ import {
 	validateCommandExit,
 	type NsCommandInfo,
 	type NsCommandCliInfo,
+	type NsCommandOriginKind,
 	type NsCommandPath,
 } from "../extensions/command-registry.ts";
 import { parsedSpecForCommand } from "../sdk/command.ts";
@@ -117,12 +119,14 @@ export interface BuildNsCliOptions {
 	commandInfos?: readonly NsCommandCliInfo[];
 	selectedCommand?: DescriptorCommand;
 	selectedCommandPath?: NsCommandPath;
+	renderCapabilities?: RenderCapabilities;
 }
 
 interface NsCliBuildState {
 	commandInfos: readonly NsCommandCliInfo[];
 	selectedCommand?: DescriptorCommand;
 	selectedCommandPath?: NsCommandPath;
+	renderCapabilities?: RenderCapabilities;
 }
 
 interface NsCliCommandContextInput {
@@ -244,6 +248,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 			args,
 			commandContext,
 			extensionPackageNames: commandCatalog.extensionPackageNames,
+			builtInPackageNames: commandCatalog.builtInPackageNames,
 			stdout: resolvedStdout,
 			stderr: resolvedStderr,
 			renderCapabilities,
@@ -257,7 +262,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 		return {
 			type: "run",
 			context: contextWithIO,
-			buildState: selectedCommandResolution.resolution,
+			buildState: { ...selectedCommandResolution.resolution, renderCapabilities },
 		};
 	},
 	buildCli: ({ description, version, runtimeInfo, buildState }) => {
@@ -269,13 +274,51 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 		});
 		const groups = new Map<string, ClinkrGroup<NsCliContext>>();
 		const topLevelHelpGroups = resolveTopLevelHelpGroups(buildState.commandInfos);
-		for (const commandInfo of buildState.commandInfos) {
-			const parent = groupForCommand(root, groups, commandInfo, topLevelHelpGroups);
-			const topLevelSegment = commandSegments(commandInfo)[0];
-			const helpGroup =
+		const topLevelOriginLabels = resolveTopLevelOriginLabels(
+			buildState.commandInfos,
+			topLevelHelpGroups,
+			buildState.renderCapabilities,
+		);
+		// Registration order drives help output: commander renders section headings in
+		// first-occurrence order and rows in registration order within each heading.
+		const rootRegistrations = orderRootRegistrationsForHelp(
+			buildState.commandInfos,
+			topLevelHelpGroups,
+			[
+				{
+					type: "group",
+					name: "completion",
+					helpGroup: NS_BUILT_IN_HELP_GROUP,
+					group: buildNsCompletionGroup(),
+				},
+				{
+					type: "group",
+					name: "shell",
+					helpGroup: NS_BUILT_IN_HELP_GROUP,
+					group: buildNsShellGroup(),
+				},
+			],
+		);
+		for (const registration of rootRegistrations) {
+			if (registration.type === "group") {
+				root.group(registration.group);
+				continue;
+			}
+			const commandInfo = registration.commandInfo;
+			const parent = groupForCommand(
+				root,
+				groups,
+				commandInfo,
+				topLevelHelpGroups,
+				topLevelOriginLabels,
+			);
+			const commandPath = commandSegments(commandInfo);
+			const topLevelSegment = commandPath[0];
+			const topLevelHelpGroup =
 				topLevelSegment === undefined
 					? NS_EXTENSION_HELP_GROUP
 					: (topLevelHelpGroups.get(topLevelSegment) ?? NS_EXTENSION_HELP_GROUP);
+			const parentHelpGroup = commandPath.length === 1 ? topLevelHelpGroup : undefined;
 			const selectedCommand =
 				buildState.selectedCommandPath !== undefined &&
 				commandPathMatches(buildState.selectedCommandPath, commandInfo)
@@ -288,11 +331,16 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 					? undefined
 					: selectedCommand;
 			const parsedCommandSpec = command === undefined ? undefined : parsedSpecForCommand(command);
+			const topLevelHelpLabel =
+				commandPath.length === 1 && topLevelHelpGroup === NS_EXTENSION_HELP_GROUP
+					? topLevelOriginLabels.get(commandLeafName(commandInfo))
+					: undefined;
 			if (command !== undefined && parsedCommandSpec !== undefined) {
 				parent.command({
 					name: commandLeafName(commandInfo),
 					description: commandInfo.fullDescription,
 					summary: commandInfo.description,
+					...optionalEntry("helpLabel", topLevelHelpLabel),
 					schema: parsedCommandSpec.schema,
 					...(parsedCommandSpec.resultSchema === undefined
 						? {}
@@ -315,7 +363,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 								completionProvider: (ctx: NsCliContext, request: ClinkrDynamicCompletionRequest) =>
 									parsedCommandSpec.completionProvider?.(ctx.context, request) ?? [],
 							}),
-					helpGroup,
+					...optionalEntry("helpGroup", parentHelpGroup),
 					handler: async (ctx, request) => {
 						try {
 							return validateCommandExit(
@@ -334,6 +382,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 					name: commandLeafName(commandInfo),
 					description: commandInfo.fullDescription,
 					summary: commandInfo.description,
+					...optionalEntry("helpLabel", topLevelHelpLabel),
 					...(command === undefined
 						? { schema: placeholderSchema }
 						: {
@@ -341,7 +390,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 								positionals: { argv: { position: 0 } },
 								shouldPassThrough: true,
 							}),
-					...optionalEntries({ helpGroup }),
+					...optionalEntry("helpGroup", parentHelpGroup),
 					...(command?.complete === undefined
 						? {}
 						: {
@@ -374,8 +423,6 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 				}),
 			);
 		}
-		root.group(buildNsShellGroup());
-		root.group(buildNsCompletionGroup());
 		return root;
 	},
 };
@@ -388,6 +435,7 @@ export function buildCli(options: BuildNsCliOptions = {}): ClinkrGroup<NsCliCont
 		...optionalEntries({
 			selectedCommand: options.selectedCommand,
 			selectedCommandPath: options.selectedCommandPath,
+			renderCapabilities: options.renderCapabilities,
 		}),
 	});
 }
@@ -438,6 +486,7 @@ async function handleCompletionResolverInvocation(options: {
 		args: options.args,
 		commandContext: options.commandContext,
 		extensionPackageNames: options.commandCatalog.extensionPackageNames,
+		builtInPackageNames: options.commandCatalog.builtInPackageNames,
 		stdout: options.stdout,
 		stderr: options.stderr,
 		renderCapabilities: options.renderCapabilities,
@@ -500,6 +549,7 @@ async function buildNsCliContext(options: {
 	args: readonly string[];
 	commandContext: NsCliCommandContextInput;
 	extensionPackageNames: ReadonlySet<string>;
+	builtInPackageNames: ReadonlySet<string>;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	injectedContext?: NsCliBaseContext;
@@ -535,6 +585,9 @@ async function buildNsCliContext(options: {
 		outputFormat: clinkrFormatFromArgs(options.args),
 		exec: baseContext.exec.bind(baseContext),
 		hasExtension: (packageName) => options.extensionPackageNames.has(packageName),
+		installedExtensionPackageNames: [...options.extensionPackageNames]
+			.filter((packageName) => !options.builtInPackageNames.has(packageName))
+			.sort((left, right) => left.localeCompare(right)),
 		stdout: options.stdout,
 		stderr: options.stderr,
 		stdin,
@@ -617,7 +670,10 @@ function commandPathArgs(args: readonly string[]): readonly string[] {
 }
 
 const NS_EXEC_GROUP_NAME = "exec";
-export { NS_BUILT_IN_HELP_GROUP } from "../extensions/help-presentation.ts";
+export {
+	NS_BUILT_IN_HELP_GROUP,
+	NS_EXTENSION_HELP_GROUP,
+} from "../extensions/help-presentation.ts";
 
 function buildNsCompletionGroup(): ClinkrGroup<NsCliContext> {
 	const completion = new ClinkrGroup<NsCliContext>({
@@ -746,6 +802,7 @@ function groupForCommand(
 	groupCache: Map<string, ClinkrGroup<NsCliContext>>,
 	commandInfo: NsCommandCliInfo,
 	topLevelHelpGroups: ReadonlyMap<string, string>,
+	topLevelOriginLabels: ReadonlyMap<string, string>,
 ): ClinkrGroup<NsCliContext> {
 	const displaySegments = commandSegments(commandInfo);
 	const parentSegments = displaySegments.slice(0, -1);
@@ -764,7 +821,10 @@ function groupForCommand(
 			name: segment,
 			description: groupDescription(currentSegments, commandInfo),
 			...(index === 0
-				? { helpGroup: topLevelHelpGroups.get(segment) ?? NS_EXTENSION_HELP_GROUP }
+				? {
+						helpGroup: topLevelHelpGroups.get(segment) ?? NS_EXTENSION_HELP_GROUP,
+						...optionalEntry("helpLabel", topLevelOriginLabels.get(segment)),
+					}
 				: {}),
 			...(isHiddenCommandGroup(currentSegments, commandInfo) ? { isHidden: true } : {}),
 		});
@@ -773,6 +833,143 @@ function groupForCommand(
 		parent = group;
 	}
 	return parent;
+}
+
+type RootRegistration =
+	| { readonly type: "command"; readonly commandInfo: NsCommandCliInfo }
+	| {
+			readonly type: "group";
+			readonly name: string;
+			readonly helpGroup: string;
+			readonly group: ClinkrGroup<NsCliContext>;
+	  };
+
+interface HelpOrderKey {
+	readonly sectionRank: number;
+	readonly helpGroup: string;
+	readonly bucketRank: number;
+	readonly topLevelName: string;
+	readonly commandKey: string;
+}
+
+function orderRootRegistrationsForHelp(
+	commandInfos: readonly NsCommandCliInfo[],
+	topLevelHelpGroups: ReadonlyMap<string, string>,
+	directGroups: readonly Extract<RootRegistration, { readonly type: "group" }>[],
+): readonly RootRegistration[] {
+	const registrations: RootRegistration[] = [
+		...commandInfos.map((commandInfo) => ({ type: "command" as const, commandInfo })),
+		...directGroups,
+	];
+	return registrations.sort((left, right) => {
+		const leftKey = helpOrderKey(left, topLevelHelpGroups);
+		const rightKey = helpOrderKey(right, topLevelHelpGroups);
+		if (leftKey.sectionRank !== rightKey.sectionRank) {
+			return leftKey.sectionRank - rightKey.sectionRank;
+		}
+		if (leftKey.helpGroup !== rightKey.helpGroup) {
+			return leftKey.helpGroup.localeCompare(rightKey.helpGroup);
+		}
+		if (leftKey.bucketRank !== rightKey.bucketRank) {
+			return leftKey.bucketRank - rightKey.bucketRank;
+		}
+		if (leftKey.topLevelName !== rightKey.topLevelName) {
+			return leftKey.topLevelName.localeCompare(rightKey.topLevelName);
+		}
+		return leftKey.commandKey.localeCompare(rightKey.commandKey);
+	});
+}
+
+function helpOrderKey(
+	registration: RootRegistration,
+	topLevelHelpGroups: ReadonlyMap<string, string>,
+): HelpOrderKey {
+	if (registration.type === "group") {
+		return helpOrderKeyForValues({
+			helpGroup: registration.helpGroup,
+			topLevelName: registration.name,
+			commandKey: registration.name,
+			isLocalExtension: false,
+		});
+	}
+	const commandInfo = registration.commandInfo;
+	const topLevelName = commandSegments(commandInfo)[0] ?? commandLeafName(commandInfo);
+	return helpOrderKeyForValues({
+		helpGroup: topLevelHelpGroups.get(topLevelName) ?? NS_EXTENSION_HELP_GROUP,
+		topLevelName,
+		commandKey: commandKey(commandInfo),
+		isLocalExtension: commandInfo.sourceKind === "local",
+	});
+}
+
+function helpOrderKeyForValues(options: {
+	helpGroup: string;
+	topLevelName: string;
+	commandKey: string;
+	isLocalExtension: boolean;
+}): HelpOrderKey {
+	// Extensions lead the help output, Built-ins close it, custom headings sit between.
+	let sectionRank = 1;
+	if (options.helpGroup === NS_EXTENSION_HELP_GROUP) sectionRank = 0;
+	if (options.helpGroup === NS_BUILT_IN_HELP_GROUP) sectionRank = 2;
+	// Within Extensions, package-sourced extensions lead and repo-local ns.toml
+	// path extensions trail, each alphabetized.
+	const bucketRank =
+		options.helpGroup === NS_EXTENSION_HELP_GROUP && options.isLocalExtension ? 1 : 0;
+	return {
+		sectionRank,
+		helpGroup: options.helpGroup,
+		bucketRank,
+		topLevelName: options.topLevelName,
+		commandKey: options.commandKey,
+	};
+}
+
+const ORIGIN_PRECEDENCE: Readonly<Record<NsCommandOriginKind, number>> = {
+	package: 0,
+	local: 1,
+};
+
+function resolveTopLevelOriginLabels(
+	commandInfos: readonly NsCommandCliInfo[],
+	topLevelHelpGroups: ReadonlyMap<string, string>,
+	renderCapabilities: RenderCapabilities | undefined,
+): ReadonlyMap<string, string> {
+	const origins = new Map<string, NsCommandOriginKind>();
+	for (const commandInfo of commandInfos) {
+		const segment = commandSegments(commandInfo)[0];
+		if (
+			segment === undefined ||
+			commandInfo.extensionOrigin === undefined ||
+			topLevelHelpGroups.get(segment) !== NS_EXTENSION_HELP_GROUP
+		) {
+			continue;
+		}
+		const existing = origins.get(segment);
+		if (
+			existing === undefined ||
+			ORIGIN_PRECEDENCE[commandInfo.extensionOrigin] > ORIGIN_PRECEDENCE[existing]
+		) {
+			origins.set(segment, commandInfo.extensionOrigin);
+		}
+	}
+	return new Map(
+		[...origins].map(([segment, origin]) => [
+			segment,
+			styleOriginLabel(origin, renderCapabilities),
+		]),
+	);
+}
+
+function styleOriginLabel(
+	origin: NsCommandOriginKind,
+	renderCapabilities: RenderCapabilities | undefined,
+): string {
+	const letter = origin === "package" ? "p" : "l";
+	if (renderCapabilities?.canEmitAnsi !== true) return letter;
+	const caps = renderCapabilities.caps;
+	if (caps === undefined) return letter;
+	return paint(caps, origin === "package" ? "accent" : "warn", letter);
 }
 
 function resolveTopLevelHelpGroups(

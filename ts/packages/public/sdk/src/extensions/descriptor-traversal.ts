@@ -4,6 +4,7 @@ import { commandKey } from "./command-registry.ts";
 export interface DescriptorTraversalState {
 	readonly segments: readonly string[];
 	readonly hiddenAncestorKeys: readonly string[];
+	readonly rootGroupDescription: string;
 }
 
 export function nextDescriptorTraversalState(
@@ -14,5 +15,7 @@ export function nextDescriptorTraversalState(
 	const hiddenAncestorKeys = entry.hidden
 		? [...state.hiddenAncestorKeys, commandKey({ name: entry.group, segments })]
 		: state.hiddenAncestorKeys;
-	return { segments, hiddenAncestorKeys };
+	const rootGroupDescription =
+		state.segments.length === 0 ? entry.description : state.rootGroupDescription;
+	return { segments, hiddenAncestorKeys, rootGroupDescription };
 }

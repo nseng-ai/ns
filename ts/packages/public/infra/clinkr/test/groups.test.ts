@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import { ClinkrGroup } from "@nseng-ai/clinkr";
 import { ok } from "@nseng-ai/clinkr/legacy";
-import { parseEnvelope, runForTest } from "../src/testing/index.ts";
+import { parseEnvelope, runForTest, stripAnsi } from "../src/testing/index.ts";
 
 interface ProbeContext {
 	calls: string[];
@@ -258,6 +258,70 @@ describe("nested groups", () => {
 		expect(run.stdout).toContain("Built-ins:\n  init");
 		expect(run.stdout).not.toContain("\nCommands:\n  init");
 		expect(run.stderr).toBe("");
+	});
+
+	test("right-aligns trailing help labels on subgroup and command rows", async () => {
+		const root = new ClinkrGroup<ProbeContext>({ name: "root" });
+		root.group(
+			new ClinkrGroup<ProbeContext>({
+				name: "subgroup",
+				description: "Subgroup description.",
+				helpLabel: "g",
+			}),
+		);
+		root.command({
+			name: "command",
+			summary: "Command description.",
+			helpLabel: "p",
+			schema: z.object({}),
+			handler: async () => ok({}),
+		});
+
+		const stdout: string[] = [];
+		const run = await runForTest(root, ["--help"], {
+			context: { calls: [] },
+			io: {
+				stdout: (text) => stdout.push(text),
+				stderr: () => {},
+				canEmitAnsi: false,
+				caps: { isTty: false, colorDepth: "none", columns: 50, canRenderUnicode: true },
+			},
+		});
+		const rows = stdout.join("").split("\n");
+
+		expect(run.exitCode).toBe(0);
+		expect(rows.find((line) => line.startsWith("  subgroup"))).toMatch(/g$/);
+		expect(rows.find((line) => line.startsWith("  command"))).toMatch(/p$/);
+		expect(rows.find((line) => line.startsWith("  subgroup"))).toHaveLength(50);
+		expect(rows.find((line) => line.startsWith("  command"))).toHaveLength(50);
+	});
+
+	test("keeps styled labels aligned and visible when descriptions wrap narrowly", async () => {
+		const root = new ClinkrGroup<ProbeContext>({ name: "root" });
+		root.command({
+			name: "long-command",
+			summary: "A long description which wraps over multiple lines at this width.",
+			helpLabel: "\u001b[36mp\u001b[0m",
+			schema: z.object({}),
+			handler: async () => ok({}),
+		});
+		const stdout: string[] = [];
+
+		await runForTest(root, ["--help"], {
+			context: { calls: [] },
+			io: {
+				stdout: (text) => stdout.push(text),
+				stderr: () => {},
+				canEmitAnsi: true,
+				caps: { isTty: true, colorDepth: "ansi16", columns: 34, canRenderUnicode: true },
+			},
+		});
+		const lines = stdout.join("").split("\n");
+		const labelLine = lines.find((line) => stripAnsi(line).endsWith("p"));
+
+		expect(labelLine).toContain("\u001b[36mp\u001b[0m");
+		expect(stripAnsi(labelLine ?? "")).toHaveLength(34);
+		expect(lines.some((line) => line.includes("description"))).toBe(true);
 	});
 });
 

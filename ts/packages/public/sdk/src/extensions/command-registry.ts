@@ -18,6 +18,12 @@ import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts
 
 export type NsCommandSourceLevel = "built-in" | "preinstalled" | "project";
 
+/** How an extension entered the runtime: a local path, npm declaration, or local package environment. */
+export type NsCommandSourceKind = "local" | "npm" | "package";
+
+/** Effective runtime acquisition origin presented in top-level extension help. */
+export type NsCommandOriginKind = "package" | "local";
+
 export interface NsCommandPath {
 	group?: string;
 	name: string;
@@ -40,6 +46,8 @@ export interface NsCommandCliInfo extends NsCommandInfo {
 	fullDescription: string;
 	groupDescription?: string;
 	helpGroup?: string;
+	sourceKind?: NsCommandSourceKind;
+	extensionOrigin?: NsCommandOriginKind;
 }
 
 export interface NsCommandCandidate extends NsCommandCliInfo {
@@ -148,7 +156,9 @@ export function listStaticNsCommandInfos(): NsCommandCliInfo[] {
 
 export function toCommandCliInfo(
 	candidate: NsCommandPath &
-		Pick<NsCommandCliInfo, "description" | "fullDescription" | "helpGroup">,
+		Pick<NsCommandCliInfo, "description" | "fullDescription" | "helpGroup" | "sourceKind"> & {
+			readonly source?: Pick<NsCommandSourceInfo, "level">;
+		},
 ): NsCommandCliInfo {
 	return {
 		...optionalEntries({
@@ -157,6 +167,11 @@ export function toCommandCliInfo(
 			groupDescription: candidate.groupDescription,
 			hiddenAncestorKeys: candidate.hiddenAncestorKeys,
 			helpGroup: candidate.helpGroup,
+			sourceKind: candidate.sourceKind,
+			extensionOrigin:
+				candidate.source === undefined
+					? undefined
+					: extensionOriginKind(candidate.source.level, candidate.sourceKind),
 		}),
 		name: candidate.name,
 		description: candidate.description,
@@ -167,7 +182,7 @@ export function toCommandCliInfo(
 export function commandInfoForLoadedCommand(
 	command: DescriptorCommand,
 	sourceLevel: NsCommandSourceLevel,
-	path: NsCommandPath & Pick<NsCommandCliInfo, "helpGroup">,
+	path: NsCommandPath & Pick<NsCommandCliInfo, "helpGroup" | "sourceKind">,
 ): NsCommandCliInfo {
 	const definition = path.group === undefined ? builtInCommandDefinitions[command.name] : undefined;
 	if (sourceLevel === "built-in" && definition !== undefined) {
@@ -183,7 +198,19 @@ export function commandInfoForLoadedCommand(
 		name: command.name,
 		description: command.summary,
 		fullDescription: command.description,
+		source: { level: sourceLevel },
 	});
+}
+
+function extensionOriginKind(
+	sourceLevel: NsCommandSourceLevel,
+	sourceKind: NsCommandSourceKind | undefined,
+): NsCommandOriginKind | undefined {
+	if (sourceLevel === "built-in") return undefined;
+	if (sourceKind === "npm" || sourceKind === "package") return "package";
+	if (sourceKind === "local") return "local";
+	if (sourceLevel === "preinstalled") return undefined;
+	throw new Error("Project ns command candidate is missing its declaration source kind.");
 }
 
 export function validateDescriptorCommandContribution(

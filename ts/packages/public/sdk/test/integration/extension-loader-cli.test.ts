@@ -42,6 +42,12 @@ function helpSection(help: string, heading: string): string {
 		: help.slice(sectionStart, sectionStart + nextHeading);
 }
 
+function helpRow(help: string, heading: string, commandName: string): string | undefined {
+	return helpSection(help, heading)
+		.split("\n")
+		.find((line) => line.startsWith(`  ${commandName}`));
+}
+
 async function createDescriptorProject(
 	commandName: string,
 	commandSource: string,
@@ -101,23 +107,161 @@ export default {
 		expect(run.context.execCalls).toEqual([]);
 	});
 
-	test("project contribution to a shipped namespace stays in built-in help", async () => {
+	test("marks package and local-path extension rows but not catalog rows", async () => {
+		const cwd = await createEmptyProject();
+		writeFileSyncWithParents(
+			join(cwd, "ns.toml"),
+			'extensions = ["npm:package-tool", "./extensions/local-tool"]\n',
+		);
+		writeExtensionPackageAt(
+			join(cwd, ".ns", "managed-extensions", "npm", "package-tool", "node_modules", "package-tool"),
+			{ packageName: "package-tool", group: "package-tool", commandName: "ping" },
+		);
+		writeExtensionPackageAt(join(cwd, "extensions", "local-tool"), {
+			packageName: "local-tool",
+			group: "local-tool",
+			commandName: "ping",
+		});
+		const run = runWithFakes({
+			args: ["--help"],
+			state: { exec: [] },
+			cwd,
+			preinstalledCommandCatalog: async () => ({
+				entries: [
+					{
+						group: "global-tool",
+						groupDescription: "Global tool commands.",
+						name: "ping",
+						description: "Ping globally.",
+						fullDescription: "Ping globally.",
+						moduleSpecifier: "@example/global-tool/ping",
+					},
+				],
+				extensionPackageNames: [],
+				builtInPackageNames: [],
+			}),
+		});
+
+		expect(await run.exit).toBe(0);
+		const help = run.stdout.join("");
+		expect(helpRow(help, "Extensions:", "global-tool")).not.toMatch(/[plg]$/);
+		expect(helpRow(help, "Extensions:", "package-tool")).toMatch(/p$/);
+		expect(helpRow(help, "Extensions:", "local-tool")).toMatch(/l$/);
+		const extensionRow = helpRow(help, "Built-ins:", "extension");
+		expect(extensionRow).toContain("Inspect ns extension metadata.");
+		expect(extensionRow).not.toMatch(/[plg]$/);
+		expect(helpRow(help, "Extensions:", "extension")).toBeUndefined();
+	});
+
+	test("an override displays only the effective winner origin", async () => {
+		const cwd = await createDescriptorProject(
+			"hello",
+			'import { ok } from "@nseng-ai/sdk"; export default { name: "hello", summary: "Local hello.", description: "Local hello.", run() { return ok({}); } };',
+		);
+		const run = runWithFakes({
+			args: ["--help"],
+			state: { exec: [] },
+			cwd,
+			preinstalledCommandCatalog: async () => ({
+				entries: [
+					{
+						name: "hello",
+						description: "Global hello.",
+						fullDescription: "Global hello.",
+						moduleSpecifier: "@example/hello",
+					},
+				],
+				extensionPackageNames: [],
+				builtInPackageNames: [],
+			}),
+		});
+
+		expect(await run.exit).toBe(0);
+		const row = helpRow(run.stdout.join(""), "Extensions:", "hello");
+		expect(row).toContain("Local hello.");
+		expect(row).toMatch(/l$/);
+	});
+
+	test("mixed effective namespaces display the highest-precedence winning origin", async () => {
+		const cwd = await createEmptyProject();
+		writeFileSyncWithParents(join(cwd, "ns.toml"), 'extensions = ["./extensions/mixed"]\n');
+		writeDescriptorPackage(cwd, ["local"], { group: "mixed" });
+		writeDescriptorCommand(
+			cwd,
+			"local",
+			'import { ok } from "@nseng-ai/sdk"; export default { name: "local", summary: "Local.", description: "Local.", run() { return ok({}); } };',
+		);
+		const run = runWithFakes({
+			args: ["--help"],
+			state: { exec: [] },
+			cwd,
+			preinstalledCommandCatalog: async () => ({
+				entries: [
+					{
+						group: "mixed",
+						groupDescription: "Mixed commands.",
+						name: "global",
+						description: "Global.",
+						fullDescription: "Global.",
+						moduleSpecifier: "@example/mixed/global",
+					},
+				],
+				extensionPackageNames: [],
+				builtInPackageNames: [],
+			}),
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(helpRow(run.stdout.join(""), "Extensions:", "mixed")).toMatch(/l$/);
+	});
+
+	test("package-sourced extensions list before repo-local extensions in help", async () => {
+		const cwd = await createEmptyProject();
+		writeFileSyncWithParents(
+			join(cwd, "ns.toml"),
+			'extensions = ["npm:zzz-tool", "./extensions/aaa-local"]\n',
+		);
+		// Managed npm extension whose group sorts alphabetically after the local one.
+		writeExtensionPackageAt(
+			join(cwd, ".ns", "managed-extensions", "npm", "zzz-tool", "node_modules", "zzz-tool"),
+			{ packageName: "zzz-tool", group: "zzz-tool", commandName: "ping" },
+		);
+		writeExtensionPackageAt(join(cwd, "extensions", "aaa-local"), {
+			packageName: "aaa-local",
+			group: "aaa-local",
+			commandName: "ping",
+		});
+		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
+
+		expect(await run.exit).toBe(0);
+		const extensions = helpSection(run.stdout.join(""), "Extensions:");
+		expect(extensions).toMatch(/^  zzz-tool(?:\s|$)/m);
+		expect(extensions).toMatch(/^  aaa-local(?:\s|$)/m);
+		expect(extensions.search(/^  zzz-tool(?:\s|$)/m)).toBeLessThan(
+			extensions.search(/^  aaa-local(?:\s|$)/m),
+		);
+		expect(run.stderr.join("")).toBe("");
+	});
+
+	test("rejects a project extension contribution to a built-in namespace", async () => {
 		const cwd = await createEmptyProject();
 		writeDescriptorPackage(cwd, ["aaa"], { group: "extension" });
 		writeDescriptorCommand(
 			cwd,
 			"aaa",
 			`import { ok } from "@nseng-ai/sdk";
-export default { name: "aaa", summary: "Earlier project extension command.", description: "Earlier project extension command.", run() { return ok({}); } };
+export default { name: "aaa", summary: "Conflicting project extension command.", description: "Conflicting project extension command.", run() { return ok({}); } };
 `,
 		);
 		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
 
-		expect(await run.exit).toBe(0);
-		const help = run.stdout.join("");
-		expect(helpSection(help, "Built-ins:")).toContain("extension");
-		expect(help).not.toContain("Extensions:");
-		expect(run.stderr.join("")).toBe("");
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain(
+			"Project extension command extension/aaa cannot contribute to built-in namespace extension",
+		);
+		expect(run.stderr.join("")).toContain("Choose a different top-level command namespace.");
+		expect(run.context.execCalls).toEqual([]);
 	});
 
 	test("throwing direct command keeps placeholder in top-level help and warns", async () => {
@@ -314,6 +458,39 @@ export default defineExtension({
 		${entries},
 	],
 });
+`,
+	);
+}
+
+function writeExtensionPackageAt(
+	packageRoot: string,
+	options: { packageName: string; group: string; commandName: string },
+): void {
+	writeFileSyncWithParents(
+		join(packageRoot, "package.json"),
+		JSON.stringify({
+			name: options.packageName,
+			version: "1.0.0",
+			type: "module",
+			exports: { "./ns-extension": "./src/ns/extension.ts" },
+		}),
+	);
+	writeFileSyncWithParents(
+		join(packageRoot, "src", "ns", "extension.ts"),
+		`import { defineExtension } from "@nseng-ai/sdk";
+export default defineExtension({
+	group: ${JSON.stringify(options.group)},
+	description: ${JSON.stringify(`${options.group} test commands.`)},
+	entries: [
+		{ name: ${JSON.stringify(options.commandName)}, load: async () => await import("../commands/${options.commandName}.ts") },
+	],
+});
+`,
+	);
+	writeFileSyncWithParents(
+		join(packageRoot, "src", "commands", `${options.commandName}.ts`),
+		`import { ok } from "@nseng-ai/sdk";
+export default { name: ${JSON.stringify(options.commandName)}, summary: "Ping.", description: "Ping.", run() { return ok({}); } };
 `,
 	);
 }

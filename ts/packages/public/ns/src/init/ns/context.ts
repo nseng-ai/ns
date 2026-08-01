@@ -36,6 +36,10 @@ export function createNsInitContext(
 		declaredExtensions: new RealDeclaredExtensionsGateway(),
 		artifacts: new RealArtifactActivationGateway(),
 		artifactProvisioningStatus: new RealArtifactProvisioningStatusGateway(),
+		installedExtensionPackages: {
+			list: () =>
+				(ctx.installedExtensionPackageNames ?? []).map((packageName) => ({ packageName })),
+		},
 		...(ctx.outputFormat === "human"
 			? { lifecycleTrace: { emit: (line: string) => ctx.commandIo.phase(line) } }
 			: {}),

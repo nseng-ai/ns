@@ -3,8 +3,14 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { defineRawCommand, noopNsCommandIo, noopNsProgress, ok } from "@nseng-ai/sdk";
-import { commandInfoForLoadedCommand } from "../../src/extensions/command-registry.ts";
-import { NS_BUILT_IN_HELP_GROUP } from "../../src/extensions/help-presentation.ts";
+import {
+	commandInfoForLoadedCommand,
+	toCommandCliInfo,
+} from "../../src/extensions/command-registry.ts";
+import {
+	NS_BUILT_IN_HELP_GROUP,
+	NS_EXTENSION_HELP_GROUP,
+} from "../../src/extensions/help-presentation.ts";
 import {
 	extensionDescriptorToPreinstalledCatalog,
 	preinstalledNsCommandCatalogFromRegistrations,
@@ -69,8 +75,9 @@ function preinstalledEntry(group: string, name: string, moduleSpecifier: string)
 function preinstalledCatalog<T>(
 	entries: readonly T[],
 	extensionPackageNames: readonly string[] = [],
+	builtInPackageNames: readonly string[] = [],
 ) {
-	return { entries, extensionPackageNames };
+	return { entries, extensionPackageNames, builtInPackageNames };
 }
 
 function writeDescriptorPackage(options: {
@@ -92,7 +99,27 @@ function writeDescriptorPackage(options: {
 }
 
 describe("extension registry", () => {
-	test("preinstalled descriptor flattening preserves command requirements", () => {
+	test.each([
+		["preinstalled", undefined, undefined],
+		["preinstalled", "package", "package"],
+		["project", "npm", "package"],
+		["project", "local", "local"],
+	] as const)(
+		"derives %s/%s candidates as %s extension origins",
+		(sourceLevel, sourceKind, extensionOrigin) => {
+			const info = toCommandCliInfo({
+				name: "probe",
+				description: "Probe.",
+				fullDescription: "Probe.",
+				...(sourceKind === undefined ? {} : { sourceKind }),
+				source: { level: sourceLevel },
+			});
+
+			expect(info.extensionOrigin).toBe(extensionOrigin);
+		},
+	);
+
+	test("preinstalled descriptor flattening presents commands as extensions", () => {
 		const entries = extensionDescriptorToPreinstalledCatalog(
 			{
 				description: "Optional commands.",
@@ -118,15 +145,93 @@ describe("extension registry", () => {
 			expect.objectContaining({
 				name: "optional",
 				requiresExtension: "@example/provider",
-				helpGroup: NS_BUILT_IN_HELP_GROUP,
+				helpGroup: NS_EXTENSION_HELP_GROUP,
 			}),
 		]);
 	});
+
+	test.each([
+		[
+			"descriptor root",
+			{
+				group: "probe",
+				description: "Probe things.",
+				entries: [
+					{
+						group: "exec",
+						hidden: true,
+						description: "Agent-only probe commands.",
+						entries: [
+							{
+								name: "run",
+								load: () => ({
+									default: defineRawCommand({
+										name: "run",
+										summary: "Run.",
+										description: "Run.",
+										run: () => ok({}),
+									}),
+								}),
+							},
+						],
+					},
+				],
+			},
+			["probe", "exec", "run"],
+			"Probe things.",
+			["probe/exec"],
+		],
+		[
+			"first entry group",
+			{
+				description: "Descriptor commands.",
+				entries: [
+					{
+						group: "probe",
+						description: "Probe things.",
+						entries: [
+							{
+								name: "run",
+								load: () => ({
+									default: defineRawCommand({
+										name: "run",
+										summary: "Run.",
+										description: "Run.",
+										run: () => ok({}),
+									}),
+								}),
+							},
+						],
+					},
+				],
+			},
+			["probe", "run"],
+			"Probe things.",
+			undefined,
+		],
+	] as const)(
+		"preinstalled %s carries the root group description for help",
+		(_case, descriptor, path, groupDescription, hiddenAncestorKeys) => {
+			const entries = extensionDescriptorToPreinstalledCatalog(descriptor, {
+				displayPath: "@example/probe/ns-extension",
+			});
+
+			expect(entries).toEqual([
+				expect.objectContaining({
+					name: "run",
+					path,
+					groupDescription,
+					...(hiddenAncestorKeys === undefined ? {} : { hiddenAncestorKeys }),
+				}),
+			]);
+		},
+	);
 
 	test("preinstalled registrations derive package identities and presented entries together", () => {
 		const catalog = preinstalledNsCommandCatalogFromRegistrations([
 			{
 				packageName: "@example/commands",
+				userFacingKind: "extension",
 				descriptor: {
 					description: "Example commands.",
 					entries: [
@@ -148,6 +253,7 @@ describe("extension registry", () => {
 			},
 			{
 				packageName: "@example/commandless-provider",
+				userFacingKind: "built-in",
 				descriptor: { description: "Commandless provider." },
 				displayPath: "@example/commandless-provider/ns-extension",
 			},
@@ -157,6 +263,7 @@ describe("extension registry", () => {
 			"@example/commands",
 			"@example/commandless-provider",
 		]);
+		expect(catalog.builtInPackageNames).toEqual(["@example/commandless-provider"]);
 		expect(catalog.entries).toEqual([
 			expect.objectContaining({
 				name: "scan",
@@ -164,6 +271,24 @@ describe("extension registry", () => {
 				displayPath: "@example/commands/ns-extension#scan",
 			}),
 		]);
+	});
+
+	test("built-in registration packages remain present without becoming installed extensions", async () => {
+		const catalog = preinstalledNsCommandCatalogFromRegistrations([
+			{
+				packageName: "@example/internal-architecture",
+				userFacingKind: "built-in",
+				descriptor: { description: "Distribution functionality." },
+				displayPath: "@example/internal-architecture/ns-extension",
+			},
+		]);
+		const loaded = await loadNsCommandCatalog({
+			cwd: "/outside/source-checkout",
+			preinstalledCommandCatalog: () => catalog,
+		});
+
+		expect(loaded.extensionPackageNames.has("@example/internal-architecture")).toBe(true);
+		expect(loaded.builtInPackageNames.has("@example/internal-architecture")).toBe(true);
 	});
 
 	test("catalog contains only built-ins without external extensions", async () => {
@@ -226,12 +351,15 @@ export default defineExtension({
 			name: "scan",
 			group: "tools",
 			groupDescription: "Tool commands.",
+			sourceKind: "local",
 			moduleReference: { type: "loaded" },
 			source: { level: "project" },
 		});
 		expect(loaded.candidates.get("tools/exec/doctor")).toMatchObject({
 			name: "doctor",
 			segments: ["tools", "exec", "doctor"],
+			groupDescription: "Tool commands.",
+			sourceKind: "local",
 			hiddenAncestorKeys: ["tools/exec"],
 		});
 		const listing = await loadListingCommandInfos(loaded);
@@ -391,12 +519,12 @@ export default defineExtension({
 				expect.objectContaining({
 					name: "one",
 					description: "one summary",
-					helpGroup: NS_BUILT_IN_HELP_GROUP,
+					helpGroup: NS_EXTENSION_HELP_GROUP,
 				}),
 				expect.objectContaining({
 					name: "two",
 					description: "two summary",
-					helpGroup: NS_BUILT_IN_HELP_GROUP,
+					helpGroup: NS_EXTENSION_HELP_GROUP,
 				}),
 			]),
 		);
@@ -495,7 +623,7 @@ export default defineExtension({
 		);
 	});
 
-	test("project overrides preserve distribution help presentation and project provenance", async () => {
+	test("project overrides preserve extension presentation but cannot replace built-in namespace commands", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		writeWorkspaceFile(
 			join(workspace.cwd, "ns.toml"),
@@ -538,17 +666,17 @@ export default defineExtension({ group: "extension", description: "Extension com
 
 		expect(loaded.candidates.get("hello")).toMatchObject({
 			source: { level: "project" },
-			helpGroup: NS_BUILT_IN_HELP_GROUP,
+			helpGroup: NS_EXTENSION_HELP_GROUP,
 		});
 		expect(loaded.candidates.get("extension/point")).toMatchObject({
-			source: { level: "project" },
+			source: { level: "built-in" },
 			helpGroup: NS_BUILT_IN_HELP_GROUP,
 		});
 		expect(loaded.diagnostics).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ code: "extension_command_override", commandName: "hello" }),
 				expect.objectContaining({
-					code: "extension_command_override",
+					code: "extension_command_built_in_namespace_conflict",
 					commandName: "extension/point",
 				}),
 			]),
@@ -736,7 +864,7 @@ export default defineExtension({ group: "extension", description: "Extension com
 				run: () => ok("hello"),
 			},
 			"project",
-			{ name: "hello", helpGroup: "Examples:" },
+			{ name: "hello", helpGroup: "Examples:", sourceKind: "local" },
 		);
 
 		expect(info).toEqual({
@@ -744,6 +872,8 @@ export default defineExtension({ group: "extension", description: "Extension com
 			description: "Say hello.",
 			fullDescription: "Say hello.\n\nWith details.",
 			helpGroup: "Examples:",
+			sourceKind: "local",
+			extensionOrigin: "local",
 		});
 	});
 

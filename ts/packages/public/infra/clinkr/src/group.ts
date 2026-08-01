@@ -1,5 +1,5 @@
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
-import { Command, CommanderError, Option } from "commander";
+import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { Command, CommanderError, Help, Option } from "commander";
 import { z } from "zod";
 
 import { buildCommanderArgument, buildCommanderOption } from "./commander-surface.ts";
@@ -45,6 +45,8 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	description?: string;
 	/** Short summary for parent help lists; omitted from leaf command help body. */
 	summary?: string;
+	/** Optional text right-aligned after this command's parent-help summary. */
+	helpLabel?: string;
 	/** Parent help section heading for this command. */
 	helpGroup?: string;
 	schema: S;
@@ -77,6 +79,8 @@ export interface RawCommandSpec<TContext, S extends z.ZodObject> {
 	description?: string;
 	/** Short summary for parent help lists; omitted from leaf command help body. */
 	summary?: string;
+	/** Optional text right-aligned after this command's parent-help summary. */
+	helpLabel?: string;
 	/** Parent help section heading for this command. */
 	helpGroup?: string;
 	schema: S;
@@ -115,6 +119,8 @@ export interface DefaultCommandSpec<TContext, S extends z.ZodObject, T> extends 
 export interface ClinkrGroupOptions {
 	name: string;
 	description?: string;
+	/** Optional text right-aligned after this group's parent-help description. */
+	helpLabel?: string;
 	/** Parent help section heading for this group. */
 	helpGroup?: string;
 	/** Suppresses this group from its parent's help; it stays invocable. */
@@ -139,6 +145,7 @@ interface RegisteredCommand<TContext> {
 	name: string;
 	description?: string;
 	summary?: string;
+	helpLabel?: string;
 	helpGroup?: string;
 	schema: z.ZodObject;
 	schemaDocument?: () => JsonSchemaDocument;
@@ -202,23 +209,26 @@ const LIST_COMMAND_ALIAS = "ls";
 export class ClinkrGroup<TContext> {
 	readonly name: string;
 	readonly description: string | undefined;
+	readonly helpLabel: string | undefined;
 	readonly helpGroup: string | undefined;
 	readonly isHidden: boolean;
 	private readonly version: string | undefined;
 	private readonly runtimeInfo: (() => string) | undefined;
-	private registeredCommands: RegisteredCommand<TContext>[];
-	private subgroups: ClinkrGroup<TContext>[];
+	// Commands and subgroups share one insertion-ordered list so help output
+	// (commander renders rows and section headings in registration order)
+	// follows the order callers register children.
+	private children: ClinkrGroupChild<TContext>[];
 	private defaultRegisteredCommand: RegisteredCommand<TContext> | undefined;
 
 	constructor(options: ClinkrGroupOptions) {
 		this.name = options.name;
 		this.description = options.description;
+		this.helpLabel = options.helpLabel;
 		this.helpGroup = options.helpGroup;
 		this.isHidden = options.isHidden ?? false;
 		this.version = options.version;
 		this.runtimeInfo = options.runtimeInfo;
-		this.registeredCommands = [];
-		this.subgroups = [];
+		this.children = [];
 		this.defaultRegisteredCommand = undefined;
 	}
 
@@ -233,19 +243,23 @@ export class ClinkrGroup<TContext> {
 			positionals: spec.positionals ?? {},
 			optionSpecs: spec.options ?? {},
 		});
-		this.registeredCommands.push({
-			name: spec.name,
-			...optionalEntries({
-				description: spec.description,
-				summary: spec.summary,
-				helpGroup: spec.helpGroup,
-			}),
-			schema: spec.schema,
-			...(spec.schemaDocument === undefined ? {} : { schemaDocument: spec.schemaDocument }),
-			execution: executionOf(spec),
-			plan,
-			completionProvider: spec.completionProvider,
-			shouldPassThrough: shouldPassThroughOf(spec),
+		this.children.push({
+			type: "command",
+			registered: {
+				name: spec.name,
+				...optionalEntries({
+					description: spec.description,
+					summary: spec.summary,
+					helpLabel: spec.helpLabel,
+					helpGroup: spec.helpGroup,
+					schemaDocument: spec.schemaDocument,
+				}),
+				schema: spec.schema,
+				execution: executionOf(spec),
+				plan,
+				completionProvider: spec.completionProvider,
+				shouldPassThrough: shouldPassThroughOf(spec),
+			},
 		});
 		return this;
 	}
@@ -276,8 +290,16 @@ export class ClinkrGroup<TContext> {
 	}
 
 	group(child: ClinkrGroup<TContext>): this {
-		this.subgroups.push(child);
+		this.children.push({ type: "group", group: child });
 		return this;
+	}
+
+	private registeredCommands(): readonly RegisteredCommand<TContext>[] {
+		return this.children.flatMap((child) => (child.type === "command" ? [child.registered] : []));
+	}
+
+	private subgroups(): readonly ClinkrGroup<TContext>[] {
+		return this.children.flatMap((child) => (child.type === "group" ? [child.group] : []));
 	}
 
 	/**
@@ -340,10 +362,10 @@ export class ClinkrGroup<TContext> {
 			isHidden: this.isHidden,
 			hasVersionOption: this.version !== undefined,
 			hasRuntimeOption: this.runtimeInfo !== undefined,
-			commands: this.registeredCommands.map((registered) =>
+			commands: this.registeredCommands().map((registered) =>
 				completionNamedCommandPlan(registered, siblingNames),
 			),
-			groups: this.subgroups.map((child) => child.buildCompletionPlan(false, siblingNames)),
+			groups: this.subgroups().map((child) => child.buildCompletionPlan(false, siblingNames)),
 			...(this.defaultRegisteredCommand === undefined
 				? {}
 				: { defaultCommand: completionCommandPlan(this.defaultRegisteredCommand) }),
@@ -371,26 +393,34 @@ export class ClinkrGroup<TContext> {
 			});
 		}
 		const siblingNames = this.siblingNames();
-		for (const registered of this.registeredCommands) {
-			command.addCommand(
-				buildLeafCommand({
-					registered,
-					aliases: clinkrAutomaticAliasesForName(registered.name, siblingNames) ?? [],
+		const helpLabels = new Map<Command, string>();
+		for (const child of this.children) {
+			if (child.type === "command") {
+				const childCommand = buildLeafCommand({
+					registered: child.registered,
+					aliases: clinkrAutomaticAliasesForName(child.registered.name, siblingNames) ?? [],
 					context,
 					io,
 					state,
-				}),
-			);
-		}
-		for (const child of this.subgroups) {
-			const childCommand = child.buildCommand({ context, io, state, isRoot: false });
-			for (const alias of clinkrAutomaticAliasesForName(child.name, siblingNames) ?? []) {
+				});
+				command.addCommand(childCommand);
+				if (child.registered.helpLabel !== undefined) {
+					helpLabels.set(childCommand, child.registered.helpLabel);
+				}
+				continue;
+			}
+			const childCommand = child.group.buildCommand({ context, io, state, isRoot: false });
+			for (const alias of clinkrAutomaticAliasesForName(child.group.name, siblingNames) ?? []) {
 				childCommand.alias(alias);
 			}
 			command.addCommand(childCommand, {
-				hidden: child.isHidden,
+				hidden: child.group.isHidden,
 			});
+			if (child.group.helpLabel !== undefined) {
+				helpLabels.set(childCommand, child.group.helpLabel);
+			}
 		}
+		configureTrailingHelpLabels(command, helpLabels);
 		return command;
 	}
 
@@ -399,7 +429,7 @@ export class ClinkrGroup<TContext> {
 		const [head, ...tail] = argv;
 		if (head === undefined) return [];
 		const siblingNames = this.siblingNames();
-		const child = this.subgroups.find((candidate) =>
+		const child = this.subgroups().find((candidate) =>
 			clinkrNameMatchesAutomaticAlias(candidate.name, siblingNames, head),
 		);
 		if (child === undefined) return undefined;
@@ -409,12 +439,17 @@ export class ClinkrGroup<TContext> {
 	}
 
 	private siblingNames(): ReadonlySet<string> {
-		return new Set([
-			...this.registeredCommands.map((registered) => registered.name),
-			...this.subgroups.map((child) => child.name),
-		]);
+		return new Set(
+			this.children.map((child) =>
+				child.type === "command" ? child.registered.name : child.group.name,
+			),
+		);
 	}
 }
+
+type ClinkrGroupChild<TContext> =
+	| { readonly type: "command"; readonly registered: RegisteredCommand<TContext> }
+	| { readonly type: "group"; readonly group: ClinkrGroup<TContext> };
 
 function executionOf<TContext, S extends z.ZodObject, T>(
 	spec:
@@ -538,8 +573,75 @@ function createContainedCommand(name: string, io: ClinkrIo): Command {
 		writeErr: (text) => {
 			io.stderr(text);
 		},
+		...optionalEntry(
+			"getOutHelpWidth",
+			io.caps === undefined ? undefined : () => io.caps?.columns ?? 80,
+		),
+		getOutHasColors: () => io.canEmitAnsi === true,
 	});
 	return command;
+}
+
+// Commander resolves subcommand descriptions separately from generic item formatting and does not
+// identify the subcommand in formatItem. This NUL-prefixed, non-user-representable sentinel carries
+// the internal label metadata between those hooks.
+const HELP_LABEL_SEPARATOR = "\0clinkr-help-label:";
+
+function configureTrailingHelpLabels(command: Command, labels: ReadonlyMap<Command, string>): void {
+	if (labels.size === 0) return;
+	const defaultHelp = new Help();
+	command.configureHelp({
+		subcommandDescription: (subcommand) => {
+			const description = defaultHelp.subcommandDescription(subcommand);
+			const label = labels.get(subcommand);
+			return label === undefined ? description : `${description}${HELP_LABEL_SEPARATOR}${label}`;
+		},
+		formatItem: (term, termWidth, description, helper) => {
+			const separatorIndex = description.lastIndexOf(HELP_LABEL_SEPARATOR);
+			if (separatorIndex === -1) {
+				return defaultHelp.formatItem(term, termWidth, description, helper);
+			}
+			const body = description.slice(0, separatorIndex);
+			const label = description.slice(separatorIndex + HELP_LABEL_SEPARATOR.length);
+			return formatLabeledHelpItem({
+				term,
+				termWidth,
+				description: body,
+				label,
+				helper,
+				defaultHelp,
+			});
+		},
+	});
+}
+
+interface FormatLabeledHelpItemOptions {
+	term: string;
+	termWidth: number;
+	description: string;
+	label: string;
+	helper: Help;
+	defaultHelp: Help;
+}
+
+function formatLabeledHelpItem(options: FormatLabeledHelpItemOptions): string {
+	const { term, termWidth, description, label, helper, defaultHelp } = options;
+	const helpWidth = helper.helpWidth ?? 80;
+	const labelWidth = helper.displayWidth(label);
+	// Derive from Commander's helper to preserve its methods and display-width behavior while
+	// reducing wrap width locally, without mutating the helper used for other rows.
+	const bodyHelp = Object.assign(Object.create(helper) as Help, {
+		helpWidth: Math.max(0, helpWidth - labelWidth - 1),
+	});
+	const formatted = defaultHelp.formatItem(term, termWidth, description, bodyHelp);
+	const lines = formatted.split("\n");
+	const lastLine = lines.at(-1) ?? "";
+	const padding = helpWidth - helper.displayWidth(lastLine) - labelWidth;
+	if (padding > 0) {
+		lines[lines.length - 1] = `${lastLine}${" ".repeat(padding)}${label}`;
+		return lines.join("\n");
+	}
+	return `${formatted}\n${" ".repeat(Math.max(0, helpWidth - labelWidth))}${label}`;
 }
 
 function exitCodeForCommanderError(error: CommanderError): number {

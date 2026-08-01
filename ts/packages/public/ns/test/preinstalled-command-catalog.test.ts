@@ -25,6 +25,10 @@ describe("preinstalled ns command catalog", () => {
 			"@nseng-ai/ns",
 			"@nseng-ai/ns",
 		]);
+		expect(preinstalledExtensionRegistrations.map(({ userFacingKind }) => userFacingKind)).toEqual([
+			"built-in",
+			"built-in",
+		]);
 		expect(preinstalledExtensionRegistrations.map(({ displayPath }) => displayPath)).toEqual([
 			"@nseng-ai/ns/init/ns-extension",
 			"@nseng-ai/ns/harness-artifacts/ns-extension",
@@ -35,6 +39,7 @@ describe("preinstalled ns command catalog", () => {
 		const catalog = loadPreinstalledNsCommandCatalog();
 
 		expect(catalog.extensionPackageNames).toEqual(["@nseng-ai/ns", "@nseng-ai/ns"]);
+		expect(catalog.builtInPackageNames).toEqual(["@nseng-ai/ns", "@nseng-ai/ns"]);
 		expect(catalog.entries.map(({ path }) => path?.join("/"))).toEqual(expectedPaths);
 		expect(
 			catalog.entries.map((entry) => ("displayPath" in entry ? entry.displayPath : undefined)),
@@ -55,7 +60,7 @@ describe("preinstalled ns command catalog", () => {
 		).toBe(true);
 	});
 
-	test("preserves host grouping metadata and excludes Objective commands", () => {
+	test("presents distribution-owned namespaces as built-ins and excludes Objective commands", () => {
 		const entries = loadPreinstalledNsCommandCatalog().entries;
 
 		expect(
@@ -77,7 +82,7 @@ describe("preinstalled ns command catalog", () => {
 			...expectedPaths.slice(1, 5).map((path) => ({
 				path,
 				group: "extension",
-				groupDescription: "Activate ns in a repository.",
+				groupDescription: "Inspect and manage ns extensions.",
 				helpGroup: NS_BUILT_IN_HELP_GROUP,
 				hiddenAncestorKeys: [],
 			})),

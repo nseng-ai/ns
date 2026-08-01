@@ -8,9 +8,9 @@ import { nsInitCommand } from "../command.ts";
 
 export const nsExtensionListCommand = nsInitCommand({
 	name: "list",
-	summary: "List declared ns extensions and their acquisition and artifact status.",
+	summary: "List installed and declared ns extensions and their status.",
 	description:
-		"Inspect repository extension declarations and installed artifact state without acquiring packages or changing files.",
+		"Inspect installed package extensions, repository declarations, and artifact state without acquiring packages or changing files.",
 	schema: listExtensionsRequestSchema,
 	resultSchema: listExtensionsResultSchema,
 	handler: (context, _request) => listExtensions(context, { cwd: context.cwd }),

@@ -24,6 +24,11 @@ describe("checked-in flow ns extension registry loading", () => {
 
 		expect(catalog.extensionPackageNames.has("@nseng-ai/flow")).toBe(true);
 		expect(catalog.extensionPackageNames.has("@nseng-ai/slots")).toBe(true);
+		expect(
+			catalog.commandInfos.find(
+				(command) => command.group === "flow" && command.name === "changes",
+			),
+		).toMatchObject({ sourceKind: "package", extensionOrigin: "package" });
 	});
 
 	test("real loader discovers and imports every checked-in flow command entry", async () => {

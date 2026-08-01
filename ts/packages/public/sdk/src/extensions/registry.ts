@@ -16,12 +16,13 @@ import {
 	type NsCommandCliInfo,
 	type NsCommandPath,
 	type NsCommandSourceInfo,
+	type NsCommandSourceKind,
 	type NsCommandSourceLevel,
 } from "./command-registry.ts";
 import { NS_COMMAND_NAME_PATTERN, NS_COMMAND_NAME_RULE } from "../sdk/command-name.ts";
 import { nextDescriptorTraversalState } from "./descriptor-traversal.ts";
 import { loadDeclaredExtensionDescriptors } from "./declared-descriptors.ts";
-import { NS_BUILT_IN_HELP_GROUP } from "./help-presentation.ts";
+import { NS_BUILT_IN_HELP_GROUP, NS_EXTENSION_HELP_GROUP } from "./help-presentation.ts";
 import { loadExtensionDescriptorFromPackageRoot } from "../project-config/extension-package-descriptor.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
 import {
@@ -55,12 +56,14 @@ export interface NsCommandCatalog {
 	commandInfos: readonly NsCommandCliInfo[];
 	diagnostics: readonly ExtensionDiagnostic[];
 	extensionPackageNames: ReadonlySet<string>;
+	builtInPackageNames: ReadonlySet<string>;
 }
 
 interface LoadedCatalogFragment {
 	readonly diagnostics: readonly ExtensionDiagnostic[];
 	readonly candidates: readonly ExtensionCommandCandidate[];
 	readonly extensionPackageNames: readonly string[];
+	readonly builtInPackageNames: readonly string[];
 }
 
 export type ExtensionCommandCandidate = BuiltInNsCommandCandidate | ExternalNsCommandCandidate;
@@ -98,7 +101,7 @@ export type SelectedNsCommandLoadResult =
 			ok: true;
 			command: DescriptorCommand;
 			source: ExtensionSourceInfo;
-			path: NsCommandPath & Pick<NsCommandCliInfo, "helpGroup">;
+			path: NsCommandPath & Pick<NsCommandCliInfo, "helpGroup" | "sourceKind">;
 	  }
 	| { ok: false; diagnostic: ExtensionErrorDiagnostic };
 
@@ -137,6 +140,7 @@ export interface PreinstalledNsCommandLoadedCatalogEntry extends PreinstalledNsC
 export interface PreinstalledNsCommandCatalog {
 	readonly entries: readonly PreinstalledNsCommandCatalogEntry[];
 	readonly extensionPackageNames: readonly string[];
+	readonly builtInPackageNames: readonly string[];
 }
 
 export type PreinstalledNsCommandCatalogLoader = () =>
@@ -178,15 +182,21 @@ export async function loadNsCommandCatalog(
 	});
 	const descriptorProjectCandidates = await loadProjectDescriptorCandidates(options.cwd);
 	diagnostics.push(...descriptorProjectCandidates.diagnostics);
+	const projectNamespaceValidation = rejectBuiltInNamespaceContributions(
+		descriptorProjectCandidates.candidates,
+		[...builtInCandidates, ...preinstalledCandidates.candidates],
+	);
+	diagnostics.push(...projectNamespaceValidation.diagnostics);
 	orderedSources.push({
 		level: "project",
 		label: "ns.toml descriptor extensions",
-		candidates: descriptorProjectCandidates.candidates,
+		candidates: projectNamespaceValidation.candidates,
 	});
 	const extensionPackageNames = new Set([
 		...preinstalledCandidates.extensionPackageNames,
 		...descriptorProjectCandidates.extensionPackageNames,
 	]);
+	const builtInPackageNames = new Set(preinstalledCandidates.builtInPackageNames);
 
 	const merged = new Map<string, ExtensionCommandCandidate>();
 	for (const source of orderedSources) {
@@ -224,6 +234,7 @@ export async function loadNsCommandCatalog(
 		commandInfos: finalCandidates.map(toCommandCliInfo),
 		diagnostics,
 		extensionPackageNames,
+		builtInPackageNames,
 	};
 }
 
@@ -324,7 +335,7 @@ export function commandInfosForSelectedCommand(
 		| {
 				command: DescriptorCommand;
 				source: ExtensionSourceInfo;
-				path: NsCommandPath & Pick<NsCommandCliInfo, "helpGroup">;
+				path: NsCommandPath & Pick<NsCommandCliInfo, "helpGroup" | "sourceKind">;
 		  }
 		| undefined,
 ): readonly NsCommandCliInfo[] {
@@ -342,7 +353,13 @@ export function classifyExtensionDiagnosticsForInvocation(options: {
 		(diagnostic): diagnostic is ExtensionErrorDiagnostic => diagnostic.severity === "error",
 	);
 	if (options.requestedCommandName === undefined) {
-		return { fatal: [], warnings: errorDiagnostics };
+		const fatal = errorDiagnostics.filter(
+			(diagnostic) => diagnostic.code === "extension_command_built_in_namespace_conflict",
+		);
+		return {
+			fatal,
+			warnings: errorDiagnostics.filter((diagnostic) => !fatal.includes(diagnostic)),
+		};
 	}
 
 	const fatal: ExtensionErrorDiagnostic[] = [];
@@ -411,6 +428,7 @@ async function loadProjectDescriptorCandidates(cwd: string): Promise<LoadedCatal
 			),
 		),
 		extensionPackageNames: loaded.descriptors.map((record) => record.packageName),
+		builtInPackageNames: [],
 		candidates: loaded.descriptors.flatMap((record) =>
 			descriptorCommandCandidates({
 				cwd,
@@ -420,6 +438,7 @@ async function loadProjectDescriptorCandidates(cwd: string): Promise<LoadedCatal
 				descriptor: record.descriptor,
 				sourceLevel: "project",
 				sourceLabel: `ns.toml descriptor ${record.spec}`,
+				sourceKind: record.sourceKind,
 			}),
 		),
 	};
@@ -455,6 +474,7 @@ function descriptorCommandCandidates(options: {
 	descriptor: ExtensionDescriptor;
 	sourceLevel: ExtensionSourceLevel;
 	sourceLabel: string;
+	sourceKind: NsCommandSourceKind;
 }): readonly ExtensionCommandCandidate[] {
 	const entries = options.descriptor.entries ?? [];
 	return entries.flatMap((entry) =>
@@ -476,6 +496,7 @@ function descriptorEntryCommandCandidates(options: {
 	descriptor: ExtensionDescriptor;
 	sourceLevel: ExtensionSourceLevel;
 	sourceLabel: string;
+	sourceKind: NsCommandSourceKind;
 	entry: ExtensionEntry;
 	segments: readonly string[];
 	hiddenAncestorKeys: readonly string[];
@@ -501,6 +522,7 @@ function descriptorEntryCommandCandidates(options: {
 					return module.default;
 				}),
 				...optionalEntry("requiresExtension", commandEntry.requiresExtension),
+				sourceKind: options.sourceKind,
 				descriptorEntry: commandEntry,
 				hasStaticCommandInfo: false,
 				entryPath: options.descriptorPath,
@@ -512,8 +534,9 @@ function descriptorEntryCommandCandidates(options: {
 			},
 		];
 	}
-	const nextState = nextDescriptorTraversalState(options.entry, options);
-	return options.entry.entries.flatMap((entry) =>
+	const groupEntry = options.entry;
+	const nextState = nextDescriptorTraversalState(groupEntry, options);
+	return groupEntry.entries.flatMap((entry) =>
 		descriptorEntryCommandCandidates({
 			...options,
 			entry,
@@ -543,6 +566,13 @@ function descriptorCommandInfoPath(options: {
 	return {
 		name: options.commandName,
 		segments: [...options.segments, options.commandName],
+		// The descriptor description labels the root group even when every command
+		// nests deeper (for example a hidden exec group); help falls back to a
+		// generated "NS <group> commands." string without it.
+		...optionalEntry(
+			"groupDescription",
+			rootGroup === undefined ? undefined : options.rootGroupDescription,
+		),
 		...optionalEntry("hiddenAncestorKeys", options.hiddenAncestorKeys),
 	};
 }
@@ -553,7 +583,7 @@ async function loadPreinstalledCandidates(
 ): Promise<LoadedCatalogFragment> {
 	const catalog =
 		catalogLoader === undefined
-			? { entries: [], extensionPackageNames: [] }
+			? { entries: [], extensionPackageNames: [], builtInPackageNames: [] }
 			: await catalogLoader();
 	const catalogCandidates = catalog.entries.map(preinstalledCandidateForCatalogEntry);
 	const sourceDevCandidates = await loadSourceDevPreinstalledCandidates(
@@ -569,6 +599,7 @@ async function loadPreinstalledCandidates(
 			...catalog.extensionPackageNames,
 			...sourceDevCandidates.extensionPackageNames,
 		],
+		builtInPackageNames: catalog.builtInPackageNames,
 	};
 }
 
@@ -590,7 +621,7 @@ async function loadSourceDevPreinstalledCandidates(
 			...descriptor.candidates.filter((candidate) => !catalogKeys.has(commandKey(candidate))),
 		);
 	}
-	return { diagnostics, candidates, extensionPackageNames };
+	return { diagnostics, candidates, extensionPackageNames, builtInPackageNames: [] };
 }
 
 async function loadSourceDevDescriptorCandidates(options: {
@@ -626,6 +657,7 @@ async function loadSourceDevDescriptorCandidates(options: {
 	return {
 		diagnostics: [],
 		extensionPackageNames: [loaded.value.packageName],
+		builtInPackageNames: [],
 		candidates: descriptorCommandCandidates({
 			cwd: options.cwd,
 			spec,
@@ -634,6 +666,7 @@ async function loadSourceDevDescriptorCandidates(options: {
 			descriptor: loaded.value.descriptor,
 			sourceLevel: "preinstalled",
 			sourceLabel: `source-dev descriptor ${spec}`,
+			sourceKind: "package",
 		}),
 	};
 }
@@ -736,14 +769,14 @@ function preinstalledCatalogEntryCommandInfo(
 function emptyLoadedCatalogFragment(
 	diagnostics: readonly ExtensionDiagnostic[] = [],
 ): LoadedCatalogFragment {
-	return { diagnostics, candidates: [], extensionPackageNames: [] };
+	return { diagnostics, candidates: [], extensionPackageNames: [], builtInPackageNames: [] };
 }
 
 function withDefaultPreinstalledHelpGroup(
 	candidate: ExtensionCommandCandidate,
 ): ExtensionCommandCandidate {
 	if (candidate.helpGroup !== undefined) return candidate;
-	return { ...candidate, helpGroup: NS_BUILT_IN_HELP_GROUP };
+	return { ...candidate, helpGroup: NS_EXTENSION_HELP_GROUP };
 }
 
 function inheritHelpGroup(
@@ -839,6 +872,36 @@ function validateSourceCandidates(
 		candidates: validated.filter((candidate) => !duplicateNames.has(commandKey(candidate))),
 		diagnostics,
 	};
+}
+
+function rejectBuiltInNamespaceContributions(
+	projectCandidates: readonly ExtensionCommandCandidate[],
+	distributionCandidates: readonly ExtensionCommandCandidate[],
+): {
+	candidates: readonly ExtensionCommandCandidate[];
+	diagnostics: readonly ExtensionErrorDiagnostic[];
+} {
+	const builtInNamespaces = new Set(
+		distributionCandidates
+			.filter((candidate) => candidate.helpGroup === NS_BUILT_IN_HELP_GROUP)
+			.map((candidate) => commandSegments(candidate)[0])
+			.filter((segment): segment is string => segment !== undefined),
+	);
+	const diagnostics: ExtensionErrorDiagnostic[] = [];
+	const candidates = projectCandidates.filter((candidate) => {
+		const topLevelNamespace = commandSegments(candidate)[0];
+		if (topLevelNamespace === undefined || !builtInNamespaces.has(topLevelNamespace)) return true;
+		diagnostics.push({
+			severity: "error",
+			code: "extension_command_built_in_namespace_conflict",
+			message: `Project extension command ${commandKey(candidate)} cannot contribute to built-in namespace ${topLevelNamespace}. Choose a different top-level command namespace.`,
+			path: candidateDiagnosticPath(candidate),
+			sourceLevel: candidate.source.level,
+			commandName: commandKey(candidate),
+		});
+		return false;
+	});
+	return { candidates, diagnostics };
 }
 
 function filterGroupCommandCollisions(candidates: readonly ExtensionCommandCandidate[]): {
