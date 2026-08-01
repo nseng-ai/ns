@@ -214,7 +214,7 @@ The general runner path is folded into **`objective-next`**, not a separate deve
 
 1. resolve exactly one explicit Objective or ask the user to choose;
 2. read `objective.md`, `roadmap.md`, and relevant `updates/`;
-3. apply the read-only Tracking Gate before recommendation or execution;
+3. apply the read-only Objective Staleness Check before recommendation or execution;
 4. recommend the next semantic step by default;
 5. when policy says to steer first, ask or recommend planning instead of executing;
 6. when explicit durable policy permits direct execution, present an inline execution preview and wait for human confirmation;

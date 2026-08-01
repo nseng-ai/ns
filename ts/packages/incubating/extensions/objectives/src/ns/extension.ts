@@ -97,10 +97,10 @@ export default defineExtension({
 				}),
 			},
 			{
-				name: "tracking-gate",
+				name: "staleness-check",
 				load: async () => ({
-					default: (await import("./commands/exec-tracking-gate.ts"))
-						.objectiveExecTrackingGateNsCommand,
+					default: (await import("./commands/exec-staleness-check.ts"))
+						.objectiveExecStalenessCheckNsCommand,
 				}),
 			},
 		]),

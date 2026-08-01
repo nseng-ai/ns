@@ -10,7 +10,7 @@ import {
 import { pythonStringRepr, removeOneTrailingNewline } from "./format.ts";
 import { readObjectiveRecord } from "./read-objective.ts";
 
-export const trackingGateRequestSchema = z.object({
+export const stalenessCheckRequestSchema = z.object({
 	slug: z.string().optional().describe("Objective slug to inspect."),
 });
 
@@ -20,12 +20,12 @@ const gitFailureSchema = z.object({
 	displayCommand: z.string().optional(),
 });
 
-const trackingGateGitProbeSchema = z.discriminatedUnion("status", [
+const stalenessCheckGitProbeSchema = z.discriminatedUnion("status", [
 	z.object({ status: z.literal("ok"), hasChanges: z.boolean() }),
 	z.object({ status: z.literal("error"), error: gitFailureSchema }),
 ]);
 
-export const trackingGateResultSchema = z.object({
+export const stalenessCheckResultSchema = z.object({
 	slug: z.string(),
 	objectivePath: z.string(),
 	rootPath: z.string(),
@@ -43,8 +43,8 @@ export const trackingGateResultSchema = z.object({
 		revisionRange: z.string(),
 	}),
 	uncommitted: z.object({
-		repository: trackingGateGitProbeSchema,
-		objective: trackingGateGitProbeSchema,
+		repository: stalenessCheckGitProbeSchema,
+		objective: stalenessCheckGitProbeSchema,
 	}),
 	branchDiff: z.object({
 		status: z.literal("ok"),
@@ -63,13 +63,13 @@ export const trackingGateResultSchema = z.object({
 	}),
 });
 
-export type TrackingGateRequest = z.infer<typeof trackingGateRequestSchema>;
-export type TrackingGateResult = z.infer<typeof trackingGateResultSchema>;
+export type StalenessCheckRequest = z.infer<typeof stalenessCheckRequestSchema>;
+export type StalenessCheckResult = z.infer<typeof stalenessCheckResultSchema>;
 
-export async function runTrackingGate(
+export async function runStalenessCheck(
 	ctx: ObjectiveCliContext,
-	request: TrackingGateRequest,
-): Promise<ClinkrExit<TrackingGateResult>> {
+	request: StalenessCheckRequest,
+): Promise<ClinkrExit<StalenessCheckResult>> {
 	if (request.slug === undefined) {
 		return usageError("Objective slug is required.", { argument: "slug" });
 	}
@@ -129,7 +129,7 @@ export async function runTrackingGate(
 	const objectiveDirtyProbe = gitBooleanProbe(objectiveDirty);
 
 	return ok(
-		buildTrackingGateResult({
+		buildStalenessCheckResult({
 			slug: request.slug,
 			objectivePath,
 			rootPath: activeRootRelativePath(),
@@ -153,11 +153,11 @@ export async function runTrackingGate(
 	);
 }
 
-export function renderTrackingGate(result: TrackingGateResult): string {
+export function renderStalenessCheck(result: StalenessCheckResult): string {
 	const currentBranch =
 		result.git.currentBranch.type === "branch" ? result.git.currentBranch.branch : "detached HEAD";
 	const parts = [
-		`# Objective Tracking Gate \`${result.slug}\``,
+		`# Objective Staleness Check \`${result.slug}\``,
 		"",
 		`Objective: \`${result.objectivePath}\` (${result.objective.closed ? "closed" : "open"})`,
 		`Branch: \`${currentBranch}\``,
@@ -176,13 +176,13 @@ export function renderTrackingGate(result: TrackingGateResult): string {
 	return removeOneTrailingNewline(parts.join("\n"));
 }
 
-interface TrackingGateResultParts {
+interface StalenessCheckResultParts {
 	slug: string;
 	objectivePath: string;
 	rootPath: string;
-	objective: TrackingGateResult["objective"];
-	git: TrackingGateResult["git"];
-	uncommitted?: TrackingGateResult["uncommitted"];
+	objective: StalenessCheckResult["objective"];
+	git: StalenessCheckResult["git"];
+	uncommitted?: StalenessCheckResult["uncommitted"];
 	branchDiff?: {
 		changedPaths: readonly string[];
 		objectiveChangedPaths: readonly string[];
@@ -190,7 +190,7 @@ interface TrackingGateResultParts {
 	};
 }
 
-function buildTrackingGateResult(options: TrackingGateResultParts): TrackingGateResult {
+function buildStalenessCheckResult(options: StalenessCheckResultParts): StalenessCheckResult {
 	const uncommitted = options.uncommitted ?? notRunUncommittedProbes("Objective missing.");
 	const changedPaths = options.branchDiff?.changedPaths ?? [];
 	const objectiveChangedPaths = options.branchDiff?.objectiveChangedPaths ?? [];
@@ -222,8 +222,8 @@ function buildTrackingGateResult(options: TrackingGateResultParts): TrackingGate
 	};
 }
 
-function buildMissingResult(ctx: ObjectiveCliContext, slug: string): TrackingGateResult {
-	return buildTrackingGateResult({
+function buildMissingResult(ctx: ObjectiveCliContext, slug: string): StalenessCheckResult {
+	return buildStalenessCheckResult({
 		slug,
 		objectivePath: activeRecordRelativePath(slug),
 		rootPath: activeRootRelativePath(),
@@ -237,7 +237,7 @@ function buildMissingResult(ctx: ObjectiveCliContext, slug: string): TrackingGat
 	});
 }
 
-function notRunUncommittedProbes(message: string): TrackingGateResult["uncommitted"] {
+function notRunUncommittedProbes(message: string): StalenessCheckResult["uncommitted"] {
 	const error = { code: "not_run", message };
 	return {
 		repository: { status: "error", error },
@@ -256,7 +256,7 @@ function isUnderPath(path: string, parent: string): boolean {
 	return path === parent || path.startsWith(`${parent}/`);
 }
 
-function formatProbe(probe: TrackingGateResult["uncommitted"]["repository"]): string {
+function formatProbe(probe: StalenessCheckResult["uncommitted"]["repository"]): string {
 	if (probe.status === "error") return `unknown (${probe.error.code})`;
 	return probe.hasChanges === true ? "yes" : "no";
 }

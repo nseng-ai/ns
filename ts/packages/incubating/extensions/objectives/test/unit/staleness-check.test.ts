@@ -6,10 +6,13 @@ import {
 	FakeObjectiveStorageGateway,
 	type FakeObjectiveStorageGatewayOptions,
 } from "../../src/core/fake-storage.ts";
-import { renderTrackingGate, runTrackingGate } from "../../src/core/operations/tracking-gate.ts";
+import {
+	renderStalenessCheck,
+	runStalenessCheck,
+} from "../../src/core/operations/staleness-check.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 
-describe("objective tracking-gate operation", () => {
+describe("objective staleness-check operation", () => {
 	test("collects trunk-resolved branch diff and dirty evidence for one Objective", async () => {
 		const ctx = contextWithFakeStorage(
 			{ records: [{ slug: "flow-cleanup" }] },
@@ -20,13 +23,13 @@ describe("objective tracking-gate operation", () => {
 				changedPaths: {
 					"master...HEAD|.": [
 						".ns/objectives/flow-cleanup/roadmap.md",
-						"ts/packages/incubating/extensions/objectives/src/core/operations/tracking-gate.ts",
+						"ts/packages/incubating/extensions/objectives/src/core/operations/staleness-check.ts",
 					],
 				},
 			},
 		);
 
-		const exit = await runTrackingGate(ctx, { slug: "flow-cleanup" });
+		const exit = await runStalenessCheck(ctx, { slug: "flow-cleanup" });
 
 		expect(exit).toEqual({
 			type: "ok",
@@ -49,13 +52,13 @@ describe("objective tracking-gate operation", () => {
 					status: "ok",
 					changedPaths: [
 						".ns/objectives/flow-cleanup/roadmap.md",
-						"ts/packages/incubating/extensions/objectives/src/core/operations/tracking-gate.ts",
+						"ts/packages/incubating/extensions/objectives/src/core/operations/staleness-check.ts",
 					],
 					changedPathCount: 2,
 					objectiveChangedPaths: [".ns/objectives/flow-cleanup/roadmap.md"],
 					objectiveChangedPathCount: 1,
 					materialNonObjectivePaths: [
-						"ts/packages/incubating/extensions/objectives/src/core/operations/tracking-gate.ts",
+						"ts/packages/incubating/extensions/objectives/src/core/operations/staleness-check.ts",
 					],
 					materialNonObjectivePathCount: 1,
 				},
@@ -81,17 +84,18 @@ describe("objective tracking-gate operation", () => {
 				changedPaths: { "master...HEAD|.": [".ns/objectives/flow-cleanup/roadmap.md"] },
 			},
 		);
-		const exit = await runTrackingGate(ctx, { slug: "flow-cleanup" });
+		const exit = await runStalenessCheck(ctx, { slug: "flow-cleanup" });
 		if (exit.type !== "ok") throw new Error("expected ok exit");
 
-		expect(renderTrackingGate(exit.data)).toContain("Diff base: `master` via `master...HEAD`");
-		expect(renderTrackingGate(exit.data)).toContain("Objective files changed in branch diff: 1");
+		expect(renderStalenessCheck(exit.data)).toContain("# Objective Staleness Check `flow-cleanup`");
+		expect(renderStalenessCheck(exit.data)).toContain("Diff base: `master` via `master...HEAD`");
+		expect(renderStalenessCheck(exit.data)).toContain("Objective files changed in branch diff: 1");
 	});
 
 	test("returns negative data when the Objective is missing", async () => {
 		const ctx = contextWithFakeStorage({ records: [] }, { cachedOriginHeadBranch: "master" });
 
-		const exit = await runTrackingGate(ctx, { slug: "missing-objective" });
+		const exit = await runStalenessCheck(ctx, { slug: "missing-objective" });
 
 		expect(exit).toMatchObject({
 			type: "negative",

@@ -6,7 +6,7 @@ Read the `objective` skill's execution policy reference first when shared policy
 
 ## Execution basis
 
-After the Tracking Gate passes, execution may proceed from either basis below.
+After the selected Objective record is confirmed current enough for judgment, execution may proceed from either basis below.
 
 ### Durable policy basis
 

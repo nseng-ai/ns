@@ -92,9 +92,9 @@ An explicit move of an **Objective** from one slug directory to another after th
 An update file that records meaningful objective information such as a finding, decision, blocker, completion evidence, changed plan, or follow-up.
 *Avoid*: Ceremonial update, status ping, branch changelog
 
-**Tracking Gate**:
-A read-only check that blocks next-work recommendations when branch or worktree evidence suggests objective progress has not been recorded, then either routes clear same-objective cases into the explicit **Objective Update** workflow before continuing or asks for confirmation when the evidence or update scope is ambiguous.
-*Avoid*: hidden reconciliation, silent objective mutation, background refresh
+**Objective Staleness Check**:
+A read-only freshness precondition over repository evidence and objective tracking, run by `objective-next` before judging next work: when branch or worktree evidence shows clear unrecorded material progress it routes into the explicit **Objective Update** workflow before continuing, asks for confirmation when evidence or update scope is ambiguous, and is otherwise invisible. Distinct from Graphite branch-tracking checks.
+*Avoid*: Tracking Gate, pass/fail ceremony, gate, hidden reconciliation, silent objective mutation, background refresh
 
 **Objective Update**:
 The explicit mutation workflow that updates objective tracking by editing durable files and, when there is meaningful semantic information, writing a **Semantic Update**.

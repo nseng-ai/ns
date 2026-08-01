@@ -12,35 +12,35 @@ Part of the Objective skill family. Use the `objective` umbrella skill first for
 
 ## Resolve the Objective
 
-Resolve exactly one Objective per the umbrella skill's Selection rules; the umbrella also owns the storage model and required file shapes — this skill does not restate them. Read `objective.md`, `roadmap.md`, and `updates/` directly; use `ns objective exec` for deterministic mechanics like candidate listing, closed-marker detection, and tracking-gate git evidence. Changed-path evidence belongs only to the Tracking Gate after an Objective is selected.
+Resolve exactly one Objective per the umbrella skill's Selection rules; the umbrella also owns the storage model and required file shapes — this skill does not restate them. Read `objective.md`, `roadmap.md`, and `updates/` directly; use `ns objective exec` for deterministic mechanics like candidate listing, closed-marker detection, and staleness-check git evidence. Changed-path evidence belongs only to the Staleness Check after an Objective is selected.
 
-## Tracking Gate
+## Objective Staleness Check
 
-Before recommending work or offering execution, run:
+A read-only freshness precondition: before recommending work or offering execution, check whether the selected Objective record may be stale relative to current branch/worktree evidence. Run:
 
 ```sh
-ns objective exec tracking-gate <slug> --format json
+ns objective exec staleness-check <slug> --format json
 ```
 
-Use the JSON payload as deterministic evidence; do not hand-roll branch-base detection or shell pipelines for this gate. In particular:
+Use the JSON payload as deterministic evidence; do not hand-roll branch-base detection or shell pipelines for this check. In particular:
 
 - `git.trunkBranch` and `git.revisionRange` are the resolved branch-diff basis.
 - `uncommitted.repository` reports whether the worktree has uncommitted changes.
 - `uncommitted.objective` reports whether the selected Objective record has uncommitted changes.
 - `branchDiff.objectiveChangedPaths` reports committed branch-diff changes under `.ns/objectives/<slug>/`.
 - `branchDiff.materialNonObjectivePaths` reports committed branch-diff changes outside that Objective record.
-- `summary.*` gives booleans/nulls for quick gate decisions.
+- `summary.*` gives booleans/nulls for quick staleness decisions.
 
 Then:
 
 1. Inspect `materialNonObjectivePaths` plus uncommitted evidence for current-branch or worktree progress that plausibly advances the selected Objective.
 2. Compare with `objectiveChangedPaths` and `uncommitted.objective` to decide whether corresponding Objective tracking appears present.
-3. If meaningful current-branch or worktree progress for the selected Objective appears clearly unrecorded, treat the `objective-next` request as update-and-continue preauthorization: run `objective-update` for the same selected slug/path, then reread Objective and rerun `ns objective exec tracking-gate <slug> --format json` before recommending work or offering execution.
-4. If meaningful progress appears likely but evidence, Objective fit, or update scope is ambiguous, ask: `Run objective-update for <slug> now, then rerun objective-next?`
+3. If the record appears stale — meaningful current-branch or worktree progress for the selected Objective is clearly unrecorded — treat the `objective-next` request as update-and-continue preauthorization: run `objective-update` for the same selected slug/path, then reread the Objective and rerun `ns objective exec staleness-check <slug> --format json` before recommending work or offering execution.
+4. If the evidence is ambiguous — meaningful progress appears likely but evidence, Objective fit, or update scope is unclear — ask: `Run objective-update for <slug> now, then rerun objective-next?`
 5. If the user declines or confirmation is pending, stop without a next-work recommendation or execution offer.
-6. In every other case — evidence absent, clearly unrelated, or already reflected in Objective tracking — proceed silently. A passing gate produces no output anywhere in the response: no status line, no "tracking gate: clean," no gate mechanics before or inside the decision packet. The gate speaks only when it routes into `objective-update` or a confirmation question.
+6. In every other case — evidence absent, clearly unrelated, or already reflected in Objective tracking — the record does not appear stale; proceed silently. A non-stale result produces no output anywhere in the response: no status line, no check mechanics before or inside the decision packet. The check speaks only when it routes into `objective-update` or a confirmation question.
 
-The Tracking Gate check itself is read-only. Any file changes during this phase belong only to the explicit `objective-update` workflow that the gate routes into. If the tracking-gate command itself fails because the extension is unavailable or the git evidence cannot be collected, report the failure and ask whether to proceed with a degraded manual read; do not silently fall back to ad hoc shell.
+The Staleness Check itself is read-only. Any file changes during this phase belong only to the explicit `objective-update` workflow that the check routes into. If the staleness-check command itself fails because the extension is unavailable or the git evidence cannot be collected, report the failure and ask whether to proceed with a degraded manual read; do not silently fall back to ad hoc shell.
 
 ## Blocked Objectives
 
@@ -78,7 +78,7 @@ If any condition is missing or ambiguous, do not execute yet: reread the Objecti
 
 1. Exclude closed Objectives by default. If `closed.md` exists, stop and say it is closed.
 2. Read `objective.md`, `roadmap.md`, `orientation.md` (if present), and relevant `updates/` files.
-3. Apply the Tracking Gate (section above).
+3. Apply the Objective Staleness Check (section above).
 4. Load conditional references only when their routing conditions apply.
 5. If Record Frontmatter carries a `blocked:` sentence, apply the Blocked Objectives guidance: traverse the record's edges to find the counterpart Objective that would unblock it, if one exists, and let that shape the recommendation.
 6. Choose the smallest coherent next semantic step grounded in the Objective narrative, roadmap, active assumptions, and risks. The step may be agent-alone or human-steered; when open, unblocked candidates of both kinds exist, prefer the one that requires human intervention (grilling, prototype, live decisions, steering) — resolving human-gated questions de-risks and sharpens the Objective so the remaining work can run autonomously sooner. Deviate only when a specific hazard or dependency makes an agent-alone row clearly more urgent, and say why. On an ideation Objective, recommend from the **Frontier**: one open, unblocked Question Row (rows are unordered beyond blocking; resolve one per session). If the Frontier is empty and only ordinary execution rows remain, say the record has **crystallized** and recommend ordinary execution work instead.
@@ -134,7 +134,7 @@ In every packet:
 - Objective selection is ambiguous or absent.
 - The selected path is outside `.ns/objectives/<slug>/`; ask for an active Objective slug or path before recommending next work.
 - The selected Objective is closed.
-- The Tracking Gate finds likely unrecorded material progress but evidence, Objective fit, or update scope is ambiguous and confirmation to run `objective-update` is pending or declined.
+- The Staleness Check finds likely unrecorded material progress but evidence, Objective fit, or update scope is ambiguous and confirmation to run `objective-update` is pending or declined.
 - The roadmap and narrative are too stale or incomplete to recommend work safely; ask for `objective-update`.
 - Execution basis is relevant but ambiguous for the selected slice; load `references/confirmed-execution.md` and recommend or steer instead of executing.
 - Requested execution would advance work the Blocked Sentence clearly gates; steer toward the unblocking counterpart Objective or the external gate instead.
@@ -144,7 +144,7 @@ In every packet:
 
 - Name the selected slug and identify the roadmap item or narrative basis for the packet, steering question, or execution preview.
 - Confirm the decision packet ends with either a proposed prompt or an explicit Declined element, and that a proposed prompt is self-contained: a cold session could run it without this conversation. Confirm it stayed short, citing durable artifacts rather than replicating them, and that it used the default structured shape or a sanctioned deviation (record/row prompt guidance, or a degenerate single-question step).
-- Confirm everything above the proposed prompt honored the brevity budget: no off-ramps menu, no multi-sentence basis enumeration, and no tracking-gate narration anywhere in the response — a passing gate is invisible.
+- Confirm everything above the proposed prompt honored the brevity budget: no off-ramps menu, no multi-sentence basis enumeration, and no staleness-check narration anywhere in the response — a non-stale result is invisible.
 - If the record is blocked, confirm the response named the Blocked Sentence and either the unblocking counterpart Objective or why no edge counterpart applies.
 - If recommendation-only or steer-first, ensure no files changed except through an explicit `objective-update` handoff; report any handoff output separately and confirm it stayed under the selected slug.
 - If confirmed execution ran, verify and report according to `references/confirmed-execution.md`, including whether the basis was durable policy or recommendation-continuation confirmation.

@@ -149,7 +149,7 @@ entries: [
 		hidden: true,
 		description: "Agent-only operations.",
 		entries: [
-			{ name: "tracking-gate", load: () => import("./commands/exec/tracking-gate.ts") },
+			{ name: "staleness-check", load: () => import("./commands/exec/staleness-check.ts") },
 		],
 	},
 ]
