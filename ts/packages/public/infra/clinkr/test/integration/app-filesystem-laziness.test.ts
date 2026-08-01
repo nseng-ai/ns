@@ -19,6 +19,7 @@ test("public app operations import only the filesystem modules needed at each de
 		const app = createClinkrApp({
 			name: "lazy",
 			commandDirectory: directory,
+			completion: {},
 		});
 		expect(await imports(logPath)).toEqual([]);
 
@@ -46,6 +47,7 @@ test("public app operations import only the filesystem modules needed at each de
 		expect(await imports(logPath)).not.toContain("leaf:metadata");
 
 		await runForCliTest(app, ["admin", "show", "--json-schema"]);
+		await app.complete({ words: ["admin", "show", ""] });
 		expect((await imports(logPath)).filter((entry) => entry === "show:command")).toHaveLength(1);
 		expect(await imports(logPath)).not.toContain("status:command");
 		expect(await imports(logPath)).not.toContain("remove:command");

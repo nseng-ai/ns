@@ -68,8 +68,30 @@ defineCommand({ schema: requestSchema, handler: async (_context: Context, _reque
 // @ts-expect-error context-free handlers receive only request.
 defineCommand({ schema: requestSchema, handler: async (_context, _request) => ok() });
 
+defineCommand({
+	schema: requestSchema,
+	completionProvider: (request) => {
+		type CurrentStaysString = Assert<IsEqual<typeof request.current, string>>;
+		type WordsAreReadonly = Assert<IsEqual<typeof request.words, readonly string[]>>;
+		const contractsHold: CurrentStaysString & WordsAreReadonly = true;
+		return contractsHold ? [{ value: request.current, type: "positional-value" }] : [];
+	},
+	handler: async () => ok(),
+});
+defineCommand({
+	requiresContext: true,
+	schema: requestSchema,
+	completionProvider: (context: Context, request) => [
+		{ value: context.prefix + request.commandPath.join("/"), type: "positional-value" },
+	],
+	handler: async (_context: Context) => ok(),
+});
+
 const contextFreeApp = createClinkrApp({ name: "free", commandDirectory: import.meta.dirname });
 void contextFreeApp.run([]);
+void contextFreeApp.complete({ words: [""] });
+// @ts-expect-error context-free completion does not accept invocation context.
+void contextFreeApp.complete({ words: [""] }, { context: { prefix: "x" } });
 // @ts-expect-error context-free invocation does not accept context.
 void contextFreeApp.run([], { context: { prefix: "x" } });
 
@@ -79,6 +101,9 @@ const contextfulApp = createClinkrApp<Context>({
 	requiresContext: true,
 });
 void contextfulApp.run([], { context: { prefix: "x" } });
+void contextfulApp.complete({ words: [""] }, { context: { prefix: "x" } });
+// @ts-expect-error contextful completion requires context.
+void contextfulApp.complete({ words: [""] });
 // @ts-expect-error contextful invocation requires context.
 void contextfulApp.run([]);
 
