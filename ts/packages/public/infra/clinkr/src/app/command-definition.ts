@@ -6,13 +6,12 @@ import { buildEnvelopeSchema, type CommandOutcome } from "./outcome.ts";
 export interface ClinkrCommandMetadata {
 	readonly description: string;
 	readonly aliases?: readonly string[];
-}
-
-export interface ClinkrGroupDefinition extends ClinkrCommandMetadata {
 	readonly summary?: string;
 	readonly hidden?: boolean;
 	readonly helpGroup?: string;
 }
+
+export type ClinkrGroupDefinition = ClinkrCommandMetadata;
 
 export interface ClinkrCompletionRequest {
 	readonly current: string;

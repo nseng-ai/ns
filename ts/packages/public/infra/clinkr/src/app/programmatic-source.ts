@@ -254,19 +254,15 @@ function snapshotCommandMetadata(metadata: ClinkrCommandMetadata): ClinkrCommand
 		description: metadata.description,
 		...optionalEntries({
 			aliases: metadata.aliases === undefined ? undefined : Object.freeze([...metadata.aliases]),
+			summary: metadata.summary,
+			hidden: metadata.hidden,
+			helpGroup: metadata.helpGroup,
 		}),
 	});
 }
 
 function snapshotGroupDefinition(definition: ClinkrGroupDefinition): ClinkrGroupDefinition {
-	return Object.freeze({
-		...snapshotCommandMetadata(definition),
-		...optionalEntries({
-			summary: definition.summary,
-			hidden: definition.hidden,
-			helpGroup: definition.helpGroup,
-		}),
-	});
+	return snapshotCommandMetadata(definition);
 }
 
 function emptyScope<TContext>(): SourceScope<TContext> {
