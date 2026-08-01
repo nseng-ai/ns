@@ -205,10 +205,12 @@ interview, push back once with evidence before accepting their decision. Remind
 them that this LM-authored version is a draft and that they are accountable
 for the final description.
 
-Write the approved draft as the complete body:
+Write the approved draft as the complete body, and prefix the PR title with
+`[accountable]` (skip the title change if it already starts with
+`[accountable]`):
 
 ```sh
-gh pr edit <n> --body-file <tmpfile>
+gh pr edit <n> --body-file <tmpfile> --title "[accountable] <existing title>"
 ```
 
 ## 4. Report consumability
