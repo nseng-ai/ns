@@ -38,7 +38,7 @@ Then:
 3. If meaningful current-branch or worktree progress for the selected Objective appears clearly unrecorded, treat the `objective-next` request as update-and-continue preauthorization: run `objective-update` for the same selected slug/path, then reread Objective and rerun `ns objective exec tracking-gate <slug> --format json` before recommending work or offering execution.
 4. If meaningful progress appears likely but evidence, Objective fit, or update scope is ambiguous, ask: `Run objective-update for <slug> now, then rerun objective-next?`
 5. If the user declines or confirmation is pending, stop without a next-work recommendation or execution offer.
-6. If evidence is absent or clearly unrelated, proceed silently; do not narrate gate mechanics in the decision packet.
+6. In every other case — evidence absent, clearly unrelated, or already reflected in Objective tracking — proceed silently. A passing gate produces no output anywhere in the response: no status line, no "tracking gate: clean," no gate mechanics before or inside the decision packet. The gate speaks only when it routes into `objective-update` or a confirmation question.
 
 The Tracking Gate check itself is read-only. Any file changes during this phase belong only to the explicit `objective-update` workflow that the gate routes into. If the tracking-gate command itself fails because the extension is unavailable or the git evidence cannot be collected, report the failure and ask whether to proceed with a degraded manual read; do not silently fall back to ad hoc shell.
 
@@ -144,7 +144,7 @@ In every packet:
 
 - Name the selected slug and identify the roadmap item or narrative basis for the packet, steering question, or execution preview.
 - Confirm the decision packet ends with either a proposed prompt or an explicit Declined element, and that a proposed prompt is self-contained: a cold session could run it without this conversation. Confirm it stayed short, citing durable artifacts rather than replicating them, and that it used the default structured shape or a sanctioned deviation (record/row prompt guidance, or a degenerate single-question step).
-- Confirm everything above the proposed prompt honored the brevity budget: no off-ramps menu, no tracking-gate narration, no multi-sentence basis enumeration.
+- Confirm everything above the proposed prompt honored the brevity budget: no off-ramps menu, no multi-sentence basis enumeration, and no tracking-gate narration anywhere in the response — a passing gate is invisible.
 - If the record is blocked, confirm the response named the Blocked Sentence and either the unblocking counterpart Objective or why no edge counterpart applies.
 - If recommendation-only or steer-first, ensure no files changed except through an explicit `objective-update` handoff; report any handoff output separately and confirm it stayed under the selected slug.
 - If confirmed execution ran, verify and report according to `references/confirmed-execution.md`, including whether the basis was durable policy or recommendation-continuation confirmation.

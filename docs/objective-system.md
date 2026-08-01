@@ -470,7 +470,7 @@ Behavior:
 - If material objective progress appears clearly unrecorded for the same selected objective, block next-work recommendation, perform the explicit `objective-update` workflow, reread the objective and repo evidence, and then continue `objective-next`.
 - If material progress appears likely but evidence, objective fit, or update scope is ambiguous, ask whether to run `objective-update` for the same selected objective.
 - If ambiguous-case confirmation is pending or declined, stop without a next-work recommendation.
-- If evidence is absent or clearly unrelated, proceed with a concise note.
+- In every other case — evidence absent, clearly unrelated, or already reflected in objective tracking — proceed silently; a passing gate produces no narration anywhere in the response.
 
 The Tracking Gate check itself must not mutate files, auto-refresh objective state, or perform hidden reconciliation. It runs before both recommendation and execution-offer paths. When it clearly blocks, `objective-next` routes into the explicit `objective-update` workflow for the same selected objective; when it ambiguously blocks, it may offer a user-confirmed handoff to `objective-update`. Any file changes belong to that explicit update workflow, not to the read-only gate check.
 
