@@ -108,7 +108,7 @@ const OBJECTIVE_NEXT_PROMPT_ACTIONS = [
 ] as const;
 const OBJECTIVE_NEXT_PI_TOOL_REMINDER = `
 
-Pi prompt-action note: emit the normal complete objective-next decision packet first. Then call the \`${OBJECTIVE_NEXT_PROMPT_ACTION_TOOL_NAME}\` tool exactly once only when decision-packet element 5 contains exactly one Proposed prompt. Pass the byte-for-byte proposed prompt content as \`prompt\`, excluding the surrounding Markdown label and fence. Never call the tool for a co-equal prompt set or a Declined packet. If the tool reports an unavailable or no-action outcome, leave the visible decision packet as the final usable output.`;
+Pi prompt-action note: emit the normal complete objective-next decision packet first. Then call the \`${OBJECTIVE_NEXT_PROMPT_ACTION_TOOL_NAME}\` tool exactly once only when the decision packet's final element contains exactly one Proposed prompt. Pass the byte-for-byte proposed prompt content as \`prompt\`, excluding the surrounding Markdown label and fence. Never call the tool for a co-equal prompt set or a Declined packet. If the tool reports an unavailable or no-action outcome, leave the visible decision packet as the final usable output.`;
 const OBJECTIVE_NEXT_PROMPT_ACTION_PARAMETERS = {
 	type: "object",
 	properties: {
