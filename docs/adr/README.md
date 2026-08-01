@@ -46,6 +46,7 @@ After this baseline, accepted ADRs are immutable time-in-place records. Do not r
 | 0048 | [Required Skill-Backed Workflows Fail Closed](0048-required-skill-backed-workflows-fail-closed.md)                     |
 | 0049 | [Opt-In, Provider-Neutral Stacking](0049-opt-in-provider-neutral-stacking.md)                                          |
 | 0050 | [Portable Skill-First Objective Autorun](0050-portable-objective-autorun.md)                                           |
+| 0051 | [Layered User and Project Extension Resolution](0051-layered-user-and-project-extension-resolution.md)                 |
 
 ## Proposed
 
