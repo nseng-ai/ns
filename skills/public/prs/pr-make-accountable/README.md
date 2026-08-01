@@ -36,8 +36,10 @@ improves the conceptual coherence of each change.
    unclear reasoning, misunderstandings, and decisions that may need changes.
 3. The author can amend the PR before continuing. Once author and agent share
    an accurate understanding, they co-author a complete PR description.
-4. The author reads and approves every claim before the agent updates the PR.
-   The agent then reports any remaining reviewability concerns and open topics.
+4. The agent writes the co-authored description to the PR, then the author
+   reads every claim and requests any further edits (in chat or directly in
+   the GitHub UI). The agent then reports any remaining reviewability concerns
+   and open topics.
 
 ## Provenance
 
@@ -50,8 +52,9 @@ footer naming the exact model and harness that co-authored it:
 *PR description co-authored with `/pr-make-accountable` using `<model>` in `<harness>`.*
 ```
 
-The draft is never final until the author reads every claim and approves it.
-Accountability stays with the human; the footer makes the assistance visible.
+The written description is never final until the author reads every claim and
+edits anything false or unlike their voice. Accountability stays with the
+human; the footer makes the assistance visible.
 
 ## Install
 
