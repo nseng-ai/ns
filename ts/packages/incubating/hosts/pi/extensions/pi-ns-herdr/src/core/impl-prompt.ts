@@ -2,6 +2,7 @@ import {
 	createHerdrSlotClient,
 	launchPreparedBranch,
 	type HerdrGateway,
+	type PreparedLaunchDestination,
 } from "@nseng-ai/herdr/api";
 import {
 	buildTrackedBranchImplPrompt,
@@ -23,13 +24,12 @@ import type { GitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
-import { HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME } from "@nseng-ai/herdr/api";
 import { resolveImplBranchBasis } from "./impl-branch-basis.ts";
+import { formatImplDestinationNoun } from "./impl-destination.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { resolveRepoTrunkBranch } from "./trunk-branch.ts";
 
 type ImplPromptRuntime = CommandExecApi & Pick<HerdrPiCommandApi, "getThinkingLevel">;
-const COMMAND_NAME = HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME;
 
 type ImplPromptGitGateway = Pick<
 	GitGateway,
@@ -56,6 +56,8 @@ export interface HandleHerdrSlotImplPromptOptions {
 	payloadOptions: ResolvedTrackedBranchPayloadOptions;
 	slotClient?: SlotClient;
 	args: string;
+	commandName: string;
+	destination: PreparedLaunchDestination;
 	notifyProgress: (message: string) => void;
 }
 
@@ -65,7 +67,7 @@ export async function handleHerdrSlotImplPrompt(
 ): Promise<void> {
 	const prompt = options.args.trim();
 	if (prompt.length === 0) {
-		context.pi.ui.notify(`Usage: /${COMMAND_NAME} <prompt>`, "error");
+		context.pi.ui.notify(`Usage: /${options.commandName} <prompt>`, "error");
 		return;
 	}
 	await context.pi.waitForIdle();
@@ -103,6 +105,7 @@ export async function handleHerdrSlotImplPrompt(
 				: { parentLabel: "Parent", entryLocator: "include" },
 		payloadOptions: options.payloadOptions,
 		...optionalEntry("slotClient", options.slotClient),
+		destination: options.destination,
 		notifyProgress: options.notifyProgress,
 	});
 }
@@ -152,7 +155,7 @@ export interface HerdrTrackedBranchImplSuccessDetails {
 /**
  * Herdr-owned tracked-branch implementation sequence shared by current-branch and
  * local-trunk prompt implementation: store the payload in Branch Memory
- * (refusing collisions), then open the branch in a new Herdr workspace.
+ * (refusing collisions), then open the branch in the prepared Herdr destination.
  */
 export async function implTrackedBranchPrompt(
 	context: HerdrImplPromptContext,
@@ -162,6 +165,7 @@ export async function implTrackedBranchPrompt(
 		successDetails: HerdrTrackedBranchImplSuccessDetails;
 		payloadOptions: ResolvedTrackedBranchPayloadOptions;
 		slotClient?: SlotClient;
+		destination: PreparedLaunchDestination;
 		notifyProgress: (message: string) => void;
 	},
 ): Promise<void> {
@@ -177,7 +181,7 @@ export async function implTrackedBranchPrompt(
 			formatTrackedBranchPayloadStorageFailure(
 				options.branch.branchName,
 				stored.error,
-				"Herdr workspace",
+				`Herdr ${formatImplDestinationNoun(options.destination.type)}`,
 			),
 			"error",
 		);
@@ -200,13 +204,13 @@ export async function implTrackedBranchPrompt(
 					getPiLaunchOptions(context.commands, context.pi),
 				),
 			},
-			destination: { type: "workspace" },
+			destination: options.destination,
 		},
 	);
 	if (result.type === "opened") {
 		context.pi.ui.notify(
 			[
-				`Opened Herdr workspace: ${result.target.checkout.branchName}`,
+				`Opened Herdr ${formatImplDestinationNoun(result.destination)}: ${result.target.checkout.branchName}`,
 				`${options.successDetails.parentLabel}: ${options.branch.parentBranch}`,
 				`Start point: ${options.branch.startPoint}`,
 				`Implementation payload: ${stored.value.namespace}/${stored.value.key}`,

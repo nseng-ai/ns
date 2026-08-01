@@ -84,7 +84,9 @@ describe("herdr Pi extension", () => {
 			"ns:herdr:impl:plan:space",
 			"ns:herdr:impl:plan:tab",
 			"ns:herdr:impl:prompt:space",
+			"ns:herdr:impl:prompt:tab",
 			"ns:herdr:impl:session:space",
+			"ns:herdr:impl:session:tab",
 			"ns:herdr:space:goal",
 			"ns:herdr:space:new",
 			"ns:herdr:space:objective-summary",
@@ -92,8 +94,8 @@ describe("herdr Pi extension", () => {
 			"ns:herdr:tab:handoff",
 			"ns:herdr:tab:new",
 		]);
-		expect(HERDR_COMMAND_NAMES).toHaveLength(10);
-		expect(HERDR_BASE_COMMAND_NAMES).toHaveLength(9);
+		expect(HERDR_COMMAND_NAMES).toHaveLength(12);
+		expect(HERDR_BASE_COMMAND_NAMES).toHaveLength(11);
 		expect([...commands.keys()].sort()).toEqual([...HERDR_BASE_COMMAND_NAMES].sort());
 		const registered = [...commands.keys()];
 		expect(registered.some((name) => name.startsWith("ns:herdr:handoff:"))).toBe(false);

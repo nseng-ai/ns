@@ -21,8 +21,8 @@ A launched work item keeps its model-derived normalized semantic slug distinct f
 *Avoid*: semantic slug as implementation destination label, Slot-prefixed tab label, guessed dry-run slot prefix
 
 **Herdr space**:
-The Herdr workspace resource addressed by `/ns:herdr:space:*` commands. Space commands create or rename a workspace; implementation workflows may use a newly created space as their destination. Plan implementation labels the new space with the content-derived branch-context slug so its displayed name describes the planned work.
-*Avoid*: workflow family, dispatch workspace as a separate resource kind, cmux workspace, command-and-source-branch sentence as a plan-dispatch label
+The Herdr resource addressed by `/ns:herdr:space:*` commands. Space commands create or rename a space; implementation workflows may use a newly created space as their destination. Plan implementation labels the new space with the content-derived branch-context slug so its displayed name describes the planned work.
+*Avoid*: workflow family, workspace (except `HERDR_WORKSPACE_ID` and upstream mechanics), dispatch workspace as a separate resource kind, cmux workspace, command-and-source-branch sentence as a plan-dispatch label
 
 **Herdr tab**:
 A tab resource inside a Herdr space, addressed by `/ns:herdr:tab:*` commands. Commands that mutate or launch into the caller's tab or space resolve explicit Herdr caller identity before doing dependent work.
@@ -34,7 +34,7 @@ The focused Herdr space created by `/ns:herdr:space:new` at the Pi command's cur
 
 **New tab**:
 The focused Herdr tab created by `/ns:herdr:tab:new` in the caller space at the Pi command's current working directory. An optional natural-language description is interpreted by the configured slug model into an unprefixed semantic label.
-*Avoid*: new space, implicit focused workspace, raw tab-create wrapper
+*Avoid*: new space, implicit focused space, raw tab-create wrapper
 
 **Space goal**:
 The `/ns:herdr:space:goal` operation that interprets a goal and renames the explicit caller space with the shared goal-label policy.
@@ -49,8 +49,8 @@ The optional `/ns:herdr:tab:handoff` integration with `@nseng-ai/handoffs`. The 
 *Avoid*: generic Herdr handoff workflow family, model-facing launch tool, Markdown transport through Herdr, Handoffs-owned destination, compatibility alias
 
 **Caller space targeting**:
-Identifying the Herdr space to act on through `HERDR_WORKSPACE_ID`, injected by Herdr into a managed pane. Space rename and tab-creation/launch flows validate and capture this ID before dependent work or destination mutation.
-*Avoid*: UI focus targeting, ambient workspace, implicit workspace
+Identifying the explicit caller Herdr space through `HERDR_WORKSPACE_ID`, injected by Herdr into a managed pane. Space rename and tab-creation/launch flows validate and capture this ID before dependent work or destination mutation.
+*Avoid*: UI focus targeting, ambient space, implicit space
 
 **Caller tab targeting**:
 Identifying the exact Herdr tab to rename through `HERDR_TAB_ID`, injected by Herdr into a managed pane. Tab rename flows validate this ID before model work or mutation and never substitute `HERDR_WORKSPACE_ID` or UI focus.
@@ -65,19 +65,23 @@ The `/ns:herdr:space:objective-summary` workflow that resolves an Objective slug
 *Avoid*: sidebar workflow family, workspace metadata report, generic workspace summary
 
 **Label-only behavior**:
-The current `/ns:herdr:space:objective-summary` implementation applies only a workspace label. Branch metadata reporting remains deferred.
+The current `/ns:herdr:space:objective-summary` implementation applies only a space label. Branch metadata reporting remains deferred.
 *Avoid*: metadata transport, inferred slot from arbitrary basename, partial cmux parity
 
 **Contextual implementation branch basis**:
-The invocation-time policy shared by prompt-to-space, plan-to-space, and plan-to-tab implementation. Named `main` or `master` selects the existing local Graphite trunk automatically; another named branch offers Current branch (`<name>`) or Local trunk; detached HEAD or current-branch lookup failure offers confirmed local-trunk fallback. Herdr never fetches or refreshes trunk: callers update local trunk separately when desired. The trunk branch name is a git fact — the repository's cached `refs/remotes/origin/HEAD` — read only after a Local trunk selection and never at extension registration or through `gt`; Graphite's configured trunk is assumed to match, an accepted divergence risk. A failed lookup (including an unset origin/HEAD) is presented as an actionable command-local error and stops that invocation before any mutation. Required interaction without UI and user cancellation both stop before downstream mutation. Plan-to-tab validates and captures caller space identity before Git inspection or interaction.
-*Avoid*: command-name branch basis, `--from` override, refreshed trunk, implicit fetch, startup trunk resolution, trunk via `gt`, silent noninteractive default, duplicated prompt/plan selection policy
+The invocation-time policy shared by prompt-to-space, prompt-to-tab, plan-to-space, and plan-to-tab implementation. Named `main` or `master` selects Local trunk automatically; another named branch offers Current branch (`<name>`) or Local trunk; detached HEAD or current-branch lookup failure offers confirmed Local-trunk fallback. Herdr never fetches or refreshes trunk: the local trunk branch name comes from the repository's cached `refs/remotes/origin/HEAD`, read only after Local trunk is selected and never at extension registration or through Graphite. A failed lookup, missing interaction UI, or cancellation stops before downstream mutation. Tab-targeted prompt and plan workflows validate and capture caller space identity immediately after acknowledgement, before idle waiting, Git inspection, interaction, or mutation.
+*Avoid*: command-name branch basis, `--from` override, refreshed trunk, implicit fetch, startup trunk resolution, Graphite trunk query, silent noninteractive default, duplicated prompt/plan selection policy
 
 **Herdr implementation workflow**:
-A Herdr `impl` workflow that implements a prompt or Saved Plan using the existing agent instructions and workflow behavior. `impl` is shorter, avoids collision with dispatch terminology for remote systems, and describes the outcome more accurately than `launch`; destination and process launch remain supporting mechanics. `/ns:herdr:impl:session:space [focus]` is a Pi-native preparation step: it asks the active session to produce a directed, self-contained prompt as a visible turn, prefills `/ns:herdr:impl:prompt:space <summary>` in the editor, and stops without submitting or mutating Herdr, Git, Handoff, or Branch Memory state.
-*Avoid*: replaying serialized session context through a nested model call, remote dispatch, new agent-behavior contract, process startup as the workflow outcome, session cloning, automatic prompt submission, Handoff Artifact transport for session-to-space preparation
+A Herdr `impl` workflow that implements a prompt or Saved Plan using the existing agent instructions and workflow behavior. Prompt and Saved Plan commands are symmetric across new-space and new-tab destinations; tab destinations are created and focused in the explicit caller space. `impl` describes the outcome, while destination and process launch remain supporting mechanics.
+*Avoid*: remote dispatch, new agent-behavior contract, process startup as the workflow outcome, session cloning, Handoff Artifact transport for ordinary implementation
+
+**Session implementation preparation**:
+The Pi-native `/ns:herdr:impl:session:{space,tab}` preparation workflows ask the active session for a directed, self-contained implementation prompt as a visible model turn, then prefill the matching `/ns:herdr:impl:prompt:{space,tab}` command in the editor for review. They share one pending-summary coordinator and never auto-submit the command or mutate Herdr, Git, Handoff, or Branch Memory state.
+*Avoid*: nested hidden model call, serialized session replay, automatic prompt submission, concurrent destination-specific summary coordinators
 
 **Herdr command catalog**:
-The ten-command Pi surface has six direct resource operations (`space:{new,goal,objective-summary}` and `tab:{new,goal,handoff}`) plus `/ns:herdr:impl:prompt:space`, `/ns:herdr:impl:session:space`, `/ns:herdr:impl:plan:space`, and `/ns:herdr:impl:plan:tab`. The nine non-Handoff commands are base registrations; `tab:handoff` is the only optional registration. The former `launch` implementation names and the earlier five `br`/`tr` launch names have no visible or hidden compatibility aliases.
+The twelve-entry Pi catalog has eleven base registrations and the optional `/ns:herdr:tab:handoff` registration. It contains six space operations (`space:{new,goal,objective-summary}` and `impl:{prompt,session,plan}:space`), five base tab operations (`tab:{new,goal}` and `impl:{prompt,session,plan}:tab`), plus the optional Handoff tab workflow; the former `launch` names and earlier five `br`/`tr` names have no visible or hidden compatibility aliases.
 *Avoid*: workflow-family catalog, compound dispatch action names, branch-basis command segment, `/ns:herdr:handoff:*`, `/ns:herdr:objective:*`, `tab:plan-dispatch`, implementation commands under `/ns:herdr:launch:*`
 
 **Launch mechanics boundary**:

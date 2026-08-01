@@ -91,7 +91,7 @@ describe("Herdr Pi extension parity metadata", () => {
 		);
 	});
 
-	test("Handoffs-enabled registrations match all nine metadata entries", async () => {
+	test("Handoffs-enabled registrations match all 12 metadata entries", async () => {
 		expectParity(await collectHandoffHerdrPiSurfaces(), herdrParity);
 	});
 });
