@@ -19,7 +19,7 @@ After the Tracking Gate passes, execution may proceed from either basis below.
 
 ### Recommendation-continuation basis
 
-Durable policy is not required when the user explicitly asks to execute a concrete `objective-next` recommendation that is still in the current conversation.
+Durable policy is not required when the user explicitly asks to execute a concrete `objective-next` recommendation that is still in the current conversation. A decision packet's proposed prompt, confirmed by the user, is the canonical form of this basis: the prompt already carries the bounded scope, a starting location, and the completion evidence the conditions below require.
 
 Use this basis only when all are true:
 
