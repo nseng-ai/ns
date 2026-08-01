@@ -206,7 +206,7 @@ them that this LM-authored version is a draft and that they are accountable
 for the final description.
 
 Write the approved draft as the complete body, and prefix the PR title with
-`[accountable] ` (skip the title change if it already starts with
+`[accountable]` (skip the title change if it already starts with
 `[accountable]`):
 
 ```sh
