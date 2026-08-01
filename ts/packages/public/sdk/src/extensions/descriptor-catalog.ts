@@ -47,8 +47,8 @@ export function extensionDescriptorToPreinstalledCatalog(
 			entry,
 			segments: descriptor.group === undefined ? [] : [descriptor.group],
 			hiddenAncestorKeys: [],
-			displayPath: options.displayPath,
 			rootGroupDescription: descriptor.description,
+			displayPath: options.displayPath,
 			helpGroup: options.helpGroup ?? NS_EXTENSION_HELP_GROUP,
 			...optionalEntry("entryHelpGroup", options.entryHelpGroup),
 		}),
@@ -102,7 +102,6 @@ function descriptorEntryToPreinstalledCatalog(options: {
 			...options,
 			entry,
 			...nextState,
-			...(options.segments.length === 0 ? { rootGroupDescription: groupEntry.description } : {}),
 		}),
 	);
 }

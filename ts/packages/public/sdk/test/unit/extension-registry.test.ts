@@ -150,8 +150,9 @@ describe("extension registry", () => {
 		]);
 	});
 
-	test("preinstalled exec-only descriptors carry the root group description for help", () => {
-		const entries = extensionDescriptorToPreinstalledCatalog(
+	test.each([
+		[
+			"descriptor root",
 			{
 				group: "probe",
 				description: "Probe things.",
@@ -176,18 +177,55 @@ describe("extension registry", () => {
 					},
 				],
 			},
-			{ displayPath: "@example/probe/ns-extension" },
-		);
+			["probe", "exec", "run"],
+			"Probe things.",
+			["probe/exec"],
+		],
+		[
+			"first entry group",
+			{
+				description: "Descriptor commands.",
+				entries: [
+					{
+						group: "probe",
+						description: "Probe things.",
+						entries: [
+							{
+								name: "run",
+								load: () => ({
+									default: defineRawCommand({
+										name: "run",
+										summary: "Run.",
+										description: "Run.",
+										run: () => ok({}),
+									}),
+								}),
+							},
+						],
+					},
+				],
+			},
+			["probe", "run"],
+			"Probe things.",
+			undefined,
+		],
+	] as const)(
+		"preinstalled %s carries the root group description for help",
+		(_case, descriptor, path, groupDescription, hiddenAncestorKeys) => {
+			const entries = extensionDescriptorToPreinstalledCatalog(descriptor, {
+				displayPath: "@example/probe/ns-extension",
+			});
 
-		expect(entries).toEqual([
-			expect.objectContaining({
-				name: "run",
-				path: ["probe", "exec", "run"],
-				groupDescription: "Probe things.",
-				hiddenAncestorKeys: ["probe/exec"],
-			}),
-		]);
-	});
+			expect(entries).toEqual([
+				expect.objectContaining({
+					name: "run",
+					path,
+					groupDescription,
+					...(hiddenAncestorKeys === undefined ? {} : { hiddenAncestorKeys }),
+				}),
+			]);
+		},
+	);
 
 	test("preinstalled registrations derive package identities and presented entries together", () => {
 		const catalog = preinstalledNsCommandCatalogFromRegistrations([

@@ -13,15 +13,19 @@ describe("preinstalled command loading host integration", () => {
 		const extensions = helpSection(run.stdout, "Extensions:");
 		// Extensions lead the help output; Built-ins close it.
 		expect(run.stdout.indexOf("Extensions:")).toBeLessThan(run.stdout.indexOf("Built-ins:"));
-		// Built-ins render in curated lifecycle order: init, update, extension.
-		expect(builtIns).toMatch(/^  init(?:\s|$)/m);
-		expect(builtIns).toMatch(/^  skills(?:\s|$)/m);
-		expect(builtIns).toMatch(/^  update(?:\s|$)/m);
-		expect(builtIns).toMatch(/^  extension(?:\s|$)/m);
-		expect(builtIns.search(/^  init(?:\s|$)/m)).toBeLessThan(builtIns.search(/^  update(?:\s|$)/m));
-		expect(builtIns.search(/^  update(?:\s|$)/m)).toBeLessThan(
-			builtIns.search(/^  extension(?:\s|$)/m),
-		);
+		// One expected inventory proves both membership and global order, including the SDK-owned
+		// completion/shell groups that previously bypassed catalog sorting.
+		const builtInNames = ["completion", "extension", "init", "shell", "skills", "update"];
+		for (const name of builtInNames) {
+			expect(builtIns).toMatch(new RegExp(`^  ${name}(?:\\s|$)`, "m"));
+		}
+		for (const [index, name] of builtInNames.entries()) {
+			const nextName = builtInNames[index + 1];
+			if (nextName === undefined) continue;
+			expect(builtIns.search(new RegExp(`^  ${name}(?:\\s|$)`, "m"))).toBeLessThan(
+				builtIns.search(new RegExp(`^  ${nextName}(?:\\s|$)`, "m")),
+			);
+		}
 		expect(extensions).not.toMatch(/^  init(?:\s|$)/m);
 		expect(extensions).not.toMatch(/^  skills(?:\s|$)/m);
 		expect(extensions).not.toMatch(/^  update(?:\s|$)/m);

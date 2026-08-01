@@ -474,7 +474,7 @@ function descriptorCommandCandidates(options: {
 	descriptor: ExtensionDescriptor;
 	sourceLevel: ExtensionSourceLevel;
 	sourceLabel: string;
-	sourceKind?: NsCommandSourceKind;
+	sourceKind: NsCommandSourceKind;
 }): readonly ExtensionCommandCandidate[] {
 	const entries = options.descriptor.entries ?? [];
 	return entries.flatMap((entry) =>
@@ -496,7 +496,7 @@ function descriptorEntryCommandCandidates(options: {
 	descriptor: ExtensionDescriptor;
 	sourceLevel: ExtensionSourceLevel;
 	sourceLabel: string;
-	sourceKind?: NsCommandSourceKind;
+	sourceKind: NsCommandSourceKind;
 	entry: ExtensionEntry;
 	segments: readonly string[];
 	hiddenAncestorKeys: readonly string[];
@@ -522,7 +522,7 @@ function descriptorEntryCommandCandidates(options: {
 					return module.default;
 				}),
 				...optionalEntry("requiresExtension", commandEntry.requiresExtension),
-				...optionalEntry("sourceKind", options.sourceKind),
+				sourceKind: options.sourceKind,
 				descriptorEntry: commandEntry,
 				hasStaticCommandInfo: false,
 				entryPath: options.descriptorPath,
@@ -541,7 +541,6 @@ function descriptorEntryCommandCandidates(options: {
 			...options,
 			entry,
 			...nextState,
-			...(options.segments.length === 0 ? { rootGroupDescription: groupEntry.description } : {}),
 		}),
 	);
 }

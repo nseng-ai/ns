@@ -214,7 +214,7 @@ export async function listExtensions(
 	const installedRows = context.installedExtensionPackages.list().map(createInstalledPackageRow);
 	const config = await context.files.readActivationFile({ repoRoot, file: "ns-toml" });
 	if (config.type === "missing") {
-		return ok({ repoRoot, configPath, extensions: installedRows.map((row) => row.finalize()) });
+		return ok({ repoRoot, configPath, extensions: installedRows });
 	}
 	if (config.type === "not-file") {
 		return extensionListConfigFailure({
@@ -237,30 +237,29 @@ export async function listExtensions(
 	}
 	const sourceSpecs = parsedExtensions.type === "missing" ? [] : parsedExtensions.extensions;
 	if (sourceSpecs.length === 0) {
-		return ok({ repoRoot, configPath, extensions: installedRows.map((row) => row.finalize()) });
+		return ok({ repoRoot, configPath, extensions: installedRows });
 	}
 
-	const rows = [
-		...installedRows,
-		...sourceSpecs.map((sourceSpec) => createRowSkeleton(repoRoot, sourceSpec)),
-	];
+	const declaredRows = sourceSpecs.map((sourceSpec) => createRowSkeleton(repoRoot, sourceSpec));
 	const loaded = await context.declaredExtensions.load({ repoRoot, specs: sourceSpecs });
-	attachDescriptorDiagnostics(rows, loaded.diagnostics);
-	attachLoadedDescriptors(rows, loaded.descriptors);
-	markRowsWithoutDescriptorEvidence(rows);
+	attachDescriptorDiagnostics(declaredRows, loaded.diagnostics);
+	attachLoadedDescriptors(declaredRows, loaded.descriptors);
+	markRowsWithoutDescriptorEvidence(declaredRows);
 
 	const declaredPackageNames = new Set(
 		loaded.descriptors.map((descriptor) => descriptor.packageName),
 	);
-	const visibleRows = rows.filter(
-		(row) => row.sourceKind !== "package" || !declaredPackageNames.has(row.sourceSpec),
+	const visibleInstalledRows = installedRows.filter(
+		(row) => row.packageName === undefined || !declaredPackageNames.has(row.packageName),
 	);
 	const installedDescriptors = loaded.descriptors.filter((descriptor) =>
-		rows.some((row) => row.sourceSpec === descriptor.spec && row.acquisitionStatus === "installed"),
+		declaredRows.some(
+			(row) => row.sourceSpec === descriptor.spec && row.acquisitionStatus === "installed",
+		),
 	);
 	if (parsedHarnesses.type === "missing") {
-		for (const row of visibleRows) {
-			if (row.sourceKind === "package" || row.acquisitionStatus !== "installed") continue;
+		for (const row of declaredRows) {
+			if (row.acquisitionStatus !== "installed") continue;
 			row.markArtifactUnavailable({
 				code: "supported-harnesses-missing",
 				message:
@@ -274,20 +273,18 @@ export async function listExtensions(
 			descriptors: installedDescriptors,
 			harnesses: parsedHarnesses.harnesses,
 		});
-		attachArtifactSummaries(rows, installedDescriptors, summaries);
+		attachArtifactSummaries(declaredRows, installedDescriptors, summaries);
 	}
 
 	return ok({
 		repoRoot,
 		configPath,
-		extensions: visibleRows.map((row) => row.finalize()),
+		extensions: [...visibleInstalledRows, ...declaredRows.map((row) => row.finalize())],
 	});
 }
 
-function createInstalledPackageRow(
-	installedPackage: InstalledExtensionPackage,
-): ExtensionListRowAccumulator {
-	return new ExtensionListRowAccumulator({
+function createInstalledPackageRow(installedPackage: InstalledExtensionPackage): ExtensionListRow {
+	return {
 		sourceSpec: installedPackage.packageName,
 		sourceKind: "package",
 		packageName: installedPackage.packageName,
@@ -298,7 +295,7 @@ function createInstalledPackageRow(
 		artifactCount: 0,
 		affectedArtifactCount: 0,
 		diagnostics: [],
-	});
+	};
 }
 
 function createRowSkeleton(repoRoot: string, sourceSpec: string): ExtensionListRowAccumulator {

@@ -478,12 +478,19 @@ describe("listExtensions", () => {
 		const { context, artifacts } = fixture({
 			nsToml: 'extensions = ["./extension"]\n',
 			descriptors: [record],
+			installedPackages: [{ packageName: "@test/undeclared" }],
 		});
 		const result = await listExtensions(context, { cwd: "/repo" });
 		expect(result).toMatchObject({
 			type: "ok",
 			data: {
 				extensions: [
+					{
+						sourceSpec: "@test/undeclared",
+						sourceKind: "package",
+						artifactStatus: "none",
+						diagnostics: [],
+					},
 					{
 						acquisitionStatus: "installed",
 						packageName: "@test/extension",

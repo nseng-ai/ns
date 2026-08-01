@@ -281,11 +281,30 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 		);
 		// Registration order drives help output: commander renders section headings in
 		// first-occurrence order and rows in registration order within each heading.
-		const orderedCommandInfos = orderCommandInfosForHelp(
+		const rootRegistrations = orderRootRegistrationsForHelp(
 			buildState.commandInfos,
 			topLevelHelpGroups,
+			[
+				{
+					type: "group",
+					name: "completion",
+					helpGroup: NS_BUILT_IN_HELP_GROUP,
+					group: buildNsCompletionGroup(),
+				},
+				{
+					type: "group",
+					name: "shell",
+					helpGroup: NS_BUILT_IN_HELP_GROUP,
+					group: buildNsShellGroup(),
+				},
+			],
 		);
-		for (const commandInfo of orderedCommandInfos) {
+		for (const registration of rootRegistrations) {
+			if (registration.type === "group") {
+				root.group(registration.group);
+				continue;
+			}
+			const commandInfo = registration.commandInfo;
 			const parent = groupForCommand(
 				root,
 				groups,
@@ -404,8 +423,6 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 				}),
 			);
 		}
-		root.group(buildNsShellGroup());
-		root.group(buildNsCompletionGroup());
 		return root;
 	},
 };
@@ -818,25 +835,33 @@ function groupForCommand(
 	return parent;
 }
 
-/**
- * Curated help order for Built-ins: lifecycle commands lead, plumbing follows.
- * `shell` and `completion` are registered directly after the catalog loop, so they
- * always trail the catalog-sourced Built-ins listed here.
- */
-const BUILT_IN_HELP_COMMAND_ORDER: readonly string[] = ["init", "update", "extension"];
+type RootRegistration =
+	| { readonly type: "command"; readonly commandInfo: NsCommandCliInfo }
+	| {
+			readonly type: "group";
+			readonly name: string;
+			readonly helpGroup: string;
+			readonly group: ClinkrGroup<NsCliContext>;
+	  };
 
 interface HelpOrderKey {
 	readonly sectionRank: number;
 	readonly helpGroup: string;
 	readonly bucketRank: number;
-	readonly curatedRank: number;
+	readonly topLevelName: string;
+	readonly commandKey: string;
 }
 
-function orderCommandInfosForHelp(
+function orderRootRegistrationsForHelp(
 	commandInfos: readonly NsCommandCliInfo[],
 	topLevelHelpGroups: ReadonlyMap<string, string>,
-): readonly NsCommandCliInfo[] {
-	return [...commandInfos].sort((left, right) => {
+	directGroups: readonly Extract<RootRegistration, { readonly type: "group" }>[],
+): readonly RootRegistration[] {
+	const registrations: RootRegistration[] = [
+		...commandInfos.map((commandInfo) => ({ type: "command" as const, commandInfo })),
+		...directGroups,
+	];
+	return registrations.sort((left, right) => {
 		const leftKey = helpOrderKey(left, topLevelHelpGroups);
 		const rightKey = helpOrderKey(right, topLevelHelpGroups);
 		if (leftKey.sectionRank !== rightKey.sectionRank) {
@@ -848,35 +873,56 @@ function orderCommandInfosForHelp(
 		if (leftKey.bucketRank !== rightKey.bucketRank) {
 			return leftKey.bucketRank - rightKey.bucketRank;
 		}
-		if (leftKey.curatedRank !== rightKey.curatedRank) {
-			return leftKey.curatedRank - rightKey.curatedRank;
+		if (leftKey.topLevelName !== rightKey.topLevelName) {
+			return leftKey.topLevelName.localeCompare(rightKey.topLevelName);
 		}
-		return commandKey(left).localeCompare(commandKey(right));
+		return leftKey.commandKey.localeCompare(rightKey.commandKey);
 	});
 }
 
 function helpOrderKey(
-	commandInfo: NsCommandCliInfo,
+	registration: RootRegistration,
 	topLevelHelpGroups: ReadonlyMap<string, string>,
 ): HelpOrderKey {
-	const topSegment = commandSegments(commandInfo)[0];
-	const helpGroup =
-		topSegment === undefined
-			? NS_EXTENSION_HELP_GROUP
-			: (topLevelHelpGroups.get(topSegment) ?? NS_EXTENSION_HELP_GROUP);
+	if (registration.type === "group") {
+		return helpOrderKeyForValues({
+			helpGroup: registration.helpGroup,
+			topLevelName: registration.name,
+			commandKey: registration.name,
+			isLocalExtension: false,
+		});
+	}
+	const commandInfo = registration.commandInfo;
+	const topLevelName = commandSegments(commandInfo)[0] ?? commandLeafName(commandInfo);
+	return helpOrderKeyForValues({
+		helpGroup: topLevelHelpGroups.get(topLevelName) ?? NS_EXTENSION_HELP_GROUP,
+		topLevelName,
+		commandKey: commandKey(commandInfo),
+		isLocalExtension: commandInfo.sourceKind === "local",
+	});
+}
+
+function helpOrderKeyForValues(options: {
+	helpGroup: string;
+	topLevelName: string;
+	commandKey: string;
+	isLocalExtension: boolean;
+}): HelpOrderKey {
 	// Extensions lead the help output, Built-ins close it, custom headings sit between.
-	const sectionRank =
-		helpGroup === NS_EXTENSION_HELP_GROUP ? 0 : helpGroup === NS_BUILT_IN_HELP_GROUP ? 2 : 1;
+	let sectionRank = 1;
+	if (options.helpGroup === NS_EXTENSION_HELP_GROUP) sectionRank = 0;
+	if (options.helpGroup === NS_BUILT_IN_HELP_GROUP) sectionRank = 2;
 	// Within Extensions, package-sourced extensions lead and repo-local ns.toml
 	// path extensions trail, each alphabetized.
 	const bucketRank =
-		helpGroup === NS_EXTENSION_HELP_GROUP && commandInfo.sourceKind === "local" ? 1 : 0;
-	const curatedIndex =
-		helpGroup === NS_BUILT_IN_HELP_GROUP && topSegment !== undefined
-			? BUILT_IN_HELP_COMMAND_ORDER.indexOf(topSegment)
-			: -1;
-	const curatedRank = curatedIndex === -1 ? BUILT_IN_HELP_COMMAND_ORDER.length : curatedIndex;
-	return { sectionRank, helpGroup, bucketRank, curatedRank };
+		options.helpGroup === NS_EXTENSION_HELP_GROUP && options.isLocalExtension ? 1 : 0;
+	return {
+		sectionRank,
+		helpGroup: options.helpGroup,
+		bucketRank,
+		topLevelName: options.topLevelName,
+		commandKey: options.commandKey,
+	};
 }
 
 const ORIGIN_PRECEDENCE: Readonly<Record<NsCommandOriginKind, number>> = {

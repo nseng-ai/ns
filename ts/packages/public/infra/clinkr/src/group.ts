@@ -582,6 +582,9 @@ function createContainedCommand(name: string, io: ClinkrIo): Command {
 	return command;
 }
 
+// Commander resolves subcommand descriptions separately from generic item formatting and does not
+// identify the subcommand in formatItem. This NUL-prefixed, non-user-representable sentinel carries
+// the internal label metadata between those hooks.
 const HELP_LABEL_SEPARATOR = "\0clinkr-help-label:";
 
 function configureTrailingHelpLabels(command: Command, labels: ReadonlyMap<Command, string>): void {
@@ -625,6 +628,8 @@ function formatLabeledHelpItem(options: FormatLabeledHelpItemOptions): string {
 	const { term, termWidth, description, label, helper, defaultHelp } = options;
 	const helpWidth = helper.helpWidth ?? 80;
 	const labelWidth = helper.displayWidth(label);
+	// Derive from Commander's helper to preserve its methods and display-width behavior while
+	// reducing wrap width locally, without mutating the helper used for other rows.
 	const bodyHelp = Object.assign(Object.create(helper) as Help, {
 		helpWidth: Math.max(0, helpWidth - labelWidth - 1),
 	});
