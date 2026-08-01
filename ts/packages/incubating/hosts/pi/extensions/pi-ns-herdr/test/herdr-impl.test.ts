@@ -465,7 +465,9 @@ describe("Herdr prompt implementation", () => {
 			expect(herdr.createWorkspaceCalls).toEqual([]);
 			expect(herdr.createTabCalls).toEqual([]);
 			expect(herdr.paneRunCalls).toEqual([]);
-			expect(notificationMessages(ctx).at(-1)).toContain("requires HERDR_WORKSPACE_ID");
+			expect(notificationMessages(ctx).at(-1)).toBe(
+				"/ns:herdr:impl:prompt:tab requires HERDR_WORKSPACE_ID. Run it from a Herdr caller space.",
+			);
 		},
 	);
 
@@ -796,7 +798,7 @@ describe("ns:herdr:impl:plan:space", () => {
 		expect(herdr.createTabCalls).toHaveLength(0);
 		expect(ctx.notifications).toContainEqual({
 			message:
-				"impl:plan:tab requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+				"/ns:herdr:impl:plan:tab requires HERDR_WORKSPACE_ID. Run it from a Herdr caller space.",
 			level: "error",
 		});
 	});
@@ -882,7 +884,7 @@ describe("ns:herdr:impl:plan:tab", () => {
 		expect(herdr.createWorkspaceCalls).toEqual([]);
 		expect(herdr.createTabCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toBe(
-			"impl:plan:tab requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+			"/ns:herdr:impl:plan:tab requires HERDR_WORKSPACE_ID. Run it from a Herdr caller space.",
 		);
 	});
 
@@ -909,7 +911,7 @@ describe("ns:herdr:impl:plan:tab", () => {
 		expect(ctx.waitCount).toBe(0);
 		expect(herdr.createTabCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toBe(
-			"impl:plan:tab requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+			"/ns:herdr:impl:plan:tab requires HERDR_WORKSPACE_ID. Run it from a Herdr caller space.",
 		);
 	});
 
@@ -1351,7 +1353,7 @@ describe("ns:herdr:impl:plan:space — dry-run (no Herdr mutations)", () => {
 		const dryRun = notificationMessages(ctx).find((message) => message.startsWith("Dry run"));
 		if (dryRun === undefined) throw new Error("Expected a dry-run message.");
 		expect(dryRun).toContain(
-			"Dry run: no branch was created, no plan was attached, and no Herdr workspace was opened.",
+			"Dry run: no branch was created, no plan was attached, and no Herdr space was opened.",
 		);
 		expect(dryRun).toContain(`Path: ${planFile}`);
 		expect(dryRun).toContain("Repo identity source: origin-url");
@@ -1594,7 +1596,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		expect(notificationMessages(ctx).join("\n")).toContain(`Branch: ${PLAN_SLUG}-2`);
 	});
 
-	test("workspace implementation branch-context failure names the unopened Herdr workspace", async () => {
+	test("space implementation branch-context failure names the unopened Herdr space", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
@@ -1644,7 +1646,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		pi.assertDone();
 		const failure = notificationMessages(ctx).join("\n---\n");
 		expect(failure).toContain("Failed to create branch context and attach plan.");
-		expect(failure).toMatch(/Source file: [^\n]+\nNo Herdr workspace was opened\.\n\n/);
+		expect(failure).toMatch(/Source file: [^\n]+\nNo Herdr space was opened\.\n\n/);
 		expect(failure).toContain("Graphite refused tracking.");
 		expect(herdr.createWorkspaceCalls).toEqual([]);
 		expect(herdr.createTabCalls).toEqual([]);

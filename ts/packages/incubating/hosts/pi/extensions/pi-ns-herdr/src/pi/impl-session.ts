@@ -77,18 +77,26 @@ export function registerHerdrSessionImplCommands(context: Pick<HerdrPiContext, "
 						ctx.ui.notify("A session summary is already pending.", "warning");
 						return;
 					}
-					pending = {
-						sessionCommandName: config.sessionCommandName,
-						promptCommandName: config.promptCommandName,
-					};
-					await ctx.waitForIdle();
 					if (ctx.ui.setEditorText === undefined) {
-						pending = undefined;
 						ctx.ui.notify("This Pi runtime cannot prefill editor text.", "error");
 						return;
 					}
-					ctx.ui.setStatus?.(config.sessionCommandName, "summarizing session…");
-					context.commands.sendUserMessage(buildSummaryRequest(args.trim()));
+					const request: PendingSummary = {
+						sessionCommandName: config.sessionCommandName,
+						promptCommandName: config.promptCommandName,
+					};
+					pending = request;
+					let didPublishStatus = false;
+					try {
+						await ctx.waitForIdle();
+						ctx.ui.setStatus?.(config.sessionCommandName, "summarizing session…");
+						didPublishStatus = ctx.ui.setStatus !== undefined;
+						context.commands.sendUserMessage(buildSummaryRequest(args.trim()));
+					} catch (error) {
+						if (pending === request) pending = undefined;
+						if (didPublishStatus) ctx.ui.setStatus?.(config.sessionCommandName, undefined);
+						throw error;
+					}
 				},
 			},
 			options: { delivery: "message" },
@@ -110,6 +118,8 @@ interface AgentMessageLike {
 	readonly content?: unknown;
 }
 
+// A pending shared space/tab request can outlive unrelated agent turns; require the sentinel so
+// their assistant output is never captured as the requested implementation prompt.
 function isSummaryRequestTurn(messages: readonly AgentMessageLike[]): boolean {
 	for (let index = messages.length - 1; index >= 0; index -= 1) {
 		const message = messages[index];

@@ -25,6 +25,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
 import { resolveImplBranchBasis } from "./impl-branch-basis.ts";
+import { formatImplDestinationNoun } from "./impl-destination.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { resolveRepoTrunkBranch } from "./trunk-branch.ts";
 
@@ -176,12 +177,11 @@ export async function implTrackedBranchPrompt(
 		payloadOptions: options.payloadOptions,
 	});
 	if (!stored.ok) {
-		const destinationNoun = options.destination.type === "workspace" ? "space" : "tab";
 		context.pi.ui.notify(
 			formatTrackedBranchPayloadStorageFailure(
 				options.branch.branchName,
 				stored.error,
-				`Herdr ${destinationNoun}`,
+				`Herdr ${formatImplDestinationNoun(options.destination.type)}`,
 			),
 			"error",
 		);
@@ -210,7 +210,7 @@ export async function implTrackedBranchPrompt(
 	if (result.type === "opened") {
 		context.pi.ui.notify(
 			[
-				`Opened Herdr ${result.destination === "workspace" ? "space" : "tab"}: ${result.target.checkout.branchName}`,
+				`Opened Herdr ${formatImplDestinationNoun(result.destination)}: ${result.target.checkout.branchName}`,
 				`${options.successDetails.parentLabel}: ${options.branch.parentBranch}`,
 				`Start point: ${options.branch.startPoint}`,
 				`Implementation payload: ${stored.value.namespace}/${stored.value.key}`,

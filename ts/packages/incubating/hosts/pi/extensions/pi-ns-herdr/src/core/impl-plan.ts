@@ -13,7 +13,6 @@ import {
 	buildHerdrCreateWorkspaceArgs,
 	buildHerdrPaneRunArgs,
 	createHerdrSlotClient,
-	getCallerWorkspaceId,
 	launchPreparedBranch,
 	type HerdrGateway,
 	type PreparedLaunchDestination,
@@ -49,10 +48,13 @@ import { formatImplBranchContextCommand } from "@nseng-ai/branch-context/api";
 
 // Command names are used in the Pi layer (pi/impl-plan.ts) via ImplPlanConfig.
 import { resolveImplBranchBasis } from "./impl-branch-basis.ts";
+import {
+	formatImplDestinationNoun,
+	prepareImplDestination,
+	type ImplDestination,
+} from "./impl-destination.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { resolveRepoTrunkBranch } from "./trunk-branch.ts";
-
-export type ImplDestination = "workspace" | "tab";
 
 export interface ImplPlanConfig {
 	commandName: string;
@@ -102,7 +104,7 @@ export async function handleHerdrSlotImplPlan(
 		return;
 	}
 
-	const preparedDestination = prepareImplDestination(config.destination);
+	const preparedDestination = prepareImplDestination(config.destination, config.commandName);
 	if (preparedDestination.type === "failed") {
 		present(ctx, preparedDestination.message, "error");
 		return;
@@ -256,25 +258,6 @@ async function prepareImplTrunkBasis(options: {
 	return "error" in preparation ? preparation : { type: "resolved-local-trunk", preparation };
 }
 
-type PrepareImplDestinationResult =
-	| { readonly type: "ready"; readonly destination: PreparedLaunchDestination }
-	| { readonly type: "failed"; readonly message: string };
-
-function prepareImplDestination(destination: ImplDestination): PrepareImplDestinationResult {
-	if (destination === "workspace") {
-		return { type: "ready", destination: { type: "workspace" } };
-	}
-	const callerWorkspaceId = getCallerWorkspaceId();
-	if (callerWorkspaceId === undefined) {
-		return {
-			type: "failed",
-			message:
-				"impl:plan:tab requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
-		};
-	}
-	return { type: "ready", destination: { type: "tab", callerWorkspaceId } };
-}
-
 function parseCommandArgs(rawArgs: string): CommandArgs | { error: string } {
 	const tokens = rawArgs
 		.trim()
@@ -318,7 +301,7 @@ async function createAttachAndImplement(options: {
 		present(
 			ctx,
 			formatBranchContextCreateFailure(operation, error, {
-				consequence: formatImplFailureConsequence(destination.type),
+				consequence: `No Herdr ${formatImplDestinationNoun(destination.type)} was opened.`,
 			}),
 			"error",
 		);
@@ -361,7 +344,7 @@ async function createAttachAndImplement(options: {
 		present(
 			ctx,
 			[
-				`Opened plan implementation in Herdr ${destination.type}.`,
+				`Opened plan implementation in Herdr ${formatImplDestinationNoun(destination.type)}.`,
 				`Branch: ${operation.branch}`,
 				`Slot: ${result.target.checkout.slotName}`,
 				`Worktree: ${result.target.checkout.worktreePath}`,
@@ -391,7 +374,7 @@ function formatDryRun(options: {
 		launchOptions,
 	);
 	return [
-		`Dry run: no branch was created, no plan was attached, and no Herdr ${destination.type} was opened.`,
+		`Dry run: no branch was created, no plan was attached, and no Herdr ${formatImplDestinationNoun(destination.type)} was opened.`,
 		"",
 		"Selected saved plan:",
 		`Path: ${plan.filePath}`,
@@ -475,16 +458,10 @@ function formatHerdrImplPreview(options: {
 	].join("\n");
 }
 
-function formatImplFailureConsequence(destination: ImplDestination): string {
-	return destination === "workspace"
-		? "No Herdr workspace was opened."
-		: "No Herdr tab was opened.";
-}
-
 function formatUsage(config: ImplPlanConfig): string {
 	return `Usage: /${config.commandName} [--dry-run]
 
-Implement the latest saved plan in a new Herdr ${config.destination} for implementation. Choose the current branch or local Graphite trunk contextually at invocation time.
+Implement the latest saved plan in a new Herdr ${formatImplDestinationNoun(config.destination)} for implementation. Choose the current branch or local Graphite trunk contextually at invocation time.
 
 Options:
   --dry-run    Show the selected plan and commands without mutating.

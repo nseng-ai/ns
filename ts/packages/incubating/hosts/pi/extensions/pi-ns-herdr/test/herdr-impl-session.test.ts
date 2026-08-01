@@ -171,12 +171,54 @@ describe("Herdr session implementation commands", () => {
 
 		await pi.commands.get("ns:herdr:impl:session:tab")?.handler("focus", ctx);
 
-		expect(ctx.waitCount).toBe(1);
+		expect(ctx.waitCount).toBe(0);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.statuses).toEqual([]);
 		expect(ctx.notifications).toEqual([
 			{ message: "This Pi runtime cannot prefill editor text.", level: "error" },
 		]);
+	});
+
+	test("clears shared pending state when startup fails so the other destination can retry", async () => {
+		const pi = new FakePi();
+		registerHerdrSessionImplCommands({ commands: createHerdrPiCommandApi(pi) });
+		const startupFailure = new Error("idle startup failed");
+		let waitAttempts = 0;
+		const ctx = new FakeCommandContext({
+			onWaitForIdle: () => {
+				waitAttempts += 1;
+				if (waitAttempts === 1) throw startupFailure;
+			},
+		});
+
+		await expect(
+			pi.commands.get("ns:herdr:impl:session:space")?.handler("first focus", ctx),
+		).rejects.toBe(startupFailure);
+
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(ctx.statuses).toEqual([]);
+
+		await pi.commands.get("ns:herdr:impl:session:tab")?.handler("second focus", ctx);
+
+		expect(pi.sentUserMessages).toHaveLength(1);
+		expect(pi.sentUserMessages[0]).toContain("## Continuation focus\nsecond focus");
+		expect(ctx.notifications).not.toContainEqual({
+			message: "A session summary is already pending.",
+			level: "warning",
+		});
+		expect(ctx.statuses).toEqual([
+			{ key: "ns:herdr:impl:session:tab", value: "summarizing session…" },
+		]);
+
+		await pi.emitAgentEnd(summaryTurn(pi, "Implement the recovered tab destination."), ctx);
+
+		expect(ctx.editorTexts).toEqual([
+			"/ns:herdr:impl:prompt:tab Implement the recovered tab destination.",
+		]);
+		expect(ctx.statuses.at(-1)).toEqual({
+			key: "ns:herdr:impl:session:tab",
+			value: undefined,
+		});
 	});
 
 	test("reports an empty summary and clears pending state", async () => {

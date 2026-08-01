@@ -8,6 +8,7 @@ import {
 	HERDR_PLAN_TAB_IMPL_COMMAND_NAME,
 	HERDR_PLAN_SPACE_IMPL_COMMAND_NAME,
 } from "@nseng-ai/herdr/api";
+import { formatImplDestinationNoun } from "../core/impl-destination.ts";
 import {
 	handleHerdrSlotImplPlan,
 	type ImplPlanConfig,
@@ -54,12 +55,11 @@ function registerPlanImplCommand(
 	config: ImplPlanConfig,
 	options: HerdrPlanImplRegistrationOptions,
 ): void {
-	const destination = config.destination === "workspace" ? "space" : "tab";
 	registerCommandWithImmediateAck({
 		host: context.commands,
 		commandName: config.commandName,
 		commandDefinition: {
-			description: `Implement a plan in a new ${destination}.`,
+			description: `Implement a plan in a new ${formatImplDestinationNoun(config.destination)}.`,
 			argumentHint: "[--dry-run] [--help]",
 			handler: async (rawArgs, pi) => {
 				const notifyProgress = makeCommandProgressNotifier({ host: context.commands, ctx: pi });

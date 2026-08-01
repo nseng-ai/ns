@@ -1,4 +1,3 @@
-import { getCallerWorkspaceId, type PreparedLaunchDestination } from "@nseng-ai/herdr/api";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	makeCommandProgressNotifier,
@@ -11,6 +10,11 @@ import {
 	HERDR_PROMPT_TAB_IMPL_COMMAND_NAME,
 } from "@nseng-ai/herdr/api";
 import {
+	formatImplDestinationNoun,
+	prepareImplDestination,
+	type ImplDestination,
+} from "../core/impl-destination.ts";
+import {
 	handleHerdrSlotImplPrompt,
 	resolveImplPromptPayloadOptions,
 	type ImplPromptPayloadOptions,
@@ -19,23 +23,17 @@ import { createHerdrPiCommandContext, type HerdrPiContext } from "./context.ts";
 
 interface PromptImplConfig {
 	readonly commandName: string;
-	readonly destinationNoun: "space" | "tab";
-	prepareDestination(): PreparedLaunchDestination | undefined;
+	readonly destination: ImplDestination;
 }
 
 const SPACE_CONFIG: PromptImplConfig = {
 	commandName: HERDR_PROMPT_SPACE_IMPL_COMMAND_NAME,
-	destinationNoun: "space",
-	prepareDestination: () => ({ type: "workspace" }),
+	destination: "workspace",
 };
 
 const TAB_CONFIG: PromptImplConfig = {
 	commandName: HERDR_PROMPT_TAB_IMPL_COMMAND_NAME,
-	destinationNoun: "tab",
-	prepareDestination: () => {
-		const callerWorkspaceId = getCallerWorkspaceId();
-		return callerWorkspaceId === undefined ? undefined : { type: "tab", callerWorkspaceId };
-	},
+	destination: "tab",
 };
 
 export interface HerdrPromptImplRegistrationOptions extends ImplPromptPayloadOptions {
@@ -67,15 +65,12 @@ function registerPromptImplCommand(
 		host: context.commands,
 		commandName: config.commandName,
 		commandDefinition: {
-			description: `Implement a prompt in a new ${config.destinationNoun}.`,
+			description: `Implement a prompt in a new ${formatImplDestinationNoun(config.destination)}.`,
 			argumentHint: "<prompt>",
 			handler: async (args, pi) => {
-				const destination = config.prepareDestination();
-				if (destination === undefined) {
-					pi.ui.notify(
-						`/${config.commandName} requires HERDR_WORKSPACE_ID. Run it from a Herdr caller space.`,
-						"error",
-					);
+				const preparedDestination = prepareImplDestination(config.destination, config.commandName);
+				if (preparedDestination.type === "failed") {
+					pi.ui.notify(preparedDestination.message, "error");
 					return;
 				}
 				const notifyProgress = makeCommandProgressNotifier({ host: context.commands, ctx: pi });
@@ -84,7 +79,7 @@ function registerPromptImplCommand(
 					...optionalEntry("slotClient", options.slotClient),
 					args,
 					commandName: config.commandName,
-					destination,
+					destination: preparedDestination.destination,
 					notifyProgress,
 				});
 			},
