@@ -44,8 +44,8 @@ a useful outcome; surface it rather than forcing agreement.
 
 This skill is intentionally independent of Flow and ns. It is not an automatic,
 mechanically assembled inventory: it interviews the author for rationale the diff
-cannot supply, requires approval of the complete draft, and produces a co-authored
-body. Do not substitute a best-effort inventory from diff and commit headlines for
+cannot supply, requires the author to review the complete written body, and
+produces a co-authored body. Do not substitute a best-effort inventory from diff and commit headlines for
 that accountability process.
 
 ## Boundaries
@@ -79,7 +79,7 @@ Before questioning the author:
    `git diff --stat $(git merge-base HEAD origin/<baseRefName>)...HEAD`, then
    inspect each file with `git diff` or `git show`. For a large diff, sample by
    file rather than truncating blindly.
-4. Read the existing body as context only; the approved body will replace it.
+4. Read the existing body as context only; the co-authored body will replace it.
 
 Inventory:
 
@@ -193,25 +193,25 @@ infer, abbreviate, or hard-code either value. For example, an OpenAI session in
 Pi might report `openai/gpt-5.6-sol` and `Pi`; an Anthropic session in Claude
 Code might report `anthropic/claude-opus-4-6` and `Claude Code`.
 
-Show the complete draft, including the footer, and say explicitly that it is
-not final: the author's name goes on it, so they must read every claim and edit
-anything false or unlike their voice. Explain that the text shown in the harness
-is not directly editable: the author can request changes in chat before approval,
-and final hands-on editing happens in the GitHub UI after the body is written.
-Require explicit approval or requested edits before writing.
-
-The author's wording wins. If an edit restores a claim disproved during the
-interview, push back once with evidence before accepting their decision. Remind
-them that this LM-authored version is a draft and that they are accountable
-for the final description.
-
-Write the approved draft as the complete body, and prefix the PR title with
+Write the draft as the complete body immediately, and prefix the PR title with
 `[accountable]` (skip the title change if it already starts with
 `[accountable]`):
 
 ```sh
 gh pr edit <n> --body-file <tmpfile> --title "[accountable] <existing title>"
 ```
+
+Then show the complete body as written, including the footer, and say
+explicitly that it is now live on the PR but not final: the author's name goes
+on it, so they must read every claim and change anything false or unlike their
+voice. Prompt for further edits: the author can request changes in chat (apply
+them with another `gh pr edit`) or edit directly in the GitHub UI; if they are
+satisfied as-is, no further step is needed.
+
+The author's wording wins. If a requested edit restores a claim disproved
+during the interview, push back once with evidence before accepting their
+decision. Remind them that this LM-authored version is a draft and that they
+are accountable for the final description.
 
 ## 4. Report consumability
 
