@@ -39,7 +39,7 @@ describe("checked-in Objective ns extension loading", () => {
 			expect(output).toMatch(/^  show(?:\s|$)/m);
 			expect(output).toMatch(/^  check(?:\s|$)/m);
 			expect(output).not.toContain("read-objective");
-			expect(output).not.toContain("tracking-gate");
+			expect(output).not.toContain("staleness-check");
 			expect(help.stderr.join("")).toBe("");
 		},
 		COLD_EXTENSION_LOAD_TEST_TIMEOUT_MS,
@@ -102,14 +102,25 @@ describe("checked-in Objective ns extension loading", () => {
 		);
 		expect(orientationsHelp.stdout.join("")).toContain("Load active Objective orientation files");
 
-		const trackingGateHelp = runWithRealObjectiveExtension({
+		const stalenessCheckHelp = runWithRealObjectiveExtension({
+			args: ["objective", "exec", "staleness-check", "--help"],
+			cwd,
+		});
+		expect(await stalenessCheckHelp.exit).toBe(0);
+		expect(stalenessCheckHelp.stdout.join("")).toContain(
+			"Usage: ns objective exec staleness-check [options] [slug]",
+		);
+
+		// Hard cutover: the old hidden command no longer resolves; unknown exec
+		// subcommands fall back to the exec group help.
+		const removedTrackingGateHelp = runWithRealObjectiveExtension({
 			args: ["objective", "exec", "tracking-gate", "--help"],
 			cwd,
 		});
-		expect(await trackingGateHelp.exit).toBe(0);
-		expect(trackingGateHelp.stdout.join("")).toContain(
-			"Usage: ns objective exec tracking-gate [options] [slug]",
-		);
+		await removedTrackingGateHelp.exit;
+		const removedOutput = removedTrackingGateHelp.stdout.join("");
+		expect(removedOutput).not.toContain("Usage: ns objective exec tracking-gate");
+		expect(removedOutput).not.toContain("tracking-gate [options]");
 	});
 
 	test("exec commands without dedicated coverage preserve their behavior", async () => {

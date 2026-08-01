@@ -16,7 +16,7 @@
 		"./ns/commands/exec-runner-begin": "./src/ns/commands/exec-runner-begin.ts",
 		"./ns/commands/exec-runner-finish": "./src/ns/commands/exec-runner-finish.ts",
 		"./ns/commands/exec-runner-subagent-usage": "./src/ns/commands/exec-runner-subagent-usage.ts",
-		"./ns/commands/exec-tracking-gate": "./src/ns/commands/exec-tracking-gate.ts",
+		"./ns/commands/exec-staleness-check": "./src/ns/commands/exec-staleness-check.ts",
 		"./ns/commands/list": "./src/ns/commands/list.ts",
 		"./ns/commands/show": "./src/ns/commands/show.ts"
 	},

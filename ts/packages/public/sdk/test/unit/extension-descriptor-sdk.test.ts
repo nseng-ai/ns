@@ -46,7 +46,7 @@ describe("extension descriptor SDK", () => {
 					group: "exec",
 					hidden: true,
 					description: "Agent-only objective operations.",
-					entries: [{ name: "tracking-gate", load: () => ({ default: listCommand }) }],
+					entries: [{ name: "staleness-check", load: () => ({ default: listCommand }) }],
 				},
 			],
 			points: [

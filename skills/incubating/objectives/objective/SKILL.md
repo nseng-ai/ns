@@ -35,7 +35,7 @@ Do not use `docs/objectives/`.
 Use these step skills for explicit workflow requests:
 
 - `objective-create`: create one new active Objective record; it never updates or closes existing ones. Its interview offers the Objective patterns (wayfinding, steelthread, standing, umbrella, autoobjective, readme-driven-development); each pattern's creation procedure lives in its `references/<pattern>-create.md`.
-- `objective-next`: recommend-first router for one selected open Objective; its Tracking Gate and confirmed-execution paths live in that skill.
+- `objective-next`: recommend-first router for one selected open Objective; its Objective Staleness Check and confirmed-execution paths live in that skill.
 - `objective-update`: update exactly one selected active Objective; may close inline when its Closure Gate is clearly met.
 - `objective-refresh`: verified rebaseline for active Objective records; may close inline on probe-backed evidence, and never commits record edits.
 - `objective-close`: explicit close only — records `## Closure` and the Closure Marker without deleting checked-in history.
@@ -136,9 +136,9 @@ A picker UI may group changed active Objectives first and label a single changed
 
 `ns objective show <slug>` is the single-record detail view: status and Blocked Sentence, latest update and outstanding-changes state, the local branches whose changes touch the record, and every Objective Edge with both this record's annotation and the counterpart's back-edge annotation plus its active/missing state. It is read-only and takes `--format md` / `--format json` like the other Objective commands.
 
-## Tracking Gate
+## Objective Staleness Check
 
-Before `objective-next` recommends work or offers confirmed execution, it checks whether material progress is present in repo changes but unrecorded in the selected Objective. Mechanics live in `objective-next`'s Tracking Gate: evidence comes from `ns objective exec tracking-gate <slug> --format json` (never hand-rolled pipelines); materiality judgment stays with the agent. Clear unrecorded progress for the selected Objective is update-and-continue preauthorization (run the Objective Update workflow, reread, continue); ask first when evidence, fit, or update scope is ambiguous.
+Before `objective-next` recommends work or offers confirmed execution, it checks whether the selected Objective record may be stale — material progress present in repo changes but unrecorded. Mechanics live in `objective-next`'s Objective Staleness Check: evidence comes from `ns objective exec staleness-check <slug> --format json` (never hand-rolled pipelines); materiality judgment stays with the agent. Clear unrecorded progress for the selected Objective is update-and-continue preauthorization (run the Objective Update workflow, reread, recheck, continue); ask first when evidence, fit, or update scope is ambiguous.
 
 ## Objective consolidation
 
