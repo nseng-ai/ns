@@ -64,44 +64,64 @@ describe("delete operation", () => {
 	});
 
 	it("requires confirmation before deleting", async () => {
+		const entry = {
+			namespace: "scratch",
+			branch: "feat/x",
+			key: "plan/plan.md",
+			content: "hello\n",
+		} as const;
+		const gateway = new FakeBrmemGateway({ currentBranch: "feat/x", entries: [entry] });
 		const missingYes = runScenario(
 			["delete", "plan/plan.md", "--namespace", "scratch", "--format", "json"],
-			{
-				fake: {
-					currentBranch: "feat/x",
-					entries: [
-						{ namespace: "scratch", branch: "feat/x", key: "plan/plan.md", content: "hello\n" },
-					],
-				},
-			},
+			{ gateway },
 		);
 		expect(await missingYes.exit).toBe(2);
-		expect(JSON.parse(missingYes.stdout.join(""))).toMatchObject({
+		expect(JSON.parse(missingYes.stdout.join(""))).toEqual({
 			status: "usage-error",
 			exitCode: 2,
-			data: { missingFlag: "--yes" },
-		});
-
-		const declined = runScenario(["delete", "plan/plan.md", "--namespace", "scratch"], {
-			fake: {
-				currentBranch: "feat/x",
-				entries: [
-					{ namespace: "scratch", branch: "feat/x", key: "plan/plan.md", content: "hello\n" },
-				],
+			errorType: "usage-error",
+			message: "Deleting a Branch Memory Entry requires --yes when non-interactive.",
+			data: {
+				missingFlag: "--yes",
+				howToSupply: "Pass --yes (or -y) to confirm deletion without prompting.",
 			},
+		});
+		expect(
+			await runScenario(["get", entry.key, "--namespace", entry.namespace], { gateway }).exit,
+		).toBe(0);
+
+		const declined = runScenario(["delete", entry.key, "--namespace", entry.namespace], {
+			gateway,
 			confirmations: [{ type: "declined" }],
 			isInteractive: true,
 		});
 		expect(await declined.exit).toBe(0);
 		expect(declined.stdout.join("")).toContain("Cancelled Branch Memory Entry delete.");
+		expect(
+			await runScenario(["get", entry.key, "--namespace", entry.namespace], { gateway }).exit,
+		).toBe(0);
 
-		const accepted = runScenario(["delete", "plan/plan.md", "--namespace", "scratch"], {
-			fake: {
-				currentBranch: "feat/x",
-				entries: [
-					{ namespace: "scratch", branch: "feat/x", key: "plan/plan.md", content: "hello\n" },
-				],
+		const aborted = runScenario(
+			["delete", entry.key, "--namespace", entry.namespace, "--format", "json"],
+			{
+				gateway,
+				confirmations: [{ type: "aborted" }],
+				isInteractive: true,
 			},
+		);
+		expect(await aborted.exit).toBe(2);
+		expect(JSON.parse(aborted.stdout.join(""))).toEqual({
+			status: "failure",
+			exitCode: 2,
+			errorType: "aborted",
+			message: "Aborted!",
+		});
+		expect(
+			await runScenario(["get", entry.key, "--namespace", entry.namespace], { gateway }).exit,
+		).toBe(0);
+
+		const accepted = runScenario(["delete", entry.key, "--namespace", entry.namespace], {
+			gateway,
 			confirmations: [{ type: "confirmed" }],
 			isInteractive: true,
 		});

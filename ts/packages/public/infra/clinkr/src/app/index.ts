@@ -55,4 +55,8 @@ export type {
 	UsageErrorOutcome,
 } from "./outcome.ts";
 export { confirmOrUsageError } from "./confirmation.ts";
-export type { ConfirmationOutcome } from "./confirmation.ts";
+export type {
+	ConfirmationOutcome,
+	ConfirmationPolicyOptions,
+	ConfirmedOutcome,
+} from "./confirmation.ts";
