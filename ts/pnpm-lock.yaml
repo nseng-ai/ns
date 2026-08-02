@@ -547,6 +547,17 @@ importers:
         specifier: 'catalog:'
         version: 0.80.5(ws@8.21.0)(zod@4.4.3)
 
+  packages/incubating/infra/gitplane:
+    dependencies:
+      '@nseng-ai/clinkr':
+        specifier: workspace:*
+        version: link:../../../public/infra/clinkr
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
+  packages/incubating/infra/gitplane-sqlite: {}
+
   packages/incubating/tools/vibechk:
     dependencies:
       '@nseng-ai/clinkr':

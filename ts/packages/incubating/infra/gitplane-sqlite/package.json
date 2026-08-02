@@ -1,0 +1,21 @@
+{
+	"name": "@nseng-ai/gitplane-sqlite",
+	"version": "0.1.4",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"files": [
+		"src"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"check": "tsc -p tsconfig.json"
+	},
+	"ns": {
+		"tier": "neutral-infra"
+	}
+}
