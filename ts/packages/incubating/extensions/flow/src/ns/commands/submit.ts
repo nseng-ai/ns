@@ -187,7 +187,7 @@ export function createFlowSubmitCommand(
 			return await runSubmitWithProgress({
 				ctx,
 				request,
-				...(titlePrefix === undefined ? {} : { titlePrefix: titlePrefix.prefix }),
+				...optionalEntry("titlePrefix", titlePrefix?.prefix),
 				runtime,
 				checksLoad,
 				checkpointContext,
