@@ -8,6 +8,7 @@ import {
 import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
 
 import type {
+	HerdrCallerContextResult,
 	HerdrCreateTabOptions,
 	HerdrCreateTabResult,
 	HerdrCreateWorkspaceOptions,
@@ -73,7 +74,58 @@ export function createCliHerdrGateway(exec: CommandExecApi): HerdrGateway {
 		async runInPane(paneId, command): Promise<HerdrPaneRunResult> {
 			return runInPane(exec, paneId, command);
 		},
+		async resolveCallerContext(): Promise<HerdrCallerContextResult> {
+			return resolveCallerContext(exec);
+		},
 	};
+}
+
+async function resolveCallerContext(exec: CommandExecApi): Promise<HerdrCallerContextResult> {
+	const command = "herdr";
+	// Herdr's caller-aware current-pane query: `--current` resolves the pane
+	// this process runs in, not whichever pane the UI happens to focus.
+	const args = ["pane", "current", "--current"];
+	const commandDisplay = formatCommand(command, args);
+	try {
+		const result = await exec.exec(command, args, { timeout: HERDR_CLI_TIMEOUT_MS });
+		if (!commandSucceeded(result)) {
+			return {
+				type: "failed",
+				message: formatCommandFailure(
+					"Could not resolve the Herdr caller context.",
+					commandDisplay,
+					result,
+				),
+			};
+		}
+		const parsed = parseHerdrJsonOutput(result.stdout);
+		if (!parsed.ok) {
+			return {
+				type: "failed",
+				message: `Could not resolve the Herdr caller context: ${parsed.message}`,
+			};
+		}
+		const r = parsed.result;
+		const workspaceId = extractString(r, "pane", "workspace_id");
+		const tabId = extractString(r, "pane", "tab_id");
+		const paneId = extractString(r, "pane", "pane_id");
+		if (!workspaceId || !tabId || !paneId) {
+			return {
+				type: "failed",
+				message:
+					"Could not resolve the Herdr caller context: unexpected response shape (missing workspace_id, tab_id, or pane_id).",
+			};
+		}
+		return { type: "resolved", context: { workspaceId, tabId, paneId } };
+	} catch (error) {
+		return {
+			type: "failed",
+			message: tailText(
+				`Could not resolve the Herdr caller context.\nCommand: ${commandDisplay}\nError: ${formatErrorMessage(error)}`,
+				{ maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
+			),
+		};
+	}
 }
 
 async function renameWorkspace(

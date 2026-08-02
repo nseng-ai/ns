@@ -95,16 +95,20 @@ export function registerHerdrSessionImplCommands(
 						pi.ui.notify("A session implementation prompt is already being prepared.", "warning");
 						return;
 					}
-					const preparedDestination = prepareImplDestination(
-						config.destination,
-						config.sessionCommandName,
-					);
-					if (preparedDestination.type === "failed") {
-						pi.ui.notify(preparedDestination.message, "error");
-						return;
-					}
+					// Acquire the shared generation guard before any asynchronous work
+					// (including caller-context preflight) so overlapping invocations
+					// cannot both pass the check above and race prompt generation.
 					generationPending = true;
 					try {
+						const preparedDestination = await prepareImplDestination({
+							destination: config.destination,
+							commandName: config.sessionCommandName,
+							herdr: context.herdr,
+						});
+						if (preparedDestination.type === "failed") {
+							pi.ui.notify(preparedDestination.message, "error");
+							return;
+						}
 						await pi.waitForIdle();
 						setPromptCreationMessage(pi, config.sessionCommandName, "preparing prompt…");
 						const generated = await generatePrompt(context.commands, pi, args.trim());

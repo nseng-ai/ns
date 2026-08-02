@@ -104,7 +104,11 @@ export async function handleHerdrSlotImplPlan(
 		return;
 	}
 
-	const preparedDestination = prepareImplDestination(config.destination, config.commandName);
+	const preparedDestination = await prepareImplDestination({
+		destination: config.destination,
+		commandName: config.commandName,
+		herdr,
+	});
 	if (preparedDestination.type === "failed") {
 		present(ctx, preparedDestination.message, "error");
 		return;

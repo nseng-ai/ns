@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
 
 import { handleHerdrSpaceGoal } from "../src/core/space-goal.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
@@ -6,9 +6,11 @@ import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
+	failedCallerContext,
 	gitRootStep,
 	notificationMessages,
 	resetHerdrTestEnvironment,
+	resolvedCallerContext,
 	ROOT,
 	step,
 } from "./herdr-test-harness.ts";
@@ -36,7 +38,8 @@ async function runGoal(options: {
 		],
 		shouldRequireExpectedArgs: false,
 	});
-	const herdr = options.herdr ?? new FakeHerdrGateway();
+	const herdr =
+		options.herdr ?? new FakeHerdrGateway({ callerContextResult: resolvedCallerContext("w1") });
 	const ctx = new FakeCommandContext({
 		cwd,
 		...(options.inputValues === undefined ? {} : { inputValues: options.inputValues }),
@@ -57,8 +60,6 @@ afterEach(resetHerdrTestEnvironment);
 
 describe("herdr space goal", () => {
 	test("derives a bare slug and renames the caller workspace", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
-
 		const { pi, herdr, ctx, progress } = await runGoal({});
 
 		pi.assertDone();
@@ -70,7 +71,6 @@ describe("herdr space goal", () => {
 	});
 
 	test("prefixes the slug inside a managed slot", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3";
 
 		const { pi, herdr } = await runGoal({ cwd, modelOutput: "add-auth" });
@@ -79,10 +79,9 @@ describe("herdr space goal", () => {
 		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "s3:add-auth" }]);
 	});
 
-	test("missing caller workspace stops before model work", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
+	test("caller resolution failure stops before model work", async () => {
 		const pi = new FakePi();
-		const herdr = new FakeHerdrGateway();
+		const herdr = new FakeHerdrGateway({ callerContextResult: failedCallerContext() });
 		const ctx = new FakeCommandContext();
 
 		await handleHerdrSpaceGoal({
@@ -96,14 +95,12 @@ describe("herdr space goal", () => {
 		pi.assertDone();
 		expect(herdr.renameCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)).toEqual({
-			message: "Not running inside a Herdr caller workspace.",
+			message: `Not running inside a Herdr caller space.\nCould not resolve the Herdr caller context.`,
 			level: "warning",
 		});
 	});
 
 	test("prompts for an omitted goal", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
-
 		const { pi, herdr, ctx } = await runGoal({ args: "", inputValues: [GOAL] });
 
 		pi.assertDone();
@@ -114,9 +111,8 @@ describe("herdr space goal", () => {
 	});
 
 	test("cancelled goal input reports usage without model work", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const pi = new FakePi();
-		const herdr = new FakeHerdrGateway();
+		const herdr = new FakeHerdrGateway({ callerContextResult: resolvedCallerContext("w1") });
 		const ctx = new FakeCommandContext({ inputValues: [undefined] });
 
 		await handleHerdrSpaceGoal({
@@ -136,8 +132,6 @@ describe("herdr space goal", () => {
 	});
 
 	test("falls back to the sanitized goal when model output is unusable", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
-
 		const { pi, herdr } = await runGoal({ modelOutput: "!!!" });
 
 		pi.assertDone();
@@ -145,8 +139,6 @@ describe("herdr space goal", () => {
 	});
 
 	test("model command failure reports an error without renaming", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
-
 		const { pi, herdr, ctx } = await runGoal({ modelCode: 1, modelOutput: "" });
 
 		pi.assertDone();
@@ -156,8 +148,6 @@ describe("herdr space goal", () => {
 	});
 
 	test("unusable model output and goal report an error", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
-
 		const { pi, herdr, ctx } = await runGoal({ args: "!!!", modelOutput: "???" });
 
 		pi.assertDone();
@@ -169,7 +159,6 @@ describe("herdr space goal", () => {
 	});
 
 	test("rename failure is reported", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const herdr = new FakeHerdrGateway({
 			renameResult: { type: "failed", message: "workspace not found" },
 		});

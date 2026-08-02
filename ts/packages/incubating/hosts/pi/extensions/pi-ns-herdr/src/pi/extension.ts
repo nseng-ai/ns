@@ -94,7 +94,7 @@ export async function registerHerdrPiExtension(
 		if (isExactOptionalIntegrationAbsence(error)) return;
 		throw error;
 	}
-	registerHerdrHandoffTab(pi, module.createHandoffLaunchIntegration(pi));
+	registerHerdrHandoffTab(pi, module.createHandoffLaunchIntegration(pi), herdr);
 }
 
 async function loadOptionalHandoffIntegration(): ReturnType<HandoffIntegrationLoader> {

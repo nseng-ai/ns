@@ -7,8 +7,10 @@ import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
+	failedCallerContext,
 	gitRootStep,
 	notificationMessages,
+	resolvedCallerContext,
 	ROOT,
 	step,
 } from "./herdr-test-harness.ts";
@@ -21,7 +23,7 @@ describe("Herdr tab resources", () => {
 	});
 
 	test("tab:new preflights caller workspace then creates an unprefixed focused tab at cwd", async () => {
-		const herdr = new FakeHerdrGateway();
+		const herdr = new FakeHerdrGateway({ callerContextResult: resolvedCallerContext("w-1") });
 		const ctx = new FakeCommandContext({
 			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3",
 		});
@@ -31,8 +33,8 @@ describe("Herdr tab resources", () => {
 			args: "review the API",
 			ctx,
 			notifyProgress: () => {},
-			env: { HERDR_WORKSPACE_ID: "  w-1 " },
 		});
+		expect(herdr.resolveCallerContextCalls).toBe(1);
 		expect(herdr.createTabCalls).toEqual([
 			{
 				options: {
@@ -47,7 +49,7 @@ describe("Herdr tab resources", () => {
 
 	test("tab:new without a description creates an unlabeled focused tab", async () => {
 		let derivations = 0;
-		const herdr = new FakeHerdrGateway();
+		const herdr = new FakeHerdrGateway({ callerContextResult: resolvedCallerContext("w-1") });
 		const ctx = new FakeCommandContext({ cwd: "/repo/package" });
 		await handleHerdrNewTab({
 			herdr,
@@ -60,7 +62,6 @@ describe("Herdr tab resources", () => {
 			args: "  ",
 			ctx,
 			notifyProgress: () => {},
-			env: { HERDR_WORKSPACE_ID: "w-1" },
 		});
 		expect(derivations).toBe(0);
 		expect(herdr.createTabCalls).toEqual([
@@ -79,7 +80,6 @@ describe("Herdr tab resources", () => {
 			args: "description",
 			ctx,
 			notifyProgress: () => {},
-			env: { HERDR_WORKSPACE_ID: "w-1" },
 		});
 		expect(herdr.createTabCalls).toEqual([]);
 		expect(notificationMessages(ctx).join("\n")).toContain("model unavailable");
@@ -97,14 +97,13 @@ describe("Herdr tab resources", () => {
 			args: "",
 			ctx,
 			notifyProgress: () => {},
-			env: { HERDR_WORKSPACE_ID: "w-1" },
 		});
 		expect(notificationMessages(ctx)).toContain("workspace disappeared");
 	});
 
-	test("tab:new missing workspace does no label or Herdr work", async () => {
+	test("tab:new caller resolution failure does no label or Herdr work", async () => {
 		let derivations = 0;
-		const herdr = new FakeHerdrGateway();
+		const herdr = new FakeHerdrGateway({ callerContextResult: failedCallerContext() });
 		const ctx = new FakeCommandContext();
 		await handleHerdrNewTab({
 			herdr,
@@ -117,10 +116,12 @@ describe("Herdr tab resources", () => {
 			args: "description",
 			ctx,
 			notifyProgress: () => {},
-			env: {},
 		});
 		expect(derivations).toBe(0);
 		expect(herdr.createTabCalls).toEqual([]);
+		expect(notificationMessages(ctx).join("\n")).toContain(
+			"Not running inside a Herdr caller space.",
+		);
 	});
 
 	test("tab:goal uses an unprefixed goal slug and renames only caller tab", async () => {
