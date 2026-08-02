@@ -64,6 +64,10 @@ The strict ADR 0024 `runner-begin` / harness dispatch / `runner-finish` protocol
 The parent-facing Markdown result of a strict **Objective Runner** step, composed of runner-attested verified facts and clearly labeled unverified child-reported narrative. A real committed Runner Checkpoint may be eligible for the separate ADR 0037 parent-only publication path; a **Portable Autorun Mode** commit is never a Runner Checkpoint.
 *Avoid*: portable commit, parent-verified checkpoint, public JSON workflow state, child self-report treated as fact, hidden runner state
 
+**Objective Autorun PR Title Prefix**:
+The fixed human-facing prefix `[obj:<slug>] [autorun:<accepted-ordinal>]` that a trusted parent may pass to generic `ns flow submit --title-prefix` only after accepting the slice and obtaining separate submit authorization (ADR 0052). The parent carries both values explicitly and never infers the ordinal. One prefix applies to every pull request newly created in that submit scope; existing pull requests are never prefixed, including during metadata regeneration. The title is not machine state, policy evidence, or authorization. ADR 0037 publication remains body-only, and Portable Autorun Mode remains local-only.
+*Avoid*: customizable Objective title policy, Flow-owned Objective semantics, cumulative retitling, existing-PR prefixing, branch-name inference, commit-prose inference, stack-position ordinal, dispatch-count ordinal, title-as-state
+
 **Objective Host Independence**:
 The rule that `@nseng-ai/objectives` contains no Pi host surface: no Pi registration, Pi subpackage, Pi entrypoint, or Pi-runtime dependency belongs in this package. The separate `@nseng-ai/pi-ns-objectives` host adapter consumes Objective behavior through `@nseng-ai/objectives/api`; Objective domain logic remains here rather than being redefined in the adapter. The general acyclic invariant lives in the root **Extension Layering** cluster and ADR 0009 and is not restated here.
 *Avoid*: `@nseng-ai/objectives/pi`, Objective → `@nseng-ai/pi-runtime` imports, private-source adapter imports, adapter-owned Objective semantics

@@ -60,6 +60,7 @@ import type { NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import type { SubmitProgress } from "./submit-progress.ts";
 import type { SubmitTransportReady } from "./submit-transport.ts";
 import { prepareOrdinarySubmitTransport } from "./submit-transport-preparation.ts";
+import type { NormalizedPrTitlePrefix } from "./pr-title-prefix.ts";
 
 export { RealSubmitGateway } from "./submit-gateway.ts";
 
@@ -125,11 +126,14 @@ export interface RunSubmitCommandOptions {
 	 * this destructive replacement of existing PR titles and bodies.
 	 */
 	shouldReplaceAllPrMetadata?: boolean;
+	/** Validated prefix applied only to PRs newly created by this submit invocation. */
+	titlePrefix?: NormalizedPrTitlePrefix;
 }
 
 export async function runSubmitCommand(
 	options: RunSubmitCommandOptions,
 ): Promise<SubmitCommandResult> {
+	const normalizedTitlePrefix = options.titlePrefix;
 	const { submitCommandDisplay, submitDryRunCommandDisplay } = formatSubmitCommandDisplays({
 		shouldForce: options.force,
 	});
@@ -344,6 +348,14 @@ export async function runSubmitCommand(
 			cwd: options.cwd,
 			prInventory: options.prInventory,
 			targets: inventoryTargets,
+			...(normalizedTitlePrefix === undefined
+				? {}
+				: {
+						titlePrefixSelection: {
+							prefix: normalizedTitlePrefix,
+							prNumbers: new Set(reconciliation.metadataTargets.map((target) => target.number)),
+						},
+					}),
 			progress: submitPhaseProgressListeners<SubmitPrInventoryProgressEvent>(
 				options,
 				"inventories",

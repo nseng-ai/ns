@@ -16,7 +16,7 @@ const OBJECTIVES_INSTRUCTIONS = [
 	"  close Objectives.",
 ].join("\n");
 
-export default defineExtension({
+const objectivesExtensionDescriptor = defineExtension({
 	group: "objective",
 	description: "Inspect and maintain ns Objective records.",
 	activation: {
@@ -106,3 +106,5 @@ export default defineExtension({
 		]),
 	],
 });
+
+export default objectivesExtensionDescriptor;

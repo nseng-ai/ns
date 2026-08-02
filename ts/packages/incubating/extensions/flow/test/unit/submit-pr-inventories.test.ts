@@ -9,6 +9,13 @@ import {
 	formatPrInventoryFailureText,
 	generateSubmitPrInventories,
 } from "../../src/submit/submit-pr-inventories.ts";
+import { validatePrTitlePrefix } from "../../src/submit/pr-title-prefix.ts";
+
+function mustValidatePrTitlePrefix(value: string) {
+	const result = validatePrTitlePrefix(value);
+	if (!result.ok) throw new Error(result.reason);
+	return result.prefix;
+}
 
 class GeneratedInventoryGithubPrGateway implements GithubPrGateway {
 	readonly operations: string[] = [];
@@ -49,8 +56,8 @@ class GeneratedInventoryGithubPrGateway implements GithubPrGateway {
 		return ok("diff --git a/file b/file\n+change");
 	}
 
-	async editPr(params: { number: number }) {
-		this.operations.push(`edit:${params.number}`);
+	async editPr(params: { number: number; title: string }) {
+		this.operations.push(`edit:${params.number}:${params.title}`);
 		if (params.number === this.failEditNumber) {
 			return { ok: false as const, error: { code: "edit_failed", message: "edit failed" } };
 		}
@@ -119,8 +126,42 @@ describe("generateSubmitPrInventories", () => {
 			"view:12",
 			"diff:12",
 			"commits:12",
-			"edit:13",
-			"edit:12",
+			"edit:13:Title 12",
+			"edit:12:Title 13",
+		]);
+	});
+
+	test("prefixes only explicitly selected new PRs while preserving prepare-all-before-edit", async () => {
+		const gateway = new GeneratedInventoryGithubPrGateway();
+		const generator = new ScriptedTextGenerator([
+			{ ok: true, text: "Existing title\n\nExisting body" },
+			{ ok: true, text: "New title\n\nNew body" },
+		]);
+		const result = await generateSubmitPrInventories({
+			cwd: "/repo",
+			targets: [12, 13].map((number) => ({
+				branch: `feature/${number}`,
+				number,
+				label: `#${number}`,
+				url: `https://github.com/acme/repo/pull/${number}`,
+			})),
+			titlePrefixSelection: {
+				prefix: mustValidatePrTitlePrefix("[obj:demo] [autorun:1]"),
+				prNumbers: new Set([13]),
+			},
+			prInventory: inventoryOptions(gateway, generator),
+		});
+
+		expect(result).toMatchObject({ ok: true });
+		expect(gateway.operations).toEqual([
+			"view:12",
+			"diff:12",
+			"commits:12",
+			"view:13",
+			"diff:13",
+			"commits:13",
+			"edit:12:Existing title",
+			"edit:13:[obj:demo] [autorun:1] New title",
 		]);
 	});
 
@@ -174,8 +215,8 @@ describe("generateSubmitPrInventories", () => {
 			notAttempted: [{ label: "#14" }],
 		});
 		expect(gateway.operations.filter((operation) => operation.startsWith("edit:"))).toEqual([
-			"edit:12",
-			"edit:13",
+			"edit:12:Title 12",
+			"edit:13:Title 13",
 		]);
 	});
 

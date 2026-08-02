@@ -23,6 +23,7 @@ import type { SubmitPrInventoryOptions } from "./submit.ts";
 import { formatBatchPosition } from "./submit-format.ts";
 import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import type { SubmitMatrixCellState } from "./submit-matrix-progress.ts";
+import type { NormalizedPrTitlePrefix } from "./pr-title-prefix.ts";
 
 export type SubmitPrInventoryGenerationResult =
 	| ({ ok: true } & SubmitPrInventorySummary)
@@ -47,11 +48,17 @@ export interface SubmitPrInventoryProgressEvent {
 	message?: string;
 }
 
+export interface SubmitPrTitlePrefixSelection {
+	prefix: NormalizedPrTitlePrefix;
+	prNumbers: ReadonlySet<number>;
+}
+
 export async function generateSubmitPrInventories(input: {
 	cwd: string;
 	prInventory: SubmitPrInventoryOptions;
 	targets: readonly ReconciledSubmitPr[];
 	progress?: SubmitProgressListeners<SubmitPrInventoryProgressEvent>;
+	titlePrefixSelection?: SubmitPrTitlePrefixSelection;
 }): Promise<SubmitPrInventoryGenerationResult> {
 	const selected = input.targets.map((target) => ({
 		link: { label: target.label, url: target.url },
@@ -122,6 +129,9 @@ export async function generateSubmitPrInventories(input: {
 			activeOperationDetail: formatBatchPosition({ noun: "PR", index, total: selected.length }),
 			...optionalEntry("progress", input.progress),
 			...optionalEntry("time", input.prInventory.time),
+			...(input.titlePrefixSelection?.prNumbers.has(item.number) === true
+				? { titlePrefix: input.titlePrefixSelection.prefix }
+				: {}),
 		});
 		if (result.type === "failed") {
 			failures.push({

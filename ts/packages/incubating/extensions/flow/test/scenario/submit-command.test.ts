@@ -118,7 +118,7 @@ function successfulSubmitResponses(
 			match: "git patch-id --stable",
 			result: { stdout: "default-patch-id 0000000000000000000000000000000000000000\n" },
 		},
-		{ match: /^gh pr edit 123 --title Generated PR --body-file /, result: {} },
+		{ match: /^gh pr edit 123 --title .* --body-file /, result: {} },
 	];
 }
 
@@ -334,6 +334,22 @@ describe("project-local submit extension", () => {
 		expect(calls.some((call) => call.startsWith("gh pr edit 123"))).toBe(false);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
+
+	test.each(["   ", "prefix\nsecond", "prefix\rsecond", "p".repeat(119)])(
+		"invalid --title-prefix %j is rejected before any command or model call",
+		async (titlePrefix) => {
+			const run = runWithFakes({ request: { titlePrefix } });
+
+			expect(await run.exit).toBe(2);
+			expect(await run.result).toMatchObject({
+				type: "usageError",
+				data: { invalidOption: "--title-prefix" },
+			});
+			expect(run.stderr.join("")).toContain("--title-prefix");
+			expect(formattedExecCalls(run.context)).toEqual([]);
+			expect(run.context.textGeneratorCalls).toEqual([]);
+		},
+	);
 
 	test("--yes without --generate-pr-inventory is rejected before any command or model call", async () => {
 		const run = runWithFakes({ request: { yes: true } });
@@ -651,10 +667,11 @@ describe("project-local submit extension", () => {
 		expect(formattedExecCalls(run.context)).toContain("gh pr view --json number,url");
 	});
 
-	test("finds a newly created downstack PR omitted from Graphite output through branch inventory", async () => {
+	test("prefixes every newly created PR found through branch inventory", async () => {
 		const downstackUrl = "https://github.com/acme/repo/pull/123";
 		const tipUrl = "https://github.com/acme/repo/pull/456";
 		const run = runWithFakes({
+			request: { titlePrefix: "  [obj:demo] [autorun:3]  " },
 			graphiteStack: {
 				stack: {
 					type: "stack",
@@ -735,8 +752,14 @@ describe("project-local submit extension", () => {
 						match: "git patch-id --stable",
 						result: { stdout: "top-patch 0000000000000000000000000000000000000000\n" },
 					},
-					{ match: /^gh pr edit 123 --title Generated PR --body-file /, result: {} },
-					{ match: /^gh pr edit 456 --title Generated PR --body-file /, result: {} },
+					{
+						match: /^gh pr edit 123 --title \[obj:demo\] \[autorun:3\] Generated PR --body-file /,
+						result: {},
+					},
+					{
+						match: /^gh pr edit 456 --title \[obj:demo\] \[autorun:3\] Generated PR --body-file /,
+						result: {},
+					},
 				],
 				textGeneration: [
 					{ ok: true, text: defaultPrInventoryText() },

@@ -191,6 +191,14 @@ Every implementation child in either mode has this prohibition:
 
 In `ns-bookended`, the child has no publication authority, `runner-finish` alone owns the verified local implementation commit, and any authorized publication is a distinct parent-only action after the Runner Checkpoint, parent judgment, and material tracking. In `portable`, the child leaves changes uncommitted and the parent owns the ordinary local implementation commit; runner publication is unavailable.
 
+## Autorun PR titles
+
+Only after accepting a slice and obtaining separate authorization to submit may the trusted parent construct the fixed prefix `[obj:<slug>] [autorun:<accepted-ordinal>]` and pass it to `ns flow submit --title-prefix <prefix>`. Carry the selected Objective slug and accepted ordinal as explicit trusted facts. Never infer the ordinal from a branch name, commit prose, stack position, dispatch count, PR count, or other ambient evidence.
+
+One prefix applies to every pull request newly created in that submit invocation's scope. If slices require different accepted ordinals, submit them in separate scopes. Existing pull requests are never prefixed, including when `--generate-pr-inventory` regenerates their metadata; later accepted steps and cumulative runner publication do not add or refresh the prefix.
+
+Treat titles as human-facing metadata only, never as machine state, policy evidence, or authorization. Implementation children and `runner-finish` never create or edit pull requests. ADR 0037 publication remains body-only. Portable autorun remains local-only, so any later submit or pull-request creation is a separate explicitly requested workflow after autorun ends.
+
 ## Stop conditions
 
 Stop and state why when any applies:

@@ -1,9 +1,10 @@
 import { z } from "zod";
 
 const gitShaSchema = z.string().regex(/^[0-9a-f]{40}$/, "Expected a full 40-character Git SHA.");
+const objectivePublicationSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const objectiveSlugSchema = z
 	.string()
-	.regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Expected an Objective slug.");
+	.regex(objectivePublicationSlugPattern, "Expected an Objective slug.");
 const nonEmptyStringSchema = z.string().trim().min(1);
 
 export const objectiveRunnerPublicationTargetSchema = z
