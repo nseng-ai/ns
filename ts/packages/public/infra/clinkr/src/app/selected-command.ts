@@ -49,13 +49,12 @@ function isExactFunctionModule(
 const commandMetadataSchema = z.strictObject({
 	description: z.string(),
 	aliases: z.array(z.string()).readonly().optional(),
-});
-
-const groupDefinitionSchema = commandMetadataSchema.extend({
 	summary: z.string().optional(),
 	hidden: z.boolean().optional(),
 	helpGroup: z.string().optional(),
 });
+
+const groupDefinitionSchema = commandMetadataSchema;
 
 function isCommandMetadata(value: unknown): value is ClinkrCommandMetadata {
 	if (!commandMetadataSchema.safeParse(value).success) return false;
