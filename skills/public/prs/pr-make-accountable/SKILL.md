@@ -80,6 +80,11 @@ Before questioning the author:
    inspect each file with `git diff` or `git show`. For a large diff, sample by
    file rather than truncating blindly.
 4. Read the existing body as context only; the co-authored body will replace it.
+5. Describe the PR only in terms of its net diff against the base. Intermediate
+   commit state — files added then removed within the PR, reverted experiments,
+   commit-by-commit churn — is not PR content; exclude it from the inventory,
+   interview, body, and reports. Use commit messages only as evidence of intent
+   about the net change.
 
 Inventory:
 
@@ -220,7 +225,7 @@ each axis:
 
 - **Size and cohesion** — reviewable and focused, or better split?
 - **Title honesty** — faithful to the diff?
-- **Narrative** — do commits and body establish the right model before code?
+- **Narrative** — does the body establish the right model before code?
 - **Focus** — are interview-discovered hotspots in `## Reviewer focus`?
 
 Include deferred PR-change items from the interview.
