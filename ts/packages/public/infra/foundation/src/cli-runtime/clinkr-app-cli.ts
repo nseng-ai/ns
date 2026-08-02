@@ -1,8 +1,13 @@
 import process from "node:process";
 
 import type { ClinkrContextfulApp } from "@nseng-ai/clinkr/app";
+import { withInterceptedProcessWriters } from "@nseng-ai/clinkr/app/process-writer-interception";
 
-import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import {
+	optionalEntries,
+	optionalEntry,
+	type ExplicitUndefined,
+} from "@nseng-ai/foundation/primitives";
 
 import { isDirectCliInvocation } from "./direct-invocation.ts";
 import { readStdin } from "./stdin.ts";
@@ -102,13 +107,9 @@ export interface DefinedClinkrAppCli<
 /**
  * Define a package-backed modern Clinkr application lifecycle.
  *
- * When output overrides are supplied, `run` deliberately intercepts the
- * process stdout/stderr writers while awaiting the app. The modern `ClinkrApp`
- * intentionally has no in-process I/O seam yet; see the
- * `clinkr-readme-driven-development` Objective's runtime/SDK-host contract.
- * Override-backed runs must remain sequential until Clinkr threads output
- * writers through `ClinkrRunOptions`, at which point this interception should
- * be deleted rather than fixed opportunistically here.
+ * When output overrides are supplied, `run` uses guarded process-global
+ * writer interception. Override-backed runs must be awaited sequentially;
+ * overlap fails before changing a process writer.
  */
 export function defineClinkrAppCli<
 	TContext,
@@ -181,24 +182,17 @@ async function runWithOutputOverrides<TContext, TDeps extends ClinkrAppCliEntryp
 	context: TContext,
 	deps: ClinkrAppCliRunDeps<TDeps>,
 ): Promise<number> {
-	const originalStdoutWrite = process.stdout.write;
-	const originalStderrWrite = process.stderr.write;
-	const interceptStdout = deps.stdout !== undefined;
-	const interceptStderr = deps.stderr !== undefined;
-	if (interceptStdout)
-		process.stdout.write = sinkWriter(deps.stdout) as typeof process.stdout.write;
-	if (interceptStderr)
-		process.stderr.write = sinkWriter(deps.stderr) as typeof process.stderr.write;
-	try {
-		return await app.run(args, {
+	const runApp = async () =>
+		await app.run(args, {
 			context,
 			readStdin: deps.readStdin ?? readStdin,
 			...optionalEntry("canEmitAnsi", deps.canEmitAnsi),
 		});
-	} finally {
-		if (interceptStdout) process.stdout.write = originalStdoutWrite;
-		if (interceptStderr) process.stderr.write = originalStderrWrite;
-	}
+	if (deps.stdout === undefined && deps.stderr === undefined) return await runApp();
+	return await withInterceptedProcessWriters(
+		optionalEntries({ stdout: deps.stdout, stderr: deps.stderr }),
+		runApp,
+	);
 }
 
 function writeProcessStdout(text: string): void {
@@ -207,11 +201,4 @@ function writeProcessStdout(text: string): void {
 
 function writeProcessStderr(text: string): void {
 	process.stderr.write(text);
-}
-
-function sinkWriter(sink: (text: string) => void) {
-	return (chunk: string | Uint8Array): boolean => {
-		sink(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
-		return true;
-	};
 }

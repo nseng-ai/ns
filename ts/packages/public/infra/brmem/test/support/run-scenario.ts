@@ -25,12 +25,12 @@ export interface ScenarioRunOptions {
 	cwd?: string;
 	stdin?: string | Uint8Array | (() => Promise<string | Uint8Array>);
 	requestStdin?: string;
+	canEmitAnsi?: boolean;
 	files?: Record<string, string | Uint8Array>;
 	unreadableFiles?: Record<string, string>;
 	sourceReader?: BrmemSourceReader;
 	confirmations?: readonly ConfirmationResult[];
 	isInteractive?: boolean;
-	canEmitAnsi?: boolean;
 }
 
 export interface ScenarioRun {
