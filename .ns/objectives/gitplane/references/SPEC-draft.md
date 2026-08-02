@@ -253,7 +253,7 @@ Failure to persist the error does not hide or replace the original failure and n
 
 V1 uses two incubating workspace packages:
 
-- `@nseng-ai/gitplane` — domain API, validation, digesting, reconciliation planning, the canonical artifact gateway and materialization-store gateway contracts, in-memory fakes, conformance helpers, and an exported API-kind `@nseng-ai/gitplane/cli` subpackage;
+- `@nseng-ai/gitplane` — domain API, validation, digesting, reconciliation planning, the canonical artifact, corpus-check, and materialization-store gateway contracts, in-memory fakes, conformance helpers, and an exported API-kind `@nseng-ai/gitplane/cli` subpackage;
 - `@nseng-ai/gitplane-sqlite` — local/reference store adapter and Gitplane control-table implementation.
 
 The `/cli` subpackage has distinct runtime importers, passes the repository subpackage rank test, and is rooted at `src/cli/`. A thin executable bootstrap invokes its Clinkr app. Its command topology follows Clinkr's filesystem layout:
@@ -301,6 +301,8 @@ V1 deliberately excludes:
 - automatic multi-domain discovery;
 - real Riptide, Goat Farm, or ns-internal consumer integrations;
 - workflow-engine activation policy.
+
+`CorpusCheckGateway` owns only raw working-tree inventory and candidate reads for stateless checking. `ArtifactGateway` operates on artifacts after corpus validation and retains creation, commit/history, discovered-boundary, complete-snapshot, and commit-diff operations for reconciliation. This separation keeps malformed working-tree entries out of the valid artifact-domain seam.
 
 The gateway shapes and immutable event records preserve upgrade paths for alternate Git sources, production stores, source leases, outbox delivery, and object-store replication without making those v1 features.
 

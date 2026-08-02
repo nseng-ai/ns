@@ -1,5 +1,11 @@
 import type { ArtifactClassification, ArtifactId } from "./artifact.ts";
-import type { ArtifactSnapshot, TargetMapping, ValidationFinding } from "./domain.ts";
+import type {
+	ArtifactCandidate,
+	ArtifactEntry,
+	ArtifactSnapshot,
+	TargetMapping,
+} from "./domain.ts";
+import type { Finding } from "./check/finding.ts";
 import type { ArtifactEventType, ContentDigest } from "./identity.ts";
 
 export interface GatewayError {
@@ -34,6 +40,10 @@ export interface CommitFacts {
 export interface ArtifactBoundary {
 	readonly path: string;
 }
+export interface TreeInventoryEntry {
+	readonly path: string;
+	readonly kind: ArtifactEntry["kind"];
+}
 export interface CommitDiff {
 	readonly fromCommit: string;
 	readonly toCommit: string;
@@ -67,6 +77,14 @@ export interface ArtifactGateway {
 		readonly fromCommit: string;
 		readonly toCommit: string;
 	}): Promise<GatewayResult<CommitDiff>>;
+}
+export interface CorpusCheckGateway {
+	inventoryWorkingTree(request: {
+		readonly artifactRoot: string;
+	}): Promise<GatewayResult<readonly TreeInventoryEntry[]>>;
+	readWorkingTreeCandidate(request: {
+		readonly path: string;
+	}): Promise<GatewayResult<ArtifactCandidate>>;
 }
 export interface CursorRecord {
 	readonly sourceId: string;
@@ -143,7 +161,7 @@ export interface DoctorCheck {
 	readonly code: string;
 	readonly status: "pass" | "fail" | "unsupported";
 	readonly summary: string;
-	readonly findings?: readonly ValidationFinding[];
+	readonly findings?: readonly Finding[];
 }
 export type CursorCompareAndSetResult =
 	| { readonly type: "updated" }

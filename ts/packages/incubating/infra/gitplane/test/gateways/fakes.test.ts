@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import { parseArtifactId } from "@nseng-ai/gitplane";
 import {
 	InMemoryArtifactGateway,
+	InMemoryCorpusCheckGateway,
 	InMemoryMaterializationStoreGateway,
 } from "@nseng-ai/gitplane/testing";
 const parsed = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
@@ -163,6 +164,28 @@ test("artifact discovery seeds distinguish roots and commit-root pairs", async (
 		ok: true,
 		value: [{ path: "one/new" }],
 	});
+});
+
+test("corpus check gateway inventories and reads only working-tree candidates", async () => {
+	const gateway = new InMemoryCorpusCheckGateway({
+		workingInventories: [
+			{ artifactRoot: "one", entries: [{ path: "one/a", kind: "directory" }] },
+			{ artifactRoot: "two", entries: [{ path: "two/b", kind: "directory" }] },
+		],
+		workingCandidates: [{ path: "two/b", entries: [] }],
+	});
+	expect(await gateway.inventoryWorkingTree({ artifactRoot: "two" })).toEqual({
+		ok: true,
+		value: [{ path: "two/b", kind: "directory" }],
+	});
+	expect(await gateway.readWorkingTreeCandidate({ path: "two/b" })).toEqual({
+		ok: true,
+		value: { path: "two/b", entries: [] },
+	});
+	expect(gateway.operationLog()).toEqual([
+		"inventoryWorkingTree",
+		"readWorkingTreeCandidate:two/b",
+	]);
 });
 
 test("snapshots defensively copy generic state without target rows", () => {
