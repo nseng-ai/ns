@@ -2,14 +2,43 @@ import { readFile } from "node:fs/promises";
 import { expect, test } from "vitest";
 import { runForCliTest } from "@nseng-ai/clinkr/app/testing";
 import { createGitplaneCliApp, VERSION } from "@nseng-ai/gitplane/cli";
+import type { GitplaneConfigLoader } from "@nseng-ai/gitplane/cli";
 import { InMemoryArtifactGateway } from "@nseng-ai/gitplane/testing";
 import { parseArtifactId } from "@nseng-ai/gitplane";
 const parsed = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
 if (!parsed.ok) throw new Error();
 const artifactId = parsed.artifactId;
 const app = createGitplaneCliApp();
-function context(gateway = new InMemoryArtifactGateway()) {
-	return { artifactGateway: gateway, artifactIds: { generateArtifactId: () => artifactId } };
+function context(
+	gateway = new InMemoryArtifactGateway(),
+	configLoader: GitplaneConfigLoader = {
+		load: async () => ({
+			ok: false as const,
+			category: "config-load" as const,
+			diagnostic: "missing",
+		}),
+	},
+) {
+	return {
+		artifactGateway: gateway,
+		artifactIds: { generateArtifactId: () => artifactId },
+		cwd: ".",
+		configLoader,
+	};
+}
+function loadedConfig(options: { readonly root?: string; readonly id?: string } = {}) {
+	return {
+		load: async () => ({
+			ok: true as const,
+			artifactRoot: options.root ?? "artifacts",
+			config: {
+				source: { id: options.id ?? "source", artifactRoot: options.root ?? "artifacts" },
+				store: () => {
+					throw new Error("check must not construct the store");
+				},
+			},
+		}),
+	};
 }
 test.each([
 	["--version", VERSION],
@@ -184,13 +213,211 @@ test("reports operational and unavailable outcomes", async () => {
 	const stub = await runForCliTest(app, ["check", "--format=json"], { context: context() });
 	expect(JSON.parse(stub.stdout)).toMatchObject({
 		status: "failure",
-		errorType: "command-unavailable",
+		errorType: "check-failed",
 	});
 });
-test("publishes the command schema", async () => {
-	const run = await runForCliTest(app, ["artifact", "create", "--json-schema"], {
-		context: context(),
+test("publishes command schemas", async () => {
+	for (const command of [
+		["artifact", "create", "--json-schema"],
+		["check", "--json-schema"],
+	]) {
+		const run = await runForCliTest(app, command, { context: context() });
+		expect(run.exitCode).toBe(0);
+		expect(JSON.parse(run.stdout)).toHaveProperty("machineEnvelopeJsonSchema");
+	}
+});
+
+test("check returns exact clean data for an empty root without history or store operations", async () => {
+	const gateway = new InMemoryArtifactGateway({
+		workingInventories: [{ artifactRoot: "artifacts", entries: [] }],
+	});
+	const run = await runForCliTest(app, ["check", "--format=json"], {
+		context: context(gateway, loadedConfig()),
 	});
 	expect(run.exitCode).toBe(0);
-	expect(JSON.parse(run.stdout)).toHaveProperty("machineEnvelopeJsonSchema");
+	expect(JSON.parse(run.stdout)).toEqual({
+		status: "success",
+		exitCode: 0,
+		data: {
+			sourceId: "source",
+			artifactRoot: "artifacts",
+			artifactCount: 0,
+			errorCount: 0,
+			warningCount: 0,
+			findings: [],
+		},
+	});
+	expect(gateway.operationLog()).toEqual(["inventoryWorkingTree"]);
+});
+
+test("check returns deterministic corpus findings as exit 1 data", async () => {
+	const gateway = new InMemoryArtifactGateway({
+		workingInventories: [
+			{
+				artifactRoot: "artifacts",
+				entries: [
+					{ path: "artifacts/b/gitplane-artifact.json", kind: "regular-file" },
+					{ path: "artifacts/a/gitplane-artifact.json", kind: "regular-file" },
+				],
+			},
+		],
+		workingCandidates: [
+			{
+				path: "artifacts/a",
+				entries: [
+					{ path: "gitplane-artifact.json", kind: "regular-file", bytes: Buffer.from("not json") },
+				],
+			},
+			{
+				path: "artifacts/b",
+				entries: [
+					{ path: "gitplane-artifact.json", kind: "regular-file", bytes: Buffer.from("{}") },
+				],
+			},
+		],
+	});
+	const run = await runForCliTest(app, ["check", "--format=json"], {
+		context: context(gateway, loadedConfig()),
+	});
+	expect(run.exitCode).toBe(1);
+	expect(JSON.parse(run.stdout)).toEqual({
+		status: "negative",
+		exitCode: 1,
+		message: "Artifact corpus is invalid.",
+		data: {
+			sourceId: "source",
+			artifactRoot: "artifacts",
+			artifactCount: 2,
+			errorCount: 2,
+			warningCount: 0,
+			findings: [
+				{
+					code: "invalid-marker-json",
+					severity: "error",
+					summary: "Artifact marker must contain a JSON object.",
+					artifactPath: "artifacts/a",
+					relativePath: "gitplane-artifact.json",
+				},
+				{
+					code: "invalid-marker-envelope",
+					severity: "error",
+					summary: "Artifact marker requires gpId.",
+					artifactPath: "artifacts/b",
+					relativePath: "gitplane-artifact.json",
+					jsonPointer: "/gpId",
+				},
+			],
+		},
+	});
+	expect(
+		JSON.parse(run.stdout).data.findings.map(
+			(finding: { artifactPath?: string; code: string }) =>
+				`${finding.artifactPath ?? ""}:${finding.code}`,
+		),
+	).toEqual(["artifacts/a:invalid-marker-json", "artifacts/b:invalid-marker-envelope"]);
+});
+
+test.each(["--config", "-c"])("check forwards %s exactly once", async (option) => {
+	const requests: unknown[] = [];
+	const gateway = new InMemoryArtifactGateway({
+		workingInventories: [{ artifactRoot: "empty", entries: [] }],
+	});
+	const run = await runForCliTest(app, ["check", option, "config/custom.ts"], {
+		context: context(gateway, {
+			load: async (request) => {
+				requests.push(request);
+				return {
+					ok: true as const,
+					artifactRoot: "empty",
+					config: { source: { id: "s", artifactRoot: "empty" } },
+				};
+			},
+		}),
+	});
+	expect(run.exitCode).toBe(0);
+	expect(requests).toEqual([{ cwd: ".", configPath: "config/custom.ts" }]);
+});
+
+test.each([
+	{
+		name: "config failure",
+		gateway: new InMemoryArtifactGateway(),
+		loader: {
+			load: async () => ({
+				ok: false as const,
+				category: "config-load" as const,
+				diagnostic: "Unable to load configuration module.",
+				path: "gitplane.config.ts",
+			}),
+		},
+		data: {
+			category: "config-load",
+			diagnostic: "Unable to load configuration module.",
+			path: "gitplane.config.ts",
+		},
+	},
+	{
+		name: "inventory failure",
+		gateway: new InMemoryArtifactGateway({
+			failures: { inventoryWorkingTree: { code: "secret", message: "/host/private contents" } },
+		}),
+		loader: loadedConfig(),
+		data: {
+			category: "source-read-failed",
+			diagnostic: "Unable to inventory the artifact root.",
+			path: "artifacts",
+		},
+	},
+	{
+		name: "candidate read failure",
+		gateway: new InMemoryArtifactGateway({
+			workingInventories: [
+				{
+					artifactRoot: "artifacts",
+					entries: [{ path: "artifacts/a/gitplane-artifact.json", kind: "regular-file" }],
+				},
+			],
+			failures: { readWorkingTreeCandidate: { code: "secret", message: "/host/private contents" } },
+		}),
+		loader: loadedConfig(),
+		data: {
+			category: "source-read-failed",
+			diagnostic: "Unable to read an artifact candidate.",
+			path: "artifacts/a",
+		},
+	},
+])("check returns exact sanitized exit 2 data for $name", async ({ gateway, loader, data }) => {
+	const run = await runForCliTest(app, ["check", "--format=json"], {
+		context: context(gateway, loader),
+	});
+	expect(run.exitCode).toBe(2);
+	expect(JSON.parse(run.stdout)).toEqual({
+		status: "failure",
+		exitCode: 2,
+		errorType: "check-failed",
+		message: "Unable to check the artifact corpus.",
+		data,
+	});
+	expect(run.stdout).not.toContain("/host/private");
+	expect(run.stdout).not.toContain("artifactCount");
+	expect(run.stdout).not.toContain("findings");
+	expect(JSON.parse(run.stdout).data).not.toHaveProperty("corpus");
+});
+
+test("check normalizes unexpected throws without partial or sensitive data", async () => {
+	const run = await runForCliTest(app, ["check", "--format=json"], {
+		context: context(new InMemoryArtifactGateway(), {
+			load: async () => {
+				throw new Error("/host/private secret artifact bytes");
+			},
+		}),
+	});
+	expect(run.exitCode).toBe(2);
+	expect(JSON.parse(run.stdout)).toEqual({
+		status: "failure",
+		exitCode: 2,
+		errorType: "check-failed",
+		message: "Unable to check the artifact corpus.",
+		data: { category: "source-read-failed", diagnostic: "Unexpected source read failure." },
+	});
 });
