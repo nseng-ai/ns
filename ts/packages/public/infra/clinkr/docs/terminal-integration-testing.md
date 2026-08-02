@@ -27,6 +27,21 @@ contract. Use a terminal emulator when the question is instead:
 Physical wrapping, cursor-accounting errors, stale rows, and output moved into scrollback are examples
 that require this boundary.
 
+## Capture process output without application-level DI
+
+Clinkr terminal adapters ultimately write to `process.stdout` and `process.stderr`. Do not thread writer
+dependencies through application contracts solely to capture those low-level process primitives in
+tests. Use `runForCliTest` from `@nseng-ai/clinkr/app/testing` for ordinary in-process CLI assertions.
+Hosts that need to wrap their own run lifecycle can use `withInterceptedProcessWriters` from
+`@nseng-ai/clinkr/app/process-writer-interception` directly.
+
+Process-writer interception is process-global. Every intercepted run must be awaited sequentially;
+overlapping or nested interception rejects before changing either writer. The helper restores every
+replaced writer after success or failure, but it cannot isolate concurrent activity elsewhere in the
+same process. Tests whose subject is the interception mechanism belong in the isolated lane. Prefer
+fake-driven scenarios that avoid process mutation when testing application behavior rather than the
+terminal adapter boundary.
+
 ## Standard harness shape
 
 A terminal-emulation harness should contain these pieces:
