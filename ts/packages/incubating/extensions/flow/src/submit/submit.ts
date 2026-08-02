@@ -344,18 +344,18 @@ export async function runSubmitCommand(
 			},
 		);
 		options.progress.matrix?.setActiveOperations([]);
+		const titlePrefixSelection =
+			normalizedTitlePrefix === undefined
+				? undefined
+				: {
+						prefix: normalizedTitlePrefix,
+						prNumbers: new Set(reconciliation.metadataTargets.map((target) => target.number)),
+					};
 		const inventoryResult = await generateSubmitPrInventories({
 			cwd: options.cwd,
 			prInventory: options.prInventory,
 			targets: inventoryTargets,
-			...(normalizedTitlePrefix === undefined
-				? {}
-				: {
-						titlePrefixSelection: {
-							prefix: normalizedTitlePrefix,
-							prNumbers: new Set(reconciliation.metadataTargets.map((target) => target.number)),
-						},
-					}),
+			...optionalEntry("titlePrefixSelection", titlePrefixSelection),
 			progress: submitPhaseProgressListeners<SubmitPrInventoryProgressEvent>(
 				options,
 				"inventories",

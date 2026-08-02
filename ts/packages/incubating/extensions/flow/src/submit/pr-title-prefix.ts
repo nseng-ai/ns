@@ -1,4 +1,4 @@
-import { PR_TITLE_MAX_LENGTH } from "./pr-inventory.ts";
+import { PR_TITLE_MAX_CHARS } from "./pr-inventory.ts";
 
 declare const normalizedPrTitlePrefixBrand: unique symbol;
 
@@ -17,10 +17,10 @@ export function validatePrTitlePrefix(value: string): PrTitlePrefixValidationRes
 	}
 	const normalized = value.trim();
 	if (normalized === "") return { ok: false, reason: "must not be empty after trimming" };
-	if (normalized.length > PR_TITLE_MAX_LENGTH - 2) {
+	if (normalized.length > PR_TITLE_MAX_CHARS - 2) {
 		return {
 			ok: false,
-			reason: `must be at most ${PR_TITLE_MAX_LENGTH - 2} characters so the title has room for a separating space and at least one generated-title character`,
+			reason: `must be at most ${PR_TITLE_MAX_CHARS - 2} characters so the title has room for a separating space and at least one generated-title character`,
 		};
 	}
 	return { ok: true, prefix: { value: normalized } as NormalizedPrTitlePrefix };
@@ -30,6 +30,6 @@ export function composePrefixedPrTitle(prefix: NormalizedPrTitlePrefix, candidat
 	if (candidate.length === 0) {
 		throw new Error("Cannot compose a PR title prefix with an empty generated candidate title.");
 	}
-	const candidateMaxLength = PR_TITLE_MAX_LENGTH - prefix.value.length - 1;
+	const candidateMaxLength = PR_TITLE_MAX_CHARS - prefix.value.length - 1;
 	return `${prefix.value} ${candidate.slice(0, candidateMaxLength)}`;
 }
