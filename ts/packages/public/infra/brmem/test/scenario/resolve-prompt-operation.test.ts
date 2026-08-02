@@ -33,7 +33,7 @@ describe("brmem exec resolve-prompt", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			status: "ok",
+			status: "success",
 			exitCode: 0,
 			data: { path: projectPrompt("foo"), tier: "project" },
 		});
@@ -48,7 +48,7 @@ describe("brmem exec resolve-prompt", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			status: "ok",
+			status: "success",
 			exitCode: 0,
 			data: { path: xdgGlobalPrompt("foo"), tier: "global" },
 		});

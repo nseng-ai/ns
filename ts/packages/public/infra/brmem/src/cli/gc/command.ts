@@ -1,8 +1,14 @@
-import { failure, ok, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
+import {
+	cliOption,
+	defineCommand,
+	failure,
+	ok,
+	type RenderCapabilities,
+} from "@nseng-ai/clinkr/app";
 import { renderTextTable } from "@nseng-ai/foundation/text-table";
 import { z } from "zod";
 
-import type { BrmemCliContext } from "../context.ts";
+import type { BrmemCliContext } from "../../context.ts";
 import {
 	ALL_NAMESPACES_SCOPE,
 	BASE_NAMESPACE,
@@ -10,13 +16,13 @@ import {
 	namespaceScopeLabel,
 	namespaceScopeRequest,
 	resolveOptionalNamespaceScope,
-} from "../ref-layout.ts";
-import { firstFailure, validateNamespaceName, validationMessage } from "../validation.ts";
-import { gatewayFailure } from "./shared.ts";
+} from "../../ref-layout.ts";
+import { firstFailure, validateNamespaceName, validationMessage } from "../../validation.ts";
+import { gatewayFailure } from "../../entry-request.ts";
 
-const SNAPSHOT_SCAN_PROGRESS_INTERVAL = 100;
-const SNAPSHOT_DELETE_PROGRESS_INTERVAL = 100;
-const GC_DETAIL_TABLE_LIMIT = 20;
+const SNAPSHOT_SCAN_PROGRESS_INTERVAL_REFS = 100;
+const SNAPSHOT_DELETE_PROGRESS_INTERVAL_REFS = 100;
+const GC_DETAIL_TABLE_LIMIT_ROWS = 20;
 
 interface GcNamespaceSummary {
 	namespace: string;
@@ -24,16 +30,19 @@ interface GcNamespaceSummary {
 	entryCount: number;
 }
 
-export const gcRequestSchema = z.object({
-	namespace: z.string().optional().describe("Namespace filter. Omit for all Namespaces."),
-	base: z.boolean().default(false).describe("Restrict to Base Namespace."),
-	yes: z
-		.boolean()
-		.default(false)
-		.describe("Delete stale Snapshot Refs instead of dry-run preview."),
+const gcRequestSchema = z.object({
+	namespace: cliOption(
+		z.string().optional().describe("Namespace filter. Omit for all Namespaces."),
+		{},
+	),
+	base: cliOption(z.boolean().default(false).describe("Restrict to Base Namespace."), {}),
+	yes: cliOption(
+		z.boolean().default(false).describe("Delete stale Snapshot Refs instead of dry-run preview."),
+		{ short: "-y" },
+	),
 });
 
-export const gcSnapshotSchema = z.object({
+const gcSnapshotSchema = z.object({
 	namespace: z.string(),
 	branch: z.string(),
 	refName: z.string(),
@@ -41,17 +50,17 @@ export const gcSnapshotSchema = z.object({
 	deleted: z.boolean(),
 });
 
-export const gcResultSchema = z.object({
+const gcResultSchema = z.object({
 	namespaceScope: z.string(),
 	deleted: z.boolean(),
 	staleSnapshots: z.array(gcSnapshotSchema),
 });
 
-export type GcRequest = z.infer<typeof gcRequestSchema>;
-export type GcSnapshot = z.infer<typeof gcSnapshotSchema>;
-export type GcResult = z.infer<typeof gcResultSchema>;
+type GcRequest = z.infer<typeof gcRequestSchema>;
+type GcSnapshot = z.infer<typeof gcSnapshotSchema>;
+type GcResult = z.infer<typeof gcResultSchema>;
 
-export async function runGc(ctx: BrmemCliContext, request: GcRequest) {
+async function runGc(ctx: BrmemCliContext, request: GcRequest) {
 	const namespaceScope = resolveOptionalNamespaceScope(namespaceScopeRequest(request));
 	if (namespaceScope.type === "conflict")
 		return failure(namespaceScope.code, namespaceScope.message);
@@ -70,18 +79,23 @@ export async function runGc(ctx: BrmemCliContext, request: GcRequest) {
 		...(scope.allNamespaces ? {} : { namespace: scope.namespace }),
 		onProgress: ({ processed, total }) => {
 			if (
-				shouldReportProgress(processed, total, lastScanProgress, SNAPSHOT_SCAN_PROGRESS_INTERVAL)
+				shouldReportProgress(
+					processed,
+					total,
+					lastScanProgress,
+					SNAPSHOT_SCAN_PROGRESS_INTERVAL_REFS,
+				)
 			) {
 				lastScanProgress = processed;
 				writeGcStatus(ctx, `Scanned ${processed}/${total} Branch Memory Snapshot refs…`);
 			}
 		},
 	});
-	if (snapshotsResult.type === "error") return gatewayFailure<GcResult>(snapshotsResult.error);
+	if (snapshotsResult.type === "error") return gatewayFailure(snapshotsResult.error);
 	writeGcStatus(ctx, `Found ${snapshotsResult.value.length} Branch Memory Snapshot refs.`);
 	writeGcStatus(ctx, "Listing local branches…");
 	const localBranches = await ctx.gateway.listLocalBranches();
-	if (localBranches.type === "error") return gatewayFailure<GcResult>(localBranches.error);
+	if (localBranches.type === "error") return gatewayFailure(localBranches.error);
 
 	const staleSnapshotCandidates = snapshotsResult.value.filter(
 		(snapshot) => !localBranches.value.has(snapshot.branch),
@@ -99,14 +113,14 @@ export async function runGc(ctx: BrmemCliContext, request: GcRequest) {
 				namespace: snapshot.namespace,
 				branch: snapshot.branch,
 			});
-			if (deleted.type === "error") return gatewayFailure<GcResult>(deleted.error);
+			if (deleted.type === "error") return gatewayFailure(deleted.error);
 			const deletedCount = index + 1;
 			if (
 				shouldReportProgress(
 					deletedCount,
 					staleSnapshotCandidates.length,
 					lastDeleteProgress,
-					SNAPSHOT_DELETE_PROGRESS_INTERVAL,
+					SNAPSHOT_DELETE_PROGRESS_INTERVAL_REFS,
 				)
 			) {
 				lastDeleteProgress = deletedCount;
@@ -140,15 +154,12 @@ function shouldReportProgress(
 	return processed === total || processed - lastReported >= interval;
 }
 
-export function renderGc(
-	result: GcResult,
-	caps: RenderCapabilities = { canEmitAnsi: false },
-): string {
+function renderGc(result: GcResult, caps: RenderCapabilities = { canEmitAnsi: false }): string {
 	if (result.staleSnapshots.length === 0) return "No stale Branch Memory Snapshots found.";
 	const heading = result.deleted
 		? "Deleted stale Branch Memory Snapshots."
 		: "Stale Branch Memory Snapshots found. No refs were deleted; rerun with --yes to delete.";
-	if (result.staleSnapshots.length <= GC_DETAIL_TABLE_LIMIT) {
+	if (result.staleSnapshots.length <= GC_DETAIL_TABLE_LIMIT_ROWS) {
 		return [heading, renderGcTable(result.staleSnapshots, caps)].join("\n");
 	}
 	return [
@@ -240,5 +251,14 @@ function renderGcTable(snapshots: readonly GcSnapshot[], caps: RenderCapabilitie
 		canEmitAnsi: caps.canEmitAnsi,
 		shouldDrawRule: true,
 		headerStyle: "bold-cyan",
+	});
+}
+export async function command() {
+	return defineCommand({
+		requiresContext: true,
+		schema: gcRequestSchema,
+		resultSchema: gcResultSchema,
+		handler: runGc,
+		renderHuman: renderGc,
 	});
 }

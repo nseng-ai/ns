@@ -1,27 +1,28 @@
+import { cliOption, defineCommand, failure, ok, type CommandOutcome } from "@nseng-ai/clinkr/app";
+
 import { lstat, mkdir, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 
-import { failure, ok, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { z } from "zod";
 
-import type { BrmemCliContext } from "../context.ts";
-import type { EntryContent, EntryDiagnostic } from "../gateway.ts";
+import type { BrmemCliContext } from "../../context.ts";
+import type { EntryContent, EntryDiagnostic } from "../../gateway.ts";
 import {
 	compareEntries,
 	namespaceDisplayLabel,
 	normalizeNamespaceOption,
 	type EntryRef,
-} from "../ref-layout.ts";
+} from "../../ref-layout.ts";
 import {
 	firstFailure,
 	validateBranchName,
 	validateEntryKey,
 	validateNamespaceName,
 	validationMessage,
-} from "../validation.ts";
-import { gatewayFailure, resolveCurrentBranch } from "./shared.ts";
+} from "../../validation.ts";
+import { gatewayFailure, resolveCurrentBranch } from "../../entry-request.ts";
 
 const exportedEntrySchema = z.object({
 	key: z.string(),
@@ -30,24 +31,27 @@ const exportedEntrySchema = z.object({
 	sizeBytes: z.number().int(),
 });
 
-export const exportRequestSchema = z.object({
-	namespace: z
-		.string()
-		.optional()
-		.describe("Namespace to export. Omit for Base Namespace Entries only."),
-	branch: z.string().optional().describe("Branch. Defaults to current branch."),
-	outputDir: z
-		.string()
-		.optional()
-		.describe("Output directory. Defaults to a fresh temporary directory."),
-	overwrite: z
-		.boolean()
-		.default(false)
-		.describe("Overwrite existing regular files at target paths."),
-	dryRun: z.boolean().default(false).describe("Plan the Export without writing files."),
+const exportRequestSchema = z.object({
+	namespace: cliOption(
+		z.string().optional().describe("Namespace to export. Omit for Base Namespace Entries only."),
+		{},
+	),
+	branch: cliOption(z.string().optional().describe("Branch. Defaults to current branch."), {}),
+	outputDir: cliOption(
+		z.string().optional().describe("Output directory. Defaults to a fresh temporary directory."),
+		{},
+	),
+	overwrite: cliOption(
+		z.boolean().default(false).describe("Overwrite existing regular files at target paths."),
+		{},
+	),
+	dryRun: cliOption(
+		z.boolean().default(false).describe("Plan the Export without writing files."),
+		{},
+	),
 });
 
-export const exportResultSchema = z.object({
+const exportResultSchema = z.object({
 	namespace: z.string(),
 	branch: z.string(),
 	outputDir: z.string(),
@@ -56,9 +60,9 @@ export const exportResultSchema = z.object({
 	exported: z.array(exportedEntrySchema),
 });
 
-export type ExportRequest = z.infer<typeof exportRequestSchema>;
-export type ExportedEntry = z.infer<typeof exportedEntrySchema>;
-export type ExportResult = z.infer<typeof exportResultSchema>;
+type ExportRequest = z.infer<typeof exportRequestSchema>;
+type ExportedEntry = z.infer<typeof exportedEntrySchema>;
+type ExportResult = z.infer<typeof exportResultSchema>;
 
 interface PreparedExport {
 	exportedEntry: ExportedEntry;
@@ -67,14 +71,14 @@ interface PreparedExport {
 
 type PreparationResult =
 	| { type: "ok"; prepared: readonly PreparedExport[] }
-	| { type: "failure"; exit: ClinkrExit<ExportResult> };
-type PreflightResult = { type: "ok" } | { type: "failure"; exit: ClinkrExit<ExportResult> };
+	| { type: "failure"; exit: CommandOutcome<ExportResult> };
+type PreflightResult = { type: "ok" } | { type: "failure"; exit: CommandOutcome<ExportResult> };
 type PathState =
 	| { type: "missing" }
 	| { type: "present"; isDirectory: boolean; isFile: boolean; isSymlink: boolean }
 	| { type: "error"; message: string };
 
-export async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
+async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
 	const namespace = normalizeNamespaceOption(request.namespace);
 	const requestFailure = firstFailure(
 		[
@@ -106,10 +110,9 @@ export async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
 		exported: [],
 	};
 	const entriesResult = await ctx.gateway.listEntries({ namespace, branch });
-	if (entriesResult.type === "error") return gatewayFailure<ExportResult>(entriesResult.error);
+	if (entriesResult.type === "error") return gatewayFailure(entriesResult.error);
 	const entries = [...entriesResult.value].sort(compareEntries);
-	if (entries.length === 0)
-		return ok(baseResult, { human: emptySelectionMessage(namespace, branch) });
+	if (entries.length === 0) return ok(baseResult);
 
 	const prepared = await prepareExports(ctx, entries, outputDir);
 	if (prepared.type === "failure") return prepared.exit;
@@ -134,7 +137,7 @@ export async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
 	return ok(result);
 }
 
-export function renderExport(result: ExportResult): string {
+function renderExport(result: ExportResult): string {
 	const verb = result.dryRun ? "Would export" : "Exported";
 	const lines = [
 		`${verb} ${selectionSummary(result.namespace, result.exported.length)} on Branch ${result.branch} to ${result.outputDir}.`,
@@ -171,7 +174,7 @@ async function prepareExports(
 			branch: entry.branch,
 		});
 		if (diagnostic.type === "error")
-			return { type: "failure", exit: gatewayFailure<ExportResult>(diagnostic.error) };
+			return { type: "failure", exit: gatewayFailure(diagnostic.error) };
 		if (diagnostic.type === "missing") {
 			return {
 				type: "failure",
@@ -186,8 +189,7 @@ async function prepareExports(
 			key: entry.key,
 			branch: entry.branch,
 		});
-		if (content.type === "error")
-			return { type: "failure", exit: gatewayFailure<ExportResult>(content.error) };
+		if (content.type === "error") return { type: "failure", exit: gatewayFailure(content.error) };
 		if (content.type === "missing") {
 			return {
 				type: "failure",
@@ -231,7 +233,7 @@ function buildPreparedExport(options: BuildPreparedExportOptions): PreparedExpor
 function targetPath(
 	outputDir: string,
 	key: string,
-): { type: "ok"; path: string } | { type: "failure"; exit: ClinkrExit<ExportResult> } {
+): { type: "ok"; path: string } | { type: "failure"; exit: CommandOutcome<ExportResult> } {
 	const keyFailure = validationMessage("key", key, validateEntryKey(key));
 	if (keyFailure !== undefined)
 		return { type: "failure", exit: failure("invalid-key", keyFailure) };
@@ -413,11 +415,6 @@ function resolveOutputDir(outputDir: string | undefined, cwd: string): string {
 	return resolve(cwd, outputDir);
 }
 
-function emptySelectionMessage(namespace: string, branch: string): string {
-	if (namespace === "base") return `No base Entries found on Branch ${branch}.`;
-	return `No Entries found on Branch ${branch} in ${namespaceDisplayLabel(namespace)}.`;
-}
-
 function selectionSummary(namespace: string, count: number): string {
 	if (namespace === "base") return `${count} base ${entryWord(count)}`;
 	return `${count} ${entryWord(count)} from ${namespaceDisplayLabel(namespace)}`;
@@ -433,4 +430,13 @@ function isMissingPathError(error: unknown): boolean {
 
 function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+export async function command() {
+	return defineCommand({
+		requiresContext: true,
+		schema: exportRequestSchema,
+		resultSchema: exportResultSchema,
+		handler: runExport,
+		renderHuman: renderExport,
+	});
 }

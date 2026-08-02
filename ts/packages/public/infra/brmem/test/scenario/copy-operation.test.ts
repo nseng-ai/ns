@@ -215,10 +215,10 @@ describe("copy operation", () => {
 		]);
 		expect(await missingFrom.exit).toBe(2);
 		expect(parseJsonOutput(missingFrom)).toMatchObject({
-			status: "usageError",
+			status: "usage-error",
 			exitCode: 2,
-			errorType: "usageError",
-			message: expect.stringContaining("--from-branch"),
+			errorType: "invalid-request",
+			message: expect.stringContaining("fromBranch"),
 		});
 
 		const missingTo = runScenario([
@@ -231,10 +231,10 @@ describe("copy operation", () => {
 		]);
 		expect(await missingTo.exit).toBe(2);
 		expect(parseJsonOutput(missingTo)).toMatchObject({
-			status: "usageError",
+			status: "usage-error",
 			exitCode: 2,
-			errorType: "usageError",
-			message: expect.stringContaining("--to-branch"),
+			errorType: "invalid-request",
+			message: expect.stringContaining("toBranch"),
 		});
 	});
 

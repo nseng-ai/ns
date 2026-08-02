@@ -1,4 +1,3 @@
-export { runCli, buildCli, VERSION, type CliDeps } from "./cli.ts";
 export {
 	BASE_NAMESPACE,
 	encodeBranchName,
@@ -46,8 +45,6 @@ export type {
 	RealGitBrmemReadGatewayOptions,
 } from "./real-git-gateway.ts";
 export { FakeBrmemGateway } from "./fake-gateway.ts";
-export { buildGitSetupPlan } from "./operations/setup-git.ts";
-export type { GitSetupPlan } from "./operations/setup-git.ts";
 export type {
 	FakeBrmemGatewayOptions,
 	FakeEntrySeed,
