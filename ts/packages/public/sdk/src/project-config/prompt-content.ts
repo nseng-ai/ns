@@ -45,18 +45,10 @@ export type ResolvePromptPointContentResult =
 	| { ok: false; reason: "missing-source"; message: string }
 	| {
 			ok: false;
-			reason: "unsupported-source";
-			source: EnvPromptPointSource;
-			message: string;
-	  }
-	| {
-			ok: false;
 			reason: "missing-file" | "unreadable" | "empty";
 			resolved: ResolvedPromptPointContent;
 			message: string;
 	  };
-
-export type PromptPointEnvPathPolicy = "unsupported" | "repo-relative";
 
 export const nodePromptPointContentReader: PromptPointContentReader = {
 	async readTextFile(path) {
@@ -92,7 +84,6 @@ export async function resolvePromptPointContent(request: {
 	catalog: PointCatalog;
 	pointId: string;
 	reader: PromptPointContentReader;
-	envPathPolicy?: PromptPointEnvPathPolicy;
 }): Promise<ResolvePromptPointContentResult> {
 	const source = resolvePromptPointSource(request.catalog, request.pointId);
 	if (source.type === "missing") {
@@ -105,14 +96,6 @@ export async function resolvePromptPointContent(request: {
 
 	let resolved: ResolvedPromptPointContent;
 	if (source.type === "env") {
-		if ((request.envPathPolicy ?? "unsupported") === "unsupported") {
-			return {
-				ok: false,
-				reason: "unsupported-source",
-				source,
-				message: `Environment prompt overrides are not supported for prompt point ${request.pointId}.`,
-			};
-		}
 		resolved = {
 			source,
 			path: resolve(request.repoRoot, source.path),

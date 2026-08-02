@@ -164,7 +164,6 @@ export async function resolvePrInventoryPrompt(
 		catalog,
 		pointId: FLOW_PR_INVENTORY_POINT_ID,
 		reader: nodePromptPointContentReader,
-		envPathPolicy: "repo-relative",
 	});
 	return presentPrInventoryPromptResolution(resolved);
 }
@@ -183,12 +182,6 @@ function presentPrInventoryPromptResolution(
 	switch (resolved.reason) {
 		case "missing-source":
 			return { ok: false, error: resolved.message, source: { type: "builtin" } };
-		case "unsupported-source":
-			return {
-				ok: false,
-				error: resolved.message,
-				source: { type: "env", path: resolved.source.path },
-			};
 		default:
 			return {
 				ok: false,

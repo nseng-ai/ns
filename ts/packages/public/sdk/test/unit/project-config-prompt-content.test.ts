@@ -5,7 +5,6 @@ import {
 	resolvePromptPointContent,
 	type PromptPointContentReadResult,
 	type PromptPointContentReader,
-	type PromptPointEnvPathPolicy,
 	type ResolvedPromptPointContent,
 } from "../../src/project-config/prompt-content.ts";
 
@@ -20,7 +19,6 @@ describe("prompt point content resolution", () => {
 	test.each<{
 		name: string;
 		catalog: PointCatalog;
-		envPathPolicy?: PromptPointEnvPathPolicy;
 		content: string;
 		expectedResolved: ResolvedPromptPointContent;
 	}>([
@@ -64,9 +62,8 @@ describe("prompt point content resolution", () => {
 			},
 		},
 		{
-			name: "relative env prompt under explicit repo-relative policy",
+			name: "selected relative env prompt",
 			catalog: promptCatalog({ envPath: "dev/prompt.md" }),
-			envPathPolicy: "repo-relative",
 			content: "Development",
 			expectedResolved: {
 				source: { type: "env", pointId, envVar: "EXAMPLE_PROMPT", path: "dev/prompt.md" },
@@ -75,9 +72,8 @@ describe("prompt point content resolution", () => {
 			},
 		},
 		{
-			name: "absolute env prompt under explicit repo-relative policy",
+			name: "selected absolute env prompt",
 			catalog: promptCatalog({ envPath: "/tmp/prompt.md" }),
-			envPathPolicy: "repo-relative",
 			content: "Development",
 			expectedResolved: {
 				source: { type: "env", pointId, envVar: "EXAMPLE_PROMPT", path: "/tmp/prompt.md" },
@@ -87,7 +83,7 @@ describe("prompt point content resolution", () => {
 		},
 	])(
 		"resolves the $name with grouped provenance and one read",
-		async ({ catalog, envPathPolicy, content, expectedResolved }) => {
+		async ({ catalog, content, expectedResolved }) => {
 			const reader = new FakePromptPointContentReader({
 				[expectedResolved.path]: { ok: true, content },
 			});
@@ -97,7 +93,6 @@ describe("prompt point content resolution", () => {
 				catalog,
 				pointId,
 				reader,
-				...(envPathPolicy === undefined ? {} : { envPathPolicy }),
 			});
 
 			expect(result).toEqual({ ok: true, content, resolved: expectedResolved });
@@ -121,26 +116,6 @@ describe("prompt point content resolution", () => {
 			reason: "missing-source",
 			message: expect.stringContaining(pointId),
 		});
-		expect(reader.reads).toEqual([]);
-	});
-
-	test("rejects env sources by default without reading", async () => {
-		const reader = new FakePromptPointContentReader({});
-
-		const result = await resolvePromptPointContent({
-			repoRoot: "/repo",
-			catalog: promptCatalog({ envPath: "dev/prompt.md" }),
-			pointId,
-			reader,
-		});
-
-		expect(result).toEqual({
-			ok: false,
-			reason: "unsupported-source",
-			source: { type: "env", pointId, envVar: "EXAMPLE_PROMPT", path: "dev/prompt.md" },
-			message: expect.stringContaining(pointId),
-		});
-		expect(result).not.toHaveProperty("pointId");
 		expect(reader.reads).toEqual([]);
 	});
 
