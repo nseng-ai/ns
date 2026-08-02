@@ -14,6 +14,8 @@ const workspacePackageFallbacks: Record<string, string> = {
 		"../../ts/packages/internal/hosts/pi/subagents/ns-pi-subagents/src/extension.ts",
 	"@internal/pi-tools/context-profiler/extension":
 		"../../ts/packages/internal/hosts/pi/tools/pi-tools/src/context-profiler/extension.ts",
+	"@internal/pi-tools/context-threshold-warning/extension":
+		"../../ts/packages/internal/hosts/pi/tools/pi-tools/src/context-threshold-warning/extension.ts",
 	"@internal/pi-tools/grill/extension":
 		"../../ts/packages/internal/hosts/pi/tools/pi-tools/src/grill/extension.ts",
 	"@internal/pi-tools/slash-command-rerank/extension":
