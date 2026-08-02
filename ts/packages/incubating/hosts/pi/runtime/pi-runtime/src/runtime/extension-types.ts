@@ -1,4 +1,4 @@
-import type { PiSessionReader } from "@nseng-ai/extension-kit/pi-types";
+import type { EntryRenderer, PiSessionReader } from "@nseng-ai/extension-kit/pi-types";
 
 import type {
 	SessionReplacementContext,
@@ -21,7 +21,14 @@ export interface RawPiExecOptions {
 	readonly signal?: AbortSignal;
 	readonly timeout?: number;
 }
-export type { PiSessionEntry, PiSessionReader } from "@nseng-ai/extension-kit/pi-types";
+export type {
+	CustomEntryLike,
+	EntryRenderComponent,
+	EntryRenderer,
+	EntryRenderTheme,
+	PiSessionEntry,
+	PiSessionReader,
+} from "@nseng-ai/extension-kit/pi-types";
 export type { ModelInfo, ThinkingLevel } from "./types.ts";
 export type {
 	ExtensionMode,
@@ -140,6 +147,10 @@ export interface ExtensionAPI {
 	getAllTools?(): Array<{ name: string }>;
 	getThinkingLevel?(): ThinkingLevel;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
+	/** Persist a TUI-only custom entry; entries do not participate in LLM context. */
+	appendEntry(customType: string, data?: unknown): void;
+	/** Register a TUI renderer for custom entries created with appendEntry. */
+	registerEntryRenderer(customType: string, renderer: EntryRenderer): void;
 	sendMessage?(message: CustomMessage): void;
 	sendUserMessage(content: string, options?: SendUserMessageOptions): void;
 }

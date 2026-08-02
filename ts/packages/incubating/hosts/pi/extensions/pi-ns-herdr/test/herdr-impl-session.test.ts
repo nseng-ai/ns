@@ -1,246 +1,374 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
-import { registerHerdrSessionImplCommands } from "../src/pi/impl-session.ts";
+import type { HandleHerdrSlotImplPromptOptions } from "../src/core/impl-prompt.ts";
+import type { HerdrImplPromptContext } from "../src/core/impl-prompt.ts";
+import {
+	buildSummaryRequest,
+	generateSessionImplementationPrompt,
+	registerHerdrSessionImplCommands,
+	renderSessionImplPromptEntry,
+	SESSION_IMPL_PROMPT_ENTRY_TYPE,
+	SESSION_PROMPT_ACTIONS,
+} from "../src/pi/impl-session.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
-import { FakeCommandContext, FakePi } from "./herdr-test-harness.ts";
+import { FakeCommandContext, FakeHerdrGateway, FakePi, ROOT, step } from "./herdr-test-harness.ts";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 
-const SESSION_SCENARIOS = [
-	{
-		sessionCommandName: "ns:herdr:impl:session:space",
-		promptCommandName: "ns:herdr:impl:prompt:space",
-	},
-	{
-		sessionCommandName: "ns:herdr:impl:session:tab",
-		promptCommandName: "ns:herdr:impl:prompt:tab",
-	},
-] as const;
+const COMMAND_NAME = "ns:herdr:impl:session:space";
+const PRIVATE_PROMPT =
+	'Implement `cache` with Unicode λ, quotes "\'", $shell, and\nmultiple lines.';
 
-function assistantMessage(text: string) {
+function registrationContext(pi: FakePi) {
 	return {
-		role: "assistant",
-		content: [{ type: "text", text }],
+		commands: createHerdrPiCommandApi(pi),
+		git: new InMemoryGitGateway(),
+		trunkBranch: "master",
+		herdr: new FakeHerdrGateway(),
 	};
 }
 
-function userMessage(text: string) {
-	return {
-		role: "user",
-		content: text,
-	};
-}
+describe(COMMAND_NAME, () => {
+	test("generates the prompt and implements only after explicit approval", async () => {
+		const pi = new FakePi();
+		const calls: Array<{
+			context: HerdrImplPromptContext;
+			options: HandleHerdrSlotImplPromptOptions;
+		}> = [];
+		registerHerdrSessionImplCommands(registrationContext(pi), {
+			generatePrompt: async () => ({ ok: true, prompt: PRIVATE_PROMPT }),
+			implementPrompt: async (context, options) => {
+				calls.push({ context, options });
+			},
+		});
+		const ctx = new FakeCommandContext();
 
-function summaryTurn(pi: FakePi, ...assistantTexts: string[]) {
-	return {
-		messages: [
-			userMessage(pi.sentUserMessages.at(-1) ?? ""),
-			...assistantTexts.map(assistantMessage),
-		],
-	};
-}
+		await pi.commands.get(COMMAND_NAME)?.handler("focus on regression coverage", ctx);
 
-describe("Herdr session implementation commands", () => {
-	test.each(SESSION_SCENARIOS)(
-		"$sessionCommandName asks for the same summary behavior and prefills $promptCommandName without submitting",
-		async ({ sessionCommandName, promptCommandName }) => {
-			const pi = new FakePi();
-			registerHerdrSessionImplCommands({ commands: createHerdrPiCommandApi(pi) });
-			const ctx = new FakeCommandContext();
+		expect(ctx.waitCount).toBe(1);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(ctx.selections).toEqual([
+			{
+				title: "Session implementation prompt ready",
+				items: [
+					SESSION_PROMPT_ACTIONS.implement,
+					SESSION_PROMPT_ACTIONS.loadEditor,
+					SESSION_PROMPT_ACTIONS.cancel,
+				],
+			},
+		]);
+		expect(ctx.editorTexts).toEqual([]);
+		expect(calls).toHaveLength(1);
+		expect(calls[0]?.options).toMatchObject({
+			args: PRIVATE_PROMPT,
+			commandName: COMMAND_NAME,
+			destination: { type: "workspace" },
+		});
+		expect(ctx.notifications.join("\n")).not.toContain(PRIVATE_PROMPT);
+		expect(ctx.statuses).toEqual([]);
+		expect(ctx.widgets).toEqual([
+			{ key: COMMAND_NAME, lines: ["preparing prompt…"] },
+			{ key: COMMAND_NAME, lines: undefined },
+		]);
+		expect(pi.appendedEntries).toEqual([
+			{ customType: SESSION_IMPL_PROMPT_ENTRY_TYPE, data: { prompt: PRIVATE_PROMPT } },
+		]);
+		expect(pi.entryRenderers.has(SESSION_IMPL_PROMPT_ENTRY_TYPE)).toBe(true);
+	});
 
-			await pi.commands.get(sessionCommandName)?.handler("focus on regression coverage", ctx);
+	test("registers authoritative approval flows for both space and tab destinations", () => {
+		const pi = new FakePi();
+		registerHerdrSessionImplCommands(registrationContext(pi));
 
-			expect(ctx.waitCount).toBe(1);
-			expect(pi.sentUserMessages).toHaveLength(1);
-			expect(pi.sentUserMessages[0]).toContain(
-				"Draft a directed, self-contained implementation prompt",
-			);
-			expect(pi.sentUserMessages[0]).toContain(
-				"## Continuation focus\nfocus on regression coverage",
-			);
-			expect(pi.sentUserMessages[0]).toContain("Do not use tools or perform implementation work.");
-			expect(ctx.editorTexts).toEqual([]);
-			expect(ctx.statuses).toEqual([{ key: sessionCommandName, value: "summarizing session…" }]);
-
-			const summary = "Implement the cache invalidation fix with the existing gateway seam.";
-			await pi.emitAgentEnd(summaryTurn(pi, summary), ctx);
-
-			expect(ctx.editorTexts).toEqual([`/${promptCommandName} ${summary}`]);
-			expect(pi.sentUserMessages).toHaveLength(1);
-			expect(ctx.statuses).toEqual([
-				{ key: sessionCommandName, value: "summarizing session…" },
-				{ key: sessionCommandName, value: undefined },
-			]);
-			expect(ctx.notifications.at(-1)).toEqual({
-				message:
-					"Drafted the session implementation prompt in the editor. Review or edit it, then press Enter.",
-				level: "info",
-			});
-		},
-	);
+		expect(pi.commands.has("ns:herdr:impl:session:space")).toBe(true);
+		expect(pi.commands.has("ns:herdr:impl:session:tab")).toBe(true);
+	});
 
 	test.each([
 		{
 			firstCommand: "ns:herdr:impl:session:space",
 			secondCommand: "ns:herdr:impl:session:tab",
-			expectedPromptCommand: "ns:herdr:impl:prompt:space",
 		},
 		{
 			firstCommand: "ns:herdr:impl:session:tab",
 			secondCommand: "ns:herdr:impl:session:space",
-			expectedPromptCommand: "ns:herdr:impl:prompt:tab",
 		},
 	])(
-		"shares pending exclusion from $firstCommand to $secondCommand and completes the original destination",
-		async ({ firstCommand, secondCommand, expectedPromptCommand }) => {
+		"shares pending exclusion from $firstCommand to $secondCommand",
+		async ({ firstCommand, secondCommand }) => {
+			vi.stubEnv("HERDR_WORKSPACE_ID", "caller-workspace");
 			const pi = new FakePi();
-			registerHerdrSessionImplCommands({ commands: createHerdrPiCommandApi(pi) });
-			const ctx = new FakeCommandContext();
-
-			await pi.commands.get(firstCommand)?.handler("first focus", ctx);
-			await pi.commands.get(secondCommand)?.handler("second focus", ctx);
-
-			expect(ctx.waitCount).toBe(1);
-			expect(pi.sentUserMessages).toHaveLength(1);
-			expect(pi.sentUserMessages[0]).toContain("## Continuation focus\nfirst focus");
-			expect(ctx.notifications.at(-1)).toEqual({
-				message: "A session summary is already pending.",
-				level: "warning",
+			let generationCalls = 0;
+			registerHerdrSessionImplCommands(registrationContext(pi), {
+				generatePrompt: async () => {
+					generationCalls += 1;
+					return { ok: true, prompt: PRIVATE_PROMPT };
+				},
 			});
+			const waitEntered = Promise.withResolvers<void>();
+			const releaseWait = Promise.withResolvers<void>();
+			const firstContext = new FakeCommandContext({
+				onWaitForIdle: async () => {
+					waitEntered.resolve();
+					await releaseWait.promise;
+				},
+				selectIndices: [2],
+			});
+			const secondContext = new FakeCommandContext();
 
-			await pi.emitAgentEnd(summaryTurn(pi, "Implement the original destination."), ctx);
+			const firstRun = pi.commands.get(firstCommand)?.handler("focus", firstContext);
+			await waitEntered.promise;
+			await pi.commands.get(secondCommand)?.handler("focus", secondContext);
 
-			expect(ctx.editorTexts).toEqual([
-				`/${expectedPromptCommand} Implement the original destination.`,
+			expect(secondContext.notifications).toEqual([
+				{
+					message: "A session implementation prompt is already being prepared.",
+					level: "warning",
+				},
 			]);
-			expect(ctx.statuses.at(-1)).toEqual({ key: firstCommand, value: undefined });
+			expect(secondContext.waitCount).toBe(0);
+			expect(secondContext.selections).toEqual([]);
+			expect(generationCalls).toBe(0);
+			expect(pi.appendedEntries).toEqual([]);
+
+			releaseWait.resolve();
+			await firstRun;
+
+			expect(firstContext.waitCount).toBe(1);
+			expect(firstContext.selections).toHaveLength(1);
+			expect(generationCalls).toBe(1);
+			expect(pi.appendedEntries).toEqual([
+				{ customType: SESSION_IMPL_PROMPT_ENTRY_TYPE, data: { prompt: PRIVATE_PROMPT } },
+			]);
 		},
 	);
 
-	test.each(SESSION_SCENARIOS)(
-		"$sessionCommandName supplies the same useful default when focus is omitted",
-		async ({ sessionCommandName }) => {
-			const pi = new FakePi();
-			registerHerdrSessionImplCommands({ commands: createHerdrPiCommandApi(pi) });
-			const ctx = new FakeCommandContext();
-
-			await pi.commands.get(sessionCommandName)?.handler("   ", ctx);
-
-			expect(pi.sentUserMessages[0]).toContain(
-				"## Continuation focus\nChoose the most natural implementation continuation from the session.",
-			);
-		},
-	);
-
-	test("ignores unrelated agent completions until a summary is requested", async () => {
+	test("clears shared pending state when idle waiting fails so the other destination can retry", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "caller-workspace");
 		const pi = new FakePi();
-		registerHerdrSessionImplCommands({ commands: createHerdrPiCommandApi(pi) });
-		const ctx = new FakeCommandContext();
-
-		await pi.emitAgentEnd({ messages: [assistantMessage("Unrelated response.")] }, ctx);
-
-		expect(ctx.editorTexts).toEqual([]);
-		expect(ctx.notifications).toEqual([]);
-	});
-
-	test("skips interleaved unrelated turns and captures the exact summary turn", async () => {
-		const pi = new FakePi();
-		registerHerdrSessionImplCommands({ commands: createHerdrPiCommandApi(pi) });
-		const ctx = new FakeCommandContext();
-		const commandName = "ns:herdr:impl:session:space";
-
-		await pi.commands.get(commandName)?.handler("focus", ctx);
-		await pi.emitAgentEnd(
-			{
-				messages: [userMessage("unrelated question"), assistantMessage("Unrelated answer.")],
+		let generationCalls = 0;
+		registerHerdrSessionImplCommands(registrationContext(pi), {
+			generatePrompt: async () => {
+				generationCalls += 1;
+				return { ok: true, prompt: PRIVATE_PROMPT };
 			},
-			ctx,
-		);
-
-		expect(ctx.editorTexts).toEqual([]);
-		expect(ctx.statuses.at(-1)).toEqual({ key: commandName, value: "summarizing session…" });
-
-		await pi.emitAgentEnd(summaryTurn(pi, "Implement the follow-up."), ctx);
-
-		expect(ctx.editorTexts).toEqual(["/ns:herdr:impl:prompt:space Implement the follow-up."]);
-		expect(ctx.statuses.at(-1)).toEqual({ key: commandName, value: undefined });
-	});
-
-	test("reports unavailable editor prefill without sending a summary request", async () => {
-		const pi = new FakePi();
-		registerHerdrSessionImplCommands({ commands: createHerdrPiCommandApi(pi) });
-		const ctx = new FakeCommandContext({ shouldHaveEditor: false });
-
-		await pi.commands.get("ns:herdr:impl:session:tab")?.handler("focus", ctx);
-
-		expect(ctx.waitCount).toBe(0);
-		expect(pi.sentUserMessages).toEqual([]);
-		expect(ctx.statuses).toEqual([]);
-		expect(ctx.notifications).toEqual([
-			{ message: "This Pi runtime cannot prefill editor text.", level: "error" },
-		]);
-	});
-
-	test("clears shared pending state when startup fails so the other destination can retry", async () => {
-		const pi = new FakePi();
-		registerHerdrSessionImplCommands({ commands: createHerdrPiCommandApi(pi) });
-		const startupFailure = new Error("idle startup failed");
-		let waitAttempts = 0;
-		const ctx = new FakeCommandContext({
+		});
+		const idleError = new Error("idle wait failed");
+		const failedContext = new FakeCommandContext({
 			onWaitForIdle: () => {
-				waitAttempts += 1;
-				if (waitAttempts === 1) throw startupFailure;
+				throw idleError;
 			},
 		});
 
 		await expect(
-			pi.commands.get("ns:herdr:impl:session:space")?.handler("first focus", ctx),
-		).rejects.toBe(startupFailure);
+			pi.commands.get("ns:herdr:impl:session:space")?.handler("focus", failedContext),
+		).rejects.toBe(idleError);
 
-		expect(pi.sentUserMessages).toEqual([]);
-		expect(ctx.statuses).toEqual([]);
+		const retryContext = new FakeCommandContext({ selectIndices: [2] });
+		await pi.commands.get("ns:herdr:impl:session:tab")?.handler("focus", retryContext);
 
-		await pi.commands.get("ns:herdr:impl:session:tab")?.handler("second focus", ctx);
-
-		expect(pi.sentUserMessages).toHaveLength(1);
-		expect(pi.sentUserMessages[0]).toContain("## Continuation focus\nsecond focus");
-		expect(ctx.notifications).not.toContainEqual({
-			message: "A session summary is already pending.",
+		expect(retryContext.notifications).not.toContainEqual({
+			message: "A session implementation prompt is already being prepared.",
 			level: "warning",
 		});
-		expect(ctx.statuses).toEqual([
-			{ key: "ns:herdr:impl:session:tab", value: "summarizing session…" },
-		]);
+		expect(retryContext.waitCount).toBe(1);
+		expect(retryContext.selections).toHaveLength(1);
+		expect(retryContext.notifications.at(-1)).toEqual({
+			message: "Session implementation cancelled.",
+			level: "info",
+		});
+		expect(generationCalls).toBe(1);
+	});
 
-		await pi.emitAgentEnd(summaryTurn(pi, "Implement the recovered tab destination."), ctx);
+	test("renders the printed prompt folded by default and in full when expanded", () => {
+		const prompt = Array.from({ length: 9 }, (_, i) => `line ${i + 1}`).join("\n");
+		const theme = { fg: (_color: string, text: string) => text };
+		const entry = { customType: SESSION_IMPL_PROMPT_ENTRY_TYPE, data: { prompt } };
 
-		expect(ctx.editorTexts).toEqual([
-			"/ns:herdr:impl:prompt:tab Implement the recovered tab destination.",
-		]);
-		expect(ctx.statuses.at(-1)).toEqual({
-			key: "ns:herdr:impl:session:tab",
-			value: undefined,
+		const folded = renderSessionImplPromptEntry(entry, { expanded: false }, theme).render(80);
+		expect(folded[0]).toContain("session implementation prompt (9 lines)");
+		expect(folded).toContain("▌ line 6");
+		expect(folded.join("\n")).not.toContain("line 7");
+		expect(folded.at(-1)).toContain("+3 more lines");
+
+		const expanded = renderSessionImplPromptEntry(entry, { expanded: true }, theme).render(80);
+		expect(expanded).toContain("▌ line 9");
+		expect(expanded.join("\n")).not.toContain("more lines");
+	});
+
+	test("prefixes every prompt line with an accent gutter bar and renders the body as text", () => {
+		const theme = { fg: (color: string, text: string) => `[${color}]${text}` };
+		const entry = {
+			customType: SESSION_IMPL_PROMPT_ENTRY_TYPE,
+			data: { prompt: "only line" },
+		};
+
+		const rendered = renderSessionImplPromptEntry(entry, { expanded: true }, theme).render(80);
+		expect(rendered[1]).toBe("");
+		expect(rendered[2]).toBe("[accent]▌ [text]only line");
+	});
+
+	test("loads the prompt into the editor for review without implementing", async () => {
+		const pi = new FakePi();
+		let implementationCalls = 0;
+		registerHerdrSessionImplCommands(registrationContext(pi), {
+			generatePrompt: async () => ({ ok: true, prompt: PRIVATE_PROMPT }),
+			implementPrompt: async () => {
+				implementationCalls += 1;
+			},
+		});
+		const ctx = new FakeCommandContext({ selectIndices: [1] });
+
+		await pi.commands.get(COMMAND_NAME)?.handler("focus", ctx);
+
+		expect(implementationCalls).toBe(0);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(ctx.editorTexts).toEqual([`/ns:herdr:impl:prompt:space ${PRIVATE_PROMPT}`]);
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: "Loaded the implementation prompt into the editor for review.",
+			level: "info",
 		});
 	});
 
-	test("reports an empty summary and clears pending state", async () => {
+	test("cancels without implementing the prompt", async () => {
 		const pi = new FakePi();
-		registerHerdrSessionImplCommands({ commands: createHerdrPiCommandApi(pi) });
-		const ctx = new FakeCommandContext();
-		const commandName = "ns:herdr:impl:session:space";
+		let implementationCalls = 0;
+		registerHerdrSessionImplCommands(registrationContext(pi), {
+			generatePrompt: async () => ({ ok: true, prompt: PRIVATE_PROMPT }),
+			implementPrompt: async () => {
+				implementationCalls += 1;
+			},
+		});
+		const ctx = new FakeCommandContext({ selectIndices: [2] });
 
-		await pi.commands.get(commandName)?.handler("focus", ctx);
-		await pi.emitAgentEnd(summaryTurn(pi, "   "), ctx);
-		await pi.emitAgentEnd(
-			{ messages: [userMessage("later"), assistantMessage("Later unrelated response.")] },
-			ctx,
-		);
+		await pi.commands.get(COMMAND_NAME)?.handler("focus", ctx);
 
+		expect(implementationCalls).toBe(0);
 		expect(ctx.editorTexts).toEqual([]);
-		expect(ctx.statuses.at(-1)).toEqual({ key: commandName, value: undefined });
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: "Session implementation cancelled.",
+			level: "info",
+		});
+		expect(ctx.notifications.join("\n")).not.toContain(PRIVATE_PROMPT);
+	});
+
+	test("treats menu dismissal as opt-out", async () => {
+		const pi = new FakePi();
+		let implementationCalls = 0;
+		registerHerdrSessionImplCommands(registrationContext(pi), {
+			generatePrompt: async () => ({ ok: true, prompt: PRIVATE_PROMPT }),
+			implementPrompt: async () => {
+				implementationCalls += 1;
+			},
+		});
+		const ctx = new FakeCommandContext({ shouldCancelSelect: true });
+
+		await pi.commands.get(COMMAND_NAME)?.handler("focus", ctx);
+
+		expect(implementationCalls).toBe(0);
+		expect(ctx.editorTexts).toEqual([]);
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: "Session implementation cancelled.",
+			level: "info",
+		});
+		expect(ctx.notifications.join("\n")).not.toContain(PRIVATE_PROMPT);
+		expect(pi.appendedEntries).toEqual([
+			{ customType: SESSION_IMPL_PROMPT_ENTRY_TYPE, data: { prompt: PRIVATE_PROMPT } },
+		]);
+	});
+
+	test("reports unavailable menu UI without a cancellation notification", async () => {
+		const pi = new FakePi();
+		let implementationCalls = 0;
+		registerHerdrSessionImplCommands(registrationContext(pi), {
+			generatePrompt: async () => ({ ok: true, prompt: PRIVATE_PROMPT }),
+			implementPrompt: async () => {
+				implementationCalls += 1;
+			},
+		});
+		const ctx = new FakeCommandContext({ hasSelect: false });
+
+		await pi.commands.get(COMMAND_NAME)?.handler("focus", ctx);
+
+		expect(implementationCalls).toBe(0);
+		expect(ctx.editorTexts).toEqual([]);
 		expect(ctx.notifications).toEqual([
 			{
-				message: "The session summary turn returned no implementation prompt.",
+				message: "This Pi runtime cannot present the session implementation menu.",
 				level: "error",
 			},
 		]);
+		expect(ctx.notifications.join("\n")).not.toContain(PRIVATE_PROMPT);
+		expect(pi.appendedEntries).toEqual([
+			{ customType: SESSION_IMPL_PROMPT_ENTRY_TYPE, data: { prompt: PRIVATE_PROMPT } },
+		]);
+	});
+
+	test("reports generation failure without invoking implementation or leaking content", async () => {
+		const pi = new FakePi();
+		let implementationCalls = 0;
+		registerHerdrSessionImplCommands(registrationContext(pi), {
+			generatePrompt: async () => ({ ok: false, message: "private generator failed" }),
+			implementPrompt: async () => {
+				implementationCalls += 1;
+			},
+		});
+		const ctx = new FakeCommandContext();
+
+		await pi.commands.get(COMMAND_NAME)?.handler("focus", ctx);
+
+		expect(implementationCalls).toBe(0);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: "private generator failed",
+			level: "error",
+		});
+	});
+
+	test("runs a non-visible forked Pi process against the persisted source session", async () => {
+		const sessionFile = "/sessions/source.jsonl";
+		const request = buildSummaryRequest("focus");
+		const pi = new FakePi({
+			script: [
+				step(
+					"pi",
+					["--fork", sessionFile, "--thinking", "medium", "--no-tools", "--print", request],
+					{ stdout: `${PRIVATE_PROMPT}\n` },
+				),
+			],
+		});
+		const ctx = new FakeCommandContext({ sessionFile });
+
+		const result = await generateSessionImplementationPrompt(
+			createHerdrPiCommandApi(pi),
+			ctx,
+			"focus",
+		);
+
+		pi.assertDone();
+		expect(result).toEqual({ ok: true, prompt: PRIVATE_PROMPT });
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(pi.execCalls[0]?.options?.cwd).toBe(ROOT);
+	});
+
+	test("fails before generation when the source session is not persisted", async () => {
+		const pi = new FakePi();
+		const result = await generateSessionImplementationPrompt(
+			createHerdrPiCommandApi(pi),
+			new FakeCommandContext(),
+			"focus",
+		);
+
+		expect(result).toEqual({
+			ok: false,
+			message:
+				"The current Pi session is not persisted, so an implementation prompt cannot be generated from it.",
+		});
+		expect(pi.execCalls).toEqual([]);
+	});
+
+	test("supplies a useful default continuation focus", () => {
+		expect(buildSummaryRequest("   ").trim()).toContain(
+			"## Continuation focus\nChoose the most natural implementation continuation from the session.",
+		);
 	});
 });

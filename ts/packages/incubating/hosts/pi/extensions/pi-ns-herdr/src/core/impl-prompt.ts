@@ -6,7 +6,6 @@ import {
 } from "@nseng-ai/herdr/api";
 import {
 	buildTrackedBranchImplPrompt,
-	buildTrackedBranchPayloadLaunchCommand,
 	createTrackedBranchForPrompt,
 	createTrackedBranchFromLocalTrunkForPrompt,
 	formatTrackedBranchPayloadStorageFailure,
@@ -24,6 +23,7 @@ import type { GitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
+import { buildHerdrImplPromptLaunchCommand } from "./impl-prompt-launch.ts";
 import { resolveImplBranchBasis } from "./impl-branch-basis.ts";
 import { formatImplDestinationNoun } from "./impl-destination.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
@@ -199,7 +199,7 @@ export async function implTrackedBranchPrompt(
 		{
 			payload: {
 				branchName: options.branch.branchName,
-				launchCommand: buildTrackedBranchPayloadLaunchCommand(
+				launchCommand: buildHerdrImplPromptLaunchCommand(
 					options.branch.branchName,
 					getPiLaunchOptions(context.commands, context.pi),
 				),
@@ -214,6 +214,7 @@ export async function implTrackedBranchPrompt(
 				`${options.successDetails.parentLabel}: ${options.branch.parentBranch}`,
 				`Start point: ${options.branch.startPoint}`,
 				`Implementation payload: ${stored.value.namespace}/${stored.value.key}`,
+				`Prompt: ${Buffer.byteLength(options.content, "utf8")} UTF-8 bytes`,
 				...(options.successDetails.entryLocator === "include"
 					? [`Entry Locator: ${stored.value.refName}`]
 					: []),

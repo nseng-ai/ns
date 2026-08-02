@@ -17,6 +17,8 @@ function baseHost(surfaces: LivePiSurface[]): ExtensionAPI {
 		registerCommand(name) {
 			surfaces.push({ kind: "command", surface: name });
 		},
+		appendEntry() {},
+		registerEntryRenderer() {},
 		on() {},
 		exec: async () => ({ code: 0, stdout: "main\n", stderr: "", killed: false }),
 		getCommands: () => [],
@@ -32,6 +34,8 @@ function handoffHost(surfaces: LivePiSurface[]): HandoffExtensionAPI {
 		registerCommand(name) {
 			surfaces.push({ kind: "command", surface: name });
 		},
+		appendEntry() {},
+		registerEntryRenderer() {},
 		registerTool() {},
 		on() {},
 		exec: async () => ({ code: 0, stdout: "main\n", stderr: "", killed: false }),

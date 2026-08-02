@@ -5,8 +5,8 @@ import { join } from "node:path";
 
 import {
 	buildTrackedBranchImplPrompt,
-	buildTrackedBranchPayloadLaunchCommand,
 	buildTrackedBranchSlugPrompt,
+	loadTrackedBranchPayload,
 	createTrackedBranchForPrompt,
 	createTrackedBranchFromResolvedParent,
 	prepareLocalGraphiteTrunk,
@@ -426,13 +426,58 @@ describe("tracked branch payload public API", () => {
 		);
 	});
 
-	test("launch command propagates model and thinking while reading the neutral locator", () => {
-		const command = buildTrackedBranchPayloadLaunchCommand("feature/demo", {
-			model: { provider: "anthropic", id: "claude-sonnet" },
-			thinkingLevel: "high",
+	test("loads an exact large payload through machine output without shell quoting", async () => {
+		const content = `${'large prompt λ `$shell` "quoted"\n'.repeat(8_000)}final newline\n`;
+		const commands = new FakeCommands([
+			{
+				command: "brmem",
+				args: [
+					"get",
+					"prompt.md",
+					"--namespace",
+					"ns-impl",
+					"--branch",
+					"feature/demo",
+					"--format",
+					"json",
+				],
+				result: exited({ stdout: JSON.stringify({ exitCode: 0, data: { content } }) }),
+			},
+		]);
+
+		const result = await loadTrackedBranchPayload(commands, {
+			cwd: REPO_ROOT,
+			branchName: "feature/demo",
 		});
 
-		expect(command).toContain("brmem get prompt.md --namespace ns-impl --branch feature/demo");
-		expect(command).toContain("pi --provider anthropic --model claude-sonnet --thinking high");
+		commands.assertDone();
+		expect(result).toEqual({ ok: true, content });
+	});
+
+	test("returns a concise read failure without payload text", async () => {
+		const commands = new FakeCommands([
+			{
+				command: "brmem",
+				args: [
+					"get",
+					"prompt.md",
+					"--namespace",
+					"ns-impl",
+					"--branch",
+					"feature/demo",
+					"--format",
+					"json",
+				],
+				result: exited({ code: 1, stderr: "entry missing" }),
+			},
+		]);
+
+		const result = await loadTrackedBranchPayload(commands, {
+			cwd: REPO_ROOT,
+			branchName: "feature/demo",
+		});
+
+		expect(result).toMatchObject({ ok: false, error: { code: "dispatch_prompt_read_failed" } });
+		expect(JSON.stringify(result)).not.toContain("SECRET PROMPT BODY");
 	});
 });

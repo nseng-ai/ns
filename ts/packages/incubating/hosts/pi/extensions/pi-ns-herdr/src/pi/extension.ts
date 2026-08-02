@@ -3,6 +3,7 @@ import type {
 	CommandDefinition,
 	ExtensionAPI,
 	SessionStartContext,
+	SessionStartEventLike,
 } from "@nseng-ai/extension-kit/pi-types";
 import { createCliHerdrGateway } from "@nseng-ai/herdr/api";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
@@ -19,6 +20,7 @@ import {
 	createHerdrSidebarControllerWithPiWiring,
 	registerHerdrSidebarCommands,
 } from "./sidebar.ts";
+import { registerHerdrImplPromptBootstrap } from "./impl-prompt-bootstrap.ts";
 import {
 	registerHerdrPromptSpaceImplCommand,
 	registerHerdrPromptTabImplCommand,
@@ -81,6 +83,7 @@ export async function registerHerdrPiExtension(
 	registerHerdrNewSpaceCommand(context);
 	registerHerdrNewTabCommand(context);
 	registerHerdrTabGoalCommand(herdrPi);
+	registerHerdrImplPromptBootstrap(context);
 
 	if (!("registerTool" in pi) || pi.registerTool === undefined) return;
 	const load = options.loadHandoffIntegration ?? loadOptionalHandoffIntegration;
@@ -121,7 +124,7 @@ function adaptHerdrExtensionApi(pi: ExtensionAPI | HandoffExtensionAPI): Extensi
 				return;
 			}
 			const sessionStartHandler = handler as (
-				event: unknown,
+				event: SessionStartEventLike,
 				ctx: SessionStartContext,
 			) => Promise<void> | void;
 			herdrPi.on("session_start", sessionStartHandler);
@@ -159,6 +162,12 @@ function adaptHerdrExtensionApi(pi: ExtensionAPI | HandoffExtensionAPI): Extensi
 		},
 		sendUserMessage(content: string): void {
 			pi.sendUserMessage(content);
+		},
+		appendEntry(customType, data): void {
+			pi.appendEntry(customType, data);
+		},
+		registerEntryRenderer(customType, renderer): void {
+			pi.registerEntryRenderer(customType, renderer);
 		},
 	};
 }

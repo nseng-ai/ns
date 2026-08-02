@@ -15,7 +15,6 @@ import {
 	formatCommand,
 	formatCommandDetails,
 	formatCommandFailure,
-	formatShellArg,
 } from "@nseng-ai/foundation/command";
 import {
 	MAX_BRANCH_SLUG_LENGTH,
@@ -23,12 +22,12 @@ import {
 	trimBranchSlugToLength,
 } from "@nseng-ai/foundation/branch-slug";
 import type { GitGateway } from "@nseng-ai/foundation/git";
-import { formatErrorMessage, type TextResult } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, isRecord, type TextResult } from "@nseng-ai/foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { runGraphiteCommand } from "../graphite/branch.ts";
 import { formatRawTextModelFailure, generateRawTextWithModel } from "./model-slug.ts";
 import { MODEL_OPERATION_IDS, loadModelPolicy, resolveModelOperation } from "./model-policy.ts";
-import { buildPiLaunchArgs, type PiLaunchOptions } from "./pi-launch.ts";
+import { runJsonExecCommand } from "./machine-envelope-exec.ts";
 
 export const TRACKED_BRANCH_PAYLOAD_NAMESPACE = "ns-impl";
 export const TRACKED_BRANCH_PAYLOAD_KEY = "prompt.md";
@@ -65,6 +64,10 @@ export interface ResolvedTrackedBranchPayloadOptions {
 
 export type TrackedBranchPayloadStorageResult =
 	| { ok: true; value: BrmemPutData }
+	| { ok: false; error: BrmemCommandErrorInfo };
+
+export type TrackedBranchPayloadLoadResult =
+	| { ok: true; content: string }
 	| { ok: false; error: BrmemCommandErrorInfo };
 
 export interface ResolvedTrackedBranchCreationContext {
@@ -285,25 +288,52 @@ export async function storeTrackedBranchPayload(
 	}
 }
 
-export function buildTrackedBranchPayloadLaunchCommand(
-	branchName: string,
-	launchOptions: PiLaunchOptions,
-): string {
-	const getCommand = formatCommand("brmem", [
+export async function loadTrackedBranchPayload(
+	pi: CommandExecApi,
+	options: {
+		cwd: string;
+		branchName: string;
+	},
+): Promise<TrackedBranchPayloadLoadResult> {
+	const args = [
 		"get",
 		TRACKED_BRANCH_PAYLOAD_KEY,
 		"--namespace",
 		TRACKED_BRANCH_PAYLOAD_NAMESPACE,
 		"--branch",
-		branchName,
-	]);
-	// The prompt payload travels through a shell variable, so the final pi argument
-	// must stay the double-quoted expansion `"$payload"` rather than a quoted literal.
-	const piArgs = buildPiLaunchArgs("$payload", launchOptions);
-	const launchCommand = piArgs
-		.map((arg, index) => (index === piArgs.length - 1 ? `"${arg}"` : formatShellArg(arg)))
-		.join(" ");
-	return `payload="$(${getCommand})" && exec ${launchCommand}`;
+		options.branchName,
+		"--format",
+		"json",
+	];
+	const result = await runJsonExecCommand({
+		pi,
+		cwd: options.cwd,
+		command: "brmem",
+		args,
+		timeoutMs: 30_000,
+		summary: `Failed to load Branch Memory ${TRACKED_BRANCH_PAYLOAD_NAMESPACE}/${TRACKED_BRANCH_PAYLOAD_KEY} on branch ${options.branchName}.`,
+		label: "Branch Memory get result",
+	});
+	if (result.type === "failed") {
+		return {
+			ok: false,
+			error: {
+				code: "dispatch_prompt_read_failed",
+				message: result.message,
+				displayCommand: formatCommand("brmem", args),
+			},
+		};
+	}
+	if (!isRecord(result.data) || typeof result.data.content !== "string") {
+		return {
+			ok: false,
+			error: {
+				code: "dispatch_prompt_read_failed",
+				message: "Branch Memory get result did not contain prompt text.",
+			},
+		};
+	}
+	return { ok: true, content: result.data.content };
 }
 
 /**

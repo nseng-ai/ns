@@ -16,6 +16,7 @@ import handoffExtension, {
 
 type RawPiExecResultFixture = Partial<RawPiExecResult>;
 import type {
+	EntryRenderer,
 	NewSessionOptions,
 	RenderComponent,
 	SendUserMessageOptions,
@@ -84,6 +85,8 @@ export class FakePi implements ExtensionAPI {
 	readonly progressMessages: CustomMessage[] = [];
 	readonly sentUserMessages: string[] = [];
 	readonly sentUserMessageCalls: SentUserMessageCall[] = [];
+	readonly appendedEntries: Array<{ customType: string; data: unknown }> = [];
+	readonly entryRenderers = new Map<string, EntryRenderer>();
 	readonly registerMessageRenderer?: (customType: string, renderer: MessageRenderer) => void;
 	readonly sendMessage?: (message: CustomMessage) => void;
 	readonly registerTool?: (tool: RegisteredTool) => void;
@@ -138,6 +141,14 @@ export class FakePi implements ExtensionAPI {
 
 	registerCommand(name: string, options: RegisteredCommand): void {
 		this.commands.set(name, options);
+	}
+
+	appendEntry(customType: string, data?: unknown): void {
+		this.appendedEntries.push({ customType, data });
+	}
+
+	registerEntryRenderer(customType: string, renderer: EntryRenderer): void {
+		this.entryRenderers.set(customType, renderer);
 	}
 
 	async exec(

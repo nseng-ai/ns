@@ -22,16 +22,28 @@ export function getPiLaunchOptions(
 	return ctx.model === undefined ? { thinkingLevel } : { model: ctx.model, thinkingLevel };
 }
 
+/**
+ * Builds the Pi argv for a launch. Pass `undefined` as the initial argument to
+ * launch Pi interactively without any initial prompt or file input.
+ */
 export function buildPiLaunchArgs(
-	initialArgument: string,
+	initialArgument: string | undefined,
 	launchOptions: PiLaunchOptions,
 ): string[] {
-	const args = ["pi"];
+	return [
+		"pi",
+		...buildPiModelThinkingArgs(launchOptions),
+		...(initialArgument === undefined ? [] : [initialArgument]),
+	];
+}
+
+/** Owns the Pi CLI policy for model and thinking launch flags. */
+export function buildPiModelThinkingArgs(launchOptions: PiLaunchOptions): string[] {
+	const args: string[] = [];
 	if (launchOptions.model !== undefined) {
 		args.push("--provider", launchOptions.model.provider, "--model", launchOptions.model.id);
 	}
 	if (launchOptions.thinkingLevel !== "off") args.push("--thinking", launchOptions.thinkingLevel);
-	args.push(initialArgument);
 	return args;
 }
 

@@ -26,6 +26,8 @@ function makeFakeExtensionApi(commands: Map<string, unknown>): ExtensionAPI {
 			return true;
 		},
 		setThinkingLevel() {},
+		appendEntry() {},
+		registerEntryRenderer() {},
 		sendUserMessage() {},
 	};
 }
@@ -57,6 +59,8 @@ function makeToolExtensionApi(
 		getThinkingLevel() {
 			return "medium";
 		},
+		appendEntry() {},
+		registerEntryRenderer() {},
 		sendUserMessage() {},
 		runSessionStart() {
 			for (const handler of sessionStartHandlers) handler();
