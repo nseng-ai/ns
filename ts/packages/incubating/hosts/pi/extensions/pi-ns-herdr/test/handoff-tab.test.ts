@@ -16,6 +16,8 @@ import type {
 	TextGenerationRequest,
 	TextGenerationResult,
 } from "@nseng-ai/sdk";
+import { buildPiLaunchCommand } from "@nseng-ai/extension-kit/pi-launch";
+import type { ThinkingLevel } from "@nseng-ai/extension-kit/pi-types";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -29,8 +31,10 @@ import { FakeHerdrGateway } from "./herdr-test-harness.ts";
 
 const launchOptions = {
 	cwd: "/state/slots/repos/ns/worktrees/slot-6",
-	launchCommand:
-		"pi --provider anthropic --model claude-test --thinking high '/ns:handoff:pickup --branch feature continue-feature'",
+	launchCommand: buildPiLaunchCommand("/ns:handoff:pickup --branch feature continue-feature", {
+		model: { provider: "anthropic", id: "claude-test" },
+		thinkingLevel: "high" as const,
+	}),
 	workspaceId: "workspace-1",
 	slug: "continue-feature",
 };
@@ -42,8 +46,12 @@ const commandArgv = [
 	"continue-work",
 	"--workspace-id",
 	"workspace-from-prompt",
-	"--launch-command",
-	"pi --provider anthropic --model claude-test --thinking high '/ns:handoff:pickup --branch feature/test continue-work'",
+	"--provider",
+	"anthropic",
+	"--model",
+	"claude-test",
+	"--thinking",
+	"high",
 ];
 
 describe("Herdr Handoff tab destination", () => {
@@ -176,7 +184,9 @@ describe("ns herdr exec handoff-tab launch", () => {
 		["blank branch", ["--branch", " "]],
 		["nested slug", ["--slug", "nested/slug"]],
 		["blank workspace", ["--workspace-id", " "]],
-		["blank launch command", ["--launch-command", " "]],
+		["blank provider", ["--provider", " "]],
+		["blank model", ["--model", " "]],
+		["invalid thinking", ["--thinking", "extreme"]],
 	])("rejects %s before verification or effects", async (_name, replacement) => {
 		const brmem = new EventBrmemGateway([]);
 		const herdr = new FakeHerdrGateway();
@@ -187,17 +197,35 @@ describe("ns herdr exec handoff-tab launch", () => {
 		expect(herdr.createTabCalls).toEqual([]);
 	});
 
-	test.each(["--provider", "--model", "--thinking"])(
-		"rejects removed profile option %s",
-		async (option) => {
-			const exit = await runNsCommand(new FakeHerdrNsApi(), [
-				...commandArgv,
-				option,
-				"legacy-value",
-			]);
-			expect(exit.type).toBe("usageError");
-		},
-	);
+	test("accepts thinking off and launches pi without a thinking flag", async () => {
+		const brmem = new FakeBrmemGateway();
+		await brmem.putEntry({
+			namespace: "handoff",
+			key: "continue-work.md",
+			branch: "feature/test",
+			content: "# Continue",
+		});
+		const herdr = new FakeHerdrGateway({
+			createTabResult: {
+				type: "created",
+				workspaceId: "workspace-from-prompt",
+				tabId: "tab-1",
+				rootPaneId: "pane-1",
+			},
+		});
+		const argv = replaceOption(commandArgv, "--thinking", "off");
+		const exit = await runNsCommand(new FakeHerdrNsApi({ brmem, herdr }), argv);
+		expect(exit).toMatchObject({
+			type: "ok",
+			data: {
+				command:
+					"pi --provider anthropic --model claude-test '/ns:handoff:pickup --branch feature/test continue-work'",
+			},
+		});
+		const paneCommand = herdr.paneRunCalls[0]?.command ?? "";
+		expect(paneCommand.startsWith("pi ")).toBe(true);
+		expect(paneCommand).not.toContain("--thinking");
+	});
 
 	test("returns structured durable-reference recovery for Herdr failures", async () => {
 		const brmem = new FakeBrmemGateway();
@@ -258,22 +286,23 @@ describe("ns herdr exec handoff-tab launch", () => {
 		if (help.type !== "ok") throw new Error("Expected help output");
 		const publishedHelp = String(help.data);
 		expect(publishedHelp).toContain("--workspace-id");
-		expect(publishedHelp).toContain("--launch-command");
-		expect(publishedHelp).not.toContain("--provider");
-		expect(publishedHelp).not.toContain("--model");
-		expect(publishedHelp).not.toContain("--thinking");
+		expect(publishedHelp).toContain("--provider");
+		expect(publishedHelp).toContain("--model");
+		expect(publishedHelp).toContain("--thinking");
+		expect(publishedHelp).not.toContain("--launch-command");
+		expect(publishedHelp).not.toContain("--launch-argv-json");
 		const schema = await runNsCommandMeta(api, ["--json-schema"]);
 		expect(schema).toMatchObject({ type: "ok" });
 		if (schema.type !== "ok") throw new Error("Expected JSON Schema output");
 		const publishedSchema = JSON.stringify(schema.data);
 		expect(publishedSchema).toContain("inputJsonSchema");
 		expect(publishedSchema).toContain("outputJsonSchema");
-		expect(publishedSchema).toContain("launchCommand");
+		expect(publishedSchema).not.toContain("launchCommand");
 		expect(publishedSchema).toContain("command");
 		expect(publishedSchema).not.toContain("pickupCommand");
-		expect(publishedSchema).not.toContain('"provider"');
-		expect(publishedSchema).not.toContain('"model"');
-		expect(publishedSchema).not.toContain('"thinking"');
+		expect(publishedSchema).toContain('"provider"');
+		expect(publishedSchema).toContain('"model"');
+		expect(publishedSchema).toContain('"thinking"');
 		expect(publishedSchema).not.toContain("verify-handoff");
 		expect(publishedSchema).toContain('"status":{"type":"string","const":"ok"}');
 		expect(publishedSchema).toContain('"status":{"type":"string","const":"negative"}');
@@ -297,7 +326,7 @@ describe("Herdr Handoff Pi prompt", () => {
 		},
 	);
 
-	test("captures exact caller workspace and launch profile in a reference-only CLI prompt", async () => {
+	test("captures exact caller workspace and launch profile in typed JSON input", async () => {
 		const pi = new HandoffTabFakePi([
 			{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" },
 		]);
@@ -308,24 +337,42 @@ describe("Herdr Handoff Pi prompt", () => {
 				HERDR_WORKSPACE_ID: "workspace-'quoted",
 			},
 		);
-		await pi.command().handler("continue work", commandContext(true));
+		await pi
+			.command()
+			.handler("continue work", commandContext({ withModel: true, modelId: "claude-'test" }));
 		const prompt = pi.sentUserMessages[0] ?? "";
 		expect(prompt).toContain("Compose the final Markdown handoff artifact content first");
 		expect(prompt).toContain("After `ns handoff create` succeeds");
-		expect(prompt).toContain("ns herdr exec handoff-tab launch");
-		expect(prompt).toContain("--branch feature/test");
-		expect(prompt).toContain("--workspace-id 'workspace-'\\''quoted'");
-		expect(prompt).not.toContain("--workspace-id 'workspace-'\\''quoted' --provider");
-		expect(prompt).not.toContain("--workspace-id 'workspace-'\\''quoted' --model");
-		expect(prompt).not.toContain("--workspace-id 'workspace-'\\''quoted' --thinking");
-		expect(prompt).toContain(
-			"--launch-command 'pi --provider anthropic --model claude-test --thinking high",
-		);
-		expect(prompt).toContain("--format json");
+		expect(prompt).toContain("ns herdr exec handoff-tab launch --input-json --format json");
+		expect(prompt).toContain('"branch":"feature/test"');
+		expect(prompt).toContain('"slug":"<returned-slug>"');
+		expect(prompt).toContain('"workspaceId":"workspace-');
+		expect(prompt).toContain('"provider":"anthropic"');
+		expect(prompt).toContain('"model":"claude-');
+		expect(prompt).toContain('"thinking":"high"');
+		expect(prompt).not.toContain("--launch-command");
+		expect(prompt).not.toContain("--launch-argv-json");
 		expect(prompt).toContain("reads and verifies the stored Handoff Artifact by branch and slug");
 		expect(prompt).toContain("do not pipe, quote, or otherwise send the Markdown artifact to it");
 		expect(prompt).not.toContain(["herdr", "handoff", "tab", "launch"].join("_"));
 		expect(pi.tools.has("derive_handoff_slug_from_content")).toBe(false);
+	});
+
+	test("transports thinking off in the launch command when thinking is off", async () => {
+		const pi = new HandoffTabFakePi(
+			[{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" }],
+			"off",
+		);
+		registerHerdrHandoffTab(
+			pi,
+			createHandoffLaunchIntegration(pi, { skillLoader: fakeHandoffCreateSkillLoader() }),
+			{ HERDR_WORKSPACE_ID: "workspace-1" },
+		);
+		await pi.command().handler("continue work", commandContext({ withModel: true }));
+		const prompt = pi.sentUserMessages[0] ?? "";
+		expect(prompt).toContain('"thinking":"off"');
+		expect(prompt).toContain("--input-json");
+		expect(prompt).not.toContain("--launch-argv-json");
 	});
 
 	test("requires an active model before sending the prompt", async () => {
@@ -339,7 +386,7 @@ describe("Herdr Handoff Pi prompt", () => {
 				HERDR_WORKSPACE_ID: "workspace-1",
 			},
 		);
-		await pi.command().handler("continue work", commandContext(false));
+		await pi.command().handler("continue work", commandContext());
 		expect(pi.sentUserMessages).toEqual([]);
 	});
 });
@@ -377,9 +424,11 @@ class HandoffTabFakePi implements HandoffExtensionAPI {
 	readonly tools = new Map<string, ToolDefinition>();
 	readonly sentUserMessages: string[] = [];
 	private readonly script: ExecFixture[];
+	private readonly thinkingLevel: ThinkingLevel;
 
-	constructor(script: ExecFixture[]) {
+	constructor(script: ExecFixture[], thinkingLevel: ThinkingLevel = "high") {
 		this.script = [...script];
+		this.thinkingLevel = thinkingLevel;
 	}
 
 	registerCommand(
@@ -424,7 +473,7 @@ class HandoffTabFakePi implements HandoffExtensionAPI {
 	}
 
 	getThinkingLevel() {
-		return "high" as const;
+		return this.thinkingLevel;
 	}
 
 	sendUserMessage(content: string): void {
@@ -533,7 +582,8 @@ function fakeHandoffCreateSkillLoader(): HandoffCreateSkillLoader {
 	};
 }
 
-function commandContext(withModel = false): CommandContext {
+function commandContext(options: { withModel?: boolean; modelId?: string } = {}): CommandContext {
+	const { withModel = false, modelId = "claude-test" } = options;
 	return {
 		cwd: "/repo",
 		hasUI: false,
@@ -545,7 +595,7 @@ function commandContext(withModel = false): CommandContext {
 			getSessionId: () => "test-session-id",
 		},
 		ui: { notify(): void {}, setStatus(): void {} },
-		...(withModel ? { model: { provider: "anthropic", id: "claude-test" } } : {}),
+		...(withModel ? { model: { provider: "anthropic", id: modelId } } : {}),
 		async waitForIdle(): Promise<void> {},
 	};
 }
