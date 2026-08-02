@@ -10,6 +10,7 @@ import {
 	createContext,
 	gitRootStep,
 	makeRepoPrompt,
+	makeRepoPromptDirectory,
 	makeRepoPromptSymlink,
 	step,
 } from "./branch-context-extension-support.ts";
@@ -227,6 +228,41 @@ describe("enriched-plan-commands", () => {
 				level: "warning",
 			},
 		]);
+	});
+
+	test("ns:plan:save falls back and warns on a whitespace-only repo prompt", async () => {
+		const repoRoot = await makeRepoPrompt(" \n\t");
+		const pi = new FakePi([gitRootStep(repoRoot)]);
+		registerBranchContextExtension(pi);
+		const command = pi.commands.get("ns:plan:save");
+		const context = createContext([], { cwd: repoRoot });
+
+		await command?.handler("whitespace prompt", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("whitespace prompt")]);
+		expect(context.notifications).toHaveLength(2);
+		expect(context.notifications[1]).toMatchObject({ level: "warning" });
+		expect(context.notifications[1]?.message).toContain(
+			"Falling back to built-in /ns:plan:save prompt body because",
+		);
+		expect(context.notifications[1]?.message).toContain("is empty");
+	});
+
+	test("ns:plan:save falls back and warns when the repo prompt is not a regular file", async () => {
+		const repoRoot = await makeRepoPromptDirectory();
+		const pi = new FakePi([gitRootStep(repoRoot)]);
+		registerBranchContextExtension(pi);
+		const command = pi.commands.get("ns:plan:save");
+		const context = createContext([], { cwd: repoRoot });
+
+		await command?.handler("directory prompt", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("directory prompt")]);
+		expect(context.notifications).toHaveLength(2);
+		expect(context.notifications[1]).toMatchObject({ level: "warning" });
+		expect(context.notifications[1]?.message).toContain("is not a regular file");
 	});
 
 	test("ns:plan:save rejects symlinked repo prompt and falls back without UI warning", async () => {

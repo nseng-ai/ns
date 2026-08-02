@@ -161,9 +161,13 @@ Author-side guidance:
 This section is for code that *acts on* installations — the workflow inside an
 extension package that runs hooks or consumes prompt content at its own points.
 
-The consumption API lives at `@nseng-ai/sdk/project-config/points`. It is an
-internal workspace export: a first-party seam shared across workspace packages,
-not part of the public author API at the `@nseng-ai/sdk` package root.
+The consumption API lives at two precise doors:
+`@nseng-ai/sdk/project-config/points` owns catalog construction and source
+selection; `@nseng-ai/sdk/project-config/prompt-content` owns prompt content
+acquisition (the reader boundary, the content resolver, and its factual failure
+results). Both are internal workspace exports: first-party seams shared across
+workspace packages, not part of the public author API at the `@nseng-ai/sdk`
+package root.
 
 Build a catalog, then read installations from it:
 
@@ -186,13 +190,21 @@ Consume hook points:
 
 Consume prompt points:
 
-- `resolvePromptPointSource(catalog, id)` walks the resolution ladder and
-  returns the active source: env override, `ns.toml`, conventional file,
-  descriptor default, or missing.
-- `resolvePromptPointPath(repoRoot, source)` converts a non-env source into a
-  readable path plus a human-facing label.
-- The workflow reads the file and performs any LM interaction itself; the
-  platform never executes prompt content. Flow's submit-check recovery
+- `resolvePromptPointContent({ repoRoot, catalog, pointId, reader })` (from
+  `project-config/prompt-content`) is the normal first-party workflow
+  interface. It selects the active source, resolves
+  its path, reads it through the supplied boundary, and rejects missing,
+  unreadable, or empty content; each failure carries one SDK-composed factual
+  message alongside the resolved source/path/label facts. It does not execute
+  an LM.
+- `resolvePromptPointSource(catalog, id)` (from `project-config/points`) and
+  `resolvePromptPointPath(repoRoot, source)` (from
+  `project-config/prompt-content`) remain lower-level policy primitives for
+  callers that need to inspect source selection separately.
+- The consuming workflow owns diagnostic fatality, workflow-specific failure
+  presentation and fallback policy, prompt normalization, LM execution, and
+  validation of generated output; it surfaces or wraps the SDK factual message
+  rather than rebuilding generic acquisition prose. Flow's submit-check recovery
   (`flow.submit.pre.recovery`) and Assembled PR inventory
   (`flow.submit.pr-inventory`) are the production examples. Flow also recognizes
   `NS_FLOW_PR_INVENTORY_PROMPT` as the development environment override for that

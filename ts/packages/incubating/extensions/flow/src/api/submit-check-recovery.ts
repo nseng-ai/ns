@@ -1,17 +1,26 @@
 import type { GitGateway } from "@nseng-ai/foundation/git";
+import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import { nodePromptPointContentReader } from "@nseng-ai/sdk/project-config/prompt-content";
 
 import { flowExtensionDescriptorSource } from "../ns/extension.ts";
 import {
 	buildFlowSubmitCheckRecoveryMessage,
 	hasFlowSubmitCheckFailureMarker,
-	nodeSubmitCheckRecoveryPromptGateway,
 	resolveFlowSubmitRecoveryPrompt,
 	resolveFlowSubmitRecoveryRepositoryRoot,
 	type FlowSubmitRecoveryCommandDetails,
-	type SubmitCheckRecoveryPromptGateway,
+	type FlowSubmitRecoveryContext,
 } from "../submit/submit-check-recovery.ts";
 
+export type { FlowSubmitRecoveryContext } from "../submit/submit-check-recovery.ts";
+
 export type FlowSubmitRecoveryGitGateway = Pick<GitGateway, "optionalRepoRoot">;
+
+/** Flow-owned real recovery context binding the SDK Node adapters once. */
+export const nodeFlowSubmitRecoveryContext: FlowSubmitRecoveryContext = {
+	projectConfigGateway: nodeProjectConfigGateway,
+	promptReader: nodePromptPointContentReader,
+};
 
 export type FlowSubmitCheckRecoveryResult =
 	| { type: "not-applicable" }
@@ -21,7 +30,7 @@ export type FlowSubmitCheckRecoveryResult =
 export interface ResolveFlowSubmitCheckRecoveryOptions {
 	details: FlowSubmitRecoveryCommandDetails;
 	git: FlowSubmitRecoveryGitGateway;
-	promptGateway?: SubmitCheckRecoveryPromptGateway;
+	recoveryContext: FlowSubmitRecoveryContext;
 }
 
 export async function resolveFlowSubmitCheckRecovery(
@@ -38,9 +47,9 @@ export async function resolveFlowSubmitCheckRecovery(
 	});
 	if (!repoRoot.ok) return { type: "failed", error: repoRoot.error };
 
-	const prompt = resolveFlowSubmitRecoveryPrompt({
+	const prompt = await resolveFlowSubmitRecoveryPrompt({
 		repoRoot: repoRoot.repoRoot,
-		gateway: options.promptGateway ?? nodeSubmitCheckRecoveryPromptGateway,
+		context: options.recoveryContext,
 		descriptorSource: flowExtensionDescriptorSource,
 	});
 	if (!prompt.ok) return { type: "failed", error: prompt.error };
@@ -50,5 +59,3 @@ export async function resolveFlowSubmitCheckRecovery(
 		message: buildFlowSubmitCheckRecoveryMessage(options.details, prompt.prompt),
 	};
 }
-
-export type { SubmitCheckRecoveryPromptGateway } from "../submit/submit-check-recovery.ts";

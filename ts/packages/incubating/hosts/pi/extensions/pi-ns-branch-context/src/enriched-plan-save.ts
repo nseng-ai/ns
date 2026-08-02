@@ -1,5 +1,5 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
-import { readFileSync, type Stats } from "node:fs";
+import { readFileSync } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
 import { Text } from "@earendil-works/pi-tui";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
@@ -10,12 +10,11 @@ import {
 	optionalEntry,
 } from "@nseng-ai/foundation/primitives";
 import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
+import { loadPointCatalog, nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import {
-	loadPointCatalog,
-	nodeProjectConfigGateway,
-	resolvePromptPointPath,
-	resolvePromptPointSource,
-} from "@nseng-ai/sdk/project-config/points";
+	resolvePromptPointContent,
+	type PromptPointContentReader,
+} from "@nseng-ai/sdk/project-config/prompt-content";
 import { systemTimerScheduler } from "@nseng-ai/foundation/time";
 import {
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
@@ -158,40 +157,44 @@ async function resolveGitRoot(
 	return { type: "resolved", path: result.value };
 }
 
+const branchContextPromptReader: PromptPointContentReader = {
+	async readTextFile(path) {
+		try {
+			const stats = await lstat(path);
+			if (stats.isSymbolicLink()) {
+				return { ok: false, reason: "unreadable", message: "is a symlink" };
+			}
+			if (!stats.isFile()) {
+				return { ok: false, reason: "unreadable", message: "is not a regular file" };
+			}
+			return { ok: true, content: await readFile(path, "utf8") };
+		} catch (error) {
+			const message = formatErrorMessage(error);
+			if (isNodeFileNotFound(error)) return { ok: false, reason: "missing", message };
+			return { ok: false, reason: "unreadable", message };
+		}
+	},
+};
+
 async function readWritePlanPromptBody(repoRoot: string): Promise<WritePlanPromptBodyResolution> {
 	const catalog = loadPointCatalog({ repoRoot, gateway: nodeProjectConfigGateway });
-	const source = resolvePromptPointSource(catalog, WRITE_PLAN_POINT_ID);
-	if (source.type === "env") {
-		return fallbackWritePlanPromptBody(
-			`prompt point ${WRITE_PLAN_POINT_ID} has unsupported env source`,
-		);
-	}
-	const promptPath = resolvePromptPointPath(repoRoot, source);
-	if (promptPath === undefined) {
-		return fallbackWritePlanPromptBody(`prompt point ${WRITE_PLAN_POINT_ID} has no default`);
-	}
-	await assertSafeFile(promptPath.path, promptPath.label);
-
-	const content = await readFile(promptPath.path, "utf8");
-	if (content.trim().length === 0) {
-		return fallbackWritePlanPromptBody(`${promptPath.label} is empty`);
-	}
-	return { type: "resolved", body: content };
+	const resolved = await resolvePromptPointContent({
+		repoRoot,
+		catalog,
+		pointId: WRITE_PLAN_POINT_ID,
+		reader: branchContextPromptReader,
+	});
+	if (resolved.ok) return { type: "resolved", body: resolved.content };
+	return fallbackWritePlanPromptBody(resolved.message);
 }
 
-async function assertSafeFile(targetPath: string, label: string): Promise<void> {
-	const stats = await assertNotSymlink(targetPath, label);
-	if (!stats.isFile()) {
-		throw new Error(`${label} is not a file`);
-	}
-}
-
-async function assertNotSymlink(targetPath: string, label: string): Promise<Stats> {
-	const stats = await lstat(targetPath);
-	if (stats.isSymbolicLink()) {
-		throw new Error(`${label} is a symlink`);
-	}
-	return stats;
+function isNodeFileNotFound(error: unknown): boolean {
+	return (
+		typeof error === "object" &&
+		error !== null &&
+		"code" in error &&
+		(error as { code?: unknown }).code === "ENOENT"
+	);
 }
 
 export async function handleWritePlanCommand(

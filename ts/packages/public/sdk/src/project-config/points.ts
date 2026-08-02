@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { parse } from "smol-toml";
@@ -242,12 +242,43 @@ export interface PointCatalog {
 	diagnostics: readonly ProjectConfigDiagnostic[];
 }
 
+export interface EnvPromptPointSource {
+	type: "env";
+	pointId: string;
+	envVar: string;
+	path: string;
+}
+
+export interface NsTomlPromptPointSource {
+	type: "ns.toml";
+	pointId: string;
+	path: string;
+}
+
+export interface ConventionalPromptPointSource {
+	type: "conventional";
+	pointId: string;
+	path: string;
+}
+
+export interface DefaultPromptPointSource {
+	type: "default";
+	pointId: string;
+	path: string;
+	manifestPath: string;
+}
+
+export interface MissingPromptPointSource {
+	type: "missing";
+	pointId: string;
+}
+
 export type PromptPointSource =
-	| ({ type: "env" } & ResolvedPromptEnvOverride)
-	| { type: "ns.toml"; pointId: string; path: string }
-	| { type: "conventional"; pointId: string; path: string }
-	| { type: "default"; pointId: string; path: string; manifestPath: string }
-	| { type: "missing"; pointId: string };
+	| EnvPromptPointSource
+	| NsTomlPromptPointSource
+	| ConventionalPromptPointSource
+	| DefaultPromptPointSource
+	| MissingPromptPointSource;
 
 function tryProjectConfigProbe<T>(
 	probe: () => ProjectConfigProbeResult<T>,
@@ -683,25 +714,6 @@ export function hookCommandsForPoint(catalog: PointCatalog, pointId: string): re
 	const installation = findCatalogInstallation(entry, "ns.toml");
 	if (installation?.installation.accepts !== "hook") return [];
 	return installation.installation.commands;
-}
-
-export function resolvePromptPointPath(
-	repoRoot: string,
-	source: Exclude<PromptPointSource, { type: "env" }>,
-): { path: string; label: string } | undefined {
-	switch (source.type) {
-		case "ns.toml":
-			return { path: join(repoRoot, source.path), label: `ns.toml prompt ${source.path}` };
-		case "conventional":
-			return { path: join(repoRoot, source.path), label: source.path };
-		case "default":
-			return {
-				path: join(dirname(source.manifestPath), source.path),
-				label: `manifest default ${source.path}`,
-			};
-		case "missing":
-			return undefined;
-	}
 }
 
 function findCatalogInstallation<TSource extends PointCatalogInstallation["source"]>(

@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-import { basename, resolve } from "node:path";
+import { basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
@@ -10,7 +9,7 @@ import {
 	type TextGenerationUsage,
 	type TextGenerator,
 } from "@nseng-ai/extension-kit/text-generation";
-import { buildFencedTextBlock, formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
 import { normalizeTextOutput, trimOuterBlankLines } from "@nseng-ai/foundation/text-normalization";
 import { truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
 import { prepareRepairedText } from "@nseng-ai/extension-kit/text-repair";
@@ -21,11 +20,14 @@ import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import {
 	loadPointCatalog,
 	nodeProjectConfigGateway,
-	resolvePromptPointPath,
-	resolvePromptPointSource,
 	type PreloadedPointDescriptor,
-	type PromptPointSource,
 } from "@nseng-ai/sdk/project-config/points";
+import {
+	nodePromptPointContentReader,
+	resolvePromptPointContent,
+	type ResolvedPromptPointContent,
+	type ResolvePromptPointContentResult,
+} from "@nseng-ai/sdk/project-config/prompt-content";
 import type { PrCommitMessage } from "./github-pr-gateway.ts";
 
 export const PR_INVENTORY_PROMPT_ENV = "NS_FLOW_PR_INVENTORY_PROMPT";
@@ -157,75 +159,49 @@ export async function resolvePrInventoryPrompt(
 		promptEnvOverride: prInventoryPromptEnvOverride,
 		env: input.env,
 	});
-	const pointSource = resolvePromptPointSource(catalog, FLOW_PR_INVENTORY_POINT_ID);
-	return await readPrInventoryPointSource({ catalogRoot, pointSource });
+	const resolved = await resolvePromptPointContent({
+		repoRoot: catalogRoot,
+		catalog,
+		pointId: FLOW_PR_INVENTORY_POINT_ID,
+		reader: nodePromptPointContentReader,
+		envPathPolicy: "repo-relative",
+	});
+	return presentPrInventoryPromptResolution(resolved);
 }
 
-async function readPrInventoryPointSource(request: {
-	catalogRoot: string;
-	pointSource: PromptPointSource;
-}): Promise<PromptResolutionResult> {
-	if (request.pointSource.type === "env") {
-		const path = resolve(request.catalogRoot, request.pointSource.path);
-		try {
-			return { ok: true, text: await readFile(path, "utf8"), source: { type: "env", path } };
-		} catch (error) {
+function presentPrInventoryPromptResolution(
+	resolved: ResolvePromptPointContentResult,
+): PromptResolutionResult {
+	if (resolved.ok) {
+		return {
+			ok: true,
+			text:
+				resolved.resolved.source.type === "default" ? resolved.content.trimEnd() : resolved.content,
+			source: prInventoryPromptSource(resolved.resolved),
+		};
+	}
+	switch (resolved.reason) {
+		case "missing-source":
+			return { ok: false, error: resolved.message, source: { type: "builtin" } };
+		case "unsupported-source":
 			return {
 				ok: false,
-				error: `Could not read ${request.pointSource.envVar} prompt file at ${path}: ${formatErrorMessage(error)}`,
-				source: { type: "env", path },
+				error: resolved.message,
+				source: { type: "env", path: resolved.source.path },
 			};
-		}
+		default:
+			return {
+				ok: false,
+				error: resolved.message,
+				source: prInventoryPromptSource(resolved.resolved),
+			};
 	}
-	if (request.pointSource.type === "missing") {
-		return {
-			ok: false,
-			error: `Could not resolve ${FLOW_PR_INVENTORY_POINT_ID}: the point catalog has no installed prompt or descriptor default.`,
-			source: { type: "builtin" },
-		};
-	}
+}
 
-	const resolved = resolvePromptPointPath(request.catalogRoot, request.pointSource);
-	const source: PromptSource =
-		request.pointSource.type === "default"
-			? { type: "builtin" }
-			: {
-					type: "repo",
-					path: resolved?.path ?? resolve(request.catalogRoot, request.pointSource.path),
-				};
-	if (resolved === undefined) {
-		return {
-			ok: false,
-			error: `Could not resolve selected ${request.pointSource.type} prompt path ${request.pointSource.path} for ${FLOW_PR_INVENTORY_POINT_ID} from catalog root ${request.catalogRoot}.`,
-			source,
-		};
-	}
-
-	let text: string;
-	try {
-		text = await readFile(resolved.path, "utf8");
-	} catch (error) {
-		return {
-			ok: false,
-			error: isNodeFileNotFound(error)
-				? `Selected ${resolved.label} is missing at ${resolved.path}.`
-				: `Could not read selected ${resolved.label} at ${resolved.path}: ${formatErrorMessage(error)}`,
-			source,
-		};
-	}
-	if (text.trim() === "") {
-		return {
-			ok: false,
-			error: `Selected ${resolved.label} at ${resolved.path} is empty.`,
-			source,
-		};
-	}
-
-	return {
-		ok: true,
-		text: request.pointSource.type === "default" ? text.trimEnd() : text,
-		source,
-	};
+function prInventoryPromptSource(resolved: ResolvedPromptPointContent): PromptSource {
+	if (resolved.source.type === "default") return { type: "builtin" };
+	if (resolved.source.type === "env") return { type: "env", path: resolved.path };
+	return { type: "repo", path: resolved.path };
 }
 
 export function buildPrInventoryUserPrompt(input: PrInventoryPromptContext): string {
@@ -400,15 +376,6 @@ function isLockfileDiffSection(section: string): boolean {
 	if (match?.[1] !== undefined && LOCKFILE_BASENAMES.has(basename(match[1]))) return true;
 	if (match?.[2] !== undefined && LOCKFILE_BASENAMES.has(basename(match[2]))) return true;
 	return false;
-}
-
-function isNodeFileNotFound(error: unknown): boolean {
-	return (
-		typeof error === "object" &&
-		error !== null &&
-		"code" in error &&
-		(error as { code?: unknown }).code === "ENOENT"
-	);
 }
 
 async function generatePrInventoryText(

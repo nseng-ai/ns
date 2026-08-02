@@ -310,23 +310,45 @@ describe("PR inventory helpers", () => {
 		});
 	});
 
+	test("preserves the Node failure for a missing selected env prompt", async () => {
+		const repo = await createTemporaryRoot();
+		const selectedPath = join(repo, "missing-env.md");
+
+		const result = await resolvePrInventoryPrompt({
+			env: { [PR_INVENTORY_PROMPT_ENV]: selectedPath },
+			descriptorSource: flowExtensionDescriptorSource,
+			repoRoot: repo,
+		});
+
+		expect(result).toMatchObject({
+			ok: false,
+			source: { type: "env", path: selectedPath },
+		});
+		const error = result.ok ? "" : result.error;
+		expect(error).toContain(PR_INVENTORY_PROMPT_ENV);
+		expect(error).toContain(selectedPath);
+		expect(error).toContain("ENOENT");
+	});
+
 	test("fails on a missing selected repository prompt without using the packaged default", async () => {
 		const repo = await createTemporaryRoot();
 		const relativePath = "policy/missing.md";
 		const selectedPath = join(repo, relativePath);
 		await installExplicitPromptWithConventionalFallback(repo, relativePath);
 
-		await expect(
-			resolvePrInventoryPrompt({
-				env: {},
-				descriptorSource: flowExtensionDescriptorSource,
-				repoRoot: repo,
-			}),
-		).resolves.toEqual({
+		const result = await resolvePrInventoryPrompt({
+			env: {},
+			descriptorSource: flowExtensionDescriptorSource,
+			repoRoot: repo,
+		});
+		expect(result).toMatchObject({
 			ok: false,
-			error: `Selected ns.toml prompt ${relativePath} is missing at ${selectedPath}.`,
 			source: { type: "repo", path: selectedPath },
 		});
+		const error = result.ok ? "" : result.error;
+		expect(error).toContain(`ns.toml prompt ${relativePath}`);
+		expect(error).toContain(selectedPath);
+		expect(error).toContain("missing");
 	});
 
 	test("fails on an unreadable selected conventional prompt without using the packaged default", async () => {

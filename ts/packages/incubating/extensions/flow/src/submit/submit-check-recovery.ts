@@ -1,18 +1,17 @@
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { formatCommand, tailText } from "@nseng-ai/foundation/command";
 import type { GitGateway } from "@nseng-ai/foundation/git";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import {
 	loadPointCatalog,
-	nodeProjectConfigGateway,
-	resolvePromptPointPath,
-	resolvePromptPointSource,
 	type PreloadedPointDescriptor,
 	type ProjectConfigDiagnostic,
 	type ProjectConfigGateway,
 } from "@nseng-ai/sdk/project-config/points";
+import {
+	resolvePromptPointContent,
+	type PromptPointContentReader,
+} from "@nseng-ai/sdk/project-config/prompt-content";
 
 import { FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "./submit-hooks.ts";
 
@@ -24,34 +23,22 @@ const RECOVERY_STDERR_MAX_CHARS = 4_000;
 const RECOVERY_MARKER_EXCERPT_MAX_LINES = 8;
 const RECOVERY_MARKER_EXCERPT_MAX_CHARS = 1_000;
 
-type RecoveryPromptReadResult =
-	| { type: "found"; text: string }
-	| { type: "missing" }
-	| { type: "error"; message: string };
-
 export type FlowSubmitRecoveryGitGateway = Pick<GitGateway, "optionalRepoRoot">;
 
-export interface SubmitCheckRecoveryPromptGateway extends ProjectConfigGateway {
-	readRecoveryPrompt(request: { path: string }): RecoveryPromptReadResult;
+/**
+ * Flow-owned collaborator group for recovery prompt acquisition: the project
+ * config boundary and the prompt content boundary travel together through the
+ * Flow API and host composition.
+ */
+export interface FlowSubmitRecoveryContext {
+	projectConfigGateway: ProjectConfigGateway;
+	promptReader: PromptPointContentReader;
 }
 
 export interface FlowSubmitRecoveryDescriptorSource {
 	descriptor: PreloadedPointDescriptor["descriptor"];
 	descriptorUrl: string;
 }
-
-export const nodeSubmitCheckRecoveryPromptGateway: SubmitCheckRecoveryPromptGateway = {
-	readTextFile: (request) => nodeProjectConfigGateway.readTextFile(request),
-	pathExists: (request) => nodeProjectConfigGateway.pathExists(request),
-	readRecoveryPrompt(request) {
-		try {
-			return { type: "found", text: readFileSync(request.path, "utf8") };
-		} catch (error) {
-			if (isNodeFileNotFound(error)) return { type: "missing" };
-			return { type: "error", message: formatErrorMessage(error) };
-		}
-	},
-};
 
 export type FlowSubmitRecoveryRepositoryRootResult =
 	| { ok: true; repoRoot: string }
@@ -97,14 +84,14 @@ export async function resolveFlowSubmitRecoveryRepositoryRoot(request: {
 	};
 }
 
-export function resolveFlowSubmitRecoveryPrompt(request: {
+export async function resolveFlowSubmitRecoveryPrompt(request: {
 	repoRoot: string;
-	gateway: SubmitCheckRecoveryPromptGateway;
+	context: FlowSubmitRecoveryContext;
 	descriptorSource: FlowSubmitRecoveryDescriptorSource;
-}): FlowSubmitRecoveryPromptResult {
+}): Promise<FlowSubmitRecoveryPromptResult> {
 	const catalog = loadPointCatalog({
 		repoRoot: request.repoRoot,
-		gateway: request.gateway,
+		gateway: request.context.projectConfigGateway,
 		preferredDescriptors: [
 			{
 				descriptor: request.descriptorSource.descriptor,
@@ -122,51 +109,33 @@ export function resolveFlowSubmitRecoveryPrompt(request: {
 		};
 	}
 
-	const source = resolvePromptPointSource(catalog, FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID);
-	if (source.type === "missing") {
-		return {
-			ok: false,
-			error: `Could not resolve ${FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID}: the Flow extension descriptor does not provide a readable default.`,
-		};
+	const resolved = await resolvePromptPointContent({
+		repoRoot: request.repoRoot,
+		catalog,
+		pointId: FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID,
+		reader: request.context.promptReader,
+	});
+	if (!resolved.ok) {
+		if (resolved.reason === "missing-source") {
+			return {
+				ok: false,
+				error: `Could not resolve ${FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID}: the Flow extension descriptor does not provide a readable default.`,
+			};
+		}
+		return { ok: false, error: resolved.message };
 	}
+
+	const { source, path, label } = resolved.resolved;
 	if (source.type === "env") {
 		return {
 			ok: false,
 			error: `Could not resolve ${FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID}: environment prompt overrides are not supported for this point.`,
 		};
 	}
-
-	const resolved = resolvePromptPointPath(request.repoRoot, source);
-	if (resolved === undefined) {
-		return {
-			ok: false,
-			error: `Could not resolve ${FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID}: the selected prompt has no readable path.`,
-		};
-	}
-	const read = request.gateway.readRecoveryPrompt({ path: resolved.path });
-	if (read.type === "missing") {
-		return {
-			ok: false,
-			error: `Selected ${resolved.label} is missing at ${resolved.path}.`,
-		};
-	}
-	if (read.type === "error") {
-		return {
-			ok: false,
-			error: `Could not read selected ${resolved.label} at ${resolved.path}: ${read.message}`,
-		};
-	}
-	if (read.text.trim() === "") {
-		return {
-			ok: false,
-			error: `Selected ${resolved.label} at ${resolved.path} is empty.`,
-		};
-	}
-
 	return {
 		ok: true,
-		prompt: source.type === "default" ? read.text.trimEnd() : read.text,
-		source: { type: source.type, path: resolved.path, label: resolved.label },
+		prompt: source.type === "default" ? resolved.content.trimEnd() : resolved.content,
+		source: { type: source.type, path, label },
 	};
 }
 
@@ -242,13 +211,4 @@ function indentDiagnosticBlock(value: string): string {
 		.split("\n")
 		.map((line) => `    ${line}`)
 		.join("\n");
-}
-
-function isNodeFileNotFound(error: unknown): boolean {
-	return (
-		typeof error === "object" &&
-		error !== null &&
-		"code" in error &&
-		(error as { code?: unknown }).code === "ENOENT"
-	);
 }

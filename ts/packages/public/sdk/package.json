@@ -15,6 +15,7 @@
 		"./progress-phase-state": "./src/sdk/progress-phase-state.ts",
 		"./project-config": "./src/project-config/index.ts",
 		"./project-config/points": "./src/project-config/points.ts",
+		"./project-config/prompt-content": "./src/project-config/prompt-content.ts",
 		"./runtime/module-loader": "./src/runtime/module-loader.ts",
 		"./testing": "./src/testing/index.ts"
 	},
@@ -41,6 +42,7 @@
 			"./project-config/descriptor-package",
 			"./progress-phase-state",
 			"./project-config/points",
+			"./project-config/prompt-content",
 			"./runtime/module-loader",
 			"./testing"
 		]
