@@ -1,11 +1,10 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
 
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import {
 	createHerdrSidebarControllerWithPiWiring,
 	registerHerdrSidebarCommands,
 } from "../src/pi/sidebar.ts";
-import { getCallerWorkspaceId } from "@nseng-ai/herdr/api";
 import { createHerdrSidebarController } from "../src/core/sidebar.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import {
@@ -16,6 +15,7 @@ import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
+	failedCallerContext,
 	makeTempDir,
 	notificationMessages,
 	objectiveDiffStep,
@@ -23,8 +23,13 @@ import {
 	objectiveReadStep,
 	objectiveStatusStep,
 	resetHerdrTestEnvironment,
+	resolvedCallerContext,
 	step,
 } from "./herdr-test-harness.ts";
+
+function callerHerdrGateway(workspaceId = "w1"): FakeHerdrGateway {
+	return new FakeHerdrGateway({ callerContextResult: resolvedCallerContext(workspaceId) });
+}
 
 const NOW = Date.parse("2026-01-15T00:00:00Z");
 
@@ -32,7 +37,6 @@ afterEach(resetHerdrTestEnvironment);
 
 describe("herdr Objective sidebar", () => {
 	test("ns:herdr:space:objective-summary applies label from explicit slug", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const repoRoot = await makeTempDir();
 		const slug = "herdr-capability-parity";
 		const expectedLabel = `obj:${slug}`;
@@ -40,7 +44,7 @@ describe("herdr Objective sidebar", () => {
 			script: [objectiveReadStep(slug)],
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
-		const herdr = new FakeHerdrGateway();
+		const herdr = callerHerdrGateway();
 		const controller = createHerdrSidebarController(adaptedPi, herdr);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
@@ -68,10 +72,9 @@ describe("herdr Objective sidebar", () => {
 	});
 
 	test("ns:herdr:space:objective-summary prefixes labels inside a managed slot", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const slug = "areg-lifecycle-ergonomics";
 		const pi = new FakePi({ script: [objectiveReadStep(slug)] });
-		const herdr = new FakeHerdrGateway();
+		const herdr = callerHerdrGateway();
 		const controller = createHerdrSidebarController(createHerdrPiCommandApi(pi), herdr);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({
@@ -87,14 +90,13 @@ describe("herdr Objective sidebar", () => {
 	});
 
 	test("ns:herdr:space:objective-summary resolves path selector to slug", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const repoRoot = await makeTempDir();
 		const slug = "herdr-capability-parity";
 		const pi = new FakePi({
 			script: [objectiveReadStep(slug)],
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
-		const herdr = new FakeHerdrGateway();
+		const herdr = callerHerdrGateway();
 		const controller = createHerdrSidebarController(adaptedPi, herdr);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
@@ -114,7 +116,6 @@ describe("herdr Objective sidebar", () => {
 	});
 
 	test("ns:herdr:space:objective-summary without selector opens Objective picker", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const repoRoot = await makeTempDir();
 		const slug = "bravo-objective";
 		const expectedLabel = `obj:${slug}`;
@@ -127,7 +128,7 @@ describe("herdr Objective sidebar", () => {
 			],
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
-		const herdr = new FakeHerdrGateway();
+		const herdr = callerHerdrGateway();
 		const controller = createHerdrSidebarController(adaptedPi, herdr, {
 			clock: createManualClock(NOW).clock,
 		});
@@ -155,7 +156,6 @@ describe("herdr Objective sidebar", () => {
 	});
 
 	test("ns:herdr:space:objective-summary suggests the only changed active Objective", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const repoRoot = await makeTempDir();
 		const slug = "bravo-objective";
 		const pi = new FakePi({
@@ -167,7 +167,7 @@ describe("herdr Objective sidebar", () => {
 			],
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
-		const herdr = new FakeHerdrGateway();
+		const herdr = callerHerdrGateway();
 		const controller = createHerdrSidebarController(adaptedPi, herdr, {
 			clock: createManualClock(NOW).clock,
 		});
@@ -191,7 +191,6 @@ describe("herdr Objective sidebar", () => {
 	});
 
 	test("ns:herdr:space:objective-summary picker cancellation stops without rename", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const pi = new FakePi({
 			script: [
 				objectiveListStep(["alpha-objective"]),
@@ -200,7 +199,7 @@ describe("herdr Objective sidebar", () => {
 			],
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
-		const herdr = new FakeHerdrGateway();
+		const herdr = callerHerdrGateway();
 		const controller = createHerdrSidebarController(adaptedPi, herdr, {
 			clock: createManualClock(NOW).clock,
 		});
@@ -219,10 +218,9 @@ describe("herdr Objective sidebar", () => {
 	});
 
 	test("ns:herdr:space:objective-summary with no active Objectives stops without rename", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const pi = new FakePi({ script: [objectiveListStep([])] });
 		const adaptedPi = createHerdrPiCommandApi(pi);
-		const herdr = new FakeHerdrGateway();
+		const herdr = callerHerdrGateway();
 		const controller = createHerdrSidebarController(adaptedPi, herdr, {
 			clock: createManualClock(NOW).clock,
 		});
@@ -241,11 +239,10 @@ describe("herdr Objective sidebar", () => {
 		});
 	});
 
-	test("ns:herdr:space:objective-summary missing workspace skips all work", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
+	test("ns:herdr:space:objective-summary caller resolution failure skips all work", async () => {
 		const pi = new FakePi();
 		const adaptedPi = createHerdrPiCommandApi(pi);
-		const herdr = new FakeHerdrGateway();
+		const herdr = new FakeHerdrGateway({ callerContextResult: failedCallerContext() });
 		const controller = createHerdrSidebarController(adaptedPi, herdr);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
@@ -258,11 +255,12 @@ describe("herdr Objective sidebar", () => {
 		expect(pi.execCalls).toEqual([]);
 		expect(herdr.renameCalls).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
-		expect(ctx.notifications.at(-1)?.message).toBe("Not running inside a Herdr caller workspace.");
+		expect(ctx.notifications.at(-1)?.message).toBe(
+			`Not running inside a Herdr caller space.\nCould not resolve the Herdr caller context.`,
+		);
 	});
 
 	test("ns:herdr:space:objective-summary surfaces Objective read failure without rename", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const slug = "ghost-objective";
 		const pi = new FakePi({
 			script: [
@@ -277,7 +275,7 @@ describe("herdr Objective sidebar", () => {
 			],
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
-		const herdr = new FakeHerdrGateway();
+		const herdr = callerHerdrGateway();
 		const controller = createHerdrSidebarController(adaptedPi, herdr);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
@@ -292,7 +290,6 @@ describe("herdr Objective sidebar", () => {
 	});
 
 	test("ns:herdr:space:objective-summary surfaces herdr rename failure", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const repoRoot = await makeTempDir();
 		const slug = "herdr-capability-parity";
 		const pi = new FakePi({
@@ -300,6 +297,7 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway({
+			callerContextResult: resolvedCallerContext("w1"),
 			renameResult: { type: "failed", message: "workspace not found" },
 		});
 		const controller = createHerdrSidebarController(adaptedPi, herdr);
@@ -318,14 +316,13 @@ describe("herdr Objective sidebar", () => {
 		// Verifies the label-only behavior: only objective validation and
 		// `herdr workspace rename` are performed — no branch or slot reads.
 		// The label encodes only the Objective slug.
-		vi.stubEnv("HERDR_WORKSPACE_ID", "workspace-42");
 		const repoRoot = await makeTempDir();
 		const slug = "herdr-capability-parity";
 		const pi = new FakePi({
 			script: [objectiveReadStep(slug)],
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
-		const herdr = new FakeHerdrGateway();
+		const herdr = callerHerdrGateway("workspace-42");
 		const controller = createHerdrSidebarController(adaptedPi, herdr);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
@@ -343,25 +340,10 @@ describe("herdr Objective sidebar", () => {
 	});
 
 	test("ns:herdr:space:objective-summary uses Pi wiring end-to-end", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const pi = new FakePi();
 		const controller = createHerdrSidebarControllerWithPiWiring(pi);
 		registerHerdrSidebarCommands(pi, controller);
 		expect(pi.commands.has("ns:herdr:space:objective-summary")).toBe(true);
-	});
-});
-
-describe("herdr Objective sidebar — getCallerWorkspaceId", () => {
-	test("reads HERDR_WORKSPACE_ID from injected env", () => {
-		expect(getCallerWorkspaceId({ HERDR_WORKSPACE_ID: "w42" })).toBe("w42");
-	});
-
-	test("returns undefined when HERDR_WORKSPACE_ID is absent", () => {
-		expect(getCallerWorkspaceId({})).toBeUndefined();
-	});
-
-	test("returns undefined when HERDR_WORKSPACE_ID is blank", () => {
-		expect(getCallerWorkspaceId({ HERDR_WORKSPACE_ID: "   " })).toBeUndefined();
 	});
 });
 

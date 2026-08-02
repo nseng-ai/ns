@@ -27,7 +27,11 @@ import {
 } from "@nseng-ai/herdr/api";
 import { registerHerdrHandoffTab } from "../src/pi/handoff-tab.ts";
 import { isExactOptionalIntegrationAbsence } from "../src/pi/extension.ts";
-import { FakeHerdrGateway } from "./herdr-test-harness.ts";
+import {
+	FakeHerdrGateway,
+	failedCallerContext,
+	resolvedCallerContext,
+} from "./herdr-test-harness.ts";
 
 const launchOptions = {
 	cwd: "/state/slots/repos/ns/worktrees/slot-6",
@@ -310,21 +314,20 @@ describe("ns herdr exec handoff-tab launch", () => {
 });
 
 describe("Herdr Handoff Pi prompt", () => {
-	test.each([undefined, "   "])(
-		"rejects missing or blank caller workspace before prompt (%s)",
-		async (workspaceId) => {
-			const pi = new HandoffTabFakePi([
-				{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" },
-			]);
-			registerHerdrHandoffTab(
-				pi,
-				createHandoffLaunchIntegration(pi, { skillLoader: fakeHandoffCreateSkillLoader() }),
-				workspaceId === undefined ? {} : { HERDR_WORKSPACE_ID: workspaceId },
-			);
-			await pi.command().handler("continue work", commandContext());
-			expect(pi.sentUserMessages).toEqual([]);
-		},
-	);
+	test("rejects a failed caller-space resolution before prompt", async () => {
+		const pi = new HandoffTabFakePi([
+			{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" },
+		]);
+		const herdr = new FakeHerdrGateway({ callerContextResult: failedCallerContext() });
+		registerHerdrHandoffTab(
+			pi,
+			createHandoffLaunchIntegration(pi, { skillLoader: fakeHandoffCreateSkillLoader() }),
+			herdr,
+		);
+		await pi.command().handler("continue work", commandContext());
+		expect(herdr.resolveCallerContextCalls).toBe(1);
+		expect(pi.sentUserMessages).toEqual([]);
+	});
 
 	test("captures exact caller workspace and launch profile in typed JSON input", async () => {
 		const pi = new HandoffTabFakePi([
@@ -333,9 +336,7 @@ describe("Herdr Handoff Pi prompt", () => {
 		registerHerdrHandoffTab(
 			pi,
 			createHandoffLaunchIntegration(pi, { skillLoader: fakeHandoffCreateSkillLoader() }),
-			{
-				HERDR_WORKSPACE_ID: "workspace-'quoted",
-			},
+			new FakeHerdrGateway({ callerContextResult: resolvedCallerContext("workspace-'quoted") }),
 		);
 		await pi
 			.command()
@@ -366,7 +367,7 @@ describe("Herdr Handoff Pi prompt", () => {
 		registerHerdrHandoffTab(
 			pi,
 			createHandoffLaunchIntegration(pi, { skillLoader: fakeHandoffCreateSkillLoader() }),
-			{ HERDR_WORKSPACE_ID: "workspace-1" },
+			new FakeHerdrGateway({ callerContextResult: resolvedCallerContext("workspace-1") }),
 		);
 		await pi.command().handler("continue work", commandContext({ withModel: true }));
 		const prompt = pi.sentUserMessages[0] ?? "";
@@ -382,9 +383,7 @@ describe("Herdr Handoff Pi prompt", () => {
 		registerHerdrHandoffTab(
 			pi,
 			createHandoffLaunchIntegration(pi, { skillLoader: fakeHandoffCreateSkillLoader() }),
-			{
-				HERDR_WORKSPACE_ID: "workspace-1",
-			},
+			new FakeHerdrGateway({ callerContextResult: resolvedCallerContext("workspace-1") }),
 		);
 		await pi.command().handler("continue work", commandContext());
 		expect(pi.sentUserMessages).toEqual([]);

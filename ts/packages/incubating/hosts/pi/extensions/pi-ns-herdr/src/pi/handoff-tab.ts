@@ -1,5 +1,5 @@
 import { formatShellArg } from "@nseng-ai/foundation/exec";
-import { getCallerWorkspaceId, HERDR_TAB_HANDOFF_COMMAND_NAME } from "@nseng-ai/herdr/api";
+import { HERDR_TAB_HANDOFF_COMMAND_NAME, type HerdrGateway } from "@nseng-ai/herdr/api";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 import type {
 	HandoffExtensionAPI,
@@ -30,7 +30,7 @@ const START_MESSAGES = {
 export function registerHerdrHandoffTab(
 	pi: HandoffExtensionAPI,
 	integration: HandoffPromptCreateIntegration,
-	env: NodeJS.ProcessEnv = process.env,
+	herdr: Pick<HerdrGateway, "resolveCallerContext">,
 ): void {
 	if (pi.registerTool === undefined) return;
 	pi.on?.("session_start", () => integration.registerContentSlugToolIfMissing());
@@ -45,14 +45,14 @@ export function registerHerdrHandoffTab(
 					promptCopy: PROMPT_COPY,
 					startMessages: START_MESSAGES,
 					preflight: async ({ request }) => {
-						const workspaceId = getCallerWorkspaceId(env);
-						if (workspaceId === undefined) {
+						const callerContext = await herdr.resolveCallerContext();
+						if (callerContext.type === "failed") {
 							return {
 								type: "failed",
-								message:
-									"HERDR_WORKSPACE_ID is required before creating a handoff for a Herdr tab.",
+								message: `A Herdr caller space is required before creating a handoff for a Herdr tab.\n${callerContext.message}`,
 							};
 						}
+						const workspaceId = callerContext.context.workspaceId;
 						if (ctx.model === undefined) {
 							return {
 								type: "failed",

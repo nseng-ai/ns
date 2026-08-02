@@ -1,6 +1,5 @@
 import {
 	getCallerTabId,
-	getCallerWorkspaceId,
 	HERDR_TAB_GOAL_COMMAND_NAME,
 	HERDR_TAB_NEW_COMMAND_NAME,
 	type HerdrGateway,
@@ -13,20 +12,23 @@ import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { generateWorkspaceGoalSlug, resolveHerdrGoal } from "./space-goal.ts";
 
 export interface HandleHerdrNewTabOptions {
-	herdr: Pick<HerdrGateway, "createTab">;
+	herdr: Pick<HerdrGateway, "createTab" | "resolveCallerContext">;
 	labelDeriver: HerdrResourceLabelDeriver;
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
-	env?: NodeJS.ProcessEnv;
 }
 
 export async function handleHerdrNewTab(options: HandleHerdrNewTabOptions): Promise<void> {
-	const workspaceId = getCallerWorkspaceId(options.env);
-	if (workspaceId === undefined) {
-		options.ctx.ui.notify("Not running inside a Herdr caller workspace.", "warning");
+	const callerContext = await options.herdr.resolveCallerContext();
+	if (callerContext.type === "failed") {
+		options.ctx.ui.notify(
+			`Not running inside a Herdr caller space.\n${callerContext.message}`,
+			"warning",
+		);
 		return;
 	}
+	const workspaceId = callerContext.context.workspaceId;
 
 	const description = options.args.trim();
 	let label: string | undefined;

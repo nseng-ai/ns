@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import type { HandleHerdrSlotImplPromptOptions } from "../src/core/impl-prompt.ts";
 import type { HerdrImplPromptContext } from "../src/core/impl-prompt.ts";
@@ -95,7 +95,6 @@ describe(COMMAND_NAME, () => {
 	])(
 		"shares pending exclusion from $firstCommand to $secondCommand",
 		async ({ firstCommand, secondCommand }) => {
-			vi.stubEnv("HERDR_WORKSPACE_ID", "caller-workspace");
 			const pi = new FakePi();
 			let generationCalls = 0;
 			registerHerdrSessionImplCommands(registrationContext(pi), {
@@ -143,7 +142,6 @@ describe(COMMAND_NAME, () => {
 	);
 
 	test("clears shared pending state when idle waiting fails so the other destination can retry", async () => {
-		vi.stubEnv("HERDR_WORKSPACE_ID", "caller-workspace");
 		const pi = new FakePi();
 		let generationCalls = 0;
 		registerHerdrSessionImplCommands(registrationContext(pi), {

@@ -1,6 +1,5 @@
 import {
 	formatHerdrResourceLabel,
-	getCallerWorkspaceId,
 	HERDR_SPACE_GOAL_COMMAND_NAME,
 	slotLabelInput,
 	type HerdrGateway,
@@ -84,11 +83,16 @@ export async function generateWorkspaceGoalSlug(
 export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions): Promise<void> {
 	await options.ctx.waitForIdle();
 
-	const workspaceId = getCallerWorkspaceId();
-	if (workspaceId === undefined) {
-		notify(options.ctx, "Not running inside a Herdr caller workspace.", "warning");
+	const callerContext = await options.herdr.resolveCallerContext();
+	if (callerContext.type === "failed") {
+		notify(
+			options.ctx,
+			`Not running inside a Herdr caller space.\n${callerContext.message}`,
+			"warning",
+		);
 		return;
 	}
+	const workspaceId = callerContext.context.workspaceId;
 
 	const goal = await resolveHerdrGoal({
 		args: options.args,

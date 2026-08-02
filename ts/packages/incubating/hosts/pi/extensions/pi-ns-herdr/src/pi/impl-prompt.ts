@@ -68,7 +68,11 @@ function registerPromptImplCommand(
 			description: `Implement a prompt in a new ${formatImplDestinationNoun(config.destination)}.`,
 			argumentHint: "<prompt>",
 			handler: async (args, pi) => {
-				const preparedDestination = prepareImplDestination(config.destination, config.commandName);
+				const preparedDestination = await prepareImplDestination({
+					destination: config.destination,
+					commandName: config.commandName,
+					herdr: context.herdr,
+				});
 				if (preparedDestination.type === "failed") {
 					pi.ui.notify(preparedDestination.message, "error");
 					return;

@@ -1,4 +1,4 @@
-import { getCallerWorkspaceId, slotLabelInput, type HerdrGateway } from "@nseng-ai/herdr/api";
+import { slotLabelInput, type HerdrGateway } from "@nseng-ai/herdr/api";
 import type { Clock } from "@nseng-ai/foundation/clock";
 import {
 	chooseActiveObjectiveSlug,
@@ -51,11 +51,12 @@ async function handleDeterministicObjectiveSidebar(
 ): Promise<void> {
 	await ctx.waitForIdle();
 
-	const workspaceId = getCallerWorkspaceId();
-	if (!workspaceId) {
-		notify(ctx, "Not running inside a Herdr caller workspace.", "warning");
+	const callerContext = await herdr.resolveCallerContext();
+	if (callerContext.type === "failed") {
+		notify(ctx, `Not running inside a Herdr caller space.\n${callerContext.message}`, "warning");
 		return;
 	}
+	const workspaceId = callerContext.context.workspaceId;
 
 	const slug = await resolveObjectiveSidebarSlug(pi, args, ctx, options);
 	if (slug === undefined) {

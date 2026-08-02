@@ -9,7 +9,7 @@ The **first-party extension** that owns Herdr spaces, tabs, labels, explicit cal
 *Avoid*: Herdr capability (retired name), generic terminal multiplexer wrapper, cmux adapter, Herdr plugin
 
 **Herdr Consumer Gateway**:
-The narrow domain-shaped interface (`HerdrGateway`) exposing only the workspace and tab operations the extension currently needs, backed by the installed `herdr` CLI.
+The narrow domain-shaped interface (`HerdrGateway`) exposing only the workspace, tab, and caller-context operations the extension currently needs, backed by the installed `herdr` CLI.
 *Avoid*: raw socket gateway, full Herdr API surface, generic CLI wrapper
 
 **Prepared Herdr Launch**:
@@ -22,7 +22,7 @@ A launched work item keeps its model-derived normalized semantic slug distinct f
 
 **Herdr space**:
 The Herdr resource addressed by `/ns:herdr:space:*` commands. Space commands create or rename a space; implementation workflows may use a newly created space as their destination. Plan implementation labels the new space with the content-derived branch-context slug so its displayed name describes the planned work.
-*Avoid*: workflow family, workspace (except `HERDR_WORKSPACE_ID` and upstream mechanics), dispatch workspace as a separate resource kind, cmux workspace, command-and-source-branch sentence as a plan-dispatch label
+*Avoid*: workflow family, workspace (except upstream Herdr mechanics such as workspace IDs), dispatch workspace as a separate resource kind, cmux workspace, command-and-source-branch sentence as a plan-dispatch label
 
 **Herdr tab**:
 A tab resource inside a Herdr space, addressed by `/ns:herdr:tab:*` commands. Commands that mutate or launch into the caller's tab or space resolve explicit Herdr caller identity before doing dependent work.
@@ -49,11 +49,11 @@ The optional `/ns:herdr:tab:handoff` integration with `@nseng-ai/handoffs`. The 
 *Avoid*: generic Herdr handoff workflow family, model-facing launch tool, arbitrary command transport, Markdown transport through Herdr, Handoffs-owned destination, compatibility alias
 
 **Caller space targeting**:
-Identifying the explicit caller Herdr space through `HERDR_WORKSPACE_ID`, injected by Herdr into a managed pane. Space rename and tab-creation/launch flows validate and capture this ID before dependent work or destination mutation.
-*Avoid*: UI focus targeting, ambient space, implicit space
+Identifying the explicit caller Herdr space through the typed Herdr Consumer Gateway caller-context operation (`resolveCallerContext()`), backed by Herdr's caller-aware `pane current --current` query. Space rename and tab-creation/launch flows resolve and capture this identity before dependent work or destination mutation and fail closed when resolution fails.
+*Avoid*: UI focus targeting, ambient space, implicit space, `HERDR_WORKSPACE_ID` environment transport
 
 **Caller tab targeting**:
-Identifying the exact Herdr tab to rename through `HERDR_TAB_ID`, injected by Herdr into a managed pane. Tab rename flows validate this ID before model work or mutation and never substitute `HERDR_WORKSPACE_ID` or UI focus.
+Identifying the exact Herdr tab to rename through `HERDR_TAB_ID`, injected by Herdr into a managed pane. Tab rename flows validate this ID before model work or mutation and never substitute the caller space ID or UI focus.
 *Avoid*: caller space ID, focused tab, current tab inference
 
 **Herdr resource label**:
@@ -69,7 +69,7 @@ The current `/ns:herdr:space:objective-summary` implementation applies only a sp
 *Avoid*: metadata transport, inferred slot from arbitrary basename, partial cmux parity
 
 **Contextual implementation branch basis**:
-The invocation-time policy shared by prompt-to-space, prompt-to-tab, session-to-space, session-to-tab, plan-to-space, and plan-to-tab implementation. Named `main` or `master` selects Local trunk automatically; another named branch offers Current branch (`<name>`) or Local trunk; detached HEAD or current-branch lookup failure offers confirmed Local-trunk fallback. Herdr never fetches or refreshes trunk: the local trunk branch name comes from the repository's cached `refs/remotes/origin/HEAD`, read only after Local trunk is selected and never at extension registration or through Graphite. A failed lookup, missing interaction UI, or cancellation stops before downstream mutation. Tab-targeted prompt, session, and plan workflows validate and capture caller space identity immediately after acknowledgement, before idle waiting, Git inspection, interaction, or mutation.
+The invocation-time policy shared by prompt-to-space, prompt-to-tab, session-to-space, session-to-tab, plan-to-space, and plan-to-tab implementation. Named `main` or `master` selects Local trunk automatically; another named branch offers Current branch (`<name>`) or Local trunk; detached HEAD or current-branch lookup failure offers confirmed Local-trunk fallback. Herdr never fetches or refreshes trunk: the local trunk branch name comes from the repository's cached `refs/remotes/origin/HEAD`, read only after Local trunk is selected and never at extension registration or through Graphite. A failed lookup, missing interaction UI, or cancellation stops before downstream mutation. Tab-targeted prompt, session, and plan workflows resolve and capture caller space identity through the Herdr Consumer Gateway immediately after acknowledgement, before idle waiting, Git inspection, interaction, or mutation.
 *Avoid*: command-name branch basis, `--from` override, refreshed trunk, implicit fetch, startup trunk resolution, Graphite trunk query, silent noninteractive default, duplicated prompt/plan selection policy
 
 **Herdr implementation workflow**:
