@@ -466,7 +466,7 @@ test("structured flags and exact formats are completed, while raw tails have no 
 		(await app.complete({ words: ["choose", "--format", ""] })).candidates.map(
 			(entry) => entry.value,
 		),
-	).toEqual(["human", "json", "markdown", "md"]);
+	).toEqual(["human", "json", "md"]);
 	expect((await app.complete({ words: ["raw", "--"] })).candidates).toEqual([]);
 });
 

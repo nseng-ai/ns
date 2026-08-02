@@ -1,4 +1,10 @@
-export type OutputFormat = "human" | "json" | "md";
+export const CLINKR_APP_OUTPUT_FORMATS = ["human", "json", "md"] as const;
+
+export type OutputFormat = (typeof CLINKR_APP_OUTPUT_FORMATS)[number];
+
+function isOutputFormat(value: string | undefined): value is OutputFormat {
+	return value !== undefined && CLINKR_APP_OUTPUT_FORMATS.some((format) => format === value);
+}
 
 const FRAMEWORK_ARGUMENT = {
 	endOfOptions: "--",
@@ -118,10 +124,7 @@ export function parseGlobalFlags(argv: readonly string[]): GlobalFlagsResult {
 		}
 	}
 	const formatValue = formatValues.length === 1 ? formatValues[0] : undefined;
-	const format =
-		formatValue === "human" || formatValue === "json" || formatValue === "md"
-			? formatValue
-			: undefined;
+	const format = isOutputFormat(formatValue) ? formatValue : undefined;
 	let message: string | undefined;
 	if (inputJsonCount > 1) message = "repeated --input-json";
 	else if (missingFormatValue) message = "option '--format <format>' argument missing";
