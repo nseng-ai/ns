@@ -8,10 +8,6 @@ export type {
 	ClinkrCompletionFailure,
 	ContextFreeClinkrCompletionConfig,
 	ContextfulClinkrCompletionConfig,
-	// Provisional host surface for `execute()`: exported ahead of README
-	// promotion, which waits on the first in-process host migration.
-	ClinkrExecuteOptions,
-	ClinkrExecuteResult,
 	ClinkrRunOptions,
 	CreateComposedContextFreeClinkrAppOptions,
 	CreateComposedContextfulClinkrAppOptions,

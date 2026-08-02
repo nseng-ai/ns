@@ -35,8 +35,9 @@ test("callback-only apps lazily load and cache a root default command", async ()
 		});
 	});
 	expect(loads).toBe(0);
-	const [first, second] = await Promise.all([app.execute({}), app.execute({})]);
-	expect(first.outcome).toEqual({ status: "success", data: { value: "ready" } });
+	const first = await runForCliTest(app, []);
+	const second = await runForCliTest(app, []);
+	expect(first).toMatchObject({ exitCode: 0, stdout: '{\n  "value": "ready"\n}\n' });
 	expect(second.exitCode).toBe(0);
 	expect(loads).toBe(1);
 });

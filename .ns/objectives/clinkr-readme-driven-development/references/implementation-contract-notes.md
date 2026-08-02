@@ -22,6 +22,7 @@ This file preserves implementation-relevant details intentionally removed from t
 - Context belongs to an invocation, not app construction or global state. Context-free trees expose `handler(request)` and `clinkr.run(args)`; contextful trees expose `handler(context, request)` and require context for each run. Runtime dispatch follows `requiresContext` rather than inspecting function arity or always calling an underlying two-argument handler.
 - The boolean discriminant preserves request and outcome inference from command schemas while the handler's annotated first parameter supplies its context type. A direct leading context generic cannot preserve inference of omitted trailing schema generics in TypeScript, and a uniform invocation object would require a synthetic null context for context-free commands. Repeating `requiresContext: true` on contextful definitions is the accepted tradeoff for truthful call shapes and runtime validation.
 - `ClinkrApp.run()` resolves to an exit code and never calls `process.exit()`.
+- `ClinkrApp` exposes no speculative structured in-process execution seam. The SDK/Objectives host migration must prove whether a host needs route-addressed invocation, direct command definitions, or another contract before Clinkr adds one.
 - The supported Node.js floor is `>=24.12.0`; the package `engines` metadata and qualification matrix must match.
 
 ## Programmatic topology and source composition

@@ -240,13 +240,6 @@ export class ClinkrNavigator<TContext> {
 		};
 	}
 
-	async loadRootDefault(): Promise<LoadedSelectedCommand<TContext>> {
-		const scope = await this.topology.open([]);
-		if (scope.defaultCommand === undefined)
-			throw new Error("clinkr: root scope has no default command");
-		return this.load(scope.defaultCommand);
-	}
-
 	async load(route: OpenedRoute<TContext>): Promise<LoadedSelectedCommand<TContext>> {
 		const loaded = await this.topology.load(route);
 		if ((loaded.selected.definition.requiresContext === true) !== this.requiresContext) {
