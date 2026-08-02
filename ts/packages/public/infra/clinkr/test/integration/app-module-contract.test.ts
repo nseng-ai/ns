@@ -19,12 +19,17 @@ afterEach(async () => {
 	);
 });
 
+async function createTemporaryDirectory(prefix: string): Promise<string> {
+	const directory = await mkdtemp(path.join(import.meta.dirname, prefix));
+	temporaryDirectories.push(directory);
+	return directory;
+}
+
 async function createCommandDirectory(input: {
 	readonly metadataSource?: string;
 	readonly commandSource?: string;
 }): Promise<string> {
-	const directory = await mkdtemp(path.join(import.meta.dirname, ".clinkr-module-contract-"));
-	temporaryDirectories.push(directory);
+	const directory = await createTemporaryDirectory(".clinkr-module-contract-");
 	await Promise.all([
 		writeFile(
 			path.join(directory, "metadata.ts"),
@@ -40,27 +45,68 @@ async function createCommandDirectory(input: {
 	return directory;
 }
 
-test("metadata modules require the exact metadata() export", async () => {
-	const commandDirectory = await createCommandDirectory({
-		metadataSource:
-			'export function metadata() { return { description: "Fixture command." }; }\nexport const extra = true;\n',
+const malformedFunctionModuleCases = [
+	["missing expected export", "export {};\n"],
+	["wrong export name", "export function wrong() {}\n"],
+	["non-function expected export", "export const EXPECTED = true;\n"],
+	["extra export", "export function EXPECTED() {}\nexport const extra = true;\n"],
+] as const;
+
+for (const [label, sourceTemplate] of malformedFunctionModuleCases) {
+	test(`metadata modules reject ${label}`, async () => {
+		const metadataSource = sourceTemplate.replaceAll("EXPECTED", "metadata");
+		const commandDirectory = await createCommandDirectory({ metadataSource });
+		await expect(createClinkrApp({ name: "fixture", commandDirectory }).run([])).rejects.toThrow(
+			/malformed metadata module.*metadata\.ts/,
+		);
 	});
-	const app = createClinkrApp({ name: "fixture", commandDirectory });
-	await expect(app.run([])).rejects.toThrow("malformed metadata module");
+
+	test(`command modules reject ${label}`, async () => {
+		const commandSource = sourceTemplate.replaceAll("EXPECTED", "command");
+		const commandDirectory = await createCommandDirectory({ commandSource });
+		await expect(createClinkrApp({ name: "fixture", commandDirectory }).run([])).rejects.toThrow(
+			/malformed command module.*command\.ts/,
+		);
+	});
+
+	test(`group modules reject ${label}`, async () => {
+		const directory = await createTemporaryDirectory(".clinkr-group-contract-");
+		const child = path.join(directory, "nested");
+		await mkdir(child);
+		await writeFile(path.join(child, "group.ts"), sourceTemplate.replaceAll("EXPECTED", "group"));
+		const source = createFilesystemSource({ commandDirectory: directory });
+		await expect(source.open([])).rejects.toThrow(/malformed group module.*group\.ts/);
+	});
+}
+
+test.each([
+	["a non-object", "return undefined;"],
+	["unknown keys", 'return { description: "Fixture command.", unexpected: true };'],
+	["invalid field types", "return { description: 5 };"],
+] as const)("metadata() rejects %s result", async (_label, resultSource) => {
+	const commandDirectory = await createCommandDirectory({
+		metadataSource: `export function metadata() { ${resultSource} }\n`,
+	});
+	await expect(createClinkrApp({ name: "fixture", commandDirectory }).run([])).rejects.toThrow(
+		/malformed command metadata.*metadata\.ts/,
+	);
 });
 
-test("metadata() return values are validated exactly", async () => {
-	const commandDirectory = await createCommandDirectory({
-		metadataSource:
-			'export function metadata() { return { description: "Fixture command.", unexpected: true }; }\n',
-	});
-	const app = createClinkrApp({ name: "fixture", commandDirectory });
-	await expect(app.run([])).rejects.toThrow("malformed command metadata");
+test.each([
+	["a non-object", "return undefined;"],
+	["unknown keys", 'return { description: "Nested group.", unexpected: true };'],
+	["invalid field types", "return { description: 5 };"],
+] as const)("group() rejects %s result", async (_label, resultSource) => {
+	const directory = await createTemporaryDirectory(".clinkr-group-contract-");
+	const child = path.join(directory, "nested");
+	await mkdir(child);
+	await writeFile(path.join(child, "group.ts"), `export function group() { ${resultSource} }\n`);
+	const source = createFilesystemSource({ commandDirectory: directory });
+	await expect(source.open([])).rejects.toThrow(/malformed group definition.*group\.ts/);
 });
 
-test("filesystem scope opening validates exact group() modules without importing child commands", async () => {
-	const directory = await mkdtemp(path.join(import.meta.dirname, ".clinkr-group-contract-"));
-	temporaryDirectories.push(directory);
+test("filesystem scope opening accepts a group with a complete default command pair", async () => {
+	const directory = await createTemporaryDirectory(".clinkr-group-contract-");
 	const child = path.join(directory, "nested");
 	await mkdir(child);
 	await Promise.all([
@@ -75,41 +121,38 @@ test("filesystem scope opening validates exact group() modules without importing
 		writeFile(path.join(child, "command.ts"), 'throw new Error("command imported eagerly");\n'),
 	]);
 	const source = createFilesystemSource({ commandDirectory: directory });
-	const opened = await source.open([]);
-	expect(opened.groups.get("nested")?.definition.description).toBe("Nested group.");
+	const openedRoot = await source.open([]);
+	expect(openedRoot.groups.get("nested")?.definition.description).toBe("Nested group.");
+	const openedGroup = await source.open(["nested"]);
+	expect(openedGroup.defaultCommand?.metadata.description).toBe("Nested default.");
 });
 
-test("filesystem scope opening rejects malformed group modules with file diagnostics", async () => {
-	const directory = await mkdtemp(path.join(import.meta.dirname, ".clinkr-group-contract-"));
-	temporaryDirectories.push(directory);
-	const child = path.join(directory, "nested");
-	await mkdir(child);
-	await writeFile(
-		path.join(child, "group.ts"),
-		'export function group() { return { description: "Nested group." }; }\nexport const extra = true;\n',
-	);
-	const source = createFilesystemSource({ commandDirectory: directory });
-	await expect(source.open([])).rejects.toThrow(/malformed group module.*group\.ts/);
-});
-
-test("filesystem scope opening rejects incomplete command pairs with directory diagnostics", async () => {
-	const directory = await mkdtemp(path.join(import.meta.dirname, ".clinkr-pair-contract-"));
-	temporaryDirectories.push(directory);
+test.each([
+	["metadata.ts without command.ts", "metadata.ts"],
+	["command.ts without metadata.ts", "command.ts"],
+] as const)("filesystem scope opening rejects incomplete pair: %s", async (_label, file) => {
+	const directory = await createTemporaryDirectory(".clinkr-pair-contract-");
 	const child = path.join(directory, "incomplete");
 	await mkdir(child);
-	await writeFile(
-		path.join(child, "metadata.ts"),
-		'export function metadata() { return { description: "Incomplete." }; }\n',
-	);
+	await writeFile(path.join(child, file), "export {};\n");
 	const source = createFilesystemSource({ commandDirectory: directory });
 	await expect(source.open([])).rejects.toThrow(/incomplete command pair.*incomplete/);
 });
 
-test.each(["command.js", "metadata.json", "group.mts", "command.ts.bak"])(
+test("filesystem scope opening rejects group.ts at the root", async () => {
+	const directory = await createTemporaryDirectory(".clinkr-shape-contract-");
+	await writeFile(
+		path.join(directory, "group.ts"),
+		'export function group() { return { description: "Invalid root group." }; }\n',
+	);
+	const source = createFilesystemSource({ commandDirectory: directory });
+	await expect(source.open([])).rejects.toThrow(/malformed root group\.ts.*clinkr-shape-contract/);
+});
+
+test.each(["command.js", "metadata.json", "group.mts", "command.ts.bak", "metadata.tsx", "group"])(
 	"filesystem scope opening rejects unsupported topology marker %s",
 	async (file) => {
-		const directory = await mkdtemp(path.join(import.meta.dirname, ".clinkr-shape-contract-"));
-		temporaryDirectories.push(directory);
+		const directory = await createTemporaryDirectory(".clinkr-shape-contract-");
 		await writeFile(path.join(directory, file), "export {};\n");
 		const source = createFilesystemSource({ commandDirectory: directory });
 		await expect(source.open([])).rejects.toThrow(new RegExp(`unsupported topology file ${file}`));
@@ -117,48 +160,76 @@ test.each(["command.js", "metadata.json", "group.mts", "command.ts.bak"])(
 );
 
 test("filesystem scope opening ignores ordinary implementation and support files", async () => {
-	const directory = await mkdtemp(path.join(import.meta.dirname, ".clinkr-shape-contract-"));
-	temporaryDirectories.push(directory);
+	const directory = await createTemporaryDirectory(".clinkr-shape-contract-");
 	await Promise.all([
 		writeFile(path.join(directory, "helpers.ts"), "export const value = 1;\n"),
+		writeFile(path.join(directory, "command-helper.ts"), "export const value = 1;\n"),
+		writeFile(path.join(directory, "metadata-notes.md"), "support notes\n"),
 		writeFile(path.join(directory, "README.md"), "support notes\n"),
 	]);
 	const source = createFilesystemSource({ commandDirectory: directory });
 	await expect(source.open([])).resolves.toEqual({ commands: new Map(), groups: new Map() });
 });
 
-test("command modules require the exact command() export", async () => {
-	const commandDirectory = await createCommandDirectory({
-		commandSource:
-			'import { defineCommand, ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return defineCommand({ schema: z.object({}), handler: async () => ok() }); }\nexport const extra = true;\n',
-	});
-	const app = createClinkrApp({ name: "fixture", commandDirectory });
-	await expect(app.run([])).rejects.toThrow("malformed command module");
+test("a missing root command directory fails with its path and filesystem cause", async () => {
+	const parent = await createTemporaryDirectory(".clinkr-filesystem-failure-");
+	const commandDirectory = path.join(parent, "missing");
+	const source = createFilesystemSource({ commandDirectory });
+	try {
+		await source.open([]);
+		expect.unreachable("opening a missing root command directory must fail");
+	} catch (error) {
+		if (!(error instanceof Error)) throw error;
+		expect(error.message).toContain(commandDirectory);
+		expect(error.message).toContain("command directory does not exist");
+		expect(error.cause).toMatchObject({ code: "ENOENT" });
+	}
+});
+
+test("a present non-directory command path fails with its path and filesystem cause", async () => {
+	const parent = await createTemporaryDirectory(".clinkr-filesystem-failure-");
+	const commandDirectory = path.join(parent, "commands");
+	await writeFile(commandDirectory, "not a directory\n");
+	const source = createFilesystemSource({ commandDirectory });
+	try {
+		await source.open([]);
+		expect.unreachable("opening a non-directory command path must fail");
+	} catch (error) {
+		if (!(error instanceof Error)) throw error;
+		expect(error.message).toContain(commandDirectory);
+		expect(error.message).toContain("unable to open filesystem scope <root>");
+		expect(error.cause).toMatchObject({ code: "ENOTDIR" });
+	}
 });
 
 for (const [label, commandSource] of [
 	[
-		"unknown keys",
+		"a synchronous definition result",
+		'import { defineCommand, ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport function command() { return defineCommand({ schema: z.object({}), handler: async () => ok() }); }\n',
+	],
+	["a non-object structured result", "export async function command() { return undefined; }\n"],
+	[
+		"structured definitions with unknown keys",
 		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), handler: async () => ok(), extra: true }; }\n',
 	],
 	[
-		"retired per-status schema keys",
+		"structured definitions with retired per-status schema keys",
 		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), negativeSchema: z.object({}), handler: async () => ok() }; }\n',
 	],
 	[
-		"invalid schemas",
+		"structured definitions with invalid schemas",
 		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), resultSchema: {}, handler: async () => ok() }; }\n',
 	],
 	[
-		"invalid renderers",
+		"structured definitions with invalid renderers",
 		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), renderHuman: "no", handler: async () => ok() }; }\n',
 	],
 	[
-		"invalid context discriminants",
+		"structured definitions with invalid context discriminants",
 		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { requiresContext: false, schema: z.object({}), handler: async () => ok() }; }\n',
 	],
 	[
-		"present-but-undefined context discriminants",
+		"structured definitions with present-but-undefined context discriminants",
 		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { requiresContext: undefined, schema: z.object({}), handler: async () => ok() }; }\n',
 	],
 	[
@@ -186,10 +257,10 @@ for (const [label, commandSource] of [
 		'export async function command() { return { type: "raw", run: 5 }; }\n',
 	],
 ] as const) {
-	test(`selected definitions reject ${label}`, async () => {
+	test(`selected command() rejects ${label}`, async () => {
 		const commandDirectory = await createCommandDirectory({ commandSource });
 		await expect(createClinkrApp({ name: "fixture", commandDirectory }).run([])).rejects.toThrow(
-			"malformed command definition",
+			/malformed command definition.*command\.ts/,
 		);
 	});
 }

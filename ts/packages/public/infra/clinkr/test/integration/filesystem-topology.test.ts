@@ -48,6 +48,96 @@ test("filesystem scopes advance exactly one group depth and selected loading sta
 	expect(state.definitions.slice(before.definitions)).toEqual(["leaf"]);
 });
 
+test.each([
+	[
+		"blank command description",
+		"command",
+		"valid",
+		'return { description: " " };',
+		/description must be non-empty at valid/,
+	],
+	[
+		"blank group summary",
+		"group",
+		"valid",
+		'return { description: "Valid.", summary: " " };',
+		/summary must be non-empty at valid/,
+	],
+	[
+		"blank default helpGroup",
+		"default",
+		"unused",
+		'return { description: "Valid.", helpGroup: " " };',
+		/helpGroup must be non-empty at <root>/,
+	],
+	[
+		"invalid command name",
+		"command",
+		"bad_name",
+		'return { description: "Valid." };',
+		/invalid canonical route name "bad_name" at bad_name/,
+	],
+	[
+		"invalid group name",
+		"group",
+		"Bad",
+		'return { description: "Valid." };',
+		/invalid canonical route name "Bad" at Bad/,
+	],
+	[
+		"invalid alias",
+		"command",
+		"valid",
+		'return { description: "Valid.", aliases: ["bad_name"] };',
+		/invalid canonical route name "bad_name" at valid/,
+	],
+	[
+		"self alias",
+		"group",
+		"valid",
+		'return { description: "Valid.", aliases: ["valid"] };',
+		/alias "valid" equals its route name at valid/,
+	],
+	[
+		"duplicate aliases",
+		"command",
+		"valid",
+		'return { description: "Valid.", aliases: ["v", "v"] };',
+		/duplicate alias "v" at valid/,
+	],
+] as const)(
+	"filesystem metadata rejects %s when its containing scope opens",
+	async (_label, kind, name, metadataBody, expected) => {
+		const directory = await mkdtemp(path.join(tmpdir(), "clinkr-semantics-"));
+		try {
+			const routeDirectory = kind === "default" ? directory : path.join(directory, name);
+			if (kind !== "default") await mkdir(routeDirectory);
+			if (kind === "group") {
+				await writeFile(
+					path.join(routeDirectory, "group.ts"),
+					`export function group() { ${metadataBody} }\n`,
+				);
+			} else {
+				await Promise.all([
+					writeFile(
+						path.join(routeDirectory, "metadata.ts"),
+						`export function metadata() { ${metadataBody} }\n`,
+					),
+					writeFile(
+						path.join(routeDirectory, "command.ts"),
+						"export async function command() {}\n",
+					),
+				]);
+			}
+			await expect(
+				createFilesystemSource({ commandDirectory: directory }).open([]),
+			).rejects.toThrow(expected);
+		} finally {
+			await rm(directory, { recursive: true });
+		}
+	},
+);
+
 test("disjoint filesystem groups retain ownership and do not probe unrelated sources", async () => {
 	const ownerDirectory = await mkdtemp(path.join(tmpdir(), "clinkr-owner-"));
 	const unrelatedDirectory = await mkdtemp(path.join(tmpdir(), "clinkr-unrelated-"));

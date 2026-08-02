@@ -25,6 +25,17 @@ function fixtureCommand(description: string, aliases?: readonly string[]) {
 	};
 }
 
+test.each([
+	["blank", [source(" ", async () => emptyScope())], /source label must be non-empty/],
+	[
+		"duplicate",
+		[source("same", async () => emptyScope()), source("same", async () => emptyScope())],
+		/duplicate source label "same"/,
+	],
+] as const)("final topology sources reject %s labels", (_label, sources, expected) => {
+	expect(() => new ClinkrTopology({ sources })).toThrow(expected);
+});
+
 test("concurrent scope opens share work and successful scopes cache", async () => {
 	let opens = 0;
 	let release: (() => void) | undefined;
@@ -48,19 +59,28 @@ test("concurrent scope opens share work and successful scopes cache", async () =
 	expect(opens).toBe(1);
 });
 
-test("failed scope opens are retryable and never published", async () => {
+test("concurrent failed scope opens share rejection and retry without publication", async () => {
 	let opens = 0;
+	let reject: ((error: Error) => void) | undefined;
+	const gate = new Promise<never>((_resolve, rejectGate) => {
+		reject = rejectGate;
+	});
+	const failure = new Error("temporary scope failure");
 	const topology = new ClinkrTopology({
 		sources: [
 			source("fixture", async () => {
 				opens += 1;
-				if (opens === 1) throw new Error("temporary scope failure");
+				if (opens === 1) return gate;
 				return emptyScope();
 			}),
 		],
 	});
-	await expect(topology.open([])).rejects.toThrow("temporary scope failure");
+	const first = topology.open([]).catch((error: unknown) => error);
+	const second = topology.open([]).catch((error: unknown) => error);
+	reject?.(failure);
+	expect(await Promise.all([first, second])).toEqual([failure, failure]);
 	await expect(topology.open([])).resolves.toEqual({ commands: new Map(), groups: new Map() });
+	await topology.open([]);
 	expect(opens).toBe(2);
 });
 
@@ -120,13 +140,18 @@ test("opened routes carry the selected-command cache identity", async () => {
 	expect(loads).toBe(2);
 });
 
-test("failed selected loads are evicted and retryable", async () => {
+test("concurrent failed selected loads share rejection, evict, retry, and cache success", async () => {
 	let loads = 0;
+	let reject: ((error: Error) => void) | undefined;
+	const gate = new Promise<never>((_resolve, rejectGate) => {
+		reject = rejectGate;
+	});
+	const failure = new Error("temporary load failure");
 	const command = {
 		metadata: { description: "Flaky loader." },
 		load: async () => {
 			loads += 1;
-			if (loads === 1) throw new Error("temporary load failure");
+			if (loads === 1) return gate;
 			return fixtureCommand("Flaky loader.").load();
 		},
 	};
@@ -141,23 +166,27 @@ test("failed selected loads are evicted and retryable", async () => {
 	const root = await topology.open([]);
 	const route = root.commands.get("flaky");
 	if (route === undefined) throw new Error("Missing fixture route");
-	await expect(topology.load(route)).rejects.toThrow("temporary load failure");
+	const first = topology.load(route).catch((error: unknown) => error);
+	const second = topology.load(route).catch((error: unknown) => error);
+	reject?.(failure);
+	expect(await Promise.all([first, second])).toEqual([failure, failure]);
 	await expect(topology.load(route)).resolves.toMatchObject({
 		selected: { kind: "structured" },
 	});
+	await topology.load(route);
 	expect(loads).toBe(2);
 });
 
-test("opening a descendant probes only the source that owns its group", async () => {
+test("recursive descendant opening follows group ownership without probing sibling sources", async () => {
 	const opened: string[] = [];
 	const ownedGroup = { definition: { description: "Owned group." } };
 	const topology = new ClinkrTopology({
 		sources: [
 			source("owner", async (path) => {
 				opened.push(`owner:${path.join("/")}`);
-				return path.length === 0
-					? { commands: new Map(), groups: new Map([["owned", ownedGroup]]) }
-					: emptyScope();
+				return path.length < 3
+					? { commands: new Map(), groups: new Map([[`level-${path.length + 1}`, ownedGroup]]) }
+					: { commands: new Map([["leaf", fixtureCommand("Leaf.")]]), groups: new Map() };
 			}),
 			source("unrelated", async (path) => {
 				opened.push(`unrelated:${path.join("/")}`);
@@ -166,8 +195,15 @@ test("opening a descendant probes only the source that owns its group", async ()
 			}),
 		],
 	});
-	await topology.open(["owned"]);
-	expect(opened).toEqual(["owner:", "unrelated:", "owner:owned"]);
+	const leaf = await topology.open(["level-1", "level-2", "level-3"]);
+	expect(leaf.commands.has("leaf")).toBe(true);
+	expect(opened).toEqual([
+		"owner:",
+		"unrelated:",
+		"owner:level-1",
+		"owner:level-1/level-2",
+		"owner:level-1/level-2/level-3",
+	]);
 });
 
 test("configured reserved route names reject canonical names", async () => {

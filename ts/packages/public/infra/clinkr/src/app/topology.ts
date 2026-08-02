@@ -130,6 +130,14 @@ export class ClinkrTopology<TContext> {
 	>();
 
 	constructor(options: TopologyOptions<TContext>) {
+		const labels = new Set<string>();
+		for (const source of options.sources) {
+			validateSourceLabel(source.label);
+			if (labels.has(source.label)) {
+				throw new Error(`clinkr: duplicate source label ${JSON.stringify(source.label)}`);
+			}
+			labels.add(source.label);
+		}
 		this.sources = [...options.sources];
 		this.reservedNames = new Set(options.reservedNames);
 	}
@@ -169,6 +177,7 @@ export class ClinkrTopology<TContext> {
 			{ source: TopologySource<TContext>; definition: ClinkrGroupDefinition }
 		>();
 		const aliases = new Map<string, AliasOwner<TContext>>();
+		const reservedNames = path.length === 0 ? this.reservedNames : new Set<string>();
 		for (const { source, scope } of scopes) {
 			if (scope.defaultCommand !== undefined) {
 				if (defaultCommand !== undefined)
@@ -185,7 +194,7 @@ export class ClinkrTopology<TContext> {
 					commands,
 					groups,
 					aliases,
-					reservedNames: this.reservedNames,
+					reservedNames,
 				});
 				commands.set(name, { source, command, path: [...path, name] });
 				registerAliases(name, command.metadata.aliases, source, aliases);
@@ -200,7 +209,7 @@ export class ClinkrTopology<TContext> {
 					commands,
 					groups,
 					aliases,
-					reservedNames: this.reservedNames,
+					reservedNames,
 				});
 				groups.set(name, { source, definition: group.definition });
 				registerAliases(name, group.definition.aliases, source, aliases);

@@ -8,6 +8,7 @@ import {
 	defineCommand,
 	ok,
 	type ClinkrCompletionProviderRequest,
+	type ClinkrScope,
 } from "@nseng-ai/clinkr/app";
 import { runForCliTest } from "@nseng-ai/clinkr/app/testing";
 import { defineRawCommand } from "@nseng-ai/clinkr/raw";
@@ -71,18 +72,37 @@ function completionApp(
 	);
 }
 
-test("completion is optional and reserves its route only when enabled", async () => {
+test.each([
+	[
+		"canonical command",
+		(scope: ClinkrScope<never>) =>
+			scope.command("completion", { description: "User command." }, async () => command({})),
+	],
+	[
+		"canonical group",
+		(scope: ClinkrScope<never>) =>
+			scope.group("completion", { description: "User group." }, () => {}),
+	],
+	[
+		"command alias",
+		(scope: ClinkrScope<never>) =>
+			scope.command("helper", { description: "User command.", aliases: ["completion"] }, async () =>
+				command({}),
+			),
+	],
+	[
+		"group alias",
+		(scope: ClinkrScope<never>) =>
+			scope.group("helpers", { description: "User group.", aliases: ["completion"] }, () => {}),
+	],
+] as const)("root completion reservation is conditional for %s", async (_label, declare) => {
 	const disabled = createClinkrApp({ name: "probe" }, (composition) => {
-		composition.source({ label: "test" }, (scope) => {
-			scope.command("completion", { description: "User command." }, async () => command({}));
-		});
+		composition.source({ label: "test" }, declare);
 	});
-	expect((await runForCliTest(disabled, ["completion"])).exitCode).toBe(0);
+	expect((await runForCliTest(disabled, ["--help"])).exitCode).toBe(0);
 
 	const enabled = createClinkrApp({ name: "probe", completion: {} }, (composition) => {
-		composition.source({ label: "test" }, (scope) => {
-			scope.command("completion", { description: "Conflict." }, async () => command({}));
-		});
+		composition.source({ label: "test" }, declare);
 	});
 	await expect(enabled.complete({ words: [""] })).rejects.toThrow("reserved name");
 
@@ -137,6 +157,21 @@ test("completion routes past leading framework arguments through canonical and a
 		expect(request.positionalIndex).toBe(0);
 	}
 	expect(loads).toEqual({ selected: 1, unrelated: 0 });
+});
+
+test("completion reservation applies only to the root scope", async () => {
+	const app = createClinkrApp({ name: "probe", completion: {} }, (composition) => {
+		composition.source({ label: "test" }, (scope) => {
+			scope.group("nested", { description: "Nested." }, (nested) => {
+				nested.command("completion", { description: "Nested completion." }, async () =>
+					command({}),
+				);
+			});
+		});
+	});
+	expect(await app.complete({ words: ["nested", ""] })).toMatchObject({
+		candidates: [{ value: "completion", type: "command" }],
+	});
 });
 
 test("app completion incrementally traverses aliases and uses only selected definitions", async () => {
