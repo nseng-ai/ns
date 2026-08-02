@@ -8,6 +8,7 @@ published and is not a platform surface.
 - `skill-backed-commands` — generated skill-backed command surfaces.
 - `code-workflows` — repo-specific workflow selection, CI debugging, and smart-restack UI.
 - `context-profiler` — Pi context inspection and analysis.
+- `context-threshold-warning` — acknowledgment dialogs when context usage crosses absolute token thresholds.
 - `grill` — structured grilling UI and tool behavior.
 - `pr-feedback-watch` — project-local PR feedback watching and session behavior.
 - `side-session` — shared side-session substrate used by other Pi tools.
@@ -18,6 +19,6 @@ published and is not a platform surface.
 ## Near-term organization follow-up
 
 The package remains one private container during the package-ontology cutover. Soon after
-that cutover, break these nine units into dedicated subfolders under the Pi tools ontology
+that cutover, break these ten units into dedicated subfolders under the Pi tools ontology
 rather than leaving them consolidated behind one `pi-tools` leaf. Preserve the
 `@internal/*` private boundary and review each resulting leaf identity before moving code.
