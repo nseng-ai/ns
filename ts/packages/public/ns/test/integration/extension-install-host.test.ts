@@ -94,6 +94,7 @@ describe("extension install host integration", () => {
 		});
 		expect(installed.stderr).toBe("");
 		const installedData = installExtensionResultSchema.parse(installedJson.data);
+		if (installedData.scope !== "project") throw new Error("Expected project install result.");
 		expect(installedData.steps.slice(0, 2)).toEqual([
 			{ type: "phase", phase: "repository-preflight", status: "started" },
 			expect.objectContaining({ type: "repository-resolved", repoRoot: cwd }),

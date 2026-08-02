@@ -9,10 +9,11 @@ import { nsInitCommand } from "../command.ts";
 
 export const nsExtensionUninstallCommand = nsInitCommand({
 	name: "uninstall",
-	summary: "Uninstall and deactivate an ns extension.",
+	summary: "Uninstall an ns extension at project or user scope.",
 	description:
-		"Remove an npm or local ns extension declaration, deactivate its managed artifacts, preserve consumer data, and clean up managed npm bytes.",
+		"Uninstall at project scope by default, or use --scope user to remove only a local command-availability declaration while preserving source bytes.",
 	schema: uninstallExtensionRequestSchema,
+	options: { scope: { short: "-s" } },
 	positionals: { source: { position: 0 } },
 	resultSchema: uninstallExtensionResultSchema,
 	handler: (context, request) => uninstallExtension(context, { ...request, cwd: context.cwd }),

@@ -14,16 +14,27 @@ import { updateExtensionResultSchema } from "../src/init/update-extension.ts";
 describe("activation completion schema", () => {
 	it("is the shared command-result schema and remains JSON-schema compatible", () => {
 		expect(initNsResultSchema.shape.completed).toBe(activationCompletedSchema);
-		expect(installExtensionResultSchema.shape.completed).toBe(activationCompletedSchema);
-		expect(updateExtensionResultSchema.shape.completed).toBe(activationCompletedSchema);
-		expect(uninstallExtensionResultSchema.shape.completed).toBe(activationCompletedSchema);
+		expect(installExtensionResultSchema.options[0]?.shape.completed).toBe(
+			activationCompletedSchema,
+		);
+		expect(updateExtensionResultSchema.options[0]?.shape.completed).toBe(activationCompletedSchema);
+		expect(uninstallExtensionResultSchema.options[0]?.shape.completed).toBe(
+			activationCompletedSchema,
+		);
+		expect(initNsResultSchema.shape.steps.unwrap().element).toBe(lifecycleStepSchema);
+		for (const schema of [
+			installExtensionResultSchema,
+			updateExtensionResultSchema,
+			uninstallExtensionResultSchema,
+		]) {
+			expect(schema.options[0]?.shape.steps.unwrap().element).toBe(lifecycleStepSchema);
+		}
 		for (const schema of [
 			initNsResultSchema,
 			installExtensionResultSchema,
 			updateExtensionResultSchema,
 			uninstallExtensionResultSchema,
 		]) {
-			expect(schema.shape.steps.unwrap().element).toBe(lifecycleStepSchema);
 			expect(() => z.toJSONSchema(schema, { io: "output" })).not.toThrow();
 		}
 	});

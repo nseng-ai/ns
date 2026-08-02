@@ -22,6 +22,7 @@ import {
 	InMemoryArtifactActivationGateway,
 	InMemoryDeclaredExtensionsGateway,
 	InMemoryExtensionUpdateAcquisitionGateway,
+	InMemoryUserExtensionConfigGateway,
 } from "../../src/init/testing/index.ts";
 
 function descriptor(source: string): DeclaredExtensionDescriptor {
@@ -99,6 +100,7 @@ function fixture(options: {
 			declaredExtensions,
 			artifacts,
 			updateAcquisition: acquisition,
+			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
 		},
 	};
 }
@@ -220,7 +222,8 @@ describe("updateExtension acquisition scenarios", () => {
 					: {}),
 			},
 		});
-		if (result.type !== "ok") throw new Error("Expected update to succeed.");
+		if (result.type !== "ok" || result.data.scope !== "project")
+			throw new Error("Expected project update to succeed.");
 		expect(phaseHistory(result.data.steps)).toEqual([
 			{ type: "phase", phase: "repository-preflight", status: "started" },
 			{ type: "phase", phase: "repository-preflight", status: "completed" },

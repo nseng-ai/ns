@@ -13,6 +13,7 @@ import {
 	InMemoryActivationFilesGateway,
 	InMemoryArtifactProvisioningStatusGateway,
 	InMemoryDeclaredExtensionsGateway,
+	InMemoryUserExtensionConfigGateway,
 } from "../../src/init/testing/index.ts";
 
 function descriptor(options: {
@@ -89,6 +90,7 @@ function fixture(
 			git: options.git ?? new InMemoryGitGateway({ optionalRepoRoot: "/repo" }),
 			files,
 			declaredExtensions,
+			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
 			artifactProvisioningStatus: artifacts,
 			installedExtensionPackages: {
 				list: () => options.installedPackages ?? [],
@@ -139,6 +141,7 @@ describe("listExtensions", () => {
 		await expect(listExtensions(context, { cwd: "/repo" })).resolves.toEqual({
 			type: "ok",
 			data: {
+				scope: "project",
 				repoRoot: "/repo",
 				configPath: "/repo/ns.toml",
 				extensions: [
@@ -221,7 +224,7 @@ describe("listExtensions", () => {
 		);
 		await expect(listExtensions(context, { cwd: "/repo/subdir" })).resolves.toEqual({
 			type: "ok",
-			data: { repoRoot: "/repo", configPath: "/repo/ns.toml", extensions: [] },
+			data: { scope: "project", repoRoot: "/repo", configPath: "/repo/ns.toml", extensions: [] },
 		});
 		expect(declaredExtensions.calls()).toEqual([]);
 		expect(artifacts.inspectCalls()).toEqual([]);
@@ -296,6 +299,7 @@ describe("listExtensions", () => {
 		expect(result).toEqual({
 			type: "ok",
 			data: {
+				scope: "project",
 				repoRoot: "/repo",
 				configPath: "/repo/ns.toml",
 				extensions: [
@@ -394,7 +398,8 @@ describe("listExtensions", () => {
 		});
 
 		const result = await listExtensions(context, { cwd: "/repo" });
-		if (result.type !== "ok") throw new Error("expected successful inventory");
+		if (result.type !== "ok" || result.data.scope !== "project")
+			throw new Error("expected successful project inventory");
 		expect(result.data.extensions.map((row) => row.sourceSpec)).toEqual(specs);
 		expect(result.data.extensions.map((row) => row.sourceKind)).toEqual([
 			"npm",
@@ -506,6 +511,7 @@ describe("listExtensions", () => {
 	it("publishes readable empty, table, and diagnostic human output", async () => {
 		expect(
 			renderListExtensionsHuman({
+				scope: "project",
 				repoRoot: "/repo",
 				configPath: "/repo/ns.toml",
 				extensions: [],

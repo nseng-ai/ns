@@ -125,7 +125,7 @@ function normalizeDeclaredExtensionSpecs(
 	return specs.map((spec) => {
 		const parsed = parseExtensionSourceSpec(repoRoot, spec);
 		const identity = declaredExtensionSourceIdentity(repoRoot, spec);
-		return { spec, parsed, ...(identity === undefined ? {} : { identity }) };
+		return { spec, parsed, ...optionalEntry("identity", identity) };
 	});
 }
 

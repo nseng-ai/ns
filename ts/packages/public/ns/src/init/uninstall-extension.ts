@@ -6,6 +6,13 @@ import { ALL_HARNESS_IDS } from "../harness-artifacts/api.ts";
 import { planDeclaredExtensionUninstallToml } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
+import {
+	extensionLifecycleScopeSchemaValues,
+	prepareUserConfig,
+	prepareUserLocalSource,
+	type UserExtensionLifecycleContext,
+} from "./user-extension-lifecycle.ts";
+
 import { applyNsActivation, prepareNsActivation } from "./activate-ns.ts";
 import { activationCompletedSchema } from "./activation-outcomes.ts";
 import type { NsActivationContext } from "./activation-context.ts";
@@ -25,7 +32,8 @@ import {
 	type LifecycleDiagnostic,
 } from "./lifecycle-observability.ts";
 
-export interface ExtensionUninstallContext extends NsActivationContext {
+export interface ExtensionUninstallContext
+	extends NsActivationContext, UserExtensionLifecycleContext {
 	readonly uninstallAcquisition: ExtensionUninstallAcquisitionGateway;
 }
 export const uninstallExtensionRequestSchema = z.object({
@@ -33,26 +41,40 @@ export const uninstallExtensionRequestSchema = z.object({
 		.string()
 		.min(1)
 		.describe("npm: package spec or unprefixed local extension package path."),
+	scope: z.enum(extensionLifecycleScopeSchemaValues).default("project"),
 });
 const uninstallCleanupSchema = z.object({
 	status: z.enum(["removed", "already-absent", "not-applicable"]),
 	path: z.string().optional(),
 });
-export const uninstallExtensionResultSchema = z.object({
+const uninstallExtensionSourceResultSchema = z.object({
 	sourceSpec: z.string(),
 	sourceKind: z.enum(["local", "npm"]),
 	sourceIdentity: z.string(),
 	matchedDeclarationSpec: z.string().optional(),
 	hasRemovedDeclaration: z.boolean(),
-	nsTomlPath: z.string(),
-	repoRoot: z.string(),
-	trunkBranch: z.string(),
-	harnesses: z.array(z.enum(ALL_HARNESS_IDS)),
-	completed: activationCompletedSchema,
-	cleanup: uninstallCleanupSchema,
-	steps: z.array(lifecycleStepSchema).readonly(),
+	configPath: z.string(),
 });
-export type UninstallExtensionRequest = z.infer<typeof uninstallExtensionRequestSchema> & {
+export const uninstallExtensionResultSchema = z.discriminatedUnion("scope", [
+	uninstallExtensionSourceResultSchema.extend({
+		scope: z.literal("project"),
+		nsTomlPath: z.string(),
+		cleanup: uninstallCleanupSchema,
+		repoRoot: z.string(),
+		trunkBranch: z.string(),
+		harnesses: z.array(z.enum(ALL_HARNESS_IDS)),
+		completed: activationCompletedSchema,
+		steps: z.array(lifecycleStepSchema).readonly(),
+	}),
+	uninstallExtensionSourceResultSchema.extend({
+		scope: z.literal("user"),
+		declarationAction: z.enum(["removed", "already-absent"]),
+		localSourcePreserved: z.literal(true),
+		activation: z.literal("not-performed"),
+		managedCleanup: z.literal("not-performed"),
+	}),
+]);
+export type UninstallExtensionRequest = z.input<typeof uninstallExtensionRequestSchema> & {
 	readonly cwd: string;
 };
 export type UninstallExtensionResult = z.infer<typeof uninstallExtensionResultSchema>;
@@ -61,6 +83,7 @@ export async function uninstallExtension(
 	context: ExtensionUninstallContext,
 	request: UninstallExtensionRequest,
 ): Promise<ClinkrExit<UninstallExtensionResult>> {
+	if (request.scope === "user") return uninstallUserExtension(context, request);
 	const recorder = createLifecycleRecorder(context.lifecycleTrace);
 	function tracedFailure<TData extends object>(options: {
 		readonly diagnostic: LifecycleDiagnostic;
@@ -169,7 +192,7 @@ export async function uninstallExtension(
 	recorder.endPhase();
 	recorder.record({ type: "preservation", subject: "consumer-data" });
 
-	let cleanup: UninstallExtensionResult["cleanup"];
+	let cleanup: Extract<UninstallExtensionResult, { readonly scope: "project" }>["cleanup"];
 	if (source.kind === "local") {
 		cleanup = { status: "not-applicable" };
 		recorder.record({ type: "preservation", subject: "local-source", path: source.path });
@@ -214,6 +237,7 @@ export async function uninstallExtension(
 	}
 	recorder.complete();
 	return ok({
+		scope: "project",
 		sourceSpec: request.source,
 		sourceKind: sourceIdentity.kind,
 		sourceIdentity: sourceIdentity.value,
@@ -222,6 +246,7 @@ export async function uninstallExtension(
 			: { matchedDeclarationSpec: declaration.matchedSpec }),
 		hasRemovedDeclaration: declaration.isRemoved,
 		nsTomlPath: join(repoRoot, "ns.toml"),
+		configPath: join(repoRoot, "ns.toml"),
 		repoRoot,
 		trunkBranch,
 		harnesses: [...harnesses],
@@ -231,7 +256,59 @@ export async function uninstallExtension(
 	});
 }
 
+async function uninstallUserExtension(
+	context: ExtensionUninstallContext,
+	request: UninstallExtensionRequest,
+): Promise<ClinkrExit<UninstallExtensionResult>> {
+	const source = prepareUserLocalSource<UninstallExtensionResult>({
+		cwd: request.cwd,
+		source: request.source,
+		operation: "uninstall",
+	});
+	if (!source.ok) return source.exit;
+	const prepared = await prepareUserConfig<UninstallExtensionResult>(context, "uninstall");
+	if ("type" in prepared) return prepared;
+	const declaration = planDeclaredExtensionUninstallToml({
+		projectRoot: prepared.configDir,
+		nsTomlContent: prepared.content,
+		requestedSpec: source.sourceSpec,
+	});
+	if (!declaration.ok)
+		return failure(`ns-extension-uninstall-user-${declaration.reason}`, declaration.message, {
+			scope: "user",
+			...declaration,
+		});
+	if (declaration.isRemoved) {
+		const written = await context.userExtensionConfig.compareAndWrite({
+			expected: prepared.expected,
+			content: declaration.text,
+		});
+		if (!written.ok)
+			return failure("ns-extension-uninstall-user-config-write-failed", written.error.message, {
+				scope: "user",
+				error: written.error,
+			});
+	}
+	return ok({
+		scope: "user",
+		sourceSpec: source.sourceSpec,
+		sourceKind: "local",
+		sourceIdentity: source.sourceSpec,
+		...(declaration.matchedSpec === undefined
+			? {}
+			: { matchedDeclarationSpec: declaration.matchedSpec }),
+		hasRemovedDeclaration: declaration.isRemoved,
+		configPath: prepared.configPath,
+		declarationAction: declaration.isRemoved ? "removed" : "already-absent",
+		localSourcePreserved: true,
+		activation: "not-performed",
+		managedCleanup: "not-performed",
+	});
+}
+
 export function renderUninstallExtensionMarkdown(result: UninstallExtensionResult): string {
+	if (result.scope === "user")
+		return `User declaration ${result.declarationAction} in ${result.configPath}; local source bytes were preserved and no project deactivation ran.`;
 	const declaration = result.hasRemovedDeclaration ? "removed" : "already absent";
 	const preservation =
 		result.sourceKind === "local"
@@ -244,6 +321,8 @@ export function renderUninstallExtensionMarkdown(result: UninstallExtensionResul
 	);
 }
 export function renderUninstallExtensionHuman(result: UninstallExtensionResult): string {
+	if (result.scope === "user")
+		return `User declaration ${result.declarationAction} in ${result.configPath}. Local source bytes were preserved; no project deactivation was performed.`;
 	const declaration = result.hasRemovedDeclaration
 		? `removed ${result.matchedDeclarationSpec ?? result.sourceSpec} from ${result.nsTomlPath}`
 		: `no matching declaration was present in ${result.nsTomlPath}`;

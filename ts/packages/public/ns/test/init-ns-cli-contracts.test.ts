@@ -4,6 +4,7 @@ import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
 import { runCli, type NsCliBaseContext } from "@nseng-ai/sdk/cli";
 import { createTestNsCliExtensionRegistry } from "@nseng-ai/sdk/testing";
 import { nsExtensionInstallCommand } from "../src/init/ns/commands/extension-install.ts";
+import { nsExtensionUpdateCommand } from "../src/init/ns/commands/extension-update.ts";
 import { nsExtensionUninstallCommand } from "../src/init/ns/commands/extension-uninstall.ts";
 import { nsInitNsCommand } from "../src/init/ns/commands/init.ts";
 
@@ -28,6 +29,11 @@ const extensionRegistry = createTestNsCliExtensionRegistry({
 		{
 			command: nsExtensionListCommand,
 			segments: ["extension", "list"],
+			groupDescription: extensionGroupDescription,
+		},
+		{
+			command: nsExtensionUpdateCommand,
+			segments: ["extension", "update"],
 			groupDescription: extensionGroupDescription,
 		},
 		{
@@ -83,6 +89,39 @@ function parseJsonOutput(result: CliRun): Record<string, unknown> {
 	return parsed as Record<string, unknown>;
 }
 
+async function expectScopeContract(options: {
+	readonly command: "install" | "list" | "update" | "uninstall";
+	readonly positional?: string;
+}): Promise<void> {
+	const prefix = ["extension", options.command];
+	const help = await run([...prefix, "-h"]);
+	expect(help.exit).toBe(0);
+	expect(help.stdout).toContain("project scope by default");
+	expect(help.stdout).toContain("--scope");
+	expect(help.stdout).toContain("-s");
+
+	const schemaRun = await run([...prefix, "--json-schema"]);
+	expect(schemaRun.exit).toBe(0);
+	const schema = JSON.parse(schemaRun.stdout) as Record<string, unknown>;
+	expect(schema).toHaveProperty("inputJsonSchema");
+	expect(schema).toHaveProperty("outputJsonSchema");
+	expect(schemaRun.stdout).toContain('"scope"');
+	expect(schemaRun.stdout).toContain('"project"');
+	expect(schemaRun.stdout).toContain('"user"');
+
+	const invalid = await runJson([
+		...prefix,
+		...(options.positional === undefined ? [] : [options.positional]),
+		"--scope",
+		"global",
+	]);
+	expect(invalid.exit).toBe(2);
+	expect(parseJsonOutput(invalid)).toMatchObject({
+		status: "usageError",
+		errorType: "usageError",
+	});
+}
+
 describe("ns-init CLI contracts", () => {
 	test("publishes loaded init help metadata", async () => {
 		const result = await run(["init", "--help"]);
@@ -97,6 +136,7 @@ describe("ns-init CLI contracts", () => {
 	});
 
 	test("publishes extension install help, schema, and missing-argument usage contracts", async () => {
+		await expectScopeContract({ command: "install", positional: "./extension" });
 		const help = await run(["extension", "install", "-h"]);
 		expect(help.exit).toBe(0);
 		expect(help.stdout).toContain("Usage: ns extension install [options] <source>");
@@ -121,11 +161,16 @@ describe("ns-init CLI contracts", () => {
 	});
 
 	test("publishes extension list help, schema, and extra-argument usage contracts", async () => {
+		await expectScopeContract({ command: "list" });
 		const help = await run(["extension", "list", "-h"]);
 		expect(help.exit).toBe(0);
 		expect(help.stdout).toContain("Usage: ns extension list|ls [options]");
 		expect(help.stdout).toContain("installed package extensions");
-		expect(help.stdout).toContain("without acquiring packages or changing files");
+		expect(help.stdout).toContain("command-only");
+		expect(help.stdout).toContain("user declarations");
+		expect(help.stdout).toContain("acquiring packages or changing files");
+		expect(help.stdout).toContain("--scope");
+		expect(help.stdout).toContain("-s");
 		expect(help.stdout).not.toContain("--yes");
 		expect(help.stdout).not.toContain("--force");
 
@@ -146,7 +191,15 @@ describe("ns-init CLI contracts", () => {
 		});
 	});
 
+	test("publishes extension update help, input/output schemas, and invalid scope", async () => {
+		await expectScopeContract({ command: "update", positional: "./extension" });
+		const schema = await run(["extension", "update", "--json-schema"]);
+		expect(schema.stdout).toContain("unchanged-local-in-place");
+		expect(schema.stdout).toContain("not-performed");
+	});
+
 	test("publishes extension uninstall help, schema, and missing-argument usage contracts", async () => {
+		await expectScopeContract({ command: "uninstall", positional: "./extension" });
 		const help = await run(["extension", "uninstall", "-h"]);
 		expect(help.exit).toBe(0);
 		expect(help.stdout).toContain("Usage: ns extension uninstall [options] <source>");

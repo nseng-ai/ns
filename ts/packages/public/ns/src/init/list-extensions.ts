@@ -13,6 +13,12 @@ import type {
 import { classifyExtensionSourceLifecycle } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
+import {
+	extensionLifecycleScopeSchemaValues,
+	prepareUserConfig,
+	type UserExtensionLifecycleContext,
+} from "./user-extension-lifecycle.ts";
+
 import type { ActivationFilesGateway } from "./activation-files.ts";
 import type {
 	ArtifactProvisioningStatusGateway,
@@ -64,19 +70,41 @@ export const extensionListRowSchema = z.object({
 	diagnostics: z.array(extensionListDiagnosticSchema),
 });
 
-export const listExtensionsRequestSchema = z.object({});
-
-export const listExtensionsResultSchema = z.object({
-	repoRoot: z.string(),
-	configPath: z.string(),
-	extensions: z.array(extensionListRowSchema),
+export const userExtensionListRowSchema = z.object({
+	sourceSpec: z.string(),
+	sourceKind: extensionSourceKindSchema,
+	packageName: z.string().optional(),
+	packageVersion: z.string().optional(),
+	moduleRoot: z.string().optional(),
+	acquisitionStatus: extensionAcquisitionStatusSchema,
+	commandAvailability: z.enum(["available", "unavailable"]),
+	diagnostics: z.array(extensionListDiagnosticSchema),
 });
+
+export const listExtensionsRequestSchema = z.object({
+	scope: z.enum(extensionLifecycleScopeSchemaValues).default("project"),
+});
+
+export const listExtensionsResultSchema = z.discriminatedUnion("scope", [
+	z.object({
+		scope: z.literal("project"),
+		repoRoot: z.string(),
+		configPath: z.string(),
+		extensions: z.array(extensionListRowSchema),
+	}),
+	z.object({
+		scope: z.literal("user"),
+		configPath: z.string(),
+		extensions: z.array(userExtensionListRowSchema),
+	}),
+]);
 
 export type ExtensionListDiagnostic = z.infer<typeof extensionListDiagnosticSchema>;
 export type ExtensionListRow = z.infer<typeof extensionListRowSchema>;
-export interface ListExtensionsRequest {
+export type UserExtensionListRow = z.infer<typeof userExtensionListRowSchema>;
+export type ListExtensionsRequest = z.input<typeof listExtensionsRequestSchema> & {
 	readonly cwd: string;
-}
+};
 export type ListExtensionsResult = z.infer<typeof listExtensionsResultSchema>;
 
 export interface InstalledExtensionPackage {
@@ -89,7 +117,7 @@ export interface InstalledExtensionPackagesGateway {
 	list(): readonly InstalledExtensionPackage[];
 }
 
-export interface ExtensionListContext {
+export interface ExtensionListContext extends UserExtensionLifecycleContext {
 	readonly git: Pick<GitGateway, "optionalRepoRoot">;
 	readonly files: Pick<ActivationFilesGateway, "readActivationFile">;
 	readonly declaredExtensions: DeclaredExtensionsGateway;
@@ -187,6 +215,7 @@ export async function listExtensions(
 	context: ExtensionListContext,
 	request: ListExtensionsRequest,
 ): Promise<ClinkrExit<ListExtensionsResult>> {
+	if (request.scope === "user") return listUserExtensions(context);
 	const repository = await context.git.optionalRepoRoot({ cwd: request.cwd });
 	if (repository.type === "missing") {
 		return failure(
@@ -214,7 +243,7 @@ export async function listExtensions(
 	const installedRows = context.installedExtensionPackages.list().map(createInstalledPackageRow);
 	const config = await context.files.readActivationFile({ repoRoot, file: "ns-toml" });
 	if (config.type === "missing") {
-		return ok({ repoRoot, configPath, extensions: installedRows });
+		return ok({ scope: "project", repoRoot, configPath, extensions: installedRows });
 	}
 	if (config.type === "not-file") {
 		return extensionListConfigFailure({
@@ -237,7 +266,7 @@ export async function listExtensions(
 	}
 	const sourceSpecs = parsedExtensions.type === "missing" ? [] : parsedExtensions.extensions;
 	if (sourceSpecs.length === 0) {
-		return ok({ repoRoot, configPath, extensions: installedRows });
+		return ok({ scope: "project", repoRoot, configPath, extensions: installedRows });
 	}
 
 	const declaredRows = sourceSpecs.map((sourceSpec) => createRowSkeleton(repoRoot, sourceSpec));
@@ -277,6 +306,7 @@ export async function listExtensions(
 	}
 
 	return ok({
+		scope: "project",
 		repoRoot,
 		configPath,
 		extensions: [...visibleInstalledRows, ...declaredRows.map((row) => row.finalize())],
@@ -433,19 +463,134 @@ function normalizeExtensionListDiagnostic(diagnostic: {
 	};
 }
 
-function extensionListConfigFailure(diagnostic: {
-	readonly code: string;
-	readonly message: string;
-	readonly path: string;
-}): ClinkrExit<ListExtensionsResult> {
+function extensionListConfigFailure(
+	diagnostic: {
+		readonly code: string;
+		readonly message: string;
+		readonly path: string;
+	},
+	scope?: "user",
+): ClinkrExit<ListExtensionsResult> {
 	const normalized = normalizeExtensionListDiagnostic(diagnostic);
-	return failure("ns-extension-list-config-invalid", normalized.message, {
-		diagnostics: [normalized],
+	return failure(
+		scope === "user" ? "ns-extension-list-user-config-invalid" : "ns-extension-list-config-invalid",
+		normalized.message,
+		{
+			...(scope === undefined ? {} : { scope }),
+			diagnostics: [normalized],
+		},
+	);
+}
+
+async function listUserExtensions(
+	context: ExtensionListContext,
+): Promise<ClinkrExit<ListExtensionsResult>> {
+	const prepared = await prepareUserConfig<ListExtensionsResult>(context, "list");
+	if ("type" in prepared) return prepared;
+	const parsed = parseNsTomlExtensions(prepared.content, prepared.configPath);
+	if (parsed.type === "error")
+		return extensionListConfigFailure({ ...parsed.error, path: prepared.configPath }, "user");
+	const specs = parsed.type === "missing" ? [] : parsed.extensions;
+	const loaded = await context.declaredExtensions.load({
+		repoRoot: prepared.configDir,
+		specs,
+		localPathPolicy: "absolute-only",
+		resolveNpmPackageRoot: () => undefined,
 	});
+	const rows: UserExtensionListRow[] = specs.map((sourceSpec) => {
+		const classification = classifyExtensionSourceLifecycle(prepared.configDir, sourceSpec);
+		const descriptor = loaded.descriptors.find((candidate) => candidate.spec === sourceSpec);
+		const diagnostics = loaded.diagnostics
+			.filter(
+				(diagnostic) =>
+					diagnostic.spec === sourceSpec || diagnostic.relatedSpecs?.includes(sourceSpec) === true,
+			)
+			.map(normalizeExtensionListDiagnostic);
+		if (classification.type === "supported-npm") {
+			return {
+				sourceSpec,
+				sourceKind: "npm",
+				packageName: classification.source.packageName,
+				acquisitionStatus: "missing",
+				commandAvailability: "unavailable",
+				diagnostics: [
+					{
+						code: "user-npm-managed-storage-unavailable",
+						message: `User-scoped npm extension is unavailable until managed npm storage is implemented: ${sourceSpec}.`,
+					},
+				],
+			};
+		}
+		if (descriptor !== undefined)
+			return {
+				sourceSpec,
+				sourceKind: descriptor.sourceKind,
+				packageName: descriptor.packageName,
+				packageVersion: descriptor.version,
+				moduleRoot: descriptor.moduleRoot,
+				acquisitionStatus: "installed",
+				commandAvailability: "available",
+				diagnostics,
+			};
+		const sourceKind =
+			classification.type === "supported-local"
+				? "local"
+				: classification.type === "unsupported-git"
+					? "git"
+					: classification.type === "invalid-npm"
+						? "npm"
+						: "unsupported";
+		return {
+			sourceSpec,
+			sourceKind,
+			acquisitionStatus: diagnostics.some(
+				(diagnostic) => diagnostic.code === "extension-descriptor-package-missing",
+			)
+				? "missing"
+				: "invalid",
+			commandAvailability: "unavailable",
+			diagnostics:
+				diagnostics.length === 0
+					? [
+							{
+								code: "extension-descriptor-status-unavailable",
+								message: `No descriptor is available for ${sourceSpec}.`,
+							},
+						]
+					: diagnostics,
+		};
+	});
+	return ok({ scope: "user", configPath: prepared.configPath, extensions: rows });
 }
 
 export function renderListExtensionsHuman(result: ListExtensionsResult): string {
-	if (result.extensions.length === 0) return "No extensions installed or declared in ns.toml.";
+	if (result.extensions.length === 0) {
+		return result.scope === "project"
+			? "No extensions installed or declared in ns.toml."
+			: "No user extensions declared in ns.toml.";
+	}
+	if (result.scope === "user") {
+		const table = renderTextTable({
+			columns: [
+				{ header: "SOURCE" },
+				{ header: "KIND" },
+				{ header: "PACKAGE" },
+				{ header: "COMMANDS" },
+			],
+			rows: result.extensions.map((row) => [
+				row.sourceSpec,
+				row.sourceKind,
+				row.packageName ?? "-",
+				row.commandAvailability,
+			]),
+		});
+		const diagnostics = result.extensions.flatMap((row) =>
+			row.diagnostics.map(
+				(diagnostic) => `- ${row.sourceSpec}: [${diagnostic.code}] ${diagnostic.message}`,
+			),
+		);
+		return `${table}${diagnostics.length === 0 ? "" : `\n\nDiagnostics:\n${diagnostics.join("\n")}`}\n\nUser scope controls command availability only; no project activation is inspected.`;
+	}
 	const table = renderTextTable({
 		columns: [
 			{ header: "SOURCE" },

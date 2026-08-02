@@ -15,6 +15,7 @@ import {
 	InMemoryArtifactActivationGateway,
 	InMemoryDeclaredExtensionsGateway,
 	InMemoryExtensionUninstallAcquisitionGateway,
+	InMemoryUserExtensionConfigGateway,
 } from "../../src/init/testing/index.ts";
 
 function descriptor(spec: string, instructions = "## Remaining\n"): DeclaredExtensionDescriptor {
@@ -79,6 +80,7 @@ function fixture(options: {
 			declaredExtensions,
 			artifacts,
 			uninstallAcquisition: cleanup,
+			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
 		},
 	};
 }
@@ -162,7 +164,8 @@ describe("uninstallExtension", () => {
 				},
 			},
 		});
-		if (result.type !== "ok") throw new Error("Expected uninstall to succeed.");
+		if (result.type !== "ok" || result.data.scope !== "project")
+			throw new Error("Expected project uninstall to succeed.");
 		expect(phaseHistory(result.data.steps)).toEqual([
 			{ type: "phase", phase: "repository-preflight", status: "started" },
 			{ type: "phase", phase: "repository-preflight", status: "completed" },
