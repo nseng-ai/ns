@@ -33,4 +33,32 @@ describe("Objectives extension descriptor", () => {
 			deriveObjectiveBundledArtifacts(packageManifest),
 		);
 	});
+
+	test("declares the Objective autorun PR title text-content point with its packaged default", async () => {
+		const result = validateExtensionDescriptor(objectivesExtension);
+
+		expect(result).toMatchObject({ ok: true });
+		if (!result.ok) return;
+		expect(result.descriptor.points).toEqual([
+			{
+				id: "objective.autorun.pr-title",
+				accepts: "text-content",
+				cardinality: "one",
+				default: "../publication/templates/autorun-pr-title-default.txt",
+				developmentOverrideEnvVar: "NS_OBJECTIVE_AUTORUN_PR_TITLE_TEXT_CONTENT",
+				description: "Deterministic title template for Objective autorun pull requests.",
+			},
+		]);
+
+		const { readFile } = await import("node:fs/promises");
+		const { fileURLToPath } = await import("node:url");
+		const defaultPath = new URL(
+			"../../src/publication/templates/autorun-pr-title-default.txt",
+			import.meta.url,
+		);
+		const content = await readFile(fileURLToPath(defaultPath), "utf8");
+		expect(content).toBe(
+			"[obj:{{objectiveSlug}}] [autorun:{{autorunOrdinal}}] {{existingTitle}}\n",
+		);
+	});
 });

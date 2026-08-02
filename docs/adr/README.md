@@ -47,6 +47,7 @@ After this baseline, accepted ADRs are immutable time-in-place records. Do not r
 | 0049 | [Opt-In, Provider-Neutral Stacking](0049-opt-in-provider-neutral-stacking.md)                                          |
 | 0050 | [Portable Skill-First Objective Autorun](0050-portable-objective-autorun.md)                                           |
 | 0051 | [Text-content Points](0051-text-content-points.md)                                                                     |
+| 0052 | [Objective Autorun PR Title Annotation](0052-objective-autorun-pr-title-annotation.md)                                 |
 
 ## Proposed
 

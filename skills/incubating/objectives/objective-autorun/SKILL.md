@@ -191,6 +191,12 @@ Every implementation child in either mode has this prohibition:
 
 In `ns-bookended`, the child has no publication authority, `runner-finish` alone owns the verified local implementation commit, and any authorized publication is a distinct parent-only action after the Runner Checkpoint, parent judgment, and material tracking. In `portable`, the child leaves changes uncommitted and the parent owns the ordinary local implementation commit; runner publication is unavailable.
 
+## Autorun PR titles
+
+Accepted autorun pull requests are titled `[obj:<slug>] [autorun:<accepted ordinal>] <existing title>` by default. The active format comes from the `objective.autorun.pr-title` Text-content Point (ADR 0052), conventionally installed at `.ns/text-content/objective.autorun.pr-title.txt`; do not hard-code it. The accepted ordinal is the checkpoint's 1-based position in the accepted cumulative autorun sequence — failed and recovery attempts that produce no accepted checkpoint consume no ordinal. Retitling is idempotent: recomputing from an already annotated title yields the same title.
+
+Authority boundary: the compute command is read-only and grants no external-write authority. Implementation children and `runner-finish` never edit pull requests. Any title mutation belongs to a separately authorized publication workflow.
+
 ## Stop conditions
 
 Stop and state why when any applies:

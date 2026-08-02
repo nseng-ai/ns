@@ -240,3 +240,16 @@ The catalog then reports that conventional file as the active source. The
 example workflow reads its text and applies whatever output-format contract it
 defines. The SDK does not know whether the content is literal output, a format
 string, or a template, and does not render it.
+
+A production example is the Objectives extension's
+`objective.autorun.pr-title` Text-content Point, whose packaged default is:
+
+```text
+[obj:{{objectiveSlug}}] [autorun:{{autorunOrdinal}}] {{existingTitle}}
+```
+
+A repository can replace it with
+`.ns/text-content/objective.autorun.pr-title.txt` or a `[points]` path. Objectives
+interprets the selected text as a title template, requires each placeholder
+exactly once, and rejects empty, multiline, or over-length rendered titles.
+`ns objective exec autorun-pr-title` computes a title without touching GitHub.

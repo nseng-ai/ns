@@ -16,9 +16,19 @@ const OBJECTIVES_INSTRUCTIONS = [
 	"  close Objectives.",
 ].join("\n");
 
-export default defineExtension({
+const objectivesExtensionDescriptor = defineExtension({
 	group: "objective",
 	description: "Inspect and maintain ns Objective records.",
+	points: [
+		{
+			id: "objective.autorun.pr-title",
+			accepts: "text-content",
+			cardinality: "one",
+			default: "../publication/templates/autorun-pr-title-default.txt",
+			developmentOverrideEnvVar: "NS_OBJECTIVE_AUTORUN_PR_TITLE_TEXT_CONTENT",
+			description: "Deterministic title template for Objective autorun pull requests.",
+		},
+	],
 	activation: {
 		instructions: OBJECTIVES_INSTRUCTIONS,
 		consumerDirs: [".ns/objectives"],
@@ -40,6 +50,13 @@ export default defineExtension({
 			}),
 		},
 		hiddenExecGroup("Agent-only Objective operations.", [
+			{
+				name: "autorun-pr-title",
+				load: async () => ({
+					default: (await import("./commands/exec-autorun-pr-title.ts"))
+						.objectiveExecAutorunPrTitleNsCommand,
+				}),
+			},
 			{
 				name: "list-candidates",
 				load: async () => ({
@@ -106,3 +123,10 @@ export default defineExtension({
 		]),
 	],
 });
+
+export const objectivesExtensionDescriptorSource = {
+	descriptor: objectivesExtensionDescriptor,
+	descriptorUrl: import.meta.url,
+};
+
+export default objectivesExtensionDescriptor;
