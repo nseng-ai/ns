@@ -1,4 +1,3 @@
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { Command, CommanderError, Option } from "commander";
 import { z } from "zod";
 
@@ -11,6 +10,10 @@ import {
 	cliAnnotationFor,
 	type ClinkrCommandDefinition,
 	type ClinkrCommandMetadata,
+	type ClinkrCompletionCandidate,
+	type ClinkrCompletionProviderRequest,
+	type ClinkrCompletionRequest,
+	type ClinkrCompletionResult,
 	type ClinkrGroupDefinition,
 	type RenderCapabilities,
 } from "./command-definition.ts";
@@ -23,8 +26,9 @@ import {
 	type CommandOutcome,
 	type UsageErrorOutcome,
 } from "./outcome.ts";
+import { ClinkrCompletionRuntime } from "./completion.ts";
 import { createFilesystemSource } from "./filesystem-source.ts";
-import { parseGlobalFlags, type OutputFormat } from "./framework-arguments.ts";
+import { hasUnescapedHelp, parseGlobalFlags, type OutputFormat } from "./framework-arguments.ts";
 import { ClinkrNavigator } from "./navigator.ts";
 import { composeSources, type ClinkrComposition } from "./programmatic-source.ts";
 import { ClinkrTopology, type OpenedScope } from "./topology.ts";
@@ -47,6 +51,27 @@ export interface ClinkrContextFreeRunOptions {
 /** Options for a contextful {@link ClinkrContextfulApp.execute} invocation. */
 export interface ClinkrExecuteOptions<TContext> {
 	readonly context: TContext;
+}
+
+export interface ClinkrCompleteOptions<TContext> {
+	readonly context: TContext;
+}
+
+export interface ClinkrCompletionFailure {
+	readonly error: unknown;
+	readonly commandPath: readonly string[];
+	readonly request: ClinkrCompletionProviderRequest;
+}
+
+export interface ContextFreeClinkrCompletionConfig {
+	readonly onProviderError?: (failure: ClinkrCompletionFailure) => void | Promise<void>;
+}
+
+export interface ContextfulClinkrCompletionConfig<TContext> {
+	readonly onProviderError?: (
+		context: TContext,
+		failure: ClinkrCompletionFailure,
+	) => void | Promise<void>;
 }
 
 /**
@@ -88,6 +113,7 @@ export interface ClinkrContextFreeApp {
 	 * @remarks Provisional host surface; see {@link ClinkrExecuteResult}.
 	 */
 	execute(request: unknown): Promise<ClinkrExecuteResult>;
+	complete(request: ClinkrCompletionRequest): Promise<ClinkrCompletionResult>;
 }
 
 export interface ClinkrContextfulApp<TContext> {
@@ -102,6 +128,10 @@ export interface ClinkrContextfulApp<TContext> {
 	 * @remarks Provisional host surface; see {@link ClinkrExecuteResult}.
 	 */
 	execute(request: unknown, options: ClinkrExecuteOptions<TContext>): Promise<ClinkrExecuteResult>;
+	complete(
+		request: ClinkrCompletionRequest,
+		options: ClinkrCompleteOptions<TContext>,
+	): Promise<ClinkrCompletionResult>;
 }
 
 export type ClinkrApp<TContext = never> = [TContext] extends [never]
@@ -119,21 +149,27 @@ interface CreateClinkrAppBase {
 export interface CreateContextFreeClinkrAppOptions extends CreateClinkrAppBase {
 	readonly commandDirectory: string;
 	readonly requiresContext?: false;
+	readonly completion?: ContextFreeClinkrCompletionConfig;
 }
 
-export interface CreateContextfulClinkrAppOptions extends CreateClinkrAppBase {
+export interface CreateContextfulClinkrAppOptions<TContext = unknown> extends CreateClinkrAppBase {
 	readonly commandDirectory: string;
 	readonly requiresContext: true;
+	readonly completion?: ContextfulClinkrCompletionConfig<TContext>;
 }
 
 export interface CreateComposedContextFreeClinkrAppOptions extends CreateClinkrAppBase {
 	readonly commandDirectory?: string;
 	readonly requiresContext?: false;
+	readonly completion?: ContextFreeClinkrCompletionConfig;
 }
 
-export interface CreateComposedContextfulClinkrAppOptions extends CreateClinkrAppBase {
+export interface CreateComposedContextfulClinkrAppOptions<
+	TContext = unknown,
+> extends CreateClinkrAppBase {
 	readonly commandDirectory?: string;
 	readonly requiresContext: true;
+	readonly completion?: ContextfulClinkrCompletionConfig<TContext>;
 }
 
 /**
@@ -142,13 +178,7 @@ export interface CreateComposedContextfulClinkrAppOptions extends CreateClinkrAp
  * it, but JavaScript and other untyped callers can; this check guarantees no
  * contextful handler or raw runner ever receives an absent context.
  */
-function requireRunContext<TContext>(
-	options:
-		| ClinkrRunOptions<TContext>
-		| ClinkrContextFreeRunOptions
-		| ClinkrExecuteOptions<TContext>
-		| Record<string, never>,
-): TContext {
+function requireRunContext<TContext>(options: unknown): TContext {
 	if (
 		typeof options !== "object" ||
 		options === null ||
@@ -157,11 +187,21 @@ function requireRunContext<TContext>(
 	) {
 		throw new Error("clinkr: contextful command execution requires run options with context");
 	}
-	return options.context;
+	return options.context as TContext;
 }
 
 const SUCCESS_EXIT_CODE = exitCodeFor("success");
 const USAGE_ERROR_EXIT_CODE = exitCodeFor("usage-error");
+
+type CompletionPolicy<TContext> =
+	| {
+			readonly type: "context-free";
+			readonly config: ContextFreeClinkrCompletionConfig;
+	  }
+	| {
+			readonly type: "contextful";
+			readonly config: ContextfulClinkrCompletionConfig<TContext>;
+	  };
 
 interface TopologyClinkrAppBaseOptions<TContext> {
 	readonly name: string;
@@ -170,15 +210,30 @@ interface TopologyClinkrAppBaseOptions<TContext> {
 	readonly runtimeInfo?: () => string;
 }
 
-type TopologyClinkrAppOptions<TContext> = TopologyClinkrAppBaseOptions<TContext> & {
-	readonly requiresContext: boolean;
-};
+type TopologyClinkrAppOptions<TContext> = TopologyClinkrAppBaseOptions<TContext> &
+	(
+		| {
+				readonly requiresContext: false;
+				readonly completion?: {
+					readonly type: "context-free";
+					readonly config: ContextFreeClinkrCompletionConfig;
+				};
+		  }
+		| {
+				readonly requiresContext: true;
+				readonly completion?: {
+					readonly type: "contextful";
+					readonly config: ContextfulClinkrCompletionConfig<TContext>;
+				};
+		  }
+	);
 
 class TopologyClinkrApp<TContext> {
 	private readonly name: string;
 	private readonly navigator: ClinkrNavigator<TContext>;
 	private readonly version: string | undefined;
 	private readonly runtimeInfo: (() => string) | undefined;
+	private readonly completion: ClinkrCompletionRuntime<TContext> | undefined;
 	readonly requiresContext: boolean;
 
 	constructor(options: TopologyClinkrAppOptions<TContext>) {
@@ -192,6 +247,23 @@ class TopologyClinkrApp<TContext> {
 			hasVersion: options.version !== undefined,
 			hasRuntime: options.runtimeInfo !== undefined,
 		});
+		const completionConfig = options.completion;
+		this.completion =
+			completionConfig === undefined
+				? undefined
+				: new ClinkrCompletionRuntime({
+						navigator: this.navigator,
+						commandName: options.name,
+						hasVersion: options.version !== undefined,
+						hasRuntime: options.runtimeInfo !== undefined,
+						invokeProvider: async (definition, request, invocationOptions) =>
+							this.invokeCompletionProvider(
+								definition,
+								request,
+								invocationOptions,
+								completionConfig,
+							),
+					});
 	}
 
 	async run(
@@ -207,20 +279,46 @@ class TopologyClinkrApp<TContext> {
 			process.stdout.write(this.runtimeInfo?.() ?? "");
 			return SUCCESS_EXIT_CODE;
 		}
-		if (navigation.type === "unknown-route") {
-			process.stderr.write(
-				`clinkr: unknown route at ${[...navigation.path, ...navigation.tail].join(" ")}\n`,
-			);
-			return USAGE_ERROR_EXIT_CODE;
+		let loaded;
+		let selectedArgv: readonly string[];
+		let selectedName: string;
+		if (navigation.type === "scope") {
+			if (navigation.scope.defaultCommand === undefined) {
+				if (navigation.tail.length > 0 && !hasUnescapedHelp(navigation.tail)) {
+					process.stderr.write(
+						`clinkr: unknown route at ${[...navigation.path, ...navigation.tail].join(" ")}\n`,
+					);
+					return USAGE_ERROR_EXIT_CODE;
+				}
+				process.stdout.write(
+					await this.buildScopeHelp(
+						navigation.path,
+						navigation.scope,
+						navigation.path.length === 0,
+						navigation.definition,
+					),
+				);
+				return SUCCESS_EXIT_CODE;
+			}
+			loaded = await this.navigator.load(navigation.scope.defaultCommand);
+			selectedArgv = navigation.tail;
+			selectedName = navigation.path.at(-1) ?? this.name;
+			if (loaded.selected.kind === "structured" && hasUnescapedHelp(selectedArgv)) {
+				process.stdout.write(
+					await this.buildScopeHelp(
+						navigation.path,
+						navigation.scope,
+						navigation.path.length === 0,
+						navigation.definition,
+					),
+				);
+				return SUCCESS_EXIT_CODE;
+			}
+		} else {
+			loaded = navigation.loaded;
+			selectedArgv = navigation.tail;
+			selectedName = navigation.path.at(-1) ?? this.name;
 		}
-		if (navigation.type === "scope-help") {
-			process.stdout.write(
-				await this.buildScopeHelp(navigation.path, navigation.scope, navigation.definition),
-			);
-			return SUCCESS_EXIT_CODE;
-		}
-		const { loaded, tail: selectedArgv } = navigation;
-		const selectedName = navigation.path.at(-1) ?? this.name;
 		const { selected, metadata } = loaded;
 		if (selected.kind === "raw") {
 			// Raw dispatch branches before structured global-flag parsing and owns
@@ -234,7 +332,7 @@ class TopologyClinkrApp<TContext> {
 		const definition = selected.definition;
 		const canEmitAnsi = options.canEmitAnsi ?? resolveProcessCaps().colorDepth !== "none";
 		const parsed = parseGlobalFlags(selectedArgv);
-		if (parsed.ok ? parsed.flags.help : parsed.help) {
+		if ((parsed.ok ? parsed.flags.help : parsed.help) && hasUnescapedHelp(selectedArgv)) {
 			process.stdout.write(
 				buildCommandSurface(selectedName, definition, metadata).command.helpInformation(),
 			);
@@ -295,6 +393,15 @@ class TopologyClinkrApp<TContext> {
 		return emitTerminalOutcome(outcome, definition, format, canEmitAnsi);
 	}
 
+	async complete(
+		request: ClinkrCompletionRequest,
+		options?: ClinkrCompleteOptions<TContext>,
+	): Promise<ClinkrCompletionResult> {
+		const invocationOptions = options ?? {};
+		if (this.requiresContext) requireRunContext(invocationOptions);
+		return this.requireCompletion().complete(request, invocationOptions);
+	}
+
 	async execute(
 		request: unknown,
 		options?: ClinkrExecuteOptions<TContext>,
@@ -316,6 +423,60 @@ class TopologyClinkrApp<TContext> {
 		};
 	}
 
+	private requireCompletion(): ClinkrCompletionRuntime<TContext> {
+		if (this.completion === undefined) throw new Error("clinkr: completion is not enabled");
+		return this.completion;
+	}
+
+	private async invokeCompletionProvider(
+		definition: ClinkrCommandDefinition<TContext>,
+		request: ClinkrCompletionProviderRequest,
+		options: unknown,
+		policy: CompletionPolicy<TContext>,
+	): Promise<readonly ClinkrCompletionCandidate[]> {
+		if (definition.requiresContext === true) {
+			if (policy.type !== "contextful") {
+				throw new Error("clinkr: command context mode does not match app context mode");
+			}
+			const provider = definition.completionProvider;
+			if (provider === undefined) return [];
+			const context = requireRunContext<TContext>(options);
+			try {
+				return await provider(context, request);
+			} catch (error) {
+				try {
+					await policy.config.onProviderError?.(context, {
+						error,
+						commandPath: request.commandPath,
+						request,
+					});
+				} catch {
+					// Completion diagnostics must never disrupt completion itself.
+				}
+				return [];
+			}
+		}
+		if (policy.type !== "context-free") {
+			throw new Error("clinkr: command context mode does not match app context mode");
+		}
+		const provider = definition.completionProvider;
+		if (provider === undefined) return [];
+		try {
+			return await provider(request);
+		} catch (error) {
+			try {
+				await policy.config.onProviderError?.({
+					error,
+					commandPath: request.commandPath,
+					request,
+				});
+			} catch {
+				// Completion diagnostics must never disrupt completion itself.
+			}
+			return [];
+		}
+	}
+
 	/** Shared invocation core: handler call plus outcome decode, identical for every transport. */
 	private async invokeHandler(
 		definition: ClinkrCommandDefinition<TContext>,
@@ -324,6 +485,7 @@ class TopologyClinkrApp<TContext> {
 			| ClinkrRunOptions<TContext>
 			| ClinkrContextFreeRunOptions
 			| ClinkrExecuteOptions<TContext>
+			| ClinkrCompleteOptions<TContext>
 			| Record<string, never>,
 	): Promise<CommandOutcome<unknown>> {
 		const handlerResult: unknown =
@@ -336,10 +498,10 @@ class TopologyClinkrApp<TContext> {
 	private async buildScopeHelp(
 		path: readonly string[],
 		scope: OpenedScope<TContext>,
+		isRoot: boolean,
 		groupDefinition?: ClinkrGroupDefinition,
 	): Promise<string> {
-		const isRoot = path.length === 0;
-		const name = isRoot ? this.name : (path.at(-1) ?? this.name);
+		const name = path.length === 0 ? this.name : (path.at(-1) ?? this.name);
 		let command: Command;
 		if (scope.defaultCommand === undefined) {
 			command = createContainedCommand(name);
@@ -380,22 +542,22 @@ class TopologyClinkrApp<TContext> {
 
 export function createClinkrApp(options: CreateContextFreeClinkrAppOptions): ClinkrContextFreeApp;
 export function createClinkrApp<TContext>(
-	options: CreateContextfulClinkrAppOptions,
+	options: CreateContextfulClinkrAppOptions<TContext>,
 ): ClinkrContextfulApp<TContext>;
 export function createClinkrApp(
 	options: CreateComposedContextFreeClinkrAppOptions,
 	configure: (composition: ClinkrComposition<never>) => void,
 ): ClinkrContextFreeApp;
 export function createClinkrApp<TContext>(
-	options: CreateComposedContextfulClinkrAppOptions,
+	options: CreateComposedContextfulClinkrAppOptions<TContext>,
 	configure: (composition: ClinkrComposition<TContext>) => void,
 ): ClinkrContextfulApp<TContext>;
 export function createClinkrApp<TContext>(
 	options:
 		| CreateContextFreeClinkrAppOptions
-		| CreateContextfulClinkrAppOptions
+		| CreateContextfulClinkrAppOptions<TContext>
 		| CreateComposedContextFreeClinkrAppOptions
-		| CreateComposedContextfulClinkrAppOptions,
+		| CreateComposedContextfulClinkrAppOptions<TContext>,
 	configure?: (composition: ClinkrComposition<TContext>) => void,
 ): ClinkrContextFreeApp | ClinkrContextfulApp<TContext> {
 	const sources = configure === undefined ? [] : [...composeSources(configure)];
@@ -405,20 +567,28 @@ export function createClinkrApp<TContext>(
 		);
 	}
 	if (sources.length === 0) throw new Error("clinkr: app requires at least one mounted source");
-	const topology = new ClinkrTopology({
-		sources,
-	});
+	const topology = new ClinkrTopology({ sources });
 	const baseOptions = {
 		name: options.name,
 		topology,
-		...optionalEntries({
-			version: options.version,
-			runtimeInfo: options.runtimeInfo,
-		}),
+		...(options.version === undefined ? {} : { version: options.version }),
+		...(options.runtimeInfo === undefined ? {} : { runtimeInfo: options.runtimeInfo }),
 	};
+	if (options.requiresContext === true) {
+		return new TopologyClinkrApp<TContext>({
+			...baseOptions,
+			requiresContext: true,
+			...(options.completion === undefined
+				? {}
+				: { completion: { type: "contextful", config: options.completion } as const }),
+		});
+	}
 	return new TopologyClinkrApp<TContext>({
 		...baseOptions,
-		requiresContext: options.requiresContext === true,
+		requiresContext: false,
+		...(options.completion === undefined
+			? {}
+			: { completion: { type: "context-free", config: options.completion } as const }),
 	});
 }
 

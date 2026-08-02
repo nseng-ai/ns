@@ -4,6 +4,10 @@ export type {
 	ClinkrContextFreeApp,
 	ClinkrContextFreeRunOptions,
 	ClinkrContextfulApp,
+	ClinkrCompleteOptions,
+	ClinkrCompletionFailure,
+	ContextFreeClinkrCompletionConfig,
+	ContextfulClinkrCompletionConfig,
 	// Provisional host surface for `execute()`: exported ahead of README
 	// promotion, which waits on the first in-process host migration.
 	ClinkrExecuteOptions,
@@ -28,7 +32,10 @@ export type {
 	ClinkrCommandJsonSchemaDocument,
 	ClinkrCommandMetadata,
 	ClinkrCompletionCandidate,
+	ClinkrCompletionCandidateType,
+	ClinkrCompletionProviderRequest,
 	ClinkrCompletionRequest,
+	ClinkrCompletionResult,
 	ClinkrGroupDefinition,
 	CliOptionOptions,
 	CliPositionalOptions,

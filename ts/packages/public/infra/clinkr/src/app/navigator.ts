@@ -1,7 +1,23 @@
 import type { ClinkrGroupDefinition } from "./command-definition.ts";
-import { findRootBuiltIn, frameworkRoutingWidth, hasUnescapedHelp } from "./framework-arguments.ts";
+import { findRootBuiltIn, frameworkRoutingWidth } from "./framework-arguments.ts";
 import type { LoadedSelectedCommand } from "./selected-command.ts";
 import type { ClinkrTopology, OpenedRoute, OpenedScope } from "./topology.ts";
+
+export type CompletionNavigationResult<TContext> =
+	| {
+			readonly type: "scope";
+			readonly path: readonly string[];
+			readonly scope: OpenedScope<TContext>;
+	  }
+	| {
+			readonly type: "command";
+			readonly path: readonly string[];
+			readonly loaded: LoadedSelectedCommand<TContext>;
+			readonly args: readonly string[];
+			readonly isRootDefault: boolean;
+			/** Present only for a scope default, whose children retain precedence. */
+			readonly scope?: OpenedScope<TContext>;
+	  };
 
 export type NavigationResult<TContext> =
 	| { readonly type: "version" }
@@ -13,15 +29,11 @@ export type NavigationResult<TContext> =
 			readonly loaded: LoadedSelectedCommand<TContext>;
 	  }
 	| {
-			readonly type: "scope-help";
-			readonly path: readonly string[];
-			readonly scope: OpenedScope<TContext>;
-			readonly definition?: ClinkrGroupDefinition;
-	  }
-	| {
-			readonly type: "unknown-route";
+			readonly type: "scope";
 			readonly path: readonly string[];
 			readonly tail: readonly string[];
+			readonly scope: OpenedScope<TContext>;
+			readonly definition?: ClinkrGroupDefinition;
 	  };
 
 interface NavigatorOptions<TContext> {
@@ -78,28 +90,62 @@ export class ClinkrNavigator<TContext> {
 			path = [...path, group];
 			scope = await this.topology.open(path);
 		}
-		const tail = argv.filter((_, candidate) => !consumed.has(candidate));
-		if (scope.defaultCommand === undefined) {
-			if (tail.length > 0 && !hasUnescapedHelp(tail)) {
-				return { type: "unknown-route", path, tail };
+		return {
+			type: "scope",
+			path,
+			tail: argv.filter((_, candidate) => !consumed.has(candidate)),
+			scope,
+			...(definition === undefined ? {} : { definition }),
+		};
+	}
+
+	async navigateCompletion(
+		words: readonly string[],
+	): Promise<CompletionNavigationResult<TContext>> {
+		let path: readonly string[] = [];
+		let scope = await this.topology.open(path);
+		for (let index = 0; index < words.length; index += 1) {
+			const word = words[index];
+			if (word === undefined || word === "") break;
+			const command = resolveCommand(scope, word);
+			if (command !== undefined) {
+				return {
+					type: "command",
+					path: command.path,
+					loaded: await this.load(command),
+					args: words.slice(index + 1),
+					isRootDefault: false,
+				};
 			}
+			const group = resolveGroup(scope, word);
+			if (group !== undefined) {
+				path = [...path, group];
+				scope = await this.topology.open(path);
+				continue;
+			}
+			if (scope.defaultCommand !== undefined) {
+				return {
+					type: "command",
+					path,
+					loaded: await this.load(scope.defaultCommand),
+					args: words.slice(index),
+					isRootDefault: path.length === 0,
+					scope,
+				};
+			}
+			break;
+		}
+		if (scope.defaultCommand !== undefined) {
 			return {
-				type: "scope-help",
+				type: "command",
 				path,
+				loaded: await this.load(scope.defaultCommand),
+				args: words,
+				isRootDefault: path.length === 0,
 				scope,
-				...(definition === undefined ? {} : { definition }),
 			};
 		}
-		const loaded = await this.load(scope.defaultCommand);
-		if (loaded.selected.kind === "structured" && hasUnescapedHelp(tail)) {
-			return {
-				type: "scope-help",
-				path,
-				scope,
-				...(definition === undefined ? {} : { definition }),
-			};
-		}
-		return { type: "command", path, tail, loaded };
+		return { type: "scope", path, scope };
 	}
 
 	async loadRootDefault(): Promise<LoadedSelectedCommand<TContext>> {
