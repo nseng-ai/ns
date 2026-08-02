@@ -70,7 +70,8 @@ const expectedPnpm = String(tsPackage.packageManager ?? "pnpm@11.8.0")
   .split("@")
   .at(-1);
 const minimumNode = String(tsPackage.engines?.node ?? ">=24.12.0").replace(/^>=/, "");
-const recommendations = new Set();
+const recommendedCommands = new Set();
+const manualActions = new Set();
 let passCount = 0;
 let warningCount = 0;
 let failureCount = 0;
@@ -80,16 +81,33 @@ function pass(label, detail = "") {
   console.log(`PASS  ${label}${detail ? ` — ${detail}` : ""}`);
 }
 
+function recommend(recommendation) {
+  if (Array.isArray(recommendation)) {
+    for (const item of recommendation) recommend(item);
+    return;
+  }
+  if (recommendation?.command) recommendedCommands.add(recommendation.command);
+  if (recommendation?.action) manualActions.add(recommendation.action);
+}
+
+function command(commandText) {
+  return { command: commandText };
+}
+
+function action(actionText) {
+  return { action: actionText };
+}
+
 function warn(label, detail = "", recommendation) {
   warningCount += 1;
   console.log(`WARN  ${label}${detail ? ` — ${detail}` : ""}`);
-  if (recommendation) recommendations.add(recommendation);
+  recommend(recommendation);
 }
 
 function fail(label, detail = "", recommendation) {
   failureCount += 1;
   console.log(`FAIL  ${label}${detail ? ` — ${detail}` : ""}`);
-  if (recommendation) recommendations.add(recommendation);
+  recommend(recommendation);
 }
 
 function section(title) {
@@ -146,15 +164,15 @@ if (versionAtLeast(nodeVersion, minimumNode)) {
   fail(
     "Node version",
     `${nodeVersion}; requires ${tsPackage.engines.node}`,
-    `Use a Node ${minimumNode} or newer runtime (the Devbox config uses node24).`,
+    action(`Use a Node ${minimumNode} or newer runtime (the Devbox config uses node24).`),
   );
 }
 checkCommand("corepack", ["--version"], {
-  recommendation: "Install/enable Corepack for the Node runtime.",
+  recommendation: action("Install/enable Corepack for the Node runtime."),
 });
 checkCommand("pnpm", ["--version"], {
   required: false,
-  recommendation: `Use the repository-pinned invocation: corepack pnpm@${expectedPnpm}`,
+  recommendation: command(`corepack pnpm@${expectedPnpm} --version`),
 });
 const pinnedPnpm = run("corepack", [`pnpm@${expectedPnpm}`, "--version"]);
 if (pinnedPnpm.status === 0 && firstLine(pinnedPnpm) === expectedPnpm) {
@@ -163,7 +181,7 @@ if (pinnedPnpm.status === 0 && firstLine(pinnedPnpm) === expectedPnpm) {
   fail(
     "repository-pinned pnpm",
     firstLine(pinnedPnpm) || `could not run pnpm ${expectedPnpm} through Corepack`,
-    `Run: corepack pnpm@${expectedPnpm} --version`,
+    command(`corepack pnpm@${expectedPnpm} --version`),
   );
 }
 
@@ -175,7 +193,9 @@ if (existsSync(modulesManifest)) {
   fail(
     "pnpm workspace installed",
     "ts/node_modules is not ready",
-    `Run: corepack pnpm@${expectedPnpm} --config.strict-dep-builds=false --dir "${repoRoot}/ts" install --frozen-lockfile`,
+    command(
+      `corepack pnpm@${expectedPnpm} --config.strict-dep-builds=false --dir "${repoRoot}/ts" install --frozen-lockfile`,
+    ),
   );
 }
 
@@ -194,27 +214,34 @@ for (const [binary, workspaceBinary] of workspaceBinaries) {
     fail(
       `workspace ${binary}`,
       "missing",
-      `Run: corepack pnpm@${expectedPnpm} --config.strict-dep-builds=false --dir "${repoRoot}/ts" install --frozen-lockfile`,
+      command(
+        `corepack pnpm@${expectedPnpm} --config.strict-dep-builds=false --dir "${repoRoot}/ts" install --frozen-lockfile`,
+      ),
     );
   }
 }
 
 section("Repository and system tools");
-checkCommand("git", ["--version"], { recommendation: "Install git." });
+checkCommand("git", ["--version"], { recommendation: action("Install git.") });
 checkCommand("just", ["--version"], {
-  recommendation: `Run: mkdir -p "$HOME/.local/bin" && ln -sf "${repoRoot}/.github/bin/just" "$HOME/.local/bin/just"`,
+  recommendation: command(
+    `mkdir -p "$HOME/.local/bin" && ln -sf "${repoRoot}/.github/bin/just" "$HOME/.local/bin/just"`,
+  ),
 });
 checkCommand("dprint", ["--version"], {
-  recommendation:
-    "Run: curl -fsSL https://dprint.dev/install.sh | sh -s 0.55.2, then add $HOME/.dprint/bin to PATH.",
+  recommendation: command(
+    'curl -fsSL https://dprint.dev/install.sh | sh -s 0.55.2 && export PATH="$HOME/.dprint/bin:$PATH"',
+  ),
 });
 checkCommand("uv", ["--version"], {
-  recommendation: "Run: curl -LsSf https://astral.sh/uv/install.sh | sh",
+  recommendation: command("curl -LsSf https://astral.sh/uv/install.sh | sh"),
 });
 checkCommand("herdr", ["--version"], {
-  recommendation: "Run: curl -fsSL https://herdr.dev/install.sh | sh",
+  recommendation: command("curl -fsSL https://herdr.dev/install.sh | sh"),
 });
-checkCommand("gh", ["--version"], { recommendation: "Install the GitHub CLI (gh)." });
+checkCommand("gh", ["--version"], {
+  recommendation: action("Install the GitHub CLI (gh)."),
+});
 const systemToolVersionArgs = new Map([
   ["jq", ["--version"]],
   ["rg", ["--version"]],
@@ -224,22 +251,46 @@ const systemToolVersionArgs = new Map([
   ["gcc", ["--version"]],
   ["g++", ["--version"]],
 ]);
+const missingSystemTools = [];
 for (const [binary, versionArgs] of systemToolVersionArgs) {
-  checkCommand(binary, versionArgs, {
-    recommendation: `Install ${binary} with the box's system package manager.`,
-  });
+  if (checkCommand(binary, versionArgs) === null) missingSystemTools.push(binary);
+}
+if (missingSystemTools.length > 0) {
+  const packageNames = (compilerPackage) =>
+    new Set(
+      missingSystemTools.map((binary) => {
+        if (binary === "rg") return "ripgrep";
+        if (binary === "gcc" || binary === "g++") return compilerPackage;
+        return binary;
+      }),
+    );
+  if (commandPath("apt-get") !== null) {
+    const packages = packageNames("build-essential");
+    recommend(command(`sudo apt-get update && sudo apt-get install -y ${[...packages].join(" ")}`));
+  } else if (commandPath("brew") !== null) {
+    const formulas = packageNames("gcc");
+    recommend(command(`brew install ${[...formulas].join(" ")}`));
+  } else {
+    recommend(action(`Install these system tools: ${missingSystemTools.join(", ")}.`));
+  }
 }
 checkCommand("direnv", ["version"], {
   required: false,
-  recommendation:
-    "Install direnv and run `direnv allow` in the repository (recommended for interactive shells).",
+  recommendation: [
+    command(`cd "${repoRoot}" && direnv allow`),
+    action("Install direnv before authorizing it (recommended for interactive shells)."),
+  ],
 });
 
 section("ns source tools");
 for (const tool of ["ns", "brmem", "vibechk", "packagechk"]) {
   const resolved = commandPath(tool);
   if (resolved === null) {
-    fail(`${tool} source shim`, "not found on PATH", `Run from ${repoRoot}: just install-tools`);
+    fail(
+      `${tool} source shim`,
+      "not found on PATH",
+      command(`cd "${repoRoot}" && just install-tools`),
+    );
     continue;
   }
   const result = run(tool, ["--version"], { cwd: repoRoot });
@@ -249,7 +300,7 @@ for (const tool of ["ns", "brmem", "vibechk", "packagechk"]) {
     fail(
       `${tool} source shim`,
       firstLine(result) || `exit ${result.status}`,
-      `Run from ${repoRoot}: just install-tools`,
+      command(`cd "${repoRoot}" && just install-tools`),
     );
   }
 }
@@ -263,7 +314,7 @@ if (identityName.status === 0 && identityEmail.status === 0) {
   fail(
     "Git identity",
     "user.name or user.email is missing",
-    "Configure git user.name and user.email.",
+    action("Configure git user.name and user.email."),
   );
 }
 
@@ -284,7 +335,9 @@ if (
   fail(
     "Git SSH commit signing",
     "commit.gpgsign=true, gpg.format=ssh, and user.signingkey are required",
-    "Configure SSH commit signing locally, then reconnect so Devbox forwards the configuration and SSH agent.",
+    action(
+      "Configure SSH commit signing locally, then reconnect so Devbox forwards the configuration and SSH agent.",
+    ),
   );
 }
 
@@ -296,14 +349,14 @@ if (process.env.SSH_AUTH_SOCK) {
     fail(
       "forwarded SSH agent",
       "SSH_AUTH_SOCK is set but no key is available",
-      "Load the signing key into the local SSH agent and reconnect to the Devbox.",
+      action("Load the signing key into the local SSH agent and reconnect to the Devbox."),
     );
   }
 } else {
   fail(
     "forwarded SSH agent",
     "SSH_AUTH_SOCK is unset",
-    "Reconnect with Devbox SSH agent forwarding enabled.",
+    action("Reconnect with Devbox SSH agent forwarding enabled."),
   );
 }
 
@@ -314,7 +367,10 @@ if (ghAuth.status === 0) {
   fail(
     "GitHub authentication",
     "gh auth status failed",
-    "Forward GH_TOKEN through Devbox or run `gh auth login` interactively.",
+    [
+      command("gh auth login"),
+      action("Alternatively, forward GH_TOKEN through Devbox."),
+    ],
   );
 }
 
@@ -330,13 +386,17 @@ if (graphite.status === 0) {
   warn(
     "Graphite API authentication",
     "not probed because a reliable probe may contact or mutate the service",
-    "Before first publication, run `gt submit --dry-run --no-interactive`; if asked, authenticate with `gt auth`.",
+    [
+      command("gt submit --dry-run --no-interactive"),
+      command("gt auth"),
+      action("Authenticate with Graphite only if the publication check requests it."),
+    ],
   );
 } else {
   fail(
     "Graphite repository",
     firstLine(graphite) || "gt branch info failed",
-    "Ensure workspace dependencies are installed and initialize/track the repository with Graphite.",
+    action("Ensure workspace dependencies are installed and initialize/track the repository with Graphite."),
   );
 }
 
@@ -348,7 +408,7 @@ if (existsSync(envLocal)) {
   warn(
     ".env.local",
     "missing; ns.toml declares it as Slot-provisioned local state",
-    "Mount/provision .env.local into the box; never bake secrets into a snapshot.",
+    action("Mount/provision .env.local into the box; never bake secrets into a snapshot."),
   );
 }
 
@@ -363,7 +423,7 @@ if (existsSync(envrc)) {
       warn(
         "direnv authorization",
         ".envrc is not currently loaded/allowed",
-        `Run from ${repoRoot}: direnv allow`,
+        command(`cd "${repoRoot}" && direnv allow`),
       );
     }
   }
@@ -394,7 +454,9 @@ for (const entry of requiredPathEntries) {
     warn(
       "PATH entry",
       `${entry} is missing`,
-      `Add to your shell profile: export PATH="${path.join(repoRoot, "ts", "packages", "public", "ns", "node_modules", ".bin")}:${path.join(repoRoot, "ts", "node_modules", ".bin")}:$HOME/.local/bin:$PATH"`,
+      command(
+        `export PATH="${path.join(repoRoot, "ts", "packages", "public", "ns", "node_modules", ".bin")}:${path.join(repoRoot, "ts", "node_modules", ".bin")}:$HOME/.local/bin:$PATH"`,
+      ),
     );
   }
 }
@@ -417,7 +479,10 @@ if (args.has("--full")) {
       fail(
         label,
         `just exited ${result.status ?? "without an exit code"}`,
-        `Fix the failing just ${validationArgs.join(" ")} gate and rerun this doctor.`,
+        [
+          command(`cd "${repoRoot}" && just ${validationArgs.join(" ")}`),
+          action(`Fix the failing ${label} gate before rerunning the doctor.`),
+        ],
       );
     }
   }
@@ -425,13 +490,15 @@ if (args.has("--full")) {
 
 section("Summary");
 console.log(`${passCount} passed, ${warningCount} warnings, ${failureCount} failures`);
-if (recommendations.size > 0) {
-  console.log("\nRecommended actions:");
-  let index = 1;
-  for (const recommendation of recommendations) {
-    console.log(`${index}. ${recommendation}`);
-    index += 1;
+if (recommendedCommands.size > 0) {
+  console.log("\nCopy/paste commands (run one at a time):");
+  for (const recommendedCommand of recommendedCommands) {
+    console.log(`\n${recommendedCommand}`);
   }
+}
+if (manualActions.size > 0) {
+  console.log("\nManual actions:");
+  for (const manualAction of manualActions) console.log(`- ${manualAction}`);
 }
 
 if (failureCount > 0 || (args.has("--strict") && warningCount > 0)) process.exit(1);
