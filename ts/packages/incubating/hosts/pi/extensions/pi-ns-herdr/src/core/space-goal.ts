@@ -83,16 +83,16 @@ export async function generateWorkspaceGoalSlug(
 export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions): Promise<void> {
 	await options.ctx.waitForIdle();
 
-	const callerContext = await options.herdr.resolveCallerContext();
-	if (callerContext.type === "failed") {
+	const callerWorkspace = await options.herdr.resolveCallerPane();
+	if (callerWorkspace.type === "failed") {
 		notify(
 			options.ctx,
-			`Not running inside a Herdr caller space.\n${callerContext.message}`,
+			`Not running inside a Herdr caller space.\n${callerWorkspace.message}`,
 			"warning",
 		);
 		return;
 	}
-	const workspaceId = callerContext.context.workspaceId;
+	const workspaceId = callerWorkspace.workspaceId;
 
 	const goal = await resolveHerdrGoal({
 		args: options.args,

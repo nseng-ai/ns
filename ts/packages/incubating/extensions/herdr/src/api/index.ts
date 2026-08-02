@@ -22,8 +22,7 @@ export {
 	createCliHerdrGateway,
 } from "../core/cli-gateway.ts";
 export type {
-	HerdrCallerContext,
-	HerdrCallerContextResult,
+	HerdrCallerPaneResult,
 	HerdrCreateTabOptions,
 	HerdrCreateTabResult,
 	HerdrCreateWorkspaceOptions,
@@ -61,13 +60,3 @@ export {
 } from "../core/slot-checkout.ts";
 export type { SlotCheckoutRef } from "../core/slot-checkout.ts";
 export { herdrHandoffTabLaunchNsCommand } from "../ns/commands/handoff-tab-launch.ts";
-
-/** Resolve the explicit caller tab injected by Herdr. */
-export function getCallerTabId(env: NodeJS.ProcessEnv = process.env): string | undefined {
-	return trimmedEnvValue(env.HERDR_TAB_ID);
-}
-
-function trimmedEnvValue(value: string | undefined): string | undefined {
-	const trimmed = value?.trim();
-	return trimmed !== undefined && trimmed.length > 0 ? trimmed : undefined;
-}

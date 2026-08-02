@@ -6,11 +6,11 @@ import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
-	failedCallerContext,
+	failedCallerPane,
 	gitRootStep,
 	notificationMessages,
 	resetHerdrTestEnvironment,
-	resolvedCallerContext,
+	resolvedCallerPane,
 	ROOT,
 	step,
 } from "./herdr-test-harness.ts";
@@ -39,7 +39,7 @@ async function runGoal(options: {
 		shouldRequireExpectedArgs: false,
 	});
 	const herdr =
-		options.herdr ?? new FakeHerdrGateway({ callerContextResult: resolvedCallerContext("w1") });
+		options.herdr ?? new FakeHerdrGateway({ callerPaneResult: resolvedCallerPane("w1") });
 	const ctx = new FakeCommandContext({
 		cwd,
 		...(options.inputValues === undefined ? {} : { inputValues: options.inputValues }),
@@ -81,7 +81,7 @@ describe("herdr space goal", () => {
 
 	test("caller resolution failure stops before model work", async () => {
 		const pi = new FakePi();
-		const herdr = new FakeHerdrGateway({ callerContextResult: failedCallerContext() });
+		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane() });
 		const ctx = new FakeCommandContext();
 
 		await handleHerdrSpaceGoal({
@@ -95,7 +95,7 @@ describe("herdr space goal", () => {
 		pi.assertDone();
 		expect(herdr.renameCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)).toEqual({
-			message: `Not running inside a Herdr caller space.\nCould not resolve the Herdr caller context.`,
+			message: `Not running inside a Herdr caller space.\nCould not resolve the Herdr caller pane.`,
 			level: "warning",
 		});
 	});
@@ -112,7 +112,7 @@ describe("herdr space goal", () => {
 
 	test("cancelled goal input reports usage without model work", async () => {
 		const pi = new FakePi();
-		const herdr = new FakeHerdrGateway({ callerContextResult: resolvedCallerContext("w1") });
+		const herdr = new FakeHerdrGateway({ callerPaneResult: resolvedCallerPane("w1") });
 		const ctx = new FakeCommandContext({ inputValues: [undefined] });
 
 		await handleHerdrSpaceGoal({

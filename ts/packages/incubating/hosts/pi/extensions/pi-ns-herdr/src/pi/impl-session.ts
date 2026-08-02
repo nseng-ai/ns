@@ -96,7 +96,7 @@ export function registerHerdrSessionImplCommands(
 						return;
 					}
 					// Acquire the shared generation guard before any asynchronous work
-					// (including caller-context preflight) so overlapping invocations
+					// (including caller-workspace preflight) so overlapping invocations
 					// cannot both pass the check above and race prompt generation.
 					generationPending = true;
 					try {

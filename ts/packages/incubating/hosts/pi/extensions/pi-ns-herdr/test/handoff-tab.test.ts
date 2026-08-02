@@ -27,11 +27,7 @@ import {
 } from "@nseng-ai/herdr/api";
 import { registerHerdrHandoffTab } from "../src/pi/handoff-tab.ts";
 import { isExactOptionalIntegrationAbsence } from "../src/pi/extension.ts";
-import {
-	FakeHerdrGateway,
-	failedCallerContext,
-	resolvedCallerContext,
-} from "./herdr-test-harness.ts";
+import { FakeHerdrGateway, failedCallerPane, resolvedCallerPane } from "./herdr-test-harness.ts";
 
 const launchOptions = {
 	cwd: "/state/slots/repos/ns/worktrees/slot-6",
@@ -314,18 +310,26 @@ describe("ns herdr exec handoff-tab launch", () => {
 });
 
 describe("Herdr Handoff Pi prompt", () => {
-	test("rejects a failed caller-space resolution before prompt", async () => {
-		const pi = new HandoffTabFakePi([
-			{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" },
+	test("rejects a failed caller-space resolution before focus interaction, Git inspection, or skill loading", async () => {
+		// No Git fixtures: any Git execution would surface as an execCalls entry.
+		const pi = new HandoffTabFakePi([]);
+		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane() });
+		const skillLoader = countingHandoffCreateSkillLoader();
+		const notifications: string[] = [];
+		const inputRequests: string[] = [];
+		registerHerdrHandoffTab(pi, createHandoffLaunchIntegration(pi, { skillLoader }), herdr);
+		// Empty args would prompt for a continuation focus if the flow reached
+		// focus resolution; the caller-space failure must stop before that.
+		await pi.command().handler("", commandContext({ notifications, inputRequests }));
+		expect(herdr.resolveCallerPaneCalls).toBe(1);
+		expect(notifications).toEqual([
+			expect.stringContaining(
+				"error: A Herdr caller space is required before creating a handoff for a Herdr tab.",
+			),
 		]);
-		const herdr = new FakeHerdrGateway({ callerContextResult: failedCallerContext() });
-		registerHerdrHandoffTab(
-			pi,
-			createHandoffLaunchIntegration(pi, { skillLoader: fakeHandoffCreateSkillLoader() }),
-			herdr,
-		);
-		await pi.command().handler("continue work", commandContext());
-		expect(herdr.resolveCallerContextCalls).toBe(1);
+		expect(inputRequests).toEqual([]);
+		expect(pi.execCalls).toEqual([]);
+		expect(skillLoader.resolveCalls).toBe(0);
 		expect(pi.sentUserMessages).toEqual([]);
 	});
 
@@ -333,14 +337,18 @@ describe("Herdr Handoff Pi prompt", () => {
 		const pi = new HandoffTabFakePi([
 			{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" },
 		]);
+		const herdr = new FakeHerdrGateway({
+			callerPaneResult: resolvedCallerPane("workspace-'quoted"),
+		});
 		registerHerdrHandoffTab(
 			pi,
 			createHandoffLaunchIntegration(pi, { skillLoader: fakeHandoffCreateSkillLoader() }),
-			new FakeHerdrGateway({ callerContextResult: resolvedCallerContext("workspace-'quoted") }),
+			herdr,
 		);
 		await pi
 			.command()
 			.handler("continue work", commandContext({ withModel: true, modelId: "claude-'test" }));
+		expect(herdr.resolveCallerPaneCalls).toBe(1);
 		const prompt = pi.sentUserMessages[0] ?? "";
 		expect(prompt).toContain("Compose the final Markdown handoff artifact content first");
 		expect(prompt).toContain("After `ns handoff create` succeeds");
@@ -367,7 +375,7 @@ describe("Herdr Handoff Pi prompt", () => {
 		registerHerdrHandoffTab(
 			pi,
 			createHandoffLaunchIntegration(pi, { skillLoader: fakeHandoffCreateSkillLoader() }),
-			new FakeHerdrGateway({ callerContextResult: resolvedCallerContext("workspace-1") }),
+			new FakeHerdrGateway({ callerPaneResult: resolvedCallerPane("workspace-1") }),
 		);
 		await pi.command().handler("continue work", commandContext({ withModel: true }));
 		const prompt = pi.sentUserMessages[0] ?? "";
@@ -383,7 +391,7 @@ describe("Herdr Handoff Pi prompt", () => {
 		registerHerdrHandoffTab(
 			pi,
 			createHandoffLaunchIntegration(pi, { skillLoader: fakeHandoffCreateSkillLoader() }),
-			new FakeHerdrGateway({ callerContextResult: resolvedCallerContext("workspace-1") }),
+			new FakeHerdrGateway({ callerPaneResult: resolvedCallerPane("workspace-1") }),
 		);
 		await pi.command().handler("continue work", commandContext());
 		expect(pi.sentUserMessages).toEqual([]);
@@ -422,6 +430,7 @@ class HandoffTabFakePi implements HandoffExtensionAPI {
 	readonly commands = new Map<string, Parameters<HandoffExtensionAPI["registerCommand"]>[1]>();
 	readonly tools = new Map<string, ToolDefinition>();
 	readonly sentUserMessages: string[] = [];
+	readonly execCalls: Array<{ command: string; args: string[] }> = [];
 	private readonly script: ExecFixture[];
 	private readonly thinkingLevel: ThinkingLevel;
 
@@ -446,6 +455,7 @@ class HandoffTabFakePi implements HandoffExtensionAPI {
 	registerEntryRenderer(): void {}
 
 	async exec(command: string, args: string[]) {
+		this.execCalls.push({ command, args });
 		const fixture = this.script.shift();
 		if (
 			fixture === undefined ||
@@ -567,6 +577,20 @@ class FakeHerdrNsApi implements NsExtensionApi {
 	};
 }
 
+function countingHandoffCreateSkillLoader(): HandoffCreateSkillLoader & { resolveCalls: number } {
+	const loader = fakeHandoffCreateSkillLoader();
+	return {
+		resolveCalls: 0,
+		async resolveCreateHandoffSkillPath(cwd: string) {
+			this.resolveCalls += 1;
+			return loader.resolveCreateHandoffSkillPath(cwd);
+		},
+		async loadCreateHandoffSkill(path: string) {
+			return loader.loadCreateHandoffSkill(path);
+		},
+	};
+}
+
 function fakeHandoffCreateSkillLoader(): HandoffCreateSkillLoader {
 	return {
 		async resolveCreateHandoffSkillPath() {
@@ -585,11 +609,18 @@ function fakeHandoffCreateSkillLoader(): HandoffCreateSkillLoader {
 	};
 }
 
-function commandContext(options: { withModel?: boolean; modelId?: string } = {}): CommandContext {
-	const { withModel = false, modelId = "claude-test" } = options;
+function commandContext(
+	options: {
+		withModel?: boolean;
+		modelId?: string;
+		notifications?: string[];
+		inputRequests?: string[];
+	} = {},
+): CommandContext {
+	const { withModel = false, modelId = "claude-test", notifications, inputRequests } = options;
 	return {
 		cwd: "/repo",
-		hasUI: false,
+		hasUI: inputRequests !== undefined,
 		mode: "tui",
 		sessionManager: {
 			getBranch: () => [],
@@ -597,7 +628,20 @@ function commandContext(options: { withModel?: boolean; modelId?: string } = {})
 			getSessionFile: () => undefined,
 			getSessionId: () => "test-session-id",
 		},
-		ui: { notify(): void {}, setStatus(): void {} },
+		ui: {
+			notify(message: string, level?: string): void {
+				notifications?.push(`${level ?? "info"}: ${message}`);
+			},
+			setStatus(): void {},
+			...(inputRequests === undefined
+				? {}
+				: {
+						async input(title: string): Promise<string | undefined> {
+							inputRequests.push(title);
+							return "unexpected focus interaction";
+						},
+					}),
+		},
 		...(withModel ? { model: { provider: "anthropic", id: modelId } } : {}),
 		async waitForIdle(): Promise<void> {},
 	};

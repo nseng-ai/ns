@@ -433,7 +433,7 @@ describe("createCliHerdrGateway.renameTab", () => {
 });
 
 // ---------------------------------------------------------------------------
-// resolveCallerContext — exact argv and caller-aware envelope parsing
+// resolveCallerPane — exact argv and caller-aware envelope parsing
 // ---------------------------------------------------------------------------
 
 // Observed response from the installed Herdr CLI for `herdr pane current
@@ -459,19 +459,21 @@ const PANE_CURRENT_RESPONSE = JSON.stringify({
 	},
 });
 
-describe("createCliHerdrGateway.resolveCallerContext", () => {
-	test("happy path: emits exactly `pane current --current` and extracts workspace, tab, and pane IDs", async () => {
+describe("createCliHerdrGateway.resolveCallerPane", () => {
+	test("emits exactly `pane current --current` and returns complete caller identity", async () => {
 		const commands = new ScriptedCommandExec({
 			script: [step("herdr", ["pane", "current", "--current"], { stdout: PANE_CURRENT_RESPONSE })],
 		});
 		const herdr = createCliHerdrGateway(commands);
 
-		const result = await herdr.resolveCallerContext();
+		const result = await herdr.resolveCallerPane();
 
 		commands.assertDone();
 		expect(result).toEqual({
 			type: "resolved",
-			context: { workspaceId: "w7S", tabId: "w7S:t1", paneId: "w7S:p1" },
+			workspaceId: "w7S",
+			tabId: "w7S:t1",
+			paneId: "w7S:p1",
 		});
 	});
 
@@ -486,12 +488,12 @@ describe("createCliHerdrGateway.resolveCallerContext", () => {
 		});
 		const herdr = createCliHerdrGateway(commands);
 
-		const result = await herdr.resolveCallerContext();
+		const result = await herdr.resolveCallerPane();
 
 		commands.assertDone();
 		expect(result.type).toBe("failed");
 		if (result.type === "failed") {
-			expect(result.message).toContain("Could not resolve the Herdr caller context.");
+			expect(result.message).toContain("Could not resolve the Herdr caller pane.");
 			expect(result.message).toContain("no current pane");
 		}
 	});
@@ -502,74 +504,48 @@ describe("createCliHerdrGateway.resolveCallerContext", () => {
 		});
 		const herdr = createCliHerdrGateway(commands);
 
-		const result = await herdr.resolveCallerContext();
+		const result = await herdr.resolveCallerPane();
 
 		commands.assertDone();
 		expect(result.type).toBe("failed");
-		if (result.type === "failed") {
-			expect(result.message).toContain("unparseable JSON");
-		}
-	});
-
-	test("response missing result field returns failed", async () => {
-		const commands = new ScriptedCommandExec({
-			script: [
-				step("herdr", ["pane", "current", "--current"], {
-					stdout: JSON.stringify({ id: "cli:pane:current" }),
-				}),
-			],
-		});
-		const herdr = createCliHerdrGateway(commands);
-
-		const result = await herdr.resolveCallerContext();
-
-		commands.assertDone();
-		expect(result.type).toBe("failed");
-		if (result.type === "failed") {
-			expect(result.message).toContain('"result" field');
-		}
-	});
-
-	test("response missing pane object returns failed with shape message", async () => {
-		const commands = new ScriptedCommandExec({
-			script: [
-				step("herdr", ["pane", "current", "--current"], {
-					stdout: JSON.stringify({ result: { type: "pane_current" } }),
-				}),
-			],
-		});
-		const herdr = createCliHerdrGateway(commands);
-
-		const result = await herdr.resolveCallerContext();
-
-		commands.assertDone();
-		expect(result.type).toBe("failed");
-		if (result.type === "failed") {
-			expect(result.message).toContain("unexpected response shape");
-		}
+		if (result.type === "failed") expect(result.message).toContain("unparseable JSON");
 	});
 
 	test.each([
-		["workspace_id", { pane_id: "w1:p1", tab_id: "w1:t1" }],
-		["tab_id", { pane_id: "w1:p1", workspace_id: "w1" }],
-		["pane_id", { tab_id: "w1:t1", workspace_id: "w1" }],
-	])("missing %s returns failed with shape message", async (_missing, pane) => {
+		["missing pane object", { type: "pane_current" }],
+		["missing workspace_id", { pane: { tab_id: "w1:t1", pane_id: "w1:p1" }, type: "pane_current" }],
+		["missing tab_id", { pane: { workspace_id: "w1", pane_id: "w1:p1" }, type: "pane_current" }],
+		["missing pane_id", { pane: { workspace_id: "w1", tab_id: "w1:t1" }, type: "pane_current" }],
+		[
+			"blank workspace_id",
+			{ pane: { workspace_id: "", tab_id: "w1:t1", pane_id: "w1:p1" }, type: "pane_current" },
+		],
+		[
+			"blank tab_id",
+			{ pane: { workspace_id: "w1", tab_id: "", pane_id: "w1:p1" }, type: "pane_current" },
+		],
+		[
+			"blank pane_id",
+			{ pane: { workspace_id: "w1", tab_id: "w1:t1", pane_id: "" }, type: "pane_current" },
+		],
+		["non-string IDs", { pane: { workspace_id: 7, tab_id: 8, pane_id: 9 }, type: "pane_current" }],
+	])("%s returns failed with shape message", async (_name, result) => {
 		const commands = new ScriptedCommandExec({
 			script: [
 				step("herdr", ["pane", "current", "--current"], {
-					stdout: JSON.stringify({ result: { pane, type: "pane_current" } }),
+					stdout: JSON.stringify({ result }),
 				}),
 			],
 		});
 		const herdr = createCliHerdrGateway(commands);
 
-		const result = await herdr.resolveCallerContext();
+		const resolved = await herdr.resolveCallerPane();
 
 		commands.assertDone();
-		expect(result.type).toBe("failed");
-		if (result.type === "failed") {
-			expect(result.message).toContain("unexpected response shape");
-			expect(result.message).toContain("workspace_id, tab_id, or pane_id");
+		expect(resolved.type).toBe("failed");
+		if (resolved.type === "failed") {
+			expect(resolved.message).toContain("unexpected response shape");
+			expect(resolved.message).toContain("missing workspace_id, tab_id, or pane_id");
 		}
 	});
 
@@ -585,7 +561,7 @@ describe("createCliHerdrGateway.resolveCallerContext", () => {
 		});
 		const herdr = createCliHerdrGateway(commands);
 
-		const result = await herdr.resolveCallerContext();
+		const result = await herdr.resolveCallerPane();
 		expect(result.type).toBe("failed");
 		if (result.type === "failed") expect(result.message.length).toBeLessThanOrEqual(4_000);
 		commands.assertDone();

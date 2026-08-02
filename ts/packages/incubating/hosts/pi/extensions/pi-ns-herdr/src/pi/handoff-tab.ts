@@ -30,7 +30,7 @@ const START_MESSAGES = {
 export function registerHerdrHandoffTab(
 	pi: HandoffExtensionAPI,
 	integration: HandoffPromptCreateIntegration,
-	herdr: Pick<HerdrGateway, "resolveCallerContext">,
+	herdr: Pick<HerdrGateway, "resolveCallerPane">,
 ): void {
 	if (pi.registerTool === undefined) return;
 	pi.on?.("session_start", () => integration.registerContentSlugToolIfMissing());
@@ -39,20 +39,24 @@ export function registerHerdrHandoffTab(
 		commandName: HERDR_TAB_HANDOFF_COMMAND_NAME,
 		commandDefinition: {
 			description: "Create a handoff and open a focused Herdr tab to pick it up.",
-			handler: async (args, ctx) =>
-				integration.runCreateCommand(args, ctx, {
+			handler: async (args, ctx) => {
+				// Capture the explicit caller workspace before any dependent
+				// interaction: a failed resolution must stop the workflow before
+				// focus prompting, Git inspection, or Handoff skill loading.
+				const callerWorkspace = await herdr.resolveCallerPane();
+				if (callerWorkspace.type === "failed") {
+					ctx.ui.notify(
+						`A Herdr caller space is required before creating a handoff for a Herdr tab.\n${callerWorkspace.message}`,
+						"error",
+					);
+					return;
+				}
+				const workspaceId = callerWorkspace.workspaceId;
+				await integration.runCreateCommand(args, ctx, {
 					statusKey: HERDR_TAB_HANDOFF_STATUS_KEY,
 					promptCopy: PROMPT_COPY,
 					startMessages: START_MESSAGES,
 					preflight: async ({ request }) => {
-						const callerContext = await herdr.resolveCallerContext();
-						if (callerContext.type === "failed") {
-							return {
-								type: "failed",
-								message: `A Herdr caller space is required before creating a handoff for a Herdr tab.\n${callerContext.message}`,
-							};
-						}
-						const workspaceId = callerContext.context.workspaceId;
 						if (ctx.model === undefined) {
 							return {
 								type: "failed",
@@ -89,7 +93,8 @@ export function registerHerdrHandoffTab(
 							},
 						};
 					},
-				}),
+				});
+			},
 		},
 	});
 }
