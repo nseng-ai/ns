@@ -13,6 +13,14 @@ import {
 const OLD_HEAD = "a".repeat(40);
 const NEW_HEAD = "b".repeat(40);
 
+function managedRegion(identity: string) {
+	return {
+		beginPrefix: "<!-- ns-consumer-publication:begin identity=",
+		end: "<!-- ns-consumer-publication:end -->",
+		identity,
+	};
+}
+
 function target(headOid = OLD_HEAD): FlowBoundBranchPublicationTarget {
 	return {
 		branch: "feature/demo",
@@ -26,10 +34,14 @@ function target(headOid = OLD_HEAD): FlowBoundBranchPublicationTarget {
 }
 
 function pullRequest(
-	options: { readonly headOid?: string; readonly body?: string } = {},
+	options: { readonly headOid?: string; readonly body?: string; readonly title?: string } = {},
 ): FlowPublicationPullRequest {
 	const headOid = options.headOid ?? OLD_HEAD;
-	return { ...target(headOid).pullRequest, body: options.body ?? "Human prose" };
+	return {
+		...target(headOid).pullRequest,
+		title: options.title ?? "Existing title",
+		body: options.body ?? "Human prose",
+	};
 }
 
 class InMemoryRepository implements FlowPublicationRepositoryGateway {
@@ -62,6 +74,7 @@ class InMemoryRepository implements FlowPublicationRepositoryGateway {
 class InMemoryPullRequests implements FlowPublicationPullRequestGateway {
 	readonly operations: string[];
 	readonly editedBodies: string[] = [];
+	readonly editedTitles: string[] = [];
 	private readonly reads: FlowPublicationPullRequest[];
 	private readonly editError: FlowPublicationError | undefined;
 
@@ -88,8 +101,9 @@ class InMemoryPullRequests implements FlowPublicationPullRequestGateway {
 			: success({ ...value });
 	}
 
-	async replacePullRequestBody(input: { number: number; body: string }) {
+	async replacePullRequestMetadata(input: { number: number; title: string; body: string }) {
 		this.operations.push(`edit-pr:${input.number}`);
+		this.editedTitles.push(input.title);
 		this.editedBodies.push(input.body);
 		return this.editError === undefined ? success(undefined) : failure(this.editError);
 	}
@@ -105,12 +119,13 @@ describe("Flow branch publication", () => {
 		expect(await client.resolveCurrentBranchTarget({ trunkBranch: "main" })).toEqual({
 			type: "resolved",
 			localHeadOid: OLD_HEAD,
+			currentPullRequestTitle: "Existing title",
 			target: target(),
 		});
 		expect(operations).toEqual(["read-repository", "read-current-pr"]);
 	});
 
-	test("revalidates, pushes, rereads, then updates the preserved body", async () => {
+	test("revalidates, pushes, rereads, then updates the desired title and preserved body together", async () => {
 		const operations: string[] = [];
 		const repository = new InMemoryRepository({ operations });
 		const pullRequests = new InMemoryPullRequests({
@@ -122,8 +137,10 @@ describe("Flow branch publication", () => {
 			await client.publishBoundBranch({
 				target: target(),
 				expectedHeadOid: NEW_HEAD,
-				objectiveSlug: "demo-objective",
-				managedBody: "## Objective Runner\n\nFacts",
+				managedRegion: managedRegion("consumer-key/v1"),
+				expectedCurrentTitle: "Existing title",
+				desiredTitle: "Caller title: Existing title",
+				managedBody: "## Caller facts\n\nFacts",
 			}),
 		).toEqual({ type: "published", headOid: NEW_HEAD, target: target(NEW_HEAD) });
 		expect(operations).toEqual([
@@ -133,7 +150,65 @@ describe("Flow branch publication", () => {
 			"read-pr:12",
 			"edit-pr:12",
 		]);
-		expect(pullRequests.editedBodies[0]).toContain("Human prose\n\n<!-- ns-objective-runner:begin");
+		expect(pullRequests.editedBodies[0]).toContain(
+			"Human prose\n\n<!-- ns-consumer-publication:begin",
+		);
+		expect(pullRequests.editedTitles).toEqual(["Caller title: Existing title"]);
+	});
+
+	test("refuses pre-push title drift and reports post-push title drift as successful-partial", async () => {
+		const prePushOperations: string[] = [];
+		const prePushClient = createFlowBranchPublicationClientFromGateways({
+			repository: new InMemoryRepository({ operations: prePushOperations }),
+			pullRequests: new InMemoryPullRequests({
+				operations: prePushOperations,
+				reads: [pullRequest({ title: "Concurrently edited" })],
+			}),
+		});
+		expect(
+			await prePushClient.publishBoundBranch({
+				target: target(),
+				expectedHeadOid: NEW_HEAD,
+				managedRegion: managedRegion("consumer-key/v1"),
+				expectedCurrentTitle: "Existing title",
+				desiredTitle: "Caller title: Existing title",
+				managedBody: "Facts",
+			}),
+		).toMatchObject({
+			type: "refused",
+			reason: "pull-request-title-drift",
+			error: { code: "flow_publication_pr_title_drift" },
+		});
+		expect(prePushOperations).toEqual(["read-repository", "read-pr:12"]);
+
+		const postPushOperations: string[] = [];
+		const postPushClient = createFlowBranchPublicationClientFromGateways({
+			repository: new InMemoryRepository({ operations: postPushOperations }),
+			pullRequests: new InMemoryPullRequests({
+				operations: postPushOperations,
+				reads: [pullRequest(), pullRequest({ headOid: NEW_HEAD, title: "Concurrently edited" })],
+			}),
+		});
+		expect(
+			await postPushClient.publishBoundBranch({
+				target: target(),
+				expectedHeadOid: NEW_HEAD,
+				managedRegion: managedRegion("consumer-key/v1"),
+				expectedCurrentTitle: "Existing title",
+				desiredTitle: "Caller title: Existing title",
+				managedBody: "Facts",
+			}),
+		).toMatchObject({
+			type: "pushed-pr-update-failed",
+			headOid: NEW_HEAD,
+			error: { code: "flow_publication_published_pr_title_drift" },
+		});
+		expect(postPushOperations).toEqual([
+			"read-repository",
+			"read-pr:12",
+			`push:feature/demo:${NEW_HEAD}`,
+			"read-pr:12",
+		]);
 	});
 
 	test("refuses target drift and malformed regions before mutation", async () => {
@@ -149,7 +224,9 @@ describe("Flow branch publication", () => {
 			await client.publishBoundBranch({
 				target: target(),
 				expectedHeadOid: NEW_HEAD,
-				objectiveSlug: "demo-objective",
+				managedRegion: managedRegion("consumer-key/v1"),
+				expectedCurrentTitle: "Existing title",
+				desiredTitle: "Caller title: Existing title",
 				managedBody: "Facts",
 			}),
 		).toMatchObject({ type: "refused", reason: "pull-request-drift" });
@@ -163,7 +240,7 @@ describe("Flow branch publication", () => {
 				reads: [
 					pullRequest({
 						headOid: OLD_HEAD,
-						body: "<!-- ns-objective-runner:begin objective=demo-objective -->\nBroken",
+						body: "<!-- ns-consumer-publication:begin identity=consumer-key/v1 -->\nBroken",
 					}),
 				],
 			}),
@@ -172,7 +249,9 @@ describe("Flow branch publication", () => {
 			await malformedClient.publishBoundBranch({
 				target: target(),
 				expectedHeadOid: NEW_HEAD,
-				objectiveSlug: "demo-objective",
+				managedRegion: managedRegion("consumer-key/v1"),
+				expectedCurrentTitle: "Existing title",
+				desiredTitle: "Caller title: Existing title",
 				managedBody: "Facts",
 			}),
 		).toMatchObject({ type: "refused", reason: "malformed-region" });
@@ -195,7 +274,9 @@ describe("Flow branch publication", () => {
 			await pushClient.publishBoundBranch({
 				target: target(),
 				expectedHeadOid: NEW_HEAD,
-				objectiveSlug: "demo-objective",
+				managedRegion: managedRegion("consumer-key/v1"),
+				expectedCurrentTitle: "Existing title",
+				desiredTitle: "Caller title: Existing title",
 				managedBody: "Facts",
 			}),
 		).toMatchObject({ type: "push-failed" });
@@ -214,7 +295,9 @@ describe("Flow branch publication", () => {
 			await editClient.publishBoundBranch({
 				target: target(),
 				expectedHeadOid: NEW_HEAD,
-				objectiveSlug: "demo-objective",
+				managedRegion: managedRegion("consumer-key/v1"),
+				expectedCurrentTitle: "Existing title",
+				desiredTitle: "Caller title: Existing title",
 				managedBody: "Facts",
 			}),
 		).toEqual({

@@ -59,6 +59,7 @@ class RealObjectiveRunnerPublicationFactsGateway implements ObjectiveRunnerPubli
 					url: resolved.target.pullRequest.url,
 					headBranch: resolved.target.pullRequest.headRefName,
 					headSha: resolved.target.pullRequest.headOid,
+					title: resolved.currentPullRequestTitle,
 				},
 			},
 		};

@@ -34,6 +34,7 @@ function flowClient(): FlowBranchPublicationClient {
 		resolveCurrentBranchTarget: async () => ({
 			type: "resolved",
 			localHeadOid: HEAD_SHA,
+			currentPullRequestTitle: "Existing title",
 			target: {
 				branch: "feature/publication",
 				pullRequest: {
@@ -72,7 +73,7 @@ describe("real publication facts gateway", () => {
 				branch: "feature/publication",
 				localHead: HEAD_SHA,
 				isWorktreeClean: true,
-				pullRequest: { number: 42, headSha: BASE_SHA },
+				pullRequest: { number: 42, headSha: BASE_SHA, title: "Existing title" },
 			},
 		});
 		expect(commands.calls).toEqual([

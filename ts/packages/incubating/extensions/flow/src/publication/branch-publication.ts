@@ -1,4 +1,9 @@
-import { mergeObjectiveRunnerRegion } from "./managed-objective-runner-region.ts";
+import {
+	mergeManagedPublicationRegion,
+	type ManagedPublicationRegion,
+} from "./managed-publication-region.ts";
+
+export type { ManagedPublicationRegion } from "./managed-publication-region.ts";
 
 export interface FlowPublicationError {
 	code: string;
@@ -28,6 +33,7 @@ export interface FlowBoundBranchPublicationTarget {
 }
 
 export interface FlowPublicationPullRequest extends FlowBoundBranchPublicationPullRequest {
+	title: string;
 	body: string;
 }
 
@@ -44,8 +50,9 @@ export interface FlowPublicationPullRequestGateway {
 	readPullRequest(
 		number: number,
 	): Promise<FlowPublicationGatewayResult<FlowPublicationPullRequest>>;
-	replacePullRequestBody(input: {
+	replacePullRequestMetadata(input: {
 		number: number;
+		title: string;
 		body: string;
 	}): Promise<FlowPublicationGatewayResult<void>>;
 }
@@ -56,7 +63,13 @@ export interface FlowBranchPublicationContext {
 }
 
 export type ResolveFlowBranchPublicationTargetResult =
-	| { type: "resolved"; target: FlowBoundBranchPublicationTarget; localHeadOid: string }
+	| {
+			type: "resolved";
+			target: FlowBoundBranchPublicationTarget;
+			localHeadOid: string;
+			/** Read-only current-title fact; deliberately not part of the bound target identity. */
+			currentPullRequestTitle: string;
+	  }
 	| { type: "refused"; reason: string; error: FlowPublicationError };
 
 export type PublishFlowBranchResult =
@@ -81,7 +94,9 @@ export interface FlowBranchPublicationClient {
 	publishBoundBranch(input: {
 		target: FlowBoundBranchPublicationTarget;
 		expectedHeadOid: string;
-		objectiveSlug: string;
+		managedRegion: ManagedPublicationRegion;
+		expectedCurrentTitle: string;
+		desiredTitle: string;
 		managedBody: string;
 	}): Promise<PublishFlowBranchResult>;
 }
@@ -119,6 +134,7 @@ async function resolveCurrentBranchTarget(
 	return {
 		type: "resolved",
 		localHeadOid: repository.value.headOid,
+		currentPullRequestTitle: pullRequest.value.title,
 		target: targetFrom(pullRequest.value, repository.value.branch),
 	};
 }
@@ -128,7 +144,9 @@ async function publishBoundBranch(
 	input: {
 		target: FlowBoundBranchPublicationTarget;
 		expectedHeadOid: string;
-		objectiveSlug: string;
+		managedRegion: ManagedPublicationRegion;
+		expectedCurrentTitle: string;
+		desiredTitle: string;
 		managedBody: string;
 	},
 ): Promise<PublishFlowBranchResult> {
@@ -151,9 +169,15 @@ async function publishBoundBranch(
 	if (!beforePush.ok) return refusal("pull-request-read-failed", beforePush.error);
 	const targetMismatch = compareTarget(input.target, beforePush.value);
 	if (targetMismatch !== undefined) return refusal("pull-request-drift", targetMismatch);
-	const preflightBody = mergeObjectiveRunnerRegion({
+	if (beforePush.value.title !== input.expectedCurrentTitle) {
+		return refusal("pull-request-title-drift", {
+			code: "flow_publication_pr_title_drift",
+			message: `PR #${input.target.pullRequest.number} title no longer matches the expected current title.`,
+		});
+	}
+	const preflightBody = mergeManagedPublicationRegion({
 		existingBody: beforePush.value.body,
-		objectiveSlug: input.objectiveSlug,
+		region: input.managedRegion,
 		managedBody: input.managedBody,
 	});
 	if (preflightBody.type === "refused") {
@@ -181,9 +205,15 @@ async function publishBoundBranch(
 	if (postPushMismatch !== undefined) {
 		return partial(nextTarget, input.expectedHeadOid, postPushMismatch);
 	}
-	const merged = mergeObjectiveRunnerRegion({
+	if (afterPush.value.title !== input.expectedCurrentTitle) {
+		return partial(nextTarget, input.expectedHeadOid, {
+			code: "flow_publication_published_pr_title_drift",
+			message: `After push, PR #${input.target.pullRequest.number} title no longer matches the expected current title.`,
+		});
+	}
+	const merged = mergeManagedPublicationRegion({
 		existingBody: afterPush.value.body,
-		objectiveSlug: input.objectiveSlug,
+		region: input.managedRegion,
 		managedBody: input.managedBody,
 	});
 	if (merged.type === "refused") {
@@ -192,8 +222,9 @@ async function publishBoundBranch(
 			message: merged.message,
 		});
 	}
-	const edit = await context.pullRequests.replacePullRequestBody({
+	const edit = await context.pullRequests.replacePullRequestMetadata({
 		number: afterPush.value.number,
+		title: input.desiredTitle,
 		body: merged.body,
 	});
 	if (!edit.ok) return partial(nextTarget, input.expectedHeadOid, edit.error);

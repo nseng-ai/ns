@@ -18,7 +18,13 @@ export function createObjectiveRunnerBranchPublisher(
 			const result = await client.publishBoundBranch({
 				target: toFlowTarget(input.target),
 				expectedHeadOid: input.expectedHeadSha,
-				objectiveSlug: input.objectiveSlug,
+				managedRegion: {
+					beginPrefix: "<!-- ns-objective-runner:begin objective=",
+					end: "<!-- ns-objective-runner:end -->",
+					identity: input.objectiveSlug,
+				},
+				expectedCurrentTitle: input.expectedCurrentTitle,
+				desiredTitle: input.desiredTitle,
 				managedBody: input.managedBody,
 			});
 			return fromFlowResult(result);

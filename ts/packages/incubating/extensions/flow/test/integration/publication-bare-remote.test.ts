@@ -16,7 +16,16 @@ import { createFlowBranchPublicationClient } from "@nseng-ai/flow/api";
 const TEST_TIMEOUT_MS = 60_000;
 const FEATURE_BRANCH = "feature/demo";
 
+function managedRegion(identity: string) {
+	return {
+		beginPrefix: "<!-- ns-consumer-publication:begin identity=",
+		end: "<!-- ns-consumer-publication:end -->",
+		identity,
+	};
+}
+
 interface PullRequestState {
+	title: string;
 	body: string;
 }
 
@@ -44,7 +53,10 @@ describe("Flow publication real adapters", () => {
 				const statePath = join(root, "pull-request.json");
 				await mkdir(repository);
 				await mkdir(bin);
-				await writeFile(statePath, `${JSON.stringify({ body: "Human-owned prose" })}\n`);
+				await writeFile(
+					statePath,
+					`${JSON.stringify({ title: "Existing title", body: "Human-owned prose" })}\n`,
+				);
 				await writeGitHubShim(bin);
 				const env = {
 					...process.env,
@@ -83,8 +95,10 @@ describe("Flow publication real adapters", () => {
 					await client.publishBoundBranch({
 						target: resolved.target,
 						expectedHeadOid: newHead,
-						objectiveSlug: "demo-objective",
-						managedBody: "## Objective Runner\n\nVerified publication evidence",
+						managedRegion: managedRegion("consumer-key/v1"),
+						expectedCurrentTitle: "Existing title",
+						desiredTitle: "Caller title: Existing title",
+						managedBody: "## Caller facts\n\nVerified publication evidence",
 					}),
 				).toMatchObject({ type: "published", headOid: newHead });
 				const remoteHead = (
@@ -92,10 +106,11 @@ describe("Flow publication real adapters", () => {
 				).stdout.trim();
 				expect(remoteHead).toBe(newHead);
 				const state = JSON.parse(await readFile(statePath, "utf8")) as PullRequestState;
+				expect(state.title).toBe("Caller title: Existing title");
 				expect(state.body).toBe(
-					"Human-owned prose\n\n<!-- ns-objective-runner:begin objective=demo-objective -->\n" +
-						"## Objective Runner\n\nVerified publication evidence\n" +
-						"<!-- ns-objective-runner:end -->",
+					"Human-owned prose\n\n<!-- ns-consumer-publication:begin identity=consumer-key/v1 -->\n" +
+						"## Caller facts\n\nVerified publication evidence\n" +
+						"<!-- ns-consumer-publication:end -->",
 				);
 			} finally {
 				await rm(root, { recursive: true, force: true });
@@ -134,6 +149,7 @@ if (args[0] === "pr" && args[1] === "view") {
   process.stdout.write(JSON.stringify({
     number: 12,
     url: "https://github.com/acme/project/pull/12",
+    title: state.title,
     body: state.body,
     headRefName: "${FEATURE_BRANCH}",
     headRefOid: head.stdout.trim(),
@@ -143,6 +159,10 @@ if (args[0] === "pr" && args[1] === "view") {
 if (args[0] === "pr" && args[1] === "edit") {
   const bodyPath = args[args.indexOf("--body-file") + 1];
   state.body = readFileSync(bodyPath, "utf8");
+  const titleIndex = args.indexOf("--title");
+  if (titleIndex !== -1) {
+    state.title = args[titleIndex + 1];
+  }
   writeFileSync(statePath, JSON.stringify(state) + "\\n");
   process.exit(0);
 }

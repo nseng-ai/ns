@@ -81,6 +81,7 @@ function context(): ObjectiveRunnerPublicationCommandContext {
 					url: "https://github.com/nseng-ai/ns/pull/42",
 					headBranch: "feature/publication",
 					headSha: BASE_SHA,
+					title: "Existing title",
 				},
 			},
 		}),
@@ -129,6 +130,13 @@ function context(): ObjectiveRunnerPublicationCommandContext {
 		},
 		facts,
 		publisher,
+		titleTemplates: {
+			resolveTemplate: async () => ({
+				type: "resolved",
+				template: "[obj:{{objectiveSlug}}] [autorun:{{autorunOrdinal}}] {{existingTitle}}",
+				source: { type: "default", label: "manifest default" },
+			}),
+		},
 		authorizations: new FailingReplaceStore(),
 		readTextFile: async (path) => ({ ok: true, content: files[path] ?? "" }),
 	};

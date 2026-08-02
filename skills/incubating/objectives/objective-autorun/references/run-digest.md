@@ -89,6 +89,7 @@ Continue with:
 - `bound` is legal only for `ns-bookended` after a real committed Runner Checkpoint and ADR 0037 authorization.
 - Portable mode always says `unavailable/not applicable`; no runner publisher was invoked.
 - For bound bookended publication, report the exact existing-PR binding, local Runner commit, optional tracking commits, push outcome, managed-summary outcome, and authorization scratch cleanup without exposing credentials.
+- Title naming state: `not applicable` (no PRs exist), `pending separate submit` (accepted order recorded, no authorized submit yet), `applied`, `refused` (template/title failure before push), or `partially failed` (push succeeded, title/body edit failed). Keep title-update outcomes distinct from Runner Checkpoints and other publication evidence.
 
 ### Recommended next action
 
@@ -96,6 +97,7 @@ Continue with:
 - State where HEAD remains.
 - If publication was off or unavailable, state that push, submit, and PR actions were intentionally not performed.
 - If bound publication ran, report its exact bounded outcome and confirm that no PR creation, submit, force-push, merge/land, deployment, or other external action occurred.
+- If autorun PRs exist or will exist through a separate authorized submit, state whether autorun title annotation was not applicable, is pending that submit, was applied, was refused, or partially failed.
 ```
 
 Keep these evidence classes separate throughout:

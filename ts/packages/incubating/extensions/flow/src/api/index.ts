@@ -53,6 +53,7 @@ export type {
 	FlowBoundBranchPublicationTarget,
 	FlowBranchPublicationClient,
 	FlowPublicationError,
+	ManagedPublicationRegion,
 	PublishFlowBranchResult,
 	ResolveFlowBranchPublicationTargetResult,
 } from "../publication/branch-publication.ts";

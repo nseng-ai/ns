@@ -4,6 +4,8 @@ import {
 	type PublicationAuthorizationRefusalCode,
 } from "./authorization.ts";
 import type { ObjectiveRunnerPublicationFactsGateway } from "./facts-gateway.ts";
+import { formatObjectiveAutorunPrTitle } from "./pr-title.ts";
+import type { ObjectiveAutorunPrTitleTemplateResolver } from "./pr-title-source.ts";
 import { renderObjectiveRunnerCumulativeSummary } from "./summary.ts";
 
 export interface ObjectiveRunnerPublicationError {
@@ -43,6 +45,8 @@ export interface ObjectiveRunnerBranchPublisher {
 		target: ObjectiveRunnerBoundPublicationTarget;
 		expectedHeadSha: string;
 		objectiveSlug: string;
+		expectedCurrentTitle: string;
+		desiredTitle: string;
 		managedBody: string;
 	}): Promise<ObjectiveRunnerBranchPublisherResult>;
 }
@@ -82,6 +86,7 @@ export type PublishObjectiveRunnerCheckpointResult =
 export async function publishObjectiveRunnerCheckpoint(
 	facts: ObjectiveRunnerPublicationFactsGateway,
 	publisher: ObjectiveRunnerBranchPublisher,
+	titleTemplates: ObjectiveAutorunPrTitleTemplateResolver,
 	options: PublishObjectiveRunnerCheckpointOptions,
 ): Promise<PublishObjectiveRunnerCheckpointResult> {
 	const rechecked = await recheckObjectiveRunnerPublication(facts, options);
@@ -94,6 +99,27 @@ export async function publishObjectiveRunnerCheckpoint(
 	}
 
 	const { authorization, summary } = rechecked.value;
+	const template = await titleTemplates.resolveTemplate();
+	if (template.type === "refused") {
+		return {
+			type: "publication-refused",
+			reason: "pr-title-template-refused",
+			error: { code: template.code, message: template.message },
+		};
+	}
+	const desiredTitle = formatObjectiveAutorunPrTitle({
+		template: template.template,
+		objectiveSlug: authorization.objectiveSlug,
+		autorunOrdinal: summary.steps.length,
+		existingTitle: rechecked.value.currentPullRequestTitle,
+	});
+	if (desiredTitle.type === "refused") {
+		return {
+			type: "publication-refused",
+			reason: "pr-title-render-refused",
+			error: { code: desiredTitle.code, message: desiredTitle.message },
+		};
+	}
 	const result = await publisher.publishBoundBranch({
 		target: {
 			branch: authorization.target.branch,
@@ -106,6 +132,8 @@ export async function publishObjectiveRunnerCheckpoint(
 		},
 		expectedHeadSha: summary.publishedHead,
 		objectiveSlug: authorization.objectiveSlug,
+		expectedCurrentTitle: rechecked.value.currentPullRequestTitle,
+		desiredTitle: desiredTitle.title,
 		managedBody: renderObjectiveRunnerCumulativeSummary(summary),
 	});
 

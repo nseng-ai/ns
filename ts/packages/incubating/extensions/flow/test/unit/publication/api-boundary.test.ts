@@ -9,10 +9,19 @@ import {
 const HEAD = "a".repeat(40);
 const PUBLISHED_HEAD = "b".repeat(40);
 
+function managedRegion(identity: string) {
+	return {
+		beginPrefix: "<!-- ns-consumer-publication:begin identity=",
+		end: "<!-- ns-consumer-publication:end -->",
+		identity,
+	};
+}
+
 function pullRequest(headOid: string) {
 	return JSON.stringify({
 		number: 12,
 		url: "https://github.com/acme/project/pull/12",
+		title: "Existing title",
 		body: "Human prose",
 		headRefName: "feature/demo",
 		headRefOid: headOid,
@@ -49,7 +58,7 @@ describe("Flow publication Extension API", () => {
 			},
 			{
 				command: "gh",
-				args: ["pr", "view", "--json", "number,url,body,headRefName,headRefOid"],
+				args: ["pr", "view", "--json", "number,url,title,body,headRefName,headRefOid"],
 				options: { cwd: "/repo", timeout: 60_000 },
 			},
 		]);
@@ -78,8 +87,10 @@ describe("Flow publication Extension API", () => {
 					},
 				},
 				expectedHeadOid: PUBLISHED_HEAD,
-				objectiveSlug: "demo-objective",
-				managedBody: "## Objective Runner\n\nFacts",
+				managedRegion: managedRegion("consumer-key/v1"),
+				expectedCurrentTitle: "Existing title",
+				desiredTitle: "Caller title: Existing title",
+				managedBody: "## Caller facts\n\nFacts",
 			}),
 		).toMatchObject({ type: "published", headOid: PUBLISHED_HEAD });
 		const calls = commands.calls();
@@ -90,7 +101,15 @@ describe("Flow publication Extension API", () => {
 		});
 		expect(calls[5]).toMatchObject({
 			command: "gh",
-			args: ["pr", "edit", "12", "--body-file", expect.any(String)],
+			args: [
+				"pr",
+				"edit",
+				"12",
+				"--title",
+				"Caller title: Existing title",
+				"--body-file",
+				expect.any(String),
+			],
 			options: { cwd: "/repo", timeout: 60_000 },
 		});
 	});

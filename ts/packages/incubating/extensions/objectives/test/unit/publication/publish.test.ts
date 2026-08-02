@@ -11,6 +11,10 @@ import type {
 	PublicationFactsResult,
 	PublicationTargetFactsResult,
 } from "../../../src/publication/facts-gateway.ts";
+import type {
+	ObjectiveAutorunPrTitleTemplateResolver,
+	ResolveObjectiveAutorunPrTitleTemplateResult,
+} from "../../../src/publication/pr-title-source.ts";
 import {
 	publishObjectiveRunnerCheckpoint,
 	type ObjectiveRunnerBranchPublisher,
@@ -24,6 +28,21 @@ const NEXT_RUNNER_SHA = "4".repeat(40);
 const NEXT_HEAD_SHA = "5".repeat(40);
 const SLUG = "objective-runner-external-writes";
 const PR_URL = "https://github.com/nseng-ai/ns/pull/42";
+const EXISTING_TITLE = "Existing title";
+const DEFAULT_TEMPLATE = "[obj:{{objectiveSlug}}] [autorun:{{autorunOrdinal}}] {{existingTitle}}";
+
+function titleTemplates(
+	result?: ResolveObjectiveAutorunPrTitleTemplateResult,
+): ObjectiveAutorunPrTitleTemplateResolver {
+	return {
+		resolveTemplate: async () =>
+			result ?? {
+				type: "resolved",
+				template: DEFAULT_TEMPLATE,
+				source: { type: "default", label: "manifest default" },
+			},
+	};
+}
 
 class FakeFacts implements ObjectiveRunnerPublicationFactsGateway {
 	readonly reads: string[] = [];
@@ -67,7 +86,12 @@ describe("publishObjectiveRunnerCheckpoint", () => {
 		const facts = new FakeFacts();
 		const publisher = new RecordingPublisher(publishedResult());
 
-		const result = await publishObjectiveRunnerCheckpoint(facts, publisher, options());
+		const result = await publishObjectiveRunnerCheckpoint(
+			facts,
+			publisher,
+			titleTemplates(),
+			options(),
+		);
 
 		expect(result).toMatchObject({
 			type: "published",
@@ -80,7 +104,77 @@ describe("publishObjectiveRunnerCheckpoint", () => {
 				expectedHeadSha: TRACKING_SHA,
 				objectiveSlug: SLUG,
 				target: expectedTarget(BASE_SHA),
+				expectedCurrentTitle: EXISTING_TITLE,
+				desiredTitle: `[obj:${SLUG}] [autorun:1] ${EXISTING_TITLE}`,
 				managedBody: expect.stringContaining(`- Published head: \`${TRACKING_SHA}\``),
+			}),
+		]);
+	});
+
+	test("refuses before the publisher when template resolution fails", async () => {
+		const facts = new FakeFacts();
+		const publisher = new RecordingPublisher(publishedResult());
+
+		const result = await publishObjectiveRunnerCheckpoint(
+			facts,
+			publisher,
+			titleTemplates({
+				type: "refused",
+				code: "template-source-unreadable",
+				message: "Could not read the selected template.",
+			}),
+			options(),
+		);
+
+		expect(result).toEqual({
+			type: "publication-refused",
+			reason: "pr-title-template-refused",
+			error: {
+				code: "template-source-unreadable",
+				message: "Could not read the selected template.",
+			},
+		});
+		expect(publisher.calls).toEqual([]);
+	});
+
+	test("refuses before the publisher when the rendered title is invalid", async () => {
+		const publisher = new RecordingPublisher(publishedResult());
+
+		const result = await publishObjectiveRunnerCheckpoint(
+			new FakeFacts(),
+			publisher,
+			titleTemplates({
+				type: "resolved",
+				template: "{{objectiveSlug}} only",
+				source: { type: "ns.toml", label: "ns.toml template custom.txt" },
+			}),
+			options(),
+		);
+
+		expect(result).toMatchObject({
+			type: "publication-refused",
+			reason: "pr-title-render-refused",
+			error: { code: "invalid-template" },
+		});
+		expect(publisher.calls).toEqual([]);
+	});
+
+	test("replaces an existing canonical prefix instead of stacking a second one", async () => {
+		const publisher = new RecordingPublisher(publishedResult());
+
+		await publishObjectiveRunnerCheckpoint(
+			new FakeFacts({
+				target: targetFacts({ title: `[obj:other-objective] [autorun:7] ${EXISTING_TITLE}` }),
+			}),
+			publisher,
+			titleTemplates(),
+			options(),
+		);
+
+		expect(publisher.calls).toEqual([
+			expect.objectContaining({
+				expectedCurrentTitle: `[obj:other-objective] [autorun:7] ${EXISTING_TITLE}`,
+				desiredTitle: `[obj:${SLUG}] [autorun:1] ${EXISTING_TITLE}`,
 			}),
 		]);
 	});
@@ -89,7 +183,7 @@ describe("publishObjectiveRunnerCheckpoint", () => {
 		const facts = new FakeFacts();
 		const publisher = new RecordingPublisher(publishedResult());
 
-		const result = await publishObjectiveRunnerCheckpoint(facts, publisher, {
+		const result = await publishObjectiveRunnerCheckpoint(facts, publisher, titleTemplates(), {
 			...options(),
 			checkpoint: { ...checkpoint(), isVerified: false },
 		});
@@ -105,7 +199,12 @@ describe("publishObjectiveRunnerCheckpoint", () => {
 			error: { code: "push-rejected", message: "non-fast-forward" },
 		});
 
-		const result = await publishObjectiveRunnerCheckpoint(new FakeFacts(), publisher, options());
+		const result = await publishObjectiveRunnerCheckpoint(
+			new FakeFacts(),
+			publisher,
+			titleTemplates(),
+			options(),
+		);
 
 		expect(result).toEqual({
 			type: "push-failed",
@@ -122,7 +221,12 @@ describe("publishObjectiveRunnerCheckpoint", () => {
 			error: { code: "pr-edit-failed", message: "GitHub unavailable" },
 		});
 
-		const result = await publishObjectiveRunnerCheckpoint(new FakeFacts(), publisher, options());
+		const result = await publishObjectiveRunnerCheckpoint(
+			new FakeFacts(),
+			publisher,
+			titleTemplates(),
+			options(),
+		);
 
 		expect(result).toMatchObject({
 			type: "pushed-pr-update-failed",
@@ -142,6 +246,7 @@ describe("publishObjectiveRunnerCheckpoint", () => {
 		const first = await publishObjectiveRunnerCheckpoint(
 			new FakeFacts(),
 			firstPublisher,
+			titleTemplates(),
 			options(),
 		);
 		if (first.type !== "pushed-pr-update-failed") throw new Error("Expected partial publication.");
@@ -181,6 +286,7 @@ describe("publishObjectiveRunnerCheckpoint", () => {
 				},
 			}),
 			nextPublisher,
+			titleTemplates(),
 			{
 				...options(),
 				authorization: first.nextAuthorization,
@@ -200,6 +306,9 @@ describe("publishObjectiveRunnerCheckpoint", () => {
 		expect(nextPublisher.calls[0]?.managedBody).toContain(`1. Runner commit \`${RUNNER_SHA}\``);
 		expect(nextPublisher.calls[0]?.managedBody).toContain(
 			`2. Runner commit \`${NEXT_RUNNER_SHA}\``,
+		);
+		expect(nextPublisher.calls[0]?.desiredTitle).toBe(
+			`[obj:${SLUG}] [autorun:2] ${EXISTING_TITLE}`,
 		);
 	});
 });
@@ -259,7 +368,7 @@ function checkpoint() {
 }
 
 function targetFacts(
-	override: { localHead?: string; remoteHead?: string } = {},
+	override: { localHead?: string; remoteHead?: string; title?: string } = {},
 ): PublicationTargetFacts {
 	return {
 		repository: "nseng-ai/ns",
@@ -272,6 +381,7 @@ function targetFacts(
 			url: PR_URL,
 			headBranch: "feature/publication",
 			headSha: override.remoteHead ?? BASE_SHA,
+			title: override.title ?? EXISTING_TITLE,
 		},
 	};
 }

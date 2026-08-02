@@ -106,7 +106,7 @@ Read the returned Runner Checkpoint. Keep runner-attested facts distinct from un
 
 A repairable failure may receive a fresh recovery attempt with `--recover`, a new report path, and sharpened guidance. Recovery repairs the visible dirty tree; it is not an automatic retry. Do not reset ambiguous work.
 
-ADR 0037 publication remains a separate parent-only operation after a real committed Runner Checkpoint, parent judgment, and material tracking. It is off unless durable policy, exact human authorization, an existing PR binding, and an implemented publisher all satisfy that ADR. Never substitute raw write commands.
+ADR 0037 publication remains a separate parent-only operation after a real committed Runner Checkpoint, parent judgment, and material tracking. It is off unless durable policy, exact human authorization, an existing PR binding, and an implemented publisher all satisfy that ADR. Never substitute raw write commands. When bound publication runs, the trusted publisher automatically computes and applies the autorun PR title (see "Autorun PR titles") alongside its managed body update; a template or title failure refuses before push.
 
 ## `portable` mode
 
@@ -195,7 +195,20 @@ In `ns-bookended`, the child has no publication authority, `runner-finish` alone
 
 Accepted autorun pull requests are titled `[obj:<slug>] [autorun:<accepted ordinal>] <existing title>` by default. The active format comes from the `objective.autorun.pr-title` Text-content Point (ADR 0052), conventionally installed at `.ns/text-content/objective.autorun.pr-title.txt`; do not hard-code it. The accepted ordinal is the checkpoint's 1-based position in the accepted cumulative autorun sequence — failed and recovery attempts that produce no accepted checkpoint consume no ordinal. Retitling is idempotent: recomputing from an already annotated title yields the same title.
 
-Authority boundary: the compute command is read-only and grants no external-write authority. Implementation children and `runner-finish` never edit pull requests. Any title mutation belongs to a separately authorized publication workflow.
+Authority boundaries:
+
+- Implementation children and `runner-finish` never edit PR titles.
+- Portable autorun performs no PR mutation; it only records the accepted order. If a later, separately authorized submit workflow creates PRs, the trusted parent computes and applies titles at that external-write boundary.
+- ns-bookended ADR 0037 publication computes and applies the title automatically through the trusted publisher.
+
+After an independently authorized `gt submit`/Flow submit has created an autorun stack, the parent must: enumerate only the accepted autorun implementation PRs; for each, obtain the existing PR title and call
+
+```bash
+ns objective exec autorun-pr-title \
+  --objective-slug <slug> --autorun-ordinal <n> --existing-title <title> --format json
+```
+
+with the ordinal from the parent's accepted-checkpoint order; preview the exact title mutations; then update those existing PRs with the separately authorized GitHub workflow. The compute command is read-only and grants no external-write authority. Do not annotate a separate Objective-definition PR merely because it is downstack — it is not an autorun slice unless it independently represents an accepted autorun checkpoint. Report title-update outcomes separately from Runner Checkpoints and publication evidence.
 
 ## Stop conditions
 

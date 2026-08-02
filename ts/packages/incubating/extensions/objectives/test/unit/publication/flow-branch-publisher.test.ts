@@ -53,6 +53,8 @@ describe("createObjectiveRunnerBranchPublisher", () => {
 			},
 			expectedHeadSha: NEW_SHA,
 			objectiveSlug: "objective-runner-external-writes",
+			expectedCurrentTitle: "Existing title",
+			desiredTitle: "[obj:objective-runner-external-writes] [autorun:1] Existing title",
 			managedBody: "## Objective Runner\n",
 		});
 
@@ -60,7 +62,13 @@ describe("createObjectiveRunnerBranchPublisher", () => {
 			{
 				target: flowTarget(OLD_SHA),
 				expectedHeadOid: NEW_SHA,
-				objectiveSlug: "objective-runner-external-writes",
+				managedRegion: {
+					beginPrefix: "<!-- ns-objective-runner:begin objective=",
+					end: "<!-- ns-objective-runner:end -->",
+					identity: "objective-runner-external-writes",
+				},
+				expectedCurrentTitle: "Existing title",
+				desiredTitle: "[obj:objective-runner-external-writes] [autorun:1] Existing title",
 				managedBody: "## Objective Runner\n",
 			},
 		]);

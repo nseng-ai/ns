@@ -94,6 +94,7 @@ function context(store: PublicationAuthorizationStore): ObjectiveRunnerPublicati
 						url: "https://github.com/nseng-ai/ns/pull/42",
 						headBranch: "feature/publication",
 						headSha: SHA,
+						title: "Existing title",
 					},
 				},
 			}),
@@ -104,6 +105,11 @@ function context(store: PublicationAuthorizationStore): ObjectiveRunnerPublicati
 		publisher: {
 			publishBoundBranch: async () => {
 				throw new Error("unexpected publication");
+			},
+		},
+		titleTemplates: {
+			resolveTemplate: async () => {
+				throw new Error("unexpected template resolution");
 			},
 		},
 		authorizations: store,

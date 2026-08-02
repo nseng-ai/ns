@@ -155,14 +155,19 @@ export async function runPublicationPublish(
 	const checkpoint = await readJsonInput(ctx, request.checkpoint, "checkpoint");
 	if (!checkpoint.ok) return checkpoint.exit;
 
-	const result = await publishObjectiveRunnerCheckpoint(ctx.facts, ctx.publisher, {
-		repoRoot: ctx.repoRoot,
-		invocationId: request.invocationId,
-		objectiveSlug: request.objectiveSlug,
-		authorization: authorization.value,
-		summary: summary.value,
-		checkpoint: checkpoint.value,
-	});
+	const result = await publishObjectiveRunnerCheckpoint(
+		ctx.facts,
+		ctx.publisher,
+		ctx.titleTemplates,
+		{
+			repoRoot: ctx.repoRoot,
+			invocationId: request.invocationId,
+			objectiveSlug: request.objectiveSlug,
+			authorization: authorization.value,
+			summary: summary.value,
+			checkpoint: checkpoint.value,
+		},
+	);
 	if (result.type === "refused") {
 		return negative(result.message, { data: { type: result.type, code: result.code } });
 	}

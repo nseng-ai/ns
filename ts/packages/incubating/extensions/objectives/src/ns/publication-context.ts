@@ -9,7 +9,12 @@ import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 import type { ObjectiveRunnerPublicationFactsGateway } from "../publication/facts-gateway.ts";
 import { createObjectiveRunnerBranchPublisher } from "../publication/flow-branch-publisher.ts";
+import {
+	createObjectiveAutorunPrTitleTemplateResolver,
+	type ObjectiveAutorunPrTitleTemplateResolver,
+} from "../publication/pr-title-source.ts";
 import type { ObjectiveRunnerBranchPublisher } from "../publication/publish.ts";
+import { objectivesExtensionDescriptorSource } from "./extension.ts";
 import {
 	RealPublicationAuthorizationStore,
 	type PublicationAuthorizationStore,
@@ -24,6 +29,7 @@ export interface ObjectiveRunnerPublicationCommandContext {
 	commands: CommandExecApi;
 	facts: ObjectiveRunnerPublicationFactsGateway;
 	publisher: ObjectiveRunnerBranchPublisher;
+	titleTemplates: ObjectiveAutorunPrTitleTemplateResolver;
 	authorizations: PublicationAuthorizationStore;
 	readTextFile(
 		path: string,
@@ -49,6 +55,11 @@ export async function createNsObjectiveRunnerPublicationContext(
 			flow,
 		}),
 		publisher: createObjectiveRunnerBranchPublisher(flow),
+		titleTemplates: createObjectiveAutorunPrTitleTemplateResolver({
+			repoRoot: base.repoRoot,
+			descriptorSource: objectivesExtensionDescriptorSource,
+			env: ctx.env,
+		}),
 		authorizations: new RealPublicationAuthorizationStore({ repoRoot: base.repoRoot }),
 		readTextFile: async (path) => {
 			try {

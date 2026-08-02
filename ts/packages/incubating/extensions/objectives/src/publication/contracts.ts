@@ -94,6 +94,7 @@ export const publicationTargetFactsSchema = z
 				url: z.url(),
 				headBranch: nonEmptyStringSchema,
 				headSha: gitShaSchema,
+				title: nonEmptyStringSchema,
 			})
 			.strict()
 			.nullable(),

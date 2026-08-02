@@ -99,6 +99,8 @@ export interface RecheckedObjectiveRunnerPublication {
 	authorization: ObjectiveRunnerPublicationAuthorizationV1;
 	summary: ObjectiveRunnerCumulativeSummaryV1;
 	checkpoint: ObjectiveRunnerPublicationCheckpoint;
+	/** Read-only expected mutable fact for one invocation, not a durable grant. */
+	currentPullRequestTitle: string;
 }
 
 /** Rechecks all bound target, checkpoint, commit, trailer, and ancestry facts before mutation. */
@@ -148,6 +150,10 @@ export async function recheckObjectiveRunnerPublication(
 		expectedRemoteHead: authorization.data.lastPublishedHead,
 	});
 	if (targetRefusal !== null) return targetRefusal;
+	const pullRequestFacts = target.value.pullRequest;
+	if (pullRequestFacts === null) {
+		return refusal("target-unavailable", "The bound pull request no longer exists.");
+	}
 
 	const expectedRunnerCommits = summary.data.steps.map((step) => step.runnerCommitSha);
 	const expectedTrackingCommits = summary.data.objectiveTrackingCommits.map((commit) => commit.sha);
@@ -181,6 +187,7 @@ export async function recheckObjectiveRunnerPublication(
 			authorization: authorization.data,
 			summary: summary.data,
 			checkpoint: checkpoint.data,
+			currentPullRequestTitle: pullRequestFacts.title,
 		},
 	};
 }

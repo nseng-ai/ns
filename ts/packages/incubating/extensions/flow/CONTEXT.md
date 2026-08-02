@@ -97,8 +97,8 @@ The typed, renderer-independent result of inspecting the Graphite submit scope a
 *Avoid*: stale pre-checkpoint topology, command transcript, metadata generation result, submit execution result
 
 **Flow Branch Publication**:
-The narrow **Flow extension package API** behavior used by trusted Objectives publication to bind the current non-trunk branch to its existing PR, reverify the bound source before mutation, push the exact commit without force, and preserve non-managed PR prose while updating the managed Objective Runner region. Objectives owns publication eligibility, checkpoint judgment, and Objective Runner summary policy.
-*Avoid*: implementation-child external write, generic submit client, Objective Runner policy owned by Flow, force push, whole-body PR replacement
+The narrow **Flow extension package API** behavior used by trusted publication consumers to bind the current non-trunk branch to its existing PR, reverify the bound source before mutation, push the exact commit without force, and perform one best-effort PR metadata edit that updates a caller-supplied desired title and opaque managed region together while preserving non-managed PR prose. The caller supplies the expected current title, desired title, managed-region markers, and managed-region identity; Flow validates only safe managed-region mechanics, refuses before push on expected-title drift, and treats post-push drift as the existing successful-partial class. Consumers such as Objectives own publication eligibility, checkpoint judgment, title/naming policy, region identity semantics, and managed-content policy.
+*Avoid*: implementation-child external write, generic submit client, consumer domain or title policy owned by Flow, force push, whole-body PR replacement, title in the bound target identity
 
 **Flow Autobranch Boundary**:
 The Flow ownership boundary for public `ns flow autobranch` behavior.

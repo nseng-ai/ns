@@ -204,6 +204,7 @@ function targetFacts(
 		remoteHead?: string;
 		isWorktreeClean?: boolean;
 		isTrunk?: boolean;
+		title?: string;
 	} = {},
 ): PublicationTargetFacts {
 	const branch = override.branch ?? "feature/publication";
@@ -218,6 +219,7 @@ function targetFacts(
 			url: override.pullRequestUrl ?? "https://github.com/nseng-ai/ns/pull/42",
 			headBranch: branch,
 			headSha: override.remoteHead ?? LAUNCH_SHA,
+			title: override.title ?? "Existing title",
 		},
 	};
 }

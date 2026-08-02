@@ -24,11 +24,12 @@ import {
 const READ_TIMEOUT_MS = 60_000;
 const PUSH_TIMEOUT_MS = 120_000;
 const EDIT_TIMEOUT_MS = 60_000;
-const PR_FIELDS = "number,url,body,headRefName,headRefOid";
+const PR_FIELDS = "number,url,title,body,headRefName,headRefOid";
 
 const pullRequestSchema = z.object({
 	number: z.number().int().positive(),
 	url: z.string().url(),
+	title: z.string().min(1),
 	body: z.string().nullable(),
 	headRefName: z.string().min(1),
 	headRefOid: z.string().min(1),
@@ -130,11 +131,19 @@ class RealFlowPublicationPullRequestGateway implements FlowPublicationPullReques
 		return await this.read(["pr", "view", String(number), "--json", PR_FIELDS]);
 	}
 
-	async replacePullRequestBody(input: { number: number; body: string }) {
+	async replacePullRequestMetadata(input: { number: number; title: string; body: string }) {
 		return await withTemporaryFile(
-			{ prefix: "ns-flow-objective-runner-", filename: "body.md", contents: input.body },
+			{ prefix: "ns-flow-pr-metadata-", filename: "body.md", contents: input.body },
 			async (bodyPath) => {
-				const args = ["pr", "edit", String(input.number), "--body-file", bodyPath];
+				const args = [
+					"pr",
+					"edit",
+					String(input.number),
+					"--title",
+					input.title,
+					"--body-file",
+					bodyPath,
+				];
 				const result = await runGitHubCliAsExecResult({
 					runner: execApiToCommandRunner(this.commands),
 					args,
@@ -144,7 +153,7 @@ class RealFlowPublicationPullRequestGateway implements FlowPublicationPullReques
 				if (!commandSucceeded(result)) {
 					return failure(
 						"flow-publication-pr-edit-failed",
-						`Could not replace the body of PR #${input.number}.`,
+						`Could not update the title and body of PR #${input.number}.`,
 						{ command: "gh", args, result },
 					);
 				}
@@ -194,6 +203,7 @@ function parsePullRequest(
 	return success({
 		number: parsed.data.number,
 		url: parsed.data.url,
+		title: parsed.data.title,
 		body: parsed.data.body ?? "",
 		headRefName: parsed.data.headRefName,
 		headOid: parsed.data.headRefOid,

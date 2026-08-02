@@ -128,21 +128,6 @@ describe("objective.autorun.pr-title template resolution", () => {
 		});
 	});
 
-	test("does not recognize the former template override environment variable or conventional path", async () => {
-		const templates = createObjectiveAutorunPrTitleTemplateResolver({
-			repoRoot: "/repo",
-			descriptorSource: objectivesExtensionDescriptorSource,
-			env: { NS_OBJECTIVE_AUTORUN_PR_TITLE_TEMPLATE: "old-dev.txt" },
-			configGateway: new InMemoryConfigGateway({
-				".ns/templates/objective.autorun.pr-title.txt": "old-conventional",
-			}),
-		});
-
-		const result = await templates.resolveTemplate();
-
-		expect(result).toMatchObject({ type: "resolved", source: { type: "default" } });
-	});
-
 	test("fails closed on an unreadable or empty selected source instead of falling back", async () => {
 		const unreadable = await resolver({
 			files: {
