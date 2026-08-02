@@ -1,6 +1,9 @@
 export type {
 	AgentEndContext,
+	AgentEndEventLike,
+	AgentSettledContext,
 	AutocompleteItem,
+	InputEventLike,
 	AutocompleteOptions,
 	AutocompleteProvider,
 	AutocompleteSuggestions,

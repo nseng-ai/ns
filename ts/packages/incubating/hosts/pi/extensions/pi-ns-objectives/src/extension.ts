@@ -50,16 +50,16 @@ import {
 	requireRepoSkillPath,
 } from "@nseng-ai/pi-runtime/skills/expansion";
 import type {
+	AgentEndContext,
+	AgentEndEventLike,
+	AgentSettledContext,
 	AutocompleteItem,
 	CommandContext,
+	InputEventLike,
 	RawPiExecOptions,
 	ExtensionAPI,
+	SessionStartContext,
 } from "@nseng-ai/pi-runtime/runtime/types";
-import type {
-	ToolContext,
-	ToolDefinition,
-	ToolResult,
-} from "@nseng-ai/pi-runtime/runtime/tool-types";
 
 export type {
 	CommandContext,
@@ -78,11 +78,23 @@ export type {
 } from "@nseng-ai/objectives/api";
 export type ObjectiveExtensionAPI = Pick<
 	ExtensionAPI,
-	"on" | "registerCommand" | "exec" | "getCommands" | "sendMessage"
-> &
-	Pick<CliCommandExtensionAPI, "events" | "registerMessageRenderer"> &
+	"registerCommand" | "exec" | "getCommands" | "sendMessage"
+> & {
+	on(
+		event: "agent_end",
+		handler: (event: AgentEndEventLike, ctx: AgentEndContext) => Promise<void> | void,
+	): void;
+	on(
+		event: "agent_settled",
+		handler: (_event: unknown, ctx: AgentSettledContext) => Promise<void> | void,
+	): void;
+	on(event: "input", handler: (event: InputEventLike) => Promise<void> | void): void;
+	on(
+		event: "session_start",
+		handler: (_event: unknown, ctx: SessionStartContext) => Promise<void> | void,
+	): void;
+} & Pick<CliCommandExtensionAPI, "events" | "registerMessageRenderer"> &
 	Pick<Partial<ObjectiveSelectionHost>, "loadObjectiveList"> & {
-		registerTool(definition: ToolDefinition): void;
 		sendUserMessage(
 			content: string,
 			options?: { deliverAs?: "steer" | "followUp" },
@@ -96,7 +108,9 @@ const OBJECTIVE_LIST_ARGUMENT_HINT = "[--names] [--status all|active|open|closed
 const OBJECTIVE_SELECTOR_ARGUMENT_HINT = "[objective-slug-or-path]";
 const OBJECTIVE_CREATE_ARGUMENT_HINT = "[objective-slug-title-or-context]";
 const OBJECTIVE_COMPLETION_CACHE_TTL_MS = 10_000;
-const OBJECTIVE_NEXT_PROMPT_ACTION_TOOL_NAME = "objective_next_prompt_action";
+// Machine-detection anchor. Must match the exact heading mandated by
+// skills/incubating/objectives/objective-next/SKILL.md element 5.
+const OBJECTIVE_NEXT_PROPOSED_PROMPT_HEADING = "## ▶ Proposed prompt — ready to run";
 const OBJECTIVE_NEXT_PROMPT_ACTION_TITLE = "What would you like to do with the proposed prompt?";
 const OBJECTIVE_NEXT_EXECUTE_LABEL = "Execute it now";
 const OBJECTIVE_NEXT_EDITOR_LABEL = "Put it in input area";
@@ -106,132 +120,37 @@ const OBJECTIVE_NEXT_PROMPT_ACTIONS = [
 	OBJECTIVE_NEXT_EDITOR_LABEL,
 	OBJECTIVE_NEXT_DISMISS_LABEL,
 ] as const;
-const OBJECTIVE_NEXT_PI_TOOL_REMINDER = `
 
-Pi prompt-action note: emit the normal complete objective-next decision packet first. Then call the \`${OBJECTIVE_NEXT_PROMPT_ACTION_TOOL_NAME}\` tool exactly once only when the decision packet's final element contains exactly one Proposed prompt. Pass the byte-for-byte proposed prompt content as \`prompt\`, excluding the surrounding Markdown label and fence. Never call the tool for a co-equal prompt set or a Declined packet. If the tool reports an unavailable or no-action outcome, leave the visible decision packet as the final usable output.`;
-const OBJECTIVE_NEXT_PROMPT_ACTION_PARAMETERS = {
-	type: "object",
-	properties: {
-		prompt: {
-			type: "string",
-			minLength: 1,
-			description:
-				"Exact content of the single proposed prompt, without its Markdown label or fence.",
-		},
-	},
-	required: ["prompt"],
-	additionalProperties: false,
-} as const satisfies Record<string, unknown>;
-
-type ObjectiveNextPromptActionOutcome =
-	| "executed"
-	| "editor-replaced"
-	| "dismissed"
-	| "cancelled"
-	| "ui-unavailable"
-	| "invalid-input";
-
-interface ObjectiveNextPromptActionDetails {
-	outcome: ObjectiveNextPromptActionOutcome;
-}
-
-type ObjectiveNextPromptActionInput = { type: "valid"; prompt: string } | { type: "invalid" };
-
-function parseObjectiveNextPromptActionInput(params: unknown): ObjectiveNextPromptActionInput {
-	if (typeof params !== "object" || params === null || Array.isArray(params)) {
-		return { type: "invalid" };
-	}
-	if (Object.keys(params).some((key) => key !== "prompt")) return { type: "invalid" };
-	const prompt = (params as { prompt?: unknown }).prompt;
-	if (typeof prompt !== "string" || prompt.trim() === "") return { type: "invalid" };
-	return { type: "valid", prompt };
-}
-
-function objectiveNextPromptActionResult(
-	outcome: ObjectiveNextPromptActionOutcome,
-	text: string,
-): ToolResult<ObjectiveNextPromptActionDetails> {
-	return {
-		content: [{ type: "text", text }],
-		details: { outcome },
-		terminate: true,
-	};
-}
-
-async function executeObjectiveNextPromptAction(
-	pi: ObjectiveExtensionAPI,
-	params: unknown,
-	signal: AbortSignal | undefined,
-	ctx: ToolContext,
-): Promise<ToolResult<ObjectiveNextPromptActionDetails>> {
-	if (signal?.aborted === true) {
-		return objectiveNextPromptActionResult(
-			"cancelled",
-			"Prompt action cancelled; leave the decision packet as-is.",
-		);
-	}
-	const input = parseObjectiveNextPromptActionInput(params);
-	if (input.type === "invalid") {
-		return objectiveNextPromptActionResult(
-			"invalid-input",
-			"Invalid proposed prompt; leave the decision packet as-is.",
-		);
-	}
-	if (!ctx.hasUI || ctx.ui.select === undefined) {
-		return objectiveNextPromptActionResult(
-			"ui-unavailable",
-			"Interactive UI unavailable; leave the decision packet as-is.",
-		);
-	}
-
-	const selected = await ctx.ui.select(OBJECTIVE_NEXT_PROMPT_ACTION_TITLE, [
-		...OBJECTIVE_NEXT_PROMPT_ACTIONS,
-	]);
-	if (selected === undefined) {
-		return objectiveNextPromptActionResult(
-			"cancelled",
-			"Prompt action cancelled; leave the decision packet as-is.",
-		);
-	}
-	if (selected === OBJECTIVE_NEXT_DISMISS_LABEL) {
-		return objectiveNextPromptActionResult("dismissed", "Prompt action dismissed.");
-	}
-	if (selected === OBJECTIVE_NEXT_EDITOR_LABEL) {
-		if (ctx.ui.setEditorText === undefined) {
-			return objectiveNextPromptActionResult(
-				"ui-unavailable",
-				"Editor input is unavailable; leave the decision packet as-is.",
-			);
-		}
-		ctx.ui.setEditorText(input.prompt);
-		return objectiveNextPromptActionResult(
-			"editor-replaced",
-			"Proposed prompt placed in the input area.",
-		);
-	}
-	if (selected === OBJECTIVE_NEXT_EXECUTE_LABEL) {
-		await pi.sendUserMessage(input.prompt, { deliverAs: "followUp" });
-		return objectiveNextPromptActionResult(
-			"executed",
-			"Proposed prompt queued as the next user turn.",
-		);
-	}
-	return objectiveNextPromptActionResult(
-		"cancelled",
-		"Unknown prompt action; leave the decision packet as-is.",
+export function extractSingleProposedPrompt(assistantText: string): string | undefined {
+	const lines = assistantText.split("\n");
+	const headingIndexes = lines.flatMap((line, index) =>
+		line.trimEnd() === OBJECTIVE_NEXT_PROPOSED_PROMPT_HEADING ? [index] : [],
 	);
+	if (headingIndexes.length !== 1) return undefined;
+
+	let index = (headingIndexes[0] ?? 0) + 1;
+	while (lines[index]?.trim() === "") index += 1;
+
+	const promptLines: string[] = [];
+	while (lines[index]?.startsWith(">") === true) {
+		const line = lines[index] ?? "";
+		promptLines.push(line.startsWith("> ") ? line.slice(2) : line.slice(1));
+		index += 1;
+	}
+	const prompt = promptLines.join("\n").trim();
+	return prompt === "" ? undefined : prompt;
 }
 
-function objectiveNextPromptActionTool(pi: ObjectiveExtensionAPI): ToolDefinition {
-	return {
-		name: OBJECTIVE_NEXT_PROMPT_ACTION_TOOL_NAME,
-		label: "Objective Next prompt action",
-		description:
-			"Present the Pi-only action chooser for exactly one proposed prompt from a completed objective-next decision packet.",
-		parameters: OBJECTIVE_NEXT_PROMPT_ACTION_PARAMETERS,
-		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
-			await executeObjectiveNextPromptAction(pi, params, signal, ctx),
-	};
+function finalAssistantText(event: AgentEndEventLike): string | undefined {
+	const message = event.messages.findLast((candidate) => candidate.role === "assistant");
+	if (!Array.isArray(message?.content)) return undefined;
+
+	const text = message.content.flatMap((block) => {
+		if (typeof block !== "object" || block === null) return [];
+		const candidate = block as { type?: unknown; text?: unknown };
+		return candidate.type === "text" && typeof candidate.text === "string" ? [candidate.text] : [];
+	});
+	return text.length === 0 ? undefined : text.join("");
 }
 const ACTIVE_OBJECTIVE_CANDIDATES_ARGS = [
 	"objective",
@@ -625,7 +544,38 @@ export default function objectiveExtension(
 	pi: ObjectiveExtensionAPI,
 	options: ObjectiveExtensionOptions = {},
 ): void {
-	pi.registerTool(objectiveNextPromptActionTool(pi));
+	let objectiveNextInvocationPending = false;
+	let pendingProposedPrompt: string | undefined;
+	pi.on("input", (event) => {
+		if (event.source === "extension") return;
+		objectiveNextInvocationPending = /^\/skill:objective-next(?:\s|$)/u.test(event.text);
+	});
+	pi.on("agent_end", (event) => {
+		if (!objectiveNextInvocationPending) {
+			pendingProposedPrompt = undefined;
+			return;
+		}
+		const text = finalAssistantText(event);
+		pendingProposedPrompt = text === undefined ? undefined : extractSingleProposedPrompt(text);
+	});
+	pi.on("agent_settled", async (_event, ctx) => {
+		objectiveNextInvocationPending = false;
+		const prompt = pendingProposedPrompt;
+		pendingProposedPrompt = undefined;
+		if (prompt === undefined || ctx.hasUI !== true || ctx.ui.select === undefined) return;
+
+		const selected = await ctx.ui.select(OBJECTIVE_NEXT_PROMPT_ACTION_TITLE, [
+			...OBJECTIVE_NEXT_PROMPT_ACTIONS,
+		]);
+		if (selected === OBJECTIVE_NEXT_EXECUTE_LABEL) {
+			await pi.sendUserMessage(prompt, { deliverAs: "followUp" });
+			return;
+		}
+		if (selected === OBJECTIVE_NEXT_EDITOR_LABEL) {
+			ctx.ui.setEditorText?.(prompt);
+		}
+	});
+
 	const commands = createPiCommandExecApi(pi);
 	const selectionHost = objectiveSelectionHostFromExec(
 		{
@@ -664,14 +614,7 @@ export default function objectiveExtension(
 		});
 	}
 
-	for (const objectiveSpec of objectiveCommandSpecs) {
-		const spec =
-			objectiveSpec.cliSubcommand === "next"
-				? {
-						...objectiveSpec,
-						postSelectionReminder: `${objectiveSpec.postSelectionReminder ?? ""}${OBJECTIVE_NEXT_PI_TOOL_REMINDER}`,
-					}
-				: objectiveSpec;
+	for (const spec of objectiveCommandSpecs) {
 		registerCommandWithImmediateAck({
 			host: pi,
 			commandName: spec.commandName,
@@ -679,8 +622,10 @@ export default function objectiveExtension(
 				description: spec.description,
 				argumentHint: OBJECTIVE_SELECTOR_ARGUMENT_HINT,
 				getArgumentCompletions: objectiveCommandCompleter,
-				handler: async (args, ctx) =>
-					handleObjectiveCommand({ pi, selectionHost, ctx, spec }, args),
+				handler: async (args, ctx) => {
+					if (spec.cliSubcommand === "next") objectiveNextInvocationPending = true;
+					await handleObjectiveCommand({ pi, selectionHost, ctx, spec }, args);
+				},
 			},
 		});
 	}

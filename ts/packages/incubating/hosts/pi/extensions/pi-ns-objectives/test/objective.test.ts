@@ -17,6 +17,7 @@ import type {
 } from "@nseng-ai/objectives/api";
 import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "@nseng-ai/pi-runtime/commands/cli-extension";
 import objectiveExtension, {
+	extractSingleProposedPrompt,
 	type CommandContext,
 	type RawPiExecResult,
 	type ObjectiveExtensionAPI,
@@ -27,10 +28,11 @@ import { createTestSessionReader } from "./test-session-reader.ts";
 type RawPiExecResultFixture = Partial<RawPiExecResult>;
 import type {
 	AgentEndContext,
+	AgentEndEventLike,
+	AgentSettledContext,
 	RawPiExecOptions,
 	SessionStartContext,
 } from "@nseng-ai/pi-runtime/runtime/types";
-import type { ToolContext, ToolDefinition } from "@nseng-ai/pi-runtime/runtime/tool-types";
 
 const ROOT = process.cwd();
 const TRUNK = "master";
@@ -99,15 +101,19 @@ interface SentUserMessage {
 	options: { deliverAs?: "steer" | "followUp" } | undefined;
 }
 
-type EventName = "agent_end" | "session_start";
-type AgentEndHandler = (_event: unknown, ctx: AgentEndContext) => Promise<void> | void;
+type EventName = "agent_end" | "agent_settled" | "input" | "session_start";
+type AgentEndHandler = (event: AgentEndEventLike, ctx: AgentEndContext) => Promise<void> | void;
+type AgentSettledHandler = (_event: unknown, ctx: AgentSettledContext) => Promise<void> | void;
+type InputHandler = (event: {
+	text: string;
+	source: "interactive" | "rpc" | "extension";
+}) => Promise<void> | void;
 type SessionStartHandler = (_event: unknown, ctx: SessionStartContext) => Promise<void> | void;
 
 class FakePi implements ObjectiveExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
 	readonly messageRenderers = new Map<string, MessageRenderer>();
-	readonly tools = new Map<string, ToolDefinition>();
 	readonly sentMessages: Parameters<NonNullable<ObjectiveExtensionAPI["sendMessage"]>>[0][] = [];
 	readonly sentUserMessages: string[] = [];
 	readonly sentUserMessageCalls: SentUserMessage[] = [];
@@ -118,11 +124,15 @@ class FakePi implements ObjectiveExtensionAPI {
 	};
 	private readonly script: ScriptedQueue<ScriptedExec>;
 	private readonly commandInfos: ReturnType<ObjectiveExtensionAPI["getCommands"]>;
-	private readonly eventHandlers: Record<EventName, Array<AgentEndHandler | SessionStartHandler>> =
-		{
-			agent_end: [],
-			session_start: [],
-		};
+	private readonly eventHandlers: Record<
+		EventName,
+		Array<AgentEndHandler | AgentSettledHandler | InputHandler | SessionStartHandler>
+	> = {
+		agent_end: [],
+		agent_settled: [],
+		input: [],
+		session_start: [],
+	};
 
 	constructor(
 		script: ScriptedExec[] = [],
@@ -133,8 +143,13 @@ class FakePi implements ObjectiveExtensionAPI {
 	}
 
 	on(event: "agent_end", handler: AgentEndHandler): void;
+	on(event: "agent_settled", handler: AgentSettledHandler): void;
+	on(event: "input", handler: InputHandler): void;
 	on(event: "session_start", handler: SessionStartHandler): void;
-	on(event: EventName, handler: AgentEndHandler | SessionStartHandler): void {
+	on(
+		event: EventName,
+		handler: AgentEndHandler | AgentSettledHandler | InputHandler | SessionStartHandler,
+	): void {
 		this.eventHandlers[event].push(handler);
 	}
 
@@ -144,10 +159,6 @@ class FakePi implements ObjectiveExtensionAPI {
 
 	registerMessageRenderer(customType: string, renderer: MessageRenderer): void {
 		this.messageRenderers.set(customType, renderer);
-	}
-
-	registerTool(definition: ToolDefinition): void {
-		this.tools.set(definition.name, definition);
 	}
 
 	async exec(
@@ -213,6 +224,27 @@ class FakePi implements ObjectiveExtensionAPI {
 		this.sentUserMessageCalls.push({ content, options });
 	}
 
+	async emitAgentEnd(event: AgentEndEventLike, ctx: AgentEndContext): Promise<void> {
+		for (const handler of this.eventHandlers.agent_end) {
+			await (handler as AgentEndHandler)(event, ctx);
+		}
+	}
+
+	async emitInput(
+		text: string,
+		source: "interactive" | "rpc" | "extension" = "interactive",
+	): Promise<void> {
+		for (const handler of this.eventHandlers.input) {
+			await (handler as InputHandler)({ text, source });
+		}
+	}
+
+	async emitAgentSettled(ctx: AgentSettledContext): Promise<void> {
+		for (const handler of this.eventHandlers.agent_settled) {
+			await (handler as AgentSettledHandler)({}, ctx);
+		}
+	}
+
 	async emitSessionStart(ctx: SessionStartContext): Promise<void> {
 		for (const handler of this.eventHandlers.session_start) {
 			await (handler as SessionStartHandler)({}, ctx);
@@ -224,18 +256,15 @@ class FakePi implements ObjectiveExtensionAPI {
 	}
 }
 
-function createToolContext(
+function createAgentContext(
 	options: {
 		hasUI?: boolean;
 		select?: (title: string, items: string[]) => Promise<string | undefined>;
 		setEditorText?: (value: string) => void;
 	} = {},
-): ToolContext {
+): AgentSettledContext {
 	return {
-		cwd: ROOT,
 		hasUI: options.hasUI ?? true,
-		mode: "tui",
-		sessionManager: createTestSessionReader(),
 		ui: {
 			notify(): void {},
 			...(options.select === undefined ? {} : { select: options.select }),
@@ -244,12 +273,25 @@ function createToolContext(
 	};
 }
 
-function registeredPromptActionTool(pi: FakePi): ToolDefinition {
-	const tool = pi.tools.get("objective_next_prompt_action");
-	expect(tool).toBeDefined();
-	if (tool === undefined) throw new Error("objective_next_prompt_action was not registered");
-	return tool;
+function assistantEvent(text: string): AgentEndEventLike {
+	return {
+		messages: [
+			{ role: "user", content: [{ type: "text", text: "request" }] },
+			{ role: "assistant", content: [{ type: "text", text }] },
+		],
+	};
 }
+
+const PROPOSED_PROMPT_PACKET = `Decision packet
+
+## ▶ Proposed prompt — ready to run
+
+> First line${"  "}
+>
+> Last line
+
+---
+Ignored afterward`;
 
 function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
@@ -594,127 +636,184 @@ async function objectiveCommandCompletions(
 	return { pi, items };
 }
 
-describe("objective-next prompt action tool", () => {
-	test("registers a strict, narrowly described prompt tool", () => {
-		const pi = new FakePi();
-		objectiveExtension(pi);
-
-		const tool = registeredPromptActionTool(pi);
-		expect(tool.parameters).toEqual({
-			type: "object",
-			properties: {
-				prompt: {
-					type: "string",
-					minLength: 1,
-					description:
-						"Exact content of the single proposed prompt, without its Markdown label or fence.",
-				},
-			},
-			required: ["prompt"],
-			additionalProperties: false,
-		});
-		expect(tool.promptSnippet).toBeUndefined();
-		expect(tool.promptGuidelines).toBeUndefined();
+describe("objective-next proposed-prompt chooser", () => {
+	test.each([
+		["zero headings", "ordinary response", undefined],
+		[
+			"two headings",
+			`${PROPOSED_PROMPT_PACKET}\n## ▶ Proposed prompt — ready to run\n> second`,
+			undefined,
+		],
+		["no blockquote", "## ▶ Proposed prompt — ready to run\nplain", undefined],
+		["declined packet", "## Declined\nNo next prompt.", undefined],
+	] as const)("extracts no prompt for %s", (_name, text, expected) => {
+		expect(extractSingleProposedPrompt(text)).toBe(expected);
 	});
 
-	test.each([
-		["Execute it now", "executed"],
-		["Put it in input area", "editor-replaced"],
-		["I’ll do it myself, thank you", "dismissed"],
-	] as const)("handles %s without rewriting the prompt", async (selection, outcome) => {
+	test("extracts only the railed prompt and preserves its interior bytes", () => {
+		expect(extractSingleProposedPrompt(PROPOSED_PROMPT_PACKET)).toBe("First line  \n\nLast line");
+	});
+
+	test("executes the final assistant message's extracted prompt as a follow-up", async () => {
 		const pi = new FakePi();
 		objectiveExtension(pi);
-		const editorValues: string[] = [];
+		await pi.emitInput("/skill:objective-next");
 		const selections: Selection[] = [];
-		const prompt = "  Exact prompt\nwith trailing space  ";
-		const result = await registeredPromptActionTool(pi).execute(
-			"call-1",
-			{ prompt },
-			undefined,
-			undefined,
-			createToolContext({
-				select: async (title, items) => {
-					selections.push({ title, items: [...items] });
-					return selection;
-				},
-				setEditorText: (value) => editorValues.push(value),
-			}),
-		);
+		const ctx = createAgentContext({
+			select: async (title, items) => {
+				selections.push({ title, items: [...items] });
+				return "Execute it now";
+			},
+		});
 
-		expect(result).toMatchObject({ details: { outcome }, terminate: true });
-		expect(selections[0]?.items).toEqual([
-			"Execute it now",
-			"Put it in input area",
-			"I’ll do it myself, thank you",
+		await pi.emitAgentEnd(assistantEvent(PROPOSED_PROMPT_PACKET), ctx);
+		await pi.emitAgentSettled(ctx);
+
+		expect(selections).toEqual([
+			{
+				title: "What would you like to do with the proposed prompt?",
+				items: ["Execute it now", "Put it in input area", "I’ll do it myself, thank you"],
+			},
 		]);
-		expect(pi.sentUserMessageCalls).toEqual(
-			selection === "Execute it now"
-				? [{ content: prompt, options: { deliverAs: "followUp" } }]
-				: [],
-		);
-		expect(editorValues).toEqual(selection === "Put it in input area" ? [prompt] : []);
+		expect(pi.sentUserMessageCalls).toEqual([
+			{
+				content: "First line  \n\nLast line",
+				options: { deliverAs: "followUp" },
+			},
+		]);
 	});
+
+	test.each([true, false])(
+		"handles editor selection with editor available: %s",
+		async (available) => {
+			const pi = new FakePi();
+			objectiveExtension(pi);
+			await pi.emitInput("/skill:objective-next bravo");
+			const editorValues: string[] = [];
+			const ctx = createAgentContext({
+				select: async () => "Put it in input area",
+				...(available ? { setEditorText: (value: string) => editorValues.push(value) } : {}),
+			});
+
+			await pi.emitAgentEnd(assistantEvent(PROPOSED_PROMPT_PACKET), ctx);
+			await pi.emitAgentSettled(ctx);
+
+			expect(editorValues).toEqual(available ? ["First line  \n\nLast line"] : []);
+			expect(pi.sentUserMessageCalls).toEqual([]);
+		},
+	);
+
+	test.each(["I’ll do it myself, thank you", undefined] as const)(
+		"takes no action for dismissal selection %s",
+		async (selection) => {
+			const pi = new FakePi();
+			objectiveExtension(pi);
+			await pi.emitInput("/skill:objective-next");
+			const ctx = createAgentContext({ select: async () => selection });
+			await pi.emitAgentEnd(assistantEvent(PROPOSED_PROMPT_PACKET), ctx);
+			await pi.emitAgentSettled(ctx);
+			expect(pi.sentUserMessageCalls).toEqual([]);
+		},
+	);
 
 	test.each([
-		[
-			"cancelled selection",
-			{ prompt: "do work" },
-			createToolContext({ select: async () => undefined }),
-			"cancelled",
-		],
-		["missing UI", { prompt: "do work" }, createToolContext({ hasUI: false }), "ui-unavailable"],
-		["missing select", { prompt: "do work" }, createToolContext(), "ui-unavailable"],
-		[
-			"blank prompt",
-			{ prompt: "   " },
-			createToolContext({ select: async () => "Execute it now" }),
-			"invalid-input",
-		],
-	] as const)("takes no action for %s", async (_name, params, ctx, outcome) => {
+		["no UI", createAgentContext({ hasUI: false })],
+		["no selector", createAgentContext()],
+	] as const)("stays recommendation-only with %s", async (_name, ctx) => {
 		const pi = new FakePi();
 		objectiveExtension(pi);
-		const result = await registeredPromptActionTool(pi).execute(
-			"call-1",
-			params,
-			undefined,
-			undefined,
-			ctx,
-		);
-
-		expect(result).toMatchObject({ details: { outcome }, terminate: true });
+		await pi.emitInput("/skill:objective-next");
+		await pi.emitAgentEnd(assistantEvent(PROPOSED_PROMPT_PACKET), ctx);
+		await pi.emitAgentSettled(ctx);
 		expect(pi.sentUserMessageCalls).toEqual([]);
 	});
 
-	test("does not execute when editor placement is selected without an editor setter", async () => {
+	test("clears pending state after settlement", async () => {
 		const pi = new FakePi();
 		objectiveExtension(pi);
-		const result = await registeredPromptActionTool(pi).execute(
-			"call-1",
-			{ prompt: "do work" },
-			undefined,
-			undefined,
-			createToolContext({ select: async () => "Put it in input area" }),
-		);
-
-		expect(result).toMatchObject({ details: { outcome: "ui-unavailable" }, terminate: true });
-		expect(pi.sentUserMessageCalls).toEqual([]);
+		await pi.emitInput("/skill:objective-next");
+		let offers = 0;
+		const ctx = createAgentContext({
+			select: async () => {
+				offers += 1;
+				return undefined;
+			},
+		});
+		await pi.emitAgentEnd(assistantEvent(PROPOSED_PROMPT_PACKET), ctx);
+		await pi.emitAgentSettled(ctx);
+		await pi.emitAgentSettled(ctx);
+		expect(offers).toBe(1);
 	});
 
-	test("takes no action when already aborted", async () => {
+	test("the latest agent end overwrites an earlier qualifying capture", async () => {
 		const pi = new FakePi();
 		objectiveExtension(pi);
-		const controller = new AbortController();
-		controller.abort();
-		const result = await registeredPromptActionTool(pi).execute(
-			"call-1",
-			{ prompt: "do work" },
-			controller.signal,
-			undefined,
-			createToolContext({ select: async () => "Execute it now" }),
-		);
+		await pi.emitInput("/skill:objective-next");
+		let offers = 0;
+		const ctx = createAgentContext({
+			select: async () => {
+				offers += 1;
+				return undefined;
+			},
+		});
+		await pi.emitAgentEnd(assistantEvent(PROPOSED_PROMPT_PACKET), ctx);
+		await pi.emitAgentEnd(assistantEvent("non-qualifying retry"), ctx);
+		await pi.emitAgentSettled(ctx);
+		expect(offers).toBe(0);
+	});
 
-		expect(result).toMatchObject({ details: { outcome: "cancelled" }, terminate: true });
-		expect(pi.sentUserMessageCalls).toEqual([]);
+	test("offers identical qualifying prompts in separate cycles", async () => {
+		const pi = new FakePi();
+		objectiveExtension(pi);
+		let offers = 0;
+		const ctx = createAgentContext({
+			select: async () => {
+				offers += 1;
+				return undefined;
+			},
+		});
+		for (let cycle = 0; cycle < 2; cycle += 1) {
+			await pi.emitInput("/skill:objective-next");
+			await pi.emitAgentEnd(assistantEvent(PROPOSED_PROMPT_PACKET), ctx);
+			await pi.emitAgentSettled(ctx);
+		}
+		expect(offers).toBe(2);
+	});
+
+	test("offers matching output after an explicit ns:objective:next invocation", async () => {
+		const result = await runObjectiveCommand("ns:objective:next", "bravo");
+		let offers = 0;
+		const ctx = createAgentContext({
+			select: async () => {
+				offers += 1;
+				return undefined;
+			},
+		});
+
+		await result.pi.emitAgentEnd(assistantEvent(PROPOSED_PROMPT_PACKET), ctx);
+		await result.pi.emitAgentSettled(ctx);
+
+		expect(offers).toBe(1);
+	});
+
+	test("ignores matching output outside an explicit objective-next invocation", async () => {
+		const pi = new FakePi();
+		objectiveExtension(pi);
+		let offers = 0;
+		const ctx = createAgentContext({
+			select: async () => {
+				offers += 1;
+				return undefined;
+			},
+		});
+
+		await pi.emitAgentEnd(assistantEvent(PROPOSED_PROMPT_PACKET), ctx);
+		await pi.emitAgentSettled(ctx);
+		await pi.emitInput("Explain ## ▶ Proposed prompt — ready to run");
+		await pi.emitAgentEnd(assistantEvent(PROPOSED_PROMPT_PACKET), ctx);
+		await pi.emitAgentSettled(ctx);
+
+		expect(offers).toBe(0);
 	});
 });
 
@@ -1673,21 +1772,12 @@ Use the selected Objective.
 		expect(result.pi.sentUserMessages[0]).not.toContain("normal post-selection evidence workflow");
 	});
 
-	test("only objective-next receives the single-prompt chooser contract", async () => {
+	test("objective command prompts contain no model-mediated chooser reminder", async () => {
 		for (const commandName of OBJECTIVE_COMMAND_NAMES) {
 			const result = await runObjectiveCommand(commandName, "bravo");
 			const prompt = result.pi.sentUserMessages[0] ?? "";
-			if (commandName === "ns:objective:next") {
-				expect(prompt).toContain("emit the normal complete objective-next decision packet first");
-				expect(prompt).toContain("exactly one Proposed prompt");
-				expect(prompt).toContain("byte-for-byte proposed prompt content");
-				expect(prompt).toContain(
-					"Never call the tool for a co-equal prompt set or a Declined packet",
-				);
-				expect(prompt).toContain("unavailable or no-action outcome");
-			} else {
-				expect(prompt).not.toContain("objective_next_prompt_action");
-			}
+			expect(prompt).not.toContain("Pi prompt-action note");
+			expect(prompt).not.toContain("objective_next_prompt_action");
 		}
 	});
 });

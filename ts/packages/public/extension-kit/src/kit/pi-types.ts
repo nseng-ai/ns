@@ -97,9 +97,26 @@ export interface CommandContext extends BaseContext {
 	waitForIdle(): Promise<void>;
 }
 
+export interface AgentEndEventLike {
+	messages: ReadonlyArray<{
+		role?: unknown;
+		content?: unknown;
+	}>;
+}
+
 export interface AgentEndContext {
 	hasUI?: boolean;
 	ui: UiLike;
+}
+
+export interface AgentSettledContext {
+	hasUI?: boolean;
+	ui: UiLike;
+}
+
+export interface InputEventLike {
+	text: string;
+	source: "interactive" | "rpc" | "extension";
 }
 
 export type SessionStartContext = BaseContext;
