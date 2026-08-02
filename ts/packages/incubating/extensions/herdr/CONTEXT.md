@@ -9,7 +9,7 @@ The **first-party extension** that owns Herdr spaces, tabs, labels, explicit cal
 *Avoid*: Herdr capability (retired name), generic terminal multiplexer wrapper, cmux adapter, Herdr plugin
 
 **Herdr Consumer Gateway**:
-The narrow domain-shaped interface (`HerdrGateway`) exposing only the workspace, tab, and caller-context operations the extension currently needs, backed by the installed `herdr` CLI.
+The narrow domain-shaped interface (`HerdrGateway`) exposing only the workspace, tab, and caller-pane operations the extension currently needs, backed by the installed `herdr` CLI.
 *Avoid*: raw socket gateway, full Herdr API surface, generic CLI wrapper
 
 **Prepared Herdr Launch**:
@@ -49,12 +49,12 @@ The optional `/ns:herdr:tab:handoff` integration with `@nseng-ai/handoffs`. The 
 *Avoid*: generic Herdr handoff workflow family, model-facing launch tool, arbitrary command transport, Markdown transport through Herdr, Handoffs-owned destination, compatibility alias
 
 **Caller space targeting**:
-Identifying the explicit caller Herdr space through the typed Herdr Consumer Gateway caller-context operation (`resolveCallerContext()`), backed by Herdr's caller-aware `pane current --current` query. Space rename and tab-creation/launch flows resolve and capture this identity before dependent work or destination mutation and fail closed when resolution fails.
-*Avoid*: UI focus targeting, ambient space, implicit space, `HERDR_WORKSPACE_ID` environment transport
+Identifying the explicit caller Herdr space from the typed Herdr Consumer Gateway caller-pane operation (`resolveCallerPane()`), backed by Herdr's caller-aware `pane current --current` query. The operation returns complete caller workspace, tab, and pane identity from one query; caller-space consumers select the workspace ID. Space rename and tab-creation/launch flows resolve and capture this identity before dependent work or destination mutation and fail closed when resolution fails.
+*Avoid*: UI focus targeting, ambient space, implicit space, environment-variable transport
 
 **Caller tab targeting**:
-Identifying the exact Herdr tab to rename through `HERDR_TAB_ID`, injected by Herdr into a managed pane. Tab rename flows validate this ID before model work or mutation and never substitute the caller space ID or UI focus.
-*Avoid*: caller space ID, focused tab, current tab inference
+Identifying the exact Herdr tab from the same typed caller-pane operation. Tab rename flows select the tab ID, resolve and capture it before idle waiting, model work, or mutation, and fail closed when resolution fails.
+*Avoid*: caller space ID, focused tab, environment-variable transport, unqualified current-tab inference
 
 **Herdr resource label**:
 An ns-authored display label for a Herdr space or tab. Space labels use `s<number>:<label>` when the resource cwd is a managed ns Slot and `<label>` otherwise; tab labels always use `<label>` without a Slot prefix. Goal labels use `<goal-slug>`, Objective space labels use `obj:<objective-slug>`, implementation labels use the collision-resolved branch name, and Handoff tab labels use `handoff:<handoff-slug>`. Unlabeled resource creation remains unlabeled.

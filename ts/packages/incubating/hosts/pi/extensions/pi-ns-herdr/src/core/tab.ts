@@ -1,5 +1,4 @@
 import {
-	getCallerTabId,
 	HERDR_TAB_GOAL_COMMAND_NAME,
 	HERDR_TAB_NEW_COMMAND_NAME,
 	type HerdrGateway,
@@ -12,7 +11,7 @@ import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { generateWorkspaceGoalSlug, resolveHerdrGoal } from "./space-goal.ts";
 
 export interface HandleHerdrNewTabOptions {
-	herdr: Pick<HerdrGateway, "createTab" | "resolveCallerContext">;
+	herdr: Pick<HerdrGateway, "createTab" | "resolveCallerPane">;
 	labelDeriver: HerdrResourceLabelDeriver;
 	args: string;
 	ctx: CommandContext;
@@ -20,15 +19,15 @@ export interface HandleHerdrNewTabOptions {
 }
 
 export async function handleHerdrNewTab(options: HandleHerdrNewTabOptions): Promise<void> {
-	const callerContext = await options.herdr.resolveCallerContext();
-	if (callerContext.type === "failed") {
+	const callerWorkspace = await options.herdr.resolveCallerPane();
+	if (callerWorkspace.type === "failed") {
 		options.ctx.ui.notify(
-			`Not running inside a Herdr caller space.\n${callerContext.message}`,
+			`Not running inside a Herdr caller space.\n${callerWorkspace.message}`,
 			"warning",
 		);
 		return;
 	}
-	const workspaceId = callerContext.context.workspaceId;
+	const workspaceId = callerWorkspace.workspaceId;
 
 	const description = options.args.trim();
 	let label: string | undefined;
@@ -74,21 +73,25 @@ export async function handleHerdrNewTab(options: HandleHerdrNewTabOptions): Prom
 
 export interface HandleHerdrTabGoalOptions {
 	pi: HerdrPiCommandApi;
-	herdr: Pick<HerdrGateway, "renameTab">;
+	herdr: Pick<HerdrGateway, "renameTab" | "resolveCallerPane">;
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
-	env?: NodeJS.ProcessEnv;
 }
 
 export async function handleHerdrTabGoal(options: HandleHerdrTabGoalOptions): Promise<void> {
-	await options.ctx.waitForIdle();
-	const tabId = getCallerTabId(options.env);
-	if (tabId === undefined) {
-		if (options.ctx.hasUI !== false)
-			options.ctx.ui.notify("Not running inside a Herdr caller tab.", "warning");
+	const callerTab = await options.herdr.resolveCallerPane();
+	if (callerTab.type === "failed") {
+		if (options.ctx.hasUI !== false) {
+			options.ctx.ui.notify(
+				`Not running inside a Herdr caller tab.\n${callerTab.message}`,
+				"warning",
+			);
+		}
 		return;
 	}
+	const tabId = callerTab.tabId;
+	await options.ctx.waitForIdle();
 	const goal = await resolveHerdrGoal({
 		args: options.args,
 		ctx: options.ctx,

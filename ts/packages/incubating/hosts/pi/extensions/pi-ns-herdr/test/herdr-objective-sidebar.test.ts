@@ -15,7 +15,7 @@ import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
-	failedCallerContext,
+	failedCallerPane,
 	makeTempDir,
 	notificationMessages,
 	objectiveDiffStep,
@@ -23,12 +23,12 @@ import {
 	objectiveReadStep,
 	objectiveStatusStep,
 	resetHerdrTestEnvironment,
-	resolvedCallerContext,
+	resolvedCallerPane,
 	step,
 } from "./herdr-test-harness.ts";
 
 function callerHerdrGateway(workspaceId = "w1"): FakeHerdrGateway {
-	return new FakeHerdrGateway({ callerContextResult: resolvedCallerContext(workspaceId) });
+	return new FakeHerdrGateway({ callerPaneResult: resolvedCallerPane(workspaceId) });
 }
 
 const NOW = Date.parse("2026-01-15T00:00:00Z");
@@ -242,7 +242,7 @@ describe("herdr Objective sidebar", () => {
 	test("ns:herdr:space:objective-summary caller resolution failure skips all work", async () => {
 		const pi = new FakePi();
 		const adaptedPi = createHerdrPiCommandApi(pi);
-		const herdr = new FakeHerdrGateway({ callerContextResult: failedCallerContext() });
+		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane() });
 		const controller = createHerdrSidebarController(adaptedPi, herdr);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
@@ -256,7 +256,7 @@ describe("herdr Objective sidebar", () => {
 		expect(herdr.renameCalls).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toBe(
-			`Not running inside a Herdr caller space.\nCould not resolve the Herdr caller context.`,
+			`Not running inside a Herdr caller space.\nCould not resolve the Herdr caller pane.`,
 		);
 	});
 
@@ -297,7 +297,7 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway({
-			callerContextResult: resolvedCallerContext("w1"),
+			callerPaneResult: resolvedCallerPane("w1"),
 			renameResult: { type: "failed", message: "workspace not found" },
 		});
 		const controller = createHerdrSidebarController(adaptedPi, herdr);

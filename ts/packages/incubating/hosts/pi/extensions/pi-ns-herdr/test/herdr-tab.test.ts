@@ -1,29 +1,22 @@
 import { describe, expect, test } from "vitest";
 
-import { getCallerTabId } from "@nseng-ai/herdr/api";
 import { handleHerdrNewTab, handleHerdrTabGoal } from "../src/core/tab.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
-	failedCallerContext,
+	failedCallerPane,
 	gitRootStep,
 	notificationMessages,
-	resolvedCallerContext,
+	resolvedCallerPane,
 	ROOT,
 	step,
 } from "./herdr-test-harness.ts";
 
 describe("Herdr tab resources", () => {
-	test("getCallerTabId trims a present ID and rejects blank values", () => {
-		expect(getCallerTabId({ HERDR_TAB_ID: "  t-1  " })).toBe("t-1");
-		expect(getCallerTabId({ HERDR_TAB_ID: " \t " })).toBeUndefined();
-		expect(getCallerTabId({})).toBeUndefined();
-	});
-
 	test("tab:new preflights caller workspace then creates an unprefixed focused tab at cwd", async () => {
-		const herdr = new FakeHerdrGateway({ callerContextResult: resolvedCallerContext("w-1") });
+		const herdr = new FakeHerdrGateway({ callerPaneResult: resolvedCallerPane("w-1") });
 		const ctx = new FakeCommandContext({
 			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3",
 		});
@@ -34,7 +27,7 @@ describe("Herdr tab resources", () => {
 			ctx,
 			notifyProgress: () => {},
 		});
-		expect(herdr.resolveCallerContextCalls).toBe(1);
+		expect(herdr.resolveCallerPaneCalls).toBe(1);
 		expect(herdr.createTabCalls).toEqual([
 			{
 				options: {
@@ -49,7 +42,7 @@ describe("Herdr tab resources", () => {
 
 	test("tab:new without a description creates an unlabeled focused tab", async () => {
 		let derivations = 0;
-		const herdr = new FakeHerdrGateway({ callerContextResult: resolvedCallerContext("w-1") });
+		const herdr = new FakeHerdrGateway({ callerPaneResult: resolvedCallerPane("w-1") });
 		const ctx = new FakeCommandContext({ cwd: "/repo/package" });
 		await handleHerdrNewTab({
 			herdr,
@@ -103,7 +96,7 @@ describe("Herdr tab resources", () => {
 
 	test("tab:new caller resolution failure does no label or Herdr work", async () => {
 		let derivations = 0;
-		const herdr = new FakeHerdrGateway({ callerContextResult: failedCallerContext() });
+		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane() });
 		const ctx = new FakeCommandContext();
 		await handleHerdrNewTab({
 			herdr,
@@ -129,7 +122,9 @@ describe("Herdr tab resources", () => {
 			script: [gitRootStep(ROOT), step("pi", undefined, { stdout: "add-auth" })],
 			shouldRequireExpectedArgs: false,
 		});
-		const herdr = new FakeHerdrGateway();
+		const herdr = new FakeHerdrGateway({
+			callerPaneResult: resolvedCallerPane("caller-workspace", "t-9"),
+		});
 		const ctx = new FakeCommandContext({
 			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3",
 		});
@@ -139,8 +134,8 @@ describe("Herdr tab resources", () => {
 			args: "ship auth",
 			ctx,
 			notifyProgress: () => {},
-			env: { HERDR_TAB_ID: " t-9 " },
 		});
+		expect(herdr.resolveCallerPaneCalls).toBe(1);
 		expect(herdr.renameTabCalls).toEqual([{ tabId: "t-9", label: "add-auth" }]);
 		expect(herdr.renameCalls).toEqual([]);
 		expect(notificationMessages(ctx)).toContain("Applied Herdr tab goal label: add-auth");
@@ -160,9 +155,8 @@ describe("Herdr tab resources", () => {
 			args: "",
 			ctx,
 			notifyProgress: () => {},
-			env: { HERDR_TAB_ID: "t-1" },
 		});
-		expect(herdr.renameTabCalls).toEqual([{ tabId: "t-1", label: "interactive-goal" }]);
+		expect(herdr.renameTabCalls).toEqual([{ tabId: "caller-tab", label: "interactive-goal" }]);
 		pi.assertDone();
 
 		const cancelledPi = new FakePi();
@@ -174,7 +168,6 @@ describe("Herdr tab resources", () => {
 			args: "",
 			ctx: cancelledCtx,
 			notifyProgress: () => {},
-			env: { HERDR_TAB_ID: "t-1" },
 		});
 		expect(cancelledHerdr.renameTabCalls).toEqual([]);
 		cancelledPi.assertDone();
@@ -193,7 +186,6 @@ describe("Herdr tab resources", () => {
 			args: "ship auth",
 			ctx,
 			notifyProgress: () => {},
-			env: { HERDR_TAB_ID: "t-1" },
 		});
 		expect(herdr.renameTabCalls).toEqual([]);
 		expect(notificationMessages(ctx).join("\n")).toContain("model failed");
@@ -215,15 +207,14 @@ describe("Herdr tab resources", () => {
 			args: "ship auth",
 			ctx,
 			notifyProgress: () => {},
-			env: { HERDR_TAB_ID: "t-1" },
 		});
 		expect(notificationMessages(ctx)).toContain("tab vanished");
 		pi.assertDone();
 	});
 
-	test("tab:goal missing tab stops before model work", async () => {
+	test("tab:goal caller resolution failure stops before idle wait and model work", async () => {
 		const pi = new FakePi();
-		const herdr = new FakeHerdrGateway();
+		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane("no caller pane") });
 		const ctx = new FakeCommandContext();
 		await handleHerdrTabGoal({
 			pi: createHerdrPiCommandApi(pi),
@@ -231,10 +222,14 @@ describe("Herdr tab resources", () => {
 			args: "ship auth",
 			ctx,
 			notifyProgress: () => {},
-			env: { HERDR_TAB_ID: " " },
 		});
+		expect(herdr.resolveCallerPaneCalls).toBe(1);
+		expect(ctx.waitCount).toBe(0);
 		expect(herdr.renameTabCalls).toEqual([]);
-		expect(notificationMessages(ctx)).toContain("Not running inside a Herdr caller tab.");
+		expect(notificationMessages(ctx).join("\n")).toContain(
+			"Not running inside a Herdr caller tab.",
+		);
+		expect(notificationMessages(ctx).join("\n")).toContain("no caller pane");
 		pi.assertDone();
 	});
 });

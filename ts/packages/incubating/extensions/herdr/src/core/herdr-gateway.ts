@@ -60,28 +60,21 @@ export interface HerdrGateway {
 	runInPane(paneId: string, command: string): Promise<HerdrPaneRunResult>;
 
 	/**
-	 * Resolve the explicit Herdr caller context — the workspace, tab, and pane
-	 * IDs of the Herdr-managed pane this process runs in.
+	 * Resolve the Herdr caller pane identity containing this process.
 	 *
 	 * Maps to: `herdr pane current --current` (Herdr's caller-aware current-pane
-	 * query, not a UI-focus query).
+	 * query, not a UI-focus query). The complete caller workspace, tab, and pane
+	 * identity is returned together from that single query.
 	 *
-	 * Returns `{ type: "resolved"; context }` with all three IDs on success.
+	 * Returns `{ type: "resolved"; workspaceId; tabId; paneId }` on success.
 	 * Returns `{ type: "failed"; message: string }` on non-zero exit, parse
 	 * failure, or a response missing any required ID.
 	 */
-	resolveCallerContext(): Promise<HerdrCallerContextResult>;
+	resolveCallerPane(): Promise<HerdrCallerPaneResult>;
 }
 
-/** Explicit caller identity of the Herdr-managed pane running this process. */
-export interface HerdrCallerContext {
-	readonly workspaceId: string;
-	readonly tabId: string;
-	readonly paneId: string;
-}
-
-export type HerdrCallerContextResult =
-	| { type: "resolved"; context: HerdrCallerContext }
+export type HerdrCallerPaneResult =
+	| { type: "resolved"; workspaceId: string; tabId: string; paneId: string }
 	| { type: "failed"; message: string };
 
 export type HerdrWorkspaceRenameResult = { type: "applied" } | { type: "failed"; message: string };

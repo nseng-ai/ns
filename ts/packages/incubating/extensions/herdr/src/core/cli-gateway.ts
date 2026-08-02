@@ -8,7 +8,7 @@ import {
 import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
 
 import type {
-	HerdrCallerContextResult,
+	HerdrCallerPaneResult,
 	HerdrCreateTabOptions,
 	HerdrCreateTabResult,
 	HerdrCreateWorkspaceOptions,
@@ -74,13 +74,13 @@ export function createCliHerdrGateway(exec: CommandExecApi): HerdrGateway {
 		async runInPane(paneId, command): Promise<HerdrPaneRunResult> {
 			return runInPane(exec, paneId, command);
 		},
-		async resolveCallerContext(): Promise<HerdrCallerContextResult> {
-			return resolveCallerContext(exec);
+		async resolveCallerPane(): Promise<HerdrCallerPaneResult> {
+			return resolveCallerPane(exec);
 		},
 	};
 }
 
-async function resolveCallerContext(exec: CommandExecApi): Promise<HerdrCallerContextResult> {
+async function resolveCallerPane(exec: CommandExecApi): Promise<HerdrCallerPaneResult> {
 	const command = "herdr";
 	// Herdr's caller-aware current-pane query: `--current` resolves the pane
 	// this process runs in, not whichever pane the UI happens to focus.
@@ -92,7 +92,7 @@ async function resolveCallerContext(exec: CommandExecApi): Promise<HerdrCallerCo
 			return {
 				type: "failed",
 				message: formatCommandFailure(
-					"Could not resolve the Herdr caller context.",
+					"Could not resolve the Herdr caller pane.",
 					commandDisplay,
 					result,
 				),
@@ -102,26 +102,25 @@ async function resolveCallerContext(exec: CommandExecApi): Promise<HerdrCallerCo
 		if (!parsed.ok) {
 			return {
 				type: "failed",
-				message: `Could not resolve the Herdr caller context: ${parsed.message}`,
+				message: `Could not resolve the Herdr caller pane: ${parsed.message}`,
 			};
 		}
-		const r = parsed.result;
-		const workspaceId = extractString(r, "pane", "workspace_id");
-		const tabId = extractString(r, "pane", "tab_id");
-		const paneId = extractString(r, "pane", "pane_id");
+		const workspaceId = extractString(parsed.result, "pane", "workspace_id");
+		const tabId = extractString(parsed.result, "pane", "tab_id");
+		const paneId = extractString(parsed.result, "pane", "pane_id");
 		if (!workspaceId || !tabId || !paneId) {
 			return {
 				type: "failed",
 				message:
-					"Could not resolve the Herdr caller context: unexpected response shape (missing workspace_id, tab_id, or pane_id).",
+					"Could not resolve the Herdr caller pane: unexpected response shape (missing workspace_id, tab_id, or pane_id).",
 			};
 		}
-		return { type: "resolved", context: { workspaceId, tabId, paneId } };
+		return { type: "resolved", workspaceId, tabId, paneId };
 	} catch (error) {
 		return {
 			type: "failed",
 			message: tailText(
-				`Could not resolve the Herdr caller context.\nCommand: ${commandDisplay}\nError: ${formatErrorMessage(error)}`,
+				`Could not resolve the Herdr caller pane.\nCommand: ${commandDisplay}\nError: ${formatErrorMessage(error)}`,
 				{ maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
 			),
 		};

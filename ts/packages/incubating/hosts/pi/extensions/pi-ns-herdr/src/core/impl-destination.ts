@@ -9,7 +9,7 @@ export type PrepareImplDestinationResult =
 /**
  * Prepare the Prepared Herdr Launch destination for an implementation command.
  *
- * The workspace case is a pure transformation with no caller-context I/O. The
+ * The workspace case is a pure transformation with no caller-workspace I/O. The
  * tab case resolves the explicit caller space through the Herdr gateway; call
  * this at the command boundary, before idle waiting, Git inspection,
  * interaction, or mutation. A failed resolution stops the workflow with a
@@ -18,21 +18,21 @@ export type PrepareImplDestinationResult =
 export async function prepareImplDestination(options: {
 	destination: ImplDestination;
 	commandName: string;
-	herdr: Pick<HerdrGateway, "resolveCallerContext">;
+	herdr: Pick<HerdrGateway, "resolveCallerPane">;
 }): Promise<PrepareImplDestinationResult> {
 	if (options.destination === "workspace") {
 		return { type: "ready", destination: { type: "workspace" } };
 	}
-	const resolved = await options.herdr.resolveCallerContext();
+	const resolved = await options.herdr.resolveCallerPane();
 	if (resolved.type === "failed") {
 		return {
 			type: "failed",
-			message: `/${options.commandName} requires a Herdr caller space, but the caller context could not be resolved.\n${resolved.message}`,
+			message: `/${options.commandName} requires a Herdr caller space, but the caller workspace could not be resolved.\n${resolved.message}`,
 		};
 	}
 	return {
 		type: "ready",
-		destination: { type: "tab", callerWorkspaceId: resolved.context.workspaceId },
+		destination: { type: "tab", callerWorkspaceId: resolved.workspaceId },
 	};
 }
 

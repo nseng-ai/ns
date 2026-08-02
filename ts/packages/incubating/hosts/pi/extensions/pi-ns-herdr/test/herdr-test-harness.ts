@@ -38,7 +38,7 @@ import {
 } from "@nseng-ai/objectives/api";
 
 import type {
-	HerdrCallerContextResult,
+	HerdrCallerPaneResult,
 	HerdrCreateTabOptions,
 	HerdrCreateTabResult,
 	HerdrCreateWorkspaceOptions,
@@ -403,6 +403,8 @@ export interface FakePaneRunCall {
 
 /** Default resolved caller identity used by ordinary happy-path tab tests. */
 export const FAKE_CALLER_WORKSPACE_ID = "caller-workspace";
+export const FAKE_CALLER_TAB_ID = "caller-tab";
+export const FAKE_CALLER_PANE_ID = "caller-pane";
 
 export interface FakeHerdrGatewayOptions {
 	renameResult?: HerdrWorkspaceRenameResult;
@@ -410,21 +412,20 @@ export interface FakeHerdrGatewayOptions {
 	createWorkspaceResult?: HerdrCreateWorkspaceResult;
 	createTabResult?: HerdrCreateTabResult;
 	paneRunResult?: HerdrPaneRunResult;
-	callerContextResult?: HerdrCallerContextResult;
+	callerPaneResult?: HerdrCallerPaneResult;
 }
 
-export function resolvedCallerContext(
+export function resolvedCallerPane(
 	workspaceId: string = FAKE_CALLER_WORKSPACE_ID,
-): HerdrCallerContextResult {
-	return {
-		type: "resolved",
-		context: { workspaceId, tabId: `${workspaceId}:t1`, paneId: `${workspaceId}:p1` },
-	};
+	tabId: string = FAKE_CALLER_TAB_ID,
+	paneId: string = FAKE_CALLER_PANE_ID,
+): HerdrCallerPaneResult {
+	return { type: "resolved", workspaceId, tabId, paneId };
 }
 
-export function failedCallerContext(
-	message = "Could not resolve the Herdr caller context.",
-): HerdrCallerContextResult {
+export function failedCallerPane(
+	message = "Could not resolve the Herdr caller pane.",
+): HerdrCallerPaneResult {
 	return { type: "failed", message };
 }
 
@@ -434,19 +435,19 @@ export class FakeHerdrGateway implements HerdrGateway {
 	readonly createWorkspaceCalls: FakeCreateWorkspaceCall[] = [];
 	readonly createTabCalls: FakeCreateTabCall[] = [];
 	readonly paneRunCalls: FakePaneRunCall[] = [];
-	resolveCallerContextCalls = 0;
+	resolveCallerPaneCalls = 0;
 
 	private readonly renameResult: HerdrWorkspaceRenameResult;
 	private readonly renameTabResult: HerdrTabRenameResult;
 	private readonly createWorkspaceResult: HerdrCreateWorkspaceResult;
 	private readonly createTabResult: HerdrCreateTabResult;
 	private readonly paneRunResult: HerdrPaneRunResult;
-	private readonly callerContextResult: HerdrCallerContextResult;
+	private readonly callerPaneResult: HerdrCallerPaneResult;
 
 	constructor(options: FakeHerdrGatewayOptions = {}) {
 		this.renameResult = options.renameResult ?? { type: "applied" };
 		this.renameTabResult = options.renameTabResult ?? { type: "applied" };
-		this.callerContextResult = options.callerContextResult ?? resolvedCallerContext();
+		this.callerPaneResult = options.callerPaneResult ?? resolvedCallerPane();
 		this.createWorkspaceResult = options.createWorkspaceResult ?? {
 			type: "created",
 			workspaceId: "fake-ws-1",
@@ -487,9 +488,9 @@ export class FakeHerdrGateway implements HerdrGateway {
 		return this.paneRunResult;
 	}
 
-	async resolveCallerContext(): Promise<HerdrCallerContextResult> {
-		this.resolveCallerContextCalls += 1;
-		return this.callerContextResult;
+	async resolveCallerPane(): Promise<HerdrCallerPaneResult> {
+		this.resolveCallerPaneCalls += 1;
+		return this.callerPaneResult;
 	}
 }
 

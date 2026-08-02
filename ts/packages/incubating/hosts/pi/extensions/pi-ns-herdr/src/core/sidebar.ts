@@ -51,12 +51,12 @@ async function handleDeterministicObjectiveSidebar(
 ): Promise<void> {
 	await ctx.waitForIdle();
 
-	const callerContext = await herdr.resolveCallerContext();
-	if (callerContext.type === "failed") {
-		notify(ctx, `Not running inside a Herdr caller space.\n${callerContext.message}`, "warning");
+	const callerWorkspace = await herdr.resolveCallerPane();
+	if (callerWorkspace.type === "failed") {
+		notify(ctx, `Not running inside a Herdr caller space.\n${callerWorkspace.message}`, "warning");
 		return;
 	}
-	const workspaceId = callerContext.context.workspaceId;
+	const workspaceId = callerWorkspace.workspaceId;
 
 	const slug = await resolveObjectiveSidebarSlug(pi, args, ctx, options);
 	if (slug === undefined) {

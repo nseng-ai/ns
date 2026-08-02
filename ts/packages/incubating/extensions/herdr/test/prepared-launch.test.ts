@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import {
 	launchPreparedBranch,
-	type HerdrCallerContextResult,
+	type HerdrCallerPaneResult,
 	type HerdrCreateTabOptions,
 	type HerdrCreateTabResult,
 	type HerdrCreateWorkspaceOptions,
@@ -66,10 +66,12 @@ class FakeHerdrGateway implements HerdrGateway {
 		return this.options.paneRunResult ?? { type: "ok" };
 	}
 
-	async resolveCallerContext(): Promise<HerdrCallerContextResult> {
+	async resolveCallerPane(): Promise<HerdrCallerPaneResult> {
 		return {
 			type: "resolved",
-			context: { workspaceId: "fake-ws-1", tabId: "fake-ws-1:t1", paneId: "fake-ws-1:p1" },
+			workspaceId: "fake-ws-1",
+			tabId: "fake-ws-1:t1",
+			paneId: "fake-ws-1:p1",
 		};
 	}
 }

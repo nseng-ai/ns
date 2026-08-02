@@ -63,11 +63,11 @@ import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
-	failedCallerContext,
+	failedCallerPane,
 	makeTempDir,
 	notificationMessages,
 	resetHerdrTestEnvironment,
-	resolvedCallerContext,
+	resolvedCallerPane,
 	ROOT,
 	step,
 	WORKTREE,
@@ -94,9 +94,9 @@ function dispatchPlanDependencies() {
 }
 
 function callerSpaceFailureMessage(commandName: string): string {
-	const failure = failedCallerContext();
+	const failure = failedCallerPane();
 	const failureMessage = failure.type === "failed" ? failure.message : "";
-	return `/${commandName} requires a Herdr caller space, but the caller context could not be resolved.\n${failureMessage}`;
+	return `/${commandName} requires a Herdr caller space, but the caller workspace could not be resolved.\n${failureMessage}`;
 }
 
 function herdrPiTestContext(
@@ -394,7 +394,7 @@ describe("Herdr prompt implementation", () => {
 			cwd: ROOT,
 			// The caller space is resolved exactly once, before idle waiting; later
 			// gateway state cannot change the captured identity.
-			onWaitForIdle: () => expect(herdr.resolveCallerContextCalls).toBe(1),
+			onWaitForIdle: () => expect(herdr.resolveCallerPaneCalls).toBe(1),
 		});
 		registerHerdrPromptTabImplCommand(
 			{
@@ -417,7 +417,7 @@ describe("Herdr prompt implementation", () => {
 		await pi.commands.get("ns:herdr:impl:prompt:tab")?.handler(prompt, ctx);
 
 		pi.assertDone();
-		expect(herdr.resolveCallerContextCalls).toBe(1);
+		expect(herdr.resolveCallerPaneCalls).toBe(1);
 		expect(herdr.createWorkspaceCalls).toEqual([]);
 		expect(herdr.createTabCalls).toEqual([
 			{
@@ -438,7 +438,7 @@ describe("Herdr prompt implementation", () => {
 
 	test("prompt-tab stops before any workflow work when caller resolution fails", async () => {
 		const pi = new FakePi({ script: [] });
-		const herdr = new FakeHerdrGateway({ callerContextResult: failedCallerContext() });
+		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane() });
 		const git = new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH });
 		let slotCalls = 0;
 		registerHerdrPromptTabImplCommand(
@@ -786,7 +786,7 @@ describe("ns:herdr:impl:plan:space", () => {
 	test("impl:plan:tab stops when the caller space cannot be resolved", async () => {
 		const repoRoot = await makeTempDir();
 		const pi = new FakePi({ script: [] });
-		const herdr = new FakeHerdrGateway({ callerContextResult: failedCallerContext() });
+		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane() });
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
 		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
@@ -816,7 +816,7 @@ describe("ns:herdr:impl:plan:space", () => {
 describe("ns:herdr:impl:plan:tab", () => {
 	test("stops without tab creation when caller resolution fails", async () => {
 		const pi = new FakePi({ script: [] });
-		const herdr = new FakeHerdrGateway({ callerContextResult: failedCallerContext() });
+		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane() });
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
 		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
@@ -849,7 +849,7 @@ describe("ns:herdr:impl:plan:tab", () => {
 				),
 			],
 		});
-		const herdr = new FakeHerdrGateway({ callerContextResult: failedCallerContext() });
+		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane() });
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
@@ -893,7 +893,7 @@ describe("ns:herdr:impl:plan:tab", () => {
 
 	test("caller resolution failure stops before plan lookup or progress", async () => {
 		const pi = new FakePi({ script: [] });
-		const herdr = new FakeHerdrGateway({ callerContextResult: failedCallerContext() });
+		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane() });
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 		const progress: string[] = [];
 
@@ -919,7 +919,7 @@ describe("ns:herdr:impl:plan:tab", () => {
 
 	test("shows tab help without resolving the caller space", async () => {
 		const pi = new FakePi({ script: [] });
-		const herdr = new FakeHerdrGateway({ callerContextResult: failedCallerContext() });
+		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane() });
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
 		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
@@ -935,7 +935,7 @@ describe("ns:herdr:impl:plan:tab", () => {
 
 		expect(pi.execCalls).toEqual([]);
 		expect(ctx.waitCount).toBe(0);
-		expect(herdr.resolveCallerContextCalls).toBe(0);
+		expect(herdr.resolveCallerPaneCalls).toBe(0);
 		expect(notificationMessages(ctx).join("\n")).toContain(
 			"Usage: /ns:herdr:impl:plan:tab [--dry-run]",
 		);
@@ -1392,7 +1392,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			],
 		});
 		const herdr = new FakeHerdrGateway({
-			callerContextResult: resolvedCallerContext("caller-workspace-before-interaction"),
+			callerPaneResult: resolvedCallerPane("caller-workspace-before-interaction"),
 		});
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
@@ -1400,7 +1400,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 			// The caller space is resolved exactly once, before idle waiting and
 			// interaction; it is never re-queried afterwards.
-			onWaitForIdle: () => expect(herdr.resolveCallerContextCalls).toBe(1),
+			onWaitForIdle: () => expect(herdr.resolveCallerPaneCalls).toBe(1),
 		});
 		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
 		const brmem = new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
@@ -1432,7 +1432,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			{ cwd: repoRoot, branch: PLAN_SLUG, parentBranch: TRUNK_BRANCH },
 		]);
 		expect(brmem.attachPlanCalls[0]).toMatchObject({ branch: PLAN_SLUG, key: PLAN_KEY });
-		expect(herdr.resolveCallerContextCalls).toBe(1);
+		expect(herdr.resolveCallerPaneCalls).toBe(1);
 		expect(herdr.createTabCalls).toEqual([
 			{
 				options: {
@@ -1519,7 +1519,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 
 	test("dry-run requires a resolved caller space before repository or plan lookup", async () => {
 		const pi = new FakePi({ script: [] });
-		const herdr = new FakeHerdrGateway({ callerContextResult: failedCallerContext() });
+		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane() });
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
 		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
@@ -1556,7 +1556,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			],
 		});
 		const herdr = new FakeHerdrGateway({
-			callerContextResult: resolvedCallerContext("caller-workspace-exact"),
+			callerPaneResult: resolvedCallerPane("caller-workspace-exact"),
 		});
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
