@@ -29,7 +29,11 @@ import {
 } from "./outcome.ts";
 import { ClinkrCompletionRuntime } from "./completion.ts";
 import { createFilesystemSource } from "./filesystem-source.ts";
-import { parseGlobalFlags, type OutputFormat } from "./framework-arguments.ts";
+import {
+	CLINKR_APP_OUTPUT_FORMATS,
+	parseGlobalFlags,
+	type OutputFormat,
+} from "./framework-arguments.ts";
 import { ClinkrNavigator } from "./navigator.ts";
 import { composeSources, type ClinkrComposition } from "./programmatic-source.ts";
 import { ClinkrTopology, type OpenedScope } from "./topology.ts";
@@ -158,16 +162,6 @@ type ClinkrInvocationOptions<TContext> =
 	| ClinkrCompleteOptions<TContext>
 	| Record<string, never>;
 
-type CompletionPolicy<TContext> =
-	| {
-			readonly type: "context-free";
-			readonly config: ContextFreeClinkrCompletionConfig;
-	  }
-	| {
-			readonly type: "contextful";
-			readonly config: ContextfulClinkrCompletionConfig<TContext>;
-	  };
-
 interface TopologyClinkrAppBaseOptions<TContext> {
 	readonly name: string;
 	readonly topology: ClinkrTopology<TContext>;
@@ -179,19 +173,77 @@ type TopologyClinkrAppOptions<TContext> = TopologyClinkrAppBaseOptions<TContext>
 	(
 		| {
 				readonly requiresContext: false;
-				readonly completion?: {
-					readonly type: "context-free";
-					readonly config: ContextFreeClinkrCompletionConfig;
-				};
+				readonly completion?: ContextFreeClinkrCompletionConfig;
 		  }
 		| {
 				readonly requiresContext: true;
-				readonly completion?: {
-					readonly type: "contextful";
-					readonly config: ContextfulClinkrCompletionConfig<TContext>;
-				};
+				readonly completion?: ContextfulClinkrCompletionConfig<TContext>;
 		  }
 	);
+
+type CompletionProviderInvoker<TContext> = (
+	definition: ClinkrCommandDefinition<TContext>,
+	request: ClinkrCompletionProviderRequest,
+	options: ClinkrInvocationOptions<TContext>,
+) => Promise<readonly ClinkrCompletionCandidate[]>;
+
+function createCompletionProviderInvoker<TContext>(
+	options: TopologyClinkrAppOptions<TContext>,
+): CompletionProviderInvoker<TContext> {
+	if (options.completion === undefined) {
+		throw new Error("clinkr: completion provider dispatch requires completion configuration");
+	}
+	if (options.requiresContext) {
+		const onProviderError = options.completion.onProviderError;
+		return async (definition, request, invocationOptions) => {
+			if (definition.requiresContext !== true) {
+				throw new Error("clinkr: command context mode does not match app context mode");
+			}
+			const provider = definition.completionProvider;
+			if (provider === undefined) return [];
+			const context = requireRunContext<TContext>(invocationOptions);
+			return await invokeCompletionProviderWithFallback(
+				() => provider(context, request),
+				request,
+				onProviderError === undefined ? undefined : (failure) => onProviderError(context, failure),
+			);
+		};
+	}
+	const onProviderError = options.completion.onProviderError;
+	return async (definition, request) => {
+		if (definition.requiresContext === true) {
+			throw new Error("clinkr: command context mode does not match app context mode");
+		}
+		const provider = definition.completionProvider;
+		if (provider === undefined) return [];
+		return await invokeCompletionProviderWithFallback(
+			() => provider(request),
+			request,
+			onProviderError,
+		);
+	};
+}
+
+async function invokeCompletionProviderWithFallback(
+	invokeProvider: () =>
+		| readonly ClinkrCompletionCandidate[]
+		| Promise<readonly ClinkrCompletionCandidate[]>,
+	request: ClinkrCompletionProviderRequest,
+	onProviderError?: (failure: ClinkrCompletionFailure) => void | Promise<void>,
+): Promise<readonly ClinkrCompletionCandidate[]> {
+	try {
+		return await invokeProvider();
+	} catch (error) {
+		if (onProviderError !== undefined) {
+			try {
+				await onProviderError({ error, commandPath: request.commandPath, request });
+			} catch {
+				// Completion diagnostics must never disrupt completion itself.
+			}
+		}
+		return [];
+	}
+}
 
 class TopologyClinkrApp<TContext> {
 	private readonly name: string;
@@ -216,22 +268,15 @@ class TopologyClinkrApp<TContext> {
 			hasRuntime: options.runtimeInfo !== undefined,
 			hasCompletion: options.completion !== undefined,
 		});
-		const completionConfig = options.completion;
 		this.completion =
-			completionConfig === undefined
+			options.completion === undefined
 				? undefined
 				: new ClinkrCompletionRuntime({
 						navigator: this.navigator,
 						commandName: options.name,
 						hasVersion: options.version !== undefined,
 						hasRuntime: options.runtimeInfo !== undefined,
-						invokeProvider: async (definition, request, invocationOptions) =>
-							this.invokeCompletionProvider(
-								definition,
-								request,
-								invocationOptions,
-								completionConfig,
-							),
+						invokeProvider: createCompletionProviderInvoker(options),
 					});
 	}
 
@@ -383,61 +428,6 @@ class TopologyClinkrApp<TContext> {
 		return this.completion;
 	}
 
-	private async invokeCompletionProvider(
-		definition: ClinkrCommandDefinition<TContext>,
-		request: ClinkrCompletionProviderRequest,
-		options: ClinkrInvocationOptions<TContext>,
-		policy: CompletionPolicy<TContext>,
-	): Promise<readonly ClinkrCompletionCandidate[]> {
-		if (definition.requiresContext === true) {
-			if (policy.type !== "contextful") {
-				throw new Error("clinkr: command context mode does not match app context mode");
-			}
-			const provider = definition.completionProvider;
-			if (provider === undefined) return [];
-			const context = requireRunContext<TContext>(options);
-			try {
-				return await provider(context, request);
-			} catch (error) {
-				const onProviderError = policy.config.onProviderError;
-				if (onProviderError !== undefined) {
-					try {
-						await onProviderError(context, {
-							error,
-							commandPath: request.commandPath,
-							request,
-						});
-					} catch {
-						// Completion diagnostics must never disrupt completion itself.
-					}
-				}
-				return [];
-			}
-		}
-		if (policy.type !== "context-free") {
-			throw new Error("clinkr: command context mode does not match app context mode");
-		}
-		const provider = definition.completionProvider;
-		if (provider === undefined) return [];
-		try {
-			return await provider(request);
-		} catch (error) {
-			const onProviderError = policy.config.onProviderError;
-			if (onProviderError !== undefined) {
-				try {
-					await onProviderError({
-						error,
-						commandPath: request.commandPath,
-						request,
-					});
-				} catch {
-					// Completion diagnostics must never disrupt completion itself.
-				}
-			}
-			return [];
-		}
-	}
-
 	/** Shared invocation core: handler call plus outcome decode, identical for every transport. */
 	private async invokeHandler(
 		definition: ClinkrCommandDefinition<TContext>,
@@ -550,17 +540,13 @@ export function createClinkrApp<TContext>(
 		return new TopologyClinkrApp<TContext>({
 			...baseOptions,
 			requiresContext: true,
-			...(options.completion === undefined
-				? {}
-				: { completion: { type: "contextful", config: options.completion } as const }),
+			...(options.completion === undefined ? {} : { completion: options.completion }),
 		});
 	}
 	return new TopologyClinkrApp<TContext>({
 		...baseOptions,
 		requiresContext: false,
-		...(options.completion === undefined
-			? {}
-			: { completion: { type: "context-free", config: options.completion } as const }),
+		...(options.completion === undefined ? {} : { completion: options.completion }),
 	});
 }
 
@@ -598,7 +584,7 @@ function buildCommandSurface(
 	// `rest` that never contains them). These registrations exist solely so
 	// `--help` output lists the standard flags.
 	command.addOption(
-		new Option("--format <format>").choices(["human", "json", "md"]).default("human"),
+		new Option("--format <format>").choices([...CLINKR_APP_OUTPUT_FORMATS]).default("human"),
 	);
 	command.addOption(new Option("--input-json"));
 	command.addOption(new Option("--json-schema"));

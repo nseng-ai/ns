@@ -95,14 +95,6 @@ export const CLINKR_RENDERED_COMMAND_OPTIONS: readonly ClinkrCompletionOptionPla
 	},
 ];
 
-export const CLINKR_APP_RENDERED_COMMAND_OPTIONS: readonly ClinkrCompletionOptionPlan[] = [
-	{
-		flags: ["--format"],
-		kind: { type: "enum", values: ["human", "json", "md"] },
-		description: "Output format.",
-	},
-];
-
 export const CLINKR_JSON_SCHEMA_OPTION: ClinkrCompletionOptionPlan = {
 	flags: ["--json-schema"],
 	kind: { type: "boolean" },

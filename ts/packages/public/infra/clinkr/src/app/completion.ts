@@ -1,5 +1,4 @@
 import {
-	CLINKR_RENDERED_COMMAND_OPTIONS,
 	CLINKR_HELP_OPTIONS,
 	CLINKR_JSON_SCHEMA_OPTION,
 	CLINKR_RUNTIME_OPTION,
@@ -18,6 +17,7 @@ import {
 	type ClinkrCompletionRequest,
 	type ClinkrCompletionResult,
 } from "./command-definition.ts";
+import { CLINKR_APP_OUTPUT_FORMATS } from "./framework-arguments.ts";
 import type { ClinkrNavigator } from "./navigator.ts";
 import type { OpenedScope } from "./topology.ts";
 export interface CompletionRuntimeOptions<TContext, TInvocationOptions> {
@@ -162,7 +162,14 @@ function buildDefinitionSurface(name: string, definition: ClinkrCommandDefinitio
 		options: [
 			...CLINKR_HELP_OPTIONS,
 			...surface.options.map(completionOptionFromSurface),
-			...CLINKR_RENDERED_COMMAND_OPTIONS,
+			{
+				flags: ["--format"],
+				kind: {
+					type: "enum",
+					values: CLINKR_APP_OUTPUT_FORMATS,
+				} satisfies FieldKind,
+				description: "Output format.",
+			},
 			{ ...CLINKR_JSON_SCHEMA_OPTION },
 			{
 				flags: ["--input-json"],
