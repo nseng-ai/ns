@@ -198,6 +198,31 @@ test("configured reserved route names reject aliases on differently named routes
 	);
 });
 
+test("configured reserved route names permit descendant canonical names and aliases", async () => {
+	const topology = new ClinkrTopology({
+		reservedNames: new Set(["completion"]),
+		sources: [
+			source("fixture", async (path) =>
+				path.length === 0
+					? {
+							commands: new Map(),
+							groups: new Map([["nested", { definition: { description: "Nested." } }]]),
+						}
+					: {
+							commands: new Map([
+								["completion", fixtureCommand("Completion command.")],
+								["helper", fixtureCommand("Helper command.", ["complete"])],
+							]),
+							groups: new Map(),
+						},
+			),
+		],
+	});
+	const nested = await topology.open(["nested"]);
+	expect([...nested.commands.keys()]).toEqual(["completion", "helper"]);
+	expect(nested.commands.get("helper")?.command.metadata.aliases).toEqual(["complete"]);
+});
+
 test("alias/name collisions identify the alias's canonical owner route", async () => {
 	const aliased = source("alpha", async () => ({
 		commands: new Map([["publish", fixtureCommand("Publisher.", ["shared"])]]),

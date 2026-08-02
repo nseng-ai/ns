@@ -23,24 +23,16 @@ export {
 	resolveSettledNonInteractiveCaps,
 } from "./caps.ts";
 export type { Caps, CapsEnv, ColorDepth } from "./caps.ts";
-export {
-	completeClinkrWords,
-	completeClinkrWordsAsync,
-	renderClinkrCompletionScript,
-	renderCompletionCandidatesNewline,
-} from "./completion.ts";
+export { renderClinkrCompletionScript, renderCompletionCandidatesNewline } from "./completion.ts";
 export type {
 	ClinkrCompletionCandidate,
 	ClinkrCompletionCandidateType,
-	ClinkrCompletionCommandPlan,
-	ClinkrCompletionGroupPlan,
 	ClinkrCompletionOptionPlan,
 	ClinkrCompletionRequest,
 	ClinkrCompletionResult,
 	ClinkrCompletionShell,
 	ClinkrDynamicCompletionProvider,
 	ClinkrDynamicCompletionRequest,
-	CompleteClinkrWordsAsyncOptions,
 	RenderClinkrCompletionScriptOptions,
 } from "./completion.ts";
 export {

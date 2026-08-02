@@ -277,7 +277,7 @@ test("README app completion merges app and provider candidates without running t
 		},
 	};
 	const root = await app.complete({ words: [""] }, { context });
-	expect(root.candidates.map(({ value }) => value)).toEqual(["checkout"]);
+	expect(root.candidates.map(({ value }) => value)).toEqual(["checkout", "completion"]);
 	const branches = await app.complete({ words: ["checkout", "--branch", "mai"] }, { context });
 	expect(branches.candidates).toEqual([
 		{ value: "main", type: "positional-value" },

@@ -42,7 +42,7 @@ Establish Clinkr's cold-audience package contract in `references/README-draft.md
 
 ## Prompt Guidance
 
-Use `/ns:plan:grill-and-save` only when the selected next semantic step is bounded landing work whose material decisions are settled and whose expected result is one or more PRs. The prompt should name the slice, direct a fresh session to this Objective as the architecture and acceptance source, cite only the necessary roadmap/reference/golden branch, and ask for the fewest coherent PRs with deletion and validation evidence.
+Use `/ns:plan:grill-and-save` only when the selected next semantic step is bounded landing work whose material decisions are settled and whose expected result is one or more PRs. When used, the proposed prompt must start with `/ns:plan:grill-and-save`, not an introductory verb such as “Run.” The prompt should name the slice, direct a fresh session to this Objective as the architecture and acceptance source, cite only the necessary roadmap/reference/golden branch, and ask for the fewest coherent PRs with deletion and validation evidence.
 
 For discussion, contract review, design, blessing gates, or other human-steered work, produce a short interactive prompt instead. When a roadmap row mixes a decision with later implementation, select the decision first and plan implementation only after the decision is recorded. This guidance shapes prompt serialization; it grants no execution authority and does not select the next row.
 
