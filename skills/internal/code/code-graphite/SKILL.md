@@ -1,6 +1,6 @@
 ---
 name: code-graphite
-description: "Graphite (gt) command mechanics for stacked branches and PRs. Use when creating or amending branches with gt, navigating or reshaping a stack, restacking, tracking or untracking branches, deleting stack branches, recovering an interrupted rebase, or submitting a stack."
+description: "Graphite (gt) command mechanics for stacked branches and PRs. Use when creating or amending branches with gt, splitting a PR or splitting up PRs, navigating or reshaping a stack, restacking, tracking or untracking branches, deleting stack branches, recovering an interrupted rebase, or submitting a stack."
 allowed-tools:
   - "Bash(gt *)"
   - "Bash(git add *)"
@@ -27,7 +27,8 @@ A Graphite stack is a parent/child chain of tracked git branches rooted at trunk
 
 | I want to...                              | Command                                        |
 | ----------------------------------------- | ---------------------------------------------- |
-| Create a new stacked branch               | `gt create <name> -m "<message>"`              |
+| Create a new branch at the stack tip      | `gt create <name> -m "<message>"`              |
+| Split a PR in place within its stack      | `gt create -i <name> -m "<message>"`           |
 | Amend the current branch                  | `gt modify -m "<message>"` (or `--no-edit`)    |
 | Move up / down the stack                  | `gt up` / `gt down`                            |
 | Jump to top / bottom of stack             | `gt top` / `gt bottom`                         |
@@ -54,6 +55,8 @@ Answer topology questions with the narrowest plumbing command:
 1. Stage changes: `git add <files>`
 2. Create the branch: `gt create <name> -m "<commit message>"`
 3. Repeat per branch to build a stack.
+
+Plain `gt create` creates a child on top of the current branch, which is correct for ordinary creation at the stack tip. `gt create -i` (`--insert`) instead inserts the new branch between the current branch and its existing child. Use insertion when splitting an existing PR in place so the new branch does not land at the stack tip. If the current branch has multiple children, Graphite prompts for which child to move onto the inserted branch.
 
 Amend the current branch:
 
@@ -93,17 +96,23 @@ gt track --parent <new-parent>
 gt restack
 ```
 
-Reorder branches with `gt move` — simpler than `gt create --insert`.
+Use `gt move` to reorder branches that already exist. Use `gt create -i` (`--insert`) to introduce a new branch within an existing stack.
 
 ## Splitting committed work
 
-To re-cut commits into different branches, reset them to unstaged changes and rebuild:
+To split an existing PR in place, reset its commits to unstaged changes, rebuild the first portion on the existing branch, then insert each additional portion before its existing child:
 
 ```bash
-git reset HEAD^      # last commit → unstaged (HEAD~2 for two, etc.)
-git diff HEAD        # inspect what you now have
-# then: git add selectively + gt create per branch
+git reset HEAD^                              # last commit → unstaged (HEAD~2 for two, etc.)
+git diff HEAD                                # inspect what you now have
+git add <first-portion>
+gt modify -m "<first portion message>"       # retain the first portion on the existing PR
+git add <next-portion>
+gt create -i <name> -m "<next message>"      # insert before the existing child
+# Repeat selective staging + gt create -i from each newly inserted branch as needed.
 ```
+
+Do not use plain `gt create` for the inserted portions: it creates a child on top of the current branch and can put the split at the stack tip instead of between the original PR and its child. With multiple children, `gt create -i` prompts for the child to move; do not assume child selection is non-interactive.
 
 ## Submitting
 
@@ -115,15 +124,15 @@ This publishes branches and creates/updates PRs on the remote — a write-capabl
 
 ## Troubleshooting
 
-| Problem                                                       | Solution                                                                |
-| ------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| "Cannot perform this operation on untracked branch"           | `gt track --parent <intended-parent>`, then retry                       |
-| Branch parented on the wrong branch                           | `gt track --parent <correct-parent>`, then `gt restack`                 |
-| Stale tracked branch (deleted in git, still in `gt` metadata) | `gt untrack <branch> --force --no-interactive` (see Untracking)         |
-| Conflicts during restack                                      | Resolve, `git add`, `git rebase --continue`                             |
-| `gt restack` hitting conflicts in unrelated branches          | Targeted `git rebase` instead (see Surgical Rebasing)                   |
-| Rebase interrupted mid-conflict                               | See Recovering from Interrupted Rebase                                  |
-| Need to split a PR                                            | Reset commits to unstaged, re-stage selectively, `gt create` per branch |
+| Problem                                                       | Solution                                                                                   |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| "Cannot perform this operation on untracked branch"           | `gt track --parent <intended-parent>`, then retry                                          |
+| Branch parented on the wrong branch                           | `gt track --parent <correct-parent>`, then `gt restack`                                    |
+| Stale tracked branch (deleted in git, still in `gt` metadata) | `gt untrack <branch> --force --no-interactive` (see Untracking)                            |
+| Conflicts during restack                                      | Resolve, `git add`, `git rebase --continue`                                                |
+| `gt restack` hitting conflicts in unrelated branches          | Targeted `git rebase` instead (see Surgical Rebasing)                                      |
+| Rebase interrupted mid-conflict                               | See Recovering from Interrupted Rebase                                                     |
+| Need to split a PR                                            | Rebuild the first portion, then selectively stage and `gt create -i` each inserted portion |
 
 ## Surgical Rebasing in Complex Stacks
 
