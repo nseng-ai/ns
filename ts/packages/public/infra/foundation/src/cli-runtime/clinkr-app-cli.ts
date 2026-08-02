@@ -3,7 +3,11 @@ import process from "node:process";
 import type { ClinkrContextfulApp } from "@nseng-ai/clinkr/app";
 import { withInterceptedProcessWriters } from "@nseng-ai/clinkr/app/process-writer-interception";
 
-import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import {
+	optionalEntries,
+	optionalEntry,
+	type ExplicitUndefined,
+} from "@nseng-ai/foundation/primitives";
 
 import { isDirectCliInvocation } from "./direct-invocation.ts";
 import { readStdin } from "./stdin.ts";
@@ -186,10 +190,7 @@ async function runWithOutputOverrides<TContext, TDeps extends ClinkrAppCliEntryp
 		});
 	if (deps.stdout === undefined && deps.stderr === undefined) return await runApp();
 	return await withInterceptedProcessWriters(
-		{
-			...(deps.stdout === undefined ? {} : { stdout: deps.stdout }),
-			...(deps.stderr === undefined ? {} : { stderr: deps.stderr }),
-		},
+		optionalEntries({ stdout: deps.stdout, stderr: deps.stderr }),
 		runApp,
 	);
 }
