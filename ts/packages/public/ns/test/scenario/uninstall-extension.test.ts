@@ -81,6 +81,10 @@ function fixture(options: {
 			artifacts,
 			uninstallAcquisition: cleanup,
 			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
+			userManagedNpmStorage: {
+				type: "unavailable",
+				diagnostic: { code: "user-managed-npm-storage-unavailable", message: "not configured" },
+			},
 		},
 	};
 }

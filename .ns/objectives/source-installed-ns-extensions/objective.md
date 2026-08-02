@@ -58,10 +58,9 @@ Risks:
 - **Collision ambiguity (contract settled).** ADR 0051 reserves built-ins and defines command-path precedence; ADR 0053 supersedes its manifest-identity rule with normalized source identity. Matching Project sources suppress matching User sources before loading, while different sources remain independent and compose through command-path precedence.
 - **Machine-local path drift.** Canonical absolute local paths become stale when a checkout moves or disappears. User-scope list/update diagnostics must expose acquisition or descriptor failures without breaking unrelated built-ins and extensions.
 - **Config corruption or overreach.** Lifecycle edits must preserve unrelated user-file content even though only `extensions` is consumed initially, and must never reinterpret unsupported user-level fields as active settings.
-- **Managed npm boundary.** User-scoped npm acquisition needs a clear XDG-appropriate location and safe update/uninstall ownership distinct from project `.ns/managed-extensions`.
+- **Managed npm boundary (resolved).** ADR 0055 places isolated private npm projects under `$XDG_DATA_HOME/ns/extensions/npm/<package-name>/`, distinct from project `.ns/managed-extensions`; cleanup owns only one package project and may prune only an empty package-scope directory.
 - **Public dependency leakage.** Implementing source-checkout convenience by importing incubating extensions into public `@nseng-ai/ns` would violate disposition closure; the design must keep extension packages dynamically acquired or otherwise outside the public package's runtime dependency graph.
 
 ## Open Questions
 
-- What exact XDG data or state path should own user-scoped managed npm extension bytes, and which existing acquisition abstraction should derive it?
 - Which concise user-facing labels best express the settled distinction between a user-available command extension and a project-declared, activated extension without adding a separate lifecycle state?

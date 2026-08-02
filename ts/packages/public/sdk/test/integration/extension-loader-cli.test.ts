@@ -302,11 +302,22 @@ export default {
 		expect(run.context.execCalls).toEqual([]);
 	});
 
-	test("user command runs from an unrelated repository without mutating it", async () => {
+	test("managed user npm command runs from an unrelated repository without mutating it", async () => {
 		const cwd = await createEmptyProject();
 		const homeDir = await mkdtemp(join(tmpdir(), "ns-extension-home-"));
 		tempDirs.push(homeDir);
-		const packageRoot = join(homeDir, "packages", "user-tools");
+		const xdgDataHome = join(homeDir, "data");
+		const packageRoot = join(
+			xdgDataHome,
+			"ns",
+			"extensions",
+			"npm",
+			"@example",
+			"user-tools",
+			"node_modules",
+			"@example",
+			"user-tools",
+		);
 		writeFileSyncWithParents(
 			join(packageRoot, "package.json"),
 			JSON.stringify({
@@ -336,11 +347,17 @@ export default { name: "hello", summary: "User hello.", description: "User hello
 		);
 		writeFileSyncWithParents(
 			join(homeDir, ".config", "ns", "ns.toml"),
-			`extensions = [${JSON.stringify(packageRoot)}]\n`,
+			'extensions = ["npm:@example/user-tools@1.0.0"]\n',
 		);
 		expect(readdirSync(cwd)).toEqual([]);
 
-		const run = runWithFakes({ args: ["hello"], state: { exec: [] }, cwd, homeDir });
+		const run = runWithFakes({
+			args: ["hello"],
+			state: { exec: [] },
+			cwd,
+			homeDir,
+			env: { XDG_DATA_HOME: xdgDataHome },
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("hello from user\n");

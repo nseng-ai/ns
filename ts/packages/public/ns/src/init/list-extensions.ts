@@ -10,7 +10,10 @@ import type {
 	DeclaredExtensionDescriptor,
 	DeclaredExtensionDescriptorDiagnostic,
 } from "@nseng-ai/sdk/extensions/declared-descriptors";
-import { classifyExtensionSourceLifecycle } from "@nseng-ai/sdk/project-config";
+import {
+	classifyExtensionSourceLifecycle,
+	managedNpmPackagePaths,
+} from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
 import {
@@ -497,7 +500,10 @@ async function listUserExtensions(
 		repoRoot: prepared.configDir,
 		specs,
 		localPathPolicy: "absolute-only",
-		resolveNpmPackageRoot: () => undefined,
+		resolveNpmPackageRoot: (packageName) =>
+			context.userManagedNpmStorage.type === "available"
+				? managedNpmPackagePaths(context.userManagedNpmStorage.storage, packageName).packageRoot
+				: undefined,
 	});
 	const availability = await context.userExtensionAvailability.evaluate({
 		configDir: prepared.configDir,
@@ -512,19 +518,17 @@ async function listUserExtensions(
 					diagnostic.spec === sourceSpec || diagnostic.relatedSpecs?.includes(sourceSpec) === true,
 			)
 			.map(normalizeExtensionListDiagnostic);
-		if (classification.type === "supported-npm") {
+		if (
+			classification.type === "supported-npm" &&
+			context.userManagedNpmStorage.type === "unavailable"
+		) {
 			return {
 				sourceSpec,
 				sourceKind: "npm",
 				packageName: classification.source.packageName,
 				acquisitionStatus: "missing",
 				commandAvailability: "unavailable",
-				diagnostics: [
-					{
-						code: "user-npm-managed-storage-unavailable",
-						message: `User-scoped npm extension is unavailable until managed npm storage is implemented: ${sourceSpec}.`,
-					},
-				],
+				diagnostics: [context.userManagedNpmStorage.diagnostic],
 			};
 		}
 		const fact = availability.find((candidate) => candidate.sourceSpec === sourceSpec);
@@ -542,10 +546,10 @@ async function listUserExtensions(
 		const sourceKind =
 			classification.type === "supported-local"
 				? "local"
-				: classification.type === "unsupported-git"
-					? "git"
-					: classification.type === "invalid-npm"
-						? "npm"
+				: classification.type === "supported-npm" || classification.type === "invalid-npm"
+					? "npm"
+					: classification.type === "unsupported-git"
+						? "git"
 						: "unsupported";
 		return {
 			sourceSpec,

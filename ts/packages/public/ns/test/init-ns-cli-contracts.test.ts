@@ -194,7 +194,8 @@ describe("ns-init CLI contracts", () => {
 	test("publishes extension update help, input/output schemas, and invalid scope", async () => {
 		await expectScopeContract({ command: "update", positional: "./extension" });
 		const schema = await run(["extension", "update", "--json-schema"]);
-		expect(schema.stdout).toContain("unchanged-local-in-place");
+		expect(schema.stdout).toContain("refresh-floating");
+		expect(schema.stdout).toContain("local-in-place");
 		expect(schema.stdout).toContain("not-performed");
 	});
 

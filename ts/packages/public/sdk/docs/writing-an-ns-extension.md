@@ -363,6 +363,45 @@ cleanup, and preservation of local sources and consumer data.
 > it does not sandbox extension code. Descriptor validation imports and executes the descriptor
 > module, and selected commands execute extension code. Install only extensions you trust.
 
+## Installing command availability at user scope
+
+Use `--scope user` when the extension's commands should be available across repositories without
+activating its repository contributions:
+
+```bash
+ns extension install /absolute/path/to/my-extension --scope user
+ns extension install npm:@acme/my-extension --scope user
+ns extension list --scope user
+```
+
+The user declaration is stored in `$XDG_CONFIG_HOME/ns/ns.toml` (default
+`$HOME/.config/ns/ns.toml`). Unprefixed local sources are resolved to lexical absolute paths and
+used in place. If a checkout moves, list/update report the missing source; uninstall the stale
+path and install its new location. Explicit `npm:` sources use one private project per package at
+`$XDG_DATA_HOME/ns/extensions/npm/<package-name>/` (default
+`$HOME/.local/share/ns/extensions/npm/<package-name>/`). npm lifecycle scripts stay disabled.
+
+A floating `npm:<name>` refreshes on explicit `ns extension update ... --scope user`; a pinned
+`npm:<name>@<version>` update ensures or restores that exact declaration without refreshing an
+existing installation. Dry-run previews acquisition without writing config, package storage, or
+project files. Install validates acquired descriptors before changing config and rolls back only
+bytes newly acquired by that invocation when later validation or the optimistic config write
+fails.
+
+Uninstall removes the user declaration before cleaning the package's lifecycle-owned private
+project. It preserves local checkouts, sibling npm packages, and shared XDG roots. If cleanup
+fails after declaration removal, command availability is already gone; the structured failure
+reports the retained path, and rerunning uninstall retries cleanup.
+
+User scope is command-only. It does not require Git or supported harnesses and never activates
+instructions, points, consumer directories, bundled artifacts, harness artifacts, or extension
+settings. Built-in host commands are reserved. Project descriptors have precedence over user
+descriptors, and a project package replaces a user package with the same canonical identity as a
+whole package rather than mixing versions.
+
+`just install-ns` in the ns source checkout remains only an executable-shim installation; it does
+not install extensions or edit the user config.
+
 ## How loading works
 
 - On each invocation, `ns` reads `ns.toml` and passes declarations through one canonical loader.

@@ -1,6 +1,6 @@
-import { lstat, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
@@ -10,7 +10,9 @@ import {
 	createRealExtensionAcquisitionGateway,
 	managedNpmProjectRoot,
 	npmPackageRoot,
+	projectManagedNpmStorage,
 	resolveDeclaredExtensionModules,
+	userManagedNpmStorage,
 } from "../../src/extensions/acquisition.ts";
 import { loadDeclaredExtensionDescriptors } from "../../src/extensions/declared-descriptors.ts";
 
@@ -32,9 +34,9 @@ describe("RealExtensionAcquisitionGateway", () => {
 				return { type: "exited", stdout: "", stderr: "", code: 0, signal: null };
 			},
 		});
-		const projectDir = await mkdtemp(join(tmpdir(), "ns-extension-acquisition-"));
+		const { storage, projectDir } = await createPreparedProject(gateway);
 
-		const result = await gateway.installNpmPackage({ ...request, projectDir });
+		const result = await gateway.installNpmPackage({ ...request, storage });
 
 		expect(result).toEqual({ ok: true, value: undefined });
 		expect(calls).toEqual([
@@ -56,6 +58,131 @@ describe("RealExtensionAcquisitionGateway", () => {
 		});
 	});
 
+	test.each([
+		["ns root", ["ns"]],
+		["extensions root", ["ns", "extensions"]],
+		["npm root", ["ns", "extensions", "npm"]],
+		["scope root", ["ns", "extensions", "npm", "@acme"]],
+		["package project", ["ns", "extensions", "npm", "@acme", "tools"]],
+	] as const)(
+		"prepare and install reject a user-storage symlink at the %s",
+		async (_label, parts) => {
+			const dataRoot = await mkdtemp(join(tmpdir(), "ns-user-extension-unsafe-"));
+			const storage = userManagedNpmStorage(join(dataRoot, "ns", "extensions"));
+			const unsafePath = join(dataRoot, ...parts);
+			const target = await mkdtemp(join(tmpdir(), "ns-extension-unsafe-target-"));
+			await mkdir(dirname(unsafePath), { recursive: true });
+			await symlink(target, unsafePath);
+
+			await expectPreparationAndInstallRejected(storage, request.packageName);
+
+			expect(await readdir(target)).toEqual([]);
+		},
+	);
+
+	test.each([
+		["ns root", ["ns"]],
+		["extensions root", ["ns", "extensions"]],
+		["npm root", ["ns", "extensions", "npm"]],
+		["scope root", ["ns", "extensions", "npm", "@acme"]],
+		["package project", ["ns", "extensions", "npm", "@acme", "tools"]],
+	] as const)(
+		"prepare and install reject a non-directory at the user-storage %s",
+		async (_label, parts) => {
+			const dataRoot = await mkdtemp(join(tmpdir(), "ns-user-extension-unsafe-"));
+			const storage = userManagedNpmStorage(join(dataRoot, "ns", "extensions"));
+			const unsafePath = join(dataRoot, ...parts);
+			await mkdir(dirname(unsafePath), { recursive: true });
+			await writeFile(unsafePath, "keep");
+
+			await expectPreparationAndInstallRejected(storage, request.packageName);
+
+			await expect(readFile(unsafePath, "utf8")).resolves.toBe("keep");
+		},
+	);
+
+	test.each(["symlink", "non-regular"] as const)(
+		"prepare and install reject an existing %s package.json",
+		async (manifestKind) => {
+			const dataRoot = await mkdtemp(join(tmpdir(), "ns-user-extension-unsafe-"));
+			const storage = userManagedNpmStorage(join(dataRoot, "ns", "extensions"));
+			const projectRoot = join(storage.npmRoot, "@acme", "tools");
+			const manifest = join(projectRoot, "package.json");
+			await mkdir(projectRoot, { recursive: true });
+			if (manifestKind === "symlink") {
+				const target = join(dataRoot, "manifest-target.json");
+				await writeFile(target, "keep");
+				await symlink(target, manifest);
+
+				await expectPreparationAndInstallRejected(storage, request.packageName);
+
+				await expect(readFile(target, "utf8")).resolves.toBe("keep");
+			} else {
+				await mkdir(manifest);
+				await writeFile(join(manifest, "keep"), "keep");
+
+				await expectPreparationAndInstallRejected(storage, request.packageName);
+
+				await expect(readFile(join(manifest, "keep"), "utf8")).resolves.toBe("keep");
+			}
+			await expect(lstat(join(projectRoot, "package-lock.json"))).rejects.toMatchObject({
+				code: "ENOENT",
+			});
+		},
+	);
+
+	test("install revalidates the project chain immediately before exec", async () => {
+		let execCalls = 0;
+		const gateway = createRealExtensionAcquisitionGateway({
+			async exec() {
+				execCalls += 1;
+				return { type: "exited", stdout: "", stderr: "", code: 0, signal: null };
+			},
+		});
+		const { storage, projectDir } = await createPreparedProject(gateway);
+		const target = await mkdtemp(join(tmpdir(), "ns-extension-unsafe-target-"));
+		await rm(projectDir, { recursive: true });
+		await symlink(target, projectDir);
+
+		await expect(gateway.installNpmPackage({ ...request, storage })).resolves.toMatchObject({
+			ok: false,
+			error: { code: "extension_acquisition_npm_install_failed", path: projectDir },
+		});
+		expect(execCalls).toBe(0);
+		await expect(lstat(join(target, "package-lock.json"))).rejects.toMatchObject({
+			code: "ENOENT",
+		});
+	});
+
+	test("detects a pre-existing incomplete project before ensure restores its package bytes", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "ns-extension-incomplete-"));
+		const projectRoot = managedNpmProjectRoot(repoRoot, "plain");
+		await mkdir(projectRoot, { recursive: true });
+		await writeFile(join(projectRoot, "package.json"), "{}");
+		const gateway = createRealExtensionAcquisitionGateway({
+			async exec(_command, _args, options) {
+				if (options?.cwd === undefined) throw new Error("expected npm cwd");
+				const packageRoot = join(options.cwd, "node_modules", "plain");
+				await mkdir(packageRoot, { recursive: true });
+				await writeFile(join(packageRoot, "package.json"), "{}");
+				return { type: "exited", stdout: "", stderr: "", code: 0, signal: null };
+			},
+		});
+
+		const result = await resolveDeclaredExtensionModules({
+			projectRoot: repoRoot,
+			declaredSpecs: ["npm:plain"],
+			mode: "apply",
+			gateway,
+		});
+
+		expect(result.roots).toMatchObject([{ wasInstalled: false, packageProjectExisted: true }]);
+		await expect(readFile(join(projectRoot, "package.json"), "utf8")).resolves.toBe("{}");
+		await expect(
+			readFile(join(npmPackageRoot(repoRoot, "plain"), "package.json"), "utf8"),
+		).resolves.toBe("{}");
+	});
+
 	test("removes unscoped and scoped package projects without removing siblings", async () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "ns-extension-remove-"));
 		const gateway = createRealExtensionAcquisitionGateway({
@@ -63,6 +190,7 @@ describe("RealExtensionAcquisitionGateway", () => {
 				throw new Error("not used");
 			},
 		});
+		const storage = projectManagedNpmStorage(repoRoot);
 		const unscoped = managedNpmProjectRoot(repoRoot, "plain");
 		const scoped = managedNpmProjectRoot(repoRoot, "@scope/target");
 		const sibling = managedNpmProjectRoot(repoRoot, "@scope/sibling");
@@ -72,10 +200,10 @@ describe("RealExtensionAcquisitionGateway", () => {
 		}
 
 		await expect(
-			gateway.removeManagedNpmPackage({ projectRoot: repoRoot, packageName: "plain" }),
+			gateway.removeManagedNpmPackage({ storage, packageName: "plain" }),
 		).resolves.toEqual({ ok: true, value: { status: "removed", path: unscoped } });
 		await expect(
-			gateway.removeManagedNpmPackage({ projectRoot: repoRoot, packageName: "@scope/target" }),
+			gateway.removeManagedNpmPackage({ storage, packageName: "@scope/target" }),
 		).resolves.toEqual({ ok: true, value: { status: "removed", path: scoped } });
 		await expect(lstat(unscoped)).rejects.toMatchObject({ code: "ENOENT" });
 		await expect(lstat(scoped)).rejects.toMatchObject({ code: "ENOENT" });
@@ -89,19 +217,20 @@ describe("RealExtensionAcquisitionGateway", () => {
 				throw new Error("not used");
 			},
 		});
+		const storage = projectManagedNpmStorage(repoRoot);
 		const project = managedNpmProjectRoot(repoRoot, "@scope/only");
 		await mkdir(project, { recursive: true });
 		await writeFile(join(project, "package.json"), "{}");
 
 		await expect(
-			gateway.removeManagedNpmPackage({ projectRoot: repoRoot, packageName: "@scope/only" }),
+			gateway.removeManagedNpmPackage({ storage, packageName: "@scope/only" }),
 		).resolves.toMatchObject({ ok: true, value: { status: "removed", path: project } });
 		await expect(lstat(join(repoRoot, ".ns/managed-extensions/npm/@scope"))).rejects.toMatchObject({
 			code: "ENOENT",
 		});
 		await expect(lstat(join(repoRoot, ".ns/managed-extensions/npm"))).resolves.toBeDefined();
 		await expect(
-			gateway.removeManagedNpmPackage({ projectRoot: repoRoot, packageName: "@scope/only" }),
+			gateway.removeManagedNpmPackage({ storage, packageName: "@scope/only" }),
 		).resolves.toEqual({ ok: true, value: { status: "already-absent", path: project } });
 	});
 
@@ -112,6 +241,7 @@ describe("RealExtensionAcquisitionGateway", () => {
 				throw new Error("not used");
 			},
 		});
+		const storage = projectManagedNpmStorage(repoRoot);
 		const npmRoot = join(repoRoot, ".ns/managed-extensions/npm");
 		await mkdir(npmRoot, { recursive: true });
 		await symlink(repoRoot, join(npmRoot, "linked"));
@@ -119,7 +249,7 @@ describe("RealExtensionAcquisitionGateway", () => {
 
 		for (const packageName of ["linked", "not-directory"]) {
 			await expect(
-				gateway.removeManagedNpmPackage({ projectRoot: repoRoot, packageName }),
+				gateway.removeManagedNpmPackage({ storage, packageName }),
 			).resolves.toMatchObject({
 				ok: false,
 				error: { code: "extension_acquisition_npm_remove_failed" },
@@ -128,15 +258,99 @@ describe("RealExtensionAcquisitionGateway", () => {
 		await expect(readFile(join(npmRoot, "not-directory"), "utf8")).resolves.toBe("keep");
 	});
 
+	test.each([
+		["ns data root", (dataRoot: string) => join(dataRoot, "ns")],
+		["extensions root", (dataRoot: string) => join(dataRoot, "ns", "extensions")],
+		["npm root", (dataRoot: string) => join(dataRoot, "ns", "extensions", "npm")],
+	] as const)("rejects unsafe user storage at the %s", async (_label, unsafePath) => {
+		const dataRoot = await mkdtemp(join(tmpdir(), "ns-user-extension-unsafe-"));
+		const extensionsRoot = join(dataRoot, "ns", "extensions");
+		const storage = userManagedNpmStorage(extensionsRoot);
+		const gateway = createRealExtensionAcquisitionGateway({
+			async exec() {
+				throw new Error("not used");
+			},
+		});
+		const path = unsafePath(dataRoot);
+		await mkdir(join(dataRoot, "target"), { recursive: true });
+		await mkdir(join(dataRoot, "ns", "extensions", "npm", "plain"), { recursive: true });
+		await rm(path, { recursive: true });
+		await symlink(join(dataRoot, "target"), path);
+
+		await expect(
+			gateway.removeManagedNpmPackage({ storage, packageName: "plain" }),
+		).resolves.toMatchObject({
+			ok: false,
+			error: { code: "extension_acquisition_npm_remove_failed", path },
+		});
+	});
+
+	test("rejects a non-directory in the user storage chain", async () => {
+		const dataRoot = await mkdtemp(join(tmpdir(), "ns-user-extension-unsafe-"));
+		const extensionsRoot = join(dataRoot, "ns", "extensions");
+		const storage = userManagedNpmStorage(extensionsRoot);
+		const gateway = createRealExtensionAcquisitionGateway({
+			async exec() {
+				throw new Error("not used");
+			},
+		});
+		await mkdir(join(dataRoot, "ns"), { recursive: true });
+		await writeFile(extensionsRoot, "keep");
+
+		await expect(
+			gateway.removeManagedNpmPackage({ storage, packageName: "plain" }),
+		).resolves.toMatchObject({
+			ok: false,
+			error: { code: "extension_acquisition_npm_remove_failed", path: extensionsRoot },
+		});
+		await expect(readFile(extensionsRoot, "utf8")).resolves.toBe("keep");
+	});
+
+	test("does not assume ownership of an arbitrary XDG data-home ancestor", async () => {
+		const dataRoot = await mkdtemp(join(tmpdir(), "ns-user-extension-boundary-"));
+		const extensionsRoot = join(dataRoot, "ns", "extensions");
+		const storage = userManagedNpmStorage(extensionsRoot);
+		expect(storage.trustedAncestors).toEqual([
+			join(dataRoot, "ns"),
+			extensionsRoot,
+			join(extensionsRoot, "npm"),
+		]);
+	});
+
+	test("removes from user storage while preserving shared roots and scoped siblings", async () => {
+		const dataRoot = await mkdtemp(join(tmpdir(), "ns-user-extension-remove-"));
+		const extensionsRoot = join(dataRoot, "ns", "extensions");
+		const storage = userManagedNpmStorage(extensionsRoot);
+		const gateway = createRealExtensionAcquisitionGateway({
+			async exec() {
+				throw new Error("not used");
+			},
+		});
+		const target = join(storage.npmRoot, "@scope", "target");
+		const sibling = join(storage.npmRoot, "@scope", "sibling");
+		for (const path of [target, sibling]) {
+			await mkdir(path, { recursive: true });
+			await writeFile(join(path, "package.json"), "{}");
+		}
+
+		await expect(
+			gateway.removeManagedNpmPackage({ storage, packageName: "@scope/target" }),
+		).resolves.toEqual({ ok: true, value: { status: "removed", path: target } });
+		await expect(lstat(target)).rejects.toMatchObject({ code: "ENOENT" });
+		await expect(readFile(join(sibling, "package.json"), "utf8")).resolves.toBe("{}");
+		await expect(lstat(storage.npmRoot)).resolves.toBeDefined();
+		await expect(lstat(extensionsRoot)).resolves.toBeDefined();
+	});
+
 	test("normalizes exec rejection into a diagnostic", async () => {
 		const gateway = createRealExtensionAcquisitionGateway({
 			async exec() {
 				throw new Error("npm executable unavailable");
 			},
 		});
-		const projectDir = await mkdtemp(join(tmpdir(), "ns-extension-acquisition-"));
+		const { storage } = await createPreparedProject(gateway);
 
-		await expect(gateway.installNpmPackage({ ...request, projectDir })).resolves.toMatchObject({
+		await expect(gateway.installNpmPackage({ ...request, storage })).resolves.toMatchObject({
 			ok: false,
 			error: {
 				code: "extension_acquisition_npm_install_failed",
@@ -157,9 +371,9 @@ describe("RealExtensionAcquisitionGateway", () => {
 				};
 			},
 		});
-		const projectDir = await mkdtemp(join(tmpdir(), "ns-extension-acquisition-"));
+		const { storage } = await createPreparedProject(gateway);
 
-		await expect(gateway.installNpmPackage({ ...request, projectDir })).resolves.toMatchObject({
+		await expect(gateway.installNpmPackage({ ...request, storage })).resolves.toMatchObject({
 			ok: false,
 			error: {
 				code: "extension_acquisition_npm_install_failed",
@@ -179,9 +393,9 @@ describe("RealExtensionAcquisitionGateway", () => {
 				};
 			},
 		});
-		const projectDir = await mkdtemp(join(tmpdir(), "ns-extension-acquisition-"));
+		const { storage } = await createPreparedProject(gateway);
 
-		await expect(gateway.installNpmPackage({ ...request, projectDir })).resolves.toMatchObject({
+		await expect(gateway.installNpmPackage({ ...request, storage })).resolves.toMatchObject({
 			ok: false,
 			error: {
 				code: "extension_acquisition_npm_install_failed",
@@ -196,10 +410,10 @@ describe("RealExtensionAcquisitionGateway", () => {
 				return { type: "exited", stdout: "", stderr: "", code: 0, signal: null };
 			},
 		});
-		const projectDir = await mkdtemp(join(tmpdir(), "ns-extension-acquisition-"));
+		const { storage, projectDir } = await createPreparedProject(gateway);
 		await mkdir(join(projectDir, "package-lock.json", "child"), { recursive: true });
 
-		await expect(gateway.installNpmPackage({ ...request, projectDir })).resolves.toMatchObject({
+		await expect(gateway.installNpmPackage({ ...request, storage })).resolves.toMatchObject({
 			ok: false,
 			error: {
 				code: "extension_acquisition_npm_install_failed",
@@ -272,6 +486,43 @@ describe("isolated npm project integration", () => {
 		]);
 	});
 });
+
+async function expectPreparationAndInstallRejected(
+	storage: ReturnType<typeof userManagedNpmStorage>,
+	packageName: string,
+): Promise<void> {
+	let execCalls = 0;
+	const gateway = createRealExtensionAcquisitionGateway({
+		async exec() {
+			execCalls += 1;
+			return { type: "exited", stdout: "", stderr: "", code: 0, signal: null };
+		},
+	});
+	await expect(gateway.ensureManagedNpmProject({ storage, packageName })).resolves.toMatchObject({
+		ok: false,
+		error: { code: "extension_acquisition_npm_project_failed" },
+	});
+	await expect(
+		gateway.installNpmPackage({ ...request, storage, packageName }),
+	).resolves.toMatchObject({
+		ok: false,
+		error: { code: "extension_acquisition_npm_install_failed" },
+	});
+	expect(execCalls).toBe(0);
+}
+
+async function createPreparedProject(
+	gateway: ReturnType<typeof createRealExtensionAcquisitionGateway>,
+): Promise<{ storage: ReturnType<typeof projectManagedNpmStorage>; projectDir: string }> {
+	const repoRoot = await mkdtemp(join(tmpdir(), "ns-extension-acquisition-"));
+	const storage = projectManagedNpmStorage(repoRoot);
+	const prepared = await gateway.ensureManagedNpmProject({
+		storage,
+		packageName: request.packageName,
+	});
+	if (!prepared.ok) throw new Error(prepared.error.message);
+	return { storage, projectDir: managedNpmProjectRoot(repoRoot, request.packageName) };
+}
 
 interface TarballPackage {
 	readonly name: string;

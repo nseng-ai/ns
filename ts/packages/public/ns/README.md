@@ -12,8 +12,9 @@ extensions — see [Add Objectives](#add-objectives).
 
 - **Node.js 24.12 or later.** The published package is a self-contained bundle — no build
   step and no other runtime dependencies.
-- **git.** ns is git-native: durable state lives in your repository as plain files and
-  refs, not in a hidden database. You run `ns` inside a git repository.
+- **git.** Project activation and project-scoped workflows are git-native: durable state
+  lives in your repository as plain files and refs, not in a hidden database. User-scoped
+  extension commands and installed command surfaces can run outside a repository.
 - **A coding-agent harness** for the full workflow: Claude Code, Codex, or Pi. The CLI
   works standalone, but Objectives are designed to be driven by agents.
 
@@ -91,18 +92,52 @@ ns objective list
 ns objective show <slug>
 ```
 
-## User-scoped extension commands
+## Install commands for your user account
 
-A local extension can be declared once for machine-wide command availability without activating repository files:
+Project scope is the default for `ns extension install|list|update|uninstall`: it records
+an extension in the repository and reconciles that extension's activation metadata. Use
+`--scope user` (`-s`) when you want only the extension's commands available across local
+repositories:
 
 ```bash
-ns extension install /absolute/path/to/my-extension --scope user
+ns extension install npm:@acme/my-extension --scope user
 ns extension list --scope user
-ns extension update /absolute/path/to/my-extension --scope user
-ns extension uninstall /absolute/path/to/my-extension --scope user
+ns extension update npm:@acme/my-extension --scope user
+ns extension uninstall npm:@acme/my-extension --scope user
 ```
 
-User declarations live at `$XDG_CONFIG_HOME/ns/ns.toml` (falling back to `$HOME/.config/ns/ns.toml`). Admission is all-or-nothing: invalid command metadata, a reserved Built-in path, an unsatisfied package requirement, or another package's command-shape collision makes the complete package unavailable. Install checks the proposed complete User catalog before changing config; list retains rejected declarations as `unavailable`; update refuses unavailable packages; uninstall remains available for recovery. User scope never writes project activation files. User-managed npm acquisition is not implemented yet.
+User declarations live in `$XDG_CONFIG_HOME/ns/ns.toml` (default
+`$HOME/.config/ns/ns.toml`). Explicit `npm:` sources are installed with lifecycle scripts
+disabled into isolated private projects under
+`$XDG_DATA_HOME/ns/extensions/npm/<package-name>/` (default
+`$HOME/.local/share/ns/extensions/npm/<package-name>/`). Unprefixed sources are local
+package directories: ns records a lexical absolute path and uses the checkout in place.
+If that checkout moves, reinstall from its new path or uninstall the old declaration; list
+and update report the stale source without disabling unrelated commands.
+
+Admission is all-or-nothing: invalid command metadata, a reserved Built-in path, an
+unsatisfied package requirement, or another package's command-shape collision makes the
+complete package unavailable. Install acquires npm bytes, then checks the proposed complete
+User catalog before changing config and rolls newly acquired bytes back if descriptor
+loading, admission, or config mutation fails. List retains rejected declarations as
+`unavailable`; update refuses unavailable packages; uninstall remains available for recovery.
+
+An unversioned `npm:<name>` declaration floats and refreshes on explicit update. A pinned
+`npm:<name>@<version>` update only ensures/restores the declared version. Repeating an
+install ensures missing bytes but does not refresh an existing floating package. npm
+uninstall removes only the package's lifecycle-owned private project (and an empty npm
+scope directory); local source bytes and sibling packages are preserved. If declaration
+removal succeeds but cleanup fails, command availability is already removed and rerunning
+uninstall retries cleanup.
+
+User scope never activates instructions, points, consumer directories, bundled or harness
+artifacts, or extension settings in a repository. Project declarations have higher command
+precedence than user declarations; built-in host commands remain reserved. Installing from
+this repository with `just install-ns` still installs only the source-backed ns executable
+shim and never edits user extension configuration.
+
+> **Trust warning:** `--ignore-scripts` disables npm lifecycle scripts, but descriptors and
+> selected commands are executable extension code. Install only extensions you trust.
 
 ## SDK subpaths
 

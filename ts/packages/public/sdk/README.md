@@ -4,13 +4,14 @@
 
 ## Command catalog
 
-The SDK builds a command catalog from lightweight metadata before it imports selected command code. Catalog entries come from three source levels, in increasing precedence:
+The SDK builds a command catalog from lightweight metadata before it imports selected command code. Catalog entries come from four source levels:
 
 ```text
-built-in command table < preinstalled descriptor catalog < ns.toml-declared descriptors
+built-in host commands (reserved)
+preinstalled descriptor catalog < user descriptors < project descriptors
 ```
 
-Built-in commands are SDK-owned host commands. Preinstalled descriptor catalog entries are injected by the installed CLI distribution so reusable first-party extensions can be available without every repository declaring them. Project entries come from extension packages listed in repo-root `ns.toml`; each package exposes `exports["./ns-extension"]` as a typed descriptor module. Higher-precedence entries override lower-precedence entries with the same command key; overrides are recorded as diagnostics rather than compatibility aliases.
+Built-in commands are SDK-owned host commands and cannot be overridden. Preinstalled descriptor catalog entries are injected by the installed CLI distribution. User entries come from the single XDG-resolved user `ns.toml` and provide command-only availability across repositories. Project entries come from repo-root `ns.toml`; each package exposes `exports["./ns-extension"]` as a typed descriptor module. Project descriptors replace a user descriptor with the same canonical package identity as a whole package; otherwise higher-precedence command paths override lower-precedence paths. Same-scope collisions are errors, while cross-scope overrides are recorded as diagnostics rather than compatibility aliases.
 
 ## Descriptor modules
 
@@ -33,7 +34,7 @@ Descriptor modules must stay side-effect-light and should import only `@nseng-ai
 The SDK accepts an injected preinstalled command catalog derived from descriptor modules. Each entry carries command metadata and either a package module specifier or a descriptor-native lazy loader for the owning command module. The SDK treats these entries as ordinary catalog candidates at the preinstalled precedence level:
 
 - top-level help and completion can list them from metadata;
-- `ns.toml` descriptor entries can override them;
+- user and project `ns.toml` descriptor entries can override them;
 - selected-command help, JSON schema, and execution import only the selected command module;
 - the owning package remains responsible for domain behavior, prompts, gateways, and presentation policy.
 
@@ -64,7 +65,7 @@ eval "$(ns completion zsh)"
 ns completion fish | source
 ```
 
-Each `ns completion <shell>` command prints a setup script that registers a completion hook for `ns`. The script does not embed a snapshot of the command tree; it calls back into `ns completion exec resolve <words...>` so suggestions reflect the current built-in, preinstalled, and project descriptor catalog.
+Each `ns completion <shell>` command prints a setup script that registers a completion hook for `ns`. The script does not embed a snapshot of the command tree; it calls back into `ns completion exec resolve <words...>` so suggestions reflect the current built-in, preinstalled, user, and project descriptor catalog.
 
 Resolution preserves lazy extension loading. Top-level completion is built from side-effect-light catalog metadata. Selected-command option and value completion imports only the selected command, matching selected-command help and JSON schema behavior. Extension commands can provide runtime value candidates through the optional `completionProvider` hook; provider failures are captured so static candidates remain available and resolver stdout stays candidate-only.
 

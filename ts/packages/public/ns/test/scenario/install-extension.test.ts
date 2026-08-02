@@ -16,6 +16,7 @@ import {
 	InMemoryArtifactActivationGateway,
 	InMemoryDeclaredExtensionsGateway,
 	InMemoryExtensionInstallAcquisitionGateway,
+	InMemoryExtensionUninstallAcquisitionGateway,
 	InMemoryUserExtensionConfigGateway,
 	InMemoryUserExtensionAvailabilityGateway,
 } from "../../src/init/testing/index.ts";
@@ -71,6 +72,11 @@ function fixture(options: {
 			git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", cachedOriginHeadBranch: "main" }),
 			files,
 			installAcquisition: acquisition,
+			uninstallAcquisition: new InMemoryExtensionUninstallAcquisitionGateway(),
+			userManagedNpmStorage: {
+				type: "unavailable",
+				diagnostic: { code: "user-managed-npm-storage-unavailable", message: "not configured" },
+			},
 			declaredExtensions: new InMemoryDeclaredExtensionsGateway({
 				result: {
 					descriptors: options.descriptors ?? [],

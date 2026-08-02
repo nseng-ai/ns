@@ -93,6 +93,10 @@ function fixture(
 			declaredExtensions,
 			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
 			userExtensionAvailability: new InMemoryUserExtensionAvailabilityGateway(),
+			userManagedNpmStorage: {
+				type: "unavailable",
+				diagnostic: { code: "user-managed-npm-storage-unavailable", message: "not configured" },
+			},
 			artifactProvisioningStatus: artifacts,
 			installedExtensionPackages: {
 				list: () => options.installedPackages ?? [],

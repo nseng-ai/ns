@@ -1,6 +1,11 @@
 import { failure } from "@nseng-ai/clinkr/legacy";
 import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
-import { classifyExtensionSourceLifecycle } from "@nseng-ai/sdk/project-config";
+import {
+	classifyExtensionSourceLifecycle,
+	managedNpmPackagePaths,
+	type ExtensionSourceSpec,
+	type ManagedNpmStorage,
+} from "@nseng-ai/sdk/project-config";
 
 import type {
 	DeclaredExtensionsGateway,
@@ -14,9 +19,20 @@ import type {
 export const extensionLifecycleScopeSchemaValues = ["project", "user"] as const;
 export type ExtensionLifecycleScope = (typeof extensionLifecycleScopeSchemaValues)[number];
 
+export type UserManagedNpmStorageResolution =
+	| { readonly type: "available"; readonly storage: ManagedNpmStorage }
+	| {
+			readonly type: "unavailable";
+			readonly diagnostic: {
+				readonly code: "user-managed-npm-storage-unavailable";
+				readonly message: string;
+			};
+	  };
+
 export interface UserExtensionLifecycleContext {
 	readonly userExtensionConfig: UserExtensionConfigGateway;
 	readonly declaredExtensions: DeclaredExtensionsGateway;
+	readonly userManagedNpmStorage: UserManagedNpmStorageResolution;
 }
 
 export interface UserExtensionAvailabilityContext {
@@ -65,28 +81,31 @@ export async function prepareUserConfig<TResult>(
 	};
 }
 
-export function prepareUserLocalSource<TResult>(options: {
+export function prepareUserExtensionSource<TResult>(options: {
+	readonly context: UserExtensionLifecycleContext;
 	readonly cwd: string;
 	readonly source: string;
 	readonly operation: string;
 }):
-	| { readonly ok: true; readonly sourceSpec: string }
+	| { readonly ok: true; readonly sourceSpec: string; readonly source: ExtensionSourceSpec }
 	| { readonly ok: false; readonly exit: ClinkrExit<TResult> } {
 	const classified = classifyExtensionSourceLifecycle(options.cwd, options.source);
 	if (classified.type === "supported-local") {
-		return { ok: true, sourceSpec: classified.source.path };
+		return { ok: true, sourceSpec: classified.source.path, source: classified.source };
 	}
 	if (classified.type === "supported-npm") {
+		if (options.context.userManagedNpmStorage.type === "available") {
+			return { ok: true, sourceSpec: classified.source.raw, source: classified.source };
+		}
 		return {
 			ok: false,
 			exit: failure(
-				`ns-extension-${options.operation}-user-npm-managed-storage-unavailable`,
-				`User-scoped npm extension lifecycle is not available until managed npm storage is implemented: ${options.source}. Use a local extension path or manage this declaration manually.`,
+				`ns-extension-${options.operation}-user-managed-npm-storage-unavailable`,
+				options.context.userManagedNpmStorage.diagnostic.message,
 				{
 					scope: "user",
 					sourceSpec: options.source,
-					code: "user-npm-managed-storage-unavailable",
-					nextCommand: `ns extension ${options.operation} <local-path> --scope user`,
+					diagnostic: options.context.userManagedNpmStorage.diagnostic,
 				},
 			),
 		};
@@ -103,7 +122,7 @@ export function prepareUserLocalSource<TResult>(options: {
 	};
 }
 
-export async function loadOneUserLocalDescriptor<TResult>(options: {
+export async function loadOneUserDescriptor<TResult>(options: {
 	readonly context: UserExtensionLifecycleContext;
 	readonly configDir: string;
 	readonly sourceSpec: string;
@@ -121,7 +140,11 @@ export async function loadOneUserLocalDescriptor<TResult>(options: {
 		repoRoot: options.configDir,
 		specs: [options.sourceSpec],
 		localPathPolicy: "absolute-only",
-		resolveNpmPackageRoot: () => undefined,
+		resolveNpmPackageRoot: (packageName) =>
+			options.context.userManagedNpmStorage.type === "available"
+				? managedNpmPackagePaths(options.context.userManagedNpmStorage.storage, packageName)
+						.packageRoot
+				: undefined,
 	});
 	const descriptor = loaded.descriptors[0];
 	if (
