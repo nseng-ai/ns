@@ -11,6 +11,7 @@ import {
 import {
 	resolvePromptPointContent,
 	type PromptPointContentReader,
+	type ResolvedPromptPointContent,
 } from "@nseng-ai/sdk/project-config/prompt-content";
 
 import { FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "./submit-hooks.ts";
@@ -44,14 +45,8 @@ export type FlowSubmitRecoveryRepositoryRootResult =
 	| { ok: true; repoRoot: string }
 	| { ok: false; error: string };
 
-export interface FlowSubmitRecoveryPromptSource {
-	type: "ns.toml" | "conventional" | "default";
-	path: string;
-	label: string;
-}
-
 export type FlowSubmitRecoveryPromptResult =
-	| { ok: true; prompt: string; source: FlowSubmitRecoveryPromptSource }
+	| { ok: true; prompt: string; source: ResolvedPromptPointContent }
 	| { ok: false; error: string };
 
 export interface FlowSubmitRecoveryCommandDetails {
@@ -125,17 +120,11 @@ export async function resolveFlowSubmitRecoveryPrompt(request: {
 		return { ok: false, error: resolved.message };
 	}
 
-	const { source, path, label } = resolved.resolved;
-	if (source.type === "env") {
-		return {
-			ok: false,
-			error: `Could not resolve ${FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID}: environment prompt overrides are not supported for this point.`,
-		};
-	}
 	return {
 		ok: true,
-		prompt: source.type === "default" ? resolved.content.trimEnd() : resolved.content,
-		source: { type: source.type, path, label },
+		prompt:
+			resolved.resolved.source.type === "default" ? resolved.content.trimEnd() : resolved.content,
+		source: resolved.resolved,
 	};
 }
 

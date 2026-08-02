@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { describe, expect, test } from "vitest";
@@ -93,7 +94,11 @@ describe("flow submit-check recovery", () => {
 			ok: true,
 			prompt: "Configured prompt\n",
 			source: {
-				type: "ns.toml",
+				source: {
+					type: "ns.toml",
+					pointId: FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID,
+					path: "policy/recovery.md",
+				},
 				path: configuredPath,
 				label: "ns.toml prompt policy/recovery.md",
 			},
@@ -115,7 +120,11 @@ describe("flow submit-check recovery", () => {
 			ok: true,
 			prompt: "Conventional prompt\n",
 			source: {
-				type: "conventional",
+				source: {
+					type: "conventional",
+					pointId: FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID,
+					path: `.ns/prompts/${FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID}.md`,
+				},
 				path: CONVENTIONAL_PROMPT_PATH,
 				label: `.ns/prompts/${FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID}.md`,
 			},
@@ -132,13 +141,18 @@ describe("flow submit-check recovery", () => {
 			ok: true,
 			prompt: "Packaged default",
 			source: {
-				type: "default",
+				source: {
+					type: "default",
+					pointId: FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID,
+					path: RECOVERY_DEFAULT.relativePath,
+					manifestPath: fileURLToPath(flowExtensionDescriptorSource.descriptorUrl),
+				},
 				path: DEFAULT_PROMPT_PATH,
 				label: `manifest default ${RECOVERY_DEFAULT.relativePath}`,
 			},
 		});
 		if (!defaultResult.ok) return;
-		expect(defaultResult.source.type).toBe("default");
+		expect(defaultResult.source.source.type).toBe("default");
 	});
 
 	test.each([
@@ -220,7 +234,12 @@ describe("flow submit-check recovery", () => {
 			ok: true,
 			prompt: "Packaged default",
 			source: {
-				type: "default",
+				source: {
+					type: "default",
+					pointId: FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID,
+					path: RECOVERY_DEFAULT.relativePath,
+					manifestPath: fileURLToPath(flowExtensionDescriptorSource.descriptorUrl),
+				},
 				path: DEFAULT_PROMPT_PATH,
 				label: `manifest default ${RECOVERY_DEFAULT.relativePath}`,
 			},
