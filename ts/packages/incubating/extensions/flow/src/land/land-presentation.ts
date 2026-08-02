@@ -235,42 +235,54 @@ function formatUsageOptionRow(row: { aliases: readonly string[]; description: st
 	return `  ${row.aliases.join(", ").padEnd(15, " ")} ${row.description}`;
 }
 
-export function formatSuccessSummary(
-	landed: LandedPullRequest[],
-	descendantMaintenance: DescendantMaintenancePlan,
-	warnings: LandingWarning[],
-	cleanup: RemainingCleanup,
-	continuation: LandingContinuationReport = { type: "not-requested" },
-): string {
-	const warningEntries = warnings.filter((warning) => landingWarningLevel(warning) === "warning");
-	const noteEntries = warnings.filter((warning) => landingWarningLevel(warning) === "info");
-	const landedText = landed.map((entry) => `#${entry.number} ${entry.branch}`).join(", ");
-	const lines = [`Landed ${landed.length} PR${landed.length === 1 ? "" : "s"}: ${landedText}.`];
+interface FormatSuccessSummaryOptions {
+	readonly landed: readonly LandedPullRequest[];
+	readonly descendantMaintenance: DescendantMaintenancePlan;
+	readonly warnings: readonly LandingWarning[];
+	readonly cleanup: RemainingCleanup;
+	readonly continuation?: LandingContinuationReport;
+}
+
+export function formatSuccessSummary(options: FormatSuccessSummaryOptions): string {
+	const continuation = options.continuation ?? { type: "not-requested" };
+	const warningEntries = options.warnings.filter(
+		(warning) => landingWarningLevel(warning) === "warning",
+	);
+	const noteEntries = options.warnings.filter((warning) => landingWarningLevel(warning) === "info");
+	const landedText = options.landed.map((entry) => `#${entry.number} ${entry.branch}`).join(", ");
+	const lines = [
+		`Landed ${options.landed.length} PR${options.landed.length === 1 ? "" : "s"}: ${landedText}.`,
+	];
 	lines.push(...formatContinuationSummary(continuation));
-	if (descendantMaintenance.type === "auto" && descendantMaintenance.branches.length > 0) {
+	if (
+		options.descendantMaintenance.type === "auto" &&
+		options.descendantMaintenance.branches.length > 0
+	) {
 		if (hasDescendantMaintenanceDeferral(noteEntries)) {
 			lines.push(
-				`Left open; restack/update deferred: ${descendantMaintenance.branches.join(", ")}.`,
+				`Left open; restack/update deferred: ${options.descendantMaintenance.branches.join(", ")}.`,
 			);
 		} else if (hasDescendantMaintenanceWarning(warningEntries)) {
 			lines.push(
-				`Left open; restack/update needs follow-up: ${descendantMaintenance.branches.join(", ")}.`,
+				`Left open; restack/update needs follow-up: ${options.descendantMaintenance.branches.join(", ")}.`,
 			);
 		} else {
-			lines.push(`Left open/restacked: ${descendantMaintenance.branches.join(", ")}.`);
+			lines.push(`Left open/restacked: ${options.descendantMaintenance.branches.join(", ")}.`);
 		}
-	} else if (descendantMaintenance.type === "skipped") {
-		lines.push(`Left open; restack/update skipped: ${descendantMaintenance.branches.join(", ")}.`);
-		lines.push(`Reason: ${descendantMaintenance.reason}.`);
+	} else if (options.descendantMaintenance.type === "skipped") {
+		lines.push(
+			`Left open; restack/update skipped: ${options.descendantMaintenance.branches.join(", ")}.`,
+		);
+		lines.push(`Reason: ${options.descendantMaintenance.reason}.`);
 	}
 	lines.push("", "Remaining cleanup:");
 	lines.push("  - Remote branches were not deleted.");
-	for (const retained of cleanup.retainedLocalBranches) {
+	for (const retained of options.cleanup.retainedLocalBranches) {
 		lines.push(
 			`  - Local branch ${retained.branch} was kept (still checked out at ${retained.path}); delete it manually or run gt sync.`,
 		);
 	}
-	if (cleanup.retainedLocalBranches.length === 0) {
+	if (options.cleanup.retainedLocalBranches.length === 0) {
 		lines.push(
 			"  - Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.",
 		);

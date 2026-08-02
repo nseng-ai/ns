@@ -179,15 +179,18 @@ export function presentFlowStackLandingFailure(options: {
 
 function presentStackLandingSuccess(session: LandingSession, report: LandingExecutionReport): void {
 	const landed = landedFromReport(report);
-	const successSummary = formatSuccessSummary(
-		[...landed],
-		report.plan?.descendantMaintenance ?? { type: "none", branches: [] },
-		[...report.warnings],
-		{
+	const successSummary = formatSuccessSummary({
+		landed,
+		descendantMaintenance: report.plan?.descendantMaintenance ?? {
+			type: "none",
+			branches: [],
+		},
+		warnings: report.warnings,
+		cleanup: {
 			retainedLocalBranches: [...report.cleanup.mergeMaintenanceCleanup.retainedLocalBranches],
 		},
-		report.continuation,
-	);
+		continuation: report.continuation,
+	});
 	presentLandingSuccess({
 		ctx: session.ctx,
 		commandStream: session.commandStream,

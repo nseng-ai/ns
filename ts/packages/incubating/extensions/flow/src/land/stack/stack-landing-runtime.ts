@@ -1,4 +1,4 @@
-import type { GitWorktreeStateFs } from "@nseng-ai/foundation/git";
+import { RealGitGateway, type GitGateway, type GitWorktreeStateFs } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { LandContext } from "../api.ts";
 import { LandStackCommandStream, withCommandStreaming } from "./command-stream.ts";
@@ -14,6 +14,8 @@ export interface StackLandingRuntime {
 	source: LandExecutionApi;
 	/** Generic non-Graphite command execution with command-stream presentation. */
 	commands: LandExecutionApi;
+	/** Foundation Git gateway shared by land context adapters. */
+	git: GitGateway;
 	/** Flow-owned Graphite command channel. */
 	graphite: LandGraphiteCommandChannel;
 	/** Gateway set constructed once for the selected runtime adapters. */
@@ -28,15 +30,18 @@ export function createStackLandingRuntime(
 	options: { gitStateFs?: GitWorktreeStateFs; graphite?: LandGraphiteCommandChannel } = {},
 ): StackLandingRuntime {
 	const commands = withCommandStreaming(pi, commandStream);
+	const git = new RealGitGateway(commands);
 	const graphite = options.graphite ?? createLandGraphiteCommandChannel({ pi, commandStream });
 	const gitStateFsEntry = optionalEntry("gitStateFs", options.gitStateFs);
 	const landContext = createLandContext(commands, {
+		git,
 		graphite,
 		...gitStateFsEntry,
 	});
 	return {
 		source: pi,
 		commands,
+		git,
 		graphite,
 		landContext,
 		...gitStateFsEntry,
