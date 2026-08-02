@@ -4,9 +4,11 @@ import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type {
+	ProjectConfigGateway,
 	ProjectConfigPathExistsResult,
 	ProjectConfigReadResult,
 } from "@nseng-ai/sdk/project-config/points";
+import type { PromptPointContentReader } from "@nseng-ai/sdk/project-config/prompt-content";
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import { FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "../../src/submit/submit-hooks.ts";
 import {
@@ -15,7 +17,7 @@ import {
 	hasFlowSubmitCheckFailureMarker,
 	resolveFlowSubmitRecoveryPrompt,
 	resolveFlowSubmitRecoveryRepositoryRoot,
-	type SubmitCheckRecoveryPromptGateway,
+	type FlowSubmitRecoveryContext,
 } from "../../src/submit/submit-check-recovery.ts";
 import { resolveFlowSubmitRecoveryDefault } from "../support/submit-check-recovery.ts";
 
@@ -71,7 +73,7 @@ describe("flow submit-check recovery", () => {
 		});
 	});
 
-	test("resolves ns.toml and conventional repository prompts before the descriptor default", () => {
+	test("resolves ns.toml and conventional repository prompts before the descriptor default", async () => {
 		const configuredPath = join(REPO_ROOT, "policy", "recovery.md");
 		const configuredGateway = new InMemorySubmitCheckRecoveryGateway({
 			files: {
@@ -82,9 +84,9 @@ describe("flow submit-check recovery", () => {
 			},
 		});
 		expect(
-			resolveFlowSubmitRecoveryPrompt({
+			await resolveFlowSubmitRecoveryPrompt({
 				repoRoot: REPO_ROOT,
-				gateway: configuredGateway,
+				context: configuredGateway.context,
 				descriptorSource: flowExtensionDescriptorSource,
 			}),
 		).toEqual({
@@ -104,9 +106,9 @@ describe("flow submit-check recovery", () => {
 			},
 		});
 		expect(
-			resolveFlowSubmitRecoveryPrompt({
+			await resolveFlowSubmitRecoveryPrompt({
 				repoRoot: REPO_ROOT,
-				gateway: conventionalGateway,
+				context: conventionalGateway.context,
 				descriptorSource: flowExtensionDescriptorSource,
 			}),
 		).toEqual({
@@ -119,11 +121,11 @@ describe("flow submit-check recovery", () => {
 			},
 		});
 
-		const defaultResult = resolveFlowSubmitRecoveryPrompt({
+		const defaultResult = await resolveFlowSubmitRecoveryPrompt({
 			repoRoot: REPO_ROOT,
-			gateway: new InMemorySubmitCheckRecoveryGateway({
+			context: new InMemorySubmitCheckRecoveryGateway({
 				files: { [DEFAULT_PROMPT_PATH]: "Packaged default\n\n" },
-			}),
+			}).context,
 			descriptorSource: flowExtensionDescriptorSource,
 		});
 		expect(defaultResult).toEqual({
@@ -147,7 +149,7 @@ describe("flow submit-check recovery", () => {
 			"access denied",
 		],
 		["empty", { files: { [join(REPO_ROOT, "policy.md")]: " \n\t" } }, "is empty"],
-	] as const)("fails when an explicitly selected prompt is %s", (_name, state, expected) => {
+	] as const)("fails when an explicitly selected prompt is %s", async (_name, state, expected) => {
 		const stateFiles = "files" in state ? state.files : {};
 		const gateway = new InMemorySubmitCheckRecoveryGateway({
 			...state,
@@ -158,9 +160,9 @@ describe("flow submit-check recovery", () => {
 				...stateFiles,
 			},
 		});
-		const result = resolveFlowSubmitRecoveryPrompt({
+		const result = await resolveFlowSubmitRecoveryPrompt({
 			repoRoot: REPO_ROOT,
-			gateway,
+			context: gateway.context,
 			descriptorSource: flowExtensionDescriptorSource,
 		});
 
@@ -168,49 +170,49 @@ describe("flow submit-check recovery", () => {
 		expect(result.ok ? "" : result.error).toContain(expected);
 	});
 
-	test("fails for invalid or unreadable ns.toml and target prompt diagnostics", () => {
-		const invalid = resolveFlowSubmitRecoveryPrompt({
+	test("fails for invalid or unreadable ns.toml and target prompt diagnostics", async () => {
+		const invalid = await resolveFlowSubmitRecoveryPrompt({
 			repoRoot: REPO_ROOT,
-			gateway: new InMemorySubmitCheckRecoveryGateway({
+			context: new InMemorySubmitCheckRecoveryGateway({
 				files: {
 					[join(REPO_ROOT, "ns.toml")]: "[points\n",
 					[DEFAULT_PROMPT_PATH]: "Packaged default\n",
 				},
-			}),
+			}).context,
 			descriptorSource: flowExtensionDescriptorSource,
 		});
 		expect(invalid.ok ? "" : invalid.error).toContain("Invalid TOML");
 
-		const unreadable = resolveFlowSubmitRecoveryPrompt({
+		const unreadable = await resolveFlowSubmitRecoveryPrompt({
 			repoRoot: REPO_ROOT,
-			gateway: new InMemorySubmitCheckRecoveryGateway({
+			context: new InMemorySubmitCheckRecoveryGateway({
 				files: { [DEFAULT_PROMPT_PATH]: "Packaged default\n" },
 				readErrors: { [join(REPO_ROOT, "ns.toml")]: "permission denied" },
-			}),
+			}).context,
 			descriptorSource: flowExtensionDescriptorSource,
 		});
 		expect(unreadable.ok ? "" : unreadable.error).toContain("permission denied");
 
-		const targetProbe = resolveFlowSubmitRecoveryPrompt({
+		const targetProbe = await resolveFlowSubmitRecoveryPrompt({
 			repoRoot: REPO_ROOT,
-			gateway: new InMemorySubmitCheckRecoveryGateway({
+			context: new InMemorySubmitCheckRecoveryGateway({
 				files: { [DEFAULT_PROMPT_PATH]: "Packaged default\n" },
 				pathProbeErrors: { [CONVENTIONAL_PROMPT_PATH]: "probe failed" },
-			}),
+			}).context,
 			descriptorSource: flowExtensionDescriptorSource,
 		});
 		expect(targetProbe.ok ? "" : targetProbe.error).toContain("probe failed");
 	});
 
-	test("does not let unrelated point diagnostics block the descriptor default", () => {
-		const result = resolveFlowSubmitRecoveryPrompt({
+	test("does not let unrelated point diagnostics block the descriptor default", async () => {
+		const result = await resolveFlowSubmitRecoveryPrompt({
 			repoRoot: REPO_ROOT,
-			gateway: new InMemorySubmitCheckRecoveryGateway({
+			context: new InMemorySubmitCheckRecoveryGateway({
 				files: {
 					[join(REPO_ROOT, "ns.toml")]: '[points]\n"unrelated.point" = "missing.md"\n',
 					[DEFAULT_PROMPT_PATH]: "Packaged default\n",
 				},
-			}),
+			}).context,
 			descriptorSource: flowExtensionDescriptorSource,
 		});
 
@@ -225,10 +227,11 @@ describe("flow submit-check recovery", () => {
 		});
 	});
 
-	test("fails when the supplied Flow descriptor does not provide the promised default", () => {
-		const result = resolveFlowSubmitRecoveryPrompt({
+	test("fails when the supplied Flow descriptor does not provide the promised default", async () => {
+		const gateway = new InMemorySubmitCheckRecoveryGateway();
+		const result = await resolveFlowSubmitRecoveryPrompt({
 			repoRoot: REPO_ROOT,
-			gateway: new InMemorySubmitCheckRecoveryGateway(),
+			context: gateway.context,
 			descriptorSource: {
 				descriptor: {
 					description: "Broken Flow descriptor",
@@ -250,7 +253,7 @@ describe("flow submit-check recovery", () => {
 		});
 	});
 
-	test("matches only exact renderer-owned marker lines across line endings", () => {
+	test("matches only exact renderer-owned marker lines across line endings", async () => {
 		expect(hasFlowSubmitCheckFailureMarker(FLOW_SUBMIT_CHECK_FAILURE_MARKER)).toBe(true);
 		expect(
 			hasFlowSubmitCheckFailureMarker(
@@ -269,7 +272,7 @@ describe("flow submit-check recovery", () => {
 		);
 	});
 
-	test("builds shell-safe bounded context and indents stderr as untrusted data", () => {
+	test("builds shell-safe bounded context and indents stderr as untrusted data", async () => {
 		const stderr = [
 			FLOW_SUBMIT_CHECK_FAILURE_MARKER,
 			"",
@@ -313,7 +316,7 @@ interface InMemorySubmitCheckRecoveryState {
 	pathProbeErrors?: Readonly<Record<string, string>>;
 }
 
-class InMemorySubmitCheckRecoveryGateway implements SubmitCheckRecoveryPromptGateway {
+class InMemorySubmitCheckRecoveryGateway implements ProjectConfigGateway {
 	readonly #files: ReadonlyMap<string, string>;
 	readonly #readErrors: ReadonlyMap<string, string>;
 	readonly #pathProbeErrors: ReadonlyMap<string, string>;
@@ -335,10 +338,17 @@ class InMemorySubmitCheckRecoveryGateway implements SubmitCheckRecoveryPromptGat
 		return this.#files.has(path) ? { type: "present" } : { type: "missing" };
 	}
 
-	readRecoveryPrompt(request: {
-		path: string;
-	}): ReturnType<SubmitCheckRecoveryPromptGateway["readRecoveryPrompt"]> {
-		return this.readAbsolute(request.path);
+	readonly promptReader: PromptPointContentReader = {
+		readTextFile: async (path) => {
+			const result = this.readAbsolute(path);
+			if (result.type === "found") return { ok: true, content: result.text };
+			if (result.type === "missing") return { ok: false, reason: "missing" };
+			return { ok: false, reason: "unreadable", message: result.message };
+		},
+	};
+
+	get context(): FlowSubmitRecoveryContext {
+		return { projectConfigGateway: this, promptReader: this.promptReader };
 	}
 
 	private readAbsolute(path: string): ProjectConfigReadResult {

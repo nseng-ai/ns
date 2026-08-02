@@ -1,12 +1,12 @@
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import {
 	FLOW_COMMAND_SPECS,
+	nodeFlowSubmitRecoveryContext,
 	nsFlowCommandSurface,
 	resolveFlowSubmitCheckRecovery,
+	type FlowSubmitRecoveryContext,
 	type FlowSubmitRecoveryGitGateway,
-	type SubmitCheckRecoveryPromptGateway,
 } from "@nseng-ai/flow/api";
 import {
 	registerCliCommandExtension,
@@ -36,8 +36,8 @@ export const flowExtensionParity = definePiSurfaceParity(
 export interface FlowExtensionOptions {
 	/** Explicit host-composed ns CLI runner. */
 	runCli: CliCommandExtensionSpec["runCli"];
-	/** Host-composed recovery prompt boundary; defaults to Flow's real Node adapter. */
-	recoveryPromptGateway?: SubmitCheckRecoveryPromptGateway;
+	/** Host-composed recovery content context; defaults to the Flow-owned Node context. */
+	recoveryContext?: FlowSubmitRecoveryContext;
 	/** Host-composed recovery Git consumer; defaults to Git over the Pi exec channel. */
 	recoveryGit?: FlowSubmitRecoveryGitGateway;
 }
@@ -47,6 +47,7 @@ export default function registerFlowExtension(
 	options: FlowExtensionOptions,
 ): void {
 	const recoveryGit = options.recoveryGit ?? new RealGitGateway(pi);
+	const recoveryContext = options.recoveryContext ?? nodeFlowSubmitRecoveryContext;
 	registerCliCommandExtension(pi, {
 		cliName: "ns",
 		piNamespace: "ns:flow",
@@ -57,7 +58,7 @@ export default function registerFlowExtension(
 			const recovery = await resolveFlowSubmitCheckRecovery({
 				details,
 				git: recoveryGit,
-				...optionalEntries({ promptGateway: options.recoveryPromptGateway }),
+				recoveryContext,
 			});
 			if (recovery.type === "not-applicable") return;
 			if (recovery.type === "failed") throw flowSubmitRecoveryError(recovery.error);

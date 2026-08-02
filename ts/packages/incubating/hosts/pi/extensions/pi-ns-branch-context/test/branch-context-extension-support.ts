@@ -592,6 +592,13 @@ export async function makeRepoPrompt(content = DEFAULT_WRITE_PLAN_PROMPT_BODY): 
 	return dir;
 }
 
+export async function makeRepoPromptDirectory(): Promise<string> {
+	const dir = await makeTempDir();
+	await mkdir(join(dir, ".ns", "prompts", "branch-context.plans-write.md"), { recursive: true });
+	await writeBranchContextPointManifest(dir);
+	return dir;
+}
+
 export async function makeRepoPromptSymlink(): Promise<string> {
 	const dir = await makeTempDir();
 	const target = await makeTempDir("branch-context-prompt-target-");

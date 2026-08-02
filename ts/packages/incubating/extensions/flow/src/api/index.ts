@@ -37,11 +37,14 @@ export {
 
 export type {
 	FlowSubmitCheckRecoveryResult,
+	FlowSubmitRecoveryContext,
 	FlowSubmitRecoveryGitGateway,
 	ResolveFlowSubmitCheckRecoveryOptions,
-	SubmitCheckRecoveryPromptGateway,
 } from "./submit-check-recovery.ts";
-export { resolveFlowSubmitCheckRecovery } from "./submit-check-recovery.ts";
+export {
+	nodeFlowSubmitRecoveryContext,
+	resolveFlowSubmitCheckRecovery,
+} from "./submit-check-recovery.ts";
 
 export type { FlowStackSquashPresentation, RunFlowStackSquashOptions } from "./stack-squash.ts";
 export { runFlowStackSquash } from "./stack-squash.ts";

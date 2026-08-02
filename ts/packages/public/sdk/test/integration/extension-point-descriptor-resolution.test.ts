@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,9 +8,12 @@ import { afterEach, describe, expect, test } from "vitest";
 import {
 	loadPointCatalogWithDescriptors,
 	nodeProjectConfigGateway,
-	resolvePromptPointPath,
 	resolvePromptPointSource,
 } from "../../src/project-config/points.ts";
+import {
+	nodePromptPointContentReader,
+	resolvePromptPointContent,
+} from "../../src/project-config/prompt-content.ts";
 
 const roots: string[] = [];
 
@@ -32,6 +35,25 @@ afterEach(async () => {
 });
 
 describe("extension point descriptor resolution", () => {
+	test("classifies Node prompt content reader filesystem failures", async () => {
+		const root = await projectRoot();
+		const missing = await nodePromptPointContentReader.readTextFile(join(root, "missing.md"));
+		expect(missing).toMatchObject({
+			ok: false,
+			reason: "missing",
+			message: expect.any(String),
+		});
+
+		const directoryPath = join(root, "prompt-directory");
+		await mkdir(directoryPath);
+		const unreadable = await nodePromptPointContentReader.readTextFile(directoryPath);
+		expect(unreadable).toMatchObject({
+			ok: false,
+			reason: "unreadable",
+			message: expect.any(String),
+		});
+	});
+
 	test.each(flowPackagedPromptDefaults)(
 		"resolves the checked-in Flow $pointId default relative to its descriptor",
 		async ({ pointId, defaultPath, promptFileName }) => {
@@ -62,17 +84,22 @@ describe("extension point descriptor resolution", () => {
 				path: defaultPath,
 				manifestPath,
 			});
-			if (source.type !== "default") {
-				throw new Error(`Expected the Flow ${pointId} default source`);
-			}
-			const resolved = resolvePromptPointPath(root, source);
-			expect(resolved).toEqual({
-				path: join(flowPackageRoot, "src", "submit", "prompts", promptFileName),
-				label: `manifest default ${defaultPath}`,
+			const result = await resolvePromptPointContent({
+				repoRoot: root,
+				catalog,
+				pointId,
+				reader: nodePromptPointContentReader,
 			});
-			if (resolved === undefined)
-				throw new Error(`Expected the Flow ${pointId} default to resolve`);
-			expect((await readFile(resolved.path, "utf8")).trim()).not.toBe("");
+			expect(result).toMatchObject({
+				ok: true,
+				resolved: {
+					source,
+					path: join(flowPackageRoot, "src", "submit", "prompts", promptFileName),
+					label: `manifest default ${defaultPath}`,
+				},
+			});
+			if (!result.ok) throw new Error(`Expected the Flow ${pointId} default to resolve`);
+			expect(result.content.trim()).not.toBe("");
 		},
 	);
 

@@ -9,15 +9,20 @@ import {
 	type CommandContext,
 } from "@nseng-ai/pi-runtime/commands/cli-extension";
 import type {
+	ProjectConfigGateway,
 	ProjectConfigPathExistsResult,
 	ProjectConfigReadResult,
 } from "@nseng-ai/sdk/project-config/points";
+import type { PromptPointContentReader } from "@nseng-ai/sdk/project-config/prompt-content";
 import registerFlowExtension, {
 	type FlowExtensionAPI,
 	type FlowExtensionOptions,
 } from "../src/extension.ts";
-import { FLOW_COMMAND_SPECS, FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "@nseng-ai/flow/api";
-import type { SubmitCheckRecoveryPromptGateway } from "@nseng-ai/flow/api";
+import {
+	FLOW_COMMAND_SPECS,
+	FLOW_SUBMIT_CHECK_FAILURE_MARKER,
+	type FlowSubmitRecoveryContext,
+} from "@nseng-ai/flow/api";
 
 type RegisteredCommand = Parameters<FlowExtensionAPI["registerCommand"]>[1];
 type CustomMessage = Parameters<NonNullable<FlowExtensionAPI["sendMessage"]>>[0];
@@ -185,7 +190,7 @@ describe("ns Pi extension", () => {
 		async (marker) => {
 			const pi = new FakePi();
 			registerNsExtension(pi, {
-				recoveryPromptGateway: createRecoveryPromptGateway(),
+				...createRecoveryPromptGateways(),
 				runCli: async (_args, deps) => {
 					deps.stderr(`${marker}\ncheck failed\n`);
 					return 1;
@@ -204,7 +209,7 @@ describe("ns Pi extension", () => {
 	test("uses repository recovery policy instead of the descriptor default", async () => {
 		const pi = new FakePi();
 		registerNsExtension(pi, {
-			recoveryPromptGateway: createRecoveryPromptGateway({
+			...createRecoveryPromptGateways({
 				prompt: "Repository recovery policy\n",
 			}),
 			runCli: async (_args, deps) => {
@@ -223,7 +228,7 @@ describe("ns Pi extension", () => {
 	test("ignores successes, non-exact markers, and marker-bearing non-submit commands", async () => {
 		const successPi = new FakePi();
 		registerNsExtension(successPi, {
-			recoveryPromptGateway: createRecoveryPromptGateway(),
+			...createRecoveryPromptGateways(),
 			runCli: async (_args, deps) => {
 				deps.stderr(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 				return 0;
@@ -234,7 +239,7 @@ describe("ns Pi extension", () => {
 
 		const prosePi = new FakePi();
 		registerNsExtension(prosePi, {
-			recoveryPromptGateway: createRecoveryPromptGateway(),
+			...createRecoveryPromptGateways(),
 			runCli: async (_args, deps) => {
 				deps.stderr(`prefix ${FLOW_SUBMIT_CHECK_FAILURE_MARKER}`);
 				return 1;
@@ -245,7 +250,7 @@ describe("ns Pi extension", () => {
 
 		const otherPi = new FakePi();
 		registerNsExtension(otherPi, {
-			recoveryPromptGateway: createRecoveryPromptGateway(),
+			...createRecoveryPromptGateways(),
 			runCli: async (_args, deps) => {
 				deps.stderr(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 				return 1;
@@ -258,7 +263,7 @@ describe("ns Pi extension", () => {
 	test("warns after the primary failure when Git root resolution fails", async () => {
 		const pi = new FakePi();
 		registerNsExtension(pi, {
-			recoveryPromptGateway: createRecoveryPromptGateway(),
+			...createRecoveryPromptGateways(),
 			recoveryGit: new InMemoryGitGateway({
 				optionalRepoRoot: {
 					type: "failure",
@@ -292,7 +297,7 @@ describe("ns Pi extension", () => {
 	test("warns after the primary failure when the command cwd has no Git root", async () => {
 		const pi = new FakePi();
 		registerNsExtension(pi, {
-			recoveryPromptGateway: createRecoveryPromptGateway(),
+			...createRecoveryPromptGateways(),
 			recoveryGit: new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } }),
 			runCli: async (_args, deps) => {
 				deps.stderr(`${FLOW_SUBMIT_CHECK_FAILURE_MARKER}\ncheck failed\n`);
@@ -320,7 +325,7 @@ describe("ns Pi extension", () => {
 		async (_name, state, expectedWarning) => {
 			const pi = new FakePi();
 			registerNsExtension(pi, {
-				recoveryPromptGateway: createRecoveryPromptGateway(state),
+				...createRecoveryPromptGateways(state),
 				runCli: async (_args, deps) => {
 					deps.stderr(`${FLOW_SUBMIT_CHECK_FAILURE_MARKER}\ncheck failed\n`);
 					return 1;
@@ -353,7 +358,7 @@ describe("ns Pi extension", () => {
 			...Array.from({ length: 60 }, (_, index) => `line-${index} ${"x".repeat(100)}`),
 		].join("\n");
 		registerNsExtension(pi, {
-			recoveryPromptGateway: createRecoveryPromptGateway(),
+			...createRecoveryPromptGateways(),
 			runCli: async (_args, deps) => {
 				deps.stderr(noisyStderr);
 				return 9;
@@ -378,9 +383,9 @@ interface RecoveryPromptGatewayState {
 	promptReadError?: string;
 }
 
-function createRecoveryPromptGateway(
-	state: RecoveryPromptGatewayState = {},
-): SubmitCheckRecoveryPromptGateway {
+function createRecoveryPromptGateways(state: RecoveryPromptGatewayState = {}): {
+	recoveryContext: FlowSubmitRecoveryContext;
+} {
 	const conventionalPromptPath = join("/repo", ".ns/prompts/flow.submit.pre.recovery.md");
 	const files = new Map<string, string>();
 	if (state.prompt !== undefined) files.set(conventionalPromptPath, state.prompt);
@@ -388,10 +393,13 @@ function createRecoveryPromptGateway(
 	if (state.promptReadError !== undefined) {
 		promptReadErrors.set(conventionalPromptPath, state.promptReadError);
 	}
-	return new InMemoryRecoveryPromptGateway({ files, promptReadErrors });
+	const gateway = new InMemoryRecoveryPromptGateway({ files, promptReadErrors });
+	return {
+		recoveryContext: { projectConfigGateway: gateway, promptReader: gateway.promptReader },
+	};
 }
 
-class InMemoryRecoveryPromptGateway implements SubmitCheckRecoveryPromptGateway {
+class InMemoryRecoveryPromptGateway implements ProjectConfigGateway {
 	readonly #files: ReadonlyMap<string, string>;
 	readonly #promptReadErrors: ReadonlyMap<string, string>;
 
@@ -414,18 +422,18 @@ class InMemoryRecoveryPromptGateway implements SubmitCheckRecoveryPromptGateway 
 			: { type: "missing" };
 	}
 
-	readRecoveryPrompt(request: {
-		path: string;
-	}): ReturnType<SubmitCheckRecoveryPromptGateway["readRecoveryPrompt"]> {
-		const error = this.#promptReadErrors.get(request.path);
-		if (error !== undefined) return { type: "error", message: error };
-		const configured = this.readPath(request.path);
-		if (configured.type !== "missing") return configured;
-		if (request.path.endsWith("submit-check-recovery-default.md")) {
-			return { type: "found", text: PACKAGED_RECOVERY_PROMPT };
-		}
-		return configured;
-	}
+	readonly promptReader: PromptPointContentReader = {
+		readTextFile: async (path) => {
+			const error = this.#promptReadErrors.get(path);
+			if (error !== undefined) return { ok: false, reason: "unreadable", message: error };
+			const configured = this.readPath(path);
+			if (configured.type === "found") return { ok: true, content: configured.text };
+			if (path.endsWith("submit-check-recovery-default.md")) {
+				return { ok: true, content: PACKAGED_RECOVERY_PROMPT };
+			}
+			return { ok: false, reason: "missing" };
+		},
+	};
 
 	private readPath(path: string): ProjectConfigReadResult {
 		const text = this.#files.get(path);
