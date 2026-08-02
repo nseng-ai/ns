@@ -78,6 +78,8 @@ export interface RunMergeLoopOptions {
 	readonly progress: LandExecutionProgress;
 	readonly plan: LandingPlan;
 	readonly warnings: readonly LandingWarning[];
+	/** The invoking branch must remain checked out until upstack continuation succeeds. */
+	readonly deferredDeletionBranch?: string;
 }
 
 interface WithExecutionStepOptions<T> {
@@ -233,6 +235,9 @@ export async function runMergeLoop(options: RunMergeLoopOptions): Promise<MergeL
 			progress,
 			plan,
 			step: { index, branch, prNumber: currentPr.number, state },
+			...(options.deferredDeletionBranch === undefined
+				? {}
+				: { deferredDeletionBranch: options.deferredDeletionBranch }),
 		});
 		observedDescendantMaintenance = reduceDescendantMaintenanceObservation(
 			observedDescendantMaintenance,

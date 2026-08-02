@@ -1,6 +1,6 @@
 import { commandSucceeded, formatCommand } from "@nseng-ai/foundation/command";
+import type { GitGateway, GitWorktreeStateFs } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { GitWorktreeStateFs } from "@nseng-ai/foundation/git";
 import { isLikelyInProgressGitOperationFailure } from "../../submit/cli-prose-heuristics.ts";
 import { snapshotBackupRefs } from "./backup-refs.ts";
 import { formatCommandForDisplay } from "./command-stream.ts";
@@ -62,7 +62,11 @@ type LandingFailureSource = Extract<LandingFailure, { readonly type: "boundary" 
 
 export function createLandContext(
 	pi: LandExecutionApi,
-	options: { graphite: LandGraphiteCommandChannel; gitStateFs?: GitWorktreeStateFs },
+	options: {
+		graphite: LandGraphiteCommandChannel;
+		git: GitGateway;
+		gitStateFs?: GitWorktreeStateFs;
+	},
 ): LandContext {
 	const { graphite } = options;
 	return {
@@ -82,6 +86,8 @@ export function createLandContext(
 				loadBranchContainsParent({ pi, repoRoot, branch, parent }),
 			snapshotBackupRefs: async ({ repoRoot, branches }) =>
 				snapshotBackupRefs({ pi, repoRoot, branches }),
+			checkoutBranch: async ({ repoRoot, branch }) =>
+				checkoutBranch({ git: options.git, repoRoot, branch }),
 		},
 		graphite: {
 			trunk: async ({ repoRoot }) =>
@@ -177,6 +183,25 @@ export function createLandContext(
 			freeSlots: async ({ repoRoot, slots }) => freeSlots({ pi, repoRoot, slots }),
 		},
 	};
+}
+
+async function checkoutBranch(options: {
+	readonly git: GitGateway;
+	readonly repoRoot: string;
+	readonly branch: string;
+}): Promise<LandOutcome> {
+	const result = await options.git.checkout({ cwd: options.repoRoot, branch: options.branch });
+	if (result.ok) return landCompleted();
+	return landOutcomeFailure({
+		type: "boundary",
+		phase: "upstack-continuation",
+		source: "git",
+		code: "checkout_branch_failed",
+		message: `Could not check out continuation branch ${options.branch}.\n${result.error.message}`,
+		...(result.error.displayCommand === undefined
+			? {}
+			: { displayCommand: result.error.displayCommand }),
+	});
 }
 
 interface PrepareGraphiteMutationOptions {

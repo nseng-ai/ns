@@ -134,6 +134,7 @@ export function parseArgs(argsText: string): LandResult<ParsedArgs> {
 		shouldSkipConfirmation: false,
 		isDryRun: false,
 		shouldPreserveSlot: false,
+		shouldContinueUpstack: false,
 		shouldForceCleanup: false,
 		shouldShowHelp: false,
 		shouldStreamVerboseOutput: false,

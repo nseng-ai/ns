@@ -302,6 +302,7 @@ describe("land-stack pure helpers", () => {
 			{ value: "--yes", label: "--yes" },
 			{ value: "--dry-run", label: "--dry-run" },
 			{ value: "--preserve", label: "--preserve" },
+			{ value: "--up", label: "--up" },
 			{ value: "--force", label: "--force" },
 			{ value: "--verbose", label: "--verbose" },
 			{ value: "--help", label: "--help" },
@@ -311,20 +312,22 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("parses supported command arguments", () => {
-		expect(expectSuccess(parseArgs("--yes --dry-run --preserve --force --verbose --help"))).toEqual(
-			{
-				shouldSkipConfirmation: true,
-				isDryRun: true,
-				shouldPreserveSlot: true,
-				shouldForceCleanup: true,
-				shouldShowHelp: true,
-				shouldStreamVerboseOutput: true,
-			},
-		);
+		expect(
+			expectSuccess(parseArgs("--yes --dry-run --preserve --up --force --verbose --help")),
+		).toEqual({
+			shouldSkipConfirmation: true,
+			isDryRun: true,
+			shouldPreserveSlot: true,
+			shouldContinueUpstack: true,
+			shouldForceCleanup: true,
+			shouldShowHelp: true,
+			shouldStreamVerboseOutput: true,
+		});
 		expect(expectSuccess(parseArgs("-y -p -f -h"))).toEqual({
 			shouldSkipConfirmation: true,
 			isDryRun: false,
 			shouldPreserveSlot: true,
+			shouldContinueUpstack: false,
 			shouldForceCleanup: true,
 			shouldShowHelp: true,
 			shouldStreamVerboseOutput: false,
@@ -341,7 +344,7 @@ describe("land-stack pure helpers", () => {
 
 	test("derives usage and Clinkr wrapper flag surfaces from the descriptors", () => {
 		expect(usage()).toContain(
-			"/ns:flow:land [--yes] [--dry-run] [--preserve] [--force] [--verbose] [--help]",
+			"/ns:flow:land [--yes] [--dry-run] [--preserve] [--up] [--force] [--verbose] [--help]",
 		);
 		expect(usage()).toContain(
 			"  --preserve, -p  Keep the current managed slot and landed local branch after successful landing.",
@@ -359,10 +362,11 @@ describe("land-stack pure helpers", () => {
 				yes: true,
 				dryRun: true,
 				preserve: true,
+				up: true,
 				force: true,
 				verbose: true,
 			}),
-		).toEqual(["--yes", "--dry-run", "--preserve", "--force", "--verbose"]);
+		).toEqual(["--yes", "--dry-run", "--preserve", "--up", "--force", "--verbose"]);
 	});
 
 	test("derives the landing path from Graphite metadata", () => {

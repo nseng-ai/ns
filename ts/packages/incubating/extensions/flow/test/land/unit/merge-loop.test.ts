@@ -91,6 +91,9 @@ function eventLabel(event: InMemoryLandCallEvent): string {
 	switch (event.operation) {
 		case "git.snapshotBackupRefs":
 			return `${event.operation}:${event.request.branches.join(",")}`;
+		case "git.currentBranch":
+			return `${event.operation}:${event.request.repoRoot}`;
+		case "git.checkoutBranch":
 		case "git.localBranchSha":
 		case "graphite.refreshBranchFromRemote":
 		case "graphite.deleteLocalBranch":

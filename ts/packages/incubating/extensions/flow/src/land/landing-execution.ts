@@ -78,6 +78,7 @@ export async function runFlowStackLanding(
 		mode: parsedArgs.isDryRun ? "dry-run" : "execute",
 		preflight: { shouldAllowSubmitRequiredState: true },
 		cleanup: landingCleanupPolicyFromArgs(parsedArgs),
+		continuation: parsedArgs.shouldContinueUpstack ? { type: "upstack" } : { type: "none" },
 	};
 	const outcome = await executeLanding({
 		context: runtime.landContext,
@@ -116,7 +117,12 @@ export async function runFlowStackLanding(
 
 	if (parsedArgs.isDryRun) {
 		const planText = report.plan === undefined ? "" : formatPlan(report.plan);
-		presentDryRunLanding({ ctx, commandStream, planText });
+		presentDryRunLanding({
+			ctx,
+			commandStream,
+			planText,
+			continuation: report.continuation,
+		});
 		return landCompleted();
 	}
 
@@ -173,14 +179,18 @@ export function presentFlowStackLandingFailure(options: {
 
 function presentStackLandingSuccess(session: LandingSession, report: LandingExecutionReport): void {
 	const landed = landedFromReport(report);
-	const successSummary = formatSuccessSummary(
-		[...landed],
-		report.plan?.descendantMaintenance ?? { type: "none", branches: [] },
-		[...report.warnings],
-		{
+	const successSummary = formatSuccessSummary({
+		landed,
+		descendantMaintenance: report.plan?.descendantMaintenance ?? {
+			type: "none",
+			branches: [],
+		},
+		warnings: report.warnings,
+		cleanup: {
 			retainedLocalBranches: [...report.cleanup.mergeMaintenanceCleanup.retainedLocalBranches],
 		},
-	);
+		continuation: report.continuation,
+	});
 	presentLandingSuccess({
 		ctx: session.ctx,
 		commandStream: session.commandStream,

@@ -42,7 +42,7 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 		flags: options.parsedArgs,
 		...optionalEntry("cleanupPreview", cleanupPreview),
 	});
-	if (isSingleBranchFastPath(shape.value.stack)) {
+	if (isSingleBranchFastPath(shape.value.stack) && !options.parsedArgs.shouldContinueUpstack) {
 		const result = await runSingleBranchFastPathLanding({
 			landContext,
 			ctx: options.ctx,

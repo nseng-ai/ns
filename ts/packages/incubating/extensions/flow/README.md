@@ -101,7 +101,15 @@ reshaped stack.
   slot cleanup; ordinary worktrees remain ordinary Git worktrees.
 - `land` uses GitHub squash merge and requires `gh` authentication with permission
   to merge the target PRs. The repository must allow squash merges. Other merge
-  strategies are not part of the current land contract.
+  strategies are not part of the current land contract. By default, successful landing
+  frees the current managed slot and deletes the landed local branch. Pass `--up` to
+  keep the slot and continue in the same worktree on the sole immediate Graphite child.
+  If no unambiguous child is available, the command fails before landing. If checkout,
+  verification, or landed-branch cleanup fails after merge, the command reports failure
+  while preserving recoverable state and identifying the PRs that already landed. Add
+  `--preserve` to `--up` to retain the landed local branch after successful continuation.
+  `--force` never overrides `--up` slot preservation. A dry run reports continuation
+  availability and performs no checkout or cleanup.
 - The hidden agent-facing exec surface has one operation:
   `ns flow exec read-graphite-branch-metadata`, which reads Graphite's branch
   metadata database through a controlled `sqlite3` query.

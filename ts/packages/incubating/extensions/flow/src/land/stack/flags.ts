@@ -42,6 +42,14 @@ export const landFlagDescriptors = [
 			"Keep the current managed slot and landed local branch after successful landing.",
 	},
 	{
+		long: "--up",
+		aliases: ["--up"],
+		parsedArg: "shouldContinueUpstack",
+		commandRequestField: "up",
+		usageDescription:
+			"After landing, continue onto the sole immediate upstack child in this worktree; always keep the managed slot. Use --preserve as well to keep the landed local branch.",
+	},
+	{
 		long: "--force",
 		aliases: ["--force", "-f"],
 		parsedArg: "shouldForceCleanup",
@@ -120,7 +128,7 @@ export function landCommandSchemaShape(zod: Pick<typeof z, "boolean">): LandComm
 
 export function landCommandOptionSpecs(): LandCommandOptionSpecs {
 	const entries = landCommandFlagDescriptors().flatMap((descriptor) => {
-		if (descriptor.commandShort === undefined) return [];
+		if (!("commandShort" in descriptor) || descriptor.commandShort === undefined) return [];
 		return [[descriptor.commandRequestField, { short: descriptor.commandShort }] as const];
 	});
 	return Object.fromEntries(entries) as LandCommandOptionSpecs;

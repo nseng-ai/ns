@@ -53,6 +53,7 @@ import { formatConflict, formatSlotConflict, slotFreeArgs } from "./worktree-pat
 import type {
 	DescendantMaintenancePlan,
 	LandedPullRequest,
+	LandingContinuationReport,
 	LandingPlan,
 	LandingWarning,
 	PostLandingSlotCleanupReport,
@@ -223,7 +224,7 @@ export function usage(): string {
 		"Lands the current PR or Graphite stack into gt trunk.",
 		"Fast path requires Graphite to prove a single-branch PR shape. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
 		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts; descendant worktree conflicts skip optional post-landing restack/update.",
-		"After successful landing, this command frees the current managed slot and deletes the landed local branch by default; use --preserve to keep them.",
+		"After successful landing, this command frees the current managed slot and deletes the landed local branch by default; use --up to continue onto the sole immediate child while keeping the slot, and add --preserve to keep the landed local branch.",
 		"",
 		"Options:",
 		...landUsageOptionRows().map(formatUsageOptionRow),
@@ -234,40 +235,54 @@ function formatUsageOptionRow(row: { aliases: readonly string[]; description: st
 	return `  ${row.aliases.join(", ").padEnd(15, " ")} ${row.description}`;
 }
 
-export function formatSuccessSummary(
-	landed: LandedPullRequest[],
-	descendantMaintenance: DescendantMaintenancePlan,
-	warnings: LandingWarning[],
-	cleanup: RemainingCleanup,
-): string {
-	const warningEntries = warnings.filter((warning) => landingWarningLevel(warning) === "warning");
-	const noteEntries = warnings.filter((warning) => landingWarningLevel(warning) === "info");
-	const landedText = landed.map((entry) => `#${entry.number} ${entry.branch}`).join(", ");
-	const lines = [`Landed ${landed.length} PR${landed.length === 1 ? "" : "s"}: ${landedText}.`];
-	if (descendantMaintenance.type === "auto" && descendantMaintenance.branches.length > 0) {
+interface FormatSuccessSummaryOptions {
+	readonly landed: readonly LandedPullRequest[];
+	readonly descendantMaintenance: DescendantMaintenancePlan;
+	readonly warnings: readonly LandingWarning[];
+	readonly cleanup: RemainingCleanup;
+	readonly continuation?: LandingContinuationReport;
+}
+
+export function formatSuccessSummary(options: FormatSuccessSummaryOptions): string {
+	const continuation = options.continuation ?? { type: "not-requested" };
+	const warningEntries = options.warnings.filter(
+		(warning) => landingWarningLevel(warning) === "warning",
+	);
+	const noteEntries = options.warnings.filter((warning) => landingWarningLevel(warning) === "info");
+	const landedText = options.landed.map((entry) => `#${entry.number} ${entry.branch}`).join(", ");
+	const lines = [
+		`Landed ${options.landed.length} PR${options.landed.length === 1 ? "" : "s"}: ${landedText}.`,
+	];
+	lines.push(...formatContinuationSummary(continuation));
+	if (
+		options.descendantMaintenance.type === "auto" &&
+		options.descendantMaintenance.branches.length > 0
+	) {
 		if (hasDescendantMaintenanceDeferral(noteEntries)) {
 			lines.push(
-				`Left open; restack/update deferred: ${descendantMaintenance.branches.join(", ")}.`,
+				`Left open; restack/update deferred: ${options.descendantMaintenance.branches.join(", ")}.`,
 			);
 		} else if (hasDescendantMaintenanceWarning(warningEntries)) {
 			lines.push(
-				`Left open; restack/update needs follow-up: ${descendantMaintenance.branches.join(", ")}.`,
+				`Left open; restack/update needs follow-up: ${options.descendantMaintenance.branches.join(", ")}.`,
 			);
 		} else {
-			lines.push(`Left open/restacked: ${descendantMaintenance.branches.join(", ")}.`);
+			lines.push(`Left open/restacked: ${options.descendantMaintenance.branches.join(", ")}.`);
 		}
-	} else if (descendantMaintenance.type === "skipped") {
-		lines.push(`Left open; restack/update skipped: ${descendantMaintenance.branches.join(", ")}.`);
-		lines.push(`Reason: ${descendantMaintenance.reason}.`);
+	} else if (options.descendantMaintenance.type === "skipped") {
+		lines.push(
+			`Left open; restack/update skipped: ${options.descendantMaintenance.branches.join(", ")}.`,
+		);
+		lines.push(`Reason: ${options.descendantMaintenance.reason}.`);
 	}
 	lines.push("", "Remaining cleanup:");
 	lines.push("  - Remote branches were not deleted.");
-	for (const retained of cleanup.retainedLocalBranches) {
+	for (const retained of options.cleanup.retainedLocalBranches) {
 		lines.push(
 			`  - Local branch ${retained.branch} was kept (still checked out at ${retained.path}); delete it manually or run gt sync.`,
 		);
 	}
-	if (cleanup.retainedLocalBranches.length === 0) {
+	if (options.cleanup.retainedLocalBranches.length === 0) {
 		lines.push(
 			"  - Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.",
 		);
@@ -288,6 +303,48 @@ export function formatSuccessSummary(
 		}
 	}
 	return lines.join("\n");
+}
+
+function formatContinuationSummary(continuation: LandingContinuationReport): string[] {
+	switch (continuation.type) {
+		case "not-requested":
+			return [];
+		case "candidate":
+			return [`Upstack continuation available: would continue onto ${continuation.branch}.`];
+		case "continued":
+			return [
+				`Continued onto upstack branch ${continuation.branch}; original landed branch was ${continuation.originalBranchDeleted ? "deleted" : "preserved"}.`,
+			];
+		case "unavailable":
+			return [
+				`Upstack continuation unavailable: ${continuationUnavailableReason(continuation.reason)}; managed slot and landed local branch were preserved.`,
+			];
+		case "checkout-failed":
+			return [
+				`Upstack continuation did not complete: checkout of ${continuation.branch} failed; managed slot and landed local branch were preserved.`,
+			];
+		case "verification-failed":
+			return [
+				`Upstack continuation did not verify: expected ${continuation.branch}, found ${continuation.actualBranch}; landed local branch was preserved.`,
+			];
+		case "cleanup-failed":
+			return [
+				`Continued onto ${continuation.branch}, but cleanup of the landed local branch failed; the managed slot was preserved.`,
+			];
+	}
+}
+
+function continuationUnavailableReason(
+	reason: Extract<LandingContinuationReport, { readonly type: "unavailable" }>["reason"],
+): string {
+	switch (reason) {
+		case "no-child":
+			return "no immediate child exists";
+		case "multiple-children":
+			return "multiple immediate children exist";
+		case "lookup-failed":
+			return "child lookup failed";
+	}
 }
 
 function landingWarningLevel(warning: LandingWarning): "warning" | "info" {
@@ -500,14 +557,16 @@ interface PresentDryRunLandingOptions {
 	ctx: LandStackCommandContext;
 	commandStream: LandStackCommandStream;
 	planText: string;
+	continuation: LandingContinuationReport;
 }
 
 export function presentDryRunLanding(options: PresentDryRunLandingOptions): void {
 	const message = "Dry run only; no PRs or local refs were changed.";
 	options.commandStream.finishSuccess(message);
+	const continuationText = formatContinuationSummary(options.continuation).join("\n");
 	present({
 		ctx: options.ctx,
-		message: `${message}\n\n${options.planText}`,
+		message: [message, options.planText, continuationText].filter(Boolean).join("\n\n"),
 		level: "info",
 		kind: "success",
 	});

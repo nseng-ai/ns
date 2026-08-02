@@ -44,6 +44,8 @@ export type InMemoryLandDeleteLocalBranchResult = Exclude<
 export type InMemoryLandCallEvent =
 	| { readonly operation: "git.localBranchSha"; readonly request: LandBranchCall }
 	| { readonly operation: "git.snapshotBackupRefs"; readonly request: LandSnapshotBackupRefsCall }
+	| { readonly operation: "git.checkoutBranch"; readonly request: LandBranchCall }
+	| { readonly operation: "git.currentBranch"; readonly request: LandRepoCall }
 	| {
 			readonly operation: "github.pullRequestFacts";
 			readonly request: LandPullRequestFactsCall;
@@ -78,6 +80,8 @@ export interface InMemoryLandGitGatewayState {
 	readonly localBranchExistsFailures?: Readonly<Record<string, LandingBoundaryFailure>>;
 	readonly localBranchShaFailures?: Readonly<Record<string, LandingBoundaryFailure>>;
 	readonly snapshotBackupRefsFailure?: LandingBoundaryFailure;
+	readonly checkoutBranchFailures?: Readonly<Record<string, LandingBoundaryFailure>>;
+	readonly checkoutBranchReportedCurrentBranches?: Readonly<Record<string, string>>;
 }
 
 export interface LandRepoRootCall {
@@ -102,7 +106,7 @@ export interface LandSnapshotBackupRefsCall extends LandRepoCall {
 
 export class InMemoryLandGitGateway implements LandGitGateway {
 	private readonly repoRootState: ValueState<string>;
-	private readonly currentBranchState: ValueState<string>;
+	private currentBranchState: ValueState<string>;
 	private readonly workingTreeStatusState: ValueState<WorkingTreeStatus>;
 	private readonly branches: ReadonlyMap<string, string>;
 	private readonly branchContainsParents: ReadonlyMap<string, boolean>;
@@ -111,6 +115,8 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 	private readonly localBranchExistsFailures: ReadonlyMap<string, LandingBoundaryFailure>;
 	private readonly localBranchShaFailures: ReadonlyMap<string, LandingBoundaryFailure>;
 	private readonly snapshotBackupRefsFailure: LandingBoundaryFailure | undefined;
+	private readonly checkoutBranchFailures: ReadonlyMap<string, LandingBoundaryFailure>;
+	private readonly checkoutBranchReportedCurrentBranches: ReadonlyMap<string, string>;
 	private readonly resolveRepoRootLog: LandRepoRootCall[] = [];
 	private readonly currentBranchLog: LandRepoCall[] = [];
 	private readonly workingTreeStatusLog: LandRepoCall[] = [];
@@ -119,6 +125,8 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 	private readonly listLocalBranchesLog: LandRepoCall[] = [];
 	private readonly branchContainsParentLog: LandBranchContainsParentCall[] = [];
 	private readonly snapshotBackupRefsLog: LandSnapshotBackupRefsCall[] = [];
+	private readonly checkoutBranchLog: LandBranchCall[] = [];
+	private hasCheckedOutBranch = false;
 	private readonly recordCall: RecordInMemoryLandCall;
 
 	constructor(
@@ -146,6 +154,15 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 			]),
 		);
 		this.snapshotBackupRefsFailure = cloneOptionalData(state.snapshotBackupRefsFailure);
+		this.checkoutBranchFailures = new Map(
+			Object.entries(state.checkoutBranchFailures ?? {}).map(([branch, failure]) => [
+				branch,
+				cloneData(failure),
+			]),
+		);
+		this.checkoutBranchReportedCurrentBranches = new Map(
+			Object.entries(state.checkoutBranchReportedCurrentBranches ?? {}),
+		);
 	}
 
 	get resolveRepoRootCalls(): readonly LandRepoRootCall[] {
@@ -180,6 +197,10 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 		return cloneData(this.snapshotBackupRefsLog);
 	}
 
+	get checkoutBranchCalls(): readonly LandBranchCall[] {
+		return cloneData(this.checkoutBranchLog);
+	}
+
 	async resolveRepoRoot(request: { readonly cwd: string }): Promise<LandResult<string>> {
 		this.resolveRepoRootLog.push({ cwd: request.cwd });
 		return valueResult({
@@ -192,7 +213,10 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 	}
 
 	async currentBranch(request: { readonly repoRoot: string }): Promise<LandResult<string>> {
-		this.currentBranchLog.push({ repoRoot: request.repoRoot });
+		const call = { repoRoot: request.repoRoot };
+		this.currentBranchLog.push(call);
+		if (this.hasCheckedOutBranch)
+			this.recordCall({ operation: "git.currentBranch", request: call });
 		return valueResult({
 			state: this.currentBranchState,
 			source: "git",
@@ -291,6 +315,25 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 				this.branchContainsParents.get(branchPairKey(request.branch, request.parent)) ??
 				this.shouldDefaultBranchContainParent,
 		};
+	}
+
+	async checkoutBranch(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+	}): Promise<LandOutcome> {
+		const call = { repoRoot: request.repoRoot, branch: request.branch };
+		this.checkoutBranchLog.push(call);
+		this.recordCall({ operation: "git.checkoutBranch", request: call });
+		const failure = this.checkoutBranchFailures.get(request.branch);
+		if (failure !== undefined) return { type: "failure", failure: cloneData(failure) };
+		this.hasCheckedOutBranch = true;
+		if (
+			!(typeof this.currentBranchState === "object" && this.currentBranchState.type === "failure")
+		) {
+			this.currentBranchState =
+				this.checkoutBranchReportedCurrentBranches.get(request.branch) ?? request.branch;
+		}
+		return { type: "completed" };
 	}
 
 	async snapshotBackupRefs(request: {

@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
-import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/foundation/git";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS, RealGitGateway } from "@nseng-ai/foundation/git";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { createLandContext } from "../../src/land/stack/land-context-adapter.ts";
 import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land/stack/constants.ts";
@@ -57,6 +57,7 @@ const REFRESH_ARGS = [
 	"--no-interactive",
 ];
 const DELETE_ARGS = ["delete", "feature-a", "-f", "-q"];
+const CHECKOUT_ARGS = ["checkout", "feature-b"];
 const RESTACK_ARGS = ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"];
 const RESTACK_ONLY_ARGS = ["restack", "--branch", "feature-b", "--only", "--no-interactive"];
 const SUBMIT_FORCE_ARGS = [
@@ -139,13 +140,17 @@ function sameArgs(left: string[], right: string[]): boolean {
 }
 
 function createTestLandContext(pi: LandExecutionApi) {
-	return createLandContext(pi, { graphite: createLandGraphiteCommandChannel({ pi }) });
+	return createLandContext(pi, {
+		git: new RealGitGateway(pi),
+		graphite: createLandGraphiteCommandChannel({ pi }),
+	});
 }
 
 describe("land context adapter facts", () => {
 	test("normalizes equivalent current-worktree paths at the adapter boundary", async () => {
 		const pi = new FakeLandExecutionApi([]);
 		const context = createLandContext(pi, {
+			git: new RealGitGateway(pi),
 			graphite: createLandGraphiteCommandChannel({ pi }),
 		});
 
@@ -344,6 +349,37 @@ describe("land context adapter facts", () => {
 				args: backupSnapshotFetchArgs,
 				options: { cwd: ROOT, timeout: 30000 },
 			},
+		]);
+		pi.assertDone();
+	});
+
+	test("checks out a continuation branch through the foundation Git gateway", async () => {
+		const pi = new FakeLandExecutionApi([
+			step("git", CHECKOUT_ARGS),
+			step("git", CHECKOUT_ARGS, { code: 1, stderr: "checkout rejected\n" }),
+		]);
+		const context = createTestLandContext(pi);
+
+		await expect(
+			context.git.checkoutBranch({ repoRoot: ROOT, branch: "feature-b" }),
+		).resolves.toEqual({ type: "completed" });
+		await expect(
+			context.git.checkoutBranch({ repoRoot: ROOT, branch: "feature-b" }),
+		).resolves.toMatchObject({
+			type: "failure",
+			failure: {
+				type: "boundary",
+				phase: "upstack-continuation",
+				source: "git",
+				code: "checkout_branch_failed",
+				displayCommand: "git checkout feature-b",
+				message:
+					"Could not check out continuation branch feature-b.\ngit checkout failed (exit code 1).\n\nCommand: git checkout feature-b\n\n----- stdout tail -----\n(empty)\n\n----- stderr tail -----\ncheckout rejected",
+			},
+		});
+		expect(pi.execCalls).toEqual([
+			{ command: "git", args: CHECKOUT_ARGS, options: { cwd: ROOT, timeout: 10_000 } },
+			{ command: "git", args: CHECKOUT_ARGS, options: { cwd: ROOT, timeout: 10_000 } },
 		]);
 		pi.assertDone();
 	});
