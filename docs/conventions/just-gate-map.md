@@ -15,6 +15,11 @@ The single home for mapping a failing signal to the narrowest `just` gate in thi
 | Objective record structure                        | `just objective-check`                                 |
 | Skill Exposure Policy drift                       | `just skill-exposure-check`                            |
 | Docs/markdown only                                | `just dprint-check`; no code gate                      |
-| Mixed or uncertain                                | `just check` (the full default suite)                  |
+| Mixed or uncertain                                | `just check` (the full default/core suite)             |
+
+`just check` (and bare `just`) covers the default/core suite, not the specialized integration,
+isolated, or TypeScript style guard lanes. Use the narrow dedicated gate above when one of those lanes
+is relevant; `just ci` is the broader opt-in local aggregate that adds integration, the style guard,
+and repository metadata/policy checks while still omitting isolated tests.
 
 Prefer autofixers over hand-editing formatter output: `just fix` runs the dprint, TypeScript format, and TypeScript lint fixers together.
