@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,7 +21,10 @@ import {
 } from "./command-registry.ts";
 import { NS_COMMAND_NAME_PATTERN, NS_COMMAND_NAME_RULE } from "../sdk/command-name.ts";
 import { nextDescriptorTraversalState } from "./descriptor-traversal.ts";
-import { loadDeclaredExtensionDescriptors } from "./declared-descriptors.ts";
+import {
+	declaredExtensionSourceIdentity,
+	loadDeclaredExtensionDescriptors,
+} from "./declared-descriptors.ts";
 import { NS_BUILT_IN_HELP_GROUP, NS_EXTENSION_HELP_GROUP } from "./help-presentation.ts";
 import { loadExtensionDescriptorFromPackageRoot } from "../project-config/extension-package-descriptor.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
@@ -33,10 +36,14 @@ import {
 	type NsCommandModuleReference,
 } from "./module-reference.ts";
 import {
+	formatErrorMessage,
+	isNodeErrorCode,
 	isPathInside,
+	optionalEntries,
 	optionalEntry,
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
+import { mergeXdgHomeEnv, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
 import {
 	type ExtensionCommandEntry,
 	type ExtensionDescriptor,
@@ -64,6 +71,21 @@ interface LoadedCatalogFragment {
 	readonly candidates: readonly ExtensionCommandCandidate[];
 	readonly extensionPackageNames: readonly string[];
 	readonly builtInPackageNames: readonly string[];
+}
+
+interface LoadedProjectCatalogFragment extends LoadedCatalogFragment {
+	readonly declaredSourceIdentities: readonly string[];
+}
+
+interface CatalogSource {
+	readonly level: ExtensionSourceLevel;
+	readonly label: string;
+	readonly candidates: readonly ExtensionCommandCandidate[];
+}
+
+interface MergedCatalogSources {
+	readonly candidates: readonly ExtensionCommandCandidate[];
+	readonly diagnostics: readonly ExtensionDiagnostic[];
 }
 
 export type ExtensionCommandCandidate = BuiltInNsCommandCandidate | ExternalNsCommandCandidate;
@@ -157,19 +179,22 @@ export interface LoadNsCommandCatalogOptions {
 const ORDERED_SOURCE_LEVELS = [
 	"built-in",
 	"preinstalled",
+	"user",
 	"project",
 ] as const satisfies readonly ExtensionSourceLevel[];
+
+function unavailableUserNpmPackageRoot(): undefined {
+	return undefined;
+}
 
 export async function loadNsCommandCatalog(
 	options: LoadNsCommandCatalogOptions,
 ): Promise<NsCommandCatalog> {
 	const diagnostics: ExtensionDiagnostic[] = [];
 	const builtInCandidates = listBuiltInNsCommandCandidates();
-	const orderedSources: Array<{
-		level: ExtensionSourceLevel;
-		label: string;
-		candidates: readonly ExtensionCommandCandidate[];
-	}> = [{ level: "built-in", label: "built-in", candidates: builtInCandidates }];
+	const orderedSources: CatalogSource[] = [
+		{ level: "built-in", label: "built-in", candidates: builtInCandidates },
+	];
 	const preinstalledCandidates = await loadPreinstalledCandidates(
 		options.preinstalledCommandCatalog,
 		options.cwd,
@@ -181,7 +206,17 @@ export async function loadNsCommandCatalog(
 		candidates: preinstalledCandidates.candidates,
 	});
 	const descriptorProjectCandidates = await loadProjectDescriptorCandidates(options.cwd);
+	const userCandidates = await loadUserDescriptorCandidates(
+		options,
+		new Set(descriptorProjectCandidates.declaredSourceIdentities),
+	);
+	diagnostics.push(...userCandidates.diagnostics);
 	diagnostics.push(...descriptorProjectCandidates.diagnostics);
+	orderedSources.push({
+		level: "user",
+		label: "user ns.toml descriptor extensions",
+		candidates: userCandidates.candidates,
+	});
 	const projectNamespaceValidation = rejectBuiltInNamespaceContributions(
 		descriptorProjectCandidates.candidates,
 		[...builtInCandidates, ...preinstalledCandidates.candidates],
@@ -189,49 +224,21 @@ export async function loadNsCommandCatalog(
 	diagnostics.push(...projectNamespaceValidation.diagnostics);
 	orderedSources.push({
 		level: "project",
-		label: "ns.toml descriptor extensions",
+		label: "project ns.toml descriptor extensions",
 		candidates: projectNamespaceValidation.candidates,
 	});
 	const extensionPackageNames = new Set([
 		...preinstalledCandidates.extensionPackageNames,
+		...userCandidates.extensionPackageNames,
 		...descriptorProjectCandidates.extensionPackageNames,
 	]);
 	const builtInPackageNames = new Set(preinstalledCandidates.builtInPackageNames);
 
-	const merged = new Map<string, ExtensionCommandCandidate>();
-	for (const source of orderedSources) {
-		const eligibleCandidates = candidatesWithSatisfiedRequirements(
-			source.candidates,
-			extensionPackageNames,
-		);
-		const validation = validateSourceCandidates(source.level, source.label, eligibleCandidates);
-		diagnostics.push(...validation.diagnostics);
-		for (const candidate of validation.candidates) {
-			const key = commandKey(candidate);
-			const existing = merged.get(key);
-			if (existing !== undefined) {
-				diagnostics.push({
-					severity: "info",
-					code: "extension_command_override",
-					message: `ns command ${key} from ${formatSource(candidate.source)} overrides ${formatSource(existing.source)}.`,
-					commandName: key,
-					overriddenSource: existing.source,
-					overridingSource: candidate.source,
-				});
-			}
-			merged.set(key, inheritHelpGroup(candidate, existing));
-		}
-	}
-
-	const sortedCandidates = [...merged.values()].sort((left, right) =>
-		commandKey(left).localeCompare(commandKey(right)),
-	);
-	const collisionFilter = filterGroupCommandCollisions(sortedCandidates);
-	diagnostics.push(...collisionFilter.diagnostics);
-	const finalCandidates = collisionFilter.candidates;
+	const merged = mergeCatalogSources(orderedSources, extensionPackageNames);
+	diagnostics.push(...merged.diagnostics);
 	return {
-		candidates: new Map(finalCandidates.map((candidate) => [commandKey(candidate), candidate])),
-		commandInfos: finalCandidates.map(toCommandCliInfo),
+		candidates: new Map(merged.candidates.map((candidate) => [commandKey(candidate), candidate])),
+		commandInfos: merged.candidates.map(toCommandCliInfo),
 		diagnostics,
 		extensionPackageNames,
 		builtInPackageNames,
@@ -415,9 +422,14 @@ function isFatalForSelectedCandidate(
 	return sourceLevelRank(diagnostic.sourceLevel) >= sourceLevelRank(selectedCandidate.source.level);
 }
 
-async function loadProjectDescriptorCandidates(cwd: string): Promise<LoadedCatalogFragment> {
+async function loadProjectDescriptorCandidates(cwd: string): Promise<LoadedProjectCatalogFragment> {
 	const declared = readDeclaredExtensionSpecs(cwd);
-	if (!declared.ok) return emptyLoadedCatalogFragment([declared.diagnostic]);
+	if (!declared.ok) {
+		return {
+			...emptyLoadedCatalogFragment([declared.diagnostic]),
+			declaredSourceIdentities: [],
+		};
+	}
 	const loaded = await loadDeclaredExtensionDescriptors({ repoRoot: cwd, specs: declared.specs });
 	return {
 		diagnostics: loaded.diagnostics.map((diagnostic) =>
@@ -429,6 +441,10 @@ async function loadProjectDescriptorCandidates(cwd: string): Promise<LoadedCatal
 		),
 		extensionPackageNames: loaded.descriptors.map((record) => record.packageName),
 		builtInPackageNames: [],
+		declaredSourceIdentities: declared.specs.flatMap((spec) => {
+			const identity = declaredExtensionSourceIdentity(cwd, spec);
+			return identity === undefined ? [] : [identity];
+		}),
 		candidates: loaded.descriptors.flatMap((record) =>
 			descriptorCommandCandidates({
 				cwd,
@@ -437,7 +453,65 @@ async function loadProjectDescriptorCandidates(cwd: string): Promise<LoadedCatal
 				descriptorPath: record.descriptorPath,
 				descriptor: record.descriptor,
 				sourceLevel: "project",
-				sourceLabel: `ns.toml descriptor ${record.spec}`,
+				sourceLabel: `project ns.toml descriptor ${record.spec}`,
+				sourceKind: record.sourceKind,
+			}),
+		),
+	};
+}
+
+async function loadUserDescriptorCandidates(
+	options: LoadNsCommandCatalogOptions,
+	projectSourceIdentities: ReadonlySet<string>,
+): Promise<LoadedCatalogFragment> {
+	const env = mergeXdgHomeEnv({
+		baseEnv: {},
+		...optionalEntries({ env: options.env, xdgHomeDir: options.homeDir }),
+	});
+	const resolvedPath = resolveNsXdgPath({ kind: "config", env, segments: ["ns.toml"] });
+	if (!resolvedPath.ok) {
+		return emptyLoadedCatalogFragment([
+			userErrorDiagnostic(
+				"user_ns_toml_path_invalid",
+				`Could not resolve user ns.toml path.\n${resolvedPath.error.message}`,
+			),
+		]);
+	}
+	const declared = readUserDeclaredExtensionSpecs(resolvedPath.value);
+	if (!declared.ok) return emptyLoadedCatalogFragment([declared.diagnostic]);
+	const userConfigDir = dirname(resolvedPath.value);
+	const activeSpecs = declared.specs.filter((spec) => {
+		const identity = declaredExtensionSourceIdentity(userConfigDir, spec);
+		return identity === undefined || !projectSourceIdentities.has(identity);
+	});
+	const loaded = await loadDeclaredExtensionDescriptors({
+		repoRoot: userConfigDir,
+		specs: activeSpecs,
+		localPathPolicy: "absolute-only",
+		resolveNpmPackageRoot: unavailableUserNpmPackageRoot,
+	});
+	return {
+		diagnostics: loaded.diagnostics.map((diagnostic) => {
+			const isUnavailableNpm = diagnostic.code === "extension_descriptor_npm_unavailable";
+			return userErrorDiagnostic(
+				isUnavailableNpm ? "user_extension_npm_unavailable" : diagnostic.code,
+				isUnavailableNpm
+					? `User npm extension is unavailable until user-scoped npm acquisition is configured: ${diagnostic.spec}.`
+					: diagnostic.message,
+				diagnostic.path ?? resolvedPath.value,
+			);
+		}),
+		extensionPackageNames: loaded.descriptors.map((record) => record.packageName),
+		builtInPackageNames: [],
+		candidates: loaded.descriptors.flatMap((record) =>
+			descriptorCommandCandidates({
+				cwd: options.cwd,
+				spec: record.spec,
+				packageDir: record.moduleRoot,
+				descriptorPath: record.descriptorPath,
+				descriptor: record.descriptor,
+				sourceLevel: "user",
+				sourceLabel: `user ns.toml descriptor ${record.spec}`,
 				sourceKind: record.sourceKind,
 			}),
 		),
@@ -450,6 +524,69 @@ function projectErrorDiagnostic(
 	path: string,
 ): ExtensionErrorDiagnostic {
 	return { severity: "error", code, message, path, sourceLevel: "project" };
+}
+
+function userErrorDiagnostic(
+	code: string,
+	message: string,
+	path?: string,
+): ExtensionErrorDiagnostic {
+	return {
+		severity: "error",
+		code,
+		message: `User extension configuration: ${message}`,
+		...optionalEntry("path", path),
+		sourceLevel: "user",
+	};
+}
+
+function readUserDeclaredExtensionSpecs(
+	path: string,
+): { ok: true; specs: readonly string[] } | { ok: false; diagnostic: ExtensionErrorDiagnostic } {
+	let file;
+	try {
+		file = statSync(path);
+	} catch (error) {
+		if (isNodeErrorCode(error, "ENOENT")) return { ok: true, specs: [] };
+		return {
+			ok: false,
+			diagnostic: userErrorDiagnostic(
+				"user_ns_toml_inspect_failed",
+				`Could not inspect ${path}.\n${formatErrorMessage(error)}`,
+				path,
+			),
+		};
+	}
+	if (!file.isFile()) {
+		return {
+			ok: false,
+			diagnostic: userErrorDiagnostic(
+				"user_ns_toml_not_file",
+				`User ns.toml path is not a file: ${path}.`,
+				path,
+			),
+		};
+	}
+	let source;
+	try {
+		source = readFileSync(path, "utf8");
+	} catch (error) {
+		return {
+			ok: false,
+			diagnostic: userErrorDiagnostic(
+				"user_ns_toml_read_failed",
+				`Could not read ${path}.\n${formatErrorMessage(error)}`,
+				path,
+			),
+		};
+	}
+	const parsed = parseDeclaredExtensionSpecsToml(source);
+	if (parsed.ok) return parsed;
+	const errorInfo = declaredExtensionSpecsErrorInfo(parsed);
+	return {
+		ok: false,
+		diagnostic: userErrorDiagnostic(errorInfo.code, errorInfo.message, path),
+	};
 }
 
 function readDeclaredExtensionSpecs(
@@ -621,7 +758,12 @@ async function loadSourceDevPreinstalledCandidates(
 			...descriptor.candidates.filter((candidate) => !catalogKeys.has(commandKey(candidate))),
 		);
 	}
-	return { diagnostics, candidates, extensionPackageNames, builtInPackageNames: [] };
+	return {
+		diagnostics,
+		candidates,
+		extensionPackageNames,
+		builtInPackageNames: [],
+	};
 }
 
 async function loadSourceDevDescriptorCandidates(options: {
@@ -769,7 +911,12 @@ function preinstalledCatalogEntryCommandInfo(
 function emptyLoadedCatalogFragment(
 	diagnostics: readonly ExtensionDiagnostic[] = [],
 ): LoadedCatalogFragment {
-	return { diagnostics, candidates: [], extensionPackageNames: [], builtInPackageNames: [] };
+	return {
+		diagnostics,
+		candidates: [],
+		extensionPackageNames: [],
+		builtInPackageNames: [],
+	};
 }
 
 function withDefaultPreinstalledHelpGroup(
@@ -797,6 +944,50 @@ function candidatesWithSatisfiedRequirements(
 			candidate.requiresExtension === undefined ||
 			extensionPackageNames.has(candidate.requiresExtension),
 	);
+}
+
+function mergeCatalogSources(
+	sources: readonly CatalogSource[],
+	extensionPackageNames: ReadonlySet<string>,
+): MergedCatalogSources {
+	const diagnostics: ExtensionDiagnostic[] = [];
+	const builtInKeys = new Set(
+		sources
+			.filter((source) => source.level === "built-in")
+			.flatMap((source) => source.candidates.map((candidate) => commandKey(candidate))),
+	);
+	const merged = new Map<string, ExtensionCommandCandidate>();
+	for (const source of sources) {
+		const eligibleCandidates = candidatesWithSatisfiedRequirements(
+			source.candidates,
+			extensionPackageNames,
+		);
+		const validation = validateSourceCandidates(source.level, source.label, eligibleCandidates);
+		diagnostics.push(...validation.diagnostics);
+		for (const candidate of validation.candidates) {
+			const key = commandKey(candidate);
+			if (source.level !== "built-in" && conflictsWithAnyCommandKey(key, builtInKeys)) {
+				diagnostics.push(...builtInCollisionDiagnostics(candidate, builtInKeys));
+				continue;
+			}
+			const overridden = [...merged.entries()].filter(
+				([existingKey, existing]) =>
+					existing.source.level !== "built-in" && commandKeysConflict(key, existingKey),
+			);
+			for (const [existingKey, existing] of overridden) {
+				diagnostics.push(overrideDiagnostic(candidate, existing));
+				merged.delete(existingKey);
+			}
+			const exactOverride = overridden.find(([existingKey]) => existingKey === key)?.[1];
+			merged.set(key, inheritHelpGroup(candidate, exactOverride));
+		}
+	}
+	return {
+		candidates: [...merged.values()].sort((left, right) =>
+			commandKey(left).localeCompare(commandKey(right)),
+		),
+		diagnostics,
+	};
 }
 
 function validateSourceCandidates(
@@ -846,30 +1037,36 @@ function validateSourceCandidates(
 		validated.push(candidate);
 	}
 
-	const candidatesByName = new Map<string, readonly ExtensionCommandCandidate[]>();
-	for (const candidate of validated) {
-		const key = commandKey(candidate);
-		const existing = candidatesByName.get(key) ?? [];
-		candidatesByName.set(key, [...existing, candidate]);
+	const conflicting = new Set<ExtensionCommandCandidate>();
+	for (let leftIndex = 0; leftIndex < validated.length; leftIndex += 1) {
+		const left = validated[leftIndex];
+		if (left === undefined) continue;
+		for (let rightIndex = leftIndex + 1; rightIndex < validated.length; rightIndex += 1) {
+			const right = validated[rightIndex];
+			if (right === undefined || !commandKeysConflict(commandKey(left), commandKey(right)))
+				continue;
+			conflicting.add(left);
+			conflicting.add(right);
+		}
 	}
-
-	const duplicateNames = new Set(
-		[...candidatesByName.entries()]
-			.filter(([, matches]) => matches.length > 1)
-			.map(([name]) => name),
-	);
-	for (const name of duplicateNames) {
-		const matches = candidatesByName.get(name) ?? [];
+	for (const candidate of conflicting) {
+		const key = commandKey(candidate);
+		const peers = validated.filter(
+			(peer) => peer !== candidate && commandKeysConflict(key, commandKey(peer)),
+		);
 		diagnostics.push({
 			severity: "error",
-			code: "extension_command_duplicate_in_level",
-			message: `Duplicate ns command ${name} within ${level} extension source ${sourceLabel}: ${matches.map((match) => formatSource(match.source)).join(", ")}.`,
+			code: peers.some((peer) => commandKey(peer) === key)
+				? "extension_command_duplicate_in_level"
+				: "extension_command_group_collision",
+			message: `Conflicting ns command ${key} within ${level} extension source ${sourceLabel}: ${[candidate, ...peers].map((match) => formatSource(match.source)).join(", ")}.`,
+			path: candidateDiagnosticPath(candidate),
 			sourceLevel: level,
-			commandName: name,
+			commandName: key,
 		});
 	}
 	return {
-		candidates: validated.filter((candidate) => !duplicateNames.has(commandKey(candidate))),
+		candidates: validated.filter((candidate) => !conflicting.has(candidate)),
 		diagnostics,
 	};
 }
@@ -904,52 +1101,41 @@ function rejectBuiltInNamespaceContributions(
 	return { candidates, diagnostics };
 }
 
-function filterGroupCommandCollisions(candidates: readonly ExtensionCommandCandidate[]): {
-	candidates: readonly ExtensionCommandCandidate[];
-	diagnostics: readonly ExtensionErrorDiagnostic[];
-} {
-	const topLevelByName = new Map<string, ExtensionCommandCandidate>();
-	for (const candidate of candidates) {
-		const segments = commandSegments(candidate);
-		if (segments.length !== 1) continue;
-		const name = segments[0];
-		if (name === undefined) continue;
-		topLevelByName.set(name, candidate);
-	}
-	if (topLevelByName.size === 0) {
-		return { candidates, diagnostics: [] };
-	}
+function commandKeysConflict(left: string, right: string): boolean {
+	return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+}
 
-	const collidingGroups = new Set<string>();
-	const diagnostics: ExtensionErrorDiagnostic[] = [];
-	for (const candidate of candidates) {
-		const segments = commandSegments(candidate);
-		if (segments.length < 2) continue;
-		const topSegment = segments[0];
-		if (topSegment === undefined) continue;
-		const topLevel = topLevelByName.get(topSegment);
-		if (topLevel === undefined) continue;
-		collidingGroups.add(topSegment);
-		diagnostics.push({
+function conflictsWithAnyCommandKey(key: string, keys: ReadonlySet<string>): boolean {
+	return [...keys].some((other) => commandKeysConflict(key, other));
+}
+
+function builtInCollisionDiagnostics(
+	candidate: ExtensionCommandCandidate,
+	builtInKeys: ReadonlySet<string>,
+): readonly ExtensionErrorDiagnostic[] {
+	return [...builtInKeys]
+		.filter((builtInKey) => commandKeysConflict(commandKey(candidate), builtInKey))
+		.map((builtInKey) => ({
 			severity: "error",
-			code: "extension_command_group_collision",
-			message: `ns command ${commandKey(candidate)} from ${formatSource(candidate.source)} cannot load because top-level command ${topSegment} from ${formatSource(topLevel.source)} already exists.`,
+			code: "extension_command_builtin_reserved",
+			message: `ns command ${commandKey(candidate)} from ${formatSource(candidate.source)} conflicts with reserved built-in command ${builtInKey}.`,
 			path: candidateDiagnosticPath(candidate),
 			sourceLevel: candidate.source.level,
-			commandName: commandKey(candidate),
-		});
-	}
-	if (collidingGroups.size === 0) {
-		return { candidates, diagnostics: [] };
-	}
+			commandName: builtInKey,
+		}));
+}
 
+function overrideDiagnostic(
+	overriding: ExtensionCommandCandidate,
+	overridden: ExtensionCommandCandidate,
+): ExtensionOverrideDiagnostic {
 	return {
-		candidates: candidates.filter((candidate) => {
-			const segments = commandSegments(candidate);
-			const topSegment = segments[0];
-			return segments.length < 2 || topSegment === undefined || !collidingGroups.has(topSegment);
-		}),
-		diagnostics,
+		severity: "info",
+		code: "extension_command_override",
+		message: `ns command ${commandKey(overriding)} from ${formatSource(overriding.source)} overrides ${formatSource(overridden.source)}.`,
+		commandName: commandKey(overriding),
+		overriddenSource: overridden.source,
+		overridingSource: overriding.source,
 	};
 }
 

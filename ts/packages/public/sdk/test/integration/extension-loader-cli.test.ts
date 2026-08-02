@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -305,6 +305,56 @@ export default {
 		expect(run.context.execCalls).toEqual([]);
 	});
 
+	test("user command runs from an unrelated repository without mutating it", async () => {
+		const cwd = await createEmptyProject();
+		const homeDir = await mkdtemp(join(tmpdir(), "ns-extension-home-"));
+		tempDirs.push(homeDir);
+		const packageRoot = join(homeDir, "packages", "user-tools");
+		writeFileSyncWithParents(
+			join(packageRoot, "package.json"),
+			JSON.stringify({
+				name: "@example/user-tools",
+				version: "1.0.0",
+				type: "module",
+				exports: { "./ns-extension": "./src/ns-extension.ts" },
+			}),
+		);
+		writeFileSyncWithParents(
+			join(packageRoot, "src", "ns-extension.ts"),
+			`import { defineExtension } from "@nseng-ai/sdk";
+export default defineExtension({
+	description: "User tools.",
+	entries: [
+		{ name: "hello", load: () => import("./hello.ts") },
+		{ name: "unselected", load: () => import("./missing-unselected.ts") },
+	],
+});
+`,
+		);
+		writeFileSyncWithParents(
+			join(packageRoot, "src", "hello.ts"),
+			`import { ok } from "@nseng-ai/sdk";
+export default { name: "hello", summary: "User hello.", description: "User hello.", run() { return ok("hello from user"); } };
+`,
+		);
+		writeFileSyncWithParents(
+			join(homeDir, ".config", "ns", "ns.toml"),
+			`extensions = [${JSON.stringify(packageRoot)}]\n`,
+		);
+		expect(readdirSync(cwd)).toEqual([]);
+
+		const run = runWithFakes({ args: ["hello"], state: { exec: [] }, cwd, homeDir });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("hello from user\n");
+		expect(run.stderr.join("")).toBe("");
+		expect(readdirSync(cwd)).toEqual([]);
+		expect(existsSync(join(cwd, "ns.toml"))).toBe(false);
+		expect(existsSync(join(cwd, ".ns"))).toBe(false);
+		expect(existsSync(join(cwd, "AGENTS.md"))).toBe(false);
+		expect(existsSync(join(cwd, "CLAUDE.md"))).toBe(false);
+	});
+
 	test("project-only ns command entry runs when invoked", async () => {
 		const cwd = await createDescriptorProject(
 			"hello",
@@ -415,7 +465,7 @@ export default { name: "hello", summary: "Hello", description: "Hello", run() { 
 
 		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain(
-			"Invalid ns descriptor command ns.toml descriptor ./extensions/tools",
+			"Invalid ns descriptor command project ns.toml descriptor ./extensions/tools",
 		);
 		expect(run.stderr.join("")).toContain(
 			"command schema must be a Zod object schema from @nseng-ai/sdk",

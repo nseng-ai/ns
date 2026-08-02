@@ -175,7 +175,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 		)({
 			cwd: commandContext.cwd,
 			env: commandContext.env,
-			...optionalEntry("xdgHomeDir", commandContext.homeDir),
+			...optionalEntry("homeDir", commandContext.homeDir),
 			...optionalEntry("preinstalledCommandCatalog", deps.preinstalledCommandCatalog),
 		});
 		if (isCompletionResolverInvocation(args)) {

@@ -13,6 +13,7 @@ import {
 interface FakeDescriptorPackage {
 	readonly root: string;
 	readonly manifest?: unknown;
+	readonly manifestText?: string;
 	readonly manifestError?: string;
 	readonly hasDescriptorFile?: boolean;
 	readonly descriptorExport?: unknown;
@@ -38,13 +39,15 @@ class FakeDeclaredExtensionDescriptorGateway implements DeclaredExtensionDescrip
 		}
 		return {
 			type: "found",
-			text: JSON.stringify(
-				descriptorPackage.manifest ?? {
-					name: `fixture-${descriptorPackage.root.split("/").at(-1) ?? "extension"}`,
-					version: "1.0.0",
-					exports: { "./ns-extension": "./ns-extension.ts" },
-				},
-			),
+			text:
+				descriptorPackage.manifestText ??
+				JSON.stringify(
+					descriptorPackage.manifest ?? {
+						name: `fixture-${descriptorPackage.root.split("/").at(-1) ?? "extension"}`,
+						version: "1.0.0",
+						exports: { "./ns-extension": "./ns-extension.ts" },
+					},
+				),
 		};
 	}
 
@@ -160,7 +163,7 @@ describe("declared extension descriptors", () => {
 		]);
 	});
 
-	test("loads npm specs only from their managed installed roots", async () => {
+	test("loads npm specs from project managed roots by default", async () => {
 		const repoRoot = "/repo";
 		const gateway = new FakeDeclaredExtensionDescriptorGateway([
 			managedNpmPackage(repoRoot, "@acme/tools", {
@@ -201,6 +204,63 @@ describe("declared extension descriptors", () => {
 		]);
 	});
 
+	test("uses a caller-supplied npm package-root resolver", async () => {
+		const gateway = new FakeDeclaredExtensionDescriptorGateway([
+			{
+				root: "/user-managed/@acme/tools",
+				manifest: {
+					name: "@acme/tools",
+					version: "1.2.3",
+					exports: { "./ns-extension": "./ns-extension.ts" },
+				},
+				descriptorExport: { description: "User tools" },
+			},
+		]);
+
+		const result = await loadDeclaredExtensionDescriptors({
+			repoRoot: "/repo",
+			specs: ["npm:@acme/tools"],
+			resolveNpmPackageRoot: (packageName) => `/user-managed/${packageName}`,
+			gateway,
+		});
+
+		expect(result.descriptors).toMatchObject([
+			{
+				moduleRoot: "/user-managed/@acme/tools",
+				packageName: "@acme/tools",
+				descriptor: { description: "User tools" },
+			},
+		]);
+	});
+
+	test("rejects relative local declarations only under the explicit absolute-only policy", async () => {
+		const gateway = new FakeDeclaredExtensionDescriptorGateway([
+			localPackage("/repo", "extensions/tools"),
+		]);
+
+		const projectResult = await loadDeclaredExtensionDescriptors({
+			repoRoot: "/repo",
+			specs: ["./extensions/tools"],
+			gateway,
+		});
+		const userResult = await loadDeclaredExtensionDescriptors({
+			repoRoot: "/repo",
+			specs: ["./extensions/tools"],
+			localPathPolicy: "absolute-only",
+			gateway,
+		});
+
+		expect(projectResult.descriptors).toHaveLength(1);
+		expect(userResult.descriptors).toEqual([]);
+		expect(userResult.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "extension_descriptor_relative_local_source_unsupported",
+				spec: "./extensions/tools",
+				path: "./extensions/tools",
+			}),
+		]);
+	});
+
 	test("wraps the canonical unsupported-git reason in declared-descriptor context", async () => {
 		const result = await loadDeclaredExtensionDescriptors({
 			repoRoot: "/repo",
@@ -218,7 +278,7 @@ describe("declared extension descriptors", () => {
 		]);
 	});
 
-	test("reports each canonical duplicate identity once and excludes every duplicate declaration", async () => {
+	test("reports each duplicate source identity once and excludes every duplicate declaration", async () => {
 		const repoRoot = "/repo";
 		const gateway = new FakeDeclaredExtensionDescriptorGateway([
 			localPackage(repoRoot, "extensions/first", {
@@ -278,6 +338,107 @@ describe("declared extension descriptors", () => {
 		]);
 	});
 
+	test("keeps distinct source declarations that share a manifest package name", async () => {
+		const repoRoot = "/repo";
+		const sharedManifest = {
+			name: "@acme/shared",
+			version: "1.0.0",
+			exports: { "./ns-extension": "./ns-extension.ts" },
+		};
+		const gateway = new FakeDeclaredExtensionDescriptorGateway([
+			localPackage(repoRoot, "extensions/one", { manifest: sharedManifest }),
+			localPackage(repoRoot, "extensions/two", { manifest: sharedManifest }),
+			localPackage(repoRoot, "extensions/other", {
+				manifest: {
+					name: "@acme/other",
+					version: "1.0.0",
+					exports: { "./ns-extension": "./ns-extension.ts" },
+				},
+			}),
+		]);
+
+		const result = await loadDeclaredExtensionDescriptors({
+			repoRoot,
+			specs: ["./extensions/one", "./extensions/two", "./extensions/other"],
+			gateway,
+		});
+
+		expect(result.descriptors.map(({ packageName }) => packageName)).toEqual([
+			"@acme/shared",
+			"@acme/shared",
+			"@acme/other",
+		]);
+		expect(result.diagnostics).toEqual([]);
+	});
+
+	test("reports descriptor failures after resolving an npm source", async () => {
+		const gateway = new FakeDeclaredExtensionDescriptorGateway([
+			{
+				root: "/user-managed/@acme/expected",
+				manifest: {
+					name: "@other/actual",
+					version: "1.0.0",
+					exports: { "./ns-extension": "./ns-extension.ts" },
+				},
+				hasDescriptorFile: false,
+			},
+		]);
+
+		const result = await loadDeclaredExtensionDescriptors({
+			repoRoot: "/repo",
+			specs: ["npm:@acme/expected"],
+			resolveNpmPackageRoot: (packageName) => `/user-managed/${packageName}`,
+			gateway,
+		});
+
+		expect(result.descriptors).toEqual([]);
+		expect(result.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "extension_descriptor_export_missing_file",
+				spec: "npm:@acme/expected",
+				path: "/user-managed/@acme/expected/ns-extension.ts",
+			}),
+		]);
+	});
+
+	test("distinct sources sharing a manifest name retain independent outcomes", async () => {
+		const repoRoot = "/repo";
+		const gateway = new FakeDeclaredExtensionDescriptorGateway([
+			localPackage(repoRoot, "extensions/good", {
+				manifest: {
+					name: "@acme/duplicate",
+					version: "1.0.0",
+					exports: { "./ns-extension": "./ns-extension.ts" },
+				},
+				descriptorExport: { description: "Good" },
+			}),
+			localPackage(repoRoot, "extensions/broken", {
+				manifest: {
+					name: "@acme/duplicate",
+					version: "1.0.0",
+					exports: { "./ns-extension": "./ns-extension.ts" },
+				},
+				importError: "descriptor exploded",
+			}),
+		]);
+
+		const result = await loadDeclaredExtensionDescriptors({
+			repoRoot,
+			specs: ["./extensions/good", "./extensions/broken"],
+			gateway,
+		});
+
+		expect(result.descriptors).toMatchObject([
+			{ spec: "./extensions/good", packageName: "@acme/duplicate" },
+		]);
+		expect(result.diagnostics.map(({ code, spec }) => ({ code, spec }))).toEqual([
+			{
+				code: "extension_descriptor_import_failed",
+				spec: "./extensions/broken",
+			},
+		]);
+	});
+
 	test("rejects managed npm identity and pinned-version mismatches before import", async () => {
 		const repoRoot = "/repo";
 		const gateway = new FakeDeclaredExtensionDescriptorGateway([
@@ -307,6 +468,54 @@ describe("declared extension descriptors", () => {
 		expect(result.diagnostics.map(({ code }) => code)).toEqual([
 			"extension_descriptor_package_identity_mismatch",
 			"extension_descriptor_package_version_mismatch",
+		]);
+	});
+
+	test("reports descriptor failures without retaining failed package identities", async () => {
+		const repoRoot = "/repo";
+		const gateway = new FakeDeclaredExtensionDescriptorGateway([
+			localPackage(repoRoot, "extensions/bad-manifest", { manifestText: "{" }),
+			localPackage(repoRoot, "extensions/no-export", {
+				manifest: { name: "no-export", version: "1.0.0" },
+			}),
+			localPackage(repoRoot, "extensions/import-failure", { importError: "module exploded" }),
+			localPackage(repoRoot, "extensions/invalid", { descriptorExport: { entries: [] } }),
+		]);
+
+		const result = await loadDeclaredExtensionDescriptors({
+			repoRoot,
+			specs: [
+				"./extensions/missing",
+				"./extensions/bad-manifest",
+				"./extensions/no-export",
+				"./extensions/import-failure",
+				"./extensions/invalid",
+			],
+			gateway,
+		});
+
+		expect(result.descriptors).toEqual([]);
+		expect(result.diagnostics.map(({ spec, path }) => ({ spec, path }))).toEqual([
+			{
+				spec: "./extensions/missing",
+				path: "/repo/extensions/missing/package.json",
+			},
+			{
+				spec: "./extensions/bad-manifest",
+				path: "/repo/extensions/bad-manifest/package.json",
+			},
+			{
+				spec: "./extensions/no-export",
+				path: "/repo/extensions/no-export/package.json",
+			},
+			{
+				spec: "./extensions/import-failure",
+				path: "/repo/extensions/import-failure/ns-extension.ts",
+			},
+			{
+				spec: "./extensions/invalid",
+				path: "/repo/extensions/invalid/ns-extension.ts",
+			},
 		]);
 	});
 

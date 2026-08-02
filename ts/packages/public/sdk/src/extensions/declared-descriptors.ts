@@ -1,5 +1,8 @@
+import { isAbsolute } from "node:path";
+
 import { z } from "zod";
 
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { npmPackageRoot, parseExtensionSourceSpec } from "./acquisition.ts";
 import {
 	loadExtensionDescriptorFromPackageRoot,
@@ -49,11 +52,26 @@ export type DeclaredDescriptorPackageManifestResult = DescriptorPackageManifestR
 export type DeclaredDescriptorFileResult = DescriptorPackageFileResult;
 export type DeclaredDescriptorImportResult = DescriptorPackageImportResult;
 export type DeclaredExtensionDescriptorGateway = ExtensionDescriptorPackageGateway;
+export type DeclaredExtensionNpmPackageRootResolver = (packageName: string) => string | undefined;
 
 export interface LoadDeclaredExtensionDescriptorsOptions {
 	readonly repoRoot: string;
 	readonly specs: readonly string[];
 	readonly gateway?: DeclaredExtensionDescriptorGateway;
+	readonly resolveNpmPackageRoot?: DeclaredExtensionNpmPackageRootResolver;
+	readonly localPathPolicy?: "project-relative" | "absolute-only";
+}
+
+/** Return the normalized declaration identity used for same-source precedence and deduplication. */
+export function declaredExtensionSourceIdentity(
+	repoRoot: string,
+	spec: string,
+): string | undefined {
+	const parsed = parseExtensionSourceSpec(repoRoot, spec);
+	if (!parsed.ok) return undefined;
+	if (parsed.value.kind === "npm") return `npm:${parsed.value.packageName}`;
+	if (parsed.value.kind === "local") return `local:${parsed.value.path}`;
+	return `git:${parsed.value.raw}`;
 }
 
 /** Load only the already-installed extension descriptors named by `specs`, preserving declaration order. */
@@ -81,6 +99,10 @@ export async function loadDeclaredExtensionDescriptors(
 			repoRoot: options.repoRoot,
 			spec: declaration.spec,
 			parsed: declaration.parsed,
+			localPathPolicy: options.localPathPolicy ?? "project-relative",
+			resolveNpmPackageRoot:
+				options.resolveNpmPackageRoot ??
+				((packageName) => npmPackageRoot(options.repoRoot, packageName)),
 			...(options.gateway === undefined ? {} : { gateway: options.gateway }),
 		});
 		if (loaded.ok) descriptors.push(loaded.record);
@@ -102,14 +124,8 @@ function normalizeDeclaredExtensionSpecs(
 ): readonly NormalizedDeclaredExtensionSpec[] {
 	return specs.map((spec) => {
 		const parsed = parseExtensionSourceSpec(repoRoot, spec);
-		if (!parsed.ok) return { spec, parsed };
-		const identity =
-			parsed.value.kind === "npm"
-				? `npm:${parsed.value.packageName}`
-				: parsed.value.kind === "local"
-					? `local:${parsed.value.path}`
-					: `git:${parsed.value.raw}`;
-		return { spec, parsed, identity };
+		const identity = declaredExtensionSourceIdentity(repoRoot, spec);
+		return { spec, parsed, ...(identity === undefined ? {} : { identity }) };
 	});
 }
 
@@ -148,6 +164,8 @@ async function loadDeclaredExtensionDescriptor(options: {
 	repoRoot: string;
 	spec: string;
 	parsed: ReturnType<typeof parseExtensionSourceSpec>;
+	localPathPolicy: "project-relative" | "absolute-only";
+	resolveNpmPackageRoot: DeclaredExtensionNpmPackageRootResolver;
 	gateway?: DeclaredExtensionDescriptorGateway;
 }): Promise<LoadDeclaredExtensionDescriptorResult> {
 	const parsed = options.parsed;
@@ -161,11 +179,33 @@ async function loadDeclaredExtensionDescriptor(options: {
 			message: gitExtensionSourceUnsupportedMessage(options.spec),
 		});
 	}
+	if (
+		parsed.value.kind === "local" &&
+		options.localPathPolicy === "absolute-only" &&
+		!isAbsolute(options.spec)
+	) {
+		return failure({
+			spec: options.spec,
+			code: "extension_descriptor_relative_local_source_unsupported",
+			message: `User extension local path must be absolute: ${options.spec}.`,
+			path: options.spec,
+		});
+	}
 	const sourceKind = parsed.value.kind;
-	const packageRoot =
-		sourceKind === "local"
-			? parsed.value.path
-			: npmPackageRoot(options.repoRoot, parsed.value.packageName);
+	let packageRoot: string;
+	if (parsed.value.kind === "local") {
+		packageRoot = parsed.value.path;
+	} else {
+		const resolvedPackageRoot = options.resolveNpmPackageRoot(parsed.value.packageName);
+		if (resolvedPackageRoot === undefined) {
+			return failure({
+				spec: options.spec,
+				code: "extension_descriptor_npm_unavailable",
+				message: `Declared npm extension is not available: ${options.spec}.`,
+			});
+		}
+		packageRoot = resolvedPackageRoot;
+	}
 	const loaded = await loadExtensionDescriptorFromPackageRoot({
 		packageRoot,
 		...(options.gateway === undefined ? {} : { gateway: options.gateway }),
@@ -181,7 +221,7 @@ async function loadDeclaredExtensionDescriptor(options: {
 			spec: options.spec,
 			code: presentation.code,
 			message: presentation.message,
-			...(presentation.path === undefined ? {} : { path: presentation.path }),
+			...optionalEntry("path", presentation.path),
 		});
 	}
 	if (parsed.value.kind === "npm" && loaded.value.packageName !== parsed.value.packageName) {
