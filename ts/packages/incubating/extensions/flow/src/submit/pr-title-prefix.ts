@@ -1,6 +1,8 @@
+import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
+
 import { PR_TITLE_MAX_CHARS } from "./pr-inventory.ts";
 
-declare const normalizedPrTitlePrefixBrand: unique symbol;
+const normalizedPrTitlePrefixBrand: unique symbol = Symbol("NormalizedPrTitlePrefix");
 
 export interface NormalizedPrTitlePrefix {
 	readonly value: string;
@@ -23,7 +25,11 @@ export function validatePrTitlePrefix(value: string): PrTitlePrefixValidationRes
 			reason: `must be at most ${PR_TITLE_MAX_CHARS - 2} characters so the title has room for a separating space and at least one generated-title character`,
 		};
 	}
-	return { ok: true, prefix: { value: normalized } as NormalizedPrTitlePrefix };
+	const prefix = {
+		value: normalized,
+		[normalizedPrTitlePrefixBrand]: true,
+	} satisfies NormalizedPrTitlePrefix;
+	return { ok: true, prefix };
 }
 
 export function composePrefixedPrTitle(prefix: NormalizedPrTitlePrefix, candidate: string): string {
@@ -31,5 +37,11 @@ export function composePrefixedPrTitle(prefix: NormalizedPrTitlePrefix, candidat
 		throw new Error("Cannot compose a PR title prefix with an empty generated candidate title.");
 	}
 	const candidateMaxLength = PR_TITLE_MAX_CHARS - prefix.value.length - 1;
-	return `${prefix.value} ${candidate.slice(0, candidateMaxLength)}`;
+	const truncatedCandidate = truncateTextHead({
+		value: candidate,
+		maxChars: candidateMaxLength,
+		buildMarker: () => "",
+		shouldTrimHead: false,
+	});
+	return `${prefix.value} ${truncatedCandidate}`;
 }

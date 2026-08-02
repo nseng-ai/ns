@@ -129,9 +129,12 @@ export async function generateSubmitPrInventories(input: {
 			activeOperationDetail: formatBatchPosition({ noun: "PR", index, total: selected.length }),
 			...optionalEntry("progress", input.progress),
 			...optionalEntry("time", input.prInventory.time),
-			...(input.titlePrefixSelection?.prNumbers.has(item.number) === true
-				? { titlePrefix: input.titlePrefixSelection.prefix }
-				: {}),
+			...optionalEntry(
+				"titlePrefix",
+				input.titlePrefixSelection?.prNumbers.has(item.number) === true
+					? input.titlePrefixSelection.prefix
+					: undefined,
+			),
 		});
 		if (result.type === "failed") {
 			failures.push({
