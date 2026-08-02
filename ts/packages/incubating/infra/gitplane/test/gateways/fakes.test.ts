@@ -116,14 +116,14 @@ test.each([
 		invoke: (gateway: InMemoryArtifactGateway) => gateway.readCommitFacts({ commit: "missing" }),
 	},
 	{
-		operation: "readWorkingTreeSnapshot",
+		operation: "readWorkingTreeCandidate",
 		invoke: (gateway: InMemoryArtifactGateway) =>
-			gateway.readWorkingTreeSnapshot({ sourceId: "s", path: "missing" }),
+			gateway.readWorkingTreeCandidate({ path: "missing" }),
 	},
 	{
-		operation: "readCommitTreeSnapshot",
+		operation: "readCommitTreeCandidate",
 		invoke: (gateway: InMemoryArtifactGateway) =>
-			gateway.readCommitTreeSnapshot({ sourceId: "s", commit: "c", path: "missing" }),
+			gateway.readCommitTreeCandidate({ commit: "c", path: "missing" }),
 	},
 	{
 		operation: "diffCommits",
@@ -141,27 +141,27 @@ test.each([
 
 test("artifact discovery seeds distinguish roots and commit-root pairs", async () => {
 	const gateway = new InMemoryArtifactGateway({
-		workingBoundaries: [
-			{ artifactRoot: "one", boundaries: [{ path: "one/a" }] },
-			{ artifactRoot: "two", boundaries: [{ path: "two/b" }] },
+		workingInventories: [
+			{ artifactRoot: "one", entries: [{ path: "one/a", kind: "directory" }] },
+			{ artifactRoot: "two", entries: [{ path: "two/b", kind: "directory" }] },
 		],
-		commitBoundaries: [
-			{ commit: "c1", artifactRoot: "one", boundaries: [{ path: "one/old" }] },
-			{ commit: "c1", artifactRoot: "two", boundaries: [{ path: "two/old" }] },
-			{ commit: "c2", artifactRoot: "one", boundaries: [{ path: "one/new" }] },
+		commitInventories: [
+			{ commit: "c1", artifactRoot: "one", entries: [{ path: "one/old", kind: "directory" }] },
+			{ commit: "c1", artifactRoot: "two", entries: [{ path: "two/old", kind: "directory" }] },
+			{ commit: "c2", artifactRoot: "one", entries: [{ path: "one/new", kind: "directory" }] },
 		],
 	});
-	expect(await gateway.discoverWorkingTree({ artifactRoot: "two" })).toMatchObject({
+	expect(await gateway.inventoryWorkingTree({ artifactRoot: "two" })).toMatchObject({
 		ok: true,
-		value: [{ path: "two/b" }],
+		value: [{ path: "two/b", kind: "directory" }],
 	});
-	expect(await gateway.discoverCommitTree({ commit: "c1", artifactRoot: "two" })).toMatchObject({
+	expect(await gateway.inventoryCommitTree({ commit: "c1", artifactRoot: "two" })).toMatchObject({
 		ok: true,
-		value: [{ path: "two/old" }],
+		value: [{ path: "two/old", kind: "directory" }],
 	});
-	expect(await gateway.discoverCommitTree({ commit: "c2", artifactRoot: "one" })).toMatchObject({
+	expect(await gateway.inventoryCommitTree({ commit: "c2", artifactRoot: "one" })).toMatchObject({
 		ok: true,
-		value: [{ path: "one/new" }],
+		value: [{ path: "one/new", kind: "directory" }],
 	});
 });
 

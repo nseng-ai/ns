@@ -1,82 +1,88 @@
 import type {
-	ArtifactBoundary,
+	ArtifactCandidate,
 	ArtifactGateway,
-	ArtifactSnapshot,
 	CommitDiff,
 	CommitFacts,
 	CreateArtifactRequest,
 	CreateArtifactResult,
 	GatewayError,
 	GatewayResult,
+	TreeInventoryEntry,
 } from "../core/index.ts";
-
 type FailureKey = keyof ArtifactGateway;
 export interface InMemoryArtifactGatewayState {
 	readonly created?: readonly CreateArtifactRequest[];
 	readonly commits?: Readonly<Record<string, string>>;
 	readonly commitFacts?: readonly CommitFacts[];
 	readonly ancestry?: readonly { readonly ancestor: string; readonly descendant: string }[];
-	readonly workingBoundaries?: readonly {
+	readonly workingInventories?: readonly {
 		readonly artifactRoot: string;
-		readonly boundaries: readonly ArtifactBoundary[];
+		readonly entries: readonly TreeInventoryEntry[];
 	}[];
-	readonly commitBoundaries?: readonly {
+	readonly commitInventories?: readonly {
 		readonly commit: string;
 		readonly artifactRoot: string;
-		readonly boundaries: readonly ArtifactBoundary[];
+		readonly entries: readonly TreeInventoryEntry[];
 	}[];
-	readonly workingSnapshots?: readonly ArtifactSnapshot[];
-	readonly commitSnapshots?: Readonly<Record<string, readonly ArtifactSnapshot[]>>;
+	readonly workingCandidates?: readonly ArtifactCandidate[];
+	readonly commitCandidates?: Readonly<Record<string, readonly ArtifactCandidate[]>>;
 	readonly diffs?: readonly CommitDiff[];
 	readonly failures?: Partial<Record<FailureKey, GatewayError>>;
 }
-function copySnapshot(snapshot: ArtifactSnapshot): ArtifactSnapshot {
+function copyCandidate(candidate: ArtifactCandidate): ArtifactCandidate {
 	return {
-		...snapshot,
-		entries: snapshot.entries.map((entry) => ({ ...entry, bytes: new Uint8Array(entry.bytes) })),
-		envelope: structuredClone(snapshot.envelope),
-		classification: structuredClone(snapshot.classification),
+		path: candidate.path,
+		entries: candidate.entries.map((entry) =>
+			entry.kind === "regular-file"
+				? { ...entry, bytes: new Uint8Array(entry.bytes) }
+				: { ...entry },
+		),
 	};
 }
 function result<T>(failure: GatewayError | undefined, value: T): GatewayResult<T> {
 	return failure === undefined ? { ok: true, value } : { ok: false, error: { ...failure } };
 }
 export class InMemoryArtifactGateway implements ArtifactGateway {
-	private readonly created: CreateArtifactRequest[];
 	private readonly state: InMemoryArtifactGatewayState;
+	private readonly created: CreateArtifactRequest[];
+	private readonly operations: string[] = [];
 	constructor(state: InMemoryArtifactGatewayState = {}) {
 		this.state = structuredClone(state);
 		this.created = (state.created ?? []).map((item) => ({ ...item }));
 	}
-	createdArtifacts(): readonly CreateArtifactRequest[] {
+	createdArtifacts() {
 		return this.created.map((item) => ({ ...item }));
 	}
+	operationLog() {
+		return [...this.operations];
+	}
 	async createArtifact(request: CreateArtifactRequest): Promise<CreateArtifactResult> {
+		this.operations.push("createArtifact");
 		const failure = this.state.failures?.createArtifact;
-		if (failure !== undefined) return { type: "error", error: { ...failure } };
+		if (failure) return { type: "error", error: { ...failure } };
 		if (this.created.some((item) => item.directory === request.directory))
 			return { type: "target-exists" };
 		this.created.push({ ...request });
 		return { type: "created", directory: request.directory, artifactId: request.artifactId };
 	}
-	async resolveCommit(request: { readonly commitish: string }): Promise<GatewayResult<string>> {
+	async resolveCommit(request: { readonly commitish: string }) {
+		this.operations.push("resolveCommit");
 		return result(
 			this.state.failures?.resolveCommit,
 			this.state.commits?.[request.commitish] ?? request.commitish,
 		);
 	}
 	async readCommitFacts(request: { readonly commit: string }): Promise<GatewayResult<CommitFacts>> {
+		this.operations.push("readCommitFacts");
+		const found = this.state.commitFacts?.find((item) => item.commit === request.commit);
 		const failure = this.state.failures?.readCommitFacts;
 		if (failure !== undefined) return { ok: false, error: { ...failure } };
-		const found = this.state.commitFacts?.find((item) => item.commit === request.commit);
-		return found === undefined
-			? { ok: false, error: { code: "commit-missing", message: request.commit } }
-			: { ok: true, value: { ...found, parents: [...found.parents] } };
+		if (found === undefined)
+			return { ok: false, error: { code: "commit-missing", message: request.commit } };
+		return { ok: true, value: { ...found, parents: [...found.parents] } };
 	}
-	async isAncestor(request: {
-		readonly ancestor: string;
-		readonly descendant: string;
-	}): Promise<GatewayResult<boolean>> {
+	async isAncestor(request: { readonly ancestor: string; readonly descendant: string }) {
+		this.operations.push("isAncestor");
 		return result(
 			this.state.failures?.isAncestor,
 			this.state.ancestry?.some(
@@ -84,70 +90,66 @@ export class InMemoryArtifactGateway implements ArtifactGateway {
 			) ?? false,
 		);
 	}
-	async discoverWorkingTree(request: {
-		readonly artifactRoot: string;
-	}): Promise<GatewayResult<readonly ArtifactBoundary[]>> {
-		const found = this.state.workingBoundaries?.find(
+	async inventoryWorkingTree(request: { readonly artifactRoot: string }) {
+		this.operations.push("inventoryWorkingTree");
+		const found = this.state.workingInventories?.find(
 			(item) => item.artifactRoot === request.artifactRoot,
 		);
 		return result(
-			this.state.failures?.discoverWorkingTree,
-			(found?.boundaries ?? []).map((item) => ({ ...item })),
+			this.state.failures?.inventoryWorkingTree,
+			(found?.entries ?? []).map((item) => ({ ...item })),
 		);
 	}
-	async discoverCommitTree(request: {
-		readonly commit: string;
-		readonly artifactRoot: string;
-	}): Promise<GatewayResult<readonly ArtifactBoundary[]>> {
-		const found = this.state.commitBoundaries?.find(
+	async inventoryCommitTree(request: { readonly commit: string; readonly artifactRoot: string }) {
+		this.operations.push("inventoryCommitTree");
+		const found = this.state.commitInventories?.find(
 			(item) => item.commit === request.commit && item.artifactRoot === request.artifactRoot,
 		);
 		return result(
-			this.state.failures?.discoverCommitTree,
-			(found?.boundaries ?? []).map((item) => ({ ...item })),
+			this.state.failures?.inventoryCommitTree,
+			(found?.entries ?? []).map((item) => ({ ...item })),
 		);
 	}
-	async readWorkingTreeSnapshot(request: {
-		readonly sourceId: string;
+	async readWorkingTreeCandidate(request: {
 		readonly path: string;
-	}): Promise<GatewayResult<ArtifactSnapshot>> {
-		const failure = this.state.failures?.readWorkingTreeSnapshot;
+	}): Promise<GatewayResult<ArtifactCandidate>> {
+		this.operations.push(`readWorkingTreeCandidate:${request.path}`);
+		const found = this.state.workingCandidates?.find((item) => item.path === request.path);
+		const failure = this.state.failures?.readWorkingTreeCandidate;
 		if (failure !== undefined) return { ok: false, error: { ...failure } };
-		const found = this.state.workingSnapshots?.find(
-			(item) => item.sourceId === request.sourceId && item.path === request.path,
-		);
-		return found === undefined
-			? { ok: false, error: { code: "artifact-missing", message: request.path } }
-			: { ok: true, value: copySnapshot(found) };
+		if (found === undefined)
+			return { ok: false, error: { code: "artifact-missing", message: request.path } };
+		return { ok: true, value: copyCandidate(found) };
 	}
-	async readCommitTreeSnapshot(request: {
-		readonly sourceId: string;
+	async readCommitTreeCandidate(request: {
 		readonly commit: string;
 		readonly path: string;
-	}): Promise<GatewayResult<ArtifactSnapshot>> {
-		const failure = this.state.failures?.readCommitTreeSnapshot;
-		if (failure !== undefined) return { ok: false, error: { ...failure } };
-		const found = this.state.commitSnapshots?.[request.commit]?.find(
-			(item) => item.sourceId === request.sourceId && item.path === request.path,
+	}): Promise<GatewayResult<ArtifactCandidate>> {
+		this.operations.push("readCommitTreeCandidate");
+		const found = this.state.commitCandidates?.[request.commit]?.find(
+			(item) => item.path === request.path,
 		);
-		return found === undefined
-			? { ok: false, error: { code: "artifact-missing", message: request.path } }
-			: { ok: true, value: copySnapshot(found) };
+		const failure = this.state.failures?.readCommitTreeCandidate;
+		if (failure !== undefined) return { ok: false, error: { ...failure } };
+		if (found === undefined)
+			return { ok: false, error: { code: "artifact-missing", message: request.path } };
+		return { ok: true, value: copyCandidate(found) };
 	}
 	async diffCommits(request: {
 		readonly fromCommit: string;
 		readonly toCommit: string;
 	}): Promise<GatewayResult<CommitDiff>> {
-		const failure = this.state.failures?.diffCommits;
-		if (failure !== undefined) return { ok: false, error: { ...failure } };
+		this.operations.push("diffCommits");
 		const found = this.state.diffs?.find(
 			(item) => item.fromCommit === request.fromCommit && item.toCommit === request.toCommit,
 		);
-		return found === undefined
-			? {
-					ok: false,
-					error: { code: "diff-missing", message: `${request.fromCommit}..${request.toCommit}` },
-				}
-			: { ok: true, value: { ...found, changedPaths: [...found.changedPaths] } };
+		const failure = this.state.failures?.diffCommits;
+		if (failure !== undefined) return { ok: false, error: { ...failure } };
+		if (found === undefined)
+			return {
+				ok: false,
+				error: { code: "diff-missing", message: `${request.fromCommit}..${request.toCommit}` },
+			};
+		return { ok: true, value: { ...found, changedPaths: [...found.changedPaths] } };
 	}
 }

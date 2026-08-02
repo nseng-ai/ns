@@ -1,42 +1,35 @@
 import type { ArtifactClassification, ArtifactId } from "./artifact.ts";
 import type { MaterializationStoreGateway } from "./gateways.ts";
+import type { ContentDigest } from "./identity.ts";
 
-export type ArtifactEntryKind = "regular-file" | "symlink" | "submodule" | "directory" | "special";
-export interface ArtifactEntry {
+export type ArtifactEntryKind = "regular-file" | "directory" | "symlink" | "submodule" | "special";
+export type ArtifactEntry =
+	| { readonly path: string; readonly kind: "regular-file"; readonly bytes: Uint8Array }
+	| { readonly path: string; readonly kind: Exclude<ArtifactEntryKind, "regular-file"> };
+export interface ArtifactCandidate {
 	readonly path: string;
-	readonly kind: ArtifactEntryKind;
-	readonly bytes: Uint8Array;
-	readonly mode?: string;
+	readonly entries: readonly ArtifactEntry[];
 }
 export interface ArtifactSnapshot {
 	readonly sourceId: string;
 	readonly artifactId: ArtifactId;
 	readonly path: string;
-	readonly entries: readonly ArtifactEntry[];
+	readonly entries: readonly Extract<ArtifactEntry, { readonly kind: "regular-file" }>[];
 	readonly envelope: Readonly<Record<string, unknown>>;
 	readonly classification: ArtifactClassification;
 }
-export type ClassifiedArtifactSnapshot = ArtifactSnapshot & {
-	readonly classification: Extract<ArtifactClassification, { readonly state: "classified" }>;
-};
-export interface ValidationFinding {
-	readonly code: string;
-	readonly severity: "error" | "warning";
-	readonly summary: string;
-	readonly artifactPath?: string;
-	readonly artifactId?: ArtifactId;
-	readonly relativePath?: string;
-	readonly jsonPointer?: string;
+export interface ArtifactCorpusEntry {
+	readonly snapshot: ArtifactSnapshot;
+	readonly digest: ContentDigest;
 }
-export type ArtifactValidator = (
-	snapshot: ClassifiedArtifactSnapshot,
-) => readonly ValidationFinding[] | Promise<readonly ValidationFinding[]>;
+export interface ArtifactCorpus {
+	readonly artifacts: readonly ArtifactCorpusEntry[];
+}
 export interface ProjectionField {
 	readonly target: string;
 	readonly mode?: "json";
 }
 export interface ArtifactSchemaRegistration {
-	readonly validate: ArtifactValidator;
 	readonly fields: Readonly<Record<string, ProjectionField>>;
 	readonly clearFields?: readonly string[];
 }

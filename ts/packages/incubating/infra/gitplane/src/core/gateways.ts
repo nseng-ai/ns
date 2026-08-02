@@ -1,5 +1,6 @@
 import type { ArtifactClassification, ArtifactId } from "./artifact.ts";
-import type { ArtifactSnapshot, TargetMapping, ValidationFinding } from "./domain.ts";
+import type { ArtifactCandidate, ArtifactEntry, TargetMapping } from "./domain.ts";
+import type { Finding } from "./check/finding.ts";
 import type { ArtifactEventType, ContentDigest } from "./identity.ts";
 
 export interface GatewayError {
@@ -31,8 +32,9 @@ export interface CommitFacts {
 	readonly parents: readonly string[];
 	readonly isMerge: boolean;
 }
-export interface ArtifactBoundary {
+export interface TreeInventoryEntry {
 	readonly path: string;
+	readonly kind: ArtifactEntry["kind"];
 }
 export interface CommitDiff {
 	readonly fromCommit: string;
@@ -47,22 +49,20 @@ export interface ArtifactGateway {
 		readonly ancestor: string;
 		readonly descendant: string;
 	}): Promise<GatewayResult<boolean>>;
-	discoverWorkingTree(request: {
+	inventoryWorkingTree(request: {
 		readonly artifactRoot: string;
-	}): Promise<GatewayResult<readonly ArtifactBoundary[]>>;
-	discoverCommitTree(request: {
+	}): Promise<GatewayResult<readonly TreeInventoryEntry[]>>;
+	inventoryCommitTree(request: {
 		readonly commit: string;
 		readonly artifactRoot: string;
-	}): Promise<GatewayResult<readonly ArtifactBoundary[]>>;
-	readWorkingTreeSnapshot(request: {
-		readonly sourceId: string;
+	}): Promise<GatewayResult<readonly TreeInventoryEntry[]>>;
+	readWorkingTreeCandidate(request: {
 		readonly path: string;
-	}): Promise<GatewayResult<ArtifactSnapshot>>;
-	readCommitTreeSnapshot(request: {
-		readonly sourceId: string;
+	}): Promise<GatewayResult<ArtifactCandidate>>;
+	readCommitTreeCandidate(request: {
 		readonly commit: string;
 		readonly path: string;
-	}): Promise<GatewayResult<ArtifactSnapshot>>;
+	}): Promise<GatewayResult<ArtifactCandidate>>;
 	diffCommits(request: {
 		readonly fromCommit: string;
 		readonly toCommit: string;
@@ -143,7 +143,7 @@ export interface DoctorCheck {
 	readonly code: string;
 	readonly status: "pass" | "fail" | "unsupported";
 	readonly summary: string;
-	readonly findings?: readonly ValidationFinding[];
+	readonly findings?: readonly Finding[];
 }
 export type CursorCompareAndSetResult =
 	| { readonly type: "updated" }
