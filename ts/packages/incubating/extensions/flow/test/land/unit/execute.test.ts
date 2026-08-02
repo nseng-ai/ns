@@ -658,7 +658,7 @@ describe("upstack continuation under canonical execution", () => {
 		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
 	});
 
-	test("unavailable continuation completes landing while preserving the slot and original branch", async () => {
+	test("unavailable continuation fails before landing while preserving the slot and original branch", async () => {
 		const memory = createInMemoryLandContext(
 			linearState({ graphite: { branchChildren: { [BRANCH]: ["child-a", "child-b"] } } }),
 		);
@@ -670,18 +670,64 @@ describe("upstack continuation under canonical execution", () => {
 		});
 
 		expect(outcome).toMatchObject({
-			type: "completed",
+			type: "failed",
+			failedPhase: "upstack-continuation",
+			failure: { message: expect.stringContaining("multiple immediate upstack branches") },
 			report: {
 				continuation: {
 					type: "unavailable",
 					reason: "multiple-children",
 					candidates: ["child-a", "child-b"],
 				},
-				warnings: [{ level: "warning" }],
 				cleanup: { postLandingSlotCleanup: { type: "preserved" } },
 			},
 		});
+		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
 		expect(memory.git.checkoutBranchCalls).toEqual([]);
+		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
+		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
+	});
+
+	test("checkout failure fails after landing and reports the landed PR", async () => {
+		const child = "feature-child";
+		const memory = createInMemoryLandContext(
+			linearState({
+				git: {
+					localBranches: [
+						{ name: BRANCH, sha: SHA },
+						{ name: child, sha: OLD_SHA },
+					],
+					checkoutBranchFailures: {
+						[child]: {
+							type: "boundary",
+							phase: "upstack-continuation",
+							source: "git",
+							code: "checkout-failed",
+							message: "checkout failed",
+						},
+					},
+				},
+				graphite: { branchChildren: { [BRANCH]: [child] } },
+			}),
+		);
+
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: executeRequest({ continuation: { type: "upstack" } }),
+			host: approvedHost(),
+		});
+
+		expect(outcome).toMatchObject({
+			type: "failed",
+			failedPhase: "upstack-continuation",
+			failure: { message: expect.stringContaining("Landing completed") },
+			report: {
+				continuation: { type: "checkout-failed", branch: child },
+				landedChunks: [{ landed: [{ branch: BRANCH, number: 101 }] }],
+				cleanup: { postLandingSlotCleanup: { type: "preserved" } },
+			},
+		});
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
 	});

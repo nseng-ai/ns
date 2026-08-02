@@ -149,7 +149,10 @@ export async function executeLandingRequest(
 			stack: shape.stack,
 		});
 		draft.continuation = continuation.report;
-		draft.warnings = continuation.warnings;
+		if (continuation.type === "unavailable") {
+			draft.postLandingSlotCleanup = { type: "preserved" };
+			return failedResult(draft, "upstack-continuation", continuation.failure);
+		}
 	}
 
 	if (
@@ -289,11 +292,7 @@ export async function executeLandingRequest(
 	if (request.continuation.type === "upstack") {
 		draft.postLandingSlotCleanup = { type: "preserved" };
 		if (draft.continuation.type !== "candidate") {
-			draft.phases.push(
-				skipped("upstack-continuation", "no unambiguous continuation branch was available"),
-				skipped("post-landing-cleanup", "upstack continuation preserves the invoking slot"),
-			);
-			return completedResult(draft);
+			throw new Error("Successful upstack continuation preflight must produce a candidate branch.");
 		}
 		const continuation = await executeUpstackContinuation({
 			context,
@@ -303,11 +302,14 @@ export async function executeLandingRequest(
 			cleanup: request.cleanup,
 		});
 		draft.continuation = continuation.report;
-		draft.warnings = [...draft.warnings, ...continuation.warnings];
+		if (continuation.type === "failed") {
+			draft.phases.push(
+				skipped("post-landing-cleanup", "upstack continuation preserves the invoking slot"),
+			);
+			return failedResult(draft, "upstack-continuation", continuation.failure);
+		}
 		draft.phases.push(
-			continuation.report.type === "continued"
-				? completed("upstack-continuation")
-				: skipped("upstack-continuation", "continuation did not complete; invoking slot preserved"),
+			completed("upstack-continuation"),
 			skipped("post-landing-cleanup", "upstack continuation preserves the invoking slot"),
 		);
 		return completedResult(draft);

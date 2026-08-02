@@ -57,7 +57,7 @@ describe("upstack continuation snapshot", () => {
 		});
 
 		expect(result.report).toEqual(report);
-		expect(result.warnings).toHaveLength(report.type === "candidate" ? 0 : 1);
+		expect(result.type).toBe(report.type === "candidate" ? "available" : "unavailable");
 		expect(memory.graphite.branchChildrenCalls).toEqual([
 			{ repoRoot: ROOT, metadataDbPath: METADATA_DB_PATH, branch: ORIGINAL },
 		]);
@@ -73,8 +73,9 @@ describe("upstack continuation execution", () => {
 		const result = await execute(memory.context);
 
 		expect(result).toMatchObject({
+			type: "failed",
 			report: { type: "checkout-failed", branch: CHILD },
-			warnings: [{ message: expect.stringContaining("continuation boundary failed") }],
+			failure: { message: expect.stringContaining("continuation boundary failed") },
 		});
 		expect(memory.git.currentBranchCalls).toEqual([]);
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
@@ -86,8 +87,9 @@ describe("upstack continuation execution", () => {
 		const result = await execute(memory.context);
 
 		expect(result).toMatchObject({
+			type: "failed",
 			report: { type: "verification-failed", branch: CHILD, actualBranch: ORIGINAL },
-			warnings: [{ message: expect.stringContaining("could not be verified") }],
+			failure: { message: expect.stringContaining("could not be verified") },
 		});
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 	});
@@ -100,6 +102,7 @@ describe("upstack continuation execution", () => {
 		const result = await execute(memory.context);
 
 		expect(result).toMatchObject({
+			type: "failed",
 			report: { type: "verification-failed", branch: CHILD, actualBranch: "unexpected" },
 		});
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
@@ -111,8 +114,8 @@ describe("upstack continuation execution", () => {
 		const result = await execute(memory.context, "preserve");
 
 		expect(result).toEqual({
+			type: "completed",
 			report: { type: "continued", branch: CHILD, originalBranchDeleted: false },
-			warnings: [],
 		});
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 	});
@@ -123,8 +126,8 @@ describe("upstack continuation execution", () => {
 		const result = await execute(memory.context);
 
 		expect(result).toEqual({
+			type: "completed",
 			report: { type: "continued", branch: CHILD, originalBranchDeleted: true },
-			warnings: [],
 		});
 		expect(memory.callEvents.map((event) => event.operation)).toEqual([
 			"git.checkoutBranch",
@@ -156,8 +159,9 @@ describe("upstack continuation execution", () => {
 		const result = await execute(memory.context);
 
 		expect(result).toMatchObject({
+			type: "failed",
 			report: { type: "cleanup-failed", branch: CHILD },
-			warnings: [{ commandDisplay: `gt delete ${ORIGINAL}` }],
+			failure: { displayCommand: `gt delete ${ORIGINAL}` },
 		});
 	});
 });

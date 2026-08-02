@@ -33,8 +33,8 @@ The `executeLanding` entry point on the **Land subpackage API** that owns the fu
 *Avoid*: phase synthesis from plan shape, gateway-level `LandResult` widening, second execution report model, Flow-owned cleanup ordering
 
 **Upstack Continuation**:
-The explicit `land --up` continuation policy that snapshots the invoking branch's immediate Graphite children before mutation, always preserves the invoking managed slot, and after successful merge attempts to check out the sole child in the same worktree. No child, multiple children, lookup failure, checkout/verification failure, or original-branch cleanup failure is a warning outcome rather than a merge failure; `--preserve` additionally keeps the landed local branch, while `--force` never overrides slot preservation. Dry runs report availability without checkout or cleanup.
-*Avoid*: descendant merge, inferred first child, cross-worktree navigation, cleanup despite `--up`, failed merge after continuation fallback
+The explicit `land --up` continuation policy that snapshots the invoking branch's immediate Graphite children before mutation, always preserves the invoking managed slot, and after successful merge attempts to check out the sole child in the same worktree. No child, multiple children, or lookup failure stops before merge; checkout, verification, or original-branch cleanup failure returns a failed command outcome that preserves recoverable state and reports already-landed PRs. `--preserve` additionally keeps the landed local branch, while `--force` never overrides slot preservation. Dry runs report availability without checkout or cleanup.
+*Avoid*: descendant merge, inferred first child, cross-worktree navigation, cleanup despite `--up`, hiding partial landing behind a successful command outcome
 
 **Land Domain Core**:
 The deterministic land logic in the `@nseng-ai/flow/land` subpackage that consumes injected Git, Graphite, GitHub PR, and worktree-slot gateways to produce land-domain results.
