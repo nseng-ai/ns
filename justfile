@@ -4,7 +4,7 @@ ts_pnpm := 'corepack pnpm@11.8.0'
 
 default: check
 
-check: _ts-workspace-ready (_run-parallel "_check-core" "_ts-test-typescript-style-guard")
+check: _ts-workspace-ready _check-core
 
 # Run two recipes concurrently and fail if either recipe fails.
 _run-parallel left right:
@@ -26,7 +26,9 @@ _check-core: dprint-check _ts-deps-check _ts-format-check _ts-lint _ts-check _ts
 # Local equivalent of CI plus local metadata checks.
 ci: _ts-workspace-ready (_run-parallel "check" "_ci-additional")
 
-_ci-additional: (_run-parallel "ts-test-integration" "skill-exposure-check")
+_ci-additional: (_run-parallel "_ci-typescript-specialized" "skill-exposure-check")
+
+_ci-typescript-specialized: (_run-parallel "ts-test-integration" "ts-test-typescript-style-guard")
 
 dprint-check:
     dprint check

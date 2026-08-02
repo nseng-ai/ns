@@ -43,9 +43,15 @@ non-draft PR jobs. The isolated suite belongs only in its separate CI job; do no
 shared-cache default or integration jobs. Do not hide a specialized lane behind environment variables
 or make the default test command silently run it.
 
-**Warning:** the default `just` validation entrypoint deliberately omits both integration and isolated
-tests. `just` does not prove the isolated lane passed; run `just ts-test-isolated` explicitly when a
-change touches isolated tests, their subjects, lane configuration, or the shared-test-state guards.
+**Warning:** the default `just` / `just check` validation path deliberately omits the integration,
+isolated, and TypeScript style guard lanes. Run the relevant explicit command when a change touches a
+specialized lane, its subjects, or its configuration. In particular, a passing default validation does
+not prove the isolated lane or architectural style guard passed.
+
+`just ci` is the broader opt-in local aggregate. It runs the default/core checks together with the
+integration lane, TypeScript style guard, and repository metadata/policy checks. It still omits the
+isolated lane; run `just ts-test-isolated` explicitly when a change touches isolated tests, their
+subjects, lane configuration, or the shared-test-state guards.
 
 ## Integration versus isolation
 

@@ -11,7 +11,7 @@ Keep default test suites fast, deterministic, and safe under shared module cache
 - Keep application behavior in default tests through narrow injected seams, gateway fakes, command/process/sqlite adapters, catalog inspection, and Foundation's manual clock/timer helpers.
 - Keep representative real-adapter and runtime smoke coverage in `test/integration/` directly under a package's test root so the shared Vitest globs discover it.
 - Keep tests whose subject irreducibly requires module-cache or process-global mutation in `test/isolated/`, after preferring injection, explicit inputs, auto-restored stubs, manual schedulers, and owned lifecycle seams.
-- Preserve the explicit TypeScript lanes: default, integration, isolated, and TypeScript style guard. Reverify discovery after package moves or test-tree restructures.
+- Preserve the explicit TypeScript lanes: default, integration, isolated, and TypeScript style guard. Default `just` / `just check` runs core validation without the specialized lanes; the style guard remains available explicitly, through opt-in `just ci`, and in its separate CI job. Reverify discovery after package moves or test-tree restructures.
 - Record durable performance evidence only when measured: command, before/after timing, repetitions/noise, whether cost disappeared or shifted lanes, and retained coverage.
 - Feed reusable lessons back into this Objective, `ts/TESTING.md`, or narrowly enforced conventions.
 
@@ -40,7 +40,7 @@ Useful evidence includes candidate timing, boundary classification, before/after
 
 A runner may take one bounded slice when evidence and coverage retention are clear. It may add a narrow testing seam, fake-driven tests, representative integration smoke coverage, isolated containment for irreducibly ambient contracts, package-local documentation, and a material Objective update.
 
-Ask first before changing global test commands, CI topology, repository-wide conventions, public APIs, broad shared abstractions, deleting coverage, materially weakening assertions, or reclassifying the only user-visible behavior test. Leave a candidate plan rather than code when the seam or layer is ambiguous.
+Ask first before changing global test commands, CI topology, repository-wide conventions, public APIs, broad shared abstractions, deleting coverage, materially weakening assertions, or reclassifying the only user-visible behavior test. The current command boundary is deliberate: default `just` / `just check` is core-only, `just ci` additionally runs integration and the TypeScript style guard plus metadata/policy checks, and isolated remains explicit. Leave a candidate plan rather than code when the seam or layer is ambiguous.
 
 ## Implementation Guidance
 
