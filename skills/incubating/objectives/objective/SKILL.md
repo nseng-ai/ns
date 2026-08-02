@@ -46,7 +46,7 @@ Use these step skills for explicit workflow requests:
 
 - For standing / ongoing / no-natural-finish-line Objectives, read `references/standing-objectives.md`.
 - For execution-friendly Objective policy, `## Definition of Progress`, `## Runner Policy`, row-level `Policy:`, or Objective runner concepts, read `references/execution-policy.md`.
-- For `## Prompt Guidance`, row-level `Prompt:` prose, or shaping the prompts produced for an Objective (the `objective-next` prompt factory), read `references/prompt-guidance.md`.
+- For `## Metaprompt`, row-level `Metaprompt:` prose, or shaping the prompts produced for an Objective (the `objective-next` metaprompt), read `references/metaprompt.md`.
 - For Objective patterns — umbrella (formerly synthesis), subobjective (synonym: child), autoobjective, orienting (formerly cross-cutting), ideation, steelthread, or "which shape should this Objective take" — read `references/objective-patterns.md`.
 
 ## Files
@@ -59,7 +59,7 @@ Durable purpose, boundaries, criteria, assumptions, risks, open questions, optio
 
 Optional execution policy sections may make an Objective execution-friendly for future `objective-next` proactive execution offers after preview and confirmation. They are durable prose policy, not schema, lifecycle state, or a hidden task queue. Objectives may omit them and remain planning/recommendation-first; a user can still explicitly continue from a concrete current-session `objective-next` recommendation.
 
-Separately, any Objective — regardless of pattern or execution policy — may carry an optional `## Prompt Guidance` section shaping how prompts produced for it are serialized; it grants no execution permission and never selects the next step (see `references/prompt-guidance.md`).
+Separately, any Objective — regardless of pattern or execution policy — may carry an optional `## Metaprompt` section shaping how prompts produced for it are serialized; it grants no execution permission and never selects the next step (see `references/metaprompt.md`).
 
 ### Record Frontmatter
 
