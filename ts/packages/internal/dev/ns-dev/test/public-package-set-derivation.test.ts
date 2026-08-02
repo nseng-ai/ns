@@ -96,7 +96,7 @@ describe("release inventory derivation", () => {
 				entry("public/infra/clinkr", { name: "@nseng-ai/clinkr" }),
 				entry("public/tools/embargoed", { name: "@nseng-ai/embargoed", private: true }),
 				entry("incubating/hosts/pi/runtime/pi-runtime", { name: "@nseng-ai/pi-runtime" }),
-				entry("internal/hosts/pi/tools/pi-editor-mods", { name: "@internal/pi-editor-mods" }),
+				entry("internal/hosts/pi/tools/pi-tools", { name: "@internal/pi-tools" }),
 			]),
 		).toEqual(["@nseng-ai/clinkr"]);
 	});

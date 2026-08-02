@@ -1053,8 +1053,8 @@ describe("TypeScript style guard package disposition topology rules", () => {
 			name: "a public-scope package under internal is rejected",
 			packages: [
 				dispositionPackage({
-					name: "@nseng-ai/pi-editor-mods",
-					packageDir: "ts/packages/internal/hosts/pi/tools/pi-editor-mods",
+					name: "@nseng-ai/pi-tools",
+					packageDir: "ts/packages/internal/hosts/pi/tools/pi-tools",
 					privateValue: true,
 				}),
 			],
