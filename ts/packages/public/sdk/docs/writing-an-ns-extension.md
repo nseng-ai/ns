@@ -363,10 +363,15 @@ cleanup, and preservation of local sources and consumer data.
 > it does not sandbox extension code. Descriptor validation imports and executes the descriptor
 > module, and selected commands execute extension code. Install only extensions you trust.
 
-## Installing command availability at user scope
+## Choose extension scope
 
-Use `--scope user` when the extension's commands should be available across repositories without
-activating its repository contributions:
+Use **user-scoped command availability** when the extension's commands should be available across
+repositories without activating its repository contributions. Use **project-scoped activation** when
+a repository also needs the extension's instructions, points, consumer directories, bundled
+artifacts, harness artifacts, or settings. These phrases describe scope effects, not separate
+extension types or lifecycle states.
+
+Project scope is the default. Use `--scope user` for command availability only:
 
 ```bash
 ns extension install /absolute/path/to/my-extension --scope user
@@ -395,9 +400,10 @@ reports the retained path, and rerunning uninstall retries cleanup.
 
 User scope is command-only. It does not require Git or supported harnesses and never activates
 instructions, points, consumer directories, bundled artifacts, harness artifacts, or extension
-settings. Built-in host commands are reserved. Project descriptors have precedence over user
-descriptors, and a project package replaces a user package with the same canonical identity as a
-whole package rather than mixing versions.
+settings. A project may declare the same package for project-scoped activation; that declaration
+replaces the user declaration as a whole package rather than mixing versions. For different packages
+that contribute the same command path, project declarations take precedence over user declarations.
+Collisions within one scope are errors, and built-in host commands remain reserved at both scopes.
 
 `just install-ns` in the ns source checkout remains only an executable-shim installation; it does
 not install extensions or edit the user config.

@@ -63,7 +63,7 @@ export default defineExtension({
 ## Extension descriptors
 
 An extension package exposes its descriptor module through `package.json` `exports["./ns-extension"]`.
-The descriptor module default-exports `defineExtension({ ... })`. Production discovery loads extension packages named in the single XDG-resolved user `ns.toml` and repo-root `ns.toml` `extensions`; legacy extension roots and package JSON contribution shims are not discovery inputs. User descriptors provide command-only availability, while project descriptors may also participate in repository activation. Built-in host paths are reserved, and catalog precedence is preinstalled < user < project below those built-ins.
+The descriptor module default-exports `defineExtension({ ... })`. Production discovery loads extension packages named in the single XDG-resolved user `ns.toml` and repo-root `ns.toml` `extensions`; legacy extension roots and package JSON contribution shims are not discovery inputs. User descriptors provide **user-scoped command availability**, while project descriptors may also participate in **project-scoped activation**. These labels describe scope effects, not separate extension types or lifecycle states. Built-in host paths are reserved, and catalog precedence is preinstalled < user < project below those built-ins.
 
 Descriptor-level contributions include `entries` for commands, `points` for point definitions,
 `activation` for repository activation metadata, and `bundledArtifacts` for harness artifacts.

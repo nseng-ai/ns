@@ -28,12 +28,20 @@ Injected metadata for first-party extension commands shipped with an installed C
 The optional lowercase bare letter right-aligned on a top-level `Extensions:` help row: `p` for an installed package contribution (including source-development workspace packages and Project descriptor extensions declared with an `npm:` source), and `l` for one declared by a local path. Distribution-supplied Preinstalled descriptor catalog contributions have no marker. A marked namespace reports effective runtime acquisition origin after Catalog precedence; a namespace with winning package and local contributions displays `l`. It is distinct from internal catalog source levels, declaration source kind, and package Release disposition.
 *Avoid*: package disposition marker, complete provenance inventory, overridden-origin marker, built-in marker, help legend.
 
+**User-scoped command availability**:
+The effect of declaring an extension at user scope: its commands are available across local repositories, but none of its repository contributions are activated. This is a scope effect, not an extension type or lifecycle state.
+*Avoid*: global extension, user activation, implicit project configuration, installed state.
+
+**Project-scoped activation**:
+The effect of declaring an extension at project scope: its commands are available in that repository and its declared repository contributions are reconciled for the project's Supported harnesses. This is a scope effect, not an extension type or lifecycle state.
+*Avoid*: activated extension type, universal command availability, user configuration, installed state.
+
 **User descriptor extension**:
-A command-only extension package listed in the single XDG-resolved user `ns.toml` and exposing `exports["./ns-extension"]`. User descriptors make commands available across repositories from local packages used in place or npm packages in user-managed storage, without activating instructions, points, consumer directories, bundled artifacts, harness artifacts, or extension settings in those repositories.
+A command-only extension package listed in the single XDG-resolved user `ns.toml` and exposing `exports["./ns-extension"]`. User descriptors provide User-scoped command availability from local packages used in place or npm packages in user-managed storage.
 *Avoid*: project activation, global project configuration, repository mutation, implicit npm acquisition during discovery.
 
 **Project descriptor extension**:
-A repository-declared extension package listed in repo-root `ns.toml` and exposing `exports["./ns-extension"]`. Project descriptor entries can group commands, replace a User descriptor declaration with the same normalized source identity, and override lower-precedence extension command paths without making those commands universal built-ins.
+A repository-declared extension package listed in repo-root `ns.toml` and exposing `exports["./ns-extension"]`. Project descriptors provide Project-scoped activation; their entries can group commands, replace a User descriptor declaration with the same normalized source identity, and override lower-precedence extension command paths without making those commands universal built-ins.
 *Avoid*: default SDK command, compatibility alias, bundled first-party extension, package implementation module, extension-root scan.
 
 **Extension acquisition**:

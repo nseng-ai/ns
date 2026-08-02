@@ -92,12 +92,17 @@ ns objective list
 ns objective show <slug>
 ```
 
-## Install commands for your user account
+## Choose extension scope
+
+Use **user-scoped command availability** when you want an extension's commands available
+across local repositories. Use **project-scoped activation** when a repository also needs
+the extension's instructions, points, consumer directories, bundled artifacts, harness
+artifacts, or settings. These phrases describe the effect of the selected scope, not
+separate extension types or lifecycle states.
 
 Project scope is the default for `ns extension install|list|update|uninstall`: it records
-an extension in the repository and reconciles that extension's activation metadata. Use
-`--scope user` (`-s`) when you want only the extension's commands available across local
-repositories:
+the extension in the repository and reconciles its declared activation metadata. Use
+`--scope user` (`-s`) for command availability only:
 
 ```bash
 ns extension install npm:@acme/my-extension --scope user
@@ -131,10 +136,13 @@ removal succeeds but cleanup fails, command availability is already removed and 
 uninstall retries cleanup.
 
 User scope never activates instructions, points, consumer directories, bundled or harness
-artifacts, or extension settings in a repository. Project declarations have higher command
-precedence than user declarations; built-in host commands remain reserved. Installing from
-this repository with `just install-ns` still installs only the source-backed ns executable
-shim and never edits user extension configuration.
+artifacts, or extension settings in a repository. A project may declare the same package
+for project-scoped activation; that project declaration replaces the user declaration as a
+whole package rather than mixing versions. For different packages that contribute the same
+command path, project declarations take precedence over user declarations. Collisions
+within one scope are errors, and built-in host commands remain reserved at both scopes.
+Installing from this repository with `just install-ns` still installs only the
+source-backed ns executable shim and never edits user extension configuration.
 
 > **Trust warning:** `--ignore-scripts` disables npm lifecycle scripts, but descriptors and
 > selected commands are executable extension code. Install only extensions you trust.
