@@ -290,7 +290,10 @@ function isSharedTestSingletonStateNode(node: ts.Node, path: string): boolean {
 
 function isSharedTestStateGuardPath(path: string): boolean {
 	return (
-		path.startsWith("ts/packages/") && path.includes("/test/") && !path.includes("/test/isolated/")
+		path.startsWith("ts/packages/") &&
+		path.includes("/test/") &&
+		!path.includes("/test/isolated/") &&
+		!path.includes("/test/sanity/")
 	);
 }
 

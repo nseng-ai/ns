@@ -418,6 +418,12 @@ describe("TypeScript style guard source rules", () => {
 			expectedRules: [],
 		},
 		{
+			name: "sanity tests allow guarded worker-global operations including module mocking",
+			code: 'vi.mock("./subject.ts"); vi.doMock("./subject.ts"); vi.unmock("./subject.ts"); vi.doUnmock("./subject.ts"); vi.resetModules(); vi.useFakeTimers(); vi.useRealTimers(); process.env.FOO = "bar"; delete process.env.FOO; process.chdir("/tmp"); process.on("exit", handler); process.removeAllListeners("exit"); loadGraphiteMetadataStatusInWorker(input); shutdownGraphiteMetadataWorker();',
+			path: "ts/packages/public/infra/example/test/sanity/global-state.test.ts",
+			expectedRules: [],
+		},
+		{
 			name: "shared tests allow Vitest-managed spies and stubs",
 			code: 'vi.spyOn(console, "error"); vi.stubEnv("FOO", "bar"); vi.stubGlobal("name", value);',
 			path: "ts/packages/public/infra/example/test/unit/managed-state.test.ts",

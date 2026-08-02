@@ -4,7 +4,7 @@ ts_pnpm := 'corepack pnpm@11.8.0'
 
 default: check
 
-check: _ts-workspace-ready _check-core
+check: _ts-workspace-ready (_run-parallel "_check-core" "ts-test-sanity")
 
 # Run two recipes concurrently and fail if either recipe fails.
 _run-parallel left right:
@@ -105,6 +105,11 @@ ts-test-isolated: _ts-workspace-ready _ts-test-isolated
 
 _ts-test-isolated:
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run test:isolated
+
+ts-test-sanity: _ts-workspace-ready _ts-test-sanity
+
+_ts-test-sanity:
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run test:sanity
 
 ts-test-typescript-style-guard: _ts-workspace-ready _ts-test-typescript-style-guard
 

@@ -25,6 +25,7 @@ catalog:
   '@pierre/diffs': ^1.2.10
   '@types/node': ^24.0.0
   '@typescript/native': npm:typescript@^7.0.2
+  '@vitest/coverage-v8': 4.1.9
   '@withgraphite/graphite-cli': ^1.8.6
   '@xterm/headless': ^6.0.0
   ansis: ^4.3.1

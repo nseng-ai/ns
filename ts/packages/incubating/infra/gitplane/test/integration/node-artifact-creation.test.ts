@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, test } from "vitest";
 import { parseArtifactId, serializeArtifactMarker } from "@nseng-ai/gitplane";
-import { NodeArtifactGateway } from "@nseng-ai/gitplane/cli";
+import { RealArtifactGateway } from "@nseng-ai/gitplane/cli";
 const roots: string[] = [];
 afterEach(async () => {
 	await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
@@ -20,7 +20,7 @@ const marker = serializeArtifactMarker({ artifactId, classification: { state: "g
 test("creates exactly the marker and preserves conflicts", async () => {
 	const parent = await root();
 	const target = path.join(parent, "artifact");
-	const gateway = new NodeArtifactGateway();
+	const gateway = new RealArtifactGateway({ cwd: parent });
 	expect(await gateway.createArtifact({ directory: target, artifactId, marker })).toMatchObject({
 		type: "created",
 	});
@@ -34,16 +34,19 @@ test("reports missing parents and rolls back marker failure", async () => {
 	const parent = await root();
 	const missing = path.join(parent, "missing", "artifact");
 	expect(
-		await new NodeArtifactGateway().createArtifact({
+		await new RealArtifactGateway({ cwd: parent }).createArtifact({
 			directory: missing,
 			artifactId,
 			marker,
 		}),
 	).toEqual({ type: "parent-missing" });
 	const target = path.join(parent, "rollback");
-	const gateway = new NodeArtifactGateway({
-		beforePublish: async () => {
-			throw new Error("injected");
+	const gateway = new RealArtifactGateway({
+		cwd: parent,
+		hooks: {
+			beforePublish: async () => {
+				throw new Error("injected");
+			},
 		},
 	});
 	expect(await gateway.createArtifact({ directory: target, artifactId, marker })).toMatchObject({
@@ -55,10 +58,13 @@ test("reports missing parents and rolls back marker failure", async () => {
 test("rollback preserves content concurrently added to the owned directory", async () => {
 	const parent = await root();
 	const target = path.join(parent, "artifact");
-	const gateway = new NodeArtifactGateway({
-		beforePublish: async () => {
-			await writeFile(path.join(target, "concurrent.txt"), "keep me");
-			throw new Error("injected");
+	const gateway = new RealArtifactGateway({
+		cwd: parent,
+		hooks: {
+			beforePublish: async () => {
+				await writeFile(path.join(target, "concurrent.txt"), "keep me");
+				throw new Error("injected");
+			},
 		},
 	});
 	expect(await gateway.createArtifact({ directory: target, artifactId, marker })).toMatchObject({
@@ -72,11 +78,14 @@ test("publication does not overwrite a concurrently created marker", async () =>
 	const parent = await root();
 	const target = path.join(parent, "artifact");
 	const concurrentMarker = '{"gpId":"concurrent"}\n';
-	const gateway = new NodeArtifactGateway({
-		beforePublish: async () => {
-			await writeFile(path.join(target, "gitplane-artifact.json"), concurrentMarker, {
-				flag: "wx",
-			});
+	const gateway = new RealArtifactGateway({
+		cwd: parent,
+		hooks: {
+			beforePublish: async () => {
+				await writeFile(path.join(target, "gitplane-artifact.json"), concurrentMarker, {
+					flag: "wx",
+				});
+			},
 		},
 	});
 	expect(await gateway.createArtifact({ directory: target, artifactId, marker })).toMatchObject({
