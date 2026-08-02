@@ -347,7 +347,7 @@ export default { name: "hello", summary: "User hello.", description: "User hello
 		);
 		writeFileSyncWithParents(
 			join(homeDir, ".config", "ns", "ns.toml"),
-			'extensions = ["npm:@example/user-tools@1.0.0"]\n',
+			'supported_harnesses = ["pi"]\nextensions = ["npm:@example/user-tools@1.0.0"]\n',
 		);
 		expect(readdirSync(cwd)).toEqual([]);
 
@@ -356,7 +356,7 @@ export default { name: "hello", summary: "User hello.", description: "User hello
 			state: { exec: [] },
 			cwd,
 			homeDir,
-			env: { XDG_DATA_HOME: xdgDataHome },
+			env: { NS_HARNESS: "pi", XDG_DATA_HOME: xdgDataHome },
 		});
 
 		expect(await run.exit).toBe(0);

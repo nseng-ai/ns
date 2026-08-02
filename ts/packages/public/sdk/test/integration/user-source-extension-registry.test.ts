@@ -153,11 +153,15 @@ describe("user source extension registry", () => {
 			const packageRoot = fileURLToPath(
 				new URL(`../../../../incubating/extensions/${directoryName}/`, import.meta.url),
 			);
-			writeUserConfig(workspace, `extensions = [${JSON.stringify(packageRoot)}]\n`);
+			writeUserConfig(
+				workspace,
+				`supported_harnesses = ["pi"]\nextensions = [${JSON.stringify(packageRoot)}]\n`,
+			);
 
 			const catalog = await loadNsCommandCatalog({
 				cwd: workspace.cwd,
 				homeDir: workspace.homeDir,
+				env: { NS_HARNESS: "pi" },
 			});
 			const userCandidates = [...catalog.candidates].filter(
 				([_key, candidate]) => candidate.source.level === "user",

@@ -36,6 +36,11 @@ import {
 } from "../helpers/extension-workspace.ts";
 
 const builtInCandidateKeys = ["extension/point", "extension/points"];
+
+// Enabled-gate fixtures for user-scope tests (ADR 0055): the Active harness
+// arrives explicitly via NS_HARNESS and the user config must opt in.
+const piHarnessEnv = { NS_HARNESS: "pi" } as const;
+const piSupportedHarnessesLine = 'supported_harnesses = ["pi"]\n';
 const builtInCommandInfos = [
 	{
 		segments: ["extension", "point"],
@@ -684,6 +689,196 @@ export default defineExtension({
 		expect([...loaded.candidates.keys()]).toEqual(builtInCandidateKeys);
 	});
 
+	test("user contributions hide fail-closed without an enabling Active harness", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const userRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "gated",
+			packageName: "@example/gated",
+			descriptorSource: descriptorSource({
+				group: "gated",
+				packageLabel: "gated",
+				commandNames: ["scan"],
+			}),
+		});
+		writeUserConfig(
+			workspace,
+			`${piSupportedHarnessesLine}extensions = [${JSON.stringify(userRoot)}]\n`,
+		);
+
+		for (const env of [{}, { NS_HARNESS: "" }, { NS_HARNESS: "   " }, { NS_HARNESS: "codex" }]) {
+			const loaded = await loadNsCommandCatalog({
+				cwd: workspace.cwd,
+				homeDir: workspace.homeDir,
+				env,
+			});
+
+			expect(loaded.candidates.has("gated/scan")).toBe(false);
+			expect([...loaded.candidates.keys()]).toEqual(builtInCandidateKeys);
+			expect(loaded.diagnostics).toEqual([]);
+		}
+	});
+
+	test("an unknown NS_HARNESS disables the user layer with one actionable diagnostic", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const userRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "gated",
+			packageName: "@example/gated",
+			descriptorSource: descriptorSource({
+				group: "gated",
+				packageLabel: "gated",
+				commandNames: ["scan"],
+			}),
+		});
+		writeUserConfig(
+			workspace,
+			`${piSupportedHarnessesLine}extensions = [${JSON.stringify(userRoot)}]\n`,
+		);
+
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			env: { NS_HARNESS: "browser" },
+		});
+
+		expect(loaded.candidates.has("gated/scan")).toBe(false);
+		expect(loaded.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "user_extension_layer_unknown_harness",
+				sourceLevel: "user",
+				message: expect.stringContaining('NS_HARNESS="browser"'),
+			}),
+		]);
+		const classified = classifyExtensionDiagnosticsForInvocation({
+			diagnostics: loaded.diagnostics,
+			requestedCommandName: "other",
+			selectedCandidate: undefined,
+		});
+		expect(classified.fatal).toEqual([]);
+		expect(classified.warnings).toHaveLength(1);
+	});
+
+	test("a user config without supported_harnesses keeps declarations dormant", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const userRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "gated",
+			packageName: "@example/gated",
+			descriptorSource: descriptorSource({
+				group: "gated",
+				packageLabel: "gated",
+				commandNames: ["scan"],
+			}),
+		});
+		writeUserConfig(workspace, `extensions = [${JSON.stringify(userRoot)}]\n`);
+
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			env: { ...piHarnessEnv },
+		});
+
+		expect(loaded.candidates.has("gated/scan")).toBe(false);
+		expect([...loaded.candidates.keys()]).toEqual(builtInCandidateKeys);
+		expect(loaded.diagnostics).toEqual([]);
+	});
+
+	test("invalid supported_harnesses disables the layer with a source-labelled diagnostic", async () => {
+		const cases = [
+			'supported_harnesses = ["claude"]\n',
+			"supported_harnesses = []\n",
+			'supported_harnesses = "pi"\n',
+		] as const;
+		for (const supportedHarnessesLine of cases) {
+			const workspace = await createExtensionRegistryWorkspace();
+			const userRoot = writeUserDescriptorPackage(workspace, {
+				directoryName: "gated",
+				packageName: "@example/gated",
+				descriptorSource: descriptorSource({
+					group: "gated",
+					packageLabel: "gated",
+					commandNames: ["scan"],
+				}),
+			});
+			writeUserConfig(
+				workspace,
+				`${supportedHarnessesLine}extensions = [${JSON.stringify(userRoot)}]\n`,
+			);
+
+			const loaded = await loadNsCommandCatalog({
+				cwd: workspace.cwd,
+				homeDir: workspace.homeDir,
+				env: { ...piHarnessEnv },
+			});
+
+			expect(loaded.candidates.has("gated/scan")).toBe(false);
+			expect(loaded.diagnostics).toEqual([
+				expect.objectContaining({
+					code: "user_supported_harnesses_invalid",
+					sourceLevel: "user",
+					path: join(workspace.homeDir, ".config", "ns", "ns.toml"),
+				}),
+			]);
+		}
+	});
+
+	test("NS_HARNESS invocation aliases normalize to canonical ids", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const userRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "gated",
+			packageName: "@example/gated",
+			descriptorSource: descriptorSource({
+				group: "gated",
+				packageLabel: "gated",
+				commandNames: ["scan"],
+			}),
+		});
+		writeUserConfig(
+			workspace,
+			`supported_harnesses = ["claude-code"]\nextensions = [${JSON.stringify(userRoot)}]\n`,
+		);
+
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			env: { NS_HARNESS: "claude" },
+		});
+
+		expect(loaded.candidates.get("gated/scan")).toMatchObject({ source: { level: "user" } });
+	});
+
+	test("project descriptors remain usable while the user layer is disabled", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const userRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "gated",
+			packageName: "@example/gated",
+			descriptorSource: descriptorSource({
+				group: "gated",
+				packageLabel: "gated",
+				commandNames: ["scan"],
+			}),
+		});
+		writeUserConfig(
+			workspace,
+			`${piSupportedHarnessesLine}extensions = [${JSON.stringify(userRoot)}]\n`,
+		);
+		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/project"]\n');
+		writeDescriptorPackage({
+			cwd: workspace.cwd,
+			directoryName: "project",
+			packageName: "@example/project-tools",
+			descriptorSource: descriptorSource({
+				group: "project",
+				packageLabel: "project",
+				commandNames: ["scan"],
+			}),
+		});
+
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect(loaded.candidates.has("gated/scan")).toBe(false);
+		expect(loaded.candidates.get("project/scan")).toMatchObject({ source: { level: "project" } });
+		expect(loaded.diagnostics).toEqual([]);
+	});
+
 	test("HOME fallback is used only when XDG_CONFIG_HOME is absent", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		const fallbackRoot = writeUserDescriptorPackage(workspace, {
@@ -704,21 +899,25 @@ export default defineExtension({
 				commandNames: ["scan"],
 			}),
 		});
-		writeUserConfig(workspace, `extensions = [${JSON.stringify(fallbackRoot)}]\n`);
+		writeUserConfig(
+			workspace,
+			`${piSupportedHarnessesLine}extensions = [${JSON.stringify(fallbackRoot)}]\n`,
+		);
 		const xdgConfigHome = join(workspace.homeDir, "xdg");
 		writeWorkspaceFile(
 			join(xdgConfigHome, "ns", "ns.toml"),
-			`extensions = [${JSON.stringify(xdgRoot)}]\n`,
+			`${piSupportedHarnessesLine}extensions = [${JSON.stringify(xdgRoot)}]\n`,
 		);
 
 		const fallback = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
+			env: { ...piHarnessEnv },
 		});
 		const xdg = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
-			env: { XDG_CONFIG_HOME: xdgConfigHome },
+			env: { ...piHarnessEnv, XDG_CONFIG_HOME: xdgConfigHome },
 		});
 
 		expect(fallback.candidates.has("fallback/scan")).toBe(true);
@@ -730,7 +929,7 @@ export default defineExtension({
 	test("user config path resolution failures are isolated", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, env: {} });
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, env: { ...piHarnessEnv } });
 
 		expect([...loaded.candidates.keys()]).toEqual(builtInCandidateKeys);
 		expect(loaded.diagnostics).toEqual([
@@ -755,6 +954,7 @@ export default defineExtension({
 			const loaded = await loadNsCommandCatalog({
 				cwd: workspace.cwd,
 				homeDir: workspace.homeDir,
+				env: { ...piHarnessEnv },
 			});
 
 			if (fixture.name === "read") chmodSync(configPath, 0o600);
@@ -778,10 +978,14 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 		});
 		writeUserConfig(
 			workspace,
-			`extensions = [${JSON.stringify(packageRoot)}]\nsupported_harnesses = "ignored"\n[points]\nfoo = "ignored"\n`,
+			`extensions = [${JSON.stringify(packageRoot)}]\n${piSupportedHarnessesLine}[points]\nfoo = "ignored"\n`,
 		);
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			env: { ...piHarnessEnv },
+		});
 
 		expect(loaded.candidates.get("tools/scan")).toMatchObject({
 			source: { level: "user" },
@@ -792,16 +996,16 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 	test("XDG_CONFIG_HOME selects exactly one user config and missing npm packages stay isolated", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		const xdgConfigHome = join(workspace.homeDir, "custom-config");
-		writeUserConfig(workspace, 'extensions = ["/must-not-load"]\n');
+		writeUserConfig(workspace, `${piSupportedHarnessesLine}extensions = ["/must-not-load"]\n`);
 		writeWorkspaceFile(
 			join(xdgConfigHome, "ns", "ns.toml"),
-			'extensions = ["./relative", "npm:@example/managed"]\n',
+			`${piSupportedHarnessesLine}extensions = ["./relative", "npm:@example/managed"]\n`,
 		);
 
 		const loaded = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
-			env: { XDG_CONFIG_HOME: xdgConfigHome },
+			env: { ...piHarnessEnv, XDG_CONFIG_HOME: xdgConfigHome },
 		});
 
 		expect([...loaded.candidates.keys()]).toEqual(builtInCandidateKeys);
@@ -848,12 +1052,15 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 				commandNames: ["scan"],
 			}),
 		});
-		writeUserConfig(workspace, 'extensions = ["npm:@example/managed@1.0.0"]\n');
+		writeUserConfig(
+			workspace,
+			`${piSupportedHarnessesLine}extensions = ["npm:@example/managed@1.0.0"]\n`,
+		);
 
 		const loaded = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
-			env: { XDG_DATA_HOME: xdgDataHome },
+			env: { ...piHarnessEnv, XDG_DATA_HOME: xdgDataHome },
 		});
 
 		expect(loaded.diagnostics).toEqual([]);
@@ -878,12 +1085,13 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 		const xdgConfigHome = join(workspace.homeDir, "config-without-home");
 		writeWorkspaceFile(
 			join(xdgConfigHome, "ns", "ns.toml"),
-			`extensions = [${JSON.stringify(localRoot)}, "npm:@example/managed"]\n`,
+			`${piSupportedHarnessesLine}extensions = [${JSON.stringify(localRoot)}, "npm:@example/managed"]\n`,
 		);
 
 		const loaded = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			env: {
+				...piHarnessEnv,
 				HOME: undefined,
 				XDG_CONFIG_HOME: xdgConfigHome,
 				XDG_DATA_HOME: "relative-data",
@@ -919,9 +1127,16 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 				commandNames: ["scan"],
 			}),
 		});
-		writeUserConfig(workspace, `extensions = ["./relative", ${JSON.stringify(absoluteRoot)}]\n`);
+		writeUserConfig(
+			workspace,
+			`${piSupportedHarnessesLine}extensions = ["./relative", ${JSON.stringify(absoluteRoot)}]\n`,
+		);
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			env: { ...piHarnessEnv },
+		});
 
 		expect(loaded.candidates.has("absolute/scan")).toBe(true);
 		expect(loaded.diagnostics).toEqual(
@@ -946,7 +1161,10 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 				commandNames: ["scan"],
 			}),
 		});
-		writeUserConfig(workspace, `extensions = [${JSON.stringify(userRoot)}]\n`);
+		writeUserConfig(
+			workspace,
+			`${piSupportedHarnessesLine}extensions = [${JSON.stringify(userRoot)}]\n`,
+		);
 		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/project"]\n');
 		writeDescriptorPackage({
 			cwd: workspace.cwd,
@@ -962,6 +1180,7 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 		const loaded = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
+			env: { ...piHarnessEnv },
 			preinstalledCommandCatalog: () =>
 				preinstalledCatalog([
 					{
@@ -1018,10 +1237,14 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 		});
 		writeUserConfig(
 			workspace,
-			`extensions = [${JSON.stringify(first)}, ${JSON.stringify(second)}]\n`,
+			`${piSupportedHarnessesLine}extensions = [${JSON.stringify(first)}, ${JSON.stringify(second)}]\n`,
 		);
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			env: { ...piHarnessEnv },
+		});
 
 		expect(loaded.candidates.has("first/one")).toBe(true);
 		expect(loaded.candidates.has("second/two")).toBe(true);
@@ -1040,7 +1263,10 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 				commandNames: ["common", "user-only"],
 			}),
 		});
-		writeUserConfig(workspace, `extensions = [${JSON.stringify(userRoot)}]\n`);
+		writeUserConfig(
+			workspace,
+			`${piSupportedHarnessesLine}extensions = [${JSON.stringify(userRoot)}]\n`,
+		);
 		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/shared"]\n');
 		writeDescriptorPackage({
 			cwd: workspace.cwd,
@@ -1053,7 +1279,11 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 			}),
 		});
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			env: { ...piHarnessEnv },
+		});
 
 		expect(loaded.candidates.get("shared/common")?.source.level).toBe("project");
 		expect(loaded.candidates.has("shared/project-only")).toBe(true);
@@ -1069,12 +1299,13 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 
 	test("a project declaration suppresses the same user source before loading", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
-		writeUserConfig(workspace, 'extensions = ["npm:@example/shared"]\n');
+		writeUserConfig(workspace, `${piSupportedHarnessesLine}extensions = ["npm:@example/shared"]\n`);
 		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["npm:@example/shared"]\n');
 
 		const loaded = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
+			env: { ...piHarnessEnv },
 			preinstalledCommandCatalog: () =>
 				preinstalledCatalog(
 					[
@@ -1112,10 +1343,17 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 				commandNames: ["scan"],
 			}),
 		});
-		writeUserConfig(workspace, `extensions = [${JSON.stringify(userRoot)}]\n`);
+		writeUserConfig(
+			workspace,
+			`${piSupportedHarnessesLine}extensions = [${JSON.stringify(userRoot)}]\n`,
+		);
 		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/missing"]\n');
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			env: { ...piHarnessEnv },
+		});
 
 		expect(loaded.candidates.has("user/scan")).toBe(true);
 		expect(loaded.diagnostics).toEqual(
@@ -1139,7 +1377,10 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 				commandNames: ["scan", "doctor"],
 			}),
 		});
-		writeUserConfig(workspace, `extensions = [${JSON.stringify(userRoot)}]\n`);
+		writeUserConfig(
+			workspace,
+			`${piSupportedHarnessesLine}extensions = [${JSON.stringify(userRoot)}]\n`,
+		);
 		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/project"]\n');
 		writeDescriptorPackage({
 			cwd: workspace.cwd,
@@ -1164,7 +1405,11 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 			`import { defineExtension } from "@nseng-ai/sdk";\nconst command = { name: "tools", summary: "Tools.", description: "Tools.", run: () => ({ type: "ok", data: {} }) };\nexport default defineExtension({ description: "Project.", entries: [{ name: "tools", load: () => ({ default: command }) }] });\n`,
 		);
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			env: { ...piHarnessEnv },
+		});
 
 		expect(loaded.candidates.has("tools")).toBe(true);
 		expect(loaded.candidates.has("tools/scan")).toBe(false);
@@ -1225,7 +1470,10 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 				commandNames: ["point"],
 			}),
 		});
-		writeUserConfig(workspace, `extensions = [${JSON.stringify(userRoot)}]\n`);
+		writeUserConfig(
+			workspace,
+			`${piSupportedHarnessesLine}extensions = [${JSON.stringify(userRoot)}]\n`,
+		);
 		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/project"]\n');
 		writeDescriptorPackage({
 			cwd: workspace.cwd,
@@ -1241,6 +1489,7 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 		const loaded = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
+			env: { ...piHarnessEnv },
 			preinstalledCommandCatalog: () =>
 				preinstalledCatalog([
 					preinstalledEntry("extension", "point", "@example/preinstalled-point"),
@@ -1297,9 +1546,16 @@ const command = { name: "extension", summary: "extension", description: "extensi
 export default defineExtension({ description: "Extension command.", entries: [{ name: "extension", load: () => ({ default: command }) }] });
 `,
 		});
-		writeUserConfig(workspace, `extensions = [${JSON.stringify(userRoot)}]\n`);
+		writeUserConfig(
+			workspace,
+			`${piSupportedHarnessesLine}extensions = [${JSON.stringify(userRoot)}]\n`,
+		);
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			env: { ...piHarnessEnv },
+		});
 
 		expect(loaded.candidates.has("extension")).toBe(false);
 		expect(loaded.diagnostics).toEqual([

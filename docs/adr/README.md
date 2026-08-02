@@ -51,6 +51,7 @@ After this baseline, accepted ADRs are immutable time-in-place records. Do not r
 | 0053 | [Source-Identity Extension Precedence](0053-source-identity-extension-precedence.md)                                   |
 | 0054 | [Package-Atomic Extension Admission](0054-package-atomic-extension-admission.md)                                       |
 | 0055 | [XDG-Managed User npm Extension Storage](0055-xdg-managed-user-npm-extension-storage.md)                               |
+| 0056 | [Harness-Aware User Extension Layer](0056-harness-aware-user-extension-layer.md)                                       |
 
 ## Proposed
 

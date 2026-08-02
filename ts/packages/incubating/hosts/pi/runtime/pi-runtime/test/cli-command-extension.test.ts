@@ -409,7 +409,7 @@ describe("cli command extension helper", () => {
 			{
 				args: ["preview-status", "--minimal", "--format", "markdown"],
 				cwd: "/repo",
-				env: process.env,
+				env: { ...process.env, NS_HARNESS: "pi" },
 			},
 		]);
 		expectSingleCliOutputMessage(pi, "ok\n");
@@ -465,7 +465,7 @@ describe("cli command extension helper", () => {
 
 		expect([...pi.commands.keys()]).toEqual(["dev:checkpoint"]);
 		expect(calls).toEqual([
-			{ args: ["cp", "--message", "test"], cwd: "/repo", env: { SAMPLE: "1" } },
+			{ args: ["cp", "--message", "test"], cwd: "/repo", env: { SAMPLE: "1", NS_HARNESS: "pi" } },
 		]);
 		expectSingleCliOutputMessage(pi, "ok\n");
 	});
@@ -493,7 +493,7 @@ describe("cli command extension helper", () => {
 			{
 				args: ["preview-status", "--branch", "feature/x", "--json"],
 				cwd: "/repo",
-				env: { VERCEL_PROJECT: "env-project" },
+				env: { VERCEL_PROJECT: "env-project", NS_HARNESS: "pi" },
 			},
 		]);
 		expect(notifications).toEqual([]);
@@ -976,10 +976,34 @@ describe("cli command extension helper", () => {
 		await commandFor(pi, "dev:echo").handler("hello world", ctx);
 
 		expect(calls).toEqual([
-			{ args: ["echo", "hello", "world"], cwd: "/repo", env: { SAMPLE: "1" } },
+			{ args: ["echo", "hello", "world"], cwd: "/repo", env: { SAMPLE: "1", NS_HARNESS: "pi" } },
 		]);
 		expect(editorTexts).toEqual([]);
 		expectSingleCliOutputMessage(pi, "ok\n");
+	});
+
+	test("stamps the Pi Active harness into a copied env without mutating process.env", async () => {
+		const pi = new FakePi();
+		const calls: RunCall[] = [];
+		registerFakeCli(pi, {
+			// A spec-supplied identity cannot demote the Pi bridge: every invocation
+			// launched from inside Pi runs under the Pi harness (ADR 0055).
+			env: { NS_HARNESS: "codex", SAMPLE: "1" },
+			runCli: (args, deps) => {
+				calls.push({ args: [...args], cwd: deps.cwd, env: deps.env });
+				deps.stdout("ok\n");
+				return 0;
+			},
+		});
+		const { ctx } = createContext();
+		const ambientHarness = process.env["NS_HARNESS"];
+
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
+
+		expect(calls).toEqual([
+			{ args: ["preview-status"], cwd: "/repo", env: { SAMPLE: "1", NS_HARNESS: "pi" } },
+		]);
+		expect(process.env["NS_HARNESS"]).toBe(ambientHarness);
 	});
 
 	test("sends UI command output as a custom message", async () => {

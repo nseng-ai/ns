@@ -75,9 +75,19 @@ export default defineRawCommand({
 			`# preserve\r\nextensions = [${JSON.stringify(packageRoot)}]\r\n[unrelated]\r\nvalue = 1\r\n`,
 		);
 
+		// Contribution requires the explicit Active-harness opt-in (ADR 0055):
+		// hand-author supported_harnesses and supply NS_HARNESS for the invocation.
+		const optedInBytes = `# preserve\r\nsupported_harnesses = ["pi"]\r\nextensions = [${JSON.stringify(packageRoot)}]\r\n[unrelated]\r\nvalue = 1\r\n`;
+		await writeFile(configPath, optedInBytes);
+		const gated = await run(["user-tools-proof"], {
+			cwd: invocation,
+			xdgConfigHome,
+		});
+		expect(gated.exit).not.toBe(0);
 		const discovered = await run(["user-tools-proof"], {
 			cwd: invocation,
 			xdgConfigHome,
+			env: { NS_HARNESS: "pi" },
 		});
 		expect(discovered.exit).toBe(0);
 		expect(parseJsonOutput(discovered)).toMatchObject({ status: "ok" });
@@ -238,11 +248,16 @@ exec ${JSON.stringify(npmExecutable)} "${"${args[@]}"}" --offline
 		);
 		expect(await readdir(invocation)).toEqual(beforeInvocation);
 
+		// Opt the user config into the Pi harness so the packed command contributes.
+		await writeFile(
+			join(xdgConfigHome, "ns", "ns.toml"),
+			`supported_harnesses = ["pi"]\nextensions = [${JSON.stringify(npmSpec)}]\n`,
+		);
 		const discovered = await run(["packed-user-proof"], {
 			cwd: invocation,
 			xdgConfigHome,
 			xdgDataHome,
-			env,
+			env: { ...env, NS_HARNESS: "pi" },
 		});
 		expect(discovered.exit).toBe(0);
 		expect(parseJsonOutput(discovered)).toMatchObject({ status: "ok", data: { proof: "packed" } });
@@ -281,7 +296,10 @@ exec ${JSON.stringify(npmExecutable)} "${"${args[@]}"}" --offline
 		});
 		await expect(lstat(projectRoot)).rejects.toMatchObject({ code: "ENOENT" });
 		await expect(readFile(join(sibling, "keep"), "utf8")).resolves.toBe("yes");
-		expect(await readFile(join(xdgConfigHome, "ns", "ns.toml"), "utf8")).toBe("extensions = []\n");
+		// Lifecycle edits preserve the hand-authored supported_harnesses bytes.
+		expect(await readFile(join(xdgConfigHome, "ns", "ns.toml"), "utf8")).toBe(
+			'supported_harnesses = ["pi"]\nextensions = []\n',
+		);
 		expect(await readdir(invocation)).toEqual(beforeInvocation);
 	});
 });

@@ -14,11 +14,14 @@ import {
 	type CustomMessageContent,
 } from "../kit/terminal/presentation.ts";
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+import { NS_HARNESS_ENV_VAR, type HarnessId } from "@nseng-ai/sdk/project-config/harness-identity";
 import type { NsConfirmOptions, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 export { cliCommandTracePath } from "./cli-command-trace.ts";
 
 export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "ns-cli-command-output";
+
+const PI_ACTIVE_HARNESS: HarnessId = "pi";
 
 type OutputStreamName = "stdout" | "stderr";
 interface CustomMessage {
@@ -440,7 +443,10 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 					progress.appendOutput("stderr", text);
 				}
 			},
-			env: { ...(spec.env ?? process.env) },
+			// Every CLI bridged through Pi runs under the Pi harness; the copied
+			// per-invocation environment carries that identity explicitly and wins
+			// over inherited values without mutating process.env (ADR 0055).
+			env: { ...(spec.env ?? process.env), [NS_HARNESS_ENV_VAR]: PI_ACTIVE_HARNESS },
 			onOutput: (stream, text) => {
 				hasLiveOutput = true;
 				progress.appendOutput(stream, text);

@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { ExtensionDescriptor } from "../../src/sdk/descriptor.ts";
 import {
 	buildPointCatalog,
+	composeLayeredPointDefinitions,
 	loadPointCatalog,
 	loadProjectConfig,
 	parseProjectConfigToml,
@@ -14,6 +15,7 @@ import {
 	type ProjectConfigGateway,
 	type ProjectConfigPathExistsResult,
 	type ProjectConfigReadResult,
+	type ScopedPointDefinition,
 } from "../../src/project-config/points.ts";
 
 const pointDefinitions = [
@@ -486,6 +488,114 @@ context_lines = "wide"
 			"point_defined_uninstalled",
 			"point_defined_uninstalled",
 			"point_defined_uninstalled",
+		]);
+	});
+});
+
+describe("layered point definition composition", () => {
+	function scoped(id: string, sourceLabel: string): ScopedPointDefinition {
+		return {
+			definition: { id, accepts: "prompt", cardinality: "one", description: sourceLabel },
+			sourceLabel,
+		};
+	}
+
+	const fallbackDefinitions = [
+		{ id: "built.in", accepts: "prompt", cardinality: "one" },
+		{ id: "shared.point", accepts: "prompt", cardinality: "one" },
+	] as const satisfies readonly PointDefinition[];
+
+	test("layers built-in fallback below user below project", () => {
+		const composed = composeLayeredPointDefinitions({
+			fallbackDefinitions,
+			userDefinitions: [scoped("shared.point", "user-a"), scoped("user.point", "user-a")],
+			projectDefinitions: [
+				scoped("shared.point", "project-a"),
+				scoped("project.point", "project-a"),
+			],
+		});
+
+		expect(
+			composed.pointDefinitions.map((definition) => [definition.id, definition.description]),
+		).toEqual([
+			["built.in", undefined],
+			["user.point", "user-a"],
+			["shared.point", "project-a"],
+			["project.point", "project-a"],
+		]);
+		expect(composed.diagnostics).toEqual([]);
+	});
+
+	test("same-scope duplicate ids exclude every conflicting definition with source labels", () => {
+		const composed = composeLayeredPointDefinitions({
+			fallbackDefinitions,
+			userDefinitions: [
+				scoped("user.dup", "user-b"),
+				scoped("user.dup", "user-a"),
+				scoped("user.ok", "user-a"),
+			],
+			projectDefinitions: [scoped("project.dup", "project-a"), scoped("project.dup", "project-b")],
+		});
+
+		expect(composed.pointDefinitions.map((definition) => definition.id)).toEqual([
+			"built.in",
+			"shared.point",
+			"user.ok",
+		]);
+		expect(composed.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "point_definition_duplicate_in_scope",
+				path: "user.dup",
+				message: expect.stringContaining(
+					"user scope; every conflicting definition is excluded: user-a, user-b",
+				),
+			}),
+			expect.objectContaining({
+				code: "point_definition_duplicate_in_scope",
+				path: "project.dup",
+				message: expect.stringContaining("project scope"),
+			}),
+		]);
+	});
+
+	test("a disabled user layer contributes nothing and leaves fallback and project intact", () => {
+		const composed = composeLayeredPointDefinitions({
+			fallbackDefinitions,
+			userDefinitions: [],
+			projectDefinitions: [scoped("project.point", "project-a")],
+		});
+
+		expect(composed.pointDefinitions.map((definition) => definition.id)).toEqual([
+			"built.in",
+			"shared.point",
+			"project.point",
+		]);
+		expect(composed.diagnostics).toEqual([]);
+	});
+
+	test("a project duplicate excludes the project pair while the user definition still yields to nothing", () => {
+		// Both project definitions of shared.point are excluded; the user definition
+		// of the same id survives because project no longer defines it.
+		const composed = composeLayeredPointDefinitions({
+			fallbackDefinitions,
+			userDefinitions: [scoped("shared.point", "user-a")],
+			projectDefinitions: [
+				scoped("shared.point", "project-a"),
+				scoped("shared.point", "project-b"),
+			],
+		});
+
+		expect(
+			composed.pointDefinitions.map((definition) => [definition.id, definition.description]),
+		).toEqual([
+			["built.in", undefined],
+			["shared.point", "user-a"],
+		]);
+		expect(composed.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "point_definition_duplicate_in_scope",
+				path: "shared.point",
+			}),
 		]);
 	});
 });

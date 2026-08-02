@@ -102,7 +102,10 @@ separate extension types or lifecycle states.
 
 Project scope is the default for `ns extension install|list|update|uninstall`: it records
 the extension in the repository and reconciles its declared activation metadata. Use
-`--scope user` (`-s`) for command availability only:
+`--scope user` (`-s`) for machine-wide declarations whose contributions are gated by an
+explicit Active harness — the invocation's `NS_HARNESS` must name a canonical harness
+(`claude-code`, `codex`, `pi`) listed in the user config's top-level `supported_harnesses`
+array, or every user contribution stays hidden fail-closed (ADR 0055):
 
 ```bash
 ns extension install npm:@acme/my-extension --scope user

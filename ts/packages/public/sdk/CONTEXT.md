@@ -29,16 +29,20 @@ The optional lowercase bare letter right-aligned on a top-level `Extensions:` he
 *Avoid*: package disposition marker, complete provenance inventory, overridden-origin marker, built-in marker, help legend.
 
 **User-scoped command availability**:
-The effect of declaring an extension at user scope: its commands are available across local repositories, but none of its repository contributions are activated. This is a scope effect, not an extension type or lifecycle state.
-*Avoid*: global extension, user activation, implicit project configuration, installed state.
+The effect of declaring an extension at user scope: when the User extension layer is enabled for the invocation, its commands are available across local repositories, but none of its repository contributions are activated. This is a scope effect, not an extension type or lifecycle state.
+*Avoid*: global extension, user activation, implicit project configuration, installed state, ungated machine-wide availability.
+
+**Active harness**:
+The explicit per-invocation harness identity supplied through the `NS_HARNESS` environment variable and normalized to a canonical harness id (`claude-code`, `codex`, `pi`). ns never sniffs it. The User extension layer is enabled only when the Active harness is listed in the user config's top-level `supported_harnesses`; missing, blank, unknown, or unlisted identity disables every User descriptor contribution fail-closed without affecting built-ins, Project descriptors, or user lifecycle administration (ADR 0055). Canonical vocabulary lives at `@nseng-ai/sdk/project-config/harness-identity`, and one effective User-layer selection feeds both the command catalog and the descriptor-aware point catalog.
+*Avoid*: harness detection, ambient harness, default harness, per-command gating, gated lifecycle commands.
 
 **Project-scoped activation**:
 The effect of declaring an extension at project scope: its commands are available in that repository and its declared repository contributions are reconciled for the project's Supported harnesses. This is a scope effect, not an extension type or lifecycle state.
 *Avoid*: activated extension type, universal command availability, user configuration, installed state.
 
 **User descriptor extension**:
-A command-only extension package listed in the single XDG-resolved user `ns.toml` and exposing `exports["./ns-extension"]`. User descriptors provide User-scoped command availability from local packages used in place or npm packages in user-managed storage.
-*Avoid*: project activation, global project configuration, repository mutation, implicit npm acquisition during discovery.
+An extension package listed in the single XDG-resolved user `ns.toml` and exposing `exports["./ns-extension"]`. When the Active harness enables the User extension layer, user descriptors contribute commands and point definitions (layered below Project definitions) from local packages used in place or npm packages in user-managed storage; point installations remain Project-owned.
+*Avoid*: project activation, global project configuration, repository mutation, implicit npm acquisition during discovery, user point installation.
 
 **Project descriptor extension**:
 A repository-declared extension package listed in repo-root `ns.toml` and exposing `exports["./ns-extension"]`. Project descriptors provide Project-scoped activation; their entries can group commands, replace a User descriptor declaration with the same normalized source identity, and override lower-precedence extension command paths without making those commands universal built-ins.
@@ -49,8 +53,8 @@ Generic mechanics for parsing an explicit source spec, resolving an unprefixed l
 *Avoid*: lifecycle transaction, harness selection, activation reconciliation, implicit bare-name npm lookup, copying local packages into managed storage.
 
 **Supported harnesses**:
-The repository-declared set of agent Harness targets in top-level `ns.toml` `supported_harnesses`. ns provisions and reconciles extension-provided skills and other agent-facing artifacts in each target's project directory. The set does not describe every tool contributors personally use, restrict repository access, or assign Objective ownership.
-*Avoid*: project harnesses, configured harnesses, contributor harnesses, Objective owners, access allowlist.
+A declared set of agent Harness targets in a top-level `ns.toml` `supported_harnesses` array of canonical harness ids. At project scope ns provisions and reconciles extension-provided skills and other agent-facing artifacts in each target's project directory. At user scope the list is the explicit opt-in that, together with the Active harness, enables User descriptor contributions; it is never defaulted. The set does not describe every tool contributors personally use, restrict repository access, or assign Objective ownership.
+*Avoid*: project harnesses, configured harnesses, contributor harnesses, Objective owners, access allowlist, harness aliases in persisted lists.
 
 **Extension lifecycle orchestration**:
 The workflows behind `ns extension install|list|update|uninstall`, owned by the `init` feature of `@nseng-ai/ns` (formerly the separate `@nseng-ai/ns-init` package, folded in). Project scope is the default: it requires persisted **Supported harnesses**, composes acquisition and descriptor validation with repository activation, and records project-relative declarations. User scope manages command availability in the single XDG user config without Git, Supported harnesses, or repository activation; local paths are persisted as lexical absolute paths and used in place, while explicit npm sources are acquired into lifecycle-owned user storage. Floating npm declarations refresh only on explicit update, pinned declarations are ensured, and uninstall removes declaration authority before owned bytes.
