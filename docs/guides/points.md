@@ -1,32 +1,39 @@
-# Points: customizing ns workflows with hooks and prompts
+# Points: customizing ns workflows with hooks, prompts, and text content
 
-A **point** is a named place an extension defines where your repo's config alters
-platform behavior. Extension authors **define** points; repo consumers **install**
-hooks or prompts at them. This guide covers both roles.
+A **point** is a named place an extension defines where repository configuration
+alters platform behavior. Extension authors **define** points; repository
+consumers **install** hooks, prompts, or text content at them.
 
-Durable design rationale lives in [ADR 0031](../adr/0031-point-system.md);
-canonical vocabulary lives in [`ts/packages/public/sdk/CONTEXT.md`](../../ts/packages/public/sdk/CONTEXT.md).
+Durable design rationale lives in [ADR 0031](../adr/0031-point-system.md) and
+[ADR 0051](../adr/0051-text-content-points.md); canonical vocabulary lives in
+[`ts/packages/public/sdk/CONTEXT.md`](../../ts/packages/public/sdk/CONTEXT.md).
 
 ## The model in one minute
 
-- A point accepts exactly one kind of installation:
-  - **hook** — a list of script commands the workflow runs at that moment.
-  - **prompt** — pure LM content the workflow resolves and consumes. The point
-    system never executes prompts.
-- A point has one of two cardinalities:
-  - **many** — installations add behavior (e.g. pre-submit checks).
-  - **one** — a single installation replaces the default content.
-- The full point id is `<group>.<path segments>`, e.g. `flow.submit.pre`,
-  where the group is the owning extension's namespace root.
-- The SDK joins definitions with installations into a **point catalog**,
-  inspectable via CLI (below).
+A point accepts exactly one installation kind:
+
+- **hook** — command strings the owning workflow runs.
+- **prompt** — LM-facing content whose source the SDK selects. The SDK never
+  executes prompts or invokes an LM.
+- **text-content** — one uninterpreted text value whose source the SDK selects.
+  The SDK never renders the text, interprets placeholders, or invokes an LM.
+
+A point also declares cardinality:
+
+- **many** — installations add behavior, as with a sequence of hook commands.
+- **one** — one installation replaces default content. Text-content points are
+  always cardinality one.
+
+The full point id is normally `<group>.<workflow>.<leaf>`, such as
+`flow.submit.pre`. The SDK joins definitions with installations into a **point
+catalog** that workflows consume and users can inspect.
 
 ## For consumers: installing at points
 
-### Discover what's available
+### Discover what is available
 
 ```sh
-ns extension points            # catalog: every defined point + its active source
+ns extension points            # every defined point and its active source
 ns extension point <id>        # detail for one point
 ```
 
@@ -34,19 +41,19 @@ Example output:
 
 ```text
 ns points:
-- branch-context.plans-write (prompt, one) — conventional .ns/prompts/branch-context.plans-write.md
+- example.output-format (text-content, one) — conventional text-content .ns/text-content/example.output-format.txt
 - flow.submit.pr-inventory (prompt, one) — default ./prompts/pr-inventory-default.md
 - flow.submit.pre (hook, many) — repo ns.toml commands: just
 ```
 
-The diagnostics section reports useful states: points defined but not installed,
-cardinality-one points with an installation in effect, and installations that
-reference undefined points (an error).
+Diagnostics identify points defined but not installed, cardinality-one points
+with an installation in effect, and installations that reference undefined
+points.
 
 ### Install a hook
 
-Hooks are installed only in the repo-root `ns.toml`, in the single `[points]`
-table, keyed by full point id, with a value of command strings:
+Hooks are installed in the repository-root `ns.toml` `[points]` table, keyed by
+full point id, with an array of command strings:
 
 ```toml
 [points]
@@ -55,77 +62,109 @@ table, keyed by full point id, with a value of command strings:
 
 Hook execution semantics:
 
-- Each entry is whitespace-split and executed directly — **no shell**, so no
-  pipes, globs, or `&&`. Wrap complex logic in a script or `just` recipe.
+- Each entry is whitespace-split and executed directly, with **no shell**. Pipes,
+  globs, and `&&` therefore require a wrapper script or `just` recipe.
 - Commands run sequentially; the first failure aborts the surrounding workflow
   step.
-- Workflow flags such as `flow submit --no-checks` skip execution; they are
-  execution controls, not part of resolution.
+- Workflow flags that skip hooks are execution controls, not source-resolution
+  behavior.
 
 ### Install a prompt
 
-You have two equivalent ways to install prompt content:
+Prompt content can be installed in either of two ways:
 
-1. **Conventional file** (no TOML needed) — create
-   `.ns/prompts/<point-id>.md`:
+1. Create the conventional `.ns/prompts/<point-id>.md` file:
 
    ```text
    .ns/prompts/flow.submit.pr-inventory.md
    ```
 
-2. **Explicit `ns.toml` entry** — a repo-relative path string:
+2. Set the point to a repository-relative path in `ns.toml`:
 
    ```toml
    [points]
    "flow.submit.pr-inventory" = "docs/prompts/pr-inventory.md"
    ```
 
-Prompt resolution ladder (first match wins):
+Prompt source precedence (first match wins) is:
 
-1. Development environment-variable override (reported by the catalog when in
-   effect; intended for extension development, not repo config).
-2. `ns.toml` `[points]` entry.
-3. Conventional `.ns/prompts/<point-id>.md` file.
-4. The extension's manifest `default` file.
+1. The descriptor's development environment-variable override, when declared
+   and set.
+2. The `ns.toml` `[points]` entry.
+3. The conventional `.ns/prompts/<point-id>.md` file.
+4. The extension descriptor's `default` file.
 
-`ns extension point <id>` shows which source is currently active.
+The SDK selects and reports the source. The owning workflow reads the selected
+content and performs any LM interaction itself.
+
+### Install text content
+
+Text-content points use the same path-based installation model:
+
+1. Create the conventional `.ns/text-content/<point-id>.txt` file:
+
+   ```text
+   .ns/text-content/example.output-format.txt
+   ```
+
+2. Set the point to a repository-relative path in `ns.toml`:
+
+   ```toml
+   [points]
+   "example.output-format" = "docs/output-format.txt"
+   ```
+
+Text-content source precedence is the descriptor's declared development
+override, `ns.toml`, conventional file, then descriptor default. Resolution is
+fail-closed: once a source is selected, a missing, unreadable, or invalid source
+is an error for the consuming workflow rather than a reason to try a
+lower-precedence source.
+
+Text-content is intentionally uninterpreted by the SDK. A workflow may use the
+selected value as a format, literal, template, or another kind of text, but that
+workflow owns any grammar, placeholder validation, and rendering.
 
 ### Rules and limitations
 
-- Installations are **project-only** in v1 — there is no global/XDG tier.
-- Installing at an undefined point id is an error surfaced as an
-  `installed-but-undefined` diagnostic.
-- Hook points take only command arrays; prompt points take only a non-empty
-  path string. Mismatched values are rejected with a diagnostic.
-- Settings (typed config like `[reviews.diff]` or shared model policy under
-  `[models]`) are **not** points. They stay in extension-rooted or shared TOML
-  tables with manifest-declared schemas. For example, model profiles and
-  operation overrides use `[models.profiles]` and `[models.operations]`; they
-  are typed settings, not lifecycle customization points.
+- Installations are project-only; there is no global/XDG tier.
+- Installing an undefined point id produces an installed-but-undefined error.
+- Hook points accept command arrays. Prompt and text-content points accept a
+  non-empty path string. Mismatched values are rejected.
+- Settings such as typed extension tables or shared model policy are **not**
+  points. They remain manifest-declared settings rather than lifecycle or
+  content customization sites.
 
 ## For extension authors: defining points
 
-Points are declared as static metadata in the extension descriptor module
-exported from `exports["./ns-extension"]` and created with `defineExtension()`:
+Declare points as static metadata in the extension descriptor exported from
+`exports["./ns-extension"]` and created with `defineExtension()`:
 
 ```ts
 import { defineExtension } from "@nseng-ai/sdk";
 
 export default defineExtension({
-	group: "flow",
+	group: "example",
 	points: [
 		{
-			id: "flow.submit.pre",
+			id: "example.pre",
 			accepts: "hook",
 			cardinality: "many",
-			description: "Runs before flow submit checkpoints and submits the stack.",
+			description: "Runs before the example workflow.",
 		},
 		{
-			id: "flow.submit.pr-inventory",
+			id: "example.instructions",
 			accepts: "prompt",
 			cardinality: "one",
-			default: "./prompts/pr-inventory-default.md",
-			description: "Prompt for assembling a PR inventory from mechanical evidence.",
+			default: "./prompts/instructions-default.md",
+			description: "LM-facing instructions for the example workflow.",
+		},
+		{
+			id: "example.output-format",
+			accepts: "text-content",
+			cardinality: "one",
+			default: "./text-content/output-format-default.txt",
+			developmentOverrideEnvVar: "EXAMPLE_OUTPUT_FORMAT",
+			description: "Selected output-format text for local development.",
 		},
 	],
 });
@@ -133,95 +172,71 @@ export default defineExtension({
 
 Field reference:
 
-| Field         | Required | Meaning                                                                                                                                             |
-| ------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`          | yes      | Full point id. First-party convention: `<group>.<workflow>.<leaf>`.                                                                                 |
-| `accepts`     | yes      | `"hook"` or `"prompt"`.                                                                                                                             |
-| `cardinality` | yes      | `"many"` — installations add behavior; `"one"` — a single installation replaces the default.                                                        |
-| `default`     | no       | Cardinality-one prompt points only: a package-relative POSIX `.md` path that must not escape the package directory. Used when nothing is installed. |
-| `description` | no       | Shown in `ns extension points` output.                                                                                                              |
+| Field                       | Required | Meaning                                                                                                                                                                                                      |
+| --------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`                        | yes      | Full point id. First-party convention: `<group>.<workflow>.<leaf>`.                                                                                                                                          |
+| `accepts`                   | yes      | `"hook"`, `"prompt"`, or `"text-content"`.                                                                                                                                                                   |
+| `cardinality`               | yes      | `"many"` adds behavior; `"one"` selects one installation. Text-content must be `"one"`.                                                                                                                      |
+| `default`                   | no       | Cardinality-one Prompt/Text-content only: a package-relative POSIX path that cannot escape the package directory. Prompt defaults conventionally use `.md`; Text-content defaults conventionally use `.txt`. |
+| `developmentOverrideEnvVar` | no       | Cardinality-one Prompt/Text-content only: the environment variable whose value names a development override path. This is descriptor metadata, not repository config.                                        |
+| `description`               | no       | Human-facing description shown by point introspection.                                                                                                                                                       |
 
-Author-side guidance:
+Point definitions are discovered from descriptor modules declared by `ns.toml`
+`extensions`; production does not scan `.ns/extensions` or parse point metadata
+from `package.json`.
 
-- Point definitions are discovered from descriptor modules declared in
-  `ns.toml` `extensions`; production no longer scans `.ns/extensions` roots or
-  parses `package.json` `ns.points`.
-- Your workflow reads the catalog to act on installations: hook commands via
-  the catalog's hook resolution, prompt content via the active prompt source.
-  The platform resolves prompt content; your workflow performs any LM
-  interaction.
-- Want agentic behavior at a lifecycle moment? Define a **hook** that consumers
-  point at an agentic CLI — do not model it as prompt execution.
-- New customization surfaces should define points (or manifest-declared
-  settings) through the shared loader rather than parsing `ns.toml` directly or
-  inventing a bespoke prompt ladder.
+Define a Hook when consumers need executable behavior. Define a Prompt when the
+selected content is LM-facing. Define Text-content when the SDK should select
+one uninterpreted text value. Do not use Prompt for deterministic text merely to
+reuse its source ladder, and do not add a workflow-specific `ns.toml` parser.
 
 ## For workflow implementers: consuming the catalog
 
-This section is for code that *acts on* installations — the workflow inside an
-extension package that runs hooks or consumes prompt content at its own points.
+The consumption API is the internal workspace export
+`@nseng-ai/sdk/project-config/points`, not the public author API at the package
+root.
 
-The consumption API lives at `@nseng-ai/sdk/project-config/points`. It is an
-internal workspace export: a first-party seam shared across workspace packages,
-not part of the public author API at the `@nseng-ai/sdk` package root.
+Build the catalog with one of these APIs:
 
-Build a catalog, then read installations from it:
+- `loadPointCatalog({ repoRoot, gateway, preferredDescriptors })` builds it
+  synchronously from known definitions. Pass the owning extension's preloaded
+  descriptor so defaults and manifest provenance remain canonical.
+- `loadPointCatalogWithDescriptors({ ... })` also discovers definitions from
+  extension descriptors declared in the repository's `ns.toml`.
 
-- `loadPointCatalog({ repoRoot, gateway: nodeProjectConfigGateway, preferredDescriptors })`
-  builds the catalog synchronously from known definitions. Pass your extension's
-  preloaded descriptor through `preferredDescriptors` so your package's point
-  definitions — including prompt `default` paths and manifest provenance — stay
-  canonical instead of falling back to the SDK's built-in mirror.
-- `loadPointCatalogWithDescriptors({ … })` additionally discovers point
-  definitions from the repo's `ns.toml`-declared extension descriptors
-  (asynchronous).
+Consume each kind through its matching seam:
 
-Consume hook points:
+- `hookCommandsForPoint(catalog, id)` returns installed Hook command strings.
+  The owning workflow controls execution.
+- `resolvePromptPointSource(catalog, id)` selects the active Prompt source;
+  `resolvePromptPointPath(repoRoot, source)` resolves non-environment sources to
+  a readable path and label. The workflow reads the file and invokes an LM if
+  its behavior requires one.
+- `resolveTextContentPointSource(catalog, id)` selects the active Text-content
+  source; `resolveTextContentPointPath(repoRoot, source)` resolves
+  non-environment sources to a readable path and label. The workflow reads and
+  interprets the text according to its own contract.
 
-- `hookCommandsForPoint(catalog, "flow.submit.pre")` returns the installed
-  command strings. The workflow owns execution: whitespace-split each entry into
-  an argv, run sequentially with no shell, abort the surrounding step on first
-  failure. `ns flow submit` pre-checks are the production example
-  (`ts/packages/incubating/extensions/flow/src/submit/submit-hooks.ts`).
+These APIs select and report sources. They do not read content on the workflow's
+behalf, execute Hooks, invoke an LM, render Text-content, or interpret
+placeholders. Diagnostics accompany the catalog; workflows should fail on
+errors that gate the point they consume and may surface unrelated diagnostics
+as warnings.
 
-Consume prompt points:
+Do not parse `ns.toml` directly or hand-roll a content precedence ladder in
+workflow code. The catalog is the single source-selection path.
 
-- `resolvePromptPointSource(catalog, id)` walks the resolution ladder and
-  returns the active source: env override, `ns.toml`, conventional file,
-  descriptor default, or missing.
-- `resolvePromptPointPath(repoRoot, source)` converts a non-env source into a
-  readable path plus a human-facing label.
-- The workflow reads the file and performs any LM interaction itself; the
-  platform never executes prompt content. Flow's submit-check recovery
-  (`flow.submit.pre.recovery`) and Assembled PR inventory
-  (`flow.submit.pr-inventory`) are the production examples. Flow also recognizes
-  `NS_FLOW_PR_INVENTORY_PROMPT` as the development environment override for that
-  inventory point.
+## Worked example
 
-Diagnostics ride along with the catalog; the workflow decides fatality. Treat
-diagnostics that gate the specific point you are consuming as failures and
-surface unrelated ones as warnings — the policy Flow's submit-check recovery
-follows.
+Suppose an extension defines cardinality-one `example.output-format` as
+Text-content with a packaged default. A repository can override it without TOML
+by creating:
 
-Do not parse `ns.toml` directly or hand-roll a prompt ladder in workflow code;
-the catalog is the single resolution path.
-
-## Worked example: this repo
-
-`ns.toml` installs one hook:
-
-```toml
-[points]
-"flow.submit.pre" = ["just"]
+```text
+.ns/text-content/example.output-format.txt
 ```
 
-So `ns flow submit` runs `just` (full repo validation) before checkpointing and
-submitting the stack — an installation at the cardinality-many
-`flow.submit.pre` point. Two conventional prompt files install prompt content
-with no TOML line:
-
-- `.ns/prompts/flow.submit.pre.recovery.md` installs this repo's submit-check
-  recovery guidance at `flow.submit.pre.recovery` — it routes agents to the
-  repo's `code-just-fix` workflow — replacing Flow's packaged generic default.
-- `.ns/prompts/branch-context.plans-write.md` replaces the
-  `branch-context.plans-write` default plan-authoring prompt.
+The catalog then reports that conventional file as the active source. The
+example workflow reads its text and applies whatever output-format contract it
+defines. The SDK does not know whether the content is literal output, a format
+string, or a template, and does not render it.

@@ -77,7 +77,7 @@ An `@nseng-ai/sdk` subpath shared across first-party workspace packages for SDK-
 *Avoid*: plugin API, public SDK, command-author import path, extension domain home.
 
 **Point definition**:
-Static extension descriptor metadata declaring a point's id, accepted installation kind, cardinality, description, and optional prompt default. Point definitions are discovered from `ns.toml` extension package descriptors without selected-command loading.
+Static extension descriptor metadata declaring a point's id, accepted installation kind (`hook`, `prompt`, or `text-content`), cardinality, description, optional Prompt or Text-content default, and optional development override environment-variable metadata for cardinality-one content. Point definitions are discovered from `ns.toml` extension package descriptors without selected-command loading.
 *Avoid*: command entry, setting, runtime registration, package.json `ns.points`
 
 **Point id**:
@@ -85,7 +85,7 @@ The full point identifier. First-party ids usually follow `<group>.<workflow>.<l
 *Avoid*: path-only id, consumer-defined id, lifecycle id
 
 **Point installation**:
-Consumer project config for a point. Hook installations come from `[points]`; prompt installations can come from `[points]` or the conventional `.ns/prompts/<point-id>.md` path.
+Consumer project config for a point. Hook installations come from `[points]`; Prompt installations can come from `[points]` or the conventional `.ns/prompts/<point-id>.md` path; Text-content installations can come from `[points]` or the conventional `.ns/text-content/<point-id>.txt` path.
 *Avoid*: point definition, extension descriptor, global install tier
 
 **SDK project-config loader**:
@@ -93,7 +93,7 @@ The single parse/validation path for repo-root `ns.toml`, including the `[points
 *Avoid*: kernel project-config loader, per-extension TOML parser, prompt-resolution ladder, settings-as-points
 
 **Point catalog**:
-The SDK-computed view of point definitions, installations, active prompt sources, and diagnostics such as installed-but-undefined, installation-in-effect, and defined-but-uninstalled.
+The SDK-computed view of point definitions, installations, active Prompt and Text-content sources, and diagnostics such as installed-but-undefined, installation-in-effect, and defined-but-uninstalled.
 *Avoid*: registry, command catalog, extension discovery catalog
 
 **Prompt default**:
@@ -101,8 +101,24 @@ A package-relative markdown file declared by a cardinality-one prompt point and 
 *Avoid*: TypeScript prompt constant, hook fallback, global default
 
 **Active prompt source**:
-The prompt source selected by the resolution ladder: development environment override, `[points]`, conventional `.ns/prompts/<point-id>.md`, then descriptor default. The catalog reports this source; the SDK resolves content but does not perform the LM interaction.
+The Prompt source selected by the resolution ladder: descriptor-declared development environment override, `[points]`, conventional `.ns/prompts/<point-id>.md`, then descriptor default. The catalog reports this source; the consuming workflow reads the content and performs any LM interaction.
 *Avoid*: prompt execution, hook source, hidden fallback
+
+**Development override environment variable**:
+Optional descriptor metadata (`developmentOverrideEnvVar`) naming an environment variable whose value selects an override path for a cardinality-one Prompt or Text-content point. It supports extension development and is not a repository installation or a generic naming convention.
+*Avoid*: project setting, implicit point-specific variable, Hook override, required descriptor field
+
+**Text-content Point**:
+A cardinality-one point accepting one uninterpreted text value (ADR 0051). The SDK selects and reports its source; it never renders the content, interprets placeholders, or invokes an LM. A consuming workflow owns any meaning, validation, or rendering it assigns to the text.
+*Avoid*: Template Point, Prompt point, LM template, SDK-rendered template, settings value
+
+**Text-content default**:
+A package-relative file (conventionally `.txt`) declared by a Text-content point and used when no higher-precedence project or development source is active.
+*Avoid*: Prompt default, TypeScript template constant, global default
+
+**Active Text-content source**:
+The Text-content source selected by the resolution ladder: descriptor-declared development environment override, `[points]`, conventional `.ns/text-content/<point-id>.txt`, then descriptor default. Resolution is fail-closed: a selected source that is missing, unreadable, or invalid is an error for the consuming workflow, never a silent fallback.
+*Avoid*: Active Prompt source, hidden fallback, template rendering
 
 **ns extension points command surface**:
 Read-only CLI introspection under `ns extension points` and `ns extension point <id>` for catalog and detail output. The surface explains definitions, installations, sources, and diagnostics; it does not mutate extensions or project config.

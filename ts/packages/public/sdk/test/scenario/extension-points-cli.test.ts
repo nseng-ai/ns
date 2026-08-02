@@ -29,13 +29,16 @@ describe("ns extension point introspection", () => {
 				"flow.submit.pre (hook, many) — repo ns.toml commands: just check",
 			);
 			expect(run.stdout.join("")).toContain(
-				"flow.submit.pr-inventory (prompt, one) — env NS_FLOW_PR_INVENTORY_PROMPT -> dev-prompt.md",
+				"flow.submit.pr-inventory (prompt, one) — default ../submit/prompts/pr-inventory-default.md",
 			);
 			expect(run.stdout.join("")).toContain(
 				"flow.submit.pre.recovery (prompt, one) — conventional .ns/prompts/flow.submit.pre.recovery.md",
 			);
 			expect(run.stdout.join("")).toContain(
 				"branch-context.plans-write (prompt, one) — conventional .ns/prompts/branch-context.plans-write.md",
+			);
+			expect(run.stdout.join("")).toContain(
+				"example.output-format (text-content, one) — env EXAMPLE_OUTPUT_FORMAT -> dev-output.txt",
 			);
 			expect(run.stdout.join("")).toContain("point_installation_undefined");
 			expect(run.stderr.join("")).toBe("");
@@ -59,17 +62,18 @@ describe("ns extension point introspection", () => {
 			};
 			expect(data.points.map((point) => point.id)).toEqual([
 				"branch-context.plans-write",
+				"example.output-format",
 				"flow.submit.pr-inventory",
 				"flow.submit.pre",
 				"flow.submit.pre.recovery",
 			]);
 			expect(data.points.map((point) => point.id)).not.toContain("flow.submit.pr-description");
 			expect(
-				data.points.find((point) => point.id === "flow.submit.pr-inventory")?.activeSource,
+				data.points.find((point) => point.id === "example.output-format")?.activeSource,
 			).toEqual({
 				source: "env",
-				envVar: "NS_FLOW_PR_INVENTORY_PROMPT",
-				path: "dev-prompt.md",
+				envVar: "EXAMPLE_OUTPUT_FORMAT",
+				path: "dev-output.txt",
 			});
 			expect(
 				data.diagnostics.some((diagnostic) => diagnostic.code === "point_installation_undefined"),
@@ -147,6 +151,80 @@ describe("ns extension point introspection", () => {
 			expect(data.point.id).toBe("flow.submit.pre");
 			expect(data.point.activeSource).toEqual({ source: "repo-hook", commands: ["just check"] });
 			expect(data.point.installations).toEqual([{ source: "repo-hook", commands: ["just check"] }]);
+			expect(run.stderr.join("")).toBe("");
+		} finally {
+			rmSync(cwd, { recursive: true, force: true });
+		}
+	});
+
+	test("preserves text-content ns.toml and default source discriminants and rendering", async () => {
+		for (const fixture of [
+			{
+				name: "ns.toml",
+				defaultPath: undefined,
+				config: `[points]\n"example.output-format" = "custom/output.txt"\n`,
+				expected: { source: "repo-text-content", path: "custom/output.txt" },
+				human: "repo ns.toml text-content -> custom/output.txt",
+			},
+			{
+				name: "default",
+				defaultPath: "./defaults/output.txt",
+				config: "",
+				expected: {
+					source: "default-text-content",
+					path: "./defaults/output.txt",
+					manifestPath: expect.any(String),
+				},
+				human: "default text-content ./defaults/output.txt",
+			},
+		] as const) {
+			const cwd = await createTextContentSourceProject(fixture.defaultPath, fixture.config);
+			try {
+				const machine = runCli(
+					["extension", "point", "example.output-format", "--format", "json"],
+					cwd,
+					{},
+				);
+				expect(await machine.exit, fixture.name).toBe(0);
+				const envelope = parseJsonOutput(machine);
+				const data = envelope.data as { point: { activeSource: unknown } };
+				expect(data.point.activeSource, fixture.name).toEqual(fixture.expected);
+
+				const human = runCli(["extension", "point", "example.output-format"], cwd, {});
+				expect(await human.exit, fixture.name).toBe(0);
+				expect(human.stdout.join(""), fixture.name).toContain(`active source: ${fixture.human}`);
+			} finally {
+				rmSync(cwd, { recursive: true, force: true });
+			}
+		}
+	});
+
+	test("shows the active conventional text-content installation", async () => {
+		const cwd = await createPointProject();
+		try {
+			const run = runCli(
+				["extension", "point", "example.output-format", "--format", "json"],
+				cwd,
+				{},
+			);
+
+			expect(await run.exit).toBe(0);
+			const envelope = parseJsonOutput(run);
+			const data = envelope.data as {
+				point: { id: string; accepts: string; activeSource: unknown; installations: unknown[] };
+			};
+			expect(data.point.id).toBe("example.output-format");
+			expect(data.point.accepts).toBe("text-content");
+			expect(data.point.activeSource).toEqual({
+				source: "conventional-text-content",
+				path: ".ns/text-content/example.output-format.txt",
+			});
+			expect(data.point.installations).toEqual([
+				{
+					source: "conventional-text-content",
+					path: ".ns/text-content/example.output-format.txt",
+				},
+			]);
 			expect(run.stderr.join("")).toBe("");
 		} finally {
 			rmSync(cwd, { recursive: true, force: true });
@@ -264,7 +342,7 @@ function runCli(
 	args: readonly string[],
 	cwd: string,
 	env: Record<string, string | undefined> = {
-		NS_FLOW_PR_INVENTORY_PROMPT: "dev-prompt.md",
+		EXAMPLE_OUTPUT_FORMAT: "dev-output.txt",
 	},
 ) {
 	return runCliWithFakes(
@@ -325,8 +403,55 @@ export default defineExtension({
 	return cwd;
 }
 
+async function createTextContentSourceProject(
+	defaultPath: string | undefined,
+	config: string,
+): Promise<string> {
+	const cwd = await mkdtemp(join(tmpdir(), "ns-text-content-source-cli-"));
+	writeJson(join(cwd, "extensions", "example", "package.json"), {
+		name: "example",
+		version: "1.0.0",
+		exports: { "./ns-extension": "./extension.ts" },
+	});
+	writeText(
+		join(cwd, "extensions", "example", "extension.ts"),
+		`import { defineExtension } from "@nseng-ai/sdk";
+export default defineExtension({
+  description: "Example.",
+  points: [{
+    id: "example.output-format",
+    accepts: "text-content",
+    cardinality: "one",
+    ${defaultPath === undefined ? "" : `default: ${JSON.stringify(defaultPath)},`}
+  }],
+});
+`,
+	);
+	writeText(join(cwd, "ns.toml"), `extensions = ["./extensions/example"]\n\n${config}`);
+	return cwd;
+}
+
 async function createPointProject(): Promise<string> {
 	const cwd = await mkdtemp(join(tmpdir(), "ns-extension-points-cli-"));
+	writeJson(join(cwd, "extensions", "example", "package.json"), {
+		name: "example",
+		version: "1.0.0",
+		exports: { "./ns-extension": "./extension.ts" },
+	});
+	writeText(
+		join(cwd, "extensions", "example", "extension.ts"),
+		`import { defineExtension } from "@nseng-ai/sdk";
+export default defineExtension({
+  description: "Example.",
+  points: [{
+    id: "example.output-format",
+    accepts: "text-content",
+    cardinality: "one",
+    developmentOverrideEnvVar: "EXAMPLE_OUTPUT_FORMAT",
+  }],
+});
+`,
+	);
 	writeJson(join(cwd, ".ns", "extensions", "flow", "package.json"), {
 		ns: {
 			group: "flow",
@@ -380,8 +505,12 @@ async function createPointProject(): Promise<string> {
 	writeText(join(cwd, ".ns", "prompts", "branch-context.plans-write.md"), "Prompt\n");
 	writeText(join(cwd, ".ns", "prompts", "flow.submit.pre.recovery.md"), "Recovery prompt\n");
 	writeText(
+		join(cwd, ".ns", "text-content", "example.output-format.txt"),
+		"[obj:{{value}}] [autorun:{{count}}] {{existingTitle}}\n",
+	);
+	writeText(
 		join(cwd, "ns.toml"),
-		`extensions = [${JSON.stringify(flowPackageRoot)}]\n\n[points]\n"flow.submit.pre" = ["just check"]\n"missing.point" = "ghost.md"\n`,
+		`extensions = [${JSON.stringify(flowPackageRoot)}, "./extensions/example"]\n\n[points]\n"flow.submit.pre" = ["just check"]\n"missing.point" = "ghost.md"\n`,
 	);
 	return cwd;
 }

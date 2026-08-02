@@ -35,7 +35,7 @@ export interface ExtensionGroupEntry {
 
 export type ExtensionEntry = ExtensionCommandEntry | ExtensionGroupEntry;
 
-export const extensionPointAcceptsValues = ["hook", "prompt"] as const;
+export const extensionPointAcceptsValues = ["hook", "prompt", "text-content"] as const;
 export const extensionPointCardinalityValues = ["many", "one"] as const;
 
 export interface ExtensionPointDefinition {
@@ -44,6 +44,7 @@ export interface ExtensionPointDefinition {
 	readonly cardinality: (typeof extensionPointCardinalityValues)[number];
 	readonly description?: string;
 	readonly default?: string;
+	readonly developmentOverrideEnvVar?: string;
 }
 
 export interface BundledArtifactDefinition {
@@ -139,13 +140,40 @@ export const extensionPointDefinitionSchema: z.ZodType<ExtensionPointDefinition>
 		cardinality: z.enum(extensionPointCardinalityValues),
 		description: z.string().optional(),
 		default: z.string().optional(),
+		developmentOverrideEnvVar: z.string().min(1).optional(),
+	})
+	.superRefine((point, context) => {
+		if (point.accepts === "text-content" && point.cardinality !== "one") {
+			context.addIssue({
+				code: "custom",
+				message: 'text-content points must declare cardinality "one"',
+				path: ["cardinality"],
+			});
+		}
+		if (point.developmentOverrideEnvVar !== undefined && point.accepts === "hook") {
+			context.addIssue({
+				code: "custom",
+				message: "development override metadata is not allowed on hook points",
+				path: ["developmentOverrideEnvVar"],
+			});
+		} else if (point.developmentOverrideEnvVar !== undefined && point.cardinality !== "one") {
+			context.addIssue({
+				code: "custom",
+				message: 'development override metadata requires cardinality "one"',
+				path: ["developmentOverrideEnvVar"],
+			});
+		}
 	})
 	.transform(
 		(point): ExtensionPointDefinition => ({
 			id: point.id,
 			accepts: point.accepts,
 			cardinality: point.cardinality,
-			...optionalEntries({ description: point.description, default: point.default }),
+			...optionalEntries({
+				description: point.description,
+				default: point.default,
+				developmentOverrideEnvVar: point.developmentOverrideEnvVar,
+			}),
 		}),
 	);
 

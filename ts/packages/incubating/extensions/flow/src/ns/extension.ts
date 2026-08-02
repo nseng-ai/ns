@@ -22,6 +22,7 @@ export const flowExtensionDescriptor = defineExtension({
 			accepts: "prompt",
 			cardinality: "one",
 			default: "../submit/prompts/pr-inventory-default.md",
+			developmentOverrideEnvVar: "NS_FLOW_PR_INVENTORY_PROMPT",
 			description: "Prompt for generating pull request inventories during flow submit.",
 		},
 	],

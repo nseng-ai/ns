@@ -9,7 +9,10 @@ import {
 	parseProjectConfigToml,
 	primaryProjectConfigDiagnostic,
 	projectConfigErrorFromDiagnostics,
+	resolvePromptPointPath,
 	resolvePromptPointSource,
+	resolveTextContentPointPath,
+	resolveTextContentPointSource,
 	type PointDefinition,
 	type ProjectConfigGateway,
 	type ProjectConfigPathExistsResult,
@@ -19,7 +22,12 @@ import {
 const pointDefinitions = [
 	{ id: "flow.submit.pre", accepts: "hook", cardinality: "many" },
 	{ id: "flow.submit.pre.recovery", accepts: "prompt", cardinality: "one" },
-	{ id: "flow.submit.pr-inventory", accepts: "prompt", cardinality: "one" },
+	{
+		id: "flow.submit.pr-inventory",
+		accepts: "prompt",
+		cardinality: "one",
+		developmentOverrideEnvVar: "NS_FLOW_PR_INVENTORY_PROMPT",
+	},
 ] as const satisfies readonly PointDefinition[];
 
 describe("project point config", () => {
@@ -395,10 +403,6 @@ context_lines = "wide"
 			repoRoot: "/repo",
 			gateway,
 			pointDefinitions,
-			promptEnvOverride: {
-				pointId: "flow.submit.pr-inventory",
-				envVar: "NS_FLOW_PR_INVENTORY_PROMPT",
-			},
 			env: { NS_FLOW_PR_INVENTORY_PROMPT: "dev.md" },
 		});
 
@@ -454,8 +458,7 @@ context_lines = "wide"
 			gateway: { pathExists: () => ({ type: "missing" }) },
 			pointDefinitions,
 			config: { points: [], settings: new Map() },
-			promptEnvOverride: { pointId: "other.prompt", envVar: "NS_FLOW_PR_INVENTORY_PROMPT" },
-			env: { NS_FLOW_PR_INVENTORY_PROMPT: "dev.md" },
+			env: { NS_OTHER_PROMPT: "dev.md" },
 		});
 
 		expect(resolvePromptPointSource(catalog, "flow.submit.pr-inventory")).toEqual({
@@ -487,6 +490,234 @@ context_lines = "wide"
 			"point_defined_uninstalled",
 			"point_defined_uninstalled",
 		]);
+	});
+});
+
+const textContentPointId = "example.output-format";
+const textContentDefinitions = [
+	{
+		id: textContentPointId,
+		accepts: "text-content",
+		cardinality: "one",
+		defaultPath: "./text-content/output-format-default.txt",
+		manifestPath: "/example/src/ns/extension.ts",
+		developmentOverrideEnvVar: "EXAMPLE_OUTPUT_FORMAT",
+	},
+] as const satisfies readonly PointDefinition[];
+
+describe("text-content points", () => {
+	test("parses one non-empty text-content installation path from ns.toml", () => {
+		const gateway = new InMemoryProjectConfigGateway({
+			"ns.toml": `[points]\n"${textContentPointId}" = "custom/title.txt"\n`,
+		});
+
+		const result = loadProjectConfig({
+			repoRoot: "/repo",
+			gateway,
+			pointDefinitions: textContentDefinitions,
+		});
+
+		expect(result).toMatchObject({ ok: true });
+		if (!result.ok) return;
+		expect(result.config.points).toEqual([
+			{ pointId: textContentPointId, accepts: "text-content", path: "custom/title.txt" },
+		]);
+	});
+
+	test("rejects hook-shaped arrays and empty strings for text-content installations", () => {
+		for (const value of ['["just"]', '""']) {
+			const gateway = new InMemoryProjectConfigGateway({
+				"ns.toml": `[points]\n"${textContentPointId}" = ${value}\n`,
+			});
+			const result = loadProjectConfig({
+				repoRoot: "/repo",
+				gateway,
+				pointDefinitions: textContentDefinitions,
+			});
+			expect(result.ok).toBe(false);
+			expect(result.diagnostics).toEqual([
+				expect.objectContaining({
+					code: "point_installation_invalid",
+					message: expect.stringContaining(
+						`text-content point ${textContentPointId} must be a non-empty path string.`,
+					),
+				}),
+			]);
+		}
+	});
+
+	test("text-content source precedence is env, ns.toml, conventional, then descriptor default", () => {
+		const configuredFiles = {
+			"ns.toml": `[points]\n"${textContentPointId}" = "custom/title.txt"\n`,
+			".ns/text-content/example.output-format.txt": "text-content",
+		};
+
+		const withEnv = loadPointCatalog({
+			repoRoot: "/repo",
+			gateway: new InMemoryProjectConfigGateway(configuredFiles),
+			pointDefinitions: textContentDefinitions,
+			env: { EXAMPLE_OUTPUT_FORMAT: "dev.txt" },
+		});
+		expect(resolveTextContentPointSource(withEnv, textContentPointId)).toEqual({
+			type: "env",
+			pointId: textContentPointId,
+			envVar: "EXAMPLE_OUTPUT_FORMAT",
+			path: "dev.txt",
+		});
+		expect(withEnv.diagnostics).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					severity: "info",
+					code: "point_text-content_env_override_in_effect",
+					path: textContentPointId,
+				}),
+			]),
+		);
+
+		const withConfig = loadPointCatalog({
+			repoRoot: "/repo",
+			gateway: new InMemoryProjectConfigGateway(configuredFiles),
+			pointDefinitions: textContentDefinitions,
+		});
+		expect(resolveTextContentPointSource(withConfig, textContentPointId)).toEqual({
+			type: "ns.toml",
+			pointId: textContentPointId,
+			path: "custom/title.txt",
+		});
+
+		const withConventional = loadPointCatalog({
+			repoRoot: "/repo",
+			gateway: new InMemoryProjectConfigGateway({
+				".ns/text-content/example.output-format.txt": "text-content",
+			}),
+			pointDefinitions: textContentDefinitions,
+		});
+		expect(resolveTextContentPointSource(withConventional, textContentPointId)).toEqual({
+			type: "conventional",
+			pointId: textContentPointId,
+			path: ".ns/text-content/example.output-format.txt",
+		});
+
+		const withDefault = loadPointCatalog({
+			repoRoot: "/repo",
+			gateway: new InMemoryProjectConfigGateway({}),
+			pointDefinitions: textContentDefinitions,
+		});
+		expect(resolveTextContentPointSource(withDefault, textContentPointId)).toEqual({
+			type: "default",
+			pointId: textContentPointId,
+			path: "./text-content/output-format-default.txt",
+			manifestPath: "/example/src/ns/extension.ts",
+		});
+	});
+
+	test("semantic source wrappers reject the other content kind", () => {
+		const catalog = loadPointCatalog({
+			repoRoot: "/repo",
+			gateway: new InMemoryProjectConfigGateway({}),
+			pointDefinitions: [
+				{ id: textContentPointId, accepts: "text-content", cardinality: "one" },
+				{ id: "example.prompt", accepts: "prompt", cardinality: "one" },
+			],
+		});
+
+		expect(resolvePromptPointSource(catalog, textContentPointId)).toEqual({
+			type: "missing",
+			pointId: textContentPointId,
+		});
+		expect(resolveTextContentPointSource(catalog, "example.prompt")).toEqual({
+			type: "missing",
+			pointId: "example.prompt",
+		});
+	});
+
+	test("reports missing for undeclared or non-text-content points and no metadata", () => {
+		const catalog = loadPointCatalog({
+			repoRoot: "/repo",
+			gateway: new InMemoryProjectConfigGateway({}),
+			pointDefinitions: [
+				{ id: textContentPointId, accepts: "text-content", cardinality: "one" },
+				{ id: "flow.submit.pre.recovery", accepts: "prompt", cardinality: "one" },
+			],
+		});
+
+		expect(resolveTextContentPointSource(catalog, textContentPointId)).toEqual({
+			type: "missing",
+			pointId: textContentPointId,
+		});
+		expect(resolveTextContentPointSource(catalog, "flow.submit.pre.recovery")).toEqual({
+			type: "missing",
+			pointId: "flow.submit.pre.recovery",
+		});
+		expect(resolveTextContentPointSource(catalog, "absent.point")).toEqual({
+			type: "missing",
+			pointId: "absent.point",
+		});
+	});
+
+	test("text-content env override is ignored for other text-content points", () => {
+		const catalog = buildPointCatalog({
+			repoRoot: "/repo",
+			gateway: { pathExists: () => ({ type: "missing" }) },
+			pointDefinitions: textContentDefinitions,
+			config: { points: [], settings: new Map() },
+			env: { NS_OTHER_TEXT_CONTENT: "dev.txt" },
+		});
+
+		expect(catalog.diagnostics.map((diagnostic) => diagnostic.code)).not.toContain(
+			"point_text-content_env_override_in_effect",
+		);
+	});
+
+	test("content path wrappers preserve kind-specific ns.toml labels", () => {
+		expect(
+			resolvePromptPointPath("/repo", {
+				type: "ns.toml",
+				pointId: "example.prompt",
+				path: "custom/prompt.md",
+			}),
+		).toEqual({ path: "/repo/custom/prompt.md", label: "ns.toml prompt custom/prompt.md" });
+		expect(
+			resolveTextContentPointPath("/repo", {
+				type: "ns.toml",
+				pointId: textContentPointId,
+				path: "custom/title.txt",
+			}),
+		).toEqual({ path: "/repo/custom/title.txt", label: "ns.toml text-content custom/title.txt" });
+	});
+
+	test("resolveTextContentPointPath resolves repo, conventional, and manifest-relative paths", () => {
+		expect(
+			resolveTextContentPointPath("/repo", {
+				type: "ns.toml",
+				pointId: textContentPointId,
+				path: "custom/title.txt",
+			}),
+		).toEqual({ path: "/repo/custom/title.txt", label: "ns.toml text-content custom/title.txt" });
+		expect(
+			resolveTextContentPointPath("/repo", {
+				type: "conventional",
+				pointId: textContentPointId,
+				path: ".ns/text-content/example.output-format.txt",
+			}),
+		).toEqual({
+			path: "/repo/.ns/text-content/example.output-format.txt",
+			label: ".ns/text-content/example.output-format.txt",
+		});
+		expect(
+			resolveTextContentPointPath("/repo", {
+				type: "default",
+				pointId: textContentPointId,
+				path: "./text-content/output-format-default.txt",
+				manifestPath: "/example/src/ns/extension.ts",
+			}),
+		).toEqual({
+			path: "/example/src/ns/text-content/output-format-default.txt",
+			label: "manifest default ./text-content/output-format-default.txt",
+		});
+		expect(
+			resolveTextContentPointPath("/repo", { type: "missing", pointId: textContentPointId }),
+		).toBeUndefined();
 	});
 });
 

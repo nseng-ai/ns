@@ -33,11 +33,6 @@ export const FLOW_PR_INVENTORY_POINT_ID = "flow.submit.pr-inventory";
 export const REPO_PR_INVENTORY_PROMPT_PATH = `.ns/prompts/${FLOW_PR_INVENTORY_POINT_ID}.md`;
 export const MAX_DIFF_CHARS = 120_000;
 
-const prInventoryPromptEnvOverride = {
-	pointId: FLOW_PR_INVENTORY_POINT_ID,
-	envVar: PR_INVENTORY_PROMPT_ENV,
-} as const;
-
 const LOCKFILE_BASENAMES = new Set([
 	"pnpm-lock.yaml",
 	"package-lock.json",
@@ -153,7 +148,6 @@ export async function resolvePrInventoryPrompt(
 				descriptorPath: fileURLToPath(input.descriptorSource.descriptorUrl),
 			},
 		],
-		promptEnvOverride: prInventoryPromptEnvOverride,
 		env: input.env,
 	});
 	const pointSource = resolvePromptPointSource(catalog, FLOW_PR_INVENTORY_POINT_ID);

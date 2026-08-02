@@ -36,6 +36,7 @@ export interface PointDefinition {
 	description?: string;
 	defaultPath?: string;
 	manifestPath?: string;
+	developmentOverrideEnvVar?: string;
 }
 
 export interface PreloadedPointDescriptor {
@@ -187,7 +188,8 @@ function formatProjectConfigInvalidTomlMessage(
 
 export type ProjectPointInstallation =
 	| { pointId: string; accepts: "hook"; commands: readonly string[] }
-	| { pointId: string; accepts: "prompt"; path: string };
+	| { pointId: string; accepts: "prompt"; path: string }
+	| { pointId: string; accepts: "text-content"; path: string };
 
 export interface LoadedProjectConfig {
 	points: readonly ProjectPointInstallation[];
@@ -216,21 +218,18 @@ export interface PointDefinitionDiscoveryResult {
 	diagnostics: readonly ProjectConfigDiagnostic[];
 }
 
-export interface ResolvedPromptEnvOverride {
+interface ResolvedContentEnvOverride {
 	pointId: string;
 	envVar: string;
 	path: string;
 }
 
 export type PointCatalogInstallation =
-	| ({ source: "env-prompt" } & ResolvedPromptEnvOverride)
+	| ({ source: "env-prompt" } & ResolvedContentEnvOverride)
+	| ({ source: "env-text-content" } & ResolvedContentEnvOverride)
 	| { source: "ns.toml"; installation: ProjectPointInstallation }
-	| { source: "conventional-prompt"; pointId: string; path: string };
-
-export interface PromptPointEnvOverride {
-	pointId: string;
-	envVar: string;
-}
+	| { source: "conventional-prompt"; pointId: string; path: string }
+	| { source: "conventional-text-content"; pointId: string; path: string };
 
 export interface PointCatalogEntry {
 	definition: PointDefinition;
@@ -242,12 +241,18 @@ export interface PointCatalog {
 	diagnostics: readonly ProjectConfigDiagnostic[];
 }
 
-export type PromptPointSource =
-	| ({ type: "env" } & ResolvedPromptEnvOverride)
+type ContentPointAccepts = "prompt" | "text-content";
+type ContentPointDefinition = PointDefinition & { accepts: ContentPointAccepts };
+
+type ContentPointSource =
+	| { type: "env"; pointId: string; envVar: string; path: string }
 	| { type: "ns.toml"; pointId: string; path: string }
 	| { type: "conventional"; pointId: string; path: string }
 	| { type: "default"; pointId: string; path: string; manifestPath: string }
 	| { type: "missing"; pointId: string };
+
+export type PromptPointSource = ContentPointSource;
+export type TextContentPointSource = ContentPointSource;
 
 function tryProjectConfigProbe<T>(
 	probe: () => ProjectConfigProbeResult<T>,
@@ -464,6 +469,7 @@ function pointDefinitionsForDescriptor(
 		cardinality: point.cardinality,
 		...optionalEntry("description", point.description),
 		...optionalEntry("defaultPath", point.default),
+		...optionalEntry("developmentOverrideEnvVar", point.developmentOverrideEnvVar),
 		manifestPath: descriptorPath,
 	}));
 }
@@ -474,7 +480,6 @@ export function loadPointCatalog(request: {
 	pointDefinitions?: readonly PointDefinition[];
 	preferredDescriptors?: readonly PreloadedPointDescriptor[];
 	settingsSchemas?: readonly SettingsSchema[];
-	promptEnvOverride?: PromptPointEnvOverride;
 	env?: Record<string, string | undefined>;
 }): PointCatalog {
 	const fallbackDefinitions = request.pointDefinitions ?? builtInPointDefinitions;
@@ -497,7 +502,6 @@ export function loadPointCatalog(request: {
 		pointDefinitions,
 		config: configResult.config ?? emptyLoadedProjectConfig,
 		diagnostics: configResult.diagnostics,
-		...optionalEntry("promptEnvOverride", request.promptEnvOverride),
 		env: request.env ?? {},
 	});
 }
@@ -507,7 +511,6 @@ export async function loadPointCatalogWithDescriptors(request: {
 	gateway: ProjectConfigGateway;
 	pointDefinitions?: readonly PointDefinition[];
 	settingsSchemas?: readonly SettingsSchema[];
-	promptEnvOverride?: PromptPointEnvOverride;
 	env?: Record<string, string | undefined>;
 }): Promise<PointCatalog> {
 	const descriptorDefinitionResult =
@@ -533,7 +536,6 @@ export async function loadPointCatalogWithDescriptors(request: {
 		pointDefinitions,
 		config: configResult.config ?? emptyLoadedProjectConfig,
 		diagnostics: [...descriptorDefinitionResult.diagnostics, ...configResult.diagnostics],
-		...optionalEntry("promptEnvOverride", request.promptEnvOverride),
 		env: request.env ?? {},
 	});
 }
@@ -553,26 +555,42 @@ export function resolvePromptPointSource(
 	catalog: PointCatalog,
 	pointId: string,
 ): PromptPointSource {
+	return resolveContentPointSource(catalog, pointId, "prompt");
+}
+
+export function resolveTextContentPointSource(
+	catalog: PointCatalog,
+	pointId: string,
+): TextContentPointSource {
+	return resolveContentPointSource(catalog, pointId, "text-content");
+}
+
+function resolveContentPointSource(
+	catalog: PointCatalog,
+	pointId: string,
+	accepts: "prompt" | "text-content",
+): ContentPointSource {
 	const entry = catalog.entries.find((catalogEntry) => catalogEntry.definition.id === pointId);
-	if (entry === undefined || entry.definition.accepts !== "prompt")
+	if (entry === undefined || entry.definition.accepts !== accepts)
 		return { type: "missing", pointId };
 
-	const envOverride = findCatalogInstallation(entry, "env-prompt");
+	const envSource = accepts === "prompt" ? "env-prompt" : "env-text-content";
+	const envOverride = findCatalogInstallation(entry, envSource);
 	if (envOverride !== undefined) {
-		return {
-			type: "env",
-			pointId,
-			envVar: envOverride.envVar,
-			path: envOverride.path,
-		};
+		return { type: "env", pointId, envVar: envOverride.envVar, path: envOverride.path };
 	}
 
-	const configured = findPromptConfigInstallation(entry);
-	if (configured !== undefined) {
+	const configured = entry.installations.find(
+		(installation) =>
+			installation.source === "ns.toml" && installation.installation.accepts === accepts,
+	);
+	if (configured?.source === "ns.toml" && configured.installation.accepts !== "hook") {
 		return { type: "ns.toml", pointId, path: configured.installation.path };
 	}
 
-	const conventional = findCatalogInstallation(entry, "conventional-prompt");
+	const conventionalSource =
+		accepts === "prompt" ? "conventional-prompt" : "conventional-text-content";
+	const conventional = findCatalogInstallation(entry, conventionalSource);
 	if (conventional !== undefined) {
 		return { type: "conventional", pointId, path: conventional.path };
 	}
@@ -585,7 +603,6 @@ export function resolvePromptPointSource(
 			manifestPath: entry.definition.manifestPath,
 		};
 	}
-
 	return { type: "missing", pointId };
 }
 
@@ -595,8 +612,52 @@ export interface BuildPointCatalogRequest {
 	pointDefinitions: readonly PointDefinition[];
 	config: LoadedProjectConfig;
 	diagnostics?: readonly ProjectConfigDiagnostic[];
-	promptEnvOverride?: PromptPointEnvOverride;
 	env?: Record<string, string | undefined>;
+}
+
+interface ContentPointConventions {
+	envSource: "env-prompt" | "env-text-content";
+	envDiagnosticCode:
+		| "point_prompt_env_override_in_effect"
+		| "point_text-content_env_override_in_effect";
+	displayLabel: "Prompt" | "Text-content";
+	pathLabel: "prompt" | "text-content";
+	conventionalPath: (pointId: string) => string;
+	conventionalSource: "conventional-prompt" | "conventional-text-content";
+	conventionalProbeDiagnosticCode:
+		| "point_conventional_prompt_probe_failed"
+		| "point_conventional_text-content_probe_failed";
+}
+
+function isContentPointDefinition(
+	definition: PointDefinition,
+): definition is ContentPointDefinition {
+	return definition.accepts === "prompt" || definition.accepts === "text-content";
+}
+
+function contentPointConventions(accepts: ContentPointAccepts): ContentPointConventions {
+	switch (accepts) {
+		case "prompt":
+			return {
+				envSource: "env-prompt",
+				envDiagnosticCode: "point_prompt_env_override_in_effect",
+				displayLabel: "Prompt",
+				pathLabel: "prompt",
+				conventionalPath: (pointId) => `.ns/prompts/${pointId}.md`,
+				conventionalSource: "conventional-prompt",
+				conventionalProbeDiagnosticCode: "point_conventional_prompt_probe_failed",
+			};
+		case "text-content":
+			return {
+				envSource: "env-text-content",
+				envDiagnosticCode: "point_text-content_env_override_in_effect",
+				displayLabel: "Text-content",
+				pathLabel: "text-content",
+				conventionalPath: (pointId) => `.ns/text-content/${pointId}.txt`,
+				conventionalSource: "conventional-text-content",
+				conventionalProbeDiagnosticCode: "point_conventional_text-content_probe_failed",
+			};
+	}
 }
 
 export function buildPointCatalog(request: BuildPointCatalogRequest): PointCatalog {
@@ -615,41 +676,43 @@ export function buildPointCatalog(request: BuildPointCatalogRequest): PointCatal
 		left.id.localeCompare(right.id),
 	)) {
 		let installations = installationsByPoint.get(definition.id) ?? [];
-		if (definition.accepts === "prompt") {
-			const envOverride = findPromptEnvOverride({
-				pointId: definition.id,
-				env: request.env ?? {},
-				...optionalEntry("override", request.promptEnvOverride),
-			});
+		if (isContentPointDefinition(definition)) {
+			const conventions = contentPointConventions(definition.accepts);
+			const envOverride = findDevelopmentEnvOverride(definition, request.env ?? {});
 			if (envOverride !== undefined) {
-				installations = [{ source: "env-prompt", ...envOverride }, ...installations];
+				installations = [{ source: conventions.envSource, ...envOverride }, ...installations];
 				diagnostics.push(
 					diagnostic(
-						"point_prompt_env_override_in_effect",
-						`Prompt point ${definition.id} is overridden by env var ${envOverride.envVar}.`,
+						conventions.envDiagnosticCode,
+						`${conventions.displayLabel} point ${definition.id} is overridden by env var ${envOverride.envVar}.`,
 						{ path: definition.id, severity: "info" },
 					),
 				);
 			}
-		}
-		if (definition.accepts === "prompt" && installations.length === 0) {
-			const conventionalPath = `.ns/prompts/${definition.id}.md`;
-			const existsResult = request.gateway.pathExists({
-				repoRoot: request.repoRoot,
-				relativePath: conventionalPath,
-			});
-			if (existsResult.type === "present") {
-				installations = [
-					{ source: "conventional-prompt", pointId: definition.id, path: conventionalPath },
-				];
-			} else if (existsResult.type === "error") {
-				diagnostics.push(
-					diagnostic(
-						"point_conventional_prompt_probe_failed",
-						`Failed to inspect conventional prompt installation ${conventionalPath}: ${existsResult.message}`,
-						{ path: conventionalPath },
-					),
-				);
+
+			if (installations.length === 0) {
+				const conventionalPath = conventions.conventionalPath(definition.id);
+				const existsResult = request.gateway.pathExists({
+					repoRoot: request.repoRoot,
+					relativePath: conventionalPath,
+				});
+				if (existsResult.type === "present") {
+					installations = [
+						{
+							source: conventions.conventionalSource,
+							pointId: definition.id,
+							path: conventionalPath,
+						},
+					];
+				} else if (existsResult.type === "error") {
+					diagnostics.push(
+						diagnostic(
+							conventions.conventionalProbeDiagnosticCode,
+							`Failed to inspect conventional ${conventions.pathLabel} installation ${conventionalPath}: ${existsResult.message}`,
+							{ path: conventionalPath },
+						),
+					);
+				}
 			}
 		}
 
@@ -689,9 +752,27 @@ export function resolvePromptPointPath(
 	repoRoot: string,
 	source: Exclude<PromptPointSource, { type: "env" }>,
 ): { path: string; label: string } | undefined {
+	return resolveContentPointPath(repoRoot, source, "prompt");
+}
+
+export function resolveTextContentPointPath(
+	repoRoot: string,
+	source: Exclude<TextContentPointSource, { type: "env" }>,
+): { path: string; label: string } | undefined {
+	return resolveContentPointPath(repoRoot, source, "text-content");
+}
+
+function resolveContentPointPath(
+	repoRoot: string,
+	source: Exclude<ContentPointSource, { type: "env" }>,
+	accepts: ContentPointAccepts,
+): { path: string; label: string } | undefined {
 	switch (source.type) {
 		case "ns.toml":
-			return { path: join(repoRoot, source.path), label: `ns.toml prompt ${source.path}` };
+			return {
+				path: join(repoRoot, source.path),
+				label: `ns.toml ${contentPointConventions(accepts).pathLabel} ${source.path}`,
+			};
 		case "conventional":
 			return { path: join(repoRoot, source.path), label: source.path };
 		case "default":
@@ -714,31 +795,15 @@ function findCatalogInstallation<TSource extends PointCatalogInstallation["sourc
 	);
 }
 
-function findPromptConfigInstallation(entry: PointCatalogEntry):
-	| {
-			source: "ns.toml";
-			installation: Extract<ProjectPointInstallation, { accepts: "prompt" }>;
-	  }
-	| undefined {
-	return entry.installations.find(
-		(
-			installation,
-		): installation is {
-			source: "ns.toml";
-			installation: Extract<ProjectPointInstallation, { accepts: "prompt" }>;
-		} => installation.source === "ns.toml" && installation.installation.accepts === "prompt",
-	);
-}
-
-function findPromptEnvOverride(request: {
-	pointId: string;
-	env: Record<string, string | undefined>;
-	override?: PromptPointEnvOverride;
-}): ResolvedPromptEnvOverride | undefined {
-	if (request.override?.pointId !== request.pointId) return undefined;
-	const path = request.env[request.override.envVar]?.trim();
+function findDevelopmentEnvOverride(
+	definition: PointDefinition,
+	env: Record<string, string | undefined>,
+): ResolvedContentEnvOverride | undefined {
+	const envVar = definition.developmentOverrideEnvVar;
+	if (envVar === undefined) return undefined;
+	const path = env[envVar]?.trim();
 	if (!path) return undefined;
-	return { pointId: request.pointId, envVar: request.override.envVar, path };
+	return { pointId: definition.id, envVar, path };
 }
 
 function parsePointsTable(request: {
@@ -810,11 +875,17 @@ function parsePointInstallation(request: {
 		});
 	}
 
+	const accepts = request.definition.accepts;
+	const conventions = contentPointConventions(accepts);
 	return parseInstallationValue({
 		...request,
 		schema: z.string().min(1),
-		invalidMessage: `${request.pathLabel}: prompt point ${request.pointId} must be a non-empty path string.`,
-		buildInstallation: (path) => ({ pointId: request.pointId, accepts: "prompt", path }),
+		invalidMessage: `${request.pathLabel}: ${conventions.pathLabel} point ${request.pointId} must be a non-empty path string.`,
+		buildInstallation: (path) => ({
+			pointId: request.pointId,
+			accepts,
+			path,
+		}),
 	});
 }
 

@@ -8,17 +8,15 @@ import {
 	loadPointCatalogWithDescriptors,
 	nodeProjectConfigGateway,
 	resolvePromptPointSource,
+	resolveTextContentPointSource,
+	type PointAccepts,
 	type PointCatalog,
 	type PointCatalogEntry,
 	type PointCatalogInstallation,
+	type PromptPointSource,
 	type ProjectConfigDiagnostic,
 } from "../project-config/points.ts";
 import { defineCommand, type NsCommand } from "../sdk/index.ts";
-
-const knownPromptEnvOverride = {
-	pointId: "flow.submit.pr-inventory",
-	envVar: "NS_FLOW_PR_INVENTORY_PROMPT",
-} as const;
 
 const pointDiagnosticSchema = z.object({
 	severity: z.enum(["error", "info"]),
@@ -31,8 +29,15 @@ const pointSourceSchema = z.union([
 	z.object({ source: z.literal("env"), envVar: z.string(), path: z.string() }),
 	z.object({ source: z.literal("repo-prompt"), path: z.string() }),
 	z.object({ source: z.literal("repo-hook"), commands: z.array(z.string()) }),
+	z.object({ source: z.literal("repo-text-content"), path: z.string() }),
 	z.object({ source: z.literal("conventional"), path: z.string() }),
+	z.object({ source: z.literal("conventional-text-content"), path: z.string() }),
 	z.object({ source: z.literal("default"), path: z.string(), manifestPath: z.string() }),
+	z.object({
+		source: z.literal("default-text-content"),
+		path: z.string(),
+		manifestPath: z.string(),
+	}),
 	z.object({ source: z.literal("missing") }),
 ]);
 type PointSourceView = z.infer<typeof pointSourceSchema>;
@@ -123,7 +128,6 @@ async function loadCatalog(
 		repoRoot: cwd,
 		gateway: nodeProjectConfigGateway,
 		env,
-		promptEnvOverride: knownPromptEnvOverride,
 	});
 }
 
@@ -169,8 +173,12 @@ function activeSourceForEntry(
 	catalog: PointCatalog,
 	entry: PointCatalogEntry,
 ): z.infer<typeof pointSourceSchema> {
-	if (entry.definition.accepts === "prompt") {
-		return pointSourceFromPromptSource(resolvePromptPointSource(catalog, entry.definition.id));
+	if (entry.definition.accepts === "prompt" || entry.definition.accepts === "text-content") {
+		const source =
+			entry.definition.accepts === "prompt"
+				? resolvePromptPointSource(catalog, entry.definition.id)
+				: resolveTextContentPointSource(catalog, entry.definition.id);
+		return pointSourceFromContentSource(source, entry.definition.accepts);
 	}
 
 	const installation = entry.installations.find(
@@ -183,30 +191,47 @@ function activeSourceForEntry(
 }
 
 function toPointSource(installation: PointCatalogInstallation): z.infer<typeof pointSourceSchema> {
-	if (installation.source === "env-prompt") {
+	if (installation.source === "env-prompt" || installation.source === "env-text-content") {
 		return envPointSource(installation.envVar, installation.path);
 	}
 	if (installation.source === "conventional-prompt") {
 		return conventionalPointSource(installation.path);
 	}
+	if (installation.source === "conventional-text-content") {
+		return conventionalTextContentPointSource(installation.path);
+	}
 	if (installation.installation.accepts === "hook") {
 		return pointSourceFromHookCommands(installation.installation.commands);
+	}
+	if (installation.installation.accepts === "text-content") {
+		return repoTextContentPointSource(installation.installation.path);
 	}
 	return repoPromptPointSource(installation.installation.path);
 }
 
-function pointSourceFromPromptSource(
-	source: ReturnType<typeof resolvePromptPointSource>,
+function pointSourceFromContentSource(
+	source: PromptPointSource,
+	accepts: Exclude<PointAccepts, "hook">,
 ): z.infer<typeof pointSourceSchema> {
 	switch (source.type) {
 		case "env":
 			return envPointSource(source.envVar, source.path);
 		case "ns.toml":
-			return repoPromptPointSource(source.path);
+			return accepts === "prompt"
+				? repoPromptPointSource(source.path)
+				: repoTextContentPointSource(source.path);
 		case "conventional":
-			return conventionalPointSource(source.path);
+			return accepts === "prompt"
+				? conventionalPointSource(source.path)
+				: conventionalTextContentPointSource(source.path);
 		case "default":
-			return { source: "default", path: source.path, manifestPath: source.manifestPath };
+			return accepts === "prompt"
+				? { source: "default", path: source.path, manifestPath: source.manifestPath }
+				: {
+						source: "default-text-content",
+						path: source.path,
+						manifestPath: source.manifestPath,
+					};
 		case "missing":
 			return missingPointSource();
 	}
@@ -214,6 +239,14 @@ function pointSourceFromPromptSource(
 
 function envPointSource(envVar: string, path: string): z.infer<typeof pointSourceSchema> {
 	return { source: "env", envVar, path };
+}
+
+function repoTextContentPointSource(path: string): z.infer<typeof pointSourceSchema> {
+	return { source: "repo-text-content", path };
+}
+
+function conventionalTextContentPointSource(path: string): z.infer<typeof pointSourceSchema> {
+	return { source: "conventional-text-content", path };
 }
 
 function repoPromptPointSource(path: string): z.infer<typeof pointSourceSchema> {
@@ -293,10 +326,16 @@ function renderSource(source: PointSourceView): string {
 			return `repo ns.toml -> ${source.path}`;
 		case "repo-hook":
 			return `repo ns.toml commands: ${source.commands.join(", ")}`;
+		case "repo-text-content":
+			return `repo ns.toml text-content -> ${source.path}`;
 		case "conventional":
 			return `conventional ${source.path}`;
+		case "conventional-text-content":
+			return `conventional text-content ${source.path}`;
 		case "default":
 			return `default ${source.path}`;
+		case "default-text-content":
+			return `default text-content ${source.path}`;
 		case "missing":
 			return "missing";
 	}

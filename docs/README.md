@@ -16,7 +16,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 ## Index
 
 - [ADR maintenance policy](adr/README.md): how to preserve accepted ADRs while keeping mutable guidance current.
-- [Points guide](guides/points.md): user-facing guide to the point system — installing hooks and prompts via `ns.toml`/`.ns/prompts/`, and defining points in extension descriptors.
+- [Points guide](guides/points.md): user-facing guide to the point system — installing hooks, prompts, and text content via `ns.toml`/`.ns/prompts/`/`.ns/text-content/`, and defining points in extension descriptors.
 - [Writing an ns extension](../ts/packages/public/sdk/docs/writing-an-ns-extension.md): extension-author package layout, typed descriptor modules, command modules, points, bundled artifacts, activation, and initialized-project installation from explicit `npm:` or local source specs with `ns extension install`.
 - [Objective system](objective-system.md): how checked-in Objectives structure durable project work.
 - [Follow-ups](follow-ups/README.md): point-in-time candidate ideas that need revalidation and further formation before becoming Objectives.

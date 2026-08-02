@@ -80,6 +80,82 @@ describe("extension descriptor SDK", () => {
 		});
 	});
 
+	test("accepts cardinality-one text-content points with a package-relative default", () => {
+		const parsed = validateExtensionDescriptor({
+			description: "TextContents.",
+			points: [
+				{
+					id: "example.output-format",
+					accepts: "text-content",
+					cardinality: "one",
+					default: "./text-content/output-format-default.txt",
+					description: "Deterministic title text-content.",
+				},
+			],
+		});
+
+		expect(parsed).toMatchObject({ ok: true });
+	});
+
+	test("rejects text-content points that are not cardinality one", () => {
+		const parsed = validateExtensionDescriptor({
+			description: "Text contents.",
+			points: [
+				{
+					id: "example.output-format",
+					accepts: "text-content",
+					cardinality: "many",
+				},
+			],
+		});
+
+		expect(parsed).toEqual({
+			ok: false,
+			message: expect.stringContaining('text-content points must declare cardinality "one"'),
+		});
+	});
+
+	test.each(["prompt", "text-content"] as const)(
+		"accepts development override metadata on cardinality-one %s points",
+		(accepts) => {
+			const parsed = validateExtensionDescriptor({
+				description: "Development overrides.",
+				points: [
+					{
+						id: `example.${accepts}`,
+						accepts,
+						cardinality: "one",
+						developmentOverrideEnvVar: "EXAMPLE_CONTENT_PATH",
+					},
+				],
+			});
+
+			expect(parsed).toMatchObject({ ok: true });
+		},
+	);
+
+	test.each([
+		{ accepts: "hook", cardinality: "one", message: "not allowed on hook points" },
+		{ accepts: "prompt", cardinality: "many", message: 'requires cardinality "one"' },
+	] as const)(
+		"rejects development override metadata on $accepts/$cardinality points",
+		({ accepts, cardinality, message }) => {
+			const parsed = validateExtensionDescriptor({
+				description: "Invalid development override.",
+				points: [
+					{
+						id: `example.${accepts}`,
+						accepts,
+						cardinality,
+						developmentOverrideEnvVar: "EXAMPLE_CONTENT_PATH",
+					},
+				],
+			});
+
+			expect(parsed).toEqual({ ok: false, message: expect.stringContaining(message) });
+		},
+	);
+
 	test.each([
 		{ activation: {}, expected: {} },
 		{
