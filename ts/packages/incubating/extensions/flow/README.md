@@ -165,8 +165,15 @@ one open PR before preparation starts. Missing, ambiguous, malformed, query-fail
 duplicate identities fail after publication with branch-specific recovery guidance and no inventory
 generation or edits. By default, PRs that existed before the invocation are left untouched.
 
+`ns flow submit --title-prefix <text>` prepends one deterministic, trimmed prefix to every PR newly
+created by that invocation. Flow rejects an empty or multiline prefix and one too long to leave room
+for a separating space plus at least one generated-title character. The final title is exactly the
+preserved prefix, one space, and the generated candidate; only the candidate is truncated to keep the
+complete title within 120 JavaScript string characters.
+
 `ns flow submit --generate-pr-inventory` widens the batch to every reconciled PR in the submitted
-scope, existing and new. Its destructive warning and confirmation happen before checks,
+scope, existing and new. If `--title-prefix` is also present, it still applies only to the newly
+created PRs; pre-existing PRs receive ordinary regenerated titles. Its destructive warning and confirmation happen before checks,
 checkpointing, model resolution, or Graphite/GitHub work; use `--yes`/`-y` only for explicit
 non-interactive authorization. Every selected PR receives a complete replacement title and body,
 removing all existing body content, including human-authored prose. Flow prepares all replacements

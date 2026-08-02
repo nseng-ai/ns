@@ -32,6 +32,7 @@ export const PR_INVENTORY_PROMPT_ENV = "NS_FLOW_PR_INVENTORY_PROMPT";
 export const FLOW_PR_INVENTORY_POINT_ID = "flow.submit.pr-inventory";
 export const REPO_PR_INVENTORY_PROMPT_PATH = `.ns/prompts/${FLOW_PR_INVENTORY_POINT_ID}.md`;
 export const MAX_DIFF_CHARS = 120_000;
+export const PR_TITLE_MAX_CHARS = 120;
 
 const prInventoryPromptEnvOverride = {
 	pointId: FLOW_PR_INVENTORY_POINT_ID,
@@ -262,8 +263,12 @@ export function validatePrInventory(inventory: ParsedPrInventory): PrInventoryVa
 	if (inventory.title.trim() === "") {
 		issues.push({ type: "empty_title" });
 	}
-	if (inventory.title.length > 120) {
-		issues.push({ type: "title_too_long", length: inventory.title.length, maxLength: 120 });
+	if (inventory.title.length > PR_TITLE_MAX_CHARS) {
+		issues.push({
+			type: "title_too_long",
+			length: inventory.title.length,
+			maxLength: PR_TITLE_MAX_CHARS,
+		});
 	}
 	if (inventory.body.trim() === "") {
 		issues.push({ type: "empty_body" });

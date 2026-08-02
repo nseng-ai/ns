@@ -21,6 +21,16 @@ import {
 	spawnFailedResult,
 } from "@nseng-ai/foundation/exec/testing";
 import { ScriptedTextGenerator } from "@nseng-ai/extension-kit/text-generation/testing";
+import {
+	validatePrTitlePrefix,
+	type NormalizedPrTitlePrefix,
+} from "../../src/submit/pr-title-prefix.ts";
+
+function mustValidatePrTitlePrefix(value: string): NormalizedPrTitlePrefix {
+	const result = validatePrTitlePrefix(value);
+	if (!result.ok) throw new Error(result.reason);
+	return result.prefix;
+}
 
 interface ExitedResultFields {
 	stdout?: string;
@@ -938,6 +948,7 @@ describe("runSubmitCommand", () => {
 			restack: true,
 			force: false,
 			shouldReplaceAllPrMetadata: true,
+			titlePrefix: mustValidatePrTitlePrefix("  [obj:demo] [autorun:4]  "),
 			prInventory: {
 				githubPr,
 				textGenerator,
@@ -954,6 +965,10 @@ describe("runSubmitCommand", () => {
 		});
 
 		expect(result.exitCode).toBe(0);
+		expect(githubPr.editTitles).toEqual([
+			{ number: 123, title: "Title 123" },
+			{ number: 456, title: "[obj:demo] [autorun:4] Title 456" },
+		]);
 		expect(
 			submitMatrix.phaseEvents.find(
 				(event) => event.type === "phase-started" && event.phaseKey === "inventories",
@@ -1242,6 +1257,7 @@ class RecordingSubmitMatrix implements SubmitMatrixProgressSink {
 }
 
 class SubmitInventoryGithubPrGateway implements GithubPrGateway {
+	readonly editTitles: Array<{ number: number; title: string }> = [];
 	async viewCurrentBranchPr(): Promise<never> {
 		return unexpectedCall("viewCurrentBranchPr");
 	}
@@ -1268,7 +1284,8 @@ class SubmitInventoryGithubPrGateway implements GithubPrGateway {
 		return ok("diff --git a/file b/file\n+change");
 	}
 
-	async editPr() {
+	async editPr(params: { number: number; title: string }) {
+		this.editTitles.push({ number: params.number, title: params.title });
 		return ok(undefined);
 	}
 }

@@ -16,6 +16,7 @@ import {
 	type TimeServices,
 } from "./pr-inventory.ts";
 import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
+import { composePrefixedPrTitle, type NormalizedPrTitlePrefix } from "./pr-title-prefix.ts";
 
 export type PrMetadataReplacementSource = "submit" | "generate-pr-inventory";
 
@@ -38,6 +39,7 @@ export interface PrMetadataReplacementOptions {
 	activeOperationDetail?: string;
 	progress?: PrInventoryProgressListeners;
 	time?: TimeServices;
+	titlePrefix?: NormalizedPrTitlePrefix;
 }
 
 export type CurrentBranchPrMetadataReplacementOptions = Omit<PrMetadataReplacementOptions, "pr">;
@@ -148,7 +150,10 @@ export async function preparePrMetadataReplacement(
 	return {
 		type: "prepared",
 		pr,
-		title: prepared.title,
+		title:
+			options.titlePrefix === undefined
+				? prepared.title
+				: composePrefixedPrTitle(options.titlePrefix, prepared.title),
 		body: assemblePrInventoryBody({
 			inventory: prepared.body,
 			source: options.source,

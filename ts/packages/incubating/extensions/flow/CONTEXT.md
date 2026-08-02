@@ -96,6 +96,10 @@ The Flow ownership boundary for branch or stack submission, PR inventory generat
 The typed, renderer-independent result of inspecting the Graphite submit scope after readiness and any required restack, containing stack branches, existing PR links, upstack status, and the partition of branches eligible or ineligible for metadata prewrite.
 *Avoid*: stale pre-checkpoint topology, command transcript, metadata generation result, submit execution result
 
+**Initial PR Title Prefix**:
+An optional invocation-wide Flow Submit Boundary policy that deterministically prepends one validated prefix to generated titles only for PRs newly created by that submit invocation. Flow preserves the prefix, truncates only the generated candidate to the shared title limit, and keeps pre-existing PR titles unprefixed even when complete metadata regeneration widens the edit batch.
+*Avoid*: Objective-specific meaning in Flow, machine-readable title protocol, existing-PR annotation, full-title override, generated-candidate prefixing
+
 **Flow Branch Publication**:
 The narrow **Flow extension package API** behavior used by trusted Objectives publication to bind the current non-trunk branch to its existing PR, reverify the bound source before mutation, push the exact commit without force, and preserve non-managed PR prose while updating the managed Objective Runner region. Objectives owns publication eligibility, checkpoint judgment, and Objective Runner summary policy.
 *Avoid*: implementation-child external write, generic submit client, Objective Runner policy owned by Flow, force push, whole-body PR replacement

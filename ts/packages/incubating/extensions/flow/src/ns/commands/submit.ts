@@ -47,6 +47,10 @@ import { flowExtensionDescriptorSource } from "../extension.ts";
 import { FLOW_COMMAND_FAILED, exitCodeToFlowCommandExit } from "../flow-cli-runner.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
 import { resolveFlowModelSelection } from "../model-policy.ts";
+import {
+	validatePrTitlePrefix,
+	type NormalizedPrTitlePrefix,
+} from "../../submit/pr-title-prefix.ts";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";
@@ -87,6 +91,12 @@ const submitSchema = z.object({
 		.describe(
 			"Approve the stack-wide complete PR metadata replacement of --generate-pr-inventory without prompting.",
 		),
+	titlePrefix: z
+		.string()
+		.optional()
+		.describe(
+			"Prefix generated titles for PRs newly created by this invocation. The prefix is trimmed and preserved; only the generated candidate is truncated to fit the title limit.",
+		),
 });
 
 const SUBMIT_COMMAND_DESCRIPTION = `Run configured pre-submit checks, checkpoint outstanding changes, then submit the current Graphite branch and downstack ancestors with gt submit --no-edit --publish --no-stack --no-ai --no-interactive.
@@ -98,7 +108,7 @@ Environment:
 
   NS_SUBMIT_FAILURE_LOG_DIR     Optional directory for raw submit-failure transcripts.
 
-By default, newly created PRs receive complete generated inventory titles and bodies after Graphite creates them; PRs that existed before the invocation are left untouched. Use --generate-pr-inventory to widen that batch to every PR resolved in the submitted scope, existing and new: each selected PR gets a complete generated inventory title and body, and all existing body content is removed, including human-authored prose. Because this is destructive, --generate-pr-inventory asks for confirmation before any workflow work; pass --yes/-y to approve non-interactively. Flow prepares every replacement before the first GitHub edit, then applies them sequentially; there is no rollback. Use ns flow generate-pr-inventory from an existing PR's branch for a focused single-PR replacement.
+By default, newly created PRs receive complete generated inventory titles and bodies after Graphite creates them; PRs that existed before the invocation are left untouched. Use --title-prefix to prepend one deterministic prefix to every newly created PR title in this invocation. The prefix is preserved and only the generated title candidate is truncated to fit the 120-character title limit. Even with --generate-pr-inventory, pre-existing PR titles are regenerated without the prefix. Use --generate-pr-inventory to widen that batch to every PR resolved in the submitted scope, existing and new: each selected PR gets a complete generated inventory title and body, and all existing body content is removed, including human-authored prose. Because this is destructive, --generate-pr-inventory asks for confirmation before any workflow work; pass --yes/-y to approve non-interactively. Flow prepares every replacement before the first GitHub edit, then applies them sequentially; there is no rollback. Use ns flow generate-pr-inventory from an existing PR's branch for a focused single-PR replacement.
 
 The command owns its output and exit code. It does not support --format.`;
 
@@ -124,6 +134,13 @@ export function createFlowSubmitCommand(
 			yes: { short: "-y" },
 		},
 		handler: async (ctx: NsExtensionApi, request: SubmitRequest) => {
+			const titlePrefix =
+				request.titlePrefix === undefined ? undefined : validatePrTitlePrefix(request.titlePrefix);
+			if (titlePrefix?.ok === false) {
+				return usageError(`Invalid --title-prefix: ${titlePrefix.reason}.`, {
+					invalidOption: "--title-prefix",
+				});
+			}
 			if (request.yes && !request.generatePrInventory) {
 				return usageError(
 					"--yes only approves the stack-wide replacement of --generate-pr-inventory; pass both flags together or omit --yes.",
@@ -170,6 +187,7 @@ export function createFlowSubmitCommand(
 			return await runSubmitWithProgress({
 				ctx,
 				request,
+				...optionalEntry("titlePrefix", titlePrefix?.prefix),
 				runtime,
 				checksLoad,
 				checkpointContext,
@@ -247,6 +265,7 @@ function checkProgressLabel(input: {
 async function runSubmitWithProgress(input: {
 	ctx: NsExtensionApi;
 	request: SubmitRequest;
+	titlePrefix?: NormalizedPrTitlePrefix;
 	runtime: NsSubmitRuntime;
 	checksLoad: Awaited<ReturnType<typeof loadFlowSubmitHooks>>;
 	checkpointContext: SubmitCheckpointContext;
@@ -327,6 +346,7 @@ async function runSubmitWithProgress(input: {
 			shouldForwardCommandOutput: request.verbose,
 			prInventory: { ...runtime.prInventory, modelSelection: prInventoryModelSelection },
 			shouldReplaceAllPrMetadata: request.generatePrInventory,
+			...(input.titlePrefix === undefined ? {} : { titlePrefix: input.titlePrefix }),
 			progress,
 			...(onOutput === undefined ? {} : { onOutput }),
 		});

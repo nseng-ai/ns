@@ -13,6 +13,7 @@ import {
 	type PromptSource,
 	type TextGenerator,
 } from "../../src/submit/index.ts";
+import { composePrefixedPrTitle, validatePrTitlePrefix } from "../../src/submit/pr-title-prefix.ts";
 
 const PROMPT_SOURCE: PromptSource = { type: "builtin" };
 const GENERATION = {
@@ -185,6 +186,52 @@ describe("PR metadata replacement", () => {
 				"_Evidence inputs: diff and commit headlines. Command: `ns flow submit`. Prompt: built-in flow.submit.pr-inventory. Model: `test/test-model`._",
 			].join("\n"),
 		);
+	});
+
+	test("composes a trimmed prefix while preserving body and provenance", async () => {
+		const githubPr = new FakeGithubPrGateway();
+		const prefix = validatePrTitlePrefix("  [obj:demo] [autorun:2]  ");
+		if (!prefix.ok) throw new Error(prefix.reason);
+		const result = await preparePrMetadataReplacement({
+			cwd: "/repo",
+			env: {},
+			git: UNUSED_GIT,
+			descriptorSource: flowExtensionDescriptorSource,
+			modelSelection: GENERATION.modelSelection,
+			githubPr,
+			textGenerator: new ScriptedTextGenerator([
+				{ ok: true, text: "Generated title\n\nGenerated body" },
+			]),
+			pr: DEFAULT_PR,
+			source: "submit",
+			generation: GENERATION,
+			titlePrefix: prefix.prefix,
+		});
+
+		if (result.type !== "prepared") throw new Error(result.reason);
+		expect(result.title).toBe("[obj:demo] [autorun:2] Generated title");
+		expect(result.previewBody).toBe("Generated body");
+		expect(result.body).toContain("Generated body");
+		expect(result.body).toContain("Command: `ns flow submit`");
+	});
+
+	test("preserves the complete prefix and truncates only the candidate at the title limit", () => {
+		const prefix = validatePrTitlePrefix("p".repeat(118));
+		if (!prefix.ok) throw new Error(prefix.reason);
+		expect(composePrefixedPrTitle(prefix.prefix, "candidate")).toBe(`${"p".repeat(118)} c`);
+		expect(composePrefixedPrTitle(prefix.prefix, "candidate")).toHaveLength(120);
+	});
+
+	test.each([
+		["   ", "empty"],
+		["prefix\nsecond", "single line"],
+		["prefix\rsecond", "single line"],
+		["p".repeat(119), "at most 118"],
+	])("rejects invalid prefix %j as data", (input, reason) => {
+		expect(validatePrTitlePrefix(input)).toMatchObject({
+			ok: false,
+			reason: expect.stringContaining(reason),
+		});
 	});
 
 	test("applies the exact prepared title and complete body", async () => {
