@@ -25,7 +25,7 @@ The structural **Record Frontmatter** lint in `ns objective check`: the per-slug
 *Avoid*: full-check sweep, prose-quality lint, blocked-state derivation, full-body record reads, edge mutation surface
 
 **Hidden `ns objective exec`**:
-The hidden `ns objective exec ...` command group of deterministic skill- and agent-facing fact helpers (`list-candidates`, `load-orientations`, `read-objective`, `runner-begin`, `runner-finish`, `runner-subagent-usage`, `tracking-gate`), kept out of the public human command surface and out of the extension package API. The visible `ns objective show` is the human-facing single-record detail sibling of the hidden `exec read-objective` filesystem reader, not a member of this group.
+The hidden `ns objective exec ...` command group of deterministic skill- and agent-facing fact helpers (`list-candidates`, `load-orientations`, `read-objective`, `runner-begin`, `runner-finish`, `runner-subagent-usage`, `staleness-check`), kept out of the public human command surface and out of the extension package API. The visible `ns objective show` is the human-facing single-record detail sibling of the hidden `exec read-objective` filesystem reader, not a member of this group.
 *Avoid*: public human command, Objective extension package API, Markdown-meaning interpreter, stable scripting contract
 
 **Checked-in Objective record storage**:

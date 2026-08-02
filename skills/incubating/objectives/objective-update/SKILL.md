@@ -14,7 +14,7 @@ Update Objective tracking for exactly one selected Objective. Use the `objective
 
 Run when the user explicitly asks to update Objective tracking, record progress, says branch/PR changes need an Objective update, invokes `$objective-update`, or provides a `<skill name="objective-update">` block as an action cue.
 
-Also run when `objective-next`'s Tracking Gate routes here for the same Objective; that skill owns the handoff trigger.
+Also run when `objective-next`'s Staleness Check routes here for the same Objective; that skill owns the handoff trigger.
 
 If the user only asks about the skill or pastes it with no clear update intent, ask: `Do you want me to run objective-update for the current branch now?`
 

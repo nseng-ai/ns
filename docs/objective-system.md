@@ -211,7 +211,7 @@ Do not silently auto-select from candidate count or changed/touched files. Never
 
 ## Operations
 
-V1 keeps Objective meaning in Markdown. Small CLI surfaces (`ns objective list`, `ns objective show`, `ns objective check`, and under `ns objective exec`: `list-candidates`, `read-objective`, `load-orientations`, `tracking-gate`, `runner-begin`, `runner-finish`, and `runner-subagent-usage`) ship deterministic mechanics that skills may delegate to. Narrative mutations remain direct Markdown edits. In strict ADR 0024 Objective Runner execution, the local provenance commit is runner-owned bookkeeping around a verified step, not a prose mutation surface; portable autorun instead uses ordinary parent-created local commits.
+V1 keeps Objective meaning in Markdown. Small CLI surfaces (`ns objective list`, `ns objective show`, `ns objective check`, and under `ns objective exec`: `list-candidates`, `read-objective`, `load-orientations`, `staleness-check`, `runner-begin`, `runner-finish`, and `runner-subagent-usage`) ship deterministic mechanics that skills may delegate to. Narrative mutations remain direct Markdown edits. In strict ADR 0024 Objective Runner execution, the local provenance commit is runner-owned bookkeeping around a verified step, not a prose mutation surface; portable autorun instead uses ordinary parent-created local commits.
 
 ### `ns objective list`
 
@@ -347,10 +347,10 @@ Contract:
 - Resolve the objective using the selection rules.
 - Exclude closed objectives by default.
 - Read `objective.md`, `roadmap.md`, and relevant updates.
-- Apply the **Tracking Gate** before recommending next work or offering execution.
+- Apply the **Objective Staleness Check** before recommending next work or offering execution.
 - Prefer next work that clarifies active assumptions or de-risks unresolved risks when that is the smallest coherent step.
 - Include a best-effort work-left estimate as remaining semantic steps/slices, not calendar time. If the remaining path is clear, estimate work until Objective completion; otherwise estimate work until the next discovery or decision step where additional work can be identified.
-- If the Tracking Gate indicates clear material current-branch or worktree progress for the same selected objective that is absent from objective tracking, treat the `objective-next` request as update-and-continue preauthorization: run `objective-update`, reread the objective and repo evidence, then continue `objective-next`. Ask first only when evidence, objective fit, or update scope is ambiguous; if confirmation is then pending or declined, stop without a recommendation or execution offer.
+- If the Staleness Check indicates clear material current-branch or worktree progress for the same selected objective that is absent from objective tracking, treat the `objective-next` request as update-and-continue preauthorization: run `objective-update`, reread the objective and repo evidence, then continue `objective-next`. Ask first only when evidence, objective fit, or update scope is ambiguous; if confirmation is then pending or declined, stop without a recommendation or execution offer.
 - Direct execution offers for future/proactive runs require explicit Objective prose policy, such as `## Runner Policy` plus enough `## Definition of Progress` guidance, or row-level `Policy:` prose that clearly permits direct execution for the selected slice.
 - A clear affirmative confirmation may execute the current session's concrete `objective-next` recommendation without adding durable Runner Policy, when the previous response selected the same Objective, named one coherent semantic step, bounded likely scope, and described completion evidence. If any of those are missing or ambiguous, restate a bounded preview and ask before executing.
 - Do not infer durable execution permission from roadmap concreteness alone. Missing durable policy means future sessions should recommend by default; it does not block a user-confirmed continuation of the current concrete recommendation.
@@ -363,7 +363,7 @@ Contract:
 Shipped CLI:
 
 - Active candidate filtering: `ns objective list` lists active-root open candidates by default; `ns objective list --status all` reports active-root closed records too.
-- Deterministic Tracking Gate evidence: `ns objective exec tracking-gate <slug> --format json` (the LM still authors the materiality interpretation).
+- Deterministic Staleness Check evidence: `ns objective exec staleness-check <slug> --format json` (the LM still authors the materiality interpretation).
 
 ### `objective-update`
 
@@ -416,14 +416,14 @@ Future CLI pushdown candidates:
 
 If a record should leave active checkout state, delete `.ns/objectives/<slug>/` through ordinary source control. Git history is the recovery mechanism.
 
-### `ns objective exec tracking-gate`
+### `ns objective exec staleness-check`
 
-Collects deterministic Tracking Gate evidence for one explicitly selected slug.
+Collects deterministic Objective Staleness Check evidence for one explicitly selected slug.
 
 Contract:
 
 - Resolve the trunk branch and branch-diff basis (`git.trunkBranch`, `git.revisionRange`) from checkout-local git facts.
-- Report uncommitted worktree evidence (`uncommitted.repository`, `uncommitted.objective`) and committed branch-diff evidence split into `branchDiff.objectiveChangedPaths` (under `.ns/objectives/<slug>/`) and `branchDiff.materialNonObjectivePaths` (outside it), plus `summary.*` booleans/nulls for quick gate decisions.
+- Report uncommitted worktree evidence (`uncommitted.repository`, `uncommitted.objective`) and committed branch-diff evidence split into `branchDiff.objectiveChangedPaths` (under `.ns/objectives/<slug>/`) and `branchDiff.materialNonObjectivePaths` (outside it), plus `summary.*` booleans/nulls for quick staleness decisions.
 - Read-only: collect facts only; the LM authors the materiality interpretation and any update-and-continue routing.
 - Supports `--format md` / `--format json` like the other Objective commands.
 
@@ -458,23 +458,23 @@ Contract:
 - Report per-session status, assistant response count, model references, token totals, cost totals, and aggregate totals.
 - Do not interpret Objective meaning or mutate Objective records.
 
-## Tracking Gate
+## Objective Staleness Check
 
-The **Tracking Gate** is a read-only check phase used by `objective-next`. Its purpose is to avoid recommending new work when branch or worktree evidence suggests meaningful objective progress has not been recorded.
+The **Objective Staleness Check** is a read-only freshness precondition applied by `objective-next` before it judges next work. Its purpose is to avoid recommending new work when branch or worktree evidence suggests the selected objective record is stale — meaningful objective progress has not been recorded.
 
 Behavior:
 
-- Collect deterministic evidence with `ns objective exec tracking-gate <slug> --format json`; do not hand-roll branch-base detection or shell pipelines for this gate.
+- Collect deterministic evidence with `ns objective exec staleness-check <slug> --format json`; do not hand-roll branch-base detection or shell pipelines for this check.
 - Look for material non-objective changes (`branchDiff.materialNonObjectivePaths`, uncommitted evidence) that plausibly advance the selected objective.
 - Look for corresponding changes under `.ns/objectives/<slug>/` (`branchDiff.objectiveChangedPaths`, `uncommitted.objective`).
-- If material objective progress appears clearly unrecorded for the same selected objective, block next-work recommendation, perform the explicit `objective-update` workflow, reread the objective and repo evidence, and then continue `objective-next`.
+- If material objective progress appears clearly unrecorded for the same selected objective, treat the record as stale: perform the explicit `objective-update` workflow, reread the objective and repo evidence, recheck, and then continue `objective-next`.
 - If material progress appears likely but evidence, objective fit, or update scope is ambiguous, ask whether to run `objective-update` for the same selected objective.
 - If ambiguous-case confirmation is pending or declined, stop without a next-work recommendation.
-- If evidence is absent or clearly unrelated, proceed with a concise note.
+- In every other case — evidence absent, clearly unrelated, or already reflected in objective tracking — the record is current enough for judgment; proceed silently. A non-stale result produces no narration anywhere in the response.
 
-The Tracking Gate check itself must not mutate files, auto-refresh objective state, or perform hidden reconciliation. It runs before both recommendation and execution-offer paths. When it clearly blocks, `objective-next` routes into the explicit `objective-update` workflow for the same selected objective; when it ambiguously blocks, it may offer a user-confirmed handoff to `objective-update`. Any file changes belong to that explicit update workflow, not to the read-only gate check.
+The Staleness Check itself must not mutate files, auto-refresh objective state, or perform hidden reconciliation. It runs before both recommendation and execution-offer paths. When the record is clearly stale, `objective-next` routes into the explicit `objective-update` workflow for the same selected objective; when evidence is ambiguous, it may offer a user-confirmed handoff to `objective-update`. Any file changes belong to that explicit update workflow, not to the read-only check.
 
-Deterministic git comparison and changed-path scope facts ship as `ns objective exec tracking-gate`; semantic materiality interpretation remains LM/human-authored.
+Deterministic git comparison and changed-path scope facts ship as `ns objective exec staleness-check`; semantic materiality interpretation remains LM/human-authored.
 
 ## PR Tracking Policy
 
@@ -497,7 +497,7 @@ Good CLI responsibilities:
 - Scaffold required files and headings. *(future.)*
 - Detect missing required files, headings, and Record Frontmatter structure. *(shipped: `ns objective check`.)*
 - Generate timestamped update filenames. *(future.)*
-- Report changed-path facts and collect read-only Tracking Gate evidence for an explicitly selected objective. *(shipped: `ns objective exec tracking-gate`.)*
+- Report changed-path facts and collect read-only Objective Staleness Check evidence for an explicitly selected objective. *(shipped: `ns objective exec staleness-check`.)*
 - Own the deterministic bookends of a verified runner step. *(shipped: `ns objective exec runner-begin` / `runner-finish`.)*
 - Enforce one-objective-per-update guardrails. *(future.)*
 

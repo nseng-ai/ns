@@ -1722,13 +1722,14 @@ Use the selected Objective.
 		expect(result.pi.sentUserMessages[0]).toContain("not elapsed time");
 	});
 
-	test("ns:objective:next prompt preauthorizes clear tracking-gate updates", async () => {
+	test("ns:objective:next prompt preauthorizes clear staleness-check updates", async () => {
 		const result = await runObjectiveCommand("ns:objective:next", "bravo");
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain(
 			"This explicit objective-next invocation preauthorizes update-and-continue",
 		);
+		expect(result.pi.sentUserMessages[0]).toContain("when the Staleness Check finds");
 		expect(result.pi.sentUserMessages[0]).toContain(
 			"run objective-update for this selected Objective",
 		);
