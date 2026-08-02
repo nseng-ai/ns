@@ -126,6 +126,10 @@ The prose-valued `blocked:` key in **Record Frontmatter**: presence means the re
 
 Objective state vocabulary clusters as: open vs. closed is the lifecycle state (the **Closure Marker** decides closed), present vs. deleted is ordinary source-controlled checkout state, and blocked — the presence of a **Blocked Sentence** — is a sub-state of open, not a third lifecycle state.
 
+**Metaprompt**:
+An optional prose `## Metaprompt` section in an **Objective**'s `objective.md` — with row-level `Metaprompt:` prose overriding it per roadmap row — carrying durable instructions for how prompts produced for that Objective are serialized; `objective-next` is the metaprompt in action, applying it when it emits a proposed prompt. It shapes serialization only, never step selection, and grants no execution permission; semantics live in the `objective` skill's `references/metaprompt.md`.
+*Avoid*: Prompt Guidance (retired name), prompt factory, prompt template schema, frontmatter key
+
 **Harness artifact**:
 An ns-owned resource materialized into an assistant **Harness**; current kinds are `skill`, `agent`, and `extension-bundle`. Handoff artifacts and consumer artifacts are separate domain terms, so qualify this term when ambiguity is possible.
 *Avoid*: bare artifact where ambiguous, managed artifact
