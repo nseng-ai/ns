@@ -13,6 +13,7 @@ import {
 	InMemoryActivationFilesGateway,
 	InMemoryArtifactProvisioningStatusGateway,
 	InMemoryDeclaredExtensionsGateway,
+	InMemoryUserArtifactActivationGateway,
 	InMemoryUserExtensionConfigGateway,
 	InMemoryUserExtensionAvailabilityGateway,
 } from "../../src/init/testing/index.ts";
@@ -93,6 +94,7 @@ function fixture(
 			declaredExtensions,
 			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
 			userExtensionAvailability: new InMemoryUserExtensionAvailabilityGateway(),
+			userArtifacts: new InMemoryUserArtifactActivationGateway(),
 			userManagedNpmStorage: {
 				type: "unavailable",
 				diagnostic: { code: "user-managed-npm-storage-unavailable", message: "not configured" },

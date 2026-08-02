@@ -50,8 +50,21 @@ export type {
 	UserExtensionConfigWritableFile,
 } from "./real-user-extension-config.ts";
 export { RealUserExtensionConfigGateway } from "./real-user-extension-config.ts";
-export type { ExtensionLifecycleScope } from "./user-extension-lifecycle.ts";
-export { extensionLifecycleScopeSchemaValues } from "./user-extension-lifecycle.ts";
+export type {
+	PrepareUserArtifactActivationParams,
+	PrepareUserArtifactActivationResult,
+	UserArtifactActivationGateway,
+} from "./user-artifact-activation.ts";
+export { RealUserArtifactActivationGateway } from "./real-user-artifact-activation.ts";
+export type {
+	ExtensionLifecycleScope,
+	UserSupportedHarnessesFacts,
+} from "./user-extension-lifecycle.ts";
+export {
+	decideUserExtensionLifecycleGate,
+	extensionLifecycleScopeSchemaValues,
+	parseUserSupportedHarnessesFacts,
+} from "./user-extension-lifecycle.ts";
 export type { NsInitErrorInfo } from "./error-info.ts";
 export type {
 	EnsureExtensionSourceParams,

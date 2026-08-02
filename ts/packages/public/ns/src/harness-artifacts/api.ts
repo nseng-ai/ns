@@ -66,6 +66,7 @@ export {
 	resolveHarnessArtifactPath,
 	resolveHarnessSkillRoot,
 	resolveHarnessSpec,
+	resolveHarnessTrustedBoundaryRoot,
 	type HarnessBasePathSpec,
 	type HarnessId,
 	type HarnessPathContext,
@@ -76,6 +77,7 @@ export {
 	type HarnessSpec,
 	type ResolvedHarnessArtifactPath,
 	type ResolvedHarnessSkillRoot,
+	type ResolvedHarnessTrustedBoundaryRoot,
 } from "./harness-paths.ts";
 export {
 	normalizeHarnessSelection,
@@ -132,12 +134,14 @@ export {
 	applyPreparedDeclaredArtifactActivation,
 	DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
 	prepareDeclaredArtifactActivation,
+	prepareUserDeclaredArtifactActivation,
 	preparedDeclaredArtifactActivationItemArtifactId,
 	type ApplyPreparedDeclaredArtifactActivationResult,
 	type DeclaredArtifactActivationAction,
 	type DeclaredArtifactActivationOutcome,
 	type PreparedDeclaredArtifactActivation,
 	type PrepareDeclaredArtifactActivationRequest,
+	type PrepareUserDeclaredArtifactActivationRequest,
 } from "./declared-artifact-activation.ts";
 export {
 	applyPreparedProvision,
@@ -170,9 +174,9 @@ export {
 	type PreparedHarnessArtifactRemoval,
 } from "./provision-removal.ts";
 export {
-	createEmptyPreparedProjectHarnessArtifactTransitions,
+	createEmptyPreparedHarnessArtifactTransitions,
 	type HarnessArtifactProvisionReconciliationErrorInfo,
-} from "./project-harness-artifact-transitions.ts";
+} from "./harness-artifact-transitions.ts";
 export {
 	buildProvisionPlan,
 	classifyProvisionDecisions,

@@ -15,6 +15,7 @@ import {
 	InMemoryArtifactActivationGateway,
 	InMemoryDeclaredExtensionsGateway,
 	InMemoryExtensionUninstallAcquisitionGateway,
+	InMemoryUserArtifactActivationGateway,
 	InMemoryUserExtensionConfigGateway,
 } from "../../src/init/testing/index.ts";
 
@@ -81,6 +82,7 @@ function fixture(options: {
 			artifacts,
 			uninstallAcquisition: cleanup,
 			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
+			userArtifacts: new InMemoryUserArtifactActivationGateway(),
 			userManagedNpmStorage: {
 				type: "unavailable",
 				diagnostic: { code: "user-managed-npm-storage-unavailable", message: "not configured" },

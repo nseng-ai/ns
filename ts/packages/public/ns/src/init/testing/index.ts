@@ -16,6 +16,8 @@ export {
 } from "../fake-declared-extensions.ts";
 export type { InMemoryUserExtensionConfigState } from "../fake-user-extension-config.ts";
 export { InMemoryUserExtensionConfigGateway } from "../fake-user-extension-config.ts";
+export type { InMemoryUserArtifactActivationState } from "../fake-user-artifact-activation.ts";
+export { InMemoryUserArtifactActivationGateway } from "../fake-user-artifact-activation.ts";
 export type {
 	InMemoryExtensionInstallAcquisitionState,
 	InMemoryExtensionUninstallAcquisitionState,

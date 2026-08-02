@@ -42,7 +42,7 @@ const SKILL_EXPOSURE_PACKAGE = "@nseng-ai/skill-exposure";
 
 describe("source user extension install host", () => {
 	test.each(SOURCE_EXTENSIONS)(
-		"installs $packageName for user command availability without activating the invocation directory",
+		"records $packageName as dormant user source without provisioning into the invocation directory",
 		async ({ directoryName, packageName }) => {
 			const root = await createEmptyProject();
 			const invocation = join(root, "unrelated-non-git-invocation");
@@ -77,7 +77,14 @@ describe("source user extension install host", () => {
 				configPath: join(xdgConfigHome, "ns", "ns.toml"),
 				declarationAction: "appended",
 				acquisitionOutcome: "local-in-place",
-				commandAvailability: "available",
+				commandAvailability: "unavailable",
+				configuredHarnesses: [],
+				userExtensionLayer: { enabled: false, reason: "active-harness-unset" },
+				artifacts: [],
+				dormantContributions: {
+					instructionModuleCount: expect.any(Number),
+					consumerDirCount: expect.any(Number),
+				},
 				activation: "not-performed",
 			});
 
@@ -95,9 +102,12 @@ describe("source user extension install host", () => {
 			const listedEnvelope = parseJsonOutput(listed);
 			expect(listedEnvelope).toMatchObject({ status: "success", exitCode: 0 });
 			const listedResult = listExtensionsResultSchema.parse(listedEnvelope.data);
-			expect(listedResult).toEqual({
+			expect(listedResult).toMatchObject({
 				scope: "user",
 				configPath: join(xdgConfigHome, "ns", "ns.toml"),
+				supportedHarnessesState: "missing",
+				configuredHarnesses: [],
+				userExtensionLayer: { enabled: false, reason: "active-harness-unset" },
 				extensions: [
 					{
 						sourceSpec: packageRoot,
@@ -106,7 +116,9 @@ describe("source user extension install host", () => {
 						packageVersion: expect.any(String),
 						moduleRoot: packageRoot,
 						acquisitionStatus: "installed",
-						commandAvailability: "available",
+						commandAvailability: "unavailable",
+						artifactCount: 0,
+						affectedArtifactCount: 0,
 						diagnostics: [],
 					},
 				],

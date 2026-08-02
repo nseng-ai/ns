@@ -1,12 +1,14 @@
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 
 import {
 	ALL_HARNESS_IDS,
 	resolveHarnessSkillRoot,
+	resolveHarnessTrustedBoundaryRoot,
 	type HarnessId,
 	type HarnessPathContext,
+	type HarnessScope,
 	type HarnessPathErrorInfo,
 } from "./harness-paths.ts";
 import {
@@ -24,8 +26,14 @@ import {
 	preparePlannedHarnessArtifactRemoval,
 	type PreparedHarnessArtifactRemoval,
 } from "./provision-removal.ts";
-import { INSTALL_MANIFEST_FILE_NAME, readInstallManifestAtRoot } from "./provision-manifest.ts";
+import {
+	INSTALL_MANIFEST_FILE_NAME,
+	readInstallManifestAtRoot,
+	validateManifestEntryCoherence,
+} from "./provision-manifest.ts";
+import { unsafeManifestEntry } from "./provision-errors.ts";
 import { installManifestKey } from "./provision-plan.ts";
+import type { HarnessArtifactProvisionAction } from "./reconcile-actions.ts";
 import {
 	planHarnessArtifactReconcile,
 	type DesiredHarnessArtifact,
@@ -37,26 +45,12 @@ import {
 	type SkippedArtifactCollision,
 } from "./reconcile.ts";
 
-export const HARNESS_ARTIFACT_PROVISION_ACTIONS = [
-	"installed",
-	"refreshed",
-	"unchanged",
-	"conflicted",
-] as const;
-export type HarnessArtifactProvisionAction = (typeof HARNESS_ARTIFACT_PROVISION_ACTIONS)[number];
-
-export const DECLARED_ARTIFACT_ACTIVATION_ACTIONS = [
-	...HARNESS_ARTIFACT_PROVISION_ACTIONS,
-	"removed",
-] as const;
-export type DeclaredArtifactActivationAction =
-	(typeof DECLARED_ARTIFACT_ACTIVATION_ACTIONS)[number];
-
-export const HARNESS_ARTIFACT_RECONCILE_ACTIONS = [
-	...DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
-	"skipped",
-] as const;
-export type HarnessArtifactReconcileAction = (typeof HARNESS_ARTIFACT_RECONCILE_ACTIONS)[number];
+export {
+	DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
+	HARNESS_ARTIFACT_PROVISION_ACTIONS,
+	type DeclaredArtifactActivationAction,
+	type HarnessArtifactProvisionAction,
+} from "./reconcile-actions.ts";
 
 export type PreparedHarnessArtifactTransition =
 	| {
@@ -145,11 +139,11 @@ export type HarnessArtifactProvisionReconciliationErrorInfo = HarnessArtifactPro
 	readonly completedTransitions: ReadonlyMap<string, AppliedHarnessArtifactTransition>;
 };
 
-export type ProjectHarnessArtifactConflictPolicy =
+export type HarnessArtifactConflictPolicy =
 	| { readonly type: "strict"; readonly shouldForce: false }
 	| { readonly type: "force-capable"; readonly shouldForce: boolean };
 
-export type PreparedProjectHarnessArtifactTransitionItem =
+export type PreparedHarnessArtifactTransitionItem =
 	| {
 			readonly type: "remove";
 			readonly key: string;
@@ -169,18 +163,18 @@ export type PreparedProjectHarnessArtifactTransitionItem =
 			readonly conflictingFiles: readonly string[];
 	  };
 
-export interface PreparedProjectHarnessArtifactTransitions {
-	readonly items: readonly PreparedProjectHarnessArtifactTransitionItem[];
+export interface PreparedHarnessArtifactTransitions {
+	readonly items: readonly PreparedHarnessArtifactTransitionItem[];
 	readonly transitions: readonly PreparedHarnessArtifactTransition[];
 	readonly skippedDesired: readonly DesiredHarnessArtifact[];
 	readonly skippedCollisions: readonly SkippedArtifactCollision[];
 	readonly orphans: readonly OrphanedManifestEntry[];
-	readonly conflictPolicy: ProjectHarnessArtifactConflictPolicy;
+	readonly conflictPolicy: HarnessArtifactConflictPolicy;
 }
 
-export function createEmptyPreparedProjectHarnessArtifactTransitions(
-	conflictPolicy: ProjectHarnessArtifactConflictPolicy,
-): PreparedProjectHarnessArtifactTransitions {
+export function createEmptyPreparedHarnessArtifactTransitions(
+	conflictPolicy: HarnessArtifactConflictPolicy,
+): PreparedHarnessArtifactTransitions {
 	return {
 		items: [],
 		transitions: [],
@@ -191,22 +185,30 @@ export function createEmptyPreparedProjectHarnessArtifactTransitions(
 	};
 }
 
-export interface PrepareProjectHarnessArtifactTransitionsRequest {
+export interface PrepareHarnessArtifactTransitionsRequest {
+	readonly scope: HarnessScope;
 	readonly desired: readonly DesiredHarnessArtifact[];
 	readonly selectedHarnesses: readonly HarnessId[] | undefined;
 	readonly manifests: readonly HarnessManifestSnapshot[];
 	readonly pathContext: HarnessPathContext;
-	readonly trustedRepoRoot: string;
 	readonly deletionAuthority?: ReconcileDeletionAuthority;
-	readonly conflictPolicy: ProjectHarnessArtifactConflictPolicy;
+	readonly conflictPolicy: HarnessArtifactConflictPolicy;
 	readonly fs: HarnessArtifactFileSystemGateway;
 }
 
-/** Prepare one ordered project harness-artifact desired-state transition. */
-export async function prepareProjectHarnessArtifactTransitions(
-	request: PrepareProjectHarnessArtifactTransitionsRequest,
-): Promise<Result<PreparedProjectHarnessArtifactTransitions, HarnessArtifactProvisionErrorInfo>> {
+/** Prepare one ordered scope-aware harness-artifact desired-state transition. */
+export async function prepareHarnessArtifactTransitions(
+	request: PrepareHarnessArtifactTransitionsRequest,
+): Promise<
+	Result<
+		PreparedHarnessArtifactTransitions,
+		HarnessArtifactProvisionErrorInfo | HarnessPathErrorInfo
+	>
+> {
+	const manifestSafety = validateManifestSnapshotsForMutation(request);
+	if (!manifestSafety.ok) return manifestSafety;
 	const plan = planHarnessArtifactReconcile({
+		scope: request.scope,
 		desired: request.desired,
 		harnessSelection: request.selectedHarnesses,
 		manifests: request.manifests,
@@ -214,7 +216,7 @@ export async function prepareProjectHarnessArtifactTransitions(
 			? {}
 			: { deletionAuthority: request.deletionAuthority }),
 	});
-	const items: PreparedProjectHarnessArtifactTransitionItem[] = [];
+	const items: PreparedHarnessArtifactTransitionItem[] = [];
 	const transitions: PreparedHarnessArtifactTransition[] = [];
 	const precedingEffects = { removedPaths: new Set<string>(), removedKeys: new Set<string>() };
 	assertUniqueTransitionKeys([
@@ -223,9 +225,16 @@ export async function prepareProjectHarnessArtifactTransitions(
 	]);
 
 	for (const planned of plan.removals) {
+		const boundary = resolveHarnessTrustedBoundaryRoot({
+			harness: planned.entry.harness,
+			scope: request.scope,
+			context: request.pathContext,
+		});
+		if (!boundary.ok) return boundary;
 		const removal = await preparePlannedHarnessArtifactRemoval({
 			planned,
-			trustedBoundaryRoot: request.trustedRepoRoot,
+			expectedScope: request.scope,
+			trustedBoundaryRoot: boundary.value.rootPath,
 			fs: request.fs,
 		});
 		if (!removal.ok) return removal;
@@ -263,7 +272,28 @@ export async function prepareProjectHarnessArtifactTransitions(
 		});
 		if (!provision.ok) return provision;
 		const sequenced = sequenceProvisionAfterEffects(provision.value, precedingEffects);
-		const conflictingFiles = provisionConflictingFiles(sequenced);
+		const targetedPackageNames =
+			request.deletionAuthority?.type === "targeted"
+				? request.deletionAuthority.packageNames
+				: undefined;
+		const unauthorizedTargetOwner =
+			targetedPackageNames !== undefined
+				? request.manifests
+						.flatMap((snapshot) => Object.values(snapshot.manifest.artifacts))
+						.find(
+							(entry) =>
+								entry.scope === request.scope &&
+								entry.harness === pair.harness &&
+								entry.provisionName === pair.desired.artifact.skillName &&
+								!targetedPackageNames.includes(entry.source.packageName),
+						)
+				: undefined;
+		const conflictingFiles = [
+			...new Set([
+				...provisionConflictingFiles(sequenced),
+				...Object.values(unauthorizedTargetOwner?.files ?? {}).map((file) => file.targetPath),
+			]),
+		].sort((left, right) => left.localeCompare(right));
 		const action = classifyProvisionAction({
 			conflictingFiles,
 			isEveryDecisionUnchanged: allProvisionFileDecisionsUnchanged(sequenced),
@@ -272,7 +302,7 @@ export async function prepareProjectHarnessArtifactTransitions(
 				!precedingEffects.removedKeys.has(installManifestKey(sequenced.plan)),
 		});
 		const transition = createPreparedHarnessArtifactProvisionTransition(sequenced);
-		const isIncludedInApply = action !== "unchanged";
+		const isIncludedInApply = action !== "unchanged" && unauthorizedTargetOwner === undefined;
 		items.push({
 			type: "provision",
 			key: transition.key,
@@ -293,6 +323,33 @@ export async function prepareProjectHarnessArtifactTransitions(
 		orphans: plan.orphans,
 		conflictPolicy: request.conflictPolicy,
 	});
+}
+
+function validateManifestSnapshotsForMutation(
+	request: PrepareHarnessArtifactTransitionsRequest,
+): Result<void, HarnessArtifactProvisionErrorInfo> {
+	const ownerByTargetPath = new Map<string, { readonly key: string }>();
+	for (const snapshot of request.manifests) {
+		for (const [key, entry] of Object.entries(snapshot.manifest.artifacts)) {
+			const unsafePath = validateManifestEntryCoherence({
+				key,
+				entry,
+				expectedHarness: snapshot.harness,
+				expectedScope: request.scope,
+				expectedTargetRoot: snapshot.targetRoot,
+			});
+			if (unsafePath !== undefined) {
+				return unsafeManifestEntry(snapshot.manifestPath, key, unsafePath);
+			}
+			const targetPath = resolve(entry.targetArtifactPath);
+			const owner = ownerByTargetPath.get(targetPath);
+			if (owner !== undefined && owner.key !== key) {
+				return unsafeManifestEntry(snapshot.manifestPath, key, entry.targetArtifactPath);
+			}
+			ownerByTargetPath.set(targetPath, { key });
+		}
+	}
+	return resultOk(undefined);
 }
 
 export function assertUniquePreparedTransitionKeys(
@@ -337,7 +394,8 @@ export function classifyProvisionAction(input: {
 	return "installed";
 }
 
-export async function readProjectHarnessManifestSnapshots(input: {
+export async function readHarnessManifestSnapshots(input: {
+	scope: HarnessScope;
 	pathContext: HarnessPathContext;
 	fs: HarnessArtifactFileSystemGateway;
 }): Promise<
@@ -350,7 +408,7 @@ export async function readProjectHarnessManifestSnapshots(input: {
 	for (const harness of ALL_HARNESS_IDS) {
 		const root = resolveHarnessSkillRoot({
 			harness,
-			scope: "project",
+			scope: input.scope,
 			context: input.pathContext,
 		});
 		if (!root.ok) return root;
@@ -397,9 +455,9 @@ export async function applyPreparedProvisionReconciliation(
 	return resultOk({ outcomes });
 }
 
-/** Apply prepared project transitions with the caller's explicit conflict policy. */
-export async function applyProjectHarnessArtifactTransitions(
-	prepared: PreparedProjectHarnessArtifactTransitions,
+/** Apply prepared transitions with the caller's explicit conflict policy. */
+export async function applyHarnessArtifactTransitions(
+	prepared: PreparedHarnessArtifactTransitions,
 ): Promise<
 	Result<AppliedProvisionReconciliation, HarnessArtifactProvisionReconciliationErrorInfo>
 > {

@@ -7,12 +7,70 @@ import {
 	contentHashForText,
 	INSTALL_MANIFEST_FILE_NAME,
 	prepareDeclaredArtifactActivation,
+	prepareUserDeclaredArtifactActivation,
 	type DeclaredExtensionModuleArtifactFacts,
 	type InstallManifestData,
 } from "../src/harness-artifacts/index.ts";
 import { InMemoryHarnessFs } from "./support/in-memory-harness-fs.ts";
 
 describe("declared artifact activation", () => {
+	test("prepares targeted user artifacts into exactly the configured user roots", async () => {
+		const module = moduleFacts("/modules/tools", "@acme/tools", "tools");
+		const fs = new InMemoryHarnessFs({
+			"/modules/tools/skills/tools/SKILL.md": "tools v1\n",
+		});
+
+		const prepared = await prepareUserDeclaredArtifactActivation({
+			cwd: "/work",
+			homeDir: "/home/test",
+			env: { CLAUDE_CONFIG_DIR: "/claude" },
+			modules: [module],
+			configuredHarnesses: ["claude-code", "pi"],
+			targetPackageNames: ["@acme/tools"],
+			fs,
+			discoveryGateway: fs,
+		});
+
+		expect(prepared).toMatchObject({
+			ok: true,
+			value: {
+				selectedHarnesses: ["claude-code", "pi"],
+				artifacts: [
+					{ key: "claude-code:user:skill:@acme/tools:tools", action: "installed" },
+					{ key: "pi:user:skill:@acme/tools:tools", action: "installed" },
+				],
+				reconciliation: { conflictPolicy: { type: "strict", shouldForce: false } },
+			},
+		});
+		if (!prepared.ok) return;
+		await applyPreparedDeclaredArtifactActivation(prepared.value);
+		expect(fs.readText("/claude/skills/tools/SKILL.md")).toBe("tools v1\n");
+		expect(fs.readText("/home/test/.pi/agent/skills/tools/SKILL.md")).toBe("tools v1\n");
+		expect(fs.readText("/home/test/.agents/skills/tools/SKILL.md")).toBeUndefined();
+	});
+
+	test("a missing user harness selection provisions nowhere rather than defaulting to all", async () => {
+		const module = moduleFacts("/modules/tools", "@acme/tools", "tools");
+		const fs = new InMemoryHarnessFs({
+			"/modules/tools/skills/tools/SKILL.md": "tools v1\n",
+		});
+		const prepared = await prepareUserDeclaredArtifactActivation({
+			cwd: "/work",
+			homeDir: "/home/test",
+			env: {},
+			modules: [module],
+			configuredHarnesses: [],
+			targetPackageNames: ["@acme/tools"],
+			fs,
+			discoveryGateway: fs,
+		});
+
+		expect(prepared).toMatchObject({
+			ok: true,
+			value: { selectedHarnesses: [], artifacts: [] },
+		});
+	});
+
 	test("prepares and applies only supplied declarations for selected harnesses in identity order", async () => {
 		const fixture = createFixture([moduleFacts("/modules/zeta", "@acme/zeta", "zeta")]);
 

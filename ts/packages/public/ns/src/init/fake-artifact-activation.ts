@@ -1,5 +1,5 @@
 import {
-	createEmptyPreparedProjectHarnessArtifactTransitions,
+	createEmptyPreparedHarnessArtifactTransitions,
 	type ApplyPreparedDeclaredArtifactActivationResult,
 	type PreparedDeclaredArtifactActivation,
 } from "../harness-artifacts/api.ts";
@@ -42,7 +42,7 @@ export class InMemoryArtifactActivationGateway implements ArtifactActivationGate
 					diagnostics: [],
 					skippedCollisions: [],
 					artifacts: [],
-					reconciliation: createEmptyPreparedProjectHarnessArtifactTransitions({
+					reconciliation: createEmptyPreparedHarnessArtifactTransitions({
 						type: "strict",
 						shouldForce: false,
 					}),

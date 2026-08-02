@@ -4,6 +4,7 @@ import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
 import type { UserExtensionPackageAvailabilityFact } from "@nseng-ai/sdk/extensions/user-package-availability";
 import { userManagedNpmStorage } from "@nseng-ai/sdk/project-config";
+import { createEmptyPreparedHarnessArtifactTransitions } from "../../src/harness-artifacts/api.ts";
 
 import type { ExtensionInstallContext } from "../../src/init/install-extension.ts";
 import {
@@ -25,6 +26,7 @@ import {
 	InMemoryExtensionInstallAcquisitionGateway,
 	InMemoryExtensionUninstallAcquisitionGateway,
 	InMemoryExtensionUpdateAcquisitionGateway,
+	InMemoryUserArtifactActivationGateway,
 	InMemoryUserExtensionConfigGateway,
 	InMemoryUserExtensionAvailabilityGateway,
 } from "../../src/init/testing/index.ts";
@@ -54,6 +56,8 @@ function contexts(
 		readonly installedPackageRoots?: readonly string[];
 		readonly existingProjectRoots?: readonly string[];
 		readonly installedPackageNames?: readonly string[];
+		readonly userArtifacts?: InMemoryUserArtifactActivationGateway;
+		readonly env?: Readonly<Record<string, string | undefined>>;
 		readonly cleanupFailureByPackageName?: Readonly<
 			Record<
 				string,
@@ -88,6 +92,8 @@ function contexts(
 		declaredExtensions,
 		userExtensionConfig,
 		userExtensionAvailability,
+		userArtifacts: options.userArtifacts ?? new InMemoryUserArtifactActivationGateway(),
+		...(options.env === undefined ? {} : { env: { ...options.env } }),
 		userManagedNpmStorage: {
 			type: "available" as const,
 			storage: userManagedNpmStorage("/home/test/.local/share/ns/extensions"),
@@ -141,6 +147,35 @@ function contexts(
 	};
 }
 
+function preparedUserArtifacts(options: {
+	readonly selectedHarnesses?: readonly ("claude-code" | "codex" | "pi")[];
+	readonly skippedCollisions?: readonly {
+		readonly kind: "id" | "target-name";
+		readonly value: string;
+		readonly packages: readonly string[];
+	}[];
+	readonly orphans?: readonly {
+		readonly artifactId: string;
+		readonly harness: "claude-code" | "codex" | "pi";
+		readonly scope: "user";
+		readonly targetRoot: string;
+		readonly packageName: string;
+		readonly sourceType: "npm-module";
+	}[];
+}) {
+	return {
+		modules: [],
+		selectedHarnesses: [...(options.selectedHarnesses ?? ["pi"])],
+		diagnostics: [],
+		skippedCollisions: [...(options.skippedCollisions ?? [])],
+		artifacts: [],
+		reconciliation: {
+			...createEmptyPreparedHarnessArtifactTransitions({ type: "strict", shouldForce: false }),
+			orphans: [...(options.orphans ?? [])],
+		},
+	};
+}
+
 describe("user extension lifecycle", () => {
 	it("installs, lists, validates, and uninstalls a canonical local declaration without project activation", async () => {
 		const config = new InMemoryUserExtensionConfigGateway({
@@ -158,7 +193,7 @@ describe("user extension lifecycle", () => {
 				scope: "user",
 				sourceSpec,
 				declarationAction: "appended",
-				commandAvailability: "available",
+				commandAvailability: "unavailable",
 			},
 		});
 		expect(config.fileContent()).toBe(
@@ -168,7 +203,7 @@ describe("user extension lifecycle", () => {
 		const listed = await listExtensions(context.list, { cwd: "/outside", scope: "user" });
 		expect(listed).toMatchObject({
 			status: "success",
-			data: { scope: "user", extensions: [{ sourceSpec, commandAvailability: "available" }] },
+			data: { scope: "user", extensions: [{ sourceSpec, commandAvailability: "unavailable" }] },
 		});
 
 		const updated = await updateExtension(context.update, {
@@ -232,7 +267,7 @@ describe("user extension lifecycle", () => {
 		const listed = await listExtensions(context.list, { cwd: "/unrelated", scope: "user" });
 		expect(listed).toMatchObject({
 			status: "success",
-			data: { extensions: [{ sourceKind: "npm", commandAvailability: "available", moduleRoot }] },
+			data: { extensions: [{ sourceKind: "npm", commandAvailability: "unavailable", moduleRoot }] },
 		});
 		const updated = await updateExtension(context.update, {
 			cwd: "/outside",
@@ -509,6 +544,10 @@ describe("user extension lifecycle", () => {
 			declarationAction: "appended" as const,
 			acquisitionOutcome: "installed" as const,
 			commandAvailability: "available" as const,
+			configuredHarnesses: ["pi" as const],
+			userExtensionLayer: { enabled: true, activeHarness: "pi" as const },
+			artifacts: [],
+			dormantContributions: { instructionModuleCount: 0, consumerDirCount: 0 },
 			activation: "not-performed" as const,
 		};
 
@@ -769,6 +808,154 @@ describe("user extension lifecycle", () => {
 		expect(config.writes).toEqual([]);
 	});
 
+	it("blocks install before config or artifact apply when strict artifact preflight finds a collision", async () => {
+		const config = new InMemoryUserExtensionConfigGateway({
+			content: 'supported_harnesses = ["pi"]\nextensions = []\n',
+		});
+		const userArtifacts = new InMemoryUserArtifactActivationGateway({
+			prepareResult: {
+				ok: true,
+				prepared: preparedUserArtifacts({
+					skippedCollisions: [
+						{ kind: "target-name", value: "tools", packages: ["@test/tools", "@test/other"] },
+					],
+				}),
+			},
+		});
+		const context = contexts(config, { userArtifacts });
+
+		const result = await installExtension(context.install, {
+			cwd: "/work",
+			source: "./extensions/tools",
+			scope: "user",
+		});
+
+		expect(result).toMatchObject({
+			status: "failure",
+			errorType: "ns-extension-install-user-artifact-preflight-failed",
+			data: { declarationCompleted: false, diagnostics: [{ code: "user-artifact-collision" }] },
+		});
+		expect(config.writes).toEqual([]);
+		expect(userArtifacts.prepareCalls()).toHaveLength(1);
+		expect(userArtifacts.applyCalls()).toEqual([]);
+	});
+
+	it("reports the shared gate and planned local artifact outcomes without applying a dry-run", async () => {
+		const config = new InMemoryUserExtensionConfigGateway({
+			content: `supported_harnesses = ["pi"]\nextensions = [${JSON.stringify(sourceSpec)}]\n`,
+		});
+		const userArtifacts = new InMemoryUserArtifactActivationGateway({
+			prepareResult: { ok: true, prepared: preparedUserArtifacts({}) },
+		});
+		const context = contexts(config, { userArtifacts, env: { NS_HARNESS: "codex" } });
+
+		const result = await updateExtension(context.update, {
+			cwd: "/work",
+			source: "./extensions/tools",
+			scope: "user",
+			dryRun: true,
+		});
+
+		expect(result).toMatchObject({
+			status: "success",
+			data: {
+				mode: "dry-run",
+				commandAvailability: "unavailable",
+				userExtensionLayer: { enabled: false, reason: "active-harness-unsupported" },
+				artifactEffects: "available",
+				artifacts: [],
+			},
+		});
+		expect(config.writes).toEqual([]);
+		expect(userArtifacts.prepareCalls()).toHaveLength(1);
+		expect(userArtifacts.applyCalls()).toEqual([]);
+	});
+
+	it("reports completed artifact transitions and retry guidance after partial update apply", async () => {
+		const config = new InMemoryUserExtensionConfigGateway({
+			content: `supported_harnesses = ["pi"]\nextensions = [${JSON.stringify(sourceSpec)}]\n`,
+		});
+		const completed = {
+			key: "pi:tools",
+			action: "installed" as const,
+			artifactId: "@test/tools:tools",
+			skillName: "tools",
+			harness: "pi" as const,
+			targetArtifactPath: "/home/test/.pi/agent/skills/tools",
+			manifestPath: "/home/test/.pi/agent/skills/.ns-harness-artifacts-manifest.json",
+			writtenFiles: ["/home/test/.pi/agent/skills/tools/SKILL.md"],
+			conflictingFiles: [],
+		};
+		const userArtifacts = new InMemoryUserArtifactActivationGateway({
+			prepareResult: { ok: true, prepared: preparedUserArtifacts({}) },
+			applyResult: {
+				ok: false,
+				error: {
+					code: "stale_prepared_reconciliation",
+					message: "second root changed",
+					details: {
+						kind: "target",
+						path: "/home/test/.agents/skills/tools",
+						installKey: "codex:tools",
+					},
+					completedTransitions: new Map(),
+				},
+				completed: [completed],
+			},
+		});
+		const context = contexts(config, { userArtifacts });
+
+		const result = await updateExtension(context.update, {
+			cwd: "/work",
+			source: "./extensions/tools",
+			scope: "user",
+			dryRun: false,
+		});
+
+		expect(result).toMatchObject({
+			status: "failure",
+			errorType: "ns-extension-update-user-artifact-apply-failed",
+			data: {
+				acquisitionCompleted: true,
+				completedArtifacts: [completed],
+				retryGuidance: expect.stringContaining("extension update --scope user"),
+			},
+		});
+		expect(config.writes).toEqual([]);
+		expect(userArtifacts.applyCalls()).toHaveLength(1);
+	});
+
+	it("blocks identifiable uninstall before declaration mutation or apply", async () => {
+		const config = new InMemoryUserExtensionConfigGateway({
+			content: `supported_harnesses = ["pi"]\nextensions = [${JSON.stringify(sourceSpec)}]\n`,
+		});
+		const userArtifacts = new InMemoryUserArtifactActivationGateway({
+			prepareResult: {
+				ok: true,
+				prepared: preparedUserArtifacts({
+					skippedCollisions: [
+						{ kind: "id", value: "@test/tools:tools", packages: ["@test/tools"] },
+					],
+				}),
+			},
+		});
+		const context = contexts(config, { userArtifacts });
+
+		const result = await uninstallExtension(context.uninstall, {
+			cwd: "/work",
+			source: "./extensions/tools",
+			scope: "user",
+		});
+
+		expect(result).toMatchObject({
+			status: "failure",
+			errorType: "ns-extension-uninstall-user-artifact-preflight-failed",
+			data: { declarationCompleted: false },
+		});
+		expect(config.writes).toEqual([]);
+		expect(userArtifacts.applyCalls()).toEqual([]);
+	});
+
 	it("uninstalls a missing local source and keeps an absent declaration idempotent", async () => {
 		const config = new InMemoryUserExtensionConfigGateway({
 			content: `extensions = [${JSON.stringify(sourceSpec)}]\n`,
@@ -784,6 +971,7 @@ describe("user extension lifecycle", () => {
 			data: {
 				declarationAction: "removed",
 				cleanup: { status: "not-applicable" },
+				artifactReconciliation: "artifacts-retained-package-identity-unavailable",
 			},
 		});
 		const absentConfig = new InMemoryUserExtensionConfigGateway();
@@ -794,10 +982,93 @@ describe("user extension lifecycle", () => {
 		});
 		expect(absent).toMatchObject({
 			status: "success",
-			data: { declarationAction: "already-absent" },
+			data: {
+				declarationAction: "already-absent",
+				artifactReconciliation: "not-authorized-declaration-absent",
+			},
 		});
 		expect(absentConfig.writes).toEqual([]);
 		expect(absentConfig.fileContent()).toBeUndefined();
+	});
+
+	it("reports unavailable list evidence when read-only artifact inspection fails", async () => {
+		const config = new InMemoryUserExtensionConfigGateway({
+			content: `supported_harnesses = ["pi"]\nextensions = [${JSON.stringify(sourceSpec)}]\n`,
+		});
+		const userArtifacts = new InMemoryUserArtifactActivationGateway({
+			prepareResult: {
+				ok: false,
+				error: {
+					code: "missing_home_directory",
+					message: "home unavailable",
+					details: { harness: "pi", scope: "user" },
+				},
+			},
+		});
+		const context = contexts(config, { userArtifacts });
+
+		const result = await listExtensions(context.list, { cwd: "/outside", scope: "user" });
+
+		expect(result).toMatchObject({
+			status: "success",
+			data: {
+				extensions: [
+					{
+						sourceSpec,
+						artifactStatus: "unavailable",
+						artifactCount: 0,
+						diagnostics: [{ code: "missing-home-directory", message: "home unavailable" }],
+					},
+				],
+			},
+		});
+		expect(userArtifacts.applyCalls()).toEqual([]);
+		expect(config.writes).toEqual([]);
+	});
+
+	it("reports orphan drift for an empty declaration list without applying or writing", async () => {
+		const config = new InMemoryUserExtensionConfigGateway({
+			content: 'supported_harnesses = ["pi"]\nextensions = []\n',
+		});
+		const userArtifacts = new InMemoryUserArtifactActivationGateway({
+			prepareResult: {
+				ok: true,
+				prepared: preparedUserArtifacts({
+					orphans: [
+						{
+							artifactId: "@test/orphan:tools",
+							harness: "pi",
+							scope: "user",
+							targetRoot: "/home/test/.pi/agent/skills",
+							packageName: "@test/orphan",
+							sourceType: "npm-module",
+						},
+					],
+				}),
+			},
+		});
+		const context = contexts(config, { userArtifacts });
+
+		const result = await listExtensions(context.list, { cwd: "/outside", scope: "user" });
+
+		expect(result).toMatchObject({
+			status: "success",
+			data: {
+				extensions: [],
+				orphanedArtifactCount: 1,
+				harnessSetDriftNote: expect.stringContaining("does not reconcile"),
+			},
+		});
+		expect(userArtifacts.prepareCalls()).toEqual([
+			{
+				cwd: "/outside",
+				descriptors: [],
+				configuredHarnesses: ["pi"],
+				targetPackageNames: [],
+			},
+		]);
+		expect(userArtifacts.applyCalls()).toEqual([]);
+		expect(config.writes).toEqual([]);
 	});
 
 	it("returns an empty, deterministic result for a missing user list config", async () => {
@@ -862,7 +1133,7 @@ describe("user extension lifecycle", () => {
 			status: "success",
 			data: {
 				extensions: [
-					{ sourceSpec, commandAvailability: "available" },
+					{ sourceSpec, commandAvailability: "unavailable" },
 					{
 						sourceSpec: missing,
 						acquisitionStatus: "missing",

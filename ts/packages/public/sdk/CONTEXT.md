@@ -18,6 +18,10 @@ An **Extension Descriptor** describes an extension package without executing its
 
 The ns host prepares source inventory and invocation context, constructs exactly one contextful `ClinkrApp`, mounts each source under its own label, and calls only `app.run()`. Clinkr owns recursive navigation, selected loading, help, schema handling, and completion. The standalone SDK host owns the extension-point subtree; a distribution host that owns extension lifecycle composes those SDK commands into its single host-internal `extension` subtree and disables the standalone SDK subtree. Host-owned shell commands remain a separate programmatic built-in subtree; all sources own disjoint top-level routes.
 
+## User-scope bundled artifacts
+
+At user scope, lifecycle commands reconcile descriptor `bundledArtifacts` (currently bundled skills) into configured harness user roots. This reconciliation is independent of the Active harness gate for commands and points and does not run project activation or write repository contributions.
+
 ## Avoid
 
 - command catalog, command candidate, catalog precedence, or leaf candidate

@@ -8,16 +8,25 @@ import { planDeclaredExtensionInstallToml } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
 import {
+	completedUserArtifactEvidence,
+	decideUserExtensionLifecycleGate,
 	extensionLifecycleScopeSchemaValues,
 	loadOneUserDescriptor,
+	parseUserSupportedHarnessesFacts,
 	prepareUserConfig,
 	prepareUserExtensionSource,
+	summarizeDormantUserContributions,
+	summarizeUserArtifactActions,
+	userArtifactPreflightBlockers,
 	type UserExtensionAvailabilityContext,
 	type UserExtensionLifecycleContext,
 } from "./user-extension-lifecycle.ts";
 
 import { applyNsActivation, prepareNsActivation } from "./activate-ns.ts";
-import { activationCompletedSchema } from "./activation-outcomes.ts";
+import {
+	activationCompletedSchema,
+	declaredArtifactActivationOutcomeSchema,
+} from "./activation-outcomes.ts";
 import type { NsActivationContext } from "./activation-context.ts";
 import type {
 	ExtensionInstallAcquisitionGateway,
@@ -76,7 +85,18 @@ export const installExtensionResultSchema = z.discriminatedUnion("scope", [
 		configPath: z.string(),
 		declarationAction: z.enum(["appended", "unchanged"]),
 		acquisitionOutcome: z.enum(["installed", "unchanged", "local-in-place"]),
-		commandAvailability: z.literal("available"),
+		commandAvailability: z.enum(["available", "unavailable"]),
+		configuredHarnesses: z.array(z.enum(ALL_HARNESS_IDS)).readonly(),
+		userExtensionLayer: z.object({
+			enabled: z.boolean(),
+			activeHarness: z.enum(ALL_HARNESS_IDS).optional(),
+			reason: z.string().optional(),
+		}),
+		artifacts: z.array(declaredArtifactActivationOutcomeSchema).readonly(),
+		dormantContributions: z.object({
+			instructionModuleCount: z.number().int().nonnegative(),
+			consumerDirCount: z.number().int().nonnegative(),
+		}),
 		activation: z.literal("not-performed"),
 	}),
 ]);
@@ -277,6 +297,15 @@ async function installUserExtension(
 	if (!source.ok) return source.exit;
 	const prepared = await prepareUserConfig<InstallExtensionResult>(context, "install");
 	if ("status" in prepared) return prepared;
+	const supportedHarnesses = parseUserSupportedHarnessesFacts(
+		prepared.content,
+		prepared.configPath,
+	);
+	if (supportedHarnesses.type === "invalid")
+		return failure("ns-extension-install-user-config-invalid", supportedHarnesses.error.message, {
+			scope: "user",
+			diagnostics: [supportedHarnesses.error],
+		});
 	const declaration = planDeclaredExtensionInstallToml({
 		projectRoot: prepared.configDir,
 		nsTomlContent: prepared.content,
@@ -347,6 +376,37 @@ async function installUserExtension(
 			? rollbackUserInstall(context, source.source.packageName, primary)
 			: primary;
 	}
+	const preparedArtifacts = await context.userArtifacts.prepare({
+		cwd: request.cwd,
+		descriptors: [loaded.descriptor],
+		configuredHarnesses: supportedHarnesses.harnesses,
+		targetPackageNames: [loaded.descriptor.packageName],
+	});
+	if (!preparedArtifacts.ok) {
+		const primary = failure(
+			"ns-extension-install-user-artifact-preflight-failed",
+			preparedArtifacts.error.message,
+			{
+				scope: "user",
+				declarationCompleted: false,
+				diagnostics: [normalizeExtensionDiagnostic(preparedArtifacts.error)],
+			},
+		);
+		if (source.source.kind === "npm" && createdPackageProject)
+			return rollbackUserInstall(context, source.source.packageName, primary);
+		return primary;
+	}
+	const blockers = userArtifactPreflightBlockers(preparedArtifacts.prepared);
+	if (blockers.length > 0) {
+		const primary = failure(
+			"ns-extension-install-user-artifact-preflight-failed",
+			blockers[0]?.message ?? "User artifact preflight failed.",
+			{ scope: "user", declarationCompleted: false, diagnostics: blockers },
+		);
+		if (source.source.kind === "npm" && createdPackageProject)
+			return rollbackUserInstall(context, source.source.packageName, primary);
+		return primary;
+	}
 	if (declaration.isAdded) {
 		const written = await context.userExtensionConfig.compareAndWrite({
 			expected: prepared.expected,
@@ -364,6 +424,18 @@ async function installUserExtension(
 			return primary;
 		}
 	}
+	const applied = await context.userArtifacts.apply(preparedArtifacts.prepared);
+	if (!applied.ok)
+		return failure("ns-extension-install-user-artifact-apply-failed", applied.error.message, {
+			scope: "user",
+			declarationCompleted: true,
+			declarationAction: declaration.isAdded ? "appended" : "unchanged",
+			acquisitionOutcome,
+			completedArtifacts: completedUserArtifactEvidence(applied.completed),
+			diagnostics: [normalizeExtensionDiagnostic(applied.error)],
+			retryGuidance: `Re-run ns extension update --scope user ${source.sourceSpec} to retry the remaining artifact transitions.`,
+		});
+	const gate = decideUserExtensionLifecycleGate({ env: context.env, supportedHarnesses });
 	return ok({
 		scope: "user",
 		sourceSpec: source.sourceSpec,
@@ -374,7 +446,13 @@ async function installUserExtension(
 		configPath: prepared.configPath,
 		declarationAction: declaration.isAdded ? "appended" : "unchanged",
 		acquisitionOutcome,
-		commandAvailability: "available",
+		commandAvailability: gate.enabled ? "available" : "unavailable",
+		configuredHarnesses: [...supportedHarnesses.harnesses],
+		userExtensionLayer: gate.enabled
+			? { enabled: true, activeHarness: gate.activeHarness }
+			: { enabled: false, reason: gate.reason.type },
+		artifacts: completedUserArtifactEvidence(applied.completed),
+		dormantContributions: summarizeDormantUserContributions([loaded.descriptor]),
 		activation: "not-performed",
 	});
 }
@@ -405,7 +483,7 @@ async function rollbackUserInstall(
 
 export function renderInstallExtensionMarkdown(result: InstallExtensionResult): string {
 	if (result.scope === "user")
-		return `Installed ${result.packageName}@${result.packageVersion} for user command availability in ${result.configPath}; acquisition: ${result.acquisitionOutcome}; no project activation ran.`;
+		return `Installed ${result.packageName}@${result.packageVersion} at user scope in ${result.configPath}; acquisition: ${result.acquisitionOutcome}; bundled artifacts: ${summarizeUserArtifactActions(result.artifacts)}; user layer: ${result.userExtensionLayer.enabled ? "enabled" : "disabled"}; no project activation ran.`;
 	return renderLifecycleMarkdown(
 		"ns extension install",
 		`Installed ${result.packageName}@${result.packageVersion}.`,
@@ -415,7 +493,15 @@ export function renderInstallExtensionMarkdown(result: InstallExtensionResult): 
 
 export function renderInstallExtensionHuman(result: InstallExtensionResult): string {
 	if (result.scope === "user")
-		return `Installed ${result.packageName}@${result.packageVersion} for user command availability from ${result.sourceSpec}.\nAcquisition: ${result.acquisitionOutcome}.\nDeclaration: ${result.declarationAction} in ${result.configPath}.\nNo project activation was performed.`;
+		return [
+			`Installed ${result.packageName}@${result.packageVersion} at user scope from ${result.sourceSpec}.`,
+			`Acquisition: ${result.acquisitionOutcome}.`,
+			`Declaration: ${result.declarationAction} in ${result.configPath}.`,
+			`Bundled artifacts: ${summarizeUserArtifactActions(result.artifacts)} for ${result.configuredHarnesses.join(", ") || "no configured harnesses"}.`,
+			`User extension layer: ${result.userExtensionLayer.enabled ? "enabled" : `disabled (${result.userExtensionLayer.reason ?? "unknown"})`}.`,
+			`Dormant contributions: ${result.dormantContributions.instructionModuleCount} instruction block(s), ${result.dormantContributions.consumerDirCount} consumer directory declaration(s).`,
+			"No project activation was performed.",
+		].join("\n");
 	const declaration = result.isRecorded ? "recorded in" : "already present in";
 	const artifactCount = result.completed.artifacts?.length ?? 0;
 	const outcome = result.isRecorded ? "Installed" : "Ensured already-present";

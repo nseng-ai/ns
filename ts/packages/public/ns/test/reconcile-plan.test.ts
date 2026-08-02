@@ -49,6 +49,7 @@ describe("harness artifact reconcile planner", () => {
 
 	test("generates declared selection pairs in deterministic order", () => {
 		const result = planHarnessArtifactReconcile({
+			scope: "project",
 			desired: [desired(modulePlan), desired(firstPartyObjective)],
 			harnessSelection: ["pi", "codex"],
 			manifests: [],
@@ -72,6 +73,7 @@ describe("harness artifact reconcile planner", () => {
 
 	test("without a harness selection it creates no declared pairs", () => {
 		const result = planHarnessArtifactReconcile({
+			scope: "project",
 			desired: [desired(firstPartyObjective), desired(modulePlan)],
 			harnessSelection: undefined,
 			manifests: [],
@@ -88,6 +90,7 @@ describe("harness artifact reconcile planner", () => {
 
 	test("manifest-tracked pairs survive without a harness selection", () => {
 		const result = planHarnessArtifactReconcile({
+			scope: "project",
 			desired: [desired(modulePlan)],
 			harnessSelection: undefined,
 			manifests: [manifestSnapshot(manifestEntry(modulePlan, "pi"))],
@@ -105,6 +108,7 @@ describe("harness artifact reconcile planner", () => {
 
 	test("dedupes declared and manifest entries by install key", () => {
 		const result = planHarnessArtifactReconcile({
+			scope: "project",
 			desired: [desired(modulePlan)],
 			harnessSelection: ["pi"],
 			manifests: [manifestSnapshot(manifestEntry(modulePlan, "pi"))],
@@ -127,6 +131,7 @@ describe("harness artifact reconcile planner", () => {
 			relativePath: "skills/old",
 		});
 		const result = planHarnessArtifactReconcile({
+			scope: "project",
 			desired: [desired(modulePlan)],
 			harnessSelection: undefined,
 			manifests: [manifestSnapshot(manifestEntry(vanished, "pi"))],
@@ -150,6 +155,80 @@ describe("harness artifact reconcile planner", () => {
 		});
 	});
 
+	test("requires targeted authority for replacement and deselection removals", () => {
+		const replacement = artifact({
+			id: "@new/ext:new-plan",
+			skillName: "plan",
+			packageName: "@new/ext",
+			sourceType: "npm-module",
+			relativePath: "skills/plan",
+		});
+		const manifests = [manifestSnapshot(manifestEntry(modulePlan, "pi"))];
+
+		const unauthorizedReplacement = planHarnessArtifactReconcile({
+			scope: "project",
+			desired: [desired(replacement)],
+			harnessSelection: ["pi"],
+			manifests,
+			deletionAuthority: { type: "targeted", packageNames: ["@new/ext"] },
+		});
+		expect(unauthorizedReplacement.removals).toEqual([]);
+		expect(unauthorizedReplacement.orphans).toHaveLength(1);
+
+		const authorizedReplacement = planHarnessArtifactReconcile({
+			scope: "project",
+			desired: [desired(replacement)],
+			harnessSelection: ["pi"],
+			manifests,
+			deletionAuthority: { type: "targeted", packageNames: ["@acme/plans"] },
+		});
+		expect(authorizedReplacement.removals).toMatchObject([{ reason: "same-target-replacement" }]);
+
+		const unauthorizedDeselection = planHarnessArtifactReconcile({
+			scope: "project",
+			desired: [desired(modulePlan)],
+			harnessSelection: [],
+			manifests,
+			deletionAuthority: { type: "targeted", packageNames: ["@other/ext"] },
+		});
+		expect(unauthorizedDeselection.removals).toEqual([]);
+		expect(unauthorizedDeselection.orphans).toHaveLength(1);
+	});
+
+	test.each([
+		[
+			"same-target-replacement",
+			[
+				desired(
+					artifact({
+						id: "@other/ext:plan-skill",
+						skillName: "plan",
+						packageName: "@other/ext",
+						sourceType: "npm-module",
+						relativePath: "skills/plan",
+					}),
+				),
+			],
+			["pi"],
+		],
+		["deselected-harness", [desired(modulePlan)], []],
+		["removed-source", [], ["pi"]],
+	] as const)(
+		"targeted Package A cannot delete Package B for %s",
+		(_reason, desiredArtifacts, harnessSelection) => {
+			const result = planHarnessArtifactReconcile({
+				scope: "project",
+				desired: desiredArtifacts,
+				harnessSelection,
+				manifests: [manifestSnapshot(manifestEntry(modulePlan, "pi"))],
+				deletionAuthority: { type: "targeted", packageNames: ["@other/ext"] },
+			});
+
+			expect(result.removals).toEqual([]);
+			expect(result.orphans).toHaveLength(1);
+		},
+	);
+
 	test("makes full versus targeted deletion authority explicit and preserves failed full discovery", () => {
 		const vanished = artifact({
 			id: "@gone/ext:old-skill",
@@ -161,6 +240,7 @@ describe("harness artifact reconcile planner", () => {
 		const manifests = [manifestSnapshot(manifestEntry(vanished, "pi"))];
 
 		const full = planHarnessArtifactReconcile({
+			scope: "project",
 			desired: [desired(modulePlan)],
 			harnessSelection: ["pi"],
 			manifests,
@@ -171,6 +251,7 @@ describe("harness artifact reconcile planner", () => {
 		]);
 
 		const targeted = planHarnessArtifactReconcile({
+			scope: "project",
 			desired: [desired(modulePlan)],
 			harnessSelection: ["pi"],
 			manifests,
@@ -180,6 +261,7 @@ describe("harness artifact reconcile planner", () => {
 		expect(targeted.orphans).toHaveLength(1);
 
 		const failed = planHarnessArtifactReconcile({
+			scope: "project",
 			desired: [],
 			harnessSelection: ["pi"],
 			manifests,
@@ -213,6 +295,7 @@ describe("harness artifact reconcile planner", () => {
 		});
 
 		const result = planHarnessArtifactReconcile({
+			scope: "project",
 			desired: [
 				desired(firstPartyObjective),
 				desired(moduleObjective),
