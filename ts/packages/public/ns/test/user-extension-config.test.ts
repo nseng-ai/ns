@@ -10,7 +10,7 @@ import {
 const CONFIG_PATH = "/config/ns/ns.toml";
 const TEMP_PATH = "/config/ns/.ns.toml.fixed.tmp";
 
-type FakeOptions = {
+interface FakeOptions {
 	readonly initial?: {
 		readonly content: string;
 		readonly mode: number;
@@ -18,7 +18,7 @@ type FakeOptions = {
 	};
 	readonly fail?: "temp-sync" | "rename" | "directory-sync";
 	readonly changeBeforeFinalCheck?: string;
-};
+}
 
 class FakeFileOps implements UserExtensionConfigFileOps {
 	readonly operations: string[] = [];

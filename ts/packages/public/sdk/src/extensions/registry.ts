@@ -214,10 +214,10 @@ export async function evaluateUserExtensionPackageAvailability(
 		repoRoot: options.configDir,
 		specs: options.sourceSpecs,
 		localPathPolicy: "absolute-only",
-		...(options.descriptorGateway === undefined ? {} : { gateway: options.descriptorGateway }),
-		...(options.resolveNpmPackageRoot === undefined
-			? {}
-			: { resolveNpmPackageRoot: options.resolveNpmPackageRoot }),
+		...optionalEntries({
+			gateway: options.descriptorGateway,
+			resolveNpmPackageRoot: options.resolveNpmPackageRoot,
+		}),
 	});
 	const preinstalledCatalog = await options.preinstalledCommandCatalog();
 	const preinstalled = preinstalledCatalogContributions(preinstalledCatalog.entries);
