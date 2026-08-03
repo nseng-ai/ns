@@ -211,6 +211,7 @@ export async function implTrackedBranchPrompt(
 		context.pi.ui.notify(
 			[
 				`Opened Herdr ${formatImplDestinationNoun(result.destination)}: ${result.target.checkout.branchName}`,
+				`Destination worktree: ${result.target.checkout.worktreePath}`,
 				`${options.successDetails.parentLabel}: ${options.branch.parentBranch}`,
 				`Start point: ${options.branch.startPoint}`,
 				`Implementation payload: ${stored.value.namespace}/${stored.value.key}`,

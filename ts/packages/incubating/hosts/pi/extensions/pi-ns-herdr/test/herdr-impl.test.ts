@@ -336,9 +336,11 @@ describe("Herdr prompt implementation", () => {
 		expect(paneCommand).not.toContain("mktemp");
 		expect(paneCommand).not.toContain("payload_dir");
 		expect(paneCommand).not.toContain("@");
+		expect(paneCommand).not.toContain("--fork");
 		expect(notificationMessages(ctx).join("\n")).toContain(
 			`${IMPL_PROMPT_NAMESPACE}/${IMPL_PROMPT_KEY}`,
 		);
+		expect(notificationMessages(ctx).join("\n")).toContain(`Destination worktree: ${WORKTREE}`);
 	});
 
 	test("prompt-tab captures the caller workspace and launches the stored payload in a focused Slot tab", async () => {
@@ -433,7 +435,9 @@ describe("Herdr prompt implementation", () => {
 		const paneCommand = herdr.paneRunCalls[0]?.command ?? "";
 		expect(paneCommand).toBe(`${HERDR_IMPL_PROMPT_BRANCH_ENV}=${BRANCH} exec pi --thinking medium`);
 		expect(paneCommand).not.toContain("brmem");
+		expect(paneCommand).not.toContain("--fork");
 		expect(notificationMessages(ctx).join("\n")).toContain(`Opened Herdr tab: ${BRANCH}`);
+		expect(notificationMessages(ctx).join("\n")).toContain(`Destination worktree: ${WORKTREE}`);
 	});
 
 	test("prompt-tab stops before any workflow work when caller resolution fails", async () => {
