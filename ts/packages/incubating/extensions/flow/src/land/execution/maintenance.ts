@@ -12,6 +12,7 @@
 // they should be attributed to (`descendant-maintenance` vs `merge-maintenance-cleanup`).
 
 import type { ExecResult } from "@nseng-ai/foundation/command";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { shortSha } from "../../commit-display/index.ts";
 import { LAND_BACKUP_RECOVERY_HINT, parseGitCheckedOutElsewhere } from "../graphite-operations.ts";
 import { validateOpenPrBasics } from "../preflight.ts";
@@ -401,13 +402,13 @@ async function reconcileDescendantRoot(
 	const preSubmitFacts = await loadDescendantRootPrFacts(options, "before submit");
 	if (preSubmitFacts.kind === "failure") return preSubmitFacts.failure;
 	if (
-		isRemotePrProvenCurrent(
-			preSubmitFacts.pr,
-			maintenanceBranch,
-			postRestackSha.value,
+		isRemotePrProvenCurrent({
+			pr: preSubmitFacts.pr,
+			branch: maintenanceBranch,
+			postRestackSha: postRestackSha.value,
 			trunk,
-			expectedBaseOid.value,
-		)
+			expectedBaseOid: expectedBaseOid.value,
+		})
 	) {
 		progress.note(
 			`Skipped gt submit for ${maintenanceBranch}; remote PR facts already match the reconciled state.`,
@@ -438,13 +439,13 @@ async function reconcileDescendantRoot(
 	const postSubmitFacts = await loadDescendantRootPrFacts(options, "after submit");
 	if (postSubmitFacts.kind === "failure") return postSubmitFacts.failure;
 	if (
-		!isRemotePrProvenCurrent(
-			postSubmitFacts.pr,
-			maintenanceBranch,
-			postRestackSha.value,
+		!isRemotePrProvenCurrent({
+			pr: postSubmitFacts.pr,
+			branch: maintenanceBranch,
+			postRestackSha: postRestackSha.value,
 			trunk,
-			expectedBaseOid.value,
-		)
+			expectedBaseOid: expectedBaseOid.value,
+		})
 	) {
 		return landingExecutionFailure(
 			`PR #${prNumber} merged and gt submit exited 0, but GitHub facts for ${maintenanceBranch} remain stale: state ${postSubmitFacts.pr.state}, head ${postSubmitFacts.pr.headRefName} at ${shortSha(postSubmitFacts.pr.headRefOid)} (expected ${shortSha(postRestackSha.value)}), base ${postSubmitFacts.pr.baseRefName} at ${shortSha(postSubmitFacts.pr.baseRefOid)} (expected ${trunk} at ${shortSha(expectedBaseOid.value)}).`,
@@ -492,13 +493,16 @@ async function loadDescendantRootPrFacts(
  * observed refreshed trunk OID. Local ancestry and provider topology are verified separately
  * before this predicate is consulted.
  */
-function isRemotePrProvenCurrent(
-	pr: PullRequestFacts,
-	branch: string,
-	postRestackSha: string,
-	trunk: string,
-	expectedBaseOid: string,
-): boolean {
+interface RemotePrCurrentOptions {
+	readonly pr: PullRequestFacts;
+	readonly branch: string;
+	readonly postRestackSha: string;
+	readonly trunk: string;
+	readonly expectedBaseOid: string;
+}
+
+function isRemotePrProvenCurrent(options: RemotePrCurrentOptions): boolean {
+	const { pr, branch, postRestackSha, trunk, expectedBaseOid } = options;
 	const basics = validateOpenPrBasics({ branch, localSha: postRestackSha, pr });
 	return (
 		basics.type === "completed" && pr.baseRefName === trunk && pr.baseRefOid === expectedBaseOid
@@ -512,9 +516,11 @@ function stopFailure(stop: GraphiteMaintenanceStop): LandingExecutionFailure {
 		return landingExecutionFailure("Descendant reconciliation step did not complete.");
 	}
 	return landingExecutionFailure(warning.message, {
-		...(warning.commandDisplay === undefined ? {} : { displayCommand: warning.commandDisplay }),
-		...(warning.result === undefined ? {} : { execResult: warning.result }),
-		...(warning.suggestedAction === undefined ? {} : { suggestedAction: warning.suggestedAction }),
+		...optionalEntries({
+			displayCommand: warning.commandDisplay,
+			execResult: warning.result,
+			suggestedAction: warning.suggestedAction,
+		}),
 	});
 }
 
