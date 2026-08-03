@@ -9,22 +9,23 @@ const parsed = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
 if (!parsed.ok) throw new Error();
 const artifactId = parsed.artifactId;
 const app = createGitplaneCliApp();
-function context(
-	artifactGateway = new InMemoryArtifactGateway(),
-	configGateway: GitplaneConfigGateway = {
-		load: async () => ({
-			ok: false as const,
-			category: "config-load" as const,
-			diagnostic: "missing",
-		}),
-	},
-	corpusCheckGateway = new InMemoryCorpusCheckGateway(),
-) {
+interface ContextOptions {
+	readonly artifactGateway?: InMemoryArtifactGateway;
+	readonly configGateway?: GitplaneConfigGateway;
+	readonly corpusCheckGateway?: InMemoryCorpusCheckGateway;
+}
+function context(options: ContextOptions = {}) {
 	return {
-		artifactGateway,
+		artifactGateway: options.artifactGateway ?? new InMemoryArtifactGateway(),
 		artifactIds: { generateArtifactId: () => artifactId },
-		configGateway,
-		corpusCheckGateway,
+		configGateway: options.configGateway ?? {
+			load: async () => ({
+				ok: false as const,
+				category: "config-load" as const,
+				diagnostic: "missing",
+			}),
+		},
+		corpusCheckGateway: options.corpusCheckGateway ?? new InMemoryCorpusCheckGateway(),
 		cwd: ".",
 	};
 }
@@ -65,7 +66,7 @@ test("keeps application version synchronized with the package manifest", async (
 test("creates generic and classified artifacts through typed envelopes", async () => {
 	const gateway = new InMemoryArtifactGateway();
 	const run = await runForCliTest(app, ["artifact", "create", "x", "--format=json"], {
-		context: context(gateway),
+		context: context({ artifactGateway: gateway }),
 	});
 	expect(run.exitCode).toBe(0);
 	expect(JSON.parse(run.stdout)).toMatchObject({
@@ -91,7 +92,7 @@ test("creates generic and classified artifacts through typed envelopes", async (
 			"--schema-version",
 			"2",
 		],
-		{ context: context(classified) },
+		{ context: context({ artifactGateway: classified }) },
 	);
 	const classifiedArtifacts = classified.createdArtifacts();
 	expect(classifiedArtifacts).toHaveLength(1);
@@ -108,7 +109,7 @@ test("accepts supplied IDs through long and short options", async () => {
 	for (const option of ["--id", "-i"]) {
 		const gateway = new InMemoryArtifactGateway();
 		const run = await runForCliTest(app, ["artifact", "create", option, artifactId, "x"], {
-			context: context(gateway),
+			context: context({ artifactGateway: gateway }),
 		});
 		expect(run.exitCode).toBe(0);
 		expect(gateway.createdArtifacts()[0]?.artifactId).toBe(artifactId);
@@ -118,7 +119,7 @@ test("accepts supplied IDs through long and short options", async () => {
 test("uses classification defaults", async () => {
 	const gateway = new InMemoryArtifactGateway();
 	const run = await runForCliTest(app, ["artifact", "create", "x", "--kind", "Greeting"], {
-		context: context(gateway),
+		context: context({ artifactGateway: gateway }),
 	});
 	expect(run.exitCode).toBe(0);
 	const createdArtifacts = gateway.createdArtifacts();
@@ -196,7 +197,7 @@ test("reports operational and unavailable outcomes", async () => {
 		created: [{ directory: "x", artifactId, marker: "" }],
 	});
 	const negative = await runForCliTest(app, ["artifact", "create", "x", "--format=json"], {
-		context: context(collision),
+		context: context({ artifactGateway: collision }),
 	});
 	expect(JSON.parse(negative.stdout)).toMatchObject({
 		status: "negative",
@@ -206,7 +207,7 @@ test("reports operational and unavailable outcomes", async () => {
 		failures: { createArtifact: { code: "denied", message: "no" } },
 	});
 	const failed = await runForCliTest(app, ["artifact", "create", "x", "--format=json"], {
-		context: context(failure),
+		context: context({ artifactGateway: failure }),
 	});
 	expect(JSON.parse(failed.stdout)).toMatchObject({
 		status: "failure",
@@ -234,7 +235,7 @@ test("check returns exact clean data for an empty root without history or store 
 		workingInventories: [{ artifactRoot: "artifacts", entries: [] }],
 	});
 	const run = await runForCliTest(app, ["check", "--format=json"], {
-		context: context(undefined, loadedConfig(), gateway),
+		context: context({ configGateway: loadedConfig(), corpusCheckGateway: gateway }),
 	});
 	expect(run.exitCode).toBe(0);
 	expect(JSON.parse(run.stdout)).toEqual({
@@ -279,7 +280,7 @@ test("check returns deterministic corpus findings as exit 1 data", async () => {
 		],
 	});
 	const run = await runForCliTest(app, ["check", "--format=json"], {
-		context: context(undefined, loadedConfig(), gateway),
+		context: context({ configGateway: loadedConfig(), corpusCheckGateway: gateway }),
 	});
 	expect(run.exitCode).toBe(1);
 	expect(JSON.parse(run.stdout)).toEqual({
@@ -325,9 +326,8 @@ test.each(["--config", "-c"])("check forwards %s exactly once", async (option) =
 		workingInventories: [{ artifactRoot: "empty", entries: [] }],
 	});
 	const run = await runForCliTest(app, ["check", option, "config/custom.ts"], {
-		context: context(
-			undefined,
-			{
+		context: context({
+			configGateway: {
 				load: async (request) => {
 					requests.push(request);
 					return {
@@ -342,8 +342,8 @@ test.each(["--config", "-c"])("check forwards %s exactly once", async (option) =
 					};
 				},
 			},
-			gateway,
-		),
+			corpusCheckGateway: gateway,
+		}),
 	});
 	expect(run.exitCode).toBe(0);
 	expect(requests).toEqual([{ cwd: ".", configPath: "config/custom.ts" }]);
@@ -399,7 +399,7 @@ test.each([
 	},
 ])("check returns exact sanitized exit 2 data for $name", async ({ gateway, loader, data }) => {
 	const run = await runForCliTest(app, ["check", "--format=json"], {
-		context: context(undefined, loader, gateway),
+		context: context({ configGateway: loader, corpusCheckGateway: gateway }),
 	});
 	expect(run.exitCode).toBe(2);
 	expect(JSON.parse(run.stdout)).toEqual({
@@ -417,9 +417,11 @@ test.each([
 
 test("check normalizes unexpected throws without partial or sensitive data", async () => {
 	const run = await runForCliTest(app, ["check", "--format=json"], {
-		context: context(undefined, {
-			load: async () => {
-				throw new Error("/host/private secret artifact bytes");
+		context: context({
+			configGateway: {
+				load: async () => {
+					throw new Error("/host/private secret artifact bytes");
+				},
 			},
 		}),
 	});
