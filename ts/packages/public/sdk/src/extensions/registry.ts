@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -29,11 +29,8 @@ import {
 } from "./declared-descriptors.ts";
 import { NS_EXTENSION_HELP_GROUP } from "./help-presentation.ts";
 import { loadExtensionDescriptorFromPackageRoot } from "../project-config/extension-package-descriptor.ts";
-import {
-	managedNpmPackagePaths,
-	userManagedNpmStorage,
-} from "../project-config/managed-extension-paths.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
+import { loadEffectiveUserExtensionLayer } from "./user-extension-layer.ts";
 import {
 	loadedModuleReference,
 	moduleReferenceDisplay,
@@ -42,14 +39,11 @@ import {
 	type NsCommandModuleReference,
 } from "./module-reference.ts";
 import {
-	formatErrorMessage,
-	isNodeErrorCode,
 	isPathInside,
 	optionalEntries,
 	optionalEntry,
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
-import { mergeXdgHomeEnv, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
 import {
 	type ExtensionCommandEntry,
 	type ExtensionDescriptor,
@@ -96,6 +90,8 @@ export type ExtensionCommandCandidate = BuiltInNsCommandCandidate | ExternalNsCo
 export interface ExternalNsCommandCandidate extends NsCommandCandidate {
 	moduleReference: NsCommandModuleReference;
 	entryPath?: string;
+	/** Validated manifest name of the descriptor package that contributed this command. */
+	extensionPackageName?: string;
 	hasStaticCommandInfo: boolean;
 	descriptorEntry?: ExtensionCommandEntry;
 	packageName?: string;
@@ -564,65 +560,32 @@ async function loadUserDescriptorCandidates(
 	options: LoadNsCommandCatalogOptions,
 	projectSourceIdentities: ReadonlySet<string>,
 ): Promise<LoadedCatalogFragment> {
-	const env = mergeXdgHomeEnv({
-		baseEnv: {},
-		...optionalEntries({ env: options.env, xdgHomeDir: options.homeDir }),
+	const layer = await loadEffectiveUserExtensionLayer({
+		...optionalEntries({ homeDir: options.homeDir, env: options.env }),
+		projectSourceIdentities,
 	});
-	const resolvedPath = resolveNsXdgPath({ kind: "config", env, segments: ["ns.toml"] });
-	if (!resolvedPath.ok) {
-		return emptyLoadedCatalogFragment([
-			userErrorDiagnostic(
-				"user_ns_toml_path_invalid",
-				`Could not resolve user ns.toml path.\n${resolvedPath.error.message}`,
-			),
-		]);
-	}
-	const declared = readUserDeclaredExtensionSpecs(resolvedPath.value);
-	if (!declared.ok) return emptyLoadedCatalogFragment([declared.diagnostic]);
-	const userConfigDir = dirname(resolvedPath.value);
-	const activeSpecs = declared.specs.filter((spec) => {
-		const identity = declaredExtensionSourceIdentity(userConfigDir, spec);
-		return identity === undefined || !projectSourceIdentities.has(identity);
-	});
-	const extensionsDataRoot = resolveNsXdgPath({ kind: "data", env, segments: ["extensions"] });
-	const dataPathDiagnostics = extensionsDataRoot.ok
-		? []
-		: [
-				userErrorDiagnostic(
-					"user_extensions_data_path_invalid",
-					`Could not resolve user extensions data path.\n${extensionsDataRoot.error.message}`,
-				),
-			];
-	const resolveNpmPackageRoot = extensionsDataRoot.ok
-		? (packageName: string) =>
-				managedNpmPackagePaths(userManagedNpmStorage(extensionsDataRoot.value), packageName)
-					.packageRoot
-		: () => undefined;
-	const loaded = await loadDeclaredExtensionDescriptors({
-		repoRoot: userConfigDir,
-		specs: activeSpecs,
-		localPathPolicy: "absolute-only",
-		resolveNpmPackageRoot,
-	});
+	const userConfigDir =
+		layer.userConfigPath === undefined ? undefined : dirname(layer.userConfigPath);
 	return {
-		diagnostics: [
-			...dataPathDiagnostics,
-			...loaded.diagnostics.map((diagnostic) =>
-				userErrorDiagnostic(
-					diagnostic.code,
-					diagnostic.message,
-					diagnostic.path ?? resolvedPath.value,
-				),
-			),
-		],
+		diagnostics: layer.diagnostics.map((diagnostic) => ({
+			severity: "error",
+			code: diagnostic.code,
+			message: diagnostic.message,
+			...optionalEntry("path", diagnostic.path),
+			sourceLevel: "user",
+		})),
 		builtInPackageNames: [],
-		contributions: loaded.descriptors.map((record) =>
+		contributions: layer.descriptors.map((record) =>
 			descriptorPackageContribution({
 				cwd: options.cwd,
 				record,
 				sourceLevel: "user",
 				sourceLabel: `user ns.toml descriptor ${record.spec}`,
-				contributionId: `user:${declaredExtensionSourceIdentity(userConfigDir, record.spec) ?? record.spec}`,
+				contributionId: `user:${
+					userConfigDir === undefined
+						? record.spec
+						: (declaredExtensionSourceIdentity(userConfigDir, record.spec) ?? record.spec)
+				}`,
 			}),
 		),
 	};
@@ -634,69 +597,6 @@ function projectErrorDiagnostic(
 	path: string,
 ): ExtensionErrorDiagnostic {
 	return { severity: "error", code, message, path, sourceLevel: "project" };
-}
-
-function userErrorDiagnostic(
-	code: string,
-	message: string,
-	path?: string,
-): ExtensionErrorDiagnostic {
-	return {
-		severity: "error",
-		code,
-		message: `User extension configuration: ${message}`,
-		...optionalEntry("path", path),
-		sourceLevel: "user",
-	};
-}
-
-function readUserDeclaredExtensionSpecs(
-	path: string,
-): { ok: true; specs: readonly string[] } | { ok: false; diagnostic: ExtensionErrorDiagnostic } {
-	let file;
-	try {
-		file = statSync(path);
-	} catch (error) {
-		if (isNodeErrorCode(error, "ENOENT")) return { ok: true, specs: [] };
-		return {
-			ok: false,
-			diagnostic: userErrorDiagnostic(
-				"user_ns_toml_inspect_failed",
-				`Could not inspect ${path}.\n${formatErrorMessage(error)}`,
-				path,
-			),
-		};
-	}
-	if (!file.isFile()) {
-		return {
-			ok: false,
-			diagnostic: userErrorDiagnostic(
-				"user_ns_toml_not_file",
-				`User ns.toml path is not a file: ${path}.`,
-				path,
-			),
-		};
-	}
-	let source;
-	try {
-		source = readFileSync(path, "utf8");
-	} catch (error) {
-		return {
-			ok: false,
-			diagnostic: userErrorDiagnostic(
-				"user_ns_toml_read_failed",
-				`Could not read ${path}.\n${formatErrorMessage(error)}`,
-				path,
-			),
-		};
-	}
-	const parsed = parseDeclaredExtensionSpecsToml(source);
-	if (parsed.ok) return parsed;
-	const errorInfo = declaredExtensionSpecsErrorInfo(parsed);
-	return {
-		ok: false,
-		diagnostic: userErrorDiagnostic(errorInfo.code, errorInfo.message, path),
-	};
 }
 
 function readDeclaredExtensionSpecs(
@@ -811,6 +711,7 @@ function descriptorEntryCommandCandidates(options: {
 				}),
 				packageName: options.packageName,
 				contributionId: options.contributionId,
+				...optionalEntry("extensionPackageName", options.packageName),
 				sourceKind: options.sourceKind,
 				descriptorEntry: commandEntry,
 				hasStaticCommandInfo: false,
@@ -1131,10 +1032,10 @@ function preinstalledCatalogEntryCommandInfo(
 ): NsCommandCliInfo {
 	return toCommandCliInfo({
 		...entry,
-		...(entry.path === undefined ? {} : { segments: entry.path }),
-		...(entry.hiddenAncestorKeys === undefined
-			? {}
-			: { hiddenAncestorKeys: entry.hiddenAncestorKeys }),
+		...optionalEntries({
+			segments: entry.path,
+			hiddenAncestorKeys: entry.hiddenAncestorKeys,
+		}),
 	});
 }
 

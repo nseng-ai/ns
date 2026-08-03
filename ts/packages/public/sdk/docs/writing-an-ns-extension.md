@@ -371,7 +371,7 @@ a repository also needs the extension's instructions, points, consumer directori
 artifacts, harness artifacts, or settings. These phrases describe scope effects, not separate
 extension types or lifecycle states.
 
-Project scope is the default. Use `--scope user` for command availability only:
+Project scope is the default. Use `--scope user` for machine-wide user declarations:
 
 ```bash
 ns extension install /absolute/path/to/my-extension --scope user
@@ -398,9 +398,17 @@ project. It preserves local checkouts, sibling npm packages, and shared XDG root
 fails after declaration removal, command availability is already gone; the structured failure
 reports the retained path, and rerunning uninstall retries cleanup.
 
-User scope is command-only. It does not require Git or supported harnesses and never activates
-instructions, points, consumer directories, bundled artifacts, harness artifacts, or extension
-settings. A project may declare the same package for project-scoped activation; that declaration
+User lifecycle administration does not require Git or a project, but user contributions are
+gated by an explicit Active harness (ADR 0055): the invocation must carry
+`NS_HARNESS=<claude-code|codex|pi>` and the user `ns.toml` must opt in with a top-level
+`supported_harnesses` array of those canonical ids. A missing, blank, unknown, or unlisted
+identity hides every user contribution fail-closed while built-ins and project extensions keep
+working; Pi-launched ns commands carry `NS_HARNESS=pi` automatically, while direct shell callers
+and other harness integrations must set it explicitly. When enabled, user descriptors contribute
+commands and point definitions (project definitions replace user definitions by full point id).
+User scope never activates instructions, point installations, consumer directories, bundled
+artifacts, harness artifacts, or extension settings. A project may declare the same package for
+project-scoped activation; that declaration
 replaces the user declaration as a whole package rather than mixing versions. For different packages
 that contribute the same command path, project declarations take precedence over user declarations.
 Collisions within one scope are errors, and built-in host commands remain reserved at both scopes.

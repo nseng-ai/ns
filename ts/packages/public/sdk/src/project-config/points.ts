@@ -5,25 +5,12 @@ import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitiv
 import { parse } from "smol-toml";
 import { z, type ZodType } from "zod";
 
-import {
-	loadExtensionDescriptorFromPackageRoot,
-	presentExtensionDescriptorPackageError,
-} from "./extension-package-descriptor.ts";
 import { makeSdkDiagnostic } from "../runtime/diagnostics.ts";
 import {
 	extensionPointAcceptsValues,
 	extensionPointCardinalityValues,
 	type ExtensionDescriptor,
 } from "../sdk/descriptor.ts";
-import {
-	declaredExtensionSpecsErrorInfo,
-	parseDeclaredExtensionSpecsToml,
-	resolveAcquiredDescriptorPackageRoot,
-} from "./descriptor-package.ts";
-import {
-	gitExtensionSourceUnsupportedMessage,
-	parseExtensionSourceSpec,
-} from "./extension-source-spec.ts";
 
 export { extensionPointAcceptsValues, extensionPointCardinalityValues };
 export type PointAccepts = (typeof extensionPointAcceptsValues)[number];
@@ -43,7 +30,7 @@ export interface PreloadedPointDescriptor {
 	descriptorPath: string;
 }
 
-const builtInPointDefinitions = [
+export const builtInPointDefinitions = [
 	{
 		id: "branch-context.plans-write",
 		accepts: "prompt",
@@ -394,98 +381,7 @@ export function parseProjectConfigToml(
 	return { ok: true, config, diagnostics: [] };
 }
 
-async function discoverDescriptorPointDefinitions(
-	repoRoot: string,
-	gateway: ProjectConfigGateway,
-): Promise<PointDefinitionDiscoveryResult> {
-	const declared = readDeclaredExtensionSpecs(repoRoot, gateway);
-	if (!declared.ok) return { pointDefinitions: [], diagnostics: [declared.diagnostic] };
-	const pointDefinitions: PointDefinition[] = [];
-	const diagnostics: ProjectConfigDiagnostic[] = [];
-	for (const spec of declared.specs) {
-		const loaded = await loadDescriptorPointDefinitions({ repoRoot, spec });
-		pointDefinitions.push(...loaded.pointDefinitions);
-		diagnostics.push(...loaded.diagnostics);
-	}
-	return { pointDefinitions, diagnostics };
-}
-
-function readDeclaredExtensionSpecs(
-	repoRoot: string,
-	gateway: ProjectConfigGateway,
-): { ok: true; specs: readonly string[] } | { ok: false; diagnostic: ProjectConfigDiagnostic } {
-	const readResult = gateway.readTextFile({ repoRoot, relativePath: "ns.toml" });
-	if (readResult.type === "missing") return { ok: true, specs: [] };
-	if (readResult.type === "error") {
-		return {
-			ok: false,
-			diagnostic: diagnostic("ns_toml_read_failed", readResult.message, { path: "ns.toml" }),
-		};
-	}
-	const parsed = parseDeclaredExtensionSpecsToml(readResult.text);
-	if (parsed.ok) return parsed;
-	const errorInfo = declaredExtensionSpecsErrorInfo(parsed);
-	return {
-		ok: false,
-		diagnostic: diagnostic(errorInfo.code, errorInfo.message, { path: errorInfo.path }),
-	};
-}
-
-async function loadDescriptorPointDefinitions(request: {
-	repoRoot: string;
-	spec: string;
-}): Promise<PointDefinitionDiscoveryResult> {
-	const parsed = parseExtensionSourceSpec(request.repoRoot, request.spec);
-	if (!parsed.ok) {
-		return {
-			pointDefinitions: [],
-			diagnostics: [diagnostic(parsed.error.code, parsed.error.message, { path: request.spec })],
-		};
-	}
-	if (parsed.value.kind === "git") {
-		return {
-			pointDefinitions: [],
-			diagnostics: [
-				diagnostic(
-					"extension_descriptor_source_unsupported",
-					gitExtensionSourceUnsupportedMessage(request.spec),
-					{ path: request.spec },
-				),
-			],
-		};
-	}
-	const acquisition = resolveAcquiredDescriptorPackageRoot({
-		repoRoot: request.repoRoot,
-		spec: request.spec,
-	});
-	const loaded = await loadExtensionDescriptorFromPackageRoot({
-		packageRoot: acquisition.packageRoot,
-	});
-	if (!loaded.ok) {
-		const presentation = presentExtensionDescriptorPackageError({
-			error: loaded.error,
-			missingManifest: {
-				code: "extension_descriptor_package_json_read_failed",
-				message: `Could not read extension package manifest ${loaded.error.packageJsonPath}.\nFile does not exist.`,
-			},
-		});
-		return {
-			pointDefinitions: [],
-			diagnostics: [
-				diagnostic(presentation.code, presentation.message, { path: presentation.path }),
-			],
-		};
-	}
-	return {
-		pointDefinitions: pointDefinitionsForDescriptor(
-			loaded.value.descriptor,
-			loaded.value.descriptorPath,
-		),
-		diagnostics: [],
-	};
-}
-
-function pointDefinitionsForDescriptor(
+export function pointDefinitionsForDescriptor(
 	descriptor: ExtensionDescriptor,
 	descriptorPath: string,
 ): readonly PointDefinition[] {
@@ -533,40 +429,74 @@ export function loadPointCatalog(request: {
 	});
 }
 
-export async function loadPointCatalogWithDescriptors(request: {
-	repoRoot: string;
-	gateway: ProjectConfigGateway;
-	pointDefinitions?: readonly PointDefinition[];
-	settingsSchemas?: readonly SettingsSchema[];
-	promptEnvOverride?: PromptPointEnvOverride;
-	env?: Record<string, string | undefined>;
-}): Promise<PointCatalog> {
-	const descriptorDefinitionResult =
-		request.pointDefinitions === undefined
-			? await discoverDescriptorPointDefinitions(request.repoRoot, request.gateway)
-			: { pointDefinitions: request.pointDefinitions, diagnostics: [] };
-	const pointDefinitions =
-		request.pointDefinitions === undefined
-			? mergePointDefinitions({
-					fallbackDefinitions: builtInPointDefinitions,
-					preferredDefinitions: descriptorDefinitionResult.pointDefinitions,
-				})
-			: descriptorDefinitionResult.pointDefinitions;
-	const configResult = loadProjectConfig({
-		repoRoot: request.repoRoot,
-		gateway: request.gateway,
-		pointDefinitions,
-		settingsSchemas: request.settingsSchemas ?? [],
-	});
-	return buildPointCatalog({
-		repoRoot: request.repoRoot,
-		gateway: request.gateway,
-		pointDefinitions,
-		config: configResult.config ?? emptyLoadedProjectConfig,
-		diagnostics: [...descriptorDefinitionResult.diagnostics, ...configResult.diagnostics],
-		...optionalEntry("promptEnvOverride", request.promptEnvOverride),
-		env: request.env ?? {},
-	});
+export interface ScopedPointDefinition {
+	definition: PointDefinition;
+	/** Human-readable source label used in same-scope conflict diagnostics. */
+	sourceLabel: string;
+}
+
+export interface LayeredPointDefinitionsResult {
+	pointDefinitions: readonly PointDefinition[];
+	diagnostics: readonly ProjectConfigDiagnostic[];
+}
+
+/**
+ * Compose point definitions across contribution layers (ADR 0055):
+ * built-in fallback < enabled User < Project. Project definitions replace
+ * User definitions by full point ID; duplicate IDs within one scope exclude
+ * every conflicting definition at that scope with a deterministic
+ * source-labelled diagnostic.
+ */
+export function composeLayeredPointDefinitions(request: {
+	fallbackDefinitions: readonly PointDefinition[];
+	userDefinitions: readonly ScopedPointDefinition[];
+	projectDefinitions: readonly ScopedPointDefinition[];
+}): LayeredPointDefinitionsResult {
+	const user = excludeSameScopeConflicts("user", request.userDefinitions);
+	const project = excludeSameScopeConflicts("project", request.projectDefinitions);
+	const projectIds = new Set(project.pointDefinitions.map((definition) => definition.id));
+	const survivingUser = user.pointDefinitions.filter(
+		(definition) => !projectIds.has(definition.id),
+	);
+	const replacedIds = new Set([...projectIds, ...survivingUser.map((definition) => definition.id)]);
+	return {
+		pointDefinitions: [
+			...request.fallbackDefinitions.filter((definition) => !replacedIds.has(definition.id)),
+			...survivingUser,
+			...project.pointDefinitions,
+		],
+		diagnostics: [...user.diagnostics, ...project.diagnostics],
+	};
+}
+
+function excludeSameScopeConflicts(
+	scope: "user" | "project",
+	definitions: readonly ScopedPointDefinition[],
+): LayeredPointDefinitionsResult {
+	const byId = new Map<string, ScopedPointDefinition[]>();
+	for (const scoped of definitions) {
+		const existing = byId.get(scoped.definition.id) ?? [];
+		byId.set(scoped.definition.id, [...existing, scoped]);
+	}
+	const surviving: PointDefinition[] = [];
+	const diagnostics: ProjectConfigDiagnostic[] = [];
+	for (const [pointId, scopedDefinitions] of byId) {
+		if (scopedDefinitions.length === 1 && scopedDefinitions[0] !== undefined) {
+			surviving.push(scopedDefinitions[0].definition);
+			continue;
+		}
+		const sources = scopedDefinitions
+			.map((scoped) => scoped.sourceLabel)
+			.sort((left, right) => left.localeCompare(right));
+		diagnostics.push(
+			diagnostic(
+				"point_definition_duplicate_in_scope",
+				`Point ${pointId} is defined more than once at ${scope} scope; every conflicting definition is excluded: ${sources.join(", ")}.`,
+				{ path: pointId },
+			),
+		);
+	}
+	return { pointDefinitions: surviving, diagnostics };
 }
 
 function mergePointDefinitions(request: {

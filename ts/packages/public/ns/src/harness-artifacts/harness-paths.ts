@@ -1,8 +1,18 @@
 import { join } from "node:path";
 
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+import {
+	ALL_HARNESS_IDS,
+	normalizeHarnessInvocationValue,
+	type HarnessId,
+} from "@nseng-ai/sdk/project-config/harness-identity";
 
 import type { HarnessArtifactKind } from "./artifact-catalog.ts";
+
+// Canonical harness identity vocabulary is owned by the SDK (ADR 0055); this
+// module re-exports it so ns provisioning code keeps one import home while the
+// path table below stays ns-owned.
+export { ALL_HARNESS_IDS, type HarnessId } from "@nseng-ai/sdk/project-config/harness-identity";
 
 export const HARNESS_SCOPES = ["project", "user"] as const;
 
@@ -19,8 +29,7 @@ export interface HarnessPathContext {
 }
 
 export interface HarnessSpecData {
-	id: string;
-	aliases: readonly string[];
+	id: HarnessId;
 	skillRoots: HarnessScopedPathSpec;
 }
 
@@ -64,52 +73,35 @@ export type HarnessPathErrorInfo =
 			details: { harness: HarnessId; scope: "user" };
 	  };
 
-export const HARNESS_SPECS = [
-	{
-		id: "claude-code",
-		aliases: ["claude"],
-		skillRoots: {
-			project: { type: "project", relativePath: ".claude/skills" },
-			user: {
-				type: "env-or-home",
-				envName: "CLAUDE_CONFIG_DIR",
-				homeRelativePath: ".claude/skills",
-			},
+const HARNESS_SKILL_ROOTS = {
+	"claude-code": {
+		project: { type: "project", relativePath: ".claude/skills" },
+		user: {
+			type: "env-or-home",
+			envName: "CLAUDE_CONFIG_DIR",
+			homeRelativePath: ".claude/skills",
 		},
 	},
-	{
-		id: "codex",
-		aliases: [],
-		skillRoots: {
-			project: { type: "project", relativePath: ".agents/skills" },
-			user: { type: "home", relativePath: ".agents/skills" },
-		},
+	codex: {
+		project: { type: "project", relativePath: ".agents/skills" },
+		user: { type: "home", relativePath: ".agents/skills" },
 	},
-	{
-		id: "pi",
-		aliases: ["pi-dev"],
-		skillRoots: {
-			project: { type: "project", relativePath: ".pi/skills" },
-			user: { type: "home", relativePath: ".pi/agent/skills" },
-		},
+	pi: {
+		project: { type: "project", relativePath: ".pi/skills" },
+		user: { type: "home", relativePath: ".pi/agent/skills" },
 	},
-] as const satisfies readonly HarnessSpecData[];
+} as const satisfies Record<HarnessId, HarnessScopedPathSpec>;
 
-export type HarnessId = (typeof HARNESS_SPECS)[number]["id"];
-export type HarnessSpec = (typeof HARNESS_SPECS)[number];
+export type HarnessSpec = HarnessSpecData;
 
-const HARNESS_SPEC_BY_ID: ReadonlyMap<HarnessId, HarnessSpec> = new Map(
-	HARNESS_SPECS.map((spec) => [spec.id, spec]),
-);
-
-export const ALL_HARNESS_IDS: readonly HarnessId[] = HARNESS_SPECS.map((spec) => spec.id);
+export const HARNESS_SPECS: readonly HarnessSpec[] = ALL_HARNESS_IDS.map((id) => ({
+	id,
+	skillRoots: HARNESS_SKILL_ROOTS[id],
+}));
 
 export function normalizeHarnessId(input: string): Result<HarnessId, HarnessPathErrorInfo> {
-	const normalized = input.trim().toLowerCase();
-	for (const spec of HARNESS_SPECS) {
-		const aliases: readonly string[] = spec.aliases;
-		if (spec.id === normalized || aliases.includes(normalized)) return resultOk(spec.id);
-	}
+	const harness = normalizeHarnessInvocationValue(input);
+	if (harness !== undefined) return resultOk(harness);
 	return resultErr({
 		code: "unknown_harness",
 		message: `Unknown harness ${JSON.stringify(input)}. Supported harnesses: ${ALL_HARNESS_IDS.join(", ")}.`,
@@ -120,13 +112,7 @@ export function normalizeHarnessId(input: string): Result<HarnessId, HarnessPath
 export function resolveHarnessSpec(input: string): Result<HarnessSpec, HarnessPathErrorInfo> {
 	const harness = normalizeHarnessId(input);
 	if (!harness.ok) return harness;
-	const spec = HARNESS_SPEC_BY_ID.get(harness.value);
-	if (spec === undefined) {
-		throw new Error(
-			`Harness spec missing for normalized harness ${JSON.stringify(harness.value)}.`,
-		);
-	}
-	return resultOk(spec);
+	return resultOk({ id: harness.value, skillRoots: HARNESS_SKILL_ROOTS[harness.value] });
 }
 
 export function resolveHarnessSkillRoot(input: {

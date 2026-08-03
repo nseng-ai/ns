@@ -5,7 +5,6 @@ import { z } from "zod";
 import {
 	extensionPointAcceptsValues,
 	extensionPointCardinalityValues,
-	loadPointCatalogWithDescriptors,
 	nodeProjectConfigGateway,
 	resolvePromptPointSource,
 	type PointCatalog,
@@ -13,6 +12,7 @@ import {
 	type PointCatalogInstallation,
 	type ProjectConfigDiagnostic,
 } from "../project-config/points.ts";
+import { loadPointCatalogWithDescriptors } from "./point-catalog.ts";
 import { defineCommand, type NsCommand } from "../sdk/index.ts";
 
 const knownPromptEnvOverride = {
@@ -85,7 +85,7 @@ export const extensionPointsCommand: NsCommand<
 	description: "List defined ns points and their active sources.",
 	schema: extensionPointsRequestSchema,
 	resultSchema: extensionPointsResultSchema,
-	handler: async (ctx) => ok(toPointsResult(await loadCatalog(ctx.cwd, ctx.env))),
+	handler: async (ctx) => ok(toPointsResult(await loadCatalog(ctx.cwd, ctx.env, ctx.homeDir))),
 	renderHuman: renderPointsHuman,
 });
 
@@ -100,7 +100,7 @@ export const extensionPointCommand: NsCommand<
 	positionals: { id: { position: 0 } },
 	resultSchema: extensionPointResultSchema,
 	handler: async (ctx, request) => {
-		const catalog = await loadCatalog(ctx.cwd, ctx.env);
+		const catalog = await loadCatalog(ctx.cwd, ctx.env, ctx.homeDir);
 		const entry = catalog.entries.find((candidate) => candidate.definition.id === request.id);
 		if (entry === undefined) {
 			const data = missingPointDataSchema.parse({
@@ -118,11 +118,13 @@ export const extensionPointCommand: NsCommand<
 async function loadCatalog(
 	cwd: string,
 	env: Record<string, string | undefined>,
+	homeDir: string | undefined,
 ): Promise<PointCatalog> {
 	return await loadPointCatalogWithDescriptors({
 		repoRoot: cwd,
 		gateway: nodeProjectConfigGateway,
 		env,
+		...optionalEntries({ homeDir }),
 		promptEnvOverride: knownPromptEnvOverride,
 	});
 }

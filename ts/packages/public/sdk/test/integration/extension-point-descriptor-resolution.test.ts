@@ -5,8 +5,8 @@ import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test } from "vitest";
 
+import { loadPointCatalogWithDescriptors } from "../../src/extensions/point-catalog.ts";
 import {
-	loadPointCatalogWithDescriptors,
 	nodeProjectConfigGateway,
 	resolvePromptPointSource,
 } from "../../src/project-config/points.ts";
@@ -208,6 +208,60 @@ describe("extension point descriptor resolution", () => {
 		expect(catalog.entries.map((entry) => entry.definition.id)).toContain("local.point");
 		expect(catalog.entries.map((entry) => entry.definition.id)).not.toContain(
 			"stale.managed.point",
+		);
+	});
+
+	test("user descriptor point definitions require the enabled Active-harness layer", async () => {
+		const root = await projectRoot();
+		const homeDir = await projectRoot();
+		const userPackageRoot = join(homeDir, "extensions", "tools");
+		await writeDescriptorPackage(userPackageRoot, "@acme/user-tools", "user.point");
+		await mkdir(join(homeDir, ".config", "ns"), { recursive: true });
+		await writeFile(
+			join(homeDir, ".config", "ns", "ns.toml"),
+			`supported_harnesses = ["pi"]\nextensions = [${JSON.stringify(userPackageRoot)}]\n`,
+		);
+
+		const enabled = await loadPointCatalogWithDescriptors({
+			repoRoot: root,
+			gateway: nodeProjectConfigGateway,
+			env: { NS_HARNESS: "pi", HOME: homeDir },
+		});
+		const disabled = await loadPointCatalogWithDescriptors({
+			repoRoot: root,
+			gateway: nodeProjectConfigGateway,
+			env: { HOME: homeDir },
+		});
+
+		expect(enabled.diagnostics.filter((item) => item.severity === "error")).toEqual([]);
+		expect(enabled.entries.map((entry) => entry.definition.id)).toContain("user.point");
+		expect(disabled.entries.map((entry) => entry.definition.id)).not.toContain("user.point");
+		expect(disabled.diagnostics.filter((item) => item.severity === "error")).toEqual([]);
+	});
+
+	test("a project definition replaces a user definition by full point id", async () => {
+		const root = await projectRoot();
+		const homeDir = await projectRoot();
+		const userPackageRoot = join(homeDir, "extensions", "tools");
+		await writeDescriptorPackage(userPackageRoot, "@acme/user-tools", "shared.point");
+		await mkdir(join(homeDir, ".config", "ns"), { recursive: true });
+		await writeFile(
+			join(homeDir, ".config", "ns", "ns.toml"),
+			`supported_harnesses = ["pi"]\nextensions = [${JSON.stringify(userPackageRoot)}]\n`,
+		);
+		await writeDescriptorPackage(join(root, "extensions", "tools"), "@acme/tools", "shared.point");
+		await writeFile(join(root, "ns.toml"), 'extensions = ["./extensions/tools"]\n');
+
+		const catalog = await loadPointCatalogWithDescriptors({
+			repoRoot: root,
+			gateway: nodeProjectConfigGateway,
+			env: { NS_HARNESS: "pi", HOME: homeDir },
+		});
+
+		expect(catalog.diagnostics.filter((item) => item.severity === "error")).toEqual([]);
+		const entry = catalog.entries.find((candidate) => candidate.definition.id === "shared.point");
+		expect(entry?.definition.manifestPath).toBe(
+			join(root, "extensions", "tools", "src", "ns-extension.ts"),
 		);
 	});
 });
