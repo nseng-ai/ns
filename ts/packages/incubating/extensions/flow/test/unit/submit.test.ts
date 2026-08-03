@@ -763,7 +763,6 @@ describe("runSubmitCommand", () => {
 				output: exitedResult({ stdout: "submitted without PR URLs", stderr: "", code: 0 }),
 				prLinks: [],
 			}),
-			updateStackPrs: async () => unexpectedCall("updateStackPrs"),
 			verifyCurrentPr: async () => ({
 				kind: "no_current_pr",
 				cause: "no_current_pr",
@@ -782,7 +781,6 @@ describe("runSubmitCommand", () => {
 				ok: true,
 				value: {
 					currentBranch: "feature/b",
-					hasUpstackBranches: false,
 					branches: [
 						{ kind: "existing", branch: "feature/a", parentBranch: "main", pr: linkA },
 						{
@@ -900,7 +898,6 @@ describe("runSubmitCommand", () => {
 				output: exitedResult({ stdout: "submitted", stderr: "", code: 0 }),
 				prLinks: [linkA, linkB],
 			}),
-			updateStackPrs: async () => unexpectedCall("updateStackPrs"),
 			verifyCurrentPr: async () => ({
 				kind: "present",
 				output: exitedResult({ stdout: "current", stderr: "", code: 0 }),
@@ -913,7 +910,6 @@ describe("runSubmitCommand", () => {
 				ok: true,
 				value: {
 					currentBranch: "feature/b",
-					hasUpstackBranches: false,
 					branches: [
 						{ kind: "existing", branch: "feature/a", parentBranch: "main", pr: linkA },
 						{
@@ -1019,7 +1015,6 @@ describe("runSubmitCommand", () => {
 				output: exitedResult({ stdout: "submitted", code: 0 }),
 				prLinks: [],
 			}),
-			updateStackPrs: async () => unexpectedCall("updateStackPrs"),
 			verifyCurrentPr: async () => ({
 				kind: "present",
 				output: exitedResult({ stdout: "current", code: 0 }),
@@ -1032,7 +1027,6 @@ describe("runSubmitCommand", () => {
 				ok: true,
 				value: {
 					currentBranch: "feature/b",
-					hasUpstackBranches: false,
 					branches: [
 						{ kind: "new", branch: "feature/a", parentBranch: "main" },
 						{ kind: "new", branch: "feature/b", parentBranch: "feature/a" },
@@ -1122,7 +1116,6 @@ describe("runSubmitCommand", () => {
 					ok: true,
 					value: {
 						currentBranch: "feature/current",
-						hasUpstackBranches: true,
 						branches: [
 							{
 								kind: "existing",
@@ -1171,7 +1164,6 @@ describe("runSubmitCommand", () => {
 			}),
 			restackCurrentStack: async () => unexpectedCall("restackCurrentStack"),
 			submitCurrentStack: async () => unexpectedCall("submitCurrentStack"),
-			updateStackPrs: async () => unexpectedCall("updateStackPrs"),
 			verifyCurrentPr: async () => unexpectedCall("verifyCurrentPr"),
 		};
 

@@ -3,7 +3,6 @@ import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
 import {
 	deriveValidatedGraphiteStackPath,
 	type GraphiteStackGateway,
-	type StackInfo,
 	type StackResult,
 	type TrunkMarkerStatus,
 } from "@nseng-ai/extension-kit/graphite/stack";
@@ -31,7 +30,6 @@ export interface SubmitStackInspectionParams {
 export interface SubmitStackInspection {
 	currentBranch: string;
 	branches: readonly SubmitStackBranch[];
-	hasUpstackBranches: boolean;
 }
 
 export type SubmitStackBranch = SubmitStackExistingBranch | SubmitStackNewBranch;
@@ -61,7 +59,6 @@ interface SubmitStackBranchInfo {
 interface SubmitStackTopologyFacts {
 	currentBranch: string;
 	branches: readonly SubmitStackBranchInfo[];
-	hasUpstackBranches: boolean;
 }
 
 export type SubmitBranchPrDisposition =
@@ -173,7 +170,6 @@ export class RealSubmitStackInspectionGateway implements SubmitStackInspectionGa
 		return ok({
 			currentBranch: facts.value.currentBranch,
 			branches,
-			hasUpstackBranches: facts.value.hasUpstackBranches,
 		});
 	}
 
@@ -276,8 +272,6 @@ function deriveSubmitStackTopologyFacts(
 			message: `Graphite ancestor metadata does not form a non-empty unique path from trunk ${stack.trunk} to current branch ${stack.current}; submission was not attempted.`,
 		});
 	}
-	const hasUpstackBranches = deriveHasUpstackBranches(stack);
-	if (!hasUpstackBranches.ok) return hasUpstackBranches;
 	const branches: SubmitStackBranchInfo[] = [];
 	for (let index = 1; index < path.length; index += 1) {
 		const branch = path[index];
@@ -293,39 +287,6 @@ function deriveSubmitStackTopologyFacts(
 	return ok({
 		currentBranch: stack.current,
 		branches,
-		hasUpstackBranches: hasUpstackBranches.value,
-	});
-}
-
-function deriveHasUpstackBranches(stack: StackInfo): GatewayResult<boolean> {
-	const firstDescendant = stack.descendants[0];
-	if (firstDescendant !== undefined) {
-		if (firstDescendant.trim() !== "") return ok(true);
-		return descendantMetadataFailure(stack, "the first child branch name is empty");
-	}
-	const currentFork = stack.descendantWalk.forks.find((fork) => fork.branch === stack.current);
-	if (currentFork !== undefined) {
-		if (currentFork.children.some((branch) => branch.trim() !== "")) return ok(true);
-		return descendantMetadataFailure(stack, "the current branch has an invalid child list");
-	}
-	const corruption = stack.descendantWalk.childrenCorruptions.find(
-		(item) => item.branch === stack.current,
-	);
-	if (corruption !== undefined)
-		return descendantMetadataFailure(stack, `the current branch child list is ${corruption.kind}`);
-	if (stack.descendantWalk.termination.type !== "completed") {
-		return descendantMetadataFailure(
-			stack,
-			`the descendant walk ended with ${stack.descendantWalk.termination.type} at ${stack.descendantWalk.termination.branch}`,
-		);
-	}
-	return ok(false);
-}
-
-function descendantMetadataFailure(stack: StackInfo, detail: string): GatewayResult<boolean> {
-	return err({
-		code: "submit_stack_descendant_metadata_inconsistent",
-		message: `Could not determine whether ${stack.current} has upstack branches because ${detail}; submission was not attempted.`,
 	});
 }
 

@@ -111,7 +111,6 @@ export interface SubmitGateway {
 	checkSubmitReadiness(params: SubmitCommandParams): Promise<SubmitPreflightResult>;
 	restackCurrentStack(params: SubmitCommandParams): Promise<SubmitRestackResult>;
 	submitCurrentStack(params: SubmitCommandParams): Promise<SubmitRunResult>;
-	updateStackPrs(params: SubmitCommandParams): Promise<SubmitRunResult>;
 	verifyCurrentPr(params: SubmitCommandParams): Promise<CurrentPrVerificationResult>;
 }
 

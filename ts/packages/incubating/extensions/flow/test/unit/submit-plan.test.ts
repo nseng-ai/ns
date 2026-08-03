@@ -4,7 +4,6 @@ import { buildSubmitPlan, ok, type SubmitStackInspection } from "../../src/submi
 
 const inspected: SubmitStackInspection = {
 	currentBranch: "feature/current",
-	hasUpstackBranches: true,
 	branches: [
 		{
 			kind: "existing",
@@ -27,7 +26,6 @@ describe("buildSubmitPlan", () => {
 			plan: {
 				currentBranch: "feature/current",
 				branches: inspected.branches,
-				hasUpstackBranches: true,
 			},
 		});
 	});
