@@ -362,7 +362,36 @@ test.each([
 		}),
 	});
 	expect(run.exitCode).toBe(2);
-	expect(JSON.parse(run.stdout)).toMatchObject({ status: "failure", data: { category } });
+	expect(JSON.parse(run.stdout)).toMatchObject({
+		status: "failure",
+		data: { category, causeCode: "broken" },
+	});
+	expect(run.stdout).not.toContain("secret");
+});
+
+test("doctor normalizes store open failures", async () => {
+	const run = await runForCliTest(app, ["doctor", "--format=json"], {
+		context: context({
+			configGateway: {
+				load: async () => ({
+					ok: true,
+					artifactRoot: "artifacts",
+					configDirectory: ".",
+					config: {
+						source: { id: "source", artifactRoot: "artifacts" },
+						store: () => {
+							throw new Error("secret");
+						},
+					},
+				}),
+			},
+		}),
+	});
+	expect(run.exitCode).toBe(2);
+	expect(JSON.parse(run.stdout)).toMatchObject({
+		status: "failure",
+		data: { category: "store-open-failed" },
+	});
 	expect(run.stdout).not.toContain("secret");
 });
 

@@ -1,7 +1,12 @@
 import { cliOption, defineCommand, failure, negative, ok } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 import { doctorCheckSchema, evaluateDoctor } from "../../../core/index.ts";
-import type { DoctorCheck, MaterializationStoreGateway } from "../../../core/index.ts";
+import type {
+	DoctorCheck,
+	DoctorIntrospection,
+	MaterializationStoreGateway,
+} from "../../../core/index.ts";
+import type { ConfigLoadResult } from "../../config-gateway.ts";
 import type { GitplaneCliContext } from "../../context.ts";
 
 const requestSchema = z
@@ -45,10 +50,18 @@ export async function command() {
 		schema: requestSchema,
 		resultSchema,
 		handler: async (context: GitplaneCliContext, request: z.infer<typeof requestSchema>) => {
-			const loaded = await context.configGateway.load({
-				cwd: context.cwd,
-				...(request.config === undefined ? {} : { configPath: request.config }),
-			});
+			let loaded: ConfigLoadResult;
+			try {
+				loaded = await context.configGateway.load({
+					cwd: context.cwd,
+					...(request.config === undefined ? {} : { configPath: request.config }),
+				});
+			} catch {
+				return failure("doctor-failed", "Unable to inspect Gitplane storage.", {
+					category: "config-load",
+					diagnostic: "Unexpected configuration load failure.",
+				});
+			}
 			if (!loaded.ok)
 				return failure("doctor-failed", "Unable to inspect Gitplane storage.", {
 					category: loaded.category,
@@ -67,40 +80,42 @@ export async function command() {
 					diagnostic: "The configured store could not be opened.",
 				});
 			}
-			let checks: readonly DoctorCheck[] | undefined;
-			let inspectionFailed = false;
+			const kinds = loaded.config.kinds ?? [];
+			let introspection: DoctorIntrospection | undefined;
+			let inspectionCauseCode: string | undefined;
 			try {
 				const inspected = await store.inspectDoctor({
-					sourceId: loaded.config.source.id,
-					targets: (loaded.config.kinds ?? []).map((kind) => kind.target),
+					targets: kinds.map((kind) => kind.target),
 				});
-				if (inspected.ok)
-					checks = evaluateDoctor({
-						sourceId: loaded.config.source.id,
-						kinds: loaded.config.kinds ?? [],
-						introspection: inspected.value,
-					});
-				else inspectionFailed = true;
+				if (inspected.ok) introspection = inspected.value;
+				else inspectionCauseCode = inspected.error.code;
 			} catch {
-				inspectionFailed = true;
+				// Unexpected throws are normalized by the failure gate below.
 			}
 			let closeFailed = false;
+			let closeCauseCode: string | undefined;
 			try {
-				closeFailed = !(await store.close()).ok;
+				const closed = await store.close();
+				if (!closed.ok) {
+					closeFailed = true;
+					closeCauseCode = closed.error.code;
+				}
 			} catch {
 				closeFailed = true;
 			}
-			if (inspectionFailed)
+			if (introspection === undefined)
 				return failure("doctor-failed", "Unable to inspect Gitplane storage.", {
 					category: "store-inspection-failed",
 					diagnostic: "The configured store could not be inspected.",
+					...(inspectionCauseCode === undefined ? {} : { causeCode: inspectionCauseCode }),
 				});
 			if (closeFailed)
 				return failure("doctor-failed", "Unable to inspect Gitplane storage.", {
 					category: "store-close-failed",
 					diagnostic: "The configured store could not be closed.",
+					...(closeCauseCode === undefined ? {} : { causeCode: closeCauseCode }),
 				});
-			if (checks === undefined) throw new Error("Doctor inspection completed without checks.");
+			const checks = evaluateDoctor({ sourceId: loaded.config.source.id, kinds, introspection });
 			const data = result(loaded.config.source.id, checks);
 			return data.failCount > 0 ? negative("Gitplane storage checks failed.", { data }) : ok(data);
 		},
