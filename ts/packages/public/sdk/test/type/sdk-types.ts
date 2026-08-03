@@ -56,10 +56,10 @@ const activation: ExtensionActivation = {
 const descriptor = defineExtension({
 	group: "hello",
 	description: "Hello extension.",
+	requiresExtensions: ["@example/provider"],
 	entries: [
 		{
 			name: "legacy",
-			requiresExtension: "@example/provider",
 			load: () => ({ default: rawCommand }),
 		},
 		{

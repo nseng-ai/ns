@@ -14,6 +14,7 @@ import {
 	InMemoryArtifactProvisioningStatusGateway,
 	InMemoryDeclaredExtensionsGateway,
 	InMemoryUserExtensionConfigGateway,
+	InMemoryUserExtensionAvailabilityGateway,
 } from "../../src/init/testing/index.ts";
 
 function descriptor(options: {
@@ -91,6 +92,7 @@ function fixture(
 			files,
 			declaredExtensions,
 			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
+			userExtensionAvailability: new InMemoryUserExtensionAvailabilityGateway(),
 			artifactProvisioningStatus: artifacts,
 			installedExtensionPackages: {
 				list: () => options.installedPackages ?? [],

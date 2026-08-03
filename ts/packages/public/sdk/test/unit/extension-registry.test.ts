@@ -142,10 +142,10 @@ describe("extension registry", () => {
 		const entries = extensionDescriptorToPreinstalledCatalog(
 			{
 				description: "Optional commands.",
+				requiresExtensions: ["@example/provider"],
 				entries: [
 					{
 						name: "optional",
-						requiresExtension: "@example/provider",
 						load: () => ({
 							default: defineRawCommand({
 								name: "optional",
@@ -163,7 +163,7 @@ describe("extension registry", () => {
 		expect(entries).toEqual([
 			expect.objectContaining({
 				name: "optional",
-				requiresExtension: "@example/provider",
+				requiresExtensions: ["@example/provider"],
 				helpGroup: NS_EXTENSION_HELP_GROUP,
 			}),
 		]);
@@ -253,19 +253,17 @@ describe("extension registry", () => {
 				userFacingKind: "extension",
 				descriptor: {
 					description: "Example commands.",
-					entries: [
-						{
-							name: "scan",
-							load: () => ({
-								default: defineRawCommand({
-									name: "scan",
-									summary: "Scan.",
-									description: "Scan.",
-									run: () => ok({}),
-								}),
+					entries: (["scan", "doctor"] as const).map((name) => ({
+						name,
+						load: () => ({
+							default: defineRawCommand({
+								name,
+								summary: `${name}.`,
+								description: `${name}.`,
+								run: () => ok({}),
 							}),
-						},
-					],
+						}),
+					})),
 				},
 				displayPath: "@example/commands/ns-extension",
 				helpGroup: "Examples:",
@@ -286,8 +284,16 @@ describe("extension registry", () => {
 		expect(catalog.entries).toEqual([
 			expect.objectContaining({
 				name: "scan",
+				packageName: "@example/commands",
+				contributionId: "preinstalled:0:@example/commands:@example/commands/ns-extension",
 				helpGroup: "Examples:",
 				displayPath: "@example/commands/ns-extension#scan",
+			}),
+			expect.objectContaining({
+				name: "doctor",
+				packageName: "@example/commands",
+				contributionId: "preinstalled:0:@example/commands:@example/commands/ns-extension",
+				displayPath: "@example/commands/ns-extension#doctor",
 			}),
 		]);
 	});
@@ -425,9 +431,10 @@ const command = { name: "optional", summary: "Optional.", description: "Optional
 export default defineExtension({
   group: "consumer",
   description: "Consumer commands.",
+  requiresExtensions: ["@example/provider"],
   entries: [
     { name: "always", load: () => ({ default: { ...command, name: "always" } }) },
-    { name: "optional", requiresExtension: "@example/provider", load: () => ({ default: command }) },
+    { name: "optional", load: () => ({ default: command }) },
   ],
 });
 `,
@@ -442,7 +449,7 @@ export default defineExtension({
 		);
 	});
 
-	test("missing or invalid project packages do not satisfy command requirements", async () => {
+	test("missing or invalid project packages reject every command in the requiring package", async () => {
 		for (const providerState of ["missing", "invalid"] as const) {
 			const workspace = await createExtensionRegistryWorkspace();
 			writeWorkspaceFile(
@@ -461,9 +468,10 @@ const command = { name: "optional", summary: "Optional.", description: "Optional
 export default defineExtension({
   group: "consumer",
   description: "Consumer commands.",
+  requiresExtensions: ["@example/provider"],
   entries: [
     { name: "always", load: () => ({ default: { ...command, name: "always" } }) },
-    { name: "optional", requiresExtension: "@example/provider", load: () => ({ default: command }) },
+    { name: "optional", load: () => ({ default: command }) },
   ],
 });
 `,
@@ -482,7 +490,7 @@ export default defineExtension({
 				homeDir: workspace.homeDir,
 			});
 
-			expect(loaded.candidates.has("consumer/always")).toBe(true);
+			expect(loaded.candidates.has("consumer/always")).toBe(false);
 			expect(loaded.candidates.has("consumer/optional")).toBe(false);
 			expect(loaded.extensionPackageNames.has("@example/provider")).toBe(false);
 			if (providerState === "invalid") {
@@ -815,7 +823,7 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 		);
 	});
 
-	test("preinstalled then user then project exact-path precedence is ordered and lazy", async () => {
+	test("cross-level collisions admit the whole highest package and remain lazy", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		let preinstalledLoads = 0;
 		const userRoot = writeUserDescriptorPackage(workspace, {
@@ -862,9 +870,18 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 		});
 
 		expect(loaded.candidates.get("tools/scan")?.source.level).toBe("project");
-		expect(
-			loaded.diagnostics.filter((diagnostic) => diagnostic.code === "extension_command_override"),
-		).toHaveLength(2);
+		expect(loaded.diagnostics).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: "extension_package_lower_level_conflict",
+					sourceLevel: "user",
+				}),
+				expect.objectContaining({
+					code: "extension_package_lower_level_conflict",
+					sourceLevel: "preinstalled",
+				}),
+			]),
+		);
 		expect(preinstalledLoads).toBe(0);
 	});
 
@@ -901,7 +918,7 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 		expect(loaded.diagnostics).toEqual([]);
 	});
 
-	test("project and user sources with one manifest name compose by command precedence", async () => {
+	test("project and user sources with one manifest name still use source-stable package admission", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		const userRoot = writeUserDescriptorPackage(workspace, {
 			directoryName: "shared",
@@ -929,7 +946,14 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 
 		expect(loaded.candidates.get("shared/common")?.source.level).toBe("project");
 		expect(loaded.candidates.has("shared/project-only")).toBe(true);
-		expect(loaded.candidates.has("shared/user-only")).toBe(true);
+		expect(loaded.candidates.has("shared/user-only")).toBe(false);
+		expect(loaded.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "extension_package_lower_level_conflict",
+				packageName: "@example/shared",
+				sourceLevel: "user",
+			}),
+		]);
 	});
 
 	test("a project declaration suppresses the same user source before loading", async () => {
@@ -945,7 +969,7 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 					[
 						{
 							...preinstalledEntry("consumer", "optional", "@example/consumer/optional"),
-							requiresExtension: "@example/shared",
+							requiresExtensions: ["@example/shared"],
 						},
 					],
 					["@example/consumer"],
@@ -958,6 +982,10 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 			expect.objectContaining({
 				code: "extension_descriptor_package_missing",
 				sourceLevel: "project",
+			}),
+			expect.objectContaining({
+				code: "extension_package_requirement_unsatisfied",
+				packageName: "@example/consumer",
 			}),
 		]);
 	});
@@ -1030,11 +1058,13 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 		expect(loaded.candidates.has("tools")).toBe(true);
 		expect(loaded.candidates.has("tools/scan")).toBe(false);
 		expect(loaded.candidates.has("tools/doctor")).toBe(false);
-		expect(loaded.diagnostics).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ code: "extension_command_override", commandName: "tools" }),
-			]),
-		);
+		expect(loaded.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "extension_package_lower_level_conflict",
+				commandName: "tools/scan",
+				packageName: "@example/user-shape",
+			}),
+		]);
 	});
 
 	test("same-level exact and nested path-shape collisions exclude every participant", async () => {
@@ -1065,10 +1095,10 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 		expect(loaded.candidates.has("tools")).toBe(false);
 		expect(loaded.candidates.has("tools/scan")).toBe(false);
 		expect(loaded.candidates.has("tools/scan/deep")).toBe(false);
+		expect(loaded.diagnostics).toHaveLength(4);
 		expect(loaded.diagnostics).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ code: "extension_command_group_collision" }),
-				expect.objectContaining({ code: "extension_command_duplicate_in_level" }),
+				expect.objectContaining({ code: "extension_package_same_level_conflict" }),
 			]),
 		);
 	});
@@ -1109,7 +1139,7 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 		expect(loaded.candidates.get("extension/point")?.source.level).toBe("built-in");
 		expect(loaded.candidates.get("extension/points")?.source.level).toBe("built-in");
 		const collisions = loaded.diagnostics.filter(
-			(diagnostic) => diagnostic.code === "extension_command_builtin_reserved",
+			(diagnostic) => diagnostic.code === "extension_package_builtin_conflict",
 		);
 		expect(collisions).toEqual(
 			expect.arrayContaining([
@@ -1120,9 +1150,9 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 		expect(loaded.diagnostics).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
-					code: "extension_command_built_in_namespace_conflict",
+					code: "extension_package_builtin_conflict",
 					sourceLevel: "project",
-					commandName: "extension/points",
+					affectedCommandNames: ["extension/points"],
 				}),
 			]),
 		);
@@ -1161,11 +1191,13 @@ export default defineExtension({ description: "Extension command.", entries: [{ 
 		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(loaded.candidates.has("extension")).toBe(false);
-		expect(
-			loaded.diagnostics
-				.filter((diagnostic) => diagnostic.code === "extension_command_builtin_reserved")
-				.map((diagnostic) => diagnostic.commandName),
-		).toEqual(["extension/point", "extension/points"]);
+		expect(loaded.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "extension_package_builtin_conflict",
+				commandName: "extension",
+				affectedCommandNames: ["extension/point", "extension/points"],
+			}),
+		]);
 		for (const commandName of builtInCandidateKeys) {
 			const classified = classifyExtensionDiagnosticsForInvocation({
 				diagnostics: loaded.diagnostics,
@@ -1173,7 +1205,11 @@ export default defineExtension({ description: "Extension command.", entries: [{ 
 				selectedCandidate: loaded.candidates.get(commandName),
 			});
 			expect(classified.fatal).toEqual([
-				expect.objectContaining({ commandName, sourceLevel: "user" }),
+				expect.objectContaining({
+					commandName: "extension",
+					affectedCommandNames: expect.arrayContaining([commandName]),
+					sourceLevel: "user",
+				}),
 			]);
 		}
 	});
@@ -1234,14 +1270,16 @@ export default defineExtension({ group: "extension", description: "Extension com
 		expect(loaded.candidates.has("extension/inspect")).toBe(false);
 		expect(loaded.diagnostics).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ code: "extension_command_override", commandName: "hello" }),
 				expect.objectContaining({
-					code: "extension_command_built_in_namespace_conflict",
-					commandName: "extension/point",
+					code: "extension_package_lower_level_conflict",
+					commandName: "hello",
+					packageName: "@example/distribution",
 				}),
 				expect.objectContaining({
-					code: "extension_command_built_in_namespace_conflict",
-					commandName: "extension/inspect",
+					code: "extension_package_builtin_conflict",
+					commandName: "extension/point",
+					packageName: "@example/nested",
+					affectedCommandNames: ["extension/point"],
 				}),
 			]),
 		);
@@ -1306,12 +1344,12 @@ export default defineExtension({ group: "extension", description: "Extension com
 		const workspace = await createExtensionRegistryWorkspace();
 		let loadCount = 0;
 		const gatedEntry = {
-			group: "extension",
-			groupDescription: "extension commands.",
+			group: "tools",
+			groupDescription: "tool commands.",
 			name: "points",
 			description: "points command.",
 			fullDescription: "points command.",
-			requiresExtension: "@example/provider",
+			requiresExtensions: ["@example/provider"],
 			displayPath: "@example/consumer/points",
 			load: () => {
 				loadCount += 1;
@@ -1329,8 +1367,13 @@ export default defineExtension({ group: "extension", description: "Extension com
 			homeDir: workspace.homeDir,
 			preinstalledCommandCatalog: () => preinstalledCatalog([gatedEntry], ["@example/consumer"]),
 		});
-		expect(absent.candidates.get("extension/points")?.source.level).toBe("built-in");
-		expect(absent.diagnostics).toEqual([]);
+		expect(absent.candidates.has("tools/points")).toBe(false);
+		expect(absent.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "extension_package_requirement_unsatisfied",
+				packageName: "@example/consumer",
+			}),
+		]);
 		expect(loadCount).toBe(0);
 
 		const present = await loadNsCommandCatalog({
@@ -1339,12 +1382,8 @@ export default defineExtension({ group: "extension", description: "Extension com
 			preinstalledCommandCatalog: () =>
 				preinstalledCatalog([gatedEntry], ["@example/consumer", "@example/provider"]),
 		});
-		expect(present.candidates.get("extension/points")?.source.level).toBe("built-in");
-		expect(present.diagnostics).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ code: "extension_command_builtin_reserved" }),
-			]),
-		);
+		expect(present.candidates.get("tools/points")?.source.level).toBe("preinstalled");
+		expect(present.diagnostics).toEqual([]);
 		expect(present.extensionPackageNames.has("@example/provider")).toBe(true);
 		expect(loadCount).toBe(0);
 	});
@@ -1353,7 +1392,7 @@ export default defineExtension({ group: "extension", description: "Extension com
 		const workspace = await createExtensionRegistryWorkspace();
 		const gatedEntry = {
 			...preinstalledEntry("tools", "optional", "@example/consumer/optional"),
-			requiresExtension: "@example/commandless-provider",
+			requiresExtensions: ["@example/commandless-provider"],
 		};
 
 		const loaded = await loadNsCommandCatalog({

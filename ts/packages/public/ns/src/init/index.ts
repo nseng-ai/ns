@@ -44,6 +44,11 @@ export type {
 	UserExtensionConfigReadResult,
 	UserExtensionConfigWriteResult,
 } from "./user-extension-config.ts";
+export type {
+	UserExtensionConfigFileInfo,
+	UserExtensionConfigFileOps,
+	UserExtensionConfigWritableFile,
+} from "./real-user-extension-config.ts";
 export { RealUserExtensionConfigGateway } from "./real-user-extension-config.ts";
 export type { ExtensionLifecycleScope } from "./user-extension-lifecycle.ts";
 export { extensionLifecycleScopeSchemaValues } from "./user-extension-lifecycle.ts";

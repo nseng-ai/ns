@@ -10,7 +10,10 @@ export { InMemoryArtifactActivationGateway } from "../fake-artifact-activation.t
 export type { InMemoryArtifactProvisioningStatusState } from "../fake-artifact-provisioning-status.ts";
 export { InMemoryArtifactProvisioningStatusGateway } from "../fake-artifact-provisioning-status.ts";
 export type { InMemoryDeclaredExtensionsState } from "../fake-declared-extensions.ts";
-export { InMemoryDeclaredExtensionsGateway } from "../fake-declared-extensions.ts";
+export {
+	InMemoryDeclaredExtensionsGateway,
+	InMemoryUserExtensionAvailabilityGateway,
+} from "../fake-declared-extensions.ts";
 export type { InMemoryUserExtensionConfigState } from "../fake-user-extension-config.ts";
 export { InMemoryUserExtensionConfigGateway } from "../fake-user-extension-config.ts";
 export type {

@@ -1,8 +1,10 @@
 import type { LoadDeclaredExtensionDescriptorsResult } from "@nseng-ai/sdk/extensions/declared-descriptors";
+import type { UserExtensionPackageAvailabilityFact } from "@nseng-ai/sdk/extensions/user-package-availability";
 
 import type {
 	DeclaredExtensionsGateway,
 	LoadDeclaredExtensionsParams,
+	UserExtensionAvailabilityGateway,
 } from "./declared-extensions.ts";
 
 export interface InMemoryDeclaredExtensionsState {
@@ -26,6 +28,42 @@ export class InMemoryDeclaredExtensionsGateway implements DeclaredExtensionsGate
 
 	calls(): readonly LoadDeclaredExtensionsParams[] {
 		return this.loadLog.map((call) => ({ repoRoot: call.repoRoot, specs: [...call.specs] }));
+	}
+}
+
+export interface InMemoryUserExtensionAvailabilityState {
+	readonly facts?: readonly UserExtensionPackageAvailabilityFact[];
+}
+
+export class InMemoryUserExtensionAvailabilityGateway implements UserExtensionAvailabilityGateway {
+	private readonly facts: readonly UserExtensionPackageAvailabilityFact[];
+	private readonly evaluateLog: {
+		readonly configDir: string;
+		readonly sourceSpecs: readonly string[];
+	}[] = [];
+
+	constructor(state: InMemoryUserExtensionAvailabilityState = {}) {
+		this.facts = structuredClone(state.facts ?? []);
+	}
+
+	async evaluate(params: {
+		readonly configDir: string;
+		readonly sourceSpecs: readonly string[];
+	}): Promise<readonly UserExtensionPackageAvailabilityFact[]> {
+		this.evaluateLog.push({ configDir: params.configDir, sourceSpecs: [...params.sourceSpecs] });
+		return params.sourceSpecs.map((sourceSpec) =>
+			structuredClone(
+				this.facts.find((fact) => fact.sourceSpec === sourceSpec) ?? {
+					sourceSpec,
+					availability: "unavailable" as const,
+					diagnostics: [],
+				},
+			),
+		);
+	}
+
+	calls(): readonly { readonly configDir: string; readonly sourceSpecs: readonly string[] }[] {
+		return structuredClone(this.evaluateLog);
 	}
 }
 

@@ -175,13 +175,15 @@ describe("extension descriptor SDK", () => {
 		expect(
 			validateExtensionDescriptor({
 				description: "Optional commands.",
-				entries: [{ name: "optional", requiresExtension: "@example/provider", load }],
+				requiresExtensions: ["@example/provider"],
+				entries: [{ name: "optional", load }],
 			}),
 		).toEqual({
 			ok: true,
 			descriptor: {
 				description: "Optional commands.",
-				entries: [{ name: "optional", requiresExtension: "@example/provider", load }],
+				requiresExtensions: ["@example/provider"],
+				entries: [{ name: "optional", load }],
 			},
 		});
 	});
@@ -189,12 +191,13 @@ describe("extension descriptor SDK", () => {
 	test("rejects an empty command extension requirement at its descriptor path", () => {
 		const parsed = validateExtensionDescriptor({
 			description: "Bad requirement.",
-			entries: [{ name: "optional", requiresExtension: "", load: () => ({}) }],
+			requiresExtensions: [""],
+			entries: [{ name: "optional", load: () => ({}) }],
 		});
 
 		expect(parsed).toEqual({
 			ok: false,
-			message: expect.stringContaining("entries.0.requiresExtension"),
+			message: expect.stringContaining("requiresExtensions.0"),
 		});
 	});
 
@@ -204,7 +207,7 @@ describe("extension descriptor SDK", () => {
 			entries: [
 				{
 					name: "optional",
-					requiresExtension: "@example/provider",
+					requiresExtensions: ["@example/provider"],
 					unexpected: true,
 					load: () => ({}),
 				},

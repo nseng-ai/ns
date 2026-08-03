@@ -1,11 +1,11 @@
-import harnessArtifactsExtension from "../harness-artifacts/ns/extension.ts";
+import harnessArtifactsExtension from "../../harness-artifacts/ns/extension.ts";
 import {
 	NS_BUILT_IN_HELP_GROUP,
 	preinstalledNsCommandCatalogFromRegistrations,
 	type PreinstalledNsCommandCatalog,
 	type PreinstalledNsExtensionRegistration,
 } from "@nseng-ai/sdk/cli";
-import nsInitExtension from "../init/ns/extension.ts";
+import nsInitExtension from "./extension.ts";
 
 /**
  * Top-level commands that ship inside the ns binary and read as part of the tool

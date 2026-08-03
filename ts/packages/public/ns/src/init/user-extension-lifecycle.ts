@@ -2,7 +2,10 @@ import { failure } from "@nseng-ai/clinkr/legacy";
 import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { classifyExtensionSourceLifecycle } from "@nseng-ai/sdk/project-config";
 
-import type { DeclaredExtensionsGateway } from "./declared-extensions.ts";
+import type {
+	DeclaredExtensionsGateway,
+	UserExtensionAvailabilityGateway,
+} from "./declared-extensions.ts";
 import type {
 	ExpectedUserExtensionConfigState,
 	UserExtensionConfigGateway,
@@ -14,6 +17,10 @@ export type ExtensionLifecycleScope = (typeof extensionLifecycleScopeSchemaValue
 export interface UserExtensionLifecycleContext {
 	readonly userExtensionConfig: UserExtensionConfigGateway;
 	readonly declaredExtensions: DeclaredExtensionsGateway;
+}
+
+export interface UserExtensionAvailabilityContext {
+	readonly userExtensionAvailability: UserExtensionAvailabilityGateway;
 }
 
 export interface PreparedUserConfig {

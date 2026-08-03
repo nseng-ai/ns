@@ -79,6 +79,7 @@ interface ExtensionActivation {
 interface ExtensionDescriptor {
   readonly group?: string;
   readonly description: string;
+  readonly requiresExtensions?: readonly string[];
   readonly entries?: readonly ExtensionEntry[];
   readonly points?: readonly ExtensionPointDefinition[];
   readonly activation?: ExtensionActivation;
@@ -103,7 +104,6 @@ contract independently of that lifecycle consumption.
 ```ts
 interface ExtensionCommandEntry {
   readonly name: string;
-  readonly requiresExtension?: string;
   readonly load: RawArgvCommandLoad;
 }
 
@@ -115,15 +115,9 @@ interface ExtensionGroupEntry {
 }
 ```
 
-`requiresExtension` is an optional exact extension-package-name gate on an ns command entry. During
-extension discovery and catalog construction, the SDK runtime compares it with the effective registry of
-successfully validated extension packages. When the package is absent, the entry is omitted silently
-from the ns command surface: it does not appear in help or completion, cannot be invoked, and does not
-participate in command collisions or override diagnostics. The command module remains lazy and is not
-loaded to evaluate the gate.
+`requiresExtensions` is an optional descriptor-level readonly list of exact, non-empty, unique package names. During extension discovery and catalog construction, the SDK runtime compares it with the effective registry of admitted extension packages. A missing requirement rejects the whole requiring package, including every command. Requirements support cycles and cascade deterministically when another package is rejected. A lower-precedence package rejected because of a command conflict is not reconsidered if the higher package later fails requirements; admission is conservative, deterministic, and monotonic. Command modules remain lazy and are not loaded during admission.
 
-Presence is direct only. The gate does not provide version constraints, transitive dependency
-resolution, installation, activation, or command/executable probing. Package identity for injected
+The requirement does not provide version constraints, installation, activation, or command/executable probing. Package identity for injected
 preinstalled extensions comes from the preinstalled descriptor catalog's explicit catalog-level
 metadata, including commandless extension packages; it is never inferred from command entries or
 module specifiers.
@@ -436,7 +430,7 @@ interface NsExtensionApi {
 - `cwd` — repository working directory for the command's execution.
 - `env` — environment visible to the command and to shell execution.
 - `homeDir?` — compatibility ingress for a host-resolved user home. Command packages should convert it into their own domain contexts; it is not the owner of harness path semantics or XDG discovery policy.
-- `hasExtension(packageName)` — reports whether the exact extension package name is present in the effective registry. It reads the same registry package-name fact used by `requiresExtension`.
+- `hasExtension(packageName)` — reports whether the exact extension package name is present in the effective registry. It reads the same registry package-name fact used by package admission requirements.
 - `installedExtensionPackageNames?` — sorted user-manageable extension package identities present in the effective registry when the host exposes enumeration. Distribution-owned built-ins are excluded even when they use the extension architecture internally.
 - `exec(command, args, options?)` — low-level argv execution. The command owns exactly which programs it runs. Returns an `ExecResult`.
 - `textGenerator` — the text-generation capability; see [Text generation](#text-generation). The command owns its prompts, validation, and repair policy.

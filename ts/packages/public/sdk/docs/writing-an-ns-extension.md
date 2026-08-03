@@ -108,14 +108,15 @@ on every invocation to build the command catalog, so it must stay **cheap**:
 
 Descriptor fields:
 
-| Field              | Required | Meaning                                                                        |
-| ------------------ | -------- | ------------------------------------------------------------------------------ |
-| `group`            | no       | Top-level command group (`ns <group> <command>`). Omit for top-level commands. |
-| `description`      | yes      | One-line group/extension description shown in `ns --help`.                     |
-| `entries`          | no       | Command and subgroup entries (below).                                          |
-| `points`           | no       | Extension point definitions (below).                                           |
-| `activation`       | no       | Agent instructions and consumer-directory declarations (below).                |
-| `bundledArtifacts` | no       | Bundled artifact declarations (below).                                         |
+| Field                | Required | Meaning                                                                        |
+| -------------------- | -------- | ------------------------------------------------------------------------------ |
+| `group`              | no       | Top-level command group (`ns <group> <command>`). Omit for top-level commands. |
+| `description`        | yes      | One-line group/extension description shown in `ns --help`.                     |
+| `requiresExtensions` | no       | Exact package names that must be atomically admitted with this package.        |
+| `entries`            | no       | Command and subgroup entries (below).                                          |
+| `points`             | no       | Extension point definitions (below).                                           |
+| `activation`         | no       | Agent instructions and consumer-directory declarations (below).                |
+| `bundledArtifacts`   | no       | Bundled artifact declarations (below).                                         |
 
 ### Entries
 
@@ -372,6 +373,7 @@ cleanup, and preservation of local sources and consumer data.
 - Canonically duplicate declarations (including pinned/floating spellings of the same npm package
   and equivalent normalized local paths) produce one `extension_descriptor_duplicate_identity`
   diagnostic with `relatedSpecs`; every member of that duplicate group is excluded.
+- Catalog admission is package-atomic. Invalid command metadata, an internal or same-level command-shape collision, an unsatisfied `requiresExtensions` dependency, or any collision with a reserved Built-in rejects the package's complete command surface. Across source levels, Project beats User and User beats Preinstalled as whole packages; one overlapping path rejects the complete lower-precedence package. A package is never partially admitted.
 - Invoking a command loads only that command's module, via its `load` thunk.
 - Rendering help for a selected group (`ns <group> --help`) loads that group's command modules
   eagerly to read module-owned summaries. Top-level help and completion stay catalog-driven and
@@ -391,6 +393,7 @@ cleanup, and preservation of local sources and consumer data.
   `ns init --supported-harness <claude-code|codex|pi>` first.
 - **Descriptor rejected** — the diagnostic names the field; descriptors are Zod-validated with
   the same rules as this document.
+- **Package unavailable after descriptor validation** — inspect package-level catalog diagnostics. One invalid, reserved, conflicting, or dependency-gated command rejects the complete package. User-scope install checks this before changing user configuration.
 - **Name mismatch** — a loaded command whose `name` differs from its descriptor entry is a
   load-time diagnostic naming both values.
 

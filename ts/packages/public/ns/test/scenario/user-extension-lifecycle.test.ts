@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
+import type { UserExtensionPackageAvailabilityFact } from "@nseng-ai/sdk/extensions/user-package-availability";
 
 import type { ExtensionInstallContext } from "../../src/init/install-extension.ts";
 import { installExtension } from "../../src/init/install-extension.ts";
@@ -20,6 +21,7 @@ import {
 	InMemoryExtensionUninstallAcquisitionGateway,
 	InMemoryExtensionUpdateAcquisitionGateway,
 	InMemoryUserExtensionConfigGateway,
+	InMemoryUserExtensionAvailabilityGateway,
 } from "../../src/init/testing/index.ts";
 
 const sourceSpec = "/work/extensions/tools";
@@ -43,6 +45,7 @@ function contexts(
 			readonly message: string;
 			readonly spec: string;
 		}[];
+		readonly availabilityFacts?: readonly UserExtensionPackageAvailabilityFact[];
 	} = {},
 ) {
 	const declaredExtensions = new InMemoryDeclaredExtensionsGateway({
@@ -51,11 +54,23 @@ function contexts(
 			diagnostics: options.diagnostics ?? [],
 		},
 	});
+	const userExtensionAvailability = new InMemoryUserExtensionAvailabilityGateway({
+		facts:
+			options.availabilityFacts ??
+			(options.descriptors ?? [descriptor]).map((item) => ({
+				sourceSpec: item.spec,
+				availability: "available",
+				packageName: item.packageName,
+				commandPaths: [],
+				diagnostics: [],
+			})),
+	});
 	const shared = {
 		git: new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } }),
 		files: new InMemoryActivationFilesGateway(),
 		declaredExtensions,
 		userExtensionConfig,
+		userExtensionAvailability,
 		artifacts: new InMemoryArtifactActivationGateway(),
 	};
 	return {
@@ -209,7 +224,7 @@ describe("user extension lifecycle", () => {
 		});
 		expect(invalidDescriptor).toMatchObject({
 			type: "failure",
-			errorType: "ns-extension-install-user-descriptor-invalid",
+			errorType: "ns-extension-install-user-package-unavailable",
 		});
 		expect(descriptorConfig.fileContent()).toBeUndefined();
 		expect(descriptorConfig.writes).toEqual([]);
@@ -217,6 +232,45 @@ describe("user extension lifecycle", () => {
 		expect(descriptorContext.install.artifacts.prepareCalls()).toEqual([]);
 		expect(descriptorContext.install.artifacts.applyCalls()).toEqual([]);
 		expect(descriptorContext.install.installAcquisition.calls()).toEqual([]);
+	});
+
+	it("rejects a whole colliding install, including an already-declared package, without writing", async () => {
+		for (const content of [undefined, `extensions = [${JSON.stringify(sourceSpec)}]\n`]) {
+			const config = new InMemoryUserExtensionConfigGateway(
+				content === undefined ? {} : { content },
+			);
+			const context = contexts(config, {
+				availabilityFacts: [
+					{
+						sourceSpec,
+						availability: "unavailable",
+						packageName: "@test/tools",
+						diagnostics: [
+							{
+								severity: "error",
+								code: "extension_package_builtin_conflict",
+								message: "tools/install collides; tools/inspect would not collide",
+								contributionId: "user:tools",
+								packageName: "@test/tools",
+								sourceLevel: "user",
+								commandName: "extension",
+							},
+						],
+					},
+				],
+			});
+			const result = await installExtension(context.install, {
+				cwd: "/work",
+				source: "./extensions/tools",
+				scope: "user",
+			});
+			expect(result).toMatchObject({
+				type: "failure",
+				errorType: "ns-extension-install-user-package-unavailable",
+			});
+			expect(config.writes).toEqual([]);
+			expect(config.fileContent()).toBe(content);
+		}
 	});
 
 	it("is idempotent and does not write an already-declared install", async () => {
@@ -275,7 +329,7 @@ describe("user extension lifecycle", () => {
 		});
 		expect(moved).toMatchObject({
 			type: "failure",
-			errorType: "ns-extension-update-user-descriptor-invalid",
+			errorType: "ns-extension-update-user-package-unavailable",
 			data: { scope: "user" },
 		});
 		expect(movedConfig.fileContent()).toBe(declaredContent);
@@ -298,6 +352,57 @@ describe("user extension lifecycle", () => {
 		expect(dryRunContext.update.artifacts.prepareCalls()).toEqual([]);
 		expect(dryRunContext.update.artifacts.applyCalls()).toEqual([]);
 		expect(dryRunContext.update.updateAcquisition.operations()).toEqual([]);
+	});
+
+	it("lists rejected User packages as unavailable and rejects update without writes", async () => {
+		const content = `extensions = [${JSON.stringify(sourceSpec)}]\n`;
+		const config = new InMemoryUserExtensionConfigGateway({ content });
+		const context = contexts(config, {
+			availabilityFacts: [
+				{
+					sourceSpec,
+					availability: "unavailable",
+					packageName: "@test/tools",
+					diagnostics: [
+						{
+							severity: "error",
+							code: "extension_package_same_level_conflict",
+							message: "Conflicts with another User package.",
+							contributionId: "user:tools",
+							packageName: "@test/tools",
+							sourceLevel: "user",
+						},
+					],
+				},
+			],
+		});
+		await expect(
+			listExtensions(context.list, { cwd: "/outside", scope: "user" }),
+		).resolves.toMatchObject({
+			type: "ok",
+			data: {
+				extensions: [
+					{
+						sourceSpec,
+						packageName: "@test/tools",
+						commandAvailability: "unavailable",
+						diagnostics: [{ code: "extension-package-same-level-conflict" }],
+					},
+				],
+			},
+		});
+		await expect(
+			updateExtension(context.update, {
+				cwd: "/work",
+				source: "./extensions/tools",
+				scope: "user",
+				dryRun: false,
+			}),
+		).resolves.toMatchObject({
+			type: "failure",
+			errorType: "ns-extension-update-user-package-unavailable",
+		});
+		expect(config.writes).toEqual([]);
 	});
 
 	it("uninstalls a missing local source and keeps an absent declaration idempotent", async () => {

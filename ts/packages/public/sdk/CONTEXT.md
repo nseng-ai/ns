@@ -68,9 +68,13 @@ The CLI step that imports and validates exactly one external command contributio
 The declaration identity derived before descriptor loading: npm package name without version, resolved absolute local path, or normalized recognized git source. Project declarations replace User declarations only when this identity matches; different sources remain independent even when their manifests declare the same package name.
 *Avoid*: manifest package identity, post-load reservation, versioned identity, command path.
 
+**Extension package admission**:
+The package-atomic decision that admits every command of an extension contribution or none. Built-in command paths are reserved. Same-level command-shape conflicts reject every participating package; across levels, Project outranks User, which outranks Preinstalled, and an overlap rejects the whole lower package. Descriptor package requirements are satisfied only by admitted contributions, including commandless providers and mutually requiring cycles; rejection cascades deterministically. A lower package rejected for precedence is not reconsidered if the higher package later fails requirements, preserving conservative deterministic monotonic admission. Contributions retain source-stable identity even when different sources declare the same package name.
+*Avoid*: command-level gating, partial package override, manifest name as contribution identity, requirement-based fallback, eager command loading.
+
 **Catalog precedence**:
-The four-level command-catalog ordering: reserved Built-in host commands, then preinstalled descriptor catalog < User descriptor extensions < Project descriptor extensions. Built-in command paths cannot be overridden, and Project descriptor extensions cannot contribute anywhere within a distribution-owned Built-in help namespace. Among other non-built-in paths, higher-precedence command shapes replace conflicting lower-precedence shapes with source-labelled diagnostics rather than compatibility aliases.
-*Avoid*: built-in override, project-extensible built-in namespace, fallback alias, load-order accident, extension priority scheme.
+The four-level command-catalog ordering: reserved Built-in host commands, then preinstalled descriptor catalog < User descriptor extensions < Project descriptor extensions. Built-in command paths cannot be overridden. Extension package admission applies precedence atomically rather than replacing individual command paths.
+*Avoid*: built-in override, partial command override, fallback alias, load-order accident, extension priority scheme.
 
 **ns extension API**:
 The concrete author surface at the `@nseng-ai/sdk` package root. It exposes `defineExtension()`, command/result types and helpers, execution-context services, schema builder `z`, and curated lower-package re-exports owned as SDK vocabulary. `ts/packages/public/sdk/docs/sdk-reference.md` is the authoritative export inventory.

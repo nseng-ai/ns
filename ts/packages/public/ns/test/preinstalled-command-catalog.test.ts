@@ -5,7 +5,7 @@ import { NS_BUILT_IN_HELP_GROUP } from "@nseng-ai/sdk/cli";
 import {
 	loadPreinstalledNsCommandCatalog,
 	preinstalledExtensionRegistrations,
-} from "../src/cli/preinstalled-command-catalog.ts";
+} from "../src/init/ns/preinstalled-command-catalog.ts";
 
 const expectedPaths = [
 	"init",
