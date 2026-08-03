@@ -3,6 +3,7 @@ import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 import { checkArtifactCorpus, findingSchema, inspectCorpusTopology } from "../../../core/index.ts";
 import type { Finding } from "../../../core/index.ts";
+import type { ConfigLoadResult } from "../../config-gateway.ts";
 import type { GitplaneCliContext } from "../../context.ts";
 
 const requestSchema = z
@@ -57,17 +58,25 @@ export async function command() {
 		schema: requestSchema,
 		resultSchema: completedSchema,
 		handler: async (context: GitplaneCliContext, request: z.infer<typeof requestSchema>) => {
+			let loaded: ConfigLoadResult;
 			try {
-				const loaded = await context.configGateway.load({
+				loaded = await context.configGateway.load({
 					cwd: context.cwd,
 					...optionalEntries({ configPath: request.config }),
 				});
-				if (!loaded.ok)
-					return failure("check-failed", "Unable to check the artifact corpus.", {
-						category: loaded.category,
-						diagnostic: loaded.diagnostic,
-						...optionalEntries({ path: loaded.path }),
-					});
+			} catch {
+				return failure("check-failed", "Unable to check the artifact corpus.", {
+					category: "config-load",
+					diagnostic: "Unexpected configuration load failure.",
+				});
+			}
+			if (!loaded.ok)
+				return failure("check-failed", "Unable to check the artifact corpus.", {
+					category: loaded.category,
+					diagnostic: loaded.diagnostic,
+					...optionalEntries({ path: loaded.path }),
+				});
+			try {
 				const inventory = await context.corpusCheckGateway.inventoryWorkingTree({
 					artifactRoot: loaded.artifactRoot,
 				});
@@ -76,6 +85,7 @@ export async function command() {
 						category: "source-read-failed",
 						diagnostic: "Unable to inventory the artifact root.",
 						path: loaded.artifactRoot,
+						causeCode: inventory.error.code,
 					});
 				const topology = inspectCorpusTopology(inventory.value);
 				if (topology.findings.length > 0) {
@@ -97,6 +107,7 @@ export async function command() {
 							category: "source-read-failed",
 							diagnostic: "Unable to read an artifact candidate.",
 							path: boundary.path,
+							causeCode: candidate.error.code,
 						});
 					candidates.push(candidate.value);
 				}
@@ -110,6 +121,7 @@ export async function command() {
 					return failure("check-failed", "Unable to check the artifact corpus.", {
 						category: "source-read-failed",
 						diagnostic: "Unable to process an artifact candidate.",
+						causeCode: result.failure.code,
 					});
 				const data = completed(
 					loaded.config.source.id,

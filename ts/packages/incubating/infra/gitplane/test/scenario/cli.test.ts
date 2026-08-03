@@ -5,6 +5,7 @@ import { createGitplaneCliApp, VERSION } from "@nseng-ai/gitplane/cli";
 import type { GitplaneConfigGateway } from "@nseng-ai/gitplane/cli";
 import { InMemoryArtifactGateway, InMemoryCorpusCheckGateway } from "@nseng-ai/gitplane/testing";
 import { parseArtifactId } from "@nseng-ai/gitplane";
+import type { CorpusCheckGateway } from "@nseng-ai/gitplane";
 const parsed = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
 if (!parsed.ok) throw new Error();
 const artifactId = parsed.artifactId;
@@ -12,7 +13,7 @@ const app = createGitplaneCliApp();
 interface ContextOptions {
 	readonly artifactGateway?: InMemoryArtifactGateway;
 	readonly configGateway?: GitplaneConfigGateway;
-	readonly corpusCheckGateway?: InMemoryCorpusCheckGateway;
+	readonly corpusCheckGateway?: CorpusCheckGateway;
 }
 function context(options: ContextOptions = {}) {
 	return {
@@ -370,13 +371,16 @@ test.each([
 	{
 		name: "inventory failure",
 		gateway: new InMemoryCorpusCheckGateway({
-			failures: { inventoryWorkingTree: { code: "secret", message: "/host/private contents" } },
+			failures: {
+				inventoryWorkingTree: { code: "source-error", message: "/host/private contents" },
+			},
 		}),
 		loader: loadedConfig(),
 		data: {
 			category: "source-read-failed",
 			diagnostic: "Unable to inventory the artifact root.",
 			path: "artifacts",
+			causeCode: "source-error",
 		},
 	},
 	{
@@ -388,13 +392,16 @@ test.each([
 					entries: [{ path: "artifacts/a/gitplane-artifact.json", kind: "regular-file" }],
 				},
 			],
-			failures: { readWorkingTreeCandidate: { code: "secret", message: "/host/private contents" } },
+			failures: {
+				readWorkingTreeCandidate: { code: "source-error", message: "/host/private contents" },
+			},
 		}),
 		loader: loadedConfig(),
 		data: {
 			category: "source-read-failed",
 			diagnostic: "Unable to read an artifact candidate.",
 			path: "artifacts/a",
+			causeCode: "source-error",
 		},
 	},
 ])("check returns exact sanitized exit 2 data for $name", async ({ gateway, loader, data }) => {
@@ -415,7 +422,7 @@ test.each([
 	expect(JSON.parse(run.stdout).data).not.toHaveProperty("corpus");
 });
 
-test("check normalizes unexpected throws without partial or sensitive data", async () => {
+test("check maps unexpected config throws to a sanitized config load failure", async () => {
 	const run = await runForCliTest(app, ["check", "--format=json"], {
 		context: context({
 			configGateway: {
@@ -431,6 +438,30 @@ test("check normalizes unexpected throws without partial or sensitive data", asy
 		exitCode: 2,
 		errorType: "check-failed",
 		message: "Unable to check the artifact corpus.",
+		data: { category: "config-load", diagnostic: "Unexpected configuration load failure." },
+	});
+	expect(run.stdout).not.toContain("/host/private");
+});
+
+test("check maps unexpected source throws to a sanitized source read failure", async () => {
+	const throwing: CorpusCheckGateway = {
+		inventoryWorkingTree: async () => {
+			throw new Error("/host/private secret artifact bytes");
+		},
+		readWorkingTreeCandidate: async () => {
+			throw new Error("/host/private secret artifact bytes");
+		},
+	};
+	const run = await runForCliTest(app, ["check", "--format=json"], {
+		context: context({ configGateway: loadedConfig(), corpusCheckGateway: throwing }),
+	});
+	expect(run.exitCode).toBe(2);
+	expect(JSON.parse(run.stdout)).toEqual({
+		status: "failure",
+		exitCode: 2,
+		errorType: "check-failed",
+		message: "Unable to check the artifact corpus.",
 		data: { category: "source-read-failed", diagnostic: "Unexpected source read failure." },
 	});
+	expect(run.stdout).not.toContain("/host/private");
 });
