@@ -33,6 +33,10 @@ The rebuild also reshapes reconciliation internally into Gather → Decide → A
 - The systematic fault-injection matrix exists and passes: for a reference plan, a failure injected before and after every store write boundary, with retry over shared state converging to the uninterrupted outcome with stable revision IDs, event IDs, event sequences, and target values — the central proof the prototype lacks.
 - Prototype PR #4076 closed unmerged with a pointer to the landed stack, and the `gitplane` objective's reconciliation roadmap row carries the stack PRs as evidence instead.
 
+## Metaprompt
+
+Every prompt produced for this Objective must start with the `/ns:plan:grill-and-save` command so each slice receives a grilled, saved implementation plan before execution.
+
 ## Assumptions and Risks
 
 Assumptions:
