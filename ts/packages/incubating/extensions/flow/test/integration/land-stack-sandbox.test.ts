@@ -357,7 +357,7 @@ describe("land stack sandbox integration", () => {
 					const branches = await localBranches(sandbox);
 					expect(branches).toContain(FEATURE_A);
 					expect(notificationText(result)).toContain(
-						"stack provider does not report as descendants",
+						"stack provider does not report them in landing or descendant topology",
 					);
 				},
 			);
