@@ -13,10 +13,13 @@
  * Landing a stack is destructive (irreversible squash merges plus local branch
  * deletion), so every test here is a safety assertion:
  * - The happy path merges bottom-up with `--match-head-commit` pinned to real
- *   SHAs, deletes only the landed branches, preserves multi-root descendants,
- *   and honors the crash-safe ordering merge → get → delete → restack → submit.
- * - A failed optional descendant refresh degrades to advice: remaining roots
- *   are still attempted, nothing is deleted or restacked as a consequence.
+ *   SHAs, deletes only the landed branches, reconciles multi-root descendants
+ *   onto trunk, and honors the crash-safe ordering merge → get → delete →
+ *   restack → submit.
+ * - Descendant reconciliation is a required completion postcondition: a failed
+ *   descendant refresh or restack fails the landing closed while remaining
+ *   roots are still attempted and no ref is deleted or restacked as a
+ *   consequence of the failure.
  * - An in-path fork aborts before the first mutation — zero merge/get/delete/
  *   restack/submit commands issued.
  * - The pre-delete topology reread is consulted for real: a concurrently
@@ -141,73 +144,85 @@ interface Notification {
 
 describe("land stack sandbox integration", () => {
 	test(
-		"lands a two-branch stack through real git and fake gh/gt/ns shims without deleting descendants",
+		"lands a two-branch stack through real git and fake gh/gt/ns shims and reconciles descendants",
 		async () => {
-			await withSandbox({ currentBranch: FEATURE_B }, async (sandbox) => {
-				const result = await executeSandboxLanding(sandbox);
+			await withSandbox(
+				{ currentBranch: FEATURE_B, state: { canDeleteCurrentBranch: true } },
+				async (sandbox) => {
+					const result = await executeSandboxLanding(sandbox);
 
-				expect(result.outcome.type).toBe("completed");
-				const log = await readCommandLog(sandbox);
-				expect(commandArgs(log, "gh", "pr", "merge")).toEqual([
-					[
-						"pr",
-						"merge",
-						"101",
-						"--squash",
-						"--match-head-commit",
-						sandbox.shas[FEATURE_A],
-						"--subject",
-						"PR 101",
-						"--body",
-						"Body for PR 101",
-					],
-					[
-						"pr",
-						"merge",
-						"102",
-						"--squash",
-						"--match-head-commit",
-						sandbox.shas[FEATURE_B],
-						"--subject",
-						"PR 102",
-						"--body",
-						"Body for PR 102",
-					],
-				]);
-				expect(commandArgs(log, "gt", "delete").map((args) => args[1])).toEqual([
-					FEATURE_A,
-					FEATURE_B,
-				]);
-				expect(commandArgs(log, "gt", "delete").map((args) => args[1])).not.toContain(FEATURE_C);
-				expect(commandArgs(log, "gt", "delete").map((args) => args[1])).not.toContain(FEATURE_D);
-				expect(commandIndex(log, "gh", ["pr", "merge", "101"])).toBeLessThan(
-					commandIndex(log, "gt", ["get", FEATURE_B]),
-				);
-				expect(commandIndex(log, "gt", ["get", FEATURE_B])).toBeLessThan(
-					commandIndex(log, "gt", ["delete", FEATURE_A]),
-				);
-				expect(commandIndex(log, "gt", ["delete", FEATURE_A])).toBeLessThan(
-					commandIndex(log, "gt", ["restack", "--branch", FEATURE_B]),
-				);
-				expect(commandIndex(log, "gt", ["restack", "--branch", FEATURE_B])).toBeLessThan(
-					commandIndex(log, "gt", ["submit", "--branch", FEATURE_B]),
-				);
-				expect(commandIndex(log, "gh", ["pr", "merge", "102"])).toBeLessThan(
-					commandIndex(log, "gt", ["get", FEATURE_C]),
-				);
+					expect(result.outcome.type).toBe("completed");
+					const log = await readCommandLog(sandbox);
+					expect(commandArgs(log, "gh", "pr", "merge")).toEqual([
+						[
+							"pr",
+							"merge",
+							"101",
+							"--squash",
+							"--match-head-commit",
+							sandbox.shas[FEATURE_A],
+							"--subject",
+							"PR 101",
+							"--body",
+							"Body for PR 101",
+						],
+						[
+							"pr",
+							"merge",
+							"102",
+							"--squash",
+							"--match-head-commit",
+							sandbox.shas[FEATURE_B],
+							"--subject",
+							"PR 102",
+							"--body",
+							"Body for PR 102",
+						],
+					]);
+					expect(commandArgs(log, "gt", "delete").map((args) => args[1])).toEqual([
+						FEATURE_A,
+						FEATURE_B,
+					]);
+					expect(commandArgs(log, "gt", "delete").map((args) => args[1])).not.toContain(FEATURE_C);
+					expect(commandArgs(log, "gt", "delete").map((args) => args[1])).not.toContain(FEATURE_D);
+					expect(commandIndex(log, "gh", ["pr", "merge", "101"])).toBeLessThan(
+						commandIndex(log, "gt", ["get", FEATURE_B]),
+					);
+					expect(commandIndex(log, "gt", ["get", FEATURE_B])).toBeLessThan(
+						commandIndex(log, "gt", ["delete", FEATURE_A]),
+					);
+					expect(commandIndex(log, "gt", ["delete", FEATURE_A])).toBeLessThan(
+						commandIndex(log, "gt", ["restack", "--branch", FEATURE_B]),
+					);
+					expect(commandIndex(log, "gt", ["restack", "--branch", FEATURE_B])).toBeLessThan(
+						commandIndex(log, "gt", ["submit", "--branch", FEATURE_B]),
+					);
+					expect(commandIndex(log, "gh", ["pr", "merge", "102"])).toBeLessThan(
+						commandIndex(log, "gt", ["get", FEATURE_C]),
+					);
+					expect(commandIndex(log, "gt", ["restack", "--branch", FEATURE_C])).toBeGreaterThan(
+						commandIndex(log, "gt", ["delete", FEATURE_B]),
+					);
+					expect(commandIndex(log, "gt", ["submit", "--branch", FEATURE_C])).toBeGreaterThan(
+						commandIndex(log, "gt", ["restack", "--branch", FEATURE_C]),
+					);
+					expect(commandIndex(log, "gt", ["submit", "--branch", FEATURE_D])).toBeGreaterThan(
+						commandIndex(log, "gt", ["restack", "--branch", FEATURE_D]),
+					);
 
-				const branches = await localBranches(sandbox);
-				expect(branches).not.toContain(FEATURE_A);
-				expect(branches).toContain(FEATURE_B);
-				expect(branches).toContain(FEATURE_C);
-				expect(branches).toContain(FEATURE_D);
-			});
+					const branches = await localBranches(sandbox);
+					expect(branches).not.toContain(FEATURE_A);
+					expect(branches).not.toContain(FEATURE_B);
+					expect(branches).toContain(FEATURE_C);
+					expect(branches).toContain(FEATURE_D);
+				},
+			);
 		},
 		TEST_TIMEOUT_MS,
 	);
 
 	test(
-		"keeps landed and descendant refs when one optional descendant refresh fails after later roots are attempted",
+		"fails closed but keeps landed and descendant refs when one required descendant refresh fails after later roots are attempted",
 		async () => {
 			await withSandbox(
 				{
@@ -221,7 +236,7 @@ describe("land stack sandbox integration", () => {
 				async (sandbox) => {
 					const result = await executeSandboxLanding(sandbox);
 
-					expect(result.outcome.type).toBe("completed");
+					expect(result.outcome.type).toBe("failure");
 					const log = await readCommandLog(sandbox);
 					expect(commandIndex(log, "gt", ["get", FEATURE_C])).toBeGreaterThanOrEqual(0);
 					expect(commandIndex(log, "gt", ["get", FEATURE_D])).toBeGreaterThan(
@@ -235,9 +250,8 @@ describe("land stack sandbox integration", () => {
 					expect(branches).toContain(FEATURE_B);
 					expect(branches).toContain(FEATURE_C);
 					expect(branches).toContain(FEATURE_D);
-					expect(notificationText(result)).toContain(
-						"gt get feature-c --downstack --no-restack --no-checkout --force --no-interactive",
-					);
+					expect(notificationText(result)).toContain("land stopped at feature-c");
+					expect(notificationText(result)).toContain("targeted Graphite refresh failed");
 				},
 			);
 		},
@@ -245,7 +259,7 @@ describe("land stack sandbox integration", () => {
 	);
 
 	test(
-		"continues later optional descendant roots after one post-delete restack warning",
+		"fails closed but continues later descendant roots after one post-delete restack failure",
 		async () => {
 			await withSandbox(
 				{
@@ -260,7 +274,7 @@ describe("land stack sandbox integration", () => {
 				async (sandbox) => {
 					const result = await executeSandboxLanding(sandbox);
 
-					expect(result.outcome.type).toBe("completed");
+					expect(result.outcome.type).toBe("failure");
 					const log = await readCommandLog(sandbox);
 					const featureCRestack = commandIndex(log, "gt", ["restack", "--branch", FEATURE_C]);
 					const featureDRestack = commandIndex(log, "gt", ["restack", "--branch", FEATURE_D]);
@@ -331,6 +345,7 @@ describe("land stack sandbox integration", () => {
 			await withSandbox(
 				{
 					currentBranch: FEATURE_A,
+					prBranches: [FEATURE_A],
 					state: {
 						topology: [
 							{ branch: TRUNK, children: [FEATURE_A], isTrunk: true },
@@ -401,7 +416,11 @@ function notificationText(result: { readonly notifications: readonly Notificatio
 }
 
 async function withSandbox(
-	options: { currentBranch: string; state?: Partial<SandboxState> },
+	options: {
+		currentBranch: string;
+		prBranches?: readonly string[];
+		state?: Partial<SandboxState>;
+	},
 	run: (sandbox: Sandbox) => Promise<void>,
 ): Promise<void> {
 	const tempRoot = await mkdtemp(join(tmpdir(), "ns-flow-land-sandbox-"));
@@ -420,7 +439,7 @@ async function withSandbox(
 		await writeShims(binDir);
 		const git = { repoRoot, env } satisfies GitFixture;
 		const shas = await initializeGitStack(git, options.currentBranch);
-		await writeState(statePath, buildInitialState(shas, options.state));
+		await writeState(statePath, buildInitialState(shas, options.state, options.prBranches));
 		await run({ tempRoot, git, statePath, shas });
 	} finally {
 		await rm(tempRoot, {
@@ -517,9 +536,10 @@ async function revParse(git: GitFixture, ref: string): Promise<string> {
 function buildInitialState(
 	shas: Record<string, string>,
 	overrides: Partial<SandboxState> = {},
+	prBranches?: readonly string[],
 ): SandboxState {
 	return {
-		prs: overrides.prs ?? buildDefaultPrs(shas),
+		prs: overrides.prs ?? buildDefaultPrs(shas, prBranches),
 		topology: overrides.topology ?? [
 			{ branch: TRUNK, children: [FEATURE_A], isTrunk: true },
 			{ branch: FEATURE_A, parent: TRUNK, children: [FEATURE_B] },
@@ -535,9 +555,16 @@ function buildInitialState(
 	};
 }
 
-function buildDefaultPrs(shas: Record<string, string>): Record<string, SandboxPr> {
+function buildDefaultPrs(
+	shas: Record<string, string>,
+	prBranches?: readonly string[],
+): Record<string, SandboxPr> {
 	const prs: Record<string, SandboxPr> = {};
-	for (const row of SANDBOX_PR_ROWS) {
+	const rows =
+		prBranches === undefined
+			? SANDBOX_PR_ROWS
+			: SANDBOX_PR_ROWS.filter((row) => prBranches.includes(row.branch));
+	for (const row of rows) {
 		prs[row.branch] = pr({
 			number: row.number,
 			branch: row.branch,
@@ -680,6 +707,25 @@ function graphqlPrConnections() {
     }),
   );
 }
+function reparentChildrenOnDelete(branch) {
+  // Mirror documented gt behavior: deleting a tracked branch reparents its
+  // children onto the deleted branch's parent in Graphite metadata.
+  const rows = state.topology || [];
+  const row = rows.find((entry) => entry.branch === branch);
+  if (!row) return;
+  const children = row.children || [];
+  for (const child of children) {
+    const childRow = rows.find((entry) => entry.branch === child);
+    if (childRow) childRow.parent = row.parent;
+  }
+  const parentRow = rows.find((entry) => entry.branch === row.parent);
+  if (parentRow) {
+    parentRow.children = (parentRow.children || [])
+      .filter((child) => child !== branch)
+      .concat(children);
+  }
+  state.topology = rows.filter((entry) => entry.branch !== branch);
+}
 function metadataRows() {
   const scriptedTopologies = state.topologyReads || [];
   const topology = scriptedTopologies.length > 0 ? scriptedTopologies.shift() : (state.topology || []);
@@ -704,6 +750,21 @@ if (command === "gh") {
     finish(0, JSON.stringify({ nameWithOwner: "owner/repo" }) + "\\n");
   }
   if (args[0] === "api" && args[1] === "graphql") {
+    const baseArg = args.find((arg) => arg.startsWith("base="));
+    if (baseArg) {
+      const base = baseArg.slice("base=".length);
+      const nodes = Object.values(state.prs || {})
+        .filter((pr) => pr.state === "OPEN" && pr.baseRefName === base)
+        .map((pr) => ({
+          number: pr.number,
+          headRefName: pr.headRefName,
+          headRefOid: pr.headRefOid,
+          baseRefName: pr.baseRefName,
+          baseRefOid: branchSha(pr.baseRefName),
+        }));
+      const pullRequests = { pageInfo: { hasNextPage: false, endCursor: null }, nodes };
+      finish(0, JSON.stringify({ data: { repository: { pullRequests } } }) + "\\n");
+    }
     finish(0, JSON.stringify({ data: { repository: graphqlPrConnections() } }) + "\\n");
   }
   if (args[0] === "pr" && args[1] === "view") {
@@ -742,6 +803,7 @@ if (command === "gt") {
       git(["checkout", "main"]);
     }
     const result = git(["branch", "-D", branch]);
+    if ((result.status || 0) === 0) reparentChildrenOnDelete(branch);
     finish(result.status || 0, result.stdout || "", result.stderr || "");
   }
   if (args[0] === "restack") {
