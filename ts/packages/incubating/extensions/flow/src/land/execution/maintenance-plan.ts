@@ -16,17 +16,14 @@ export type MaintenanceMode =
 	| "none"
 	| "blocked-descendants";
 
-export type MaintenanceSeverity = "fail" | "warn";
-
 export interface MaintenanceTargetPlan {
 	readonly mode: MaintenanceMode;
-	readonly severity: MaintenanceSeverity;
+	readonly cleanupFailureHandling: "fail" | "warn";
 	readonly branches: readonly string[];
 	readonly refreshCheckedOutConflictHandling: "defer" | "fail";
 	readonly deleteCheckedOutConflictHandling: "retain" | "fail";
 	readonly skippedScopeText: (branch: string) => string;
 	readonly isDescendantRoot: boolean;
-	readonly shouldHaltOnRefreshFailure: boolean;
 }
 
 export interface BranchMaintenanceWarning {
@@ -230,46 +227,42 @@ function buildMaintenanceTargetPlan(
 		case "required-next-landing":
 			return {
 				mode,
-				severity: "fail",
+				cleanupFailureHandling: "fail",
 				branches,
 				refreshCheckedOutConflictHandling: "fail",
 				deleteCheckedOutConflictHandling: "fail",
 				skippedScopeText: localCleanupOnlyScopeText,
 				isDescendantRoot: false,
-				shouldHaltOnRefreshFailure: true,
 			};
 		case "required-descendants":
 			return {
 				mode,
-				severity: "fail",
+				cleanupFailureHandling: "fail",
 				branches,
 				refreshCheckedOutConflictHandling: "defer",
 				deleteCheckedOutConflictHandling: "fail",
 				skippedScopeText: localCleanupAndDescendantScopeText,
 				isDescendantRoot: true,
-				shouldHaltOnRefreshFailure: true,
 			};
 		case "none":
 			return {
 				mode,
-				severity: "warn",
+				cleanupFailureHandling: "warn",
 				branches,
 				refreshCheckedOutConflictHandling: "fail",
 				deleteCheckedOutConflictHandling: "retain",
 				skippedScopeText: localCleanupOnlyScopeText,
 				isDescendantRoot: false,
-				shouldHaltOnRefreshFailure: false,
 			};
 		case "blocked-descendants":
 			return {
 				mode,
-				severity: "fail",
+				cleanupFailureHandling: "fail",
 				branches,
 				refreshCheckedOutConflictHandling: "fail",
 				deleteCheckedOutConflictHandling: "fail",
 				skippedScopeText: localCleanupAndDescendantScopeText,
 				isDescendantRoot: true,
-				shouldHaltOnRefreshFailure: false,
 			};
 		default:
 			assertNever(mode);

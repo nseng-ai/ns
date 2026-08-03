@@ -39,12 +39,11 @@ describe("Graphite maintenance planning", () => {
 
 		expect(maintenance).toMatchObject({
 			mode: "required-next-landing",
-			severity: "fail",
+			cleanupFailureHandling: "fail",
 			branches: ["feature-b"],
 			refreshCheckedOutConflictHandling: "fail",
 			deleteCheckedOutConflictHandling: "fail",
 			isDescendantRoot: false,
-			shouldHaltOnRefreshFailure: true,
 		});
 		expect(maintenance.skippedScopeText("feature-a")).toBe("local branch feature-a cleanup was");
 	});
@@ -64,16 +63,29 @@ describe("Graphite maintenance planning", () => {
 
 		expect(maintenance).toMatchObject({
 			mode: "required-descendants",
-			severity: "fail",
+			cleanupFailureHandling: "fail",
 			branches: ["feature-c"],
 			refreshCheckedOutConflictHandling: "defer",
 			deleteCheckedOutConflictHandling: "fail",
 			isDescendantRoot: true,
-			shouldHaltOnRefreshFailure: true,
 		});
 		expect(maintenance.skippedScopeText("feature-a")).toBe(
 			"local branch feature-a cleanup and descendant restack/update were",
 		);
+	});
+
+	test("plans none mode as warning-only local cleanup", () => {
+		const maintenance = planGraphiteMaintenanceTargets(
+			createLandingPlan({ landingBranches: ["feature-a"] }),
+			0,
+		);
+
+		expect(maintenance).toMatchObject({
+			mode: "none",
+			cleanupFailureHandling: "warn",
+			branches: [],
+			deleteCheckedOutConflictHandling: "retain",
+		});
 	});
 
 	test("refreshes downstream landing expectations after maintained branch only", () => {
@@ -420,6 +432,47 @@ describe("Graphite maintenance over LandContext", () => {
 		expect(fakes.graphite.refreshBranchFromRemoteCalls).toHaveLength(1);
 		expect(fakes.graphite.restackCalls).toHaveLength(1);
 		expect(fakes.graphite.submitUpdateCalls).toHaveLength(1);
+	});
+
+	test("none maintenance reports local deletion failure as a nonfatal warning", async () => {
+		const fakes = createInMemoryLandContext({
+			git: { localBranches: [{ name: "feature-a", sha: FEATURE_A_SHA }] },
+			graphite: {
+				deleteLocalBranchResults: {
+					"feature-a": {
+						type: "failed",
+						commandDisplay: "gt delete feature-a -f -q",
+						result: {
+							type: "exited",
+							stdout: "",
+							stderr: "delete failed",
+							code: 1,
+							signal: null,
+						},
+						isLikelyInProgressGitOperation: false,
+					},
+				},
+			},
+		});
+		const outcome = await performGraphiteMaintenance({
+			landContext: fakes.context,
+			progress: createProgressRecorder().progress,
+			plan: createLandingPlan({ landingBranches: ["feature-a"] }),
+			step: {
+				index: 0,
+				branch: "feature-a",
+				prNumber: 1,
+				state: createMergeLoopState([["feature-a", FEATURE_A_SHA]]),
+			},
+		});
+
+		expect(outcome).toMatchObject({
+			kind: "skip",
+			warning: {
+				message:
+					"All target PRs were merged, but deleting the local Graphite branch feature-a failed.",
+			},
+		});
 	});
 
 	test("retains a checked-out local branch and records cleanup", async () => {

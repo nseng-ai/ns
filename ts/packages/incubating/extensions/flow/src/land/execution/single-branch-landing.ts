@@ -71,9 +71,10 @@ export async function executeSingleBranchLanding(
 	}
 	const pullRequest = prResult.value;
 
-	const remoteDependents = await options.context.github.openPullRequestsBasedOnHeads({
+	const remoteDependents = await options.context.github.openPullRequestDependents({
 		repoRoot: options.target.repoRoot,
-		headOids: [pullRequest.headRefOid],
+		baseRefNames: [options.target.stack.actualCurrentBranch],
+		baseRefOids: [pullRequest.headRefOid],
 	});
 	if (remoteDependents.type === "failure") {
 		return { type: "failure", stage: "load", failure: remoteDependents.failure };

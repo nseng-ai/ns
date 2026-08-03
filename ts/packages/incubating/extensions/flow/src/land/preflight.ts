@@ -76,12 +76,14 @@ export async function buildStackLandingPlan(
 	if (initialPreflight.type === "failure") return initialPreflight;
 	const prSubmitRequirements = collectPrSubmitRequirements(branchPlans.value, stack.trunk);
 
-	// Fail closed on remote dependents the stack provider does not know about: an open PR based
-	// on a landing branch's current head commit must be represented in provider topology before
-	// any merge. This must run before backup refs, confirmation, or any Graphite mutation.
-	const remoteDependents = await context.github.openPullRequestsBasedOnHeads({
+	// Fail closed on remote dependents the stack provider does not know about. A matching base ref
+	// name or observed base OID must be represented in provider topology before any merge. This
+	// must run before backup refs, confirmation, or any Graphite mutation.
+	const dependencyKeys = landingDependencyKeys(branchPlans.value);
+	const remoteDependents = await context.github.openPullRequestDependents({
 		repoRoot: shape.repoRoot,
-		headOids: landingHeadOids(branchPlans.value),
+		baseRefNames: dependencyKeys.baseRefNames,
+		baseRefOids: dependencyKeys.baseRefOids,
 	});
 	if (remoteDependents.type === "failure") return remoteDependents;
 	const topologyMismatch = validateRemoteDescendantConsistency({
@@ -620,13 +622,22 @@ export function buildDescendantMaintenancePlan(
 	return { type: "auto", branches: descendantBranches, targetBranches };
 }
 
-export function landingHeadOids(branchPlans: readonly BranchLandingPlan[]): readonly string[] {
-	const headOids = new Set<string>();
+export interface LandingDependencyKeys {
+	readonly baseRefNames: readonly string[];
+	readonly baseRefOids: readonly string[];
+}
+
+export function landingDependencyKeys(
+	branchPlans: readonly BranchLandingPlan[],
+): LandingDependencyKeys {
+	const baseRefNames = new Set<string>();
+	const baseRefOids = new Set<string>();
 	for (const branchPlan of branchPlans) {
-		headOids.add(branchPlan.localSha);
-		headOids.add(branchPlan.pr.headRefOid);
+		baseRefNames.add(branchPlan.branch);
+		baseRefOids.add(branchPlan.localSha);
+		baseRefOids.add(branchPlan.pr.headRefOid);
 	}
-	return [...headOids];
+	return { baseRefNames: [...baseRefNames], baseRefOids: [...baseRefOids] };
 }
 
 export interface RemoteDependentMismatch {
@@ -636,8 +647,8 @@ export interface RemoteDependentMismatch {
 
 /**
  * Pure fail-closed reconciliation of provider-reported descendants against remote GitHub
- * dependency facts. Any open PR based on a landing branch's head commit that is neither part of
- * the landing path nor represented in the provider-reported descendant subtree is a topology
+ * dependency facts. Any open PR whose base ref name or observed base OID identifies a landing
+ * branch, and that is neither in the landing path nor represented in provider topology, is a
  * mismatch. The caller must refuse before mutation; nothing here adopts or reparents branches.
  */
 export function findUndiscoveredRemoteDependents(options: {
@@ -652,17 +663,24 @@ export function findUndiscoveredRemoteDependents(options: {
 		...stack.remainingLandingBranches,
 		...stack.descendantBranches,
 	]);
+	const landingBranchNames = new Set(branchPlans.map((branchPlan) => branchPlan.branch));
 	const landingBranchByHeadOid = new Map<string, string>();
 	for (const branchPlan of branchPlans) {
-		landingBranchByHeadOid.set(branchPlan.localSha, branchPlan.branch);
-		landingBranchByHeadOid.set(branchPlan.pr.headRefOid, branchPlan.branch);
+		if (!landingBranchByHeadOid.has(branchPlan.localSha)) {
+			landingBranchByHeadOid.set(branchPlan.localSha, branchPlan.branch);
+		}
+		if (!landingBranchByHeadOid.has(branchPlan.pr.headRefOid)) {
+			landingBranchByHeadOid.set(branchPlan.pr.headRefOid, branchPlan.branch);
+		}
 	}
 
 	const mismatches: RemoteDependentMismatch[] = [];
 	for (const dependent of remoteDependents) {
 		if (landingPrNumbers.has(dependent.number)) continue;
 		if (providerKnownBranches.has(dependent.headRefName)) continue;
-		const landingBranch = landingBranchByHeadOid.get(dependent.baseRefOid);
+		const landingBranch = landingBranchNames.has(dependent.baseRefName)
+			? dependent.baseRefName
+			: landingBranchByHeadOid.get(dependent.baseRefOid);
 		if (landingBranch === undefined) continue;
 		mismatches.push({ landingBranch, dependent });
 	}
@@ -684,14 +702,14 @@ export function validateRemoteDescendantConsistency(options: {
 			: options.stack.descendantBranches.join(", ");
 	const mismatchLines = mismatches.map(
 		({ landingBranch, dependent }) =>
-			`- PR #${dependent.number} (head ${dependent.headRefName}) is based on ${landingBranch}'s current head: base ref ${dependent.baseRefName} at ${shortSha(dependent.baseRefOid)}.`,
+			`- PR #${dependent.number} (head ${dependent.headRefName}) has base ref ${dependent.baseRefName} at observed OID ${shortSha(dependent.baseRefOid)}, identifying landing branch ${landingBranch} by base name or observed head OID.`,
 	);
 	return landFailure(
 		domainFailure({
 			phase: "preflight",
 			reason: "descendant-topology-mismatch",
 			message: [
-				`GitHub reports open pull requests based on landing branch heads that the stack provider does not report as descendants; refusing to land before any merge.`,
+				`GitHub reports open pull requests whose base ref names or observed base OIDs identify landing branches, but the stack provider does not report them in landing or descendant topology; refusing to land before any merge.`,
 				...mismatchLines,
 				`Provider-reported descendants: ${providerDescendants}.`,
 			].join("\n"),

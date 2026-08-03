@@ -70,21 +70,24 @@ interface OpenPullRequestDependencyPage {
 }
 
 /**
- * Complete, paginated scan of open pull requests, filtered to those whose base commit OID is one
- * of `headOids`. Answers the domain question "which open PRs depend on these landing heads?"
- * against remote GitHub facts rather than provider topology.
+ * Complete, paginated scan of open pull requests, filtered to those whose base ref name or
+ * observed base OID matches a requested dependency key. Answers the domain question "which open
+ * PRs may depend on these landing branches?" against remote GitHub facts rather than provider
+ * topology.
  */
-export async function loadOpenPullRequestsBasedOnHeads(
+export async function loadOpenPullRequestDependents(
 	pi: LandExecutionApi,
 	repoRoot: string,
-	headOids: readonly string[],
+	baseRefNames: readonly string[],
+	baseRefOids: readonly string[],
 ): Promise<LandResult<readonly PullRequestDependencyFacts[]>> {
-	if (headOids.length === 0) return landSuccess([]);
+	if (baseRefNames.length === 0 && baseRefOids.length === 0) return landSuccess([]);
 
 	const repo = await loadGitHubRepositoryName(pi, repoRoot);
 	if (repo.type === "failure") return repo;
 
-	const headOidSet = new Set(headOids);
+	const baseRefNameSet = new Set(baseRefNames);
+	const baseRefOidSet = new Set(baseRefOids);
 	const dependents: PullRequestDependencyFacts[] = [];
 	let cursor: string | undefined;
 	for (let page = 0; page < OPEN_PR_DEPENDENCY_MAX_PAGES; page += 1) {
@@ -101,7 +104,9 @@ export async function loadOpenPullRequestsBasedOnHeads(
 		});
 		if (parsed.type === "failure") return parsed;
 		for (const node of parsed.value.nodes) {
-			if (headOidSet.has(node.baseRefOid)) dependents.push(node);
+			if (baseRefNameSet.has(node.baseRefName) || baseRefOidSet.has(node.baseRefOid)) {
+				dependents.push(node);
+			}
 		}
 		if (!parsed.value.hasNextPage) return landSuccess(dependents);
 		if (parsed.value.endCursor === null) {

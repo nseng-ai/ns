@@ -293,8 +293,9 @@ export async function executeLandingRequest(
 		observations.descendantMaintenance,
 	);
 	if (mergeOutcome.type === "failure") {
-		// A post-merge maintenance failure still verified every target PR merge; record the phase
-		// history truthfully and attribute the failure to the maintenance phase that broke.
+		// Only descendant-maintenance failure proves every target PR merge completed, so only it
+		// adds a completed merge phase. Filtering avoids duplicating a completed/skipped phase that
+		// failedResult records as failed below.
 		if (mergeOutcome.failedPhase === "descendant-maintenance") {
 			draft.phases.push(completed("merge"));
 		}

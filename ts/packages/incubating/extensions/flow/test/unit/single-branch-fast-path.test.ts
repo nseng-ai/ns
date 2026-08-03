@@ -62,7 +62,7 @@ describe("single-branch landing core", () => {
 						headRefName: "feature-unknown-child",
 						headRefOid: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 						baseRefName: FEATURE,
-						baseRefOid: SHA,
+						baseRefOid: "cccccccccccccccccccccccccccccccccccccccc",
 					},
 				],
 			},
@@ -94,6 +94,9 @@ describe("single-branch landing core", () => {
 		expect(fakes.graphite.submitUpdateCalls).toEqual([]);
 		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
 		expect(fakes.git.snapshotBackupRefsCalls).toEqual([]);
+		expect(fakes.github.openPullRequestDependentsCalls).toEqual([
+			{ repoRoot: ROOT, baseRefNames: [FEATURE], baseRefOids: [SHA] },
+		]);
 	});
 
 	test("dry run returns typed facts without confirmation or mutation", async () => {

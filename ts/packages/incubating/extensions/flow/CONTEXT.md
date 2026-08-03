@@ -73,7 +73,7 @@ The renderer-independent plan produced for a **Stack Landing Target**, including
 *Avoid*: command transcript, prompt text, merge execution result
 
 **Land Preflight**:
-The validation phase that gathers repository, stack, PR, worktree, and submit-readiness facts before any land mutation. It reconciles provider-reported descendants with a complete paginated GitHub dependency scan and fails closed when an open PR based on a landing head is missing from provider topology; Flow never automatically adopts or reparents that branch.
+The validation phase that gathers repository, stack, PR, worktree, and submit-readiness facts before any land mutation. It reconciles provider-reported descendants with a complete paginated GitHub dependency scan and fails closed when an open PR whose base ref name or observed snapshot base OID identifies a landing branch is missing from provider topology; the OID is not assumed to be the base ref's current tip, and Flow never automatically adopts or reparents that branch.
 *Avoid*: merge phase, post-landing cleanup, human confirmation prompt, bounded-prefix dependency scan, automatic topology repair
 
 **Descendant Reconciliation**:

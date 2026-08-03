@@ -277,7 +277,7 @@ export interface PullRequestFacts {
 	readonly isDraft: boolean;
 	readonly headRefName: string;
 	readonly baseRefName: string;
-	/** Commit currently named by the PR base ref, including Graphite synthetic base refs. */
+	/** Commit observed for the PR base ref, including Graphite synthetic base refs. */
 	readonly baseRefOid: string;
 	readonly headRefOid: string;
 	readonly mergeStateStatus?: string;
@@ -528,9 +528,9 @@ export interface SquashMergePullRequestResult {
 }
 
 /**
- * Dependency facts for an open pull request, observed from GitHub. `baseRefOid` is the commit
- * the PR's base ref currently points at; an open PR whose base OID equals a landing branch head
- * is a remote dependent of that branch regardless of what the stack provider reports.
+ * Dependency facts for an open pull request, observed from GitHub. `baseRefOid` is the base commit
+ * observed in the PR snapshot and may differ from the base ref's current tip. A matching base ref
+ * name or observed base OID is conservative dependency evidence regardless of provider topology.
  */
 export interface PullRequestDependencyFacts {
 	readonly number: number;
@@ -546,14 +546,14 @@ export interface LandGithubPrGateway {
 		readonly branchOrNumber: string;
 	}): Promise<LandResult<PullRequestFacts>>;
 	/**
-	 * All open pull requests whose base commit OID equals one of `headOids`. Implementations must
-	 * inspect the complete open-PR set (paginated), never an arbitrary bounded prefix: an
-	 * incomplete answer would silently recreate the fail-open descendant-discovery hole this
-	 * operation exists to close.
+	 * All open pull requests whose base ref name or observed base OID matches a requested key.
+	 * Implementations must inspect the complete open-PR set (paginated), never an arbitrary bounded
+	 * prefix: an incomplete answer would silently recreate the fail-open dependency-discovery hole.
 	 */
-	openPullRequestsBasedOnHeads(request: {
+	openPullRequestDependents(request: {
 		readonly repoRoot: string;
-		readonly headOids: readonly string[];
+		readonly baseRefNames: readonly string[];
+		readonly baseRefOids: readonly string[];
 	}): Promise<LandResult<readonly PullRequestDependencyFacts[]>>;
 	pullRequestFactsByBranch?(request: {
 		readonly repoRoot: string;

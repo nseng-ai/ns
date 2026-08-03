@@ -193,7 +193,7 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(exitCode).toBe(1);
 		expect([...output, ...notifications].join("\n")).toContain(
-			"stack provider does not report as descendants",
+			"stack provider does not report them in landing or descendant topology",
 		);
 		expect(
 			pi.execCalls.some(

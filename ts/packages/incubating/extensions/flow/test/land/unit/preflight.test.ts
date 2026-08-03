@@ -323,7 +323,7 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 		});
 	});
 
-	test("refuses before mutation when GitHub reports an open PR based on a landing head that the provider does not know", async () => {
+	test("refuses before mutation when a matching base name has a stale observed OID", async () => {
 		const { context, git, graphite, github } = createInMemoryLandContext({
 			git: { localBranches: [{ name: "feature-a", sha: SHA_A }] },
 			graphite: {
@@ -331,21 +331,30 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 			},
 			github: {
 				pullRequests: [
-					pullRequestFacts({ number: 1, headRefName: "feature-a", headRefOid: SHA_A }),
+					pullRequestFacts({ number: 1, headRefName: "feature-a", headRefOid: SHA_PR_OLD }),
 				],
 				openPullRequestDependencies: [
 					{
 						number: 4074,
 						headRefName: "undiscovered-child",
 						headRefOid: SHA_B,
-						baseRefName: "graphite-base/4074",
+						baseRefName: "feature-a",
+						baseRefOid: "cccccccccccccccccccccccccccccccccccccccc",
+					},
+					{
+						number: 4075,
+						headRefName: "synthetic-base-child",
+						headRefOid: "dddddddddddddddddddddddddddddddddddddddd",
+						baseRefName: "graphite-base/4075",
 						baseRefOid: SHA_A,
 					},
 				],
 			},
 		});
 
-		const plan = await buildStackLandingPlan(context, "/repo");
+		const plan = await buildStackLandingPlan(context, "/repo", {
+			shouldAllowSubmitRequiredState: true,
+		});
 
 		expect(plan).toMatchObject({
 			type: "failure",
@@ -360,8 +369,10 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 		if (plan.type !== "failure" || plan.failure.type !== "domain") return;
 		expect(plan.failure.message).toContain("PR #4074");
 		expect(plan.failure.message).toContain("undiscovered-child");
+		expect(plan.failure.message).toContain("synthetic-base-child");
+		expect(plan.failure.message).toContain("graphite-base/4075");
 		expect(plan.failure.message).toContain("feature-a");
-		expect(plan.failure.message).toContain("graphite-base/4074");
+		expect(plan.failure.message).toContain("observed OID");
 		expect(plan.failure.message).toContain("Provider-reported descendants: (none)");
 		expect(plan.failure.suggestedAction).toContain("will not adopt or reparent");
 		// Fail-closed before mutation and without auto-adoption: no backup refs, merges,
@@ -371,8 +382,8 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 		expect(graphite.deleteLocalBranchCalls).toEqual([]);
 		expect(graphite.restackCalls).toEqual([]);
 		expect(graphite.submitUpdateCalls).toEqual([]);
-		expect(github.openPullRequestsBasedOnHeadsCalls).toEqual([
-			{ repoRoot: ROOT, headOids: [SHA_A] },
+		expect(github.openPullRequestDependentsCalls).toEqual([
+			{ repoRoot: ROOT, baseRefNames: ["feature-a"], baseRefOids: [SHA_A, SHA_PR_OLD] },
 		]);
 	});
 

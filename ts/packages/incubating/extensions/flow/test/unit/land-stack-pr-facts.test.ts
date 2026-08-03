@@ -6,7 +6,7 @@ import { PR_FIELDS } from "../../src/land/stack/constants.ts";
 import {
 	GH_REPO_VIEW_NAME_WITH_OWNER_ARGS,
 	batchedPullRequestFactsGraphqlArgs,
-	loadOpenPullRequestsBasedOnHeads,
+	loadOpenPullRequestDependents,
 	loadPr,
 	loadPrsByBranch,
 	openPullRequestDependencyFactsGraphqlArgs,
@@ -377,12 +377,15 @@ describe("open PR dependency pagination", () => {
 		};
 	}
 
-	test("loads all pages and filters by requested base OID", async () => {
+	test("loads all pages and filters by requested base name or observed OID", async () => {
 		const pi = new FakeLandExecutionApi([
 			repoStep(),
 			step("gh", openPullRequestDependencyFactsGraphqlArgs({ owner: "owner", name: "repo" }), {
 				stdout: dependencyPage({
-					nodes: [dependencyNode(), dependencyNode({ number: 102, baseRefOid: SHA_C })],
+					nodes: [
+						dependencyNode({ baseRefOid: SHA_C }),
+						dependencyNode({ number: 102, baseRefName: "graphite-base/102" }),
+					],
 					hasNextPage: true,
 					endCursor: "cursor-1",
 				}),
@@ -392,7 +395,14 @@ describe("open PR dependency pagination", () => {
 				openPullRequestDependencyFactsGraphqlArgs({ owner: "owner", name: "repo" }, "cursor-1"),
 				{
 					stdout: dependencyPage({
-						nodes: [dependencyNode({ number: 103, headRefName: "feature-child-2" })],
+						nodes: [
+							dependencyNode({
+								number: 103,
+								headRefName: "unrelated",
+								baseRefName: "other",
+								baseRefOid: SHA_C,
+							}),
+						],
 						hasNextPage: false,
 						endCursor: null,
 					}),
@@ -400,10 +410,12 @@ describe("open PR dependency pagination", () => {
 			),
 		]);
 
-		const dependents = expectSuccess(await loadOpenPullRequestsBasedOnHeads(pi, ROOT, [SHA_A]));
+		const dependents = expectSuccess(
+			await loadOpenPullRequestDependents(pi, ROOT, ["feature-a"], [SHA_A]),
+		);
 
 		pi.assertDone();
-		expect(dependents.map((dependent) => dependent.number)).toEqual([101, 103]);
+		expect(dependents.map((dependent) => dependent.number)).toEqual([101, 102]);
 	});
 
 	test("fails closed when another page lacks a cursor", async () => {
@@ -419,7 +431,7 @@ describe("open PR dependency pagination", () => {
 		]);
 
 		expect(
-			expectFailure(await loadOpenPullRequestsBasedOnHeads(pi, ROOT, [SHA_A])).message,
+			expectFailure(await loadOpenPullRequestDependents(pi, ROOT, ["feature-a"], [SHA_A])).message,
 		).toContain("without an end cursor");
 		pi.assertDone();
 	});
@@ -437,7 +449,7 @@ describe("open PR dependency pagination", () => {
 		]);
 
 		expect(
-			expectFailure(await loadOpenPullRequestsBasedOnHeads(pi, ROOT, [SHA_A])).message,
+			expectFailure(await loadOpenPullRequestDependents(pi, ROOT, ["feature-a"], [SHA_A])).message,
 		).toContain("did not match the expected shape");
 		pi.assertDone();
 	});
