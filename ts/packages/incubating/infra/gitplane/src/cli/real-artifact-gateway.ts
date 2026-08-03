@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 import type {
 	ArtifactCandidate,
 	ArtifactEntry,
-	CorpusCheckGateway,
+	ArtifactGateway,
 	CommitDiff,
 	CommitFacts,
 	CreateArtifactRequest,
@@ -60,7 +60,16 @@ function isCode(error: unknown, code: string): boolean {
 }
 // This temporarily implements the narrower corpus-check contract; it becomes the full
 // ArtifactGateway when reconciliation adds discovery and snapshot-reading capabilities.
-export class RealArtifactGateway implements CorpusCheckGateway {
+export class RealArtifactGateway implements Pick<
+	ArtifactGateway,
+	| "createArtifact"
+	| "resolveCommit"
+	| "readCommitFacts"
+	| "isAncestor"
+	| "inventoryWorkingTree"
+	| "readWorkingTreeCandidate"
+	| "diffCommits"
+> {
 	private readonly cwd: string;
 	private readonly git: GitCommandExecutor;
 	private readonly hooks: RealArtifactGatewayHooks;

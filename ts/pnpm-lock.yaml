@@ -558,6 +558,9 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../../public/infra/clinkr
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../../public/infra/foundation
       zod:
         specifier: 'catalog:'
         version: 4.4.3

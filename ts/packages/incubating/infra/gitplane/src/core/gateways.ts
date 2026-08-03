@@ -77,8 +77,6 @@ export interface ArtifactGateway {
 		readonly fromCommit: string;
 		readonly toCommit: string;
 	}): Promise<GatewayResult<CommitDiff>>;
-}
-export interface CorpusCheckGateway {
 	inventoryWorkingTree(request: {
 		readonly artifactRoot: string;
 	}): Promise<GatewayResult<readonly TreeInventoryEntry[]>>;

@@ -2,14 +2,49 @@ import { readFile } from "node:fs/promises";
 import { expect, test } from "vitest";
 import { runForCliTest } from "@nseng-ai/clinkr/app/testing";
 import { createGitplaneCliApp, VERSION } from "@nseng-ai/gitplane/cli";
+import type { GitplaneConfigGateway } from "@nseng-ai/gitplane/cli";
 import { InMemoryArtifactGateway } from "@nseng-ai/gitplane/testing";
 import { parseArtifactId } from "@nseng-ai/gitplane";
+import type { ArtifactGateway } from "@nseng-ai/gitplane";
 const parsed = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
 if (!parsed.ok) throw new Error();
 const artifactId = parsed.artifactId;
 const app = createGitplaneCliApp();
-function context(gateway = new InMemoryArtifactGateway()) {
-	return { artifactGateway: gateway, artifactIds: { generateArtifactId: () => artifactId } };
+type CliArtifactGateway = Pick<
+	ArtifactGateway,
+	"createArtifact" | "inventoryWorkingTree" | "readWorkingTreeCandidate"
+>;
+interface ContextOptions {
+	readonly artifactGateway?: CliArtifactGateway;
+	readonly configGateway?: GitplaneConfigGateway;
+}
+function context(options: ContextOptions = {}) {
+	return {
+		artifactGateway: options.artifactGateway ?? new InMemoryArtifactGateway(),
+		artifactIds: { generateArtifactId: () => artifactId },
+		configGateway: options.configGateway ?? {
+			load: async () => ({
+				ok: false as const,
+				category: "config-load" as const,
+				diagnostic: "missing",
+			}),
+		},
+		cwd: ".",
+	};
+}
+function loadedConfig(options: { readonly root?: string; readonly id?: string } = {}) {
+	return {
+		load: async () => ({
+			ok: true as const,
+			artifactRoot: options.root ?? "artifacts",
+			config: {
+				source: { id: options.id ?? "source", artifactRoot: options.root ?? "artifacts" },
+				store: () => {
+					throw new Error("check must not construct the store");
+				},
+			},
+		}),
+	};
 }
 test.each([
 	["--version", VERSION],
@@ -34,7 +69,7 @@ test("keeps application version synchronized with the package manifest", async (
 test("creates generic and classified artifacts through typed envelopes", async () => {
 	const gateway = new InMemoryArtifactGateway();
 	const run = await runForCliTest(app, ["artifact", "create", "x", "--format=json"], {
-		context: context(gateway),
+		context: context({ artifactGateway: gateway }),
 	});
 	expect(run.exitCode).toBe(0);
 	expect(JSON.parse(run.stdout)).toMatchObject({
@@ -60,7 +95,7 @@ test("creates generic and classified artifacts through typed envelopes", async (
 			"--schema-version",
 			"2",
 		],
-		{ context: context(classified) },
+		{ context: context({ artifactGateway: classified }) },
 	);
 	const classifiedArtifacts = classified.createdArtifacts();
 	expect(classifiedArtifacts).toHaveLength(1);
@@ -77,7 +112,7 @@ test("accepts supplied IDs through long and short options", async () => {
 	for (const option of ["--id", "-i"]) {
 		const gateway = new InMemoryArtifactGateway();
 		const run = await runForCliTest(app, ["artifact", "create", option, artifactId, "x"], {
-			context: context(gateway),
+			context: context({ artifactGateway: gateway }),
 		});
 		expect(run.exitCode).toBe(0);
 		expect(gateway.createdArtifacts()[0]?.artifactId).toBe(artifactId);
@@ -87,7 +122,7 @@ test("accepts supplied IDs through long and short options", async () => {
 test("uses classification defaults", async () => {
 	const gateway = new InMemoryArtifactGateway();
 	const run = await runForCliTest(app, ["artifact", "create", "x", "--kind", "Greeting"], {
-		context: context(gateway),
+		context: context({ artifactGateway: gateway }),
 	});
 	expect(run.exitCode).toBe(0);
 	const createdArtifacts = gateway.createdArtifacts();
@@ -165,7 +200,7 @@ test("reports operational and unavailable outcomes", async () => {
 		created: [{ directory: "x", artifactId, marker: "" }],
 	});
 	const negative = await runForCliTest(app, ["artifact", "create", "x", "--format=json"], {
-		context: context(collision),
+		context: context({ artifactGateway: collision }),
 	});
 	expect(JSON.parse(negative.stdout)).toMatchObject({
 		status: "negative",
@@ -175,7 +210,7 @@ test("reports operational and unavailable outcomes", async () => {
 		failures: { createArtifact: { code: "denied", message: "no" } },
 	});
 	const failed = await runForCliTest(app, ["artifact", "create", "x", "--format=json"], {
-		context: context(failure),
+		context: context({ artifactGateway: failure }),
 	});
 	expect(JSON.parse(failed.stdout)).toMatchObject({
 		status: "failure",
@@ -184,13 +219,254 @@ test("reports operational and unavailable outcomes", async () => {
 	const stub = await runForCliTest(app, ["check", "--format=json"], { context: context() });
 	expect(JSON.parse(stub.stdout)).toMatchObject({
 		status: "failure",
-		errorType: "command-unavailable",
+		errorType: "check-failed",
 	});
 });
-test("publishes the command schema", async () => {
-	const run = await runForCliTest(app, ["artifact", "create", "--json-schema"], {
-		context: context(),
+test("publishes command schemas", async () => {
+	for (const command of [
+		["artifact", "create", "--json-schema"],
+		["check", "--json-schema"],
+	]) {
+		const run = await runForCliTest(app, command, { context: context() });
+		expect(run.exitCode).toBe(0);
+		expect(JSON.parse(run.stdout)).toHaveProperty("machineEnvelopeJsonSchema");
+	}
+});
+
+test("check returns exact clean data for an empty root without history or store operations", async () => {
+	const gateway = new InMemoryArtifactGateway({
+		workingInventories: [{ artifactRoot: "artifacts", entries: [] }],
+	});
+	const run = await runForCliTest(app, ["check", "--format=json"], {
+		context: context({ configGateway: loadedConfig(), artifactGateway: gateway }),
 	});
 	expect(run.exitCode).toBe(0);
-	expect(JSON.parse(run.stdout)).toHaveProperty("machineEnvelopeJsonSchema");
+	expect(JSON.parse(run.stdout)).toEqual({
+		status: "success",
+		exitCode: 0,
+		data: {
+			sourceId: "source",
+			artifactRoot: "artifacts",
+			artifactCount: 0,
+			errorCount: 0,
+			warningCount: 0,
+			findings: [],
+		},
+	});
+	expect(gateway.operationLog()).toEqual(["inventoryWorkingTree"]);
+});
+
+test("check returns deterministic corpus findings as exit 1 data", async () => {
+	const gateway = new InMemoryArtifactGateway({
+		workingInventories: [
+			{
+				artifactRoot: "artifacts",
+				entries: [
+					{ path: "artifacts/b/gitplane-artifact.json", kind: "regular-file" },
+					{ path: "artifacts/a/gitplane-artifact.json", kind: "regular-file" },
+				],
+			},
+		],
+		workingCandidates: [
+			{
+				path: "artifacts/a",
+				entries: [
+					{ path: "gitplane-artifact.json", kind: "regular-file", bytes: Buffer.from("not json") },
+				],
+			},
+			{
+				path: "artifacts/b",
+				entries: [
+					{ path: "gitplane-artifact.json", kind: "regular-file", bytes: Buffer.from("{}") },
+				],
+			},
+		],
+	});
+	const run = await runForCliTest(app, ["check", "--format=json"], {
+		context: context({ configGateway: loadedConfig(), artifactGateway: gateway }),
+	});
+	expect(run.exitCode).toBe(1);
+	expect(JSON.parse(run.stdout)).toEqual({
+		status: "negative",
+		exitCode: 1,
+		message: "Artifact corpus is invalid.",
+		data: {
+			sourceId: "source",
+			artifactRoot: "artifacts",
+			artifactCount: 2,
+			errorCount: 2,
+			warningCount: 0,
+			findings: [
+				{
+					code: "invalid-marker-json",
+					severity: "error",
+					summary: "Artifact marker must contain a JSON object.",
+					artifactPath: "artifacts/a",
+					relativePath: "gitplane-artifact.json",
+				},
+				{
+					code: "invalid-marker-envelope",
+					severity: "error",
+					summary: "Artifact marker requires gpId.",
+					artifactPath: "artifacts/b",
+					relativePath: "gitplane-artifact.json",
+					jsonPointer: "/gpId",
+				},
+			],
+		},
+	});
+	expect(
+		JSON.parse(run.stdout).data.findings.map(
+			(finding: { artifactPath?: string; code: string }) =>
+				`${finding.artifactPath ?? ""}:${finding.code}`,
+		),
+	).toEqual(["artifacts/a:invalid-marker-json", "artifacts/b:invalid-marker-envelope"]);
+});
+
+test.each(["--config", "-c"])("check forwards %s exactly once", async (option) => {
+	const requests: unknown[] = [];
+	const gateway = new InMemoryArtifactGateway({
+		workingInventories: [{ artifactRoot: "empty", entries: [] }],
+	});
+	const run = await runForCliTest(app, ["check", option, "config/custom.ts"], {
+		context: context({
+			configGateway: {
+				load: async (request) => {
+					requests.push(request);
+					return {
+						ok: true as const,
+						artifactRoot: "empty",
+						config: {
+							source: { id: "s", artifactRoot: "empty" },
+							store: () => {
+								throw new Error("check must not construct the store");
+							},
+						},
+					};
+				},
+			},
+			artifactGateway: gateway,
+		}),
+	});
+	expect(run.exitCode).toBe(0);
+	expect(requests).toEqual([{ cwd: ".", configPath: "config/custom.ts" }]);
+});
+
+test.each([
+	{
+		name: "config failure",
+		gateway: new InMemoryArtifactGateway(),
+		loader: {
+			load: async () => ({
+				ok: false as const,
+				category: "config-load" as const,
+				diagnostic: "Unable to load configuration module.",
+				path: "gitplane.config.ts",
+			}),
+		},
+		data: {
+			category: "config-load",
+			diagnostic: "Unable to load configuration module.",
+			path: "gitplane.config.ts",
+		},
+	},
+	{
+		name: "inventory failure",
+		gateway: new InMemoryArtifactGateway({
+			failures: {
+				inventoryWorkingTree: { code: "source-error", message: "/host/private contents" },
+			},
+		}),
+		loader: loadedConfig(),
+		data: {
+			category: "source-read-failed",
+			diagnostic: "Unable to inventory the artifact root.",
+			path: "artifacts",
+			causeCode: "source-error",
+		},
+	},
+	{
+		name: "candidate read failure",
+		gateway: new InMemoryArtifactGateway({
+			workingInventories: [
+				{
+					artifactRoot: "artifacts",
+					entries: [{ path: "artifacts/a/gitplane-artifact.json", kind: "regular-file" }],
+				},
+			],
+			failures: {
+				readWorkingTreeCandidate: { code: "source-error", message: "/host/private contents" },
+			},
+		}),
+		loader: loadedConfig(),
+		data: {
+			category: "source-read-failed",
+			diagnostic: "Unable to read an artifact candidate.",
+			path: "artifacts/a",
+			causeCode: "source-error",
+		},
+	},
+])("check returns exact sanitized exit 2 data for $name", async ({ gateway, loader, data }) => {
+	const run = await runForCliTest(app, ["check", "--format=json"], {
+		context: context({ configGateway: loader, artifactGateway: gateway }),
+	});
+	expect(run.exitCode).toBe(2);
+	expect(JSON.parse(run.stdout)).toEqual({
+		status: "failure",
+		exitCode: 2,
+		errorType: "check-failed",
+		message: "Unable to check the artifact corpus.",
+		data,
+	});
+	expect(run.stdout).not.toContain("/host/private");
+	expect(run.stdout).not.toContain("artifactCount");
+	expect(run.stdout).not.toContain("findings");
+	expect(JSON.parse(run.stdout).data).not.toHaveProperty("corpus");
+});
+
+test("check maps unexpected config throws to a sanitized config load failure", async () => {
+	const run = await runForCliTest(app, ["check", "--format=json"], {
+		context: context({
+			configGateway: {
+				load: async () => {
+					throw new Error("/host/private secret artifact bytes");
+				},
+			},
+		}),
+	});
+	expect(run.exitCode).toBe(2);
+	expect(JSON.parse(run.stdout)).toEqual({
+		status: "failure",
+		exitCode: 2,
+		errorType: "check-failed",
+		message: "Unable to check the artifact corpus.",
+		data: { category: "config-load", diagnostic: "Unexpected configuration load failure." },
+	});
+	expect(run.stdout).not.toContain("/host/private");
+});
+
+test("check maps unexpected source throws to a sanitized source read failure", async () => {
+	const throwing: CliArtifactGateway = {
+		createArtifact: async () => {
+			throw new Error("not used");
+		},
+		inventoryWorkingTree: async () => {
+			throw new Error("/host/private secret artifact bytes");
+		},
+		readWorkingTreeCandidate: async () => {
+			throw new Error("/host/private secret artifact bytes");
+		},
+	};
+	const run = await runForCliTest(app, ["check", "--format=json"], {
+		context: context({ configGateway: loadedConfig(), artifactGateway: throwing }),
+	});
+	expect(run.exitCode).toBe(2);
+	expect(JSON.parse(run.stdout)).toEqual({
+		status: "failure",
+		exitCode: 2,
+		errorType: "check-failed",
+		message: "Unable to check the artifact corpus.",
+		data: { category: "source-read-failed", diagnostic: "Unexpected source read failure." },
+	});
+	expect(run.stdout).not.toContain("/host/private");
 });
