@@ -50,11 +50,14 @@ export type {
 	ArtifactBoundary,
 	ArtifactCurrentRecord,
 	ArtifactGateway,
+	ArtifactTransitionKind,
+	BaselineDeleteResult,
 	ArtifactLineageRecord,
 	CommitDiff,
 	CommitFacts,
 	CreateArtifactRequest,
 	CreateArtifactResult,
+	CountedOperationResult,
 	CursorCompareAndSetResult,
 	CursorRecord,
 	DoctorCapability,
@@ -62,6 +65,7 @@ export type {
 	DoctorIntrospection,
 	EventInsertResult,
 	EventRecord,
+	EventReconstructionStatus,
 	GatewayError,
 	GatewayResult,
 	InsertResult,
@@ -69,6 +73,9 @@ export type {
 	MaterializationStoreGateway,
 	OperationResult,
 	ReconciliationErrorRecord,
+	ReconciliationMode,
+	ReconciliationPlanBaseline,
+	ReconciliationPlanBaselineEntry,
 	RevisionRecord,
 	StoredEvent,
 	StoredReconciliationError,
@@ -86,5 +93,16 @@ export type { Finding } from "./check/finding.ts";
 export { ARTIFACT_MARKER_NAME, inspectCorpusTopology } from "./check/inspect-corpus-topology.ts";
 export type { ArtifactBoundaryTopology, CorpusTopology } from "./check/inspect-corpus-topology.ts";
 export { doctorCheckSchema, evaluateDoctor } from "./doctor/index.ts";
+export { deriveReconciliationPlanDigest } from "./reconciliation-baseline.ts";
+export type { ReconciliationPlanDigestInput } from "./reconciliation-baseline.ts";
+export { reconcile } from "./reconciliation/reconcile.ts";
+export type {
+	ReconcileContext,
+	ReconcileData,
+	ReconcileFailure,
+	ReconcileOptions,
+	ReconcileResult,
+	ReconciliationTransitionCounts,
+} from "./reconciliation/types.ts";
 export { buildProjectionPlan, resolveJsonPointer } from "./projection/index.ts";
 export type { JsonPointerResult, ProjectionPlan } from "./projection/index.ts";

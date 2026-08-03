@@ -2,16 +2,20 @@ import { execFile } from "node:child_process";
 import { link, lstat, mkdir, open, readdir, readFile, rm, rmdir, unlink } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import type {
-	ArtifactCandidate,
-	ArtifactEntry,
-	ArtifactGateway,
-	CommitDiff,
-	CommitFacts,
-	CreateArtifactRequest,
-	CreateArtifactResult,
-	GatewayResult,
-	TreeInventoryEntry,
+import {
+	inspectCorpusTopology,
+	parseArtifactMarker,
+	type ArtifactBoundary,
+	type ArtifactCandidate,
+	type ArtifactEntry,
+	type ArtifactGateway,
+	type ArtifactSnapshot,
+	type CommitDiff,
+	type CommitFacts,
+	type CreateArtifactRequest,
+	type CreateArtifactResult,
+	type GatewayResult,
+	type TreeInventoryEntry,
 } from "../core/index.ts";
 
 const executeFile = promisify(execFile);
@@ -58,18 +62,7 @@ function failure(error: unknown) {
 function isCode(error: unknown, code: string): boolean {
 	return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }
-// This temporarily implements the narrower corpus-check contract; it becomes the full
-// ArtifactGateway when reconciliation adds discovery and snapshot-reading capabilities.
-export class RealArtifactGateway implements Pick<
-	ArtifactGateway,
-	| "createArtifact"
-	| "resolveCommit"
-	| "readCommitFacts"
-	| "isAncestor"
-	| "inventoryWorkingTree"
-	| "readWorkingTreeCandidate"
-	| "diffCommits"
-> {
+export class RealArtifactGateway implements ArtifactGateway {
 	private readonly cwd: string;
 	private readonly git: GitCommandExecutor;
 	private readonly hooks: RealArtifactGatewayHooks;
@@ -232,6 +225,43 @@ export class RealArtifactGateway implements Pick<
 					.filter((entry) => !isBeneathMarkerDirectory(entry.path)),
 		);
 	}
+	async discoverWorkingTree(request: {
+		readonly artifactRoot: string;
+	}): Promise<GatewayResult<readonly ArtifactBoundary[]>> {
+		const inventory = await this.inventoryWorkingTree(request);
+		if (!inventory.ok) return inventory;
+		return this.discoverValidatedBoundaries(inventory.value, (artifactPath) =>
+			this.readWorkingTreeCandidate({ path: artifactPath }),
+		);
+	}
+	async discoverCommitTree(request: {
+		readonly commit: string;
+		readonly artifactRoot: string;
+	}): Promise<GatewayResult<readonly ArtifactBoundary[]>> {
+		const inventory = await this.inventoryCommitTree(request);
+		if (!inventory.ok) return inventory;
+		return this.discoverValidatedBoundaries(inventory.value, (artifactPath) =>
+			this.readCommitTreeCandidate({ commit: request.commit, path: artifactPath }),
+		);
+	}
+	async readWorkingTreeSnapshot(request: {
+		readonly sourceId: string;
+		readonly path: string;
+	}): Promise<GatewayResult<ArtifactSnapshot>> {
+		const candidate = await this.readWorkingTreeCandidate({ path: request.path });
+		return candidate.ok ? this.snapshot(request.sourceId, candidate.value) : candidate;
+	}
+	async readCommitTreeSnapshot(request: {
+		readonly sourceId: string;
+		readonly commit: string;
+		readonly path: string;
+	}): Promise<GatewayResult<ArtifactSnapshot>> {
+		const candidate = await this.readCommitTreeCandidate({
+			commit: request.commit,
+			path: request.path,
+		});
+		return candidate.ok ? this.snapshot(request.sourceId, candidate.value) : candidate;
+	}
 	async readCommitTreeCandidate(request: {
 		readonly commit: string;
 		readonly path: string;
@@ -297,6 +327,90 @@ export class RealArtifactGateway implements Pick<
 				bytes.set(blobPath, (await this.git.execute(["show", `${commit}:${blobPath}`])).stdout);
 		}
 		return bytes;
+	}
+	private async discoverValidatedBoundaries(
+		inventory: readonly TreeInventoryEntry[],
+		readCandidate: (artifactPath: string) => Promise<GatewayResult<ArtifactCandidate>>,
+	): Promise<GatewayResult<readonly ArtifactBoundary[]>> {
+		const topology = inspectCorpusTopology(inventory);
+		if (topology.findings.length > 0)
+			return {
+				ok: false,
+				error: {
+					code: "invalid-corpus",
+					message: topology.findings[0]?.summary ?? "Nested artifact.",
+				},
+			};
+		const pathsById = new Map<string, string>();
+		for (const boundary of topology.boundaries) {
+			const candidate = await readCandidate(boundary.path);
+			if (!candidate.ok) return candidate;
+			const validated = this.snapshot("discovery", candidate.value);
+			if (!validated.ok) return validated;
+			const duplicate = pathsById.get(validated.value.artifactId);
+			if (duplicate !== undefined)
+				return {
+					ok: false,
+					error: {
+						code: "duplicate-artifact-id",
+						message: `Artifact ID ${validated.value.artifactId} occurs at ${duplicate} and ${boundary.path}.`,
+					},
+				};
+			pathsById.set(validated.value.artifactId, boundary.path);
+		}
+		return { ok: true, value: topology.boundaries.map(({ path }) => ({ path })) };
+	}
+	private snapshot(
+		sourceId: string,
+		candidate: ArtifactCandidate,
+	): GatewayResult<ArtifactSnapshot> {
+		const unsupported = candidate.entries.find(
+			(entry) => entry.kind !== "regular-file" && entry.kind !== "directory",
+		);
+		if (unsupported !== undefined)
+			return {
+				ok: false,
+				error: {
+					code: "invalid-corpus",
+					message: `Unsupported artifact entry: ${candidate.path}/${unsupported.path}`,
+				},
+			};
+		const marker = candidate.entries.find((entry) => entry.path === "gitplane-artifact.json");
+		if (marker?.kind !== "regular-file")
+			return {
+				ok: false,
+				error: { code: "invalid-corpus", message: `Invalid artifact marker: ${candidate.path}` },
+			};
+		let value: unknown;
+		try {
+			value = JSON.parse(Buffer.from(marker.bytes).toString("utf8"));
+		} catch {
+			return {
+				ok: false,
+				error: {
+					code: "invalid-corpus",
+					message: `Invalid artifact marker JSON: ${candidate.path}`,
+				},
+			};
+		}
+		const parsed = parseArtifactMarker(value);
+		if (!parsed.ok) return { ok: false, error: { code: parsed.code, message: parsed.message } };
+		return {
+			ok: true,
+			value: {
+				sourceId,
+				artifactId: parsed.marker.gpId,
+				path: candidate.path,
+				envelope: structuredClone(parsed.marker.envelope),
+				classification: structuredClone(parsed.marker.classification),
+				entries: candidate.entries
+					.filter(
+						(entry): entry is Extract<ArtifactEntry, { readonly kind: "regular-file" }> =>
+							entry.kind === "regular-file",
+					)
+					.map((entry) => ({ ...entry, bytes: new Uint8Array(entry.bytes) })),
+			},
+		};
 	}
 	async diffCommits(request: {
 		readonly fromCommit: string;

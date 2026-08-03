@@ -232,11 +232,299 @@ test("publishes command schemas", async () => {
 		["artifact", "create", "--json-schema"],
 		["check", "--json-schema"],
 		["doctor", "--json-schema"],
+		["reconcile", "--json-schema"],
 	]) {
 		const run = await runForCliTest(app, command, { context: context() });
 		expect(run.exitCode).toBe(0);
 		expect(JSON.parse(run.stdout)).toHaveProperty("machineEnvelopeJsonSchema");
 	}
+});
+
+test("reconcile help documents its positional and options", async () => {
+	const run = await runForCliTest(app, ["reconcile", "--help"], { context: context() });
+	expect(run.exitCode).toBe(0);
+	expect(run.stdout).toContain("<commit>");
+	expect(run.stdout).toContain("--full");
+	expect(run.stdout).toContain("-f");
+	expect(run.stdout).toContain("--config");
+	expect(run.stdout).toContain("-c");
+});
+
+test("reconcile parses options, opens one read-write store, and returns bounded data", async () => {
+	for (const [fullOption, configOption] of [
+		["--full", "--config"],
+		["-f", "-c"],
+	] as const) {
+		const requests: unknown[] = [];
+		const accesses: unknown[] = [];
+		let openCount = 0;
+		const store = new InMemoryMaterializationStoreGateway({
+			cursors: [{ sourceId: "source", commit: "target" }],
+		});
+		const gateway = new InMemoryArtifactGateway({
+			commits: { requested: "target" },
+			commitFacts: [{ commit: "target", parents: [], isMerge: false }],
+			commitBoundaries: [{ commit: "target", artifactRoot: "artifacts", boundaries: [] }],
+		});
+		const run = await runForCliTest(
+			app,
+			["reconcile", "requested", fullOption, configOption, "config/domain.ts", "--format=json"],
+			{
+				context: context({
+					artifactGateway: gateway,
+					configGateway: {
+						load: async (request) => {
+							requests.push(request);
+							return {
+								ok: true,
+								artifactRoot: "artifacts",
+								configDirectory: "/repo/config",
+								config: {
+									source: { id: "source", artifactRoot: "artifacts" },
+									store: (gitplaneContext, options) => {
+										openCount += 1;
+										accesses.push({ gitplaneContext, options });
+										return store;
+									},
+								},
+							};
+						},
+					},
+				}),
+			},
+		);
+		expect(run.exitCode).toBe(0);
+		expect(JSON.parse(run.stdout)).toEqual({
+			status: "success",
+			exitCode: 0,
+			data: {
+				sourceId: "source",
+				targetCommit: "target",
+				previousCursor: "target",
+				mode: "full",
+				status: "reconciled",
+				transitions: {
+					created: 0,
+					restored: 0,
+					revised: 0,
+					moved: 0,
+					unchanged: 0,
+					deleted: 0,
+				},
+				eventReconstruction: "not-applicable",
+				cursorAdvanced: true,
+				errorsResolved: 0,
+			},
+		});
+		expect(requests).toEqual([{ cwd: ".", configPath: "config/domain.ts" }]);
+		expect(openCount).toBe(1);
+		expect(accesses).toEqual([
+			{
+				gitplaneContext: { clock: expect.any(Object), configDirectory: "/repo/config" },
+				options: { access: "read-write" },
+			},
+		]);
+		expect(store.operationLog().at(-1)).toBe("close");
+	}
+});
+
+test("reconcile reports already-current and stable human output", async () => {
+	const store = new InMemoryMaterializationStoreGateway({
+		cursors: [{ sourceId: "source", commit: "target" }],
+	});
+	const gateway = new InMemoryArtifactGateway({
+		commitFacts: [{ commit: "target", parents: [], isMerge: false }],
+	});
+	const run = await runForCliTest(app, ["reconcile", "target"], {
+		context: context({
+			artifactGateway: gateway,
+			configGateway: {
+				load: async () => ({
+					ok: true,
+					artifactRoot: "artifacts",
+					configDirectory: "/repo/config",
+					config: {
+						source: { id: "source", artifactRoot: "artifacts" },
+						store: () => store,
+					},
+				}),
+			},
+		}),
+	});
+	expect(run.exitCode).toBe(0);
+	expect(run.stdout).toContain("source: already-current at target (incremental)");
+	expect(run.stdout).toContain("created 0, restored 0, revised 0, moved 0, unchanged 0, deleted 0");
+});
+
+test("reconcile sanitizes store open failures", async () => {
+	const run = await runForCliTest(app, ["reconcile", "target", "--format=json"], {
+		context: context({
+			artifactGateway: new InMemoryArtifactGateway(),
+			configGateway: {
+				load: async () => ({
+					ok: true,
+					artifactRoot: "artifacts",
+					configDirectory: "/repo/config",
+					config: {
+						source: { id: "source", artifactRoot: "artifacts" },
+						store: () => {
+							throw new Error("/private/open-secret");
+						},
+					},
+				}),
+			},
+		}),
+	});
+	expect(run.exitCode).toBe(2);
+	expect(JSON.parse(run.stdout)).toMatchObject({
+		status: "failure",
+		errorType: "reconcile-failed",
+		data: { category: "store-open-failed" },
+	});
+	expect(run.stdout).not.toContain("open-secret");
+});
+
+test("reconcile sanitizes planning failures and still closes the store", async () => {
+	const store = new InMemoryMaterializationStoreGateway();
+	const gateway = new InMemoryArtifactGateway({
+		failures: { resolveCommit: { code: "commit-missing", message: "/private/repo secret" } },
+	});
+	const run = await runForCliTest(app, ["reconcile", "missing", "--format=json"], {
+		context: context({
+			artifactGateway: gateway,
+			configGateway: {
+				load: async () => ({
+					ok: true,
+					artifactRoot: "artifacts",
+					configDirectory: "/repo/config",
+					config: {
+						source: { id: "source", artifactRoot: "artifacts" },
+						store: () => store,
+					},
+				}),
+			},
+		}),
+	});
+	expect(JSON.parse(run.stdout)).toEqual({
+		status: "failure",
+		exitCode: 2,
+		errorType: "reconcile-failed",
+		message: "Unable to reconcile Gitplane artifacts.",
+		data: { code: "commit-missing", phase: "read", cursorAdvanced: false },
+	});
+	expect(run.stdout).not.toContain("private");
+	expect(store.operationLog()).toEqual(["close"]);
+});
+
+test("reconcile preserves post-CAS cleanup evidence without backend details", async () => {
+	const store = new InMemoryMaterializationStoreGateway(
+		{ cursors: [{ sourceId: "source", commit: "target" }] },
+		{ resolveReconciliationErrors: { code: "database-secret", message: "/private/sql" } },
+	);
+	const gateway = new InMemoryArtifactGateway({
+		commitFacts: [{ commit: "target", parents: [], isMerge: false }],
+		commitBoundaries: [{ commit: "target", artifactRoot: "artifacts", boundaries: [] }],
+	});
+	const run = await runForCliTest(app, ["reconcile", "target", "--full", "--format=json"], {
+		context: context({
+			artifactGateway: gateway,
+			configGateway: {
+				load: async () => ({
+					ok: true,
+					artifactRoot: "artifacts",
+					configDirectory: "/repo/config",
+					config: {
+						source: { id: "source", artifactRoot: "artifacts" },
+						store: () => store,
+					},
+				}),
+			},
+		}),
+	});
+	expect(JSON.parse(run.stdout)).toMatchObject({
+		status: "failure",
+		errorType: "reconcile-failed",
+		data: {
+			code: "database-secret",
+			phase: "cleanup",
+			operation: "resolveReconciliationErrors",
+			targetCommit: "target",
+			cursorAdvanced: true,
+		},
+	});
+	expect(run.stdout).not.toContain("private");
+	expect(store.operationLog().at(-1)).toBe("close");
+});
+
+test("reconcile retains the primary failure and reports simultaneous close failure evidence", async () => {
+	const store = new InMemoryMaterializationStoreGateway(
+		{},
+		{
+			close: { code: "close-secret", message: "/private/close-secret" },
+		},
+	);
+	const gateway = new InMemoryArtifactGateway({
+		failures: { resolveCommit: { code: "commit-missing", message: "/private/repo-secret" } },
+	});
+	const run = await runForCliTest(app, ["reconcile", "missing", "--format=json"], {
+		context: context({
+			artifactGateway: gateway,
+			configGateway: {
+				load: async () => ({
+					ok: true,
+					artifactRoot: "artifacts",
+					configDirectory: "/repo/config",
+					config: {
+						source: { id: "source", artifactRoot: "artifacts" },
+						store: () => store,
+					},
+				}),
+			},
+		}),
+	});
+	expect(JSON.parse(run.stdout)).toMatchObject({
+		status: "failure",
+		errorType: "reconcile-failed",
+		data: {
+			code: "commit-missing",
+			phase: "read",
+			cursorAdvanced: false,
+			closeFailure: "store-close-failed",
+		},
+	});
+	expect(run.stdout).not.toContain("private");
+});
+
+test("reconcile reports close failure with completed cursor evidence", async () => {
+	const store = new InMemoryMaterializationStoreGateway(
+		{ cursors: [{ sourceId: "source", commit: "target" }] },
+		{ close: { code: "secret", message: "/private/close-secret" } },
+	);
+	const gateway = new InMemoryArtifactGateway({
+		commitFacts: [{ commit: "target", parents: [], isMerge: false }],
+		commitBoundaries: [{ commit: "target", artifactRoot: "artifacts", boundaries: [] }],
+	});
+	const run = await runForCliTest(app, ["reconcile", "target", "--full", "--format=json"], {
+		context: context({
+			artifactGateway: gateway,
+			configGateway: {
+				load: async () => ({
+					ok: true,
+					artifactRoot: "artifacts",
+					configDirectory: "/repo/config",
+					config: {
+						source: { id: "source", artifactRoot: "artifacts" },
+						store: () => store,
+					},
+				}),
+			},
+		}),
+	});
+	expect(JSON.parse(run.stdout)).toMatchObject({
+		status: "failure",
+		data: { category: "store-close-failed", cursorAdvanced: true, targetCommit: "target" },
+	});
+	expect(run.stdout).not.toContain("close-secret");
 });
 
 test("doctor requests read-only access and returns typed checks", async () => {
@@ -463,6 +751,7 @@ test.each(["--config", "-c"])("check forwards %s exactly once", async (option) =
 	});
 	const run = await runForCliTest(app, ["check", option, "config/custom.ts"], {
 		context: context({
+			artifactGateway: gateway,
 			configGateway: {
 				load: async (request) => {
 					requests.push(request);
@@ -479,7 +768,6 @@ test.each(["--config", "-c"])("check forwards %s exactly once", async (option) =
 					};
 				},
 			},
-			artifactGateway: gateway,
 		}),
 	});
 	expect(run.exitCode).toBe(0);

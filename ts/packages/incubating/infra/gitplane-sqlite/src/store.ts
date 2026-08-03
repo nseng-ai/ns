@@ -5,6 +5,8 @@ import type {
 	ArtifactCurrentRecord,
 	ArtifactId,
 	ArtifactLineageRecord,
+	ArtifactTransitionKind,
+	BaselineDeleteResult,
 	CursorCompareAndSetResult,
 	CursorRecord,
 	DoctorIntrospection,
@@ -16,6 +18,8 @@ import type {
 	MaterializationStoreGateway,
 	OperationResult,
 	ReconciliationErrorRecord,
+	ReconciliationMode,
+	ReconciliationPlanBaseline,
 	RevisionRecord,
 	StoreAccess,
 	TargetMapping,
@@ -43,6 +47,144 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 	private closed = false;
 	constructor(database: DatabaseSync) {
 		this.database = database;
+	}
+	async readReconciliationPlanBaseline(request: {
+		readonly sourceId: string;
+	}): Promise<LookupResult<ReconciliationPlanBaseline>> {
+		return this.lookup(() => {
+			const header = this.database
+				.prepare(
+					"SELECT expected_cursor, target_commit, mode, event_reconstruction, plan_digest FROM gitplane_reconciliation_plans WHERE source_id = ?",
+				)
+				.get(request.sourceId) as
+				| {
+						expected_cursor: string | null;
+						target_commit: string;
+						mode: ReconciliationMode;
+						event_reconstruction: ReconciliationPlanBaseline["eventReconstruction"];
+						plan_digest: string;
+				  }
+				| undefined;
+			if (header === undefined) return undefined;
+			const entries = this.database
+				.prepare(
+					"SELECT artifact_id, transition_kind, prior_revision_id, current_revision_id, prior_path, current_path, prior_classification, current_classification, prior_schema_version, current_schema_version, target_mapping FROM gitplane_reconciliation_plan_entries WHERE source_id = ? ORDER BY artifact_id",
+				)
+				.all(request.sourceId) as {
+				artifact_id: ArtifactId;
+				transition_kind: ArtifactTransitionKind;
+				prior_revision_id: string | null;
+				current_revision_id: string | null;
+				prior_path: string | null;
+				current_path: string | null;
+				prior_classification: string | null;
+				current_classification: string | null;
+				prior_schema_version: number | null;
+				current_schema_version: number | null;
+				target_mapping: string | null;
+			}[];
+			return {
+				sourceId: request.sourceId,
+				expectedCursor: header.expected_cursor,
+				targetCommit: header.target_commit,
+				mode: header.mode,
+				eventReconstruction: header.event_reconstruction,
+				planDigest: header.plan_digest,
+				entries: entries.map((entry) => ({
+					artifactId: entry.artifact_id,
+					transition: entry.transition_kind,
+					priorRevisionId: entry.prior_revision_id,
+					currentRevisionId: entry.current_revision_id,
+					priorPath: entry.prior_path,
+					currentPath: entry.current_path,
+					priorClassification: parseOptionalClassification(entry.prior_classification),
+					currentClassification: parseOptionalClassification(entry.current_classification),
+					priorSchemaVersion: entry.prior_schema_version,
+					currentSchemaVersion: entry.current_schema_version,
+					target: parseOptionalTarget(entry.target_mapping),
+				})),
+			};
+		});
+	}
+	async insertReconciliationPlanBaseline(
+		baseline: ReconciliationPlanBaseline,
+	): Promise<InsertResult> {
+		try {
+			const existing = await this.readReconciliationPlanBaseline({ sourceId: baseline.sourceId });
+			if (existing.type === "error") return { type: "error", error: existing.error };
+			if (existing.type === "found")
+				return deterministicJson(existing.value) === deterministicJson(baseline)
+					? { type: "existing" }
+					: {
+							type: "conflict",
+							message: "Source already has a different reconciliation plan baseline.",
+						};
+			transaction(this.database, () => {
+				this.database
+					.prepare(
+						"INSERT INTO gitplane_reconciliation_plans (source_id, expected_cursor, target_commit, mode, event_reconstruction, plan_digest) VALUES (?, ?, ?, ?, ?, ?)",
+					)
+					.run(
+						baseline.sourceId,
+						baseline.expectedCursor,
+						baseline.targetCommit,
+						baseline.mode,
+						baseline.eventReconstruction,
+						baseline.planDigest,
+					);
+				const statement = this.database.prepare(
+					"INSERT INTO gitplane_reconciliation_plan_entries (source_id, artifact_id, transition_kind, prior_revision_id, current_revision_id, prior_path, current_path, prior_classification, current_classification, prior_schema_version, current_schema_version, target_mapping) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+				);
+				for (const entry of baseline.entries)
+					statement.run(
+						baseline.sourceId,
+						entry.artifactId,
+						entry.transition,
+						entry.priorRevisionId,
+						entry.currentRevisionId,
+						entry.priorPath,
+						entry.currentPath,
+						stringifyNullable(entry.priorClassification),
+						stringifyNullable(entry.currentClassification),
+						entry.priorSchemaVersion,
+						entry.currentSchemaVersion,
+						stringifyNullable(entry.target),
+					);
+			});
+			return { type: "inserted" };
+		} catch (error) {
+			return { type: "error", error: databaseError(error) };
+		}
+	}
+	async deleteReconciliationPlanBaseline(request: {
+		readonly sourceId: string;
+		readonly planDigest: string;
+	}): Promise<BaselineDeleteResult> {
+		try {
+			let result: BaselineDeleteResult = { type: "missing" };
+			transaction(this.database, () => {
+				const row = this.database
+					.prepare("SELECT plan_digest FROM gitplane_reconciliation_plans WHERE source_id = ?")
+					.get(request.sourceId) as { plan_digest: string } | undefined;
+				if (row === undefined) return;
+				if (row.plan_digest !== request.planDigest) {
+					result = { type: "mismatch", actualDigest: row.plan_digest };
+					return;
+				}
+				this.database
+					.prepare("DELETE FROM gitplane_reconciliation_plan_entries WHERE source_id = ?")
+					.run(request.sourceId);
+				this.database
+					.prepare(
+						"DELETE FROM gitplane_reconciliation_plans WHERE source_id = ? AND plan_digest = ?",
+					)
+					.run(request.sourceId, request.planDigest);
+				result = { type: "deleted" };
+			});
+			return result;
+		} catch (error) {
+			return { type: "error", error: databaseError(error) };
+		}
 	}
 	async readCursor(request: { readonly sourceId: string }): Promise<LookupResult<CursorRecord>> {
 		return this.lookup(() => {
@@ -326,14 +468,17 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 		readonly sourceId: string;
 		readonly targetCommit: string;
 		readonly resolvedAt: Date;
-	}): Promise<OperationResult> {
-		return this.operation(() =>
-			this.database
+	}) {
+		try {
+			const result = this.database
 				.prepare(
-					"UPDATE gitplane_reconciliation_errors SET resolved = 1, last_observed_at = ? WHERE source_id = ? AND target_commit = ?",
+					"UPDATE gitplane_reconciliation_errors SET resolved = 1, last_observed_at = ? WHERE source_id = ? AND target_commit = ? AND resolved = 0",
 				)
-				.run(request.resolvedAt.toISOString(), request.sourceId, request.targetCommit),
-		);
+				.run(request.resolvedAt.toISOString(), request.sourceId, request.targetCommit);
+			return { ok: true as const, count: Number(result.changes) };
+		} catch (error) {
+			return { ok: false as const, error: databaseError(error) };
+		}
 	}
 	async inspectDoctor(request: {
 		readonly sourceId: string;
@@ -441,6 +586,32 @@ function parseClassification(value: string): ArtifactClassification {
 	const parsed = artifactClassificationSchema.safeParse(JSON.parse(value));
 	if (!parsed.success) throw new Error("Persisted artifact classification is invalid.");
 	return parsed.data;
+}
+function parseOptionalClassification(value: string | null): ArtifactClassification | null {
+	return value === null ? null : parseClassification(value);
+}
+function parseOptionalTarget(value: string | null): TargetMapping | null {
+	if (value === null) return null;
+	const parsed: unknown = JSON.parse(value);
+	if (
+		typeof parsed !== "object" ||
+		parsed === null ||
+		typeof (parsed as { table?: unknown }).table !== "string" ||
+		typeof (parsed as { lineage?: unknown }).lineage !== "object" ||
+		(parsed as { lineage: unknown }).lineage === null
+	)
+		throw new Error("Persisted target mapping is invalid.");
+	const lineage = (parsed as { lineage: Record<string, unknown> }).lineage;
+	for (const key of [
+		"sourceId",
+		"artifactId",
+		"revisionId",
+		"path",
+		"deleted",
+		"deletedAtCommit",
+	] as const)
+		if (typeof lineage[key] !== "string") throw new Error("Persisted target mapping is invalid.");
+	return parsed as TargetMapping;
 }
 function stringifyNullable(value: unknown): string | null {
 	return value === null ? null : deterministicJson(value);

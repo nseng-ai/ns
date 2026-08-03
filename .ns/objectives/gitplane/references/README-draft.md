@@ -146,7 +146,7 @@ CREATE TABLE greetings (
 
 ### 4. Initialize control-plane tables
 
-Gitplane keeps its own control-plane tables (cursors, lineage, current state, immutable revisions, durable events, and reconciliation errors) in the same store, strictly under its control. Initialize the native Node SQLite adapter explicitly during setup:
+Gitplane keeps its own control-plane tables (cursors, durable reconciliation-plan baselines, lineage, current state, immutable revisions, durable events, and reconciliation errors) in the same store, strictly under its control. Initialize the native Node SQLite adapter explicitly during setup:
 
 ```ts
 import { initializeSqliteStore } from "@nseng-ai/gitplane-sqlite";
@@ -199,7 +199,7 @@ Gitplane ships four command surfaces using Clinkr's filesystem-first command lay
 
 - `gitplane artifact create <directory>` — locally and atomically creates a generic artifact by default, without loading config, inspecting Git history, requiring an artifact root, or opening storage. It returns the created path and artifact ID. Existing targets and missing parents are structured semantic conflicts; invalid options/IDs are usage errors; unexpected filesystem failures are operational errors.
 - `gitplane check` — validates the complete corpus in the working tree. It is stateless, never opens the store, and never consults Git history. Empty artifact roots are valid.
-- `gitplane reconcile <commit> [--full]` — brings control state and any classified domain rows up to date with the target commit. The first reconciliation and intentional repair require `--full`. V1 assumes linear, squash-only source history; merge commits are rejected.
+- `gitplane reconcile <commit> [--full]` — brings control state and any classified domain rows up to date with the target commit. The first reconciliation requires `--full`; full repair may intentionally target an equal, older, or divergent non-merge commit. V1 rejects merge commits. Reconciliation plans and validates every read before writing, persists a retry baseline, applies artifacts in ID order as revision → lineage → current state → classified target → event, and advances the cursor last as the completed-materialization boundary. A competing target or incompatible retry plan fails closed while a baseline remains. Normal equal-cursor work retries post-cursor error resolution and baseline cleanup without replaying materialization; same-cursor full repair performs the complete repair and emits no events.
 - `gitplane doctor` — read-only verification of the configuration, store, control tables, configured domain tables, and mappings.
 
 Common behavior:
@@ -210,6 +210,8 @@ Common behavior:
 - findings have stable code, severity, summary, and optional artifact path/ID, relative file path, and JSON Pointer;
 - for completed `check` runs, exit `0` means clean or warning-only findings and exit `1` means at least one error finding; usage, configuration, source, store, or other operational failure exits `2` and emits no partial corpus result;
 - completed JSON `check` output identifies `sourceId` and normalized `artifactRoot` and includes `artifactCount`, severity counts, and the deterministically sorted findings.
+
+Successful reconcile data is bounded to `sourceId`, resolved `targetCommit`, `previousCursor`, `mode` (`incremental | full`), domain `status` (`reconciled | already-current`), transition counts (`created`, `restored`, `revised`, `moved`, `unchanged`, `deleted`), `eventReconstruction` (`complete | skipped | not-applicable`), `cursorAdvanced`, and the per-invocation `errorsResolved` count. It never includes plans, artifact bytes, projections, or event lists.
 
 Complete command semantics — atomic creation, validation coverage, reconciliation planning and failure guarantees, `--full` repair, and doctor checks — are specified in [SPEC-draft.md](SPEC-draft.md).
 

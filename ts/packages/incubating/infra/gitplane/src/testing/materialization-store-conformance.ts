@@ -4,6 +4,7 @@ import type {
 	ArtifactLineageRecord,
 	EventRecord,
 	MaterializationStoreGateway,
+	ReconciliationPlanBaseline,
 	RevisionRecord,
 } from "../core/gateways.ts";
 
@@ -33,6 +34,56 @@ export async function exerciseMaterializationStoreConformance(
 	assertEqual(await store.compareAndSetCursor({ sourceId, expectedCommit: "a", nextCommit: "b" }), {
 		type: "updated",
 	});
+	assertEqual(await store.compareAndSetCursor({ sourceId, expectedCommit: "b", nextCommit: "b" }), {
+		type: "updated",
+	});
+
+	const baseline: ReconciliationPlanBaseline = {
+		sourceId,
+		expectedCursor: "b",
+		targetCommit: "c",
+		mode: "incremental",
+		eventReconstruction: "complete",
+		planDigest: "sha256:baseline",
+		entries: [
+			{
+				artifactId,
+				transition: "revised",
+				priorRevisionId: "revision-old",
+				currentRevisionId: "revision",
+				priorPath: "old/artifact",
+				currentPath: "artifact",
+				priorClassification: { state: "generic" },
+				currentClassification: { state: "generic" },
+				priorSchemaVersion: null,
+				currentSchemaVersion: null,
+				target: null,
+			},
+		],
+	};
+	assertEqual(await store.readReconciliationPlanBaseline({ sourceId }), { type: "missing" });
+	assertEqual(await store.insertReconciliationPlanBaseline(baseline), { type: "inserted" });
+	assertEqual(await store.insertReconciliationPlanBaseline(baseline), { type: "existing" });
+	assertEqual(
+		await store.insertReconciliationPlanBaseline({ ...baseline, targetCommit: "competing" }),
+		{ type: "conflict", message: "Source already has a different reconciliation plan baseline." },
+	);
+	assertEqual(await store.readReconciliationPlanBaseline({ sourceId }), {
+		type: "found",
+		value: baseline,
+	});
+	assertEqual(
+		await store.deleteReconciliationPlanBaseline({ sourceId, planDigest: "sha256:other" }),
+		{ type: "mismatch", actualDigest: baseline.planDigest },
+	);
+	assertEqual(
+		await store.deleteReconciliationPlanBaseline({ sourceId, planDigest: baseline.planDigest }),
+		{ type: "deleted" },
+	);
+	assertEqual(
+		await store.deleteReconciliationPlanBaseline({ sourceId, planDigest: baseline.planDigest }),
+		{ type: "missing" },
+	);
 
 	const lineage: ArtifactLineageRecord = {
 		sourceId,
@@ -203,7 +254,15 @@ export async function exerciseMaterializationStoreConformance(
 			targetCommit: "b",
 			resolvedAt: new Date("2026-01-02T03:06:05.000Z"),
 		}),
-		{ ok: true },
+		{ ok: true, count: 1 },
+	);
+	assertEqual(
+		await store.resolveReconciliationErrors({
+			sourceId,
+			targetCommit: "b",
+			resolvedAt: new Date("2026-01-02T03:07:05.000Z"),
+		}),
+		{ ok: true, count: 0 },
 	);
 
 	const doctor = await store.inspectDoctor({ sourceId, targets: [target] });

@@ -154,6 +154,44 @@ export interface StoredReconciliationError extends ReconciliationErrorRecord {
 	readonly attemptCount: number;
 	readonly resolved: boolean;
 }
+export type ReconciliationMode = "incremental" | "full";
+export type EventReconstructionStatus = "complete" | "skipped" | "not-applicable";
+export type ArtifactTransitionKind =
+	| "created"
+	| "restored"
+	| "revised"
+	| "moved"
+	| "unchanged"
+	| "deleted";
+export interface ReconciliationPlanBaselineEntry {
+	readonly artifactId: ArtifactId;
+	readonly transition: ArtifactTransitionKind;
+	readonly priorRevisionId: string | null;
+	readonly currentRevisionId: string | null;
+	readonly priorPath: string | null;
+	readonly currentPath: string | null;
+	readonly priorClassification: ArtifactClassification | null;
+	readonly currentClassification: ArtifactClassification | null;
+	readonly priorSchemaVersion: number | null;
+	readonly currentSchemaVersion: number | null;
+	readonly target: TargetMapping | null;
+}
+export interface ReconciliationPlanBaseline {
+	readonly sourceId: string;
+	readonly expectedCursor: string | null;
+	readonly targetCommit: string;
+	readonly mode: ReconciliationMode;
+	readonly eventReconstruction: EventReconstructionStatus;
+	readonly planDigest: string;
+	readonly entries: readonly ReconciliationPlanBaselineEntry[];
+}
+export type BaselineDeleteResult =
+	| { readonly type: "deleted" | "missing" }
+	| { readonly type: "mismatch"; readonly actualDigest: string }
+	| { readonly type: "error"; readonly error: GatewayError };
+export type CountedOperationResult =
+	| { readonly ok: true; readonly count: number }
+	| { readonly ok: false; readonly error: GatewayError };
 export interface DoctorCheck {
 	readonly code: string;
 	readonly subject: string;
@@ -190,6 +228,14 @@ export type EventInsertResult =
 	| { readonly type: "conflict"; readonly message: string }
 	| { readonly type: "error"; readonly error: GatewayError };
 export interface MaterializationStoreGateway {
+	readReconciliationPlanBaseline(request: {
+		readonly sourceId: string;
+	}): Promise<LookupResult<ReconciliationPlanBaseline>>;
+	insertReconciliationPlanBaseline(baseline: ReconciliationPlanBaseline): Promise<InsertResult>;
+	deleteReconciliationPlanBaseline(request: {
+		readonly sourceId: string;
+		readonly planDigest: string;
+	}): Promise<BaselineDeleteResult>;
 	readCursor(request: { readonly sourceId: string }): Promise<LookupResult<CursorRecord>>;
 	compareAndSetCursor(request: {
 		readonly sourceId: string;
@@ -224,7 +270,7 @@ export interface MaterializationStoreGateway {
 		readonly sourceId: string;
 		readonly targetCommit: string;
 		readonly resolvedAt: Date;
-	}): Promise<OperationResult>;
+	}): Promise<CountedOperationResult>;
 	inspectDoctor(request: {
 		readonly sourceId: string;
 		readonly targets: readonly TargetMapping[];

@@ -30,6 +30,22 @@ test("in-memory store satisfies shared conformance", async () => {
 	);
 });
 
+test("shared backing state survives a new invocation with independent fault policy", async () => {
+	const state = InMemoryMaterializationStoreGateway.createBackingState();
+	const failing = new InMemoryMaterializationStoreGateway(state, {
+		compareAndSetCursor: { code: "injected", message: "first invocation" },
+	});
+	expect(
+		await failing.compareAndSetCursor({ sourceId: "s", expectedCommit: null, nextCommit: "a" }),
+	).toEqual({ type: "error", error: { code: "injected", message: "first invocation" } });
+	const succeeding = new InMemoryMaterializationStoreGateway(state);
+	expect(
+		await succeeding.compareAndSetCursor({ sourceId: "s", expectedCommit: null, nextCommit: "a" }),
+	).toEqual({ type: "updated" });
+	expect(failing.operationLog()).toEqual(["compareAndSetCursor"]);
+	expect(succeeding.operationLog()).toEqual(["compareAndSetCursor"]);
+});
+
 test("cursor CAS and event insertion are idempotent", async () => {
 	const store = new InMemoryMaterializationStoreGateway();
 	expect(

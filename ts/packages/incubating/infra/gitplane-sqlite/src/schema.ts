@@ -25,6 +25,42 @@ export const CONTROL_SCHEMA = {
 			`INSERT INTO gitplane_schema (schema_version) VALUES (1)`,
 		],
 	},
+	reconciliationPlans: {
+		name: "gitplane_reconciliation_plans",
+		columns: [
+			column("source_id", "TEXT", false, 1),
+			column("expected_cursor", "TEXT", true),
+			column("target_commit", "TEXT", false),
+			column("mode", "TEXT", false),
+			column("event_reconstruction", "TEXT", false),
+			column("plan_digest", "TEXT", false),
+		],
+		uniqueColumnSets: [["source_id"]],
+		statements: [
+			`CREATE TABLE gitplane_reconciliation_plans (source_id TEXT PRIMARY KEY, expected_cursor TEXT, target_commit TEXT NOT NULL, mode TEXT NOT NULL, event_reconstruction TEXT NOT NULL, plan_digest TEXT NOT NULL) STRICT`,
+		],
+	},
+	reconciliationPlanEntries: {
+		name: "gitplane_reconciliation_plan_entries",
+		columns: [
+			column("source_id", "TEXT", false, 1),
+			column("artifact_id", "TEXT", false, 2),
+			column("transition_kind", "TEXT", false),
+			column("prior_revision_id", "TEXT", true),
+			column("current_revision_id", "TEXT", true),
+			column("prior_path", "TEXT", true),
+			column("current_path", "TEXT", true),
+			column("prior_classification", "TEXT", true),
+			column("current_classification", "TEXT", true),
+			column("prior_schema_version", "INTEGER", true),
+			column("current_schema_version", "INTEGER", true),
+			column("target_mapping", "TEXT", true),
+		],
+		uniqueColumnSets: [["source_id", "artifact_id"]],
+		statements: [
+			`CREATE TABLE gitplane_reconciliation_plan_entries (source_id TEXT NOT NULL, artifact_id TEXT NOT NULL, transition_kind TEXT NOT NULL, prior_revision_id TEXT, current_revision_id TEXT, prior_path TEXT, current_path TEXT, prior_classification TEXT, current_classification TEXT, prior_schema_version INTEGER, current_schema_version INTEGER, target_mapping TEXT, PRIMARY KEY (source_id, artifact_id)) STRICT`,
+		],
+	},
 	cursors: {
 		name: "gitplane_cursors",
 		columns: [column("source_id", "TEXT", false, 1), column("commit_id", "TEXT", false)],

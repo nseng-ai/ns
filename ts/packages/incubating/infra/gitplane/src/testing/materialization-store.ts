@@ -15,6 +15,7 @@ import type {
 	MaterializationStoreGateway,
 	OperationResult,
 	ReconciliationErrorRecord,
+	ReconciliationPlanBaseline,
 	RevisionRecord,
 	StoredEvent,
 	StoredReconciliationError,
@@ -30,6 +31,7 @@ export interface MaterializedTargetRow {
 	readonly values: Readonly<Record<string, unknown>>;
 }
 export interface InMemoryMaterializationStoreState {
+	readonly baselines?: readonly ReconciliationPlanBaseline[];
 	readonly cursors?: readonly CursorRecord[];
 	readonly lineage?: readonly ArtifactLineageRecord[];
 	readonly currentArtifacts?: readonly ArtifactCurrentRecord[];
@@ -40,11 +42,24 @@ export interface InMemoryMaterializationStoreState {
 	readonly doctorIntrospection?: DoctorIntrospection;
 	readonly failures?: Partial<Record<FailureKey, GatewayError>>;
 }
+export interface InMemoryMaterializationStoreBackingState {
+	readonly type: "gitplane-materialization-store-backing";
+	readonly baselines: ReconciliationPlanBaseline[];
+	readonly cursors: CursorRecord[];
+	readonly lineage: ArtifactLineageRecord[];
+	readonly currentArtifacts: ArtifactCurrentRecord[];
+	readonly revisions: RevisionRecord[];
+	readonly targetRows: MaterializedTargetRow[];
+	readonly events: StoredEvent[];
+	readonly errors: StoredReconciliationError[];
+	readonly doctorIntrospection: DoctorIntrospection;
+}
 function copy<T>(value: T): T {
 	return structuredClone(value);
 }
 export class InMemoryMaterializationStoreGateway implements MaterializationStoreGateway {
 	private readonly failures: Partial<Record<FailureKey, GatewayError>>;
+	private readonly baselines: ReconciliationPlanBaseline[];
 	private readonly cursors: CursorRecord[];
 	private readonly lineage: ArtifactLineageRecord[];
 	private readonly current: ArtifactCurrentRecord[];
@@ -53,29 +68,58 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 	private readonly events: StoredEvent[];
 	private readonly errors: StoredReconciliationError[];
 	private readonly doctorIntrospection: DoctorIntrospection;
-	constructor(state: InMemoryMaterializationStoreState = {}) {
-		this.failures = copy(state.failures ?? {});
-		this.cursors = copy([...(state.cursors ?? [])]);
-		this.lineage = copy([...(state.lineage ?? [])]);
-		this.current = copy([...(state.currentArtifacts ?? [])]);
-		this.revisions = copy([...(state.revisions ?? [])]);
-		this.targets = copy([...(state.targetRows ?? [])]);
-		this.events = copy([...(state.events ?? [])]);
-		this.errors = copy([...(state.errors ?? [])]);
-		this.doctorIntrospection = copy(
-			state.doctorIntrospection ?? {
-				controlSchema: { state: "compatible", version: 1 },
-				targetTables: [],
-				jsonProjection: {
-					requirement: "required",
-					status: "pass",
-					detail: "JSON projection is supported.",
+	private readonly operations: string[] = [];
+	static createBackingState(
+		state: InMemoryMaterializationStoreState = {},
+	): InMemoryMaterializationStoreBackingState {
+		return {
+			type: "gitplane-materialization-store-backing",
+			baselines: copy([...(state.baselines ?? [])]),
+			cursors: copy([...(state.cursors ?? [])]),
+			lineage: copy([...(state.lineage ?? [])]),
+			currentArtifacts: copy([...(state.currentArtifacts ?? [])]),
+			revisions: copy([...(state.revisions ?? [])]),
+			targetRows: copy([...(state.targetRows ?? [])]),
+			events: copy([...(state.events ?? [])]),
+			errors: copy([...(state.errors ?? [])]),
+			doctorIntrospection: copy(
+				state.doctorIntrospection ?? {
+					controlSchema: { state: "compatible", version: 1 },
+					targetTables: [],
+					jsonProjection: {
+						requirement: "required",
+						status: "pass",
+						detail: "JSON projection is supported.",
+					},
 				},
-			},
-		);
+			),
+		};
+	}
+	constructor(
+		state: InMemoryMaterializationStoreState | InMemoryMaterializationStoreBackingState = {},
+		failures: Partial<Record<FailureKey, GatewayError>> = {},
+	) {
+		const backing =
+			"type" in state && state.type === "gitplane-materialization-store-backing"
+				? state
+				: InMemoryMaterializationStoreGateway.createBackingState(state);
+		this.failures = copy("failures" in state ? (state.failures ?? failures) : failures);
+		this.baselines = backing.baselines;
+		this.cursors = backing.cursors;
+		this.lineage = backing.lineage;
+		this.current = backing.currentArtifacts;
+		this.revisions = backing.revisions;
+		this.targets = backing.targetRows;
+		this.events = backing.events;
+		this.errors = backing.errors;
+		this.doctorIntrospection = backing.doctorIntrospection;
+	}
+	operationLog(): readonly string[] {
+		return [...this.operations];
 	}
 	snapshot(): InMemoryMaterializationStoreState {
 		return copy({
+			baselines: this.baselines,
 			cursors: this.cursors,
 			lineage: this.lineage,
 			currentArtifacts: this.current,
@@ -87,8 +131,47 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 		});
 	}
 	private failure(operation: FailureKey): GatewayError | undefined {
+		this.operations.push(operation);
 		const failure = this.failures[operation];
 		return failure === undefined ? undefined : { ...failure };
+	}
+	async readReconciliationPlanBaseline(request: {
+		readonly sourceId: string;
+	}): Promise<LookupResult<ReconciliationPlanBaseline>> {
+		const failure = this.failure("readReconciliationPlanBaseline");
+		if (failure !== undefined) return { type: "error", error: failure };
+		const found = this.baselines.find((item) => item.sourceId === request.sourceId);
+		return found === undefined ? { type: "missing" } : { type: "found", value: copy(found) };
+	}
+	async insertReconciliationPlanBaseline(
+		baseline: ReconciliationPlanBaseline,
+	): Promise<InsertResult> {
+		const failure = this.failure("insertReconciliationPlanBaseline");
+		if (failure !== undefined) return { type: "error", error: failure };
+		const found = this.baselines.find((item) => item.sourceId === baseline.sourceId);
+		if (found !== undefined)
+			return isDeepStrictEqual(found, baseline)
+				? { type: "existing" }
+				: {
+						type: "conflict",
+						message: "Source already has a different reconciliation plan baseline.",
+					};
+		this.baselines.push(copy(baseline));
+		return { type: "inserted" };
+	}
+	async deleteReconciliationPlanBaseline(request: {
+		readonly sourceId: string;
+		readonly planDigest: string;
+	}) {
+		const failure = this.failure("deleteReconciliationPlanBaseline");
+		if (failure !== undefined) return { type: "error" as const, error: failure };
+		const index = this.baselines.findIndex((item) => item.sourceId === request.sourceId);
+		const found = this.baselines[index];
+		if (found === undefined) return { type: "missing" as const };
+		if (found.planDigest !== request.planDigest)
+			return { type: "mismatch" as const, actualDigest: found.planDigest };
+		this.baselines.splice(index, 1);
+		return { type: "deleted" as const };
 	}
 	async readCursor(request: { readonly sourceId: string }): Promise<LookupResult<CursorRecord>> {
 		const failure = this.failure("readCursor");
@@ -161,14 +244,22 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 				sourceId: found.sourceId,
 				artifactId: found.artifactId,
 				revisionId: found.revisionId,
-				digest: found.digest,
+				digest: {
+					text: found.digest.text,
+					bytes: [...found.digest.bytes],
+					manifest: found.digest.manifest,
+				},
 				envelope: found.envelope,
 			};
 			const recordContent = {
 				sourceId: record.sourceId,
 				artifactId: record.artifactId,
 				revisionId: record.revisionId,
-				digest: record.digest,
+				digest: {
+					text: record.digest.text,
+					bytes: [...record.digest.bytes],
+					manifest: record.digest.manifest,
+				},
 				envelope: record.envelope,
 			};
 			return isDeepStrictEqual(foundContent, recordContent)
@@ -309,14 +400,21 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 		readonly sourceId: string;
 		readonly targetCommit: string;
 		readonly resolvedAt: Date;
-	}): Promise<OperationResult> {
+	}) {
 		const failure = this.failure("resolveReconciliationErrors");
-		if (failure !== undefined) return { ok: false, error: failure };
+		if (failure !== undefined) return { ok: false as const, error: failure };
+		let count = 0;
 		for (const [index, item] of this.errors.entries()) {
-			if (item.sourceId === request.sourceId && item.targetCommit === request.targetCommit)
+			if (
+				item.sourceId === request.sourceId &&
+				item.targetCommit === request.targetCommit &&
+				!item.resolved
+			) {
 				this.errors[index] = { ...item, lastObservedAt: request.resolvedAt, resolved: true };
+				count += 1;
+			}
 		}
-		return { ok: true };
+		return { ok: true as const, count };
 	}
 	async inspectDoctor(): Promise<GatewayResult<DoctorIntrospection>> {
 		const failure = this.failure("inspectDoctor");

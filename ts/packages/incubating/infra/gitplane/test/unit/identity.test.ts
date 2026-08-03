@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import {
 	createArtifactIdGenerator,
 	deriveEventId,
+	deriveReconciliationPlanDigest,
 	deriveRevisionId,
 	digestArtifactContent,
 	parseArtifactId,
@@ -69,6 +70,19 @@ test("rejects duplicate paths", () => {
 		]),
 	).toMatchObject({ ok: false, code: "invalid-path" });
 });
+test("reconciliation plan digest has an independent canonical literal vector", () => {
+	expect(
+		deriveReconciliationPlanDigest({
+			sourceId: "s",
+			expectedCursor: "a",
+			targetCommit: "b",
+			mode: "incremental",
+			eventReconstruction: "complete",
+			entries: [],
+		}),
+	).toBe("sha256:2450f4b5863416ea8166c0ae8b5ca322b6426269634475196ccefc25ce695b7b");
+});
+
 test.each([
 	["artifact.created", "gpe_3dd2fx5q2jdy81t6y165vyg20a4bzz2dbzzkevg2vh4hxe38sq6g"],
 	["artifact.restored", "gpe_7mjg29cnrms1fnda1vx66k80ybx9pfatd2ypkn238ps9m0zmyz60"],

@@ -129,7 +129,7 @@ CREATE TABLE greetings (
 
 Gitplane does not otherwise constrain physical names, SQL types, primary keys, or additional columns. The two-column `(gp_source_id, gp_artifact_id)` composite unique constraint is mandatory so upserts have a deterministic conflict target; it need not be the primary key.
 
-Operators own all target-table DDL and migrations. Gitplane neither creates nor migrates application tables. The SQLite adapter owns Gitplane control tables for cursors, lineage, current state, immutable revisions, durable events, and reconciliation errors. Operators create them only through the explicit, idempotent `initializeSqliteStore({ path, baseDirectory })` API. Initialization inspects before writing, creates a missing compatible v1 schema atomically, and refuses incompatible objects without migration, drop, rename, or rewrite. Opening a store, `doctor`, and `reconcile` perform no DDL.
+Operators own all target-table DDL and migrations. Gitplane neither creates nor migrates application tables. The SQLite adapter owns Gitplane control tables for cursors, durable reconciliation-plan baselines, lineage, current state, immutable revisions, durable events, and reconciliation errors. Operators create them only through the explicit, idempotent `initializeSqliteStore({ path, baseDirectory })` API. Initialization inspects before writing, creates a missing compatible v1 schema atomically, and refuses incompatible objects without migration, drop, rename, or rewrite. Opening a store, `doctor`, and `reconcile` perform no DDL.
 
 ### Projections
 
@@ -188,18 +188,21 @@ Lineage legality between commits (immutable `gpApiVersion`/`gpKind`, registered 
 
 Normal reconciliation is fast-forward and cursor-derived:
 
-1. Resolve target `C`; reject merge commits. V1 assumes linear, squash-only source history.
+1. Resolve target `C`; reject merge commits. V1 assumes linear, squash-only source history for normal reconciliation.
 2. Read the source cursor. First reconciliation requires `--full`.
-3. Require the cursor to be an ancestor of `C`; equal cursor is a no-op.
-4. Build the complete deterministic transition plan from the cursor Git tree to the target Git tree—not from possibly partial store state.
-5. Validate every candidate and enforce lineage legality (one-way generic-to-classified transition, immutable established kind/API identity, registered schema transitions, no ID replacement at one path) before writes.
-6. Apply idempotent revision and event inserts for every artifact, control-current-state changes for every artifact, and target-row upserts/tombstones only for classified artifacts.
-7. Advance the cursor from the expected prior value to exactly `C` with compare-and-set, last.
-8. Resolve errors recorded for that target after success.
+3. Require the cursor to be an ancestor of `C`. At an equal cursor, retry target-error resolution and reconciliation-baseline cleanup, then report already current without replaying materialization.
+4. Inventory target attempted boundaries and read marker bytes to enforce nesting and source-wide target ID uniqueness, including unchanged artifacts, without full-reading unchanged artifacts. Read complete recursive snapshots only for transition candidates.
+5. Build and validate the complete deterministic transition plan from the cursor Git tree to the target Git tree—not from possibly partial store state—before the first write. Validation includes one-way generic-to-classified transition, immutable established kind/API identity, registered directed schema transitions, no ID replacement at one path, deterministic projections, and exact old target registration for every classified deletion or absent-ID repair. A missing registration fails before writes.
+6. Persist one immutable retry baseline containing the source, expected cursor, target, mode, event-reconstruction status, canonical plan digest, and prior/current transition facts and target identity for each artifact. It contains no artifact bytes, projections, or operation progress. A retry rebuilds and verifies the plan; a competing target or incompatible digest fails closed until compare-and-delete cleanup succeeds.
+7. Apply artifacts in canonical artifact-ID order. For each artifact, perform applicable idempotent writes in this order: revision → lineage → current state → classified target upsert/tombstone → event.
+8. Advance the cursor from the exact expected prior value to exactly `C` with compare-and-set, last. The cursor is the completed-materialization boundary; a CAS mismatch is a structural concurrency/precondition result, not an operational backend error.
+9. Resolve errors recorded for that target and return the count newly resolved by this invocation, then compare-and-delete the baseline by source and plan digest.
 
-Writes are deliberately non-transactional. If an operation fails, reconciliation stops, the cursor does not advance, and partial writes may be visible. Gitplane records a sanitized error best-effort and requires engineer action where appropriate. Retrying while the cursor is unchanged reconstructs the same plan and deterministic IDs, making completed writes harmless. The guarantee is eventual convergence after a successful retry, not atomic visibility of one complete commit.
+Writes are deliberately non-transactional. Once baseline persistence begins, an operational failure stops reconciliation; before cursor CAS succeeds, the cursor does not advance and partial writes may be visible. The durable baseline freezes prior transition facts so partial current or lineage rows cannot redefine retry planning. Deterministic plans and IDs make completed writes harmless. The guarantee is eventual convergence after a successful retry, not atomic visibility of one complete commit. If error resolution or baseline deletion fails after cursor CAS, the operational failure reports that the cursor advanced; a later normal equal-cursor invocation completes cleanup only.
 
-A normal target must descend from the cursor. Older or divergent targets fail without writes. `--full` is required for initial sync and intentional repair. It discovers and validates every target artifact, upserts control state and revisions for all live artifacts plus target rows for classified artifacts, tombstones stored live IDs absent at the target in control state and in target tables where applicable, preserves already absent tombstones and all immutable history, and advances the cursor last. When the previous cursor commit is available, `--full` records only transitions inferable from cursor tree to target tree; otherwise it creates no synthetic historical events and reports that event reconstruction was skipped. `--full` is not history import or garbage collection.
+A normal target must descend from the cursor. Older or divergent targets fail without writes. `--full` is required for initial sync and may intentionally target a descendant, equal, older, or divergent non-merge commit. It discovers and validates every target artifact, upserts control state and revisions for all live artifacts plus target rows for classified artifacts, tombstones stored live IDs absent at the target in control state and in target tables where applicable, preserves already absent tombstones and all immutable history, and advances the cursor last. Events are reconstructed only when the previous cursor is a strict ancestor of the target (`complete`). Initial sync and equal-cursor work emit no events (`not-applicable`); older, divergent, or unavailable prior history emits no synthetic events (`skipped`). Same-cursor `--full` performs complete repair and uses same-value cursor CAS as its final concurrency check. `--full` is not history import or garbage collection.
+
+A successful reconcile result is bounded to `sourceId`, resolved `targetCommit`, `previousCursor`, `mode` (`incremental | full`), domain `status` (`reconciled | already-current`), transition counts (`created`, `restored`, `revised`, `moved`, `unchanged`, `deleted`), `eventReconstruction` (`complete | skipped | not-applicable`), `cursorAdvanced`, and per-invocation `errorsResolved`. Plans, artifact bytes, projection values, and event lists are never returned.
 
 ### `gitplane doctor`
 
@@ -245,9 +248,9 @@ V1 persists immutable event facts but does not dispatch them. There are no handl
 
 ## Reconciliation errors
 
-A failed reconcile records or updates a sanitized error best-effort, keyed by `(source_id, target_commit, artifact_id-or-path, operation)`. Records carry a stable category, diagnostic, first/last observed timestamps, and attempt count. A later successful reconcile to that target marks its errors resolved rather than deleting them.
+Durable reconciliation errors are exclusively best-effort records of operational failures after reconciliation enters its write phase: baseline persistence; revision, lineage, current, target, or event writes; cursor-CAS backend failure; post-CAS error resolution; or baseline deletion. They are keyed by `(source_id, target_commit, artifact_id-or-path, operation)` and carry a stable category, diagnostic, first/last observed timestamps, and attempt count. A later successful reconcile to that target marks unresolved errors resolved rather than deleting them and reports the count newly resolved.
 
-Failure to persist the error does not hide or replace the original failure and never advances the cursor. Diagnostics must not contain secrets, environment values, SQL parameter values, or full artifact contents. `check` is stateless and never writes reconciliation errors.
+Usage/configuration failures, store-open/close failures, commit/history/source reads, merge/ancestry rejection, invalid corpus, duplicate IDs, illegal lineage/classification/schema changes, same-path ID replacement, missing classified deletion/repair registration, other pre-write planning failures, programmer errors, and CAS mismatch do not create reconciliation-error records. Failure to persist an operational error does not hide or replace the original failure. Diagnostics must not contain secrets, environment values, SQL parameter values, or full artifact contents. `check` is stateless and never writes reconciliation errors.
 
 ## Package topology
 
