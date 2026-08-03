@@ -244,6 +244,21 @@ to each rule's exceptions.
     type at a genuine loader boundary and no named exported type exists; if that
     justification is ambiguous, skip the finding.
 
+24. **NS/Pi extension ownership commingling.** Flag changed source in an ns
+    extension under `ts/packages/{public,incubating}/extensions/` when it owns
+    Pi-host integration rather than harness-independent domain behavior. Evidence
+    can include Pi command or tool registration, Pi lifecycle hooks, Pi-specific
+    presentation, imports from Pi runtime or SDK packages, a Pi-owned source
+    subtree, or an indirect wrapper/alias that serves those roles. Also flag a
+    `pi-ns-*` adapter that bypasses its matching ns extension's exact `/api`
+    commitment boundary, reaches into private extension source, or otherwise
+    blurs which package owns host integration. Severity: `error`. Judge semantic
+    ownership rather than matching syntax: aliases, wrappers, and unusual names
+    do not exempt commingling, while neutral types or domain APIs merely consumed
+    by Pi are not themselves Pi-owned. The package manifest topology guard remains
+    authoritative for deterministic path, identity, tier, dependency, subpackage,
+    and export invariants; this LM tripwire owns source-level judgment.
+
 ## Severity
 
 - `error` — hard mechanical violations of core rules that should fail review

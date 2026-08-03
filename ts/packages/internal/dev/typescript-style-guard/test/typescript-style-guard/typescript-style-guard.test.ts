@@ -904,7 +904,7 @@ describe("TypeScript style guard package disposition topology rules", () => {
 			expectedViolation: false,
 		},
 		{
-			name: "a deeply owner-nested internal package is allowed",
+			name: "a Pi extension owner package must use adapter naming and disposition",
 			packages: [
 				dispositionPackage({
 					name: "@internal/harness-session",
@@ -912,7 +912,8 @@ describe("TypeScript style guard package disposition topology rules", () => {
 					privateValue: true,
 				}),
 			],
-			expectedViolation: false,
+			expectedTextIncludes: "must have public or incubating disposition",
+			expectedViolationCount: 3,
 		},
 		{
 			name: "a legacy role directory is rejected rather than skipped",
@@ -1261,6 +1262,181 @@ describe("TypeScript style guard package disposition topology rules", () => {
 		const violations = collectPackageDispositionViolations(loadPackageMetadata(REPO_ROOT));
 
 		expect(formatViolations(violations)).toBe("");
+	});
+});
+
+describe("TypeScript style guard Pi ownership topology rules", () => {
+	const extension = dispositionPackage({
+		name: "@nseng-ai/widgets",
+		packageDir: "ts/packages/incubating/extensions/widgets",
+		tier: "extension",
+		exports: ["./api", "."],
+	});
+	const adapter = dispositionPackage({
+		name: "@nseng-ai/pi-ns-widgets",
+		packageDir: "ts/packages/incubating/hosts/pi/extensions/pi-ns-widgets",
+		tier: "host",
+		exports: [".", "./extension", "./bridge"],
+		dependencies: ["@nseng-ai/widgets"],
+	});
+
+	test.each([
+		{
+			name: "rejects a pi-ns identity outside the exact adapter owner",
+			packages: [
+				extension,
+				dispositionPackage({
+					...adapter,
+					packageDir: "ts/packages/incubating/hosts/pi/tools/pi-ns-widgets",
+				}),
+			],
+			expected: "must live directly under a hosts/pi/extensions owner path",
+		},
+		{
+			name: "rejects an adapter owner package with the wrong identity",
+			packages: [
+				extension,
+				dispositionPackage({
+					name: "@nseng-ai/widgets-pi",
+					packageDir: "ts/packages/incubating/hosts/pi/extensions/widgets-pi",
+					tier: "host",
+				}),
+			],
+			expected: "must be named @nseng-ai/pi-ns-<nonempty-domain>",
+		},
+		{
+			name: "rejects an empty adapter domain",
+			packages: [
+				dispositionPackage({
+					name: "@nseng-ai/pi-ns-",
+					packageDir: "ts/packages/incubating/hosts/pi/extensions/pi-ns-",
+					tier: "host",
+				}),
+			],
+			expected: "must be named @nseng-ai/pi-ns-<nonempty-domain>",
+		},
+		{
+			name: "rejects a wrong-scope pi-ns identity",
+			packages: [
+				dispositionPackage({
+					name: "@internal/pi-ns-widgets",
+					packageDir: "ts/packages/internal/hosts/pi/extensions/pi-ns-widgets",
+					privateValue: true,
+					tier: "host",
+				}),
+			],
+			expected: "must have public or incubating disposition",
+		},
+		{
+			name: "rejects an extension owner with the wrong tier",
+			packages: [dispositionPackage({ ...extension, tier: "host" })],
+			expected: "is owned by extensions/ and must declare ns.tier extension",
+		},
+		{
+			name: "rejects an adapter with the wrong tier",
+			packages: [extension, dispositionPackage({ ...adapter, tier: "extension" })],
+			expected: "must declare ns.tier host",
+		},
+		{
+			name: "rejects an adapter without a Pi extension entrypoint",
+			packages: [extension, dispositionPackage({ ...adapter, piExtensions: [] })],
+			expected: "must declare at least one package-level pi.extensions entrypoint",
+		},
+		{
+			name: "rejects an adapter without its derived matching extension",
+			packages: [adapter],
+			expected: "expects matching ns extension @nseng-ai/widgets",
+		},
+		{
+			name: "rejects a dev-only edge to the matching extension",
+			packages: [
+				extension,
+				dispositionPackage({
+					...adapter,
+					dependencies: [],
+					devDependencies: ["@nseng-ai/widgets"],
+				}),
+			],
+			expected: "devDependencies do not satisfy adapter composition",
+		},
+	])("$name", ({ packages, expected }) => {
+		const violations = collectPackageDispositionViolations(
+			buildDispositionSyntheticMetadata(packages),
+		);
+
+		expect(
+			violations.every((violation) => violation.rule === BAN_PACKAGE_DISPOSITION_TOPOLOGY),
+		).toBe(true);
+		expect(formatViolations(violations)).toContain(expected);
+	});
+
+	test("allows the derived adapter shape with an optional runtime workspace edge", () => {
+		const optionalAdapter = dispositionPackage({
+			...adapter,
+			dependencies: [],
+			optionalDependencies: ["@nseng-ai/widgets"],
+		});
+
+		expect(
+			formatViolations(
+				collectPackageDispositionViolations(
+					buildDispositionSyntheticMetadata([extension, optionalAdapter]),
+				),
+			),
+		).toBe("");
+	});
+
+	test.each([
+		{
+			name: "pi subpackage",
+			mutated: dispositionPackage({ ...extension, subpackages: ["api", "pi/runtime"] }),
+			expected: "Pi-owned ns.subpackages entry pi/runtime",
+		},
+		{
+			name: "pi export",
+			mutated: dispositionPackage({ ...extension, exports: ["./api", "./pi/extension"] }),
+			expected: "Pi-owned export ./pi/extension",
+		},
+		{
+			name: "Pi runtime dependency",
+			mutated: dispositionPackage({
+				...extension,
+				dependencies: ["@nseng-ai/pi-runtime"],
+			}),
+			expected: "runtime-depend on Pi host package @nseng-ai/pi-runtime",
+		},
+		{
+			name: "direct Pi SDK peer",
+			mutated: dispositionPackage({
+				...extension,
+				peerDependencies: ["@earendil-works/pi-coding-agent"],
+			}),
+			expected: "runtime-depend on Pi host package @earendil-works/pi-coding-agent",
+		},
+	])("rejects an ns extension $name", ({ mutated, expected }) => {
+		const violations = collectPackageDispositionViolations(
+			buildDispositionSyntheticMetadata([mutated]),
+		);
+
+		expect(formatViolations(violations)).toContain(expected);
+		expect(violations[0]?.path).toContain("package.json");
+		expect(violations[0]?.line).toBeGreaterThan(0);
+	});
+
+	test("derives and checks every real adapter and matching extension without a production allowlist", () => {
+		const metadata = loadPackageMetadata(REPO_ROOT);
+		const adapterNames = [...metadata.values()]
+			.filter((entry) => entry.packageDir.includes("/hosts/pi/extensions/pi-ns-"))
+			.map((entry) => entry.name)
+			.sort();
+
+		expect(adapterNames.length).toBeGreaterThan(0);
+		for (const adapterName of adapterNames) {
+			const domain = adapterName.slice("@nseng-ai/pi-ns-".length);
+			const extension = metadata.get(`@nseng-ai/${domain}`);
+			expect(extension?.packageDir).toMatch(/\/extensions\/[^/]+$/);
+			expect(extension?.nsTier).toBe("extension");
+		}
 	});
 });
 
@@ -1981,6 +2157,10 @@ interface DispositionSyntheticPackage {
 	readonly packageDir: string;
 	/** Omitted means the manifest has no `private` key at all. */
 	readonly privateValue?: boolean;
+	readonly tier?: PackageTier;
+	readonly exports?: readonly string[];
+	readonly subpackages?: readonly string[];
+	readonly piExtensions?: readonly string[];
 	readonly dependencies?: readonly string[];
 	readonly devDependencies?: readonly string[];
 	readonly optionalDependencies?: readonly string[];
@@ -2163,16 +2343,29 @@ function buildDispositionSyntheticMetadata(
 ): Map<string, PackageMetadata> {
 	return new Map(
 		packages.map((syntheticPackage) => {
+			const tier = syntheticPackage.tier ?? "extension";
+			const exportSubpaths = syntheticPackage.exports ?? ["."];
+			const piExtensions =
+				syntheticPackage.piExtensions ??
+				(syntheticPackage.name.startsWith("@nseng-ai/pi-ns-") ? ["./src/extension.ts"] : undefined);
+			const exports = Object.fromEntries(
+				exportSubpaths.map((subpath) => [
+					subpath,
+					`./src/${subpath === "." ? "index" : subpath.slice(2)}.ts`,
+				]),
+			);
 			const manifest: PackageManifest = {
 				name: syntheticPackage.name,
 				...(syntheticPackage.privateValue === undefined
 					? {}
 					: { private: syntheticPackage.privateValue }),
+				exports,
+				...(piExtensions === undefined ? {} : { pi: { extensions: piExtensions } }),
 				...workspaceDependencyField("dependencies", syntheticPackage.dependencies),
 				...workspaceDependencyField("devDependencies", syntheticPackage.devDependencies),
 				...workspaceDependencyField("optionalDependencies", syntheticPackage.optionalDependencies),
 				...workspaceDependencyField("peerDependencies", syntheticPackage.peerDependencies),
-				ns: { tier: "extension" },
+				ns: { tier, subpackages: syntheticPackage.subpackages ?? [] },
 			};
 			return [
 				syntheticPackage.name,
@@ -2182,11 +2375,11 @@ function buildDispositionSyntheticMetadata(
 					packageJsonPath: `${syntheticPackage.packageDir}/package.json`,
 					manifest,
 					manifestContent: JSON.stringify(manifest, null, 2),
-					nsTier: "extension",
-					rawNsTier: "extension",
-					nsSubpackages: [],
+					nsTier: tier,
+					rawNsTier: tier,
+					nsSubpackages: syntheticPackage.subpackages ?? [],
 					nsRemainder: false,
-					exportSubpaths: new Set(["."]),
+					exportSubpaths: new Set(exportSubpaths),
 				},
 			];
 		}),

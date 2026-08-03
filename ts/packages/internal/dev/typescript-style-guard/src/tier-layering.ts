@@ -43,7 +43,6 @@ export function collectPackageTierLayeringViolations(
 		if (fromTier === undefined || toTier === undefined) continue;
 		const violation = tierEdgeViolation(fromTier, toTier);
 		if (violation === undefined) continue;
-		if (isAllowedPiSubpackagePeerEdge(edge, metadataByName)) continue;
 		if (allowedDebtEdges.has(packageEdgeKey(edge.from, edge.to))) continue;
 		violations.push({
 			rule: BAN_PACKAGE_TIER_LAYERING,
@@ -68,23 +67,6 @@ function tierEdgeViolation(
 ): TierEdgeViolation | undefined {
 	if (packageTierAllowedTargets[fromTier].has(toTier)) return undefined;
 	return { severity: "hard", policy: `${fromTier}-must-not-depend-on-${toTier}` };
-}
-
-function isAllowedPiSubpackagePeerEdge(
-	edge: { readonly from: string; readonly to: string; readonly field: string },
-	metadataByName: ReadonlyMap<string, PackageMetadata>,
-): boolean {
-	if (edge.to !== "@nseng-ai/pi-runtime" || edge.field !== "peerDependencies") return false;
-	const metadata = metadataByName.get(edge.from);
-	if (metadata?.nsTier !== "extension") return false;
-	if (!metadata.nsSubpackages.includes("pi")) return false;
-	return isOptionalPeer(metadata.manifest.peerDependenciesMeta, "@nseng-ai/pi-runtime");
-}
-
-function isOptionalPeer(peerDependenciesMeta: unknown, packageName: string): boolean {
-	if (!isRecord(peerDependenciesMeta)) return false;
-	const entry = peerDependenciesMeta[packageName];
-	return isRecord(entry) && entry.optional === true;
 }
 
 // Packages are single-tier (ADR 0032): ns.tier governs the package and every

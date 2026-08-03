@@ -3,6 +3,7 @@ import { collectExtensionManifestWorkspaceEdges } from "./dependency-graph.ts";
 import { findManifestKeyPosition } from "./json-diagnostics.ts";
 import type { PackageMetadata } from "./package-metadata.ts";
 import type { SourceRuleViolation } from "./source-rules.ts";
+import { collectPiOwnershipTopologyViolations } from "./pi-ownership-topology.ts";
 
 const PACKAGES_ROOT = "ts/packages";
 
@@ -89,16 +90,12 @@ type ParsedPackagePath =
  * devDepend on an internal tool. `peerDependencies` is treated as runtime in full, matching
  * `NS_TS_PACKAGE_TIER_LAYERING`; an optional peer still ships as a resolved edge.
  *
- * Two ADR 0045 §5 rules are deliberately **not** implemented here, because the Pi extraction
- * they police is deferred past the tree cutover:
+ * 6. ns extension packages contain no Pi-owned manifest or source surfaces;
+ * 7. each `pi-ns-<domain>` package is a host-tier Pi adapter over exactly
+ *    `@nseng-ai/<domain>/api`, with a runtime workspace edge to that extension.
  *
- * - the `pi-ns-*` adapter rule (an adapter may import only its extension's curated API plus
- *   what disposition closure permits, never deep or private extension source);
- * - the structural rule that no ns extension carries a `pi` subpackage, a `./pi*` export, a
- *   Pi peer dependency, or Pi registration.
- *
- * Both belong in this module when the `pi-ns-*` packages actually exist. Their absence is a
- * sequencing decision, not an oversight.
+ * The ADR 0045 §5 Pi ownership checks are part of this collector so package topology has one
+ * canonical enforcement path for extension separation and `pi-ns-*` adapter boundaries.
  *
  * This rule overlaps `NS_TS_INTERNAL_SPACE_ADMISSION` on the internal scope/private pair and
  * on inbound edges to `@internal/*`. That overlap is intentional: the older rule states the
@@ -124,6 +121,7 @@ export function collectPackageDispositionViolations(
 
 	violations.push(...collectDuplicateLeafViolations(metadataByName, factByPackage));
 	violations.push(...collectClosureViolations(metadataByName, factByPackage));
+	violations.push(...collectPiOwnershipTopologyViolations({ metadataByName, factByPackage }));
 
 	return violations;
 }
