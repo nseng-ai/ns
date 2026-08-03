@@ -57,6 +57,7 @@ import type {
 	CommandExit,
 	DescriptorCommand,
 	NsConfirmPrompt,
+	NsSelectPrompt,
 	NsExtensionApi,
 	NsOutputStream,
 	NsProgressPhaseListener,
@@ -111,6 +112,7 @@ export interface NsCliDeps extends Pick<
 	onOutput?: (stream: NsOutputStream, text: string) => void;
 	onProgress?: NsProgressPhaseListener;
 	confirm?: NsConfirmPrompt;
+	select?: NsSelectPrompt;
 	preinstalledCommandCatalog?: PreinstalledNsCommandCatalogLoader;
 	extensionRegistry?: NsCliExtensionRegistryDeps;
 }
@@ -190,6 +192,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 					onOutput: deps.onOutput,
 					onProgress: deps.onProgress,
 					confirm: deps.confirm,
+					select: deps.select,
 				}),
 			});
 		}
@@ -257,6 +260,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 				onOutput: deps.onOutput,
 				onProgress: deps.onProgress,
 				confirm: deps.confirm,
+				select: deps.select,
 			}),
 		});
 		return {
@@ -466,6 +470,7 @@ async function handleCompletionResolverInvocation(options: {
 	onOutput?: (stream: NsOutputStream, text: string) => void;
 	onProgress?: NsProgressPhaseListener;
 	confirm?: NsConfirmPrompt;
+	select?: NsSelectPrompt;
 	renderCapabilities: RenderCapabilities;
 }): Promise<{ type: "handled"; exitCode: number }> {
 	const words = completionResolverWords(options.args);
@@ -495,6 +500,7 @@ async function handleCompletionResolverInvocation(options: {
 			onOutput: options.onOutput,
 			onProgress: options.onProgress,
 			confirm: options.confirm,
+			select: options.select,
 		}),
 	});
 	const candidates = await buildCli(selectedCommandResolution.resolution).completeAsync(
@@ -556,6 +562,7 @@ async function buildNsCliContext(options: {
 	onOutput?: (stream: NsOutputStream, text: string) => void;
 	onProgress?: NsProgressPhaseListener;
 	confirm?: NsConfirmPrompt;
+	select?: NsSelectPrompt;
 	renderCapabilities: RenderCapabilities;
 }): Promise<NsCliContext> {
 	const baseContext = options.injectedContext;
@@ -564,6 +571,7 @@ async function buildNsCliContext(options: {
 	}
 	const onOutput = options.onOutput ?? baseContext.onOutput;
 	const confirm = options.confirm ?? baseContext.confirm;
+	const select = options.select ?? baseContext.select;
 	const stdin = baseContext.stdin ?? readStdin;
 	const contextExtensions = baseContext.extensions;
 	const commandIo = createCliCommandIo({
@@ -591,7 +599,7 @@ async function buildNsCliContext(options: {
 		stdout: options.stdout,
 		stderr: options.stderr,
 		stdin,
-		...optionalEntries({ onOutput, confirm, extensions: contextExtensions }),
+		...optionalEntries({ onOutput, confirm, select, extensions: contextExtensions }),
 	};
 	return {
 		context,

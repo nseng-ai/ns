@@ -45,9 +45,14 @@ interface RunSingleBranchFastPathLandingOptions {
 
 export { isSingleBranchFastPath };
 
+export interface SingleBranchFastPathLandingResult {
+	readonly outcome: LandOutcome;
+	readonly chosenCleanupPolicy?: PostLandingCleanupRequest["policy"];
+}
+
 export async function runSingleBranchFastPathLanding(
 	options: RunSingleBranchFastPathLandingOptions,
-): Promise<LandOutcome> {
+): Promise<SingleBranchFastPathLandingResult> {
 	const coreOutcome = await executeSingleBranchLanding({
 		context: options.landContext,
 		host: {
@@ -61,7 +66,14 @@ export async function runSingleBranchFastPathLanding(
 		isDryRun: options.isDryRun,
 		cleanup: options.cleanup,
 	});
-	return presentSingleBranchLandingOutcome(options.ctx, coreOutcome);
+	return {
+		outcome: presentSingleBranchLandingOutcome(options.ctx, coreOutcome),
+		...(coreOutcome.type === "completed" &&
+		coreOutcome.result === "merged" &&
+		coreOutcome.chosenCleanupPolicy !== undefined
+			? { chosenCleanupPolicy: coreOutcome.chosenCleanupPolicy }
+			: {}),
+	};
 }
 
 function presentSingleBranchLandingOutcome(

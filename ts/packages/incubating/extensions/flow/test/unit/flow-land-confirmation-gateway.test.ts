@@ -26,37 +26,46 @@ interface GatewayContextFixture {
 		readonly options?: { readonly defaultAnswer?: "yes" | "no" };
 	}>;
 	readonly notifications: Array<{ readonly message: string; readonly level?: NotifyLevel }>;
+	readonly selections: Array<{ readonly title: string; readonly options: readonly string[] }>;
 }
 
 function createGatewayContext(options: {
 	readonly hasUI: boolean;
 	readonly shouldConfirm?: boolean;
+	readonly selected?: string | undefined;
+	readonly hasSelect?: boolean;
 }): GatewayContextFixture {
 	const confirmations: GatewayContextFixture["confirmations"][number][] = [];
 	const notifications: Array<{ message: string; level?: NotifyLevel }> = [];
-	return {
-		ctx: {
-			cwd: SLOT_ROOT,
-			hasUI: options.hasUI,
-			ui: {
-				notify(message, level) {
-					notifications.push({ message, ...optionalEntry("level", level) });
-				},
-				async confirm(title, message, confirmOptions) {
-					confirmations.push({
-						title,
-						message,
-						...(confirmOptions === undefined ? {} : { options: confirmOptions }),
-					});
-					return options.shouldConfirm ?? true;
-				},
-				setStatus() {},
+	const selections: Array<{ title: string; options: readonly string[] }> = [];
+	const ctx: PrintAwareLandStackCommandContext = {
+		cwd: SLOT_ROOT,
+		hasUI: options.hasUI,
+		ui: {
+			notify(message, level) {
+				notifications.push({ message, ...optionalEntry("level", level) });
 			},
-			async waitForIdle() {},
+			async confirm(title, message, confirmOptions) {
+				confirmations.push({
+					title,
+					message,
+					...(confirmOptions === undefined ? {} : { options: confirmOptions }),
+				});
+				return options.shouldConfirm ?? true;
+			},
+			...(options.hasSelect === true
+				? {
+						async select(title: string, selectOptions: readonly string[]) {
+							selections.push({ title, options: selectOptions });
+							return options.selected;
+						},
+					}
+				: {}),
+			setStatus() {},
 		},
-		confirmations,
-		notifications,
+		async waitForIdle() {},
 	};
+	return { ctx, confirmations, notifications, selections };
 }
 
 function landingPlan(): LandingPlan {
@@ -197,6 +206,63 @@ describe("flow land confirmation gateway", () => {
 
 		await expect(gateway.confirm(entry.request)).resolves.toEqual({ type: "declined" });
 	});
+
+	test.each([
+		{
+			selected: "Land and keep slot-02 + local branch feature-a (default)",
+			expectedPolicy: "preserve",
+		},
+		{
+			selected: "Land, free slot-02, and delete local branch feature-a",
+			expectedPolicy: "free",
+		},
+	] as const)("selector approves with $expectedPolicy cleanup", async (selection) => {
+		const fixture = createGatewayContext({
+			hasUI: true,
+			hasSelect: true,
+			selected: selection.selected,
+		});
+		const gateway = createFlowLandConfirmationGateway(fixture.ctx);
+
+		await expect(
+			gateway.confirm({
+				kind: "main-landing",
+				plan: landingPlan(),
+				cleanupChoice: cleanupPreview,
+			}),
+		).resolves.toEqual({
+			type: "approved",
+			approvalSource: "prompted",
+			cleanupPolicy: selection.expectedPolicy,
+		});
+		expect(fixture.confirmations).toEqual([]);
+		expect(fixture.notifications[0]?.message).toContain("feature-a");
+		expect(fixture.selections[0]).toMatchObject({
+			title: "Land and choose cleanup for slot-02?",
+			options: [
+				"Land and keep slot-02 + local branch feature-a (default)",
+				"Land, free slot-02, and delete local branch feature-a",
+				"Cancel landing",
+			],
+		});
+	});
+
+	test.each([undefined, "Cancel landing"])(
+		"selector cancellation declines for %s",
+		async (selected) => {
+			const fixture = createGatewayContext({ hasUI: true, hasSelect: true, selected });
+			const gateway = createFlowLandConfirmationGateway(fixture.ctx);
+
+			await expect(
+				gateway.confirm({
+					kind: "main-landing",
+					plan: landingPlan(),
+					cleanupChoice: cleanupPreview,
+				}),
+			).resolves.toEqual({ type: "declined" });
+			expect(fixture.confirmations).toEqual([]);
+		},
+	);
 
 	test.each(requestTable)(
 		"$name refuses non-interactively with a fully worded failure",

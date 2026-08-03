@@ -90,6 +90,7 @@ export type {
 	NsProgressPhaseEvent,
 	NsProgressPhaseInfo,
 	NsProgressPhaseListener,
+	NsSelectPrompt,
 	OkCommandExit,
 	OptionSpec,
 	PositionalSpec,

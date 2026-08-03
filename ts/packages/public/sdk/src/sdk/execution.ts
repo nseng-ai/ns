@@ -26,6 +26,11 @@ export type NsConfirmPrompt = (
 	options?: NsConfirmOptions,
 ) => Promise<boolean> | boolean;
 
+export type NsSelectPrompt = (
+	title: string,
+	options: readonly string[],
+) => Promise<string | undefined> | string | undefined;
+
 export interface NsExtensionApi {
 	/** Current repository working directory for command-entry execution. */
 	cwd: string;
@@ -66,6 +71,8 @@ export interface NsExtensionApi {
 	>;
 	/** Optional UI confirmation hook for interactive ns commands. */
 	confirm?: ExplicitUndefined<"public-api-compatibility", NsConfirmPrompt>;
+	/** Optional UI selection hook for interactive ns commands. */
+	select?: ExplicitUndefined<"public-api-compatibility", NsSelectPrompt>;
 	/** Project-local extension bag. ns commands own any values they read from it. */
 	extensions?: ExplicitUndefined<"public-api-compatibility", Readonly<Record<string, unknown>>>;
 }

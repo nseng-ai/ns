@@ -426,6 +426,7 @@ interface NsExtensionApi {
   stdin?: (() => Promise<string>) | undefined;
   onOutput?: ((stream: NsOutputStream, text: string) => void) | undefined;
   confirm?: NsConfirmPrompt | undefined;
+  select?: NsSelectPrompt | undefined;
   extensions?: Readonly<Record<string, unknown>> | undefined;
 }
 ```
@@ -447,6 +448,7 @@ interface NsExtensionApi {
 - `stdin?` — optional full stdin reader for commands that consume a finite payload.
 - `onOutput?` — transient live-progress hook for UI bridges, tagged by `NsOutputStream`.
 - `confirm?` — optional interactive confirmation hook (`NsConfirmPrompt`).
+- `select?` — optional interactive selection hook (`NsSelectPrompt`); dismissal returns `undefined`.
 - `extensions?` — project-local extension bag. A command owns any values it reads from it.
 
 **Example.**

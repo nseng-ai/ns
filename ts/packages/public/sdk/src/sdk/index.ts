@@ -25,6 +25,7 @@ export type {
 	ExecResult,
 	NsConfirmOptions,
 	NsConfirmPrompt,
+	NsSelectPrompt,
 	NsExecOptions,
 	NsExtensionApi,
 	NsOutputStream,

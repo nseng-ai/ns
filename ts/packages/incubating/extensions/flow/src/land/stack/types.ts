@@ -1,5 +1,5 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
-import type { NsConfirmOptions } from "@nseng-ai/sdk";
+import type { NsConfirmOptions, NsSelectPrompt } from "@nseng-ai/sdk";
 import type { NotifyLevel } from "../types.ts";
 
 export type { NotifyLevel } from "../types.ts";
@@ -28,6 +28,7 @@ export interface LandStackCommandContext {
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		confirm(title: string, message: string, options?: NsConfirmOptions): Promise<boolean>;
+		select?: NsSelectPrompt;
 		setStatus(key: string, value: string | undefined): void;
 		setWidget?(
 			key: string,

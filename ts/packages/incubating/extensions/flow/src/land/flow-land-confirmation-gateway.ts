@@ -14,6 +14,8 @@ import {
 	formatFreeManagedSlotsConfirmationDetails,
 	formatSingleBranchMainLandingConfirmationDetails,
 	formatPlan,
+	landingCleanupChoiceLabels,
+	landingCleanupChoiceTitle,
 	formatSubmitRequiredUpdatesConfirmationDetails,
 	freeManagedSlotsConfirmationTitle,
 	freeManagedSlotsNonInteractiveRefusalMessage,
@@ -64,12 +66,48 @@ async function confirmFlowLandAction(
 	ctx: PrintAwareLandStackCommandContext,
 	request: LandConfirmationRequest,
 ): Promise<LandConfirmationDecision> {
+	const cleanupSelection = await selectLandingCleanup(ctx, request);
+	if (cleanupSelection !== undefined) return cleanupSelection;
+
 	const outcome = await confirmLandStackAction(confirmationOptions(ctx, request));
 	if (outcome.type === "completed") return { type: "approved", approvalSource: "prompted" };
 	if (landingFailureFacts(outcome.failure).refusalReason === "declined") {
 		return { type: "declined" };
 	}
 	return { type: "refused-with-fully-worded-failure", failure: outcome.failure };
+}
+
+async function selectLandingCleanup(
+	ctx: PrintAwareLandStackCommandContext,
+	request: LandConfirmationRequest,
+): Promise<LandConfirmationDecision | undefined> {
+	if (
+		(request.kind !== "main-landing" && request.kind !== "single-branch-main-landing") ||
+		request.cleanupChoice === undefined ||
+		!ctx.hasUI ||
+		ctx.ui.select === undefined
+	) {
+		return undefined;
+	}
+
+	const details =
+		request.kind === "main-landing"
+			? formatPlan(request.plan)
+			: formatSingleBranchMainLandingConfirmationDetails(request);
+	ctx.ui.notify(details, "info");
+	const labels = landingCleanupChoiceLabels(request.cleanupChoice);
+	const selected = await ctx.ui.select(landingCleanupChoiceTitle(request.cleanupChoice), [
+		labels.keep,
+		labels.free,
+		labels.cancel,
+	]);
+	if (selected === labels.keep) {
+		return { type: "approved", approvalSource: "prompted", cleanupPolicy: "preserve" };
+	}
+	if (selected === labels.free) {
+		return { type: "approved", approvalSource: "prompted", cleanupPolicy: "free" };
+	}
+	return { type: "declined" };
 }
 
 function confirmationOptions(

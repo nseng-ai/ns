@@ -29,7 +29,7 @@ The Flow-owned adapter layer around canonical land execution: command presentati
 *Avoid*: direct `executeStackLandingPlan` call, Flow-side post-landing cleanup for stack landings, pure preflight plan, standalone land CLI behavior
 
 **Canonical Landing Execution**:
-The `executeLanding` entry point on the **Land subpackage API** that owns the full `LandingRequest` lifecycle — discovery, preflight planning, confirmation, pre-merge preparation, merge, per-merge maintenance, optional **Upstack Continuation**, and post-landing managed-slot cleanup under the closed cleanup policy (`preserve` / `free`) — and returns a `LandingExecutionResult` whose completed and failed variants carry the same observed-fact `LandingExecutionReport`.
+The `executeLanding` entry point on the **Land subpackage API** that owns the full `LandingRequest` lifecycle — discovery, preflight planning, confirmation, pre-merge preparation, merge, per-merge maintenance, optional **Upstack Continuation**, and post-landing managed-slot cleanup under the closed cleanup policy (`preserve` / `free`) — and returns a `LandingExecutionResult` whose completed and failed variants carry the same observed-fact `LandingExecutionReport`. For an execute-mode managed-slot landing whose flag-derived policy is `preserve` and which is not continuing upstack, a selector-capable host may approve confirmation with a chosen cleanup policy after presenting keep (default), free, and cancel choices; explicit flags and non-selector hosts retain their existing behavior.
 *Avoid*: phase synthesis from plan shape, gateway-level `LandResult` widening, second execution report model, Flow-owned cleanup ordering
 
 **Upstack Continuation**:

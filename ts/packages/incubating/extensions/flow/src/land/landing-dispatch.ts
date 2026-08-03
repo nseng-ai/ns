@@ -37,7 +37,7 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 		flags: options.parsedArgs,
 	});
 	if (isSingleBranchFastPath(shape.value.stack) && !options.parsedArgs.shouldContinueUpstack) {
-		const outcome = await runSingleBranchFastPathLanding({
+		const fastPath = await runSingleBranchFastPathLanding({
 			landContext,
 			ctx: options.ctx,
 			target: shape.value,
@@ -46,12 +46,13 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 			approvedConfirmationKinds,
 			...optionalEntry("progressIo", observabilityChannels.progressIo),
 		});
-		if (outcome.type === "failure") return outcome;
+		if (fastPath.outcome.type === "failure") return fastPath.outcome;
 		return await runPostLandingSlotCleanup({
 			landContext,
 			ctx: options.ctx,
 			args: options.parsedArgs,
 			shape: shape.value,
+			...optionalEntry("chosenCleanupPolicy", fastPath.chosenCleanupPolicy),
 		});
 	}
 

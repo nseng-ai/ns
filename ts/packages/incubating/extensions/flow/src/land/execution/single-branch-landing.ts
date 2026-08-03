@@ -1,3 +1,5 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import { landingCancelledBeforeMergeFailure, landingExecutionFailure } from "../results.ts";
 import type {
 	LandContext,
@@ -39,6 +41,7 @@ export type SingleBranchLandingOutcome =
 			readonly result: "merged";
 			readonly pullRequest: PullRequestFacts;
 			readonly commandOutput: string;
+			readonly chosenCleanupPolicy?: PostLandingCleanupRequest["policy"];
 	  }
 	| {
 			readonly type: "failure";
@@ -86,11 +89,19 @@ export async function executeSingleBranchLanding(
 		cleanup: options.cleanup,
 		shape: options.target,
 	});
+	const cleanupChoice =
+		options.cleanup.policy === "preserve"
+			? planManagedSlotPostLandingCleanup({
+					cleanup: { mode: options.cleanup.mode, policy: "free" },
+					shape: options.target,
+				})
+			: undefined;
 	const confirmation = await options.host.confirmation.confirm({
 		kind: "single-branch-main-landing",
 		pullRequest,
 		trunk: options.target.trunk,
 		...(cleanupPreview === undefined ? {} : { cleanup: cleanupPreview }),
+		...optionalEntry("cleanupChoice", cleanupChoice),
 	});
 	if (confirmation.type !== "approved") {
 		return {
@@ -146,6 +157,7 @@ export async function executeSingleBranchLanding(
 		result: "merged",
 		pullRequest,
 		commandOutput: successfulCommandOutput(mergeResult.value),
+		...optionalEntry("chosenCleanupPolicy", confirmation.cleanupPolicy),
 	};
 }
 

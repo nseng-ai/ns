@@ -169,6 +169,34 @@ describe("ns completion CLI", () => {
 		expect(registry.loadLog).toEqual(["hello"]);
 	});
 
+	test("dynamic completion receives the UI selection capability", async () => {
+		const registry = fakeCompletionRegistry({
+			commands: [
+				helloCommand({
+					async completionProvider(ctx) {
+						const selected = await ctx.select?.("Choose completion", ["alpha", "beta"]);
+						return selected === undefined ? [] : [{ value: selected, type: "positional-value" }];
+					},
+				}),
+			],
+		});
+		const selections: Array<{ title: string; options: readonly string[] }> = [];
+		const run = runWithFakes({
+			args: ["completion", "exec", "resolve", "--", "hello", ""],
+			state: {
+				select: (title, options) => {
+					selections.push({ title, options });
+					return "beta";
+				},
+			},
+			extensionRegistry: registry,
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("beta\n");
+		expect(selections).toEqual([{ title: "Choose completion", options: ["alpha", "beta"] }]);
+	});
+
 	test("dynamic completion receives the command catalog extension-presence fact", async () => {
 		const registry = fakeCompletionRegistry({
 			extensionPackageNames: new Set(["@example/present"]),
