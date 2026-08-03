@@ -11,6 +11,7 @@ import type {
 	NsExecOptions,
 	ExecResult,
 	NsConfirmPrompt,
+	NsSelectPrompt,
 	RenderCapabilities,
 	TextGenerationRequest,
 	TextGenerationResult,
@@ -40,6 +41,7 @@ export interface TestState {
 	exec?: readonly ScriptedExecResponse[];
 	textGeneration?: readonly ScriptedTextGenerationResult[];
 	confirm?: NsConfirmPrompt;
+	select?: NsSelectPrompt;
 	stdin?: string;
 	extensions?: Readonly<Record<string, unknown>>;
 }
@@ -81,6 +83,7 @@ export class ScriptedNsTestContext implements NsCliBaseContext {
 	stderr?: (text: string) => void;
 	onOutput?: (stream: "stdout" | "stderr", text: string) => void;
 	confirm?: NsConfirmPrompt;
+	select?: NsSelectPrompt;
 	stdin?: () => Promise<string>;
 	extensions?: Readonly<Record<string, unknown>>;
 	private readonly execResponses: ScriptedExecResponse[];
@@ -96,6 +99,7 @@ export class ScriptedNsTestContext implements NsCliBaseContext {
 		this.textGenerationResults = [...(state.textGeneration ?? options.textGenerationResults())];
 		this.missingTextGenerationResult = options.missingTextGenerationResult;
 		if (state.confirm !== undefined) this.confirm = state.confirm;
+		if (state.select !== undefined) this.select = state.select;
 		this.stdin = async () => state.stdin ?? "";
 		if (state.extensions !== undefined) this.extensions = state.extensions;
 	}
@@ -175,6 +179,7 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 				: { renderCapabilities: options.renderCapabilities }),
 			...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 			...(options.state?.confirm === undefined ? {} : { confirm: options.state.confirm }),
+			...(options.state?.select === undefined ? {} : { select: options.state.select }),
 			...(options.extensionRegistry === undefined
 				? {}
 				: { extensionRegistry: options.extensionRegistry }),

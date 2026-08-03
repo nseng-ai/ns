@@ -53,8 +53,17 @@ interface ConfirmationPrompt {
 	message: string;
 }
 
+interface SelectionPrompt {
+	title: string;
+	options: readonly string[];
+}
+
 interface CreateContextOptions {
 	confirm?: (title: string, message: string) => Promise<boolean> | boolean;
+	select?: (
+		title: string,
+		options: readonly string[],
+	) => Promise<string | undefined> | string | undefined;
 	hasUI?: boolean;
 	setEditorText?: boolean;
 	setStatus?: boolean;
@@ -135,6 +144,7 @@ function createContext(
 	statuses: StatusUpdate[];
 	widgets: WidgetUpdate[];
 	confirmations: ConfirmationPrompt[];
+	selections: SelectionPrompt[];
 } {
 	const notifications: Notification[] = [];
 	const editorTexts: string[] = [];
@@ -150,6 +160,7 @@ function createContext(
 		},
 	});
 	const confirmations: ConfirmationPrompt[] = [];
+	const selections: SelectionPrompt[] = [];
 	const ui: CommandContext["ui"] = {
 		notify(message, level) {
 			notifications.push({ message, level });
@@ -175,12 +186,20 @@ function createContext(
 			return confirm(title, message);
 		};
 	}
+	if (options.select !== undefined) {
+		const select = options.select;
+		ui.select = async (title, selectOptions) => {
+			selections.push({ title, options: selectOptions });
+			return await select(title, selectOptions);
+		};
+	}
 	return {
 		notifications,
 		editorTexts,
 		statuses,
 		widgets,
 		confirmations,
+		selections,
 		ctx: {
 			cwd: "/repo",
 			hasUI: options.hasUI ?? true,
@@ -643,6 +662,60 @@ describe("cli command extension helper", () => {
 
 		expect(confirmations).toEqual([{ title: "Confirm title", message: "Confirm body" }]);
 		expectSingleCliOutputMessage(pi, "confirmed=true\n");
+	});
+
+	test("passes UI selection capability to the CLI runner", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: async (_args, deps) => {
+				const selected = await deps.select?.("Choose a target", ["one", "two"]);
+				deps.stdout(`selected=${String(selected)}\n`);
+				return 0;
+			},
+		});
+		const { ctx, selections } = createContext([], { select: () => "two" });
+
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
+
+		expect(selections).toEqual([{ title: "Choose a target", options: ["one", "two"] }]);
+		expectSingleCliOutputMessage(pi, "selected=two\n");
+	});
+
+	test("shows waiting-for-selection live progress while the CLI runner awaits UI selection", async () => {
+		let finishSelect: (() => void) | undefined;
+		const selectFinished = new Promise<void>((resolve) => {
+			finishSelect = resolve;
+		});
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: async (_args, deps) => {
+				const selected = await deps.select?.("Choose a target", ["one", "two"]);
+				deps.stdout(`selected=${String(selected)}\n`);
+				return 0;
+			},
+		});
+		let markSelectStarted: (() => void) | undefined;
+		const selectStarted = new Promise<void>((resolve) => {
+			markSelectStarted = resolve;
+		});
+		const { ctx, widgets } = createContext([], {
+			select: async () => {
+				markSelectStarted?.();
+				await selectFinished;
+				return "one";
+			},
+		});
+
+		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
+		await selectStarted;
+
+		expect(widgets.at(-1)?.lines?.join("\n")).toContain("waiting for selection");
+
+		if (finishSelect === undefined) throw new Error("Expected select resolver to be initialized.");
+		finishSelect();
+		await commandPromise;
+
+		expectSingleCliOutputMessage(pi, "selected=one\n");
 	});
 
 	test("shows waiting-for-confirmation live progress while the CLI runner awaits UI confirmation", async () => {

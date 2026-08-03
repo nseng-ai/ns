@@ -91,6 +91,7 @@ export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 						...(progress.landMatrix === undefined ? {} : { landMatrix: progress.landMatrix }),
 						externalCallTelemetry: telemetry.sink,
 						...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
+						...(ctx.select === undefined ? {} : { select: ctx.select }),
 					}),
 			});
 			if (request.verbose === true && telemetryFinish !== undefined) {

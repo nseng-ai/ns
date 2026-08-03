@@ -1,5 +1,5 @@
 import { runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
-import type { NsCommandIo, NsConfirmOptions } from "@nseng-ai/sdk";
+import type { NsCommandIo, NsConfirmOptions, NsSelectPrompt } from "@nseng-ai/sdk";
 import type { ExecOutputListener, ExecResult } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { parseArgs } from "./land-stack.ts";
@@ -106,6 +106,7 @@ export interface LandCliInput {
 	stderr(text: string): void;
 	onOutput?: ExecOutputListener;
 	confirm?: LandCliConfirmPrompt;
+	select?: NsSelectPrompt;
 	/** Optional progress sink; when omitted, the legacy CLI command stream is used. */
 	progressIo?: NsCommandIo;
 	/** Optional Flow-owned structured live-progress sink for dynamic land titles. */
@@ -148,6 +149,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 						},
 						confirm: async (title, message, options) =>
 							confirm === undefined ? false : await confirm(title, message, options),
+						...optionalEntry("select", input.select),
 						setStatus: (_key, value) => {
 							if (value !== undefined) progressIo.phase(value);
 						},

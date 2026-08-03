@@ -1,5 +1,6 @@
 import type { PostLandingSlotCleanupPreview } from "./post-landing-cleanup.ts";
 import type {
+	LandingCleanupPolicy,
 	LandingFailure,
 	LandingPlan,
 	ManagedSlotWorktree,
@@ -14,12 +15,14 @@ export type LandConfirmationRequest =
 			readonly kind: "main-landing";
 			readonly plan: LandingPlan;
 			readonly cleanup?: PostLandingSlotCleanupPreview;
+			readonly cleanupChoice?: PostLandingSlotCleanupPreview;
 	  }
 	| {
 			readonly kind: "single-branch-main-landing";
 			readonly pullRequest: PullRequestFacts;
 			readonly trunk: string;
 			readonly cleanup?: PostLandingSlotCleanupPreview;
+			readonly cleanupChoice?: PostLandingSlotCleanupPreview;
 	  }
 	| { readonly kind: "free-managed-slots"; readonly slots: readonly ManagedSlotWorktree[] }
 	| {
@@ -34,6 +37,7 @@ export type LandConfirmationDecision =
 	| {
 			readonly type: "approved";
 			readonly approvalSource: "prompted" | "approved-upfront";
+			readonly cleanupPolicy?: LandingCleanupPolicy;
 	  }
 	| { readonly type: "declined" }
 	| { readonly type: "refused-with-fully-worded-failure"; readonly failure: LandingFailure };

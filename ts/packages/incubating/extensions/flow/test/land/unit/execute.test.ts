@@ -852,6 +852,35 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
 	});
 
+	test("applies a confirmation-selected free policy after approval", async () => {
+		const memory = createInMemoryLandContext(managedSlotState());
+		const confirmation = decidingConfirmation({
+			"main-landing": {
+				type: "approved",
+				approvalSource: "prompted",
+				cleanupPolicy: "free",
+			},
+		});
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "preserve" }),
+			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
+		});
+
+		expect(confirmation.requests).toMatchObject([
+			{
+				kind: "main-landing",
+				cleanupChoice: { slotName: "slot-02", localBranchDisposition: "delete" },
+			},
+		]);
+		expect(outcome).toMatchObject({
+			type: "completed",
+			report: { cleanup: { postLandingSlotCleanup: { type: "completed" } } },
+		});
+		expect(memory.worktrees.freeSlotsCalls).toHaveLength(1);
+	});
+
 	test("upfront-approved cleanup does not prompt a second time", async () => {
 		const memory = createInMemoryLandContext(managedSlotState());
 		const upfrontConfirmation = decidingConfirmation({

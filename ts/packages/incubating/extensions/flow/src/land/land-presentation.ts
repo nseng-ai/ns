@@ -49,6 +49,7 @@ import type {
 	PrintAwareLandStackCommandContext,
 } from "./stack/types.ts";
 import type { RemainingCleanup } from "./execution/merge-loop.ts";
+import type { PostLandingSlotCleanupPreview } from "./execution/post-landing-cleanup.ts";
 import { formatConflict, formatSlotConflict, slotFreeArgs } from "./worktree-paths.ts";
 import type {
 	DescendantMaintenancePlan,
@@ -224,7 +225,7 @@ export function usage(): string {
 		"Lands the current PR or Graphite stack into gt trunk.",
 		"Fast path requires Graphite to prove a single-branch PR shape. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
 		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts; descendant worktree conflicts skip optional post-landing restack/update.",
-		"After successful landing, this command keeps the current managed slot and local branch by default; pass --free to free the slot and delete the landed local branch, or --up to continue onto the sole immediate child while keeping the slot.",
+		"After successful landing, this command keeps the current managed slot and local branch by default; in selector-capable interactive hosts, execute-mode managed-slot landings offer keep, free, or cancel before merge. Pass --free to choose cleanup upfront, or --up to continue onto the sole immediate child while keeping the slot.",
 		"",
 		"Options:",
 		...landUsageOptionRows().map(formatUsageOptionRow),
@@ -658,6 +659,25 @@ export function presentLandingSuccess(options: PresentLandingSuccessOptions): vo
 		}),
 		kind: "success",
 	});
+}
+
+export function landingCleanupChoiceTitle(preview: PostLandingSlotCleanupPreview): string {
+	return `Land and choose cleanup for ${preview.slotName}?`;
+}
+
+export function landingCleanupChoiceLabels(preview: PostLandingSlotCleanupPreview): {
+	readonly keep: string;
+	readonly free: string;
+	readonly cancel: string;
+} {
+	return {
+		keep: `Land and keep ${preview.slotName} + local branch ${preview.branch} (default)`,
+		free:
+			preview.localBranchDisposition === "keep-trunk"
+				? `Land, free ${preview.slotName}, and keep local trunk branch ${preview.branch}`
+				: `Land, free ${preview.slotName}, and delete local branch ${preview.branch}`,
+		cancel: "Cancel landing",
+	};
 }
 
 export function singleBranchMainLandingConfirmationTitle(): string {

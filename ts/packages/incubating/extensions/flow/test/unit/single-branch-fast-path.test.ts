@@ -9,6 +9,7 @@ import type {
 	LandConfirmationGateway,
 	LandExecutionMessageProgress,
 } from "../../src/land/execution/host-seams.ts";
+import type { PostLandingCleanupRequest } from "../../src/land/execution/post-landing-cleanup.ts";
 import {
 	failureLevel,
 	formatSingleBranchDryRunNotification,
@@ -172,6 +173,44 @@ describe("single-branch landing core", () => {
 		expect(fakes.github.squashMergePullRequestCalls).toHaveLength(1);
 	});
 
+	test("offers a cleanup choice under preserve and returns the selected policy", async () => {
+		const requests: Parameters<LandConfirmationGateway["confirm"]>[0][] = [];
+		const fakes = createInMemoryLandContext({ github: { pullRequests: [openPullRequest()] } });
+		const outcome = await run(fakes.context, {
+			shape: singleBranchShape(MANAGED_ROOT),
+			cleanupPolicy: "preserve",
+			confirmation: {
+				confirm: async (request) => {
+					requests.push(request);
+					return {
+						type: "approved",
+						approvalSource: "prompted",
+						cleanupPolicy: "free",
+					};
+				},
+			},
+		});
+
+		expect(requests).toEqual([
+			{
+				kind: "single-branch-main-landing",
+				pullRequest: openPullRequest(),
+				trunk: TRUNK,
+				cleanupChoice: {
+					branch: FEATURE,
+					repoRoot: MANAGED_ROOT,
+					slotName: "slot-03",
+					localBranchDisposition: "delete",
+				},
+			},
+		]);
+		expect(outcome).toMatchObject({
+			type: "completed",
+			result: "merged",
+			chosenCleanupPolicy: "free",
+		});
+	});
+
 	test("preserves every merge boundary failure field", async () => {
 		const mergeFailure: LandingBoundaryFailure = {
 			type: "boundary",
@@ -282,6 +321,7 @@ async function run(
 		readonly isDryRun?: boolean;
 		readonly confirmation?: LandConfirmationGateway;
 		readonly shape?: LandingShape;
+		readonly cleanupPolicy?: PostLandingCleanupRequest["policy"];
 	} = {},
 ): Promise<SingleBranchLandingOutcome> {
 	return await executeSingleBranchLanding({
@@ -291,7 +331,7 @@ async function run(
 		isDryRun: overrides.isDryRun ?? false,
 		cleanup: {
 			mode: (overrides.isDryRun ?? false) ? "dry-run" : "execute",
-			policy: "free",
+			policy: overrides.cleanupPolicy ?? "free",
 		},
 	});
 }

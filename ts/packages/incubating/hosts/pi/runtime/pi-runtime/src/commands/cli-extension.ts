@@ -69,6 +69,11 @@ export type CliCommandConfirmPrompt = (
 	options?: NsConfirmOptions,
 ) => Promise<boolean> | boolean;
 
+export type CliCommandSelectPrompt = (
+	title: string,
+	options: readonly string[],
+) => Promise<string | undefined> | string | undefined;
+
 export interface CliCommandRunDeps {
 	cwd: string;
 	stdout: (text: string) => void;
@@ -87,6 +92,7 @@ export interface CliCommandRunDeps {
 	 */
 	onProgress?: (event: NsProgressPhaseEvent) => void;
 	confirm?: CliCommandConfirmPrompt;
+	select?: CliCommandSelectPrompt;
 }
 
 export interface CliCommandExtensionSpec {
@@ -118,6 +124,7 @@ export interface CommandContext {
 			message: string,
 			options?: NsConfirmOptions,
 		): Promise<boolean> | boolean;
+		select?(title: string, options: string[]): Promise<string | undefined> | string | undefined;
 		setEditorText?(text: string): void;
 		setStatus?(key: string, value: string | undefined): void;
 		setWidget?: SetWidgetFunction;
@@ -448,6 +455,17 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 				progress.setPhase("waiting for confirmation");
 				try {
 					return await confirm(title, message, options);
+				} finally {
+					progress.setPhase("running CLI command");
+				}
+			};
+		}
+		if (ctx.hasUI && ctx.ui.select !== undefined) {
+			const select = ctx.ui.select;
+			runDeps.select = async (title, selectOptions) => {
+				progress.setPhase("waiting for selection");
+				try {
+					return await select(title, [...selectOptions]);
 				} finally {
 					progress.setPhase("running CLI command");
 				}

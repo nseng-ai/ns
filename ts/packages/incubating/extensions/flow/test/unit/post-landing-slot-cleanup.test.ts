@@ -170,6 +170,25 @@ describe("post-landing slot cleanup defaults", () => {
 		).toBeUndefined();
 	});
 
+	test("a selected free override replaces the default preserve policy", async () => {
+		const { context, worktrees, graphite } = createInMemoryLandContext();
+		const fixture = createCleanupContext({ hasUI: true });
+
+		const outcome = await runPostLandingSlotCleanup({
+			landContext: context,
+			ctx: fixture.ctx,
+			args: expectParsed(""),
+			shape: managedShape(),
+			chosenCleanupPolicy: "free",
+		});
+
+		expect(outcome).toEqual({ type: "completed" });
+		expect(worktrees.freeSlotsCalls).toHaveLength(1);
+		expect(graphite.deleteLocalBranchCalls).toEqual([
+			{ repoRoot: SLOT_ROOT, branch: BRANCH, checkedOutConflictHandling: "fail" },
+		]);
+	});
+
 	test("cleanup on trunk with --free frees the slot but keeps the local trunk branch", async () => {
 		const { context, worktrees, graphite } = createInMemoryLandContext();
 		const fixture = createCleanupContext({ hasUI: true });

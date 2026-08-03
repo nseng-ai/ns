@@ -59,6 +59,7 @@ interface RunPostLandingSlotCleanupOptions {
 	readonly ctx: PrintAwareLandStackCommandContext;
 	readonly args: ParsedArgs;
 	readonly shape: LandingShape;
+	readonly chosenCleanupPolicy?: LandingCleanupPolicy;
 }
 
 /** Single-branch fast-path glue: run cleanup after landing outside canonical stack execution. */
@@ -68,7 +69,10 @@ export async function runPostLandingSlotCleanup(
 	const result = await runManagedSlotPostLandingCleanup({
 		landContext: options.landContext,
 		progress: createCleanupProgress(options.ctx),
-		cleanup: postLandingCleanupRequestFromArgs(options.args),
+		cleanup: {
+			...postLandingCleanupRequestFromArgs(options.args),
+			...(options.chosenCleanupPolicy === undefined ? {} : { policy: options.chosenCleanupPolicy }),
+		},
 		shape: options.shape,
 	});
 	if (result.type === "failure") {

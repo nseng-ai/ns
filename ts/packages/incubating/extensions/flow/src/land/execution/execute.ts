@@ -210,10 +210,18 @@ export async function executeLandingRequest(
 	}
 
 	const cleanupPreview = planManagedSlotPostLandingCleanup({ cleanup: cleanupRequest, shape });
+	const cleanupChoice =
+		request.cleanup === "preserve" && request.continuation.type !== "upstack"
+			? planManagedSlotPostLandingCleanup({
+					cleanup: { mode: request.mode, policy: "free" },
+					shape,
+				})
+			: undefined;
 	const mainDecision = await host.confirmation.confirm({
 		kind: "main-landing",
 		plan: plan.value,
 		...(cleanupPreview === undefined ? {} : { cleanup: cleanupPreview }),
+		...(cleanupChoice === undefined ? {} : { cleanupChoice }),
 	});
 	if (mainDecision.type !== "approved") {
 		const failure =
@@ -222,6 +230,10 @@ export async function executeLandingRequest(
 				: mainDecision.failure;
 		return failedResult(draft, "confirmation", failure);
 	}
+	const effectiveCleanupRequest: PostLandingCleanupRequest = {
+		...cleanupRequest,
+		policy: mainDecision.cleanupPolicy ?? cleanupRequest.policy,
+	};
 	draft.phases.push(
 		mainDecision.approvalSource === "prompted"
 			? completed("confirmation")
@@ -315,7 +327,7 @@ export async function executeLandingRequest(
 		context,
 		host,
 		shape,
-		cleanupRequest,
+		cleanupRequest: effectiveCleanupRequest,
 		draft,
 	});
 }
