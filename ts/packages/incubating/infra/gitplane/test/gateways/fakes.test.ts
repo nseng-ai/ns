@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { parseArtifactId } from "@nseng-ai/gitplane";
 import {
+	exerciseMaterializationStoreConformance,
 	InMemoryArtifactGateway,
 	InMemoryMaterializationStoreGateway,
 } from "@nseng-ai/gitplane/testing";
@@ -18,6 +19,17 @@ const event = {
 	priorPath: null,
 	currentPath: "p",
 };
+test("in-memory store satisfies shared conformance", async () => {
+	let store: InMemoryMaterializationStoreGateway | undefined;
+	await exerciseMaterializationStoreConformance(
+		() => {
+			store = new InMemoryMaterializationStoreGateway();
+			return store;
+		},
+		() => store?.snapshot().targetRows?.[0]?.values,
+	);
+});
+
 test("cursor CAS and event insertion are idempotent", async () => {
 	const store = new InMemoryMaterializationStoreGateway();
 	expect(
@@ -71,15 +83,30 @@ test("revision retries ignore later first-observed locators", async () => {
 });
 
 test("target tombstones preserve projected values and apply custom lineage columns", async () => {
+	const target = {
+		table: "greetings",
+		lineage: {
+			sourceId: "source_id",
+			artifactId: "artifact_id",
+			revisionId: "revision_id",
+			path: "artifact_path",
+			deleted: "is_gone",
+			deletedAtCommit: "gone_at",
+		},
+	};
 	const row = {
+		table: target.table,
 		sourceId: "s",
 		artifactId,
-		revisionId: "r",
-		path: "p",
-		table: "greetings",
-		values: { message: "hello", is_gone: false, gone_at: null },
-		deleted: false,
-		deletedAtCommit: null,
+		values: {
+			source_id: "s",
+			artifact_id: artifactId,
+			revision_id: "r",
+			artifact_path: "p",
+			message: "hello",
+			is_gone: false,
+			gone_at: null,
+		},
 	};
 	const store = new InMemoryMaterializationStoreGateway({ targetRows: [row] });
 	expect(
@@ -87,25 +114,13 @@ test("target tombstones preserve projected values and apply custom lineage colum
 			sourceId: "s",
 			artifactId,
 			deletedAtCommit: "deadbeef",
-			target: {
-				table: "greetings",
-				lineage: {
-					sourceId: "source_id",
-					artifactId: "artifact_id",
-					revisionId: "revision_id",
-					path: "artifact_path",
-					deleted: "is_gone",
-					deletedAtCommit: "gone_at",
-				},
-			},
+			target,
 		}),
 	).toEqual({ ok: true });
 	expect(store.snapshot().targetRows).toEqual([
 		{
 			...row,
-			values: { message: "hello", is_gone: true, gone_at: "deadbeef" },
-			deleted: true,
-			deletedAtCommit: "deadbeef",
+			values: { ...row.values, is_gone: true, gone_at: "deadbeef" },
 		},
 	]);
 });

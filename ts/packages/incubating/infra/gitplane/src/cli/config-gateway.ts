@@ -122,6 +122,31 @@ export function parseGitplaneConfigModule(
 				"Schema version keys must be unique positive integers.",
 				logicalConfigPath,
 			);
+		const lineageColumns = Object.values(kind.target.lineage);
+		if (new Set(lineageColumns).size !== lineageColumns.length)
+			return configInvalid("Lineage target columns must be unique.", logicalConfigPath);
+		for (const registration of Object.values(kind.schemaVersions)) {
+			if (Object.keys(registration.fields).some((pointer) => !isValidJsonPointer(pointer)))
+				return configInvalid(
+					"Projection field keys must be valid RFC 6901 JSON pointers.",
+					logicalConfigPath,
+				);
+			const projected = Object.values(registration.fields).map((field) => field.target);
+			const cleared = registration.clearFields ?? [];
+			if (new Set(projected).size !== projected.length)
+				return configInvalid(
+					"Projected target columns must be unique within a schema version.",
+					logicalConfigPath,
+				);
+			if (new Set(cleared).size !== cleared.length)
+				return configInvalid("clearFields target columns must be unique.", logicalConfigPath);
+			const all = [...lineageColumns, ...projected, ...cleared];
+			if (new Set(all).size !== all.length)
+				return configInvalid(
+					"Lineage, projected, and cleared target columns must not collide.",
+					logicalConfigPath,
+				);
+		}
 		const edges = new Set<string>();
 		for (const edge of kind.transitions) {
 			const key = `${edge.from}:${edge.to}`;
@@ -178,6 +203,10 @@ export function parseGitplaneConfigModule(
 		...(kinds === undefined ? {} : { kinds }),
 	};
 	return { ok: true, config, artifactRoot, absoluteArtifactRoot };
+}
+
+function isValidJsonPointer(pointer: string): boolean {
+	return pointer === "" || (pointer.startsWith("/") && !/~(?:[^01]|$)/u.test(pointer));
 }
 
 export class TrustedTypeScriptConfigGateway implements GitplaneConfigGateway {

@@ -29,6 +29,11 @@ export interface ProjectionField {
 	readonly target: string;
 	readonly mode?: "json";
 }
+export interface TargetProjectionField {
+	readonly column: string;
+	readonly mode: "scalar" | "json";
+	readonly value: unknown;
+}
 export interface ArtifactSchemaRegistration {
 	readonly fields: Readonly<Record<string, ProjectionField>>;
 	readonly clearFields?: readonly string[];
@@ -54,12 +59,18 @@ export interface TargetMapping {
 export interface Clock {
 	now(): Date;
 }
+export type StoreAccess = "read-only" | "read-write";
 export interface GitplaneContext {
 	readonly clock: Clock;
+	readonly configDirectory: string;
 }
+export type GitplaneStoreFactory = (
+	context: GitplaneContext,
+	options: { readonly access: StoreAccess },
+) => MaterializationStoreGateway;
 export interface GitplaneConfig {
 	readonly source: { readonly id: string; readonly artifactRoot: string };
-	readonly store: (context: GitplaneContext) => MaterializationStoreGateway;
+	readonly store: GitplaneStoreFactory;
 	readonly kinds?: readonly ArtifactKindRegistration[];
 }
 export function defineGitplaneConfig(config: GitplaneConfig): GitplaneConfig {

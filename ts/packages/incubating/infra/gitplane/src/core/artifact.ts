@@ -19,14 +19,18 @@ export function parseArtifactId(value: string): ArtifactIdParseResult {
 			};
 }
 
-export type ArtifactClassification =
-	| { readonly state: "generic" }
-	| {
-			readonly state: "classified";
-			readonly apiVersion: string;
-			readonly kind: string;
-			readonly schemaVersion: number;
-	  };
+export const artifactClassificationSchema = z.discriminatedUnion("state", [
+	z.object({ state: z.literal("generic") }).strict(),
+	z
+		.object({
+			state: z.literal("classified"),
+			apiVersion: z.string().min(1),
+			kind: z.string().min(1),
+			schemaVersion: z.number().int().positive(),
+		})
+		.strict(),
+]);
+export type ArtifactClassification = z.infer<typeof artifactClassificationSchema>;
 
 export interface ArtifactMarker {
 	readonly gpId: ArtifactId;
