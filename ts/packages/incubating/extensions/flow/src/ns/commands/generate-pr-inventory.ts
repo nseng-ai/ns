@@ -19,19 +19,10 @@ import {
 	createNsPrInventoryRuntime,
 	formatPromptSourceLabel,
 	preparePrMetadataReplacementForCurrentBranch,
-	PR_INVENTORY_PROMPT_ENV,
-	REPO_PR_INVENTORY_PROMPT_PATH,
 	type PrMetadataReplacementResult,
 } from "../../submit/index.ts";
 import { flowExtensionDescriptorSource } from "../extension.ts";
 import { resolveFlowModelSelection } from "../model-policy.ts";
-
-const GENERATE_PR_INVENTORY = `Generate and completely replace the current branch PR title and body.
-
-The command asks for confirmation before model work, reads the current branch PR with gh, generates fresh PR inventory from the PR diff and commit headlines, then replaces the complete PR title and body. All existing body content is removed, including human prose and other ns-managed regions. Use --yes/-y to approve generation and destructive replacement non-interactively.
-
-Environment:
-  ${PR_INVENTORY_PROMPT_ENV}  Optional path to a custom PR inventory prompt. Overrides ${REPO_PR_INVENTORY_PROMPT_PATH} and the built-in prompt.`;
 
 const generatePrInventorySchema = z.object({
 	yes: z
@@ -44,9 +35,6 @@ type GeneratePrInventoryRequest = z.output<typeof generatePrInventorySchema>;
 
 export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventorySchema> =
 	defineCommand({
-		name: "generate-pr-inventory",
-		summary: "Generate and replace the complete PR title and body.",
-		description: GENERATE_PR_INVENTORY,
 		schema: generatePrInventorySchema,
 		resultSchema: z.string(),
 		options: { yes: { short: "-y" } },

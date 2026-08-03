@@ -204,7 +204,7 @@ describe("installExtension", () => {
 		});
 		const result = await installExtension(context, { cwd: "/repo/subdir", source });
 		expect(result).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				sourceSpec: source,
 				sourceKind: "local",
@@ -218,7 +218,7 @@ describe("installExtension", () => {
 		expect(files.fileContent("ns.toml")).toBe(
 			'supported_harnesses = ["pi"]\nextensions = ["./extensions/tools"]\n',
 		);
-		if (result.type !== "ok" || result.data.scope !== "project")
+		if (result.status !== "success" || result.data.scope !== "project")
 			throw new Error("Expected project install success.");
 		expect(result.data.steps).toEqual([
 			{ type: "phase", phase: "repository-preflight", status: "started" },
@@ -285,7 +285,7 @@ describe("installExtension", () => {
 		const { context, acquisition } = fixture({ nsToml: initializedToml, descriptors: [record] });
 		const result = await installExtension(context, { cwd: "/repo", source });
 		expect(result).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				sourceKind: "npm",
 				packageName: "@test/tools",
@@ -308,7 +308,7 @@ describe("installExtension", () => {
 			acquisition,
 		});
 		const result = await installExtension(context, { cwd: "/repo", source });
-		expect(result).toMatchObject({ type: "ok", data: { isRecorded: false } });
+		expect(result).toMatchObject({ status: "success", data: { isRecorded: false } });
 		expect(files.fileContent("ns.toml")).toBe(`${initializedToml}extensions = ["${source}"]\n`);
 		expect(acquisition.installedRoots()).toEqual(new Set([root]));
 	});
@@ -325,7 +325,10 @@ describe("installExtension", () => {
 
 		const result = await installExtension(context, { cwd: "/repo", source });
 
-		expect(result).toMatchObject({ type: "ok", data: { isRecorded: false, moduleRoot: root } });
+		expect(result).toMatchObject({
+			status: "success",
+			data: { isRecorded: false, moduleRoot: root },
+		});
 		expect(acquisition.installedRoots()).toContain(root);
 		expect(acquisition.calls()).toEqual([{ repoRoot: "/repo", sourceSpec: source }]);
 	});
@@ -340,7 +343,7 @@ describe("installExtension", () => {
 			const { context, files, acquisition } = fixture(nsToml === undefined ? {} : { nsToml });
 			const result = await installExtension(context, { cwd: "/repo", source: "npm:@test/tools" });
 			expect(result).toMatchObject({
-				type: "failure",
+				status: "failure",
 				errorType,
 				data: {
 					completed: {},
@@ -365,7 +368,7 @@ describe("installExtension", () => {
 		const result = await installExtension(context, { cwd: "/repo", source: "npm:" });
 
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-install-source-invalid",
 			data: {
 				diagnostics: [{ code: "extension-acquisition-invalid-npm-spec" }],
@@ -387,7 +390,7 @@ describe("installExtension", () => {
 			const { context, files, acquisition } = fixture({ nsToml: initializedToml });
 			const result = await installExtension(context, { cwd: "/repo", source });
 			expect(result).toMatchObject({
-				type: "failure",
+				status: "failure",
 				errorType: "ns-extension-install-source-unsupported",
 				...(source.startsWith("git:")
 					? {
@@ -410,7 +413,7 @@ describe("installExtension", () => {
 		const { context, files, acquisition } = fixture({ nsToml: initializedToml + extensions });
 		const result = await installExtension(context, { cwd: "/repo", source });
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-install-identity-conflict",
 			data: { requestedSpec: source, completed: {} },
 		});
@@ -427,7 +430,7 @@ describe("installExtension", () => {
 			source: "npm:@test/tools",
 		});
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-install-config-invalid",
 			data: { completed: {} },
 		});
@@ -449,7 +452,7 @@ describe("installExtension", () => {
 		const { context, files } = fixture({ nsToml: initializedToml, acquisition });
 		const result = await installExtension(context, { cwd: "/repo", source });
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-install-acquisition-failed",
 			data: {
 				phase: "acquisition",
@@ -477,7 +480,7 @@ describe("installExtension", () => {
 			});
 			const result = await installExtension(context, { cwd: "/repo", source });
 			expect(result).toMatchObject({
-				type: "failure",
+				status: "failure",
 				errorType: "ns-extension-install-preflight-failed",
 				data: { diagnostics: [{ code: code.replaceAll("_", "-") }], completed: {} },
 			});
@@ -515,7 +518,7 @@ describe("installExtension", () => {
 		const result = await installExtension(context, { cwd: "/repo", source });
 
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-install-preflight-failed",
 			data: { diagnostics: [{ code: "artifact-collision" }], completed: {} },
 		});
@@ -537,7 +540,7 @@ describe("installExtension", () => {
 		});
 		const first = await installExtension(firstFixture.context, { cwd: "/repo", source });
 		expect(first).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-install-apply-failed",
 			data: {
 				phase: "agents-instructions",
@@ -563,7 +566,7 @@ describe("installExtension", () => {
 		});
 		const rerun = await installExtension(rerunFixture.context, { cwd: "/repo", source });
 		expect(rerun).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				isRecorded: false,
 				completed: {

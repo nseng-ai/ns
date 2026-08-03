@@ -1,4 +1,4 @@
-import { ok, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
+import { ok, type CommandOutcome } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 import { findFirstPartySkillArtifact, resolveHarnessArtifactPath } from "../api.ts";
@@ -19,7 +19,7 @@ export type SkillsPathResult = z.infer<typeof skillsPathResultSchema>;
 export function runSkillsPath(
 	context: SkillsCommandContext,
 	request: z.output<typeof skillsPathRequestSchema>,
-): ClinkrExit<SkillsPathResult> {
+): CommandOutcome<SkillsPathResult> {
 	const artifact = findFirstPartySkillArtifact(request.skill);
 	if (artifact === undefined) return unknownSkillExit(request.skill);
 	const resolvedPath = resolveHarnessArtifactPath({

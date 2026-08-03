@@ -213,8 +213,6 @@ describe("checked-in flow ns extension loading", () => {
 		expect(output).not.toContain("--minimal");
 		expect(output).not.toMatch(/(?:^|\s)-m(?:,|\s|$)/mu);
 		expect(output).not.toContain("NS_DEV_PR_DESCRIPTION_MODEL");
-		expect(output).toContain("NS_FLOW_PR_INVENTORY_PROMPT");
-		expect(output).toContain("NS_SUBMIT_FAILURE_LOG_DIR");
 		expect(help.stderr.join("")).toBe("");
 	});
 

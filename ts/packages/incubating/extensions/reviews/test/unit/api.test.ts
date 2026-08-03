@@ -284,7 +284,7 @@ describe("@nseng-ai/reviews/api", () => {
 		);
 	});
 
-	test("maps command-faced failures without exposing ClinkrExit", async () => {
+	test("maps command-faced failures without exposing command outcomes", async () => {
 		const client = createReviewsClient({
 			cwd: "/repo",
 			runtime: runtimeWithFakes({

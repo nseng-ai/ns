@@ -1,13 +1,10 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
-	createNsDomainCommand,
-	type NsDomainCommandOptions,
-} from "@nseng-ai/extension-kit/ns-command";
-import type {
-	NsCommand,
-	NsCommandCompletionProvider,
-	NsCommandSchema,
-	NsExtensionApi,
+	defineCommand,
+	type CommandExit,
+	type NsCommand,
+	type NsCommandSchema,
+	type NsExtensionApi,
 } from "@nseng-ai/sdk";
 
 import { createRealSlotContext, type SlotCliContext } from "../core/context.ts";
@@ -19,30 +16,13 @@ import {
 	type SlotCommandSpec,
 } from "./slot-command-specs.ts";
 
-type SlotNsCommandOptions<S extends NsCommandSchema, T> = Omit<
-	NsDomainCommandOptions<S, T, SlotCliContext>,
-	"createContext"
->;
-
 export function loadSlotNsCommand(commandName: string): NsCommand {
-	const command = allSlotNsCommands().find((candidate) => candidate.name === commandName);
-	if (command === undefined) {
-		throw new Error(`Missing Slot ns command ${commandName}.`);
-	}
-	return command;
-}
-
-function allSlotNsCommands(): readonly NsCommand[] {
-	return [...slotCommandSpecs.map((spec) => slotCommandFromSpec(spec)), ...buildNsShellCommands()];
-}
-
-function slotCommand<S extends NsCommandSchema, T>(
-	options: SlotNsCommandOptions<S, T>,
-): NsCommand<S, T> {
-	return createNsDomainCommand({
-		...options,
-		createContext: createSlotExtensionContext,
-	});
+	const spec = slotCommandSpecs.find((candidate) => candidate.name === commandName);
+	if (spec !== undefined) return slotCommandFromSpec(spec);
+	const shellCommand =
+		buildNsShellCommands()[commandName === "show" ? 0 : commandName === "install" ? 1 : -1];
+	if (shellCommand !== undefined) return shellCommand;
+	throw new Error(`Missing Slot ns command ${commandName}.`);
 }
 
 async function createSlotExtensionContext(ctx: NsExtensionApi): Promise<SlotCliContext> {
@@ -57,13 +37,49 @@ async function createSlotExtensionContext(ctx: NsExtensionApi): Promise<SlotCliC
 }
 
 function slotCommandFromSpec(spec: SlotCommandSpec): NsCommand<NsCommandSchema, unknown> {
-	const completionProvider: NsCommandCompletionProvider | undefined =
-		checkoutBranchesCompletionProviderFor({
-			completionKind: spec.completionKind,
-			gitFromContext: async (ctx: NsExtensionApi) => (await createSlotExtensionContext(ctx)).git,
-		});
-	return slotCommand({
-		...slotCommandBaseSpec(spec),
-		...optionalEntry("completionProvider", completionProvider),
+	const completionProvider = checkoutBranchesCompletionProviderFor({
+		completionKind: spec.completionKind,
+		gitFromContext: async (ctx: NsExtensionApi) => (await createSlotExtensionContext(ctx)).git,
 	});
+	const base = slotCommandBaseSpec(spec);
+	return defineCommand({
+		...base,
+		...(completionProvider === undefined
+			? {}
+			: {
+					completionProvider: async (ctx, request) =>
+						(await completionProvider(ctx, request)).candidates,
+				}),
+		handler: async (ctx, request) =>
+			toModernOutcome(await base.handler(await createSlotExtensionContext(ctx), request)),
+	});
+}
+
+function toModernOutcome<T>(value: unknown): CommandExit<T> {
+	if (typeof value !== "object" || value === null || !("type" in value)) {
+		throw new Error("Slot command returned an invalid outcome.");
+	}
+	const legacy = value as Record<string, unknown>;
+	if (legacy.type === "ok") return { status: "success", data: legacy.data as T };
+	if (legacy.type === "negative") {
+		return {
+			status: "negative",
+			message: String(legacy.message),
+			...optionalEntry("data", legacy.data),
+		};
+	}
+	if (legacy.type === "failure") {
+		return {
+			status: "failure",
+			errorType: String(legacy.errorType),
+			message: String(legacy.message),
+			...optionalEntry("data", legacy.data),
+		};
+	}
+	return {
+		status: "usage-error",
+		errorType: "usage-error",
+		message: String(legacy.message),
+		...optionalEntry("data", legacy.data),
+	};
 }

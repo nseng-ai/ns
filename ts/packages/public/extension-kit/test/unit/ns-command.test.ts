@@ -1,5 +1,5 @@
-import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
-import type { ClinkrDynamicCompletionRequest, NsExtensionApi } from "@nseng-ai/sdk";
+import { noopNsCommandIo, noopNsProgress, ok } from "@nseng-ai/sdk";
+import type { NsCommandCompletionRequest, NsExtensionApi } from "@nseng-ai/sdk";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -21,16 +21,12 @@ describe("ns domain command helper", () => {
 			schema: requestSchema,
 			resultSchema,
 			createContext: (ctx): TestContext => ({ cwd: ctx.cwd }),
-			handler: async (ctx, request) => ({
-				type: "ok",
-				data: { greeting: `${request.name} from ${ctx.cwd}` },
-			}),
+			handler: async (ctx, request) => ok({ greeting: `${request.name} from ${ctx.cwd}` }),
 		});
 
-		await expect(command.run(fakeApi(), { argv: ["--name", "Ada"] })).resolves.toEqual({
-			type: "ok",
-			data: { greeting: "Ada from /repo" },
-		});
+		await expect(command.handler(fakeApi(), { name: "Ada" })).resolves.toEqual(
+			ok({ greeting: "Ada from /repo" }),
+		);
 	});
 
 	test("preserves dynamic completion providers", async () => {
@@ -42,9 +38,10 @@ describe("ns domain command helper", () => {
 			resultSchema,
 			completionProvider: (_ctx, request) => [{ value: request.current, type: "positional-value" }],
 			createContext: (ctx): TestContext => ({ cwd: ctx.cwd }),
-			handler: async () => ({ type: "ok", data: { greeting: "unused" } }),
+			handler: async () => ok({ greeting: "unused" }),
 		});
-		const request: ClinkrDynamicCompletionRequest = {
+		const request: NsCommandCompletionRequest = {
+			commandPath: ["hello"],
 			words: ["hello", "Ad"],
 			current: "Ad",
 			previous: ["hello"],
@@ -52,9 +49,9 @@ describe("ns domain command helper", () => {
 			positionalIndex: 0,
 		};
 
-		await expect(Promise.resolve(command.complete?.(fakeApi(), request))).resolves.toEqual({
-			candidates: [{ value: "Ad", type: "positional-value" }],
-		});
+		await expect(
+			Promise.resolve(command.completionProvider?.(fakeApi(), request)),
+		).resolves.toEqual([{ value: "Ad", type: "positional-value" }]);
 	});
 
 	test("renders ok payloads through the result schema", async () => {
@@ -66,13 +63,10 @@ describe("ns domain command helper", () => {
 			resultSchema,
 			createContext: (ctx): TestContext => ({ cwd: ctx.cwd }),
 			renderHuman: (data) => data.greeting,
-			handler: async () => ({ type: "ok", data: { greeting: "unused" } }),
+			handler: async () => ok({ greeting: "unused" }),
 		});
 
-		await expect(command.run(fakeApi(), { argv: ["--name", "Ada"] })).resolves.toMatchObject({
-			type: "ok",
-			human: "unused",
-		});
+		expect(command.renderHuman?.({ greeting: "unused" }, { canEmitAnsi: false })).toBe("unused");
 	});
 });
 

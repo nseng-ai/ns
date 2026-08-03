@@ -1,151 +1,27 @@
-# @nseng-ai/sdk
+# @nseng-ai/sdk Context
 
-`@nseng-ai/sdk` owns the `ns` CLI host and is itself the public author API: extension authors import from the package root. The SDK is a generic extension loader and command runtime: it parses extension sources, provides package acquisition and descriptor-inspection mechanics, discovers command metadata, applies precedence, loads only the selected command contribution, builds execution context, and delegates lifecycle orchestration or extension behavior to the owning package.
+## Source inventory
 
-## Language
+The SDK discovers **ns command sources**, not command routes. A source has one stable diagnostic label, a source kind and origin, package facts when applicable, a top-level help classification, and exactly one composition owner: an absolute Clinkr command directory or a host-internal programmatic callback. Discovery never enumerates routes, selects argv, assigns precedence, or reconstructs groups.
 
-**ns SDK**:
-The host layer of the `ns` CLI plus the public author API: command discovery, precedence, selected command loading, CLI presentation, argument/schema parsing, execution context construction, shell completion, shell integration, and the root author import surface. The SDK stays small and does not own workflow policy unless repeated command evidence proves a reusable host service belongs here.
-*Avoid*: ns kernel, kernel, repository workflow command bundle, extension implementation owner, Graphite/GitHub policy owner, hidden task database, synonym for all `@nseng-ai/*` packages.
+**Source-dev discovery** contributes workspace extension packages (`source-dev:*` labels) when the CLI runs from an ns source checkout with the invocation cwd inside that checkout; a package whose name is already contributed by a preinstalled, user, or project source is skipped so declared sources keep sole route ownership.
 
-**ns command surface**:
-The user-facing CLI path contributed by a built-in host command or an extension command entry. The SDK routes command paths generically; the package that contributes a command owns its extension-specific semantics.
-*Avoid*: proof of SDK ownership, compatibility alias, Pi runtime command, package-private API.
+## Extension descriptor
 
-**Built-in host command**:
-A command implemented by the SDK because it is host infrastructure, such as runtime diagnostics, completion, or managed shell integration. Built-in command paths are reserved against preinstalled, User, and Project descriptor entries. More broadly, their distribution-owned top-level namespaces reject every Project descriptor contribution, including otherwise non-colliding descendants, while preinstalled distribution entries may contribute through catalog precedence. This architectural source category is narrower than the user-facing `Built-ins:` help section.
-*Avoid*: lowest-precedence override target, default extension command, bundled workflow, project policy, project-extensible namespace, synonym for every command shown under `Built-ins:`.
+An **Extension Descriptor** describes an extension package without executing its command modules. Its command contribution is the optional absolute `commandDirectory`; its other optional declarations are points, activation, and bundled artifacts. Descriptors do not recursively describe commands or carry loader callbacks.
 
-**Built-in help category**:
-The user-facing architectural category rendered as `Built-ins:` in top-level help. It contains Built-in host commands plus preinstalled entries whose registration explicitly pins them there (in ns: `extension`, `init`, `skills`, and `update`, which ship in every installation and read as part of the tool); all other extension commands remain in `Extensions:` whether they come from the Preinstalled descriptor catalog or a Project descriptor extension. Within `Extensions:`, package-sourced extensions list alphabetically before repo-local `ns.toml` path extensions. A Project descriptor extension cannot contribute to or override a namespace in the Built-in help category; discovery rejects the contribution with an actionable configuration error. A preinstalled registration separately classifies its package as user-facing built-in or extension so internal extension architecture does not make distribution-owned functionality user-manageable.
-*Avoid*: acquisition category, synonym for every command shipped with the distribution, extensible namespace, inferring uninstallability from implementation architecture.
+## ns extension API
 
-**Preinstalled descriptor catalog**:
-Injected metadata for first-party extension commands shipped with an installed CLI distribution. It is a distribution convenience for the descriptor model: metadata is available for discovery/help/completion, while selected commands are imported lazily from their owning command modules. Its commands appear in the Extension help category by default — a registration may pin individual entries into the Built-in help category — and remain extension-owned either way.
-*Avoid*: privileged built-in, SDK-owned command, reason to bypass the SDK boundary, automatic destination for repo-specific policy.
+`@nseng-ai/sdk` is the public ns author surface. `defineCommand()` and `defineRawCommand()` return contextful modern Clinkr definitions over `NsExtensionApi`. Command identity and presentation metadata belong to the route-local `metadata.ts`/`group.ts` files or the host's programmatic source, not the executable definition.
 
-**Extension origin marker**:
-The optional lowercase bare letter right-aligned on a top-level `Extensions:` help row: `p` for an installed package contribution (including source-development workspace packages and Project descriptor extensions declared with an `npm:` source), and `l` for one declared by a local path. Distribution-supplied Preinstalled descriptor catalog contributions have no marker. A marked namespace reports effective runtime acquisition origin after Catalog precedence; a namespace with winning package and local contributions displays `l`. It is distinct from internal catalog source levels, declaration source kind, and package Release disposition.
-*Avoid*: package disposition marker, complete provenance inventory, overridden-origin marker, built-in marker, help legend.
+## Host composition
 
-**User-scoped command availability**:
-The effect of declaring an extension at user scope: when the User extension layer is enabled for the invocation, its commands are available across local repositories, but none of its repository contributions are activated. This is a scope effect, not an extension type or lifecycle state.
-*Avoid*: global extension, user activation, implicit project configuration, installed state, ungated machine-wide availability.
+The ns host prepares source inventory and invocation context, constructs exactly one contextful `ClinkrApp`, mounts each source under its own label, and calls only `app.run()`. Clinkr owns recursive navigation, selected loading, help, schema handling, and completion. The standalone SDK host owns the extension-point subtree; a distribution host that owns extension lifecycle composes those SDK commands into its single host-internal `extension` subtree and disables the standalone SDK subtree. Host-owned shell commands remain a separate programmatic built-in subtree; all sources own disjoint top-level routes.
 
-**Active harness**:
-The explicit per-invocation harness identity supplied through the `NS_HARNESS` environment variable and normalized to a canonical harness id (`claude-code`, `codex`, `pi`). ns never sniffs it. The User extension layer is enabled only when the Active harness is listed in the user config's top-level `supported_harnesses`; missing, blank, unknown, or unlisted identity disables every User descriptor contribution fail-closed without affecting built-ins, Project descriptors, or user lifecycle administration (ADR 0055). Canonical vocabulary lives at `@nseng-ai/sdk/project-config/harness-identity`, and one effective User-layer selection feeds both the command catalog and the descriptor-aware point catalog.
-*Avoid*: harness detection, ambient harness, default harness, per-command gating, gated lifecycle commands.
+## Avoid
 
-**Project-scoped activation**:
-The effect of declaring an extension at project scope: its commands are available in that repository and its declared repository contributions are reconciled for the project's Supported harnesses. This is a scope effect, not an extension type or lifecycle state.
-*Avoid*: activated extension type, universal command availability, user configuration, installed state.
-
-**User descriptor extension**:
-An extension package listed in the single XDG-resolved user `ns.toml` and exposing `exports["./ns-extension"]`. When the Active harness enables the User extension layer, user descriptors contribute commands and point definitions (layered below Project definitions) from local packages used in place or npm packages in user-managed storage; point installations remain Project-owned.
-*Avoid*: project activation, global project configuration, repository mutation, implicit npm acquisition during discovery, user point installation.
-
-**Project descriptor extension**:
-A repository-declared extension package listed in repo-root `ns.toml` and exposing `exports["./ns-extension"]`. Project descriptors provide Project-scoped activation; their entries can group commands, replace a User descriptor declaration with the same normalized source identity, and override lower-precedence extension command paths without making those commands universal built-ins.
-*Avoid*: default SDK command, compatibility alias, bundled first-party extension, package implementation module, extension-root scan.
-
-**Extension acquisition**:
-Generic mechanics for parsing an explicit source spec, resolving an unprefixed local package in place or ensuring an `npm:` package in managed storage, and making the resulting package available for descriptor inspection. The SDK owns these reusable mechanics; it does not decide when project config or activation files are written.
-*Avoid*: lifecycle transaction, harness selection, activation reconciliation, implicit bare-name npm lookup, copying local packages into managed storage.
-
-**Supported harnesses**:
-A declared set of agent Harness targets in a top-level `ns.toml` `supported_harnesses` array of canonical harness ids. At project scope ns provisions and reconciles extension-provided skills and other agent-facing artifacts in each target's project directory. At user scope the list is the explicit opt-in that, together with the Active harness, enables User descriptor contributions; it is never defaulted. The set does not describe every tool contributors personally use, restrict repository access, or assign Objective ownership.
-*Avoid*: project harnesses, configured harnesses, contributor harnesses, Objective owners, access allowlist, harness aliases in persisted lists.
-
-**Extension lifecycle orchestration**:
-The workflows behind `ns extension install|list|update|uninstall`, owned by the `init` feature of `@nseng-ai/ns` (formerly the separate `@nseng-ai/ns-init` package, folded in). Project scope is the default: it requires persisted **Supported harnesses**, composes acquisition and descriptor validation with repository activation, and records project-relative declarations. User scope manages command availability in the single XDG user config without Git, Supported harnesses, or repository activation; local paths are persisted as lexical absolute paths and used in place, while explicit npm sources are acquired into lifecycle-owned user storage. Floating npm declarations refresh only on explicit update, pinned declarations are ensured, and uninstall removes declaration authority before owned bytes.
-*Avoid*: SDK built-in command, point introspection, descriptor loader, implicit floating-package refresh, user-scope project activation, copying local sources, cleanup before declaration removal, rollback of completed project activation duties.
-
-**Extension descriptor**:
-A typed side-effect-light module that default-exports `defineExtension({ ... })` from `@nseng-ai/sdk`. It declares command entries, point definitions, activation metadata, and bundled artifacts as metadata plus lazy command-module thunks.
-*Avoid*: command implementation module, JSON manifest, root crawler, eager import boundary.
-
-**ns command entry**:
-A command contribution inside an extension descriptor or preinstalled descriptor catalog entry. It names one command leaf and points at the module that implements selected-command behavior.
-*Avoid*: extension root, package API, Pi mirror, YAML task spec.
-
-**Extension discovery**:
-The side-effect-light CLI step that scans built-in definitions, injected preinstalled descriptor metadata, the single XDG user `ns.toml`, and repository `ns.toml` declarations to build the command catalog without importing unrelated command implementation modules.
-*Avoid*: activation, eager module loading for help, partial registration state from failed modules, hidden plugin registry, filesystem extension-root scanning.
-
-**Selected command loading**:
-The CLI step that imports and validates exactly one external command contribution after the user selects a command. Selected help and JSON schema may load the selected contribution; top-level help and unrelated commands must not load unselected descriptor entries. Discovery diagnostics that affect the selected command are fatal; unrelated discovery diagnostics are warnings.
-*Avoid*: loading all extension code to discover command names, fallback past a broken higher-precedence selected command, bricking static help/version/runtime for unrelated malformed entries.
-
-**Extension source identity**:
-The declaration identity derived before descriptor loading: npm package name without version, resolved absolute local path, or normalized recognized git source. Project declarations replace User declarations only when this identity matches; different sources remain independent even when their manifests declare the same package name.
-*Avoid*: manifest package identity, post-load reservation, versioned identity, command path.
-
-**Extension package admission**:
-The package-atomic decision that admits every command of an extension contribution or none. Built-in command paths are reserved. Same-level command-shape conflicts reject every participating package; across levels, Project outranks User, which outranks Preinstalled, and an overlap rejects the whole lower package. Descriptor package requirements are satisfied only by admitted contributions, including commandless providers and mutually requiring cycles; rejection cascades deterministically. A lower package rejected for precedence is not reconsidered if the higher package later fails requirements, preserving conservative deterministic monotonic admission. Contributions retain source-stable identity even when different sources declare the same package name.
-*Avoid*: command-level gating, partial package override, manifest name as contribution identity, requirement-based fallback, eager command loading.
-
-**Catalog precedence**:
-The four-level command-catalog ordering: reserved Built-in host commands, then preinstalled descriptor catalog < User descriptor extensions < Project descriptor extensions. Built-in command paths cannot be overridden. Extension package admission applies precedence atomically rather than replacing individual command paths.
-*Avoid*: built-in override, partial command override, fallback alias, load-order accident, extension priority scheme.
-
-**ns extension API**:
-The concrete author surface at the `@nseng-ai/sdk` package root. It exposes `defineExtension()`, command/result types and helpers, execution-context services, schema builder `z`, and curated lower-package re-exports owned as SDK vocabulary. `ts/packages/public/sdk/docs/sdk-reference.md` is the authoritative export inventory.
-*Avoid*: unqualified extension API, Pi runtime extension API, importing implementation modules, copying SDK types, resolving the SDK through project-local internals.
-
-**Public author API**:
-The abstract promise that extension authors have a stable import surface. The `ns extension API` (the `@nseng-ai/sdk` package root) is its current concrete surface.
-*Avoid*: `@nseng-ai/sdk` internal subpaths, internal workspace export, extension package API, lower-package helper.
-
-**Internal workspace export**:
-An `@nseng-ai/sdk` subpath shared across first-party workspace packages for SDK-owned implementation seams, but not promised through the Public author API. Package metadata records these subpaths under `ns.internalWorkspaceExports`.
-*Avoid*: plugin API, public SDK, command-author import path, extension domain home.
-
-**Point definition**:
-Static extension descriptor metadata declaring a point's id, accepted installation kind, cardinality, description, and optional prompt default. Point definitions are discovered from `ns.toml` extension package descriptors without selected-command loading.
-*Avoid*: command entry, setting, runtime registration, package.json `ns.points`
-
-**Point id**:
-The full point identifier. First-party ids usually follow `<group>.<workflow>.<leaf>`, but the SDK treats the descriptor-provided id as the canonical identifier.
-*Avoid*: path-only id, consumer-defined id, lifecycle id
-
-**Point installation**:
-Consumer project config for a point. Hook installations come from `[points]`; prompt installations can come from `[points]` or the conventional `.ns/prompts/<point-id>.md` path.
-*Avoid*: point definition, extension descriptor, global install tier
-
-**SDK project-config loader**:
-The single parse/validation path for repo-root `ns.toml`, including the `[points]` table and descriptor-declared point metadata. Extension-rooted settings tables stay settings; they do not become points.
-*Avoid*: kernel project-config loader, per-extension TOML parser, prompt-resolution ladder, settings-as-points
-
-**Point catalog**:
-The SDK-computed view of point definitions, installations, active prompt sources, and diagnostics such as installed-but-undefined, installation-in-effect, and defined-but-uninstalled.
-*Avoid*: registry, command catalog, extension discovery catalog
-
-**Prompt default**:
-A package-relative markdown file declared by a cardinality-one prompt point and used when no higher-precedence project or development source is active.
-*Avoid*: TypeScript prompt constant, hook fallback, global default
-
-**Active prompt source**:
-The prompt source selected by the resolution ladder: development environment override, `[points]`, conventional `.ns/prompts/<point-id>.md`, then descriptor default. The catalog reports this source; the SDK resolves content but does not perform the LM interaction.
-*Avoid*: prompt execution, hook source, hidden fallback
-
-**ns extension points command surface**:
-Read-only CLI introspection under `ns extension points` and `ns extension point <id>` for catalog and detail output. The surface explains definitions, installations, sources, and diagnostics; it does not mutate extensions or project config.
-*Avoid*: `ns extension install`, runtime lifecycle graph, extension workflow command
-
-**extension package API**:
-A curated typed programmatic export owned by an ns extension package and consumed in-process by downstream packages. Extension package APIs are separate from SDK-loaded command entries and from `@nseng-ai/sdk`.
-*Avoid*: Capability API (retired name), command contribution, SDK dependency resolver, package-private module, CLI invocation of a provider.
-
-**Gateway-injected extension core**:
-The rule that extension domain logic takes injected gateways and stays outside the SDK. The SDK-loaded command surface converts SDK context into owning-package gateways at the edge and then calls the extension core.
-*Avoid*: `ctx`-threaded domain logic in lower layers, host access inside domain logic, SDK-owned workflow policy.
-
-**SDK boundary**:
-The boundary between the SDK-owned author surface and code above it. SDK promotion requires repeated command evidence or a clearly documented single-command necessity, and should deepen the author-facing interface rather than expose implementation internals for convenience.
-*Avoid*: one-command convenience export, importing implementation modules from extensions, treating duplication as automatically bad.
-
-## Extension layering
-
-The SDK is the host layer of the extension stack. Below it are neutral infra packages. Above it are the Extension Kit and the ns extension packages that own domain behavior, gateways, and command-specific policy. Generic source acquisition and descriptor inspection do not make extension lifecycle policy SDK-owned: the `@nseng-ai/ns` product package composes those mechanics with project activation for `ns extension install`, in its folded-in `src/init/` area exposed as `@nseng-ai/ns/api`. The SDK loader is unaware of extension-to-extension programmatic dependencies; those dependencies are ordinary package edges through documented extension package APIs.
-
-Dynamic Pi command registration is not a generic SDK feature. A host mirror, when one exists, is a host adapter over a selected CLI command or extension package API and must be owned/tested by the host or extension presentation package that registers it.
+- command catalog, command candidate, catalog precedence, or leaf candidate
+- descriptor-owned command topology or loader callbacks
+- SDK route enumeration, argv selection, completion interception, or render adaptation
+- compatibility descriptors or legacy Clinkr command objects
+- the unqualified phrase “extension API”; use **ns extension API** here

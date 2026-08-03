@@ -1,4 +1,4 @@
-import { negative, ok } from "@nseng-ai/clinkr/legacy";
+import { negative, ok } from "@nseng-ai/clinkr/app";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
@@ -80,9 +80,6 @@ export const extensionPointsCommand: NsCommand<
 	typeof extensionPointsRequestSchema,
 	z.infer<typeof extensionPointsResultSchema>
 > = defineCommand({
-	name: "points",
-	summary: "List defined ns points and their active sources.",
-	description: "List defined ns points and their active sources.",
 	schema: extensionPointsRequestSchema,
 	resultSchema: extensionPointsResultSchema,
 	handler: async (ctx) => ok(toPointsResult(await loadCatalog(ctx.cwd, ctx.env, ctx.homeDir))),
@@ -93,9 +90,6 @@ export const extensionPointCommand: NsCommand<
 	typeof extensionPointDetailRequestSchema,
 	z.infer<typeof extensionPointResultSchema>
 > = defineCommand({
-	name: "point",
-	summary: "Show one ns point definition and its active source.",
-	description: "Show one ns point definition and its active source.",
 	schema: extensionPointDetailRequestSchema,
 	positionals: { id: { position: 0 } },
 	resultSchema: extensionPointResultSchema,

@@ -26,7 +26,7 @@ import {
 	RealDeclaredExtensionsGateway,
 	RealUserExtensionAvailabilityGateway,
 } from "../declared-extensions.ts";
-import { loadPreinstalledNsCommandCatalog } from "./preinstalled-command-catalog.ts";
+import { loadPreinstalledNsCommandSources } from "../../cli/preinstalled-command-catalog.ts";
 import { RealUserExtensionConfigGateway } from "../real-user-extension-config.ts";
 
 export function createNsInitContext(
@@ -65,7 +65,7 @@ export function createNsInitContext(
 		files: new RealActivationFilesGateway(),
 		declaredExtensions: new RealDeclaredExtensionsGateway(),
 		userExtensionAvailability: new RealUserExtensionAvailabilityGateway(
-			loadPreinstalledNsCommandCatalog,
+			loadPreinstalledNsCommandSources,
 			(packageName) =>
 				userStorage.type === "available"
 					? managedNpmPackagePaths(userStorage.storage, packageName).packageRoot

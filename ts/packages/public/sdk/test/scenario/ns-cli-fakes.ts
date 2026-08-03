@@ -55,7 +55,7 @@ export interface RunWithFakesOptions {
 	renderCapabilities?: RenderCapabilities;
 	onProgress?: NsCliDeps["onProgress"];
 	extensionRegistry?: NsCliDeps["extensionRegistry"];
-	preinstalledCommandCatalog?: NsCliDeps["preinstalledCommandCatalog"];
+	preinstalledSources?: NsCliDeps["preinstalledSources"];
 }
 
 export interface RunWithFakesDefaults {
@@ -183,9 +183,10 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 			...(options.extensionRegistry === undefined
 				? {}
 				: { extensionRegistry: options.extensionRegistry }),
-			...(options.preinstalledCommandCatalog === undefined
+			entryMetaUrl: new URL("../../../ns/src/cli.ts", import.meta.url).href,
+			...(options.preinstalledSources === undefined
 				? {}
-				: { preinstalledCommandCatalog: options.preinstalledCommandCatalog }),
+				: { preinstalledSources: options.preinstalledSources }),
 		}),
 	};
 }

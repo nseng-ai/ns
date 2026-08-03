@@ -145,11 +145,13 @@ describe("resolveFlowStreamCaps", () => {
 		expect(resolved.columns).toBe(DEFAULT_COLUMNS);
 	});
 
-	test("explicit render capabilities caps win for override sinks", () => {
-		const injected = caps({ isTty: false, colorDepth: "none", canRenderUnicode: false });
-		expect(
-			resolveFlowStreamCaps(ctx({ renderCapabilities: { canEmitAnsi: false, caps: injected } })),
-		).toEqual(injected);
+	test("modern render capabilities resolve to settled non-interactive caps", () => {
+		expect(resolveFlowStreamCaps(ctx({ renderCapabilities: { canEmitAnsi: false } }))).toEqual({
+			isTty: false,
+			colorDepth: "none",
+			columns: DEFAULT_COLUMNS,
+			canRenderUnicode: expect.any(Boolean),
+		});
 	});
 
 	test("missing explicit caps resolves to settled non-interactive caps", () => {

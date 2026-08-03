@@ -11,10 +11,6 @@ import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 const pullTrunkSchema = z.object({});
 
 export const flowPullTrunkCommand: NsCommand<typeof pullTrunkSchema> = defineCommand({
-	name: "pull-trunk",
-	summary: "Pull the Git trunk branch from its configured upstream without running full gt sync.",
-	description:
-		"Pull the Git trunk branch identified by cached refs/remotes/origin/HEAD from its configured upstream without running full gt sync.",
 	schema: pullTrunkSchema,
 	resultSchema: z.string(),
 	handler: async (ctx) => {

@@ -3,7 +3,7 @@ import type { z } from "zod";
 import { type ClinkrCommandSpec, type ClinkrGroup, type ClinkrHandler } from "@nseng-ai/clinkr";
 import { failure, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { createNsDomainCommand } from "@nseng-ai/extension-kit/ns-command";
-import type { NsCommand, NsExtensionApi } from "@nseng-ai/sdk";
+import type { CommandExit, NsCommand, NsExtensionApi } from "@nseng-ai/sdk";
 import type { GitResult } from "@nseng-ai/foundation/git";
 import type { GithubPrFeedbackFailure } from "./api.ts";
 import { errorDetailText } from "@nseng-ai/foundation/result";
@@ -149,7 +149,7 @@ export function defineExecOperation<S extends z.ZodObject, T>(
 				resultSchema: options.resultSchema,
 				...(spec.renderHuman === undefined ? {} : { renderHuman: spec.renderHuman }),
 				createContext,
-				handler,
+				handler: async (context, request) => toModernOutcome(await handler(context, request)),
 			});
 		},
 		addTo(group) {
@@ -161,6 +161,33 @@ export function defineExecOperation<S extends z.ZodObject, T>(
 			group.command(commandSpec);
 		},
 	};
+}
+
+function toModernOutcome<T>(exit: ClinkrExit<T>): CommandExit<T> {
+	switch (exit.type) {
+		case "ok":
+			return { status: "success", data: exit.data };
+		case "negative":
+			return {
+				status: "negative",
+				message: exit.message,
+				...(exit.data === undefined ? {} : { data: exit.data }),
+			};
+		case "failure":
+			return {
+				status: "failure",
+				errorType: exit.errorType,
+				message: exit.message,
+				...(exit.data === undefined ? {} : { data: exit.data }),
+			};
+		case "usageError":
+			return {
+				status: "usage-error",
+				errorType: exit.errorType,
+				message: exit.message,
+				...(exit.data === undefined ? {} : { data: exit.data }),
+			};
+	}
 }
 
 function withRepoContextPrecondition<S extends z.ZodObject, T>(

@@ -18,7 +18,7 @@ describe("skills path command", () => {
 		});
 
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "missing-home-directory",
 			message:
 				"pi user-scope provisioning requires a user home in the harness path context. Set HOME for host CLI contexts or pass a domain context homeDir.",
@@ -32,7 +32,7 @@ describe("skills path command", () => {
 		);
 
 		expect(result).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				targetRoot: "/home/alice/.pi/agent/skills",
 				targetArtifactPath: "/home/alice/.pi/agent/skills/objective",

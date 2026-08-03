@@ -14,6 +14,7 @@
 	},
 	"dependencies": {
 		"@nseng-ai/branch-context": "workspace:*",
+		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/flow": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/handoffs": "workspace:*",

@@ -2,7 +2,7 @@ import { runCli, type NsCliDeps } from "@nseng-ai/sdk/cli";
 import { createRealNsCommandContext } from "@nseng-ai/sdk/context";
 
 import { PiTextGenerator } from "./pi-text-generation.ts";
-import { loadPreinstalledNsCommandCatalog } from "../init/ns/preinstalled-command-catalog.ts";
+import { loadPreinstalledNsCommandSources } from "./preinstalled-command-catalog.ts";
 
 export interface RunNsCliDeps extends Omit<NsCliDeps, "context"> {
 	context?: NsCliDeps["context"];
@@ -21,6 +21,7 @@ export async function runNsCli(args: readonly string[], deps: RunNsCliDeps = {})
 		...deps,
 		context,
 		entryMetaUrl: new URL("../cli.ts", import.meta.url).href,
-		preinstalledCommandCatalog: loadPreinstalledNsCommandCatalog,
+		preinstalledSources: deps.preinstalledSources ?? loadPreinstalledNsCommandSources,
+		includeSdkExtensionCommands: false,
 	});
 }

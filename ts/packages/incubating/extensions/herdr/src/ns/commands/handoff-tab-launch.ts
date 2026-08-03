@@ -1,15 +1,14 @@
 import { buildPiLaunchCommand } from "@nseng-ai/extension-kit/pi-launch";
 import { formatShellArg } from "@nseng-ai/foundation/exec";
 import { checkHandoffArtifact, parseFlatHandoffSlug } from "@nseng-ai/handoffs/api";
-import { failure, negative, ok } from "@nseng-ai/sdk";
-import { z } from "zod";
+import { defineCommand, failure, negative, ok, z } from "@nseng-ai/sdk";
 
 import {
 	formatHerdrHandoffTabLaunchSuccess,
 	formatHerdrHandoffTabRunFailure,
 	launchHerdrHandoffTab,
 } from "../../core/handoff-tab.ts";
-import { herdrNsCommand } from "../command.ts";
+import { createNsHerdrHandoffTabContext } from "../context.ts";
 
 const nonblankSchema = z.string().trim().min(1);
 const flatSlugSchema = z.string().refine((value) => parseFlatHandoffSlug(value).type === "valid", {
@@ -36,14 +35,12 @@ export const herdrHandoffTabLaunchResultSchema = z.strictObject({
 	command: z.string(),
 });
 
-export const herdrHandoffTabLaunchNsCommand = herdrNsCommand({
-	name: "launch",
-	summary: "Launch a stored handoff in a focused Herdr tab.",
-	description:
-		"Verify a stored handoff reference, create a focused Herdr tab, and launch pickup in its root pane.",
+export const herdrHandoffTabLaunchCommand = defineCommand({
 	schema: herdrHandoffTabLaunchRequestSchema,
 	resultSchema: herdrHandoffTabLaunchResultSchema,
-	async handler(ctx, request) {
+	renderHuman: (result) => formatHerdrHandoffTabLaunchSuccess({ type: "launched", ...result }),
+	async handler(api, request) {
+		const ctx = createNsHerdrHandoffTabContext(api);
 		const reference = { branch: request.branch, slug: request.slug };
 		let checked;
 		try {
@@ -106,20 +103,15 @@ export const herdrHandoffTabLaunchNsCommand = herdrNsCommand({
 			);
 		}
 
-		return ok(
-			{
-				...reference,
-				key: checked.value.key,
-				entryLocator: checked.value.entryLocator,
-				workspaceId: launched.workspaceId,
-				tabId: launched.tabId,
-				rootPaneId: launched.rootPaneId,
-				label: launched.label,
-				command: launched.command,
-			},
-			{ human: formatHerdrHandoffTabLaunchSuccess(launched) },
-		);
+		return ok({
+			...reference,
+			key: checked.value.key,
+			entryLocator: checked.value.entryLocator,
+			workspaceId: launched.workspaceId,
+			tabId: launched.tabId,
+			rootPaneId: launched.rootPaneId,
+			label: launched.label,
+			command: launched.command,
+		});
 	},
 });
-
-export default herdrHandoffTabLaunchNsCommand;

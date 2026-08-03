@@ -10,7 +10,8 @@ import type {
 	RunnerFilePresenceResult,
 	RunnerTextFileReadResult,
 } from "../../src/runner/context.ts";
-import { objectiveExecRunnerBeginNsCommand } from "../../src/ns/commands/exec-runner-begin.ts";
+import { command } from "../../src/cli/objective/exec/runner-begin/command.ts";
+const objectiveExecRunnerBeginNsCommand = await command();
 import { SequencedGitGateway, type SequencedGitGatewayState } from "../unit/runner/context.ts";
 import { FakeObjectiveNsApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
 

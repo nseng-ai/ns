@@ -1,106 +1,44 @@
 import { describe, expect, test } from "vitest";
 
-import { NS_BUILT_IN_HELP_GROUP } from "@nseng-ai/sdk/cli";
-
 import {
-	loadPreinstalledNsCommandCatalog,
-	preinstalledExtensionRegistrations,
-} from "../src/init/ns/preinstalled-command-catalog.ts";
+	loadPreinstalledNsCommandSources,
+	preinstalledCommandSources,
+} from "../src/cli/preinstalled-command-catalog.ts";
 
-const expectedPaths = [
-	"init",
-	"extension/install",
-	"extension/list",
-	"extension/update",
-	"extension/uninstall",
-	"skills/list",
-	"skills/path",
-	"skills/install",
-	"update",
-] as const;
+const expectedLabels = ["host:@nseng-ai/ns:init", "host:@nseng-ai/ns:harness-artifacts"] as const;
 
-describe("preinstalled ns command catalog", () => {
-	test("registers exactly the two host-owned extension descriptors", () => {
-		expect(preinstalledExtensionRegistrations.map(({ packageName }) => packageName)).toEqual([
-			"@nseng-ai/ns",
-			"@nseng-ai/ns",
-		]);
-		expect(preinstalledExtensionRegistrations.map(({ userFacingKind }) => userFacingKind)).toEqual([
+describe("preinstalled ns command sources", () => {
+	test("registers exactly the two host-owned built-in sources", () => {
+		expect(preinstalledCommandSources.map(({ label }) => label)).toEqual(expectedLabels);
+		expect(preinstalledCommandSources.map(({ kind }) => kind)).toEqual(["built-in", "built-in"]);
+		expect(preinstalledCommandSources.map(({ helpClassification }) => helpClassification)).toEqual([
 			"built-in",
 			"built-in",
 		]);
-		expect(preinstalledExtensionRegistrations.map(({ displayPath }) => displayPath)).toEqual([
-			"@nseng-ai/ns/init/ns-extension",
-			"@nseng-ai/ns/harness-artifacts/ns-extension",
+		expect(preinstalledCommandSources.map(({ package: facts }) => facts?.name)).toEqual([
+			"@nseng-ai/ns",
+			"@nseng-ai/ns",
 		]);
 	});
 
-	test("derives the complete lazy command inventory without loading commands", () => {
-		const catalog = loadPreinstalledNsCommandCatalog();
+	test("gives init one programmatic composition owner for lifecycle and point routes", () => {
+		const [init, harnessArtifacts] = preinstalledCommandSources;
 
-		expect(catalog.extensionPackageNames).toEqual(["@nseng-ai/ns", "@nseng-ai/ns"]);
-		expect(catalog.builtInPackageNames).toEqual(["@nseng-ai/ns", "@nseng-ai/ns"]);
-		expect(catalog.entries.map(({ path }) => path?.join("/"))).toEqual(expectedPaths);
-		expect(
-			catalog.entries.map((entry) => ("displayPath" in entry ? entry.displayPath : undefined)),
-		).toEqual([
-			"@nseng-ai/ns/init/ns-extension#init",
-			"@nseng-ai/ns/init/ns-extension#extension/install",
-			"@nseng-ai/ns/init/ns-extension#extension/list",
-			"@nseng-ai/ns/init/ns-extension#extension/update",
-			"@nseng-ai/ns/init/ns-extension#extension/uninstall",
-			"@nseng-ai/ns/harness-artifacts/ns-extension#skills/list",
-			"@nseng-ai/ns/harness-artifacts/ns-extension#skills/path",
-			"@nseng-ai/ns/harness-artifacts/ns-extension#skills/install",
-			"@nseng-ai/ns/harness-artifacts/ns-extension#update",
-		]);
-		expect(catalog.entries.every(({ load }) => typeof load === "function")).toBe(true);
-		expect(
-			catalog.entries.every(({ hasStaticCommandInfo }) => hasStaticCommandInfo === false),
-		).toBe(true);
+		expect(init).toMatchObject({
+			label: "host:@nseng-ai/ns:init",
+			compose: expect.any(Function),
+			package: { descriptorPath: "@nseng-ai/ns/init/ns-extension" },
+		});
+		expect(init).not.toHaveProperty("commandDirectory");
+		expect(harnessArtifacts).toMatchObject({
+			label: "host:@nseng-ai/ns:harness-artifacts",
+			commandDirectory: expect.any(String),
+			package: { descriptorPath: "@nseng-ai/ns/harness-artifacts/ns-extension" },
+		});
+		expect(harnessArtifacts).not.toHaveProperty("compose");
 	});
 
-	test("presents distribution-owned namespaces as built-ins and excludes Objective commands", () => {
-		const entries = loadPreinstalledNsCommandCatalog().entries;
-
-		expect(
-			entries.map(({ path, group, groupDescription, helpGroup, hiddenAncestorKeys }) => ({
-				path: path?.join("/"),
-				group,
-				groupDescription,
-				helpGroup,
-				hiddenAncestorKeys,
-			})),
-		).toEqual([
-			{
-				path: "init",
-				group: undefined,
-				groupDescription: undefined,
-				helpGroup: NS_BUILT_IN_HELP_GROUP,
-				hiddenAncestorKeys: [],
-			},
-			...expectedPaths.slice(1, 5).map((path) => ({
-				path,
-				group: "extension",
-				groupDescription: "Inspect and manage ns extensions.",
-				helpGroup: NS_BUILT_IN_HELP_GROUP,
-				hiddenAncestorKeys: [],
-			})),
-			...expectedPaths.slice(5, 8).map((path) => ({
-				path,
-				group: "skills",
-				groupDescription: "List and provision ns-owned skills into assistant harnesses.",
-				helpGroup: NS_BUILT_IN_HELP_GROUP,
-				hiddenAncestorKeys: [],
-			})),
-			{
-				path: "update",
-				group: undefined,
-				groupDescription: undefined,
-				helpGroup: NS_BUILT_IN_HELP_GROUP,
-				hiddenAncestorKeys: [],
-			},
-		]);
-		expect(entries.some(({ path }) => path?.includes("objective") === true)).toBe(false);
+	test("returns the stable source inventory without route enumeration", () => {
+		expect(loadPreinstalledNsCommandSources()).toBe(preinstalledCommandSources);
 	});
 });

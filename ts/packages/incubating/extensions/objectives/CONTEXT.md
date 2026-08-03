@@ -5,7 +5,7 @@ This context captures domain language for the Objectives ns extension package: t
 ## Language
 
 **`ns objective` command surface**:
-The public ns-grouped Objective CLI surface — `ns objective ...` — whose commands `check`, `list`, and `show` view checked-in Objective records. The former top-level `bin.objective` executable is retired; the package's mountable command surface is the `./ns-extension` descriptor export plus the per-command `./ns/commands/*` exports, not a `command-face` export (none exists).
+The public ns-grouped Objective CLI surface — `ns objective ...` — whose commands `check`, `list`, and `show` view checked-in Objective records. The former top-level `bin.objective` executable is retired; the package's mountable command surface is the `./ns-extension` descriptor export backed by the `src/cli/objective` filesystem tree. Individual command modules are not package exports.
 *Avoid*: Objective extension package API, hidden `exec` group, top-level `objective` binary, Objective record database, Pi command adapter
 
 **Checkout-local `ns objective list`**:

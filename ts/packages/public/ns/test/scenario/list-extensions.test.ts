@@ -111,7 +111,7 @@ describe("listExtensions", () => {
 			git: new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } }),
 		});
 		await expect(listExtensions(outside.context, { cwd: "/work" })).resolves.toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-list-not-a-git-repo",
 			data: { diagnostics: [{ code: "not-a-git-repo", path: "/work" }] },
 		});
@@ -125,7 +125,7 @@ describe("listExtensions", () => {
 			}),
 		});
 		await expect(listExtensions(failed.context, { cwd: "/work" })).resolves.toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-list-repository-failed",
 			data: { diagnostics: [{ code: "repo-root-failed", message: "git failed" }] },
 		});
@@ -145,7 +145,7 @@ describe("listExtensions", () => {
 		});
 
 		await expect(listExtensions(context, { cwd: "/repo" })).resolves.toEqual({
-			type: "ok",
+			status: "success",
 			data: {
 				scope: "project",
 				repoRoot: "/repo",
@@ -203,7 +203,7 @@ describe("listExtensions", () => {
 		});
 
 		const result = await listExtensions(context, { cwd: "/repo" });
-		if (result.type !== "ok") throw new Error("expected successful inventory");
+		if (result.status !== "success") throw new Error("expected successful inventory");
 		expect(result.data.extensions).toEqual([
 			{
 				sourceSpec: "./extensions/flow",
@@ -229,7 +229,7 @@ describe("listExtensions", () => {
 			nsToml === undefined ? {} : { nsToml },
 		);
 		await expect(listExtensions(context, { cwd: "/repo/subdir" })).resolves.toEqual({
-			type: "ok",
+			status: "success",
 			data: { scope: "project", repoRoot: "/repo", configPath: "/repo/ns.toml", extensions: [] },
 		});
 		expect(declaredExtensions.calls()).toEqual([]);
@@ -261,7 +261,7 @@ describe("listExtensions", () => {
 	])("fails rather than returning partial inventory for %s config", async (_label, files) => {
 		const { context } = fixture({ files });
 		await expect(listExtensions(context, { cwd: "/repo" })).resolves.toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-list-config-invalid",
 			data: { diagnostics: [{ code: expect.any(String), path: "/repo/ns.toml" }] },
 		});
@@ -303,7 +303,7 @@ describe("listExtensions", () => {
 
 		const result = await listExtensions(context, { cwd: "/repo" });
 		expect(result).toEqual({
-			type: "ok",
+			status: "success",
 			data: {
 				scope: "project",
 				repoRoot: "/repo",
@@ -404,7 +404,7 @@ describe("listExtensions", () => {
 		});
 
 		const result = await listExtensions(context, { cwd: "/repo" });
-		if (result.type !== "ok" || result.data.scope !== "project")
+		if (result.status !== "success" || result.data.scope !== "project")
 			throw new Error("expected successful project inventory");
 		expect(result.data.extensions.map((row) => row.sourceSpec)).toEqual(specs);
 		expect(result.data.extensions.map((row) => row.sourceKind)).toEqual([
@@ -469,7 +469,7 @@ describe("listExtensions", () => {
 			const result = await listExtensions(context, { cwd: "/repo" });
 
 			expect(result).toMatchObject({
-				type: "ok",
+				status: "success",
 				data: {
 					extensions: [
 						{
@@ -493,7 +493,7 @@ describe("listExtensions", () => {
 		});
 		const result = await listExtensions(context, { cwd: "/repo" });
 		expect(result).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				extensions: [
 					{
@@ -531,7 +531,7 @@ describe("listExtensions", () => {
 			}).context,
 			{ cwd: "/repo" },
 		);
-		if (result.type !== "ok") throw new Error("expected successful inventory");
+		if (result.status !== "success") throw new Error("expected successful inventory");
 		const rendered = renderListExtensionsHuman(result.data);
 		expect(rendered).toContain("SOURCE");
 		expect(rendered).toContain("./extension");

@@ -3,7 +3,9 @@ import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 export type { ExecResult } from "@nseng-ai/foundation/exec";
 
-import type { ClinkrFormat, RenderCapabilities } from "./command.ts";
+import type { RenderCapabilities } from "./command.ts";
+
+export type ClinkrFormat = "human" | "json" | "md";
 import type { NsCommandIo, NsProgress } from "./services.ts";
 import type { TextGenerator } from "./text-generation.ts";
 
@@ -42,9 +44,9 @@ export interface NsExtensionApi {
 	 * owner of harness path or XDG discovery semantics.
 	 */
 	homeDir?: string;
-	/** Whether an extension package is present in the effective ns extension registry. */
+	/** Whether an extension package is present in the effective ns command source inventory. */
 	hasExtension(packageName: string): boolean;
-	/** User-manageable extension package identities present in the effective registry, when provided. */
+	/** User-manageable extension package identities present in the effective source inventory. */
 	readonly installedExtensionPackageNames?: readonly string[];
 	/** Low-level argv execution hook. Project commands own the exact commands they run. */
 	exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult>;

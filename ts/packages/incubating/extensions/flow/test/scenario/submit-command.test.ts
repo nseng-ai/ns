@@ -342,7 +342,7 @@ describe("project-local submit extension", () => {
 
 			expect(await run.exit).toBe(2);
 			expect(await run.result).toMatchObject({
-				type: "usageError",
+				status: "usage-error",
 				data: { invalidOption: "--title-prefix" },
 			});
 			expect(run.stderr.join("")).toContain("--title-prefix");
@@ -356,7 +356,7 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(await run.result).toMatchObject({
-			type: "usageError",
+			status: "usage-error",
 			data: { invalidOption: "--yes", requiresOption: "--generate-pr-inventory" },
 		});
 		expect(formattedExecCalls(run.context)).toEqual([]);
@@ -368,7 +368,7 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(await run.result).toMatchObject({
-			type: "usageError",
+			status: "usage-error",
 			data: { missingFlag: "--yes" },
 		});
 		expect(run.stderr.join("")).toContain("--yes");
@@ -500,8 +500,8 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(2);
 		const result = await run.result;
-		expect(result.type).toBe("failure");
-		if (result.type === "failure") {
+		expect(result.status).toBe("failure");
+		if (result.status === "failure") {
 			expect(result.data).toEqual({ exitCode: 7 });
 			expect(result.message.split("\n")[0]).toBe(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 		}
@@ -546,8 +546,8 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(1);
 		const result = await run.result;
-		expect(result.type).toBe("negative");
-		if (result.type === "negative") {
+		expect(result.status).toBe("negative");
+		if (result.status === "negative") {
 			expect(result.data).toEqual({ exitCode: 1 });
 			expect(result.message.split("\n")[0]).toBe(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 		}
@@ -1646,8 +1646,8 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 
 		expect(await run.exit).toBe(1);
 		const result = await run.result;
-		expect(result.type).toBe("negative");
-		if (result.type === "negative") {
+		expect(result.status).toBe("negative");
+		if (result.status === "negative") {
 			expect(
 				result.message.startsWith(
 					"WARNING: This branch does not introduce any changes:\n▸ empty-branch-test",
