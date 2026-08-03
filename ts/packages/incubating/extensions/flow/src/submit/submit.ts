@@ -343,10 +343,7 @@ export async function runSubmitCommand(
 		const successText =
 			prLinks.length > 0
 				? formatSubmitSuccessText(prLinks, inventoryResult)
-				: formatSubmitSuccessFallbackText(
-						submitOutcome.output.stdout,
-						submitOutcome.output.stderr,
-					);
+				: formatSubmitSuccessFallbackText(submitOutcome.output.stdout, submitOutcome.output.stderr);
 		return success(successText);
 	}
 }

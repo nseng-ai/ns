@@ -128,7 +128,6 @@ export class RealSubmitGateway implements SubmitGateway {
 		);
 	}
 
-
 	async verifyCurrentPr(params: SubmitCommandParams): Promise<CurrentPrVerificationResult> {
 		const output = await this.runGh({
 			args: CURRENT_PR_ARGS,

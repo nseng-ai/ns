@@ -1070,7 +1070,7 @@ describe("runSubmitCommand", () => {
 		expect(result.stderr).toContain("No PR metadata was edited");
 	});
 
-	test("stops an upstack submit before stack update when primary submit reports semantic failure", async () => {
+	test("stops submit when primary submit reports semantic failure", async () => {
 		const operations: string[] = [];
 		const link = { number: 123, label: "#123", url: "https://github.com/acme/repo/pull/123" };
 		const gateway: SubmitGateway = {
@@ -1093,10 +1093,6 @@ describe("runSubmitCommand", () => {
 						branchName: "feature/current",
 					},
 				};
-			},
-			updateStackPrs: async () => {
-				operations.push("update");
-				return unexpectedCall("updateStackPrs");
 			},
 			verifyCurrentPr: async () => {
 				operations.push("verification");
@@ -1152,7 +1148,6 @@ describe("runSubmitCommand", () => {
 
 		expect(result.exitCode).toBe(1);
 		expect(operations).toEqual(["readiness", "inventory", "submit", "verification"]);
-		expect(operations).not.toContain("update");
 	});
 
 	test("formats gateway-domain preflight failures without Graphite stderr fixtures", async () => {
