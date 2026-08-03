@@ -75,3 +75,13 @@ Risks:
 ## Open Questions
 
 None at creation. If re-verification disproves the three-instance shape, stop for parent judgment rather than silently redefining the Objective.
+
+## Closure
+
+Outcome: completed. One private `createRealTempDir(baseDir, prefix)` helper now owns the `mkdtemp`-then-`realpath` sequence, and all three verified callers use it while retaining their existing tracking, repository setup, callback, cleanup, and error-propagation responsibilities. The public surface is unchanged.
+
+Completion evidence is recorded in the final Semantic Update: accepted portable-autorun implementation commit `f4dbbebbc3f738c511d7d1ade8a9f0feac17a33e`, a source sweep confirming one canonical implementation and three call sites, all 344 focused Foundation tests, the Foundation typecheck, focused format and lint checks, `git diff --check`, and the full `just` validation entrypoint with 5,979 default TypeScript tests.
+
+- PR #4003: landed the private helper extraction and all three caller migrations on the trunk branch without adding focused tests or broadening the API.
+
+The broader test-kit refactors and unrelated findings listed under `## Parked` remain outside this Objective rather than residual closure work. No load-bearing architecture fact requires graduation: the helper is a private, local deduplication whose ownership and behavior are evident in the implementation.
