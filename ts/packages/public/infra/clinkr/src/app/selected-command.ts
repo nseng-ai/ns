@@ -52,6 +52,7 @@ const commandMetadataSchema = z.strictObject({
 	summary: z.string().optional(),
 	hidden: z.boolean().optional(),
 	helpGroup: z.string().optional(),
+	helpOrder: z.number().optional(),
 });
 
 const groupDefinitionSchema = commandMetadataSchema;
@@ -187,6 +188,7 @@ export async function importGroupDefinition(groupPath: string): Promise<ClinkrGr
 		...(parsed.data.summary === undefined ? {} : { summary: parsed.data.summary }),
 		...(parsed.data.hidden === undefined ? {} : { hidden: parsed.data.hidden }),
 		...(parsed.data.helpGroup === undefined ? {} : { helpGroup: parsed.data.helpGroup }),
+		...(parsed.data.helpOrder === undefined ? {} : { helpOrder: parsed.data.helpOrder }),
 	};
 }
 

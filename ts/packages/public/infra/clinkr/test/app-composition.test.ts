@@ -144,15 +144,13 @@ test.each([
 				composition.source({ label: "source-b" }, declarations[0]);
 				composition.source({ label: "source-a" }, declarations[1]);
 			});
-			const error = await app.run([]).then(
-				() => undefined,
-				(failure: unknown) => failure as Error,
-			);
-			expect(error?.message).toMatch(
+			const result = await runForCliTest(app, []);
+			expect(result.exitCode).toBe(2);
+			expect(result.stderr).toMatch(
 				new RegExp(`${collisionClass} collision at shared.*source-a.*source-b`),
 			);
 			for (const owner of canonicalOwners) {
-				expect(error?.message).toContain(`alias of ${owner}`);
+				expect(result.stderr).toContain(`alias of ${owner}`);
 			}
 		}
 	},
@@ -175,7 +173,11 @@ test("every shared group path is rejected before probing disjoint descendants", 
 			});
 		});
 	});
-	await expect(app.run([])).rejects.toThrow(/shared.*first.*second/);
+	const result = await runForCliTest(app, []);
+	expect(result).toMatchObject({
+		exitCode: 2,
+		stderr: expect.stringMatching(/shared.*first.*second/),
+	});
 	expect(firstDescendantOpens).toBe(1);
 	expect(secondDescendantOpens).toBe(1);
 });
@@ -391,8 +393,10 @@ test("cross-source root default collisions are stable across declaration order",
 				});
 			}
 		});
-		await expect(new ClinkrTopology({ sources }).open([])).rejects.toThrow(
-			'command/command collision at <root> between sources "source-a" and "source-b"',
-		);
+		const scope = await new ClinkrTopology({ sources }).open([]);
+		expect(scope.defaultCommand).toBeUndefined();
+		expect(scope.defaultIssues.map((issue) => issue.type === "collision" && issue.kind)).toEqual([
+			"default/default",
+		]);
 	}
 });

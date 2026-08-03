@@ -104,7 +104,10 @@ test.each([
 	const enabled = createClinkrApp({ name: "probe", completion: {} }, (composition) => {
 		composition.source({ label: "test" }, declare);
 	});
-	await expect(enabled.complete({ words: [""] })).rejects.toThrow("reserved name");
+	const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+	expect(await enabled.complete({ words: [""] })).toEqual({ candidates: [] });
+	expect(stderr).toHaveBeenCalledWith(expect.stringContaining("reserved name"));
+	stderr.mockClear();
 
 	const enabledAlias = createClinkrApp({ name: "probe", completion: {} }, (composition) => {
 		composition.source({ label: "test" }, (scope) => {
@@ -113,7 +116,9 @@ test.each([
 			);
 		});
 	});
-	await expect(enabledAlias.complete({ words: [""] })).rejects.toThrow("reserved name");
+	expect(await enabledAlias.complete({ words: [""] })).toEqual({ candidates: [] });
+	expect(stderr).toHaveBeenCalledWith(expect.stringContaining("reserved name"));
+	stderr.mockRestore();
 });
 
 test("completion routes past leading framework arguments through canonical and aliased nested routes", async () => {

@@ -14,6 +14,8 @@ export interface ClinkrCommandMetadata {
 	readonly summary?: string;
 	readonly hidden?: boolean;
 	readonly helpGroup?: string;
+	/** Presentation-only ordering within a scope; lower values render first. */
+	readonly helpOrder?: number;
 }
 
 export type ClinkrGroupDefinition = ClinkrCommandMetadata;

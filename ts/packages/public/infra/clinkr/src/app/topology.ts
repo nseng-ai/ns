@@ -27,6 +27,40 @@ export interface OpenedRoute<TContext> {
 	readonly path: readonly string[];
 }
 
+type CollisionKind =
+	| "command/command"
+	| "command/group"
+	| "group/group"
+	| "alias/name"
+	| "alias/alias"
+	| "default/default";
+
+export type TopologyIssue =
+	| {
+			readonly type: "source-open";
+			readonly path: readonly string[];
+			readonly sourceLabel: string;
+			readonly error: unknown;
+	  }
+	| {
+			readonly type: "collision";
+			readonly path: readonly string[];
+			readonly kind: CollisionKind;
+			readonly parties: readonly [CollisionPartyDescription, CollisionPartyDescription];
+	  }
+	| {
+			readonly type: "reserved-name";
+			readonly path: readonly string[];
+			readonly sourceLabel: string;
+			readonly canonicalRoute: readonly string[];
+			readonly name: string;
+	  };
+
+interface CollisionPartyDescription {
+	readonly sourceLabel: string;
+	readonly canonicalRoute?: readonly string[];
+}
+
 export interface OpenedScope<TContext> {
 	readonly defaultCommand?: OpenedRoute<TContext>;
 	readonly commands: ReadonlyMap<string, OpenedRoute<TContext>>;
@@ -34,12 +68,27 @@ export interface OpenedScope<TContext> {
 		string,
 		{ readonly source: TopologySource<TContext>; readonly definition: ClinkrGroupDefinition }
 	>;
+	readonly issues: readonly TopologyIssue[];
+	readonly unavailableNames: ReadonlyMap<string, readonly TopologyIssue[]>;
+	readonly defaultIssues: readonly TopologyIssue[];
 }
 
 const CANONICAL_ROUTE_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export function canonicalPath(path: readonly string[]): string {
 	return path.length === 0 ? "<root>" : path.join(" ");
+}
+
+export function formatTopologyIssue(issue: TopologyIssue): string {
+	if (issue.type === "source-open") {
+		const detail = issue.error instanceof Error ? issue.error.message : String(issue.error);
+		return `clinkr: source ${JSON.stringify(issue.sourceLabel)} failed to open scope ${canonicalPath(issue.path)}: ${detail}`;
+	}
+	if (issue.type === "reserved-name") {
+		return `clinkr: route ${canonicalPath(issue.canonicalRoute)} from source ${JSON.stringify(issue.sourceLabel)} conflicts with configured reserved name ${JSON.stringify(issue.name)}`;
+	}
+	const [first, second] = issue.parties.map(describeCollisionParty);
+	return `clinkr: ${issue.kind} collision at ${canonicalPath(issue.path)} between sources ${first} and ${second}`;
 }
 
 export function validateRouteName(name: string, routePath: readonly string[]): void {
@@ -100,20 +149,20 @@ function validateAliases(
 
 interface TopologyOptions<TContext> {
 	readonly sources: readonly TopologySource<TContext>[];
-	/**
-	 * Root route names owned by app features that the composing app runtime has
-	 * actually enabled. The caller constructing the topology — never a
-	 * topology source — decides this set, and a disabled optional feature must
-	 * not reserve its root route name. Completion passes `"completion"` only
-	 * when enabled for the app. Nothing is reserved by default.
-	 */
 	readonly reservedNames?: ReadonlySet<string>;
 }
 
-/** Canonical ownership record for one registered alias within a scope. */
-interface AliasOwner<TContext> {
-	readonly canonicalName: string;
+interface RouteContribution<TContext> {
+	readonly routeKind: "command" | "group";
+	readonly name: string;
+	readonly aliases: readonly string[];
 	readonly source: TopologySource<TContext>;
+	readonly value: SourceCommand<TContext> | SourceGroup;
+}
+
+interface NameClaim<TContext> {
+	readonly contribution: RouteContribution<TContext>;
+	readonly isAlias: boolean;
 }
 
 export class ClinkrTopology<TContext> {
@@ -143,9 +192,23 @@ export class ClinkrTopology<TContext> {
 	}
 
 	async open(path: readonly string[]): Promise<OpenedScope<TContext>> {
-		return getOrCreateTransactional(this.opened, canonicalPath(path), () =>
-			this.openUncached(path),
-		);
+		const key = canonicalPath(path);
+		const existing = this.opened.get(key);
+		if (existing !== undefined) return existing;
+		const created = this.openUncached(path);
+		this.opened.set(key, created);
+		try {
+			const scope = await created;
+			if (
+				scope.issues.some((issue) => issue.type === "source-open") &&
+				this.opened.get(key) === created
+			)
+				this.opened.delete(key);
+			return scope;
+		} catch (error) {
+			if (this.opened.get(key) === created) this.opened.delete(key);
+			throw error;
+		}
 	}
 
 	async load(route: OpenedRoute<TContext>): Promise<LoadedSelectedCommand<TContext>> {
@@ -162,60 +225,170 @@ export class ClinkrTopology<TContext> {
 			const name = path.at(-1);
 			const parent = await this.open(parentPath);
 			const owner = name === undefined ? undefined : parent.groups.get(name)?.source;
-			if (owner === undefined) {
-				throw new Error(`clinkr: no group at ${canonicalPath(path)}`);
-			}
+			if (owner === undefined) throw new Error(`clinkr: no group at ${canonicalPath(path)}`);
 			sources = [owner];
 		}
-		const scopes = await Promise.all(
-			sources.map(async (source) => ({ source, scope: await this.openSource(source, path) })),
+		const results = await Promise.all(
+			sources.map(async (source) => {
+				try {
+					return { type: "opened" as const, source, scope: await this.openSource(source, path) };
+				} catch (error) {
+					return { type: "failed" as const, source, error };
+				}
+			}),
 		);
+		const issues: TopologyIssue[] = results
+			.filter((result) => result.type === "failed")
+			.map((result) => ({
+				type: "source-open",
+				path: [...path],
+				sourceLabel: result.source.label,
+				error: result.error,
+			}));
+		const opened = results.filter((result) => result.type === "opened");
+		const defaults = opened.flatMap(({ source, scope }) =>
+			scope.defaultCommand === undefined ? [] : [{ source, command: scope.defaultCommand }],
+		);
+		const defaultIssues: TopologyIssue[] = [];
 		let defaultCommand: OpenedRoute<TContext> | undefined;
+		if (defaults.length === 1) {
+			const only = defaults[0];
+			if (only !== undefined) defaultCommand = { ...only, path: [...path] };
+		} else if (defaults.length > 1) {
+			for (let first = 0; first < defaults.length; first += 1) {
+				for (let second = first + 1; second < defaults.length; second += 1) {
+					const left = defaults[first];
+					const right = defaults[second];
+					if (left !== undefined && right !== undefined)
+						defaultIssues.push(
+							collisionIssue({
+								path,
+								first: left.source,
+								second: right.source,
+								kind: "default/default",
+							}),
+						);
+				}
+			}
+		}
+		issues.push(...defaultIssues);
+
+		const contributions: RouteContribution<TContext>[] = [];
+		for (const { source, scope } of opened) {
+			for (const [name, command] of scope.commands) {
+				contributions.push({
+					routeKind: "command",
+					name,
+					aliases: command.metadata.aliases ?? [],
+					source,
+					value: command,
+				});
+			}
+			for (const [name, group] of scope.groups) {
+				contributions.push({
+					routeKind: "group",
+					name,
+					aliases: group.definition.aliases ?? [],
+					source,
+					value: group,
+				});
+			}
+		}
+		const claims = new Map<string, NameClaim<TContext>[]>();
+		for (const contribution of contributions) {
+			addClaim(claims, contribution.name, { contribution, isAlias: false });
+			for (const alias of contribution.aliases)
+				addClaim(claims, alias, { contribution, isAlias: true });
+		}
+		const poisoned = new Set<RouteContribution<TContext>>();
+		const unavailable = new Map<string, TopologyIssue[]>();
+		for (const [name, nameClaims] of claims) {
+			if (path.length === 0 && this.reservedNames.has(name)) {
+				for (const claim of nameClaims) {
+					const issue: TopologyIssue = {
+						type: "reserved-name",
+						path: [name],
+						sourceLabel: claim.contribution.source.label,
+						canonicalRoute: [...path, claim.contribution.name],
+						name,
+					};
+					issues.push(issue);
+					poisoned.add(claim.contribution);
+					addUnavailable(unavailable, name, issue);
+				}
+			}
+			for (let first = 0; first < nameClaims.length; first += 1) {
+				for (let second = first + 1; second < nameClaims.length; second += 1) {
+					const left = nameClaims[first];
+					const right = nameClaims[second];
+					if (left === undefined || right === undefined || left.contribution === right.contribution)
+						continue;
+					const issue = claimCollisionIssue(path, name, left, right);
+					issues.push(issue);
+					poisoned.add(left.contribution);
+					poisoned.add(right.contribution);
+					addUnavailable(unavailable, name, issue);
+				}
+			}
+		}
+		for (const contribution of poisoned) {
+			const related = issues.filter(
+				(issue) =>
+					issue.type !== "source-open" &&
+					(issue.type === "reserved-name"
+						? issue.sourceLabel === contribution.source.label &&
+							canonicalPath(issue.canonicalRoute) === canonicalPath([...path, contribution.name])
+						: issue.parties.some(
+								(party) =>
+									party.sourceLabel === contribution.source.label &&
+									(party.canonicalRoute === undefined ||
+										canonicalPath(party.canonicalRoute) ===
+											canonicalPath([...path, contribution.name])),
+							)),
+			);
+			for (const name of [contribution.name, ...contribution.aliases])
+				for (const issue of related) addUnavailable(unavailable, name, issue);
+		}
 		const commands = new Map<string, OpenedRoute<TContext>>();
 		const groups = new Map<
 			string,
 			{ source: TopologySource<TContext>; definition: ClinkrGroupDefinition }
 		>();
-		const aliases = new Map<string, AliasOwner<TContext>>();
-		const reservedNames = path.length === 0 ? this.reservedNames : new Set<string>();
-		for (const { source, scope } of scopes) {
-			if (scope.defaultCommand !== undefined) {
-				if (defaultCommand !== undefined)
-					collision(path, { source: defaultCommand.source }, { source }, "command/command");
-				defaultCommand = { source, command: scope.defaultCommand, path: [...path] };
-			}
-			for (const [name, command] of scope.commands) {
-				validateSiblingName({
-					routeKind: "command",
-					name,
-					newAliases: command.metadata.aliases,
-					source,
-					parentPath: path,
-					commands,
-					groups,
-					aliases,
-					reservedNames,
+		for (const contribution of contributions) {
+			if (poisoned.has(contribution)) continue;
+			if (contribution.routeKind === "command") {
+				commands.set(contribution.name, {
+					source: contribution.source,
+					command: contribution.value as SourceCommand<TContext>,
+					path: [...path, contribution.name],
 				});
-				commands.set(name, { source, command, path: [...path, name] });
-				registerAliases(name, command.metadata.aliases, source, aliases);
-			}
-			for (const [name, group] of scope.groups) {
-				validateSiblingName({
-					routeKind: "group",
-					name,
-					newAliases: group.definition.aliases,
-					source,
-					parentPath: path,
-					commands,
-					groups,
-					aliases,
-					reservedNames,
+			} else {
+				groups.set(contribution.name, {
+					source: contribution.source,
+					definition: (contribution.value as SourceGroup).definition,
 				});
-				groups.set(name, { source, definition: group.definition });
-				registerAliases(name, group.definition.aliases, source, aliases);
 			}
 		}
-		return { ...(defaultCommand === undefined ? {} : { defaultCommand }), commands, groups };
+		const sortedIssues = [...issues].sort((left, right) =>
+			formatTopologyIssue(left).localeCompare(formatTopologyIssue(right)),
+		);
+		return {
+			...(defaultCommand === undefined ? {} : { defaultCommand }),
+			commands,
+			groups,
+			issues: sortedIssues,
+			unavailableNames: new Map(
+				[...unavailable].map(([name, values]) => [
+					name,
+					[...values].sort((left, right) =>
+						formatTopologyIssue(left).localeCompare(formatTopologyIssue(right)),
+					),
+				]),
+			),
+			defaultIssues: [...defaultIssues].sort((left, right) =>
+				formatTopologyIssue(left).localeCompare(formatTopologyIssue(right)),
+			),
+		};
 	}
 
 	private async openSource(
@@ -227,14 +400,6 @@ export class ClinkrTopology<TContext> {
 	}
 }
 
-/**
- * One owner for the transactional promise-cache invariant shared by topology
- * scope opening, per-source scope opening, and selected-command loading:
- * concurrent callers share the published in-flight promise, success stays
- * cached for the topology lifetime, and a rejected promise is evicted — only
- * while it is still the published entry — so later callers retry. Errors pass
- * through untranslated.
- */
 async function getOrCreateTransactional<K, V>(
 	cache: Map<K, Promise<V>>,
 	key: K,
@@ -263,136 +428,86 @@ function getOrCreateSourceCache<TContext, V>(
 	return created;
 }
 
-interface ValidateSiblingNameOptions<TContext> {
-	readonly routeKind: "command" | "group";
-	readonly name: string;
-	readonly newAliases: readonly string[] | undefined;
-	readonly source: TopologySource<TContext>;
-	readonly parentPath: readonly string[];
-	readonly commands: ReadonlyMap<string, OpenedRoute<TContext>>;
-	readonly groups: ReadonlyMap<string, { readonly source: TopologySource<TContext> }>;
-	readonly aliases: ReadonlyMap<string, AliasOwner<TContext>>;
-	readonly reservedNames: ReadonlySet<string>;
-}
-
-function validateSiblingName<TContext>(options: ValidateSiblingNameOptions<TContext>): void {
-	const {
-		routeKind,
-		name,
-		newAliases,
-		source,
-		parentPath,
-		commands,
-		groups,
-		aliases,
-		reservedNames,
-	} = options;
-	const path = [...parentPath, name];
-	validateRouteName(name, path);
-	const isRoot = parentPath.length === 0;
-	if (isRoot && reservedNames.has(name))
-		throw new Error(
-			`clinkr: route ${canonicalPath(path)} conflicts with configured reserved name ${JSON.stringify(name)}`,
-		);
-	const command = commands.get(name);
-	if (command !== undefined)
-		collision(
-			path,
-			{ source: command.source },
-			{ source },
-			routeKind === "command" ? "command/command" : "command/group",
-		);
-	const group = groups.get(name);
-	if (group !== undefined)
-		collision(
-			path,
-			{ source: group.source },
-			{ source },
-			routeKind === "command" ? "command/group" : "group/group",
-		);
-	const alias = aliases.get(name);
-	if (alias !== undefined)
-		collision(
-			path,
-			{ source: alias.source, canonicalRoute: [...parentPath, alias.canonicalName] },
-			{ source },
-			"alias/name",
-		);
-	for (const candidate of newAliases ?? []) {
-		if (isRoot && reservedNames.has(candidate))
-			throw new Error(
-				`clinkr: alias ${JSON.stringify(candidate)} at ${canonicalPath(path)} conflicts with configured reserved name`,
-			);
-		const namedCommand = commands.get(candidate);
-		if (namedCommand !== undefined)
-			collision(
-				[...parentPath, candidate],
-				{ source: namedCommand.source },
-				{ source, canonicalRoute: path },
-				"alias/name",
-			);
-		const namedGroup = groups.get(candidate);
-		if (namedGroup !== undefined)
-			collision(
-				[...parentPath, candidate],
-				{ source: namedGroup.source },
-				{ source, canonicalRoute: path },
-				"alias/name",
-			);
-		const existingAlias = aliases.get(candidate);
-		if (existingAlias !== undefined)
-			collision(
-				[...parentPath, candidate],
-				{
-					source: existingAlias.source,
-					canonicalRoute: [...parentPath, existingAlias.canonicalName],
-				},
-				{ source, canonicalRoute: path },
-				"alias/alias",
-			);
-	}
-}
-
-function registerAliases<TContext>(
+function addClaim<TContext>(
+	claims: Map<string, NameClaim<TContext>[]>,
 	name: string,
-	values: readonly string[] | undefined,
-	source: TopologySource<TContext>,
-	aliases: Map<string, AliasOwner<TContext>>,
+	claim: NameClaim<TContext>,
 ): void {
-	for (const alias of values ?? []) aliases.set(alias, { canonicalName: name, source });
+	const existing = claims.get(name);
+	if (existing === undefined) claims.set(name, [claim]);
+	else existing.push(claim);
 }
 
-/**
- * One colliding side of a sibling-name collision. When the side contributes
- * an alias (rather than the collided canonical name itself), `canonicalRoute`
- * names the route that declared the alias so the diagnostic points at the
- * owning declaration.
- */
-interface CollisionParty<TContext> {
-	readonly source: TopologySource<TContext>;
-	readonly canonicalRoute?: readonly string[];
+function addUnavailable(
+	unavailable: Map<string, TopologyIssue[]>,
+	name: string,
+	issue: TopologyIssue,
+): void {
+	const existing = unavailable.get(name);
+	if (existing === undefined) unavailable.set(name, [issue]);
+	else if (!existing.includes(issue)) existing.push(issue);
 }
 
-function collision<TContext>(
-	path: readonly string[],
-	first: CollisionParty<TContext>,
-	second: CollisionParty<TContext>,
-	kind: string,
-): never {
-	// Sort whole parties by label so diagnostics stay declaration-order
-	// independent while each canonical route remains attributed to its own
-	// source.
-	const parties = [first, second].sort((a, b) =>
-		a.source.label < b.source.label ? -1 : a.source.label > b.source.label ? 1 : 0,
-	);
-	const described = parties.map(describeCollisionParty);
-	throw new Error(
-		`clinkr: ${kind} collision at ${canonicalPath(path)} between sources ${described[0]} and ${described[1]}`,
-	);
+function claimCollisionIssue<TContext>(
+	parentPath: readonly string[],
+	name: string,
+	first: NameClaim<TContext>,
+	second: NameClaim<TContext>,
+): TopologyIssue {
+	let kind: CollisionKind;
+	if (first.isAlias && second.isAlias) kind = "alias/alias";
+	else if (first.isAlias || second.isAlias) kind = "alias/name";
+	else if (first.contribution.routeKind === second.contribution.routeKind)
+		kind = first.contribution.routeKind === "command" ? "command/command" : "group/group";
+	else kind = "command/group";
+	return collisionIssue({
+		path: [...parentPath, name],
+		first: first.contribution.source,
+		second: second.contribution.source,
+		kind,
+		...(first.isAlias ? { firstCanonicalRoute: [...parentPath, first.contribution.name] } : {}),
+		...(second.isAlias ? { secondCanonicalRoute: [...parentPath, second.contribution.name] } : {}),
+	});
 }
 
-function describeCollisionParty<TContext>(party: CollisionParty<TContext>): string {
-	const label = JSON.stringify(party.source.label);
+interface CollisionIssueOptions<TContext> {
+	readonly path: readonly string[];
+	readonly first: TopologySource<TContext>;
+	readonly second: TopologySource<TContext>;
+	readonly kind: CollisionKind;
+	readonly firstCanonicalRoute?: readonly string[];
+	readonly secondCanonicalRoute?: readonly string[];
+}
+
+function collisionIssue<TContext>(options: CollisionIssueOptions<TContext>): TopologyIssue {
+	const parties: CollisionPartyDescription[] = [
+		{
+			sourceLabel: options.first.label,
+			...(options.firstCanonicalRoute === undefined
+				? {}
+				: { canonicalRoute: options.firstCanonicalRoute }),
+		},
+		{
+			sourceLabel: options.second.label,
+			...(options.secondCanonicalRoute === undefined
+				? {}
+				: { canonicalRoute: options.secondCanonicalRoute }),
+		},
+	].sort((left, right) => left.sourceLabel.localeCompare(right.sourceLabel));
+	const left = parties[0];
+	const right = parties[1];
+	if (left === undefined || right === undefined)
+		throw new Error("clinkr: invalid collision parties");
+	return {
+		type: "collision",
+		path: [...options.path],
+		kind: options.kind,
+		parties: [left, right],
+	};
+}
+
+function describeCollisionParty(party: CollisionPartyDescription): string {
+	const label = JSON.stringify(party.sourceLabel);
 	return party.canonicalRoute === undefined
 		? label
 		: `${label} (alias of ${canonicalPath(party.canonicalRoute)})`;

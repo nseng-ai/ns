@@ -1,4 +1,6 @@
 export { createClinkrApp } from "./app.ts";
+export { resolveClinkrOutputFormat } from "./framework-arguments.ts";
+export type { OutputFormat } from "./framework-arguments.ts";
 export type {
 	ClinkrApp,
 	ClinkrContextFreeApp,
