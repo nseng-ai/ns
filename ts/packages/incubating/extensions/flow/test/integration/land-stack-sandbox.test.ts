@@ -712,7 +712,7 @@ function graphqlPrConnections() {
 function reparentChildrenOnDelete(branch) {
   // Mirror documented gt behavior: deleting a tracked branch reparents its
   // children onto the deleted branch's parent in Graphite metadata.
-  const rows = state.topology || [];
+  const rows = state.topology ?? [];
   const row = rows.find((entry) => entry.branch === branch);
   if (!row) return;
   const children = row.children || [];
@@ -722,7 +722,7 @@ function reparentChildrenOnDelete(branch) {
   }
   const parentRow = rows.find((entry) => entry.branch === row.parent);
   if (parentRow) {
-    parentRow.children = (parentRow.children || [])
+    parentRow.children = (parentRow.children ?? [])
       .filter((child) => child !== branch)
       .concat(children);
   }
@@ -755,7 +755,7 @@ if (command === "gh") {
     const baseArg = args.find((arg) => arg.startsWith("base="));
     if (baseArg) {
       const base = baseArg.slice("base=".length);
-      const nodes = Object.values(state.prs || {})
+      const nodes = Object.values(state.prs ?? {})
         .filter((pr) => pr.state === "OPEN" && pr.baseRefName === base)
         .map((pr) => ({
           number: pr.number,
@@ -805,7 +805,7 @@ if (command === "gt") {
       git(["checkout", "main"]);
     }
     const result = git(["branch", "-D", branch]);
-    if ((result.status || 0) === 0) reparentChildrenOnDelete(branch);
+    if ((result.status ?? 0) === 0) reparentChildrenOnDelete(branch);
     finish(result.status || 0, result.stdout || "", result.stderr || "");
   }
   if (args[0] === "restack") {

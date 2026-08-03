@@ -1,3 +1,5 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import { LAND_BACKUP_RECOVERY_HINT } from "../graphite-operations.ts";
 import type {
 	DescendantMaintenancePlan,
@@ -162,7 +164,7 @@ export function aggregateDescendantReconciliationFailure(options: {
 			...failures.map(({ failure }) => `- ${failure.message}`),
 		].join("\n"),
 		{
-			...(affectedRoots[0] === undefined ? {} : { failedBranch: affectedRoots[0] }),
+			...optionalEntry("failedBranch", affectedRoots[0]),
 			failedPrNumber: landedPrNumber,
 			suggestedAction: `Inspect descendant roots ${targetBranches.join(", ")}, restack/update them manually, and verify each PR head and base on GitHub${landedBranchCleanupState === "retained" ? `; delete local branch ${landedBranch} manually when safe` : ""}. ${LAND_BACKUP_RECOVERY_HINT}`,
 		},
