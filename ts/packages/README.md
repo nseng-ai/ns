@@ -51,8 +51,13 @@ Run `ls ts/packages/*/` for the live roster rather than trusting a list here.
 Pi is the only external harness with packages today, and it appears under two dispositions.
 Pi's category vocabulary is `runtime/` (reusable Pi integration substrate), `extensions/` (Pi
 runtime extensions), `tools/` (Pi tools), and `subagents/` (Pi subagent infrastructure); a
-category appears under whichever disposition its packages belong to. Live on the current
-feature branch: `incubating/hosts/pi/runtime/pi-runtime/`,
+category appears under whichever disposition its packages belong to. Classify ownership from the
+full path, not the terminal category word: `extensions/` directly beneath a disposition root is
+the harness-independent ns extension owner tree, while `hosts/pi/extensions/` is Pi's host-owned
+category for runtime extensions and adapters. For example, `incubating/extensions/herdr/` owns
+harness-independent Herdr behavior, while
+`incubating/hosts/pi/extensions/pi-ns-herdr/` correctly owns Pi registration, interaction, and
+presentation. Live on the current feature branch: `incubating/hosts/pi/runtime/pi-runtime/`,
 `incubating/hosts/pi/extensions/{pi-ns-branch-context,pi-ns-flow,pi-ns-handoffs,pi-ns-herdr,pi-ns-objectives}/`,
 and `internal/hosts/pi/{tools,subagents}/`. These incubating adapters are implemented in the
 current tree but have not been published.

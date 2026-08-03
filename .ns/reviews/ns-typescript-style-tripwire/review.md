@@ -6,9 +6,10 @@
 # overlay (`skills/internal/typescript/ns-typescript/SKILL.md`), the fake-driven
 # gateway guidance in
 # `skills/internal/typescript/typescript-fake-driven-testing/SKILL.md`, the composition rules in
-# `docs/conventions/consumer-gateways-and-command-shape.md`, and the repo
-# enforcement rules in `ts/AGENTS.md` (test-lane hard gates, time seams,
-# style-guard ids). It is intentionally not a generic
+# `docs/conventions/consumer-gateways-and-command-shape.md`, the authoritative
+# package-topology and host-ownership contract in `ts/packages/README.md`, and
+# the repo enforcement rules in `ts/AGENTS.md` (test-lane hard gates, time
+# seams, style-guard ids). It is intentionally not a generic
 # TypeScript review; use `.ns/reviews/ns-typescript-style-tripwire/review.md` when reviewing this
 # repo's TypeScript diffs.
 #
@@ -16,8 +17,10 @@
 # by re-reading those source documents, keep only diff-grounded/mechanically
 # reviewable rules in the Active Tier A section, move higher-context design rules
 # to the sibling `tier-b.md` file because the Reviews loader ships the review body
-# verbatim and Tier B must never ship, preserve the frontmatter schema accepted by
-# Reviews, and then run:
+# verbatim and Tier B must never ship, preserve rule 24's distinction between
+# `<disposition>/extensions/<domain>/` and
+# `<disposition>/hosts/pi/extensions/pi-ns-<domain>/`, preserve the frontmatter
+# schema accepted by Reviews, and then run:
 #
 #   dprint check .ns/reviews/ns-typescript-style-tripwire/review.md
 #   dprint check .ns/reviews/ns-typescript-style-tripwire/tier-b.md
@@ -244,20 +247,20 @@ to each rule's exceptions.
     type at a genuine loader boundary and no named exported type exists; if that
     justification is ambiguous, skip the finding.
 
-24. **NS/Pi extension ownership commingling.** Flag changed source in an ns
-    extension under `ts/packages/{public,incubating}/extensions/` when it owns
-    Pi-host integration rather than harness-independent domain behavior. Evidence
-    can include Pi command or tool registration, Pi lifecycle hooks, Pi-specific
-    presentation, imports from Pi runtime or SDK packages, a Pi-owned source
-    subtree, or an indirect wrapper/alias that serves those roles. Also flag a
-    `pi-ns-*` adapter that bypasses its matching ns extension's exact `/api`
-    commitment boundary, reaches into private extension source, or otherwise
-    blurs which package owns host integration. Severity: `error`. Judge semantic
-    ownership rather than matching syntax: aliases, wrappers, and unusual names
-    do not exempt commingling, while neutral types or domain APIs merely consumed
-    by Pi are not themselves Pi-owned. The package manifest topology guard remains
-    authoritative for deterministic path, identity, tier, dependency, subpackage,
-    and export invariants; this LM tripwire owns source-level judgment.
+24. **NS/Pi extension ownership commingling.** Use the full owner path: flag
+    Pi-host integration in an ns extension under
+    `ts/packages/{public,incubating}/extensions/<domain>/`, but do not flag Pi
+    command or tool registration, lifecycle hooks, or Pi-specific interaction and
+    presentation merely because they live in the correct host adapter under
+    `ts/packages/{public,incubating}/hosts/pi/extensions/pi-ns-<domain>/`. Flag
+    that adapter when it bypasses the matching extension's exact
+    `@nseng-ai/<domain>/api` commitment boundary, reaches into private extension
+    source, or owns harness-independent domain behavior. Severity: `error`.
+    Judge semantic ownership after classifying the full path; aliases, wrappers,
+    and unusual names do not exempt commingling. If ownership is ambiguous, skip
+    the finding rather than inventing intent. The package manifest topology guard
+    remains authoritative for deterministic path, identity, tier, dependency,
+    subpackage, and export invariants; this LM tripwire owns source-level judgment.
 
 ## Severity
 

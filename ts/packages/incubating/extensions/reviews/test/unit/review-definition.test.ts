@@ -115,6 +115,29 @@ describe("parseReviewDefinition", () => {
 		expect(definition.instructions).toContain("ordinary collection/map/index lookups");
 	});
 
+	test("preserves the NS/Pi host-adapter ownership distinction", () => {
+		const source = readFileSync(
+			new URL(NS_TYPESCRIPT_STYLE_TRIPWIRE_PATH, import.meta.url),
+			"utf8",
+		);
+
+		const definition = expectOk(
+			parseReviewDefinition(source, { name: "ns-typescript-style-tripwire" }),
+		);
+
+		expect(definition.instructions).toContain(
+			"ts/packages/{public,incubating}/extensions/<domain>/",
+		);
+		expect(definition.instructions).toContain(
+			"ts/packages/{public,incubating}/hosts/pi/extensions/pi-ns-<domain>/",
+		);
+		expect(definition.instructions).toContain("but do not flag Pi");
+		expect(definition.instructions).toContain(
+			"presentation merely because they live in the correct host adapter",
+		);
+		expect(definition.instructions).toContain("`@nseng-ai/<domain>/api` commitment boundary");
+	});
+
 	test("parses a simple definition", () => {
 		const definition = expectOk(
 			parseReviewDefinition(
