@@ -15,8 +15,6 @@ export type RawArgvCommandLoad<TCommand extends DescriptorCommand = DescriptorCo
 
 export interface ExtensionCommandEntry<TCommand extends DescriptorCommand = DescriptorCommand> {
 	readonly name: string;
-	/** Omit this command when the named extension package is absent from the effective registry. */
-	readonly requiresExtension?: string;
 	/**
 	 * Lazy command-module thunk. Keep this as a literal dynamic import, for example
 	 * `() => import("./commands/list.ts")`: bundlers discover `import("literal")`
@@ -61,6 +59,8 @@ export interface ExtensionActivation {
 export interface ExtensionDescriptor {
 	readonly group?: string;
 	readonly description: string;
+	/** Exact extension package names that must also be admitted. */
+	readonly requiresExtensions?: readonly string[];
 	readonly entries?: readonly ExtensionEntry[];
 	readonly points?: readonly ExtensionPointDefinition[];
 	readonly activation?: ExtensionActivation;
@@ -98,13 +98,11 @@ export type LoadedCommandNameValidationResult =
 const commandEntrySchema: z.ZodType<ExtensionCommandEntry> = z
 	.strictObject({
 		name: z.string().min(1),
-		requiresExtension: z.string().min(1).optional(),
 		load: z.custom<RawArgvCommandLoad>((value) => typeof value === "function"),
 	})
 	.transform(
 		(entry): ExtensionCommandEntry => ({
 			name: entry.name,
-			...optionalEntries({ requiresExtension: entry.requiresExtension }),
 			load: entry.load,
 		}),
 	);
@@ -205,10 +203,34 @@ const extensionActivationSchema: z.ZodType<ExtensionActivation> = z
 		}),
 	);
 
+const extensionPackageNameSchema = z
+	.string()
+	.min(1)
+	.refine((name) => name.trim() === name, {
+		message: "must be an exact non-empty package name without surrounding whitespace",
+	});
+
 export const extensionDescriptorSchema: z.ZodType<ExtensionDescriptor> = z
 	.strictObject({
 		group: z.string().min(1).optional(),
 		description: z.string().min(1),
+		requiresExtensions: z
+			.array(extensionPackageNameSchema)
+			.readonly()
+			.superRefine((names, context) => {
+				const seen = new Set<string>();
+				for (const [index, name] of names.entries()) {
+					if (seen.has(name)) {
+						context.addIssue({
+							code: "custom",
+							message: "must contain unique package names",
+							path: [index],
+						});
+					}
+					seen.add(name);
+				}
+			})
+			.optional(),
 		entries: z.array(extensionEntrySchema).optional(),
 		points: z.array(extensionPointDefinitionSchema).optional(),
 		activation: extensionActivationSchema.optional(),
@@ -218,6 +240,7 @@ export const extensionDescriptorSchema: z.ZodType<ExtensionDescriptor> = z
 		(descriptor): ExtensionDescriptor => ({
 			...optionalEntries({ group: descriptor.group }),
 			description: descriptor.description,
+			...optionalEntries({ requiresExtensions: descriptor.requiresExtensions }),
 			...optionalEntries({
 				entries: descriptor.entries,
 				points: descriptor.points,

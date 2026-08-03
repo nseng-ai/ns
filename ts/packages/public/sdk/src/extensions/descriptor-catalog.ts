@@ -10,6 +10,8 @@ import type {
 
 export interface ExtensionDescriptorToPreinstalledCatalogOptions {
 	readonly displayPath: string;
+	readonly packageName?: string;
+	readonly contributionId?: string;
 	readonly helpGroup?: string;
 	readonly entryHelpGroup?: (
 		entry: ExtensionEntry,
@@ -27,8 +29,12 @@ export function preinstalledNsCommandCatalogFromRegistrations(
 	registrations: readonly PreinstalledNsExtensionRegistration[],
 ): PreinstalledNsCommandCatalog {
 	return {
-		entries: registrations.flatMap((registration) =>
-			extensionDescriptorToPreinstalledCatalog(registration.descriptor, registration),
+		entries: registrations.flatMap((registration, index) =>
+			extensionDescriptorToPreinstalledCatalog(registration.descriptor, {
+				...registration,
+				packageName: registration.packageName,
+				contributionId: `preinstalled:${index}:${registration.packageName}:${registration.displayPath}`,
+			}),
 		),
 		extensionPackageNames: registrations.map((registration) => registration.packageName),
 		builtInPackageNames: registrations
@@ -50,6 +56,9 @@ export function extensionDescriptorToPreinstalledCatalog(
 			rootGroupDescription: descriptor.description,
 			displayPath: options.displayPath,
 			helpGroup: options.helpGroup ?? NS_EXTENSION_HELP_GROUP,
+			packageName: options.packageName ?? options.displayPath,
+			contributionId: options.contributionId ?? `preinstalled:${options.displayPath}`,
+			requiresExtensions: descriptor.requiresExtensions ?? [],
 			...optionalEntry("entryHelpGroup", options.entryHelpGroup),
 		}),
 	);
@@ -63,6 +72,9 @@ function descriptorEntryToPreinstalledCatalog(options: {
 	displayPath: string;
 	rootGroupDescription: string;
 	helpGroup?: string;
+	packageName: string;
+	contributionId: string;
+	requiresExtensions: readonly string[];
 	entryHelpGroup?: (entry: ExtensionEntry, segments: readonly string[]) => string | undefined;
 }): readonly PreinstalledNsCommandCatalogEntry[] {
 	if ("load" in options.entry) {
@@ -72,7 +84,9 @@ function descriptorEntryToPreinstalledCatalog(options: {
 		return [
 			{
 				name: commandEntry.name,
-				...optionalEntry("requiresExtension", commandEntry.requiresExtension),
+				packageName: options.packageName,
+				contributionId: options.contributionId,
+				requiresExtensions: options.requiresExtensions,
 				description: `Load ns descriptor command ${segments.join(" ")}.`,
 				fullDescription: `Load ns descriptor command ${segments.join(" ")}.`,
 				// The descriptor description labels the root group even when every command

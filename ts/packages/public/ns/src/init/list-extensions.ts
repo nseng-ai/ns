@@ -16,6 +16,7 @@ import { z } from "zod";
 import {
 	extensionLifecycleScopeSchemaValues,
 	prepareUserConfig,
+	type UserExtensionAvailabilityContext,
 	type UserExtensionLifecycleContext,
 } from "./user-extension-lifecycle.ts";
 
@@ -117,7 +118,8 @@ export interface InstalledExtensionPackagesGateway {
 	list(): readonly InstalledExtensionPackage[];
 }
 
-export interface ExtensionListContext extends UserExtensionLifecycleContext {
+export interface ExtensionListContext
+	extends UserExtensionLifecycleContext, UserExtensionAvailabilityContext {
 	readonly git: Pick<GitGateway, "optionalRepoRoot">;
 	readonly files: Pick<ActivationFilesGateway, "readActivationFile">;
 	readonly declaredExtensions: DeclaredExtensionsGateway;
@@ -497,6 +499,10 @@ async function listUserExtensions(
 		localPathPolicy: "absolute-only",
 		resolveNpmPackageRoot: () => undefined,
 	});
+	const availability = await context.userExtensionAvailability.evaluate({
+		configDir: prepared.configDir,
+		sourceSpecs: specs,
+	});
 	const rows: UserExtensionListRow[] = specs.map((sourceSpec) => {
 		const classification = classifyExtensionSourceLifecycle(prepared.configDir, sourceSpec);
 		const descriptor = loaded.descriptors.find((candidate) => candidate.spec === sourceSpec);
@@ -521,16 +527,17 @@ async function listUserExtensions(
 				],
 			};
 		}
-		if (descriptor !== undefined)
+		const fact = availability.find((candidate) => candidate.sourceSpec === sourceSpec);
+		if (descriptor !== undefined && fact !== undefined)
 			return {
 				sourceSpec,
 				sourceKind: descriptor.sourceKind,
-				packageName: descriptor.packageName,
+				packageName: fact.packageName ?? descriptor.packageName,
 				packageVersion: descriptor.version,
 				moduleRoot: descriptor.moduleRoot,
 				acquisitionStatus: "installed",
-				commandAvailability: "available",
-				diagnostics,
+				commandAvailability: fact.availability,
+				diagnostics: [...diagnostics, ...fact.diagnostics.map(normalizeExtensionListDiagnostic)],
 			};
 		const sourceKind =
 			classification.type === "supported-local"

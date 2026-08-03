@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -38,12 +38,13 @@ describe("RealUserExtensionConfigGateway", () => {
 		);
 	});
 
-	it("replaces an existing file from position zero and truncates trailing bytes", async () => {
+	it("durably replaces an existing file, truncates trailing bytes, and preserves its mode", async () => {
 		const root = await tempRoot();
 		const configDir = join(root, ".config", "ns");
 		const configPath = join(configDir, "ns.toml");
 		await mkdir(configDir, { recursive: true });
 		await writeFile(configPath, "0123456789-long-tail\n", "utf8");
+		await chmod(configPath, 0o640);
 		const gateway = new RealUserExtensionConfigGateway({ env: {}, homeDir: root });
 		await expect(
 			gateway.compareAndWrite({
@@ -52,6 +53,30 @@ describe("RealUserExtensionConfigGateway", () => {
 			}),
 		).resolves.toEqual({ ok: true });
 		await expect(readFile(configPath, "utf8")).resolves.toBe("new\n");
+		expect((await lstat(configPath)).mode & 0o777).toBe(0o640);
+	});
+
+	it("rejects a symbolic-link config without changing its target", async () => {
+		const root = await tempRoot();
+		const configDir = join(root, ".config", "ns");
+		const configPath = join(configDir, "ns.toml");
+		const targetPath = join(root, "target.toml");
+		await mkdir(configDir, { recursive: true });
+		await writeFile(targetPath, "target\n", "utf8");
+		await symlink(targetPath, configPath);
+		const gateway = new RealUserExtensionConfigGateway({ env: {}, homeDir: root });
+
+		await expect(gateway.read()).resolves.toMatchObject({
+			type: "error",
+			error: { code: "user-config-symlink-unsupported" },
+		});
+		await expect(
+			gateway.compareAndWrite({
+				expected: { type: "file", content: "target\n" },
+				content: "changed\n",
+			}),
+		).resolves.toMatchObject({ ok: false, error: { code: "user-config-symlink-unsupported" } });
+		await expect(readFile(targetPath, "utf8")).resolves.toBe("target\n");
 	});
 
 	it("uses the HOME fallback and refuses stale prepared content", async () => {

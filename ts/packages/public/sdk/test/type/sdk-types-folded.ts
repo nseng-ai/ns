@@ -65,10 +65,10 @@ const greetCommand = defineCommand({
 
 const extension = defineExtension({
 	description: "Greet extension.",
+	requiresExtensions: ["@example/provider"],
 	entries: [
 		{
 			name: "greet",
-			requiresExtension: "@example/provider",
 			load: () => ({ default: greetCommand }),
 		},
 	],

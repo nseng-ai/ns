@@ -91,6 +91,19 @@ ns objective list
 ns objective show <slug>
 ```
 
+## User-scoped extension commands
+
+A local extension can be declared once for machine-wide command availability without activating repository files:
+
+```bash
+ns extension install /absolute/path/to/my-extension --scope user
+ns extension list --scope user
+ns extension update /absolute/path/to/my-extension --scope user
+ns extension uninstall /absolute/path/to/my-extension --scope user
+```
+
+User declarations live at `$XDG_CONFIG_HOME/ns/ns.toml` (falling back to `$HOME/.config/ns/ns.toml`). Admission is all-or-nothing: invalid command metadata, a reserved Built-in path, an unsatisfied package requirement, or another package's command-shape collision makes the complete package unavailable. Install checks the proposed complete User catalog before changing config; list retains rejected declarations as `unavailable`; update refuses unavailable packages; uninstall remains available for recovery. User scope never writes project activation files. User-managed npm acquisition is not implemented yet.
+
 ## SDK subpaths
 
 The package also owns the public SDK subpaths for checkout-free consumers, for example

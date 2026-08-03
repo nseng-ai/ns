@@ -1,6 +1,6 @@
 import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { failure, ok } from "@nseng-ai/clinkr/legacy";
-import { ALL_HARNESS_IDS } from "../harness-artifacts/api.ts";
+import { ALL_HARNESS_IDS, parseNsTomlExtensions } from "../harness-artifacts/api.ts";
 import type { ExtensionAcquisitionDiagnostic } from "@nseng-ai/sdk/extensions/acquisition";
 import { planDeclaredExtensionTarget } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
@@ -10,6 +10,7 @@ import {
 	loadOneUserLocalDescriptor,
 	prepareUserConfig,
 	prepareUserLocalSource,
+	type UserExtensionAvailabilityContext,
 	type UserExtensionLifecycleContext,
 } from "./user-extension-lifecycle.ts";
 
@@ -41,7 +42,8 @@ import {
 	type LifecycleRecorder,
 } from "./lifecycle-observability.ts";
 
-export interface ExtensionUpdateContext extends NsActivationContext, UserExtensionLifecycleContext {
+export interface ExtensionUpdateContext
+	extends NsActivationContext, UserExtensionLifecycleContext, UserExtensionAvailabilityContext {
 	readonly updateAcquisition: ExtensionUpdateAcquisitionGateway;
 }
 
@@ -355,6 +357,27 @@ async function updateUserExtension(
 			scope: "user",
 			...target,
 		});
+	const parsed = parseNsTomlExtensions(prepared.content, prepared.configPath);
+	if (parsed.type === "error")
+		return failure("ns-extension-update-user-config-invalid", parsed.error.message, {
+			scope: "user",
+			diagnostics: [parsed.error],
+		});
+	const availability = await context.userExtensionAvailability.evaluate({
+		configDir: prepared.configDir,
+		sourceSpecs: parsed.type === "missing" ? [] : parsed.extensions,
+	});
+	const targetAvailability = availability.find((fact) => fact.sourceSpec === target.matchedSpec);
+	if (targetAvailability?.availability !== "available")
+		return failure(
+			"ns-extension-update-user-package-unavailable",
+			`User extension package is not fully available: ${target.matchedSpec}.`,
+			{
+				scope: "user",
+				sourceSpec: target.matchedSpec,
+				diagnostics: targetAvailability?.diagnostics ?? [],
+			},
+		);
 	const loaded = await loadOneUserLocalDescriptor<UpdateExtensionResult>({
 		context,
 		configDir: prepared.configDir,

@@ -255,12 +255,9 @@ export default { name: "aaa", summary: "Conflicting project extension command.",
 		);
 		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
 
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain(
-			"Project extension command extension/aaa cannot contribute to built-in namespace extension",
-		);
-		expect(run.stderr.join("")).toContain("Choose a different top-level command namespace.");
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).not.toContain("extension aaa");
+		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
 	});
 

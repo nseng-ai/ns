@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { failure, ok } from "@nseng-ai/clinkr/legacy";
-import { ALL_HARNESS_IDS } from "../harness-artifacts/api.ts";
+import { ALL_HARNESS_IDS, parseNsTomlExtensions } from "../harness-artifacts/api.ts";
 import { planDeclaredExtensionInstallToml } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
@@ -11,6 +11,7 @@ import {
 	loadOneUserLocalDescriptor,
 	prepareUserConfig,
 	prepareUserLocalSource,
+	type UserExtensionAvailabilityContext,
 	type UserExtensionLifecycleContext,
 } from "./user-extension-lifecycle.ts";
 
@@ -34,7 +35,7 @@ import {
 } from "./lifecycle-observability.ts";
 
 export interface ExtensionInstallContext
-	extends NsActivationContext, UserExtensionLifecycleContext {
+	extends NsActivationContext, UserExtensionLifecycleContext, UserExtensionAvailabilityContext {
 	readonly installAcquisition: ExtensionInstallAcquisitionGateway;
 }
 
@@ -279,6 +280,28 @@ async function installUserExtension(
 			scope: "user",
 			...declaration,
 		});
+	const parsedPlanned = parseNsTomlExtensions(declaration.text, prepared.configPath);
+	if (parsedPlanned.type === "error")
+		return failure("ns-extension-install-user-config-invalid", parsedPlanned.error.message, {
+			scope: "user",
+			diagnostics: [parsedPlanned.error],
+		});
+	const plannedSpecs = parsedPlanned.type === "missing" ? [] : parsedPlanned.extensions;
+	const availability = await context.userExtensionAvailability.evaluate({
+		configDir: prepared.configDir,
+		sourceSpecs: plannedSpecs,
+	});
+	const requestedAvailability = availability.find((fact) => fact.sourceSpec === source.sourceSpec);
+	if (requestedAvailability?.availability !== "available")
+		return failure(
+			"ns-extension-install-user-package-unavailable",
+			`User extension package is not fully available: ${source.sourceSpec}.`,
+			{
+				scope: "user",
+				sourceSpec: source.sourceSpec,
+				diagnostics: requestedAvailability?.diagnostics ?? [],
+			},
+		);
 	const loaded = await loadOneUserLocalDescriptor<InstallExtensionResult>({
 		context,
 		configDir: prepared.configDir,

@@ -23,6 +23,7 @@ import {
 	InMemoryDeclaredExtensionsGateway,
 	InMemoryExtensionUpdateAcquisitionGateway,
 	InMemoryUserExtensionConfigGateway,
+	InMemoryUserExtensionAvailabilityGateway,
 } from "../../src/init/testing/index.ts";
 
 function descriptor(source: string): DeclaredExtensionDescriptor {
@@ -101,6 +102,7 @@ function fixture(options: {
 			artifacts,
 			updateAcquisition: acquisition,
 			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
+			userExtensionAvailability: new InMemoryUserExtensionAvailabilityGateway(),
 		},
 	};
 }

@@ -17,6 +17,7 @@ import {
 	InMemoryDeclaredExtensionsGateway,
 	InMemoryExtensionInstallAcquisitionGateway,
 	InMemoryUserExtensionConfigGateway,
+	InMemoryUserExtensionAvailabilityGateway,
 } from "../../src/init/testing/index.ts";
 
 function descriptor(options: {
@@ -78,6 +79,7 @@ function fixture(options: {
 			}),
 			artifacts: options.artifacts ?? new InMemoryArtifactActivationGateway(),
 			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
+			userExtensionAvailability: new InMemoryUserExtensionAvailabilityGateway(),
 		},
 	};
 }
