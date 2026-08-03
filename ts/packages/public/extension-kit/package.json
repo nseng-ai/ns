@@ -32,6 +32,7 @@
 		"./text-generation/testing": "./src/kit/text-generation-testing.ts",
 		"./text-repair": "./src/kit/text-repair.ts",
 		"./workspace-root": "./src/kit/workspace-root.ts",
+		"./workflow-target": "./src/workflow-target/index.ts",
 		"./worktree-description": "./src/kit/worktree-description.ts",
 		"./xdg": "./src/kit/xdg.ts",
 		"./github": "./src/github/index.ts",
@@ -68,6 +69,7 @@
 		"subpackages": [
 			"kit",
 			"branch-creation",
+			"workflow-target",
 			"github",
 			"graphite"
 		],
