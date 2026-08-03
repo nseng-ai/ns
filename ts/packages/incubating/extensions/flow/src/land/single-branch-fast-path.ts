@@ -62,7 +62,11 @@ export async function runSingleBranchFastPathLanding(
 			),
 			progress: singleBranchLandingProgress(options.ctx, options.progressIo),
 		},
-		target: options.target,
+		target: {
+			repoRoot: options.target.repoRoot,
+			branch: options.target.stack.actualCurrentBranch,
+			trunk: options.target.trunk,
+		},
 		isDryRun: options.isDryRun,
 		cleanup: options.cleanup,
 	});

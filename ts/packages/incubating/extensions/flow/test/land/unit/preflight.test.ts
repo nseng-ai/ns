@@ -123,7 +123,7 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 			},
 			request: {
 				cwd: "/repo/subdir",
-				target: { type: "stack" },
+				target: { type: "stack", provider: "graphite" },
 				mode: "dry-run",
 				preflight: { shouldAllowSubmitRequiredState: false },
 				cleanup: "free",

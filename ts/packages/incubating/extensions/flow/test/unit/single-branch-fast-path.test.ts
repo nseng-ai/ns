@@ -327,13 +327,21 @@ async function run(
 	return await executeSingleBranchLanding({
 		context,
 		host: { confirmation: overrides.confirmation ?? approvedConfirmation, progress: nullProgress },
-		target: overrides.shape ?? singleBranchShape(),
+		target: branchTarget(overrides.shape ?? singleBranchShape()),
 		isDryRun: overrides.isDryRun ?? false,
 		cleanup: {
 			mode: (overrides.isDryRun ?? false) ? "dry-run" : "execute",
 			policy: overrides.cleanupPolicy ?? "free",
 		},
 	});
+}
+
+function branchTarget(shape: LandingShape) {
+	return {
+		repoRoot: shape.repoRoot,
+		branch: shape.stack.actualCurrentBranch,
+		trunk: shape.trunk,
+	};
 }
 
 function singleBranchShape(repoRoot = ROOT): LandingShape {

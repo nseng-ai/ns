@@ -1,15 +1,16 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
 
-export type LandingTarget = StackLandingTarget | SingleBranchPullRequestLandingTarget;
+export type LandingTarget = BranchLandingTarget | StackLandingTarget;
+
+export interface BranchLandingTarget {
+	readonly type: "branch";
+	readonly branch: string;
+}
 
 export interface StackLandingTarget {
 	readonly type: "stack";
+	readonly provider: "graphite";
 	readonly landingBranchLimit?: number;
-}
-
-export interface SingleBranchPullRequestLandingTarget {
-	readonly type: "single-branch-pull-request";
-	readonly branchOrNumber: string;
 }
 
 export interface LandingRequest {
@@ -42,12 +43,23 @@ export interface LandingPreflightMode {
  */
 export type LandingCleanupPolicy = "preserve" | "free";
 
-export interface LandContext {
+export interface BranchLandContext {
+	readonly git: BranchLandGitGateway;
+	readonly github: LandGithubPrGateway;
+	readonly worktrees: LandWorktreeSlotFactsGateway;
+	readonly localBranches: LandLocalBranchCleanupGateway;
+}
+
+export interface StackLandContext {
 	readonly git: LandGitGateway;
 	readonly graphite: LandGraphiteGateway;
 	readonly github: LandGithubPrGateway;
 	readonly worktrees: LandWorktreeSlotFactsGateway;
+	readonly localBranches: LandLocalBranchCleanupGateway;
 }
+
+/** Compatibility name for the Graphite stack domain. */
+export type LandContext = StackLandContext;
 
 export type LandResult<T> =
 	| { readonly type: "success"; readonly value: T }
@@ -140,6 +152,7 @@ export interface LandingNotImplementedFailure {
  * repository or supplied by the caller; `repo-discovery` records only repository loading work.
  */
 export type LandingCompletionDisposition =
+	| { readonly type: "branch-execution" }
 	| { readonly type: "stack-execution" }
 	| { readonly type: "cleanup-only" }
 	| { readonly type: "nothing-to-land"; readonly currentBranch: string };
@@ -150,7 +163,7 @@ export interface LandingExecutionReport {
 	/** Canonical classification of how this request completed or was being executed when it failed. */
 	readonly completionDisposition: LandingCompletionDisposition;
 	readonly repoRoot?: string;
-	readonly plan?: LandingPlan;
+	readonly plan?: LandingPlan | BranchLandingExecutionPlan;
 	readonly phases: readonly LandingPhaseOutcome[];
 	readonly landedChunks: readonly LandedChunk[];
 	readonly warnings: readonly LandingWarning[];
@@ -241,6 +254,13 @@ export interface LandingShape {
 	readonly trunk: string;
 	readonly metadataDbPath: string;
 	readonly stack: StackSnapshot;
+}
+
+export interface BranchLandingExecutionPlan {
+	readonly repoRoot: string;
+	readonly branch: string;
+	readonly trunk: string;
+	readonly pullRequest: PullRequestFacts;
 }
 
 export interface LandingPlan {
@@ -381,9 +401,24 @@ export function landingWarning(input: Omit<LandingWarning, "level">): LandingWar
 	return { level: "warning", ...input };
 }
 
+export interface BranchLandGitGateway {
+	resolveRepoRoot(request: { readonly cwd: string }): Promise<LandResult<string>>;
+	currentBranch(request: { readonly repoRoot: string }): Promise<LandResult<string>>;
+	cachedOriginHeadBranch(request: { readonly repoRoot: string }): Promise<LandResult<string>>;
+}
+
+export interface LandLocalBranchCleanupGateway {
+	deleteLocalBranch(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+	}): Promise<LandResult<void>>;
+}
+
 export interface LandGitGateway {
 	resolveRepoRoot(request: { readonly cwd: string }): Promise<LandResult<string>>;
 	currentBranch(request: { readonly repoRoot: string }): Promise<LandResult<string>>;
+	cachedOriginHeadBranch?(request: { readonly repoRoot: string }): Promise<LandResult<string>>;
+
 	workingTreeStatus(request: { readonly repoRoot: string }): Promise<LandResult<WorkingTreeStatus>>;
 	localBranchExists(request: {
 		readonly repoRoot: string;

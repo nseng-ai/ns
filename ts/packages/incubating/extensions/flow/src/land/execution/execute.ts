@@ -15,6 +15,8 @@ import {
 } from "../preflight.ts";
 import { landingCancelledBeforeMergeFailure, landSuccess } from "../results.ts";
 import type {
+	BranchLandContext,
+	BranchLandingExecutionPlan,
 	LandContext,
 	LandedChunk,
 	LandedPullRequest,
@@ -43,6 +45,7 @@ import {
 	type PostLandingCleanupRequest,
 } from "./post-landing-cleanup.ts";
 import { confirmAndFreeManagedSlots, submitRequiredUpdatesAndRecheckPlan } from "./pre-merge.ts";
+import { executeSingleBranchLanding } from "./single-branch-landing.ts";
 import { executeUpstackContinuation, snapshotUpstackContinuation } from "./upstack-continuation.ts";
 
 export interface LandStackExecutionHost {
@@ -55,7 +58,7 @@ export type LandingExecutionSource =
 	| { readonly type: "prepared"; readonly shape: StackLandingShape };
 
 export interface ExecuteLandingRequestOptions {
-	readonly context: LandContext;
+	readonly context: BranchLandContext | LandContext;
 	readonly request: LandingRequest;
 	readonly host: LandStackExecutionHost;
 	readonly source: LandingExecutionSource;
@@ -71,7 +74,7 @@ interface ReportDraft {
 	readonly mode: LandingRequest["mode"];
 	completionDisposition: LandingCompletionDisposition;
 	repoRoot?: string;
-	plan?: LandingPlan;
+	plan?: LandingPlan | BranchLandingExecutionPlan;
 	phases: LandingPhaseOutcome[];
 	landedChunks: readonly LandedChunk[];
 	warnings: readonly LandingWarning[];
@@ -98,16 +101,16 @@ export async function executeLandingRequest(
 		continuation: { type: "not-requested" },
 	};
 
-	if (request.target.type !== "stack") {
-		return failedResult(draft, "request-validation", {
-			type: "not-implemented",
-			phase: "request-validation",
-			message:
-				options.source.type === "prepared"
-					? "A prepared stack landing shape cannot execute a single-branch pull-request target."
-					: "@nseng-ai/flow land preflight planning currently supports stack landing targets only.",
+	if (request.target.type === "branch") {
+		if ("graphite" in context) throw new Error("Branch landing requires a branch land context.");
+		return await executeBranchLandingRequest({
+			context,
+			request: { ...request, target: request.target },
+			host,
+			draft,
 		});
 	}
+	if (!("graphite" in context)) throw new Error("Stack landing requires a stack land context.");
 	if (
 		options.source.type === "prepared" &&
 		request.target.landingBranchLimit !== undefined &&
@@ -389,6 +392,105 @@ async function executePostLandingCleanup(
 		...draft,
 		phases: [...draft.phases, postLandingCleanupPhase(cleanupRun.outcome)],
 	});
+}
+
+async function executeBranchLandingRequest(options: {
+	readonly context: BranchLandContext;
+	readonly request: LandingRequest & {
+		readonly target: { readonly type: "branch"; readonly branch: string };
+	};
+	readonly host: LandStackExecutionHost;
+	readonly draft: ReportDraft;
+}): Promise<LandingExecutionResult> {
+	const { context, request, host, draft } = options;
+	draft.completionDisposition = { type: "branch-execution" };
+	const root = await context.git.resolveRepoRoot({ cwd: request.cwd });
+	if (root.type === "failure") return failedResult(draft, "repo-discovery", root.failure);
+	const current = await context.git.currentBranch({ repoRoot: root.value });
+	if (current.type === "failure") return failedResult(draft, "repo-discovery", current.failure);
+	const trunk = await context.git.cachedOriginHeadBranch({ repoRoot: root.value });
+	if (trunk.type === "failure") return failedResult(draft, "repo-discovery", trunk.failure);
+	if (current.value !== request.target.branch) {
+		return failedResult(draft, "request-validation", {
+			type: "domain",
+			phase: "request-validation",
+			reason: "local-branch-missing",
+			message: `Current branch changed from ${request.target.branch} to ${current.value}; refusing to land.`,
+		});
+	}
+	if (current.value === trunk.value) {
+		return failedResult(draft, "request-validation", {
+			type: "domain",
+			phase: "request-validation",
+			reason: "nothing-to-land",
+			message: `Current branch ${current.value} is trunk; refusing to land it.`,
+		});
+	}
+	const shape = { repoRoot: root.value, currentBranch: current.value, trunk: trunk.value };
+	draft.repoRoot = root.value;
+	draft.phases.push(completed("repo-discovery"));
+	const outcome = await executeSingleBranchLanding({
+		context,
+		host,
+		target: { repoRoot: root.value, branch: current.value, trunk: trunk.value },
+		isDryRun: request.mode === "dry-run",
+		cleanup: { mode: request.mode, policy: request.cleanup },
+	});
+	if (outcome.type === "failure") {
+		return failedResult(
+			draft,
+			outcome.stage === "confirmation"
+				? "confirmation"
+				: outcome.stage === "merge" || outcome.stage === "verification"
+					? "merge"
+					: "preflight",
+			outcome.failure,
+		);
+	}
+	draft.plan = {
+		repoRoot: root.value,
+		branch: current.value,
+		trunk: trunk.value,
+		pullRequest: outcome.pullRequest,
+	};
+	draft.phases.push(completed("preflight"));
+	if (outcome.result === "dry-run") {
+		draft.phases.push(completed("dry-run"));
+		draft.postLandingSlotCleanup = postLandingCleanupSkipReport(
+			{ mode: request.mode, policy: request.cleanup },
+			shape,
+		);
+		return completedResult(draft);
+	}
+	draft.phases.push(completed("confirmation"), completed("merge"));
+	draft.landedChunks = [
+		{
+			index: 0,
+			landingTargetBranch: current.value,
+			landed: [
+				{
+					branch: current.value,
+					number: outcome.pullRequest.number,
+					title: outcome.pullRequest.title,
+					...optionalEntry("url", outcome.pullRequest.url),
+				},
+			],
+		},
+	];
+	const cleanup = await runManagedSlotPostLandingCleanup({
+		landContext: context,
+		progress: host.progress,
+		cleanup: {
+			mode: request.mode,
+			policy: outcome.chosenCleanupPolicy ?? request.cleanup,
+		},
+		shape,
+	});
+	draft.postLandingSlotCleanup = cleanup.outcome;
+	if (cleanup.type === "failure")
+		return failedResult(draft, "post-landing-cleanup", cleanup.failure);
+	draft.phases.push(postLandingCleanupPhase(cleanup.outcome));
+	return completedResult(draft);
 }
 
 function mergeLoopPhaseOutcomes(mergeLoopResult: MergeLoopResult): readonly LandingPhaseOutcome[] {

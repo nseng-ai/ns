@@ -1011,11 +1011,44 @@ export class InMemoryLandWorktreeSlotFactsGateway implements LandWorktreeSlotFac
 	}
 }
 
+export interface InMemoryLandLocalBranchCleanupGatewayState {
+	readonly deleteLocalBranchResults?: Readonly<Record<string, LandResult<void>>>;
+}
+
+export class InMemoryLandLocalBranchCleanupGateway {
+	private readonly deleteLocalBranchResults: ReadonlyMap<string, LandResult<void>>;
+	private readonly deleteLocalBranchLog: LandBranchCall[] = [];
+
+	constructor(state: InMemoryLandLocalBranchCleanupGatewayState = {}) {
+		this.deleteLocalBranchResults = new Map(
+			Object.entries(state.deleteLocalBranchResults ?? {}).map(([branch, result]) => [
+				branch,
+				cloneData(result),
+			]),
+		);
+	}
+
+	get deleteLocalBranchCalls(): readonly LandBranchCall[] {
+		return cloneData(this.deleteLocalBranchLog);
+	}
+
+	async deleteLocalBranch(request: LandBranchCall): Promise<LandResult<void>> {
+		this.deleteLocalBranchLog.push(cloneData(request));
+		return cloneData(
+			this.deleteLocalBranchResults.get(request.branch) ?? {
+				type: "success",
+				value: undefined,
+			},
+		);
+	}
+}
+
 export interface InMemoryLandContextState {
 	readonly git?: InMemoryLandGitGatewayState;
 	readonly graphite?: InMemoryLandGraphiteGatewayState;
 	readonly github?: InMemoryLandGithubPrGatewayState;
 	readonly worktrees?: InMemoryLandWorktreeSlotFactsGatewayState;
+	readonly localBranches?: InMemoryLandLocalBranchCleanupGatewayState;
 	/**
 	 * Declarative cross-gateway state transitions for reconciliation tests. Postcondition tests
 	 * need restack/submit success to actually move local ancestry, provider topology, and remote
@@ -1051,6 +1084,7 @@ export interface InMemoryLandContext {
 	readonly graphite: InMemoryLandGraphiteGateway;
 	readonly github: InMemoryLandGithubPrGateway;
 	readonly worktrees: InMemoryLandWorktreeSlotFactsGateway;
+	readonly localBranches: InMemoryLandLocalBranchCleanupGateway;
 	/** Testing-only, clone-on-read ordering view across semantic gateway calls. */
 	readonly callEvents: readonly InMemoryLandCallEvent[];
 }
@@ -1088,12 +1122,14 @@ export function createInMemoryLandContext(
 	const graphite = new InMemoryLandGraphiteGateway(state.graphite, recordCall, hooks);
 	graphiteRef = graphite;
 	const worktrees = new InMemoryLandWorktreeSlotFactsGateway(state.worktrees);
+	const localBranches = new InMemoryLandLocalBranchCleanupGateway(state.localBranches);
 	return {
-		context: { git, graphite, github, worktrees },
+		context: { git, graphite, github, worktrees, localBranches },
 		git,
 		graphite,
 		github,
 		worktrees,
+		localBranches,
 		get callEvents() {
 			return cloneData(callEvents);
 		},

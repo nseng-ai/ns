@@ -33,10 +33,15 @@ import {
 	type NsNotifyLevel,
 	type NsProgress,
 	type NsProgressPhaseEvent,
+	negative,
+	usageError,
 } from "@nseng-ai/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
+import { createNsGitGateway } from "@nseng-ai/extension-kit";
+import { loadRepositoryWorkflowTarget } from "@nseng-ai/extension-kit/workflow-target";
+import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import { runFlowCli } from "../flow-cli-runner.ts";
 import { createMatrixProgressForwarder } from "../../phase-stream/matrix-progress-forwarder.ts";
@@ -57,6 +62,14 @@ export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 		// Resolve caps at the host-extension seam (house-style §1) and thread them ONLY into the CLI
 		// edge so the settled land result blocks render in the house style; the shared Pi command-stream
 		// path is never given caps and stays ANSI-free.
+		const repoRoot = await createNsGitGateway(ctx).optionalRepoRoot({ cwd: ctx.cwd });
+		if (repoRoot.type === "error") return negative(repoRoot.error.message);
+		if (repoRoot.type === "missing") return negative("Flow land requires a Git repository.");
+		const selected = loadRepositoryWorkflowTarget({
+			repoRoot: repoRoot.value,
+			gateway: nodeProjectConfigGateway,
+		});
+		if (!selected.ok) return usageError(selected.error.message);
 		const caps = resolveFlowStreamCaps(ctx);
 		const telemetry = createFlowLandTelemetryRun({ env: ctx.env, clock: systemClock });
 		let telemetryFinish: FlowLandTelemetryRunFinish | undefined;
@@ -88,6 +101,7 @@ export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 						liveProgress: progress.liveProgress,
 						...(progress.landMatrix === undefined ? {} : { landMatrix: progress.landMatrix }),
 						externalCallTelemetry: telemetry.sink,
+						workflowTarget: selected.value,
 						...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
 						...optionalEntry("select", ctx.select),
 					}),

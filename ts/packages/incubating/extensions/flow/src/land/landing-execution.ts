@@ -75,7 +75,7 @@ export async function runFlowStackLanding(
 
 	const request: LandingRequest = {
 		cwd: ctx.cwd,
-		target: { type: "stack" },
+		target: { type: "stack", provider: "graphite" },
 		mode: parsedArgs.isDryRun ? "dry-run" : "execute",
 		preflight: { shouldAllowSubmitRequiredState: true },
 		cleanup: landingCleanupPolicyFromArgs(parsedArgs),
@@ -117,7 +117,8 @@ export async function runFlowStackLanding(
 	}
 
 	if (parsedArgs.isDryRun) {
-		const planText = report.plan === undefined ? "" : formatPlan(report.plan);
+		const planText =
+			report.plan === undefined || !("stack" in report.plan) ? "" : formatPlan(report.plan);
 		presentDryRunLanding({
 			ctx,
 			commandStream,
@@ -190,10 +191,10 @@ function presentStackLandingSuccess(session: LandingSession, report: LandingExec
 	const landed = landedFromReport(report);
 	const successSummary = formatSuccessSummary({
 		landed,
-		descendantMaintenance: report.plan?.descendantMaintenance ?? {
-			type: "none",
-			branches: [],
-		},
+		descendantMaintenance:
+			report.plan !== undefined && "descendantMaintenance" in report.plan
+				? report.plan.descendantMaintenance
+				: { type: "none", branches: [] },
 		warnings: report.warnings,
 		cleanup: {
 			retainedLocalBranches: [...report.cleanup.mergeMaintenanceCleanup.retainedLocalBranches],

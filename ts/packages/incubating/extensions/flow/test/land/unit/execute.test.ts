@@ -4,6 +4,7 @@ import {
 	executeLanding,
 	nullLandConfirmationGateway,
 	nullLandExecutionProgress,
+	type BranchLandContext,
 	type LandConfirmationDecision,
 	type LandConfirmationGateway,
 	type LandConfirmationRequest,
@@ -30,13 +31,134 @@ function executeRequest(
 ): LandingRequest {
 	return {
 		cwd: overrides.cwd ?? ROOT,
-		target: { type: "stack" },
+		target: { type: "stack", provider: "graphite" },
 		mode: overrides.mode ?? "execute",
 		preflight: { shouldAllowSubmitRequiredState: true },
 		cleanup: overrides.cleanup ?? "free",
 		continuation: overrides.continuation ?? { type: "none" },
 	};
 }
+
+describe("canonical branch landing", () => {
+	function branchContext(options: { mergedVerification?: boolean } = {}) {
+		const mergeCalls: number[] = [];
+		const localDeleteCalls: string[] = [];
+		const openPr = pullRequestFacts({
+			number: 101,
+			headRefName: BRANCH,
+			headRefOid: SHA,
+			baseRefName: "main",
+		});
+		const context: BranchLandContext = {
+			git: {
+				resolveRepoRoot: async () => ({ type: "success", value: ROOT }),
+				currentBranch: async () => ({ type: "success", value: BRANCH }),
+				cachedOriginHeadBranch: async () => ({ type: "success", value: "main" }),
+			},
+			github: {
+				pullRequestFacts: async ({ branchOrNumber }) => ({
+					type: "success",
+					value:
+						branchOrNumber === "101" && options.mergedVerification !== false
+							? { ...openPr, state: "MERGED", mergedAt: "2026-01-01T00:00:00Z" }
+							: openPr,
+				}),
+				squashMergePullRequest: async ({ pullRequest }) => {
+					mergeCalls.push(pullRequest.number);
+					return { type: "success", value: { stdout: "merged", stderr: "" } };
+				},
+			},
+			worktrees: {
+				worktrees: async () => ({ type: "success", value: [] }),
+				classifyWorktree: async () => ({ type: "success", value: { type: "manual-worktree" } }),
+				freeSlots: async ({ slots }) => ({ type: "success", value: slots }),
+			},
+			localBranches: {
+				deleteLocalBranch: async ({ branch }) => {
+					localDeleteCalls.push(branch);
+					return { type: "success", value: undefined };
+				},
+			},
+		};
+		return { context, mergeCalls, localDeleteCalls };
+	}
+
+	test("dry-run reports one branch PR without merge or cleanup mutation", async () => {
+		const fixture = branchContext();
+		const outcome = await executeLanding({
+			context: fixture.context,
+			source: { type: "discover" },
+			request: {
+				cwd: ROOT,
+				target: { type: "branch", branch: BRANCH },
+				mode: "dry-run",
+				preflight: { shouldAllowSubmitRequiredState: false },
+				cleanup: "free",
+				continuation: { type: "none" },
+			},
+			host: approvedHost(),
+		});
+		expect(outcome).toMatchObject({
+			type: "completed",
+			report: {
+				completionDisposition: { type: "branch-execution" },
+				plan: { branch: BRANCH, trunk: "main", pullRequest: { number: 101 } },
+				phases: [
+					{ type: "completed", phase: "repo-discovery" },
+					{ type: "completed", phase: "preflight" },
+					{ type: "completed", phase: "dry-run" },
+				],
+			},
+		});
+		expect(fixture.mergeCalls).toEqual([]);
+		expect(fixture.localDeleteCalls).toEqual([]);
+	});
+
+	test("confirms, squash-merges, and verifies the current branch PR", async () => {
+		const fixture = branchContext();
+		const outcome = await executeLanding({
+			context: fixture.context,
+			source: { type: "discover" },
+			request: {
+				cwd: ROOT,
+				target: { type: "branch", branch: BRANCH },
+				mode: "execute",
+				preflight: { shouldAllowSubmitRequiredState: false },
+				cleanup: "preserve",
+				continuation: { type: "none" },
+			},
+			host: approvedHost(),
+		});
+		expect(outcome).toMatchObject({
+			type: "completed",
+			report: { landedChunks: [{ landed: [{ branch: BRANCH, number: 101 }] }] },
+		});
+		expect(fixture.mergeCalls).toEqual([101]);
+	});
+
+	test("reports merge success as a verification failure and skips cleanup", async () => {
+		const fixture = branchContext({ mergedVerification: false });
+		const outcome = await executeLanding({
+			context: fixture.context,
+			source: { type: "discover" },
+			request: {
+				cwd: ROOT,
+				target: { type: "branch", branch: BRANCH },
+				mode: "execute",
+				preflight: { shouldAllowSubmitRequiredState: false },
+				cleanup: "free",
+				continuation: { type: "none" },
+			},
+			host: approvedHost(),
+		});
+		expect(outcome).toMatchObject({
+			type: "failed",
+			failedPhase: "merge",
+			failure: { message: expect.stringContaining("did not verify as MERGED") },
+		});
+		expect(fixture.localDeleteCalls).toEqual([]);
+	});
+});
 
 describe("land execute mode over in-memory gateways", () => {
 	test("lands a linear stack and mirrors the semantic sequence of the permanent single-PR transcript", async () => {
@@ -721,7 +843,10 @@ describe("land execute mode over in-memory gateways", () => {
 		const outcome = await executeLanding({
 			context: memory.context,
 			source: { type: "discover" },
-			request: { ...executeRequest(), target: { type: "stack", landingBranchLimit: 1 } },
+			request: {
+				...executeRequest(),
+				target: { type: "stack", provider: "graphite", landingBranchLimit: 1 },
+			},
 			host: approvedHost(),
 		});
 
@@ -1234,17 +1359,25 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			managedSlotState({
 				graphite: {
 					stackShape: stackSnapshot({ current: BRANCH, landingBranches: [BRANCH] }),
+				},
+				localBranches: {
 					deleteLocalBranchResults: {
 						[BRANCH]: {
-							type: "failed",
-							isLikelyInProgressGitOperation: false,
-							commandDisplay: "gt delete feature-a",
-							result: {
-								type: "exited",
-								stdout: "",
-								stderr: "delete failed",
-								code: 1,
-								signal: null,
+							type: "failure",
+							failure: {
+								type: "boundary",
+								phase: "post-landing-cleanup",
+								source: "git",
+								code: "local-branch-delete-failed",
+								message: `Could not delete local branch ${BRANCH}.`,
+								displayCommand: `git branch -d ${BRANCH}`,
+								execResult: {
+									type: "exited",
+									stdout: "",
+									stderr: "delete failed",
+									code: 1,
+									signal: null,
+								},
 							},
 						},
 					},
@@ -1275,32 +1408,15 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		});
 	});
 
-	test("rejects a prepared stack shape for a single-branch target before discovery", async () => {
+	test("rejects a prepared shape that cannot represent the requested branch scope", async () => {
 		const memory = createInMemoryLandContext();
 		const outcome = await executeLanding({
 			context: memory.context,
 			source: { type: "prepared", shape: stackLandingShape() },
 			request: {
 				...executeRequest(),
-				target: { type: "single-branch-pull-request", branchOrNumber: "feature-a" },
+				target: { type: "stack", provider: "graphite", landingBranchLimit: 2 },
 			},
-			host: approvedHost(),
-		});
-
-		expect(outcome).toMatchObject({
-			type: "failed",
-			failedPhase: "request-validation",
-			failure: { type: "not-implemented", phase: "request-validation" },
-		});
-		expect(memory.git.resolveRepoRootCalls).toEqual([]);
-	});
-
-	test("rejects a prepared shape that cannot represent the requested branch scope", async () => {
-		const memory = createInMemoryLandContext();
-		const outcome = await executeLanding({
-			context: memory.context,
-			source: { type: "prepared", shape: stackLandingShape() },
-			request: { ...executeRequest(), target: { type: "stack", landingBranchLimit: 2 } },
 			host: approvedHost(),
 		});
 
@@ -1394,7 +1510,9 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			},
 		});
 		expect(memory.worktrees.freeSlotsCalls).toHaveLength(1);
-		expect(memory.graphite.deleteLocalBranchCalls).toHaveLength(1);
+		expect(memory.localBranches.deleteLocalBranchCalls).toEqual([
+			{ repoRoot: SLOT_ROOT, branch: BRANCH },
+		]);
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
 	});
 
@@ -1475,6 +1593,7 @@ function linearState(overrides: InMemoryLandContextState = {}): InMemoryLandCont
 			...overrides.github,
 		},
 		...(overrides.worktrees === undefined ? {} : { worktrees: overrides.worktrees }),
+		...(overrides.localBranches === undefined ? {} : { localBranches: overrides.localBranches }),
 	};
 }
 
@@ -1500,6 +1619,7 @@ function managedSlotState(overrides: InMemoryLandContextState = {}): InMemoryLan
 		...(overrides.graphite === undefined ? {} : { graphite: overrides.graphite }),
 		...(overrides.github === undefined ? {} : { github: overrides.github }),
 		...(overrides.worktrees === undefined ? {} : { worktrees: overrides.worktrees }),
+		...(overrides.localBranches === undefined ? {} : { localBranches: overrides.localBranches }),
 	});
 }
 

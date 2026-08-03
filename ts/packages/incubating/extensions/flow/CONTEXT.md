@@ -25,11 +25,11 @@ The compatibility rule that land consumers continue to enter through the **Flow 
 *Avoid*: direct downstream import from `@nseng-ai/flow/land`, direct downstream import from Flow land-stack internals, removing existing `@nseng-ai/flow/api` exports without a consumer audit
 
 **Flow Land Execution**:
-The Flow-owned adapter layer around canonical land execution: command presentation, prompt rendering, the confirmation gateway, ParsedArgs-to-request mapping, and routing (no-op, single-branch fast path, stack). Merge execution, Graphite maintenance, and post-landing managed-slot cleanup are owned by **Canonical Landing Execution** in the land domain core.
+The Flow-owned adapter layer around canonical land execution: command presentation, prompt rendering, the confirmation gateway, ParsedArgs-to-request mapping, and explicit Branch-vs-Stack Workflow Target routing. Merge execution, target-appropriate maintenance, and post-landing managed-slot cleanup are owned by **Canonical Landing Execution** in the land domain core.
 *Avoid*: direct `executeStackLandingPlan` call, Flow-side post-landing cleanup for stack landings, pure preflight plan, standalone land CLI behavior
 
 **Canonical Landing Execution**:
-The `executeLanding` entry point on the **Land subpackage API** that owns the full `LandingRequest` lifecycle — discovery, preflight planning, confirmation, pre-merge preparation, merge, per-merge maintenance, optional **Upstack Continuation**, and post-landing managed-slot cleanup under the closed cleanup policy (`preserve` / `free`) — and returns a `LandingExecutionResult` whose completed and failed variants carry the same observed-fact `LandingExecutionReport`. For an execute-mode managed-slot landing whose flag-derived policy is `preserve` and which is not continuing upstack, a selector-capable host may approve confirmation with a chosen cleanup policy after presenting keep (default), free, and cancel choices; explicit flags and non-selector hosts retain their existing behavior.
+The `executeLanding` entry point on the **Land subpackage API** that owns the full `LandingRequest` lifecycle — branch or stack discovery, preflight planning, confirmation, pre-merge preparation, merge, target-appropriate maintenance, optional **Upstack Continuation**, and post-landing managed-slot cleanup under the closed cleanup policy (`preserve` / `free`) — and returns a `LandingExecutionResult` whose completed and failed variants carry the same observed-fact `LandingExecutionReport`. For an execute-mode managed-slot landing whose flag-derived policy is `preserve` and which is not continuing upstack, a selector-capable host may approve confirmation with a chosen cleanup policy after presenting keep (default), free, and cancel choices; explicit flags and non-selector hosts retain their existing behavior.
 *Avoid*: phase synthesis from plan shape, gateway-level `LandResult` widening, second execution report model, Flow-owned cleanup ordering
 
 **Upstack Continuation**:
@@ -81,7 +81,7 @@ The non-mutating land-domain outcome that completes preflight and reports the pl
 *Avoid*: Flow renderer dry run, stack merge, submit update
 
 **Land Gateway Set**:
-The injected Git, Graphite, GitHub PR, and worktree-slot fact seams that keep **Land Domain Core** independent of real subprocesses and presentation.
+The target-specific injected seams that keep **Land Domain Core** independent of real subprocesses and presentation: branch targets receive Git, GitHub PR, worktree-slot, and Git local-branch cleanup gateways; Graphite stack targets additionally receive required Graphite capabilities.
 *Avoid*: raw `git`/`gt`/`gh` calls, `ctx` bag, CLI dependencies
 
 **Flow Stack Preflight Adapter**:

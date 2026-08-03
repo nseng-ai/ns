@@ -8,6 +8,7 @@ import {
 	createLandCommandIo,
 	landCommandStreamObservabilityOptions,
 	LandStackCommandStream,
+	withCommandStreaming,
 	type FlowLandObservabilityChannels,
 	type LandLiveProgressSink,
 } from "./stack/command-stream.ts";
@@ -16,6 +17,11 @@ import type {
 	FlowLandExternalCallTelemetrySink,
 } from "./stack/external-call-telemetry.ts";
 import { createStackLandingRuntime } from "./stack/stack-landing-runtime.ts";
+import { createBranchLandContext } from "./stack/land-context-adapter.ts";
+import { executeLanding } from "./api.ts";
+import { createFlowLandConfirmationGateway } from "./flow-land-confirmation-gateway.ts";
+import { createFlowLandExecutionProgress } from "./landing-execution.ts";
+import { landingCleanupPolicyFromArgs } from "./post-landing-slot-cleanup.ts";
 import { landCompleted, landOutcomeFailure, type LandOutcome } from "./results.ts";
 import {
 	failureLevel,
@@ -27,6 +33,7 @@ import {
 import type { LandMatrixProgressSink } from "./land-matrix-progress.ts";
 import { runLandingDispatch } from "../land/landing-dispatch.ts";
 import type { Caps } from "@nseng-ai/clinkr";
+import type { RepositoryWorkflowTarget } from "@nseng-ai/extension-kit/workflow-target";
 import type {
 	LandResultKind,
 	LandExecutionApi,
@@ -51,7 +58,9 @@ export type LandCliConfirmPrompt = (
 	options?: NsConfirmOptions,
 ) => Promise<boolean> | boolean;
 
-type RunLandCommandOptions = FlowLandObservabilityChannels;
+type RunLandCommandOptions = FlowLandObservabilityChannels & {
+	readonly workflowTarget?: RepositoryWorkflowTarget;
+};
 
 async function runLandCommand(
 	pi: LandExecutionApi,
@@ -77,6 +86,42 @@ async function runLandCommand(
 		shouldMirrorFinishedCommandsToNonUi: false,
 		...landCommandStreamObservabilityOptions(options),
 	});
+	if (options.workflowTarget?.type === "branch") {
+		const commands = withCommandStreaming(pi, commandStream);
+		const context = createBranchLandContext(commands);
+		const branch = await context.git.currentBranch({ repoRoot: ctx.cwd });
+		if (branch.type === "failure") {
+			presentFailureAndReturn(ctx, branch.failure);
+			return landOutcomeFailure(branch.failure);
+		}
+		const result = await executeLanding({
+			context,
+			request: {
+				cwd: ctx.cwd,
+				target: { type: "branch", branch: branch.value },
+				mode: args.value.isDryRun ? "dry-run" : "execute",
+				preflight: { shouldAllowSubmitRequiredState: false },
+				cleanup: landingCleanupPolicyFromArgs(args.value),
+				continuation: { type: "none" },
+			},
+			host: {
+				confirmation: createFlowLandConfirmationGateway(ctx),
+				progress: createFlowLandExecutionProgress({
+					commandStream,
+					progress: {
+						note: (message) => commandStream.note(message),
+						setStatus: (message) => ctx.ui.setStatus("land", message),
+					},
+				}),
+			},
+			source: { type: "discover" },
+		});
+		if (result.type === "failed") {
+			presentFailureAndReturn(ctx, result.failure);
+			return landOutcomeFailure(result.failure);
+		}
+		return landCompleted();
+	}
 	const runtime = createStackLandingRuntime(pi, commandStream);
 	return await runLandingDispatch({
 		runtime,
@@ -115,6 +160,8 @@ export interface LandCliInput {
 	landMatrix?: LandMatrixProgressSink;
 	/** Optional Flow-owned structured external-call telemetry sink. */
 	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
+	/** Explicit repository workflow target selected by the ns command composition root. */
+	workflowTarget?: RepositoryWorkflowTarget;
 	/**
 	 * Resolved terminal caps for the house-style CLI result blocks (`resolveFlowStreamCaps` in the
 	 * flow wrapper). When omitted, final result blocks render as plain text — the CLI surface stays
@@ -133,6 +180,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 		...optionalEntry("liveProgress", input.liveProgress),
 		...optionalEntry("landMatrix", input.landMatrix),
 		...optionalEntry("externalCallTelemetry", input.externalCallTelemetry),
+		...optionalEntry("workflowTarget", input.workflowTarget),
 	};
 	const outcome = await runWithNsCommandIo(
 		progressIo,

@@ -4,7 +4,10 @@ import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS, RealGitGateway } from "@nseng-ai/foundation/git";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
-import { createLandContext } from "../../src/land/stack/land-context-adapter.ts";
+import {
+	createBranchLandContext,
+	createLandContext,
+} from "../../src/land/stack/land-context-adapter.ts";
 import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land/stack/constants.ts";
 import { createLandGraphiteCommandChannel } from "../../src/land/stack/graphite-command-channel.ts";
 import type { LandExecutionApi } from "../../src/land/stack/types.ts";
@@ -147,6 +150,47 @@ function createTestLandContext(pi: LandExecutionApi) {
 }
 
 describe("land context adapter facts", () => {
+	test.each([
+		["origin/main\n", { type: "success", value: "main" }],
+		["", { type: "failure", code: "trunk-branch-empty" }],
+		["upstream/main\n", { type: "failure", code: "trunk-branch-malformed" }],
+	] as const)("uses canonical cached origin HEAD parsing for %j", async (stdout, expected) => {
+		const pi = new FakeLandExecutionApi([
+			step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], { stdout }),
+		]);
+		const context = createBranchLandContext(pi);
+
+		const result = await context.git.cachedOriginHeadBranch({ repoRoot: ROOT });
+
+		if (expected.type === "success") {
+			expect(result).toEqual(expected);
+		} else {
+			expect(result).toMatchObject({
+				type: "failure",
+				failure: { type: "boundary", source: "git", code: expected.code },
+			});
+		}
+		pi.assertDone();
+	});
+
+	test("maps a missing cached origin HEAD into repository discovery failure", async () => {
+		const pi = new FakeLandExecutionApi([
+			step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], { code: 1 }),
+		]);
+		const context = createBranchLandContext(pi);
+
+		await expect(context.git.cachedOriginHeadBranch({ repoRoot: ROOT })).resolves.toMatchObject({
+			type: "failure",
+			failure: {
+				type: "boundary",
+				phase: "repo-discovery",
+				source: "git",
+				code: "cached-origin-head-missing",
+			},
+		});
+		pi.assertDone();
+	});
+
 	test("normalizes equivalent current-worktree paths at the adapter boundary", async () => {
 		const pi = new FakeLandExecutionApi([]);
 		const context = createLandContext(pi, {

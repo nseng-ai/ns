@@ -75,12 +75,16 @@ export type {
 } from "./execution/host-seams.ts";
 
 export type {
+	BranchLandContext,
+	BranchLandingExecutionPlan,
 	BranchLandingPlan,
+	BranchLandingTarget,
+	BranchLandGitGateway,
 	CurrentWorktreeConflict,
 	DescendantMaintenancePlan,
-	SingleBranchPullRequestLandingTarget,
 	LandCommandResult,
 	LandContext,
+	LandLocalBranchCleanupGateway,
 	LandedChunk,
 	LandedPullRequest,
 	LandGitGateway,
@@ -129,6 +133,7 @@ export type {
 	RestackRequirement,
 	RetainedLocalBranchCleanup,
 	SquashMergePullRequestResult,
+	StackLandContext,
 	StackLandingTarget,
 	StackSnapshot,
 	WorkingTreeStatus,

@@ -2,9 +2,9 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { landingCancelledBeforeMergeFailure, landingExecutionFailure } from "../results.ts";
 import type {
+	BranchLandContext,
 	LandContext,
 	LandingFailure,
-	LandingShape,
 	PullRequestFacts,
 	StackSnapshot,
 } from "../types.ts";
@@ -23,9 +23,13 @@ export interface SingleBranchLandingHost {
 }
 
 export interface ExecuteSingleBranchLandingOptions {
-	readonly context: LandContext;
+	readonly context: BranchLandContext | Pick<LandContext, "github" | "worktrees" | "graphite">;
 	readonly host: SingleBranchLandingHost;
-	readonly target: LandingShape;
+	readonly target: {
+		readonly repoRoot: string;
+		readonly branch: string;
+		readonly trunk: string;
+	};
 	readonly isDryRun: boolean;
 	readonly cleanup: PostLandingCleanupRequest;
 }
@@ -63,19 +67,30 @@ export async function executeSingleBranchLanding(
 ): Promise<SingleBranchLandingOutcome> {
 	const prResult = await options.context.github.pullRequestFacts({
 		repoRoot: options.target.repoRoot,
-		branchOrNumber: options.target.stack.actualCurrentBranch,
+		branchOrNumber: options.target.branch,
 	});
 	if (prResult.type === "failure") {
 		return { type: "failure", stage: "load", failure: prResult.failure };
 	}
 	const pullRequest = prResult.value;
 
+	if (pullRequest.state !== "OPEN") {
+		return refused(`Refusing to land PR #${pullRequest.number}: pull request is not open.`);
+	}
+	if (pullRequest.isDraft) {
+		return refused(`Refusing to land PR #${pullRequest.number}: pull request is a draft.`);
+	}
+	if (pullRequest.headRefName !== options.target.branch) {
+		return refused(
+			`Refusing to land PR #${pullRequest.number}: head branch is '${pullRequest.headRefName}', not current branch '${options.target.branch}'.`,
+		);
+	}
 	if (pullRequest.baseRefName !== options.target.trunk) {
 		return {
 			type: "failure",
 			stage: "base-check",
 			failure: landingExecutionFailure(
-				`Refusing to land PR #${pullRequest.number}: base branch is '${pullRequest.baseRefName}', not Graphite trunk '${options.target.trunk}'. Merge not attempted.`,
+				`Refusing to land PR #${pullRequest.number}: base branch is '${pullRequest.baseRefName}', not trunk '${options.target.trunk}'. Merge not attempted.`,
 				{ outcome: "refusal" },
 			),
 		};
@@ -87,13 +102,21 @@ export async function executeSingleBranchLanding(
 
 	const cleanupPreview = planManagedSlotPostLandingCleanup({
 		cleanup: options.cleanup,
-		shape: options.target,
+		shape: {
+			repoRoot: options.target.repoRoot,
+			currentBranch: options.target.branch,
+			trunk: options.target.trunk,
+		},
 	});
 	const cleanupChoice =
 		options.cleanup.policy === "preserve"
 			? planManagedSlotPostLandingCleanup({
 					cleanup: { mode: options.cleanup.mode, policy: "free" },
-					shape: options.target,
+					shape: {
+						repoRoot: options.target.repoRoot,
+						currentBranch: options.target.branch,
+						trunk: options.target.trunk,
+					},
 				})
 			: undefined;
 	const confirmation = await options.host.confirmation.confirm({
@@ -140,7 +163,7 @@ export async function executeSingleBranchLanding(
 
 	const isVerifiedMerged = isVerifiedMergedPullRequest(verified.value, {
 		expectedTrunk: options.target.trunk,
-		expectedHeadBranch: options.target.stack.actualCurrentBranch,
+		expectedHeadBranch: options.target.branch,
 	});
 	if (!isVerifiedMerged) {
 		return {
@@ -158,6 +181,14 @@ export async function executeSingleBranchLanding(
 		pullRequest,
 		commandOutput: successfulCommandOutput(mergeResult.value),
 		...optionalEntry("chosenCleanupPolicy", confirmation.cleanupPolicy),
+	};
+}
+
+function refused(message: string): SingleBranchLandingOutcome {
+	return {
+		type: "failure",
+		stage: "base-check",
+		failure: landingExecutionFailure(message, { outcome: "refusal" }),
 	};
 }
 

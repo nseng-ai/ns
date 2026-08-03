@@ -35,13 +35,16 @@ export const FLOW_COMMAND_SPECS = [
 		"autoslot",
 		"Create a Graphite branch from current work, then move it into a managed slot worktree.",
 	),
-	flowCommand("submit", "Checkpoint outstanding changes, then submit the current Graphite stack."),
+	flowCommand(
+		"submit",
+		"Checkpoint outstanding changes, then submit the configured branch or stack target.",
+	),
 	flowCommand(
 		"generate-pr-inventory",
 		"Generate and replace the current branch PR title and body.",
 	),
 	flowCommand("push", "Push committed non-Graphite branch work with git push."),
-	flowCommand("land", "Land the current PR or Graphite stack into trunk."),
+	flowCommand("land", "Land the configured current-PR or Graphite-stack target into trunk."),
 	flowCommand(
 		"pull-trunk",
 		"Pull the Git trunk branch from its configured upstream without running full gt sync.",

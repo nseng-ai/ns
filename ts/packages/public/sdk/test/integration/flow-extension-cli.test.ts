@@ -283,6 +283,7 @@ async function createFlowProjectWithGraphiteStack(): Promise<string> {
 	const directory = await createFlowProject();
 	const gitDir = join(directory, ".git");
 	await mkdir(gitDir, { recursive: true });
+	await appendFile(join(directory, "ns.toml"), '\n[workflow]\nstack-provider = "graphite"\n');
 	execFileSync("sqlite3", [join(gitDir, ".graphite_metadata.db")], {
 		input: [
 			"CREATE TABLE branch_metadata (branch_name TEXT PRIMARY KEY, parent_branch_name TEXT, children TEXT, validation_result TEXT);",

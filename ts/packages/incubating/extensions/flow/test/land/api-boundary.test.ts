@@ -243,6 +243,9 @@ describe("@nseng-ai/flow/land API boundary", () => {
 					classifyWorktree: async () => landSuccess({ type: "manual-worktree" }),
 					freeSlots: async ({ slots }) => landSuccess(slots),
 				},
+				localBranches: {
+					deleteLocalBranch: async () => landSuccess(undefined),
+				},
 			},
 			"/repo",
 			stack,

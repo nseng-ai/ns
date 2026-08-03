@@ -1,4 +1,5 @@
 import { commandSucceeded, formatCommand } from "@nseng-ai/foundation/command";
+import { createNsGitGateway } from "@nseng-ai/extension-kit";
 import type { GitGateway, GitWorktreeStateFs } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { isLikelyInProgressGitOperationFailure } from "../../submit/cli-prose-heuristics.ts";
@@ -12,6 +13,7 @@ import {
 	landingExecutionFailure,
 } from "../api.ts";
 import type {
+	BranchLandContext,
 	LandContext,
 	LandGraphiteCommandResult,
 	LandGraphiteDeleteLocalBranchResult,
@@ -61,6 +63,42 @@ import { isManagedSlotPath, slotFreeArgs, slotNameFromPath } from "../worktree-p
 
 type LandingFailureSource = Extract<LandingFailure, { readonly type: "boundary" }>["source"];
 
+export function createBranchLandContext(pi: LandExecutionApi): BranchLandContext {
+	return {
+		git: {
+			resolveRepoRoot: async ({ cwd }) =>
+				normalizeAdapterResult(await loadRepoRoot(pi, cwd), "git", "repo-discovery"),
+			currentBranch: async ({ repoRoot }) =>
+				normalizeAdapterResult(await loadCurrentBranch(pi, repoRoot), "git", "repo-discovery"),
+			cachedOriginHeadBranch: async ({ repoRoot }) => loadCachedOriginHeadBranch(pi, repoRoot),
+		},
+		github: createGithubGateway(pi),
+		localBranches: {
+			deleteLocalBranch: async ({ repoRoot, branch }) => {
+				const args = ["branch", "-d", branch];
+				const result = await exec({
+					pi,
+					command: "git",
+					args,
+					cwd: repoRoot,
+					timeoutMs: GIT_TIMEOUT_MS,
+				});
+				if (commandSucceeded(result)) return landSuccess(undefined);
+				return landFailure({
+					type: "boundary",
+					phase: "post-landing-cleanup",
+					source: "git",
+					code: "local-branch-delete-failed",
+					message: `Could not delete local branch ${branch}.`,
+					displayCommand: formatCommand("git", args),
+					execResult: result,
+				});
+			},
+		},
+		worktrees: createWorktreeGateway(pi),
+	};
+}
+
 export function createLandContext(
 	pi: LandExecutionApi,
 	options: {
@@ -76,6 +114,7 @@ export function createLandContext(
 				normalizeAdapterResult(await loadRepoRoot(pi, cwd), "git", "repo-discovery"),
 			currentBranch: async ({ repoRoot }) =>
 				normalizeAdapterResult(await loadCurrentBranch(pi, repoRoot), "git", "repo-discovery"),
+			cachedOriginHeadBranch: async ({ repoRoot }) => loadCachedOriginHeadBranch(pi, repoRoot),
 			workingTreeStatus: async ({ repoRoot }) =>
 				loadWorkingTreeStatus(pi, repoRoot, optionalEntry("gitStateFs", options.gitStateFs)),
 			localBranchExists: async ({ repoRoot, branch }) =>
@@ -148,50 +187,77 @@ export function createLandContext(
 			branchParent: async ({ repoRoot, metadataDbPath, branch }) =>
 				loadBranchParent({ pi, repoRoot, metadataDbPath, branch }),
 		},
-		github: {
-			pullRequestFacts: async ({ repoRoot, branchOrNumber }) => {
-				const pr = await loadPr(pi, repoRoot, branchOrNumber);
-				if (pr.type === "failure") return normalizeAdapterResult(pr, "github", "preflight");
-				return landSuccess(pr.value);
-			},
-			pullRequestFactsByBranch: async ({ repoRoot, branches }) => {
-				const prs = await loadPrsByBranch(pi, repoRoot, branches);
-				if (prs.type === "failure") return normalizeAdapterResult(prs, "github", "preflight");
-				return landSuccess(prs.value);
-			},
-			squashMergePullRequest: async ({ repoRoot, pullRequest }) => {
-				const mergeArgs = squashMergeArgs(pullRequest);
-				const commandDisplay = formatCommandForDisplay("gh", mergeArgs);
-				const result = await exec({
-					pi,
-					command: "gh",
-					args: mergeArgs,
-					cwd: repoRoot,
-					timeoutMs: GH_MERGE_TIMEOUT_MS,
+		github: createGithubGateway(pi),
+		localBranches: {
+			deleteLocalBranch: async ({ repoRoot, branch }) => {
+				const deletion = await deleteLocalBranch({
+					graphite,
+					repoRoot,
+					branch,
+					checkedOutConflictHandling: "fail",
 				});
-				if (commandSucceeded(result)) {
-					return landSuccess({ stdout: result.stdout, stderr: result.stderr });
-				}
-
-				const diagnosticResult = redactPullRequestBodyFromResult(result, pullRequest.body);
-				const message = `gh pr merge --squash with PR title/body failed for PR #${pullRequest.number}.\n${formatCommandDetails(diagnosticResult, commandDisplay)}`;
+				if (deletion.type === "deleted") return landSuccess(undefined);
 				return landFailure({
 					type: "boundary",
-					phase: "merge",
-					source: "github",
-					code: "squash_merge_failed",
-					message,
-					displayCommand: commandDisplay,
-					execResult: diagnosticResult,
+					phase: "post-landing-cleanup",
+					source: "graphite",
+					code: "local-branch-delete-failed",
+					message: `Could not delete local branch ${branch}.`,
+					...(deletion.type === "failed"
+						? { displayCommand: deletion.commandDisplay, execResult: deletion.result }
+						: {}),
 				});
 			},
 		},
-		worktrees: {
-			worktrees: async ({ repoRoot }) =>
-				normalizeAdapterResult(await loadWorktrees(pi, repoRoot), "worktree", "preflight"),
-			classifyWorktree: async ({ repoRoot, path }) => classifyWorktree(repoRoot, path),
-			freeSlots: async ({ repoRoot, slots }) => freeSlots({ pi, repoRoot, slots }),
+		worktrees: createWorktreeGateway(pi),
+	};
+}
+
+function createGithubGateway(pi: LandExecutionApi): BranchLandContext["github"] {
+	return {
+		pullRequestFacts: async ({ repoRoot, branchOrNumber }) => {
+			const pr = await loadPr(pi, repoRoot, branchOrNumber);
+			if (pr.type === "failure") return normalizeAdapterResult(pr, "github", "preflight");
+			return landSuccess(pr.value);
 		},
+		pullRequestFactsByBranch: async ({ repoRoot, branches }) => {
+			const prs = await loadPrsByBranch(pi, repoRoot, branches);
+			if (prs.type === "failure") return normalizeAdapterResult(prs, "github", "preflight");
+			return landSuccess(prs.value);
+		},
+		squashMergePullRequest: async ({ repoRoot, pullRequest }) => {
+			const mergeArgs = squashMergeArgs(pullRequest);
+			const commandDisplay = formatCommandForDisplay("gh", mergeArgs);
+			const result = await exec({
+				pi,
+				command: "gh",
+				args: mergeArgs,
+				cwd: repoRoot,
+				timeoutMs: GH_MERGE_TIMEOUT_MS,
+			});
+			if (commandSucceeded(result)) {
+				return landSuccess({ stdout: result.stdout, stderr: result.stderr });
+			}
+			const diagnosticResult = redactPullRequestBodyFromResult(result, pullRequest.body);
+			return landFailure({
+				type: "boundary",
+				phase: "merge",
+				source: "github",
+				code: "squash_merge_failed",
+				message: `gh pr merge --squash with PR title/body failed for PR #${pullRequest.number}.\n${formatCommandDetails(diagnosticResult, commandDisplay)}`,
+				displayCommand: commandDisplay,
+				execResult: diagnosticResult,
+			});
+		},
+	};
+}
+
+function createWorktreeGateway(pi: LandExecutionApi): BranchLandContext["worktrees"] {
+	return {
+		worktrees: async ({ repoRoot }) =>
+			normalizeAdapterResult(await loadWorktrees(pi, repoRoot), "worktree", "preflight"),
+		classifyWorktree: async ({ repoRoot, path }) => classifyWorktree(repoRoot, path),
+		freeSlots: async ({ repoRoot, slots }) => freeSlots({ pi, repoRoot, slots }),
 	};
 }
 
@@ -431,6 +497,41 @@ function copyManagedSlotWorktree(slot: ManagedSlotWorktree): ManagedSlotWorktree
 		path: slot.path,
 		...(slot.slotName === undefined ? {} : { slotName: slot.slotName }),
 	};
+}
+
+async function loadCachedOriginHeadBranch(
+	pi: LandExecutionApi,
+	repoRoot: string,
+): Promise<LandResult<string>> {
+	const git = createNsGitGateway({
+		cwd: repoRoot,
+		exec: async (command, args, options) =>
+			await pi.exec(command, args, {
+				...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
+				...(options?.timeoutMs === undefined ? {} : { timeout: options.timeoutMs }),
+			}),
+	});
+	const result = await git.cachedOriginHeadBranch({ cwd: repoRoot });
+	if (result.type === "found") return landSuccess(result.value);
+	if (result.type === "missing") {
+		return landFailure({
+			type: "boundary",
+			phase: "repo-discovery",
+			source: "git",
+			code: "cached-origin-head-missing",
+			message: "Could not resolve trunk from cached refs/remotes/origin/HEAD.",
+		});
+	}
+	return landFailure({
+		type: "boundary",
+		phase: "repo-discovery",
+		source: "git",
+		code: result.error.code,
+		message: result.error.message,
+		...(result.error.displayCommand === undefined
+			? {}
+			: { displayCommand: result.error.displayCommand }),
+	});
 }
 
 async function loadWorkingTreeStatus(

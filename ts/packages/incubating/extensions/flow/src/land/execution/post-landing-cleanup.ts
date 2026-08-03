@@ -6,7 +6,7 @@ import { landingExecutionFailure } from "../results.ts";
 import type { LandExecutionStatusProgress } from "./host-seams.ts";
 import {
 	boundaryFailureDiagnostics,
-	type LandContext,
+	type BranchLandContext,
 	type LandingCleanupPolicy,
 	type LandingFailure,
 	type LandingMode,
@@ -15,6 +15,12 @@ import {
 	type PostLandingSlotCleanupReport,
 } from "../types.ts";
 import { isManagedSlotPath, slotNameFromPath } from "../worktree-paths.ts";
+
+export interface PostLandingCleanupShape {
+	readonly repoRoot: string;
+	readonly currentBranch: string;
+	readonly trunk: string;
+}
 
 export interface PostLandingSlotCleanupPreview {
 	readonly branch: string;
@@ -48,7 +54,7 @@ interface PostLandingSlotCleanupTarget extends PostLandingSlotCleanupPreview {
 
 export function planManagedSlotPostLandingCleanup(options: {
 	readonly cleanup: PostLandingCleanupRequest;
-	readonly shape: LandingShape;
+	readonly shape: LandingShape | PostLandingCleanupShape;
 }): PostLandingSlotCleanupPreview | undefined {
 	const target = postLandingCleanupTarget(options.cleanup, options.shape);
 	if (target === undefined) return undefined;
@@ -63,22 +69,23 @@ export function planManagedSlotPostLandingCleanup(options: {
 /** Observed cleanup outcome when the target is skipped before any cleanup mutation runs. */
 export function postLandingCleanupSkipReport(
 	cleanup: PostLandingCleanupRequest,
-	shape: LandingShape,
+	shape: LandingShape | PostLandingCleanupShape,
 ): PostLandingSlotCleanupReport {
 	const slotName = isManagedSlotPath(shape.repoRoot) ? slotNameFromPath(shape.repoRoot) : undefined;
 	if (slotName === undefined) return { type: "not-applicable" };
 	if (cleanup.mode === "dry-run") return { type: "dry-run" };
 	if (cleanup.policy === "preserve") {
-		return { type: "preserved", slotName, branch: shape.stack.actualCurrentBranch };
+		const branch = "stack" in shape ? shape.stack.actualCurrentBranch : shape.currentBranch;
+		return { type: "preserved", slotName, branch };
 	}
 	return { type: "not-applicable" };
 }
 
 export async function runManagedSlotPostLandingCleanup(options: {
-	readonly landContext: LandContext;
+	readonly landContext: Pick<BranchLandContext, "worktrees" | "localBranches">;
 	readonly progress: LandExecutionStatusProgress;
 	readonly cleanup: PostLandingCleanupRequest;
-	readonly shape: LandingShape;
+	readonly shape: LandingShape | PostLandingCleanupShape;
 }): Promise<PostLandingCleanupResult> {
 	// Deterministic cleanup authorization: the explicit `free` policy (`--free`) is itself the
 	// consent, so a resolved cleanup target is the sole decision point for mutation.
@@ -120,16 +127,18 @@ export async function runManagedSlotPostLandingCleanup(options: {
 		if (target.localBranchDisposition === "delete") {
 			const branch = target.branch;
 			options.progress.setStatus(`deleting ${branch}...`);
-			const deletion = await options.landContext.graphite.deleteLocalBranch({
+			const deletion = await options.landContext.localBranches.deleteLocalBranch({
 				repoRoot: target.repoRoot,
 				branch,
 			});
-			if (deletion.type !== "deleted") {
+			if (deletion.type === "failure") {
+				const diagnostics = boundaryFailureDiagnostics(deletion.failure);
 				const failure = landingExecutionFailure(
 					`PRs were landed and ${target.slotName} was freed, but deleting local branch ${branch} failed.`,
 					{
-						displayCommand: deletion.commandDisplay,
-						execResult: deletion.result,
+						displayCommand:
+							diagnostics.displayCommand ?? formatCommand("git", ["branch", "-d", branch]),
+						...optionalEntry("execResult", diagnostics.execResult),
 						suggestedAction: `Delete local branch ${branch} manually when safe.`,
 					},
 				);
@@ -160,15 +169,16 @@ export async function runManagedSlotPostLandingCleanup(options: {
 
 function postLandingCleanupTarget(
 	cleanup: PostLandingCleanupRequest,
-	shape: LandingShape,
+	shape: LandingShape | PostLandingCleanupShape,
 ): PostLandingSlotCleanupTarget | undefined {
 	if (cleanup.policy === "preserve" || cleanup.mode === "dry-run") return undefined;
 
 	const slotName = isManagedSlotPath(shape.repoRoot) ? slotNameFromPath(shape.repoRoot) : undefined;
 	if (slotName === undefined) return undefined;
 
-	const branch = shape.stack.actualCurrentBranch;
-	const localBranchDisposition = branch === shape.stack.trunk ? "keep-trunk" : "delete";
+	const branch = "stack" in shape ? shape.stack.actualCurrentBranch : shape.currentBranch;
+	const trunk = "stack" in shape ? shape.stack.trunk : shape.trunk;
+	const localBranchDisposition = branch === trunk ? "keep-trunk" : "delete";
 	return {
 		branch,
 		localBranchDisposition,

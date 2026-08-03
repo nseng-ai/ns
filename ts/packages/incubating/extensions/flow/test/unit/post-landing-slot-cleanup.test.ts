@@ -114,7 +114,7 @@ describe("parsed-args to cleanup policy mapping", () => {
 
 describe("post-landing slot cleanup defaults", () => {
 	test("--free authorizes cleanup without any confirmation prompt", async () => {
-		const { context, worktrees, graphite } = createInMemoryLandContext();
+		const { context, worktrees, localBranches } = createInMemoryLandContext();
 		const fixture = createCleanupContext({ hasUI: true });
 		const args = expectParsed("--free");
 
@@ -133,9 +133,7 @@ describe("post-landing slot cleanup defaults", () => {
 				slots: [{ type: "managed-slot", branch: BRANCH, path: SLOT_ROOT, slotName: "slot-02" }],
 			},
 		]);
-		expect(graphite.deleteLocalBranchCalls).toEqual([
-			{ repoRoot: SLOT_ROOT, branch: BRANCH, checkedOutConflictHandling: "fail" },
-		]);
+		expect(localBranches.deleteLocalBranchCalls).toEqual([{ repoRoot: SLOT_ROOT, branch: BRANCH }]);
 	});
 
 	test("plans managed-slot cleanup only under the explicit free policy", () => {
@@ -171,7 +169,7 @@ describe("post-landing slot cleanup defaults", () => {
 	});
 
 	test("a selected free override replaces the default preserve policy", async () => {
-		const { context, worktrees, graphite } = createInMemoryLandContext();
+		const { context, worktrees, localBranches } = createInMemoryLandContext();
 		const fixture = createCleanupContext({ hasUI: true });
 
 		const outcome = await runPostLandingSlotCleanup({
@@ -184,9 +182,7 @@ describe("post-landing slot cleanup defaults", () => {
 
 		expect(outcome).toEqual({ type: "completed" });
 		expect(worktrees.freeSlotsCalls).toHaveLength(1);
-		expect(graphite.deleteLocalBranchCalls).toEqual([
-			{ repoRoot: SLOT_ROOT, branch: BRANCH, checkedOutConflictHandling: "fail" },
-		]);
+		expect(localBranches.deleteLocalBranchCalls).toEqual([{ repoRoot: SLOT_ROOT, branch: BRANCH }]);
 	});
 
 	test("cleanup on trunk with --free frees the slot but keeps the local trunk branch", async () => {
@@ -295,21 +291,44 @@ describe("core post-landing cleanup", () => {
 		expect(statuses).toEqual(["freeing slot-02...", undefined]);
 	});
 
-	test("reports failed branch deletion with the typed branch and clears status", async () => {
-		const deletion = {
-			type: "failed" as const,
-			commandDisplay: `gt delete ${BRANCH} -f -q`,
-			result: {
-				type: "exited" as const,
-				stdout: "",
-				stderr: "delete rejected",
-				code: 1,
-				signal: null,
+	test.each([
+		{
+			name: "retained",
+			failure: {
+				type: "boundary" as const,
+				phase: "post-landing-cleanup" as const,
+				source: "git" as const,
+				code: "local-branch-retained",
+				message: `Local branch ${BRANCH} was retained.`,
 			},
-			isLikelyInProgressGitOperation: false,
-		};
-		const { context, worktrees } = createInMemoryLandContext({
-			graphite: { deleteLocalBranchResults: { [BRANCH]: deletion } },
+			displayCommand: `git branch -d ${BRANCH}`,
+		},
+		{
+			name: "failed",
+			failure: {
+				type: "boundary" as const,
+				phase: "post-landing-cleanup" as const,
+				source: "git" as const,
+				code: "local-branch-delete-failed",
+				message: `Could not delete local branch ${BRANCH}.`,
+				displayCommand: `git branch -d ${BRANCH}`,
+				execResult: {
+					type: "exited" as const,
+					stdout: "",
+					stderr: "delete rejected",
+					code: 1,
+					signal: null,
+				},
+			},
+			displayCommand: `git branch -d ${BRANCH}`,
+		},
+	])("reports $name branch deletion with the typed branch and clears status", async (testCase) => {
+		const { context, localBranches, worktrees } = createInMemoryLandContext({
+			localBranches: {
+				deleteLocalBranchResults: {
+					[BRANCH]: { type: "failure", failure: testCase.failure },
+				},
+			},
 			worktrees: {
 				worktrees: [{ path: SLOT_ROOT, branch: BRANCH }],
 				residualCheckoutPaths: [SLOT_ROOT],
@@ -327,9 +346,10 @@ describe("core post-landing cleanup", () => {
 			type: "failure",
 			failure: {
 				message: `PRs were landed and slot-02 was freed, but deleting local branch ${BRANCH} failed.`,
-				displayCommand: deletion.commandDisplay,
+				displayCommand: testCase.displayCommand,
 			},
 		});
+		expect(localBranches.deleteLocalBranchCalls).toEqual([{ repoRoot: SLOT_ROOT, branch: BRANCH }]);
 		expect(statuses).toEqual(["freeing slot-02...", `deleting ${BRANCH}...`, undefined]);
 		await expect(worktrees.worktrees({ repoRoot: SLOT_ROOT })).resolves.toEqual({
 			type: "success",
