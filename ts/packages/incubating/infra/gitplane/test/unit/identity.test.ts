@@ -49,7 +49,7 @@ test("outer location and mode are excluded while internal names and bytes matter
 });
 test("rejects special entries", () => {
 	for (const kind of ["symlink", "submodule", "directory", "special"] as const)
-		expect(digestArtifactContent([{ path: "x", kind, bytes: new Uint8Array() }])).toMatchObject({
+		expect(digestArtifactContent([{ path: "x", kind }])).toMatchObject({
 			ok: false,
 			code: "invalid-entry-kind",
 		});
