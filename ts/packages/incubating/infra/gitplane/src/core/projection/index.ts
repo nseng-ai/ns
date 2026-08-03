@@ -6,9 +6,13 @@ export type JsonPointerResult =
 	| { readonly type: "found"; readonly value: unknown }
 	| { readonly type: "missing" };
 
+export function isValidJsonPointer(pointer: string): boolean {
+	return pointer === "" || (pointer.startsWith("/") && !/~(?:[^01]|$)/u.test(pointer));
+}
+
 export function resolveJsonPointer(value: unknown, pointer: string): JsonPointerResult {
+	if (!isValidJsonPointer(pointer)) return { type: "missing" };
 	if (pointer === "") return { type: "found", value };
-	if (!pointer.startsWith("/")) return { type: "missing" };
 	let current: unknown = value;
 	for (const encodedToken of pointer.slice(1).split("/")) {
 		if (/~(?:[^01]|$)/u.test(encodedToken)) return { type: "missing" };
@@ -38,6 +42,9 @@ export function buildProjectionPlan(
 	envelope: Readonly<Record<string, unknown>>,
 	registration: ArtifactSchemaRegistration,
 ): ProjectionPlan {
+	function compareCodeUnits(left: string, right: string): number {
+		return left < right ? -1 : left > right ? 1 : 0;
+	}
 	const fields = Object.entries(registration.fields)
 		.map(([pointer, mapping]) => {
 			const resolved = resolveJsonPointer(envelope, pointer);
@@ -47,6 +54,9 @@ export function buildProjectionPlan(
 				value: resolved.type === "missing" || resolved.value === null ? null : resolved.value,
 			} satisfies TargetProjectionField;
 		})
-		.sort((left, right) => left.column.localeCompare(right.column));
-	return { fields, clearFields: [...(registration.clearFields ?? [])].sort() };
+		.sort((left, right) => compareCodeUnits(left.column, right.column));
+	return {
+		fields,
+		clearFields: [...(registration.clearFields ?? [])].sort(compareCodeUnits),
+	};
 }

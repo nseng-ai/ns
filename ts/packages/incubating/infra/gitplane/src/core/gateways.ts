@@ -226,7 +226,6 @@ export interface MaterializationStoreGateway {
 		readonly resolvedAt: Date;
 	}): Promise<OperationResult>;
 	inspectDoctor(request: {
-		readonly sourceId: string;
 		readonly targets: readonly TargetMapping[];
 	}): Promise<GatewayResult<DoctorIntrospection>>;
 	close(): Promise<OperationResult>;

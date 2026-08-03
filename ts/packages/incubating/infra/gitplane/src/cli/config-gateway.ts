@@ -2,6 +2,7 @@ import { lstat, realpath } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
+import { isValidJsonPointer } from "../core/index.ts";
 import type {
 	ArtifactKindRegistration,
 	ArtifactSchemaRegistration,
@@ -203,10 +204,6 @@ export function parseGitplaneConfigModule(
 		...(kinds === undefined ? {} : { kinds }),
 	};
 	return { ok: true, config, artifactRoot, absoluteArtifactRoot };
-}
-
-function isValidJsonPointer(pointer: string): boolean {
-	return pointer === "" || (pointer.startsWith("/") && !/~(?:[^01]|$)/u.test(pointer));
 }
 
 export class TrustedTypeScriptConfigGateway implements GitplaneConfigGateway {

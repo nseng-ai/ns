@@ -1,5 +1,10 @@
 import { expect, test } from "vitest";
-import { buildProjectionPlan, evaluateDoctor, resolveJsonPointer } from "@nseng-ai/gitplane";
+import {
+	buildProjectionPlan,
+	evaluateDoctor,
+	isValidJsonPointer,
+	resolveJsonPointer,
+} from "@nseng-ai/gitplane";
 
 const target = {
 	table: "greetings",
@@ -29,6 +34,21 @@ const kind = {
 	transitions: [],
 };
 
+test.each([
+	["", true],
+	["/", true],
+	["/a", true],
+	["/a~0b", true],
+	["/a~1b", true],
+	["/a~1b/~0key", true],
+	["a", false],
+	["/bad~", false],
+	["/bad~2", false],
+	["/ok/later~2", false],
+] as const)("validates RFC 6901 pointer %j as %s", (pointer, valid) => {
+	expect(isValidJsonPointer(pointer)).toBe(valid);
+});
+
 test("resolves RFC 6901 pointers including empty and escaped tokens", () => {
 	const value = { "a/b": { "~key": "hello" }, list: ["zero"] };
 	expect(resolveJsonPointer(value, "")).toEqual({ type: "found", value });
@@ -53,6 +73,26 @@ test("builds complete projection plans with nulls, modes, and clears", () => {
 		],
 		clearFields: ["legacy"],
 	});
+});
+
+test("orders projection fields and clears by code units without mutating inputs", () => {
+	const registration = {
+		fields: {
+			"/lower": { target: "a" },
+			"/underscore": { target: "_" },
+			"/upper": { target: "A" },
+		},
+		clearFields: ["a_clear", "_clear", "A_clear"],
+	};
+	expect(buildProjectionPlan({ lower: 3, underscore: 2, upper: 1 }, registration)).toEqual({
+		fields: [
+			{ column: "A", mode: "scalar", value: 1 },
+			{ column: "_", mode: "scalar", value: 2 },
+			{ column: "a", mode: "scalar", value: 3 },
+		],
+		clearFields: ["A_clear", "_clear", "a_clear"],
+	});
+	expect(registration.clearFields).toEqual(["a_clear", "_clear", "A_clear"]);
 });
 
 test("evaluates deterministic doctor checks and exact uniqueness", () => {

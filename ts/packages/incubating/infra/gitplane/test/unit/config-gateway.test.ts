@@ -48,6 +48,18 @@ test("parses the minimum config and preserves the source ID bytes", () => {
 	});
 });
 
+test.each([
+	["empty root", ""],
+	["escaped tokens", "/a~1b/~0key"],
+] as const)("accepts %s projection pointers", (_name, pointer) => {
+	const configuredKind = {
+		...kind,
+		schemaVersions: { 1: { fields: { [pointer]: { target: "message" } } } },
+		transitions: [],
+	};
+	expect(parse({ ...source(), kinds: [configuredKind] })).toMatchObject({ ok: true });
+});
+
 test("parses optional kinds and does not invoke the store", () => {
 	let storeCalls = 0;
 	const store = () => {
@@ -97,6 +109,22 @@ test.each([
 		name: "invalid schema key",
 		config: { ...source(), kinds: [{ ...kind, schemaVersions: { "01": { fields: {} } } }] },
 		diagnostic: "Schema version keys must be unique positive integers.",
+	},
+	{
+		name: "JSON pointer without a leading slash",
+		config: {
+			...source(),
+			kinds: [{ ...kind, schemaVersions: { 1: { fields: { bad: { target: "message" } } } } }],
+		},
+		diagnostic: "Projection field keys must be valid RFC 6901 JSON pointers.",
+	},
+	{
+		name: "dangling JSON pointer escape",
+		config: {
+			...source(),
+			kinds: [{ ...kind, schemaVersions: { 1: { fields: { "/bad~": { target: "message" } } } } }],
+		},
+		diagnostic: "Projection field keys must be valid RFC 6901 JSON pointers.",
 	},
 	{
 		name: "invalid JSON pointer escape",

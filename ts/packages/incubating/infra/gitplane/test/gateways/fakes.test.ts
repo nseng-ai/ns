@@ -27,7 +27,35 @@ test("in-memory store satisfies shared conformance", async () => {
 			return store;
 		},
 		() => store?.snapshot().targetRows?.[0]?.values,
+		() => store?.snapshot().errors,
 	);
+});
+
+test("conformance failures name the clause and preserve strict Date assertion details", async () => {
+	let store: InMemoryMaterializationStoreGateway | undefined;
+	try {
+		await exerciseMaterializationStoreConformance(
+			() => {
+				store = new InMemoryMaterializationStoreGateway();
+				return store;
+			},
+			undefined,
+			() =>
+				store?.snapshot().errors?.map((error) => ({
+					...error,
+					firstObservedAt: new Date("2026-01-02T03:04:06.000Z"),
+				})),
+		);
+		expect.unreachable("Expected conformance to reject the unequal Date.");
+	} catch (error) {
+		expect(error).toBeInstanceOf(Error);
+		if (!(error instanceof Error)) throw error;
+		expect(error.message).toContain("reconciliation error lifecycle");
+		expect(error.cause).toBeInstanceOf(Error);
+		if (!(error.cause instanceof Error)) throw error.cause;
+		expect(error.cause.message).toContain("2026-01-02T03:04:06.000Z");
+		expect(error.cause.message).toContain("2026-01-02T03:04:05.000Z");
+	}
 });
 
 test("cursor CAS and event insertion are idempotent", async () => {

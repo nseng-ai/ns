@@ -318,7 +318,9 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 		}
 		return { ok: true };
 	}
-	async inspectDoctor(): Promise<GatewayResult<DoctorIntrospection>> {
+	async inspectDoctor(_request: {
+		readonly targets: readonly TargetMapping[];
+	}): Promise<GatewayResult<DoctorIntrospection>> {
 		const failure = this.failure("inspectDoctor");
 		return failure === undefined
 			? { ok: true, value: copy(this.doctorIntrospection) }
