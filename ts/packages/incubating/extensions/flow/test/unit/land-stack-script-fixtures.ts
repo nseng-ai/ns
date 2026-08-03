@@ -148,6 +148,75 @@ export function createChildrenRecheckStep(
 	return (branch, children) => childrenRecheckStep(topologyArgs, branch, children);
 }
 
+/** Post-restack refreshed-trunk ancestry proof: `git rev-list -1 <trunk> --not <branch>`. */
+export function containsTrunkStep(
+	branch: string,
+	options: { trunk?: string; contains?: boolean } = {},
+): LandStackScriptedExec {
+	const trunk = options.trunk ?? TRUNK;
+	return step("git", ["rev-list", "-1", `refs/heads/${trunk}`, "--not", `refs/heads/${branch}`], {
+		stdout: options.contains === false ? "feedfacefeedfacefeedfacefeedfacefeedface\n" : "",
+	});
+}
+
+export function createBranchParentStep(
+	topologyArgs: readonly string[],
+): (branch: string, parent: string) => LandStackScriptedExec {
+	return (branch, parent) =>
+		step(TOPOLOGY_COMMAND, [...topologyArgs], {
+			stdout: `${metadataDbJson([{ branch, parent, children: [] }])}\n`,
+		});
+}
+
+export interface DescendantReconcileStepsOptions {
+	branch: string;
+	sha: string;
+	prNumber: number;
+	/** Remote base ref before submit; a non-trunk value forces the submit + re-verify pair. */
+	staleBase: string;
+	trunk?: string;
+}
+
+/**
+ * Verified descendant-root reconciliation after `gt restack`: post-restack SHA read, refreshed
+ * trunk ancestry proof, provider-parent proof, pre-submit PR facts, forced submit, and the
+ * post-submit PR facts re-verification.
+ */
+export function createDescendantReconcileSteps(
+	topologyArgs: readonly string[],
+): (options: DescendantReconcileStepsOptions) => LandStackScriptedExec[] {
+	const branchParentStep = createBranchParentStep(topologyArgs);
+	return (options) => {
+		const trunk = options.trunk ?? TRUNK;
+		return [
+			guardShaStep(options.branch, options.sha),
+			containsTrunkStep(options.branch, { trunk }),
+			branchParentStep(options.branch, trunk),
+			step("gh", ["pr", "view", options.branch, "--json", PR_FIELDS], {
+				stdout: prStdout(
+					prSnapshot({
+						number: options.prNumber,
+						branch: options.branch,
+						base: options.staleBase,
+						sha: options.sha,
+					}),
+				),
+			}),
+			submitUpdateStep(options.branch),
+			step("gh", ["pr", "view", options.branch, "--json", PR_FIELDS], {
+				stdout: prStdout(
+					prSnapshot({
+						number: options.prNumber,
+						branch: options.branch,
+						base: trunk,
+						sha: options.sha,
+					}),
+				),
+			}),
+		];
+	};
+}
+
 function childrenRecheckStep(
 	topologyArgs: readonly string[],
 	branch: string,

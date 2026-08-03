@@ -108,7 +108,8 @@ export type LandingDomainFailureReason =
 	| "pull-request-head-mismatch"
 	| "pull-request-base-mismatch"
 	| "manual-worktree-conflict"
-	| "descendant-maintenance-blocked";
+	| "descendant-maintenance-blocked"
+	| "descendant-topology-mismatch";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
@@ -323,6 +324,17 @@ export interface ManualWorktreeConflict {
 	readonly path: string;
 }
 
+/**
+ * Required post-merge descendant reconciliation plan.
+ *
+ * - `none`: no open descendants exist above the landing path.
+ * - `auto`: descendant roots will be reconciled (refresh, restack, submit) with verified
+ *   postconditions as a required part of landing completion.
+ * - `blocked`: descendant branches are checked out in other worktrees, so automatic
+ *   reconciliation is impossible without mutating another checkout. Landing may proceed only
+ *   with explicit main-landing consent (interactive approval or `--yes`), and the landing then
+ *   finishes as a failed partial completion with deferred descendant maintenance.
+ */
 export type DescendantMaintenancePlan =
 	| { readonly type: "none"; readonly branches: readonly [] }
 	| {
@@ -331,7 +343,7 @@ export type DescendantMaintenancePlan =
 			readonly targetBranches: readonly string[];
 	  }
 	| {
-			readonly type: "skipped";
+			readonly type: "blocked";
 			readonly branches: readonly string[];
 			readonly targetBranches: readonly string[];
 			readonly conflicts: readonly WorktreeConflict[];
@@ -452,6 +464,15 @@ export interface LandGraphiteGateway {
 		readonly metadataDbPath: string;
 		readonly branch: string;
 	}): Promise<LandResult<readonly string[]>>;
+	/**
+	 * Provider-reported parent of `branch`, or `undefined` when the branch is untracked or has no
+	 * recorded parent. Used to prove that a reconciled descendant root sits directly above trunk.
+	 */
+	branchParent(request: {
+		readonly repoRoot: string;
+		readonly metadataDbPath: string;
+		readonly branch: string;
+	}): Promise<LandResult<string | undefined>>;
 }
 
 export type LandCommandResult = ExecResult;
@@ -504,11 +525,34 @@ export interface SquashMergePullRequestResult {
 	readonly stderr: string;
 }
 
+/**
+ * Dependency facts for an open pull request, observed from GitHub. `baseRefOid` is the commit
+ * the PR's base ref currently points at; an open PR whose base OID equals a landing branch head
+ * is a remote dependent of that branch regardless of what the stack provider reports.
+ */
+export interface PullRequestDependencyFacts {
+	readonly number: number;
+	readonly headRefName: string;
+	readonly headRefOid: string;
+	readonly baseRefName: string;
+	readonly baseRefOid: string;
+}
+
 export interface LandGithubPrGateway {
 	pullRequestFacts(request: {
 		readonly repoRoot: string;
 		readonly branchOrNumber: string;
 	}): Promise<LandResult<PullRequestFacts>>;
+	/**
+	 * All open pull requests whose base commit OID equals one of `headOids`. Implementations must
+	 * inspect the complete open-PR set (paginated), never an arbitrary bounded prefix: an
+	 * incomplete answer would silently recreate the fail-open descendant-discovery hole this
+	 * operation exists to close.
+	 */
+	openPullRequestsBasedOnHeads(request: {
+		readonly repoRoot: string;
+		readonly headOids: readonly string[];
+	}): Promise<LandResult<readonly PullRequestDependencyFacts[]>>;
 	pullRequestFactsByBranch?(request: {
 		readonly repoRoot: string;
 		readonly branches: readonly string[];

@@ -1,7 +1,13 @@
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/foundation/git";
-import type { PullRequestFacts } from "../../../src/land/api.ts";
+import type { PullRequestDependencyFacts, PullRequestFacts } from "../../../src/land/api.ts";
 import {
+	GH_REPO_VIEW_NAME_WITH_OWNER_ARGS,
+	openPullRequestDependencyFactsGraphqlArgs,
+} from "../../../src/land/stack/pr-facts.ts";
+import {
+	createBranchParentStep,
 	createChildrenRecheckStep,
+	createDescendantReconcileSteps,
 	createMergeFeatureASteps,
 } from "../land-stack-script-fixtures.ts";
 import {
@@ -32,6 +38,8 @@ export const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
 
 export const mergeFeatureA = createMergeFeatureASteps(TOPOLOGY_ARGS);
 export const childrenRecheckStep = createChildrenRecheckStep(TOPOLOGY_ARGS);
+export const branchParentStep = createBranchParentStep(TOPOLOGY_ARGS);
+export const descendantReconcileSteps = createDescendantReconcileSteps(TOPOLOGY_ARGS);
 
 export const DB_WITH_DESCENDANT = metadataDbJson([
 	{ branch: TRUNK, children: ["feature-a"], trunk: true },
@@ -65,6 +73,32 @@ export const BRANCH_SHAS: Record<string, string> = {
 	[DESCENDANT]: SHA_C,
 	"feature-d": SHA_D,
 };
+
+/**
+ * Preflight's complete open-PR dependency scan: `gh repo view` plus one exhausted GraphQL page.
+ * Runs after the batched landing-branch PR facts and before worktree conflict detection.
+ */
+export function openPrDependencyScanSteps(
+	dependents: readonly PullRequestDependencyFacts[] = [],
+): ScriptedExec[] {
+	return [
+		step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
+			stdout: `${JSON.stringify({ nameWithOwner: "owner/repo" })}\n`,
+		}),
+		step("gh", openPullRequestDependencyFactsGraphqlArgs({ owner: "owner", name: "repo" }), {
+			stdout: `${JSON.stringify({
+				data: {
+					repository: {
+						pullRequests: {
+							pageInfo: { hasNextPage: false, endCursor: null },
+							nodes: dependents,
+						},
+					},
+				},
+			})}\n`,
+		}),
+	];
+}
 
 export function batchedPrStdout(prs: readonly PullRequestFacts[]): string {
 	return `${JSON.stringify({

@@ -98,6 +98,10 @@ describe("land execute mode over in-memory gateways", () => {
 				request: { repoRoot: ROOT, branchOrNumber: BRANCH },
 			},
 			{
+				operation: "github.openPullRequestsBasedOnHeads",
+				request: { repoRoot: ROOT, headOids: [SHA] },
+			},
+			{
 				operation: "git.snapshotBackupRefs",
 				request: { repoRoot: ROOT, branches: [BRANCH] },
 			},
@@ -407,7 +411,7 @@ describe("land execute mode over in-memory gateways", () => {
 		});
 	});
 
-	test("returns optional descendant maintenance warnings with a skipped observed phase", async () => {
+	test("worktree-blocked descendants finish as a failed partial completion after consented merge", async () => {
 		const descendant = "feature-child";
 		const memory = createInMemoryLandContext(
 			linearState({
@@ -440,15 +444,39 @@ describe("land execute mode over in-memory gateways", () => {
 			host: approvedHost(),
 		});
 
-		expect(outcome).toMatchObject({ type: "completed" });
-		if (outcome.type !== "completed") return;
-		expect(outcome.report.warnings).toHaveLength(1);
-		expect(outcome.report.warnings[0]?.message).toContain("descendant restack/update were skipped");
-		expect(phaseByName(outcome.report, "descendant-maintenance")).toMatchObject({
-			type: "skipped",
-			reason: "descendant branches are checked out elsewhere",
+		expect(outcome).toMatchObject({
+			type: "failed",
+			failedPhase: "descendant-maintenance",
+			failure: {
+				type: "execution",
+				failedBranch: BRANCH,
+				failedPrNumber: 101,
+			},
 		});
+		if (outcome.type !== "failed") return;
+		// Landed facts are retained even though the execution failed.
+		expect(outcome.report.landedChunks).toEqual([
+			{
+				index: 0,
+				landingTargetBranch: BRANCH,
+				landed: [
+					{ branch: BRANCH, number: 101, title: "PR 101" },
+				],
+			},
+		]);
+		expect(phaseByName(outcome.report, "merge")).toMatchObject({ type: "completed" });
+		expect(phaseByName(outcome.report, "descendant-maintenance")).toMatchObject({
+			type: "failed",
+		});
+		const failureMessage =
+			outcome.failure.type === "execution" ? outcome.failure.message : "";
+		expect(failureMessage).toContain("deferred");
+		expect(failureMessage).toContain(descendant);
+		// The blocked descendant checked out elsewhere is never mutated.
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
+		expect(memory.graphite.restackCalls).toEqual([]);
+		expect(memory.graphite.submitUpdateCalls).toEqual([]);
+		expect(memory.graphite.refreshBranchFromRemoteCalls).toEqual([]);
 	});
 
 	test("reports completed descendant maintenance from observed operations", async () => {
@@ -469,6 +497,7 @@ describe("land execute mode over in-memory gateways", () => {
 						descendantBranches: [descendant],
 						descendantRootBranches: [descendant],
 					}),
+					branchParents: { [descendant]: "main" },
 				},
 				github: {
 					pullRequests: [

@@ -293,8 +293,15 @@ export async function executeLandingRequest(
 		observations.descendantMaintenance,
 	);
 	if (mergeOutcome.type === "failure") {
-		draft.phases.push(...maintenancePhases);
-		return failedResult(draft, "merge", mergeOutcome.failure);
+		// A post-merge maintenance failure still verified every target PR merge; record the phase
+		// history truthfully and attribute the failure to the maintenance phase that broke.
+		if (mergeOutcome.failedPhase === "descendant-maintenance") {
+			draft.phases.push(completed("merge"));
+		}
+		draft.phases.push(
+			...maintenancePhases.filter((phase) => phase.phase !== mergeOutcome.failedPhase),
+		);
+		return failedResult(draft, mergeOutcome.failedPhase, mergeOutcome.failure);
 	}
 
 	draft.phases.push(completed("merge"), ...maintenancePhases);
@@ -403,6 +410,7 @@ function observedMaintenancePhases(
 	} else if (descendantMaintenance.type === "skipped") {
 		phases.push(skipped("descendant-maintenance", descendantMaintenance.reason));
 	}
+	// A `failed` observation is recorded by the failed-result phase entry itself.
 	const cleanupFacts = cleanup.deletedLocalBranches.length + cleanup.retainedLocalBranches.length;
 	if (cleanupFacts > 0) {
 		phases.push(completed("merge-maintenance-cleanup"));

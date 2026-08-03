@@ -191,7 +191,7 @@ export function formatPlan(plan: LandingPlan): string {
 		`  - verify PR is MERGED on ${stack.trunk}`,
 		"  - if another landing branch remains, gt get <next-branch> --downstack --no-restack --no-checkout --force --no-interactive",
 		"  - gt delete <landed-branch> -f -q, retaining the final landed local branch when it is checked out in this worktree",
-		"  - restack/submit the next landing branch when required; descendant restack/update is optional after target PRs land",
+		"  - restack/submit the next landing branch when required; descendant reconciliation (restack/update with verified local, provider, and GitHub postconditions) is required after target PRs land",
 		"",
 		"Will not merge descendants above current, will not delete remote branches, will not run global gt sync --delete-all, will not wait for checks or enable auto-merge, and will stop on first failure before all target PRs land.",
 	);
@@ -206,14 +206,16 @@ function formatDescendantMaintenancePlan(maintenance: DescendantMaintenancePlan)
 
 	if (maintenance.type === "auto") {
 		return [
-			"Will leave open and try to restack/update after target PRs land:",
+			"Will leave open and, after target PRs land, restack/update with verified postconditions (required for full completion):",
 			...maintenance.branches.map((branch) => `  - ${branch}`),
 		];
 	}
 
 	return [
-		"Will leave open without automatic restack/update because these descendants are checked out elsewhere:",
+		"Descendant reconciliation is blocked: these descendants are checked out in other worktrees and will NOT be restacked or updated:",
 		...maintenance.conflicts.map((conflict) => `  - ${formatConflict(conflict)}`),
+		"Approving this landing (interactively or with --yes) accepts deferred descendant maintenance: the merge proceeds, the blocked descendants are left stale, and the command finishes nonzero with branch-specific repair steps.",
+		"Full completion is impossible until those worktrees are freed/detached or deferred maintenance is explicitly accepted.",
 	];
 }
 
@@ -224,7 +226,7 @@ export function usage(): string {
 		"",
 		"Lands the current PR or Graphite stack into gt trunk.",
 		"Fast path requires Graphite to prove a single-branch PR shape. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
-		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts; descendant worktree conflicts skip optional post-landing restack/update.",
+		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, no landing-branch manual worktree conflicts, and no open PRs based on landing heads that Graphite does not report as descendants. Descendant reconciliation after landing is required for full completion; descendant worktree conflicts require explicit consent (confirmation or --yes) and finish as a nonzero partial completion with deferred descendant maintenance.",
 		"After successful landing, this command keeps the current managed slot and local branch by default; in selector-capable interactive hosts, execute-mode managed-slot landings offer keep, free, or cancel before merge. Pass --free to choose cleanup upfront, or --up to continue onto the sole immediate child while keeping the slot.",
 		"",
 		"Options:",
@@ -270,9 +272,9 @@ export function formatSuccessSummary(options: FormatSuccessSummaryOptions): stri
 		} else {
 			lines.push(`Left open/restacked: ${options.descendantMaintenance.branches.join(", ")}.`);
 		}
-	} else if (options.descendantMaintenance.type === "skipped") {
+	} else if (options.descendantMaintenance.type === "blocked") {
 		lines.push(
-			`Left open; restack/update skipped: ${options.descendantMaintenance.branches.join(", ")}.`,
+			`Left open; restack/update blocked: ${options.descendantMaintenance.branches.join(", ")}.`,
 		);
 		lines.push(`Reason: ${options.descendantMaintenance.reason}.`);
 	}
