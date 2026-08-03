@@ -171,11 +171,9 @@ function setPromptCreationMessage(
 	pi.ui.setStatus?.(commandName, message);
 }
 
-const COLLAPSED_PROMPT_PREVIEW_LINES = 6;
-
 export function renderSessionImplPromptEntry(
 	entry: CustomEntryLike,
-	{ expanded }: { expanded: boolean },
+	_options: { expanded: boolean },
 	theme: EntryRenderTheme,
 ): EntryRenderComponent {
 	const data = entry.data as { prompt?: unknown } | undefined;
@@ -184,8 +182,8 @@ export function renderSessionImplPromptEntry(
 	return createFoldableTextEntryComponent({
 		title: `session implementation prompt (${lines.length} lines)`,
 		lines,
-		expanded,
-		previewLineLimit: COLLAPSED_PROMPT_PREVIEW_LINES,
+		expanded: true,
+		previewLineLimit: lines.length,
 		gutter: "▌ ",
 		theme,
 	});
