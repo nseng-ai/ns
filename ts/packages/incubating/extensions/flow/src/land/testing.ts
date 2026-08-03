@@ -1,4 +1,5 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type {
 	LandContext,
 	LandingBoundaryFailure,
@@ -1110,8 +1111,8 @@ export function createInMemoryLandContext(
 			const transition = transitions.onSubmitUpdateSuccess?.[branch];
 			if (transition === undefined) return;
 			github.updatePullRequest(branch, {
-				...(transition.headRefOid === undefined ? {} : { headRefOid: transition.headRefOid }),
-				...(transition.baseRefName === undefined ? {} : { baseRefName: transition.baseRefName }),
+				...optionalEntry("headRefOid", transition.headRefOid),
+				...optionalEntry("baseRefName", transition.baseRefName),
 			});
 		},
 	};
