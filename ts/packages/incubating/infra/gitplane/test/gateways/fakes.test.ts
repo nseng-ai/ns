@@ -2,7 +2,6 @@ import { expect, test } from "vitest";
 import { parseArtifactId } from "@nseng-ai/gitplane";
 import {
 	InMemoryArtifactGateway,
-	InMemoryCorpusCheckGateway,
 	InMemoryMaterializationStoreGateway,
 } from "@nseng-ai/gitplane/testing";
 const parsed = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
@@ -166,8 +165,8 @@ test("artifact discovery seeds distinguish roots and commit-root pairs", async (
 	});
 });
 
-test("corpus check gateway inventories and reads only working-tree candidates", async () => {
-	const gateway = new InMemoryCorpusCheckGateway({
+test("artifact gateway inventories and reads working-tree candidates", async () => {
+	const gateway = new InMemoryArtifactGateway({
 		workingInventories: [
 			{ artifactRoot: "one", entries: [{ path: "one/a", kind: "directory" }] },
 			{ artifactRoot: "two", entries: [{ path: "two/b", kind: "directory" }] },

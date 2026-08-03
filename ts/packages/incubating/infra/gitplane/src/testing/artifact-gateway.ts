@@ -1,5 +1,6 @@
 import type {
 	ArtifactBoundary,
+	ArtifactCandidate,
 	ArtifactGateway,
 	ArtifactSnapshot,
 	CommitDiff,
@@ -8,6 +9,7 @@ import type {
 	CreateArtifactResult,
 	GatewayError,
 	GatewayResult,
+	TreeInventoryEntry,
 } from "../core/index.ts";
 
 type FailureKey = keyof ArtifactGateway;
@@ -27,6 +29,11 @@ export interface InMemoryArtifactGatewayState {
 	}[];
 	readonly workingSnapshots?: readonly ArtifactSnapshot[];
 	readonly commitSnapshots?: Readonly<Record<string, readonly ArtifactSnapshot[]>>;
+	readonly workingInventories?: readonly {
+		readonly artifactRoot: string;
+		readonly entries: readonly TreeInventoryEntry[];
+	}[];
+	readonly workingCandidates?: readonly ArtifactCandidate[];
 	readonly diffs?: readonly CommitDiff[];
 	readonly failures?: Partial<Record<FailureKey, GatewayError>>;
 }
@@ -38,11 +45,22 @@ function copySnapshot(snapshot: ArtifactSnapshot): ArtifactSnapshot {
 		classification: structuredClone(snapshot.classification),
 	};
 }
+function copyCandidate(candidate: ArtifactCandidate): ArtifactCandidate {
+	return {
+		path: candidate.path,
+		entries: candidate.entries.map((entry) =>
+			entry.kind === "regular-file"
+				? { ...entry, bytes: new Uint8Array(entry.bytes) }
+				: { ...entry },
+		),
+	};
+}
 function result<T>(failure: GatewayError | undefined, value: T): GatewayResult<T> {
 	return failure === undefined ? { ok: true, value } : { ok: false, error: { ...failure } };
 }
 export class InMemoryArtifactGateway implements ArtifactGateway {
 	private readonly created: CreateArtifactRequest[];
+	private readonly operations: string[] = [];
 	private readonly state: InMemoryArtifactGatewayState;
 	constructor(state: InMemoryArtifactGatewayState = {}) {
 		this.state = structuredClone(state);
@@ -50,6 +68,9 @@ export class InMemoryArtifactGateway implements ArtifactGateway {
 	}
 	createdArtifacts(): readonly CreateArtifactRequest[] {
 		return this.created.map((item) => ({ ...item }));
+	}
+	operationLog(): readonly string[] {
+		return [...this.operations];
 	}
 	async createArtifact(request: CreateArtifactRequest): Promise<CreateArtifactResult> {
 		const failure = this.state.failures?.createArtifact;
@@ -133,6 +154,29 @@ export class InMemoryArtifactGateway implements ArtifactGateway {
 		return found === undefined
 			? { ok: false, error: { code: "artifact-missing", message: request.path } }
 			: { ok: true, value: copySnapshot(found) };
+	}
+	async inventoryWorkingTree(request: {
+		readonly artifactRoot: string;
+	}): Promise<GatewayResult<readonly TreeInventoryEntry[]>> {
+		this.operations.push("inventoryWorkingTree");
+		const found = this.state.workingInventories?.find(
+			(item) => item.artifactRoot === request.artifactRoot,
+		);
+		return result(
+			this.state.failures?.inventoryWorkingTree,
+			(found?.entries ?? []).map((item) => ({ ...item })),
+		);
+	}
+	async readWorkingTreeCandidate(request: {
+		readonly path: string;
+	}): Promise<GatewayResult<ArtifactCandidate>> {
+		this.operations.push(`readWorkingTreeCandidate:${request.path}`);
+		const failure = this.state.failures?.readWorkingTreeCandidate;
+		if (failure !== undefined) return { ok: false, error: { ...failure } };
+		const found = this.state.workingCandidates?.find((item) => item.path === request.path);
+		return found === undefined
+			? { ok: false, error: { code: "artifact-missing", message: request.path } }
+			: { ok: true, value: copyCandidate(found) };
 	}
 	async diffCommits(request: {
 		readonly fromCommit: string;

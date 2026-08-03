@@ -49,7 +49,6 @@ export type {
 	ArtifactLineageRecord,
 	CommitDiff,
 	CommitFacts,
-	CorpusCheckGateway,
 	CreateArtifactRequest,
 	CreateArtifactResult,
 	CursorCompareAndSetResult,

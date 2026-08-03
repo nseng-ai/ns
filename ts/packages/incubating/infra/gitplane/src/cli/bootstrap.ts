@@ -5,12 +5,12 @@ import { TrustedTypeScriptConfigGateway } from "./config-gateway.ts";
 import { RealArtifactGateway } from "./real-artifact-gateway.ts";
 const cwd = process.cwd();
 const app = createGitplaneCliApp();
+const artifactGateway = new RealArtifactGateway({ cwd });
 process.exitCode = await app.run(process.argv.slice(2), {
 	context: {
-		artifactGateway: new RealArtifactGateway({ cwd }),
+		artifactGateway,
 		artifactIds: createArtifactIdGenerator({ clock: { now: () => new Date() } }),
 		configGateway: new TrustedTypeScriptConfigGateway(),
-		corpusCheckGateway: new RealArtifactGateway({ cwd }),
 		cwd,
 	},
 });

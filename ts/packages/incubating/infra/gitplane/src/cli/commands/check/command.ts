@@ -77,7 +77,7 @@ export async function command() {
 					...optionalEntries({ path: loaded.path }),
 				});
 			try {
-				const inventory = await context.corpusCheckGateway.inventoryWorkingTree({
+				const inventory = await context.artifactGateway.inventoryWorkingTree({
 					artifactRoot: loaded.artifactRoot,
 				});
 				if (!inventory.ok)
@@ -99,7 +99,7 @@ export async function command() {
 				}
 				const candidates = [];
 				for (const boundary of topology.boundaries) {
-					const candidate = await context.corpusCheckGateway.readWorkingTreeCandidate({
+					const candidate = await context.artifactGateway.readWorkingTreeCandidate({
 						path: boundary.path,
 					});
 					if (!candidate.ok)
