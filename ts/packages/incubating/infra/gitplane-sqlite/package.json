@@ -15,6 +15,9 @@
 	"scripts": {
 		"check": "tsc -p tsconfig.json"
 	},
+	"dependencies": {
+		"@nseng-ai/gitplane": "workspace:*"
+	},
 	"ns": {
 		"tier": "neutral-infra"
 	}
