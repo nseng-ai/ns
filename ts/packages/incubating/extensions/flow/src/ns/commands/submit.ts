@@ -4,7 +4,6 @@ import process from "node:process";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { GitGateway } from "@nseng-ai/foundation/git";
 import { runCheckpointIfPending } from "../../checkpoint/checkpoint.ts";
 import { createFlowLiveOutput, type FlowLiveOutput } from "../../phase-stream/live-output.ts";
 import { flowStreamDeps, resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
@@ -42,6 +41,12 @@ import {
 	type NsExtensionApi,
 } from "@nseng-ai/sdk";
 import { createNsClinkrInteraction } from "@nseng-ai/extension-kit";
+import {
+	loadRepositoryWorkflowTarget,
+	type RepositoryWorkflowTarget,
+} from "@nseng-ai/extension-kit/workflow-target";
+import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import { submitBranch } from "../../submit/branch-submit.ts";
 import { confirmInteractiveOrUsageError } from "@nseng-ai/clinkr";
 import { flowExtensionDescriptorSource } from "../extension.ts";
 import { FLOW_COMMAND_FAILED, exitCodeToFlowCommandExit } from "../flow-cli-runner.ts";
@@ -62,12 +67,18 @@ interface SubmitCheckpointContext {
 const submitSchema = z.object({
 	restack: z
 		.boolean()
-		.default(true)
-		.describe("Automatically run gt restack before submitting when Graphite requires it."),
+		.optional()
+		.describe("Graphite stack targets only: explicitly enable automatic gt restack."),
+	noRestack: z
+		.boolean()
+		.optional()
+		.describe("Graphite stack targets only: disable automatic gt restack when required."),
 	force: z
 		.boolean()
-		.default(false)
-		.describe("Pass --force to Graphite submit readiness checks and the submit run."),
+		.optional()
+		.describe(
+			"Graphite stack targets only: pass --force to Graphite submit checks and publication.",
+		),
 	verbose: z
 		.boolean()
 		.default(false)
@@ -89,7 +100,7 @@ const submitSchema = z.object({
 		.boolean()
 		.default(false)
 		.describe(
-			"Approve the stack-wide complete PR metadata replacement of --generate-pr-inventory without prompting.",
+			"Approve complete PR metadata replacement across the selected submit scope without prompting.",
 		),
 	titlePrefix: z
 		.string()
@@ -102,7 +113,7 @@ const submitSchema = z.object({
 type SubmitRequest = z.output<typeof submitSchema>;
 
 export interface FlowSubmitCommandDependencies {
-	createRuntime(ctx: NsExtensionApi): NsSubmitRuntime;
+	createRuntime(ctx: NsExtensionApi, target: RepositoryWorkflowTarget): NsSubmitRuntime;
 }
 
 export function createFlowSubmitCommand(
@@ -125,9 +136,36 @@ export function createFlowSubmitCommand(
 					invalidOption: "--title-prefix",
 				});
 			}
+			const repoRoot = ctx.cwd;
+			const selected = loadRepositoryWorkflowTarget({
+				repoRoot,
+				gateway: nodeProjectConfigGateway,
+			});
+			if (!selected.ok) return failure(FLOW_COMMAND_FAILED, selected.error.message);
+			if (request.restack && request.noRestack) {
+				return usageError("--restack and --no-restack cannot be used together.", {
+					invalidOption: "--no-restack",
+				});
+			}
+			if (
+				selected.value.type === "branch" &&
+				(request.restack !== undefined || request.noRestack !== undefined)
+			) {
+				const flag = request.noRestack ? "--no-restack" : "--restack";
+				return usageError(
+					`${flag} requires [workflow].stack-provider = "graphite"; branch submit does not restack.`,
+					{ invalidOption: flag },
+				);
+			}
+			if (selected.value.type === "branch" && request.force !== undefined) {
+				return usageError(
+					'--force requires [workflow].stack-provider = "graphite"; branch submit never force-pushes.',
+					{ invalidOption: "--force" },
+				);
+			}
 			if (request.yes && !request.generatePrInventory) {
 				return usageError(
-					"--yes only approves the stack-wide replacement of --generate-pr-inventory; pass both flags together or omit --yes.",
+					"--yes only approves the complete PR metadata replacement of --generate-pr-inventory; pass both flags together or omit --yes.",
 					{ invalidOption: "--yes", requiresOption: "--generate-pr-inventory" },
 				);
 			}
@@ -135,10 +173,8 @@ export function createFlowSubmitCommand(
 				const confirmation = await confirmGenerateAllPrMetadata(ctx);
 				if (confirmation !== undefined) return confirmation;
 			}
-			const runtime = dependencies.createRuntime(ctx);
-			const repoRoot = request.checks
-				? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
-				: undefined;
+			const runtime = dependencies.createRuntime(ctx, selected.value);
+			const checksRepoRoot = request.checks ? repoRoot : undefined;
 			const checkpointModel = await resolveFlowModelSelection(
 				ctx,
 				MODEL_OPERATION_IDS.flowCheckpoint,
@@ -151,12 +187,12 @@ export function createFlowSubmitCommand(
 			if (!prInventoryModel.ok) return failure(FLOW_COMMAND_FAILED, prInventoryModel.error);
 			const checkpointContext: SubmitCheckpointContext = {
 				modelSelection: checkpointModel.modelSelection,
-				...optionalEntry("repoRoot", repoRoot),
+				...optionalEntry("repoRoot", checksRepoRoot),
 			};
 			const checksLoad =
-				repoRoot === undefined
+				checksRepoRoot === undefined
 					? { kind: "none" as const }
-					: await loadFlowSubmitHooks({ repoRoot });
+					: await loadFlowSubmitHooks({ repoRoot: checksRepoRoot });
 			if (checksLoad.kind === "invalid") {
 				return failure(FLOW_COMMAND_FAILED, checksLoad.error.message);
 			}
@@ -189,7 +225,7 @@ const GENERATE_PR_INVENTORY_CONFIRMATION_MESSAGE = [
 ].join("\n");
 
 /**
- * Early, generic authorization for stack-wide complete PR metadata replacement.
+ * Early, generic authorization for submit-scope complete PR metadata replacement.
  * Runs before hooks, checkpointing, model resolution, and any Graphite/GitHub
  * command; the exact final PR set does not exist yet, so the warning describes
  * the submit scope rather than concrete PR numbers.
@@ -208,7 +244,7 @@ async function confirmGenerateAllPrMetadata(ctx: NsExtensionApi): Promise<Comman
 					"Confirmation is unavailable; pass --yes to replace the complete title and body of every PR in the submitted scope non-interactively.",
 				missingFlag: "--yes",
 				howToSupply:
-					"Pass --yes/-y to approve the stack-wide complete replacement without prompting.",
+					"Pass --yes/-y to approve complete replacement across the selected submit scope without prompting.",
 			},
 			confirmation: { message: GENERATE_PR_INVENTORY_CONFIRMATION_MESSAGE, defaultAnswer: "no" },
 		},
@@ -223,18 +259,11 @@ async function confirmGenerateAllPrMetadata(ctx: NsExtensionApi): Promise<Comman
 }
 
 export const flowSubmitCommand = createFlowSubmitCommand({
-	createRuntime: (ctx) => createNsSubmitRuntime(ctx, flowExtensionDescriptorSource),
+	createRuntime: (ctx, target) =>
+		createNsSubmitRuntime(ctx, flowExtensionDescriptorSource, { target }),
 });
 
 export default flowSubmitCommand;
-
-async function resolveFlowSubmitGitRepoRoot(
-	git: Pick<GitGateway, "optionalRepoRoot">,
-	cwd: string,
-): Promise<string | undefined> {
-	const result = await git.optionalRepoRoot({ cwd });
-	return result.type === "found" ? result.value : undefined;
-}
 
 function checkProgressLabel(input: {
 	check: FlowSubmitHook;
@@ -321,19 +350,31 @@ async function runSubmitWithProgress(input: {
 		matrix.phase({ type: "phase-done", phaseKey: "checkpoint", detail: "checkpoint complete" });
 
 		const progress = bindMatrixSubmitProgress({ matrix });
-		const result = await runSubmitCommand({
-			cwd: ctx.cwd,
-			gateway: runtime.submitGateway,
-			metadataGateway: runtime.metadataGateway,
-			restack: request.restack,
-			force: request.force,
-			shouldForwardCommandOutput: request.verbose,
-			prInventory: { ...runtime.prInventory, modelSelection: prInventoryModelSelection },
-			shouldReplaceAllPrMetadata: request.generatePrInventory,
-			...(input.titlePrefix === undefined ? {} : { titlePrefix: input.titlePrefix }),
-			progress,
-			...(onOutput === undefined ? {} : { onOutput }),
-		});
+		const result =
+			"branch" in runtime
+				? branchSubmitCommandResult(
+						await submitBranch({
+							cwd: ctx.cwd,
+							context: runtime.branch,
+							prInventory: { ...runtime.prInventory, modelSelection: prInventoryModelSelection },
+							replaceExistingMetadata: request.generatePrInventory,
+							...(input.titlePrefix === undefined ? {} : { titlePrefix: input.titlePrefix }),
+							progress,
+						}),
+					)
+				: await runSubmitCommand({
+						cwd: ctx.cwd,
+						gateway: runtime.submitGateway,
+						metadataGateway: runtime.metadataGateway,
+						restack: request.noRestack ? false : (request.restack ?? true),
+						force: request.force ?? false,
+						shouldForwardCommandOutput: request.verbose,
+						prInventory: { ...runtime.prInventory, modelSelection: prInventoryModelSelection },
+						shouldReplaceAllPrMetadata: request.generatePrInventory,
+						...(input.titlePrefix === undefined ? {} : { titlePrefix: input.titlePrefix }),
+						progress,
+						...(onOutput === undefined ? {} : { onOutput }),
+					});
 		const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
 		const isFailed = interpretedResult.exitCode !== 0;
 		await matrix.finish({ isFailed });
@@ -373,6 +414,40 @@ async function matrixPhaseFailureResult(
 	);
 	await matrix.finish({ isFailed: true });
 	return submitFailureExit(interpreted);
+}
+
+function branchSubmitCommandResult(
+	outcome: Awaited<ReturnType<typeof submitBranch>>,
+): SubmitCommandResult {
+	switch (outcome.type) {
+		case "submitted":
+			return {
+				exitCode: 0,
+				stdout: `Submitted 1 PR:\n✓ #${outcome.pullRequest.number} ${outcome.pullRequest.url}${outcome.metadataReplaced ? "\n  complete metadata replaced" : ""}\n`,
+				stderr: "",
+			};
+		case "failed":
+			return {
+				exitCode: 1,
+				stdout: "",
+				stderr: `${outcome.error.message}\n`,
+				failurePresentation: "deterministic",
+			};
+		case "pushed-pr-create-failed":
+			return {
+				exitCode: 1,
+				stdout: "",
+				stderr: `Branch ${outcome.branch}@${outcome.headOid} was pushed, but PR creation or read-back verification failed.\n${outcome.error.message}\nRetry \`ns flow submit\`; the existing remote branch will not be force-pushed.\n`,
+				failurePresentation: "deterministic",
+			};
+		case "pushed-pr-metadata-failed":
+			return {
+				exitCode: 1,
+				stdout: "",
+				stderr: `PR #${outcome.pullRequest.number} was pushed, but post-push verification or metadata replacement failed.\n${outcome.error.message}\n`,
+				failurePresentation: "deterministic",
+			};
+	}
 }
 
 function submitFailureExit(result: SubmitCommandResult): CommandExit<string> {

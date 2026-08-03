@@ -18,6 +18,12 @@ import {
 	RealGraphiteStackGateway,
 	type GraphiteStackGateway,
 } from "@nseng-ai/extension-kit/graphite/stack";
+import type { RepositoryWorkflowTarget } from "@nseng-ai/extension-kit/workflow-target";
+import {
+	RealBranchSubmitPullRequestGateway,
+	RealBranchSubmitRepositoryGateway,
+} from "./branch-submit-gateways.ts";
+import type { BranchSubmitContext } from "./branch-submit.ts";
 import { createFlowGraphiteStackGitGateway } from "../stack-squash/graphite-stack-gateway.ts";
 
 import type { NsExtensionApi } from "@nseng-ai/sdk";
@@ -30,18 +36,25 @@ export {
 };
 export type { RunSubmitCommandOptions, SubmitCommandResult, SubmitFailureTranscript };
 
-export interface NsSubmitRuntime {
+interface NsSubmitRuntimeBase {
 	commandRunner: CommandRunner;
 	createCheckpointRunContext: (
 		onActiveOperations?: CheckpointRunContext["onActiveOperations"],
 	) => CheckpointRunContext;
-	submitGateway: RealSubmitGateway;
-	metadataGateway: RealSubmitStackInspectionGateway;
 	prInventory: Omit<RunSubmitCommandOptions["prInventory"], "modelSelection">;
 	git: Pick<GitGateway, "optionalRepoRoot">;
 }
 
+export type NsSubmitRuntime =
+	| (NsSubmitRuntimeBase & { target: { type: "branch" }; branch: BranchSubmitContext })
+	| (NsSubmitRuntimeBase & {
+			target: { type: "stack"; provider: "graphite" };
+			submitGateway: RealSubmitGateway;
+			metadataGateway: RealSubmitStackInspectionGateway;
+	  });
+
 export interface CreateNsSubmitRuntimeOptions {
+	target?: RepositoryWorkflowTarget;
 	graphiteStackGateway?: Pick<GraphiteStackGateway, "stack">;
 }
 
@@ -53,17 +66,8 @@ export function createNsSubmitRuntime(
 ): NsSubmitRuntime {
 	const commandRunner = createNsCommandRunner(ctx);
 	const git = createNsGitGateway(ctx);
-	const graphiteExecApi: CommandExecApi = {
-		exec: (command, args, execOptions) => commandRunner(command, args, execOptions),
-	};
-	const graphite =
-		options.graphiteStackGateway ??
-		new RealGraphiteStackGateway({
-			env: ctx.env,
-			execApi: graphiteExecApi,
-			git: createFlowGraphiteStackGitGateway(git),
-		});
-	return {
+	const target = options.target ?? { type: "stack", provider: "graphite" };
+	const base: NsSubmitRuntimeBase = {
 		commandRunner,
 		createCheckpointRunContext: (onActiveOperations) => {
 			return {
@@ -76,8 +80,6 @@ export function createNsSubmitRuntime(
 				...(onActiveOperations === undefined ? {} : { onActiveOperations }),
 			};
 		},
-		submitGateway: new RealSubmitGateway(commandRunner),
-		metadataGateway: new RealSubmitStackInspectionGateway({ graphite, runner: commandRunner }),
 		git,
 		prInventory: {
 			githubPr: new RealGithubPrGateway(commandRunner),
@@ -86,5 +88,31 @@ export function createNsSubmitRuntime(
 			descriptorSource,
 			env: ctx.env,
 		},
+	};
+	if (target.type === "branch") {
+		return {
+			...base,
+			target,
+			branch: {
+				repository: new RealBranchSubmitRepositoryGateway(commandRunner, git),
+				pullRequests: new RealBranchSubmitPullRequestGateway(commandRunner),
+			},
+		};
+	}
+	const graphiteExecApi: CommandExecApi = {
+		exec: (command, args, execOptions) => commandRunner(command, args, execOptions),
+	};
+	const graphite =
+		options.graphiteStackGateway ??
+		new RealGraphiteStackGateway({
+			env: ctx.env,
+			execApi: graphiteExecApi,
+			git: createFlowGraphiteStackGitGateway(git),
+		});
+	return {
+		...base,
+		target,
+		submitGateway: new RealSubmitGateway(commandRunner),
+		metadataGateway: new RealSubmitStackInspectionGateway({ graphite, runner: commandRunner }),
 	};
 }

@@ -537,8 +537,9 @@ export function runFlowSubmitCommandWithFakes(options: RunFlowSubmitCommandWithF
 	const run = runFlowCommandWithFakes({
 		requiresModelPolicy: true,
 		command: createFlowSubmitCommand({
-			createRuntime: (ctx) =>
+			createRuntime: (ctx, target) =>
 				createNsSubmitRuntime(ctx, flowExtensionDescriptorSource, {
+					target,
 					graphiteStackGateway: stackGateway,
 				}),
 		}),
@@ -566,7 +567,7 @@ function runFlowCommandWithFakes(fixture: FlowCommandFixture) {
 		mkdirSync(repoRoot, { recursive: true });
 		writeFileSync(
 			join(repoRoot, "ns.toml"),
-			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+			'[workflow]\nstack-provider = "graphite"\n\n[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
 		);
 	}
 	const homeDir = fixture.options.homeDir ?? join(stateRoot, "home");

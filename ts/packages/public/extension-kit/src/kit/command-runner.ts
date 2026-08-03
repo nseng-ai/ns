@@ -8,7 +8,9 @@ import type {
 
 import type { NsExecOptions, NsExtensionApi } from "@nseng-ai/sdk";
 
-export function createNsCommandRunner(ctx: NsExtensionApi): CommandRunner {
+type NsCommandExecutionContext = Pick<NsExtensionApi, "cwd" | "exec">;
+
+export function createNsCommandRunner(ctx: NsCommandExecutionContext): CommandRunner {
 	return async (command, args, options) => {
 		const cwdError = validateNsExecCwd(ctx, options);
 		if (cwdError !== undefined) return cwdError;
@@ -19,7 +21,7 @@ export function createNsCommandRunner(ctx: NsExtensionApi): CommandRunner {
 export class NsCommandExecApi implements CommandExecApi {
 	private readonly runner: CommandRunner;
 
-	constructor(ctx: NsExtensionApi) {
+	constructor(ctx: NsCommandExecutionContext) {
 		this.runner = createNsCommandRunner(ctx);
 	}
 
@@ -46,7 +48,7 @@ function convertExecOptions(options: ExecOptions | undefined): NsExecOptions | u
 }
 
 function validateNsExecCwd(
-	ctx: NsExtensionApi,
+	ctx: NsCommandExecutionContext,
 	options: ExecOptions | undefined,
 ): ExecResult | undefined {
 	if (options?.cwd === undefined || options.cwd === ctx.cwd) return undefined;

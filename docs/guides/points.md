@@ -118,7 +118,7 @@ export default defineExtension({
 			id: "flow.submit.pre",
 			accepts: "hook",
 			cardinality: "many",
-			description: "Runs before flow submit checkpoints and submits the stack.",
+			description: "Runs before flow submit checkpoints and submits its configured target.",
 		},
 		{
 			id: "flow.submit.pr-inventory",
@@ -228,8 +228,8 @@ the catalog is the single resolution path.
 ```
 
 So `ns flow submit` runs `just` (full repo validation) before checkpointing and
-submitting the stack — an installation at the cardinality-many
-`flow.submit.pre` point. Two conventional prompt files install prompt content
+submitting its configured current-branch or stack target — an installation at the
+cardinality-many `flow.submit.pre` point. Two conventional prompt files install prompt content
 with no TOML line:
 
 - `.ns/prompts/flow.submit.pre.recovery.md` installs this repo's submit-check
