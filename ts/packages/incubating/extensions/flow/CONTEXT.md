@@ -93,7 +93,7 @@ The Flow ownership boundary for branch or stack submission, PR inventory generat
 *Avoid*: stack-provider implementation, downstream extension submit owner, land-domain behavior
 
 **Submit Plan**:
-The typed, renderer-independent result of inspecting the Graphite submit scope after readiness and any required restack, containing stack branches, existing PR links, upstack status, and the partition of branches eligible or ineligible for metadata prewrite.
+The typed, renderer-independent result of inspecting the Graphite submit scope after readiness and any required restack, containing stack branches, existing PR links, and the partition of branches eligible or ineligible for metadata prewrite.
 *Avoid*: stale pre-checkpoint topology, command transcript, metadata generation result, submit execution result
 
 **Initial PR Title Prefix**:
