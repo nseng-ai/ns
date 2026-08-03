@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { parseArtifactId } from "@nseng-ai/gitplane";
 import {
+	exerciseMaterializationStoreConformance,
 	InMemoryArtifactGateway,
 	InMemoryMaterializationStoreGateway,
 } from "@nseng-ai/gitplane/testing";
@@ -18,6 +19,45 @@ const event = {
 	priorPath: null,
 	currentPath: "p",
 };
+test("in-memory store satisfies shared conformance", async () => {
+	let store: InMemoryMaterializationStoreGateway | undefined;
+	await exerciseMaterializationStoreConformance(
+		() => {
+			store = new InMemoryMaterializationStoreGateway();
+			return store;
+		},
+		() => store?.snapshot().targetRows?.[0]?.values,
+		() => store?.snapshot().errors,
+	);
+});
+
+test("conformance failures name the clause and preserve strict Date assertion details", async () => {
+	let store: InMemoryMaterializationStoreGateway | undefined;
+	try {
+		await exerciseMaterializationStoreConformance(
+			() => {
+				store = new InMemoryMaterializationStoreGateway();
+				return store;
+			},
+			undefined,
+			() =>
+				store?.snapshot().errors?.map((error) => ({
+					...error,
+					firstObservedAt: new Date("2026-01-02T03:04:06.000Z"),
+				})),
+		);
+		expect.unreachable("Expected conformance to reject the unequal Date.");
+	} catch (error) {
+		expect(error).toBeInstanceOf(Error);
+		if (!(error instanceof Error)) throw error;
+		expect(error.message).toContain("reconciliation error lifecycle");
+		expect(error.cause).toBeInstanceOf(Error);
+		if (!(error.cause instanceof Error)) throw error.cause;
+		expect(error.cause.message).toContain("2026-01-02T03:04:06.000Z");
+		expect(error.cause.message).toContain("2026-01-02T03:04:05.000Z");
+	}
+});
+
 test("cursor CAS and event insertion are idempotent", async () => {
 	const store = new InMemoryMaterializationStoreGateway();
 	expect(
@@ -71,15 +111,30 @@ test("revision retries ignore later first-observed locators", async () => {
 });
 
 test("target tombstones preserve projected values and apply custom lineage columns", async () => {
+	const target = {
+		table: "greetings",
+		lineage: {
+			sourceId: "source_id",
+			artifactId: "artifact_id",
+			revisionId: "revision_id",
+			path: "artifact_path",
+			deleted: "is_gone",
+			deletedAtCommit: "gone_at",
+		},
+	};
 	const row = {
+		table: target.table,
 		sourceId: "s",
 		artifactId,
-		revisionId: "r",
-		path: "p",
-		table: "greetings",
-		values: { message: "hello", is_gone: false, gone_at: null },
-		deleted: false,
-		deletedAtCommit: null,
+		values: {
+			source_id: "s",
+			artifact_id: artifactId,
+			revision_id: "r",
+			artifact_path: "p",
+			message: "hello",
+			is_gone: false,
+			gone_at: null,
+		},
 	};
 	const store = new InMemoryMaterializationStoreGateway({ targetRows: [row] });
 	expect(
@@ -87,25 +142,13 @@ test("target tombstones preserve projected values and apply custom lineage colum
 			sourceId: "s",
 			artifactId,
 			deletedAtCommit: "deadbeef",
-			target: {
-				table: "greetings",
-				lineage: {
-					sourceId: "source_id",
-					artifactId: "artifact_id",
-					revisionId: "revision_id",
-					path: "artifact_path",
-					deleted: "is_gone",
-					deletedAtCommit: "gone_at",
-				},
-			},
+			target,
 		}),
 	).toEqual({ ok: true });
 	expect(store.snapshot().targetRows).toEqual([
 		{
 			...row,
-			values: { message: "hello", is_gone: true, gone_at: "deadbeef" },
-			deleted: true,
-			deletedAtCommit: "deadbeef",
+			values: { ...row.values, is_gone: true, gone_at: "deadbeef" },
 		},
 	]);
 });

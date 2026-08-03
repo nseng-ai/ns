@@ -5,7 +5,7 @@ import type {
 	ArtifactLineageRecord,
 	CursorCompareAndSetResult,
 	CursorRecord,
-	DoctorCheck,
+	DoctorIntrospection,
 	EventInsertResult,
 	EventRecord,
 	GatewayError,
@@ -23,15 +23,21 @@ import type {
 } from "../core/index.ts";
 
 type FailureKey = keyof MaterializationStoreGateway;
+export interface MaterializedTargetRow {
+	readonly table: string;
+	readonly sourceId: string;
+	readonly artifactId: ArtifactId;
+	readonly values: Readonly<Record<string, unknown>>;
+}
 export interface InMemoryMaterializationStoreState {
 	readonly cursors?: readonly CursorRecord[];
 	readonly lineage?: readonly ArtifactLineageRecord[];
 	readonly currentArtifacts?: readonly ArtifactCurrentRecord[];
 	readonly revisions?: readonly RevisionRecord[];
-	readonly targetRows?: readonly TargetRowRecord[];
+	readonly targetRows?: readonly MaterializedTargetRow[];
 	readonly events?: readonly StoredEvent[];
 	readonly errors?: readonly StoredReconciliationError[];
-	readonly doctorChecks?: readonly DoctorCheck[];
+	readonly doctorIntrospection?: DoctorIntrospection;
 	readonly failures?: Partial<Record<FailureKey, GatewayError>>;
 }
 function copy<T>(value: T): T {
@@ -43,10 +49,10 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 	private readonly lineage: ArtifactLineageRecord[];
 	private readonly current: ArtifactCurrentRecord[];
 	private readonly revisions: RevisionRecord[];
-	private readonly targets: TargetRowRecord[];
+	private readonly targets: MaterializedTargetRow[];
 	private readonly events: StoredEvent[];
 	private readonly errors: StoredReconciliationError[];
-	private readonly checks: DoctorCheck[];
+	private readonly doctorIntrospection: DoctorIntrospection;
 	constructor(state: InMemoryMaterializationStoreState = {}) {
 		this.failures = copy(state.failures ?? {});
 		this.cursors = copy([...(state.cursors ?? [])]);
@@ -56,7 +62,17 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 		this.targets = copy([...(state.targetRows ?? [])]);
 		this.events = copy([...(state.events ?? [])]);
 		this.errors = copy([...(state.errors ?? [])]);
-		this.checks = copy([...(state.doctorChecks ?? [])]);
+		this.doctorIntrospection = copy(
+			state.doctorIntrospection ?? {
+				controlSchema: { state: "compatible", version: 1 },
+				targetTables: [],
+				jsonProjection: {
+					requirement: "required",
+					status: "pass",
+					detail: "JSON projection is supported.",
+				},
+			},
+		);
 	}
 	snapshot(): InMemoryMaterializationStoreState {
 		return copy({
@@ -67,7 +83,7 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 			targetRows: this.targets,
 			events: this.events,
 			errors: this.errors,
-			doctorChecks: this.checks,
+			doctorIntrospection: this.doctorIntrospection,
 		});
 	}
 	private failure(operation: FailureKey): GatewayError | undefined {
@@ -171,12 +187,36 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 		);
 	}
 	async upsertTargetRow(record: TargetRowRecord): Promise<OperationResult> {
-		return this.upsert(
-			"upsertTargetRow",
-			this.targets,
-			record,
-			(item) => `${item.table}:${item.sourceId}:${item.artifactId}`,
+		const failure = this.failure("upsertTargetRow");
+		if (failure !== undefined) return { ok: false, error: failure };
+		const index = this.targets.findIndex(
+			(item) =>
+				item.table === record.target.table &&
+				item.sourceId === record.sourceId &&
+				item.artifactId === record.artifactId,
 		);
+		const previous = this.targets[index];
+		const lineage = record.target.lineage;
+		const values: Record<string, unknown> = {
+			...(previous?.values ?? {}),
+			[lineage.sourceId]: record.sourceId,
+			[lineage.artifactId]: record.artifactId,
+			[lineage.revisionId]: record.revisionId,
+			[lineage.path]: record.path,
+			[lineage.deleted]: false,
+			[lineage.deletedAtCommit]: null,
+		};
+		for (const field of record.fields) values[field.column] = copy(field.value);
+		for (const column of record.clearFields) values[column] = null;
+		const materialized = {
+			table: record.target.table,
+			sourceId: record.sourceId,
+			artifactId: record.artifactId,
+			values,
+		};
+		if (index < 0) this.targets.push(materialized);
+		else this.targets[index] = materialized;
+		return { ok: true };
 	}
 	private upsert<T>(
 		operation: FailureKey,
@@ -214,8 +254,6 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 					[request.target.lineage.deleted]: true,
 					[request.target.lineage.deletedAtCommit]: request.deletedAtCommit,
 				},
-				deleted: true,
-				deletedAtCommit: request.deletedAtCommit,
 			};
 		return { ok: true };
 	}
@@ -280,10 +318,16 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 		}
 		return { ok: true };
 	}
-	async inspectDoctor(): Promise<GatewayResult<readonly DoctorCheck[]>> {
+	async inspectDoctor(_request: {
+		readonly targets: readonly TargetMapping[];
+	}): Promise<GatewayResult<DoctorIntrospection>> {
 		const failure = this.failure("inspectDoctor");
 		return failure === undefined
-			? { ok: true, value: copy(this.checks) }
+			? { ok: true, value: copy(this.doctorIntrospection) }
 			: { ok: false, error: failure };
+	}
+	async close(): Promise<OperationResult> {
+		const failure = this.failure("close");
+		return failure === undefined ? { ok: true } : { ok: false, error: failure };
 	}
 }

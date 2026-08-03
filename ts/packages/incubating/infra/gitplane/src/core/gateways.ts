@@ -4,8 +4,8 @@ import type {
 	ArtifactEntry,
 	ArtifactSnapshot,
 	TargetMapping,
+	TargetProjectionField,
 } from "./domain.ts";
-import type { Finding } from "./check/finding.ts";
 import type { ArtifactEventType, ContentDigest } from "./identity.ts";
 
 export interface GatewayError {
@@ -120,10 +120,9 @@ export interface TargetRowRecord {
 	readonly artifactId: ArtifactId;
 	readonly revisionId: string;
 	readonly path: string;
-	readonly table: string;
-	readonly values: Readonly<Record<string, unknown>>;
-	readonly deleted: boolean;
-	readonly deletedAtCommit: string | null;
+	readonly target: TargetMapping;
+	readonly fields: readonly TargetProjectionField[];
+	readonly clearFields: readonly string[];
 }
 export interface EventRecord {
 	readonly eventId: string;
@@ -157,9 +156,25 @@ export interface StoredReconciliationError extends ReconciliationErrorRecord {
 }
 export interface DoctorCheck {
 	readonly code: string;
+	readonly subject: string;
 	readonly status: "pass" | "fail" | "unsupported";
 	readonly summary: string;
-	readonly findings?: readonly Finding[];
+}
+export interface DoctorCapability {
+	readonly requirement: "required" | "optional";
+	readonly status: "pass" | "unsupported";
+	readonly detail: string;
+}
+export interface DoctorIntrospection {
+	readonly controlSchema:
+		| { readonly state: "compatible"; readonly version: number }
+		| { readonly state: "missing" | "incompatible"; readonly detail: string };
+	readonly targetTables: readonly {
+		readonly name: string;
+		readonly columns: readonly string[];
+		readonly uniqueColumnSets: readonly (readonly string[])[];
+	}[];
+	readonly jsonProjection: DoctorCapability;
 }
 export type CursorCompareAndSetResult =
 	| { readonly type: "updated" }
@@ -211,6 +226,7 @@ export interface MaterializationStoreGateway {
 		readonly resolvedAt: Date;
 	}): Promise<OperationResult>;
 	inspectDoctor(request: {
-		readonly sourceId: string;
-	}): Promise<GatewayResult<readonly DoctorCheck[]>>;
+		readonly targets: readonly TargetMapping[];
+	}): Promise<GatewayResult<DoctorIntrospection>>;
+	close(): Promise<OperationResult>;
 }
