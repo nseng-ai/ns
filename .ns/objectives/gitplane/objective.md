@@ -8,7 +8,7 @@ This Objective follows the readme-driven-development pattern with two canonical 
 
 ## Scope
 
-- Two incubating workspace packages under `ts/packages/`: `@nseng-ai/gitplane`, with an exported API-kind `/cli` subpackage, and `@nseng-ai/gitplane-sqlite`. Gitplane depends on Clinkr but not Foundation; its package-local invocation context initially contains only `Clock`.
+- Two incubating workspace packages under `ts/packages/`: `@nseng-ai/gitplane`, with an exported API-kind `/cli` subpackage, and `@nseng-ai/gitplane-sqlite`. Gitplane depends on Clinkr but not Foundation; its package-local invocation context contains `Clock` plus the absolute selected config directory needed for config-relative adapter paths.
 - Clinkr filesystem-first CLI with four surfaces:
   - `gitplane artifact create <directory>` — local, config-free creation of a generic artifact by default, with optional classification.
   - `gitplane check` — stateless validation of the full corpus in the working tree.
@@ -49,7 +49,7 @@ Each deliberate shortcut preserves a named future path where applicable:
 - `gitplane artifact create <directory>`, `gitplane check`, `gitplane reconcile <commit>`/`--full`, and `gitplane doctor` work against a local clone through Clinkr's filesystem-first command layout and stable output contract; creation is config-free, validates or mints a canonical lowercase ULID, supports optional classification, and is atomic at the artifact gateway boundary.
 - `gitplane check` is a stateless, corpus-only working-tree operation: it resolves one config/root within the invocation directory, never follows symlinks or invokes storage/history, discovers all nesting before reads, aggregates the fixed normative finding set deterministically, counts outer attempted boundaries, and distinguishes completed finding exits from operational/configuration/source failure without partial data.
 - Recursive discovery, generic and classified envelope behavior, optional kind/schema registration and projection, deterministic digest/revision/event identity, move/delete/restore behavior, one-way generic-to-classified lineage, cursor-last retry convergence, immutable events, and durable errors work as specified in the README and spec drafts.
-- The SQLite adapter manages control tables, operates against operator-owned target tables, and supports every v1 `doctor` check.
+- The SQLite adapter explicitly initializes and manages control tables, operates against operator-owned target tables, and supports every v1 read-only `doctor` check.
 - The check-only composite GitHub Action ships and is documented, including PR-head/per-domain behavior and a conceptual reconcile-in-CI recipe.
 - The reference consumer exists and demonstrates operator-owned DDL, artifact+revision pinning, mapped JSON, event consumption, and runtime-state separation.
 - Scenario and conformance suites cover recursive artifacts, renames/moves, revisions, deletes, duplicate IDs, restoration, partial-write retries, cursor CAS failure, repeated reconcile attempts, and full repair.

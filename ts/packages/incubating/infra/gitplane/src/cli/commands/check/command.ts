@@ -1,5 +1,4 @@
 import { cliOption, defineCommand, failure, negative, ok } from "@nseng-ai/clinkr/app";
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 import { checkArtifactCorpus, findingSchema, inspectCorpusTopology } from "../../../core/index.ts";
 import type { Finding } from "../../../core/index.ts";
@@ -62,7 +61,7 @@ export async function command() {
 			try {
 				loaded = await context.configGateway.load({
 					cwd: context.cwd,
-					...optionalEntries({ configPath: request.config }),
+					...(request.config === undefined ? {} : { configPath: request.config }),
 				});
 			} catch {
 				return failure("check-failed", "Unable to check the artifact corpus.", {
@@ -74,7 +73,7 @@ export async function command() {
 				return failure("check-failed", "Unable to check the artifact corpus.", {
 					category: loaded.category,
 					diagnostic: loaded.diagnostic,
-					...optionalEntries({ path: loaded.path }),
+					...(loaded.path === undefined ? {} : { path: loaded.path }),
 				});
 			try {
 				const inventory = await context.artifactGateway.inventoryWorkingTree({
@@ -115,7 +114,7 @@ export async function command() {
 					sourceId: loaded.config.source.id,
 					artifactCount: topology.artifactCount,
 					candidates,
-					...optionalEntries({ kinds: loaded.config.kinds }),
+					...(loaded.config.kinds === undefined ? {} : { kinds: loaded.config.kinds }),
 				});
 				if (result.type === "failed")
 					return failure("check-failed", "Unable to check the artifact corpus.", {

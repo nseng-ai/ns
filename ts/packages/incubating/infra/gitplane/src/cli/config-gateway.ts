@@ -58,7 +58,12 @@ const configSchema = z
 
 export type ConfigLoadFailureCategory = "config-load" | "config-invalid" | "source-root-invalid";
 export type ConfigLoadResult =
-	| { readonly ok: true; readonly config: GitplaneConfig; readonly artifactRoot: string }
+	| {
+			readonly ok: true;
+			readonly config: GitplaneConfig;
+			readonly artifactRoot: string;
+			readonly configDirectory: string;
+	  }
 	| {
 			readonly ok: false;
 			readonly category: ConfigLoadFailureCategory;
@@ -74,6 +79,7 @@ interface ParsedConfigModule {
 	readonly config: GitplaneConfig;
 	readonly artifactRoot: string;
 	readonly absoluteArtifactRoot: string;
+	readonly configDirectory: string;
 }
 type ConfigLoadFailure = Exclude<ConfigLoadResult, { ok: true }>;
 export type ConfigModuleParseResult = ParsedConfigModule | ConfigLoadFailure;
@@ -203,7 +209,13 @@ export function parseGitplaneConfigModule(
 		store: parsed.data.store,
 		...(kinds === undefined ? {} : { kinds }),
 	};
-	return { ok: true, config, artifactRoot, absoluteArtifactRoot };
+	return {
+		ok: true,
+		config,
+		artifactRoot,
+		absoluteArtifactRoot,
+		configDirectory: path.dirname(configPath),
+	};
 }
 
 export class TrustedTypeScriptConfigGateway implements GitplaneConfigGateway {
@@ -245,6 +257,11 @@ export class TrustedTypeScriptConfigGateway implements GitplaneConfigGateway {
 		} catch {
 			return rootInvalid("Artifact root is not readable.", parsed.artifactRoot);
 		}
-		return { ok: true, config: parsed.config, artifactRoot: parsed.artifactRoot };
+		return {
+			ok: true,
+			config: parsed.config,
+			artifactRoot: parsed.artifactRoot,
+			configDirectory: parsed.configDirectory,
+		};
 	}
 }

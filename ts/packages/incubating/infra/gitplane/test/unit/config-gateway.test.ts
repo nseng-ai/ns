@@ -45,6 +45,7 @@ test("parses the minimum config and preserves the source ID bytes", () => {
 		config: { source: { id: " source-id\n", artifactRoot: "artifacts" }, store },
 		artifactRoot: "artifacts",
 		absoluteArtifactRoot: path.join(cwd, "artifacts"),
+		configDirectory: cwd,
 	});
 });
 
@@ -207,5 +208,6 @@ test("resolves artifact roots from config directory and reports them relative to
 		ok: true,
 		artifactRoot: "artifacts",
 		absoluteArtifactRoot: path.join(cwd, "artifacts"),
+		configDirectory: path.join(cwd, "config"),
 	});
 });
