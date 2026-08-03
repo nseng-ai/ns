@@ -4,12 +4,25 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { expect, test } from "vitest";
 import { evaluateDoctor, parseArtifactId } from "@nseng-ai/gitplane";
-import { createSqliteStore, initializeSqliteStore } from "@nseng-ai/gitplane-sqlite";
+import type { MaterializationStoreGateway, StoreAccess } from "@nseng-ai/gitplane";
+import { createSqliteStoreFactory, initializeSqliteStore } from "@nseng-ai/gitplane-sqlite";
 import { exerciseMaterializationStoreConformance } from "@nseng-ai/gitplane/testing";
 
 const parsed = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
 if (!parsed.ok) throw new Error("invalid fixture ID");
 const artifactId = parsed.artifactId;
+const testClock = { now: () => new Date("2026-01-01T00:00:00.000Z") };
+
+function openStore(
+	directory: string,
+	file: string,
+	access: StoreAccess,
+): MaterializationStoreGateway {
+	return createSqliteStoreFactory({ path: file })(
+		{ configDirectory: directory, clock: testClock },
+		{ access },
+	);
+}
 
 async function withDatabase(
 	operation: (directory: string, file: string) => Promise<void>,
@@ -32,13 +45,11 @@ test("initializes idempotently and opens read-only without DDL", () =>
 		});
 		const databasePath = path.join(directory, file);
 		const before = await readFile(databasePath);
-		const store = createSqliteStore({
-			path: file,
-			baseDirectory: directory,
-			access: "read-only",
-			clock: { now: () => new Date() },
-		});
-		const facts = await store.inspectDoctor({ sourceId: "source", targets: [] });
+		const store = createSqliteStoreFactory({ path: file })(
+			{ configDirectory: directory, clock: testClock },
+			{ access: "read-only" },
+		);
+		const facts = await store.inspectDoctor({ targets: [] });
 		expect(facts).toMatchObject({
 			ok: true,
 			value: { controlSchema: { state: "compatible", version: 1 } },
@@ -60,12 +71,7 @@ test("returns gateway errors for corrupt persisted classification JSON", () =>
 			.prepare("INSERT INTO gitplane_lineage VALUES (?, ?, ?, ?)")
 			.run("source", artifactId, '{"state":"generic"}', null);
 		database.close();
-		const store = createSqliteStore({
-			path: file,
-			baseDirectory: directory,
-			access: "read-only",
-			clock: { now: () => new Date() },
-		});
+		const store = openStore(directory, file, "read-only");
 		expect(await store.readCurrentArtifact({ sourceId: "source", artifactId })).toMatchObject({
 			type: "error",
 			error: { code: "sqlite-operation-failed" },
@@ -92,13 +98,7 @@ test("satisfies shared gateway conformance", () =>
 		);
 		database.close();
 		await exerciseMaterializationStoreConformance(
-			() =>
-				createSqliteStore({
-					path: file,
-					baseDirectory: directory,
-					access: "read-write",
-					clock: { now: () => new Date() },
-				}),
+			() => openStore(directory, file, "read-write"),
 			() => {
 				const inspect = new DatabaseSync(path.join(directory, file), { readOnly: true });
 				const row = inspect.prepare("SELECT * FROM conformance_target").get() as Record<
@@ -136,12 +136,7 @@ test("implements target JSON upsert, restore, tombstone, and quoted identifiers"
 				deletedAtCommit: "deleted at",
 			},
 		};
-		const store = createSqliteStore({
-			path: file,
-			baseDirectory: directory,
-			access: "read-write",
-			clock: { now: () => new Date() },
-		});
+		const store = openStore(directory, file, "read-write");
 		expect(
 			await store.upsertTargetRow({
 				sourceId: "source",
@@ -209,12 +204,7 @@ test("reports exact and wider or partial unique indexes without conflating them"
 			"CREATE TABLE target_exact (source TEXT, artifact TEXT, revision TEXT, UNIQUE(source, artifact)); CREATE TABLE target_wider (source TEXT, artifact TEXT, revision TEXT, UNIQUE(source, artifact, revision)); CREATE TABLE target_partial (source TEXT, artifact TEXT, revision TEXT); CREATE UNIQUE INDEX target_partial_unique ON target_partial(source, artifact) WHERE revision IS NOT NULL",
 		);
 		database.close();
-		const store = createSqliteStore({
-			path: file,
-			baseDirectory: directory,
-			access: "read-only",
-			clock: { now: () => new Date() },
-		});
+		const store = openStore(directory, file, "read-only");
 		const lineage = {
 			sourceId: "source",
 			artifactId: "artifact",
@@ -224,7 +214,6 @@ test("reports exact and wider or partial unique indexes without conflating them"
 			deletedAtCommit: "deleted_at",
 		};
 		const facts = await store.inspectDoctor({
-			sourceId: "source",
 			targets: [
 				{ table: "target_exact", lineage },
 				{ table: "target_wider", lineage },
@@ -282,12 +271,7 @@ test("binds scalar null and booleans and rejects unsupported ordinary values", (
 				deletedAtCommit: "deleted_at",
 			},
 		};
-		const store = createSqliteStore({
-			path: file,
-			baseDirectory: directory,
-			access: "read-write",
-			clock: { now: () => new Date() },
-		});
+		const store = openStore(directory, file, "read-write");
 		expect(
 			await store.upsertTargetRow({
 				sourceId: "source",
@@ -353,14 +337,7 @@ test("read-only open of a missing database creates no file or parent", async () 
 	const directory = await mkdtemp(path.join(os.tmpdir(), "gitplane-sqlite-missing-"));
 	const parent = path.join(directory, "missing-parent");
 	try {
-		expect(() =>
-			createSqliteStore({
-				path: "missing-parent/store.db",
-				baseDirectory: directory,
-				access: "read-only",
-				clock: { now: () => new Date() },
-			}),
-		).toThrow();
+		expect(() => openStore(directory, "missing-parent/store.db", "read-only")).toThrow();
 		await expect(stat(parent)).rejects.toThrow();
 	} finally {
 		await rm(directory, { recursive: true, force: true });

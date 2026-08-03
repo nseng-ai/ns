@@ -11,13 +11,13 @@ import type {
 	EventInsertResult,
 	EventRecord,
 	GatewayResult,
+	GitplaneStoreFactory,
 	InsertResult,
 	LookupResult,
 	MaterializationStoreGateway,
 	OperationResult,
 	ReconciliationErrorRecord,
 	RevisionRecord,
-	StoreAccess,
 	TargetMapping,
 	TargetRowRecord,
 } from "@nseng-ai/gitplane";
@@ -26,16 +26,15 @@ import { inspectControlSchema } from "./schema.ts";
 
 export interface CreateSqliteStoreOptions {
 	readonly path: string;
-	readonly baseDirectory: string;
-	readonly access: StoreAccess;
-	readonly clock: { now(): Date };
 }
 
-export function createSqliteStore(options: CreateSqliteStoreOptions): MaterializationStoreGateway {
-	const database = new DatabaseSync(resolveDatabasePath(options.path, options.baseDirectory), {
-		readOnly: options.access === "read-only",
-	});
-	return new SqliteMaterializationStore(database);
+export function createSqliteStoreFactory(options: CreateSqliteStoreOptions): GitplaneStoreFactory {
+	return (context, invocationOptions) => {
+		const database = new DatabaseSync(resolveDatabasePath(options.path, context.configDirectory), {
+			readOnly: invocationOptions.access === "read-only",
+		});
+		return new SqliteMaterializationStore(database);
+	};
 }
 
 class SqliteMaterializationStore implements MaterializationStoreGateway {
@@ -336,7 +335,6 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 		);
 	}
 	async inspectDoctor(request: {
-		readonly sourceId: string;
 		readonly targets: readonly TargetMapping[];
 	}): Promise<GatewayResult<DoctorIntrospection>> {
 		try {

@@ -78,23 +78,17 @@ Every file beneath the marker's directory belongs to the artifact. Artifacts can
 By default, put `gitplane.config.ts` in the directory from which Gitplane is invoked. It declares the source (artifact root) and may declare the store and registered kinds with their table mappings:
 
 ```ts
-import {
-  defineArtifactKind,
-  defineGitplaneConfig,
-  type GitplaneContext,
-} from "@nseng-ai/gitplane";
-import { createSqliteStore } from "@nseng-ai/gitplane-sqlite";
+import { defineArtifactKind, defineGitplaneConfig } from "@nseng-ai/gitplane";
+import { createSqliteStoreFactory } from "@nseng-ai/gitplane-sqlite";
 
 export default defineGitplaneConfig({
   source: {
     id: "acme/greetings",
     artifactRoot: "artifacts/greetings",
   },
-  store: (context: GitplaneContext) =>
-    createSqliteStore({
-      path: "state/greetings.db",
-      clock: context.clock,
-    }),
+  store: createSqliteStoreFactory({
+    path: "state/greetings.db",
+  }),
   kinds: [
     defineArtifactKind({
       apiVersion: "example.dev/v1",
