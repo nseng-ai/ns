@@ -40,6 +40,7 @@ import {
 } from "./module-reference.ts";
 import {
 	isPathInside,
+	optionalEntries,
 	optionalEntry,
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
@@ -560,8 +561,7 @@ async function loadUserDescriptorCandidates(
 	projectSourceIdentities: ReadonlySet<string>,
 ): Promise<LoadedCatalogFragment> {
 	const layer = await loadEffectiveUserExtensionLayer({
-		...(options.homeDir === undefined ? {} : { homeDir: options.homeDir }),
-		...(options.env === undefined ? {} : { env: options.env }),
+		...optionalEntries({ homeDir: options.homeDir, env: options.env }),
 		projectSourceIdentities,
 	});
 	const userConfigDir =
@@ -571,7 +571,7 @@ async function loadUserDescriptorCandidates(
 			severity: "error",
 			code: diagnostic.code,
 			message: diagnostic.message,
-			...(diagnostic.path === undefined ? {} : { path: diagnostic.path }),
+			...optionalEntry("path", diagnostic.path),
 			sourceLevel: "user",
 		})),
 		builtInPackageNames: [],
@@ -711,7 +711,7 @@ function descriptorEntryCommandCandidates(options: {
 				}),
 				packageName: options.packageName,
 				contributionId: options.contributionId,
-				...(options.packageName === undefined ? {} : { extensionPackageName: options.packageName }),
+				...optionalEntry("extensionPackageName", options.packageName),
 				sourceKind: options.sourceKind,
 				descriptorEntry: commandEntry,
 				hasStaticCommandInfo: false,
@@ -1032,10 +1032,10 @@ function preinstalledCatalogEntryCommandInfo(
 ): NsCommandCliInfo {
 	return toCommandCliInfo({
 		...entry,
-		...(entry.path === undefined ? {} : { segments: entry.path }),
-		...(entry.hiddenAncestorKeys === undefined
-			? {}
-			: { hiddenAncestorKeys: entry.hiddenAncestorKeys }),
+		...optionalEntries({
+			segments: entry.path,
+			hiddenAncestorKeys: entry.hiddenAncestorKeys,
+		}),
 	});
 }
 

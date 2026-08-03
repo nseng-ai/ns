@@ -452,33 +452,34 @@ export function composeLayeredPointDefinitions(request: {
 	userDefinitions: readonly ScopedPointDefinition[];
 	projectDefinitions: readonly ScopedPointDefinition[];
 }): LayeredPointDefinitionsResult {
-	const diagnostics: ProjectConfigDiagnostic[] = [];
-	const user = excludeSameScopeConflicts("user", request.userDefinitions, diagnostics);
-	const project = excludeSameScopeConflicts("project", request.projectDefinitions, diagnostics);
-	const projectIds = new Set(project.map((definition) => definition.id));
-	const survivingUser = user.filter((definition) => !projectIds.has(definition.id));
+	const user = excludeSameScopeConflicts("user", request.userDefinitions);
+	const project = excludeSameScopeConflicts("project", request.projectDefinitions);
+	const projectIds = new Set(project.pointDefinitions.map((definition) => definition.id));
+	const survivingUser = user.pointDefinitions.filter(
+		(definition) => !projectIds.has(definition.id),
+	);
 	const replacedIds = new Set([...projectIds, ...survivingUser.map((definition) => definition.id)]);
 	return {
 		pointDefinitions: [
 			...request.fallbackDefinitions.filter((definition) => !replacedIds.has(definition.id)),
 			...survivingUser,
-			...project,
+			...project.pointDefinitions,
 		],
-		diagnostics,
+		diagnostics: [...user.diagnostics, ...project.diagnostics],
 	};
 }
 
 function excludeSameScopeConflicts(
 	scope: "user" | "project",
 	definitions: readonly ScopedPointDefinition[],
-	diagnostics: ProjectConfigDiagnostic[],
-): readonly PointDefinition[] {
+): LayeredPointDefinitionsResult {
 	const byId = new Map<string, ScopedPointDefinition[]>();
 	for (const scoped of definitions) {
 		const existing = byId.get(scoped.definition.id) ?? [];
 		byId.set(scoped.definition.id, [...existing, scoped]);
 	}
 	const surviving: PointDefinition[] = [];
+	const diagnostics: ProjectConfigDiagnostic[] = [];
 	for (const [pointId, scopedDefinitions] of byId) {
 		if (scopedDefinitions.length === 1 && scopedDefinitions[0] !== undefined) {
 			surviving.push(scopedDefinitions[0].definition);
@@ -495,7 +496,7 @@ function excludeSameScopeConflicts(
 			),
 		);
 	}
-	return surviving;
+	return { pointDefinitions: surviving, diagnostics };
 }
 
 function mergePointDefinitions(request: {

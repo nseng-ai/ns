@@ -124,7 +124,7 @@ async function loadCatalog(
 		repoRoot: cwd,
 		gateway: nodeProjectConfigGateway,
 		env,
-		...(homeDir === undefined ? {} : { homeDir }),
+		...optionalEntries({ homeDir }),
 		promptEnvOverride: knownPromptEnvOverride,
 	});
 }

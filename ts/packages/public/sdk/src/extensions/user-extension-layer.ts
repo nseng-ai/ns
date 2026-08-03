@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
 	formatErrorMessage,
 	isNodeErrorCode,
+	optionalEntries,
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
 import { mergeXdgHomeEnv, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
@@ -120,8 +121,7 @@ export async function loadEffectiveUserExtensionLayer(
 
 	const env = mergeXdgHomeEnv({
 		baseEnv: {},
-		...(options.env === undefined ? {} : { env: options.env }),
-		...(options.homeDir === undefined ? {} : { xdgHomeDir: options.homeDir }),
+		...optionalEntries({ env: options.env, xdgHomeDir: options.homeDir }),
 	});
 	const resolvedPath = resolveNsXdgPath({ kind: "config", env, segments: ["ns.toml"] });
 	if (!resolvedPath.ok) {

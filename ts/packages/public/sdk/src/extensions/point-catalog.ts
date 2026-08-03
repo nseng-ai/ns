@@ -1,4 +1,4 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import {
 	declaredExtensionSourceIdentity,
@@ -91,8 +91,7 @@ async function discoverLayeredPointDefinitions(request: {
 		request.gateway,
 	);
 	const userLayer = await loadEffectiveUserExtensionLayer({
-		...(request.env === undefined ? {} : { env: request.env }),
-		...(request.homeDir === undefined ? {} : { homeDir: request.homeDir }),
+		...optionalEntries({ env: request.env, homeDir: request.homeDir }),
 		projectSourceIdentities: new Set(project.declaredSourceIdentities),
 	});
 	const layered = composeLayeredPointDefinitions({
@@ -108,7 +107,7 @@ async function discoverLayeredPointDefinitions(request: {
 				diagnostic(
 					layerDiagnostic.code,
 					layerDiagnostic.message,
-					layerDiagnostic.path === undefined ? {} : { path: layerDiagnostic.path },
+					optionalEntry("path", layerDiagnostic.path),
 				),
 			),
 			...layered.diagnostics,
