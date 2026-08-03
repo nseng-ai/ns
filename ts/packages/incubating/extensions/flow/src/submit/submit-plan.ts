@@ -7,7 +7,6 @@ import type {
 export interface SubmitPlan {
 	readonly currentBranch: string;
 	readonly branches: readonly SubmitStackBranch[];
-	readonly hasUpstackBranches: boolean;
 }
 
 export type BuildSubmitPlanResult =
@@ -30,7 +29,6 @@ export async function buildSubmitPlan(input: {
 		plan: {
 			currentBranch: inspected.value.currentBranch,
 			branches: inspected.value.branches,
-			hasUpstackBranches: inspected.value.hasUpstackBranches,
 		},
 	};
 }

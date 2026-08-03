@@ -667,7 +667,7 @@ describe("project-local submit extension", () => {
 		expect(formattedExecCalls(run.context)).toContain("gh pr view --json number,url");
 	});
 
-	test("prefixes every newly created PR found through branch inventory", async () => {
+	test("reconciles every current/downstack PR while ignoring stale upstack descendants", async () => {
 		const downstackUrl = "https://github.com/acme/repo/pull/123";
 		const tipUrl = "https://github.com/acme/repo/pull/456";
 		const run = runWithFakes({
@@ -679,6 +679,12 @@ describe("project-local submit extension", () => {
 						trunk: "main",
 						current: "feature/top",
 						ancestors: ["main", "feature/downstack"],
+						descendants: ["feature/stale-upstack"],
+						descendantWalk: {
+							forks: [],
+							childrenCorruptions: [],
+							termination: { type: "cycle", branch: "feature/stale-upstack" },
+						},
 					}),
 				},
 			},
@@ -773,7 +779,16 @@ describe("project-local submit extension", () => {
 		expect(output).toContain(`#123 ${downstackUrl}`);
 		expect(output).toContain(`#456 ${tipUrl}`);
 		expect(run.context.textGeneratorCalls).toHaveLength(2);
-		expect(formattedExecCalls(run.context)).toEqual(
+		const calls = formattedExecCalls(run.context);
+		const ordinarySubmitCalls = calls.filter((call) => call.startsWith("gt submit "));
+		expect(ordinarySubmitCalls).toHaveLength(2);
+		for (const call of ordinarySubmitCalls) {
+			const args = call.split(" ");
+			expect(args).not.toContain("--stack");
+			expect(args).not.toContain("--update-only");
+		}
+		expect(calls.some((call) => call.includes("feature/stale-upstack"))).toBe(false);
+		expect(calls).toEqual(
 			expect.arrayContaining([
 				expect.stringMatching(/^gh pr edit 123 /),
 				expect.stringMatching(/^gh pr edit 456 /),

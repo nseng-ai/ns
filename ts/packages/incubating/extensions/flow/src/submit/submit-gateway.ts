@@ -16,7 +16,7 @@ import {
 	isNoCurrentGithubPrProse,
 	isRestackNeededProse,
 } from "./cli-prose-heuristics.ts";
-import { buildStackUpdateArgs, buildSubmitArgs } from "./submit-command-spec.ts";
+import { buildSubmitArgs } from "./submit-command-spec.ts";
 import {
 	detectKnownPreflightFailureCause,
 	detectSubmitSemanticFailureCause,
@@ -124,13 +124,6 @@ export class RealSubmitGateway implements SubmitGateway {
 	async submitCurrentStack(params: SubmitCommandParams): Promise<SubmitRunResult> {
 		return await this.runSubmitLikeCommand(
 			buildSubmitArgs({ isDryRun: false, shouldForce: params.force === true }),
-			params,
-		);
-	}
-
-	async updateStackPrs(params: SubmitCommandParams): Promise<SubmitRunResult> {
-		return await this.runSubmitLikeCommand(
-			buildStackUpdateArgs({ shouldForce: params.force === true }),
 			params,
 		);
 	}

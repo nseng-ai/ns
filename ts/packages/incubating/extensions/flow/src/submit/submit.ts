@@ -2,7 +2,6 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
-import { withCommandOperations } from "../phase-stream/matrix-progress-core.ts";
 import type {
 	FlowPrInventoryDescriptorSource,
 	GithubPrGateway,
@@ -15,7 +14,6 @@ import type {
 	SubmitCommandResult,
 	SubmitGateway,
 	SubmitOutputListener,
-	SubmitRunResult,
 } from "./submit-contracts.ts";
 import {
 	deterministicSubmitCommandFailure,
@@ -50,10 +48,7 @@ import {
 	type SubmitPrInventoryProgressEvent,
 } from "./submit-pr-inventories.ts";
 import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
-import {
-	formatStackUpdateCommandDisplay,
-	formatSubmitCommandDisplays,
-} from "./submit-command-spec.ts";
+import { formatSubmitCommandDisplays } from "./submit-command-spec.ts";
 import { mergePrLinks } from "./submit-pr-link.ts";
 import { reconcileSubmitPrInventory } from "./submit-pr-reconciliation.ts";
 import type { NsProgressPhaseEvent } from "@nseng-ai/sdk";
@@ -137,7 +132,6 @@ export async function runSubmitCommand(
 	const { submitCommandDisplay, submitDryRunCommandDisplay } = formatSubmitCommandDisplays({
 		shouldForce: options.force,
 	});
-	const stackUpdateCommandDisplay = formatStackUpdateCommandDisplay({ shouldForce: options.force });
 	const commandParams = submitCommandParams(options);
 	const readiness = await prepareOrdinarySubmitTransport({
 		command: options,
@@ -209,8 +203,8 @@ export async function runSubmitCommand(
 			);
 		}
 
-		let combinedSubmitOutcome = submittedTransport.outcome;
-		if (combinedSubmitOutcome.semanticFailureCause !== undefined) {
+		const submitOutcome = submittedTransport.outcome;
+		if (submitOutcome.semanticFailureCause !== undefined) {
 			emitPhase(options, { type: "phase-failed", phaseKey: "submit", detail: "submit failed" });
 			emitPhase(options, {
 				type: "phase-started",
@@ -224,7 +218,7 @@ export async function runSubmitCommand(
 				detail: "verification failed",
 			});
 			const stderr = formatPostSubmitFailureOutput({
-				submitted: combinedSubmitOutcome,
+				submitted: submitOutcome,
 				currentPr,
 				submitCommandDisplay,
 			});
@@ -232,29 +226,12 @@ export async function runSubmitCommand(
 				failurePresentation: "unknown",
 				rawFailureTranscript: postSubmitFailureTranscript({
 					summary: stderr,
-					submitted: combinedSubmitOutcome,
+					submitted: submitOutcome,
 					currentPr,
 					submitCommandDisplay,
 					currentPrCommandDisplay: CURRENT_PR_COMMAND_DISPLAY,
 				}),
 			});
-		}
-		if (planToExecute.hasUpstackBranches) {
-			emitPhase(options, {
-				type: "phase-progress",
-				phaseKey: "submit",
-				label: stackUpdateCommandDisplay,
-			});
-
-			const stackUpdateStep = await runSubmitPhaseStep({
-				options,
-				phaseLabel: "stack update",
-				commandDisplay: stackUpdateCommandDisplay,
-				run: (gateway, params) => gateway.updateStackPrs(params),
-			});
-			if (stackUpdateStep.kind === "failure") return stackUpdateStep.failure;
-
-			combinedSubmitOutcome = combineSubmitOutcomes(combinedSubmitOutcome, stackUpdateStep.result);
 		}
 		emitPhase(options, { type: "phase-done", phaseKey: "submit", detail: "stack submitted" });
 		emitPhase(options, {
@@ -263,36 +240,11 @@ export async function runSubmitCommand(
 			label: "checking current PR",
 		});
 		const currentPr = await submittedTransport.verifyCurrentPr(commandParams);
-		if (combinedSubmitOutcome.semanticFailureCause !== undefined) {
-			emitPhase(options, {
-				type: "phase-failed",
-				phaseKey: "verification",
-				detail: "verification failed",
-			});
-			const stderr = formatPostSubmitFailureOutput({
-				submitted: combinedSubmitOutcome,
-				currentPr,
-				submitCommandDisplay,
-			});
-			return failure(1, stderr, {
-				// Post-submit verification failures keep their raw command output in the
-				// message, so route them through the model interpreter rather than showing
-				// the transcript verbatim.
-				failurePresentation: "unknown",
-				rawFailureTranscript: postSubmitFailureTranscript({
-					summary: stderr,
-					submitted: combinedSubmitOutcome,
-					currentPr,
-					submitCommandDisplay,
-					currentPrCommandDisplay: CURRENT_PR_COMMAND_DISPLAY,
-				}),
-			});
-		}
 
 		const outputPrLinks =
 			currentPr.kind === "present"
-				? mergePrLinks(combinedSubmitOutcome.prLinks, currentPr.prLinks)
-				: mergePrLinks(combinedSubmitOutcome.prLinks, []);
+				? mergePrLinks(submitOutcome.prLinks, currentPr.prLinks)
+				: mergePrLinks(submitOutcome.prLinks, []);
 		const inventory = await options.metadataGateway.inspectOpenPrsForBranches({
 			cwd: options.cwd,
 			branches: planToExecute.branches.map((branch) => branch.branch),
@@ -391,10 +343,7 @@ export async function runSubmitCommand(
 		const successText =
 			prLinks.length > 0
 				? formatSubmitSuccessText(prLinks, inventoryResult)
-				: formatSubmitSuccessFallbackText(
-						combinedSubmitOutcome.output.stdout,
-						combinedSubmitOutcome.output.stderr,
-					);
+				: formatSubmitSuccessFallbackText(submitOutcome.output.stdout, submitOutcome.output.stderr);
 		return success(successText);
 	}
 }
@@ -428,71 +377,6 @@ function formatPreflightCauseOutput(input: {
 	output: SubmitCommandOutput;
 }): string {
 	return formatSubmitPreflightFailureCause(input.cause, input.output);
-}
-
-type SuccessfulSubmitRunResult = Extract<SubmitRunResult, { kind: "success" }>;
-
-type SubmitPhaseStepResult =
-	| { kind: "success"; result: SuccessfulSubmitRunResult }
-	| { kind: "failure"; failure: SubmitCommandResult };
-
-function combineSubmitOutcomes(
-	base: SuccessfulSubmitRunResult,
-	update: SuccessfulSubmitRunResult,
-): SuccessfulSubmitRunResult {
-	return {
-		...base,
-		prLinks: mergePrLinks(base.prLinks, update.prLinks),
-		...(update.semanticFailureCause === undefined
-			? {}
-			: { semanticFailureCause: update.semanticFailureCause }),
-	};
-}
-
-async function runSubmitPhaseStep(input: {
-	options: Pick<RunSubmitCommandOptions, "cwd" | "force" | "gateway" | "onOutput" | "progress">;
-	phaseLabel: string;
-	commandDisplay: string;
-	knownFailurePhase?: string;
-	run: (gateway: SubmitGateway, params: SubmitCommandParams) => Promise<SubmitRunResult>;
-}): Promise<SubmitPhaseStepResult> {
-	const result = await withCommandOperations(
-		input.options.progress.matrix,
-		[input.commandDisplay],
-		() => input.run(input.options.gateway, submitStreamingCommandParams(input.options)),
-	);
-	if (result.kind === "success") return { kind: "success", result };
-
-	emitPhase(input.options, {
-		type: "phase-failed",
-		phaseKey: "submit",
-		detail: `${input.phaseLabel} failed`,
-	});
-	if (input.knownFailurePhase !== undefined) {
-		const knownFailure = knownSubmitFailureFor({
-			cause: result.cause,
-			output: result.output,
-			phase: input.knownFailurePhase,
-			transcriptCommandDisplay: input.commandDisplay,
-		});
-		if (knownFailure !== undefined) return { kind: "failure", failure: knownFailure };
-	}
-
-	return {
-		kind: "failure",
-		failure: failure(
-			normalizedSubmitFailureExitCode(result.output),
-			formatSubmitFailureOutput(result.output, input.commandDisplay),
-			{
-				failurePresentation: "unknown",
-				rawFailureTranscript: submitCommandFailureTranscript({
-					phase: input.phaseLabel,
-					commandDisplay: input.commandDisplay,
-					output: result.output,
-				}),
-			},
-		),
-	};
 }
 
 function submitCommandParams(
