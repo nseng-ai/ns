@@ -188,20 +188,22 @@ describe(COMMAND_NAME, () => {
 		expect(generationCalls).toBe(1);
 	});
 
-	test("renders the printed prompt folded by default and in full when expanded", () => {
+	test("renders the complete printed prompt regardless of the entry expansion state", () => {
 		const prompt = Array.from({ length: 9 }, (_, i) => `line ${i + 1}`).join("\n");
 		const theme = { fg: (_color: string, text: string) => text };
 		const entry = { customType: SESSION_IMPL_PROMPT_ENTRY_TYPE, data: { prompt } };
 
-		const folded = renderSessionImplPromptEntry(entry, { expanded: false }, theme).render(80);
-		expect(folded[0]).toContain("session implementation prompt (9 lines)");
-		expect(folded).toContain("▌ line 6");
-		expect(folded.join("\n")).not.toContain("line 7");
-		expect(folded.at(-1)).toContain("+3 more lines");
+		const collapsed = renderSessionImplPromptEntry(entry, { expanded: false }, theme).render(80);
+		expect(collapsed[0]).toContain("session implementation prompt (9 lines)");
+		expect(collapsed[1]).toBe("");
+		expect(collapsed).toContain("▌ line 9");
+		expect(collapsed.join("\n")).not.toContain("more lines");
+		expect(collapsed.join("\n")).not.toContain("expand to view");
 
 		const expanded = renderSessionImplPromptEntry(entry, { expanded: true }, theme).render(80);
 		expect(expanded).toContain("▌ line 9");
 		expect(expanded.join("\n")).not.toContain("more lines");
+		expect(expanded.join("\n")).not.toContain("expand to view");
 	});
 
 	test("prefixes every prompt line with an accent gutter bar and renders the body as text", () => {
