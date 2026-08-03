@@ -2,28 +2,30 @@ import { readFile } from "node:fs/promises";
 import { expect, test } from "vitest";
 import { runForCliTest } from "@nseng-ai/clinkr/app/testing";
 import { createGitplaneCliApp, VERSION } from "@nseng-ai/gitplane/cli";
-import type { GitplaneConfigLoader } from "@nseng-ai/gitplane/cli";
-import { InMemoryArtifactGateway } from "@nseng-ai/gitplane/testing";
+import type { GitplaneConfigGateway } from "@nseng-ai/gitplane/cli";
+import { InMemoryArtifactGateway, InMemoryCorpusCheckGateway } from "@nseng-ai/gitplane/testing";
 import { parseArtifactId } from "@nseng-ai/gitplane";
 const parsed = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
 if (!parsed.ok) throw new Error();
 const artifactId = parsed.artifactId;
 const app = createGitplaneCliApp();
 function context(
-	gateway = new InMemoryArtifactGateway(),
-	configLoader: GitplaneConfigLoader = {
+	artifactGateway = new InMemoryArtifactGateway(),
+	configGateway: GitplaneConfigGateway = {
 		load: async () => ({
 			ok: false as const,
 			category: "config-load" as const,
 			diagnostic: "missing",
 		}),
 	},
+	corpusCheckGateway = new InMemoryCorpusCheckGateway(),
 ) {
 	return {
-		artifactGateway: gateway,
+		artifactGateway,
 		artifactIds: { generateArtifactId: () => artifactId },
+		configGateway,
+		corpusCheckGateway,
 		cwd: ".",
-		configLoader,
 	};
 }
 function loadedConfig(options: { readonly root?: string; readonly id?: string } = {}) {
@@ -228,11 +230,11 @@ test("publishes command schemas", async () => {
 });
 
 test("check returns exact clean data for an empty root without history or store operations", async () => {
-	const gateway = new InMemoryArtifactGateway({
+	const gateway = new InMemoryCorpusCheckGateway({
 		workingInventories: [{ artifactRoot: "artifacts", entries: [] }],
 	});
 	const run = await runForCliTest(app, ["check", "--format=json"], {
-		context: context(gateway, loadedConfig()),
+		context: context(undefined, loadedConfig(), gateway),
 	});
 	expect(run.exitCode).toBe(0);
 	expect(JSON.parse(run.stdout)).toEqual({
@@ -251,7 +253,7 @@ test("check returns exact clean data for an empty root without history or store 
 });
 
 test("check returns deterministic corpus findings as exit 1 data", async () => {
-	const gateway = new InMemoryArtifactGateway({
+	const gateway = new InMemoryCorpusCheckGateway({
 		workingInventories: [
 			{
 				artifactRoot: "artifacts",
@@ -277,7 +279,7 @@ test("check returns deterministic corpus findings as exit 1 data", async () => {
 		],
 	});
 	const run = await runForCliTest(app, ["check", "--format=json"], {
-		context: context(gateway, loadedConfig()),
+		context: context(undefined, loadedConfig(), gateway),
 	});
 	expect(run.exitCode).toBe(1);
 	expect(JSON.parse(run.stdout)).toEqual({
@@ -319,20 +321,29 @@ test("check returns deterministic corpus findings as exit 1 data", async () => {
 
 test.each(["--config", "-c"])("check forwards %s exactly once", async (option) => {
 	const requests: unknown[] = [];
-	const gateway = new InMemoryArtifactGateway({
+	const gateway = new InMemoryCorpusCheckGateway({
 		workingInventories: [{ artifactRoot: "empty", entries: [] }],
 	});
 	const run = await runForCliTest(app, ["check", option, "config/custom.ts"], {
-		context: context(gateway, {
-			load: async (request) => {
-				requests.push(request);
-				return {
-					ok: true as const,
-					artifactRoot: "empty",
-					config: { source: { id: "s", artifactRoot: "empty" } },
-				};
+		context: context(
+			undefined,
+			{
+				load: async (request) => {
+					requests.push(request);
+					return {
+						ok: true as const,
+						artifactRoot: "empty",
+						config: {
+							source: { id: "s", artifactRoot: "empty" },
+							store: () => {
+								throw new Error("check must not construct the store");
+							},
+						},
+					};
+				},
 			},
-		}),
+			gateway,
+		),
 	});
 	expect(run.exitCode).toBe(0);
 	expect(requests).toEqual([{ cwd: ".", configPath: "config/custom.ts" }]);
@@ -341,7 +352,7 @@ test.each(["--config", "-c"])("check forwards %s exactly once", async (option) =
 test.each([
 	{
 		name: "config failure",
-		gateway: new InMemoryArtifactGateway(),
+		gateway: new InMemoryCorpusCheckGateway(),
 		loader: {
 			load: async () => ({
 				ok: false as const,
@@ -358,7 +369,7 @@ test.each([
 	},
 	{
 		name: "inventory failure",
-		gateway: new InMemoryArtifactGateway({
+		gateway: new InMemoryCorpusCheckGateway({
 			failures: { inventoryWorkingTree: { code: "secret", message: "/host/private contents" } },
 		}),
 		loader: loadedConfig(),
@@ -370,7 +381,7 @@ test.each([
 	},
 	{
 		name: "candidate read failure",
-		gateway: new InMemoryArtifactGateway({
+		gateway: new InMemoryCorpusCheckGateway({
 			workingInventories: [
 				{
 					artifactRoot: "artifacts",
@@ -388,7 +399,7 @@ test.each([
 	},
 ])("check returns exact sanitized exit 2 data for $name", async ({ gateway, loader, data }) => {
 	const run = await runForCliTest(app, ["check", "--format=json"], {
-		context: context(gateway, loader),
+		context: context(undefined, loader, gateway),
 	});
 	expect(run.exitCode).toBe(2);
 	expect(JSON.parse(run.stdout)).toEqual({
@@ -406,7 +417,7 @@ test.each([
 
 test("check normalizes unexpected throws without partial or sensitive data", async () => {
 	const run = await runForCliTest(app, ["check", "--format=json"], {
-		context: context(new InMemoryArtifactGateway(), {
+		context: context(undefined, {
 			load: async () => {
 				throw new Error("/host/private secret artifact bytes");
 			},

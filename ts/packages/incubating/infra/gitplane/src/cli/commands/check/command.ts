@@ -57,7 +57,7 @@ export async function command() {
 		resultSchema: completedSchema,
 		handler: async (context: GitplaneCliContext, request: z.infer<typeof requestSchema>) => {
 			try {
-				const loaded = await context.configLoader.load({
+				const loaded = await context.configGateway.load({
 					cwd: context.cwd,
 					...(request.config === undefined ? {} : { configPath: request.config }),
 				});
@@ -67,7 +67,7 @@ export async function command() {
 						diagnostic: loaded.diagnostic,
 						...(loaded.path === undefined ? {} : { path: loaded.path }),
 					});
-				const inventory = await context.artifactGateway.inventoryWorkingTree({
+				const inventory = await context.corpusCheckGateway.inventoryWorkingTree({
 					artifactRoot: loaded.artifactRoot,
 				});
 				if (!inventory.ok)
@@ -88,7 +88,7 @@ export async function command() {
 				}
 				const candidates = [];
 				for (const boundary of topology.boundaries) {
-					const candidate = await context.artifactGateway.readWorkingTreeCandidate({
+					const candidate = await context.corpusCheckGateway.readWorkingTreeCandidate({
 						path: boundary.path,
 					});
 					if (!candidate.ok)
