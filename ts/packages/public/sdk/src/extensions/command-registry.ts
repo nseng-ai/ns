@@ -16,7 +16,7 @@ import { extensionPointCommand, extensionPointsCommand } from "./built-in-extens
 import { NS_BUILT_IN_HELP_GROUP } from "./help-presentation.ts";
 import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
-export type NsCommandSourceLevel = "built-in" | "preinstalled" | "project";
+export type NsCommandSourceLevel = "built-in" | "preinstalled" | "user" | "project";
 
 /** How an extension entered the runtime: a local path, npm declaration, or local package environment. */
 export type NsCommandSourceKind = "local" | "npm" | "package";

@@ -18,6 +18,27 @@ export async function createExtensionRegistryWorkspace(): Promise<ExtensionRegis
 	return { cwd: join(directory, "project"), homeDir: join(directory, "home") };
 }
 
+export function writeUserConfig(workspace: ExtensionRegistryWorkspace, source: string): void {
+	writeWorkspaceFile(join(workspace.homeDir, ".config", "ns", "ns.toml"), source);
+}
+
+export function writeUserDescriptorPackage(
+	workspace: ExtensionRegistryWorkspace,
+	options: { directoryName: string; packageName: string; descriptorSource: string },
+): string {
+	const packageRoot = join(workspace.homeDir, "extensions", options.directoryName);
+	writeWorkspaceFile(
+		join(packageRoot, "package.json"),
+		JSON.stringify({
+			name: options.packageName,
+			version: "1.0.0",
+			exports: { "./ns-extension": "./src/ns-extension.ts" },
+		}),
+	);
+	writeWorkspaceFile(join(packageRoot, "src", "ns-extension.ts"), options.descriptorSource);
+	return packageRoot;
+}
+
 export function writeProjectExtension(
 	workspace: ExtensionRegistryWorkspace,
 	fileName: string,

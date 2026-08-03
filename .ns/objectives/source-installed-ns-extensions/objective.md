@@ -49,13 +49,13 @@ Assumptions:
 
 - Extension command availability is useful independently of descriptor activation; repositories that need instructions, bundled artifacts, points, or consumer directories will continue to declare and activate the extension at project scope.
 - Explicit per-package user installation is clearer and safer than having `just install-ns` silently mutate global configuration.
-- Canonical extension identity and command-path precedence are sufficient for layering user and project declarations without a first-release suppression mechanism.
+- Normalized source identity and command-path precedence are sufficient for layering user and project declarations without a first-release suppression mechanism.
 - The existing extension acquisition and descriptor-loader seams can be parameterized by scope rather than duplicated.
 
 Risks:
 
 - **Partial descriptor semantics.** A user-installed extension contributes commands but not its activation metadata. Documentation and diagnostics must make this distinction explicit so users do not mistake availability for project activation. ADR 0051 settles that user lifecycle operations bypass project activation entirely.
-- **Collision ambiguity (contract settled).** ADR 0051 reserves built-ins, rejects same-scope command collisions, lets project command paths override user paths for different identities, and replaces a same-identity user package with the project package atomically before command composition. Implementation must preserve those rules and avoid split-version command surfaces.
+- **Collision ambiguity (contract settled).** ADR 0051 reserves built-ins and defines command-path precedence; ADR 0053 supersedes its manifest-identity rule with normalized source identity. Matching Project sources suppress matching User sources before loading, while different sources remain independent and compose through command-path precedence.
 - **Machine-local path drift.** Canonical absolute local paths become stale when a checkout moves or disappears. User-scope list/update diagnostics must expose acquisition or descriptor failures without breaking unrelated built-ins and extensions.
 - **Config corruption or overreach.** Lifecycle edits must preserve unrelated user-file content even though only `extensions` is consumed initially, and must never reinterpret unsupported user-level fields as active settings.
 - **Managed npm boundary.** User-scoped npm acquisition needs a clear XDG-appropriate location and safe update/uninstall ownership distinct from project `.ns/managed-extensions`.

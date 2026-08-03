@@ -1,3 +1,4 @@
+import { chmodSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
@@ -25,6 +26,8 @@ import {
 
 import {
 	createExtensionRegistryWorkspace,
+	writeUserConfig,
+	writeUserDescriptorPackage,
 	writeWorkspaceFile,
 } from "../helpers/extension-workspace.ts";
 
@@ -78,6 +81,22 @@ function preinstalledCatalog<T>(
 	builtInPackageNames: readonly string[] = [],
 ) {
 	return { entries, extensionPackageNames, builtInPackageNames };
+}
+
+function descriptorSource(options: {
+	group: string;
+	packageLabel: string;
+	commandNames: readonly string[];
+}): string {
+	return `
+import { defineExtension } from "@nseng-ai/sdk";
+const command = (name) => ({ name, summary: name + " summary", description: name + " command", run: () => ({ type: "ok", data: { package: ${JSON.stringify(options.packageLabel)} } }) });
+export default defineExtension({
+  group: ${JSON.stringify(options.group)},
+  description: ${JSON.stringify(`${options.packageLabel} commands.`)},
+  entries: ${JSON.stringify(options.commandNames)}.map((name) => ({ name, load: () => ({ default: command(name) }) })),
+});
+`;
 }
 
 function writeDescriptorPackage(options: {
@@ -623,6 +642,542 @@ export default defineExtension({
 		);
 	});
 
+	test("an absent user config contributes no diagnostics or declarations", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect(loaded.diagnostics).toEqual([]);
+		expect([...loaded.candidates.keys()]).toEqual(builtInCandidateKeys);
+	});
+
+	test("HOME fallback is used only when XDG_CONFIG_HOME is absent", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const fallbackRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "fallback",
+			packageName: "@example/fallback",
+			descriptorSource: descriptorSource({
+				group: "fallback",
+				packageLabel: "fallback",
+				commandNames: ["scan"],
+			}),
+		});
+		const xdgRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "xdg",
+			packageName: "@example/xdg",
+			descriptorSource: descriptorSource({
+				group: "xdg",
+				packageLabel: "xdg",
+				commandNames: ["scan"],
+			}),
+		});
+		writeUserConfig(workspace, `extensions = [${JSON.stringify(fallbackRoot)}]\n`);
+		const xdgConfigHome = join(workspace.homeDir, "xdg");
+		writeWorkspaceFile(
+			join(xdgConfigHome, "ns", "ns.toml"),
+			`extensions = [${JSON.stringify(xdgRoot)}]\n`,
+		);
+
+		const fallback = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+		});
+		const xdg = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			env: { XDG_CONFIG_HOME: xdgConfigHome },
+		});
+
+		expect(fallback.candidates.has("fallback/scan")).toBe(true);
+		expect(fallback.candidates.has("xdg/scan")).toBe(false);
+		expect(xdg.candidates.has("xdg/scan")).toBe(true);
+		expect(xdg.candidates.has("fallback/scan")).toBe(false);
+	});
+
+	test("user config path resolution failures are isolated", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, env: {} });
+
+		expect([...loaded.candidates.keys()]).toEqual(builtInCandidateKeys);
+		expect(loaded.diagnostics).toEqual([
+			expect.objectContaining({ code: "user_ns_toml_path_invalid", sourceLevel: "user" }),
+		]);
+	});
+
+	test("user config non-file, read, TOML, and extensions failures are isolated", async () => {
+		const cases = [
+			{ name: "non-file", source: undefined, code: "user_ns_toml_not_file" },
+			{ name: "read", source: "extensions = []\n", code: "user_ns_toml_read_failed" },
+			{ name: "toml", source: "extensions = [", code: "ns_toml_invalid" },
+			{ name: "extensions", source: 'extensions = "bad"\n', code: "ns_toml_extensions_invalid" },
+		] as const;
+		for (const fixture of cases) {
+			const workspace = await createExtensionRegistryWorkspace();
+			const configPath = join(workspace.homeDir, ".config", "ns", "ns.toml");
+			if (fixture.source === undefined) mkdirSync(configPath, { recursive: true });
+			else writeWorkspaceFile(configPath, fixture.source);
+			if (fixture.name === "read") chmodSync(configPath, 0o000);
+
+			const loaded = await loadNsCommandCatalog({
+				cwd: workspace.cwd,
+				homeDir: workspace.homeDir,
+			});
+
+			if (fixture.name === "read") chmodSync(configPath, 0o600);
+			expect([...loaded.candidates.keys()]).toEqual(builtInCandidateKeys);
+			expect(loaded.diagnostics).toEqual([
+				expect.objectContaining({ code: fixture.code, sourceLevel: "user", path: configPath }),
+			]);
+		}
+	});
+
+	test("user descriptors load from the single XDG config path and ignore unrelated fields", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const packageRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "tools",
+			packageName: "@example/user-tools",
+			descriptorSource: `
+import { defineExtension } from "@nseng-ai/sdk";
+const command = { name: "scan", summary: "User scan.", description: "User scan.", run: () => ({ type: "ok", data: {} }) };
+export default defineExtension({ group: "tools", description: "User tools.", entries: [{ name: "scan", load: () => ({ default: command }) }] });
+`,
+		});
+		writeUserConfig(
+			workspace,
+			`extensions = [${JSON.stringify(packageRoot)}]\nsupported_harnesses = "ignored"\n[points]\nfoo = "ignored"\n`,
+		);
+
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect(loaded.candidates.get("tools/scan")).toMatchObject({
+			source: { level: "user" },
+		});
+		expect(loaded.extensionPackageNames.has("@example/user-tools")).toBe(true);
+	});
+
+	test("XDG_CONFIG_HOME selects exactly one user config and user specs enforce source policy", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const xdgConfigHome = join(workspace.homeDir, "custom-config");
+		writeUserConfig(workspace, 'extensions = ["/must-not-load"]\n');
+		writeWorkspaceFile(
+			join(xdgConfigHome, "ns", "ns.toml"),
+			'extensions = ["./relative", "npm:@example/managed"]\n',
+		);
+
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			env: { XDG_CONFIG_HOME: xdgConfigHome },
+		});
+
+		expect([...loaded.candidates.keys()]).toEqual(builtInCandidateKeys);
+		expect(loaded.diagnostics).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: "extension_descriptor_relative_local_source_unsupported",
+					sourceLevel: "user",
+					path: "./relative",
+				}),
+				expect.objectContaining({
+					code: "user_extension_npm_unavailable",
+					sourceLevel: "user",
+					path: join(xdgConfigHome, "ns", "ns.toml"),
+				}),
+			]),
+		);
+		expect(loaded.extensionPackageNames.has("@example/managed")).toBe(false);
+	});
+
+	test("absolute user locals load while relative locals are rejected without affecting the absolute package", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const absoluteRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "absolute",
+			packageName: "@example/absolute",
+			descriptorSource: descriptorSource({
+				group: "absolute",
+				packageLabel: "absolute",
+				commandNames: ["scan"],
+			}),
+		});
+		writeUserConfig(workspace, `extensions = ["./relative", ${JSON.stringify(absoluteRoot)}]\n`);
+
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect(loaded.candidates.has("absolute/scan")).toBe(true);
+		expect(loaded.diagnostics).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: "extension_descriptor_relative_local_source_unsupported",
+					sourceLevel: "user",
+				}),
+			]),
+		);
+	});
+
+	test("preinstalled then user then project exact-path precedence is ordered and lazy", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		let preinstalledLoads = 0;
+		const userRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "user-tools",
+			packageName: "@example/user-tools",
+			descriptorSource: descriptorSource({
+				group: "tools",
+				packageLabel: "user",
+				commandNames: ["scan"],
+			}),
+		});
+		writeUserConfig(workspace, `extensions = [${JSON.stringify(userRoot)}]\n`);
+		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/project"]\n');
+		writeDescriptorPackage({
+			cwd: workspace.cwd,
+			directoryName: "project",
+			packageName: "@example/project-tools",
+			descriptorSource: descriptorSource({
+				group: "tools",
+				packageLabel: "project",
+				commandNames: ["scan"],
+			}),
+		});
+
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			preinstalledCommandCatalog: () =>
+				preinstalledCatalog([
+					{
+						...preinstalledEntry("tools", "scan", "unused"),
+						displayPath: "preinstalled#tools/scan",
+						load: () => {
+							preinstalledLoads += 1;
+							return defineRawCommand({
+								name: "scan",
+								summary: "preinstalled",
+								description: "preinstalled",
+								run: () => ok({}),
+							});
+						},
+					},
+				]),
+		});
+
+		expect(loaded.candidates.get("tools/scan")?.source.level).toBe("project");
+		expect(
+			loaded.diagnostics.filter((diagnostic) => diagnostic.code === "extension_command_override"),
+		).toHaveLength(2);
+		expect(preinstalledLoads).toBe(0);
+	});
+
+	test("same-scope distinct sources with one manifest name both contribute", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const first = writeUserDescriptorPackage(workspace, {
+			directoryName: "first",
+			packageName: "@example/duplicate",
+			descriptorSource: descriptorSource({
+				group: "first",
+				packageLabel: "first",
+				commandNames: ["one"],
+			}),
+		});
+		const second = writeUserDescriptorPackage(workspace, {
+			directoryName: "second",
+			packageName: "@example/duplicate",
+			descriptorSource: descriptorSource({
+				group: "second",
+				packageLabel: "second",
+				commandNames: ["two"],
+			}),
+		});
+		writeUserConfig(
+			workspace,
+			`extensions = [${JSON.stringify(first)}, ${JSON.stringify(second)}]\n`,
+		);
+
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect(loaded.candidates.has("first/one")).toBe(true);
+		expect(loaded.candidates.has("second/two")).toBe(true);
+		expect(loaded.extensionPackageNames.has("@example/duplicate")).toBe(true);
+		expect(loaded.diagnostics).toEqual([]);
+	});
+
+	test("project and user sources with one manifest name compose by command precedence", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const userRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "shared",
+			packageName: "@example/shared",
+			descriptorSource: descriptorSource({
+				group: "shared",
+				packageLabel: "user",
+				commandNames: ["common", "user-only"],
+			}),
+		});
+		writeUserConfig(workspace, `extensions = [${JSON.stringify(userRoot)}]\n`);
+		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/shared"]\n');
+		writeDescriptorPackage({
+			cwd: workspace.cwd,
+			directoryName: "shared",
+			packageName: "@example/shared",
+			descriptorSource: descriptorSource({
+				group: "shared",
+				packageLabel: "project",
+				commandNames: ["common", "project-only"],
+			}),
+		});
+
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect(loaded.candidates.get("shared/common")?.source.level).toBe("project");
+		expect(loaded.candidates.has("shared/project-only")).toBe(true);
+		expect(loaded.candidates.has("shared/user-only")).toBe(true);
+	});
+
+	test("a project declaration suppresses the same user source before loading", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		writeUserConfig(workspace, 'extensions = ["npm:@example/shared"]\n');
+		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["npm:@example/shared"]\n');
+
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			preinstalledCommandCatalog: () =>
+				preinstalledCatalog(
+					[
+						{
+							...preinstalledEntry("consumer", "optional", "@example/consumer/optional"),
+							requiresExtension: "@example/shared",
+						},
+					],
+					["@example/consumer"],
+				),
+		});
+
+		expect(loaded.candidates.has("consumer/optional")).toBe(false);
+		expect(loaded.extensionPackageNames.has("@example/shared")).toBe(false);
+		expect(loaded.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "extension_descriptor_package_missing",
+				sourceLevel: "project",
+			}),
+		]);
+	});
+
+	test("an uncorrelatable broken project local leaves unrelated user identities active", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const userRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "user",
+			packageName: "@example/user",
+			descriptorSource: descriptorSource({
+				group: "user",
+				packageLabel: "user",
+				commandNames: ["scan"],
+			}),
+		});
+		writeUserConfig(workspace, `extensions = [${JSON.stringify(userRoot)}]\n`);
+		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/missing"]\n');
+
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect(loaded.candidates.has("user/scan")).toBe(true);
+		expect(loaded.diagnostics).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: "extension_descriptor_package_missing",
+					sourceLevel: "project",
+				}),
+			]),
+		);
+	});
+
+	test("cross-level command versus group shape uses higher-level whole-shape precedence", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const userRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "user",
+			packageName: "@example/user-shape",
+			descriptorSource: descriptorSource({
+				group: "tools",
+				packageLabel: "user",
+				commandNames: ["scan", "doctor"],
+			}),
+		});
+		writeUserConfig(workspace, `extensions = [${JSON.stringify(userRoot)}]\n`);
+		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/project"]\n');
+		writeDescriptorPackage({
+			cwd: workspace.cwd,
+			directoryName: "project",
+			packageName: "@example/project-shape",
+			descriptorSource: descriptorSource({
+				group: "root",
+				packageLabel: "project",
+				commandNames: ["other"],
+			}).replace('group: "root",', ""),
+		});
+		// Use a top-level command named tools, which cannot coexist with tools/* in one CLI tree.
+		const projectDescriptorPath = join(
+			workspace.cwd,
+			"extensions",
+			"project",
+			"src",
+			"ns-extension.ts",
+		);
+		writeWorkspaceFile(
+			projectDescriptorPath,
+			`import { defineExtension } from "@nseng-ai/sdk";\nconst command = { name: "tools", summary: "Tools.", description: "Tools.", run: () => ({ type: "ok", data: {} }) };\nexport default defineExtension({ description: "Project.", entries: [{ name: "tools", load: () => ({ default: command }) }] });\n`,
+		);
+
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect(loaded.candidates.has("tools")).toBe(true);
+		expect(loaded.candidates.has("tools/scan")).toBe(false);
+		expect(loaded.candidates.has("tools/doctor")).toBe(false);
+		expect(loaded.diagnostics).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ code: "extension_command_override", commandName: "tools" }),
+			]),
+		);
+	});
+
+	test("same-level exact and nested path-shape collisions exclude every participant", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			preinstalledCommandCatalog: () =>
+				preinstalledCatalog([
+					{
+						name: "tools",
+						description: "tools",
+						fullDescription: "tools",
+						moduleSpecifier: "@example/top",
+					},
+					preinstalledEntry("tools", "scan", "@example/scan-one"),
+					preinstalledEntry("tools", "scan", "@example/scan-two"),
+					{
+						name: "deep",
+						path: ["tools", "scan", "deep"],
+						description: "deep",
+						fullDescription: "deep",
+						moduleSpecifier: "@example/deep",
+					},
+				]),
+		});
+
+		expect(loaded.candidates.has("tools")).toBe(false);
+		expect(loaded.candidates.has("tools/scan")).toBe(false);
+		expect(loaded.candidates.has("tools/scan/deep")).toBe(false);
+		expect(loaded.diagnostics).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ code: "extension_command_group_collision" }),
+				expect.objectContaining({ code: "extension_command_duplicate_in_level" }),
+			]),
+		);
+	});
+
+	test("built-in collisions from preinstalled, user, and project remain reserved", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const userRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "user-built-in",
+			packageName: "@example/user-built-in",
+			descriptorSource: descriptorSource({
+				group: "extension",
+				packageLabel: "user",
+				commandNames: ["point"],
+			}),
+		});
+		writeUserConfig(workspace, `extensions = [${JSON.stringify(userRoot)}]\n`);
+		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/project"]\n');
+		writeDescriptorPackage({
+			cwd: workspace.cwd,
+			directoryName: "project",
+			packageName: "@example/project-built-in",
+			descriptorSource: descriptorSource({
+				group: "extension",
+				packageLabel: "project",
+				commandNames: ["points"],
+			}),
+		});
+
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			preinstalledCommandCatalog: () =>
+				preinstalledCatalog([
+					preinstalledEntry("extension", "point", "@example/preinstalled-point"),
+				]),
+		});
+
+		expect(loaded.candidates.get("extension/point")?.source.level).toBe("built-in");
+		expect(loaded.candidates.get("extension/points")?.source.level).toBe("built-in");
+		const collisions = loaded.diagnostics.filter(
+			(diagnostic) => diagnostic.code === "extension_command_builtin_reserved",
+		);
+		expect(collisions).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ sourceLevel: "preinstalled", commandName: "extension/point" }),
+				expect.objectContaining({ sourceLevel: "user", commandName: "extension/point" }),
+			]),
+		);
+		expect(loaded.diagnostics).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: "extension_command_built_in_namespace_conflict",
+					sourceLevel: "project",
+					commandName: "extension/points",
+				}),
+			]),
+		);
+		const selected = loaded.candidates.get("extension/point");
+		const selectedClassification = classifyExtensionDiagnosticsForInvocation({
+			diagnostics: loaded.diagnostics,
+			requestedCommandName: "extension/point",
+			selectedCandidate: selected,
+		});
+		expect(selectedClassification.fatal).toHaveLength(2);
+		expect(selectedClassification.warnings).toEqual(
+			expect.arrayContaining([expect.objectContaining({ commandName: "extension/points" })]),
+		);
+		const unrelatedClassification = classifyExtensionDiagnosticsForInvocation({
+			diagnostics: loaded.diagnostics,
+			requestedCommandName: "other",
+			selectedCandidate: undefined,
+		});
+		expect(unrelatedClassification.fatal).toEqual([]);
+		expect(unrelatedClassification.warnings).toHaveLength(3);
+	});
+
+	test("one command shape collision reports every affected built-in path", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const userRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "extension-command",
+			packageName: "@example/extension-command",
+			descriptorSource: `
+import { defineExtension } from "@nseng-ai/sdk";
+const command = { name: "extension", summary: "extension", description: "extension", run: () => ({ type: "ok", data: {} }) };
+export default defineExtension({ description: "Extension command.", entries: [{ name: "extension", load: () => ({ default: command }) }] });
+`,
+		});
+		writeUserConfig(workspace, `extensions = [${JSON.stringify(userRoot)}]\n`);
+
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect(loaded.candidates.has("extension")).toBe(false);
+		expect(
+			loaded.diagnostics
+				.filter((diagnostic) => diagnostic.code === "extension_command_builtin_reserved")
+				.map((diagnostic) => diagnostic.commandName),
+		).toEqual(["extension/point", "extension/points"]);
+		for (const commandName of builtInCandidateKeys) {
+			const classified = classifyExtensionDiagnosticsForInvocation({
+				diagnostics: loaded.diagnostics,
+				requestedCommandName: commandName,
+				selectedCandidate: loaded.candidates.get(commandName),
+			});
+			expect(classified.fatal).toEqual([
+				expect.objectContaining({ commandName, sourceLevel: "user" }),
+			]);
+		}
+	});
+
 	test("project overrides preserve extension presentation but cannot replace built-in namespace commands", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		writeWorkspaceFile(
@@ -645,8 +1200,12 @@ export default defineExtension({ description: "Direct commands.", entries: [{ na
 			packageName: "@example/nested",
 			descriptorSource: `
 import { defineExtension } from "@nseng-ai/sdk";
-const command = { name: "point", summary: "Project point.", description: "Project point.", run: () => ({ type: "ok", data: {} }) };
-export default defineExtension({ group: "extension", description: "Extension commands.", entries: [{ name: "point", load: () => ({ default: command }) }] });
+const pointCommand = { name: "point", summary: "Project point.", description: "Project point.", run: () => ({ type: "ok", data: {} }) };
+const inspectCommand = { name: "inspect", summary: "Project inspect.", description: "Project inspect.", run: () => ({ type: "ok", data: {} }) };
+export default defineExtension({ group: "extension", description: "Extension commands.", entries: [
+  { name: "point", load: () => ({ default: pointCommand }) },
+  { name: "inspect", load: () => ({ default: inspectCommand }) },
+] });
 `,
 		});
 
@@ -672,12 +1231,17 @@ export default defineExtension({ group: "extension", description: "Extension com
 			source: { level: "built-in" },
 			helpGroup: NS_BUILT_IN_HELP_GROUP,
 		});
+		expect(loaded.candidates.has("extension/inspect")).toBe(false);
 		expect(loaded.diagnostics).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ code: "extension_command_override", commandName: "hello" }),
 				expect.objectContaining({
 					code: "extension_command_built_in_namespace_conflict",
 					commandName: "extension/point",
+				}),
+				expect.objectContaining({
+					code: "extension_command_built_in_namespace_conflict",
+					commandName: "extension/inspect",
 				}),
 			]),
 		);
@@ -775,7 +1339,12 @@ export default defineExtension({ group: "extension", description: "Extension com
 			preinstalledCommandCatalog: () =>
 				preinstalledCatalog([gatedEntry], ["@example/consumer", "@example/provider"]),
 		});
-		expect(present.candidates.get("extension/points")?.source.level).toBe("preinstalled");
+		expect(present.candidates.get("extension/points")?.source.level).toBe("built-in");
+		expect(present.diagnostics).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ code: "extension_command_builtin_reserved" }),
+			]),
+		);
 		expect(present.extensionPackageNames.has("@example/provider")).toBe(true);
 		expect(loadCount).toBe(0);
 	});

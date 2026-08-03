@@ -13,8 +13,8 @@ The user-facing CLI path contributed by a built-in host command or an extension 
 *Avoid*: proof of SDK ownership, compatibility alias, Pi runtime command, package-private API.
 
 **Built-in host command**:
-A command implemented by the SDK because it is host infrastructure, such as runtime diagnostics, completion, or managed shell integration. Built-ins are the lowest-precedence catalog source, but their top-level namespaces remain distribution-owned: preinstalled distribution entries may contribute through catalog precedence, while Project descriptor extensions cannot contribute to or override them. This architectural source category is narrower than the user-facing `Built-ins:` help section.
-*Avoid*: default extension command, bundled workflow, project policy, project-extensible namespace, synonym for every command shown under `Built-ins:`.
+A command implemented by the SDK because it is host infrastructure, such as runtime diagnostics, completion, or managed shell integration. Built-in command paths are reserved against preinstalled, User, and Project descriptor entries. More broadly, their distribution-owned top-level namespaces reject every Project descriptor contribution, including otherwise non-colliding descendants, while preinstalled distribution entries may contribute through catalog precedence. This architectural source category is narrower than the user-facing `Built-ins:` help section.
+*Avoid*: lowest-precedence override target, default extension command, bundled workflow, project policy, project-extensible namespace, synonym for every command shown under `Built-ins:`.
 
 **Built-in help category**:
 The user-facing architectural category rendered as `Built-ins:` in top-level help. It contains Built-in host commands plus preinstalled entries whose registration explicitly pins them there (in ns: `extension`, `init`, `skills`, and `update`, which ship in every installation and read as part of the tool); all other extension commands remain in `Extensions:` whether they come from the Preinstalled descriptor catalog or a Project descriptor extension. Within `Extensions:`, package-sourced extensions list alphabetically before repo-local `ns.toml` path extensions. A Project descriptor extension cannot contribute to or override a namespace in the Built-in help category; discovery rejects the contribution with an actionable configuration error. A preinstalled registration separately classifies its package as user-facing built-in or extension so internal extension architecture does not make distribution-owned functionality user-manageable.
@@ -25,11 +25,15 @@ Injected metadata for first-party extension commands shipped with an installed C
 *Avoid*: privileged built-in, SDK-owned command, reason to bypass the SDK boundary, automatic destination for repo-specific policy.
 
 **Extension origin marker**:
-The optional lowercase bare letter right-aligned on a top-level `Extensions:` help row: `p` for an installed package contribution (including source-development workspace packages and Project descriptor extensions declared with an `npm:` source), and `l` for one declared by a repo-local path. Distribution-supplied Preinstalled descriptor catalog contributions have no marker. A marked namespace reports effective runtime acquisition origin after Catalog precedence; a namespace with winning package and local contributions displays `l`. It is distinct from internal catalog source levels, declaration source kind, and package Release disposition.
+The optional lowercase bare letter right-aligned on a top-level `Extensions:` help row: `p` for an installed package contribution (including source-development workspace packages and Project descriptor extensions declared with an `npm:` source), and `l` for one declared by a local path. Distribution-supplied Preinstalled descriptor catalog contributions have no marker. A marked namespace reports effective runtime acquisition origin after Catalog precedence; a namespace with winning package and local contributions displays `l`. It is distinct from internal catalog source levels, declaration source kind, and package Release disposition.
 *Avoid*: package disposition marker, complete provenance inventory, overridden-origin marker, built-in marker, help legend.
 
+**User descriptor extension**:
+A command-only extension package listed in the single XDG-resolved user `ns.toml` and exposing `exports["./ns-extension"]`. User descriptors make commands available across repositories without activating instructions, points, consumer directories, bundled artifacts, harness artifacts, or extension settings in those repositories.
+*Avoid*: project activation, global project configuration, repository mutation, automatic npm acquisition policy.
+
 **Project descriptor extension**:
-A repository-declared extension package listed in repo-root `ns.toml` and exposing `exports["./ns-extension"]`. Project descriptor entries can group commands and override lower-precedence sources without making those commands universal built-ins.
+A repository-declared extension package listed in repo-root `ns.toml` and exposing `exports["./ns-extension"]`. Project descriptor entries can group commands, replace a User descriptor declaration with the same normalized source identity, and override lower-precedence extension command paths without making those commands universal built-ins.
 *Avoid*: default SDK command, compatibility alias, bundled first-party extension, package implementation module, extension-root scan.
 
 **Extension acquisition**:
@@ -53,16 +57,20 @@ A command contribution inside an extension descriptor or preinstalled descriptor
 *Avoid*: extension root, package API, Pi mirror, YAML task spec.
 
 **Extension discovery**:
-The side-effect-light CLI step that scans built-in definitions, injected preinstalled descriptor metadata, and `ns.toml`-declared descriptors to build the command catalog without importing unrelated command implementation modules.
-*Avoid*: eager module loading for help, partial registration state from failed modules, hidden plugin registry, filesystem extension-root scanning.
+The side-effect-light CLI step that scans built-in definitions, injected preinstalled descriptor metadata, the single XDG user `ns.toml`, and repository `ns.toml` declarations to build the command catalog without importing unrelated command implementation modules.
+*Avoid*: activation, eager module loading for help, partial registration state from failed modules, hidden plugin registry, filesystem extension-root scanning.
 
 **Selected command loading**:
 The CLI step that imports and validates exactly one external command contribution after the user selects a command. Selected help and JSON schema may load the selected contribution; top-level help and unrelated commands must not load unselected descriptor entries. Discovery diagnostics that affect the selected command are fatal; unrelated discovery diagnostics are warnings.
 *Avoid*: loading all extension code to discover command names, fallback past a broken higher-precedence selected command, bricking static help/version/runtime for unrelated malformed entries.
 
+**Extension source identity**:
+The declaration identity derived before descriptor loading: npm package name without version, resolved absolute local path, or normalized recognized git source. Project declarations replace User declarations only when this identity matches; different sources remain independent even when their manifests declare the same package name.
+*Avoid*: manifest package identity, post-load reservation, versioned identity, command path.
+
 **Catalog precedence**:
-The ordering used to resolve duplicate command keys: built-in host commands < preinstalled descriptor catalog < project descriptor extensions. Higher-precedence entries override lower-precedence entries with diagnostics rather than compatibility aliases.
-*Avoid*: fallback alias, load-order accident, extension priority scheme.
+The four-level command-catalog ordering: reserved Built-in host commands, then preinstalled descriptor catalog < User descriptor extensions < Project descriptor extensions. Built-in command paths cannot be overridden, and Project descriptor extensions cannot contribute anywhere within a distribution-owned Built-in help namespace. Among other non-built-in paths, higher-precedence command shapes replace conflicting lower-precedence shapes with source-labelled diagnostics rather than compatibility aliases.
+*Avoid*: built-in override, project-extensible built-in namespace, fallback alias, load-order accident, extension priority scheme.
 
 **ns extension API**:
 The concrete author surface at the `@nseng-ai/sdk` package root. It exposes `defineExtension()`, command/result types and helpers, execution-context services, schema builder `z`, and curated lower-package re-exports owned as SDK vocabulary. `ts/packages/public/sdk/docs/sdk-reference.md` is the authoritative export inventory.
