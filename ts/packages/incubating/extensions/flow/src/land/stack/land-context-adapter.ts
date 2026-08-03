@@ -43,7 +43,7 @@ import {
 	type LandGraphiteOperation,
 } from "../graphite-operations.ts";
 import type { LandGraphiteCommandChannel } from "./graphite-command-channel.ts";
-import { loadOpenPullRequestDependencies, loadPr, loadPrsByBranch } from "./pr-facts.ts";
+import { loadPr, loadPrsByBranch } from "./pr-facts.ts";
 import {
 	assertLocalBranchExists,
 	detectInProgressOperation,
@@ -150,13 +150,6 @@ export function createLandContext(
 				const prs = await loadPrsByBranch(pi, repoRoot, branches);
 				if (prs.type === "failure") return normalizeAdapterResult(prs, "github", "preflight");
 				return landSuccess(prs.value);
-			},
-			openPullRequestDependencies: async ({ repoRoot, targets }) => {
-				const dependents = await loadOpenPullRequestDependencies(pi, repoRoot, targets);
-				if (dependents.type === "failure") {
-					return normalizeAdapterResult(dependents, "github", "preflight");
-				}
-				return landSuccess(dependents.value);
 			},
 			squashMergePullRequest: async ({ repoRoot, pullRequest }) => {
 				const mergeArgs = squashMergeArgs(pullRequest);

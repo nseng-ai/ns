@@ -106,8 +106,6 @@ function eventLabel(event: InMemoryLandCallEvent): string {
 			return `${event.operation}:${event.request.branchOrNumber}`;
 		case "github.squashMergePullRequest":
 			return `${event.operation}:${event.request.pullRequest.headRefName}`;
-		case "github.openPullRequestDependencies":
-			return `${event.operation}:${event.request.targets.map((target) => target.branch).join(",")}`;
 	}
 }
 

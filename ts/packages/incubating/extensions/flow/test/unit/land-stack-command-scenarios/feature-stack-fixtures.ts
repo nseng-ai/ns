@@ -24,7 +24,6 @@ import {
 	cleanRepoChecks,
 	descendantReconcileSteps,
 	domainRepoIntro,
-	openPrDependencyScanSteps,
 	repoIntro,
 } from "./repo-fixtures.ts";
 import { ROOT, TRUNK, step, worktreeOutput, type ScriptedExec } from "./support.ts";
@@ -46,7 +45,6 @@ export function initialBranchPlans(options: { featureBBase?: string } = {}): Scr
 		step("gh", batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, branches), {
 			stdout: batchedPrStdout(prs),
 		}),
-		...openPrDependencyScanSteps(branches),
 	];
 }
 
@@ -236,7 +234,6 @@ export function singleBranchPreflightWithRepoIntro(
 				]),
 			},
 		),
-		...openPrDependencyScanSteps(["feature-a"]),
 		step("git", ["worktree", "list", "--porcelain"], {
 			stdout: options.worktrees ?? worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
 		}),

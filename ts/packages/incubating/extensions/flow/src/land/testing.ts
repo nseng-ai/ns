@@ -3,7 +3,6 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type {
 	LandContext,
 	LandingBoundaryFailure,
-	LandingBranchDependencyTarget,
 	LandGitGateway,
 	LandGithubPrGateway,
 	LandGraphiteCommandResult,
@@ -16,7 +15,6 @@ import type {
 	LandWorktreeSlotFactsGateway,
 	LocalBranchTip,
 	ManagedSlotWorktree,
-	PullRequestDependencyFacts,
 	PullRequestFacts,
 	SquashMergePullRequestResult,
 	StackSnapshot,
@@ -68,11 +66,7 @@ export type InMemoryLandCallEvent =
 	| { readonly operation: "graphite.restack"; readonly request: LandRestackCall }
 	| { readonly operation: "graphite.submitUpdate"; readonly request: LandSubmitUpdateCall }
 	| { readonly operation: "graphite.branchChildren"; readonly request: LandBranchChildrenCall }
-	| { readonly operation: "graphite.branchParent"; readonly request: LandBranchParentCall }
-	| {
-			readonly operation: "github.openPullRequestDependencies";
-			readonly request: LandOpenPullRequestDependenciesCall;
-	  };
+	| { readonly operation: "graphite.branchParent"; readonly request: LandBranchParentCall };
 
 type RecordInMemoryLandCall = (event: InMemoryLandCallEvent) => void;
 const ignoreInMemoryLandCall: RecordInMemoryLandCall = () => {};
@@ -442,10 +436,6 @@ export interface LandBranchParentCall extends LandBranchCall {
 	readonly metadataDbPath: string;
 }
 
-export interface LandOpenPullRequestDependenciesCall extends LandRepoCall {
-	readonly targets: readonly LandingBranchDependencyTarget[];
-}
-
 export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	private readonly trunkState: ValueState<string>;
 	private readonly metadataDbPathState: ValueState<string>;
@@ -757,9 +747,6 @@ export interface InMemoryLandGithubPrGatewayState {
 	readonly squashMergeResults?: Readonly<Record<string, ValueState<SquashMergePullRequestResult>>>;
 	/** Facts (or load failure) returned after a successful merge, keyed by PR number. */
 	readonly postMergeFacts?: Readonly<Record<string, ValueState<PullRequestFacts>>>;
-	/** Open-PR dependency facts visible to the complete remote dependency scan. */
-	readonly openPullRequestDependencies?: readonly PullRequestDependencyFacts[];
-	readonly openPullRequestDependenciesFailure?: LandingBoundaryFailure;
 }
 
 export interface LandPullRequestFactsCall extends LandRepoCall {
@@ -778,12 +765,9 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 		ValueState<SquashMergePullRequestResult>
 	>;
 	private readonly postMergeFacts: ReadonlyMap<string, ValueState<PullRequestFacts>>;
-	private readonly dependencyFacts: PullRequestDependencyFacts[];
-	private readonly openPullRequestDependenciesFailure: LandingBoundaryFailure | undefined;
 	private readonly mergedPullRequestNumbers = new Set<string>();
 	private readonly pullRequestFactsLog: LandPullRequestFactsCall[] = [];
 	private readonly squashMergePullRequestLog: LandSquashMergePullRequestCall[] = [];
-	private readonly openPullRequestDependenciesLog: LandOpenPullRequestDependenciesCall[] = [];
 	private readonly recordCall: RecordInMemoryLandCall;
 
 	constructor(
@@ -812,10 +796,6 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 				copyValueState(facts, cloneData),
 			]),
 		);
-		this.dependencyFacts = cloneData([...(state.openPullRequestDependencies ?? [])]);
-		this.openPullRequestDependenciesFailure = cloneOptionalData(
-			state.openPullRequestDependenciesFailure,
-		);
 	}
 
 	/** Test-only remote state transition: overwrite stored PR facts (e.g. a successful fake submit). */
@@ -835,33 +815,6 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 
 	get squashMergePullRequestCalls(): readonly LandSquashMergePullRequestCall[] {
 		return cloneData(this.squashMergePullRequestLog);
-	}
-
-	get openPullRequestDependenciesCalls(): readonly LandOpenPullRequestDependenciesCall[] {
-		return cloneData(this.openPullRequestDependenciesLog);
-	}
-
-	async openPullRequestDependencies(request: {
-		readonly repoRoot: string;
-		readonly targets: readonly LandingBranchDependencyTarget[];
-	}): Promise<LandResult<readonly PullRequestDependencyFacts[]>> {
-		const call = { repoRoot: request.repoRoot, targets: cloneData(request.targets) };
-		this.openPullRequestDependenciesLog.push(call);
-		this.recordCall({ operation: "github.openPullRequestDependencies", request: call });
-		if (this.openPullRequestDependenciesFailure !== undefined) {
-			return { type: "failure", failure: cloneData(this.openPullRequestDependenciesFailure) };
-		}
-		return {
-			type: "success",
-			value: cloneData(
-				this.dependencyFacts.filter((dependent) => {
-					const target = request.targets.find(
-						(candidate) => candidate.branch === dependent.baseRefName,
-					);
-					return target?.headOids.includes(dependent.baseRefOid) ?? false;
-				}),
-			),
-		};
 	}
 
 	async pullRequestFacts(request: {

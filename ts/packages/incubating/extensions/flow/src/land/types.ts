@@ -108,8 +108,7 @@ export type LandingDomainFailureReason =
 	| "pull-request-head-mismatch"
 	| "pull-request-base-mismatch"
 	| "manual-worktree-conflict"
-	| "descendant-maintenance-blocked"
-	| "descendant-topology-mismatch";
+	| "descendant-maintenance-blocked";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
@@ -525,39 +524,11 @@ export interface SquashMergePullRequestResult {
 	readonly stderr: string;
 }
 
-/**
- * Dependency facts for an open pull request, observed from GitHub. `baseRefOid` is the commit
- * the PR's base ref currently points at; an open PR whose base OID equals a landing branch head
- * is a remote dependent of that branch regardless of what the stack provider reports.
- */
-export interface PullRequestDependencyFacts {
-	readonly number: number;
-	readonly headRefName: string;
-	readonly headRefOid: string;
-	readonly baseRefName: string;
-	readonly baseRefOid: string;
-}
-
-export interface LandingBranchDependencyTarget {
-	readonly branch: string;
-	readonly headOids: readonly string[];
-}
-
 export interface LandGithubPrGateway {
 	pullRequestFacts(request: {
 		readonly repoRoot: string;
 		readonly branchOrNumber: string;
 	}): Promise<LandResult<PullRequestFacts>>;
-	/**
-	 * Open pull requests targeting each landing branch whose observed base OID equals that
-	 * branch's local or submitted head OID. Implementations must paginate every targeted branch
-	 * query to completion; an incomplete answer would silently recreate the fail-open
-	 * descendant-discovery hole this operation exists to close.
-	 */
-	openPullRequestDependencies(request: {
-		readonly repoRoot: string;
-		readonly targets: readonly LandingBranchDependencyTarget[];
-	}): Promise<LandResult<readonly PullRequestDependencyFacts[]>>;
 	pullRequestFactsByBranch?(request: {
 		readonly repoRoot: string;
 		readonly branches: readonly string[];

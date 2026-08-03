@@ -1,9 +1,5 @@
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/foundation/git";
-import type { PullRequestDependencyFacts, PullRequestFacts } from "../../../src/land/api.ts";
-import {
-	GH_REPO_VIEW_NAME_WITH_OWNER_ARGS,
-	openPullRequestDependencyFactsGraphqlArgs,
-} from "../../../src/land/stack/pr-facts.ts";
+import type { PullRequestFacts } from "../../../src/land/api.ts";
 import {
 	createBranchParentStep,
 	createChildrenRecheckStep,
@@ -73,36 +69,6 @@ export const BRANCH_SHAS: Record<string, string> = {
 	[DESCENDANT]: SHA_C,
 	"feature-d": SHA_D,
 };
-
-/** Targeted dependency queries: one fully exhausted connection per landing branch. */
-export function openPrDependencyScanSteps(
-	branches: readonly string[],
-	dependents: readonly PullRequestDependencyFacts[] = [],
-): ScriptedExec[] {
-	return [
-		step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
-			stdout: `${JSON.stringify({ nameWithOwner: "owner/repo" })}\n`,
-		}),
-		...branches.map((branch) =>
-			step(
-				"gh",
-				openPullRequestDependencyFactsGraphqlArgs({ owner: "owner", name: "repo" }, branch),
-				{
-					stdout: `${JSON.stringify({
-						data: {
-							repository: {
-								pullRequests: {
-									pageInfo: { hasNextPage: false, endCursor: null },
-									nodes: dependents.filter((dependent) => dependent.baseRefName === branch),
-								},
-							},
-						},
-					})}\n`,
-				},
-			),
-		),
-	];
-}
 
 export function batchedPrStdout(prs: readonly PullRequestFacts[]): string {
 	return `${JSON.stringify({

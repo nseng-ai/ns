@@ -6,8 +6,6 @@ import { PR_FIELDS } from "../../src/land/stack/constants.ts";
 import {
 	GH_REPO_VIEW_NAME_WITH_OWNER_ARGS,
 	batchedPullRequestFactsGraphqlArgs,
-	loadOpenPullRequestDependencies,
-	openPullRequestDependencyFactsGraphqlArgs,
 	loadPr,
 	loadPrsByBranch,
 } from "../../src/land/stack/pr-facts.ts";
@@ -155,48 +153,6 @@ function batchedSteps(repository: Record<string, unknown>): ScriptedExec[] {
 		}),
 	];
 }
-
-describe("targeted open pull request dependency loading", () => {
-	test("filters GraphQL by base branch and paginates each target independently", async () => {
-		const repo = { owner: "owner", name: "repo" };
-		const page = (hasNextPage: boolean, endCursor: string | null, nodes: unknown[] = []) => ({
-			stdout: JSON.stringify({
-				data: { repository: { pullRequests: { pageInfo: { hasNextPage, endCursor }, nodes } } },
-			}),
-		});
-		const dependent = {
-			number: 42,
-			headRefName: "child",
-			headRefOid: SHA_C,
-			baseRefName: "feature-a",
-			baseRefOid: SHA_A,
-		};
-		const pi = new FakeLandExecutionApi([
-			step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
-				stdout: JSON.stringify({ nameWithOwner: "owner/repo" }),
-			}),
-			step("gh", openPullRequestDependencyFactsGraphqlArgs(repo, "feature-a"), page(true, "a2")),
-			step(
-				"gh",
-				openPullRequestDependencyFactsGraphqlArgs(repo, "feature-a", "a2"),
-				page(false, null, [dependent]),
-			),
-			step("gh", openPullRequestDependencyFactsGraphqlArgs(repo, "feature-b"), page(false, null)),
-		]);
-
-		const result = expectSuccess(
-			await loadOpenPullRequestDependencies(pi, ROOT, [
-				{ branch: "feature-a", headOids: [SHA_A] },
-				{ branch: "feature-b", headOids: [SHA_B] },
-			]),
-		);
-
-		pi.assertDone();
-		expect(result).toEqual([dependent]);
-		const query = openPullRequestDependencyFactsGraphqlArgs(repo, "feature-a").at(-1);
-		expect(query).toContain("baseRefName: $base");
-	});
-});
 
 describe("loadPrsByBranch batched boundary parsing", () => {
 	test("queries two open candidates and one historical fallback per branch", () => {

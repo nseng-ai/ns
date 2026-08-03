@@ -4,11 +4,7 @@ import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GH_TIMEOUT_MS, PR_FIELD_NAMES, PR_FIELDS } from "./constants.ts";
 import { landFailure, landingExecutionFailure, landSuccess, type LandResult } from "../results.ts";
-import type {
-	LandingBranchDependencyTarget,
-	PullRequestDependencyFacts,
-	PullRequestFacts,
-} from "../types.ts";
+import type { PullRequestFacts } from "../types.ts";
 import type { LandExecutionApi } from "./types.ts";
 
 interface GitHubRepositoryName {
@@ -39,131 +35,6 @@ interface GhJsonRequest<T> {
 }
 
 export const GH_REPO_VIEW_NAME_WITH_OWNER_ARGS = ["repo", "view", "--json", "nameWithOwner"];
-
-export const OPEN_PR_DEPENDENCY_PAGE_SIZE = 100;
-
-const OPEN_PR_DEPENDENCY_QUERY = `query($owner: String!, $name: String!, $base: String!, $cursor: String) { repository(owner: $owner, name: $name) { pullRequests(baseRefName: $base, states: OPEN, first: ${OPEN_PR_DEPENDENCY_PAGE_SIZE}, after: $cursor) { pageInfo { hasNextPage endCursor } nodes { number headRefName headRefOid baseRefName baseRefOid } } } }`;
-
-export function openPullRequestDependencyFactsGraphqlArgs(
-	repo: GitHubRepositoryName,
-	baseRefName: string,
-	cursor?: string,
-): string[] {
-	return [
-		"api",
-		"graphql",
-		"-F",
-		`owner=${repo.owner}`,
-		"-F",
-		`name=${repo.name}`,
-		"-F",
-		`base=${baseRefName}`,
-		...(cursor === undefined ? [] : ["-F", `cursor=${cursor}`]),
-		"-f",
-		`query=${OPEN_PR_DEPENDENCY_QUERY}`,
-	];
-}
-
-interface OpenPullRequestDependencyPage {
-	readonly nodes: readonly PullRequestDependencyFacts[];
-	readonly hasNextPage: boolean;
-	readonly endCursor: string | null;
-}
-
-/**
- * Complete, independently paginated queries for open pull requests targeting each landing branch.
- * Results are retained only when GitHub reports the branch base at its local or submitted head.
- */
-export async function loadOpenPullRequestDependencies(
-	pi: LandExecutionApi,
-	repoRoot: string,
-	targets: readonly LandingBranchDependencyTarget[],
-): Promise<LandResult<readonly PullRequestDependencyFacts[]>> {
-	if (targets.length === 0) return landSuccess([]);
-
-	const repo = await loadGitHubRepositoryName(pi, repoRoot);
-	if (repo.type === "failure") return repo;
-
-	const dependents: PullRequestDependencyFacts[] = [];
-	for (const target of targets) {
-		const headOidSet = new Set(target.headOids);
-		let cursor: string | undefined;
-		const seenCursors = new Set<string>();
-		while (true) {
-			const parsed = await execAndParseJson({
-				pi,
-				repoRoot,
-				args: openPullRequestDependencyFactsGraphqlArgs(repo.value, target.branch, cursor),
-				execFailureMessage: `Could not load open GitHub pull requests targeting ${target.branch} for dependency reconciliation.`,
-				parseFailureMessage: (error) =>
-					`Failed to parse gh api graphql open-PR dependency output for ${target.branch}: ${formatErrorMessage(error)}.`,
-				validationFailureMessage: `gh api graphql open-PR dependency output for ${target.branch} did not match the expected shape.`,
-				parse: parseOpenPullRequestDependencyPage,
-			});
-			if (parsed.type === "failure") return parsed;
-			for (const node of parsed.value.nodes) {
-				if (node.baseRefName === target.branch && headOidSet.has(node.baseRefOid)) {
-					dependents.push(node);
-				}
-			}
-			if (!parsed.value.hasNextPage) break;
-			const nextCursor = parsed.value.endCursor;
-			if (nextCursor === null || seenCursors.has(nextCursor)) {
-				return landFailure(
-					landingExecutionFailure(
-						`gh api graphql open-PR dependency output for ${target.branch} did not advance its pagination cursor; refusing to land with incomplete dependency facts.`,
-					),
-				);
-			}
-			seenCursors.add(nextCursor);
-			cursor = nextCursor;
-		}
-	}
-	return landSuccess(dependents);
-}
-
-function parseOpenPullRequestDependencyPage(
-	value: unknown,
-): OpenPullRequestDependencyPage | undefined {
-	if (!isRecord(value) || !isRecord(value.data) || !isRecord(value.data.repository)) {
-		return undefined;
-	}
-	const connection = value.data.repository.pullRequests;
-	if (!isRecord(connection) || !Array.isArray(connection.nodes) || !isRecord(connection.pageInfo)) {
-		return undefined;
-	}
-	const { hasNextPage, endCursor } = connection.pageInfo;
-	if (typeof hasNextPage !== "boolean") return undefined;
-	if (typeof endCursor !== "string" && endCursor !== null) return undefined;
-	const nodes: PullRequestDependencyFacts[] = [];
-	for (const node of connection.nodes) {
-		const parsedNode = parsePullRequestDependencyFacts(node);
-		if (parsedNode === undefined) return undefined;
-		nodes.push(parsedNode);
-	}
-	return { nodes, hasNextPage, endCursor };
-}
-
-function parsePullRequestDependencyFacts(value: unknown): PullRequestDependencyFacts | undefined {
-	if (
-		!isRecord(value) ||
-		typeof value.number !== "number" ||
-		!Number.isFinite(value.number) ||
-		typeof value.headRefName !== "string" ||
-		typeof value.headRefOid !== "string" ||
-		typeof value.baseRefName !== "string" ||
-		typeof value.baseRefOid !== "string"
-	) {
-		return undefined;
-	}
-	return {
-		number: value.number,
-		headRefName: value.headRefName,
-		headRefOid: value.headRefOid,
-		baseRefName: value.baseRefName,
-		baseRefOid: value.baseRefOid,
-	};
-}
 
 export function batchedPullRequestFactsGraphqlArgs(
 	repo: GitHubRepositoryName,
