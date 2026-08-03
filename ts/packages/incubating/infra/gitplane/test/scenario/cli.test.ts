@@ -3,7 +3,10 @@ import { expect, test } from "vitest";
 import { runForCliTest } from "@nseng-ai/clinkr/app/testing";
 import { createGitplaneCliApp, VERSION } from "@nseng-ai/gitplane/cli";
 import type { GitplaneConfigGateway } from "@nseng-ai/gitplane/cli";
-import { InMemoryArtifactGateway } from "@nseng-ai/gitplane/testing";
+import {
+	InMemoryArtifactGateway,
+	InMemoryMaterializationStoreGateway,
+} from "@nseng-ai/gitplane/testing";
 import { parseArtifactId } from "@nseng-ai/gitplane";
 import type { ArtifactGateway } from "@nseng-ai/gitplane";
 const parsed = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
@@ -22,6 +25,7 @@ function context(options: ContextOptions = {}) {
 	return {
 		artifactGateway: options.artifactGateway ?? new InMemoryArtifactGateway(),
 		artifactIds: { generateArtifactId: () => artifactId },
+		clock: { now: () => new Date("2026-01-01T00:00:00.000Z") },
 		configGateway: options.configGateway ?? {
 			load: async () => ({
 				ok: false as const,
@@ -37,6 +41,7 @@ function loadedConfig(options: { readonly root?: string; readonly id?: string } 
 		load: async () => ({
 			ok: true as const,
 			artifactRoot: options.root ?? "artifacts",
+			configDirectory: ".",
 			config: {
 				source: { id: options.id ?? "source", artifactRoot: options.root ?? "artifacts" },
 				store: () => {
@@ -226,11 +231,139 @@ test("publishes command schemas", async () => {
 	for (const command of [
 		["artifact", "create", "--json-schema"],
 		["check", "--json-schema"],
+		["doctor", "--json-schema"],
 	]) {
 		const run = await runForCliTest(app, command, { context: context() });
 		expect(run.exitCode).toBe(0);
 		expect(JSON.parse(run.stdout)).toHaveProperty("machineEnvelopeJsonSchema");
 	}
+});
+
+test("doctor requests read-only access and returns typed checks", async () => {
+	const accesses: unknown[] = [];
+	const store = new InMemoryMaterializationStoreGateway();
+	const run = await runForCliTest(app, ["doctor", "--format=json"], {
+		context: context({
+			configGateway: {
+				load: async () => ({
+					ok: true,
+					artifactRoot: "artifacts",
+					configDirectory: "/repo/config",
+					config: {
+						source: { id: "source", artifactRoot: "artifacts" },
+						store: (gitplaneContext, options) => {
+							accesses.push({ gitplaneContext, options });
+							return store;
+						},
+					},
+				}),
+			},
+		}),
+	});
+	expect(run.exitCode).toBe(0);
+	expect(JSON.parse(run.stdout)).toMatchObject({
+		status: "success",
+		data: { sourceId: "source", passCount: 1, failCount: 0, unsupportedCount: 0 },
+	});
+	expect(accesses).toEqual([
+		{
+			gitplaneContext: { clock: expect.any(Object), configDirectory: "/repo/config" },
+			options: { access: "read-only" },
+		},
+	]);
+});
+
+test("doctor exits one when a required capability is unsupported", async () => {
+	const store = new InMemoryMaterializationStoreGateway({
+		doctorIntrospection: {
+			controlSchema: { state: "compatible", version: 1 },
+			targetTables: [
+				{
+					name: "artifacts",
+					columns: [
+						"source_id",
+						"artifact_id",
+						"revision_id",
+						"path",
+						"deleted",
+						"deleted_at",
+						"payload",
+					],
+					uniqueColumnSets: [["source_id", "artifact_id"]],
+				},
+			],
+			jsonProjection: {
+				requirement: "required",
+				status: "unsupported",
+				detail: "Required capability unavailable.",
+			},
+		},
+	});
+	const run = await runForCliTest(app, ["doctor", "--format=json"], {
+		context: context({
+			configGateway: {
+				load: async () => ({
+					ok: true,
+					artifactRoot: "artifacts",
+					configDirectory: ".",
+					config: {
+						source: { id: "source", artifactRoot: "artifacts" },
+						kinds: [
+							{
+								apiVersion: "example/v1",
+								kind: "Artifact",
+								schemaVersions: {
+									1: { fields: { "/payload": { target: "payload", mode: "json" } } },
+								},
+								transitions: [],
+								target: {
+									table: "artifacts",
+									lineage: {
+										sourceId: "source_id",
+										artifactId: "artifact_id",
+										revisionId: "revision_id",
+										path: "path",
+										deleted: "deleted",
+										deletedAtCommit: "deleted_at",
+									},
+								},
+							},
+						],
+						store: () => store,
+					},
+				}),
+			},
+		}),
+	});
+	expect(run.exitCode).toBe(1);
+	expect(JSON.parse(run.stdout)).toMatchObject({
+		status: "negative",
+		data: { failCount: 1, unsupportedCount: 0 },
+	});
+});
+
+test.each([
+	["inspect", { inspectDoctor: { code: "broken", message: "secret" } }, "store-inspection-failed"],
+	["close", { close: { code: "broken", message: "secret" } }, "store-close-failed"],
+] as const)("doctor normalizes %s failures", async (_name, failures, category) => {
+	const run = await runForCliTest(app, ["doctor", "--format=json"], {
+		context: context({
+			configGateway: {
+				load: async () => ({
+					ok: true,
+					artifactRoot: "artifacts",
+					configDirectory: ".",
+					config: {
+						source: { id: "source", artifactRoot: "artifacts" },
+						store: () => new InMemoryMaterializationStoreGateway({ failures }),
+					},
+				}),
+			},
+		}),
+	});
+	expect(run.exitCode).toBe(2);
+	expect(JSON.parse(run.stdout)).toMatchObject({ status: "failure", data: { category } });
+	expect(run.stdout).not.toContain("secret");
 });
 
 test("check returns exact clean data for an empty root without history or store operations", async () => {
@@ -336,6 +469,7 @@ test.each(["--config", "-c"])("check forwards %s exactly once", async (option) =
 					return {
 						ok: true as const,
 						artifactRoot: "empty",
+						configDirectory: ".",
 						config: {
 							source: { id: "s", artifactRoot: "empty" },
 							store: () => {

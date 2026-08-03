@@ -129,7 +129,7 @@ CREATE TABLE greetings (
 
 Gitplane does not otherwise constrain physical names, SQL types, primary keys, or additional columns. The two-column `(gp_source_id, gp_artifact_id)` composite unique constraint is mandatory so upserts have a deterministic conflict target; it need not be the primary key.
 
-Operators own all target-table DDL and migrations. Gitplane neither creates nor migrates application tables. The SQLite adapter creates only Gitplane control tables for cursors, immutable revisions, durable events, and reconciliation errors.
+Operators own all target-table DDL and migrations. Gitplane neither creates nor migrates application tables. The SQLite adapter owns Gitplane control tables for cursors, lineage, current state, immutable revisions, durable events, and reconciliation errors. Operators create them only through the explicit, idempotent `initializeSqliteStore({ path, baseDirectory })` API. Initialization inspects before writing, creates a missing compatible v1 schema atomically, and refuses incompatible objects without migration, drop, rename, or rewrite. Opening a store, `doctor`, and `reconcile` perform no DDL.
 
 ### Projections
 
@@ -143,7 +143,7 @@ fields: {
 }
 ```
 
-Ordinary mappings preserve the selected JSON value without Gitplane coercion. Missing pointers and explicit JSON `null` both map to the backend's null value. `mode: "json"` passes an object, array, scalar, or null as one adapter-native structured value; the empty pointer maps the complete marker. Gitplane does not prevalidate table schemas or projected SQL types. The adapter/database is authoritative, and rejection fails closed.
+Ordinary mappings preserve the selected JSON value without Gitplane coercion. Missing pointers and explicit JSON `null` both map to the backend's null value. `mode: "json"` passes an object, array, scalar, or null as one adapter-native structured value; the empty pointer maps the complete marker. SQLite deterministically JSON-serializes non-null JSON-mode values and binds ordinary scalars directly, representing booleans as integers; ordinary objects and arrays fail closed. Gitplane does not prevalidate projected SQL types. The adapter/database is authoritative, and rejection fails closed.
 
 A live upsert writes the complete lineage and configured target-version projection in one target-row statement. `clearFields` explicitly writes retired columns as null. A deletion updates only the deletion fields, preserving the last revision ID, path, and domain values. Restoration performs a complete live upsert at the restored path and clears deletion state.
 
@@ -208,10 +208,10 @@ A normal target must descend from the cursor. Older or divergent targets fail wi
 - control-table compatibility;
 - configured target-table and mapped-column presence;
 - mandatory lineage fields for configured classified kinds;
-- `(gp_source_id, gp_artifact_id)` composite uniqueness for each configured target table;
+- an exact two-column `(gp_source_id, gp_artifact_id)` unique key for each configured target table (a wider unique key is insufficient);
 - configured JSON-mapping support where introspection permits.
 
-Checks return `pass`, `fail`, or `unsupported`. A failure exits `1`. Unsupported introspection is a visible warning unless the adapter says the capability is required for safe writes. `doctor` performs no DDL, initialization, migration, probe write, or destructive operation. The SQLite adapter supports all v1 doctor checks.
+Checks return `pass`, `fail`, or `unsupported`. A failure exits `1`. Unsupported introspection is a visible warning unless the adapter says the capability is required for safe writes. `doctor` performs no DDL, initialization, migration, probe write, or destructive operation. The SQLite adapter supports all v1 doctor checks through normalized introspection facts; core policy owns stable check codes, subjects, ordering, and statuses. A source-only store config runs only the control-schema check. Generic artifacts imply no target checks.
 
 ## Reconciliation events
 
@@ -254,7 +254,7 @@ Failure to persist the error does not hide or replace the original failure and n
 V1 uses two incubating workspace packages:
 
 - `@nseng-ai/gitplane` — domain API, validation, digesting, reconciliation planning, the canonical artifact, corpus-check, and materialization-store gateway contracts, in-memory fakes, conformance helpers, and an exported API-kind `@nseng-ai/gitplane/cli` subpackage;
-- `@nseng-ai/gitplane-sqlite` — local/reference store adapter and Gitplane control-table implementation.
+- `@nseng-ai/gitplane-sqlite` — Node 24+ native `node:sqlite` local/reference store adapter and explicit Gitplane control-schema initializer. Relative database paths resolve against the selected config directory, read-only opens do not create missing databases, parent directories are never created implicitly, and each command owns one closable store lifetime.
 
 The `/cli` subpackage has distinct runtime importers, passes the repository subpackage rank test, and is rooted at `src/cli/`. A thin executable bootstrap invokes its Clinkr app. Its command topology follows Clinkr's filesystem layout:
 

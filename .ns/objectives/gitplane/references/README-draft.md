@@ -75,7 +75,7 @@ Every file beneath the marker's directory belongs to the artifact. Artifacts can
 
 ### 2. Create the config
 
-By default, put `gitplane.config.ts` in the directory from which Gitplane is invoked. It declares the source (artifact root) and may declare the store and registered kinds with their table mappings:
+By default, put `gitplane.config.ts` in the directory from which Gitplane is invoked. It declares the source (artifact root) and store, and may declare registered kinds with their table mappings:
 
 ```ts
 import { defineArtifactKind, defineGitplaneConfig } from "@nseng-ai/gitplane";
@@ -136,9 +136,20 @@ CREATE TABLE greetings (
 );
 ```
 
-### 4. Control-plane tables
+### 4. Initialize control-plane tables
 
-Gitplane keeps its own control-plane tables (cursors, immutable revisions, durable events, and reconciliation errors) in the same store, strictly under its control. The store adapter explicitly initializes and manages them; with `@nseng-ai/gitplane-sqlite`, applications do not author that DDL.
+Gitplane keeps its own control-plane tables (cursors, lineage, current state, immutable revisions, durable events, and reconciliation errors) in the same store, strictly under its control. Initialize the native Node SQLite adapter explicitly during setup:
+
+```ts
+import { initializeSqliteStore } from "@nseng-ai/gitplane-sqlite";
+
+await initializeSqliteStore({
+  path: "state/greetings.db",
+  baseDirectory: import.meta.dirname,
+});
+```
+
+Initialization is idempotent and refuses incompatible existing control objects without migrating or rewriting them. Opening the adapter and running `doctor` or `reconcile` never creates or migrates tables. The parent directory must already exist; applications do not author the control-plane DDL.
 
 ### 5. Add the CI job
 
@@ -149,7 +160,7 @@ Two jobs cover the loop:
 
 ### 6. Run doctor
 
-`gitplane doctor` verifies the setup. It is read-only: it loads the config, opens one read-only store, and checks control-table compatibility, configured domain tables and mapped columns, lineage fields, and the composite `(gp_source_id, gp_artifact_id)` uniqueness. It never initializes or migrates storage.
+`gitplane doctor` verifies the setup. It is read-only: it loads the config, opens one read-only store for the invocation, and checks control-table compatibility, configured domain tables and mapped columns, lineage fields, the exact two-column `(gp_source_id, gp_artifact_id)` uniqueness, and JSON projection support. It closes the store before returning and never initializes or migrates it.
 
 ### 7. End-to-end test
 
@@ -172,7 +183,7 @@ Gitplane loads `gitplane.config.ts` from the invocation's current working direct
 
 One configuration defines one **domain** and selects exactly one `source.id` and one `source.artifactRoot`. One CLI invocation operates on exactly one domain. The minimum valid configuration contains only `source`; `kinds` and `store` are independently optional. Generic artifacts require no kind registration or target mapping. Commands that need an absent capability fail as configuration errors.
 
-Configuration is trusted executable code. At invocation start Gitplane captures the current working directory. The default config is `gitplane.config.ts` in that directory, and `--config <path>` is resolved against that directory. `source.artifactRoot` is resolved against the selected config's directory, must resolve within the invocation directory, and must identify a real directory by `lstat`; its logical path is then normalized back to a current-working-directory-relative `/`-separated path. Working-tree discovery never follows symlinks. The store is a lazy factory: `check` never invokes it or reads history, while `doctor` and `reconcile` open it when configured.
+Configuration is trusted executable code. At invocation start Gitplane captures the current working directory. The default config is `gitplane.config.ts` in that directory, and `--config <path>` is resolved against that directory. `source.artifactRoot` is resolved against the selected config's directory, must resolve within the invocation directory, and must identify a real directory by `lstat`; its logical path is then normalized back to a current-working-directory-relative `/`-separated path. Working-tree discovery never follows symlinks. The store is an access-aware lazy factory: `check` never invokes it or reads history, `doctor` requests read-only access, and `reconcile` requests read-write access. Each command opens one store per invocation and closes it before returning. Store paths resolve from `context.configDirectory`; no command initializes or migrates storage.
 
 ## CLI
 
