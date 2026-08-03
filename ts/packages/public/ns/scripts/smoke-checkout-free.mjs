@@ -23,7 +23,7 @@ try {
 	);
 	const installedPackageRoot = join(tempRoot, "node_modules", "@nseng-ai", "ns");
 	const installedCli = join(installedPackageRoot, "bin", "ns.js");
-	await assertInstalledPackageBoundary(nsBin, installedCli);
+	await assertInstalledPackageBoundary(nsBin, installedCli, installedPackageRoot);
 
 	const help = await run(nsBin, ["init", "--help"], { cwd: tempRoot });
 	if (!help.stdout.includes("Usage: ns init")) {
@@ -52,13 +52,31 @@ try {
 	}
 }
 
-async function assertInstalledPackageBoundary(nsBin, installedCli) {
+async function assertInstalledPackageBoundary(nsBin, installedCli, installedPackageRoot) {
 	const cliSource = await readFile(installedCli, "utf8");
 	if (!cliSource.startsWith("#!/usr/bin/env node\n")) {
 		throw new Error("Installed ns CLI is not a prebuilt executable JS file with a node shebang.");
 	}
 	if (cliSource.includes("run_checkout") || cliSource.includes("ts/node_modules")) {
 		throw new Error("Installed ns CLI appears to include the source checkout shim boundary.");
+	}
+	const manifest = JSON.parse(await readFile(join(installedPackageRoot, "package.json"), "utf8"));
+	const runtimeDependencyNames = Object.keys(manifest.dependencies ?? {});
+	const forbiddenExtensionDependencies = [
+		"@nseng-ai/branch-context",
+		"@nseng-ai/flow",
+		"@nseng-ai/handoffs",
+		"@nseng-ai/herdr",
+		"@nseng-ai/objectives",
+		"@nseng-ai/pr-feedback",
+		"@nseng-ai/reviews",
+		"@nseng-ai/skill-exposure",
+		"@nseng-ai/slots",
+	].filter((packageName) => runtimeDependencyNames.includes(packageName));
+	if (forbiddenExtensionDependencies.length > 0) {
+		throw new Error(
+			`Packed ns unexpectedly depends on incubating extensions: ${forbiddenExtensionDependencies.join(", ")}`,
+		);
 	}
 	if (process.platform !== "win32") {
 		const resolvedBin = await realpath(nsBin);

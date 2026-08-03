@@ -64,3 +64,13 @@ Risks:
 ## Open Questions
 
 - Which concise user-facing labels best express the settled distinction between a user-available command extension and a project-declared, activated extension without adding a separate lifecycle state?
+
+## Closure
+
+**Outcome: completed.** All roadmap rows and completion criteria are satisfied. User-scope extension discovery and lifecycle operations support canonical local paths and managed `npm:` sources through the XDG configuration and data roots; catalog composition preserves reserved built-ins, deterministic same-scope collision errors, project-over-user precedence, and atomic same-package project replacement. Integration evidence proves complete command surfaces for the eight intended source extensions from unrelated non-Git directories, no repository activation effects, Skill Exposure's project-local boundary, source-shim checkout precedence, and isolation of the packed `@nseng-ai/ns` distribution.
+
+The final documentation pass resolves the remaining terminology question with **user-scoped command availability** and **project-scoped activation**. These are scope effects, not extension types or lifecycle states. The durable contract is graduated to ADR 0051, ADR 0052, `ts/packages/public/ns/README.md`, the SDK README and author/reference documentation, and `ts/packages/public/sdk/CONTEXT.md`; this closed Objective is not their sole source.
+
+Material PR evidence spans the submitted implementation stack, culminating in PR #4051, “Prove source-installed extension command surfaces across repositories,” which adds whole-extension, host-lifecycle, source-shim, and packed-distribution proof. The final documentation reconciliation and this closure remain local branch changes at closure time.
+
+Parked non-goals remain deliberately outside the completed outcome: user-extension suppression, bulk installation, user-level inheritance of other configuration, user-scope activation, and bundling incubating extensions into the published CLI. They require fresh product direction rather than reopening this Objective by default.

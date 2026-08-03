@@ -11,7 +11,7 @@ built-in host commands (reserved)
 preinstalled descriptor catalog < user descriptors < project descriptors
 ```
 
-Built-in commands are SDK-owned host commands and cannot be overridden. Preinstalled descriptor catalog entries are injected by the installed CLI distribution. User entries come from the single XDG-resolved user `ns.toml` and provide command-only availability across repositories. Project entries come from repo-root `ns.toml`; each package exposes `exports["./ns-extension"]` as a typed descriptor module. Project descriptors replace a user descriptor with the same canonical package identity as a whole package; otherwise higher-precedence command paths override lower-precedence paths. Same-scope collisions are errors, while cross-scope overrides are recorded as diagnostics rather than compatibility aliases.
+Built-in commands are SDK-owned host commands and cannot be overridden. Preinstalled descriptor catalog entries are injected by the installed CLI distribution. User entries come from the single XDG-resolved user `ns.toml` and provide **user-scoped command availability** across repositories. Project entries come from repo-root `ns.toml` and may participate in **project-scoped activation**; each package exposes `exports["./ns-extension"]` as a typed descriptor module. These labels describe scope effects, not separate extension types or lifecycle states. Project descriptors replace a user descriptor with the same canonical package identity as a whole package; otherwise higher-precedence command paths override lower-precedence paths. Same-scope collisions are errors, while cross-scope overrides are recorded as diagnostics rather than compatibility aliases.
 
 ## Descriptor modules
 
