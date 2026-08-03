@@ -99,6 +99,14 @@ test.each([
 		diagnostic: "Schema version keys must be unique positive integers.",
 	},
 	{
+		name: "invalid JSON pointer escape",
+		config: {
+			...source(),
+			kinds: [{ ...kind, schemaVersions: { 1: { fields: { "/bad~2": { target: "message" } } } } }],
+		},
+		diagnostic: "Projection field keys must be valid RFC 6901 JSON pointers.",
+	},
+	{
 		name: "self transition",
 		config: { ...source(), kinds: [{ ...kind, transitions: [{ from: 1, to: 1 }] }] },
 		diagnostic: "Transitions must be unique, non-self edges between declared schema versions.",

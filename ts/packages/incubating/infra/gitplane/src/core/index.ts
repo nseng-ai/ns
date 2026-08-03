@@ -1,4 +1,5 @@
 export {
+	artifactClassificationSchema,
 	artifactIdSchema,
 	parseArtifactId,
 	parseArtifactMarker,
@@ -26,8 +27,11 @@ export type {
 	Clock,
 	GitplaneConfig,
 	GitplaneContext,
+	GitplaneStoreFactory,
 	ProjectionField,
+	StoreAccess,
 	TargetMapping,
+	TargetProjectionField,
 } from "./domain.ts";
 export {
 	ARTIFACT_EVENT_TYPES,
@@ -53,7 +57,9 @@ export type {
 	CreateArtifactResult,
 	CursorCompareAndSetResult,
 	CursorRecord,
+	DoctorCapability,
 	DoctorCheck,
+	DoctorIntrospection,
 	EventInsertResult,
 	EventRecord,
 	GatewayError,
@@ -79,3 +85,6 @@ export { FINDING_CODES, findingSchema, sortFindings } from "./check/finding.ts";
 export type { Finding } from "./check/finding.ts";
 export { ARTIFACT_MARKER_NAME, inspectCorpusTopology } from "./check/inspect-corpus-topology.ts";
 export type { ArtifactBoundaryTopology, CorpusTopology } from "./check/inspect-corpus-topology.ts";
+export { doctorCheckSchema, evaluateDoctor } from "./doctor/index.ts";
+export { buildProjectionPlan, resolveJsonPointer } from "./projection/index.ts";
+export type { JsonPointerResult, ProjectionPlan } from "./projection/index.ts";
