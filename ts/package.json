@@ -26,6 +26,8 @@
 		"test": "vitest run --config vitest.config.ts",
 		"test:integration": "vitest run --config vitest.integration.config.ts",
 		"test:isolated": "vitest run --config vitest.isolated.config.ts",
+		"test:sanity": "vitest run --config vitest.sanity.config.ts",
+		"test:sanity:gitplane-coverage": "vitest run --config vitest.sanity.config.ts packages/incubating/infra/gitplane/test/sanity/real-artifact-gateway.test.ts --coverage --coverage.include=packages/incubating/infra/gitplane/src/cli/real-artifact-gateway.ts --coverage.reporter=text --coverage.reporter=json-summary",
 		"test:typescript-style-guard": "vitest run --config vitest.typescript-style-guard.config.ts"
 	},
 	"devDependencies": {
@@ -48,6 +50,7 @@
 		"@nseng-ai/reviews": "workspace:*",
 		"@nseng-ai/slots": "workspace:*",
 		"@types/node": "catalog:",
+		"@vitest/coverage-v8": "catalog:",
 		"@typescript/native": "catalog:",
 		"@withgraphite/graphite-cli": "catalog:",
 		"jsonc-parser": "catalog:",

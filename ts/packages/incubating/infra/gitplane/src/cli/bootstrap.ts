@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { createArtifactIdGenerator } from "../core/index.ts";
 import { createGitplaneCliApp } from "./app.ts";
-import { NodeArtifactGateway } from "./node-artifact-gateway.ts";
+import { RealArtifactGateway } from "./real-artifact-gateway.ts";
+const cwd = process.cwd();
 const app = createGitplaneCliApp();
 process.exitCode = await app.run(process.argv.slice(2), {
 	context: {
-		artifactGateway: new NodeArtifactGateway(),
+		artifactGateway: new RealArtifactGateway({ cwd }),
 		artifactIds: createArtifactIdGenerator({ clock: { now: () => new Date() } }),
 	},
 });

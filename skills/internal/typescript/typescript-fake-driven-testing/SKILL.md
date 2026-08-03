@@ -68,8 +68,11 @@ Fakes should:
 ## Test layers
 
 - `test/unit/`: pure helpers and policy with no gateways or I/O.
-- `test/gateways/`: fake-check tests plus real-adapter sanity tests. Real-adapter tests may use a scripted low-level runner to verify protocol details.
+- `test/gateways/`: fake-check tests and adapter protocol tests that use injected low-level runners.
 - `test/scenario/`: user-facing entry points over in-memory gateway fakes. Assert exit codes, stdout/stderr, result payloads, and narrow fake logs only for invisible behavior.
+- Integration tests retain actual Git, filesystem, process, or other external-system compatibility.
+- A dedicated sanity lane may invoke a concrete real adapter while mocking only low-level runtime or vendor modules when code-unchanged adapter testing requires module substitution. Run it with test-file isolation (`isolate: true`); never mock domain or workflow logic, semantic gateways, or the adapter subject.
+- Use an isolated lane for ambient product/runtime module-cache or process-global contracts, not as an adapter-mocking technique.
 
 Scenario tests should act once through the public entry point, such as `runCli(...)`, rather than calling internals or asserting exact subprocess calls.
 

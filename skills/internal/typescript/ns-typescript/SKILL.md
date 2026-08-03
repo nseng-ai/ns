@@ -117,13 +117,15 @@ package-level seam inventory and the enforcement ban (in ns: `ts/AGENTS.md` "Tim
 
 ## Test lanes and shared-cache safety
 
-Default tests are fake-driven. Real adapter/runtime boundaries belong under `test/integration/`;
-tests whose subject genuinely requires ambient Vitest module state or process-global state belong
-under `test/isolated/`. Isolation is not a synonym for integration or a general slow-test lane;
-first prefer injected dependencies, gateways, manual time helpers, explicit env/cwd, or a narrow
-owned lifecycle seam. The shared-lane hard bans, per-ban remediation, lane commands, and CI split
-are owned by the host repo's AGENTS.md (in ns: `ts/AGENTS.md` "Test isolation hard gates") with
-placement detail in `ts/TESTING.md`.
+Default tests are fake-driven. Integration tests retain actual external-system compatibility. Tests
+whose subject genuinely requires ambient product/runtime module or process state belong in the isolated
+lane. A separate sanity lane may invoke a concrete real adapter while mocking only low-level runtime or
+vendor modules when code-unchanged adapter testing requires it; it must use `isolate: true` and must not
+mock domain/workflow logic, semantic gateways, or the adapter subject. Isolation is not an
+adapter-mocking technique, an integration synonym, or a general slow-test lane. First prefer injected
+dependencies, gateways, manual time helpers, explicit env/cwd, or a narrow owned lifecycle seam. The
+shared-lane hard bans, per-ban remediation, exact paths and commands, and CI split are owned by the host
+repo's agent instructions and testing docs (in ns: `ts/AGENTS.md` and `ts/TESTING.md`).
 
 ## Style-guard enforcement
 
@@ -143,5 +145,6 @@ just ts-check
 just ts-test
 just ts-test-integration
 just ts-test-isolated
+just ts-test-sanity
 just ts-test-typescript-style-guard
 ```

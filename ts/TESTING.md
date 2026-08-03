@@ -11,8 +11,8 @@ just ts-test
 ```
 
 Default tests include package-local `test/**/*.test.ts` files except the specialized lanes under
-`test/integration/`, `test/isolated/`, and `test/typescript-style-guard/`. Keep this path fake-driven
-and deterministic enough for frequent local use.
+`test/integration/`, `test/isolated/`, `test/sanity/`, and `test/typescript-style-guard/`. Keep this
+path fake-driven and deterministic enough for frequent local use.
 
 Integration tests run intentionally with a separate command:
 
@@ -30,6 +30,15 @@ pnpm --dir ts run test:isolated
 just ts-test-isolated
 ```
 
+Real-adapter sanity tests that must mock only low-level runtime or vendor modules run in a narrow,
+isolated-cache lane:
+
+```bash
+pnpm --dir ts run test:sanity
+# or
+just ts-test-sanity
+```
+
 The repository-wide TypeScript style guard is a separate long-running architectural guard suite:
 
 ```bash
@@ -38,36 +47,41 @@ pnpm --dir ts run test:typescript-style-guard
 just ts-test-typescript-style-guard
 ```
 
-CI reports the default, integration, isolated, and TypeScript style guard suites as separate
-non-draft PR jobs. The isolated suite belongs only in its separate CI job; do not fold it into the
-shared-cache default or integration jobs. Do not hide a specialized lane behind environment variables
-or make the default test command silently run it.
+CI reports the default, integration, isolated, sanity, and TypeScript style guard suites as separate
+non-draft PR jobs. Sanity keeps a separate Vitest invocation and CI job because it requires module
+isolation, but plain `just` / `just check` also runs it alongside core validation. Do not fold sanity
+files into the shared-cache `just ts-test` invocation or hide a lane behind environment variables.
 
-**Warning:** the default `just` / `just check` validation path deliberately omits the integration,
-isolated, and TypeScript style guard lanes. Run the relevant explicit command when a change touches a
-specialized lane, its subjects, or its configuration. In particular, a passing default validation does
-not prove the isolated lane or architectural style guard passed.
+**Warning:** the default `just` / `just check` validation path includes sanity but deliberately omits
+integration, isolated, and the TypeScript style guard. Run the relevant explicit command when a change
+touches an omitted specialized lane, its subjects, or its configuration. A passing default validation
+therefore proves sanity passed, but not integration, isolated, or the architectural style guard.
 
-`just ci` is the broader opt-in local aggregate. It runs the default/core checks together with the
-integration lane, TypeScript style guard, and repository metadata/policy checks. It still omits the
-isolated lane; run `just ts-test-isolated` explicitly when a change touches isolated tests, their
-subjects, lane configuration, or the shared-test-state guards.
+`just ci` is the broader opt-in local aggregate. Because it invokes `just check`, it includes sanity;
+it additionally runs integration, the TypeScript style guard, and repository metadata/policy checks.
+It still omits the isolated lane; run `just ts-test-isolated` explicitly when a change touches isolated
+tests, their subjects, lane configuration, or the shared-test-state guards.
 
-## Integration versus isolation
+## Integration, isolation, and adapter sanity
 
-Integration and isolation describe different reasons for leaving the default lane:
+These lanes describe different reasons for leaving the default lane:
 
-- **Integration** tests intentionally exercise a real adapter or runtime boundary: real Git, sqlite,
-  subprocesses, dynamic runtime loading, network/backend behavior, or similar external resources.
-- **Isolated** tests exercise behavior whose subject genuinely requires mutation of Vitest module state
-  or process-global state. They run with Vitest `isolate: true` so a file cannot contaminate another
-  file through the shared module cache.
+- **Integration** tests intentionally retain actual compatibility with real Git, filesystem, process,
+  sqlite, dynamic runtime loading, network/backend behavior, or similar external resources.
+- **Isolated** tests exercise ambient product/runtime contracts whose subject genuinely requires
+  mutation of Vitest module state or process-global state. They run with Vitest `isolate: true` so a
+  file cannot contaminate another file through the shared module cache.
+- **Sanity** tests invoke a concrete real adapter while mocking only low-level runtime or vendor modules
+  when code-unchanged adapter testing requires module substitution. They run with Vitest `isolate:
+  true`. They must not mock domain logic, workflow logic, semantic gateways, or the adapter subject.
 
-Isolation is not a synonym for integration or a general-purpose slow-test lane. A local fake-backed
-module-loader or lifecycle test can require isolation without touching a real backend. Conversely, a
-real-Git test is integration even when it does not mutate global state. Prefer removing ambient state
-through seams; use isolation only when the ambient module/process behavior is itself the contract.
-Placement in `test/isolated/` is not permission to add unrelated real-backend cost.
+Isolation is not a synonym for integration, an adapter-mocking technique, or a general-purpose slow-test
+lane. A local fake-backed module-loader or lifecycle test can require isolation without touching a real
+backend. Conversely, a real-Git test is integration even when it does not mutate global state. Prefer
+removing ambient state through seams; use isolation only when the ambient module/process behavior is
+itself the contract. Placement in `test/isolated/` is not permission to add unrelated real-backend cost.
+Use sanity only for focused, code-unchanged coverage of the concrete adapter; retain integration tests
+for actual external-system compatibility.
 
 ## Lane locators
 
@@ -81,6 +95,12 @@ Put TypeScript integration tests at:
 
 ```text
 ts/packages/<disposition>/**/<package>/test/integration/**/*.test.ts
+```
+
+Put TypeScript real-adapter sanity tests at:
+
+```text
+ts/packages/<disposition>/**/<package>/test/sanity/**/*.test.ts
 ```
 
 Put repository-wide TypeScript style guard tests at:
@@ -98,7 +118,8 @@ specialized command.
 ## Shared-cache state policy
 
 The default, integration, and TypeScript style guard lanes use the shared module cache (`isolate:
-false`). Tests outside `test/isolated/` must not perform these operations:
+false`). The isolated-cache paths `test/isolated/` and `test/sanity/` are exempt from the source guard;
+all ordinary shared-cache package tests retain all five bans below:
 
 - Vitest module-state mutation: `vi.mock`, `vi.doMock`, `vi.unmock`, `vi.doUnmock`, or
   `vi.resetModules`. Prefer dependency injection and a fake; isolate only tests whose subject is import
@@ -136,8 +157,11 @@ Use this remediation hierarchy when a guard fires:
    most behavior coverage in the shared-cache lane.
 4. Move only the focused test whose contract truly is ambient module/process behavior to
    `test/isolated/`, and run `just ts-test-isolated`.
-5. If the actual reason is a real adapter or runtime boundary rather than ambient state, use
-   `test/integration/` instead.
+5. If the test must invoke a concrete adapter while substituting only low-level runtime/vendor modules,
+   use `test/sanity/` and run `just ts-test-sanity`; never mock its subject, domain/workflow logic, or a
+   semantic gateway.
+6. If the actual reason is compatibility with real Git, filesystem, process, or another external
+   boundary, use `test/integration/` instead.
 
 ## Integration boundary guidance
 

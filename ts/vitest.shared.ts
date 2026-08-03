@@ -11,6 +11,7 @@ export function testGlobsFor(subdir?: string): ReadonlyArray<string> {
 export const SPECIALIZED_TEST_GLOBS_BY_CATEGORY = {
 	integration: testGlobsFor("integration"),
 	isolated: testGlobsFor("isolated"),
+	sanity: testGlobsFor("sanity"),
 	"typescript-style-guard": testGlobsFor("typescript-style-guard"),
 } as const;
 

@@ -12,7 +12,8 @@ Rules for working under `ts/`, the pnpm workspace holding the ns first-party Typ
 ## Test isolation hard gates
 
 The default, integration, and TypeScript style guard lanes share the Vitest module cache. Outside
-`test/isolated/`, the TypeScript style guard enforces these hard bans:
+the isolated-cache lanes `test/isolated/` and `test/sanity/`, the TypeScript style guard enforces
+these hard bans:
 
 - `NS_TS_BAN_SHARED_TEST_MODULE_STATE`: no `vi.mock` / `doMock` / `unmock` / `doUnmock` /
   `resetModules`; inject fakes/gateways instead.
@@ -27,11 +28,15 @@ The default, integration, and TypeScript style guard lanes share the Vitest modu
 
 Shared Vitest configuration automatically restores mock functions/spies and values stubbed with
 `vi.stubEnv()` / `vi.stubGlobal()`; that does not make direct process, module-cache, fake-timer,
-listener, or singleton mutation safe. Put only tests whose subject genuinely requires ambient
-module/process behavior under `test/isolated/`; this is distinct from `test/integration/`, which is
-for real adapter/runtime boundaries. Run isolated tests with `just ts-test-isolated`. The default
-`just` entrypoint deliberately omits isolated tests; CI runs them in a separate job. See `ts/TESTING.md`
-for placement, automatic restore behavior, and the remediation hierarchy.
+listener, or singleton mutation safe. Put tests whose subject genuinely requires ambient module/process behavior under `test/isolated/`.
+Put real-adapter sanity tests that mock only the adapter's low-level runtime/vendor modules under
+`test/sanity/`; this narrow lane runs with `isolate: true` and must not mock domain logic, semantic
+gateways, or the adapter subject. This is distinct from `test/integration/`, which exercises actual
+adapter/runtime boundaries. Run the isolated lanes with `just ts-test-isolated` and
+`just ts-test-sanity`. Plain `just` / `just check` includes sanity as a separate isolated invocation
+but deliberately omits isolated; CI runs each in a separate job, and opt-in `just ci` also includes
+sanity through `check`. See `ts/TESTING.md` for placement, automatic restore behavior, and the
+remediation hierarchy.
 
 ## Package and subpackage structure
 
