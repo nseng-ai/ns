@@ -565,7 +565,11 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
-  packages/incubating/infra/gitplane-sqlite: {}
+  packages/incubating/infra/gitplane-sqlite:
+    dependencies:
+      '@nseng-ai/gitplane':
+        specifier: workspace:*
+        version: link:../gitplane
 
   packages/incubating/tools/vibechk:
     dependencies:
