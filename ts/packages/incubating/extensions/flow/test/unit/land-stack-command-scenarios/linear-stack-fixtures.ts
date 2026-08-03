@@ -98,7 +98,7 @@ export function numberedPreflightPrSteps(options: {
 			batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, options.planBranches),
 			{ stdout: batchedPrStdout(prs) },
 		),
-		...openPrDependencyScanSteps(),
+		...openPrDependencyScanSteps(options.planBranches),
 	];
 }
 

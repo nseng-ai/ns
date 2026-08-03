@@ -338,7 +338,7 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 						number: 4074,
 						headRefName: "undiscovered-child",
 						headRefOid: SHA_B,
-						baseRefName: "graphite-base/4074",
+						baseRefName: "feature-a",
 						baseRefOid: SHA_A,
 					},
 				],
@@ -361,7 +361,7 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 		expect(plan.failure.message).toContain("PR #4074");
 		expect(plan.failure.message).toContain("undiscovered-child");
 		expect(plan.failure.message).toContain("feature-a");
-		expect(plan.failure.message).toContain("graphite-base/4074");
+		expect(plan.failure.message).toContain("base ref feature-a");
 		expect(plan.failure.message).toContain("Provider-reported descendants: (none)");
 		expect(plan.failure.suggestedAction).toContain("will not adopt or reparent");
 		// Fail-closed before mutation and without auto-adoption: no backup refs, merges,
@@ -371,8 +371,8 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 		expect(graphite.deleteLocalBranchCalls).toEqual([]);
 		expect(graphite.restackCalls).toEqual([]);
 		expect(graphite.submitUpdateCalls).toEqual([]);
-		expect(github.openPullRequestsBasedOnHeadsCalls).toEqual([
-			{ repoRoot: ROOT, headOids: [SHA_A] },
+		expect(github.openPullRequestDependenciesCalls).toEqual([
+			{ repoRoot: ROOT, targets: [{ branch: "feature-a", headOids: [SHA_A] }] },
 		]);
 	});
 

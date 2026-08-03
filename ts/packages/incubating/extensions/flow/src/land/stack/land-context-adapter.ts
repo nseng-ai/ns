@@ -43,7 +43,7 @@ import {
 	type LandGraphiteOperation,
 } from "../graphite-operations.ts";
 import type { LandGraphiteCommandChannel } from "./graphite-command-channel.ts";
-import { loadOpenPullRequestsBasedOnHeads, loadPr, loadPrsByBranch } from "./pr-facts.ts";
+import { loadOpenPullRequestDependencies, loadPr, loadPrsByBranch } from "./pr-facts.ts";
 import {
 	assertLocalBranchExists,
 	detectInProgressOperation,
@@ -151,8 +151,8 @@ export function createLandContext(
 				if (prs.type === "failure") return normalizeAdapterResult(prs, "github", "preflight");
 				return landSuccess(prs.value);
 			},
-			openPullRequestsBasedOnHeads: async ({ repoRoot, headOids }) => {
-				const dependents = await loadOpenPullRequestsBasedOnHeads(pi, repoRoot, headOids);
+			openPullRequestDependencies: async ({ repoRoot, targets }) => {
+				const dependents = await loadOpenPullRequestDependencies(pi, repoRoot, targets);
 				if (dependents.type === "failure") {
 					return normalizeAdapterResult(dependents, "github", "preflight");
 				}

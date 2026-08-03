@@ -6,10 +6,8 @@ import {
 import {
 	expectedSquashMergeArgs,
 	guardShaStep,
-	postRestackSubmitCheckSteps,
 	prSnapshot,
 	prStdout,
-	submitUpdateStep,
 } from "../land-stack-script-fixtures.ts";
 
 import {
@@ -48,7 +46,7 @@ export function initialBranchPlans(options: { featureBBase?: string } = {}): Scr
 		step("gh", batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, branches), {
 			stdout: batchedPrStdout(prs),
 		}),
-		...openPrDependencyScanSteps(),
+		...openPrDependencyScanSteps(branches),
 	];
 }
 
@@ -238,7 +236,7 @@ export function singleBranchPreflightWithRepoIntro(
 				]),
 			},
 		),
-		...openPrDependencyScanSteps(),
+		...openPrDependencyScanSteps(["feature-a"]),
 		step("git", ["worktree", "list", "--porcelain"], {
 			stdout: options.worktrees ?? worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
 		}),

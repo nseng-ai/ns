@@ -76,12 +76,12 @@ export async function buildStackLandingPlan(
 	if (initialPreflight.type === "failure") return initialPreflight;
 	const prSubmitRequirements = collectPrSubmitRequirements(branchPlans.value, stack.trunk);
 
-	// Fail closed on remote dependents the stack provider does not know about: an open PR based
-	// on a landing branch's current head commit must be represented in provider topology before
-	// any merge. This must run before backup refs, confirmation, or any Graphite mutation.
-	const remoteDependents = await context.github.openPullRequestsBasedOnHeads({
+	// Fail closed on remote dependents the stack provider does not know about. Query only PRs
+	// targeting each landing branch, then require GitHub's base OID to match that branch's local
+	// or submitted head before treating the PR as a dependent. This runs before any mutation.
+	const remoteDependents = await context.github.openPullRequestDependencies({
 		repoRoot: shape.repoRoot,
-		headOids: landingHeadOids(branchPlans.value),
+		targets: landingBranchDependencyTargets(branchPlans.value),
 	});
 	if (remoteDependents.type === "failure") return remoteDependents;
 	const topologyMismatch = validateRemoteDescendantConsistency({
@@ -620,13 +620,13 @@ export function buildDescendantMaintenancePlan(
 	return { type: "auto", branches: descendantBranches, targetBranches };
 }
 
-export function landingHeadOids(branchPlans: readonly BranchLandingPlan[]): readonly string[] {
-	const headOids = new Set<string>();
-	for (const branchPlan of branchPlans) {
-		headOids.add(branchPlan.localSha);
-		headOids.add(branchPlan.pr.headRefOid);
-	}
-	return [...headOids];
+export function landingBranchDependencyTargets(
+	branchPlans: readonly BranchLandingPlan[],
+): readonly { readonly branch: string; readonly headOids: readonly string[] }[] {
+	return branchPlans.map((branchPlan) => ({
+		branch: branchPlan.branch,
+		headOids: [...new Set([branchPlan.localSha, branchPlan.pr.headRefOid])],
+	}));
 }
 
 export interface RemoteDependentMismatch {

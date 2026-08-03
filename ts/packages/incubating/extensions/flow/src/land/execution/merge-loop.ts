@@ -246,7 +246,10 @@ export async function runMergeLoop(options: RunMergeLoopOptions): Promise<MergeL
 		});
 		observedDescendantMaintenance = reduceDescendantMaintenanceObservation(
 			observedDescendantMaintenance,
-			observeDescendantMaintenance(planGraphiteMaintenanceTargets(plan, index).mode, maintenance.kind),
+			observeDescendantMaintenance(
+				planGraphiteMaintenanceTargets(plan, index).mode,
+				maintenance.kind,
+			),
 		);
 		if (maintenance.kind === "halt") {
 			progress.setStep(branch, "restack", "failed");

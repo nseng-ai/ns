@@ -235,7 +235,7 @@ describe("@nseng-ai/flow/land API boundary", () => {
 							baseRefName: "main",
 							headRefOid: "aaaaaaaa",
 						}),
-					openPullRequestsBasedOnHeads: async () => landSuccess([]),
+					openPullRequestDependencies: async () => landSuccess([]),
 					squashMergePullRequest: async () => landSuccess({ stdout: "", stderr: "" }),
 				},
 				worktrees: {

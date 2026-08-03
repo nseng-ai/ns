@@ -2,6 +2,7 @@ import type { ExecResult } from "@nseng-ai/foundation/command";
 import type {
 	LandContext,
 	LandingBoundaryFailure,
+	LandingBranchDependencyTarget,
 	LandGitGateway,
 	LandGithubPrGateway,
 	LandGraphiteCommandResult,
@@ -68,8 +69,8 @@ export type InMemoryLandCallEvent =
 	| { readonly operation: "graphite.branchChildren"; readonly request: LandBranchChildrenCall }
 	| { readonly operation: "graphite.branchParent"; readonly request: LandBranchParentCall }
 	| {
-			readonly operation: "github.openPullRequestsBasedOnHeads";
-			readonly request: LandOpenPullRequestsBasedOnHeadsCall;
+			readonly operation: "github.openPullRequestDependencies";
+			readonly request: LandOpenPullRequestDependenciesCall;
 	  };
 
 type RecordInMemoryLandCall = (event: InMemoryLandCallEvent) => void;
@@ -440,8 +441,8 @@ export interface LandBranchParentCall extends LandBranchCall {
 	readonly metadataDbPath: string;
 }
 
-export interface LandOpenPullRequestsBasedOnHeadsCall extends LandRepoCall {
-	readonly headOids: readonly string[];
+export interface LandOpenPullRequestDependenciesCall extends LandRepoCall {
+	readonly targets: readonly LandingBranchDependencyTarget[];
 }
 
 export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
@@ -757,7 +758,7 @@ export interface InMemoryLandGithubPrGatewayState {
 	readonly postMergeFacts?: Readonly<Record<string, ValueState<PullRequestFacts>>>;
 	/** Open-PR dependency facts visible to the complete remote dependency scan. */
 	readonly openPullRequestDependencies?: readonly PullRequestDependencyFacts[];
-	readonly openPullRequestsBasedOnHeadsFailure?: LandingBoundaryFailure;
+	readonly openPullRequestDependenciesFailure?: LandingBoundaryFailure;
 }
 
 export interface LandPullRequestFactsCall extends LandRepoCall {
@@ -776,12 +777,12 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 		ValueState<SquashMergePullRequestResult>
 	>;
 	private readonly postMergeFacts: ReadonlyMap<string, ValueState<PullRequestFacts>>;
-	private readonly openPullRequestDependencies: PullRequestDependencyFacts[];
-	private readonly openPullRequestsBasedOnHeadsFailure: LandingBoundaryFailure | undefined;
+	private readonly dependencyFacts: PullRequestDependencyFacts[];
+	private readonly openPullRequestDependenciesFailure: LandingBoundaryFailure | undefined;
 	private readonly mergedPullRequestNumbers = new Set<string>();
 	private readonly pullRequestFactsLog: LandPullRequestFactsCall[] = [];
 	private readonly squashMergePullRequestLog: LandSquashMergePullRequestCall[] = [];
-	private readonly openPullRequestsBasedOnHeadsLog: LandOpenPullRequestsBasedOnHeadsCall[] = [];
+	private readonly openPullRequestDependenciesLog: LandOpenPullRequestDependenciesCall[] = [];
 	private readonly recordCall: RecordInMemoryLandCall;
 
 	constructor(
@@ -810,9 +811,9 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 				copyValueState(facts, cloneData),
 			]),
 		);
-		this.openPullRequestDependencies = cloneData([...(state.openPullRequestDependencies ?? [])]);
-		this.openPullRequestsBasedOnHeadsFailure = cloneOptionalData(
-			state.openPullRequestsBasedOnHeadsFailure,
+		this.dependencyFacts = cloneData([...(state.openPullRequestDependencies ?? [])]);
+		this.openPullRequestDependenciesFailure = cloneOptionalData(
+			state.openPullRequestDependenciesFailure,
 		);
 	}
 
@@ -835,25 +836,29 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 		return cloneData(this.squashMergePullRequestLog);
 	}
 
-	get openPullRequestsBasedOnHeadsCalls(): readonly LandOpenPullRequestsBasedOnHeadsCall[] {
-		return cloneData(this.openPullRequestsBasedOnHeadsLog);
+	get openPullRequestDependenciesCalls(): readonly LandOpenPullRequestDependenciesCall[] {
+		return cloneData(this.openPullRequestDependenciesLog);
 	}
 
-	async openPullRequestsBasedOnHeads(request: {
+	async openPullRequestDependencies(request: {
 		readonly repoRoot: string;
-		readonly headOids: readonly string[];
+		readonly targets: readonly LandingBranchDependencyTarget[];
 	}): Promise<LandResult<readonly PullRequestDependencyFacts[]>> {
-		const call = { repoRoot: request.repoRoot, headOids: [...request.headOids] };
-		this.openPullRequestsBasedOnHeadsLog.push(call);
-		this.recordCall({ operation: "github.openPullRequestsBasedOnHeads", request: call });
-		if (this.openPullRequestsBasedOnHeadsFailure !== undefined) {
-			return { type: "failure", failure: cloneData(this.openPullRequestsBasedOnHeadsFailure) };
+		const call = { repoRoot: request.repoRoot, targets: cloneData(request.targets) };
+		this.openPullRequestDependenciesLog.push(call);
+		this.recordCall({ operation: "github.openPullRequestDependencies", request: call });
+		if (this.openPullRequestDependenciesFailure !== undefined) {
+			return { type: "failure", failure: cloneData(this.openPullRequestDependenciesFailure) };
 		}
-		const headOids = new Set(request.headOids);
 		return {
 			type: "success",
 			value: cloneData(
-				this.openPullRequestDependencies.filter((dependent) => headOids.has(dependent.baseRefOid)),
+				this.dependencyFacts.filter((dependent) => {
+					const target = request.targets.find(
+						(candidate) => candidate.branch === dependent.baseRefName,
+					);
+					return target?.headOids.includes(dependent.baseRefOid) ?? false;
+				}),
 			),
 		};
 	}

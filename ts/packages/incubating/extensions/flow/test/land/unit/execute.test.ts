@@ -98,8 +98,8 @@ describe("land execute mode over in-memory gateways", () => {
 				request: { repoRoot: ROOT, branchOrNumber: BRANCH },
 			},
 			{
-				operation: "github.openPullRequestsBasedOnHeads",
-				request: { repoRoot: ROOT, headOids: [SHA] },
+				operation: "github.openPullRequestDependencies",
+				request: { repoRoot: ROOT, targets: [{ branch: BRANCH, headOids: [SHA] }] },
 			},
 			{
 				operation: "git.snapshotBackupRefs",
@@ -459,17 +459,14 @@ describe("land execute mode over in-memory gateways", () => {
 			{
 				index: 0,
 				landingTargetBranch: BRANCH,
-				landed: [
-					{ branch: BRANCH, number: 101, title: "PR 101" },
-				],
+				landed: [{ branch: BRANCH, number: 101, title: "PR 101" }],
 			},
 		]);
 		expect(phaseByName(outcome.report, "merge")).toMatchObject({ type: "completed" });
 		expect(phaseByName(outcome.report, "descendant-maintenance")).toMatchObject({
 			type: "failed",
 		});
-		const failureMessage =
-			outcome.failure.type === "execution" ? outcome.failure.message : "";
+		const failureMessage = outcome.failure.type === "execution" ? outcome.failure.message : "";
 		expect(failureMessage).toContain("deferred");
 		expect(failureMessage).toContain(descendant);
 		// The blocked descendant checked out elsewhere is never mutated.

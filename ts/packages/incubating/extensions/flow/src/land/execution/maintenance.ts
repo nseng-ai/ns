@@ -280,9 +280,7 @@ async function reconcileDescendantRoots(
 			);
 		}
 	}
-	const landedBranchCleanupState = state.deletedBranches.has(landedBranch)
-		? "deleted"
-		: "retained";
+	const landedBranchCleanupState = state.deletedBranches.has(landedBranch) ? "deleted" : "retained";
 
 	const reconcileFailures: BranchMaintenanceFailure[] = [];
 	for (const maintenanceBranch of maintenance.branches) {
@@ -487,9 +485,7 @@ function stopFailure(stop: GraphiteMaintenanceStop): LandingExecutionFailure {
 	return landingExecutionFailure(warning.message, {
 		...(warning.commandDisplay === undefined ? {} : { displayCommand: warning.commandDisplay }),
 		...(warning.result === undefined ? {} : { execResult: warning.result }),
-		...(warning.suggestedAction === undefined
-			? {}
-			: { suggestedAction: warning.suggestedAction }),
+		...(warning.suggestedAction === undefined ? {} : { suggestedAction: warning.suggestedAction }),
 	});
 }
 

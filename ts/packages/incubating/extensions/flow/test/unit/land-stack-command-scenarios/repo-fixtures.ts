@@ -74,29 +74,33 @@ export const BRANCH_SHAS: Record<string, string> = {
 	"feature-d": SHA_D,
 };
 
-/**
- * Preflight's complete open-PR dependency scan: `gh repo view` plus one exhausted GraphQL page.
- * Runs after the batched landing-branch PR facts and before worktree conflict detection.
- */
+/** Targeted dependency queries: one fully exhausted connection per landing branch. */
 export function openPrDependencyScanSteps(
+	branches: readonly string[],
 	dependents: readonly PullRequestDependencyFacts[] = [],
 ): ScriptedExec[] {
 	return [
 		step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
 			stdout: `${JSON.stringify({ nameWithOwner: "owner/repo" })}\n`,
 		}),
-		step("gh", openPullRequestDependencyFactsGraphqlArgs({ owner: "owner", name: "repo" }), {
-			stdout: `${JSON.stringify({
-				data: {
-					repository: {
-						pullRequests: {
-							pageInfo: { hasNextPage: false, endCursor: null },
-							nodes: dependents,
+		...branches.map((branch) =>
+			step(
+				"gh",
+				openPullRequestDependencyFactsGraphqlArgs({ owner: "owner", name: "repo" }, branch),
+				{
+					stdout: `${JSON.stringify({
+						data: {
+							repository: {
+								pullRequests: {
+									pageInfo: { hasNextPage: false, endCursor: null },
+									nodes: dependents.filter((dependent) => dependent.baseRefName === branch),
+								},
+							},
 						},
-					},
+					})}\n`,
 				},
-			})}\n`,
-		}),
+			),
+		),
 	];
 }
 
