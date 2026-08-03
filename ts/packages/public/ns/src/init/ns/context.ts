@@ -1,6 +1,12 @@
 import { createNsGitGateway } from "@nseng-ai/extension-kit";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { createRealExtensionAcquisitionGateway } from "@nseng-ai/sdk/extensions/acquisition";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { mergeXdgHomeEnv, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
+import {
+	createRealExtensionAcquisitionGateway,
+	userManagedNpmStorage,
+} from "@nseng-ai/sdk/extensions/acquisition";
+import { managedNpmPackagePaths } from "@nseng-ai/sdk/project-config";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 import type { NsActivationContext } from "../activation-context.ts";
@@ -31,6 +37,25 @@ export function createNsInitContext(
 	ExtensionUninstallContext &
 	ExtensionUpdateContext & { cwd: string } {
 	const acquisition = createRealExtensionAcquisitionGateway(extensionApiCommandExecApi(ctx));
+	const xdgEnv = mergeXdgHomeEnv({
+		baseEnv: {},
+		env: ctx.env,
+		...optionalEntry("xdgHomeDir", ctx.homeDir),
+	});
+	const extensionsDataRoot = resolveNsXdgPath({
+		kind: "data",
+		env: xdgEnv,
+		segments: ["extensions"],
+	});
+	const userStorage = extensionsDataRoot.ok
+		? { type: "available" as const, storage: userManagedNpmStorage(extensionsDataRoot.value) }
+		: {
+				type: "unavailable" as const,
+				diagnostic: {
+					code: "user-managed-npm-storage-unavailable" as const,
+					message: extensionsDataRoot.error.message,
+				},
+			};
 	return {
 		cwd: ctx.cwd,
 		git: createNsGitGateway(ctx),
@@ -41,7 +66,12 @@ export function createNsInitContext(
 		declaredExtensions: new RealDeclaredExtensionsGateway(),
 		userExtensionAvailability: new RealUserExtensionAvailabilityGateway(
 			loadPreinstalledNsCommandCatalog,
+			(packageName) =>
+				userStorage.type === "available"
+					? managedNpmPackagePaths(userStorage.storage, packageName).packageRoot
+					: undefined,
 		),
+		userManagedNpmStorage: userStorage,
 		userExtensionConfig: new RealUserExtensionConfigGateway({
 			env: ctx.env,
 			...(ctx.homeDir === undefined ? {} : { homeDir: ctx.homeDir }),

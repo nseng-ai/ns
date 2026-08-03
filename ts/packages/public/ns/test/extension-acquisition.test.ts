@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { managedNpmProjectRoot, npmPackageRoot } from "@nseng-ai/sdk/extensions/acquisition";
+import {
+	managedNpmProjectRoot,
+	npmPackageRoot,
+	projectManagedNpmStorage,
+} from "@nseng-ai/sdk/extensions/acquisition";
 import { FakeExtensionAcquisitionGateway } from "@nseng-ai/sdk/testing";
 
 import {
@@ -31,6 +35,7 @@ describe("extension install acquisition", () => {
 			sourceKind: "npm",
 			moduleRoot: packageRoot,
 			outcome: "unchanged",
+			createdPackageProject: false,
 		});
 		expect(acquisition.installs).toEqual([]);
 		expect(acquisition.inspections).toEqual([packageRoot]);
@@ -48,8 +53,28 @@ describe("extension install acquisition", () => {
 			sourceKind: "npm",
 			moduleRoot: packageRoot,
 			outcome: "installed",
+			createdPackageProject: true,
 		});
 		expect(acquisition.inspections).toEqual([packageRoot, packageRoot]);
+	});
+
+	test("ensure reports restored bytes in a pre-existing package project without cleanup ownership", async () => {
+		const packageRoot = npmPackageRoot("/repo", "@acme/tools");
+		const projectRoot = managedNpmProjectRoot("/repo", "@acme/tools");
+		const acquisition = new FakeExtensionAcquisitionGateway({
+			existingProjectRoots: [projectRoot],
+		});
+		const gateway = new RealExtensionInstallAcquisitionGateway(acquisition);
+
+		await expect(
+			gateway.ensure({ repoRoot: "/repo", sourceSpec: "npm:@acme/tools" }),
+		).resolves.toEqual({
+			ok: true,
+			sourceKind: "npm",
+			moduleRoot: packageRoot,
+			outcome: "installed",
+			createdPackageProject: false,
+		});
 	});
 
 	test.each([
@@ -206,7 +231,10 @@ describe("extension install acquisition", () => {
 		const gateway = new RealExtensionUninstallAcquisitionGateway(acquisition);
 
 		await expect(
-			gateway.removeManagedNpmPackage({ repoRoot: "/repo", packageName: "@acme/tools" }),
+			gateway.removeManagedNpmPackage({
+				storage: projectManagedNpmStorage("/repo"),
+				packageName: "@acme/tools",
+			}),
 		).resolves.toEqual({
 			ok: true,
 			value: {
@@ -214,7 +242,9 @@ describe("extension install acquisition", () => {
 				path: managedNpmProjectRoot("/repo", "@acme/tools"),
 			},
 		});
-		expect(acquisition.removals).toEqual([{ projectRoot: "/repo", packageName: "@acme/tools" }]);
+		expect(acquisition.removals).toEqual([
+			{ storage: projectManagedNpmStorage("/repo"), packageName: "@acme/tools" },
+		]);
 	});
 
 	test("uninstall fake models package state, failures, and read-only logs", async () => {
@@ -228,19 +258,28 @@ describe("extension install acquisition", () => {
 			},
 		});
 		await expect(
-			gateway.removeManagedNpmPackage({ repoRoot: "/repo", packageName: "present" }),
+			gateway.removeManagedNpmPackage({
+				storage: projectManagedNpmStorage("/repo"),
+				packageName: "present",
+			}),
 		).resolves.toMatchObject({ ok: true, value: { status: "removed" } });
 		await expect(
-			gateway.removeManagedNpmPackage({ repoRoot: "/repo", packageName: "missing" }),
+			gateway.removeManagedNpmPackage({
+				storage: projectManagedNpmStorage("/repo"),
+				packageName: "missing",
+			}),
 		).resolves.toMatchObject({ ok: true, value: { status: "already-absent" } });
 		await expect(
-			gateway.removeManagedNpmPackage({ repoRoot: "/repo", packageName: "broken" }),
+			gateway.removeManagedNpmPackage({
+				storage: projectManagedNpmStorage("/repo"),
+				packageName: "broken",
+			}),
 		).resolves.toMatchObject({ ok: false, error: { message: "busy" } });
 		expect(gateway.installedPackages()).toEqual(new Set());
 		expect(gateway.removals()).toEqual([
-			{ repoRoot: "/repo", packageName: "present" },
-			{ repoRoot: "/repo", packageName: "missing" },
-			{ repoRoot: "/repo", packageName: "broken" },
+			{ storage: projectManagedNpmStorage("/repo"), packageName: "present" },
+			{ storage: projectManagedNpmStorage("/repo"), packageName: "missing" },
+			{ storage: projectManagedNpmStorage("/repo"), packageName: "broken" },
 		]);
 	});
 });

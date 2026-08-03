@@ -1,17 +1,20 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	gitExtensionSourceUnsupportedMessage,
-	managedNpmProjectRoot,
 	npmPackageRoot,
 	parseExtensionSourceSpec,
 	resolveDeclaredExtensionModules,
 	type ExtensionAcquisitionDiagnostic,
 	type ExtensionAcquisitionGateway,
 	type ManagedNpmPackageRemovalResult,
+	type ManagedNpmStorage,
 } from "@nseng-ai/sdk/extensions/acquisition";
+import { managedNpmPackagePaths, managedNpmProjectRoot } from "@nseng-ai/sdk/project-config";
 
 export interface EnsureExtensionSourceParams {
 	readonly repoRoot: string;
 	readonly sourceSpec: string;
+	readonly managedNpmStorage?: ManagedNpmStorage;
 }
 
 export type EnsureExtensionSourceResult =
@@ -20,6 +23,8 @@ export type EnsureExtensionSourceResult =
 			readonly sourceKind: "local" | "npm";
 			readonly moduleRoot: string;
 			readonly outcome: "installed" | "unchanged" | "local-in-place";
+			/** True only when this invocation created the isolated npm package project. */
+			readonly createdPackageProject: boolean;
 	  }
 	| {
 			readonly ok: false;
@@ -41,6 +46,7 @@ export class RealExtensionInstallAcquisitionGateway implements ExtensionInstallA
 	async ensure(params: EnsureExtensionSourceParams): Promise<EnsureExtensionSourceResult> {
 		const result = await resolveDeclaredExtensionModules({
 			projectRoot: params.repoRoot,
+			...optionalEntry("managedNpmStorage", params.managedNpmStorage),
 			declaredSpecs: [params.sourceSpec],
 			mode: "apply",
 			npmAcquisition: "ensure",
@@ -60,6 +66,7 @@ export class RealExtensionInstallAcquisitionGateway implements ExtensionInstallA
 					: root.wasInstalled
 						? "unchanged"
 						: "installed",
+			createdPackageProject: root.sourceKind === "npm" && !root.packageProjectExisted,
 		};
 	}
 }
@@ -128,6 +135,7 @@ export class RealExtensionUpdateAcquisitionGateway implements ExtensionUpdateAcq
 	async preview(params: EnsureExtensionSourceParams): Promise<PreviewExtensionUpdateSourceResult> {
 		const result = await resolveDeclaredExtensionModules({
 			projectRoot: params.repoRoot,
+			...optionalEntry("managedNpmStorage", params.managedNpmStorage),
 			declaredSpecs: [params.sourceSpec],
 			mode: "preview",
 			npmAcquisition: "refresh-floating",
@@ -179,6 +187,7 @@ export class RealExtensionUpdateAcquisitionGateway implements ExtensionUpdateAcq
 		if (!parsed.ok) return { type: "failed", diagnostics: [{ ...parsed.error }] };
 		const applied = await resolveDeclaredExtensionModules({
 			projectRoot: params.repoRoot,
+			...optionalEntry("managedNpmStorage", params.managedNpmStorage),
 			declaredSpecs: [params.sourceSpec],
 			mode: "apply",
 			npmAcquisition: "refresh-floating",
@@ -220,7 +229,7 @@ export class RealExtensionUpdateAcquisitionGateway implements ExtensionUpdateAcq
 }
 
 export interface RemoveManagedNpmExtensionParams {
-	readonly repoRoot: string;
+	readonly storage: ManagedNpmStorage;
 	readonly packageName: string;
 }
 
@@ -246,7 +255,7 @@ export class RealExtensionUninstallAcquisitionGateway implements ExtensionUninst
 		params: RemoveManagedNpmExtensionParams,
 	): Promise<RemoveManagedNpmExtensionResult> {
 		return this.acquisition.removeManagedNpmPackage({
-			projectRoot: params.repoRoot,
+			storage: params.storage,
 			packageName: params.packageName,
 		});
 	}
@@ -254,16 +263,24 @@ export class RealExtensionUninstallAcquisitionGateway implements ExtensionUninst
 
 export interface InMemoryExtensionInstallAcquisitionState {
 	readonly installedPackageRoots?: readonly string[];
+	readonly existingProjectRoots?: readonly string[];
 	readonly failureBySpec?: Readonly<Record<string, ExtensionAcquisitionDiagnostic>>;
 }
 
 export class InMemoryExtensionInstallAcquisitionGateway implements ExtensionInstallAcquisitionGateway {
 	private readonly installedPackageRoots: Set<string>;
+	private readonly existingProjectRoots: Set<string>;
 	private readonly failureBySpec: Readonly<Record<string, ExtensionAcquisitionDiagnostic>>;
 	private readonly ensureLog: EnsureExtensionSourceParams[] = [];
 
 	constructor(state: InMemoryExtensionInstallAcquisitionState = {}) {
 		this.installedPackageRoots = new Set(state.installedPackageRoots ?? []);
+		this.existingProjectRoots = new Set(state.existingProjectRoots ?? []);
+		for (const packageRoot of this.installedPackageRoots) {
+			this.existingProjectRoots.add(
+				packageRoot.slice(0, packageRoot.lastIndexOf("/node_modules/")),
+			);
+		}
 		this.failureBySpec = structuredClone(state.failureBySpec ?? {});
 	}
 
@@ -291,16 +308,24 @@ export class InMemoryExtensionInstallAcquisitionGateway implements ExtensionInst
 				sourceKind: "local",
 				moduleRoot: parsed.value.path,
 				outcome: "local-in-place",
+				createdPackageProject: false,
 			};
 		}
-		const moduleRoot = npmPackageRoot(params.repoRoot, parsed.value.packageName);
+		const moduleRoot = packageRootForParams(params, parsed.value.packageName);
+		const projectRoot =
+			params.managedNpmStorage === undefined
+				? managedNpmProjectRoot(params.repoRoot, parsed.value.packageName)
+				: managedNpmPackagePaths(params.managedNpmStorage, parsed.value.packageName).npmProjectRoot;
 		const wasInstalled = this.installedPackageRoots.has(moduleRoot);
+		const projectExisted = this.existingProjectRoots.has(projectRoot);
+		this.existingProjectRoots.add(projectRoot);
 		this.installedPackageRoots.add(moduleRoot);
 		return {
 			ok: true,
 			sourceKind: "npm",
 			moduleRoot,
 			outcome: wasInstalled ? "unchanged" : "installed",
+			createdPackageProject: !projectExisted,
 		};
 	}
 
@@ -360,7 +385,7 @@ export class InMemoryExtensionUpdateAcquisitionGateway implements ExtensionUpdat
 				intent: "local-in-place",
 			};
 		}
-		const moduleRoot = npmPackageRoot(params.repoRoot, parsed.value.packageName);
+		const moduleRoot = packageRootForParams(params, parsed.value.packageName);
 		if (!parsed.value.isPinned || !this.installedPackageRoots.has(moduleRoot)) {
 			return {
 				type: "preview-apply-required",
@@ -405,7 +430,7 @@ export class InMemoryExtensionUpdateAcquisitionGateway implements ExtensionUpdat
 				outcome: "local-in-place",
 			};
 		}
-		const moduleRoot = npmPackageRoot(params.repoRoot, parsed.value.packageName);
+		const moduleRoot = packageRootForParams(params, parsed.value.packageName);
 		const hasExistingInstallation = this.installedPackageRoots.has(moduleRoot);
 		this.installedPackageRoots.add(moduleRoot);
 		if (parsed.value.isPinned) {
@@ -459,7 +484,10 @@ export class InMemoryExtensionUninstallAcquisitionGateway implements ExtensionUn
 	async removeManagedNpmPackage(
 		params: RemoveManagedNpmExtensionParams,
 	): Promise<RemoveManagedNpmExtensionResult> {
-		this.removalLog.push({ ...params });
+		this.removalLog.push({
+			...params,
+			storage: copyManagedNpmStorage(params.storage),
+		});
 		const failure = this.failureByPackageName[params.packageName];
 		if (failure !== undefined) return { ok: false, error: { ...failure } };
 		const isRemoved = this.installedPackageNames.delete(params.packageName);
@@ -467,7 +495,7 @@ export class InMemoryExtensionUninstallAcquisitionGateway implements ExtensionUn
 			ok: true,
 			value: {
 				status: isRemoved ? "removed" : "already-absent",
-				path: managedNpmProjectRoot(params.repoRoot, params.packageName),
+				path: managedNpmPackagePaths(params.storage, params.packageName).npmProjectRoot,
 			},
 		};
 	}
@@ -477,6 +505,18 @@ export class InMemoryExtensionUninstallAcquisitionGateway implements ExtensionUn
 	}
 
 	removals(): readonly RemoveManagedNpmExtensionParams[] {
-		return this.removalLog.map((call) => ({ ...call }));
+		return this.removalLog.map((call) => ({
+			...call,
+			storage: copyManagedNpmStorage(call.storage),
+		}));
 	}
+}
+
+function packageRootForParams(params: EnsureExtensionSourceParams, packageName: string): string {
+	if (params.managedNpmStorage === undefined) return npmPackageRoot(params.repoRoot, packageName);
+	return managedNpmPackagePaths(params.managedNpmStorage, packageName).packageRoot;
+}
+
+function copyManagedNpmStorage(storage: ManagedNpmStorage): ManagedNpmStorage {
+	return { npmRoot: storage.npmRoot, trustedAncestors: [...storage.trustedAncestors] };
 }

@@ -123,7 +123,7 @@ Current ns-owned roots use these conventions:
 
 - Saved/enriched plans: `$XDG_STATE_HOME/ns/enriched-plan` (default `$HOME/.local/state/ns/enriched-plan`).
 - Slot worktree pools: `$XDG_STATE_HOME/ns/slots` (default `$HOME/.local/state/ns/slots`).
-- ns global extensions: `$XDG_DATA_HOME/ns/extensions` (default `$HOME/.local/share/ns/extensions`).
+- ns global extensions: `$XDG_DATA_HOME/ns/extensions` (default `$HOME/.local/share/ns/extensions`); lifecycle-owned npm projects are isolated under its `npm/<package-name>/` namespace.
 - Branch Memory global prompt templates: `$XDG_CONFIG_HOME/ns/brmem/prompts` (default `$HOME/.config/ns/brmem/prompts`).
 - Submit raw failure logs and ns Pi CLI trace logs: `$XDG_STATE_HOME/ns/...` unless their explicit ns-specific overrides are set.
 

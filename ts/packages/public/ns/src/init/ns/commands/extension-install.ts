@@ -11,7 +11,7 @@ export const nsExtensionInstallCommand = nsInitCommand({
 	name: "install",
 	summary: "Install an ns extension at project or user scope.",
 	description:
-		"Install an extension at project scope by default, or use --scope user for local, command-only availability without project activation.",
+		"Install an extension at project scope by default, or use --scope user for local or npm command-only availability without project activation.",
 	schema: installExtensionRequestSchema,
 	options: { scope: { short: "-s" } },
 	positionals: { source: { position: 0 } },

@@ -7,9 +7,9 @@ import { z } from "zod";
 
 import {
 	extensionLifecycleScopeSchemaValues,
-	loadOneUserLocalDescriptor,
+	loadOneUserDescriptor,
 	prepareUserConfig,
-	prepareUserLocalSource,
+	prepareUserExtensionSource,
 	type UserExtensionAvailabilityContext,
 	type UserExtensionLifecycleContext,
 } from "./user-extension-lifecycle.ts";
@@ -72,11 +72,12 @@ export const updateExtensionResultSchema = z.discriminatedUnion("scope", [
 	updateExtensionSourceResultSchema.extend({
 		scope: z.literal("user"),
 		configPath: z.string(),
-		packageName: z.string(),
-		packageVersion: z.string(),
-		moduleRoot: z.string(),
-		commandAvailability: z.literal("available"),
-		updateOutcome: z.literal("unchanged-local-in-place"),
+		packageName: z.string().optional(),
+		packageVersion: z.string().optional(),
+		moduleRoot: z.string().optional(),
+		commandAvailability: z.enum(["available", "planned"]),
+		acquisitionIntent: z.enum(["ensure-pinned", "refresh-floating", "local-in-place"]),
+		acquisitionOutcome: z.enum(["planned", "restored", "refreshed", "unchanged", "local-in-place"]),
 		activation: z.literal("not-performed"),
 		configWrite: z.literal("not-performed"),
 	}),
@@ -339,7 +340,8 @@ async function updateUserExtension(
 	context: ExtensionUpdateContext,
 	request: UpdateExtensionRequest,
 ): Promise<ClinkrExit<UpdateExtensionResult>> {
-	const source = prepareUserLocalSource<UpdateExtensionResult>({
+	const source = prepareUserExtensionSource<UpdateExtensionResult>({
+		context,
 		cwd: request.cwd,
 		source: request.source,
 		operation: "update",
@@ -347,6 +349,13 @@ async function updateUserExtension(
 	if (!source.ok) return source.exit;
 	const prepared = await prepareUserConfig<UpdateExtensionResult>(context, "update");
 	if ("type" in prepared) return prepared;
+	const parsed = parseNsTomlExtensions(prepared.content, prepared.configPath);
+	if (parsed.type === "error")
+		return failure("ns-extension-update-user-config-invalid", parsed.error.message, {
+			scope: "user",
+			diagnostics: [parsed.error],
+		});
+	const configuredSourceSpecs = parsed.type === "missing" ? [] : parsed.extensions;
 	const target = planDeclaredExtensionTarget({
 		projectRoot: prepared.configDir,
 		nsTomlContent: prepared.content,
@@ -357,15 +366,86 @@ async function updateUserExtension(
 			scope: "user",
 			...target,
 		});
-	const parsed = parseNsTomlExtensions(prepared.content, prepared.configPath);
-	if (parsed.type === "error")
-		return failure("ns-extension-update-user-config-invalid", parsed.error.message, {
-			scope: "user",
-			diagnostics: [parsed.error],
+	if (source.source.kind === "npm") {
+		if (context.userManagedNpmStorage.type !== "available")
+			throw new Error("User npm storage became unavailable after source preparation.");
+		const params = {
+			repoRoot: prepared.configDir,
+			sourceSpec: target.matchedSpec,
+			managedNpmStorage: context.userManagedNpmStorage.storage,
+		};
+		const acquisition = request.dryRun
+			? await context.updateAcquisition.preview(params)
+			: await context.updateAcquisition.reconcile(params);
+		if (acquisition.type === "failed")
+			return failure(
+				"ns-extension-update-user-acquisition-failed",
+				acquisition.diagnostics[0]?.message ?? `Could not update ${target.matchedSpec}.`,
+				{
+					scope: "user",
+					diagnostics: normalizeExtensionDiagnostics(acquisition.diagnostics),
+				},
+			);
+		if (request.dryRun) {
+			return ok({
+				scope: "user",
+				sourceSpec: target.matchedSpec,
+				sourceKind: "npm",
+				mode: "dry-run",
+				configPath: prepared.configPath,
+				acquisitionIntent: acquisition.intent,
+				acquisitionOutcome: "planned",
+				commandAvailability: "planned",
+				activation: "not-performed",
+				configWrite: "not-performed",
+			});
+		}
+		if (acquisition.type !== "applied") throw new Error("Applied update returned preview state.");
+		const availability = await context.userExtensionAvailability.evaluate({
+			configDir: prepared.configDir,
+			sourceSpecs: configuredSourceSpecs,
 		});
+		const targetAvailability = availability.find((fact) => fact.sourceSpec === target.matchedSpec);
+		if (targetAvailability?.availability !== "available")
+			return failure(
+				"ns-extension-update-user-package-unavailable",
+				`User extension package is not fully available: ${target.matchedSpec}.`,
+				{
+					scope: "user",
+					sourceSpec: target.matchedSpec,
+					diagnostics: normalizeExtensionDiagnostics(targetAvailability?.diagnostics ?? []),
+					sourceAcquisitionCompleted: true,
+					managedBytesRetained: true,
+					acquisitionIntent: acquisition.intent,
+					acquisitionOutcome: acquisition.outcome,
+				},
+			);
+		const loaded = await loadOneUserDescriptor<UpdateExtensionResult>({
+			context,
+			configDir: prepared.configDir,
+			sourceSpec: target.matchedSpec,
+			operation: "update",
+		});
+		if (!loaded.ok) return loaded.exit;
+		return ok({
+			scope: "user",
+			sourceSpec: target.matchedSpec,
+			sourceKind: "npm",
+			mode: "applied",
+			configPath: prepared.configPath,
+			packageName: loaded.descriptor.packageName,
+			packageVersion: loaded.descriptor.version,
+			moduleRoot: loaded.descriptor.moduleRoot,
+			commandAvailability: "available",
+			acquisitionIntent: acquisition.intent,
+			acquisitionOutcome: acquisition.outcome,
+			activation: "not-performed",
+			configWrite: "not-performed",
+		});
+	}
 	const availability = await context.userExtensionAvailability.evaluate({
 		configDir: prepared.configDir,
-		sourceSpecs: parsed.type === "missing" ? [] : parsed.extensions,
+		sourceSpecs: configuredSourceSpecs,
 	});
 	const targetAvailability = availability.find((fact) => fact.sourceSpec === target.matchedSpec);
 	if (targetAvailability?.availability !== "available")
@@ -375,10 +455,10 @@ async function updateUserExtension(
 			{
 				scope: "user",
 				sourceSpec: target.matchedSpec,
-				diagnostics: targetAvailability?.diagnostics ?? [],
+				diagnostics: normalizeExtensionDiagnostics(targetAvailability?.diagnostics ?? []),
 			},
 		);
-	const loaded = await loadOneUserLocalDescriptor<UpdateExtensionResult>({
+	const loaded = await loadOneUserDescriptor<UpdateExtensionResult>({
 		context,
 		configDir: prepared.configDir,
 		sourceSpec: target.matchedSpec,
@@ -395,7 +475,8 @@ async function updateUserExtension(
 		packageVersion: loaded.descriptor.version,
 		moduleRoot: loaded.descriptor.moduleRoot,
 		commandAvailability: "available",
-		updateOutcome: "unchanged-local-in-place",
+		acquisitionIntent: "local-in-place",
+		acquisitionOutcome: request.dryRun ? "planned" : "local-in-place",
 		activation: "not-performed",
 		configWrite: "not-performed",
 	});
@@ -403,7 +484,7 @@ async function updateUserExtension(
 
 export function renderUpdateExtensionMarkdown(result: UpdateExtensionResult): string {
 	if (result.scope === "user")
-		return `Validated ${result.packageName}@${result.packageVersion} in place for user command availability; no writes or project activation were performed.`;
+		return `${result.mode === "dry-run" ? "Planned" : "Applied"} ${result.acquisitionIntent} for ${result.sourceSpec}; no config writes or project activation were performed.`;
 	const summary =
 		result.mode === "dry-run"
 			? `Dry run planned ${result.sourceSpec}; no writes were performed. Exact prospective effects are ${result.prospectiveEffects}.`
@@ -412,6 +493,6 @@ export function renderUpdateExtensionMarkdown(result: UpdateExtensionResult): st
 }
 export function renderUpdateExtensionHuman(result: UpdateExtensionResult): string {
 	if (result.scope === "user")
-		return `Validated ${result.packageName}@${result.packageVersion} in place for user command availability from ${result.sourceSpec}. No writes or project activation were performed.`;
+		return `${result.mode === "dry-run" ? "Planned" : "Applied"} ${result.acquisitionIntent} for ${result.sourceSpec}; acquisition ${result.acquisitionOutcome}. No config writes or project activation were performed.`;
 	return `${result.mode === "dry-run" ? "Planned" : "Applied"} ${result.acquisitionIntent} for ${result.sourceSpec}; acquisition ${result.acquisitionOutcome}; exact prospective effects ${result.prospectiveEffects}.`;
 }

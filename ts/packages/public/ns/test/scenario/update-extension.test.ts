@@ -103,6 +103,10 @@ function fixture(options: {
 			updateAcquisition: acquisition,
 			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
 			userExtensionAvailability: new InMemoryUserExtensionAvailabilityGateway(),
+			userManagedNpmStorage: {
+				type: "unavailable",
+				diagnostic: { code: "user-managed-npm-storage-unavailable", message: "not configured" },
+			},
 		},
 	};
 }

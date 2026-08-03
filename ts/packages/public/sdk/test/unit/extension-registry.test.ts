@@ -13,6 +13,10 @@ import {
 	NS_EXTENSION_HELP_GROUP,
 } from "../../src/extensions/help-presentation.ts";
 import {
+	managedNpmPackagePaths,
+	userManagedNpmStorage,
+} from "../../src/project-config/managed-extension-paths.ts";
+import {
 	extensionDescriptorToPreinstalledCatalog,
 	preinstalledNsCommandCatalogFromRegistrations,
 } from "../../src/extensions/descriptor-catalog.ts";
@@ -97,6 +101,27 @@ export default defineExtension({
   entries: ${JSON.stringify(options.commandNames)}.map((name) => ({ name, load: () => ({ default: command(name) }) })),
 });
 `;
+}
+
+function writeManagedUserNpmDescriptorPackage(options: {
+	extensionsDataRoot: string;
+	packageName: string;
+	descriptorSource: string;
+}): string {
+	const packageRoot = managedNpmPackagePaths(
+		userManagedNpmStorage(options.extensionsDataRoot),
+		options.packageName,
+	).packageRoot;
+	writeWorkspaceFile(
+		join(packageRoot, "package.json"),
+		JSON.stringify({
+			name: options.packageName,
+			version: "1.0.0",
+			exports: { "./ns-extension": "./src/ns-extension.ts" },
+		}),
+	);
+	writeWorkspaceFile(join(packageRoot, "src", "ns-extension.ts"), options.descriptorSource);
+	return packageRoot;
 }
 
 function writeDescriptorPackage(options: {
@@ -764,7 +789,7 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 		expect(loaded.extensionPackageNames.has("@example/user-tools")).toBe(true);
 	});
 
-	test("XDG_CONFIG_HOME selects exactly one user config and user specs enforce source policy", async () => {
+	test("XDG_CONFIG_HOME selects exactly one user config and missing npm packages stay isolated", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		const xdgConfigHome = join(workspace.homeDir, "custom-config");
 		writeUserConfig(workspace, 'extensions = ["/must-not-load"]\n');
@@ -788,13 +813,99 @@ export default defineExtension({ group: "tools", description: "User tools.", ent
 					path: "./relative",
 				}),
 				expect.objectContaining({
-					code: "user_extension_npm_unavailable",
+					code: "extension_descriptor_package_missing",
 					sourceLevel: "user",
-					path: join(xdgConfigHome, "ns", "ns.toml"),
+					path: join(
+						workspace.homeDir,
+						".local",
+						"share",
+						"ns",
+						"extensions",
+						"npm",
+						"@example",
+						"managed",
+						"node_modules",
+						"@example",
+						"managed",
+						"package.json",
+					),
 				}),
 			]),
 		);
 		expect(loaded.extensionPackageNames.has("@example/managed")).toBe(false);
+	});
+
+	test("user npm descriptors load from XDG data storage independently of cwd", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const xdgDataHome = join(workspace.homeDir, "custom-data");
+		const extensionsDataRoot = join(xdgDataHome, "ns", "extensions");
+		const packageRoot = writeManagedUserNpmDescriptorPackage({
+			extensionsDataRoot,
+			packageName: "@example/managed",
+			descriptorSource: descriptorSource({
+				group: "managed",
+				packageLabel: "managed",
+				commandNames: ["scan"],
+			}),
+		});
+		writeUserConfig(workspace, 'extensions = ["npm:@example/managed@1.0.0"]\n');
+
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			env: { XDG_DATA_HOME: xdgDataHome },
+		});
+
+		expect(loaded.diagnostics).toEqual([]);
+		expect(loaded.candidates.get("managed/scan")).toMatchObject({
+			entryPath: join(packageRoot, "src", "ns-extension.ts"),
+			packageName: "@example/managed",
+			source: { level: "user" },
+		});
+	});
+
+	test("invalid XDG data paths isolate npm while preserving local user and built-in commands", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const localRoot = writeUserDescriptorPackage(workspace, {
+			directoryName: "local",
+			packageName: "@example/local",
+			descriptorSource: descriptorSource({
+				group: "local",
+				packageLabel: "local",
+				commandNames: ["scan"],
+			}),
+		});
+		const xdgConfigHome = join(workspace.homeDir, "config-without-home");
+		writeWorkspaceFile(
+			join(xdgConfigHome, "ns", "ns.toml"),
+			`extensions = [${JSON.stringify(localRoot)}, "npm:@example/managed"]\n`,
+		);
+
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			env: {
+				HOME: undefined,
+				XDG_CONFIG_HOME: xdgConfigHome,
+				XDG_DATA_HOME: "relative-data",
+			},
+		});
+
+		expect(loaded.candidates.has("local/scan")).toBe(true);
+		for (const key of builtInCandidateKeys) expect(loaded.candidates.has(key)).toBe(true);
+		expect(loaded.candidates.has("managed/scan")).toBe(false);
+		expect(loaded.diagnostics).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: "user_extensions_data_path_invalid",
+					sourceLevel: "user",
+					message: expect.stringContaining("User extension configuration"),
+				}),
+				expect.objectContaining({
+					code: "extension_descriptor_npm_unavailable",
+					sourceLevel: "user",
+				}),
+			]),
+		);
 	});
 
 	test("absolute user locals load while relative locals are rejected without affecting the absolute package", async () => {

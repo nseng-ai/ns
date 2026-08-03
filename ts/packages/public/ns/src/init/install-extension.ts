@@ -2,15 +2,16 @@ import { join } from "node:path";
 
 import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { failure, ok } from "@nseng-ai/clinkr/legacy";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { ALL_HARNESS_IDS, parseNsTomlExtensions } from "../harness-artifacts/api.ts";
 import { planDeclaredExtensionInstallToml } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
 import {
 	extensionLifecycleScopeSchemaValues,
-	loadOneUserLocalDescriptor,
+	loadOneUserDescriptor,
 	prepareUserConfig,
-	prepareUserLocalSource,
+	prepareUserExtensionSource,
 	type UserExtensionAvailabilityContext,
 	type UserExtensionLifecycleContext,
 } from "./user-extension-lifecycle.ts";
@@ -18,7 +19,10 @@ import {
 import { applyNsActivation, prepareNsActivation } from "./activate-ns.ts";
 import { activationCompletedSchema } from "./activation-outcomes.ts";
 import type { NsActivationContext } from "./activation-context.ts";
-import type { ExtensionInstallAcquisitionGateway } from "./extension-acquisition.ts";
+import type {
+	ExtensionInstallAcquisitionGateway,
+	ExtensionUninstallAcquisitionGateway,
+} from "./extension-acquisition.ts";
 import {
 	extensionLifecycleFailure,
 	prepareExtensionLifecycle,
@@ -37,6 +41,7 @@ import {
 export interface ExtensionInstallContext
 	extends NsActivationContext, UserExtensionLifecycleContext, UserExtensionAvailabilityContext {
 	readonly installAcquisition: ExtensionInstallAcquisitionGateway;
+	readonly uninstallAcquisition: ExtensionUninstallAcquisitionGateway;
 }
 
 export const installExtensionRequestSchema = z.object({
@@ -70,6 +75,7 @@ export const installExtensionResultSchema = z.discriminatedUnion("scope", [
 		scope: z.literal("user"),
 		configPath: z.string(),
 		declarationAction: z.enum(["appended", "unchanged"]),
+		acquisitionOutcome: z.enum(["installed", "unchanged", "local-in-place"]),
 		commandAvailability: z.literal("available"),
 		activation: z.literal("not-performed"),
 	}),
@@ -262,7 +268,8 @@ async function installUserExtension(
 	context: ExtensionInstallContext,
 	request: InstallExtensionRequest,
 ): Promise<ClinkrExit<InstallExtensionResult>> {
-	const source = prepareUserLocalSource<InstallExtensionResult>({
+	const source = prepareUserExtensionSource<InstallExtensionResult>({
+		context,
 		cwd: request.cwd,
 		source: request.source,
 		operation: "install",
@@ -286,14 +293,48 @@ async function installUserExtension(
 			scope: "user",
 			diagnostics: [parsedPlanned.error],
 		});
+	let acquisitionOutcome: "installed" | "unchanged" | "local-in-place" = "local-in-place";
+	let createdPackageProject = false;
+	if (source.source.kind === "npm") {
+		if (context.userManagedNpmStorage.type !== "available")
+			throw new Error("User npm storage became unavailable after source preparation.");
+		const acquired = await context.installAcquisition.ensure({
+			repoRoot: prepared.configDir,
+			sourceSpec: source.sourceSpec,
+			managedNpmStorage: context.userManagedNpmStorage.storage,
+		});
+		if (!acquired.ok)
+			return failure(
+				"ns-extension-install-user-acquisition-failed",
+				acquired.diagnostics[0]?.message ?? `Could not acquire ${source.sourceSpec}.`,
+				{
+					scope: "user",
+					diagnostics: normalizeExtensionDiagnostics(acquired.diagnostics),
+				},
+			);
+		acquisitionOutcome = acquired.outcome;
+		createdPackageProject = acquired.createdPackageProject;
+	}
+	const loaded = await loadOneUserDescriptor<InstallExtensionResult>({
+		context,
+		configDir: prepared.configDir,
+		sourceSpec: source.sourceSpec,
+		operation: "install",
+	});
+	if (!loaded.ok) {
+		if (source.source.kind === "npm" && createdPackageProject) {
+			return rollbackUserInstall(context, source.source.packageName, loaded.exit);
+		}
+		return loaded.exit;
+	}
 	const plannedSpecs = parsedPlanned.type === "missing" ? [] : parsedPlanned.extensions;
 	const availability = await context.userExtensionAvailability.evaluate({
 		configDir: prepared.configDir,
 		sourceSpecs: plannedSpecs,
 	});
 	const requestedAvailability = availability.find((fact) => fact.sourceSpec === source.sourceSpec);
-	if (requestedAvailability?.availability !== "available")
-		return failure(
+	if (requestedAvailability?.availability !== "available") {
+		const primary = failure(
 			"ns-extension-install-user-package-unavailable",
 			`User extension package is not fully available: ${source.sourceSpec}.`,
 			{
@@ -302,41 +343,69 @@ async function installUserExtension(
 				diagnostics: requestedAvailability?.diagnostics ?? [],
 			},
 		);
-	const loaded = await loadOneUserLocalDescriptor<InstallExtensionResult>({
-		context,
-		configDir: prepared.configDir,
-		sourceSpec: source.sourceSpec,
-		operation: "install",
-	});
-	if (!loaded.ok) return loaded.exit;
+		return source.source.kind === "npm" && createdPackageProject
+			? rollbackUserInstall(context, source.source.packageName, primary)
+			: primary;
+	}
 	if (declaration.isAdded) {
 		const written = await context.userExtensionConfig.compareAndWrite({
 			expected: prepared.expected,
 			content: declaration.text,
 		});
-		if (!written.ok)
-			return failure("ns-extension-install-user-config-write-failed", written.error.message, {
-				scope: "user",
-				error: written.error,
-			});
+		if (!written.ok) {
+			const primary = failure(
+				"ns-extension-install-user-config-write-failed",
+				written.error.message,
+				{ scope: "user", error: written.error },
+			);
+			if (source.source.kind === "npm" && createdPackageProject) {
+				return rollbackUserInstall(context, source.source.packageName, primary);
+			}
+			return primary;
+		}
 	}
 	return ok({
 		scope: "user",
 		sourceSpec: source.sourceSpec,
-		sourceKind: "local",
+		sourceKind: source.source.kind === "npm" ? "npm" : "local",
 		packageName: loaded.descriptor.packageName,
 		packageVersion: loaded.descriptor.version,
 		moduleRoot: loaded.descriptor.moduleRoot,
 		configPath: prepared.configPath,
 		declarationAction: declaration.isAdded ? "appended" : "unchanged",
+		acquisitionOutcome,
 		commandAvailability: "available",
 		activation: "not-performed",
 	});
 }
 
+async function rollbackUserInstall(
+	context: ExtensionInstallContext,
+	packageName: string,
+	primary: ClinkrExit<InstallExtensionResult>,
+): Promise<ClinkrExit<InstallExtensionResult>> {
+	if (context.userManagedNpmStorage.type !== "available")
+		throw new Error("User npm storage became unavailable during rollback.");
+	const cleanup = await context.uninstallAcquisition.removeManagedNpmPackage({
+		storage: context.userManagedNpmStorage.storage,
+		packageName,
+	});
+	if (cleanup.ok) return primary;
+	return failure(
+		"ns-extension-install-user-rollback-failed",
+		`Extension installation failed and newly installed managed bytes could not be removed: ${cleanup.error.message}`,
+		{
+			scope: "user",
+			primaryFailure: primary,
+			cleanupDiagnostic: normalizeExtensionDiagnostic(cleanup.error),
+			...optionalEntry("retainedPath", cleanup.error.path),
+		},
+	);
+}
+
 export function renderInstallExtensionMarkdown(result: InstallExtensionResult): string {
 	if (result.scope === "user")
-		return `Installed ${result.packageName}@${result.packageVersion} for user command availability in ${result.configPath}; no project activation ran.`;
+		return `Installed ${result.packageName}@${result.packageVersion} for user command availability in ${result.configPath}; acquisition: ${result.acquisitionOutcome}; no project activation ran.`;
 	return renderLifecycleMarkdown(
 		"ns extension install",
 		`Installed ${result.packageName}@${result.packageVersion}.`,
@@ -346,7 +415,7 @@ export function renderInstallExtensionMarkdown(result: InstallExtensionResult): 
 
 export function renderInstallExtensionHuman(result: InstallExtensionResult): string {
 	if (result.scope === "user")
-		return `Installed ${result.packageName}@${result.packageVersion} for user command availability from ${result.sourceSpec}.\nDeclaration: ${result.declarationAction} in ${result.configPath}.\nNo project activation was performed.`;
+		return `Installed ${result.packageName}@${result.packageVersion} for user command availability from ${result.sourceSpec}.\nAcquisition: ${result.acquisitionOutcome}.\nDeclaration: ${result.declarationAction} in ${result.configPath}.\nNo project activation was performed.`;
 	const declaration = result.isRecorded ? "recorded in" : "already present in";
 	const artifactCount = result.completed.artifacts?.length ?? 0;
 	const outcome = result.isRecorded ? "Installed" : "Ensured already-present";

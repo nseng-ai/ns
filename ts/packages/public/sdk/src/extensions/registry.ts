@@ -29,6 +29,10 @@ import {
 } from "./declared-descriptors.ts";
 import { NS_EXTENSION_HELP_GROUP } from "./help-presentation.ts";
 import { loadExtensionDescriptorFromPackageRoot } from "../project-config/extension-package-descriptor.ts";
+import {
+	managedNpmPackagePaths,
+	userManagedNpmStorage,
+} from "../project-config/managed-extension-paths.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
 import {
 	loadedModuleReference,
@@ -297,10 +301,6 @@ const ORDERED_SOURCE_LEVELS = [
 	"user",
 	"project",
 ] as const satisfies readonly ExtensionSourceLevel[];
-
-function unavailableUserNpmPackageRoot(): undefined {
-	return undefined;
-}
 
 export async function loadNsCommandCatalog(
 	options: LoadNsCommandCatalogOptions,
@@ -584,23 +584,37 @@ async function loadUserDescriptorCandidates(
 		const identity = declaredExtensionSourceIdentity(userConfigDir, spec);
 		return identity === undefined || !projectSourceIdentities.has(identity);
 	});
+	const extensionsDataRoot = resolveNsXdgPath({ kind: "data", env, segments: ["extensions"] });
+	const dataPathDiagnostics = extensionsDataRoot.ok
+		? []
+		: [
+				userErrorDiagnostic(
+					"user_extensions_data_path_invalid",
+					`Could not resolve user extensions data path.\n${extensionsDataRoot.error.message}`,
+				),
+			];
+	const resolveNpmPackageRoot = extensionsDataRoot.ok
+		? (packageName: string) =>
+				managedNpmPackagePaths(userManagedNpmStorage(extensionsDataRoot.value), packageName)
+					.packageRoot
+		: () => undefined;
 	const loaded = await loadDeclaredExtensionDescriptors({
 		repoRoot: userConfigDir,
 		specs: activeSpecs,
 		localPathPolicy: "absolute-only",
-		resolveNpmPackageRoot: unavailableUserNpmPackageRoot,
+		resolveNpmPackageRoot,
 	});
 	return {
-		diagnostics: loaded.diagnostics.map((diagnostic) => {
-			const isUnavailableNpm = diagnostic.code === "extension_descriptor_npm_unavailable";
-			return userErrorDiagnostic(
-				isUnavailableNpm ? "user_extension_npm_unavailable" : diagnostic.code,
-				isUnavailableNpm
-					? `User npm extension is unavailable until user-scoped npm acquisition is configured: ${diagnostic.spec}.`
-					: diagnostic.message,
-				diagnostic.path ?? resolvedPath.value,
-			);
-		}),
+		diagnostics: [
+			...dataPathDiagnostics,
+			...loaded.diagnostics.map((diagnostic) =>
+				userErrorDiagnostic(
+					diagnostic.code,
+					diagnostic.message,
+					diagnostic.path ?? resolvedPath.value,
+				),
+			),
+		],
 		builtInPackageNames: [],
 		contributions: loaded.descriptors.map((record) =>
 			descriptorPackageContribution({

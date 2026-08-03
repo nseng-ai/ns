@@ -21,6 +21,15 @@ export {
 	classifyExtensionSourceLifecycle,
 	parseExtensionSourceSpec,
 } from "./extension-source-spec.ts";
+export {
+	managedNpmPackagePaths,
+	managedNpmProjectRoot,
+	managedNpmRoot,
+	npmPackageRoot,
+	projectManagedNpmStorage,
+	userManagedNpmStorage,
+} from "./managed-extension-paths.ts";
+export type { ManagedNpmPackagePaths, ManagedNpmStorage } from "./managed-extension-paths.ts";
 export { parseExtensionArraySyntax } from "./ns-toml-extension-syntax.ts";
 export type {
 	ExtensionArraySyntax,

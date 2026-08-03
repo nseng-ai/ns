@@ -3,13 +3,17 @@ import { join } from "node:path";
 import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { failure, ok } from "@nseng-ai/clinkr/legacy";
 import { ALL_HARNESS_IDS } from "../harness-artifacts/api.ts";
-import { planDeclaredExtensionUninstallToml } from "@nseng-ai/sdk/project-config";
+import {
+	managedNpmPackagePaths,
+	planDeclaredExtensionUninstallToml,
+	projectManagedNpmStorage,
+} from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
 import {
 	extensionLifecycleScopeSchemaValues,
 	prepareUserConfig,
-	prepareUserLocalSource,
+	prepareUserExtensionSource,
 	type UserExtensionLifecycleContext,
 } from "./user-extension-lifecycle.ts";
 
@@ -69,9 +73,8 @@ export const uninstallExtensionResultSchema = z.discriminatedUnion("scope", [
 	uninstallExtensionSourceResultSchema.extend({
 		scope: z.literal("user"),
 		declarationAction: z.enum(["removed", "already-absent"]),
-		localSourcePreserved: z.literal(true),
 		activation: z.literal("not-performed"),
-		managedCleanup: z.literal("not-performed"),
+		cleanup: uninstallCleanupSchema,
 	}),
 ]);
 export type UninstallExtensionRequest = z.input<typeof uninstallExtensionRequestSchema> & {
@@ -208,7 +211,7 @@ export async function uninstallExtension(
 	} else {
 		recorder.beginPhase("managed-package-cleanup");
 		const removed = await context.uninstallAcquisition.removeManagedNpmPackage({
-			repoRoot,
+			storage: projectManagedNpmStorage(repoRoot),
 			packageName: source.packageName,
 		});
 		if (!removed.ok) {
@@ -260,7 +263,8 @@ async function uninstallUserExtension(
 	context: ExtensionUninstallContext,
 	request: UninstallExtensionRequest,
 ): Promise<ClinkrExit<UninstallExtensionResult>> {
-	const source = prepareUserLocalSource<UninstallExtensionResult>({
+	const source = prepareUserExtensionSource<UninstallExtensionResult>({
+		context,
 		cwd: request.cwd,
 		source: request.source,
 		operation: "uninstall",
@@ -289,26 +293,53 @@ async function uninstallUserExtension(
 				error: written.error,
 			});
 	}
+	let cleanup: { status: "removed" | "already-absent" | "not-applicable"; path?: string } = {
+		status: "not-applicable",
+	};
+	if (source.source.kind === "npm") {
+		if (context.userManagedNpmStorage.type !== "available")
+			throw new Error("User npm storage became unavailable after source preparation.");
+		const managedPath = managedNpmPackagePaths(
+			context.userManagedNpmStorage.storage,
+			source.source.packageName,
+		).npmProjectRoot;
+		const removed = await context.uninstallAcquisition.removeManagedNpmPackage({
+			storage: context.userManagedNpmStorage.storage,
+			packageName: source.source.packageName,
+		});
+		if (!removed.ok)
+			return failure(
+				"ns-extension-uninstall-user-managed-package-cleanup-failed",
+				`User command availability was removed, but managed package cleanup failed: ${removed.error.message}`,
+				{
+					scope: "user",
+					declarationAction: declaration.isRemoved ? "removed" : "already-absent",
+					declarationCompleted: true,
+					retainedPath: removed.error.path ?? managedPath,
+					diagnostic: normalizeExtensionDiagnostic(removed.error),
+				},
+			);
+		cleanup = { status: removed.value.status, path: removed.value.path };
+	}
 	return ok({
 		scope: "user",
 		sourceSpec: source.sourceSpec,
-		sourceKind: "local",
-		sourceIdentity: source.sourceSpec,
+		sourceKind: source.source.kind === "npm" ? "npm" : "local",
+		sourceIdentity: source.source.kind === "npm" ? source.source.packageName : source.sourceSpec,
 		...(declaration.matchedSpec === undefined
 			? {}
 			: { matchedDeclarationSpec: declaration.matchedSpec }),
 		hasRemovedDeclaration: declaration.isRemoved,
 		configPath: prepared.configPath,
 		declarationAction: declaration.isRemoved ? "removed" : "already-absent",
-		localSourcePreserved: true,
 		activation: "not-performed",
-		managedCleanup: "not-performed",
+		cleanup,
 	});
 }
 
 export function renderUninstallExtensionMarkdown(result: UninstallExtensionResult): string {
 	if (result.scope === "user")
-		return `User declaration ${result.declarationAction} in ${result.configPath}; local source bytes were preserved and no project deactivation ran.`;
+		return `User declaration ${result.declarationAction} in ${result.configPath}; managed cleanup ${result.cleanup.status}; no project deactivation ran.`;
 	const declaration = result.hasRemovedDeclaration ? "removed" : "already absent";
 	const preservation =
 		result.sourceKind === "local"
@@ -322,7 +353,7 @@ export function renderUninstallExtensionMarkdown(result: UninstallExtensionResul
 }
 export function renderUninstallExtensionHuman(result: UninstallExtensionResult): string {
 	if (result.scope === "user")
-		return `User declaration ${result.declarationAction} in ${result.configPath}. Local source bytes were preserved; no project deactivation was performed.`;
+		return `User declaration ${result.declarationAction} in ${result.configPath}. Cleanup: ${result.cleanup.status}${result.cleanup.path === undefined ? "" : ` at ${result.cleanup.path}`}; no project deactivation was performed.`;
 	const declaration = result.hasRemovedDeclaration
 		? `removed ${result.matchedDeclarationSpec ?? result.sourceSpec} from ${result.nsTomlPath}`
 		: `no matching declaration was present in ${result.nsTomlPath}`;

@@ -37,9 +37,14 @@ export interface UserExtensionAvailabilityGateway {
 
 export class RealUserExtensionAvailabilityGateway implements UserExtensionAvailabilityGateway {
 	private readonly preinstalledCommandCatalog: PreinstalledNsCommandCatalogLoader;
+	private readonly resolveNpmPackageRoot: DeclaredExtensionNpmPackageRootResolver;
 
-	constructor(preinstalledCommandCatalog: PreinstalledNsCommandCatalogLoader) {
+	constructor(
+		preinstalledCommandCatalog: PreinstalledNsCommandCatalogLoader,
+		resolveNpmPackageRoot: DeclaredExtensionNpmPackageRootResolver,
+	) {
 		this.preinstalledCommandCatalog = preinstalledCommandCatalog;
+		this.resolveNpmPackageRoot = resolveNpmPackageRoot;
 	}
 
 	async evaluate(params: {
@@ -49,7 +54,7 @@ export class RealUserExtensionAvailabilityGateway implements UserExtensionAvaila
 		return evaluateUserExtensionPackageAvailability({
 			...params,
 			preinstalledCommandCatalog: this.preinstalledCommandCatalog,
-			resolveNpmPackageRoot: () => undefined,
+			resolveNpmPackageRoot: this.resolveNpmPackageRoot,
 		});
 	}
 }
