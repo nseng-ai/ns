@@ -24,7 +24,6 @@ import {
 	buildImplBranchContextPrompt,
 	createBranchContextContext,
 	createRealBranchContextContext,
-	selectBranchCreationForContext,
 	derivePlanContentSlug,
 	deriveTargetBranch,
 	formatBranchContextEvidence,
@@ -37,6 +36,7 @@ import {
 	resolveExistingBranchContextReuse,
 	type BranchContextBranchSelection,
 	type BranchContextCreationContext,
+	type PreparedBranchContextCreation,
 	type BranchContextEvidence,
 	type BranchContextOutputDetails,
 	type ExistingBranchContextReuse,
@@ -262,14 +262,6 @@ function resolveBranchContextContext(
 	return createRealBranchContextContext({ cwd });
 }
 
-async function resolveBranchContextCreationContext(
-	pi: BranchContextPiCommandApi,
-	cwd: string,
-	options: BranchContextExtensionOptions,
-): Promise<BranchContextCreationContext> {
-	return selectBranchCreationForContext(resolveBranchContextContext(pi, cwd, options), cwd);
-}
-
 export function parseCreateBranchContextArgs(rawArgs: string): CreateBranchContextArgs {
 	const parsed: CreateBranchContextArgs = { help: false, dryRun: false, yes: false };
 	const tokens = tokenizeCommandArgs(rawArgs);
@@ -392,13 +384,17 @@ export async function deriveCreateBranchContextPreview(
 	selected: SelectedSavedPlanFile,
 	options: BranchContextExtensionOptions = {},
 ): Promise<CreateBranchContextPreview> {
-	const creationContext = await resolveBranchContextCreationContext(pi, ctx.cwd, options);
+	const operations = resolveBranchContextOperations(options);
+	const preparedCreation = await operations.prepareBranchContextCreation({
+		context: resolveBranchContextContext(pi, ctx.cwd, options),
+		cwd: ctx.cwd,
+	});
 	return deriveCreateBranchContextPreviewWithContext(
 		pi,
 		args,
 		ctx,
 		selected,
-		creationContext,
+		preparedCreation,
 		options,
 	);
 }
@@ -408,15 +404,16 @@ async function deriveCreateBranchContextPreviewWithContext(
 	args: CreateBranchContextArgs,
 	ctx: CommandContext,
 	selected: SelectedSavedPlanFile,
-	creationContext: BranchContextCreationContext,
+	preparedCreation: PreparedBranchContextCreation,
 	options: BranchContextExtensionOptions,
 ): Promise<CreateBranchContextPreview> {
+	const creationContext = preparedCreation.context;
 	const selectedFile = selectedSavedPlanFileInfo(selected);
 	const slugEvidence = await derivePlanContentSlug(pi, {
 		filePath: selectedFile.filePath,
 		cwd: ctx.cwd,
 	});
-	const branchCreation = creationContext.branchCreation.mode;
+	const branchCreation = preparedCreation.branchCreation;
 	const target = deriveBranchContextTargetBranch(args, slugEvidence.slug, options);
 	const planKey = buildBranchContextPlanKey(slugEvidence.slug);
 	const basis: BranchCreationBasis = { type: "current-head" };
@@ -814,10 +811,11 @@ async function runCreateBranchContextCommand(
 	});
 	await ctx.waitForIdle();
 
+	const operations = resolveBranchContextOperations(extensionOptions);
 	let selected: SelectedSavedPlanFile;
 	setRuntimeStatus(ctx, commandOptions.statusKey, "finding saved plan…");
 	try {
-		selected = await resolveCreateBranchContextPlanFile(pi, args, ctx, extensionOptions);
+		selected = await resolveSelectedSavedPlanFile(pi, args, ctx, extensionOptions, operations);
 	} catch (error) {
 		setRuntimeStatus(ctx, commandOptions.statusKey, undefined);
 		if ((await commandOptions.handleSelectedPlanError?.(args, error)) === true) {
@@ -833,16 +831,19 @@ async function runCreateBranchContextCommand(
 	}
 
 	let preview: CreateBranchContextPreview;
-	let creationContext: BranchContextCreationContext;
+	let preparedCreation: PreparedBranchContextCreation;
 	setRuntimeStatus(ctx, commandOptions.statusKey, "deriving branch slug from plan content…");
 	try {
-		creationContext = await resolveBranchContextCreationContext(pi, ctx.cwd, extensionOptions);
+		preparedCreation = await operations.prepareBranchContextCreation({
+			context: resolveBranchContextContext(pi, ctx.cwd, extensionOptions),
+			cwd: ctx.cwd,
+		});
 		preview = await deriveCreateBranchContextPreviewWithContext(
 			pi,
 			args,
 			ctx,
 			selected,
-			creationContext,
+			preparedCreation,
 			extensionOptions,
 		);
 	} catch (error) {
@@ -889,8 +890,8 @@ async function runCreateBranchContextCommand(
 			pi,
 			preview,
 			ctx,
-			operations: resolveBranchContextOperations(extensionOptions),
-			creationContext,
+			operations,
+			creationContext: preparedCreation.context,
 		});
 	} catch (error) {
 		setRuntimeStatus(ctx, commandOptions.statusKey, undefined);
@@ -1150,8 +1151,8 @@ async function resolveSelectedSavedPlanFile(
 	args: { filePath?: string },
 	ctx: CommandContext,
 	options: BranchContextExtensionOptions,
+	operations: BranchContextOperations = resolveBranchContextOperations(options),
 ): Promise<SelectedSavedPlanFile> {
-	const operations = resolveBranchContextOperations(options);
 	const planStoreRoot = resolvePlanStoreRootOption(options);
 	return operations.resolveSelectedSavedPlanFile(pi, {
 		cwd: ctx.cwd,

@@ -3,6 +3,7 @@ import type {
 	BranchContextContextFactory,
 	createBranchContextFromFile,
 	loadBranchContextPlan,
+	prepareBranchContextCreation,
 } from "@nseng-ai/branch-context/api";
 import type {
 	SessionReplacementContext,
@@ -59,6 +60,7 @@ export type NewSessionOptions = SessionReplacementOptions<
 >;
 
 export interface BranchContextOperations {
+	prepareBranchContextCreation: typeof prepareBranchContextCreation;
 	loadBranchContextPlan: typeof loadBranchContextPlan;
 	createBranchContextFromFile: typeof createBranchContextFromFile;
 	writeSavedPlanFile: typeof writeSavedPlanFile;

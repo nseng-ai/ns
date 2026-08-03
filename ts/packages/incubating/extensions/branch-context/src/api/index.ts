@@ -37,11 +37,13 @@ export {
 	createBranchContextCreationContext,
 	createRealBranchContextContext,
 	createRealBranchContextCreationContext,
+	prepareBranchContextCreation,
 	selectBranchCreationForContext,
 	BranchContextCreationSelectionError,
 	type BranchContextCreationSelectionErrorCode,
 	type BranchContextContext,
 	type BranchContextCreationContext,
+	type PreparedBranchContextCreation,
 	type BranchContextContextFactory,
 	type BranchContextContextOptions,
 } from "../core/context.ts";

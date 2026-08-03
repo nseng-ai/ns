@@ -5,7 +5,7 @@ This context names the Pi host-adapter boundary for Branch Context. Canonical Br
 ## Language
 
 **Branch Context Pi host adapter**:
-The incubating `@nseng-ai/pi-ns-branch-context` package under `ts/packages/incubating/hosts/pi/extensions/pi-ns-branch-context/`. It consumes portable Branch Context and Saved Plan behavior through `@nseng-ai/branch-context/api` and `@nseng-ai/plans/api`, then presents it through Pi using neutral `@nseng-ai/pi-runtime/...` contracts.
+The incubating `@nseng-ai/pi-ns-branch-context` package under `ts/packages/incubating/hosts/pi/extensions/pi-ns-branch-context/`. It consumes portable Branch Context behavior, including prepared repository-selected branch creation, through `@nseng-ai/branch-context/api` and Saved Plan behavior through `@nseng-ai/plans/api`, then presents it through Pi using neutral `@nseng-ai/pi-runtime/...` contracts.
 *Avoid*: Branch Context domain owner, Branch Context Pi subpackage, `@nseng-ai/branch-context/pi`, private Branch Context source consumer
 
 **Branch Context Pi command surface**:

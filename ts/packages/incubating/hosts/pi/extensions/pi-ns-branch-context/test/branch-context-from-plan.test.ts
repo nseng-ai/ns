@@ -465,6 +465,10 @@ describe("branch-context-from-plan", () => {
 
 		pi.assertDone();
 		expect(contextSelections).toBe(1);
+		expect(fakes.prepareCreationCalls).toHaveLength(1);
+		expect(fakes.createBranchCalls[0]?.[2].context).toBe(
+			fakes.prepareCreationCalls[0]?.[0].context,
+		);
 		expect(fakes.createBranchCalls[0]?.[2].context.branchCreation.mode).toBe("graphite");
 	});
 

@@ -26,6 +26,11 @@ export interface BranchContextCreationContext extends BranchContextContext {
 	branchCreation: BranchCreationProvider;
 }
 
+export interface PreparedBranchContextCreation {
+	context: BranchContextCreationContext;
+	branchCreation: BuiltInBranchCreationMode;
+}
+
 export interface BranchContextContextOptions {
 	cwd?: string;
 	brmemCommands?: StdinCapableCommandExecApi;
@@ -78,6 +83,14 @@ export class BranchContextCreationSelectionError extends Error {
 		this.name = "BranchContextCreationSelectionError";
 		this.code = code;
 	}
+}
+
+export async function prepareBranchContextCreation(options: {
+	context: BranchContextContext;
+	cwd: string;
+}): Promise<PreparedBranchContextCreation> {
+	const context = await selectBranchCreationForContext(options.context, options.cwd);
+	return { context, branchCreation: context.branchCreation.mode };
 }
 
 export async function selectBranchCreationForContext(

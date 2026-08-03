@@ -3,7 +3,10 @@ const TEST_MODEL_SELECTION = {
 	modelId: "gpt-5.6-luna",
 	thinking: "minimal" as const,
 };
-import { GraphiteBranchCreationProvider } from "@nseng-ai/extension-kit/branch-creation";
+import {
+	GraphiteBranchCreationProvider,
+	PlainGitBranchCreationProvider,
+} from "@nseng-ai/extension-kit/branch-creation";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import { brmemCheckJson } from "@nseng-ai/extension-kit/brmem-cli/testing";
@@ -19,6 +22,8 @@ import {
 	buildBranchContextPlanKey,
 	buildPlanContentSlugPrompt,
 	createBranchContextContext,
+	type BranchContextCreationContext,
+	type BranchContextContext,
 	type BranchContextEvidence,
 	type LoadedAttachedPlan,
 } from "@nseng-ai/branch-context/api";
@@ -223,8 +228,13 @@ export function branchContextExtensionTestOptions(
 	};
 }
 
+function hasBranchCreation(context: BranchContextContext): context is BranchContextCreationContext {
+	return "branchCreation" in context;
+}
+
 export interface BranchContextOperationFakes {
 	operations: BranchContextOperations;
+	prepareCreationCalls: Array<Parameters<BranchContextOperations["prepareBranchContextCreation"]>>;
 	loadPlanCalls: Array<Parameters<BranchContextOperations["loadBranchContextPlan"]>>;
 	createBranchCalls: Array<Parameters<BranchContextOperations["createBranchContextFromFile"]>>;
 	writePlanCalls: Array<Parameters<BranchContextOperations["writeSavedPlanFile"]>>;
@@ -234,6 +244,9 @@ export interface BranchContextOperationFakes {
 export function createBranchContextOperationFakes(
 	overrides: Partial<BranchContextOperations> = {},
 ): BranchContextOperationFakes {
+	const prepareCreationCalls: Array<
+		Parameters<BranchContextOperations["prepareBranchContextCreation"]>
+	> = [];
 	const loadPlanCalls: Array<Parameters<BranchContextOperations["loadBranchContextPlan"]>> = [];
 	const createBranchCalls: Array<
 		Parameters<BranchContextOperations["createBranchContextFromFile"]>
@@ -243,11 +256,26 @@ export function createBranchContextOperationFakes(
 		Parameters<BranchContextOperations["resolveSelectedSavedPlanFile"]>
 	> = [];
 	return {
+		prepareCreationCalls,
 		loadPlanCalls,
 		createBranchCalls,
 		writePlanCalls,
 		selectPlanCalls,
 		operations: {
+			async prepareBranchContextCreation(...args) {
+				prepareCreationCalls.push(args);
+				if (overrides.prepareBranchContextCreation !== undefined) {
+					return overrides.prepareBranchContextCreation(...args);
+				}
+				const baseContext = args[0].context;
+				const context = hasBranchCreation(baseContext)
+					? baseContext
+					: {
+							...baseContext,
+							branchCreation: new PlainGitBranchCreationProvider(baseContext.git),
+						};
+				return { context, branchCreation: context.branchCreation.mode };
+			},
 			async loadBranchContextPlan(...args) {
 				loadPlanCalls.push(args);
 				if (overrides.loadBranchContextPlan !== undefined) {

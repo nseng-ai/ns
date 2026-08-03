@@ -1,8 +1,13 @@
-import { createBranchContextFromFile, loadBranchContextPlan } from "@nseng-ai/branch-context/api";
+import {
+	createBranchContextFromFile,
+	loadBranchContextPlan,
+	prepareBranchContextCreation,
+} from "@nseng-ai/branch-context/api";
 import { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@nseng-ai/plans/api";
 import type { BranchContextExtensionOptions, BranchContextOperations } from "./host-types.ts";
 
 const realBranchContextOperations: BranchContextOperations = {
+	prepareBranchContextCreation,
 	loadBranchContextPlan,
 	createBranchContextFromFile,
 	writeSavedPlanFile,
