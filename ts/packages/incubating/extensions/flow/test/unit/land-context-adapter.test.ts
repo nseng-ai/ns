@@ -36,7 +36,7 @@ const POST_MERGE_FACTS_ARGS = [
 	"view",
 	"42",
 	"--json",
-	"id,number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt",
+	"id,number,title,body,state,isDraft,headRefName,baseRefName,baseRefOid,headRefOid,mergeStateStatus,url,mergedAt",
 ];
 const BACKUP_ROTATION_ARGS = [
 	"fetch",
@@ -197,6 +197,7 @@ describe("land context adapter facts", () => {
 					isDraft: false,
 					headRefName: "feature",
 					baseRefName: "main",
+					baseRefOid: "0000000000000000000000000000000000000000",
 					headRefOid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				},
 			}),
@@ -217,6 +218,7 @@ describe("land context adapter facts", () => {
 			isDraft: false,
 			headRefName: "feature",
 			baseRefName: "main",
+			baseRefOid: "0000000000000000000000000000000000000000",
 			headRefOid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			mergeStateStatus: "UNKNOWN",
 			url: "https://github.example/pr/42",
@@ -270,6 +272,7 @@ describe("land context adapter facts", () => {
 				isDraft: false,
 				headRefName: "feature",
 				baseRefName: "main",
+				baseRefOid: "0000000000000000000000000000000000000000",
 				headRefOid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			},
 		});

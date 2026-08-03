@@ -6,6 +6,7 @@ import {
 	type LandContext,
 	type LandedPullRequest,
 	type LandingFailure,
+	type LandingPhase,
 	type LandingPlan,
 	type LandingWarning,
 	type LandResult,
@@ -55,7 +56,8 @@ export async function prepareMergeLoopState(
 export type ObservedDescendantMaintenance =
 	| { readonly type: "not-attempted" }
 	| { readonly type: "completed" }
-	| { readonly type: "skipped"; readonly reason: string };
+	| { readonly type: "skipped"; readonly reason: string }
+	| { readonly type: "failed" };
 
 export interface MergeLoopObservations {
 	readonly landed: readonly LandedPullRequest[];
@@ -71,6 +73,8 @@ export type MergeLoopResult =
 			readonly type: "failure";
 			readonly observations: MergeLoopObservations;
 			readonly failure: LandingFailure;
+			/** Truthful landing phase of the failure: post-merge maintenance failures are never `merge`. */
+			readonly failedPhase: LandingPhase;
 	  };
 
 export interface RunMergeLoopOptions {
@@ -124,6 +128,7 @@ export async function runMergeLoop(options: RunMergeLoopOptions): Promise<MergeL
 				observedDescendantMaintenance,
 			),
 			failure: preparedState.failure,
+			failedPhase: "merge",
 		};
 	}
 	const state = preparedState.value;
@@ -242,14 +247,19 @@ export async function runMergeLoop(options: RunMergeLoopOptions): Promise<MergeL
 		observedDescendantMaintenance = reduceDescendantMaintenanceObservation(
 			observedDescendantMaintenance,
 			observeDescendantMaintenance(
-				plan,
 				planGraphiteMaintenanceTargets(plan, index).mode,
 				maintenance.kind,
 			),
 		);
 		if (maintenance.kind === "halt") {
 			progress.setStep(branch, "restack", "failed");
-			return mergeLoopFailure(maintenance.failure, landed, state, observedDescendantMaintenance);
+			return mergeLoopFailure(
+				maintenance.failure,
+				landed,
+				state,
+				observedDescendantMaintenance,
+				maintenance.phase,
+			);
 		}
 		if (maintenance.kind === "skip") {
 			progress.setStep(branch, "restack", "skipped");
@@ -280,7 +290,6 @@ export function reduceDescendantMaintenanceObservation(
 }
 
 function observeDescendantMaintenance(
-	plan: LandingPlan,
 	mode: MaintenanceMode,
 	kind: "proceed" | "skip" | "halt",
 ): ObservedDescendantMaintenance | undefined {
@@ -289,18 +298,10 @@ function observeDescendantMaintenance(
 			return undefined;
 		case "none":
 			return { type: "skipped", reason: "no descendant branches require maintenance" };
-		case "skip-descendant":
-			return {
-				type: "skipped",
-				reason:
-					plan.descendantMaintenance.type === "skipped"
-						? plan.descendantMaintenance.reason
-						: "descendant maintenance was skipped",
-			};
-		case "optional-descendants":
-			return kind === "proceed"
-				? { type: "completed" }
-				: { type: "skipped", reason: "optional descendant maintenance did not complete" };
+		case "blocked-descendants":
+			return { type: "failed" };
+		case "required-descendants":
+			return kind === "proceed" ? { type: "completed" } : { type: "failed" };
 	}
 }
 
@@ -329,6 +330,7 @@ function mergeLoopFailure(
 	landed: readonly LandedPullRequest[],
 	state: MergeLoopState,
 	descendantMaintenance: ObservedDescendantMaintenance,
+	failedPhase: LandingPhase = "merge",
 ): MergeLoopResult {
 	return {
 		type: "failure",
@@ -342,6 +344,7 @@ function mergeLoopFailure(
 			descendantMaintenance,
 		),
 		failure,
+		failedPhase,
 	};
 }
 

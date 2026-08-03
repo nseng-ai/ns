@@ -1,5 +1,6 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
+import { validateRemoteDescendantConsistency } from "../preflight.ts";
 import { landingCancelledBeforeMergeFailure, landingExecutionFailure } from "../results.ts";
 import type {
 	LandContext,
@@ -69,6 +70,28 @@ export async function executeSingleBranchLanding(
 		return { type: "failure", stage: "load", failure: prResult.failure };
 	}
 	const pullRequest = prResult.value;
+
+	const remoteDependents = await options.context.github.openPullRequestsBasedOnHeads({
+		repoRoot: options.target.repoRoot,
+		headOids: [pullRequest.headRefOid],
+	});
+	if (remoteDependents.type === "failure") {
+		return { type: "failure", stage: "load", failure: remoteDependents.failure };
+	}
+	const consistency = validateRemoteDescendantConsistency({
+		branchPlans: [
+			{
+				branch: options.target.stack.actualCurrentBranch,
+				localSha: pullRequest.headRefOid,
+				pr: pullRequest,
+			},
+		],
+		stack: options.target.stack,
+		remoteDependents: remoteDependents.value,
+	});
+	if (consistency.type === "failure") {
+		return { type: "failure", stage: "load", failure: consistency.failure };
+	}
 
 	if (pullRequest.baseRefName !== options.target.trunk) {
 		return {

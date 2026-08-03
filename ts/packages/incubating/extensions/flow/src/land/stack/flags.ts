@@ -20,8 +20,9 @@ export const landFlagDescriptors = [
 		commandRequestField: "yes",
 		commandShort: "-y",
 		usageDescription:
-			"Skip the stack/global landing confirmation. Landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation.",
-		commandDescription: "Confirm stack landing without an interactive prompt.",
+			"Skip the stack/global landing confirmation. Also accepts any disclosed deferred descendant maintenance (descendants checked out in other worktrees); such landings still finish nonzero as partial completions. Landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation.",
+		commandDescription:
+			"Confirm stack landing without an interactive prompt; accepts disclosed deferred descendant maintenance.",
 	},
 	{
 		long: "--dry-run",

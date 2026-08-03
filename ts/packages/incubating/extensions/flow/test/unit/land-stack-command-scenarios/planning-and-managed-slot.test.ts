@@ -12,6 +12,7 @@ import {
 	DB_TO_CURRENT,
 	DESCENDANT,
 	fromManagedCurrentSlot,
+	openPrDependencyScanSteps,
 	repoIntro,
 	SHA_A,
 } from "./repo-fixtures.ts";
@@ -35,6 +36,7 @@ describe("land-stack command scenarios", () => {
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A })),
 			}),
+			...openPrDependencyScanSteps(),
 			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_A })),
 			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
 				stdout: prStdout(
@@ -131,6 +133,7 @@ describe("land-stack command scenarios", () => {
 						prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A }),
 					),
 				}),
+				...openPrDependencyScanSteps(),
 			),
 		);
 		const confirmations: Confirmation[] = [];
@@ -168,6 +171,7 @@ describe("land-stack command scenarios", () => {
 						prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A }),
 					),
 				}),
+				...openPrDependencyScanSteps(),
 			),
 		);
 		const output: string[] = [];
@@ -225,9 +229,12 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(confirmations).toEqual([]);
 		expect(notifications[0]?.message).toContain(
-			"Will leave open without automatic restack/update because these descendants are checked out elsewhere:",
+			"Descendant reconciliation is blocked: these descendants are checked out in other worktrees and will NOT be restacked or updated:",
 		);
 		expect(notifications[0]?.message).toContain("slot-07 feature-c");
+		expect(notifications[0]?.message).toContain(
+			"Freeing or detaching those worktrees permits full reconciliation. Confirming here (or using --yes) permits only the parent merge and a known nonzero partial completion.",
+		);
 		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(
 			false,
