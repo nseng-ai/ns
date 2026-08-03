@@ -12,6 +12,7 @@
 // they should be attributed to (`descendant-maintenance` vs `merge-maintenance-cleanup`).
 
 import type { ExecResult } from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { shortSha } from "../../commit-display/index.ts";
 import { LAND_BACKUP_RECOVERY_HINT, parseGitCheckedOutElsewhere } from "../graphite-operations.ts";
 import { validateOpenPrBasics } from "../preflight.ts";
@@ -483,9 +484,9 @@ function stopFailure(stop: GraphiteMaintenanceStop): LandingExecutionFailure {
 		return landingExecutionFailure("Descendant reconciliation step did not complete.");
 	}
 	return landingExecutionFailure(warning.message, {
-		...(warning.commandDisplay === undefined ? {} : { displayCommand: warning.commandDisplay }),
-		...(warning.result === undefined ? {} : { execResult: warning.result }),
-		...(warning.suggestedAction === undefined ? {} : { suggestedAction: warning.suggestedAction }),
+		...optionalEntry("displayCommand", warning.commandDisplay),
+		...optionalEntry("execResult", warning.result),
+		...optionalEntry("suggestedAction", warning.suggestedAction),
 	});
 }
 
