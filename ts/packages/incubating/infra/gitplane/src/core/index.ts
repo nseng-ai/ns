@@ -1,0 +1,70 @@
+export {
+	artifactIdSchema,
+	parseArtifactId,
+	parseArtifactMarker,
+	serializeArtifactMarker,
+	validateClassificationTransition,
+} from "./artifact.ts";
+export type {
+	ArtifactClassification,
+	ArtifactId,
+	ArtifactIdParseResult,
+	ArtifactMarker,
+	ClassificationTransitionResult,
+	MarkerParseResult,
+} from "./artifact.ts";
+export { defineArtifactKind, defineGitplaneConfig } from "./domain.ts";
+export type {
+	ArtifactEntry,
+	ArtifactEntryKind,
+	ArtifactKindRegistration,
+	ArtifactSchemaRegistration,
+	ArtifactSnapshot,
+	ArtifactValidator,
+	ClassifiedArtifactSnapshot,
+	Clock,
+	GitplaneConfig,
+	GitplaneContext,
+	ProjectionField,
+	TargetMapping,
+	ValidationFinding,
+} from "./domain.ts";
+export {
+	ARTIFACT_EVENT_TYPES,
+	createArtifactIdGenerator,
+	deriveEventId,
+	deriveRevisionId,
+	digestArtifactContent,
+} from "./identity.ts";
+export type {
+	ArtifactEventType,
+	ArtifactIdGenerator,
+	ContentDigest,
+	IdentityResult,
+} from "./identity.ts";
+export type {
+	ArtifactBoundary,
+	ArtifactCurrentRecord,
+	ArtifactGateway,
+	ArtifactLineageRecord,
+	CommitDiff,
+	CommitFacts,
+	CreateArtifactRequest,
+	CreateArtifactResult,
+	CursorCompareAndSetResult,
+	CursorRecord,
+	DoctorCheck,
+	EventInsertResult,
+	EventRecord,
+	GatewayError,
+	GatewayResult,
+	InsertResult,
+	LookupResult,
+	MaterializationStoreGateway,
+	OperationResult,
+	ReconciliationErrorRecord,
+	RevisionRecord,
+	StoredEvent,
+	StoredReconciliationError,
+	TargetRowRecord,
+} from "./gateways.ts";
