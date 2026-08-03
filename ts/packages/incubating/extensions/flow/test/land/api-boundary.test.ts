@@ -116,6 +116,7 @@ describe("@nseng-ai/flow/land API boundary", () => {
 					isDraft: false,
 					headRefName: "feature/a",
 					baseRefName: "develop",
+					baseRefOid: "0000000000000000000000000000000000000000",
 					headRefOid: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 				},
 			},
@@ -220,6 +221,7 @@ describe("@nseng-ai/flow/land API boundary", () => {
 						result: { stdout: "", stderr: "", code: 0, type: "exited", signal: null },
 					}),
 					branchChildren: async () => landSuccess([]),
+					branchParent: async () => landSuccess("main"),
 				},
 				github: {
 					pullRequestFacts: async () =>
@@ -232,8 +234,10 @@ describe("@nseng-ai/flow/land API boundary", () => {
 							isDraft: false,
 							headRefName: "feature/a",
 							baseRefName: "main",
+							baseRefOid: "0000000000000000000000000000000000000000",
 							headRefOid: "aaaaaaaa",
 						}),
+					openPullRequestsBasedOnHeads: async () => landSuccess([]),
 					squashMergePullRequest: async () => landSuccess({ stdout: "", stderr: "" }),
 				},
 				worktrees: {

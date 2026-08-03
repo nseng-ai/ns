@@ -134,6 +134,7 @@ function pullRequestFacts(branch: string, number: number) {
 		isDraft: false,
 		headRefName: branch,
 		baseRefName: "main",
+		baseRefOid: "0000000000000000000000000000000000000000",
 		headRefOid: `${number}`,
 		url: `https://github.com/acme/repo/pull/${number}`,
 	};

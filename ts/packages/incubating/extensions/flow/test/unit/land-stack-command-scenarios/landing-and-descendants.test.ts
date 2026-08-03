@@ -9,6 +9,7 @@ import {
 } from "../../../src/land/stack/pr-facts.ts";
 import { backupRefSteps, backupSnapshotFetchArgs } from "../land-stack-backup-ref-fixtures.ts";
 import {
+	containsTrunkStep,
 	expectedSquashMergeArgs,
 	guardShaStep,
 	postRestackSubmitCheckSteps,
@@ -27,6 +28,7 @@ import { numberedDb, numberedPreflight } from "./linear-stack-fixtures.ts";
 import {
 	batchedPrStdout,
 	BRANCH_SHAS,
+	branchParentStep,
 	childrenRecheckStep,
 	cleanRepoChecks,
 	CURRENT,
@@ -214,7 +216,7 @@ describe("land-stack command scenarios", () => {
 		expect(notifications.at(-1)?.level).toBe("success");
 		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c, feature-d.");
 	});
-	test("optional descendant refresh failure still attempts later roots and skips unsafe deletion", async () => {
+	test("required descendant refresh failure still attempts later roots, skips unsafe deletion, and fails", async () => {
 		const script = [
 			...featureStackPreflight({ dbRows: DB_FORKED_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT, "feature-d"], {
@@ -269,17 +271,16 @@ describe("land-stack command scenarios", () => {
 					[DESCENDANT, "feature-d"].includes(call.args[2] ?? ""),
 			),
 		).toBe(false);
-		expect(notifications.at(-1)?.level).toBe("warning");
+		expect(notifications.at(-1)?.level).toBe("error");
 		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain(
-			"Left open; restack/update needs follow-up: feature-c, feature-d.",
-		);
-		expect(streamText).toContain(
-			"Graphite refresh for descendant branch feature-c failed; local branch feature-b cleanup and descendant restack/update were skipped.",
-		);
+		expect(streamText).toContain("land stopped.");
+		expect(streamText).toContain("Already landed:");
+		expect(streamText).toContain("#101 feature-a");
+		expect(streamText).toContain("#102 feature-b");
+		expect(streamText).toContain("targeted Graphite refresh failed");
 		expect(streamText).not.toContain("Left open/restacked: feature-c, feature-d.");
 	});
-	test("descendant managed slot does not block landing and skips descendant maintenance", async () => {
+	test("descendant managed slot lands with consent and fails with deferred descendant maintenance", async () => {
 		const descendantSlotPath = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-07";
 		const script = [
 			...featureStackPreflight({
@@ -326,20 +327,21 @@ describe("land-stack command scenarios", () => {
 				(call) => call.command === "gt" && call.args[0] === "submit" && call.args[2] === DESCENDANT,
 			),
 		).toBe(false);
-		expect(notifications.at(-1)?.level).toBe("warning");
+		expect(notifications.at(-1)?.level).toBe("error");
 		const notificationText = stripAnsi(notifications.at(-1)?.message ?? "");
-		expect(notificationText).toContain(
-			"Free slot-07 for feature-c; then restack/update feature-c.",
-		);
+		expect(notificationText).toContain("land stopped at #102 feature-b");
 		expect(notificationText).not.toContain("Landed 2 PRs");
 		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain("Left open; restack/update skipped: feature-c.");
+		expect(streamText).toContain("land stopped.");
+		expect(streamText).toContain("Already landed:");
 		expect(streamText).toContain(
-			"Final local Graphite cleanup for feature-b and descendant restack/update were skipped",
+			"descendant maintenance was deferred because descendant branches are checked out elsewhere",
 		);
+		expect(streamText).toContain("the landing is only partially complete");
+		expect(streamText).toContain("Free slot-07 for feature-c; then restack/update feature-c.");
 		expect(streamText).toContain("slot-07 feature-c");
 	});
-	test("descendant manual worktree does not block landing and skips descendant maintenance", async () => {
+	test("descendant manual worktree lands with consent and fails with deferred descendant maintenance", async () => {
 		const script = [
 			...featureStackPreflight({
 				worktrees: worktreeOutput([
@@ -369,14 +371,14 @@ describe("land-stack command scenarios", () => {
 					call.command === "gt" && call.args[0] === "restack" && call.args[2] === DESCENDANT,
 			),
 		).toBe(false);
-		expect(notifications.at(-1)?.level).toBe("warning");
+		expect(notifications.at(-1)?.level).toBe("error");
 		const notificationText = stripAnsi(notifications.at(-1)?.message ?? "");
-		expect(notificationText).toContain(
-			"Detach /tmp/manual-descendant for feature-c; then restack/update feature-c.",
-		);
+		expect(notificationText).toContain("land stopped at #102 feature-b");
 		expect(notificationText).not.toContain("Landed 2 PRs");
 		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain("Left open; restack/update skipped: feature-c.");
+		expect(streamText).toContain(
+			"Detach /tmp/manual-descendant for feature-c; then restack/update feature-c.",
+		);
 		expect(streamText).toContain("/tmp/manual-descendant");
 	});
 	test("landing-scope managed slot cleanup is targeted and leaves descendant slots alone", async () => {
@@ -420,11 +422,10 @@ describe("land-stack command scenarios", () => {
 				(call) => call.command === "slot" && sameArgs(call.args, ["gt", "free-stack"]),
 			),
 		).toBe(false);
-		expect(notifications.at(-1)?.level).toBe("warning");
+		expect(notifications.at(-1)?.level).toBe("error");
 		const notificationText = stripAnsi(notifications.at(-1)?.message ?? "");
-		expect(notificationText).toContain(
-			"Free slot-07 for feature-c; then restack/update feature-c.",
-		);
+		expect(notificationText).toContain("land stopped at #102 feature-b");
+		expect(notificationText).toContain("deferred");
 		expect(notificationText).not.toContain("Landed 2 PRs");
 	});
 	test("non-interactive descendant-only slot conflict proceeds with --yes", async () => {
@@ -452,7 +453,7 @@ describe("land-stack command scenarios", () => {
 				.map((call) => call.args[2]),
 		).toEqual(["101", "102"]);
 	});
-	test("optional descendant gt get checkout conflict completes successfully with deferred note", async () => {
+	test("late descendant gt get checkout conflict fails with deferred maintenance", async () => {
 		const getArgs = [
 			"get",
 			DESCENDANT,
@@ -476,23 +477,16 @@ describe("land-stack command scenarios", () => {
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications.at(-1)?.level).toBe("success");
-		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain(
-			"Landed 2 PRs: #101 feature-a, #102 feature-b.",
-		);
+		expect(notifications.at(-1)?.level).toBe("error");
+		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("land stopped at feature-c");
 		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain("Left open; restack/update deferred: feature-c.");
+		expect(streamText).toContain("land stopped.");
+		expect(streamText).toContain("Already landed:");
+		expect(streamText).toContain("#101 feature-a");
+		expect(streamText).toContain("#102 feature-b");
 		expect(streamText).toContain(
-			"→ Deferred optional descendant maintenance for feature-c because main is checked out at /repo-main.",
+			"descendant branch feature-c could not be refreshed because main is checked out at /repo-main; it was not mutated",
 		);
-		expect(streamText).toContain("Notes:");
-		expect(streamText).toContain(
-			"Optional descendant restack/update was deferred because Graphite could not refresh descendant branch feature-c: main is checked out at /repo-main.",
-		);
-		expect(streamText).not.toContain(`✗ $ ${formatCommand("gt", getArgs)} — exit code 1`);
-		expect(streamText).not.toContain("Completed with 1 warning:");
-		expect(streamText).not.toContain("fatal: 'main' is already checked out");
-		expect(streamText).not.toContain("land stopped");
 		expect(
 			pi.execCalls.some(
 				(call) =>
@@ -604,7 +598,7 @@ describe("land-stack command scenarios", () => {
 			false,
 		);
 	});
-	test("post-restack PR read failure warns for optional descendant maintenance", async () => {
+	test("pre-submit PR read failure fails required descendant reconciliation", async () => {
 		const script = [
 			...featureStackPreflight(),
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
@@ -624,6 +618,9 @@ describe("land-stack command scenarios", () => {
 			step("gt", ["delete", "feature-b", "-f", "-q"]),
 			step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
 			guardShaStep(DESCENDANT, SHA_C),
+			containsTrunkStep(DESCENDANT),
+			branchParentStep(DESCENDANT, TRUNK),
+			guardShaStep(TRUNK, "0000000000000000000000000000000000000000"),
 			step("gh", ["pr", "view", DESCENDANT, "--json", PR_FIELDS], {
 				code: 1,
 				stderr: "PR lookup failed",
@@ -632,18 +629,17 @@ describe("land-stack command scenarios", () => {
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications.at(-1)?.level).toBe("warning");
+		expect(notifications.at(-1)?.level).toBe("error");
 		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain(
-			"PR metadata for feature-c could not be verified after optional descendant restack",
-		);
+		expect(streamText).toContain("could not verify PR metadata for feature-c before submit");
+		expect(streamText).toContain("Already landed:");
 		expect(
 			pi.execCalls.some(
 				(call) => call.command === "gt" && call.args[0] === "submit" && call.args[2] === DESCENDANT,
 			),
 		).toBe(false);
 	});
-	test("optional descendant maintenance failure completes with a warning", async () => {
+	test("descendant restack command failure fails the landing after merge", async () => {
 		const script = [
 			...featureStackPreflight(),
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
@@ -653,18 +649,20 @@ describe("land-stack command scenarios", () => {
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications.at(-1)?.level).toBe("warning");
+		expect(notifications.at(-1)?.level).toBe("error");
 		const notificationText = stripAnsi(notifications.at(-1)?.message ?? "");
-		expect(notificationText).toContain(
-			"Resolve restack failures for feature-c, then update that PR manually.",
-		);
+		expect(notificationText).toContain("land stopped at feature-c");
 		expect(notificationText).not.toContain("Landed 2 PRs");
 		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain("Completed with 1 warning:");
+		expect(streamText).toContain("land stopped.");
+		expect(streamText).toContain("Already landed:");
+		expect(streamText).toContain("#101 feature-a");
+		expect(streamText).toContain("#102 feature-b");
+		expect(streamText).toContain("restack failed for descendant root feature-c");
 		expect(streamText).toContain(
-			"Restack failed after merging #102; descendant branch feature-c was left for manual restack/update.",
+			"Resolve restack failures for feature-c, restack it onto main, then submit/update its PR.",
 		);
-		expect(streamText).not.toContain("land stopped");
+		expect(streamText).not.toContain("Completed with 1 warning:");
 		expect(
 			pi.execCalls.some(
 				(call) => call.command === "gt" && call.args[0] === "submit" && call.args[2] === DESCENDANT,

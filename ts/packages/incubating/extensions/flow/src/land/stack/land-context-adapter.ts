@@ -43,7 +43,7 @@ import {
 	type LandGraphiteOperation,
 } from "../graphite-operations.ts";
 import type { LandGraphiteCommandChannel } from "./graphite-command-channel.ts";
-import { loadPr, loadPrsByBranch } from "./pr-facts.ts";
+import { loadOpenPullRequestsBasedOnHeads, loadPr, loadPrsByBranch } from "./pr-facts.ts";
 import {
 	assertLocalBranchExists,
 	detectInProgressOperation,
@@ -137,6 +137,8 @@ export function createLandContext(
 				}),
 			branchChildren: async ({ repoRoot, metadataDbPath, branch }) =>
 				loadBranchChildren({ pi, repoRoot, metadataDbPath, branch }),
+			branchParent: async ({ repoRoot, metadataDbPath, branch }) =>
+				loadBranchParent({ pi, repoRoot, metadataDbPath, branch }),
 		},
 		github: {
 			pullRequestFacts: async ({ repoRoot, branchOrNumber }) => {
@@ -148,6 +150,13 @@ export function createLandContext(
 				const prs = await loadPrsByBranch(pi, repoRoot, branches);
 				if (prs.type === "failure") return normalizeAdapterResult(prs, "github", "preflight");
 				return landSuccess(prs.value);
+			},
+			openPullRequestsBasedOnHeads: async ({ repoRoot, headOids }) => {
+				const dependents = await loadOpenPullRequestsBasedOnHeads(pi, repoRoot, headOids);
+				if (dependents.type === "failure") {
+					return normalizeAdapterResult(dependents, "github", "preflight");
+				}
+				return landSuccess(dependents.value);
 			},
 			squashMergePullRequest: async ({ repoRoot, pullRequest }) => {
 				const mergeArgs = squashMergeArgs(pullRequest);
@@ -311,6 +320,18 @@ async function loadBranchChildren(options: {
 	if (topology.type === "failure")
 		return normalizeAdapterResult(topology, "graphite", "descendant-maintenance");
 	return landSuccess([...(topology.value.get(options.branch)?.children ?? [])]);
+}
+
+async function loadBranchParent(options: {
+	readonly pi: LandExecutionApi;
+	readonly repoRoot: string;
+	readonly metadataDbPath: string;
+	readonly branch: string;
+}): Promise<LandResult<string | undefined>> {
+	const topology = await loadGraphiteTopology(options.pi, options.repoRoot, options.metadataDbPath);
+	if (topology.type === "failure")
+		return normalizeAdapterResult(topology, "graphite", "descendant-maintenance");
+	return landSuccess(topology.value.get(options.branch)?.parent);
 }
 
 async function prepareSubmitUpdate(options: {

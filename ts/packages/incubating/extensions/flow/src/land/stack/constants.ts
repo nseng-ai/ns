@@ -20,6 +20,7 @@ export const PR_FIELD_NAMES = [
 	"isDraft",
 	"headRefName",
 	"baseRefName",
+	"baseRefOid",
 	"headRefOid",
 	"mergeStateStatus",
 	"url",
