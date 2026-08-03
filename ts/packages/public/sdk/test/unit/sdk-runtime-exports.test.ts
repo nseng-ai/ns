@@ -11,7 +11,6 @@ import {
 	failure,
 	formatActiveOperation,
 	formatActiveOperationsLine,
-	machineEnvelopeSchema,
 	negative,
 	noopNsCommandIo,
 	noopNsProgress,
@@ -23,7 +22,6 @@ import {
 	truncateTextHeadTail,
 	usageError,
 	validateExtensionDescriptor,
-	validateLoadedCommandName,
 	z,
 } from "@nseng-ai/sdk";
 
@@ -37,7 +35,6 @@ const runtimeExports = {
 	failure,
 	formatActiveOperation,
 	formatActiveOperationsLine,
-	machineEnvelopeSchema,
 	negative,
 	noopNsCommandIo,
 	noopNsProgress,
@@ -49,7 +46,6 @@ const runtimeExports = {
 	truncateTextHeadTail,
 	usageError,
 	validateExtensionDescriptor,
-	validateLoadedCommandName,
 	z,
 } satisfies Record<string, unknown>;
 
@@ -63,7 +59,6 @@ const EXPECTED_RUNTIME_EXPORTS = [
 	"failure",
 	"formatActiveOperation",
 	"formatActiveOperationsLine",
-	"machineEnvelopeSchema",
 	"negative",
 	"noopNsCommandIo",
 	"noopNsProgress",
@@ -75,7 +70,6 @@ const EXPECTED_RUNTIME_EXPORTS = [
 	"truncateTextHeadTail",
 	"usageError",
 	"validateExtensionDescriptor",
-	"validateLoadedCommandName",
 	"z",
 ] as const;
 
@@ -85,10 +79,10 @@ describe("@nseng-ai/sdk runtime exports", () => {
 	});
 
 	test("provides result helpers, noop services, and the shared schema builder", () => {
-		expect(ok("done")).toEqual({ type: "ok", data: "done", human: "done" });
-		expect(ok({ done: true })).toEqual({ type: "ok", data: { done: true } });
+		expect(ok("done")).toEqual({ status: "success", data: "done" });
+		expect(ok({ done: true })).toEqual({ status: "success", data: { done: true } });
 		expect(failure("test-failed", "nope")).toEqual({
-			type: "failure",
+			status: "failure",
 			errorType: "test-failed",
 			message: "nope",
 		});

@@ -1,5 +1,4 @@
-import { failure } from "@nseng-ai/clinkr/legacy";
-import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
+import { failure, type CommandOutcome } from "@nseng-ai/clinkr/app";
 import {
 	classifyExtensionSourceLifecycle,
 	managedNpmPackagePaths,
@@ -49,7 +48,7 @@ export interface PreparedUserConfig {
 export async function prepareUserConfig<TResult>(
 	context: UserExtensionLifecycleContext,
 	operation: string,
-): Promise<PreparedUserConfig | ClinkrExit<TResult>> {
+): Promise<PreparedUserConfig | CommandOutcome<TResult>> {
 	const read = await context.userExtensionConfig.read();
 	if (read.type === "error") {
 		return failure(`ns-extension-${operation}-user-config-unavailable`, read.error.message, {
@@ -88,7 +87,7 @@ export function prepareUserExtensionSource<TResult>(options: {
 	readonly operation: string;
 }):
 	| { readonly ok: true; readonly sourceSpec: string; readonly source: ExtensionSourceSpec }
-	| { readonly ok: false; readonly exit: ClinkrExit<TResult> } {
+	| { readonly ok: false; readonly exit: CommandOutcome<TResult> } {
 	const classified = classifyExtensionSourceLifecycle(options.cwd, options.source);
 	if (classified.type === "supported-local") {
 		return { ok: true, sourceSpec: classified.source.path, source: classified.source };
@@ -134,7 +133,7 @@ export async function loadOneUserDescriptor<TResult>(options: {
 				ReturnType<DeclaredExtensionsGateway["load"]>
 			>["descriptors"][number];
 	  }
-	| { readonly ok: false; readonly exit: ClinkrExit<TResult> }
+	| { readonly ok: false; readonly exit: CommandOutcome<TResult> }
 > {
 	const loaded = await options.context.declaredExtensions.load({
 		repoRoot: options.configDir,

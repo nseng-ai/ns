@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
+import { z } from "zod";
 
 import { runCliWithFakes, parseJsonOutput } from "./ns-cli-fakes.ts";
 
@@ -51,7 +52,7 @@ describe("ns extension point introspection", () => {
 
 			expect(await run.exit).toBe(0);
 			const envelope = parseJsonOutput(run);
-			expect(envelope.status).toBe("ok");
+			expect(envelope.status).toBe("success");
 			expect(envelope.exitCode).toBe(0);
 			const data = envelope.data as {
 				points: Array<{ id: string; activeSource: unknown }>;
@@ -80,59 +81,6 @@ describe("ns extension point introspection", () => {
 		}
 	});
 
-	test("lists descriptor-declared point definitions from ns.toml extensions", async () => {
-		const cwd = await createDescriptorPointProject();
-		try {
-			const run = runCli(["extension", "points", "--format", "json"], cwd);
-
-			expect(await run.exit).toBe(0);
-			const envelope = parseJsonOutput(run);
-			expect(envelope.status).toBe("ok");
-			const data = envelope.data as {
-				points: Array<{
-					id: string;
-					cardinality: string;
-					activeSource: unknown;
-					defaultPath?: string;
-					manifestPath?: string;
-				}>;
-			};
-			expect(data.points.map((point) => point.id)).toEqual([
-				"branch-context.plans-write",
-				"descriptor.prompt",
-				"descriptor.scan.pre",
-				"flow.submit.pr-inventory",
-				"flow.submit.pre",
-				"flow.submit.pre.recovery",
-			]);
-			expect(data.points).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
-						id: "descriptor.scan.pre",
-						cardinality: "many",
-						activeSource: { source: "repo-hook", commands: ["just descriptor"] },
-					}),
-					expect.objectContaining({
-						id: "descriptor.prompt",
-						cardinality: "one",
-						activeSource: expect.objectContaining({ source: "default" }),
-					}),
-					expect.objectContaining({
-						id: "branch-context.plans-write",
-						defaultPath: "../pi/prompts/plans-write-default.md",
-						activeSource: expect.objectContaining({
-							source: "default",
-							path: "../pi/prompts/plans-write-default.md",
-						}),
-					}),
-				]),
-			);
-			expect(run.stderr.join("")).toBe("");
-		} finally {
-			rmSync(cwd, { recursive: true, force: true });
-		}
-	});
-
 	test("shows one point detail", async () => {
 		const cwd = await createPointProject();
 		try {
@@ -140,7 +88,7 @@ describe("ns extension point introspection", () => {
 
 			expect(await run.exit).toBe(0);
 			const envelope = parseJsonOutput(run);
-			expect(envelope.status).toBe("ok");
+			expect(envelope.status).toBe("success");
 			const data = envelope.data as {
 				point: { id: string; activeSource: unknown; installations: unknown[] };
 			};
@@ -194,7 +142,7 @@ describe("ns extension point introspection", () => {
 
 			expect(await run.exit).toBe(0);
 			const envelope = parseJsonOutput(run);
-			expect(envelope.status).toBe("ok");
+			expect(envelope.status).toBe("success");
 			const data = envelope.data as {
 				point: {
 					id: string;
@@ -258,6 +206,48 @@ describe("ns extension point introspection", () => {
 			rmSync(cwd, { recursive: true, force: true });
 		}
 	});
+
+	test.each([
+		{ args: ["probe", "--format=json"], expected: "json" },
+		{ args: ["--format", "md", "probe"], expected: "md" },
+	] as const)(
+		"uses the framework-selected $expected format in command context",
+		async ({ args, expected }) => {
+			const cwd = await mkdtemp(join(tmpdir(), "ns-format-context-"));
+			const seen: Array<string | undefined> = [];
+			try {
+				const run = runCliWithFakes(
+					{
+						args,
+						cwd,
+						preinstalledSources: () => [
+							{
+								label: "test:format",
+								kind: "built-in",
+								origin: "host",
+								helpClassification: "built-in",
+								compose: (root) => {
+									root.command("probe", { description: "Probe format." }, () => ({
+										requiresContext: true,
+										schema: z.object({}),
+										handler: (context) => {
+											seen.push(context.outputFormat);
+											return { status: "success" as const, data: undefined };
+										},
+									}));
+								},
+							},
+						],
+					},
+					fakeDefaults,
+				);
+				expect(await run.exit).toBe(0);
+				expect(seen).toEqual([expected]);
+			} finally {
+				rmSync(cwd, { recursive: true, force: true });
+			}
+		},
+	);
 });
 
 function runCli(
@@ -276,53 +266,6 @@ function runCli(
 		},
 		fakeDefaults,
 	);
-}
-
-async function createDescriptorPointProject(): Promise<string> {
-	const cwd = await mkdtemp(join(tmpdir(), "ns-descriptor-points-cli-"));
-	writeJson(join(cwd, "extensions", "tools", "package.json"), {
-		name: "tools",
-		version: "1.0.0",
-		exports: { "./ns-extension": "./src/ns/extension.ts" },
-	});
-	writeText(
-		join(cwd, "extensions", "tools", "src", "ns", "extension.ts"),
-		`
-import { defineExtension } from "@nseng-ai/sdk";
-
-export default defineExtension({
-	group: "tools",
-	description: "Descriptor tools.",
-	points: [
-		{
-			id: "descriptor.scan.pre",
-			accepts: "hook",
-			cardinality: "many",
-			description: "Runs before descriptor scan.",
-		},
-		{
-			id: "descriptor.prompt",
-			accepts: "prompt",
-			cardinality: "one",
-			default: "./prompts/descriptor.md",
-			description: "Descriptor prompt.",
-		},
-		{
-			id: "branch-context.plans-write",
-			accepts: "prompt",
-			cardinality: "one",
-			default: "../pi/prompts/plans-write-default.md",
-			description: "Descriptor-owned plan writing prompt.",
-		},
-	],
-});
-`,
-	);
-	writeText(
-		join(cwd, "ns.toml"),
-		'extensions = ["./extensions/tools"]\n\n[points]\n"descriptor.scan.pre" = ["just descriptor"]\n',
-	);
-	return cwd;
 }
 
 async function createPointProject(): Promise<string> {

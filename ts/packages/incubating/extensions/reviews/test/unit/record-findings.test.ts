@@ -42,8 +42,8 @@ describe("runRecordFindings", () => {
 
 		const exit = await runRecordFindings(ctx, { reviewKey: "typescript-style" });
 
-		expect(exit.type).toBe("ok");
-		if (exit.type !== "ok") return;
+		expect(exit.status).toBe("success");
+		if (exit.status !== "success") return;
 		expect(exit.data).toMatchObject({
 			reviewName: "typescript-style",
 			reviewPath: "/repo/.ns/reviews/typescript-style/review.md",
@@ -70,8 +70,8 @@ describe("runRecordFindings", () => {
 
 		const exit = await runRecordFindings(ctx, { reviewKey: "typescript-style" });
 
-		expect(exit.type).toBe("failure");
-		if (exit.type !== "failure") return;
+		expect(exit.status).toBe("failure");
+		if (exit.status !== "failure") return;
 		expect(exit.errorType).toBe("review-execution-invalid-json");
 		expect(reviewLog.writtenEntries()).toEqual([]);
 	});
@@ -87,8 +87,8 @@ describe("runRecordFindings", () => {
 
 		const exit = await runRecordFindings(ctx, { reviewKey: "typescript-style" });
 
-		expect(exit.type).toBe("failure");
-		if (exit.type !== "failure") return;
+		expect(exit.status).toBe("failure");
+		if (exit.status !== "failure") return;
 		expect(exit.errorType).toBe("review-execution-invalid-findings");
 		expect(reviewLog.writtenEntries()).toEqual([]);
 	});
@@ -105,8 +105,8 @@ describe("runRecordFindings", () => {
 
 		const exit = await runRecordFindings(ctx, { reviewKey: "missing-review" });
 
-		expect(exit.type).toBe("failure");
-		if (exit.type !== "failure") return;
+		expect(exit.status).toBe("failure");
+		if (exit.status !== "failure") return;
 		expect(exit.errorType).toBe("review-definition-not-found");
 		expect(reviewLog.writtenEntries()).toEqual([]);
 	});
@@ -131,11 +131,13 @@ describe("runRecordFindings", () => {
 			model: "anthropic/claude-sonnet-4-6",
 		});
 
-		expect(exit.type).toBe("negative");
-		if (exit.type !== "negative") return;
+		expect(exit.status).toBe("negative");
+		if (exit.status !== "negative") return;
 		expect(exit.message).toContain("failed to write Branch Memory review log");
-		expect(exit.data?.reviewName).toBe("typescript-style");
-		expect(exit.data?.model).toBe("anthropic/claude-sonnet-4-6");
+		expect(exit.data).toMatchObject({
+			reviewName: "typescript-style",
+			model: "anthropic/claude-sonnet-4-6",
+		});
 	});
 });
 

@@ -36,23 +36,7 @@ test("repo-local extensions can import package subpaths without source aliases",
 	);
 	expect(typeof modelSlugModule.deriveSlugWithModel).toBe("function");
 
-	const addressDownloadFeedbackModule = await jiti.import<{
-		default: { name: string };
-	}>("@nseng-ai/pr-feedback/ns/commands/exec-download-feedback");
-	expect(addressDownloadFeedbackModule.default.name).toBe("download-feedback");
-
-	const branchContextFromPlanModule = await jiti.import<{
-		default: { name: string };
-	}>("@nseng-ai/branch-context/ns/commands/from-plan");
-	expect(branchContextFromPlanModule.default.name).toBe("from-plan");
-
-	const handoffListModule = await jiti.import<{
-		handoffListNsCommand: { name: string };
-	}>("@nseng-ai/handoffs/ns/commands/list");
-	expect(handoffListModule.handoffListNsCommand.name).toBe("list");
-
-	const objectiveListModule = await jiti.import<{
-		objectiveListNsCommand: { name: string };
-	}>("@nseng-ai/objectives/ns/commands/list");
-	expect(objectiveListModule.objectiveListNsCommand.name).toBe("list");
+	const handoffCheckModule =
+		await jiti.import<typeof import("@nseng-ai/handoffs/api")>("@nseng-ai/handoffs/api");
+	expect(typeof handoffCheckModule.checkHandoffArtifact).toBe("function");
 }, 30_000);

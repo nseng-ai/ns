@@ -41,7 +41,7 @@ function descriptor(source: string): DeclaredExtensionDescriptor {
 }
 
 const tracedFailureSchema = z.object({
-	type: z.literal("failure"),
+	status: z.literal("failure"),
 	data: z.object({ steps: z.array(lifecycleStepSchema).readonly() }),
 });
 
@@ -209,7 +209,7 @@ describe("updateExtension acquisition scenarios", () => {
 		const result = await updateExtension(context, { cwd: "/repo", source, dryRun });
 
 		expect(result).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				mode: dryRun ? "dry-run" : "applied",
 				acquisitionIntent: intent,
@@ -228,7 +228,7 @@ describe("updateExtension acquisition scenarios", () => {
 					: {}),
 			},
 		});
-		if (result.type !== "ok" || result.data.scope !== "project")
+		if (result.status !== "success" || result.data.scope !== "project")
 			throw new Error("Expected project update to succeed.");
 		expect(phaseHistory(result.data.steps)).toEqual([
 			{ type: "phase", phase: "repository-preflight", status: "started" },
@@ -296,7 +296,7 @@ describe("updateExtension acquisition scenarios", () => {
 		const result = await updateExtension(context, { cwd: "/repo", source, dryRun: true });
 
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-update-acquisition-failed",
 			data: {
 				phase: "acquisition",
@@ -319,7 +319,7 @@ describe("updateExtension acquisition scenarios", () => {
 		const result = await updateExtension(context, { cwd: "/repo", source, dryRun: false });
 
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-update-acquisition-failed",
 			data: { completed: {}, steps: expect.any(Array) },
 		});
@@ -333,7 +333,7 @@ describe("updateExtension acquisition scenarios", () => {
 
 		const result = await updateExtension(context, { cwd: "/repo", source, dryRun: false });
 
-		expect(result).toMatchObject({ type: "ok", data: { acquisitionOutcome: "refreshed" } });
+		expect(result).toMatchObject({ status: "success", data: { acquisitionOutcome: "refreshed" } });
 		expect(declaredExtensions.calls()).toEqual([{ repoRoot: "/repo", specs: [source] }]);
 	});
 
@@ -356,7 +356,7 @@ describe("updateExtension acquisition scenarios", () => {
 		const result = await updateExtension(context, { cwd: "/repo", source, dryRun: false });
 
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-update-apply-failed",
 			data: { phase: "artifacts", completed: { files: {} }, steps: expect.any(Array) },
 		});
@@ -377,7 +377,7 @@ describe("updateExtension acquisition scenarios", () => {
 		const result = await updateExtension(context, { cwd: "/repo", source, dryRun: true });
 
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-update-preflight-failed",
 			data: { sourceAcquisitionCompleted: false, completed: {}, steps: expect.any(Array) },
 		});
@@ -398,7 +398,7 @@ describe("updateExtension acquisition scenarios", () => {
 		const result = await updateExtension(context, { cwd: "/repo", source, dryRun: false });
 
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-update-preflight-failed",
 			data: { sourceAcquisitionCompleted: true, completed: {}, steps: expect.any(Array) },
 		});

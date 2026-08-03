@@ -1,4 +1,4 @@
-import { failure, ok, negative, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
+import { failure, negative, ok, type CommandExit } from "@nseng-ai/sdk";
 import { parseJsonInputText, type JsonInputError } from "@nseng-ai/extension-kit/json-input";
 import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
@@ -229,8 +229,8 @@ export async function buildReviewListResult(
 export async function runReviewList(
 	ctx: ReviewsRuntime,
 	request: ReviewListRequest,
-): Promise<ClinkrExit<ReviewListResult>> {
-	return clinkrExitFromReviewResult(await buildReviewListResult(ctx, request));
+): Promise<CommandExit<ReviewListResult>> {
+	return commandExitFromReviewResult(await buildReviewListResult(ctx, request));
 }
 
 export function renderReviewList(result: ReviewListResult): string {
@@ -255,9 +255,9 @@ export function renderReviewList(result: ReviewListResult): string {
 export async function runReviewByKey(
 	ctx: ReviewsRuntime,
 	request: ReviewRunRequest,
-): Promise<ClinkrExit<ReviewRunResult>> {
+): Promise<CommandExit<ReviewRunResult>> {
 	const priorFindingsContext = await loadPriorFindingsPromptContext(ctx, request);
-	return clinkrExitFromReviewRunOutcome(
+	return commandExitFromReviewRunOutcome(
 		ctx,
 		await runReview(ctx, {
 			key: request.key,
@@ -296,10 +296,10 @@ async function loadPriorFindingsPromptContext(
 	return priorFindingsPromptContextSchema.parse(result.context);
 }
 
-export function clinkrExitFromReviewRunOutcome(
+export function commandExitFromReviewRunOutcome(
 	ctx: Pick<ReviewsRuntime, "stderr">,
 	outcome: Awaited<ReturnType<typeof runReview>>,
-): ClinkrExit<ReviewRunResult> {
+): CommandExit<ReviewRunResult> {
 	if (outcome.type === "failed") return failureFromReview(outcome.error);
 	ctx.stderr(
 		`resolved model=${outcome.progress.model} model_profile=${outcome.progress.modelProfile} base_ref=${outcome.progress.baseRef} changed_paths=${outcome.progress.changedPathCount}\n`,
@@ -340,8 +340,8 @@ export function renderReviewRun(result: ReviewRunResult): string {
 export async function runRecordFindings(
 	ctx: ReviewsRuntime,
 	request: RecordFindingsRequest,
-): Promise<ClinkrExit<ReviewRunResult>> {
-	return clinkrExitFromRecordFindingsOutcome(ctx, await recordSameSessionFindings(ctx, request));
+): Promise<CommandExit<ReviewRunResult>> {
+	return commandExitFromRecordFindingsOutcome(ctx, await recordSameSessionFindings(ctx, request));
 }
 
 export async function recordSameSessionFindings(
@@ -380,10 +380,10 @@ export async function recordSameSessionFindings(
 	return { type: "recorded", result, logEntry: logResult.value };
 }
 
-export function clinkrExitFromRecordFindingsOutcome(
+export function commandExitFromRecordFindingsOutcome(
 	ctx: Pick<ReviewsRuntime, "stderr">,
 	outcome: RecordFindingsOutcome,
-): ClinkrExit<ReviewRunResult> {
+): CommandExit<ReviewRunResult> {
 	if (outcome.type === "failed") return failureFromReview(outcome.error);
 	if (outcome.type === "recorded_log_failed") {
 		return negative(
@@ -445,8 +445,8 @@ export async function buildReviewLogResult(
 export async function runReviewLog(
 	ctx: ReviewsRuntime,
 	request: ReviewLogRequest,
-): Promise<ClinkrExit<ReviewLogResult>> {
-	return clinkrExitFromReviewResult(await buildReviewLogResult(ctx, request));
+): Promise<CommandExit<ReviewLogResult>> {
+	return commandExitFromReviewResult(await buildReviewLogResult(ctx, request));
 }
 
 export function renderReviewLog(result: ReviewLogResult): string {
@@ -480,14 +480,14 @@ export async function runPublishFindings(
 export async function runPublishFindingsCommand(
 	ctx: ReviewsRuntime,
 	request: PublishFindingsRequest,
-): Promise<ClinkrExit<PublishFindingsCommandResult>> {
-	return clinkrExitFromPublishFindingsResult(ctx, await publishFindingsFromRequest(ctx, request));
+): Promise<CommandExit<PublishFindingsCommandResult>> {
+	return commandExitFromPublishFindingsResult(ctx, await publishFindingsFromRequest(ctx, request));
 }
 
-export function clinkrExitFromPublishFindingsResult(
+export function commandExitFromPublishFindingsResult(
 	ctx: Pick<ReviewsRuntime, "stderr">,
 	result: PublishFindingsResult,
-): ClinkrExit<PublishFindingsCommandResult> {
+): CommandExit<PublishFindingsCommandResult> {
 	if (!result.ok) return failureFromPublicationError(result.error);
 
 	ctx.stderr(renderPublishFindingsDiagnostics(result.value));
@@ -557,18 +557,18 @@ function reviewLogEntryResult(entry: ReviewLogEntry): ReviewLogResult["entries"]
 	};
 }
 
-function failureFromReview(error: ReviewFailure): ClinkrExit<never> {
+function failureFromReview(error: ReviewFailure): CommandExit<never> {
 	return failure(error.code, error.message);
 }
 
-function failureFromPublicationError(error: PublicationError): ClinkrExit<never> {
+function failureFromPublicationError(error: PublicationError): CommandExit<never> {
 	return failure("reviews-publish-findings-failed", `publish-findings: ${error.message}`, {
 		fatalFailurePhase: error.fatalFailurePhase,
 		reason: error.reason,
 	});
 }
 
-function clinkrExitFromReviewResult<T>(result: ReviewResult<T>): ClinkrExit<T> {
+function commandExitFromReviewResult<T>(result: ReviewResult<T>): CommandExit<T> {
 	if (result.ok) return ok(result.value);
 	return failureFromReview(result.error);
 }

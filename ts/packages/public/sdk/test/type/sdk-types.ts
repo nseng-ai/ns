@@ -2,8 +2,8 @@ import { defineCommand, defineExtension, defineRawCommand, failure, ok, z } from
 import type {
 	ExtensionActivation,
 	ExtensionDescriptor,
-	RawArgvCommand,
-	MachineEnvelope,
+	NsRawCommandDefinition,
+	CommandOutcome,
 	NsCommandIo,
 	NsExtensionApi,
 	NsProgress,
@@ -22,17 +22,14 @@ const extension = defineExtension({ description: "Typed descriptor." });
 const commandlessExtension = defineExtension({ description: "Commandless descriptor." });
 
 const rawCommand = defineRawCommand({
-	name: "legacy",
-	summary: "Legacy wrapper.",
-	description: "Legacy wrapper command.",
-	run(_ctx, invocation) {
+	run(invocation) {
 		type InvocationArgv = typeof invocation.argv;
 		const checks: [
 			Assert<IsAny<InvocationArgv> extends false ? true : false>,
 			Assert<IsEqual<InvocationArgv, readonly string[]>>,
 		] = [true, true];
 		void checks;
-		return { type: "ok", data: { argv: [...invocation.argv] } };
+		return invocation.argv.length === 0 ? 0 : 1;
 	},
 });
 
@@ -75,8 +72,12 @@ const descriptor = defineExtension({
 });
 
 const descriptorCheck: ExtensionDescriptor = descriptor;
-const rawCommandCheck: RawArgvCommand = rawCommand;
-const envelope: MachineEnvelope = { status: "failure", exitCode: 2, errorType: "x", message: "x" };
+const rawCommandCheck: NsRawCommandDefinition = rawCommand;
+const outcome: CommandOutcome<unknown> = {
+	status: "failure",
+	errorType: "x",
+	message: "x",
+};
 const failureExit = failure("wrapped", "wrapped failure");
 
 const textGenerator: TextGenerator = {
@@ -136,7 +137,7 @@ void extension;
 void commandlessExtension;
 void descriptorCheck;
 void rawCommandCheck;
-void envelope;
+void outcome;
 void failureExit;
 void textGenerator;
 void commandIo;

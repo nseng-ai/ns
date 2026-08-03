@@ -23,13 +23,6 @@ import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
 import { resolveFlowModelSelection } from "../model-policy.ts";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
-const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
-
-The command captures the pending worktree, refuses Git's trunk branch from cached origin/HEAD, refuses clean worktrees, asks the configured text-generation model for a validated [cp] commit message, stages all changes, commits with that message, and prints the resulting commit summary plus checkpoint message. Checkpoint safety requires a successful cached origin/HEAD lookup.
-
-Use --dry-run to preview the model-authored checkpoint message without running git add, git commit, or git log.
-`;
-
 const cpRequestSchema = z.object({
 	dryRun: z
 		.boolean()
@@ -40,9 +33,6 @@ const cpRequestSchema = z.object({
 type CpRequest = z.output<typeof cpRequestSchema>;
 
 export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
-	name: "cp",
-	summary: "Create a checkpoint commit for the current diff.",
-	description: CP_COMMAND_DESCRIPTION,
 	schema: cpRequestSchema,
 	resultSchema: z.string(),
 	options: { dryRun: { short: "-n" } },
@@ -85,7 +75,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 					onPhase: stream.emit,
 				});
 				const command = toCommandResult(result);
-				return { result: command, isFailed: command.type !== "ok" };
+				return { result: command, isFailed: command.status !== "success" };
 			},
 		});
 	},

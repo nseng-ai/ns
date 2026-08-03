@@ -1,5 +1,5 @@
-import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
-import { failure, ok } from "@nseng-ai/clinkr/legacy";
+import type { CommandOutcome } from "@nseng-ai/clinkr/app";
+import { failure, ok } from "@nseng-ai/clinkr/app";
 import { ALL_HARNESS_IDS, parseNsTomlExtensions } from "../harness-artifacts/api.ts";
 import type { ExtensionAcquisitionDiagnostic } from "@nseng-ai/sdk/extensions/acquisition";
 import { planDeclaredExtensionTarget } from "@nseng-ai/sdk/project-config";
@@ -90,7 +90,7 @@ export type UpdateExtensionResult = z.infer<typeof updateExtensionResultSchema>;
 export async function updateExtension(
 	context: ExtensionUpdateContext,
 	request: UpdateExtensionRequest,
-): Promise<ClinkrExit<UpdateExtensionResult>> {
+): Promise<CommandOutcome<UpdateExtensionResult>> {
 	if (request.scope === "user") return updateUserExtension(context, request);
 	const recorder = createLifecycleRecorder(context.lifecycleTrace);
 	function tracedFailure<TData extends object>(options: {
@@ -98,7 +98,7 @@ export async function updateExtension(
 		readonly errorType: string;
 		readonly message: string;
 		readonly data: TData;
-	}): ClinkrExit<UpdateExtensionResult> {
+	}): CommandOutcome<UpdateExtensionResult> {
 		recorder.fail(options.diagnostic);
 		return failure(options.errorType, options.message, {
 			...options.data,
@@ -339,7 +339,7 @@ export function classifyUpdateOutcome(
 async function updateUserExtension(
 	context: ExtensionUpdateContext,
 	request: UpdateExtensionRequest,
-): Promise<ClinkrExit<UpdateExtensionResult>> {
+): Promise<CommandOutcome<UpdateExtensionResult>> {
 	const source = prepareUserExtensionSource<UpdateExtensionResult>({
 		context,
 		cwd: request.cwd,
@@ -348,7 +348,7 @@ async function updateUserExtension(
 	});
 	if (!source.ok) return source.exit;
 	const prepared = await prepareUserConfig<UpdateExtensionResult>(context, "update");
-	if ("type" in prepared) return prepared;
+	if ("status" in prepared) return prepared;
 	const parsed = parseNsTomlExtensions(prepared.content, prepared.configPath);
 	if (parsed.type === "error")
 		return failure("ns-extension-update-user-config-invalid", parsed.error.message, {

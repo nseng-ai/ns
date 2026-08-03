@@ -294,7 +294,7 @@ describe("runReview", () => {
 
 		const exit = await runReviewByKey(ctx, { key: "typescript-style" });
 
-		expect(exit.type).toBe("ok");
+		expect(exit.status).toBe("success");
 		expect(github.markerFindCalls()).toEqual([]);
 		expect(github.reviewThreadCalls()).toEqual([]);
 		expect(reviewRunner.calls()[0]?.request.priorFindingsContext).toBeUndefined();
@@ -323,7 +323,7 @@ describe("runReview", () => {
 			priorFindingsCap: 7,
 		});
 
-		expect(exit.type).toBe("ok");
+		expect(exit.status).toBe("success");
 		expect(github.markerFindCalls()).toEqual([
 			{
 				cwd: ctx.runScope.cwd,

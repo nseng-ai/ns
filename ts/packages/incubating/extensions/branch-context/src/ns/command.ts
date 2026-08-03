@@ -1,9 +1,13 @@
-import {
-	createNsDomainCommand,
-	type NsDomainCommandOptions,
-} from "@nseng-ai/extension-kit/ns-command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { NsCommand, NsCommandSchema, NsExtensionApi } from "@nseng-ai/sdk";
+import {
+	defineCommand,
+	type CommandExit,
+	type DefineCommandSpec,
+	type NsCommand,
+	type NsCommandSchema,
+	type NsExtensionApi,
+} from "@nseng-ai/sdk";
+import type { z } from "zod";
 
 import {
 	createRealBranchContextCliContext,
@@ -11,16 +15,22 @@ import {
 } from "../core/operations.ts";
 
 type BranchContextNsCommandOptions<S extends NsCommandSchema, T> = Omit<
-	NsDomainCommandOptions<S, T, BranchContextCliContext>,
-	"createContext"
->;
+	DefineCommandSpec<S, T>,
+	"handler"
+> & {
+	readonly handler: (
+		ctx: BranchContextCliContext,
+		request: z.output<S>,
+	) => Promise<unknown> | unknown;
+};
 
 export function branchContextCommand<S extends NsCommandSchema, T>(
 	options: BranchContextNsCommandOptions<S, T>,
 ): NsCommand<S, T> {
-	return createNsDomainCommand({
+	return defineCommand({
 		...options,
-		createContext: createBranchContextExtensionContext,
+		handler: async (ctx, request) =>
+			toModernOutcome<T>(await options.handler(createBranchContextExtensionContext(ctx), request)),
 	});
 }
 
@@ -30,4 +40,33 @@ function createBranchContextExtensionContext(ctx: NsExtensionApi): BranchContext
 		env: ctx.env,
 		...optionalEntry("stderr", ctx.stderr),
 	});
+}
+
+function toModernOutcome<T>(value: unknown): CommandExit<T> {
+	if (typeof value !== "object" || value === null || !("type" in value)) {
+		throw new Error("Branch-context command returned an invalid outcome.");
+	}
+	const legacy = value as Record<string, unknown>;
+	if (legacy.type === "ok") return { status: "success", data: legacy.data as T };
+	if (legacy.type === "negative") {
+		return {
+			status: "negative",
+			message: String(legacy.message),
+			...optionalEntry("data", legacy.data),
+		};
+	}
+	if (legacy.type === "failure") {
+		return {
+			status: "failure",
+			errorType: String(legacy.errorType),
+			message: String(legacy.message),
+			...optionalEntry("data", legacy.data),
+		};
+	}
+	return {
+		status: "usage-error",
+		errorType: "usage-error",
+		message: String(legacy.message),
+		...optionalEntry("data", legacy.data),
+	};
 }

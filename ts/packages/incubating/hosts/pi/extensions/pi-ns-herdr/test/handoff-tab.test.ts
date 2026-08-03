@@ -7,10 +7,9 @@ import type {
 	ToolDefinition,
 } from "@nseng-ai/pi-ns-handoffs/handoff-launch";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
+import { runCli } from "@nseng-ai/sdk/cli";
 import type {
 	ExecResult,
-	NsCommand,
-	NsCommandSchema,
 	NsExecOptions,
 	NsExtensionApi,
 	TextGenerationRequest,
@@ -22,7 +21,7 @@ import { describe, expect, test } from "vitest";
 
 import {
 	formatHerdrHandoffTabRunFailure,
-	herdrHandoffTabLaunchNsCommand,
+	herdrHandoffTabLaunchCommand,
 	launchHerdrHandoffTab,
 } from "@nseng-ai/herdr/api";
 import { registerHerdrHandoffTab } from "../src/pi/handoff-tab.ts";
@@ -132,7 +131,7 @@ describe("ns herdr exec handoff-tab launch", () => {
 		const exit = await runNsCommand(new FakeHerdrNsApi({ brmem, herdr }), commandArgv);
 
 		expect(exit).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				branch: "feature/test",
 				slug: "continue-work",
@@ -162,7 +161,7 @@ describe("ns herdr exec handoff-tab launch", () => {
 			commandArgv,
 		);
 		expect(missing).toMatchObject({
-			type: "negative",
+			status: "negative",
 			message: "No handoff continue-work found on branch feature/test; no Herdr tab was opened.",
 		});
 		expect(missingHerdr.createTabCalls).toEqual([]);
@@ -173,7 +172,7 @@ describe("ns herdr exec handoff-tab launch", () => {
 			commandArgv,
 		);
 		expect(failed).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "handoff-verification-failed",
 			data: { stage: "verify-handoff" },
 		});
@@ -192,7 +191,7 @@ describe("ns herdr exec handoff-tab launch", () => {
 		const herdr = new FakeHerdrGateway();
 		const argv = replaceOption(commandArgv, replacement[0] ?? "", replacement[1] ?? "");
 		const exit = await runNsCommand(new FakeHerdrNsApi({ brmem, herdr }), argv);
-		expect(exit.type).toBe("usageError");
+		expect(exit.status).toBe("usage-error");
 		expect(brmem.checkCalls).toBe(0);
 		expect(herdr.createTabCalls).toEqual([]);
 	});
@@ -216,7 +215,7 @@ describe("ns herdr exec handoff-tab launch", () => {
 		const argv = replaceOption(commandArgv, "--thinking", "off");
 		const exit = await runNsCommand(new FakeHerdrNsApi({ brmem, herdr }), argv);
 		expect(exit).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				command:
 					"pi --provider anthropic --model claude-test '/ns:handoff:pickup --branch feature/test continue-work'",
@@ -245,7 +244,7 @@ describe("ns herdr exec handoff-tab launch", () => {
 			commandArgv,
 		);
 		expect(createFailed).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "herdr-tab-create-failed",
 			data: { stage: "create-tab", branch: "feature/test", slug: "continue-work" },
 		});
@@ -266,7 +265,7 @@ describe("ns herdr exec handoff-tab launch", () => {
 			commandArgv,
 		);
 		expect(paneFailed).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "herdr-pane-run-failed",
 			data: {
 				stage: "run-in-pane",
@@ -282,8 +281,8 @@ describe("ns herdr exec handoff-tab launch", () => {
 	test("publishes help and a success-only result schema", async () => {
 		const api = new FakeHerdrNsApi();
 		const help = await runNsCommandMeta(api, ["-h"]);
-		expect(help).toMatchObject({ type: "ok" });
-		if (help.type !== "ok") throw new Error("Expected help output");
+		expect(help).toMatchObject({ status: "success" });
+		if (help.status !== "success") throw new Error("Expected help output");
 		const publishedHelp = String(help.data);
 		expect(publishedHelp).toContain("--workspace-id");
 		expect(publishedHelp).toContain("--provider");
@@ -292,9 +291,9 @@ describe("ns herdr exec handoff-tab launch", () => {
 		expect(publishedHelp).not.toContain("--launch-command");
 		expect(publishedHelp).not.toContain("--launch-argv-json");
 		const schema = await runNsCommandMeta(api, ["--json-schema"]);
-		expect(schema).toMatchObject({ type: "ok" });
-		if (schema.type !== "ok") throw new Error("Expected JSON Schema output");
-		const publishedSchema = JSON.stringify(schema.data);
+		expect(schema).toMatchObject({ status: "success" });
+		if (schema.status !== "success") throw new Error("Expected JSON Schema output");
+		const publishedSchema = String(schema.data);
 		expect(publishedSchema).toContain("inputJsonSchema");
 		expect(publishedSchema).toContain("outputJsonSchema");
 		expect(publishedSchema).not.toContain("launchCommand");
@@ -304,8 +303,8 @@ describe("ns herdr exec handoff-tab launch", () => {
 		expect(publishedSchema).toContain('"model"');
 		expect(publishedSchema).toContain('"thinking"');
 		expect(publishedSchema).not.toContain("verify-handoff");
-		expect(publishedSchema).toContain('"status":{"type":"string","const":"ok"}');
-		expect(publishedSchema).toContain('"status":{"type":"string","const":"negative"}');
+		expect(publishedSchema).toContain('"const": "success"');
+		expect(publishedSchema).toContain('"const": "negative"');
 	});
 });
 
@@ -647,13 +646,67 @@ function commandContext(
 	};
 }
 
-function runNsCommand(api: NsExtensionApi, argv: readonly string[]) {
-	return herdrHandoffTabLaunchNsCommand.run(api, { argv: [...argv] });
+async function runNsCommand(api: NsExtensionApi, argv: readonly string[]) {
+	return await runHerdrCli(api, [...argv, "--format", "json"]);
 }
 
-function runNsCommandMeta(api: NsExtensionApi, argv: readonly string[]) {
-	const command = herdrHandoffTabLaunchNsCommand as NsCommand<NsCommandSchema, unknown>;
-	return command.run(api, { argv: [...argv] });
+async function runNsCommandMeta(api: NsExtensionApi, argv: readonly string[]) {
+	return await runHerdrCli(api, argv);
+}
+
+async function runHerdrCli(api: NsExtensionApi, argv: readonly string[]) {
+	const stdout: string[] = [];
+	const stderr: string[] = [];
+	const exitCode = await runCli(["herdr", "exec", "handoff-tab", "launch", ...argv], {
+		context: api,
+		cwd: api.cwd,
+		env: api.env,
+		stdout: (text) => stdout.push(text),
+		stderr: (text) => stderr.push(text),
+		extensionRegistry: {
+			loadSourceInventory: async () => ({
+				sources: [
+					{
+						label: "herdr test",
+						kind: "project" as const,
+						origin: "local" as const,
+						helpClassification: "extension" as const,
+						compose: (root) => {
+							root.group("herdr", { description: "Run Herdr destination workflows." }, (herdr) => {
+								herdr.group(
+									"exec",
+									{ description: "Agent-only Herdr operations.", hidden: true },
+									(exec) => {
+										exec.group(
+											"handoff-tab",
+											{ description: "Launch stored handoffs in Herdr tabs." },
+											(handoffTab) => {
+												handoffTab.command(
+													"launch",
+													{ description: "Launch a stored handoff in a focused Herdr tab." },
+													() => herdrHandoffTabLaunchCommand,
+												);
+											},
+										);
+									},
+								);
+							});
+						},
+					},
+				],
+				diagnostics: [],
+				extensionPackageNames: new Set<string>(),
+				builtInPackageNames: new Set<string>(),
+			}),
+		},
+	});
+	const output = stdout.join("");
+	if (argv.includes("-h") || argv.includes("--json-schema")) {
+		return { status: exitCode === 0 ? "success" : "failure", data: output };
+	}
+	return output === ""
+		? { status: exitCode === 2 ? "usage-error" : "failure", message: stderr.join("") }
+		: JSON.parse(output);
 }
 
 function replaceOption(argv: readonly string[], option: string, value: string): string[] {

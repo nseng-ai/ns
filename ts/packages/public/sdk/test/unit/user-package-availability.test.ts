@@ -23,14 +23,8 @@ const gateway: ExtensionDescriptorPackageGateway = {
 		return {
 			ok: true as const,
 			defaultExport: {
-				group: first ? "one" : "two",
 				description: "test",
-				entries: [
-					{
-						name: first ? "shared" : "other",
-						load: async () => ({ default: {} }),
-					},
-				],
+				commandDirectory: first ? "/commands/one" : "/commands/two",
 			},
 		};
 	},
@@ -42,34 +36,18 @@ describe("evaluateUserExtensionPackageAvailability", () => {
 			configDir: "/config/ns",
 			sourceSpecs: ["/extensions/one", "/extensions/two"],
 			descriptorGateway: gateway,
-			preinstalledCommandCatalog: () => ({
-				entries: [
-					{
-						name: "shared",
-						description: "shared",
-						fullDescription: "shared",
-						displayPath: "@test/preinstalled/shared",
-						load: async () => ({ default: {} }),
-						packageName: "@test/preinstalled",
-						contributionId: "preinstalled:test",
-					},
-				],
-				extensionPackageNames: ["@test/preinstalled"],
-				builtInPackageNames: [],
-			}),
+			preinstalledSources: () => [],
 		});
 		expect(facts).toEqual([
 			expect.objectContaining({
 				sourceSpec: "/extensions/one",
 				packageName: "@test/one",
 				availability: "available",
-				commandPaths: ["one/shared"],
 			}),
 			expect.objectContaining({
 				sourceSpec: "/extensions/two",
 				packageName: "@test/two",
 				availability: "available",
-				commandPaths: ["two/other"],
 			}),
 		]);
 	});
@@ -79,11 +57,7 @@ describe("evaluateUserExtensionPackageAvailability", () => {
 			configDir: "/config/ns",
 			sourceSpecs: ["/extensions/one", "/extensions/one"],
 			descriptorGateway: gateway,
-			preinstalledCommandCatalog: () => ({
-				entries: [],
-				extensionPackageNames: [],
-				builtInPackageNames: [],
-			}),
+			preinstalledSources: () => [],
 		});
 		expect(facts.every((fact) => fact.availability === "unavailable")).toBe(true);
 	});

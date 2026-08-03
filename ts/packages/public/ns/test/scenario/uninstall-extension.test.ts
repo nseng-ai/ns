@@ -91,7 +91,7 @@ function fixture(options: {
 
 const initializedToml = 'supported_harnesses = ["pi"]\n';
 const tracedFailureSchema = z.object({
-	type: z.literal("failure"),
+	status: z.literal("failure"),
 	data: z.object({ steps: z.array(lifecycleStepSchema).readonly() }),
 });
 
@@ -141,7 +141,7 @@ describe("uninstallExtension", () => {
 		});
 
 		expect(result).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				sourceKind: "npm",
 				sourceIdentity: "@test/tools",
@@ -168,7 +168,7 @@ describe("uninstallExtension", () => {
 				},
 			},
 		});
-		if (result.type !== "ok" || result.data.scope !== "project")
+		if (result.status !== "success" || result.data.scope !== "project")
 			throw new Error("Expected project uninstall to succeed.");
 		expect(phaseHistory(result.data.steps)).toEqual([
 			{ type: "phase", phase: "repository-preflight", status: "started" },
@@ -227,7 +227,7 @@ describe("uninstallExtension", () => {
 		});
 
 		expect(result).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				sourceKind: "local",
 				sourceIdentity: "/repo/extensions/tools",
@@ -258,7 +258,7 @@ describe("uninstallExtension", () => {
 		});
 
 		expect(result).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				hasRemovedDeclaration: false,
 				cleanup: { status: "removed" },
@@ -284,7 +284,7 @@ describe("uninstallExtension", () => {
 		async (source, errorType) => {
 			const { context, files, cleanup } = fixture({ nsToml: initializedToml });
 			const result = await uninstallExtension(context, { cwd: "/repo", source });
-			expect(result).toMatchObject({ type: "failure", errorType, data: { completed: {} } });
+			expect(result).toMatchObject({ status: "failure", errorType, data: { completed: {} } });
 			const steps = failureSteps(result);
 			expect(steps.filter((step) => step.type === "failure")).toHaveLength(1);
 			expect(phaseHistory(steps)).toEqual(
@@ -310,7 +310,7 @@ describe("uninstallExtension", () => {
 			source: "npm:@test/tools@2.0.0",
 		});
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-uninstall-ambiguous-identity",
 			data: { matchingSpecs: ["npm:@test/tools", "npm:@test/tools@1.0.0"], completed: {} },
 		});
@@ -333,7 +333,7 @@ describe("uninstallExtension", () => {
 		});
 		const result = await uninstallExtension(context, { cwd: "/repo", source: "./target" });
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-uninstall-preflight-failed",
 			data: { diagnostics: [{ code: "extension-descriptor-invalid" }], completed: {} },
 		});
@@ -370,7 +370,7 @@ describe("uninstallExtension", () => {
 			source: "npm:@test/tools",
 		});
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-uninstall-apply-failed",
 			data: {
 				phase: "generated-instructions",
@@ -419,7 +419,7 @@ describe("uninstallExtension", () => {
 			source: "npm:@test/tools",
 		});
 		expect(first).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-uninstall-managed-package-cleanup-failed",
 			data: {
 				phase: "managed-package-cleanup",
@@ -453,7 +453,7 @@ describe("uninstallExtension", () => {
 			source: "npm:@test/tools",
 		});
 		expect(rerun).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: { hasRemovedDeclaration: false, cleanup: { status: "removed" } },
 		});
 	});
@@ -465,7 +465,7 @@ describe("uninstallExtension", () => {
 	])("returns stable config failure for %s", async (nsToml, errorType) => {
 		const { context, files, cleanup } = fixture(nsToml === undefined ? {} : { nsToml });
 		const result = await uninstallExtension(context, { cwd: "/repo", source: "./target" });
-		expect(result).toMatchObject({ type: "failure", errorType, data: { completed: {} } });
+		expect(result).toMatchObject({ status: "failure", errorType, data: { completed: {} } });
 		expect(files.operations()).toEqual([]);
 		expect(cleanup.removals()).toEqual([]);
 	});
@@ -477,7 +477,7 @@ describe("uninstallExtension", () => {
 		});
 		const result = await uninstallExtension(context, { cwd: "/outside", source: "./target" });
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-uninstall-not-a-git-repo",
 			data: { diagnostics: [{ code: "not-a-git-repo" }], completed: {} },
 		});

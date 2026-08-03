@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
-import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
-import { failure, ok } from "@nseng-ai/clinkr/legacy";
+import type { CommandOutcome } from "@nseng-ai/clinkr/app";
+import { failure, ok } from "@nseng-ai/clinkr/app";
 import { ALL_HARNESS_IDS } from "../harness-artifacts/api.ts";
 import {
 	managedNpmPackagePaths,
@@ -85,7 +85,7 @@ export type UninstallExtensionResult = z.infer<typeof uninstallExtensionResultSc
 export async function uninstallExtension(
 	context: ExtensionUninstallContext,
 	request: UninstallExtensionRequest,
-): Promise<ClinkrExit<UninstallExtensionResult>> {
+): Promise<CommandOutcome<UninstallExtensionResult>> {
 	if (request.scope === "user") return uninstallUserExtension(context, request);
 	const recorder = createLifecycleRecorder(context.lifecycleTrace);
 	function tracedFailure<TData extends object>(options: {
@@ -93,7 +93,7 @@ export async function uninstallExtension(
 		readonly errorType: string;
 		readonly message: string;
 		readonly data: TData;
-	}): ClinkrExit<UninstallExtensionResult> {
+	}): CommandOutcome<UninstallExtensionResult> {
 		recorder.fail(options.diagnostic);
 		return failure(options.errorType, options.message, {
 			...options.data,
@@ -262,7 +262,7 @@ export async function uninstallExtension(
 async function uninstallUserExtension(
 	context: ExtensionUninstallContext,
 	request: UninstallExtensionRequest,
-): Promise<ClinkrExit<UninstallExtensionResult>> {
+): Promise<CommandOutcome<UninstallExtensionResult>> {
 	const source = prepareUserExtensionSource<UninstallExtensionResult>({
 		context,
 		cwd: request.cwd,
@@ -271,7 +271,7 @@ async function uninstallUserExtension(
 	});
 	if (!source.ok) return source.exit;
 	const prepared = await prepareUserConfig<UninstallExtensionResult>(context, "uninstall");
-	if ("type" in prepared) return prepared;
+	if ("status" in prepared) return prepared;
 	const declaration = planDeclaredExtensionUninstallToml({
 		projectRoot: prepared.configDir,
 		nsTomlContent: prepared.content,

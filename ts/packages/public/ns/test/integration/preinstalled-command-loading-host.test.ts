@@ -7,15 +7,14 @@ describe("preinstalled command loading host integration", () => {
 		const run = await runNsCliWithFakeContext(["--help"]);
 
 		expect(run.exit).toBe(0);
-		expect(run.stdout).toContain("Activate ns in this repository.");
+		expect(run.stdout).toContain("Activate ns in this repository by writing ns.toml");
 		expect(run.stdout).toContain("Update ns itself.");
 		const builtIns = helpSection(run.stdout, "Built-ins:");
 		const extensions = helpSection(run.stdout, "Extensions:");
 		// Extensions lead the help output; Built-ins close it.
 		expect(run.stdout.indexOf("Extensions:")).toBeLessThan(run.stdout.indexOf("Built-ins:"));
-		// One expected inventory proves both membership and global order, including the SDK-owned
-		// completion/shell groups that previously bypassed catalog sorting.
-		const builtInNames = ["completion", "extension", "init", "shell", "skills", "update"];
+		// One expected inventory proves membership; Clinkr keeps source declaration order.
+		const builtInNames = ["init", "update", "shell", "extension", "skills"];
 		for (const name of builtInNames) {
 			expect(builtIns).toMatch(new RegExp(`^  ${name}(?:\\s|$)`, "m"));
 		}
@@ -74,9 +73,7 @@ describe("preinstalled command loading host integration", () => {
 
 		expect(run.exit).toBe(0);
 		expect(run.stdout).toContain("Usage: ns skills list");
-		expect(run.stdout).toContain(
-			"List first-party ns-owned skills available for harness provisioning.",
-		);
+		expect(run.stdout).toContain("List first-party ns skills.");
 		expect(run.stderr).toBe("");
 		expect(run.execCalls).toEqual([]);
 	});

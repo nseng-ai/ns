@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
-import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
-import { failure, ok } from "@nseng-ai/clinkr/legacy";
+import type { CommandOutcome } from "@nseng-ai/clinkr/app";
+import { failure, ok } from "@nseng-ai/clinkr/app";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { ALL_HARNESS_IDS, parseNsTomlExtensions } from "../harness-artifacts/api.ts";
 import { planDeclaredExtensionInstallToml } from "@nseng-ai/sdk/project-config";
@@ -89,7 +89,7 @@ export type InstallExtensionResult = z.infer<typeof installExtensionResultSchema
 export async function installExtension(
 	context: ExtensionInstallContext,
 	request: InstallExtensionRequest,
-): Promise<ClinkrExit<InstallExtensionResult>> {
+): Promise<CommandOutcome<InstallExtensionResult>> {
 	if (request.scope === "user") return installUserExtension(context, request);
 	const recorder = createLifecycleRecorder(context.lifecycleTrace);
 	function tracedFailure<TData extends object>(options: {
@@ -97,7 +97,7 @@ export async function installExtension(
 		readonly errorType: string;
 		readonly message: string;
 		readonly data: TData;
-	}): ClinkrExit<InstallExtensionResult> {
+	}): CommandOutcome<InstallExtensionResult> {
 		recorder.fail(options.diagnostic);
 		return failure(options.errorType, options.message, {
 			...options.data,
@@ -267,7 +267,7 @@ export async function installExtension(
 async function installUserExtension(
 	context: ExtensionInstallContext,
 	request: InstallExtensionRequest,
-): Promise<ClinkrExit<InstallExtensionResult>> {
+): Promise<CommandOutcome<InstallExtensionResult>> {
 	const source = prepareUserExtensionSource<InstallExtensionResult>({
 		context,
 		cwd: request.cwd,
@@ -276,7 +276,7 @@ async function installUserExtension(
 	});
 	if (!source.ok) return source.exit;
 	const prepared = await prepareUserConfig<InstallExtensionResult>(context, "install");
-	if ("type" in prepared) return prepared;
+	if ("status" in prepared) return prepared;
 	const declaration = planDeclaredExtensionInstallToml({
 		projectRoot: prepared.configDir,
 		nsTomlContent: prepared.content,
@@ -382,8 +382,8 @@ async function installUserExtension(
 async function rollbackUserInstall(
 	context: ExtensionInstallContext,
 	packageName: string,
-	primary: ClinkrExit<InstallExtensionResult>,
-): Promise<ClinkrExit<InstallExtensionResult>> {
+	primary: CommandOutcome<InstallExtensionResult>,
+): Promise<CommandOutcome<InstallExtensionResult>> {
 	if (context.userManagedNpmStorage.type !== "available")
 		throw new Error("User npm storage became unavailable during rollback.");
 	const cleanup = await context.uninstallAcquisition.removeManagedNpmPackage({
