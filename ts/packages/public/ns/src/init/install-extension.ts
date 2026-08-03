@@ -6,6 +6,14 @@ import { ALL_HARNESS_IDS } from "../harness-artifacts/api.ts";
 import { planDeclaredExtensionInstallToml } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
+import {
+	extensionLifecycleScopeSchemaValues,
+	loadOneUserLocalDescriptor,
+	prepareUserConfig,
+	prepareUserLocalSource,
+	type UserExtensionLifecycleContext,
+} from "./user-extension-lifecycle.ts";
+
 import { applyNsActivation, prepareNsActivation } from "./activate-ns.ts";
 import { activationCompletedSchema } from "./activation-outcomes.ts";
 import type { NsActivationContext } from "./activation-context.ts";
@@ -25,7 +33,8 @@ import {
 	type LifecycleDiagnostic,
 } from "./lifecycle-observability.ts";
 
-export interface ExtensionInstallContext extends NsActivationContext {
+export interface ExtensionInstallContext
+	extends NsActivationContext, UserExtensionLifecycleContext {
 	readonly installAcquisition: ExtensionInstallAcquisitionGateway;
 }
 
@@ -34,24 +43,38 @@ export const installExtensionRequestSchema = z.object({
 		.string()
 		.min(1)
 		.describe("npm: package spec or unprefixed local extension package path."),
+	scope: z.enum(extensionLifecycleScopeSchemaValues).default("project"),
 });
 
-export const installExtensionResultSchema = z.object({
+const installExtensionSourceResultSchema = z.object({
 	sourceSpec: z.string(),
 	sourceKind: z.enum(["local", "npm"]),
 	packageName: z.string(),
 	packageVersion: z.string(),
 	moduleRoot: z.string(),
-	nsTomlPath: z.string(),
-	isRecorded: z.boolean(),
-	repoRoot: z.string(),
-	trunkBranch: z.string(),
-	harnesses: z.array(z.enum(ALL_HARNESS_IDS)),
-	completed: activationCompletedSchema,
-	steps: z.array(lifecycleStepSchema).readonly(),
 });
+export const installExtensionResultSchema = z.discriminatedUnion("scope", [
+	installExtensionSourceResultSchema.extend({
+		scope: z.literal("project"),
+		configPath: z.string(),
+		nsTomlPath: z.string(),
+		isRecorded: z.boolean(),
+		repoRoot: z.string(),
+		trunkBranch: z.string(),
+		harnesses: z.array(z.enum(ALL_HARNESS_IDS)),
+		completed: activationCompletedSchema,
+		steps: z.array(lifecycleStepSchema).readonly(),
+	}),
+	installExtensionSourceResultSchema.extend({
+		scope: z.literal("user"),
+		configPath: z.string(),
+		declarationAction: z.enum(["appended", "unchanged"]),
+		commandAvailability: z.literal("available"),
+		activation: z.literal("not-performed"),
+	}),
+]);
 
-export type InstallExtensionRequest = z.infer<typeof installExtensionRequestSchema> & {
+export type InstallExtensionRequest = z.input<typeof installExtensionRequestSchema> & {
 	readonly cwd: string;
 };
 export type InstallExtensionResult = z.infer<typeof installExtensionResultSchema>;
@@ -60,6 +83,7 @@ export async function installExtension(
 	context: ExtensionInstallContext,
 	request: InstallExtensionRequest,
 ): Promise<ClinkrExit<InstallExtensionResult>> {
+	if (request.scope === "user") return installUserExtension(context, request);
 	const recorder = createLifecycleRecorder(context.lifecycleTrace);
 	function tracedFailure<TData extends object>(options: {
 		readonly diagnostic: LifecycleDiagnostic;
@@ -216,11 +240,13 @@ export async function installExtension(
 	}
 	recorder.complete();
 	return ok({
+		scope: "project",
 		sourceSpec: request.source,
 		sourceKind: selected.sourceKind,
 		packageName: selected.packageName,
 		packageVersion: selected.version,
 		moduleRoot: selected.moduleRoot,
+		configPath: join(repoRoot, "ns.toml"),
 		nsTomlPath: join(repoRoot, "ns.toml"),
 		isRecorded: declaration.isAdded,
 		repoRoot,
@@ -231,7 +257,63 @@ export async function installExtension(
 	});
 }
 
+async function installUserExtension(
+	context: ExtensionInstallContext,
+	request: InstallExtensionRequest,
+): Promise<ClinkrExit<InstallExtensionResult>> {
+	const source = prepareUserLocalSource<InstallExtensionResult>({
+		cwd: request.cwd,
+		source: request.source,
+		operation: "install",
+	});
+	if (!source.ok) return source.exit;
+	const prepared = await prepareUserConfig<InstallExtensionResult>(context, "install");
+	if ("type" in prepared) return prepared;
+	const declaration = planDeclaredExtensionInstallToml({
+		projectRoot: prepared.configDir,
+		nsTomlContent: prepared.content,
+		requestedSpec: source.sourceSpec,
+	});
+	if (!declaration.ok)
+		return failure(`ns-extension-install-user-${declaration.reason}`, declaration.message, {
+			scope: "user",
+			...declaration,
+		});
+	const loaded = await loadOneUserLocalDescriptor<InstallExtensionResult>({
+		context,
+		configDir: prepared.configDir,
+		sourceSpec: source.sourceSpec,
+		operation: "install",
+	});
+	if (!loaded.ok) return loaded.exit;
+	if (declaration.isAdded) {
+		const written = await context.userExtensionConfig.compareAndWrite({
+			expected: prepared.expected,
+			content: declaration.text,
+		});
+		if (!written.ok)
+			return failure("ns-extension-install-user-config-write-failed", written.error.message, {
+				scope: "user",
+				error: written.error,
+			});
+	}
+	return ok({
+		scope: "user",
+		sourceSpec: source.sourceSpec,
+		sourceKind: "local",
+		packageName: loaded.descriptor.packageName,
+		packageVersion: loaded.descriptor.version,
+		moduleRoot: loaded.descriptor.moduleRoot,
+		configPath: prepared.configPath,
+		declarationAction: declaration.isAdded ? "appended" : "unchanged",
+		commandAvailability: "available",
+		activation: "not-performed",
+	});
+}
+
 export function renderInstallExtensionMarkdown(result: InstallExtensionResult): string {
+	if (result.scope === "user")
+		return `Installed ${result.packageName}@${result.packageVersion} for user command availability in ${result.configPath}; no project activation ran.`;
 	return renderLifecycleMarkdown(
 		"ns extension install",
 		`Installed ${result.packageName}@${result.packageVersion}.`,
@@ -240,6 +322,8 @@ export function renderInstallExtensionMarkdown(result: InstallExtensionResult): 
 }
 
 export function renderInstallExtensionHuman(result: InstallExtensionResult): string {
+	if (result.scope === "user")
+		return `Installed ${result.packageName}@${result.packageVersion} for user command availability from ${result.sourceSpec}.\nDeclaration: ${result.declarationAction} in ${result.configPath}.\nNo project activation was performed.`;
 	const declaration = result.isRecorded ? "recorded in" : "already present in";
 	const artifactCount = result.completed.artifacts?.length ?? 0;
 	const outcome = result.isRecorded ? "Installed" : "Ensured already-present";

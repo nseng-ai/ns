@@ -9,10 +9,11 @@ import { nsInitCommand } from "../command.ts";
 
 export const nsExtensionInstallCommand = nsInitCommand({
 	name: "install",
-	summary: "Install and activate an ns extension.",
+	summary: "Install an ns extension at project or user scope.",
 	description:
-		"Install an npm or local ns extension, record it in ns.toml, and activate its declared artifacts for the repository's supported harnesses.",
+		"Install an extension at project scope by default, or use --scope user for local, command-only availability without project activation.",
 	schema: installExtensionRequestSchema,
+	options: { scope: { short: "-s" } },
 	positionals: { source: { position: 0 } },
 	resultSchema: installExtensionResultSchema,
 	handler: (context, request) => installExtension(context, { ...request, cwd: context.cwd }),

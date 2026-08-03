@@ -16,6 +16,7 @@ import {
 	InMemoryArtifactActivationGateway,
 	InMemoryDeclaredExtensionsGateway,
 	InMemoryExtensionInstallAcquisitionGateway,
+	InMemoryUserExtensionConfigGateway,
 } from "../../src/init/testing/index.ts";
 
 function descriptor(options: {
@@ -76,6 +77,7 @@ function fixture(options: {
 				},
 			}),
 			artifacts: options.artifacts ?? new InMemoryArtifactActivationGateway(),
+			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
 		},
 	};
 }
@@ -208,7 +210,8 @@ describe("installExtension", () => {
 		expect(files.fileContent("ns.toml")).toBe(
 			'supported_harnesses = ["pi"]\nextensions = ["./extensions/tools"]\n',
 		);
-		if (result.type !== "ok") throw new Error("Expected install success.");
+		if (result.type !== "ok" || result.data.scope !== "project")
+			throw new Error("Expected project install success.");
 		expect(result.data.steps).toEqual([
 			{ type: "phase", phase: "repository-preflight", status: "started" },
 			{ type: "repository-resolved", repoRoot: "/repo", trunkBranch: "main" },

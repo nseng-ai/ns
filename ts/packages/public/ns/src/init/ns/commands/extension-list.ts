@@ -8,12 +8,13 @@ import { nsInitCommand } from "../command.ts";
 
 export const nsExtensionListCommand = nsInitCommand({
 	name: "list",
-	summary: "List installed and declared ns extensions and their status.",
+	summary: "List installed and declared ns extensions at project or user scope.",
 	description:
-		"Inspect installed package extensions, repository declarations, and artifact state without acquiring packages or changing files.",
+		"Use project scope by default. Inspect installed package extensions and project declarations, or use --scope user for command-only user declarations without acquiring packages or changing files.",
 	schema: listExtensionsRequestSchema,
+	options: { scope: { short: "-s" } },
 	resultSchema: listExtensionsResultSchema,
-	handler: (context, _request) => listExtensions(context, { cwd: context.cwd }),
+	handler: (context, request) => listExtensions(context, { ...request, cwd: context.cwd }),
 	renderHuman: renderListExtensionsHuman,
 });
 

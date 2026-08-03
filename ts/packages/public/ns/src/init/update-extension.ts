@@ -6,6 +6,14 @@ import { planDeclaredExtensionTarget } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
 import {
+	extensionLifecycleScopeSchemaValues,
+	loadOneUserLocalDescriptor,
+	prepareUserConfig,
+	prepareUserLocalSource,
+	type UserExtensionLifecycleContext,
+} from "./user-extension-lifecycle.ts";
+
+import {
 	type ActivationDiagnostic,
 	applyNsActivation,
 	prepareNsActivation,
@@ -33,28 +41,45 @@ import {
 	type LifecycleRecorder,
 } from "./lifecycle-observability.ts";
 
-export interface ExtensionUpdateContext extends NsActivationContext {
+export interface ExtensionUpdateContext extends NsActivationContext, UserExtensionLifecycleContext {
 	readonly updateAcquisition: ExtensionUpdateAcquisitionGateway;
 }
 
 export const updateExtensionRequestSchema = z.object({
 	source: z.string().min(1),
 	dryRun: z.boolean().default(false),
+	scope: z.enum(extensionLifecycleScopeSchemaValues).default("project"),
 });
-export const updateExtensionResultSchema = z.object({
+const updateExtensionSourceResultSchema = z.object({
 	sourceSpec: z.string(),
 	sourceKind: z.enum(["local", "npm"]),
 	mode: z.enum(["dry-run", "applied"]),
-	acquisitionIntent: z.enum(["refresh-floating", "ensure-pinned", "local-in-place"]),
-	acquisitionOutcome: z.enum(["planned", "refreshed", "restored", "unchanged", "not-applicable"]),
-	prospectiveEffects: z.enum(["available", "unavailable"]),
-	repoRoot: z.string(),
-	trunkBranch: z.string(),
-	harnesses: z.array(z.enum(ALL_HARNESS_IDS)),
-	completed: activationCompletedSchema,
-	steps: z.array(lifecycleStepSchema).readonly(),
 });
-export type UpdateExtensionRequest = z.infer<typeof updateExtensionRequestSchema> & {
+export const updateExtensionResultSchema = z.discriminatedUnion("scope", [
+	updateExtensionSourceResultSchema.extend({
+		scope: z.literal("project"),
+		acquisitionIntent: z.enum(["refresh-floating", "ensure-pinned", "local-in-place"]),
+		acquisitionOutcome: z.enum(["planned", "refreshed", "restored", "unchanged", "not-applicable"]),
+		prospectiveEffects: z.enum(["available", "unavailable"]),
+		repoRoot: z.string(),
+		trunkBranch: z.string(),
+		harnesses: z.array(z.enum(ALL_HARNESS_IDS)),
+		completed: activationCompletedSchema,
+		steps: z.array(lifecycleStepSchema).readonly(),
+	}),
+	updateExtensionSourceResultSchema.extend({
+		scope: z.literal("user"),
+		configPath: z.string(),
+		packageName: z.string(),
+		packageVersion: z.string(),
+		moduleRoot: z.string(),
+		commandAvailability: z.literal("available"),
+		updateOutcome: z.literal("unchanged-local-in-place"),
+		activation: z.literal("not-performed"),
+		configWrite: z.literal("not-performed"),
+	}),
+]);
+export type UpdateExtensionRequest = z.input<typeof updateExtensionRequestSchema> & {
 	readonly cwd: string;
 };
 export type UpdateExtensionResult = z.infer<typeof updateExtensionResultSchema>;
@@ -63,6 +88,7 @@ export async function updateExtension(
 	context: ExtensionUpdateContext,
 	request: UpdateExtensionRequest,
 ): Promise<ClinkrExit<UpdateExtensionResult>> {
+	if (request.scope === "user") return updateUserExtension(context, request);
 	const recorder = createLifecycleRecorder(context.lifecycleTrace);
 	function tracedFailure<TData extends object>(options: {
 		readonly diagnostic: LifecycleDiagnostic;
@@ -149,6 +175,7 @@ export async function updateExtension(
 		});
 		recorder.complete();
 		return ok({
+			scope: "project",
 			sourceSpec: target.matchedSpec,
 			mode: "dry-run",
 			...facts,
@@ -203,6 +230,7 @@ export async function updateExtension(
 	}
 	recorder.complete();
 	return ok({
+		scope: "project",
 		sourceSpec: target.matchedSpec,
 		mode: "applied",
 		...facts,
@@ -272,8 +300,9 @@ type SuccessfulUpdateAcquisition = Exclude<
 	PreviewExtensionUpdateSourceResult | ReconcileExtensionUpdateSourceResult,
 	{ readonly type: "failed" }
 >;
+type ProjectUpdateResult = Extract<UpdateExtensionResult, { readonly scope: "project" }>;
 type PublicAcquisitionFacts = Pick<
-	UpdateExtensionResult,
+	ProjectUpdateResult,
 	"sourceKind" | "acquisitionIntent" | "acquisitionOutcome" | "prospectiveEffects"
 >;
 export function classifyUpdateOutcome(
@@ -304,7 +333,54 @@ export function classifyUpdateOutcome(
 			};
 	}
 }
+async function updateUserExtension(
+	context: ExtensionUpdateContext,
+	request: UpdateExtensionRequest,
+): Promise<ClinkrExit<UpdateExtensionResult>> {
+	const source = prepareUserLocalSource<UpdateExtensionResult>({
+		cwd: request.cwd,
+		source: request.source,
+		operation: "update",
+	});
+	if (!source.ok) return source.exit;
+	const prepared = await prepareUserConfig<UpdateExtensionResult>(context, "update");
+	if ("type" in prepared) return prepared;
+	const target = planDeclaredExtensionTarget({
+		projectRoot: prepared.configDir,
+		nsTomlContent: prepared.content,
+		requestedSpec: source.sourceSpec,
+	});
+	if (!target.ok)
+		return failure(`ns-extension-update-user-${target.reason}`, target.message, {
+			scope: "user",
+			...target,
+		});
+	const loaded = await loadOneUserLocalDescriptor<UpdateExtensionResult>({
+		context,
+		configDir: prepared.configDir,
+		sourceSpec: target.matchedSpec,
+		operation: "update",
+	});
+	if (!loaded.ok) return loaded.exit;
+	return ok({
+		scope: "user",
+		sourceSpec: target.matchedSpec,
+		sourceKind: "local",
+		mode: request.dryRun ? "dry-run" : "applied",
+		configPath: prepared.configPath,
+		packageName: loaded.descriptor.packageName,
+		packageVersion: loaded.descriptor.version,
+		moduleRoot: loaded.descriptor.moduleRoot,
+		commandAvailability: "available",
+		updateOutcome: "unchanged-local-in-place",
+		activation: "not-performed",
+		configWrite: "not-performed",
+	});
+}
+
 export function renderUpdateExtensionMarkdown(result: UpdateExtensionResult): string {
+	if (result.scope === "user")
+		return `Validated ${result.packageName}@${result.packageVersion} in place for user command availability; no writes or project activation were performed.`;
 	const summary =
 		result.mode === "dry-run"
 			? `Dry run planned ${result.sourceSpec}; no writes were performed. Exact prospective effects are ${result.prospectiveEffects}.`
@@ -312,5 +388,7 @@ export function renderUpdateExtensionMarkdown(result: UpdateExtensionResult): st
 	return renderLifecycleMarkdown("ns extension update", summary, result.steps);
 }
 export function renderUpdateExtensionHuman(result: UpdateExtensionResult): string {
+	if (result.scope === "user")
+		return `Validated ${result.packageName}@${result.packageVersion} in place for user command availability from ${result.sourceSpec}. No writes or project activation were performed.`;
 	return `${result.mode === "dry-run" ? "Planned" : "Applied"} ${result.acquisitionIntent} for ${result.sourceSpec}; acquisition ${result.acquisitionOutcome}; exact prospective effects ${result.prospectiveEffects}.`;
 }

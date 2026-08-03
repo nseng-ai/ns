@@ -38,6 +38,15 @@ export type {
 	LoadDeclaredExtensionsParams,
 } from "./declared-extensions.ts";
 export { RealDeclaredExtensionsGateway } from "./declared-extensions.ts";
+export type {
+	ExpectedUserExtensionConfigState,
+	UserExtensionConfigGateway,
+	UserExtensionConfigReadResult,
+	UserExtensionConfigWriteResult,
+} from "./user-extension-config.ts";
+export { RealUserExtensionConfigGateway } from "./real-user-extension-config.ts";
+export type { ExtensionLifecycleScope } from "./user-extension-lifecycle.ts";
+export { extensionLifecycleScopeSchemaValues } from "./user-extension-lifecycle.ts";
 export type { NsInitErrorInfo } from "./error-info.ts";
 export type {
 	EnsureExtensionSourceParams,
@@ -72,12 +81,14 @@ export type {
 	ExtensionListContext,
 	ExtensionListDiagnostic,
 	ExtensionListRow,
+	UserExtensionListRow,
 	ListExtensionsRequest,
 	ListExtensionsResult,
 } from "./list-extensions.ts";
 export {
 	extensionListDiagnosticSchema,
 	extensionListRowSchema,
+	userExtensionListRowSchema,
 	listExtensions,
 	listExtensionsRequestSchema,
 	listExtensionsResultSchema,

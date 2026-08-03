@@ -17,6 +17,7 @@ import { RealActivationFilesGateway } from "../real-activation-files.ts";
 import { RealArtifactActivationGateway } from "../real-artifact-activation.ts";
 import { RealArtifactProvisioningStatusGateway } from "../real-artifact-provisioning-status.ts";
 import { RealDeclaredExtensionsGateway } from "../declared-extensions.ts";
+import { RealUserExtensionConfigGateway } from "../real-user-extension-config.ts";
 
 export function createNsInitContext(
 	ctx: NsExtensionApi,
@@ -34,6 +35,10 @@ export function createNsInitContext(
 		updateAcquisition: new RealExtensionUpdateAcquisitionGateway(acquisition),
 		files: new RealActivationFilesGateway(),
 		declaredExtensions: new RealDeclaredExtensionsGateway(),
+		userExtensionConfig: new RealUserExtensionConfigGateway({
+			env: ctx.env,
+			...(ctx.homeDir === undefined ? {} : { homeDir: ctx.homeDir }),
+		}),
 		artifacts: new RealArtifactActivationGateway(),
 		artifactProvisioningStatus: new RealArtifactProvisioningStatusGateway(),
 		installedExtensionPackages: {

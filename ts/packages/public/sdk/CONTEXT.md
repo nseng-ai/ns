@@ -45,8 +45,8 @@ The repository-declared set of agent Harness targets in top-level `ns.toml` `sup
 *Avoid*: project harnesses, configured harnesses, contributor harnesses, Objective owners, access allowlist.
 
 **Extension lifecycle orchestration**:
-The workflow behind `ns extension install`, owned by the `init` feature of `@nseng-ai/ns` (formerly the separate `@nseng-ai/ns-init` package, folded in). It requires persisted **Supported harnesses**, checks declaration identity, composes SDK acquisition with full prospective descriptor validation, records the exact source spec, and applies descriptor-driven repository activation with forward recovery.
-*Avoid*: SDK built-in command, point introspection, descriptor loader, implicit floating-package refresh, rollback of completed activation duties.
+The workflows behind `ns extension install|list|update|uninstall`, owned by the `init` feature of `@nseng-ai/ns` (formerly the separate `@nseng-ai/ns-init` package, folded in). Project scope is the default: it requires persisted **Supported harnesses**, composes acquisition and descriptor validation with repository activation, and records project-relative declarations. User scope manages command availability in the single XDG user config without Git, Supported harnesses, or repository activation; local paths are persisted as lexical absolute paths, while user npm mutation remains unavailable until managed storage exists and hand-authored npm declarations list as unavailable.
+*Avoid*: SDK built-in command, point introspection, descriptor loader, implicit floating-package refresh, user-scope project activation, user npm managed-storage policy, rollback of completed activation duties.
 
 **Extension descriptor**:
 A typed side-effect-light module that default-exports `defineExtension({ ... })` from `@nseng-ai/sdk`. It declares command entries, point definitions, activation metadata, and bundled artifacts as metadata plus lazy command-module thunks.
