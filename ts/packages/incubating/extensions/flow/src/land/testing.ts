@@ -1,4 +1,5 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import type {
 	LandContext,
 	LandingBoundaryFailure,
@@ -14,7 +15,6 @@ import type {
 	LandWorktreeSlotFactsGateway,
 	LocalBranchTip,
 	ManagedSlotWorktree,
-	PullRequestDependencyFacts,
 	PullRequestFacts,
 	SquashMergePullRequestResult,
 	StackSnapshot,
@@ -66,11 +66,7 @@ export type InMemoryLandCallEvent =
 	| { readonly operation: "graphite.restack"; readonly request: LandRestackCall }
 	| { readonly operation: "graphite.submitUpdate"; readonly request: LandSubmitUpdateCall }
 	| { readonly operation: "graphite.branchChildren"; readonly request: LandBranchChildrenCall }
-	| { readonly operation: "graphite.branchParent"; readonly request: LandBranchParentCall }
-	| {
-			readonly operation: "github.openPullRequestsBasedOnHeads";
-			readonly request: LandOpenPullRequestsBasedOnHeadsCall;
-	  };
+	| { readonly operation: "graphite.branchParent"; readonly request: LandBranchParentCall };
 
 type RecordInMemoryLandCall = (event: InMemoryLandCallEvent) => void;
 const ignoreInMemoryLandCall: RecordInMemoryLandCall = () => {};
@@ -440,10 +436,6 @@ export interface LandBranchParentCall extends LandBranchCall {
 	readonly metadataDbPath: string;
 }
 
-export interface LandOpenPullRequestsBasedOnHeadsCall extends LandRepoCall {
-	readonly headOids: readonly string[];
-}
-
 export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	private readonly trunkState: ValueState<string>;
 	private readonly metadataDbPathState: ValueState<string>;
@@ -755,9 +747,6 @@ export interface InMemoryLandGithubPrGatewayState {
 	readonly squashMergeResults?: Readonly<Record<string, ValueState<SquashMergePullRequestResult>>>;
 	/** Facts (or load failure) returned after a successful merge, keyed by PR number. */
 	readonly postMergeFacts?: Readonly<Record<string, ValueState<PullRequestFacts>>>;
-	/** Open-PR dependency facts visible to the complete remote dependency scan. */
-	readonly openPullRequestDependencies?: readonly PullRequestDependencyFacts[];
-	readonly openPullRequestsBasedOnHeadsFailure?: LandingBoundaryFailure;
 }
 
 export interface LandPullRequestFactsCall extends LandRepoCall {
@@ -776,12 +765,9 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 		ValueState<SquashMergePullRequestResult>
 	>;
 	private readonly postMergeFacts: ReadonlyMap<string, ValueState<PullRequestFacts>>;
-	private readonly openPullRequestDependencies: PullRequestDependencyFacts[];
-	private readonly openPullRequestsBasedOnHeadsFailure: LandingBoundaryFailure | undefined;
 	private readonly mergedPullRequestNumbers = new Set<string>();
 	private readonly pullRequestFactsLog: LandPullRequestFactsCall[] = [];
 	private readonly squashMergePullRequestLog: LandSquashMergePullRequestCall[] = [];
-	private readonly openPullRequestsBasedOnHeadsLog: LandOpenPullRequestsBasedOnHeadsCall[] = [];
 	private readonly recordCall: RecordInMemoryLandCall;
 
 	constructor(
@@ -810,10 +796,6 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 				copyValueState(facts, cloneData),
 			]),
 		);
-		this.openPullRequestDependencies = cloneData([...(state.openPullRequestDependencies ?? [])]);
-		this.openPullRequestsBasedOnHeadsFailure = cloneOptionalData(
-			state.openPullRequestsBasedOnHeadsFailure,
-		);
 	}
 
 	/** Test-only remote state transition: overwrite stored PR facts (e.g. a successful fake submit). */
@@ -833,29 +815,6 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 
 	get squashMergePullRequestCalls(): readonly LandSquashMergePullRequestCall[] {
 		return cloneData(this.squashMergePullRequestLog);
-	}
-
-	get openPullRequestsBasedOnHeadsCalls(): readonly LandOpenPullRequestsBasedOnHeadsCall[] {
-		return cloneData(this.openPullRequestsBasedOnHeadsLog);
-	}
-
-	async openPullRequestsBasedOnHeads(request: {
-		readonly repoRoot: string;
-		readonly headOids: readonly string[];
-	}): Promise<LandResult<readonly PullRequestDependencyFacts[]>> {
-		const call = { repoRoot: request.repoRoot, headOids: [...request.headOids] };
-		this.openPullRequestsBasedOnHeadsLog.push(call);
-		this.recordCall({ operation: "github.openPullRequestsBasedOnHeads", request: call });
-		if (this.openPullRequestsBasedOnHeadsFailure !== undefined) {
-			return { type: "failure", failure: cloneData(this.openPullRequestsBasedOnHeadsFailure) };
-		}
-		const headOids = new Set(request.headOids);
-		return {
-			type: "success",
-			value: cloneData(
-				this.openPullRequestDependencies.filter((dependent) => headOids.has(dependent.baseRefOid)),
-			),
-		};
 	}
 
 	async pullRequestFacts(request: {
@@ -1106,11 +1065,14 @@ export function createInMemoryLandContext(
 		onSubmitUpdateSuccess: (branch) => {
 			const transition = transitions.onSubmitUpdateSuccess?.[branch];
 			if (transition === undefined) return;
-			github.updatePullRequest(branch, {
-				...(transition.headRefOid === undefined ? {} : { headRefOid: transition.headRefOid }),
-				...(transition.baseRefName === undefined ? {} : { baseRefName: transition.baseRefName }),
-				...(transition.baseRefOid === undefined ? {} : { baseRefOid: transition.baseRefOid }),
-			});
+			github.updatePullRequest(
+				branch,
+				optionalEntries({
+					headRefOid: transition.headRefOid,
+					baseRefName: transition.baseRefName,
+					baseRefOid: transition.baseRefOid,
+				}),
+			);
 		},
 	};
 	const graphite = new InMemoryLandGraphiteGateway(state.graphite, recordCall, hooks);

@@ -6,10 +6,8 @@ import { PR_FIELDS } from "../../src/land/stack/constants.ts";
 import {
 	GH_REPO_VIEW_NAME_WITH_OWNER_ARGS,
 	batchedPullRequestFactsGraphqlArgs,
-	loadOpenPullRequestsBasedOnHeads,
 	loadPr,
 	loadPrsByBranch,
-	openPullRequestDependencyFactsGraphqlArgs,
 } from "../../src/land/stack/pr-facts.ts";
 import type { LandExecutionApi } from "../../src/land/stack/types.ts";
 
@@ -336,110 +334,6 @@ describe("loadPrsByBranch batched boundary parsing", () => {
 		expect(message).toContain("#111");
 		expect(message).toContain("cannot choose safely");
 		expect(message).not.toContain("unexpected shape");
-	});
-});
-
-describe("open PR dependency pagination", () => {
-	function repoStep(): ScriptedExec {
-		return step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
-			stdout: JSON.stringify({ nameWithOwner: "owner/repo" }),
-		});
-	}
-
-	function dependencyPage(options: {
-		readonly nodes: readonly Record<string, unknown>[];
-		readonly hasNextPage: boolean;
-		readonly endCursor: string | null;
-	}): string {
-		return JSON.stringify({
-			data: {
-				repository: {
-					pullRequests: {
-						nodes: options.nodes,
-						pageInfo: {
-							hasNextPage: options.hasNextPage,
-							endCursor: options.endCursor,
-						},
-					},
-				},
-			},
-		});
-	}
-
-	function dependencyNode(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-		return {
-			number: 101,
-			headRefName: "feature-child",
-			headRefOid: SHA_B,
-			baseRefName: "feature-a",
-			baseRefOid: SHA_A,
-			...overrides,
-		};
-	}
-
-	test("loads all pages and filters by requested base OID", async () => {
-		const pi = new FakeLandExecutionApi([
-			repoStep(),
-			step("gh", openPullRequestDependencyFactsGraphqlArgs({ owner: "owner", name: "repo" }), {
-				stdout: dependencyPage({
-					nodes: [dependencyNode(), dependencyNode({ number: 102, baseRefOid: SHA_C })],
-					hasNextPage: true,
-					endCursor: "cursor-1",
-				}),
-			}),
-			step(
-				"gh",
-				openPullRequestDependencyFactsGraphqlArgs({ owner: "owner", name: "repo" }, "cursor-1"),
-				{
-					stdout: dependencyPage({
-						nodes: [dependencyNode({ number: 103, headRefName: "feature-child-2" })],
-						hasNextPage: false,
-						endCursor: null,
-					}),
-				},
-			),
-		]);
-
-		const dependents = expectSuccess(await loadOpenPullRequestsBasedOnHeads(pi, ROOT, [SHA_A]));
-
-		pi.assertDone();
-		expect(dependents.map((dependent) => dependent.number)).toEqual([101, 103]);
-	});
-
-	test("fails closed when another page lacks a cursor", async () => {
-		const pi = new FakeLandExecutionApi([
-			repoStep(),
-			step("gh", openPullRequestDependencyFactsGraphqlArgs({ owner: "owner", name: "repo" }), {
-				stdout: dependencyPage({
-					nodes: [dependencyNode()],
-					hasNextPage: true,
-					endCursor: null,
-				}),
-			}),
-		]);
-
-		expect(
-			expectFailure(await loadOpenPullRequestsBasedOnHeads(pi, ROOT, [SHA_A])).message,
-		).toContain("without an end cursor");
-		pi.assertDone();
-	});
-
-	test("fails closed on a malformed dependency node", async () => {
-		const pi = new FakeLandExecutionApi([
-			repoStep(),
-			step("gh", openPullRequestDependencyFactsGraphqlArgs({ owner: "owner", name: "repo" }), {
-				stdout: dependencyPage({
-					nodes: [dependencyNode({ baseRefOid: undefined })],
-					hasNextPage: false,
-					endCursor: null,
-				}),
-			}),
-		]);
-
-		expect(
-			expectFailure(await loadOpenPullRequestsBasedOnHeads(pi, ROOT, [SHA_A])).message,
-		).toContain("did not match the expected shape");
-		pi.assertDone();
 	});
 });
 

@@ -98,10 +98,6 @@ describe("land execute mode over in-memory gateways", () => {
 				request: { repoRoot: ROOT, branchOrNumber: BRANCH },
 			},
 			{
-				operation: "github.openPullRequestsBasedOnHeads",
-				request: { repoRoot: ROOT, headOids: [SHA] },
-			},
-			{
 				operation: "git.snapshotBackupRefs",
 				request: { repoRoot: ROOT, branches: [BRANCH] },
 			},

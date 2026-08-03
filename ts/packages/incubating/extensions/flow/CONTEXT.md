@@ -73,8 +73,8 @@ The renderer-independent plan produced for a **Stack Landing Target**, including
 *Avoid*: command transcript, prompt text, merge execution result
 
 **Land Preflight**:
-The validation phase that gathers repository, stack, PR, worktree, and submit-readiness facts before any land mutation. It reconciles provider-reported descendants with a complete paginated GitHub dependency scan and fails closed when an open PR based on a landing head is missing from provider topology; Flow never automatically adopts or reparents that branch.
-*Avoid*: merge phase, post-landing cleanup, human confirmation prompt, bounded-prefix dependency scan, automatic topology repair
+The validation phase that gathers repository, stack, PR, worktree, and submit-readiness facts before any land mutation.
+*Avoid*: merge phase, post-landing cleanup, human confirmation prompt
 
 **Descendant Reconciliation**:
 The required landing-completion postcondition for open descendants: observable Git ancestry, provider parent topology, local/remote head equality, and remote PR base name/OID must agree after restack and publication. Command exit zero is evidence only, not completion. A descendant checked out elsewhere is disclosed through the main confirmation and never mutated; approval or `--yes` authorizes only the parent merge and a nonzero partial completion with landed facts and repair guidance. Post-merge maintenance failures likewise preserve irreversible landed facts and return nonzero.

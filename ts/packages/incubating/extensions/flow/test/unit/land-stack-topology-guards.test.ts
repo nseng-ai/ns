@@ -7,7 +7,6 @@ import { BACKUP_REF_NAMESPACE, PR_FIELDS } from "../../src/land/stack/constants.
 import {
 	GH_REPO_VIEW_NAME_WITH_OWNER_ARGS,
 	batchedPullRequestFactsGraphqlArgs,
-	openPullRequestDependencyFactsGraphqlArgs,
 } from "../../src/land/stack/pr-facts.ts";
 import { type LandResult } from "../../src/land/results.ts";
 import { executeStackLanding, parseArgs } from "../../src/land/land-stack.ts";
@@ -359,7 +358,6 @@ function featureStackPreflight(
 		...initialBranchPlans(
 			options.featureBBase === undefined ? {} : { featureBBase: options.featureBBase },
 		),
-		...openPrDependencyScanSteps(),
 		step("git", ["worktree", "list", "--porcelain"], { stdout: worktrees }),
 		...(hasDescendants
 			? [step("git", ["worktree", "list", "--porcelain"], { stdout: worktrees })]
@@ -384,26 +382,8 @@ function singleBranchPreflightWithRefs(options: {
 			["feature-a"],
 			[prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: options.prSha })],
 		),
-		...openPrDependencyScanSteps(),
 		step("git", ["worktree", "list", "--porcelain"], {
 			stdout: options.worktrees ?? worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
-		}),
-	];
-}
-
-function openPrDependencyScanSteps(): ScriptedExec[] {
-	return [
-		step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
-			stdout: `${JSON.stringify({ nameWithOwner: "owner/repo" })}\n`,
-		}),
-		step("gh", openPullRequestDependencyFactsGraphqlArgs({ owner: "owner", name: "repo" }), {
-			stdout: `${JSON.stringify({
-				data: {
-					repository: {
-						pullRequests: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },
-					},
-				},
-			})}\n`,
 		}),
 	];
 }

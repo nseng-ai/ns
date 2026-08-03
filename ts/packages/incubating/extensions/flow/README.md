@@ -116,13 +116,10 @@ reshaped stack.
   `--free` deletes it after successful continuation without freeing the slot. A dry run
   reports continuation availability and performs no checkout or cleanup.
 
-  Landing completion also includes required descendant reconciliation. Before any merge, Flow
-  compares provider topology with a complete paginated GitHub scan: if an open PR is based on a
-  landing branch head but its branch is absent from provider topology, Flow refuses without
-  adopting, reparenting, or otherwise mutating that branch. After merge, automatic maintenance is
-  complete only when observed Git ancestry, provider parentage, local/remote head equality, and the
-  remote PR base name and OID all match the reconciled state; successful `gt restack` or `gt submit`
-  exit codes alone are not proof.
+  Landing completion also includes required descendant reconciliation. After merge, automatic
+  maintenance is complete only when observed Git ancestry, provider parentage, local/remote head
+  equality, and the remote PR base name and OID all match the reconciled state; successful
+  `gt restack` or `gt submit` exit codes alone are not proof.
 
   A descendant checked out in another worktree is never mutated. Flow discloses the blocked
   descendants in the main confirmation; interactive approval or `--yes` may authorize the parent

@@ -20,7 +20,6 @@ import {
 	cleanRepoChecks,
 	numberedBranch,
 	numberedSha,
-	openPrDependencyScanSteps,
 	repoIntro,
 } from "./repo-fixtures.ts";
 import { ROOT, step, TRUNK, worktreeOutput, type ScriptedExec } from "./support.ts";
@@ -98,7 +97,6 @@ export function numberedPreflightPrSteps(options: {
 			batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, options.planBranches),
 			{ stdout: batchedPrStdout(prs) },
 		),
-		...openPrDependencyScanSteps(),
 	];
 }
 

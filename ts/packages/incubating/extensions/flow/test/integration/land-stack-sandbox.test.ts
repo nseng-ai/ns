@@ -52,7 +52,6 @@ const FEATURE_A = "feature-a";
 const FEATURE_B = "feature-b";
 const FEATURE_C = "feature-c";
 const FEATURE_D = "feature-d";
-const ROGUE = "rogue-branch";
 
 const runRequiredCommand = createRequiredCommandRunner({
 	failureContext: "Command failed while preparing land-stack sandbox fixture",
@@ -321,43 +320,6 @@ describe("land stack sandbox integration", () => {
 					const branches = await localBranches(sandbox);
 					expect(branches).toEqual(
 						expect.arrayContaining([FEATURE_A, FEATURE_B, FEATURE_C, FEATURE_D]),
-					);
-				},
-			);
-		},
-		TEST_TIMEOUT_MS,
-	);
-
-	test(
-		"skips local deletion when the pre-delete topology reread exposes a new child",
-		async () => {
-			await withSandbox(
-				{
-					currentBranch: FEATURE_A,
-					state: {
-						topology: [
-							{ branch: TRUNK, children: [FEATURE_A], isTrunk: true },
-							{ branch: FEATURE_A, parent: TRUNK, children: [ROGUE] },
-							{ branch: ROGUE, parent: FEATURE_A, children: [] },
-						],
-						topologyReads: [
-							[
-								{ branch: TRUNK, children: [FEATURE_A], isTrunk: true },
-								{ branch: FEATURE_A, parent: TRUNK, children: [] },
-							],
-						],
-					},
-				},
-				async (sandbox) => {
-					const result = await executeSandboxLanding(sandbox);
-
-					expect(result.outcome.type).toBe("failure");
-					const log = await readCommandLog(sandbox);
-					expect(commandArgs(log, "gt", "delete")).toEqual([]);
-					const branches = await localBranches(sandbox);
-					expect(branches).toContain(FEATURE_A);
-					expect(notificationText(result)).toContain(
-						"stack provider does not report as descendants",
 					);
 				},
 			);

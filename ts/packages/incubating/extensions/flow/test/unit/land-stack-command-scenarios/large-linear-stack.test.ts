@@ -141,32 +141,32 @@ describe("land-stack command scenarios", () => {
 				name: "linear-11",
 				size: 11,
 				expected: {
-					calls: 142,
+					calls: 140,
 					failures: 0,
 					categories: {
 						graphite: 54,
-						"github-cli": 47,
+						"github-cli": 45,
 						"github-api": 0,
 						git: 41,
 						"other-command": 0,
 					},
-					githubQuota: { graphqlRequests: 58, restRequests: 0, rateLimitCost: 79 },
+					githubQuota: { graphqlRequests: 56, restRequests: 0, rateLimitCost: 77 },
 				},
 			},
 			{
 				name: "linear-25",
 				size: 25,
 				expected: {
-					calls: 310,
+					calls: 308,
 					failures: 0,
 					categories: {
 						graphite: 124,
-						"github-cli": 103,
+						"github-cli": 101,
 						"github-api": 0,
 						git: 83,
 						"other-command": 0,
 					},
-					githubQuota: { graphqlRequests: 128, restRequests: 0, rateLimitCost: 177 },
+					githubQuota: { graphqlRequests: 126, restRequests: 0, rateLimitCost: 175 },
 				},
 			},
 		] as const;

@@ -24,7 +24,6 @@ import {
 	CURRENT,
 	DB_SINGLE_BRANCH,
 	DB_TO_CURRENT,
-	openPrDependencyScanSteps,
 	repoIntro,
 	SHA_A,
 } from "./repo-fixtures.ts";
@@ -153,58 +152,6 @@ describe("land-stack command scenarios", () => {
 			"✓ $ gt delete feature-a -f -q — branch feature-a already absent",
 		);
 	});
-	test("dispatch refuses a fast-path branch with an unknown remote dependent before mutation", async () => {
-		const pullRequest = prSnapshot({
-			number: 101,
-			branch: "feature-a",
-			base: TRUNK,
-			sha: SHA_A,
-		});
-		const pi = new FakeLandExecutionApi([
-			...repoIntro({ current: "feature-a", dbRows: DB_SINGLE_BRANCH }),
-			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
-				stdout: prStdout(pullRequest),
-			}),
-			...openPrDependencyScanSteps([
-				{
-					number: 202,
-					headRefName: "feature-unknown-child",
-					headRefOid: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-					baseRefName: "feature-a",
-					baseRefOid: SHA_A,
-				},
-			]),
-		]);
-		const output: string[] = [];
-		const notifications: string[] = [];
-
-		const exitCode = await runLandCli({
-			cwd: ROOT,
-			rawArgs: "--yes",
-			exec: async (command, args, options) => await pi.exec(command, args, options),
-			stdout: (text) => output.push(text),
-			stderr: (text) => output.push(text),
-			progressIo: {
-				...noopNsCommandIo,
-				notify: (message) => notifications.push(message),
-			},
-		});
-
-		pi.assertDone();
-		expect(exitCode).toBe(1);
-		expect([...output, ...notifications].join("\n")).toContain(
-			"stack provider does not report as descendants",
-		);
-		expect(
-			pi.execCalls.some(
-				(call) =>
-					(call.command === "gh" && call.args.includes("merge")) ||
-					(call.command === "gt" && ["restack", "submit", "delete"].includes(call.args[0] ?? "")) ||
-					(call.command === "git" && call.args[0] === "update-ref"),
-			),
-		).toBe(false);
-	});
-
 	test("dispatch refuses single-branch non-interactive landing before mutation without --yes", async () => {
 		const pullRequest = prSnapshot({
 			number: 101,
@@ -217,7 +164,6 @@ describe("land-stack command scenarios", () => {
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(pullRequest),
 			}),
-			...openPrDependencyScanSteps(),
 		]);
 		const output: string[] = [];
 		const progressIo = {

@@ -12,7 +12,6 @@ import {
 	DB_TO_CURRENT,
 	DESCENDANT,
 	fromManagedCurrentSlot,
-	openPrDependencyScanSteps,
 	repoIntro,
 	SHA_A,
 } from "./repo-fixtures.ts";
@@ -36,7 +35,6 @@ describe("land-stack command scenarios", () => {
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A })),
 			}),
-			...openPrDependencyScanSteps(),
 			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_A })),
 			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
 				stdout: prStdout(
@@ -133,7 +131,6 @@ describe("land-stack command scenarios", () => {
 						prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A }),
 					),
 				}),
-				...openPrDependencyScanSteps(),
 			),
 		);
 		const confirmations: Confirmation[] = [];
@@ -171,7 +168,6 @@ describe("land-stack command scenarios", () => {
 						prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A }),
 					),
 				}),
-				...openPrDependencyScanSteps(),
 			),
 		);
 		const output: string[] = [];

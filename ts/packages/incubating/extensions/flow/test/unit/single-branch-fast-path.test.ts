@@ -51,51 +51,6 @@ describe("single-branch landing core", () => {
 		).toBe(false);
 	});
 
-	test("refuses an unknown remote dependent before confirmation or mutation", async () => {
-		let confirmationCount = 0;
-		const fakes = createInMemoryLandContext({
-			github: {
-				pullRequests: [openPullRequest()],
-				openPullRequestDependencies: [
-					{
-						number: 202,
-						headRefName: "feature-unknown-child",
-						headRefOid: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-						baseRefName: FEATURE,
-						baseRefOid: SHA,
-					},
-				],
-			},
-		});
-
-		const outcome = await run(fakes.context, {
-			confirmation: {
-				confirm: async () => {
-					confirmationCount += 1;
-					return { type: "approved", approvalSource: "prompted" };
-				},
-			},
-		});
-
-		expect(outcome).toMatchObject({
-			type: "failure",
-			stage: "load",
-			failure: {
-				type: "domain",
-				phase: "preflight",
-				reason: "descendant-topology-mismatch",
-				failedBranch: FEATURE,
-				failedPrNumber: 202,
-			},
-		});
-		expect(confirmationCount).toBe(0);
-		expect(fakes.github.squashMergePullRequestCalls).toEqual([]);
-		expect(fakes.graphite.restackCalls).toEqual([]);
-		expect(fakes.graphite.submitUpdateCalls).toEqual([]);
-		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
-		expect(fakes.git.snapshotBackupRefsCalls).toEqual([]);
-	});
-
 	test("dry run returns typed facts without confirmation or mutation", async () => {
 		let confirmationCount = 0;
 		const fakes = createInMemoryLandContext({ github: { pullRequests: [openPullRequest()] } });

@@ -125,7 +125,6 @@ export type {
 	NotifyLevel,
 	PostLandingSlotCleanupReport,
 	PrSubmitRequirement,
-	PullRequestDependencyFacts,
 	PullRequestFacts,
 	RestackRequirement,
 	RetainedLocalBranchCleanup,
