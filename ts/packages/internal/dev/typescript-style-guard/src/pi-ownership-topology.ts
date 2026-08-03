@@ -1,18 +1,6 @@
-import * as ts from "typescript";
-
-import {
-	parseTypeScriptSource,
-	sourceLocationFields,
-} from "@nseng-ai/foundation/typescript-analysis";
-
 import { BAN_PACKAGE_DISPOSITION_TOPOLOGY, manifestDependencyFields } from "./config.ts";
 import { findManifestKeyPosition } from "./json-diagnostics.ts";
-import {
-	isRecord,
-	packageNameForSpecifier,
-	packageSubpathForSpecifier,
-	type PackageMetadata,
-} from "./package-metadata.ts";
+import { isRecord, type PackageMetadata } from "./package-metadata.ts";
 import type { PackageTopologyFact } from "./package-disposition.ts";
 import type { SourceRuleViolation } from "./source-rules.ts";
 
@@ -22,15 +10,9 @@ const PI_EXTENSION_OWNER_PATH = "hosts/pi/extensions";
 const PI_RUNTIME_PACKAGE = "@nseng-ai/pi-runtime";
 const PI_SDK_PACKAGE_PREFIX = "@earendil-works/pi-";
 
-export interface PackageSourceFile {
-	readonly path: string;
-	readonly content: string;
-}
-
 export interface PiOwnershipTopologyOptions {
 	readonly metadataByName: ReadonlyMap<string, PackageMetadata>;
 	readonly factByPackage: ReadonlyMap<string, PackageTopologyFact>;
-	readonly sourceFiles: readonly PackageSourceFile[];
 }
 
 /** Enforces the complete ADR 0045 Pi/ns ownership boundary from derived package facts. */
@@ -76,12 +58,6 @@ export function collectPiOwnershipTopologyViolations(
 
 		if (metadata.nsTier === "extension") {
 			violations.push(...collectExtensionManifestViolations(metadata));
-			violations.push(...collectExtensionSourceViolations(metadata, options.sourceFiles));
-		}
-		if (isAdapterOwner && metadata.name.startsWith(PI_ADAPTER_PREFIX)) {
-			violations.push(
-				...collectAdapterSourceViolations(metadata, options.metadataByName, options.sourceFiles),
-			);
 		}
 	}
 
@@ -199,204 +175,12 @@ function collectExtensionManifestViolations(metadata: PackageMetadata): SourceRu
 	return violations;
 }
 
-function collectExtensionSourceViolations(
-	metadata: PackageMetadata,
-	sourceFiles: readonly PackageSourceFile[],
-): SourceRuleViolation[] {
-	const files = filesForPackage(metadata, sourceFiles);
-	const piPath = files.find((file) => isPiOwnedSourcePath(metadata, file.path));
-	const violations: SourceRuleViolation[] = [];
-	if (piPath !== undefined) {
-		violations.push(
-			sourceViolation(
-				piPath.path,
-				1,
-				1,
-				`${metadata.name} carries Pi-owned source path ${piPath.path}`,
-			),
-		);
-	}
-
-	for (const file of files) {
-		const sourceFile = parseTypeScriptSource(file.path, file.content);
-		visitModuleSpecifiers(sourceFile, (specifier, node) => {
-			if (!isPiHostPackageSpecifier(specifier)) return;
-			violations.push(
-				sourceNodeViolation(
-					file.path,
-					sourceFile,
-					node,
-					`${metadata.name} imports Pi host code ${specifier}`,
-				),
-			);
-		});
-		visitPiRegistrationCalls(sourceFile, (node) => {
-			violations.push(
-				sourceNodeViolation(
-					file.path,
-					sourceFile,
-					node,
-					`${metadata.name} contains Pi host registration ${node.getText(sourceFile)}`,
-				),
-			);
-		});
-	}
-	return violations;
-}
-
-function collectAdapterSourceViolations(
-	adapter: PackageMetadata,
-	metadataByName: ReadonlyMap<string, PackageMetadata>,
-	sourceFiles: readonly PackageSourceFile[],
-): SourceRuleViolation[] {
-	const domain = adapter.name.slice(PI_ADAPTER_PREFIX.length);
-	const matchingExtension = `@nseng-ai/${domain}`;
-	const violations: SourceRuleViolation[] = [];
-
-	for (const file of filesForPackage(adapter, sourceFiles)) {
-		const sourceFile = parseTypeScriptSource(file.path, file.content);
-		visitModuleSpecifiers(sourceFile, (specifier, node) => {
-			const reason = adapterImportViolationReason(specifier, matchingExtension, metadataByName);
-			if (reason === undefined) return;
-			violations.push(
-				sourceNodeViolation(file.path, sourceFile, node, `${adapter.name} ${reason}`),
-			);
-		});
-	}
-	return violations;
-}
-
-function adapterImportViolationReason(
-	specifier: string,
-	matchingExtension: string,
-	metadataByName: ReadonlyMap<string, PackageMetadata>,
-): string | undefined {
-	const importedName = packageNameForSpecifier(specifier);
-	if (importedName === undefined) return undefined;
-	const importedMetadata = metadataByName.get(importedName);
-	if (importedMetadata === undefined) return undefined;
-	const subpath = packageSubpathForSpecifier(specifier, importedName);
-
-	if (importedName === matchingExtension) {
-		return subpath === "./api"
-			? undefined
-			: `must import its matching extension exactly through ${matchingExtension}/api, not ${specifier}`;
-	}
-	if (importedMetadata.nsTier === "extension") {
-		return importedMetadata.exportSubpaths.has(subpath) && !isPrivateSubpath(subpath)
-			? undefined
-			: `imports ${specifier} from another ns extension through private or undeclared subpath ${subpath}`;
-	}
-	if (unscopedName(importedName).startsWith(PI_ADAPTER_LEAF_PREFIX)) {
-		return importedMetadata.exportSubpaths.has(subpath) && !isPrivateSubpath(subpath)
-			? undefined
-			: `imports ${specifier}; adapter composition requires a declared curated export`;
-	}
-	return undefined;
-}
-
-function visitModuleSpecifiers(
-	sourceFile: ts.SourceFile,
-	visitSpecifier: (specifier: string, node: ts.StringLiteralLike) => void,
-): void {
-	function visit(node: ts.Node): void {
-		if (
-			(ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
-			node.moduleSpecifier !== undefined &&
-			ts.isStringLiteralLike(node.moduleSpecifier)
-		) {
-			visitSpecifier(node.moduleSpecifier.text, node.moduleSpecifier);
-		} else if (
-			ts.isCallExpression(node) &&
-			node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-			node.arguments.length === 1
-		) {
-			const argument = node.arguments[0];
-			if (argument !== undefined && ts.isStringLiteralLike(argument)) {
-				visitSpecifier(argument.text, argument);
-			}
-		}
-		ts.forEachChild(node, visit);
-	}
-	visit(sourceFile);
-}
-
-function visitPiRegistrationCalls(
-	sourceFile: ts.SourceFile,
-	visitRegistration: (node: ts.CallExpression) => void,
-): void {
-	function visit(node: ts.Node): void {
-		if (ts.isCallExpression(node) && isPiRegistrationExpression(node.expression)) {
-			visitRegistration(node);
-		}
-		ts.forEachChild(node, visit);
-	}
-	visit(sourceFile);
-}
-
-function isPiRegistrationExpression(expression: ts.LeftHandSideExpression): boolean {
-	if (ts.isPropertyAccessExpression(expression)) {
-		return isPiApiReceiver(expression.expression) && isPiRegistrationMethod(expression.name.text);
-	}
-	if (ts.isElementAccessExpression(expression)) {
-		const argument = expression.argumentExpression;
-		return (
-			isPiApiReceiver(expression.expression) &&
-			argument !== undefined &&
-			ts.isStringLiteralLike(argument) &&
-			isPiRegistrationMethod(argument.text)
-		);
-	}
-	return false;
-}
-
-function isPiApiReceiver(expression: ts.Expression): boolean {
-	return (
-		ts.isIdentifier(expression) && (expression.text === "pi" || expression.text === "extensionApi")
-	);
-}
-
-function isPiRegistrationMethod(method: string): boolean {
-	return method === "registerCommand" || method === "registerTool";
-}
-
-function filesForPackage(
-	metadata: PackageMetadata,
-	sourceFiles: readonly PackageSourceFile[],
-): readonly PackageSourceFile[] {
-	return sourceFiles
-		.filter((file) => file.path.startsWith(`${metadata.packageDir}/`))
-		.sort((left, right) => left.path.localeCompare(right.path));
-}
-
-function isPiOwnedSourcePath(metadata: PackageMetadata, path: string): boolean {
-	const relativePath = path.slice(metadata.packageDir.length + 1);
-	return relativePath === "src/pi" || relativePath.startsWith("src/pi/");
-}
-
 function isPiOwnedSubpackage(subpackage: string): boolean {
 	return subpackage === "pi" || subpackage.startsWith("pi/");
 }
 
 function isPiHostPackage(packageName: string): boolean {
 	return packageName === PI_RUNTIME_PACKAGE || packageName.startsWith(PI_SDK_PACKAGE_PREFIX);
-}
-
-function isPiHostPackageSpecifier(specifier: string): boolean {
-	return (
-		specifier === PI_RUNTIME_PACKAGE ||
-		specifier.startsWith(`${PI_RUNTIME_PACKAGE}/`) ||
-		specifier.startsWith(PI_SDK_PACKAGE_PREFIX)
-	);
-}
-
-function isPrivateSubpath(subpath: string): boolean {
-	return (
-		subpath === "./src" ||
-		subpath.startsWith("./src/") ||
-		subpath === "./internal" ||
-		subpath.startsWith("./internal/")
-	);
 }
 
 function hasPiExtensionEntrypoint(metadata: PackageMetadata): boolean {
@@ -434,30 +218,5 @@ function manifestViolation(
 		line: position.line,
 		column: position.column,
 		text: `${reason} (ADR 0045 §5).`,
-	};
-}
-
-function sourceNodeViolation(
-	path: string,
-	sourceFile: ts.SourceFile,
-	node: ts.Node,
-	reason: string,
-): SourceRuleViolation {
-	const location = sourceLocationFields(path, sourceFile, node);
-	return sourceViolation(path, location.line, location.column, reason);
-}
-
-function sourceViolation(
-	path: string,
-	line: number,
-	column: number,
-	reason: string,
-): SourceRuleViolation {
-	return {
-		rule: BAN_PACKAGE_DISPOSITION_TOPOLOGY,
-		path,
-		line,
-		column,
-		text: `${reason}; ns extensions are harness-independent and Pi integration belongs under hosts/pi/extensions (ADR 0045 §5).`,
 	};
 }

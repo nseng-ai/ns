@@ -1,38 +1,11 @@
-import { readFileSync } from "node:fs";
-import { dirname, join, normalize, relative } from "node:path";
-
-import * as ts from "typescript";
-
-import {
-	moduleSpecifierText,
-	parseTypeScriptSource,
-	sourceLocationFields,
-} from "@nseng-ai/foundation/typescript-analysis";
-
-import {
-	BAN_EXTENSION_PI_SURFACE,
-	BAN_PACKAGE_DISPOSITION_TOPOLOGY,
-	BAN_PI_ADAPTER_EXTENSION_IMPORT,
-	manifestDependencyFields,
-} from "./config.ts";
+import { BAN_PACKAGE_DISPOSITION_TOPOLOGY, manifestDependencyFields } from "./config.ts";
 import { collectExtensionManifestWorkspaceEdges } from "./dependency-graph.ts";
-import { findTypeScriptSourceFiles } from "./file-discovery.ts";
 import { findManifestKeyPosition } from "./json-diagnostics.ts";
-import {
-	isRecord,
-	packageNameForSpecifier,
-	packageSubpathForSpecifier,
-	type PackageMetadata,
-} from "./package-metadata.ts";
+import type { PackageMetadata } from "./package-metadata.ts";
 import type { SourceRuleViolation } from "./source-rules.ts";
-import {
-	collectPiOwnershipTopologyViolations,
-	type PackageSourceFile,
-} from "./pi-ownership-topology.ts";
+import { collectPiOwnershipTopologyViolations } from "./pi-ownership-topology.ts";
 
 const PACKAGES_ROOT = "ts/packages";
-const PI_HOST_RUNTIME_PACKAGE = "@nseng-ai/pi-runtime";
-const PI_ADAPTER_NAME_PREFIX = "pi-ns-";
 
 /**
  * ADR 0045 §1: the first path segment below `ts/packages/` is release disposition, and
@@ -121,17 +94,8 @@ type ParsedPackagePath =
  * 7. each `pi-ns-<domain>` package is a host-tier Pi adapter over exactly
  *    `@nseng-ai/<domain>/api`, with a runtime workspace edge to that extension.
  *
- * The two ADR 0045 §5 rules that were deferred until the `pi-ns-*` extraction landed live
- * alongside this collector:
- *
- * - `collectExtensionPiSurfaceViolations` — the structural rule that no ns extension carries
- *   a `pi` subpackage, a `./pi`/`./pi/*` export, or a runtime Pi dependency;
- * - `collectPiAdapterExtensionImportViolations` — the `pi-ns-*` adapter rule (an adapter may
- *   import an ns extension only through its curated API, never deep or private extension
- *   source; everything else is governed by disposition closure and the other guards).
- *
- * Source-bearing checks use the caller-provided tracked TypeScript facts. The repository suite
- * supplies every discovered source file; callers that only need manifest topology may omit them.
+ * The ADR 0045 §5 Pi ownership checks are part of this collector so package topology has one
+ * canonical enforcement path for extension separation and `pi-ns-*` adapter boundaries.
  *
  * This rule overlaps `NS_TS_INTERNAL_SPACE_ADMISSION` on the internal scope/private pair and
  * on inbound edges to `@internal/*`. That overlap is intentional: the older rule states the
@@ -140,7 +104,6 @@ type ParsedPackagePath =
  */
 export function collectPackageDispositionViolations(
 	metadataByName: ReadonlyMap<string, PackageMetadata>,
-	sourceFiles: readonly PackageSourceFile[] = [],
 ): SourceRuleViolation[] {
 	const violations: SourceRuleViolation[] = [];
 	const factByPackage = new Map<string, PackageTopologyFact>();
@@ -158,9 +121,7 @@ export function collectPackageDispositionViolations(
 
 	violations.push(...collectDuplicateLeafViolations(metadataByName, factByPackage));
 	violations.push(...collectClosureViolations(metadataByName, factByPackage));
-	violations.push(
-		...collectPiOwnershipTopologyViolations({ metadataByName, factByPackage, sourceFiles }),
-	);
+	violations.push(...collectPiOwnershipTopologyViolations({ metadataByName, factByPackage }));
 
 	return violations;
 }
@@ -306,232 +267,6 @@ function collectClosureViolations(
 	}
 
 	return violations;
-}
-
-/**
- * ADR 0045 §5 structural rule: ns extensions are harness-independent domain owners, so an
- * `ns.tier === "extension"` package must not carry Pi host coupling in its manifest:
- *
- * 1. no `"pi"` entry in `ns.subpackages`;
- * 2. no `./pi` export and no export under `./pi/`; the match is `./pi` | `./pi/*`, never a
- *    raw prefix, so names like `./pi-launch` stay legal (extension-kit declares them, and an
- *    extension could legitimately name an unrelated subpath `./pi-something`);
- * 3. no runtime dependency on `@nseng-ai/pi-runtime` (`dependencies`,
- *    `optionalDependencies`, or `peerDependencies`); host integration lives in a separately
- *    owned `pi-ns-*` adapter package.
- */
-export function collectExtensionPiSurfaceViolations(
-	metadataByName: ReadonlyMap<string, PackageMetadata>,
-): SourceRuleViolation[] {
-	const violations: SourceRuleViolation[] = [];
-
-	for (const metadata of sortedMetadata(metadataByName)) {
-		if (metadata.nsTier !== "extension") continue;
-
-		if (metadata.nsSubpackages.includes("pi")) {
-			violations.push(
-				buildExtensionPiSurfaceViolation(
-					metadata,
-					["ns", "subpackages"],
-					'declares "pi" in ns.subpackages',
-				),
-			);
-		}
-
-		for (const exportKey of [...metadata.exportSubpaths].sort()) {
-			if (exportKey !== "./pi" && !exportKey.startsWith("./pi/")) continue;
-			violations.push(
-				buildExtensionPiSurfaceViolation(
-					metadata,
-					["exports", exportKey],
-					`declares the ${exportKey} export subpath`,
-				),
-			);
-		}
-
-		for (const field of manifestDependencyFields) {
-			const dependencies = metadata.manifest[field];
-			if (!isRecord(dependencies) || !(PI_HOST_RUNTIME_PACKAGE in dependencies)) continue;
-			violations.push(
-				buildExtensionPiSurfaceViolation(
-					metadata,
-					[field, PI_HOST_RUNTIME_PACKAGE],
-					`declares ${PI_HOST_RUNTIME_PACKAGE} in ${field}`,
-				),
-			);
-		}
-	}
-
-	return violations;
-}
-
-export interface PiAdapterSourceFile {
-	readonly path: string;
-	readonly content: string;
-}
-
-export interface PiAdapterExtensionImportOptions {
-	readonly repoRoot: string;
-	readonly packageMetadataByName: ReadonlyMap<string, PackageMetadata>;
-	/** Injected sources for tests; when absent the adapters' packageDirs are scanned. */
-	readonly files?: readonly PiAdapterSourceFile[];
-}
-
-/**
- * ADR 0045 §5 adapter rule: a `pi-ns-*` host adapter "consume[s] only curated extension
- * package APIs". Concretely, for every import in an adapter's TypeScript sources that
- * targets a workspace package with `ns.tier === "extension"`:
- *
- * - production source must import exactly `<package>/api` or a declared subpath under
- *   `<package>/api/`;
- * - test files (under `test/`) may additionally use the extension's other declared export
- *   subpaths — `./testing` is the curated test-support surface — but never deep or private
- *   source (`./src/*`, `./internal*`, or an undeclared subpath);
- * - relative imports that escape the adapter's package directory into another workspace
- *   package's source are deep imports by construction and always violations.
- *
- * Imports of non-extension packages (foundation, pi-runtime, extension-kit, sdk, other
- * `pi-ns-*` adapters — the blessed adapter-to-adapter edges ride on declared curated
- * subpaths) are governed by disposition closure and the other guards, not this rule.
- */
-export function collectPiAdapterExtensionImportViolations(
-	options: PiAdapterExtensionImportOptions,
-): SourceRuleViolation[] {
-	const adapters = sortedMetadata(options.packageMetadataByName).filter((metadata) =>
-		parsePackageIdentity(metadata.name).unscopedName.startsWith(PI_ADAPTER_NAME_PREFIX),
-	);
-	const violations: SourceRuleViolation[] = [];
-
-	for (const adapter of adapters) {
-		const files = options.files ?? readAdapterSourceFiles(options.repoRoot, adapter);
-		for (const file of files) {
-			if (!isWithinDirectory(file.path, adapter.packageDir)) continue;
-			violations.push(
-				...collectAdapterFileViolations(file, adapter, options.packageMetadataByName),
-			);
-		}
-	}
-
-	return violations;
-}
-
-function readAdapterSourceFiles(
-	repoRoot: string,
-	adapter: PackageMetadata,
-): readonly PiAdapterSourceFile[] {
-	return findTypeScriptSourceFiles(join(repoRoot, adapter.packageDir)).map((absolutePath) => ({
-		path: relative(repoRoot, absolutePath),
-		content: readFileSync(absolutePath, "utf8"),
-	}));
-}
-
-function collectAdapterFileViolations(
-	file: PiAdapterSourceFile,
-	adapter: PackageMetadata,
-	metadataByName: ReadonlyMap<string, PackageMetadata>,
-): SourceRuleViolation[] {
-	const sourceFile = parseTypeScriptSource(file.path, file.content);
-	const isTestFile = file.path.includes("/test/");
-	const violations: SourceRuleViolation[] = [];
-
-	function visit(node: ts.Node): void {
-		if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
-			const specifierNode = node.moduleSpecifier;
-			const specifier = moduleSpecifierText(node);
-			if (specifier !== undefined && specifierNode !== undefined) {
-				const reason = adapterImportViolationReason(
-					specifier,
-					file.path,
-					adapter,
-					isTestFile,
-					metadataByName,
-				);
-				if (reason !== undefined) {
-					violations.push({
-						rule: BAN_PI_ADAPTER_EXTENSION_IMPORT,
-						...sourceLocationFields(file.path, sourceFile, specifierNode),
-						text: `${adapter.name} ${reason} (ADR 0045 §5).`,
-					});
-				}
-			}
-		}
-		ts.forEachChild(node, visit);
-	}
-
-	visit(sourceFile);
-	return violations;
-}
-
-function adapterImportViolationReason(
-	specifier: string,
-	importerPath: string,
-	adapter: PackageMetadata,
-	isTestFile: boolean,
-	metadataByName: ReadonlyMap<string, PackageMetadata>,
-): string | undefined {
-	if (specifier.startsWith(".")) {
-		return relativeEscapeViolationReason(specifier, importerPath, adapter, metadataByName);
-	}
-
-	const importedPackageName = packageNameForSpecifier(specifier);
-	if (importedPackageName === undefined) return undefined;
-	const importedMetadata = metadataByName.get(importedPackageName);
-	if (importedMetadata?.nsTier !== "extension") return undefined;
-
-	const subpath = packageSubpathForSpecifier(specifier, importedPackageName);
-	if (subpath === "./api" || subpath.startsWith("./api/")) {
-		if (importedMetadata.exportSubpaths.has(subpath)) return undefined;
-		return `imports ${specifier}, which is not a declared export subpath of ${importedPackageName}; a pi-ns-* adapter may consume only the extension's curated API`;
-	}
-
-	if (!isTestFile) {
-		return `imports ${specifier} from production source, but a pi-ns-* adapter may consume an ns extension only through its curated API subpath (${importedPackageName}/api)`;
-	}
-	if (isPrivateExtensionImportSubpath(subpath) || !importedMetadata.exportSubpaths.has(subpath)) {
-		return `imports ${specifier} from a test file; deep or private extension imports are banned even in adapter tests — use a declared curated subpath such as ${importedPackageName}/api or ${importedPackageName}/testing`;
-	}
-	return undefined;
-}
-
-function relativeEscapeViolationReason(
-	specifier: string,
-	importerPath: string,
-	adapter: PackageMetadata,
-	metadataByName: ReadonlyMap<string, PackageMetadata>,
-): string | undefined {
-	const resolvedPath = normalize(join(dirname(importerPath), specifier));
-	if (isWithinDirectory(resolvedPath, adapter.packageDir)) return undefined;
-	for (const metadata of metadataByName.values()) {
-		if (metadata.name === adapter.name) continue;
-		if (!isWithinDirectory(resolvedPath, metadata.packageDir)) continue;
-		return `relative import ${specifier} escapes the adapter package directory into ${metadata.name} source; import the package's curated API instead`;
-	}
-	return undefined;
-}
-
-function isPrivateExtensionImportSubpath(subpath: string): boolean {
-	return (
-		subpath.startsWith("./src/") || subpath === "./internal" || subpath.startsWith("./internal/")
-	);
-}
-
-function isWithinDirectory(path: string, directory: string): boolean {
-	return path === directory || path.startsWith(`${directory}/`);
-}
-
-function buildExtensionPiSurfaceViolation(
-	metadata: PackageMetadata,
-	keys: readonly string[],
-	reason: string,
-): SourceRuleViolation {
-	const position = findManifestKeyPosition(metadata.manifestContent, keys);
-	return {
-		rule: BAN_EXTENSION_PI_SURFACE,
-		path: metadata.packageJsonPath,
-		line: position.line,
-		column: position.column,
-		text: `${metadata.name} is an ns extension (ns.tier extension) and ${reason}; ns extensions are harness-independent, so Pi host integration belongs in a separately owned pi-ns-* adapter package (ADR 0045 §5).`,
-	};
 }
 
 interface PackageIdentity {

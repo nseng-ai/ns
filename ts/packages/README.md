@@ -64,6 +64,10 @@ only declared, non-private exports; adapter-to-adapter composition may likewise 
 curated exports. A Pi-native extension that adapts nothing uses a natural Pi-facing identity
 instead. Another host would pick its own categories under its own root.
 
+The package-disposition topology guard mechanically enforces manifest-level ownership facts. Source
+ownership is intentionally judged by the LM-run `ns-typescript-style-tripwire` review rather than by
+syntax heuristics, so aliases and wrappers receive the same semantic review as direct Pi calls.
+
 ## Identity invariants
 
 - **Leaf equals name.** Every package's leaf directory is exactly the unscoped part of its npm
