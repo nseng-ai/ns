@@ -146,6 +146,37 @@ const SOURCE_EXTENSIONS = [
 ] as const satisfies readonly SourceExtensionExpectation[];
 
 describe("user source extension registry", () => {
+	test("keeps the checkout-declared Skill Exposure package without its source-development duplicate", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const repoRoot = fileURLToPath(new URL("../../../../../..", import.meta.url));
+
+		const catalog = await loadNsCommandCatalog({
+			cwd: repoRoot,
+			homeDir: workspace.homeDir,
+		});
+		const skillExposureCandidates = [...catalog.candidates].filter(([key]) =>
+			key.startsWith("skill-exposure/"),
+		);
+
+		expect(
+			catalog.diagnostics.filter(
+				(diagnostic) =>
+					diagnostic.code === "extension_package_lower_level_conflict" &&
+					"packageName" in diagnostic &&
+					diagnostic.packageName === "@nseng-ai/skill-exposure",
+			),
+		).toEqual([]);
+		expect(catalog.extensionPackageNames.has("@nseng-ai/skill-exposure")).toBe(true);
+		expect(skillExposureCandidates.map(([key]) => key)).toEqual([
+			"skill-exposure/apply",
+			"skill-exposure/check",
+			"skill-exposure/show",
+		]);
+		expect(
+			skillExposureCandidates.every(([_key, candidate]) => candidate.source.level === "project"),
+		).toBe(true);
+	});
+
 	test.each(SOURCE_EXTENSIONS)(
 		"loads every $packageName command without exposing Skill Exposure",
 		async ({ directoryName, packageName, commandKeys }) => {

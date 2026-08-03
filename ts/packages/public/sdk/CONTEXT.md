@@ -69,8 +69,8 @@ A command contribution inside an extension descriptor or preinstalled descriptor
 *Avoid*: extension root, package API, Pi mirror, YAML task spec.
 
 **Extension discovery**:
-The side-effect-light CLI step that scans built-in definitions, injected preinstalled descriptor metadata, the single XDG user `ns.toml`, and repository `ns.toml` declarations to build the command catalog without importing unrelated command implementation modules.
-*Avoid*: activation, eager module loading for help, partial registration state from failed modules, hidden plugin registry, filesystem extension-root scanning.
+The side-effect-light CLI step that scans built-in definitions, injected preinstalled descriptor metadata, the single XDG user `ns.toml`, and repository `ns.toml` declarations to build the command catalog without importing unrelated command implementation modules. In a source checkout, the source-development fallback also scans workspace package descriptors; before package admission, it silently omits a scanned contribution when a successfully loaded Project or enabled User descriptor represents the same manifest package name at the same resolved package root. Distinct package roots remain distinct contributions and retain normal package-atomic precedence diagnostics.
+*Avoid*: activation, eager module loading for help, partial registration state from failed modules, hidden plugin registry, treating source-development duplicate elimination as general silent precedence.
 
 **Selected command loading**:
 The CLI step that imports and validates exactly one external command contribution after the user selects a command. Selected help and JSON schema may load the selected contribution; top-level help and unrelated commands must not load unselected descriptor entries. Discovery diagnostics that affect the selected command are fatal; unrelated discovery diagnostics are warnings.

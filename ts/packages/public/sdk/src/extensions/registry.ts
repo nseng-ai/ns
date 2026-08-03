@@ -77,9 +77,12 @@ interface LoadedCatalogFragment {
 	readonly builtInPackageNames: readonly string[];
 }
 
-type CatalogPackageContribution = ExtensionPackageContribution<
+interface CatalogPackageContribution extends ExtensionPackageContribution<
 	readonly ExtensionCommandCandidate[]
->;
+> {
+	readonly packageRoot?: string;
+	readonly discoveryKind?: "source-development";
+}
 
 interface LoadedProjectCatalogFragment extends LoadedCatalogFragment {
 	readonly declaredSourceIdentities: readonly string[];
@@ -315,10 +318,16 @@ export async function loadNsCommandCatalog(
 	);
 	diagnostics.push(...userCandidates.diagnostics);
 	diagnostics.push(...descriptorProjectCandidates.diagnostics);
-	const contributions = [
-		...preinstalledCandidates.contributions,
+	const higherLevelContributions = [
 		...userCandidates.contributions,
 		...descriptorProjectCandidates.contributions,
+	];
+	const contributions = [
+		...omitRepresentedSourceDevelopmentContributions(
+			preinstalledCandidates.contributions,
+			higherLevelContributions,
+		),
+		...higherLevelContributions,
 	];
 	const admission = planExtensionPackageAdmission({
 		contributions,
@@ -642,6 +651,7 @@ function descriptorPackageContribution(options: {
 	return {
 		contributionId: options.contributionId,
 		packageName: options.record.packageName,
+		packageRoot: resolve(options.record.moduleRoot),
 		level: options.sourceLevel,
 		commandKeys: candidates.map(commandKey),
 		commandMetadata: candidates.map(commandMetadata),
@@ -885,6 +895,8 @@ async function loadSourceDevDescriptorCandidates(options: {
 			{
 				contributionId,
 				packageName: loaded.value.packageName,
+				packageRoot: resolve(options.packageDir),
+				discoveryKind: "source-development",
 				level: "preinstalled",
 				commandKeys: candidates.map(commandKey),
 				commandMetadata: candidates.map(commandMetadata),
@@ -893,6 +905,25 @@ async function loadSourceDevDescriptorCandidates(options: {
 			},
 		],
 	};
+}
+
+function omitRepresentedSourceDevelopmentContributions(
+	preinstalledContributions: readonly CatalogPackageContribution[],
+	higherLevelContributions: readonly CatalogPackageContribution[],
+): readonly CatalogPackageContribution[] {
+	const representedSources = new Set(
+		higherLevelContributions.flatMap((contribution) =>
+			contribution.packageRoot === undefined
+				? []
+				: [`${contribution.packageName}\0${contribution.packageRoot}`],
+		),
+	);
+	return preinstalledContributions.filter(
+		(contribution) =>
+			contribution.discoveryKind !== "source-development" ||
+			contribution.packageRoot === undefined ||
+			!representedSources.has(`${contribution.packageName}\0${contribution.packageRoot}`),
+	);
 }
 
 function sourceDevWorkspacePackagesRoot(cwd: string): string | undefined {
