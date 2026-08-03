@@ -6,12 +6,16 @@ import {
 	buildHerdrImplPromptLaunchCommand,
 	HERDR_IMPL_PROMPT_BRANCH_ENV,
 } from "../src/core/impl-prompt-launch.ts";
-import { registerHerdrImplPromptBootstrap } from "../src/pi/impl-prompt-bootstrap.ts";
+import {
+	buildDestinationImplementationPrompt,
+	registerHerdrImplPromptBootstrap,
+} from "../src/pi/impl-prompt-bootstrap.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
+	ROOT,
 	step,
 	type ScriptedExec,
 } from "./herdr-test-harness.ts";
@@ -40,9 +44,9 @@ function bootstrapHarness(options: {
 	currentBranch?: InMemoryGitGatewayState["currentBranch"];
 }) {
 	const pi = new FakePi({ script: options.script ?? [] });
-	const git = new InMemoryGitGateway({
-		...(options.currentBranch === undefined ? {} : { currentBranch: options.currentBranch }),
-	});
+	const git = new InMemoryGitGateway(
+		options.currentBranch === undefined ? {} : { currentBranch: options.currentBranch },
+	);
 	const env = options.env ?? { [HERDR_IMPL_PROMPT_BRANCH_ENV]: BRANCH };
 	registerHerdrImplPromptBootstrap(
 		{
@@ -69,6 +73,7 @@ describe("herdr implementation prompt startup bootstrap", () => {
 		expect(command).not.toContain("mktemp");
 		expect(command).not.toContain("payload_dir");
 		expect(command).not.toContain("@");
+		expect(command).not.toContain("--fork");
 	});
 
 	test("shell-quotes the branch marker and omits flags when unset", () => {
@@ -77,7 +82,7 @@ describe("herdr implementation prompt startup bootstrap", () => {
 		);
 	});
 
-	test("loads the stored prompt once from Branch Memory and sends it as the first user message", async () => {
+	test("prepends destination execution context to the complete stored prompt once", async () => {
 		const { pi, env } = bootstrapHarness({
 			script: [
 				brmemGetStep({ stdout: JSON.stringify({ exitCode: 0, data: { content: PROMPT } }) }),
@@ -90,7 +95,22 @@ describe("herdr implementation prompt startup bootstrap", () => {
 		await pi.emitSessionStart({ reason: "startup" }, ctx);
 
 		pi.assertDone();
-		expect(pi.sentUserMessages).toEqual([PROMPT]);
+		expect(pi.sentUserMessages).toEqual([
+			buildDestinationImplementationPrompt({
+				cwd: ROOT,
+				expectedBranch: BRANCH,
+				implementationPrompt: PROMPT,
+			}),
+		]);
+		const firstPrompt = pi.sentUserMessages[0] ?? "";
+		expect(firstPrompt).toContain(`Destination session cwd: ${ROOT}`);
+		expect(firstPrompt).toContain(`Expected implementation branch: ${BRANCH}`);
+		expect(firstPrompt).toContain("interpret and rebase repository paths");
+		expect(firstPrompt).toContain("Do not edit the source or old Slot");
+		expect(firstPrompt.indexOf("## Herdr destination execution context")).toBeLessThan(
+			firstPrompt.indexOf("## Implementation prompt"),
+		);
+		expect(firstPrompt.endsWith(PROMPT)).toBe(true);
 		expect(ctx.notifications).toEqual([]);
 	});
 

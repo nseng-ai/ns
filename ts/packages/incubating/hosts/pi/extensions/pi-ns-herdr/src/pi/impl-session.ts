@@ -35,14 +35,18 @@ import { createHerdrPiCommandContext, type HerdrPiContext } from "./context.ts";
 export const SESSION_IMPL_PROMPT_ENTRY_TYPE = "herdr-session-impl-prompt";
 
 export const SESSION_PROMPT_ACTIONS = {
-	implement: "Implement this prompt now",
+	implement: "Implement on a new branch in an isolated Slot",
 	loadEditor: "Load into editor for review/edit",
 	cancel: "Cancel",
 } as const;
 
 const SYSTEM_PROMPT = `Draft a directed, self-contained implementation prompt for another coding-agent session.
 
-Use the source session context and the continuation focus below. The prompt must let a fresh agent implement the requested continuation without access to the source conversation. Capture the goal, relevant repository and branch state, decisions and constraints, work already completed, concrete file or symbol anchors, remaining steps, validation expectations, and material risks or unknowns. Distinguish verified facts from assumptions. Omit conversational filler. Do not use tools or perform implementation work. Return only the implementation prompt; do not wrap it in a slash command or a code fence.`;
+Use the source session context and the continuation focus below. The prompt must let a fresh agent implement the requested continuation without access to the source conversation. Capture the goal, relevant repository and branch state, decisions and constraints, work already completed, concrete file or symbol anchors, remaining steps, validation expectations, and material risks or unknowns. Distinguish verified facts from assumptions.
+
+Treat the source checkout and its absolute filesystem paths as context only. Express repository file and symbol anchors as paths relative to the repository root, and do not direct the destination agent to edit an absolute source-worktree path. If an absolute non-repository path is materially necessary, identify it as external context rather than as the implementation checkout. A fresh destination session will execute from another Slot worktree and must use its destination cwd as authoritative, rebasing repository paths under that checkout.
+
+Omit conversational filler. Do not use tools or perform implementation work. Return only the implementation prompt; do not wrap it in a slash command or a code fence.`;
 
 export interface HerdrSessionImplRegistrationOptions extends ImplPromptPayloadOptions {
 	slotClient?: SlotClient;
@@ -194,6 +198,14 @@ async function selectSessionPromptAction(
 		pi.ui.notify("This Pi runtime cannot present the session implementation menu.", "error");
 		return "unavailable";
 	}
+	pi.ui.notify(
+		[
+			`Source checkout: ${pi.cwd}`,
+			"Execution checkout: new branch in an isolated Slot",
+			"Branch basis: selected after approval",
+		].join("\n"),
+		"info",
+	);
 	const selection = await pi.ui.select("Session implementation prompt ready", [
 		SESSION_PROMPT_ACTIONS.implement,
 		SESSION_PROMPT_ACTIONS.loadEditor,

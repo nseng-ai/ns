@@ -57,6 +57,17 @@ describe(COMMAND_NAME, () => {
 			},
 		]);
 		expect(ctx.editorTexts).toEqual([]);
+		expect(SESSION_PROMPT_ACTIONS.implement).toBe("Implement on a new branch in an isolated Slot");
+		expect(ctx.notifications).toEqual([
+			{
+				message: [
+					`Source checkout: ${ROOT}`,
+					"Execution checkout: new branch in an isolated Slot",
+					"Branch basis: selected after approval",
+				].join("\n"),
+				level: "info",
+			},
+		]);
 		expect(calls).toHaveLength(1);
 		expect(calls[0]?.options).toMatchObject({
 			args: PRIVATE_PROMPT,
@@ -362,6 +373,21 @@ describe(COMMAND_NAME, () => {
 				"The current Pi session is not persisted, so an implementation prompt cannot be generated from it.",
 		});
 		expect(pi.execCalls).toEqual([]);
+	});
+
+	test("requires checkout-portable anchors while preserving supplied continuation focus", () => {
+		const request = buildSummaryRequest("focus on the cache boundary");
+
+		expect(request).toContain(
+			"Treat the source checkout and its absolute filesystem paths as context only",
+		);
+		expect(request).toContain("paths relative to the repository root");
+		expect(request).toContain(
+			"do not direct the destination agent to edit an absolute source-worktree path",
+		);
+		expect(request).toContain("another Slot worktree");
+		expect(request).toContain("destination cwd as authoritative");
+		expect(request).toContain("## Continuation focus\nfocus on the cache boundary");
 	});
 
 	test("supplies a useful default continuation focus", () => {

@@ -14,12 +14,32 @@ export interface HerdrImplPromptBootstrapOptions {
 
 const PAYLOAD_LOCATOR = `${TRACKED_BRANCH_PAYLOAD_NAMESPACE}/${TRACKED_BRANCH_PAYLOAD_KEY}`;
 
+export function buildDestinationImplementationPrompt(options: {
+	cwd: string;
+	expectedBranch: string;
+	implementationPrompt: string;
+}): string {
+	return [
+		"## Herdr destination execution context",
+		"",
+		"This is the destination implementation checkout.",
+		`Destination session cwd: ${options.cwd}`,
+		`Expected implementation branch: ${options.expectedBranch}`,
+		"Use the destination session cwd as authoritative for repository work. Source-session checkout paths and absolute repository paths in the implementation prompt are context only; interpret and rebase repository paths relative to this destination repository root/cwd. Do not edit the source or old Slot merely because an inherited absolute source path appears. Normal repository instructions and validation still apply.",
+		"",
+		"## Implementation prompt",
+		"",
+		options.implementationPrompt,
+	].join("\n");
+}
+
 /**
  * One-shot Herdr destination startup bootstrap. When the launching Herdr
  * session set the non-sensitive branch marker, the initial destination startup
  * verifies the checked-out branch, loads the retained Branch Memory entry
  * `ns-impl/prompt.md` directly through the Branch Memory command boundary, and
- * injects that content as the destination session's first user prompt.
+ * prepends destination-owned execution context before injecting the destination
+ * session's first user prompt.
  *
  * The marker is consumed from the environment at registration so nested Pi
  * processes and extension reloads cannot replay it; the handler additionally
@@ -75,6 +95,12 @@ export function registerHerdrImplPromptBootstrap(
 			);
 			return;
 		}
-		context.commands.sendUserMessage(loaded.content);
+		context.commands.sendUserMessage(
+			buildDestinationImplementationPrompt({
+				cwd: ctx.cwd,
+				expectedBranch,
+				implementationPrompt: loaded.content,
+			}),
+		);
 	});
 }
