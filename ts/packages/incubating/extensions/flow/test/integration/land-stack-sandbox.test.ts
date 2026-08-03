@@ -380,7 +380,9 @@ async function executeSandboxLanding(sandbox: Sandbox): Promise<{
 	outcome: Awaited<ReturnType<typeof executeStackLanding>>;
 	notifications: Notification[];
 }> {
-	const parsed = parseArgs("--yes");
+	// These sandbox scenarios exercise destructive Graphite cleanup; preserve/free policy behavior
+	// is covered directly by the execution and maintenance unit suites.
+	const parsed = parseArgs("--yes --free");
 	expect(parsed.type).toBe("success");
 	if (parsed.type !== "success") throw new Error(parsed.failure.message);
 	const notifications: Notification[] = [];
