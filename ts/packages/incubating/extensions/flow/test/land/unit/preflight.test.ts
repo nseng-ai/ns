@@ -126,7 +126,7 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 				target: { type: "stack" },
 				mode: "dry-run",
 				preflight: { shouldAllowSubmitRequiredState: false },
-				cleanup: "free-slot",
+				cleanup: "free",
 				continuation: { type: "none" },
 			},
 		});

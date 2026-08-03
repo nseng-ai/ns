@@ -133,9 +133,8 @@ export function parseArgs(argsText: string): LandResult<ParsedArgs> {
 	const parsed: ParsedArgs = {
 		shouldSkipConfirmation: false,
 		isDryRun: false,
-		shouldPreserveSlot: false,
+		shouldFreeSlot: false,
 		shouldContinueUpstack: false,
-		shouldForceCleanup: false,
 		shouldShowHelp: false,
 		shouldStreamVerboseOutput: false,
 	};

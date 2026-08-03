@@ -11,6 +11,7 @@ import {
 	restackOperation,
 } from "./graphite-operations.ts";
 import type { LandConfirmationRequest } from "./execution/host-seams.ts";
+import type { PostLandingSlotCleanupPreview } from "./execution/post-landing-cleanup.ts";
 import type { PrSubmitRequirement } from "./types.ts";
 
 /** Commands a submit-required-updates confirmation would run, in execution order. */
@@ -32,12 +33,9 @@ export function submitRequiredUpdatesCommands(
 	];
 }
 
-/** Commands a post-landing-cleanup confirmation would run, in execution order. */
+/** Commands post-landing cleanup would run (or that a preserve hint suggests), in execution order. */
 export function postLandingCleanupCommands(
-	request: Pick<
-		Extract<LandConfirmationRequest, { readonly kind: "post-landing-cleanup" }>,
-		"branch" | "slotName" | "localBranchDisposition"
-	>,
+	request: Pick<PostLandingSlotCleanupPreview, "branch" | "slotName" | "localBranchDisposition">,
 ): readonly string[] {
 	return [
 		formatCommand("ns", ["slot", "free", "--wt", request.slotName]),

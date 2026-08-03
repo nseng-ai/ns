@@ -55,7 +55,7 @@ describe("land-stack command scenarios", () => {
 		const confirmations: Confirmation[] = [];
 		const exitCode = await runLandCli({
 			cwd: CURRENT_SLOT_ROOT,
-			rawArgs: "",
+			rawArgs: "--free",
 			exec: async (command, args, options) => await pi.exec(command, args, options),
 			stdout: () => {},
 			stderr: () => {},
@@ -95,7 +95,7 @@ describe("land-stack command scenarios", () => {
 			step("ns", ["slot", "free", "--wt", "slot-03"]),
 			step("gt", ["delete", "feature-3", "-f", "-q"]),
 		];
-		const { pi, confirmations, notifications } = await runLandStack("", script, {
+		const { pi, confirmations, notifications } = await runLandStack("--free", script, {
 			cwd: CURRENT_SLOT_ROOT,
 			confirms: [true],
 		});

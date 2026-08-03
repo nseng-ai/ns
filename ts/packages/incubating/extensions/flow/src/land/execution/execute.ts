@@ -36,10 +36,8 @@ import { runMergeLoop, type ObservedDescendantMaintenance } from "./merge-loop.t
 import {
 	planManagedSlotPostLandingCleanup,
 	postLandingCleanupSkipReport,
-	resolveManagedSlotPostLandingCleanupDecision,
 	runManagedSlotPostLandingCleanup,
 	type PostLandingCleanupRequest,
-	type PostLandingSlotCleanupDecision,
 } from "./post-landing-cleanup.ts";
 import { confirmAndFreeManagedSlots, submitRequiredUpdatesAndRecheckPlan } from "./pre-merge.ts";
 import { executeUpstackContinuation, snapshotUpstackContinuation } from "./upstack-continuation.ts";
@@ -150,7 +148,7 @@ export async function executeLandingRequest(
 		});
 		draft.continuation = continuation.report;
 		if (continuation.type === "unavailable") {
-			draft.postLandingSlotCleanup = { type: "preserved" };
+			draft.postLandingSlotCleanup = continuationPreservationReport(shape);
 			return failedResult(draft, "upstack-continuation", continuation.failure);
 		}
 	}
@@ -164,7 +162,7 @@ export async function executeLandingRequest(
 				type: "nothing-to-land",
 				currentBranch: shape.stack.actualCurrentBranch,
 			};
-			draft.postLandingSlotCleanup = { type: "preserved" };
+			draft.postLandingSlotCleanup = continuationPreservationReport(shape);
 			draft.phases.push(
 				skipped("post-landing-cleanup", "upstack continuation preserves the invoking slot"),
 			);
@@ -206,7 +204,7 @@ export async function executeLandingRequest(
 		draft.phases.push(completed("dry-run"));
 		draft.postLandingSlotCleanup =
 			request.continuation.type === "upstack"
-				? { type: "preserved" }
+				? continuationPreservationReport(shape)
 				: postLandingCleanupSkipReport(cleanupRequest, shape);
 		return completedResult(draft);
 	}
@@ -230,11 +228,9 @@ export async function executeLandingRequest(
 			: skipped("confirmation", "approved upfront before canonical execution"),
 	);
 
-	// Approval authorizes only the cleanup impact disclosed by this main request. The mutation
-	// itself still runs only after a fully successful landing.
-	const cleanupDecision: PostLandingSlotCleanupDecision =
-		cleanupPreview === undefined ? { type: "not-needed" } : { type: "approved" };
-
+	// The main confirmation preview above discloses cleanup impact; the explicit `--free` policy
+	// is the cleanup consent. The mutation itself still runs only after a fully successful
+	// landing (or in the explicit cleanup-only path).
 	host.progress.note(formatPreparingLandingMilestone(plan.value));
 
 	let readyPlan = plan.value;
@@ -290,7 +286,7 @@ export async function executeLandingRequest(
 	draft.phases.push(completed("merge"), ...maintenancePhases);
 
 	if (request.continuation.type === "upstack") {
-		draft.postLandingSlotCleanup = { type: "preserved" };
+		draft.postLandingSlotCleanup = continuationPreservationReport(shape);
 		if (draft.continuation.type !== "candidate") {
 			throw new Error("Successful upstack continuation preflight must produce a candidate branch.");
 		}
@@ -320,7 +316,6 @@ export async function executeLandingRequest(
 		host,
 		shape,
 		cleanupRequest,
-		cleanupDecision,
 		draft,
 	});
 }
@@ -348,46 +343,13 @@ async function executeCleanupOnlyLanding(
 		),
 	);
 
-	const cleanupAuthorization = await resolveCleanupAuthorization({
-		confirmation: host.confirmation,
-		cleanupRequest,
-		shape,
-		draft,
-	});
-	if (cleanupAuthorization.type === "failed") return cleanupAuthorization.result;
-
 	return await executePostLandingCleanup({
 		context,
 		host,
 		shape,
 		cleanupRequest,
-		cleanupDecision: cleanupAuthorization.decision,
 		draft,
 	});
-}
-
-type CleanupAuthorizationResult =
-	| { readonly type: "resolved"; readonly decision: PostLandingSlotCleanupDecision }
-	| { readonly type: "failed"; readonly result: LandingExecutionResult };
-
-async function resolveCleanupAuthorization(options: {
-	readonly confirmation: LandConfirmationGateway;
-	readonly cleanupRequest: PostLandingCleanupRequest;
-	readonly shape: StackLandingShape;
-	readonly draft: ReportDraft;
-}): Promise<CleanupAuthorizationResult> {
-	const decision = await resolveManagedSlotPostLandingCleanupDecision({
-		confirmation: options.confirmation,
-		cleanup: options.cleanupRequest,
-		shape: options.shape,
-	});
-	if (decision.type === "failure") {
-		return {
-			type: "failed",
-			result: failedResult(options.draft, "confirmation", decision.failure),
-		};
-	}
-	return { type: "resolved", decision: decision.value };
 }
 
 interface ExecutePostLandingCleanupOptions {
@@ -395,7 +357,6 @@ interface ExecutePostLandingCleanupOptions {
 	readonly host: LandStackExecutionHost;
 	readonly shape: StackLandingShape;
 	readonly cleanupRequest: PostLandingCleanupRequest;
-	readonly cleanupDecision: PostLandingSlotCleanupDecision;
 	readonly draft: ReportDraft;
 }
 
@@ -407,7 +368,6 @@ async function executePostLandingCleanup(
 		progress: options.host.progress,
 		cleanup: options.cleanupRequest,
 		shape: options.shape,
-		cleanupDecision: options.cleanupDecision,
 	});
 	const draft = { ...options.draft, postLandingSlotCleanup: cleanupRun.outcome };
 	if (cleanupRun.type === "failure") {
@@ -453,11 +413,14 @@ function postLandingCleanupPhase(outcome: PostLandingSlotCleanupReport): Landing
 			return skipped("post-landing-cleanup", "dry run performs no cleanup mutation");
 		case "not-run":
 			return skipped("post-landing-cleanup", outcome.reason);
-		case "declined":
 		case "failed":
-			// Declined and failed cleanup surface as a failed result before this helper runs.
+			// Failed cleanup surfaces as a failed result before this helper runs.
 			return skipped("post-landing-cleanup", "cleanup did not complete");
 	}
+}
+
+function continuationPreservationReport(shape: StackLandingShape): PostLandingSlotCleanupReport {
+	return postLandingCleanupSkipReport({ mode: "execute", policy: "preserve" }, shape);
 }
 
 function completed(phase: LandingPhase): LandingPhaseOutcome {

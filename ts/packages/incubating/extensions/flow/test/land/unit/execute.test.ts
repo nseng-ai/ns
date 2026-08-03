@@ -33,7 +33,7 @@ function executeRequest(
 		target: { type: "stack" },
 		mode: overrides.mode ?? "execute",
 		preflight: { shouldAllowSubmitRequiredState: true },
-		cleanup: overrides.cleanup ?? "free-slot",
+		cleanup: overrides.cleanup ?? "free",
 		continuation: overrides.continuation ?? { type: "none" },
 	};
 }
@@ -585,7 +585,7 @@ describe("upstack continuation under canonical execution", () => {
 	test("snapshots the sole child before mutation, continues in the invoking worktree, and deletes the original branch", async () => {
 		const child = "feature-child";
 		const memory = createInMemoryLandContext(
-			linearState({
+			managedSlotState({
 				git: {
 					localBranches: [
 						{ name: BRANCH, sha: SHA },
@@ -601,7 +601,7 @@ describe("upstack continuation under canonical execution", () => {
 			source: { type: "discover" },
 			request: executeRequest({
 				continuation: { type: "upstack" },
-				cleanup: "force-cleanup",
+				cleanup: "free",
 			}),
 			host: approvedHost(),
 		});
@@ -610,13 +610,15 @@ describe("upstack continuation under canonical execution", () => {
 			type: "completed",
 			report: {
 				continuation: { type: "continued", branch: child, originalBranchDeleted: true },
-				cleanup: { postLandingSlotCleanup: { type: "preserved" } },
+				cleanup: {
+					postLandingSlotCleanup: { type: "preserved", slotName: "slot-02", branch: BRANCH },
+				},
 			},
 		});
-		expect(memory.git.checkoutBranchCalls).toEqual([{ repoRoot: ROOT, branch: child }]);
-		expect(memory.git.currentBranchCalls.at(-1)).toEqual({ repoRoot: ROOT });
+		expect(memory.git.checkoutBranchCalls).toEqual([{ repoRoot: SLOT_ROOT, branch: child }]);
+		expect(memory.git.currentBranchCalls.at(-1)).toEqual({ repoRoot: SLOT_ROOT });
 		expect(memory.graphite.branchChildrenCalls[0]).toEqual({
-			repoRoot: ROOT,
+			repoRoot: SLOT_ROOT,
 			metadataDbPath: `${ROOT}/.git/graphite.db`,
 			branch: BRANCH,
 		});
@@ -636,7 +638,7 @@ describe("upstack continuation under canonical execution", () => {
 	test("dry run previews the sole child without merge, checkout, deletion, or slot cleanup", async () => {
 		const child = "feature-child";
 		const memory = createInMemoryLandContext(
-			linearState({ graphite: { branchChildren: { [BRANCH]: [child] } } }),
+			managedSlotState({ graphite: { branchChildren: { [BRANCH]: [child] } } }),
 		);
 		const outcome = await executeLanding({
 			context: memory.context,
@@ -649,7 +651,9 @@ describe("upstack continuation under canonical execution", () => {
 			type: "completed",
 			report: {
 				continuation: { type: "candidate", branch: child },
-				cleanup: { postLandingSlotCleanup: { type: "preserved" } },
+				cleanup: {
+					postLandingSlotCleanup: { type: "preserved", slotName: "slot-02", branch: BRANCH },
+				},
 			},
 		});
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
@@ -660,7 +664,7 @@ describe("upstack continuation under canonical execution", () => {
 
 	test("unavailable continuation fails before landing while preserving the slot and original branch", async () => {
 		const memory = createInMemoryLandContext(
-			linearState({ graphite: { branchChildren: { [BRANCH]: ["child-a", "child-b"] } } }),
+			managedSlotState({ graphite: { branchChildren: { [BRANCH]: ["child-a", "child-b"] } } }),
 		);
 		const outcome = await executeLanding({
 			context: memory.context,
@@ -679,7 +683,9 @@ describe("upstack continuation under canonical execution", () => {
 					reason: "multiple-children",
 					candidates: ["child-a", "child-b"],
 				},
-				cleanup: { postLandingSlotCleanup: { type: "preserved" } },
+				cleanup: {
+					postLandingSlotCleanup: { type: "preserved", slotName: "slot-02", branch: BRANCH },
+				},
 			},
 		});
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
@@ -691,7 +697,7 @@ describe("upstack continuation under canonical execution", () => {
 	test("checkout failure fails after landing and reports the landed PR", async () => {
 		const child = "feature-child";
 		const memory = createInMemoryLandContext(
-			linearState({
+			managedSlotState({
 				git: {
 					localBranches: [
 						{ name: BRANCH, sha: SHA },
@@ -725,7 +731,9 @@ describe("upstack continuation under canonical execution", () => {
 			report: {
 				continuation: { type: "checkout-failed", branch: child },
 				landedChunks: [{ landed: [{ branch: BRANCH, number: 101 }] }],
-				cleanup: { postLandingSlotCleanup: { type: "preserved" } },
+				cleanup: {
+					postLandingSlotCleanup: { type: "preserved", slotName: "slot-02", branch: BRANCH },
+				},
 			},
 		});
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
@@ -734,13 +742,13 @@ describe("upstack continuation under canonical execution", () => {
 });
 
 describe("post-landing managed-slot cleanup under canonical execution", () => {
-	test("free-slot policy discloses cleanup in one main approval and mutates only after landing", async () => {
+	test("free policy discloses cleanup in one main approval and mutates only after landing", async () => {
 		const memory = createInMemoryLandContext(managedSlotState());
 		const confirmation = approvingConfirmation();
 		const outcome = await executeLanding({
 			context: memory.context,
 			source: { type: "discover" },
-			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free" }),
 			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
 		});
 
@@ -792,7 +800,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const outcome = await executeLanding({
 			context: memory.context,
 			source: { type: "discover" },
-			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free" }),
 			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
 		});
 
@@ -831,35 +839,17 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		expect(confirmation.requests.map((request) => request.kind)).toEqual(["main-landing"]);
 		expect(outcome).toMatchObject({
 			type: "completed",
-			report: { cleanup: { postLandingSlotCleanup: { type: "preserved" } } },
+			report: {
+				cleanup: {
+					postLandingSlotCleanup: { type: "preserved", slotName: "slot-02", branch: BRANCH },
+				},
+			},
 		});
 		if (outcome.type !== "completed") return;
 		expect(phaseByName(outcome.report, "post-landing-cleanup")).toMatchObject({
 			type: "skipped",
 		});
 		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
-	});
-
-	test("force-cleanup policy skips the cleanup confirmation and performs the same mutations", async () => {
-		const memory = createInMemoryLandContext(managedSlotState());
-		const confirmation = approvingConfirmation();
-		const outcome = await executeLanding({
-			context: memory.context,
-			source: { type: "discover" },
-			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "force-cleanup" }),
-			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
-		});
-
-		expect(confirmation.requests.map((request) => request.kind)).toEqual(["main-landing"]);
-		expect(outcome).toMatchObject({
-			type: "completed",
-			report: {
-				cleanup: {
-					postLandingSlotCleanup: { type: "completed", deletedLocalBranch: BRANCH },
-				},
-			},
-		});
-		expect(memory.worktrees.freeSlotsCalls).toHaveLength(1);
 	});
 
 	test("upfront-approved cleanup does not prompt a second time", async () => {
@@ -870,7 +860,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const outcome = await executeLanding({
 			context: memory.context,
 			source: { type: "discover" },
-			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free" }),
 			host: {
 				confirmation: upfrontConfirmation.gateway,
 				progress: nullLandExecutionProgress,
@@ -890,7 +880,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		});
 	});
 
-	test.each<LandingCleanupPolicy>(["preserve", "free-slot", "force-cleanup"])(
+	test.each<LandingCleanupPolicy>(["preserve", "free"])(
 		"dry run with %s policy performs no mutation",
 		async (policy) => {
 			const memory = createInMemoryLandContext(managedSlotState());
@@ -926,7 +916,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const outcome = await executeLanding({
 			context: memory.context,
 			source: { type: "discover" },
-			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free" }),
 			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
 		});
 
@@ -970,7 +960,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const outcome = await executeLanding({
 			context: memory.context,
 			source: { type: "discover" },
-			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "force-cleanup" }),
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free" }),
 			host: approvedHost(),
 		});
 
@@ -1013,7 +1003,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const outcome = await executeLanding({
 			context: memory.context,
 			source: { type: "discover" },
-			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "force-cleanup" }),
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free" }),
 			host: approvedHost(),
 		});
 
@@ -1091,11 +1081,12 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const outcome = await executeLanding({
 			context: memory.context,
 			source: { type: "discover" },
-			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free" }),
 			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
 		});
 
-		expect(confirmation.requests.map((request) => request.kind)).toEqual(["post-landing-cleanup"]);
+		// --free is the cleanup consent, so cleanup-only execution prompts nothing.
+		expect(confirmation.requests).toEqual([]);
 		expect(outcome).toMatchObject({
 			type: "completed",
 			report: {
@@ -1114,60 +1105,6 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		expect(memory.worktrees.freeSlotsCalls).toHaveLength(1);
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
-	});
-
-	test("cleanup-only authorization failure records skipped merge then confirmation failure", async () => {
-		const memory = createInMemoryLandContext({
-			git: {
-				repoRoot: SLOT_ROOT,
-				currentBranch: "main",
-				localBranches: [{ name: "main", sha: SHA }],
-			},
-			graphite: {
-				stackShape: stackSnapshot({
-					trunk: "main",
-					current: "main",
-					actualCurrentBranch: "main",
-					landingTargetBranch: "main",
-					landingBranches: [],
-				}),
-			},
-		});
-		const confirmation = decidingConfirmation({
-			"post-landing-cleanup": {
-				type: "refused-with-fully-worded-failure",
-				failure: {
-					type: "execution",
-					level: "error",
-					message: "Cleanup confirmation unavailable.",
-					outcome: "refusal",
-					refusalReason: "non-interactive",
-				},
-			},
-		});
-		const outcome = await executeLanding({
-			context: memory.context,
-			source: { type: "discover" },
-			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
-			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
-		});
-
-		expect(outcome).toMatchObject({
-			type: "failed",
-			failedPhase: "confirmation",
-			report: {
-				completionDisposition: { type: "cleanup-only" },
-				phases: [
-					{ type: "completed", phase: "repo-discovery" },
-					{ type: "completed", phase: "stack-shape" },
-					{ type: "skipped", phase: "merge" },
-					{ type: "failed", phase: "confirmation" },
-				],
-			},
-		});
-		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
-		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
-		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 	});
 
 	test("cleanup-only no-PR-path landing frees the managed slot and deletes its branch", async () => {
@@ -1189,7 +1126,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const outcome = await executeLanding({
 			context: memory.context,
 			source: { type: "discover" },
-			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free" }),
 			host: approvedHost(),
 		});
 
@@ -1212,8 +1149,8 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 
 	test.each([
 		{ name: "preserve", cwd: SLOT_ROOT, mode: "execute", cleanup: "preserve" },
-		{ name: "dry run", cwd: SLOT_ROOT, mode: "dry-run", cleanup: "free-slot" },
-		{ name: "unmanaged checkout", cwd: ROOT, mode: "execute", cleanup: "free-slot" },
+		{ name: "dry run", cwd: SLOT_ROOT, mode: "dry-run", cleanup: "free" },
+		{ name: "unmanaged checkout", cwd: ROOT, mode: "execute", cleanup: "free" },
 	] as const)("completes trunk $name as informational nothing-to-land", async (scenario) => {
 		const memory = createInMemoryLandContext({
 			git: {

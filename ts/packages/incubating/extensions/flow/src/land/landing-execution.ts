@@ -5,6 +5,7 @@ import {
 	buildLandFailurePresentation,
 	formatPlan,
 	formatPostLandingCleanupSuccessNotice,
+	formatPreservedSlotHint,
 	formatSuccessSummary,
 	notifyPrintAware,
 	presentBrief,
@@ -111,7 +112,7 @@ export async function runFlowStackLanding(
 	}
 
 	if (report.completionDisposition.type === "cleanup-only") {
-		presentCompletedPostLandingCleanup(ctx, report.cleanup.postLandingSlotCleanup);
+		presentPostLandingCleanupOutcome(ctx, report.cleanup.postLandingSlotCleanup);
 		return landCompleted();
 	}
 
@@ -127,14 +128,22 @@ export async function runFlowStackLanding(
 	}
 
 	presentStackLandingSuccess(session, report);
-	presentCompletedPostLandingCleanup(ctx, report.cleanup.postLandingSlotCleanup);
+	presentPostLandingCleanupOutcome(ctx, report.cleanup.postLandingSlotCleanup);
 	return landCompleted();
 }
 
-function presentCompletedPostLandingCleanup(
+function presentPostLandingCleanupOutcome(
 	ctx: LandStackCommandContext,
 	report: PostLandingSlotCleanupReport,
 ): void {
+	if (report.type === "preserved") {
+		notifyPrintAware({
+			ctx,
+			message: formatPreservedSlotHint(report),
+			level: "info",
+		});
+		return;
+	}
 	if (report.type !== "completed") return;
 	notifyPrintAware({
 		ctx,
@@ -155,7 +164,7 @@ export function isPostLandingCleanupFailureAfterLanding(
 	if (!execution.report.landedChunks.some((chunk) => chunk.landed.length > 0)) return false;
 
 	const cleanup = execution.report.cleanup.postLandingSlotCleanup;
-	return cleanup.type === "declined" || cleanup.type === "failed";
+	return cleanup.type === "failed";
 }
 
 export function presentFlowStackLandingFailure(options: {

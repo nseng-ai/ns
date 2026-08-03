@@ -67,7 +67,6 @@ describe("single-branch landing core", () => {
 			type: "completed",
 			result: "dry-run",
 			pullRequest: { number: 101 },
-			cleanupDecision: { type: "not-needed" },
 		});
 		expect(confirmationCount).toBe(0);
 		expect(fakes.github.squashMergePullRequestCalls).toEqual([]);
@@ -111,7 +110,6 @@ describe("single-branch landing core", () => {
 			type: "failure",
 			stage: "confirmation",
 			failure: refusal,
-			cleanupDecision: { type: "not-needed" },
 		});
 		expect(fakes.github.squashMergePullRequestCalls).toEqual([]);
 	});
@@ -131,7 +129,6 @@ describe("single-branch landing core", () => {
 			result: "merged",
 			pullRequest: openPullRequest(),
 			commandOutput: "merged\nnotice",
-			cleanupDecision: { type: "not-needed" },
 		});
 		expect(fakes.github.pullRequestFactsCalls).toEqual([
 			{ repoRoot: ROOT, branchOrNumber: FEATURE },
@@ -171,7 +168,6 @@ describe("single-branch landing core", () => {
 		expect(outcome).toMatchObject({
 			type: "completed",
 			result: "merged",
-			cleanupDecision: { type: "approved" },
 		});
 		expect(fakes.github.squashMergePullRequestCalls).toHaveLength(1);
 	});
@@ -206,7 +202,6 @@ describe("single-branch landing core", () => {
 			type: "failure",
 			stage: "merge",
 			failure: mergeFailure,
-			cleanupDecision: { type: "not-needed" },
 		});
 	});
 
@@ -241,7 +236,6 @@ describe("single-branch landing core", () => {
 					"gh pr merge exited 0 but PR did not verify as MERGED; post-landing cleanup skipped.",
 				outcome: "failure",
 			},
-			cleanupDecision: { type: "not-needed" },
 		});
 		await expect(run(failedLoad.context)).resolves.toEqual({
 			type: "failure",
@@ -253,7 +247,6 @@ describe("single-branch landing core", () => {
 					"gh pr merge exited 0, but verification could not load PR #101; post-landing cleanup skipped.\nGitHub unavailable.",
 				outcome: "failure",
 			},
-			cleanupDecision: { type: "not-needed" },
 		});
 	});
 
@@ -298,7 +291,7 @@ async function run(
 		isDryRun: overrides.isDryRun ?? false,
 		cleanup: {
 			mode: (overrides.isDryRun ?? false) ? "dry-run" : "execute",
-			policy: "free-slot",
+			policy: "free",
 		},
 	});
 }

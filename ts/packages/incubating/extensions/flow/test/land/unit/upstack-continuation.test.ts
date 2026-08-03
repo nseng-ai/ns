@@ -168,7 +168,7 @@ describe("upstack continuation execution", () => {
 
 async function execute(
 	context: ReturnType<typeof createInMemoryLandContext>["context"],
-	cleanup: "preserve" | "free-slot" = "free-slot",
+	cleanup: "preserve" | "free" = "free",
 ) {
 	return await executeUpstackContinuation({
 		context,

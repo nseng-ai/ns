@@ -8,10 +8,7 @@ import type {
 	LandConfirmationRequest,
 	LandExecutionMessageProgress,
 } from "./execution/host-seams.ts";
-import type {
-	PostLandingCleanupRequest,
-	PostLandingSlotCleanupDecision,
-} from "./execution/post-landing-cleanup.ts";
+import type { PostLandingCleanupRequest } from "./execution/post-landing-cleanup.ts";
 import {
 	formatSingleBranchDryRunNotification,
 	formatSingleBranchLandingSuccessNotification,
@@ -46,18 +43,11 @@ interface RunSingleBranchFastPathLandingOptions {
 	progressIo?: NsCommandIo;
 }
 
-export interface SingleBranchFastPathLandingResult<
-	BeforeMergeValue = PostLandingSlotCleanupDecision,
-> {
-	readonly outcome: LandOutcome;
-	readonly beforeMergeValue: BeforeMergeValue | undefined;
-}
-
 export { isSingleBranchFastPath };
 
 export async function runSingleBranchFastPathLanding(
 	options: RunSingleBranchFastPathLandingOptions,
-): Promise<SingleBranchFastPathLandingResult> {
+): Promise<LandOutcome> {
 	const coreOutcome = await executeSingleBranchLanding({
 		context: options.landContext,
 		host: {
@@ -77,17 +67,11 @@ export async function runSingleBranchFastPathLanding(
 function presentSingleBranchLandingOutcome(
 	ctx: PrintAwareLandStackCommandContext,
 	outcome: SingleBranchLandingOutcome,
-): SingleBranchFastPathLandingResult {
+): LandOutcome {
 	if (outcome.type === "failure") {
-		const landOutcome =
-			outcome.stage === "base-check" || outcome.stage === "verification"
-				? presentVerbatimSingleBranchFailure(ctx, outcome.failure)
-				: presentSingleBranchFailure(ctx, outcome.failure);
-		return {
-			outcome: landOutcome,
-			beforeMergeValue:
-				outcome.cleanupDecision.type === "not-needed" ? undefined : outcome.cleanupDecision,
-		};
+		return outcome.stage === "base-check" || outcome.stage === "verification"
+			? presentVerbatimSingleBranchFailure(ctx, outcome.failure)
+			: presentSingleBranchFailure(ctx, outcome.failure);
 	}
 	if (outcome.result === "dry-run") {
 		notifyPrintAware({
@@ -99,7 +83,7 @@ function presentSingleBranchLandingOutcome(
 			level: "info",
 			kind: "success",
 		});
-		return { outcome: landCompleted(), beforeMergeValue: undefined };
+		return landCompleted();
 	}
 
 	notifyPrintAware({
@@ -111,7 +95,7 @@ function presentSingleBranchLandingOutcome(
 		level: "info",
 		kind: "success",
 	});
-	return { outcome: landCompleted(), beforeMergeValue: outcome.cleanupDecision };
+	return landCompleted();
 }
 
 function presentSingleBranchFailure(

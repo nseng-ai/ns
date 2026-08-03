@@ -224,7 +224,7 @@ export function usage(): string {
 		"Lands the current PR or Graphite stack into gt trunk.",
 		"Fast path requires Graphite to prove a single-branch PR shape. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
 		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts; descendant worktree conflicts skip optional post-landing restack/update.",
-		"After successful landing, this command frees the current managed slot and deletes the landed local branch by default; use --up to continue onto the sole immediate child while keeping the slot, and add --preserve to keep the landed local branch.",
+		"After successful landing, this command keeps the current managed slot and local branch by default; pass --free to free the slot and delete the landed local branch, or --up to continue onto the sole immediate child while keeping the slot.",
 		"",
 		"Options:",
 		...landUsageOptionRows().map(formatUsageOptionRow),
@@ -799,10 +799,6 @@ export function submitRequiredUpdatesSuggestedAction(
 	return `Run ${commands.map((command) => `\`${command}\``).join(" then ")} manually, then rerun /ns:flow:land --yes.`;
 }
 
-export function postLandingCleanupConfirmationTitle(): string {
-	return "Free current slot and delete local branch?";
-}
-
 export function formatPostLandingCleanupImpact(
 	cleanup: NonNullable<
 		Extract<LandConfirmationRequest, { readonly kind: "main-landing" }>["cleanup"]
@@ -839,12 +835,6 @@ export function appendPostLandingCleanupImpact(
 	].join("\n");
 }
 
-export function formatPostLandingCleanupConfirmationDetails(
-	request: Extract<LandConfirmationRequest, { readonly kind: "post-landing-cleanup" }>,
-): string {
-	return formatPostLandingCleanupImpact(request);
-}
-
 /** Success notice for a completed post-landing cleanup, derived from the observed report facts. */
 export function formatPostLandingCleanupSuccessNotice(
 	outcome: Extract<PostLandingSlotCleanupReport, { readonly type: "completed" }>,
@@ -855,14 +845,11 @@ export function formatPostLandingCleanupSuccessNotice(
 		: `Post-landing cleanup complete: freed ${slotName}; local trunk branch ${outcome.keptTrunkBranch ?? outcome.freedSlot.branch} was kept.`;
 }
 
-export function postLandingCleanupNonInteractiveRefusalMessage(
-	request: Extract<LandConfirmationRequest, { readonly kind: "post-landing-cleanup" }>,
+/** One-line hint after a landing that kept the current managed slot under the default `preserve` policy. */
+export function formatPreservedSlotHint(
+	outcome: Extract<PostLandingSlotCleanupReport, { readonly type: "preserved" }>,
 ): string {
-	return [
-		"Refusing to land before merge: post-landing slot cleanup requires confirmation in non-interactive mode. No PRs were landed.",
-		formatPostLandingCleanupConfirmationDetails(request),
-		"Re-run with --yes or --force to approve cleanup, or --preserve to land while keeping the current managed slot and local branch.",
-	].join("\n\n");
+	return `Kept ${outcome.slotName} and local branch ${outcome.branch} — run \`ns slot free --wt ${outcome.slotName}\` when done, or pass --free next time.`;
 }
 
 export function setStatus(ctx: LandStackCommandContext, message: string | undefined): void {

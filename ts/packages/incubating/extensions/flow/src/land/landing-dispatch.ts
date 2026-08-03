@@ -12,7 +12,6 @@ import {
 } from "./single-branch-fast-path.ts";
 import { approvedLandConfirmationKinds } from "./landing-confirmation-policy.ts";
 import {
-	planPostLandingSlotCleanup,
 	postLandingCleanupRequestFromArgs,
 	runPostLandingSlotCleanup,
 } from "./post-landing-slot-cleanup.ts";
@@ -34,16 +33,11 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 	}
 
 	const landContext = runtime.landContext;
-	const cleanupPreview = planPostLandingSlotCleanup({
-		args: options.parsedArgs,
-		shape: shape.value,
-	});
 	const approvedConfirmationKinds = approvedLandConfirmationKinds({
 		flags: options.parsedArgs,
-		...optionalEntry("cleanupPreview", cleanupPreview),
 	});
 	if (isSingleBranchFastPath(shape.value.stack) && !options.parsedArgs.shouldContinueUpstack) {
-		const result = await runSingleBranchFastPathLanding({
+		const outcome = await runSingleBranchFastPathLanding({
 			landContext,
 			ctx: options.ctx,
 			target: shape.value,
@@ -52,13 +46,12 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 			approvedConfirmationKinds,
 			...optionalEntry("progressIo", observabilityChannels.progressIo),
 		});
-		if (result.outcome.type === "failure") return result.outcome;
+		if (outcome.type === "failure") return outcome;
 		return await runPostLandingSlotCleanup({
 			landContext,
 			ctx: options.ctx,
 			args: options.parsedArgs,
 			shape: shape.value,
-			cleanupDecision: result.beforeMergeValue ?? { type: "not-needed" },
 		});
 	}
 

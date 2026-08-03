@@ -54,9 +54,8 @@ function args(overrides: Partial<ParsedArgs> = {}): ParsedArgs {
 	return {
 		shouldSkipConfirmation: false,
 		isDryRun: false,
-		shouldPreserveSlot: false,
+		shouldFreeSlot: false,
 		shouldContinueUpstack: false,
-		shouldForceCleanup: false,
 		shouldShowHelp: false,
 		shouldStreamVerboseOutput: false,
 		...overrides,
@@ -86,7 +85,7 @@ describe("Flow presentation of canonical completion dispositions", () => {
 		const fixture = contextFixture(ROOT);
 		const outcome = await runFlowStackLanding({
 			runtime: { landContext: memory.context },
-			parsedArgs: args({ shouldPreserveSlot: true }),
+			parsedArgs: args(),
 			execution: {
 				source: { type: "prepared", shape: trunkShape(ROOT) },
 				approvedConfirmationKinds: new Set(),
@@ -121,7 +120,7 @@ describe("Flow presentation of canonical completion dispositions", () => {
 		const fixture = contextFixture(SLOT_ROOT);
 		const outcome = await runFlowStackLanding({
 			runtime: { landContext: memory.context },
-			parsedArgs: args({ shouldForceCleanup: true }),
+			parsedArgs: args({ shouldFreeSlot: true }),
 			execution: {
 				source: { type: "prepared", shape: trunkShape(SLOT_ROOT) },
 				approvedConfirmationKinds: new Set(),
@@ -168,7 +167,7 @@ describe("Flow presentation of canonical completion dispositions", () => {
 		const fixture = contextFixture(SLOT_ROOT);
 		const outcome = await runFlowStackLanding({
 			runtime: { landContext: memory.context },
-			parsedArgs: args({ shouldForceCleanup: true }),
+			parsedArgs: args({ shouldFreeSlot: true }),
 			execution: {
 				source: { type: "prepared", shape },
 				approvedConfirmationKinds: new Set(["main-landing"]),
@@ -193,5 +192,58 @@ describe("Flow presentation of canonical completion dispositions", () => {
 				kind: "success",
 			},
 		]);
+	});
+
+	test("default preserve completion presents landed success then a keep-slot hint", async () => {
+		const branch = "feature-a";
+		const shape: StackLandingShape = {
+			repoRoot: SLOT_ROOT,
+			current: branch,
+			trunk: "main",
+			metadataDbPath: `${SLOT_ROOT}/.git/graphite.db`,
+			localBranches: [{ name: branch, sha: SHA }],
+			stack: stackSnapshot({ current: branch, landingBranches: [branch] }),
+		};
+		const memory = createInMemoryLandContext({
+			git: {
+				repoRoot: SLOT_ROOT,
+				currentBranch: branch,
+				localBranches: [{ name: branch, sha: SHA }],
+			},
+			graphite: { stackShape: shape.stack },
+			github: {
+				pullRequests: [pullRequestFacts({ number: 101, headRefName: branch, headRefOid: SHA })],
+			},
+		});
+		const fixture = contextFixture(SLOT_ROOT);
+		const outcome = await runFlowStackLanding({
+			runtime: { landContext: memory.context },
+			parsedArgs: args(),
+			execution: {
+				source: { type: "prepared", shape },
+				approvedConfirmationKinds: new Set(["main-landing"]),
+			},
+			session: {
+				ctx: fixture.ctx,
+				commandStream: new LandStackCommandStream(noopNsCommandIo),
+				progress: nullLandExecutionProgress,
+			},
+		});
+
+		expect(outcome).toEqual({ type: "completed" });
+		expect(fixture.notifications).toEqual([
+			{
+				message: "Landed 1 PR: #101 feature-a.",
+				level: "success",
+				kind: "success",
+			},
+			{
+				message:
+					"Kept slot-02 and local branch feature-a — run `ns slot free --wt slot-02` when done, or pass --free next time.",
+				level: "info",
+				kind: undefined,
+			},
+		]);
+		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
 	});
 });

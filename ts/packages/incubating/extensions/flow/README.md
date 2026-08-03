@@ -80,7 +80,7 @@ reshaped stack.
 - **GitHub (`gh`)** — the GitHub CLI for PR reads and edits, including PR lookup,
   title and description updates, and merge state.
 - **slots** — ns managed worktree slots: `autoslot` checks branches out into a slot;
-  `land` cleans up managed slots that held landed branches.
+  `land --free` cleans up the current managed slot after a successful landing.
 - **LLM** — injected text generation for change summaries, checkpoint messages,
   branch-name slugs, and assembled PR inventories.
 
@@ -98,18 +98,20 @@ reshaped stack.
 - `autoslot` composes the ns Slots extension to move the new branch into a managed
   slot. Other branch and submit commands do not require using managed slots. When
   `land` runs from or encounters a managed-slot worktree, it can perform targeted
-  slot cleanup; ordinary worktrees remain ordinary Git worktrees.
+  slot cleanup; by default it keeps the current slot and landed local branch, and
+  `--free` opts into freeing them after a successful landing. Ordinary worktrees
+  remain ordinary Git worktrees.
 - `land` uses GitHub squash merge and requires `gh` authentication with permission
   to merge the target PRs. The repository must allow squash merges. Other merge
   strategies are not part of the current land contract. By default, successful landing
-  frees the current managed slot and deletes the landed local branch. Pass `--up` to
-  keep the slot and continue in the same worktree on the sole immediate Graphite child.
-  If no unambiguous child is available, the command fails before landing. If checkout,
-  verification, or landed-branch cleanup fails after merge, the command reports failure
-  while preserving recoverable state and identifying the PRs that already landed. Add
-  `--preserve` to `--up` to retain the landed local branch after successful continuation.
-  `--force` never overrides `--up` slot preservation. A dry run reports continuation
-  availability and performs no checkout or cleanup.
+  keeps the current managed slot and landed local branch; pass `--free` to free the slot
+  and delete the branch. Pass `--up` to keep the slot and continue in the same worktree
+  on the sole immediate Graphite child. If no unambiguous child is available, the command
+  fails before landing. If checkout, verification, or landed-branch cleanup fails after
+  merge, the command reports failure while preserving recoverable state and identifying
+  the PRs that already landed. With `--up`, the default preserves the landed branch and
+  `--free` deletes it after successful continuation without freeing the slot. A dry run
+  reports continuation availability and performs no checkout or cleanup.
 - The hidden agent-facing exec surface has one operation:
   `ns flow exec read-graphite-branch-metadata`, which reads Graphite's branch
   metadata database through a controlled `sqlite3` query.
