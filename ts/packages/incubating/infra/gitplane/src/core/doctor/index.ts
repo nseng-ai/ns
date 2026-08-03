@@ -32,15 +32,15 @@ export function evaluateDoctor(request: {
 			compareCodeUnits(left.apiVersion, right.apiVersion) ||
 			compareCodeUnits(left.kind, right.kind),
 	);
-	for (const kind of kinds) appendKindChecks(checks, kind, request.introspection);
+	for (const kind of kinds) checks.push(...buildKindChecks(kind, request.introspection));
 	return checks;
 }
 
-function appendKindChecks(
-	checks: DoctorCheck[],
+function buildKindChecks(
 	kind: ArtifactKindRegistration,
 	introspection: DoctorIntrospection,
-): void {
+): readonly DoctorCheck[] {
+	const checks: DoctorCheck[] = [];
 	const subject = `${kind.apiVersion}/${kind.kind}:${kind.target.table}`;
 	const table = introspection.targetTables.find((item) => item.name === kind.target.table);
 	checks.push(
@@ -95,6 +95,7 @@ function appendKindChecks(
 			summary: introspection.jsonProjection.detail,
 		});
 	}
+	return checks;
 }
 
 function compareCodeUnits(left: string, right: string): number {
