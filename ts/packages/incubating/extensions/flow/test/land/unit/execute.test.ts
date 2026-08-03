@@ -549,6 +549,62 @@ describe("land execute mode over in-memory gateways", () => {
 		});
 	});
 
+	test.each([
+		{ policy: "preserve", expectedDeletedBranches: [] },
+		{ policy: "free", expectedDeletedBranches: [BRANCH, "feature-b"] },
+	] as const)(
+		"$policy applies to every landed branch in a multi-branch stack",
+		async ({ policy, expectedDeletedBranches }) => {
+			const branchB = "feature-b";
+			const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+			const memory = createInMemoryLandContext({
+				git: {
+					repoRoot: ROOT,
+					currentBranch: branchB,
+					localBranches: [
+						{ name: BRANCH, sha: SHA },
+						{ name: branchB, sha: shaB },
+					],
+				},
+				graphite: {
+					stackShape: stackSnapshot({
+						current: branchB,
+						actualCurrentBranch: branchB,
+						landingTargetBranch: branchB,
+						landingBranches: [BRANCH, branchB],
+					}),
+				},
+				github: {
+					pullRequests: [
+						pullRequestFacts({ number: 101, headRefName: BRANCH, headRefOid: SHA }),
+						pullRequestFacts({
+							number: 102,
+							headRefName: branchB,
+							headRefOid: shaB,
+							baseRefName: "main",
+						}),
+					],
+				},
+			});
+
+			const outcome = await executeLanding({
+				context: memory.context,
+				source: { type: "discover" },
+				request: executeRequest({ cleanup: policy }),
+				host: approvedHost(),
+			});
+
+			expect(outcome).toMatchObject({ type: "completed" });
+			expect(memory.graphite.deleteLocalBranchCalls.map((call) => call.branch)).toEqual(
+				expectedDeletedBranches,
+			);
+			if (outcome.type !== "completed") return;
+			expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual(
+				expectedDeletedBranches,
+			);
+		},
+	);
+
 	test("retains the first landed chunk and observed cleanup when a later merge fails", async () => {
 		const branchB = "feature-b";
 		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";

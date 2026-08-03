@@ -30,12 +30,13 @@ export interface LandingPreflightMode {
 }
 
 /**
- * Closed post-landing cleanup policy for the current managed-slot worktree.
+ * Closed post-landing cleanup policy for local branches and the current managed-slot worktree.
  *
- * - `preserve` (default): keep the current slot and local branch; never prompt or mutate.
- * - `free`: explicit opt-in (`--free`) that frees the current managed slot and deletes the landed
- *   local branch after a successful landing. The flag itself is the consent; no separate cleanup
- *   confirmation is prompted.
+ * - `preserve` (default): keep every landed local branch and the current slot; never prompt or
+ *   mutate cleanup state.
+ * - `free`: explicit opt-in (`--free`) that may delete landed local branches during maintenance,
+ *   then frees the current managed slot after a successful landing. The flag itself is the consent;
+ *   no separate cleanup confirmation is prompted.
  *
  * `mode: "dry-run"` always dominates cleanup policy and performs no cleanup mutation.
  */

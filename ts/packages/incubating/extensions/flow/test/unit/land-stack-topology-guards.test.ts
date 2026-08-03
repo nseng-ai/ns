@@ -249,7 +249,7 @@ async function runLandStack(
 }> {
 	const pi = new FakeLandExecutionApi(script);
 	const context = createContext(contextOptions);
-	const parsedArgs = expectSuccess(parseArgs(args));
+	const parsedArgs = expectSuccess(parseArgs(args.includes("--free") ? args : `${args} --free`));
 	await executeStackLanding(pi, context.ctx, parsedArgs);
 	return { pi, messages: pi.messages, ...context };
 }

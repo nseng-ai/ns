@@ -112,7 +112,7 @@ interface PerformGraphiteMaintenanceOptions {
 	readonly progress: GraphiteMaintenanceProgress;
 	readonly plan: LandingPlan;
 	readonly step: GraphiteMaintenanceStep;
-	readonly deferredDeletionBranch?: string;
+	readonly shouldDeferLandedBranchDeletion?: boolean;
 }
 
 interface MaintenanceOperationInput {
@@ -149,7 +149,8 @@ export async function performGraphiteMaintenance(
 	const { repoRoot } = plan;
 	const { index, branch, prNumber, state } = step;
 	const maintenance = planGraphiteMaintenanceTargets(plan, index);
-	const shouldDeferLandedBranchDeletion = branch === maintenanceOptions.deferredDeletionBranch;
+	const shouldDeferLandedBranchDeletion =
+		maintenanceOptions.shouldDeferLandedBranchDeletion ?? false;
 
 	if (maintenance.mode === "blocked-descendants") {
 		// The main confirmation (or --yes) disclosed and consented to the deferred maintenance;

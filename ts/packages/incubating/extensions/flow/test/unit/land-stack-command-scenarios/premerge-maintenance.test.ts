@@ -187,7 +187,7 @@ describe("land-stack command scenarios", () => {
 		const pi = new FakeLandExecutionApi(script);
 		const context = createContext({ confirms: [true] });
 
-		await executeStackLanding(pi, context.ctx, expectSuccess(parseArgs("--yes")));
+		await executeStackLanding(pi, context.ctx, expectSuccess(parseArgs("--yes --free")));
 
 		pi.assertDone();
 		const submitIndex = pi.execCalls.findIndex(

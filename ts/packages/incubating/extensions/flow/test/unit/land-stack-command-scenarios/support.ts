@@ -199,7 +199,9 @@ export async function runLandStack(
 }> {
 	const pi = new FakeLandExecutionApi(script);
 	const context = createContext(contextOptions);
-	const parsedArgs = expectSuccess(parseArgs(args));
+	// Permanent command transcripts exercise destructive Graphite cleanup unless a scenario opts
+	// into another policy through the canonical execution tests.
+	const parsedArgs = expectSuccess(parseArgs(args.includes("--free") ? args : `${args} --free`));
 	await executeStackLanding(pi, context.ctx, parsedArgs, contextOptions.executeOptions);
 	return { pi, messages: pi.messages, ...context };
 }

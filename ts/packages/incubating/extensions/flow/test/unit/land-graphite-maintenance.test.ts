@@ -373,47 +373,59 @@ describe("Graphite maintenance over LandContext", () => {
 		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
 	});
 
-	test("defers the invoking branch deletion while retaining required maintenance", async () => {
-		const fakes = createInMemoryLandContext({
-			git: {
-				localBranches: [
-					{ name: "feature-a", sha: FEATURE_A_SHA },
-					{ name: "feature-b", sha: FEATURE_B_SHA },
-				],
-			},
-			github: {
-				pullRequests: [
-					pullRequestFacts({
-						number: 2,
-						headRefName: "feature-b",
-						baseRefName: "feature-a",
-						headRefOid: FEATURE_B_SHA,
-					}),
-				],
-			},
-		});
-		const outcome = await performGraphiteMaintenance({
-			landContext: fakes.context,
-			progress: createProgressRecorder().progress,
-			plan: createLandingPlan({ landingBranches: ["feature-a", "feature-b"] }),
-			step: {
-				index: 0,
-				branch: "feature-a",
-				prNumber: 1,
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					["feature-b", FEATURE_B_SHA],
-				]),
-			},
-			deferredDeletionBranch: "feature-a",
-		});
+	test.each([
+		{ policy: "preserve", shouldDeferLandedBranchDeletion: true, expectedDeletedBranches: [] },
+		{
+			policy: "free",
+			shouldDeferLandedBranchDeletion: false,
+			expectedDeletedBranches: ["feature-a"],
+		},
+	] as const)(
+		"$policy keeps required next-landing maintenance while applying branch cleanup policy",
+		async ({ shouldDeferLandedBranchDeletion, expectedDeletedBranches }) => {
+			const fakes = createInMemoryLandContext({
+				git: {
+					localBranches: [
+						{ name: "feature-a", sha: FEATURE_A_SHA },
+						{ name: "feature-b", sha: FEATURE_B_SHA },
+					],
+				},
+				github: {
+					pullRequests: [
+						pullRequestFacts({
+							number: 2,
+							headRefName: "feature-b",
+							baseRefName: "feature-a",
+							headRefOid: FEATURE_B_SHA,
+						}),
+					],
+				},
+			});
+			const outcome = await performGraphiteMaintenance({
+				landContext: fakes.context,
+				progress: createProgressRecorder().progress,
+				plan: createLandingPlan({ landingBranches: ["feature-a", "feature-b"] }),
+				step: {
+					index: 0,
+					branch: "feature-a",
+					prNumber: 1,
+					state: createMergeLoopState([
+						["feature-a", FEATURE_A_SHA],
+						["feature-b", FEATURE_B_SHA],
+					]),
+				},
+				shouldDeferLandedBranchDeletion,
+			});
 
-		expect(outcome).toEqual({ kind: "proceed" });
-		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
-		expect(fakes.graphite.refreshBranchFromRemoteCalls).toHaveLength(1);
-		expect(fakes.graphite.restackCalls).toHaveLength(1);
-		expect(fakes.graphite.submitUpdateCalls).toHaveLength(1);
-	});
+			expect(outcome).toEqual({ kind: "proceed" });
+			expect(fakes.graphite.deleteLocalBranchCalls.map((call) => call.branch)).toEqual(
+				expectedDeletedBranches,
+			);
+			expect(fakes.graphite.refreshBranchFromRemoteCalls).toHaveLength(1);
+			expect(fakes.graphite.restackCalls).toHaveLength(1);
+			expect(fakes.graphite.submitUpdateCalls).toHaveLength(1);
+		},
+	);
 
 	test("retains a checked-out local branch and records cleanup", async () => {
 		const fakes = createInMemoryLandContext({
@@ -787,74 +799,88 @@ describe("Graphite maintenance over LandContext", () => {
 		]);
 	});
 
-	test("full success requires observed local, provider, and remote state transitions", async () => {
-		const postRestackSha = "dddddddddddddddddddddddddddddddddddddddd";
-		const fakes = createInMemoryLandContext({
-			git: {
-				localBranches: [
-					{ name: "feature-a", sha: FEATURE_A_SHA },
-					{ name: "feature-c", sha: FEATURE_C_SHA },
-				],
-				// Before the restack transition runs, ancestry and topology are stale.
-				branchContainsParents: { "feature-c|main": false },
-			},
-			graphite: { branchParents: { "feature-c": "feature-a" } },
-			github: {
-				pullRequests: [
-					pullRequestFacts({
-						number: 3,
-						headRefName: "feature-c",
-						baseRefName: "feature-a",
-						headRefOid: FEATURE_C_SHA,
-					}),
-				],
-			},
-			transitions: {
-				onRestackSuccess: {
-					"feature-c": {
-						localSha: postRestackSha,
-						containsParents: { main: true },
-						providerParent: "main",
+	test.each([
+		{ policy: "preserve", shouldDeferLandedBranchDeletion: true, expectedDeletedBranches: [] },
+		{
+			policy: "free",
+			shouldDeferLandedBranchDeletion: false,
+			expectedDeletedBranches: ["feature-a"],
+		},
+	] as const)(
+		"$policy reconciles descendants while applying branch cleanup policy",
+		async ({ shouldDeferLandedBranchDeletion, expectedDeletedBranches }) => {
+			const postRestackSha = "dddddddddddddddddddddddddddddddddddddddd";
+			const fakes = createInMemoryLandContext({
+				git: {
+					localBranches: [
+						{ name: "feature-a", sha: FEATURE_A_SHA },
+						{ name: "feature-c", sha: FEATURE_C_SHA },
+					],
+					// Before the restack transition runs, ancestry and topology are stale.
+					branchContainsParents: { "feature-c|main": false },
+				},
+				graphite: { branchParents: { "feature-c": "feature-a" } },
+				github: {
+					pullRequests: [
+						pullRequestFacts({
+							number: 3,
+							headRefName: "feature-c",
+							baseRefName: "feature-a",
+							headRefOid: FEATURE_C_SHA,
+						}),
+					],
+				},
+				transitions: {
+					onRestackSuccess: {
+						"feature-c": {
+							localSha: postRestackSha,
+							containsParents: { main: true },
+							providerParent: "main",
+						},
+					},
+					onSubmitUpdateSuccess: {
+						"feature-c": { headRefOid: postRestackSha, baseRefName: "main" },
 					},
 				},
-				onSubmitUpdateSuccess: {
-					"feature-c": { headRefOid: postRestackSha, baseRefName: "main" },
-				},
-			},
-		});
-		const state = createMergeLoopState([
-			["feature-a", FEATURE_A_SHA],
-			["feature-c", FEATURE_C_SHA],
-		]);
+			});
+			const state = createMergeLoopState([
+				["feature-a", FEATURE_A_SHA],
+				["feature-c", FEATURE_C_SHA],
+			]);
 
-		const outcome = await performGraphiteMaintenance({
-			landContext: fakes.context,
-			progress: createProgressRecorder().progress,
-			plan: createLandingPlan({
-				landingBranches: ["feature-a"],
-				descendantBranches: ["feature-c"],
-				descendantMaintenance: {
-					type: "auto",
-					branches: ["feature-c"],
-					targetBranches: ["feature-c"],
-				},
-			}),
-			step: { index: 0, branch: "feature-a", prNumber: 1, state },
-		});
+			const outcome = await performGraphiteMaintenance({
+				landContext: fakes.context,
+				progress: createProgressRecorder().progress,
+				plan: createLandingPlan({
+					landingBranches: ["feature-a"],
+					descendantBranches: ["feature-c"],
+					descendantMaintenance: {
+						type: "auto",
+						branches: ["feature-c"],
+						targetBranches: ["feature-c"],
+					},
+				}),
+				step: { index: 0, branch: "feature-a", prNumber: 1, state },
+				shouldDeferLandedBranchDeletion,
+			});
 
-		expect(outcome).toEqual({ kind: "proceed" });
-		expect(fakes.graphite.restackCalls).toEqual([
-			{ repoRoot: REPO_ROOT, branch: "feature-c", scope: "upstack" },
-		]);
-		expect(fakes.graphite.submitUpdateCalls).toEqual([
-			{ repoRoot: REPO_ROOT, branch: "feature-c", force: true },
-		]);
-		expect(fakes.graphite.branchParentCalls).toEqual([
-			{ repoRoot: REPO_ROOT, metadataDbPath: METADATA_DB_PATH, branch: "feature-c" },
-		]);
-		// Post-restack SHA becomes the new expectation for the reconciled root.
-		expect(state.expectedShas.get("feature-c")).toBe(postRestackSha);
-	});
+			expect(outcome).toEqual({ kind: "proceed" });
+			expect(fakes.graphite.deleteLocalBranchCalls.map((call) => call.branch)).toEqual(
+				expectedDeletedBranches,
+			);
+			expect(fakes.graphite.restackCalls).toEqual([
+				{ repoRoot: REPO_ROOT, branch: "feature-c", scope: "upstack" },
+			]);
+			expect(fakes.graphite.submitUpdateCalls).toEqual([
+				{ repoRoot: REPO_ROOT, branch: "feature-c", force: true },
+			]);
+			expect(fakes.graphite.branchParentCalls).toEqual([
+				{ repoRoot: REPO_ROOT, metadataDbPath: METADATA_DB_PATH, branch: "feature-c" },
+			]);
+			// Post-restack SHA becomes the new expectation for the reconciled root.
+			expect(state.expectedShas.get("feature-c")).toBe(postRestackSha);
+		},
+	);
 
 	test("multi-root reconcile attempts every root and aggregates failures without false completion", async () => {
 		const postRestackSha = "dddddddddddddddddddddddddddddddddddddddd";

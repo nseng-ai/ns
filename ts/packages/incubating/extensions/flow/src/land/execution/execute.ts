@@ -277,6 +277,7 @@ export async function executeLandingRequest(
 		progress: host.progress,
 		plan: readyPlan,
 		warnings: draft.warnings,
+		shouldPreserveLandedBranches: effectiveCleanupRequest.policy === "preserve",
 		...(request.continuation.type === "upstack"
 			? { deferredDeletionBranch: shape.stack.actualCurrentBranch }
 			: {}),
