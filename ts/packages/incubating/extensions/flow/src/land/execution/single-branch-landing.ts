@@ -1,3 +1,5 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import { landingCancelledBeforeMergeFailure, landingExecutionFailure } from "../results.ts";
 import type {
 	LandContext,
@@ -99,7 +101,7 @@ export async function executeSingleBranchLanding(
 		pullRequest,
 		trunk: options.target.trunk,
 		...(cleanupPreview === undefined ? {} : { cleanup: cleanupPreview }),
-		...(cleanupChoice === undefined ? {} : { cleanupChoice }),
+		...optionalEntry("cleanupChoice", cleanupChoice),
 	});
 	if (confirmation.type !== "approved") {
 		return {
@@ -155,9 +157,7 @@ export async function executeSingleBranchLanding(
 		result: "merged",
 		pullRequest,
 		commandOutput: successfulCommandOutput(mergeResult.value),
-		...(confirmation.cleanupPolicy === undefined
-			? {}
-			: { chosenCleanupPolicy: confirmation.cleanupPolicy }),
+		...optionalEntry("chosenCleanupPolicy", confirmation.cleanupPolicy),
 	};
 }
 

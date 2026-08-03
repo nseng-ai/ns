@@ -35,6 +35,7 @@ import {
 	type NsProgressPhaseEvent,
 } from "@nseng-ai/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
 
 import { runFlowCli } from "../flow-cli-runner.ts";
@@ -91,7 +92,7 @@ export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 						...(progress.landMatrix === undefined ? {} : { landMatrix: progress.landMatrix }),
 						externalCallTelemetry: telemetry.sink,
 						...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
-						...(ctx.select === undefined ? {} : { select: ctx.select }),
+						...optionalEntry("select", ctx.select),
 					}),
 			});
 			if (request.verbose === true && telemetryFinish !== undefined) {

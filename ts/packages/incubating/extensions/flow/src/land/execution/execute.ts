@@ -6,6 +6,8 @@
 // carries the facts observed up to that point; phases are recorded from work that actually ran,
 // never synthesized from plan shape.
 
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import {
 	buildStackLandingPlan,
 	loadStackLandingShape,
@@ -221,7 +223,7 @@ export async function executeLandingRequest(
 		kind: "main-landing",
 		plan: plan.value,
 		...(cleanupPreview === undefined ? {} : { cleanup: cleanupPreview }),
-		...(cleanupChoice === undefined ? {} : { cleanupChoice }),
+		...optionalEntry("cleanupChoice", cleanupChoice),
 	});
 	if (mainDecision.type !== "approved") {
 		const failure =

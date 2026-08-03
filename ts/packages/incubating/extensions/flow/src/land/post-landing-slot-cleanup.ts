@@ -4,6 +4,8 @@
 // ParsedArgs -> cleanup policy mapping and the single-branch fast-path glue that still runs
 // cleanup outside canonical stack execution.
 
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import type { LandExecutionStatusProgress } from "./execution/host-seams.ts";
 import {
 	planManagedSlotPostLandingCleanup,
@@ -71,7 +73,7 @@ export async function runPostLandingSlotCleanup(
 		progress: createCleanupProgress(options.ctx),
 		cleanup: {
 			...postLandingCleanupRequestFromArgs(options.args),
-			...(options.chosenCleanupPolicy === undefined ? {} : { policy: options.chosenCleanupPolicy }),
+			...optionalEntry("policy", options.chosenCleanupPolicy),
 		},
 		shape: options.shape,
 	});
