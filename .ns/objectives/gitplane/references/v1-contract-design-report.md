@@ -8,6 +8,10 @@ The discussion began from the first roadmap row in `.ns/objectives/gitplane/road
 
 The canonical drafts also include immediate pre-implementation refinements made after this session—most notably generic artifacts, config-free `artifact create`, corpus-only `check`, one root per config, removal of custom validators, and canonical `gp*` envelope names. If wording here conflicts with either canonical draft, the drafts govern; treat the discrepancy as historical context rather than a live contract choice.
 
+## Amendment (2026-08-05): artifact path joined revision identity
+
+Implementation evidence superseded the content-only revision identity settled below. An interim spec revision added `markerLastChangedCommit` to revision identity so marker adds, changes, and moves created revisions; establishing that commit required walking `rev-list` and re-reading marker trees at every commit in history — potentially hundreds of git subprocesses per reconciliation — and proved too complicated to keep up to date for the limited value it tracked. PR #4117 removed marker provenance entirely: revision identity now derives from source ID, artifact ID, repository-relative artifact path, and content digest, so moving an artifact creates a new revision, and the separate `artifact.moved` event type was dropped. This supersedes the "Content snapshot versus observation" consequences and invariants 3 and 4 below; the canonical drafts carry the current contract. The original text is preserved unchanged as historical rationale.
+
 ## Executive summary
 
 The session settled these defining choices:
@@ -665,6 +669,8 @@ The grilling intentionally stopped before private implementation design. The pac
 These are not invitations to reopen user-facing semantics accidentally. If implementation evidence shows a settled contract is infeasible or harmful, record that as a new Objective finding and deliberately amend the canonical README rather than silently drifting.
 
 ## 18. Key invariants for implementation review
+
+> Amended 2026-08-05: invariants 3 and 4 are superseded — revision identity now includes the repository-relative artifact path, and outer moves create revisions. See the amendment at the top of this report.
 
 A reviewer can use this compact list to detect contract drift:
 

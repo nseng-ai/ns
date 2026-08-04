@@ -52,22 +52,11 @@ export type GitUnavailableReason = "missing-object" | "incomplete-history";
 export type GitObservation<T> =
 	| { readonly type: "found"; readonly value: T }
 	| { readonly type: "unavailable"; readonly reason: GitUnavailableReason };
-export interface MarkerProvenanceRequest {
-	readonly artifactId: ArtifactId;
-	readonly path: string;
-	readonly markerBytes: Uint8Array;
-}
-export type MarkerProvenanceObservation =
-	| {
-			readonly type: "found";
-			readonly artifactId: ArtifactId;
-			readonly markerLastChangedCommit: string;
-	  }
-	| {
-			readonly type: "unavailable";
-			readonly artifactId: ArtifactId;
-			readonly reason: GitUnavailableReason;
-	  };
+/**
+ * Read results are immutable once produced: neither gateways nor consumers may
+ * mutate returned facts, entries, or byte buffers after a read completes.
+ * Implementations must return values that are safe to share under that contract.
+ */
 export interface ArtifactGateway {
 	createArtifact(request: CreateArtifactRequest): Promise<CreateArtifactResult>;
 	resolveCommit(request: {
@@ -92,11 +81,6 @@ export interface ArtifactGateway {
 		readonly fromCommit: string;
 		readonly toCommit: string;
 	}): Promise<GatewayResult<GitObservation<CommitDiff>>>;
-	readMarkerProvenance(request: {
-		readonly targetCommit: string;
-		readonly artifactRoot: string;
-		readonly markers: readonly MarkerProvenanceRequest[];
-	}): Promise<GatewayResult<readonly MarkerProvenanceObservation[]>>;
 	inventoryWorkingTree(request: {
 		readonly artifactRoot: string;
 	}): Promise<GatewayResult<readonly TreeInventoryEntry[]>>;

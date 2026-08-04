@@ -121,10 +121,6 @@ function batchRecord(object: string, bytes: Buffer): Buffer {
 const parsedArtifactId = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
 if (!parsedArtifactId.ok) throw new Error("Test artifact ID must be valid.");
 const artifactId = parsedArtifactId.artifactId;
-const parsedSecondArtifactId = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dp");
-if (!parsedSecondArtifactId.ok) throw new Error("Second test artifact ID must be valid.");
-const secondArtifactId = parsedSecondArtifactId.artifactId;
-
 function artifactRequest(directory = "artifact") {
 	return { directory, artifactId, marker: '{"gpId":"01jxyz8y3jqazj7jrx53w9b3dn"}\n' };
 }
@@ -559,97 +555,6 @@ describe("Git-backed behavior", () => {
 			ok: false,
 			error: { code: "source-error", message: "show failed" },
 		});
-	});
-
-	test("batches provenance history and marker reads with deterministic artifact ordering", async () => {
-		const target = "a".repeat(40);
-		const firstBytes = Buffer.from(`{"gpId":"${artifactId}"}`);
-		const secondBytes = Buffer.from(`{"gpId":"${secondArtifactId}"}`);
-		const tree = [
-			`100644 blob ${"b".repeat(40)}\troot/z/gitplane-artifact.json`,
-			`100644 blob ${"c".repeat(40)}\troot/a/gitplane-artifact.json`,
-		].join("\0");
-		const { gateway, git } = gatewayFor([
-			{ args: ["rev-list", "--parents", target], stdout: Buffer.from(`${target}\n`) },
-			{
-				args: ["ls-tree", "-rz", "-r", "-t", target, "--", "root"],
-				stdout: Buffer.from(`${tree}\0`),
-			},
-			{
-				args: ["cat-file", "--batch"],
-				input: `${target}:root/z/gitplane-artifact.json\n${target}:root/a/gitplane-artifact.json\n`,
-				stdout: Buffer.concat([
-					batchRecord("b".repeat(40), firstBytes),
-					batchRecord("c".repeat(40), secondBytes),
-				]),
-			},
-		]);
-		expect(
-			await gateway.readMarkerProvenance({
-				targetCommit: target,
-				artifactRoot: "root",
-				markers: [
-					{ artifactId: secondArtifactId, path: "root/a", markerBytes: secondBytes },
-					{ artifactId, path: "root/z", markerBytes: firstBytes },
-				],
-			}),
-		).toEqual({
-			ok: true,
-			value: [
-				{ type: "found", artifactId, markerLastChangedCommit: target },
-				{ type: "found", artifactId: secondArtifactId, markerLastChangedCommit: target },
-			],
-		});
-		expect(git.invocations).toHaveLength(3);
-		expect(git.invocations.flatMap((invocation) => invocation.args)).not.toContain("--follow");
-		expect(git.invocations.flatMap((invocation) => invocation.args)).not.toContain(
-			"--first-parent",
-		);
-		git.assertComplete();
-	});
-
-	test("classifies missing provenance separately from operational and malformed protocol failures", async () => {
-		const target = "a".repeat(40);
-		const request = {
-			targetCommit: target,
-			artifactRoot: "root",
-			markers: [{ artifactId, path: "root/a", markerBytes: Buffer.from("marker") }],
-		};
-		const missing = gatewayFor([
-			{
-				args: ["rev-list", "--parents", target],
-				error: Object.assign(new Error("unclassified fatal failure"), { code: 128 }),
-			},
-			{
-				args: ["rev-parse", "--verify", "--quiet", `${target}^{commit}`],
-				error: Object.assign(new Error("quiet probe"), { code: 1 }),
-			},
-		]);
-		expect(await missing.gateway.readMarkerProvenance(request)).toEqual({
-			ok: true,
-			value: [{ type: "unavailable", artifactId, reason: "missing-object" }],
-		});
-
-		const operational = gatewayFor([
-			{ args: ["rev-list", "--parents", target], error: new Error("permission denied") },
-		]);
-		expect(await operational.gateway.readMarkerProvenance(request)).toEqual({
-			ok: false,
-			error: { code: "source-error", message: "permission denied" },
-		});
-
-		for (const output of [Buffer.alloc(0), Buffer.from(`${target} not-a-commit\n`)]) {
-			const malformed = gatewayFor([
-				{
-					args: ["rev-list", "--parents", target],
-					stdout: output,
-				},
-			]);
-			expect(await malformed.gateway.readMarkerProvenance(request)).toEqual({
-				ok: false,
-				error: { code: "source-error", message: "Unexpected git rev-list output." },
-			});
-		}
 	});
 });
 
