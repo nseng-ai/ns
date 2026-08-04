@@ -23,10 +23,10 @@ decision ladder — take the lowest rung that fits, and climb only on evidence:
 *Replace a hard-bound collaborator with a single injected parameter that defaults to the real
 implementation.*
 
-- **Mechanics:** add one narrow parameter — a function, a runtime primitive (`Clock`,
-  `TimerScheduler`), or a small value — with a default-to-real binding. Tests pass a fake or manual
-  substitute; production call sites change nothing. No interface type is minted, no fake/adapter
-  pairing is created, no composition-root wiring changes.
+- **Mechanics:** add one narrow parameter — a function, a single-method collaborator, or a small
+  value — with a default-to-real binding. Tests pass a fake or manual substitute; production call
+  sites change nothing. No interface type is minted, no fake/adapter pairing is created, no
+  composition-root wiring changes.
 - **Constraints:** singular by design. Inject *a* dependency, never a
   `Dependencies`/`Deps`/`Services` bag, and never through a DI container or framework override
   (banned by the `typescript-fake-driven-testing` skill and root `CONTEXT.md` *Avoid* lists). The
@@ -34,4 +34,6 @@ implementation.*
   as design guidance is the smell, not injection itself.
 - **Precedent:** `registerSdlExtension(pi, { runCli })` in
   `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-24T122002Z-repeated-integration-setup-for-localized-logic.md`;
-  `Clock`/`TimerScheduler` injection per `ts/TESTING.md` § Deterministic time convention.
+  `createFreshNsCliRunner(loader)` in
+  `ts/packages/incubating/hosts/pi/extensions/pi-ns-flow/src/fresh-ns-cli.ts`, where a single
+  module-loader parameter defaults to the real dynamic import and tests inject a fake loader.
