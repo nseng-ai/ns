@@ -275,8 +275,8 @@ The per-domain *seam* for an ns-shaped external-tool, external-protocol, or prec
 *Avoid*: product extension domain, generic filesystem gateway, "gateway is never Neutral Infra"
 
 **Consumer Gateway**:
-An extension-owned narrowed gateway interface — a subset of a provider **Gateway**'s methods (often a `Pick`), with result vocabulary in the consuming extension's own domain terms. The extension owns the narrowed interface and its vocabulary; the **Kit Gateway** owns the full provider contract. `docs/conventions/consumer-gateways-and-command-shape.md` holds the narrowing and command-shape rules.
-*Avoid*: consumer port, partial gateway, domain port
+An extension-owned narrowed gateway interface — a subset of a provider **Gateway**'s methods (often a named `Pick` alias), with result vocabulary in the consuming extension's own domain terms. The extension owns the narrowed interface and its vocabulary; the **Kit Gateway** owns the full provider contract. `docs/conventions/consumer-gateways-and-command-shape.md` holds the narrowing and command-shape rules.
+*Avoid*: consumer port, partial gateway, domain port, anonymous inline `Pick`
 
 **Capability Gateway Backend**:
 A retired transitional term for the standalone packages that used to own heavy real **Kit Gateway** implementations before the gateway backends folded into **Extension Kit** subpackages. Do not use `capability-gateway-backend` as a live package tier or introduce new packages in that role; use **Kit Gateway** for the current `@nseng-ai/extension-kit/<domain>` ownership model.
