@@ -736,8 +736,14 @@ function metadataRows() {
 }
 
 if (command === "ns") {
-  if (args[0] === "flow" && args[1] === "exec" && args[2] === "read-graphite-branch-metadata") {
-    finish(0, JSON.stringify(metadataRows()) + "\\n");
+  if (
+    args[0] === "flow" &&
+    args[1] === "exec" &&
+    args[2] === "read-graphite-branch-metadata" &&
+    args[5] === "--format" &&
+    args[6] === "json"
+  ) {
+    finish(0, JSON.stringify({ status: "success", exitCode: 0, data: metadataRows() }) + "\\n");
   }
   finish(1, "", "unexpected ns command: " + args.join(" ") + "\\n");
 }

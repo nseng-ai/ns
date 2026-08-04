@@ -13,7 +13,15 @@ describe("flow land external-call telemetry classification", () => {
 		expect(
 			classifyCommandInvocation({
 				command: "ns",
-				args: ["flow", "exec", "read-graphite-branch-metadata", "--db-path", "/repo/db"],
+				args: [
+					"flow",
+					"exec",
+					"read-graphite-branch-metadata",
+					"--db-path",
+					"/repo/db",
+					"--format",
+					"json",
+				],
 			}),
 		).toEqual({
 			category: "graphite",

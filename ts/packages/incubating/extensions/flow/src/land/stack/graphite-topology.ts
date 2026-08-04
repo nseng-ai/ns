@@ -4,7 +4,9 @@ import { commandSucceeded, formatCommand } from "@nseng-ai/foundation/command";
 import {
 	GRAPHITE_METADATA_DB_NAME,
 	detectGraphiteForkViolations,
+	graphiteBranchMetadataRowsSchema,
 	parseGraphiteBranchMetadataRows,
+	type GraphiteBranchMetadataRows,
 	walkGraphiteAncestors,
 	walkGraphiteSubtree,
 	type GraphiteForkViolation,
@@ -21,6 +23,7 @@ import {
 	type LandResult,
 } from "../results.ts";
 import type { LandExecutionApi } from "./types.ts";
+import { z } from "zod";
 
 export type { GraphiteTopology } from "@nseng-ai/extension-kit/graphite/metadata";
 
@@ -61,20 +64,21 @@ export async function loadGraphiteTopology(
 	});
 	if (!commandSucceeded(result)) {
 		return landFailure(
-			landingExecutionFailure(classifyTopologyReadFailure(result.stderr, dbPath), {
-				displayCommand: metadataCommand.display,
-				execResult: result,
-			}),
+			landingExecutionFailure(
+				classifyTopologyReadFailure(result.stderr, failureEnvelopeMessage(result.stdout), dbPath),
+				{
+					displayCommand: metadataCommand.display,
+					execResult: result,
+				},
+			),
 		);
 	}
 
-	let raw: unknown;
-	try {
-		raw = JSON.parse(result.stdout.trim() || "[]");
-	} catch {
+	const decoded = decodeGraphiteMetadataEnvelope(result.stdout);
+	if (decoded.type === "invalid") {
 		return landFailure(
 			landingExecutionFailure(
-				`ns flow exec returned unparsable JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`,
+				`ns flow exec returned ${decoded.reason} for the Graphite metadata DB at ${dbPath}; refusing to land.`,
 				{
 					displayCommand: metadataCommand.display,
 					execResult: result,
@@ -82,17 +86,9 @@ export async function loadGraphiteTopology(
 			),
 		);
 	}
-	const parsed = parseGraphiteBranchMetadataRows(raw);
+	const parsed = parseGraphiteBranchMetadataRows(decoded.rows);
 	if (parsed.type === "not_array") {
-		return landFailure(
-			landingExecutionFailure(
-				`ns flow exec returned non-array JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`,
-				{
-					displayCommand: metadataCommand.display,
-					execResult: result,
-				},
-			),
-		);
+		throw new Error("Validated Graphite metadata row arrays must remain parseable as arrays.");
 	}
 	if (parsed.diagnostics.emptyBranchNameRows > 0) {
 		return landFailure(
@@ -107,11 +103,66 @@ export async function loadGraphiteTopology(
 	return landSuccess(parsed.topology);
 }
 
-function classifyTopologyReadFailure(stderr: string, dbPath: string): string {
-	if (/no such table|no such column/i.test(stderr)) {
+const graphiteMetadataSuccessEnvelopeSchema = z.strictObject({
+	status: z.literal("success"),
+	exitCode: z.literal(0),
+	data: graphiteBranchMetadataRowsSchema,
+});
+
+const clinkrFailureEnvelopeSchema = z.union([
+	z.strictObject({
+		status: z.literal("negative"),
+		exitCode: z.literal(1),
+		message: z.string(),
+		data: z.unknown().optional(),
+	}),
+	z.strictObject({
+		status: z.enum(["failure", "usage-error"]),
+		exitCode: z.literal(2),
+		errorType: z.string(),
+		message: z.string(),
+		data: z.unknown().optional(),
+	}),
+]);
+
+function decodeGraphiteMetadataEnvelope(
+	stdout: string,
+):
+	| { readonly type: "valid"; readonly rows: GraphiteBranchMetadataRows }
+	| { readonly type: "invalid"; readonly reason: string } {
+	let raw: unknown;
+	try {
+		raw = JSON.parse(stdout);
+	} catch {
+		return { type: "invalid", reason: "unparsable JSON" };
+	}
+	const decoded = graphiteMetadataSuccessEnvelopeSchema.safeParse(raw);
+	if (!decoded.success) return { type: "invalid", reason: "a malformed success envelope" };
+	return { type: "valid", rows: decoded.data.data };
+}
+
+function failureEnvelopeMessage(stdout: string): string {
+	try {
+		const decoded = clinkrFailureEnvelopeSchema.safeParse(JSON.parse(stdout));
+		return decoded.success ? decoded.data.message : "";
+	} catch {
+		// Non-JSON stdout is not a Clinkr failure envelope; stderr still carries subprocess evidence.
+		return "";
+	}
+}
+
+function classifyTopologyReadFailure(
+	stderr: string,
+	envelopeMessage: string,
+	dbPath: string,
+): string {
+	if (
+		/no such table|no such column/i.test(stderr) ||
+		/no such table|no such column/i.test(envelopeMessage)
+	) {
 		return `Graphite metadata DB at ${dbPath} does not have the expected branch_metadata schema; refusing to land. This Graphite version may be unsupported.`;
 	}
-	if (/unable to open database/i.test(stderr)) {
+	if (/unable to open database/i.test(stderr) || /unable to open database/i.test(envelopeMessage)) {
 		return `Graphite metadata DB at ${dbPath} is missing or unreadable; refusing to land. Run a Graphite command (e.g. gt ls) to initialize it.`;
 	}
 	return `sqlite3 could not read the Graphite metadata DB at ${dbPath}; refusing to land. Ensure sqlite3 is installed and on PATH (e.g. brew install sqlite).`;

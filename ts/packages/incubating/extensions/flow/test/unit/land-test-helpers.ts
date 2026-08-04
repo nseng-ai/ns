@@ -22,6 +22,14 @@ export function metadataDbJson(
 	);
 }
 
+export function metadataSuccessEnvelopeJson(rowsJson: string): string {
+	return JSON.stringify({
+		status: "success",
+		exitCode: 0,
+		data: JSON.parse(rowsJson) as unknown,
+	});
+}
+
 export interface FormatLiveBranchTipsOptions {
 	readonly shaOverrides?: Readonly<Record<string, string>>;
 	readonly shaForBranch?: (branch: string) => string | undefined;

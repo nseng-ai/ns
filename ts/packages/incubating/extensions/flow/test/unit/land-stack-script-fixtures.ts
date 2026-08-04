@@ -1,6 +1,10 @@
 import { PR_FIELDS } from "../../src/land/stack/constants.ts";
 import type { PullRequestFacts } from "../../src/land/api.ts";
-import { metadataDbJson, TOPOLOGY_COMMAND } from "./land-test-helpers.ts";
+import {
+	metadataDbJson,
+	metadataSuccessEnvelopeJson,
+	TOPOLOGY_COMMAND,
+} from "./land-test-helpers.ts";
 
 const TRUNK = "main";
 const SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -164,7 +168,7 @@ export function createBranchParentStep(
 ): (branch: string, parent: string) => LandStackScriptedExec {
 	return (branch, parent) =>
 		step(TOPOLOGY_COMMAND, [...topologyArgs], {
-			stdout: `${metadataDbJson([{ branch, parent, children: [] }])}\n`,
+			stdout: `${metadataSuccessEnvelopeJson(metadataDbJson([{ branch, parent, children: [] }]))}\n`,
 		});
 }
 
@@ -223,7 +227,7 @@ function childrenRecheckStep(
 	children: string[],
 ): LandStackScriptedExec {
 	return step(TOPOLOGY_COMMAND, [...topologyArgs], {
-		stdout: `${metadataDbJson([{ branch, children }])}\n`,
+		stdout: `${metadataSuccessEnvelopeJson(metadataDbJson([{ branch, children }]))}\n`,
 	});
 }
 

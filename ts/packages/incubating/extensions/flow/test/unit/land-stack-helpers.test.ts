@@ -832,7 +832,7 @@ describe("land-stack pure helpers", () => {
 
 		pi.assertDone();
 		expect(commandMessagesText(pi.messages)).toContain(
-			"✓ $ ns flow exec read-graphite-branch-metadata --db-path /repo/.git/.graphite_metadata.db — read Graphite stack topology",
+			"✓ $ ns flow exec read-graphite-branch-metadata --db-path /repo/.git/.graphite_metadata.db --format json — read Graphite stack topology",
 		);
 	});
 

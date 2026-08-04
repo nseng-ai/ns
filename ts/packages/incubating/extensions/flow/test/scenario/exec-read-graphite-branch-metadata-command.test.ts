@@ -31,7 +31,7 @@ describe("flow exec read-graphite-branch-metadata command", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe(`${rows}\n`);
+		expect(await run.result).toEqual({ status: "success", data: JSON.parse(rows) });
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([
 			{
@@ -49,8 +49,34 @@ describe("flow exec read-graphite-branch-metadata command", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("[]\n");
+		expect(await run.result).toEqual({ status: "success", data: [] });
 		expect(run.stderr.join("")).toBe("");
+	});
+
+	test.each([
+		["invalid JSON", "not json", "invalid JSON"],
+		["non-array JSON", '{"branch_name":"main"}', "invalid row array"],
+		["missing query columns", '[{"branch_name":"main"}]', "invalid row array"],
+		[
+			"unexpected query columns",
+			'[{"branch_name":"main","parent_branch_name":null,"children":"[]","validation_result":"TRUNK","future_column":true}]',
+			"invalid row array",
+		],
+		[
+			"non-object array members",
+			'[{"branch_name":"main","parent_branch_name":null,"children":"[]","validation_result":"TRUNK"},7]',
+			"invalid row array",
+		],
+	] as const)("rejects %s from sqlite", async (_case, stdout, failureClass) => {
+		const run = runFlowExecReadGraphiteBranchMetadataCommandWithFakes({
+			request: { dbPath: DB_PATH },
+			state: { exec: [sqliteSuccess(stdout)] },
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain(failureClass);
+		expect(run.stderr.join("")).toContain(DB_PATH);
+		expect(run.stdout.join("")).toBe("");
 	});
 
 	test("reports sqlite failures with command details and stderr", async () => {

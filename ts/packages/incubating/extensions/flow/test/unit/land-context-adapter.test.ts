@@ -11,6 +11,7 @@ import type { LandExecutionApi } from "../../src/land/stack/types.ts";
 import {
 	formatLiveBranchTips,
 	metadataDbJson,
+	metadataSuccessEnvelopeJson,
 	TOPOLOGY_COMMAND,
 	topologyArgs,
 } from "./land-test-helpers.ts";
@@ -395,7 +396,7 @@ describe("land context adapter facts", () => {
 			step("gt", RESTACK_ONLY_ARGS),
 			step("gt", SUBMIT_FORCE_ARGS),
 			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
-				stdout: `${metadataDbJson([{ branch: "feature-a", children: ["feature-b"] }])}\n`,
+				stdout: `${metadataSuccessEnvelopeJson(metadataDbJson([{ branch: "feature-a", children: ["feature-b"] }]))}\n`,
 			}),
 		]);
 		const context = createTestLandContext(pi);
@@ -638,10 +639,12 @@ describe("land context adapter facts", () => {
 	test("loads stack shape from supplied facts without recursively loading a landing shape", async () => {
 		const pi = new FakeLandExecutionApi([
 			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
-				stdout: `${metadataDbJson([
-					{ branch: "main", children: ["feature"], trunk: true },
-					{ branch: "feature", parent: "main", children: [] },
-				])}\n`,
+				stdout: `${metadataSuccessEnvelopeJson(
+					metadataDbJson([
+						{ branch: "main", children: ["feature"], trunk: true },
+						{ branch: "feature", parent: "main", children: [] },
+					]),
+				)}\n`,
 			}),
 		]);
 		const context = createTestLandContext(pi);
