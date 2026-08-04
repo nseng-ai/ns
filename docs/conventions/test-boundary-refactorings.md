@@ -93,3 +93,39 @@ produces: **DI Seam**, **Consumer Gateway**, **Gateway** (root `CONTEXT.md` § A
 Boundaries). Recommending "use dependency injection" without naming a rung is a smell. It invites
 the banned trappings (containers, decorators, `Dependencies`/`Deps`/`Services` bags, `…Loader`
 noun-types) while the actual decision is which rung the boundary has earned.
+
+## Test relocation
+
+Test-relocation transformations move existing coverage to the lane that owns its cost, without
+changing what the tests assert.
+
+### Move Real-Boundary Test to Integration
+
+*Relocate a test that exercises a real external boundary from the default lane into the package's
+`test/integration/` directory.*
+
+- **Mechanics:** find default-lane tests whose subject crosses a real external boundary. What
+  counts as one — real Git, spawned child processes, real CLI entrypoints, cold runtime or dynamic
+  import, sqlite, network — is governed by `ts/TESTING.md` § Integration boundary guidance. Apply
+  one of two variants: move the whole file when every case crosses the boundary, or split a mixed
+  file, moving the boundary cases to a new integration file while the pure cases keep the default
+  file. Prove placement with lane discovery: default-config discovery no longer lists the moved
+  tests and integration-config discovery does (`ts/TESTING.md` § Lane locators).
+- **Constraints:** coverage moves; it is never deleted. The transformation changes cost placement,
+  not total cost. Before moving, inventory every confidence claim the test makes and name the
+  retained owner of each claim (`ts/TESTING.md` § Cross-product coverage model). Do not leave a
+  token assertion behind in the default lane, such as a check that the moved subject is still
+  exported. That residue was rejected as a variant of this entry; its one recorded instance is the
+  `createTempGitRepo` export check in the sdl-core update cited below. An inert temp-directory
+  fixture is not a real boundary; tests that only read and write scratch files stay default.
+- **Precedent:** whole-file moves in
+  `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-28T195309Z-slot-alias-cli-integration-lane.md`
+  and
+  `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-20T181625Z-vibechk-rebaseline-next-boundary.md`;
+  mixed-file splits in
+  `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-20T184212Z-asdl-core-run-command-integration.md`,
+  `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-28T194006Z-slow-default-test-boundary-cleanup.md`,
+  and
+  `.ns/objectives/standing-test-performance-boundaries/updates/2026-07-01T132808Z-sdk-module-loader-import-smoke-integration.md`.
+  The rejected export-shape residue is recorded in
+  `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-23T230148Z-sdl-core-temp-git-repo-integration-split.md`.

@@ -12,12 +12,17 @@
       fake-registry seam into Substitute Synthetic Fixture; dissolve-mixed-contract-file into Separate
       Static Contract from Dynamic Loading; remediation hierarchy and explicit lane wiring into the
       lane-containment entries' constraints. The procedure family was excluded (see Parked).
-- [~] Disposition item 1 — **Move Real-Boundary Test to Integration**: relocate a real-boundary
-  test (real Git, subprocess, cold runtime, dynamic import) into `test/integration/`; variants:
-  whole-file move, split mixed file, leave export-shape assertion behind. Evidence:
-  `2026-06-20T181625Z-vibechk…`, `2026-06-20T184212Z-asdl-core…`, `2026-06-23T230148Z-sdl-core…`,
-  `2026-06-28T194006Z-slow-default…`, `2026-06-28T195309Z-slot-alias…`, `2026-07-01T132808Z-sdk…`.
-  Presented to the user; awaiting accept/rename/split/drop, then author the entry if accepted.
+- [x] Disposition item 1 — **Move Real-Boundary Test to Integration**: relocate a real-boundary
+      test (real Git, subprocess, cold runtime, dynamic import) into `test/integration/`; variants:
+      whole-file move, split mixed file, leave export-shape assertion behind. Evidence:
+      `2026-06-20T181625Z-vibechk…`, `2026-06-20T184212Z-asdl-core…`, `2026-06-23T230148Z-sdl-core…`,
+      `2026-06-28T194006Z-slow-default…`, `2026-06-28T195309Z-slot-alias…`, `2026-07-01T132808Z-sdk…`.
+      Disposition (2026-08-04): accepted with two variants (whole-file move, split mixed file). The
+      export-shape-residue variant was rejected as a category by user decision — a leftover "still
+      exported" test is residue, not coverage — and the entry records that rejection as a constraint.
+      Entry landed under a provisional `## Test relocation` section; final section naming stays with
+      the structure row. User also directed that every new or edited entry pass through the `de-llm`
+      skill before landing (now in `objective.md` Scope).
 - [ ] Disposition item 2 — **Collapse Matrix to Representative Smoke**: N-case composed matrix
       moves to integration or onto a fake seam; one representative case stays default; per-case
       variation delegated to lower-level coverage. Evidence: `2026-07-07T211556Z-ns-cli-skills-path…`,
