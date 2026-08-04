@@ -15,7 +15,8 @@ Thin substrate helpers may still exist inside a real adapter, fake, or kit gatew
 An extension that consumes an external-tool gateway owns a **Consumer Gateway**: a narrowed interface (a subset of the provider's methods) plus result vocabulary in the extension's own domain terms. The extension owns the vocabulary; the kit owns the provider contract.
 
 - Canonical live examples: `LandGitGateway` (`ts/packages/incubating/extensions/flow/src/land/types.ts`), `GraphiteStackGitGateway` (`ts/packages/public/extension-kit/src/graphite/stack.ts`), and the `Pick` idiom `HandoffGitGateway = Pick<GitGateway, …>` (`ts/packages/incubating/extensions/handoffs/src/core/artifact-storage.ts`).
-- Default: a consumer that uses a handful of `GitGateway` methods should type against a `Pick`-narrowed Consumer Gateway, not the full interface. Widen to the full contract only when the consumer genuinely exercises most of it.
+- Default: a consumer that uses a handful of `GitGateway` methods types against a named `Pick`-narrowed Consumer Gateway. Taking the full provider contract is also legitimate — fakes are canonical, so tests lose nothing; what is banned is the anonymous inline `Pick`.
+- A Consumer Gateway is a **named** type alias — one narrowed identity per consumer scope, reused across that scope's helpers. An ad-hoc anonymous `Pick<…Gateway, …>` in a parameter or field position does not earn its keep: name the identity, take the full provider contract, or inject the single operation as a function parameter.
 
 ## Tier 2 — Kit-owned pure command-shape
 
@@ -75,8 +76,8 @@ ADR 0019 gates **where** a Real gateway implementation lives (which package owns
 ## Avoid
 
 - "consumer port", "domain port", "partial gateway" — say **Consumer Gateway** (root `CONTEXT.md` bans "port" as a noun for these interfaces).
+- ad-hoc anonymous `Pick<…Gateway, …>` in a signature — mint a named Consumer Gateway, take the full contract, or inject the single operation.
 - `ExecGateway` — retired name. Foundation's exec seam keeps its incumbent generic name `CommandExecApi`; incumbent generic names win absent confusion.
-- widening a consumer to the full `GitGateway` "for convenience" when it uses a handful of methods.
 - adding a kit barrel export with one consumer and no explicit justification + demotion trigger.
 - bypassing an established exec/telemetry channel to reuse a gateway object.
 - constructing a real adapter inside domain or workflow logic from a command channel or host API object.
