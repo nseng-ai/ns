@@ -57,6 +57,15 @@ Each rung produces an artifact already named in root `CONTEXT.md`: a plain **DI 
 - **Constraints:** This technique adds a contract, a real adapter, a canonical in-memory fake, composition wiring, and adapter integration coverage. Add these components only when the boundary has multiple domain operations, needs one durable fake across many tests, or has a second consumer. Provide one canonical fake for each gateway. Consumers do not create fakes for individual tests. The word *Introduce* means that you create a new gateway contract. Use **Inject Gateway** when a suitable contract already exists.
 - **Precedent:** One precedent is `PlanStoreGateway` with `InMemoryPlanStoreGateway`. It includes a real-adapter integration smoke in `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-28T201757Z-plans-plan-store-gateway.md`. It also models a domain-specific storage gateway that replaces raw filesystem operations.
 
+## Dependency-injection vocabulary
+
+This repository does not treat "dependency injection" as a design term. It names the *mechanism*
+shared by every rung above; the endorsed design vocabulary is the artifact each rung produces —
+**DI Seam**, **Consumer Gateway**, **Gateway** (root `CONTEXT.md` § Architecture Boundaries).
+Recommending "use dependency injection" without naming a rung is a smell: it invites the banned
+trappings — containers, decorators, `Dependencies`/`Deps`/`Services` bags, `…Loader` noun-types —
+while the actual decision is which rung the boundary has earned.
+
 ---
 
 Deviations: none.

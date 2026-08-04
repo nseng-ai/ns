@@ -233,7 +233,10 @@ and limitations. The reference test is
 
 ## Default-path test expectations
 
-Default-path tests should prefer small fake-driven seams:
+Default-path tests should prefer small fake-driven seams. The named seam-introduction
+transformations — **Inject Dependency**, **Inject Gateway**, **Introduce Gateway** — are cataloged
+in
+[`docs/conventions/test-boundary-refactorings.md`](../docs/conventions/test-boundary-refactorings.md):
 
 - Inject gateways instead of shelling out to real commands.
 - Use in-memory fakes for package-owned storage or process boundaries when possible.
