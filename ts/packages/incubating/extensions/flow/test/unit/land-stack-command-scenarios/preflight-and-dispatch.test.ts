@@ -203,7 +203,7 @@ describe("land-stack command scenarios", () => {
 
 		const exitCode = await runLandCli({
 			cwd: ROOT,
-			rawArgs: "",
+			rawArgs: "--free",
 			exec: async (command, args, options) => await pi.exec(command, args, options),
 			stdout: () => {},
 			stderr: () => {},

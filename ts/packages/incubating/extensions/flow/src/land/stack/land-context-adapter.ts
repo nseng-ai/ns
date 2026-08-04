@@ -137,6 +137,8 @@ export function createLandContext(
 				}),
 			branchChildren: async ({ repoRoot, metadataDbPath, branch }) =>
 				loadBranchChildren({ pi, repoRoot, metadataDbPath, branch }),
+			branchParent: async ({ repoRoot, metadataDbPath, branch }) =>
+				loadBranchParent({ pi, repoRoot, metadataDbPath, branch }),
 		},
 		github: {
 			pullRequestFacts: async ({ repoRoot, branchOrNumber }) => {
@@ -311,6 +313,18 @@ async function loadBranchChildren(options: {
 	if (topology.type === "failure")
 		return normalizeAdapterResult(topology, "graphite", "descendant-maintenance");
 	return landSuccess([...(topology.value.get(options.branch)?.children ?? [])]);
+}
+
+async function loadBranchParent(options: {
+	readonly pi: LandExecutionApi;
+	readonly repoRoot: string;
+	readonly metadataDbPath: string;
+	readonly branch: string;
+}): Promise<LandResult<string | undefined>> {
+	const topology = await loadGraphiteTopology(options.pi, options.repoRoot, options.metadataDbPath);
+	if (topology.type === "failure")
+		return normalizeAdapterResult(topology, "graphite", "descendant-maintenance");
+	return landSuccess(topology.value.get(options.branch)?.parent);
 }
 
 async function prepareSubmitUpdate(options: {

@@ -100,6 +100,7 @@ function eventLabel(event: InMemoryLandCallEvent): string {
 		case "graphite.restack":
 		case "graphite.submitUpdate":
 		case "graphite.branchChildren":
+		case "graphite.branchParent":
 			return `${event.operation}:${event.request.branch}`;
 		case "github.pullRequestFacts":
 			return `${event.operation}:${event.request.branchOrNumber}`;
@@ -234,6 +235,7 @@ describe("merge loop over LandContext", () => {
 				descendantMaintenance: { type: "not-attempted" },
 			},
 			failure: boundaryFailure("snapshot failed"),
+			failedPhase: "merge",
 		});
 		expect(memory.callEvents.map(eventLabel)).toEqual(["git.snapshotBackupRefs:feature-a"]);
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
@@ -362,7 +364,7 @@ describe("merge loop over LandContext", () => {
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 	});
 
-	test("optional maintenance skip continues with a warning", async () => {
+	test("required descendant refresh failure fails the merge loop at the descendant-maintenance phase", async () => {
 		const memory = createInMemoryLandContext({
 			git: {
 				localBranches: [
@@ -398,13 +400,18 @@ describe("merge loop over LandContext", () => {
 		});
 
 		expect(result).toMatchObject({
-			type: "success",
+			type: "failure",
+			failedPhase: "descendant-maintenance",
 			observations: {
 				landed: [{ branch: "feature-a", number: 1 }],
-				warnings: [{ level: "warning" }],
+				descendantMaintenance: { type: "failed" },
 			},
+			failure: { failedBranch: "descendant" },
 		});
+		// The landed branch is not deleted when descendant refresh proof fails.
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
+		expect(memory.graphite.restackCalls).toEqual([]);
+		expect(memory.graphite.submitUpdateCalls).toEqual([]);
 	});
 
 	test("required maintenance halt stops after the landed branch", async () => {

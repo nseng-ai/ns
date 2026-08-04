@@ -631,7 +631,9 @@ describe("land-stack pure helpers", () => {
 		};
 		const formatted = formatPlan(plan);
 		expect(formatted).toContain("Land Graphite stack path: main -> feature-a -> feature-b");
-		expect(formatted).toContain("Will leave open and try to restack/update after target PRs land:");
+		expect(formatted).toContain(
+			"Will leave open and, after target PRs land, restack/update with verified postconditions (required for full completion):",
+		);
 		expect(formatted).toContain("slot-01 feature-a");
 		expect(formatted).toContain(
 			"gh pr merge <number> --squash --match-head-commit <headRefOid> --subject <PR title> --body <PR body>",

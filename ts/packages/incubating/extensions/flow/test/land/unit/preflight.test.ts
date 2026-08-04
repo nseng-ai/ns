@@ -283,7 +283,7 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 		});
 	});
 
-	test("keeps managed landing-slot conflicts in the plan and skips blocked descendant maintenance", async () => {
+	test("keeps managed landing-slot conflicts in the plan and marks blocked descendant maintenance", async () => {
 		const { context } = createInMemoryLandContext({
 			git: { localBranches: [{ name: "feature-a", sha: SHA_A }] },
 			graphite: {
@@ -315,7 +315,7 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 					{ type: "managed-slot", branch: "feature-a", path: "/slot-a", slotName: "slot-a" },
 				],
 				descendantMaintenance: {
-					type: "skipped",
+					type: "blocked",
 					branches: ["feature-child"],
 					conflicts: [{ type: "managed-slot", branch: "feature-child", path: "/slot-child" }],
 				},

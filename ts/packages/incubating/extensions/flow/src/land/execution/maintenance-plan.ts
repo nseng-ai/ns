@@ -1,18 +1,22 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import { LAND_BACKUP_RECOVERY_HINT } from "../graphite-operations.ts";
-import type { DescendantMaintenancePlan, LandingPlan, LandGraphiteRestackScope } from "../types.ts";
-import { landingWarning, type LandingWarning } from "../types.ts";
-import {
-	formatGraphiteOperation,
-	restackOperation,
-	type CheckedOutElsewhere,
-} from "../graphite-operations.ts";
+import type {
+	DescendantMaintenancePlan,
+	LandingExecutionFailure,
+	LandingPlan,
+	LandGraphiteRestackScope,
+} from "../types.ts";
+import type { LandingWarning } from "../types.ts";
+import { landingExecutionFailure } from "../results.ts";
+import type { CheckedOutElsewhere } from "../graphite-operations.ts";
 import { formatConflict, slotNameFromPath } from "../worktree-paths.ts";
 
 export type MaintenanceMode =
 	| "required-next-landing"
-	| "optional-descendants"
+	| "required-descendants"
 	| "none"
-	| "skip-descendant";
+	| "blocked-descendants";
 
 export type MaintenanceSeverity = "fail" | "warn";
 
@@ -23,13 +27,18 @@ export interface MaintenanceTargetPlan {
 	readonly refreshCheckedOutConflictHandling: "defer" | "fail";
 	readonly deleteCheckedOutConflictHandling: "retain" | "fail";
 	readonly skippedScopeText: (branch: string) => string;
-	readonly isOptionalDescendant: boolean;
+	readonly isDescendantRoot: boolean;
 	readonly shouldHaltOnRefreshFailure: boolean;
 }
 
 export interface BranchMaintenanceWarning {
 	readonly branch: string;
 	readonly warning: LandingWarning;
+}
+
+export interface BranchMaintenanceFailure {
+	readonly branch: string;
+	readonly failure: LandingExecutionFailure;
 }
 
 export function planGraphiteMaintenanceTargets(
@@ -52,12 +61,12 @@ export function planGraphiteMaintenanceTargets(
 
 	if (plan.descendantMaintenance.type === "auto") {
 		return buildMaintenanceTargetPlan(
-			"optional-descendants",
+			"required-descendants",
 			plan.descendantMaintenance.targetBranches,
 		);
 	}
-	if (plan.descendantMaintenance.type === "skipped") {
-		return buildMaintenanceTargetPlan("skip-descendant", []);
+	if (plan.descendantMaintenance.type === "blocked") {
+		return buildMaintenanceTargetPlan("blocked-descendants", []);
 	}
 	return buildMaintenanceTargetPlan("none", []);
 }
@@ -65,7 +74,7 @@ export function planGraphiteMaintenanceTargets(
 export function scopeForMaintenanceRestack(
 	maintenance: MaintenanceTargetPlan,
 ): LandGraphiteRestackScope {
-	return maintenance.isOptionalDescendant ? "upstack" : "branch-only";
+	return maintenance.isDescendantRoot ? "upstack" : "branch-only";
 }
 
 export function shouldRefreshExpectedShasAfterRestack(maintenance: MaintenanceTargetPlan): boolean {
@@ -94,77 +103,72 @@ export function refreshTargetsAfterMaintainedBranch(
 	return [next];
 }
 
-export function skippedDescendantMaintenanceWarning(
+/**
+ * Required completion failure for a landing whose descendants were disclosed as blocked by other
+ * worktree checkouts. The parent merge was explicitly consented to, but the landing is only
+ * partially complete: nothing was mutated in the blocked checkouts and the landed local branch
+ * was retained.
+ */
+export function blockedDescendantMaintenanceFailure(
 	plan: LandingPlan,
 	branch: string,
-): LandingWarning {
+	prNumber: number,
+): LandingExecutionFailure {
 	const maintenance = plan.descendantMaintenance;
-	if (maintenance.type !== "skipped") {
-		return landingWarning({
-			message: `Descendant restack/update was skipped for ${branch}.`,
-			suggestedAction: "Inspect the stack and update descendant PRs manually if needed.",
-		});
+	if (maintenance.type !== "blocked") {
+		return landingExecutionFailure(
+			`PR #${prNumber} merged, but required descendant reconciliation for ${branch} could not run.`,
+			{
+				failedBranch: branch,
+				failedPrNumber: prNumber,
+				suggestedAction: `Inspect the stack, restack/update descendant PRs manually, and delete local branch ${branch} when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
+			},
+		);
 	}
 
 	const conflictText = maintenance.conflicts.map(formatConflict).join("; ");
-	return landingWarning({
-		message: `Final local Graphite cleanup for ${branch} and descendant restack/update were skipped because ${maintenance.reason}: ${conflictText}.`,
-		suggestedAction: `Detach or free the descendant worktrees, then restack/update ${maintenance.branches.join(", ")} and delete local branch ${branch} manually if appropriate.`,
-		notificationAction: skippedDescendantNotificationAction(maintenance),
-	});
-}
-
-interface OptionalDescendantRefreshDeferredWarningOptions {
-	readonly descendantBranch: string;
-	readonly landedBranch: string;
-	readonly getCommandDisplay: string;
-	readonly checkoutConflict: CheckedOutElsewhere;
-}
-
-export function optionalDescendantRefreshDeferredWarning(
-	options: OptionalDescendantRefreshDeferredWarningOptions,
-): LandingWarning {
-	const { descendantBranch, landedBranch, getCommandDisplay, checkoutConflict } = options;
-	const restackCommandDisplay = formatGraphiteOperation(
-		restackOperation({ branch: descendantBranch, scope: "upstack" }),
+	return landingExecutionFailure(
+		`PR #${prNumber} merged, but descendant maintenance was deferred because ${maintenance.reason}: ${conflictText}. Descendant branches ${maintenance.branches.join(", ")} were not restacked or updated, and local branch ${branch} was retained; the landing is only partially complete.`,
+		{
+			failedBranch: branch,
+			failedPrNumber: prNumber,
+			suggestedAction: `${blockedDescendantRepairAction(maintenance)} Then delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
+		},
 	);
-	const submitCommandDisplay = formatGraphiteOperation({
-		kind: "submit-update",
-		branch: descendantBranch,
-	});
-	return {
-		level: "info",
-		message: `Optional descendant restack/update was deferred because Graphite could not refresh descendant branch ${descendantBranch}: ${formatCheckedOutElsewhere(checkoutConflict)}.`,
-		suggestedAction: `When convenient, switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch} or run the Graphite refresh from that checkout, then run ${getCommandDisplay}, ${restackCommandDisplay}, and ${submitCommandDisplay} if appropriate. Delete local branch ${landedBranch} manually when safe.`,
-	};
 }
 
-export function aggregateOptionalDescendantMaintenanceWarnings(options: {
-	readonly warnings: readonly BranchMaintenanceWarning[];
+/**
+ * One aggregated failure for required descendant reconciliation across multiple roots. Every
+ * attempted root's branch-specific failure is preserved so no later failure hides an earlier one.
+ */
+export function aggregateDescendantReconciliationFailure(options: {
+	readonly failures: readonly BranchMaintenanceFailure[];
 	readonly landedBranch: string;
+	readonly landedPrNumber: number;
 	readonly targetBranches: readonly string[];
-	readonly cleanupState: "skipped" | "completed";
-}): LandingWarning {
-	const { warnings, landedBranch, targetBranches, cleanupState } = options;
-	if (warnings.length === 1) {
-		const [onlyWarning] = warnings;
-		if (onlyWarning !== undefined) return onlyWarning.warning;
-	}
-	const constituentWarnings = warnings.map(({ warning }) => warning);
-	const isOnlyInformational = constituentWarnings.every((warning) => warning.level === "info");
-	const affectedRoots = warnings.map(({ branch }) => branch);
+	readonly landedBranchCleanupState: "retained" | "deleted";
+}): LandingExecutionFailure {
+	const { failures, landedBranch, landedPrNumber, targetBranches, landedBranchCleanupState } =
+		options;
+	const onlyFailure = failures.length === 1 ? failures[0] : undefined;
+	if (onlyFailure !== undefined) return onlyFailure.failure;
+
+	const affectedRoots = failures.map(({ branch }) => branch);
 	const cleanupText =
-		cleanupState === "skipped"
-			? `local branch ${landedBranch} cleanup and descendant restack/update were skipped`
-			: `local branch ${landedBranch} cleanup may already have completed; optional descendant restack/update did not complete`;
-	return {
-		level: isOnlyInformational ? "info" : "warning",
-		message: [
-			`All target PRs were merged, but optional descendant maintenance did not complete for ${affectedRoots.join(", ")}; ${cleanupText}.`,
-			...constituentWarnings.map((warning) => `- ${warning.message}`),
+		landedBranchCleanupState === "retained"
+			? `local branch ${landedBranch} was retained`
+			: `local branch ${landedBranch} was already deleted`;
+	return landingExecutionFailure(
+		[
+			`All target PRs were merged, but required descendant reconciliation failed for ${affectedRoots.join(", ")}; ${cleanupText}.`,
+			...failures.map(({ failure }) => `- ${failure.message}`),
 		].join("\n"),
-		suggestedAction: `Inspect descendant roots ${targetBranches.join(", ")}, restack/update them manually as needed${cleanupState === "skipped" ? `, and delete local branch ${landedBranch} manually when safe` : ""}. ${LAND_BACKUP_RECOVERY_HINT}`,
-	};
+		{
+			...optionalEntry("failedBranch", affectedRoots[0]),
+			failedPrNumber: landedPrNumber,
+			suggestedAction: `Inspect descendant roots ${targetBranches.join(", ")}, restack/update them manually, and verify each PR head and base on GitHub${landedBranchCleanupState === "retained" ? `; delete local branch ${landedBranch} manually when safe` : ""}. ${LAND_BACKUP_RECOVERY_HINT}`,
+		},
+	);
 }
 
 export function formatCheckedOutElsewhere(checkoutConflict: CheckedOutElsewhere): string {
@@ -233,19 +237,19 @@ function buildMaintenanceTargetPlan(
 				refreshCheckedOutConflictHandling: "fail",
 				deleteCheckedOutConflictHandling: "fail",
 				skippedScopeText: localCleanupOnlyScopeText,
-				isOptionalDescendant: false,
+				isDescendantRoot: false,
 				shouldHaltOnRefreshFailure: true,
 			};
-		case "optional-descendants":
+		case "required-descendants":
 			return {
 				mode,
-				severity: "warn",
+				severity: "fail",
 				branches,
 				refreshCheckedOutConflictHandling: "defer",
 				deleteCheckedOutConflictHandling: "fail",
 				skippedScopeText: localCleanupAndDescendantScopeText,
-				isOptionalDescendant: true,
-				shouldHaltOnRefreshFailure: false,
+				isDescendantRoot: true,
+				shouldHaltOnRefreshFailure: true,
 			};
 		case "none":
 			return {
@@ -255,18 +259,18 @@ function buildMaintenanceTargetPlan(
 				refreshCheckedOutConflictHandling: "fail",
 				deleteCheckedOutConflictHandling: "retain",
 				skippedScopeText: localCleanupOnlyScopeText,
-				isOptionalDescendant: false,
+				isDescendantRoot: false,
 				shouldHaltOnRefreshFailure: false,
 			};
-		case "skip-descendant":
+		case "blocked-descendants":
 			return {
 				mode,
-				severity: "warn",
+				severity: "fail",
 				branches,
 				refreshCheckedOutConflictHandling: "fail",
 				deleteCheckedOutConflictHandling: "fail",
 				skippedScopeText: localCleanupAndDescendantScopeText,
-				isOptionalDescendant: true,
+				isDescendantRoot: true,
 				shouldHaltOnRefreshFailure: false,
 			};
 		default:
@@ -291,8 +295,8 @@ function refreshTargetOrder(plan: LandingPlan): readonly string[] {
 	];
 }
 
-function skippedDescendantNotificationAction(
-	maintenance: Extract<DescendantMaintenancePlan, { type: "skipped" }>,
+export function blockedDescendantRepairAction(
+	maintenance: Extract<DescendantMaintenancePlan, { type: "blocked" }>,
 ): string {
 	const branches = maintenance.branches.join(", ");
 	const conflict = maintenance.conflicts[0];

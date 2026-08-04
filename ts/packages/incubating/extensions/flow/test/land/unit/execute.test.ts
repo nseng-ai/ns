@@ -407,7 +407,7 @@ describe("land execute mode over in-memory gateways", () => {
 		});
 	});
 
-	test("returns optional descendant maintenance warnings with a skipped observed phase", async () => {
+	test("worktree-blocked descendants finish as a failed partial completion after consented merge", async () => {
 		const descendant = "feature-child";
 		const memory = createInMemoryLandContext(
 			linearState({
@@ -440,15 +440,36 @@ describe("land execute mode over in-memory gateways", () => {
 			host: approvedHost(),
 		});
 
-		expect(outcome).toMatchObject({ type: "completed" });
-		if (outcome.type !== "completed") return;
-		expect(outcome.report.warnings).toHaveLength(1);
-		expect(outcome.report.warnings[0]?.message).toContain("descendant restack/update were skipped");
-		expect(phaseByName(outcome.report, "descendant-maintenance")).toMatchObject({
-			type: "skipped",
-			reason: "descendant branches are checked out elsewhere",
+		expect(outcome).toMatchObject({
+			type: "failed",
+			failedPhase: "descendant-maintenance",
+			failure: {
+				type: "execution",
+				failedBranch: BRANCH,
+				failedPrNumber: 101,
+			},
 		});
+		if (outcome.type !== "failed") return;
+		// Landed facts are retained even though the execution failed.
+		expect(outcome.report.landedChunks).toEqual([
+			{
+				index: 0,
+				landingTargetBranch: BRANCH,
+				landed: [{ branch: BRANCH, number: 101, title: "PR 101" }],
+			},
+		]);
+		expect(phaseByName(outcome.report, "merge")).toMatchObject({ type: "completed" });
+		expect(phaseByName(outcome.report, "descendant-maintenance")).toMatchObject({
+			type: "failed",
+		});
+		const failureMessage = outcome.failure.type === "execution" ? outcome.failure.message : "";
+		expect(failureMessage).toContain("deferred");
+		expect(failureMessage).toContain(descendant);
+		// The blocked descendant checked out elsewhere is never mutated.
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
+		expect(memory.graphite.restackCalls).toEqual([]);
+		expect(memory.graphite.submitUpdateCalls).toEqual([]);
+		expect(memory.graphite.refreshBranchFromRemoteCalls).toEqual([]);
 	});
 
 	test("reports completed descendant maintenance from observed operations", async () => {
@@ -469,6 +490,7 @@ describe("land execute mode over in-memory gateways", () => {
 						descendantBranches: [descendant],
 						descendantRootBranches: [descendant],
 					}),
+					branchParents: { [descendant]: "main" },
 				},
 				github: {
 					pullRequests: [
@@ -526,6 +548,62 @@ describe("land execute mode over in-memory gateways", () => {
 			},
 		});
 	});
+
+	test.each([
+		{ policy: "preserve", expectedDeletedBranches: [] },
+		{ policy: "free", expectedDeletedBranches: [BRANCH, "feature-b"] },
+	] as const)(
+		"$policy applies to every landed branch in a multi-branch stack",
+		async ({ policy, expectedDeletedBranches }) => {
+			const branchB = "feature-b";
+			const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+			const memory = createInMemoryLandContext({
+				git: {
+					repoRoot: ROOT,
+					currentBranch: branchB,
+					localBranches: [
+						{ name: BRANCH, sha: SHA },
+						{ name: branchB, sha: shaB },
+					],
+				},
+				graphite: {
+					stackShape: stackSnapshot({
+						current: branchB,
+						actualCurrentBranch: branchB,
+						landingTargetBranch: branchB,
+						landingBranches: [BRANCH, branchB],
+					}),
+				},
+				github: {
+					pullRequests: [
+						pullRequestFacts({ number: 101, headRefName: BRANCH, headRefOid: SHA }),
+						pullRequestFacts({
+							number: 102,
+							headRefName: branchB,
+							headRefOid: shaB,
+							baseRefName: "main",
+						}),
+					],
+				},
+			});
+
+			const outcome = await executeLanding({
+				context: memory.context,
+				source: { type: "discover" },
+				request: executeRequest({ cleanup: policy }),
+				host: approvedHost(),
+			});
+
+			expect(outcome).toMatchObject({ type: "completed" });
+			expect(memory.graphite.deleteLocalBranchCalls.map((call) => call.branch)).toEqual(
+				expectedDeletedBranches,
+			);
+			if (outcome.type !== "completed") return;
+			expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual(
+				expectedDeletedBranches,
+			);
+		},
+	);
 
 	test("retains the first landed chunk and observed cleanup when a later merge fails", async () => {
 		const branchB = "feature-b";

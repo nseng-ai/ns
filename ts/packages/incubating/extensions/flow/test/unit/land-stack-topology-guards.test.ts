@@ -249,7 +249,7 @@ async function runLandStack(
 }> {
 	const pi = new FakeLandExecutionApi(script);
 	const context = createContext(contextOptions);
-	const parsedArgs = expectSuccess(parseArgs(args));
+	const parsedArgs = expectSuccess(parseArgs(args.includes("--free") ? args : `${args} --free`));
 	await executeStackLanding(pi, context.ctx, parsedArgs);
 	return { pi, messages: pi.messages, ...context };
 }
@@ -531,7 +531,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		pi.assertDone();
 		expect(notifications[0]?.level).toBe("info");
 		expect(notifications[0]?.message).toContain(
-			"Will leave open and try to restack/update after target PRs land:",
+			"Will leave open and, after target PRs land, restack/update with verified postconditions (required for full completion):",
 		);
 		expect(notifications[0]?.message).toContain("feature-c");
 		expect(notifications[0]?.message).toContain("feature-d");

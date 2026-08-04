@@ -1,4 +1,18 @@
+// Post-merge Graphite maintenance.
+//
+// Two flows share the guard/refresh/delete primitives:
+//
+// - Next-landing maintenance keeps the remaining landing path mergeable after each merged PR.
+// - Descendant reconciliation is a required completion postcondition after the final target PR
+//   merges: every descendant root must be proven locally restacked onto refreshed trunk, placed
+//   directly above trunk in provider topology, and current on GitHub. A zero-exit `gt restack`
+//   or `gt submit` is evidence that the command ran, not proof of the postcondition.
+//
+// Callers receive one proceed/skip/halt outcome per landed branch; halts carry the landing phase
+// they should be attributed to (`descendant-maintenance` vs `merge-maintenance-cleanup`).
+
 import type { ExecResult } from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { shortSha } from "../../commit-display/index.ts";
 import { LAND_BACKUP_RECOVERY_HINT, parseGitCheckedOutElsewhere } from "../graphite-operations.ts";
 import { validateOpenPrBasics } from "../preflight.ts";
@@ -14,17 +28,16 @@ import { landingWarning } from "../types.ts";
 import type { LandExecutionMessageProgress } from "./host-seams.ts";
 import type { MergeLoopState } from "./merge-loop.ts";
 import {
-	aggregateOptionalDescendantMaintenanceWarnings,
+	aggregateDescendantReconciliationFailure,
+	blockedDescendantMaintenanceFailure,
 	formatCheckedOutElsewhere,
 	formatRestackFailureMessage,
 	formatSubmitFailureMessage,
-	optionalDescendantRefreshDeferredWarning,
 	planGraphiteMaintenanceTargets,
 	refreshTargetsAfterMaintainedBranch,
 	scopeForMaintenanceRestack,
 	shouldRefreshExpectedShasAfterRestack,
-	skippedDescendantMaintenanceWarning,
-	type BranchMaintenanceWarning,
+	type BranchMaintenanceFailure,
 	type MaintenanceSeverity,
 	type MaintenanceTargetPlan,
 } from "./maintenance-plan.ts";
@@ -38,24 +51,20 @@ interface GraphiteMaintenanceStep {
 	readonly state: MergeLoopState;
 }
 
+/** Phase a post-merge maintenance halt is attributed to in the landing report. */
+export type MaintenanceHaltPhase = "descendant-maintenance" | "merge-maintenance-cleanup";
+
 type GraphiteMaintenanceOutcome =
 	| { kind: "proceed" }
 	| { kind: "skip"; warning?: LandingWarning }
 	| { kind: "halt"; failure: LandingExecutionFailure };
 
+export type PerformedGraphiteMaintenance =
+	| { kind: "proceed" }
+	| { kind: "skip"; warning?: LandingWarning }
+	| { kind: "halt"; failure: LandingExecutionFailure; phase: MaintenanceHaltPhase };
+
 type GraphiteMaintenanceStop = Extract<GraphiteMaintenanceOutcome, { kind: "halt" | "skip" }>;
-type GraphiteMaintenanceHalt = Extract<GraphiteMaintenanceOutcome, { kind: "halt" }>;
-type MaintenanceStepControl = "proceed" | "continue" | GraphiteMaintenanceHalt;
-
-interface AppliedMaintenanceStep {
-	readonly warnings: readonly BranchMaintenanceWarning[];
-	readonly control: MaintenanceStepControl;
-}
-
-interface MaintenanceStepRecorder {
-	readonly getWarnings: () => readonly BranchMaintenanceWarning[];
-	readonly apply: (outcome: RecordableMaintenanceOutcome, branch: string) => MaintenanceStepControl;
-}
 
 function failOrWarn(
 	severity: MaintenanceSeverity,
@@ -68,6 +77,7 @@ function failOrWarn(
 interface GraphiteRefreshFailureOptions {
 	prNumber: number;
 	maintenanceBranch: string;
+	branchRole: string;
 	getCommandDisplay: string;
 	got: ExecResult;
 }
@@ -75,11 +85,11 @@ interface GraphiteRefreshFailureOptions {
 function graphiteRefreshFailure(
 	failureOptions: GraphiteRefreshFailureOptions,
 ): LandingExecutionFailure {
-	const { prNumber, maintenanceBranch, getCommandDisplay, got } = failureOptions;
+	const { prNumber, maintenanceBranch, branchRole, getCommandDisplay, got } = failureOptions;
 	const checkoutConflict = parseGitCheckedOutElsewhere(got);
 	if (checkoutConflict) {
 		return landingExecutionFailure(
-			`PR #${prNumber} merged, but Graphite could not refresh next landing branch ${maintenanceBranch}: ${formatCheckedOutElsewhere(checkoutConflict)}.`,
+			`PR #${prNumber} merged, but Graphite could not refresh ${branchRole} ${maintenanceBranch}: ${formatCheckedOutElsewhere(checkoutConflict)}.`,
 			{
 				displayCommand: getCommandDisplay,
 				execResult: got,
@@ -102,7 +112,7 @@ interface PerformGraphiteMaintenanceOptions {
 	readonly progress: GraphiteMaintenanceProgress;
 	readonly plan: LandingPlan;
 	readonly step: GraphiteMaintenanceStep;
-	readonly deferredDeletionBranch?: string;
+	readonly shouldDeferLandedBranchDeletion?: boolean;
 }
 
 interface MaintenanceOperationInput {
@@ -125,57 +135,378 @@ type SubmitMaintenanceCheckOutcome =
 	| { kind: "skip-submit" }
 	| GraphiteMaintenanceStop;
 
-type RecordableMaintenanceOutcome =
-	| GraphiteMaintenanceOutcome
-	| SubmitMaintenanceCheckOutcome
-	| undefined;
-
-function applyMaintenanceStep(options: {
-	readonly outcome: RecordableMaintenanceOutcome;
-	readonly branch: string;
-	readonly warnings: readonly BranchMaintenanceWarning[];
-}): AppliedMaintenanceStep {
-	const { outcome, branch, warnings } = options;
-	if (outcome === undefined) return { warnings, control: "proceed" };
-	switch (outcome.kind) {
-		case "proceed":
-		case "submit":
-		case "skip-submit":
-			return { warnings, control: "proceed" };
-		case "halt":
-			return { warnings, control: outcome };
-		case "skip":
-			return {
-				warnings:
-					outcome.warning === undefined
-						? warnings
-						: [...warnings, { branch, warning: outcome.warning }],
-				control: "continue",
-			};
-		default:
-			assertNever(outcome);
-	}
-}
-
-function createMaintenanceStepRecorder(): MaintenanceStepRecorder {
-	let warnings: readonly BranchMaintenanceWarning[] = [];
-	return {
-		getWarnings() {
-			return warnings;
-		},
-		apply(outcome, branch) {
-			const step = applyMaintenanceStep({ outcome, branch, warnings });
-			warnings = step.warnings;
-			return step.control;
-		},
-	};
-}
-
 function withMaintenanceBranch(
 	operationInput: MaintenanceOperationInput,
 	maintenanceBranch: string,
 ): MaintenanceBranchOperationInput {
 	return { ...operationInput, maintenanceBranch };
+}
+
+export async function performGraphiteMaintenance(
+	maintenanceOptions: PerformGraphiteMaintenanceOptions,
+): Promise<PerformedGraphiteMaintenance> {
+	const { landContext, progress, plan, step } = maintenanceOptions;
+	const { repoRoot } = plan;
+	const { index, branch, prNumber, state } = step;
+	const maintenance = planGraphiteMaintenanceTargets(plan, index);
+	const shouldDeferLandedBranchDeletion =
+		maintenanceOptions.shouldDeferLandedBranchDeletion ?? false;
+
+	if (maintenance.mode === "blocked-descendants") {
+		// The main confirmation (or --yes) disclosed and consented to the deferred maintenance;
+		// the landing is still only partially complete, so this is a failed postcondition, not a
+		// warning. Nothing checked out elsewhere is mutated and the landed local branch is kept.
+		return {
+			kind: "halt",
+			phase: "descendant-maintenance",
+			failure: blockedDescendantMaintenanceFailure(plan, branch, prNumber),
+		};
+	}
+
+	const operationInput: MaintenanceOperationInput = {
+		landContext,
+		progress,
+		repoRoot,
+		plan,
+		prNumber,
+		landedBranch: branch,
+		state,
+		maintenance,
+	};
+
+	if (maintenance.mode === "required-descendants") {
+		return await reconcileDescendantRoots(operationInput, shouldDeferLandedBranchDeletion);
+	}
+
+	const outcome = await maintainNextLandingBranches(
+		operationInput,
+		shouldDeferLandedBranchDeletion,
+	);
+	if (outcome.kind === "halt") return { ...outcome, phase: "merge-maintenance-cleanup" };
+	return outcome;
+}
+
+/** Maintenance for `required-next-landing` and `none` modes: refresh/delete/restack/submit. */
+async function maintainNextLandingBranches(
+	operationInput: MaintenanceOperationInput,
+	shouldDeferLandedBranchDeletion: boolean,
+): Promise<GraphiteMaintenanceOutcome> {
+	const { maintenance, progress } = operationInput;
+	for (const maintenanceBranch of maintenance.branches) {
+		const branchOperationContext = withMaintenanceBranch(operationInput, maintenanceBranch);
+		const guard = await guardMaintenanceBranch(branchOperationContext);
+		if (guard !== undefined) return guard;
+		const refresh = await refreshMaintenanceBranch(branchOperationContext);
+		if (refresh !== undefined) return refresh;
+	}
+
+	if (!shouldDeferLandedBranchDeletion) {
+		const deleteCheck = await checkGraphiteBranchBeforeDelete(operationInput);
+		if (deleteCheck !== undefined) return deleteCheck;
+
+		const deletion = await deleteLocalGraphiteBranchAfterLanding(operationInput);
+		if (deletion.kind !== "proceed") return deletion;
+	}
+
+	for (const maintenanceBranch of maintenance.branches) {
+		const branchOperationContext = withMaintenanceBranch(operationInput, maintenanceBranch);
+		const restacked = await restackMaintenanceBranch(branchOperationContext);
+		if (restacked.kind !== "proceed") return restacked;
+
+		const submitCheck = await checkSubmitMaintenanceBranch(branchOperationContext);
+		if (submitCheck.kind === "halt" || submitCheck.kind === "skip") return submitCheck;
+
+		const refreshExpected = await refreshExpectedShaAfterRestack(branchOperationContext);
+		if (refreshExpected) return refreshExpected;
+
+		if (submitCheck.kind === "skip-submit") {
+			progress.note(`Skipped gt submit for ${maintenanceBranch}; PR metadata already current.`);
+			continue;
+		}
+
+		progress.setStatus(`submitting ${maintenanceBranch}...`);
+		const submitted = await submitMaintenanceBranch(branchOperationContext);
+		if (submitted.kind !== "proceed") return submitted;
+	}
+
+	return { kind: "proceed" };
+}
+
+/**
+ * Required descendant reconciliation with verified postconditions.
+ *
+ * Order per landed branch: guard + refresh every root first; delete the landed local branch only
+ * when every root proved refreshable and the pre-delete child re-check passed; then per root:
+ * restack, prove local trunk ancestry and provider topology, publish when remote facts are not
+ * already proven current, and re-verify GitHub facts after submit. Root failures are collected
+ * and aggregated so one root's failure never hides another's, and are returned as a halt so the
+ * landing finishes as a failed partial completion rather than a warning-grade success.
+ */
+async function reconcileDescendantRoots(
+	operationInput: MaintenanceOperationInput,
+	shouldDeferLandedBranchDeletion: boolean,
+): Promise<PerformedGraphiteMaintenance> {
+	const { maintenance, state, landedBranch } = operationInput;
+	const refreshFailures: BranchMaintenanceFailure[] = [];
+	for (const maintenanceBranch of maintenance.branches) {
+		const branchOperationContext = withMaintenanceBranch(operationInput, maintenanceBranch);
+		const guard = await guardMaintenanceBranch(branchOperationContext);
+		if (guard !== undefined) {
+			refreshFailures.push({ branch: maintenanceBranch, failure: stopFailure(guard) });
+			continue;
+		}
+		const refresh = await refreshMaintenanceBranch(branchOperationContext);
+		if (refresh !== undefined) {
+			refreshFailures.push({ branch: maintenanceBranch, failure: stopFailure(refresh) });
+		}
+	}
+	if (refreshFailures.length > 0) {
+		return descendantReconciliationHalt(operationInput, refreshFailures, "retained");
+	}
+
+	if (!shouldDeferLandedBranchDeletion) {
+		const deleteCheck = await checkGraphiteBranchBeforeDelete(operationInput);
+		if (deleteCheck !== undefined) {
+			return descendantReconciliationHalt(
+				operationInput,
+				[{ branch: landedBranch, failure: stopFailure(deleteCheck) }],
+				"retained",
+			);
+		}
+		const deletion = await deleteLocalGraphiteBranchAfterLanding(operationInput);
+		if (deletion.kind !== "proceed") {
+			return descendantReconciliationHalt(
+				operationInput,
+				[{ branch: landedBranch, failure: stopFailure(deletion) }],
+				"retained",
+			);
+		}
+	}
+	const landedBranchCleanupState = state.deletedBranches.has(landedBranch) ? "deleted" : "retained";
+
+	const reconcileFailures: BranchMaintenanceFailure[] = [];
+	for (const maintenanceBranch of maintenance.branches) {
+		const branchOperationContext = withMaintenanceBranch(operationInput, maintenanceBranch);
+		const failure = await reconcileDescendantRoot(branchOperationContext);
+		if (failure !== undefined) reconcileFailures.push({ branch: maintenanceBranch, failure });
+	}
+	if (reconcileFailures.length > 0) {
+		return descendantReconciliationHalt(
+			operationInput,
+			reconcileFailures,
+			landedBranchCleanupState,
+		);
+	}
+	return { kind: "proceed" };
+}
+
+/** Reconcile one descendant root; returns the branch-specific failure when any step or proof fails. */
+async function reconcileDescendantRoot(
+	options: MaintenanceBranchOperationInput,
+): Promise<LandingExecutionFailure | undefined> {
+	const { landContext, progress, repoRoot, plan, prNumber, maintenanceBranch, state } = options;
+	const trunk = plan.stack.trunk;
+
+	progress.setStatus(`restacking ${maintenanceBranch}...`);
+	const restacked = await landContext.graphite.restack({
+		repoRoot,
+		branch: maintenanceBranch,
+		scope: scopeForMaintenanceRestack(options.maintenance),
+	});
+	if (restacked.type === "failure") {
+		return landingExecutionFailure(
+			`PR #${prNumber} merged, but restack failed for descendant root ${maintenanceBranch}.`,
+			{
+				displayCommand: restacked.commandDisplay,
+				execResult: restacked.result,
+				failedBranch: maintenanceBranch,
+				suggestedAction: `Resolve restack failures for ${maintenanceBranch}, restack it onto ${trunk}, then submit/update its PR. ${LAND_BACKUP_RECOVERY_HINT}`,
+			},
+		);
+	}
+
+	progress.setStatus(`verifying ${maintenanceBranch}...`);
+	const postRestackSha = await landContext.git.localBranchSha({
+		repoRoot,
+		branch: maintenanceBranch,
+	});
+	if (postRestackSha.type === "failure") {
+		return landingExecutionFailure(
+			`PR #${prNumber} merged, but could not re-read local branch ${maintenanceBranch} after restack.\n${postRestackSha.failure.message}`,
+			{
+				failedBranch: maintenanceBranch,
+				suggestedAction: `Inspect local branch ${maintenanceBranch}, then restack/update it manually if needed. ${LAND_BACKUP_RECOVERY_HINT}`,
+			},
+		);
+	}
+	state.expectedShas.set(maintenanceBranch, postRestackSha.value);
+
+	const containsTrunk = await landContext.git.branchContainsParent({
+		repoRoot,
+		branch: maintenanceBranch,
+		parent: trunk,
+	});
+	if (containsTrunk.type === "failure") {
+		return landingExecutionFailure(
+			`PR #${prNumber} merged, but could not verify that ${maintenanceBranch} contains refreshed trunk ${trunk} after restack.\n${containsTrunk.failure.message}`,
+			{
+				failedBranch: maintenanceBranch,
+				suggestedAction: `Inspect ${maintenanceBranch}, restack it onto ${trunk} manually, then submit/update its PR. ${LAND_BACKUP_RECOVERY_HINT}`,
+			},
+		);
+	}
+	if (!containsTrunk.value) {
+		return landingExecutionFailure(
+			`PR #${prNumber} merged and gt restack exited 0, but descendant root ${maintenanceBranch} still does not contain refreshed trunk ${trunk}; refusing to treat the restack as complete.`,
+			{
+				failedBranch: maintenanceBranch,
+				suggestedAction: `Restack ${maintenanceBranch} onto ${trunk} manually, verify its history, then submit/update its PR. ${LAND_BACKUP_RECOVERY_HINT}`,
+			},
+		);
+	}
+
+	const providerParent = await landContext.graphite.branchParent({
+		repoRoot,
+		metadataDbPath: plan.metadataDbPath,
+		branch: maintenanceBranch,
+	});
+	if (providerParent.type === "failure") {
+		return landingExecutionFailure(
+			`PR #${prNumber} merged, but could not verify provider topology for ${maintenanceBranch} after restack.\n${providerParent.failure.message}`,
+			{
+				failedBranch: maintenanceBranch,
+				suggestedAction: `Inspect the stack topology for ${maintenanceBranch}, reparent it onto ${trunk} if needed, then submit/update its PR. ${LAND_BACKUP_RECOVERY_HINT}`,
+			},
+		);
+	}
+	if (providerParent.value !== trunk) {
+		return landingExecutionFailure(
+			`PR #${prNumber} merged and gt restack exited 0, but provider topology still reports ${maintenanceBranch} parented on ${providerParent.value ?? "(untracked)"}, expected ${trunk}.`,
+			{
+				failedBranch: maintenanceBranch,
+				suggestedAction: `Reparent ${maintenanceBranch} onto ${trunk} (for example gt move --onto ${trunk}), restack, then submit/update its PR. ${LAND_BACKUP_RECOVERY_HINT}`,
+			},
+		);
+	}
+
+	const preSubmitFacts = await loadDescendantRootPrFacts(options, "before submit");
+	if (preSubmitFacts.kind === "failure") return preSubmitFacts.failure;
+	if (isRemotePrProvenCurrent(preSubmitFacts.pr, maintenanceBranch, postRestackSha.value, trunk)) {
+		progress.note(
+			`Skipped gt submit for ${maintenanceBranch}; remote PR facts already match the reconciled state.`,
+		);
+		return undefined;
+	}
+
+	progress.setStatus(`submitting ${maintenanceBranch}...`);
+	// Post-merge reconciliation restacks after a landed PR, so the remote PR branch may still be
+	// on old stack history; the forced submit intentionally overwrites the stale remote head.
+	const submitted = await landContext.graphite.submitUpdate({
+		repoRoot,
+		branch: maintenanceBranch,
+		force: true,
+	});
+	if (submitted.type === "failure") {
+		return landingExecutionFailure(
+			`PR #${prNumber} merged, but submit/update failed for descendant root ${maintenanceBranch}.`,
+			{
+				displayCommand: submitted.commandDisplay,
+				execResult: submitted.result,
+				failedBranch: maintenanceBranch,
+				suggestedAction: `Update PR for ${maintenanceBranch} manually, verify it targets ${trunk}, and verify its head on GitHub. ${LAND_BACKUP_RECOVERY_HINT}`,
+			},
+		);
+	}
+
+	const postSubmitFacts = await loadDescendantRootPrFacts(options, "after submit");
+	if (postSubmitFacts.kind === "failure") return postSubmitFacts.failure;
+	if (
+		!isRemotePrProvenCurrent(postSubmitFacts.pr, maintenanceBranch, postRestackSha.value, trunk)
+	) {
+		return landingExecutionFailure(
+			`PR #${prNumber} merged and gt submit exited 0, but GitHub facts for ${maintenanceBranch} remain stale: state ${postSubmitFacts.pr.state}, head ${postSubmitFacts.pr.headRefName} at ${shortSha(postSubmitFacts.pr.headRefOid)} (expected ${shortSha(postRestackSha.value)}), base ${postSubmitFacts.pr.baseRefName} (expected ${trunk}).`,
+			{
+				failedBranch: maintenanceBranch,
+				failedPrNumber: postSubmitFacts.pr.number,
+				suggestedAction: `Update the PR for ${maintenanceBranch} manually and verify its head and base on GitHub. ${LAND_BACKUP_RECOVERY_HINT}`,
+			},
+		);
+	}
+	return undefined;
+}
+
+type DescendantRootPrFacts =
+	| { readonly kind: "facts"; readonly pr: PullRequestFacts }
+	| { readonly kind: "failure"; readonly failure: LandingExecutionFailure };
+
+async function loadDescendantRootPrFacts(
+	options: MaintenanceBranchOperationInput,
+	moment: "before submit" | "after submit",
+): Promise<DescendantRootPrFacts> {
+	const { landContext, repoRoot, prNumber, maintenanceBranch } = options;
+	const pr = await landContext.github.pullRequestFacts({
+		repoRoot,
+		branchOrNumber: maintenanceBranch,
+	});
+	if (pr.type === "failure") {
+		return {
+			kind: "failure",
+			failure: landingExecutionFailure(
+				`PR #${prNumber} merged, but could not verify PR metadata for ${maintenanceBranch} ${moment}.\n${pr.failure.message}`,
+				{
+					failedBranch: maintenanceBranch,
+					suggestedAction: `Inspect PR metadata for ${maintenanceBranch}, run gt submit/update if appropriate, then verify the PR on GitHub. ${LAND_BACKUP_RECOVERY_HINT}`,
+				},
+			),
+		};
+	}
+	return { kind: "facts", pr: pr.value };
+}
+
+/**
+ * Remote facts are proven current only when the PR is open on the expected head branch, its head
+ * OID equals the verified post-restack local SHA, and its base ref is trunk. Local ancestry and
+ * provider topology are verified separately before this predicate is consulted.
+ */
+function isRemotePrProvenCurrent(
+	pr: PullRequestFacts,
+	branch: string,
+	postRestackSha: string,
+	trunk: string,
+): boolean {
+	const basics = validateOpenPrBasics({ branch, localSha: postRestackSha, pr });
+	return basics.type === "completed" && pr.baseRefName === trunk;
+}
+
+function stopFailure(stop: GraphiteMaintenanceStop): LandingExecutionFailure {
+	if (stop.kind === "halt") return stop.failure;
+	const warning = stop.warning;
+	if (warning === undefined) {
+		return landingExecutionFailure("Descendant reconciliation step did not complete.");
+	}
+	return landingExecutionFailure(warning.message, {
+		...optionalEntry("displayCommand", warning.commandDisplay),
+		...optionalEntry("execResult", warning.result),
+		...optionalEntry("suggestedAction", warning.suggestedAction),
+	});
+}
+
+function descendantReconciliationHalt(
+	operationInput: MaintenanceOperationInput,
+	failures: readonly BranchMaintenanceFailure[],
+	landedBranchCleanupState: "retained" | "deleted",
+): PerformedGraphiteMaintenance {
+	return {
+		kind: "halt",
+		phase: "descendant-maintenance",
+		failure: aggregateDescendantReconciliationFailure({
+			failures,
+			landedBranch: operationInput.landedBranch,
+			landedPrNumber: operationInput.prNumber,
+			targetBranches: operationInput.maintenance.branches,
+			landedBranchCleanupState,
+		}),
+	};
 }
 
 async function checkSubmitMaintenanceBranch(
@@ -194,7 +525,7 @@ async function checkSubmitMaintenanceBranch(
 				},
 			),
 			warning: landingWarning({
-				message: `All target PRs were merged, but local branch ${maintenanceBranch} could not be re-read after optional descendant restack; submit/update for ${maintenanceBranch} was skipped.`,
+				message: `All target PRs were merged, but local branch ${maintenanceBranch} could not be re-read after restack; submit/update for ${maintenanceBranch} was skipped.`,
 				suggestedAction: `Inspect local branch ${maintenanceBranch}, update that PR manually if needed, and delete local branch ${landedBranch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
 			}),
 		});
@@ -214,7 +545,7 @@ async function checkSubmitMaintenanceBranch(
 				},
 			),
 			warning: landingWarning({
-				message: `All target PRs were merged, but PR metadata for ${maintenanceBranch} could not be verified after optional descendant restack; submit/update for ${maintenanceBranch} was skipped.`,
+				message: `All target PRs were merged, but PR metadata for ${maintenanceBranch} could not be verified after restack; submit/update for ${maintenanceBranch} was skipped.`,
 				suggestedAction: `Inspect PR metadata for ${maintenanceBranch} and update that PR manually if needed.`,
 			}),
 		});
@@ -302,116 +633,6 @@ async function submitMaintenanceBranch(
 	});
 }
 
-export async function performGraphiteMaintenance(
-	maintenanceOptions: PerformGraphiteMaintenanceOptions,
-): Promise<GraphiteMaintenanceOutcome> {
-	const { landContext, progress, plan, step } = maintenanceOptions;
-	const { repoRoot } = plan;
-	const { index, branch, prNumber, state } = step;
-	const maintenance = planGraphiteMaintenanceTargets(plan, index);
-	const shouldDeferLandedBranchDeletion = branch === maintenanceOptions.deferredDeletionBranch;
-
-	if (maintenance.mode === "skip-descendant") {
-		return { kind: "skip", warning: skippedDescendantMaintenanceWarning(plan, branch) };
-	}
-
-	const operationInput: MaintenanceOperationInput = {
-		landContext,
-		progress,
-		repoRoot,
-		plan,
-		prNumber,
-		landedBranch: branch,
-		state,
-		maintenance,
-	};
-	const refreshFailureRecorder = createMaintenanceStepRecorder();
-	for (const maintenanceBranch of maintenance.branches) {
-		const branchOperationContext = withMaintenanceBranch(operationInput, maintenanceBranch);
-		const guardControl = refreshFailureRecorder.apply(
-			await guardMaintenanceBranch(branchOperationContext),
-			maintenanceBranch,
-		);
-		if (guardControl === "continue") continue;
-		if (guardControl !== "proceed") return guardControl;
-
-		const refreshControl = refreshFailureRecorder.apply(
-			await refreshMaintenanceBranch(branchOperationContext),
-			maintenanceBranch,
-		);
-		if (refreshControl === "continue") continue;
-		if (refreshControl !== "proceed") return refreshControl;
-	}
-
-	const refreshFailureWarnings = refreshFailureRecorder.getWarnings();
-	if (refreshFailureWarnings.length > 0) {
-		return {
-			kind: "skip",
-			warning: aggregateOptionalDescendantMaintenanceWarnings({
-				warnings: refreshFailureWarnings,
-				landedBranch: branch,
-				targetBranches: maintenance.branches,
-				cleanupState: "skipped",
-			}),
-		};
-	}
-
-	if (!shouldDeferLandedBranchDeletion) {
-		const deleteCheck = await checkGraphiteBranchBeforeDelete(operationInput);
-		if (deleteCheck !== undefined) return deleteCheck;
-
-		const deletion = await deleteLocalGraphiteBranchAfterLanding(operationInput);
-		if (deletion.kind !== "proceed") return deletion;
-	}
-
-	const postDeleteRecorder = createMaintenanceStepRecorder();
-	for (const maintenanceBranch of maintenance.branches) {
-		const branchOperationContext = withMaintenanceBranch(operationInput, maintenanceBranch);
-		const restackControl = postDeleteRecorder.apply(
-			await restackMaintenanceBranch(branchOperationContext),
-			maintenanceBranch,
-		);
-		if (restackControl === "continue") continue;
-		if (restackControl !== "proceed") return restackControl;
-
-		const submitCheck = await checkSubmitMaintenanceBranch(branchOperationContext);
-		const submitCheckControl = postDeleteRecorder.apply(submitCheck, maintenanceBranch);
-		if (submitCheckControl === "continue") continue;
-		if (submitCheckControl !== "proceed") return submitCheckControl;
-
-		const refreshExpected = await refreshExpectedShaAfterRestack(branchOperationContext);
-		if (refreshExpected) return refreshExpected;
-
-		if (submitCheck.kind === "skip-submit") {
-			progress.note(`Skipped gt submit for ${maintenanceBranch}; PR metadata already current.`);
-			continue;
-		}
-
-		progress.setStatus(`submitting ${maintenanceBranch}...`);
-		const submittedControl = postDeleteRecorder.apply(
-			await submitMaintenanceBranch(branchOperationContext),
-			maintenanceBranch,
-		);
-		if (submittedControl === "continue") continue;
-		if (submittedControl !== "proceed") return submittedControl;
-	}
-
-	const postDeleteWarnings = postDeleteRecorder.getWarnings();
-	if (postDeleteWarnings.length > 0) {
-		return {
-			kind: "skip",
-			warning: aggregateOptionalDescendantMaintenanceWarnings({
-				warnings: postDeleteWarnings,
-				landedBranch: branch,
-				targetBranches: maintenance.branches,
-				cleanupState: "completed",
-			}),
-		};
-	}
-
-	return { kind: "proceed" };
-}
-
 async function guardMaintenanceBranch(
 	options: MaintenanceBranchOperationInput,
 ): Promise<GraphiteMaintenanceStop | undefined> {
@@ -430,7 +651,7 @@ async function guardMaintenanceBranch(
 				},
 			),
 			warning: landingWarning({
-				message: `All target PRs were merged, but local branch ${maintenanceBranch} could not be verified before optional descendant maintenance; local branch ${landedBranch} cleanup and descendant restack/update were skipped.`,
+				message: `All target PRs were merged, but local branch ${maintenanceBranch} could not be verified before descendant maintenance; local branch ${landedBranch} cleanup and descendant restack/update were skipped.`,
 				suggestedAction: `Inspect local branch ${maintenanceBranch}, then restack/update it and delete local branch ${landedBranch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
 			}),
 		});
@@ -473,29 +694,33 @@ async function refreshMaintenanceBranch(
 	});
 	if (refresh.type === "success") return undefined;
 
+	const branchRole = maintenance.isDescendantRoot ? "descendant branch" : "next landing branch";
+	if (refresh.type === "checkout-conflict" && maintenance.shouldHaltOnRefreshFailure) {
+		// A conflict that appears only now was never disclosed at the main confirmation, so it
+		// cannot ride on that consent; record it as failed/deferred maintenance.
+		return {
+			kind: "halt",
+			failure: landingExecutionFailure(
+				`PR #${prNumber} merged, but ${branchRole} ${maintenanceBranch} could not be refreshed because ${formatCheckedOutElsewhere(refresh)}; it was not mutated.`,
+				{
+					displayCommand: refresh.commandDisplay,
+					execResult: refresh.result,
+					failedBranch: maintenanceBranch,
+					suggestedAction: `Switch/detach ${refresh.path} from ${refresh.branch}, then run ${refresh.commandDisplay}, restack/update ${maintenanceBranch}, and delete local branch ${landedBranch} when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
+				},
+			),
+		};
+	}
+
 	if (maintenance.shouldHaltOnRefreshFailure) {
 		return {
 			kind: "halt",
 			failure: graphiteRefreshFailure({
 				prNumber,
 				maintenanceBranch,
+				branchRole,
 				getCommandDisplay: refresh.commandDisplay,
 				got: refresh.result,
-			}),
-		};
-	}
-
-	if (refresh.type === "checkout-conflict") {
-		progress.note(
-			`Deferred optional descendant maintenance for ${maintenanceBranch} because ${formatCheckedOutElsewhere(refresh)}.\nRun ${refresh.commandDisplay} manually when that worktree is free.`,
-		);
-		return {
-			kind: "skip",
-			warning: optionalDescendantRefreshDeferredWarning({
-				descendantBranch: maintenanceBranch,
-				landedBranch,
-				getCommandDisplay: refresh.commandDisplay,
-				checkoutConflict: refresh,
 			}),
 		};
 	}
@@ -503,7 +728,7 @@ async function refreshMaintenanceBranch(
 	return {
 		kind: "skip",
 		warning: landingWarning({
-			message: `All target PRs were merged, but Graphite refresh for descendant branch ${maintenanceBranch} failed; local branch ${landedBranch} cleanup and descendant restack/update were skipped.`,
+			message: `All target PRs were merged, but Graphite refresh for ${branchRole} ${maintenanceBranch} failed; local branch ${landedBranch} cleanup and descendant restack/update were skipped.`,
 			commandDisplay: refresh.commandDisplay,
 			result: refresh.result,
 			suggestedAction: `Run ${refresh.commandDisplay} manually, restack/update ${maintenanceBranch}, and delete local branch ${landedBranch} when safe.`,
@@ -532,13 +757,20 @@ async function checkGraphiteBranchBeforeDelete(
 		branch,
 	});
 	if (children.type === "failure") {
-		return {
-			kind: "skip",
+		return failOrWarn(maintenance.severity, {
+			failure: landingExecutionFailure(
+				`PR #${prNumber} merged, but the pre-delete Graphite children re-check for ${branch} failed; refusing gt delete without an authoritative child list.\n${children.failure.message}`,
+				{
+					failedBranch: branch,
+					failedPrNumber: prNumber,
+					suggestedAction: `Inspect the stack, then delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
+				},
+			),
 			warning: landingWarning({
 				message: `All target PRs were merged, but the pre-delete Graphite children re-check for ${branch} failed; ${skippedScope} skipped.\n${children.failure.message}`,
 				suggestedAction: `Inspect the stack, then delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
 			}),
-		};
+		});
 	}
 	const childrenNow = children.value;
 	const allowedChildren = new Set(state.deletedBranches);
@@ -597,7 +829,7 @@ async function deleteLocalGraphiteBranchAfterLanding(
 					commandDisplay: deletion.commandDisplay,
 					result: deletion.result,
 					isLikelyInProgressGitOperation: deletion.isLikelyInProgressGitOperation,
-					isOptionalDescendant: maintenance.isOptionalDescendant,
+					isDescendantRoot: maintenance.isDescendantRoot,
 				}),
 			);
 		default:
@@ -642,7 +874,7 @@ interface LocalBranchDeletionFailurePairOptions {
 	commandDisplay: string;
 	result: ExecResult;
 	isLikelyInProgressGitOperation: boolean;
-	isOptionalDescendant: boolean;
+	isDescendantRoot: boolean;
 }
 
 function localBranchDeletionFailurePair(options: LocalBranchDeletionFailurePairOptions): {
@@ -677,7 +909,7 @@ function localBranchDeletionFailureDetails(options: LocalBranchDeletionFailurePa
 		return {
 			failureMessage: `PR #${options.prNumber} merged, but deleting the local Graphite branch ${options.branch} failed.`,
 			failureSuggestedAction: `Delete or repair local Graphite branch ${options.branch} manually, then inspect the stack before rerunning /ns:flow:land.`,
-			warningMessage: options.isOptionalDescendant
+			warningMessage: options.isDescendantRoot
 				? `All target PRs were merged, but deleting the local Graphite branch ${options.branch} failed; descendant restack/update was skipped.`
 				: `All target PRs were merged, but deleting the local Graphite branch ${options.branch} failed.`,
 			warningSuggestedAction: `Delete or repair local Graphite branch ${options.branch} manually, then inspect the stack.`,
@@ -689,7 +921,7 @@ function localBranchDeletionFailureDetails(options: LocalBranchDeletionFailurePa
 	return {
 		failureMessage: `PR #${options.prNumber} merged, but ${baseMessage}`,
 		failureSuggestedAction: action,
-		warningMessage: options.isOptionalDescendant
+		warningMessage: options.isDescendantRoot
 			? `All target PRs were merged, but ${baseMessage} Descendant restack/update was skipped.`
 			: `All target PRs were merged, but ${baseMessage}`,
 		warningSuggestedAction: action,

@@ -1,7 +1,9 @@
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/foundation/git";
 import type { PullRequestFacts } from "../../../src/land/api.ts";
 import {
+	createBranchParentStep,
 	createChildrenRecheckStep,
+	createDescendantReconcileSteps,
 	createMergeFeatureASteps,
 } from "../land-stack-script-fixtures.ts";
 import {
@@ -32,6 +34,8 @@ export const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
 
 export const mergeFeatureA = createMergeFeatureASteps(TOPOLOGY_ARGS);
 export const childrenRecheckStep = createChildrenRecheckStep(TOPOLOGY_ARGS);
+export const branchParentStep = createBranchParentStep(TOPOLOGY_ARGS);
+export const descendantReconcileSteps = createDescendantReconcileSteps(TOPOLOGY_ARGS);
 
 export const DB_WITH_DESCENDANT = metadataDbJson([
 	{ branch: TRUNK, children: ["feature-a"], trunk: true },

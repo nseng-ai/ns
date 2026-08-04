@@ -225,9 +225,12 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(confirmations).toEqual([]);
 		expect(notifications[0]?.message).toContain(
-			"Will leave open without automatic restack/update because these descendants are checked out elsewhere:",
+			"Descendant reconciliation is blocked: these descendants are checked out in other worktrees and will NOT be restacked or updated:",
 		);
 		expect(notifications[0]?.message).toContain("slot-07 feature-c");
+		expect(notifications[0]?.message).toContain(
+			"Full completion is impossible until those worktrees are freed/detached or deferred maintenance is explicitly accepted.",
+		);
 		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(
 			false,

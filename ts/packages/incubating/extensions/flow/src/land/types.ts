@@ -30,12 +30,13 @@ export interface LandingPreflightMode {
 }
 
 /**
- * Closed post-landing cleanup policy for the current managed-slot worktree.
+ * Closed post-landing cleanup policy for local branches and the current managed-slot worktree.
  *
- * - `preserve` (default): keep the current slot and local branch; never prompt or mutate.
- * - `free`: explicit opt-in (`--free`) that frees the current managed slot and deletes the landed
- *   local branch after a successful landing. The flag itself is the consent; no separate cleanup
- *   confirmation is prompted.
+ * - `preserve` (default): keep every landed local branch and the current slot; never prompt or
+ *   mutate cleanup state.
+ * - `free`: explicit opt-in (`--free`) that may delete landed local branches during maintenance,
+ *   then frees the current managed slot after a successful landing. The flag itself is the consent;
+ *   no separate cleanup confirmation is prompted.
  *
  * `mode: "dry-run"` always dominates cleanup policy and performs no cleanup mutation.
  */
@@ -323,6 +324,17 @@ export interface ManualWorktreeConflict {
 	readonly path: string;
 }
 
+/**
+ * Required post-merge descendant reconciliation plan.
+ *
+ * - `none`: no open descendants exist above the landing path.
+ * - `auto`: descendant roots will be reconciled (refresh, restack, submit) with verified
+ *   postconditions as a required part of landing completion.
+ * - `blocked`: descendant branches are checked out in other worktrees, so automatic
+ *   reconciliation is impossible without mutating another checkout. Landing may proceed only
+ *   with explicit main-landing consent (interactive approval or `--yes`), and the landing then
+ *   finishes as a failed partial completion with deferred descendant maintenance.
+ */
 export type DescendantMaintenancePlan =
 	| { readonly type: "none"; readonly branches: readonly [] }
 	| {
@@ -331,7 +343,7 @@ export type DescendantMaintenancePlan =
 			readonly targetBranches: readonly string[];
 	  }
 	| {
-			readonly type: "skipped";
+			readonly type: "blocked";
 			readonly branches: readonly string[];
 			readonly targetBranches: readonly string[];
 			readonly conflicts: readonly WorktreeConflict[];
@@ -452,6 +464,15 @@ export interface LandGraphiteGateway {
 		readonly metadataDbPath: string;
 		readonly branch: string;
 	}): Promise<LandResult<readonly string[]>>;
+	/**
+	 * Provider-reported parent of `branch`, or `undefined` when the branch is untracked or has no
+	 * recorded parent. Used to prove that a reconciled descendant root sits directly above trunk.
+	 */
+	branchParent(request: {
+		readonly repoRoot: string;
+		readonly metadataDbPath: string;
+		readonly branch: string;
+	}): Promise<LandResult<string | undefined>>;
 }
 
 export type LandCommandResult = ExecResult;

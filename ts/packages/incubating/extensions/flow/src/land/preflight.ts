@@ -594,7 +594,7 @@ export function buildDescendantMaintenancePlan(
 	const blockingConflicts = conflicts.filter((conflict) => conflict.type !== "current");
 	if (blockingConflicts.length > 0) {
 		return {
-			type: "skipped",
+			type: "blocked",
 			branches: descendantBranches,
 			targetBranches,
 			conflicts: blockingConflicts,

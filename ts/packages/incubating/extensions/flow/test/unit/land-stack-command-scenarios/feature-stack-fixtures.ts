@@ -6,10 +6,8 @@ import {
 import {
 	expectedSquashMergeArgs,
 	guardShaStep,
-	postRestackSubmitCheckSteps,
 	prSnapshot,
 	prStdout,
-	submitUpdateStep,
 } from "../land-stack-script-fixtures.ts";
 
 import {
@@ -24,6 +22,7 @@ import {
 	SHA_D,
 	childrenRecheckStep,
 	cleanRepoChecks,
+	descendantReconcileSteps,
 	domainRepoIntro,
 	repoIntro,
 } from "./repo-fixtures.ts";
@@ -112,13 +111,12 @@ export function mergeFeatureBWithDescendant(): ScriptedExec[] {
 		childrenRecheckStep("feature-b", [DESCENDANT]),
 		step("gt", ["delete", "feature-b", "-f", "-q"]),
 		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
-		...postRestackSubmitCheckSteps({
+		...descendantReconcileSteps({
 			branch: DESCENDANT,
 			sha: SHA_C,
 			prNumber: 103,
-			base: "feature-b",
+			staleBase: "feature-b",
 		}),
-		submitUpdateStep(DESCENDANT),
 	];
 }
 
@@ -148,21 +146,19 @@ export function mergeFeatureBWithForkedDescendants(): ScriptedExec[] {
 		childrenRecheckStep("feature-b", [DESCENDANT, "feature-d"]),
 		step("gt", ["delete", "feature-b", "-f", "-q"]),
 		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
-		...postRestackSubmitCheckSteps({
+		...descendantReconcileSteps({
 			branch: DESCENDANT,
 			sha: SHA_C,
 			prNumber: 103,
-			base: "feature-b",
+			staleBase: "feature-b",
 		}),
-		submitUpdateStep(DESCENDANT),
 		step("gt", ["restack", "--branch", "feature-d", "--upstack", "--no-interactive"]),
-		...postRestackSubmitCheckSteps({
+		...descendantReconcileSteps({
 			branch: "feature-d",
 			sha: SHA_D,
 			prNumber: 104,
-			base: "feature-b",
+			staleBase: "feature-b",
 		}),
-		submitUpdateStep("feature-d"),
 	];
 }
 
