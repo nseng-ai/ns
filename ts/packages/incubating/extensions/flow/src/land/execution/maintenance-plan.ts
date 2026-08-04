@@ -1,13 +1,7 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { LAND_BACKUP_RECOVERY_HINT } from "../graphite-operations.ts";
-import type {
-	DescendantMaintenancePlan,
-	LandingExecutionFailure,
-	LandingPlan,
-	LandGraphiteRestackScope,
-} from "../types.ts";
-import type { LandingWarning } from "../types.ts";
+import type { DescendantMaintenancePlan, LandingExecutionFailure, LandingPlan } from "../types.ts";
 import { landingExecutionFailure } from "../results.ts";
 import type { CheckedOutElsewhere } from "../graphite-operations.ts";
 import { formatConflict, slotNameFromPath } from "../worktree-paths.ts";
@@ -18,23 +12,26 @@ export type MaintenanceMode =
 	| "none"
 	| "blocked-descendants";
 
-export type MaintenanceSeverity = "fail" | "warn";
+export type MaintenanceTargetPlan =
+	| { readonly mode: "required-next-landing"; readonly branches: readonly string[] }
+	| { readonly mode: "required-descendants"; readonly branches: readonly string[] }
+	| { readonly mode: "none"; readonly branches: readonly [] }
+	| { readonly mode: "blocked-descendants"; readonly branches: readonly [] };
 
-export interface MaintenanceTargetPlan {
-	readonly mode: MaintenanceMode;
-	readonly severity: MaintenanceSeverity;
-	readonly branches: readonly string[];
-	readonly refreshCheckedOutConflictHandling: "defer" | "fail";
-	readonly deleteCheckedOutConflictHandling: "retain" | "fail";
-	readonly skippedScopeText: (branch: string) => string;
-	readonly isDescendantRoot: boolean;
-	readonly shouldHaltOnRefreshFailure: boolean;
-}
+export type RequiredNextLandingMaintenance = Extract<
+	MaintenanceTargetPlan,
+	{ mode: "required-next-landing" }
+>;
 
-export interface BranchMaintenanceWarning {
-	readonly branch: string;
-	readonly warning: LandingWarning;
-}
+export type RequiredDescendantMaintenance = Extract<
+	MaintenanceTargetPlan,
+	{ mode: "required-descendants" }
+>;
+
+export type OrdinaryMaintenance = Extract<
+	MaintenanceTargetPlan,
+	{ mode: "required-next-landing" | "none" }
+>;
 
 export interface BranchMaintenanceFailure {
 	readonly branch: string;
@@ -47,38 +44,28 @@ export function planGraphiteMaintenanceTargets(
 ): MaintenanceTargetPlan {
 	const nextLandingBranch = plan.stack.landingBranches[index + 1];
 	if (nextLandingBranch !== undefined) {
-		return buildMaintenanceTargetPlan("required-next-landing", [nextLandingBranch]);
+		return { mode: "required-next-landing", branches: [nextLandingBranch] };
 	}
 
 	if (index !== plan.stack.landingBranches.length - 1) {
-		return buildMaintenanceTargetPlan("none", []);
+		return { mode: "none", branches: [] };
 	}
 
 	const nextFutureLandingBranch = plan.stack.remainingLandingBranches[0];
 	if (nextFutureLandingBranch !== undefined) {
-		return buildMaintenanceTargetPlan("required-next-landing", [nextFutureLandingBranch]);
+		return { mode: "required-next-landing", branches: [nextFutureLandingBranch] };
 	}
 
 	if (plan.descendantMaintenance.type === "auto") {
-		return buildMaintenanceTargetPlan(
-			"required-descendants",
-			plan.descendantMaintenance.targetBranches,
-		);
+		return {
+			mode: "required-descendants",
+			branches: plan.descendantMaintenance.targetBranches,
+		};
 	}
 	if (plan.descendantMaintenance.type === "blocked") {
-		return buildMaintenanceTargetPlan("blocked-descendants", []);
+		return { mode: "blocked-descendants", branches: [] };
 	}
-	return buildMaintenanceTargetPlan("none", []);
-}
-
-export function scopeForMaintenanceRestack(
-	maintenance: MaintenanceTargetPlan,
-): LandGraphiteRestackScope {
-	return maintenance.isDescendantRoot ? "upstack" : "branch-only";
-}
-
-export function shouldRefreshExpectedShasAfterRestack(maintenance: MaintenanceTargetPlan): boolean {
-	return scopeForMaintenanceRestack(maintenance) === "upstack";
+	return { mode: "none", branches: [] };
 }
 
 export function refreshTargetsAfterMaintainedBranch(
@@ -216,68 +203,6 @@ function formatMaintenanceFailureMessage(input: {
 	return `${input.operation} failed after merging #${input.previousPrNumber}; descendant branch ${input.branch} was left for ${input.manualAction}.`;
 }
 
-function localCleanupOnlyScopeText(branch: string): string {
-	return `local branch ${branch} cleanup was`;
-}
-
-function localCleanupAndDescendantScopeText(branch: string): string {
-	return `local branch ${branch} cleanup and descendant restack/update were`;
-}
-
-function buildMaintenanceTargetPlan(
-	mode: MaintenanceMode,
-	branches: readonly string[],
-): MaintenanceTargetPlan {
-	switch (mode) {
-		case "required-next-landing":
-			return {
-				mode,
-				severity: "fail",
-				branches,
-				refreshCheckedOutConflictHandling: "fail",
-				deleteCheckedOutConflictHandling: "fail",
-				skippedScopeText: localCleanupOnlyScopeText,
-				isDescendantRoot: false,
-				shouldHaltOnRefreshFailure: true,
-			};
-		case "required-descendants":
-			return {
-				mode,
-				severity: "fail",
-				branches,
-				refreshCheckedOutConflictHandling: "defer",
-				deleteCheckedOutConflictHandling: "fail",
-				skippedScopeText: localCleanupAndDescendantScopeText,
-				isDescendantRoot: true,
-				shouldHaltOnRefreshFailure: true,
-			};
-		case "none":
-			return {
-				mode,
-				severity: "warn",
-				branches,
-				refreshCheckedOutConflictHandling: "fail",
-				deleteCheckedOutConflictHandling: "retain",
-				skippedScopeText: localCleanupOnlyScopeText,
-				isDescendantRoot: false,
-				shouldHaltOnRefreshFailure: false,
-			};
-		case "blocked-descendants":
-			return {
-				mode,
-				severity: "fail",
-				branches,
-				refreshCheckedOutConflictHandling: "fail",
-				deleteCheckedOutConflictHandling: "fail",
-				skippedScopeText: localCleanupAndDescendantScopeText,
-				isDescendantRoot: true,
-				shouldHaltOnRefreshFailure: false,
-			};
-		default:
-			assertNever(mode);
-	}
-}
-
 function isDescendantMaintenanceRoot(plan: LandingPlan, branch: string): boolean {
 	return (
 		plan.descendantMaintenance.type === "auto" &&
@@ -314,8 +239,4 @@ export function blockedDescendantRepairAction(
 	}
 
 	return `Detach ${conflict.path} for ${conflict.branch}; then restack/update ${branches}.`;
-}
-
-function assertNever(value: never): never {
-	throw new Error(`Unhandled Graphite maintenance planning mode: ${JSON.stringify(value)}`);
 }
