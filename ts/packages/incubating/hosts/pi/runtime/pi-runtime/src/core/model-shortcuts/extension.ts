@@ -5,6 +5,7 @@ import {
 } from "@nseng-ai/foundation/model-slug";
 import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
 import { notifyCommandUi, type NotifiableCommandContext } from "../../commands/helpers.ts";
+import type { SendUserMessageOptions } from "../../runtime/extension-types.ts";
 
 export const MODEL_SHORTCUTS = [
 	{
@@ -75,6 +76,7 @@ interface ModelRegistry {
 
 interface CommandContext extends NotifiableCommandContext {
 	modelRegistry: ModelRegistry;
+	isIdle(): boolean;
 }
 
 export interface ExtensionAPI {
@@ -87,6 +89,7 @@ export interface ExtensionAPI {
 	): void;
 	setModel(model: ModelInfo): Promise<boolean>;
 	getThinkingLevel(): ModelThinking;
+	sendUserMessage(content: string, options?: SendUserMessageOptions): Promise<void> | void;
 }
 
 export default function modelShortcutExtension(pi: ExtensionAPI): void {
@@ -95,11 +98,26 @@ export default function modelShortcutExtension(pi: ExtensionAPI): void {
 			host: pi,
 			commandName: shortcut.command,
 			commandDefinition: {
-				description: `Switch to ${modelRef(shortcut)}`,
-				handler: async (_args, ctx) => {
-					await switchToModel(pi, ctx, shortcut);
+				description: `Switch to ${modelRef(shortcut)} and optionally run a prompt`,
+				handler: async (args, ctx) => {
+					const switched = await switchToModel(pi, ctx, shortcut);
+					if (!switched) {
+						if (args.trim() !== "") {
+							notifyCommandUi(ctx, `Prompt was not submitted:\n${args}`, "warning");
+						}
+						return;
+					}
+					if (args.trim() === "") return;
+
+					if (ctx.isIdle()) {
+						await pi.sendUserMessage(args);
+					} else {
+						await pi.sendUserMessage(args, { deliverAs: "steer" });
+					}
 				},
 			},
+			// Switching and the injected prompt already provide visible completion.
+			options: { delivery: "none" },
 		});
 	}
 }
@@ -108,7 +126,7 @@ async function switchToModel(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	shortcut: ModelShortcut,
-): Promise<void> {
+): Promise<boolean> {
 	const selection: ModelSelection = {
 		...shortcut.selection,
 		thinking: pi.getThinkingLevel(),
@@ -117,16 +135,17 @@ async function switchToModel(
 	const model = ctx.modelRegistry.find(selection.provider, selection.modelId);
 	if (model === undefined) {
 		notifyCommandUi(ctx, `Model ${ref} not found.`, "error");
-		return;
+		return false;
 	}
 
 	const switched = await pi.setModel(model);
 	if (!switched) {
 		notifyCommandUi(ctx, `Model ${ref} is unavailable; run /login or configure Pi auth.`, "error");
-		return;
+		return false;
 	}
 
 	notifyCommandUi(ctx, `Switched model to ${ref}.`, "info");
+	return true;
 }
 
 export function modelRef(shortcut: ModelShortcut): string {
