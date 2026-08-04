@@ -5,14 +5,9 @@ import { shortSha } from "../../commit-display/index.ts";
 import { LAND_BACKUP_RECOVERY_HINT, parseGitCheckedOutElsewhere } from "../graphite-operations.ts";
 import { isMaintenancePrCurrent } from "../preflight.ts";
 import { landingExecutionFailure } from "../results.ts";
-import type {
-	LandContext,
-	LandingExecutionFailure,
-	LandingPlan,
-	LandingWarning,
-} from "../types.ts";
+import type { LandingExecutionFailure, LandingPlan, LandingWarning } from "../types.ts";
 import { landingWarning } from "../types.ts";
-import type { LandExecutionMessageProgress } from "./host-seams.ts";
+import type { LandExecutionContext } from "./execution-context.ts";
 import { reconcileDescendantRoots } from "./descendant-reconciliation.ts";
 import type { MergeLoopState } from "./merge-loop.ts";
 import {
@@ -23,8 +18,6 @@ import {
 	planGraphiteMaintenanceTargets,
 	type OrdinaryMaintenance,
 } from "./maintenance-plan.ts";
-
-export type GraphiteMaintenanceProgress = LandExecutionMessageProgress;
 
 interface GraphiteMaintenanceStep {
 	readonly index: number;
@@ -92,16 +85,12 @@ function graphiteRefreshFailure(
 }
 
 interface PerformGraphiteMaintenanceOptions {
-	readonly landContext: LandContext;
-	readonly progress: GraphiteMaintenanceProgress;
 	readonly plan: LandingPlan;
 	readonly step: GraphiteMaintenanceStep;
 	readonly shouldDeferLandedBranchDeletion?: boolean;
 }
 
 interface MaintenanceOperationInput {
-	readonly landContext: LandContext;
-	readonly progress: GraphiteMaintenanceProgress;
 	readonly repoRoot: string;
 	readonly plan: LandingPlan;
 	readonly prNumber: number;
@@ -127,9 +116,10 @@ function withMaintenanceBranch(
 }
 
 export async function performGraphiteMaintenance(
+	executionContext: LandExecutionContext,
 	maintenanceOptions: PerformGraphiteMaintenanceOptions,
 ): Promise<PerformedGraphiteMaintenance> {
-	const { landContext, progress, plan, step } = maintenanceOptions;
+	const { plan, step } = maintenanceOptions;
 	const { repoRoot } = plan;
 	const { index, branch, prNumber, state } = step;
 	const maintenance = planGraphiteMaintenanceTargets(plan, index);
@@ -148,9 +138,7 @@ export async function performGraphiteMaintenance(
 	}
 
 	if (maintenance.mode === "required-descendants") {
-		return await reconcileDescendantRoots({
-			landContext,
-			progress,
+		return await reconcileDescendantRoots(executionContext, {
 			plan,
 			prNumber,
 			landedBranch: branch,
@@ -161,9 +149,8 @@ export async function performGraphiteMaintenance(
 	}
 
 	const outcome = await maintainNextLandingBranches(
+		executionContext,
 		{
-			landContext,
-			progress,
 			repoRoot,
 			plan,
 			prNumber,
@@ -179,32 +166,37 @@ export async function performGraphiteMaintenance(
 
 /** Maintenance for `required-next-landing` and `none` modes: refresh/delete/restack/submit. */
 async function maintainNextLandingBranches(
+	executionContext: LandExecutionContext,
 	operationInput: MaintenanceOperationInput,
 	shouldDeferLandedBranchDeletion: boolean,
 ): Promise<GraphiteMaintenanceOutcome> {
-	const { maintenance, progress } = operationInput;
+	const { progress } = executionContext;
+	const { maintenance } = operationInput;
 	for (const maintenanceBranch of maintenance.branches) {
 		const branchOperationContext = withMaintenanceBranch(operationInput, maintenanceBranch);
-		const guard = await guardMaintenanceBranch(branchOperationContext);
+		const guard = await guardMaintenanceBranch(executionContext, branchOperationContext);
 		if (guard !== undefined) return guard;
-		const refresh = await refreshMaintenanceBranch(branchOperationContext);
+		const refresh = await refreshMaintenanceBranch(executionContext, branchOperationContext);
 		if (refresh !== undefined) return refresh;
 	}
 
 	if (!shouldDeferLandedBranchDeletion) {
-		const deleteCheck = await checkGraphiteBranchBeforeDelete(operationInput);
+		const deleteCheck = await checkGraphiteBranchBeforeDelete(executionContext, operationInput);
 		if (deleteCheck !== undefined) return deleteCheck;
 
-		const deletion = await deleteLocalGraphiteBranchAfterLanding(operationInput);
+		const deletion = await deleteLocalGraphiteBranchAfterLanding(executionContext, operationInput);
 		if (deletion.kind !== "proceed") return deletion;
 	}
 
 	for (const maintenanceBranch of maintenance.branches) {
 		const branchOperationContext = withMaintenanceBranch(operationInput, maintenanceBranch);
-		const restacked = await restackMaintenanceBranch(branchOperationContext);
+		const restacked = await restackMaintenanceBranch(executionContext, branchOperationContext);
 		if (restacked.kind !== "proceed") return restacked;
 
-		const submitCheck = await checkSubmitMaintenanceBranch(branchOperationContext);
+		const submitCheck = await checkSubmitMaintenanceBranch(
+			executionContext,
+			branchOperationContext,
+		);
 		if (submitCheck.kind === "halt" || submitCheck.kind === "skip") return submitCheck;
 
 		if (submitCheck.kind === "skip-submit") {
@@ -213,7 +205,7 @@ async function maintainNextLandingBranches(
 		}
 
 		progress.setStatus(`submitting ${maintenanceBranch}...`);
-		const submitted = await submitMaintenanceBranch(branchOperationContext);
+		const submitted = await submitMaintenanceBranch(executionContext, branchOperationContext);
 		if (submitted.kind !== "proceed") return submitted;
 	}
 
@@ -221,10 +213,11 @@ async function maintainNextLandingBranches(
 }
 
 async function checkSubmitMaintenanceBranch(
+	executionContext: LandExecutionContext,
 	options: MaintenanceBranchOperationInput,
 ): Promise<SubmitMaintenanceCheckOutcome> {
-	const { landContext, repoRoot, plan, prNumber, landedBranch, maintenanceBranch, maintenance } =
-		options;
+	const { land: landContext } = executionContext;
+	const { repoRoot, plan, prNumber, landedBranch, maintenanceBranch, maintenance } = options;
 	const localSha = await landContext.git.localBranchSha({ repoRoot, branch: maintenanceBranch });
 	if (localSha.type === "failure") {
 		return failOrWarn(maintenance, {
@@ -273,9 +266,11 @@ async function checkSubmitMaintenanceBranch(
 }
 
 async function submitMaintenanceBranch(
+	executionContext: LandExecutionContext,
 	options: MaintenanceBranchOperationInput,
 ): Promise<GraphiteMaintenanceOutcome> {
-	const { landContext, repoRoot, plan, prNumber, maintenanceBranch, maintenance } = options;
+	const { land: landContext } = executionContext;
+	const { repoRoot, plan, prNumber, maintenanceBranch, maintenance } = options;
 	// Post-merge maintenance restacks after a landed PR, so the remote PR branch may
 	// still be on old stack history; keep pre-merge submit/update conservative.
 	const submitted = await landContext.graphite.submitUpdate({
@@ -305,10 +300,11 @@ async function submitMaintenanceBranch(
 }
 
 async function guardMaintenanceBranch(
+	executionContext: LandExecutionContext,
 	options: MaintenanceBranchOperationInput,
 ): Promise<GraphiteMaintenanceStop | undefined> {
-	const { landContext, repoRoot, prNumber, maintenanceBranch, maintenance, state, landedBranch } =
-		options;
+	const { land: landContext } = executionContext;
+	const { repoRoot, prNumber, maintenanceBranch, maintenance, state, landedBranch } = options;
 	// Guard every forced refresh: gt get --force resets the local branch to remote
 	// state, so refuse if the branch moved since this run snapshotted it.
 	const guardSha = await landContext.git.localBranchSha({ repoRoot, branch: maintenanceBranch });
@@ -345,9 +341,11 @@ async function guardMaintenanceBranch(
 }
 
 async function refreshMaintenanceBranch(
+	executionContext: LandExecutionContext,
 	options: MaintenanceBranchOperationInput,
 ): Promise<GraphiteMaintenanceStop | undefined> {
-	const { landContext, progress, repoRoot, prNumber, maintenanceBranch } = options;
+	const { land: landContext, progress } = executionContext;
+	const { repoRoot, prNumber, maintenanceBranch } = options;
 	progress.note(`Refreshing stack through ${maintenanceBranch}...`);
 	progress.setStatus(`refreshing stack through ${maintenanceBranch}...`);
 	const refresh = await landContext.graphite.refreshBranchFromRemote({
@@ -370,17 +368,11 @@ async function refreshMaintenanceBranch(
 }
 
 async function checkGraphiteBranchBeforeDelete(
+	executionContext: LandExecutionContext,
 	options: MaintenanceOperationInput,
 ): Promise<GraphiteMaintenanceStop | undefined> {
-	const {
-		landContext,
-		repoRoot,
-		plan,
-		prNumber,
-		landedBranch: branch,
-		state,
-		maintenance,
-	} = options;
+	const { land: landContext } = executionContext;
+	const { repoRoot, plan, prNumber, landedBranch: branch, state, maintenance } = options;
 	// Re-check the branch's Graphite children right before the forced delete: a
 	// child that appeared since planning means another stack now depends on it.
 	const skippedScope = `local branch ${branch} cleanup was`;
@@ -428,17 +420,11 @@ async function checkGraphiteBranchBeforeDelete(
 }
 
 async function deleteLocalGraphiteBranchAfterLanding(
+	executionContext: LandExecutionContext,
 	options: MaintenanceOperationInput,
 ): Promise<GraphiteMaintenanceOutcome> {
-	const {
-		landContext,
-		repoRoot,
-		landedBranch: branch,
-		prNumber,
-		state,
-		progress,
-		maintenance,
-	} = options;
+	const { land: landContext, progress } = executionContext;
+	const { repoRoot, landedBranch: branch, prNumber, state, maintenance } = options;
 	progress.note(`Cleaning up local branch ${branch}...`);
 	progress.setStatus(`deleting local Graphite branch ${branch}...`);
 	const deletion = await landContext.graphite.deleteLocalBranch({
@@ -470,9 +456,11 @@ async function deleteLocalGraphiteBranchAfterLanding(
 }
 
 async function restackMaintenanceBranch(
+	executionContext: LandExecutionContext,
 	options: MaintenanceBranchOperationInput,
 ): Promise<GraphiteMaintenanceOutcome> {
-	const { landContext, progress, repoRoot, prNumber, maintenanceBranch, maintenance } = options;
+	const { land: landContext, progress } = executionContext;
+	const { repoRoot, prNumber, maintenanceBranch, maintenance } = options;
 	progress.setStatus(`restacking ${maintenanceBranch}...`);
 	const restacked = await landContext.graphite.restack({
 		repoRoot,
