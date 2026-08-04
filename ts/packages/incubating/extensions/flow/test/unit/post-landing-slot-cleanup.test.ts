@@ -295,31 +295,21 @@ describe("core post-landing cleanup", () => {
 		expect(statuses).toEqual(["freeing slot-02...", undefined]);
 	});
 
-	test.each([
-		{
-			name: "retained",
-			deletion: { type: "retained" as const, branch: BRANCH, path: SLOT_ROOT },
-			displayCommand: `gt delete ${BRANCH} -f -q`,
-		},
-		{
-			name: "failed",
-			deletion: {
-				type: "failed" as const,
-				commandDisplay: `gt delete ${BRANCH} -f -q`,
-				result: {
-					type: "exited" as const,
-					stdout: "",
-					stderr: "delete rejected",
-					code: 1,
-					signal: null,
-				},
-				isLikelyInProgressGitOperation: false,
+	test("reports failed branch deletion with the typed branch and clears status", async () => {
+		const deletion = {
+			type: "failed" as const,
+			commandDisplay: `gt delete ${BRANCH} -f -q`,
+			result: {
+				type: "exited" as const,
+				stdout: "",
+				stderr: "delete rejected",
+				code: 1,
+				signal: null,
 			},
-			displayCommand: `gt delete ${BRANCH} -f -q`,
-		},
-	])("reports $name branch deletion with the typed branch and clears status", async (testCase) => {
+			isLikelyInProgressGitOperation: false,
+		};
 		const { context, worktrees } = createInMemoryLandContext({
-			graphite: { deleteLocalBranchResults: { [BRANCH]: testCase.deletion } },
+			graphite: { deleteLocalBranchResults: { [BRANCH]: deletion } },
 			worktrees: {
 				worktrees: [{ path: SLOT_ROOT, branch: BRANCH }],
 				residualCheckoutPaths: [SLOT_ROOT],
@@ -337,7 +327,7 @@ describe("core post-landing cleanup", () => {
 			type: "failure",
 			failure: {
 				message: `PRs were landed and slot-02 was freed, but deleting local branch ${BRANCH} failed.`,
-				displayCommand: testCase.displayCommand,
+				displayCommand: deletion.commandDisplay,
 			},
 		});
 		expect(statuses).toEqual(["freeing slot-02...", `deleting ${BRANCH}...`, undefined]);

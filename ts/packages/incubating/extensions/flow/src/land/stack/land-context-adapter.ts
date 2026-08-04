@@ -26,6 +26,7 @@ import type {
 	WorkingTreeStatus,
 	WorktreeClassification,
 } from "../api.ts";
+import type { LandGraphiteFailClosedDeleteLocalBranchResult } from "../types.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import {
 	GH_MERGE_TIMEOUT_MS,
@@ -121,8 +122,15 @@ export function createLandContext(
 				prepareRestackForSubmit({ graphite, repoRoot, branch }),
 			refreshBranchFromRemote: async ({ repoRoot, branch, checkedOutConflictHandling }) =>
 				refreshBranchFromRemote({ graphite, repoRoot, branch, checkedOutConflictHandling }),
-			deleteLocalBranch: async ({ repoRoot, branch, checkedOutConflictHandling }) =>
-				deleteLocalBranch({ graphite, repoRoot, branch, checkedOutConflictHandling }),
+			deleteLocalBranch: async ({ repoRoot, branch }) =>
+				deleteLocalBranchFailClosed({ graphite, repoRoot, branch }),
+			deleteLocalBranchRetaining: async ({ repoRoot, branch }) =>
+				deleteLocalBranch({
+					graphite,
+					repoRoot,
+					branch,
+					checkedOutConflictHandling: "retain",
+				}),
 			restack: async ({ repoRoot, branch, scope }) =>
 				runGraphiteMutation({
 					graphite,
@@ -250,6 +258,21 @@ async function refreshBranchFromRemote(options: {
 		};
 	}
 	return { type: "failure", commandDisplay, result: result.result };
+}
+
+async function deleteLocalBranchFailClosed(options: {
+	readonly graphite: LandGraphiteCommandChannel;
+	readonly repoRoot: string;
+	readonly branch: string;
+}): Promise<LandGraphiteFailClosedDeleteLocalBranchResult> {
+	const result = await deleteLocalBranch({
+		...options,
+		checkedOutConflictHandling: "fail",
+	});
+	if (result.type === "retained") {
+		throw new Error(`Fail-closed Graphite deletion unexpectedly retained ${options.branch}.`);
+	}
+	return result;
 }
 
 async function deleteLocalBranch(options: {

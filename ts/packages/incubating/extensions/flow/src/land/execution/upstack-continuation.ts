@@ -151,7 +151,6 @@ export async function executeUpstackContinuation(options: {
 	const deletion = await context.graphite.deleteLocalBranch({
 		repoRoot,
 		branch: originalBranch,
-		checkedOutConflictHandling: "fail",
 	});
 	if (deletion.type !== "deleted") {
 		return {
@@ -161,9 +160,8 @@ export async function executeUpstackContinuation(options: {
 				`Landing completed and continued onto ${candidateBranch}, but deleting original local branch ${originalBranch} did not complete.`,
 				{
 					failedBranch: originalBranch,
-					...(deletion.type === "failed"
-						? { displayCommand: deletion.commandDisplay, execResult: deletion.result }
-						: {}),
+					displayCommand: deletion.commandDisplay,
+					execResult: deletion.result,
 					suggestedAction: `Inspect the stack and delete ${originalBranch} manually when safe.`,
 				},
 			),

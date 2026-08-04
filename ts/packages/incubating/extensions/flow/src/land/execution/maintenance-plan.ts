@@ -26,10 +26,7 @@ export type RequiredDescendantMaintenance = Extract<
 	{ mode: "required-descendants" }
 >;
 
-export type OrdinaryMaintenance = Extract<
-	MaintenanceTargetPlan,
-	{ mode: "required-next-landing" | "none" }
->;
+export type NoMaintenance = Extract<MaintenanceTargetPlan, { mode: "none" }>;
 
 export function planGraphiteMaintenanceTargets(
 	plan: LandingPlan,
