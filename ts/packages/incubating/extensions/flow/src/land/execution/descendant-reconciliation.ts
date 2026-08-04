@@ -11,9 +11,7 @@ import type {
 import type { LandExecutionMessageProgress } from "./host-seams.ts";
 import type { MergeLoopState } from "./merge-loop.ts";
 import {
-	aggregateDescendantReconciliationFailure,
 	formatCheckedOutElsewhere,
-	type BranchMaintenanceFailure,
 	type RequiredDescendantMaintenance,
 } from "./maintenance-plan.ts";
 
@@ -44,52 +42,50 @@ type DescendantRootPrFacts =
 	| { readonly kind: "facts"; readonly pr: PullRequestFacts }
 	| { readonly kind: "failure"; readonly failure: LandingExecutionFailure };
 
+interface PreparedDescendantRoot {
+	readonly branch: string;
+	readonly localSha: string;
+}
+
+type DescendantRootPreparation =
+	| { readonly kind: "prepared"; readonly proof: PreparedDescendantRoot }
+	| LandingExecutionFailure;
+
 export async function reconcileDescendantRoots(
 	options: ReconcileDescendantRootsOptions,
 ): Promise<DescendantReconciliationOutcome> {
-	const { maintenance, state, landedBranch } = options;
-	const refreshFailures: BranchMaintenanceFailure[] = [];
+	const { maintenance } = options;
+
 	for (const maintenanceBranch of maintenance.branches) {
-		const branchOptions = { ...options, maintenanceBranch };
-		const guardFailure = await guardDescendantBranch(branchOptions);
-		if (guardFailure !== undefined) {
-			refreshFailures.push({ branch: maintenanceBranch, failure: guardFailure });
-			continue;
-		}
-		const refreshFailure = await refreshDescendantBranch(branchOptions);
-		if (refreshFailure !== undefined) {
-			refreshFailures.push({ branch: maintenanceBranch, failure: refreshFailure });
-		}
+		const guardFailure = await guardDescendantBranch({ ...options, maintenanceBranch });
+		if (guardFailure !== undefined) return reconciliationHalt(guardFailure);
 	}
-	if (refreshFailures.length > 0) return reconciliationHalt(options, refreshFailures, "retained");
+
+	for (const maintenanceBranch of maintenance.branches) {
+		const refreshFailure = await refreshDescendantBranch({ ...options, maintenanceBranch });
+		if (refreshFailure !== undefined) return reconciliationHalt(refreshFailure);
+	}
 
 	if (!options.shouldDeferLandedBranchDeletion) {
 		const deleteCheckFailure = await checkLandedBranchBeforeDelete(options);
-		if (deleteCheckFailure !== undefined) {
-			return reconciliationHalt(
-				options,
-				[{ branch: landedBranch, failure: deleteCheckFailure }],
-				"retained",
-			);
-		}
+		if (deleteCheckFailure !== undefined) return reconciliationHalt(deleteCheckFailure);
 		const deletionFailure = await deleteLandedBranch(options);
-		if (deletionFailure !== undefined) {
-			return reconciliationHalt(
-				options,
-				[{ branch: landedBranch, failure: deletionFailure }],
-				"retained",
-			);
-		}
+		if (deletionFailure !== undefined) return reconciliationHalt(deletionFailure);
 	}
-	const cleanupState = state.deletedBranches.has(landedBranch) ? "deleted" : "retained";
 
-	const reconcileFailures: BranchMaintenanceFailure[] = [];
+	const preparedRoots: PreparedDescendantRoot[] = [];
 	for (const maintenanceBranch of maintenance.branches) {
-		const failure = await reconcileDescendantRoot({ ...options, maintenanceBranch });
-		if (failure !== undefined) reconcileFailures.push({ branch: maintenanceBranch, failure });
+		const preparation = await prepareDescendantRoot({ ...options, maintenanceBranch });
+		if ("type" in preparation) return reconciliationHalt(preparation);
+		preparedRoots.push(preparation.proof);
 	}
-	if (reconcileFailures.length > 0) {
-		return reconciliationHalt(options, reconcileFailures, cleanupState);
+
+	for (const proof of preparedRoots) {
+		const publicationFailure = await publishPreparedDescendantRoot(
+			{ ...options, maintenanceBranch: proof.branch },
+			proof,
+		);
+		if (publicationFailure !== undefined) return reconciliationHalt(publicationFailure);
 	}
 	return { kind: "proceed" };
 }
@@ -229,9 +225,9 @@ async function deleteLandedBranch(
 	});
 }
 
-async function reconcileDescendantRoot(
+async function prepareDescendantRoot(
 	options: DescendantBranchOptions,
-): Promise<LandingExecutionFailure | undefined> {
+): Promise<DescendantRootPreparation> {
 	const { landContext, progress, plan, prNumber, maintenanceBranch, state } = options;
 	const { repoRoot } = plan;
 	const trunk = plan.stack.trunk;
@@ -313,13 +309,26 @@ async function reconcileDescendantRoot(
 			},
 		);
 	}
+	return {
+		kind: "prepared",
+		proof: { branch: maintenanceBranch, localSha: postRestackSha.value },
+	};
+}
+
+async function publishPreparedDescendantRoot(
+	options: DescendantBranchOptions,
+	proof: PreparedDescendantRoot,
+): Promise<LandingExecutionFailure | undefined> {
+	const { landContext, progress, plan, prNumber, maintenanceBranch } = options;
+	const { repoRoot } = plan;
+	const trunk = plan.stack.trunk;
 	const preSubmitFacts = await loadDescendantRootPrFacts(options, "before submit");
 	if (preSubmitFacts.kind === "failure") return preSubmitFacts.failure;
 	if (
 		isMaintenancePrCurrent({
 			pr: preSubmitFacts.pr,
 			branch: maintenanceBranch,
-			localSha: postRestackSha.value,
+			localSha: proof.localSha,
 			expectedBase: trunk,
 		})
 	) {
@@ -351,12 +360,12 @@ async function reconcileDescendantRoot(
 		!isMaintenancePrCurrent({
 			pr: postSubmitFacts.pr,
 			branch: maintenanceBranch,
-			localSha: postRestackSha.value,
+			localSha: proof.localSha,
 			expectedBase: trunk,
 		})
 	) {
 		return landingExecutionFailure(
-			`PR #${prNumber} merged and gt submit exited 0, but GitHub facts for ${maintenanceBranch} remain stale: state ${postSubmitFacts.pr.state}, head ${postSubmitFacts.pr.headRefName} at ${shortSha(postSubmitFacts.pr.headRefOid)} (expected ${shortSha(postRestackSha.value)}), base ${postSubmitFacts.pr.baseRefName} (expected ${trunk}).`,
+			`PR #${prNumber} merged and gt submit exited 0, but GitHub facts for ${maintenanceBranch} remain stale: state ${postSubmitFacts.pr.state}, head ${postSubmitFacts.pr.headRefName} at ${shortSha(postSubmitFacts.pr.headRefOid)} (expected ${shortSha(proof.localSha)}), base ${postSubmitFacts.pr.baseRefName} (expected ${trunk}).`,
 			{
 				failedBranch: maintenanceBranch,
 				failedPrNumber: postSubmitFacts.pr.number,
@@ -391,20 +400,6 @@ async function loadDescendantRootPrFacts(
 	return { kind: "facts", pr: pr.value };
 }
 
-function reconciliationHalt(
-	options: ReconcileDescendantRootsOptions,
-	failures: readonly BranchMaintenanceFailure[],
-	landedBranchCleanupState: "retained" | "deleted",
-): DescendantReconciliationOutcome {
-	return {
-		kind: "halt",
-		phase: "descendant-maintenance",
-		failure: aggregateDescendantReconciliationFailure({
-			failures,
-			landedBranch: options.landedBranch,
-			landedPrNumber: options.prNumber,
-			targetBranches: options.maintenance.branches,
-			landedBranchCleanupState,
-		}),
-	};
+function reconciliationHalt(failure: LandingExecutionFailure): DescendantReconciliationOutcome {
+	return { kind: "halt", phase: "descendant-maintenance", failure };
 }

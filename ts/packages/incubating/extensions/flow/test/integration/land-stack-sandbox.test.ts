@@ -222,7 +222,7 @@ describe("land stack sandbox integration", () => {
 	);
 
 	test(
-		"fails closed but keeps landed and descendant refs when one required descendant refresh fails after later roots are attempted",
+		"fails fast and keeps landed and descendant refs when one required descendant refresh fails",
 		async () => {
 			await withSandbox(
 				{
@@ -239,9 +239,7 @@ describe("land stack sandbox integration", () => {
 					expect(result.outcome.type).toBe("failure");
 					const log = await readCommandLog(sandbox);
 					expect(commandIndex(log, "gt", ["get", FEATURE_C])).toBeGreaterThanOrEqual(0);
-					expect(commandIndex(log, "gt", ["get", FEATURE_D])).toBeGreaterThan(
-						commandIndex(log, "gt", ["get", FEATURE_C]),
-					);
+					expect(commandIndex(log, "gt", ["get", FEATURE_D])).toBe(-1);
 					expect(commandArgs(log, "gt", "delete").map((args) => args[1])).not.toContain(FEATURE_B);
 					expect(commandArgs(log, "gt", "restack").map((args) => args[2])).not.toContain(FEATURE_C);
 					expect(commandArgs(log, "gt", "restack").map((args) => args[2])).not.toContain(FEATURE_D);
@@ -259,7 +257,7 @@ describe("land stack sandbox integration", () => {
 	);
 
 	test(
-		"fails closed but continues later descendant roots after one post-delete restack failure",
+		"fails fast without publishing or preparing later roots after a post-delete restack failure",
 		async () => {
 			await withSandbox(
 				{
@@ -277,13 +275,10 @@ describe("land stack sandbox integration", () => {
 					expect(result.outcome.type).toBe("failure");
 					const log = await readCommandLog(sandbox);
 					const featureCRestack = commandIndex(log, "gt", ["restack", "--branch", FEATURE_C]);
-					const featureDRestack = commandIndex(log, "gt", ["restack", "--branch", FEATURE_D]);
 					expect(featureCRestack).toBeGreaterThanOrEqual(0);
-					expect(featureDRestack).toBeGreaterThan(featureCRestack);
+					expect(commandIndex(log, "gt", ["restack", "--branch", FEATURE_D])).toBe(-1);
 					expect(commandIndex(log, "gt", ["submit", "--branch", FEATURE_C])).toBe(-1);
-					expect(commandIndex(log, "gt", ["submit", "--branch", FEATURE_D])).toBeGreaterThan(
-						featureDRestack,
-					);
+					expect(commandIndex(log, "gt", ["submit", "--branch", FEATURE_D])).toBe(-1);
 					expect(commandArgs(log, "gt", "delete").map((args) => args[1])).toContain(FEATURE_B);
 
 					const messages = notificationText(result);

@@ -605,6 +605,69 @@ describe("land execute mode over in-memory gateways", () => {
 		},
 	);
 
+	test("bounded landing snapshots and maintains the first remaining branch", async () => {
+		const branchB = "feature-b";
+		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+		const memory = createInMemoryLandContext({
+			git: {
+				repoRoot: ROOT,
+				currentBranch: branchB,
+				localBranches: [
+					{ name: BRANCH, sha: SHA },
+					{ name: branchB, sha: shaB },
+				],
+			},
+			graphite: {
+				stackShape: stackSnapshot({
+					current: branchB,
+					actualCurrentBranch: branchB,
+					landingTargetBranch: branchB,
+					landingBranches: [BRANCH, branchB],
+				}),
+			},
+			github: {
+				pullRequests: [
+					pullRequestFacts({ number: 101, headRefName: BRANCH, headRefOid: SHA }),
+					pullRequestFacts({
+						number: 102,
+						headRefName: branchB,
+						headRefOid: shaB,
+						baseRefName: "main",
+					}),
+				],
+			},
+		});
+
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: { ...executeRequest(), target: { type: "stack", landingBranchLimit: 1 } },
+			host: approvedHost(),
+		});
+
+		expect(outcome).toMatchObject({
+			type: "completed",
+			report: {
+				plan: {
+					stack: {
+						landingBranches: [BRANCH],
+						remainingLandingBranches: [branchB],
+					},
+				},
+				landedChunks: [{ landed: [{ branch: BRANCH, number: 101 }] }],
+			},
+		});
+		expect(memory.git.snapshotBackupRefsCalls).toEqual([
+			{ repoRoot: ROOT, branches: [BRANCH, branchB] },
+		]);
+		expect(memory.graphite.refreshBranchFromRemoteCalls.map((call) => call.branch)).toEqual([
+			branchB,
+		]);
+		expect(
+			memory.github.squashMergePullRequestCalls.map((call) => call.pullRequest.number),
+		).toEqual([101]);
+	});
+
 	test("retains the first landed chunk and observed cleanup when a later merge fails", async () => {
 		const branchB = "feature-b";
 		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";

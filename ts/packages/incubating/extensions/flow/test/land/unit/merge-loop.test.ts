@@ -55,6 +55,7 @@ function pr(
 
 function plan(options: {
 	landingBranches: readonly string[];
+	remainingLandingBranches?: readonly string[];
 	descendantBranches?: readonly string[];
 	descendantMaintenance?: LandingPlan["descendantMaintenance"];
 }): LandingPlan {
@@ -68,7 +69,7 @@ function plan(options: {
 			actualCurrentBranch: options.landingBranches.at(-1) ?? "",
 			landingTargetBranch: options.landingBranches.at(-1) ?? "",
 			landingBranches: [...options.landingBranches],
-			remainingLandingBranches: [],
+			remainingLandingBranches: [...(options.remainingLandingBranches ?? [])],
 			descendantBranches: [...descendantBranches],
 			descendantRootBranches: [...descendantBranches],
 			warnings: [],
@@ -207,6 +208,39 @@ describe("merge loop over LandContext", () => {
 		const firstEventRead = memory.callEvents;
 		expect(memory.callEvents).not.toBe(firstEventRead);
 		expect(memory.callEvents[0]).not.toBe(firstEventRead[0]);
+	});
+
+	test("snapshots remaining landing branches before bounded landing maintenance", async () => {
+		const memory = createInMemoryLandContext({
+			git: {
+				localBranches: [
+					{ name: "feature-a", sha: SHA_A },
+					{ name: "feature-b", sha: SHA_B },
+				],
+			},
+			github: { pullRequests: [pr("feature-a", 1, SHA_A), pr("feature-b", 2, SHA_B)] },
+		});
+
+		const result = await runMergeLoop({
+			context: memory.context,
+			progress: nullLandExecutionProgress,
+			plan: plan({
+				landingBranches: ["feature-a"],
+				remainingLandingBranches: ["feature-b"],
+			}),
+			warnings: [],
+		});
+
+		expect(result).toMatchObject({
+			type: "success",
+			observations: { landed: [{ branch: "feature-a", number: 1 }] },
+		});
+		expect(memory.git.snapshotBackupRefsCalls).toEqual([
+			{ repoRoot: REPO_ROOT, branches: ["feature-a", "feature-b"] },
+		]);
+		expect(memory.graphite.refreshBranchFromRemoteCalls.map((call) => call.branch)).toEqual([
+			"feature-b",
+		]);
 	});
 
 	test("snapshot failure causes no merge", async () => {

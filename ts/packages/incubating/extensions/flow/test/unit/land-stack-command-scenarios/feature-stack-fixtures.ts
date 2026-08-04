@@ -121,9 +121,22 @@ export function mergeFeatureBWithDescendant(): ScriptedExec[] {
 }
 
 export function mergeFeatureBWithForkedDescendants(): ScriptedExec[] {
+	const featureCReconciliation = descendantReconcileSteps({
+		branch: DESCENDANT,
+		sha: SHA_C,
+		prNumber: 103,
+		staleBase: "feature-b",
+	});
+	const featureDReconciliation = descendantReconcileSteps({
+		branch: "feature-d",
+		sha: SHA_D,
+		prNumber: 104,
+		staleBase: "feature-b",
+	});
 	return [
 		...mergeFeatureBThroughVerification(),
 		guardShaStep(DESCENDANT, SHA_C),
+		guardShaStep("feature-d", SHA_D),
 		step("gt", [
 			"get",
 			DESCENDANT,
@@ -133,7 +146,6 @@ export function mergeFeatureBWithForkedDescendants(): ScriptedExec[] {
 			"--force",
 			"--no-interactive",
 		]),
-		guardShaStep("feature-d", SHA_D),
 		step("gt", [
 			"get",
 			"feature-d",
@@ -146,19 +158,11 @@ export function mergeFeatureBWithForkedDescendants(): ScriptedExec[] {
 		childrenRecheckStep("feature-b", [DESCENDANT, "feature-d"]),
 		step("gt", ["delete", "feature-b", "-f", "-q"]),
 		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
-		...descendantReconcileSteps({
-			branch: DESCENDANT,
-			sha: SHA_C,
-			prNumber: 103,
-			staleBase: "feature-b",
-		}),
+		...featureCReconciliation.slice(0, 3),
 		step("gt", ["restack", "--branch", "feature-d", "--upstack", "--no-interactive"]),
-		...descendantReconcileSteps({
-			branch: "feature-d",
-			sha: SHA_D,
-			prNumber: 104,
-			staleBase: "feature-b",
-		}),
+		...featureDReconciliation.slice(0, 3),
+		...featureCReconciliation.slice(3),
+		...featureDReconciliation.slice(3),
 	];
 }
 
