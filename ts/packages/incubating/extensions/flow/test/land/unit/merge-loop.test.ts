@@ -446,7 +446,7 @@ describe("merge loop over LandContext", () => {
 			failedPhase: "descendant-maintenance",
 			observations: {
 				landed: [{ branch: "feature-a", number: 1 }],
-				descendantMaintenance: { type: "failed" },
+				descendantMaintenance: { type: "not-attempted" },
 			},
 			failure: { failedBranch: "descendant" },
 		});

@@ -88,6 +88,15 @@ describe("land execute mode over in-memory gateways", () => {
 				},
 			},
 		});
+		expect(mergeLoopPhases(outcome.report)).toEqual([
+			{ type: "completed", phase: "merge" },
+			{
+				type: "skipped",
+				phase: "descendant-maintenance",
+				reason: "no descendant branches require maintenance",
+			},
+			{ type: "completed", phase: "merge-maintenance-cleanup" },
+		]);
 		expect(memory.git.resolveRepoRootCalls).toEqual([{ cwd: ROOT }]);
 		// Cross-check: `land-stack-command-scenarios/`, scenario
 		// "renders final landed PR numbers as terminal hyperlinks". This compares semantic gateway
@@ -458,10 +467,14 @@ describe("land execute mode over in-memory gateways", () => {
 				landed: [{ branch: BRANCH, number: 101, title: "PR 101" }],
 			},
 		]);
-		expect(phaseByName(outcome.report, "merge")).toMatchObject({ type: "completed" });
-		expect(phaseByName(outcome.report, "descendant-maintenance")).toMatchObject({
-			type: "failed",
-		});
+		expect(mergeLoopPhases(outcome.report)).toEqual([
+			{ type: "completed", phase: "merge" },
+			{
+				type: "failed",
+				phase: "descendant-maintenance",
+				failure: outcome.failure,
+			},
+		]);
 		const failureMessage = outcome.failure.type === "execution" ? outcome.failure.message : "";
 		expect(failureMessage).toContain("deferred");
 		expect(failureMessage).toContain(descendant);
@@ -470,6 +483,71 @@ describe("land execute mode over in-memory gateways", () => {
 		expect(memory.graphite.restackCalls).toEqual([]);
 		expect(memory.graphite.submitUpdateCalls).toEqual([]);
 		expect(memory.graphite.refreshBranchFromRemoteCalls).toEqual([]);
+	});
+
+	test("reports a cleanup halt once, after the completed merge", async () => {
+		const branchB = "feature-b";
+		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+		const memory = createInMemoryLandContext({
+			git: {
+				repoRoot: ROOT,
+				currentBranch: branchB,
+				localBranches: [
+					{ name: BRANCH, sha: SHA },
+					{ name: branchB, sha: shaB },
+				],
+			},
+			graphite: {
+				stackShape: stackSnapshot({
+					current: branchB,
+					actualCurrentBranch: branchB,
+					landingTargetBranch: branchB,
+					landingBranches: [BRANCH, branchB],
+				}),
+				refreshBranchFromRemoteResults: {
+					[branchB]: {
+						type: "failure",
+						commandDisplay: `gt get ${branchB}`,
+						result: {
+							type: "exited",
+							stdout: "",
+							stderr: "refresh failed",
+							code: 1,
+							signal: null,
+						},
+					},
+				},
+			},
+			github: {
+				pullRequests: [
+					pullRequestFacts({ number: 101, headRefName: BRANCH, headRefOid: SHA }),
+					pullRequestFacts({
+						number: 102,
+						headRefName: branchB,
+						headRefOid: shaB,
+						baseRefName: "main",
+					}),
+				],
+			},
+		});
+
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: executeRequest(),
+			host: approvedHost(),
+		});
+
+		expect(outcome).toMatchObject({ type: "failed", failedPhase: "merge-maintenance-cleanup" });
+		if (outcome.type !== "failed") return;
+		expect(mergeLoopPhases(outcome.report)).toEqual([
+			{ type: "completed", phase: "merge" },
+			{
+				type: "failed",
+				phase: "merge-maintenance-cleanup",
+				failure: outcome.failure,
+			},
+		]);
 	});
 
 	test("reports completed descendant maintenance from observed operations", async () => {
@@ -514,9 +592,11 @@ describe("land execute mode over in-memory gateways", () => {
 
 		expect(outcome).toMatchObject({ type: "completed" });
 		if (outcome.type !== "completed") return;
-		expect(phaseByName(outcome.report, "descendant-maintenance")).toMatchObject({
-			type: "completed",
-		});
+		expect(mergeLoopPhases(outcome.report)).toEqual([
+			{ type: "completed", phase: "merge" },
+			{ type: "completed", phase: "descendant-maintenance" },
+			{ type: "completed", phase: "merge-maintenance-cleanup" },
+		]);
 		expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual([BRANCH]);
 	});
 
@@ -714,9 +794,10 @@ describe("land execute mode over in-memory gateways", () => {
 			{ landed: [{ branch: BRANCH, number: 101 }] },
 		]);
 		expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual([BRANCH]);
-		expect(phaseByName(outcome.report, "merge-maintenance-cleanup")).toMatchObject({
-			type: "completed",
-		});
+		expect(mergeLoopPhases(outcome.report)).toEqual([
+			{ type: "completed", phase: "merge-maintenance-cleanup" },
+			{ type: "failed", phase: "merge", failure: outcome.failure },
+		]);
 		expect(outcome.report.phases.at(-1)).toMatchObject({ type: "failed", phase: "merge" });
 		expect(outcome.report.cleanup.postLandingSlotCleanup).toMatchObject({ type: "not-run" });
 	});
@@ -1363,6 +1444,12 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
 	});
 });
+
+const MERGE_LOOP_PHASES = new Set(["merge", "descendant-maintenance", "merge-maintenance-cleanup"]);
+
+function mergeLoopPhases(report: LandingExecutionReport): LandingExecutionReport["phases"] {
+	return report.phases.filter((entry) => MERGE_LOOP_PHASES.has(entry.phase));
+}
 
 function phaseByName(
 	report: LandingExecutionReport,
