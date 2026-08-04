@@ -1,3 +1,9 @@
+---
+edges:
+  - objective: test-boundary-refactoring-catalog
+    annotation: That objective formalizes the transformation techniques evidenced in this objective's updates into named entries in docs/conventions/test-boundary-refactorings.md.
+---
+
 # Standing Test Performance Boundaries
 
 ## Thesis
