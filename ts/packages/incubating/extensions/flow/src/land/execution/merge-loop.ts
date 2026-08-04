@@ -57,8 +57,7 @@ export async function prepareMergeLoopState(
 export type ObservedDescendantMaintenance =
 	| { readonly type: "not-attempted" }
 	| { readonly type: "completed" }
-	| { readonly type: "skipped"; readonly reason: string }
-	| { readonly type: "failed" };
+	| { readonly type: "skipped"; readonly reason: string };
 
 export interface MergeLoopObservations {
 	readonly landed: readonly LandedPullRequest[];
@@ -305,9 +304,9 @@ function observeDescendantMaintenance(
 		case "none":
 			return { type: "skipped", reason: "no descendant branches require maintenance" };
 		case "blocked-descendants":
-			return { type: "failed" };
+			return undefined;
 		case "required-descendants":
-			return kind === "proceed" ? { type: "completed" } : { type: "failed" };
+			return kind === "proceed" ? { type: "completed" } : undefined;
 	}
 }
 

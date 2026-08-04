@@ -35,7 +35,7 @@ import type {
 } from "../types.ts";
 import type { LandExecutionContext } from "./execution-context.ts";
 import type { LandConfirmationGateway, LandExecutionProgress } from "./host-seams.ts";
-import { runMergeLoop, type ObservedDescendantMaintenance } from "./merge-loop.ts";
+import { runMergeLoop, type MergeLoopResult } from "./merge-loop.ts";
 import {
 	planManagedSlotPostLandingCleanup,
 	postLandingCleanupSkipReport,
@@ -292,23 +292,10 @@ export async function executeLandingRequest(
 		deletedLocalBranches: observations.deletedLocalBranches,
 		retainedLocalBranches: observations.cleanup.retainedLocalBranches,
 	};
-	const maintenancePhases = observedMaintenancePhases(
-		draft.mergeMaintenanceCleanup,
-		observations.descendantMaintenance,
-	);
+	draft.phases.push(...mergeLoopPhaseOutcomes(mergeOutcome));
 	if (mergeOutcome.type === "failure") {
-		// A post-merge maintenance failure still verified every target PR merge; record the phase
-		// history truthfully and attribute the failure to the maintenance phase that broke.
-		if (mergeOutcome.failedPhase === "descendant-maintenance") {
-			draft.phases.push(completed("merge"));
-		}
-		draft.phases.push(
-			...maintenancePhases.filter((phase) => phase.phase !== mergeOutcome.failedPhase),
-		);
 		return failedResult(draft, mergeOutcome.failedPhase, mergeOutcome.failure);
 	}
-
-	draft.phases.push(completed("merge"), ...maintenancePhases);
 
 	if (request.continuation.type === "upstack") {
 		draft.postLandingSlotCleanup = continuationPreservationReport(shape);
@@ -404,24 +391,40 @@ async function executePostLandingCleanup(
 	});
 }
 
-function observedMaintenancePhases(
-	cleanup: MergeMaintenanceCleanupReport,
-	descendantMaintenance: ObservedDescendantMaintenance,
-): readonly LandingPhaseOutcome[] {
-	const phases: LandingPhaseOutcome[] = [];
+function mergeLoopPhaseOutcomes(mergeLoopResult: MergeLoopResult): readonly LandingPhaseOutcome[] {
+	const { descendantMaintenance } = mergeLoopResult.observations;
+	const descendantPhases: LandingPhaseOutcome[] = [];
 	if (descendantMaintenance.type === "completed") {
-		phases.push(completed("descendant-maintenance"));
+		descendantPhases.push(completed("descendant-maintenance"));
 	} else if (descendantMaintenance.type === "skipped") {
-		phases.push(skipped("descendant-maintenance", descendantMaintenance.reason));
+		descendantPhases.push(skipped("descendant-maintenance", descendantMaintenance.reason));
 	}
-	// A `failed` observation is recorded by the failed-result phase entry itself.
-	const cleanupFacts = cleanup.deletedLocalBranches.length + cleanup.retainedLocalBranches.length;
+
+	const cleanup = mergeLoopResult.observations.cleanup;
+	const deletedLocalBranches = mergeLoopResult.observations.deletedLocalBranches;
+	const cleanupPhases: LandingPhaseOutcome[] = [];
+	const cleanupFacts = deletedLocalBranches.length + cleanup.retainedLocalBranches.length;
 	if (cleanupFacts > 0) {
-		phases.push(completed("merge-maintenance-cleanup"));
+		cleanupPhases.push(completed("merge-maintenance-cleanup"));
 	} else if (descendantMaintenance.type !== "not-attempted") {
-		phases.push(skipped("merge-maintenance-cleanup", "no local branch cleanup was performed"));
+		cleanupPhases.push(
+			skipped("merge-maintenance-cleanup", "no local branch cleanup was performed"),
+		);
 	}
-	return phases;
+
+	if (mergeLoopResult.type === "success") {
+		return [completed("merge"), ...descendantPhases, ...cleanupPhases];
+	}
+	switch (mergeLoopResult.failedPhase) {
+		case "merge":
+			return [...descendantPhases, ...cleanupPhases];
+		case "descendant-maintenance":
+			return [completed("merge"), ...cleanupPhases];
+		case "merge-maintenance-cleanup":
+			return [completed("merge"), ...descendantPhases];
+		default:
+			throw new Error(`Unexpected merge-loop failure phase: ${mergeLoopResult.failedPhase}`);
+	}
 }
 
 function postLandingCleanupPhase(outcome: PostLandingSlotCleanupReport): LandingPhaseOutcome {
