@@ -17,6 +17,8 @@ Seam-introduction transformations create or route a test-substitutable boundary.
 decision ladder — take the lowest rung that fits, and climb only on evidence:
 
 1. **Inject Dependency** while the boundary is a single narrow collaborator with local scope.
+2. **Inject Gateway** when a suitable gateway contract already exists — receive it, do not rebuild
+   it.
 
 ### Inject Dependency
 
@@ -37,3 +39,21 @@ implementation.*
   `createFreshNsCliRunner(loader)` in
   `ts/packages/incubating/hosts/pi/extensions/pi-ns-flow/src/fresh-ns-cli.ts`, where a single
   module-loader parameter defaults to the real dynamic import and tests inject a fake loader.
+
+### Inject Gateway
+
+*Receive an existing provider gateway through context instead of constructing it inline or reaching
+for ambient state.*
+
+- **Mechanics:** the operation's context carries the gateway; entrypoints bind it to the correct
+  exec channel, cwd, telemetry, and environment. Type against a **named Consumer Gateway** — one
+  narrowed identity per consumer scope, reused across that scope's helpers.
+- **Constraints:** governed by `docs/conventions/consumer-gateways-and-command-shape.md`: the
+  inversion rule (no `Real*Gateway` construction mid-flow), gateway clumps become named `*Context`
+  types rather than `*Options` fields. An
+  ad-hoc anonymous `Pick<…Gateway, …>` in a signature does not earn its keep: name the identity,
+  take the full provider contract (fakes are canonical, so tests lose nothing), or drop to
+  **Inject Dependency** for a single operation.
+- **Precedent:** `HandoffGitGateway`, `LandGitGateway`, and `GraphiteStackGitGateway` — the named
+  Consumer Gateways cited with the inversion rule's live examples in
+  `docs/conventions/consumer-gateways-and-command-shape.md`.
