@@ -2,10 +2,13 @@ import { describe, expect, test } from "vitest";
 
 import { buildFeedbackDispositionGuidance } from "../src/core/pr/feedback-disposition-guidance.ts";
 import prExtension, {
+	PR_DESC_COMMAND_NAME,
+	PR_DESC_MESSAGE_TYPE,
 	PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 	PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
 	type ExtensionAPI,
 	type ExtensionContext,
+	type MessageRenderer,
 	type RegisteredCommand,
 } from "../src/core/pr/extension.ts";
 import type { RawPiExecResult } from "../src/kit/shared/command-exec.ts";
@@ -21,6 +24,13 @@ class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly calls: ExecCall[] = [];
 	readonly userMessages: string[] = [];
+	readonly messages: Array<{
+		customType: string;
+		content: string;
+		display: boolean;
+		details?: unknown;
+	}> = [];
+	readonly renderers = new Map<string, MessageRenderer>();
 	private readonly fallbackResult: RawPiExecResult;
 	private readonly results: RawPiExecResult[];
 
@@ -37,6 +47,10 @@ class FakePi implements ExtensionAPI {
 		this.commands.set(name, command);
 	}
 
+	registerMessageRenderer(customType: string, renderer: MessageRenderer): void {
+		this.renderers.set(customType, renderer);
+	}
+
 	on(_event: "session_start" | "agent_end" | "session_shutdown", _handler: unknown): void {}
 
 	async exec(command: string, args: string[]): Promise<RawPiExecResult> {
@@ -46,6 +60,15 @@ class FakePi implements ExtensionAPI {
 
 	sendUserMessage(content: string): void {
 		this.userMessages.push(content);
+	}
+
+	sendMessage(message: {
+		customType: string;
+		content: string;
+		display: boolean;
+		details?: unknown;
+	}): void {
+		this.messages.push(message);
 	}
 }
 
@@ -157,6 +180,10 @@ interface RunRegisteredCommandOptions {
 	ctx?: FakeContext;
 }
 
+async function runDescCommand(pi: FakePi, rawArgs = ""): Promise<FakeContext> {
+	return await runRegisteredCommand({ pi, commandName: PR_DESC_COMMAND_NAME, rawArgs });
+}
+
 async function runCommand(pi: FakePi, rawArgs = ""): Promise<FakeContext> {
 	return await runRegisteredCommand({
 		pi,
@@ -229,6 +256,76 @@ describe("feedback disposition guidance", () => {
 	});
 });
 
+describe("/pr:desc", () => {
+	test("downloads and displays the current PR title and description", async () => {
+		const pi = new FakePi(
+			execResult({
+				stdout: JSON.stringify({ title: "Add PR description command", body: "The body." }),
+			}),
+		);
+
+		const ctx = await runDescCommand(pi);
+
+		expect(pi.calls).toEqual([{ command: "gh", args: ["pr", "view", "--json", "title,body"] }]);
+		expect(pi.messages.at(-1)).toEqual({
+			customType: PR_DESC_MESSAGE_TYPE,
+			content: "Title: Add PR description command\n\nDescription:\nThe body.",
+			display: true,
+			details: { title: "Add PR description command", body: "The body." },
+		});
+		expect(pi.renderers.has(PR_DESC_MESSAGE_TYPE)).toBe(true);
+		expect(ctx.notifications).toEqual([]);
+		expect(ctx.statuses).toEqual([
+			{ key: PR_DESC_COMMAND_NAME, value: "PR description: downloading…" },
+			{ key: PR_DESC_COMMAND_NAME, value: undefined },
+		]);
+	});
+
+	test("labels an empty PR description", async () => {
+		const pi = new FakePi(
+			execResult({ stdout: JSON.stringify({ title: "Title only", body: "" }) }),
+		);
+
+		await runDescCommand(pi);
+
+		expect(pi.messages.at(-1)).toEqual({
+			customType: PR_DESC_MESSAGE_TYPE,
+			content: "Title: Title only\n\nDescription:\n(No description)",
+			display: true,
+			details: { title: "Title only", body: "" },
+		});
+	});
+
+	test("reports GitHub CLI failures", async () => {
+		const pi = new FakePi(execResult({ stderr: "no pull requests found", code: 1 }));
+
+		const ctx = await runDescCommand(pi);
+
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: "Could not load the current PR: no pull requests found",
+			level: "error",
+		});
+	});
+
+	test("reports malformed GitHub CLI output", async () => {
+		const pi = new FakePi(execResult({ stdout: "not json" }));
+
+		const ctx = await runDescCommand(pi);
+
+		expect(ctx.notifications.at(-1)?.level).toBe("error");
+		expect(ctx.notifications.at(-1)?.message).toContain("gh pr view returned unexpected data");
+	});
+
+	test("rejects arguments without running GitHub CLI", async () => {
+		const pi = new FakePi();
+
+		const ctx = await runDescCommand(pi, "123");
+
+		expect(pi.calls).toEqual([]);
+		expect(ctx.notifications).toEqual([{ message: "Usage: /pr:desc", level: "error" }]);
+	});
+});
+
 describe("/pr:download-feedback", () => {
 	test("registers the commands", () => {
 		const pi = new FakePi();
@@ -236,6 +333,7 @@ describe("/pr:download-feedback", () => {
 		prExtension(pi);
 
 		expect([...pi.commands.keys()]).toEqual([
+			PR_DESC_COMMAND_NAME,
 			PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 			PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
 		]);

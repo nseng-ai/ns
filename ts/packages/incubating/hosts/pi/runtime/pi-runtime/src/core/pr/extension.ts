@@ -1,6 +1,13 @@
 import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
-import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { Component, TUI } from "@earendil-works/pi-tui";
+import { DynamicBorder, getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
+import {
+	Container,
+	Markdown,
+	Spacer,
+	Text,
+	type Component,
+	type TUI,
+} from "@earendil-works/pi-tui";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { formatZodError, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
@@ -10,6 +17,7 @@ import { parseMachineEnvelopeDataWithFailureData } from "../../runtime/machine-e
 import type { NotifyLevel } from "../../runtime/tool-types.ts";
 import { definePiSurfaceParity } from "../../runtime/parity-extension.ts";
 import { createPiCommandExecApi, type RawPiExecApi } from "../../kit/shared/command-exec.ts";
+import { loadGhCommand } from "../../kit/shared/gh-command.ts";
 import {
 	downloadPrFeedback,
 	type ExecResult,
@@ -17,12 +25,20 @@ import {
 } from "./feedback-download.ts";
 import { buildFeedbackDispositionGuidance } from "./feedback-disposition-guidance.ts";
 
+export const PR_DESC_COMMAND_NAME = "pr:desc";
+export const PR_DESC_MESSAGE_TYPE = "pr-description";
 export const PR_DOWNLOAD_FEEDBACK_COMMAND_NAME = "pr:download-feedback";
 export const PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME = "pr:download-stack-feedback";
+const PR_DESC_STATUS_KEY = PR_DESC_COMMAND_NAME;
 const DOWNLOAD_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_FEEDBACK_COMMAND_NAME;
 const DOWNLOAD_STACK_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME;
 const COMMAND_TIMEOUT_MS = 60_000;
 const STACK_DISCOVERY_TIMEOUT_MS = 120_000;
+const prDescriptionSchema = z.looseObject({
+	title: z.string(),
+	body: z.string(),
+});
+
 const stackBranchesDataSchema = z.looseObject({
 	branches: z.array(z.string()),
 });
@@ -55,6 +71,17 @@ interface StackFeedbackDownload {
 }
 
 export const prExtensionParity = definePiSurfaceParity([
+	{
+		kind: "command",
+		surface: PR_DESC_COMMAND_NAME,
+		workflow: "Display the current PR title and description",
+		parity: "FULL",
+		cli: "gh pr view --json title,body",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@nseng-ai/pi-runtime",
+		sourceModule: "pr",
+		notes: "Pi owns notification presentation; GitHub CLI owns current-branch PR resolution.",
+	},
 	{
 		kind: "command",
 		surface: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
@@ -124,8 +151,13 @@ interface CustomMessage {
 	details?: unknown;
 }
 
+export interface MessageRenderer {
+	(message: CustomMessage, options: { expanded: boolean }, theme: Theme): Component;
+}
+
 export interface ExtensionAPI extends RawPiExecApi {
 	registerCommand(name: string, command: RegisteredCommand): void;
+	registerMessageRenderer?(customType: string, renderer: MessageRenderer): unknown;
 	on(
 		event: "session_start",
 		handler: (event: unknown, ctx: ExtensionContext) => Promise<void> | void,
@@ -138,6 +170,18 @@ export interface ExtensionAPI extends RawPiExecApi {
 
 export default function prExtension(pi: ExtensionAPI): void {
 	const commands = createPiCommandExecApi(pi);
+	pi.registerMessageRenderer?.(PR_DESC_MESSAGE_TYPE, renderPrDescriptionMessage);
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: PR_DESC_COMMAND_NAME,
+		commandDefinition: {
+			description: "Display the current PR title and description.",
+			handler: async (rawArgs, ctx) => {
+				await runPrDescCommand(pi, commands, rawArgs, ctx);
+			},
+		},
+		options: { delivery: "message" },
+	});
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
@@ -159,6 +203,104 @@ export default function prExtension(pi: ExtensionAPI): void {
 			},
 		},
 	});
+}
+
+async function runPrDescCommand(
+	host: ExtensionAPI,
+	commands: CommandExecApi,
+	rawArgs: string,
+	ctx: ExtensionContext,
+): Promise<void> {
+	const parsedArgs = parseNoArgs(rawArgs, "Usage: /pr:desc");
+	if (parsedArgs.type === "invalid") {
+		notify(ctx, parsedArgs.message, "error");
+		return;
+	}
+
+	ctx.ui?.setStatus?.(PR_DESC_STATUS_KEY, "PR description: downloading…");
+	try {
+		const loaded = await loadGhCommand({
+			pi: commands,
+			args: ["pr", "view", "--json", "title,body"],
+			cwd: ctx.cwd,
+			timeoutMs: COMMAND_TIMEOUT_MS,
+		});
+		if (loaded.type === "failed") {
+			notify(ctx, `Could not load the current PR: ${loaded.detail}`, "error");
+			return;
+		}
+
+		const parsed = prDescriptionSchema.safeParse(parseJson(loaded.stdout));
+		if (!parsed.success) {
+			notify(
+				ctx,
+				`gh pr view returned unexpected data: ${formatZodError(parsed.error, { rootPath: null })}`,
+				"error",
+			);
+			return;
+		}
+
+		displayPrDescription(host, ctx, parsed.data);
+	} finally {
+		ctx.ui?.setStatus?.(PR_DESC_STATUS_KEY, undefined);
+	}
+}
+
+function parseJson(value: string): unknown {
+	try {
+		return JSON.parse(value);
+	} catch {
+		// Let the schema-validation path report malformed command output consistently.
+		return undefined;
+	}
+}
+
+function formatPrDescription(pr: z.output<typeof prDescriptionSchema>): string {
+	const body = pr.body.trim();
+	return [`Title: ${pr.title}`, "", "Description:", body === "" ? "(No description)" : body].join(
+		"\n",
+	);
+}
+
+function displayPrDescription(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	pr: z.output<typeof prDescriptionSchema>,
+): void {
+	const content = formatPrDescription(pr);
+	if (pi.sendMessage !== undefined) {
+		pi.sendMessage({
+			customType: PR_DESC_MESSAGE_TYPE,
+			content,
+			display: true,
+			details: pr,
+		});
+		return;
+	}
+	notify(ctx, content, "info");
+}
+
+function renderPrDescriptionMessage(
+	message: CustomMessage,
+	_options: { expanded: boolean },
+	theme: Theme,
+): Component {
+	const parsed = prDescriptionSchema.safeParse(message.details);
+	if (!parsed.success) return new Text(message.content, 0, 0);
+
+	const container = new Container();
+	container.addChild(new DynamicBorder((text: string) => theme.fg("borderMuted", text)));
+	container.addChild(new Spacer(1));
+	container.addChild(new Text(theme.fg("accent", theme.bold(`Title: ${parsed.data.title}`)), 0, 0));
+	container.addChild(new Spacer(1));
+	container.addChild(new Text(theme.fg("accent", theme.bold("Description:")), 0, 0));
+	const body = parsed.data.body.trim();
+	container.addChild(
+		body === ""
+			? new Text(theme.fg("muted", "(No description)"), 0, 0)
+			: new Markdown(body, 0, 0, getMarkdownTheme()),
+	);
+	return container;
 }
 
 async function runPrDownloadFeedbackCommand(
