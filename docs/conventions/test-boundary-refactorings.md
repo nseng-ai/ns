@@ -19,6 +19,12 @@ decision ladder — take the lowest rung that fits, and climb only on evidence:
 1. **Inject Dependency** while the boundary is a single narrow collaborator with local scope.
 2. **Inject Gateway** when a suitable gateway contract already exists — receive it, do not rebuild
    it.
+3. **Introduce Gateway** only when no existing contract fits and the boundary has earned the
+   weight: multiple domain operations, a durable fake needed across many tests, or a second
+   consumer.
+
+Each rung produces an artifact already named in root `CONTEXT.md`: a plain **DI Seam**, a
+**Consumer Gateway**, and a **Gateway**, respectively.
 
 ### Inject Dependency
 
@@ -57,3 +63,23 @@ for ambient state.*
 - **Precedent:** `HandoffGitGateway`, `LandGitGateway`, and `GraphiteStackGitGateway` — the named
   Consumer Gateways cited with the inversion rule's live examples in
   `docs/conventions/consumer-gateways-and-command-shape.md`.
+
+### Introduce Gateway
+
+*Mint a new semantic, capability-shaped gateway with a paired real adapter and true in-memory
+fake.*
+
+- **Mechanics:** define a domain-first contract — domain operations over domain objects, never
+  substrate primitives — with the real adapter at the edge and a constructor-state in-memory fake
+  as a true alternate implementation. Wire at a composition root or `createReal*Context` factory.
+  Placement follows ADR 0019 (refined by ADR 0032); shape follows
+  `docs/conventions/consumer-gateways-and-command-shape.md`; fake style follows the
+  `typescript-fake-driven-testing` skill.
+- **Constraints:** the heavyweight rung — take it only when the boundary has multiple domain
+  operations, needs a durable fake across many tests, or has a second consumer. One canonical fake
+  per gateway; consumers do not mint per-test fakes. Introducing means *new*: when a suitable
+  contract already exists, the transformation is **Inject Gateway**.
+- **Precedent:** `PlanStoreGateway` with `InMemoryPlanStoreGateway` and a real-adapter integration
+  smoke, in
+  `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-28T201757Z-plans-plan-store-gateway.md`
+  — also the model for domain-specific storage gateways over raw filesystem operations.
