@@ -21,6 +21,11 @@ interface ModelInfo {
 	id: string;
 }
 
+interface UserMessage {
+	content: string;
+	options: { deliverAs: "steer" } | undefined;
+}
+
 const EXPECTED_SHORTCUTS: readonly ExpectedShortcut[] = [
 	{
 		command: "model:fable",
@@ -70,7 +75,9 @@ const EXPECTED_SHORTCUTS: readonly ExpectedShortcut[] = [
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
+	readonly events: string[] = [];
 	readonly setModels: ModelInfo[] = [];
+	readonly userMessages: UserMessage[] = [];
 	private readonly shouldSetModelSucceed: boolean;
 
 	constructor(shouldSetModelSucceed = true) {
@@ -87,7 +94,13 @@ class FakePi implements ExtensionAPI {
 
 	async setModel(model: ModelInfo): Promise<boolean> {
 		this.setModels.push(model);
+		this.events.push("setModel");
 		return this.shouldSetModelSucceed;
+	}
+
+	sendUserMessage(content: string, options?: { deliverAs: "steer" }): void {
+		this.userMessages.push({ content, options });
+		this.events.push("sendUserMessage");
 	}
 }
 
@@ -107,7 +120,9 @@ function modelRef(shortcut: ExpectedShortcut): string {
 	return `${shortcut.selection.provider}/${shortcut.selection.modelId}`;
 }
 
-function createContext(options: { models?: readonly ModelInfo[]; hasUI?: boolean } = {}): {
+function createContext(
+	options: { models?: readonly ModelInfo[]; hasUI?: boolean; idle?: boolean } = {},
+): {
 	ctx: Parameters<RegisteredCommand["handler"]>[1];
 	notifications: Notification[];
 } {
@@ -116,6 +131,9 @@ function createContext(options: { models?: readonly ModelInfo[]; hasUI?: boolean
 		notifications,
 		ctx: {
 			hasUI: options.hasUI ?? true,
+			isIdle() {
+				return options.idle ?? true;
+			},
 			modelRegistry: {
 				find(provider, modelId) {
 					return options.models?.find(
@@ -141,7 +159,10 @@ describe("modelShortcutExtension", () => {
 		expect(
 			[...pi.commands.entries()].map(([name, command]) => [name, command.description]),
 		).toEqual(
-			EXPECTED_SHORTCUTS.map((shortcut) => [shortcut.command, `Switch to ${modelRef(shortcut)}`]),
+			EXPECTED_SHORTCUTS.map((shortcut) => [
+				shortcut.command,
+				`Switch to ${modelRef(shortcut)} and optionally run a prompt`,
+			]),
 		);
 	});
 
@@ -156,40 +177,87 @@ describe("modelShortcutExtension", () => {
 			await commandFor(pi, shortcut.command).handler("", ctx);
 
 			expect(pi.setModels).toEqual([model]);
+			expect(pi.userMessages).toEqual([]);
 			expect(notifications).toEqual([
 				{ message: `Switched model to ${modelRef(shortcut)}.`, level: "info" },
 			]);
 		},
 	);
 
-	test("notifies when a shortcut model is missing", async () => {
+	test.each(EXPECTED_SHORTCUTS)(
+		"switches $command before submitting its prompt unchanged",
+		async (shortcut) => {
+			const pi = new FakePi();
+			modelShortcutExtension(pi);
+			const model = modelFromShortcut(shortcut);
+			const { ctx } = createContext({ models: [model] });
+			const prompt = "  summarize the current diff  ";
+
+			await commandFor(pi, shortcut.command).handler(prompt, ctx);
+
+			expect(pi.setModels).toEqual([model]);
+			expect(pi.userMessages).toEqual([{ content: prompt, options: undefined }]);
+			expect(pi.events).toEqual(["setModel", "sendUserMessage"]);
+		},
+	);
+
+	test("steers the prompt when the agent is busy", async () => {
+		const model = { provider: "vercel-ai-gateway", id: "anthropic/claude-fable-5" };
+		const pi = new FakePi();
+		modelShortcutExtension(pi);
+		const { ctx } = createContext({ idle: false, models: [model] });
+
+		await commandFor(pi, "model:fable").handler("summarize the current diff", ctx);
+
+		expect(pi.userMessages).toEqual([
+			{ content: "summarize the current diff", options: { deliverAs: "steer" } },
+		]);
+	});
+
+	test("switches without submitting a whitespace-only prompt", async () => {
+		const model = { provider: "vercel-ai-gateway", id: "anthropic/claude-fable-5" };
+		const pi = new FakePi();
+		modelShortcutExtension(pi);
+		const { ctx } = createContext({ models: [model] });
+
+		await commandFor(pi, "model:fable").handler(" \n\t ", ctx);
+
+		expect(pi.setModels).toEqual([model]);
+		expect(pi.userMessages).toEqual([]);
+	});
+
+	test("notifies when a shortcut model is missing without submitting the prompt", async () => {
 		const pi = new FakePi();
 		modelShortcutExtension(pi);
 		const { ctx, notifications } = createContext();
 
-		await commandFor(pi, "model:spud").handler("", ctx);
+		await commandFor(pi, "model:spud").handler("do not run this", ctx);
 
 		expect(pi.setModels).toEqual([]);
+		expect(pi.userMessages).toEqual([]);
 		expect(notifications).toEqual([
 			{ message: "Model vercel-ai-gateway/openai/gpt-5.6-sol not found.", level: "error" },
+			{ message: "Prompt was not submitted:\ndo not run this", level: "warning" },
 		]);
 	});
 
-	test("notifies when a shortcut model cannot be selected", async () => {
+	test("notifies when a shortcut model cannot be selected without submitting the prompt", async () => {
 		const model = { provider: "vercel-ai-gateway", id: "anthropic/claude-opus-4-8" };
 		const pi = new FakePi(false);
 		modelShortcutExtension(pi);
 		const { ctx, notifications } = createContext({ models: [model] });
 
-		await commandFor(pi, "model:opus").handler("", ctx);
+		await commandFor(pi, "model:opus").handler("do not run this", ctx);
 
 		expect(pi.setModels).toEqual([model]);
+		expect(pi.userMessages).toEqual([]);
 		expect(notifications).toEqual([
 			{
 				message:
 					"Model vercel-ai-gateway/anthropic/claude-opus-4-8 is unavailable; run /login or configure Pi auth.",
 				level: "error",
 			},
+			{ message: "Prompt was not submitted:\ndo not run this", level: "warning" },
 		]);
 	});
 
