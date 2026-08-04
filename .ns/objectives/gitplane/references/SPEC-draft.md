@@ -49,7 +49,7 @@ For incremental reconciliation, Gitplane diffs the cursor and target trees. For 
 
 Artifact IDs are unique across generic and classified artifacts in one source. A generic artifact may become classified once. That transition establishes immutable `gpApiVersion`/`gpKind` lineage and uses the ordinary `artifact.revised` event because marker content changes. Classified-to-generic transitions and changes to an established API version or kind are invalid. A tombstoned classified ID remains permanently reserved to its established `gpApiVersion` and `gpKind`; restoring any ID retains its prior classification state and transition rules. Separate sources may reuse an ID because durable identity is `(source_id, artifact_id)`.
 
-The same ID moving to another path is a move. A different ID appearing at a different path while an old ID disappears is delete-plus-create. Replacing an ID at the same path in one commit is invalid; perform deletion and creation in separate commits.
+The same ID moving to another path preserves artifact lineage. The move commit becomes the marker's last-changed commit, so it creates a new revision and produces `artifact.revised` with both paths rather than a separate move event. A different ID appearing at a different path while an old ID disappears is delete-plus-create. Replacing an ID at the same path in one commit is invalid; perform deletion and creation in separate commits.
 
 ### Kind registration and schema transitions
 
@@ -70,7 +70,7 @@ Projection fields, clear-fields, and directed transition metadata are retained f
 
 ## Content digests and revisions
 
-An artifact revision is an immutable content snapshot, not an observation of current location. A pure outer artifact move reuses the revision. An internal path or byte change creates a new one. Current path and latest observed commit belong to the mutable artifact materialization.
+An artifact revision is an immutable content snapshot paired with marker provenance. An internal path or byte change creates a new revision through the content digest. Adding, changing, or moving `gitplane-artifact.json` creates a new revision through `markerLastChangedCommit`, even when the recursive content digest matches an earlier revision. Current path and latest observed commit also belong to the mutable artifact materialization.
 
 ### Content digest
 
@@ -87,21 +87,23 @@ The public digest is lowercase `sha256:<64 hex characters>`. Identity code also 
 
 ### Revision identity and storage
 
-Revision identity is deterministic from source, artifact, and content:
+Revision identity is deterministic from source, artifact, content, and marker provenance:
 
 ```text
 revision_id = "gpr_" + base32lower(
   SHA-256(
     u64be(len(utf8(source_id))) || utf8(source_id) ||
     u64be(len(utf8(artifact_id))) || utf8(artifact_id) ||
-    raw_32_byte_content_digest
+    raw_32_byte_content_digest ||
+    u64be(len(utf8(marker_last_changed_commit))) ||
+    utf8(marker_last_changed_commit)
   )
 )
 ```
 
-`gpr_` means “Gitplane revision.” Lowercase Base32 uses the Crockford alphabet without padding.
+`gpr_` means “Gitplane revision.” Lowercase Base32 uses the Crockford alphabet without padding. `markerLastChangedCommit` is the Git commit that most recently added, changed, or moved the artifact's `gitplane-artifact.json` at the reconciled target. It describes marker provenance only, not the last change to any file in the recursive artifact. Reconciliation must establish it from Git history for every live target artifact; unavailable provenance is a structural failure before materialization.
 
-A revision stores its ID and digest, complete parsed marker, recursive relative-path/per-file-SHA-256 manifest, and one immutable first-observed Git locator: commit plus artifact path. Re-observing the same revision elsewhere does not append locations.
+A revision stores its ID and digest, `markerLastChangedCommit`, complete parsed marker, recursive relative-path/per-file-SHA-256 manifest, and one immutable first-observed Git locator: commit plus artifact path. Re-observing the same revision elsewhere does not append locations.
 
 Gitplane stores no raw artifact bytes. Exact content remains addressed by the first-observed Git commit and path. Object-store replication is a future extension and out of scope for v1.
 
@@ -189,17 +191,99 @@ Lineage legality between commits (immutable `gpApiVersion`/`gpKind`, registered 
 Normal reconciliation is fast-forward and cursor-derived:
 
 1. Resolve target `C`; reject merge commits. V1 assumes linear, squash-only source history.
-2. Read the source cursor. First reconciliation requires `--full`.
-3. Require the cursor to be an ancestor of `C`; equal cursor is a no-op.
-4. Build the complete deterministic transition plan from the cursor Git tree to the target Git tree—not from possibly partial store state.
-5. Validate every candidate and enforce lineage legality (one-way generic-to-classified transition, immutable established kind/API identity, registered schema transitions, no ID replacement at one path) before writes.
-6. Apply idempotent revision and event inserts for every artifact, control-current-state changes for every artifact, and target-row upserts/tombstones only for classified artifacts.
-7. Advance the cursor from the expected prior value to exactly `C` with compare-and-set, last.
-8. Resolve errors recorded for that target after success.
+2. Read the source cursor and any pending reconciliation attempt. First reconciliation requires `--full`.
+3. Require a normal target to descend from the cursor. An equal normal target may still require cleanup of a completed attempt.
+4. Gather all required Git and store facts, build the complete deterministic semantic plan from the cursor and target Git trees, and validate the complete corpus, lineage transitions, classifications, schemas, and plan before the first materialization write. Planning never derives truth from partially materialized rows.
+5. Persist the complete frozen plan under its deterministic reconciliation attempt ID before materialization. A matching retry reuses that plan verbatim rather than rereading source artifacts or reinterpreting kind registration.
+6. Apply the plan in the phase order specified below.
+7. Advance the cursor from the expected prior value to exactly `C` with compare-and-set. A successful cursor CAS is the completed-materialization boundary.
+8. Resolve errors recorded for that target and delete the completed attempt.
 
-Writes are deliberately non-transactional. If an operation fails, reconciliation stops, the cursor does not advance, and partial writes may be visible. Gitplane records a sanitized error best-effort and requires engineer action where appropriate. Retrying while the cursor is unchanged reconstructs the same plan and deterministic IDs, making completed writes harmless. The guarantee is eventual convergence after a successful retry, not atomic visibility of one complete commit.
+Writes are deliberately non-transactional. Partial materialization may be visible before cursor CAS. A retry of an unresolved matching attempt replays the persisted plan with the same deterministic identities, making completed writes harmless. The guarantee is eventual convergence after a successful retry, not atomic visibility of one complete commit.
 
-A normal target must descend from the cursor. Older or divergent targets fail without writes. `--full` is required for initial sync and intentional repair. It discovers and validates every target artifact, upserts control state and revisions for all live artifacts plus target rows for classified artifacts, tombstones stored live IDs absent at the target in control state and in target tables where applicable, preserves already absent tombstones and all immutable history, and advances the cursor last. When the previous cursor commit is available, `--full` records only transitions inferable from cursor tree to target tree; otherwise it creates no synthetic historical events and reports that event reconstruction was skipped. `--full` is not history import or garbage collection.
+A normal target must descend from the cursor. Older or divergent targets fail without materialization writes. `--full` is required for initial sync and intentional repair. It discovers and validates every target artifact, upserts control state and revisions for all live artifacts plus target rows for classified artifacts, tombstones stored live IDs absent at the target in control state and in target tables where applicable, and preserves already absent tombstones and immutable history. `--full` is not history import or garbage collection.
+
+#### Reconciliation invariants
+
+**Truth and validation.** Git facts and a persisted frozen attempt are the only planning authorities. Gitplane gathers source and store facts and validates the complete corpus and semantic plan before the first materialization write. It never plans from partially materialized rows.
+
+**Transition selection.** A successful plan emits at most one event per artifact. Normal incremental reconciliation uses lifecycle precedence `created → restored → revised → none → deleted`; generic-to-classified and outer-path moves are revisions. Initial full reconciliation emits `artifact.created` for every target artifact. Every later full reconciliation is a repair: it reapplies every artifact in the repair plan and emits `artifact.repaired` for each one, without first detecting target drift or asserting a Git-history transition.
+
+**Event reconstruction.** Events describe transitions in Gitplane's materialization lifecycle, not the commit where an artifact first appeared in repository history. Initial full reconciliation transitions every target artifact from untracked to tracked and emits one deterministic `artifact.created` event per artifact; each event's marker provenance separately identifies the commit that most recently added, changed, or moved its marker. Every completed reconciliation reports exactly one event-reconstruction status:
+
+- `not-requested` — normal incremental reconciliation, including normal equal-cursor cleanup-only work;
+- `performed` — initial full reconciliation, with one `artifact.created` event per target artifact;
+- `repair-performed` — any later full reconciliation, regardless of ancestry or cursor-history availability; reapply every artifact in the repair plan and emit one `artifact.repaired` event per artifact.
+
+A repair event is lineage-free: it records the corrective materialization work and carries known prior/current revision and path without asserting how the artifact transitioned through Git history. Repairing an artifact out of current materialization tombstones its control and classified target state and emits `artifact.repaired` with its prior revision/path and null current revision/path.
+
+**Apply ordering.** The authoritative rebuild order is: persist attempt and frozen plan → for each artifact in canonical artifact-ID order, apply its revision → lineage → control current state → classified target, when applicable → event, when applicable → after all artifacts, cursor CAS → resolve errors → delete the attempt. This is adapter-neutral semantic ordering, not SQL statement or transaction ordering. The engine/fault-injection slice must test it and may amend it only explicitly if evidence requires a change.
+
+**Completion and visibility.** Successful cursor CAS is the completed-materialization boundary. Because writes are non-transactional, readers that do not check the cursor may observe stale or mixed control and target state while reconciliation is in progress; this eventual consistency is intentional. Consumers that need commit-level freshness must treat cursor equality with the expected target as the completion signal. If later error resolution or attempt deletion fails, the advanced cursor and persisted attempt retain enough state to identify completed-attempt residue. A later equal-cursor invocation retries those cleanup operations idempotently without replaying materialization or artifact events, so transient cleanup failures are eventually recoverable. Permanent cleanup failures may require operator recovery; exact controls remain provisional to the durable-store and engine slices. `cursorAdvanced` describes this invocation, not cursor equality: cleanup failure after this invocation successfully advances the cursor reports `true`; a later equal-cursor cleanup-only invocation reports `false` even though the durable cursor already equals the target.
+
+**Failure split.** Structural failures are deterministic history, corpus, lineage-legality, classification/schema, attempt-conflict, baseline/frozen-plan-conflict, or CAS-precondition-mismatch outcomes. They create no durable reconciliation-error row. Operational failures are failures to execute required source or store operations. Once the write phase begins, Gitplane records a sanitized durable reconciliation error best-effort where applicable; failure to record it never replaces the primary failure. A semantic CAS mismatch is distinct from an operational CAS-backend failure, and a semantic attempt conflict is distinct from an operational attempt-store failure. Failure-recording side effects are outside the happy-path apply order.
+
+**Attempt identity and retry authority.** A reconciliation attempt ID has prefix `gpa_` and is deterministically derived by length-framed hashing of source ID, expected cursor commit or an explicit initial-sync sentinel, target commit, and mode. The durable-store slice owns the exact derivation function and literal identity test. One complete adapter-neutral semantic apply plan is persisted under that ID and replayed verbatim after interruption. It contains prior and current facts, identities, transition/event outcomes, target identity, and all derived projection values required to apply without rereading source artifacts or reinterpreting changed kind registration. It excludes adapter-specific SQL and mutable progress markers. Exact planner types and durable schema remain provisional to their owning slices.
+
+**Single pending attempt.** A source cannot silently replace an unresolved attempt. Matching work reuses its frozen plan, conflicting work fails structurally, and residue after cursor CAS is cleanup-only. Detailed stale-attempt recovery, mode-mismatch handling, operator controls, and exact lookup precedence are provisional TODOs for the durable-store and engine slices.
+
+#### Reconciliation proof matrix
+
+This matrix is a curated normative catalog, not a Cartesian test generator or a claim of implementation proof. Stable IDs identify the public-interface end-to-end scenarios that the named future slice must add through `reconcile(context, options)` when the required behavior and test infrastructure exist. Typed vectors arrive with those executable scenarios, not before them.
+
+| ID                                   | Dimensions                                     | Expected semantic outcome                                                                        | Proof obligation                                                  | Owner         |
+| ------------------------------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- | ------------- |
+| `history-initial-normal`             | no cursor; normal                              | Structural rejection before writes; first reconciliation requires full                           | Resolve initial history state                                     | source facts  |
+| `history-initial-full`               | no cursor; full                                | Materialize target; `performed`; one `artifact.created` event per target artifact                | Establish the materialization lifecycle from scratch              | engine E2E    |
+| `history-incremental-descendant`     | cursor ancestor; normal                        | Plan cursor-to-target transitions; `not-requested`                                               | Supply comparable diff facts                                      | source facts  |
+| `history-incremental-equal`          | cursor equals target; normal                   | No materialization replay; cleanup residue only; `not-requested`                                 | Distinguish equality from advancement                             | engine E2E    |
+| `history-normal-non-forward`         | target older or divergent; normal              | Structural rejection before writes                                                               | Classify non-forward history                                      | source facts  |
+| `history-full-descendant`            | cursor ancestor; full                          | Full repair; `repair-performed`; reapply and emit `artifact.repaired` for every planned artifact | Keep explicit repair semantics independent of ancestry            | engine E2E    |
+| `history-full-equal`                 | cursor equals target; full                     | Full repair; `repair-performed`; reapply and emit `artifact.repaired` for every planned artifact | Permit noisy equal-cursor repair without target-drift reads       | engine E2E    |
+| `history-full-older`                 | target older; full                             | Full repair; `repair-performed`; reapply and emit `artifact.repaired` for every planned artifact | Repair without asserting nonlinear Git transitions                | engine E2E    |
+| `history-full-divergent`             | target divergent; full                         | Full repair; `repair-performed`; reapply and emit `artifact.repaired` for every planned artifact | Repair without asserting nonlinear Git transitions                | engine E2E    |
+| `history-merge-rejected`             | target merge commit; either mode               | Structural rejection before writes                                                               | Enforce linear-history contract                                   | source facts  |
+| `history-prior-unavailable`          | recorded cursor unreadable; full               | Full repair; `repair-performed`; reapply and emit `artifact.repaired` for every planned artifact | Distinguish corrective work from inferred history                 | source facts  |
+| `lifecycle-create`                   | unseen ID becomes live                         | `artifact.created`                                                                               | Derive creation from complete facts                               | planner       |
+| `lifecycle-delete`                   | live ID absent at target                       | `artifact.deleted`; control and classified target tombstoned                                     | Derive deletion deterministically                                 | planner       |
+| `lifecycle-restore`                  | tombstoned ID becomes live                     | `artifact.restored`; complete live projection restored                                           | Preserve lineage across absence                                   | planner       |
+| `lifecycle-move`                     | same ID and content, new path                  | New marker provenance and revision; one `artifact.revised` event carrying both paths             | Treat the move commit as useful revision provenance               | planner       |
+| `lifecycle-revise`                   | same ID, changed content or marker provenance  | `artifact.revised`                                                                               | Derive immutable revision identity                                | planner       |
+| `lifecycle-revise-move`              | content and path change together               | One `artifact.revised` event carrying both paths                                                 | Prove precedence and at-most-one event                            | planner       |
+| `lifecycle-unchanged`                | same revision and path                         | No event                                                                                         | Avoid synthetic transitions                                       | planner       |
+| `lifecycle-generic-classified`       | generic becomes classified                     | Legal `artifact.revised`; first target row                                                       | Establish classification lineage once                             | planner       |
+| `lifecycle-classified-generic`       | classified becomes generic                     | Structural rejection                                                                             | Enforce one-way classification                                    | planner       |
+| `lifecycle-kind-api-change`          | established kind or API changes                | Structural rejection                                                                             | Preserve established identity                                     | planner       |
+| `lifecycle-schema-legal`             | registered direct transition                   | Revision and target projection apply                                                             | Enforce registered edge                                           | planner       |
+| `lifecycle-schema-illegal`           | downgrade, skip, or unregistered transition    | Structural rejection                                                                             | Reject illegal schema lineage                                     | planner       |
+| `lifecycle-same-path-id-replacement` | old ID replaced by new ID at one path          | Structural rejection                                                                             | Reject lineage replacement                                        | planner       |
+| `lifecycle-duplicate-target-id`      | target corpus repeats ID                       | Structural rejection before writes                                                               | Validate complete corpus                                          | planner       |
+| `events-not-requested`               | normal incremental/equal cleanup               | `not-requested`                                                                                  | Cover normal modes                                                | engine E2E    |
+| `events-initial-materialization`     | initial full                                   | `performed`; one deterministic `artifact.created` per target artifact                            | Distinguish materialization creation from repository introduction | engine E2E    |
+| `events-repair-descendant-equal`     | later full; descendant/equal target            | `repair-performed`; one `artifact.repaired` per planned artifact                                 | Keep explicit full repair semantics simple and ancestry-neutral   | engine E2E    |
+| `events-repair-baseline-unavailable` | later full; unreadable prior commit            | `repair-performed`; one `artifact.repaired` per planned artifact                                 | Record reapplied work without inventing Git lineage               | engine E2E    |
+| `events-repair-non-forward`          | later full; older/divergent target             | `repair-performed`; one `artifact.repaired` per planned artifact                                 | Record reapplied work without asserting nonlinear transitions     | engine E2E    |
+| `events-precedence`                  | all lifecycle outcomes                         | At most one event per artifact in declared precedence                                            | Exhaust transition decision table                                 | planner       |
+| `events-retry-stability`             | interruption and retry                         | Same event ID and sequence; no duplicate event                                                   | Replay frozen outcomes over shared state                          | engine E2E    |
+| `attempt-first-persist`              | no pending attempt                             | Persist deterministic attempt ID and complete frozen plan before materialization                 | Establish retry authority                                         | durable store |
+| `attempt-matching-retry`             | matching unresolved attempt                    | Reuse frozen plan verbatim                                                                       | Prevent source/config reinterpretation                            | engine E2E    |
+| `attempt-conflict`                   | different unresolved attempt                   | Structural conflict; do not replace attempt                                                      | Enforce one pending attempt                                       | durable store |
+| `attempt-post-cas-residue`           | cursor advanced; attempt remains               | Cleanup only; no materialization or event replay                                                 | Recognize completed attempt residue                               | engine E2E    |
+| `failure-prewrite-structural`        | invalid deterministic input                    | Fail before materialization; no durable error                                                    | Separate structural policy from operations                        | planner       |
+| `failure-materialization-backend`    | store operation fails after write phase starts | Operational failure; sanitized durable error best-effort                                         | Preserve primary operation failure                                | engine E2E    |
+| `failure-cas-mismatch`               | CAS precondition false                         | Structural failure; no durable error                                                             | Distinguish semantic conflict                                     | durable store |
+| `failure-cas-backend`                | CAS operation cannot execute                   | Operational failure; durable error best-effort                                                   | Distinguish adapter failure                                       | engine E2E    |
+| `failure-attempt-store-backend`      | attempt operation cannot execute               | Operational failure, not attempt conflict                                                        | Preserve boundary classification                                  | engine E2E    |
+| `failure-error-recording`            | primary operation and error persistence fail   | Return primary failure unchanged                                                                 | Keep diagnostics subordinate                                      | engine E2E    |
+| `failure-post-cas-cleanup`           | resolve/delete fails after successful CAS      | Operational failure with completed materialization                                               | Preserve completion boundary                                      | engine E2E    |
+| `completion-cas-success`             | CAS succeeds in invocation                     | `cursorAdvanced: true`                                                                           | Report invocation advancement                                     | engine E2E    |
+| `completion-pre-cas-failure`         | any failure before CAS success                 | `cursorAdvanced: false`                                                                          | Do not overstate completion                                       | engine E2E    |
+| `completion-post-cas-failure`        | same invocation cleanup fails after CAS        | `cursorAdvanced: true`                                                                           | Preserve completed-materialization fact                           | CLI E2E       |
+| `completion-later-cleanup-failure`   | later equal-cursor cleanup fails               | `cursorAdvanced: false`                                                                          | Separate durable equality from invocation action                  | CLI E2E       |
+| `completion-later-cleanup-success`   | later equal-cursor cleanup succeeds            | `cursorAdvanced: false`; residue removed                                                         | Finish without replay                                             | CLI E2E       |
+| `completion-shared-state-retry`      | failure at every write boundary; retry         | Final revisions, events, sequences, and target values equal uninterrupted run                    | Prove per-artifact ordering and retry convergence                 | engine E2E    |
+
+The durable-store and engine slices must re-examine stale-attempt/operator recovery, mode-mismatch handling, exact attempt lookup precedence, and exact durable storage shape rather than infer outcomes absent from this matrix.
 
 ### `gitplane doctor`
 
@@ -215,16 +299,15 @@ Checks return `pass`, `fail`, or `unsupported`. A failure exits `1`. Unsupported
 
 ## Reconciliation events
 
-A successful plan emits at most one transition event per artifact, with this precedence:
+Event emission follows the reconstruction status and initial-full rules above. A successful plan emits at most one transition event per artifact, with this precedence:
 
-1. `artifact.created` — the ID has never existed;
+1. `artifact.created` — the ID first becomes tracked in this materialization, including initial full reconciliation;
 2. `artifact.restored` — a tombstoned ID becomes live;
-3. `artifact.revised` — a live artifact's revision changes, even if its path also changes;
-4. `artifact.moved` — its path changes while its revision remains identical;
-5. no event — revision and path are unchanged;
-6. `artifact.deleted` — a live ID disappears.
+3. `artifact.revised` — a live artifact's revision changes through content, marker provenance, classification, or path;
+4. no event — revision and path are unchanged;
+5. `artifact.deleted` — a live ID disappears.
 
-Events carry prior/current revision and path where applicable, so a revised event can also describe a simultaneous move. Generic artifacts emit the same event kinds as classified artifacts; generic-to-classified uses `artifact.revised`.
+Every full reconciliation after initial materialization uses `artifact.repaired` instead of lifecycle kinds, one per artifact reapplied by the repair plan, regardless of ancestry or cursor-history availability. V1 deliberately does not read target rows to suppress no-op repair writes or events; this may produce repair events for already-matching materializations, and semantic drift detection is a later optimization. Repeating full repair for the same source, artifact, and target commit reuses the same deterministic repair event rather than recording each invocation separately; invocation history remains in command logs, and a separate attempt-history capability may be added later if needed. Events carry prior/current revision and path where applicable, so revised and repaired events can describe moves. A repair removal tombstones the artifact and carries its prior revision/path with null current revision/path. `artifact.created` is a materialization-lifecycle fact, not a claim about the commit where the marker first appeared in repository history; `artifact.repaired` is a corrective materialization fact, not a claim about Git lineage. Generic artifacts emit the same event kinds as classified artifacts; generic-to-classified and outer-path moves use `artifact.revised` when history is comparable.
 
 Event identity is deterministic:
 
@@ -245,9 +328,9 @@ V1 persists immutable event facts but does not dispatch them. There are no handl
 
 ## Reconciliation errors
 
-A failed reconcile records or updates a sanitized error best-effort, keyed by `(source_id, target_commit, artifact_id-or-path, operation)`. Records carry a stable category, diagnostic, first/last observed timestamps, and attempt count. A later successful reconcile to that target marks its errors resolved rather than deleting them.
+Only applicable operational failures after the write phase begins record or update a sanitized error best-effort, keyed by `(source_id, target_commit, artifact_id-or-path, operation)`. Structural failures do not create durable reconciliation-error rows. Records carry a stable category, diagnostic, first/last observed timestamps, and attempt count. A later successful reconcile to that target marks its errors resolved rather than deleting them.
 
-Failure to persist the error does not hide or replace the original failure and never advances the cursor. Diagnostics must not contain secrets, environment values, SQL parameter values, or full artifact contents. `check` is stateless and never writes reconciliation errors.
+Failure to persist the error does not hide or replace the original failure. Diagnostics must not contain secrets, environment values, SQL parameter values, or full artifact contents. `check` is stateless and never writes reconciliation errors. Exact final error-code names remain provisional to the implementing slices.
 
 ## Package topology
 
