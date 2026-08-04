@@ -23,14 +23,14 @@ jobs:
       reviews: ${{ steps.list.outputs.reviews }}
       count: ${{ steps.list.outputs.count }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
       - uses: pnpm/action-setup@v6
         with:
           version: 11.8.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "26.3.0"
           cache: pnpm
@@ -74,7 +74,7 @@ jobs:
       matrix:
         review: ${{ fromJson(needs.discover.outputs.reviews) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
@@ -83,7 +83,7 @@ jobs:
         with:
           version: 11.8.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "26.3.0"
           cache: pnpm
