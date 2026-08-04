@@ -166,12 +166,13 @@ describe("merge loop over LandContext", () => {
 			github: { pullRequests: [pr("feature-a", 1, SHA_A), pr("feature-b", 2, SHA_B)] },
 		});
 
-		const result = await runMergeLoop({
-			context: memory.context,
-			progress: nullLandExecutionProgress,
-			plan: plan({ landingBranches: ["feature-a", "feature-b"] }),
-			warnings: [WARNING],
-		});
+		const result = await runMergeLoop(
+			{ land: memory.context, progress: nullLandExecutionProgress },
+			{
+				plan: plan({ landingBranches: ["feature-a", "feature-b"] }),
+				warnings: [WARNING],
+			},
+		);
 
 		expect(result).toMatchObject({
 			type: "success",
@@ -221,15 +222,16 @@ describe("merge loop over LandContext", () => {
 			github: { pullRequests: [pr("feature-a", 1, SHA_A), pr("feature-b", 2, SHA_B)] },
 		});
 
-		const result = await runMergeLoop({
-			context: memory.context,
-			progress: nullLandExecutionProgress,
-			plan: plan({
-				landingBranches: ["feature-a"],
-				remainingLandingBranches: ["feature-b"],
-			}),
-			warnings: [],
-		});
+		const result = await runMergeLoop(
+			{ land: memory.context, progress: nullLandExecutionProgress },
+			{
+				plan: plan({
+					landingBranches: ["feature-a"],
+					remainingLandingBranches: ["feature-b"],
+				}),
+				warnings: [],
+			},
+		);
 
 		expect(result).toMatchObject({
 			type: "success",
@@ -252,12 +254,13 @@ describe("merge loop over LandContext", () => {
 			github: { pullRequests: [pr("feature-a", 1, SHA_A)] },
 		});
 
-		const result = await runMergeLoop({
-			context: memory.context,
-			progress: nullLandExecutionProgress,
-			plan: plan({ landingBranches: ["feature-a"] }),
-			warnings: [],
-		});
+		const result = await runMergeLoop(
+			{ land: memory.context, progress: nullLandExecutionProgress },
+			{
+				plan: plan({ landingBranches: ["feature-a"] }),
+				warnings: [],
+			},
+		);
 
 		expect(result).toEqual({
 			type: "failure",
@@ -288,12 +291,13 @@ describe("merge loop over LandContext", () => {
 			},
 		});
 
-		const result = await runMergeLoop({
-			context: memory.context,
-			progress: nullLandExecutionProgress,
-			plan: plan({ landingBranches: ["feature-a", "feature-b"] }),
-			warnings: [WARNING],
-		});
+		const result = await runMergeLoop(
+			{ land: memory.context, progress: nullLandExecutionProgress },
+			{
+				plan: plan({ landingBranches: ["feature-a", "feature-b"] }),
+				warnings: [WARNING],
+			},
+		);
 
 		expect(result).toMatchObject({
 			type: "failure",
@@ -325,12 +329,13 @@ describe("merge loop over LandContext", () => {
 			},
 		});
 
-		const result = await runMergeLoop({
-			context: memory.context,
-			progress: nullLandExecutionProgress,
-			plan: plan({ landingBranches: ["feature-a", "feature-b"] }),
-			warnings: [],
-		});
+		const result = await runMergeLoop(
+			{ land: memory.context, progress: nullLandExecutionProgress },
+			{
+				plan: plan({ landingBranches: ["feature-a", "feature-b"] }),
+				warnings: [],
+			},
+		);
 
 		expect(result).toMatchObject({
 			type: "failure",
@@ -354,12 +359,13 @@ describe("merge loop over LandContext", () => {
 			},
 		});
 
-		const result = await runMergeLoop({
-			context: memory.context,
-			progress: nullLandExecutionProgress,
-			plan: plan({ landingBranches: ["feature-a"] }),
-			warnings: [],
-		});
+		const result = await runMergeLoop(
+			{ land: memory.context, progress: nullLandExecutionProgress },
+			{
+				plan: plan({ landingBranches: ["feature-a"] }),
+				warnings: [],
+			},
+		);
 
 		expect(result).toMatchObject({
 			type: "failure",
@@ -383,12 +389,13 @@ describe("merge loop over LandContext", () => {
 			},
 		});
 
-		const result = await runMergeLoop({
-			context: memory.context,
-			progress: nullLandExecutionProgress,
-			plan: plan({ landingBranches: ["feature-a"] }),
-			warnings: [],
-		});
+		const result = await runMergeLoop(
+			{ land: memory.context, progress: nullLandExecutionProgress },
+			{
+				plan: plan({ landingBranches: ["feature-a"] }),
+				warnings: [],
+			},
+		);
 
 		expect(result).toMatchObject({
 			type: "failure",
@@ -418,20 +425,21 @@ describe("merge loop over LandContext", () => {
 			},
 		});
 
-		const result = await runMergeLoop({
-			context: memory.context,
-			progress: nullLandExecutionProgress,
-			plan: plan({
-				landingBranches: ["feature-a"],
-				descendantBranches: ["descendant"],
-				descendantMaintenance: {
-					type: "auto",
-					branches: ["descendant"],
-					targetBranches: ["descendant"],
-				},
-			}),
-			warnings: [],
-		});
+		const result = await runMergeLoop(
+			{ land: memory.context, progress: nullLandExecutionProgress },
+			{
+				plan: plan({
+					landingBranches: ["feature-a"],
+					descendantBranches: ["descendant"],
+					descendantMaintenance: {
+						type: "auto",
+						branches: ["descendant"],
+						targetBranches: ["descendant"],
+					},
+				}),
+				warnings: [],
+			},
+		);
 
 		expect(result).toMatchObject({
 			type: "failure",
@@ -468,12 +476,13 @@ describe("merge loop over LandContext", () => {
 			},
 		});
 
-		const result = await runMergeLoop({
-			context: memory.context,
-			progress: nullLandExecutionProgress,
-			plan: plan({ landingBranches: ["feature-a", "feature-b"] }),
-			warnings: [],
-		});
+		const result = await runMergeLoop(
+			{ land: memory.context, progress: nullLandExecutionProgress },
+			{
+				plan: plan({ landingBranches: ["feature-a", "feature-b"] }),
+				warnings: [],
+			},
+		);
 
 		expect(result).toMatchObject({
 			type: "failure",

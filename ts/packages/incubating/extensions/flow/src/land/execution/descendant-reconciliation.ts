@@ -2,13 +2,8 @@ import { shortSha } from "../../commit-display/index.ts";
 import { LAND_BACKUP_RECOVERY_HINT } from "../graphite-operations.ts";
 import { isMaintenancePrCurrent } from "../preflight.ts";
 import { landingExecutionFailure } from "../results.ts";
-import type {
-	LandContext,
-	LandingExecutionFailure,
-	LandingPlan,
-	PullRequestFacts,
-} from "../types.ts";
-import type { LandExecutionMessageProgress } from "./host-seams.ts";
+import type { LandingExecutionFailure, LandingPlan, PullRequestFacts } from "../types.ts";
+import type { LandExecutionContext } from "./execution-context.ts";
 import type { MergeLoopState } from "./merge-loop.ts";
 import {
 	formatCheckedOutElsewhere,
@@ -24,8 +19,6 @@ export type DescendantReconciliationOutcome =
 	  };
 
 export interface ReconcileDescendantRootsOptions {
-	readonly landContext: LandContext;
-	readonly progress: LandExecutionMessageProgress;
 	readonly plan: LandingPlan;
 	readonly prNumber: number;
 	readonly landedBranch: string;
@@ -52,36 +45,47 @@ type DescendantRootPreparation =
 	| LandingExecutionFailure;
 
 export async function reconcileDescendantRoots(
+	executionContext: LandExecutionContext,
 	options: ReconcileDescendantRootsOptions,
 ): Promise<DescendantReconciliationOutcome> {
 	const { maintenance } = options;
 
 	for (const maintenanceBranch of maintenance.branches) {
-		const guardFailure = await guardDescendantBranch({ ...options, maintenanceBranch });
+		const guardFailure = await guardDescendantBranch(executionContext, {
+			...options,
+			maintenanceBranch,
+		});
 		if (guardFailure !== undefined) return reconciliationHalt(guardFailure);
 	}
 
 	for (const maintenanceBranch of maintenance.branches) {
-		const refreshFailure = await refreshDescendantBranch({ ...options, maintenanceBranch });
+		const refreshFailure = await refreshDescendantBranch(executionContext, {
+			...options,
+			maintenanceBranch,
+		});
 		if (refreshFailure !== undefined) return reconciliationHalt(refreshFailure);
 	}
 
 	if (!options.shouldDeferLandedBranchDeletion) {
-		const deleteCheckFailure = await checkLandedBranchBeforeDelete(options);
+		const deleteCheckFailure = await checkLandedBranchBeforeDelete(executionContext, options);
 		if (deleteCheckFailure !== undefined) return reconciliationHalt(deleteCheckFailure);
-		const deletionFailure = await deleteLandedBranch(options);
+		const deletionFailure = await deleteLandedBranch(executionContext, options);
 		if (deletionFailure !== undefined) return reconciliationHalt(deletionFailure);
 	}
 
 	const preparedRoots: PreparedDescendantRoot[] = [];
 	for (const maintenanceBranch of maintenance.branches) {
-		const preparation = await prepareDescendantRoot({ ...options, maintenanceBranch });
+		const preparation = await prepareDescendantRoot(executionContext, {
+			...options,
+			maintenanceBranch,
+		});
 		if ("type" in preparation) return reconciliationHalt(preparation);
 		preparedRoots.push(preparation.proof);
 	}
 
 	for (const proof of preparedRoots) {
 		const publicationFailure = await publishPreparedDescendantRoot(
+			executionContext,
 			{ ...options, maintenanceBranch: proof.branch },
 			proof,
 		);
@@ -91,9 +95,11 @@ export async function reconcileDescendantRoots(
 }
 
 async function guardDescendantBranch(
+	executionContext: LandExecutionContext,
 	options: DescendantBranchOptions,
 ): Promise<LandingExecutionFailure | undefined> {
-	const { landContext, plan, prNumber, maintenanceBranch, state } = options;
+	const { land: landContext } = executionContext;
+	const { plan, prNumber, maintenanceBranch, state } = options;
 	const guardSha = await landContext.git.localBranchSha({
 		repoRoot: plan.repoRoot,
 		branch: maintenanceBranch,
@@ -120,9 +126,11 @@ async function guardDescendantBranch(
 }
 
 async function refreshDescendantBranch(
+	executionContext: LandExecutionContext,
 	options: DescendantBranchOptions,
 ): Promise<LandingExecutionFailure | undefined> {
-	const { landContext, progress, plan, prNumber, maintenanceBranch, landedBranch } = options;
+	const { land: landContext, progress } = executionContext;
+	const { plan, prNumber, maintenanceBranch, landedBranch } = options;
 	progress.note(`Refreshing stack through ${maintenanceBranch}...`);
 	progress.setStatus(`refreshing stack through ${maintenanceBranch}...`);
 	const refresh = await landContext.graphite.refreshBranchFromRemote({
@@ -151,9 +159,11 @@ async function refreshDescendantBranch(
 }
 
 async function checkLandedBranchBeforeDelete(
+	executionContext: LandExecutionContext,
 	options: ReconcileDescendantRootsOptions,
 ): Promise<LandingExecutionFailure | undefined> {
-	const { landContext, plan, prNumber, landedBranch, state, maintenance } = options;
+	const { land: landContext } = executionContext;
+	const { plan, prNumber, landedBranch, state, maintenance } = options;
 	const children = await landContext.graphite.branchChildren({
 		repoRoot: plan.repoRoot,
 		metadataDbPath: plan.metadataDbPath,
@@ -184,9 +194,11 @@ async function checkLandedBranchBeforeDelete(
 }
 
 async function deleteLandedBranch(
+	executionContext: LandExecutionContext,
 	options: ReconcileDescendantRootsOptions,
 ): Promise<LandingExecutionFailure | undefined> {
-	const { landContext, progress, plan, landedBranch, prNumber, state } = options;
+	const { land: landContext, progress } = executionContext;
+	const { plan, landedBranch, prNumber, state } = options;
 	progress.note(`Cleaning up local branch ${landedBranch}...`);
 	progress.setStatus(`deleting local Graphite branch ${landedBranch}...`);
 	const deletion = await landContext.graphite.deleteLocalBranch({
@@ -226,9 +238,11 @@ async function deleteLandedBranch(
 }
 
 async function prepareDescendantRoot(
+	executionContext: LandExecutionContext,
 	options: DescendantBranchOptions,
 ): Promise<DescendantRootPreparation> {
-	const { landContext, progress, plan, prNumber, maintenanceBranch, state } = options;
+	const { land: landContext, progress } = executionContext;
+	const { plan, prNumber, maintenanceBranch, state } = options;
 	const { repoRoot } = plan;
 	const trunk = plan.stack.trunk;
 	progress.setStatus(`restacking ${maintenanceBranch}...`);
@@ -316,13 +330,19 @@ async function prepareDescendantRoot(
 }
 
 async function publishPreparedDescendantRoot(
+	executionContext: LandExecutionContext,
 	options: DescendantBranchOptions,
 	proof: PreparedDescendantRoot,
 ): Promise<LandingExecutionFailure | undefined> {
-	const { landContext, progress, plan, prNumber, maintenanceBranch } = options;
+	const { land: landContext, progress } = executionContext;
+	const { plan, prNumber, maintenanceBranch } = options;
 	const { repoRoot } = plan;
 	const trunk = plan.stack.trunk;
-	const preSubmitFacts = await loadDescendantRootPrFacts(options, "before submit");
+	const preSubmitFacts = await loadDescendantRootPrFacts(
+		executionContext,
+		options,
+		"before submit",
+	);
 	if (preSubmitFacts.kind === "failure") return preSubmitFacts.failure;
 	if (
 		isMaintenancePrCurrent({
@@ -354,7 +374,11 @@ async function publishPreparedDescendantRoot(
 			},
 		);
 	}
-	const postSubmitFacts = await loadDescendantRootPrFacts(options, "after submit");
+	const postSubmitFacts = await loadDescendantRootPrFacts(
+		executionContext,
+		options,
+		"after submit",
+	);
 	if (postSubmitFacts.kind === "failure") return postSubmitFacts.failure;
 	if (
 		!isMaintenancePrCurrent({
@@ -377,10 +401,12 @@ async function publishPreparedDescendantRoot(
 }
 
 async function loadDescendantRootPrFacts(
+	executionContext: LandExecutionContext,
 	options: DescendantBranchOptions,
 	moment: "before submit" | "after submit",
 ): Promise<DescendantRootPrFacts> {
-	const { landContext, plan, prNumber, maintenanceBranch } = options;
+	const { land: landContext } = executionContext;
+	const { plan, prNumber, maintenanceBranch } = options;
 	const pr = await landContext.github.pullRequestFacts({
 		repoRoot: plan.repoRoot,
 		branchOrNumber: maintenanceBranch,

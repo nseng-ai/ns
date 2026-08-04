@@ -33,6 +33,7 @@ import type {
 	MergeMaintenanceCleanupReport,
 	PostLandingSlotCleanupReport,
 } from "../types.ts";
+import type { LandExecutionContext } from "./execution-context.ts";
 import type { LandConfirmationGateway, LandExecutionProgress } from "./host-seams.ts";
 import { runMergeLoop, type ObservedDescendantMaintenance } from "./merge-loop.ts";
 import {
@@ -272,9 +273,11 @@ export async function executeLandingRequest(
 	}
 	if (hasSubmitPreparationWork) draft.phases.push(completed("submit-preparation"));
 
-	const mergeOutcome = await runMergeLoop({
-		context,
+	const executionContext = {
+		land: context,
 		progress: host.progress,
+	} satisfies LandExecutionContext;
+	const mergeOutcome = await runMergeLoop(executionContext, {
 		plan: readyPlan,
 		warnings: draft.warnings,
 		shouldPreserveLandedBranches: effectiveCleanupRequest.policy === "preserve",

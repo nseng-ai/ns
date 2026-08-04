@@ -5,10 +5,8 @@ import {
 	stackSnapshot,
 } from "../../src/land/testing.ts";
 import type { DescendantReconciliationOutcome } from "../../src/land/execution/descendant-reconciliation.ts";
-import {
-	performGraphiteMaintenance,
-	type GraphiteMaintenanceProgress,
-} from "../../src/land/execution/maintenance.ts";
+import type { LandExecutionProgress } from "../../src/land/execution/host-seams.ts";
+import { performGraphiteMaintenance } from "../../src/land/execution/maintenance.ts";
 import { LAND_BACKUP_RECOVERY_HINT } from "../../src/land/graphite-operations.ts";
 import type { InMemoryLandContextState } from "../../src/land/testing.ts";
 import type { LandingPlan } from "../../src/land/types.ts";
@@ -108,12 +106,13 @@ describe("Graphite maintenance over LandContext", () => {
 			["feature-b", FEATURE_B_SHA],
 		]);
 
-		const outcome = await performGraphiteMaintenance({
-			landContext: fakes.context,
-			progress: progress.progress,
-			plan,
-			step: { index: 0, branch: "feature-a", prNumber: 1, state },
-		});
+		const outcome = await performGraphiteMaintenance(
+			{ land: fakes.context, progress: progress.progress },
+			{
+				plan,
+				step: { index: 0, branch: "feature-a", prNumber: 1, state },
+			},
+		);
 
 		expect(outcome).toEqual({ kind: "proceed" });
 		expect(fakes.graphite.refreshBranchFromRemoteCalls).toEqual([
@@ -199,12 +198,13 @@ describe("Graphite maintenance over LandContext", () => {
 			["feature-b", FEATURE_B_SHA],
 		]);
 
-		const outcome = await performGraphiteMaintenance({
-			landContext: fakes.context,
-			progress: createProgressRecorder().progress,
-			plan: createLandingPlan({ landingBranches: ["feature-a", "feature-b"] }),
-			step: { index: 0, branch: "feature-a", prNumber: 1, state },
-		});
+		const outcome = await performGraphiteMaintenance(
+			{ land: fakes.context, progress: createProgressRecorder().progress },
+			{
+				plan: createLandingPlan({ landingBranches: ["feature-a", "feature-b"] }),
+				step: { index: 0, branch: "feature-a", prNumber: 1, state },
+			},
+		);
 
 		expect(outcome.kind).toBe("halt");
 		if (outcome.kind === "halt")
@@ -241,24 +241,25 @@ describe("Graphite maintenance over LandContext", () => {
 				],
 			},
 		});
-		const outcome = await performGraphiteMaintenance({
-			landContext: fakes.context,
-			progress: createProgressRecorder().progress,
-			plan: createLandingPlan({
-				landingBranches: testCase.landingBranches,
-				descendantBranches: testCase.descendantBranches,
-				descendantMaintenance: testCase.descendantMaintenance,
-			}),
-			step: {
-				index: 0,
-				branch: "feature-a",
-				prNumber: 1,
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					[testCase.movedBranch, FEATURE_B_SHA],
-				]),
+		const outcome = await performGraphiteMaintenance(
+			{ land: fakes.context, progress: createProgressRecorder().progress },
+			{
+				plan: createLandingPlan({
+					landingBranches: testCase.landingBranches,
+					descendantBranches: testCase.descendantBranches,
+					descendantMaintenance: testCase.descendantMaintenance,
+				}),
+				step: {
+					index: 0,
+					branch: "feature-a",
+					prNumber: 1,
+					state: createMergeLoopState([
+						["feature-a", FEATURE_A_SHA],
+						[testCase.movedBranch, FEATURE_B_SHA],
+					]),
+				},
 			},
-		});
+		);
 
 		expect(outcome.kind).toBe(testCase.expectedKind);
 		if (outcome.kind === "proceed") throw new Error("expected moved-SHA maintenance stop");
@@ -299,28 +300,29 @@ describe("Graphite maintenance over LandContext", () => {
 			},
 		});
 		const progress = createProgressRecorder();
-		const outcome = await performGraphiteMaintenance({
-			landContext: fakes.context,
-			progress: progress.progress,
-			plan: createLandingPlan({
-				landingBranches: ["feature-a"],
-				descendantBranches: ["feature-c"],
-				descendantMaintenance: {
-					type: "auto",
-					branches: ["feature-c"],
-					targetBranches: ["feature-c"],
+		const outcome = await performGraphiteMaintenance(
+			{ land: fakes.context, progress: progress.progress },
+			{
+				plan: createLandingPlan({
+					landingBranches: ["feature-a"],
+					descendantBranches: ["feature-c"],
+					descendantMaintenance: {
+						type: "auto",
+						branches: ["feature-c"],
+						targetBranches: ["feature-c"],
+					},
+				}),
+				step: {
+					index: 0,
+					branch: "feature-a",
+					prNumber: 1,
+					state: createMergeLoopState([
+						["feature-a", FEATURE_A_SHA],
+						["feature-c", FEATURE_C_SHA],
+					]),
 				},
-			}),
-			step: {
-				index: 0,
-				branch: "feature-a",
-				prNumber: 1,
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					["feature-c", FEATURE_C_SHA],
-				]),
 			},
-		});
+		);
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
@@ -347,20 +349,21 @@ describe("Graphite maintenance over LandContext", () => {
 			},
 			graphite: { branchChildren: { "feature-a": ["feature-b", "surprise"] } },
 		});
-		const outcome = await performGraphiteMaintenance({
-			landContext: fakes.context,
-			progress: createProgressRecorder().progress,
-			plan: createLandingPlan({ landingBranches: ["feature-a", "feature-b"] }),
-			step: {
-				index: 0,
-				branch: "feature-a",
-				prNumber: 1,
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					["feature-b", FEATURE_B_SHA],
-				]),
+		const outcome = await performGraphiteMaintenance(
+			{ land: fakes.context, progress: createProgressRecorder().progress },
+			{
+				plan: createLandingPlan({ landingBranches: ["feature-a", "feature-b"] }),
+				step: {
+					index: 0,
+					branch: "feature-a",
+					prNumber: 1,
+					state: createMergeLoopState([
+						["feature-a", FEATURE_A_SHA],
+						["feature-b", FEATURE_B_SHA],
+					]),
+				},
 			},
-		});
+		);
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
@@ -397,21 +400,22 @@ describe("Graphite maintenance over LandContext", () => {
 					],
 				},
 			});
-			const outcome = await performGraphiteMaintenance({
-				landContext: fakes.context,
-				progress: createProgressRecorder().progress,
-				plan: createLandingPlan({ landingBranches: ["feature-a", "feature-b"] }),
-				step: {
-					index: 0,
-					branch: "feature-a",
-					prNumber: 1,
-					state: createMergeLoopState([
-						["feature-a", FEATURE_A_SHA],
-						["feature-b", FEATURE_B_SHA],
-					]),
+			const outcome = await performGraphiteMaintenance(
+				{ land: fakes.context, progress: createProgressRecorder().progress },
+				{
+					plan: createLandingPlan({ landingBranches: ["feature-a", "feature-b"] }),
+					step: {
+						index: 0,
+						branch: "feature-a",
+						prNumber: 1,
+						state: createMergeLoopState([
+							["feature-a", FEATURE_A_SHA],
+							["feature-b", FEATURE_B_SHA],
+						]),
+					},
+					shouldDeferLandedBranchDeletion,
 				},
-				shouldDeferLandedBranchDeletion,
-			});
+			);
 
 			expect(outcome).toEqual({ kind: "proceed" });
 			expect(fakes.graphite.deleteLocalBranchCalls.map((call) => call.branch)).toEqual(
@@ -437,12 +441,13 @@ describe("Graphite maintenance over LandContext", () => {
 			},
 		});
 		const state = createMergeLoopState([["feature-a", FEATURE_A_SHA]]);
-		const outcome = await performGraphiteMaintenance({
-			landContext: fakes.context,
-			progress: createProgressRecorder().progress,
-			plan: createLandingPlan({ landingBranches: ["feature-a"] }),
-			step: { index: 0, branch: "feature-a", prNumber: 1, state },
-		});
+		const outcome = await performGraphiteMaintenance(
+			{ land: fakes.context, progress: createProgressRecorder().progress },
+			{
+				plan: createLandingPlan({ landingBranches: ["feature-a"] }),
+				step: { index: 0, branch: "feature-a", prNumber: 1, state },
+			},
+		);
 
 		expect(outcome).toEqual({ kind: "proceed" });
 		expect(state.cleanup.retainedLocalBranches).toEqual([
@@ -481,29 +486,30 @@ describe("Graphite maintenance over LandContext", () => {
 				},
 			},
 		});
-		const outcome = await performGraphiteMaintenance({
-			landContext: fakes.context,
-			progress: createProgressRecorder().progress,
-			plan: createLandingPlan({
-				landingBranches: ["feature-a"],
-				descendantBranches: ["feature-c", "feature-d"],
-				descendantMaintenance: {
-					type: "auto",
-					branches: ["feature-c", "feature-d"],
-					targetBranches: ["feature-c", "feature-d"],
+		const outcome = await performGraphiteMaintenance(
+			{ land: fakes.context, progress: createProgressRecorder().progress },
+			{
+				plan: createLandingPlan({
+					landingBranches: ["feature-a"],
+					descendantBranches: ["feature-c", "feature-d"],
+					descendantMaintenance: {
+						type: "auto",
+						branches: ["feature-c", "feature-d"],
+						targetBranches: ["feature-c", "feature-d"],
+					},
+				}),
+				step: {
+					index: 0,
+					branch: "feature-a",
+					prNumber: 1,
+					state: createMergeLoopState([
+						["feature-a", FEATURE_A_SHA],
+						["feature-c", FEATURE_C_SHA],
+						["feature-d", FEATURE_B_SHA],
+					]),
 				},
-			}),
-			step: {
-				index: 0,
-				branch: "feature-a",
-				prNumber: 1,
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					["feature-c", FEATURE_C_SHA],
-					["feature-d", FEATURE_B_SHA],
-				]),
 			},
-		});
+		);
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
@@ -547,12 +553,13 @@ describe("Graphite maintenance over LandContext", () => {
 			["feature-b", FEATURE_B_SHA],
 		]);
 
-		const outcome = await performGraphiteMaintenance({
-			landContext: fakes.context,
-			progress: progress.progress,
-			plan,
-			step: { index: 0, branch: "feature-a", prNumber: 1, state },
-		});
+		const outcome = await performGraphiteMaintenance(
+			{ land: fakes.context, progress: progress.progress },
+			{
+				plan,
+				step: { index: 0, branch: "feature-a", prNumber: 1, state },
+			},
+		);
 
 		expect(outcome).toEqual({ kind: "proceed" });
 		expect(fakes.graphite.submitUpdateCalls).toEqual([]);
@@ -600,12 +607,13 @@ describe("Graphite maintenance over LandContext", () => {
 			["feature-c", FEATURE_C_SHA],
 		]);
 
-		const outcome = await performGraphiteMaintenance({
-			landContext: fakes.context,
-			progress: progress.progress,
-			plan,
-			step: { index: 0, branch: "feature-a", prNumber: 1, state },
-		});
+		const outcome = await performGraphiteMaintenance(
+			{ land: fakes.context, progress: progress.progress },
+			{
+				plan,
+				step: { index: 0, branch: "feature-a", prNumber: 1, state },
+			},
+		);
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
@@ -649,28 +657,29 @@ describe("Graphite maintenance over LandContext", () => {
 			},
 			graphite: { branchParents: { "feature-c": "main" } },
 		});
-		const outcome = await performGraphiteMaintenance({
-			landContext: fakes.context,
-			progress: createProgressRecorder().progress,
-			plan: createLandingPlan({
-				landingBranches: ["feature-a"],
-				descendantBranches: ["feature-c"],
-				descendantMaintenance: {
-					type: "auto",
-					branches: ["feature-c"],
-					targetBranches: ["feature-c"],
+		const outcome = await performGraphiteMaintenance(
+			{ land: fakes.context, progress: createProgressRecorder().progress },
+			{
+				plan: createLandingPlan({
+					landingBranches: ["feature-a"],
+					descendantBranches: ["feature-c"],
+					descendantMaintenance: {
+						type: "auto",
+						branches: ["feature-c"],
+						targetBranches: ["feature-c"],
+					},
+				}),
+				step: {
+					index: 0,
+					branch: "feature-a",
+					prNumber: 1,
+					state: createMergeLoopState([
+						["feature-a", FEATURE_A_SHA],
+						["feature-c", FEATURE_C_SHA],
+					]),
 				},
-			}),
-			step: {
-				index: 0,
-				branch: "feature-a",
-				prNumber: 1,
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					["feature-c", FEATURE_C_SHA],
-				]),
 			},
-		});
+		);
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
@@ -696,28 +705,29 @@ describe("Graphite maintenance over LandContext", () => {
 			},
 			graphite: { branchParents: { "feature-c": "feature-a" } },
 		});
-		const outcome = await performGraphiteMaintenance({
-			landContext: fakes.context,
-			progress: createProgressRecorder().progress,
-			plan: createLandingPlan({
-				landingBranches: ["feature-a"],
-				descendantBranches: ["feature-c"],
-				descendantMaintenance: {
-					type: "auto",
-					branches: ["feature-c"],
-					targetBranches: ["feature-c"],
+		const outcome = await performGraphiteMaintenance(
+			{ land: fakes.context, progress: createProgressRecorder().progress },
+			{
+				plan: createLandingPlan({
+					landingBranches: ["feature-a"],
+					descendantBranches: ["feature-c"],
+					descendantMaintenance: {
+						type: "auto",
+						branches: ["feature-c"],
+						targetBranches: ["feature-c"],
+					},
+				}),
+				step: {
+					index: 0,
+					branch: "feature-a",
+					prNumber: 1,
+					state: createMergeLoopState([
+						["feature-a", FEATURE_A_SHA],
+						["feature-c", FEATURE_C_SHA],
+					]),
 				},
-			}),
-			step: {
-				index: 0,
-				branch: "feature-a",
-				prNumber: 1,
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					["feature-c", FEATURE_C_SHA],
-				]),
 			},
-		});
+		);
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
@@ -753,28 +763,29 @@ describe("Graphite maintenance over LandContext", () => {
 				],
 			},
 		});
-		const outcome = await performGraphiteMaintenance({
-			landContext: fakes.context,
-			progress: createProgressRecorder().progress,
-			plan: createLandingPlan({
-				landingBranches: ["feature-a"],
-				descendantBranches: ["feature-c"],
-				descendantMaintenance: {
-					type: "auto",
-					branches: ["feature-c"],
-					targetBranches: ["feature-c"],
+		const outcome = await performGraphiteMaintenance(
+			{ land: fakes.context, progress: createProgressRecorder().progress },
+			{
+				plan: createLandingPlan({
+					landingBranches: ["feature-a"],
+					descendantBranches: ["feature-c"],
+					descendantMaintenance: {
+						type: "auto",
+						branches: ["feature-c"],
+						targetBranches: ["feature-c"],
+					},
+				}),
+				step: {
+					index: 0,
+					branch: "feature-a",
+					prNumber: 1,
+					state: createMergeLoopState([
+						["feature-a", FEATURE_A_SHA],
+						["feature-c", FEATURE_C_SHA],
+					]),
 				},
-			}),
-			step: {
-				index: 0,
-				branch: "feature-a",
-				prNumber: 1,
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					["feature-c", FEATURE_C_SHA],
-				]),
 			},
-		});
+		);
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
@@ -841,21 +852,22 @@ describe("Graphite maintenance over LandContext", () => {
 				["feature-c", FEATURE_C_SHA],
 			]);
 
-			const outcome = await performGraphiteMaintenance({
-				landContext: fakes.context,
-				progress: createProgressRecorder().progress,
-				plan: createLandingPlan({
-					landingBranches: ["feature-a"],
-					descendantBranches: ["feature-c"],
-					descendantMaintenance: {
-						type: "auto",
-						branches: ["feature-c"],
-						targetBranches: ["feature-c"],
-					},
-				}),
-				step: { index: 0, branch: "feature-a", prNumber: 1, state },
-				shouldDeferLandedBranchDeletion,
-			});
+			const outcome = await performGraphiteMaintenance(
+				{ land: fakes.context, progress: createProgressRecorder().progress },
+				{
+					plan: createLandingPlan({
+						landingBranches: ["feature-a"],
+						descendantBranches: ["feature-c"],
+						descendantMaintenance: {
+							type: "auto",
+							branches: ["feature-c"],
+							targetBranches: ["feature-c"],
+						},
+					}),
+					step: { index: 0, branch: "feature-a", prNumber: 1, state },
+					shouldDeferLandedBranchDeletion,
+				},
+			);
 
 			expect(outcome).toEqual({ kind: "proceed" });
 			expect(fakes.graphite.deleteLocalBranchCalls.map((call) => call.branch)).toEqual(
@@ -1042,29 +1054,30 @@ async function runTwoRootMaintenance(
 	fakes: ReturnType<typeof createTwoRootReconciliationContext>,
 	options: { readonly expectedFeatureDSha?: string } = {},
 ): Promise<Awaited<ReturnType<typeof performGraphiteMaintenance>>> {
-	return performGraphiteMaintenance({
-		landContext: fakes.context,
-		progress: createProgressRecorder().progress,
-		plan: createLandingPlan({
-			landingBranches: ["feature-a"],
-			descendantBranches: ["feature-c", "feature-d"],
-			descendantMaintenance: {
-				type: "auto",
-				branches: ["feature-c", "feature-d"],
-				targetBranches: ["feature-c", "feature-d"],
+	return performGraphiteMaintenance(
+		{ land: fakes.context, progress: createProgressRecorder().progress },
+		{
+			plan: createLandingPlan({
+				landingBranches: ["feature-a"],
+				descendantBranches: ["feature-c", "feature-d"],
+				descendantMaintenance: {
+					type: "auto",
+					branches: ["feature-c", "feature-d"],
+					targetBranches: ["feature-c", "feature-d"],
+				},
+			}),
+			step: {
+				index: 0,
+				branch: "feature-a",
+				prNumber: 1,
+				state: createMergeLoopState([
+					["feature-a", FEATURE_A_SHA],
+					["feature-c", FEATURE_C_SHA],
+					["feature-d", options.expectedFeatureDSha ?? FEATURE_B_SHA],
+				]),
 			},
-		}),
-		step: {
-			index: 0,
-			branch: "feature-a",
-			prNumber: 1,
-			state: createMergeLoopState([
-				["feature-a", FEATURE_A_SHA],
-				["feature-c", FEATURE_C_SHA],
-				["feature-d", options.expectedFeatureDSha ?? FEATURE_B_SHA],
-			]),
 		},
-	});
+	);
 }
 
 function createLandingPlan(options: {
@@ -1111,7 +1124,7 @@ function createMergeLoopState(entries: readonly (readonly [string, string])[]): 
 }
 
 function createProgressRecorder(): {
-	readonly progress: GraphiteMaintenanceProgress;
+	readonly progress: LandExecutionProgress;
 	readonly notes: readonly string[];
 	readonly statuses: readonly (string | undefined)[];
 } {
@@ -1121,6 +1134,9 @@ function createProgressRecorder(): {
 		progress: {
 			note: (message) => notes.push(message),
 			setStatus: (message) => statuses.push(message),
+			setStep: () => {},
+			recordMergedPullRequest: () => {},
+			planRecalculated: () => {},
 		},
 		notes,
 		statuses,

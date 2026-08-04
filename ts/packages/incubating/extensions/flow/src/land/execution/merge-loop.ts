@@ -13,6 +13,7 @@ import {
 	type PullRequestFacts,
 	type RetainedLocalBranchCleanup,
 } from "../types.ts";
+import type { LandExecutionContext } from "./execution-context.ts";
 import type { LandExecutionProgress, LandExecutionStep } from "./host-seams.ts";
 import { isVerifiedMergedPullRequest } from "./merged-pull-request-verification.ts";
 import { performGraphiteMaintenance } from "./maintenance.ts";
@@ -78,8 +79,6 @@ export type MergeLoopResult =
 	  };
 
 export interface RunMergeLoopOptions {
-	readonly context: LandContext;
-	readonly progress: LandExecutionProgress;
 	readonly plan: LandingPlan;
 	readonly warnings: readonly LandingWarning[];
 	/** Preserve landed branches during maintenance; later continuation may delete its invoking branch. */
@@ -106,8 +105,12 @@ async function withExecutionStep<T>(options: WithExecutionStepOptions<T>): Promi
 	return result;
 }
 
-export async function runMergeLoop(options: RunMergeLoopOptions): Promise<MergeLoopResult> {
-	const { context, progress, plan } = options;
+export async function runMergeLoop(
+	executionContext: LandExecutionContext,
+	options: RunMergeLoopOptions,
+): Promise<MergeLoopResult> {
+	const { land: context, progress } = executionContext;
+	const { plan } = options;
 	const { repoRoot, stack } = plan;
 	const landed: LandedPullRequest[] = [];
 	let observedDescendantMaintenance: ObservedDescendantMaintenance = { type: "not-attempted" };
@@ -241,9 +244,7 @@ export async function runMergeLoop(options: RunMergeLoopOptions): Promise<MergeL
 		progress.note(`Merged and verified PR #${currentPr.number} ${branch}.`);
 
 		progress.setStep(branch, "restack", "active");
-		const maintenance = await performGraphiteMaintenance({
-			landContext: context,
-			progress,
+		const maintenance = await performGraphiteMaintenance(executionContext, {
 			plan,
 			step: { index, branch, prNumber: currentPr.number, state },
 			shouldDeferLandedBranchDeletion:
