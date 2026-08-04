@@ -154,9 +154,10 @@ test("disjoint filesystem groups retain ownership and do not probe unrelated sou
 				createFilesystemSource({ commandDirectory: unrelatedDirectory, label: "unrelated" }),
 			],
 		});
-		await expect(topology.open(["owned"])).resolves.toEqual({
+		await expect(topology.open(["owned"])).resolves.toMatchObject({
 			commands: new Map(),
 			groups: new Map(),
+			issues: [],
 		});
 	} finally {
 		await Promise.all([
@@ -187,9 +188,17 @@ test("filesystem/filesystem command collisions report class, path, and labels", 
 				createFilesystemSource({ commandDirectory: firstDirectory, label: "filesystem-a" }),
 			],
 		});
-		await expect(topology.open([])).rejects.toThrow(
-			/command\/command collision at shared.*filesystem-a.*filesystem-b/,
-		);
+		const scope = await topology.open([]);
+		expect(scope.issues).toEqual([
+			expect.objectContaining({
+				type: "collision",
+				kind: "command/command",
+				path: ["shared"],
+				parties: [{ sourceLabel: "filesystem-a" }, { sourceLabel: "filesystem-b" }],
+			}),
+		]);
+		expect(scope.commands.has("shared")).toBe(false);
+		expect(scope.unavailableNames.get("shared")).toEqual(scope.issues);
 	} finally {
 		await Promise.all([
 			rm(firstDirectory, { recursive: true }),
@@ -221,9 +230,16 @@ test("programmatic/filesystem collisions use the same classification", async () 
 			});
 			const sources = reverse ? [filesystem, ...programmatic] : [...programmatic, filesystem];
 			const topology = new ClinkrTopology({ sources });
-			await expect(topology.open([])).rejects.toThrow(
-				/command\/group collision at shared.*filesystem.*programmatic/,
-			);
+			const scope = await topology.open([]);
+			expect(scope.issues).toEqual([
+				expect.objectContaining({
+					type: "collision",
+					kind: "command/group",
+					path: ["shared"],
+					parties: [{ sourceLabel: "filesystem" }, { sourceLabel: "programmatic" }],
+				}),
+			]);
+			expect(scope.unavailableNames.get("shared")).toEqual(scope.issues);
 		}
 	} finally {
 		await rm(directory, { recursive: true });
@@ -248,7 +264,17 @@ test("shared filesystem group paths are rejected with both owners", async () => 
 				createFilesystemSource({ commandDirectory: secondDirectory, label: "second" }),
 			],
 		});
-		await expect(topology.open([])).rejects.toThrow(/shared.*first.*second/);
+		const scope = await topology.open([]);
+		expect(scope.issues).toEqual([
+			expect.objectContaining({
+				type: "collision",
+				kind: "group/group",
+				path: ["shared"],
+				parties: [{ sourceLabel: "first" }, { sourceLabel: "second" }],
+			}),
+		]);
+		expect(scope.groups.has("shared")).toBe(false);
+		expect(scope.unavailableNames.get("shared")).toEqual(scope.issues);
 	} finally {
 		await Promise.all([
 			rm(firstDirectory, { recursive: true }),
@@ -310,7 +336,17 @@ test("a present filesystem subtree still collides with a same-source declaration
 			});
 		});
 		const topology = new ClinkrTopology({ sources });
-		await expect(topology.open([])).rejects.toThrow(/route collision at api within one source/);
+		const scope = await topology.open([]);
+		expect(scope.issues).toMatchObject([
+			{
+				type: "source-open",
+				sourceLabel: "mixed",
+				path: [],
+				error: { message: expect.stringMatching(/route collision at api within one source/) },
+			},
+		]);
+		expect(scope.commands.size).toBe(0);
+		expect(scope.groups.size).toBe(0);
 	} finally {
 		await rm(mountDirectory, { recursive: true });
 	}
@@ -327,11 +363,20 @@ test("a missing mount root fails like a missing command directory", async () => 
 			});
 		});
 		const topology = new ClinkrTopology({ sources });
-		// A mistyped mount directory is the same misconfiguration as a mistyped
-		// app commandDirectory and fails with the offending path.
-		await expect(topology.open([])).rejects.toThrow(
-			`clinkr: command directory does not exist: ${missingDirectory}`,
-		);
+		const scope = await topology.open([]);
+		expect(scope.issues).toMatchObject([
+			{
+				type: "source-open",
+				sourceLabel: "mixed",
+				path: [],
+				error: {
+					message: `clinkr: command directory does not exist: ${missingDirectory}`,
+				},
+			},
+		]);
+		// A failed mount poisons only its source; it does not publish the declared sibling.
+		expect(scope.commands.size).toBe(0);
+		expect(scope.groups.size).toBe(0);
 	} finally {
 		await rm(parentDirectory, { recursive: true });
 	}

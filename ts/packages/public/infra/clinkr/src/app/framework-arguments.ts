@@ -2,6 +2,12 @@ export const CLINKR_APP_OUTPUT_FORMATS = ["human", "json", "md"] as const;
 
 export type OutputFormat = (typeof CLINKR_APP_OUTPUT_FORMATS)[number];
 
+/** Resolve the framework-selected output format with the same grammar used by app execution. */
+export function resolveClinkrOutputFormat(argv: readonly string[]): OutputFormat {
+	const parsed = parseGlobalFlags(argv);
+	return parsed.ok ? parsed.flags.format : parsed.format;
+}
+
 function isOutputFormat(value: string | undefined): value is OutputFormat {
 	return value !== undefined && CLINKR_APP_OUTPUT_FORMATS.some((format) => format === value);
 }

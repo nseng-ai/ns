@@ -4,7 +4,7 @@ import { renderClinkrCompletionScript, type ClinkrCompletionShell } from "../com
 import type { ClinkrGroupDefinition } from "./command-definition.ts";
 import { findRootBuiltIn, frameworkRoutingWidth, hasUnescapedHelp } from "./framework-arguments.ts";
 import type { LoadedSelectedCommand } from "./selected-command.ts";
-import type { ClinkrTopology, OpenedRoute, OpenedScope } from "./topology.ts";
+import type { ClinkrTopology, OpenedRoute, OpenedScope, TopologyIssue } from "./topology.ts";
 
 export type CompletionNavigationResult<TContext> =
 	| { readonly type: "built-in-completion"; readonly args: readonly string[] }
@@ -12,6 +12,7 @@ export type CompletionNavigationResult<TContext> =
 			readonly type: "scope";
 			readonly path: readonly string[];
 			readonly scope: OpenedScope<TContext>;
+			readonly issues: readonly TopologyIssue[];
 	  }
 	| {
 			readonly type: "command";
@@ -19,9 +20,11 @@ export type CompletionNavigationResult<TContext> =
 			readonly loaded: LoadedSelectedCommand<TContext>;
 			readonly args: readonly string[];
 			readonly isRootDefault: boolean;
+			readonly issues: readonly TopologyIssue[];
 			/** Present only for a scope default, whose children retain precedence. */
 			readonly scope?: OpenedScope<TContext>;
-	  };
+	  }
+	| { readonly type: "topology-failure"; readonly issues: readonly TopologyIssue[] };
 
 export type NavigationResult<TContext> =
 	| { readonly type: "version" }
@@ -35,18 +38,22 @@ export type NavigationResult<TContext> =
 			readonly path: readonly string[];
 			readonly tail: readonly string[];
 			readonly loaded: LoadedSelectedCommand<TContext>;
+			readonly issues: readonly TopologyIssue[];
 	  }
 	| {
 			readonly type: "scope-help";
 			readonly path: readonly string[];
 			readonly scope: OpenedScope<TContext>;
+			readonly issues: readonly TopologyIssue[];
 			readonly definition?: ClinkrGroupDefinition;
 	  }
 	| {
 			readonly type: "unknown-route";
 			readonly path: readonly string[];
 			readonly tail: readonly string[];
-	  };
+			readonly issues: readonly TopologyIssue[];
+	  }
+	| { readonly type: "topology-failure"; readonly issues: readonly TopologyIssue[] };
 
 interface NavigatorOptions<TContext> {
 	readonly topology: ClinkrTopology<TContext>;
@@ -63,6 +70,7 @@ type RouteTraversal<TContext> =
 			readonly route: OpenedRoute<TContext>;
 			readonly selectedIndex: number;
 			readonly routeTokenIndices: ReadonlySet<number>;
+			readonly issues: readonly TopologyIssue[];
 	  }
 	| {
 			readonly type: "scope";
@@ -71,6 +79,8 @@ type RouteTraversal<TContext> =
 			readonly definition?: ClinkrGroupDefinition;
 			readonly unresolvedIndex?: number;
 			readonly routeTokenIndices: ReadonlySet<number>;
+			readonly issues: readonly TopologyIssue[];
+			readonly fatalIssues?: readonly TopologyIssue[];
 	  };
 
 /** Private incremental traversal owner for every app runtime consumer. */
@@ -102,9 +112,12 @@ export class ClinkrNavigator<TContext> {
 				path: traversal.route.path,
 				tail: removeRouteTokens(argv, traversal.routeTokenIndices),
 				loaded: await this.load(traversal.route),
+				issues: traversal.issues,
 			};
 		}
-		const { path, scope, definition, unresolvedIndex, routeTokenIndices } = traversal;
+		if (traversal.fatalIssues !== undefined)
+			return { type: "topology-failure", issues: traversal.fatalIssues };
+		const { path, scope, definition, unresolvedIndex, routeTokenIndices, issues } = traversal;
 		if (
 			path.length === 0 &&
 			this.hasCompletion &&
@@ -116,12 +129,13 @@ export class ClinkrNavigator<TContext> {
 		const tail = removeRouteTokens(argv, routeTokenIndices);
 		if (scope.defaultCommand === undefined) {
 			if (tail.length > 0 && !hasUnescapedHelp(tail)) {
-				return { type: "unknown-route", path, tail };
+				return { type: "unknown-route", path, tail, issues };
 			}
 			return {
 				type: "scope-help",
 				path,
 				scope,
+				issues,
 				...optionalEntries({ definition }),
 			};
 		}
@@ -131,10 +145,11 @@ export class ClinkrNavigator<TContext> {
 				type: "scope-help",
 				path,
 				scope,
+				issues,
 				...optionalEntries({ definition }),
 			};
 		}
-		return { type: "command", path, tail, loaded };
+		return { type: "command", path, tail, loaded, issues };
 	}
 
 	renderCompletionScript(shell: ClinkrCompletionShell): string {
@@ -157,9 +172,12 @@ export class ClinkrNavigator<TContext> {
 				loaded: await this.load(traversal.route),
 				args: words.slice(traversal.selectedIndex + 1),
 				isRootDefault: false,
+				issues: traversal.issues,
 			};
 		}
-		const { path, scope, unresolvedIndex, routeTokenIndices } = traversal;
+		if (traversal.fatalIssues !== undefined)
+			return { type: "topology-failure", issues: traversal.fatalIssues };
+		const { path, scope, unresolvedIndex, routeTokenIndices, issues } = traversal;
 		if (
 			path.length === 0 &&
 			this.hasCompletion &&
@@ -175,10 +193,11 @@ export class ClinkrNavigator<TContext> {
 				loaded: await this.load(scope.defaultCommand),
 				args: words.slice(lastRouteTokenIndex(routeTokenIndices) + 1),
 				isRootDefault: path.length === 0,
+				issues,
 				scope,
 			};
 		}
-		return { type: "scope", path, scope };
+		return { type: "scope", path, scope, issues };
 	}
 
 	private async traverse(
@@ -189,7 +208,20 @@ export class ClinkrNavigator<TContext> {
 		let scope = await this.topology.open(path);
 		let definition: ClinkrGroupDefinition | undefined;
 		const routeTokenIndices = new Set<number>();
+		const issues: TopologyIssue[] = [...scope.issues];
+		let fatalIssues = structuralTopologyIssues(scope.issues);
 		for (let index = 0; index < tokens.length; index += 1) {
+			if (fatalIssues.length > 0) {
+				return {
+					type: "scope",
+					path,
+					scope,
+					...optionalEntries({ definition }),
+					routeTokenIndices,
+					issues,
+					fatalIssues,
+				};
+			}
 			const token = tokens[index];
 			if (token === undefined || token === "--" || (stopAtEmpty && token === "")) {
 				return {
@@ -198,6 +230,7 @@ export class ClinkrNavigator<TContext> {
 					scope,
 					...optionalEntries({ definition }),
 					routeTokenIndices,
+					issues,
 				};
 			}
 			const frameworkArgumentWidth = frameworkRoutingWidth(tokens, index);
@@ -213,10 +246,12 @@ export class ClinkrNavigator<TContext> {
 					route: command,
 					selectedIndex: index,
 					routeTokenIndices,
+					issues,
 				};
 			}
 			const group = resolveGroup(scope, token);
 			if (group === undefined) {
+				const sourceIssues = scope.issues.filter((issue) => issue.type === "source-open");
 				return {
 					type: "scope",
 					path,
@@ -224,12 +259,18 @@ export class ClinkrNavigator<TContext> {
 					...optionalEntries({ definition }),
 					unresolvedIndex: index,
 					routeTokenIndices,
+					issues,
+					...optionalEntries({
+						fatalIssues: sourceIssues.length === 0 ? undefined : sourceIssues,
+					}),
 				};
 			}
 			routeTokenIndices.add(index);
 			definition = scope.groups.get(group)?.definition;
 			path = [...path, group];
 			scope = await this.topology.open(path);
+			issues.push(...scope.issues);
+			fatalIssues = structuralTopologyIssues(scope.issues);
 		}
 		return {
 			type: "scope",
@@ -237,6 +278,8 @@ export class ClinkrNavigator<TContext> {
 			scope,
 			...optionalEntries({ definition }),
 			routeTokenIndices,
+			issues,
+			...optionalEntries({ fatalIssues: fatalIssues.length === 0 ? undefined : fatalIssues }),
 		};
 	}
 
@@ -247,6 +290,10 @@ export class ClinkrNavigator<TContext> {
 		}
 		return loaded;
 	}
+}
+
+function structuralTopologyIssues(issues: readonly TopologyIssue[]): readonly TopologyIssue[] {
+	return issues.filter((issue) => issue.type !== "source-open");
 }
 
 function navigateCompletion<TContext>(tail: readonly string[]): NavigationResult<TContext> {

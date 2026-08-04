@@ -75,12 +75,15 @@ test("concurrent failed scope opens share rejection and retry without publicatio
 			}),
 		],
 	});
-	const first = topology.open([]).catch((error: unknown) => error);
-	const second = topology.open([]).catch((error: unknown) => error);
+	const first = topology.open([]);
+	const second = topology.open([]);
 	reject?.(failure);
-	expect(await Promise.all([first, second])).toEqual([failure, failure]);
-	await expect(topology.open([])).resolves.toEqual({ commands: new Map(), groups: new Map() });
-	await topology.open([]);
+	const scopes = await Promise.all([first, second]);
+	for (const scope of scopes) {
+		expect(scope.issues).toMatchObject([{ type: "source-open", sourceLabel: "fixture" }]);
+	}
+	const retried = await topology.open([]);
+	expect(retried.issues).toEqual([]);
 	expect(opens).toBe(2);
 });
 
@@ -100,10 +103,10 @@ test("scope caching is transactional independently for each source and scope", a
 			}),
 		],
 	});
-	await expect(topology.open([])).rejects.toThrow("temporary source failure");
-	await expect(topology.open([])).resolves.toEqual({ commands: new Map(), groups: new Map() });
+	const failed = await topology.open([]);
+	expect(failed.issues).toMatchObject([{ type: "source-open", sourceLabel: "flaky" }]);
 	expect(stableOpens).toBe(1);
-	expect(flakyOpens).toBe(2);
+	expect(flakyOpens).toBe(1);
 });
 
 test("opened routes carry the selected-command cache identity", async () => {
@@ -216,7 +219,9 @@ test("configured reserved route names reject canonical names", async () => {
 			})),
 		],
 	});
-	await expect(topology.open([])).rejects.toThrow(/completion.*reserved name/);
+	const scope = await topology.open([]);
+	expect(scope.commands.has("completion")).toBe(false);
+	expect(scope.issues).toMatchObject([{ type: "reserved-name", name: "completion" }]);
 });
 
 test("configured reserved route names reject aliases on differently named routes", async () => {
@@ -229,9 +234,9 @@ test("configured reserved route names reject aliases on differently named routes
 			})),
 		],
 	});
-	await expect(topology.open([])).rejects.toThrow(
-		/alias "completion".*conflicts with configured reserved name/,
-	);
+	const scope = await topology.open([]);
+	expect(scope.commands.has("helper")).toBe(false);
+	expect(scope.issues).toMatchObject([{ type: "reserved-name", name: "completion" }]);
 });
 
 test("configured reserved route names permit descendant canonical names and aliases", async () => {
@@ -273,9 +278,11 @@ test("alias/name collisions identify the alias's canonical owner route", async (
 		[named, aliased],
 	]) {
 		const topology = new ClinkrTopology({ sources });
-		await expect(topology.open([])).rejects.toThrow(
-			'alias/name collision at shared between sources "alpha" (alias of publish) and "beta"',
-		);
+		const scope = await topology.open([]);
+		expect(scope.commands.size).toBe(0);
+		expect(scope.issues.map((issue) => issue.type === "collision" && issue.kind)).toEqual([
+			"alias/name",
+		]);
 	}
 });
 
@@ -293,8 +300,10 @@ test("alias/alias collisions identify both canonical owner routes", async () => 
 		[second, first],
 	]) {
 		const topology = new ClinkrTopology({ sources });
-		await expect(topology.open([])).rejects.toThrow(
-			'alias/alias collision at shared between sources "alpha" (alias of publish) and "beta" (alias of release)',
-		);
+		const scope = await topology.open([]);
+		expect(scope.commands.size).toBe(0);
+		expect(scope.issues.map((issue) => issue.type === "collision" && issue.kind)).toEqual([
+			"alias/alias",
+		]);
 	}
 });

@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, expect, test } from "vitest";
 
 import { createClinkrApp } from "@nseng-ai/clinkr/app";
+import { runForCliTest } from "@nseng-ai/clinkr/app/testing";
 import { createFilesystemSource } from "../../src/app/filesystem-source.ts";
 
 // Loader-contract tests: each case writes a freshly generated (usually
@@ -56,9 +57,11 @@ for (const [label, sourceTemplate] of malformedFunctionModuleCases) {
 	test(`metadata modules reject ${label}`, async () => {
 		const metadataSource = sourceTemplate.replaceAll("EXPECTED", "metadata");
 		const commandDirectory = await createCommandDirectory({ metadataSource });
-		await expect(createClinkrApp({ name: "fixture", commandDirectory }).run([])).rejects.toThrow(
-			/malformed metadata module.*metadata\.ts/,
-		);
+		const run = await runForCliTest(createClinkrApp({ name: "fixture", commandDirectory }), [
+			"--help",
+		]);
+		expect(run).toMatchObject({ exitCode: 0 });
+		expect(run.stderr).toMatch(/malformed metadata module.*metadata\.ts/);
 	});
 
 	test(`command modules reject ${label}`, async () => {
@@ -87,9 +90,11 @@ test.each([
 	const commandDirectory = await createCommandDirectory({
 		metadataSource: `export function metadata() { ${resultSource} }\n`,
 	});
-	await expect(createClinkrApp({ name: "fixture", commandDirectory }).run([])).rejects.toThrow(
-		/malformed command metadata.*metadata\.ts/,
-	);
+	const run = await runForCliTest(createClinkrApp({ name: "fixture", commandDirectory }), [
+		"--help",
+	]);
+	expect(run).toMatchObject({ exitCode: 0 });
+	expect(run.stderr).toMatch(/malformed command metadata.*metadata\.ts/);
 });
 
 test.each([

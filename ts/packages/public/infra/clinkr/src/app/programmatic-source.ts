@@ -48,10 +48,14 @@ export interface ClinkrScope<TContext> {
 
 export interface ClinkrSourceOptions {
 	readonly label: string;
+	/** Presentation-only decoration for commands and groups directly beneath this source. */
+	readonly decorateTopLevel?: (metadata: ClinkrCommandMetadata) => ClinkrCommandMetadata;
 }
 
 export interface ClinkrFilesystemSourceOptions extends ClinkrFilesystemMountOptions {
 	readonly label?: string;
+	/** Presentation-only decoration for commands and groups directly beneath this mount. */
+	readonly decorateTopLevel?: (metadata: ClinkrCommandMetadata) => ClinkrCommandMetadata;
 }
 
 export interface ClinkrComposition<TContext> {
@@ -81,14 +85,23 @@ export function composeSources<TContext>(
 			validateSourceLabel(options.label);
 			claimLabel(options.label, labels);
 			const source = createProgrammaticSource<TContext>(options.label, configureScope);
-			sources.push(source);
+			sources.push(
+				options.decorateTopLevel === undefined
+					? source
+					: decorateTopLevelSource(source, options.decorateTopLevel),
+			);
 		},
 		filesystem: (options) => {
 			requireActive();
 			const label = options.label ?? options.commandDirectory;
 			validateSourceLabel(label);
 			claimLabel(label, labels);
-			sources.push(createFilesystemSource<TContext>({ ...options, label }));
+			const source = createFilesystemSource<TContext>({ ...options, label });
+			sources.push(
+				options.decorateTopLevel === undefined
+					? source
+					: decorateTopLevelSource(source, options.decorateTopLevel),
+			);
 		},
 	};
 	try {
@@ -97,6 +110,43 @@ export function composeSources<TContext>(
 		active = false;
 	}
 	return sources;
+}
+
+function decorateTopLevelSource<TContext>(
+	source: TopologySource<TContext>,
+	decorate: (metadata: ClinkrCommandMetadata) => ClinkrCommandMetadata,
+): TopologySource<TContext> {
+	return {
+		label: source.label,
+		open: async (path) => {
+			const scope = await source.open(path);
+			if (path.length !== 0) return scope;
+			return decorateScope(scope, decorate);
+		},
+	};
+}
+
+function decorateScope<TContext>(
+	scope: SourceScope<TContext>,
+	decorate: (metadata: ClinkrCommandMetadata) => ClinkrCommandMetadata,
+): SourceScope<TContext> {
+	const commands = new Map<string, SourceCommand<TContext>>();
+	for (const [name, command] of scope.commands) {
+		commands.set(name, { ...command, metadata: decorate(command.metadata) });
+	}
+	const groups = new Map<string, { readonly definition: ClinkrGroupDefinition }>();
+	for (const [name, group] of scope.groups) {
+		groups.set(name, { definition: decorate(group.definition) });
+	}
+	if (scope.defaultCommand === undefined) return { commands, groups };
+	return {
+		defaultCommand: {
+			...scope.defaultCommand,
+			metadata: decorate(scope.defaultCommand.metadata),
+		},
+		commands,
+		groups,
+	};
 }
 
 function claimLabel(label: string, labels: Set<string>): void {
@@ -257,6 +307,7 @@ function snapshotCommandMetadata(metadata: ClinkrCommandMetadata): ClinkrCommand
 			summary: metadata.summary,
 			hidden: metadata.hidden,
 			helpGroup: metadata.helpGroup,
+			helpOrder: metadata.helpOrder,
 		}),
 	});
 }

@@ -36,7 +36,12 @@ import {
 } from "./framework-arguments.ts";
 import { ClinkrNavigator } from "./navigator.ts";
 import { composeSources, type ClinkrComposition } from "./programmatic-source.ts";
-import { ClinkrTopology, type OpenedScope } from "./topology.ts";
+import {
+	ClinkrTopology,
+	formatTopologyIssue,
+	type OpenedScope,
+	type TopologyIssue,
+} from "./topology.ts";
 
 export interface ClinkrRunOptions<TContext> {
 	readonly context: TContext;
@@ -310,6 +315,11 @@ class TopologyClinkrApp<TContext> {
 			process.stderr.write(`clinkr: ${navigation.message}\n`);
 			return USAGE_ERROR_EXIT_CODE;
 		}
+		if (navigation.type === "topology-failure") {
+			this.emitTopologyIssues(navigation.issues);
+			return USAGE_ERROR_EXIT_CODE;
+		}
+		if ("issues" in navigation) this.emitTopologyIssues(navigation.issues);
 		if (navigation.type === "unknown-route") {
 			process.stderr.write(
 				`clinkr: unknown route at ${[...navigation.path, ...navigation.tail].join(" ")}\n`,
@@ -323,7 +333,7 @@ class TopologyClinkrApp<TContext> {
 			return SUCCESS_EXIT_CODE;
 		}
 		const { loaded, tail: selectedArgv } = navigation;
-		const selectedName = navigation.path.at(-1) ?? this.name;
+		const selectedName = this.canonicalCommandName(navigation.path);
 		const { selected, metadata } = loaded;
 		if (selected.kind === "raw") {
 			// Raw dispatch branches before structured global-flag parsing and owns
@@ -407,17 +417,25 @@ class TopologyClinkrApp<TContext> {
 		return this.requireCompletion().complete(request, invocationOptions);
 	}
 
+	private emitTopologyIssues(issues: readonly TopologyIssue[]): void {
+		for (const issue of issues) process.stderr.write(`${formatTopologyIssue(issue)}\n`);
+	}
+
 	private buildCompletionHelp(path: "completion" | "resolve"): string {
 		if (path === "resolve") {
-			return createContainedCommand("resolve")
+			return createContainedCommand(this.canonicalCommandName(["completion", "resolve"]))
 				.description("Resolve completion candidates.")
 				.argument("[words...]", "Completion words after --.")
 				.helpInformation();
 		}
-		return createContainedCommand("completion")
+		return createContainedCommand(this.canonicalCommandName(["completion"]))
 			.description("Generate shell completion setup. Shells: bash, zsh, fish.")
 			.argument("<shell>", "Shell name: bash, zsh, or fish.")
 			.helpInformation();
+	}
+
+	private canonicalCommandName(path: readonly string[]): string {
+		return [this.name, ...path].join(" ");
 	}
 
 	private requireCompletion(): ClinkrCompletionRuntime<
@@ -451,7 +469,7 @@ class TopologyClinkrApp<TContext> {
 		groupDefinition?: ClinkrGroupDefinition,
 	): Promise<string> {
 		const isRoot = path.length === 0;
-		const name = isRoot ? this.name : (path.at(-1) ?? this.name);
+		const name = this.canonicalCommandName(path);
 		let command: Command;
 		if (scope.defaultCommand === undefined) {
 			command = createContainedCommand(name);
@@ -471,28 +489,34 @@ class TopologyClinkrApp<TContext> {
 		if (isRoot && this.runtimeInfo !== undefined) {
 			command.addOption(new Option("--runtime", "Show CLI runtime diagnostics and exit."));
 		}
-		for (const [childName, route] of scope.commands) {
-			const metadata = route.command.metadata;
-			const child = new Command(childName).description(metadata.summary ?? metadata.description);
-			if (metadata.aliases !== undefined) child.aliases([...metadata.aliases]);
-			if (metadata.helpGroup !== undefined) child.helpGroup(metadata.helpGroup);
-			command.addCommand(child, { hidden: metadata.hidden === true });
+		const children: ScopeHelpChild[] = [];
+		for (const [name, route] of scope.commands) {
+			children.push({ name, metadata: route.command.metadata });
 		}
-		for (const [childName, group] of scope.groups) {
-			const child = new Command(childName).description(
-				group.definition.summary ?? group.definition.description,
-			);
-			if (group.definition.aliases !== undefined) child.aliases([...group.definition.aliases]);
-			if (group.definition.helpGroup !== undefined) child.helpGroup(group.definition.helpGroup);
-			command.addCommand(child, { hidden: group.definition.hidden === true });
+		for (const [name, group] of scope.groups) {
+			children.push({ name, metadata: group.definition });
 		}
-		if (isRoot && this.completion !== undefined) {
+		children.sort(
+			(left, right) => helpPresentationRank(left.metadata) - helpPresentationRank(right.metadata),
+		);
+		let completionAdded = false;
+		const addCompletion = (): void => {
+			if (!isRoot || this.completion === undefined || completionAdded) return;
 			command.addCommand(
 				new Command("completion")
 					.description("Generate shell completion setup.")
 					.argument("<shell>", "Shell name: bash, zsh, or fish."),
 			);
+			completionAdded = true;
+		};
+		for (const { name: childName, metadata } of children) {
+			if (helpPresentationRank(metadata) >= 3) addCompletion();
+			const child = new Command(childName).description(metadata.summary ?? metadata.description);
+			if (metadata.aliases !== undefined) child.aliases([...metadata.aliases]);
+			if (metadata.helpGroup !== undefined) child.helpGroup(metadata.helpGroup);
+			command.addCommand(child, { hidden: metadata.hidden === true });
 		}
+		addCompletion();
 		return command.helpInformation();
 	}
 }
@@ -548,6 +572,15 @@ export function createClinkrApp<TContext>(
 		requiresContext: false,
 		...(options.completion === undefined ? {} : { completion: options.completion }),
 	});
+}
+
+interface ScopeHelpChild {
+	readonly name: string;
+	readonly metadata: ClinkrCommandMetadata;
+}
+
+function helpPresentationRank(metadata: ClinkrCommandMetadata): number {
+	return metadata.helpOrder ?? 0;
 }
 
 interface CommandSurface {

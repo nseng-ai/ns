@@ -108,11 +108,13 @@ test("named children and aliases win over root default positional parsing", asyn
 	}
 });
 
-test("scope help presents command and group metadata and hides hidden children", async () => {
+test("scope help presents full canonical paths, command and group metadata, and hides hidden children", async () => {
 	const root = await runForCliTest(recursiveApp(), ["--help"], { context });
+	expect(root.stdout).toContain("Usage: contacts");
 	expect(root.stdout).toContain("people|p");
 	expect(root.stdout).toContain("Manage people.");
 	const group = await runForCliTest(recursiveApp(), ["people", "--help"], { context });
+	expect(group.stdout).toContain("Usage: contacts people");
 	expect(group.stdout).toContain("Manage people.");
 	expect(group.stdout).toContain("Contacts:\n  find|f");
 	expect(group.stdout).toContain("Find a person.");
@@ -158,6 +160,7 @@ test("bare scopes show help without a default and execute defaults when present"
 
 test("selected help and schema follow canonical and alias routes", async () => {
 	const selected = await runForCliTest(recursiveApp(), ["people", "find", "--help"], { context });
+	expect(selected.stdout).toContain("Usage: contacts people find");
 	expect(selected.stdout).toContain("--name");
 	const escaped = await runForCliTest(recursiveApp(), ["people", "find", "--", "--help"], {
 		context,
@@ -314,6 +317,35 @@ test("context mismatch and handler or outcome exceptions propagate", async () =>
 	});
 	await expect(exceptional.run(["throw"])).rejects.toThrow("boom");
 	await expect(exceptional.run(["invalid"])).rejects.toThrow();
+});
+
+test("structural topology issues make the entire opened scope unavailable", async () => {
+	const app = createClinkrApp({ name: "issues" }, (composition) => {
+		composition.source({ label: "alpha" }, (root) => {
+			root.command("healthy", { description: "Healthy." }, () =>
+				defineCommand({
+					schema: z.object({}),
+					resultSchema: z.object({ value: z.string() }),
+					handler: () => ok({ value: "ready" }),
+				}),
+			);
+			root.command("shared", { description: "Shared alpha." }, () =>
+				defineCommand({ schema: z.object({}), handler: () => ok() }),
+			);
+		});
+		composition.source({ label: "beta" }, (root) => {
+			root.command("shared", { description: "Shared beta." }, () =>
+				defineCommand({ schema: z.object({}), handler: () => ok() }),
+			);
+		});
+	});
+	for (const argv of [["healthy"], ["--help"], ["shared"]]) {
+		const result = await runForCliTest(app, argv);
+		expect(result).toMatchObject({ exitCode: 2, stdout: "" });
+		expect(result.stderr).toContain(
+			'command/command collision at shared between sources "alpha" and "beta"',
+		);
+	}
 });
 
 test("depth counters prove immediate-child laziness through help, schema, and execution", async () => {
