@@ -14,7 +14,7 @@ export function buildFindingsEnvelope(
 ): string {
 	const reviewName = options.reviewName ?? "typescript-style";
 	return JSON.stringify({
-		status: "ok",
+		status: "success",
 		exitCode: 0,
 		data: {
 			reviewName,
