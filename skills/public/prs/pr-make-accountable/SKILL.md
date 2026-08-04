@@ -198,20 +198,23 @@ infer, abbreviate, or hard-code either value. For example, an OpenAI session in
 Pi might report `openai/gpt-5.6-sol` and `Pi`; an Anthropic session in Claude
 Code might report `anthropic/claude-opus-4-6` and `Claude Code`.
 
-Write the draft as the complete body immediately, and prefix the PR title with
-`[accountable]` (skip the title change if it already starts with
-`[accountable]`):
+Draft a concise title that describes the net diff. Preserve the substantive
+existing title when it is faithful; rewrite it when it is inaccurate,
+misleading, or describes intermediate work absent from the net diff. Prefix
+the resulting title with `[accountable]` exactly once.
+
+Write the draft body and honest title immediately:
 
 ```sh
-gh pr edit <n> --body-file <tmpfile> --title "[accountable] <existing title>"
+gh pr edit <n> --body-file <tmpfile> --title "[accountable] <honest title>"
 ```
 
-Then show the complete body as written, including the footer, and say
-explicitly that it is now live on the PR but not final: the author's name goes
-on it, so they must read every claim and change anything false or unlike their
-voice. Prompt for further edits: the author can request changes in chat (apply
-them with another `gh pr edit`) or edit directly in the GitHub UI; if they are
-satisfied as-is, no further step is needed.
+Then show the complete body and title as written, and say explicitly that they
+are now live on the PR but not final: the author's name goes on them, so they
+must read every claim and change anything false or unlike their voice. Prompt
+for further edits: the author can request changes in chat (apply them with
+another `gh pr edit`) or edit directly in the GitHub UI; if they are satisfied
+as-is, no further step is needed.
 
 The author's wording wins. If a requested edit restores a claim disproved
 during the interview, push back once with evidence before accepting their
@@ -224,7 +227,7 @@ After the update, give a verdict with concrete recommendations for
 each axis:
 
 - **Size and cohesion** — reviewable and focused, or better split?
-- **Title honesty** — faithful to the diff?
+- **Title honesty** — does the live substantive title accurately summarize the net diff?
 - **Narrative** — does the body establish the right model before code?
 - **Focus** — are interview-discovered hotspots in `## Reviewer focus`?
 
