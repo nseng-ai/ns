@@ -561,98 +561,232 @@ describe("Git-backed behavior", () => {
 		});
 	});
 
-	test("batches provenance history and marker reads with deterministic artifact ordering", async () => {
-		const target = "a".repeat(40);
-		const firstBytes = Buffer.from(`{"gpId":"${artifactId}"}`);
-		const secondBytes = Buffer.from(`{"gpId":"${secondArtifactId}"}`);
-		const tree = [
-			`100644 blob ${"b".repeat(40)}\troot/z/gitplane-artifact.json`,
-			`100644 blob ${"c".repeat(40)}\troot/a/gitplane-artifact.json`,
-		].join("\0");
+	test("returns empty provenance without Git and rejects every unsafe path before Git", async () => {
+		const { gateway, git } = gatewayFor([]);
+		expect(await gateway.readMarkerProvenance({ targetCommit: "target", markers: [] })).toEqual({
+			ok: true,
+			value: [],
+		});
+		for (const markerPath of ["/absolute", "safe/../escape", "..", "nul\0path"]) {
+			expect(
+				await gateway.readMarkerProvenance({
+					targetCommit: "target",
+					markers: [{ artifactId, path: markerPath }],
+				}),
+			).toEqual({
+				ok: false,
+				error: { code: "source-error", message: "Path escapes invocation directory." },
+			});
+		}
+		expect(git.invocations).toEqual([]);
+	});
+
+	test("uses exact shallow, merge, and literal marker queries including magic and root paths", async () => {
+		const target = "target";
 		const { gateway, git } = gatewayFor([
-			{ args: ["rev-list", "--parents", target], stdout: Buffer.from(`${target}\n`) },
+			{ args: ["rev-parse", "--is-shallow-repository"], stdout: Buffer.from(" false\n") },
+			{ args: ["rev-list", "--min-parents=2", "-1", target] },
 			{
-				args: ["ls-tree", "-rz", "-r", "-t", target, "--", "root"],
-				stdout: Buffer.from(`${tree}\0`),
+				args: [
+					"--literal-pathspecs",
+					"rev-list",
+					"-1",
+					target,
+					"--",
+					":(glob)magic/gitplane-artifact.json",
+				],
+				stdout: Buffer.from("abc\n"),
 			},
 			{
-				args: ["cat-file", "--batch"],
-				input: `${target}:root/z/gitplane-artifact.json\n${target}:root/a/gitplane-artifact.json\n`,
-				stdout: Buffer.concat([
-					batchRecord("b".repeat(40), firstBytes),
-					batchRecord("c".repeat(40), secondBytes),
-				]),
+				args: ["--literal-pathspecs", "rev-list", "-1", target, "--", "gitplane-artifact.json"],
+				stdout: Buffer.from("def012"),
 			},
 		]);
 		expect(
 			await gateway.readMarkerProvenance({
 				targetCommit: target,
-				artifactRoot: "root",
 				markers: [
-					{ artifactId: secondArtifactId, path: "root/a", markerBytes: secondBytes },
-					{ artifactId, path: "root/z", markerBytes: firstBytes },
+					{ artifactId: secondArtifactId, path: ":(glob)magic" },
+					{ artifactId, path: "" },
 				],
 			}),
 		).toEqual({
 			ok: true,
 			value: [
-				{ type: "found", artifactId, markerLastChangedCommit: target },
-				{ type: "found", artifactId: secondArtifactId, markerLastChangedCommit: target },
+				{ type: "found", artifactId: secondArtifactId, markerLastChangedCommit: "abc" },
+				{ type: "found", artifactId, markerLastChangedCommit: "def012" },
 			],
 		});
-		expect(git.invocations).toHaveLength(3);
-		expect(git.invocations.flatMap((invocation) => invocation.args)).not.toContain("--follow");
-		expect(git.invocations.flatMap((invocation) => invocation.args)).not.toContain(
-			"--first-parent",
-		);
 		git.assertComplete();
 	});
 
-	test("classifies missing provenance separately from operational and malformed protocol failures", async () => {
-		const target = "a".repeat(40);
-		const request = {
-			targetCommit: target,
-			artifactRoot: "root",
-			markers: [{ artifactId, path: "root/a", markerBytes: Buffer.from("marker") }],
-		};
-		const missing = gatewayFor([
-			{
-				args: ["rev-list", "--parents", target],
-				error: Object.assign(new Error("unclassified fatal failure"), { code: 128 }),
-			},
-			{
-				args: ["rev-parse", "--verify", "--quiet", `${target}^{commit}`],
-				error: Object.assign(new Error("quiet probe"), { code: 1 }),
-			},
+	test("short-circuits shallow and merge histories and validates their protocols", async () => {
+		const markers = [{ artifactId, path: "a" }];
+		const unavailable = (reason: string) => ({
+			ok: true,
+			value: [{ type: "unavailable", artifactId, reason }],
+		});
+		for (const shallow of ["true", " true\n"]) {
+			const { gateway, git } = gatewayFor([
+				{ args: ["rev-parse", "--is-shallow-repository"], stdout: Buffer.from(shallow) },
+			]);
+			expect(await gateway.readMarkerProvenance({ targetCommit: "t", markers })).toEqual(
+				unavailable("incomplete-history"),
+			);
+			expect(git.invocations).toHaveLength(1);
+		}
+		for (const output of ["TRUE", "false\ntrue"]) {
+			const { gateway } = gatewayFor([
+				{ args: ["rev-parse", "--is-shallow-repository"], stdout: Buffer.from(output) },
+			]);
+			expect(await gateway.readMarkerProvenance({ targetCommit: "t", markers })).toMatchObject({
+				ok: false,
+			});
+		}
+		for (const [output, expected] of [
+			["", null],
+			["abc", unavailable("incomplete-history")],
+			["abc\ndef", { ok: false }],
+			["ABC", { ok: false }],
+		] as const) {
+			const { gateway } = gatewayFor([
+				{ args: ["rev-parse", "--is-shallow-repository"], stdout: Buffer.from("false") },
+				{ args: ["rev-list", "--min-parents=2", "-1", "t"], stdout: Buffer.from(output) },
+				...(expected === null
+					? [
+							{
+								args: [
+									"--literal-pathspecs",
+									"rev-list",
+									"-1",
+									"t",
+									"--",
+									"a/gitplane-artifact.json",
+								],
+							},
+						]
+					: []),
+			]);
+			const result = await gateway.readMarkerProvenance({ targetCommit: "t", markers });
+			expect(result).toMatchObject(expected ?? unavailable("incomplete-history"));
+		}
+	});
+
+	test("classifies ambiguous merge and marker exit-128 failures by commit probes", async () => {
+		const missing = Object.assign(new Error("unclassified fatal failure"), { code: 128 });
+		const missingProbe = Object.assign(new Error("quiet probe"), { code: 1 });
+		const markers = [
+			{ artifactId, path: "a" },
+			{ artifactId: secondArtifactId, path: "b" },
+		];
+		const mergeMissing = gatewayFor([
+			{ args: ["rev-parse", "--is-shallow-repository"], stdout: Buffer.from("false") },
+			{ args: ["rev-list", "--min-parents=2", "-1", "t"], error: missing },
+			{ args: ["rev-parse", "--verify", "--quiet", "t^{commit}"], error: missingProbe },
 		]);
-		expect(await missing.gateway.readMarkerProvenance(request)).toEqual({
+		expect(await mergeMissing.gateway.readMarkerProvenance({ targetCommit: "t", markers })).toEqual(
+			{
+				ok: true,
+				value: markers.map((marker) => ({
+					type: "unavailable",
+					artifactId: marker.artifactId,
+					reason: "missing-object",
+				})),
+			},
+		);
+
+		const markerMissing = gatewayFor([
+			{ args: ["rev-parse", "--is-shallow-repository"], stdout: Buffer.from("false") },
+			{ args: ["rev-list", "--min-parents=2", "-1", "t"] },
+			{
+				args: ["--literal-pathspecs", "rev-list", "-1", "t", "--", "a/gitplane-artifact.json"],
+				error: missing,
+			},
+			{ args: ["rev-parse", "--verify", "--quiet", "t^{commit}"], error: missingProbe },
+		]);
+		expect(
+			await markerMissing.gateway.readMarkerProvenance({
+				targetCommit: "t",
+				markers: [markers[0]!],
+			}),
+		).toEqual({
 			ok: true,
 			value: [{ type: "unavailable", artifactId, reason: "missing-object" }],
 		});
 
 		const operational = gatewayFor([
-			{ args: ["rev-list", "--parents", target], error: new Error("permission denied") },
+			{ args: ["rev-parse", "--is-shallow-repository"], stdout: Buffer.from("false") },
+			{ args: ["rev-list", "--min-parents=2", "-1", "t"], error: missing },
+			{ args: ["rev-parse", "--verify", "--quiet", "t^{commit}"], stdout: Buffer.from("t\n") },
 		]);
-		expect(await operational.gateway.readMarkerProvenance(request)).toEqual({
+		expect(await operational.gateway.readMarkerProvenance({ targetCommit: "t", markers })).toEqual({
 			ok: false,
-			error: { code: "source-error", message: "permission denied" },
+			error: { code: "source-error", message: "unclassified fatal failure" },
 		});
+	});
 
-		for (const output of [Buffer.alloc(0), Buffer.from(`${target} not-a-commit\n`)]) {
-			const malformed = gatewayFor([
-				{
-					args: ["rev-list", "--parents", target],
-					stdout: output,
-				},
+	test("keeps operational and malformed provenance protocol failures distinct", async () => {
+		const markers = [{ artifactId, path: "a" }];
+		for (const [markerStep, expected] of [
+			[
+				{ stdout: Buffer.from("BAD") },
+				{ ok: false, error: { message: "Unexpected git rev-list output." } },
+			],
+			[{ error: new Error("marker failed") }, { ok: false, error: { message: "marker failed" } }],
+		] as const) {
+			const args = ["--literal-pathspecs", "rev-list", "-1", "t", "--", "a/gitplane-artifact.json"];
+			const { gateway } = gatewayFor([
+				{ args: ["rev-parse", "--is-shallow-repository"], stdout: Buffer.from("false") },
+				{ args: ["rev-list", "--min-parents=2", "-1", "t"] },
+				{ args, ...markerStep },
 			]);
-			expect(await malformed.gateway.readMarkerProvenance(request)).toEqual({
-				ok: false,
-				error: { code: "source-error", message: "Unexpected git rev-list output." },
-			});
+			expect(await gateway.readMarkerProvenance({ targetCommit: "t", markers })).toMatchObject(
+				expected,
+			);
 		}
 	});
-});
 
+	test("runs marker queries concurrently while preserving input order and per-item absence", async () => {
+		const resolvers: ReturnType<
+			typeof Promise.withResolvers<{ stdout: Buffer; stderr: Buffer }>
+		>[] = [];
+		const git: GitCommandExecutor = {
+			execute: vi.fn(async (args) => {
+				if (args[0] === "rev-parse") {
+					if (args[1] === "--is-shallow-repository")
+						return { stdout: Buffer.from("false"), stderr: Buffer.alloc(0) };
+					throw Object.assign(new Error("quiet probe"), { code: 1 });
+				}
+				if (args[0] === "rev-list") return { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+				const deferred = Promise.withResolvers<{ stdout: Buffer; stderr: Buffer }>();
+				resolvers.push(deferred);
+				return deferred.promise;
+			}),
+		};
+		const pending = new RealArtifactGateway({ cwd: "/repo", git }).readMarkerProvenance({
+			targetCommit: "t",
+			markers: [
+				{ artifactId, path: "a" },
+				{ artifactId: secondArtifactId, path: "b" },
+			],
+		});
+		await vi.waitFor(() => expect(resolvers).toHaveLength(2));
+		resolvers[1]?.resolve({ stdout: Buffer.from("bbb"), stderr: Buffer.alloc(0) });
+		resolvers[0]?.reject(
+			Object.assign(new Error("missing"), {
+				code: 128,
+				stderr: Buffer.from("fatal: bad object"),
+			}),
+		);
+		expect(await pending).toEqual({
+			ok: true,
+			value: [
+				{ type: "unavailable", artifactId, reason: "missing-object" },
+				{ type: "found", artifactId: secondArtifactId, markerLastChangedCommit: "bbb" },
+			],
+		});
+	});
+});
 describe("filesystem-backed behavior", () => {
 	test("creates a marker atomically with exact filesystem ordering and a hook", async () => {
 		const operations: string[] = [];

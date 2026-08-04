@@ -5,7 +5,7 @@ const marker = (value: unknown) => ({
 	kind: "regular-file" as const,
 	bytes: Buffer.from(JSON.stringify(value)),
 });
-test("discovers recursive outer boundaries and short-circuits all nesting", () => {
+test("discovers recursive regular-file boundaries and short-circuits all nesting", () => {
 	const topology = inspectCorpusTopology([
 		{ path: "artifacts/a/gitplane-artifact.json", kind: "regular-file" },
 		{ path: "artifacts/a/deep/gitplane-artifact.json", kind: "regular-file" },
@@ -21,14 +21,6 @@ test("discovers recursive outer boundaries and short-circuits all nesting", () =
 			artifactPath: "artifacts/a",
 			relativePath: "deep/gitplane-artifact.json",
 			relatedArtifactPaths: ["artifacts/a/deep"],
-		},
-		{
-			code: "nested-artifact",
-			severity: "error",
-			summary: "Artifacts cannot be nested.",
-			artifactPath: "artifacts/a",
-			relativePath: "other/gitplane-artifact.json",
-			relatedArtifactPaths: ["artifacts/a/other"],
 		},
 	]);
 });

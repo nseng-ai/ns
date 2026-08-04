@@ -1,5 +1,7 @@
 export {
+	ARTIFACT_MARKER_NAME,
 	artifactClassificationSchema,
+	artifactMarkerPath,
 	artifactIdSchema,
 	parseArtifactId,
 	parseArtifactMarker,
@@ -83,6 +85,7 @@ export { gatherSourceFacts } from "./gather-source-facts.ts";
 export type {
 	CandidateMarkerProvenance,
 	CommitCorpusFacts,
+	GatheredCursorFacts,
 	GatheredSourceFacts,
 	GatherSourceFactsOptions,
 	GatherSourceFactsResult,
@@ -97,7 +100,7 @@ export type {
 } from "./check/corpus.ts";
 export { FINDING_CODES, findingSchema, sortFindings } from "./check/finding.ts";
 export type { Finding } from "./check/finding.ts";
-export { ARTIFACT_MARKER_NAME, inspectCorpusTopology } from "./check/inspect-corpus-topology.ts";
+export { inspectCorpusTopology } from "./check/inspect-corpus-topology.ts";
 export type { ArtifactBoundaryTopology, CorpusTopology } from "./check/inspect-corpus-topology.ts";
 export { doctorCheckSchema, evaluateDoctor } from "./doctor/index.ts";
 export { buildProjectionPlan, isValidJsonPointer, resolveJsonPointer } from "./projection/index.ts";

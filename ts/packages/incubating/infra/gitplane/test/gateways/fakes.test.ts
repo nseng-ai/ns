@@ -8,6 +8,9 @@ import {
 const parsed = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
 if (!parsed.ok) throw new Error();
 const artifactId = parsed.artifactId;
+const secondParsed = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dp");
+if (!secondParsed.ok) throw new Error();
+const secondArtifactId = secondParsed.artifactId;
 const event = {
 	eventId: "gpe_x",
 	sourceId: "s",
@@ -176,6 +179,172 @@ test.each([
 		expect(await invoke(gateway)).toEqual({ ok: false, error: failure });
 	},
 );
+
+test("commit facts fixtures distinguish commit keys and preserve both unavailability reasons", async () => {
+	const gateway = new InMemoryArtifactGateway({
+		commitFacts: [
+			{ commit: "missing", observation: { type: "unavailable", reason: "missing-object" } },
+			{
+				commit: "shallow",
+				observation: { type: "unavailable", reason: "incomplete-history" },
+			},
+		],
+	});
+	expect(await gateway.readCommitFacts({ commit: "missing" })).toEqual({
+		ok: true,
+		value: { type: "unavailable", reason: "missing-object" },
+	});
+	expect(await gateway.readCommitFacts({ commit: "shallow" })).toEqual({
+		ok: true,
+		value: { type: "unavailable", reason: "incomplete-history" },
+	});
+});
+
+test("marker provenance maps in input order by commit, ID, and path", async () => {
+	const gateway = new InMemoryArtifactGateway({
+		markerProvenance: [
+			{
+				targetCommit: "target",
+				artifactId,
+				path: "a",
+				observation: {
+					type: "found",
+					artifactId,
+					markerLastChangedCommit: "a-change",
+				},
+			},
+			{
+				targetCommit: "target",
+				artifactId,
+				path: "b",
+				observation: { type: "unavailable", artifactId, reason: "missing-object" },
+			},
+		],
+	});
+	expect(
+		await gateway.readMarkerProvenance({
+			targetCommit: "target",
+			markers: [
+				{ artifactId, path: "b" },
+				{ artifactId, path: "a" },
+				{ artifactId: secondArtifactId, path: "a" },
+			],
+		}),
+	).toEqual({
+		ok: true,
+		value: [
+			{ type: "unavailable", artifactId, reason: "missing-object" },
+			{ type: "found", artifactId, markerLastChangedCommit: "a-change" },
+			{ type: "unavailable", artifactId: secondArtifactId, reason: "incomplete-history" },
+		],
+	});
+});
+
+test("exact duplicate marker requests consume fixtures one-to-one", async () => {
+	const request = { artifactId, path: "same" };
+	const gateway = new InMemoryArtifactGateway({
+		markerProvenance: [
+			{
+				targetCommit: "target",
+				...request,
+				observation: { type: "found", artifactId, markerLastChangedCommit: "first" },
+			},
+			{
+				targetCommit: "target",
+				...request,
+				observation: { type: "found", artifactId, markerLastChangedCommit: "second" },
+			},
+		],
+	});
+	expect(
+		await gateway.readMarkerProvenance({
+			targetCommit: "target",
+			markers: [request, request, request],
+		}),
+	).toEqual({
+		ok: true,
+		value: [
+			{ type: "found", artifactId, markerLastChangedCommit: "first" },
+			{ type: "found", artifactId, markerLastChangedCommit: "second" },
+			{ type: "unavailable", artifactId, reason: "incomplete-history" },
+		],
+	});
+});
+
+test("artifact gateway constructor state and returned snapshots are insulated", async () => {
+	const parents = ["parent"];
+	const bytes = new Uint8Array([1]);
+	const provenance = {
+		targetCommit: "target",
+		artifactId,
+		path: "a",
+		observation: {
+			type: "found" as const,
+			artifactId,
+			markerLastChangedCommit: "change",
+		},
+	};
+	const state = {
+		commitFacts: [
+			{
+				commit: "target",
+				observation: {
+					type: "found" as const,
+					value: { commit: "target", parents, isMerge: false },
+				},
+			},
+		],
+		commitCandidates: [
+			{
+				commit: "target",
+				candidate: {
+					type: "found" as const,
+					value: {
+						path: "a",
+						entries: [{ path: "file", kind: "regular-file" as const, bytes }],
+					},
+				},
+			},
+		],
+		markerProvenance: [provenance],
+	};
+	const gateway = new InMemoryArtifactGateway(state);
+	parents.push("mutated");
+	bytes[0] = 9;
+	provenance.observation.markerLastChangedCommit = "mutated";
+
+	const facts = await gateway.readCommitFacts({ commit: "target" });
+	const candidate = await gateway.readCommitTreeCandidate({ commit: "target", path: "a" });
+	const marker = await gateway.readMarkerProvenance({
+		targetCommit: "target",
+		markers: [{ artifactId, path: "a" }],
+	});
+	expect(facts).toMatchObject({ value: { value: { parents: ["parent"] } } });
+	expect(candidate).toMatchObject({
+		value: { value: { entries: [{ bytes: new Uint8Array([1]) }] } },
+	});
+	expect(marker).toMatchObject({ value: [{ markerLastChangedCommit: "change" }] });
+	if (facts.ok && facts.value.type === "found")
+		(facts.value.value.parents as string[]).push("later");
+	if (candidate.ok && candidate.value.type === "found") {
+		const entry = candidate.value.value.entries[0];
+		if (entry?.kind === "regular-file") entry.bytes[0] = 7;
+	}
+	if (marker.ok)
+		(marker.value[0] as { markerLastChangedCommit: string }).markerLastChangedCommit = "later";
+	expect(await gateway.readCommitFacts({ commit: "target" })).toMatchObject({
+		value: { value: { parents: ["parent"] } },
+	});
+	expect(await gateway.readCommitTreeCandidate({ commit: "target", path: "a" })).toMatchObject({
+		value: { value: { entries: [{ bytes: new Uint8Array([1]) }] } },
+	});
+	expect(
+		await gateway.readMarkerProvenance({
+			targetCommit: "target",
+			markers: [{ artifactId, path: "a" }],
+		}),
+	).toMatchObject({ value: [{ markerLastChangedCommit: "change" }] });
+});
 
 test("commit inventories distinguish commit-root pairs and preserve unavailability", async () => {
 	const gateway = new InMemoryArtifactGateway({

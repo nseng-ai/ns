@@ -17,7 +17,10 @@ type FailureKey = keyof ArtifactGateway;
 export interface InMemoryArtifactGatewayState {
 	readonly created?: readonly CreateArtifactRequest[];
 	readonly commits?: Readonly<Record<string, GitObservation<string>>>;
-	readonly commitFacts?: readonly GitObservation<CommitFacts>[];
+	readonly commitFacts?: readonly {
+		readonly commit: string;
+		readonly observation: GitObservation<CommitFacts>;
+	}[];
 	readonly ancestry?: readonly {
 		readonly ancestor: string;
 		readonly descendant: string;
@@ -34,8 +37,9 @@ export interface InMemoryArtifactGatewayState {
 	}[];
 	readonly markerProvenance?: readonly {
 		readonly targetCommit: string;
-		readonly artifactRoot: string;
-		readonly observations: readonly MarkerProvenanceObservation[];
+		readonly artifactId: MarkerProvenanceRequest["artifactId"];
+		readonly path: string;
+		readonly observation: MarkerProvenanceObservation;
 	}[];
 	readonly workingInventories?: readonly {
 		readonly artifactRoot: string;
@@ -72,7 +76,7 @@ export class InMemoryArtifactGateway implements ArtifactGateway {
 	private readonly state: InMemoryArtifactGatewayState;
 	constructor(state: InMemoryArtifactGatewayState = {}) {
 		this.state = structuredClone(state);
-		this.created = (state.created ?? []).map((item) => ({ ...item }));
+		this.created = (this.state.created ?? []).map((item) => ({ ...item }));
 	}
 	createdArtifacts(): readonly CreateArtifactRequest[] {
 		return this.created.map((item) => ({ ...item }));
@@ -104,20 +108,20 @@ export class InMemoryArtifactGateway implements ArtifactGateway {
 	async readCommitFacts(request: {
 		readonly commit: string;
 	}): Promise<GatewayResult<GitObservation<CommitFacts>>> {
-		const found = this.state.commitFacts?.find(
-			(item) => item.type === "found" && item.value.commit === request.commit,
-		);
+		const found = this.state.commitFacts?.find((item) => item.commit === request.commit);
 		return result(
 			this.state.failures?.readCommitFacts,
-			found === undefined
-				? { type: "unavailable" as const, reason: "missing-object" as const }
-				: copyObservation(found, (facts) => ({ ...facts, parents: [...facts.parents] })),
+			copyObservation(
+				found?.observation ?? { type: "unavailable", reason: "missing-object" },
+				(facts) => ({ ...facts, parents: [...facts.parents] }),
+			),
 		);
 	}
 	async isAncestor(request: {
 		readonly ancestor: string;
 		readonly descendant: string;
 	}): Promise<GatewayResult<GitObservation<boolean>>> {
+		this.operations.push(`isAncestor:${request.ancestor}:${request.descendant}`);
 		const found = this.state.ancestry?.find(
 			(item) => item.ancestor === request.ancestor && item.descendant === request.descendant,
 		);
@@ -163,27 +167,28 @@ export class InMemoryArtifactGateway implements ArtifactGateway {
 	}
 	async readMarkerProvenance(request: {
 		readonly targetCommit: string;
-		readonly artifactRoot: string;
 		readonly markers: readonly MarkerProvenanceRequest[];
 	}): Promise<GatewayResult<readonly MarkerProvenanceObservation[]>> {
 		this.operations.push(`readMarkerProvenance:${request.targetCommit}:${request.markers.length}`);
-		const found = this.state.markerProvenance?.find(
-			(item) =>
-				item.targetCommit === request.targetCommit && item.artifactRoot === request.artifactRoot,
-		);
-		const byId = new Map(found?.observations.map((item) => [item.artifactId, item]));
-		return result(
-			this.state.failures?.readMarkerProvenance,
-			request.markers
-				.toSorted((left, right) => String(left.artifactId).localeCompare(String(right.artifactId)))
-				.map((marker) => ({
-					...(byId.get(marker.artifactId) ?? {
-						type: "unavailable" as const,
-						artifactId: marker.artifactId,
-						reason: "incomplete-history" as const,
-					}),
-				})),
-		);
+		const remaining = [...(this.state.markerProvenance ?? [])];
+		const observations = request.markers.map((marker) => {
+			const index = remaining.findIndex(
+				(item) =>
+					item.targetCommit === request.targetCommit &&
+					item.artifactId === marker.artifactId &&
+					item.path === marker.path,
+			);
+			if (index < 0)
+				return {
+					type: "unavailable" as const,
+					artifactId: marker.artifactId,
+					reason: "incomplete-history" as const,
+				};
+			const [found] = remaining.splice(index, 1);
+			if (found === undefined) throw new Error("Matched provenance fixture disappeared.");
+			return { ...found.observation };
+		});
+		return result(this.state.failures?.readMarkerProvenance, observations);
 	}
 	async inventoryWorkingTree(request: {
 		readonly artifactRoot: string;

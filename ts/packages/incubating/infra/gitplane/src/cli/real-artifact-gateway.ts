@@ -2,10 +2,10 @@ import { execFile } from "node:child_process";
 import { link, lstat, mkdir, open, readdir, readFile, rm, rmdir, unlink } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { ARTIFACT_MARKER_NAME, artifactMarkerPath } from "../core/index.ts";
 import type {
 	ArtifactCandidate,
 	ArtifactEntry,
-	ArtifactId,
 	ArtifactGateway,
 	CommitDiff,
 	CommitFacts,
@@ -55,7 +55,7 @@ function logical(value: string): string {
 }
 function isBeneathMarkerDirectory(value: string): boolean {
 	const parts = value.split("/");
-	return parts.slice(0, -1).includes("gitplane-artifact.json");
+	return parts.slice(0, -1).includes(ARTIFACT_MARKER_NAME);
 }
 function failure(error: unknown) {
 	return { code: "source-error", message: error instanceof Error ? error.message : String(error) };
@@ -70,21 +70,6 @@ function isExitCode(error: unknown, code: number): boolean {
 type GitFailureClassification =
 	| { readonly type: "unavailable" }
 	| { readonly type: "operational"; readonly error: GatewayError };
-function decodeGpId(bytes: Uint8Array): string | null {
-	try {
-		const value: unknown = JSON.parse(new TextDecoder().decode(bytes));
-		if (typeof value !== "object" || value === null || !("gpId" in value)) return null;
-		const gpId = (value as { readonly gpId?: unknown }).gpId;
-		return typeof gpId === "string" ? gpId : null;
-	} catch {
-		return null;
-	}
-}
-function sameMarker(left: MarkerProvenanceRequest, right: MarkerProvenanceRequest): boolean {
-	return (
-		left.path === right.path && Buffer.from(left.markerBytes).equals(Buffer.from(right.markerBytes))
-	);
-}
 function unavailableProvenance(
 	markers: readonly MarkerProvenanceRequest[],
 	reason: "missing-object" | "incomplete-history",
@@ -128,7 +113,7 @@ export class RealArtifactGateway implements ArtifactGateway {
 				? { type: "target-exists" }
 				: { type: "error", error: failure(error) };
 		}
-		const temporaryPath = path.join(directory, `.gitplane-artifact.json.${process.pid}.tmp`);
+		const temporaryPath = path.join(directory, `.${ARTIFACT_MARKER_NAME}.${process.pid}.tmp`);
 		try {
 			const file = await open(temporaryPath, "wx");
 			try {
@@ -138,7 +123,7 @@ export class RealArtifactGateway implements ArtifactGateway {
 				await file.close();
 			}
 			await this.hooks.beforePublish?.(temporaryPath);
-			await link(temporaryPath, path.join(directory, "gitplane-artifact.json"));
+			await link(temporaryPath, path.join(directory, ARTIFACT_MARKER_NAME));
 			await unlink(temporaryPath).catch(() => undefined);
 			return { type: "created", directory: request.directory, artifactId: request.artifactId };
 		} catch (error) {
@@ -166,7 +151,7 @@ export class RealArtifactGateway implements ArtifactGateway {
 								? "directory"
 								: "special";
 					entries.push({ path: itemPath, kind });
-					if (kind === "directory" && item.name !== "gitplane-artifact.json") await walk(itemPath);
+					if (kind === "directory" && item.name !== ARTIFACT_MARKER_NAME) await walk(itemPath);
 				}
 			};
 			await walk(request.artifactRoot);
@@ -368,116 +353,89 @@ export class RealArtifactGateway implements ArtifactGateway {
 	}
 	async readMarkerProvenance(request: {
 		readonly targetCommit: string;
-		readonly artifactRoot: string;
 		readonly markers: readonly MarkerProvenanceRequest[];
 	}): Promise<GatewayResult<readonly MarkerProvenanceObservation[]>> {
-		const markers = [...request.markers].sort((left, right) =>
-			left.artifactId.localeCompare(right.artifactId),
-		);
-		let historyOutput: Buffer;
-		try {
-			historyOutput = (await this.git.execute(["rev-list", "--parents", request.targetCommit]))
-				.stdout;
-		} catch (error) {
-			const classification = await this.classifyGitFailure(error, [request.targetCommit]);
-			return classification.type === "unavailable"
-				? { ok: true, value: unavailableProvenance(markers, "missing-object") }
-				: { ok: false, error: classification.error };
-		}
-		try {
-			const historyLines = historyOutput.toString().trim().split("\n").filter(Boolean);
-			if (
-				historyLines.length === 0 ||
-				historyLines.some((line) => !/^[0-9a-f]{40}( [0-9a-f]{40})*$/.test(line))
+		const markers = [...request.markers];
+		if (markers.length === 0) return { ok: true, value: [] };
+		if (
+			markers.some(
+				(marker) =>
+					path.isAbsolute(marker.path) ||
+					marker.path.includes("\0") ||
+					marker.path.split("/").includes(".."),
 			)
-				throw new Error("Unexpected git rev-list output.");
-			const history = historyLines.map((line) => line.split(" "));
-			if (history.some((line) => line.length > 2))
+		)
+			return {
+				ok: false,
+				error: failure(new Error("Path escapes invocation directory.")),
+			};
+		try {
+			const shallow = (await this.git.execute(["rev-parse", "--is-shallow-repository"])).stdout
+				.toString()
+				.trim();
+			if (shallow !== "true" && shallow !== "false")
+				throw new Error("Unexpected git rev-parse output.");
+			if (shallow === "true")
 				return { ok: true, value: unavailableProvenance(markers, "incomplete-history") };
-			const requested = new Map<ArtifactId, MarkerProvenanceRequest>(
-				markers.map((marker) => [marker.artifactId, marker]),
-			);
-			const results = new Map<ArtifactId, MarkerProvenanceObservation>();
-			const snapshots: Array<{
-				readonly commit: string;
-				readonly markers: Map<ArtifactId, MarkerProvenanceRequest>;
-			}> = [];
-			for (const [commit = ""] of history) {
-				const markerSnapshot = await this.readMarkersAtCommit(
-					commit,
-					request.artifactRoot,
-					requested,
-				);
-				if (!markerSnapshot.ok) return markerSnapshot;
-				if (markerSnapshot.value.type === "unavailable")
+
+			let mergeOutput: string;
+			try {
+				mergeOutput = (
+					await this.git.execute(["rev-list", "--min-parents=2", "-1", request.targetCommit])
+				).stdout
+					.toString()
+					.trim();
+			} catch (error) {
+				const classification = await this.classifyGitFailure(error, [request.targetCommit]);
+				if (classification.type === "unavailable")
 					return { ok: true, value: unavailableProvenance(markers, "missing-object") };
-				snapshots.push({ commit, markers: markerSnapshot.value.value });
+				return { ok: false, error: classification.error };
 			}
-			for (const marker of markers) {
-				for (let index = 0; index < snapshots.length; index += 1) {
-					const snapshot = snapshots[index];
-					if (snapshot === undefined) break;
-					const current = snapshot.markers.get(marker.artifactId);
-					if (current === undefined) continue;
-					const parent = snapshots[index + 1]?.markers.get(marker.artifactId);
-					if (parent === undefined || !sameMarker(current, parent)) {
-						results.set(marker.artifactId, {
+			if (mergeOutput !== "" && !/^[0-9a-f]+$/.test(mergeOutput))
+				throw new Error("Unexpected git rev-list output.");
+			if (mergeOutput !== "")
+				return { ok: true, value: unavailableProvenance(markers, "incomplete-history") };
+
+			const observations = await Promise.all(
+				markers.map(async (marker): Promise<MarkerProvenanceObservation> => {
+					try {
+						const output = (
+							await this.git.execute([
+								"--literal-pathspecs",
+								"rev-list",
+								"-1",
+								request.targetCommit,
+								"--",
+								artifactMarkerPath(marker.path),
+							])
+						).stdout
+							.toString()
+							.trim();
+						if (output === "")
+							return {
+								type: "unavailable",
+								artifactId: marker.artifactId,
+								reason: "incomplete-history",
+							};
+						if (!/^[0-9a-f]+$/.test(output)) throw new Error("Unexpected git rev-list output.");
+						return {
 							type: "found",
 							artifactId: marker.artifactId,
-							markerLastChangedCommit: snapshot.commit,
-						});
-						break;
+							markerLastChangedCommit: output,
+						};
+					} catch (error) {
+						const classification = await this.classifyGitFailure(error, [request.targetCommit]);
+						if (classification.type === "unavailable")
+							return {
+								type: "unavailable",
+								artifactId: marker.artifactId,
+								reason: "missing-object",
+							};
+						throw new Error(classification.error.message);
 					}
-				}
-			}
-			return {
-				ok: true,
-				value: markers.map(
-					(marker) =>
-						results.get(marker.artifactId) ?? {
-							type: "unavailable",
-							artifactId: marker.artifactId,
-							reason: "incomplete-history",
-						},
-				),
-			};
-		} catch (error) {
-			return { ok: false, error: failure(error) };
-		}
-	}
-	private async readMarkersAtCommit(
-		commit: string,
-		artifactRoot: string,
-		requested: ReadonlyMap<ArtifactId, MarkerProvenanceRequest>,
-	): Promise<GatewayResult<GitObservation<Map<ArtifactId, MarkerProvenanceRequest>>>> {
-		const inventory = await this.inventoryCommitTree({ commit, artifactRoot });
-		if (!inventory.ok) return inventory;
-		if (inventory.value.type === "unavailable")
-			return { ok: true, value: { type: "unavailable", reason: inventory.value.reason } };
-		const markerPaths = inventory.value.value
-			.filter(
-				(entry) => entry.kind === "regular-file" && entry.path.endsWith("/gitplane-artifact.json"),
-			)
-			.map((entry) => entry.path);
-		try {
-			const bytes = await this.readCommitBlobs(commit, markerPaths);
-			const result = new Map<ArtifactId, MarkerProvenanceRequest>();
-			for (const markerPath of markerPaths) {
-				const markerBytes = bytes.get(markerPath);
-				if (markerBytes === undefined) throw new Error("Unexpected git cat-file output.");
-				const artifactId = decodeGpId(markerBytes);
-				const requestedMarker =
-					artifactId === null
-						? undefined
-						: [...requested.values()].find((marker) => marker.artifactId === artifactId);
-				if (requestedMarker !== undefined)
-					result.set(requestedMarker.artifactId, {
-						artifactId: requestedMarker.artifactId,
-						path: markerPath.slice(0, -"/gitplane-artifact.json".length),
-						markerBytes,
-					});
-			}
-			return { ok: true, value: { type: "found", value: result } };
+				}),
+			);
+			return { ok: true, value: observations };
 		} catch (error) {
 			return { ok: false, error: failure(error) };
 		}

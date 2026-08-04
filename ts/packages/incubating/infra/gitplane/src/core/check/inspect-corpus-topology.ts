@@ -1,8 +1,7 @@
+import { ARTIFACT_MARKER_NAME } from "../artifact.ts";
 import type { TreeInventoryEntry } from "../gateways.ts";
 import type { Finding } from "./finding.ts";
 import { nestedArtifactFinding } from "./rules/nested-artifact.ts";
-
-export const ARTIFACT_MARKER_NAME = "gitplane-artifact.json";
 export interface ArtifactBoundaryTopology {
 	readonly path: string;
 	readonly marker: TreeInventoryEntry;
@@ -22,7 +21,10 @@ function beneath(path: string, parent: string): boolean {
 }
 export function inspectCorpusTopology(inventory: readonly TreeInventoryEntry[]): CorpusTopology {
 	const sorted = [...inventory].sort((a, b) => a.path.localeCompare(b.path));
-	const markers = sorted.filter((entry) => entry.path.split("/").at(-1) === ARTIFACT_MARKER_NAME);
+	const markers = sorted.filter(
+		(entry) =>
+			entry.kind === "regular-file" && entry.path.split("/").at(-1) === ARTIFACT_MARKER_NAME,
+	);
 	const attempted = markers.map((marker) => ({ marker, path: dirname(marker.path) }));
 	const outer = attempted.filter(
 		(candidate) =>

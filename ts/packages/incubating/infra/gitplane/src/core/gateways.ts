@@ -54,8 +54,8 @@ export type GitObservation<T> =
 	| { readonly type: "unavailable"; readonly reason: GitUnavailableReason };
 export interface MarkerProvenanceRequest {
 	readonly artifactId: ArtifactId;
+	/** Repository-relative artifact directory; the repository root is represented by "". */
 	readonly path: string;
-	readonly markerBytes: Uint8Array;
 }
 export type MarkerProvenanceObservation =
 	| {
@@ -92,9 +92,12 @@ export interface ArtifactGateway {
 		readonly fromCommit: string;
 		readonly toCommit: string;
 	}): Promise<GatewayResult<GitObservation<CommitDiff>>>;
+	/**
+	 * Returns exactly one observation per marker request, in request order. The returned array and
+	 * observations are caller-owned snapshots.
+	 */
 	readMarkerProvenance(request: {
 		readonly targetCommit: string;
-		readonly artifactRoot: string;
 		readonly markers: readonly MarkerProvenanceRequest[];
 	}): Promise<GatewayResult<readonly MarkerProvenanceObservation[]>>;
 	inventoryWorkingTree(request: {
