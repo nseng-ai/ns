@@ -23,10 +23,20 @@
       Entry landed under a provisional `## Test relocation` section; final section naming stays with
       the structure row. User also directed that every new or edited entry pass through the `de-llm`
       skill before landing (now in `objective.md` Scope).
-- [ ] Disposition item 2 — **Collapse Matrix to Representative Smoke**: N-case composed matrix
+- [x] Disposition item 2 — **Collapse Matrix to Representative Smoke**: N-case composed matrix
       moves to integration or onto a fake seam; one representative case stays default; per-case
       variation delegated to lower-level coverage. Evidence: `2026-07-07T211556Z-ns-cli-skills-path…`,
       `2026-06-24T122002Z-repeated-integration-setup…`, `2026-06-23T231600Z-flow-command…`.
+      Disposition (2026-08-04): accepted, renamed to **Move Matrix onto Fakes**. User reframed the
+      entry around the cross-product coverage doctrine: the combination fan-out keeps its full
+      extent and moves onto fakes; the real boundary leaves the per-case cost and is covered by a
+      core-capability proof plus high-risk combinations whose job is proving the fakes faithfully
+      represent the real system — one real test is a floor, not a ceiling. User also directed
+      plain language over seam/lane jargon in entry prose. Landed under `## Test relocation` as
+      the sibling of Move Real-Boundary Test to Integration; no `CONTEXT.md` sync (no new terms
+      minted). Carry-forward for item 3: the retain-representative-smoke rule reads as
+      `ts/TESTING.md` § Cross-product coverage model doctrine, so item 3 is a likely
+      decline-as-restatement; decide at its own row.
 - [ ] Disposition item 3 — **Retain Representative Smoke**: when behavior coverage leaves the
       default lane, keep one-or-few real-boundary tests (help/schema, manifest, leaf import) in
       integration. Cited across ~8 updates as the companion rule to nearly every migration. Decision:

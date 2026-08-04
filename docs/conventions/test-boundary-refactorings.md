@@ -129,3 +129,39 @@ changing what the tests assert.
   `.ns/objectives/standing-test-performance-boundaries/updates/2026-07-01T132808Z-sdk-module-loader-import-smoke-integration.md`.
   The rejected export-shape residue is recorded in
   `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-23T230148Z-sdl-core-temp-git-repo-integration-split.md`.
+
+### Move Matrix onto Fakes
+
+*Run a many-combination test matrix against fakes instead of the real backend, and keep a small
+set of real tests that prove the core capability and the riskiest combinations.*
+
+- **Mechanics:** the starting shape is a test that runs many combinations of domain logic, where
+  every combination stands up the real system again — a temp project, a real Git repo, real
+  extension discovery and import, a spawned CLI. Only the inputs vary; the real system behaves
+  identically each time. Ask of each combination: does it prove anything about the real system
+  that the others do not? Usually none does. Create a fake for the real system, or use one that
+  already exists, and run the same combinations against it in the default lane (see Seam
+  introduction for creating the substitution point — make the smallest change that works). Then
+  choose integration tests deliberately: one that proves the core capability against the real
+  system, plus one for each high-risk combination or operation, the places most likely to expose
+  a gap between the fake and the real thing. Their job is to prove, as well as tests can, that
+  the fakes faithfully represent the underlying system. Place them per
+  **Move Real-Boundary Test to Integration**.
+- **Constraints:** every combination keeps a test. The transformation changes what the
+  combinations run against; it never shrinks the scenario set. Before moving anything, take stock
+  of what each test proves and name the test that keeps proving it afterward (`ts/TESTING.md`
+  § Cross-product coverage model). The same section governs how many real tests to keep: one is a
+  floor, not a ceiling — every materially different real surface gets its own. When lower-level
+  tests already cover the per-combination variation on fakes, point to them instead of building
+  the same matrix on a new fake.
+- **Precedent:** ten per-command tests that each built a temp project and ran the real extension
+  loader became fake-`runCli` routing assertions plus one real-loader integration test, in
+  `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-24T122002Z-repeated-integration-setup-for-localized-logic.md`;
+  flow command behavior moved onto fake collaborators in the owning package, with a real-loader
+  integration smoke, in
+  `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-23T231600Z-flow-command-package-boundary.md`;
+  the six-case host wiring matrix in
+  `.ns/objectives/standing-test-performance-boundaries/updates/2026-07-07T211556Z-ns-cli-skills-path-host-matrix.md`,
+  where lower-level package tests already covered the per-case variation on fakes, the default
+  lane kept one host smoke, and integration kept all six combos against the real host path as the
+  high-risk set.
