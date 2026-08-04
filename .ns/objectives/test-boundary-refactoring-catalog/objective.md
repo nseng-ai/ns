@@ -31,6 +31,9 @@ extends the catalog with the accepted ones.
   "Seam introduction" section plus the dependency-injection vocabulary note).
 - `CONTEXT.md` vocabulary synchronization in the same change whenever an entry mints a term the
   glossary should carry.
+- Every new or edited catalog entry's prose is run through the `de-llm` skill
+  (`skills/incubating/writing/de-llm/SKILL.md`) before landing, so entries carry no LLM stylistic
+  tells.
 
 ## Non-Goals
 
@@ -72,8 +75,6 @@ any vocabulary the entries mint. The catalog's section structure covers all acce
 
 ## Open Questions
 
-- Item 1: is the export-shape-residue variant an inline mechanics variant of Move Real-Boundary
-  Test to Integration, or its own entry?
 - Item 3: is Retain Representative Smoke a standalone entry other entries cite, or a shared
   constraint restated per entry?
 - Section structure: which families become top-level catalog sections, and what are their names?
