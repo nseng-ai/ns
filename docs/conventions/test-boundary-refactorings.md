@@ -10,3 +10,28 @@ Entries cite their governing documents rather than restating them. Where an entr
 shape, `docs/conventions/consumer-gateways-and-command-shape.md` is authoritative; where it touches
 lanes and coverage doctrine, `ts/TESTING.md` is authoritative; vocabulary is defined in root
 `CONTEXT.md` § Architecture Boundaries and the `typescript-fake-driven-testing` skill.
+
+## Seam introduction
+
+Seam-introduction transformations create or route a test-substitutable boundary. They form a
+decision ladder — take the lowest rung that fits, and climb only on evidence:
+
+1. **Inject Dependency** while the boundary is a single narrow collaborator with local scope.
+
+### Inject Dependency
+
+*Replace a hard-bound collaborator with a single injected parameter that defaults to the real
+implementation.*
+
+- **Mechanics:** add one narrow parameter — a function, a runtime primitive (`Clock`,
+  `TimerScheduler`), or a small value — with a default-to-real binding. Tests pass a fake or manual
+  substitute; production call sites change nothing. No interface type is minted, no fake/adapter
+  pairing is created, no composition-root wiring changes.
+- **Constraints:** singular by design. Inject *a* dependency, never a
+  `Dependencies`/`Deps`/`Services` bag, and never through a DI container or framework override
+  (banned by the `typescript-fake-driven-testing` skill and root `CONTEXT.md` *Avoid* lists). The
+  name deliberately reclaims dependency injection in its disciplined singular form; "just use DI"
+  as design guidance is the smell, not injection itself.
+- **Precedent:** `registerSdlExtension(pi, { runCli })` in
+  `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-24T122002Z-repeated-integration-setup-for-localized-logic.md`;
+  `Clock`/`TimerScheduler` injection per `ts/TESTING.md` § Deterministic time convention.
