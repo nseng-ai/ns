@@ -250,6 +250,7 @@ function parseJson(value: string): unknown {
 	try {
 		return JSON.parse(value);
 	} catch {
+		// Let the schema-validation path report malformed command output consistently.
 		return undefined;
 	}
 }
