@@ -35,10 +35,6 @@ export function createFlowSquashStackCommand(
 	dependencies: FlowSquashStackCommandDependencies,
 ): NsCommand<typeof squashStackSchema> {
 	return defineCommand({
-		name: "squash-stack",
-		summary: SQUASH_STACK_COMMAND_SUMMARY,
-		description:
-			"Squash every branch in the current Graphite stack from the tip down, then restore the tip branch.",
 		schema: squashStackSchema,
 		resultSchema: z.string(),
 		handler: async (ctx) => {

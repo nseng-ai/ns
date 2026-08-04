@@ -59,4 +59,4 @@ export {
 	formatSlotCheckoutFailureCause,
 } from "../core/slot-checkout.ts";
 export type { SlotCheckoutRef } from "../core/slot-checkout.ts";
-export { herdrHandoffTabLaunchNsCommand } from "../ns/commands/handoff-tab-launch.ts";
+export { herdrHandoffTabLaunchCommand } from "../ns/commands/handoff-tab-launch.ts";

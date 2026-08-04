@@ -50,9 +50,6 @@ import {
 const landSchema = z.object(landCommandSchemaShape(z));
 
 export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
-	name: "land",
-	summary: "Land the current PR or Graphite stack into trunk.",
-	description: "Land the current PR or Graphite stack into trunk.",
 	schema: landSchema,
 	resultSchema: z.string(),
 	options: landCommandOptionSpecs(),

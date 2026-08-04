@@ -65,7 +65,7 @@ describe("source user extension install host", () => {
 			expect(installed.exit).toBe(0);
 			expect(installed.stderr).toBe("");
 			const installedEnvelope = parseJsonOutput(installed);
-			expect(installedEnvelope).toMatchObject({ status: "ok", exitCode: 0 });
+			expect(installedEnvelope).toMatchObject({ status: "success", exitCode: 0 });
 			const installedResult = installExtensionResultSchema.parse(installedEnvelope.data);
 			expect(installedResult).toEqual({
 				scope: "user",
@@ -93,7 +93,7 @@ describe("source user extension install host", () => {
 			expect(listed.exit).toBe(0);
 			expect(listed.stderr).toBe("");
 			const listedEnvelope = parseJsonOutput(listed);
-			expect(listedEnvelope).toMatchObject({ status: "ok", exitCode: 0 });
+			expect(listedEnvelope).toMatchObject({ status: "success", exitCode: 0 });
 			const listedResult = listExtensionsResultSchema.parse(listedEnvelope.data);
 			expect(listedResult).toEqual({
 				scope: "user",

@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { VERSION } from "@nseng-ai/sdk/cli";
-
+import slotsExtension from "@nseng-ai/slots/ns-extension";
 import { runNsCli } from "../../src/cli/index.ts";
 
 describe("ns slot extension CLI", () => {
 	it("keeps CLI metadata on the owning ns entrypoint", async () => {
 		const version = runScenario(["--version"]);
 		expect(await version.exit).toBe(0);
-		expect(version.stdout.join("")).toBe(`${VERSION}\n`);
+		expect(version.stdout.join("")).toBe("0.1.4\n");
 
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
@@ -22,8 +21,8 @@ describe("ns slot extension CLI", () => {
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain("Usage: ns slot");
-		expect(output).toContain("list [options]");
-		expect(output).toContain("checkout [options]");
+		expect(output).toContain("list|ls");
+		expect(output).toContain("checkout|co");
 		expect(output).toContain("gt");
 	});
 
@@ -57,6 +56,20 @@ function runScenario(args: readonly string[]): {
 		exit: runNsCli(args, {
 			cwd,
 			env: process.env,
+			preinstalledSources: () => [
+				{
+					label: "package:@nseng-ai/slots",
+					kind: "preinstalled",
+					origin: "package",
+					helpClassification: "extension",
+					commandDirectory: slotsExtension.commandDirectory,
+					package: {
+						name: "@nseng-ai/slots",
+						version: "0.1.0",
+						descriptorPath: "@nseng-ai/slots/ns-extension",
+					},
+				},
+			],
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
 		}),

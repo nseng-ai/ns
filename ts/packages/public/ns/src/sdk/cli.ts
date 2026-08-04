@@ -1,21 +1,15 @@
 export {
-	buildCli,
-	extensionDescriptorToPreinstalledCatalog,
-	listNsCommands,
-	preinstalledNsCommandCatalogFromRegistrations,
+	buildNsApp,
+	runCli,
 	NS_BUILT_IN_HELP_GROUP,
 	NS_EXTENSION_HELP_GROUP,
-	runCli,
-	VERSION,
 } from "@nseng-ai/sdk/cli";
 export type {
-	BuildNsCliOptions,
 	NsCliBaseContext,
 	NsCliDeps,
-	NsCommandInfo,
-	PreinstalledNsCommandCatalog,
-	PreinstalledNsCommandCatalogEntry,
-	PreinstalledNsCommandCatalogLoader,
-	PreinstalledNsExtensionRegistration,
+	NsCommandSource,
+	NsCommandSourceDiagnostic,
+	NsCommandSourceInventory,
+	PreinstalledNsCommandSource,
+	PreinstalledNsCommandSourceLoader,
 } from "@nseng-ai/sdk/cli";
-export type { NsCliContext } from "@nseng-ai/sdk/cli";

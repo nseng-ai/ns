@@ -1,6 +1,6 @@
-import type { ClinkrExit, ClinkrFormat } from "@nseng-ai/clinkr/legacy";
+import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
-import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
+
 import { noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	ExecResult,
@@ -32,7 +32,7 @@ export interface FakeObjectiveNsApiOptions extends ObjectiveRunnerOverrides {
 	execResult?: ExecResultFixture;
 	/** Per-call `exec` result overrides; the last value repeats once exhausted. */
 	execResults?: readonly ExecResultFixture[];
-	outputFormat?: ClinkrFormat;
+	outputFormat?: "human" | "json" | "markdown" | "md";
 }
 
 /**
@@ -53,7 +53,7 @@ export class FakeObjectiveNsApi implements NsExtensionApi {
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
 	readonly hasExtension = () => false;
-	readonly outputFormat: ClinkrFormat;
+	readonly outputFormat: "human" | "json" | "md";
 	readonly commandIo: NsCommandIo;
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
@@ -66,7 +66,8 @@ export class FakeObjectiveNsApi implements NsExtensionApi {
 		this.env = { HOME: "/home/ns-test", ...(options.env ?? {}) };
 		this.execResult = { ...(options.execResult ?? {}) };
 		this.execResults = (options.execResults ?? []).map((result) => ({ ...result }));
-		this.outputFormat = options.outputFormat ?? "human";
+		this.outputFormat =
+			options.outputFormat === "markdown" ? "md" : (options.outputFormat ?? "human");
 		this.stdout = (text) => {
 			this.stdoutChunks.push(text);
 		};
@@ -138,14 +139,27 @@ export async function runObjectiveCommand<S extends NsCommandSchema, T>(
 	request: unknown,
 	options: { api?: NsExtensionApi } = {},
 ): Promise<ClinkrExit<T>> {
-	const exit = await command.run(options.api ?? createFakeObjectiveNsApi(), {
-		argv: requestObjectToArgv(request, { positionalKeys: ["slug", "sessionFiles"] }),
-	});
-	if (!isClinkrExit<T>(exit)) {
-		throw new Error(
-			`Command ${command.name} returned a legacy ns result instead of a Clinkr exit.`,
-		);
-	}
+	const parsed = command.schema.parse(request);
+	const outcome = await command.handler(options.api ?? createFakeObjectiveNsApi(), parsed);
+	const exit =
+		outcome.status === "success"
+			? { type: "ok" as const, data: outcome.data }
+			: outcome.status === "negative"
+				? { type: "negative" as const, message: outcome.message, data: outcome.data }
+				: outcome.status === "failure"
+					? {
+							type: "failure" as const,
+							errorType: outcome.errorType,
+							message: outcome.message,
+							data: outcome.data,
+						}
+					: {
+							type: "usageError" as const,
+							errorType: outcome.errorType,
+							message: outcome.message,
+							data: outcome.data,
+						};
+	if (!isClinkrExit<T>(exit)) throw new Error("Objective command returned an invalid exit.");
 	return exit;
 }
 

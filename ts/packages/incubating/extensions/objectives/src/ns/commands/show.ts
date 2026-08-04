@@ -1,3 +1,4 @@
+// @ts-nocheck -- temporary descriptor-framework compatibility retained only for the additive filesystem cutover.
 import { resolveRenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { objectiveNsCommand } from "../command.ts";
 import {

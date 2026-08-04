@@ -15,10 +15,6 @@ const autoslotSchema = z.object({
 });
 
 export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = defineCommand({
-	name: "autoslot",
-	summary: "Create a Graphite branch from current work, then move it into a managed slot worktree.",
-	description:
-		"Create a Graphite branch from current work, then move it into a managed slot worktree.",
 	schema: autoslotSchema,
 	resultSchema: z.string(),
 	options: { slug: { short: "-s" } },

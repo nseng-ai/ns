@@ -85,7 +85,7 @@ const textGenerator: TextGenerator = {
 const execResult: ExecResult = { type: "exited", code: 0, signal: null, stdout: "ok", stderr: "" };
 const commandOk: boolean =
 	execResult.type === "exited" && execResult.code === 0 && execResult.signal === null;
-const successfulResult: CommandExit = ok("done");
+const successfulResult: CommandExit<string> = ok("done");
 const failedResult: CommandExit = failure("test-failed", "nope");
 const notifyLevel: NsNotifyLevel = "info";
 const messageOptions: NsCommandMessageOptions = { level: notifyLevel, details: { ok: true } };

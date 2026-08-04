@@ -1,10 +1,15 @@
 import { describe, expect, test } from "vitest";
-import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
+import type { ClinkrScope } from "@nseng-ai/clinkr/app";
+import {
+	noopNsCommandIo,
+	noopNsProgress,
+	type NsCommand,
+	type NsExtensionApi,
+} from "@nseng-ai/sdk";
 import { runCli, type NsCliBaseContext } from "@nseng-ai/sdk/cli";
-import { createTestNsCliExtensionRegistry } from "@nseng-ai/sdk/testing";
-import { createSkillExposureApplyCommand } from "../../src/commands/apply.ts";
-import { createSkillExposureCheckCommand } from "../../src/commands/check.ts";
-import { createSkillExposureShowCommand } from "../../src/commands/show.ts";
+import { createSkillExposureApplyCommand } from "../../src/apply-command.ts";
+import { createSkillExposureCheckCommand } from "../../src/check-command.ts";
+import { createSkillExposureShowCommand } from "../../src/show-command.ts";
 import {
 	InMemorySkillExposureGateway,
 	inMemorySkill,
@@ -20,24 +25,10 @@ interface CliRun {
 function createRunner(state: InMemorySkillExposureState) {
 	const gateway = new InMemorySkillExposureGateway(state);
 	const factory = () => gateway;
-	const registry = createTestNsCliExtensionRegistry({
-		commands: [
-			{
-				command: createSkillExposureApplyCommand(factory),
-				segments: ["skill-exposure", "apply"],
-				groupDescription: "Inspect and reconcile repository skill exposure overlays.",
-			},
-			{
-				command: createSkillExposureShowCommand(factory),
-				segments: ["skill-exposure", "show"],
-				groupDescription: "Inspect and reconcile repository skill exposure overlays.",
-			},
-			{
-				command: createSkillExposureCheckCommand(factory),
-				segments: ["skill-exposure", "check"],
-				groupDescription: "Inspect and reconcile repository skill exposure overlays.",
-			},
-		],
+	const registry = createRegistry({
+		apply: createSkillExposureApplyCommand(factory),
+		show: createSkillExposureShowCommand(factory),
+		check: createSkillExposureCheckCommand(factory),
 	});
 	const context: NsCliBaseContext = {
 		cwd: "/repo",
@@ -71,6 +62,63 @@ function createRunner(state: InMemorySkillExposureState) {
 	return { gateway, run };
 }
 
+function createRegistry(commands: {
+	readonly apply: NsCommand;
+	readonly show: NsCommand;
+	readonly check: NsCommand;
+}) {
+	return {
+		loadSourceInventory: async () => ({
+			sources: [
+				{
+					label: "skill-exposure scenario",
+					kind: "project" as const,
+					origin: "local" as const,
+					helpClassification: "extension" as const,
+					compose: (root: ClinkrScope<NsExtensionApi>) => {
+						root.group(
+							"skill-exposure",
+							{ description: "Inspect and reconcile repository skill exposure overlays." },
+							(group) => {
+								group.command(
+									"apply",
+									{
+										summary: "Apply one exposure policy to explicit skill paths.",
+										description:
+											"Resolve and preflight the complete batch before writing. Managed deletions require --yes outside an interactive host.",
+									},
+									() => commands.apply,
+								);
+								group.command(
+									"show",
+									{
+										summary: "Show retained exposure policy for explicit skill paths.",
+										description:
+											"Inspect one or more explicit skill directories or direct SKILL.md paths.",
+									},
+									() => commands.show,
+								);
+								group.command(
+									"check",
+									{
+										summary: "Check exposure overlays for explicit skill paths.",
+										description:
+											"Exit negatively when any selected skill is inconsistent. Missing registry evidence identifies the registration needed for a Pi-excluded skill.",
+									},
+									() => commands.check,
+								);
+							},
+						);
+					},
+				},
+			],
+			diagnostics: [],
+			extensionPackageNames: new Set(["@nseng-ai/skill-exposure"]),
+			builtInPackageNames: new Set<string>(),
+		}),
+	};
+}
+
 function json(result: CliRun): Record<string, unknown> {
 	return JSON.parse(result.stdout) as Record<string, unknown>;
 }
@@ -93,7 +141,7 @@ describe("skill-exposure CLI scenarios", () => {
 		for (const command of ["apply", "show", "check"]) {
 			const help = await run(["skill-exposure", command, "-h"]);
 			expect(help.exit).toBe(0);
-			expect(help.stdout).toContain(`ns skill-exposure ${command}`);
+			expect(help.stdout).toContain(`Usage: sdk skill-exposure ${command}`);
 			const schema = await run(["skill-exposure", command, "--json-schema"]);
 			expect(schema.exit).toBe(0);
 			expect(JSON.parse(schema.stdout)).toHaveProperty("outputJsonSchema");
@@ -148,7 +196,7 @@ describe("skill-exposure CLI scenarios", () => {
 			]);
 			expect(result.exit).toBe(0);
 			expect(json(result)).toMatchObject({
-				status: "ok",
+				status: "success",
 				data: { skills: [{ policy: "skill-backed-command" }] },
 			});
 		}
@@ -167,7 +215,7 @@ describe("skill-exposure CLI scenarios", () => {
 			"json",
 		]);
 		expect(result.exit).toBe(2);
-		expect(json(result)).toMatchObject({ status: "usageError" });
+		expect(json(result)).toMatchObject({ status: "usage-error" });
 	});
 
 	test("returns representative ok, negative, and usage JSON envelopes", async () => {
@@ -191,7 +239,7 @@ describe("skill-exposure CLI scenarios", () => {
 			"json",
 		]);
 		expect(okRun.exit).toBe(0);
-		expect(json(okRun)).toMatchObject({ status: "ok" });
+		expect(json(okRun)).toMatchObject({ status: "success" });
 		const negativeRun = await run([
 			"skill-exposure",
 			"check",
@@ -203,7 +251,7 @@ describe("skill-exposure CLI scenarios", () => {
 		expect(json(negativeRun)).toMatchObject({ status: "negative", data: { ok: false } });
 		const usage = await run(["skill-exposure", "show", "unknown", "--format", "json"]);
 		expect(usage.exit).toBe(2);
-		expect(json(usage)).toMatchObject({ status: "usageError" });
+		expect(json(usage)).toMatchObject({ status: "usage-error" });
 	});
 
 	test("dry-run does not mutate and noninteractive deletion requires --yes", async () => {
@@ -282,7 +330,7 @@ describe("skill-exposure CLI scenarios", () => {
 			"json",
 		]);
 		expect(result.exit).toBe(0);
-		expect(json(result)).toMatchObject({ status: "ok" });
+		expect(json(result)).toMatchObject({ status: "success" });
 	});
 
 	test.each([
@@ -294,7 +342,7 @@ describe("skill-exposure CLI scenarios", () => {
 		const runner = createRunner({ skills: [inMemorySkill(skillPath)] });
 		const result = await runner.run(["skill-exposure", "show", skillPath, "--format", "json"]);
 		expect(result.exit).toBe(2);
-		expect(json(result)).toMatchObject({ status: "usageError" });
+		expect(json(result)).toMatchObject({ status: "usage-error" });
 	});
 
 	test("is idempotent and accepts a canonical first-party symlink spelling", async () => {
@@ -347,7 +395,7 @@ describe("skill-exposure CLI scenarios", () => {
 			"json",
 		]);
 		expect(result.exit).toBe(2);
-		expect(json(result)).toMatchObject({ status: "usageError" });
+		expect(json(result)).toMatchObject({ status: "usage-error" });
 		expect(runner.gateway.appliedBatches).toHaveLength(0);
 	});
 
@@ -364,7 +412,7 @@ describe("skill-exposure CLI scenarios", () => {
 			"json",
 		]);
 		expect(json(applied)).toMatchObject({
-			status: "ok",
+			status: "success",
 			data: {
 				policy: "skill-backed-command",
 				sharedOperations: [

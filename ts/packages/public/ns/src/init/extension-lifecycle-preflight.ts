@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { failure, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
+import { failure, type CommandOutcome } from "@nseng-ai/clinkr/app";
 import { parseNsTomlSupportedHarnesses } from "../harness-artifacts/api.ts";
 import {
 	classifyExtensionSourceLifecycle,
@@ -155,7 +155,7 @@ export function extensionLifecycleFailure<TResult>(
 	verb: ExtensionLifecycleVerb,
 	preflightFailure: ExtensionLifecyclePreflightFailure,
 	recorder: LifecycleRecorder,
-): ClinkrExit<TResult> {
+): CommandOutcome<TResult> {
 	const prefix = `ns-extension-${verb}`;
 	if (preflightFailure.type === "repository") {
 		const diagnostic = activationRepositoryFailureDiagnostic(preflightFailure.result);

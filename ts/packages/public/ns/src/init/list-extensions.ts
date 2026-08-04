@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
-import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
-import { failure, ok } from "@nseng-ai/clinkr/legacy";
+import type { CommandOutcome } from "@nseng-ai/clinkr/app";
+import { failure, ok } from "@nseng-ai/clinkr/app";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { renderTextTable } from "@nseng-ai/foundation/text-table";
@@ -219,7 +219,7 @@ class ExtensionListRowAccumulator {
 export async function listExtensions(
 	context: ExtensionListContext,
 	request: ListExtensionsRequest,
-): Promise<ClinkrExit<ListExtensionsResult>> {
+): Promise<CommandOutcome<ListExtensionsResult>> {
 	if (request.scope === "user") return listUserExtensions(context);
 	const repository = await context.git.optionalRepoRoot({ cwd: request.cwd });
 	if (repository.type === "missing") {
@@ -475,7 +475,7 @@ function extensionListConfigFailure(
 		readonly path: string;
 	},
 	scope?: "user",
-): ClinkrExit<ListExtensionsResult> {
+): CommandOutcome<ListExtensionsResult> {
 	const normalized = normalizeExtensionListDiagnostic(diagnostic);
 	return failure(
 		scope === "user" ? "ns-extension-list-user-config-invalid" : "ns-extension-list-config-invalid",
@@ -489,9 +489,9 @@ function extensionListConfigFailure(
 
 async function listUserExtensions(
 	context: ExtensionListContext,
-): Promise<ClinkrExit<ListExtensionsResult>> {
+): Promise<CommandOutcome<ListExtensionsResult>> {
 	const prepared = await prepareUserConfig<ListExtensionsResult>(context, "list");
-	if ("type" in prepared) return prepared;
+	if ("status" in prepared) return prepared;
 	const parsed = parseNsTomlExtensions(prepared.content, prepared.configPath);
 	if (parsed.type === "error")
 		return extensionListConfigFailure({ ...parsed.error, path: prepared.configPath }, "user");

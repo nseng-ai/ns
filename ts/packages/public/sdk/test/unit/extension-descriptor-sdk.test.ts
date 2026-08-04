@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { describe, expect, test } from "vitest";
 
 import {
@@ -5,303 +7,96 @@ import {
 	defineExtension,
 	defineRawCommand,
 	failure,
-	machineEnvelopeSchema,
+	negative,
 	ok,
+	usageError,
 	validateExtensionDescriptor,
-	validateLoadedCommandName,
 	z,
-	type NsExtensionApi,
+	type NsRawCommandDefinition,
+	type NsRawCommandOptions,
 } from "@nseng-ai/sdk";
 
-const noopApi = {
-	cwd: "/repo",
-	env: {},
-	exec: async () => ({ type: "exited", code: 0, signal: null, stdout: "", stderr: "" }),
-	commandIo: {
-		phase: () => {},
-		notify: () => {},
-		message: () => {},
-		clearPhase: () => {},
-	},
-	textGenerator: { generateText: async (request) => ({ ok: true, text: request.prompt }) },
-	progress: { isLive: false, phase: () => {} },
-	renderCapabilities: { canEmitAnsi: false },
-	hasExtension: () => false,
-} satisfies NsExtensionApi;
-
-describe("extension descriptor SDK", () => {
-	test("accepts valid descriptors with nested groups, points, activation, and bundled artifacts", () => {
-		const listCommand = defineRawCommand({
-			name: "list",
-			summary: "List objectives.",
-			description: "List objectives with machine output.",
-			run: (_ctx, invocation) => ok({ ok: invocation.argv.length === 0 }),
-		});
+describe("modern ns extension author API", () => {
+	test("accepts absolute filesystem command directories", () => {
+		const commandDirectory = path.join(import.meta.dirname, "fixtures", "commands");
 		const descriptor = defineExtension({
-			group: "objective",
-			description: "Objective operations.",
-			entries: [
-				{ name: "list", load: () => ({ default: listCommand }) },
-				{
-					group: "exec",
-					hidden: true,
-					description: "Agent-only objective operations.",
-					entries: [{ name: "staleness-check", load: () => ({ default: listCommand }) }],
-				},
-			],
-			points: [
-				{
-					id: "submit.pre",
-					accepts: "hook",
-					cardinality: "many",
-					description: "Runs before submit.",
-				},
-			],
-			activation: {
-				instructions: "## Objectives\n\nUse Objectives.\n\n### Details\n\nKeep records current.",
-				consumerDirs: [".ns/objectives", ".ns/objectives/cache"],
-			},
-			bundledArtifacts: [
-				{ kind: "skill", name: "objective", path: "./skills/objective", description: "Skill." },
-			],
+			description: "Filesystem commands.",
+			commandDirectory,
 		});
 
-		const parsed = validateExtensionDescriptor(descriptor);
-
-		expect(parsed).toEqual({
+		expect(validateExtensionDescriptor(descriptor)).toEqual({
 			ok: true,
-			descriptor: {
-				...descriptor,
-				activation: {
-					instructions: "## Objectives\n\nUse Objectives.\n\n### Details\n\nKeep records current.",
-					consumerDirs: [".ns/objectives", ".ns/objectives/cache"],
-				},
-			},
+			descriptor: { description: "Filesystem commands.", commandDirectory },
 		});
 	});
 
-	test.each([
-		{ activation: {}, expected: {} },
-		{
-			activation: { instructions: "## Instructions\n\nFollow them." },
-			expected: { instructions: "## Instructions\n\nFollow them." },
-		},
-		{
-			activation: { consumerDirs: [".ns/example"] },
-			expected: { consumerDirs: [".ns/example"] },
-		},
-	])("accepts independently optional activation fields %#", ({ activation, expected }) => {
-		const parsed = validateExtensionDescriptor({ description: "Activation.", activation });
-
-		expect(parsed).toEqual({
+	test("accepts commandless descriptors and rejects relative command directories", () => {
+		expect(validateExtensionDescriptor({ description: "Activation only." })).toEqual({
 			ok: true,
-			descriptor: { description: "Activation.", activation: expected },
+			descriptor: { description: "Activation only." },
 		});
-	});
-
-	test.each([
-		["", "empty instructions"],
-		["Objectives", "missing heading marker"],
-		["##   \n\nBody.", "empty heading title"],
-		["## First\n\nBody.\n## Second\n\nMore.", "second level-2 section"],
-	])("rejects malformed activation instructions: %s", (instructions) => {
-		const parsed = validateExtensionDescriptor({
-			description: "Bad activation.",
-			activation: { instructions },
-		});
-
-		expect(parsed).toEqual({
-			ok: false,
-			message: expect.stringContaining("activation.instructions"),
-		});
-	});
-
-	test.each([
-		["", "empty"],
-		[".ns", "ns root"],
-		["/repo/.ns/data", "absolute"],
-		["data", "outside ns"],
-		[".ns/data/", "trailing slash"],
-		[".ns//data", "empty segment"],
-		[".ns/./data", "dot segment"],
-		[".ns/../data", "parent segment"],
-		[".ns\\data", "backslash"],
-	])("rejects noncanonical activation consumer directory %s (%s)", (consumerDir) => {
-		const parsed = validateExtensionDescriptor({
-			description: "Bad activation.",
-			activation: { consumerDirs: [consumerDir] },
-		});
-
-		expect(parsed).toEqual({
-			ok: false,
-			message: expect.stringContaining("activation.consumerDirs.0"),
-		});
-	});
-
-	test("rejects duplicate activation consumer directories at the duplicate index", () => {
-		const parsed = validateExtensionDescriptor({
-			description: "Bad activation.",
-			activation: { consumerDirs: [".ns/data", ".ns/data"] },
-		});
-
-		expect(parsed).toEqual({
-			ok: false,
-			message: expect.stringContaining("activation.consumerDirs.1"),
-		});
-	});
-
-	test("rejects unknown activation fields", () => {
-		const parsed = validateExtensionDescriptor({
-			description: "Bad activation.",
-			activation: { hook: () => {} },
-		});
-
-		expect(parsed).toEqual({
-			ok: false,
-			message: expect.stringContaining("activation"),
-		});
-	});
-
-	test("accepts and preserves a command extension requirement", () => {
-		const load = () => ({
-			default: defineRawCommand({
-				name: "optional",
-				summary: "Optional.",
-				description: "Optional command.",
-				run: () => ok({}),
-			}),
-		});
-
 		expect(
-			validateExtensionDescriptor({
-				description: "Optional commands.",
-				requiresExtensions: ["@example/provider"],
-				entries: [{ name: "optional", load }],
-			}),
-		).toEqual({
-			ok: true,
-			descriptor: {
-				description: "Optional commands.",
-				requiresExtensions: ["@example/provider"],
-				entries: [{ name: "optional", load }],
+			validateExtensionDescriptor({ description: "Bad.", commandDirectory: "commands" }),
+		).toEqual({ ok: false, message: expect.stringContaining("commandDirectory") });
+	});
+
+	test("does not expose recursive entries, routes, or direct command definitions", () => {
+		for (const staleField of ["entries", "routes", "commands"] as const) {
+			expect(validateExtensionDescriptor({ description: "Bad.", [staleField]: [] })).toEqual({
+				ok: false,
+				message: expect.stringContaining(staleField),
+			});
+		}
+	});
+
+	test("preserves activation, points, and bundled artifacts", () => {
+		const descriptor = {
+			description: "Complete metadata.",
+			points: [{ id: "submit.pre", accepts: "hook", cardinality: "many" }],
+			activation: {
+				instructions: "## Example\n\nFollow this instruction.",
+				consumerDirs: [".ns/example"],
 			},
-		});
+			bundledArtifacts: [{ kind: "skill", name: "example", path: "./skills/example" }],
+		} as const;
+		expect(validateExtensionDescriptor(descriptor)).toEqual({ ok: true, descriptor });
 	});
 
-	test("rejects an empty command extension requirement at its descriptor path", () => {
-		const parsed = validateExtensionDescriptor({
-			description: "Bad requirement.",
-			requiresExtensions: [""],
-			entries: [{ name: "optional", load: () => ({}) }],
-		});
-
-		expect(parsed).toEqual({
-			ok: false,
-			message: expect.stringContaining("requiresExtensions.0"),
-		});
-	});
-
-	test("keeps command entries strict while accepting requirements", () => {
-		const parsed = validateExtensionDescriptor({
-			description: "Unknown command metadata.",
-			entries: [
-				{
-					name: "optional",
-					requiresExtensions: ["@example/provider"],
-					unexpected: true,
-					load: () => ({}),
-				},
-			],
-		});
-
-		expect(parsed).toEqual({
-			ok: false,
-			message: expect.stringContaining("entries.0"),
-		});
-	});
-
-	test("reports malformed descriptor fields with field paths", () => {
-		const parsed = validateExtensionDescriptor({
-			description: "Bad.",
-			entries: [{ name: "missing-load" }],
-		});
-
-		expect(parsed).toEqual({
-			ok: false,
-			message: expect.stringContaining("entries.0"),
-		});
-		expect(parsed.ok).toBe(false);
-	});
-
-	test("validates descriptor entry and loaded command name matches", () => {
-		const command = defineRawCommand({
-			name: "actual",
-			summary: "Actual.",
-			description: "Actual command.",
-			run: () => ok({}),
-		});
-
-		expect(validateLoadedCommandName({ name: "expected" }, command)).toEqual({
-			ok: false,
-			message: 'Loaded command name mismatch: descriptor entry "expected" loaded command "actual".',
-		});
-	});
-
-	test("raw commands receive the raw post-route argv tail", async () => {
-		const command = defineRawCommand({
-			name: "legacy",
-			summary: "Wrap legacy CLI.",
-			description: "Passes arguments to a legacy parser.",
-			run: (_ctx, invocation) => ok({ argv: [...invocation.argv] }),
-		});
-
-		expect(await Promise.resolve(command.run(noopApi, { argv: ["--", "raw", "tail"] }))).toEqual({
-			type: "ok",
-			data: { argv: ["--", "raw", "tail"] },
-		});
-	});
-
-	test("defineCommand adapts a clinkr-style spec and consumes invocation argv", async () => {
+	test("defineCommand returns a modern structured definition", async () => {
 		const command = defineCommand({
-			name: "hello",
-			summary: "Say hello.",
-			description: "Say hello to someone.",
 			schema: z.object({ name: z.string() }),
-			positionals: { name: { position: 0 } },
 			resultSchema: z.object({ greeting: z.string() }),
-			handler: async (_ctx, request) => ok({ greeting: `hello ${request.name}` }),
+			handler: async (_context, request) => ok({ greeting: `hello ${request.name}` }),
 		});
 
-		await expect(command.run(noopApi, { argv: ["ns"] })).resolves.toEqual({
-			type: "ok",
+		expect(command.requiresContext).toBe(true);
+		await expect(command.handler({} as never, { name: "ns" })).resolves.toEqual({
+			status: "success",
 			data: { greeting: "hello ns" },
 		});
 	});
 
-	test("exports neutral machine envelope schemas and constructors", () => {
-		expect(
-			machineEnvelopeSchema.parse({
-				status: "failure",
-				exitCode: 2,
-				errorType: "x",
-				message: "no",
-			}),
-		).toEqual({ status: "failure", exitCode: 2, errorType: "x", message: "no" });
-		expect(failure("wrapped", "no", { exitCode: 3 })).toEqual({
-			type: "failure",
-			errorType: "wrapped",
-			message: "no",
-			data: { exitCode: 3 },
+	test("defineRawCommand keeps truthful raw options and definition names", () => {
+		const options: Omit<NsRawCommandOptions, "requiresContext"> = {
+			run: ({ context, argv }) => (context.cwd === "/repo" && argv[0] === "tail" ? 0 : 1),
+		};
+		const command: NsRawCommandDefinition = defineRawCommand(options);
+		expect(command).toMatchObject({ type: "raw", requiresContext: true });
+		expect(command.run({ context: { cwd: "/repo" } as never, argv: ["tail"] })).toBe(0);
+	});
+
+	test("exports modern outcomes", () => {
+		expect(ok("done")).toEqual({ status: "success", data: "done" });
+		expect(negative("not found")).toEqual({ status: "negative", message: "not found" });
+		expect(failure("failed", "nope")).toEqual({
+			status: "failure",
+			errorType: "failed",
+			message: "nope",
 		});
-		expect(ok("string data gets human rendering for source compatibility")).toEqual({
-			type: "ok",
-			data: "string data gets human rendering for source compatibility",
-			human: "string data gets human rendering for source compatibility",
-		});
-		expect(ok("string payload")).toEqual({
-			type: "ok",
-			data: "string payload",
-			human: "string payload",
+		expect(usageError("bad input")).toEqual({
+			status: "usage-error",
+			errorType: "usage-error",
+			message: "bad input",
 		});
 	});
 });

@@ -165,7 +165,7 @@ describe("ns CLI host integration", () => {
 		const markdownStdout: string[] = [];
 		const markdownStderr: string[] = [];
 		const markdownExit = await runNsCli(
-			["extension", "update", "./extensions/acme-module", "--dry-run", "--format", "markdown"],
+			["extension", "update", "./extensions/acme-module", "--dry-run", "--format", "md"],
 			{
 				cwd,
 				homeDir: join(projectRoot, ".home"),

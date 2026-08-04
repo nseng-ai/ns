@@ -1,8 +1,8 @@
-import { defineExtension, hiddenExecGroup } from "@nseng-ai/sdk";
+import { defineExtension } from "@nseng-ai/sdk";
 
 export default defineExtension({
-	group: "branch-context",
 	description: "Create and load branch-scoped implementation context.",
+	commandDirectory: `${import.meta.dirname}/cli`,
 	points: [
 		{
 			id: "branch-context.plans-write",
@@ -12,45 +12,5 @@ export default defineExtension({
 			default:
 				"../../../hosts/pi/extensions/pi-ns-branch-context/src/prompts/plans-write-default.md",
 		},
-	],
-	entries: [
-		hiddenExecGroup("Agent-only branch-context operations.", [
-			{
-				name: "from-plan",
-				load: async () => ({
-					default: (await import("./commands/from-plan.ts")).branchContextFromPlanNsCommand,
-				}),
-			},
-			{
-				name: "load",
-				load: async () => ({
-					default: (await import("./commands/load.ts")).branchContextLoadNsCommand,
-				}),
-			},
-			{
-				name: "attach",
-				load: async () => ({
-					default: (await import("./commands/attach.ts")).branchContextAttachNsCommand,
-				}),
-			},
-			{
-				name: "list",
-				load: async () => ({
-					default: (await import("./commands/list.ts")).branchContextListNsCommand,
-				}),
-			},
-			{
-				name: "check",
-				load: async () => ({
-					default: (await import("./commands/check.ts")).branchContextCheckNsCommand,
-				}),
-			},
-			{
-				name: "delete",
-				load: async () => ({
-					default: (await import("./commands/delete.ts")).branchContextDeleteNsCommand,
-				}),
-			},
-		]),
 	],
 });

@@ -1,3 +1,4 @@
+import path from "node:path";
 import { validateExtensionDescriptor } from "@nseng-ai/sdk";
 import objectivesExtension from "@nseng-ai/objectives/ns-extension";
 import { describe, expect, test } from "vitest";
@@ -20,17 +21,22 @@ const EXPECTED_OBJECTIVES_INSTRUCTIONS = [
 ].join("\n");
 
 describe("Objectives extension descriptor", () => {
-	test("declares its exact activation contract", () => {
+	test("declares its exact activation and filesystem command contract", async () => {
 		const result = validateExtensionDescriptor(objectivesExtension);
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
+		expect(result.descriptor).not.toHaveProperty("group");
+		expect(result.descriptor).not.toHaveProperty("entries");
 		expect(result.descriptor.activation).toEqual({
 			instructions: EXPECTED_OBJECTIVES_INSTRUCTIONS,
 			consumerDirs: [".ns/objectives"],
 		});
 		expect(result.descriptor.bundledArtifacts).toEqual(
 			deriveObjectiveBundledArtifacts(packageManifest),
+		);
+		expect(result.descriptor.commandDirectory).toBe(
+			path.join(import.meta.dirname, "../../src/cli"),
 		);
 	});
 });

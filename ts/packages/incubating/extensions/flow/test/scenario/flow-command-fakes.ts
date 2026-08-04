@@ -19,7 +19,6 @@ import {
 	fakeStackInfo,
 	type FakeGraphiteStackGatewayOptions,
 } from "@nseng-ai/extension-kit/graphite/testing";
-import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
 import type { CommandExit, NsCommand, NsExtensionApi, NsProgress } from "@nseng-ai/sdk";
 import { createFlowSubmitCommand } from "../../src/ns/commands/submit.ts";
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
@@ -619,30 +618,29 @@ async function runFlowCommand(input: {
 	request: unknown;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
-}): Promise<{ exitCode: number; result: CommandExit }> {
-	const result = await input.command.run(input.context, {
-		argv: requestObjectToArgv(input.request, { negatedBooleanKeys: ["checks", "restack"] }),
-	});
+}): Promise<{ exitCode: number; result: CommandExit<unknown> }> {
+	const request = input.command.schema.parse(input.request);
+	const result = await input.command.handler(input.context, request);
 	writeCommandExitOutput(result, input);
 	return { exitCode: exitCodeForCommandExit(result), result };
 }
 
-function exitCodeForCommandExit(result: CommandExit): number {
-	if (result.type === "ok") return 0;
-	if (result.type === "negative") return 1;
+function exitCodeForCommandExit(result: CommandExit<unknown>): number {
+	if (result.status === "success") return 0;
+	if (result.status === "negative") return 1;
 	return 2;
 }
 
 function writeCommandExitOutput(
-	result: CommandExit,
+	result: CommandExit<unknown>,
 	deps: { stdout: (text: string) => void; stderr: (text: string) => void },
 ): void {
-	if (result.type === "ok") {
+	if (result.status === "success") {
 		if (result.data !== "") deps.stdout(`${String(result.data)}\n`);
 		return;
 	}
-	if (result.type === "negative") {
-		if (result.message !== "") deps.stderr(`${result.human ?? result.message}\n`);
+	if (result.status === "negative") {
+		if (result.message !== "") deps.stderr(`${result.message}\n`);
 		return;
 	}
 	deps.stderr(`error: ${result.message}\n`);

@@ -1,11 +1,5 @@
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 
-export { createTestNsCliExtensionRegistry } from "./ns-cli-extension-registry.ts";
-export type {
-	TestNsCliCommandRegistration,
-	TestNsCliExtensionRegistryOptions,
-} from "./ns-cli-extension-registry.ts";
-
 import type {
 	ExtensionAcquisitionDiagnostic,
 	ExtensionAcquisitionGateway,
