@@ -194,10 +194,10 @@ describe("renderFindingsComment", () => {
 });
 
 describe("payload parsers", () => {
-	test("parses ok findings envelopes", () => {
+	test("parses success findings envelopes", () => {
 		const payloadResult = parseFindingsPayloadResult(
 			JSON.stringify({
-				status: "ok",
+				status: "success",
 				exitCode: 0,
 				data: {
 					reviewName: "typescript-style",
@@ -223,7 +223,7 @@ describe("payload parsers", () => {
 	test("rejects old nested and snake case success envelopes", () => {
 		const nested = parseFindingsPayloadResult(
 			JSON.stringify({
-				status: "ok",
+				status: "success",
 				exitCode: 0,
 				data: {
 					reviewName: "typescript-style",
@@ -239,7 +239,7 @@ describe("payload parsers", () => {
 		);
 		const snakeCase = parseFindingsPayloadResult(
 			JSON.stringify({
-				status: "ok",
+				status: "success",
 				exitCode: 0,
 				data: {
 					review_name: "typescript-style",

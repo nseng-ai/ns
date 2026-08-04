@@ -6,6 +6,7 @@ import { createNsDomainCommand } from "@nseng-ai/extension-kit/ns-command";
 import type { CommandExit, NsCommand, NsExtensionApi } from "@nseng-ai/sdk";
 import type { GitResult } from "@nseng-ai/foundation/git";
 import type { GithubPrFeedbackFailure } from "./api.ts";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { errorDetailText } from "@nseng-ai/foundation/result";
 
 import type { PrAddressContext } from "./context.ts";
@@ -171,21 +172,21 @@ function toModernOutcome<T>(exit: ClinkrExit<T>): CommandExit<T> {
 			return {
 				status: "negative",
 				message: exit.message,
-				...(exit.data === undefined ? {} : { data: exit.data }),
+				...optionalEntry("data", exit.data),
 			};
 		case "failure":
 			return {
 				status: "failure",
 				errorType: exit.errorType,
 				message: exit.message,
-				...(exit.data === undefined ? {} : { data: exit.data }),
+				...optionalEntry("data", exit.data),
 			};
 		case "usageError":
 			return {
 				status: "usage-error",
 				errorType: exit.errorType,
 				message: exit.message,
-				...(exit.data === undefined ? {} : { data: exit.data }),
+				...optionalEntry("data", exit.data),
 			};
 	}
 }

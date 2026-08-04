@@ -1,0 +1,20 @@
+// @ts-nocheck -- temporary descriptor-framework compatibility retained only for the additive filesystem cutover.
+import { objectiveNsCommand } from "../command.ts";
+import {
+	listCandidatesRequestSchema,
+	listCandidatesResultSchema,
+	renderListCandidates,
+	runListCandidates,
+} from "../../core/operations/list-candidates.ts";
+
+export const objectiveExecListCandidatesNsCommand = objectiveNsCommand({
+	name: "list-candidates",
+	summary: "List active Objective slug candidates for shell and agent autocomplete.",
+	description: "List active Objective slug candidates for shell and agent autocomplete.",
+	schema: listCandidatesRequestSchema,
+	resultSchema: listCandidatesResultSchema,
+	handler: runListCandidates,
+	renderHuman: renderListCandidates,
+});
+
+export default objectiveExecListCandidatesNsCommand;
