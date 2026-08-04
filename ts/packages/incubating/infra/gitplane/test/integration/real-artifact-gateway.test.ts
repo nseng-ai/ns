@@ -1,12 +1,28 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rename, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test } from "vitest";
+import { parseArtifactId } from "@nseng-ai/gitplane";
 import { RealArtifactGateway } from "@nseng-ai/gitplane/cli";
 
 function git(cwd: string, args: readonly string[]): string {
 	return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+}
+
+const parsedArtifactId = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
+if (!parsedArtifactId.ok) throw new Error("Test artifact ID must be valid.");
+const artifactId = parsedArtifactId.artifactId;
+const markerPath = "gitplane-artifact.json";
+
+function marker(extra = ""): string {
+	return `{"gpId":"${artifactId}"${extra}}`;
+}
+
+function commit(cwd: string, message: string): string {
+	git(cwd, ["add", "-A"]);
+	git(cwd, ["commit", "-m", message]);
+	return git(cwd, ["rev-parse", "HEAD"]);
 }
 async function repository(): Promise<{
 	readonly directory: string;
@@ -90,41 +106,44 @@ test("reads commit facts, ancestry, filtered tree candidates, and diffs", async 
 		const gateway = new RealArtifactGateway({ cwd: repo.directory });
 		expect(await gateway.resolveCommit({ commitish: "HEAD" })).toEqual({
 			ok: true,
-			value: repo.second,
+			value: { type: "found", value: repo.second },
 		});
 		expect(await gateway.readCommitFacts({ commit: repo.second })).toEqual({
 			ok: true,
-			value: { commit: repo.second, parents: [repo.first], isMerge: false },
+			value: {
+				type: "found",
+				value: { commit: repo.second, parents: [repo.first], isMerge: false },
+			},
 		});
 		expect(await gateway.isAncestor({ ancestor: repo.first, descendant: repo.second })).toEqual({
 			ok: true,
-			value: true,
+			value: { type: "found", value: true },
 		});
 		expect(await gateway.isAncestor({ ancestor: repo.second, descendant: repo.first })).toEqual({
 			ok: true,
-			value: false,
+			value: { type: "found", value: false },
 		});
 		const inventory = await gateway.inventoryCommitTree({
 			commit: repo.second,
 			artifactRoot: "artifacts",
 		});
 		expect(inventory.ok).toBe(true);
-		if (inventory.ok) {
-			expect(inventory.value).toContainEqual({
+		if (inventory.ok && inventory.value.type === "found") {
+			expect(inventory.value.value).toContainEqual({
 				path: "artifacts/blocked/gitplane-artifact.json",
 				kind: "directory",
 			});
-			expect(inventory.value.some((entry) => entry.path.endsWith("hidden.txt"))).toBe(false);
-			expect(inventory.value).toContainEqual({ path: "artifacts/a/link", kind: "symlink" });
-			expect(inventory.value.every((entry) => !path.isAbsolute(entry.path))).toBe(true);
+			expect(inventory.value.value.some((entry) => entry.path.endsWith("hidden.txt"))).toBe(false);
+			expect(inventory.value.value).toContainEqual({ path: "artifacts/a/link", kind: "symlink" });
+			expect(inventory.value.value.every((entry) => !path.isAbsolute(entry.path))).toBe(true);
 		}
 		const candidate = await gateway.readCommitTreeCandidate({
 			commit: repo.first,
 			path: "artifacts/a",
 		});
 		expect(candidate.ok).toBe(true);
-		if (candidate.ok) {
-			const body = candidate.value.entries.find(
+		if (candidate.ok && candidate.value.type === "found") {
+			const body = candidate.value.value.entries.find(
 				(entry): entry is Extract<typeof entry, { kind: "regular-file" }> =>
 					entry.path === "nested/body.txt" && entry.kind === "regular-file",
 			);
@@ -133,9 +152,12 @@ test("reads commit facts, ancestry, filtered tree candidates, and diffs", async 
 		expect(await gateway.diffCommits({ fromCommit: repo.first, toCommit: repo.second })).toEqual({
 			ok: true,
 			value: {
-				fromCommit: repo.first,
-				toCommit: repo.second,
-				changedPaths: ["artifacts/a/nested/body.txt", "outside.txt"],
+				type: "found",
+				value: {
+					fromCommit: repo.first,
+					toCommit: repo.second,
+					changedPaths: ["artifacts/a/nested/body.txt", "outside.txt"],
+				},
 			},
 		});
 		expect(
@@ -143,6 +165,106 @@ test("reads commit facts, ancestry, filtered tree candidates, and diffs", async 
 		).toMatchObject({ ok: false });
 	} finally {
 		await rm(repo.directory, { recursive: true, force: true });
+	}
+});
+
+test("attributes marker addition, byte changes, moves, and move-plus-change", async () => {
+	const directory = await mkdtemp(path.join(os.tmpdir(), "gitplane-provenance-"));
+	try {
+		git(directory, ["init", "-b", "main"]);
+		git(directory, ["config", "user.name", "Gitplane Test"]);
+		git(directory, ["config", "user.email", "gitplane@example.test"]);
+		await writeFile(path.join(directory, "unrelated.txt"), "root");
+		commit(directory, "root");
+
+		await mkdir(path.join(directory, "artifacts", "added"), { recursive: true });
+		await writeFile(path.join(directory, "artifacts", "added", markerPath), marker());
+		const added = commit(directory, "add marker");
+		await writeFile(path.join(directory, "artifacts", "added", markerPath), marker(',"v":2'));
+		const changed = commit(directory, "change marker bytes");
+		await rename(
+			path.join(directory, "artifacts", "added"),
+			path.join(directory, "artifacts", "moved"),
+		);
+		const moved = commit(directory, "move marker unchanged");
+		await mkdir(path.join(directory, "artifacts", "moved-again"), { recursive: true });
+		await writeFile(path.join(directory, "artifacts", "moved-again", markerPath), marker(',"v":3'));
+		await rm(path.join(directory, "artifacts", "moved"), { recursive: true });
+		const movedAndChanged = commit(directory, "move and change marker");
+
+		const gateway = new RealArtifactGateway({ cwd: directory });
+		for (const [targetCommit, artifactPath, expected] of [
+			[added, "artifacts/added", added],
+			[changed, "artifacts/added", changed],
+			[moved, "artifacts/moved", moved],
+			[movedAndChanged, "artifacts/moved-again", movedAndChanged],
+		] as const) {
+			expect(
+				await gateway.readMarkerProvenance({
+					targetCommit,
+					artifactRoot: "artifacts",
+					markers: [
+						{
+							artifactId,
+							path: artifactPath,
+							markerBytes: Buffer.from(
+								targetCommit === added
+									? marker()
+									: targetCommit === movedAndChanged
+										? marker(',"v":3')
+										: marker(',"v":2'),
+							),
+						},
+					],
+				}),
+			).toEqual({
+				ok: true,
+				value: [{ type: "found", artifactId, markerLastChangedCommit: expected }],
+			});
+		}
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
+});
+
+test("reports missing objects and ambiguous merge ancestry as provenance facts", async () => {
+	const directory = await mkdtemp(path.join(os.tmpdir(), "gitplane-provenance-merge-"));
+	try {
+		git(directory, ["init", "-b", "main"]);
+		git(directory, ["config", "user.name", "Gitplane Test"]);
+		git(directory, ["config", "user.email", "gitplane@example.test"]);
+		await mkdir(path.join(directory, "artifacts", "a"), { recursive: true });
+		await writeFile(path.join(directory, "artifacts", "a", markerPath), marker());
+		const base = commit(directory, "base marker");
+		git(directory, ["checkout", "-b", "side"]);
+		await writeFile(path.join(directory, "side.txt"), "side");
+		commit(directory, "side");
+		git(directory, ["checkout", "main"]);
+		await writeFile(path.join(directory, "main.txt"), "main");
+		commit(directory, "main");
+		git(directory, ["merge", "--no-ff", "side", "-m", "merge"]);
+		const merge = git(directory, ["rev-parse", "HEAD"]);
+		const gateway = new RealArtifactGateway({ cwd: directory });
+		const request = {
+			artifactRoot: "artifacts",
+			markers: [{ artifactId, path: "artifacts/a", markerBytes: Buffer.from(marker()) }],
+		};
+		expect(await gateway.readMarkerProvenance({ ...request, targetCommit: merge })).toEqual({
+			ok: true,
+			value: [{ type: "unavailable", artifactId, reason: "incomplete-history" }],
+		});
+		expect(
+			await gateway.readMarkerProvenance({
+				...request,
+				targetCommit: "0000000000000000000000000000000000000000",
+			}),
+		).toEqual({
+			ok: true,
+			value: [{ type: "unavailable", artifactId, reason: "missing-object" }],
+		});
+		expect(base).not.toBe(merge);
+	} finally {
+		await rm(directory, { recursive: true, force: true });
 	}
 });
 
@@ -161,8 +283,8 @@ test("parses gitlinks as submodules without network access", async () => {
 		const gateway = new RealArtifactGateway({ cwd: repo.directory });
 		const inventory = await gateway.inventoryCommitTree({ commit, artifactRoot: "artifacts" });
 		expect(inventory).toMatchObject({ ok: true });
-		if (inventory.ok)
-			expect(inventory.value).toContainEqual({
+		if (inventory.ok && inventory.value.type === "found")
+			expect(inventory.value.value).toContainEqual({
 				path: "artifacts/local-submodule",
 				kind: "submodule",
 			});
