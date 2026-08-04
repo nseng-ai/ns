@@ -16,11 +16,11 @@ artifacts/greetings/
           rollout.md
 ```
 
-The reserved marker name establishes an attempted artifact boundary regardless of the entry's kind, JSON validity, or envelope validity. Every descendant entry belongs to that attempted artifact, at arbitrary depth. A descendant entry named `gitplane-artifact.json` is invalid because artifacts cannot nest.
+A regular file with the reserved marker name establishes an attempted artifact boundary regardless of its JSON or envelope validity. Every descendant entry belongs to that attempted artifact, at arbitrary depth. A descendant regular file named `gitplane-artifact.json` is invalid because artifacts cannot nest. Directories, symlinks, and other non-regular entries with the reserved name do not establish artifact boundaries.
 
-Working-tree discovery uses `lstat` semantics and never follows symlinks. It first discovers every occurrence of the reserved marker name without reading marker contents or artifact files. If any are nested, discovery returns only one `nested-artifact` finding per nested occurrence and performs no corpus reads. Otherwise each outer occurrence is an attempted boundary and contributes one to `artifactCount`. An empty configured root is valid and has count zero.
+Working-tree discovery uses `lstat` semantics and never follows symlinks. It first discovers every regular file with the reserved marker name without reading marker contents or artifact files. If any are nested, discovery returns only one `nested-artifact` finding per nested occurrence and performs no corpus reads. Otherwise each outer occurrence is an attempted boundary and contributes one to `artifactCount`. An empty configured root is valid and has count zero.
 
-Within an outer boundary, regular files and directories are supported. Symlinks and other special entries produce `unsupported-artifact-entry`; a non-regular reserved marker produces that finding even when it is not within another boundary. Ordinary special entries outside attempted boundaries are ignored. Ordinary files and directories outside boundaries are ignored.
+Within an outer boundary, regular files and directories are supported. Symlinks and other special entries produce `unsupported-artifact-entry`. Non-regular entries outside attempted boundaries are ignored, including entries with the reserved marker name. Ordinary files and directories outside boundaries are also ignored.
 
 For incremental reconciliation, Gitplane diffs the cursor and target trees. For each changed path it walks upward independently in both trees to the nearest `gitplane-artifact.json`. The union of old and new boundaries is the candidate set. Each target candidate is then read as a complete recursive snapshot. Changes outside an artifact produce no candidate. `--full` recursively discovers every target artifact and compares those IDs with all live materialized IDs.
 
@@ -70,7 +70,7 @@ Projection fields, clear-fields, and directed transition metadata are retained f
 
 ## Content digests and revisions
 
-An artifact revision is an immutable content snapshot paired with marker provenance. An internal path or byte change creates a new revision through the content digest. Adding, changing, or moving `gitplane-artifact.json` creates a new revision through `markerLastChangedCommit`, even when the recursive content digest matches an earlier revision. Current path and latest observed commit also belong to the mutable artifact materialization.
+An artifact revision is an immutable content snapshot at one repository-relative artifact path. An internal path or byte change creates a new revision through the content digest. Moving the artifact creates a new revision through the artifact path, even when the recursive content digest matches an earlier revision. Latest observed commit belongs to the mutable artifact materialization.
 
 ### Content digest
 
@@ -87,23 +87,22 @@ The public digest is lowercase `sha256:<64 hex characters>`. Identity code also 
 
 ### Revision identity and storage
 
-Revision identity is deterministic from source, artifact, content, and marker provenance:
+Revision identity is deterministic from source ID, artifact ID, repository-relative artifact path, and content digest:
 
 ```text
 revision_id = "gpr_" + base32lower(
   SHA-256(
     u64be(len(utf8(source_id))) || utf8(source_id) ||
     u64be(len(utf8(artifact_id))) || utf8(artifact_id) ||
-    raw_32_byte_content_digest ||
-    u64be(len(utf8(marker_last_changed_commit))) ||
-    utf8(marker_last_changed_commit)
+    u64be(len(utf8(artifact_path))) || utf8(artifact_path) ||
+    raw_32_byte_content_digest
   )
 )
 ```
 
-`gpr_` means “Gitplane revision.” Lowercase Base32 uses the Crockford alphabet without padding. `markerLastChangedCommit` is the Git commit that most recently added, changed, or moved the artifact's `gitplane-artifact.json` at the reconciled target. It describes marker provenance only, not the last change to any file in the recursive artifact. Reconciliation must establish it from Git history for every live target artifact; unavailable provenance is a structural failure before materialization.
+`gpr_` means “Gitplane revision.” Lowercase Base32 uses the Crockford alphabet without padding. `artifact_path` is the repository-relative `/`-separated artifact directory; the repository root is the empty string.
 
-A revision stores its ID and digest, `markerLastChangedCommit`, complete parsed marker, recursive relative-path/per-file-SHA-256 manifest, and one immutable first-observed Git locator: commit plus artifact path. Re-observing the same revision elsewhere does not append locations.
+A revision stores its ID and digest, complete parsed marker, recursive relative-path/per-file-SHA-256 manifest, and one immutable first-observed Git locator: commit plus artifact path. Because path participates in revision identity, re-observing the same revision at another path is impossible.
 
 Gitplane stores no raw artifact bytes. Exact content remains addressed by the first-observed Git commit and path. Object-store replication is a future extension and out of scope for v1.
 
@@ -173,16 +172,16 @@ After the nesting-first phase defined under Artifact discovery, `check` reads ea
 
 | Code                         | Semantics                                                                                                                                                                                                                                                                                                                                                                     |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `nested-artifact`            | One error per reserved marker-name occurrence nested beneath another attempted boundary. If any occur, these are the only findings and no marker or artifact contents are read.                                                                                                                                                                                               |
+| `nested-artifact`            | One error per regular file with the reserved marker name nested beneath another attempted boundary. If any occur, these are the only findings and no marker or artifact contents are read.                                                                                                                                                                                    |
 | `invalid-marker-json`        | The regular marker is not syntactically valid JSON, or its parsed value is not an object.                                                                                                                                                                                                                                                                                     |
 | `invalid-marker-envelope`    | The marker object violates the exhaustive reserved-field envelope: `gpId` is required; classification fields are all present or all absent; `gpApiVersion` and `gpKind` are non-empty strings; and `gpSchemaVersion` is a positive integer. One finding describes the envelope failure without producing downstream ID, kind, or schema findings for invalid reserved values. |
 | `invalid-artifact-id`        | `gpId` is not a canonical 26-character lowercase ULID in Crockford Base32 with first character `0` through `7`.                                                                                                                                                                                                                                                               |
 | `duplicate-artifact-id`      | One error for every artifact participating in a duplicate ID. Each finding carries the complete, symmetrically identical list of that ID's artifact paths, sorted lexically.                                                                                                                                                                                                  |
 | `unknown-artifact-kind`      | A classified marker's exact `(gpApiVersion, gpKind)` pair is not registered. Generic artifacts never produce this finding.                                                                                                                                                                                                                                                    |
 | `unknown-schema-version`     | The classified kind is registered but its `gpSchemaVersion` is not one of that registration's declared current schema versions.                                                                                                                                                                                                                                               |
-| `unsupported-artifact-entry` | A symlink or other special entry occurs under an outer boundary, or a reserved marker-name entry is non-regular even outside another boundary. Discovery never follows the entry.                                                                                                                                                                                             |
+| `unsupported-artifact-entry` | A symlink or other special entry occurs under an outer boundary. Discovery never follows the entry.                                                                                                                                                                                                                                                                           |
 
-`artifactCount` is the number of outer attempted boundaries, including boundaries whose markers later fail entry, JSON, envelope, ID, kind, or schema checks. Findings use current-working-directory-relative `/`-separated paths. Completed results sort findings by absent artifact path first, then `artifactPath`, `relativePath`, `jsonPointer`, and `code`, each lexically. Completed output contains `sourceId`, normalized `artifactRoot`, `artifactCount`, severity counts, and findings. Exit `0` means clean or warning-only completion; exit `1` means at least one error finding. Operational, usage, configuration, or source failure exits `2` and returns no partial result.
+`artifactCount` is the number of outer attempted boundaries, including boundaries whose regular-file markers later fail JSON, envelope, ID, kind, or schema checks. Findings use current-working-directory-relative `/`-separated paths. Completed results sort findings by absent artifact path first, then `artifactPath`, `relativePath`, `jsonPointer`, and `code`, each lexically. Completed output contains `sourceId`, normalized `artifactRoot`, `artifactCount`, severity counts, and findings. Exit `0` means clean or warning-only completion; exit `1` means at least one error finding. Operational, usage, configuration, or source failure exits `2` and returns no partial result.
 
 Lineage legality between commits (immutable `gpApiVersion`/`gpKind`, registered schema transitions, no ID replacement at one path) is not `check`'s job. `reconcile` enforces it while planning from cursor tree to target tree and fails closed. If pre-merge validation of the commit-based process proves necessary, a future `reconcile --dry-run` can plan and validate without writes.
 
@@ -209,7 +208,7 @@ A normal target must descend from the cursor. Older or divergent targets fail wi
 
 **Transition selection.** A successful plan emits at most one event per artifact. Normal incremental reconciliation uses lifecycle precedence `created → restored → revised → none → deleted`; generic-to-classified and outer-path moves are revisions. Initial full reconciliation emits `artifact.created` for every target artifact. Every later full reconciliation is a repair: it reapplies every artifact in the repair plan and emits `artifact.repaired` for each one, without first detecting target drift or asserting a Git-history transition.
 
-**Event reconstruction.** Events describe transitions in Gitplane's materialization lifecycle, not the commit where an artifact first appeared in repository history. Initial full reconciliation transitions every target artifact from untracked to tracked and emits one deterministic `artifact.created` event per artifact; each event's marker provenance separately identifies the commit that most recently added, changed, or moved its marker. Every completed reconciliation reports exactly one event-reconstruction status:
+**Event reconstruction.** Events describe transitions in Gitplane's materialization lifecycle, not the commit where an artifact first appeared in repository history. Initial full reconciliation transitions every target artifact from untracked to tracked and emits one deterministic `artifact.created` event per artifact. Every completed reconciliation reports exactly one event-reconstruction status:
 
 - `not-requested` — normal incremental reconciliation, including normal equal-cursor cleanup-only work;
 - `performed` — initial full reconciliation, with one `artifact.created` event per target artifact;
@@ -247,8 +246,8 @@ This matrix is a curated normative catalog, not a Cartesian test generator or a 
 | `lifecycle-create`                   | unseen ID becomes live                         | `artifact.created`                                                                               | Derive creation from complete facts                               | planner       |
 | `lifecycle-delete`                   | live ID absent at target                       | `artifact.deleted`; control and classified target tombstoned                                     | Derive deletion deterministically                                 | planner       |
 | `lifecycle-restore`                  | tombstoned ID becomes live                     | `artifact.restored`; complete live projection restored                                           | Preserve lineage across absence                                   | planner       |
-| `lifecycle-move`                     | same ID and content, new path                  | New marker provenance and revision; one `artifact.revised` event carrying both paths             | Treat the move commit as useful revision provenance               | planner       |
-| `lifecycle-revise`                   | same ID, changed content or marker provenance  | `artifact.revised`                                                                               | Derive immutable revision identity                                | planner       |
+| `lifecycle-move`                     | same ID and content, new path                  | New path-derived revision; one `artifact.revised` event carrying both paths                      | Treat path as part of immutable revision identity                 | planner       |
+| `lifecycle-revise`                   | same ID, changed content                       | `artifact.revised`                                                                               | Derive immutable revision identity                                | planner       |
 | `lifecycle-revise-move`              | content and path change together               | One `artifact.revised` event carrying both paths                                                 | Prove precedence and at-most-one event                            | planner       |
 | `lifecycle-unchanged`                | same revision and path                         | No event                                                                                         | Avoid synthetic transitions                                       | planner       |
 | `lifecycle-generic-classified`       | generic becomes classified                     | Legal `artifact.revised`; first target row                                                       | Establish classification lineage once                             | planner       |
@@ -303,7 +302,7 @@ Event emission follows the reconstruction status and initial-full rules above. A
 
 1. `artifact.created` — the ID first becomes tracked in this materialization, including initial full reconciliation;
 2. `artifact.restored` — a tombstoned ID becomes live;
-3. `artifact.revised` — a live artifact's revision changes through content, marker provenance, classification, or path;
+3. `artifact.revised` — a live artifact's revision changes through content, classification, or path;
 4. no event — revision and path are unchanged;
 5. `artifact.deleted` — a live ID disappears.
 

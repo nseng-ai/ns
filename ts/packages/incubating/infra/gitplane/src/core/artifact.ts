@@ -3,11 +3,6 @@ import { isCanonicalUlid } from "./vendored/ulid.ts";
 
 export const ARTIFACT_MARKER_NAME = "gitplane-artifact.json";
 
-/** Returns the repository-relative marker path for an artifact directory, including the root. */
-export function artifactMarkerPath(artifactPath: string): string {
-	return artifactPath === "" ? ARTIFACT_MARKER_NAME : `${artifactPath}/${ARTIFACT_MARKER_NAME}`;
-}
-
 export const artifactIdSchema = z.string().refine(isCanonicalUlid).brand<"ArtifactId">();
 export type ArtifactId = z.infer<typeof artifactIdSchema>;
 

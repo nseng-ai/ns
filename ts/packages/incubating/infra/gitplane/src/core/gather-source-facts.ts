@@ -1,4 +1,4 @@
-import { ARTIFACT_MARKER_NAME, parseArtifactId } from "./artifact.ts";
+import { ARTIFACT_MARKER_NAME } from "./artifact.ts";
 import type { ArtifactCandidate } from "./domain.ts";
 import type {
 	ArtifactGateway,
@@ -6,8 +6,6 @@ import type {
 	GatewayError,
 	GitObservation,
 	GitUnavailableReason,
-	MarkerProvenanceObservation,
-	MarkerProvenanceRequest,
 } from "./gateways.ts";
 
 export type ReconciliationMode = "normal" | "full";
@@ -16,9 +14,6 @@ export type HistoryRelationship =
 	| { readonly type: "ancestor" }
 	| { readonly type: "non-forward" }
 	| { readonly type: "unavailable"; readonly reason: GitUnavailableReason };
-export type CandidateMarkerProvenance =
-	| MarkerProvenanceObservation
-	| { readonly type: "identity-unavailable"; readonly path: string };
 export interface CommitCorpusFacts {
 	readonly commit: string;
 	readonly candidates: readonly ArtifactCandidate[];
@@ -50,7 +45,6 @@ export type GatheredSourceFacts =
 			readonly targetFacts: CommitFacts;
 			readonly targetCorpus: CommitCorpusFacts;
 			readonly cursor: GatheredCursorFacts;
-			readonly markerProvenance: readonly CandidateMarkerProvenance[];
 			readonly mode: ReconciliationMode;
 	  };
 export type GatherSourceFactsResult =
@@ -84,23 +78,6 @@ export async function gatherSourceFacts(
 	if (targetCorpusResult.value.type === "unavailable")
 		return targetUnavailable(options, targetCorpusResult.value.reason);
 
-	const markerRequests: MarkerProvenanceRequest[] = [];
-	const unavailableIdentities: Array<
-		Extract<CandidateMarkerProvenance, { readonly type: "identity-unavailable" }>
-	> = [];
-	for (const candidate of targetCorpusResult.value.value.candidates) {
-		const identity = decodeCandidateIdentity(candidate);
-		if (identity === null)
-			unavailableIdentities.push({ type: "identity-unavailable", path: candidate.path });
-		else markerRequests.push(identity);
-	}
-	markerRequests.sort(compareMarkerRequests);
-	const provenance = await options.gateway.readMarkerProvenance({
-		targetCommit,
-		markers: markerRequests,
-	});
-	if (!provenance.ok) return provenance;
-
 	const cursorResult = await gatherCursorFacts(options, targetCommit);
 	if (!cursorResult.ok) return cursorResult;
 
@@ -114,10 +91,6 @@ export async function gatherSourceFacts(
 			targetFacts: targetFactsResult.value.value,
 			targetCorpus: targetCorpusResult.value.value,
 			cursor: cursorResult.value,
-			markerProvenance: [
-				...provenance.value,
-				...unavailableIdentities.sort((left, right) => compareText(left.path, right.path)),
-			],
 			mode: options.mode,
 		},
 	};
@@ -145,7 +118,7 @@ async function readCorpus(
 				entry.kind === "regular-file" && entry.path.split("/").at(-1) === ARTIFACT_MARKER_NAME,
 		)
 		.map((entry) => entry.path.slice(0, -(ARTIFACT_MARKER_NAME.length + 1)))
-		.sort(compareText);
+		.sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
 	const candidates: ArtifactCandidate[] = [];
 	for (const candidatePath of boundaryPaths) {
 		const candidate = await gateway.readCommitTreeCandidate({ commit, path: candidatePath });
@@ -198,25 +171,6 @@ async function gatherCursorFacts(
 	};
 }
 
-function decodeCandidateIdentity(candidate: ArtifactCandidate): MarkerProvenanceRequest | null {
-	const marker = candidate.entries.find(
-		(entry): entry is Extract<typeof entry, { readonly kind: "regular-file" }> =>
-			entry.path === ARTIFACT_MARKER_NAME && entry.kind === "regular-file",
-	);
-	if (marker === undefined) return null;
-	try {
-		const value: unknown = JSON.parse(new TextDecoder().decode(marker.bytes));
-		if (typeof value !== "object" || value === null || Array.isArray(value) || !("gpId" in value))
-			return null;
-		const gpId = (value as { readonly gpId?: unknown }).gpId;
-		if (typeof gpId !== "string") return null;
-		const parsed = parseArtifactId(gpId);
-		return parsed.ok ? { artifactId: parsed.artifactId, path: candidate.path } : null;
-	} catch {
-		return null;
-	}
-}
-
 function targetUnavailable(
 	options: GatherSourceFactsOptions,
 	reason: GitUnavailableReason,
@@ -232,15 +186,4 @@ function targetUnavailable(
 			reason,
 		},
 	};
-}
-
-function compareMarkerRequests(
-	left: MarkerProvenanceRequest,
-	right: MarkerProvenanceRequest,
-): number {
-	return compareText(left.artifactId, right.artifactId) || compareText(left.path, right.path);
-}
-
-function compareText(left: string, right: string): number {
-	return left < right ? -1 : left > right ? 1 : 0;
 }

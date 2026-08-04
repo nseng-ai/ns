@@ -33,10 +33,28 @@ test("matches digest and revision vectors", () => {
 	});
 	if (!digest.ok) throw new Error();
 	expect(
-		deriveRevisionId({ sourceId: "acme/greetings", artifactId, contentDigest: digest.value.bytes }),
-	).toBe("gpr_sn82syfn7mtnw9q8zt4h40ea0t63zaz2phbvr4vp7crg1cg4vbz0");
+		deriveRevisionId({
+			sourceId: "acme/greetings",
+			artifactId,
+			artifactPath: "artifacts/greetings/welcome",
+			contentDigest: digest.value.bytes,
+		}),
+	).toBe("gpr_mx26exrcrx4etqhds8y5fx04gjas5d036zjq3rtvthe1xjemk41g");
 });
-test("outer location and mode are excluded while internal names and bytes matter", () => {
+test("repository-relative artifact path changes revision identity", () => {
+	const digest = digestArtifactContent(entries);
+	if (!digest.ok) throw new Error();
+	const deriveAt = (artifactPath: string) =>
+		deriveRevisionId({
+			sourceId: "acme/greetings",
+			artifactId,
+			artifactPath,
+			contentDigest: digest.value.bytes,
+		});
+	expect(deriveAt("artifacts/a")).not.toBe(deriveAt("artifacts/b"));
+});
+
+test("outer location is excluded from content digest while internal names and bytes matter", () => {
 	const first = digestArtifactContent(entries);
 	const mode = digestArtifactContent(entries.map((entry) => ({ ...entry, mode: "100755" })));
 	const rename = digestArtifactContent(
@@ -73,7 +91,6 @@ test.each([
 	["artifact.created", "gpe_3dd2fx5q2jdy81t6y165vyg20a4bzz2dbzzkevg2vh4hxe38sq6g"],
 	["artifact.restored", "gpe_7mjg29cnrms1fnda1vx66k80ybx9pfatd2ypkn238ps9m0zmyz60"],
 	["artifact.revised", "gpe_xbgdmg5q5bhpvycbg3cqgs2m29dbd7fx5vvj741r8fp738jw0sr0"],
-	["artifact.moved", "gpe_rs70t2e81340af6ddnnxnpdmypd2s0htjsdf591kh0vmhwewk80g"],
 	["artifact.deleted", "gpe_qsnz3x45z0ndy3b52pt9k786sxnxdbk71cy0efqg7jed2kycztwg"],
 ] as const)("matches %s event vector", (eventType, expected) =>
 	expect(

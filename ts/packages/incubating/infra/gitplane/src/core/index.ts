@@ -1,7 +1,6 @@
 export {
 	ARTIFACT_MARKER_NAME,
 	artifactClassificationSchema,
-	artifactMarkerPath,
 	artifactIdSchema,
 	parseArtifactId,
 	parseArtifactMarker,
@@ -70,8 +69,6 @@ export type {
 	GitUnavailableReason,
 	InsertResult,
 	LookupResult,
-	MarkerProvenanceObservation,
-	MarkerProvenanceRequest,
 	MaterializationStoreGateway,
 	OperationResult,
 	ReconciliationErrorRecord,
@@ -83,7 +80,6 @@ export type {
 } from "./gateways.ts";
 export { gatherSourceFacts } from "./gather-source-facts.ts";
 export type {
-	CandidateMarkerProvenance,
 	CommitCorpusFacts,
 	GatheredCursorFacts,
 	GatheredSourceFacts,

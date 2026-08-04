@@ -95,17 +95,25 @@ export function digestArtifactContent(
 export function deriveRevisionId(options: {
 	readonly sourceId: string;
 	readonly artifactId: ArtifactId;
+	/** Repository-relative artifact directory; the repository root is represented by "". */
+	readonly artifactPath: string;
 	readonly contentDigest: Uint8Array;
 }): `gpr_${string}` {
 	if (options.contentDigest.byteLength !== 32)
 		throw new RangeError("content digest must contain 32 bytes");
-	return `gpr_${crockfordBase32Lower(hash([frame(Buffer.from(options.sourceId)), frame(Buffer.from(options.artifactId)), options.contentDigest]))}`;
+	return `gpr_${crockfordBase32Lower(
+		hash([
+			frame(Buffer.from(options.sourceId)),
+			frame(Buffer.from(options.artifactId)),
+			frame(Buffer.from(options.artifactPath)),
+			options.contentDigest,
+		]),
+	)}`;
 }
 export const ARTIFACT_EVENT_TYPES = [
 	"artifact.created",
 	"artifact.restored",
 	"artifact.revised",
-	"artifact.moved",
 	"artifact.deleted",
 ] as const;
 export type ArtifactEventType = (typeof ARTIFACT_EVENT_TYPES)[number];

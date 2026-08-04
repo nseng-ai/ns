@@ -52,22 +52,6 @@ export type GitUnavailableReason = "missing-object" | "incomplete-history";
 export type GitObservation<T> =
 	| { readonly type: "found"; readonly value: T }
 	| { readonly type: "unavailable"; readonly reason: GitUnavailableReason };
-export interface MarkerProvenanceRequest {
-	readonly artifactId: ArtifactId;
-	/** Repository-relative artifact directory; the repository root is represented by "". */
-	readonly path: string;
-}
-export type MarkerProvenanceObservation =
-	| {
-			readonly type: "found";
-			readonly artifactId: ArtifactId;
-			readonly markerLastChangedCommit: string;
-	  }
-	| {
-			readonly type: "unavailable";
-			readonly artifactId: ArtifactId;
-			readonly reason: GitUnavailableReason;
-	  };
 export interface ArtifactGateway {
 	createArtifact(request: CreateArtifactRequest): Promise<CreateArtifactResult>;
 	resolveCommit(request: {
@@ -92,14 +76,6 @@ export interface ArtifactGateway {
 		readonly fromCommit: string;
 		readonly toCommit: string;
 	}): Promise<GatewayResult<GitObservation<CommitDiff>>>;
-	/**
-	 * Returns exactly one observation per marker request, in request order. The returned array and
-	 * observations are caller-owned snapshots.
-	 */
-	readMarkerProvenance(request: {
-		readonly targetCommit: string;
-		readonly markers: readonly MarkerProvenanceRequest[];
-	}): Promise<GatewayResult<readonly MarkerProvenanceObservation[]>>;
 	inventoryWorkingTree(request: {
 		readonly artifactRoot: string;
 	}): Promise<GatewayResult<readonly TreeInventoryEntry[]>>;

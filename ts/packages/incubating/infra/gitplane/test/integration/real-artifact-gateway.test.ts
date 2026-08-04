@@ -1,30 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import { expect, test } from "vitest";
-import { parseArtifactId } from "@nseng-ai/gitplane";
 import { RealArtifactGateway } from "@nseng-ai/gitplane/cli";
 
 function git(cwd: string, args: readonly string[]): string {
 	return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 }
 
-const parsedArtifactId = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
-if (!parsedArtifactId.ok) throw new Error("Test artifact ID must be valid.");
-const artifactId = parsedArtifactId.artifactId;
-const markerPath = "gitplane-artifact.json";
-
-function marker(extra = ""): string {
-	return `{"gpId":"${artifactId}"${extra}}`;
-}
-
-function commit(cwd: string, message: string): string {
-	git(cwd, ["add", "-A"]);
-	git(cwd, ["commit", "-m", message]);
-	return git(cwd, ["rev-parse", "HEAD"]);
-}
 async function repository(): Promise<{
 	readonly directory: string;
 	readonly first: string;
@@ -166,130 +150,6 @@ test("reads commit facts, ancestry, filtered tree candidates, and diffs", async 
 		).toMatchObject({ ok: false });
 	} finally {
 		await rm(repo.directory, { recursive: true, force: true });
-	}
-});
-
-test("attributes marker addition, byte changes, moves, and move-plus-change", async () => {
-	const directory = await mkdtemp(path.join(os.tmpdir(), "gitplane-provenance-"));
-	try {
-		git(directory, ["init", "-b", "main"]);
-		git(directory, ["config", "user.name", "Gitplane Test"]);
-		git(directory, ["config", "user.email", "gitplane@example.test"]);
-		await writeFile(path.join(directory, "unrelated.txt"), "root");
-		commit(directory, "root");
-
-		await mkdir(path.join(directory, "artifacts", "added"), { recursive: true });
-		await writeFile(path.join(directory, "artifacts", "added", markerPath), marker());
-		const added = commit(directory, "add marker");
-		await writeFile(path.join(directory, "artifacts", "added", markerPath), marker(',"v":2'));
-		const changed = commit(directory, "change marker bytes");
-		await rename(
-			path.join(directory, "artifacts", "added"),
-			path.join(directory, "artifacts", "moved"),
-		);
-		const moved = commit(directory, "move marker unchanged");
-		await mkdir(path.join(directory, "artifacts", "moved-again"), { recursive: true });
-		await writeFile(path.join(directory, "artifacts", "moved-again", markerPath), marker(',"v":3'));
-		await rm(path.join(directory, "artifacts", "moved"), { recursive: true });
-		const movedAndChanged = commit(directory, "move and change marker");
-		const unusualPath = "artifacts/:(glob)literal";
-		await mkdir(path.join(directory, unusualPath), { recursive: true });
-		await writeFile(path.join(directory, unusualPath, markerPath), marker());
-		const unusualPathAdded = commit(directory, "add marker at a pathspec-looking literal path");
-
-		const gateway = new RealArtifactGateway({ cwd: directory });
-		for (const [targetCommit, artifactPath, expected] of [
-			[added, "artifacts/added", added],
-			[changed, "artifacts/added", changed],
-			[moved, "artifacts/moved", moved],
-			[movedAndChanged, "artifacts/moved-again", movedAndChanged],
-			[unusualPathAdded, unusualPath, unusualPathAdded],
-		] as const) {
-			expect(
-				await gateway.readMarkerProvenance({
-					targetCommit,
-					markers: [{ artifactId, path: artifactPath }],
-				}),
-			).toEqual({
-				ok: true,
-				value: [{ type: "found", artifactId, markerLastChangedCommit: expected }],
-			});
-		}
-	} finally {
-		await rm(directory, { recursive: true, force: true });
-	}
-});
-
-test("reports missing targets, merges, and descendants of merges as provenance facts", async () => {
-	const directory = await mkdtemp(path.join(os.tmpdir(), "gitplane-provenance-merge-"));
-	try {
-		git(directory, ["init", "-b", "main"]);
-		git(directory, ["config", "user.name", "Gitplane Test"]);
-		git(directory, ["config", "user.email", "gitplane@example.test"]);
-		await mkdir(path.join(directory, "artifacts", "a"), { recursive: true });
-		await writeFile(path.join(directory, "artifacts", "a", markerPath), marker());
-		commit(directory, "base marker");
-		git(directory, ["checkout", "-b", "side"]);
-		await writeFile(path.join(directory, "side.txt"), "side");
-		commit(directory, "side");
-		git(directory, ["checkout", "main"]);
-		await writeFile(path.join(directory, "main.txt"), "main");
-		commit(directory, "main");
-		git(directory, ["merge", "--no-ff", "side", "-m", "merge"]);
-		const merge = git(directory, ["rev-parse", "HEAD"]);
-		await writeFile(path.join(directory, "after-merge.txt"), "single parent");
-		const mergeDescendant = commit(directory, "single-parent descendant of merge");
-		const gateway = new RealArtifactGateway({ cwd: directory });
-		const markers = [{ artifactId, path: "artifacts/a" }];
-		for (const targetCommit of [merge, mergeDescendant]) {
-			expect(await gateway.readMarkerProvenance({ targetCommit, markers })).toEqual({
-				ok: true,
-				value: [{ type: "unavailable", artifactId, reason: "incomplete-history" }],
-			});
-		}
-		expect(
-			await gateway.readMarkerProvenance({
-				targetCommit: "0000000000000000000000000000000000000000",
-				markers,
-			}),
-		).toEqual({
-			ok: true,
-			value: [{ type: "unavailable", artifactId, reason: "missing-object" }],
-		});
-	} finally {
-		await rm(directory, { recursive: true, force: true });
-	}
-});
-
-test("reports incomplete marker history from a real shallow clone", async () => {
-	const directory = await mkdtemp(path.join(os.tmpdir(), "gitplane-provenance-shallow-"));
-	const source = path.join(directory, "source");
-	const clone = path.join(directory, "clone");
-	try {
-		await mkdir(source);
-		git(source, ["init", "-b", "main"]);
-		git(source, ["config", "user.name", "Gitplane Test"]);
-		git(source, ["config", "user.email", "gitplane@example.test"]);
-		await mkdir(path.join(source, "artifacts", "a"), { recursive: true });
-		await writeFile(path.join(source, "artifacts", "a", markerPath), marker());
-		commit(source, "add marker");
-		await writeFile(path.join(source, "later.txt"), "later");
-		commit(source, "leave marker unchanged");
-
-		git(directory, ["clone", "--depth=1", pathToFileURL(source).href, clone]);
-		const targetCommit = git(clone, ["rev-parse", "HEAD"]);
-		const gateway = new RealArtifactGateway({ cwd: clone });
-		expect(
-			await gateway.readMarkerProvenance({
-				targetCommit,
-				markers: [{ artifactId, path: "artifacts/a" }],
-			}),
-		).toEqual({
-			ok: true,
-			value: [{ type: "unavailable", artifactId, reason: "incomplete-history" }],
-		});
-	} finally {
-		await rm(directory, { recursive: true, force: true });
 	}
 });
 

@@ -5,10 +5,6 @@ import { expect, test } from "vitest";
 const parsed = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
 if (!parsed.ok) throw new Error("Test artifact ID must be valid.");
 const artifactId = parsed.artifactId;
-const secondParsed = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dp");
-if (!secondParsed.ok) throw new Error("Second test artifact ID must be valid.");
-const secondArtifactId = secondParsed.artifactId;
-
 function markerCandidate(path: string, marker: unknown): ArtifactCandidate {
 	const bytes =
 		marker instanceof Uint8Array ? marker : new TextEncoder().encode(JSON.stringify(marker));
@@ -96,33 +92,6 @@ function source(
 				candidate: { type: "found" as const, value: candidate },
 			})),
 		),
-		markerProvenance: candidates.flatMap((candidate) => {
-			const marker = candidate.entries.find(
-				(entry) => entry.kind === "regular-file" && entry.path === "gitplane-artifact.json",
-			);
-			if (marker?.kind !== "regular-file") return [];
-			try {
-				const value: unknown = JSON.parse(new TextDecoder().decode(marker.bytes));
-				if (typeof value !== "object" || value === null || !("gpId" in value)) return [];
-				const id = parseArtifactId(String(value.gpId));
-				return id.ok
-					? [
-							{
-								targetCommit: "target",
-								artifactId: id.artifactId,
-								path: candidate.path,
-								observation: {
-									type: "found" as const,
-									artifactId: id.artifactId,
-									markerLastChangedCommit: `at:${candidate.path}`,
-								},
-							},
-						]
-					: [];
-			} catch {
-				return [];
-			}
-		}),
 	});
 }
 
@@ -228,18 +197,6 @@ test("equal cursor skips ancestry even when its corpus is unavailable", async ()
 				},
 			},
 		],
-		markerProvenance: [
-			{
-				targetCommit: "target",
-				artifactId,
-				path: "artifacts/a",
-				observation: {
-					type: "found",
-					artifactId,
-					markerLastChangedCommit: "target",
-				},
-			},
-		],
 	});
 	expect(await gather(gateway, "target")).toMatchObject({
 		ok: true,
@@ -272,108 +229,10 @@ test("target unavailability retains the requested cursor commit", async () => {
 	});
 });
 
-test("canonical identity requests provenance despite invalid classification and retains raw candidate", async () => {
-	const candidate = markerCandidate("artifacts/bad-classification", {
-		gpId: artifactId,
-		gpApiVersion: "v1",
-	});
-	const result = await gather(source({ targetCandidates: [candidate] }), null);
-	if (!result.ok || result.facts.type !== "gathered") throw new Error("Expected gathered facts.");
-	expect(result.facts.targetCorpus.candidates).toEqual([candidate]);
-	expect(result.facts.markerProvenance).toEqual([
-		{ type: "found", artifactId, markerLastChangedCommit: "at:artifacts/bad-classification" },
-	]);
-});
-
-test.each([
-	["invalid JSON", new Uint8Array([0xff])],
-	["invalid ID", { gpId: "not-an-id" }],
-] as const)("%s leaves marker identity unavailable", async (_label, marker) => {
-	const result = await gather(
-		source({ targetCandidates: [markerCandidate("artifacts/bad", marker)] }),
-		null,
-	);
-	expect(result).toMatchObject({
-		ok: true,
-		facts: {
-			type: "gathered",
-			markerProvenance: [{ type: "identity-unavailable", path: "artifacts/bad" }],
-		},
-	});
-});
-
-test("only regular-file markers form boundaries, including at repository root", async () => {
-	const root = markerCandidate("", { gpId: artifactId });
-	const result = await gather(
-		source({
-			targetCandidates: [root],
-			targetInventory: [
-				{ path: "gitplane-artifact.json", kind: "regular-file" },
-				{ path: "ignored/gitplane-artifact.json", kind: "directory" },
-			],
-		}),
-		null,
-	);
-	if (!result.ok || result.facts.type !== "gathered") throw new Error("Expected gathered facts.");
-	expect(result.facts.targetCorpus.candidates.map((candidate) => candidate.path)).toEqual([""]);
-	expect(result.facts.markerProvenance).toEqual([
-		{ type: "found", artifactId, markerLastChangedCommit: "at:" },
-	]);
-});
-
-test("provenance stays aligned for duplicate IDs at different paths", async () => {
-	const result = await gather(
-		source({
-			targetCandidates: [
-				markerCandidate("artifacts/z", { gpId: artifactId }),
-				markerCandidate("artifacts/a", { gpId: artifactId }),
-			],
-		}),
-		null,
-	);
-	expect(result).toMatchObject({
-		ok: true,
-		facts: {
-			type: "gathered",
-			markerProvenance: [
-				{ markerLastChangedCommit: "at:artifacts/a" },
-				{ markerLastChangedCommit: "at:artifacts/z" },
-			],
-		},
-	});
-});
-
-test("Gather orders valid identity/path provenance before sorted invalid paths", async () => {
-	const result = await gather(
-		source({
-			targetCandidates: [
-				markerCandidate("artifacts/z-invalid", { gpId: "bad" }),
-				markerCandidate("artifacts/z-valid", { gpId: artifactId }),
-				markerCandidate("artifacts/a-valid", { gpId: secondArtifactId }),
-				markerCandidate("artifacts/a-invalid", new Uint8Array([0xff])),
-			],
-		}),
-		null,
-	);
-	expect(result).toMatchObject({
-		ok: true,
-		facts: {
-			type: "gathered",
-			markerProvenance: [
-				{ artifactId, markerLastChangedCommit: "at:artifacts/z-valid" },
-				{ artifactId: secondArtifactId, markerLastChangedCommit: "at:artifacts/a-valid" },
-				{ type: "identity-unavailable", path: "artifacts/a-invalid" },
-				{ type: "identity-unavailable", path: "artifacts/z-invalid" },
-			],
-		},
-	});
-});
-
 class SnapshotArtifactGateway extends InMemoryArtifactGateway {
 	lastFacts?: object;
 	lastInventory?: object;
 	lastCandidate?: object;
-	lastProvenance?: object;
 
 	override async readCommitFacts(request: { readonly commit: string }) {
 		const result = await super.readCommitFacts(request);
@@ -394,13 +253,6 @@ class SnapshotArtifactGateway extends InMemoryArtifactGateway {
 	}) {
 		const result = await super.readCommitTreeCandidate(request);
 		if (result.ok && result.value.type === "found") this.lastCandidate = result.value.value;
-		return result;
-	}
-	override async readMarkerProvenance(
-		request: Parameters<InMemoryArtifactGateway["readMarkerProvenance"]>[0],
-	) {
-		const result = await super.readMarkerProvenance(request);
-		if (result.ok) this.lastProvenance = result.value;
 		return result;
 	}
 }
@@ -430,21 +282,10 @@ test("Gather retains caller-owned gateway snapshots without making a second copy
 				candidate: { type: "found", value: markerCandidate("artifacts/a", { gpId: artifactId }) },
 			},
 		],
-		markerProvenance: [
-			{
-				targetCommit: "target",
-				artifactId,
-				path: "artifacts/a",
-				observation: { type: "found", artifactId, markerLastChangedCommit: "target" },
-			},
-		],
 	});
 	const result = await gather(gateway, null);
 	if (!result.ok || result.facts.type !== "gathered") throw new Error("Expected gathered facts.");
 	expect(result.facts.targetFacts).toBe(gateway.lastFacts);
 	expect(result.facts.targetCorpus.candidates[0]).toBe(gateway.lastCandidate);
-	expect(result.facts.markerProvenance[0]).toBe(
-		(gateway.lastProvenance as readonly object[] | undefined)?.[0],
-	);
 	expect(gateway.lastInventory).toBeDefined();
 });

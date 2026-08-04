@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { link, lstat, mkdir, open, readdir, readFile, rm, rmdir, unlink } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { ARTIFACT_MARKER_NAME, artifactMarkerPath } from "../core/index.ts";
+import { ARTIFACT_MARKER_NAME } from "../core/index.ts";
 import type {
 	ArtifactCandidate,
 	ArtifactEntry,
@@ -14,8 +14,6 @@ import type {
 	GatewayError,
 	GatewayResult,
 	GitObservation,
-	MarkerProvenanceObservation,
-	MarkerProvenanceRequest,
 	TreeInventoryEntry,
 } from "../core/index.ts";
 
@@ -70,12 +68,6 @@ function isExitCode(error: unknown, code: number): boolean {
 type GitFailureClassification =
 	| { readonly type: "unavailable" }
 	| { readonly type: "operational"; readonly error: GatewayError };
-function unavailableProvenance(
-	markers: readonly MarkerProvenanceRequest[],
-	reason: "missing-object" | "incomplete-history",
-): readonly MarkerProvenanceObservation[] {
-	return markers.map((marker) => ({ type: "unavailable", artifactId: marker.artifactId, reason }));
-}
 export class RealArtifactGateway implements ArtifactGateway {
 	private readonly cwd: string;
 	private readonly git: GitCommandExecutor;
@@ -350,95 +342,6 @@ export class RealArtifactGateway implements ArtifactGateway {
 				changedPaths: output.toString().split("\0").filter(Boolean).map(logical),
 			}),
 		);
-	}
-	async readMarkerProvenance(request: {
-		readonly targetCommit: string;
-		readonly markers: readonly MarkerProvenanceRequest[];
-	}): Promise<GatewayResult<readonly MarkerProvenanceObservation[]>> {
-		const markers = [...request.markers];
-		if (markers.length === 0) return { ok: true, value: [] };
-		if (
-			markers.some(
-				(marker) =>
-					path.isAbsolute(marker.path) ||
-					marker.path.includes("\0") ||
-					marker.path.split("/").includes(".."),
-			)
-		)
-			return {
-				ok: false,
-				error: failure(new Error("Path escapes invocation directory.")),
-			};
-		try {
-			const shallow = (await this.git.execute(["rev-parse", "--is-shallow-repository"])).stdout
-				.toString()
-				.trim();
-			if (shallow !== "true" && shallow !== "false")
-				throw new Error("Unexpected git rev-parse output.");
-			if (shallow === "true")
-				return { ok: true, value: unavailableProvenance(markers, "incomplete-history") };
-
-			let mergeOutput: string;
-			try {
-				mergeOutput = (
-					await this.git.execute(["rev-list", "--min-parents=2", "-1", request.targetCommit])
-				).stdout
-					.toString()
-					.trim();
-			} catch (error) {
-				const classification = await this.classifyGitFailure(error, [request.targetCommit]);
-				if (classification.type === "unavailable")
-					return { ok: true, value: unavailableProvenance(markers, "missing-object") };
-				return { ok: false, error: classification.error };
-			}
-			if (mergeOutput !== "" && !/^[0-9a-f]+$/.test(mergeOutput))
-				throw new Error("Unexpected git rev-list output.");
-			if (mergeOutput !== "")
-				return { ok: true, value: unavailableProvenance(markers, "incomplete-history") };
-
-			const observations = await Promise.all(
-				markers.map(async (marker): Promise<MarkerProvenanceObservation> => {
-					try {
-						const output = (
-							await this.git.execute([
-								"--literal-pathspecs",
-								"rev-list",
-								"-1",
-								request.targetCommit,
-								"--",
-								artifactMarkerPath(marker.path),
-							])
-						).stdout
-							.toString()
-							.trim();
-						if (output === "")
-							return {
-								type: "unavailable",
-								artifactId: marker.artifactId,
-								reason: "incomplete-history",
-							};
-						if (!/^[0-9a-f]+$/.test(output)) throw new Error("Unexpected git rev-list output.");
-						return {
-							type: "found",
-							artifactId: marker.artifactId,
-							markerLastChangedCommit: output,
-						};
-					} catch (error) {
-						const classification = await this.classifyGitFailure(error, [request.targetCommit]);
-						if (classification.type === "unavailable")
-							return {
-								type: "unavailable",
-								artifactId: marker.artifactId,
-								reason: "missing-object",
-							};
-						throw new Error(classification.error.message);
-					}
-				}),
-			);
-			return { ok: true, value: observations };
-		} catch (error) {
-			return { ok: false, error: failure(error) };
-		}
 	}
 	private async gitObservation<T>(
 		args: readonly string[],

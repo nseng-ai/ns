@@ -8,8 +8,6 @@ import type {
 	GatewayError,
 	GatewayResult,
 	GitObservation,
-	MarkerProvenanceObservation,
-	MarkerProvenanceRequest,
 	TreeInventoryEntry,
 } from "../core/index.ts";
 
@@ -34,12 +32,6 @@ export interface InMemoryArtifactGatewayState {
 	readonly commitCandidates?: readonly {
 		readonly commit: string;
 		readonly candidate: GitObservation<ArtifactCandidate>;
-	}[];
-	readonly markerProvenance?: readonly {
-		readonly targetCommit: string;
-		readonly artifactId: MarkerProvenanceRequest["artifactId"];
-		readonly path: string;
-		readonly observation: MarkerProvenanceObservation;
 	}[];
 	readonly workingInventories?: readonly {
 		readonly artifactRoot: string;
@@ -164,31 +156,6 @@ export class InMemoryArtifactGateway implements ArtifactGateway {
 				copyCandidate,
 			),
 		);
-	}
-	async readMarkerProvenance(request: {
-		readonly targetCommit: string;
-		readonly markers: readonly MarkerProvenanceRequest[];
-	}): Promise<GatewayResult<readonly MarkerProvenanceObservation[]>> {
-		this.operations.push(`readMarkerProvenance:${request.targetCommit}:${request.markers.length}`);
-		const remaining = [...(this.state.markerProvenance ?? [])];
-		const observations = request.markers.map((marker) => {
-			const index = remaining.findIndex(
-				(item) =>
-					item.targetCommit === request.targetCommit &&
-					item.artifactId === marker.artifactId &&
-					item.path === marker.path,
-			);
-			if (index < 0)
-				return {
-					type: "unavailable" as const,
-					artifactId: marker.artifactId,
-					reason: "incomplete-history" as const,
-				};
-			const [found] = remaining.splice(index, 1);
-			if (found === undefined) throw new Error("Matched provenance fixture disappeared.");
-			return { ...found.observation };
-		});
-		return result(this.state.failures?.readMarkerProvenance, observations);
 	}
 	async inventoryWorkingTree(request: {
 		readonly artifactRoot: string;
