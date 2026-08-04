@@ -83,3 +83,12 @@ fake.*
   smoke, in
   `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-28T201757Z-plans-plan-store-gateway.md`
   — also the model for domain-specific storage gateways over raw filesystem operations.
+
+## Dependency-injection vocabulary
+
+This repository does not treat "dependency injection" as a design term. It names the *mechanism*
+shared by every rung above; the endorsed design vocabulary is the artifact each rung produces —
+**DI Seam**, **Consumer Gateway**, **Gateway** (root `CONTEXT.md` § Architecture Boundaries).
+Recommending "use dependency injection" without naming a rung is a smell: it invites the banned
+trappings — containers, decorators, `Dependencies`/`Deps`/`Services` bags, `…Loader` noun-types —
+while the actual decision is which rung the boundary has earned.
