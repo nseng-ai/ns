@@ -5,6 +5,7 @@ import {
 } from "@nseng-ai/foundation/model-slug";
 import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
 import { notifyCommandUi, type NotifiableCommandContext } from "../../commands/helpers.ts";
+import type { SendUserMessageOptions } from "../../runtime/extension-types.ts";
 
 export const MODEL_SHORTCUTS = [
 	{
@@ -76,10 +77,6 @@ interface ModelRegistry {
 interface CommandContext extends NotifiableCommandContext {
 	modelRegistry: ModelRegistry;
 	isIdle(): boolean;
-}
-
-interface SendUserMessageOptions {
-	deliverAs: "steer";
 }
 
 export interface ExtensionAPI {
