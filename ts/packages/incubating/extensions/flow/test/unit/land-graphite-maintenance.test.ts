@@ -427,6 +427,70 @@ describe("Graphite maintenance over LandContext", () => {
 		},
 	);
 
+	test("reports unexpected children directly during best-effort cleanup", async () => {
+		const fakes = createInMemoryLandContext({
+			git: { localBranches: [{ name: "feature-a", sha: FEATURE_A_SHA }] },
+			graphite: { branchChildren: { "feature-a": ["surprise"] } },
+		});
+		const outcome = await performGraphiteMaintenance(
+			{ land: fakes.context, progress: createProgressRecorder().progress },
+			{
+				plan: createLandingPlan({ landingBranches: ["feature-a"] }),
+				step: {
+					index: 0,
+					branch: "feature-a",
+					prNumber: 1,
+					state: createMergeLoopState([["feature-a", FEATURE_A_SHA]]),
+				},
+			},
+		);
+
+		expect(outcome).toMatchObject({
+			kind: "skip",
+			warning: {
+				message:
+					"All target PRs were merged, but feature-a now has unexpected Graphite children (surprise); local branch feature-a cleanup was skipped.",
+			},
+		});
+		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
+	});
+
+	test("reports a child-list failure directly during best-effort cleanup", async () => {
+		const fakes = createInMemoryLandContext({
+			git: { localBranches: [{ name: "feature-a", sha: FEATURE_A_SHA }] },
+			graphite: {
+				branchChildrenFailure: {
+					type: "boundary",
+					source: "graphite",
+					phase: "merge-maintenance-cleanup",
+					code: "branch_children_failed",
+					message: "could not read Graphite metadata",
+				},
+			},
+		});
+		const outcome = await performGraphiteMaintenance(
+			{ land: fakes.context, progress: createProgressRecorder().progress },
+			{
+				plan: createLandingPlan({ landingBranches: ["feature-a"] }),
+				step: {
+					index: 0,
+					branch: "feature-a",
+					prNumber: 1,
+					state: createMergeLoopState([["feature-a", FEATURE_A_SHA]]),
+				},
+			},
+		);
+
+		expect(outcome).toMatchObject({
+			kind: "skip",
+			warning: {
+				message:
+					"All target PRs were merged, but the pre-delete Graphite children re-check for feature-a failed; local branch feature-a cleanup was skipped.\ncould not read Graphite metadata",
+			},
+		});
+		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
+	});
+
 	test("retains a checked-out local branch and records cleanup", async () => {
 		const fakes = createInMemoryLandContext({
 			git: { localBranches: [{ name: "feature-a", sha: FEATURE_A_SHA }] },

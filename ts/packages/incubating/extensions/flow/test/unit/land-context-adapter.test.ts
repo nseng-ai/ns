@@ -408,10 +408,9 @@ describe("land context adapter facts", () => {
 			}),
 		).resolves.toMatchObject({ type: "success" });
 		await expect(
-			context.graphite.deleteLocalBranch({
+			context.graphite.deleteLocalBranchRetaining({
 				repoRoot: ROOT,
 				branch: "feature-a",
-				checkedOutConflictHandling: "retain",
 			}),
 		).resolves.toEqual({ type: "retained", branch: "feature-a", path: "/repo-slot" });
 		await expect(
@@ -566,7 +565,6 @@ describe("land context adapter facts", () => {
 			context.graphite.deleteLocalBranch({
 				repoRoot: ROOT,
 				branch: "feature-a",
-				checkedOutConflictHandling: "fail",
 			}),
 		).resolves.toMatchObject({
 			type: "failed",
@@ -582,7 +580,6 @@ describe("land context adapter facts", () => {
 			context.graphite.deleteLocalBranch({
 				repoRoot: ROOT,
 				branch: "feature-a",
-				checkedOutConflictHandling: "fail",
 			}),
 		).resolves.toMatchObject({
 			type: "failed",

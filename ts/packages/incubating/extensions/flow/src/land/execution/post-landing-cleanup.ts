@@ -2,7 +2,6 @@ import { formatCommand } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { postLandingCleanupCommands } from "../confirmation-commands.ts";
-import { deleteLocalBranchOperation, formatGraphiteOperation } from "../graphite-operations.ts";
 import { landingExecutionFailure } from "../results.ts";
 import type { LandExecutionStatusProgress } from "./host-seams.ts";
 import {
@@ -121,24 +120,16 @@ export async function runManagedSlotPostLandingCleanup(options: {
 		if (target.localBranchDisposition === "delete") {
 			const branch = target.branch;
 			options.progress.setStatus(`deleting ${branch}...`);
-			const deleteOperation = deleteLocalBranchOperation({
-				branch,
-				checkedOutConflictHandling: "fail",
-			});
 			const deletion = await options.landContext.graphite.deleteLocalBranch({
 				repoRoot: target.repoRoot,
 				branch,
-				checkedOutConflictHandling: "fail",
 			});
 			if (deletion.type !== "deleted") {
 				const failure = landingExecutionFailure(
 					`PRs were landed and ${target.slotName} was freed, but deleting local branch ${branch} failed.`,
 					{
-						displayCommand:
-							deletion.type === "failed"
-								? deletion.commandDisplay
-								: formatGraphiteOperation(deleteOperation),
-						...(deletion.type === "failed" ? { execResult: deletion.result } : {}),
+						displayCommand: deletion.commandDisplay,
+						execResult: deletion.result,
 						suggestedAction: `Delete local branch ${branch} manually when safe.`,
 					},
 				);

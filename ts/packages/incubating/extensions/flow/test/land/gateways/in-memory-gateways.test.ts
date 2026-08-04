@@ -414,7 +414,6 @@ describe("@nseng-ai/flow land in-memory gateway fakes", () => {
 			graphite.deleteLocalBranch({
 				repoRoot: REPO_ROOT,
 				branch: "feature/land-core",
-				checkedOutConflictHandling: "fail",
 			}),
 		).resolves.toEqual({
 			type: "failed",
@@ -617,10 +616,9 @@ describe("@nseng-ai/flow land in-memory gateway fakes", () => {
 			value: [{ path: residualPath, branch: "feature/land-core" }],
 		});
 		await expect(
-			graphite.deleteLocalBranch({
+			graphite.deleteLocalBranchRetaining({
 				repoRoot: REPO_ROOT,
 				branch: "feature/land-core",
-				checkedOutConflictHandling: "fail",
 			}),
 		).resolves.toEqual({
 			type: "retained",

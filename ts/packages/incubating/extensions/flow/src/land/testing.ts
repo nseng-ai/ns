@@ -7,6 +7,7 @@ import type {
 	LandGithubPrGateway,
 	LandGraphiteCommandResult,
 	LandGraphiteDeleteLocalBranchResult,
+	LandGraphiteFailClosedDeleteLocalBranchResult,
 	LandGraphiteGateway,
 	LandGraphiteRefreshBranchResult,
 	LandGraphiteRestackScope,
@@ -651,13 +652,28 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	async deleteLocalBranch(request: {
 		readonly repoRoot: string;
 		readonly branch: string;
-		readonly checkedOutConflictHandling: "fail" | "retain";
+	}): Promise<LandGraphiteFailClosedDeleteLocalBranchResult> {
+		const result = this.recordDeleteLocalBranch(request, "fail");
+		if (result.type === "retained") {
+			throw new Error(
+				`In-memory Graphite gateway cannot retain ${request.branch} under fail-closed deletion.`,
+			);
+		}
+		return result;
+	}
+
+	async deleteLocalBranchRetaining(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
 	}): Promise<LandGraphiteDeleteLocalBranchResult> {
-		const call = {
-			repoRoot: request.repoRoot,
-			branch: request.branch,
-			checkedOutConflictHandling: request.checkedOutConflictHandling,
-		};
+		return this.recordDeleteLocalBranch(request, "retain");
+	}
+
+	private recordDeleteLocalBranch(
+		request: { readonly repoRoot: string; readonly branch: string },
+		checkedOutConflictHandling: "fail" | "retain",
+	): LandGraphiteDeleteLocalBranchResult {
+		const call = { ...request, checkedOutConflictHandling };
 		this.deleteLocalBranchLog.push(call);
 		this.recordCall({ operation: "graphite.deleteLocalBranch", request: call });
 		const result = this.deleteLocalBranchResults.get(request.branch);

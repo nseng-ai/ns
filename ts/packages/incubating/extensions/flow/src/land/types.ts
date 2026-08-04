@@ -447,7 +447,10 @@ export interface LandGraphiteGateway {
 	deleteLocalBranch(request: {
 		readonly repoRoot: string;
 		readonly branch: string;
-		readonly checkedOutConflictHandling: "fail" | "retain";
+	}): Promise<LandGraphiteFailClosedDeleteLocalBranchResult>;
+	deleteLocalBranchRetaining(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
 	}): Promise<LandGraphiteDeleteLocalBranchResult>;
 	restack(request: {
 		readonly repoRoot: string;
@@ -512,13 +515,16 @@ export type LandGraphiteRefreshBranchResult =
 	  } & LandGraphiteRanCommand)
 	| ({ readonly type: "failure" } & LandGraphiteRanCommand);
 
-export type LandGraphiteDeleteLocalBranchResult =
+export type LandGraphiteFailClosedDeleteLocalBranchResult =
 	| { readonly type: "deleted" }
-	| { readonly type: "retained"; readonly branch: string; readonly path: string }
 	| ({
 			readonly type: "failed";
 			readonly isLikelyInProgressGitOperation: boolean;
 	  } & LandGraphiteRanCommand);
+
+export type LandGraphiteDeleteLocalBranchResult =
+	| LandGraphiteFailClosedDeleteLocalBranchResult
+	| { readonly type: "retained"; readonly branch: string; readonly path: string };
 
 export interface SquashMergePullRequestResult {
 	readonly stdout: string;
