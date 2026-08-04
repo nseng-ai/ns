@@ -216,7 +216,7 @@ describe("land-stack command scenarios", () => {
 		expect(notifications.at(-1)?.level).toBe("success");
 		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c, feature-d.");
 	});
-	test("required descendant refresh failure still attempts later roots, skips unsafe deletion, and fails", async () => {
+	test("required descendant refresh failure guards every root, skips later mutation and unsafe deletion, and fails", async () => {
 		const script = [
 			...featureStackPreflight({ dbRows: DB_FORKED_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT, "feature-d"], {
@@ -225,6 +225,7 @@ describe("land-stack command scenarios", () => {
 			...mergeFeatureA(),
 			...mergeFeatureBThroughVerification(),
 			guardShaStep(DESCENDANT, SHA_C),
+			guardShaStep("feature-d", SHA_D),
 			step(
 				"gt",
 				[
@@ -238,16 +239,6 @@ describe("land-stack command scenarios", () => {
 				],
 				{ code: 1, stderr: "refresh failed" },
 			),
-			guardShaStep("feature-d", SHA_D),
-			step("gt", [
-				"get",
-				"feature-d",
-				"--downstack",
-				"--no-restack",
-				"--no-checkout",
-				"--force",
-				"--no-interactive",
-			]),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
@@ -256,7 +247,7 @@ describe("land-stack command scenarios", () => {
 			pi.execCalls
 				.filter((call) => call.command === "gt" && call.args[0] === "get")
 				.map((call) => call.args[1]),
-		).toEqual(["feature-b", DESCENDANT, "feature-d"]);
+		).toEqual(["feature-b", DESCENDANT]);
 		expect(
 			pi.execCalls.some(
 				(call) =>

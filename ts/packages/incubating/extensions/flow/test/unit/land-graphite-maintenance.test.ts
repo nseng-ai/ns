@@ -10,6 +10,7 @@ import {
 	type GraphiteMaintenanceProgress,
 } from "../../src/land/execution/maintenance.ts";
 import { LAND_BACKUP_RECOVERY_HINT } from "../../src/land/graphite-operations.ts";
+import type { InMemoryLandContextState } from "../../src/land/testing.ts";
 import type { LandingPlan } from "../../src/land/types.ts";
 import {
 	planGraphiteMaintenanceTargets,
@@ -449,7 +450,7 @@ describe("Graphite maintenance over LandContext", () => {
 		]);
 	});
 
-	test("aggregates failures across multiple descendant roots before cleanup", async () => {
+	test("refresh failure is fail-fast before cleanup and later root mutation", async () => {
 		const failureResult = {
 			type: "exited" as const,
 			stdout: "refresh output",
@@ -507,17 +508,14 @@ describe("Graphite maintenance over LandContext", () => {
 		expect(outcome).toMatchObject({
 			kind: "halt",
 			phase: "descendant-maintenance",
-			failure: {
-				message: expect.stringContaining(
-					"required descendant reconciliation failed for feature-c, feature-d",
-				),
-			},
+			failure: { failedBranch: "feature-c" },
 		});
 		expect(fakes.graphite.refreshBranchFromRemoteCalls.map((call) => call.branch)).toEqual([
 			"feature-c",
-			"feature-d",
 		]);
 		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
+		expect(fakes.graphite.restackCalls).toEqual([]);
+		expect(fakes.graphite.submitUpdateCalls).toEqual([]);
 	});
 
 	test("PR metadata already current skips submit", async () => {
@@ -877,18 +875,52 @@ describe("Graphite maintenance over LandContext", () => {
 		},
 	);
 
-	test("multi-root reconcile attempts every root and aggregates failures without false completion", async () => {
-		const postRestackSha = "dddddddddddddddddddddddddddddddddddddddd";
-		const fakes = createInMemoryLandContext({
-			git: {
-				localBranches: [
-					{ name: "feature-a", sha: FEATURE_A_SHA },
-					{ name: "feature-c", sha: FEATURE_C_SHA },
-					{ name: "feature-d", sha: FEATURE_B_SHA },
-				],
-			},
+	test("guards every descendant root before mutating any root", async () => {
+		const fakes = createTwoRootReconciliationContext();
+		const outcome = await runTwoRootMaintenance(fakes, {
+			expectedFeatureDSha: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+		});
+
+		expect(outcome).toMatchObject({
+			kind: "halt",
+			phase: "descendant-maintenance",
+			failure: { failedBranch: "feature-d", message: expect.stringContaining("moved from") },
+		});
+		expect(fakes.graphite.refreshBranchFromRemoteCalls).toEqual([]);
+		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
+		expect(fakes.graphite.restackCalls).toEqual([]);
+		expect(fakes.graphite.submitUpdateCalls).toEqual([]);
+	});
+
+	test("prepares every descendant root before publishing the first root", async () => {
+		const fakes = createTwoRootReconciliationContext();
+		const outcome = await runTwoRootMaintenance(fakes);
+
+		expect(outcome).toEqual({ kind: "proceed" });
+		expect(
+			fakes.callEvents.flatMap((event) => {
+				switch (event.operation) {
+					case "graphite.restack":
+					case "graphite.branchParent":
+					case "graphite.submitUpdate":
+						return [`${event.operation}:${event.request.branch}`];
+					default:
+						return [];
+				}
+			}),
+		).toEqual([
+			"graphite.restack:feature-c",
+			"graphite.branchParent:feature-c",
+			"graphite.restack:feature-d",
+			"graphite.branchParent:feature-d",
+			"graphite.submitUpdate:feature-c",
+			"graphite.submitUpdate:feature-d",
+		]);
+	});
+
+	test("preparation failure blocks all publication and later preparation", async () => {
+		const fakes = createTwoRootReconciliationContext({
 			graphite: {
-				branchParents: { "feature-c": "main", "feature-d": "main" },
 				restackResults: {
 					"upstack:feature-d": {
 						type: "failure",
@@ -903,62 +935,44 @@ describe("Graphite maintenance over LandContext", () => {
 					},
 				},
 			},
-			github: {
-				pullRequests: [
-					pullRequestFacts({
-						number: 3,
-						headRefName: "feature-c",
-						baseRefName: "feature-a",
-						headRefOid: FEATURE_C_SHA,
-					}),
-				],
-			},
-			transitions: {
-				onRestackSuccess: {
-					"feature-c": {
-						localSha: postRestackSha,
-						containsParents: { main: true },
-						providerParent: "main",
-					},
-				},
-				onSubmitUpdateSuccess: {
-					"feature-c": { headRefOid: postRestackSha, baseRefName: "main" },
-				},
-			},
 		});
-		const outcome = await performGraphiteMaintenance({
-			landContext: fakes.context,
-			progress: createProgressRecorder().progress,
-			plan: createLandingPlan({
-				landingBranches: ["feature-a"],
-				descendantBranches: ["feature-c", "feature-d"],
-				descendantMaintenance: {
-					type: "auto",
-					branches: ["feature-c", "feature-d"],
-					targetBranches: ["feature-c", "feature-d"],
-				},
-			}),
-			step: {
-				index: 0,
-				branch: "feature-a",
-				prNumber: 1,
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					["feature-c", FEATURE_C_SHA],
-					["feature-d", FEATURE_B_SHA],
-				]),
-			},
-		});
+		const outcome = await runTwoRootMaintenance(fakes);
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
-			phase: "descendant-maintenance",
-			failure: {
-				failedBranch: "feature-d",
-				message: expect.stringContaining("restack failed for descendant root feature-d"),
+			failure: { failedBranch: "feature-d" },
+		});
+		expect(fakes.graphite.restackCalls.map((call) => call.branch)).toEqual([
+			"feature-c",
+			"feature-d",
+		]);
+		expect(fakes.graphite.submitUpdateCalls).toEqual([]);
+	});
+
+	test("publication failure is fail-fast after every root is prepared", async () => {
+		const fakes = createTwoRootReconciliationContext({
+			graphite: {
+				submitUpdateResults: {
+					"feature-c": {
+						type: "failure",
+						commandDisplay: "gt submit feature-c",
+						result: {
+							type: "exited",
+							stdout: "",
+							stderr: "submit failed",
+							code: 1,
+							signal: null,
+						},
+					},
+				},
 			},
 		});
-		// Every root was attempted: feature-c fully reconciled before feature-d's failure surfaced.
+		const outcome = await runTwoRootMaintenance(fakes);
+
+		expect(outcome).toMatchObject({
+			kind: "halt",
+			failure: { failedBranch: "feature-c" },
+		});
 		expect(fakes.graphite.restackCalls.map((call) => call.branch)).toEqual([
 			"feature-c",
 			"feature-d",
@@ -966,6 +980,92 @@ describe("Graphite maintenance over LandContext", () => {
 		expect(fakes.graphite.submitUpdateCalls.map((call) => call.branch)).toEqual(["feature-c"]);
 	});
 });
+
+function createTwoRootReconciliationContext(
+	overrides: InMemoryLandContextState = {},
+): ReturnType<typeof createInMemoryLandContext> {
+	const postRestackShaC = "dddddddddddddddddddddddddddddddddddddddd";
+	const postRestackShaD = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+	return createInMemoryLandContext({
+		git: {
+			localBranches: [
+				{ name: "feature-a", sha: FEATURE_A_SHA },
+				{ name: "feature-c", sha: FEATURE_C_SHA },
+				{ name: "feature-d", sha: FEATURE_B_SHA },
+			],
+			...overrides.git,
+		},
+		graphite: {
+			branchParents: { "feature-c": "main", "feature-d": "main" },
+			...overrides.graphite,
+		},
+		github: {
+			pullRequests: [
+				pullRequestFacts({
+					number: 3,
+					headRefName: "feature-c",
+					baseRefName: "feature-a",
+					headRefOid: FEATURE_C_SHA,
+				}),
+				pullRequestFacts({
+					number: 4,
+					headRefName: "feature-d",
+					baseRefName: "feature-a",
+					headRefOid: FEATURE_B_SHA,
+				}),
+			],
+			...overrides.github,
+		},
+		transitions: {
+			onRestackSuccess: {
+				"feature-c": {
+					localSha: postRestackShaC,
+					containsParents: { main: true },
+					providerParent: "main",
+				},
+				"feature-d": {
+					localSha: postRestackShaD,
+					containsParents: { main: true },
+					providerParent: "main",
+				},
+			},
+			onSubmitUpdateSuccess: {
+				"feature-c": { headRefOid: postRestackShaC, baseRefName: "main" },
+				"feature-d": { headRefOid: postRestackShaD, baseRefName: "main" },
+			},
+			...overrides.transitions,
+		},
+	});
+}
+
+async function runTwoRootMaintenance(
+	fakes: ReturnType<typeof createTwoRootReconciliationContext>,
+	options: { readonly expectedFeatureDSha?: string } = {},
+): Promise<Awaited<ReturnType<typeof performGraphiteMaintenance>>> {
+	return performGraphiteMaintenance({
+		landContext: fakes.context,
+		progress: createProgressRecorder().progress,
+		plan: createLandingPlan({
+			landingBranches: ["feature-a"],
+			descendantBranches: ["feature-c", "feature-d"],
+			descendantMaintenance: {
+				type: "auto",
+				branches: ["feature-c", "feature-d"],
+				targetBranches: ["feature-c", "feature-d"],
+			},
+		}),
+		step: {
+			index: 0,
+			branch: "feature-a",
+			prNumber: 1,
+			state: createMergeLoopState([
+				["feature-a", FEATURE_A_SHA],
+				["feature-c", FEATURE_C_SHA],
+				["feature-d", options.expectedFeatureDSha ?? FEATURE_B_SHA],
+			]),
+		},
+	});
+}
 
 function createLandingPlan(options: {
 	readonly landingBranches: readonly string[];

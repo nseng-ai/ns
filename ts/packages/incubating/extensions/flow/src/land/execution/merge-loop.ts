@@ -114,7 +114,11 @@ export async function runMergeLoop(options: RunMergeLoopOptions): Promise<MergeL
 	const preparedState = await prepareMergeLoopState({
 		context,
 		repoRoot,
-		branches: [...stack.landingBranches, ...stack.descendantBranches],
+		branches: [
+			...stack.landingBranches,
+			...stack.remainingLandingBranches,
+			...stack.descendantBranches,
+		],
 		warnings: options.warnings,
 	});
 	if (preparedState.type === "failure") {

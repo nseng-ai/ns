@@ -1,5 +1,3 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-
 import { LAND_BACKUP_RECOVERY_HINT } from "../graphite-operations.ts";
 import type { DescendantMaintenancePlan, LandingExecutionFailure, LandingPlan } from "../types.ts";
 import { landingExecutionFailure } from "../results.ts";
@@ -32,11 +30,6 @@ export type OrdinaryMaintenance = Extract<
 	MaintenanceTargetPlan,
 	{ mode: "required-next-landing" | "none" }
 >;
-
-export interface BranchMaintenanceFailure {
-	readonly branch: string;
-	readonly failure: LandingExecutionFailure;
-}
 
 export function planGraphiteMaintenanceTargets(
 	plan: LandingPlan,
@@ -120,40 +113,6 @@ export function blockedDescendantMaintenanceFailure(
 			failedBranch: branch,
 			failedPrNumber: prNumber,
 			suggestedAction: `${blockedDescendantRepairAction(maintenance)} Then delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
-		},
-	);
-}
-
-/**
- * One aggregated failure for required descendant reconciliation across multiple roots. Every
- * attempted root's branch-specific failure is preserved so no later failure hides an earlier one.
- */
-export function aggregateDescendantReconciliationFailure(options: {
-	readonly failures: readonly BranchMaintenanceFailure[];
-	readonly landedBranch: string;
-	readonly landedPrNumber: number;
-	readonly targetBranches: readonly string[];
-	readonly landedBranchCleanupState: "retained" | "deleted";
-}): LandingExecutionFailure {
-	const { failures, landedBranch, landedPrNumber, targetBranches, landedBranchCleanupState } =
-		options;
-	const onlyFailure = failures.length === 1 ? failures[0] : undefined;
-	if (onlyFailure !== undefined) return onlyFailure.failure;
-
-	const affectedRoots = failures.map(({ branch }) => branch);
-	const cleanupText =
-		landedBranchCleanupState === "retained"
-			? `local branch ${landedBranch} was retained`
-			: `local branch ${landedBranch} was already deleted`;
-	return landingExecutionFailure(
-		[
-			`All target PRs were merged, but required descendant reconciliation failed for ${affectedRoots.join(", ")}; ${cleanupText}.`,
-			...failures.map(({ failure }) => `- ${failure.message}`),
-		].join("\n"),
-		{
-			...optionalEntry("failedBranch", affectedRoots[0]),
-			failedPrNumber: landedPrNumber,
-			suggestedAction: `Inspect descendant roots ${targetBranches.join(", ")}, restack/update them manually, and verify each PR head and base on GitHub${landedBranchCleanupState === "retained" ? `; delete local branch ${landedBranch} manually when safe` : ""}. ${LAND_BACKUP_RECOVERY_HINT}`,
 		},
 	);
 }
