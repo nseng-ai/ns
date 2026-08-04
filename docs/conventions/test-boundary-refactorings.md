@@ -28,6 +28,9 @@ Transformations for seam introduction introduce a layer of indirection that test
 
 1. Use **Inject Dependency** while the boundary is one narrow collaborator with local scope.
 2. Use **Inject Gateway** when a suitable gateway contract already exists. Receive the gateway; do not rebuild it.
+3. Use **Introduce Gateway** only when no existing contract fits and the boundary has earned the weight: multiple domain operations, a durable fake needed across many tests, or a second consumer.
+
+Each rung produces an artifact already named in root `CONTEXT.md`: a plain **DI Seam**, a **Consumer Gateway**, and a **Gateway**, respectively.
 
 ### Inject Dependency
 
@@ -44,6 +47,14 @@ Transformations for seam introduction introduce a layer of indirection that test
 - **Mechanics:** The context of the operation carries the gateway. Entry points create the context and the appropriate gateway implementation. Use a **named Consumer Gateway** as the type.
 - **Constraints:** `docs/conventions/consumer-gateways-and-command-shape.md` governs this technique. Follow the inversion rule: do not construct a `Real*Gateway` in the middle of a flow. Convert gateway clumps to named `*Context` types, not `*Options` fields. An ad-hoc anonymous `Pick<…Gateway, …>` in a signature does not justify its cost. Instead, if a scope-specific narrower gateway type is appropriate, name the narrowed type. Fakes are canonical, so tests lose nothing when you use the full contract. For one operation, you can instead use **Inject Dependency**.
 - **Precedent:** The precedents are `HandoffGitGateway`, `LandGitGateway`, and `GraphiteStackGitGateway`. These named Consumer Gateways appear with the live examples for the inversion rule in `docs/conventions/consumer-gateways-and-command-shape.md`.
+
+### Introduce Gateway
+
+*Mint a new semantic, capability-shaped gateway with a paired real adapter and true in-memory fake.*
+
+- **Mechanics:** Define a domain-first contract: domain operations over domain objects, never substrate primitives. Put the real adapter at the edge, and provide a constructor-state in-memory fake as a true alternate implementation. Wire the gateway at a composition root or `createReal*Context` factory. Placement follows ADR 0019 (refined by ADR 0032). Shape follows `docs/conventions/consumer-gateways-and-command-shape.md`. Fake style follows the `typescript-fake-driven-testing` skill.
+- **Constraints:** This technique is the heavyweight rung. Use it only when the boundary has multiple domain operations, needs a durable fake across many tests, or has a second consumer. Provide one canonical fake per gateway. Consumers do not create per-test fakes. Introducing means *new*: when a suitable contract already exists, use **Inject Gateway**.
+- **Precedent:** One precedent is `PlanStoreGateway` with `InMemoryPlanStoreGateway` and a real-adapter integration smoke in `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-28T201757Z-plans-plan-store-gateway.md`. It is also the model for domain-specific storage gateways over raw filesystem operations.
 
 ---
 
