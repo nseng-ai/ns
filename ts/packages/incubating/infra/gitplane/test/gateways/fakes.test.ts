@@ -159,14 +159,9 @@ test.each([
 		invoke: (gateway: InMemoryArtifactGateway) => gateway.readCommitFacts({ commit: "missing" }),
 	},
 	{
-		operation: "readWorkingTreeSnapshot",
+		operation: "readCommitTreeCandidate",
 		invoke: (gateway: InMemoryArtifactGateway) =>
-			gateway.readWorkingTreeSnapshot({ sourceId: "s", path: "missing" }),
-	},
-	{
-		operation: "readCommitTreeSnapshot",
-		invoke: (gateway: InMemoryArtifactGateway) =>
-			gateway.readCommitTreeSnapshot({ sourceId: "s", commit: "c", path: "missing" }),
+			gateway.readCommitTreeCandidate({ commit: "c", path: "missing" }),
 	},
 	{
 		operation: "diffCommits",
@@ -182,29 +177,28 @@ test.each([
 	},
 );
 
-test("artifact discovery seeds distinguish roots and commit-root pairs", async () => {
+test("commit inventories distinguish commit-root pairs and preserve unavailability", async () => {
 	const gateway = new InMemoryArtifactGateway({
-		workingBoundaries: [
-			{ artifactRoot: "one", boundaries: [{ path: "one/a" }] },
-			{ artifactRoot: "two", boundaries: [{ path: "two/b" }] },
+		commitInventories: [
+			{
+				commit: "c1",
+				artifactRoot: "two",
+				observation: { type: "found", value: [{ path: "two/old", kind: "directory" }] },
+			},
+			{
+				commit: "c2",
+				artifactRoot: "one",
+				observation: { type: "unavailable", reason: "incomplete-history" },
+			},
 		],
-		commitBoundaries: [
-			{ commit: "c1", artifactRoot: "one", boundaries: [{ path: "one/old" }] },
-			{ commit: "c1", artifactRoot: "two", boundaries: [{ path: "two/old" }] },
-			{ commit: "c2", artifactRoot: "one", boundaries: [{ path: "one/new" }] },
-		],
 	});
-	expect(await gateway.discoverWorkingTree({ artifactRoot: "two" })).toMatchObject({
+	expect(await gateway.inventoryCommitTree({ commit: "c1", artifactRoot: "two" })).toEqual({
 		ok: true,
-		value: [{ path: "two/b" }],
+		value: { type: "found", value: [{ path: "two/old", kind: "directory" }] },
 	});
-	expect(await gateway.discoverCommitTree({ commit: "c1", artifactRoot: "two" })).toMatchObject({
+	expect(await gateway.inventoryCommitTree({ commit: "c2", artifactRoot: "one" })).toEqual({
 		ok: true,
-		value: [{ path: "two/old" }],
-	});
-	expect(await gateway.discoverCommitTree({ commit: "c2", artifactRoot: "one" })).toMatchObject({
-		ok: true,
-		value: [{ path: "one/new" }],
+		value: { type: "unavailable", reason: "incomplete-history" },
 	});
 });
 

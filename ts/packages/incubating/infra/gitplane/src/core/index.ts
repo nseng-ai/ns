@@ -64,8 +64,12 @@ export type {
 	EventRecord,
 	GatewayError,
 	GatewayResult,
+	GitObservation,
+	GitUnavailableReason,
 	InsertResult,
 	LookupResult,
+	MarkerProvenanceObservation,
+	MarkerProvenanceRequest,
 	MaterializationStoreGateway,
 	OperationResult,
 	ReconciliationErrorRecord,
@@ -75,6 +79,16 @@ export type {
 	TargetRowRecord,
 	TreeInventoryEntry,
 } from "./gateways.ts";
+export { gatherSourceFacts } from "./gather-source-facts.ts";
+export type {
+	CandidateMarkerProvenance,
+	CommitCorpusFacts,
+	GatheredSourceFacts,
+	GatherSourceFactsOptions,
+	GatherSourceFactsResult,
+	HistoryRelationship,
+	ReconciliationMode,
+} from "./gather-source-facts.ts";
 export { checkArtifactCorpus } from "./check/check-artifact-corpus.ts";
 export type {
 	CorpusCheckFailure,

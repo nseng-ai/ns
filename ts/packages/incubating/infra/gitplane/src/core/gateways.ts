@@ -2,7 +2,6 @@ import type { ArtifactClassification, ArtifactId } from "./artifact.ts";
 import type {
 	ArtifactCandidate,
 	ArtifactEntry,
-	ArtifactSnapshot,
 	TargetMapping,
 	TargetProjectionField,
 } from "./domain.ts";
@@ -49,34 +48,55 @@ export interface CommitDiff {
 	readonly toCommit: string;
 	readonly changedPaths: readonly string[];
 }
+export type GitUnavailableReason = "missing-object" | "incomplete-history";
+export type GitObservation<T> =
+	| { readonly type: "found"; readonly value: T }
+	| { readonly type: "unavailable"; readonly reason: GitUnavailableReason };
+export interface MarkerProvenanceRequest {
+	readonly artifactId: ArtifactId;
+	readonly path: string;
+	readonly markerBytes: Uint8Array;
+}
+export type MarkerProvenanceObservation =
+	| {
+			readonly type: "found";
+			readonly artifactId: ArtifactId;
+			readonly markerLastChangedCommit: string;
+	  }
+	| {
+			readonly type: "unavailable";
+			readonly artifactId: ArtifactId;
+			readonly reason: GitUnavailableReason;
+	  };
 export interface ArtifactGateway {
 	createArtifact(request: CreateArtifactRequest): Promise<CreateArtifactResult>;
-	resolveCommit(request: { readonly commitish: string }): Promise<GatewayResult<string>>;
-	readCommitFacts(request: { readonly commit: string }): Promise<GatewayResult<CommitFacts>>;
+	resolveCommit(request: {
+		readonly commitish: string;
+	}): Promise<GatewayResult<GitObservation<string>>>;
+	readCommitFacts(request: {
+		readonly commit: string;
+	}): Promise<GatewayResult<GitObservation<CommitFacts>>>;
 	isAncestor(request: {
 		readonly ancestor: string;
 		readonly descendant: string;
-	}): Promise<GatewayResult<boolean>>;
-	discoverWorkingTree(request: {
-		readonly artifactRoot: string;
-	}): Promise<GatewayResult<readonly ArtifactBoundary[]>>;
-	discoverCommitTree(request: {
+	}): Promise<GatewayResult<GitObservation<boolean>>>;
+	inventoryCommitTree(request: {
 		readonly commit: string;
 		readonly artifactRoot: string;
-	}): Promise<GatewayResult<readonly ArtifactBoundary[]>>;
-	readWorkingTreeSnapshot(request: {
-		readonly sourceId: string;
-		readonly path: string;
-	}): Promise<GatewayResult<ArtifactSnapshot>>;
-	readCommitTreeSnapshot(request: {
-		readonly sourceId: string;
+	}): Promise<GatewayResult<GitObservation<readonly TreeInventoryEntry[]>>>;
+	readCommitTreeCandidate(request: {
 		readonly commit: string;
 		readonly path: string;
-	}): Promise<GatewayResult<ArtifactSnapshot>>;
+	}): Promise<GatewayResult<GitObservation<ArtifactCandidate>>>;
 	diffCommits(request: {
 		readonly fromCommit: string;
 		readonly toCommit: string;
-	}): Promise<GatewayResult<CommitDiff>>;
+	}): Promise<GatewayResult<GitObservation<CommitDiff>>>;
+	readMarkerProvenance(request: {
+		readonly targetCommit: string;
+		readonly artifactRoot: string;
+		readonly markers: readonly MarkerProvenanceRequest[];
+	}): Promise<GatewayResult<readonly MarkerProvenanceObservation[]>>;
 	inventoryWorkingTree(request: {
 		readonly artifactRoot: string;
 	}): Promise<GatewayResult<readonly TreeInventoryEntry[]>>;

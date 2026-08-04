@@ -5,12 +5,17 @@ import { promisify } from "node:util";
 import type {
 	ArtifactCandidate,
 	ArtifactEntry,
+	ArtifactId,
 	ArtifactGateway,
 	CommitDiff,
 	CommitFacts,
 	CreateArtifactRequest,
 	CreateArtifactResult,
+	GatewayError,
 	GatewayResult,
+	GitObservation,
+	MarkerProvenanceObservation,
+	MarkerProvenanceRequest,
 	TreeInventoryEntry,
 } from "../core/index.ts";
 
@@ -58,18 +63,35 @@ function failure(error: unknown) {
 function isCode(error: unknown, code: string): boolean {
 	return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }
-// This temporarily implements the narrower corpus-check contract; it becomes the full
-// ArtifactGateway when reconciliation adds discovery and snapshot-reading capabilities.
-export class RealArtifactGateway implements Pick<
-	ArtifactGateway,
-	| "createArtifact"
-	| "resolveCommit"
-	| "readCommitFacts"
-	| "isAncestor"
-	| "inventoryWorkingTree"
-	| "readWorkingTreeCandidate"
-	| "diffCommits"
-> {
+function isExitCode(error: unknown, code: number): boolean {
+	if (typeof error !== "object" || error === null || !("code" in error)) return false;
+	return error.code === code || error.code === String(code);
+}
+type GitFailureClassification =
+	| { readonly type: "unavailable" }
+	| { readonly type: "operational"; readonly error: GatewayError };
+function decodeGpId(bytes: Uint8Array): string | null {
+	try {
+		const value: unknown = JSON.parse(new TextDecoder().decode(bytes));
+		if (typeof value !== "object" || value === null || !("gpId" in value)) return null;
+		const gpId = (value as { readonly gpId?: unknown }).gpId;
+		return typeof gpId === "string" ? gpId : null;
+	} catch {
+		return null;
+	}
+}
+function sameMarker(left: MarkerProvenanceRequest, right: MarkerProvenanceRequest): boolean {
+	return (
+		left.path === right.path && Buffer.from(left.markerBytes).equals(Buffer.from(right.markerBytes))
+	);
+}
+function unavailableProvenance(
+	markers: readonly MarkerProvenanceRequest[],
+	reason: "missing-object" | "incomplete-history",
+): readonly MarkerProvenanceObservation[] {
+	return markers.map((marker) => ({ type: "unavailable", artifactId: marker.artifactId, reason }));
+}
+export class RealArtifactGateway implements ArtifactGateway {
 	private readonly cwd: string;
 	private readonly git: GitCommandExecutor;
 	private readonly hooks: RealArtifactGatewayHooks;
@@ -173,39 +195,70 @@ export class RealArtifactGateway implements Pick<
 			return { ok: false, error: failure(error) };
 		}
 	}
-	async resolveCommit(request: { readonly commitish: string }): Promise<GatewayResult<string>> {
-		return this.gitResult(["rev-parse", "--verify", `${request.commitish}^{commit}`], (output) =>
-			output.toString().trim(),
-		);
+	async resolveCommit(request: {
+		readonly commitish: string;
+	}): Promise<GatewayResult<GitObservation<string>>> {
+		try {
+			const output = (
+				await this.git.execute([
+					"rev-parse",
+					"--verify",
+					"--quiet",
+					`${request.commitish}^{commit}`,
+				])
+			).stdout
+				.toString()
+				.trim();
+			if (output === "") throw new Error("Unexpected git rev-parse output.");
+			return { ok: true, value: { type: "found", value: output } };
+		} catch (error) {
+			return isExitCode(error, 1)
+				? { ok: true, value: { type: "unavailable", reason: "missing-object" } }
+				: { ok: false, error: failure(error) };
+		}
 	}
-	async readCommitFacts(request: { readonly commit: string }): Promise<GatewayResult<CommitFacts>> {
-		return this.gitResult(["show", "-s", "--format=%H%x00%P", request.commit], (output) => {
-			const [commit = "", parentsText = ""] = output.toString().trim().split("\0");
-			const parents = parentsText === "" ? [] : parentsText.split(" ");
-			return { commit, parents, isMerge: parents.length > 1 };
-		});
+	async readCommitFacts(request: {
+		readonly commit: string;
+	}): Promise<GatewayResult<GitObservation<CommitFacts>>> {
+		return this.gitObservation(
+			["show", "-s", "--format=%H%x00%P", request.commit],
+			[request.commit],
+			(output) => {
+				const [commit = "", parentsText = ""] = output.toString().trim().split("\0");
+				const parents = parentsText === "" ? [] : parentsText.split(" ");
+				if (commit === "") throw new Error("Unexpected git show output.");
+				return { commit, parents, isMerge: parents.length > 1 };
+			},
+		);
 	}
 	async isAncestor(request: {
 		readonly ancestor: string;
 		readonly descendant: string;
-	}): Promise<GatewayResult<boolean>> {
+	}): Promise<GatewayResult<GitObservation<boolean>>> {
 		try {
 			await this.git.execute(["merge-base", "--is-ancestor", request.ancestor, request.descendant]);
-			return { ok: true, value: true };
+			return { ok: true, value: { type: "found", value: true } };
 		} catch (error) {
 			if (typeof error === "object" && error !== null && "code" in error && error.code === 1)
-				return { ok: true, value: false };
-			return { ok: false, error: failure(error) };
+				return { ok: true, value: { type: "found", value: false } };
+			const classification = await this.classifyGitFailure(error, [
+				request.ancestor,
+				request.descendant,
+			]);
+			return classification.type === "unavailable"
+				? { ok: true, value: { type: "unavailable", reason: "missing-object" } }
+				: { ok: false, error: classification.error };
 		}
 	}
 	async inventoryCommitTree(request: {
 		readonly commit: string;
 		readonly artifactRoot: string;
-	}): Promise<GatewayResult<readonly TreeInventoryEntry[]>> {
+	}): Promise<GatewayResult<GitObservation<readonly TreeInventoryEntry[]>>> {
 		if (path.isAbsolute(request.artifactRoot) || request.artifactRoot.split("/").includes(".."))
 			return { ok: false, error: failure(new Error("Path escapes invocation directory.")) };
-		return this.gitResult(
+		return this.gitObservation(
 			["ls-tree", "-rz", "-r", "-t", request.commit, "--", request.artifactRoot],
+			[request.commit],
 			(output) =>
 				output
 					.toString()
@@ -235,14 +288,15 @@ export class RealArtifactGateway implements Pick<
 	async readCommitTreeCandidate(request: {
 		readonly commit: string;
 		readonly path: string;
-	}): Promise<GatewayResult<ArtifactCandidate>> {
+	}): Promise<GatewayResult<GitObservation<ArtifactCandidate>>> {
 		const inventory = await this.inventoryCommitTree({
 			commit: request.commit,
 			artifactRoot: request.path,
 		});
 		if (!inventory.ok) return inventory;
+		if (inventory.value.type === "unavailable") return { ok: true, value: inventory.value };
 		try {
-			const files = inventory.value.filter(
+			const files = inventory.value.value.filter(
 				(item) => item.kind === "regular-file" && item.path !== request.path,
 			);
 			const contents = await this.readCommitBlobs(
@@ -250,7 +304,7 @@ export class RealArtifactGateway implements Pick<
 				files.map((item) => item.path),
 			);
 			const entries: ArtifactEntry[] = [];
-			for (const item of inventory.value) {
+			for (const item of inventory.value.value) {
 				const relative = item.path.slice(request.path.length + 1);
 				if (relative === "") continue;
 				if (item.kind === "regular-file") {
@@ -259,7 +313,7 @@ export class RealArtifactGateway implements Pick<
 					entries.push({ path: relative, kind: item.kind, bytes });
 				} else entries.push({ path: relative, kind: item.kind });
 			}
-			return { ok: true, value: { path: request.path, entries } };
+			return { ok: true, value: { type: "found", value: { path: request.path, entries } } };
 		} catch (error) {
 			return { ok: false, error: failure(error) };
 		}
@@ -301,9 +355,10 @@ export class RealArtifactGateway implements Pick<
 	async diffCommits(request: {
 		readonly fromCommit: string;
 		readonly toCommit: string;
-	}): Promise<GatewayResult<CommitDiff>> {
-		return this.gitResult(
+	}): Promise<GatewayResult<GitObservation<CommitDiff>>> {
+		return this.gitObservation(
 			["diff", "--name-only", "-z", request.fromCommit, request.toCommit],
+			[request.fromCommit, request.toCommit],
 			(output) => ({
 				fromCommit: request.fromCommit,
 				toCommit: request.toCommit,
@@ -311,14 +366,155 @@ export class RealArtifactGateway implements Pick<
 			}),
 		);
 	}
-	private async gitResult<T>(
-		args: readonly string[],
-		map: (stdout: Buffer) => T,
-	): Promise<GatewayResult<T>> {
+	async readMarkerProvenance(request: {
+		readonly targetCommit: string;
+		readonly artifactRoot: string;
+		readonly markers: readonly MarkerProvenanceRequest[];
+	}): Promise<GatewayResult<readonly MarkerProvenanceObservation[]>> {
+		const markers = [...request.markers].sort((left, right) =>
+			left.artifactId.localeCompare(right.artifactId),
+		);
+		let historyOutput: Buffer;
 		try {
-			return { ok: true, value: map((await this.git.execute(args)).stdout) };
+			historyOutput = (await this.git.execute(["rev-list", "--parents", request.targetCommit]))
+				.stdout;
+		} catch (error) {
+			const classification = await this.classifyGitFailure(error, [request.targetCommit]);
+			return classification.type === "unavailable"
+				? { ok: true, value: unavailableProvenance(markers, "missing-object") }
+				: { ok: false, error: classification.error };
+		}
+		try {
+			const historyLines = historyOutput.toString().trim().split("\n").filter(Boolean);
+			if (
+				historyLines.length === 0 ||
+				historyLines.some((line) => !/^[0-9a-f]{40}( [0-9a-f]{40})*$/.test(line))
+			)
+				throw new Error("Unexpected git rev-list output.");
+			const history = historyLines.map((line) => line.split(" "));
+			if (history.some((line) => line.length > 2))
+				return { ok: true, value: unavailableProvenance(markers, "incomplete-history") };
+			const requested = new Map<ArtifactId, MarkerProvenanceRequest>(
+				markers.map((marker) => [marker.artifactId, marker]),
+			);
+			const results = new Map<ArtifactId, MarkerProvenanceObservation>();
+			const snapshots: Array<{
+				readonly commit: string;
+				readonly markers: Map<ArtifactId, MarkerProvenanceRequest>;
+			}> = [];
+			for (const [commit = ""] of history) {
+				const markerSnapshot = await this.readMarkersAtCommit(
+					commit,
+					request.artifactRoot,
+					requested,
+				);
+				if (!markerSnapshot.ok) return markerSnapshot;
+				if (markerSnapshot.value.type === "unavailable")
+					return { ok: true, value: unavailableProvenance(markers, "missing-object") };
+				snapshots.push({ commit, markers: markerSnapshot.value.value });
+			}
+			for (const marker of markers) {
+				for (let index = 0; index < snapshots.length; index += 1) {
+					const snapshot = snapshots[index];
+					if (snapshot === undefined) break;
+					const current = snapshot.markers.get(marker.artifactId);
+					if (current === undefined) continue;
+					const parent = snapshots[index + 1]?.markers.get(marker.artifactId);
+					if (parent === undefined || !sameMarker(current, parent)) {
+						results.set(marker.artifactId, {
+							type: "found",
+							artifactId: marker.artifactId,
+							markerLastChangedCommit: snapshot.commit,
+						});
+						break;
+					}
+				}
+			}
+			return {
+				ok: true,
+				value: markers.map(
+					(marker) =>
+						results.get(marker.artifactId) ?? {
+							type: "unavailable",
+							artifactId: marker.artifactId,
+							reason: "incomplete-history",
+						},
+				),
+			};
 		} catch (error) {
 			return { ok: false, error: failure(error) };
 		}
+	}
+	private async readMarkersAtCommit(
+		commit: string,
+		artifactRoot: string,
+		requested: ReadonlyMap<ArtifactId, MarkerProvenanceRequest>,
+	): Promise<GatewayResult<GitObservation<Map<ArtifactId, MarkerProvenanceRequest>>>> {
+		const inventory = await this.inventoryCommitTree({ commit, artifactRoot });
+		if (!inventory.ok) return inventory;
+		if (inventory.value.type === "unavailable")
+			return { ok: true, value: { type: "unavailable", reason: inventory.value.reason } };
+		const markerPaths = inventory.value.value
+			.filter(
+				(entry) => entry.kind === "regular-file" && entry.path.endsWith("/gitplane-artifact.json"),
+			)
+			.map((entry) => entry.path);
+		try {
+			const bytes = await this.readCommitBlobs(commit, markerPaths);
+			const result = new Map<ArtifactId, MarkerProvenanceRequest>();
+			for (const markerPath of markerPaths) {
+				const markerBytes = bytes.get(markerPath);
+				if (markerBytes === undefined) throw new Error("Unexpected git cat-file output.");
+				const artifactId = decodeGpId(markerBytes);
+				const requestedMarker =
+					artifactId === null
+						? undefined
+						: [...requested.values()].find((marker) => marker.artifactId === artifactId);
+				if (requestedMarker !== undefined)
+					result.set(requestedMarker.artifactId, {
+						artifactId: requestedMarker.artifactId,
+						path: markerPath.slice(0, -"/gitplane-artifact.json".length),
+						markerBytes,
+					});
+			}
+			return { ok: true, value: { type: "found", value: result } };
+		} catch (error) {
+			return { ok: false, error: failure(error) };
+		}
+	}
+	private async gitObservation<T>(
+		args: readonly string[],
+		commits: readonly string[],
+		map: (stdout: Buffer) => T,
+	): Promise<GatewayResult<GitObservation<T>>> {
+		let stdout: Buffer;
+		try {
+			stdout = (await this.git.execute(args)).stdout;
+		} catch (error) {
+			const classification = await this.classifyGitFailure(error, commits);
+			return classification.type === "unavailable"
+				? { ok: true, value: { type: "unavailable", reason: "missing-object" } }
+				: { ok: false, error: classification.error };
+		}
+		try {
+			return { ok: true, value: { type: "found", value: map(stdout) } };
+		} catch (error) {
+			return { ok: false, error: failure(error) };
+		}
+	}
+	private async classifyGitFailure(
+		error: unknown,
+		commits: readonly string[],
+	): Promise<GitFailureClassification> {
+		if (!isExitCode(error, 128)) return { type: "operational", error: failure(error) };
+		for (const commit of new Set(commits)) {
+			try {
+				await this.git.execute(["rev-parse", "--verify", "--quiet", `${commit}^{commit}`]);
+			} catch (probeError) {
+				if (isExitCode(probeError, 1)) return { type: "unavailable" };
+				return { type: "operational", error: failure(error) };
+			}
+		}
+		return { type: "operational", error: failure(error) };
 	}
 }
