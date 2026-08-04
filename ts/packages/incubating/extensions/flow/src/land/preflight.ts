@@ -373,6 +373,21 @@ export function validateOpenPrBasics(
 	return validateOpenPrBasicsFromMismatches(input, prExpectationMismatches(input));
 }
 
+/** Whether GitHub proves an open PR has the expected local head and base branch. */
+export function isMaintenancePrCurrent(options: {
+	readonly pr: PullRequestFacts;
+	readonly branch: string;
+	readonly localSha: string;
+	readonly expectedBase: string;
+}): boolean {
+	const basics = validateOpenPrBasics({
+		pr: options.pr,
+		branch: options.branch,
+		localSha: options.localSha,
+	});
+	return basics.type === "completed" && options.pr.baseRefName === options.expectedBase;
+}
+
 interface PrExpectationMismatches {
 	readonly isNotOpen: boolean;
 	readonly isDraft: boolean;

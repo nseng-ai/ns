@@ -4,6 +4,7 @@ import {
 	pullRequestFacts,
 	stackSnapshot,
 } from "../../src/land/testing.ts";
+import type { DescendantReconciliationOutcome } from "../../src/land/execution/descendant-reconciliation.ts";
 import {
 	performGraphiteMaintenance,
 	type GraphiteMaintenanceProgress,
@@ -22,7 +23,15 @@ const FEATURE_A_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const FEATURE_B_SHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const FEATURE_C_SHA = "cccccccccccccccccccccccccccccccccccccccc";
 
+type DescendantWarningGradeOutcome = Extract<DescendantReconciliationOutcome, { kind: "skip" }>;
+type DescendantCanReturnWarningGrade = DescendantWarningGradeOutcome extends never ? false : true;
+const DESCENDANT_CAN_RETURN_WARNING_GRADE: DescendantCanReturnWarningGrade = false;
+
 describe("Graphite maintenance planning", () => {
+	test("required descendant reconciliation has no warning-grade outcome", () => {
+		expect(DESCENDANT_CAN_RETURN_WARNING_GRADE).toBe(false);
+	});
+
 	test("selects required next landing before descendant reconciliation", () => {
 		const plan = createLandingPlan({
 			landingBranches: ["feature-a", "feature-b"],
@@ -36,16 +45,10 @@ describe("Graphite maintenance planning", () => {
 
 		const maintenance = planGraphiteMaintenanceTargets(plan, 0);
 
-		expect(maintenance).toMatchObject({
+		expect(maintenance).toEqual({
 			mode: "required-next-landing",
-			severity: "fail",
 			branches: ["feature-b"],
-			refreshCheckedOutConflictHandling: "fail",
-			deleteCheckedOutConflictHandling: "fail",
-			isDescendantRoot: false,
-			shouldHaltOnRefreshFailure: true,
 		});
-		expect(maintenance.skippedScopeText("feature-a")).toBe("local branch feature-a cleanup was");
 	});
 
 	test("selects required descendant roots after final landing branch", () => {
@@ -61,18 +64,10 @@ describe("Graphite maintenance planning", () => {
 
 		const maintenance = planGraphiteMaintenanceTargets(plan, 0);
 
-		expect(maintenance).toMatchObject({
+		expect(maintenance).toEqual({
 			mode: "required-descendants",
-			severity: "fail",
 			branches: ["feature-c"],
-			refreshCheckedOutConflictHandling: "defer",
-			deleteCheckedOutConflictHandling: "fail",
-			isDescendantRoot: true,
-			shouldHaltOnRefreshFailure: true,
 		});
-		expect(maintenance.skippedScopeText("feature-a")).toBe(
-			"local branch feature-a cleanup and descendant restack/update were",
-		);
 	});
 
 	test("refreshes downstream landing expectations after maintained branch only", () => {
