@@ -12,6 +12,7 @@ When you need user input during this grill session:
 - Do not ask routine validation-scope or test-coverage questions; defer ordinary validation coverage to the implementing agent's project policy and changed-file judgment unless validation is itself a product/design requirement, release gate, or user-visible compatibility promise.
 - Avoid double negatives and ambiguous option labels.
 - Prefer affirmative, mutually exclusive options.
+- Frame questions and recommended answers with uniform polarity: a plain "yes" must always mean "adopt the recommendation." Never pair a question whose recommended answer is "no" with a trailing "Do you agree?". When recommending against something, state the recommendation as a positive assertion of the recommended behavior.
 - Provide 2–5 substantive choices, not counting automatic freeform/status/end choices.
 - Provide your recommended answer and rationale.
 - Provide estimatedRemaining on every grill_ask call. Use exact only when you know; otherwise use a range with a basis or unknown with a basis. Do not invent precision.

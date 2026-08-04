@@ -59,6 +59,7 @@ describe("enriched-plan-commands", () => {
 			buildWriteGrilledPlanPrompt("plan the grilled command variant"),
 		]);
 		expect(pi.sentUserMessages[0]).toContain("grill_ask");
+		expect(pi.sentUserMessages[0]).toContain("uniform polarity");
 		expect(pi.sentUserMessages[0]).toContain("write_saved_plan_file");
 		expect(context.notifications).toEqual([
 			{ message: "Starting /ns:plan:grill-and-save planning grill…", level: "info" },

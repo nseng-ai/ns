@@ -49,7 +49,7 @@ Interview the user relentlessly before writing (inspired by [Matt Pocock's `gril
   3. Single-select the primary shaping; on pattern opt-in, read `references/<pattern>-create.md` before asking that pattern's questions. Ask layering/composition questions only when the catalog says the chosen pattern composes.
 - Walk each branch of the design tree, resolving dependencies between decisions one by one; focus on branch points that affect scope, completion criteria, assumptions, risks, sequencing, closure evidence, or — only when the user explicitly requested execution behavior — execution policy.
 - Explore the codebase or existing docs instead of asking questions whose answers are discoverable locally.
-- Ask one unresolved question at a time, including your recommended answer so the user can confirm or correct it, as a compact numbered menu with domain-specific labels — never an open-ended continuation prompt. Tell the user they can answer with a number or a custom correction.
+- Ask one unresolved question at a time, including your recommended answer so the user can confirm or correct it — framed so choosing it is an affirmative selection, never a "no" recommendation followed by "Do you agree?" — as a compact numbered menu with domain-specific labels — never an open-ended continuation prompt. Tell the user they can answer with a number or a custom correction.
 - Menu order: recommended path first, main alternative(s) next, and — only after the slug is explicitly confirmed — a final stop option reading exactly `Stop and create Objective <slug>`, confirmed slug verbatim. If the slug is unconfirmed, omit the stop option and resolve slug confirmation first.
 - Never write generic or invented durable content; keep interviewing until you don't have to.
 

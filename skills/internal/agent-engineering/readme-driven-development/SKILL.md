@@ -13,7 +13,7 @@ Write the README before the software. The README is the canonical, exclusively u
 ## Loop
 
 1. **Draft or read.** Locate the canonical README; draft one if missing. Write it as the finished product's documentation.
-2. **Grill.** Interview the user about every unsettled design decision the README exposes — one question at a time, with a recommended answer — until the README is coherent: no contradictions, no silently invented commitments, a clear user-facing story. Explore the codebase instead of asking when the answer is discoverable.
+2. **Grill.** Interview the user about every unsettled design decision the README exposes — one question at a time, with a recommended answer framed so a plain "yes" endorses it (never a "no" recommendation followed by "Do you agree?") — until the README is coherent: no contradictions, no silently invented commitments, a clear user-facing story. Explore the codebase instead of asking when the answer is discoverable.
 3. **Settle.** Fold answers back into the README. Edit obvious clarity and structure problems directly; ask before resolving contradictions, changing scope, or adding new commitments.
 4. **Report.** End with a concise pass report: README path, decisions settled, questions still open or deferred, supporting documents touched, recommended next action.
 
