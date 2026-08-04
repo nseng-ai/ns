@@ -100,6 +100,7 @@ Structured grilling contract:
 - Use ${GRILL_ASK_TOOL_NAME} for every user-facing grilling question.
 - Ask exactly one question per ${GRILL_ASK_TOOL_NAME} call.
 - Each question must include 2–5 affirmative, mutually exclusive options and a recommendation with concise rationale.
+- Frame each question and recommendation with uniform polarity: agreeing with the recommendation must be an affirmative answer — never a question whose recommended answer is "no" followed by "Do you agree?".
 - Use up to 12 high-leverage questions. Some plans are simple and may not require any user-facing questions; stop early when requirements are resolved, and exceed that budget only if the user explicitly asks to continue.
 - If ${GRILL_ASK_TOOL_NAME} is unavailable or returns ui_unavailable, stop, explain that structured grill UI is required, summarize current status, and do not call write_saved_plan_file.
 - If ${GRILL_ASK_TOOL_NAME} returns status_request, provide a compact status report and re-ask the same pending question; do not count it as an answer.

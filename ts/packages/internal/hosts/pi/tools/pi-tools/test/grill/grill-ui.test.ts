@@ -195,6 +195,7 @@ describe("grill-ui prompt", () => {
 		expect(prompt).toContain("Ask exactly one question per grill_ask call");
 		expect(prompt).toContain("Provide estimatedRemaining on every grill_ask call");
 		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
+		expect(prompt).toContain("Frame questions and recommended answers with uniform polarity");
 		expect(prompt).toContain('If grill_ask returns action: "status-request"');
 		expect(prompt).toContain(
 			"If a fact can be found by exploring the codebase, look it up instead of asking",
@@ -217,6 +218,7 @@ describe("grill-with-docs-ui prompt", () => {
 		expect(prompt).toContain("CONTEXT.md");
 		expect(prompt).toContain("docs-aware preflight");
 		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
+		expect(prompt).toContain("Frame questions and recommended answers with uniform polarity");
 		expect(prompt).toContain('If grill_ask returns action: "status-request"');
 	});
 });

@@ -47,6 +47,10 @@ Vendored dirs are byte-identical to upstream except repo-owned Harness Overlays 
 
 - `pocock-review/SKILL.md`: the frontmatter `name:` line (rename on import).
 - `pocock-resolving-merge-conflicts/SKILL.md`: the frontmatter `name:` line (rename on import).
+- `grilling/SKILL.md`: one sentence — the uniform-polarity rule (a plain "yes" must
+  endorse the recommended answer; never a "no"-recommendation followed by "Do you
+  agree?"). Prevents mixed-polarity compound questions in the portable prose loop.
+  Re-apply after every refresh.
 - `wayfinder/SKILL.md`: one line — the tracker-doc sentence points at
   `docs/agents/issue-tracker.md` ("Wayfinding operations" section, local-markdown
   fallback) instead of upstream's `/setup-matt-pocock-skills` bootstrap, which is not
@@ -169,6 +173,8 @@ additions:
   2026-07-12: consolidated into `skills/internal/skill-system/skill-audit/` and de-melded to a context
   pointer at the vendored skill; the registry collapsed to zero rows for this pairing
   (see "De-melded" note above).
+- Propose the `grilling` uniform-polarity sentence upstream to `mattpocock/skills`;
+  the recorded fork dissolves if accepted.
 - Melding assessments for other upstreams when their first update lands:
   `thermo-nuclear-code-quality-review` (vs first-party
   `review-thermonuclear-review`), `fdt-refactor-mock-to-fake` (cross-repo coherence
