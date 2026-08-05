@@ -52,6 +52,11 @@ export type GitUnavailableReason = "missing-object" | "incomplete-history";
 export type GitObservation<T> =
 	| { readonly type: "found"; readonly value: T }
 	| { readonly type: "unavailable"; readonly reason: GitUnavailableReason };
+/**
+ * Read results are immutable once produced: neither gateways nor consumers may
+ * mutate returned facts, entries, or byte buffers after a read completes.
+ * Implementations must return values that are safe to share under that contract.
+ */
 export interface ArtifactGateway {
 	createArtifact(request: CreateArtifactRequest): Promise<CreateArtifactResult>;
 	resolveCommit(request: {
