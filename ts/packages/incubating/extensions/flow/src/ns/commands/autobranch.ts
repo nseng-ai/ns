@@ -18,14 +18,6 @@ import {
 	type PendingWorktreeSnapshot,
 } from "../worktree.ts";
 
-const AUTOBRANCH_DESCRIPTION = `Create a Graphite branch using \`gt create\` from dirty worktree changes.
-
-This command requires pending worktree changes. It stashes pending changes, creates a Graphite branch, restores the stash, and creates a checkpoint commit.
-
-If the worktree is clean, use \`ns flow branch-latest-commit\` to move the latest eligible commit to a new Graphite child branch.
-
-`;
-
 const autobranchRequestSchema = z.object({
 	slug: z
 		.string()
@@ -36,9 +28,6 @@ const autobranchRequestSchema = z.object({
 type AutobranchRequest = z.output<typeof autobranchRequestSchema>;
 
 export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = defineCommand({
-	name: "autobranch",
-	summary: "Create a Graphite branch from dirty worktree changes.",
-	description: AUTOBRANCH_DESCRIPTION,
 	schema: autobranchRequestSchema,
 	resultSchema: z.string(),
 	options: { slug: { short: "-s" } },

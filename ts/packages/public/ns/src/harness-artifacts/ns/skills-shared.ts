@@ -1,4 +1,4 @@
-import { failure, negative, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
+import { failure, negative, usageError, type CommandOutcome } from "@nseng-ai/clinkr/app";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
@@ -40,16 +40,16 @@ export function harnessResolutionContext(context: SkillsCommandContext) {
 	});
 }
 
-export function unknownSkillExit<T>(skill: string): ClinkrExit<T> {
+export function unknownSkillExit<T>(skill: string): CommandOutcome<T> {
 	return negative(`Unknown first-party ns skill ${JSON.stringify(skill)}.`);
 }
 
-export function provisionErrorExit<T>(error: HarnessArtifactProvisionErrorInfo): ClinkrExit<T> {
+export function provisionErrorExit<T>(error: HarnessArtifactProvisionErrorInfo): CommandOutcome<T> {
 	if (error.code === "unknown_harness") return harnessPathErrorExit(error);
 	return genericFailureExit(error);
 }
 
-export function harnessPathErrorExit<T>(error: HarnessPathErrorInfo): ClinkrExit<T> {
+export function harnessPathErrorExit<T>(error: HarnessPathErrorInfo): CommandOutcome<T> {
 	if (error.code === "unknown_harness") {
 		return usageError(error.message, { field: "harness", ...error.details });
 	}
@@ -60,6 +60,6 @@ function genericFailureExit<T>(error: {
 	code: string;
 	message: string;
 	details?: unknown;
-}): ClinkrExit<T> {
+}): CommandOutcome<T> {
 	return failure(error.code.replaceAll("_", "-"), error.message, error.details);
 }

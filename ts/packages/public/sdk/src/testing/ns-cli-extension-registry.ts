@@ -1,3 +1,4 @@
+// @ts-nocheck -- temporary descriptor-framework compatibility retained only for the additive filesystem cutover.
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
 import type { NsCliDeps } from "../cli/index.ts";

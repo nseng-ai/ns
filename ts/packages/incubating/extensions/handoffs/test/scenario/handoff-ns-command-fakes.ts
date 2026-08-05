@@ -2,7 +2,6 @@ import { FakeBrmemGateway, type BrmemSourceReader, type SourceBytesResult } from
 import type { ClinkrInteraction } from "@nseng-ai/clinkr";
 import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	ExecResult,
@@ -86,22 +85,37 @@ export async function runHandoffCommand<S extends NsCommandSchema, T>(
 	request: unknown,
 	options: { api?: NsExtensionApi } = {},
 ): Promise<ClinkrExit<T>> {
-	const exit = await command.run(options.api ?? createFakeHandoffNsApi(), {
-		argv: requestObjectToArgv(request, {
-			positionalKeys: positionalRequestKeysForCommand(command.name),
-		}),
-	});
+	const api = options.api ?? createFakeHandoffNsApi();
+	const parsed = command.schema.safeParse(request);
+	const outcome = parsed.success
+		? await command.handler(api, parsed.data)
+		: {
+				status: "usage-error" as const,
+				errorType: "usage-error",
+				message: parsed.error.issues.map((issue) => issue.message).join("\n"),
+			};
+	const exit =
+		outcome.status === "success"
+			? { type: "ok" as const, data: outcome.data }
+			: outcome.status === "negative"
+				? { type: "negative" as const, message: outcome.message, data: outcome.data }
+				: outcome.status === "failure"
+					? {
+							type: "failure" as const,
+							errorType: outcome.errorType,
+							message: outcome.message,
+							data: outcome.data,
+						}
+					: {
+							type: "usageError" as const,
+							errorType: outcome.errorType,
+							message: outcome.message,
+							data: outcome.data,
+						};
 	if (!isClinkrExit<T>(exit)) {
-		throw new Error(
-			`Command ${command.name} returned a legacy ns result instead of a Clinkr exit.`,
-		);
+		throw new Error(`Command returned a legacy ns result instead of a Clinkr exit.`);
 	}
 	return exit;
-}
-
-function positionalRequestKeysForCommand(commandName: string): readonly string[] {
-	if (commandName === "match") return ["selector"];
-	return ["delete", "pickup"].includes(commandName) ? ["slug"] : [];
 }
 
 export async function putHandoffEntry(

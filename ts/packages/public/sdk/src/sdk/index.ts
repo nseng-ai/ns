@@ -1,17 +1,9 @@
 // Public author API for ns extensions.
-// Keep ts/packages/public/sdk/docs/sdk-reference.md in sync when changing these exports.
 export { defineCommand, defineExtension, defineRawCommand } from "./command.ts";
 export type {
 	ClinkrCompletionCandidate,
-	ClinkrCompletionResult,
-	ClinkrDynamicCompletionRequest,
-	ClinkrFormat,
-	PositionalSpec,
-	RenderCapabilities,
+	ClinkrCompletionProviderRequest,
 	DefineCommandSpec,
-	RawArgvCommand,
-	RawArgvCommandInvocation,
-	RawArgvCommandSpec,
 	NsCommand,
 	NsCommandCompletionCandidate,
 	NsCommandCompletionProvider,
@@ -19,7 +11,11 @@ export type {
 	NsCommandCompletionResult,
 	NsCommandRequest,
 	NsCommandSchema,
+	NsRawCommandDefinition,
+	NsRawCommandOptions,
 	OptionSpec,
+	PositionalSpec,
+	RenderCapabilities,
 } from "./command.ts";
 export type {
 	ExecResult,
@@ -40,26 +36,14 @@ export type {
 	HeadTailTextTruncationOptions,
 	HeadTextTruncationOptions,
 } from "@nseng-ai/foundation/text-truncation";
-export {
-	buildFailureMachineEnvelopeSchema,
-	buildMachineEnvelopeSchema,
-	buildSuccessMachineEnvelopeSchema,
-	failure,
-	machineEnvelopeSchema,
-	negative,
-	ok,
-	toMachineEnvelope,
-	usageError,
-} from "./result.ts";
+export { failure, negative, ok, usageError } from "./result.ts";
+export type { CommandOutcome as CommandExit } from "./result.ts";
 export type {
-	BuildFailureMachineEnvelopeSchemaOptions,
-	CommandExit,
-	FailureCommandExit,
-	MachineEnvelope,
-	NegativeCommandExit,
-	NegativeCommandExitOptions,
-	OkCommandExit,
-	UsageErrorCommandExit,
+	CommandOutcome,
+	FailureOutcome,
+	NegativeOutcome,
+	SuccessOutcome,
+	UsageErrorOutcome,
 } from "./result.ts";
 export {
 	bundledArtifactDefinitionSchema,
@@ -67,22 +51,14 @@ export {
 	extensionPointAcceptsValues,
 	extensionPointCardinalityValues,
 	extensionPointDefinitionSchema,
-	hiddenExecGroup,
 	validateExtensionDescriptor,
-	validateLoadedCommandName,
 } from "./descriptor.ts";
 export type {
 	BundledArtifactDefinition,
-	DescriptorCommand,
 	ExtensionActivation,
-	ExtensionCommandEntry,
 	ExtensionDescriptor,
 	ExtensionDescriptorValidationResult,
-	ExtensionEntry,
-	ExtensionGroupEntry,
 	ExtensionPointDefinition,
-	RawArgvCommandLoad,
-	RawArgvCommandModule,
 } from "./descriptor.ts";
 export {
 	centerMatrixProgressText,

@@ -57,7 +57,7 @@ describe("ns shell CLI", () => {
 		});
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
-			status: "usageError",
+			status: "usage-error",
 			data: { missingFlag: "--yes" },
 		});
 		expect(await readFile(join(home, ".zshrc"), "utf8")).toBe("existing");

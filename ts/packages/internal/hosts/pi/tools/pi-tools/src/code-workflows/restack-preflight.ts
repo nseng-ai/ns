@@ -46,7 +46,7 @@ const restackPreflightDataSchema = z.object({
 
 const restackPreflightEnvelopeSchema = z.discriminatedUnion("status", [
 	z.object({
-		status: z.literal("ok"),
+		status: z.literal("success"),
 		exitCode: z.literal(0),
 		data: restackPreflightDataSchema,
 	}),
@@ -64,9 +64,9 @@ const restackPreflightEnvelopeSchema = z.discriminatedUnion("status", [
 		data: z.unknown().optional(),
 	}),
 	z.object({
-		status: z.literal("usageError"),
+		status: z.literal("usage-error"),
 		exitCode: z.literal(2),
-		errorType: z.literal("usageError"),
+		errorType: z.literal("usage-error"),
 		message: z.string(),
 		data: z.unknown().optional(),
 	}),
@@ -124,7 +124,7 @@ export function createCommandRestackPreflight(
 			};
 		}
 		switch (envelope.status) {
-			case "ok":
+			case "success":
 				return (
 					warningRefusal(envelope.data) ??
 					(indicatesRebaseInProgress(envelope.data)
@@ -146,7 +146,7 @@ export function createCommandRestackPreflight(
 					type: "refused",
 					message: `Restack preflight failed (${envelope.errorType}): ${envelope.message}\n\nNot starting gt restack.`,
 				};
-			case "usageError":
+			case "usage-error":
 				return {
 					type: "refused",
 					message: `Restack preflight command was rejected: ${envelope.message}\n\nNot starting gt restack.`,
@@ -185,7 +185,7 @@ function readyResult(data: RestackPreflightData): SmartRestackPreflightResult {
 	return {
 		type: "refused",
 		message: formatNegativeRefusal(
-			"Restack preflight returned blocked facts in an ok envelope.",
+			"Restack preflight returned blocked facts in a success envelope.",
 			data,
 		),
 	};

@@ -150,7 +150,7 @@ describe("checked-in Objective ns extension loading", () => {
 		});
 		expect(await orientationsJson.exit).toBe(0);
 		expect(parseJsonOutput(orientationsJson)).toMatchObject({
-			status: "ok",
+			status: "success",
 			exitCode: 0,
 			data: { recordCount: 1, records: [{ slug: "demo-objective" }] },
 		});
@@ -172,7 +172,7 @@ describe("checked-in Objective ns extension loading", () => {
 		});
 		expect(await listJson.exit).toBe(0);
 		expect(parseJsonOutput(listJson)).toMatchObject({
-			status: "ok",
+			status: "success",
 			exitCode: 0,
 			data: { records: [{ slug: "demo-objective", status: "open" }] },
 		});
@@ -215,7 +215,7 @@ describe("checked-in Objective ns extension loading", () => {
 		});
 		expect(await showJson.exit).toBe(0);
 		expect(parseJsonOutput(showJson)).toMatchObject({
-			status: "ok",
+			status: "success",
 			exitCode: 0,
 			data: {
 				status: "ok",

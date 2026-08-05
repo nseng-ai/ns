@@ -7,7 +7,7 @@ import {
 	evaluateUserExtensionPackageAvailability,
 	type UserExtensionPackageAvailabilityFact,
 } from "@nseng-ai/sdk/extensions/user-package-availability";
-import type { PreinstalledNsCommandCatalogLoader } from "@nseng-ai/sdk/cli";
+import type { PreinstalledNsCommandSourceLoader } from "@nseng-ai/sdk/cli";
 
 export interface LoadDeclaredExtensionsParams {
 	readonly repoRoot: string;
@@ -36,14 +36,14 @@ export interface UserExtensionAvailabilityGateway {
 }
 
 export class RealUserExtensionAvailabilityGateway implements UserExtensionAvailabilityGateway {
-	private readonly preinstalledCommandCatalog: PreinstalledNsCommandCatalogLoader;
+	private readonly preinstalledSources: PreinstalledNsCommandSourceLoader;
 	private readonly resolveNpmPackageRoot: DeclaredExtensionNpmPackageRootResolver;
 
 	constructor(
-		preinstalledCommandCatalog: PreinstalledNsCommandCatalogLoader,
+		preinstalledSources: PreinstalledNsCommandSourceLoader,
 		resolveNpmPackageRoot: DeclaredExtensionNpmPackageRootResolver,
 	) {
-		this.preinstalledCommandCatalog = preinstalledCommandCatalog;
+		this.preinstalledSources = preinstalledSources;
 		this.resolveNpmPackageRoot = resolveNpmPackageRoot;
 	}
 
@@ -53,7 +53,7 @@ export class RealUserExtensionAvailabilityGateway implements UserExtensionAvaila
 	}): Promise<readonly UserExtensionPackageAvailabilityFact[]> {
 		return evaluateUserExtensionPackageAvailability({
 			...params,
-			preinstalledCommandCatalog: this.preinstalledCommandCatalog,
+			preinstalledSources: this.preinstalledSources,
 			resolveNpmPackageRoot: this.resolveNpmPackageRoot,
 		});
 	}

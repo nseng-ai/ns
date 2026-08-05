@@ -77,10 +77,10 @@ function setup(result: ExecResult) {
 }
 
 describe("command-backed smart-restack preflight", () => {
-	test("maps a valid ok envelope to ready and gates only the downstack scope", async () => {
+	test("maps a valid success envelope to ready and gates only the downstack scope", async () => {
 		const setupResult = setup(
 			envelope({
-				status: "ok",
+				status: "success",
 				exitCode: 0,
 				data: { ...data(), additiveFutureField: true },
 				additiveEnvelopeField: "accepted",
@@ -142,7 +142,7 @@ describe("command-backed smart-restack preflight", () => {
 	});
 
 	test.each([
-		["ok", 0, false],
+		["success", 0, false],
 		["negative", 1, true],
 	] as const)(
 		"refuses all warnings from a usable %s envelope before taking automatic action",
@@ -152,7 +152,7 @@ describe("command-backed smart-restack preflight", () => {
 				warnings: ["downstack topology warning", "stack tip warning"],
 			});
 			const value =
-				status === "ok"
+				status === "success"
 					? { status, exitCode: code, data: facts }
 					: {
 							status,
@@ -173,11 +173,11 @@ describe("command-backed smart-restack preflight", () => {
 	);
 
 	test.each([
-		["ok", 0],
+		["success", 0],
 		["negative", 1],
 	] as const)("maps rebaseInProgress from a %s envelope", async (status, code) => {
 		const value =
-			status === "ok"
+			status === "success"
 				? { status, exitCode: code, data: data({ rebaseInProgress: true }) }
 				: {
 						status,
@@ -206,9 +206,9 @@ describe("command-backed smart-restack preflight", () => {
 		[
 			"usage error",
 			{
-				status: "usageError",
+				status: "usage-error",
 				exitCode: 2,
-				errorType: "usageError",
+				errorType: "usage-error",
 				message: "invalid preflight scope",
 				data: data({ rebaseInProgress: true }),
 			},
@@ -243,7 +243,10 @@ describe("command-backed smart-restack preflight", () => {
 			"failure",
 			{ status: "failure", exitCode: 2, errorType: "backend-failed", message: "gt failed" },
 		],
-		["usage", { status: "usageError", exitCode: 2, errorType: "usageError", message: "bad scope" }],
+		[
+			"usage",
+			{ status: "usage-error", exitCode: 2, errorType: "usage-error", message: "bad scope" },
+		],
 	] as const)("refuses a valid %s envelope with its diagnostic", async (_label, value) => {
 		const setupResult = setup(envelope(value, 2));
 
@@ -254,7 +257,7 @@ describe("command-backed smart-restack preflight", () => {
 	});
 
 	test("refuses a nonzero process result whose envelope reports success", async () => {
-		const setupResult = setup(envelope({ status: "ok", exitCode: 0, data: data() }, 1));
+		const setupResult = setup(envelope({ status: "success", exitCode: 0, data: data() }, 1));
 
 		const result = await setupResult.run({ cwd: "/repo" });
 
@@ -272,7 +275,7 @@ describe("command-backed smart-restack preflight", () => {
 	});
 
 	test.each([
-		["missing stable data", { status: "ok", exitCode: 0, data: { clean: true } }],
+		["missing stable data", { status: "success", exitCode: 0, data: { clean: true } }],
 		[
 			"wrong envelope exit code",
 			{ status: "negative", exitCode: 0, message: "blocked", data: data() },
@@ -280,7 +283,7 @@ describe("command-backed smart-restack preflight", () => {
 		[
 			"slot rebase conflict without slotName",
 			{
-				status: "ok",
+				status: "success",
 				exitCode: 0,
 				data: {
 					...data(),

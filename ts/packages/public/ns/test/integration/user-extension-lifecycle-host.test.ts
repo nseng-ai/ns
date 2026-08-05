@@ -8,6 +8,9 @@ import { describe, expect, test } from "vitest";
 import { runNsCli } from "../../src/cli/index.ts";
 import { createEmptyProject, parseJsonOutput } from "../support/cli-harness.ts";
 
+const CLINKR_APP_URL = import.meta.resolve("@nseng-ai/clinkr/app");
+const ZOD_URL = import.meta.resolve("zod");
+
 interface RunResult {
 	readonly exit: number;
 	readonly stdout: string;
@@ -20,7 +23,7 @@ describe("user extension lifecycle host", () => {
 		const invocation = join(root, "unrelated");
 		const packageRoot = join(root, "extension");
 		const xdgConfigHome = join(root, "xdg-config");
-		await mkdir(join(packageRoot, "src", "commands"), { recursive: true });
+		await mkdir(join(packageRoot, "src", "commands", "user-tools-proof"), { recursive: true });
 		await mkdir(invocation, { recursive: true });
 		await writeFile(
 			join(packageRoot, "package.json"),
@@ -36,20 +39,27 @@ describe("user extension lifecycle host", () => {
 			`import { defineExtension } from "@nseng-ai/sdk";
 export default defineExtension({
  description: "User tools.",
- entries: [{ name: "user-tools-proof", load: async () => await import("./commands/proof.ts") }],
+ commandDirectory: import.meta.dirname + "/commands",
 });
 `,
 		);
 		await writeFile(
-			join(packageRoot, "src", "commands", "proof.ts"),
-			`import { defineRawCommand, ok } from "@nseng-ai/sdk";
-export default defineRawCommand({
- name: "user-tools-proof",
- summary: "Proof command.",
- description: "Proof command.",
- run: () => ok({ proof: true }),
-});
+			join(packageRoot, "src", "commands", "user-tools-proof", "command.ts"),
+			`import { defineCommand } from ${JSON.stringify(CLINKR_APP_URL)};
+import { z } from ${JSON.stringify(ZOD_URL)};
+export async function command() {
+ return defineCommand({
+  requiresContext: true,
+  schema: z.object({}),
+  resultSchema: z.object({ proof: z.literal(true) }),
+  handler: () => ({ status: "success", data: { proof: true } }),
+ });
+}
 `,
+		);
+		await writeFile(
+			join(packageRoot, "src", "commands", "user-tools-proof", "metadata.ts"),
+			`export function metadata() { return { description: "Proof command." }; }\n`,
 		);
 		const configPath = join(xdgConfigHome, "ns", "ns.toml");
 		await mkdir(join(xdgConfigHome, "ns"), { recursive: true });
@@ -63,7 +73,7 @@ export default defineRawCommand({
 		});
 		expect(installed.exit).toBe(0);
 		expect(parseJsonOutput(installed)).toMatchObject({
-			status: "ok",
+			status: "success",
 			data: {
 				scope: "user",
 				sourceSpec: packageRoot,
@@ -90,7 +100,7 @@ export default defineRawCommand({
 			env: { NS_HARNESS: "pi" },
 		});
 		expect(discovered.exit).toBe(0);
-		expect(parseJsonOutput(discovered)).toMatchObject({ status: "ok" });
+		expect(parseJsonOutput(discovered)).toMatchObject({ status: "success" });
 
 		const npmSpec = "npm:@test/unavailable";
 		const handAuthoredBytes = `# preserve\r\nextensions = [${JSON.stringify(packageRoot)}, ${JSON.stringify(npmSpec)}]\r\n[unrelated]\r\nvalue = 1\r\n`;
@@ -101,7 +111,7 @@ export default defineRawCommand({
 		});
 		expect(listed.exit).toBe(0);
 		expect(parseJsonOutput(listed)).toMatchObject({
-			status: "ok",
+			status: "success",
 			data: {
 				scope: "user",
 				extensions: [
@@ -162,22 +172,31 @@ export default defineRawCommand({
 				},
 			}),
 		);
+		await mkdir(join(packageRoot, "cli", "packed-user-proof"), { recursive: true });
 		await writeFile(
 			join(packageRoot, "extension.js"),
 			`export default {
  description: "Packed user tools.",
- entries: [{ name: "packed-user-proof", load: async () => await import("./proof.js") }],
+ commandDirectory: import.meta.dirname + "/cli",
 };
 `,
 		);
 		await writeFile(
-			join(packageRoot, "proof.js"),
-			`export default {
- name: "packed-user-proof",
- summary: "Packed proof command.",
- description: "Packed proof command.",
- run: () => ({ type: "ok", data: { proof: "packed" } }),
-};
+			join(packageRoot, "cli", "packed-user-proof", "metadata.ts"),
+			`export function metadata() { return { description: "Packed proof command." }; }\n`,
+		);
+		await writeFile(
+			join(packageRoot, "cli", "packed-user-proof", "command.ts"),
+			`import { defineCommand } from ${JSON.stringify(CLINKR_APP_URL)};
+import { z } from ${JSON.stringify(ZOD_URL)};
+export async function command() {
+ return defineCommand({
+  requiresContext: true,
+  schema: z.object({}),
+  resultSchema: z.object({ proof: z.literal("packed") }),
+  handler: () => ({ status: "success", data: { proof: "packed" } }),
+ });
+}
 `,
 		);
 		const packed = await runCommand("npm", ["pack", "--pack-destination", tarballRoot], {
@@ -227,7 +246,7 @@ exec ${JSON.stringify(npmExecutable)} "${"${args[@]}"}" --offline
 		});
 		expect(installed.exit).toBe(0);
 		expect(parseJsonOutput(installed)).toMatchObject({
-			status: "ok",
+			status: "success",
 			data: {
 				sourceKind: "npm",
 				acquisitionOutcome: "installed",
@@ -260,7 +279,10 @@ exec ${JSON.stringify(npmExecutable)} "${"${args[@]}"}" --offline
 			env: { ...env, NS_HARNESS: "pi" },
 		});
 		expect(discovered.exit).toBe(0);
-		expect(parseJsonOutput(discovered)).toMatchObject({ status: "ok", data: { proof: "packed" } });
+		expect(parseJsonOutput(discovered)).toMatchObject({
+			status: "success",
+			data: { proof: "packed" },
+		});
 		const listed = await run(["extension", "list", "--scope", "user"], {
 			cwd: invocation,
 			xdgConfigHome,
@@ -268,7 +290,7 @@ exec ${JSON.stringify(npmExecutable)} "${"${args[@]}"}" --offline
 			env,
 		});
 		expect(parseJsonOutput(listed)).toMatchObject({
-			status: "ok",
+			status: "success",
 			data: { extensions: [{ sourceKind: "npm", moduleRoot: installedPackageRoot }] },
 		});
 		const updated = await run(["extension", "update", npmSpec, "--scope", "user"], {
@@ -278,7 +300,7 @@ exec ${JSON.stringify(npmExecutable)} "${"${args[@]}"}" --offline
 			env,
 		});
 		expect(parseJsonOutput(updated)).toMatchObject({
-			status: "ok",
+			status: "success",
 			data: { acquisitionIntent: "refresh-floating", acquisitionOutcome: "refreshed" },
 		});
 		await expect(lstat(join(projectRoot, "package-lock.json"))).rejects.toMatchObject({
@@ -291,7 +313,7 @@ exec ${JSON.stringify(npmExecutable)} "${"${args[@]}"}" --offline
 			env,
 		});
 		expect(parseJsonOutput(uninstalled)).toMatchObject({
-			status: "ok",
+			status: "success",
 			data: { cleanup: { status: "removed", path: projectRoot } },
 		});
 		await expect(lstat(projectRoot)).rejects.toMatchObject({ code: "ENOENT" });

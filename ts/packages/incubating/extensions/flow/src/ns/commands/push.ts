@@ -12,16 +12,7 @@ const PUSH_TIMEOUT_MS = 120_000;
 
 export const PUSH_COMMAND_SUMMARY = "Push committed non-Graphite branch work with git push.";
 
-const PUSH_COMMAND_DESCRIPTION = `Push already-committed work on the current branch with plain git push.
-
-The command first runs git status --porcelain and requires a clean worktree before pushing. It then runs plain git push with a two-minute timeout. It has no intentional arguments or options.
-
-This command does not update Graphite metadata. Do not use it for Graphite-tracked PR branches, because moving the remote PR branch outside Graphite can make later gt submit / ns flow submit runs fail until local Graphite state is synced with gt get or gt sync. Use \`ns flow submit\` / \`/ns:flow:submit\` when the current Graphite stack needs submission, PR metadata updates, or the full submit flow.`;
-
 export const flowPushCommand: NsCommand = defineCommand({
-	name: "push",
-	summary: PUSH_COMMAND_SUMMARY,
-	description: PUSH_COMMAND_DESCRIPTION,
 	schema: z.object({}),
 	resultSchema: z.string(),
 	handler: async (ctx) => await runPush(ctx),

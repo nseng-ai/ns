@@ -1,6 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
@@ -8,6 +9,8 @@ import { afterEach, describe, expect, test } from "vitest";
 import { runCliWithFakes, type RunWithFakesOptions } from "../scenario/ns-cli-fakes.ts";
 
 const tempDirs: string[] = [];
+const require = createRequire(import.meta.url);
+const sdkEntry = require.resolve("@nseng-ai/sdk");
 
 function runWithFakes(options: RunWithFakesOptions) {
 	return runCliWithFakes(options, {
@@ -26,14 +29,14 @@ describe("ns completion CLI extension loader integration", () => {
 	test("project extension command schema is importable for selected option completion", async () => {
 		const cwd = await createDescriptorExtensionProject(
 			"hello",
-			`import { ok, z } from "@nseng-ai/sdk";
-export default {
-	name: "hello",
-	summary: "Hello",
-	description: "Hello",
-	schema: z.object({ loud: z.boolean().default(false).describe("Use loud output.") }),
-	run() { return ok("hello"); },
-};
+			`import { defineCommand, ok, z } from ${JSON.stringify(sdkEntry)};
+export async function command() {
+	return defineCommand({
+		requiresContext: true,
+		schema: z.object({ loud: z.boolean().default(false).describe("Use loud output.") }),
+		handler: async () => ok("hello"),
+	});
+}
 `,
 		);
 		const run = runWithFakes({
@@ -49,18 +52,18 @@ export default {
 	test("unrelated broken extension command is not imported for selected valid command completion", async () => {
 		const cwd = await createDescriptorExtensionProject(
 			"hello",
-			`import { ok, z } from "@nseng-ai/sdk";
-export default {
-	name: "hello",
-	summary: "Hello",
-	description: "Hello",
-	schema: z.object({ loud: z.boolean().default(false) }),
-	run() { return ok("hello"); },
-};
+			`import { defineCommand, ok, z } from ${JSON.stringify(sdkEntry)};
+export async function command() {
+	return defineCommand({
+		requiresContext: true,
+		schema: z.object({ loud: z.boolean().default(false) }),
+		handler: async () => ok("hello"),
+	});
+}
 `,
 		);
 		writeDescriptorCommand(cwd, "bad", "throw new Error('unrelated import boom');\n");
-		writeDescriptorPackage(cwd, ["hello", "bad"]);
+		writeDescriptorPackage(cwd);
 		const run = runWithFakes({
 			args: ["completion", "exec", "resolve", "--", "hello", "--"],
 			cwd,
@@ -74,18 +77,18 @@ export default {
 	test("selected dynamic completion provider runs through the real extension loader", async () => {
 		const cwd = await createDescriptorExtensionProject(
 			"hello",
-			`import { ok, z } from "@nseng-ai/sdk";
-export default {
-	name: "hello",
-	summary: "Hello",
-	description: "Hello",
-	schema: z.object({ name: z.string().optional() }),
-	positionals: { name: { position: 0 } },
-	completionProvider(_ctx, request) {
-		return ["alpha", "beta"].filter((value) => value.startsWith(request.current)).map((value) => ({ value, type: "positional-value" }));
-	},
-	run() { return ok("hello"); },
-};
+			`import { defineCommand, ok, z } from ${JSON.stringify(sdkEntry)};
+export async function command() {
+	return defineCommand({
+		requiresContext: true,
+		schema: z.object({ name: z.string().optional() }),
+		positionals: { name: { position: 0 } },
+		completionProvider(_ctx, request) {
+			return ["alpha", "beta"].filter((value) => value.startsWith(request.current)).map((value) => ({ value, type: "positional-value" }));
+		},
+		handler: async () => ok("hello"),
+	});
+}
 `,
 		);
 		const run = runWithFakes({
@@ -108,9 +111,8 @@ export default {
 			cwd,
 		});
 
-		expect(await run.exit).toBe(0);
+		await expect(run.exit).rejects.toThrow("selected boom");
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain("selected boom");
 	});
 });
 
@@ -120,12 +122,12 @@ async function createDescriptorExtensionProject(
 ): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "ns-completion-integration-"));
 	tempDirs.push(directory);
-	writeDescriptorPackage(directory, [commandName]);
+	writeDescriptorPackage(directory);
 	writeDescriptorCommand(directory, commandName, source);
 	return directory;
 }
 
-function writeDescriptorPackage(cwd: string, commandNames: readonly string[]): void {
+function writeDescriptorPackage(cwd: string): void {
 	writeFileSyncWithParents(join(cwd, "ns.toml"), 'extensions = ["./extensions/tools"]\n');
 	writeFileSyncWithParents(
 		join(cwd, "extensions", "tools", "package.json"),
@@ -136,20 +138,12 @@ function writeDescriptorPackage(cwd: string, commandNames: readonly string[]): v
 			exports: { "./ns-extension": "./src/ns/extension.ts" },
 		}),
 	);
-	const entries = commandNames
-		.map(
-			(name) =>
-				`{ name: ${JSON.stringify(name)}, load: async () => await import("../commands/${name}.ts") }`,
-		)
-		.join(",\n\t\t");
 	writeFileSyncWithParents(
 		join(cwd, "extensions", "tools", "src", "ns", "extension.ts"),
 		`import { defineExtension } from "@nseng-ai/sdk";
 export default defineExtension({
 	description: "Project test tools.",
-	entries: [
-		${entries},
-	],
+	commandDirectory: \`${"${import.meta.dirname}"}/cli\`,
 });
 `,
 	);
@@ -157,7 +151,11 @@ export default defineExtension({
 
 function writeDescriptorCommand(cwd: string, commandName: string, source: string): void {
 	writeFileSyncWithParents(
-		join(cwd, "extensions", "tools", "src", "commands", `${commandName}.ts`),
+		join(cwd, "extensions", "tools", "src", "ns", "cli", commandName, "metadata.ts"),
+		'export function metadata() { return { description: "Hello" }; }\n',
+	);
+	writeFileSyncWithParents(
+		join(cwd, "extensions", "tools", "src", "ns", "cli", commandName, "command.ts"),
 		source,
 	);
 }

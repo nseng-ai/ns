@@ -1,4 +1,4 @@
-import { failure, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
+import { failure, type CommandOutcome } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 import type { SkillsCommandContext } from "./skills-shared.ts";
@@ -17,14 +17,14 @@ export type NsUpdateResult = z.output<typeof nsUpdateResultSchema>;
 export async function runNsUpdateCli(
 	_context: SkillsCommandContext,
 	_request: NsUpdateCliRequest,
-): Promise<ClinkrExit<NsUpdateResult>> {
+): Promise<CommandOutcome<NsUpdateResult>> {
 	return selfUpdateNotImplemented();
 }
 
 export async function runNsUpdate(
 	context: SkillsCommandContext,
 	request: NsUpdateRequest,
-): Promise<ClinkrExit<NsUpdateResult>> {
+): Promise<CommandOutcome<NsUpdateResult>> {
 	return await runNsUpdateCli(context, request);
 }
 
@@ -32,7 +32,7 @@ export function renderNsUpdateHuman(result: NsUpdateResult): string {
 	return result.isImplemented ? "ns self-update complete." : "ns self-update is not implemented.";
 }
 
-function selfUpdateNotImplemented(): ClinkrExit<NsUpdateResult> {
+function selfUpdateNotImplemented(): CommandOutcome<NsUpdateResult> {
 	return failure(
 		"self-update-not-implemented",
 		"ns self-update is not implemented yet; use ns extension update <source> to update one declared extension.",

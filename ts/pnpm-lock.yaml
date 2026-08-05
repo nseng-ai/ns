@@ -245,6 +245,9 @@ importers:
       '@nseng-ai/brmem':
         specifier: workspace:*
         version: link:../../../public/infra/brmem
+      '@nseng-ai/clinkr':
+        specifier: workspace:*
+        version: link:../../../public/infra/clinkr
       '@nseng-ai/extension-kit':
         specifier: workspace:*
         version: link:../../../public/extension-kit
@@ -353,6 +356,9 @@ importers:
       '@nseng-ai/branch-context':
         specifier: workspace:*
         version: link:../branch-context
+      '@nseng-ai/clinkr':
+        specifier: workspace:*
+        version: link:../../../public/infra/clinkr
       '@nseng-ai/flow':
         specifier: workspace:*
         version: link:../flow

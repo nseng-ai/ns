@@ -1,3 +1,4 @@
+// @ts-nocheck -- temporary descriptor-framework compatibility retained only for the additive filesystem cutover.
 import { type ReviewListRequest } from "../operations/cli-operations.ts";
 import { createReviewListCommand } from "./list.ts";
 

@@ -79,7 +79,6 @@ function contexts(
 				sourceSpec: item.spec,
 				availability: "available",
 				packageName: item.packageName,
-				commandPaths: [],
 				diagnostics: [],
 			})),
 	});
@@ -154,7 +153,7 @@ describe("user extension lifecycle", () => {
 			scope: "user",
 		});
 		expect(install).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				scope: "user",
 				sourceSpec,
@@ -168,7 +167,7 @@ describe("user extension lifecycle", () => {
 
 		const listed = await listExtensions(context.list, { cwd: "/outside", scope: "user" });
 		expect(listed).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: { scope: "user", extensions: [{ sourceSpec, commandAvailability: "available" }] },
 		});
 
@@ -179,7 +178,7 @@ describe("user extension lifecycle", () => {
 			dryRun: false,
 		});
 		expect(updated).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				scope: "user",
 				acquisitionOutcome: "local-in-place",
@@ -195,7 +194,7 @@ describe("user extension lifecycle", () => {
 			scope: "user",
 		});
 		expect(uninstalled).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: { scope: "user", declarationAction: "removed", cleanup: { status: "not-applicable" } },
 		});
 		expect(config.fileContent()).toBe("# keep\r\nextensions = []\r\n[other]\r\nvalue = 1\r\n");
@@ -223,7 +222,7 @@ describe("user extension lifecycle", () => {
 			scope: "user",
 		});
 		expect(installed).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: { sourceKind: "npm", acquisitionOutcome: "installed", declarationAction: "appended" },
 		});
 		expect(context.install.installAcquisition.calls()[0]).toMatchObject({
@@ -232,7 +231,7 @@ describe("user extension lifecycle", () => {
 		});
 		const listed = await listExtensions(context.list, { cwd: "/unrelated", scope: "user" });
 		expect(listed).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: { extensions: [{ sourceKind: "npm", commandAvailability: "available", moduleRoot }] },
 		});
 		const updated = await updateExtension(context.update, {
@@ -242,7 +241,7 @@ describe("user extension lifecycle", () => {
 			dryRun: false,
 		});
 		expect(updated).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: { acquisitionIntent: "refresh-floating", acquisitionOutcome: "restored" },
 		});
 		const uninstalled = await uninstallExtension(context.uninstall, {
@@ -251,7 +250,7 @@ describe("user extension lifecycle", () => {
 			scope: "user",
 		});
 		expect(uninstalled).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: { declarationAction: "removed", cleanup: { status: "removed" } },
 		});
 	});
@@ -295,7 +294,6 @@ describe("user extension lifecycle", () => {
 						sourceSpec: otherSpec,
 						availability: "available",
 						packageName: "@test/other",
-						commandPaths: [],
 						diagnostics: [],
 					},
 					{
@@ -315,7 +313,7 @@ describe("user extension lifecycle", () => {
 			});
 
 			expect(result).toEqual({
-				type: "failure",
+				status: "failure",
 				errorType: "ns-extension-update-user-package-unavailable",
 				message: `User extension package is not fully available: ${npmSpec}.`,
 				data: {
@@ -369,7 +367,7 @@ describe("user extension lifecycle", () => {
 		});
 
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-update-user-config-invalid",
 			data: { scope: "user" },
 		});
@@ -390,7 +388,7 @@ describe("user extension lifecycle", () => {
 			scope: "user",
 		});
 		expect(invalid).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-install-user-descriptor-invalid",
 		});
 		expect(invalidContext.install.uninstallAcquisition.removals()).toEqual([
@@ -419,7 +417,7 @@ describe("user extension lifecycle", () => {
 			scope: "user",
 		});
 		expect(raced).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-install-user-config-write-failed",
 		});
 		expect(racedContext.install.uninstallAcquisition.removals()).toHaveLength(1);
@@ -437,7 +435,7 @@ describe("user extension lifecycle", () => {
 			scope: "user",
 		});
 		expect(restoredThenFailed).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-install-user-config-write-failed",
 		});
 		expect(preExistingProjectContext.install.uninstallAcquisition.removals()).toEqual([]);
@@ -481,11 +479,11 @@ describe("user extension lifecycle", () => {
 		});
 
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-install-user-rollback-failed",
 			data: {
 				primaryFailure: {
-					type: "failure",
+					status: "failure",
 					errorType: "ns-extension-install-user-descriptor-invalid",
 				},
 				cleanupDiagnostic: {
@@ -539,7 +537,7 @@ describe("user extension lifecycle", () => {
 			scope: "user",
 		});
 		expect(partial).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-uninstall-user-managed-package-cleanup-failed",
 			data: {
 				declarationAction: "removed",
@@ -556,7 +554,7 @@ describe("user extension lifecycle", () => {
 			scope: "user",
 		});
 		expect(retry).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: { declarationAction: "already-absent", cleanup: { status: "already-absent" } },
 		});
 		expect(retryContext.uninstall.uninstallAcquisition.removals()).toHaveLength(1);
@@ -572,7 +570,7 @@ describe("user extension lifecycle", () => {
 			source: "./extensions/tools",
 			scope: "user",
 		});
-		expect(malformed).toMatchObject({ type: "failure", data: { scope: "user" } });
+		expect(malformed).toMatchObject({ status: "failure", data: { scope: "user" } });
 		expect(malformedConfig.writes).toEqual([]);
 		expect(malformedContext.install.declaredExtensions.calls()).toEqual([]);
 		expect(malformedContext.install.files.operations()).toEqual([]);
@@ -589,7 +587,7 @@ describe("user extension lifecycle", () => {
 			scope: "user",
 		});
 		expect(invalidDescriptor).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-install-user-descriptor-invalid",
 		});
 		expect(descriptorConfig.fileContent()).toBeUndefined();
@@ -631,7 +629,7 @@ describe("user extension lifecycle", () => {
 				scope: "user",
 			});
 			expect(result).toMatchObject({
-				type: "failure",
+				status: "failure",
 				errorType: "ns-extension-install-user-package-unavailable",
 			});
 			expect(config.writes).toEqual([]);
@@ -648,7 +646,7 @@ describe("user extension lifecycle", () => {
 			scope: "user",
 		});
 		expect(result).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: { declarationAction: "unchanged", activation: "not-performed" },
 		});
 		expect(config.writes).toEqual([]);
@@ -667,7 +665,7 @@ describe("user extension lifecycle", () => {
 			dryRun: false,
 		});
 		expect(notDeclared).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-update-user-not-declared",
 			data: { scope: "user" },
 		});
@@ -694,7 +692,7 @@ describe("user extension lifecycle", () => {
 			dryRun: false,
 		});
 		expect(moved).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-update-user-package-unavailable",
 			data: { scope: "user" },
 		});
@@ -710,7 +708,7 @@ describe("user extension lifecycle", () => {
 			dryRun: true,
 		});
 		expect(dryRun).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: { scope: "user", mode: "dry-run", configWrite: "not-performed" },
 		});
 		expect(dryRunConfig.writes).toEqual([]);
@@ -745,7 +743,7 @@ describe("user extension lifecycle", () => {
 		await expect(
 			listExtensions(context.list, { cwd: "/outside", scope: "user" }),
 		).resolves.toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				extensions: [
 					{
@@ -765,7 +763,7 @@ describe("user extension lifecycle", () => {
 				dryRun: false,
 			}),
 		).resolves.toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-update-user-package-unavailable",
 		});
 		expect(config.writes).toEqual([]);
@@ -782,7 +780,7 @@ describe("user extension lifecycle", () => {
 			scope: "user",
 		});
 		expect(removed).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				declarationAction: "removed",
 				cleanup: { status: "not-applicable" },
@@ -795,7 +793,7 @@ describe("user extension lifecycle", () => {
 			scope: "user",
 		});
 		expect(absent).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: { declarationAction: "already-absent" },
 		});
 		expect(absentConfig.writes).toEqual([]);
@@ -809,7 +807,7 @@ describe("user extension lifecycle", () => {
 		const second = await listExtensions(context.list, { cwd: "/outside", scope: "user" });
 		expect(first).toEqual(second);
 		expect(first).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: { scope: "user", extensions: [] },
 		});
 		expect(config.fileContent()).toBeUndefined();
@@ -829,7 +827,7 @@ describe("user extension lifecycle", () => {
 		const context = contexts(config);
 		const result = await listExtensions(context.list, { cwd: "/outside", scope: "user" });
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-list-user-config-invalid",
 			data: { scope: "user", diagnostics: [expect.objectContaining({ path: expect.any(String) })] },
 		});
@@ -861,7 +859,7 @@ describe("user extension lifecycle", () => {
 		});
 		const result = await listExtensions(context.list, { cwd: "/outside", scope: "user" });
 		expect(result).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				extensions: [
 					{ sourceSpec, commandAvailability: "available" },
@@ -893,7 +891,7 @@ describe("user extension lifecycle", () => {
 			scope: "user",
 		});
 		expect(install).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-install-user-config-write-failed",
 			data: { error: { code: "user-config-prepared-state-mismatch" } },
 		});
@@ -910,7 +908,7 @@ describe("user extension lifecycle", () => {
 			scope: "user",
 		});
 		expect(uninstall).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-extension-uninstall-user-config-write-failed",
 			data: { scope: "user", error: { code: "user-config-prepared-state-mismatch" } },
 		});

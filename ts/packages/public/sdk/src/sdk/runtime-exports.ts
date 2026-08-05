@@ -4,7 +4,6 @@ import {
 	stripOuterCodeFence,
 	trimOuterBlankLines,
 } from "@nseng-ai/foundation/text-normalization";
-
 import { defineCommand, defineExtension, defineRawCommand } from "./command.ts";
 import {
 	bundledArtifactDefinitionSchema,
@@ -12,21 +11,9 @@ import {
 	extensionPointAcceptsValues,
 	extensionPointCardinalityValues,
 	extensionPointDefinitionSchema,
-	hiddenExecGroup,
 	validateExtensionDescriptor,
-	validateLoadedCommandName,
 } from "./descriptor.ts";
-import {
-	buildFailureMachineEnvelopeSchema,
-	buildMachineEnvelopeSchema,
-	buildSuccessMachineEnvelopeSchema,
-	failure,
-	machineEnvelopeSchema,
-	negative,
-	ok,
-	toMachineEnvelope,
-	usageError,
-} from "./result.ts";
+import { failure, negative, ok, usageError } from "./result.ts";
 import { z } from "./schema.ts";
 import {
 	centerMatrixProgressText,
@@ -43,9 +30,6 @@ import {
 } from "./services.ts";
 
 export const nsSdkRuntimeExports = {
-	buildFailureMachineEnvelopeSchema,
-	buildMachineEnvelopeSchema,
-	buildSuccessMachineEnvelopeSchema,
 	bundledArtifactDefinitionSchema,
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,
@@ -59,9 +43,7 @@ export const nsSdkRuntimeExports = {
 	failure,
 	formatActiveOperation,
 	formatActiveOperationsLine,
-	hiddenExecGroup,
 	isMatrixProgressEvent,
-	machineEnvelopeSchema,
 	matrixProgressDisplayWidthChars,
 	MATRIX_PROGRESS_MAX_LABEL_WIDTH_CHARS,
 	MATRIX_PROGRESS_MIN_LABEL_WIDTH_CHARS,
@@ -72,12 +54,10 @@ export const nsSdkRuntimeExports = {
 	ok,
 	padMatrixProgressTextEnd,
 	stripOuterCodeFence,
-	toMachineEnvelope,
 	trimOuterBlankLines,
 	truncateTextHead,
 	truncateTextHeadTail,
 	usageError,
 	validateExtensionDescriptor,
-	validateLoadedCommandName,
 	z,
 } satisfies Record<string, unknown>;

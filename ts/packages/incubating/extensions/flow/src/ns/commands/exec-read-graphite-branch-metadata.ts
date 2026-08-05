@@ -27,10 +27,6 @@ type ExecReadGraphiteBranchMetadataRequest = z.output<typeof execReadGraphiteBra
 export const flowExecReadGraphiteBranchMetadataCommand: NsCommand<
 	typeof execReadGraphiteBranchMetadataSchema
 > = defineCommand({
-	name: "read-graphite-branch-metadata",
-	summary: "Read Graphite branch metadata for flow internals.",
-	description:
-		"Internal flow exec operation. Reads Graphite branch metadata through a controlled sqlite3 query and prints the raw JSON row array.",
 	schema: execReadGraphiteBranchMetadataSchema,
 	resultSchema: z.string(),
 	handler: async (ctx, request) => await runExecReadGraphiteBranchMetadata(ctx, request),

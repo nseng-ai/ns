@@ -1,22 +1,58 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
-	createNsDomainCommand,
-	type NsDomainCommandOptions,
-} from "@nseng-ai/extension-kit/ns-command";
-import type { NsCommand, NsCommandSchema } from "@nseng-ai/sdk";
+	defineCommand,
+	type CommandExit,
+	type DefineCommandSpec,
+	type NsCommand,
+	type NsCommandSchema,
+} from "@nseng-ai/sdk";
+import type { z } from "zod";
 
 import type { HandoffCliContext } from "../core/context.ts";
 import { createNsHandoffContext } from "./context.ts";
 
 type HandoffNsCommandOptions<S extends NsCommandSchema, T> = Omit<
-	NsDomainCommandOptions<S, T, HandoffCliContext>,
-	"createContext"
->;
+	DefineCommandSpec<S, T>,
+	"handler"
+> & {
+	readonly handler: (ctx: HandoffCliContext, request: z.output<S>) => Promise<unknown> | unknown;
+};
 
 export function handoffNsCommand<S extends NsCommandSchema, T>(
 	options: HandoffNsCommandOptions<S, T>,
 ): NsCommand<S, T> {
-	return createNsDomainCommand({
+	return defineCommand({
 		...options,
-		createContext: createNsHandoffContext,
+		handler: async (ctx, request) =>
+			toModernOutcome<T>(await options.handler(await createNsHandoffContext(ctx), request)),
 	});
+}
+
+function toModernOutcome<T>(value: unknown): CommandExit<T> {
+	if (typeof value !== "object" || value === null || !("type" in value)) {
+		throw new Error("Handoff command returned an invalid outcome.");
+	}
+	const legacy = value as Record<string, unknown>;
+	if (legacy.type === "ok") return { status: "success", data: legacy.data as T };
+	if (legacy.type === "negative") {
+		return {
+			status: "negative",
+			message: String(legacy.message),
+			...optionalEntry("data", legacy.data),
+		};
+	}
+	if (legacy.type === "failure") {
+		return {
+			status: "failure",
+			errorType: String(legacy.errorType),
+			message: String(legacy.message),
+			...optionalEntry("data", legacy.data),
+		};
+	}
+	return {
+		status: "usage-error",
+		errorType: "usage-error",
+		message: String(legacy.message),
+		...optionalEntry("data", legacy.data),
+	};
 }

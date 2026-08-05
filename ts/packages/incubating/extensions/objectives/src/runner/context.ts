@@ -1,6 +1,5 @@
 import type { GraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/branch";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import type { ClinkrFormat } from "@nseng-ai/sdk";
 
 import type { ObjectiveCliContext } from "../core/context.ts";
 
@@ -30,7 +29,7 @@ export type RunnerFilePresenceResult =
 export interface ObjectiveRunnerCoreContext extends ObjectiveCliContext {
 	graphite: GraphiteBranchGateway;
 	commands: CommandExecApi;
-	outputFormat: ClinkrFormat;
+	outputFormat: "human" | "json" | "md";
 	writeStdout(text: string): void;
 	/** Transient, human-facing phase text. Non-contractual wording. */
 	phase(label: string): void;

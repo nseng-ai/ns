@@ -1,4 +1,4 @@
-import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
+import { failure, negative, ok, type CommandOutcome } from "@nseng-ai/clinkr/app";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
@@ -48,7 +48,7 @@ export type SkillsInstallCommandResult = z.infer<typeof skillsInstallCommandResu
 export async function runSkillsInstall(
 	context: SkillsCommandContext,
 	request: z.output<typeof skillsInstallRequestSchema>,
-): Promise<ClinkrExit<SkillsInstallCommandResult>> {
+): Promise<CommandOutcome<SkillsInstallCommandResult>> {
 	const outcome = await provisionFirstPartySkill({
 		skill: request.skill,
 		harness: request.harness,
@@ -121,7 +121,7 @@ function installResultFromPlan(input: {
 
 function installFailureExit(
 	outcomeFailure: ProvisionFirstPartySkillFailure,
-): ClinkrExit<SkillsInstallCommandResult> {
+): CommandOutcome<SkillsInstallCommandResult> {
 	switch (outcomeFailure.code) {
 		case "catalog-source-unavailable":
 			return failure("catalog-source-unavailable", outcomeFailure.message);

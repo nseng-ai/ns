@@ -46,7 +46,7 @@ describe("initNs", () => {
 		const { context } = fixture();
 		const result = await initNs(context, { cwd: "/repo", supportedHarness: [] });
 		expect(result).toMatchObject({
-			type: "usageError",
+			status: "usage-error",
 			data: {
 				argument: "supportedHarness",
 				steps: [
@@ -71,8 +71,8 @@ describe("initNs", () => {
 			cwd: "/repo",
 			supportedHarness: ["codex", "claude-code"],
 		});
-		expect(result.type).toBe("ok");
-		if (result.type !== "ok") return;
+		expect(result.status).toBe("success");
+		if (result.status !== "success") return;
 		expect(result.data).toMatchObject({
 			repoRoot: "/repo",
 			trunkBranch: "main",
@@ -99,8 +99,8 @@ describe("initNs", () => {
 			{ ...context, lifecycleTrace: trace },
 			{ cwd: "/repo", supportedHarness: ["pi"] },
 		);
-		expect(result.type).toBe("ok");
-		if (result.type !== "ok") return;
+		expect(result.status).toBe("success");
+		if (result.status !== "success") return;
 		expect(result.data.steps.map((step) => step.type)).toEqual([
 			"phase",
 			"repository-resolved",
@@ -131,7 +131,7 @@ describe("initNs", () => {
 			{ cwd: "/repo", supportedHarness: [] },
 		);
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			data: {
 				steps: [
 					{ type: "phase", phase: "repository-preflight", status: "started" },
@@ -143,7 +143,7 @@ describe("initNs", () => {
 				],
 			},
 		});
-		if (result.type !== "failure") return;
+		if (result.status !== "failure") return;
 		const data = tracedFailureDataSchema.parse(result.data);
 		expect(trace.collectedLines()).toEqual(data.steps.map(renderLifecycleStepHuman));
 		expect(files.operations()).toEqual([]);
@@ -163,7 +163,7 @@ describe("initNs", () => {
 		);
 
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-init-apply-failed",
 			data: {
 				phase: "managed-extensions-ignore",
@@ -179,7 +179,7 @@ describe("initNs", () => {
 				]),
 			},
 		});
-		if (result.type !== "failure") return;
+		if (result.status !== "failure") return;
 		const data = tracedFailureDataSchema.parse(result.data);
 		expect(data.steps.at(-2)).toEqual({
 			type: "phase",
@@ -198,11 +198,11 @@ describe("initNs", () => {
 		const nsToml = 'supported_harnesses = ["pi"]\n';
 		const { context, files } = fixture(nsToml);
 		const first = await initNs(context, { cwd: "/repo", supportedHarness: [] });
-		expect(first.type).toBe("ok");
+		expect(first.status).toBe("success");
 		files.operations();
 		const second = await initNs(context, { cwd: "/repo", supportedHarness: [] });
 		expect(second).toMatchObject({
-			type: "ok",
+			status: "success",
 			data: {
 				harnessSource: "ns-toml",
 				completed: {
@@ -223,8 +223,8 @@ describe("initNs", () => {
 			cwd: "/repo",
 			supportedHarness: ["codex", "claude-code"],
 		});
-		expect(result.type).toBe("ok");
-		if (result.type !== "ok") return;
+		expect(result.status).toBe("success");
+		if (result.status !== "success") return;
 		expect(renderInitNsHuman(result.data)).toBe(
 			[
 				"Activated ns in /repo.",
@@ -337,8 +337,8 @@ describe("initNs", () => {
 		});
 		const { context } = fixture(undefined, artifacts);
 		const result = await initNs(context, { cwd: "/repo", supportedHarness: ["pi"] });
-		expect(result.type).toBe("ok");
-		if (result.type !== "ok") return;
+		expect(result.status).toBe("success");
+		if (result.status !== "success") return;
 		const structured = initNsResultSchema.parse(result.data);
 		expect(structured.completed.artifacts).toMatchObject([
 			{ action: "removed", removalReason: "removed-source", removedFiles: [expect.any(String)] },
@@ -357,7 +357,7 @@ describe("initNs", () => {
 		const { context, files } = fixture('supported_harnesses = ["pi"]\nextensions = [42]\n');
 		const result = await initNs(context, { cwd: "/repo", supportedHarness: [] });
 		expect(result).toMatchObject({
-			type: "failure",
+			status: "failure",
 			errorType: "ns-init-preflight-failed",
 			data: { phase: "preflight", completed: {} },
 		});

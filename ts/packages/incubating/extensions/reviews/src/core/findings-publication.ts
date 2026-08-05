@@ -1,9 +1,3 @@
-import {
-	buildFailureMachineEnvelopeSchema,
-	buildSuccessMachineEnvelopeSchema,
-	machineEnvelopeSchema,
-	negativeMachineEnvelopeSchema,
-} from "@nseng-ai/clinkr/legacy";
 import { parseJsonInputText } from "@nseng-ai/extension-kit/json-input";
 import { formatZodError } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
@@ -50,7 +44,11 @@ export type {
 import { postInlineFindings } from "./inline-publication.ts";
 import { reviewRunResultSchema, type PostInlineFindingsResult } from "./models.ts";
 
-const reviewRunSuccessEnvelopeSchema = buildSuccessMachineEnvelopeSchema(reviewRunResultSchema);
+const reviewRunSuccessEnvelopeSchema = z.strictObject({
+	status: z.literal("success"),
+	exitCode: z.literal(0),
+	data: reviewRunResultSchema,
+});
 
 const reviewRunShellNegativeEnvelopeSchema = z.strictObject({
 	status: z.literal("negative"),
@@ -59,11 +57,26 @@ const reviewRunShellNegativeEnvelopeSchema = z.strictObject({
 	data: reviewRunResultSchema,
 });
 
-const reviewRunNegativeEnvelopeSchema = negativeMachineEnvelopeSchema.omit({ data: true });
-
-const reviewRunFailureEnvelopeSchema = buildFailureMachineEnvelopeSchema({
-	errorTypeSchema: z.string().trim().min(1),
+const reviewRunNegativeEnvelopeSchema = z.strictObject({
+	status: z.literal("negative"),
+	exitCode: z.literal(1),
+	message: z.string(),
 });
+
+const reviewRunFailureEnvelopeSchema = z.strictObject({
+	status: z.union([z.literal("failure"), z.literal("usage-error")]),
+	exitCode: z.literal(2),
+	errorType: z.string().trim().min(1),
+	message: z.string(),
+	data: z.unknown().optional(),
+});
+
+const reviewRunEnvelopeSchema = z.union([
+	reviewRunSuccessEnvelopeSchema,
+	reviewRunShellNegativeEnvelopeSchema,
+	reviewRunNegativeEnvelopeSchema,
+	reviewRunFailureEnvelopeSchema,
+]);
 
 export interface FindingsPayloadParseError {
 	readonly code: "findings_payload_parse_error";
@@ -78,7 +91,7 @@ export function parseFindingsPayloadResult(
 ): FindingsPayloadParseResult {
 	const data = parseJson(raw);
 	if (!data.ok) return payloadError(data.error.message);
-	if (!machineEnvelopeSchema.safeParse(data.value).success)
+	if (!reviewRunEnvelopeSchema.safeParse(data.value).success)
 		return payloadError("expected a clinkr envelope with top-level 'status' and 'exitCode'");
 
 	const success = reviewRunSuccessEnvelopeSchema.safeParse(data.value);

@@ -257,7 +257,7 @@ describe("smart restack default preflight wiring", () => {
 		const pi = new FakePi([
 			rawResult({
 				stdout: JSON.stringify({
-					status: "ok",
+					status: "success",
 					exitCode: 0,
 					data: {
 						clean: true,

@@ -1,4 +1,4 @@
-import { ok, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
+import { ok, type CommandOutcome } from "@nseng-ai/clinkr/app";
 import { z } from "zod";
 
 import { listFirstPartySkillArtifacts } from "../api.ts";
@@ -20,7 +20,7 @@ export const skillsListResultSchema = z.object({
 });
 export type SkillsListResult = z.infer<typeof skillsListResultSchema>;
 
-export function runSkillsList(): ClinkrExit<SkillsListResult> {
+export function runSkillsList(): CommandOutcome<SkillsListResult> {
 	return ok({
 		catalogId: "ns-first-party",
 		skills: listFirstPartySkillArtifacts().map((artifact) => ({

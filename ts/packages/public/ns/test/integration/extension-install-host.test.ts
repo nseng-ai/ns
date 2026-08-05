@@ -5,9 +5,6 @@ import { describe, expect, test } from "vitest";
 
 import { commandSucceeded, runCommand } from "@nseng-ai/foundation/exec";
 import { installExtensionResultSchema } from "../../src/init/index.ts";
-import { nsExtensionInstallCommand } from "../../src/init/ns/commands/extension-install.ts";
-import { nsExtensionUninstallCommand } from "../../src/init/ns/commands/extension-uninstall.ts";
-
 import { runNsCli } from "../../src/cli/index.ts";
 import {
 	createEmptyProject,
@@ -51,13 +48,13 @@ describe("extension install host integration", () => {
 		expect(json.exit).toBe(0);
 		expect(json.stderr).toBe("");
 		expect(parseJsonOutput(json)).toMatchObject({
-			status: "ok",
+			status: "success",
 			data: { steps: expect.arrayContaining([expect.objectContaining({ type: "phase" })]) },
 		});
 
 		const markdownStdout: string[] = [];
 		const markdownStderr: string[] = [];
-		const markdownExit = await runNsCli(["init", "--format", "markdown"], {
+		const markdownExit = await runNsCli(["init", "--format", "md"], {
 			cwd,
 			homeDir: join(cwd, ".home"),
 			env: { HOME: join(cwd, ".home") },
@@ -71,7 +68,6 @@ describe("extension install host integration", () => {
 	});
 
 	test("imports a full local descriptor, reconciles artifacts, and reports idempotence", async () => {
-		expect(nsExtensionInstallCommand.name).toBe("install");
 		const cwd = await createEmptyProject();
 		await initializeGitRepo(cwd);
 		await writeFile(join(cwd, "ns.toml"), 'supported_harnesses = ["pi"]\n', "utf8");
@@ -81,7 +77,7 @@ describe("extension install host integration", () => {
 		expect(installed.exit).toBe(0);
 		const installedJson = parseJsonOutput(installed);
 		expect(installedJson).toMatchObject({
-			status: "ok",
+			status: "success",
 			exitCode: 0,
 			data: {
 				sourceSpec: "./extensions/acme-module",
@@ -124,7 +120,7 @@ describe("extension install host integration", () => {
 		const markdownStdout: string[] = [];
 		const markdownStderr: string[] = [];
 		const markdownExit = await runNsCli(
-			["extension", "install", "./extensions/acme-module", "--format", "markdown"],
+			["extension", "install", "./extensions/acme-module", "--format", "md"],
 			{
 				cwd,
 				homeDir: join(cwd, ".home"),
@@ -171,7 +167,7 @@ describe("extension install host integration", () => {
 		const listed = await runNsCliJson(["extension", "list"], cwd);
 		expect(listed.exit).toBe(0);
 		expect(parseJsonOutput(listed)).toMatchObject({
-			status: "ok",
+			status: "success",
 			exitCode: 0,
 			data: {
 				repoRoot: cwd,
@@ -209,7 +205,7 @@ describe("extension install host integration", () => {
 		const conflicted = await runNsCliJson(["extension", "list"], cwd);
 		expect(conflicted.exit).toBe(0);
 		expect(parseJsonOutput(conflicted)).toMatchObject({
-			status: "ok",
+			status: "success",
 			data: {
 				extensions: [
 					{
@@ -228,7 +224,7 @@ describe("extension install host integration", () => {
 		const missing = await runNsCliJson(["extension", "list"], cwd);
 		expect(missing.exit).toBe(0);
 		expect(parseJsonOutput(missing)).toMatchObject({
-			status: "ok",
+			status: "success",
 			data: {
 				extensions: [
 					{
@@ -243,7 +239,6 @@ describe("extension install host integration", () => {
 	});
 
 	test("uninstalls a local extension while preserving source and consumer data", async () => {
-		expect(nsExtensionUninstallCommand.name).toBe("uninstall");
 		const cwd = await createEmptyProject();
 		await initializeGitRepo(cwd);
 		await writeFile(join(cwd, "ns.toml"), 'supported_harnesses = ["pi"]\n', "utf8");
@@ -291,7 +286,7 @@ describe("extension install host integration", () => {
 		expect(json.exit).toBe(0);
 		expect(json.stderr).toBe("");
 		expect(parseJsonOutput(json)).toMatchObject({
-			status: "ok",
+			status: "success",
 			data: {
 				steps: expect.arrayContaining([
 					expect.objectContaining({ type: "declaration-decided", action: "absent" }),
@@ -301,16 +296,13 @@ describe("extension install host integration", () => {
 
 		const markdownStdout: string[] = [];
 		const markdownStderr: string[] = [];
-		const markdownExit = await runNsCli(
-			["extension", "uninstall", source, "--format", "markdown"],
-			{
-				cwd,
-				homeDir: join(cwd, ".home"),
-				env: { HOME: join(cwd, ".home") },
-				stdout: (text) => markdownStdout.push(text),
-				stderr: (text) => markdownStderr.push(text),
-			},
-		);
+		const markdownExit = await runNsCli(["extension", "uninstall", source, "--format", "md"], {
+			cwd,
+			homeDir: join(cwd, ".home"),
+			env: { HOME: join(cwd, ".home") },
+			stdout: (text) => markdownStdout.push(text),
+			stderr: (text) => markdownStderr.push(text),
+		});
 		expect(markdownExit).toBe(0);
 		expect(markdownStderr.join("")).toBe("");
 		expect(markdownStdout.join("")).toContain("# ns extension uninstall");

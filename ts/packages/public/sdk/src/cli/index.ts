@@ -1,32 +1,23 @@
 #!/usr/bin/env node
 
-import { z } from "zod";
-
 import {
-	ClinkrGroup,
-	clinkrNameMatchesAutomaticAlias,
-	type ClinkrCommandSpec,
-	type ClinkrDynamicCompletionRequest,
-	type ClinkrIo,
-} from "@nseng-ai/clinkr";
-import { clinkrFormatFromArgs, emitExit, failure, ok } from "@nseng-ai/clinkr/legacy";
-import { renderCompletionCandidatesNewline } from "@nseng-ai/clinkr/completion";
-import { rawCommand } from "@nseng-ai/clinkr/raw";
+	createClinkrApp,
+	defineCommand,
+	resolveClinkrOutputFormat,
+	type ClinkrCommandMetadata,
+	type ClinkrComposition,
+	type ClinkrContextfulApp,
+	type ClinkrScope,
+} from "@nseng-ai/clinkr/app";
 import {
-	defineCli,
+	defineClinkrAppCli,
 	readStdin,
-	type CliEntrypointDeps,
-	type DefineCliOptions,
+	type ClinkrAppCliBuildInput,
+	type ClinkrAppCliPrepareRunInput,
 } from "@nseng-ai/foundation/cli-runtime";
 import { optionalEntries, optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
-import { paint } from "@nseng-ai/foundation/cli-theme";
 
-import {
-	buildNsCompletionScript,
-	renderNsCompletionScriptResult,
-	nsCompletionScriptResultSchema,
-} from "./completion.ts";
-import { createNsCliInteraction, type NsCliBaseContext, type NsCliContext } from "./context.ts";
+import { createNsCliInteraction, type NsCliBaseContext } from "./context.ts";
 import {
 	renderNsShellInstall,
 	renderNsShellShow,
@@ -39,1011 +30,330 @@ import {
 } from "./shell.ts";
 import { createCliCommandIo, noopNsProgress } from "../runtime/command-io.ts";
 import {
-	classifyExtensionDiagnosticsForInvocation,
-	commandInfosForSelectedCommand,
-	formatExtensionErrorDiagnostics,
-	formatExtensionWarningDiagnostics,
-	loadListingCommandInfos,
-	loadNsCommandCatalog,
-	loadSelectedNsCommand,
-	type ExtensionCommandCandidate,
-	type LoadNsCommandCatalogOptions,
-	type PreinstalledNsCommandCatalogLoader,
-	type SelectedNsCommandLoadResult,
-	type NsCommandCatalog,
-} from "../extensions/registry.ts";
+	extensionPointCommand,
+	extensionPointsCommand,
+} from "../extensions/built-in-extension-commands.ts";
+import {
+	loadNsCommandSourceInventory,
+	type LoadNsCommandSourceInventoryOptions,
+	type NsCommandSource,
+	type NsCommandSourceInventory,
+	type PreinstalledNsCommandSourceLoader,
+} from "../extensions/source-inventory.ts";
 import type {
-	RenderCapabilities,
-	CommandExit,
-	DescriptorCommand,
 	NsConfirmPrompt,
-	NsSelectPrompt,
 	NsExtensionApi,
 	NsOutputStream,
 	NsProgressPhaseListener,
+	NsSelectPrompt,
 } from "../sdk/index.ts";
-import {
-	commandDisplayName,
-	commandKey,
-	commandLeafName,
-	commandPathMatches,
-	commandSegments,
-	extensionCommandFailedExit,
-	listStaticNsCommandInfos,
-	validateCommandExit,
-	type NsCommandInfo,
-	type NsCommandCliInfo,
-	type NsCommandOriginKind,
-	type NsCommandPath,
-} from "../extensions/command-registry.ts";
-import { parsedSpecForCommand } from "../sdk/command.ts";
 import {
 	NS_BUILT_IN_HELP_GROUP,
 	NS_EXTENSION_HELP_GROUP,
 } from "../extensions/help-presentation.ts";
 
-export type { NsCliBaseContext, NsCliContext } from "./context.ts";
-export type { NsCommandInfo } from "../extensions/command-registry.ts";
+export type { NsCliBaseContext } from "./context.ts";
 export type {
-	PreinstalledNsCommandCatalog,
-	PreinstalledNsCommandCatalogEntry,
-	PreinstalledNsCommandCatalogLoader,
-} from "../extensions/registry.ts";
+	NsCommandSource,
+	NsCommandSourceDiagnostic,
+	NsCommandSourceInventory,
+	PreinstalledNsCommandSource,
+	PreinstalledNsCommandSourceLoader,
+} from "../extensions/source-inventory.ts";
 export {
-	extensionDescriptorToPreinstalledCatalog,
-	preinstalledNsCommandCatalogFromRegistrations,
-} from "../extensions/descriptor-catalog.ts";
-export type { PreinstalledNsExtensionRegistration } from "../extensions/descriptor-catalog.ts";
+	NS_BUILT_IN_HELP_GROUP,
+	NS_EXTENSION_HELP_GROUP,
+} from "../extensions/help-presentation.ts";
 
-interface NsCliExtensionRegistryDeps {
-	loadCommandCatalog?: (options: LoadNsCommandCatalogOptions) => Promise<NsCommandCatalog>;
-	loadSelectedCommand?: (
-		candidate: ExtensionCommandCandidate,
-	) => Promise<SelectedNsCommandLoadResult>;
+interface NsCliSourceInventoryDeps {
+	loadSourceInventory?: (
+		options: LoadNsCommandSourceInventoryOptions,
+	) => Promise<NsCommandSourceInventory>;
 }
 
-export interface NsCliDeps extends Pick<
-	CliEntrypointDeps,
-	"cwd" | "env" | "stdout" | "stderr" | "renderCapabilities"
-> {
-	context: NsCliBaseContext;
-	entryMetaUrl?: string;
-	homeDir?: string;
-	onOutput?: (stream: NsOutputStream, text: string) => void;
-	onProgress?: NsProgressPhaseListener;
-	confirm?: NsConfirmPrompt;
-	select?: NsSelectPrompt;
-	preinstalledCommandCatalog?: PreinstalledNsCommandCatalogLoader;
-	extensionRegistry?: NsCliExtensionRegistryDeps;
-}
-
-export interface BuildNsCliOptions {
-	commandInfos?: readonly NsCommandCliInfo[];
-	selectedCommand?: DescriptorCommand;
-	selectedCommandPath?: NsCommandPath;
-	renderCapabilities?: RenderCapabilities;
+export interface NsCliDeps {
+	readonly context: NsCliBaseContext;
+	readonly cwd?: string;
+	readonly env?: NodeJS.ProcessEnv;
+	readonly stdout?: (text: string) => void;
+	readonly stderr?: (text: string) => void;
+	readonly readStdin?: () => Promise<string>;
+	readonly canEmitAnsi?: boolean;
+	readonly entryMetaUrl?: string;
+	readonly homeDir?: string;
+	readonly onOutput?: (stream: NsOutputStream, text: string) => void;
+	readonly onProgress?: NsProgressPhaseListener;
+	readonly confirm?: NsConfirmPrompt;
+	readonly select?: NsSelectPrompt;
+	readonly preinstalledSources?: PreinstalledNsCommandSourceLoader;
+	/** Set false when a host composes the SDK point commands into its own extension subtree. */
+	readonly includeSdkExtensionCommands?: boolean;
+	readonly extensionRegistry?: NsCliSourceInventoryDeps;
 }
 
 interface NsCliBuildState {
-	commandInfos: readonly NsCommandCliInfo[];
-	selectedCommand?: DescriptorCommand;
-	selectedCommandPath?: NsCommandPath;
-	renderCapabilities?: RenderCapabilities;
+	readonly inventory: NsCommandSourceInventory;
+	readonly includeSdkExtensionCommands: boolean;
 }
 
-interface NsCliCommandContextInput {
-	cwd: string;
-	env: Record<string, string | undefined>;
-	/** Compatibility value exposed to command contexts until the SDK field is retired. */
-	homeDir?: string;
-}
-
-interface NsCliRawContextInputs {
-	deps: Partial<NsCliDeps>;
-	injectedContext?: NsCliBaseContext;
-	cwd: string;
-	env: Record<string, string | undefined>;
-}
-
-function resolveNsCliCommandContextInput(options: NsCliRawContextInputs): NsCliCommandContextInput {
-	const cwd = options.deps.cwd ?? options.injectedContext?.cwd ?? options.cwd;
-	const env = options.deps.env ?? options.injectedContext?.env ?? options.env;
-	const homeDir = resolveHomeDir(options.deps.homeDir, env) ?? options.injectedContext?.homeDir;
-	return { cwd, env, ...optionalEntry("homeDir", homeDir) };
-}
-
-const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> = {
+const entryOptions = {
 	metaUrl: new URL("../cli.ts", import.meta.url).href,
-	runtime: "typescript",
+	runtime: "typescript" as const,
 	description: "ns tools.",
-	prepareRun: async ({ args, deps, cwd, env, stdout, stderr, io }) => {
-		const injectedContext = deps.context;
-		const resolvedStdout = deps.stdout ?? injectedContext?.stdout ?? stdout;
-		const resolvedStderr = deps.stderr ?? injectedContext?.stderr ?? stderr;
-		const renderCapabilities: RenderCapabilities = {
-			canEmitAnsi: io.canEmitAnsi === true,
-			...optionalEntry("caps", io.caps),
-		};
-		const commandContext = resolveNsCliCommandContextInput({
-			deps,
-			...(injectedContext === undefined ? {} : { injectedContext }),
-			cwd,
-			env,
-		});
-		const commandCatalog = await (
-			deps.extensionRegistry?.loadCommandCatalog ?? loadNsCommandCatalog
+	prepareRun: async ({
+		args,
+		deps,
+		cwd,
+		env,
+		stdout,
+		stderr,
+	}: ClinkrAppCliPrepareRunInput<NsCliDeps>) => {
+		const base = deps.context;
+		if (base === undefined) throw new Error("Ns CLI context is required.");
+		const resolvedCwd = deps.cwd ?? base.cwd ?? cwd;
+		const resolvedEnv = deps.env ?? base.env ?? env;
+		const homeDir = resolveHomeDir(deps.homeDir, resolvedEnv) ?? base.homeDir;
+		const inventory = await (
+			deps.extensionRegistry?.loadSourceInventory ?? loadNsCommandSourceInventory
 		)({
-			cwd: commandContext.cwd,
-			env: commandContext.env,
-			...optionalEntry("homeDir", commandContext.homeDir),
-			...optionalEntry("preinstalledCommandCatalog", deps.preinstalledCommandCatalog),
+			cwd: resolvedCwd,
+			env: resolvedEnv,
+			...optionalEntry("homeDir", homeDir),
+			...optionalEntry("preinstalledSources", deps.preinstalledSources),
 		});
-		if (isCompletionResolverInvocation(args)) {
-			return await handleCompletionResolverInvocation({
-				args,
-				commandCatalog,
-				commandContext,
-				stdout: resolvedStdout,
-				stderr: resolvedStderr,
-				renderCapabilities,
-				...optionalEntries({
-					loadSelectedCommand: deps.extensionRegistry?.loadSelectedCommand,
-					injectedContext,
-					onOutput: deps.onOutput,
-					onProgress: deps.onProgress,
-					confirm: deps.confirm,
-					select: deps.select,
-				}),
-			});
+		for (const diagnostic of inventory.diagnostics) {
+			stderr(`${diagnostic.severity === "error" ? "Warning: " : ""}${diagnostic.message}\n`);
 		}
-		const isCompletionScriptRequest = isCompletionScriptInvocation(args);
-		const selectedCommandKey = isCompletionScriptRequest
-			? undefined
-			: requestedCommandKey(args, commandCatalog.commandInfos);
-		const selectedCandidate =
-			selectedCommandKey === undefined
-				? undefined
-				: commandCatalog.candidates.get(selectedCommandKey);
-		const requestedGroup =
-			selectedCommandKey === undefined
-				? requestedGroupSegments(args, commandCatalog.commandInfos)
-				: undefined;
-		const diagnosticClassification = classifyExtensionDiagnosticsForInvocation({
-			diagnostics: commandCatalog.diagnostics,
-			requestedCommandName: selectedCommandKey,
-			selectedCandidate,
-		});
-		if (!isCompletionScriptRequest && diagnosticClassification.fatal.length > 0) {
-			resolvedStderr(`${formatExtensionErrorDiagnostics(diagnosticClassification.fatal)}\n`);
-			return { type: "handled", exitCode: 2 };
-		}
-
-		let commandInfos = commandCatalog.commandInfos;
-		let listingDiagnostics: typeof diagnosticClassification.warnings = [];
-		if (
-			!isCompletionScriptRequest &&
-			selectedCommandKey === undefined &&
-			!isStaticTopLevelMetadataRequest(args)
-		) {
-			const loadedListing = await loadListingCommandInfos(commandCatalog, {
-				...optionalEntry("groupSegments", requestedGroup),
-			});
-			commandInfos = loadedListing.commandInfos;
-			listingDiagnostics = loadedListing.diagnostics;
-		}
-		const warnings = isCompletionScriptRequest
-			? []
-			: [...diagnosticClassification.warnings, ...listingDiagnostics];
-		if (warnings.length > 0) {
-			resolvedStderr(`${formatExtensionWarningDiagnostics(warnings)}\n`);
-		}
-
-		const selectedCommandResolution = await resolveSelectedNsCommand({
-			candidate: selectedCandidate,
-			commandInfos,
-			...optionalEntry("loadSelectedCommand", deps.extensionRegistry?.loadSelectedCommand),
-			stderr: resolvedStderr,
-			failureExitCode: 2,
-		});
-		if (!selectedCommandResolution.ok) return selectedCommandResolution.handled;
-
-		const contextWithIO = await buildNsCliContext({
-			args,
-			commandContext,
-			extensionPackageNames: commandCatalog.extensionPackageNames,
-			builtInPackageNames: commandCatalog.builtInPackageNames,
+		const resolvedStdout = deps.stdout ?? base.stdout ?? stdout;
+		const resolvedStderr = deps.stderr ?? base.stderr ?? stderr;
+		const commandIo = createCliCommandIo({
 			stdout: resolvedStdout,
 			stderr: resolvedStderr,
-			renderCapabilities,
-			...optionalEntries({
-				injectedContext,
-				onOutput: deps.onOutput,
-				onProgress: deps.onProgress,
-				confirm: deps.confirm,
-				select: deps.select,
-			}),
+			...optionalEntry("onOutput", deps.onOutput ?? base.onOutput),
 		});
+		const context: NsExtensionApi = {
+			cwd: resolvedCwd,
+			env: resolvedEnv,
+			...optionalEntry("homeDir", homeDir),
+			textGenerator: base.textGenerator,
+			commandIo,
+			progress:
+				deps.onProgress === undefined ? noopNsProgress : { isLive: true, phase: deps.onProgress },
+			renderCapabilities: { canEmitAnsi: deps.canEmitAnsi === true },
+			outputFormat: resolveClinkrOutputFormat(args),
+			exec: base.exec.bind(base),
+			hasExtension: (packageName) => inventory.extensionPackageNames.has(packageName),
+			installedExtensionPackageNames: [...inventory.extensionPackageNames]
+				.filter((name) => !inventory.builtInPackageNames.has(name))
+				.sort(),
+			stdout: resolvedStdout,
+			stderr: resolvedStderr,
+			stdin: base.stdin ?? readStdin,
+			...optionalEntries({
+				onOutput: deps.onOutput ?? base.onOutput,
+				confirm: deps.confirm ?? base.confirm,
+				select: deps.select ?? base.select,
+				extensions: base.extensions,
+			}),
+		};
 		return {
-			type: "run",
-			context: contextWithIO,
-			buildState: { ...selectedCommandResolution.resolution, renderCapabilities },
+			type: "run" as const,
+			context,
+			buildState: {
+				inventory,
+				includeSdkExtensionCommands: deps.includeSdkExtensionCommands !== false,
+			},
 		};
 	},
-	buildCli: ({ description, version, runtimeInfo, buildState }) => {
-		const root = new ClinkrGroup<NsCliContext>({
-			name: "ns",
-			description,
+	buildApp: ({ name, version, runtimeInfo, buildState }: ClinkrAppCliBuildInput<NsCliBuildState>) =>
+		buildNsApp({
+			name,
 			version,
 			runtimeInfo,
-		});
-		const groups = new Map<string, ClinkrGroup<NsCliContext>>();
-		const topLevelHelpGroups = resolveTopLevelHelpGroups(buildState.commandInfos);
-		const topLevelOriginLabels = resolveTopLevelOriginLabels(
-			buildState.commandInfos,
-			topLevelHelpGroups,
-			buildState.renderCapabilities,
-		);
-		// Registration order drives help output: commander renders section headings in
-		// first-occurrence order and rows in registration order within each heading.
-		const rootRegistrations = orderRootRegistrationsForHelp(
-			buildState.commandInfos,
-			topLevelHelpGroups,
-			[
-				{
-					type: "group",
-					name: "completion",
-					helpGroup: NS_BUILT_IN_HELP_GROUP,
-					group: buildNsCompletionGroup(),
-				},
-				{
-					type: "group",
-					name: "shell",
-					helpGroup: NS_BUILT_IN_HELP_GROUP,
-					group: buildNsShellGroup(),
-				},
-			],
-		);
-		for (const registration of rootRegistrations) {
-			if (registration.type === "group") {
-				root.group(registration.group);
-				continue;
-			}
-			const commandInfo = registration.commandInfo;
-			const parent = groupForCommand(
-				root,
-				groups,
-				commandInfo,
-				topLevelHelpGroups,
-				topLevelOriginLabels,
-			);
-			const commandPath = commandSegments(commandInfo);
-			const topLevelSegment = commandPath[0];
-			const topLevelHelpGroup =
-				topLevelSegment === undefined
-					? NS_EXTENSION_HELP_GROUP
-					: (topLevelHelpGroups.get(topLevelSegment) ?? NS_EXTENSION_HELP_GROUP);
-			const parentHelpGroup = commandPath.length === 1 ? topLevelHelpGroup : undefined;
-			const selectedCommand =
-				buildState.selectedCommandPath !== undefined &&
-				commandPathMatches(buildState.selectedCommandPath, commandInfo)
-					? buildState.selectedCommand
-					: undefined;
-			const command =
-				selectedCommand === undefined ||
-				buildState.selectedCommandPath === undefined ||
-				!commandPathMatches(buildState.selectedCommandPath, commandInfo)
-					? undefined
-					: selectedCommand;
-			const parsedCommandSpec = command === undefined ? undefined : parsedSpecForCommand(command);
-			const topLevelHelpLabel =
-				commandPath.length === 1 && topLevelHelpGroup === NS_EXTENSION_HELP_GROUP
-					? topLevelOriginLabels.get(commandLeafName(commandInfo))
-					: undefined;
-			if (command !== undefined && parsedCommandSpec !== undefined) {
-				parent.command({
-					name: commandLeafName(commandInfo),
-					description: commandInfo.fullDescription,
-					summary: commandInfo.description,
-					...optionalEntry("helpLabel", topLevelHelpLabel),
-					schema: parsedCommandSpec.schema,
-					...(parsedCommandSpec.resultSchema === undefined
-						? {}
-						: { resultSchema: parsedCommandSpec.resultSchema }),
-					...(parsedCommandSpec.positionals === undefined
-						? {}
-						: { positionals: parsedCommandSpec.positionals }),
-					...(parsedCommandSpec.options === undefined
-						? {}
-						: { options: parsedCommandSpec.options }),
-					...(parsedCommandSpec.renderHuman === undefined
-						? {}
-						: { renderHuman: parsedCommandSpec.renderHuman }),
-					...(parsedCommandSpec.renderMarkdown === undefined
-						? {}
-						: { renderMarkdown: parsedCommandSpec.renderMarkdown }),
-					...(parsedCommandSpec.completionProvider === undefined
-						? {}
-						: {
-								completionProvider: (ctx: NsCliContext, request: ClinkrDynamicCompletionRequest) =>
-									parsedCommandSpec.completionProvider?.(ctx.context, request) ?? [],
-							}),
-					...optionalEntry("helpGroup", parentHelpGroup),
-					handler: async (ctx, request) => {
-						try {
-							return validateCommandExit(
-								await parsedCommandSpec.run(ctx.context, request),
-								command.name,
-							);
-						} catch (error) {
-							return extensionCommandFailedExit(command.name, error);
-						}
-					},
-				});
-				continue;
-			}
-			parent.command(
-				rawCommand({
-					name: commandLeafName(commandInfo),
-					description: commandInfo.fullDescription,
-					summary: commandInfo.description,
-					...optionalEntry("helpLabel", topLevelHelpLabel),
-					...(command === undefined
-						? { schema: placeholderSchema }
-						: {
-								schema: passthroughSchema,
-								positionals: { argv: { position: 0 } },
-								shouldPassThrough: true,
-							}),
-					...optionalEntry("helpGroup", parentHelpGroup),
-					...(command?.complete === undefined
-						? {}
-						: {
-								completionProvider: (ctx: NsCliContext, request: ClinkrDynamicCompletionRequest) =>
-									command.complete?.(ctx.context, request) ?? [],
-							}),
-					run: async (ctx, request) => {
-						if (command === undefined) {
-							const result = failure(
-								"unknown-command",
-								`Unknown ns command: ${commandDisplayName(commandInfo)}`,
-								{ command: commandDisplayName(commandInfo) },
-							);
-							return emitExit(result, {
-								format: ctx.context.outputFormat ?? "human",
-								io: clinkrIo(ctx),
-							});
-						}
-						const result = await runPassthroughCommand(
-							ctx,
-							command,
-							passthroughSchema.parse(request).argv,
-							commandInfo,
-						);
-						return emitExit(result, {
-							format: ctx.context.outputFormat ?? "human",
-							io: clinkrIo(ctx),
-						});
-					},
-				}),
-			);
-		}
-		return root;
-	},
+			inventory: buildState.inventory,
+			includeSdkExtensionCommands: buildState.includeSdkExtensionCommands,
+		}),
 };
 
-const entry = defineCli(entryOptions);
+const entry = defineClinkrAppCli<NsExtensionApi, NsCliDeps, NsCliBuildState>(entryOptions);
 
-export function buildCli(options: BuildNsCliOptions = {}): ClinkrGroup<NsCliContext> {
-	return entry.buildCli({
-		commandInfos: options.commandInfos ?? listStaticNsCommandInfos(),
-		...optionalEntries({
-			selectedCommand: options.selectedCommand,
-			selectedCommandPath: options.selectedCommandPath,
-			renderCapabilities: options.renderCapabilities,
-		}),
-	});
+export function buildNsApp(options: {
+	readonly name?: string;
+	readonly version?: string;
+	readonly runtimeInfo?: () => string;
+	readonly inventory: NsCommandSourceInventory;
+	readonly includeSdkExtensionCommands?: boolean;
+}): ClinkrContextfulApp<NsExtensionApi> {
+	return createClinkrApp<NsExtensionApi>(
+		{
+			name: options.name ?? "ns",
+			requiresContext: true,
+			completion: {},
+			...optionalEntries({ version: options.version, runtimeInfo: options.runtimeInfo }),
+		},
+		(composition) =>
+			composeNsSources(
+				composition,
+				options.inventory.sources,
+				options.includeSdkExtensionCommands !== false,
+			),
+	);
 }
 
-export function listNsCommands(): NsCommandInfo[] {
-	return listStaticNsCommandInfos().map(({ group, name, description }) => ({
-		...(group === undefined ? {} : { group }),
-		name,
-		description,
-	}));
+function composeNsSources(
+	composition: ClinkrComposition<NsExtensionApi>,
+	sources: readonly NsCommandSource[],
+	includeSdkExtensionCommands: boolean,
+): void {
+	composition.source(
+		{
+			label: "sdk:built-ins",
+			decorateTopLevel: (metadata) => ({
+				...metadata,
+				helpGroup: NS_BUILT_IN_HELP_GROUP,
+				helpOrder: 3,
+			}),
+		},
+		(root) => {
+			if (includeSdkExtensionCommands) {
+				root.group(
+					"extension",
+					{ description: "Inspect ns extension metadata.", helpGroup: NS_BUILT_IN_HELP_GROUP },
+					composeNsExtensionPointCommands,
+				);
+			}
+			root.group(
+				"shell",
+				{ description: "Manage shell integration.", helpGroup: NS_BUILT_IN_HELP_GROUP },
+				(shell) => {
+					shell.command("show", { description: "Print shell integration." }, () =>
+						defineCommand<
+							NsExtensionApi,
+							typeof nsShellShowRequestSchema,
+							typeof nsShellShowResultSchema
+						>({
+							requiresContext: true,
+							schema: nsShellShowRequestSchema,
+							resultSchema: nsShellShowResultSchema,
+							handler: (context, request) =>
+								toModernOutcome(runNsShellShow(shellContext(context), request)),
+							renderHuman: renderNsShellShow,
+						}),
+					);
+					shell.command("install", { description: "Install shell integration." }, () =>
+						defineCommand<
+							NsExtensionApi,
+							typeof nsShellInstallRequestSchema,
+							typeof nsShellInstallResultSchema
+						>({
+							requiresContext: true,
+							schema: nsShellInstallRequestSchema,
+							resultSchema: nsShellInstallResultSchema,
+							handler: (context, request) =>
+								toModernOutcome(runNsShellInstall(shellContext(context), request)),
+							renderHuman: renderNsShellInstall,
+						}),
+					);
+				},
+			);
+		},
+	);
+	for (const source of sources) {
+		if (source.commandDirectory !== undefined) {
+			composition.filesystem({
+				label: source.label,
+				commandDirectory: source.commandDirectory,
+				decorateTopLevel: (metadata) => decorateNsTopLevelMetadata(source, metadata),
+			});
+			continue;
+		}
+		if (source.compose !== undefined) {
+			composition.source(
+				{
+					label: source.label,
+					decorateTopLevel: (metadata) => decorateNsTopLevelMetadata(source, metadata),
+				},
+				source.compose,
+			);
+		}
+	}
+}
+
+function decorateNsTopLevelMetadata(
+	source: NsCommandSource,
+	metadata: ClinkrCommandMetadata,
+): ClinkrCommandMetadata {
+	if (source.helpClassification === "built-in") {
+		return { ...metadata, helpGroup: NS_BUILT_IN_HELP_GROUP, helpOrder: 3 };
+	}
+	return {
+		...metadata,
+		helpGroup: NS_EXTENSION_HELP_GROUP,
+		helpOrder: source.origin === "package" ? 0 : 1,
+	};
+}
+
+export function composeNsExtensionPointCommands(extension: ClinkrScope<NsExtensionApi>): void {
+	extension.command(
+		"point",
+		{ description: "Show one ns point definition and its active source." },
+		() => extensionPointCommand,
+	);
+	extension.command(
+		"points",
+		{ description: "List defined ns points and their active sources." },
+		() => extensionPointsCommand,
+	);
+}
+
+async function toModernOutcome<T>(
+	result: Promise<unknown>,
+): Promise<import("@nseng-ai/clinkr/app").CommandOutcome<T>> {
+	const value = await result;
+	if (typeof value !== "object" || value === null || !("type" in value)) {
+		throw new Error("Legacy shell command returned an invalid outcome.");
+	}
+	const legacy = value as Record<string, unknown>;
+	if (legacy.type === "ok") return { status: "success" as const, data: legacy.data as T };
+	if (legacy.type === "negative") {
+		return {
+			status: "negative" as const,
+			message: String(legacy.message),
+			...optionalEntry("data", legacy.data),
+		};
+	}
+	if (legacy.type === "failure") {
+		return {
+			status: "failure" as const,
+			errorType: String(legacy.errorType),
+			message: String(legacy.message),
+			...optionalEntry("data", legacy.data),
+		};
+	}
+	return {
+		status: "usage-error" as const,
+		errorType: "usage-error",
+		message: String(legacy.message),
+		...optionalEntry("data", legacy.data),
+	};
+}
+
+function shellContext(context: NsExtensionApi) {
+	const stderr = context.stderr ?? (() => {});
+	return {
+		context,
+		cwd: context.cwd,
+		env: context.env,
+		interaction: createNsCliInteraction({ stderr }),
+		stdout: context.stdout ?? (() => {}),
+		stderr,
+	};
 }
 
 export async function runCli(args: readonly string[], deps: NsCliDeps): Promise<number> {
 	if (deps.entryMetaUrl === undefined) return await entry.run(args, deps);
-	return await defineCli({ ...entryOptions, metaUrl: deps.entryMetaUrl }).run(args, deps);
+	return await defineClinkrAppCli<NsExtensionApi, NsCliDeps, NsCliBuildState>({
+		...entryOptions,
+		metaUrl: deps.entryMetaUrl,
+	}).run(args, deps);
 }
-
-async function handleCompletionResolverInvocation(options: {
-	args: readonly string[];
-	commandCatalog: NsCommandCatalog;
-	loadSelectedCommand?: (
-		candidate: ExtensionCommandCandidate,
-	) => Promise<SelectedNsCommandLoadResult>;
-	commandContext: NsCliCommandContextInput;
-	stdout: (text: string) => void;
-	stderr: (text: string) => void;
-	injectedContext?: NsCliBaseContext;
-	onOutput?: (stream: NsOutputStream, text: string) => void;
-	onProgress?: NsProgressPhaseListener;
-	confirm?: NsConfirmPrompt;
-	select?: NsSelectPrompt;
-	renderCapabilities: RenderCapabilities;
-}): Promise<{ type: "handled"; exitCode: number }> {
-	const words = completionResolverWords(options.args);
-	const selectedCommandKey = requestedCommandKey(words, options.commandCatalog.commandInfos);
-	const selectedCandidate =
-		selectedCommandKey === undefined
-			? undefined
-			: options.commandCatalog.candidates.get(selectedCommandKey);
-	const selectedCommandResolution = await resolveSelectedNsCommand({
-		candidate: selectedCandidate,
-		commandInfos: options.commandCatalog.commandInfos,
-		...optionalEntry("loadSelectedCommand", options.loadSelectedCommand),
-		stderr: options.stderr,
-		failureExitCode: 0,
-	});
-	if (!selectedCommandResolution.ok) return selectedCommandResolution.handled;
-	const context = await buildNsCliContext({
-		args: options.args,
-		commandContext: options.commandContext,
-		extensionPackageNames: options.commandCatalog.extensionPackageNames,
-		builtInPackageNames: options.commandCatalog.builtInPackageNames,
-		stdout: options.stdout,
-		stderr: options.stderr,
-		renderCapabilities: options.renderCapabilities,
-		...optionalEntries({
-			injectedContext: options.injectedContext,
-			onOutput: options.onOutput,
-			onProgress: options.onProgress,
-			confirm: options.confirm,
-			select: options.select,
-		}),
-	});
-	const candidates = await buildCli(selectedCommandResolution.resolution).completeAsync(
-		{ words },
-		{
-			context,
-			onDynamicCompletionError: () => {},
-		},
-	);
-	options.stdout(renderCompletionCandidatesNewline(candidates));
-	return { type: "handled", exitCode: 0 };
-}
-
-async function resolveSelectedNsCommand(options: {
-	candidate: ExtensionCommandCandidate | undefined;
-	commandInfos: readonly NsCommandCliInfo[];
-	loadSelectedCommand?: (
-		candidate: ExtensionCommandCandidate,
-	) => Promise<SelectedNsCommandLoadResult>;
-	stderr: (text: string) => void;
-	failureExitCode: number;
-}): Promise<
-	| { ok: true; resolution: NsCliBuildState }
-	| { ok: false; handled: { type: "handled"; exitCode: number } }
-> {
-	const selectedCommandLoader = options.loadSelectedCommand ?? loadSelectedNsCommand;
-	const loadedSelectedCommand =
-		options.candidate === undefined ? undefined : await selectedCommandLoader(options.candidate);
-	if (loadedSelectedCommand !== undefined && !loadedSelectedCommand.ok) {
-		options.stderr(`${formatExtensionErrorDiagnostics([loadedSelectedCommand.diagnostic])}\n`);
-		return { ok: false, handled: { type: "handled", exitCode: options.failureExitCode } };
-	}
-	const selectedCommand = loadedSelectedCommand?.command;
-	const selectedSource = loadedSelectedCommand?.source;
-	const selectedPath = loadedSelectedCommand?.path;
-	const commandInfos = commandInfosForSelectedCommand(
-		options.commandInfos,
-		selectedCommand === undefined || selectedSource === undefined || selectedPath === undefined
-			? undefined
-			: { command: selectedCommand, source: selectedSource, path: selectedPath },
-	);
-	return {
-		ok: true,
-		resolution: {
-			commandInfos,
-			...optionalEntries({ selectedCommand, selectedCommandPath: selectedPath }),
-		},
-	};
-}
-
-async function buildNsCliContext(options: {
-	args: readonly string[];
-	commandContext: NsCliCommandContextInput;
-	extensionPackageNames: ReadonlySet<string>;
-	builtInPackageNames: ReadonlySet<string>;
-	stdout: (text: string) => void;
-	stderr: (text: string) => void;
-	injectedContext?: NsCliBaseContext;
-	onOutput?: (stream: NsOutputStream, text: string) => void;
-	onProgress?: NsProgressPhaseListener;
-	confirm?: NsConfirmPrompt;
-	select?: NsSelectPrompt;
-	renderCapabilities: RenderCapabilities;
-}): Promise<NsCliContext> {
-	const baseContext = options.injectedContext;
-	if (baseContext === undefined) {
-		throw new Error("Ns CLI context is required.");
-	}
-	const onOutput = options.onOutput ?? baseContext.onOutput;
-	const confirm = options.confirm ?? baseContext.confirm;
-	const select = options.select ?? baseContext.select;
-	const stdin = baseContext.stdin ?? readStdin;
-	const contextExtensions = baseContext.extensions;
-	const commandIo = createCliCommandIo({
-		stdout: options.stdout,
-		stderr: options.stderr,
-		...optionalEntry("onOutput", onOutput),
-	});
-	const context: NsExtensionApi = {
-		cwd: options.commandContext.cwd,
-		env: options.commandContext.env,
-		...optionalEntry("homeDir", options.commandContext.homeDir),
-		textGenerator: baseContext.textGenerator,
-		commandIo,
-		progress:
-			options.onProgress === undefined
-				? noopNsProgress
-				: { isLive: true, phase: options.onProgress },
-		renderCapabilities: options.renderCapabilities,
-		outputFormat: clinkrFormatFromArgs(options.args),
-		exec: baseContext.exec.bind(baseContext),
-		hasExtension: (packageName) => options.extensionPackageNames.has(packageName),
-		installedExtensionPackageNames: [...options.extensionPackageNames]
-			.filter((packageName) => !options.builtInPackageNames.has(packageName))
-			.sort((left, right) => left.localeCompare(right)),
-		stdout: options.stdout,
-		stderr: options.stderr,
-		stdin,
-		...optionalEntries({ onOutput, confirm, select, extensions: contextExtensions }),
-	};
-	return {
-		context,
-		cwd: options.commandContext.cwd,
-		env: options.commandContext.env,
-		interaction: createNsCliInteraction({ stderr: options.stderr }),
-		stdout: options.stdout,
-		stderr: options.stderr,
-	};
-}
-
-function clinkrIo(ctx: NsCliContext): ClinkrIo {
-	return {
-		stdout: ctx.stdout,
-		stderr: ctx.stderr,
-		canEmitAnsi: ctx.context.renderCapabilities.canEmitAnsi,
-		...optionalEntry("caps", ctx.context.renderCapabilities.caps),
-	};
-}
-
-function isCompletionResolverInvocation(args: readonly string[]): boolean {
-	return args[0] === "completion" && args[1] === NS_EXEC_GROUP_NAME && args[2] === "resolve";
-}
-
-function isCompletionScriptInvocation(args: readonly string[]): boolean {
-	return args[0] === "completion" && ["bash", "zsh", "fish"].includes(args[1] ?? "");
-}
-
-function completionResolverWords(args: readonly string[]): readonly string[] {
-	const resolverArgs = args.slice(3);
-	if (resolverArgs[0] !== "--") return resolverArgs;
-	return resolverArgs.slice(1);
-}
-
-function requestedCommandKey(
-	args: readonly string[],
-	commandInfos: readonly NsCommandCliInfo[],
-): string | undefined {
-	const commandArgs = commandPathArgs(args);
-	if (commandArgs.length === 0) return undefined;
-
-	const candidates = commandInfos
-		.map((commandInfo) => ({
-			commandInfo,
-			displaySegments: commandSegments(commandInfo),
-		}))
-		.filter(({ displaySegments }) => pathPrefixMatches(commandArgs, displaySegments, commandInfos))
-		.sort((left, right) => right.displaySegments.length - left.displaySegments.length);
-	const selected = candidates[0];
-	if (selected === undefined) return commandArgs[0];
-	if (commandArgs.length < selected.displaySegments.length) return undefined;
-	return commandKey(selected.commandInfo);
-}
-
-const passthroughSchema = z.object({ argv: z.array(z.string()).default([]) });
-const placeholderSchema = z.object({});
-
-function requestedGroupSegments(
-	args: readonly string[],
-	commandInfos: readonly NsCommandCliInfo[],
-): readonly string[] | undefined {
-	const commandArgs = commandPathArgs(args);
-	if (commandArgs.length === 0) return undefined;
-	const hasGroup = commandInfos.some((commandInfo) => {
-		const segments = commandSegments(commandInfo);
-		return (
-			commandArgs.length < segments.length && pathPrefixMatches(commandArgs, segments, commandInfos)
-		);
-	});
-	return hasGroup ? commandArgs : undefined;
-}
-
-function commandPathArgs(args: readonly string[]): readonly string[] {
-	const firstOptionIndex = args.findIndex((arg) => arg.startsWith("-"));
-	return firstOptionIndex === -1 ? args : args.slice(0, firstOptionIndex);
-}
-
-const NS_EXEC_GROUP_NAME = "exec";
-export {
-	NS_BUILT_IN_HELP_GROUP,
-	NS_EXTENSION_HELP_GROUP,
-} from "../extensions/help-presentation.ts";
-
-function buildNsCompletionGroup(): ClinkrGroup<NsCliContext> {
-	const completion = new ClinkrGroup<NsCliContext>({
-		name: "completion",
-		description: "Print shell completion setup scripts.",
-		helpGroup: NS_BUILT_IN_HELP_GROUP,
-	});
-	for (const shell of ["bash", "zsh", "fish"] as const) {
-		completion.command({
-			name: shell,
-			description: `Print ${shell} completion setup for ns.`,
-			schema: z.object({}),
-			resultSchema: nsCompletionScriptResultSchema,
-			handler: async () => ok(buildNsCompletionScript(shell)),
-			renderHuman: renderNsCompletionScriptResult,
-		});
-	}
-	const exec = new ClinkrGroup<NsCliContext>({
-		name: NS_EXEC_GROUP_NAME,
-		description: "Shell completion resolver operations.",
-		isHidden: true,
-	});
-	exec.command(
-		rawCommand({
-			name: "resolve",
-			description: "Resolve newline-delimited shell completion candidates.",
-			schema: z.object({ words: z.array(z.string()).default([]) }),
-			positionals: { words: { position: 0 } },
-			run: async () => 0,
-		}),
-	);
-	completion.group(exec);
-	return completion;
-}
-
-function pathPrefixMatches(
-	args: readonly string[],
-	path: readonly string[],
-	commandInfos: readonly NsCommandCliInfo[],
-): boolean {
-	const length = Math.min(args.length, path.length);
-	return args
-		.slice(0, length)
-		.every((segment, index) =>
-			pathSegmentMatches(path[index], segment, siblingNamesAtPath(commandInfos, path, index)),
-		);
-}
-
-function pathSegmentMatches(
-	pathSegment: string | undefined,
-	argSegment: string,
-	siblingNames: ReadonlySet<string>,
-): boolean {
-	return (
-		pathSegment !== undefined &&
-		clinkrNameMatchesAutomaticAlias(pathSegment, siblingNames, argSegment)
-	);
-}
-
-function siblingNamesAtPath(
-	commandInfos: readonly NsCommandCliInfo[],
-	path: readonly string[],
-	index: number,
-): ReadonlySet<string> {
-	const prefix = path.slice(0, index);
-	return new Set(
-		commandInfos
-			.map((commandInfo) => commandSegments(commandInfo))
-			.filter((segments) => pathPrefixEquals(segments, prefix) && segments[index] !== undefined)
-			.map((segments) => segments[index] ?? ""),
-	);
-}
-
-function pathPrefixEquals(path: readonly string[], prefix: readonly string[]): boolean {
-	return prefix.every((segment, index) => path[index] === segment);
-}
-
-type ShellCommandSchema = z.ZodObject<{ shell: z.ZodOptional<z.ZodString> }>;
-
-type ShellCommandSpec<T> = Omit<
-	ClinkrCommandSpec<NsCliContext, ShellCommandSchema, T>,
-	"name" | "description"
->;
-
-// Keep this shell command face SDK-owned instead of delegating parent-shell integration
-// to one extension. The reusable abstraction we expect here is future typed shell
-// contributions rendered inside one managed shell integration, not extension-owned rc-file
-// mutation or command helpers that each install their own wrapper.
-function buildNsShellGroup(): ClinkrGroup<NsCliContext> {
-	const shell = new ClinkrGroup<NsCliContext>({
-		name: "shell",
-		description: "Show or install parent-shell integration.",
-		helpGroup: NS_BUILT_IN_HELP_GROUP,
-	});
-	shell.command({
-		name: "show",
-		description: "Print the parent-shell wrapper script.",
-		...withShellOption({
-			schema: nsShellShowRequestSchema,
-			resultSchema: nsShellShowResultSchema,
-			handler: runNsShellShow,
-			renderHuman: renderNsShellShow,
-		}),
-	});
-	shell.command({
-		name: "install",
-		description: "Install the parent-shell wrapper in the detected or selected rc file.",
-		schema: nsShellInstallRequestSchema,
-		options: { shell: { short: "-s" }, yes: { short: "-y" } },
-		resultSchema: nsShellInstallResultSchema,
-		handler: runNsShellInstall,
-		renderHuman: renderNsShellInstall,
-	});
-	return shell;
-}
-
-function withShellOption<T>(spec: ShellCommandSpec<T>): ShellCommandSpec<T> {
-	return {
-		...spec,
-		options: { shell: { short: "-s" }, ...(spec.options ?? {}) },
-	};
-}
-
-function groupForCommand(
-	root: ClinkrGroup<NsCliContext>,
-	groupCache: Map<string, ClinkrGroup<NsCliContext>>,
-	commandInfo: NsCommandCliInfo,
-	topLevelHelpGroups: ReadonlyMap<string, string>,
-	topLevelOriginLabels: ReadonlyMap<string, string>,
-): ClinkrGroup<NsCliContext> {
-	const displaySegments = commandSegments(commandInfo);
-	const parentSegments = displaySegments.slice(0, -1);
-	let parent = root;
-	for (let index = 0; index < parentSegments.length; index += 1) {
-		const segment = parentSegments[index];
-		if (segment === undefined) continue;
-		const groupKey = parentSegments.slice(0, index + 1).join("/");
-		const existing = groupCache.get(groupKey);
-		if (existing !== undefined) {
-			parent = existing;
-			continue;
-		}
-		const currentSegments = parentSegments.slice(0, index + 1);
-		const group = new ClinkrGroup<NsCliContext>({
-			name: segment,
-			description: groupDescription(currentSegments, commandInfo),
-			...(index === 0
-				? {
-						helpGroup: topLevelHelpGroups.get(segment) ?? NS_EXTENSION_HELP_GROUP,
-						...optionalEntry("helpLabel", topLevelOriginLabels.get(segment)),
-					}
-				: {}),
-			...(isHiddenCommandGroup(currentSegments, commandInfo) ? { isHidden: true } : {}),
-		});
-		groupCache.set(groupKey, group);
-		parent.group(group);
-		parent = group;
-	}
-	return parent;
-}
-
-type RootRegistration =
-	| { readonly type: "command"; readonly commandInfo: NsCommandCliInfo }
-	| {
-			readonly type: "group";
-			readonly name: string;
-			readonly helpGroup: string;
-			readonly group: ClinkrGroup<NsCliContext>;
-	  };
-
-interface HelpOrderKey {
-	readonly sectionRank: number;
-	readonly helpGroup: string;
-	readonly bucketRank: number;
-	readonly topLevelName: string;
-	readonly commandKey: string;
-}
-
-function orderRootRegistrationsForHelp(
-	commandInfos: readonly NsCommandCliInfo[],
-	topLevelHelpGroups: ReadonlyMap<string, string>,
-	directGroups: readonly Extract<RootRegistration, { readonly type: "group" }>[],
-): readonly RootRegistration[] {
-	const registrations: RootRegistration[] = [
-		...commandInfos.map((commandInfo) => ({ type: "command" as const, commandInfo })),
-		...directGroups,
-	];
-	return registrations.sort((left, right) => {
-		const leftKey = helpOrderKey(left, topLevelHelpGroups);
-		const rightKey = helpOrderKey(right, topLevelHelpGroups);
-		if (leftKey.sectionRank !== rightKey.sectionRank) {
-			return leftKey.sectionRank - rightKey.sectionRank;
-		}
-		if (leftKey.helpGroup !== rightKey.helpGroup) {
-			return leftKey.helpGroup.localeCompare(rightKey.helpGroup);
-		}
-		if (leftKey.bucketRank !== rightKey.bucketRank) {
-			return leftKey.bucketRank - rightKey.bucketRank;
-		}
-		if (leftKey.topLevelName !== rightKey.topLevelName) {
-			return leftKey.topLevelName.localeCompare(rightKey.topLevelName);
-		}
-		return leftKey.commandKey.localeCompare(rightKey.commandKey);
-	});
-}
-
-function helpOrderKey(
-	registration: RootRegistration,
-	topLevelHelpGroups: ReadonlyMap<string, string>,
-): HelpOrderKey {
-	if (registration.type === "group") {
-		return helpOrderKeyForValues({
-			helpGroup: registration.helpGroup,
-			topLevelName: registration.name,
-			commandKey: registration.name,
-			isLocalExtension: false,
-		});
-	}
-	const commandInfo = registration.commandInfo;
-	const topLevelName = commandSegments(commandInfo)[0] ?? commandLeafName(commandInfo);
-	return helpOrderKeyForValues({
-		helpGroup: topLevelHelpGroups.get(topLevelName) ?? NS_EXTENSION_HELP_GROUP,
-		topLevelName,
-		commandKey: commandKey(commandInfo),
-		isLocalExtension: commandInfo.sourceKind === "local",
-	});
-}
-
-function helpOrderKeyForValues(options: {
-	helpGroup: string;
-	topLevelName: string;
-	commandKey: string;
-	isLocalExtension: boolean;
-}): HelpOrderKey {
-	// Extensions lead the help output, Built-ins close it, custom headings sit between.
-	let sectionRank = 1;
-	if (options.helpGroup === NS_EXTENSION_HELP_GROUP) sectionRank = 0;
-	if (options.helpGroup === NS_BUILT_IN_HELP_GROUP) sectionRank = 2;
-	// Within Extensions, package-sourced extensions lead and repo-local ns.toml
-	// path extensions trail, each alphabetized.
-	const bucketRank =
-		options.helpGroup === NS_EXTENSION_HELP_GROUP && options.isLocalExtension ? 1 : 0;
-	return {
-		sectionRank,
-		helpGroup: options.helpGroup,
-		bucketRank,
-		topLevelName: options.topLevelName,
-		commandKey: options.commandKey,
-	};
-}
-
-const ORIGIN_PRECEDENCE: Readonly<Record<NsCommandOriginKind, number>> = {
-	package: 0,
-	local: 1,
-};
-
-function resolveTopLevelOriginLabels(
-	commandInfos: readonly NsCommandCliInfo[],
-	topLevelHelpGroups: ReadonlyMap<string, string>,
-	renderCapabilities: RenderCapabilities | undefined,
-): ReadonlyMap<string, string> {
-	const origins = new Map<string, NsCommandOriginKind>();
-	for (const commandInfo of commandInfos) {
-		const segment = commandSegments(commandInfo)[0];
-		if (
-			segment === undefined ||
-			commandInfo.extensionOrigin === undefined ||
-			topLevelHelpGroups.get(segment) !== NS_EXTENSION_HELP_GROUP
-		) {
-			continue;
-		}
-		const existing = origins.get(segment);
-		if (
-			existing === undefined ||
-			ORIGIN_PRECEDENCE[commandInfo.extensionOrigin] > ORIGIN_PRECEDENCE[existing]
-		) {
-			origins.set(segment, commandInfo.extensionOrigin);
-		}
-	}
-	return new Map(
-		[...origins].map(([segment, origin]) => [
-			segment,
-			styleOriginLabel(origin, renderCapabilities),
-		]),
-	);
-}
-
-function styleOriginLabel(
-	origin: NsCommandOriginKind,
-	renderCapabilities: RenderCapabilities | undefined,
-): string {
-	const letter = origin === "package" ? "p" : "l";
-	if (renderCapabilities?.canEmitAnsi !== true) return letter;
-	const caps = renderCapabilities.caps;
-	if (caps === undefined) return letter;
-	return paint(caps, origin === "package" ? "accent" : "warn", letter);
-}
-
-function resolveTopLevelHelpGroups(
-	commandInfos: readonly NsCommandCliInfo[],
-): ReadonlyMap<string, string> {
-	const explicitGroupsBySegment = new Map<string, Set<string>>();
-	for (const commandInfo of commandInfos) {
-		const topLevelSegment = commandSegments(commandInfo)[0];
-		if (topLevelSegment === undefined) continue;
-		const explicitGroups = explicitGroupsBySegment.get(topLevelSegment) ?? new Set<string>();
-		if (commandInfo.helpGroup !== undefined) explicitGroups.add(commandInfo.helpGroup);
-		explicitGroupsBySegment.set(topLevelSegment, explicitGroups);
-	}
-	return new Map(
-		[...explicitGroupsBySegment.entries()].map(([segment, explicitGroups]) => {
-			if (explicitGroups.has(NS_BUILT_IN_HELP_GROUP)) {
-				return [segment, NS_BUILT_IN_HELP_GROUP];
-			}
-			return [segment, [...explicitGroups].sort()[0] ?? NS_EXTENSION_HELP_GROUP];
-		}),
-	);
-}
-
-function isHiddenCommandGroup(segments: readonly string[], commandInfo: NsCommandCliInfo): boolean {
-	if (isExecGroupNode(segments, commandInfo)) return true;
-	return commandInfo.hiddenAncestorKeys?.some((hidden) => hidden === segments.join("/")) ?? false;
-}
-
-function isExecGroupNode(segments: readonly string[], commandInfo: NsCommandCliInfo): boolean {
-	return (
-		segments.at(-1) === NS_EXEC_GROUP_NAME &&
-		commandInfo.hiddenAncestorKeys?.includes(segments.join("/")) === true
-	);
-}
-
-function groupDescription(segments: readonly string[], commandInfo: NsCommandCliInfo): string {
-	if (isExecGroupNode(segments, commandInfo)) {
-		return `Skill-invoked NS ${segments[0] ?? "extension"} operations.`;
-	}
-	if (segments.length === 1 && commandInfo.groupDescription !== undefined) {
-		return commandInfo.groupDescription;
-	}
-	return `NS ${segments.join(" ")} commands.`;
-}
-
-function isStaticTopLevelMetadataRequest(args: readonly string[]): boolean {
-	return args.includes("--version") || args.includes("--runtime");
-}
-
-async function runPassthroughCommand(
-	ctx: NsCliContext,
-	command: DescriptorCommand,
-	argv: readonly string[],
-	path: NsCommandPath,
-): Promise<CommandExit> {
-	try {
-		const result = await command.run(ctx.context, {
-			argv,
-			commandPath: commandSegments(path),
-		});
-		return validateCommandExit(result, command.name);
-	} catch (error) {
-		return extensionCommandFailedExit(command.name, error);
-	}
-}
-
-export const VERSION = entry.version;
-
-await entry.runIfMain({ isImportMetaMain: import.meta.main });
