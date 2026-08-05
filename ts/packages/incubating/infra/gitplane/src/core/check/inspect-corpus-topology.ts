@@ -1,7 +1,8 @@
 import { ARTIFACT_MARKER_NAME } from "../artifact.ts";
 import type { TreeInventoryEntry } from "../gateways.ts";
-import type { Finding } from "./finding.ts";
+import { sortFindings, type Finding } from "./finding.ts";
 import { nestedArtifactFinding } from "./rules/nested-artifact.ts";
+import { unsupportedArtifactEntryFinding } from "./rules/unsupported-artifact-entry.ts";
 export interface ArtifactBoundaryTopology {
 	readonly path: string;
 	readonly marker: TreeInventoryEntry;
@@ -21,30 +22,34 @@ function beneath(path: string, parent: string): boolean {
 }
 export function inspectCorpusTopology(inventory: readonly TreeInventoryEntry[]): CorpusTopology {
 	const sorted = [...inventory].sort((a, b) => a.path.localeCompare(b.path));
-	const markers = sorted.filter(
-		(entry) =>
-			entry.kind === "regular-file" && entry.path.split("/").at(-1) === ARTIFACT_MARKER_NAME,
-	);
+	const reserved = sorted.filter((entry) => entry.path.split("/").at(-1) === ARTIFACT_MARKER_NAME);
+	const markers = reserved.filter((entry) => entry.kind === "regular-file");
 	const attempted = markers.map((marker) => ({ marker, path: dirname(marker.path) }));
 	const outer = attempted.filter(
 		(candidate) =>
 			!attempted.some((other) => other !== candidate && beneath(candidate.path, other.path)),
 	);
 	const nested = attempted.filter((candidate) => !outer.includes(candidate));
-	if (nested.length > 0)
-		return {
-			artifactCount: outer.length,
-			boundaries: [],
-			findings: nested.map(({ marker, path: nestedPath }) => {
-				const owner = outer.find((candidate) => beneath(nestedPath, candidate.path));
-				if (owner === undefined) throw new Error("Nested artifact has no owning boundary.");
-				return nestedArtifactFinding({
-					artifactPath: owner.path,
-					relativePath: marker.path.slice(owner.path.length + 1),
-					nestedArtifactPath: nestedPath,
-				});
-			}),
-		};
+	const misused = reserved.filter((entry) => entry.kind !== "regular-file");
+	const findings: Finding[] = [
+		...nested.map(({ marker, path: nestedPath }) => {
+			const owner = outer.find((candidate) => beneath(nestedPath, candidate.path));
+			if (owner === undefined) throw new Error("Nested artifact has no owning boundary.");
+			return nestedArtifactFinding({
+				artifactPath: owner.path,
+				relativePath: marker.path.slice(owner.path.length + 1),
+				nestedArtifactPath: nestedPath,
+			});
+		}),
+		...misused.map((entry) => {
+			const owner = outer.find((candidate) => beneath(entry.path, candidate.path));
+			return owner === undefined
+				? unsupportedArtifactEntryFinding(dirname(entry.path), ARTIFACT_MARKER_NAME)
+				: unsupportedArtifactEntryFinding(owner.path, entry.path.slice(owner.path.length + 1));
+		}),
+	];
+	if (findings.length > 0)
+		return { artifactCount: outer.length, boundaries: [], findings: sortFindings(findings) };
 	return {
 		artifactCount: outer.length,
 		findings: [],

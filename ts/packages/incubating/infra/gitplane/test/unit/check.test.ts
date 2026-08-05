@@ -5,7 +5,7 @@ const marker = (value: unknown) => ({
 	kind: "regular-file" as const,
 	bytes: Buffer.from(JSON.stringify(value)),
 });
-test("discovers recursive regular-file boundaries and short-circuits all nesting", () => {
+test("discovers recursive regular-file boundaries and short-circuits nesting and misuse", () => {
 	const topology = inspectCorpusTopology([
 		{ path: "artifacts/a/gitplane-artifact.json", kind: "regular-file" },
 		{ path: "artifacts/a/deep/gitplane-artifact.json", kind: "regular-file" },
@@ -21,6 +21,38 @@ test("discovers recursive regular-file boundaries and short-circuits all nesting
 			artifactPath: "artifacts/a",
 			relativePath: "deep/gitplane-artifact.json",
 			relatedArtifactPaths: ["artifacts/a/deep"],
+		},
+		{
+			code: "unsupported-artifact-entry",
+			severity: "error",
+			summary: "Artifact entry kind is unsupported.",
+			artifactPath: "artifacts/a",
+			relativePath: "other/gitplane-artifact.json",
+		},
+	]);
+});
+test("flags non-regular reserved-name entries outside boundaries without content reads", () => {
+	const topology = inspectCorpusTopology([
+		{ path: "artifacts/a/gitplane-artifact.json", kind: "regular-file" },
+		{ path: "artifacts/b/gitplane-artifact.json", kind: "directory" },
+		{ path: "gitplane-artifact.json", kind: "symlink" },
+	]);
+	expect(topology.artifactCount).toBe(1);
+	expect(topology.boundaries).toEqual([]);
+	expect(topology.findings).toEqual([
+		{
+			code: "unsupported-artifact-entry",
+			severity: "error",
+			summary: "Artifact entry kind is unsupported.",
+			artifactPath: "",
+			relativePath: "gitplane-artifact.json",
+		},
+		{
+			code: "unsupported-artifact-entry",
+			severity: "error",
+			summary: "Artifact entry kind is unsupported.",
+			artifactPath: "artifacts/b",
+			relativePath: "gitplane-artifact.json",
 		},
 	]);
 });
