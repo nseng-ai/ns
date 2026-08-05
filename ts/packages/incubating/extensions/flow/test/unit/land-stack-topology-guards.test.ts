@@ -10,6 +10,7 @@ import {
 } from "../../src/land/stack/pr-facts.ts";
 import { type LandResult } from "../../src/land/results.ts";
 import { executeStackLanding, parseArgs } from "../../src/land/land-stack.ts";
+import { renderLandWorkflowResult } from "../../src/land/command-result.ts";
 import type {
 	LandExecutionApi,
 	LandStackCommandContext,
@@ -251,7 +252,26 @@ async function runLandStack(
 	const pi = new FakeLandExecutionApi(script);
 	const context = createContext(contextOptions);
 	const parsedArgs = expectSuccess(parseArgs(args.includes("--free") ? args : `${args} --free`));
-	await executeStackLanding(pi, context.ctx, parsedArgs);
+	const execution = await executeStackLanding(pi, context.ctx, parsedArgs);
+	context.ctx.ui.notify(
+		renderLandWorkflowResult(
+			{ isTty: false, colorDepth: "none", columns: 80, canRenderUnicode: true },
+			{ type: "stack", execution },
+		),
+		execution.type === "failed"
+			? "error"
+			: execution.report.warnings.length > 0
+				? "warning"
+				: execution.report.mode === "dry-run"
+					? "info"
+					: "success",
+	);
+	pi.message?.(
+		renderLandWorkflowResult(
+			{ isTty: false, colorDepth: "none", columns: 80, canRenderUnicode: true },
+			{ type: "stack", execution },
+		),
+	);
 	return { pi, messages: pi.messages, ...context };
 }
 

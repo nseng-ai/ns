@@ -53,6 +53,7 @@ export type LandResult<T> =
 	| { readonly type: "success"; readonly value: T }
 	| { readonly type: "failure"; readonly failure: LandingFailure };
 
+/** Effect result used by land gateways and internal checks that return no value. */
 export type LandOutcome =
 	| { readonly type: "completed" }
 	| { readonly type: "failure"; readonly failure: LandingFailure };

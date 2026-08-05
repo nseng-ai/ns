@@ -27,24 +27,18 @@ function contextFixture(cwd: string): {
 	readonly notifications: PresentedNotification[];
 } {
 	const notifications: PresentedNotification[] = [];
-	let renderedKind: LandResultKind | undefined;
 	return {
 		ctx: {
 			cwd,
 			hasUI: true,
 			ui: {
 				notify: (message, level) => {
-					notifications.push({ message, level, kind: renderedKind });
-					renderedKind = undefined;
+					notifications.push({ message, level, kind: undefined });
 				},
 				confirm: async () => true,
 				setStatus() {},
 			},
 			waitForIdle: async () => {},
-			renderResultBlock: (kind, message) => {
-				renderedKind = kind;
-				return message;
-			},
 		},
 		notifications,
 	};
@@ -97,14 +91,8 @@ describe("Flow presentation of canonical completion dispositions", () => {
 			},
 		});
 
-		expect(outcome).toEqual({ type: "completed" });
-		expect(fixture.notifications).toEqual([
-			{
-				message: "Current branch is main, which is trunk or has no PR path to land. Nothing to do.",
-				level: "info",
-				kind: "refusal",
-			},
-		]);
+		expect(outcome.type).toBe("completed");
+		expect(fixture.notifications).toEqual([]);
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
 	});
 
@@ -132,14 +120,8 @@ describe("Flow presentation of canonical completion dispositions", () => {
 			},
 		});
 
-		expect(outcome).toEqual({ type: "completed" });
-		expect(fixture.notifications).toEqual([
-			{
-				message: "Post-landing cleanup complete: freed slot-02; local trunk branch main was kept.",
-				level: "success",
-				kind: "success",
-			},
-		]);
+		expect(outcome.type).toBe("completed");
+		expect(fixture.notifications).toEqual([]);
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
 	});
 
@@ -179,19 +161,8 @@ describe("Flow presentation of canonical completion dispositions", () => {
 			},
 		});
 
-		expect(outcome).toEqual({ type: "completed" });
-		expect(fixture.notifications).toEqual([
-			{
-				message: "Landed 1 PR: #101 feature-a.",
-				level: "success",
-				kind: "success",
-			},
-			{
-				message: "Post-landing cleanup complete: freed slot-02 and deleted local branch feature-a.",
-				level: "success",
-				kind: "success",
-			},
-		]);
+		expect(outcome.type).toBe("completed");
+		expect(fixture.notifications).toEqual([]);
 	});
 
 	test("default preserve completion presents landed success then a keep-slot hint", async () => {
@@ -230,20 +201,8 @@ describe("Flow presentation of canonical completion dispositions", () => {
 			},
 		});
 
-		expect(outcome).toEqual({ type: "completed" });
-		expect(fixture.notifications).toEqual([
-			{
-				message: "Landed 1 PR: #101 feature-a.",
-				level: "success",
-				kind: "success",
-			},
-			{
-				message:
-					"Kept slot-02 and local branch feature-a — run `ns slot free --wt slot-02` when done, or pass --free next time.",
-				level: "info",
-				kind: undefined,
-			},
-		]);
+		expect(outcome.type).toBe("completed");
+		expect(fixture.notifications).toEqual([]);
 		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
 	});
 });

@@ -1,4 +1,10 @@
-import { runLandCli } from "../../land/land.ts";
+import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
+import { runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
+import { resolveThemeCaps } from "@nseng-ai/foundation/cli-theme";
+import { systemClock } from "@nseng-ai/foundation/time";
+
+import { runLandWorkflow, type FlowLandWorkflowResult } from "../../land/land.ts";
+import { landCommandSuccess, renderLandWorkflowResult } from "../../land/command-result.ts";
 import {
 	BASE_LAND_TITLE,
 	createLandMatrixProgressController,
@@ -21,24 +27,19 @@ import { formatFlowLandTelemetrySummary } from "../../land/stack/external-call-t
 import {
 	landCommandOptionSpecs,
 	landCommandSchemaShape,
-	landRawArgsFromCommandRequest,
+	landParsedArgsFromCommandRequest,
 } from "../../land/stack/flags.ts";
 import { createCommandIo } from "@nseng-ai/sdk/command-io";
-import {
-	defineCommand,
-	z,
-	type NsCommand,
-	type NsCommandIo,
-	type NsExtensionApi,
-	type NsNotifyLevel,
-	type NsProgress,
-	type NsProgressPhaseEvent,
+import type {
+	NsCommandIo,
+	NsExtensionApi,
+	NsNotifyLevel,
+	NsProgress,
+	NsProgressPhaseEvent,
 } from "@nseng-ai/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { systemClock } from "@nseng-ai/foundation/time";
 
-import { runFlowCli } from "../flow-cli-runner.ts";
+import { runFlowCliOperation, FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 import { createMatrixProgressForwarder } from "../../phase-stream/matrix-progress-forwarder.ts";
 import {
 	createPhaseStreamController,
@@ -48,60 +49,158 @@ import {
 } from "../../phase-stream/phase-stream.ts";
 
 const landSchema = z.object(landCommandSchemaShape(z));
+const pullRequestSchema = z.object({ number: z.number(), branch: z.string(), base: z.string() });
+const cleanupSchema = z.object({ type: z.string() }).passthrough();
+const continuationSchema = z.object({ type: z.string() }).passthrough();
+const landedChunkSchema = z.object({
+	index: z.number(),
+	landingTargetBranch: z.string(),
+	landed: z.array(
+		z.object({
+			branch: z.string(),
+			number: z.number(),
+			title: z.string(),
+			url: z.string().optional(),
+		}),
+	),
+});
+const landSuccessSchema = z.discriminatedUnion("type", [
+	z.object({
+		type: z.literal("dry-run"),
+		target: z.union([z.literal("stack"), z.literal("single-branch")]),
+		repoRoot: z.string(),
+		pullRequest: pullRequestSchema.optional(),
+		plan: z
+			.object({
+				trunk: z.string(),
+				landingTargetBranch: z.string(),
+				branches: z.array(z.object({ branch: z.string(), pullRequestNumber: z.number() })),
+			})
+			.optional(),
+		continuation: continuationSchema,
+	}),
+	z.object({
+		type: z.union([z.literal("stack-completed"), z.literal("cleanup-only")]),
+		repoRoot: z.string(),
+		landedChunks: z.array(landedChunkSchema),
+		warnings: z.array(z.string()),
+		cleanup: cleanupSchema,
+		continuation: continuationSchema,
+	}),
+	z.object({
+		type: z.literal("single-branch-landed"),
+		repoRoot: z.string(),
+		pullRequest: pullRequestSchema,
+		cleanup: cleanupSchema,
+	}),
+]);
 
 export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 	schema: landSchema,
-	resultSchema: z.object({ text: z.string() }),
+	resultSchema: landSuccessSchema,
 	options: landCommandOptionSpecs(),
-	renderHuman: (result) => result.text,
+	renderHuman: (result, caps) => renderLandSuccess(resolveThemeCaps(caps), result),
 	handler: async (ctx, request) => {
-		// Resolve caps at the host-extension seam (house-style §1) and thread them ONLY into the CLI
-		// edge so the settled land result blocks render in the house style; the shared Pi command-stream
-		// path is never given caps and stays ANSI-free.
 		const caps = resolveFlowStreamCaps(ctx);
 		const telemetry = createFlowLandTelemetryRun({ env: ctx.env, clock: systemClock });
 		let telemetryFinish: FlowLandTelemetryRunFinish | undefined;
-		const rawArgs = landRawArgsFromCommandRequest(request);
 		const progress = caps.isTty
 			? createLandMatrixCliProgress(ctx, caps)
 			: createLandCliProgress(ctx, caps);
 		try {
-			const result = await runFlowCli({
+			const result = await runFlowCliOperation({
 				ctx,
-				successMessage: "Land completed.",
-				failureMessage: "Land failed.",
-				outputMode: "buffer-until-complete",
 				shouldForwardLiveOutput: request.verbose === true,
-				afterExitCode: async (exitCode) => {
-					telemetryFinish = await telemetry.finish(exitCode);
-					await progress.finish(exitCode);
-					progress.flushFailureDetails(exitCode);
-				},
 				run: async (io) =>
-					await runLandCli({
-						cwd: ctx.cwd,
-						rawArgs: rawArgs.join(" "),
-						exec: io.exec,
-						stdout: io.stdout,
-						stderr: io.stderr,
-						caps,
-						progressIo: progress.io,
-						liveProgress: progress.liveProgress,
-						...(progress.landMatrix === undefined ? {} : { landMatrix: progress.landMatrix }),
-						externalCallTelemetry: telemetry.sink,
-						...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
-						...optionalEntry("select", ctx.select),
-					}),
+					await runWithNsCommandIo(
+						progress.io,
+						async () =>
+							await runLandWorkflow({
+								cwd: ctx.cwd,
+								request: landParsedArgsFromCommandRequest(request),
+								exec: io.exec,
+								progressIo: progress.io,
+								liveProgress: progress.liveProgress,
+								...(progress.landMatrix === undefined ? {} : { landMatrix: progress.landMatrix }),
+								externalCallTelemetry: telemetry.sink,
+								...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
+								...(ctx.select === undefined ? {} : { select: ctx.select }),
+							}),
+					),
 			});
-			if (request.verbose === true && telemetryFinish !== undefined) {
+			const exit = landCommandExit(caps, result);
+			const exitCode = exit.status === "success" ? 0 : exit.status === "negative" ? 1 : 2;
+			telemetryFinish = await telemetry.finish(exitCode);
+			await progress.finish(exitCode);
+			progress.flushFailureDetails(exitCode);
+			if (request.verbose === true) {
 				ctx.stderr?.(`${formatFlowLandTelemetrySummary(telemetryFinish)}\n`);
 			}
-			return result;
+			return exit;
 		} finally {
 			await progress.stop();
 		}
 	},
 });
+
+function landCommandExit(caps: Caps, result: FlowLandWorkflowResult) {
+	const human = renderLandWorkflowResult(caps, result);
+	if (result.type === "failed") {
+		return isRefusal(result.failure)
+			? negative(human, { data: result })
+			: failure(FLOW_COMMAND_FAILED, human, result);
+	}
+	if (result.type === "stack" && result.execution.type === "failed") {
+		return isRefusal(result.execution.failure)
+			? negative(human, { data: result.execution })
+			: failure(FLOW_COMMAND_FAILED, human, result.execution);
+	}
+	if (
+		result.type === "stack" &&
+		result.execution.type === "completed" &&
+		result.execution.report.completionDisposition.type === "nothing-to-land"
+	) {
+		return negative(human, { data: result.execution.report });
+	}
+	const data = landCommandSuccess(result);
+	if (data === undefined) return failure(FLOW_COMMAND_FAILED, human);
+	return ok(landSuccessSchema.parse(data));
+}
+
+function isRefusal(failureValue: import("../../land/types.ts").LandingFailure): boolean {
+	return (
+		(failureValue.type === "execution" && failureValue.outcome === "refusal") ||
+		(failureValue.type === "domain" && failureValue.reason === "nothing-to-land")
+	);
+}
+
+function renderLandSuccess(caps: Caps, result: z.infer<typeof landSuccessSchema>): string {
+	if (result.type === "dry-run") {
+		return result.target === "single-branch" && result.pullRequest !== undefined
+			? renderLandWorkflowResult(caps, {
+					type: "single-branch-dry-run",
+					repoRoot: result.repoRoot,
+					pullRequest: {
+						id: "",
+						number: result.pullRequest.number,
+						title: "",
+						body: null,
+						state: "OPEN",
+						isDraft: false,
+						headRefName: result.pullRequest.branch,
+						baseRefName: result.pullRequest.base,
+						headRefOid: "",
+					},
+				})
+			: `Dry run complete for ${result.plan?.branches.length ?? 0} PRs.`;
+	}
+	if (result.type === "single-branch-landed") {
+		return `Merged PR #${result.pullRequest.number} from ${result.pullRequest.branch}.`;
+	}
+	return result.type === "cleanup-only"
+		? "Landing cleanup completed."
+		: `Landed ${result.landedChunks.flatMap((chunk) => chunk.landed).length} PRs.`;
+}
 
 export default flowLandCommand;
 
@@ -122,58 +221,39 @@ function createLandMatrixCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliPr
 	});
 	const failureDetails: string[] = [];
 	const seenFailureDetails = new Set<string>();
-
-	function recordFailureDetail(message: string): void {
-		const normalized = message.trim();
-		if (normalized === "" || seenFailureDetails.has(normalized)) return;
-		seenFailureDetails.add(normalized);
-		failureDetails.push(normalized);
-	}
-
 	function routeMessage(message: string, level: NsNotifyLevel): void {
 		const normalized = message.trim();
 		if (normalized === "") return;
 		if (level === "error" || normalized.startsWith("✗")) {
 			if (level === "error" || !normalized.startsWith("✗ $")) {
-				recordFailureDetail(normalized);
+				if (!seenFailureDetails.has(normalized)) failureDetails.push(normalized);
+				seenFailureDetails.add(normalized);
 			}
 			matrix.note(normalized);
 			return;
 		}
-		if (normalized.startsWith("→ ")) {
-			matrix.note(normalized.slice(2));
-		}
+		if (normalized.startsWith("→ ")) matrix.note(normalized.slice(2));
 	}
-
 	return {
 		io: createCommandIo({
 			phaseTransient: (message) => {
 				if (!message.trim().startsWith("land: running ")) matrix.note(message);
 			},
-			notifyUi: (message, level = "info") => {
-				routeMessage(message, level);
-			},
-			richMessage: (message, options) => {
-				routeMessage(message, options.level);
-			},
+			notifyUi: (message, level = "info") => routeMessage(message, level),
+			richMessage: (message, options) => routeMessage(message, options.level),
 		}),
 		liveProgress: (event) => matrix.recordMergedPr(event.prNumber),
 		landMatrix: matrix,
-		finish: async (exitCode) => {
-			await matrix.finish({ isFailed: exitCode !== 0 });
-		},
+		finish: async (exitCode) => await matrix.finish({ isFailed: exitCode !== 0 }),
 		flushFailureDetails: (exitCode) => {
-			if (exitCode === 0 || failureDetails.length === 0) return;
-			ctx.stderr?.(`${failureDetails.join("\n\n")}\n`);
+			if (exitCode !== 0 && failureDetails.length > 0)
+				ctx.stderr?.(`${failureDetails.join("\n\n")}\n`);
 		},
 		stop: matrix.stop,
 	};
 }
 
 export function createLandCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliProgress {
-	// Land receives generic phase signals from command-stream text, so the stream starts lazily only
-	// after the first phase-worthy message. Structured Flow live-progress events drive the title.
-	// The shared controller owns lifecycle mechanics; this adapter owns only land-specific routing.
 	const progress = createPhaseStreamController({
 		caps,
 		specs: LAND_PHASES,
@@ -187,23 +267,10 @@ export function createLandCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliP
 	const landedPrNumbers = new Set<number>();
 	const failureDetails: string[] = [];
 	const seenFailureDetails = new Set<string>();
-
-	function updateTitle(): void {
-		progress.setTitle(formatLandProgressTitle(liveState));
-	}
-
-	function recordLiveProgress(event: LandLiveProgressEvent): void {
-		if (landedPrNumbers.has(event.prNumber)) return;
-		landedPrNumbers.add(event.prNumber);
-		liveState.landedPrs += 1;
-		updateTitle();
-	}
-
 	function emit(event: NsProgressPhaseEvent): void {
 		progress.emit(event);
 		if (event.type === "phase-started") lastPhaseKey = event.phaseKey;
 	}
-
 	function startPhase(phaseKey: string, label?: string): void {
 		if (lastPhaseKey === phaseKey) {
 			if (label !== undefined) emit({ type: "phase-progress", phaseKey, label });
@@ -211,93 +278,55 @@ export function createLandCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliP
 		}
 		emit({ type: "phase-started", phaseKey, ...(label === undefined ? {} : { label }) });
 	}
-
-	function recordFailureDetail(message: string): void {
-		const normalized = message.trim();
-		if (normalized === "" || seenFailureDetails.has(normalized)) return;
-		seenFailureDetails.add(normalized);
-		failureDetails.push(normalized);
-	}
-
-	function routePhase(message: string): void {
-		const normalized = message.trim();
-		if (normalized === "" || normalized.startsWith("land: running ")) return;
-		if (normalized.startsWith("preflighting")) {
-			startPhase("preflight", "checking stack and PRs…");
-			return;
-		}
-		if (normalized.startsWith("rechecking preflight")) {
-			startPhase("preflight", "rechecking landing preflight…");
-			return;
-		}
-		if (normalized.startsWith("submitting ") || normalized.startsWith("restacking ")) {
-			startPhase("refresh", normalized.endsWith("...") ? normalized : `${normalized}…`);
-			return;
-		}
-		if (normalized.startsWith("freeing ") || normalized.startsWith("deleting ")) {
-			startPhase("cleanup", normalized.endsWith("...") ? normalized : `${normalized}…`);
-			return;
-		}
-		if (normalized.startsWith("Running gh pr merge")) {
-			startPhase("merge", normalized);
-		}
-	}
-
 	function routeMessage(message: string, level: NsNotifyLevel): void {
 		const normalized = message.trim();
 		if (normalized === "") return;
 		if (level === "error" || normalized.startsWith("✗")) {
 			if (level === "error" || !normalized.startsWith("✗ $")) {
-				recordFailureDetail(normalized);
+				if (!seenFailureDetails.has(normalized)) failureDetails.push(normalized);
+				seenFailureDetails.add(normalized);
 			}
 			progress.note(normalized);
 			return;
 		}
-		if (!normalized.startsWith("→ ")) return;
-		const text = normalized.slice(2);
-		if (text.startsWith("Preparing to land")) {
+		const text = normalized.startsWith("→ ") ? normalized.slice(2) : normalized;
+		if (text.startsWith("Preparing to land") || text.startsWith("preflighting"))
 			startPhase("preflight", text);
-			return;
-		}
-		if (text.startsWith("Merging PR")) {
+		else if (text.startsWith("Merging PR") || text.startsWith("Running gh pr merge"))
 			startPhase("merge", text);
-			return;
-		}
-		if (text.startsWith("Merged and verified PR")) {
-			startPhase("merge", text);
-			return;
-		}
-		if (text.startsWith("Refreshing stack") || text.startsWith("Rechecking landing preflight")) {
+		else if (
+			text.startsWith("Refreshing stack") ||
+			text.startsWith("submitting ") ||
+			text.startsWith("restacking ")
+		)
 			startPhase("refresh", text);
-			return;
-		}
-		if (text.startsWith("Cleaning up local branch")) {
+		else if (
+			text.startsWith("Cleaning up local branch") ||
+			text.startsWith("freeing ") ||
+			text.startsWith("deleting ")
+		)
 			startPhase("cleanup", text);
-		}
 	}
-
-	// Matrix cell data rides the same ctx.progress wire as the phase checklist, so live hosts
-	// (the Pi widget) can render the branch/PR grid; non-live runs forward nothing.
 	const landMatrix = ctx.progress.isLive ? createLandMatrixEventForwarder(ctx.progress) : undefined;
-
 	return {
 		io: createCommandIo({
-			phaseTransient: routePhase,
-			notifyUi: (message, level = "info") => {
-				routeMessage(message, level);
+			phaseTransient: (message) => {
+				if (!message.trim().startsWith("land: running ")) routeMessage(message, "info");
 			},
-			richMessage: (message, options) => {
-				routeMessage(message, options.level);
-			},
+			notifyUi: (message, level = "info") => routeMessage(message, level),
+			richMessage: (message, options) => routeMessage(message, options.level),
 		}),
-		liveProgress: recordLiveProgress,
-		...(landMatrix === undefined ? {} : { landMatrix }),
-		finish: async (exitCode) => {
-			await progress.finish({ isFailed: exitCode !== 0 });
+		liveProgress: (event: LandLiveProgressEvent) => {
+			if (landedPrNumbers.has(event.prNumber)) return;
+			landedPrNumbers.add(event.prNumber);
+			liveState.landedPrs += 1;
+			progress.setTitle(formatLandProgressTitle(liveState));
 		},
+		...(landMatrix === undefined ? {} : { landMatrix }),
+		finish: async (exitCode) => await progress.finish({ isFailed: exitCode !== 0 }),
 		flushFailureDetails: (exitCode) => {
-			if (exitCode === 0 || failureDetails.length === 0) return;
-			ctx.stderr?.(`${failureDetails.join("\n\n")}\n`);
+			if (exitCode !== 0 && failureDetails.length > 0)
+				ctx.stderr?.(`${failureDetails.join("\n\n")}\n`);
 		},
 		stop: progress.stop,
 	};
@@ -316,7 +345,6 @@ export function createLandMatrixEventForwarder(progress: NsProgress): LandMatrix
 		setCell: forwarder.setCell,
 		setAllCells: forwarder.setAllCells,
 		setAllOtherCells: forwarder.setAllOtherCells,
-		// The live title already counts merged PRs via recordLiveProgress in this path.
 		recordMergedPr: () => {},
 	};
 }

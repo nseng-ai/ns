@@ -1,27 +1,9 @@
 import type { LandConfirmationRequest, LandExecutionProgress } from "./execution/host-seams.ts";
 import { executeLanding, type LandingExecutionSource } from "./api.ts";
 import { landMatrixRowsFromPlan, type LandMatrixProgressSink } from "./land-matrix-progress.ts";
-import {
-	buildLandFailurePresentation,
-	formatPlan,
-	formatPostLandingCleanupSuccessNotice,
-	formatPreservedSlotHint,
-	formatSuccessSummary,
-	notifyPrintAware,
-	presentBrief,
-	presentDryRunLanding,
-	presentFailureAndReturn,
-	presentLandingSuccess,
-} from "./land-presentation.ts";
-import type {
-	LandedPullRequest,
-	LandingExecutionReport,
-	LandingExecutionResult,
-	LandingRequest,
-	PostLandingSlotCleanupReport,
-} from "./types.ts";
+import { setStatus } from "./land-presentation.ts";
+import type { LandingExecutionResult } from "./types.ts";
 import { LandStackCommandStream } from "./stack/command-stream.ts";
-import { landCompleted, landOutcomeFailure, type LandOutcome } from "./results.ts";
 import {
 	createFlowLandConfirmationGateway,
 	createUpfrontApprovedLandConfirmationGateway,
@@ -67,94 +49,33 @@ export interface RunFlowStackLandingOptions {
 	readonly session: LandingSession;
 }
 
+/** Execute the canonical stack workflow and return its report unchanged. */
 export async function runFlowStackLanding(
 	executionOptions: RunFlowStackLandingOptions,
-): Promise<LandOutcome> {
+): Promise<LandingExecutionResult> {
 	const { runtime, parsedArgs, execution, session } = executionOptions;
-	const { ctx, commandStream } = session;
-
-	const request: LandingRequest = {
-		cwd: ctx.cwd,
-		target: { type: "stack" },
-		mode: parsedArgs.isDryRun ? "dry-run" : "execute",
+	const request = {
+		cwd: session.ctx.cwd,
+		target: { type: "stack" as const },
+		mode: parsedArgs.isDryRun ? ("dry-run" as const) : ("execute" as const),
 		preflight: { shouldAllowSubmitRequiredState: true },
 		cleanup: landingCleanupPolicyFromArgs(parsedArgs),
-		continuation: parsedArgs.shouldContinueUpstack ? { type: "upstack" } : { type: "none" },
+		continuation: parsedArgs.shouldContinueUpstack
+			? ({ type: "upstack" } as const)
+			: ({ type: "none" } as const),
 	};
-	const outcome = await executeLanding({
+	return await executeLanding({
 		context: runtime.landContext,
 		request,
 		host: {
 			confirmation: createUpfrontApprovedLandConfirmationGateway(
-				createFlowLandConfirmationGateway(ctx),
+				createFlowLandConfirmationGateway(session.ctx),
 				execution.approvedConfirmationKinds,
 			),
 			progress: session.progress,
 		},
 		source: execution.source,
 	});
-	const report = outcome.report;
-
-	if (outcome.type === "failed") {
-		return presentFlowStackLandingFailure({ session, outcome });
-	}
-
-	if (report.completionDisposition.type === "nothing-to-land") {
-		const message = `Current branch is ${report.completionDisposition.currentBranch}, which is trunk or has no PR path to land. Nothing to do.`;
-		presentBrief({
-			ctx,
-			fullMessage: message,
-			level: "info",
-			uiMessage: message,
-			kind: "refusal",
-		});
-		return landCompleted();
-	}
-
-	if (report.completionDisposition.type === "cleanup-only") {
-		presentPostLandingCleanupOutcome(ctx, report.cleanup.postLandingSlotCleanup);
-		return landCompleted();
-	}
-
-	if (parsedArgs.isDryRun) {
-		const planText = report.plan === undefined ? "" : formatPlan(report.plan);
-		presentDryRunLanding({
-			ctx,
-			commandStream,
-			planText,
-			continuation: report.continuation,
-		});
-		return landCompleted();
-	}
-
-	presentStackLandingSuccess(session, report);
-	presentPostLandingCleanupOutcome(ctx, report.cleanup.postLandingSlotCleanup);
-	return landCompleted();
-}
-
-function presentPostLandingCleanupOutcome(
-	ctx: LandStackCommandContext,
-	report: PostLandingSlotCleanupReport,
-): void {
-	if (report.type === "preserved") {
-		notifyPrintAware({
-			ctx,
-			message: formatPreservedSlotHint(report),
-			level: "info",
-		});
-		return;
-	}
-	if (report.type !== "completed") return;
-	notifyPrintAware({
-		ctx,
-		message: formatPostLandingCleanupSuccessNotice(report),
-		level: "success",
-		kind: "success",
-	});
-}
-
-function landedFromReport(report: LandingExecutionReport): readonly LandedPullRequest[] {
-	return report.landedChunks.flatMap((chunk) => [...chunk.landed]);
 }
 
 export function isPostLandingCleanupFailureAfterLanding(
@@ -162,60 +83,7 @@ export function isPostLandingCleanupFailureAfterLanding(
 ): boolean {
 	if (execution.failedPhase !== "post-landing-cleanup") return false;
 	if (!execution.report.landedChunks.some((chunk) => chunk.landed.length > 0)) return false;
-
-	const cleanup = execution.report.cleanup.postLandingSlotCleanup;
-	return cleanup.type === "failed";
+	return execution.report.cleanup.postLandingSlotCleanup.type === "failed";
 }
 
-export function presentFlowStackLandingFailure(options: {
-	readonly session: LandingSession;
-	readonly outcome: Extract<LandingExecutionResult, { readonly type: "failed" }>;
-}): LandOutcome {
-	const { session, outcome } = options;
-	if (isPostLandingCleanupFailureAfterLanding(outcome)) {
-		// PRs landed; preserve the legacy output order of success summary then cleanup failure.
-		presentStackLandingSuccess(session, outcome.report);
-		presentFailureAndReturn(session.ctx, outcome.failure);
-		return landOutcomeFailure(outcome.failure);
-	}
-	presentLandStackFailure({
-		session,
-		failure: outcome.failure,
-		landed: landedFromReport(outcome.report),
-	});
-	return landOutcomeFailure(outcome.failure);
-}
-
-function presentStackLandingSuccess(session: LandingSession, report: LandingExecutionReport): void {
-	const landed = landedFromReport(report);
-	const successSummary = formatSuccessSummary({
-		landed,
-		descendantMaintenance: report.plan?.descendantMaintenance ?? {
-			type: "none",
-			branches: [],
-		},
-		warnings: report.warnings,
-		cleanup: {
-			retainedLocalBranches: [...report.cleanup.mergeMaintenanceCleanup.retainedLocalBranches],
-		},
-		continuation: report.continuation,
-	});
-	presentLandingSuccess({
-		ctx: session.ctx,
-		commandStream: session.commandStream,
-		landed,
-		warnings: report.warnings,
-		successSummary,
-	});
-}
-
-export function presentLandStackFailure(options: {
-	readonly session: LandingSession;
-	readonly failure: Parameters<typeof buildLandFailurePresentation>[0];
-	readonly landed?: readonly LandedPullRequest[];
-}): void {
-	const { ctx, commandStream } = options.session;
-	const presentation = buildLandFailurePresentation(options.failure, options.landed ?? []);
-	commandStream.finishFailure(presentation.fullMessage);
-	presentBrief({ ctx, ...presentation });
-}
+export { setStatus };

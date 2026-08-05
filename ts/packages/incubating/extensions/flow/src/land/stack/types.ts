@@ -37,11 +37,6 @@ export interface LandStackCommandContext {
 		): void;
 	};
 	waitForIdle(): Promise<void>;
-	/**
-	 * CLI-only house-style result-block renderer. Wraps a settled result message's first line as a
-	 * bold, intent-painted headline while preserving the remaining detail as normal-weight body text.
-	 */
-	renderResultBlock?: (kind: LandResultKind, message: string) => string;
 }
 
 export interface PrintAwareLandStackCommandContext extends LandStackCommandContext {

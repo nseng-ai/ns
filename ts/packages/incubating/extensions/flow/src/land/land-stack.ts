@@ -15,22 +15,13 @@ import {
 	createStackLandingRuntime,
 	type StackLandingRuntime,
 } from "./stack/stack-landing-runtime.ts";
-import {
-	landCompleted,
-	landFailure,
-	landOutcomeFailure,
-	landingExecutionFailure,
-	landSuccess,
-	type LandOutcome,
-	type LandResult,
-} from "./results.ts";
+import { landFailure, landingExecutionFailure, landSuccess, type LandResult } from "./results.ts";
 import { landCompletionFlags, parseLandFlagToken } from "./stack/flags.ts";
-import { present, setStatus, usage } from "./land-presentation.ts";
+import { setStatus, usage } from "./land-presentation.ts";
 import { approvedLandConfirmationKinds } from "./landing-confirmation-policy.ts";
 import {
 	createFlowLandExecutionProgress,
 	runFlowStackLanding,
-	presentLandStackFailure,
 	type FlowLandingExecutionInput,
 	type LandingSession,
 } from "./landing-execution.ts";
@@ -66,7 +57,7 @@ export async function executeStackLanding(
 	ctx: LandStackCommandContext,
 	parsedArgs: ParsedArgs,
 	options: ExecuteStackLandingOptions = {},
-): Promise<LandOutcome> {
+): Promise<import("./types.ts").LandingExecutionResult> {
 	const observabilityChannels = executeStackLandingObservabilityChannels(options);
 	const io = observabilityChannels.progressIo ?? createLandCommandIo(pi, ctx);
 	const commandStream = new LandStackCommandStream(io, {
@@ -88,11 +79,6 @@ export async function executeStackLanding(
 		...optionalEntry("graphite", options.graphite),
 	});
 	try {
-		if (parsedArgs.shouldShowHelp) {
-			present({ ctx, message: usage(), level: "info" });
-			return landCompleted();
-		}
-
 		progress.setStatus("preflighting...");
 		return await runFlowStackLanding({
 			runtime,
@@ -107,11 +93,25 @@ export async function executeStackLanding(
 		const failure = landingExecutionFailure(
 			`land failed unexpectedly: ${formatErrorMessage(error)}`,
 		);
-		presentLandStackFailure({
-			session,
-			failure: failure,
-		});
-		return landOutcomeFailure(failure);
+		return {
+			type: "failed",
+			failedPhase: "merge",
+			failure,
+			report: {
+				target: { type: "stack" },
+				mode: parsedArgs.isDryRun ? "dry-run" : "execute",
+				completionDisposition: { type: "stack-execution" },
+				phases: [{ type: "failed", phase: "merge", failure }],
+				landedChunks: [],
+				warnings: [],
+				cleanup: {
+					preMergeFreedSlots: [],
+					mergeMaintenanceCleanup: { deletedLocalBranches: [], retainedLocalBranches: [] },
+					postLandingSlotCleanup: { type: "not-run", reason: "unexpected workflow failure" },
+				},
+				continuation: { type: "not-requested" },
+			},
+		};
 	} finally {
 		setStatus(ctx, undefined);
 	}
