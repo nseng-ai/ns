@@ -51,12 +51,6 @@ export interface CheckpointGateway {
 	}): Promise<{ summary: string } | { error: string }>;
 }
 
-export interface CheckpointCommandResult {
-	exitCode: number;
-	stdout: string;
-	stderr: string;
-}
-
 export interface NsCheckpointRuntime {
 	checkpointGateway: CheckpointGateway;
 	git: Pick<GitGateway, "cachedOriginHeadBranch">;
@@ -106,17 +100,14 @@ export type CheckpointWorkflowResult =
 	| { type: "committed"; summary: string; message: string };
 
 export type CheckpointIfPendingResult =
-	| {
-			kind: "clean";
-	  }
-	| {
-			kind: "checkpointed";
-			output: CheckpointCommandResult;
-	  }
+	| { kind: "clean" }
+	| { kind: "checkpoint-created"; summary: string; message: string }
+	| { kind: "refused"; reason: "trunk"; branch: string; message: string }
 	| {
 			kind: "failed";
-			output: CheckpointCommandResult;
-			failurePresentation?: "deterministic";
+			stage: "snapshot" | "trunk-resolution" | "message" | "commit";
+			message: string;
+			failurePresentation: "deterministic" | "unknown";
 	  };
 
 export class RealCheckpointGateway implements CheckpointGateway {
@@ -188,43 +179,51 @@ export async function runCheckpointIfPending(
 	const result = await runCheckpointWorkflow({ ...options, dryRun: false });
 	switch (result.type) {
 		case "snapshot-failed":
-			return { kind: "failed", output: failure(2, formatCheckpointSnapshotError(result.error)) };
+			return {
+				kind: "failed",
+				stage: "snapshot",
+				message: formatCheckpointSnapshotError(result.error),
+				failurePresentation: "unknown",
+			};
 		case "trunk-missing":
 			return {
 				kind: "failed",
-				output: failure(2, formatGitTrunkMissingError()),
+				stage: "trunk-resolution",
+				message: formatGitTrunkMissingError(),
 				failurePresentation: "deterministic",
 			};
 		case "trunk-resolution-failed":
 			return {
 				kind: "failed",
-				output: failure(2, formatGitTrunkResolutionError(result.error)),
+				stage: "trunk-resolution",
+				message: formatGitTrunkResolutionError(result.error),
 				failurePresentation: "deterministic",
 			};
 		case "clean":
 			return { kind: "clean" };
 		case "trunk":
 			return {
-				kind: "failed",
-				output: failure(
-					1,
-					`Refusing to create checkpoint commit on trunk branch: ${result.branch}`,
-				),
-				failurePresentation: "deterministic",
+				kind: "refused",
+				reason: "trunk",
+				branch: result.branch,
+				message: `Refusing to create checkpoint commit on trunk branch: ${result.branch}`,
 			};
 		case "message-failed":
-			return { kind: "failed", output: failure(2, result.error) };
-		case "commit-failed":
-			return { kind: "failed", output: failure(2, result.error) };
-		case "committed":
 			return {
-				kind: "checkpointed",
-				output: {
-					exitCode: 0,
-					stdout: `${result.summary}\n${result.message}\n`,
-					stderr: "",
-				},
+				kind: "failed",
+				stage: "message",
+				message: result.error,
+				failurePresentation: "unknown",
 			};
+		case "commit-failed":
+			return {
+				kind: "failed",
+				stage: "commit",
+				message: result.error,
+				failurePresentation: "unknown",
+			};
+		case "committed":
+			return { kind: "checkpoint-created", summary: result.summary, message: result.message };
 		case "dry-run":
 			throw new Error("runCheckpointIfPending does not support dry-run checkpoint results.");
 	}
@@ -324,12 +323,4 @@ export function formatCheckpointSnapshotError(error: PendingWorktreeError): stri
 
 function toCheckpointCommandResult(result: ExecResult): CommandResult {
 	return result;
-}
-
-function failure(exitCode: number, error: string): CheckpointCommandResult {
-	return {
-		exitCode,
-		stdout: "",
-		stderr: error.endsWith("\n") ? error : `${error}\n`,
-	};
 }

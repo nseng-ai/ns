@@ -747,6 +747,61 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 });
 
 describe("runSubmitCommand", () => {
+	test("returns a bounded unresolved success when publication yields no authoritative PRs", async () => {
+		const gateway: SubmitGateway = {
+			checkSubmitReadiness: async () => ({
+				kind: "ready",
+				output: exitedResult({ stdout: "ready", code: 0 }),
+			}),
+			restackCurrentStack: async () => unexpectedCall("restackCurrentStack"),
+			submitCurrentStack: async () => ({
+				kind: "success",
+				output: exitedResult({ stdout: "submitted without links", code: 0 }),
+				prLinks: [],
+			}),
+			verifyCurrentPr: async () => ({
+				kind: "no_current_pr",
+				cause: "no_current_pr",
+				output: exitedResult({ stderr: "no current PR", code: 1 }),
+			}),
+		};
+		const metadataGateway: SubmitStackInspectionGateway = {
+			inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),
+			inspectSubmitStack: async () => ({
+				ok: true,
+				value: { currentBranch: "feature/demo", branches: [] },
+			}),
+			inspectOpenPrsForBranches: async () => ({ dispositions: [] }),
+		};
+
+		const result = await runSubmitCommand({
+			cwd: "/repo",
+			gateway,
+			metadataGateway,
+			restack: true,
+			force: false,
+			prInventory: {
+				githubPr: unusedGithubPrGateway,
+				textGenerator: unusedTextGenerator,
+				git: unusedGitGateway,
+				descriptorSource: flowExtensionDescriptorSource,
+				modelSelection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.6-luna",
+					thinking: "minimal" as const,
+				},
+				env: {},
+			},
+			progress: testSubmitProgress(),
+		});
+
+		expect(result).toMatchObject({
+			type: "submitted-unresolved",
+			recentOutput: "submitted without links",
+			inventoryGenerated: false,
+		});
+	});
+
 	test("uses authoritative inventory when Graphite output has no PR URLs and current verification lags", async () => {
 		const selectedPrs = [456];
 		const linkA = { number: 123, label: "#123", url: "https://github.com/acme/repo/pull/123" };
@@ -821,7 +876,7 @@ describe("runSubmitCommand", () => {
 			progress: testSubmitProgress(submitMatrix),
 		});
 
-		expect(result.exitCode).toBe(0);
+		expect(result.type).toBe("reconciled");
 		expect(
 			submitMatrix.phaseEvents.filter(
 				(event) => "phaseKey" in event && event.phaseKey === "submit",
@@ -960,7 +1015,7 @@ describe("runSubmitCommand", () => {
 			progress: testSubmitProgress(submitMatrix),
 		});
 
-		expect(result.exitCode).toBe(0);
+		expect(result.type).toBe("reconciled");
 		expect(githubPr.editTitles).toEqual([
 			{ number: 123, title: "Title 123" },
 			{ number: 456, title: "[obj:demo] [autorun:4] Title 456" },
@@ -1064,10 +1119,12 @@ describe("runSubmitCommand", () => {
 			},
 			progress: testSubmitProgress(),
 		});
-		expect(result.exitCode).toBe(1);
-		expect(result.stderr).toContain("feature/a: no open PR found");
-		expect(result.stderr).toContain("feature/b: multiple open PRs found");
-		expect(result.stderr).toContain("No PR metadata was edited");
+		expect(result.type).toBe("failed");
+		if (result.type !== "failed") throw new Error("expected submit failure");
+		expect(result.message).toContain("feature/a: no open PR found");
+		expect(result.message).toContain("feature/b: multiple open PRs found");
+		expect(result.message).toContain("No PR metadata was edited");
+		expect(result.publishedPrs).toEqual([]);
 	});
 
 	test("stops submit when primary submit reports semantic failure", async () => {
@@ -1146,7 +1203,9 @@ describe("runSubmitCommand", () => {
 			progress: testSubmitProgress(),
 		});
 
-		expect(result.exitCode).toBe(1);
+		expect(result.type).toBe("failed");
+		if (result.type !== "failed") throw new Error("expected submit failure");
+		expect(result.publishedPrs).toEqual([link]);
 		expect(operations).toEqual(["readiness", "inventory", "submit", "verification"]);
 	});
 
@@ -1184,11 +1243,11 @@ describe("runSubmitCommand", () => {
 		});
 
 		expect(result).toMatchObject({
-			exitCode: 1,
-			stdout: "",
+			type: "refused",
 			failurePresentation: "deterministic",
 		});
-		expect(result.stderr).toBe(
+		if (result.type !== "refused") throw new Error("expected submit failure");
+		expect(result.message).toBe(
 			[
 				"Graphite could not update your local trunk before submitting. Nothing was submitted.",
 				"",
