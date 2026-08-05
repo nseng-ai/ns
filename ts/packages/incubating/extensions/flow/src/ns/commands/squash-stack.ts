@@ -23,6 +23,15 @@ import { createFlowGraphiteStackGateway } from "../../stack-squash/graphite-stac
 import { renderGitResultBlock } from "../presentation/git-result-block.ts";
 
 const squashStackSchema = z.object({});
+const squashStackResultSchema = z.object({
+	processed: z.array(
+		z.object({
+			branch: z.string(),
+			commitsBefore: z.number().int().nonnegative(),
+			state: z.enum(["squashed", "already_one_commit", "no_commits"]),
+		}),
+	),
+});
 
 export const SQUASH_STACK_COMMAND_SUMMARY =
 	"Squash every branch in the current Graphite stack to one commit.";
@@ -36,7 +45,8 @@ export function createFlowSquashStackCommand(
 ): NsCommand<typeof squashStackSchema> {
 	return defineCommand({
 		schema: squashStackSchema,
-		resultSchema: z.string(),
+		resultSchema: squashStackResultSchema,
+		renderHuman: (result) => formatStackSquashSummary(result.processed),
 		handler: async (ctx) => {
 			const caps = resolveFlowStreamCaps(ctx);
 			const matrix = createStackSquashMatrixProgressController({
@@ -64,7 +74,7 @@ export function createFlowSquashStackCommand(
 						}),
 				});
 				await matrix.finish({ isFailed: outcome.kind !== "success" });
-				if (outcome.kind === "success") return ok(formatStackSquashSummary(outcome.processed));
+				if (outcome.kind === "success") return ok({ processed: [...outcome.processed] });
 				return negative(renderStackSquashNegative(caps, outcome));
 			} finally {
 				await matrix.stop();

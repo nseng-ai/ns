@@ -28,7 +28,7 @@ describe("project extension shared Flow CLI runner", () => {
 			},
 		});
 
-		expect(result).toEqual({ status: "success", data: "" });
+		expect(result).toEqual({ status: "success", data: { text: "" } });
 		expect(stdout).toEqual(["done\n"]);
 		expect(calls).toEqual([{ command: "git", args: ["status"], options: { timeoutMs: 42 } }]);
 	});
@@ -44,7 +44,7 @@ describe("project extension shared Flow CLI runner", () => {
 			run: async () => 0,
 		});
 
-		expect(result).toEqual({ status: "success", data: "completed" });
+		expect(result).toEqual({ status: "success", data: { text: "completed" } });
 	});
 
 	test("returns empty failure result after forwarding emitted stderr", async () => {
@@ -125,7 +125,7 @@ describe("project extension shared Flow CLI runner", () => {
 			},
 		});
 
-		expect(result).toEqual({ status: "success", data: "completed" });
+		expect(result).toEqual({ status: "success", data: { text: "completed" } });
 		expect(calls).toHaveLength(1);
 		expect(calls[0]?.command).toBe("gt");
 		expect(calls[0]?.args).toEqual(["status"]);
@@ -158,7 +158,7 @@ describe("project extension shared Flow CLI runner", () => {
 			},
 		});
 
-		expect(result).toEqual({ status: "success", data: "" });
+		expect(result).toEqual({ status: "success", data: { text: "" } });
 		expect(events).toEqual(["after:0:stdout=0:stderr=0"]);
 		expect(stdout).toEqual(["done\n"]);
 		expect(stderr).toEqual(["warn\n"]);
@@ -185,7 +185,7 @@ describe("project extension shared Flow CLI runner", () => {
 		expect(stderr).toEqual(["warn\n"]);
 		expect(output.toResult(0, { successMessage: "completed", failureMessage: "failed" })).toEqual({
 			status: "success",
-			data: "",
+			data: { text: "" },
 		});
 		expect(output.toResult(9, { successMessage: "completed", failureMessage: "failed" })).toEqual({
 			status: "failure",
@@ -215,7 +215,7 @@ describe("project extension shared Flow CLI runner", () => {
 			},
 		});
 
-		expect(result).toEqual({ status: "success", data: "completed" });
+		expect(result).toEqual({ status: "success", data: { text: "completed" } });
 		expect(calls).toEqual([
 			{
 				command: "git",

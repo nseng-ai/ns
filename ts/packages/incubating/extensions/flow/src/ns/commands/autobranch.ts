@@ -1,6 +1,6 @@
 import type { ParsedAutobranchArgs } from "../../autobranch/dirty-worktree.ts";
 import { dispatchAutobranchCheckpoint } from "../../autobranch/checkpoint-flow.ts";
-import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
+import { renderResultBlock, resolveThemeCaps } from "@nseng-ai/foundation/cli-theme";
 import { runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
 import { commandIoFromNsExtensionApi } from "@nseng-ai/sdk/command-io";
 import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
@@ -18,6 +18,8 @@ import {
 	type PendingWorktreeSnapshot,
 } from "../worktree.ts";
 
+const autobranchResultSchema = z.object({ cwd: z.string(), summary: z.string() });
+
 const autobranchRequestSchema = z.object({
 	slug: z
 		.string()
@@ -29,8 +31,15 @@ type AutobranchRequest = z.output<typeof autobranchRequestSchema>;
 
 export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = defineCommand({
 	schema: autobranchRequestSchema,
-	resultSchema: z.string(),
+	resultSchema: autobranchResultSchema,
 	options: { slug: { short: "-s" } },
+	renderHuman: (result, caps) =>
+		renderResultBlock(resolveThemeCaps(caps), {
+			kind: "success",
+			headline: "Created a Graphite branch from dirty worktree changes.",
+			cwd: result.cwd,
+			body: result.summary,
+		}),
 	handler: async (ctx, request: AutobranchRequest) => {
 		const caps = resolveFlowStreamCaps(ctx);
 		const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
@@ -92,14 +101,7 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 						for (const warning of flow.warnings) {
 							ctx.stderr?.(`${warning.trimEnd()}\n`);
 						}
-						return ok(
-							renderResultBlock(caps, {
-								kind: "success",
-								headline: "Created a Graphite branch from dirty worktree changes.",
-								cwd: result.snapshot.root,
-								body: flow.summary.trimEnd(),
-							}),
-						);
+						return ok({ cwd: result.snapshot.root, summary: flow.summary.trimEnd() });
 					}
 					return negative(
 						renderAutobranchFailureResultBlock({

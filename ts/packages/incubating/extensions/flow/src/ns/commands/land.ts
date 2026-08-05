@@ -51,8 +51,9 @@ const landSchema = z.object(landCommandSchemaShape(z));
 
 export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 	schema: landSchema,
-	resultSchema: z.string(),
+	resultSchema: z.object({ text: z.string() }),
 	options: landCommandOptionSpecs(),
+	renderHuman: (result) => result.text,
 	handler: async (ctx, request) => {
 		// Resolve caps at the host-extension seam (house-style §1) and thread them ONLY into the CLI
 		// edge so the settled land result blocks render in the house style; the shared Pi command-stream

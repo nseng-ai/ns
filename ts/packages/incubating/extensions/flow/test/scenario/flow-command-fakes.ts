@@ -621,7 +621,7 @@ async function runFlowCommand(input: {
 }): Promise<{ exitCode: number; result: CommandExit<unknown> }> {
 	const request = input.command.schema.parse(input.request);
 	const result = await input.command.handler(input.context, request);
-	writeCommandExitOutput(result, input);
+	writeCommandExitOutput(result, input.command, input);
 	return { exitCode: exitCodeForCommandExit(result), result };
 }
 
@@ -633,10 +633,15 @@ function exitCodeForCommandExit(result: CommandExit<unknown>): number {
 
 function writeCommandExitOutput(
 	result: CommandExit<unknown>,
+	command: NsCommand,
 	deps: { stdout: (text: string) => void; stderr: (text: string) => void },
 ): void {
 	if (result.status === "success") {
-		if (result.data !== "") deps.stdout(`${String(result.data)}\n`);
+		const text =
+			command.renderHuman === undefined
+				? JSON.stringify(result.data, null, 2)
+				: command.renderHuman(result.data, { canEmitAnsi: false });
+		if (text !== "") deps.stdout(`${text}\n`);
 		return;
 	}
 	if (result.status === "negative") {

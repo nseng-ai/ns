@@ -16,8 +16,9 @@ const autoslotSchema = z.object({
 
 export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = defineCommand({
 	schema: autoslotSchema,
-	resultSchema: z.string(),
+	resultSchema: z.object({ text: z.string() }),
 	options: { slug: { short: "-s" } },
+	renderHuman: (result) => result.text,
 	handler: async (ctx, request) => {
 		// Resolve caps at the host-extension seam (house-style §1) and thread them into the Flow CLI
 		// edge so autoslot durable outcomes render in the house style next to where facts are computed.

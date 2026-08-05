@@ -110,7 +110,8 @@ export function createFlowSubmitCommand(
 ): NsCommand<typeof submitSchema> {
 	return defineCommand({
 		schema: submitSchema,
-		resultSchema: z.string(),
+		resultSchema: z.object({ text: z.string() }),
+		renderHuman: (result) => result.text,
 		options: {
 			restack: { short: "-R" },
 			force: { short: "-f" },
@@ -196,7 +197,9 @@ const GENERATE_PR_INVENTORY_CONFIRMATION_MESSAGE = [
  *
  * Returns undefined when the replacement is approved.
  */
-async function confirmGenerateAllPrMetadata(ctx: NsExtensionApi): Promise<CommandExit | undefined> {
+async function confirmGenerateAllPrMetadata(
+	ctx: NsExtensionApi,
+): Promise<CommandExit<{ text: string }> | undefined> {
 	const confirmation = await confirmInteractiveOrUsageError(
 		createNsClinkrInteraction(ctx, {
 			title: "Replace complete PR metadata for every PR in the submitted scope?",
@@ -344,7 +347,7 @@ async function runSubmitWithProgress(input: {
 			isFailed ? { ...interpretedResult, stderr: "" } : interpretedResult,
 			ctx,
 		);
-		return isFailed ? submitFailureExit(interpretedResult) : ok("");
+		return isFailed ? submitFailureExit(interpretedResult) : ok({ text: "" });
 	} finally {
 		await matrix.stop();
 	}
@@ -360,7 +363,7 @@ async function matrixPhaseFailureResult(
 		exitCode: number;
 		failurePresentation?: SubmitCommandResult["failurePresentation"];
 	},
-): Promise<CommandExit<string>> {
+): Promise<CommandExit<{ text: string }>> {
 	matrix.phase({ type: "phase-failed", phaseKey: failure.key, detail: failure.failedText });
 	const interpreted = await maybeFormatSubmitFailureWithModel(
 		{
@@ -375,8 +378,8 @@ async function matrixPhaseFailureResult(
 	return submitFailureExit(interpreted);
 }
 
-function submitFailureExit(result: SubmitCommandResult): CommandExit<string> {
-	return exitCodeToFlowCommandExit(result.exitCode, resultFailureMessage(result));
+function submitFailureExit(result: SubmitCommandResult): CommandExit<{ text: string }> {
+	return exitCodeToFlowCommandExit<{ text: string }>(result.exitCode, resultFailureMessage(result));
 }
 
 function resultFailureMessage(result: SubmitCommandResult): string {
