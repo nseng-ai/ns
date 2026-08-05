@@ -1,6 +1,6 @@
 import { formatCommand } from "@nseng-ai/foundation/command";
 import { describe, expect, test } from "vitest";
-import { runLandCli } from "../../../src/land/land.ts";
+import { runLandWorkflow } from "../../../src/land/land.ts";
 import { PR_FIELDS } from "../../../src/land/stack/constants.ts";
 import { stripAnsi } from "../../../src/land/stack/graphite-command-channel.ts";
 import {
@@ -320,7 +320,7 @@ describe("land-stack command scenarios", () => {
 		).toBe(false);
 		expect(notifications.at(-1)?.level).toBe("error");
 		const notificationText = stripAnsi(notifications.at(-1)?.message ?? "");
-		expect(notificationText).toContain("land stopped at #102 feature-b");
+		expect(notificationText).toContain("Failed at: #102 feature-b");
 		expect(notificationText).not.toContain("Landed 2 PRs");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("land stopped.");
@@ -364,7 +364,7 @@ describe("land-stack command scenarios", () => {
 		).toBe(false);
 		expect(notifications.at(-1)?.level).toBe("error");
 		const notificationText = stripAnsi(notifications.at(-1)?.message ?? "");
-		expect(notificationText).toContain("land stopped at #102 feature-b");
+		expect(notificationText).toContain("Failed at: #102 feature-b");
 		expect(notificationText).not.toContain("Landed 2 PRs");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain(
@@ -415,7 +415,7 @@ describe("land-stack command scenarios", () => {
 		).toBe(false);
 		expect(notifications.at(-1)?.level).toBe("error");
 		const notificationText = stripAnsi(notifications.at(-1)?.message ?? "");
-		expect(notificationText).toContain("land stopped at #102 feature-b");
+		expect(notificationText).toContain("Failed at: #102 feature-b");
 		expect(notificationText).toContain("deferred");
 		expect(notificationText).not.toContain("Landed 2 PRs");
 	});
@@ -469,7 +469,7 @@ describe("land-stack command scenarios", () => {
 
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("error");
-		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("land stopped at feature-c");
+		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain("Failed at: feature-c");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("land stopped.");
 		expect(streamText).toContain("Already landed:");
@@ -520,7 +520,7 @@ describe("land-stack command scenarios", () => {
 
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("error");
-		expect(notifications.at(-1)?.message).toContain("land stopped at feature-b");
+		expect(notifications.at(-1)?.message).toContain("Failed at: feature-b");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("Already landed:");
 		expect(streamText).toContain("#101 feature-a");
@@ -641,7 +641,7 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("error");
 		const notificationText = stripAnsi(notifications.at(-1)?.message ?? "");
-		expect(notificationText).toContain("land stopped at feature-c");
+		expect(notificationText).toContain("Failed at: feature-c");
 		expect(notificationText).not.toContain("Landed 2 PRs");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("land stopped.");
@@ -731,12 +731,17 @@ describe("land-stack command scenarios", () => {
 			clearPhase: () => {},
 		};
 
-		const exitCode = await runLandCli({
+		const result = await runLandWorkflow({
 			cwd: ROOT,
-			rawArgs: "",
+			request: {
+				shouldSkipConfirmation: false,
+				isDryRun: false,
+				shouldFreeSlot: false,
+				shouldContinueUpstack: false,
+				shouldShowHelp: false,
+				shouldStreamVerboseOutput: false,
+			},
 			exec: async (command, args, options) => await pi.exec(command, args, options),
-			stdout: (text) => output.push(text),
-			stderr: (text) => output.push(text),
 			progressIo,
 			confirm: async (title, message) => {
 				confirmations.push({ title, message });
@@ -745,12 +750,18 @@ describe("land-stack command scenarios", () => {
 		});
 
 		pi.assertDone();
-		expect(exitCode).toBe(1);
+		expect(result.type).toBe("stack");
+		if (result.type !== "stack") throw new Error("Expected stack result");
+		expect(result.execution.type).toBe("failed");
 		expect(confirmations).toEqual([]);
-		const text = output.join("\n");
-		expect(text).toContain("#201 feature-1");
-		for (const expected of scenario.expected) expect(text).toContain(expected);
-		expect(text).not.toContain("unexpected shape");
+		if (result.execution.type !== "failed") throw new Error("Expected failed execution");
+		const failureText = `${result.execution.failure.message}\n${result.execution.failure.type === "domain" ? (result.execution.failure.suggestedAction ?? "") : ""}`;
+		expect(result.execution.failure).toMatchObject({
+			failedPrNumber: 201,
+			failedBranch: "feature-1",
+		});
+		for (const expected of scenario.expected) expect(failureText).toContain(expected);
+		expect(failureText).not.toContain("unexpected shape");
 		expect(
 			pi.execCalls.some(
 				(call) =>

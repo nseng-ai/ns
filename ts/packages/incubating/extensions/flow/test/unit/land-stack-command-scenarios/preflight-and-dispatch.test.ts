@@ -1,7 +1,7 @@
 import { noopNsCommandIo } from "@nseng-ai/sdk";
 import { describe, expect, test } from "vitest";
 import type { PullRequestFacts } from "../../../src/land/api.ts";
-import { runLandCli } from "../../../src/land/land.ts";
+import { runLandWorkflow } from "../../../src/land/land.ts";
 import { PR_FIELDS } from "../../../src/land/stack/constants.ts";
 import { stripAnsi } from "../../../src/land/stack/graphite-command-channel.ts";
 import {
@@ -173,20 +173,23 @@ describe("land-stack command scenarios", () => {
 			clearPhase: () => {},
 		};
 
-		const exitCode = await runLandCli({
+		const result = await runLandWorkflow({
 			cwd: ROOT,
-			rawArgs: "",
+			request: {
+				shouldSkipConfirmation: false,
+				isDryRun: false,
+				shouldFreeSlot: false,
+				shouldContinueUpstack: false,
+				shouldShowHelp: false,
+				shouldStreamVerboseOutput: false,
+			},
 			exec: async (command, args, options) => await pi.exec(command, args, options),
-			stdout: (text) => output.push(text),
-			stderr: (text) => output.push(text),
 			progressIo,
 		});
 
 		pi.assertDone();
-		expect(exitCode).toBe(1);
-		expect(output.join("\n")).toContain(
-			"Refusing to land a single-branch PR without confirmation in non-interactive mode. Re-run with --yes.",
-		);
+		expect(result.type).toBe("failed");
+		expect(result).toMatchObject({ type: "failed", failure: { outcome: "refusal" } });
 		expect(
 			pi.execCalls.some(
 				(call) =>
@@ -201,12 +204,17 @@ describe("land-stack command scenarios", () => {
 		const pi = new FakeLandExecutionApi(linearStackLandingScript(3));
 		const confirmations: Confirmation[] = [];
 
-		const exitCode = await runLandCli({
+		const result = await runLandWorkflow({
 			cwd: ROOT,
-			rawArgs: "--free",
+			request: {
+				shouldSkipConfirmation: false,
+				isDryRun: false,
+				shouldFreeSlot: true,
+				shouldContinueUpstack: false,
+				shouldShowHelp: false,
+				shouldStreamVerboseOutput: false,
+			},
 			exec: async (command, args, options) => await pi.exec(command, args, options),
-			stdout: () => {},
-			stderr: () => {},
 			progressIo: noopNsCommandIo,
 			confirm: async (title, message) => {
 				confirmations.push({ title, message });
@@ -215,7 +223,7 @@ describe("land-stack command scenarios", () => {
 		});
 
 		pi.assertDone();
-		expect(exitCode).toBe(0);
+		expect(result.type).not.toBe("failed");
 		expect(confirmations.map((confirmation) => confirmation.title)).toEqual([
 			"Land this stack path?",
 		]);

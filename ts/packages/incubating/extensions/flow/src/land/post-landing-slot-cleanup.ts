@@ -13,13 +13,7 @@ import {
 	type PostLandingCleanupRequest,
 	type PostLandingSlotCleanupPreview,
 } from "./execution/post-landing-cleanup.ts";
-import {
-	formatPreservedSlotHint,
-	notifyPrintAware,
-	presentFailureAndReturn,
-	setStatus,
-} from "./land-presentation.ts";
-import { landCompleted, landOutcomeFailure, type LandOutcome } from "./results.ts";
+import { setStatus } from "./land-presentation.ts";
 import type { PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/types.ts";
 import type { LandContext, LandingCleanupPolicy, LandingShape } from "./types.ts";
 
@@ -65,9 +59,20 @@ interface RunPostLandingSlotCleanupOptions {
 }
 
 /** Single-branch fast-path glue: run cleanup after landing outside canonical stack execution. */
+export type FlowPostLandingCleanupResult =
+	| {
+			readonly type: "completed";
+			readonly cleanup: import("./types.ts").PostLandingSlotCleanupReport;
+	  }
+	| {
+			readonly type: "failure";
+			readonly cleanup: import("./types.ts").PostLandingSlotCleanupReport;
+			readonly failure: import("./types.ts").LandingFailure;
+	  };
+
 export async function runPostLandingSlotCleanup(
 	options: RunPostLandingSlotCleanupOptions,
-): Promise<LandOutcome> {
+): Promise<FlowPostLandingCleanupResult> {
 	const result = await runManagedSlotPostLandingCleanup({
 		landContext: options.landContext,
 		progress: createCleanupProgress(options.ctx),
@@ -78,25 +83,9 @@ export async function runPostLandingSlotCleanup(
 		shape: options.shape,
 	});
 	if (result.type === "failure") {
-		presentFailureAndReturn(options.ctx, result.failure);
-		return landOutcomeFailure(result.failure);
+		return { type: "failure", cleanup: result.outcome, failure: result.failure };
 	}
-	if (result.successMessage !== undefined) {
-		notifyPrintAware({
-			ctx: options.ctx,
-			message: result.successMessage,
-			level: "success",
-			kind: "success",
-		});
-	}
-	if (result.outcome.type === "preserved") {
-		notifyPrintAware({
-			ctx: options.ctx,
-			message: formatPreservedSlotHint(result.outcome),
-			level: "info",
-		});
-	}
-	return landCompleted();
+	return { type: "completed", cleanup: result.outcome };
 }
 
 export function createCleanupProgress(

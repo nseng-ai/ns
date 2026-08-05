@@ -586,13 +586,7 @@ interface PresentBriefOptions {
 export function presentBrief(options: PresentBriefOptions): void {
 	const { ctx, fullMessage, level, uiMessage } = options;
 	const shown = ctx.hasUI ? uiMessage : fullMessage;
-	// House-style ANSI is applied only when the CLI edge wired `renderResultBlock`; the Pi
-	// command-stream context leaves it undefined, so the shared notify text stays plain there.
-	const rendered =
-		options.kind !== undefined && ctx.renderResultBlock !== undefined
-			? ctx.renderResultBlock(options.kind, shown)
-			: shown;
-	ctx.ui.notify(rendered, level);
+	ctx.ui.notify(shown, level);
 }
 
 interface PresentPrintAwareBriefOptions {

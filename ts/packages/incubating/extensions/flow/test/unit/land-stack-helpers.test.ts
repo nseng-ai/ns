@@ -23,7 +23,7 @@ import { landArgumentCompletions, parseArgs } from "../../src/land/land-stack.ts
 import type { FlowLandExternalCallTelemetryEvent } from "../../src/land/stack/external-call-telemetry.ts";
 import {
 	landCommandOptionSpecs,
-	landRawArgsFromCommandRequest,
+	landParsedArgsFromCommandRequest,
 } from "../../src/land/stack/flags.ts";
 import {
 	derivePathToTrunk,
@@ -353,14 +353,21 @@ describe("land-stack pure helpers", () => {
 			verbose: { short: "-v" },
 		});
 		expect(
-			landRawArgsFromCommandRequest({
+			landParsedArgsFromCommandRequest({
 				yes: true,
 				dryRun: true,
 				free: true,
 				up: true,
 				verbose: true,
 			}),
-		).toEqual(["--yes", "--dry-run", "--free", "--up", "--verbose"]);
+		).toEqual({
+			shouldSkipConfirmation: true,
+			isDryRun: true,
+			shouldFreeSlot: true,
+			shouldContinueUpstack: true,
+			shouldShowHelp: false,
+			shouldStreamVerboseOutput: true,
+		});
 	});
 
 	test("derives the landing path from Graphite metadata", () => {

@@ -1,6 +1,6 @@
 import { noopNsCommandIo } from "@nseng-ai/sdk";
 import { describe, expect, test } from "vitest";
-import { runLandCli } from "../../../src/land/land.ts";
+import { runLandWorkflow } from "../../../src/land/land.ts";
 import { PR_FIELDS } from "../../../src/land/stack/constants.ts";
 import { expectedSquashMergeArgs, prSnapshot, prStdout } from "../land-stack-script-fixtures.ts";
 
@@ -53,12 +53,17 @@ describe("land-stack command scenarios", () => {
 		]);
 		const pi = new FakeLandExecutionApi(script);
 		const confirmations: Confirmation[] = [];
-		const exitCode = await runLandCli({
+		const result = await runLandWorkflow({
 			cwd: CURRENT_SLOT_ROOT,
-			rawArgs: "--free",
+			request: {
+				shouldSkipConfirmation: false,
+				isDryRun: false,
+				shouldFreeSlot: true,
+				shouldContinueUpstack: false,
+				shouldShowHelp: false,
+				shouldStreamVerboseOutput: false,
+			},
 			exec: async (command, args, options) => await pi.exec(command, args, options),
-			stdout: () => {},
-			stderr: () => {},
 			progressIo: noopNsCommandIo,
 			confirm: async (title, message) => {
 				confirmations.push({ title, message });
@@ -67,7 +72,7 @@ describe("land-stack command scenarios", () => {
 		});
 
 		pi.assertDone();
-		expect(exitCode).toBe(0);
+		expect(result.type).toBe("single-branch-landed");
 		expect(confirmations).toHaveLength(1);
 		expect(confirmations[0]?.title).toBe("Land this PR?");
 		expect(confirmations[0]?.message).toContain("Slot: slot-03");
@@ -134,12 +139,17 @@ describe("land-stack command scenarios", () => {
 			),
 		);
 		const confirmations: Confirmation[] = [];
-		const exitCode = await runLandCli({
+		const result = await runLandWorkflow({
 			cwd: CURRENT_SLOT_ROOT,
-			rawArgs: "",
+			request: {
+				shouldSkipConfirmation: false,
+				isDryRun: false,
+				shouldFreeSlot: false,
+				shouldContinueUpstack: false,
+				shouldShowHelp: false,
+				shouldStreamVerboseOutput: false,
+			},
 			exec: async (command, args, options) => await pi.exec(command, args, options),
-			stdout: () => {},
-			stderr: () => {},
 			progressIo: noopNsCommandIo,
 			confirm: async (title, message) => {
 				confirmations.push({ title, message });
@@ -148,7 +158,9 @@ describe("land-stack command scenarios", () => {
 		});
 
 		pi.assertDone();
-		expect(exitCode).toBe(0);
+		expect(result.type).toBe("failed");
+		if (result.type !== "failed") throw new Error("Expected refusal");
+		expect(result.failure).toMatchObject({ outcome: "refusal", refusalReason: "declined" });
 		expect(confirmations).toHaveLength(1);
 		expect(
 			pi.execCalls.some(
@@ -170,18 +182,22 @@ describe("land-stack command scenarios", () => {
 				}),
 			),
 		);
-		const output: string[] = [];
-		const exitCode = await runLandCli({
+		const result = await runLandWorkflow({
 			cwd: CURRENT_SLOT_ROOT,
-			rawArgs: "",
+			request: {
+				shouldSkipConfirmation: false,
+				isDryRun: false,
+				shouldFreeSlot: false,
+				shouldContinueUpstack: false,
+				shouldShowHelp: false,
+				shouldStreamVerboseOutput: false,
+			},
 			exec: async (command, args, options) => await pi.exec(command, args, options),
-			stdout: (text) => output.push(text),
-			stderr: (text) => output.push(text),
 			progressIo: noopNsCommandIo,
 		});
 
 		pi.assertDone();
-		expect(exitCode).toBe(1);
+		expect(result.type).toBe("failed");
 		expect(
 			pi.execCalls.some(
 				(call) =>
@@ -201,7 +217,7 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(confirmations).toEqual([]);
 		expect(notifications).toHaveLength(1);
-		expect(notifications[0]?.level).toBe("info");
+		expect(notifications[0]?.level).toBe("success");
 		expect(notifications[0]?.message).toContain("Dry run only; no PRs or local refs were changed.");
 		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(
 			false,

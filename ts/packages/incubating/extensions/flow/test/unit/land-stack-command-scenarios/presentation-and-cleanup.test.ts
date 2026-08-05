@@ -100,16 +100,12 @@ describe("land-stack command scenarios", () => {
 
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("success");
-		expect(notifications.at(-1)?.message).toContain(
-			"\x1B]8;;https://github.example/pull/101\x07#101\x1B]8;;\x07 feature-a",
-		);
+		expect(notifications.at(-1)?.message).toContain("#101 feature-a");
 		const finalMessage = messages.at(-1);
 		expect(messageContentText(finalMessage?.content ?? "")).toContain(
 			"✓ Landed 1 PR: #101 feature-a.",
 		);
-		expect(finalMessage?.details).toEqual({
-			prLinks: [{ number: 101, url: "https://github.example/pull/101" }],
-		});
+		expect(finalMessage?.details).toBeUndefined();
 	});
 	test("retains final local Graphite branch when it is checked out in this worktree", async () => {
 		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
@@ -190,7 +186,7 @@ describe("land-stack command scenarios", () => {
 		expect(notificationText).toContain(
 			"Delete or repair local Graphite branch feature-a manually, then inspect the stack.",
 		);
-		expect(notificationText).not.toContain("Landed 1 PR");
+		expect(notificationText).toContain("Landed 1 PR");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("✗ $ gt delete feature-a -f -q — exit code 1");
 		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");

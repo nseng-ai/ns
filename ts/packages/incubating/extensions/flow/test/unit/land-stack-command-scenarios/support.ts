@@ -2,6 +2,7 @@ import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { expect } from "vitest";
 import { executeStackLanding, parseArgs } from "../../../src/land/land-stack.ts";
+import { renderLandWorkflowResult } from "../../../src/land/command-result.ts";
 import { type LandResult } from "../../../src/land/results.ts";
 import type {
 	LandStackCommandContext,
@@ -202,7 +203,30 @@ export async function runLandStack(
 	// Permanent command transcripts exercise destructive Graphite cleanup unless a scenario opts
 	// into another policy through the canonical execution tests.
 	const parsedArgs = expectSuccess(parseArgs(args.includes("--free") ? args : `${args} --free`));
-	await executeStackLanding(pi, context.ctx, parsedArgs, contextOptions.executeOptions);
+	const execution = await executeStackLanding(
+		pi,
+		context.ctx,
+		parsedArgs,
+		contextOptions.executeOptions,
+	);
+	const rendered = renderLandWorkflowResult(
+		{
+			isTty: false,
+			colorDepth: "none",
+			columns: 80,
+			canRenderUnicode: true,
+		},
+		{ type: "stack", execution },
+	);
+	context.ctx.ui.notify(
+		rendered,
+		execution.type === "failed"
+			? "error"
+			: execution.report.warnings.length > 0
+				? "warning"
+				: "success",
+	);
+	pi.message?.(rendered);
 	return { pi, messages: pi.messages, ...context };
 }
 
