@@ -1,4 +1,3 @@
-// @ts-nocheck -- temporary descriptor-framework compatibility retained only for the additive filesystem cutover.
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

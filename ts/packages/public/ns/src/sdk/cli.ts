@@ -1,5 +1,6 @@
 export {
 	buildNsApp,
+	composeNsExtensionPointCommands,
 	runCli,
 	NS_BUILT_IN_HELP_GROUP,
 	NS_EXTENSION_HELP_GROUP,
