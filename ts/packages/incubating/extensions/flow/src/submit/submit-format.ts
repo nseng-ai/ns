@@ -133,7 +133,7 @@ function findMatchingLink<T>(
 	return items.find((item) => linkForItem(item).url === target.url);
 }
 
-function formatSubmitOutputTail(stdout: string, stderr: string): string {
+export function formatSubmitOutputTail(stdout: string, stderr: string): string {
 	const output = stripTerminalEscapes(`${stdout}\n${stderr}`).replace(/\r/g, "\n").trimEnd();
 	if (!output) return "";
 

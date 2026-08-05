@@ -12,7 +12,7 @@ import {
 	createNsSubmitRuntime,
 	runSubmitCommand,
 	type NsSubmitRuntime,
-	type SubmitCommandResult,
+	type SubmitResult,
 } from "../../submit/ns-runtime.ts";
 import {
 	commandOperations,
@@ -24,7 +24,6 @@ import {
 } from "../../submit/submit-matrix-progress.ts";
 import { bindMatrixSubmitProgress } from "../../submit/submit-progress.ts";
 import {
-	flowSubmitHookFailureExitCode,
 	formatFlowSubmitHookFailure,
 	loadFlowSubmitHooks,
 	runFlowSubmitHooks,
@@ -44,13 +43,17 @@ import {
 import { createNsClinkrInteraction } from "@nseng-ai/extension-kit";
 import { confirmInteractiveOrUsageError } from "@nseng-ai/clinkr";
 import { flowExtensionDescriptorSource } from "../extension.ts";
-import { FLOW_COMMAND_FAILED, exitCodeToFlowCommandExit } from "../flow-cli-runner.ts";
+import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
 import { resolveFlowModelSelection } from "../model-policy.ts";
 import {
 	validatePrTitlePrefix,
 	type NormalizedPrTitlePrefix,
 } from "../../submit/pr-title-prefix.ts";
+import {
+	formatSubmitSuccessFallbackText,
+	formatSubmitSuccessText,
+} from "../../submit/submit-format.ts";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";
@@ -101,6 +104,60 @@ const submitSchema = z.object({
 
 type SubmitRequest = z.output<typeof submitSchema>;
 
+const submitPrLinkSchema = z.object({ label: z.string(), url: z.string() });
+const submitPlanSchema = z.object({
+	currentBranch: z.string(),
+	branches: z.array(
+		z.discriminatedUnion("kind", [
+			z.object({
+				kind: z.literal("existing"),
+				branch: z.string(),
+				parentBranch: z.string(),
+				pr: z.object({ number: z.number(), label: z.string(), url: z.string() }),
+			}),
+			z.object({
+				kind: z.literal("new"),
+				branch: z.string(),
+				parentBranch: z.string(),
+			}),
+		]),
+	),
+});
+const checkpointSuccessSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("clean") }),
+	z.object({
+		type: z.literal("checkpoint-created"),
+		summary: z.string(),
+		message: z.string(),
+	}),
+]);
+const submitPublicationSuccessSchema = z.discriminatedUnion("type", [
+	z.object({
+		type: z.literal("reconciled"),
+		plan: submitPlanSchema,
+		prs: z.array(submitPrLinkSchema),
+		metadataApplied: z.array(submitPrLinkSchema),
+		metadataPreviews: z.array(
+			z.object({
+				link: submitPrLinkSchema,
+				title: z.string(),
+				inventoryFirstLine: z.string().nullable(),
+			}),
+		),
+	}),
+	z.object({
+		type: z.literal("submitted-unresolved"),
+		plan: submitPlanSchema,
+		recentOutput: z.string(),
+		inventoryGenerated: z.literal(false),
+	}),
+]);
+const submitSuccessSchema = z.object({
+	checkpoint: checkpointSuccessSchema,
+	publication: submitPublicationSuccessSchema,
+});
+type SubmitSuccess = z.infer<typeof submitSuccessSchema>;
+
 export interface FlowSubmitCommandDependencies {
 	createRuntime(ctx: NsExtensionApi): NsSubmitRuntime;
 }
@@ -110,8 +167,8 @@ export function createFlowSubmitCommand(
 ): NsCommand<typeof submitSchema> {
 	return defineCommand({
 		schema: submitSchema,
-		resultSchema: z.object({ text: z.string() }),
-		renderHuman: (result) => result.text,
+		resultSchema: submitSuccessSchema,
+		renderHuman: renderSubmitSuccess,
 		options: {
 			restack: { short: "-R" },
 			force: { short: "-f" },
@@ -199,7 +256,7 @@ const GENERATE_PR_INVENTORY_CONFIRMATION_MESSAGE = [
  */
 async function confirmGenerateAllPrMetadata(
 	ctx: NsExtensionApi,
-): Promise<CommandExit<{ text: string }> | undefined> {
+): Promise<CommandExit<SubmitSuccess> | undefined> {
 	const confirmation = await confirmInteractiveOrUsageError(
 		createNsClinkrInteraction(ctx, {
 			title: "Replace complete PR metadata for every PR in the submitted scope?",
@@ -294,8 +351,7 @@ async function runSubmitWithProgress(input: {
 				return await matrixPhaseFailureResult(ctx, matrix, {
 					key: "checks",
 					failedText: "checks failed",
-					stderr: formatFlowSubmitHookFailure(checksOutcome),
-					exitCode: flowSubmitHookFailureExitCode(checksOutcome),
+					message: formatFlowSubmitHookFailure(checksOutcome),
 					failurePresentation: "deterministic",
 				});
 			}
@@ -312,13 +368,19 @@ async function runSubmitWithProgress(input: {
 			modelSelection: checkpointContext.modelSelection,
 			onPhase: matrix.phase,
 		});
+		if (checkpoint.kind === "refused") {
+			matrix.phase({ type: "phase-failed", phaseKey: "checkpoint", detail: "checkpoint refused" });
+			await matrix.finish({ isFailed: true });
+			return negative(formatCheckpointBeforeSubmitFailure(checkpoint.message), {
+				data: checkpoint,
+			});
+		}
 		if (checkpoint.kind === "failed") {
 			return await matrixPhaseFailureResult(ctx, matrix, {
 				key: "checkpoint",
 				failedText: "checkpoint failed",
-				stderr: formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr),
-				exitCode: checkpoint.output.exitCode,
-				...optionalEntry("failurePresentation", checkpoint.failurePresentation),
+				message: formatCheckpointBeforeSubmitFailure(checkpoint.message),
+				failurePresentation: checkpoint.failurePresentation,
 			});
 		}
 		matrix.phase({ type: "phase-done", phaseKey: "checkpoint", detail: "checkpoint complete" });
@@ -337,17 +399,21 @@ async function runSubmitWithProgress(input: {
 			progress,
 			...(onOutput === undefined ? {} : { onOutput }),
 		});
-		const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
-		const isFailed = interpretedResult.exitCode !== 0;
-		await matrix.finish({ isFailed });
-		if (checkpoint.kind === "checkpointed") {
-			writeCommandResultOutput(checkpoint.output, ctx);
+		if (result.type === "refused" || result.type === "failed") {
+			const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
+			await matrix.finish({ isFailed: true });
+			return submitFailureExit(interpretedResult);
 		}
-		writeCommandResultOutput(
-			isFailed ? { ...interpretedResult, stderr: "" } : interpretedResult,
-			ctx,
-		);
-		return isFailed ? submitFailureExit(interpretedResult) : ok({ text: "" });
+		await matrix.finish({ isFailed: false });
+		const checkpointResult =
+			checkpoint.kind === "clean"
+				? { type: "clean" as const }
+				: {
+						type: "checkpoint-created" as const,
+						summary: checkpoint.summary,
+						message: checkpoint.message,
+					};
+		return ok(submitSuccessSchema.parse({ checkpoint: checkpointResult, publication: result }));
 	} finally {
 		await matrix.stop();
 	}
@@ -356,21 +422,26 @@ async function runSubmitWithProgress(input: {
 async function matrixPhaseFailureResult(
 	ctx: NsExtensionApi,
 	matrix: SubmitMatrixProgressController,
-	failure: {
+	failureValue: {
 		key: "checks" | "checkpoint";
 		failedText: string;
-		stderr: string;
-		exitCode: number;
-		failurePresentation?: SubmitCommandResult["failurePresentation"];
+		message: string;
+		failurePresentation: "deterministic" | "unknown";
 	},
-): Promise<CommandExit<{ text: string }>> {
-	matrix.phase({ type: "phase-failed", phaseKey: failure.key, detail: failure.failedText });
+): Promise<CommandExit<SubmitSuccess>> {
+	matrix.phase({
+		type: "phase-failed",
+		phaseKey: failureValue.key,
+		detail: failureValue.failedText,
+	});
 	const interpreted = await maybeFormatSubmitFailureWithModel(
 		{
-			stdout: "",
-			stderr: failure.stderr,
-			exitCode: failure.exitCode,
-			...optionalEntry("failurePresentation", failure.failurePresentation),
+			type: "failed",
+			phase: failureValue.key,
+			message: failureValue.message,
+			failurePresentation: failureValue.failurePresentation,
+			publishedPrs: [],
+			metadataApplied: [],
 		},
 		ctx,
 	);
@@ -378,26 +449,39 @@ async function matrixPhaseFailureResult(
 	return submitFailureExit(interpreted);
 }
 
-function submitFailureExit(result: SubmitCommandResult): CommandExit<{ text: string }> {
-	return exitCodeToFlowCommandExit<{ text: string }>(result.exitCode, resultFailureMessage(result));
+function submitFailureExit(
+	result: Extract<SubmitResult, { type: "refused" | "failed" }>,
+): CommandExit<SubmitSuccess> {
+	return result.type === "refused"
+		? negative(result.message.trimEnd(), { data: submitFailureData(result) })
+		: failure(FLOW_COMMAND_FAILED, result.message.trimEnd(), submitFailureData(result));
 }
 
-function resultFailureMessage(result: SubmitCommandResult): string {
-	const message = result.stderr.trimEnd();
-	if (message !== "") return message;
-	return `ns flow submit failed with exit code ${result.exitCode}.`;
+function submitFailureData(result: Extract<SubmitResult, { type: "refused" | "failed" }>) {
+	return {
+		type: result.type,
+		phase: result.phase,
+		publishedPrs: result.publishedPrs,
+		metadataApplied: result.metadataApplied,
+	};
 }
 
-function writeCommandResultOutput(
-	result: Pick<SubmitCommandResult, "stdout" | "stderr">,
-	ctx: NsExtensionApi,
-): void {
-	if (result.stdout !== "") {
-		ctx.stdout?.(result.stdout);
-	}
-	if (result.stderr !== "") {
-		ctx.stderr?.(result.stderr);
-	}
+function renderSubmitSuccess(result: SubmitSuccess): string {
+	const checkpoint =
+		result.checkpoint.type === "clean"
+			? "Checkpoint: worktree clean."
+			: `${result.checkpoint.summary}\n${result.checkpoint.message}`;
+	const publication =
+		result.publication.type === "reconciled"
+			? formatSubmitSuccessText(result.publication.prs, {
+					applied: result.publication.metadataApplied,
+					previews: result.publication.metadataPreviews.map((preview) => ({
+						...preview,
+						inventoryFirstLine: preview.inventoryFirstLine ?? undefined,
+					})),
+				})
+			: formatSubmitSuccessFallbackText(result.publication.recentOutput, "");
+	return `${checkpoint}\n${publication}`;
 }
 
 function formatCheckpointBeforeSubmitFailure(stderr: string): string {
@@ -410,42 +494,37 @@ function formatCheckpointBeforeSubmitFailure(stderr: string): string {
 }
 
 async function maybeFormatSubmitFailureWithModel(
-	result: SubmitCommandResult,
+	result: Extract<SubmitResult, { type: "refused" | "failed" }>,
 	ctx: NsExtensionApi,
-): Promise<SubmitCommandResult> {
-	if (result.exitCode === 0 || result.stderr.trim() === "") return result;
+): Promise<Extract<SubmitResult, { type: "refused" | "failed" }>> {
+	if (result.message.trim() === "") return result;
 	const rawTranscript = renderRawFailureTranscript(result);
 	const rawLog = await writeSubmitFailureRawLog(rawTranscript, ctx.env);
-	// Failures we classified deterministically already carry a precise, hand-written
-	// message. Present it verbatim (plus the raw-log pointer); the model interpreter is
-	// only for turning unrecognized Graphite/subprocess output into guidance.
 	if (result.failurePresentation === "deterministic") {
-		return { ...result, stderr: formatFailureWithRawLog({ stderr: result.stderr, rawLog }) };
+		return { ...result, message: formatFailureWithRawLog({ stderr: result.message, rawLog }) };
 	}
 	const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowSubmitFailure);
 	if (!model.ok)
-		return { ...result, stderr: formatFailureWithRawLog({ stderr: model.error, rawLog }) };
+		return { ...result, message: formatFailureWithRawLog({ stderr: model.error, rawLog }) };
 	const interpretation = await generateSubmitFailureInterpretation({
 		rawTranscript,
-		exitCode: result.exitCode,
 		ctx,
 		modelSelection: model.modelSelection,
 	});
 	if (interpretation.ok && interpretation.text.trim() !== "") {
 		return {
 			...result,
-			stderr: formatModelPrimaryFailure({ text: interpretation.text, rawLog }),
+			message: formatModelPrimaryFailure({ text: interpretation.text, rawLog }),
 		};
 	}
 	return {
 		...result,
-		stderr: formatFailureWithRawLog({ stderr: result.stderr, rawLog }),
+		message: formatFailureWithRawLog({ stderr: result.message, rawLog }),
 	};
 }
 
 async function generateSubmitFailureInterpretation(input: {
 	rawTranscript: string;
-	exitCode: number;
 	ctx: NsExtensionApi;
 	modelSelection: ModelSelection;
 }): Promise<{ ok: true; text: string } | { ok: false }> {
@@ -458,7 +537,6 @@ async function generateSubmitFailureInterpretation(input: {
 				"You write plain terminal-facing failure summaries for engineers. Be concise, specific, and action-oriented. Output only the final user-facing message. Do not invent facts not present in the transcript. Do not paste raw logs or raw-log paths; the wrapper appends the raw-log line separately.",
 			prompt: buildSubmitFailureInterpretationPrompt({
 				rawTranscript: input.rawTranscript,
-				exitCode: input.exitCode,
 			}),
 		});
 		if (!interpretation.ok) return { ok: false };
@@ -468,10 +546,7 @@ async function generateSubmitFailureInterpretation(input: {
 	}
 }
 
-function buildSubmitFailureInterpretationPrompt(input: {
-	rawTranscript: string;
-	exitCode: number;
-}): string {
+function buildSubmitFailureInterpretationPrompt(input: { rawTranscript: string }): string {
 	const bounded = boundSubmitFailureTranscript(input.rawTranscript);
 	return [
 		"Interpret this `ns flow submit` failure for the user.",
@@ -485,7 +560,6 @@ function buildSubmitFailureInterpretationPrompt(input: {
 		"Do not paste raw logs.",
 		"Do not include the raw-log path; the wrapper appends exactly one raw-log line after your text.",
 		"",
-		`Exit code: ${input.exitCode}`,
 		`Transcript limit: ${SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS} characters`,
 		bounded.truncated
 			? `Truncation: transcript was truncated from ${input.rawTranscript.length} to ${bounded.text.length} characters.`
@@ -572,16 +646,21 @@ function formatRawLogLine(
 	return `Raw log: unavailable (${rawLog.message})`;
 }
 
-function renderRawFailureTranscript(result: SubmitCommandResult): string {
+function renderRawFailureTranscript(
+	result: Extract<SubmitResult, { type: "refused" | "failed" }>,
+): string {
 	const transcript = result.rawFailureTranscript;
 	if (transcript === undefined) {
-		return renderLegacyRawFailureTranscript(result);
+		return [
+			"ns flow submit failure raw log",
+			`phase: ${result.phase}`,
+			"",
+			"summary:",
+			result.message.trimEnd(),
+			"",
+		].join("\n");
 	}
-	const lines = [
-		"ns flow submit failure raw log",
-		`phase: ${transcript.phase}`,
-		`exit code: ${result.exitCode}`,
-	];
+	const lines = ["ns flow submit failure raw log", `phase: ${transcript.phase}`];
 	if (transcript.summary !== undefined && transcript.summary.trim() !== "") {
 		lines.push("", "summary:", transcript.summary.trimEnd());
 	}
@@ -608,18 +687,4 @@ function renderRawFailureTranscript(result: SubmitCommandResult): string {
 		);
 	}
 	return `${lines.join("\n")}\n`;
-}
-
-function renderLegacyRawFailureTranscript(result: SubmitCommandResult): string {
-	return [
-		"ns flow submit failure raw log",
-		"phase: unknown",
-		`exit code: ${result.exitCode}`,
-		"",
-		"----- stdout -----",
-		result.stdout === "" ? "(empty)" : result.stdout.trimEnd(),
-		"----- stderr -----",
-		result.stderr === "" ? "(empty)" : result.stderr.trimEnd(),
-		"",
-	].join("\n");
 }

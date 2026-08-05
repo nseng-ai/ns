@@ -89,8 +89,8 @@ The internal Flow adapter that maps Flow's land-stack gateways and current stack
 *Avoid*: public API, downstream extension integration point, presentation layer
 
 **Flow Submit Boundary**:
-The Flow ownership boundary for branch or stack submission, PR inventory generation, publication policy, and related lifecycle policy; reusable provider facts and command mechanics remain below Flow in capability-specific adapters.
-*Avoid*: stack-provider implementation, downstream extension submit owner, land-domain behavior
+The Flow ownership boundary for branch or stack submission, checkpoint composition, PR inventory generation, publication policy, and related lifecycle policy. Its command edge returns one semantic result in execution order — checkpoint facts followed by reconciled publication/inventory facts or a bounded unresolved-publication fallback — while typed failures retain authoritative PR and metadata effects known after publication. Settled rendering belongs to the command edge; reusable provider facts and command mechanics remain below Flow in capability-specific adapters.
+*Avoid*: process-shaped submit result, captured settled stdout/stderr as machine data, stack-provider implementation, downstream extension submit owner, land-domain behavior
 
 **Submit Plan**:
 The typed, renderer-independent result of inspecting the Graphite submit scope after readiness and any required restack, containing stack branches, existing PR links, and the partition of branches eligible or ineligible for metadata prewrite.

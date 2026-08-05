@@ -10,7 +10,7 @@ import {
 	runSubmitCommand,
 	type FlowPrInventoryDescriptorSource,
 	type RunSubmitCommandOptions,
-	type SubmitCommandResult,
+	type SubmitResult,
 	type SubmitFailureTranscript,
 } from "./index.ts";
 import { RealCheckpointGateway, type CheckpointRunContext } from "../checkpoint/checkpoint.ts";
@@ -28,7 +28,7 @@ export {
 	RealSubmitStackInspectionGateway,
 	runSubmitCommand,
 };
-export type { RunSubmitCommandOptions, SubmitCommandResult, SubmitFailureTranscript };
+export type { RunSubmitCommandOptions, SubmitResult, SubmitFailureTranscript };
 
 export interface NsSubmitRuntime {
 	commandRunner: CommandRunner;

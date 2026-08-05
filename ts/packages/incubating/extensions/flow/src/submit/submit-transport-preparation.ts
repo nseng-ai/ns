@@ -14,7 +14,7 @@ import { formatSubmitPreflightFailureCause } from "./submit-failure-catalog.ts";
 import type {
 	SubmitCommandOutput,
 	SubmitCommandParams,
-	SubmitCommandResult,
+	SubmitResult,
 	SubmitGateway,
 	SubmitPreflightResult,
 } from "./submit-contracts.ts";
@@ -37,11 +37,11 @@ type RestackDecision = "run" | "declined" | "unavailable";
 
 export type OrdinarySubmitTransportPreparation =
 	| { kind: "ready"; transport: SubmitTransportReady }
-	| { kind: "failure"; failure: SubmitCommandResult };
+	| { kind: "failure"; failure: SubmitResult };
 
 export type OrdinarySubmitEligibility =
 	| { kind: "eligible" }
-	| { kind: "failure"; failure: SubmitCommandResult };
+	| { kind: "failure"; failure: SubmitResult };
 
 export async function checkOrdinarySubmitEligibility(
 	options: OrdinarySubmitTransportOptions,
@@ -121,7 +121,7 @@ export async function prepareOrdinarySubmitTransport(
 				commandDisplay: options.submitDryRunCommandDisplay,
 				output: readiness.outcome.output,
 				stderr: formatRestackRequiredOutput(),
-				exitCode: 1,
+				type: "refused",
 			}),
 		};
 	}
@@ -134,7 +134,7 @@ export async function prepareOrdinarySubmitTransport(
 				commandDisplay: options.submitDryRunCommandDisplay,
 				output: readiness.outcome.output,
 				stderr: formatRestackDeclinedOutput(),
-				exitCode: 1,
+				type: "refused",
 			}),
 		};
 	}
@@ -159,7 +159,6 @@ export async function prepareOrdinarySubmitTransport(
 					commandDisplay: RESTACK_COMMAND_DISPLAY,
 					output: restacked.outcome.output,
 					stderr: formatRestackConflictOutput(restacked.outcome.conflictedFiles),
-					exitCode: 1,
 				}),
 			};
 		}
@@ -195,7 +194,7 @@ function readinessFailure(input: {
 	phase: string;
 	submitDryRunCommandDisplay: string;
 	isRecheck?: boolean;
-}): SubmitCommandResult {
+}): SubmitResult {
 	if (input.result.kind === "failed" && input.result.cause !== undefined) {
 		const message = formatSubmitPreflightFailureCause(input.result.cause, input.result.output);
 		return deterministicSubmitCommandFailure({
@@ -203,6 +202,7 @@ function readinessFailure(input: {
 			commandDisplay: input.submitDryRunCommandDisplay,
 			output: input.result.output,
 			stderr: message,
+			...(isReadinessGuardrail(input.result.cause) ? { type: "refused" as const } : {}),
 		});
 	}
 	if (input.isRecheck === true) {
@@ -219,6 +219,12 @@ function readinessFailure(input: {
 		output: input.result.output,
 		stderr: formatPreflightFailureOutput(input.result.output, input.submitDryRunCommandDisplay),
 	});
+}
+
+function isReadinessGuardrail(
+	cause: NonNullable<Extract<SubmitPreflightResult, { kind: "failed" }>["cause"]>,
+): boolean {
+	return cause.kind !== "graphite_pr_info_lookup_failed";
 }
 
 async function shouldRunRestack(
