@@ -49,7 +49,7 @@ For incremental reconciliation, Gitplane diffs the cursor and target trees. For 
 
 Artifact IDs are unique across generic and classified artifacts in one source. A generic artifact may become classified once. That transition establishes immutable `gpApiVersion`/`gpKind` lineage and uses the ordinary `artifact.revised` event because marker content changes. Classified-to-generic transitions and changes to an established API version or kind are invalid. A tombstoned classified ID remains permanently reserved to its established `gpApiVersion` and `gpKind`; restoring any ID retains its prior classification state and transition rules. Separate sources may reuse an ID because durable identity is `(source_id, artifact_id)`.
 
-The same ID moving to another path preserves artifact lineage. The move commit becomes the marker's last-changed commit, so it creates a new revision and produces `artifact.revised` with both paths rather than a separate move event. A different ID appearing at a different path while an old ID disappears is delete-plus-create. Replacing an ID at the same path in one commit is invalid; perform deletion and creation in separate commits.
+The same ID moving to another path preserves artifact lineage. Because the repository-relative artifact path participates in revision identity, the move creates a new revision and produces `artifact.revised` with both paths rather than a separate move event; Gitplane does not reconstruct marker-change provenance. A different ID appearing at a different path while an old ID disappears is delete-plus-create. Replacing an ID at the same path in one commit is invalid; perform deletion and creation in separate commits.
 
 ### Kind registration and schema transitions
 
