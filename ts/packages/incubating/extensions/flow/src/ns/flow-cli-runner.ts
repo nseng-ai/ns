@@ -48,6 +48,10 @@ export interface RunFlowCliOptions {
 	run(input: FlowCliRunnerInput): Promise<number>;
 }
 
+export interface FlowCliTextResult {
+	text: string;
+}
+
 export interface FlowCliOutputCapture {
 	readonly input: Pick<FlowCliRunnerInput, "stdout" | "stderr">;
 	readonly stdout: string;
@@ -56,7 +60,7 @@ export interface FlowCliOutputCapture {
 	toResult(
 		exitCode: number,
 		messages: { successMessage: string; failureMessage: string },
-	): CommandExit<string>;
+	): CommandExit<FlowCliTextResult>;
 }
 
 export interface CreateFlowCliOutputCaptureOptions {
@@ -107,19 +111,21 @@ export function createFlowCliOutputCapture(
 			if (stderr !== "") options.ctx.stderr?.(stderr);
 		},
 		toResult: (exitCode, messages) => {
-			if (exitCode === 0) return ok(stdout === "" ? messages.successMessage : "");
+			if (exitCode === 0) return ok({ text: stdout === "" ? messages.successMessage : "" });
 			const message = stderr === "" ? messages.failureMessage : "";
-			return exitCodeToFlowCommandExit(exitCode, message);
+			return exitCodeToFlowCommandExit<FlowCliTextResult>(exitCode, message);
 		},
 	};
 }
 
-export function exitCodeToFlowCommandExit(exitCode: number, message: string): CommandExit<string> {
+export function exitCodeToFlowCommandExit<T>(exitCode: number, message: string): CommandExit<T> {
 	if (exitCode === 1) return negative(message, { data: { exitCode } });
 	return failure(FLOW_COMMAND_FAILED, message, { exitCode });
 }
 
-export async function runFlowCli(options: RunFlowCliOptions): Promise<CommandExit<string>> {
+export async function runFlowCli(
+	options: RunFlowCliOptions,
+): Promise<CommandExit<FlowCliTextResult>> {
 	const output = createFlowCliOutputCapture({
 		ctx: options.ctx,
 		...(options.outputMode === undefined ? {} : { mode: options.outputMode }),

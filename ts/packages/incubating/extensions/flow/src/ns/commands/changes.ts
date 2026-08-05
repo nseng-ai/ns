@@ -1,4 +1,4 @@
-import { dim, glyph, renderBufferedReport } from "@nseng-ai/foundation/cli-theme";
+import { dim, glyph, renderBufferedReport, resolveThemeCaps } from "@nseng-ai/foundation/cli-theme";
 import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
 import { type Caps } from "@nseng-ai/clinkr";
 import { renderCapabilitiesForTerminal } from "@nseng-ai/clinkr/legacy";
@@ -12,13 +12,27 @@ import {
 	type GitPorcelainStatus,
 	type GitPorcelainStatusLine,
 } from "../../changes/git-porcelain.ts";
-import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { formatPendingWorktreeError } from "../../autobranch/pending-worktree-format.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
-import { loadFlowPendingWorktreeSnapshot, type PendingWorktreeSnapshot } from "../worktree.ts";
+import { loadFlowPendingWorktreeSnapshot } from "../worktree.ts";
 
 // This project-local extension uses the public ns SDK plus internal migration
 // exports while duplicated workflow helpers move into package-owned modules.
+const changesResultSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("clean"), branch: z.string() }),
+	z.object({
+		type: z.literal("outstanding"),
+		branch: z.string(),
+		summaryText: z.string(),
+		files: z.array(
+			z.object({
+				status: z.object({ raw: z.string(), index: z.string(), worktree: z.string() }),
+				path: z.string(),
+			}),
+		),
+	}),
+]);
+
 const MAX_DISPLAY_FILE_LINES = 50;
 
 const GIT_STATUS_LABEL_CODES = ["R", "C", "A", "D", "M"] as const;
@@ -34,7 +48,16 @@ const GIT_STATUS_LABELS = {
 
 export const flowChangesCommand: NsCommand = defineCommand({
 	schema: z.object({}),
-	resultSchema: z.string(),
+	resultSchema: changesResultSchema,
+	renderHuman: (result, caps) => {
+		if (result.type === "clean") return "Working tree is clean; no outstanding changes.";
+		return formatOutstandingChangesMessage(
+			resolveThemeCaps(caps),
+			result.branch,
+			result.files,
+			result.summaryText,
+		);
+	},
 	handler: async (ctx) => {
 		const io = commandIoFromNsExtensionApi(ctx);
 		return await runWithNsCommandIo(io, async (io) => {
@@ -45,9 +68,7 @@ export const flowChangesCommand: NsCommand = defineCommand({
 			}
 
 			const snapshot = loaded.snapshot;
-			if (snapshot.clean) {
-				return ok("Working tree is clean; no outstanding changes.");
-			}
+			if (snapshot.clean) return ok({ type: "clean" as const, branch: snapshot.branch });
 
 			io.phase("Resolving changes model policy…");
 			const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowChanges);
@@ -61,8 +82,12 @@ export const flowChangesCommand: NsCommand = defineCommand({
 				return failure(FLOW_COMMAND_FAILED, summary.error);
 			}
 
-			const caps = resolveFlowStreamCaps(ctx);
-			return ok(formatOutstandingChangesMessage(caps, snapshot, summary.summaryText));
+			return ok({
+				type: "outstanding" as const,
+				branch: snapshot.branch,
+				summaryText: summary.summaryText,
+				files: parseGitPorcelainStatusOutput(snapshot.status),
+			});
 		});
 	},
 });
@@ -71,18 +96,16 @@ export default flowChangesCommand;
 
 function formatOutstandingChangesMessage(
 	terminalCaps: Caps,
-	snapshot: PendingWorktreeSnapshot,
+	branch: string,
+	files: readonly GitPorcelainStatusLine[],
 	summaryText: string,
 ): string {
 	return renderBufferedReport({
 		caps: renderCapabilitiesForTerminal(terminalCaps),
-		title: `Outstanding changes on ${snapshot.branch}`,
+		title: `Outstanding changes on ${branch}`,
 		sections: [
 			{ title: "Summary", lines: summaryLines(terminalCaps, summaryText) },
-			{
-				title: "Files",
-				lines: displayFileLines(terminalCaps, parseGitPorcelainStatusOutput(snapshot.status)),
-			},
+			{ title: "Files", lines: displayFileLines(terminalCaps, files) },
 		],
 	});
 }

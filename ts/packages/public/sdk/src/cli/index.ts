@@ -131,6 +131,10 @@ const entryOptions = {
 			stderr: resolvedStderr,
 			...optionalEntry("onOutput", deps.onOutput ?? base.onOutput),
 		});
+		const renderCapabilities = {
+			...base.renderCapabilities,
+			canEmitAnsi: deps.canEmitAnsi ?? base.renderCapabilities.canEmitAnsi,
+		};
 		const context: NsExtensionApi = {
 			cwd: resolvedCwd,
 			env: resolvedEnv,
@@ -139,7 +143,7 @@ const entryOptions = {
 			commandIo,
 			progress:
 				deps.onProgress === undefined ? noopNsProgress : { isLive: true, phase: deps.onProgress },
-			renderCapabilities: { canEmitAnsi: deps.canEmitAnsi === true },
+			renderCapabilities,
 			outputFormat: resolveClinkrOutputFormat(args),
 			exec: base.exec.bind(base),
 			hasExtension: (packageName) => inventory.extensionPackageNames.has(packageName),

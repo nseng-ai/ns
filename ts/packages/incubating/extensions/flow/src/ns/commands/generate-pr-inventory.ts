@@ -1,7 +1,11 @@
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
 import { createNsClinkrInteraction } from "@nseng-ai/extension-kit";
 import { confirmInteractiveOrUsageError } from "@nseng-ai/clinkr";
-import { renderResultBlock, renderResultBlockFromMessage } from "@nseng-ai/foundation/cli-theme";
+import {
+	renderResultBlock,
+	renderResultBlockFromMessage,
+	resolveThemeCaps,
+} from "@nseng-ai/foundation/cli-theme";
 import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
 import {
 	defineCommand,
@@ -33,11 +37,29 @@ const generatePrInventorySchema = z.object({
 
 type GeneratePrInventoryRequest = z.output<typeof generatePrInventorySchema>;
 
+const generatePrInventoryResultSchema = z.object({
+	cwd: z.string(),
+	pr: z.object({ number: z.number().int().positive(), url: z.string() }),
+	title: z.string(),
+	promptSource: z.string(),
+});
+
 export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventorySchema> =
 	defineCommand({
 		schema: generatePrInventorySchema,
-		resultSchema: z.string(),
+		resultSchema: generatePrInventoryResultSchema,
 		options: { yes: { short: "-y" } },
+		renderHuman: (result, caps) =>
+			renderResultBlock(resolveThemeCaps(caps), {
+				kind: "success",
+				headline: "Replaced complete PR title and body.",
+				cwd: result.cwd,
+				body: [
+					`PR: #${result.pr.number} ${result.pr.url}`,
+					`Title: ${result.title}`,
+					`Prompt: ${result.promptSource}`,
+				].join("\n"),
+			}),
 		handler: async (ctx: NsExtensionApi, request: GeneratePrInventoryRequest) => {
 			return await runWithNsCommandIo(commandIoFromNsExtensionApi(ctx), async (io) => {
 				const caps = resolveFlowStreamCaps(ctx);
@@ -130,18 +152,12 @@ export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventor
 					);
 				}
 
-				return ok(
-					renderResultBlock(caps, {
-						kind: "success",
-						headline: "Replaced complete PR title and body.",
-						cwd: ctx.cwd,
-						body: [
-							`PR: #${prepared.pr.number} ${prepared.pr.url}`,
-							`Title: ${prepared.title}`,
-							`Prompt: ${formatPromptSourceLabel(prepared.promptSource)}`,
-						].join("\n"),
-					}),
-				);
+				return ok({
+					cwd: ctx.cwd,
+					pr: { number: prepared.pr.number, url: prepared.pr.url },
+					title: prepared.title,
+					promptSource: formatPromptSourceLabel(prepared.promptSource),
+				});
 			});
 		},
 	});

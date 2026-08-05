@@ -7,6 +7,7 @@ import { afterEach } from "vitest";
 import { resolveHomeDir } from "@nseng-ai/foundation/primitives";
 import { runCli, type NsCliBaseContext, type NsCliDeps } from "@nseng-ai/sdk/cli";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
+import type { Caps } from "@nseng-ai/clinkr";
 import type {
 	NsExecOptions,
 	ExecResult,
@@ -52,7 +53,7 @@ export interface RunWithFakesOptions {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
 	homeDir?: string;
-	renderCapabilities?: RenderCapabilities;
+	renderCapabilities?: RenderCapabilities & { readonly caps?: Caps };
 	onProgress?: NsCliDeps["onProgress"];
 	extensionRegistry?: NsCliDeps["extensionRegistry"];
 	preinstalledSources?: NsCliDeps["preinstalledSources"];
@@ -68,6 +69,7 @@ interface ScriptedNsTestContextOptions extends RunWithFakesDefaults {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
 	homeDir?: string;
+	renderCapabilities?: RenderCapabilities & { readonly caps?: Caps };
 }
 
 export class ScriptedNsTestContext implements NsCliBaseContext {
@@ -78,7 +80,7 @@ export class ScriptedNsTestContext implements NsCliBaseContext {
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
 	readonly commandIo = noopNsCommandIo;
 	readonly progress = noopNsProgress;
-	readonly renderCapabilities = { canEmitAnsi: false };
+	readonly renderCapabilities: RenderCapabilities & { readonly caps?: Caps };
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
 	onOutput?: (stream: "stdout" | "stderr", text: string) => void;
@@ -95,6 +97,7 @@ export class ScriptedNsTestContext implements NsCliBaseContext {
 		this.env = options.env ?? {};
 		const homeDir = resolveHomeDir(options.homeDir, this.env);
 		if (homeDir !== undefined) this.homeDir = homeDir;
+		this.renderCapabilities = options.renderCapabilities ?? { canEmitAnsi: false };
 		this.execResponses = [...(state.exec ?? options.execResponses())];
 		this.textGenerationResults = [...(state.textGeneration ?? options.textGenerationResults())];
 		this.missingTextGenerationResult = options.missingTextGenerationResult;
@@ -154,6 +157,9 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 		...(defaults.missingTextGenerationResult === undefined
 			? {}
 			: { missingTextGenerationResult: defaults.missingTextGenerationResult }),
+		...(options.renderCapabilities === undefined
+			? {}
+			: { renderCapabilities: options.renderCapabilities }),
 	});
 	return {
 		context,
@@ -176,7 +182,7 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 			},
 			...(options.renderCapabilities === undefined
 				? {}
-				: { renderCapabilities: options.renderCapabilities }),
+				: { canEmitAnsi: options.renderCapabilities.canEmitAnsi }),
 			...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 			...(options.state?.confirm === undefined ? {} : { confirm: options.state.confirm }),
 			...(options.state?.select === undefined ? {} : { select: options.state.select }),

@@ -1,6 +1,6 @@
 import { runTrunkPullDetailed, type TrunkPullResult } from "../../trunk-pull/trunk-pull.ts";
 import { formatCommand } from "@nseng-ai/foundation/command";
-import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
+import { renderResultBlock, resolveThemeCaps } from "@nseng-ai/foundation/cli-theme";
 import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
 
@@ -9,18 +9,36 @@ import { renderGitResultBlock } from "../presentation/git-result-block.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 
 const pullTrunkSchema = z.object({});
+const pullTrunkResultSchema = z.object({
+	trunk: z.string(),
+	cwd: z.string(),
+	command: z.string(),
+});
 
 export const flowPullTrunkCommand: NsCommand<typeof pullTrunkSchema> = defineCommand({
 	schema: pullTrunkSchema,
-	resultSchema: z.string(),
+	resultSchema: pullTrunkResultSchema,
+	renderHuman: (result, caps) =>
+		renderResultBlock(resolveThemeCaps(caps), {
+			kind: "success",
+			headline: `Pulled local Git trunk branch \`${result.trunk}\` only.`,
+			body: `No full \`gt sync\` was run.\nCommand: ${result.command}`,
+			cwd: result.cwd,
+		}),
 	handler: async (ctx) => {
 		const caps = resolveFlowStreamCaps(ctx);
 		const result = await runFlowCliOperation({
 			ctx,
 			run: async (io) => await runTrunkPullDetailed({ exec: io.exec }, ctx.cwd),
 		});
-		const block = renderTrunkPullBlock(caps, result);
-		return result.outcome.kind === "success" ? ok(block) : negative(block);
+		if (result.outcome.kind === "success" && isCommandBackedResult(result)) {
+			return ok({
+				trunk: result.outcome.trunk,
+				cwd: result.cwd,
+				command: formatCommand(result.command, result.args),
+			});
+		}
+		return negative(renderTrunkPullBlock(caps, result));
 	},
 });
 

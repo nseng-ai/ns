@@ -31,6 +31,7 @@ export const flowExecReadGraphiteBranchMetadataCommand: NsCommand<
 > = defineCommand({
 	schema: execReadGraphiteBranchMetadataSchema,
 	resultSchema: graphiteBranchMetadataRowsSchema,
+	renderHuman: (rows) => JSON.stringify(rows),
 	handler: async (ctx, request) => await runExecReadGraphiteBranchMetadata(ctx, request),
 });
 

@@ -5,6 +5,9 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
+import type { Caps } from "@nseng-ai/clinkr";
+import { stripAnsi } from "@nseng-ai/clinkr/testing";
+
 import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
 import {
 	formattedExecCalls,
@@ -14,6 +17,12 @@ import {
 } from "../scenario/ns-cli-fakes.ts";
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
+const ansiCaps: Caps = {
+	isTty: true,
+	colorDepth: "truecolor",
+	columns: 80,
+	canRenderUnicode: true,
+};
 const tempDirs: string[] = [];
 
 afterEach(async () => {
@@ -114,12 +123,98 @@ describe("checked-in flow ns extension loading", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("abc123 [cp] Update checkpoint");
+		const stdout = run.stdout.join("");
+		expect(stdout).toContain("abc123 [cp] Update checkpoint");
+		expect(stdout).not.toMatch(/^"/u);
+		expect(stdout).not.toContain("\\u001b");
+		expect(stdout).not.toContain("\\n");
 		expect(formattedExecCalls(run.context)).toContain(
 			"git symbolic-ref --short refs/remotes/origin/HEAD",
 		);
 		expect(formattedExecCalls(run.context)).toContain("git add -A");
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
+	});
+
+	test("real loader renders pull-trunk terminal text and preserves its JSON envelope", async () => {
+		const cwd = await createFlowProject();
+		const state = { exec: successfulPullTrunkResponses(cwd) };
+		const human = runWithRealFlowExtension({
+			args: ["flow", "pull-trunk"],
+			cwd,
+			state,
+			renderCapabilities: { canEmitAnsi: true, caps: ansiCaps },
+		});
+
+		expect(await human.exit).toBe(0);
+		expect(human.stderr.join("")).toBe("");
+		const stdout = human.stdout.join("");
+		expect(stdout.startsWith("\u001b[")).toBe(true);
+		expect(stripAnsi(stdout).startsWith("✓ Pulled local Git trunk branch `main` only.")).toBe(true);
+		expect(stdout).not.toMatch(/^"/u);
+		expect(stdout).not.toContain("\\u001b");
+		expect(stdout).not.toContain("\\n");
+		expect(stripAnsi(stdout)).toBe(
+			[
+				"✓ Pulled local Git trunk branch `main` only.",
+				"No full `gt sync` was run.",
+				"Command: git fetch origin refs/heads/main:refs/heads/main",
+				`Cwd: ${cwd}`,
+				"",
+			].join("\n"),
+		);
+
+		const json = runWithRealFlowExtension({
+			args: ["--format", "json", "flow", "pull-trunk"],
+			cwd,
+			state: { exec: successfulPullTrunkResponses(cwd) },
+			renderCapabilities: { canEmitAnsi: true, caps: ansiCaps },
+		});
+		expect(await json.exit).toBe(0);
+		expect(json.stderr.join("")).toBe("");
+		const envelope = parseJsonOutput(json);
+		expect(envelope).toEqual({
+			status: "success",
+			exitCode: 0,
+			data: {
+				trunk: "main",
+				cwd,
+				command: "git fetch origin refs/heads/main:refs/heads/main",
+			},
+		});
+	});
+
+	test("real loader emits Graphite metadata as raw JSON text in human format", async () => {
+		const cwd = await createFlowProject();
+		const rows = [
+			{
+				branch_name: "main",
+				parent_branch_name: null,
+				children: "[]",
+				validation_result: "TRUNK",
+			},
+		];
+		const run = runWithRealFlowExtension({
+			args: [
+				"flow",
+				"exec",
+				"read-graphite-branch-metadata",
+				"--db-path",
+				join(cwd, ".git", ".graphite_metadata.db"),
+			],
+			cwd,
+			state: {
+				exec: [
+					{
+						match: /^sqlite3 -readonly -json /u,
+						result: { stdout: `${JSON.stringify(rows)}\n` },
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr.join("")).toBe("");
+		expect(JSON.parse(run.stdout.join(""))).toEqual(rows);
 	});
 
 	test("real loader exposes changes help and JSON schema metadata", async () => {
@@ -301,8 +396,10 @@ describe("checked-in flow ns extension loading", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Submitted 1 PR:");
-		expect(run.stdout.join("")).toContain(`✓ #123 ${PR_URL}`);
+		const stdout = run.stdout.join("");
+		expect(stdout).toContain("Submitted 1 PR:");
+		expect(stdout).toContain(`✓ #123 ${PR_URL}`);
+		expect(stdout).not.toMatch(/(?:^|\n)""\n$/u);
 		expect(run.liveOutput).toContainEqual({
 			stream: "stderr",
 			text: "gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web\n",
@@ -356,12 +453,16 @@ function runWithRealFlowExtension(options: {
 	args: readonly string[];
 	cwd: string;
 	state?: Parameters<typeof runCliWithFakes>[0]["state"];
+	renderCapabilities?: Parameters<typeof runCliWithFakes>[0]["renderCapabilities"];
 }) {
 	return runCliWithFakes(
 		{
 			args: options.args,
 			cwd: options.cwd,
 			...(options.state === undefined ? {} : { state: options.state }),
+			...(options.renderCapabilities === undefined
+				? {}
+				: { renderCapabilities: options.renderCapabilities }),
 		},
 		{
 			execResponses: () => [],
@@ -369,6 +470,27 @@ function runWithRealFlowExtension(options: {
 			missingTextGenerationResult: () => ({ ok: true, text: "Generated PR\n\nGenerated body" }),
 		},
 	);
+}
+
+function successfulPullTrunkResponses(cwd: string): ScriptedExecResponse[] {
+	return [
+		{
+			match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+			result: { stdout: "origin/main\n" },
+		},
+		{
+			match:
+				"git for-each-ref --format=%(refname)%00%(upstream:remotename)%00%(upstream:remoteref) refs/heads/main",
+			result: { stdout: "refs/heads/main\0origin\0refs/heads/main\n" },
+		},
+		{
+			match: "git worktree list --porcelain",
+			result: {
+				stdout: `worktree ${cwd}\nHEAD abc123\nbranch refs/heads/feature/demo\n`,
+			},
+		},
+		{ match: "git fetch origin refs/heads/main:refs/heads/main", result: {} },
+	];
 }
 
 function dirtyCpExecResponses(cwd: string): ScriptedExecResponse[] {

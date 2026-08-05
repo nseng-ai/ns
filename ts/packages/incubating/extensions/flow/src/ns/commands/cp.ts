@@ -23,6 +23,11 @@ import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
 import { resolveFlowModelSelection } from "../model-policy.ts";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
+const cpResultSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("dry-run"), branch: z.string(), message: z.string() }),
+	z.object({ type: z.literal("committed"), summary: z.string(), message: z.string() }),
+]);
+
 const cpRequestSchema = z.object({
 	dryRun: z
 		.boolean()
@@ -34,8 +39,12 @@ type CpRequest = z.output<typeof cpRequestSchema>;
 
 export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 	schema: cpRequestSchema,
-	resultSchema: z.string(),
+	resultSchema: cpResultSchema,
 	options: { dryRun: { short: "-n" } },
+	renderHuman: (result) =>
+		result.type === "dry-run"
+			? formatDryRunMessage(result.branch, result.message)
+			: `${result.summary}\n${result.message}`,
 	handler: async (ctx, request: CpRequest) => {
 		const runtime = createNsCheckpointRuntime(ctx);
 		// A dry run just previews the model-authored message; skip the live region (no commit phase runs).
@@ -126,11 +135,11 @@ function toCommandResult(result: RunCpCoreResult) {
 		case "message-failed":
 			return failure(FLOW_COMMAND_FAILED, result.error);
 		case "dry-run":
-			return ok(formatDryRunMessage(result.branch, result.message));
+			return ok({ type: "dry-run" as const, branch: result.branch, message: result.message });
 		case "commit-failed":
 			return failure(FLOW_COMMAND_FAILED, result.error);
 		case "committed":
-			return ok(`${result.summary}\n${result.message}`);
+			return ok({ type: "committed" as const, summary: result.summary, message: result.message });
 	}
 }
 
