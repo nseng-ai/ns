@@ -1,4 +1,3 @@
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import {
 	FLOW_COMMAND_SPECS,
@@ -13,13 +12,18 @@ import {
 	type CliCommandExtensionAPI,
 	type CliCommandExtensionSpec,
 } from "@nseng-ai/pi-runtime/commands/cli-extension";
+import type { CompleteSimpleFunction } from "@nseng-ai/pi-runtime/models/call";
 import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
+import {
+	createPiCommandExecApi,
+	type RawPiExecApi,
+} from "@nseng-ai/pi-runtime/shared/command-exec";
 import {
 	createRealCliCommandResultSummaryContext,
 	type CliCommandResultSummaryContext,
 } from "@nseng-ai/pi-runtime/commands/cli-command-result-summary-context";
 
-export interface FlowExtensionAPI extends CliCommandExtensionAPI, CommandExecApi {
+export interface FlowExtensionAPI extends CliCommandExtensionAPI, RawPiExecApi {
 	sendUserMessage(content: string): Promise<void> | void;
 }
 
@@ -46,17 +50,25 @@ export interface FlowExtensionOptions {
 	recoveryGit?: FlowSubmitRecoveryGitGateway;
 	/** Host-composed result summarization context; defaults to Pi and Node adapters. */
 	resultSummary?: CliCommandResultSummaryContext;
+	/** Deterministic model completion for the default result-summary context; test seam only. */
+	resultSummaryCompleteFn?: CompleteSimpleFunction;
 }
 
 export default function registerFlowExtension(
 	pi: FlowExtensionAPI,
 	options: FlowExtensionOptions,
 ): void {
-	const recoveryGit = options.recoveryGit ?? new RealGitGateway(pi);
+	const commands = createPiCommandExecApi(pi);
+	const recoveryGit = options.recoveryGit ?? new RealGitGateway(commands);
 	const recoveryContext = options.recoveryContext ?? nodeFlowSubmitRecoveryContext;
 	const resultSummary =
 		options.resultSummary ??
-		createRealCliCommandResultSummaryContext({ git: new RealGitGateway(pi) });
+		createRealCliCommandResultSummaryContext({
+			git: new RealGitGateway(commands),
+			...(options.resultSummaryCompleteFn === undefined
+				? {}
+				: { completeFn: options.resultSummaryCompleteFn }),
+		});
 	registerCliCommandExtension(pi, {
 		cliName: "ns",
 		resultSummary,

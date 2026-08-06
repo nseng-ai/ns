@@ -11,7 +11,11 @@ import type {
 	GenerateCliCommandResultSummary,
 	WriteCliCommandResultLogs,
 } from "./cli-command-result-summary.ts";
-import { callPiModelText, type PiModelRegistryLike } from "../kit/models/call.ts";
+import {
+	callPiModelText,
+	type CompleteSimpleFunction,
+	type PiModelRegistryLike,
+} from "../kit/models/call.ts";
 
 const CLI_COMMAND_RESULT_SUMMARY_MAX_TOKENS = 512;
 const CLI_COMMAND_RESULT_SUMMARY_TIMEOUT_MS = 120_000;
@@ -48,6 +52,8 @@ export interface CliCommandResultSummaryContext {
 
 export function createRealCliCommandResultSummaryContext(options: {
 	readonly git: CliCommandResultSummaryGitGateway;
+	/** Deterministic completion override for tests; production omits it and uses Pi's real transport. */
+	readonly completeFn?: CompleteSimpleFunction;
 }): CliCommandResultSummaryContext {
 	return {
 		writeLogs: writeCliCommandResultLogs,
@@ -81,6 +87,7 @@ export function createRealCliCommandResultSummaryContext(options: {
 				userText: request.prompt,
 				maxTokens: CLI_COMMAND_RESULT_SUMMARY_MAX_TOKENS,
 				timeoutMs: CLI_COMMAND_RESULT_SUMMARY_TIMEOUT_MS,
+				...(options.completeFn === undefined ? {} : { completeFn: options.completeFn }),
 			});
 			if (!result.ok) {
 				return {
